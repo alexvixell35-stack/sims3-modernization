@@ -376,3 +376,62 @@ Round 6, task B4. Goal: every case that P0 compiles must give the same results a
 - The float kernels ran at monohost's default 53-bit x87 control word. docs/213 shows that 24-bit precision changes `add.r8`, so a control-word sweep belongs to B2's templates.
 - Clause methods are compiled but not verified per call (`unverified (clauses / branch to 0)`). The corpus hash is their only check.
 
+## 11. Exit census: what P0 still leaves to EA's handlers (2026-10-31)
+
+Round 6, task B1. Goal: find which opcodes still exit from compiled code to EA's handlers, how often, and how much self time sits behind them.
+
+**Method.**
+- Count mode (`MONOHOST_JITCOUNT=1`, `MONOHOST_JIT=on`) now logs every compiled method as `jitcalls m calls positions-run positions name`. `positions-run` is a per-method counter incremented at the start of every compiled position. It also logs every exit site, including the ones never taken, as `jitexit m op name op|slow n`.
+- Prep: `node tools/jit-exit-census.ts --prep prep.txt` takes the top 60 never-yielding self-time frames of `compile-candidates.csv` (mean over the three worlds; a world that does not list a frame counts 0). It writes the non-generic ones that resolve through the call-graph `methods.csv` as a `MONOHOST_JITPREP` list.
+  - 27 frames resolved to 31 methods (overloads). 17 compiled newly in the run; the other 14 were already compiled from kJitList or refused.
+  - 16 frames are methods of generic classes: the bench runs their instances.
+  - 17 frames are not in `methods.csv`: generic methods (`Array.Resize<T>`, `GetComponent<T>`), nested short names, mod or renamed methods, and one unnamed frame.
+- `node tools/jit-exit-census.ts --census <log>` writes `docs/data/jit-exit-census.csv` (method, assembly, ms_s, opcode, exits_per_call, est_ms_s_behind, template_effort, basis). The census excludes MonoHostTest's own kernels and bench drivers.
+  - **Run basis:** a method the bench ran at least 100 times uses measured exits per call. Its share is exits / positions run.
+  - **Static basis:** a prep-only method was called once with null / zero arguments and faulted, so it uses its exit sites / positions. A slow path counts 0 there, because a normal call does not take it.
+  - `est_ms_s_behind` = ms_s x share [inferred: every mint instruction costs the same; an exit costs more than an average instruction, so this understates the exits].
+
+**Results [measured offline, 1 count run; shares inferred as above].**
+- 52 compiled methods, 343 rows: 240 on the run basis, 103 static.
+- The 47 methods with a candidate time hold 109.1 ms/s of self time across the three worlds' means. **About 33.8 ms/s of it sits behind exits.**
+
+| # | Template (opcode) | est. ms/s behind | methods | Effort |
+|---|---|---|---|---|
+| 1 | `ret` | 10.41 | 36 | L: frame teardown (B3) |
+| 2 | `call` | 5.70 | 22 | L: compiled-to-compiled calls (B3) |
+| 3 | `callvirt` | 2.63 | 16 | L: compiled-to-compiled calls (B3) |
+| 4 | `vtresult` | 2.44 | 16 | M: value-type copy |
+| 5 | `stinarg.vt` | 1.65 | 14 | M: value-type copy |
+| 6 | `ret.vt` | 1.34 | 5 | L: frame teardown (B3) |
+| 7 | `ldarg.vt` | 0.81 | 10 | M: value-type copy |
+| 8 | `newobj` | 0.80 | 12 | M: allocation helper |
+| 9 | `ret.void` | 0.78 | 8 | L: frame teardown (B3) |
+| 10 | `ldloc.r4` | 0.59 | 2 | L: x87-exact float (B2) |
+
+By effort class:
+
+| Effort class | est. ms/s behind |
+|---|---|
+| Call boundary (B3): returns | 12.5 |
+| Call boundary (B3): calls | 9.4 |
+| Value-type copies, M (incl. `vtresult`) | 5.6 |
+| x87-exact float, L (B2) | 3.0 |
+| Allocation, M | 1.2 |
+| Constants and tables, S | 0.9 |
+| Class checks, M | 0.6 |
+| Bounds checks, M | 0.2 |
+
+Read-out:
+- **The call boundary is two thirds of what is left**, 21.9 of 33.8 ms/s. That fits §7.6, which found that the call path, not the body, is the lever. B3 is the next step.
+- Value-type moves around calls (`vtresult`, `stinarg.vt`, `ldarg.vt`) are the largest M class and mostly belong to the same call sequences.
+- No slow path was taken on the bench: the null, bounds and overflow checks stay native.
+
+Effort classes [inferred from what P0's templates do today, §8]:
+- **S:** a constant or table known at compile time.
+- **M:** a helper call or an inline check with a cache.
+- **L:** needs the B2 (float) or B3 (calls, returns) design.
+
+**Limits.**
+- The static basis assumes every position runs once per call, so loops count once.
+- The bench inputs are synthetic. `Dictionary.GetPrev` shows 39 `callvirt` exits per call on the bench's colliding keys.
+- The gameplay methods have no measured exits until the §9 fixtures exist.
