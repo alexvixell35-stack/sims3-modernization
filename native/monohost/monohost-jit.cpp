@@ -227,7 +227,7 @@ static volatile LONG g_jitEnterN, g_jitExitN, g_jitCountOn;
 struct JitSite { int meth; unsigned short op; bool slow; volatile LONG n; };
 static JitSite* g_jitSite;
 static int g_jitSiteN, g_jitSiteSlow;
-static volatile LONG g_jitCalls[4096];
+static volatile LONG g_jitCalls[4096], g_jitPosRun[4096];  // count mode: calls (entries at word 0), positions run (B1)
 
 static JitEnt* JitFind(DWORD ip) {
     for (DWORD i = (ip >> 1) & (JIT_TAB_N - 1);; i++) {
@@ -473,6 +473,7 @@ static void JitCompiled(u8* rm) {
     const DWORD* argOff = *(const DWORD* const*)(rm + 0x1C);
     for (int k = 0; k < n; k++) {
         label[k] = e.p;
+        if (g_jitCountOn && g_jitMethN < 4096) e.incAbs(&g_jitPosRun[g_jitMethN]);  // the index this method gets if it compiles
         const unsigned short* ip = code + posW[k];
         DWORD op = posOp[k];
         JitOpInfo t = op < 0x1C1 ? g_opInfo[op] : JitOpInfo{K_EXIT, 0, 0};
@@ -1057,10 +1058,11 @@ static void JitStats() {
 // tools/jit-exit-census.ts reads these lines ("jitcalls" / "jitexit") plus jit-dump.txt.
 static void JitCountReport() {
     char nb[64];
+    // every compiled method and every exit site, run or not: the static census (docs/207 §11) needs the zeros too
     for (int m = 0; m < g_jitMethN; m++)
-        if (g_jitCalls[m]) Log("jitcalls %d %ld %s\n", m, g_jitCalls[m], g_jitMeth[m].name);
+        Log("jitcalls %d %ld %ld %d %s\n", m, g_jitCalls[m], g_jitPosRun[m], g_jitMeth[m].posN - g_jitMeth[m].pos0, g_jitMeth[m].name);
     for (int s = 0; s < g_jitSiteN; s++)
-        if (g_jitSite[s].n && g_jitSite[s].meth < g_jitMethN)
+        if (g_jitSite[s].meth < g_jitMethN)
             Log("jitexit %d %X %s %s %ld\n", g_jitSite[s].meth, g_jitSite[s].op, MintName(g_jitSite[s].op, nb), g_jitSite[s].slow ? "slow" : "op",
                 g_jitSite[s].n);
 }
