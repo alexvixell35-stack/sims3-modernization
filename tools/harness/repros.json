@@ -45350,7 +45350,7 @@
     "fix": "ts3fixes OutfitWait.cs: outfitwaitpoll (default off), docs/222",
     "save": "Baseline-BP",
     "note": "UNVERIFIED (static only, 2026-10-31). The test Sim's outfit does not change: its swap is cancelled before it completes and \"ready\" ends the wait without ChangeOutfit. \"start\" refuses while a test wait exists; \"stop\" ends both tasks.",
-    "expect": "off: abort task \"aborted in the loop\", wait task running, outfitwaitpoll counters 0, wait gone a tick after \"ready\". on: after 60 sim-minutes outfitwaitpoll_stale 1 and a ts3native.log line \"outfitwaitpoll: <name> outfit wait not ready after 60 sim-minutes (aborted True)\", outfitwaitpoll_polls about 1 per sim-minute, then after \"ready\" outfitwaitpoll_ended 1 and the wait gone within a sim-minute. The Sim keeps its outfit in both arms.",
+    "expect": "off: abort task \"aborted in the loop\", wait task running, outfitwaitpoll counters 0, wait gone a tick after \"ready\". on: after 60 sim-minutes outfitwaitpoll_stale 1 and a stale-wait line (check \"log\") \"outfitwaitpoll: <name> outfit wait not ready after 60 sim-minutes (aborted True)\", outfitwaitpoll_polls about 1 per sim-minute, then after \"ready\" outfitwaitpoll_ended 1 and the wait gone within a sim-minute. The Sim keeps its outfit in both arms.",
     "steps": [
       {
         "cmd": "patches",
@@ -45510,6 +45510,16 @@
         },
         "note": "on: ended 1, wait task gone (within a sim-minute)",
         "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "log"
+          ]
+        },
+        "note": "on: the stale-wait lines (Sim, aborted flag, task name: ledger I-414-2), the check's own wait and natural ones"
       },
       {
         "cmd": "reflect_call",

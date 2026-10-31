@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.CAS;
@@ -60,9 +61,11 @@ namespace Ts3Fixes
                             stale = true;
                             PatchCounters()[607]++;
                             Sim s = sSohSim.GetValue(h) as Sim;
-                            ShortcutLog("outfitwaitpoll: " + (s != null ? s.FullName : "?") + " outfit wait not ready after "
+                            string line = "outfitwaitpoll: " + (s != null ? s.FullName : "?") + " outfit wait not ready after "
                                 + kOutfitWaitStaleMinutes + " sim-minutes (aborted " + (sSohAborted != null ? sSohAborted.GetValue(h) : "?")
-                                + "), now read once per sim-minute; task " + OutfitWaitCaller());
+                                + "), now read once per sim-minute; task " + OutfitWaitCaller();
+                            ShortcutLog(line);
+                            if (sOwLines.Count < 20) sOwLines.Add(line); // the 40-line recent log is soon full of other shortcuts
                         }
                         PatchCounters()[608]++;
                     }
@@ -92,14 +95,16 @@ namespace Ts3Fixes
 
         static Sim.SwitchOutfitHelper sOwHelper;
         static ObjectGuid sOwWait = ObjectGuid.InvalidObjectGuid, sOwAbort = ObjectGuid.InvalidObjectGuid;
-        static string sOwAbortSaw;
+        static string sOwAbortSaw, sOwWaitEnd; // sOwWaitEnd null = task 1 still in Wait (GetProxy is null for a script Task)
+        static readonly List<string> sOwLines = new List<string>(); // first 20 stale-wait lines this session (check "log")
 
         // Agent checks for #115 (repro outfit-wait-stale-check), EA's abort-in-the-loop path. The test Sim's outfit does not
         // change: its swap is cancelled before it completes, and "ready" ends the wait without ChangeOutfit.
-        //   "start": the first active-household Sim in the world with no outfit helper of its own gets a helper for an outfit
-        //            category it is not wearing; task 1 runs Wait(false) (Start, then the loop), task 2 aborts the helper in
-        //            the same tick, after Start and before Ready (what another helper's Start does).
-        //   "state": what task 2 saw, the helper's flags, whether task 1 still runs, counters [607-609].
+        //   "start": a Sim in the world in a normal outfit with no outfit helper of its own (an active-household one first)
+        //            gets a helper for an outfit category it is not wearing; task 1 runs Wait(false) (Start, then the loop),
+        //            task 2 aborts the helper in the same tick, after Start and before Ready (what another helper's Start does).
+        //   "state": what task 2 saw, the helper's flags, whether task 1 still runs (else how its Wait ended), counters [607-609].
+        //   "log":   the first 20 stale-wait lines of the session (Sim, aborted flag, waiting task).
         //   "ready": sets mReady, as a late Ready callback would; on, task 1 returns within a sim-minute; off, within a tick.
         //   "stop":  destroys both tasks.
         public static string OutfitWaitCheck(string what)
@@ -111,18 +116,26 @@ namespace Ts3Fixes
                     if (sOwHelper != null) return "a test wait exists; stop first";
                     if (sSohReady == null || sSohStarted == null || sSimActiveSoh == null) return "SwitchOutfitHelper fields not found";
                     Sim sim = null;
-                    if (Household.ActiveHousehold != null)
-                        foreach (SimDescription d in Household.ActiveHousehold.SimDescriptions)
-                            if (d.CreatedSim != null && d.CreatedSim.InWorld && sSimActiveSoh.GetValue(d.CreatedSim) == null) { sim = d.CreatedSim; break; }
-                    if (sim == null) return "no active-household Sim in the world without an outfit helper";
-                    OutfitCategories cur = sim.CurrentOutfitCategory, pick = OutfitCategories.None;
                     OutfitCategories[] kinds = { OutfitCategories.Sleepwear, OutfitCategories.Everyday, OutfitCategories.Formalwear, OutfitCategories.Athletic };
+                    // a Sim in a special outfit (towel, costume) may not change (a 2026-10-31 run's wait ended at once): any Sim
+                    // in the world in a normal outfit with no helper of its own, an active-household one first
+                    foreach (Sim c in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                        if (c.InWorld && c.SimDescription != null && sSimActiveSoh.GetValue(c) == null && Array.IndexOf(kinds, c.CurrentOutfitCategory) >= 0
+                            && (sim == null || (c.Household == Household.ActiveHousehold && sim.Household != Household.ActiveHousehold))) sim = c;
+                    if (sim == null) return "no Sim in the world in a normal outfit without an outfit helper";
+                    OutfitCategories cur = sim.CurrentOutfitCategory, pick = OutfitCategories.None;
                     foreach (OutfitCategories k in kinds)
                         if (k != cur && sim.SimDescription.GetOutfitCount(k) > 0) { pick = k; break; }
                     if (pick == OutfitCategories.None) return sim.FullName + ": no other outfit category";
                     Sim.SwitchOutfitHelper helper = sOwHelper = new Sim.SwitchOutfitHelper(sim, pick, 0);
-                    sOwAbortSaw = "not run";
-                    sOwWait = Simulator.AddObject(new LoopTask(delegate { helper.Wait(false); }));
+                    sOwAbortSaw = "not run"; sOwWaitEnd = null;
+                    sOwWait = Simulator.AddObject(new LoopTask(delegate
+                    {
+                        try { helper.Wait(false); sOwWaitEnd = "returned"; }
+                        catch (Exception e) { sOwWaitEnd = "threw " + e.GetType().Name; }
+                        sOwWaitEnd += " (aborted " + (sSohAborted != null ? sSohAborted.GetValue(helper) : "?") + ", no change " + sSohNoChange.GetValue(helper)
+                            + ", disposed " + sSohDisposed.GetValue(helper) + ")";
+                    }));
                     sOwAbort = Simulator.AddObject(new LoopTask(delegate
                     {
                         while (!(bool)sSohStarted.GetValue(helper)) Simulator.Sleep(1);
@@ -137,8 +150,10 @@ namespace Ts3Fixes
                     if (sOwHelper == null) return "start first";
                     int[] c = PatchCounters();
                     return "abort task: " + sOwAbortSaw + "; ready " + sSohReady.GetValue(sOwHelper) + ", started " + sSohStarted.GetValue(sOwHelper)
-                        + ", wait task " + (Simulator.GetProxy(sOwWait) != null ? "running" : "gone") + "; stale " + c[607] + ", minute polls " + c[608] + ", ended " + c[609];
+                        + ", wait task " + (sOwWaitEnd == null ? "in Wait" : "returned: " + sOwWaitEnd) + "; stale " + c[607] + ", minute polls " + c[608] + ", ended " + c[609];
                 }
+                case "log":
+                    return sOwLines.Count + " stale-wait lines: " + string.Join(" | ", sOwLines.ToArray());
                 case "ready":
                     if (sOwHelper == null) return "start first";
                     sSohReady.SetValue(sOwHelper, true);
@@ -149,7 +164,7 @@ namespace Ts3Fixes
                     sOwWait = sOwAbort = ObjectGuid.InvalidObjectGuid;
                     sOwHelper = null;
                     return "stopped";
-                default: return "unknown check " + what + " (start, state, ready, stop)";
+                default: return "unknown check " + what + " (start, state, log, ready, stop)";
             }
         }
     }

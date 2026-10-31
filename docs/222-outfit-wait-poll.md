@@ -3,7 +3,8 @@
 Issue #115 (round 2, task 3) found one magical-makeover alarm on the day-406 save that spends all of its time in
 `Sim.SwitchOutfitHelper.Wait`. It cost 3.0 ms of sim thread per sim-minute, in both LR arms. This doc explains why such
 a wait never ends and describes the ts3fixes switch that makes it cheap. The switch is off by default. Status
-(2026-10-31): built and self-tested, not run in game. Counters 607-609 (registry `fixes-607`).
+(2026-10-31): built, self-tested and run in game (§4: the repro passes; the cost cut is not measured yet). Counters 607-609
+(registry `fixes-607`).
 
 Claim marks: **[verified]** = read in the game's IL by us (`ildasm`, method and IL offset given; no code reproduced
 here); **[measured]** = from #115; **[inferred]** = our reading, not yet checked in game.
@@ -72,3 +73,17 @@ All methods are in `Sims3GameplaySystems` unless named otherwise.
 - **In-load A/B on the LR save** (to do, needs the game): load with the switch on, then read `outfitwaitpoll_stale` and
   the log line's task name. Then run the `--ab outfitwaitpoll` arms and compare the `SwitchOutfitHelper.Wait` row of
   #115 (ms per sim-minute).
+
+## 4. Game runs (2026-10-31, queue `outfit-wait`, results `docs/data/results/2026-10-31-queue-outfit-wait.md`)
+
+- **Repro `bp-outfit-wait-check` passes** [verified]. Off: the check's wait stayed in EA's loop for more than 60
+  sim-minutes after the abort, with counters 0. It returned within a tick of the `ready` step (`aborted True`). On: the
+  same wait went stale (`aborted True`), was read once per sim-minute, and ended within the 5 s after `ready`.
+- **Natural stale waits also occur, from a second cause** [verified count, cause open]. With the switch on, waits that
+  were not aborted (`aborted False`) also went stale, in the Sim's own task (`Sim`, an interaction waiting for its outfit):
+  4 on Baseline-BP in the last repro run (14 and 40 stale waits in two earlier runs), 20 in 12 min on the LR in-load A/B.
+  About a third of them became ready later. The switch delays those by under a sim-minute. Why their swap is late is not
+  known (ledger I-414-5).
+- **Cost** [not measured]. The LR load of 2026-10-31 had no costly stale wait: `Wait` was in at most 3 of about 884
+  managed samples in every arm, so the four per-load timing arms could not show a cut. The #115 case (the makeover
+  alarm, I-414-2) is on the day-406 save; the cost check (I-414-3) waits for that save.
