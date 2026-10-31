@@ -2,7 +2,7 @@
 
 Issue #102 (a player save, two ScriptErrors a minute after load) found an NPC bake sale table whose seller had been
 deleted. Every buyer threw, and the table was never cleaned up. This doc explains why and describes the ts3fixes switch
-that fixes it. The switch is off by default. Status (2026-10-31): built and self-tested, not run in game in this form.
+that fixes it. The switch is off by default. Status (2026-10-31): built, self-tested, and the repro passes in game (§4).
 The same three changes ran live as a patch of the player's own script build in two sessions (issue #102). Counters
 610-611 (registry `fixes-610`).
 
@@ -54,6 +54,16 @@ All methods are on `BakeSaleTable` (`Sims3GameplayObjects`, `Sims3.Gameplay.Obje
   table out of the world, with a new Sim as seller that is then deleted the way `remove_sims` deletes a Sim. No
   household Sim is touched. Off: `HasSeller` true, and the handler throws and keeps the table. On: `HasSeller` false,
   the re-arm gives the table an alarm, and the handler destroys the table. "rearm" runs the load-time part directly.
-- Not checked yet [inferred]: that `Sim` disposal leaves `InteractionQueue` null on the test seller, as on the #102
-  seller. `state` prints it. If the queue is still set, the off arm's handler does not throw, and the on arm still reads
-  the seller as gone through `HasBeenDestroyed`.
+- `Sim` disposal leaves `InteractionQueue` null on the test seller, as on the #102 seller [verified in game, §4].
+
+## 4. Game run (2026-10-31, queue `bake-sale`, results `docs/data/results/2026-10-31-queue-bake-sale.md`)
+
+Repro `bp-bake-sale-check` passes [verified], on Baseline-BP with the v0.2.4 asi:
+
+- Off: the deleted seller stays: destroyed True, queue null, `HasSeller` True. EA's handler throws
+  `NullReferenceException`, and 3 s later the table still exists. Counters stay 0.
+- On: the same state reads as no seller (`HasSeller` False, `GetSeller` null, [610] counts each read). The re-arm gives
+  the table EA's clean-up alarm ([611] = 1). EA's handler returns, and 3 s later the table is destroyed and its proxy is
+  gone. Both log lines appear.
+- `Destroy()` finishes after the calling task yields: a read in the same call still sees the table. The first run read
+  it there, so the check now reads it in a later step.

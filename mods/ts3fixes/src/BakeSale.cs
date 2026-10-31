@@ -73,6 +73,7 @@ namespace Ts3Fixes
         }
 
         static BakeSaleTable sBstTable;
+        static bool sBstCleaned; // the cleanup handler returned, so it called Destroy()
         static object sBstKeepEA; // a patched Objects build's own switch (BakeSaleTable.kKeepEADeadSeller), set to EA for the check
         // Agent checks for #102 (repro bake-sale-dead-seller-check). They build the bug's state on a test table out of the world:
         //   "start":   a new NPC table (tableBakeSale, EP2), a new Sim made its seller, then the Sim deleted as remove_sims does.
@@ -116,7 +117,8 @@ namespace Ts3Fixes
                     if (sBstTable == null) return "start first";
                     Sim s = sBstSeller.GetValue(sBstTable) as Sim;
                     int[] c = PatchCounters();
-                    return "table destroyed " + sBstTable.HasBeenDestroyed + "; stored seller " + (s == null ? "none" : s.FullName + " (destroyed " + s.HasBeenDestroyed + ", queue " + (s.InteractionQueue == null ? "null" : "set") + ")")
+                    // Destroy() finishes after the calling task yields: a "state" read in the handler's own call still sees the table
+                    return "table destroyed " + sBstTable.HasBeenDestroyed + (Simulator.GetProxy(sBstTable.ObjectId) == null ? " (proxy gone)" : "") + "; stored seller " + (s == null ? "none" : s.FullName + " (destroyed " + s.HasBeenDestroyed + ", queue " + (s.InteractionQueue == null ? "null" : "set") + ")")
                         + "; HasSeller " + sBstTable.HasSeller + ", GetSeller " + (sBstTable.GetSeller == null ? "null" : "set")
                         + "; alarm " + ((AlarmHandle)sBstAlarm.GetValue(sBstTable) != AlarmHandle.kInvalidHandle ? "set" : "none") + "; dead-seller reads " + c[610] + ", re-armed " + c[611];
                 }
@@ -124,7 +126,7 @@ namespace Ts3Fixes
                 {
                     if (sBstTable == null) return "start first";
                     string r;
-                    try { sBstHandler.Invoke(sBstTable, null); r = "handler returned"; }
+                    try { sBstHandler.Invoke(sBstTable, null); r = "handler returned"; sBstCleaned = true; }
                     catch (TargetInvocationException e) { r = "handler threw " + (e.InnerException != null ? e.InnerException.GetType().Name : "?"); }
                     return r + "; " + BakeSaleCheck("state");
                 }
@@ -140,8 +142,8 @@ namespace Ts3Fixes
                 }
                 case "stop":
                 {
-                    if (sBstTable != null && !sBstTable.HasBeenDestroyed) sBstTable.Destroy();
-                    sBstTable = null;
+                    if (sBstTable != null && !sBstCleaned && !sBstTable.HasBeenDestroyed) sBstTable.Destroy(); // EA's handler already destroyed it
+                    sBstTable = null; sBstCleaned = false;
                     FieldInfo keep = typeof(BakeSaleTable).GetField("kKeepEADeadSeller", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
                     if (keep != null && sBstKeepEA != null) keep.SetValue(null, sBstKeepEA);
                     sBstKeepEA = null;

@@ -45397,7 +45397,18 @@
             "cleanup"
           ]
         },
-        "note": "off: handler threw NullReferenceException, table destroyed False"
+        "note": "off: handler threw NullReferenceException, table destroyed False",
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: 3 s later the table still exists (EA kept it)"
       },
       {
         "cmd": "reflect_call",
@@ -45454,7 +45465,22 @@
             "cleanup"
           ]
         },
-        "note": "on: handler returned, table destroyed True"
+        "note": "on: handler returned (EA then calls Destroy; it finishes after this call)",
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: 3 s later the table is destroyed (EA Destroy after the clean-up)"
+      },
+      {
+        "cmd": "patches",
+        "note": "on: the recent lines carry both bakesaleseller lines; ts3fixes lines are not in ts3native.log"
       },
       {
         "cmd": "reflect_call",
