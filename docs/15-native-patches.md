@@ -622,6 +622,48 @@ Back up `Documents\Electronic Arts\The Sims 3\Saves` first.
 - Consequence: there is no look-ahead at the commit. Compressing a record ahead of its close would need its bytes before the writer is done with it (reading the open stream moves its position) or deferring the record's commit to the package commit (different file layout, and a read-back of a deferred record would fail in `FUN_004A94C0`). Neither is done. `[SaveCompress]` stays off.
 - 0.10.1 adds counters v12 (`compressCommits`, `compressCommitPending`, `compressDirectCalls`, `compressDirectMs`, `compressDirectMB`) and one log line per save: `save compress: this save N codec compress calls outside a batch (MB in, ms), C commit calls (pending at the last: P)`. They give the real compression time per save and how many records are still pending at the commit before any further design.
 
+## Phase 11: the saved ExportDB without dead space and unneeded outfit copies (`[SaveSlim] Enabled=0` by default)
+
+`saveslim.cpp`, built on 0.36.148, no counters (log lines only).
+
+### Why
+
+- Every Sim who leaves a lot is packed again (`PackOutfitToDisk` -> `SaveTravelSim`): the game writes a new outfit (`0x025ED6F4`) and its textures (`0x033A1435`, `0x0341ACC9`) into `<world>ExportDB.package` and never deletes the old copy [verified 2026-10-29: ~10-12k texture entries per session, ~300 outfits].
+- The package writer appends and never reuses freed bytes; every save also leaves the old index behind as dead space [verified].
+- Result on one 491-day save: ExportDB 101 MB, 297,629 entries (3,904 outfits, 155,273 + 138,452 textures), 16.6 MB dead; +~4 MB per 20-minute session [measured]. Every index entry also costs EA heap at load (~2 heap chunks per entry) [inferred from the 2026-10-29 heap walk: an offline-cleaned copy loaded with ~16 MB more EA heap free].
+- An earlier script-side cleaner (delete the old outfit when it is replaced) found 2 of 273 "unneeded" outfits still named by another saved object, and the file grew anyway (no byte reuse). So the decision is made over the saved bytes, after the save.
+
+### What it does
+
+- The game plays from the working copy `CurrentGame.sims3`. It copies the saved folder `Saves\<name>.sims3` only at step 9 of the save and at the load copy (`0xAB16ED`) [verified code]. It holds none of that folder's files open in play [verified: share-mode-0 opens of every file of the loaded save succeed in a running session; only the working copy's `TravelDB.package` is held].
+- `SaveInfoHook` notes the saved folder (info+0x430) for normal saves. After `FUN_00AB1030` returns 0 (every one of 100 logged saves returned 0), `SaveGameHook` starts one worker at background CPU and I/O priority (after `[SaveFlush]`'s worker, if any).
+- The worker reads every file of the folder:
+  - DBPF 2.0 with index type 0, no holes, compression 0 or `0xFFFF` (the only values in the saves checked);
+  - plain files (`Meta.data`, `1a5tf1l3.dat`) as bytes.
+- Mode 2: the candidates are the outfits and the group-0 textures of the ExportDB packages, one node per instance.
+  - Roots: every 8-byte run, at any alignment, of every other body (decoded with `RefpackFast`) and of the plain files that equals a candidate instance. The instance of any other index entry also counts (123 outfits share their number with `.nhd` thumbnails `0x0580A2CD`/`CE`).
+  - A candidate's own body names other candidates (outfit -> TXTC -> TXTF); those links are closed from the roots.
+  - It drops outfits not reached, and group-0 textures not reached that a dropped outfit names, directly or through textures. Textures nothing names stay (unknown use).
+  - Any byte match keeps an entry, so the test only errs towards keeping.
+- Each ExportDB with something dropped or at least 1 MB dead is written to `<TS3 user folder>\ts3native-slim.tmp`: header as the game wrote it (count, index size and position updated), kept bodies byte for byte in source order, then the index in its old order with new offsets. The same layout as the offline cleaner whose copies loaded with the same outfit health (2026-10-29).
+- Checks before the rename: written size, then header, index and every kept body read back and compared with the source. The source is held open without write sharing from the first read to the rename (`MoveFileExW` replace + write-through, same volume).
+- Anything unexpected keeps the game's file: an unknown header field or compression, an unreadable or undecodable body, a subfolder, or a failed check. An unreadable file anywhere in the folder turns Mode 2 into Mode 1 for that save (references unknown).
+- Waits: the next save (also autosave and travel) and the load copy wait for the worker (`[SaveFlush]`'s load-copy hook, or its own when `[SaveFlush]` is off). A game exit while it runs leaves at most the temp file; the save is untouched until the rename.
+- Not touched: `TravelDB.package` (30-54% dead in some saves, but the working copy holds it open and it is not loaded into the EA index heap), the `.nhd` files (~1% dead).
+
+Settings `[SaveSlim]`: `Enabled=0` (needs `[SaveWrite] Enabled=1`, else `SKIP`), `Mode=2` (0 = what Mode 2 would do, measured and logged, nothing written; 1 = rewrite without dead space; 2 = also drop). Log after each save:
+- `save slim: <mode>, N files, N ExportDB, references read; outfits N, dropped N outfits + N textures (orphan textures kept N); scan N MB, N instances, N links, N ms; write N ms; total N ms`;
+- then one `save slim: <world>ExportDB.package: entries a -> b, outfits, textures, MB before -> after (dead MB): rewritten | left (why)` per ExportDB;
+- `save slim: waited N ms for the worker` when a save or load had to wait.
+
+Tests: `selftest.exe` (`saveslim-test.h`): made-up save folders, Modes 0/1/2, outfit named only by another outfit, by an index key of another package or by `Meta.data`, texture chains TXTC -> TXTF, orphan textures kept, unknown compression and an undecodable body (Mode 2 -> Mode 1), unknown index type (file untouched), second run with nothing to gain, 64 KB read windows. `saveslim-tool.exe <save folder> [mode]` runs the job outside the game (Mode 0 reads only; Modes 1 and 2 only on a copy).
+
+### How to test in game
+
+1. `[SaveWrite] Enabled=1`, `[SaveSlim] Enabled=1 Mode=0`. Load an old save, play 10+ minutes, save as a new name: the `save slim:` lines give what Mode 2 would drop and the scan time.
+2. `Mode=2`, same save, save as another new name. Check the `rewritten` lines, the new folder's ExportDB size, no `ts3native-slim.tmp` left.
+3. Load the new save twice: no script errors, every Sim dressed and textured as before, travel visitors arriving dressed (LagScope outfit health at load: same counts, invalid 0).
+
 ## `[Verify]`: runtime checks of the mapping-doc inferences (v0.10.8, counters v20 + v21 + v22, `Enabled=0` by default)
 
 Measurement only (`native/ts3native/verify.cpp`). The mapping waves (docs/34-48) left many claims marked [inferred]: which thread creates textures, whether two threads overlap on unlocked data, what a lookup costs. One probe build checks them all in game, so the fixes in PLAN.md "Next round" (items 1-28) start from numbers. 0.10.6 (27 probes, v20) ran once on 2026-10-15 (docs/data/results/2026-10-15-verify-findings.md). **0.10.7** (2026-10-15, selftest ok, **not run in game**) fixes four readouts of that run and adds 31 probes for the docs/51 rows that had no key; parked as `game-copy/ts3native.asi.verify` (SHA-256 starts `d4835064a8ec`), run 2026-10-16. **0.10.8** (2026-10-16, selftest ok, **not run in game**) adds 31 probes for the docs/52-62 ledger rows (docs/51 §3b, §6; counters v22) and puts the `0xD7F8B0` probe behind `ThreadedObjects` (default 0, docs/68 §4 #1); parked as `game-copy/ts3native.asi.verify` (SHA-256 starts `20af6f323fff`).

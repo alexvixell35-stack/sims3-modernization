@@ -4701,9 +4701,14 @@ static void UdWait(const char* what);    // a wait inside the phase starts (NULL
 static void UdSaveStart(int travelSave, int traveling);
 static void UdSaveEnd(DWORD r);
 static void UdInfoDir(const unsigned char* info);  // the save folder from the save info (sized after the save)
+// saveslim.cpp ([SaveSlim], docs/15 phase 11): the save hooks note the saved folder, start the worker and wait for it
+static void SlimNote(const unsigned char* info);
+static void SlimStart(DWORD r);
+static void SlimWait();
 #include "apex.cpp"
 #include "savewrite.cpp"
 #include "decompress.cpp"
+#include "saveslim.cpp"  // docs/15 phase 11: [SaveSlim] (after savewrite.cpp and decompress.cpp)
 #include "alloc.cpp"
 #include "waterjps.cpp"
 #include "savecompress.cpp"
@@ -4910,6 +4915,7 @@ static void Run(HMODULE self) {
         InstallPlanDeadline();     // docs/164 §7: after the plan detour, the cost stubs and InstallAsync (SyncIc); before [RouteJobPhases]
         keepLog = ApplySaveWrite(ini) || keepLog;
         ApplySaveFlush(ini);
+        ApplySaveSlim(ini);  // after [SaveFlush] (shares its load-copy hook when that is on)
         keepLog = ApplyUserDiag(ini) || keepLog;  // docs/188: after [SaveWrite] (its save phase sites need the save hooks)
         ApplyCompaction(ini);  // docs/204: after [UserDiag] (its text channel and save end) and ApexDetect
         ApplyRcTrim(ini);  // docs/198 §4: EXPERIMENT, off ([ResourceCache] TrimAfterCleanup)
