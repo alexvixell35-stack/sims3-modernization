@@ -149,22 +149,24 @@ namespace MonoHostTest
         public JitKO next; public int v; public object o; public int[] arr; public object[] objs; public int size;
         public object S1AB() { return o; }
         public int S1AD() { return v; }
-        public static object S1AF(JitKO a) { return a.next.o; }
+        public static object S1AF(JitKO a, JitKO b, bool c) { return (c ? a : b).next.o; }
         public object S1B3() { return next.next; }
-        public bool S1B4(JitKO p) { JitKO x = p; if (x == next) return true; return x == this; }
+        public bool S1B4(JitKO p, JitKO q, bool c) { JitKO x; if (c) x = p; else x = q; return Same(x, next); }
+        static bool Same(object a, object b) { return a == b; }
         public int S1B2(int n) { int s = 0; for (int i = 0; i < n; i++) s += i; return s; }
         public static int S1B8(int a, int b) { int x = a; int y = b; if (x < y) return -1; if (y < x) return 1; return 0; }
         public int S1BC() { JitKO p = this; int n = 0; while (p != null) { p = p.next; n++; } return n; }
         public int S1BE() { if (o != null) return 1; if (size < next.arr.Length) return 2; return 3; }
         public object S1BF(int h) { int n = size; int b = (int)((uint)(h & 0x7FFFFFFF) % (uint)n); object e = objs[b]; if (e == null) return null; return e; }
-        public int S1B9() { JitKO2 t = this as JitKO2; if (t != null) return t.w; return -1; }
+        public object S1B9() { JitKO2 t = this as JitKO2; if (t != null) return t; return null; }
         public static bool S1BA(object a, object b) { return a == b; }
         public static bool S1BD(object a, object b) { if (a != null) return a == b; return b == null; }
-        public static int S1B0(JitKO a) { JitKO p = a; if (p == null) return 0; return p.next == null ? 1 : 2; }
+        public static object S1B0(JitKO p, bool a, bool b, bool c) { JitKO x = p; if (a ? b : c) return x.next; return null; }
         public static int S1B7(JitKO a) { JitKO p; if ((p = a.next) == null) return 0; return p.v; }
-        public static bool S1AC(bool b) { if (b) return false; return true; }
-        public static bool S1B5(object o) { object p = o; return p != null; }
-        public bool S1B6() { return next != null; }
+        public static int S1AC(bool a, bool b, bool c) { if (!(a ? b : c)) return 0; return 1; }
+        public static int S1B5(object a, object b, bool c) { object x; if (c) x = a; else x = b; if (x == null) return 0; return 1; }
+        public object S1B6() { if (next == null) return null; return next.o; }
+        public bool S1C0(object p) { JitKO k = p as JitKO; return k != null && next == k.next && o == k.o; }
         public static object S1BB(object[] a, int i, object x, object y) { object[] t = a; if (x == y) return t[i]; return null; }
         public static int S1B1(JitPt p, object o) { return p.Sum(o); }
         public int Walk() { int s = 0; JitKO p = this; for (int i = 0; i < 64 && p != null; i++) { s += p.v + (p.arr != null ? p.arr.Length : 0); p = p.next; } return s; }
@@ -200,7 +202,13 @@ namespace MonoHostTest
         static int M(int h, bool v) { return M(h, v ? 1 : 2); }
         static int M(int h, double v) { return M(h, BitConverter.DoubleToInt64Bits(v)); }
         static int M(int h, float v) { return M(h, BitConverter.ToInt32(BitConverter.GetBytes(v), 0)); }
-        static int M(int h, object v) { return M(h, v == null ? 3 : v.GetHashCode()); }
+        // identity hashes may differ between runs: a JitKO node hashes by its v, other reference types by type name
+        static int M(int h, object v)
+        {
+            if (v == null) return M(h, 3);
+            if (v is JitKO) return M(M(h, 7), ((JitKO)v).v);
+            return M(h, v is string || v is ValueType ? v.GetHashCode() : v.GetType().FullName.GetHashCode());
+        }
         // exception: type and the throwing frame (first stack-trace line: method and IL offset)
         static int X(int h, Exception e)
         {
@@ -816,14 +824,16 @@ namespace MonoHostTest
             for (int k = 0; k < g.Length; k++)
             {
                 JitKO a = g[k];
-                try { h = M(h, a.S1AB()); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1AD()); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1AF(a)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1B3()); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1B4(a.next)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1B4(null)); } catch (Exception e) { h = X(h, e); }
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, a.S1AB()); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1AD()); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1AF(a, a.next, c1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1B3()); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1B4(a.next, a, c1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1B4(null, a.next, c2)); } catch (Exception e) { h = X(h, e); }
                 try { h = M(h, a.S1B2(k * 3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B8(k, 3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B8(3, k)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1BC()); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1BE()); } catch (Exception e) { h = X(h, e); }
                 try { h = M(h, a.S1BF(k * 7919)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1BF(int.MinValue)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1B9()); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1BA(a, a.next)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1BA(a.o, a.o)); } catch (Exception e) { h = X(h, e); }
-                try { h = M(h, JitKO.S1BD(a.o, null)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1BD(null, a.next)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B0(a)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B0(a.next)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B7(a)); } catch (Exception e) { h = X(h, e); }
-                try { h = M(h, JitKO.S1AC((k & 1) == 0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B5(a.o)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1B6()); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1BB(a.objs, k - 1, a.o, a.o)); } catch (Exception e) { h = X(h, e); }
+                try { h = M(h, JitKO.S1BD(a.o, null)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1BD(null, a.next)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B0(a, c1, c2, c3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B0(a.next, c3, c1, c2)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B7(a)); } catch (Exception e) { h = X(h, e); }
+                try { h = M(h, JitKO.S1AC(c1, c2, c3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B5(a.o, a.next, c1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1B6()); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1BB(a.objs, k - 1, a.o, a.o)); } catch (Exception e) { h = X(h, e); }
+                try { h = M(h, a.S1C0(a.next)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1C0(a)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1C0(a.o)); } catch (Exception e) { h = X(h, e); }
                 try { h = M(h, JitKO.S1BB(a.objs, k, a, null)); } catch (Exception e) { h = X(h, e); } JitPt p; p.X = k; p.Y = 2; try { h = M(h, JitKO.S1B1(p, a.o)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.Walk()); } catch (Exception e) { h = X(h, e); }
             }
-            try { h = M(h, JitKO.S1AF(null)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B7(null)); } catch (Exception e) { h = X(h, e); }
+            try { h = M(h, JitKO.S1AF(null, null, true)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B7(null)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B0(null, true, true, false)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
                 case 104: // Dictionary<int,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)

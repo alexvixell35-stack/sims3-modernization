@@ -131,28 +131,32 @@ const KS = `
         public static string Str(int a) { string s = "ab"; if (a > 0) s = s + a; return s; }
 `;
 // superinstruction patterns (docs/130 §9.1): instance kernels of JitKO, compiled through "JitKO.*". Graphs come from MakeKO.
+// EA's peephole fuses a run only when the whole run between two boundaries (method start, branch target, call / ret /
+// newobj ...) is the sequence (docs/139 §4.1), so kernels start a run at a ternary join or after a call.
 const KO = `
     public class JitKO
     {
         public JitKO next; public int v; public object o; public int[] arr; public object[] objs; public int size;
         public object S1AB() { return o; }
         public int S1AD() { return v; }
-        public static object S1AF(JitKO a) { return a.next.o; }
+        public static object S1AF(JitKO a, JitKO b, bool c) { return (c ? a : b).next.o; }
         public object S1B3() { return next.next; }
-        public bool S1B4(JitKO p) { JitKO x = p; if (x == next) return true; return x == this; }
+        public bool S1B4(JitKO p, JitKO q, bool c) { JitKO x; if (c) x = p; else x = q; return Same(x, next); }
+        static bool Same(object a, object b) { return a == b; }
         public int S1B2(int n) { int s = 0; for (int i = 0; i < n; i++) s += i; return s; }
         public static int S1B8(int a, int b) { int x = a; int y = b; if (x < y) return -1; if (y < x) return 1; return 0; }
         public int S1BC() { JitKO p = this; int n = 0; while (p != null) { p = p.next; n++; } return n; }
         public int S1BE() { if (o != null) return 1; if (size < next.arr.Length) return 2; return 3; }
         public object S1BF(int h) { int n = size; int b = (int)((uint)(h & 0x7FFFFFFF) % (uint)n); object e = objs[b]; if (e == null) return null; return e; }
-        public int S1B9() { JitKO2 t = this as JitKO2; if (t != null) return t.w; return -1; }
+        public object S1B9() { JitKO2 t = this as JitKO2; if (t != null) return t; return null; }
         public static bool S1BA(object a, object b) { return a == b; }
         public static bool S1BD(object a, object b) { if (a != null) return a == b; return b == null; }
-        public static int S1B0(JitKO a) { JitKO p = a; if (p == null) return 0; return p.next == null ? 1 : 2; }
+        public static object S1B0(JitKO p, bool a, bool b, bool c) { JitKO x = p; if (a ? b : c) return x.next; return null; }
         public static int S1B7(JitKO a) { JitKO p; if ((p = a.next) == null) return 0; return p.v; }
-        public static bool S1AC(bool b) { if (b) return false; return true; }
-        public static bool S1B5(object o) { object p = o; return p != null; }
-        public bool S1B6() { return next != null; }
+        public static int S1AC(bool a, bool b, bool c) { if (!(a ? b : c)) return 0; return 1; }
+        public static int S1B5(object a, object b, bool c) { object x; if (c) x = a; else x = b; if (x == null) return 0; return 1; }
+        public object S1B6() { if (next == null) return null; return next.o; }
+        public bool S1C0(object p) { JitKO k = p as JitKO; return k != null && next == k.next && o == k.o; }
         public static object S1BB(object[] a, int i, object x, object y) { object[] t = a; if (x == y) return t[i]; return null; }
         public static int S1B1(JitPt p, object o) { return p.Sum(o); }
         public int Walk() { int s = 0; JitKO p = this; for (int i = 0; i < 64 && p != null; i++) { s += p.v + (p.arr != null ? p.arr.Length : 0); p = p.next; } return s; }
@@ -245,14 +249,16 @@ const STMT_CASES: Case[] = [
             for (int k = 0; k < g.Length; k++)
             {
                 JitKO a = g[k];
-                ${T('a.S1AB()')} ${T('a.S1AD()')} ${T('JitKO.S1AF(a)')} ${T('a.S1B3()')} ${T('a.S1B4(a.next)')} ${T('a.S1B4(null)')}
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                ${T('a.S1AB()')} ${T('a.S1AD()')} ${T('JitKO.S1AF(a, a.next, c1)')} ${T('a.S1B3()')} ${T('a.S1B4(a.next, a, c1)')} ${T('a.S1B4(null, a.next, c2)')}
                 ${T('a.S1B2(k * 3)')} ${T('JitKO.S1B8(k, 3)')} ${T('JitKO.S1B8(3, k)')} ${T('a.S1BC()')} ${T('a.S1BE()')}
                 ${T('a.S1BF(k * 7919)')} ${T('a.S1BF(int.MinValue)')} ${T('a.S1B9()')} ${T('JitKO.S1BA(a, a.next)')} ${T('JitKO.S1BA(a.o, a.o)')}
-                ${T('JitKO.S1BD(a.o, null)')} ${T('JitKO.S1BD(null, a.next)')} ${T('JitKO.S1B0(a)')} ${T('JitKO.S1B0(a.next)')} ${T('JitKO.S1B7(a)')}
-                ${T('JitKO.S1AC((k & 1) == 0)')} ${T('JitKO.S1B5(a.o)')} ${T('a.S1B6()')} ${T('JitKO.S1BB(a.objs, k - 1, a.o, a.o)')}
+                ${T('JitKO.S1BD(a.o, null)')} ${T('JitKO.S1BD(null, a.next)')} ${T('JitKO.S1B0(a, c1, c2, c3)')} ${T('JitKO.S1B0(a.next, c3, c1, c2)')} ${T('JitKO.S1B7(a)')}
+                ${T('JitKO.S1AC(c1, c2, c3)')} ${T('JitKO.S1B5(a.o, a.next, c1)')} ${T('a.S1B6()')} ${T('JitKO.S1BB(a.objs, k - 1, a.o, a.o)')}
+                ${T('a.S1C0(a.next)')} ${T('a.S1C0(a)')} ${T('a.S1C0(a.o)')}
                 ${T('JitKO.S1BB(a.objs, k, a, null)')} JitPt p; p.X = k; p.Y = 2; ${T('JitKO.S1B1(p, a.o)')} ${T('a.Walk()')}
             }
-            ${T('JitKO.S1AF(null)')} ${T('JitKO.S1B7(null)')}` },
+            ${T('JitKO.S1AF(null, null, true)')} ${T('JitKO.S1B7(null)')} ${T('JitKO.S1B0(null, true, true, false)')}` },
 ];
 function bclCases(): Case[] {
   const dict = (ty: string, key: (i: string) => string, label: string): Case => ({
@@ -381,7 +387,13 @@ ${KO.replace(/^\n|\n$/g, '')}
         static int M(int h, bool v) { return M(h, v ? 1 : 2); }
         static int M(int h, double v) { return M(h, BitConverter.DoubleToInt64Bits(v)); }
         static int M(int h, float v) { return M(h, BitConverter.ToInt32(BitConverter.GetBytes(v), 0)); }
-        static int M(int h, object v) { return M(h, v == null ? 3 : v.GetHashCode()); }
+        // identity hashes may differ between runs: a JitKO node hashes by its v, other reference types by type name
+        static int M(int h, object v)
+        {
+            if (v == null) return M(h, 3);
+            if (v is JitKO) return M(M(h, 7), ((JitKO)v).v);
+            return M(h, v is string || v is ValueType ? v.GetHashCode() : v.GetType().FullName.GetHashCode());
+        }
         // exception: type and the throwing frame (first stack-trace line: method and IL offset)
         static int X(int h, Exception e)
         {
@@ -452,13 +464,14 @@ export function report(log: string, dump: string | undefined, names: string[]): 
     m = /^jit corpus trail case \d+ (interpreted|compiled): (.*)$/.exec(l);
     if (m) r.lines.push(`    ${m[1]}: ${m[2].slice(0, 400)}`);
   }
-  if (dump) {  // superops seen in the compiled corpus kernels (mint listing of each compiled JitK / JitKO method)
+  if (dump) {  // superops seen in the methods the corpus compiled (mint listing, then "compiled:" when P0 compiled it)
     const seen = new Set<string>();
-    let inK = false;
+    let cur: string[] = [];
     for (const l of dump.split(/\r?\n/)) {
-      if (l.startsWith('== ')) { inK = /\.JitKO?\./.test(l); continue; }
-      const m = inK && /^\s+[0-9A-F]{4} super_(1[A-C][0-9A-F])/.exec(l);
-      if (m) seen.add(m[1]);
+      if (l.startsWith('== ')) { cur = []; continue; }
+      if (/^\s+compiled:/.test(l)) { cur.forEach(o => seen.add(o)); continue; }
+      const m = /^\s+[0-9A-F]{4} super_(1[A-C][0-9A-F])/.exec(l);
+      if (m) cur.push(m[1]);
     }
     r.superops = [...seen].sort();
     for (let op = 0x1AB; op <= 0x1C0; op++) if (!seen.has(op.toString(16).toUpperCase())) r.missingSuper.push(op.toString(16).toUpperCase());
@@ -481,7 +494,7 @@ function selfCheck() {
   ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*', 'kJitList parse');
   const log = 'jit corpus MISMATCH case 1: compiled 0000002A interpreted 0000002B\njit corpus trail case 1 compiled: DivideByZeroException at X | \njit corpus UNSTABLE case 2: interpreted 1 then 2\n'
     + 'jit corpus: 3 cases, 1 differ, 1 unstable; per-call verify during the corpus: ok 5, MISMATCH 0, abandoned (exception) 2\n';
-  const dump = '== MonoHostTest.JitKO.S1AB rm 0 words 3\n  0000 super_1AB        0000\n== Other.M rm 0\n  0000 super_1AD\n';
+  const dump = '== MonoHostTest.JitKO.S1AB rm 0 words 3\n  0000 super_1AB        0000\n   compiled: 2 positions\n== Other.M rm 0\n  0000 super_1AD\n';
   const r = report(log, dump, ['a', 'b', 'c']);
   ok(r.cases === 3 && r.differ === 1 && r.unstable === 1 && r.lines[0] === 'MISMATCH 1 b: compiled 0000002A interpreted 0000002B'
     && r.lines[1] === '    compiled: DivideByZeroException at X | ', 'log parse');
