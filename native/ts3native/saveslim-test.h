@@ -42,6 +42,26 @@ static void StWritePkg(const wchar_t* path, const StEnt* es, int n, DWORD gap, D
     free(f);
 }
 
+// Meta.data's shape: one entry, index flags 7 (type, group, instance-high once after the flags word, 20-byte entries).
+// body = NULL: an empty package (96-byte header, no index), as some TravelDB.package files are.
+static void StWriteCompact(const wchar_t* path, const u8* body, DWORD n) {
+    u8 f[96 + 64 + 36] = {};
+    memcpy(f, "DBPF", 4);
+    *(DWORD*)(f + 4) = 2, *(DWORD*)(f + 60) = 3;
+    DWORD len = 96;
+    if (body) {
+        memcpy(f + 96, body, n);
+        DWORD* x = (DWORD*)(f + 96 + n);
+        x[0] = 7, x[1] = 0x0000BEEF, x[2] = 0, x[3] = 0, x[4] = 1, x[5] = 96, x[6] = n | 0x80000000u, x[7] = n, x[8] = 0x00010000;
+        *(DWORD*)(f + 36) = 1, *(DWORD*)(f + 44) = 36, *(DWORD*)(f + 64) = 96 + n;
+        len = 96 + n + 36;
+    }
+    HANDLE h = CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    DWORD w;
+    assert(h != INVALID_HANDLE_VALUE && WriteFile(h, f, len, &w, NULL));
+    CloseHandle(h);
+}
+
 static u8* StRead(const wchar_t* path, DWORD* n) {
     HANDLE h = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
     assert(h != INVALID_HANDLE_VALUE);
@@ -109,7 +129,7 @@ static void TestSaveSlim() {
     memset(travel[0].body, 0x77, 48);
     u8 meta[40];
     memset(meta, 0x11, sizeof(meta));
-    memcpy(meta + 11, &H, 8);  // H: only a plain file names it
+    memcpy(meta + 11, &H, 8);  // H: only Meta.data's body names it
 
     wchar_t root[MAX_PATH], dir[MAX_PATH], tmp[MAX_PATH], pdb[MAX_PATH], pnhd[MAX_PATH], p[MAX_PATH];
     GetTempPathW(MAX_PATH, root);
@@ -141,9 +161,13 @@ static void TestSaveSlim() {
             Join(p, dir, L"TravelDB.package");
             StWritePkg(p, travel, 1, 0, 0);
             Join(p, dir, L"Meta.data");
+            StWriteCompact(p, meta, sizeof(meta));
+            Join(p, dir, L"Empty.package");
+            StWriteCompact(p, NULL, 0);
+            Join(p, dir, L"1a5tf1l3.dat");  // a plain file: scanned raw
             HANDLE h = CreateFileW(p, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
             DWORD w;
-            assert(h != INVALID_HANDLE_VALUE && WriteFile(h, meta, sizeof(meta), &w, NULL));
+            assert(h != INVALID_HANDLE_VALUE && WriteFile(h, "plain file, not a package", 25, &w, NULL));
             CloseHandle(h);
         }
         DWORD n0, n1;
@@ -151,7 +175,7 @@ static void TestSaveSlim() {
         SlimStats s;
         SlimRun(dir, tmp, c == 0 ? 0 : c == 1 ? 1 : 2, &s);
         u8* now = StRead(pdb, &n1);
-        assert(!s.fail && s.ndb == 1 && s.files == 4 && GetFileAttributesW(tmp) == INVALID_FILE_ATTRIBUTES);
+        assert(!s.fail && s.ndb == 1 && s.files == 6 && GetFileAttributesW(tmp) == INVALID_FILE_ATTRIBUTES);
         const bool drops = c == 0 || c == 2;
         assert(s.drops == (c == 0 || c == 2 || c == 3) && (s.unreadable != 0) == (c >= 4));
         assert(s.outfitsDropped == (drops ? 1u : 0u) && s.texDropped == (drops ? 2u : 0u));

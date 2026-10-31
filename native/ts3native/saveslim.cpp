@@ -83,8 +83,8 @@ struct SlimFile {
     wchar_t path[MAX_PATH];
     SlimView v;
     u8 hdr[96];
-    u8* idx;  // the index entries (without the index type word)
-    DWORD count;
+    u8* idx;  // the index entries (without the index type word), 32 bytes each even when the file's index is compact
+    DWORD count, ixFlags, ixBytes;
     int kind;  // 0 = not a package (scanned raw), 1 = package, 2 = <world>ExportDB.package, -1 = not readable
 };
 
@@ -188,19 +188,34 @@ static const u8* SlimBody(SlimJob& j, SlimFile& f, DWORD i, DWORD* n) {
     return j.buf;
 }
 
-// The DBPF 2.0 layout of every save package seen (index type 0, no holes, compression 0 or 0xFFFF). 1 = read,
-// 0 = not a DBPF file, -1 = a DBPF file this code does not know.
+// The DBPF 2.0 layouts of the save packages seen (2026-10-31, every file of 191 saves): index flags 0 (ExportDB, .nhd,
+// TravelDB) or 7 (Meta.data: type, group and instance-high stored once after the flags word, entries 20 bytes), an empty
+// package (96-byte header, no index: some TravelDBs), no holes, compression 0 or 0xFFFF. 1 = read, 0 = not a DBPF file,
+// -1 = a DBPF file this code does not know.
 static int SlimReadIndex(SlimJob& j, SlimFile& f) {
     const u8* h = SvAt(f.v, 0, 96);
     if (!h || memcmp(h, "DBPF", 4)) return 0;
     memcpy(f.hdr, h, 96);
     const DWORD count = SeU32(h, 36), size = SeU32(h, 44), pos = SeU32(h, 64);
-    if (SeU32(h, 4) != 2 || SeU32(h, 40) || SeU32(h, 48) || count > 0x3FFFFFF || size != 4 + count * 32) return -1;
-    const u8* x = SvAt(f.v, pos, size);
-    if (!x || SeU32(x, 0)) return -1;
+    if (SeU32(h, 4) != 2 || SeU32(h, 40) || SeU32(h, 48) || count > 0x3FFFFFF) return -1;
     if (!(f.idx = (u8*)HeapAlloc(j.heap, 0, count * 32 + 1))) return -1;
-    memcpy(f.idx, x + 4, count * 32);
-    f.count = count;
+    f.count = count, f.ixFlags = 0, f.ixBytes = size;
+    if (!count && !size) return 1;
+    const u8* x = SvAt(f.v, pos, size);
+    const DWORD flags = x && size >= 4 ? SeU32(x, 0) : ~0u, nConst = (flags & 1) + (flags >> 1 & 1) + (flags >> 2 & 1);
+    if (flags > 7 || size != 4 + 4 * nConst + count * (32 - 4 * nConst)) return -1;
+    DWORD c[3] = {};
+    const u8* p = x + 4;
+    for (int b = 0; b < 3; b++)
+        if (flags >> b & 1) c[b] = SeU32(p, 0), p += 4;
+    for (DWORD i = 0; i < count; i++) {  // to the 32-byte form: type, group, instance hi, instance lo, offset, size, ...
+        u8* e = f.idx + i * 32;
+        for (int b = 0; b < 3; b++)
+            if (flags >> b & 1) memcpy(e + b * 4, &c[b], 4);
+            else memcpy(e + b * 4, p, 4), p += 4;
+        memcpy(e + 12, p, 20), p += 20;
+    }
+    f.ixFlags = flags;
     for (DWORD i = 0; i < count; i++) {
         const u8* e = f.idx + i * 32;
         const WORD comp = *(const WORD*)(e + 28);
@@ -233,7 +248,7 @@ static bool SlimRefs(SlimJob& j) {  // Mode 2: candidates, roots and edges; fals
     }
     for (int i = 0; i < j.nf; i++) {
         SlimFile& f = j.f[i];
-        if (f.kind == 0) {  // Meta.data and other plain files: every byte
+        if (f.kind == 0) {  // plain files (1a5tf1l3.dat): every byte
             const u8* b = SvAt(f.v, 0, f.v.size);
             if (!b || f.v.size > kSlimMaxBody) { j.st->unreadable++; return false; }
             if (!SlimScan(j, b, f.v.size, -1)) { j.st->fail = "out of memory (edges)"; return false; }
@@ -413,10 +428,10 @@ static void SlimJobRun(SlimJob& j, const wchar_t* dir, const wchar_t* tmp) {
                 if (n >= 0 && !(j.flag[n] & (SF_KEPT | SF_DROPREACH))) st.texOrphans++;
             }
         }
-        const DWORD idxBytes = 4 + f.count * 32;
-        s.dead = f.v.size > 96 + live + idxBytes ? f.v.size - 96 - live - idxBytes : 0;
+        s.dead = f.v.size > 96 + live + f.ixBytes ? f.v.size - 96 - live - f.ixBytes : 0;
         s.entries[1] = nk, s.bytes[1] += 96 + 4 + nk * 32;
-        if (nk == f.count && s.dead < (1u << 20)) s.result = "left (under 1 MB to gain)";
+        if (f.ixFlags) s.result = "left (compact index: not rewritten)";  // never seen on an ExportDB; the rewrite writes flags 0
+        else if (nk == f.count && s.dead < (1u << 20)) s.result = "left (under 1 MB to gain)";
         else if (st.mode == 0) s.result = "left (Mode 0: measured only)";
         else s.result = SlimRewrite(j, f, keep, nk, tmp);
     }

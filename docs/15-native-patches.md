@@ -638,8 +638,9 @@ Back up `Documents\Electronic Arts\The Sims 3\Saves` first.
 - The game plays from the working copy `CurrentGame.sims3`. It copies the saved folder `Saves\<name>.sims3` only at step 9 of the save and at the load copy (`0xAB16ED`) [verified code]. It holds none of that folder's files open in play [verified: share-mode-0 opens of every file of the loaded save succeed in a running session; only the working copy's `TravelDB.package` is held].
 - `SaveInfoHook` notes the saved folder (info+0x430) for normal saves. After `FUN_00AB1030` returns 0 (every one of 100 logged saves returned 0), `SaveGameHook` starts one worker at background CPU and I/O priority (after `[SaveFlush]`'s worker, if any).
 - The worker reads every file of the folder:
-  - DBPF 2.0 with index type 0, no holes, compression 0 or `0xFFFF` (the only values in the saves checked);
-  - plain files (`Meta.data`, `1a5tf1l3.dat`) as bytes.
+  - DBPF 2.0 with index flags 0 (ExportDB, `.nhd`, `TravelDB.package`) or 7 (`Meta.data`: type, group and instance-high stored once), no holes, compression 0 or `0xFFFF`. An empty package (96-byte header, no index: some `TravelDB.package` files) counts as read. These are the only layouts in the 191 saves checked (2026-10-31) [verified];
+  - plain files (`1a5tf1l3.dat`) as bytes.
+  - Before 2026-10-31 the reader knew only flags 0, so `Meta.data` (a package in every save) made every real save "references NOT read" and Mode 2 dropped nothing. The first in-game Mode 0 run showed it; the selftest had written `Meta.data` as a plain file.
 - Mode 2: the candidates are the outfits and the group-0 textures of the ExportDB packages, one node per instance.
   - Roots: every 8-byte run, at any alignment, of every other body (decoded with `RefpackFast`) and of the plain files that equals a candidate instance. The instance of any other index entry also counts (123 outfits share their number with `.nhd` thumbnails `0x0580A2CD`/`CE`).
   - A candidate's own body names other candidates (outfit -> TXTC -> TXTF); those links are closed from the roots.
@@ -656,7 +657,7 @@ Settings `[SaveSlim]`: `Enabled=0` (needs `[SaveWrite] Enabled=1`, else `SKIP`),
 - then one `save slim: <world>ExportDB.package: entries a -> b, outfits, textures, MB before -> after (dead MB): rewritten | left (why)` per ExportDB;
 - `save slim: waited N ms for the worker` when a save or load had to wait.
 
-Tests: `selftest.exe` (`saveslim-test.h`): made-up save folders, Modes 0/1/2, outfit named only by another outfit, by an index key of another package or by `Meta.data`, texture chains TXTC -> TXTF, orphan textures kept, unknown compression and an undecodable body (Mode 2 -> Mode 1), unknown index type (file untouched), second run with nothing to gain, 64 KB read windows. `saveslim-tool.exe <save folder> [mode]` runs the job outside the game (Mode 0 reads only; Modes 1 and 2 only on a copy).
+Tests: `selftest.exe` (`saveslim-test.h`): made-up save folders, Modes 0/1/2, outfit named only by another outfit, by an index key of another package or by `Meta.data` (a package with index flags 7, as the game writes it), an empty package and a plain file in the folder, texture chains TXTC -> TXTF, orphan textures kept, unknown compression and an undecodable body (Mode 2 -> Mode 1), unknown index type (file untouched), second run with nothing to gain, 64 KB read windows. `saveslim-tool.exe <save folder> [mode]` runs the job outside the game (Mode 0 reads only; Modes 1 and 2 only on a copy).
 
 ### How to test in game
 
