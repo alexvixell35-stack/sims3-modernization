@@ -128,6 +128,8 @@ const KS = `
         {
             try { try { return checked(a * a); } finally { s_i = a; } } catch (OverflowException) { return s_i; }
         }
+        public static int CatchOnly(int a) { int r; try { r = 100 / a; } catch (DivideByZeroException) { r = -2; } return r; }
+        public static int FinallyOnly(int a) { int r = a; try { r += 1; } finally { r *= 2; } return r; }
         public static string Str(int a) { string s = "ab"; if (a > 0) s = s + a; return s; }
 `;
 // superinstruction patterns (docs/130 §9.1): instance kernels of JitKO, compiled through "JitKO.*". Graphs come from MakeKO.
@@ -245,20 +247,25 @@ const STMT_CASES: Case[] = [
                 JitPt[] pa = new JitPt[2]; pa[1].Y = I4[i]; ${T('JitK.StructArr(pa, i & 3)')} ${T('JitK.StructArr(null, 0)')}
             }` },
   { name: 'JitK.Str (ldstr, concat)', body: `for (int i = 0; i < I4.Length; i++) { string s = JitK.Str(I4[i]); h = M(h, s.Length); h = M(h, s.GetHashCode()); }` },
-  { name: 'JitKO superinstructions 0x1AB-0x1C0 (graphs with null links, short arrays, zero size)', body: `JitKO[] g = MakeKO();
+  // superop kernels, one case per kernel over the MakeKO graphs (null links, short arrays, zero size): [kernel, calls, calls after the loop, setup]
+  ...([
+    ['S1AB', ['a.S1AB()']], ['S1AD', ['a.S1AD()']], ['S1AF', ['JitKO.S1AF(a, a.next, c1)'], ['JitKO.S1AF(null, null, true)']],
+    ['S1B3', ['a.S1B3()']], ['S1B4', ['a.S1B4(a.next, a, c1)', 'a.S1B4(null, a.next, c2)']], ['S1B2', ['a.S1B2(k * 3)']],
+    ['S1B8', ['JitKO.S1B8(k, 3)', 'JitKO.S1B8(3, k)']], ['S1BC', ['a.S1BC()']], ['S1BE', ['a.S1BE()']],
+    ['S1BF', ['a.S1BF(k * 7919)', 'a.S1BF(int.MinValue)']], ['S1B9', ['a.S1B9()']], ['S1BA', ['JitKO.S1BA(a, a.next)', 'JitKO.S1BA(a.o, a.o)']],
+    ['S1BD', ['JitKO.S1BD(a.o, null)', 'JitKO.S1BD(null, a.next)']],
+    ['S1B0', ['JitKO.S1B0(a, c1, c2, c3)', 'JitKO.S1B0(a.next, c3, c1, c2)'], ['JitKO.S1B0(null, true, true, false)']],
+    ['S1B7', ['JitKO.S1B7(a)'], ['JitKO.S1B7(null)']], ['S1AC', ['JitKO.S1AC(c1, c2, c3)']], ['S1B5', ['JitKO.S1B5(a.o, a.next, c1)']],
+    ['S1B6', ['a.S1B6()']], ['S1BB', ['JitKO.S1BB(a.objs, k - 1, a.o, a.o)', 'JitKO.S1BB(a.objs, k, a, null)']],
+    ['S1C0', ['a.S1C0(a.next)', 'a.S1C0(a)', 'a.S1C0(a.o)']], ['S1B1', ['JitKO.S1B1(p, a.o)'], [], 'JitPt p; p.X = k; p.Y = 2;'], ['Walk', ['a.Walk()']],
+  ] as [string, string[], string[]?, string?][]).map(([n, calls, after = [], pre = '']) => ({ name: `JitKO.${n} (superop kernel)`, body: `JitKO[] g = MakeKO();
             for (int k = 0; k < g.Length; k++)
             {
                 JitKO a = g[k];
                 bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
-                ${T('a.S1AB()')} ${T('a.S1AD()')} ${T('JitKO.S1AF(a, a.next, c1)')} ${T('a.S1B3()')} ${T('a.S1B4(a.next, a, c1)')} ${T('a.S1B4(null, a.next, c2)')}
-                ${T('a.S1B2(k * 3)')} ${T('JitKO.S1B8(k, 3)')} ${T('JitKO.S1B8(3, k)')} ${T('a.S1BC()')} ${T('a.S1BE()')}
-                ${T('a.S1BF(k * 7919)')} ${T('a.S1BF(int.MinValue)')} ${T('a.S1B9()')} ${T('JitKO.S1BA(a, a.next)')} ${T('JitKO.S1BA(a.o, a.o)')}
-                ${T('JitKO.S1BD(a.o, null)')} ${T('JitKO.S1BD(null, a.next)')} ${T('JitKO.S1B0(a, c1, c2, c3)')} ${T('JitKO.S1B0(a.next, c3, c1, c2)')} ${T('JitKO.S1B7(a)')}
-                ${T('JitKO.S1AC(c1, c2, c3)')} ${T('JitKO.S1B5(a.o, a.next, c1)')} ${T('a.S1B6()')} ${T('JitKO.S1BB(a.objs, k - 1, a.o, a.o)')}
-                ${T('a.S1C0(a.next)')} ${T('a.S1C0(a)')} ${T('a.S1C0(a.o)')}
-                ${T('JitKO.S1BB(a.objs, k, a, null)')} JitPt p; p.X = k; p.Y = 2; ${T('JitKO.S1B1(p, a.o)')} ${T('a.Walk()')}
+                ${pre}${calls.map(T).join(' ')}
             }
-            ${T('JitKO.S1AF(null, null, true)')} ${T('JitKO.S1B7(null)')} ${T('JitKO.S1B0(null, true, true, false)')}` },
+            ${after.map(T).join(' ')}` })),
 ];
 function bclCases(): Case[] {
   const dict = (ty: string, key: (i: string) => string, label: string): Case => ({
@@ -332,6 +339,9 @@ function bclCases(): Case[] {
 }
 // methods with clauses last: P0 compiles them unverified, and a CPU fault in one stops the corpus
 const CLAUSE_CASES: Case[] = [
+  { name: 'JitK.CatchOnly, no exception (leave out of a try)', body: `${T('JitK.CatchOnly(5)')}` },
+  { name: 'JitK.CatchOnly, DivideByZeroException caught', body: `${T('JitK.CatchOnly(0)')}` },
+  { name: 'JitK.FinallyOnly (leave through a finally, endfinally)', body: `${T('JitK.FinallyOnly(5)')}` },
   { name: 'JitK.TryCatch, no exception (try, finally)', body: `${T('JitK.TryCatch(5)')} ${T('JitK.TryCatch(int.MaxValue)')}` },
   { name: 'JitK.TryCatch, ArgumentException thrown and caught', body: `${T('JitK.TryCatch(-1)')} ${T('JitK.TryCatch(int.MinValue)')}` },
   { name: 'JitK.TryCatch, DivideByZeroException from div.i4 caught', body: `${T('JitK.TryCatch(0)')}` },
@@ -453,16 +463,40 @@ export function jitList(src: string): string {
 }
 
 // ---- report ----
-export type Report = { cases: number; differ: number; unstable: number; lines: string[]; verify?: string; superops: string[]; missingSuper: string[] };
+export type Report = { cases: number; differ: number; unstable: number; traceOnly: number; lines: string[]; verify?: string; superops: string[]; missingSuper: string[] };
+// EA's trace printer (0xE52A0F) prints offset 0 and "superop" for a frame whose ip word is a superop (>= 0x1AA); a compiled
+// frame (JIT_OP 0x1A9 there) prints the true offset. Trails equal but for such frames: the case differs in stack-trace text only.
+export function traceOnly(interp: string, comp: string): boolean {
+  if (interp.length >= 1100 || comp.length >= 1100) return false;  // the C# trail stops at 1100 chars
+  const seg = (t: string) => t.split(' | ').filter(s => s.trim()).map(s => /^(\S+) #0: 0x([0-9a-f]+)\s+(?:(\S+)\s+)?in (.+?\(.*?\))/.exec(s.trim()));
+  const a = seg(interp), b = seg(comp);
+  let used = false;
+  const same = a.length === b.length && a.every((x, i) => {
+    const y = b[i];
+    if (!x || !y || x[1] !== y[1] || x[4] !== y[4]) return false;
+    if (x[2] === y[2]) return true;
+    return used = x[3] === 'superop' && x[2] === '00000';
+  });
+  return same && used;
+}
 export function report(log: string, dump: string | undefined, names: string[]): Report {
-  const r: Report = { cases: 0, differ: 0, unstable: 0, lines: [], superops: [], missingSuper: [] };
+  const r: Report = { cases: 0, differ: 0, unstable: 0, traceOnly: 0, lines: [], superops: [], missingSuper: [] };
+  const trails: Record<string, Record<string, string>> = {}, mism: [number, string][] = [];
   for (const l of log.split(/\r?\n/)) {
     let m = /^jit corpus: (\d+) cases, (\d+) differ, (\d+) unstable;(.*)$/.exec(l);
     if (m) { r.cases = +m[1]; r.differ = +m[2]; r.unstable = +m[3]; r.verify = m[4].trim(); continue; }
     m = /^jit corpus (MISMATCH|UNSTABLE|FAULT) case (\d+): (.*)$/.exec(l);
-    if (m) { r.lines.push(`${m[1]} ${m[2]} ${names[+m[2]] ?? '?'}: ${m[3]}`); continue; }
-    m = /^jit corpus trail case \d+ (interpreted|compiled): (.*)$/.exec(l);
-    if (m) r.lines.push(`    ${m[1]}: ${m[2].slice(0, 400)}`);
+    if (m) { if (m[1] === 'MISMATCH') mism.push([r.lines.length, m[2]]); r.lines.push(`${m[1]} ${m[2]} ${names[+m[2]] ?? '?'}: ${m[3]}`); continue; }
+    m = /^jit corpus trail case (\d+) (interpreted|compiled): (.*)$/.exec(l);
+    if (m) { (trails[m[1]] ??= {})[m[2]] = m[3]; r.lines.push(`    ${m[2]}: ${m[3].slice(0, 400)}`); }
+  }
+  // values: the per-call verifier compared every compiled call that returned; only then is a trace-only label safe
+  if (/MISMATCH 0,/.test(r.verify ?? '')) for (const [i, c] of mism) {
+    const t = trails[c];
+    if (t?.interpreted !== undefined && t.compiled !== undefined && traceOnly(t.interpreted, t.compiled)) {
+      r.lines[i] = r.lines[i].replace(/^MISMATCH/, 'MISMATCH (stack-trace text only: EA prints offset 0 at a superop)');
+      r.traceOnly++;
+    }
   }
   if (dump) {  // superops seen in the methods the corpus compiled (mint listing, then "compiled:" when P0 compiled it)
     const seen = new Set<string>();
@@ -499,6 +533,8 @@ function selfCheck() {
   ok(r.cases === 3 && r.differ === 1 && r.unstable === 1 && r.lines[0] === 'MISMATCH 1 b: compiled 0000002A interpreted 0000002B'
     && r.lines[1] === '    compiled: DivideByZeroException at X | ', 'log parse');
   ok(r.superops.join() === '1AB' && r.missingSuper.length === 21 && !r.missingSuper.includes('1AB'), 'superop coverage from the dump');
+  const fi = 'NullReferenceException #0: 0x00000 superop    in N.K:S (N.K,bool) ([0CED8F20] [0] ) | ', fc = 'NullReferenceException #0: 0x00010            in N.K:S (N.K,bool) ([0CED8E60] [0] ) | ';
+  ok(traceOnly(fi, fc) && !traceOnly(fc, fc) && !traceOnly(fi.replace('0x00000 superop', '0x00004 ldfld.o'), fc), 'trace-only rule (superop offset)');
   console.log(`jit-corpus self-check: ${k} checks${process.exitCode ? ', FAILED' : ', ok'}`);
 }
 
@@ -509,10 +545,10 @@ if (import.meta.main) {
   else if (arg('--report')) {
     const d = arg('--dump'), r = report(readFileSync(arg('--report')!, 'utf8'), d ? readFileSync(d, 'utf8') : undefined, cases().map(c => c.name));
     if (!r.cases) { console.log('jit-corpus: no "jit corpus:" summary line (MONOHOST_JITCORPUS=1 set? MonoHostTest.dll built with JitCorpus.cs?)'); process.exitCode = 1; }
-    else console.log(`jit-corpus: ${r.cases} cases, ${r.differ} differ, ${r.unstable} unstable; ${r.verify}`);
+    else console.log(`jit-corpus: ${r.cases} cases, ${r.differ} differ${r.traceOnly ? ` (${r.traceOnly} in stack-trace text only)` : ''}, ${r.unstable} unstable; ${r.verify}`);
     for (const l of r.lines) console.log(`  ${l}`);
-    if (d) console.log(`superops in the compiled kernels: ${r.superops.length} of 22${r.missingSuper.length ? ` (missing ${r.missingSuper.join(' ')})` : ''}`);
-    const review = r.lines.length + (r.cases ? 0 : 1);
+    if (d) console.log(`superops in the compiled methods: ${r.superops.length} of 22${r.missingSuper.length ? ` (missing ${r.missingSuper.join(' ')})` : ''}`);
+    const review = r.lines.length - 3 * r.traceOnly + (r.cases ? 0 : 1);  // a trace-only mismatch and its two trail lines
     console.log(`needs review: ${review ? `${review} item(s) above` : 'none'}`);
   } else console.log('usage: --write | --env | --report <monohost.exe.log> [--dump <jit-dump.txt>] | --self-check');
 }

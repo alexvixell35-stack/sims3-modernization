@@ -4,7 +4,7 @@
 //
 // How it works (details in docs/207 §8):
 // - transform 0xE643B0 is wrapped; a listed method gets compiled right after EA's transform + peephole.
-// - every instruction start of a compiled method gets its opcode word replaced by JIT_OP (0x1A9, an opcode EA never emits;
+// - every instruction start of a compiled method (but leave.s, see JitWord) gets its opcode word replaced by JIT_OP (0x1A9, an opcode EA never emits;
 //   its jump-table entry points to JitEnter). The original words live in a shadow; nothing else in the code changes, so ip
 //   values, operands, clause ranges and branch offsets stay EA's.
 // - JitEnter maps edi (ip) to the native code of that instruction (hash) and jumps there. Native code runs inside the
@@ -424,6 +424,10 @@ static void JitPreTransform(u8* rm, void* ctx) {
     }
 }
 
+// the word a compiled position gets: JIT_OP, except leave.s. EA's leave / leave.s handler 0xE59315 re-reads [edi] to pick
+// the operand size (0xE5933A cmp word ptr [edi], 0x9C): with JIT_OP there it reads leave.s's 16-bit offset plus the next
+// word as a 32-bit offset and jumps to a wild ip. leave.s always exits to that handler, so its own word can stay.
+static unsigned short JitWord(unsigned short orig) { return orig == 0x9C ? orig : (unsigned short)JIT_OP; }
 // compile one method: returns false (and leaves the code alone) if anything does not fit
 static void JitCompiled(u8* rm) {
     if (!g_jitTab || g_jitMethN >= 4096) return;
@@ -612,7 +616,7 @@ static void JitCompiled(u8* rm) {
     g_jitMethN++;
     g_jitCodeUsed += M.bytes + 1;
     g_jitCodeUsed = (g_jitCodeUsed + 15) & ~(size_t)15;
-    if (g_jitPatched) for (int k = M.pos0; k < M.posN; k++) code[g_jitPos[k]] = (unsigned short)JIT_OP;
+    if (g_jitPatched) for (int k = M.pos0; k < M.posN; k++) code[g_jitPos[k]] = JitWord(g_jitOrigW[k]);
     if (g_jitDump) fprintf(g_jitDump, "   compiled: %d positions, %d native, %d exits, %d bytes, verify %s\n", n, nat, ex, M.bytes, M.verifyOk ? "yes" : "no");
 }
 
@@ -620,7 +624,7 @@ static void JitCompiled(u8* rm) {
 static void JitSetPatched(bool on) {
     for (int m = 0; m < g_jitMethN; m++)
         for (int k = g_jitMeth[m].pos0; k < g_jitMeth[m].posN; k++)
-            g_jitMeth[m].code[g_jitPos[k]] = on ? (unsigned short)JIT_OP : g_jitOrigW[k];
+            g_jitMeth[m].code[g_jitPos[k]] = on ? JitWord(g_jitOrigW[k]) : g_jitOrigW[k];
     g_jitPatched = on;
 }
 

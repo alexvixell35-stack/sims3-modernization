@@ -142,6 +142,8 @@ namespace MonoHostTest
         {
             try { try { return checked(a * a); } finally { s_i = a; } } catch (OverflowException) { return s_i; }
         }
+        public static int CatchOnly(int a) { int r; try { r = 100 / a; } catch (DivideByZeroException) { r = -2; } return r; }
+        public static int FinallyOnly(int a) { int r = a; try { r += 1; } finally { r *= 2; } return r; }
         public static string Str(int a) { string s = "ab"; if (a > 0) s = s + a; return s; }
     }
     public class JitKO
@@ -187,7 +189,7 @@ namespace MonoHostTest
 
     public static class JitCorpus
     {
-        public const int Count = 124;
+        public const int Count = 148;
         static readonly int[] I4 = { 0, 1, -1, 2, -2, 3, 7, -7, 16, 31, 32, 33, 0x7FFF, 0x8000, 0xFFFF, 0x10000, 0x3FFFFFFF, 0x40000000, int.MaxValue, int.MinValue, int.MinValue + 1, int.MaxValue - 1 };
         static readonly long[] I8 = { 0L, 1L, -1L, 2L, -2L, 7L, 0x7FFFFFFFL, 0x80000000L, -0x80000000L, 0xFFFFFFFFL, 0x100000000L, long.MaxValue, long.MinValue, long.MinValue + 1, -3037000500L, 3037000500L };
         static readonly int[] SH = { 0, 1, 7, 15, 16, 31, 32, 33, 63, 64, 65, -1, int.MinValue };
@@ -818,25 +820,271 @@ namespace MonoHostTest
             for (int i = 0; i < I4.Length; i++) { string s = JitK.Str(I4[i]); h = M(h, s.Length); h = M(h, s.GetHashCode()); }
                     return h;
                 }
-                case 103: // JitKO superinstructions 0x1AB-0x1C0 (graphs with null links, short arrays, zero size)
+                case 103: // JitKO.S1AB (superop kernel)
                 {
             JitKO[] g = MakeKO();
             for (int k = 0; k < g.Length; k++)
             {
                 JitKO a = g[k];
                 bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
-                try { h = M(h, a.S1AB()); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1AD()); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1AF(a, a.next, c1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1B3()); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1B4(a.next, a, c1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1B4(null, a.next, c2)); } catch (Exception e) { h = X(h, e); }
-                try { h = M(h, a.S1B2(k * 3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B8(k, 3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B8(3, k)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1BC()); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1BE()); } catch (Exception e) { h = X(h, e); }
-                try { h = M(h, a.S1BF(k * 7919)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1BF(int.MinValue)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1B9()); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1BA(a, a.next)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1BA(a.o, a.o)); } catch (Exception e) { h = X(h, e); }
-                try { h = M(h, JitKO.S1BD(a.o, null)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1BD(null, a.next)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B0(a, c1, c2, c3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B0(a.next, c3, c1, c2)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B7(a)); } catch (Exception e) { h = X(h, e); }
-                try { h = M(h, JitKO.S1AC(c1, c2, c3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B5(a.o, a.next, c1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1B6()); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1BB(a.objs, k - 1, a.o, a.o)); } catch (Exception e) { h = X(h, e); }
-                try { h = M(h, a.S1C0(a.next)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1C0(a)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1C0(a.o)); } catch (Exception e) { h = X(h, e); }
-                try { h = M(h, JitKO.S1BB(a.objs, k, a, null)); } catch (Exception e) { h = X(h, e); } JitPt p; p.X = k; p.Y = 2; try { h = M(h, JitKO.S1B1(p, a.o)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.Walk()); } catch (Exception e) { h = X(h, e); }
+                try { h = M(h, a.S1AB()); } catch (Exception e) { h = X(h, e); }
             }
-            try { h = M(h, JitKO.S1AF(null, null, true)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B7(null)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B0(null, true, true, false)); } catch (Exception e) { h = X(h, e); }
+            
                     return h;
                 }
-                case 104: // Dictionary<int,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
+                case 104: // JitKO.S1AD (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, a.S1AD()); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 105: // JitKO.S1AF (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, JitKO.S1AF(a, a.next, c1)); } catch (Exception e) { h = X(h, e); }
+            }
+            try { h = M(h, JitKO.S1AF(null, null, true)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 106: // JitKO.S1B3 (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, a.S1B3()); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 107: // JitKO.S1B4 (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, a.S1B4(a.next, a, c1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1B4(null, a.next, c2)); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 108: // JitKO.S1B2 (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, a.S1B2(k * 3)); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 109: // JitKO.S1B8 (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, JitKO.S1B8(k, 3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B8(3, k)); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 110: // JitKO.S1BC (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, a.S1BC()); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 111: // JitKO.S1BE (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, a.S1BE()); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 112: // JitKO.S1BF (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, a.S1BF(k * 7919)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1BF(int.MinValue)); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 113: // JitKO.S1B9 (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, a.S1B9()); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 114: // JitKO.S1BA (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, JitKO.S1BA(a, a.next)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1BA(a.o, a.o)); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 115: // JitKO.S1BD (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, JitKO.S1BD(a.o, null)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1BD(null, a.next)); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 116: // JitKO.S1B0 (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, JitKO.S1B0(a, c1, c2, c3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B0(a.next, c3, c1, c2)); } catch (Exception e) { h = X(h, e); }
+            }
+            try { h = M(h, JitKO.S1B0(null, true, true, false)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 117: // JitKO.S1B7 (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, JitKO.S1B7(a)); } catch (Exception e) { h = X(h, e); }
+            }
+            try { h = M(h, JitKO.S1B7(null)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 118: // JitKO.S1AC (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, JitKO.S1AC(c1, c2, c3)); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 119: // JitKO.S1B5 (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, JitKO.S1B5(a.o, a.next, c1)); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 120: // JitKO.S1B6 (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, a.S1B6()); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 121: // JitKO.S1BB (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, JitKO.S1BB(a.objs, k - 1, a.o, a.o)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1BB(a.objs, k, a, null)); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 122: // JitKO.S1C0 (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, a.S1C0(a.next)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1C0(a)); } catch (Exception e) { h = X(h, e); } try { h = M(h, a.S1C0(a.o)); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 123: // JitKO.S1B1 (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                JitPt p; p.X = k; p.Y = 2;try { h = M(h, JitKO.S1B1(p, a.o)); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 124: // JitKO.Walk (superop kernel)
+                {
+            JitKO[] g = MakeKO();
+            for (int k = 0; k < g.Length; k++)
+            {
+                JitKO a = g[k];
+                bool c1 = (k & 1) == 0, c2 = (k & 2) == 0, c3 = (k & 4) == 0;
+                try { h = M(h, a.Walk()); } catch (Exception e) { h = X(h, e); }
+            }
+            
+                    return h;
+                }
+                case 125: // Dictionary<int,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
                 {
             int[] sizes = new int[] { 0, 1, 3, 7, 17, 100, 1000 };
             for (int s = 0; s < sizes.Length; s++)
@@ -854,7 +1102,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 105: // Dictionary<string,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
+                case 126: // Dictionary<string,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
                 {
             int[] sizes = new int[] { 0, 1, 3, 7, 17, 100, 1000 };
             for (int s = 0; s < sizes.Length; s++)
@@ -872,7 +1120,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 106: // Dictionary<ulong,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
+                case 127: // Dictionary<ulong,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
                 {
             int[] sizes = new int[] { 0, 1, 3, 7, 17, 100, 1000 };
             for (int s = 0; s < sizes.Length; s++)
@@ -890,7 +1138,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 107: // Dictionary<ObjectGuid,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
+                case 128: // Dictionary<ObjectGuid,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
                 {
             int[] sizes = new int[] { 0, 1, 3, 7, 17, 100, 1000 };
             for (int s = 0; s < sizes.Length; s++)
@@ -908,7 +1156,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 108: // Dictionary<colliding struct key,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
+                case 129: // Dictionary<colliding struct key,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
                 {
             int[] sizes = new int[] { 0, 1, 3, 7, 17, 100, 1000 };
             for (int s = 0; s < sizes.Length; s++)
@@ -926,7 +1174,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 109: // Dictionary<enum,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
+                case 130: // Dictionary<enum,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
                 {
             int[] sizes = new int[] { 0, 1, 3, 7, 17, 100, 1000 };
             for (int s = 0; s < sizes.Length; s++)
@@ -944,12 +1192,12 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 110: // Dictionary<string,int> null key
+                case 131: // Dictionary<string,int> null key
                 {
             Dictionary<string, int> d = new Dictionary<string, int>(); try { h = M(h, NullKey(d)); } catch (Exception e) { h = X(h, e); } int v; try { h = M(h, d.TryGetValue(null, out v)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 111: // List<int> / List<object> (growth, indexer bounds, enumerator, modification)
+                case 132: // List<int> / List<object> (growth, indexer bounds, enumerator, modification)
                 {
             for (int n = 0; n < 40; n++)
             {
@@ -962,7 +1210,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 112: // Array.Resize / Array.IndexOf (null, negative size, missing, null elements)
+                case 133: // Array.Resize / Array.IndexOf (null, negative size, missing, null elements)
                 {
             int[] sz = new int[] { -1, 0, 1, 2, 5, 64, 65 };
             for (int s = 0; s < sz.Length; s++)
@@ -974,7 +1222,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 113: // Enum.Equals / Enum.GetHashCode (underlying types, other enum types, null)
+                case 134: // Enum.Equals / Enum.GetHashCode (underlying types, other enum types, null)
                 {
             object[] es = new object[] { DayOfWeek.Monday, DayOfWeek.Sunday, (JitE8)1, (JitE8)255, (JitE64)(-1L), (JitE64)long.MaxValue, (JitEU64)ulong.MaxValue, 1, null };
             for (int i = 0; i < es.Length; i++)
@@ -984,13 +1232,13 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 114: // Type.GetTypeFromHandle / RuntimeTypeHandle
+                case 135: // Type.GetTypeFromHandle / RuntimeTypeHandle
                 {
             Type[] ts = new Type[] { typeof(int), typeof(List<int>), typeof(Dictionary<string, JitKO>), typeof(JitPt[]), typeof(JitKO2) };
             for (int i = 0; i < ts.Length; i++) { h = M(h, ts[i].Name.GetHashCode()); h = M(h, ts[i] == typeof(int)); h = M(h, Type.GetTypeFromHandle(ts[i].TypeHandle) == ts[i]); }
                     return h;
                 }
-                case 115: // UInt64 / Int32 GetHashCode + Equals, EqualityComparer default / IEquatable
+                case 136: // UInt64 / Int32 GetHashCode + Equals, EqualityComparer default / IEquatable
                 {
             for (int i = 0; i < I8.Length; i++)
             {
@@ -1002,13 +1250,13 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 116: // ObjectGuid == / != (0, max, near values)
+                case 137: // ObjectGuid == / != (0, max, near values)
                 {
             ulong[] g = new ulong[] { 0, 1, 977, ulong.MaxValue, ulong.MaxValue - 1, 0x100000000UL };
             for (int i = 0; i < g.Length; i++) for (int j = 0; j < g.Length; j++) { h = M(h, new ObjectGuid(g[i]) == new ObjectGuid(g[j])); h = M(h, new ObjectGuid(g[i]) != new ObjectGuid(g[j])); }
                     return h;
                 }
-                case 117: // CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags (bit patterns)
+                case 138: // CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags (bit patterns)
                 {
             for (int b = 0; b < 32; b++) for (int k = 0; k < 4; k++)
             {
@@ -1017,7 +1265,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 118: // Single.IsNaN / Math.Max / Math.Min (NaN payloads, -0, inf)
+                case 139: // Single.IsNaN / Math.Max / Math.Min (NaN payloads, -0, inf)
                 {
             for (int i = 0; i < R4.Length; i++) h = M(h, float.IsNaN(R4[i]));
             for (int i = 0; i < R8.Length; i++) for (int j = 0; j < R8.Length; j++) { h = M(h, Math.Max(R8[i], R8[j])); h = M(h, Math.Min(R8[i], R8[j])); }
@@ -1026,27 +1274,42 @@ namespace MonoHostTest
             for (int i = 0; i < I8.Length; i++) for (int j = 0; j < I8.Length; j++) { h = M(h, Math.Max(I8[i], I8[j])); h = M(h, Math.Min(I8[i], I8[j])); }
                     return h;
                 }
-                case 119: // JitK.TryCatch, no exception (try, finally)
+                case 140: // JitK.CatchOnly, no exception (leave out of a try)
+                {
+            try { h = M(h, JitK.CatchOnly(5)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 141: // JitK.CatchOnly, DivideByZeroException caught
+                {
+            try { h = M(h, JitK.CatchOnly(0)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 142: // JitK.FinallyOnly (leave through a finally, endfinally)
+                {
+            try { h = M(h, JitK.FinallyOnly(5)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 143: // JitK.TryCatch, no exception (try, finally)
                 {
             try { h = M(h, JitK.TryCatch(5)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.TryCatch(int.MaxValue)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 120: // JitK.TryCatch, ArgumentException thrown and caught
+                case 144: // JitK.TryCatch, ArgumentException thrown and caught
                 {
             try { h = M(h, JitK.TryCatch(-1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.TryCatch(int.MinValue)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 121: // JitK.TryCatch, DivideByZeroException from div.i4 caught
+                case 145: // JitK.TryCatch, DivideByZeroException from div.i4 caught
                 {
             try { h = M(h, JitK.TryCatch(0)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 122: // JitK.Nested, no overflow (return through finally)
+                case 146: // JitK.Nested, no overflow (return through finally)
                 {
             try { h = M(h, JitK.Nested(3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.Nested(-46340)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 123: // JitK.Nested, OverflowException through finally into catch
+                case 147: // JitK.Nested, OverflowException through finally into catch
                 {
             try { h = M(h, JitK.Nested(46341)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.Nested(int.MinValue)); } catch (Exception e) { h = X(h, e); }
                     return h;
