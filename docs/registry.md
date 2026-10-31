@@ -136,7 +136,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 602-604 | `AutShadow.cs` ClosureSweep (`fixes-602`, G-M6, PR #112 / docs/215), `autshadow` | built 2026-10-31 (offline only): 602 closure methods IL-hashed (`autshadow_gm6_methods`), 603 hashes not in `AutShadowIlHashes.Known` (owners whose closure reaches one are skipped, 606) (`autshadow_gm6_mismatch`), 604 hashing us (`autshadow_gm6_us`); array `new int[605]` |
 | 605 | `AutShadow.cs` ClosureSweep (`fixes-605`, G-M6) | guard faults (`autshadow_gm6_faults`): > 3 closure methods on `AutShadowIlHashes.KnownMvids` modules hash differently = hash/runtime disagreement, IL check ignored for the load (MVID + L3 only), loud log line |
 | 606 | `AutShadow.cs` ApplyIlOwners (`fixes-606`, G-M6) | owners (definitions + implementors) skipped this load because their closure reaches a method not from a checked build (`autshadow_gm6_owners_skipped`; `AutShadowLists.MethodOwners`); array `new int[607]` |
-| **607+** | next free | reserve here  |
+| 607-609 | `OutfitWait.cs` (`fixes-607`, issue #115, docs/222), `outfitwaitpoll` | built 2026-10-31 (self-test only): 607 outfit waits not ready after 60 sim-minutes, now polled once per sim-minute (`outfitwaitpoll_stale`), 608 minute polls (`_polls`), 609 stale waits that later became ready (`_ended`); array `new int[610]` |
+| **610+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 

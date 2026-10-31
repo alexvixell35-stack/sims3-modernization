@@ -45343,5 +45343,202 @@
     "switches": [
       "autshadow"
     ]
+  },
+  {
+    "id": "outfit-wait-stale-check",
+    "bug": "issue #115: Sim.SwitchOutfitHelper.Wait loops on Simulator.Sleep(1) until mReady; an Abort while it waits (another helper's Start on the Sim, MagicalMakeover.Cleanup) cancels the swap, so the waiting task wakes every tick for the rest of the session (a magical-makeover alarm, 3.0 ms per sim-minute on the day-406 save)",
+    "fix": "ts3fixes OutfitWait.cs: outfitwaitpoll (default off), docs/222",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-10-31). The test Sim's outfit does not change: its swap is cancelled before it completes and \"ready\" ends the wait without ChangeOutfit. \"start\" refuses while a test wait exists; \"stop\" ends both tasks.",
+    "expect": "off: abort task \"aborted in the loop\", wait task running, outfitwaitpoll counters 0, wait gone a tick after \"ready\". on: after 60 sim-minutes outfitwaitpoll_stale 1 and a ts3native.log line \"outfitwaitpoll: <name> outfit wait not ready after 60 sim-minutes (aborted True)\", outfitwaitpoll_polls about 1 per sim-minute, then after \"ready\" outfitwaitpoll_ended 1 and the wait gone within a sim-minute. The Sim keeps its outfit in both arms.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitpoll": false
+        },
+        "note": "applied log lists Sim+SwitchOutfitHelper.Wait: ok"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "note": "off: names the Sim and the outfit category it waits for"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: abort task \"aborted in the loop\" (else stop and start again), ready False, wait task running",
+        "waitS": 5
+      },
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "off: more than 60 sim-minutes pass"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: wait task still running, counters 0 (EA: one wake per tick)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "ready"
+          ]
+        },
+        "note": "off: mReady set"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: wait task gone",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "off: done"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitpoll": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "note": "on: same Sim"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: abort task \"aborted in the loop\", wait task running, stale 0",
+        "waitS": 5
+      },
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "on: more than 60 sim-minutes pass"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: stale 1, minute polls > 0; ts3native.log outfitwaitpoll line"
+      },
+      {
+        "cmd": "time",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: minute polls grew by about the sim-minutes passed"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "ready"
+          ]
+        },
+        "note": "on: mReady set"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: ended 1, wait task gone (within a sim-minute)",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "on: done"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "ends both test tasks if a step failed"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitpoll": false
+        }
+      }
+    ]
   }
 ]
