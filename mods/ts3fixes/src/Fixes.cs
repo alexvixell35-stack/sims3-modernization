@@ -234,12 +234,14 @@ namespace Ts3Fixes
         // [491-533] unseen wake-ups (WakePark.cs, docs/211: wakeprobe / wakepark / wakepoll): see the header of WakePark.cs.
         // [602-604] [AutShadow] G-M6 (AutShadow.cs ClosureSweep, PR #112): closure methods IL-hashed, hashes not from a checked
         // build (owners whose closure reaches it skipped), hashing us. [605] G-M6 guard faults (> 3 mismatches on checked-build MVIDs: IL check ignored). [606] G-M6 owners (definitions + implementors) skipped this load.
+        // [607-609] reserved by PR #146 (outfitwaitpoll). [610-611] bakesaleseller (BakeSale.cs, issue #102): dead-seller reads,
+        // orphaned NPC tables given a new clean-up alarm.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[607]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[612]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -360,6 +362,7 @@ namespace Ts3Fixes
                 case "firepitchair": return Instantiator.kFirePitChair;
                 case "ageupkeepoutfits": return Instantiator.kAgeUpKeepOutfits;
                 case "deadrefguards": return Instantiator.kDeadRefGuards;
+                case "bakesaleseller": return Instantiator.kBakeSaleSeller;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;
                 case "savecleanupaggressive": return Instantiator.kSaveCleanupAggressive;
                 case "vacexport": return Instantiator.kVacExport;

@@ -45343,5 +45343,147 @@
     "switches": [
       "autshadow"
     ]
+  },
+  {
+    "id": "bake-sale-dead-seller-check",
+    "bug": "issue #102: BakeSaleTable keeps a deleted seller (mSeller is cleared only by StopTending and the table reset); HasSeller is only mSeller != null, so every PurchaseAutonomously throws in Run, and an NPC table's clean-up handler throws after removing its own alarm, so the table is never cleaned up",
+    "fix": "ts3fixes BakeSale.cs: bakesaleseller (default off), docs/223",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED in this form (the same fix ran live as a core patch, 2 sessions). The check builds the bug state on a test NPC table out of the world (tableBakeSale, EP2) with a new Sim as seller, deleted as remove_sims does. No household Sim is touched. \"rearm\" runs the load-time part directly (OnStartup only runs at load).",
+    "expect": "off: HasSeller True with the deleted seller, the clean-up handler throws NullReferenceException and the table stays, no re-arm, counters 0. on: HasSeller False and GetSeller null (bakesaleseller_reads > 0), rearm gives the table an alarm (bakesaleseller_rearmed 1), the handler returns and destroys the table.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bakesaleseller": false
+        },
+        "note": "applied log lists BakeSaleTable.get_GetSeller, get_HasSeller, OnStartup: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "note": "off: table id, seller name, switch False"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: stored seller destroyed True (queue null), HasSeller True, GetSeller set, alarm none, counters 0"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "rearm"
+          ]
+        },
+        "note": "off: switch off, alarm none"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "cleanup"
+          ]
+        },
+        "note": "off: handler threw NullReferenceException, table destroyed False"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "off: done"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bakesaleseller": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "note": "on: a new table and seller"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: HasSeller False, GetSeller null, dead-seller reads > 0"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "rearm"
+          ]
+        },
+        "note": "on: re-armed True, alarm set, re-armed 1"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "cleanup"
+          ]
+        },
+        "note": "on: handler returned, table destroyed True"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "on: done"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "destroys the test table if a step failed"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bakesaleseller": false
+        }
+      }
+    ]
   }
 ]
