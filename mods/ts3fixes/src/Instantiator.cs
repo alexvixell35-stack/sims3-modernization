@@ -121,6 +121,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kFirePitChair = false;        // opt-in, changes save data: fire pit test chairs destroyed before a save (EaFixes.cs, issue #90)
         [Tunable] public static bool kAgeUpKeepOutfits = false;    // opt-in until verified: a failed or cancelled age-up builder keeps the Sim's outfits instead of wiping them (EaFixes.cs, issue #100)
         [Tunable] public static bool kDeadRefGuards = false;       // opt-in until verified: Relationship.Get makes no entry for a disposed description, dead aging states skipped (DeadRefs.cs, issue #91)
+        [Tunable] public static bool kUniformBackup = false;       // opt-in until verified: the shared career uniform backup is cleared once uncached, so a later re-uniform cannot uncache the new Career outfit (UniformBackup.cs, issue #101)
         [Tunable] public static bool kDeadRefSweep = false;        // opt-in, changes save data: EA holders of disposed descriptions / destroyed Sims cleaned, spread hourly + cheap pre-save pass (DeadRefs.cs, issue #91)
         [Tunable] public static bool kVacExport = false;           // opt-in until verified: free vacation adults keep dreams, opportunities, travel moodlets (EaVacation.cs, issue #97 row 1)
         [Tunable] public static bool kVacStoreGuard = false;       // opt-in until verified: opportunity travel store guarded + stuck trips repaired at load (EaVacation.cs, issue #97 row 2)
