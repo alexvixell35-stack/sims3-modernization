@@ -185,7 +185,7 @@ namespace MonoHostTest
 
     public static class JitCorpus
     {
-        public const int Count = 114;
+        public const int Count = 120;
         static readonly int[] I4 = { 0, 1, -1, 2, -2, 3, 7, -7, 16, 31, 32, 33, 0x7FFF, 0x8000, 0xFFFF, 0x10000, 0x3FFFFFFF, 0x40000000, int.MaxValue, int.MinValue, int.MinValue + 1, int.MaxValue - 1 };
         static readonly long[] I8 = { 0L, 1L, -1L, 2L, -2L, 7L, 0x7FFFFFFFL, 0x80000000L, -0x80000000L, 0xFFFFFFFFL, 0x100000000L, long.MaxValue, long.MinValue, long.MinValue + 1, -3037000500L, 3037000500L };
         static readonly int[] SH = { 0, 1, 7, 15, 16, 31, 32, 33, 63, 64, 65, -1, int.MinValue };
@@ -206,8 +206,11 @@ namespace MonoHostTest
         {
             string s = e.StackTrace, f = "";
             if (s != null) { int nl = s.IndexOf('\n'); f = nl < 0 ? s : s.Substring(0, nl); }
+            if (s_trail != null && s_trail.Length < 1100) s_trail.Append(e.GetType().Name).Append(' ').Append(f.Trim()).Append(" | ");
             return M(M(M(h, 0x5EED), e.GetType().FullName.GetHashCode()), f.GetHashCode());
         }
+        static System.Text.StringBuilder s_trail;
+        public static string Trail(int c) { s_trail = new System.Text.StringBuilder(); Run(c); string t = s_trail.ToString(); s_trail = null; return t; }
         static JitKO[] MakeKO()
         {
             JitKO a = new JitKO(), b = new JitKO(), c = new JitKO2(), e = new JitKO();
@@ -701,7 +704,7 @@ namespace MonoHostTest
             for (int i = 0; i < I4.Length; i++) for (int j = 0; j < 3; j++) { object b = JitK.Box(I4[i], j - 1); h = M(h, b == null ? 0 : b.GetHashCode()); }
                     return h;
                 }
-                case 94: // JitK.Ldelem* / Stelem* / Ldlen (bounds, null, covariance)
+                case 94: // JitK.LdelemI1 / LdelemU2 / LdelemI8 (bounds)
                 {
             int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
             sbyte[] sb = new sbyte[] { -128, -1, 127 }; ushort[] us = new ushort[] { 0, 0x8000, 0xFFFF }; long[] ls = new long[] { long.MinValue, -1, long.MaxValue };
@@ -710,14 +713,81 @@ namespace MonoHostTest
             for (int k = 0; k < ix.Length; k++)
             {
                 int i = ix[k];
-                try { h = M(h, JitK.LdelemI1(sb, i)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.LdelemU2(us, i)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.LdelemI8(ls, i)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.LdelemR8(ds, i)); } catch (Exception e) { h = X(h, e); }
-                try { h = M(h, JitK.LdelemR4(fs, i)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.LdelemRef(ob, i)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.Stelem(ia, i, i * 3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.StelemRef(st, i, "v")); } catch (Exception e) { h = X(h, e); }
-                try { h = M(h, JitK.StelemRef(st, i, (object)5)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.LdelemI1(null, i)); } catch (Exception e) { h = X(h, e); } if (i < 100) try { h = M(h, JitK.NewArr(i)); } catch (Exception e) { h = X(h, e); }
+                try { h = M(h, JitK.LdelemI1(sb, i)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.LdelemU2(us, i)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.LdelemI8(ls, i)); } catch (Exception e) { h = X(h, e); }
             }
-            try { h = M(h, JitK.Ldlen(null)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.Ldlen(ia)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 95: // JitK.RefAdd / StructMove / StructArr (byrefs, value types)
+                case 95: // JitK.LdelemR8 / LdelemR4 (bounds, sNaN, -0, denormal)
+                {
+            int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            sbyte[] sb = new sbyte[] { -128, -1, 127 }; ushort[] us = new ushort[] { 0, 0x8000, 0xFFFF }; long[] ls = new long[] { long.MinValue, -1, long.MaxValue };
+            double[] ds = new double[] { D(0x7FF0000000000001UL), -0.0, 1e308 }; float[] fs = new float[] { F(0x7F800001U), F(0x80000000U), F(0x00000001U) };
+            object[] ob = new object[] { null, "s", 3 }; object[] st = new string[3]; int[] ia = new int[3];
+            for (int k = 0; k < ix.Length; k++)
+            {
+                int i = ix[k];
+                try { h = M(h, JitK.LdelemR8(ds, i)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.LdelemR4(fs, i)); } catch (Exception e) { h = X(h, e); }
+            }
+                    return h;
+                }
+                case 96: // JitK.LdelemRef / Stelem (bounds)
+                {
+            int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            sbyte[] sb = new sbyte[] { -128, -1, 127 }; ushort[] us = new ushort[] { 0, 0x8000, 0xFFFF }; long[] ls = new long[] { long.MinValue, -1, long.MaxValue };
+            double[] ds = new double[] { D(0x7FF0000000000001UL), -0.0, 1e308 }; float[] fs = new float[] { F(0x7F800001U), F(0x80000000U), F(0x00000001U) };
+            object[] ob = new object[] { null, "s", 3 }; object[] st = new string[3]; int[] ia = new int[3];
+            for (int k = 0; k < ix.Length; k++)
+            {
+                int i = ix[k];
+                try { h = M(h, JitK.LdelemRef(ob, i)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.Stelem(ia, i, i * 3)); } catch (Exception e) { h = X(h, e); }
+            }
+                    return h;
+                }
+                case 97: // JitK.StelemRef (covariant string[]: store a string, then an int)
+                {
+            int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            sbyte[] sb = new sbyte[] { -128, -1, 127 }; ushort[] us = new ushort[] { 0, 0x8000, 0xFFFF }; long[] ls = new long[] { long.MinValue, -1, long.MaxValue };
+            double[] ds = new double[] { D(0x7FF0000000000001UL), -0.0, 1e308 }; float[] fs = new float[] { F(0x7F800001U), F(0x80000000U), F(0x00000001U) };
+            object[] ob = new object[] { null, "s", 3 }; object[] st = new string[3]; int[] ia = new int[3];
+            for (int k = 0; k < ix.Length; k++)
+            {
+                int i = ix[k];
+                try { h = M(h, JitK.StelemRef(st, i, "v")); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.StelemRef(st, i, (object)5)); } catch (Exception e) { h = X(h, e); }
+            }
+                    return h;
+                }
+                case 98: // JitK.LdelemI1 on null
+                {
+            int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            sbyte[] sb = new sbyte[] { -128, -1, 127 }; ushort[] us = new ushort[] { 0, 0x8000, 0xFFFF }; long[] ls = new long[] { long.MinValue, -1, long.MaxValue };
+            double[] ds = new double[] { D(0x7FF0000000000001UL), -0.0, 1e308 }; float[] fs = new float[] { F(0x7F800001U), F(0x80000000U), F(0x00000001U) };
+            object[] ob = new object[] { null, "s", 3 }; object[] st = new string[3]; int[] ia = new int[3];
+            for (int k = 0; k < ix.Length; k++)
+            {
+                int i = ix[k];
+                try { h = M(h, JitK.LdelemI1(null, i)); } catch (Exception e) { h = X(h, e); }
+            }
+                    return h;
+                }
+                case 99: // JitK.NewArr (0, positive, negative size)
+                {
+            int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            sbyte[] sb = new sbyte[] { -128, -1, 127 }; ushort[] us = new ushort[] { 0, 0x8000, 0xFFFF }; long[] ls = new long[] { long.MinValue, -1, long.MaxValue };
+            double[] ds = new double[] { D(0x7FF0000000000001UL), -0.0, 1e308 }; float[] fs = new float[] { F(0x7F800001U), F(0x80000000U), F(0x00000001U) };
+            object[] ob = new object[] { null, "s", 3 }; object[] st = new string[3]; int[] ia = new int[3];
+            for (int k = 0; k < ix.Length; k++)
+            {
+                int i = ix[k];
+                try { h = M(h, JitK.NewArr(i < 100 ? i : 100)); } catch (Exception e) { h = X(h, e); }
+            }
+                    return h;
+                }
+                case 100: // JitK.Ldlen (null, array)
+                {
+            int[] ia = new int[3]; try { h = M(h, JitK.Ldlen(null)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.Ldlen(ia)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 101: // JitK.RefAdd / StructMove / StructArr (byrefs, value types)
                 {
             for (int i = 0; i < I4.Length; i++)
             {
@@ -727,17 +797,17 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 96: // JitK.TryCatch / Nested (clauses)
+                case 102: // JitK.TryCatch / Nested (clauses)
                 {
             for (int i = 0; i < I4.Length; i++) { try { h = M(h, JitK.TryCatch(I4[i])); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.Nested(I4[i])); } catch (Exception e) { h = X(h, e); } }
                     return h;
                 }
-                case 97: // JitK.Str (ldstr, concat)
+                case 103: // JitK.Str (ldstr, concat)
                 {
             for (int i = 0; i < I4.Length; i++) { string s = JitK.Str(I4[i]); h = M(h, s.Length); h = M(h, s.GetHashCode()); }
                     return h;
                 }
-                case 98: // JitKO superinstructions 0x1AB-0x1C0 (graphs with null links, short arrays, zero size)
+                case 104: // JitKO superinstructions 0x1AB-0x1C0 (graphs with null links, short arrays, zero size)
                 {
             JitKO[] g = MakeKO();
             for (int k = 0; k < g.Length; k++)
@@ -753,7 +823,7 @@ namespace MonoHostTest
             try { h = M(h, JitKO.S1AF(null)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKO.S1B7(null)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 99: // Dictionary<int,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
+                case 105: // Dictionary<int,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
                 {
             int[] sizes = new int[] { 0, 1, 3, 7, 17, 100, 1000 };
             for (int s = 0; s < sizes.Length; s++)
@@ -771,7 +841,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 100: // Dictionary<string,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
+                case 106: // Dictionary<string,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
                 {
             int[] sizes = new int[] { 0, 1, 3, 7, 17, 100, 1000 };
             for (int s = 0; s < sizes.Length; s++)
@@ -789,7 +859,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 101: // Dictionary<ulong,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
+                case 107: // Dictionary<ulong,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
                 {
             int[] sizes = new int[] { 0, 1, 3, 7, 17, 100, 1000 };
             for (int s = 0; s < sizes.Length; s++)
@@ -807,7 +877,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 102: // Dictionary<ObjectGuid,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
+                case 108: // Dictionary<ObjectGuid,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
                 {
             int[] sizes = new int[] { 0, 1, 3, 7, 17, 100, 1000 };
             for (int s = 0; s < sizes.Length; s++)
@@ -825,7 +895,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 103: // Dictionary<colliding struct key,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
+                case 109: // Dictionary<colliding struct key,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
                 {
             int[] sizes = new int[] { 0, 1, 3, 7, 17, 100, 1000 };
             for (int s = 0; s < sizes.Length; s++)
@@ -843,7 +913,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 104: // Dictionary<enum,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
+                case 110: // Dictionary<enum,int> (add, grow, overwrite, remove + re-add, TryGetValue, ContainsKey, enumerate)
                 {
             int[] sizes = new int[] { 0, 1, 3, 7, 17, 100, 1000 };
             for (int s = 0; s < sizes.Length; s++)
@@ -861,12 +931,12 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 105: // Dictionary<string,int> null key
+                case 111: // Dictionary<string,int> null key
                 {
             Dictionary<string, int> d = new Dictionary<string, int>(); try { h = M(h, NullKey(d)); } catch (Exception e) { h = X(h, e); } int v; try { h = M(h, d.TryGetValue(null, out v)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 106: // List<int> / List<object> (growth, indexer bounds, enumerator, modification)
+                case 112: // List<int> / List<object> (growth, indexer bounds, enumerator, modification)
                 {
             for (int n = 0; n < 40; n++)
             {
@@ -879,7 +949,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 107: // Array.Resize / Array.IndexOf (null, negative size, missing, null elements)
+                case 113: // Array.Resize / Array.IndexOf (null, negative size, missing, null elements)
                 {
             int[] sz = new int[] { -1, 0, 1, 2, 5, 64, 65 };
             for (int s = 0; s < sz.Length; s++)
@@ -891,7 +961,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 108: // Enum.Equals / Enum.GetHashCode (underlying types, other enum types, null)
+                case 114: // Enum.Equals / Enum.GetHashCode (underlying types, other enum types, null)
                 {
             object[] es = new object[] { DayOfWeek.Monday, DayOfWeek.Sunday, (JitE8)1, (JitE8)255, (JitE64)(-1L), (JitE64)long.MaxValue, (JitEU64)ulong.MaxValue, 1, null };
             for (int i = 0; i < es.Length; i++)
@@ -901,13 +971,13 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 109: // Type.GetTypeFromHandle / RuntimeTypeHandle
+                case 115: // Type.GetTypeFromHandle / RuntimeTypeHandle
                 {
             Type[] ts = new Type[] { typeof(int), typeof(List<int>), typeof(Dictionary<string, JitKO>), typeof(JitPt[]), typeof(JitKO2) };
             for (int i = 0; i < ts.Length; i++) { h = M(h, ts[i].Name.GetHashCode()); h = M(h, ts[i] == typeof(int)); h = M(h, Type.GetTypeFromHandle(ts[i].TypeHandle) == ts[i]); }
                     return h;
                 }
-                case 110: // UInt64 / Int32 GetHashCode + Equals, EqualityComparer default / IEquatable
+                case 116: // UInt64 / Int32 GetHashCode + Equals, EqualityComparer default / IEquatable
                 {
             for (int i = 0; i < I8.Length; i++)
             {
@@ -919,13 +989,13 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 111: // ObjectGuid == / != (0, max, near values)
+                case 117: // ObjectGuid == / != (0, max, near values)
                 {
             ulong[] g = new ulong[] { 0, 1, 977, ulong.MaxValue, ulong.MaxValue - 1, 0x100000000UL };
             for (int i = 0; i < g.Length; i++) for (int j = 0; j < g.Length; j++) { h = M(h, new ObjectGuid(g[i]) == new ObjectGuid(g[j])); h = M(h, new ObjectGuid(g[i]) != new ObjectGuid(g[j])); }
                     return h;
                 }
-                case 112: // CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags (bit patterns)
+                case 118: // CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags (bit patterns)
                 {
             for (int b = 0; b < 32; b++) for (int k = 0; k < 4; k++)
             {
@@ -934,7 +1004,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 113: // Single.IsNaN / Math.Max / Math.Min (NaN payloads, -0, inf)
+                case 119: // Single.IsNaN / Math.Max / Math.Min (NaN payloads, -0, inf)
                 {
             for (int i = 0; i < R4.Length; i++) h = M(h, float.IsNaN(R4[i]));
             for (int i = 0; i < R8.Length; i++) for (int j = 0; j < R8.Length; j++) { h = M(h, Math.Max(R8[i], R8[j])); h = M(h, Math.Min(R8[i], R8[j])); }

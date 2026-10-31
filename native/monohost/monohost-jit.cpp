@@ -1053,26 +1053,59 @@ static void JitCountReport() {
 // case (results and caught exceptions). Each case runs twice on EA's interpreter (unpatched; the two must agree, else
 // the case is "unstable" and skipped), then once compiled (in verify mode with the per-call check on). The case names
 // are in tools/jit-corpus.ts, which also reads these lines.
+// one case: its hash, or for a managed exception that left Run (old Mono raises runtime-thrown exceptions such as newarr's
+// by unwinding to the invoke boundary, past interpreted catch blocks) a hash of its type with the top bit set; false on a
+// CPU fault (host state suspect)
+static bool JitCorpusCall(void* m, int c, int* h) {
+    void* a[1] = {&c};
+    void* exc = NULL; DWORD code = 0;
+    void* r = SafeInvoke(m, NULL, a, &exc, &code);
+    if (code) return false;
+    if (exc) {
+        char t[128] = "", msg[256] = ""; void* in = NULL;
+        Describe(exc, t, msg, &in);
+        unsigned x = 0x5EED;
+        for (const char* p = t; *p; p++) x = x * 31 + (u8)*p;
+        *h = (int)(x | 0x80000000u);
+        return true;
+    }
+    *h = I32(r);
+    return true;
+}
+static void JitCorpusTrail(void* tm, int c, const char* arm) {
+    void* a[1] = {&c};
+    void* exc = NULL; DWORD code = 0;
+    void* s = tm ? SafeInvoke(tm, NULL, a, &exc, &code) : NULL;
+    char out[1200] = "";
+    if (s && !exc && !code) Narrow(s, out, sizeof(out));
+    Log("jit corpus trail case %d %s: %s\n", c, arm, out[0] ? out : exc || code ? "(trail run threw)" : "(no exceptions)");
+}
 static void JitCorpusRun() {
     int n = I32(T("JitCorpusCount", 0, NULL));
-    if (n <= 0 || n == INT_MIN) { Log("jit corpus: no JitCorpusCount in MonoHostTest.dll\n"); return; }
+    void* m = Meth(g_testK, "JitCorpusRun", 1), *tm = Meth(g_testK, "JitCorpusTrail", 1);
+    if (n <= 0 || n == INT_MIN || !m) { Log("jit corpus: no JitCorpusCount / JitCorpusRun in MonoHostTest.dll\n"); return; }
     const int vOn = g_jitVerifyOn;
     const LONG mm0 = g_jvMismatch, ab0 = g_jvAbandoned, ok0 = g_jvOk;
     int bad = 0, unstable = 0;
     for (int c = 0; c < n; c++) {
-        void* a[1] = {&c};
+        int ref = 0, ref2 = 0, got = 0;
         g_jitVerifyOn = 0, JitSetPatched(false);
-        const int ref = I32(T("JitCorpusRun", 1, a)), ref2 = I32(T("JitCorpusRun", 1, a));
+        const bool ok = JitCorpusCall(m, c, &ref) && JitCorpusCall(m, c, &ref2);
         JitSetPatched(true), g_jitVerifyOn = g_jitMode == 3 ? 1 : 0;
-        const int got = I32(T("JitCorpusRun", 1, a));
-        if (ref == INT_MIN || ref2 == INT_MIN || got == INT_MIN) {  // a fault escaped the case's catch: the host state is suspect
-            Log("jit corpus FAULT case %d: interpreted %08X / %08X, compiled %08X; corpus stopped\n", c, ref, ref2, got);
+        if (!ok || !JitCorpusCall(m, c, &got)) {  // a CPU fault: stop, the interpreter state is suspect
+            Log("jit corpus FAULT case %d: %s arm faulted; corpus stopped\n", c, ok ? "compiled" : "interpreted");
             bad++;
             break;
         }
         if (ref != ref2) unstable++, Log("jit corpus UNSTABLE case %d: interpreted %08X then %08X\n", c, ref, ref2);
         else if (got != ref) bad++, Log("jit corpus MISMATCH case %d: compiled %08X interpreted %08X\n", c, got, ref);
+        else continue;
+        g_jitVerifyOn = 0, JitSetPatched(false);
+        JitCorpusTrail(tm, c, "interpreted");
+        JitSetPatched(true);
+        JitCorpusTrail(tm, c, "compiled");
     }
+    JitSetPatched(true);
     g_jitVerifyOn = vOn;
     Log("jit corpus: %d cases, %d differ, %d unstable; per-call verify during the corpus: ok %ld, MISMATCH %ld, abandoned (exception) %ld\n",
         n, bad, unstable, g_jvOk - ok0, g_jvMismatch - mm0, g_jvAbandoned - ab0);

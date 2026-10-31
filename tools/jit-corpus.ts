@@ -178,18 +178,61 @@ const STMT_CASES: Case[] = [
   { name: 'JitK.Unbox / UnboxL / Cast / IsInst / Box', body: `object[] os = new object[] { null, 5, 5L, "x", new JitKO(), new JitKO2(), (short)3, DayOfWeek.Monday };
             for (int i = 0; i < os.Length; i++) { ${T('JitK.Unbox(os[i])')} ${T('JitK.UnboxL(os[i])')} ${T('JitK.Cast(os[i])')} ${T('JitK.IsInst(os[i])')} }
             for (int i = 0; i < I4.Length; i++) for (int j = 0; j < 3; j++) { object b = JitK.Box(I4[i], j - 1); h = M(h, b == null ? 0 : b.GetHashCode()); }` },
-  { name: 'JitK.Ldelem* / Stelem* / Ldlen (bounds, null, covariance)', body: `int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+  { name: 'JitK.LdelemI1 / LdelemU2 / LdelemI8 (bounds)', body: `int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
             sbyte[] sb = new sbyte[] { -128, -1, 127 }; ushort[] us = new ushort[] { 0, 0x8000, 0xFFFF }; long[] ls = new long[] { long.MinValue, -1, long.MaxValue };
             double[] ds = new double[] { D(0x7FF0000000000001UL), -0.0, 1e308 }; float[] fs = new float[] { F(0x7F800001U), F(0x80000000U), F(0x00000001U) };
             object[] ob = new object[] { null, "s", 3 }; object[] st = new string[3]; int[] ia = new int[3];
             for (int k = 0; k < ix.Length; k++)
             {
                 int i = ix[k];
-                ${T('JitK.LdelemI1(sb, i)')} ${T('JitK.LdelemU2(us, i)')} ${T('JitK.LdelemI8(ls, i)')} ${T('JitK.LdelemR8(ds, i)')}
-                ${T('JitK.LdelemR4(fs, i)')} ${T('JitK.LdelemRef(ob, i)')} ${T('JitK.Stelem(ia, i, i * 3)')} ${T('JitK.StelemRef(st, i, "v")')}
-                ${T('JitK.StelemRef(st, i, (object)5)')} ${T('JitK.LdelemI1(null, i)')} if (i < 100) ${T('JitK.NewArr(i)')}
-            }
-            ${T('JitK.Ldlen(null)')} ${T('JitK.Ldlen(ia)')}` },
+                ${T('JitK.LdelemI1(sb, i)')} ${T('JitK.LdelemU2(us, i)')} ${T('JitK.LdelemI8(ls, i)')}
+            }` },
+  { name: 'JitK.LdelemR8 / LdelemR4 (bounds, sNaN, -0, denormal)', body: `int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            sbyte[] sb = new sbyte[] { -128, -1, 127 }; ushort[] us = new ushort[] { 0, 0x8000, 0xFFFF }; long[] ls = new long[] { long.MinValue, -1, long.MaxValue };
+            double[] ds = new double[] { D(0x7FF0000000000001UL), -0.0, 1e308 }; float[] fs = new float[] { F(0x7F800001U), F(0x80000000U), F(0x00000001U) };
+            object[] ob = new object[] { null, "s", 3 }; object[] st = new string[3]; int[] ia = new int[3];
+            for (int k = 0; k < ix.Length; k++)
+            {
+                int i = ix[k];
+                ${T('JitK.LdelemR8(ds, i)')} ${T('JitK.LdelemR4(fs, i)')}
+            }` },
+  { name: 'JitK.LdelemRef / Stelem (bounds)', body: `int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            sbyte[] sb = new sbyte[] { -128, -1, 127 }; ushort[] us = new ushort[] { 0, 0x8000, 0xFFFF }; long[] ls = new long[] { long.MinValue, -1, long.MaxValue };
+            double[] ds = new double[] { D(0x7FF0000000000001UL), -0.0, 1e308 }; float[] fs = new float[] { F(0x7F800001U), F(0x80000000U), F(0x00000001U) };
+            object[] ob = new object[] { null, "s", 3 }; object[] st = new string[3]; int[] ia = new int[3];
+            for (int k = 0; k < ix.Length; k++)
+            {
+                int i = ix[k];
+                ${T('JitK.LdelemRef(ob, i)')} ${T('JitK.Stelem(ia, i, i * 3)')}
+            }` },
+  { name: 'JitK.StelemRef (covariant string[]: store a string, then an int)', body: `int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            sbyte[] sb = new sbyte[] { -128, -1, 127 }; ushort[] us = new ushort[] { 0, 0x8000, 0xFFFF }; long[] ls = new long[] { long.MinValue, -1, long.MaxValue };
+            double[] ds = new double[] { D(0x7FF0000000000001UL), -0.0, 1e308 }; float[] fs = new float[] { F(0x7F800001U), F(0x80000000U), F(0x00000001U) };
+            object[] ob = new object[] { null, "s", 3 }; object[] st = new string[3]; int[] ia = new int[3];
+            for (int k = 0; k < ix.Length; k++)
+            {
+                int i = ix[k];
+                ${T('JitK.StelemRef(st, i, "v")')} ${T('JitK.StelemRef(st, i, (object)5)')}
+            }` },
+  { name: 'JitK.LdelemI1 on null', body: `int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            sbyte[] sb = new sbyte[] { -128, -1, 127 }; ushort[] us = new ushort[] { 0, 0x8000, 0xFFFF }; long[] ls = new long[] { long.MinValue, -1, long.MaxValue };
+            double[] ds = new double[] { D(0x7FF0000000000001UL), -0.0, 1e308 }; float[] fs = new float[] { F(0x7F800001U), F(0x80000000U), F(0x00000001U) };
+            object[] ob = new object[] { null, "s", 3 }; object[] st = new string[3]; int[] ia = new int[3];
+            for (int k = 0; k < ix.Length; k++)
+            {
+                int i = ix[k];
+                ${T('JitK.LdelemI1(null, i)')}
+            }` },
+  { name: 'JitK.NewArr (0, positive, negative size)', body: `int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            sbyte[] sb = new sbyte[] { -128, -1, 127 }; ushort[] us = new ushort[] { 0, 0x8000, 0xFFFF }; long[] ls = new long[] { long.MinValue, -1, long.MaxValue };
+            double[] ds = new double[] { D(0x7FF0000000000001UL), -0.0, 1e308 }; float[] fs = new float[] { F(0x7F800001U), F(0x80000000U), F(0x00000001U) };
+            object[] ob = new object[] { null, "s", 3 }; object[] st = new string[3]; int[] ia = new int[3];
+            for (int k = 0; k < ix.Length; k++)
+            {
+                int i = ix[k];
+                ${T('JitK.NewArr(i < 100 ? i : 100)')}
+            }` },
+  { name: 'JitK.Ldlen (null, array)', body: `int[] ia = new int[3]; ${T('JitK.Ldlen(null)')} ${T('JitK.Ldlen(ia)')}` },
   { name: 'JitK.RefAdd / StructMove / StructArr (byrefs, value types)', body: `for (int i = 0; i < I4.Length; i++)
             {
                 int x = I4[i]; ${T('JitK.RefAdd(ref x, 7)')} h = M(h, x);
@@ -336,8 +379,11 @@ ${KO.replace(/^\n|\n$/g, '')}
         {
             string s = e.StackTrace, f = "";
             if (s != null) { int nl = s.IndexOf('\\n'); f = nl < 0 ? s : s.Substring(0, nl); }
+            if (s_trail != null && s_trail.Length < 1100) s_trail.Append(e.GetType().Name).Append(' ').Append(f.Trim()).Append(" | ");
             return M(M(M(h, 0x5EED), e.GetType().FullName.GetHashCode()), f.GetHashCode());
         }
+        static System.Text.StringBuilder s_trail;
+        public static string Trail(int c) { s_trail = new System.Text.StringBuilder(); Run(c); string t = s_trail.ToString(); s_trail = null; return t; }
         static JitKO[] MakeKO()
         {
             JitKO a = new JitKO(), b = new JitKO(), c = new JitKO2(), e = new JitKO();
@@ -386,7 +432,9 @@ export function report(log: string, dump: string | undefined, names: string[]): 
     let m = /^jit corpus: (\d+) cases, (\d+) differ, (\d+) unstable;(.*)$/.exec(l);
     if (m) { r.cases = +m[1]; r.differ = +m[2]; r.unstable = +m[3]; r.verify = m[4].trim(); continue; }
     m = /^jit corpus (MISMATCH|UNSTABLE|FAULT) case (\d+): (.*)$/.exec(l);
-    if (m) r.lines.push(`${m[1]} ${m[2]} ${names[+m[2]] ?? '?'}: ${m[3]}`);
+    if (m) { r.lines.push(`${m[1]} ${m[2]} ${names[+m[2]] ?? '?'}: ${m[3]}`); continue; }
+    m = /^jit corpus trail case \d+ (interpreted|compiled): (.*)$/.exec(l);
+    if (m) r.lines.push(`    ${m[1]}: ${m[2].slice(0, 400)}`);
   }
   if (dump) {  // superops seen in the compiled corpus kernels (mint listing of each compiled JitK / JitKO method)
     const seen = new Set<string>();
@@ -415,11 +463,12 @@ function selfCheck() {
   ok(disk.replace(/\r\n/g, '\n') === g.replace(/\r\n/g, '\n'), 'native/monohost/JitCorpus.cs is up to date (node tools/jit-corpus.ts --write)');
   const src = 'static const char* const kJitList[] = {\n    // c\n    "A.B", "C`2.D",\n    "E.F",\n};';
   ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*', 'kJitList parse');
-  const log = 'jit corpus MISMATCH case 1: compiled 0000002A interpreted 0000002B\njit corpus UNSTABLE case 2: interpreted 1 then 2\n'
+  const log = 'jit corpus MISMATCH case 1: compiled 0000002A interpreted 0000002B\njit corpus trail case 1 compiled: DivideByZeroException at X | \njit corpus UNSTABLE case 2: interpreted 1 then 2\n'
     + 'jit corpus: 3 cases, 1 differ, 1 unstable; per-call verify during the corpus: ok 5, MISMATCH 0, abandoned (exception) 2\n';
   const dump = '== MonoHostTest.JitKO.S1AB rm 0 words 3\n  0000 super_1AB        0000\n== Other.M rm 0\n  0000 super_1AD\n';
   const r = report(log, dump, ['a', 'b', 'c']);
-  ok(r.cases === 3 && r.differ === 1 && r.unstable === 1 && r.lines[0] === 'MISMATCH 1 b: compiled 0000002A interpreted 0000002B', 'log parse');
+  ok(r.cases === 3 && r.differ === 1 && r.unstable === 1 && r.lines[0] === 'MISMATCH 1 b: compiled 0000002A interpreted 0000002B'
+    && r.lines[1] === '    compiled: DivideByZeroException at X | ', 'log parse');
   ok(r.superops.join() === '1AB' && r.missingSuper.length === 21 && !r.missingSuper.includes('1AB'), 'superop coverage from the dump');
   console.log(`jit-corpus self-check: ${k} checks${process.exitCode ? ', FAILED' : ', ok'}`);
 }
