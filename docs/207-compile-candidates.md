@@ -323,3 +323,56 @@ Findings:
 - Blind spots: the closure stops at depth 3 (`--depth` raises it); a virtual call is listed by its declared target, so the fixture's receiver class decides which override runs; field reads through `ldflda` on value types count once.
 
 Fixtures: **not built.** This machine has no C++ compiler and the CI does not build `native/monohost`, so nothing could be run, and an unrun fixture would only move the debugging to the next person. The recipe per method is the `fixture` column. For the top 5: rows 2 and 4 (no IC) are JitBench cases on objects from constructors plus `FieldInfo.SetValue`; rows 1, 3 and 5 also need a concrete `GameObject` subclass, and rows 3 and 5 need an M2 answer code that reads the guid table from a static field of the test assembly.
+
+## 10. Differential corpus: compiled vs interpreted, bit for bit (2026-10-31)
+
+Round 6, task B4. Goal: every case that P0 compiles must give the same results and the same exceptions as EA's interpreter.
+
+**Tools.**
+- `node tools/jit-corpus.ts --write` generates `native/monohost/JitCorpus.cs`, which `build.cmd` compiles into `MonoHostTest.dll`. It has 148 cases:
+  - 90 arithmetic kernels over typed edge inputs: div / rem with `INT_MIN / -1` and zero, `*.ovf`, `conv.ovf` (also from `r8`), shifts past the width.
+  - x87-sensitive float kernels: NaN payloads, signaling NaN, denormals, -0, 53- vs 64-bit rounding, float stores.
+  - Statement cases: switch, value types, casts, boxing, arrays.
+  - One kernel per EA superinstruction `0x1AB`-`0x1C0`.
+  - The BCL / SimIFace methods P0 compiles (Dictionary with six key types incl. colliding keys, List, `Array.Resize` / `IndexOf`, Enum, Math, ObjectGuid, CASUtils).
+  - 8 try / catch / finally cases, run last because a CPU fault stops the corpus.
+- `MONOHOST_JITCORPUS=1` runs each case three times. It runs twice on EA's interpreter with the code unpatched; the two must agree, or the case is "unstable". It then runs once compiled, with the per-call verifier on (`MONOHOST_JIT=verify`).
+- A case hashes its results and every caught exception. An exception counts by type plus the throwing frame's offset and method. The frame's opcode name and argument values are left out: a compiled frame has no opcode name, and arguments hold object addresses.
+- On a difference, monohost logs both exception trails.
+- `--report <log> --dump <jit-dump.txt>` lists the differences by case name. It labels a difference "stack-trace text only" when the trails differ only by the superop rule below and the per-call verifier saw no value mismatch. It also checks which superops the compiled methods contain.
+- Run: `MONOHOST_JIT=verify MONOHOST_MINTCALL=fast MONOHOST_JITCORPUS=1 MONOHOST_DIVGUARD=1 MONOHOST_JITLIST=<--env> monohost.exe ... selftest ...`. `MONOHOST_JITCORPUS_FROM` / `_TO` pick a range of cases. `MONOHOST_DIVGUARD=1` installs eafix's `MintDivGuard` stubs, so `INT_MIN / -1` runs as with that fix in the game.
+
+**Results [measured offline: 2 runs with the same verdicts, fork CI builds of this branch]:**
+
+| | Result |
+|---|---|
+| Cases | 148, 0 unstable |
+| Behaviour differences | **0** |
+| Stack-trace text differences | 1 (`JitKO.S1AF`, see finding 2) |
+| Superops in compiled, verified methods | 22 of 22 |
+| Per-call verifier during the corpus | 71,469 / 71,573 calls equal, 0 mismatches (2.1 M over the whole selftest) |
+| JitBench checksums | equal to the interpreter's |
+
+**Findings.**
+
+1. **P0 bug, fixed: `leave.s` jumped to a wild ip** [verified: bytes and runs]. Before the fix, all 8 clause cases faulted, even a plain `leave` out of a try with no finally and no exception.
+   - Cause: EA's `leave` / `leave.s` handler `0xE59315` re-reads the opcode word at `ip` to choose the operand size (`0xE5933A`, compare with `0x9C`). In a compiled method that word is `JIT_OP` (`0x1A9`). The handler then reads `leave.s`'s 16-bit offset plus the next word (`JIT_OP` again) as one 32-bit offset, here `0x01A90009`. The dispatcher `0xE544D5` faults on the resulting ip.
+   - Scope: a scan of all mint handlers found no other handler that reads its own opcode word. The scan covers each handler's straight-line code up to the first jump or the first change to `edi`.
+   - Fix: `JitWord` keeps the original word at `leave.s` positions. `leave.s` always exits to EA's handler, so it needs no `JIT_OP` entry. Long `leave` already worked, because `0x1A9 != 0x9C` picks the 32-bit form.
+2. **EA's stack-trace printer reports offset 0 at a superop** [verified: `0xE52A0F`].
+   - When the word at a frame's ip is `>= 0x1AA`, EA's printer writes offset 0 and the name "superop". A compiled frame has `JIT_OP` there, which is below `0x1AA`, so it prints the true offset with a blank name.
+   - Catching is not affected. Both throw stubs of a superop store the current ip to `frame+0x1C` before throwing (`0xE5947E`, `0xE595CA`), the same positions the base `ldfld.o` stores. So the catch-clause lookup sees the same ip in both arms.
+   - The difference shows only in `Exception.StackTrace` text. Not fixed: matching it would mean faking the trace.
+3. **Verifier false positives, fixed.** `GC_malloc_atomic` leaves a block's slack uninitialised. The per-call verifier compared whole GC blocks, so a boxed `long` (16 bytes in a 24-byte block) mismatched on garbage: 30 calls in the `Box` case. The earlier `Array.Resize` mismatch is gone too [measured].
+   - New-object compares now use the class's bytes. Strings use 8 + 2 x length. Other non-arrays use `MonoClass.instance_size` `+0x54` [verified: `0xE6F5A0` reads it]. Arrays keep the length heuristic. The class comes from `MonoVTable+0`; name `+0x34` and namespace `+0x38` are verified live.
+4. **Superop coverage needs whole runs.** EA fuses a sequence only when a whole run between two boundaries equals it (docs/139 §4.1). So the kernels start a run at a ternary join or after a call. 14 of the 22 superops already appeared in compiled BCL methods (`Dictionary.GetSlot` / `GetPrev`, `Array.IndexOf`, the enumerators); the reshaped kernels add the other 8.
+5. **Corpus artefacts removed.**
+   - Identity hashes differ between runs, so a `JitKO` node hashes by its field and other reference types by type name.
+   - Trace frames carry `this` and argument addresses, so the hash keeps the offset and method only.
+   - An `OverflowException` from `newarr` with a negative size escapes the C# `catch` even in the interpreter. The driver hashes an escaped exception by its type name, the same way in both arms.
+
+**Limits.**
+- Yields are out of scope: P0 compiles only never-yielding methods, and monohost runs no task scheduler (P1 adds them).
+- The float kernels ran at monohost's default 53-bit x87 control word. docs/213 shows that 24-bit precision changes `add.r8`, so a control-word sweep belongs to B2's templates.
+- Clause methods are compiled but not verified per call (`unverified (clauses / branch to 0)`). The corpus hash is their only check.
+

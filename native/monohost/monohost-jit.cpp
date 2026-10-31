@@ -4,7 +4,7 @@
 //
 // How it works (details in docs/207 §8):
 // - transform 0xE643B0 is wrapped; a listed method gets compiled right after EA's transform + peephole.
-// - every instruction start of a compiled method gets its opcode word replaced by JIT_OP (0x1A9, an opcode EA never emits;
+// - every instruction start of a compiled method (but leave.s, see JitWord) gets its opcode word replaced by JIT_OP (0x1A9, an opcode EA never emits;
 //   its jump-table entry points to JitEnter). The original words live in a shadow; nothing else in the code changes, so ip
 //   values, operands, clause ranges and branch offsets stay EA's.
 // - JitEnter maps edi (ip) to the native code of that instruction (hash) and jumps there. Native code runs inside the
@@ -46,6 +46,13 @@ static bool JitListed(const char* full) {
     size_t fl = strlen(full);
     for (int i = 0; i < g_jitNameN; i++) {
         size_t l = strlen(g_jitNames[i]);
+        if (l > 2 && !strcmp(g_jitNames[i] + l - 2, ".*")) {  // "Class.*": every method of that class (the B4 corpus kernels)
+            const char* dot = strrchr(full, '.');
+            size_t cl = dot ? (size_t)(dot - full) : 0;
+            if (dot && cl >= l - 2 && !strncmp(dot - (l - 2), g_jitNames[i], l - 2) && (cl == l - 2 || dot[-(int)(l - 2) - 1] == '.'))
+                return true;
+            continue;
+        }
         if (fl >= l && !strcmp(full + fl - l, g_jitNames[i]) && (fl == l || full[fl - l - 1] == '.')) return true;
     }
     return false;
@@ -216,6 +223,11 @@ static int g_jitPosN;
 static bool g_jitPatched;
 static bool g_jitExitAll;  // MONOHOST_JITEXITALL=1: every instruction compiles to an exit (switch-cost measurement)
 static volatile LONG g_jitEnterN, g_jitExitN, g_jitCountOn;
+// count mode (MONOHOST_JITCOUNT=1, B1 exit census): one counter per emitted exit, plus calls per compiled method
+struct JitSite { int meth; unsigned short op; bool slow; volatile LONG n; };
+static JitSite* g_jitSite;
+static int g_jitSiteN, g_jitSiteSlow;
+static volatile LONG g_jitCalls[4096], g_jitPosRun[4096];  // count mode: calls (entries at word 0), positions run (B1)
 
 static JitEnt* JitFind(DWORD ip) {
     for (DWORD i = (ip >> 1) & (JIT_TAB_N - 1);; i++) {
@@ -238,6 +250,11 @@ static void JitVerifyExitStub();
 // exit to EA's handler of base opcode `op` at ip (state is exactly the interpreter's: esi, frame memory)
 static void EmitExit(Em& e, const unsigned short* ip, DWORD op, bool ret) {
     if (g_jitCountOn) e.incAbs(&g_jitExitN);
+    if (g_jitCountOn && g_jitSite && g_jitSiteN < 65536) {  // meth = the index this method gets if it compiles
+        JitSite& s = g_jitSite[g_jitSiteN++];
+        s.meth = g_jitMethN, s.op = (unsigned short)op, s.slow = g_jitSiteSlow != 0, s.n = 0;
+        e.incAbs(&s.n);
+    }
     e.b(0xBF); e.d((DWORD)(uintptr_t)ip);   // mov edi, ip
     if (ret && g_jitMode == 3) { e.jmpTo((const void*)JitVerifyExitStub); return; }
     e.op(0x89, EDI, EBP, -4);                // mov [ebp-4], edi
@@ -377,7 +394,9 @@ static bool JitTryInline(Em& e, const unsigned short* ip, DWORD op, const u8* ca
     e.p += len;
     u8* skip = e.jmp();
     for (int s = 0; s < ns; s++) Fix(slow[s] - buf + base, e.p);
+    g_jitSiteSlow = 1;
     EmitExit(e, ip, op, false);
+    g_jitSiteSlow = 0;
     Fix(skip, e.p);
     g_jitInlined++;
     return true;
@@ -405,6 +424,10 @@ static void JitPreTransform(u8* rm, void* ctx) {
     }
 }
 
+// the word a compiled position gets: JIT_OP, except leave.s. EA's leave / leave.s handler 0xE59315 re-reads [edi] to pick
+// the operand size (0xE5933A cmp word ptr [edi], 0x9C): with JIT_OP there it reads leave.s's 16-bit offset plus the next
+// word as a 32-bit offset and jumps to a wild ip. leave.s always exits to that handler, so its own word can stay.
+static unsigned short JitWord(unsigned short orig) { return orig == 0x9C ? orig : (unsigned short)JIT_OP; }
 // compile one method: returns false (and leaves the code alone) if anything does not fit
 static void JitCompiled(u8* rm) {
     if (!g_jitTab || g_jitMethN >= 4096) return;
@@ -450,6 +473,7 @@ static void JitCompiled(u8* rm) {
     const DWORD* argOff = *(const DWORD* const*)(rm + 0x1C);
     for (int k = 0; k < n; k++) {
         label[k] = e.p;
+        if (g_jitCountOn && g_jitMethN < 4096) e.incAbs(&g_jitPosRun[g_jitMethN]);  // the index this method gets if it compiles
         const unsigned short* ip = code + posW[k];
         DWORD op = posOp[k];
         JitOpInfo t = op < 0x1C1 ? g_opInfo[op] : JitOpInfo{K_EXIT, 0, 0};
@@ -559,7 +583,9 @@ static void JitCompiled(u8* rm) {
             u8* skip = e.jmp();
             if (exitRel[0]) Fix(exitRel[0], e.p);
             if (exitRel[1]) Fix(exitRel[1], e.p);
+            g_jitSiteSlow = 1;
             EmitExit(e, ip, op, false);
+            g_jitSiteSlow = 0;
             Fix(skip, e.p);
         }
     }
@@ -591,7 +617,7 @@ static void JitCompiled(u8* rm) {
     g_jitMethN++;
     g_jitCodeUsed += M.bytes + 1;
     g_jitCodeUsed = (g_jitCodeUsed + 15) & ~(size_t)15;
-    if (g_jitPatched) for (int k = M.pos0; k < M.posN; k++) code[g_jitPos[k]] = (unsigned short)JIT_OP;
+    if (g_jitPatched) for (int k = M.pos0; k < M.posN; k++) code[g_jitPos[k]] = JitWord(g_jitOrigW[k]);
     if (g_jitDump) fprintf(g_jitDump, "   compiled: %d positions, %d native, %d exits, %d bytes, verify %s\n", n, nat, ex, M.bytes, M.verifyOk ? "yes" : "no");
 }
 
@@ -599,7 +625,7 @@ static void JitCompiled(u8* rm) {
 static void JitSetPatched(bool on) {
     for (int m = 0; m < g_jitMethN; m++)
         for (int k = g_jitMeth[m].pos0; k < g_jitMeth[m].posN; k++)
-            g_jitMeth[m].code[g_jitPos[k]] = on ? (unsigned short)JIT_OP : g_jitOrigW[k];
+            g_jitMeth[m].code[g_jitPos[k]] = on ? JitWord(g_jitOrigW[k]) : g_jitOrigW[k];
     g_jitPatched = on;
 }
 
@@ -759,9 +785,21 @@ static bool JitAllocEqual(DWORD a, DWORD b, int depth = 0) {
     const DWORD* x = (const DWORD*)(g_jn->buf + g_jn->o[i].off);
     const DWORD* y = (const DWORD*)(uintptr_t)b;
     DWORD used = sb;
-    if (x[0] == y[0] && !x[1] && !y[1] && x[2] == y[2] && x[2] && 0x10 + x[2] <= sb) {
-        // array (vtable, bounds 0, length): GC_malloc_atomic leaves the block's slack after the elements uninitialised;
-        // compare 0x10 + length * the largest element size (1..8) that fits the block [inferred: no class lookup]
+    if (x[0] != y[0]) return false;
+    // GC_malloc_atomic leaves a block's slack uninitialised: compare the class's bytes only. MonoVTable+0 = klass;
+    // MonoClass name +0x34 / namespace +0x38 [verified live]; instance_size +0x54 (0xE6F5A0 reads it)
+    const u8* kl = *(const u8* const*)(uintptr_t)y[0];
+    const char* nm = *(const char* const*)(kl + 0x34), *ns = *(const char* const*)(kl + 0x38);
+    const size_t nl = strlen(nm);
+    const bool arr = nl && nm[nl - 1] == ']';
+    if (!arr && !strcmp(nm, "String") && !strcmp(ns, "System")) {
+        if (x[1] == y[1] && 8 + 2 * x[1] <= sb) used = 8 + 2 * x[1];  // vtable, length, UTF-16 chars
+    } else if (!arr) {
+        const DWORD is = *(const DWORD*)(kl + 0x54);
+        if (is >= 4 && is <= sb) used = is;
+    } else if (!x[1] && !y[1] && x[2] == y[2] && x[2] && 0x10 + x[2] <= sb) {
+        // array (vtable, bounds 0, length): compare 0x10 + length * the largest element size (1..8) that fits the block
+        // [inferred: no element class lookup]
         DWORD es = 8;
         while (es > 1 && 0x10 + x[2] * es > sb) es >>= 1;
         used = 0x10 + x[2] * es;
@@ -825,7 +863,15 @@ static JitMeth* JitMethOf(const u8* rm) {
 }
 static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
     if (!e) e = JitFind(r->edi);
-    if (g_jitVerifyOn == 2) { g_jitEnterN++; return fromExit ? JitOrig(r, r->edi, e->orig) : JitNative(r, e); }  // count mode
+    if (g_jitVerifyOn == 2) {  // count mode
+        g_jitEnterN++;
+        if (!fromExit && *(unsigned short* const*)e->rm == (unsigned short*)(uintptr_t)r->edi) {  // entry at word 0: a call
+            static const u8* lastRm; static int lastM = -1;
+            if (e->rm != lastRm) { JitMeth* m = JitMethOf(e->rm); lastRm = e->rm, lastM = m ? (int)(m - g_jitMeth) : -1; }
+            if (lastM >= 0) g_jitCalls[lastM]++;
+        }
+        return fromExit ? JitOrig(r, r->edi, e->orig) : JitNative(r, e);
+    }
     if (GetCurrentThreadId() != g_jitMainTid) return fromExit ? JitOrig(r, r->edi, e->orig) : JitNative(r, e);
     const u8* rm = e->rm;
     DWORD depth = *(const DWORD*)(uintptr_t)(*(const DWORD*)(uintptr_t)(r->ebp + 8) + 0x140);
@@ -1008,7 +1054,126 @@ static void JitStats() {
         g_jitEntN, (unsigned)(sizeof(JitEnt) * (JIT_TAB_N + 4096) / 1024), g_jitPosN);
     if (g_jitInline) Log("jit: inlined call sites %ld, sites refused by the inliner %ld\n", g_jitInlined, g_jitInlineNo);
 }
+// B1 exit census (count mode): every exit site that ran, with its method and EA opcode, and calls per compiled method.
+// tools/jit-exit-census.ts reads these lines ("jitcalls" / "jitexit") plus jit-dump.txt.
+static void JitCountReport() {
+    char nb[64];
+    // every compiled method and every exit site, run or not: the static census (docs/207 §11) needs the zeros too
+    for (int m = 0; m < g_jitMethN; m++)
+        Log("jitcalls %d %ld %ld %d %s\n", m, g_jitCalls[m], g_jitPosRun[m], g_jitMeth[m].posN - g_jitMeth[m].pos0, g_jitMeth[m].name);
+    for (int s = 0; s < g_jitSiteN; s++)
+        if (g_jitSite[s].meth < g_jitMethN)
+            Log("jitexit %d %X %s %s %ld\n", g_jitSite[s].meth, g_jitSite[s].op, MintName(g_jitSite[s].op, nb), g_jitSite[s].slow ? "slow" : "op",
+                g_jitSite[s].n);
+}
+
+// B4 differential corpus (MONOHOST_JITCORPUS=1, modes on / verify): MonoHostTest's JitCorpusRun(c) returns one hash per
+// case (results and caught exceptions). Each case runs twice on EA's interpreter (unpatched; the two must agree, else
+// the case is "unstable" and skipped), then once compiled (in verify mode with the per-call check on). The case names
+// are in tools/jit-corpus.ts, which also reads these lines.
+// one case: its hash, or for a managed exception that left Run (old Mono raises runtime-thrown exceptions such as newarr's
+// by unwinding to the invoke boundary, past interpreted catch blocks) a hash of its type with the top bit set; false on a
+// CPU fault (host state suspect)
+static bool JitCorpusCall(void* m, int c, int* h) {
+    void* a[1] = {&c};
+    void* exc = NULL; DWORD code = 0;
+    void* r = SafeInvoke(m, NULL, a, &exc, &code);
+    if (code) return false;
+    if (exc) {
+        char t[128] = "", msg[256] = ""; void* in = NULL;
+        Describe(exc, t, msg, &in);
+        unsigned x = 0x5EED;
+        for (const char* p = t; *p; p++) x = x * 31 + (u8)*p;
+        *h = (int)(x | 0x80000000u);
+        return true;
+    }
+    *h = I32(r);
+    return true;
+}
+static void JitCorpusTrail(void* tm, int c, const char* arm) {
+    void* a[1] = {&c};
+    void* exc = NULL; DWORD code = 0;
+    void* s = tm ? SafeInvoke(tm, NULL, a, &exc, &code) : NULL;
+    char out[1200] = "";
+    if (s && !exc && !code) Narrow(s, out, sizeof(out));
+    Log("jit corpus trail case %d %s: %s\n", c, arm, out[0] ? out : exc || code ? "(trail run threw)" : "(no exceptions)");
+}
+static void JitCorpusRun() {
+    int n = I32(T("JitCorpusCount", 0, NULL));
+    void* m = Meth(g_testK, "JitCorpusRun", 1), *tm = Meth(g_testK, "JitCorpusTrail", 1);
+    if (n <= 0 || n == INT_MIN || !m) { Log("jit corpus: no JitCorpusCount / JitCorpusRun in MonoHostTest.dll\n"); return; }
+    const int vOn = g_jitVerifyOn;
+    const LONG mm0 = g_jvMismatch, ab0 = g_jvAbandoned, ok0 = g_jvOk;
+    int bad = 0, unstable = 0, c0 = 0, c1 = n - 1;
+    char rv[16] = "";
+    if (GetEnvironmentVariableA("MONOHOST_JITCORPUS_FROM", rv, sizeof(rv))) c0 = atoi(rv);
+    if (GetEnvironmentVariableA("MONOHOST_JITCORPUS_TO", rv, sizeof(rv))) c1 = atoi(rv);
+    if (c0 > 0 || c1 < n - 1) Log("jit corpus: cases %d to %d of %d\n", c0, c1, n);
+    for (int c = c0; c <= c1 && c < n; c++) {
+        int ref = 0, ref2 = 0, got = 0;
+        g_jitVerifyOn = 0, JitSetPatched(false);
+        const bool ok = JitCorpusCall(m, c, &ref) && JitCorpusCall(m, c, &ref2);
+        JitSetPatched(true), g_jitVerifyOn = g_jitMode == 3 ? 1 : 0;
+        if (!ok || !JitCorpusCall(m, c, &got)) {  // a CPU fault: stop, the interpreter state is suspect
+            Log("jit corpus FAULT case %d: %s arm faulted; corpus stopped\n", c, ok ? "compiled" : "interpreted");
+            bad++;
+            break;
+        }
+        if (ref != ref2) unstable++, Log("jit corpus UNSTABLE case %d: interpreted %08X then %08X\n", c, ref, ref2);
+        else if (got != ref) bad++, Log("jit corpus MISMATCH case %d: compiled %08X interpreted %08X\n", c, got, ref);
+        else continue;
+        g_jitVerifyOn = 0, JitSetPatched(false);
+        JitCorpusTrail(tm, c, "interpreted");
+        JitSetPatched(true);
+        JitCorpusTrail(tm, c, "compiled");
+    }
+    JitSetPatched(true);
+    g_jitVerifyOn = vOn;
+    Log("jit corpus: %d cases, %d differ, %d unstable; per-call verify during the corpus: ok %ld, MISMATCH %ld, abandoned (exception) %ld\n",
+        n, bad, unstable, g_jvOk - ok0, g_jvMismatch - mm0, g_jvAbandoned - ab0);
+}
+
+// B1: compile methods that cannot run offline (Sims3Gameplay accessors) so jit-dump.txt shows their mint code and P0's
+// native / exit split. MONOHOST_JITPREP=<file>, one "assembly|namespace|class|method|params" line each (the method must
+// also be in MONOHOST_JITLIST). Each is invoked once with this = null and zeroed arguments: the runtime-invoke entry
+// transforms first (docs/130 §2), which compiles it; the run itself then mostly stops at the first field read (NRE).
+static void JitPrepRun() {
+    char path[MAX_PATH] = "";
+    if (!GetEnvironmentVariableA("MONOHOST_JITPREP", path, sizeof(path))) return;
+    FILE* f = NULL;
+    if (fopen_s(&f, path, "r") || !f) { Log("jitprep: cannot open %s\n", path); return; }
+    static u8 zero[8][16];
+    void* args[8];
+    for (int i = 0; i < 8; i++) args[i] = zero[i];
+    char line[512];
+    int n = 0, compiled = 0;
+    while (fgets(line, sizeof(line), f)) {
+        char* p[5] = {line};
+        int k = 1;
+        for (char* c = line; *c && k < 5; c++) if (*c == '|') *c = 0, p[k++] = c + 1;
+        if (k < 5) continue;
+        p[4][strcspn(p[4], "\r\n")] = 0;
+        void* m = Meth(Cls(LoadImageByName(p[0]), p[1], p[2]), p[3], atoi(p[4]));
+        n++;
+        if (!m) { Log("jitprep %s.%s.%s/%s: not found\n", p[1], p[2], p[3], p[4]); continue; }
+        memset(zero, 0, sizeof(zero));
+        const int before = g_jitMethN;
+        void* exc = NULL; DWORD code = 0;
+        SafeInvoke(m, NULL, atoi(p[4]) ? args : NULL, &exc, &code);
+        char t[128] = "", msg[256] = ""; void* in = NULL;
+        if (exc) Describe(exc, t, msg, &in);
+        compiled += g_jitMethN > before;
+        Log("jitprep %s.%s.%s/%s: compiled %s, %s %s\n", p[1], p[2], p[3], p[4], g_jitMethN > before ? "yes" : "no",
+            exc ? "exception" : code ? "fault" : "returned", exc ? t : "");
+    }
+    fclose(f);
+    Log("jitprep: %d methods, %d compiled\n", n, compiled);
+}
+
 static void JitBenchRun() {
+    JitPrepRun();
+    char cv[8] = "";
+    if (g_jitMode >= 2 && GetEnvironmentVariableA("MONOHOST_JITCORPUS", cv, sizeof(cv)) && cv[0] == '1') JitCorpusRun();
     if (g_jitMode < 2) {
         if (g_jitMode) for (int c = 0; c < JIT_CASES; c++) Log("jitbench warm case %d (%s): checksum %d\n", c, kJitCase[c], JitCase(c, 4096));
         return;
@@ -1051,6 +1216,7 @@ static void JitBenchRun() {
             JitCase(c, 20000);
             Log("jitcount case %2d %-40s enters %.2f exits %.2f per iteration\n", c, kJitCase[c], g_jitEnterN / 20000.0, g_jitExitN / 20000.0);
         }
+        JitCountReport();
         return;
     }
     SetThreadAffinityMask(GetCurrentThread(), 1 << 2);
@@ -1100,11 +1266,51 @@ static void JitBenchRun() {
     JitSetPatched(true);
 }
 
+// MONOHOST_DIVGUARD=1: the two jump-table stubs of [EaCrashFixes] MintDivGuard (ts3native eafix.cpp, docs/213 §8), so
+// INT_MIN / -1 throws OverflowException and INT_MIN % -1 gives 0, as in the game with the fix, instead of the CPU divide
+// error that kills the host (#114). Installed before the handler table is copied, so compiled exits use the stubs too.
+static DWORD g_dgDiv = 0xE55B4C, g_dgRem = 0xE55C0F, g_dgOvf = 0xE57AA5, g_dgNext = 0xE544D5;
+static __declspec(naked) void DgDivStub() {
+    __asm {
+        cmp dword ptr [esi - 8], -1
+        jne game
+        cmp dword ptr [esi - 0x10], 0x80000000
+        jne game
+        jmp dword ptr [g_dgOvf]
+    game:
+        jmp dword ptr [g_dgDiv]
+    }
+}
+static __declspec(naked) void DgRemStub() {
+    __asm {
+        cmp dword ptr [esi - 8], -1
+        jne game
+        cmp dword ptr [esi - 0x10], 0x80000000
+        jne game
+        add esi, -8
+        mov dword ptr [esi - 8], 0
+        add edi, 2
+        mov dword ptr [ebp - 4], edi
+        jmp dword ptr [g_dgNext]
+    game:
+        jmp dword ptr [g_dgRem]
+    }
+}
+static bool InstallDivGuard() {
+    DWORD* t = (DWORD*)(uintptr_t)MINT_TABLE;
+    if (t[0x127] != g_dgDiv || t[0x143] != g_dgRem) return false;
+    const DWORD dv = (DWORD)(uintptr_t)DgDivStub, rv = (DWORD)(uintptr_t)DgRemStub;
+    return mt::Write(t + 0x127, &dv, 4) && mt::Write(t + 0x143, &rv, 4);
+}
+
 static bool InstallJit() {
     char v[16] = "";
     GetEnvironmentVariableA("MONOHOST_JIT", v, sizeof(v));
     g_jitMode = !strcmp(v, "dump") ? 1 : !strcmp(v, "on") ? 2 : !strcmp(v, "verify") ? 3 : 0;
     if (!g_jitMode) return true;
+    char dg[4] = "";
+    if (GetEnvironmentVariableA("MONOHOST_DIVGUARD", dg, sizeof(dg)) && dg[0] == '1')
+        Log("jit: div guard (MintDivGuard stubs) %s\n", InstallDivGuard() ? "installed" : "NOT installed: table entries differ");
     InitializeCriticalSection(&g_jitCs);
     if (g_jitMode >= 2) {
         const char* const* names = (const char* const*)(uintptr_t)0x11949E0;
@@ -1121,6 +1327,7 @@ static bool InstallJit() {
         char x[8] = "";
         g_jitExitAll = GetEnvironmentVariableA("MONOHOST_JITEXITALL", x, sizeof(x)) && x[0] == '1';
         g_jitCountOn = GetEnvironmentVariableA("MONOHOST_JITCOUNT", x, sizeof(x)) && x[0] == '1';
+        if (g_jitCountOn) g_jitSite = (JitSite*)calloc(65536, sizeof(JitSite));
         g_jitInline = GetEnvironmentVariableA("MONOHOST_JITINLINE", x, sizeof(x)) && x[0] == '1';
         g_jitVerifyOn = g_jitMode == 3 ? 1 : g_jitCountOn ? 2 : 0;
         if (g_jitMode == 3 && GetEnvironmentVariableA("MONOHOST_JITVERIFY", x, sizeof(x)) && !strcmp(x, "bench")) g_jitVerifyOn = 0;
