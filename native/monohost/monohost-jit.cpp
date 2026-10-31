@@ -1065,6 +1065,11 @@ static void JitCorpusRun() {
         const int ref = I32(T("JitCorpusRun", 1, a)), ref2 = I32(T("JitCorpusRun", 1, a));
         JitSetPatched(true), g_jitVerifyOn = g_jitMode == 3 ? 1 : 0;
         const int got = I32(T("JitCorpusRun", 1, a));
+        if (ref == INT_MIN || ref2 == INT_MIN || got == INT_MIN) {  // a fault escaped the case's catch: the host state is suspect
+            Log("jit corpus FAULT case %d: interpreted %08X / %08X, compiled %08X; corpus stopped\n", c, ref, ref2, got);
+            bad++;
+            break;
+        }
         if (ref != ref2) unstable++, Log("jit corpus UNSTABLE case %d: interpreted %08X then %08X\n", c, ref, ref2);
         else if (got != ref) bad++, Log("jit corpus MISMATCH case %d: compiled %08X interpreted %08X\n", c, got, ref);
     }
@@ -1206,11 +1211,51 @@ static void JitBenchRun() {
     JitSetPatched(true);
 }
 
+// MONOHOST_DIVGUARD=1: the two jump-table stubs of [EaCrashFixes] MintDivGuard (ts3native eafix.cpp, docs/213 §8), so
+// INT_MIN / -1 throws OverflowException and INT_MIN % -1 gives 0, as in the game with the fix, instead of the CPU divide
+// error that kills the host (#114). Installed before the handler table is copied, so compiled exits use the stubs too.
+static DWORD g_dgDiv = 0xE55B4C, g_dgRem = 0xE55C0F, g_dgOvf = 0xE57AA5, g_dgNext = 0xE544D5;
+static __declspec(naked) void DgDivStub() {
+    __asm {
+        cmp dword ptr [esi - 8], -1
+        jne game
+        cmp dword ptr [esi - 0x10], 0x80000000
+        jne game
+        jmp dword ptr [g_dgOvf]
+    game:
+        jmp dword ptr [g_dgDiv]
+    }
+}
+static __declspec(naked) void DgRemStub() {
+    __asm {
+        cmp dword ptr [esi - 8], -1
+        jne game
+        cmp dword ptr [esi - 0x10], 0x80000000
+        jne game
+        add esi, -8
+        mov dword ptr [esi - 8], 0
+        add edi, 2
+        mov dword ptr [ebp - 4], edi
+        jmp dword ptr [g_dgNext]
+    game:
+        jmp dword ptr [g_dgRem]
+    }
+}
+static bool InstallDivGuard() {
+    DWORD* t = (DWORD*)(uintptr_t)MINT_TABLE;
+    if (t[0x127] != g_dgDiv || t[0x143] != g_dgRem) return false;
+    const DWORD dv = (DWORD)(uintptr_t)DgDivStub, rv = (DWORD)(uintptr_t)DgRemStub;
+    return mt::Write(t + 0x127, &dv, 4) && mt::Write(t + 0x143, &rv, 4);
+}
+
 static bool InstallJit() {
     char v[16] = "";
     GetEnvironmentVariableA("MONOHOST_JIT", v, sizeof(v));
     g_jitMode = !strcmp(v, "dump") ? 1 : !strcmp(v, "on") ? 2 : !strcmp(v, "verify") ? 3 : 0;
     if (!g_jitMode) return true;
+    char dg[4] = "";
+    if (GetEnvironmentVariableA("MONOHOST_DIVGUARD", dg, sizeof(dg)) && dg[0] == '1')
+        Log("jit: div guard (MintDivGuard stubs) %s\n", InstallDivGuard() ? "installed" : "NOT installed: table entries differ");
     InitializeCriticalSection(&g_jitCs);
     if (g_jitMode >= 2) {
         const char* const* names = (const char* const*)(uintptr_t)0x11949E0;

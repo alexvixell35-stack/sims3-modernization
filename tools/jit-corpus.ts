@@ -385,7 +385,7 @@ export function report(log: string, dump: string | undefined, names: string[]): 
   for (const l of log.split(/\r?\n/)) {
     let m = /^jit corpus: (\d+) cases, (\d+) differ, (\d+) unstable;(.*)$/.exec(l);
     if (m) { r.cases = +m[1]; r.differ = +m[2]; r.unstable = +m[3]; r.verify = m[4].trim(); continue; }
-    m = /^jit corpus (MISMATCH|UNSTABLE) case (\d+): (.*)$/.exec(l);
+    m = /^jit corpus (MISMATCH|UNSTABLE|FAULT) case (\d+): (.*)$/.exec(l);
     if (m) r.lines.push(`${m[1]} ${m[2]} ${names[+m[2]] ?? '?'}: ${m[3]}`);
   }
   if (dump) {  // superops seen in the compiled corpus kernels (mint listing of each compiled JitK / JitKO method)
