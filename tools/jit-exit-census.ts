@@ -153,6 +153,57 @@ export function templates(rows: Row[]) {
   return [...by].sort((a, b) => b[1].est - a[1].est).slice(0, 10).map(([op, t]) => ({ op, ...t, effort: effort(op) }));
 }
 
+// B3 call edges (docs/207 §12): "jitedge caller site op n miss callee flags native words clauses name" per compiled call /
+// callvirt site. Callee traits come from its own exit sites when it is compiled: throws = any slow path or throw exit,
+// allocates = newobj / newarr / box exits, calls = call-like exits (a frame is needed there), native = EA native body.
+type Edge = { caller: string; callee: string; kind: string; calls: number; miss: number; compiled: boolean; words: number;
+  pos: number | undefined; calleeCalls: number; outPerCall: number | undefined; throws: boolean; allocates: boolean; native: boolean;
+  clauses: boolean; dispatch: string; frame: string; inline: boolean };
+const CALLISH = /^(call|callvirt|con\.|calli|newobj|vcall|callint|callrun|jmp)/;
+export function edges(log: string): Edge[] {
+  const meth = new Map<number, { calls: number; pos: number; name: string }>();
+  const sites = new Map<number, { op: string; slow: boolean; n: number }[]>();
+  const raw: { caller: number; op: string; n: number; miss: number; callee: number; flags: number; native: number; words: number; clauses: number; name: string }[] = [];
+  for (const l of log.split(/\r?\n/)) {
+    let x = /^jitcalls (\d+) (\d+) (\d+) (\d+) (.+)$/.exec(l);
+    if (x) { meth.set(+x[1], { calls: +x[2], pos: +x[4], name: x[5].trim() }); continue; }
+    x = /^jitexit (\d+) [0-9A-F]+ (\S+) (op|slow) (\d+)$/.exec(l);
+    if (x) { (sites.get(+x[1]) ?? sites.set(+x[1], []).get(+x[1])!).push({ op: x[2], slow: x[3] === 'slow', n: +x[4] }); continue; }
+    x = /^jitedge (\d+) \d+ ([0-9A-F]+) (\d+) (\d+) (-?\d+) ([0-9A-F]+) ([0-9A-F]+) (\d+) (\d+) (.+)$/.exec(l);
+    if (x) raw.push({ caller: +x[1], op: x[2] === 'EA' ? 'call' : 'callvirt', n: +x[3], miss: +x[4], callee: +x[5], flags: parseInt(x[6], 16),
+      native: parseInt(x[7], 16), words: +x[8], clauses: +x[9], name: x[10].trim() });
+  }
+  const agg = new Map<string, Edge>();
+  for (const r of raw) {
+    const caller = meth.get(r.caller)?.name ?? `#${r.caller}`;
+    if (caller.startsWith('MonoHostTest.')) continue;  // corpus kernels and bench drivers
+    const cm = r.callee >= 0 ? meth.get(r.callee) : undefined, cs = r.callee >= 0 ? sites.get(r.callee) ?? [] : [];
+    const out = cs.filter(s => !s.slow && CALLISH.test(s.op));
+    const key = `${caller}|${r.name}|${r.op}`;
+    const e = agg.get(key) ?? agg.set(key, { caller, callee: r.name, kind: r.op, calls: 0, miss: 0, compiled: r.callee >= 0, words: r.words,
+      pos: cm?.pos, calleeCalls: 0, outPerCall: undefined, throws: false, allocates: false, native: r.native !== 0, clauses: r.clauses !== 0,
+      dispatch: '', frame: '', inline: false }).get(key)!;
+    e.calls += r.n; e.miss += r.miss;
+    if (cm) {
+      e.calleeCalls = Math.max(e.calleeCalls, cm.calls);
+      if (cm.calls >= MIN_CALLS) e.outPerCall = out.reduce((a, s) => a + s.n, 0) / cm.calls;
+      e.throws ||= cs.some(s => s.slow || /^(throw|rethrow)/.test(s.op));
+      e.allocates ||= cs.some(s => /^(newobj|newarr|box|mono_newobj)/.test(s.op));
+    }
+  }
+  for (const e of agg.values()) {
+    // docs/207 §12: dispatch = how the call site finds its callee; frame = when a lazy frame must be written (at the callee's
+    // first exit; a leaf takes none on a normal call). Monomorphic = under 1% inline-cache misses.
+    const poly = e.kind === 'callvirt' && e.miss >= 0.01 * e.calls;
+    e.dispatch = !e.compiled ? 'none: callee not compiled' : e.native ? 'none: EA native body' : e.clauses ? 'none: callee has clauses'
+      : e.kind === 'call' ? 'direct' : poly ? 'polymorphic' : 'class guard';
+    e.frame = !e.dispatch.startsWith('none') ? e.outPerCall === undefined ? 'unknown (callee not run)'
+      : e.outPerCall < 0.01 ? 'never (leaf)' : `at the first inner call (${e.outPerCall.toFixed(2)} per call)` : '';
+    e.inline = !e.dispatch.startsWith('none') && !poly && (e.pos ?? 99) <= 12 && !e.throws && !e.allocates && e.frame === 'never (leaf)';
+  }
+  return [...agg.values()].sort((a, b) => b.calls - a.calls || a.caller.localeCompare(b.caller));
+}
+
 function selfCheck() {
   let k = 0;
   const ok = (c: boolean, what: string) => { k++; if (!c) { console.log(`FAIL ${what}`); process.exitCode = 1; } };
@@ -172,6 +223,13 @@ function selfCheck() {
     'census: run basis (exits / positions run), static basis (sites / positions, slow paths 0), bench drivers skipped');
   ok(templates(r)[0].op === 'callvirt' && Math.abs(templates(r)[0].est - 2.2) < 1e-9 && effort('callvirt').startsWith('L') && effort('ldsfld.i4').startsWith('S'),
     'templates ranked by summed ms/s');
+  const el = 'jitcalls 0 500 9000 40 N.A.Run\njitcalls 1 400 2000 9 N.B.Leaf\njitexit 1 46 ldfld.o slow 0\njitexit 1 6 ret op 400\n'
+    + 'jitcalls 2 300 900 20 N.C.Mid\njitexit 2 EA call op 300\njitedge 0 0 EA 400 0 1 300 0 12 0 N.B.Leaf\njitedge 0 1 EC 250 5 2 300 0 30 0 N.C.Mid\n'
+    + 'jitedge 0 2 EC 50 0 2 300 0 30 0 N.C.Mid\njitedge 0 3 EA 7 0 -1 300 1 0 0 N.D.Ext\n';
+  const ed = edges(el), leaf = ed.find(x => x.callee === 'N.B.Leaf')!, mid = ed.find(x => x.callee === 'N.C.Mid')!;
+  ok(ed.length === 3 && leaf.dispatch === 'direct' && leaf.frame === 'never (leaf)' && leaf.throws && !leaf.inline && mid.calls === 300 && mid.miss === 5
+    && mid.dispatch === 'polymorphic' && mid.frame.startsWith('at the first inner call (1.00') && ed.find(x => x.callee === 'N.D.Ext')!.dispatch === 'none: callee not compiled',
+    'edges: sites merged per caller / callee / kind, dispatch and frame rules');
   console.log(`jit-exit-census self-check: ${k} checks${process.exitCode ? ', FAILED' : ', ok'}`);
 }
 
@@ -187,5 +245,16 @@ if (import.meta.main) {
     console.log(`census: ${rows.length} rows, ${new Set(rows.map(r => r.method)).size} methods -> ${out}`);
     console.log('| # | opcode | est. ms/s behind | methods | effort |\n|---|---|---|---|---|');
     templates(rows).forEach((t, i) => console.log(`| ${i + 1} | \`${t.op}\` | ${t.est.toFixed(2)} | ${t.methods} | ${t.effort} |`));
-  } else console.log('usage: --prep <out> [--top 60] | --census <monohost.exe.log> [--out <csv>] | --self-check');
+  } else if (arg('--edges')) {
+    const ed = edges(readFileSync(arg('--edges')!, 'utf8'));
+    const out = arg('--out') ?? resolve(ROOT, 'docs/data/jit-call-edges.csv');
+    const b = (x: boolean) => x ? 'yes' : 'no';
+    writeFileSync(out, 'caller,callee,kind,calls,cache_misses,callee_compiled,callee_positions,callee_calls,callee_inner_calls_per_call,callee_throws,callee_allocates,callee_native_body,dispatch,lazy_frame_written,inline_candidate\n'
+      + ed.map(e => [e.caller, e.callee, e.kind, String(e.calls), String(e.miss), b(e.compiled), e.pos === undefined ? '' : String(e.pos), String(e.calleeCalls),
+        e.outPerCall === undefined ? '' : e.outPerCall.toFixed(3), b(e.throws), b(e.allocates), b(e.native), e.dispatch, e.frame, b(e.inline)].map(csvField).join(',')).join('\n') + '\n');
+    const tot = ed.reduce((a, e) => a + e.calls, 0), by = new Map<string, number>();
+    for (const e of ed) { const k = `${e.dispatch}${e.frame ? `, frame ${e.frame.replace(/ \(.*\)$/, '')}` : ''}`; by.set(k, (by.get(k) ?? 0) + e.calls); }
+    console.log(`edges: ${ed.length} (caller, callee, kind), ${tot} calls -> ${out}`);
+    for (const [k, n] of [...by].sort((p, q) => q[1] - p[1])) console.log(`  ${(100 * n / tot).toFixed(1)}%  ${k}`);
+  } else console.log('usage: --prep <out> [--top 60] | --census <monohost.exe.log> [--out <csv>] | --edges <monohost.exe.log> [--out <csv>] | --self-check');
 }

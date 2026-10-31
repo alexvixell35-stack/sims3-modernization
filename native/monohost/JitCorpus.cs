@@ -175,6 +175,30 @@ namespace MonoHostTest
     }
     public class JitKO2 : JitKO { public int w; }
     public struct JitPt { public int X, Y; public int Sum(object o) { return X + Y + (o == null ? 0 : 1); } }
+    public class JitKL
+    {
+        public int v; public long w; public JitKL next;
+        static int Clamp(int x, int lo, int hi) { if (x < lo) return lo; if (x > hi) return hi; return x; }
+        static bool Odd(int x) { if (x < 0) x = -x; return (x & 1) != 0; }
+        static long Add8(long a, int b) { if (b > 2) return a + b; return a - b; }
+        static int Locals(int a) { int t = a ^ 5; int u = t + 1; if (u > 5) u = 5; return t + u; }
+        static int Arr(int[] a, int i) { if (i < -1) return -1; return a[i]; }
+        static void Set(JitKL p, int x) { if (x > 0) p.v = x; else p.v = -x; }
+        public int Get(int k) { if (k > 0) return v + k; return v - k; }
+        public long GetW(int k) { if (k == 0) return w; return w + k; }
+        public int Deref(JitKL p) { if (p.v > 0) return p.next.v; return v; }
+        public static int CallStatic(int n) { int s = 0; for (int i = -n; i < n; i++) s += Clamp(i, -3, 3) + (Odd(i) ? 1 : 0) + Locals(i); return s; }
+        public static long CallLong(int n) { long s = 0x7FFFFFF0L; for (int i = 0; i < n; i++) s = Add8(s, i); return s; }
+        public static int CallInst(JitKL p, int n) { int s = 0; for (int i = -n; i < n; i++) s += p.Get(i); return s; }
+        public static long CallInstLong(JitKL p, int n) { long s = 0; for (int i = -n; i < n; i++) s += p.GetW(i); return s; }
+        public static int CallVoid(JitKL p, int n) { for (int i = -n; i < n; i++) Set(p, i); return p.v; }
+        public static int CallArr(int[] a, int i) { return Arr(a, i) + 1; }
+        public static int CallDeref(JitKL p, JitKL q) { return p.Deref(q) + 1; }
+        public static int CatchInCaller(JitKL p, JitKL q) { try { return p.Deref(q); } catch (NullReferenceException) { return -5; } }
+        public static int Deep(int d, int x) { if (d == 0) return Clamp(x, 0, 9); return Deep(d - 1, x) + 1; }
+        public static int CallStruct(int n) { JitKLPt p; p.X = 3; int s = 0; for (int i = -n; i < n; i++) s += p.Dot(i); return s; }
+    }
+    public struct JitKLPt { public int X; public int Dot(int k) { if (k > 0) return X * k; return X - k; } }
     public struct JitKey : IEquatable<JitKey>
     {
         public int K;
@@ -189,7 +213,7 @@ namespace MonoHostTest
 
     public static class JitCorpus
     {
-        public const int Count = 148;
+        public const int Count = 158;
         static readonly int[] I4 = { 0, 1, -1, 2, -2, 3, 7, -7, 16, 31, 32, 33, 0x7FFF, 0x8000, 0xFFFF, 0x10000, 0x3FFFFFFF, 0x40000000, int.MaxValue, int.MinValue, int.MinValue + 1, int.MaxValue - 1 };
         static readonly long[] I8 = { 0L, 1L, -1L, 2L, -2L, 7L, 0x7FFFFFFFL, 0x80000000L, -0x80000000L, 0xFFFFFFFFL, 0x100000000L, long.MaxValue, long.MinValue, long.MinValue + 1, -3037000500L, 3037000500L };
         static readonly int[] SH = { 0, 1, 7, 15, 16, 31, 32, 33, 63, 64, 65, -1, int.MinValue };
@@ -1312,6 +1336,56 @@ namespace MonoHostTest
                 case 147: // JitK.Nested, OverflowException through finally into catch
                 {
             try { h = M(h, JitK.Nested(46341)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.Nested(int.MinValue)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 148: // JitKL.CallStatic (lazy calls: static leaves, init locals)
+                {
+            try { h = M(h, JitKL.CallStatic(40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 149: // JitKL.CallLong (lazy call, 8-byte return)
+                {
+            try { h = M(h, JitKL.CallLong(40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 150: // JitKL.CallInst (lazy callvirt, non-virtual instance leaf; null receiver)
+                {
+            JitKL p = new JitKL(); p.v = 7; try { h = M(h, JitKL.CallInst(p, 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallInst(null, 3)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 151: // JitKL.CallInstLong (lazy callvirt, 8-byte return)
+                {
+            JitKL p = new JitKL(); p.w = 0x123456789L; try { h = M(h, JitKL.CallInstLong(p, 40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 152: // JitKL.CallVoid (void leaf with stfld; null: exception in the callee)
+                {
+            JitKL p = new JitKL(); try { h = M(h, JitKL.CallVoid(p, 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallVoid(null, 3)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 153: // JitKL.CallArr (bounds and null exceptions in a lazy callee)
+                {
+            int[] a = new int[] { 4, 5, 6 }; try { h = M(h, JitKL.CallArr(a, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallArr(a, 3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallArr(a, -1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallArr(null, 0)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 154: // JitKL.CallDeref (NullReferenceException in a lazy callee)
+                {
+            JitKL p = new JitKL(), q = new JitKL(); q.v = 1; try { h = M(h, JitKL.CallDeref(p, p)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallDeref(p, q)); } catch (Exception e) { h = X(h, e); } q.next = p; try { h = M(h, JitKL.CallDeref(p, q)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 155: // JitKL.CatchInCaller (lazy callee throws, the compiled caller catches)
+                {
+            JitKL p = new JitKL(), q = new JitKL(); q.v = 1; try { h = M(h, JitKL.CatchInCaller(p, q)); } catch (Exception e) { h = X(h, e); } q.next = q; try { h = M(h, JitKL.CatchInCaller(p, q)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 156: // JitKL.Deep (lazy call at depth 30 / 70 / 130)
+                {
+            try { h = M(h, JitKL.Deep(30, 4)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.Deep(70, 12)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.Deep(130, -2)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 157: // JitKL.CallStruct (lazy call, value-type this)
+                {
+            try { h = M(h, JitKL.CallStruct(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
             }

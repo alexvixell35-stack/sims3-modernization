@@ -166,6 +166,35 @@ const KO = `
     public class JitKO2 : JitKO { public int w; }
     public struct JitPt { public int X, Y; public int Sum(object o) { return X + Y + (o == null ? 0 : 1); } }
 `;
+// B3 lazy frames (docs/207 §12): compiled callers calling compiled static leaves (every position native, ret / ret.void).
+// Each leaf has a branch so mint's transform does not inline it; Arr / Set / Deref fault inside the leaf (frame written at
+// the exit, then EA's handler throws).
+const KL = `
+    public class JitKL
+    {
+        public int v; public long w; public JitKL next;
+        static int Clamp(int x, int lo, int hi) { if (x < lo) return lo; if (x > hi) return hi; return x; }
+        static bool Odd(int x) { if (x < 0) x = -x; return (x & 1) != 0; }
+        static long Add8(long a, int b) { if (b > 2) return a + b; return a - b; }
+        static int Locals(int a) { int t = a ^ 5; int u = t + 1; if (u > 5) u = 5; return t + u; }
+        static int Arr(int[] a, int i) { if (i < -1) return -1; return a[i]; }
+        static void Set(JitKL p, int x) { if (x > 0) p.v = x; else p.v = -x; }
+        public int Get(int k) { if (k > 0) return v + k; return v - k; }
+        public long GetW(int k) { if (k == 0) return w; return w + k; }
+        public int Deref(JitKL p) { if (p.v > 0) return p.next.v; return v; }
+        public static int CallStatic(int n) { int s = 0; for (int i = -n; i < n; i++) s += Clamp(i, -3, 3) + (Odd(i) ? 1 : 0) + Locals(i); return s; }
+        public static long CallLong(int n) { long s = 0x7FFFFFF0L; for (int i = 0; i < n; i++) s = Add8(s, i); return s; }
+        public static int CallInst(JitKL p, int n) { int s = 0; for (int i = -n; i < n; i++) s += p.Get(i); return s; }
+        public static long CallInstLong(JitKL p, int n) { long s = 0; for (int i = -n; i < n; i++) s += p.GetW(i); return s; }
+        public static int CallVoid(JitKL p, int n) { for (int i = -n; i < n; i++) Set(p, i); return p.v; }
+        public static int CallArr(int[] a, int i) { return Arr(a, i) + 1; }
+        public static int CallDeref(JitKL p, JitKL q) { return p.Deref(q) + 1; }
+        public static int CatchInCaller(JitKL p, JitKL q) { try { return p.Deref(q); } catch (NullReferenceException) { return -5; } }
+        public static int Deep(int d, int x) { if (d == 0) return Clamp(x, 0, 9); return Deep(d - 1, x) + 1; }
+        public static int CallStruct(int n) { JitKLPt p; p.X = 3; int s = 0; for (int i = -n; i < n; i++) s += p.Dot(i); return s; }
+    }
+    public struct JitKLPt { public int X; public int Dot(int k) { if (k > 0) return X * k; return X - k; } }
+`;
 
 // ---- cases ----
 type Case = { name: string; body: string };
@@ -348,7 +377,20 @@ const CLAUSE_CASES: Case[] = [
   { name: 'JitK.Nested, no overflow (return through finally)', body: `${T('JitK.Nested(3)')} ${T('JitK.Nested(-46340)')}` },
   { name: 'JitK.Nested, OverflowException through finally into catch', body: `${T('JitK.Nested(46341)')} ${T('JitK.Nested(int.MinValue)')}` },
 ];
-export const cases = (): Case[] => [...kernelCases(), ...STMT_CASES, ...bclCases(), ...CLAUSE_CASES];
+// lazy-frame cases last: a CPU fault in a lazy body would stop the rest of the corpus
+const LAZY_CASES: Case[] = [
+  { name: 'JitKL.CallStatic (lazy calls: static leaves, init locals)', body: T('JitKL.CallStatic(40)') },
+  { name: 'JitKL.CallLong (lazy call, 8-byte return)', body: T('JitKL.CallLong(40)') },
+  { name: 'JitKL.CallInst (lazy callvirt, non-virtual instance leaf; null receiver)', body: `JitKL p = new JitKL(); p.v = 7; ${T('JitKL.CallInst(p, 40)')} ${T('JitKL.CallInst(null, 3)')}` },
+  { name: 'JitKL.CallInstLong (lazy callvirt, 8-byte return)', body: `JitKL p = new JitKL(); p.w = 0x123456789L; ${T('JitKL.CallInstLong(p, 40)')}` },
+  { name: 'JitKL.CallVoid (void leaf with stfld; null: exception in the callee)', body: `JitKL p = new JitKL(); ${T('JitKL.CallVoid(p, 40)')} ${T('JitKL.CallVoid(null, 3)')}` },
+  { name: 'JitKL.CallArr (bounds and null exceptions in a lazy callee)', body: `int[] a = new int[] { 4, 5, 6 }; ${T('JitKL.CallArr(a, 1)')} ${T('JitKL.CallArr(a, 3)')} ${T('JitKL.CallArr(a, -1)')} ${T('JitKL.CallArr(null, 0)')}` },
+  { name: 'JitKL.CallDeref (NullReferenceException in a lazy callee)', body: `JitKL p = new JitKL(), q = new JitKL(); q.v = 1; ${T('JitKL.CallDeref(p, p)')} ${T('JitKL.CallDeref(p, q)')} q.next = p; ${T('JitKL.CallDeref(p, q)')}` },
+  { name: 'JitKL.CatchInCaller (lazy callee throws, the compiled caller catches)', body: `JitKL p = new JitKL(), q = new JitKL(); q.v = 1; ${T('JitKL.CatchInCaller(p, q)')} q.next = q; ${T('JitKL.CatchInCaller(p, q)')}` },
+  { name: 'JitKL.Deep (lazy call at depth 30 / 70 / 130)', body: `${T('JitKL.Deep(30, 4)')} ${T('JitKL.Deep(70, 12)')} ${T('JitKL.Deep(130, -2)')}` },
+  { name: 'JitKL.CallStruct (lazy call, value-type this)', body: T('JitKL.CallStruct(40)') },
+];
+export const cases = (): Case[] => [...kernelCases(), ...STMT_CASES, ...bclCases(), ...CLAUSE_CASES, ...LAZY_CASES];
 
 // ---- C# ----
 export function generate(): string {
@@ -368,6 +410,7 @@ ${kern.join('\n')}
 ${KS.replace(/^\n|\n$/g, '')}
     }
 ${KO.replace(/^\n|\n$/g, '')}
+${KL.replace(/^\n|\n$/g, '')}
     public struct JitKey : IEquatable<JitKey>
     {
         public int K;
@@ -459,7 +502,7 @@ ${cs.map((k, i) => `                case ${i}: // ${k.name}
 export function jitList(src: string): string {
   const m = /kJitList\[\] = \{([\s\S]*?)\};/.exec(src);
   if (!m) throw new Error('kJitList not found in monohost-jit.cpp');
-  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*').join(',');
+  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*').join(',');
 }
 
 // ---- report ----
@@ -525,7 +568,7 @@ function selfCheck() {
   try { disk = readFileSync(OUT, 'utf8'); } catch { /* missing = stale */ }
   ok(disk.replace(/\r\n/g, '\n') === g.replace(/\r\n/g, '\n'), 'native/monohost/JitCorpus.cs is up to date (node tools/jit-corpus.ts --write)');
   const src = 'static const char* const kJitList[] = {\n    // c\n    "A.B", "C`2.D",\n    "E.F",\n};';
-  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*', 'kJitList parse');
+  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*', 'kJitList parse');
   const log = 'jit corpus MISMATCH case 1: compiled 0000002A interpreted 0000002B\njit corpus trail case 1 compiled: DivideByZeroException at X | \njit corpus UNSTABLE case 2: interpreted 1 then 2\n'
     + 'jit corpus: 3 cases, 1 differ, 1 unstable; per-call verify during the corpus: ok 5, MISMATCH 0, abandoned (exception) 2\n';
   const dump = '== MonoHostTest.JitKO.S1AB rm 0 words 3\n  0000 super_1AB        0000\n   compiled: 2 positions\n== Other.M rm 0\n  0000 super_1AD\n';
