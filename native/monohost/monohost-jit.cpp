@@ -1086,8 +1086,12 @@ static void JitCorpusRun() {
     if (n <= 0 || n == INT_MIN || !m) { Log("jit corpus: no JitCorpusCount / JitCorpusRun in MonoHostTest.dll\n"); return; }
     const int vOn = g_jitVerifyOn;
     const LONG mm0 = g_jvMismatch, ab0 = g_jvAbandoned, ok0 = g_jvOk;
-    int bad = 0, unstable = 0;
-    for (int c = 0; c < n; c++) {
+    int bad = 0, unstable = 0, c0 = 0, c1 = n - 1;
+    char rv[16] = "";
+    if (GetEnvironmentVariableA("MONOHOST_JITCORPUS_FROM", rv, sizeof(rv))) c0 = atoi(rv);
+    if (GetEnvironmentVariableA("MONOHOST_JITCORPUS_TO", rv, sizeof(rv))) c1 = atoi(rv);
+    if (c0 > 0 || c1 < n - 1) Log("jit corpus: cases %d to %d of %d\n", c0, c1, n);
+    for (int c = c0; c <= c1 && c < n; c++) {
         int ref = 0, ref2 = 0, got = 0;
         g_jitVerifyOn = 0, JitSetPatched(false);
         const bool ok = JitCorpusCall(m, c, &ref) && JitCorpusCall(m, c, &ref2);

@@ -9,7 +9,8 @@
 //   node tools/jit-corpus.ts --env                  print MONOHOST_JITLIST: P0's default list (kJitList) + the corpus kernels
 //   node tools/jit-corpus.ts --report <monohost.exe.log> [--dump <jit-dump.txt>]   summary, mismatches by case name, superop coverage
 //   node tools/jit-corpus.ts --self-check
-// Run (docs/207 §10): MONOHOST_JIT=verify MONOHOST_MINTCALL=fast MONOHOST_JITCORPUS=1 MONOHOST_JITLIST=<--env>
+// Run (docs/207 §10): MONOHOST_JIT=verify MONOHOST_MINTCALL=fast MONOHOST_JITCORPUS=1 MONOHOST_DIVGUARD=1 MONOHOST_JITLIST=<--env>
+//   [MONOHOST_JITCORPUS_FROM=<first case> MONOHOST_JITCORPUS_TO=<last case>]
 //   monohost.exe <repo>\game-copy\monohost\TS3W.exe <repo>\game-copy\assemblies selftest <repo>\game-copy\monohost\hostdata.txt
 // Yields are out of scope: P0 compiles only never-yielding methods, and monohost runs no task scheduler (P1 adds them).
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -239,7 +240,6 @@ const STMT_CASES: Case[] = [
                 JitPt p; p.X = I4[i]; p.Y = -I4[i]; ${T('JitK.StructMove(p, 3)')}
                 JitPt[] pa = new JitPt[2]; pa[1].Y = I4[i]; ${T('JitK.StructArr(pa, i & 3)')} ${T('JitK.StructArr(null, 0)')}
             }` },
-  { name: 'JitK.TryCatch / Nested (clauses)', body: `for (int i = 0; i < I4.Length; i++) { ${T('JitK.TryCatch(I4[i])')} ${T('JitK.Nested(I4[i])')} }` },
   { name: 'JitK.Str (ldstr, concat)', body: `for (int i = 0; i < I4.Length; i++) { string s = JitK.Str(I4[i]); h = M(h, s.Length); h = M(h, s.GetHashCode()); }` },
   { name: 'JitKO superinstructions 0x1AB-0x1C0 (graphs with null links, short arrays, zero size)', body: `JitKO[] g = MakeKO();
             for (int k = 0; k < g.Length; k++)
@@ -324,7 +324,15 @@ function bclCases(): Case[] {
             for (int i = 0; i < I8.Length; i++) for (int j = 0; j < I8.Length; j++) { h = M(h, Math.Max(I8[i], I8[j])); h = M(h, Math.Min(I8[i], I8[j])); }` },
   ];
 }
-export const cases = (): Case[] => [...kernelCases(), ...STMT_CASES, ...bclCases()];
+// methods with clauses last: P0 compiles them unverified, and a CPU fault in one stops the corpus
+const CLAUSE_CASES: Case[] = [
+  { name: 'JitK.TryCatch, no exception (try, finally)', body: `${T('JitK.TryCatch(5)')} ${T('JitK.TryCatch(int.MaxValue)')}` },
+  { name: 'JitK.TryCatch, ArgumentException thrown and caught', body: `${T('JitK.TryCatch(-1)')} ${T('JitK.TryCatch(int.MinValue)')}` },
+  { name: 'JitK.TryCatch, DivideByZeroException from div.i4 caught', body: `${T('JitK.TryCatch(0)')}` },
+  { name: 'JitK.Nested, no overflow (return through finally)', body: `${T('JitK.Nested(3)')} ${T('JitK.Nested(-46340)')}` },
+  { name: 'JitK.Nested, OverflowException through finally into catch', body: `${T('JitK.Nested(46341)')} ${T('JitK.Nested(int.MinValue)')}` },
+];
+export const cases = (): Case[] => [...kernelCases(), ...STMT_CASES, ...bclCases(), ...CLAUSE_CASES];
 
 // ---- C# ----
 export function generate(): string {
@@ -378,9 +386,16 @@ ${KO.replace(/^\n|\n$/g, '')}
         static int X(int h, Exception e)
         {
             string s = e.StackTrace, f = "";
-            if (s != null) { int nl = s.IndexOf('\\n'); f = nl < 0 ? s : s.Substring(0, nl); }
-            if (s_trail != null && s_trail.Length < 1100) s_trail.Append(e.GetType().Name).Append(' ').Append(f.Trim()).Append(" | ");
-            return M(M(M(h, 0x5EED), e.GetType().FullName.GetHashCode()), f.GetHashCode());
+            if (s != null) { int nl = s.IndexOf('\\n'); f = (nl < 0 ? s : s.Substring(0, nl)).Trim(); }
+            if (s_trail != null && s_trail.Length < 1100) s_trail.Append(e.GetType().Name).Append(' ').Append(f).Append(" | ");
+            return M(M(M(h, 0x5EED), e.GetType().FullName.GetHashCode()), Frame(f).GetHashCode());
+        }
+        // "#0: 0x00008 div.i4     in Ns.Class:Method (int,int) ([0] [0] )" -> "#0: 0x00008 Ns.Class:Method (int,int)"
+        static string Frame(string f)
+        {
+            int sp = f.IndexOf(' ', 4), at = f.IndexOf(" in "), args = at < 0 ? -1 : f.IndexOf(" ([", at);
+            string ip = sp > 0 ? f.Substring(0, sp) : f;
+            return at < 0 ? ip : ip + " " + (args < 0 ? f.Substring(at + 4) : f.Substring(at + 4, args - at - 4));
         }
         static System.Text.StringBuilder s_trail;
         public static string Trail(int c) { s_trail = new System.Text.StringBuilder(); Run(c); string t = s_trail.ToString(); s_trail = null; return t; }
