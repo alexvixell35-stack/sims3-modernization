@@ -780,9 +780,21 @@ static bool JitAllocEqual(DWORD a, DWORD b, int depth = 0) {
     const DWORD* x = (const DWORD*)(g_jn->buf + g_jn->o[i].off);
     const DWORD* y = (const DWORD*)(uintptr_t)b;
     DWORD used = sb;
-    if (x[0] == y[0] && !x[1] && !y[1] && x[2] == y[2] && x[2] && 0x10 + x[2] <= sb) {
-        // array (vtable, bounds 0, length): GC_malloc_atomic leaves the block's slack after the elements uninitialised;
-        // compare 0x10 + length * the largest element size (1..8) that fits the block [inferred: no class lookup]
+    if (x[0] != y[0]) return false;
+    // GC_malloc_atomic leaves a block's slack uninitialised: compare the class's bytes only. MonoVTable+0 = klass;
+    // MonoClass name +0x34 / namespace +0x38 [verified live]; instance_size +0x54 (0xE6F5A0 reads it)
+    const u8* kl = *(const u8* const*)(uintptr_t)y[0];
+    const char* nm = *(const char* const*)(kl + 0x34), *ns = *(const char* const*)(kl + 0x38);
+    const size_t nl = strlen(nm);
+    const bool arr = nl && nm[nl - 1] == ']';
+    if (!arr && !strcmp(nm, "String") && !strcmp(ns, "System")) {
+        if (x[1] == y[1] && 8 + 2 * x[1] <= sb) used = 8 + 2 * x[1];  // vtable, length, UTF-16 chars
+    } else if (!arr) {
+        const DWORD is = *(const DWORD*)(kl + 0x54);
+        if (is >= 4 && is <= sb) used = is;
+    } else if (!x[1] && !y[1] && x[2] == y[2] && x[2] && 0x10 + x[2] <= sb) {
+        // array (vtable, bounds 0, length): compare 0x10 + length * the largest element size (1..8) that fits the block
+        // [inferred: no element class lookup]
         DWORD es = 8;
         while (es > 1 && 0x10 + x[2] * es > sb) es >>= 1;
         used = 0x10 + x[2] * es;

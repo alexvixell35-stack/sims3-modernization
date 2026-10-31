@@ -390,12 +390,13 @@ ${KO.replace(/^\n|\n$/g, '')}
             if (s_trail != null && s_trail.Length < 1100) s_trail.Append(e.GetType().Name).Append(' ').Append(f).Append(" | ");
             return M(M(M(h, 0x5EED), e.GetType().FullName.GetHashCode()), Frame(f).GetHashCode());
         }
-        // "#0: 0x00008 div.i4     in Ns.Class:Method (int,int) ([0] [0] )" -> "#0: 0x00008 Ns.Class:Method (int,int)"
+        // "#0: 0x00008 div.i4     in Ns.Class:Method (int,int) (0CFB8D60 [0] [0] )" -> "#0: 0x00008 Ns.Class:Method (int,int)"
+        // (the argument values, \`this\` first, hold object addresses)
         static string Frame(string f)
         {
-            int sp = f.IndexOf(' ', 4), at = f.IndexOf(" in "), args = at < 0 ? -1 : f.IndexOf(" ([", at);
+            int sp = f.IndexOf(' ', 4), at = f.IndexOf(" in "), ps = at < 0 ? -1 : f.IndexOf(" (", at + 4), pe = ps < 0 ? -1 : f.IndexOf(')', ps);
             string ip = sp > 0 ? f.Substring(0, sp) : f;
-            return at < 0 ? ip : ip + " " + (args < 0 ? f.Substring(at + 4) : f.Substring(at + 4, args - at - 4));
+            return at < 0 ? ip : ip + " " + (pe < 0 ? f.Substring(at + 4) : f.Substring(at + 4, pe + 1 - at - 4));
         }
         static System.Text.StringBuilder s_trail;
         public static string Trail(int c) { s_trail = new System.Text.StringBuilder(); Run(c); string t = s_trail.ToString(); s_trail = null; return t; }
