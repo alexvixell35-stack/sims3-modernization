@@ -123,6 +123,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kShowStageThrowables = false; // opt-in, changes save data: show stage throwable items made only to read a cost are destroyed (EaFixes.cs, issue #90)
         [Tunable] public static bool kFirePitChair = false;        // opt-in, changes save data: fire pit test chairs destroyed before a save (EaFixes.cs, issue #90)
         [Tunable] public static bool kAgeUpKeepOutfits = false;    // opt-in until verified: a failed or cancelled age-up builder keeps the Sim's outfits instead of wiping them (EaFixes.cs, issue #100)
+        [Tunable] public static bool kAgeUpSwap = false;           // opt-in until verified: an age-up outfit swap EA refuses goes to Everyday or is released, so the age-up task finishes (AgeUpSwap.cs, docs/503)
         [Tunable] public static bool kOutfitWaitPoll = false;      // opt-in until verified: an outfit wait not ready after 60 sim-minutes reads its flag once per sim-minute instead of every tick (OutfitWait.cs, issue #115)
         [Tunable] public static bool kDeadRefGuards = false;       // opt-in until verified: Relationship.Get makes no entry for a disposed description, dead aging states skipped (DeadRefs.cs, issue #91)
         [Tunable] public static bool kBakeSaleSeller = false;      // opt-in until verified: a bake sale table's deleted seller reads as no seller, an orphaned NPC table gets its clean-up alarm back (BakeSale.cs, issue #102)

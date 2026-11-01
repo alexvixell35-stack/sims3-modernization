@@ -86,6 +86,7 @@ namespace Ts3Fixes
             Patch(typeof(ShowStage.WatchTheShow), "PerformInventoryActions", typeof(ThrowHook), "PerformHook", "PerformOrig");
             Patch(typeof(SimBuilderTask), "FinishOutfitSwap", typeof(AgeUpOutfitHook), "SwapHook", "SwapOrig");
             Patch(typeof(Sim.SwitchOutfitHelper), "Wait", typeof(OutfitWaitHook), "WaitHook", "WaitOrig");
+            Patch(typeof(Sim), "SwitchToOutfitDelayed", new Type[] { typeof(OutfitCategories), typeof(CASUtils.SwapReadyCallback) }, typeof(AgeUpSwapHook), "SwapHook", "SwapOrig");
             Patch(typeof(BakeSaleTable), "get_GetSeller", typeof(BakeSaleHook), "GetSellerHook", "GetSellerOrig");
             Patch(typeof(BakeSaleTable), "get_HasSeller", typeof(BakeSaleHook), "HasSellerHook", "HasSellerOrig");
             Patch(typeof(BakeSaleTable), "OnStartup", typeof(BakeSaleHook), "StartupHook", "StartupOrig");

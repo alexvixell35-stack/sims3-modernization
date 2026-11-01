@@ -46343,5 +46343,223 @@
         }
       }
     ]
+  },
+  {
+    "id": "ageup-swap-check",
+    "bug": "docs/503 (I-503-1): SimBuilderTask.FinishModelLoad ignores a refused Sim.SwitchToOutfitDelayed and waits forever for its callback, so the age-up never sets Done and the aging queue stops behind it",
+    "fix": "ts3fixes AgeUpSwap.cs, ageupswap (default off): a refused age-up swap goes to Everyday, else the callback runs now (counters 2006-2007), docs/503 §3",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static + self-test only, 2026-11-01). Needs 4 toddlers, children or teens in the world; 'pick' says so when none is left (that part is then not run, not failed). Each age-up is real for the session; the harness does not save.",
+    "expect": "off special: Done False after 120 s with model loaded True and outfit loaded False (bug confirmed), then Done after unstick. on special: Done, 2006 or 2007 up by one. control: Done, counters unchanged. outerwear: Done either way. 'no age-up task seen' in a part = EA did not start a builder task for that Sim (inconclusive, not a pass).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ageupswap": false
+        },
+        "waitS": 1,
+        "note": "part 1: switch off"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "pick special"
+          ]
+        },
+        "note": "off special: names the Sim, its age and outfit, the switch value"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "age"
+          ]
+        },
+        "note": "off special: EA's age transition called; a watcher records the age-up task",
+        "waitS": 120
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off special: the bug: task seen, model loaded True, outfit loaded False, Done False, no 'Done after' in the log"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "unstick"
+          ]
+        },
+        "note": "off special: sets the missing flag",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off special: 'Done after' in the log now (the queue goes on)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "off special: done"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ageupswap": true
+        },
+        "waitS": 1,
+        "note": "parts 2-4: switch on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "pick special"
+          ]
+        },
+        "note": "on special: names the Sim, its age and outfit, the switch value"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "age"
+          ]
+        },
+        "note": "on special: EA's age transition called; a watcher records the age-up task",
+        "waitS": 120
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on special: Done True, 'Done after' in the log, moved to Everyday + released up by one"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "on special: done"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "pick everyday"
+          ]
+        },
+        "note": "on everyday (control): names the Sim, its age and outfit, the switch value"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "age"
+          ]
+        },
+        "note": "on everyday (control): EA's age transition called; a watcher records the age-up task",
+        "waitS": 120
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on everyday (control): Done True, counters unchanged from the special part"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "control: done"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "pick outerwear"
+          ]
+        },
+        "note": "on outerwear (natural case): names the Sim, its age and outfit, the switch value"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "age"
+          ]
+        },
+        "note": "on outerwear (natural case): EA's age transition called; a watcher records the age-up task",
+        "waitS": 120
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on outerwear (natural case): Done True; counters unchanged = EA accepted the swap, up by one = the hook moved or released it"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "outerwear: done"
+      }
+    ]
   }
 ]
