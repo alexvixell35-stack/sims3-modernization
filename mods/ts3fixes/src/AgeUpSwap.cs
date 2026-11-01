@@ -57,6 +57,7 @@ namespace Ts3Fixes
         static SimBuilderTask sAusTask;
         static ObjectGuid sAusWatch = ObjectGuid.InvalidObjectGuid;
         static long sAusAgedAt;
+        static int sAusC0; // [2006] + [2007] when "age" ran
         static readonly List<SimDescription> sAusUsed = new List<SimDescription>();
 
         // Agent checks (repro ageup-swap-check). The harness does not save; each age-up is real for the session.
@@ -70,6 +71,7 @@ namespace Ts3Fixes
         //       else, until the model has loaded or the task is done. It also sets the task's post-swap category to the mode's
         //       (Special, Outerwear, Everyday) until the model has loaded, as if the Sim had worn that category.
         //   "state":   age, the task's Done/Failed/model/outfit flags and post-swap category, the Sim's outfit, [2006] [2007].
+        //   "expect stuck|released|control|done": "state", but throws unless the outcome is the expected one for that arm.
         //   "unstick": sets the task's mbOutfitLoaded (what the missing callback would do), so a stuck task finishes and the
         //              age-up queue goes on.
         //   "stop":    ends the watcher.
@@ -104,6 +106,7 @@ namespace Ts3Fixes
                     if (naked0 != null) sd.CreatedSim.SwitchToOutfitWithoutSpin(OutfitCategories.Naked, naked0, 0);
                     AgingManager.Singleton.AgeTransitionWithoutCake(sd.CreatedSim);
                     sAusAgedAt = SimClock.CurrentTicks;
+                    sAusC0 = c[2006] + c[2007];
                     OutfitCategories post = sAusMode == "outerwear" ? OutfitCategories.Outerwear : sAusMode == "everyday" ? OutfitCategories.Everyday : OutfitCategories.Special;
                     if (sAusWatch != ObjectGuid.InvalidObjectGuid && Simulator.GetProxy(sAusWatch) != null) Simulator.DestroyObject(sAusWatch);
                     sAusWatch = Simulator.AddObject(new LoopTask(delegate
@@ -140,6 +143,24 @@ namespace Ts3Fixes
                     Sim s = sd.CreatedSim;
                     return sd.FullName + " now " + sd.Age + "; " + ts + "; wearing " + (s != null ? s.CurrentOutfitCategory.ToString() : "-") + "; " + sAusLog
                         + "moved to Everyday " + c[2006] + ", released " + c[2007];
+                }
+                case "expect stuck":    // switch off, special: the bug (FinishModelLoad ran, its callback never came)
+                case "expect released": // switch on, special: the task finished and the hook moved or released it
+                case "expect control":  // switch on, everyday: the task finished and the hook did nothing
+                case "expect done":     // switch on, outerwear: the task finished (either way)
+                {
+                    string st = AgeUpSwapCheck("state");
+                    SimBuilderTask t = sAusTask;
+                    bool done = t != null && (bool)sSbtDone.GetValue(t), model = t != null && (bool)sSbtModelLoaded.GetValue(t), outfit = t != null && (bool)sSbtOutfitLoaded.GetValue(t);
+                    int hooked = c[2006] + c[2007] - sAusC0;
+                    bool ok = what == "expect stuck" ? t != null && model && !outfit && !done
+                        : what == "expect released" ? done && hooked >= 1
+                        : what == "expect control" ? done && hooked == 0
+                        : done;
+                    if (!ok) throw new InvalidOperationException("ageupswap " + what + ": wrong outcome"
+                        + (t != null && !model ? " (inconclusive: model loaded False, so FinishModelLoad never ran and the hang cannot happen)" : "")
+                        + "; hooked since age " + hooked + "; " + st);
+                    return "as expected; hooked since age " + hooked + "; " + st;
                 }
                 case "unstick":
                     if (sAusTask == null || sSbtOutfitLoaded == null) return "no age-up task";

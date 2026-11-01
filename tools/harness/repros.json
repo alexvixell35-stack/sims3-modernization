@@ -46670,10 +46670,10 @@
         "args": {
           "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
           "args": [
-            "state"
+            "expect stuck"
           ]
         },
-        "note": "off special: the bug: task seen, model loaded True, outfit loaded False, Done False, no 'Done after' in the log"
+        "note": "off special: the bug: task seen, model loaded True, outfit loaded False, Done False, no 'Done after' in the log (the step throws otherwise)"
       },
       {
         "cmd": "reflect_call",
@@ -46740,10 +46740,10 @@
         "args": {
           "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
           "args": [
-            "state"
+            "expect released"
           ]
         },
-        "note": "on special: Done True, 'Done after' in the log, moved to Everyday + released up by one"
+        "note": "on special: Done True, 'Done after' in the log, moved to Everyday + released up by one (the step throws otherwise)"
       },
       {
         "cmd": "reflect_call",
@@ -46781,10 +46781,10 @@
         "args": {
           "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
           "args": [
-            "state"
+            "expect control"
           ]
         },
-        "note": "on everyday (control): Done True, counters unchanged from the special part"
+        "note": "on everyday (control): Done True, counters unchanged from the special part (the step throws otherwise)"
       },
       {
         "cmd": "reflect_call",
@@ -46822,10 +46822,10 @@
         "args": {
           "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
           "args": [
-            "state"
+            "expect done"
           ]
         },
-        "note": "on outerwear (case 3): Done True; counters unchanged = EA accepted the swap, up by one = the hook moved or released it"
+        "note": "on outerwear (case 3): Done True; counters unchanged = EA accepted the swap, up by one = the hook moved or released it (the step throws otherwise)"
       },
       {
         "cmd": "reflect_call",
@@ -46836,6 +46836,27 @@
           ]
         },
         "note": "outerwear: done"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "unstick"
+          ]
+        },
+        "note": "a stuck task finishes, so the age-up queue goes on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "stop"
+          ]
+        }
       }
     ]
   }

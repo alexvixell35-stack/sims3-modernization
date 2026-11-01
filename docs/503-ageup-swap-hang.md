@@ -4,7 +4,7 @@ A static scan of the script DLLs for wait loops (2026-11-01) found 34 loops that
 are safe because something always sets that flag. One is not: the wait at the end of an age-up model rebuild. When the
 outfit swap it asks for is refused, nothing ever sets its flag, so that age-up never finishes and the age-up queue stops
 behind it. This doc explains when that happens and describes the ts3fixes switch that fixes it. The switch is off by
-default. Status (2026-11-01): built and self-tested, not run in game. Counters 2006-2007 (registry `fixes-2006`).
+default. Status (2026-11-01): built and self-tested; four game runs could not reach the hang (§6), so the in-game repro is open. Counters 2006-2007 (registry `fixes-2006`).
 
 Claim marks: **[verified]** = read in the game's IL by us (`ildasm`; no code reproduced here) or in the game's tuning;
 **[inferred]** = our reading, not yet checked in game; **[community-reported]** = from forum threads.
@@ -136,6 +136,18 @@ Everyday) whenever the Sim is instantiated; `Simulate` then calls `FinishModelLo
 callback sets model loaded, and it is never reset) **[verified, log]**. The cause is open: something in this setup
 (another mod's aging code, or the task seen by the check not being the one that ran) changes the path **[open]**. The
 live repro is parked until that is found; the self-test covers the hook.
+
+**Run 4** (2026-11-01, PASS in 17.3 min, with simler90's original core instead of that player's own core, which has its
+own aging patches): **inconclusive** in the same way. All four tasks (two young adults, two teens) finished with model
+loaded False; one ended Failed True (the outerwear part). So the player's core mod was not what changed the path. Over
+four runs, 15 age-ups on Baseline-BP finished and none ran `FinishModelLoad` **[verified, log]**. The cause is still open
+**[open]**.
+
+The repro steps now assert their outcome: `expect stuck` (off, special) throws unless the task was seen with model loaded
+True, outfit loaded False and Done False; `expect released` (on, special) throws unless the task finished and [2006] +
+[2007] went up; `expect control` (on, everyday) throws unless it finished with both unchanged; `expect done` (on,
+outerwear) throws unless it finished. With these, runs 1-4 would have failed at `expect stuck`, which is the honest result:
+the live repro does not reach the bug yet. Cleanup sets the missing flag (`unstick`), so a task that did hang finishes.
 
 A second way to hang **[inferred]**: `FinishModelLoad` starts the model swap with `SetModelInGameObjectDelayed`, whose
 callback goes into the same one-per-Sim table as outfit swaps (docs/224 §5, I-414-8). If the Sim still has a swap
