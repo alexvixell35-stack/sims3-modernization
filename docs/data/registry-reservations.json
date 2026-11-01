@@ -1097,6 +1097,16 @@
       "what": "docs/122 §14.19 mono-cost11 BP cut round: seeding, causes, pointer prints, RowHot",
       "at": "2026-10-29T23:58:03.500Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-506",
+      "kind": "doc",
+      "from": 506,
+      "to": 506,
+      "by": "dalexlol",
+      "what": "IL patch spec + patcher design (round 7 task 5)",
+      "at": "2026-11-01T11:35:34.000Z",
+      "worktree": "C:\\Users\\<user>\\scratchpad\\s3mod_ilp"
     }
   ]
 }
