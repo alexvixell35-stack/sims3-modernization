@@ -146,7 +146,7 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [95-threadedobjects-owners](95-threadedobjects-owners.md): ThreadedObjects script owners
 - [97-autonomy-pilot](97-autonomy-pilot.md): autonomy pilot path
 
-## Memory and saves (19)
+## Memory and saves (20)
 
 - [01-existing-fixes-comparison](01-existing-fixes-comparison.md): every known fix compared, with what each actually changes
 - [09-save-bloat-research](09-save-bloat-research.md): 09 Save bloat in long-running saves: what grows, what cleans it, what is left
@@ -162,6 +162,7 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [204-quiet-save-reload](204-quiet-save-reload.md): (Compaction, design + measurement built, not run) a normal save under the largest-free threshold becomes save + hidden in-process reload (EA ReloadWorld behind its own loading screen with "Compacting..."), camera from the save, speed/panel/visible Sims' queues restored (Test-gated re-push); threshold = save need + reload need + 128 MB (placeholder 320 MB = Apex MemoryGuard), hysteresis, off when it does not help; measurement first: queue `save-reload-memory.json` (`tools/harness/save-reload.ts`, agent `main_menu`, report `save-reload-report.ts`: share of a restart's gain the reload reaches, save/reload address-space need)
 - [205-dead-refs-and-ageup-outfits](205-dead-refs-and-ageup-outfits.md): (issues #91/#100, built, not run) `ageupkeepoutfits` (failed/cancelled age-up builder keeps outfits; `FinishOutfitSwap` skip), `deadrefguards` (`Relationship.Get` no key for invalid descriptions, dead aging states skipped), `deadrefsweep` (EA dead-reference holders cleaned hourly in ~2 ms slices + cheap pre-save pass, never at load); counters 391-410, queue `deadrefs-ageup.json`
 - [215-out-of-process-memory-map](215-out-of-process-memory-map.md): (static, AllocSites runs + docs/66/190) which 32-bit address-space owners could live in a helper process (`docs/data/oop-memory-owners.csv`); not movable: Boehm 376-408 MB, Mono native ~100, clip cores, stacks, mimalloc; movable via API: renderer stack DXVK + NVIDIA ICD ~430-640 MB (proxy `d3d9.dll` -> 64-bit process; 0.3-2.4 M one-way calls/s, cross-process present unproven), resource read buffers (PackedStream Raw/Decompressed + EAStreamMemory cores 112-192 MB, ~300-800 req/s, 0.3-24 ms/s, 64-bit helper), STBL, routing clone (docs/194); first target = resource read buffers after one AllocSites measurement (§4.1); gaps G1-G7 (untracked 271-283 MB, save view 87 MB)
+- [502-career-uniform-backup](502-career-uniform-backup.md): (issue #101, built, not run in this form) `uniformbackup` (off by default): the static `Occupation.backupOutfit` is uncached by every later re-uniform and never cleared, so a new Career outfit that gets its key is uncached too and does not load after a reload; the hook clears the backup once EA uncached it; counter 2002, repro `career-uniform-backup-check`, self-test `tools/selftest/uniformbackup`
 - [25-save-world-write](25-save-world-write.md): The native world write of a save (~4 s)
 - [26-incremental-save](26-incremental-save.md): Incremental ("dirty-only") save: can a save write only what changed?
 - [57-mono-gc-alloc](57-mono-gc-alloc.md): GC/allocator (P3 needs 17 detours)

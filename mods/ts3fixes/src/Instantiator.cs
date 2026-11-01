@@ -68,6 +68,8 @@ namespace Ts3Fixes
         [Tunable] public static int kAutLiveGuardHold = 600;       // ... frames without posting after a skip window, doubled per skip in a row (16 x max)
         [Tunable] public static bool kAutUnseenPace = true;        // docs/222 §8: with autunseen on, charge the skipped ads' vanilla B14 cost to B13's yield timer (searches yield on vanilla's schedule); runtime switch autunseenpace
         [Tunable] public static bool kAutUnseenCmp = false;        // docs/222 §9: Dry measurement, per definition the worker's Test/score vs the game's C2 for unseen actors on every slice; runtime switch autunseencmp (measurement only)
+        [Tunable] public static bool kAutUnseenRabbitHoleGame = true; // docs/222 §10: with autunseen on, RabbitHole-target pairs go to the game's own C1 (worker-pass/game-fail 7.2% of unseen pairs, mostly rabbit holes); runtime switch autunseenrh
+        [Tunable] public static int kAutUnseenPacePct = 78;         // docs/222 §10: pacing charges this percent of the measured vanilla B14 cost per skipped ad (100 overshot: BP unseen searches/Sim-hour 0.541 vs 0.429)
         [Tunable] public static bool kHoursMemo = false;           // opt-in until measured: a lot's opening hours are worked out once per sim tick (ScriptHotSpots.cs, docs/74)
         [Tunable] public static bool kUnseenEnvThrottle = false;   // opt-in until measured: unseen high-LOD Sims score their surroundings one time in kUnseenThrottleEvery (UnseenThrottle.cs, docs/144)
         [Tunable] public static bool kUnseenMotiveThrottle = false; // opt-in until measured: unseen high-LOD Sims update needs, moodlets and mood every kUnseenThrottleEvery sim-minutes, same totals (docs/144)
@@ -124,6 +126,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kFirePitChair = false;        // opt-in, changes save data: fire pit test chairs destroyed before a save (EaFixes.cs, issue #90)
         [Tunable] public static bool kAgeUpKeepOutfits = false;    // opt-in until verified: a failed or cancelled age-up builder keeps the Sim's outfits instead of wiping them (EaFixes.cs, issue #100)
         [Tunable] public static bool kOutfitWaitPoll = false;      // opt-in until verified: an outfit wait not ready after 60 sim-minutes reads its flag once per sim-minute instead of every tick (OutfitWait.cs, issue #115)
+        [Tunable] public static bool kUniformBackup = false;       // opt-in until verified: the shared career uniform backup is cleared once uncached, so a later re-uniform cannot uncache the new Career outfit (UniformBackup.cs, issue #101)
         [Tunable] public static bool kDeadRefGuards = false;       // opt-in until verified: Relationship.Get makes no entry for a disposed description, dead aging states skipped (DeadRefs.cs, issue #91)
         [Tunable] public static bool kBakeSaleSeller = false;      // opt-in until verified: a bake sale table's deleted seller reads as no seller, an orphaned NPC table gets its clean-up alarm back (BakeSale.cs, issue #102)
         [Tunable] public static bool kDeadRefSweep = false;        // opt-in, changes save data: EA holders of disposed descriptions / destroyed Sims cleaned, spread hourly + cheap pre-save pass (DeadRefs.cs, issue #91)

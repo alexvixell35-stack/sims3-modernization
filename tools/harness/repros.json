@@ -44268,7 +44268,21 @@
       {
         "cmd": "spawn_sims",
         "args": {
-          "count": 30
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
         },
         "waitS": 20
       },
@@ -46340,6 +46354,269 @@
         "cmd": "patches",
         "args": {
           "bakesaleseller": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "career-uniform-backup-check",
+    "bug": "issue #101: Occupation.ApplyOccupationUniform keeps the old Career outfit in the static Occupation.backupOutfit while the Sim wears it, and a later call uncaches that backup without clearing the field, so later calls uncache it again; once its key is handed to a new uniform, the same call uncaches the new Career outfit (lost after a reload)",
+    "fix": "ts3fixes UniformBackup.cs: uniformbackup (default off), docs/502",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED in this form (the same sequence proved the bug live, and a core patch with the same effect ran live; #101). Needs a Sim with a Career outfit whose occupation hands out a uniform for its level (pick tries the active household, then every Sim in the world; Film never re-uniforms). The off arm leaves that Sim with a Career outfit that does not load after a reload; the harness does not save.",
+    "expect": "off: after the last uniform, Career[0] does not load (key K), K loads False, backup K, cleared 0. on: Career[0] loads after every step, backup null after the Everyday re-uniform, cleared >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "uniformbackup": false
+        },
+        "note": "applied log lists Occupation.ApplyOccupationUniform: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "off: names the Sim; backup null",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "wear Career"
+          ]
+        },
+        "note": "off",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "uniform"
+          ]
+        },
+        "note": "off: EA stores the old Career outfit as the backup",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "wear Career"
+          ]
+        },
+        "note": "off",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "uniform"
+          ]
+        },
+        "note": "off",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "wear Everyday"
+          ]
+        },
+        "note": "off",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "uniform"
+          ]
+        },
+        "note": "off: EA uncaches the backup",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "uniform"
+          ]
+        },
+        "note": "off: EA uncaches it again (off); on: cleared 1 after the previous step",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: Career[0] (does not load), K loads False, backup set",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "off: done",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "uniformbackup": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "on: names the Sim; backup null",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "wear Career"
+          ]
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "uniform"
+          ]
+        },
+        "note": "on: EA stores the old Career outfit as the backup",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "wear Career"
+          ]
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "uniform"
+          ]
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "wear Everyday"
+          ]
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "uniform"
+          ]
+        },
+        "note": "on: EA uncaches the backup",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "uniform"
+          ]
+        },
+        "note": "on: EA uncaches it again (off); on: cleared 1 after the previous step",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: every Career outfit loads, backup null, cleared >= 1",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "on: done",
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UniformBackupCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "restores a patched Systems build switch if one was set",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "uniformbackup": false
         }
       }
     ]

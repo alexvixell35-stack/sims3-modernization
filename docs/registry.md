@@ -157,7 +157,10 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 670-679 | reserved (autunseen-defcmp, `fixes-670`) | docs/222 §9 autunseencmp (Dry): unseen actors' worker Test/score vs the game's C2 per pair on every slice: searches, pairs, worker-fail/game-pass, worker-pass/game-fail, both pass, both fail, late-slice pairs, late-slice mismatches, objects skipped, snapped slices |
 | 680-682 | `OutfitWait.cs` (`fixes-680`, issue #115, docs/224), `outfitwaitpoll` | built 2026-10-31 (self-test only): 680 outfit waits not ready after 60 sim-minutes, now polled once per sim-minute (`outfitwaitpoll_stale`), 681 minute polls (`_polls`), 682 stale waits that later became ready (`_ended`); array `new int[683]` |
 | 683-684 | `BakeSale.cs` (`fixes-683`, issue #102, docs/225), `bakesaleseller` | built 2026-10-31: 683 seller reads that found a deleted seller (`bakesaleseller_reads`), 684 orphaned NPC tables given a new clean-up alarm at load (`_rearmed`); array `new int[685]` |
-| **685+** | next free | reserve here  |
+| 685 | `AutLive.cs` (`fixes-685`, docs/222 §10), `autunseenrh` | built 2026-11-01 (unseen4): unseen-direct pairs with a RabbitHole target sent to the game's C1; in Dry the same pairs skipped (counted) by autunseencmp (`autunseen_rh_game`); array `new int[687]` |
+| 686 | `AutLive.cs` (`fixes-686`, docs/222 §10), `autunseencmp` | built 2026-11-01 (unseen4): worker-pass/game-fail compare pairs whose worker score is 0 (BestScores drops both; `autunseen_cmp_wpgf_w0`) |
+| 2002 | `UniformBackup.cs` (`fixes-2002`, contributor range 2000-2199, issue #101, docs/502), `uniformbackup` | built 2026-10-31: career uniform backups that EA uncached and left in `Occupation.backupOutfit`, cleared (`uniformbackup_cleared`); array `new int[2003]` (2000-2001 reserved by PR #153) |
+| **687+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 

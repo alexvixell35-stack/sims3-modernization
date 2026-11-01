@@ -26,6 +26,7 @@ const MONO ='Mono offload, parked: no Mono game runs allowed now (memory mono-pa
 export const EXEMPT: Record<string, string> = {
   unseenfbteleport: 'trip-shortcut type: verified by verify-shortcut.ts --name unseenfbteleport and the unseen-fallback.json sv-ufb-teleport-verify job (fixesRequire), not by an A/B repro (shortcut-verification rule, docs/202 §6)',
   autunseenpace: 'tuning default on, not a separate A/B arm: pacing is on in every golive-unseen.json g8 -on job together with autunseen (docs/222 §8); compared by the G8 cadence lines, not a hitch repro',
+  autunseenrh: 'tuning default on, not a separate A/B arm: on in every golive-unseen.json job with autunseen from unseen4 (docs/222 §10); judged by ip-gu-dry-defcmp-u4 (rabbit-hole pairs not compared, counted) and ip-gu-g8-ab-u4',
   unseenghost: 'native [UnseenGhost] ini section (UnseenGhost.Enabled=1), not an ab/fixesOn name: turned on in every unseen-route-relaxed.json / unseen-route-long-ab.json job (docs/202 §3.9.5); acts only for unseenroute holds, which have repros',
   autshadowverify: DIAG, autunseencmp: DIAG, ownjobwait: DIAG, autledger: MONO,
   autoffenv: OFFLOAD, autoffbcast: OFFLOAD, autoffdry: OFFLOAD, autoffenvapply: OFFLOAD, autoffbcastapply: OFFLOAD, autoffnoref: OFFLOAD, autofftick: OFFLOAD,

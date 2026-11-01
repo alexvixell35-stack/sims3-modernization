@@ -249,12 +249,15 @@ namespace Ts3Fixes
         // game-pass, worker-pass / game-fail, both pass, both fail, late-slice pairs, late-slice mismatches, objects skipped, snapped slices.
         // [680-682] outfitwaitpoll (OutfitWait.cs, issue #115): outfit waits gone stale, minute polls, stale waits that ended.
         // [683-684] bakesaleseller (BakeSale.cs, issue #102): dead-seller reads, orphaned NPC tables given a new clean-up alarm.
+        // [685-686] docs/222 §10: unseen-direct pairs with a RabbitHole target sent to the game's C1 (autunseenrh; in Dry the same pairs
+        // skipped by autunseencmp), worker-pass / game-fail compare pairs whose worker score is 0 (BestScores drops both).
+        // [2002] uniformbackup (UniformBackup.cs, issue #101, docs/502): stale career uniform backups cleared.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[685]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2003]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -316,6 +319,7 @@ namespace Ts3Fixes
                 case "autlivelate": return Instantiator.kAutLiveLate; // docs/217 L1 late consume (only acts with autlive)
                 case "autliveguard": return Instantiator.kAutLiveGuard; // docs/124 §17.10 go-live cost guard (only acts with autlive)
                 case "autunseenpace": return Instantiator.kAutUnseenPace; // docs/222 §8 unseen-direct pacing (only acts with autunseen)
+                case "autunseenrh": return Instantiator.kAutUnseenRabbitHoleGame; // docs/222 §10 rabbit-hole pairs to the game's C1 (only acts with autunseen)
                 case "autunseencmp": return Instantiator.kAutUnseenCmp; // docs/222 §9 Dry per-definition compare (only with Dry + autunseen)
                 case "autunseen": return false; // docs/222 unseen-direct go-live (only acts with autlive, acting): test runs only
                 case "replandefer": return Instantiator.kReplanDefer;
@@ -379,6 +383,7 @@ namespace Ts3Fixes
                 case "firepitchair": return Instantiator.kFirePitChair;
                 case "ageupkeepoutfits": return Instantiator.kAgeUpKeepOutfits;
                 case "outfitwaitpoll": return Instantiator.kOutfitWaitPoll;
+                case "uniformbackup": return Instantiator.kUniformBackup;
                 case "deadrefguards": return Instantiator.kDeadRefGuards;
                 case "bakesaleseller": return Instantiator.kBakeSaleSeller;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;
