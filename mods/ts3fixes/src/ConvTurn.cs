@@ -65,7 +65,8 @@ namespace Ts3Fixes
         //            when there is no such pair. It leaves what they are doing alone (the conversation does not need them free).
         //   "chat":  puts the two in one conversation with EA's SocialComponent.JoinConversationWith (what EA's
         //            StartSocializingWith calls); throws when they are not in one conversation afterwards. Each arm runs it:
-        //            EA can end the off arm's conversation before the on arm (run 5: one Sim went to bed).
+        //            EA can end the off arm's conversation before the on arm (run 5: one Sim went to bed). An expect step
+        //            that finds the conversation ended joins the same two again in its own call (run 6).
         //   "pick":  a Sim of the active household in a conversation with another member; throws when there is none.
         //   "expect stuck" (switch off) / "expect taken" (switch on): in one call, gives the turn to the other member and
         //            backdates the last social by 20 sim minutes (a silent holder), then runs the hook's check as EA's
@@ -134,6 +135,15 @@ namespace Ts3Fixes
             }
             if (what == "expect stuck" || what == "expect taken" || what == "expect control")
             {
+                // EA ends a conversation of two Sims who do no social within a second or two (runs 5 and 6, 2026-11-01:
+                // one went to bed or walked away). Then the same two join again in this call, so no tick passes before the check.
+                string again = "";
+                if (conv == null && sCtA != null)
+                {
+                    again = ConvTurnCheck("chat") + " again; ";
+                    ConvTurnCheck("pick");
+                    conv = sCtAsker.Conversation;
+                }
                 if (conv == null) throw new InvalidOperationException("convturn " + what + ": " + sCtAsker.FullName + " is no longer in a conversation");
                 Sim holder = OtherMember(conv, sCtAsker);
                 if (holder == null) throw new InvalidOperationException("convturn " + what + ": no other member");
@@ -152,7 +162,7 @@ namespace Ts3Fixes
                     : on && seen == 0 && taken == 0 && !took && t == holder;
                 string st = "seen +" + seen + ", taken +" + taken + ", turn " + (t != null ? t.FullName : "nobody") + " (holder " + holder.FullName + ")";
                 if (!ok) throw new InvalidOperationException("convturn " + what + ": wrong outcome (switch " + on + "); " + st);
-                return "as expected; " + st;
+                return again + "as expected; " + st;
             }
             return "unknown check " + what + " (start, chat, pick, expect stuck, expect taken, expect control, state, stop)";
         }

@@ -66,3 +66,7 @@ wait.
 **Run 5** (2026-11-01, Baseline-BP, FAIL in the on arm's set-up): the join worked (2 members). Off arm: `expect stuck`
 as expected, seen +1, taken +0, the turn stays with the holder. Before the on arm, EA ended the conversation (Tiara
 went to bed, Lala walked away), and `pick` threw. Each arm now forms its own conversation.
+
+**Run 6** (FAIL in the off arm's set-up): the conversation ended in the second between `pick` and `expect stuck`. An
+expect step that finds it ended now joins the same two again in its own call, so no tick passes before the check; its
+result says so.
