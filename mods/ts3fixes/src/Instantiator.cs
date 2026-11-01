@@ -131,6 +131,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kVacExitReturn = false;       // opt-in until verified: a trip exit while the parents are away brings them back (EaVacation.cs, issue #97 row 5)
         [Tunable] public static bool kVacListenerNull = false;     // opt-in until verified: RestoreState(null) starts the listener fresh (EaVacation.cs, issue #97 row 6)
         [Tunable] public static bool kVacImportFix = false;        // opt-in until verified: travel opportunity import refreshes stale Sim ids, no instant fail without a time limit (EaVacation.cs, issue #97 row 7)
+        [Tunable] public static bool kMenuMaven = false;           // opt-in: the Menu Maven challenge and the Culinary Librarian wish need every recipe of this install that a Sim can learn, counted live (MenuMaven.cs, docs/501)
 
         public const string Version = "0.1.1";
 

@@ -142,6 +142,7 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 647-658 | `UnseenFallback.cs` unseenroute2 (`fixes-647`, docs/202 §3.9.5-§3.9.7) | other-task acts, nested refusals, group acts / refusals, child acts, B passes, C learn plans, C hits, D checks, D repairs, ghost starts, ghost exits (`unseenroute_*`); array `new int[659]` |
 | 659-669 | `AutLive.cs` unseen-direct pacing + G8 by class (`fixes-659`, docs/222 §8) | 659 us charged to B13's yield timer (`autunseen_pace_us`), 660 yields brought forward (`autunseen_pace_forced`); G8 by actor class: unseen searches / pushes / no-pick / GoHome 661-664 (`g8_unseen_*`), seen 665-668 (`g8_seen_*`), unseen Sim-hours x100 669; array `new int[670]` |
 | **670+** | next free | reserve here  |
+| 2000-2001 | `MenuMaven.cs` (`fixes-2000`, contributor range 2000-2199, docs/501), `menumaven` | built 2026-11-01: 2000 `IsMenuMaven` calls answered by the live recipe count (`menumaven_reads`), 2001 of them true (`menumaven_done`); array `new int[2002]` |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 

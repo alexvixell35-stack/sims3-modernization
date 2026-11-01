@@ -45968,5 +45968,153 @@
       }
     ],
     "expect": "no crash, 0 watchdog lines; unseenroute_d_check >= 1, unseenroute_d_repair >= 1, the Sims leave the fenced spot (sims_activity), no stuck Sim"
+  },
+  {
+    "id": "menumaven-all-recipes-check",
+    "bug": "docs/501: Cooking.IsMenuMaven (Menu Maven skill challenge and Culinary Librarian lifetime wish, 'know every recipe') compares the known recipe count with the tuned kRecipesLearnedForMenuMaven, 28 in EA's tuning, never raised for expansion, store or custom recipes",
+    "fix": "ts3fixes MenuMaven.cs: menumaven (default off), docs/501",
+    "save": "Baseline-BP",
+    "note": "Forced repro with EA's own Cooking.AddRecipe on the first active-household Sim, teen or older (given the Cooking skill if it has none). Its known recipes are saved, emptied and put back at stop; the harness does not save.",
+    "expect": "off: after 'learn tuned' IsMenuMaven True. on: after 'learn tuned' IsMenuMaven False (target > tuned); after 'learnall' counting known = target and IsMenuMaven True; after 'unlearn' False; menumaven_reads >= 3, menumaven_done >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "menumaven": false
+        },
+        "note": "applied log lists Cooking.IsMenuMaven: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "off: names the Sim, known list emptied; state: target = recipes that count, tuned (EA 28)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "learn tuned"
+          ]
+        },
+        "note": "off: EA's tuned number of recipes added; IsMenuMaven True (EA rule: count >= tuned)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "off: known list put back",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "menumaven": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "on: known list emptied again",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "learn tuned"
+          ]
+        },
+        "note": "on: same recipes; IsMenuMaven False while target > tuned, reads >= 1",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "learnall"
+          ]
+        },
+        "note": "on: every recipe that counts; counting known = target, IsMenuMaven True, done >= 1",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "unlearn"
+          ]
+        },
+        "note": "on: one recipe that counts removed; IsMenuMaven False",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: the recipe census (snack, not learnable, above level) for the doc",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "on: known list put back",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "counters menumaven_reads, menumaven_done",
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "puts the known list back if a step failed",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "menumaven": false
+        }
+      }
+    ]
   }
 ]

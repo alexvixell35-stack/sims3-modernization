@@ -193,7 +193,7 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [72-dropped-frames](72-dropped-frames.md): dropped sim frames (by design: newest-2 interpolation, every message drained)
 - [96-worst-hitches](96-worst-hitches.md): worst hitches
 
-## Travel and gameplay (8)
+## Travel and gameplay (9)
 
 - [10-expansion-travel-shortcuts](10-expansion-travel-shortcuts.md): Expansion travel and off-screen trip shortcuts
 - [16-online-features](16-online-features.md): Online features: what the game contacts, what can block, how to turn it off
@@ -203,6 +203,7 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [19-travel-worlds](19-travel-worlds.md): 19 Travel worlds: which destinations are worst, and what travel itself costs
 - [210-free-vacation-fixes](210-free-vacation-fixes.md): 210 Generations free vacation: seven EA defects (issue #97)
 - [77-nraas-traveler-study](77-nraas-traveler-study.md): NRaas Traveler study (travel start/arrival)
+- [501-menu-maven-all-recipes](501-menu-maven-all-recipes.md): (built, self-tested) `menumaven` (off by default): Menu Maven and the Culinary Librarian wish need every learnable recipe of the install, counted live, instead of the tuned 28
 
 ## Player tools and releases (7)
 

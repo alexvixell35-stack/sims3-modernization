@@ -85,6 +85,7 @@ namespace Ts3Fixes
             Patch(typeof(ThrownObjectInfo), "CreateObjectFromMedatorName", new Type[] { typeof(Sims3.Gameplay.Objects.Quality) }, typeof(ThrowHook), "MakeHook", "MakeOrig");
             Patch(typeof(ShowStage.WatchTheShow), "PerformInventoryActions", typeof(ThrowHook), "PerformHook", "PerformOrig");
             Patch(typeof(SimBuilderTask), "FinishOutfitSwap", typeof(AgeUpOutfitHook), "SwapHook", "SwapOrig");
+            Patch(typeof(Sims3.Gameplay.Skills.Cooking), "IsMenuMaven", typeof(MenuMavenHook), "IsHook", "IsOrig");
         }
 
         // ---- ageupkeepoutfits (#100) ----

@@ -77,6 +77,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/vacation/run.ts': CSC,
   'tools/selftest/savecleanup/run.ts': CSC,
   'tools/selftest/slicequeue/run.ts': CSC,
+  'tools/selftest/menumaven/run.ts': CSC,
   'tools/selftest/typecache/run.ts': CSC,
   'tools/selftest/unseen/run.ts': CSC,
   'tools/selftest/unseenfb/run.ts': CSC,
