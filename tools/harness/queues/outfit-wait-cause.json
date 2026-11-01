@@ -111,6 +111,34 @@
           "why": "no stale outfit wait polled by the 4th 2-min slice: the hook is not on or not installed"
         }
       ]
+    },
+    {
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only test, no native change; the switch-on package: the question needs the switch on in the whole run",
+      "save": "BigSave-LR",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "id": "lr-outfit-wait-view",
+      "fixesPackage": "build/ts3fixes-on-kOutfitWaitPoll.package",
+      "note": "View (12 min, day-406 save, switch on all run): does a stale `own` wait end only when its Sim comes on screen? Counts outfitwaitpoll_stale_onscreen / _ended_onscreen against stale / ended, with the end lines. Pass: at least one stale wait.",
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "fixesRequire": "outfitwaitpoll_stale>=1"
+        }
+      },
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:outfitwaitpoll_polls",
+          "op": ">=",
+          "value": 1,
+          "why": "no stale outfit wait polled by the 4th 2-min slice: the hook is not on or not installed"
+        }
+      ]
     }
   ]
 }

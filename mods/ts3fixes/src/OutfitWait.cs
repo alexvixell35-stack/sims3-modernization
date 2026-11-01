@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.CAS;
+using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
 using Sims3.SimIFace.CAS;
@@ -22,6 +23,8 @@ namespace Ts3Fixes
     // Each stale wait is classed once (OutfitWaitCore.StaleCause, docs/224 §5): [2003] own swap still pending, [2004] replaced
     // by another delayed swap of the Sim, [2005] nothing pending (aborted waits are the #115 cause and are not counted here).
     // [2011] of those, waits whose helper's swap callback EA dropped (SwapCbHook below).
+    // Whether the native swap needs the Sim in view (docs/224 §5): [2012] stale waits whose Sim was on screen when the wait
+    // went stale, [2013] stale waits whose Sim was on screen when the wait ended; the end is logged (first 10 lines).
     public static partial class Fixes
     {
         const float kOutfitWaitStaleMinutes = 60f;
@@ -69,7 +72,7 @@ namespace Ts3Fixes
                             Sim s = sSohSim.GetValue(h) as Sim;
                             string line = "outfitwaitpoll: " + (s != null ? s.FullName : "?") + " outfit wait not ready after "
                                 + kOutfitWaitStaleMinutes + " sim-minutes (aborted " + (sSohAborted != null ? sSohAborted.GetValue(h) : "?")
-                                + "), now read once per sim-minute; task " + OutfitWaitCaller() + "; " + OutfitWaitCause(h, s);
+                                + "), now read once per sim-minute; " + ViewText(s, 2012) + "; task " + OutfitWaitCaller() + "; " + OutfitWaitCause(h, s);
                             ShortcutLog(line);
                             if (sOwLines.Count < 20) sOwLines.Add(line); // the 40-line recent log is soon full of other shortcuts
                         }
@@ -77,9 +80,36 @@ namespace Ts3Fixes
                     }
                     Simulator.Sleep(sleep);
                 }
-                if (stale) PatchCounters()[682]++;
+                if (stale)
+                {
+                    PatchCounters()[682]++;
+                    Sim s = sSohSim.GetValue(h) as Sim;
+                    string view = ViewText(s, 2013);
+                    if (sOwEndLines++ < 10)
+                    {
+                        string line = "outfitwaitpoll: " + (s != null ? s.FullName : "?") + " stale outfit wait ended after "
+                            + SimClock.ConvertFromTicks(SimClock.CurrentTicks - t0, TimeUnit.Minutes).ToString("0") + " sim-minutes; " + view;
+                        ShortcutLog(line);
+                        if (sOwLines.Count < 30) sOwLines.Add(line);
+                    }
+                }
             }
             public void WaitOrig(bool idleIfNecessary) { } // receives Sim.SwitchOutfitHelper.Wait's original header
+        }
+
+        static int sOwEndLines;
+        // on screen / near the camera; counts slot when on screen
+        static string ViewText(Sim s, int slot)
+        {
+            if (s == null) return "view ?";
+            try
+            {
+                bool on = World.IsObjectOnScreen(s.ObjectId);
+                if (on) PatchCounters()[slot]++;
+                return "on screen " + on + ", far from camera " + FarFromViewers(s.Position) + ", on active lot "
+                    + (s.LotCurrent != null && s.LotCurrent == LotManager.ActiveLot);
+            }
+            catch (Exception e) { return "view ? (" + e.GetType().Name + ")"; }
         }
 
         // the waiting task, and for a yielding alarm the callback it runs (the #115 case: an AlarmManager one-shot)
