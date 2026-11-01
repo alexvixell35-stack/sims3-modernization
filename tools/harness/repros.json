@@ -48049,5 +48049,160 @@
       }
     ],
     "cleanup": []
+  },
+  {
+    "id": "dart-gone-check",
+    "bug": "A dartboard keeps a Sim that was reset or destroyed mid-game in Players, its Team, CurrentPlayer and CheatingSim: EA clears those only in DoFinishGame, and Quit (every cleanup) never runs for a Sim that is gone; the fields are saved with the board (issue #166 build 42)",
+    "fix": "ts3fixes DeadRefs.cs: deadrefsweep phase 9 (default off), docs/516",
+    "save": "Baseline-BP",
+    "note": "Hard state built by the agent check (DeadRefDartCheck seed): a dartboard made out of world, one townie added as team player, CurrentPlayer and CheatingSim, then that Sim object destroyed as a reset does (the description stays; it is instantiated again where it stood at the end of each arm). Off arm: the sweep refuses, the entries stay. On arm: the spread pass is started at once and polled until the board is clean. The on arm's seed poll waits for the destroy only: the hourly pass (an alarm that fires on its own clock) may clean the board before the poll, as it did on 2026-11-01 23:42.",
+    "expect": "off: expect left sees gone 3 with the switch off. on: expect cleaned sees gone 0, Players 0, Teams 0, CurrentPlayer and CheatingSim null; deadrefsweep_dartboards >= 3.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "off: a dartboard out of world with one townie as player, current player and cheating Sim; the Sim object destroyed",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            },
+            {
+              "path": "gone",
+              "atLeast": 3
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "off: started False (switch off); nothing runs",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+          "args": [
+            "expect left"
+          ]
+        },
+        "note": "off: the three gone entries still on the board; board destroyed, townie put back"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "on: the same hard state again (another townie)",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "on: started True (safe); phase 9 reaches the board within the pass",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: poll until the board holds no gone entry",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "gone",
+              "equals": 0
+            }
+          ],
+          "maxS": 240,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+          "args": [
+            "expect cleaned"
+          ]
+        },
+        "note": "on: gone 0, Players and Teams empty, CurrentPlayer and CheatingSim null; deadrefsweep_dartboards +3"
+      }
+    ]
   }
 ]

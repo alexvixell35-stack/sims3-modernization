@@ -37,10 +37,11 @@ namespace Ts3Fixes
     //     owners that are gone descriptions (AlarmManager.OnDispose), 4 household descriptions (occupation and school
     //     Coworkers, FormerBoss, chess challenger, pregnancy dad, empty-outfit count for #100), 5 Sims (LookAtManager react
     //     times, unforgettable topics, push requester, last talking partner, reserved vehicle), 6 fish (fisher), 7 cars and
-    //     boats (previous passengers), 8 horseshoe courts (throwers and scores).
+    //     boats (previous passengers), 8 horseshoe courts (throwers and scores), 9 dartboards (gone players quit through EA's
+    //     Quit, gone current player and cheating Sim cleared; #166 build 42, docs/516).
     //     [395] relationship keys removed, [396] relationship entries removed, [397] aging states removed, [398] alarm owners
     //     cleared, [399] react-time entries, [400] coworker / boss / chess entries, [401] topics, [402] fishers, [403] Sim
-    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [405] passes finished, [406] slices,
+    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [2045] dartboard entries, [405] passes finished, [406] slices,
     //     [407] longest slice us, [408] total pass ms, [409] longest save pass us, [410] passes refused or stopped (unsafe state, switch off) and items that threw.
     //   Not built (docs/205 §4): CookingProcess appliance handlers, ObjectOwnerComponent.mThief, Celebrity.mWaitingToReact,
     //   adoption pool pets, Service.mPreferredServiceNpc (= preferredservice, #86).
@@ -161,6 +162,7 @@ namespace Ts3Fixes
                 delegate { return Objects<Fish>(); },
                 delegate { List<object> l = Objects<CarOwnable>(); l.AddRange(Objects<BoatOwnable>()); return l; },
                 delegate { return Objects<HorseshoeCourt>(); },
+                delegate { return Objects<Dartboard>(); },
             };
             try
             {
@@ -260,6 +262,7 @@ namespace Ts3Fixes
                     case 5: FishHolder(o as Fish); break;
                     case 6: VehicleHolders(o); break;
                     case 7: HorseshoeHolders(o as HorseshoeCourt); break;
+                    case 8: DartboardHolders(o as Dartboard); break;
                 }
             }
             catch (Exception) { PatchCounters()[410]++; }
@@ -397,6 +400,92 @@ namespace Ts3Fixes
             if (sShoeScores != null) c[404] += DeadRefsCore.DropKeys(sShoeScores.GetValue(court) as Dictionary<Sim, int>, SimGone);
         }
 
+        // Phase 9 (issue #166 build 42, docs/516): EA clears a dartboard's lists only in DoFinishGame. Quit(sim), which every
+        // Wait / TakeTurnThrowingDarts cleanup calls, takes the Sim out of its team and Players but leaves CurrentPlayer and
+        // CheatingSim; a Sim reset or destroyed mid-game never reaches Quit, and the fields are saved with the board. Gone
+        // players leave through EA's Quit (team turn index kept right, an empty team removed, ActorsUsingMe); a gone
+        // CurrentPlayer / CheatingSim is cleared (EA tests both for null before use). [2045] entries.
+        static void DartboardHolders(Dartboard board)
+        {
+            if (board == null || board.HasBeenDestroyed) return;
+            int[] c = PatchCounters();
+            foreach (Sim s in new List<Sim>(board.Players)) if (SimGone(s)) { board.Quit(s); c[2045]++; }
+            if (board.CurrentPlayer != null && SimGone(board.CurrentPlayer)) { board.CurrentPlayer = null; c[2045]++; }
+            if (board.CheatingSim != null && SimGone(board.CheatingSim)) { board.CheatingSim = null; c[2045]++; }
+        }
+
+        static int DartGone(Dartboard b)
+        {
+            int n = 0;
+            foreach (Sim s in b.Players) if (SimGone(s)) n++;
+            if (b.CurrentPlayer != null && SimGone(b.CurrentPlayer)) n++;
+            if (b.CheatingSim != null && SimGone(b.CheatingSim)) n++;
+            return n;
+        }
+
+        // Agent check for docs/516 (repro dart-gone-check), a hard state built and undone:
+        //   "seed":   a dartboard made out of world holds one townie as team player, CurrentPlayer and CheatingSim; that Sim
+        //             object is then destroyed (what a reset does; the description stays and is instantiated again at the
+        //             end). The Sim: not selectable, no pet, not of the active household, not on its home lot, no role or service.
+        //   "state":  DartState: gone entries on that board, players, teams, the current / cheating flags, destroyed.
+        //   "expect left" (switch off) / "expect cleaned" (switch on): throws unless the board still holds the three gone
+        //             entries (left) or none, with Players and Teams empty (cleaned). Either way the board is destroyed
+        //             and the townie put back where it stood.
+        public class DartState { public int gone, players, teams; public bool current, cheating, destroyed; }
+        static Dartboard sDartBoard;
+        static SimDescription sDartDesc;
+        static Vector3 sDartPos;
+
+        public static object DeadRefDartCheck(string what)
+        {
+            if (what == "seed")
+            {
+                // the Late Night catalog names: DartboardCheap, DartboardExpensive; the one-argument overload builds a base-game key
+                Dartboard board = GlobalFunctions.CreateObjectOutOfWorld("DartboardCheap", ProductVersion.EP3) as Dartboard;
+                if (board == null) throw new InvalidOperationException("dart seed: CreateObjectOutOfWorld(\"DartboardCheap\", EP3) made nothing");
+                Household active = Household.ActiveHousehold;
+                Lot home = active != null ? active.LotHome : null;
+                Sim victim = null;
+                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                {
+                    SimDescription d = s.SimDescription;
+                    if (s.IsSelectable || s.IsPet || s.HasBeenDestroyed || d == null || !d.IsValidDescription || !d.TeenOrAbove) continue;
+                    if (s.Household == active || (home != null && s.LotCurrent == home) || d.AssignedRole != null || d.CreatedByService != null) continue;
+                    victim = s; break;
+                }
+                if (victim == null) { board.Destroy(); throw new InvalidOperationException("dart seed: no townie to use"); }
+                Dartboard.Team team = new Dartboard.Team();
+                team.AddPlayerToTeam(victim, board);
+                board.Teams.Add(team); board.CurrentTeam = team; board.CurrentPlayer = victim; board.CheatingSim = victim;
+                sDartBoard = board; sDartDesc = victim.SimDescription; sDartPos = victim.Position;
+                string name = victim.FullName;
+                victim.Destroy();
+                return "dart seed: " + name + " on the board as player, current player and cheating Sim, then destroyed";
+            }
+            Dartboard b = sDartBoard;
+            if (b == null) throw new InvalidOperationException("dart " + what + ": no seed");
+            if (what == "state")
+            {
+                DartState st = new DartState();
+                st.gone = DartGone(b); st.players = b.Players.Count; st.teams = b.Teams.Count;
+                st.current = b.CurrentPlayer != null; st.cheating = b.CheatingSim != null;
+                st.destroyed = sDartDesc.CreatedSim == null || sDartDesc.CreatedSim.HasBeenDestroyed;
+                return st;
+            }
+            if (what != "expect left" && what != "expect cleaned") return "dart <seed|state|expect left|expect cleaned>";
+            bool on = ShortcutOn("deadrefsweep");
+            int gone = DartGone(b), players = b.Players.Count, teams = b.Teams.Count;
+            bool ok = what == "expect left" ? !on && gone == 3 : on && gone == 0 && players == 0 && teams == 0 && b.CurrentPlayer == null && b.CheatingSim == null;
+            string line = "gone " + gone + ", players " + players + ", teams " + teams + ", current " + (b.CurrentPlayer != null) + ", cheating " + (b.CheatingSim != null) + " (switch " + on + ")";
+            sDartBoard = null;
+            b.Destroy();
+            string back = "not put back";
+            if (sDartDesc != null && sDartDesc.IsValidDescription && (sDartDesc.CreatedSim == null || sDartDesc.CreatedSim.HasBeenDestroyed))
+                back = sDartDesc.Instantiate(sDartPos) != null ? "put back" : "Instantiate returned null";
+            if (!ok) throw new InvalidOperationException("dart " + what + ": wrong outcome; " + line + "; " + sDartDesc.FullName + " " + back);
+            return "as expected; " + line + "; " + sDartDesc.FullName + " " + back;
+        }
+
         // Before a save (DisposeSaveHook): the three big dictionaries only, gone entries only (field reads per entry; the
         // spread pass did the rest during play). Returns the work line.
         public static string DeadRefSavePass()
@@ -450,7 +539,7 @@ namespace Ts3Fixes
                 }
                 case "sweep": return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
                 case "savepass": return DeadRefSavePass();
-                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass)";
+                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck)";
             }
         }
 
@@ -474,6 +563,8 @@ namespace Ts3Fixes
                 List<ActiveTopic> u = t != null && sUnforgettable != null ? sUnforgettable.GetValue(t) as List<ActiveTopic> : null;
                 if (u != null) foreach (ActiveTopic a in u) if (a != null && a.Parameter != null && DescGone(a.Parameter)) topics++;
             }
+            int darts = 0;
+            foreach (Dartboard b in Sims3.Gameplay.Queries.GetObjects<Dartboard>()) darts += DartGone(b);
             foreach (SimDescription d in Household.EverySimDescription())
             {
                 if (d == null || d.CareerManager == null) continue;
@@ -482,7 +573,7 @@ namespace Ts3Fixes
             }
             return "count: relationship keys gone " + relGone + "/" + Relationship.sAllRelationships.Count + ", entries naming gone " + relEntries
                 + ", aging states gone " + AgingStatesToCheck().Count + ", alarm owners gone " + AlarmOwnersToCheck().Count
-                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers
+                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers + ", dartboard entries gone " + darts
                 + ", no-outfit descriptions " + NoOutfitDescriptions().Count + " | " + (DeadRefUnsafe(false) ?? "safe");
         }
     }
