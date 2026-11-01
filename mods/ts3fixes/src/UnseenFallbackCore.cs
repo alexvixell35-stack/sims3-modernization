@@ -150,13 +150,44 @@ namespace Ts3Fixes
             return FollowsRoute(frame) || (frame == kViewObjects + "CreateRouteToObject" && above == kViewObjects + "RouteToObject");
         }
 
-        // §3.5 (5) vehicles, gate 332: refuse a route that starts in a car or boat, may plan as a boat, or may not walk.
-        // EnablePlanningAsCar alone is NOT a car route: SimRoutingComponent.SetRouteOptions sets it on every child-or-older
-        // Sim's route [verified, decompiled], so refusing it refused every D candidate (10-30 run: 2083 at 332, 0 acts). It
-        // only lets the planner pick a drive; the flood colours cover car and walk modes, so the proofs still hold.
-        public static bool VehicleRoute(bool beginAsCar, bool noPedestrian, bool planAsBoat, bool beginAsBoat)
+        // §3.5 (5) vehicles, gate 332: refuse a route that starts in a car or boat, or may not walk.
+        // EnablePlanningAsCar and EnablePlanningAsBoat alone are NOT vehicle routes: SimRoutingComponent.SetRouteOptions sets
+        // the car option on every child-or-older Sim's route and, with Island Paradise installed, EnablePlanningAsBoat = (on a
+        // boat || child-or-older, not scuba / CPR / reaper / rider) [verified, decompiled]. Refusing either refused nearly every
+        // D candidate (10-30 run: 2083 at 332; kit run 2026-10-31, issue #135: 1457-1932 per job, 0 acts). They only let the
+        // planner pick a drive or a boat leg; walking stays allowed. relaxed (docs/202 §3.9, unseenroute): only a Sim that
+        // starts in a vehicle is refused (its vehicle would not move with it); no-walk routes get the fast-leg estimate.
+        public static bool VehicleRoute(bool beginAsCar, bool noPedestrian, bool beginAsBoat, bool relaxed)
         {
-            return beginAsCar || noPedestrian || planAsBoat || beginAsBoat;
+            return beginAsCar || beginAsBoat || (noPedestrian && !relaxed);
+        }
+
+        // docs/202 §3.9 relaxed hold: a route that may drive, take the subway / hover train or a boat and is long enough that the
+        // game would pick that leg is held for min(walk, overhead + distance x detour / fast speed). shortcut: one fast speed
+        // for car, taxi, subway, hover train and boat [inferred, not measured]; upgrade per mode once a verify run compares holds
+        // with the game's own trips.
+        public const float kFastMinDistM = 150f, kFastMPerSimMin = 10f, kFastOverheadMin = 3f;
+        public static float TravelMinutes(float distM, bool fastLegs)
+        {
+            float walk = HoldMinutes(distM);
+            if (!fastLegs || !(distM >= kFastMinDistM)) return walk;
+            float fast = kFastOverheadMin + distM * kDetour / kFastMPerSimMin;
+            return fast < walk ? (fast < kMinHoldMin ? kMinHoldMin : fast) : walk;
+        }
+
+        // docs/202 §3.9 snap-back: the share of the trip done when a hold ends early (0..1; no hold length = 0)
+        public static float TripShare(long heldTicks, long holdTicks)
+        {
+            if (holdTicks <= 0 || heldTicks <= 0) return 0f;
+            return heldTicks >= holdTicks ? 1f : (float)heldTicks / holdTicks;
+        }
+        // snap-back candidates: distance from the start of the i-th point, from the share done back towards the start in
+        // kHandOffStepM steps, never closer than kHandOffGapM to either end; < 0 = no more candidates
+        public static float SnapAt(int i, float share, float distM)
+        {
+            float d = share * distM - i * kHandOffStepM;
+            if (d > distM - kHandOffGapM) d = distM - kHandOffGapM - i * kHandOffStepM;
+            return d >= kHandOffGapM ? d : -1f;
         }
 
         // our own frames between the plan hook and D's caller read (UfFollows, UfCaller, UfPre's helpers in Fixes): never the caller.
@@ -182,6 +213,123 @@ namespace Ts3Fixes
             long until;
             return holds != null && holds.TryGetValue(sim, out until) && now <= until;
         }
+    }
+
+    // docs/202 §3.9.9 per-event timestamps (unseenroute7): one log line per act / ghost start / ghost exit / placement / sweep
+    // check, at most kMax per kind in a kWindowMs window (the rest are counted, not logged), so a hitch can be matched to an action
+    public sealed class UrEvLog
+    {
+        public const int kMax = 6, kWindowMs = 1000;
+        readonly System.Collections.Generic.Dictionary<string, int[]> mKinds = new System.Collections.Generic.Dictionary<string, int[]>();  // kind -> { window start ms, count }
+        public int Dropped;
+        public bool May(string kind, int nowMs)
+        {
+            int[] k;
+            if (!mKinds.TryGetValue(kind, out k)) { k = new int[] { nowMs, 0 }; mKinds[kind] = k; }
+            if (unchecked(nowMs - k[0]) >= kWindowMs || unchecked(nowMs - k[0]) < 0) { k[0] = nowMs; k[1] = 0; }
+            if (k[1] >= kMax) { Dropped++; return false; }
+            k[1]++;
+            return true;
+        }
+        // "ur: act sim-min=1234.5 wall-ms=56789 sim=1a2b3c4d"; the id hash keeps the full Sim id out of the log
+        public static string Format(string kind, double simMin, int wallMs, ulong simId)
+        {
+            return "ur: " + kind + " sim-min=" + simMin.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " wall-ms=" + wallMs + " sim=" + ((uint)(simId ^ (simId >> 32))).ToString("x8");
+        }
+    }
+
+    // docs/202 §3.9.6-§3.9.8 unseenroute2 rules (Rodney 2026-10-31), offline-tested by tools/selftest/unseenfb.
+    public static class UrCore
+    {
+        // §3.9.7 (B): relaxed without a verdict only when the start and the goal are proven in one flood colour and the goal is
+        // on the street (world lot) or a public (community) lot, outdoors (checked by the caller)
+        public static bool BPass(int sameColour, bool streetGoal, bool communityGoal) { return sameColour == 1 && (streetGoal || communityGoal); }
+
+        // §3.9.7 (C) cache keys, coarse so a verdict repeats: a lot goal = its lot id; a street goal = its 64 m street area
+        // (bit 63 set). The start side = the start lot id, 0 on the street.
+        public const float kAreaM = 64f;
+        public static ulong GoalKey(ulong lotId, bool street, float x, float z)
+        {
+            if (!street) return lotId & 0x7FFFFFFFFFFFFFFFUL;
+            uint ax = (uint)((int)System.Math.Floor(x / kAreaM) & 0xFFFFF), az = (uint)((int)System.Math.Floor(z / kAreaM) & 0xFFFFF);
+            return 0x8000000000000000UL | (ulong)ax << 20 | az;
+        }
+        public static ulong StartKey(ulong lotId, bool street) { return street ? 0UL : lotId & 0x7FFFFFFFFFFFFFFFUL; }
+
+        // C hit rate per mille (agent: unseenroute_c_hit_pm); -1 = nothing asked yet
+        public static int HitPm(int hits, int learns) { int n = hits + learns; return n <= 0 ? -1 : (int)((long)hits * 1000 / n); }
+
+        // §3.9.7b relaxed lot rules (2026-11-01): an outdoor goal needs no door, so only a lock refuses a lot; single-gender and
+        // one-way doors do not (they refused every beach / park goal of sv-ur-car-loop). The start lot counts only when the Sim
+        // stands indoors.
+        public static bool DoorRefuses(bool locked, bool singleGender, bool oneWay) { return locked; }
+        public static bool StartLotCounts(bool startOutdoor) { return !startOutdoor; }
+        // §3.9.7b placement near an unroutable (object) goal: distances tried back towards the start; < 0 = no more
+        static readonly float[] kNearGoalM = { 1f, 2f, 3f, 4f, 6f, 8f };
+        public static float NearGoalAt(int i) { return i >= 0 && i < kNearGoalM.Length ? kNearGoalM[i] : -1f; }
+
+        // §3.9.7 (D) sweep over the placed Sims: gone = drop, seen = drop and run the reachability check, unseen = keep
+        public const int kPlacedKeep = 0, kPlacedDrop = 1, kPlacedCheck = 2;
+        public static int PlacedCheck(bool exists, bool seen) { return !exists ? kPlacedDrop : seen ? kPlacedCheck : kPlacedKeep; }
+        // after the SafeSpot check of a seen placed Sim: no verdict (the shared one-check-per-tick budget is spent: the watchdog,
+        // SafeSpot or another listed Sim of the same sweep) keeps it listed for the next sweep; reachable = drop; unreachable = repair
+        public const int kPlacedRepair = 3;
+        public static int PlacedVerdict(bool? spotOk) { return spotOk == null ? kPlacedKeep : spotOk.Value ? kPlacedDrop : kPlacedRepair; }
+
+        // §3.9.6 groups move together: only the leader's plan acts, and only when every member is unseen and relaxed
+        public static bool GroupOk(bool isLeader, int members, int membersOk) { return isLeader && members > 0 && membersOk == members; }
+    }
+
+    // §3.9.7 (C): learned reachability per (goal key, start key); in memory only (no save data), cleared on world load and
+    // for a lot edited in Build/Buy (Edit Town: all)
+    public sealed class UrCCache
+    {
+        public const int kMax = 2048;
+        struct K { public ulong G, S; }
+        sealed class Cmp : IEqualityComparer<K>
+        {
+            public bool Equals(K a, K b) { return a.G == b.G && a.S == b.S; }
+            public int GetHashCode(K k) { return (k.G ^ (k.G >> 32) ^ (k.S * 31) ^ (k.S >> 32)).GetHashCode(); }
+        }
+        readonly Dictionary<K, bool> mMap = new Dictionary<K, bool>(new Cmp());
+        public int Count { get { return mMap.Count; } }
+        public bool? Get(ulong goal, ulong start) { bool v; return mMap.TryGetValue(new K { G = goal, S = start }, out v) ? (bool?)v : null; }
+        public void Set(ulong goal, ulong start, bool ok)
+        {
+            if (mMap.Count >= kMax) mMap.Clear();  // shortcut: a full cache starts over (it re-learns one plan per key)
+            mMap[new K { G = goal, S = start }] = ok;
+        }
+        // drop every entry whose goal or start is this lot
+        public int ClearLot(ulong lotId)
+        {
+            ulong k = lotId & 0x7FFFFFFFFFFFFFFFUL;
+            List<K> drop = new List<K>();
+            foreach (K x in mMap.Keys) if (x.G == k || x.S == k) drop.Add(x);
+            foreach (K x in drop) mMap.Remove(x);
+            return drop.Count;
+        }
+        public void Clear() { mMap.Clear(); }
+    }
+
+    // §3.9.6 plans in progress per script task: a plan nested in another plan's callback runs in the same task (depth 2);
+    // plans of other tasks that run while one task sleeps inside its plan are not nested
+    public sealed class UrTaskDepth
+    {
+        readonly Dictionary<ulong, int> mDepth = new Dictionary<ulong, int>();
+        public int Enter(ulong task) { int d; mDepth.TryGetValue(task, out d); mDepth[task] = ++d; return d; }
+        public void Exit(ulong task) { int d; if (!mDepth.TryGetValue(task, out d)) return; if (d <= 1) mDepth.Remove(task); else mDepth[task] = d - 1; }
+        public int Depth(ulong task) { int d; return mDepth.TryGetValue(task, out d) ? d : 0; }
+        public int Tasks { get { return mDepth.Count; } }
+    }
+
+    // §3.9.5 ghost ledger: every ghost start must end exactly once (the footprint re-insert); a second start or an end without
+    // a start is refused and counted by the caller
+    public sealed class UrGhostLedger
+    {
+        readonly Dictionary<ulong, bool> mLive = new Dictionary<ulong, bool>();
+        public int Live { get { return mLive.Count; } }
+        public bool Start(ulong id) { if (mLive.ContainsKey(id)) return false; mLive[id] = true; return true; }
+        public bool End(ulong id) { return mLive.Remove(id); }
     }
 
     // docs/202 §3.4.2 finish the walk (UnseenFallbackFinish.cs, switch unseenfbfinish): pure rules, offline-tested

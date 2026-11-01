@@ -64,6 +64,13 @@ namespace Ts3Fixes
             public bool LateOn, LateOk;
             public int Feat;  // per-search feature mask (AutLiveCore.Feat), set at the finish, late bit at a late consume
             public int SliceFrame;
+            // docs/222 unseen-direct: Direct = this search uses the worker's ranking (actor unseen at post and resume); Snapped =
+            // the actor was seen at a later B13 slice (rest exact; in Dry: a seen actor); UnseenDry = a Dry search whose actor was
+            // unseen at the post; Cut0/Wait0 = native cut / GC-lock-wait words at the post (own cost per search); SavedPairs =
+            // consumed allow-listed ads
+            public bool Direct, Snapped, UnseenDry;
+            public int Cut0, Wait0, SavedPairs;
+            public readonly AutLiveCore.Pace Pace = new AutLiveCore.Pace();  // docs/222 §8, per B13 slice of a direct search
             public AutonomyT Aut;
             public Sim Actor;
             public IMetaObject[] Obj = new IMetaObject[64];
@@ -159,6 +166,28 @@ namespace Ts3Fixes
             kCLateRefActor = 556, kCLateRefOther = 557, kCLateConsumed = 558, kCLateStale = 559, kCLateAge1 = 560, kCConsumedUs = 563,
             kCLateGameUs = 564, kCInvalidGameUs = 565;
 
+        // docs/222 unseen-direct (switch autunseen, fixes-611..640): searches by path, snap-backs, direct consume, D2 live Test,
+        // queued-pick snap-back, per-path own cost guard (the exact path keeps 538-541), vanilla B14 rate, Dry by actor class
+        const int kCUnPosted = 611, kCUnSeenPost = 612, kCUnSnapResume = 613, kCUnSnapSlice = 614, kCUnDropped = 615, kCUnDirect = 616,
+            kCUnPairs = 617, kCUnOffList = 618, kCUnObjGame = 619, kCUnTestPass = 620, kCUnTestFail = 621, kCUnVanilla = 622,
+            kCUnNoPick = 623, kCUnTagged = 624, kCUnFlipKept = 625, kCUnFlipCancel = 626, kCUnGuardWin = 627, kCUnGuardSkipWin = 628,
+            kCUnGuardSkipped = 629, kCUnGuardPm = 630, kCUnCostUs = 631, kCUnSavedUs = 632, kCB14Pairs = 633, kCB14Us = 634,
+            kCUnDryRuns = 635, kCUnDryTop10 = 636, kCUnDryTop1 = 637, kCUnExc = 638, kCUnDrySeenRuns = 639, kCUnTestUs = 640;
+        // docs/222 §8 (fixes-659): pacing = us charged to B13's yield timer for skipped ads, yields the charge brought forward
+        const int kCUnPaceUs = 659, kCUnPaceForced = 660;
+        const int kUnRedraws = 1, kUnMaxTags = 64, kB14SampleMask = 7;
+        static StopWatch sMetaTimer;             // Autonomy.sUpdateTimer (B13's 1 ms yield timer, docs/59 Y2); null = no pacing
+        static readonly AutLiveCore.CostGuard sGuardU = new AutLiveCore.CostGuard();
+        static readonly AutLiveCore.B14Rate sB14Rate = new AutLiveCore.B14Rate();
+        static bool sChooseOk;                   // the D2 hook is patched (AutShadow.ApplyAutLiveB14); without it no direct search
+        static AutonomyT sDirectAut;             // the autonomy whose next D2 call follows a direct search
+        static InteractionInstance sDirectInst;  // the pick DirectChoose returned (tagged at the push)
+        static readonly List<InteractionObjectPair> sDirectPairs = new List<InteractionObjectPair>();  // inserted without a live Test
+        static readonly Dictionary<InteractionObjectPair, bool> sDirectSeen = new Dictionary<InteractionObjectPair, bool>();
+        static readonly List<KeyValuePair<InteractionInstance, Sim>> sDirectTags = new List<KeyValuePair<InteractionInstance, Sim>>();
+        static int sFlipFrame = -1, sB14Sample;
+        static StopWatch sRateSw;
+
         static void LiveStat(int slot) { AutShadowNative.LiveStat(slot, 1); }
 
         // Ready(), sim thread, once per load: Mode 3 and its settings
@@ -177,6 +206,8 @@ namespace Ts3Fixes
             fInterrupted = typeof(AutonomyT).GetField("mAutonomySearchWasInterrupted", inst);
             fInspection = typeof(AutonomyT).GetField("IsRunningAutonomyForInspectionWindow", inst);
             fBestScores = typeof(AutonomyT).GetField("mBestScores", inst);
+            FieldInfo fTimer = typeof(AutonomyT).GetField("sUpdateTimer", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            sMetaTimer = fTimer != null ? fTimer.GetValue(null) as StopWatch : null;
             if (fInterrupted == null || fInspection == null || fBestScores == null)
             {
                 AppliedLog().Add("AutShadow: go-live off: a private Autonomy field was not found");
@@ -192,10 +223,21 @@ namespace Ts3Fixes
             sGuardNative = AutShadowNative.Config(24) == 1;
             sGuardLogged = 0;
             PatchCounters()[kCRatioPm] = -1;
+            // docs/222 §6.3: both paths count only measured sim cost against the vanilla B14 rate (one guard per path)
+            sGuard.Own = true;
+            sGuardU.Reset(); sGuardU.Own = true;
+            sGuardU.OffPm = sGuard.OffPm; sGuardU.OnPm = sGuard.OnPm; sGuardU.MinSearches = sGuard.MinSearches;
+            sGuardU.MinFrames = sGuard.MinFrames; sGuardU.Hold = sGuard.Hold;
+            PatchCounters()[kCUnGuardPm] = -1;
+            sB14Rate.Reset();
+            if (sRateSw == null) sRateSw = StopWatch.Create(StopWatch.TickStyles.Microseconds);
+            sDirectAut = null; sDirectInst = null; sDirectPairs.Clear(); sDirectSeen.Clear(); sDirectTags.Clear(); sFlipFrame = -1;
             AppliedLog().Add("AutShadow: go-live Mode 3 (" + (sLiveDry ? "dry" : "acting") + ") TopN " + sLiveTopN + " Bands " + sLiveBands + " Margin "
                 + sLiveMargin + " MaxWait " + sLiveMaxWait + "; cost guard " + (sLiveDry ? "n/a (dry)" : !sGuardNative ? "off (ts3native without cost keys)"
                 : "Off " + sGuard.OffPm + " On " + sGuard.OnPm + " MinSearches " + sGuard.MinSearches + " MinFrames " + sGuard.MinFrames + " Hold " + sGuard.Hold)
-                + (sB14Ok ? "" : "; B14 hook missing: off") + (sLiveGuardOk ? "" : "; consumer path swapped: off"));
+                + (sB14Ok ? "" : "; B14 hook missing: off") + (sLiveGuardOk ? "" : "; consumer path swapped: off")
+                + (sChooseOk ? "; unseen-direct ready (switch autunseen)" : "; unseen-direct off (D2 hook missing)")
+                + (sMetaTimer != null ? "; pacing ready (switch autunseenpace)" : "; pacing off (Autonomy.sUpdateTimer not found)"));
         }
 
         // 1 = consume, -1 = Mode 3 with autlive off (the game's search, no request), 0 = not Mode 3 (shadow modes as before)
@@ -247,6 +289,7 @@ namespace Ts3Fixes
             L.ObjIndex.Clear(); L.PairIndex.Clear(); L.OtherId.Clear();
             L.Aut = null; L.Actor = null; L.LotCur = L.LotHome = null; L.Household = L.Role = L.Occ = L.Job = null; L.Career = null;
             L.Ready = L.Ok = L.Abandoned = L.Late = false; L.EvN = 0; L.Objs = L.Pairs = 0;
+            L.Direct = L.Snapped = L.UnseenDry = false; L.SavedPairs = 0;
             LiveActive(L, false);
             L.InUse = false;
         }
@@ -326,7 +369,14 @@ namespace Ts3Fixes
         {
             if (!LiveEligible(a)) return h.MetaOrig(c);
             LiveStat(kSEligible);
-            if (!GuardAllow()) return h.MetaOrig(c);
+            FlipCheck();
+            int[] uk = PatchCounters();
+            // docs/222 scope: the actor only; UfWhy 0 = unseen (never the active household or a selectable Sim)
+            bool unseenOn = sChooseOk && ShortcutOn("autunseen");
+            int why0 = unseenOn ? SafeUfWhy(a.Actor) : -1;
+            bool direct = AutLiveCore.Unseen.AtPost(unseenOn, sLiveDry, why0);
+            if (unseenOn && !direct && !sLiveDry) uk[kCUnSeenPost]++;
+            if (!GuardAllow(direct)) return h.MetaOrig(c);
             LiveSearch L = null;
             try
             {
@@ -335,8 +385,12 @@ namespace Ts3Fixes
             }
             catch (Exception e) { PatchCounters()[121]++; AutNote("go-live request: " + e.Message); }
             if (L == null) { LiveStat(kSNotPosted); return h.MetaOrig(c); }
-            double share = 0;  // guard: consumed share of the allow-listed pairs (0 = dropped)
+            double share = 0;  // consumed share of the allow-listed pairs (0 = dropped; live-use record)
             LiveStat(kSPosted);
+            L.Direct = direct; L.UnseenDry = sLiveDry && unseenOn && why0 == 0; L.SavedPairs = 0;
+            L.Snapped = sLiveDry && unseenOn && why0 != 0;  // Dry: a seen actor (by-class counters)
+            L.Cut0 = AutShadowNative.Config(25); L.Wait0 = AutShadowNative.Config(27);
+            if (direct) uk[kCUnPosted]++;
             int waited = 0;
             while (true)
             {
@@ -346,7 +400,7 @@ namespace Ts3Fixes
                 if ((bool)fInterrupted.GetValue(a)) { fInterrupted.SetValue(a, false); LiveAbandon(L); LiveStat(kSInterrupted); return 1; }
                 if (a.Actor == null || a.Actor.HasBeenDestroyed) { LiveAbandon(L); LiveStat(kSDestroyed); return 2; }
                 if (L.Ready) break;
-                if (waited >= sLiveMaxWait) { LiveAbandon(L); LiveDrop(L, kSDropWait); AutShadowNative.LiveStat(kSWaitTicks, waited); sGuard.Add(0, 0); return h.MetaOrig(c); }
+                if (waited >= sLiveMaxWait) { GuardAdd(L, 0); if (L.Direct) uk[kCUnDropped]++; LiveAbandon(L); LiveDrop(L, kSDropWait); AutShadowNative.LiveStat(kSWaitTicks, waited); return h.MetaOrig(c); }
             }
             AutShadowNative.LiveStat(kSWaitTicks, waited);
             uint us = 0;
@@ -355,7 +409,10 @@ namespace Ts3Fixes
             try { why = LiveCheck(L, a); if (why == 0) LiveSelect(L); }
             catch (Exception e) { why = kSDropOther; PatchCounters()[121]++; AutNote("go-live check: " + e.Message); }
             us += sLiveSw.GetElapsedTime();
-            if (why != 0) { LiveDrop(L, why); LiveRelease(L); AutShadowNative.LiveStat(kSApplyUs, (int)us); sGuard.Add(us, 0); return h.MetaOrig(c); }
+            if (why != 0) { if (L.Direct) uk[kCUnDropped]++; GuardAdd(L, us); LiveDrop(L, why); LiveRelease(L); AutShadowNative.LiveStat(kSApplyUs, (int)us); return h.MetaOrig(c); }
+            // snap-back at the resume: seen now = this search runs the exact path
+            if (L.Direct && !AutLiveCore.Unseen.Stay(SafeUfWhy(a.Actor))) { L.Direct = false; uk[kCUnSnapResume]++; }
+            if (L.Direct) { sDirectPairs.Clear(); sDirectSeen.Clear(); sDirectInst = null; sDirectAut = null; L.Pace.Slice(); }
             BestScores bs = (BestScores)fBestScores.GetValue(a);
             AutLiveCore.Heap before = L.Dry ? Snapshot(L, bs) : null;
             L.ResumeFrame = L.SliceFrame = AutShadowNative.Config(19);
@@ -375,6 +432,7 @@ namespace Ts3Fixes
                     try
                     {
                         if (L.Dry) { DryCompare(L, bs, before); compared = true; }
+                        else if (L.Direct) { sDirectAut = sDirectPairs.Count > 0 ? a : null; uk[kCUnDirect]++; }  // no bands: D2 tests the pick live
                         else LiveBands(L, a, bs);
                     }
                     catch (Exception e) { PatchCounters()[121]++; exc = e.GetType().Name + ": " + e.Message; AutNote("go-live bands: " + e.Message); }
@@ -384,7 +442,7 @@ namespace Ts3Fixes
             finally
             {
                 if (sLiveCur == L) sLiveCur = null;
-                if (!dry) share = ConsumedShare(L);
+                if (!dry) { share = ConsumedShare(L); GuardAdd(L, us); }
                 feat = L.Feat;
                 try { SearchEnd(L, dry, share); } catch (Exception) { PatchCounters()[121]++; }
                 LiveRelease(L);
@@ -400,29 +458,44 @@ namespace Ts3Fixes
                         + (exc == null ? "" : JsonEsc(exc.Length > 300 ? exc.Substring(0, 300) : exc)) + "\"}");
             }
             AutShadowNative.LiveStat(kSApplyUs, (int)us);
-            if (!dry) sGuard.Add(us, share);
             return r;
         }
 
         // docs/124 §17.10: false = skip this eligible search (no post: the game's B13). Measures in both switch states; skips
         // only with autliveguard on. Dry (G7) and a ts3native without the cost keys: always post.
-        static bool GuardAllow()
+        // docs/222 §6.3: one guard per path (exact = sGuard, slots 538-541; unseen-direct = sGuardU, 627-630). Both count only
+        // measured sim cost per search (GuardAdd) against the vanilla B14 rate x consumed ads; no rate yet = no decision.
+        static bool GuardAllow(bool direct)
         {
             if (sLiveDry || !sGuardNative) return true;
             int[] k = PatchCounters();
+            AutLiveCore.CostGuard g = direct ? sGuardU : sGuard;
+            int kWin = direct ? kCUnGuardWin : kCWindows, kSkipWin = direct ? kCUnGuardSkipWin : kCSkipWindows,
+                kSkipped = direct ? kCUnGuardSkipped : kCSkipped, kPm = direct ? kCUnGuardPm : kCRatioPm;
             bool act = ShortcutOn("autliveguard");
             int now = AutShadowNative.Config(19);
-            if (!sGuard.Allow(now, act)) { k[kCSkipped]++; return false; }
-            int refRuns = AutShadowNative.Config(30);
-            double refPer = refRuns >= kGuardMinRefRuns ? (uint)AutShadowNative.Config(29) / (double)refRuns : 0;
-            int r = sGuard.Tick(now, AutShadowNative.Config(25), AutShadowNative.Config(27), AutShadowNative.Config(28), refPer, act);
+            if (!g.Allow(now, act)) { k[kSkipped]++; return false; }
+            int r = g.Tick(now, 0, 0, 0, sB14Rate.PerPair > 0 ? 1 : 0, act);
             if (r == 0) return true;
-            k[kCWindows]++; k[kCRatioPm] = sGuard.LastPm;
+            k[kWin]++; k[kPm] = g.LastPm;
             if (r == 1) return true;
-            k[kCSkipWindows]++; k[kCSkipped]++;
+            k[kSkipWin]++; k[kSkipped]++;
             if (sGuardLogged++ < kLiveMaxLogPerReason)
-                AutShadowNative.Log("{\"t\":\"live-guard\",\"pm\":" + sGuard.LastPm + ",\"holdFrames\":" + (sGuard.Until - now) + ",\"frame\":" + now + "}");
+                AutShadowNative.Log("{\"t\":\"live-guard\",\"path\":\"" + (direct ? "unseen" : "exact") + "\",\"pm\":" + g.LastPm
+                    + ",\"holdFrames\":" + (g.Until - now) + ",\"frame\":" + now + "}");
             return false;
+        }
+
+        // a used or dropped search's own sim cost: consumer us + its cut + the sim's GC lock waits while it was in flight (native
+        // words since the post; one request in flight, docs/122 §14.1); saved = vanilla B14 us per ad x the ads it consumed
+        static void GuardAdd(LiveSearch L, double consumerUs)
+        {
+            if (L.Dry) return;
+            double own = consumerUs;
+            if (sGuardNative) own += unchecked(AutShadowNative.Config(25) - L.Cut0) + unchecked(AutShadowNative.Config(27) - L.Wait0);
+            double saved = sB14Rate.PerPair * L.SavedPairs;
+            (L.Direct ? sGuardU : sGuard).Add(own, saved);
+            if (L.Direct) { int[] k = PatchCounters(); k[kCUnCostUs] += (int)own; k[kCUnSavedUs] += (int)saved; }
         }
 
         // the share of the request's allow-listed pairs whose object the B14 hook consumed (the game did not score them itself;
@@ -516,6 +589,7 @@ namespace Ts3Fixes
             int o;
             if (m == null || !L.ObjIndex.TryGetValue(m, out o)) { LiveStat(kSObjNotInReq); h.B14Orig(m, c); return; }
             L.Visited[o] = true;
+            if (L.Direct) { DirectB14(L, a, m, c, h, o); return; }
             // B13 yielded (Y2) since the resume: the rest of this search is older than one tick. autlivelate (docs/217 L1):
             // a later slice still consumes when it passes the resume checks again and is at most kAutLiveLateTicks old
             int f = AutShadowNative.Config(19);
@@ -533,6 +607,7 @@ namespace Ts3Fixes
             for (int p = L.Start[o]; p < L.Start[o + 1]; p++)
                 if (L.Def[p] >= 0 && L.Code[p] == AutShadowCore.kPass) L.Eligible[p] = true;
             if (L.Dry) { B14Timed(L, m, c, h, kCConsumedUs); return; }  // the game scores every ad; the C2 hook records what consume would have sent
+            uint bandUs = 0;
             sLiveB14Sw.Restart();
             for (int p = L.Start[o]; p < L.Start[o + 1]; p++)
             {
@@ -540,10 +615,21 @@ namespace Ts3Fixes
                 if (!PassesFilter(iop, c)) continue;
                 if (L.Def[p] < 0) { LiveStat(kSPairsOffList); a.CalculateScoreAndAddToCandidates(iop); }
                 else if (L.Code[p] == AutShadowCore.kFiltered) { LiveStat(kSPairsFilterDiff); a.CalculateScoreAndAddToCandidates(iop); }
-                else if (L.Sel[p]) { L.Sent[p] = true; LiveStat(kSPairsBand1); a.CalculateScoreAndAddToCandidates(iop); }
+                else
+                {
+                    L.SavedPairs++;
+                    if (L.Sel[p])
+                    {
+                        L.Sent[p] = true; LiveStat(kSPairsBand1);
+                        uint t0 = sLiveB14Sw.GetElapsedTime();
+                        a.CalculateScoreAndAddToCandidates(iop);
+                        bandUs += sLiveB14Sw.GetElapsedTime() - t0;
+                    }
+                }
             }
             uint us = sLiveB14Sw.GetElapsedTime();
-            sGuard.CostUs += us;  // the band-1 / off-list C1 calls: a consume cost outside kSApplyUs
+            // docs/222 §6.3: only the band-1 C1 calls are a go-live cost; off-list C1 is work vanilla does anyway
+            sGuard.CostUs += bandUs;
             if (L.LateOn) PatchCounters()[kCConsumedUs] += (int)us;
         }
 
@@ -572,10 +658,22 @@ namespace Ts3Fixes
         // the game's B14, timed into a ts3fixes us slot when autlivelate is on (B14 cost by class, docs/217 §4)
         static void B14Timed(LiveSearch L, IMetaObject m, CommodityKind c, AutB14Hook h, int slot)
         {
-            if (!L.LateOn) { h.B14Orig(m, c); return; }
             sLiveB14Sw.Restart();
             h.B14Orig(m, c);
-            PatchCounters()[slot] += (int)sLiveB14Sw.GetElapsedTime();
+            uint us = sLiveB14Sw.GetElapsedTime();
+            if (L.LateOn) PatchCounters()[slot] += (int)us;
+            RateAdd(us, m);
+        }
+
+        // the vanilla B14 rate (docs/222 §6.3): one timed game B14, us per meta ad
+        static void RateAdd(uint us, IMetaObject m)
+        {
+            ArrayList ads = m != null ? m.MetaAds : null;
+            int n = ads != null ? ads.Count : 0;
+            if (n <= 0) return;
+            sB14Rate.Add(us, n);
+            int[] k = PatchCounters();
+            k[kCB14Pairs] += n; k[kCB14Us] += (int)us;
         }
 
         // B14's own commodity filter (the same as the worker driver's ScorePair)
@@ -725,6 +823,8 @@ namespace Ts3Fixes
             bool top10 = pred.SameSet(game), top1 = pred.SameTop(game);
             if (top10) LiveStat(kSDryTop10);
             if (top1) LiveStat(kSDryTop1);
+            if (L.UnseenDry) { int[] uk = PatchCounters(); uk[kCUnDryRuns]++; if (top10) uk[kCUnDryTop10]++; if (top1) uk[kCUnDryTop1]++; }
+            else if (L.Snapped) PatchCounters()[kCUnDrySeenRuns]++;
             if (top1 && pred.TopId() != game.TopId()) LiveStat(kSDryTop1Tie);
             if (mis || !(top10 && top1)) AutLiveCore.Feat.Count(PatchCounters(), kCFeatMis, L.Feat);  // once per search
             if (top10 && top1) return;
@@ -827,8 +927,12 @@ namespace Ts3Fixes
         // pushes, searches with no pick, the MakeSimGoHome fallback RunAutonomy takes next (its own condition, read-only
         // getters), Sim-hours (instantiated Sims x sim hours, x100, sampled per sim hour), request-to-push latency in ticks from
         // the B13 entry (Mode 3 searches only; bins 0, 1, 2, 3, 4+), and a {"t":"picks"} autshadow.jsonl line (cumulative pushes
-        // per definition type, most first) every kPicksEvery pushes.
+        // per definition, "DeclaringType.Definition", most first) every kPicksEvery pushes.
+        // docs/222 §8 (fixes-661): the same by actor class at the push / no-pick (UfWhy 0 = unseen, else seen): searches (every
+        // ConsiderPerformingAutonomousAction), pushes, no-pick, GoHome; unseen 661-664, seen 665-668; unseen Sim-hours x100 669
+        // (the hourly sample's unseen actors), so per-search rates and the cadence (searches per Sim-hour) split by class.
         const int kCPushes = 566, kCNullPicks = 567, kCGoHome = 568, kCSimHours100 = 569, kCLatency0 = 570, kPicksEvery = 500;
+        const int kCG8Unseen = 661, kCG8Seen = 665, kCG8UnseenHours100 = 669;  // + 0 searches, 1 pushes, 2 no-pick, 3 GoHome
         static readonly Dictionary<object, int> sMetaStart = new Dictionary<object, int>();  // autonomy -> frame of its B13 entry
         static readonly Dictionary<string, int> sPicks = new Dictionary<string, int>();
         static float sG8Hours = -1f;
@@ -848,30 +952,36 @@ namespace Ts3Fixes
             if (sG8Hours < 0f || h < sG8Hours) sG8Hours = h;
             else if (h - sG8Hours >= 1f)
             {
-                int n = 0;
-                foreach (Sim s in LotManager.Actors) if (s != null) n++;
+                int n = 0, nu = 0;
+                foreach (Sim s in LotManager.Actors) if (s != null) { n++; if (SafeUfWhy(s) == 0) nu++; }
                 k[kCSimHours100] += (int)(n * (h - sG8Hours) * 100f);
+                k[kCG8UnseenHours100] += (int)(nu * (h - sG8Hours) * 100f);
                 sG8Hours = h;
             }
             int f0;
             bool timed = sMetaStart.TryGetValue(a, out f0);
             if (timed) sMetaStart.Remove(a);
             Sim actor = a.Actor;
+            int cls = SafeUfWhy(actor) == 0 ? kCG8Unseen : kCG8Seen;
+            k[cls]++;
             if (best == null)
             {
-                k[kCNullPicks]++;
+                k[kCNullPicks]++; k[cls + 2]++;
                 if (actor != null && !actor.HasBeenDestroyed && actor.LotCurrent != null && actor.Service == null && !actor.IsSelectable
-                    && !actor.IsSimInSituationWhichRulesOutMetaAutonomy) k[kCGoHome]++;
+                    && !actor.IsSimInSituationWhichRulesOutMetaAutonomy) { k[kCGoHome]++; k[cls + 3]++; }
                 return;
             }
             if (!pushed) return;
-            k[kCPushes]++;
+            k[kCPushes]++; k[cls + 1]++;
             if (timed) k[kCLatency0 + Math.Max(0, Math.Min(AutShadowNative.Config(19) - f0, 4))]++;
-            string def = best.InteractionDefinition != null ? best.InteractionDefinition.GetType().Name : "?";
+            string def = best.InteractionDefinition != null ? DefKey(best.InteractionDefinition.GetType()) : "?";
             int c;
             sPicks[def] = sPicks.TryGetValue(def, out c) ? c + 1 : 1;
             if (++sPushN % kPicksEvery == 0 && sProbe > 0) LogPicks();
         }
+
+        // most definitions are a nested "Definition": the owning interaction names it
+        static string DefKey(Type t) { return t.DeclaringType != null ? t.DeclaringType.Name + "." + t.Name : t.Name; }
 
         static void LogPicks()
         {
@@ -881,7 +991,7 @@ namespace Ts3Fixes
             b.Append("{\"t\":\"picks\",\"n\":").Append(sPushN).Append(",\"def\":[");
             for (int i = 0; i < all.Count; i++)
             {
-                string d = all[i].Key.Length > 48 ? all[i].Key.Substring(0, 48) : all[i].Key;
+                string d = all[i].Key.Length > 64 ? all[i].Key.Substring(0, 64) : all[i].Key;
                 if (b.Length + d.Length + 16 > 1250) break;  // native line limit 1300 (AsIcLog)
                 b.Append(i > 0 ? ",[\"" : "[\"").Append(JsonEsc(d)).Append("\",").Append(all[i].Value).Append(']');
             }
@@ -894,9 +1004,187 @@ namespace Ts3Fixes
             {
                 bool r = PushOrig(best);
                 try { G8Note((AutonomyT)(object)this, best, r); } catch (Exception) { PatchCounters()[121]++; }
+                if (best != null && ReferenceEquals(best, sDirectInst))
+                {
+                    sDirectInst = null;
+                    try { if (r) DirectTag(best, ((AutonomyT)(object)this).Actor); } catch (Exception) { PatchCounters()[kCUnExc]++; }
+                }
                 return r;
             }
             public bool PushOrig(InteractionInstance best) { return false; } // receives Autonomy.ConsiderPerformingAutonomousAction's original header
+        }
+
+        // ---- docs/222 unseen-direct ----
+
+        static int SafeUfWhy(Sim s)
+        {
+            try { return s == null ? -1 : UfWhy(s); }
+            catch (Exception) { PatchCounters()[kCUnExc]++; return -1; }
+        }
+
+        // the B14 consumer of a direct search: every object of every B13 slice (no late fallback). A new slice re-checks the
+        // actor (seen = the rest of the search exact) and, after the resume slice, the object's ObjStale. Valid objects: the
+        // worker's passing allow-listed ads go into BestScores with the worker's score (no C1/C2), off-list ads through the
+        // game's C1; invalid, stale, destroyed or changed objects run the game's B14.
+        static void DirectB14(LiveSearch L, AutonomyT a, IMetaObject m, CommodityKind c, AutB14Hook h, int o)
+        {
+            int[] k = PatchCounters();
+            int f = AutShadowNative.Config(19);
+            if (f != L.SliceFrame)
+            {
+                L.SliceFrame = f;
+                if (L.Pace.Forced) k[kCUnPaceForced]++;
+                L.Pace.Slice();
+                if (!L.Snapped && f != L.ResumeFrame && !AutLiveCore.Unseen.Stay(SafeUfWhy(L.Actor))) { L.Snapped = true; k[kCUnSnapSlice]++; }
+            }
+            if (L.Snapped) { k[kCUnObjGame]++; B14Timed(L, m, c, h, kCLateGameUs); return; }
+            int why = L.ObjWhy[o];
+            if (why == 0 && f != L.ResumeFrame && (AutShadowNative.ObjStale(L.ObjKey[o], 0, L.CutFrame) != 0
+                || (L.LotKey[o] != 0UL && AutShadowNative.ObjStale(L.LotKey[o], 1, L.CutFrame) != 0))) why = kSObjStale;
+            if (why == 0 && (m.HasBeenDestroyed || !SameAds(L, o, m.MetaAds))) why = kSObjIdent;
+            if (why != 0) { LiveStat(why); k[kCUnObjGame]++; B14Timed(L, m, c, h, kCInvalidGameUs); return; }
+            L.Consumed[o] = true;
+            LiveStat(kSObjConsumed);
+            BestScores bs = (BestScores)fBestScores.GetValue(a);
+            int saved0 = L.SavedPairs;
+            for (int p = L.Start[o]; p < L.Start[o + 1]; p++)
+            {
+                InteractionObjectPair iop = L.Pair[p];
+                if (!PassesFilter(iop, c)) continue;
+                if (L.Def[p] < 0 || L.Code[p] == AutShadowCore.kFiltered) { k[kCUnOffList]++; a.CalculateScoreAndAddToCandidates(iop); continue; }
+                L.SavedPairs++;
+                // the worker's failed Test = vanilla C2 scores 0 and BestScores.Add drops it: nothing to add
+                if (L.Code[p] != AutShadowCore.kPass || sDirectSeen.ContainsKey(iop)) continue;
+                sDirectSeen[iop] = true;
+                sDirectPairs.Add(iop);
+                bs.Add(iop, L.W[p]);
+                k[kCUnPairs]++;
+            }
+            if (L.SavedPairs > saved0 && sMetaTimer != null && ShortcutOn("autunseenpace")) PaceCharge(L, L.SavedPairs - saved0);
+        }
+
+        // docs/222 §8: the skipped ads' vanilla cost onto B13's yield timer, so the meta loop yields on vanilla's schedule. The
+        // native Set writes only the stored part (start tick kept), so a running watch is stopped (stored += running), set and
+        // restarted [verified: disassembly 0x4F3460 set, 0x4F3220 stop, 0x408700 start].
+        static void PaceCharge(LiveSearch L, int ads)
+        {
+            StopWatch t = sMetaTimer;
+            bool run = t.IsRunning();
+            if (run) t.Stop();
+            float ms = t.GetElapsedTimeFloat();
+            double add = L.Pace.Charge(sB14Rate.PerPair, ads, ms, 1.0);
+            if (add > 0) { t.SetElapsedTimeFloat(ms + (float)add); PatchCounters()[kCUnPaceUs] += (int)(add * 1000.0); }
+            if (run) t.Start();
+        }
+
+        static int DirectIndex(InteractionInstance inst)
+        {
+            if (inst == null) return -1;
+            for (int i = 0; i < sDirectPairs.Count; i++)
+            {
+                InteractionObjectPair iop = sDirectPairs[i];
+                if (ReferenceEquals(iop.InteractionDefinition, inst.InteractionDefinition) && ReferenceEquals(iop.Target, inst.Target)) return i;
+            }
+            return -1;
+        }
+
+        // BestScores without one pair (no Remove in the game's API): the entries (the remembered AlwaysChooseBest ones were merged
+        // into the queue by ChooseInteraction) re-added with their scores; vanilla = every untested direct pair re-scored live (C2)
+        static void Rebuild(AutonomyT a, BestScores bs, InteractionObjectPair drop, bool vanilla)
+        {
+            int n = bs.Count;
+            InteractionObjectPair[] ps = new InteractionObjectPair[n];
+            float[] sc = new float[n];
+            for (int i = 0; i < n; i++) { InteractionCandidate e = bs.Element(i); ps[i] = e.InteractionObjectPair; sc[i] = e.InteractionScore; }
+            bs.Clear();
+            for (int i = 0; i < n; i++)
+            {
+                if (ps[i] == null || ReferenceEquals(ps[i], drop)) continue;
+                float s = sc[i];
+                if (vanilla && sDirectSeen.ContainsKey(ps[i])) s = a.CalculateScore(ps[i]);
+                bs.Add(ps[i], s);
+            }
+            if (vanilla) sDirectPairs.Clear();
+        }
+
+        // D2 after a direct search: the game's draw; a pick from an inserted (untested) pair gets one live Test; a fail draws the
+        // next pick without it (kUnRedraws times), then vanilla: the remaining direct pairs scored live and the game draws.
+        static InteractionInstance DirectChoose(AutonomyT a, AutChooseHook h)
+        {
+            int[] k = PatchCounters();
+            BestScores bs = (BestScores)fBestScores.GetValue(a);
+            for (int fails = 0; ;)
+            {
+                InteractionInstance inst = h.ChooseOrig();
+                int i = DirectIndex(inst);
+                if (inst == null) { k[kCUnNoPick]++; return null; }
+                if (i < 0) return inst;  // off-list, game-scored, or vanilla: already live
+                sRateSw.Restart();
+                bool pass = false;
+                try { pass = inst.Test(); } catch (Exception) { k[kCUnExc]++; }
+                k[kCUnTestUs] += (int)sRateSw.GetElapsedTime();
+                InteractionObjectPair iop = sDirectPairs[i];
+                if (pass) { k[kCUnTestPass]++; sDirectPairs.RemoveAt(i); sDirectInst = inst; return inst; }
+                k[kCUnTestFail]++;
+                fails++;
+                bool vanilla = AutLiveCore.Unseen.AfterFail(fails, kUnRedraws) == AutLiveCore.Unseen.kVanilla;
+                if (vanilla) k[kCUnVanilla]++;
+                Rebuild(a, bs, iop, vanilla);
+                sDirectPairs.Remove(iop);
+            }
+        }
+
+        // snap-back of queued direct picks (docs/222 §3): once per frame at a meta search; a tagged pick that is still queued
+        // and not the head keeps only if a live Test passes when its Sim is seen
+        static void FlipCheck()
+        {
+            if (sDirectTags.Count == 0) return;
+            int f = AutShadowNative.Config(19);
+            if (f == sFlipFrame) return;
+            sFlipFrame = f;
+            int[] k = PatchCounters();
+            for (int i = sDirectTags.Count - 1; i >= 0; i--)
+            {
+                InteractionInstance inst = sDirectTags[i].Key;
+                Sim s = sDirectTags[i].Value;
+                int v;
+                try
+                {
+                    bool gone = s == null || s.HasBeenDestroyed || s.InteractionQueue == null;
+                    bool inQ = !gone && s.InteractionQueue.HasInteraction(inst);
+                    bool head = inQ && ReferenceEquals(s.InteractionQueue.GetHeadInteraction(), inst);
+                    bool seen = !gone && inQ && !head && !AutLiveCore.Unseen.Stay(SafeUfWhy(s));
+                    v = AutLiveCore.Unseen.Flip(gone, inQ, head, seen, seen && inst.Test());
+                    if (v == AutLiveCore.Unseen.kFlipCancel) s.InteractionQueue.CancelInteraction(inst, false);
+                }
+                catch (Exception) { k[kCUnExc]++; v = AutLiveCore.Unseen.kFlipDrop; }
+                if (v == AutLiveCore.Unseen.kFlipWait) continue;
+                if (v == AutLiveCore.Unseen.kFlipKeep) k[kCUnFlipKept]++;
+                else if (v == AutLiveCore.Unseen.kFlipCancel) k[kCUnFlipCancel]++;
+                sDirectTags.RemoveAt(i);
+            }
+        }
+
+        static void DirectTag(InteractionInstance inst, Sim s)
+        {
+            if (sDirectTags.Count >= kUnMaxTags) sDirectTags.RemoveAt(0);
+            sDirectTags.Add(new KeyValuePair<InteractionInstance, Sim>(inst, s));
+            if (s != null) AppDomain.CurrentDomain.SetData("ts3fixes.autunseen.tagged", s.ObjectId.Value);  // ts3agent camera_to_tagged (repro)
+            PatchCounters()[kCUnTagged]++;
+        }
+
+        // D2 (public, no args). Passes through unless the autonomy's last meta search was direct.
+        public class AutChooseHook
+        {
+            public InteractionInstance ChooseHook()
+            {
+                AutonomyT a = (AutonomyT)(object)this;
+                if (sDirectAut == null || !ReferenceEquals(sDirectAut, a)) return ChooseOrig();
+                sDirectAut = null;
+                try { return DirectChoose(a, this); }
+                catch (Exception e) { PatchCounters()[kCUnExc]++; AutNote("unseen-direct D2: " + e.Message); sDirectPairs.Clear(); return ChooseOrig(); }
+            }
+            public InteractionInstance ChooseOrig() { return null; } // receives Autonomy.AssignProbabilitiesAndChooseInteraction's original header
         }
 
         // B14 (private, void, one caller: B13). Passes through unless a live search of this autonomy is in its game B13.
@@ -905,7 +1193,15 @@ namespace Ts3Fixes
             public void B14Hook(IMetaObject m, CommodityKind c)
             {
                 LiveSearch L = LiveOf(this);
-                if (L == null) { B14Orig(m, c); return; }
+                if (L == null)
+                {
+                    // docs/222 §6.3 vanilla B14 rate: 1 in 8 pass-through calls timed while Mode 3 is on
+                    if (!sLiveMode || sRateSw == null || (++sB14Sample & kB14SampleMask) != 0) { B14Orig(m, c); return; }
+                    sRateSw.Restart();
+                    B14Orig(m, c);
+                    RateAdd(sRateSw.GetElapsedTime(), m);
+                    return;
+                }
                 LiveB14(L, (AutonomyT)(object)this, m, c, this);
             }
             public void B14Orig(IMetaObject m, CommodityKind c) { } // receives Autonomy.ScoreInteractionsForMetaObject's original header

@@ -3,7 +3,7 @@
 static void TestCellMemoProbe() {
     static_assert(offsetof(Ts3nCounters, cmReady) == 0x38AC && offsetof(Ts3nCounters, cmLegs) == 0x38B8 &&
                       offsetof(Ts3nCounters, cmCellUs) == 0x38C8 && offsetof(Ts3nCounters, cmHist) == 0x38D8 &&
-                      offsetof(Ts3nCounters, cmFull) == 0x38F8 && sizeof(Ts3nCounters) == 5452 * 4,
+                      offsetof(Ts3nCounters, cmFull) == 0x38F8 && sizeof(Ts3nCounters) == 5468 * 4,
                   "counters v88 layout after v89 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const size_t span = offsetof(Ts3nCounters, cmFull) + 4 - offsetof(Ts3nCounters, cmReady);

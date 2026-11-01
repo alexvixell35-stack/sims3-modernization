@@ -65,6 +65,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kAutLiveLate value="False" />
     <kAutLiveLateTicks value="3" />
     <kAutLiveGuardHold value="600" />
+    <kAutUnseenPace value="True" />
     <kSafeSpotReuse value="False" />
     <kWildflowerProbe value="False" />
     <kWildflowerTask value="False" />
@@ -120,6 +121,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenFallbackLoopDetect value="True" />
     <kUnseenFallbackLoopBreak value="False" />
     <kUnseenFallbackFinish value="False" />
+    <kUnseenRouteRelaxed value="False" />
     <kPosturePopCycle value="False" />
     <kOverwatchIgnoreStuckProbes value="True" />
     <kSeasonImposter value="False" />

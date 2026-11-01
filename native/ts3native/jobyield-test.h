@@ -6,10 +6,10 @@ static void TestJobYield() {
     static_assert(offsetof(Ts3nCounters, jyMode) == 0x45CC && offsetof(Ts3nCounters, jyBusy) == 0x45D4 &&
                       offsetof(Ts3nCounters, swN) == 0x45D8 && offsetof(Ts3nCounters, swUs) == 0x45F0 &&
                       offsetof(Ts3nCounters, swMaxUs) == 0x4608 && offsetof(Ts3nCounters, swYieldable) == 0x460C &&
-                      offsetof(Ts3nCounters, swLines) == 0x4624 && sizeof(Ts3nCounters) == 5452 * 4,
+                      offsetof(Ts3nCounters, swLines) == 0x4624 && sizeof(Ts3nCounters) == 5468 * 4,
                   "counters v109 layout after v108 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
-    assert(k.version == 144);
+    assert(k.version == 145);
     memset((void*)&k.jyMode, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, jyMode));
     u8 out[0x48];
     FakeTask(kRoot, 7);

@@ -38703,7 +38703,7 @@
           "args": {
             "lot": "farobj",
             "object": "Sculpture|Statue|Fountain|Painting|Art",
-            "interaction": "View|Sit|Admire|Swing|Read"
+            "interaction": "View|Admire|Swing"
           },
           "waitS": 30,
           "note": "fire: unseen own-task View plans (ViewObjects / ViewPlant RouteToPointRadialRange) far -> far2",
@@ -38981,7 +38981,7 @@
         "args": {
           "lot": "farobj",
           "object": "Sculpture|Statue|Fountain|Painting|Art",
-          "interaction": "View|Sit|Admire|Swing|Read"
+          "interaction": "View|Admire|Swing"
         },
         "waitS": 20,
         "note": "holds start (both ends unseen)"
@@ -39079,7 +39079,7 @@
           "args": {
             "lot": "farobj",
             "object": "Sculpture|Statue|Fountain|Painting|Art",
-            "interaction": "View|Sit|Admire|Swing|Read",
+            "interaction": "View|Admire|Swing",
             "look": true
           },
           "waitS": 40,
@@ -39178,7 +39178,7 @@
           "args": {
             "lot": "farobj",
             "object": "Sculpture|Statue|Fountain|Painting|Art",
-            "interaction": "View|Sit|Admire|Swing|Read"
+            "interaction": "View|Admire|Swing"
           },
           "waitS": 60,
           "note": "fire: starts in view, goal unseen",
@@ -45343,5 +45343,630 @@
     "switches": [
       "autshadow"
     ]
+  },
+  {
+    "id": "aut-unseen-snapback",
+    "bug": "none (docs/222 snap-back check)",
+    "fix": "ts3fixes autunseen: a Sim turning seen leaves the direct path at once; its queued direct pick keeps only if a live Test passes (AutLive.cs FlipCheck)",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (2026-10-31, never run). Needs ts3agent with camera_to_tagged and ts3fixes with autunseen on. The far corner coordinates are a guess for BP (world ~0..2000); any spot away from the active lot works. Watch autunseen_flip_kept / autunseen_flip_cancel / autunseen_snap_*.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 120,
+        "note": "camera to a far corner: most townies unseen (UfWhy 0), their meta searches take the direct path"
+      },
+      {
+        "cmd": "camera_to_tagged",
+        "args": {},
+        "waitS": 15,
+        "note": "camera onto the Sim whose direct pick was pushed last: next search exact, its queued pick re-tested"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "camera to a far corner: most townies unseen (UfWhy 0), their meta searches take the direct path"
+      },
+      {
+        "cmd": "camera_to_tagged",
+        "args": {},
+        "waitS": 15,
+        "note": "camera onto the Sim whose direct pick was pushed last: next search exact, its queued pick re-tested"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "camera to a far corner: most townies unseen (UfWhy 0), their meta searches take the direct path"
+      },
+      {
+        "cmd": "camera_to_tagged",
+        "args": {},
+        "waitS": 15,
+        "note": "camera onto the Sim whose direct pick was pushed last: next search exact, its queued pick re-tested"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "camera to a far corner: most townies unseen (UfWhy 0), their meta searches take the direct path"
+      },
+      {
+        "cmd": "camera_to_tagged",
+        "args": {},
+        "waitS": 15,
+        "note": "camera onto the Sim whose direct pick was pushed last: next search exact, its queued pick re-tested"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "camera to a far corner: most townies unseen (UfWhy 0), their meta searches take the direct path"
+      },
+      {
+        "cmd": "camera_to_tagged",
+        "args": {},
+        "waitS": 15,
+        "note": "camera onto the Sim whose direct pick was pushed last: next search exact, its queued pick re-tested"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "camera to a far corner: most townies unseen (UfWhy 0), their meta searches take the direct path"
+      },
+      {
+        "cmd": "camera_to_tagged",
+        "args": {},
+        "waitS": 15,
+        "note": "camera onto the Sim whose direct pick was pushed last: next search exact, its queued pick re-tested"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "camera to a far corner: most townies unseen (UfWhy 0), their meta searches take the direct path"
+      },
+      {
+        "cmd": "camera_to_tagged",
+        "args": {},
+        "waitS": 15,
+        "note": "camera onto the Sim whose direct pick was pushed last: next search exact, its queued pick re-tested"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "camera to a far corner: most townies unseen (UfWhy 0), their meta searches take the direct path"
+      },
+      {
+        "cmd": "camera_to_tagged",
+        "args": {},
+        "waitS": 15,
+        "note": "camera onto the Sim whose direct pick was pushed last: next search exact, its queued pick re-tested"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "camera to a far corner: most townies unseen (UfWhy 0), their meta searches take the direct path"
+      }
+    ],
+    "expect": "autunseen_flip_kept + autunseen_flip_cancel > 0, autunseen_exc 0, no script error"
+  },
+  {
+    "id": "unseenroute-car-trip",
+    "bug": "docs/202 §3.9 / docs/161 / docs/163: unseen Sims own 68-97% of route-plan time in >= 300 ms routing hitches; D (unseenfbpre) never acted because gate 332 refused every child-or-older route (EnablePlanningAsBoat is set on all of them with Island Paradise installed, kit run issue #135) and the exactness proofs (verdict fill, known colour, lot kind) refused the rest",
+    "fix": "ts3fixes unseenroute (UnseenFallback.cs UfPre relaxed + UfSnap, docs/202 §3.9): an unseen townie's own followed plan to an unseen outdoor goal plans nothing: hold for the travel time (walk, or the fast-leg estimate when the route may drive / take the subway / hover train / a boat), place at the goal, short exact plan from there; snap-back mid-trip when the goal turns seen. Safety rules unchanged",
+    "save": "Baseline-SV-Spring",
+    "note": "UNVERIFIED (static + selftest only, 2026-10-31): never run. 30 spawned Sims walk to the farthest community lot (seen at start), then each loop crowd_do View on an outdoor object of a far2-ranked community lot (farobj): cross-town own-task RouteToPointRadialRange / ViewObjects plans of unseen Sims, typically > 150 m with EnablePlanningAsCar / EnablePlanningAsBoat set (the routes the game may drive). Before 2026-10-31 D refused all of them at gate 332.",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 90,
+        "note": "away from the household and the camera"
+      }
+    ],
+    "expect": "no crash, 0 watchdog lines, no stuck Sim at the end; on arms: unseenroute_acts >= 10 and unseenroute_fast >= 1 (hold shortened by the fast-leg estimate), unseenfbpre_rj_vehicle near 0, fewer own-START route jobs and no routing-led hitch >= 300 ms from these Sims; held Sims in_transit; off arms: the game plans, drives or walks",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "patches",
+          "setup": true,
+          "args": {
+            "unseenroute": "$on"
+          },
+          "waitS": 1,
+          "note": "arm (relaxed unseen routing)"
+        },
+        {
+          "cmd": "crowd_do",
+          "setup": false,
+          "args": {
+            "lot": "farobj",
+            "object": "Sculpture|Statue|Fountain|Painting|Art",
+            "interaction": "View|Admire|Swing"
+          },
+          "waitS": 30,
+          "note": "fire: unseen own-task View plans (ViewObjects / ViewPlant RouteToPointRadialRange) far -> far2",
+          "waitUntil": {
+            "quiet": 4000
+          },
+          "minS": 6,
+          "maxS": 30,
+          "count": {
+            "result": "sent"
+          }
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "to": "far",
+            "cancel": true
+          },
+          "waitS": 60,
+          "note": "back to far (ends the sit or the hold)"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 30
+      },
+      "maxMinutes": 14
+    }
+  },
+  {
+    "id": "unseenroute-walk-across",
+    "bug": "docs/202 §3.9 / docs/161 / docs/163: unseen Sims own 68-97% of route-plan time in >= 300 ms routing hitches; D (unseenfbpre) never acted because gate 332 refused every child-or-older route (EnablePlanningAsBoat is set on all of them with Island Paradise installed, kit run issue #135) and the exactness proofs (verdict fill, known colour, lot kind) refused the rest",
+    "fix": "ts3fixes unseenroute (UnseenFallback.cs UfPre relaxed + UfSnap, docs/202 §3.9): an unseen townie's own followed plan to an unseen outdoor goal plans nothing: hold for the travel time (walk, or the fast-leg estimate when the route may drive / take the subway / hover train / a boat), place at the goal, short exact plan from there; snap-back mid-trip when the goal turns seen. Safety rules unchanged",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED (static + selftest only, 2026-10-31): never run. Isla Paradiso (islands, water and boat planning on every adult route): 30 spawned Sims to the farthest community lot, then View on an outdoor object of a far2-ranked lot: unseen walks across the world, some to other islands (different flood colour + boat planning = planned normally, never failed fast). 2026-11-01 (docs/202 §3.9.7c): on Isla Paradiso crowd_do picked Sit on a dining chair at Port Pepper (Sit plans in PlanToUnusedPart, not a D follower: 2 acts in the 2026-10-31 run); D repros now offer View|Admire|Swing only, so crowd_do moves on to a lot with a viewable object.",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 90,
+        "note": "away from the household and the camera"
+      }
+    ],
+    "expect": "no crash, 0 watchdog lines, no stuck Sim, no Sim placed on another island it could not reach (unseenfbpre_failfast unchanged on arms with boat planning); on arms: unseenroute_acts >= 10, unseenroute_no_verdict and unseenroute_colour_unknown show how many acts the old proofs refused; off arms: normal plans",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "patches",
+          "setup": true,
+          "args": {
+            "unseenroute": "$on"
+          },
+          "waitS": 1,
+          "note": "arm (relaxed unseen routing)"
+        },
+        {
+          "cmd": "crowd_do",
+          "setup": false,
+          "args": {
+            "lot": "farobj",
+            "object": "Sculpture|Statue|Fountain|Painting|Art",
+            "interaction": "View|Admire|Swing"
+          },
+          "waitS": 30,
+          "note": "fire: unseen own-task View plans (ViewObjects / ViewPlant RouteToPointRadialRange) far -> far2",
+          "waitUntil": {
+            "quiet": 4000
+          },
+          "minS": 6,
+          "maxS": 30,
+          "count": {
+            "result": "sent"
+          }
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "to": "far",
+            "cancel": true
+          },
+          "waitS": 60,
+          "note": "back to far (ends the sit or the hold)"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 30
+      },
+      "maxMinutes": 14
+    }
+  },
+  {
+    "id": "unseenroute-snapback",
+    "bug": "docs/202 §3.9 / docs/161 / docs/163: unseen Sims own 68-97% of route-plan time in >= 300 ms routing hitches; D (unseenfbpre) never acted because gate 332 refused every child-or-older route (EnablePlanningAsBoat is set on all of them with Island Paradise installed, kit run issue #135) and the exactness proofs (verdict fill, known colour, lot kind) refused the rest",
+    "fix": "ts3fixes unseenroute (UnseenFallback.cs UfPre relaxed + UfSnap, docs/202 §3.9): an unseen townie's own followed plan to an unseen outdoor goal plans nothing: hold for the travel time (walk, or the fast-leg estimate when the route may drive / take the subway / hover train / a boat), place at the goal, short exact plan from there; snap-back mid-trip when the goal turns seen. Safety rules unchanged",
+    "save": "Baseline-SV-Spring",
+    "note": "UNVERIFIED (static + selftest only, 2026-10-31): never run. As unseenroute-car-trip, plus after each firing the camera jumps onto the goal of the last relaxed hold (camera_to_tagged key ts3fixes.unseenroute.goal: goal seen, Sim unseen = snap_mid), away, onto the held Sim (key ts3fixes.unseenroute.tagged: Sim seen = snap_stand), then away. Needs ts3agent with the camera_to_tagged key argument.",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 90,
+        "note": "away from the household and the camera"
+      }
+    ],
+    "expect": "no crash, 0 watchdog lines, no stuck Sim; on arms: unseenroute_snap_mid + unseenroute_snap_stand >= 1 (a Sim seen itself is never moved: snap_stand; goal seen: snap_mid places it out of view on the line and it walks in), camera_to_tagged found true; no Sim visibly popping in view (screenshot check by hand on a failure)",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "patches",
+          "setup": true,
+          "args": {
+            "unseenroute": "$on"
+          },
+          "waitS": 1,
+          "note": "arm (relaxed unseen routing)"
+        },
+        {
+          "cmd": "crowd_do",
+          "setup": false,
+          "args": {
+            "lot": "farobj",
+            "object": "Sculpture|Statue|Fountain|Painting|Art",
+            "interaction": "View|Admire|Swing"
+          },
+          "waitS": 30,
+          "note": "fire: unseen own-task View plans (ViewObjects / ViewPlant RouteToPointRadialRange) far -> far2",
+          "waitUntil": {
+            "quiet": 4000
+          },
+          "minS": 6,
+          "maxS": 30,
+          "count": {
+            "result": "sent"
+          }
+        },
+        {
+          "cmd": "camera_to_tagged",
+          "setup": false,
+          "args": {
+            "key": "ts3fixes.unseenroute.goal",
+            "height": 12,
+            "back": 12
+          },
+          "waitS": 10,
+          "note": "look at the goal of the last relaxed hold: the goal turns seen, the held Sim does not (snap_mid)"
+        },
+        {
+          "cmd": "camera",
+          "setup": true,
+          "args": {
+            "pos": {
+              "x": 120,
+              "y": 90,
+              "z": 120
+            },
+            "target": {
+              "x": 180,
+              "y": 0,
+              "z": 180
+            }
+          },
+          "waitS": 3,
+          "note": "camera away"
+        },
+        {
+          "cmd": "camera_to_tagged",
+          "setup": true,
+          "args": {
+            "key": "ts3fixes.unseenroute.tagged",
+            "height": 12,
+            "back": 12
+          },
+          "waitS": 10,
+          "note": "look at the held Sim itself: it is never moved in view (snap_stand)"
+        },
+        {
+          "cmd": "camera",
+          "setup": true,
+          "args": {
+            "pos": {
+              "x": 120,
+              "y": 90,
+              "z": 120
+            },
+            "target": {
+              "x": 180,
+              "y": 0,
+              "z": 180
+            }
+          },
+          "waitS": 5,
+          "note": "camera away again"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "to": "far",
+            "cancel": true
+          },
+          "waitS": 60,
+          "note": "back to far (ends the sit or the hold)"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 30
+      },
+      "maxMinutes": 14
+    }
+  },
+  {
+    "id": "unseenroute-fenced-repair",
+    "bug": "docs/202 §3.9.7: a relaxed placement without a verdict (B pass on a public lot with a fenced corner) could leave a Sim on a spot it cannot walk out of; seen later, it would stand stuck",
+    "fix": "ts3fixes unseenroute UrRepair (D): a placed Sim that is seen and plans gets the SafeSpot check; unreachable = moved to the lot entry point, then the plan runs exactly from there",
+    "save": "Baseline-SV-Spring",
+    "note": "FAIL x3 (unseenroute4-6) until the 2026-11-01 repro fix (docs/202 §3.9.7f): fenced_place now asserts the spot fails IsPointInLotSafelyRoutable for every placed Sim and the lot entry is routable for each, and moves the camera onto the spot before placing them. fenced_place error = no such spot on the far lot (the error lists rejected spots): rerun on another world or pick a lot with a fenced corner.",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 5
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenroute": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "fenced_place",
+        "args": {
+          "lot": "far",
+          "max": 5
+        },
+        "waitS": 5,
+        "note": "5 Sims on a spot unreachable for each of them (asserted), camera on it first, listed as relaxed placements"
+      },
+      {
+        "cmd": "camera_to_tagged",
+        "args": {
+          "key": "ts3fixes.unseenroute.fenced",
+          "height": 12,
+          "back": 12
+        },
+        "waitS": 90,
+        "note": "camera on the spot: the Sims are seen; their next plans run the D check"
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "waitS": 1
+      }
+    ],
+    "expect": "no crash, 0 watchdog lines; unseenroute_d_check >= 1, unseenroute_d_repair >= 1, the Sims leave the fenced spot (sims_activity), no stuck Sim"
   }
 ]

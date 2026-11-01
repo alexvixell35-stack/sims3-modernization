@@ -204,7 +204,7 @@ const log = (m: string) => console.log(`${stamp()} queue: ${m}`);
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; run: { repro?: string; saveReload?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
     profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; stopQueueOnFail?: boolean; scriptErrorsMax?: number; timeoutMin?: number; pin?: false | PinOpts;
-  saveMatrix?: { fixes?: 'all' | 'shipped' }; fixesBuild?: string; fixesPackage?: string; pinReason?: string; rerunOf?: string };
+  saveMatrix?: { fixes?: 'all' | 'shipped' }; fixesBuild?: string; fixesPackage?: string; pinReason?: string; rerunOf?: string; shadowCheck?: boolean };
 
 export function parseQueue(json: unknown): Job[] {
   const jobs = Array.isArray(json) ? json : (json as any)?.jobs;
@@ -815,6 +815,11 @@ export function logForbidFails(text: string, forb: Record<string, number>): stri
 const delta = (a: any, b: any) => (a && b ?Object.fromEntries(Object.keys(b).filter(k => typeof b[k] === 'number' && typeof a[k] === 'number' && b[k] !== a[k]).map(k => [k, b[k] - a[k]])) : null);
 
 // verdict lines of a child's output: repro.ts "<id>: PASS (...)", "FAIL: ...", save-matrix.ts "<case>: PASS", "summary: ..."
+export function profileHead(code: number | null, timedOut: boolean, stop: string | null, out: string): 'PASS' | 'ran' | 'FAIL' {
+  if (code === 0) return 'PASS';
+  return !timedOut && !!stop && /^stopped at /.test(stop) && verdicts(out).some(v => /^FAIL: /.test(v)) ? 'ran' : 'FAIL';
+}
+
 export function verdicts(out: string): string[] {
   return out.split(/\r?\n/).map(l => l.replace(/^\d\d:\d\d:\d\d /, '').trim())
     .filter(l => /(^|[\s:])(PASS|FAIL|PENDING)\b|^summary:/.test(l) && !/^(fix under test|step )/.test(l)).slice(-8);
@@ -1134,6 +1139,10 @@ if (values['self-check']) {
   checkLoop((JSON.parse(readFileSync(H('repros.json'), 'utf8')) as any[]).find(r => r.id === lq.run.profile!.repro).loop);
   assert.equal(STOP_LINE.exec('12:00:00 repro x step reflect_call [fire off #20]: {}\n12:15:20 stopped at 20 events after 15.3 min (off 10, on 10; 20 firings, 5 cycles; rule 10 events per arm)\n')?.[1],
     'stopped at 20 events after 15.3 min (off 10, on 10; 20 firings, 5 cycles; rule 10 events per arm)');
+  assert.equal(profileHead(1, false, 'stopped at 120 events after 5.0 min (off 60, on 60)', '16:57:39 FAIL: fixes counters: x=0 (want >=10)\n'), 'ran');
+  assert.equal(profileHead(1, false, 'loop cap reached: 4 events after 20.1 min, rule not met', '16:57:39 FAIL: fixes counters: x=0\n'), 'FAIL');
+  assert.equal(profileHead(1, false, null, ''), 'FAIL');
+  assert.equal(profileHead(0, false, null, ''), 'PASS');
   assert.ok(STOP_LINE.test('12:22:00 loop cap reached: 4 events after 20.1 min, rule not met (off 2, on 2; 8 firings, 2 cycles; rule 10 events per arm)'));
   assert.equal(STOP_LINE.exec('12:00:00 stopped at 40 compares after 6.0 min (target 20)'), null); // --until-compares is not a loop line
   for (const q of ['rare-scenarios', 'rare-scenarios-2']) assert.ok(parseQueue(JSON.parse(readFileSync(H(`queues/${q}.json`), 'utf8'))).every(j => !j.run.profile?.repro || rids.has(j.run.profile.repro)), q);
@@ -2205,7 +2214,9 @@ for (const [n, j] of jobs.entries()) {
         }
       }
       if (j.run.profile) row.stop = STOP_LINE.exec(r.out)?.[1] ?? null; // loop repro: 'stopped at N events after M min (...)' or the cap line
-      if (j.run.profile) row.verdict = [`${r.code === 0 ? 'PASS' : 'FAIL'}: profile ${row.stop ? `${row.stop}, cap ${j.run.profile.minutes} min` : `${j.run.profile.minutes} min`}, ${j.run.profile.seed !== undefined ? `seed ${j.run.profile.seed}` : 'unseeded'} (rng-compare.ts)`, ...(r.code === 0 ? [] : silentFail(r.code, r.out, r.timedOut))]; // keeps the child's FAIL reason, e.g. a failed repro step
+      // a loop that met its stop rule is not a failure of its own: when the child named a FAIL (e.g. fixes counters), the profile
+      // line says 'ran' so the row's first FAIL is the real reason (2026-11-01 sv-ur-car-loop: two FAILs, one cause)
+      if (j.run.profile) row.verdict = [`${profileHead(r.code, r.timedOut, row.stop, r.out)}: profile ${row.stop ? `${row.stop}, cap ${j.run.profile.minutes} min` : `${j.run.profile.minutes} min`}, ${j.run.profile.seed !== undefined ? `seed ${j.run.profile.seed}` : 'unseeded'} (rng-compare.ts)`, ...(r.code === 0 ? [] : silentFail(r.code, r.out, r.timedOut))]; // keeps the child's FAIL reason, e.g. a failed repro step
       const fo = j.run.profile && r.code === 0 ? fixesOnFail((j.run.profile as any).fixesOn, r.out) : '';
       if (fo) { row.verdict.push(`FAIL: ${fo}`); row.selfCheckFail = fo; }
     } else if (j.run.soak) {
@@ -2271,7 +2282,8 @@ for (const [n, j] of jobs.entries()) {
     if (c1?.autshadow || /\baut/.test(j.run.profile?.fixesOn ?? '')) {
       row.fixesApplied = fixesApplied((await agent('patches'))?.result?.applied);
       log(`${j.id}: ts3fixes.applied: ${row.fixesApplied.join(' | ') || '(no AutShadow/AutLedger or refused-patch lines)'}`);
-      for (const f of shadowFails(rowIni(j), j.run.profile?.fixesOn, c0, c1, row.fixesApplied, row.fixActivity?.counters)) { row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f; }
+      // shadowCheck false: a vanilla arm that keeps the autshadow switch for its counters but never posts (golive-unseen g8-off)
+      if (j.shadowCheck !== false) for (const f of shadowFails(rowIni(j), j.run.profile?.fixesOn, c0, c1, row.fixesApplied, row.fixActivity?.counters)) { row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f; }
     }
     row.counters ={ before: pickCounters(c0, sections), after: pickCounters(c1, sections) };
     row.counters.delta = delta(row.counters.before, row.counters.after);

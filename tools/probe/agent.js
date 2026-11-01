@@ -1609,6 +1609,8 @@ rpc.exports = {
         'mcRet', 'mcBailCall', 'mcBailCallvirt', 'mcBailRet', 'mcVerified', 'mcMismatch', 'mcVSkipped', 'mcVerifyEvery', 'mcFirstBad', ...n('mcSpare', 3));
       // v144 [EaCrashFixes] MintDivGuard (issue #114, docs/213 §8, eafix.cpp)
       if (c.readS32() >= 144) f.push('mdOn', 'mdDivOverflow', 'mdRemMinus1', 'mdSpare');
+      if (c.readS32() >= 145) f.push('ghReady', 'ghMode', 'ghAdds', 'ghRemoves', 'ghLive', 'ghLiveMax', 'ghFpSkipped', 'ghFpDisables',
+        'ghAgentSkipped', 'ghExpired', 'ghFull', 'ghRemoveMissing', ...n('ghSpare', 4));
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key

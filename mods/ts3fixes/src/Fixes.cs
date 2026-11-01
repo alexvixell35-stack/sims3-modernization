@@ -234,12 +234,23 @@ namespace Ts3Fixes
         // [491-533] unseen wake-ups (WakePark.cs, docs/211: wakeprobe / wakepark / wakepoll): see the header of WakePark.cs.
         // [602-604] [AutShadow] G-M6 (AutShadow.cs ClosureSweep, PR #112): closure methods IL-hashed, hashes not from a checked
         // build (owners whose closure reaches it skipped), hashing us. [605] G-M6 guard faults (> 3 mismatches on checked-build MVIDs: IL check ignored). [606] G-M6 owners (definitions + implementors) skipped this load.
+        // [641-646] unseenroute (UnseenFallback.cs UfPre relaxed / UfSnap, docs/202 §3.9): relaxed acts (placed at the goal after
+        // the hold), acts without a verdict, acts with the colour unknown, holds shortened by the fast-leg estimate, snap-backs placed
+        // mid-trip (exact plan from there), snap-backs that planned from where the Sim stood.
+        // [647-658] unseenroute2 (UnseenFallback.cs, docs/202 §3.9.5-§3.9.7): acts of plans made in another task, plans refused
+        // inside another plan's callback, group acts (members placed with the leader), groups refused (a member seen, held or
+        // not human; or a member's own plan), child acts, B passes (street / public lot, same colour), C learn plans (real plan,
+        // result cached), C cached hits, D checks (a placed Sim seen again), D repairs (moved to the lot entry), ghost starts
+        // (ts3native [UnseenGhost] took the id, footprint removed), ghost exits (off the native set, footprint back).
+        // [659-660] unseen-direct pacing (AutLive.cs PaceCharge, docs/222 §8): us charged to B13's yield timer, yields brought forward.
+        // [661-669] G8 by actor class (AutLive.cs G8Note, docs/222 §8): unseen searches / pushes / no-pick / GoHome (661-664), seen
+        // (665-668), unseen Sim-hours x100 (669).
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[607]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[670]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -300,6 +311,8 @@ namespace Ts3Fixes
                 case "autlive": return false; // docs/124 §17 go-live consume ([AutShadow] Mode=3): test runs only
                 case "autlivelate": return Instantiator.kAutLiveLate; // docs/217 L1 late consume (only acts with autlive)
                 case "autliveguard": return Instantiator.kAutLiveGuard; // docs/124 §17.10 go-live cost guard (only acts with autlive)
+                case "autunseenpace": return Instantiator.kAutUnseenPace; // docs/222 §8 unseen-direct pacing (only acts with autunseen)
+                case "autunseen": return false; // docs/222 unseen-direct go-live (only acts with autlive, acting): test runs only
                 case "replandefer": return Instantiator.kReplanDefer;
                 case "replanspread": return Instantiator.kReplanSpread;
                 case "autshadowverify": return false; // verify switch: test runs only
@@ -350,6 +363,7 @@ namespace Ts3Fixes
                 case "unseenfbloopdet": return Instantiator.kUnseenFallbackLoopDetect;
                 case "unseenfbloopbreak": return Instantiator.kUnseenFallbackLoopBreak;
                 case "unseenfbfinish": return Instantiator.kUnseenFallbackFinish;
+                case "unseenroute": return Instantiator.kUnseenRouteRelaxed;
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
                 case "seasonimpostercold": return Instantiator.kSeasonImposterCold;

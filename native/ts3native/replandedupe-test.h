@@ -37,10 +37,10 @@ static void TestReplanDedupe() {
                       offsetof(Ts3nCounters, rdInval) == 0x3968 && offsetof(Ts3nCounters, rdWould) == 0x3978 &&
                       offsetof(Ts3nCounters, rdWouldSame) == 0x3980 && offsetof(Ts3nCounters, rdWouldDiff) == 0x3988 &&
                       offsetof(Ts3nCounters, rdServed) == 0x3990 && offsetof(Ts3nCounters, rdServedUs) == 0x3994 &&
-                      sizeof(Ts3nCounters) == 5452 * 4,
+                      sizeof(Ts3nCounters) == 5468 * 4,
                   "counters v90 layout after v88 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
-    assert(k.version == 144);
+    assert(k.version == 145);
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     // fakes and a quiet world
     u8* const* rmSlot = g_orRmSlot;

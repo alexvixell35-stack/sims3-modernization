@@ -20,9 +20,9 @@ static void TestPlacementRO() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, fgReady) == 0x42C8 && offsetof(Ts3nCounters, fgMode) == 0x42CC &&
                       offsetof(Ts3nCounters, fgShadow) == 0x42D0 && offsetof(Ts3nCounters, fgFb) == 0x42E8 &&
-                      offsetof(Ts3nCounters, fgShadowMismatch) == 0x4304 && sizeof(Ts3nCounters) == 5452 * 4,
+                      offsetof(Ts3nCounters, fgShadowMismatch) == 0x4304 && sizeof(Ts3nCounters) == 5468 * 4,
                   "counters v100 layout after v99 (docs/registry.md)");
-    assert(k.version == 144);
+    assert(k.version == 145);
     assert(kFgSite.site == 0x00635013 && kFgSite.target == 0x00631F10);
     memset(&k.fgReady, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, fgReady));
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);

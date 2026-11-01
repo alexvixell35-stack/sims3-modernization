@@ -67,7 +67,7 @@ static void TestGoalGen() {
                   offsetof(Ts3nCounters, pgLongRest) == 0x43B0 && offsetof(Ts3nCounters, ggMode) == 0x43B4 &&
                   offsetof(Ts3nCounters, ggValDup) == 0x43D4 && offsetof(Ts3nCounters, hxMode) == 0x43D8 &&
                   offsetof(Ts3nCounters, hxCalls) == 0x43E0 && offsetof(Ts3nCounters, hxStale) == 0x4408 &&
-                  sizeof(Ts3nCounters) == 5452 * 4, "counters v102 layout after v101 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 5468 * 4, "counters v102 layout after v101 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.pgReady, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, pgReady));
     g_ggOrig = (void*)FakeRing;

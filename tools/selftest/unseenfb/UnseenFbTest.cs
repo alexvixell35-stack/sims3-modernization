@@ -46,6 +46,14 @@ static class UnseenFbTest
         Check(u.MayMark(1, 1001 + UfLimiter.kWindowMs), "cap ends with the window");
         u.Cut(1, 5, 0, 7, 1001 + UfLimiter.kWindowMs, "fail-B");
         Check(u.MayMark(1, 1002 + UfLimiter.kWindowMs), "new window counts from 1");
+        // docs/202 §3.9.9 per-event log limiter + line format
+        UrEvLog ev = new UrEvLog();
+        for (int i = 0; i < UrEvLog.kMax; i++) Check(ev.May("act", 5000 + i), "ev line " + i);
+        Check(!ev.May("act", 5100) && ev.Dropped == 1, "ev capped per kind in the window");
+        Check(ev.May("ghost-start", 5100), "ev cap is per kind");
+        Check(ev.May("act", 5000 + UrEvLog.kWindowMs), "ev window reopens");
+        Check(ev.May("wrap", int.MaxValue - 10) && ev.May("wrap", unchecked(int.MaxValue + 20)), "ev tick wrap");
+        Check(UrEvLog.Format("act", 12.34, 5678, 0x0000000100000002UL) == "ur: act sim-min=12.3 wall-ms=5678 sim=00000003", "ev format: " + UrEvLog.Format("act", 12.34, 5678, 0x0000000100000002UL));
         // wrap of Environment.TickCount
         UfLimiter w = new UfLimiter();
         w.Cut(9, 0, 0, 0, int.MaxValue - 100, "wrap");
@@ -137,8 +145,61 @@ static class UnseenFbTest
             && !UfPreCore.OwnFrame(null, "UfFollows"), "own Uf* frames skipped by the caller read (10-27: callers = UfFollows)");
         // the game's default Sim route (EnablePlanningAsCar on, the rest off) is not a vehicle route (10-30: 2083 refused at 332)
         Check(!UfPreCore.VehicleRoute(false, false, false, false) && UfPreCore.VehicleRoute(true, false, false, false)
-            && UfPreCore.VehicleRoute(false, true, false, false) && UfPreCore.VehicleRoute(false, false, true, false)
-            && UfPreCore.VehicleRoute(false, false, false, true), "gate 332: drive-capable walks pass, car/boat/no-walk refused");
+            && UfPreCore.VehicleRoute(false, true, false, false) && UfPreCore.VehicleRoute(false, false, true, false),
+            "gate 332: drive/boat-capable walks pass (planning options are not checked), car/boat starters and no-walk refused");
+        // docs/202 §3.9 relaxed: only vehicle starters refused
+        Check(UfPreCore.VehicleRoute(true, false, false, true) && UfPreCore.VehicleRoute(false, false, true, true)
+            && !UfPreCore.VehicleRoute(false, true, false, true), "relaxed 332: vehicle starters refused, no-walk routes pass");
+        Check(System.Math.Abs(UfPreCore.TravelMinutes(100f, true) - UfPreCore.HoldMinutes(100f)) < 0.001f, "relaxed: short trips walk even with fast legs");
+        Check(System.Math.Abs(UfPreCore.TravelMinutes(600f, false) - UfPreCore.HoldMinutes(600f)) < 0.001f, "relaxed: no fast legs = walk time");
+        float ft = UfPreCore.TravelMinutes(600f, true);
+        Check(ft < UfPreCore.HoldMinutes(600f) && System.Math.Abs(ft - (UfPreCore.kFastOverheadMin + 600f * UfPreCore.kDetour / UfPreCore.kFastMPerSimMin)) < 0.001f,
+            "relaxed: long trip with fast legs = overhead + distance x detour / fast speed");
+        Check(UfPreCore.TripShare(0, 100) == 0f && UfPreCore.TripShare(50, 100) == 0.5f && UfPreCore.TripShare(500, 100) == 1f && UfPreCore.TripShare(5, 0) == 0f, "snap-back share");
+        Check(UfPreCore.SnapAt(0, 0.5f, 200f) == 100f && UfPreCore.SnapAt(1, 0.5f, 200f) == 90f && UfPreCore.SnapAt(9, 0.5f, 200f) == 10f
+            && UfPreCore.SnapAt(10, 0.5f, 200f) < 0f, "snap-back candidates walk back to the start gap");
+        Check(UfPreCore.SnapAt(0, 1f, 200f) == 190f && UfPreCore.SnapAt(0, 0.01f, 200f) < 0f && UfPreCore.SnapAt(0, 0.5f, 15f) < 0f, "snap-back: never inside the end gaps");
+        // docs/202 §3.9.6-§3.9.7 unseenroute2
+        Check(UrCore.BPass(1, true, false) && UrCore.BPass(1, false, true) && !UrCore.BPass(1, false, false) && !UrCore.BPass(0, true, true)
+            && !UrCore.BPass(-1, true, false), "B: same colour and street / public lot only");
+        Check(UrCore.GoalKey(77, false, 5f, 5f) == 77 && UrCore.GoalKey(77, false, 999f, -3f) == 77, "C key: a lot goal is its lot, any cell");
+        Check(UrCore.GoalKey(0, true, 10f, 10f) == UrCore.GoalKey(0, true, 60f, 1f) && UrCore.GoalKey(0, true, 10f, 10f) != UrCore.GoalKey(0, true, 70f, 10f)
+            && UrCore.GoalKey(0, true, -1f, 5f) != UrCore.GoalKey(0, true, 1f, 5f) && (UrCore.GoalKey(0, true, 1f, 1f) >> 63) == 1, "C key: 64 m street areas, flagged");
+        Check(UrCore.StartKey(9, false) == 9 && UrCore.StartKey(9, true) == 0, "C start side: lot or street");
+        UrCCache cc = new UrCCache();
+        Check(cc.Get(1, 2) == null, "C: unknown first");
+        cc.Set(1, 2, true); cc.Set(1, 0, false); cc.Set(5, 1, true);
+        Check(cc.Get(1, 2) == true && cc.Get(1, 0) == false && cc.Get(2, 1) == null, "C: learned per (goal, start)");
+        Check(cc.ClearLot(1) == 3 && cc.Count == 0, "C: a Build/Buy edit of a lot drops it as goal and as start");
+        for (int k = 0; k < UrCCache.kMax + 5; k++) cc.Set((ulong)k + 10, 0, true);
+        Check(cc.Count <= UrCCache.kMax, "C: bounded");
+        Check(UrCore.HitPm(0, 0) == -1 && UrCore.HitPm(3, 1) == 750 && UrCore.HitPm(0, 4) == 0, "C hit rate per mille");
+        Check(UrCore.GroupOk(true, 3, 3) && !UrCore.GroupOk(true, 3, 2) && !UrCore.GroupOk(false, 3, 3) && !UrCore.GroupOk(true, 0, 0), "groups: leader, all or none");
+        // nested-plan test per task (2026-10-31 fix: a global count made every plan nested while another task slept in its plan)
+        UrTaskDepth td = new UrTaskDepth();
+        td.Enter(1);                                   // task 1 plans, then sleeps (route job wait / D hold)
+        Check(td.Enter(2) == 1 && td.Depth(2) == 1, "depth: another task's plan meanwhile is not nested");
+        td.Exit(2);
+        Check(td.Enter(1) == 2 && td.Depth(1) == 2, "depth: a plan inside task 1's own plan (callback) is nested");
+        td.Exit(1); td.Exit(1);
+        Check(td.Depth(1) == 0 && td.Depth(2) == 0 && td.Tasks == 0, "depth: every exit balances, no leak");
+        td.Exit(3);
+        Check(td.Depth(3) == 0 && td.Tasks == 0, "depth: an exit without an enter is ignored");
+        Check(!UrCore.DoorRefuses(false, true, false) && !UrCore.DoorRefuses(false, false, true) && UrCore.DoorRefuses(true, false, false),
+            "relaxed lots: only a lock refuses (single-gender / one-way doors do not: sv-ur-car-loop beaches)");
+        Check(!UrCore.StartLotCounts(true) && UrCore.StartLotCounts(false), "relaxed lots: the start lot counts only indoors");
+        Check(UrCore.NearGoalAt(0) == 1f && UrCore.NearGoalAt(5) == 8f && UrCore.NearGoalAt(6) < 0f && UrCore.NearGoalAt(-1) < 0f,
+            "object goals: placement tried 1-8 m back towards the start (sv-ur-car-loop: View goals are inside the statue's footprint)");
+        Check(UrCore.PlacedCheck(true, false) == UrCore.kPlacedKeep && UrCore.PlacedCheck(true, true) == UrCore.kPlacedCheck
+            && UrCore.PlacedCheck(false, true) == UrCore.kPlacedDrop && UrCore.PlacedCheck(false, false) == UrCore.kPlacedDrop,
+            "D: a placed Sim is checked when it becomes visible, without waiting for a plan (sv-ur-fenced-repair)");
+        Check(UrCore.PlacedVerdict(null) == UrCore.kPlacedKeep && UrCore.PlacedVerdict(true) == UrCore.kPlacedDrop
+            && UrCore.PlacedVerdict(false) == UrCore.kPlacedRepair,
+            "D: no verdict (check budget spent) keeps the Sim listed for the next sweep (sv-ur-fenced-repair, unseenroute5)");
+        UrGhostLedger gl = new UrGhostLedger();
+        Check(gl.Start(7) && !gl.Start(7) && gl.Live == 1, "ghost: one start per Sim");
+        Check(gl.End(7) && !gl.End(7) && gl.Live == 0, "ghost: every start ends exactly once (the footprint re-insert)");
+        Check(!gl.End(8), "ghost: an end without a start is refused");
         Check(UfPreCore.PlanToLotFrame("Sims3.Gameplay.Core.Lot", "PlanToLot") && UfPreCore.PlanToLotFrame("Sims3.Gameplay.Core.Lot", "PlanToLotEx")
             && !UfPreCore.PlanToLotFrame("Sims3.Gameplay.Core.Lot", "AddLotEntryPointDestinations") && !UfPreCore.PlanToLotFrame("Sims3.Gameplay.Core.LotManager", "PlanToLot")
             && !UfPreCore.PlanToLotFrame(null, "PlanToLot"), "RouteToLot: only Lot.PlanToLot(Ex) frames skipped");

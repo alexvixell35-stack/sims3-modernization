@@ -465,6 +465,13 @@ if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/').replace(
   // every waitUntil in repros.json is well formed (plain steps and loop bodies)
   const { readFileSync } = await import('node:fs');
   const repros = JSON.parse(readFileSync(new URL('./repros.json', import.meta.url), 'utf8')) as any[];
+  // docs/202 D repros (fix names unseenfbpre / unseenroute): crowd_do must not offer Sit or Read, whose plans are not D followers
+  // (Sit plans in PlanToUnusedPart): a lot that only offers them made 2026-10-31 ip-ur-walk-across-loop act 2 times, not >= 10
+  for (const e of repros) {
+    if (!/unseenfbpre|unseenroute/.test(String(e.fix))) continue;
+    const doSteps = [...(e.steps ?? []), ...(e.loop?.steps ?? [])].filter((s: any) => s.cmd === 'crowd_do');
+    for (const s of doSteps) assert.ok(!/(^|\|)(Sit|Read)(\||$)/.test(String(s.args?.interaction)), `${e.id}: crowd_do offers Sit / Read (not a D follower)`);
+  }
   let adaptive = 0;
   for (const e of repros) {
     for (const s of e.steps ?? []) if (s.waitUntil) { checkStep(s); adaptive++; }

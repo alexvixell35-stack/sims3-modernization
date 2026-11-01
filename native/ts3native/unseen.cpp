@@ -149,6 +149,8 @@ static void UtFpFlush(bool pass);
 // docs/202 §3.4.2 [UnseenFallback] FinishWalk (unseenfbc.cpp UfwHoldSkip): true = this agent is held, skip its update this pass
 // (c = its class here: 0 visible, 1 unseen; a visible class ends the hold); NULL unless FinishWalk is installed
 static bool (*g_unHoldSkip)(u8* agent, int c);
+// docs/202 §3.9.5 [UnseenGhost] (ghost.cpp GhAgentSkip): true = this agent's owner is a ghost, skip its update; NULL unless installed
+static bool (*g_unGhostSkip)(u8* agent);
 
 static void __fastcall UnAgentThunk(void* agent, void* edx, float dt) {
     Ts3nCounters& k = ts3native_counters;
@@ -165,6 +167,7 @@ static void __fastcall UnAgentThunk(void* agent, void* edx, float dt) {
         UnRefreshCamera();
         if (g_utFpOn) UtFpFlush(true);  // footprint updates held back for unseen Sims that got no later call (phase 2)
     }
+    if (g_unGhostSkip && g_unGhostSkip((u8*)agent)) return;  // a ghost: no step, no steering / avoidance, no +0x918
     int kind = 1, c = -1;
     float pos[3] = {};
     bool rider = false;

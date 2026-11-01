@@ -141,6 +141,7 @@ static class AutLiveTest
             + noisyMiss + " of " + noisyRuns + " differ (not asserted), bands fired " + fired);
         GuardTests();
         LateTests();
+        UnseenTests();
         // per-search feature mask: native bits mapped, managed bits, names, JSON, per-bit counts
         {
             int m = AutLiveCore.Feat.Build(1 | 4 | 8, 2, true, false, true);
@@ -244,5 +245,56 @@ static class AutLiveTest
         g = new AutLiveCore.CostGuard(); g.MinFrames = 100000; sFrame = 1000;
         Run(g, 400, 3000, 0, 1, 1000, true);
         Check("guard: MinFrames keeps the window open", g.Windows == 0);
+    }
+
+    // docs/222 unseen-direct: scope at the post and the resume, snap-back of queued picks, D2 redraw rule, per-path own guard
+    static void UnseenTests()
+    {
+        Check("unseen: switch on, acting, unseen = direct", AutLiveCore.Unseen.AtPost(true, false, 0));
+        Check("unseen: switch off = exact", !AutLiveCore.Unseen.AtPost(false, false, 0));
+        Check("unseen: Dry never direct", !AutLiveCore.Unseen.AtPost(true, true, 0));
+        for (int why = 1; why <= 9; why++)  // every seen reason of UfWhy (household, active lot, on screen, near, held, social, ...)
+            Check("unseen: seen reason " + why + " = exact", !AutLiveCore.Unseen.AtPost(true, false, why));
+        Check("unseen: classifier error (-1) = exact", !AutLiveCore.Unseen.AtPost(true, false, -1));
+        Check("unseen: stays direct while unseen", AutLiveCore.Unseen.Stay(0));
+        Check("unseen: first seen answer leaves direct", !AutLiveCore.Unseen.Stay(3) && !AutLiveCore.Unseen.Stay(-1));
+        Check("flip: still unseen waits", AutLiveCore.Unseen.Flip(false, true, false, false, false) == AutLiveCore.Unseen.kFlipWait);
+        Check("flip: seen + live Test pass keeps", AutLiveCore.Unseen.Flip(false, true, false, true, true) == AutLiveCore.Unseen.kFlipKeep);
+        Check("flip: seen + live Test fail cancels", AutLiveCore.Unseen.Flip(false, true, false, true, false) == AutLiveCore.Unseen.kFlipCancel);
+        Check("flip: running head is never cancelled", AutLiveCore.Unseen.Flip(false, true, true, true, false) == AutLiveCore.Unseen.kFlipDrop);
+        Check("flip: gone or out of the queue drops the tag", AutLiveCore.Unseen.Flip(true, true, false, true, false) == AutLiveCore.Unseen.kFlipDrop
+            && AutLiveCore.Unseen.Flip(false, false, false, true, false) == AutLiveCore.Unseen.kFlipDrop);
+        Check("redraw: first fail draws the next pick", AutLiveCore.Unseen.AfterFail(1, 1) == AutLiveCore.Unseen.kRedraw);
+        Check("redraw: second fail goes vanilla", AutLiveCore.Unseen.AfterFail(2, 1) == AutLiveCore.Unseen.kVanilla);
+        Check("redraw: 0 redraws = vanilla at once", AutLiveCore.Unseen.AfterFail(1, 0) == AutLiveCore.Unseen.kVanilla);
+        AutLiveCore.B14Rate r = new AutLiveCore.B14Rate();
+        r.Add(1000, 100);
+        Check("b14 rate: no rate under MinPairs", r.PerPair == 0);
+        r.Add(1000, 100); r.Add(-5, 10); r.Add(50, 0);
+        Check("b14 rate: us per ad, bad samples ignored", Math.Abs(r.PerPair - 10.0) < 1e-9);
+        // own guard: native words ignored, cost/saved are the caller's us; no rate yet = no decision
+        AutLiveCore.CostGuard g = new AutLiveCore.CostGuard(); g.Own = true; sFrame = 1000; sCut = 0;
+        Run(g, 400, 999999, 900, 1000, 1, true);
+        Check("own guard: cost 900 us vs saved 1000 us = 900 pm, no skip (cut words ignored)", g.LastPm == 900 && g.Skips == 0);
+        g = new AutLiveCore.CostGuard(); g.Own = true; sFrame = 1000;
+        Run(g, 41, 0, 1500, 1000, 1, true);
+        Check("own guard: cost above saved skips", g.Skipping && g.LastPm == 1500);
+        g = new AutLiveCore.CostGuard(); g.Own = true; sFrame = 1000;
+        Run(g, 400, 0, 1500, 1000, 0, true);
+        Check("own guard: no vanilla rate = no decision", g.LastPm == -1 && g.Skips == 0);
+        // docs/222 §8 pacing: skipped ads x vanilla us per ad charged to B13's 1 ms timer; forced = the charge took it over
+        AutLiveCore.Pace pc = new AutLiveCore.Pace();
+        Check("pace: no rate = no charge", pc.Charge(0, 10, 0.2, 1) == 0 && pc.ChargedMs == 0 && !pc.Forced);
+        Check("pace: no skipped ads = no charge", pc.Charge(30, 0, 0.2, 1) == 0);
+        Check("pace: 10 ads x 30 us = 0.3 ms", Math.Abs(pc.Charge(30, 10, 0.2, 1) - 0.3) < 1e-9 && !pc.Forced);
+        // timer now 0.2 + 0.3 = 0.5 (+ real 0.1 = 0.6): 20 ads x 30 us = 0.6 ms takes it to 1.2, real 0.3 = forced
+        Check("pace: charge over the limit with real time under it = forced", Math.Abs(pc.Charge(30, 20, 0.6, 1) - 0.6) < 1e-9 && pc.Forced
+            && Math.Abs(pc.ChargedMs - 0.9) < 1e-9);
+        pc.Slice();
+        Check("pace: a new slice clears", pc.ChargedMs == 0 && !pc.Forced);
+        pc.Charge(30, 5, 1.5, 1);
+        Check("pace: real time already over the limit = not forced", !pc.Forced);
+        pc.Slice(); pc.Charge(30, 10, 0.3, 1); pc.Charge(30, 1, 0.9, 1);
+        Check("pace: forced only when this charge crosses (0.9 + 0.03 stays under)", !pc.Forced);
     }
 }

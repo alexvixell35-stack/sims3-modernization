@@ -23,6 +23,12 @@ namespace Ts3Fixes
     // Counters: [303] stuck checks deferred, [304] stuck checks run (Sim seen), [305] plans marked, [306] marked plans cut,
     // [307] teleports, [308] teleports refused (no spot), [309] no-retry answers, [310] plans checked but seen,
     // [311] marks refused (no ts3native, [UnseenFallback] off or not installed), [312] longest marked plan (ms, wall).
+    //   unseenroute      (docs/202 §3.9, Rodney 2026-10-31): D without the exactness proofs for unseen Sims (UfPre with relaxed =
+    //                    true): no verdict or unknown colour still acts, drive/boat/subway-capable routes get a fast-leg travel
+    //                    time, any unlocked lot or the street, same-lot outdoor trips; a hold that ends because the goal turned
+    //                    seen places the still-unseen Sim at a plausible point of the trip and plans exactly from there.
+    //                    Safety stays: own task, yielding context, follow-helper callers, routable outdoor ground, no vehicle
+    //                    starters, no household or seen Sim, proven-different colours. Counters [641-646].
     public static partial class Fixes
     {
         static readonly UfLimiter sUf = new UfLimiter();
@@ -149,13 +155,28 @@ namespace Ts3Fixes
         // adult-like human townie on its own: teen to elder, not a pet, no group (GroupingSituation walks members together), not
         // riding, carried or carrying (UfHeld); the interaction it runs is not one whose point is the walk, nor a social (jigs,
         // two-Sim routes)
-        static bool UfPreSim(Sim s)
+        // §3.9.6 relaxed (unseenroute): children too, and a grouping situation's leader when every member is unseen (the group
+        // moves together: the members are placed by the goal with the leader, UfMoveGroup); a member's own plan never acts
+        static bool UfPreSim(Sim s, bool relaxed)
         {
             SimDescription d = s.SimDescription;
-            if (d == null || d.IsPet || !d.TeenOrAbove || !s.IsHuman || UfHeld(s)) return false;
-            if (s.GetSituationOfType<Sims3.Gameplay.Situations.GroupingSituation>() != null) return false;
+            if (d == null || d.IsPet || !(relaxed ? d.ChildOrAbove : d.TeenOrAbove) || !s.IsHuman || UfHeld(s)) return false;
+            Sims3.Gameplay.Situations.GroupingSituation g = s.GetSituationOfType<Sims3.Gameplay.Situations.GroupingSituation>();
+            if (g != null && !(relaxed && UfGroupOk(s, g))) { if (relaxed) PatchCounters()[650]++; return false; }
             Sims3.Gameplay.Interactions.InteractionInstance cur = s.CurrentInteraction;
             return cur != null && !(cur is Sims3.Gameplay.Socializing.SocialInteraction) && !UfPreCore.Denied(cur.GetType().FullName);
+        }
+
+        static bool UfGroupOk(Sim s, Sims3.Gameplay.Situations.GroupingSituation g)
+        {
+            int n = 0, ok = 0;
+            foreach (Sim m in g.Participants)
+            {
+                n++;
+                if (m == s || (m != null && !m.HasBeenDestroyed && m.SimDescription != null && m.SimDescription.ChildOrAbove && m.IsHuman
+                    && !UfHeld(m) && UfWhy(m) == 0)) ok++;
+            }
+            return UrCore.GroupOk(g.Leader == s, n, ok);
         }
 
         // §3.5 (1) door and lot rules: the cached verdicts are keyed by route profile, not by household or Sim, so per-Sim door
@@ -166,6 +187,67 @@ namespace Ts3Fixes
         {
             if (lot == null || lot.IsWorldLot || lot == Household.ActiveHouseholdLot) return false;
             if (!lot.IsCommunityLot && lot != sim.LotHome) return false;
+            return UfLotOpen(lot);
+        }
+        // docs/202 §3.9 relaxed: the street (world lot) or any lot but the active household's that passes the special-lot and
+        // door rules (an outdoor goal needs no door, but a fenced yard's gate does)
+        // 2026-11-01 (docs/202 §3.9.7b): the relaxed goal needs no door at all (outdoor ground), so only a lock refuses its lot
+        // (Rodney: locked lots refuse); single-gender doors (beach changing rooms, gym and pool locker rooms) and one-way rooms
+        // refused every beach and park goal of sv-ur-car-loop. The start lot counts only when the Sim stands indoors (it may sit
+        // behind a lock); outdoors it walks off the lot as it walked on. null = ok, else the refusal reason (gate 334 detail).
+        static string UfRelaxedLotWhy(Lot lot, string side, bool check)
+        {
+            if (!check || lot == null || lot.IsWorldLot) return null;
+            if (lot == Household.ActiveHouseholdLot) return side + ":household lot";
+            if (lot.IsApartmentLot) return side + ":apartment";
+            if (lot.BuildableShells.Length > 0) return side + ":shell";
+            if (!HouseboatOk(lot)) return side + ":houseboat";
+            if (lot.CommercialLotSubType == CommercialLotSubType.kEP10_Resort || lot.CommercialLotSubType == CommercialLotSubType.kEP10_Diving) return side + ":resort/diving";
+            return UfLotLocked(lot) ? side + ":locked door" : null;  // start side: asked only when the Sim stands indoors (UrCore.StartLotCounts)
+        }
+        static bool UfLotLocked(Lot lot)
+        {
+            long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+            UfDoors e;
+            if (sUrLocks.TryGetValue(lot.LotId, out e) && e.At <= now && now - e.At < kUfDoorTicks) return !e.Open;
+            e.At = now;
+            e.Open = true;
+            foreach (CommonDoor d in lot.GetObjects<CommonDoor>())
+                if (d == null || UrCore.DoorRefuses(d.LockType != CommonDoor.tLock.Anybody, d is DoorSingleGender, d.OneWayRoomDestinationId != 0)) { e.Open = false; break; }
+            if (sUrLocks.Count >= 256) sUrLocks.Clear();
+            sUrLocks[lot.LotId] = e;
+            return !e.Open;
+        }
+        static readonly System.Collections.Generic.Dictionary<ulong, UfDoors> sUrLocks = new System.Collections.Generic.Dictionary<ulong, UfDoors>();
+
+        // relaxed refusal details "gate:reason" (AppDomain ts3fixes.unseenroute.rj, agent unseenroute_rj_detail; 64 keys): which
+        // rule keeps relaxed D from acting, so a failed run names it (2026-11-01: sv-ur-car-loop had only per-gate totals)
+        static int UrRj(int slot, string why)
+        {
+            var d = AppDomain.CurrentDomain.GetData("ts3fixes.unseenroute.rj") as System.Collections.Generic.Dictionary<string, int>;
+            if (d == null) { d = new System.Collections.Generic.Dictionary<string, int>(); AppDomain.CurrentDomain.SetData("ts3fixes.unseenroute.rj", d); }
+            string k = slot + ":" + (why ?? "?");
+            int n;
+            if (d.TryGetValue(k, out n) || d.Count < 64) d[k] = n + 1;
+            return UfRj(slot);
+        }
+        // why UfPreSim refused (only asked after a refusal)
+        static string UfPreSimWhy(Sim s, bool relaxed)
+        {
+            SimDescription d = s.SimDescription;
+            if (d == null) return "no description";
+            if (d.IsPet) return "pet";
+            if (!(relaxed ? d.ChildOrAbove : d.TeenOrAbove)) return "age";
+            if (!s.IsHuman) return "not human";
+            if (UfHeld(s)) return "held";
+            if (s.GetSituationOfType<Sims3.Gameplay.Situations.GroupingSituation>() != null) return "group";
+            Sims3.Gameplay.Interactions.InteractionInstance cur = s.CurrentInteraction;
+            if (cur == null) return "no interaction";
+            if (cur is Sims3.Gameplay.Socializing.SocialInteraction) return "social";
+            return "deny:" + cur.GetType().Name;
+        }
+        static bool UfLotOpen(Lot lot)
+        {
             if (lot.IsApartmentLot || lot.BuildableShells.Length > 0 || !HouseboatOk(lot)) return false;
             if (lot.CommercialLotSubType == CommercialLotSubType.kEP10_Resort || lot.CommercialLotSubType == CommercialLotSubType.kEP10_Diving) return false;
             long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
@@ -291,6 +373,155 @@ namespace Ts3Fixes
         // time; the Sim stands, its interaction runs on and its time passes as for a walk. Every wake-up re-checks the camera rule
         // for the Sim and the goal. false = given up: seen, moved, reset, exit reason or another interaction (the caller plans
         // normally). Never pushes an interaction of its own (§3.7: the queue head stays what the game and mods read).
+        // ---- docs/202 §3.9.5-§3.9.7 unseenroute2 state (memory only, never in saves) ----
+        // plans in progress per script task (§3.9.6 nested-plan test). Per task, not one static count: a plan's task sleeps inside
+        // UfPlan (route job AsyncWait, D's hold), other tasks plan meanwhile, and a global count called all of them nested
+        // (2026-10-31 sv-ur-car-loop: unseenroute_rj_nested 371-1060 per arm, 0 acts)
+        static readonly UrTaskDepth sUfPlanDepth = new UrTaskDepth();
+        struct UrLearn { public object Route; public ulong G, S; }
+        static readonly System.Collections.Generic.Dictionary<object, UrLearn> sUrLearn = new System.Collections.Generic.Dictionary<object, UrLearn>();  // per route: other tasks plan while one waits
+        static readonly UrCCache sUrC = new UrCCache();
+        // Sims this switch placed (§3.9.7 D), AppDomain "ts3fixes.unseenroute.placed" so the agent's fenced_place repro can add one
+        static System.Collections.Generic.Dictionary<ulong, bool> sUrPlaced
+        {
+            get
+            {
+                var d = AppDomain.CurrentDomain.GetData("ts3fixes.unseenroute.placed") as System.Collections.Generic.Dictionary<ulong, bool>;
+                if (d == null) { d = new System.Collections.Generic.Dictionary<ulong, bool>(); AppDomain.CurrentDomain.SetData("ts3fixes.unseenroute.placed", d); }
+                return d;
+            }
+        }
+        static readonly UrGhostLedger sUrGhosts = new UrGhostLedger();
+        static readonly UrEvLog sUrEv = new UrEvLog();
+        static int sUrLoadMs;
+        // §3.9.9: one rate-limited line per event for ts3native.log (DiagLine), sim-minute + wall ms since load + Sim id hash
+        static void UrEv(string kind, ulong simId)
+        {
+            try
+            {
+                int now = System.Environment.TickCount;
+                if (!sUrEv.May(kind, now)) return;
+                double min = Sims3.Gameplay.Utilities.SimClock.CurrentTicks / (double)Sims3.Gameplay.Utilities.SimClock.ConvertToTicks(1f, Sims3.Gameplay.Utilities.TimeUnit.Minutes);
+                DiagLine(UrEvLog.Format(kind, min, unchecked(now - sUrLoadMs), simId));
+            }
+            catch (Exception) { }
+        }
+        static bool UrNative(int code, uint v) { return sYieldProbe.GetOption2((Sims3.SimIFace.Route.RouteOption2)(0x8300000000000000UL | (ulong)(uint)code << 48 | v)); }
+
+        // §3.9.5 ghost start: ts3native [UnseenGhost] takes the id (codes 21 + 22; 0 = not installed or off: no ghost), then the
+        // Sim's dynamic footprint is removed once through the game's own path
+        static bool UrGhostStart(Sim sim)
+        {
+            ulong id = sim.ObjectId.Value;
+            if (sim.SimRoutingComponent == null || !UrNative(21, (uint)id) || !UrNative(22, (uint)(id >> 32))) return false;
+            if (!sUrGhosts.Start(id)) return false;
+            // §3.9.9: the native skip is active here (UrNative above is false otherwise), so the footprint toggles are not called:
+            // they can wait on the +0x918 lock while a route job runs, and nothing is removed, so nothing needs a re-insert
+            PatchCounters()[657]++;
+            UrEv("ghost-start", id);
+            return true;
+        }
+        // every ghost exit: off the native set first (code 23); the footprint was never toggled (§3.9.9)
+        static void UrGhostEnd(Sim sim)
+        {
+            ulong id = sim.ObjectId.Value;
+            UrNative(21, (uint)id);
+            UrNative(23, (uint)(id >> 32));
+            if (!sUrGhosts.End(id)) return;
+            PatchCounters()[658]++;
+            UrEv("ghost-exit", id);
+        }
+
+        // §3.9.7 (C) cache upkeep: cleared at world load; a lot edited in Build/Buy loses its entries, Edit Town clears all. Polled
+        // every frame while unseenroute is on (Sleep(0) also wakes while the clock is paused in Build/Buy)
+        static int sUrEditGen;
+        internal static void StartUrEditWatch()
+        {
+            int gen = ++sUrEditGen;
+            sUrLoadMs = System.Environment.TickCount;
+            sUrC.Clear();
+            sUrPlaced.Clear();
+            Simulator.AddObject(new LoopTask(delegate { UrEditLoop(gen); }));
+        }
+        static void UrEditLoop(int gen)
+        {
+            bool inEdit = false, town = false;
+            ulong lot = 0;
+            while (gen == sUrEditGen)
+            {
+                try
+                {
+                    bool bb = LotManager.sIsBuildBuyModeOn, et = GameStates.IsEditTownState;
+                    if (bb || et)
+                    {
+                        inEdit = true;
+                        town |= et;
+                        if (bb && LotManager.ActiveLot != null) lot = LotManager.ActiveLot.LotId;
+                    }
+                    else if (inEdit)
+                    {
+                        if (town) sUrC.Clear();
+                        else if (lot != 0) sUrC.ClearLot(lot);
+                        inEdit = town = false;
+                        lot = 0;
+                    }
+                }
+                catch (Exception) { }
+                try
+                {
+                    int now = System.Environment.TickCount;
+                    if (!inEdit && unchecked(now - sUrSweepAt) >= 1000) { sUrSweepAt = now; UrPlacedSweep(); }  // §3.9.7 (D) on becoming visible
+                }
+                catch (Exception) { }
+                // §3.9.9: about 1 s between checks while the switch is on (was every frame); the sweep itself already ran once a second
+                Simulator.Sleep(inEdit ? 0u : ShortcutOn("unseenroute") || sUrPlaced.Count > 0 ? 1000u : 60u);
+            }
+        }
+
+        // §3.9.7 (D) safety net: a Sim this switch placed is seen again: on a lot, its spot must join the lot's edge (the SafeSpot
+        // check, one real check if not cached); not joined = move it to the lot's street entry point, its next plans run exactly
+        // from there. Run when it becomes visible (UrPlacedSweep, about once a second) and, before that, at its next plan while
+        // seen (UfPlanBody). 2026-11-01 sv-ur-fenced-repair: the plan-only trigger never fired (unseenroute_d_check 0: the fenced
+        // Sims made no Route.Plan while seen).
+        // true = done (drop it from the list); false = no verdict this tick, keep it listed (2026-11-01 unseenroute5 rerun:
+        // d_check 12, d_repair 0: the sweep dropped every listed Sim of one pass although only one check per tick may run)
+        static bool UrRepairSim(Sim sim)
+        {
+            int[] c = PatchCounters();
+            Lot lot = sim.LotCurrent;
+            if (lot == null || lot.IsWorldLot || sim.HasBeenDestroyed) { c[655]++; return true; }  // street placements passed B's colour test
+            RouteProfile prof = ProfileOf(sim);
+            int act = prof.Ok ? UrCore.PlacedVerdict(SpotVerdict(sim, lot, Verdicts(lot), prof, sim.Position, true, false, false)) : UrCore.kPlacedDrop;
+            if (act == UrCore.kPlacedKeep) return false;
+            c[655]++;
+            UrEv("sweep-check", sim.ObjectId.Value);
+            if (act == UrCore.kPlacedDrop) return true;
+            Vector3 e = lot.EntryPoint();
+            e.y = World.GetTerrainHeight(e.x, e.z);
+            if (!sim.CreateRoute().IsPointRoutable(e)) return true;
+            PlaceSim(sim, e, sim.ForwardVector, "unseenroute repair");
+            c[656]++;
+            UrEv("placement", sim.ObjectId.Value);
+            ShortcutLog(sim.FullName + " => repair (unseenroute, unreachable spot on " + lot.Name + ")");
+            return true;
+        }
+        static int sUrSweepAt;
+        static void UrPlacedSweep()
+        {
+            var placed = sUrPlaced;
+            if (placed.Count == 0 || !GameStates.IsLiveState) return;
+            System.Collections.Generic.List<ulong> ids = new System.Collections.Generic.List<ulong>(placed.Keys);
+            foreach (ulong id in ids)
+            {
+                Sim s = GameObject.GetObject(new ObjectGuid(id)) as Sim;
+                bool exists = s != null && !s.HasBeenDestroyed && s.InWorld;
+                int act = UrCore.PlacedCheck(exists, exists && UfWhy(s) != 0);
+                if (act == UrCore.kPlacedKeep || (act == UrCore.kPlacedCheck && !UrRepairSim(s))) continue;
+                placed.Remove(id);
+            }
+        }
+
+        static string sUfHoldWhy;  // why the last UfHold ended (docs/202 §3.9 snap-back reads "seen or moved")
         static bool UfHold(Sim sim, Vector3 dest, float minutes)
         {
             int[] c = PatchCounters();
@@ -326,6 +557,7 @@ namespace Ts3Fixes
             }
             finally
             {
+                sUfHoldWhy = why;
                 holds.Remove(id);
                 // pauses and family starts are what hung the Play step on v0.2.0/v0.2.1: always log them
                 UfHoldLog(sim, cur, "end: " + why + " after " + (System.Environment.TickCount - t0) + " ms", why == "not live" || why == "family started");
@@ -391,14 +623,27 @@ namespace Ts3Fixes
                 int t0 = System.Environment.TickCount;
                 sUfLastWhy = -1; sUfLastMarked = sUfLastCut = false; sUfLastSim = null;
                 RoutePlanResult r;
-                if (!UfPlanBody(kind, p, out r))
-                    switch (kind)  // UfInner, inlined
-                    {
-                        case 0: r = PlanBackoff(); break;
-                        case 1: r = ReplanAsync(); break;
-                        case 2: r = PlanFromPointAsync(p); break;
-                        default: r = ReplanFromPointAsync(p); break;
-                    }
+                ulong task = Simulator.CurrentTask.Value;
+                sUfPlanDepth.Enter(task);  // §3.9.6: > 1 in this task = a plan inside another plan's callback (PostPlan / AboutToPlan)
+                try
+                {
+                    if (!UfPlanBody(kind, p, out r))
+                        switch (kind)  // UfInner, inlined
+                        {
+                            case 0: r = PlanBackoff(); break;
+                            case 1: r = ReplanAsync(); break;
+                            case 2: r = PlanFromPointAsync(p); break;
+                            default: r = ReplanFromPointAsync(p); break;
+                        }
+                }
+                finally { sUfPlanDepth.Exit(task); }
+                UrLearn ln;
+                if (sUrLearn.Count > 0 && sUrLearn.TryGetValue(this, out ln))  // §3.9.7 (C): this plan's result is the lesson
+                {
+                    sUrLearn.Remove(this);
+                    if (r.mType == RoutePlanResultType.Succeeded) sUrC.Set(ln.G, ln.S, true);
+                    else if (r.mType == RoutePlanResultType.FailedBecauseNoPathToDestination && !sUfLastCut) sUrC.Set(ln.G, ln.S, false);
+                }
                 UfSlowPlanLog(kind, unchecked(System.Environment.TickCount - t0));
                 UfLoopNote(Follower, r);  // docs/202 §5.7 E (unseenfbloopdet)
                 if (sUfFill.Route != null && ReferenceEquals(sUfFill.Route, this))
@@ -413,7 +658,7 @@ namespace Ts3Fixes
             bool UfPlanBody(int kind, Vector3 p, out RoutePlanResult r)
             {
                 r = default(RoutePlanResult);
-                bool pre = kind == 0 && (ShortcutOn("unseenfbpre") || ShortcutOn("unseenfbarrive"));
+                bool pre = kind == 0 && (ShortcutOn("unseenfbpre") || ShortcutOn("unseenfbarrive") || ShortcutOn("unseenroute"));
                 bool leave = kind == 0 && ShortcutOn("unseenfbleave");
                 if (!pre && !leave && !ShortcutOn("unseenfbplan")) return false;
                 IScriptProxy proxy = Follower;
@@ -424,6 +669,7 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 int why = UfWhy(sim);
                 sUfLastWhy = why; sUfLastSim = sim;
+                if (why != 0 && sUrPlaced.Count > 0 && sUrPlaced.ContainsKey(sim.ObjectId.Value) && UrRepairSim(sim)) sUrPlaced.Remove(sim.ObjectId.Value);  // §3.9.7 (D)
                 if (why != 0)
                 {
                     if (leave && UnseenFallbackCore.SeenButMovable(why) && UfLeave(sim, GetApproximateOriginalDestination(), out r)) return true;
@@ -482,24 +728,36 @@ namespace Ts3Fixes
                 r = default(RoutePlanResult);
                 int[] c = PatchCounters();
                 // reject gates count 328-339 (UfRj) so a run shows which rule keeps D from acting
-                if (dest == Vector3.Origin || dest == Vector3.Invalid || Simulator.CurrentTask != sim.ObjectId) return UfRj(328);
+                // §3.9 unseenroute: the exactness proofs (verdict, known colour, lot kind, walk-only) are dropped; safety rules stay
+                bool relaxed = ShortcutOn("unseenroute");
+                // §3.9.6: another task's plan (a situation, alarm or another Sim's interaction routing this Sim through a follow
+                // helper) acts when relaxed: the hold sleeps that task as the real DoRoute would; never inside another plan
+                bool other = Simulator.CurrentTask != sim.ObjectId;
+                if (dest == Vector3.Origin || dest == Vector3.Invalid || (other && !relaxed)) return UfRj(328);
+                if (sUfPlanDepth.Depth(Simulator.CurrentTask.Value) > 1) { c[648]++; return UfRj(328); }
                 Vector3 start = sim.Position;
                 float dist = (dest - start).Length();
                 if (dist < UfPreCore.kMinDistM) return UfRj(329);
-                if (!UfPreSim(sim)) return UfRj(330);
+                if (!UfPreSim(sim, relaxed)) return relaxed ? UrRj(330, UfPreSimWhy(sim, true)) : UfRj(330);
                 if (!TownieUnseen(sim, null)) return UfRj(331);
-                if (UfCarOrBoat()) return UfRj(332);
+                if (UfCarOrBoat(relaxed)) return UfRj(332);
                 // goal in view: D-arrive skips only the hidden leg (§3.6)
                 if (!UfGoalUnseen(dest)) return ShortcutOn("unseenfbarrive") ? UfArrive(sim, start, dest, dist, out r) : 0;
-                if (!ShortcutOn("unseenfbpre")) return 0;
+                if (!relaxed && !ShortcutOn("unseenfbpre")) return 0;
                 Lot goalLot = LotManager.GetLotAtPoint(dest);
-                if (goalLot == sim.LotCurrent) return UfRj(333);
-                if (!UfPreLot(sim, goalLot)) return UfRj(334);
-                if (!UfOutdoorGround(dest)) return UfRj(335);
+                bool startOut = UfOutdoorGround(start);
+                if (goalLot == sim.LotCurrent && !(relaxed && startOut)) return relaxed ? UrRj(333, "start indoors") : UfRj(333);
+                if (relaxed)
+                {
+                    string lw = UfRelaxedLotWhy(goalLot, "goal", true) ?? UfRelaxedLotWhy(sim.LotCurrent, "start", UrCore.StartLotCounts(startOut));
+                    if (lw != null) return UrRj(334, lw);
+                }
+                else if (!UfPreLot(sim, goalLot)) return UfRj(334);
+                if (!UfOutdoorGround(dest)) return relaxed ? UrRj(335, "goal indoors or raised") : UfRj(335);
                 if (!UfFollows()) return UfRj(336);
-                if (!MayYield()) return UfRj(337);
+                if (!MayYield()) return relaxed ? UrRj(337, "no yield") : UfRj(337);
                 int same = UfSameComponent(sim, start, dest, goalLot);
-                if (same < 0 && !GetOption(RouteOption.EnableWaterPlanning))
+                if (same < 0 && !GetOption(RouteOption.EnableWaterPlanning) && !GetOption2(RouteOption2.EnablePlanningAsBoat))
                 {
                     c[315]++;
                     UfNotAFailure(sim.ObjectId.Value, dest);
@@ -508,39 +766,176 @@ namespace Ts3Fixes
                 }
                 RouteProfile prof = ProfileOf(sim);
                 Lot startLot = sim.LotCurrent;
-                if (same <= 0) { c[314]++; return UfRj(338); }
-                if (!prof.Ok || !IsPointRoutable(dest)) { c[314]++; return UfRj(339); }
-                bool? gv = UfVerdict(sim, goalLot, prof, dest);
+                if (same < 0 || (same == 0 && !relaxed)) { c[314]++; return UfRj(338); }
+                // §3.9.7b (2026-11-01): a goal on an object (View on a statue or tree: RouteToPointRadialRange's original destination
+                // is the object's own position, inside its footprint) is not routable itself; relaxed places the Sim on the first
+                // routable outdoor point on the line back towards the start (1-8 m) and the short plan from there does the last
+                // metres. sv-ur-car-loop (unseenroute3): every View plan stopped here (339 +21, 314 +19 in the on arms, 0 acts).
+                Vector3 place = dest;
+                if (!prof.Ok || !(IsPointRoutable(dest) || (relaxed && UfNearGoal(dest, start, out place))))
+                {
+                    c[314]++;
+                    return relaxed ? UrRj(339, prof.Ok ? "goal unroutable, no spot near" : "no route profile") : UfRj(339);
+                }
+                bool? gv = goalLot != null && !goalLot.IsWorldLot ? UfVerdict(sim, goalLot, prof, dest) : true;
                 bool? sv = startLot != null && !startLot.IsWorldLot ? UfVerdict(sim, startLot, prof, start) : true;
                 if (gv == false || sv == false) { c[314]++; return 0; }
-                if (!gv.HasValue || !sv.HasValue)
+                if (relaxed && !UrReachable(sim, goalLot, startLot, dest, same, gv)) return 0;  // §3.9.7 B / C
+                if ((!gv.HasValue || !sv.HasValue) && !relaxed)
                 {
                     // no verdict: no sim-thread routability plan; the normal plan runs and its success fills D's list
                     c[326]++;
                     sUfFill = new UfFill { Route = this, GoalLot = gv.HasValue ? null : goalLot, StartLot = sv.HasValue ? null : startLot, Goal = dest, Start = start, Prof = prof };
                     return 0;
                 }
-                float minutes = UfPreCore.HoldMinutes(dist);
+                float minutes = relaxed ? UfPreCore.TravelMinutes(dist, UfFastLegs()) : UfPreCore.HoldMinutes(dist);
+                if (relaxed)
+                {
+                    if (minutes < UfPreCore.HoldMinutes(dist)) c[644]++;
+                    // agent camera_to_tagged (snap-back repro): the held Sim, and the goal as a point
+                    AppDomain.CurrentDomain.SetData("ts3fixes.unseenroute.tagged", sim.ObjectId.Value);
+                    AppDomain.CurrentDomain.SetData("ts3fixes.unseenroute.goal", new float[] { dest.x, dest.y, dest.z });
+                }
+                long held0 = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+                bool ghost = relaxed && UrGhostStart(sim), held;  // §3.9.5: no +0x918 while it travels unseen (ts3native [UnseenGhost])
+                try { held = UfHold(sim, dest, minutes); }
+                finally { if (ghost) UrGhostEnd(sim); }  // every exit: off the native set first, then the footprint back once
                 // after the hold, right before the move: the Sim and the goal still unseen (same tick), the goal still free ground
-                if (!UfHold(sim, dest, minutes) || sim.HasBeenDestroyed || UfWhy(sim) != 0 || !TownieUnseen(sim, null) || !UfGoalUnseen(dest) || !IsPointRoutable(dest))
+                if (!held || sim.HasBeenDestroyed || UfWhy(sim) != 0 || !TownieUnseen(sim, null) || !UfGoalUnseen(dest) || !IsPointRoutable(place))
                 {
                     c[316]++;
+                    if (relaxed && sUfHoldWhy == "time up" && !UfGoalUnseen(dest)) sUfHoldWhy = "seen or moved";  // the goal turned seen at the last check
+                    if (relaxed)
+                        return UfSnap(sim, start, dest, dist, UfPreCore.TripShare(Sims3.Gameplay.Utilities.SimClock.CurrentTicks - held0,
+                            Sims3.Gameplay.Utilities.SimClock.ConvertToTicks(minutes, Sims3.Gameplay.Utilities.TimeUnit.Minutes)), out r);
                     return 0;  // plans normally from where it stands: it lost only the hold, which the walk would have used too
+                }
+                if (relaxed)
+                {
+                    c[641]++;
+                    if (!gv.HasValue || !sv.HasValue) c[642]++;
+                    if (same == 0) c[643]++;
+                    if (other) c[647]++;
+                    if (!sim.SimDescription.TeenOrAbove) c[651]++;
                 }
                 Vector3 fwd = dest - start;
                 fwd.y = 0f;
                 fwd = fwd.LengthSqr() > 0.01f ? fwd / fwd.Length() : sim.ForwardVector;
-                PlaceSim(sim, dest, fwd, "unseenfbpre route goal");
+                PlaceSim(sim, place, fwd, "unseenfbpre route goal");
+                if (relaxed)
+                {
+                    UfMoveGroup(sim, place, fwd);
+                    if (sUrPlaced.Count >= 256) sUrPlaced.Clear();
+                    sUrPlaced[sim.ObjectId.Value] = true;  // §3.9.7 (D): checked when it is seen and plans again
+                    UrEv("placement", sim.ObjectId.Value);
+                }
                 c[313]++;
+                if (relaxed) UrEv("act", sim.ObjectId.Value);
                 ShortcutLog(sim.FullName + " => route goal (unseenfbpre, " + (int)dist + " m, held " + (int)minutes + " sim-min)");
                 r = PlanBackoff();  // the last metres (slot facing, radial range) from the goal: a short plan the caller follows
                 return 1;
             }
 
-            bool UfCarOrBoat()
+            // §3.9.7 (Rodney 2026-10-31, B + C): relaxed without a SafeSpot verdict for the goal only when (B) the goal is on the
+            // street or a public lot in the start's flood colour, else (C) the learned answer for (goal lot or street area,
+            // start side): unknown = this trip plans for real and its result is learned (UfPlan), unreachable = plan normally.
+            // A goal with a verdict (true here; false refused earlier) acts. false = plan normally.
+            bool UrReachable(Sim sim, Lot goalLot, Lot startLot, Vector3 dest, int same, bool? gv)
+            {
+                int[] c = PatchCounters();
+                bool street = goalLot == null || goalLot.IsWorldLot;
+                if (UrCore.BPass(same, street, !street && goalLot.IsCommunityLot)) { c[652]++; return true; }
+                if (gv == true) return true;
+                bool sStreet = startLot == null || startLot.IsWorldLot;
+                ulong gk = UrCore.GoalKey(street ? 0UL : goalLot.LotId, street, dest.x, dest.z), sk = UrCore.StartKey(sStreet ? 0UL : startLot.LotId, sStreet);
+                bool? cv = sUrC.Get(gk, sk);
+                if (cv == true) { c[654]++; return true; }
+                if (cv == false) { c[314]++; return false; }
+                c[653]++;
+                if (sUrLearn.Count >= 256) sUrLearn.Clear();
+                sUrLearn[this] = new UrLearn { Route = this, G = gk, S = sk };
+                return false;
+            }
+
+            // §3.9.6: the members of the leader's grouping situation are placed around the goal with it (1.5 m ring, routable
+            // points only; a member with no point follows from where it stands, exactly)
+            void UfMoveGroup(Sim sim, Vector3 dest, Vector3 fwd)
+            {
+                Sims3.Gameplay.Situations.GroupingSituation g = sim.GetSituationOfType<Sims3.Gameplay.Situations.GroupingSituation>();
+                if (g == null) return;
+                int i = 0;
+                foreach (Sim m in g.Participants)
+                {
+                    if (m == null || m == sim || m.HasBeenDestroyed) continue;
+                    double a = ++i * 1.2566;  // 72 degrees apart
+                    Vector3 q = new Vector3(dest.x + 1.5f * (float)Math.Cos(a), dest.y, dest.z + 1.5f * (float)Math.Sin(a));
+                    q.y = World.GetTerrainHeight(q.x, q.z);
+                    if (IsPointRoutable(q)) PlaceSim(m, q, fwd, "unseenroute group");
+                }
+                if (i > 0) PatchCounters()[649]++;
+            }
+
+            // §3.9.7b: the first routable outdoor point 1-8 m from an unroutable goal, on the line towards the start
+            bool UfNearGoal(Vector3 dest, Vector3 start, out Vector3 p)
+            {
+                p = dest;
+                Vector3 dir = start - dest;
+                dir.y = 0f;
+                float len = dir.Length();
+                if (len < 0.01f) return false;
+                dir = dir / len;
+                for (int i = 0; ; i++)
+                {
+                    float d = UrCore.NearGoalAt(i);
+                    if (d < 0f) break;
+                    Vector3 q = dest + dir * d;
+                    q.y = World.GetTerrainHeight(q.x, q.z);
+                    if (IsPointRoutable(q) && UfOutdoorGround(q)) { p = q; return true; }
+                }
+                return false;
+            }
+
+            bool UfCarOrBoat(bool relaxed)
             {
                 return UfPreCore.VehicleRoute(GetOption(RouteOption.BeginAsCar), GetOption(RouteOption.DisablePlanningAsPedestrian),
-                    GetOption2(RouteOption2.EnablePlanningAsBoat), GetOption2(RouteOption2.BeginAsBoat));
+                    GetOption2(RouteOption2.BeginAsBoat), relaxed);
+            }
+            // §3.9: the planner may pick a drive, a subway / hover-train leg or a boat for this route
+            bool UfFastLegs()
+            {
+                return GetOption(RouteOption.EnablePlanningAsCar) || GetOption(RouteOption.EnableSubwayPlanning)
+                    || GetOption2(RouteOption2.EnableHoverTrainPlanning) || GetOption2(RouteOption2.EnablePlanningAsBoat);
+            }
+
+            // §3.9 snap-back: a relaxed hold ended because the goal turned seen while the Sim itself is still unseen. Place it at the
+            // first point from the share of the trip done back towards the start that is unseen, on the street, outdoor ground,
+            // routable and in the start's colour, then plan exactly from there (the player sees it walk in). 1 = placed (r = the
+            // plan from there), 0 = no such point or the Sim is seen: it plans from where it stands, as before (counted).
+            int UfSnap(Sim sim, Vector3 start, Vector3 dest, float dist, float share, out RoutePlanResult r)
+            {
+                r = default(RoutePlanResult);
+                int[] c = PatchCounters();
+                if (sUfHoldWhy == "seen or moved" && !sim.HasBeenDestroyed && (sim.Position - start).LengthSqr() <= 0.01f && UfWhy(sim) == 0
+                    && UfColourA(start, sim.LotCurrent))
+                    for (int i = 0; ; i++)
+                    {
+                        float d = UfPreCore.SnapAt(i, share, dist);
+                        if (d < 0f) break;
+                        Vector3 h = start + (dest - start) * (d / dist);
+                        h.y = World.GetTerrainHeight(h.x, h.z);
+                        Lot hl = LotManager.GetLotAtPoint(h);
+                        if ((hl != null && !hl.IsWorldLot) || !UfGoalUnseen(h) || !UfOutdoorGround(h) || !IsPointRoutable(h) || UfColourB(h, null) != 1) continue;
+                        Vector3 fwd = dest - h;
+                        fwd.y = 0f;
+                        fwd = fwd.LengthSqr() > 0.01f ? fwd / fwd.Length() : sim.ForwardVector;
+                        PlaceSim(sim, h, fwd, "unseenroute snap-back");
+                        c[645]++;
+                        ShortcutLog(sim.FullName + " => snap-back (unseenroute, " + (int)d + " of " + (int)dist + " m)");
+                        r = PlanBackoff();
+                        return 1;
+                    }
+                c[646]++;
+                return 0;
             }
 
             // docs/202 §3.6 hand-off point H between `from` and `to` (dist apart): 10 m steps from `from`, the first point that is
@@ -610,8 +1005,8 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 if (dest == Vector3.Origin || dest == Vector3.Invalid || Simulator.CurrentTask != sim.ObjectId) return UfNo(328);
                 if (sim.Posture != sim.Standing) return UfNo(331);
-                if (!UfPreSim(sim)) return UfNo(330);
-                if (UfCarOrBoat()) return UfNo(332);
+                if (!UfPreSim(sim, false)) return UfNo(330);
+                if (UfCarOrBoat(false)) return UfNo(332);
                 Vector3 start = sim.Position;
                 float dist = (dest - start).Length();
                 Lot goalLot = LotManager.GetLotAtPoint(dest);
