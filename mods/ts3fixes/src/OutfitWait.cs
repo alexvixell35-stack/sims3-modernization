@@ -21,6 +21,7 @@ namespace Ts3Fixes
     // in an on arm back to EA's rate in the off arms. [680] waits gone stale, [681] minute polls, [682] stale waits ended.
     // Each stale wait is classed once (OutfitWaitCore.StaleCause, docs/224 §5): [2003] own swap still pending, [2004] replaced
     // by another delayed swap of the Sim, [2005] nothing pending (aborted waits are the #115 cause and are not counted here).
+    // [2011] of those, waits whose helper's swap callback EA dropped (SwapCbHook below).
     public static partial class Fixes
     {
         const float kOutfitWaitStaleMinutes = 60f;
@@ -113,11 +114,14 @@ namespace Ts3Fixes
                 bool aborted = sSohAborted != null && (bool)sSohAborted.GetValue(h);
                 int cause = OutfitWaitCore.StaleCause(aborted, object.ReferenceEquals(act, h), (int)pc, pi, (int)hc, hi, (int)OutfitCategories.None);
                 if (cause != OutfitWaitCore.kCauseAborted) PatchCounters()[2002 + cause]++;
+                Delegate dcb;
+                bool dropped = sCbDropped.TryGetValue(s.ObjectId.Value, out dcb) && dcb != null && object.ReferenceEquals(dcb.Target, h);
+                if (dropped && cause != OutfitWaitCore.kCauseAborted) PatchCounters()[2011]++;
                 Sims3.Gameplay.Interactions.InteractionInstance cur = s.CurrentInteraction;
                 bool tf = false;
                 try { tf = s.BuffManager != null && s.BuffManager.HasTransformBuff(); } catch (Exception) { }
                 return "cause " + new string[] { "aborted", "own", "replaced", "cleared" }[cause] + ": pending " + pc + "/" + pi + " (helper " + hc + "/" + hi
-                    + "), active helper " + (act == null ? "none" : object.ReferenceEquals(act, h) ? "this" : "other") + ", Sim doing "
+                    + "), callback dropped " + dropped + ", active helper " + (act == null ? "none" : object.ReferenceEquals(act, h) ? "this" : "other") + ", Sim doing "
                     + (cur != null ? cur.GetType().Name : "nothing") + ", transform buff " + tf + ", in world " + s.InWorld + ", by " + Callers();
             }
             catch (Exception e) { return "cause unread (" + e.GetType().Name + ")"; }
@@ -143,6 +147,56 @@ namespace Ts3Fixes
                 DoneOrig();
             }
             public void DoneOrig() { } // receives EA's original header
+        }
+
+        // docs/224 §5, I-414-8: CASUtils.RegisterCallback (SimIFace) keeps one swap-ready callback per object. A second delayed
+        // swap of the Sim while the first callback is still registered does not register its own callback: when the swap is
+        // ready only the first one runs, and a caller waiting on the second waits forever. Switch on only, EA's call runs
+        // unchanged. [2010] callbacks dropped, each logged with both callbacks and the callers (first 8 lines).
+        static readonly FieldInfo sCasSwapCbs = typeof(CASUtils).GetField("sClothingSwapDelegates", BindingFlags.Static | BindingFlags.NonPublic);
+        static readonly Dictionary<ulong, Delegate> sCbDropped = new Dictionary<ulong, Delegate>(); // the last dropped callback per object
+        static int sCbLineCount;
+        public class SwapCbHook
+        {
+            public static void RegisterHook(ObjectGuid objectId, CASUtils.SwapReadyCallback finishedCallback)
+            {
+                if (ShortcutOn("outfitwaitpoll")) CbDropSeen(objectId, finishedCallback);
+                RegisterOrig(objectId, finishedCallback);
+            }
+            public static void RegisterOrig(ObjectGuid objectId, CASUtils.SwapReadyCallback finishedCallback) { } // receives CASUtils.RegisterCallback's original header
+        }
+
+        static void CbDropSeen(ObjectGuid id, CASUtils.SwapReadyCallback cb)
+        {
+            try
+            {
+                Dictionary<ulong, CASUtils.SwapReadyCallback> d = sCasSwapCbs != null ? sCasSwapCbs.GetValue(null) as Dictionary<ulong, CASUtils.SwapReadyCallback> : null;
+                CASUtils.SwapReadyCallback old;
+                if (d == null || !d.TryGetValue(id.Value, out old)) return;
+                PatchCounters()[2010]++;
+                if (sCbDropped.Count > 1000) sCbDropped.Clear(); // shortcut: bounded; only the dropped mark of older waits is lost
+                sCbDropped[id.Value] = cb;
+                if (sCbLineCount >= 8) return;
+                sCbLineCount++;
+                IScriptProxy p = Simulator.GetProxy(id);
+                Sim sim = p != null ? p.Target as Sim : null;
+                string line = "outfitwaitpoll: " + (sim != null && sim.SimDescription != null ? sim.SimDescription.FullName : "object " + id.Value)
+                    + " swap callback dropped: new " + CbText(cb) + ", kept " + CbText(old) + ", by " + Callers();
+                ShortcutLog(line);
+                if (sOwLines.Count < 20) sOwLines.Add(line);
+            }
+            catch (Exception) { }
+        }
+
+        static string CbText(Delegate cb)
+        {
+            if (cb == null) return "null";
+            string s = cb.Method.DeclaringType.Name + "." + cb.Method.Name;
+            object t = cb.Target;
+            if (t is Sim.SwitchOutfitHelper && sSohStarted != null && sSohReady != null && sSohDisposed != null)
+                s += " (helper started " + sSohStarted.GetValue(t) + ", ready " + sSohReady.GetValue(t) + ", aborted "
+                    + (sSohAborted != null ? sSohAborted.GetValue(t) : "?") + ", disposed " + sSohDisposed.GetValue(t) + ")";
+            return s;
         }
 
         static void ClearSeen(Sim sim, int slot, string what)
@@ -250,7 +304,8 @@ namespace Ts3Fixes
                     int[] c = PatchCounters();
                     return "abort task: " + sOwAbortSaw + "; ready " + sSohReady.GetValue(sOwHelper) + ", started " + sSohStarted.GetValue(sOwHelper)
                         + ", wait task " + (sOwWaitEnd == null ? "in Wait" : "returned: " + sOwWaitEnd) + ", second swap ready " + sOwReplReady
-                        + "; stale " + c[680] + ", minute polls " + c[681] + ", ended " + c[682] + "; causes own " + c[2003] + ", replaced " + c[2004] + ", cleared " + c[2005];
+                        + "; stale " + c[680] + ", minute polls " + c[681] + ", ended " + c[682] + "; causes own " + c[2003] + ", replaced " + c[2004] + ", cleared " + c[2005]
+                        + "; callbacks dropped " + c[2010] + ", stale with a dropped callback " + c[2011];
                 }
                 case "log":
                     return sOwLines.Count + " stale-wait lines: " + string.Join(" | ", sOwLines.ToArray());

@@ -190,3 +190,22 @@ third category. If the wait still returns, an instant switch does not lose the c
 
 Open: what keeps 43 of the day-406 save's stale waits from ending (slow swaps or lost callbacks), what the natural
 `cleared` waits are if not an instant switch, and whether the second swap's callback ever comes.
+
+**Why the second callback is lost** **[verified, IL of SimIFace]**: `CASUtils.SetOutfitInGameObjectDelayed` (and
+`SetModelInGameObjectDelayed`) first registers the caller's swap-ready callback in a static table with one entry per
+object, then starts the native swap. If an entry for that object is already there, the new callback is not stored.
+When the native swap is ready, `CASUtils` runs and removes the entry it has, which is the first caller's.
+`CompleteDelayedModelSwap` and `AbortDelayedModelSwap` remove the entry without running it. So a second delayed swap of
+a Sim while the first callback is registered gets no callback at all, and its caller waits forever if it waits on it.
+This also covers a stale entry: if nothing completed, aborted or called back an earlier swap, the Sim's next helper
+loses its callback, and that would be a stale `own` wait (pending is the helper's own outfit) **[inferred]**.
+
+A drop logger (switch on only, EA's call unchanged) hooks `CASUtils.RegisterCallback`: counter 2010
+`outfitwaitpoll_cb_dropped` counts dropped callbacks and logs the first 8 with both callbacks (a helper's state when the
+callback is a helper's) and the callers. 2011 `outfitwaitpoll_cause_dropped` counts the stale waits whose helper's
+callback was dropped. Jobs `bp-outfit-wait-cbdrop` (the replace part must count a drop) and `lr-outfit-wait-cbdrop-ab`
+(how many day-406 stale waits are drops).
+
+A fix cannot just run every callback: `SwitchOutfitHelper.ChangeOutfit` completes the swap whenever its helper is
+ready, and `Sim.DoOutfitDelayedSwap` with nothing pending sets the visible outfit info to none **[verified, IL]**, so
+two helpers called back for one swap would complete it twice. The fix waits for the drop counts.
