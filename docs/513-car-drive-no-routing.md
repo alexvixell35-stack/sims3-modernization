@@ -52,3 +52,7 @@ EA's method unchanged. The check sits in a try/catch, so it can never stop a dri
 **Run 1** (2026-11-01, Baseline-BP, FAIL in the set-up): right after `Destroy`, the car still had its routing component,
 and the step threw as written. The components go only when the game disposes the object, so the repro now destroys the
 car in a step of its own and waits 5 s.
+
+**Run 2** (2026-11-01, Baseline-BP, `bp-car-no-route-check` PASS in 8.5 min, original core mod) **[verified, log]**: right
+after `Destroy` the maid's van still had its routing component; 5 s later it was gone. `expect thrown` (off): EA's
+`NullReferenceException`, seen +1, returned +0. `expect false` (on): false, no exception, seen +1, returned +1.

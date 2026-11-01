@@ -5385,8 +5385,8 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 
 | ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
 |----|-----|-------|----------|-----------|----------|---------|---------|
-| I-911-1 | 513 §1 | DriveFromPointToMatrix on a destroyed car throws NullReferenceException (its CarRoutingComponent is null) | IL of DriveFromPointToMatrix and Vehicle.CarRoutingComponent; the build 33 log | `car-no-route-check` off arm | expect thrown passes | the destroyed car keeps its component, or the method returns | open |
-| I-911-2 | 513 §1 | Returning false is handled by both callers; the teleport callback skips a destroyed car | IL of DriveFromPointToMatrixWithinTime, TeleportCarHelper.Callback and DriveToLotInCar | `car-no-route-check` on arm | expect false passes | throws | open |
+| I-911-1 | 513 §1 | DriveFromPointToMatrix on a destroyed car throws NullReferenceException (its CarRoutingComponent is null) | IL of DriveFromPointToMatrix and Vehicle.CarRoutingComponent; the build 33 log | `car-no-route-check` off arm | expect thrown passes | the destroyed car keeps its component, or the method returns | verified: `car-no-route-check` run 2 PASS (2026-11-01, docs/513 §4) |
+| I-911-2 | 513 §1 | Returning false is handled by both callers; the teleport callback skips a destroyed car | IL of DriveFromPointToMatrixWithinTime, TeleportCarHelper.Callback and DriveToLotInCar | `car-no-route-check` on arm | expect false passes | throws | verified for the call itself (run 2: false, no exception); the callers' handling of false is IL only |
 
 ## 901. Issue #101: the career uniform backup is uncached again and again, `uniformbackup` (2026-10-31, docs/502; static + self-test; the bug sequence and a player-side script patch ran live)
 
