@@ -310,6 +310,10 @@ export function parseQueue(json: unknown): Job[] {
     if (j.earlyGates !== undefined) {
       checkGates(j.earlyGates, `${at}: earlyGates`);
       if (!j.run.profile) throw new Error(`${at}: earlyGates needs run.profile (they start at the profile start)`);
+      // a gate due at or after the profile end never runs, and the job passes without that check (2026-11-01: a 300 s
+      // autunseen_posted gate on a 4-min smoke)
+      const late = (j.earlyGates as EarlyGate[]).filter(g => g.afterSec >= j.run.profile!.minutes * 60);
+      if (late.length) throw new Error(`${at}: earlyGates ${late.map(g => `${g.counter} from ${g.afterSec} s`).join(', ')} never run: the profile ends at ${j.run.profile.minutes * 60} s`);
     }
     const ccDir = (x: unknown) => typeof x === 'string' && /^game-copy\/cc-synth\/[\w.-]+$/.test(x);
     if (j.ccSet !== undefined && !(ccDir(j.ccSet) || (Array.isArray(j.ccSet) && j.ccSet.length && j.ccSet.every(ccDir) && new Set(j.ccSet.map(x => basename(x))).size === j.ccSet.length))) throw new Error(`${at}: ccSet must be "game-copy/cc-synth/<set>" (a tools/cc-gen.ts output dir) or a list of distinct ones`);
@@ -1265,6 +1269,7 @@ if (values['self-check']) {
   assert.throws(() => parseQueue(eg({ ...g1, op: '=>' })), /earlyGates/);
   assert.throws(() => parseQueue(eg({ ...g1, why: '' })), /earlyGates/);
   assert.throws(() => parseQueue(eg({ ...g1, counter: 'a b' })), /earlyGates/);
+  assert.throws(() => parseQueue(eg({ ...g1, afterSec: 300 })), /never run: the profile ends at 300 s/);
   assert.throws(() => parseQueue([{ id: 'g', asi: 'x', save: 'S', earlyGates: [g1], run: { soak: { minutes: 1 } } }]), /needs run.profile/);
   const gates: EarlyGate[] = [g1, { afterSec: 150, counter: 'autshadow.req', op: '>', value: 0, why: 'worker never posted' },
     { afterSec: 300, counter: 'fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3', op: '>', value: 0, why: 'no compared pairs' }];
