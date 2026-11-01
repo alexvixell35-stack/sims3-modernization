@@ -2,6 +2,17 @@
 
 Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub release notes for that tag (`.github/workflows/build.yml`).
 
+## v0.2.5 (unreleased)
+
+### Fixed
+
+- **No more crash from custom-content meshes without a material** (issue #80): a hair or clothing mesh made from a morph mesh crashed the game while it built a Sim. That part is now left out at that distance instead. On by default (`[EaCrashFixes] GeomNoMaterial=1`).
+- **Isla Paradiso routing crash** (issues #132, #136): on by default (`[EaCrashFixes] WorldAStarRefs=1`, `PortalFlagRefs=1`).
+
+### Known issues
+
+- **Tiny UI Fix turns the Mono offload off** (`[AutShadow]`): Tiny UI Fix ships its own copies of `Sims3GameplaySystems` and `Sims3GameplayObjects`, and the offload's safety check switches itself off for the whole session when it sees game assemblies it does not know. The game runs as without the offload; nothing breaks. Tiny UI Fix's changes do not touch the methods the offload uses (docs/218), so a per-method check that keeps the offload on is planned for the next release. Found by Dalexlol.
+
 ## v0.2.4 (2026-10-29)
 
 Hotfix: **the Play arrow in the family picker grayed out and the family never loaded** (v0.2.0 to v0.2.3, for anyone who starts a family from the picker).

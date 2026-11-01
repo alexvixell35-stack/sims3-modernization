@@ -206,6 +206,8 @@ type Job = { id: string; note?: string; asi: string; ini?: Record<string, string
     profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; stopQueueOnFail?: boolean; scriptErrorsMax?: number; timeoutMin?: number; pin?: false | PinOpts;
   saveMatrix?: { fixes?: 'all' | 'shipped' }; fixesBuild?: string; fixesPackage?: string; pinReason?: string; rerunOf?: string; shadowCheck?: boolean };
 
+// every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
+const JOB_KEYS = new Set(['id', 'note', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'noiseCheck', 'earlyGates', 'routingFailFast', 'scriptErrorsMax', 'stopQueueOnFail', 'reuseSession', 'releaseDefaults']);
 export function parseQueue(json: unknown): Job[] {
   const jobs = Array.isArray(json) ? json : (json as any)?.jobs;
   if (!Array.isArray(jobs) || !jobs.length) throw new Error('queue: expected a non-empty list of jobs (or { "jobs": [...] })');
@@ -216,6 +218,8 @@ export function parseQueue(json: unknown): Job[] {
     if (seen.has(j.id)) throw new Error(`${at}: duplicate id`);
     seen.add(j.id);
     if (typeof j.asi !== 'string' || !j.asi) throw new Error(`${at}: asi must be "tested" or a path`);
+    // fail fast (2026-11-01: job-level fixesOff was ignored, the rhoff arm ran with rabbit-hole routing on): only known job keys; profile keys at job level are named
+    for (const k of Object.keys(j)) if (!JOB_KEYS.has(k)) throw new Error(`${at}: unknown job key "${k}"${/^(fixesOn|fixesOff|fixesReport|ab|abOnFirst|seed|minutes|slice|noSamplers|repros|repro|hitchTasks|frameLead|story)$/.test(k) ? ' (belongs in run.profile)' : ''}`);
     if (j.fixesBuild === undefined && !Array.isArray(json) && (json as any).fixesBuild !== undefined) j.fixesBuild = (json as any).fixesBuild; // queue-level default
     if (j.fixesBuild !== undefined && !(typeof j.fixesBuild === 'string' && /^[\w.+-]+$/.test(j.fixesBuild))) throw new Error(`${at}: fixesBuild must be a ts3fixes name from docs/data/builds.json`);
     for (const k of Object.keys(j.ini ?? {})) if (!/^\w+\.\w+$/.test(k)) throw new Error(`${at}: ini key "${k}" must be Section.Key`);
@@ -1404,6 +1408,8 @@ if (values['self-check']) {
   const bad = smokeProblems({ row: { pass: false, verdict: ['FAIL: x'] }, wins: [{ ...win, iters: { on: 2, off: 0 }, wait: null }], log: 'repro step native_set failed: native_set: p6warm=2 did not stick (reads 1)', p6: true, nativeLog: 'p6 waits arm 1 taken' });
   assert.deepEqual(bad.map(b => b.split(':')[0]), ['smoke job failed', 't', 't', '[P6Waits] no \'p6 waits arm 0\' line in ts3native.log', 'switch read-back']);
   assert.deepEqual(smokeProblems({ row: okRow, wins: [{ ...win, arms: false, iters: null, wait: null }], log: '', p6: false, nativeLog: '' }), [], 'no arms: no split needed'); }
+  assert.throws(() => parseQueue([{ id: 'k', asi: 'x', save: 'S', fixesOff: 'a', run: { profile: { minutes: 5 } } }]), /job 1 .k.: unknown job key "fixesOff".*run[.]profile/); // job-level profile key
+  assert.throws(() => parseQueue([{ id: 'k', asi: 'x', save: 'S', bogus: 1, run: { profile: { minutes: 5 } } }]), /unknown job key "bogus"/);
   console.log('self-check ok');
   process.exit(0);
 }

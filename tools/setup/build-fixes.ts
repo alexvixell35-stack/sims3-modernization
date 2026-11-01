@@ -67,6 +67,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kAutLiveGuardHold value="600" />
     <kAutUnseenPace value="True" />
     <kAutUnseenCmp value="False" />
+    <kAutUnseenRabbitHoleGame value="True" />
+    <kAutUnseenPacePct value="78" />
     <kSafeSpotReuse value="False" />
     <kWildflowerProbe value="False" />
     <kWildflowerTask value="False" />
@@ -135,6 +137,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kAgeUpKeepOutfits value="False" />
     <kAgeUpSwap value="False" />
     <kOutfitWaitPoll value="False" />
+    <kUniformBackup value="False" />
     <kDeadRefGuards value="False" />
     <kBakeSaleSeller value="False" />
     <kDeadRefSweep value="False" />
