@@ -98,6 +98,11 @@ namespace Ts3Fixes
             Patch(typeof(Services), "PostWorldLoadStartup", typeof(NullServiceHook), "StartupHook", "StartupOrig");
             Patch(typeof(RabbitHole), "AnimateDoorOpen", typeof(RabbitHoleDoorHook), "OpenHook", "OpenOrig");
             Patch(typeof(RabbitHole), "AnimateDoorClose", typeof(RabbitHoleDoorHook), "CloseHook", "CloseOrig");
+            Patch(typeof(Sims3.Gameplay.Utilities.GreetingCardTakePhotoHelper), "SimDoneWithPhoto", typeof(PhotoSessionHook), "SimDoneHook", "SimDoneOrig");
+            Patch(typeof(Sims3.Gameplay.Utilities.GreetingCardTakePhotoHelper), "SimMadeItInside", typeof(PhotoSessionHook), "MadeInsideHook", "MadeInsideOrig");
+            Patch(typeof(Sims3.Gameplay.Objects.EggHuntController), "IsValidEggPosition", typeof(EggSpotHook), "ValidHook", "ValidOrig");
+            Patch(typeof(Sims3.Gameplay.Careers.School.GraduateInCityHall), "WaitingLoopDel", typeof(GraduationTableHook), "CityHallWaitHook", "CityHallWaitOrig");
+            Patch(typeof(Sims3.Gameplay.Careers.School.AttendGraduation), "WaitingLoopDel", typeof(GraduationTableHook), "AttendWaitHook", "AttendWaitOrig");
         }
 
         // ---- ageupkeepoutfits (#100) ----

@@ -256,12 +256,15 @@ namespace Ts3Fixes
         // [2002] uniformbackup (UniformBackup.cs, issue #101, docs/502): stale career uniform backups cleared.
         // [2014] nullservice (NullService.cs, docs/504): null elements dropped from Services.AllServices.
         // [2015] rabbitholedoor (RabbitHoleDoor.cs, docs/505): rabbit hole door requests that threw SacsErrorException, skipped.
+        // [2026-2028] photosession (PhotoSession.cs, docs/508): expected Sims dropped, sessions ended by the hook, sessions ended at world load.
+        // [2029] eggspot (EggSpot.cs, docs/508): egg positions refused because they are off the hunt lot.
+        // [2030] graduationtable (GraduationTable.cs, docs/508): graduation waiting-loop ticks that found no table.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2016]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2031]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -392,6 +395,9 @@ namespace Ts3Fixes
                 case "bakesaleseller": return Instantiator.kBakeSaleSeller;
                 case "nullservice": return Instantiator.kNullService;
                 case "rabbitholedoor": return Instantiator.kRabbitHoleDoor;
+                case "photosession": return Instantiator.kPhotoSession;
+                case "eggspot": return Instantiator.kEggSpot;
+                case "graduationtable": return Instantiator.kGraduationTable;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;
                 case "savecleanupaggressive": return Instantiator.kSaveCleanupAggressive;
                 case "vacexport": return Instantiator.kVacExport;

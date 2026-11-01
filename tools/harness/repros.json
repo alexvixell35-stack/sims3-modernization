@@ -47158,5 +47158,236 @@
         }
       }
     ]
+  },
+  {
+    "id": "photo-session-check",
+    "bug": "docs/508: a greeting-card photo session (festival booth, City Hall) ends only when SimDoneWithPhoto empties its list of expected Sims; a listed Sim whose TakePhoto never got queued, or one that left while the others were ready, stays on it for good and the booth stays in use, after a reload too.",
+    "fix": "ts3fixes PhotoSession.cs: photosession (default off), docs/508",
+    "save": "Baseline-BP",
+    "note": "Needs no festival: the check builds sessions on the first greeting-card rabbit hole (City Hall) with two Sims that have no interaction on it, in three cases (waiting for Sims, ready for the photo, a stale session at world load).",
+    "expect": "off: case 1 false with 1 listed, case 2 false with 2 listed, case 3 kept; on: cases 1 and 2 true with the list cleared, case 3 ended, counters +3/+2/+1",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "photosession": false
+        },
+        "note": "the applied log lists the hooked methods: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PhotoSessionCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: switch False"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PhotoSessionCheck",
+          "args": [
+            "broken"
+          ]
+        },
+        "note": "off: EA's outcome, the second Sim stays listed and the stale session stays (the step throws otherwise)"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "photosession": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PhotoSessionCheck",
+          "args": [
+            "fixed"
+          ]
+        },
+        "note": "on: both sessions end, the stale one is cleared (the step throws otherwise)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PhotoSessionCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: switch True"
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "counters: photosession_dropped >= 3, photosession_ended >= 2, photosession_load_ended >= 1"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "photosession": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "egg-spot-check",
+    "bug": "docs/508: EggHuntController.IsValidEggPosition accepts any outdoor routable point, so eggs land off the hunt lot; picking one up there throws and the hunt never ends.",
+    "fix": "ts3fixes EggSpot.cs: eggspot (default off), docs/508",
+    "save": "Baseline-BP",
+    "note": "Needs no egg hunt: a controller object gets a hunt lot, EA's check runs on an outdoor Sim's position with the Sim's own lot and with another lot.",
+    "expect": "off: the point off the hunt lot is accepted; on: refused, the on-lot point still accepted, eggspot_refused +1",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "eggspot": false
+        },
+        "note": "the applied log lists the hooked methods: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EggSpotCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: switch False"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EggSpotCheck",
+          "args": [
+            "broken"
+          ]
+        },
+        "note": "off: EA accepts the point off the hunt lot (the step throws otherwise)"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "eggspot": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EggSpotCheck",
+          "args": [
+            "fixed"
+          ]
+        },
+        "note": "on: the point off the hunt lot is refused, the on-lot point accepted (the step throws otherwise)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EggSpotCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: switch True"
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "counters: eggspot_refused >= 1"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "eggspot": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "graduation-table-check",
+    "bug": "docs/508: School.GraduateInCityHall / AttendGraduation WaitingLoopDel read School.sGraduatingSims without a null check; with no graduation scheduled a Sim still in the waiting stage throws NullReferenceException.",
+    "fix": "ts3fixes GraduationTable.cs: graduationtable (default off), docs/508",
+    "save": "Baseline-BP",
+    "note": "Needs no graduation (the table must be null, the check throws otherwise): both interaction types get a Sim as actor and their WaitingLoopDel is called.",
+    "expect": "off: both calls throw NullReferenceException; on: both return, the actor gets StageComplete (removed again), graduationtable_no_table +2",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "graduationtable": false
+        },
+        "note": "the applied log lists the hooked methods: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GraduationTableCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: switch False"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GraduationTableCheck",
+          "args": [
+            "broken"
+          ]
+        },
+        "note": "off: both waiting loops throw NullReferenceException (the step throws otherwise)"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "graduationtable": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GraduationTableCheck",
+          "args": [
+            "fixed"
+          ]
+        },
+        "note": "on: both return with StageComplete on the actor (the step throws otherwise)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GraduationTableCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: switch True"
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "counters: graduationtable_no_table >= 2"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "graduationtable": false
+        }
+      }
+    ]
   }
 ]
