@@ -36,9 +36,11 @@ EA's method unchanged. The check sits in a try/catch, so it can never stop a dri
 
 - **Self-test** (`node tools/selftest/carnoroute/run.ts`): the four car and component combinations.
 - **Repro** `car-no-route-check` (queue `car-no-route.json`, Baseline-BP, `Fixes.CarNoRouteCheck`). It needs EA's method,
-  so it runs with the original core mod (a core with the player's build 33 returns false itself). Each step makes a maid's
-  service car with EA's `CreateServiceCar`, destroys it, throws if the car still has its routing component, and calls the
-  method on it through a delegate (the hooked method, as EA's callers reach it). `expect thrown` (off): EA's
+  so it runs with the original core mod (a core with the player's build 33 returns false itself). In each arm, `make`
+  creates a maid's service car with EA's `CreateServiceCar` and destroys it. The game disposes it a little later, and
+  `Dispose` drops the object's components [verified, IL; `GetComponent` then returns null]. 5 s later the expect step
+  throws if the car still has its routing component, and calls the method on it through a delegate (the hooked method,
+  as EA's callers reach it). `expect thrown` (off): EA's
   `NullReferenceException`, seen +1, returned +0. `expect false` (on): false, no exception, seen +1, returned +1. Each throws
   on a wrong outcome.
 - **Not covered**: `CreateRoute` returning null on a car that has its component. The player's build 33 also checks that.
@@ -47,4 +49,6 @@ EA's method unchanged. The check sits in a try/catch, so it can never stop a dri
 
 ## 4. Results
 
-Not run yet.
+**Run 1** (2026-11-01, Baseline-BP, FAIL in the set-up): right after `Destroy`, the car still had its routing component,
+and the step threw as written. The components go only when the game disposes the object, so the repro now destroys the
+car in a step of its own and waits 5 s.

@@ -47164,7 +47164,7 @@
     "bug": "issue #166 build 33: CarNpcManager.DriveFromPointToMatrix creates a route on car.CarRoutingComponent with no check; a destroyed car (or one with another kind of routing component) throws NullReferenceException out of DriveToLotInServiceCar with the service Sim in the driver's seat",
     "fix": "ts3fixes CarNoRoute.cs: carnoroute (default off), docs/513",
     "save": "Baseline-BP",
-    "note": "Needs EA's DriveFromPointToMatrix: run it with the original core mod (a core with the player's Build 33 returns false itself). Each step creates a maid's service car out of the world, destroys it and calls the method on it.",
+    "note": "Needs EA's DriveFromPointToMatrix: run it with the original core mod (a core with the player's Build 33 returns false itself). Each arm makes a maid's service car out of the world, destroys it, waits for the game to dispose it, and calls the method on it.",
     "expect": "off: expect thrown sees EA's NullReferenceException, seen +1. on: expect false sees false returned, no exception, seen +1, returned +1.",
     "steps": [
       {
@@ -47174,6 +47174,17 @@
         },
         "note": "applied log lists CarNpcManager.DriveFromPointToMatrix: ok",
         "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CarNoRouteCheck",
+          "args": [
+            "make"
+          ]
+        },
+        "note": "off: a maid's service car made out of the world and destroyed; the game disposes it in the next 5 s",
+        "waitS": 5
       },
       {
         "cmd": "reflect_call",
@@ -47192,6 +47203,17 @@
           "carnoroute": true
         },
         "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CarNoRouteCheck",
+          "args": [
+            "make"
+          ]
+        },
+        "note": "on: another car made and destroyed the same way",
+        "waitS": 5
       },
       {
         "cmd": "reflect_call",

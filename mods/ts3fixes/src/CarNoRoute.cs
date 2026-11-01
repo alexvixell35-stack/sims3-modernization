@@ -41,20 +41,30 @@ namespace Ts3Fixes
 
         delegate bool CnDriveFn(Car car, Vector3 startPoint, Matrix44 targetMat);
 
-        // Agent check for docs/513 (repro car-no-route-check), in one call: creates a maid's service car out of the world,
-        // destroys it (a destroyed car has no routing component), and calls DriveFromPointToMatrix on it through a delegate
-        // (the hooked method, as EA's callers reach it). Throws when the destroyed car still has its routing component.
-        //   "expect thrown" (switch off): throws unless EA's NullReferenceException came out, seen +1, returned +0.
-        //   "expect false" (switch on): throws unless it returned false with no exception, seen +1, returned +1.
+        // Agent checks for docs/513 (repro car-no-route-check):
+        //   "make": creates a maid's service car out of the world and destroys it. The game disposes it a little later
+        //           (Dispose drops its components; 2026-11-01: right after Destroy the car still had them).
+        //   "expect thrown" (switch off) / "expect false" (switch on): throws when that car still has its routing component,
+        //           then calls DriveFromPointToMatrix on it through a delegate (the hooked method, as EA's callers reach it).
+        //           Off: throws unless EA's NullReferenceException came out, seen +1, returned +0. On: throws unless it
+        //           returned false with no exception, seen +1, returned +1.
+        static Car sCnCar;
         public static string CarNoRouteCheck(string what)
         {
-            if (what != "expect thrown" && what != "expect false") return "unknown check " + what + " (expect thrown, expect false)";
             CarNpcManager m = CarNpcManager.Singleton;
             if (m == null) throw new InvalidOperationException("carnoroute " + what + ": no CarNpcManager");
-            Car car = m.CreateServiceCar(ServiceType.Maid);
-            if (car == null) throw new InvalidOperationException("carnoroute " + what + ": EA made no service car");
-            car.Destroy();
-            if (car.CarRoutingComponent != null) throw new InvalidOperationException("carnoroute " + what + ": the destroyed car still has its routing component, so the case cannot be built");
+            if (what == "make")
+            {
+                sCnCar = m.CreateServiceCar(ServiceType.Maid);
+                if (sCnCar == null) throw new InvalidOperationException("carnoroute make: EA made no service car");
+                sCnCar.Destroy();
+                return sCnCar.GetType().Name + " made and destroyed; routing component now " + (sCnCar.CarRoutingComponent != null ? "still there" : "gone");
+            }
+            if (what != "expect thrown" && what != "expect false") return "unknown check " + what + " (make, expect thrown, expect false)";
+            Car car = sCnCar;
+            sCnCar = null;
+            if (car == null) throw new InvalidOperationException("carnoroute " + what + ": make first");
+            if (car.CarRoutingComponent != null) throw new InvalidOperationException("carnoroute " + what + ": the destroyed car still has its routing component (not disposed yet), so the case cannot be built");
             MethodInfo mi = typeof(CarNpcManager).GetMethod("DriveFromPointToMatrix", kInstAll, null, new Type[] { typeof(Car), typeof(Vector3), typeof(Matrix44) }, null);
             CnDriveFn drive = (CnDriveFn)Delegate.CreateDelegate(typeof(CnDriveFn), m, mi);
             int seen0 = PatchCounters()[2039], ret0 = PatchCounters()[2040];
