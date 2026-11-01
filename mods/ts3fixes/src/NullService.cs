@@ -81,6 +81,9 @@ namespace Ts3Fixes
             }
             int left = NullServiceCore.DropNulls(l); // never leave our null for Services.Simulate
             string r = outcome + "; our null still in the list after the reader: " + (left > 0) + "; " + state;
+            // 2026-11-01: a core mod that already patches the getter drops the null with the switch off, so this arm cannot fail
+            if (expectThrow && !threw && left == 0 && !ShortcutOn("nullservice"))
+                r += " (the getter dropped our null with the switch off: another mod already patches Services.get_AllServices; this arm needs EA's getter)";
             if (threw != expectThrow) throw new InvalidOperationException("nullservice " + what + ": wrong outcome: " + r);
             return r;
         }
