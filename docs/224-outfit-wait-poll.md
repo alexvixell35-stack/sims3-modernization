@@ -223,3 +223,10 @@ two helpers called back for one swap would complete it twice.
 
 So a fix for the dropped callback is not needed for the waits seen so far. It still matters for code that starts a
 second delayed swap while one is pending (the replace case; the age-up model swap, docs/503 §6).
+
+**Where the natural waits are (2026-11-01, `lr-outfit-wait-view-log`, day-406 save, PASS) [verified]:** in 11 minutes the
+switch-on log counted 19 stale waits (17 `own`, 0 replaced, 0 cleared, 0 with a dropped callback) and 11 that ended. None
+of them had its Sim on screen when the wait went stale or when it ended, and none was on the active lot. Some were far from
+the camera and some were not. So every natural stale wait seen so far belongs to a Sim the player cannot see, and the
+`outfitwaitpoll` poll ends them with nothing visible changing. Why an unseen Sim's swap does not become ready is still
+open [inferred: the engine may not build outfits for Sims it does not draw].
