@@ -46384,7 +46384,7 @@
     "fix": "ts3fixes UniformBackup.cs: uniformbackup (default off), docs/502",
     "save": "Baseline-BP",
     "note": "UNVERIFIED in this form (the same sequence proved the bug live, and a core patch with the same effect ran live; #101). Needs a Sim with a Career outfit whose occupation hands out a uniform for its level (pick tries the active household, then every Sim in the world; Film never re-uniforms). The off arm leaves that Sim with a Career outfit that does not load after a reload; the harness does not save.",
-    "expect": "off: after the last uniform, Career[0] does not load (key K), K loads False, backup K, cleared 0. on: Career[0] loads after every step, backup null after the Everyday re-uniform, cleared >= 1.",
+    "expect": "off: after the last uniform, Career[0] does not load (key K), the backup holds K, cleared 0 (expect broken throws otherwise). on: every Career outfit loads, backup null, cleared >= 1 since the pick (expect loads throws otherwise). pick throws when no Sim qualifies or the on arm's Sim has another occupation.",
     "steps": [
       {
         "cmd": "patches",
@@ -46401,7 +46401,7 @@
             "pick"
           ]
         },
-        "note": "off: names the Sim; backup null",
+        "note": "off: names the Sim; backup null (throws when no Sim qualifies)",
         "waitS": 1
       },
       {
@@ -46486,10 +46486,10 @@
         "args": {
           "path": "Ts3Fixes.Fixes.UniformBackupCheck",
           "args": [
-            "state"
+            "expect broken"
           ]
         },
-        "note": "off: Career[0] (does not load), K loads False, backup set",
+        "note": "off: the bug: Career[0] does not load, the backup holds Career[0]'s key, cleared 0 (the step throws otherwise)",
         "waitS": 1
       },
       {
@@ -46518,7 +46518,7 @@
             "pick"
           ]
         },
-        "note": "on: names the Sim; backup null",
+        "note": "on: names the Sim; backup null (throws when no Sim is left or its occupation is not the off arm's)",
         "waitS": 1
       },
       {
@@ -46603,10 +46603,10 @@
         "args": {
           "path": "Ts3Fixes.Fixes.UniformBackupCheck",
           "args": [
-            "state"
+            "expect loads"
           ]
         },
-        "note": "on: every Career outfit loads, backup null, cleared >= 1",
+        "note": "on: the fix: every Career outfit loads, backup null, cleared >= 1 (the step throws otherwise)",
         "waitS": 1
       },
       {
@@ -47158,5 +47158,896 @@
         }
       }
     ]
+  },
+  {
+    "id": "photo-session-check",
+    "bug": "docs/508: a greeting-card photo session (festival booth, City Hall) ends only when SimDoneWithPhoto empties its list of expected Sims; a listed Sim whose TakePhoto never got queued, or one that left while the others were ready, stays on it for good and the booth stays in use, after a reload too.",
+    "fix": "ts3fixes PhotoSession.cs: photosession (default off), docs/508",
+    "save": "Baseline-BP",
+    "note": "Needs no festival: the check builds sessions on the first greeting-card rabbit hole without a session (City Hall, the science lab and others) with two Sims that have no interaction on it, in three cases (waiting for Sims, ready for the photo, a stale session at world load).",
+    "expect": "off: case 1 false with 1 listed, case 2 false with 2 listed, case 3 kept; on: cases 1 and 2 true with the list cleared, case 3 ended, counters +3/+2/+1",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "photosession": false
+        },
+        "note": "the applied log lists the hooked methods: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PhotoSessionCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: switch False"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PhotoSessionCheck",
+          "args": [
+            "broken"
+          ]
+        },
+        "note": "off: EA's outcome, the second Sim stays listed and the stale session stays (the step throws otherwise)"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "photosession": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PhotoSessionCheck",
+          "args": [
+            "fixed"
+          ]
+        },
+        "note": "on: both sessions end, the stale one is cleared (the step throws otherwise)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PhotoSessionCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: switch True"
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "counters: photosession_dropped >= 3, photosession_ended >= 2, photosession_load_ended >= 1"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "photosession": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "egg-spot-check",
+    "bug": "docs/508: EggHuntController.IsValidEggPosition accepts any outdoor routable point, so eggs land off the hunt lot; picking one up there throws and the hunt never ends.",
+    "fix": "ts3fixes EggSpot.cs: eggspot (default off), docs/508",
+    "save": "Baseline-BP",
+    "note": "Needs no egg hunt: a controller object gets a hunt lot, EA's check runs on an outdoor Sim's position with the Sim's own lot and with another lot.",
+    "expect": "off: the point off the hunt lot is accepted; on: refused, the on-lot point still accepted, eggspot_refused +1",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "eggspot": false
+        },
+        "note": "the applied log lists the hooked methods: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EggSpotCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: switch False"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EggSpotCheck",
+          "args": [
+            "broken"
+          ]
+        },
+        "note": "off: EA accepts the point off the hunt lot (the step throws otherwise)"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "eggspot": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EggSpotCheck",
+          "args": [
+            "fixed"
+          ]
+        },
+        "note": "on: the point off the hunt lot is refused, the on-lot point accepted (the step throws otherwise)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EggSpotCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: switch True"
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "counters: eggspot_refused >= 1"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "eggspot": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "graduation-table-check",
+    "bug": "docs/508: School.GraduateInCityHall / AttendGraduation WaitingLoopDel read School.sGraduatingSims without a null check; with no graduation scheduled a Sim still in the waiting stage throws NullReferenceException.",
+    "fix": "ts3fixes GraduationTable.cs: graduationtable (default off), docs/508",
+    "save": "Baseline-BP",
+    "note": "Needs no graduation (the table must be null, the check throws otherwise): both interaction types get a Sim as actor and their WaitingLoopDel is called.",
+    "expect": "off: both calls throw NullReferenceException; on: both return, the actor gets StageComplete (removed again), graduationtable_no_table +2",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "graduationtable": false
+        },
+        "note": "the applied log lists the hooked methods: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GraduationTableCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: switch False"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GraduationTableCheck",
+          "args": [
+            "broken"
+          ]
+        },
+        "note": "off: both waiting loops throw NullReferenceException (the step throws otherwise)"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "graduationtable": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GraduationTableCheck",
+          "args": [
+            "fixed"
+          ]
+        },
+        "note": "on: both return with StageComplete on the actor (the step throws otherwise)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GraduationTableCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: switch True"
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "counters: graduationtable_no_table >= 2"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "graduationtable": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "jazz-param-check",
+    "bug": "issue #166 build 21: Sim.UpdateJazzParameter null-checks the interaction half but reads Posture.CurrentStateMachine unchecked, so a Sim with no posture throws NullReferenceException out of BuffEnjoyingMusic's add or remove",
+    "fix": "ts3fixes JazzParam.cs: jazzparam (default off), docs/511",
+    "save": "Baseline-BP",
+    "note": "Needs EA's UpdateJazzParameter: run it with the original core mod (a core with the player's Build 21 checks the posture and never throws). Each expect takes a Sim's posture away for one call of UpdateJazzParameter and puts it back in a finally.",
+    "expect": "off: expect thrown sees EA's NullReferenceException, seen +1, caught +0. on: expect control (posture in place) counts nothing; expect caught sees no exception, seen +1, caught +1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "jazzparam": false
+        },
+        "note": "applied log lists Sim.UpdateJazzParameter: ok",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.JazzParamCheck",
+          "args": [
+            "expect thrown"
+          ]
+        },
+        "note": "off: the bug: NullReferenceException, seen +1, caught +0 (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "jazzparam": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.JazzParamCheck",
+          "args": [
+            "expect control"
+          ]
+        },
+        "note": "on: posture in place: no exception, nothing counted (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.JazzParamCheck",
+          "args": [
+            "expect caught"
+          ]
+        },
+        "note": "on: the fix: no exception, seen +1, caught +1 (throws otherwise)",
+        "waitS": 1
+      }
+    ],
+    "cleanup": []
+  },
+  {
+    "id": "buff-update-check",
+    "bug": "issue #166 build 20: BuffManager.UpdateBuffs walks the live buff table and calls each timed buff's OnTimeOutUpdated inside the walk; a buff added or removed there (BuffSuntan's sends kBronzed, listeners run at once) makes the walk throw InvalidOperationException (out of sync), which nothing above catches, so the Sim's update task ends",
+    "fix": "ts3fixes BuffUpdate.cs: buffupdate (default off), docs/510",
+    "save": "Baseline-BP",
+    "note": "Needs EA's UpdateBuffs: run it with the original core mod (a core with the player's Build 20 walks a copy and never throws). Each arm uses its own Sim of the active household: a listener on kBronzed adds Inspired once, and the Sim gets Suntanned acquired past kDaysForBronzed with its event not sent, so its next buff update sends the event inside the walk.",
+    "expect": "off: expect thrown sees the listener run and one out-of-sync exception, none caught; state reports whether that Sim's motives still move (EA's consequence). on: expect caught sees it caught and Inspired present; expect alive sees the Sim's motives move afterwards.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "buffupdate": false
+        },
+        "note": "applied log lists BuffManager.UpdateBuffs: ok",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "off: names the first Sim (throws when the household has no teen or older Sim)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "arm"
+          ]
+        },
+        "note": "off: listener on, Suntanned set up so its next buff update sends kBronzed",
+        "waitS": 15
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "expect thrown"
+          ]
+        },
+        "note": "off: listener ran 1, seen +1, caught +0 (throws otherwise)",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: whether the Sim's motives moved in the 20 s after the exception (if not, its update task ended)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "buffupdate": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "on: names the second Sim (throws when there is none)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "arm"
+          ]
+        },
+        "note": "on: the same set-up on the second Sim",
+        "waitS": 15
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "expect caught"
+          ]
+        },
+        "note": "on: listener ran 1, seen +1, caught +1, walked again +1, Inspired present (throws otherwise)",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "expect alive"
+          ]
+        },
+        "note": "on: the Sim's motives moved in the 20 s after the catch (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "done",
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "removes the listener",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "car-no-route-check",
+    "bug": "issue #166 build 33: CarNpcManager.DriveFromPointToMatrix creates a route on car.CarRoutingComponent with no check; a destroyed car (or one with another kind of routing component) throws NullReferenceException out of DriveToLotInServiceCar with the service Sim in the driver's seat",
+    "fix": "ts3fixes CarNoRoute.cs: carnoroute (default off), docs/513",
+    "save": "Baseline-BP",
+    "note": "Needs EA's DriveFromPointToMatrix: run it with the original core mod (a core with the player's Build 33 returns false itself). Each arm makes a maid's service car out of the world, destroys it, waits for the game to dispose it, and calls the method on it.",
+    "expect": "off: expect thrown sees EA's NullReferenceException, seen +1. on: expect false sees false returned, no exception, seen +1, returned +1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "carnoroute": false
+        },
+        "note": "applied log lists CarNpcManager.DriveFromPointToMatrix: ok",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CarNoRouteCheck",
+          "args": [
+            "make"
+          ]
+        },
+        "note": "off: a maid's service car made out of the world and destroyed; the game disposes it in the next 5 s",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CarNoRouteCheck",
+          "args": [
+            "expect thrown"
+          ]
+        },
+        "note": "off: the bug: NullReferenceException, seen +1, returned +0 (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "carnoroute": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CarNoRouteCheck",
+          "args": [
+            "make"
+          ]
+        },
+        "note": "on: another car made and destroyed the same way",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CarNoRouteCheck",
+          "args": [
+            "expect false"
+          ]
+        },
+        "note": "on: the fix: false, no exception, seen +1, returned +1 (throws otherwise)",
+        "waitS": 1
+      }
+    ],
+    "cleanup": []
+  },
+  {
+    "id": "conversation-turn-check",
+    "bug": "issue #166 build 19: a conversation's turn passes only when the Sim on turn selects a social, and SocialComponent.ScoreSocialsOnSims scores only on the Sim's own turn; a townie on turn that runs no local autonomy (off screen, on a world lot) never scores, so the conversation never advances",
+    "fix": "ts3fixes ConvTurn.cs: convturn (default off), docs/509",
+    "save": "Baseline-BP",
+    "note": "Builds the stuck state on a real conversation of the active household (two of its Sims on one lot; Tiara and Lala Angelista in Baseline-BP): the check gives the turn to the other member and backdates the last social by 20 sim minutes (a silent holder), then runs the hook's check in the same call, as EA's ScoreSocialsOnSims would. The off-screen holder of the live bug is not built (both Sims are local); that part is [inferred] from the IL and the census of the original report.",
+    "expect": "off: expect stuck sees the stuck turn once and leaves it with the holder. on: expect taken sees it once and gives the turn to the asker; the conversation then goes on (state). Each expect step throws otherwise; pick throws when no conversation formed.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "convturn": false
+        },
+        "note": "applied log lists SocialComponent.ScoreSocialsOnSims: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "note": "picks two Sims of the active household on one lot; throws when there are none",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "chat"
+          ]
+        },
+        "note": "puts the two in one conversation with EA's JoinConversationWith; throws when they are not in one afterwards",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "off: names the asker; throws when no Sim of the active household is in a conversation",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "expect stuck"
+          ]
+        },
+        "note": "off: seen +1, taken +0, the turn stays with the holder (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "convturn": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "chat"
+          ]
+        },
+        "note": "on: the same two in one conversation again (EA may have ended the off arm's); throws when they are not in one afterwards",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "on: names the asker; throws when no Sim of the active household is in a conversation",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "expect taken"
+          ]
+        },
+        "note": "on: seen +1, taken +1, the turn is the asker's (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: the conversation went on after the take (a social picked by the asker resets the minutes since the last social)",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "done",
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "forgets the Sim",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "convturn": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "npc-driver-pool-check",
+    "bug": "issue #166 build 37: NpcDriversManager.CreateNpcDriver hands the top pooled description out again whenever its Sim is gone, with no check that it is still a live NPC; a disposed one, or one that left the NPC household, is instantiated with no household and Motives.CreateMotives, then SimDescription.Instantiate, throw NullReferenceException for a taxi, limo, bus or fire-truck driver",
+    "fix": "ts3fixes NpcDriverPool.cs: npcdriverpool (default off), docs/514",
+    "save": "Baseline-BP",
+    "note": "Needs EA's CreateNpcDriver: run it with the original core mod (a core with the player's Build 37 prunes the pool itself). Each arm makes a taxi driver with EA's CreateNpcDriver, releases it so its description goes back on the taxi pool, destroys the Sim and takes the description out of the NPC household (the state of the player's run 21), waits for the Sim to go, and asks EA for a taxi driver.",
+    "expect": "off: expect handed out sees EA hand out that description (an exception, or a driver built from it), seen +1, dropped +0. on: expect dropped sees a new driver from another description, the bad one off the pool, seen +1, dropped +1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "npcdriverpool": false
+        },
+        "note": "applied log lists NpcDriversManager.CreateNpcDriver: ok",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NpcDriverPoolCheck",
+          "args": [
+            "make"
+          ]
+        },
+        "note": "off: a taxi driver made, released, destroyed and taken out of the NPC household; the Sim goes in the next 5 s",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NpcDriverPoolCheck",
+          "args": [
+            "expect handed out"
+          ]
+        },
+        "note": "off: the bug: EA hands that description out, seen +1, dropped +0 (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "npcdriverpool": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NpcDriverPoolCheck",
+          "args": [
+            "make"
+          ]
+        },
+        "note": "on: another taxi driver built into the same state",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NpcDriverPoolCheck",
+          "args": [
+            "expect dropped"
+          ]
+        },
+        "note": "on: the fix: a new driver, the bad description off the pool, seen +1, dropped +1 (throws otherwise)",
+        "waitS": 1
+      }
+    ],
+    "cleanup": []
+  },
+  {
+    "id": "book-carry-check",
+    "bug": "Book.StopUsingBook, when a Sim who read standing or sitting puts the book in the inventory, sets Sim.CarryStateMachine = null without asking the carry machine to exit; the engine keeps playing its arm layer (the book-holding pose, page sounds) until a reset or the script client's finalizer",
+    "fix": "ts3fixes BookCarry.cs: bookcarry (default off), docs/515",
+    "save": "Baseline-BP",
+    "note": "Each arm first restarts Tiara's idles (the save loads her already stuck), then queues EA's ReadBook from Tiara's inventory (the book goes back there), polls her state until she is reading with the book in hand, then cancels the read so EA ends it through StopUsingBook, and waits for the drop. A read that ends by itself first passes too. Only Tiara's drops count.",
+    "expect": "off: expect left sees a dropped carry machine that still holds its engine driver, ended +0. on: expect ended sees every dropped machine ended and the last one's driver released.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bookcarry": false
+        },
+        "note": "applied log lists Book.StopUsingBook: ok",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "cure Tiara Angelista"
+          ]
+        },
+        "note": "off: Tiara's idles restarted, so she starts from a normal pose",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "read Tiara Angelista"
+          ]
+        },
+        "note": "off: ReadBook queued on a book in Tiara's inventory",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookCarryCheck",
+            "args": [
+              "state Tiara Angelista"
+            ]
+          },
+          "all": [
+            {
+              "path": "ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "stop Tiara Angelista"
+          ]
+        },
+        "note": "off: the read cancelled once she holds the book (or it already ended)",
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookCarryCheck",
+            "args": [
+              "state Tiara Angelista"
+            ]
+          },
+          "all": [
+            {
+              "path": "dropped",
+              "atLeast": 1
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "expect left Tiara Angelista"
+          ]
+        },
+        "note": "off: the bug: a dropped carry machine whose driver is still held, ended +0 (throws otherwise); then 45 s to look: Tiara's arms stay in the hold pose",
+        "waitS": 45
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bookcarry": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "cure Tiara Angelista"
+          ]
+        },
+        "note": "on: Tiara's idles restarted, so she starts from a normal pose",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "read Tiara Angelista"
+          ]
+        },
+        "note": "on: another read queued",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookCarryCheck",
+            "args": [
+              "state Tiara Angelista"
+            ]
+          },
+          "all": [
+            {
+              "path": "ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "stop Tiara Angelista"
+          ]
+        },
+        "note": "on: the read cancelled once she holds the book (or it already ended)",
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookCarryCheck",
+            "args": [
+              "state Tiara Angelista"
+            ]
+          },
+          "all": [
+            {
+              "path": "dropped",
+              "atLeast": 1
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "expect ended Tiara Angelista"
+          ]
+        },
+        "note": "on: the fix: every dropped machine ended, the last one's driver released (throws otherwise); then 45 s to look: Tiara's arms are normal",
+        "waitS": 45
+      }
+    ],
+    "cleanup": []
   }
 ]

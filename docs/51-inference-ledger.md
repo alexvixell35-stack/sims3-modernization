@@ -5385,8 +5385,8 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 
 | ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
 |----|-----|-------|----------|-----------|----------|---------|---------|
-| I-901-1 | 502 §1 | The #101 sequence (wear Career, re-uniform, wear Career, re-uniform, Everyday, re-uniform, re-uniform) leaves Career[0] on K with no resource | live run in #101 with the game's own calls | `career-uniform-backup-check` off arm | Career[0] does not load, K loads False | every Career outfit loads | open |
-| I-901-2 | 502 §2 | Clearing the backup after EA's call when the field still holds it, it was not worn and Career[0] was replaced, stops step 3 and changes nothing else | IL order of ApplyOccupationUniform (early returns, backup step, Career replace) | same, on arm | every Career outfit loads, cleared >= 1 | a Career outfit does not load, or cleared 0 | open |
+| I-901-1 | 502 §1 | The #101 sequence (wear Career, re-uniform, wear Career, re-uniform, Everyday, re-uniform, re-uniform) leaves Career[0] on K with no resource | live run in #101 with the game's own calls | `career-uniform-backup-check` off arm | Career[0] does not load, K loads False | every Career outfit loads | verified: `career-uniform` BP rerun 5 and LR run 3 PASS (2026-11-01, docs/502 §4) |
+| I-901-2 | 502 §2 | Clearing the backup after EA's call when the field still holds it, it was not worn and Career[0] was replaced, stops step 3 and changes nothing else | IL order of ApplyOccupationUniform (early returns, backup step, Career replace) | same, on arm | every Career outfit loads, cleared >= 1 | a Career outfit does not load, or cleared 0 | verified: `career-uniform` BP rerun 5 and LR run 3 PASS (2026-11-01, docs/502 §4) |
 | I-901-3 | 502 §2 | A call that returns early never replaces Career[0], so the hook never clears a backup EA did not uncache | IL: the early returns come before the backup step and the replace | none (static) | n/a | n/a | open (design note) |
 
 ## 900. Menu Maven and Culinary Librarian: the recipe target (2026-11-01, docs/501, `menumaven`; IL + game tuning + one forced repro)
@@ -5422,3 +5422,61 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 |----|-----|-------|----------|-----------|----------|---------|---------|
 | I-905-1 | 218 §8 | In this game's Mono, MonoImage holds `raw_data` at +0x08 and `raw_data_len` at +0x0C | Mono 1.x/2.x MonoImage layout; +0x28 GUID verified (docs/104 §5.1) | any load with `autshadow` on and ts3native contract 11 | "accepted set N (by content)" with the reference core (the hash equals the S3SA bytes) | "module content not checked (...): MVID gate" | open |
 | I-905-2 | 218 §8 | `System.Reflection.Module` in the game's mscorlib has the instance field `_impl` (IntPtr to the MonoImage) | the name `_impl` is in the mscorlib string heap; Mono 2.x Module.cs | the same load | a hash is read for every game module | "image not readable" for every module | open |
+
+## 906. Events batch 1: photo booth sessions, egg hunt eggs, graduation waits, `photosession` / `eggspot` / `graduationtable` (2026-11-01, docs/508; IL + self-test, game run pending)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-906-1 | 508 §1 | With EA's code, a photo session whose second expected Sim never comes stays open after the first Sim is done, also when the Sims were ready for the photo | IL (`SimDoneWithPhoto` removes the Sim only in WaitingForSims / DoneTakingPhoto; only an empty list resets) | `photo-session-check` off arm (`broken`) | cases 1 and 2 return false with Sims still listed | a session ended | open |
+| I-906-2 | 508 §1 | With `photosession` on, both sessions end and a stale session is cleared at world load | hook order (EA body first, then the drop and EA's `Reset`) | same, on arm (`fixed`) | cases 1-3 ended, counters 2026-2028 +3/+2/+1 | a session stayed | open |
+| I-906-3 | 508 §1 | A booth session saved in that state keeps the booth unavailable after a reload | no `Persistable(false)` on `mPhotoHelper` (IL) | none yet (needs a save with a stuck booth) | a reloaded save still shows the booth in use | the reloaded booth is free | open (inferred) |
+| I-906-4 | 508 §2 | `EggHuntController.IsValidEggPosition` accepts an outdoor routable point off the hunt lot | IL (no lot test in the check) | `egg-spot-check` off arm | the point off the hunt lot is accepted | it is refused | open |
+| I-906-5 | 508 §2 | An egg off the hunt lot throws on pick-up and the hunt never ends | IL (`PickUpEgg.Run` reads the egg lot's `CurrEggHuntController`) | none yet (needs a live hunt) | a pick-up error from an off-lot egg | off-lot eggs picked up cleanly | open (inferred) |
+| I-906-6 | 508 §3 | With no graduation table, both graduation `WaitingLoopDel` methods throw `NullReferenceException`; with `graduationtable` on they return with `StageComplete` on the actor | IL (no null check, unlike `WatchingLoopDel`) | `graduation-table-check` off and on arms | off: 2 NREs; on: 2 returns, `StageComplete`, counter 2030 +2 | any other outcome | open |
+
+## 907. A conversation turn held by a Sim that never takes it, `convturn` (2026-11-01, docs/509; static + self-test)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-907-1 | 509 §1 | A turn held by a townie that runs no local autonomy never moves: only the Sim on turn scores socials, only local Sims call the scoring, and only a pick moves the turn | IL of ScoreSocialsOnSims, RunAutonomy and the three stores of mWhoseTurn; the contributor's census (30 and 21 checks in a row) | none yet (the repro's Sims are both local) | a census or log of one conversation whose holder is off screen and whose turn never moves | the turn moving without a pick | open |
+| I-907-2 | 509 §2 | Giving the asker the turn before EA's ScoreSocialsOnSims makes EA score as on the asker's own turn, and the conversation goes on | the method's first test reads only WhoseTurn; EA's own turn changes are plain stores | `conversation-turn-check` on arm | expect taken passes and the state step shows a later social | expect taken throws, or no social follows | turn move verified (run 9, 2026-11-01); a later social not seen (33 sim min after the take, both Sims busy): open |
+| I-907-3 | 509 §2 | A local holder that spoke recently and is idle or in a social is never passed over | ConvTurnCore.Stuck; self-test (named cases) | none in game: in a conversation the repro joins, the holder is busy with a non-social, which counts as stuck (run 8) | a live conversation whose talking holder keeps the turn with the switch on | seen +1 on such a holder | open |
+
+## 908. The buff update walks a table that its own buffs change, `buffupdate` (2026-11-01, docs/510; static + self-test)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-908-1 | 510 §1 | A buff added inside UpdateBuffs's walk (the suntan's kBronzed listener) makes the walk throw out of sync | IL of UpdateBuffs, BuffInstanceSuntan.OnTimeOutUpdated and EventTracker.ProcessEvent (listeners run at once); the report's exception | `buff-update-check` off arm | expect thrown passes | the listener runs and nothing is thrown | verified: `buff-update-check` runs 1 and 2 (2026-11-01, docs/510 §5) |
+| I-908-2 | 510 §2 | The exception ends the Sim's update task: its motives stop | IL: no handler in Autonomy.Update or SimUpdate.Simulate; ScriptCore's proxy rethrows after DisplayScriptError returns false | `buff-update-check` off state step | motives did not move | motives moved | refuted with ErrorTrap: the Sim object is replaced and the new one runs (run 2, docs/510 §2); without ErrorTrap not tested |
+| I-908-3 | 510 §3 | Catching it keeps the Sim's update going | the hook returns normally to Autonomy.Update | `buff-update-check` expect alive | passes | throws | verified: `buff-update-check` run 2 PASS (2026-11-01, docs/510 §5) |
+| I-908-4 | 510 §3 | After a catch, EA's method run again with no time passed finishes the walk and repeats nothing | IL of UpdateBuffs and the OnTimeOutUpdated overrides (time-gated or state-gated; pregnancy pauses its buff) | `buff-update-check` on arm | expect caught: walked again +1, same Sim | the second walk throws, or a buff acts twice | verified: `buff-update-check` run 3 PASS, walked again +1 (2026-11-01, docs/510 §5) |
+
+## 909. A jazz parameter for a Sim with no posture, `jazzparam` (2026-11-01, docs/511; static + self-test)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-909-1 | 511 §1 | UpdateJazzParameter throws NullReferenceException for a Sim with no posture | IL: the posture half has no check; the report's exception | `jazz-param-check` off arm | expect thrown passes | no exception with the posture away | verified: `jazz-param-check` run 1 PASS (2026-11-01, docs/511 §4) |
+| I-909-2 | 511 §2 | Catching it changes nothing else: the interaction half already ran | IL order of the two halves | `jazz-param-check` on arm | expect caught and expect control pass | either throws | verified: `jazz-param-check` run 1 PASS (2026-11-01, docs/511 §4) |
+
+## 911. A service car with no car routing component drives to a lot, `carnoroute` (2026-11-01, docs/513; static + self-test)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-911-1 | 513 §1 | DriveFromPointToMatrix on a destroyed car throws NullReferenceException (its CarRoutingComponent is null) | IL of DriveFromPointToMatrix and Vehicle.CarRoutingComponent; the build 33 log | `car-no-route-check` off arm | expect thrown passes | the destroyed car keeps its component, or the method returns | verified: `car-no-route-check` run 2 PASS (2026-11-01, docs/513 §4) |
+| I-911-2 | 513 §1 | Returning false is handled by both callers; the teleport callback skips a destroyed car | IL of DriveFromPointToMatrixWithinTime, TeleportCarHelper.Callback and DriveToLotInCar | `car-no-route-check` on arm | expect false passes | throws | verified for the call itself (run 2: false, no exception); the callers' handling of false is IL only |
+
+## 912. A taxi, limo, bus or fire-truck driver built from a pooled description that is gone, `npcdriverpool` (2026-11-01, docs/514; static + self-test)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-912-1 | 514 §1 | CreateNpcDriver hands out a pooled description with no Sim without checking that it is valid and in the NPC household | IL of CreateNpcDriver and ReleaseNpcDriver; the player's run 21 log (ErrorTrap: "Valid: False", "No Household") | `npc-driver-pool-check` off arm | expect handed out passes | EA skips or drops the bad entry itself | verified: `npc-driver-pool-check` run 1 PASS (2026-11-01, docs/514 §4): EA popped it and threw |
+| I-912-2 | 514 §1 | Such a description with no household makes Motives.CreateMotives and SimDescription.Instantiate throw NullReferenceException | the run 21 stacks | `npc-driver-pool-check` off arm | the off arm's outcome is NullReferenceException | a driver is built from it with no exception | verified for the exception type (run 1); the throwing methods are from the run 21 log only |
+| I-912-3 | 514 §2 | Popping the bad entries off the top lets EA make a new driver with no error | IL of CreateNpcDriver (an empty pool makes a new driver); the player's build 37 run 23 | `npc-driver-pool-check` on arm | expect dropped passes | throws, or EA still hands out the bad entry | verified: run 1 PASS (a new driver, the bad entry off the pool) |
+
+## 913. Book.StopUsingBook drops the reader's carry state machine without an exit, `bookcarry` (2026-11-01, docs/515; static + live probe + self-test)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-913-1 | 515 §1 | In the standing and sitting branch with the book put in the inventory, StopUsingBook clears Sim.CarryStateMachine and never asks that carry machine to exit | IL of StopUsingBook, GetBook, CarrySystem.PickUp, ExitAndKeepHolding, ExitCarry; probe log: 303 such calls, all dropped | `book-carry-check` off arm | expect left passes | the machine is ended or released by EA | verified: run 4 off arm (seen +1, driver held) |
+| I-913-2 | 515 §1 | The dropped machine is what keeps a Sim's arms in the hold pose | an earlier dispose that ended one stuck Sim's pose | a read with the switch off on a Sim whose pose was restarted | the arms stick after the read | the arms stay normal | refuted: run 4, the player saw the arms normal after an off read, with the dropped machine kept alive |
+| I-913-3 | 515 §2 | Ending and disposing the dropped machine after EA's method throws nothing and releases it | the on arm of `book-carry-check` | `book-carry-check` on arm | expect ended passes | an exception, or the driver still held | verified: run 4 on arm (ended +1, driver released) |

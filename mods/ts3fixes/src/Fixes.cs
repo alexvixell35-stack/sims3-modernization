@@ -256,12 +256,21 @@ namespace Ts3Fixes
         // [2002] uniformbackup (UniformBackup.cs, issue #101, docs/502): stale career uniform backups cleared.
         // [2014] nullservice (NullService.cs, docs/504): null elements dropped from Services.AllServices.
         // [2015] rabbitholedoor (RabbitHoleDoor.cs, docs/505): rabbit hole door requests that threw SacsErrorException, skipped.
+        // [2026-2028] photosession (PhotoSession.cs, docs/508): expected Sims dropped, sessions ended by the hook, sessions ended at world load.
+        // [2029] eggspot (EggSpot.cs, docs/508): egg positions refused because they are off the hunt lot.
+        // [2030] graduationtable (GraduationTable.cs, docs/508): graduation waiting-loop ticks that found no table.
+        // [2035-2036] jazzparam (JazzParam.cs, issue #166 build 21, docs/511): UpdateJazzParameter NullReferenceExceptions with no posture, caught.
+        // [2033-2034] buffupdate (BuffUpdate.cs, issue #166 build 20, docs/510): out-of-sync exceptions from UpdateBuffs, caught.
+        // [2039-2040] carnoroute (CarNoRoute.cs, issue #166 build 33, docs/513): car drives with no car routing component, returned false.
+        // [2031-2032] convturn (ConvTurn.cs, issue #166 build 19, docs/509): stuck conversation turns seen by a scoring call, turns taken.
+        // [2041-2042] npcdriverpool (NpcDriverPool.cs, issue #166 build 37, docs/514): bad pooled driver descriptions EA would hand out, dropped.
+        // [2043-2044] bookcarry (BookCarry.cs, docs/515): carry state machines Book.StopUsingBook dropped without an exit, ended.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2026]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2045]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -392,6 +401,15 @@ namespace Ts3Fixes
                 case "bakesaleseller": return Instantiator.kBakeSaleSeller;
                 case "nullservice": return Instantiator.kNullService;
                 case "rabbitholedoor": return Instantiator.kRabbitHoleDoor;
+                case "photosession": return Instantiator.kPhotoSession;
+                case "eggspot": return Instantiator.kEggSpot;
+                case "graduationtable": return Instantiator.kGraduationTable;
+                case "jazzparam": return Instantiator.kJazzParam;
+                case "buffupdate": return Instantiator.kBuffUpdate;
+                case "carnoroute": return Instantiator.kCarNoRoute;
+                case "convturn": return Instantiator.kConvTurn;
+                case "npcdriverpool": return Instantiator.kNpcDriverPool;
+                case "bookcarry": return Instantiator.kBookCarry;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;
                 case "savecleanupaggressive": return Instantiator.kSaveCleanupAggressive;
                 case "vacexport": return Instantiator.kVacExport;

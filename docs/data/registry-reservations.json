@@ -1873,6 +1873,36 @@
       "what": "AutShadow content guard: MonoImage raw_data offsets and Module._impl (docs/218 §8)",
       "at": "2026-11-01T11:27:17.000Z",
       "worktree": "C:\\Users\\<user>\\scratchpad\\s3mod_cg"
+    },
+    {
+      "id": "fixes-2026",
+      "kind": "fixes",
+      "from": 2026,
+      "to": 2030,
+      "by": "dalexlol",
+      "what": "events batch 1 (round 7 task 4): photosession (3), eggspot (1), graduationtable (1)",
+      "at": "2026-11-01T12:00:18.913Z",
+      "worktree": "C:\\Users\\<user>\\scratchpad\\s3mod_fest"
+    },
+    {
+      "id": "doc-508",
+      "kind": "doc",
+      "from": 508,
+      "to": 508,
+      "by": "dalexlol",
+      "what": "events batch 1: photosession, eggspot, graduationtable (round 7 task 4)",
+      "at": "2026-11-01T12:14:50.000Z",
+      "worktree": "C:\\Users\\<user>\\scratchpad\\s3mod_fest"
+    },
+    {
+      "id": "ledger-906",
+      "kind": "ledger",
+      "from": 906,
+      "to": 906,
+      "by": "dalexlol",
+      "what": "events batch 1 claims (docs/508)",
+      "at": "2026-11-01T12:14:50.000Z",
+      "worktree": "C:\\Users\\<user>\\scratchpad\\s3mod_fest"
     }
   ]
 }

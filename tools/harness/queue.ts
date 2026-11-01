@@ -670,6 +670,8 @@ export function heavyTools(j: Job, repoIniText: string, costs = toolCosts()): st
     .filter(t => costs.tools[t]?.class === 'heavy');
 }
 // one profile window of the smoke: arms = A/B or armed loop; iters = hitch-ab runIters, wait = wait-ab seconds per side
+// A rerun on the same UTC date must not overwrite the first run's per-tag files: first free of base, base-r2, base-r3 ...
+export const freeTag = (base: string, taken: (tag: string) => boolean): string => { let t = base, n = 1; while (taken(t)) t = `${base}-r${++n}`; return t; };
 export type SmokeWin = { tag: string; arms: boolean; iters: { on: number; off: number } | null; invalid: string | null; wait: { on: number; off: number } | null };
 export function smokeProblems(x: { row: any; wins: SmokeWin[]; log: string; p6: boolean; nativeLog: string }): string[] {
   if (!x.row) return ['no smoke row (child queue ended before the job did)'];
@@ -1124,6 +1126,7 @@ if (values['self-check']) {
     '0.36.148', p => (p.endsWith('.now') ? '0.36.148' : '0.36.105'), () => true);
   assert.equal(pw.length, 2); assert.match(pw[0], /^WARN pin old: .*0\.36\.105, source is 0\.36\.148/); assert.match(pw[1], /^WARN pin pkg: fixesPackage/);
   assert.throws(() => parseQueue([{ ...pj('e'), pinReason: ' ' }]), /pinReason/);
+  { const used = new Set(['q-d-j', 'q-d-j-r2']); assert.equal(freeTag('q-d-j', t => used.has(t)), 'q-d-j-r3'); assert.equal(freeTag('q-d-k', t => used.has(t)), 'q-d-k'); }
   // ABBA set and two-load pair: paired across on/off and across repeats; a same-stem stranger (-x) and a longer id are not
   assert.deepEqual(pairWarnings(parseQueue([pj('bp-pc-off-1'), pj('bp-pc-on-1', { noSamplers: true }), pj('bp-pc-x'), pj('bp-pc-on-2', { noSamplers: true })])),
     ['WARN pair bp-pc-off-1 / bp-pc-on-1 differ in profiler tools: noSamplers - vs true (cost known? else not comparable)',
@@ -1499,7 +1502,9 @@ function storyCopy(j: Job, s: string) { // a declaration: --self-check runs befo
     : `Story-${s.replace(/\.sims3$/i, '').replace(/[^A-Za-z0-9_-]/g, '_')}-s${(j.run.profile.story as any).seed ?? j.run.profile.seed ?? 1}`;
 }
 const ageName = (j: Job) => j.run.age?.save ?? `${j.id}-${new Date().toISOString().slice(0, 10)}`;
-const profileTag = (j: Job) => `${queueName}-${new Date().toISOString().slice(0, 10)}-${j.id}`;
+const tagTaken = (t: string) => [join(ROOT, 'probe-out', 'profile'), OUT].some(d => existsSync(d) && readdirSync(d).some(f => f.startsWith(`${t}-`) || f.startsWith(`${t}.`)));
+const tagOf = new Map<Job, string>(); // resolved once per job: every artifact path, the row and the reports share it
+const profileTag = (j: Job) => tagOf.get(j) ?? (tagOf.set(j, freeTag(`${queueName}-${new Date().toISOString().slice(0, 10)}-${j.id}`, tagTaken)), tagOf.get(j)!);
 // p: the job's profile, or for one repro of profile.repros that merged with the item (docs/170 §1); extra: session flags
 const profileArgs = (j: Job, p: any = j.run.profile!, tag = profileTag(j), extra: string[] = []): string[] => [H('profile-world.ts'), '--tag', tag, '--minutes', String(p.minutes), ...(p.seed !== undefined ? ['--seed', String(p.seed)] : []),
       ...(p.repro ? ['--repro', p.repro] : []), ...(p.loopRule ? ['--loop-rule', JSON.stringify(p.loopRule)] : []),...(p.mainstack ? ['--mainstack', String(p.mainstack)] : []),

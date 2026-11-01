@@ -98,6 +98,17 @@ namespace Ts3Fixes
             Patch(typeof(Services), "PostWorldLoadStartup", typeof(NullServiceHook), "StartupHook", "StartupOrig");
             Patch(typeof(RabbitHole), "AnimateDoorOpen", typeof(RabbitHoleDoorHook), "OpenHook", "OpenOrig");
             Patch(typeof(RabbitHole), "AnimateDoorClose", typeof(RabbitHoleDoorHook), "CloseHook", "CloseOrig");
+            Patch(typeof(Sims3.Gameplay.Utilities.GreetingCardTakePhotoHelper), "SimDoneWithPhoto", typeof(PhotoSessionHook), "SimDoneHook", "SimDoneOrig");
+            Patch(typeof(Sims3.Gameplay.Utilities.GreetingCardTakePhotoHelper), "SimMadeItInside", typeof(PhotoSessionHook), "MadeInsideHook", "MadeInsideOrig");
+            Patch(typeof(Sims3.Gameplay.Objects.EggHuntController), "IsValidEggPosition", typeof(EggSpotHook), "ValidHook", "ValidOrig");
+            Patch(typeof(Sims3.Gameplay.Careers.School.GraduateInCityHall), "WaitingLoopDel", typeof(GraduationTableHook), "CityHallWaitHook", "CityHallWaitOrig");
+            Patch(typeof(Sims3.Gameplay.Careers.School.AttendGraduation), "WaitingLoopDel", typeof(GraduationTableHook), "AttendWaitHook", "AttendWaitOrig");
+            Patch(typeof(Sim), "UpdateJazzParameter", new Type[] { typeof(string), typeof(bool) }, typeof(JazzParamHook), "UpdateHook", "UpdateOrig");
+            Patch(typeof(BuffManager), "UpdateBuffs", new Type[] { typeof(float) }, typeof(BuffUpdateHook), "UpdateHook", "UpdateOrig");
+            Patch(typeof(Sims3.Gameplay.Objects.Vehicles.CarNpcManager), "DriveFromPointToMatrix", new Type[] { typeof(Sims3.Gameplay.Objects.Vehicles.Car), typeof(Vector3), typeof(Matrix44) }, typeof(CarNoRouteHook), "DriveHook", "DriveOrig");
+            Patch(typeof(SocialComponent), "ScoreSocialsOnSims", Type.EmptyTypes, typeof(ConvTurnHook), "ScoreHook", "ScoreOrig");
+            Patch(typeof(Sims3.Gameplay.Objects.Vehicles.NpcDriversManager), "CreateNpcDriver", new Type[] { typeof(Sims3.Gameplay.Objects.Vehicles.NpcDriversManager.NpcDrivers) }, typeof(NpcDriverPoolHook), "CreateHook", "CreateOrig");
+            Patch(typeof(Sims3.Gameplay.Objects.Book), "StopUsingBook", typeof(BookCarryHook), "StopHook", "StopOrig");
         }
 
         // ---- ageupkeepoutfits (#100) ----

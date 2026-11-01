@@ -3,7 +3,7 @@
   "jobs": [
     {
       "id": "bp-career-uniform-check",
-      "note": "Correctness (5 min): repro career-uniform-backup-check. Pass: off after the last re-uniform Career[0] does not load and K loads False; on every Career outfit loads and cleared >= 1",
+      "note": "Correctness (5 min): repro career-uniform-backup-check. Pass: the repro's steps pass (expect broken: off, Career[0] does not load and the backup holds its key; expect loads: on, every Career outfit loads, no backup, cleared >= 1; each throws otherwise)",
       "asi": "game-copy/asi-v024/ts3native.asi",
       "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
       "save": "Baseline-BP",
@@ -33,7 +33,7 @@
     },
     {
       "id": "lr-career-uniform-check",
-      "note": "Second clean run in another world (BigSave-LR): the same repro, so the off arm must break Career[0] and the on arm must clear the backup once and keep every Career outfit loading. Correctness (5 min): repro career-uniform-backup-check. Pass: off after the last re-uniform Career[0] does not load and K loads False; on every Career outfit loads and cleared >= 1",
+      "note": "Second clean run in another world (BigSave-LR): the same repro, so the off arm must break Career[0] and the on arm must clear the backup once and keep every Career outfit loading. Correctness (5 min): repro career-uniform-backup-check. Pass: the repro's steps pass (expect broken: off, Career[0] does not load and the backup holds its key; expect loads: on, every Career outfit loads, no backup, cleared >= 1; each throws otherwise)",
       "asi": "game-copy/asi-v024/ts3native.asi",
       "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
       "save": "BigSave-LR",

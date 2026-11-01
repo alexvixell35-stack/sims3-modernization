@@ -54,18 +54,26 @@ namespace Ts3Fixes
         static readonly List<SimDescription> sUbUsed = new List<SimDescription>(); // the off arm leaves its Sim's Career outfit unloadable
         static Type sUbOccType; // the first pick's occupation: later picks prefer it (EA's uniform path differs by occupation)
         static object sUbCoreSwitch; // a patched Systems build's own switch (OutfitRepair.kClearBackupUniform), set to EA for the check
+        static int sUbCleared0; // counter [2002] at the pick: each arm's "cleared" is counted from there
         // Agent checks for #101 (repro career-uniform-backup-check), the issue's live sequence with EA's own calls:
         //   "pick":    a Sim in the world with a Career outfit whose occupation hands out a uniform for its level
         //              (TryGetUniformForCurrentLevel true: only then does EA's SetOccupationOutfitForCurrentLevel call
         //              ApplyOccupationUniform; Film never does), active household first, never one picked before (the
         //              off arm leaves its Sim's Career outfit unloadable, so EA would make no new outfit for the on arm), with
         //              the first pick's occupation when one is left (Business stores a backup, Medical did not, 2026-11-01);
-        //              clears the static backup so each arm starts from EA's state after load.
+        //              clears the static backup so each arm starts from EA's state after load. When Career[0] holds K, one
+        //              uniform call out of Career frees K first (#101's sequence starts with K free); throws if it does not.
         //   "wear <category>": SwitchToOutfitWithoutSpin, e.g. "wear Career", "wear Everyday".
         //   "uniform": the occupation's SetOccupationOutfitForCurrentLevel (what a promotion runs).
-        //   "state":   Career outfit keys and whether each loads, the worn key, whether the name's key K loads, the backup,
-        //              counter [2002].
+        //   "state":   Career outfit keys and whether each loads, the worn key, the name's key K and whether it loads, the
+        //              backup, counter [2002] since the pick.
+        //   "expect broken" (switch off) / "expect loads" (switch on): "state", but throws unless the arm ended as #101
+        //              says: off, Career[0] does not load, the backup holds Career[0]'s key, nothing cleared; on, every
+        //              Career outfit loads, no backup, at least one cleared.
         //   "stop":    forgets the Sim.
+        // The load probe is EA's own (OutfitUtils.TryGenerateSimOutfit: new SimOutfit(key).IsValid, which EA runs on the
+        // same key right after caching a uniform): it takes a load handle that the SimOutfit finalizer frees, and never
+        // caches or uncaches. The expect rules use only the Career and backup keys, not K.
         public static string UniformBackupCheck(string what)
         {
             if (what == "pick")
@@ -96,11 +104,28 @@ namespace Ts3Fixes
                 }
                 bool sameOcc = sUbOccType == null || (sUbSim != null && sUbSim.Occupation.GetType() == sUbOccType);
                 if (sUbOccType == null && sUbSim != null) sUbOccType = sUbSim.Occupation.GetType();
-                if (sUbSim == null) return "no Sim left in the world (not picked before) with a Career outfit and an occupation that hands out a level uniform (" + noUniform + " with a Career outfit but no level uniform, " + notFollowing + " whose worn outfit did not follow a switch to Career)";
+                if (sUbSim == null) throw new InvalidOperationException("uniformbackup pick: no Sim left in the world (not picked before) with a Career outfit and an occupation that hands out a level uniform (" + noUniform + " with a Career outfit but no level uniform, " + notFollowing + " whose worn outfit did not follow a switch to Career)");
+                if (!sameOcc) throw new InvalidOperationException("uniformbackup pick: " + sUbSim.FullName + " has " + sUbSim.Occupation.GetType().Name + ", not the first pick's " + sUbOccType.Name + " (EA's uniform path differs by occupation, so the arms are not comparable)");
                 Occupation.backupOutfit = null;
+                // 2026-11-01 LR rerun: Faith's Career[0] already held K at the pick, so every step got the next key and
+                // K was never handed out again: #101's sequence needs K free at its start (Baseline-BP's Sim and LR run 1
+                // had it free). One uniform call while the Sim is not in Career releases the old Career outfit, K included.
+                string freed = "";
+                if (sUbSim.GetOutfit(OutfitCategories.Career, 0).Key == UbKey(sUbSim))
+                {
+                    Sim fs = sUbSim.CreatedSim;
+                    if (fs.CurrentOutfitCategory == OutfitCategories.Career) fs.SwitchToOutfitWithoutSpin(OutfitCategories.Everyday);
+                    MethodInfo um = typeof(Occupation).GetMethod("SetOccupationOutfitForCurrentLevel", kInstAll, null, Type.EmptyTypes, null);
+                    if (um != null) um.Invoke(sUbSim.Occupation, null);
+                    Occupation.backupOutfit = null;
+                    if (UniformLoads(UbKey(sUbSim)) || sUbSim.GetOutfit(OutfitCategories.Career, 0).Key == UbKey(sUbSim))
+                        throw new InvalidOperationException("uniformbackup pick: " + sUbSim.FullName + "'s Career[0] holds K and one uniform call did not free it; " + UniformBackupCheck("state"));
+                    freed = "; Career[0] held K: one uniform call freed it";
+                }
+                sUbCleared0 = PatchCounters()[2002];
                 FieldInfo core = UniformCoreSwitch();
                 if (core != null) { if (sUbCoreSwitch == null) sUbCoreSwitch = core.GetValue(null); core.SetValue(null, false); }
-                return sUbSim.FullName + " (" + sUbSim.Occupation.GetType().Name + (sameOcc ? "" : ", NOT the first pick's " + sUbOccType.Name + ": arms not comparable") + "); switch " + ShortcutOn("uniformbackup") + (core != null ? "; patched Systems build set to EA" : "") + "; " + UniformBackupCheck("state");
+                return sUbSim.FullName + " (" + sUbSim.Occupation.GetType().Name + "); switch " + ShortcutOn("uniformbackup") + (core != null ? "; patched Systems build set to EA" : "") + freed + "; " + UniformBackupCheck("state");
             }
             if (what == "stop")
             {
@@ -145,13 +170,31 @@ namespace Ts3Fixes
                     SimOutfit o = sUbSim.GetOutfit(OutfitCategories.Career, i);
                     career += (i > 0 ? ", " : "") + o.Key.InstanceId.ToString("x16") + (UniformLoads(o.Key) ? "" : " (does not load)");
                 }
-                SimOutfit fresh;
-                bool k = OutfitUtils.TryGenerateSimOutfit("ApplyUniformToOutfit_Occupation.TryApplyUniformToOutfit_" + sUbSim.FullName, ProductVersion.BaseGame, out fresh);
+                ResourceKey k = UbKey(sUbSim);
                 SimOutfit b = Occupation.backupOutfit;
                 return "career [" + career + "], worn " + (sim != null ? CASUtils.GetOutfitInGameObject(sim.ObjectId).InstanceId.ToString("x16") : "no Sim")
-                    + ", K loads " + k + ", backup " + (b == null ? "null" : b.Key.InstanceId.ToString("x16")) + ", cleared " + PatchCounters()[2002];
+                    + ", K " + k.InstanceId.ToString("x16") + " loads " + UniformLoads(k) + ", backup " + (b == null ? "null" : b.Key.InstanceId.ToString("x16")) + ", cleared " + (PatchCounters()[2002] - sUbCleared0);
             }
-            return "unknown check " + what + " (pick, wear <category>, uniform, state, stop)";
+            if (what == "expect broken" || what == "expect loads")
+            {
+                string st = UniformBackupCheck("state");
+                int n = sUbSim.GetOutfitCount(OutfitCategories.Career), cleared = PatchCounters()[2002] - sUbCleared0;
+                SimOutfit c0 = n > 0 ? sUbSim.GetOutfit(OutfitCategories.Career, 0) : null, b = Occupation.backupOutfit;
+                bool allLoad = n > 0;
+                for (int i = 0; i < n; i++) if (!UniformLoads(sUbSim.GetOutfit(OutfitCategories.Career, i).Key)) allLoad = false;
+                bool ok = what == "expect broken"
+                    ? !ShortcutOn("uniformbackup") && c0 != null && !UniformLoads(c0.Key) && b != null && b.Key == c0.Key && cleared == 0
+                    : ShortcutOn("uniformbackup") && allLoad && b == null && cleared >= 1;
+                if (!ok) throw new InvalidOperationException("uniformbackup " + what + ": wrong outcome (switch " + ShortcutOn("uniformbackup") + "); " + st);
+                return "as expected; " + st;
+            }
+            return "unknown check " + what + " (pick, wear <category>, uniform, state, expect broken, expect loads, stop)";
+        }
+
+        // K: the key EA's OutfitUtils.TryGenerateSimOutfit(name, BaseGame) builds for the name ApplyUniformToOutfit gives
+        static ResourceKey UbKey(SimDescription d)
+        {
+            return ResourceKey.CreateOutfitKey("ApplyUniformToOutfit_Occupation.TryApplyUniformToOutfit_" + d.FullName, ResourceUtils.ProductVersionToGroupId(ProductVersion.BaseGame));
         }
 
         static bool UniformLoads(ResourceKey k)
