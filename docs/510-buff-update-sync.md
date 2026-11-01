@@ -31,8 +31,15 @@ Claim marks: **[verified]** = read in the game's IL by us (`ildasm`; no code rep
   handler. `SimUpdate.Simulate` catches only `ResetException`. ScriptCore's proxy catches the rest, asks
   `ScriptErrorWindow.DisplayScriptError` (which returns false in the release game), calls the task's `OnReset` (empty
   for a `ScriptTask`) and rethrows.
-- **So the Sim's update task ends** [inferred, checked by the repro's off arm]: motives, buffs, mood and autonomy stop for
+- **Without ErrorTrap, the Sim's update task ends** [inferred, not tested]: motives, buffs, mood and autonomy stop for
   that Sim until something builds a new update task for it.
+- **With NRaas ErrorTrap, the Sim is replaced** [verified, runs 1 and 2]: after the throw the picked Sim object was
+  destroyed and the Sim came back as a new object, whose motives move. So in a setup with ErrorTrap the cost is a reset
+  Sim (its interactions dropped) rather than a frozen one [inferred: the reset is ErrorTrap's; its report does not say].
+- **Seen live** (run 1, 2026-11-01, Baseline-BP, original core mod) [verified, ErrorTrap report]: the off arm's throw came
+  out of `BuffManager.UpdateBuffs` as `InvalidOperationException` ("out of sync", from the dictionary enumerator), through
+  `Autonomy.Update`, `SimUpdate.Simulate` and the script proxy. With NRaas ErrorTrap installed, the Sim object was then
+  replaced: the check found the old object's buff manager gone. Run 2 showed the same.
 
 ## 3. The fix (`buffupdate`, `mods/ts3fixes/src/BuffUpdate.cs`)
 
@@ -46,7 +53,7 @@ caught [2034] and the first five are logged with the Sim's name. Every other exc
   work (the suntan's event is marked sent before the walk breaks).
 - **Not ported**: the player's core build walks a copy of the table, so the walk never breaks. A hook cannot add that
   without rewriting EA's method. The limit: a buff that changes the table on every tick would stall the buffs after it
-  in the walk, with the switch on; with it off, the Sim's update ends at the first one.
+  in the walk, with the switch on; with it off, the first one ends the Sim's update (or resets the Sim, with ErrorTrap).
 
 ## 4. Checks
 
@@ -62,4 +69,12 @@ caught [2034] and the first five are logged with the Sim's name. Every other exc
 
 ## 5. Results
 
-Not run yet.
+**Run 1** (2026-11-01, Baseline-BP, `bp-buff-update-check` FAIL in the check): the off arm reproduced the bug (§2,
+"Seen live"). The check then threw `NullReferenceException` on the replaced Sim's missing buff manager. The check now
+keeps the Sim description and reports whether the Sim object is the same or replaced.
+
+**Run 2** (2026-11-01, Baseline-BP, `bp-buff-update-check` PASS in 8.8 min, original core mod) **[verified, log]**: on
+Tiara Angelista. Off: the listener ran once, seen +1, caught +0, and ErrorTrap logged the "out of sync" exception. The
+Sim object was then replaced (the picked one destroyed), and the new one's motives moved. On: the listener ran once,
+seen +1, caught +1, the Sim object the same, Inspired present; 20 s later its motives had moved. Inspired was gone by
+then; the check does not say why (not part of the claim).

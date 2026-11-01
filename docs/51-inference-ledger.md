@@ -5385,9 +5385,9 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 
 | ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
 |----|-----|-------|----------|-----------|----------|---------|---------|
-| I-908-1 | 510 §1 | A buff added inside UpdateBuffs's walk (the suntan's kBronzed listener) makes the walk throw out of sync | IL of UpdateBuffs, BuffInstanceSuntan.OnTimeOutUpdated and EventTracker.ProcessEvent (listeners run at once); the report's exception | `buff-update-check` off arm | expect thrown passes | the listener runs and nothing is thrown | open |
-| I-908-2 | 510 §2 | The exception ends the Sim's update task: its motives stop | IL: no handler in Autonomy.Update or SimUpdate.Simulate; ScriptCore's proxy rethrows after DisplayScriptError returns false | `buff-update-check` off state step | motives did not move | motives moved | open |
-| I-908-3 | 510 §3 | Catching it keeps the Sim's update going | the hook returns normally to Autonomy.Update | `buff-update-check` expect alive | passes | throws | open |
+| I-908-1 | 510 §1 | A buff added inside UpdateBuffs's walk (the suntan's kBronzed listener) makes the walk throw out of sync | IL of UpdateBuffs, BuffInstanceSuntan.OnTimeOutUpdated and EventTracker.ProcessEvent (listeners run at once); the report's exception | `buff-update-check` off arm | expect thrown passes | the listener runs and nothing is thrown | verified: `buff-update-check` runs 1 and 2 (2026-11-01, docs/510 §5) |
+| I-908-2 | 510 §2 | The exception ends the Sim's update task: its motives stop | IL: no handler in Autonomy.Update or SimUpdate.Simulate; ScriptCore's proxy rethrows after DisplayScriptError returns false | `buff-update-check` off state step | motives did not move | motives moved | refuted with ErrorTrap: the Sim object is replaced and the new one runs (run 2, docs/510 §2); without ErrorTrap not tested |
+| I-908-3 | 510 §3 | Catching it keeps the Sim's update going | the hook returns normally to Autonomy.Update | `buff-update-check` expect alive | passes | throws | verified: `buff-update-check` run 2 PASS (2026-11-01, docs/510 §5) |
 
 ## 901. Issue #101: the career uniform backup is uncached again and again, `uniformbackup` (2026-10-31, docs/502; static + self-test; the bug sequence and a player-side script patch ran live)
 

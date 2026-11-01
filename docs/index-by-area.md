@@ -181,7 +181,7 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [172-natural2-hang](172-natural2-hang.md): bp-natural-2 hang (2026-10-22, heartbeat frozen)
 - [173-crash-567121](173-crash-567121.md): Crash at 0x00567121: SequenceController drains its node list (2026-10-22, bp-profcost-on-2)
 - [186-apex-draw-crash](186-apex-draw-crash.md): Apex Radiance draw-pass crashes during a lot-streaming camera pan (2026-10-24)
-- [510-buff-update-sync](510-buff-update-sync.md): (issue #166 build 20, built, self-tested, not run) `buffupdate` (off by default): `BuffManager.UpdateBuffs` walks the live buff table and calls each timed buff's `OnTimeOutUpdated` inside the walk; a buff added there (the suntan's `kBronzed` listeners) makes the walk throw out of sync, which ends the Sim's update task; the hook catches that one exception. Counters 2033-2034, ledger §908, repro `buff-update-check` (queue `buff-update.json`, original core mod).
+- [510-buff-update-sync](510-buff-update-sync.md): (issue #166 build 20, verified 2026-11-01 on Baseline-BP) `buffupdate` (off by default): `BuffManager.UpdateBuffs` walks the live buff table and calls each timed buff's `OnTimeOutUpdated` inside the walk; a buff added there (the suntan's `kBronzed` listeners) makes the walk throw out of sync, which resets the Sim under ErrorTrap (and, without it, ends its update task [inferred]); the hook catches that one exception. Counters 2033-2034, ledger §908, repro `buff-update-check` (queue `buff-update.json`, original core mod).
 - [67-crash-triage](67-crash-triage.md): crash triage
 
 ## Hitches and the main thread (17)
