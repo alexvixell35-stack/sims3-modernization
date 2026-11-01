@@ -175,12 +175,13 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [66-address-space-budget](66-address-space-budget.md): address-space budget
 - [MEMORY-RESEARCH](MEMORY-RESEARCH.md): Memory and Error 12 research: start here
 
-## Crashes (5)
+## Crashes (6)
 
 - [135-crash-report-tool](135-crash-report-tool.md): opt-in `[CrashReport]` (ts3native 0.36.7, off): unhandled-exception filter kept on top through the exe IAT slot `0xF9517C`, scrubbed local report (fault module+offset, registers, stack scan, log tail, package names, CPU/RAM/OS), running marker for hard crashes, signature id `crashsig-xxxxxxxx`; `tools/report-crash.ts` shows and sends only on the player's yes (own `gh` or prefilled `crash.yml` page); `.github/workflows/crash-issues.yml` labels and links by signature
 - [172-natural2-hang](172-natural2-hang.md): bp-natural-2 hang (2026-10-22, heartbeat frozen)
 - [173-crash-567121](173-crash-567121.md): Crash at 0x00567121: SequenceController drains its node list (2026-10-22, bp-profcost-on-2)
 - [186-apex-draw-crash](186-apex-draw-crash.md): Apex Radiance draw-pass crashes during a lot-streaming camera pan (2026-10-24)
+- [512-deferred-ageup-abort](512-deferred-ageup-abort.md): (issue #166 build 32, built, self-tested, not run) `ageupabort` (off by default): `AgingState.PreInstantiateSim` waits for a deferred age-up's outfit build; an abort during the wait nulls the task, the wait throws `NullReferenceException` and `SimDescription.Instantiate` creates no Sim (a taxi with no driver); the hook catches that one exception and the Sim is created with its current outfit. Counters 2037-2038, ledger §910, repro `age-up-abort-check` (queue `age-up-abort.json`, original core mod).
 - [67-crash-triage](67-crash-triage.md): crash triage
 
 ## Hitches and the main thread (17)

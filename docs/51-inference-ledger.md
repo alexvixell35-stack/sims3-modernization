@@ -5381,6 +5381,13 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 | I-416-7 | 67 §30.5 | The bit is cleared by a blocked-flag write (`0x82A200` or `0x82B6F3`) through a waypoint past its chunk's count: (1753, 13) and (1563, 20) land exactly on the two words in the shipped layout | exe scan for bit-15 clears; `--mem-image` search over all out-of-range pairs | PortalFlagRefs=1, WorldAStarRefs=0 on Baseline-IP | no crash, skip lines name (1753, 13) / (1563, 20), `waSkip` 0 with both on | a crash or A\* skips with PortalFlagRefs on (a third writer) | partly verified (67 §30.6: writer 1 skips (1563, 20) live; run 177 still crashed with the switch on, so not the whole cause) |
 | I-416-8 | 67 §30.5 | The stale pairs come from waypoints a lot update added and removed while a portal or lot waypoint kept the reference | both pairs 2 past their chunk's count | a watchpoint on the portal id / chunk counts during load | the count of chunk 1753 / 1563 drops while a portal still holds the id | the pairs are wrong from the save's first lot load | inferred |
 
+## 910. A deferred age-up aborted while the Sim is instantiated, `ageupabort` (2026-11-01, docs/512; static + self-test)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-910-1 | 512 §1 | AbortSimBuilderTask during PreInstantiateSim's wait makes the wait throw NullReferenceException, and Instantiate creates no Sim | IL of PreInstantiateSim, AbortSimBuilderTask and Instantiate; the report's exception | `age-up-abort-check` off arm | expect thrown passes | the method returns or another exception comes out | open |
+| I-910-2 | 512 §2 | Catching it leaves the age and the outfit key unchanged and the age-up deferred | IL order: the flag, the key and the age are set only after the wait | `age-up-abort-check` on arm | expect caught passes | throws | open |
+
 ## 901. Issue #101: the career uniform backup is uncached again and again, `uniformbackup` (2026-10-31, docs/502; static + self-test; the bug sequence and a player-side script patch ran live)
 
 | ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |

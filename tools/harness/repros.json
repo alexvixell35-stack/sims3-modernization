@@ -47158,5 +47158,76 @@
         }
       }
     ]
+  },
+  {
+    "id": "age-up-abort-check",
+    "bug": "issue #166 build 32: AgingState.PreInstantiateSim waits (Simulator.Sleep) for a deferred age-up's outfit build; AbortSimBuilderTask during the wait nulls the task field, the next Done read throws NullReferenceException, EA's catch rethrows and SimDescription.Instantiate never creates the Sim",
+    "fix": "ts3fixes AgeUpAbort.cs: ageupabort (default off), docs/512",
+    "save": "Baseline-BP",
+    "note": "Needs EA's PreInstantiateSim: run it with the original core mod (a core with the player's Build 32 leaves the wait when the task is gone). Built on a townie that is not instantiated. ageupkeepoutfits is on in both arms so the aborted build does not wipe the townie's outfits (docs/205).",
+    "expect": "off: expect thrown sees EA's NullReferenceException, seen +1, caught +0, age unchanged. on: expect caught sees no exception, seen +1, caught +1, age and outfit key unchanged.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ageupabort": false,
+          "ageupkeepoutfits": true
+        },
+        "note": "applied log lists AgingState.PreInstantiateSim: ok",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpAbortCheck",
+          "args": [
+            "arm"
+          ]
+        },
+        "note": "off: the race in a game task (age-up marked deferred, abort queued, PreInstantiateSim called); throws when there is no townie",
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpAbortCheck",
+          "args": [
+            "expect thrown"
+          ]
+        },
+        "note": "off: the bug: NullReferenceException, seen +1, caught +0 (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ageupabort": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpAbortCheck",
+          "args": [
+            "arm"
+          ]
+        },
+        "note": "on: the same race on the next townie",
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpAbortCheck",
+          "args": [
+            "expect caught"
+          ]
+        },
+        "note": "on: the fix: no exception, seen +1, caught +1, age and outfit key unchanged (throws otherwise)",
+        "waitS": 1
+      }
+    ],
+    "cleanup": []
   }
 ]
