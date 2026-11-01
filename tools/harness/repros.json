@@ -47158,5 +47158,75 @@
         }
       }
     ]
+  },
+  {
+    "id": "npc-driver-pool-check",
+    "bug": "issue #166 build 37: NpcDriversManager.CreateNpcDriver hands the top pooled description out again whenever its Sim is gone, with no check that it is still a live NPC; a disposed one, or one that left the NPC household, is instantiated with no household and Motives.CreateMotives, then SimDescription.Instantiate, throw NullReferenceException for a taxi, limo, bus or fire-truck driver",
+    "fix": "ts3fixes NpcDriverPool.cs: npcdriverpool (default off), docs/514",
+    "save": "Baseline-BP",
+    "note": "Needs EA's CreateNpcDriver: run it with the original core mod (a core with the player's Build 37 prunes the pool itself). Each arm makes a taxi driver with EA's CreateNpcDriver, releases it so its description goes back on the taxi pool, destroys the Sim and takes the description out of the NPC household (the state of the player's run 21), waits for the Sim to go, and asks EA for a taxi driver.",
+    "expect": "off: expect handed out sees EA hand out that description (an exception, or a driver built from it), seen +1, dropped +0. on: expect dropped sees a new driver from another description, the bad one off the pool, seen +1, dropped +1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "npcdriverpool": false
+        },
+        "note": "applied log lists NpcDriversManager.CreateNpcDriver: ok",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NpcDriverPoolCheck",
+          "args": [
+            "make"
+          ]
+        },
+        "note": "off: a taxi driver made, released, destroyed and taken out of the NPC household; the Sim goes in the next 5 s",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NpcDriverPoolCheck",
+          "args": [
+            "expect handed out"
+          ]
+        },
+        "note": "off: the bug: EA hands that description out, seen +1, dropped +0 (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "npcdriverpool": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NpcDriverPoolCheck",
+          "args": [
+            "make"
+          ]
+        },
+        "note": "on: another taxi driver built into the same state",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NpcDriverPoolCheck",
+          "args": [
+            "expect dropped"
+          ]
+        },
+        "note": "on: the fix: a new driver, the bad description off the pool, seen +1, dropped +1 (throws otherwise)",
+        "waitS": 1
+      }
+    ],
+    "cleanup": []
   }
 ]

@@ -98,6 +98,7 @@ namespace Ts3Fixes
             Patch(typeof(Services), "PostWorldLoadStartup", typeof(NullServiceHook), "StartupHook", "StartupOrig");
             Patch(typeof(RabbitHole), "AnimateDoorOpen", typeof(RabbitHoleDoorHook), "OpenHook", "OpenOrig");
             Patch(typeof(RabbitHole), "AnimateDoorClose", typeof(RabbitHoleDoorHook), "CloseHook", "CloseOrig");
+            Patch(typeof(Sims3.Gameplay.Objects.Vehicles.NpcDriversManager), "CreateNpcDriver", new Type[] { typeof(Sims3.Gameplay.Objects.Vehicles.NpcDriversManager.NpcDrivers) }, typeof(NpcDriverPoolHook), "CreateHook", "CreateOrig");
         }
 
         // ---- ageupkeepoutfits (#100) ----

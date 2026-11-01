@@ -203,7 +203,8 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [72-dropped-frames](72-dropped-frames.md): dropped sim frames (by design: newest-2 interpolation, every message drained)
 - [96-worst-hitches](96-worst-hitches.md): worst hitches
 
-## Travel and gameplay (8)
+## Travel and gameplay (9)
+- [514-npc-driver-pool](514-npc-driver-pool.md): (issue #166 build 37, built, not run) `npcdriverpool` (off by default): `NpcDriversManager.CreateNpcDriver` hands the top pooled description out again whenever its Sim is gone, with no check that it is still a live NPC; a description with no household then throws `NullReferenceException` in `Motives.CreateMotives` and `SimDescription.Instantiate` for a taxi, limo, bus or fire-truck driver; the hook pops the bad entries off the top of the pool EA reads, and EA reuses the next good one or makes a new driver; counters 2041-2042, ledger §912, repro `npc-driver-pool-check` (queue `npc-driver-pool.json`, original core)
 
 - [10-expansion-travel-shortcuts](10-expansion-travel-shortcuts.md): Expansion travel and off-screen trip shortcuts
 - [16-online-features](16-online-features.md): Online features: what the game contacts, what can block, how to turn it off
