@@ -100,3 +100,8 @@ nothing cleared. `expect loads` (on, Katrina Pala): every Career outfit loads, n
 **LR run 2** (2026-11-01, BigSave-LR, `lr-career-uniform-check` FAIL at `expect broken`): Faith MacDuff's Career[0] was
 K at the pick, so no step lost an outfit (§3, "K free at the start"). The step's throw was right: the off arm did not
 reproduce #101.
+
+**LR run 3** (2026-11-01, BigSave-LR, `lr-career-uniform-check` PASS in 8.9 min, `pick` frees K) **[verified, log]**:
+Faith MacDuff's Career[0] held K at the pick, and one uniform call freed it. `expect broken` (off): Career[0] is K and
+does not load, the backup holds K, nothing cleared. `expect loads` (on, Jules MacDuff): every Career outfit loads, no
+backup, cleared 1. Both saves now show the bug off and the fix on.

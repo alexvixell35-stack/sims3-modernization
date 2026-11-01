@@ -5385,8 +5385,8 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 
 | ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
 |----|-----|-------|----------|-----------|----------|---------|---------|
-| I-901-1 | 502 §1 | The #101 sequence (wear Career, re-uniform, wear Career, re-uniform, Everyday, re-uniform, re-uniform) leaves Career[0] on K with no resource | live run in #101 with the game's own calls | `career-uniform-backup-check` off arm | Career[0] does not load, K loads False | every Career outfit loads | open |
-| I-901-2 | 502 §2 | Clearing the backup after EA's call when the field still holds it, it was not worn and Career[0] was replaced, stops step 3 and changes nothing else | IL order of ApplyOccupationUniform (early returns, backup step, Career replace) | same, on arm | every Career outfit loads, cleared >= 1 | a Career outfit does not load, or cleared 0 | open |
+| I-901-1 | 502 §1 | The #101 sequence (wear Career, re-uniform, wear Career, re-uniform, Everyday, re-uniform, re-uniform) leaves Career[0] on K with no resource | live run in #101 with the game's own calls | `career-uniform-backup-check` off arm | Career[0] does not load, K loads False | every Career outfit loads | verified: `career-uniform` BP rerun 5 and LR run 3 PASS (2026-11-01, docs/502 §4) |
+| I-901-2 | 502 §2 | Clearing the backup after EA's call when the field still holds it, it was not worn and Career[0] was replaced, stops step 3 and changes nothing else | IL order of ApplyOccupationUniform (early returns, backup step, Career replace) | same, on arm | every Career outfit loads, cleared >= 1 | a Career outfit does not load, or cleared 0 | verified: `career-uniform` BP rerun 5 and LR run 3 PASS (2026-11-01, docs/502 §4) |
 | I-901-3 | 502 §2 | A call that returns early never replaces Career[0], so the hook never clears a backup EA did not uncache | IL: the early returns come before the backup step and the replace | none (static) | n/a | n/a | open (design note) |
 
 ## 900. Menu Maven and Culinary Librarian: the recipe target (2026-11-01, docs/501, `menumaven`; IL + game tuning + one forced repro)
