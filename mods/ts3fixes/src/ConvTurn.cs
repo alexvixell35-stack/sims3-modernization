@@ -61,6 +61,8 @@ namespace Ts3Fixes
 
         static Sim sCtAsker;
         // Agent checks for docs/509 (repro conversation-turn-check), on a real conversation of the active household:
+        //   "start": queues EA's Chat social (SocialInteractionA, as EA's own code builds it) from one Sim of the active
+        //            household to another on the same lot, neither in a conversation; throws when there is no such pair.
         //   "pick":  a Sim of the active household in a conversation with another member; throws when there is none.
         //   "expect stuck" (switch off) / "expect taken" (switch on): in one call, gives the turn to the other member and
         //            backdates the last social by 20 sim minutes (a silent holder), then runs the hook's check as EA's
@@ -72,6 +74,21 @@ namespace Ts3Fixes
         //   "stop":  forgets the Sim.
         public static string ConvTurnCheck(string what)
         {
+            if (what == "start")
+            {
+                if (Household.ActiveHousehold == null) throw new InvalidOperationException("convturn start: no active household");
+                foreach (Sim a in Household.ActiveHousehold.AllActors)
+                    foreach (Sim b in Household.ActiveHousehold.AllActors)
+                    {
+                        if (a == b || a.HasBeenDestroyed || b.HasBeenDestroyed || a.LotCurrent == null || a.LotCurrent != b.LotCurrent) continue;
+                        if (a.Conversation != null || b.Conversation != null || a.SimDescription.ToddlerOrBelow || b.SimDescription.ToddlerOrBelow) continue;
+                        InteractionInstance ii = new SocialInteractionA.Definition("Chat", new string[0], null, false)
+                            .CreateInstance(b, a, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
+                        if (ii == null || !a.InteractionQueue.AddAfterCheckingForDuplicates(ii)) continue;
+                        return a.FullName + " -> " + b.FullName + ": Chat queued";
+                    }
+                throw new InvalidOperationException("convturn start: no two Sims of the active household (above toddler, not in a conversation) on one lot");
+            }
             if (what == "pick")
             {
                 sCtAsker = null;
@@ -119,7 +136,7 @@ namespace Ts3Fixes
                 if (!ok) throw new InvalidOperationException("convturn " + what + ": wrong outcome (switch " + on + "); " + st);
                 return "as expected; " + st;
             }
-            return "unknown check " + what + " (pick, expect stuck, expect taken, expect control, state, stop)";
+            return "unknown check " + what + " (start, pick, expect stuck, expect taken, expect control, state, stop)";
         }
 
         static Sim OtherMember(Conversation c, Sim self)

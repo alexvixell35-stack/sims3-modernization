@@ -47164,7 +47164,7 @@
     "bug": "issue #166 build 19: a conversation's turn passes only when the Sim on turn selects a social, and SocialComponent.ScoreSocialsOnSims scores only on the Sim's own turn; a townie on turn that runs no local autonomy (off screen, on a world lot) never scores, so the conversation never advances",
     "fix": "ts3fixes ConvTurn.cs: convturn (default off), docs/509",
     "save": "Baseline-BP",
-    "note": "Builds the stuck state on a real conversation of the active household (Tiara and Lala Angelista in Baseline-BP): the check gives the turn to the other member and backdates the last social by 20 sim minutes (a silent holder), then runs the hook's check in the same call, as EA's ScoreSocialsOnSims would. The off-screen holder of the live bug is not built (both Sims are local); that part is [inferred] from the IL and the census of the original report.",
+    "note": "Builds the stuck state on a real conversation of the active household (two of its Sims on one lot; Tiara and Lala Angelista in Baseline-BP): the check gives the turn to the other member and backdates the last social by 20 sim minutes (a silent holder), then runs the hook's check in the same call, as EA's ScoreSocialsOnSims would. The off-screen holder of the live bug is not built (both Sims are local); that part is [inferred] from the IL and the census of the original report.",
     "expect": "off: expect stuck sees the stuck turn once and leaves it with the holder. on: expect control (holder local, social just now) sees nothing; expect taken sees it once and gives the turn to the asker; the conversation then goes on (state). Each expect step throws otherwise; pick throws when no conversation formed.",
     "steps": [
       {
@@ -47175,13 +47175,14 @@
         "note": "applied log lists SocialComponent.ScoreSocialsOnSims: ok"
       },
       {
-        "cmd": "do_interaction",
+        "cmd": "reflect_call",
         "args": {
-          "sim": "Tiara Angelista",
-          "target": "Lala Angelista",
-          "interaction": "Friendly... / Chat"
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "start"
+          ]
         },
-        "note": "starts a conversation",
+        "note": "queues EA's Chat social between two Sims of the active household on one lot; throws when there are none",
         "waitS": 25
       },
       {
