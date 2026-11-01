@@ -130,6 +130,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kDeadRefGuards = false;       // opt-in until verified: Relationship.Get makes no entry for a disposed description, dead aging states skipped (DeadRefs.cs, issue #91)
         [Tunable] public static bool kNullService = false;         // opt-in until verified: Services.AllServices drops the null elements a save can hold, so EA's loops over it do not throw (NullService.cs, docs/504)
         [Tunable] public static bool kRabbitHoleDoor = false;      // opt-in until verified: a rabbit hole door the animation cannot open or close no longer ends the Sim's entry or exit (RabbitHoleDoor.cs, docs/505)
+        [Tunable] public static bool kBookCarry = false;           // opt-in until verified: a Sim who puts a book in the inventory after reading no longer keeps the book-holding arm pose (BookCarry.cs, docs/515)
         [Tunable] public static bool kBakeSaleSeller = false;      // opt-in until verified: a bake sale table's deleted seller reads as no seller, an orphaned NPC table gets its clean-up alarm back (BakeSale.cs, issue #102)
         [Tunable] public static bool kDeadRefSweep = false;        // opt-in, changes save data: EA holders of disposed descriptions / destroyed Sims cleaned, spread hourly + cheap pre-save pass (DeadRefs.cs, issue #91)
         [Tunable] public static bool kVacExport = false;           // opt-in until verified: free vacation adults keep dreams, opportunities, travel moodlets (EaVacation.cs, issue #97 row 1)

@@ -203,7 +203,7 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [72-dropped-frames](72-dropped-frames.md): dropped sim frames (by design: newest-2 interpolation, every message drained)
 - [96-worst-hitches](96-worst-hitches.md): worst hitches
 
-## Travel and gameplay (8)
+## Travel and gameplay (9)
 
 - [10-expansion-travel-shortcuts](10-expansion-travel-shortcuts.md): Expansion travel and off-screen trip shortcuts
 - [16-online-features](16-online-features.md): Online features: what the game contacts, what can block, how to turn it off
@@ -213,6 +213,7 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [19-travel-worlds](19-travel-worlds.md): 19 Travel worlds: which destinations are worst, and what travel itself costs
 - [210-free-vacation-fixes](210-free-vacation-fixes.md): 210 Generations free vacation: seven EA defects (issue #97)
 - [77-nraas-traveler-study](77-nraas-traveler-study.md): NRaas Traveler study (travel start/arrival)
+- [515-book-carry-leak](515-book-carry-leak.md): (repro PASS 2026-11-01 on Baseline-BP): `bookcarry` (off by default): in the standing and sitting branch, `Book.StopUsingBook` clears `Sim.CarryStateMachine` without asking the carry machine `ReadBook.GetBook` made to exit, so the machine keeps its engine driver until the garbage collector finalizes it; the hook ends and disposes it. Not the cause of the stuck-arm pose a player saw (refuted live). Counters 2043-2044, ledger §913, repro `book-carry-check`, queue `book-carry.json`
 
 ## Player tools and releases (7)
 

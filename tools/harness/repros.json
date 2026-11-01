@@ -47158,5 +47158,187 @@
         }
       }
     ]
+  },
+  {
+    "id": "book-carry-check",
+    "bug": "Book.StopUsingBook, when a Sim who read standing or sitting puts the book in the inventory, sets Sim.CarryStateMachine = null without asking the carry machine to exit; the engine keeps playing its arm layer (the book-holding pose, page sounds) until a reset or the script client's finalizer",
+    "fix": "ts3fixes BookCarry.cs: bookcarry (default off), docs/515",
+    "save": "Baseline-BP",
+    "note": "Each arm first restarts Tiara's idles (the save loads her already stuck), then queues EA's ReadBook from Tiara's inventory (the book goes back there), polls her state until she is reading with the book in hand, then cancels the read so EA ends it through StopUsingBook, and waits for the drop. A read that ends by itself first passes too. Only Tiara's drops count.",
+    "expect": "off: expect left sees a dropped carry machine that still holds its engine driver, ended +0. on: expect ended sees every dropped machine ended and the last one's driver released.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bookcarry": false
+        },
+        "note": "applied log lists Book.StopUsingBook: ok",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "cure Tiara Angelista"
+          ]
+        },
+        "note": "off: Tiara's idles restarted, so she starts from a normal pose",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "read Tiara Angelista"
+          ]
+        },
+        "note": "off: ReadBook queued on a book in Tiara's inventory",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookCarryCheck",
+            "args": [
+              "state Tiara Angelista"
+            ]
+          },
+          "all": [
+            {
+              "path": "ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "stop Tiara Angelista"
+          ]
+        },
+        "note": "off: the read cancelled once she holds the book (or it already ended)",
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookCarryCheck",
+            "args": [
+              "state Tiara Angelista"
+            ]
+          },
+          "all": [
+            {
+              "path": "dropped",
+              "atLeast": 1
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "expect left Tiara Angelista"
+          ]
+        },
+        "note": "off: the bug: a dropped carry machine whose driver is still held, ended +0 (throws otherwise); then 45 s to look: Tiara's arms stay in the hold pose",
+        "waitS": 45
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bookcarry": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "cure Tiara Angelista"
+          ]
+        },
+        "note": "on: Tiara's idles restarted, so she starts from a normal pose",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "read Tiara Angelista"
+          ]
+        },
+        "note": "on: another read queued",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookCarryCheck",
+            "args": [
+              "state Tiara Angelista"
+            ]
+          },
+          "all": [
+            {
+              "path": "ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "stop Tiara Angelista"
+          ]
+        },
+        "note": "on: the read cancelled once she holds the book (or it already ended)",
+        "waitS": 1,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookCarryCheck",
+            "args": [
+              "state Tiara Angelista"
+            ]
+          },
+          "all": [
+            {
+              "path": "dropped",
+              "atLeast": 1
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookCarryCheck",
+          "args": [
+            "expect ended Tiara Angelista"
+          ]
+        },
+        "note": "on: the fix: every dropped machine ended, the last one's driver released (throws otherwise); then 45 s to look: Tiara's arms are normal",
+        "waitS": 45
+      }
+    ],
+    "cleanup": []
   }
 ]

@@ -5422,3 +5422,11 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 |----|-----|-------|----------|-----------|----------|---------|---------|
 | I-905-1 | 218 §8 | In this game's Mono, MonoImage holds `raw_data` at +0x08 and `raw_data_len` at +0x0C | Mono 1.x/2.x MonoImage layout; +0x28 GUID verified (docs/104 §5.1) | any load with `autshadow` on and ts3native contract 11 | "accepted set N (by content)" with the reference core (the hash equals the S3SA bytes) | "module content not checked (...): MVID gate" | open |
 | I-905-2 | 218 §8 | `System.Reflection.Module` in the game's mscorlib has the instance field `_impl` (IntPtr to the MonoImage) | the name `_impl` is in the mscorlib string heap; Mono 2.x Module.cs | the same load | a hash is read for every game module | "image not readable" for every module | open |
+
+## 913. Book.StopUsingBook drops the reader's carry state machine without an exit, `bookcarry` (2026-11-01, docs/515; static + live probe + self-test)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-913-1 | 515 §1 | In the standing and sitting branch with the book put in the inventory, StopUsingBook clears Sim.CarryStateMachine and never asks that carry machine to exit | IL of StopUsingBook, GetBook, CarrySystem.PickUp, ExitAndKeepHolding, ExitCarry; probe log: 303 such calls, all dropped | `book-carry-check` off arm | expect left passes | the machine is ended or released by EA | verified: run 4 off arm (seen +1, driver held) |
+| I-913-2 | 515 §1 | The dropped machine is what keeps a Sim's arms in the hold pose | an earlier dispose that ended one stuck Sim's pose | a read with the switch off on a Sim whose pose was restarted | the arms stick after the read | the arms stay normal | refuted: run 4, the player saw the arms normal after an off read, with the dropped machine kept alive |
+| I-913-3 | 515 §2 | Ending and disposing the dropped machine after EA's method throws nothing and releases it | the on arm of `book-carry-check` | `book-carry-check` on arm | expect ended passes | an exception, or the driver still held | verified: run 4 on arm (ended +1, driver released) |
