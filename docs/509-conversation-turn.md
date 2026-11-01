@@ -50,8 +50,9 @@ wait from the other side.
   `StartSocializingWith` calls when a social starts), then in one call per step gives the turn to the other member,
   backdates the last social by 20 sim minutes (a silent holder) and runs the hook's check, as EA's
   `ScoreSocialsOnSims` would. `expect stuck` (off): seen once, nothing taken, the turn stays with the holder.
-  `expect control` (on, the holder local and the last social just now): nothing seen. `expect taken` (on): seen once,
-  the turn is the asker's. Each throws on a wrong outcome; `pick` throws when no conversation formed.
+  `expect taken` (on): seen once, the turn is the asker's. The not-stuck cases (holder local and talking, idle under
+  20 minutes, the asker holding the turn) are in the self-test only: in a joined conversation the holder is always busy
+  with a non-social, which the hook counts as stuck. Each throws on a wrong outcome; `pick` throws when no conversation formed.
 - **What the repro does not build**: the off-screen holder of the live report. Both Sims of the repro are local, so it
   checks the hook's decision and its effect on a real conversation, not that EA would wait forever.
 
@@ -73,3 +74,7 @@ result says so.
 
 **Run 7** (FAIL in the off arm's set-up): the conversation ended in the second between `chat` and `pick`. `pick` now
 joins the same two again in its own call when it finds no conversation, as the expect steps do.
+
+**Run 8** (FAIL in the on arm's control step): the off arm passed (rejoined in the step, seen +1, taken +0, the turn
+stayed with the holder). `expect control` saw the turn as stuck: in a conversation the repro joins, the holder is busy
+with a non-social interaction, which the hook counts as stuck by design. The control step is out of the repro.

@@ -73,7 +73,8 @@ namespace Ts3Fixes
         //            ScoreSocialsOnSims would. Throws unless: off, seen +1, nothing taken, the turn stays with the holder;
         //            on, seen +1, taken +1, the turn is the asker's.
         //   "expect control" (switch on): the same with the last social just now and the holder local: throws unless
-        //            nothing is seen or taken.
+        //            nothing is seen or taken. Not in the repro: in a joined conversation the holder is always busy with a
+        //            non-social, which the hook counts as stuck (run 8); the self-test covers the not-stuck cases.
         //   "state": members, whose turn, minutes since the last social, counters.
         //   "stop":  forgets the Sim.
         public static string ConvTurnCheck(string what)

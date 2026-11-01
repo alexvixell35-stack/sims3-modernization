@@ -47165,7 +47165,7 @@
     "fix": "ts3fixes ConvTurn.cs: convturn (default off), docs/509",
     "save": "Baseline-BP",
     "note": "Builds the stuck state on a real conversation of the active household (two of its Sims on one lot; Tiara and Lala Angelista in Baseline-BP): the check gives the turn to the other member and backdates the last social by 20 sim minutes (a silent holder), then runs the hook's check in the same call, as EA's ScoreSocialsOnSims would. The off-screen holder of the live bug is not built (both Sims are local); that part is [inferred] from the IL and the census of the original report.",
-    "expect": "off: expect stuck sees the stuck turn once and leaves it with the holder. on: expect control (holder local, social just now) sees nothing; expect taken sees it once and gives the turn to the asker; the conversation then goes on (state). Each expect step throws otherwise; pick throws when no conversation formed.",
+    "expect": "off: expect stuck sees the stuck turn once and leaves it with the holder. on: expect taken sees it once and gives the turn to the asker; the conversation then goes on (state). Each expect step throws otherwise; pick throws when no conversation formed.",
     "steps": [
       {
         "cmd": "patches",
@@ -47245,17 +47245,6 @@
           ]
         },
         "note": "on: names the asker; throws when no Sim of the active household is in a conversation",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
-          "args": [
-            "expect control"
-          ]
-        },
-        "note": "on: holder local, social just now: seen +0, taken +0 (throws otherwise)",
         "waitS": 1
       },
       {
