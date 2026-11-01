@@ -188,3 +188,5 @@ picker_confirm,StartPathHandlers,Map,purchase dialog: furnish choice + Purchase,
 picker_nav,StartPathHandlers,Map,family picker: Play arrow (or Cancel),natural,family picker up,handler + PlayFlowController.IFlow.OnNavigation,none
 et_move_lot,StartPathHandlers,Live;EditTown,Edit Town: Move lot tool > pick a lot > pick an empty plot > Accept,natural,Edit Town (action enter from live mode); a built residential lot without household and a free plot it fits,handler + EditTownMoveRotateTool,none
 posture_chain_check,HitchReproHandlers,Any,none (read: Sims whose posture chain loops; issue #89),harness,,handler,none
+camera_to_tagged,ContentHandlers,Live,none (test setup: camera onto a tagged Sim or point; a player moves the camera by hand),stress,,handler,live
+fenced_place,RouteFreezeHandlers,Live,none (test setup: places Sims on a fenced spot),stress,,handler,live

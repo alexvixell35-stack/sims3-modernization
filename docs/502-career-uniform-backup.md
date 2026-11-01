@@ -1,10 +1,10 @@
-# 224. A career uniform backup that is uncached again and again (#101, `uniformbackup`)
+# 502. A career uniform backup that is uncached again and again (#101, `uniformbackup`)
 
 Issue #101 found two household Sims, in two player saves, whose Career outfit did not load after a reload. Each lost
 key was the key of the name that `Occupation.ApplyOccupationUniform` caches each new career outfit under. This doc
 explains why that happens and describes the ts3fixes switch that fixes it. The switch is off by default. Status
 (2026-10-31): built and self-tested, not run in game in this form. The same sequence proved the bug live, and a patch
-of the player's own script build with the same effect ran live (issue #101). Counter 612 (registry `fixes-612`).
+of the player's own script build with the same effect ran live (issue #101). Counter 2002 (registry `fixes-2002`).
 
 Claim marks: **[verified]** = read in the game's IL by us (`ildasm`; no code reproduced here) or seen live in #101;
 **[inferred]** = our reading, not yet checked in game.
@@ -45,13 +45,17 @@ All methods are in `Sims3GameplaySystems` unless named otherwise.
 
 | switch | tunable | default | counters |
 |---|---|---|---|
-| `uniformbackup` | `kUniformBackup` | off | 612 `uniformbackup_cleared` (backups that EA uncached and left in the field, cleared) |
+| `uniformbackup` | `kUniformBackup` | off | 2002 `uniformbackup_cleared` (backups that EA uncached and left in the field, cleared) |
 
 ## 3. Checks
 
 - **Self-test** (`node tools/selftest/uniformbackup/run.ts`): every input of the decision, plus the cases in §2.
 - **Repro** `career-uniform-backup-check` (Baseline-BP, `Fixes.UniformBackupCheck`): the #101 live sequence with EA's own
-  calls on an active-household Sim with an occupation: wear Career, re-uniform, wear Career, re-uniform, wear Everyday,
+  calls on a Sim whose occupation hands out a uniform for its level (active household first, then any Sim in the world): wear Career, re-uniform, wear Career, re-uniform, wear Everyday,
   re-uniform, re-uniform. `state` prints the Career keys and whether each loads, the worn key, whether K loads, the
   backup and the counter. Off: after the last step Career[0] is K and does not load. On: every Career outfit loads.
   The off arm leaves that Sim with a broken Career outfit for the session; the harness does not save.
+- **Which Sim** [verified IL]: `Occupation.SetOccupationOutfitForCurrentLevel` calls `ApplyOccupationUniform` only when
+  `TryGetUniformForCurrentLevel` returns a uniform. The Film career does not (it dresses Sims in work costumes through its
+  own methods), so the first run (2026-10-31, a Film Sim) never reached EA's code and its early gate stopped it. `pick` now
+  takes the first Sim with a Career outfit whose occupation returns a level uniform.

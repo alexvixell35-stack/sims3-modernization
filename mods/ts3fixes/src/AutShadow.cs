@@ -98,6 +98,7 @@ namespace Ts3Fixes
     public static partial class Fixes
     {
         const int kMaxObjs = 1024, kMaxPairs = 8192, kMaxLogPerLoad = 200;
+        const int kCRainWhy = 607;  // 607-610: `rain` aborts by path (Result.RainWhy)
         const int kReasonExc = 12, kReasonStop = 13, kReasonDesire = 15, kReasonRain = 20, kReasonPosture = 21;
 
         public sealed class Request
@@ -135,6 +136,10 @@ namespace Ts3Fixes
             public readonly int[] Code = new int[kMaxPairs];
             public readonly int[] Reason = new int[kMaxPairs];
             public readonly float[] Meta = new float[kMaxObjs];
+            // rain-h11 chain8 triage: `rain` aborts by path (worker-written, summed into counters 607-610 at the finish):
+            // 0 arm refused, RainArm 0 (no Satb act span / no site) or not called; 1 arm refused, RainArm -1 (not the worker
+            // by ts3native's thread id); 2 hook abort (branch reached unarmed, no bit, or a real instance); 3 done rule
+            public readonly int[] RainWhy = new int[4];
         }
 
         // Rooted requests and results (docs/122 §4.2), allocated at startup on the sim thread and reused. A shared cut (docs/122
@@ -418,6 +423,10 @@ namespace Ts3Fixes
             bool push = Patch(typeof(AutonomyT), "ConsiderPerformingAutonomousAction", new Type[] { typeof(InteractionInstance) },
                 typeof(AutPushHook), "PushHook", "PushOrig");
             TunedLog("kAutLive", push, "G8 push counter hook");
+            // docs/222 unseen-direct: D2 hook (pass-through unless the autonomy's meta search was direct; switch autunseen)
+            sChooseOk = sB14Ok && Patch(typeof(AutonomyT), "AssignProbabilitiesAndChooseInteraction", Type.EmptyTypes,
+                typeof(AutChooseHook), "ChooseHook", "ChooseOrig");
+            TunedLog("kAutLive", sChooseOk, "unseen-direct D2 hook");
         }
 
         // ---- probe, warm-up, mod guard (sim thread) ----
@@ -992,6 +1001,7 @@ namespace Ts3Fixes
             {
                 sReq = sReqs[k]; sRef = sRefs[k]; sWork = sWorks[k];
                 c[121] += (sRef.Id == sReq.Id ? sRef.Exceptions : 0) + (sWork.Id == sReq.Id ? sWork.Exceptions : 0);
+                if (sWork.Id == sReq.Id) for (int w = 0; w < 4; w++) c[kCRainWhy + w] += sWork.RainWhy[w];  // fixes-607
                 // KeepPartial (docs/122 §14.21): an overrun (LastRun 1) whose worker result says Done kept the objects it
                 // finished before the stop; those are compared, the rest are A4 `stop`. An epoch drop (2) stays dropped.
                 bool partial = lr == 1 && sKeepPartial && sWork.Done && sWork.Partial && sWork.Id == sReq.Id;
@@ -1214,6 +1224,7 @@ namespace Ts3Fixes
         public static void ScoreMeta(Request q, Result r)
         {
             r.Id = q.Id; r.Exceptions = 0; r.DesireDriver = 0; r.RainUsed = 0; r.Done = false; r.Partial = false;
+            Array.Clear(r.RainWhy, 0, r.RainWhy.Length);
             sCurRes = r;
             for (int o = 0; o < q.Objs; o++)
             {
@@ -1285,14 +1296,14 @@ namespace Ts3Fixes
             bool rain = false;
             if (OnWorker() && RainShelterBranch(q, iop))
             {
-                if (!RainArmPair(q, o, iop)) { AutShadowNative.Abort(kReasonRain); return AutShadowCore.kAbort; }
+                if (!RainArmPair(q, o, iop)) { RainWhy(sRainArmRet == -1 ? 1 : 0); AutShadowNative.Abort(kReasonRain); return AutShadowCore.kAbort; }
                 rain = true;
             }
             bool ok = true;
             IOverridesCalculateScore ov = iop.InteractionDefinition as IOverridesCalculateScore;
             try { score = ov != null ? ov.CalculateScore(iop, q.Aut) : q.Aut.CalculateScoreForObjectInteraction(iop); }
             finally { if (rain) ok = RainDisarm(); }  // always disarmed: an armed receiver must never outlive its pair
-            if (!ok) { score = 0f; AutShadowNative.Abort(kReasonRain); return AutShadowCore.kAbort; }
+            if (!ok) { score = 0f; RainWhy(3); AutShadowNative.Abort(kReasonRain); return AutShadowCore.kAbort; }
             return AutShadowCore.kPass;
         }
 
@@ -1326,6 +1337,8 @@ namespace Ts3Fixes
         // CreateInstance call in the branch is not made (null instance, no InteractionInstance.sNextId++ on the worker),
         // and AutShelterHook answers from the bit. Anything off that path aborts `rain` as before.
         static bool sShelterHooked, sRainAnswer;
+        static int sRainArmRet = 9;  // worker: the last RainArm answer (9 = not called yet)
+        static void RainWhy(int path) { if (sCurRes != null) sCurRes.RainWhy[path]++; }
         static Result sCurRes;      // the result ScoreMeta fills (worker: RainUsed for the feature mask)
         static IntPtr sCreateSite;  // InteractionDefinition.CreateInstance(IGameObject, IActor, InteractionPriority, bool, bool)
         static object sRainObj;     // worker only: the armed pair's target
@@ -1362,7 +1375,8 @@ namespace Ts3Fixes
             // so most rain pairs need no answer at all; the hook aborts `rain` only if the branch is reached with no bit
             sRainObj = iop.Target; sRainUsed = false;
             sRainBit = (object)q.Obj[o] == (object)iop.Target ? q.Shelter[o] : AutShadowCore.kShelterNone;
-            if (AutShadowNative.RainArm(iop.InteractionDefinition, sCreateSite) == 1) return true;
+            sRainArmRet = AutShadowNative.RainArm(iop.InteractionDefinition, sCreateSite);
+            if (sRainArmRet == 1) return true;
             sRainObj = null;
             return false;
         }
@@ -1382,7 +1396,7 @@ namespace Ts3Fixes
             {
                 if (!OnWorker()) return ShelterOrig(obj, ii);
                 int a = AutShadowCore.ShelterAnswer(ii == null, obj != null && (object)obj == sRainObj, sRainBit);
-                if (a < 0) { AutShadowNative.Abort(kReasonRain); return false; }
+                if (a < 0) { RainWhy(2); AutShadowNative.Abort(kReasonRain); return false; }
                 sRainUsed = true;
                 return a == 1;
             }
@@ -1403,6 +1417,7 @@ namespace Ts3Fixes
                 RainShelterBranch(null, null);
                 RainArmPair(null, -1, null);
                 RainDisarm();  // RainArm on the sim thread: -1, a no-op (transforms the IC thunk here)
+                RainWhy(0); sCurRes = null;  // worker-only callee (sCurRes null here: no write)
                 AutShadowCore.ShelterAnswer(true, false, 0);  // worker-only callee of the hook
                 sRain.SeasonsOn();
                 foreach (Sim s in LotManager.Actors)

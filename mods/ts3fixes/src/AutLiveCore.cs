@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Ts3Fixes
 {
@@ -227,6 +228,10 @@ namespace Ts3Fixes
             public int OffPm = 1000, OnPm = 800, MinSearches = 40, MinFrames = 300, Hold = 600;
             public double EntryNs = 68;          // docs/30 §15 selftest ns per locked GC entry [inferred, as mono-cost-report.ts]
             public bool Skipping, Probation;     // Probation: the first window after a skip (OnPm applies)
+            // docs/222 §6.3 Own: count only measured sim cost the caller attributes per search (Add: consumer + its own cut +
+            // its own GC lock waits, us) against measured vanilla scoring saved (Add: us); the native words and EntryNs are not
+            // used and refUsPerReq only says whether a vanilla rate exists yet (> 0)
+            public bool Own;
             public int Shift, Until, WinStart = -1, Searches, LastPm = -1, Windows, Skips;
             public double CostUs, SavedReq;      // SavedReq: requests' worth of reference scoring saved in the window
             int mCut0, mWait0, mEnt0;
@@ -252,8 +257,8 @@ namespace Ts3Fixes
                 Searches++;
                 if (Searches < MinSearches || now - WinStart < MinFrames) return 0;
                 Windows++;
-                double cost = CostUs + unchecked(cutUs - mCut0) + unchecked(waitUs - mWait0) + unchecked(entries - mEnt0) * EntryNs / 1000;
-                double saved = refUsPerReq * SavedReq;
+                double cost = Own ? CostUs : CostUs + unchecked(cutUs - mCut0) + unchecked(waitUs - mWait0) + unchecked(entries - mEnt0) * EntryNs / 1000;
+                double saved = Own ? SavedReq : refUsPerReq * SavedReq;
                 int r = 1;
                 if (refUsPerReq <= 0) LastPm = -1;  // no reference yet: no decision
                 else
@@ -269,6 +274,101 @@ namespace Ts3Fixes
                 WinStart = now; mCut0 = cutUs; mWait0 = waitUs; mEnt0 = entries; Searches = 0; CostUs = SavedReq = 0;
                 return r;
             }
+        }
+
+        // docs/222 unseen-direct go-live: the rules with no game types (selftest: node tools/selftest/autlive/run.ts)
+        public static class Unseen
+        {
+            // the search's path at the post: direct only with the switch on, not Dry, and the actor unseen (UfWhy 0: active
+            // household, selectable, seen lot, on screen, near the camera or household, held, social target seen = seen)
+            public static bool AtPost(bool on, bool dry, int why) { return on && !dry && why == 0; }
+            // at the resume and at each later B13 slice: unseen still = stay direct; seen = the exact path from here (snap-back)
+            public static bool Stay(int why) { return why == 0; }
+
+            // a queued direct pick at a scope check: kFlipWait (still unseen: check again later), kFlipDrop (gone, not in the
+            // queue any more, or the running head: vanilla could have started it), kFlipKeep (seen, live Test passed),
+            // kFlipCancel (seen, live Test failed)
+            public const int kFlipWait = 0, kFlipDrop = 1, kFlipKeep = 2, kFlipCancel = 3;
+            public static int Flip(bool gone, bool inQueue, bool isHead, bool seen, bool testPass)
+            {
+                if (gone || !inQueue || isHead) return kFlipDrop;
+                if (!seen) return kFlipWait;
+                return testPass ? kFlipKeep : kFlipCancel;
+            }
+
+            // D2 after the live Test of a direct pick failed `fails` times (1 = the first): kRedraw = draw again without it
+            // (the next pick), kVanilla = score the remaining direct pairs live (C2) and let the game draw
+            public const int kRedraw = 0, kVanilla = 1;
+            public static int AfterFail(int fails, int redraws) { return fails <= redraws ? kRedraw : kVanilla; }
+        }
+
+        // docs/222 §8 pacing: a direct search skips the allow-listed ads' C1/C2, so B13's 1 ms yield timer (Autonomy.sUpdateTimer)
+        // runs out later and the search ends in fewer ticks than vanilla. Each consumed object charges its skipped ads x the
+        // vanilla B14 us per ad to the timer. Per slice: ChargedMs since the slice start; Forced = at the last charge the real
+        // time (timer minus charges) was still within the limit and the charge took it over (a yield the charge brought forward;
+        // approximate: game-scored work after the last charge is not seen).
+        public sealed class Pace
+        {
+            public double ChargedMs;
+            public bool Forced;
+            public void Slice() { ChargedMs = 0; Forced = false; }
+            // timerMs = the timer before this charge; returns the ms to add (0 = no rate yet or nothing skipped)
+            public double Charge(double usPerAd, int ads, double timerMs, double limitMs)
+            {
+                if (usPerAd <= 0 || ads <= 0) return 0;
+                double add = usPerAd * ads / 1000.0;
+                Forced = timerMs - ChargedMs <= limitMs && timerMs + add > limitMs;
+                ChargedMs += add;
+                return add;
+            }
+        }
+
+        // docs/222 §9 measurement (switch autunseencmp, Dry only): per definition, the worker's Test verdict and score vs the
+        // game's own C2 for the same pair of an unseen actor's search, on every B13 slice. Game pass = C2 score != 0 (C2 runs
+        // the Test and scores only on pass, docs/59 C2 [verified]). Age = ticks since the cut, bins <= 1, 2, 3, 4-7, 8+.
+        public sealed class DefCmp
+        {
+            public const int kMaxRatios = 4096;  // shortcut: first 4096 both-pass ratios per definition kept; a reservoir if jobs grow past ~1 h
+            public int N, WfGp, WpGf, BothPass, BothFail;
+            public readonly int[] Age = new int[5], AgeMis = new int[5];
+            public readonly List<float> Ratio = new List<float>();
+            public int Mis { get { return WfGp + WpGf; } }
+            public static int AgeBin(int ticks) { return ticks <= 1 ? 0 : ticks <= 3 ? ticks - 1 : ticks <= 7 ? 3 : 4; }
+            public void Note(bool wPass, bool gPass, float w, float g, int age)
+            {
+                N++;
+                int b = AgeBin(age);
+                Age[b]++;
+                if (wPass == gPass)
+                {
+                    if (!wPass) BothFail++;
+                    else { BothPass++; if (Ratio.Count < kMaxRatios) Ratio.Add(w / g); }
+                    return;
+                }
+                if (wPass) WpGf++; else WfGp++;
+                AgeMis[b]++;
+            }
+            // nearest-rank quantile of the both-pass worker/game score ratios; NaN when there are none
+            public float Quantile(double q)
+            {
+                int n = Ratio.Count;
+                if (n == 0) return float.NaN;
+                float[] a = Ratio.ToArray();
+                Array.Sort(a);
+                int i = (int)Math.Ceiling(q * n) - 1;
+                return a[Math.Max(0, Math.Min(n - 1, i))];
+            }
+        }
+
+        // vanilla B14 cost per meta ad (us), from the game's own B14 calls (sampled pass-through and objects a go-live search
+        // hands to the game); the per-path cost guard's saved side (docs/222 §6.3). Rate 0 until MinPairs ads were timed.
+        public sealed class B14Rate
+        {
+            public long Us, Pairs;
+            public int MinPairs = 200;
+            public void Reset() { Us = Pairs = 0; }
+            public void Add(long us, int pairs) { if (pairs > 0 && us >= 0) { Us += us; Pairs += pairs; } }
+            public double PerPair { get { return Pairs >= MinPairs ? Us / (double)Pairs : 0; } }
         }
     }
 }

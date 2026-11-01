@@ -323,3 +323,237 @@ Findings:
 - Blind spots: the closure stops at depth 3 (`--depth` raises it); a virtual call is listed by its declared target, so the fixture's receiver class decides which override runs; field reads through `ldflda` on value types count once.
 
 Fixtures: **not built.** This machine has no C++ compiler and the CI does not build `native/monohost`, so nothing could be run, and an unrun fixture would only move the debugging to the next person. The recipe per method is the `fixture` column. For the top 5: rows 2 and 4 (no IC) are JitBench cases on objects from constructors plus `FieldInfo.SetValue`; rows 1, 3 and 5 also need a concrete `GameObject` subclass, and rows 3 and 5 need an M2 answer code that reads the guid table from a static field of the test assembly.
+
+## 10. Differential corpus: compiled vs interpreted, bit for bit (2026-10-31)
+
+Round 6, task B4. Goal: every case that P0 compiles must give the same results and the same exceptions as EA's interpreter.
+
+**Tools.**
+- `node tools/jit-corpus.ts --write` generates `native/monohost/JitCorpus.cs`, which `build.cmd` compiles into `MonoHostTest.dll`. It has 148 cases:
+  - 90 arithmetic kernels over typed edge inputs: div / rem with `INT_MIN / -1` and zero, `*.ovf`, `conv.ovf` (also from `r8`), shifts past the width.
+  - x87-sensitive float kernels: NaN payloads, signaling NaN, denormals, -0, 53- vs 64-bit rounding, float stores.
+  - Statement cases: switch, value types, casts, boxing, arrays.
+  - One kernel per EA superinstruction `0x1AB`-`0x1C0`.
+  - The BCL / SimIFace methods P0 compiles (Dictionary with six key types incl. colliding keys, List, `Array.Resize` / `IndexOf`, Enum, Math, ObjectGuid, CASUtils).
+  - 8 try / catch / finally cases, run last because a CPU fault stops the corpus.
+- `MONOHOST_JITCORPUS=1` runs each case three times. It runs twice on EA's interpreter with the code unpatched; the two must agree, or the case is "unstable". It then runs once compiled, with the per-call verifier on (`MONOHOST_JIT=verify`).
+- A case hashes its results and every caught exception. An exception counts by type plus the throwing frame's offset and method. The frame's opcode name and argument values are left out: a compiled frame has no opcode name, and arguments hold object addresses.
+- On a difference, monohost logs both exception trails.
+- `--report <log> --dump <jit-dump.txt>` lists the differences by case name. It labels a difference "stack-trace text only" when the trails differ only by the superop rule below and the per-call verifier saw no value mismatch. It also checks which superops the compiled methods contain.
+- Run: `MONOHOST_JIT=verify MONOHOST_MINTCALL=fast MONOHOST_JITCORPUS=1 MONOHOST_DIVGUARD=1 MONOHOST_JITLIST=<--env> monohost.exe ... selftest ...`. `MONOHOST_JITCORPUS_FROM` / `_TO` pick a range of cases. `MONOHOST_DIVGUARD=1` installs eafix's `MintDivGuard` stubs, so `INT_MIN / -1` runs as with that fix in the game.
+
+**Results [measured offline: 2 runs with the same verdicts, fork CI builds of this branch]:**
+
+| | Result |
+|---|---|
+| Cases | 148, 0 unstable |
+| Behaviour differences | **0** |
+| Stack-trace text differences | 1 (`JitKO.S1AF`, see finding 2) |
+| Superops in compiled, verified methods | 22 of 22 |
+| Per-call verifier during the corpus | 71,469 / 71,573 calls equal, 0 mismatches (2.1 M over the whole selftest) |
+| JitBench checksums | equal to the interpreter's |
+
+**Findings.**
+
+1. **P0 bug, fixed: `leave.s` jumped to a wild ip** [verified: bytes and runs]. Before the fix, all 8 clause cases faulted, even a plain `leave` out of a try with no finally and no exception.
+   - Cause: EA's `leave` / `leave.s` handler `0xE59315` re-reads the opcode word at `ip` to choose the operand size (`0xE5933A`, compare with `0x9C`). In a compiled method that word is `JIT_OP` (`0x1A9`). The handler then reads `leave.s`'s 16-bit offset plus the next word (`JIT_OP` again) as one 32-bit offset, here `0x01A90009`. The dispatcher `0xE544D5` faults on the resulting ip.
+   - Scope: a scan of all mint handlers found no other handler that reads its own opcode word. The scan covers each handler's straight-line code up to the first jump or the first change to `edi`.
+   - Fix: `JitWord` keeps the original word at `leave.s` positions. `leave.s` always exits to EA's handler, so it needs no `JIT_OP` entry. Long `leave` already worked, because `0x1A9 != 0x9C` picks the 32-bit form.
+2. **EA's stack-trace printer reports offset 0 at a superop** [verified: `0xE52A0F`].
+   - When the word at a frame's ip is `>= 0x1AA`, EA's printer writes offset 0 and the name "superop". A compiled frame has `JIT_OP` there, which is below `0x1AA`, so it prints the true offset with a blank name.
+   - Catching is not affected. Both throw stubs of a superop store the current ip to `frame+0x1C` before throwing (`0xE5947E`, `0xE595CA`), the same positions the base `ldfld.o` stores. So the catch-clause lookup sees the same ip in both arms.
+   - The difference shows only in `Exception.StackTrace` text. Not fixed: matching it would mean faking the trace.
+3. **Verifier false positives, fixed.** `GC_malloc_atomic` leaves a block's slack uninitialised. The per-call verifier compared whole GC blocks, so a boxed `long` (16 bytes in a 24-byte block) mismatched on garbage: 30 calls in the `Box` case. The earlier `Array.Resize` mismatch is gone too [measured].
+   - New-object compares now use the class's bytes. Strings use 8 + 2 x length. Other non-arrays use `MonoClass.instance_size` `+0x54` [verified: `0xE6F5A0` reads it]. Arrays keep the length heuristic. The class comes from `MonoVTable+0`; name `+0x34` and namespace `+0x38` are verified live.
+4. **Superop coverage needs whole runs.** EA fuses a sequence only when a whole run between two boundaries equals it (docs/139 §4.1). So the kernels start a run at a ternary join or after a call. 14 of the 22 superops already appeared in compiled BCL methods (`Dictionary.GetSlot` / `GetPrev`, `Array.IndexOf`, the enumerators); the reshaped kernels add the other 8.
+5. **Corpus artefacts removed.**
+   - Identity hashes differ between runs, so a `JitKO` node hashes by its field and other reference types by type name.
+   - Trace frames carry `this` and argument addresses, so the hash keeps the offset and method only.
+   - An `OverflowException` from `newarr` with a negative size escapes the C# `catch` even in the interpreter. The driver hashes an escaped exception by its type name, the same way in both arms.
+
+**Limits.**
+- Yields are out of scope: P0 compiles only never-yielding methods, and monohost runs no task scheduler (P1 adds them).
+- The float kernels ran at monohost's default 53-bit x87 control word. docs/213 shows that 24-bit precision changes `add.r8`, so a control-word sweep belongs to B2's templates.
+- Clause methods are compiled but not verified per call (`unverified (clauses / branch to 0)`). The corpus hash is their only check.
+
+## 11. Exit census: what P0 still leaves to EA's handlers (2026-10-31)
+
+Round 6, task B1. Goal: find which opcodes still exit from compiled code to EA's handlers, how often, and how much self time sits behind them.
+
+**Method.**
+- Count mode (`MONOHOST_JITCOUNT=1`, `MONOHOST_JIT=on`) now logs every compiled method as `jitcalls m calls positions-run positions name`. `positions-run` is a per-method counter incremented at the start of every compiled position. It also logs every exit site, including the ones never taken, as `jitexit m op name op|slow n`.
+- Prep: `node tools/jit-exit-census.ts --prep prep.txt` takes the top 60 never-yielding self-time frames of `compile-candidates.csv` (mean over the three worlds; a world that does not list a frame counts 0). It writes the non-generic ones that resolve through the call-graph `methods.csv` as a `MONOHOST_JITPREP` list.
+  - 27 frames resolved to 31 methods (overloads). 17 compiled newly in the run; the other 14 were already compiled from kJitList or refused.
+  - 16 frames are methods of generic classes: the bench runs their instances.
+  - 17 frames are not in `methods.csv`: generic methods (`Array.Resize<T>`, `GetComponent<T>`), nested short names, mod or renamed methods, and one unnamed frame.
+- `node tools/jit-exit-census.ts --census <log>` writes `docs/data/jit-exit-census.csv` (method, assembly, ms_s, opcode, exits_per_call, est_ms_s_behind, template_effort, basis). The census excludes MonoHostTest's own kernels and bench drivers.
+  - **Run basis:** a method the bench ran at least 100 times uses measured exits per call. Its share is exits / positions run.
+  - **Static basis:** a prep-only method was called once with null / zero arguments and faulted, so it uses its exit sites / positions. A slow path counts 0 there, because a normal call does not take it.
+  - `est_ms_s_behind` = ms_s x share [inferred: every mint instruction costs the same; an exit costs more than an average instruction, so this understates the exits].
+
+**Results [measured offline, 1 count run; shares inferred as above].**
+- 52 compiled methods, 343 rows: 240 on the run basis, 103 static.
+- The 47 methods with a candidate time hold 109.1 ms/s of self time across the three worlds' means. **About 33.8 ms/s of it sits behind exits.**
+
+| # | Template (opcode) | est. ms/s behind | methods | Effort |
+|---|---|---|---|---|
+| 1 | `ret` | 10.41 | 36 | L: frame teardown (B3) |
+| 2 | `call` | 5.70 | 22 | L: compiled-to-compiled calls (B3) |
+| 3 | `callvirt` | 2.63 | 16 | L: compiled-to-compiled calls (B3) |
+| 4 | `vtresult` | 2.44 | 16 | M: value-type copy |
+| 5 | `stinarg.vt` | 1.65 | 14 | M: value-type copy |
+| 6 | `ret.vt` | 1.34 | 5 | L: frame teardown (B3) |
+| 7 | `ldarg.vt` | 0.81 | 10 | M: value-type copy |
+| 8 | `newobj` | 0.80 | 12 | M: allocation helper |
+| 9 | `ret.void` | 0.78 | 8 | L: frame teardown (B3) |
+| 10 | `ldloc.r4` | 0.59 | 2 | L: x87-exact float (B2) |
+
+By effort class:
+
+| Effort class | est. ms/s behind |
+|---|---|
+| Call boundary (B3): returns | 12.5 |
+| Call boundary (B3): calls | 9.4 |
+| Value-type copies, M (incl. `vtresult`) | 5.6 |
+| x87-exact float, L (B2) | 3.0 |
+| Allocation, M | 1.2 |
+| Constants and tables, S | 0.9 |
+| Class checks, M | 0.6 |
+| Bounds checks, M | 0.2 |
+
+Read-out:
+- **The call boundary is two thirds of what is left**, 21.9 of 33.8 ms/s. That fits §7.6, which found that the call path, not the body, is the lever. B3 is the next step.
+- Value-type moves around calls (`vtresult`, `stinarg.vt`, `ldarg.vt`) are the largest M class and mostly belong to the same call sequences.
+- No slow path was taken on the bench: the null, bounds and overflow checks stay native.
+
+Effort classes [inferred from what P0's templates do today, §8]:
+- **S:** a constant or table known at compile time.
+- **M:** a helper call or an inline check with a cache.
+- **L:** needs the B2 (float) or B3 (calls, returns) design.
+
+**Limits.**
+- The static basis assumes every position runs once per call, so loops count once.
+- The bench inputs are synthetic. `Dictionary.GetPrev` shows 39 `callvirt` exits per call on the bench's colliding keys.
+- The gameplay methods have no measured exits until the §9 fixtures exist.
+
+## 12. Compiled-to-compiled calls with lazy frames (2026-10-31)
+
+Round 6, task B3. Goal: a call from compiled code to a compiled method should not build EA's frame (record, `MonoInvocation`, depth, `ThreadContext`), unless an exception, a yield or a native transition needs it (§8.5 step 3). Gate: the B4 corpus (§10), run twice. With `MONOHOST_JIT=verify`, the per-call verifier compares each verified call, but it then keeps the interpreter's pass (§7.2 steps 3-4), so a wrong compiled value does not reach the case hash. With `MONOHOST_JIT=on`, the case hashes compare compiled results end to end.
+
+### 12.1 Which call edges carry the calls
+
+**Tools.**
+- Count mode now also logs each compiled `call` / `callvirt` site: `jitedge caller site op n misses callee flags native-body words clauses name`.
+- For `callvirt`, the callee is the site's inline-cache method at the end of the run. "Misses" counts calls whose receiver class differed from the cached class before the call; each one makes EA look up the method and rewrite the cache.
+- `node tools/jit-exit-census.ts --edges <log>` writes `docs/data/jit-call-edges.csv`, one row per caller, callee and kind:
+  - calls, cache misses;
+  - the callee's traits from its own exit sites: compiled, positions, inner calls per call, throws, allocates, EA native body;
+  - the dispatch rule, the frame rule and the inline candidates (below).
+
+**Result [measured offline: count run, bench and selftest workloads]: 96 edges, 22.7 M calls.**
+
+| Dispatch at the site | When a lazy frame would be written | Edges | Calls | Share |
+|---|---|---:|---:|---:|
+| direct | never (the callee makes no inner call and cannot throw) | 4 | 15,820,985 | 69.7% |
+| class guard (cache misses under 1%) | at the callee's first inner call (1 per call) | 4 | 5,646,238 | 24.9% |
+| none (callee not compiled, or not run) | | 64 | 854,407 | 3.8% |
+| direct | at the callee's first inner call (0.1-34 per call) | 10 | 343,193 | 1.5% |
+| class guard | never | 1 | 24,508 | 0.1% |
+| polymorphic (1% or more misses) | | 6 | 329 | 0.0% |
+| direct or class guard, callee not run | unknown | 7 | 15 | 0.0% |
+| **all** | | **96** | **22,689,675** | |
+
+Read-out:
+- **Direct calls to leaves are 70% of the calls**, but one edge carries most of them: `Math.Min(float)` -> `Single.IsNaN`, 15.8 M. Without it, the class-guarded `callvirt`s lead.
+- "Leaf" in the census means the frame is never needed. v1 needs more: every position of the callee compiles natively. `Single.IsNaN` is `stinarg.r4`, `ldarg.r4` x2, `ceq.r8`, `ceq0.i4`, and the float opcodes still exit (1 native position of 6). It becomes a v1 leaf only with B2's x87-exact float templates.
+- **The class-guarded `callvirt`s are monomorphic.** `Dictionary.GetPrev` -> `IEquatableOfTEqualityComparer.Equals` misses 10 times in 4.7 M calls (the first call of each instantiation). A guard on the cached class is enough.
+- **Their callees are not leaves.** Each one makes one `con.call` per call, a constrained call on a value-type `T` (`Int32.Equals`). So the frame rule for this 25% needs lazy frames that chain (12.6).
+
+### 12.2 Frame rules
+
+A lazy call writes no frame. The frame must exist before anything can read it:
+
+| Event in the callee | Who reads the frame | Rule |
+|---|---|---|
+| Exception (any throw, incl. EA's null, bounds and overflow checks) | EA's exception search walks `MonoInvocation` parents and the records | Write the frame at the exit, before EA's handler runs |
+| Call to another method, allocation, `ldsfld` (class init can run a cctor), any other exit | EA's handler (it may call, allocate, throw or reach native code) | Write the frame at the exit |
+| Yield | The yield save `0xE53620` reads every record | Only through a call (an exit): the frame exists first |
+| Native transition (icall, P/Invoke, runtime invoke) | `ThreadContext +8`, stack walks, the GC | Only through a call: the frame exists first |
+| GC from another thread | Conservative scan of the stack | No rule needed: the block and the arena are on the stack or in the arena |
+| Sampling profiler | Our sampler reads the `MonoInvocation` chain | The callee's time counts for the caller, as with inlining |
+
+So the rule is simple: **the frame is written at the callee's first exit to an EA handler.** A callee whose normal path has no exit (a leaf) never writes it.
+
+### 12.3 v1 as built (`MONOHOST_JITLAZY=1`, off by default)
+
+**Scope.** v1 covers direct call sites only: `call`, and `callvirt` of a non-virtual method of a reference type. The callee, static or instance, must be compiled and a leaf by construction: every position compiles natively, or is `ret` / `ret.void`.
+
+**Call site** (normal body).
+- It tests everything EA's call path and McCall (docs/139 §8.1) test, before any write:
+  - the callee's lazy body exists;
+  - MonoPatcher ForceJIT is off;
+  - for an instance method of a reference type: `this` is not null, its class is not the remoting class, and for `callvirt` it is not a value type;
+  - the next record slot already holds a `MonoInvocation`, which the frame would need;
+  - the arena chunk has room for the callee's frame.
+  Any failed test takes the normal exit (the fast path or EA's handler).
+- The site bakes in the callee's frame sizes (eval stack, vt area, locals, total), so it is built only for a callee that is already transformed. With the switch on, the compiler transforms static callees before their caller, as it already did for instance callees (the inliner). First corpus run without that rule: an untransformed static callee had sizes 0, its eval stack overlapped its arguments, and the per-call verifier caught wrong results in every lazy case plus a CPU fault in `JitKL.CallVoid`.
+- Then it:
+  1. bumps the arena;
+  2. writes EA's return-slot word (the caller's vt cursor);
+  3. pushes a 36-byte block: arguments, `this`, return ip, caller sp, return slot, method, caller `ebx` / `edi`, call ip;
+  4. clears the locals if the callee has init-locals;
+  5. calls the callee's lazy body.
+- On return, it copies the return slot's 8 bytes to the caller's new top, as EA's frame return does, and pops the block.
+
+**Lazy body.** Each such leaf gets a second native body.
+- `ldthis` and `stinarg` read the block instead of `MonoInvocation`.
+- `ret` / `ret.void` copy the value to the return slot, pop the arena and return natively. If values are left on the eval stack, they take EA's `ret` instead, which logs them.
+- Every other exit first runs `JitLazyMat`. It writes the frame EA's call would have written, from the block, then drops the native call and takes the same exit. The frame covers: the caller's record, depth and max depth, the callee's record, `MonoInvocation`, `ThreadContext +8` and the frame words.
+- From then on, the callee is an ordinary interpreted frame. It continues in its normal body, and the caller resumes through EA's return (JitEnter at its next word), as after any interpreted call.
+
+**Not written by a lazy call** (dead after the return, and not read above the current depth [inferred: every reader walks records 0..depth]):
+- the callee's record and `MonoInvocation` fields;
+- the caller's throw ip `MonoInvocation +0x1C` (every throw path writes it first, §10 finding 2);
+- EA's scratch frame slots (docs/139 §8.2).
+EA's `callvirt` handler also rewrites the inline cache on a miss. A non-virtual method gives the same callee either way.
+
+### 12.4 Results [measured: monohost, 2026-10-31]
+
+**Gate.** The B4 corpus has 10 more cases (`JitKL`, 158 in all): static leaves (with init locals), an 8-byte return, non-virtual instance leaves through `callvirt` (null receiver too), a void leaf with `stfld` (null: the exception is thrown in the callee), bounds and null exceptions in the callee, a compiled caller that catches the callee's exception, recursion to depth 30 / 70 / 130, and a value-type `this`.
+
+| Run | Cases that differ | Per-call verifier |
+|---|---|---|
+| verify, lazy on | 1 (§10 "stack-trace text only", as with lazy off) | 71,583 ok, 0 mismatches, 1,851 abandoned (exception); 5 frames written at an exit |
+| verify, lazy off | 1 (the same) | 71,584 ok, 0 mismatches |
+| `on`, lazy on | 1 (the same) | (off) |
+| `on`, lazy off | 1 (the same) | (off) |
+
+The first verify run, before the transformed-callee rule (12.3), had 12 mismatches in `JitKL.CallStatic`, `CallLong`, `CallInst`, `CallInstLong` and `JitKO.S1B4`, and a CPU fault in `JitKL.CallVoid`. With the verifier keeping the interpreter's result, the case hashes of the first four still matched (the gate note at the top).
+
+**Coverage.** On the 12.1 workload with lazy frames on, v1 builds 21 lazy bodies and 339 lazy call sites, from 251 callees seen at call sites. 13,038 calls ran lazily (0.06% of the 22.7 M calls on compiled edges) and no frame was written. Coverage is this low for the two reasons in 12.1: the top leaf needs B2, and the class-guarded edges need v2.
+
+**Speed** [preliminary: one run per arm, the game ran on the same machine, and the corpus ran first in the same process]. `HostTest.JitLz` is a compiled loop with two calls to compiled int leaves per iteration (a static `LzClamp`, a non-virtual `LzBox.Get`). `JitLzPlain` is its interpreted twin. Times are per iteration, best of 7, with the loop overhead added back (the bench subtracts an interpreted loop's overhead, which a compiled loop does not have):
+
+| Arm | `JitLz`, compiled | `JitLzPlain`, interpreted | Speedup |
+|---|---:|---:|---:|
+| lazy off (the call exits to the docs/139 fast path or EA's call, the callee enters through `JitEnter`, its `ret` exits) | 39.5 ns | 56.2 ns | 1.4x |
+| lazy on | 17.5 ns | 57.4 ns | 3.3x |
+
+So a lazy call saves about 11 ns over a compiled call that exits to EA. `MintBench(3000)` has no lazy edges: compiled -17.2% (lazy on) and -16.4% (lazy off) against the interpreter in the same process. A quiet rerun (`MONOHOST_JITREPS=9`, no corpus, both arms alternating) is still to do.
+
+Not explained yet: `JitInl` (three interface calls per element, inlining off) took 47.1 ns compiled with lazy on and 94.8 ns with lazy off, against 53.1 ns in the §8.3 table. Its calls are virtual, so lazy frames do not apply. The difference is that lazy on also pre-transforms the callees. To recheck in the quiet run.
+
+### 12.5 Limits of v1
+
+- Only callees whose every position compiles natively. Float opcodes (B2), `ldsfld`, allocation and calls in the callee all disqualify it.
+- Only direct sites: `call`, and `callvirt` of a non-virtual method. No `con.call`, no class guard.
+- A lazy body cannot make lazy calls (it has no calls).
+- The materialization path (`JitLazyMat`) ran 5 times in the corpus, always for an exception in the callee. No corpus case reaches it through a yield, because a v1 leaf cannot yield.
+- Offline only. Nothing here is in ts3native or the game.
+
+### 12.6 Next (v2)
+
+- Lazy chains: a lazy body may make lazy calls. The block gets a "caller is lazy" flag, and `JitLazyMat` writes the outer frames first. This covers the 25% class-guarded edges, whose callees make one inner call.
+- `callvirt` with a class guard (12.1: those sites miss under 1%). Each site gets a cell with (class, lazy body), filled from the inline cache on the normal path.
+- `con.call` (`0xEB` [op, class, method]) skips the class word and then is a plain `call` (docs/213 §1 row 3, verified), so a lazy site can treat it as `call` with the method in word 2. The callee is a value-type method: `this` is a pointer, as in `JitKL.CallStruct`.
+- The gameplay accessors need the world image (docs/123 M3) before their edges can be measured.

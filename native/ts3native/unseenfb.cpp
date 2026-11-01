@@ -282,8 +282,10 @@ static u8 UfColourMsg(int code) {
     return (code == 12) == (k == g_ufColA) ? 1 : 0;
 }
 
+static u8 GhMsg(int code, DWORD lo);  // ghost.cpp, docs/202 §3.9.5
 static u8 UfCamMsg(DWORD lo, DWORD hi) {
     const int code = (int)(hi >> 16 & 0xFF);
+    if (code >= 21 && code <= 24) return GhMsg(code, lo);  // docs/202 §3.9.5 [UnseenGhost]
     if (code >= 7 && code <= 10) return UfcListMsg(code, lo);
     if (code == 14) return UfcC4LogMsg(lo);  // docs/202 §5.6: the last Sim C4 answered "not free"
     if (code >= 15 && code <= 20) return UfwMsg(code, lo);  // docs/202 §3.4.2 FinishWalk (unseenfbc.cpp)

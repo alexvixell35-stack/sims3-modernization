@@ -19,6 +19,7 @@ namespace Ts3Agent
             Dispatcher.Register("strand_crowd", StrandCrowd);
             Dispatcher.Register("stuck_check_fire", StuckCheckFire);
             Dispatcher.Register("crowd_unreachable", CrowdUnreachable);
+            Dispatcher.Register("fenced_place", FencedPlace);
             Dispatcher.Register("crowd_sea_lot", CrowdSeaLot);
         }
 
@@ -124,6 +125,62 @@ namespace Ts3Agent
             r["skipped_home_lot"] = skippedHome;
             r["attempt"] = attempt;
             r["delay_min"] = delay;
+            return r;
+        }
+
+        // fenced_place {lot?: "far", tries?: 60, max?: 5, height?: 12, back?: 12}: docs/202 §3.9.7 (D) repro. Places up to `max`
+        // spawn_sims Sims on a spot of `lot` that fails IsPointInLotSafelyRoutable (fenced / enclosed, as crowd_unreachable finds it)
+        // and lists them as placed by ts3fixes unseenroute (AppDomain "ts3fixes.unseenroute.placed"), as a wrong relaxed placement
+        // would leave them; tags the spot for camera_to_tagged {key: "ts3fixes.unseenroute.fenced"}. When such a Sim is seen, D
+        // must move it out. Asserts D's preconditions (error otherwise): the spot fails the game's check for EVERY placed Sim's
+        // own route (D checks with the Sim's profile, not the active Sim's) and the lot entry point is routable for each (D's
+        // target). The camera moves onto the spot BEFORE the Sims do, so no unseen window lets unseenroute relax them away
+        // (2026-11-01 unseenroute6 run: 2 of the 5 were held/relaxed in the 5 s before camera_to_tagged).
+        static object FencedPlace(Args a)
+        {
+            RequireLive();
+            Lot lot = RouteLot(a, "far");
+            if (lot.IsWorldLot) throw new McpException("needs a non-world lot");
+            List<Vector3> spots = UnroutableSpots(Util.ActiveSim(), lot, (int)a.Long("tries", 60), 4);
+            if (spots.Count == 0) throw new McpException("no unroutable spot on " + lot.Name + " (try another lot or more tries)");
+            int max = (int)a.Long("max", 5);
+            List<Sim> sims = new List<Sim>();
+            foreach (Sim s in SpawnedInWorld()) { if (sims.Count >= max) break; sims.Add(s); }
+            if (sims.Count == 0) throw new McpException("no Sims: spawn_sims first");
+            Vector3 entry = lot.EntryPoint();
+            entry.y = World.GetTerrainHeight(entry.x, entry.z);
+            List<string> rejected = new List<string>();
+            Vector3 p = Vector3.Invalid;
+            foreach (Vector3 q in spots)
+            {
+                string bad = null;
+                foreach (Sim s in sims)
+                {
+                    if (s.IsPointInLotSafelyRoutable(lot, q)) { bad = s.FullName + " reaches the lot edge from it"; break; }
+                    if (!s.CreateRoute().IsPointRoutable(entry)) { bad = s.FullName + ": lot entry point not routable"; break; }
+                }
+                if (bad == null) { p = q; break; }
+                rejected.Add(Util.Round(q.x) + "," + Util.Round(q.z) + ": " + bad);
+            }
+            if (p == Vector3.Invalid) throw new McpException("no spot on " + lot.Name + " unreachable for every placed Sim: " + string.Join("; ", rejected.ToArray()));
+            CameraController.SetPositionAndTarget(new Vector3(p.x, p.y + (float)a.Double("height", 12), p.z - (float)a.Double("back", 12)), p);
+            var placed = AppDomain.CurrentDomain.GetData("ts3fixes.unseenroute.placed") as Dictionary<ulong, bool>;
+            if (placed == null) { placed = new Dictionary<ulong, bool>(); AppDomain.CurrentDomain.SetData("ts3fixes.unseenroute.placed", placed); }
+            List<object> names = new List<object>();
+            foreach (Sim s in sims)
+            {
+                s.InteractionQueue.CancelAllInteractions();
+                s.SetPosition(p);
+                placed[s.ObjectId.Value] = true;
+                names.Add(s.FullName);
+            }
+            AppDomain.CurrentDomain.SetData("ts3fixes.unseenroute.fenced", new float[] { p.x, p.y, p.z });
+            Dictionary<string, object> r = Util.Obj();
+            r["lot"] = lot.Name;
+            r["spot"] = new List<object> { p.x, p.y, p.z };
+            r["sent"] = names;
+            r["verified"] = "unreachable for all " + names.Count + ", entry routable";
+            r["rejected"] = new List<object>(rejected.ToArray());
             return r;
         }
 

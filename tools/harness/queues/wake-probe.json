@@ -3,10 +3,10 @@
   "jobs": [
     {
       "id": "bp-wakeprobe-smoke",
-      "note": "Smoke first (the queue is under queue.ts's 60-min auto-smoke line, so it is a job): BP Spring 4 min, --ab wakeprobe 1-min slices. Pass: both arms in the per-arm split, wakeprobe read back off / on per slice in the patches readout, applied shows the 7 WakePark patches ok (InteractionQueue.UpdateTimer, Sim.get_IsActiveSim, Sim.DoInteraction, Sim.WaitForExitReason, Sim.AddExitReason, Autonomy.get_IsRunningHighLODSimulation, Lot.UpdateReactions), wake_su_pass_* and wake_react_* grow only in on slices, wake_su_samples_* > 0, heavy tools off (HitchAttr only), no crash. A FAIL: stop the queue (Ctrl+C) and triage before the 10-min jobs.",
-      "asi": "tested",
+      "note": "Smoke first (the queue is under queue.ts's 60-min auto-smoke line, so it is a job): BP Spring 4 min, --ab wakeprobe 1-min slices. Pass: both arms in the per-arm split, wakeprobe read back off / on per slice in the patches readout, applied shows the 7 WakePark patches ok (InteractionQueue.UpdateTimer, Sim.get_IsActiveSim, Sim.DoInteraction, Sim.WaitForExitReason, Sim.AddExitReason, Autonomy.get_IsRunningHighLODSimulation, Lot.UpdateReactions), wake_su_pass_* and wake_react_* grow only in on slices, wake_su_samples_* > 0, heavy tools off (HitchAttr only), no crash. A FAIL: stop the queue (Ctrl+C) and triage before the 10-min jobs. [2026-11-01: rel025a asi + kit5-wakehooks (kWakeHooks) package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -40,14 +40,15 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 15
+      "timeoutMin": 35,
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)"
     },
     {
       "id": "bp-wakeprobe",
-      "note": "BP Spring 10 min natural play, wakeprobe on the whole load (no skips). Pass: no crash, 0 watchdog lines, 7 patches ok, wake_su_pass_* > 0 in at least two classes, wake_yielded small (< 1% of samples). Read: wake-report.ts rates per class; unseen_lo SimUpdate passes/s and unseen polls/s are the wakepark / wakepoll targets.",
-      "asi": "tested",
+      "note": "BP Spring 10 min natural play, wakeprobe on the whole load (no skips). Pass: no crash, 0 watchdog lines, 7 patches ok, wake_su_pass_* > 0 in at least two classes, wake_yielded small (< 1% of samples). Read: wake-report.ts rates per class; unseen_lo SimUpdate passes/s and unseen polls/s are the wakepark / wakepoll targets. [2026-11-01: rel025a asi + kit5-wakehooks (kWakeHooks) package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -79,14 +80,24 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30
+      "timeoutMin": 30,
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_classify",
+          "op": ">",
+          "value": 0,
+          "why": "wakeprobe never classified a pass: kWakeHooks package or switch not working"
+        }
+      ]
     },
     {
       "id": "ip-wakeprobe",
-      "note": "IP 10 min natural play, wakeprobe on the whole load (IP: more commercial lots for UpdateReactions, resort workers high-LOD). Pass and read as bp-wakeprobe.",
-      "asi": "tested",
+      "note": "IP 10 min natural play, wakeprobe on the whole load (IP: more commercial lots for UpdateReactions, resort workers high-LOD). Pass and read as bp-wakeprobe. [2026-11-01: rel025a asi + kit5-wakehooks (kWakeHooks) package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-IP",
-      "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -118,14 +129,24 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30
+      "timeoutMin": 30,
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_classify",
+          "op": ">",
+          "value": 0,
+          "why": "wakeprobe never classified a pass: kWakeHooks package or switch not working"
+        }
+      ]
     },
     {
       "id": "bp-wakeprobe-cost",
-      "note": "Probe cost (memory: measure each tool's cost): BP Spring 10 min, --ab wakeprobe 2-min slices, off first. Read: sim ms/s and it/s per arm; cost = on - off pooled with the on-first job; expect ~1-4 ms/s [inferred]. The hook-present-but-off cost (kWakeHooks package vs default) is not in this pair: it is the same in both arms of every docs/211 A/B.",
-      "asi": "tested",
+      "note": "Probe cost (memory: measure each tool's cost): BP Spring 10 min, --ab wakeprobe 2-min slices, off first. Read: sim ms/s and it/s per arm; cost = on - off pooled with the on-first job; expect ~1-4 ms/s [inferred]. The hook-present-but-off cost (kWakeHooks package vs default) is not in this pair: it is the same in both arms of every docs/211 A/B. [2026-11-01: rel025a asi + kit5-wakehooks (kWakeHooks) package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -150,7 +171,7 @@
       "run": {
         "profile": {
           "seed": 12345,
-          "minutes": 10,
+          "minutes": 15,
           "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
           "ab": "wakeprobe",
           "slice": 2
@@ -159,14 +180,24 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30
+      "timeoutMin": 35,
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_classify",
+          "op": ">",
+          "value": 0,
+          "why": "wakeprobe never classified a pass: kWakeHooks package or switch not working"
+        }
+      ]
     },
     {
       "id": "bp-wakeprobe-cost-onfirst",
-      "note": "As bp-wakeprobe-cost, on first (cancels the slot-1 bias).",
-      "asi": "tested",
+      "note": "As bp-wakeprobe-cost, on first (cancels the slot-1 bias). [2026-11-01: rel025a asi + kit5-wakehooks (kWakeHooks) package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -191,7 +222,7 @@
       "run": {
         "profile": {
           "seed": 12345,
-          "minutes": 10,
+          "minutes": 15,
           "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
           "ab": "wakeprobe",
           "slice": 2,
@@ -201,7 +232,18 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30
+      "timeoutMin": 35,
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_classify",
+          "op": ">",
+          "value": 0,
+          "why": "wakeprobe never classified a pass: kWakeHooks package or switch not working"
+        }
+      ]
     }
-  ]
+  ],
+  "stopQueueOnFail": true
 }

@@ -5,21 +5,31 @@
 //   node tools/registry.ts reserve fixes <n-slots> --by <who> --what <text>
 //   node tools/registry.ts reserve ledger --for <topic> [--by <who>]      next free docs/51 `## N.` section (max of the
 //        headings in this worktree's and the main checkout's docs/51 and of every ledger reservation, + 1); docs/51 not touched
+//   node tools/registry.ts reserve doc --for <topic> [--by <who>]      next free docs/NNN number (docs/ files + reservations)
+//   Add --contributor to any reserve: numbers come from the contributor ranges (CONTRIB below, docs/registry.md "Contributor
+//        ranges"); without it, the contributor ranges are skipped.
 //   node tools/registry.ts list | release <id> | fix-next <file> | --self-check
 // Options: --root <dir> uses <dir> as both worktree and main checkout (tests).
 import { execFileSync, spawn } from 'node:child_process';
-import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 
-type Kind = 'fixes' | 'native' | 'ledger';
+type Kind = 'fixes' | 'native' | 'ledger' | 'doc';
 interface Res { id: string; kind: Kind; from: number; to: number; version?: number; by: string; what: string; at: string; worktree: string }
-interface Used { fixesMax: number; nativeVer: number; nativeEnd: number }
+interface Used { fixesMax: number; nativeVer: number; nativeEnd: number; cFixesMax: number; cNativeVer: number }
+
+// Contributor ranges (docs/registry.md "Contributor ranges"); maintainer numbers never enter them.
+export const CONTRIB = { doc: [500, 599], ledger: [900, 999], fixes: [2000, 2199], nativeV: 900 } as const;
+const inR = (n: number, [a, b]: readonly [number, number] | readonly number[]) => n >= a && n <= b;
+export const isContribFix = (a: number) => a >= CONTRIB.fixes[0];
+export const isContribVer = (v: number) => v >= CONTRIB.nativeV;
 
 export const FIX_HEAD = '## ts3fixes counters';
 export const NAT_HEAD = '## ts3native counters (';
 const LEDGER = join('docs', '51-inference-ledger.md');
-export const ledgerMax = (text: string) => Math.max(0, ...[...text.matchAll(/^## (\d+)\./gm)].map(m => +m[1]));
+export const ledgerMax = (text: string, contrib = false) => Math.max(contrib ? CONTRIB.ledger[0] - 1 : 0, ...[...text.matchAll(/^## (\d+)\./gm)].map(m => +m[1]).filter(n => inR(n, CONTRIB.ledger) === contrib));
+export const docMax = (names: string[], contrib = false) => Math.max(contrib ? CONTRIB.doc[0] - 1 : 0, ...names.map(f => +(f.match(/^(\d+)-.*\.md$/)?.[1] ?? -1)).filter(n => n >= 0 && inR(n, CONTRIB.doc) === contrib));
 const hex = (n: number) => '0x' + n.toString(16).toUpperCase().padStart(4, '0');
 
 // Lines of a `## ` section that starts with head: [start, end) indices.
@@ -40,13 +50,13 @@ const isNext = (l: string) => /^\| \*\*/.test(l);
 
 export function scanDoc(text: string): Used & { collisions: string[] } {
   const L = text.split(/\r?\n/), col: string[] = [];
-  let fixesMax = -1, nativeVer = 0, nativeEnd = -1;
+  let fixesMax = -1, nativeVer = 0, nativeEnd = -1, cFixesMax = CONTRIB.fixes[0] - 1, cNativeVer = CONTRIB.nativeV - 1;
   const [fs, fe] = section(L, FIX_HEAD), slots: number[][] = [];
-  for (let i = fs; i >= 0 && i < fe; i++) { const r = fixRow(L[i]); if (r) { slots.push(r); fixesMax = Math.max(fixesMax, r[1]); } }
+  for (let i = fs; i >= 0 && i < fe; i++) { const r = fixRow(L[i]); if (r) { slots.push(r); if (isContribFix(r[0])) cFixesMax = Math.max(cFixesMax, r[1]); else fixesMax = Math.max(fixesMax, r[1]); } }
   const [ns, ne] = section(L, NAT_HEAD), vers = new Map<number, number>(), offs: number[][] = [];
   for (let i = ns; i >= 0 && i < ne; i++) {
     const r = natRow(L[i]); if (!r) continue;
-    vers.set(r.v, (vers.get(r.v) ?? 0) + 1); nativeVer = Math.max(nativeVer, r.v);
+    vers.set(r.v, (vers.get(r.v) ?? 0) + 1); if (isContribVer(r.v)) cNativeVer = Math.max(cNativeVer, r.v); else nativeVer = Math.max(nativeVer, r.v);
     if (r.from >= 0) { offs.push([r.from, r.to, r.v]); nativeEnd = Math.max(nativeEnd, r.to); }
   }
   slots.sort((a, b) => a[0] - b[0]);
@@ -54,7 +64,7 @@ export function scanDoc(text: string): Used & { collisions: string[] } {
   for (const [v, n] of vers) if (n > 1) col.push(`ts3native v${v} taken ${n} times`);
   offs.sort((a, b) => a[0] - b[0]);
   for (let i = 1; i < offs.length; i++) if (offs[i][0] <= offs[i - 1][1]) col.push(`ts3native offsets of v${offs[i - 1][2]} and v${offs[i][2]} overlap at ${hex(offs[i][0])}`);
-  return { fixesMax, nativeVer, nativeEnd, collisions: col };
+  return { fixesMax, nativeVer, nativeEnd, cFixesMax, cNativeVer, collisions: col };
 }
 
 // Rebuilds both "next free" rows from the highest row in each table.
@@ -106,12 +116,13 @@ function saveRes(main: string, r: Res[]) {
 }
 const opt = (args: string[], k: string) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : undefined; };
 
-function reserveLedger(args: string[]) {
+function reserveLedger(args: string[], c: boolean) {
   const what = opt(args, '--for'), { wt, main } = roots(args), by = opt(args, '--by') ?? basename(wt);
   if (!what) throw new Error('usage: reserve ledger --for <topic> [--by <who>]');
   return withLock(join(main, 'docs', 'registry.md.lock'), () => {
     const res = loadRes(main), docs = [...new Set([join(wt, LEDGER), join(main, LEDGER)])].filter(existsSync);
-    const n = Math.max(0, ...docs.map(d => ledgerMax(readFileSync(d, 'utf8'))), ...res.filter(r => r.kind === 'ledger').map(r => r.to)) + 1;
+    const n = Math.max(c ? CONTRIB.ledger[0] - 1 : 0, ...docs.map(d => ledgerMax(readFileSync(d, 'utf8'), c)), ...res.filter(r => r.kind === 'ledger' && inR(r.to, CONTRIB.ledger) === c).map(r => r.to)) + 1;
+    if (c && n > CONTRIB.ledger[1]) throw new Error(`contributor ledger range ${CONTRIB.ledger.join('-')} is full`);
     const r: Res = { id: `ledger-${n}`, kind: 'ledger', from: n, to: n, by, what, at: new Date().toISOString(), worktree: wt };
     saveRes(main, [...res, r]);
     console.log(`reserved docs/51 §${n} id=${r.id}: write it as "## ${n}. ..." (unused: node tools/registry.ts release ${r.id})`);
@@ -119,8 +130,23 @@ function reserveLedger(args: string[]) {
   });
 }
 
-function reserve(args: string[]) {
-  if (args[1] === 'ledger') return reserveLedger(args);
+function reserveDoc(args: string[], c: boolean) {
+  const what = opt(args, '--for'), { wt, main } = roots(args), by = opt(args, '--by') ?? basename(wt);
+  if (!what) throw new Error('usage: reserve doc --for <topic> [--by <who>]');
+  return withLock(join(main, 'docs', 'registry.md.lock'), () => {
+    const res = loadRes(main), dirs = [...new Set([join(wt, 'docs'), join(main, 'docs')])].filter(existsSync);
+    const n = Math.max(c ? CONTRIB.doc[0] - 1 : 0, ...dirs.map(d => docMax(readdirSync(d), c)), ...res.filter(r => r.kind === 'doc' && inR(r.to, CONTRIB.doc) === c).map(r => r.to)) + 1;
+    if (c && n > CONTRIB.doc[1]) throw new Error(`contributor doc range ${CONTRIB.doc.join('-')} is full`);
+    const r: Res = { id: `doc-${n}`, kind: 'doc', from: n, to: n, by, what, at: new Date().toISOString(), worktree: wt };
+    saveRes(main, [...res, r]);
+    console.log(`reserved docs/${n}-*.md id=${r.id} (unused: node tools/registry.ts release ${r.id})`);
+    return r;
+  });
+}
+
+function reserve(args: string[], c: boolean) {
+  if (args[1] === 'ledger') return reserveLedger(args, c);
+  if (args[1] === 'doc') return reserveDoc(args, c);
   const kind = args[1] as Kind, n = Number(args[2]), by = opt(args, '--by'), what = opt(args, '--what');
   if (!['fixes', 'native'].includes(kind) || !(n >= 1 && Number.isInteger(n)) || !by || !what) throw new Error('usage: reserve fixes|native <n> --by <who> --what <text>');
   const { wt, main } = roots(args);
@@ -129,8 +155,9 @@ function reserve(args: string[]) {
   return withLock(join(main, 'docs', 'registry.md.lock'), () => {
     const res = loadRes(main);
     const u = docs.map(d => scanDoc(readFileSync(d, 'utf8')));
-    let fixesMax = Math.max(...u.map(x => x.fixesMax)), nativeVer = Math.max(...u.map(x => x.nativeVer)), nativeEnd = Math.max(...u.map(x => x.nativeEnd));
-    for (const r of res) if (r.kind === 'fixes') fixesMax = Math.max(fixesMax, r.to); else if (r.kind === 'native') { nativeVer = Math.max(nativeVer, r.version!); nativeEnd = Math.max(nativeEnd, r.to); }
+    let fixesMax = Math.max(...u.map(x => c ? x.cFixesMax : x.fixesMax)), nativeVer = Math.max(...u.map(x => c ? x.cNativeVer : x.nativeVer)), nativeEnd = Math.max(...u.map(x => x.nativeEnd));
+    for (const r of res) if (r.kind === 'fixes') { if (isContribFix(r.from) === c) fixesMax = Math.max(fixesMax, r.to); } else if (r.kind === 'native') { if (isContribVer(r.version!) === c) nativeVer = Math.max(nativeVer, r.version!); nativeEnd = Math.max(nativeEnd, r.to); }
+    if (c && kind === 'fixes' && fixesMax + n > CONTRIB.fixes[1]) throw new Error(`contributor slot range ${CONTRIB.fixes.join('-')} has ${CONTRIB.fixes[1] - fixesMax} left, asked ${n}`);
     const at = new Date().toISOString();
     let r: Res, row: string;
     if (kind === 'fixes') {
@@ -170,7 +197,7 @@ function release(args: string[]) {
 function list(args: string[]) {
   const { wt, main } = roots(args), u = scanDoc(readFileSync(join(wt, 'docs', 'registry.md'), 'utf8'));
   console.log(`doc: ts3fixes highest slot ${u.fixesMax}, ts3native v${u.nativeVer} ends ${hex(u.nativeEnd)}`);
-  for (const r of loadRes(main)) console.log(`${r.id}\t${r.kind === 'fixes' ? `${r.from}-${r.to}` : r.kind === 'ledger' ? `docs/51 §${r.from}` : `v${r.version} ${hex(r.from)}-${hex(r.to)}`}\t${r.by}\t${r.at}\t${r.what}`);
+  for (const r of loadRes(main)) console.log(`${r.id}\t${r.kind === 'fixes' ? `${r.from}-${r.to}` : r.kind === 'ledger' ? `docs/51 §${r.from}` : r.kind === 'doc' ? `docs/${r.from}` : `v${r.version} ${hex(r.from)}-${hex(r.to)}`}\t${r.by}\t${r.at}\t${r.what}`);
   for (const c of u.collisions) console.log(`COLLISION: ${c}`);
 }
 
@@ -213,19 +240,34 @@ async function selfCheck() {
     ok(!loadRes(d).some(r => r.id === 'fixes-285') && readFileSync(join(d, 'docs', 'registry.md'), 'utf8').includes('| **285+** | next free |'), 'release of the top fixes range frees it');
     const dup = fixNext(doc.replace('| v113 |', '| v112 |'));
     ok(scanDoc(dup).collisions.some(c => c.includes('v112 taken 2')), 'fix-next reports a version taken twice');
+    // contributor ranges: own numbers, maintainer numbers unaffected (and the other way round)
+    writeFileSync(join(d, 'docs', '12-a.md'), 'x'); writeFileSync(join(d, 'docs', '501-b.md'), 'x');
+    const r1 = (a: string[]) => run(a);
+    await r1(['reserve', '--contributor', 'fixes', '5', '--by', 'c', '--what', 'c1']); await r1(['reserve', 'fixes', '2', '--contributor', '--by', 'c', '--what', 'c2']);
+    await r1(['reserve', 'native', '2', '--contributor', '--by', 'c', '--what', 'cn']); await r1(['reserve', 'native', '--range', 'contributor', '2', '--by', 'c', '--what', 'cn2']);
+    await r1(['reserve', 'ledger', '--contributor', '--for', 'c']); await r1(['reserve', 'doc', '--contributor', '--for', 'c']); await r1(['reserve', 'doc', '--for', 'm']);
+    const cr = loadRes(d), cf = cr.filter(r => r.kind === 'fixes' && r.from >= 2000), cn = cr.filter(r => r.kind === 'native' && r.version! >= 900);
+    ok(cf.map(r => r.from + '-' + r.to).join() === '2000-2004,2005-2006', `contributor fixes 2000-2004, 2005-2006 (${cf.map(r => r.from + '-' + r.to)})`);
+    ok(cn.map(r => r.version).join() === '900,901' && cn[0].from >= 0x46F0, 'contributor native v900, v901, offsets past the maintainer ones');
+    ok(cr.some(r => r.id === 'ledger-900') && cr.some(r => r.id === 'doc-502') && cr.some(r => r.id === 'doc-52'), 'contributor ledger 900, doc 502 (501 exists); maintainer doc 52 (after docs/51)');
+    await r1(['reserve', 'fixes', '1', '--by', 'm', '--what', 'm']); await r1(['reserve', 'native', '1', '--by', 'm', '--what', 'm']); await r1(['reserve', 'ledger', '--for', 'm']);
+    const mr = loadRes(d);
+    ok(mr.some(r => r.kind === 'fixes' && r.from === 285) && mr.some(r => r.kind === 'native' && r.version === 118) && mr.some(r => r.id === 'ledger-323'), 'maintainer reserves skip the contributor ranges (fixes 285, native v118, ledger 323)');
+    ok(scanDoc(readFileSync(join(d, 'docs', 'registry.md'), 'utf8')).collisions.length === 0, 'doc has no collisions with contributor rows');
     ok(!existsSync(join(d, 'docs', 'registry.md.lock')), 'lock file removed');
   } finally { rmSync(d, { recursive: true, force: true }); }
 }
 
-const args = process.argv.slice(2);
+const contributor = process.argv.includes('--contributor') || opt(process.argv, '--range') === 'contributor';
+const args = process.argv.slice(2).filter((a, i, v) => a !== '--contributor' && a !== '--range' && v[i - 1] !== '--range');
 if (process.argv[1]?.endsWith('registry.ts')) try {  // importable (tools/pr-preflight.ts)
   if (args[0] === '--self-check') await selfCheck();
-  else if (args[0] === 'reserve') reserve(args);
+  else if (args[0] === 'reserve') reserve(args, contributor);
   else if (args[0] === 'release') release(args);
   else if (args[0] === 'list') list(args);
   else if (args[0] === 'fix-next') {
     const t = readFileSync(args[1], 'utf8'), out = fixNext(t);
     if (out !== t) writeFileSync(args[1], out);
     for (const c of scanDoc(out).collisions) console.log(`COLLISION: ${c}`);
-  } else { console.error('usage: node tools/registry.ts reserve fixes|native <n> --by <who> --what <text> | reserve ledger --for <topic> [--by <who>] | list | release <id> | fix-next <file> | --self-check'); process.exit(2); }
+  } else { console.error('usage: node tools/registry.ts [--contributor] reserve fixes|native <n> --by <who> --what <text> | reserve doc|ledger --for <topic> [--by <who>] | list | release <id> | fix-next <file> | --self-check'); process.exit(2); }
 } catch (e: any) { console.error(e.message); process.exit(1); }

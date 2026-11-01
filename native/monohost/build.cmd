@@ -18,5 +18,5 @@ rem Usage: build.cmd [<assembly folder>], default ..\..\game-copy\assemblies (ma
 set "ASM=%~1"
 if not defined ASM set "ASM=%~dp0..\..\game-copy\assemblies"
 if not exist "%ASM%\SimIFace.dll" (echo no %ASM%\SimIFace.dll: MonoHostTest.dll not built & exit /b 0)
-"%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe" -nologo -nostdlib -noconfig -target:library -optimize -out:out\MonoHostTest.dll "-r:%ASM%\mscorlib.dll" "-r:%ASM%\SimIFace.dll" HostTest.cs ..\..\mods\ts3fixes\src\AutShadowCore.cs ..\..\mods\ts3fixes\src\AutShadowLists.cs || exit /b 1
+"%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe" -nologo -nostdlib -noconfig -target:library -optimize -out:out\MonoHostTest.dll "-r:%ASM%\mscorlib.dll" "-r:%ASM%\SimIFace.dll" HostTest.cs JitCorpus.cs ..\..\mods\ts3fixes\src\AutShadowCore.cs ..\..\mods\ts3fixes\src\AutShadowLists.cs || exit /b 1
 echo built out\MonoHostTest.dll

@@ -65,6 +65,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kAutLiveLate value="False" />
     <kAutLiveLateTicks value="3" />
     <kAutLiveGuardHold value="600" />
+    <kAutUnseenPace value="True" />
+    <kAutUnseenCmp value="False" />
     <kSafeSpotReuse value="False" />
     <kWildflowerProbe value="False" />
     <kWildflowerTask value="False" />
@@ -120,6 +122,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenFallbackLoopDetect value="True" />
     <kUnseenFallbackLoopBreak value="False" />
     <kUnseenFallbackFinish value="False" />
+    <kUnseenRouteRelaxed value="False" />
     <kPosturePopCycle value="False" />
     <kOverwatchIgnoreStuckProbes value="True" />
     <kSeasonImposter value="False" />
@@ -130,8 +133,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kShowStageThrowables value="False" />
     <kFirePitChair value="False" />
     <kAgeUpKeepOutfits value="False" />
-    <kDeadRefGuards value="False" />
+    <kOutfitWaitPoll value="False" />
     <kUniformBackup value="False" />
+    <kDeadRefGuards value="False" />
+    <kBakeSaleSeller value="False" />
     <kDeadRefSweep value="False" />
     <kVacExport value="False" />
     <kVacStoreGuard value="False" />
