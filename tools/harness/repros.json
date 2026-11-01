@@ -47158,5 +47158,53 @@
         }
       }
     ]
+  },
+  {
+    "id": "car-no-route-check",
+    "bug": "issue #166 build 33: CarNpcManager.DriveFromPointToMatrix creates a route on car.CarRoutingComponent with no check; a destroyed car (or one with another kind of routing component) throws NullReferenceException out of DriveToLotInServiceCar with the service Sim in the driver's seat",
+    "fix": "ts3fixes CarNoRoute.cs: carnoroute (default off), docs/513",
+    "save": "Baseline-BP",
+    "note": "Needs EA's DriveFromPointToMatrix: run it with the original core mod (a core with the player's Build 33 returns false itself). Each step creates a maid's service car out of the world, destroys it and calls the method on it.",
+    "expect": "off: expect thrown sees EA's NullReferenceException, seen +1. on: expect false sees false returned, no exception, seen +1, returned +1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "carnoroute": false
+        },
+        "note": "applied log lists CarNpcManager.DriveFromPointToMatrix: ok",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CarNoRouteCheck",
+          "args": [
+            "expect thrown"
+          ]
+        },
+        "note": "off: the bug: NullReferenceException, seen +1, returned +0 (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "carnoroute": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CarNoRouteCheck",
+          "args": [
+            "expect false"
+          ]
+        },
+        "note": "on: the fix: false, no exception, seen +1, returned +1 (throws otherwise)",
+        "waitS": 1
+      }
+    ],
+    "cleanup": []
   }
 ]
