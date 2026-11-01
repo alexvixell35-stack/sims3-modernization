@@ -33,6 +33,9 @@ namespace Ts3Fixes
         }
         static int sEggLines;
         static void EggSpotLog(string s) { if (sEggLines++ < 5) ShortcutLog("eggspot: " + s); }
+        // The check calls the swapped IsValidEggPosition through a delegate: MethodInfo.Invoke fails on a swapped method
+        // ("Unable to invoke an invalid target", EaFixes.cs PrefRemoveFn).
+        delegate bool EggValidFn(float posX, float posY, float posZ, float absAngle);
 
         static bool EggSpotOnLot(EggHuntController c, Vector3 p)
         {
@@ -56,6 +59,7 @@ namespace Ts3Fixes
             MethodInfo valid = typeof(EggHuntController).GetMethod("IsValidEggPosition", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             if (valid == null) throw new InvalidOperationException("eggspot: EggHuntController.IsValidEggPosition not found");
             EggHuntController c = (EggHuntController)FormatterServices.GetUninitializedObject(typeof(EggHuntController));
+            EggValidFn check = (EggValidFn)Delegate.CreateDelegate(typeof(EggValidFn), c, valid);
             int c0 = PatchCounters()[2029];
             foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
             {
@@ -66,13 +70,13 @@ namespace Ts3Fixes
                 Lot other = null;
                 foreach (Lot l in LotManager.AllLots) if (l != null && l != m) { other = l; break; }
                 if (other == null) continue;
-                object[] args = { p.x, p.y, p.z, 0f };
+
                 c.EggHuntLot = m;
-                if (!(bool)valid.Invoke(c, args)) continue;  // EA's own check says no here: try another Sim
+                if (!check(p.x, p.y, p.z, 0f)) continue;  // EA's own check says no here: try another Sim
                 c.EggHuntLot = other;
-                bool off = (bool)valid.Invoke(c, args);
+                bool off = check(p.x, p.y, p.z, 0f);
                 c.EggHuntLot = m;
-                bool onLot = (bool)valid.Invoke(c, args);
+                bool onLot = check(p.x, p.y, p.z, 0f);
                 string res = "point of " + s.FullName + " on " + m.Name + ": hunt lot " + other.Name + " -> " + off + ", hunt lot " + m.Name
                     + " -> " + onLot + ", refused +" + (PatchCounters()[2029] - c0);
                 bool ok = what == "fixed" ? !off && onLot && PatchCounters()[2029] - c0 == 1 : off && onLot;

@@ -35,6 +35,9 @@ namespace Ts3Fixes
             public void CityHallWaitOrig(StateMachineClient smc, InteractionInstance.LoopData loopData) { }  // School.GraduateInCityHall.WaitingLoopDel
             public void AttendWaitOrig(StateMachineClient smc, InteractionInstance.LoopData loopData) { }    // School.AttendGraduation.WaitingLoopDel
         }
+        // The check calls the swapped WaitingLoopDel through a delegate: MethodInfo.Invoke fails on a swapped method
+        // ("Unable to invoke an invalid target", EaFixes.cs PrefRemoveFn).
+        delegate void GradWaitFn(StateMachineClient smc, InteractionInstance.LoopData loopData);
         static readonly FieldInfo sGradTable = typeof(School).GetField("sGraduatingSims", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
         static int sGradLines;
 
@@ -85,12 +88,10 @@ namespace Ts3Fixes
                 MethodInfo wait = t.GetMethod("WaitingLoopDel", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
                 if (fa == null || wait == null) throw new InvalidOperationException("graduationtable: " + t.Name + ".Actor or WaitingLoopDel not found");
                 fa.SetValue(ii, actor);
-                try { wait.Invoke(ii, new object[] { null, new InteractionInstance.LoopData() }); returned++; res += t.Name + " returned; "; }
-                catch (TargetInvocationException e)
-                {
-                    if (e.InnerException is NullReferenceException) nre++;
-                    res += t.Name + " threw " + (e.InnerException != null ? e.InnerException.GetType().Name : "?") + "; ";
-                }
+                GradWaitFn call = (GradWaitFn)Delegate.CreateDelegate(typeof(GradWaitFn), ii, wait);
+                try { call(null, new InteractionInstance.LoopData()); returned++; res += t.Name + " returned; "; }
+                catch (NullReferenceException) { nre++; res += t.Name + " threw NullReferenceException; "; }
+                catch (Exception e) { res += t.Name + " threw " + e.GetType().Name + "; "; }
             }
             bool exitSet = actor.HasExitReason(ExitReason.StageComplete);
             if (exitSet) actor.RemoveExitReason(ExitReason.StageComplete);
