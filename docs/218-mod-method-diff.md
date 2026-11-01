@@ -178,4 +178,24 @@ of those differing from every checked build (`autshadow_content_modules`, `autsh
 
 **Test (round 7 task 2).** (a) The user's install (their own core and Tiny UI Fix): AutShadow must stay on, and G-M6 misses
 only on methods that core changed. (b) The same with Tiny UI Fix moved out: the same A0-A3 pairs and the same misses. (c)
-The reference core: "accepted set 1 (by content)", no misses. Results go in this section.
+The reference core: "accepted set 1 (by content)", no misses.
+
+**Results (2026-11-01, CI build of this branch, queue `autshadow-content-guard`, Baseline-BP, 5 min, Mode 0; rows in
+`docs/data/results/2026-11-01-queue-autshadow-content-guard.md`) [verified]:**
+
+| Arm | Modules hashed | Not accepted | G-M6 misses (closure) | Hierarchy misses / hashed | Owners skipped | Requests | Result |
+|---|---|---|---|---|---|---|---|
+| a. player's install (own core + Tiny UI Fix), 2 runs | 7 | 4 | 96 | 862 / 2,616 | 17 | 478, 522 | PASS, PASS |
+| b. same, Tiny UI Fix moved out | 7 | 2 | 82 | 624 / 2,492 | 17 | 700 | PASS |
+| c. reference core (simler90 UPDATE242) | 7 | 0 | 0 | 0 / 0 | 0 | 642 | PASS |
+
+- All 7 game modules were hashed in every arm, so the MVID gate never ran. AutShadow stayed on in arms a and b (requests
+  counted, no "off for the session" line) and skipped 17 owners there.
+- The reference core is accepted by content with no miss, and the hierarchy pass does not run.
+- The player's core leaves 2 modules unaccepted. Tiny UI Fix adds 2 more and 14 closure misses (its bundle carries
+  patched copies of the core DLLs). Both arm-a runs gave the same counts.
+- Not checked: that each miss is a method the player's core or Tiny UI Fix changed. The counters give counts only, and
+  the applied log names only the first lines.
+- One more arm-a start (the first) froze on the startup loading screen, before the main menu: not responding, CPU idle.
+  It was killed after 4 minutes. The two reruns of the same arm loaded and passed. This change runs only when a world has
+  loaded (the hash runs from GuardSweep), so the freeze is not from it [inferred]. There was no hang capture.
