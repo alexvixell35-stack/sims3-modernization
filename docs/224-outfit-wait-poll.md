@@ -208,4 +208,18 @@ callback was dropped. Jobs `bp-outfit-wait-cbdrop` (the replace part must count 
 
 A fix cannot just run every callback: `SwitchOutfitHelper.ChangeOutfit` completes the swap whenever its helper is
 ready, and `Sim.DoOutfitDelayedSwap` with nothing pending sets the visible outfit info to none **[verified, IL]**, so
-two helpers called back for one swap would complete it twice. The fix waits for the drop counts.
+two helpers called back for one swap would complete it twice.
+
+**Drop logger results** (2026-11-01):
+- `bp-outfit-wait-cbdrop` PASS (11.3 min): the replace part's second swap was counted as a dropped callback (2010 = 1).
+  The kept callback was the first helper's `Ready`, with that helper started, not ready, not aborted. **I-414-8 is
+  verified in game.** No other callback was dropped in the run, and none of the 7 natural `own` stale waits had a
+  dropped callback.
+- `lr-outfit-wait-cbdrop-ab` PASS (15.4 min, day-406 save, the switch on in half the slices): 18 stale waits, 15 `own`,
+  0 dropped callbacks, 0 stale waits with a dropped callback. **I-414-9 is refuted**: the natural `own` waits keep their
+  callback, and their swap is just not reported ready (the native side never calls back, or very late; 8 of 18 ended).
+- The natural `own` waits come from route-time clothing changes (`CheckForClothingChangesBeforeRouting`,
+  `RoutingComponent.DoRoute`), going to school, and working out.
+
+So a fix for the dropped callback is not needed for the waits seen so far. It still matters for code that starts a
+second delayed swap while one is pending (the replace case; the age-up model swap, docs/503 §6).
