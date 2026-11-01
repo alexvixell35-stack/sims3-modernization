@@ -62,3 +62,7 @@ with a queued Chat, and autonomy won each time. Run 1: the pie-menu label was no
 Sims' other interactions. Run 3: both Sims went to bed and EA refused the Chat. Run 4: the Chat was queued, but 40 s
 later neither Sim was in a conversation. The repro now joins the two with EA's own call, which needs no free Sims and no
 wait.
+
+**Run 5** (2026-11-01, Baseline-BP, FAIL in the on arm's set-up): the join worked (2 members). Off arm: `expect stuck`
+as expected, seen +1, taken +0, the turn stays with the holder. Before the on arm, EA ended the conversation (Tiara
+went to bed, Lala walked away), and `pick` threw. Each arm now forms its own conversation.

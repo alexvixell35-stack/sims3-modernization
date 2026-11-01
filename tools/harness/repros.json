@@ -47230,10 +47230,21 @@
         "args": {
           "path": "Ts3Fixes.Fixes.ConvTurnCheck",
           "args": [
+            "chat"
+          ]
+        },
+        "note": "on: the same two in one conversation again (EA may have ended the off arm's); throws when they are not in one afterwards",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
             "pick"
           ]
         },
-        "note": "on: names the asker (throws when the conversation ended; the next step then starts no new one)",
+        "note": "on: names the asker; throws when no Sim of the active household is in a conversation",
         "waitS": 1
       },
       {

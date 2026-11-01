@@ -64,7 +64,8 @@ namespace Ts3Fixes
         //   "start": picks two Sims of the active household on one lot (above toddler, neither in a conversation); throws
         //            when there is no such pair. It leaves what they are doing alone (the conversation does not need them free).
         //   "chat":  puts the two in one conversation with EA's SocialComponent.JoinConversationWith (what EA's
-        //            StartSocializingWith calls); throws when they are not in one conversation afterwards.
+        //            StartSocializingWith calls); throws when they are not in one conversation afterwards. Each arm runs it:
+        //            EA can end the off arm's conversation before the on arm (run 5: one Sim went to bed).
         //   "pick":  a Sim of the active household in a conversation with another member; throws when there is none.
         //   "expect stuck" (switch off) / "expect taken" (switch on): in one call, gives the turn to the other member and
         //            backdates the last social by 20 sim minutes (a silent holder), then runs the hook's check as EA's
@@ -98,6 +99,8 @@ namespace Ts3Fixes
                 if (sCtA == null) throw new InvalidOperationException("convturn chat: start first");
                 // EA's own entry: StartSocializingWith calls it when a social starts. A queued Chat lost the race to
                 // autonomy in runs 2-4 (2026-11-01: queued behind other interactions, refused, or the Sims went to bed).
+                if (sCtA.Conversation != null && sCtA.Conversation == sCtB.Conversation)
+                    return sCtA.FullName + " and " + sCtB.FullName + ": already in one conversation (" + sCtA.Conversation.NumMembers + " members)";
                 bool joined = sCtA.SocialComponent != null && sCtA.SocialComponent.JoinConversationWith(sCtB);
                 Conversation jc = sCtA.Conversation;
                 if (!joined || jc == null || sCtB.Conversation != jc)
