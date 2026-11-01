@@ -52,4 +52,13 @@ try/catch, so it never stops EA's method.
 
 ## 4. Results
 
-Not run yet.
+Run 1, 2026-11-01, Baseline-BP, original simler90 core mod, release v0.2.4 asi: **PASS in 8.7 min** (both steps in one
+load).
+
+| Arm | `make` | Expect step |
+|-----|--------|-------------|
+| off | a taxi driver made, released, destroyed, out of the NPC household; on top of the pool, no household | EA popped it and threw `NullReferenceException`; seen +1, dropped +0 |
+| on | another taxi driver built the same way | EA made a new driver from another description; the bad one off the pool; seen +1, dropped +1 |
+
+The off arm shows the bug [verified]: EA hands out the bad description and throws. The step records the exception type
+only, not the method that threw (run 21's log names `Motives.CreateMotives`, then `SimDescription.Instantiate`).
