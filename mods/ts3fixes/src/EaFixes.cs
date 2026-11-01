@@ -90,6 +90,8 @@ namespace Ts3Fixes
             Patch(typeof(BakeSaleTable), "get_GetSeller", typeof(BakeSaleHook), "GetSellerHook", "GetSellerOrig");
             Patch(typeof(BakeSaleTable), "get_HasSeller", typeof(BakeSaleHook), "HasSellerHook", "HasSellerOrig");
             Patch(typeof(BakeSaleTable), "OnStartup", typeof(BakeSaleHook), "StartupHook", "StartupOrig");
+            Patch(typeof(RabbitHole), "AnimateDoorOpen", typeof(RabbitHoleDoorHook), "OpenHook", "OpenOrig");
+            Patch(typeof(RabbitHole), "AnimateDoorClose", typeof(RabbitHoleDoorHook), "CloseHook", "CloseOrig");
         }
 
         // ---- ageupkeepoutfits (#100) ----

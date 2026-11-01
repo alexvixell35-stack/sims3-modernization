@@ -82,7 +82,7 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [98-routing-inroom-search](98-routing-inroom-search.md): in-room quadtree A* spec
 - [99-routing-world-graph-nodes](99-routing-world-graph-nodes.md): world graph R and search node
 
-## Mono and scripts (60)
+## Mono and scripts (61)
 
 - [04a-script-layer-stutter](04a-script-layer-stutter.md): script (C#) side of stutter: scheduler, autonomy and routing retry loops
 - [08-resource-offload-design](08-resource-offload-design.md): offload design
@@ -129,6 +129,7 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [221-mint-float-templates](221-mint-float-templates.md): (contributor, PR #129, Unicorn emulation, no build or game run) compiled templates for the 84 mint float opcodes that match EA bit for bit (`tools/emu/specs/mint_float.py`: 49,152 cases, 0 mismatches); keep x87 for arithmetic, `neg`, r4 stores and `conv.r4.r8` (SSE2 `mulsd`/`divsd` differ on subnormals); compares can drop EA's `_isnan` calls; `fisttp` for `conv.u4/i8/u8.r8` needs one real-CPU check
 - [224-outfit-wait-poll](224-outfit-wait-poll.md): (issue #115, built, not run) `outfitwaitpoll` (off by default): a `Sim.SwitchOutfitHelper.Wait` whose swap was aborted loops on `Sleep(1)` forever (the magical-makeover alarm, 3.0 ms per sim-minute on the day-406 save); after 60 sim-minutes the hook reads `mReady` once per sim-minute; counters 607-609, repro `outfit-wait-stale-check`, self-test `tools/selftest/outfitwait`
 - [225-bake-sale-dead-seller](225-bake-sale-dead-seller.md): (issue #102, built, not run in this form) `bakesaleseller` (off by default): a bake sale table keeps a deleted seller, so every buyer throws and an NPC table is never cleaned up; `GetSeller` reads a deleted seller as none, `HasSeller` follows it, `OnStartup` re-arms an orphaned NPC table's clean-up alarm; counters 610-611, repro `bake-sale-dead-seller-check`, self-test `tools/selftest/bakesale`
+- [505-rabbit-hole-door](505-rabbit-hole-door.md): (built, not run) `rabbitholedoor` (off by default): `RabbitHole.AnimateDoorOpen` / `AnimateDoorClose` ask the rabbit hole state machine for `Open` / `Closed` of actor `Door<n>`; a door the animation cannot open throws `SacsErrorException`, which ends the Sim's entry (seen at Public School 67 on Baseline-BP, door 2); the hooks skip that error after EA's code ran, so the counts stay paired; counter 2015, ledger §904, repro `rabbit-hole-door-check` (queue `rabbit-hole-door.json`).
 - [27-seeded-rng](27-seeded-rng.md): where the script RNG is seeded (`[Config] SimulatorRandomSeed`, else RDTSC), `System.Random()` sites in sim play, `seed_rng` switch design
 - [28-sim-thread-map](28-sim-thread-map.md): every known chunk of sim-thread work by owner, cost and offload blocker, ranked (docs/23 #17 step 1)
 - [29-mono-jit](29-mono-jit.md): embedded Mono 1.2.3 (mint interpreter, no JIT), JIT vs hot-method and runtime fast paths, second managed thread verdict (GC scans one stack)

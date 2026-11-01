@@ -160,6 +160,7 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 685 | `AutLive.cs` (`fixes-685`, docs/222 §10), `autunseenrh` | built 2026-11-01 (unseen4): unseen-direct pairs with a RabbitHole target sent to the game's C1; in Dry the same pairs skipped (counted) by autunseencmp (`autunseen_rh_game`); array `new int[687]` |
 | 686 | `AutLive.cs` (`fixes-686`, docs/222 §10), `autunseencmp` | built 2026-11-01 (unseen4): worker-pass/game-fail compare pairs whose worker score is 0 (BestScores drops both; `autunseen_cmp_wpgf_w0`) |
 | 2002 | `UniformBackup.cs` (`fixes-2002`, contributor range 2000-2199, issue #101, docs/502), `uniformbackup` | built 2026-10-31: career uniform backups that EA uncached and left in `Occupation.backupOutfit`, cleared (`uniformbackup_cleared`); array `new int[2003]` (2000-2001 reserved by PR #153) |
+| 2015 | `RabbitHoleDoor.cs` (`fixes-2015`, contributor range 2000-2199, docs/505), `rabbitholedoor` | built 2026-11-01: rabbit hole door requests (`AnimateDoorOpen` / `AnimateDoorClose`) that threw `SacsErrorException` and were skipped, switch on only (`rabbitholedoor_skipped`); array `new int[2016]` |
 | **687+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

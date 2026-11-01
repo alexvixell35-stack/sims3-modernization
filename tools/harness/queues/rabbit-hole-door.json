@@ -1,0 +1,36 @@
+{
+  "note": "docs/505: repro of rabbitholedoor, off then on in one load, on the save where the failing door was seen.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-rabbit-hole-door-check",
+      "note": "Correctness (5 min, Bridgeport test save): repro rabbit-hole-door-check. Pass: every step ok (off: a door open threw SacsErrorException at the caller; on: open and close returned with the count paired), rabbitholedoor_skipped >= 1 (fixesRequire). Run with an EA or original simler90 core: a core that already catches the error makes the off step fail.",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "rabbit-hole-door-check",
+          "fixesRequire": "rabbitholedoor_skipped>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:rabbitholedoor_skipped",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm skipped no door request: the hook is not installed (already compiled?) or the repro did not run"
+        }
+      ]
+    }
+  ]
+}
