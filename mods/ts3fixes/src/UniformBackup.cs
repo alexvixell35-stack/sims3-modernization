@@ -50,6 +50,7 @@ namespace Ts3Fixes
         }
 
         static SimDescription sUbSim;
+        static OutfitCategories sUbWear; // the last "wear" category: "uniform" puts it back on if the Sim changed in between
         static readonly List<SimDescription> sUbUsed = new List<SimDescription>(); // the off arm leaves its Sim's Career outfit unloadable
         static Type sUbOccType; // the first pick's occupation: later picks prefer it (EA's uniform path differs by occupation)
         static object sUbCoreSwitch; // a patched Systems build's own switch (OutfitRepair.kClearBackupUniform), set to EA for the check
@@ -69,7 +70,7 @@ namespace Ts3Fixes
         {
             if (what == "pick")
             {
-                sUbSim = null;
+                sUbSim = null; sUbWear = OutfitCategories.None;
                 List<SimDescription> cands = new List<SimDescription>();
                 if (Household.ActiveHousehold != null) cands.AddRange(Household.ActiveHousehold.SimDescriptions);
                 foreach (Sim w in Sims3.Gameplay.Queries.GetObjects<Sim>()) if (w.SimDescription != null) cands.Add(w.SimDescription);
@@ -95,7 +96,7 @@ namespace Ts3Fixes
             }
             if (what == "stop")
             {
-                sUbSim = null;
+                sUbSim = null; sUbWear = OutfitCategories.None;
                 FieldInfo core = UniformCoreSwitch();
                 if (core != null && sUbCoreSwitch != null) core.SetValue(null, sUbCoreSwitch);
                 sUbCoreSwitch = null;
@@ -108,14 +109,25 @@ namespace Ts3Fixes
                 if (sim == null) return "no Sim";
                 OutfitCategories cat = (OutfitCategories)Enum.Parse(typeof(OutfitCategories), what.Substring(5));
                 sim.SwitchToOutfitWithoutSpin(cat);
+                sUbWear = cat;
                 return "wearing " + cat + "; " + UniformBackupCheck("state");
             }
             if (what == "uniform")
             {
                 MethodInfo m = typeof(Occupation).GetMethod("SetOccupationOutfitForCurrentLevel", kInstAll, null, Type.EmptyTypes, null);
                 if (m == null) return "SetOccupationOutfitForCurrentLevel not found";
+                // 2026-11-01 runs 2-3: the on arm's Sim had left Career between the steps (a delayed swap of its own),
+                // so EA released the old outfit instead of keeping it as the backup. Put the "wear" category back on
+                // first, in the same call, so EA sees what the step asked for.
+                string again = "";
+                if (sim != null && sUbWear != OutfitCategories.None && sUbSim.GetOutfitCount(sUbWear) > 0
+                    && CASUtils.GetOutfitInGameObject(sim.ObjectId) != sUbSim.GetOutfit(sUbWear, 0).Key)
+                {
+                    again = "re-wore " + sUbWear + " (the Sim had changed to " + sim.CurrentOutfitCategory + "); ";
+                    sim.SwitchToOutfitWithoutSpin(sUbWear);
+                }
                 m.Invoke(sUbSim.Occupation, null);
-                return "re-uniformed; " + UniformBackupCheck("state");
+                return again + "re-uniformed; " + UniformBackupCheck("state");
             }
             if (what == "state")
             {
