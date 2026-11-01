@@ -5415,6 +5415,7 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 | I-904-1 | 505 §1 | On some rabbit holes the state machine request `Open` of a slot door throws `SacsErrorException` out of `AnimateDoorOpen` to its caller | ErrorTrap reports 2026-10-31 and 2026-11-01 (Public School 67, Door2, from `AnimateEnterRabbitHole`); IL (no catch in `AnimateDoorOpen` / `AnimateEnterRabbitHole`) | `rabbit-hole-door-check` off arm (`broken`) | a door open threw `SacsErrorException` at the caller | no door open threw | verified 2026-11-01 (BP: Public School 67 Door2, 1 of 78 doors; docs/505 §4) |
 | I-904-2 | 505 §2 | With `rabbitholedoor` on, both door methods return on that door and the count goes 0, 1, 0 over open and close | hook order (EA body inside the try) | same, on arm (`fixed`) | both returned, counts paired, `rabbitholedoor_skipped` >= 1 | a request still threw, or the count did not return to 0 | verified 2026-11-01 (BP, skipped 2; docs/505 §4) |
 | I-904-3 | 505 §1 | EA leaves the count raised after the failed open, so only the first Sim at that door per load is stopped | IL (count raised before the request, no close on the throw path) | `tools/selftest/rabbitholedoor` (model of the pattern) | selftest ok | n/a | open (inferred) |
+
 ## 905. Round 7 task 2: the [AutShadow] content accept list reads module bytes from Mono's MonoImage (2026-11-01, docs/218 §8; static + native self-test, game run pending)
 
 | ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
