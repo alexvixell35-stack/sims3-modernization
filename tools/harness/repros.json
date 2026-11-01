@@ -47182,8 +47182,19 @@
             "start"
           ]
         },
-        "note": "queues EA's Chat social between two Sims of the active household on one lot; throws when there are none",
-        "waitS": 25
+        "note": "picks two Sims of the active household on one lot and cancels their interactions; throws when there are none",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "chat"
+          ]
+        },
+        "note": "queues EA's Chat social from the first to the second; throws when EA does not queue it",
+        "waitS": 40
       },
       {
         "cmd": "reflect_call",

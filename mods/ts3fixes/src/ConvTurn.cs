@@ -61,8 +61,10 @@ namespace Ts3Fixes
 
         static Sim sCtAsker;
         // Agent checks for docs/509 (repro conversation-turn-check), on a real conversation of the active household:
-        //   "start": queues EA's Chat social (SocialInteractionA, as EA's own code builds it) from one Sim of the active
-        //            household to another on the same lot, neither in a conversation; throws when there is no such pair.
+        //   "start": picks two Sims of the active household on one lot (above toddler, neither in a conversation) and cancels
+        //            their interactions, so the chat does not wait behind them (2026-11-01: a Chat queued behind the
+        //            current interactions had not started 25 s later); throws when there is no such pair.
+        //   "chat":  queues EA's Chat social (SocialInteractionA, as EA's own code builds it) from the first to the second.
         //   "pick":  a Sim of the active household in a conversation with another member; throws when there is none.
         //   "expect stuck" (switch off) / "expect taken" (switch on): in one call, gives the turn to the other member and
         //            backdates the last social by 20 sim minutes (a silent holder), then runs the hook's check as EA's
@@ -76,18 +78,32 @@ namespace Ts3Fixes
         {
             if (what == "start")
             {
+                sCtA = sCtB = null;
                 if (Household.ActiveHousehold == null) throw new InvalidOperationException("convturn start: no active household");
                 foreach (Sim a in Household.ActiveHousehold.AllActors)
+                {
                     foreach (Sim b in Household.ActiveHousehold.AllActors)
                     {
                         if (a == b || a.HasBeenDestroyed || b.HasBeenDestroyed || a.LotCurrent == null || a.LotCurrent != b.LotCurrent) continue;
                         if (a.Conversation != null || b.Conversation != null || a.SimDescription.ToddlerOrBelow || b.SimDescription.ToddlerOrBelow) continue;
-                        InteractionInstance ii = new SocialInteractionA.Definition("Chat", new string[0], null, false)
-                            .CreateInstance(b, a, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
-                        if (ii == null || !a.InteractionQueue.AddAfterCheckingForDuplicates(ii)) continue;
-                        return a.FullName + " -> " + b.FullName + ": Chat queued";
+                        sCtA = a; sCtB = b; break;
                     }
-                throw new InvalidOperationException("convturn start: no two Sims of the active household (above toddler, not in a conversation) on one lot");
+                    if (sCtA != null) break;
+                }
+                if (sCtA == null) throw new InvalidOperationException("convturn start: no two Sims of the active household (above toddler, not in a conversation) on one lot; " + CtDoing());
+                string was = CtDoing();
+                sCtA.InteractionQueue.CancelAllInteractions();
+                sCtB.InteractionQueue.CancelAllInteractions();
+                return sCtA.FullName + " and " + sCtB.FullName + ": interactions cancelled (were: " + was + ")";
+            }
+            if (what == "chat")
+            {
+                if (sCtA == null) throw new InvalidOperationException("convturn chat: start first");
+                InteractionInstance ii = new SocialInteractionA.Definition("Chat", new string[0], null, false)
+                    .CreateInstance(sCtB, sCtA, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
+                if (ii == null || !sCtA.InteractionQueue.AddAfterCheckingForDuplicates(ii))
+                    throw new InvalidOperationException("convturn chat: EA did not queue Chat for " + sCtA.FullName + " -> " + sCtB.FullName + "; " + CtDoing());
+                return sCtA.FullName + " -> " + sCtB.FullName + ": Chat queued";
             }
             if (what == "pick")
             {
@@ -98,7 +114,7 @@ namespace Ts3Fixes
                         Conversation c = s.Conversation;
                         if (c != null && OtherMember(c, s) != null) { sCtAsker = s; break; }
                     }
-                if (sCtAsker == null) throw new InvalidOperationException("convturn pick: no Sim of the active household is in a conversation with another Sim");
+                if (sCtAsker == null) throw new InvalidOperationException("convturn pick: no Sim of the active household is in a conversation with another Sim; " + CtDoing());
                 return sCtAsker.FullName + "; switch " + ShortcutOn("convturn") + "; " + ConvTurnCheck("state");
             }
             if (what == "stop") { sCtAsker = null; return "stopped"; }
@@ -136,7 +152,24 @@ namespace Ts3Fixes
                 if (!ok) throw new InvalidOperationException("convturn " + what + ": wrong outcome (switch " + on + "); " + st);
                 return "as expected; " + st;
             }
-            return "unknown check " + what + " (start, pick, expect stuck, expect taken, expect control, state, stop)";
+            return "unknown check " + what + " (start, chat, pick, expect stuck, expect taken, expect control, state, stop)";
+        }
+
+        static Sim sCtA, sCtB;
+
+        // what each Sim of the active household is doing, for the failure messages
+        static string CtDoing()
+        {
+            string r = "";
+            if (Household.ActiveHousehold != null)
+                foreach (Sim s in Household.ActiveHousehold.AllActors)
+                {
+                    InteractionInstance cur = s.CurrentInteraction;
+                    r += (r.Length > 0 ? "; " : "") + s.FullName + ": " + (cur != null ? cur.GetType().Name : "nothing") + ", queue "
+                        + (s.InteractionQueue != null ? s.InteractionQueue.Count : -1) + (s.Conversation != null ? ", in a conversation" : "")
+                        + (s.LotCurrent != null ? ", lot " + s.LotCurrent.Name : "");
+                }
+            return r;
         }
 
         static Sim OtherMember(Conversation c, Sim self)
