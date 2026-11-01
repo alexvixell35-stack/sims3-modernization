@@ -47164,7 +47164,7 @@
     "bug": "docs/508: a greeting-card photo session (festival booth, City Hall) ends only when SimDoneWithPhoto empties its list of expected Sims; a listed Sim whose TakePhoto never got queued, or one that left while the others were ready, stays on it for good and the booth stays in use, after a reload too.",
     "fix": "ts3fixes PhotoSession.cs: photosession (default off), docs/508",
     "save": "Baseline-BP",
-    "note": "Needs no festival: the check builds sessions on the first greeting-card rabbit hole (City Hall) with two Sims that have no interaction on it, in three cases (waiting for Sims, ready for the photo, a stale session at world load).",
+    "note": "Needs no festival: the check builds sessions on the first greeting-card rabbit hole without a session (City Hall, the science lab and others) with two Sims that have no interaction on it, in three cases (waiting for Sims, ready for the photo, a stale session at world load).",
     "expect": "off: case 1 false with 1 listed, case 2 false with 2 listed, case 3 kept; on: cases 1 and 2 true with the list cleared, case 3 ended, counters +3/+2/+1",
     "steps": [
       {
