@@ -61,12 +61,10 @@ namespace Ts3Fixes
 
         static Sim sCtAsker;
         // Agent checks for docs/509 (repro conversation-turn-check), on a real conversation of the active household:
-        //   "start": picks two Sims of the active household on one lot (above toddler, neither in a conversation) and cancels
-        //            their interactions, so the chat does not wait behind them (2026-11-01: a Chat queued behind the
-        //            current interactions had not started 25 s later); throws when there is no such pair. It also fills both
-        //            Sims' motives (EA's MaxEverything), so autonomy does not send them to bed before the chat (2026-11-01: both
-        //            were in BedSleep 5 s after the cancel, and EA refused the Chat).
-        //   "chat":  queues EA's Chat social (SocialInteractionA, as EA's own code builds it) from the first to the second.
+        //   "start": picks two Sims of the active household on one lot (above toddler, neither in a conversation); throws
+        //            when there is no such pair. It leaves what they are doing alone (the conversation does not need them free).
+        //   "chat":  puts the two in one conversation with EA's SocialComponent.JoinConversationWith (what EA's
+        //            StartSocializingWith calls); throws when they are not in one conversation afterwards.
         //   "pick":  a Sim of the active household in a conversation with another member; throws when there is none.
         //   "expect stuck" (switch off) / "expect taken" (switch on): in one call, gives the turn to the other member and
         //            backdates the last social by 20 sim minutes (a silent holder), then runs the hook's check as EA's
@@ -93,21 +91,18 @@ namespace Ts3Fixes
                     if (sCtA != null) break;
                 }
                 if (sCtA == null) throw new InvalidOperationException("convturn start: no two Sims of the active household (above toddler, not in a conversation) on one lot; " + CtDoing());
-                string was = CtDoing();
-                sCtA.InteractionQueue.CancelAllInteractions();
-                sCtB.InteractionQueue.CancelAllInteractions();
-                sCtA.Motives.MaxEverything();
-                sCtB.Motives.MaxEverything();
-                return sCtA.FullName + " and " + sCtB.FullName + ": interactions cancelled, motives filled (were: " + was + ")";
+                return sCtA.FullName + " and " + sCtB.FullName + " (" + CtDoing() + ")";
             }
             if (what == "chat")
             {
                 if (sCtA == null) throw new InvalidOperationException("convturn chat: start first");
-                InteractionInstance ii = new SocialInteractionA.Definition("Chat", new string[0], null, false)
-                    .CreateInstance(sCtB, sCtA, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
-                if (ii == null || !sCtA.InteractionQueue.AddAfterCheckingForDuplicates(ii))
-                    throw new InvalidOperationException("convturn chat: EA did not queue Chat for " + sCtA.FullName + " -> " + sCtB.FullName + "; " + CtDoing());
-                return sCtA.FullName + " -> " + sCtB.FullName + ": Chat queued";
+                // EA's own entry: StartSocializingWith calls it when a social starts. A queued Chat lost the race to
+                // autonomy in runs 2-4 (2026-11-01: queued behind other interactions, refused, or the Sims went to bed).
+                bool joined = sCtA.SocialComponent != null && sCtA.SocialComponent.JoinConversationWith(sCtB);
+                Conversation jc = sCtA.Conversation;
+                if (!joined || jc == null || sCtB.Conversation != jc)
+                    throw new InvalidOperationException("convturn chat: EA did not put " + sCtA.FullName + " and " + sCtB.FullName + " in one conversation (joined " + joined + "); " + CtDoing());
+                return sCtA.FullName + " and " + sCtB.FullName + ": in one conversation (" + jc.NumMembers + " members)";
             }
             if (what == "pick")
             {

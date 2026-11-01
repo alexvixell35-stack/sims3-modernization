@@ -45,8 +45,9 @@ wait from the other side.
 - **Self-test** (`node tools/selftest/convturn/run.ts`): every input combination of `ConvTurnCore.Stuck` against the
   rule written out a second time, plus the named cases (off-screen holder, local holder talking, idle 10 and 20 minutes,
   busy with a non-social, the asker on turn, nobody on turn).
-- **Repro** `conversation-turn-check` (queue `conversation-turn.json`, Baseline-BP, `Fixes.ConvTurnCheck`): starts a
-  chat between the active household's two Sims, then in one call per step gives the turn to the other member,
+- **Repro** `conversation-turn-check` (queue `conversation-turn.json`, Baseline-BP, `Fixes.ConvTurnCheck`): puts the
+  active household's two Sims in one conversation with EA's `SocialComponent.JoinConversationWith` (what EA's
+  `StartSocializingWith` calls when a social starts), then in one call per step gives the turn to the other member,
   backdates the last social by 20 sim minutes (a silent holder) and runs the hook's check, as EA's
   `ScoreSocialsOnSims` would. `expect stuck` (off): seen once, nothing taken, the turn stays with the holder.
   `expect control` (on, the holder local and the last social just now): nothing seen. `expect taken` (on): seen once,
@@ -56,4 +57,8 @@ wait from the other side.
 
 ## 4. Results
 
-Not run yet.
+**Runs 1-4** (2026-11-01, Baseline-BP, FAIL in the set-up, before any expect step): the repro started the conversation
+with a queued Chat, and autonomy won each time. Run 1: the pie-menu label was not found. Run 2: the Chat sat behind the
+Sims' other interactions. Run 3: both Sims went to bed and EA refused the Chat. Run 4: the Chat was queued, but 40 s
+later neither Sim was in a conversation. The repro now joins the two with EA's own call, which needs no free Sims and no
+wait.
