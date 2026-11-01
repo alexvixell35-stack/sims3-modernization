@@ -256,12 +256,13 @@ namespace Ts3Fixes
         // [2002] uniformbackup (UniformBackup.cs, issue #101, docs/502): stale career uniform backups cleared.
         // [2014] nullservice (NullService.cs, docs/504): null elements dropped from Services.AllServices.
         // [2015] rabbitholedoor (RabbitHoleDoor.cs, docs/505): rabbit hole door requests that threw SacsErrorException, skipped.
+        // [2031-2032] convturn (ConvTurn.cs, issue #166 build 19, docs/509): stuck conversation turns seen by a scoring call, turns taken.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2016]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2033]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -392,6 +393,7 @@ namespace Ts3Fixes
                 case "bakesaleseller": return Instantiator.kBakeSaleSeller;
                 case "nullservice": return Instantiator.kNullService;
                 case "rabbitholedoor": return Instantiator.kRabbitHoleDoor;
+                case "convturn": return Instantiator.kConvTurn;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;
                 case "savecleanupaggressive": return Instantiator.kSaveCleanupAggressive;
                 case "vacexport": return Instantiator.kVacExport;

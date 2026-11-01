@@ -5381,6 +5381,14 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 | I-416-7 | 67 §30.5 | The bit is cleared by a blocked-flag write (`0x82A200` or `0x82B6F3`) through a waypoint past its chunk's count: (1753, 13) and (1563, 20) land exactly on the two words in the shipped layout | exe scan for bit-15 clears; `--mem-image` search over all out-of-range pairs | PortalFlagRefs=1, WorldAStarRefs=0 on Baseline-IP | no crash, skip lines name (1753, 13) / (1563, 20), `waSkip` 0 with both on | a crash or A\* skips with PortalFlagRefs on (a third writer) | partly verified (67 §30.6: writer 1 skips (1563, 20) live; run 177 still crashed with the switch on, so not the whole cause) |
 | I-416-8 | 67 §30.5 | The stale pairs come from waypoints a lot update added and removed while a portal or lot waypoint kept the reference | both pairs 2 past their chunk's count | a watchpoint on the portal id / chunk counts during load | the count of chunk 1753 / 1563 drops while a portal still holds the id | the pairs are wrong from the save's first lot load | inferred |
 
+## 907. A conversation turn held by a Sim that never takes it, `convturn` (2026-11-01, docs/509; static + self-test)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-907-1 | 509 §1 | A turn held by a townie that runs no local autonomy never moves: only the Sim on turn scores socials, only local Sims call the scoring, and only a pick moves the turn | IL of ScoreSocialsOnSims, RunAutonomy and the three stores of mWhoseTurn; the contributor's census (30 and 21 checks in a row) | none yet (the repro's Sims are both local) | a census or log of one conversation whose holder is off screen and whose turn never moves | the turn moving without a pick | open |
+| I-907-2 | 509 §2 | Giving the asker the turn before EA's ScoreSocialsOnSims makes EA score as on the asker's own turn, and the conversation goes on | the method's first test reads only WhoseTurn; EA's own turn changes are plain stores | `conversation-turn-check` on arm | expect taken passes and the state step shows a later social | expect taken throws, or no social follows | open |
+| I-907-3 | 509 §2 | A local holder that spoke recently is never passed over | ConvTurnCore.Stuck; self-test | `conversation-turn-check` expect control | seen +0 | seen +1 | open |
+
 ## 901. Issue #101: the career uniform backup is uncached again and again, `uniformbackup` (2026-10-31, docs/502; static + self-test; the bug sequence and a player-side script patch ran live)
 
 | ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |

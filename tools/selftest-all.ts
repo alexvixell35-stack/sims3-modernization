@@ -80,6 +80,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/nullservice/run.ts': CSC,
   'tools/selftest/vacation/run.ts': CSC,
   'tools/selftest/uniformbackup/run.ts': CSC,
+  'tools/selftest/convturn/run.ts': CSC,
   'tools/selftest/savecleanup/run.ts': CSC,
   'tools/selftest/slicequeue/run.ts': CSC,
   'tools/selftest/menumaven/run.ts': CSC,

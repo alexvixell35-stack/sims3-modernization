@@ -47158,5 +47158,135 @@
         }
       }
     ]
+  },
+  {
+    "id": "conversation-turn-check",
+    "bug": "issue #166 build 19: a conversation's turn passes only when the Sim on turn selects a social, and SocialComponent.ScoreSocialsOnSims scores only on the Sim's own turn; a townie on turn that runs no local autonomy (off screen, on a world lot) never scores, so the conversation never advances",
+    "fix": "ts3fixes ConvTurn.cs: convturn (default off), docs/509",
+    "save": "Baseline-BP",
+    "note": "Builds the stuck state on a real conversation of the active household (Tiara and Lala Angelista in Baseline-BP): the check gives the turn to the other member and backdates the last social by 20 sim minutes (a silent holder), then runs the hook's check in the same call, as EA's ScoreSocialsOnSims would. The off-screen holder of the live bug is not built (both Sims are local); that part is [inferred] from the IL and the census of the original report.",
+    "expect": "off: expect stuck sees the stuck turn once and leaves it with the holder. on: expect control (holder local, social just now) sees nothing; expect taken sees it once and gives the turn to the asker; the conversation then goes on (state). Each expect step throws otherwise; pick throws when no conversation formed.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "convturn": false
+        },
+        "note": "applied log lists SocialComponent.ScoreSocialsOnSims: ok"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Tiara Angelista",
+          "target": "Lala Angelista",
+          "interaction": "Friendly... / Chat"
+        },
+        "note": "starts a conversation",
+        "waitS": 25
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "off: names the asker; throws when no Sim of the active household is in a conversation",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "expect stuck"
+          ]
+        },
+        "note": "off: seen +1, taken +0, the turn stays with the holder (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "convturn": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "on: names the asker (throws when the conversation ended; the next step then starts no new one)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "expect control"
+          ]
+        },
+        "note": "on: holder local, social just now: seen +0, taken +0 (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "expect taken"
+          ]
+        },
+        "note": "on: seen +1, taken +1, the turn is the asker's (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: the conversation went on after the take (a social picked by the asker resets the minutes since the last social)",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "done",
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvTurnCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "forgets the Sim",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "convturn": false
+        }
+      }
+    ]
   }
 ]

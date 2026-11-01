@@ -137,6 +137,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kAgeUpKeepOutfits value="False" />
     <kOutfitWaitPoll value="False" />
     <kUniformBackup value="False" />
+    <kConvTurn value="False" />
     <kDeadRefGuards value="False" />
     <kBakeSaleSeller value="False" />
     <kNullService value="False" />
