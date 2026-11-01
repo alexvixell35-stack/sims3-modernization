@@ -1,0 +1,66 @@
+{
+  "note": "Issue #101 (PR #148, docs/502): repro of uniformbackup, off then on in one load, on a Sim whose occupation hands out a level uniform.",
+  "jobs": [
+    {
+      "id": "bp-career-uniform-check",
+      "note": "Correctness (5 min): repro career-uniform-backup-check. Pass: off after the last re-uniform Career[0] does not load and K loads False; on every Career outfit loads and cleared >= 1",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "career-uniform-backup-check",
+          "fixesRequire": "uniformbackup_cleared>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:uniformbackup_cleared",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm cleared no backup 2.5 min in: hook not installed, no Sim whose occupation hands out a level uniform, or the check failed"
+        }
+      ]
+    },
+    {
+      "id": "lr-career-uniform-check",
+      "note": "Second clean run in another world (BigSave-LR): the same repro, so the off arm must break Career[0] and the on arm must clear the backup once and keep every Career outfit loading. Correctness (5 min): repro career-uniform-backup-check. Pass: off after the last re-uniform Career[0] does not load and K loads False; on every Career outfit loads and cleared >= 1",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+      "save": "BigSave-LR",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "career-uniform-backup-check",
+          "fixesRequire": "uniformbackup_cleared>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:uniformbackup_cleared",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm cleared no backup 2.5 min in: hook not installed, no Sim whose occupation hands out a level uniform, or the check failed"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": true
+}

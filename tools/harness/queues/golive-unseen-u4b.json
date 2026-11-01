@@ -1,0 +1,227 @@
+{
+  "note": "golive-unseen (docs/222): unseen-direct go-live, NOT RUN. ts3fixes switch autunseen (off by default) on top of [AutShadow] Mode=3 + autlive; asi = the golive-final ts3native (0.36.148, no native change); package game-copy/ts3fixes.package.unseen1 (node tools/setup/build-fixes.ts --on kAutLive). Order = cheapest decisive gate first: smoke (acting 4 min BP: direct searches happen, no exception) -> Dry-direct compare BP/IP/SV (Dry=1 + autunseen: G7 top-10/top-1 by actor class, unseen vs seen, report line \"unseen-direct Dry by actor class\") -> snap-back repro (aut-unseen-snapback) -> acting BP/IP 10 min -> behaviour pairs vs vanilla (autlive off = the game's search; same seed; BP, IP 30 min each; report G8 + \"unseen-direct\" lines). PASS rules per job note; stopQueueOnFail stops at the first FAIL row. ts3agent: rebuild (node tools/harness/build-agent.ts) before the run for the autunseen_* counter names and camera_to_tagged.",
+  "stopQueueOnFail": true,
+  "smoke": {
+    "id": "bp-gu-smoke",
+    "earlyGates": [
+      {
+        "afterSec": 150,
+        "counter": "fixes:autshadow_gm6_faults",
+        "op": "==",
+        "value": 0,
+        "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+      },
+      {
+        "afterSec": 150,
+        "counter": "fixes:autshadow_gm6_mismatch",
+        "op": "==",
+        "value": 0,
+        "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+      },
+      {
+        "afterSec": 150,
+        "counter": "autshadow.req",
+        "op": ">",
+        "value": 0,
+        "why": "worker never posted (no [AutShadow] request)"
+      },
+      {
+        "afterSec": 200,
+        "counter": "fixes:autunseen_posted",
+        "op": ">",
+        "value": 0,
+        "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+      },
+      {
+        "afterSec": 150,
+        "counter": "fixes:autunseen_exc",
+        "op": "==",
+        "value": 0,
+        "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+      }
+    ],
+    "note": "Smoke (4 min BP, acting): PASS = 0 crashes; ts3native go-live line Dry=0 (logRequire); ts3fixes applied log \"unseen-direct ready (switch autunseen)\" and \"unseen-direct D2 hook\"; autunseen_posted > 0, autunseen_direct > 0, autunseen_exc 0; D2 live Test pass + fail > 0. FAIL: stop (queue stops).",
+    "asi": "game-copy/ts3native.asi.golive-final",
+    "fixesPackage": "game-copy/ts3fixes.package.unseen1",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 90,
+    "ini": {
+      "HitchAttr.Enabled": 1,
+      "RouteSnap.Enabled": 1,
+      "RouteSnap.Count": 1,
+      "RouteSnap.AuditEvery": 0,
+      "MonoThread.Enabled": 1,
+      "MonoThread.Mode": 1,
+      "MonoThread.GcLock": 1,
+      "MonoThread.FrameTls": 1,
+      "MonoThread.ArenaFix": 1,
+      "MonoThread.N2mPrivate": 1,
+      "MonoThread.LazyGate": 1,
+      "MonoThread.LazyEarly": 1,
+      "AutShadow.Enabled": 1,
+      "AutShadow.Mode": 3,
+      "AutShadow.Sample": 1,
+      "AutShadow.Audit": 50,
+      "AutShadow.DumpOnMismatch": 1,
+      "AutShadow.ColdIc": 1,
+      "AutShadow.CutLean": 2,
+      "AutShadow.TierMs": 1500,
+      "AutShadow.ListAudit": 1,
+      "AutShadow.TierClassMs": 1000,
+      "AutShadow.RowHot": 200,
+      "AutShadow.RunSkip": 1,
+      "AutShadow.FreshEvery": 0,
+      "AutShadow.KeepPartial": 1,
+      "AutShadow.TopN": 10,
+      "AutShadow.Bands": 3,
+      "AutShadow.Margin": 0,
+      "AutShadow.MaxWait": 3,
+      "AutShadow.VerifyEvery": 50,
+      "AutShadow.Dry": 0,
+      "AutShadow.Satb": 2,
+      "AutShadow.WindowWaitUs": 0,
+      "AutShadow.PreLearn": 0,
+      "AutShadow.TierReqLots": 1
+    },
+    "logRequire": {
+      "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+      "OK   mono thread P4": 1,
+      "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+      "autshadow satb: Satb=2 -> mode 2 ": 1
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 4,
+        "fixesOn": "autshadow,autlive,autunseen",
+        "noSamplers": true,
+        "fixesReport": "g8_"
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 30,
+    "pinReason": "docs/222 is ts3fixes-only: the golive-final ts3native (0.36.148, Config keys 24-30 + Satb act) is the tested base"
+  },
+  "jobs": [
+    {
+      "id": "ip-gu-dry-defcmp-u4-rhoff2",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3",
+          "op": ">",
+          "value": 0,
+          "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autunseen_dry_runs",
+          "op": ">",
+          "value": 0,
+          "why": "no Dry search of an unseen actor: scope (UfWhy) never says unseen"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autunseen_cmp_pairs",
+          "op": ">",
+          "value": 0,
+          "why": "no compared pair: autunseencmp not on (agent without the switch?) or no unseen Dry search reached B14"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autunseen_rh_game",
+          "op": ">",
+          "value": 0,
+          "why": "no rabbit-hole pair skipped by the compare: autunseenrh not in the package (unseen4?)"
+        }
+      ],
+      "note": "RERUN of ip-gu-dry-defcmp-u4-rhoff with profile.fixesOff autunseenrh actually passed (queue.ts ignored the job-level key, docs/222 §10.1). Same as ip-gu-dry-defcmp-u4 with autunseenrh OFF: settles docs/222 §10 (counter 686 vs 673: are rabbit-hole worker-pass/game-0 pairs also worker score 0?).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.unseen4",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive,autunseen,autunseencmp",
+          "noSamplers": true,
+          "fixesReport": "autunseen_,g8_",
+          "fixesOff": "autunseenrh"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "pinReason": "docs/222 is ts3fixes-only: the golive-final ts3native (0.36.148, Config keys 24-30 + Satb act) is the tested base"
+    }
+  ]
+}

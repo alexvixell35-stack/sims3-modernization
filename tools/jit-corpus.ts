@@ -543,12 +543,14 @@ export function report(log: string, dump: string | undefined, names: string[]): 
   }
   if (dump) {  // superops seen in the methods the corpus compiled (mint listing, then "compiled:" when P0 compiled it)
     const seen = new Set<string>();
-    let cur: string[] = [];
+    // lazy frames compile a callee while its caller's block is still open (caller listing, callee block, callee "compiled:",
+    // caller "compiled:"), so a "compiled:" line belongs to the innermost block that has no compile line yet
+    const open: string[][] = [];
     for (const l of dump.split(/\r?\n/)) {
-      if (l.startsWith('== ')) { cur = []; continue; }
-      if (/^\s+compiled:/.test(l)) { cur.forEach(o => seen.add(o)); continue; }
+      if (l.startsWith('== ')) { open.push([]); continue; }
+      if (/^\s+compiled:/.test(l)) { open.pop()?.forEach(o => seen.add(o)); continue; }
       const m = /^\s+[0-9A-F]{4} super_(1[A-C][0-9A-F])/.exec(l);
-      if (m) cur.push(m[1]);
+      if (m) open[open.length - 1]?.push(m[1]);
     }
     r.superops = [...seen].sort();
     for (let op = 0x1AB; op <= 0x1C0; op++) if (!seen.has(op.toString(16).toUpperCase())) r.missingSuper.push(op.toString(16).toUpperCase());
@@ -576,6 +578,8 @@ function selfCheck() {
   ok(r.cases === 3 && r.differ === 1 && r.unstable === 1 && r.lines[0] === 'MISMATCH 1 b: compiled 0000002A interpreted 0000002B'
     && r.lines[1] === '    compiled: DivideByZeroException at X | ', 'log parse');
   ok(r.superops.join() === '1AB' && r.missingSuper.length === 21 && !r.missingSuper.includes('1AB'), 'superop coverage from the dump');
+  const nested = '== MonoHostTest.JitKO.S1B4 rm 0\n  0014 super_1B4\n== MonoHostTest.JitKO.Same rm 0\n  0000 ldarg.0\n   compiled: 3 positions\n   compiled: 15 positions\n';
+  ok(report(log, nested, ['a', 'b', 'c']).superops.join() === '1B4', 'superop coverage with a lazy callee compiled inside the caller');
   const fi = 'NullReferenceException #0: 0x00000 superop    in N.K:S (N.K,bool) ([0CED8F20] [0] ) | ', fc = 'NullReferenceException #0: 0x00010            in N.K:S (N.K,bool) ([0CED8E60] [0] ) | ';
   ok(traceOnly(fi, fc) && !traceOnly(fc, fc) && !traceOnly(fi.replace('0x00000 superop', '0x00004 ldfld.o'), fc), 'trace-only rule (superop offset)');
   console.log(`jit-corpus self-check: ${k} checks${process.exitCode ? ', FAILED' : ', ok'}`);

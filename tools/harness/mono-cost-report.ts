@@ -301,7 +301,7 @@ export function unseenLines(fix: Input['fix'] | undefined, secs: number, dry: bo
   L.push(`- unseen-direct (autunseen, docs/222) [measured]: eligible searches seen at the post (exact path) ${seen}, unseen posted ${posted} ` +
     `(unseen share ${pc(posted, posted + seen)}); direct ${direct}, snap-back at the resume ${fv('autunseen_snap_resume')}, at a later slice ` +
     `${fv('autunseen_snap_slice')}, dropped (exact fallback) ${fv('autunseen_dropped')}; objects to the game's B14 ${fv('autunseen_obj_game')}; ` +
-    `ads inserted ${pairs} (${direct ? f1(pairs / direct) : NA} a search), off-list C1 ${fv('autunseen_offlist')}; D2 live Test pass ${tp} / fail ${tf} ` +
+    `ads inserted ${pairs} (${direct ? f1(pairs / direct) : NA} a search), off-list C1 ${fv('autunseen_offlist')}${has('autunseen_rh_game') ? `, rabbit-hole C1 ${fv('autunseen_rh_game')} (autunseenrh, docs/222 §10)` : ''}; D2 live Test pass ${tp} / fail ${tf} ` +
     `(${pc(tf, tp + tf)} fail, ${tp + tf ? f1(fv('autunseen_test_us') / (tp + tf)) : NA} us a Test), vanilla fallbacks ${fv('autunseen_vanilla')}, ` +
     `no pick ${fv('autunseen_nopick')}; queued picks tagged ${fv('autunseen_tagged')}, at the flip kept ${fv('autunseen_flip_kept')} / cancelled ` +
     `${fv('autunseen_flip_cancel')}; exceptions ${fv('autunseen_exc')}`);
@@ -507,9 +507,10 @@ export function defCmpLines(fix: Input['fix'] | undefined, recs: any[]): string[
   const pc = (x: number, y: number) => y > 0 ? `${(x * 100 / y).toFixed(1)}%` : NA;
   const n = fv('autunseen_cmp_pairs'), wf = fv('autunseen_cmp_wfail_gpass'), wp = fv('autunseen_cmp_wpass_gfail'), lp = fv('autunseen_cmp_late_pairs');
   const L = [`- unseen-direct per-pair compare (autunseencmp, docs/222 §9) [measured]: ${fv('autunseen_cmp_searches')} unseen Dry searches, ${n} pairs ` +
-    `(late slices ${lp}, ${pc(lp, n)}); worker-fail/game-pass ${wf} (${pc(wf, n)}), worker-pass/game-fail ${wp} (${pc(wp, n)}), both pass ` +
+    `(late slices ${lp}, ${pc(lp, n)}); worker-fail/game-pass ${wf} (${pc(wf, n)}), worker-pass/game-fail ${wp} (${pc(wp, n)}${typeof fix?.autunseen_cmp_wpgf_w0?.after === 'number' ? `, worker score 0 in ${fv('autunseen_cmp_wpgf_w0')}` : ''}), both pass ` +
     `${fv('autunseen_cmp_both_pass')}, both fail ${fv('autunseen_cmp_both_fail')}; late-slice mismatches ${fv('autunseen_cmp_late_mis')} of ${lp} ` +
-    `(${pc(fv('autunseen_cmp_late_mis'), lp)}); objects the direct path would hand to the game ${fv('autunseen_cmp_obj_skipped')}, slices with the actor seen ${fv('autunseen_cmp_snapped')}`];
+    `(${pc(fv('autunseen_cmp_late_mis'), lp)}); objects the direct path would hand to the game ${fv('autunseen_cmp_obj_skipped')}, slices with the actor seen ${fv('autunseen_cmp_snapped')}` +
+    `${typeof fix?.autunseen_rh_game?.after === 'number' ? `; rabbit-hole pairs not compared (autunseenrh, docs/222 §10) ${fv('autunseen_rh_game')}` : ''}`];
   const dc = recs.filter((r): r is DefCmpRec => r?.t === 'defcmp' && typeof r.def === 'string');
   if (!dc.length) { L.push('  per definition: no {"t":"defcmp"} records (autshadow.jsonl missing or no snapshot)'); return L; }
   const top = Math.max(...dc.map(r => r.n));

@@ -1,0 +1,370 @@
+{
+  "note": "Night 2026-11-01 (Monday v0.2.5 decisions): eafix off-arm reruns, IP replicate of the unseen throttle A/Bs, unseen-direct opt-in soak. stopQueueOnFail false: one FAIL (eafix off arms are expected to crash) does not end the night.",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-eafix-conform-off-r2",
+      "note": "[night-1101, Monday v0.2.5 decisions, 2026-11-01] Rerun of the off arm (first run did not reproduce a crash or needs a second look). Expected crash site: crash V 0x84EAC6; a crash there is evidence, FAIL here = evidence. Release-rule evidence (ConformActor, switch OFF), rel025b builds. Repro ea-conform-actor-destroy-loop. OFF arm: a CRASH is the EXPECTED outcome and shows the bug is real; the queue marks it FAIL, which here = evidence for the fix. Judge with crash triage: expected site = crash V: call eax at 0x84EAC6 (follower body list, first node 0x84EAB2/0x84EABD/0x84EAC3) through a freed actor; also 0x849570/0x853500 ask sites; eip often 0 or vtable word garbage (docs/67 s26.1). A clean OFF run proves nothing (rare race): rerun up to 3 times. Not a timing run.",
+      "asi": "game-copy/ts3native.asi.rel025b",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025b",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "ini": {
+        "EaCrashFixes.ConformActor": 0,
+        "Crash.Log": 1
+      },
+      "logForbid": {
+        "^FAIL ea fix": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ea-conform-actor-destroy-loop"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "pinReason": "rel025b is the tested build (builds.json rel025b-asi 0.36.152 / rel025b-fixes); source has moved on since"
+    },
+    {
+      "id": "bp-eafix-thumb-off-r2",
+      "note": "[night-1101, Monday v0.2.5 decisions, 2026-11-01] Rerun of the off arm (first run did not reproduce a crash or needs a second look). Expected crash site: crash W 0x54E79A; a crash there is evidence, FAIL here = evidence. Release-rule evidence (ThumbPose, switch OFF), rel025b builds. Repro ea-thumb-pose-pack-loop. OFF arm: a CRASH is the EXPECTED outcome and shows the bug is real; the queue marks it FAIL, which here = evidence for the fix. Judge with crash triage: expected site = crash W: read fault at 0x54E79A movaps xmm0,[ecx+eax] in pose modifier 0x54E630 from thumbnail render 0xD59C10 (docs/67 s27.1). A clean OFF run proves nothing (rare race): rerun up to 3 times. Not a timing run.",
+      "asi": "game-copy/ts3native.asi.rel025b",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025b",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "ini": {
+        "EaCrashFixes.ThumbPose": 0,
+        "Crash.Log": 1
+      },
+      "logForbid": {
+        "^FAIL ea fix": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ea-thumb-pose-pack-loop"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "pinReason": "rel025b is the tested build (builds.json rel025b-asi 0.36.152 / rel025b-fixes); source has moved on since"
+    },
+    {
+      "id": "ip-unseen-unseenenv-offfirst",
+      "note": "[night-1101, Monday v0.2.5 decisions, 2026-11-01] IP replicate of today's BP throttle A/B (Isla Paradiso, Baseline-IP-Spring). docs/144 A/B: --ab unseenenv (environment score one call in 4 for unseen high-LOD Sims), BP play 10 min, 2-min slices, off-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped. [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 72,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "fixesOn": "unseenprobe",
+          "ab": "unseenenv",
+          "slice": 2,
+          "noSamplers": true
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_env_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenprobe counts no environment calls"
+        }
+      ]
+    },
+    {
+      "id": "ip-unseen-unseenenv-onfirst",
+      "note": "[night-1101, Monday v0.2.5 decisions, 2026-11-01] IP replicate of today's BP throttle A/B (Isla Paradiso, Baseline-IP-Spring). docs/144 A/B: --ab unseenenv (environment score one call in 4 for unseen high-LOD Sims), BP play 10 min, 2-min slices, on-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped. [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 72,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "fixesOn": "unseenprobe",
+          "ab": "unseenenv",
+          "slice": 2,
+          "abOnFirst": true,
+          "noSamplers": true
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_env_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenprobe counts no environment calls"
+        }
+      ]
+    },
+    {
+      "id": "ip-unseen-unseenmotives-offfirst",
+      "note": "[night-1101, Monday v0.2.5 decisions, 2026-11-01] IP replicate of today's BP throttle A/B (Isla Paradiso, Baseline-IP-Spring). docs/144 A/B: --ab unseenmotives (Autonomy.Update every 4 sim-minutes for unseen high-LOD Sims), BP play 10 min, 2-min slices, off-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped. [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 72,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "fixesOn": "unseenprobe",
+          "ab": "unseenmotives",
+          "slice": 2,
+          "noSamplers": true
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_motive_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenprobe counts no motive updates"
+        }
+      ]
+    },
+    {
+      "id": "ip-unseen-unseenmotives-onfirst",
+      "note": "[night-1101, Monday v0.2.5 decisions, 2026-11-01] IP replicate of today's BP throttle A/B (Isla Paradiso, Baseline-IP-Spring). docs/144 A/B: --ab unseenmotives (Autonomy.Update every 4 sim-minutes for unseen high-LOD Sims), BP play 10 min, 2-min slices, on-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped. [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 72,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "fixesOn": "unseenprobe",
+          "ab": "unseenmotives",
+          "slice": 2,
+          "abOnFirst": true,
+          "noSamplers": true
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_motive_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenprobe counts no motive updates"
+        }
+      ]
+    },
+    {
+      "id": "ip-unseen-unseenbroadcast-offfirst",
+      "note": "[night-1101, Monday v0.2.5 decisions, 2026-11-01] IP replicate of today's BP throttle A/B (Isla Paradiso, Baseline-IP-Spring). docs/144 A/B: --ab unseenbroadcast (unseen broadcasters one pulse in 16 each (replaces the shared 1 in 4)), BP play 10 min, 2-min slices, off-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped. [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 72,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "fixesOn": "unseenprobe",
+          "ab": "unseenbroadcast",
+          "slice": 2,
+          "noSamplers": true
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:broadcast_pulses",
+          "op": ">",
+          "value": 0,
+          "why": "no broadcaster pulses counted"
+        }
+      ]
+    },
+    {
+      "id": "ip-unseen-unseenbroadcast-onfirst",
+      "note": "[night-1101, Monday v0.2.5 decisions, 2026-11-01] IP replicate of today's BP throttle A/B (Isla Paradiso, Baseline-IP-Spring). docs/144 A/B: --ab unseenbroadcast (unseen broadcasters one pulse in 16 each (replaces the shared 1 in 4)), BP play 10 min, 2-min slices, on-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped. [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 72,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "fixesOn": "unseenprobe",
+          "ab": "unseenbroadcast",
+          "slice": 2,
+          "abOnFirst": true,
+          "noSamplers": true
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:broadcast_pulses",
+          "op": ">",
+          "value": 0,
+          "why": "no broadcaster pulses counted"
+        }
+      ]
+    },
+    {
+      "id": "ip-unseen-direct-soak",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:autunseen_posted",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autunseen_exc",
+          "op": "==",
+          "value": 0,
+          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autunseen_rh_game",
+          "op": ">",
+          "value": 0,
+          "why": "no rabbit-hole pair routed to the game C1: autunseenrh not in the package (unseen4?) or no unseen rabbit-hole ad"
+        }
+      ],
+      "note": "[night-1101, Monday v0.2.5 decisions, 2026-11-01] Crash soak, 45 min on IP, unseen-direct as v0.2.5 ships it opt-in: autunseen + autunseenpace (78% pacing), unseen4 package, autunseencmp off, NO A/B (switches on all run). PASS = no crash, 0 watchdog lines, early gates ok. Copy of ip-gu-g8-ab-u4 (docs/222 s10).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.unseen4",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 45,
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace",
+          "noSamplers": true,
+          "fixesReport": "g8_",
+          "fixesOff": "autunseencmp"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 65,
+      "pinReason": "docs/222 is ts3fixes-only: the golive-final ts3native (0.36.148, Config keys 24-30 + Satb act) is the tested base"
+    }
+  ]
+}

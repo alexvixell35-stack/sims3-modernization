@@ -1059,11 +1059,15 @@ namespace Ts3Fixes
             LiveStat(kSObjConsumed);
             BestScores bs = (BestScores)fBestScores.GetValue(a);
             int saved0 = L.SavedPairs;
+            bool rh = ShortcutOn("autunseenrh");
             for (int p = L.Start[o]; p < L.Start[o + 1]; p++)
             {
                 InteractionObjectPair iop = L.Pair[p];
                 if (!PassesFilter(iop, c)) continue;
                 if (L.Def[p] < 0 || L.Code[p] == AutShadowCore.kFiltered) { k[kCUnOffList]++; a.CalculateScoreAndAddToCandidates(iop); continue; }
+                // docs/222 §10: rabbit-hole pairs (score = RabbitHole.HowMuchItWantsSimToCome) get the game's own C1, like off-list
+                // pairs; real sim time, so not in SavedPairs (no pacing charge, no saved side)
+                if (rh && iop.Target is Sims3.Gameplay.Abstracts.RabbitHole) { k[kCUnRhGame]++; a.CalculateScoreAndAddToCandidates(iop); continue; }
                 L.SavedPairs++;
                 // the worker's failed Test = vanilla C2 scores 0 and BestScores.Add drops it: nothing to add
                 if (L.Code[p] != AutShadowCore.kPass || sDirectSeen.ContainsKey(iop)) continue;
@@ -1084,7 +1088,7 @@ namespace Ts3Fixes
             bool run = t.IsRunning();
             if (run) t.Stop();
             float ms = t.GetElapsedTimeFloat();
-            double add = L.Pace.Charge(sB14Rate.PerPair, ads, ms, 1.0);
+            double add = L.Pace.Charge(sB14Rate.PerPair * Instantiator.kAutUnseenPacePct / 100.0, ads, ms, 1.0);  // docs/222 §10: 100% overshot
             if (add > 0) { t.SetElapsedTimeFloat(ms + (float)add); PatchCounters()[kCUnPaceUs] += (int)(add * 1000.0); }
             if (run) t.Start();
         }
@@ -1096,7 +1100,7 @@ namespace Ts3Fixes
         // counters 670-679, and per definition (DeclaringType.Name + "." + Name) {"t":"defcmp"} lines, cumulative, the top
         // kDefCmpTop by mismatches every kDefCmpEvery compared pairs or kDefCmpFrames ticks.
         const int kCUnCmpSearches = 670, kCUnCmpPairs = 671, kCUnCmpWfGp = 672, kCUnCmpWpGf = 673, kCUnCmpBothPass = 674, kCUnCmpBothFail = 675,
-            kCUnCmpLatePairs = 676, kCUnCmpLateMis = 677, kCUnCmpObjSkip = 678, kCUnCmpSnapped = 679, kDefCmpEvery = 1000, kDefCmpFrames = 300, kDefCmpTop = 15;
+            kCUnCmpLatePairs = 676, kCUnCmpLateMis = 677, kCUnCmpObjSkip = 678, kCUnCmpSnapped = 679, kCUnRhGame = 685, kCUnCmpWpGfW0 = 686, kDefCmpEvery = 1000, kDefCmpFrames = 300, kDefCmpTop = 15;
         static readonly Dictionary<string, AutLiveCore.DefCmp> sDefCmp = new Dictionary<string, AutLiveCore.DefCmp>();
         static int sDefCmpN, sDefCmpLogN, sDefCmpLogFrame;
 
@@ -1130,14 +1134,16 @@ namespace Ts3Fixes
                 if (L.Def[p] < 0 || !L.ObjCmp[L.PairObj[p]]) return;
                 int code = L.Code[p];
                 if (code != AutShadowCore.kPass && code != AutShadowCore.kTestFailed) return;
+                InteractionObjectPair iop = L.Pair[p];
+                // docs/222 §10: scope as the direct path, which hands rabbit-hole pairs to the game's C1 (counted, not compared)
+                if (iop != null && iop.Target is Sims3.Gameplay.Abstracts.RabbitHole && ShortcutOn("autunseenrh")) { k[kCUnRhGame]++; return; }
                 bool wp = code == AutShadowCore.kPass, gp = s != 0f;
                 int f = AutShadowNative.Config(19);
                 bool late = f != L.ResumeFrame;
                 k[kCUnCmpPairs]++;
                 if (late) k[kCUnCmpLatePairs]++;
-                if (wp != gp) { k[wp ? kCUnCmpWpGf : kCUnCmpWfGp]++; if (late) k[kCUnCmpLateMis]++; }
+                if (wp != gp) { k[wp ? kCUnCmpWpGf : kCUnCmpWfGp]++; if (late) k[kCUnCmpLateMis]++; if (wp && L.W[p] == 0f) k[kCUnCmpWpGfW0]++; }
                 else k[wp ? kCUnCmpBothPass : kCUnCmpBothFail]++;
-                InteractionObjectPair iop = L.Pair[p];
                 string def = iop != null && iop.InteractionDefinition != null ? DefKey(iop.InteractionDefinition.GetType()) : "?";
                 AutLiveCore.DefCmp d;
                 if (!sDefCmp.TryGetValue(def, out d)) sDefCmp[def] = d = new AutLiveCore.DefCmp();

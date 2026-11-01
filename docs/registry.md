@@ -161,7 +161,10 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2012-2013 | `OutfitWait.cs` (`fixes-2012`, contributor range 2000-2199, issue #115, docs/224 §5), `outfitwaitpoll` | built 2026-11-01: whether the native swap needs the Sim in view, switch on only: 2012 stale waits whose Sim was on screen when the wait went stale (`outfitwaitpoll_stale_onscreen`), 2013 stale waits whose Sim was on screen when the wait ended (`_ended_onscreen`); array `new int[2014]` |
 | 2003-2005 | `OutfitWait.cs` (`fixes-2003`, contributor range 2000-2199, issue #115, docs/224 §5), `outfitwaitpoll` | built 2026-11-01: stale-wait causes, counted once per stale wait with the switch on: 2003 own swap still pending, 2004 replaced by another delayed swap, 2005 nothing pending; array `new int[2006]` (2000-2002 reserved by PRs #153 and #148) |
 | 683-684 | `BakeSale.cs` (`fixes-683`, issue #102, docs/225), `bakesaleseller` | built 2026-10-31: 683 seller reads that found a deleted seller (`bakesaleseller_reads`), 684 orphaned NPC tables given a new clean-up alarm at load (`_rearmed`); array `new int[685]` |
-| **685+** | next free | reserve here  |
+| 685 | `AutLive.cs` (`fixes-685`, docs/222 §10), `autunseenrh` | built 2026-11-01 (unseen4): unseen-direct pairs with a RabbitHole target sent to the game's C1; in Dry the same pairs skipped (counted) by autunseencmp (`autunseen_rh_game`); array `new int[687]` |
+| 686 | `AutLive.cs` (`fixes-686`, docs/222 §10), `autunseencmp` | built 2026-11-01 (unseen4): worker-pass/game-fail compare pairs whose worker score is 0 (BestScores drops both; `autunseen_cmp_wpgf_w0`) |
+| 2002 | `UniformBackup.cs` (`fixes-2002`, contributor range 2000-2199, issue #101, docs/502), `uniformbackup` | built 2026-10-31: career uniform backups that EA uncached and left in `Occupation.backupOutfit`, cleared (`uniformbackup_cleared`); array `new int[2003]` (2000-2001 reserved by PR #153) |
+| **687+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 
