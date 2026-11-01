@@ -47182,8 +47182,8 @@
             "start"
           ]
         },
-        "note": "picks two Sims of the active household on one lot and cancels their interactions; throws when there are none",
-        "waitS": 5
+        "note": "picks two Sims of the active household on one lot, cancels their interactions and fills their motives; throws when there are none",
+        "waitS": 2
       },
       {
         "cmd": "reflect_call",

@@ -63,7 +63,9 @@ namespace Ts3Fixes
         // Agent checks for docs/509 (repro conversation-turn-check), on a real conversation of the active household:
         //   "start": picks two Sims of the active household on one lot (above toddler, neither in a conversation) and cancels
         //            their interactions, so the chat does not wait behind them (2026-11-01: a Chat queued behind the
-        //            current interactions had not started 25 s later); throws when there is no such pair.
+        //            current interactions had not started 25 s later); throws when there is no such pair. It also fills both
+        //            Sims' motives (EA's MaxEverything), so autonomy does not send them to bed before the chat (2026-11-01: both
+        //            were in BedSleep 5 s after the cancel, and EA refused the Chat).
         //   "chat":  queues EA's Chat social (SocialInteractionA, as EA's own code builds it) from the first to the second.
         //   "pick":  a Sim of the active household in a conversation with another member; throws when there is none.
         //   "expect stuck" (switch off) / "expect taken" (switch on): in one call, gives the turn to the other member and
@@ -94,7 +96,9 @@ namespace Ts3Fixes
                 string was = CtDoing();
                 sCtA.InteractionQueue.CancelAllInteractions();
                 sCtB.InteractionQueue.CancelAllInteractions();
-                return sCtA.FullName + " and " + sCtB.FullName + ": interactions cancelled (were: " + was + ")";
+                sCtA.Motives.MaxEverything();
+                sCtB.Motives.MaxEverything();
+                return sCtA.FullName + " and " + sCtB.FullName + ": interactions cancelled, motives filled (were: " + was + ")";
             }
             if (what == "chat")
             {
