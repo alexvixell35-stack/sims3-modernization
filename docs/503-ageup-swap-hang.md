@@ -127,7 +127,17 @@ Sims had changed (they ended in Everyday or Outerwear) **[inferred: the compare 
 the old Naked[0] outfit object (taken before the age-up, so a forced switch after the rebuild does not put on the new
 age's Naked outfit) on the Sim until the model has loaded or the task is done, and logs each put-back.
 
-**A second way to hang** **[inferred]**: `FinishModelLoad` starts the model swap with `SetModelInGameObjectDelayed`, whose
+**Run 3** (2026-11-01, PASS in 17.2 min): **inconclusive**. The old Naked[0] was put back 1 to 35 times per part,
+mostly before the task was seen; one off-part age-up did not start within the part's 2 min. Every task that finished
+again had model loaded False. A closer reading of the IL contradicts the runs: `UpdateSimOutfitsOnAgeUp` also sets its
+out outfit when the Sim wears any outfit it rebuilds, and, failing that, falls back to a new outfit (with post-swap
+Everyday) whenever the Sim is instantiated; `Simulate` then calls `FinishModelLoad`. So for an instantiated human Sim
+`FinishModelLoad` should always run **[verified, IL]**, yet in 12 age-ups over three runs it never did (only its
+callback sets model loaded, and it is never reset) **[verified, log]**. The cause is open: something in this setup
+(another mod's aging code, or the task seen by the check not being the one that ran) changes the path **[open]**. The
+live repro is parked until that is found; the self-test covers the hook.
+
+A second way to hang **[inferred]**: `FinishModelLoad` starts the model swap with `SetModelInGameObjectDelayed`, whose
 callback goes into the same one-per-Sim table as outfit swaps (docs/224 §5, I-414-8). If the Sim still has a swap
 callback registered (an outfit swap that nobody completed, aborted or called back), the model callback is not stored,
 the model-loaded flag is never set and the task waits forever. The switch here does not cover that case; the drop
