@@ -2280,8 +2280,11 @@ for (const [n, j] of jobs.entries()) {
       ledgerBlocks.push(`\n### ${j.id}: mono ledger probe (docs/51)\n\n${lr.lines.map(l => '    ' + l).join('\n')}\n`);
     }
     if (c1?.autshadow || /\baut/.test(j.run.profile?.fixesOn ?? '')) {
-      row.fixesApplied = fixesApplied((await agent('patches'))?.result?.applied);
-      log(`${j.id}: ts3fixes.applied: ${row.fixesApplied.join(' | ') || '(no AutShadow/AutLedger or refused-patch lines)'}`);
+      // the game may be gone by now (2026-11-01: a crash after the early-gate stop left this empty): fall back to the read
+      // made after load, which lacks only lines added later in the session
+      const appEnd = (await agent('patches').catch(() => null))?.result?.applied;
+      row.fixesApplied = fixesApplied(appEnd ?? fx0?.p?.applied);
+      log(`${j.id}: ts3fixes.applied${appEnd === undefined && fx0?.p?.applied ? ' (read after load: the game did not answer at the end)' : ''}: ${row.fixesApplied.join(' | ') || '(no AutShadow/AutLedger or refused-patch lines)'}`);
       // shadowCheck false: a vanilla arm that keeps the autshadow switch for its counters but never posts (golive-unseen g8-off)
       if (j.shadowCheck !== false) for (const f of shadowFails(rowIni(j), j.run.profile?.fixesOn, c0, c1, row.fixesApplied, row.fixActivity?.counters)) { row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f; }
     }
