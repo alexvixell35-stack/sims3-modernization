@@ -45,6 +45,20 @@ static class OutfitWaitTest
         Check(wakesOff == day, "off: one wake per tick for a day");
         Check(wakesOn == kStale + (day - kStale + kMinute - 1) / kMinute, "on: one wake per sim-minute after the mark (" + wakesOn + ")");
         Console.WriteLine("never-ready wait over one sim-day: " + wakesOff + " wakes off, " + wakesOn + " on");
+        const int none = 0;
+        for (int m = 0; m < 4; m++)
+            for (int pc = 0; pc < 3; pc++)
+                for (int pi = 0; pi < 2; pi++)
+                    for (int hc = 1; hc < 3; hc++)
+                    {
+                        bool ab = (m & 1) != 0, act = (m & 2) != 0;
+                        int want = ab ? OutfitWaitCore.kCauseAborted : pc == none ? OutfitWaitCore.kCauseCleared
+                            : act && pc == hc && pi == 0 ? OutfitWaitCore.kCauseOwn : OutfitWaitCore.kCauseReplaced;
+                        Check(OutfitWaitCore.StaleCause(ab, act, pc, pi, hc, 0, none) == want, "cause " + m + " " + pc + " " + pi + " " + hc);
+                    }
+        Check(OutfitWaitCore.StaleCause(true, false, none, 0, 1, 0, none) == OutfitWaitCore.kCauseAborted, "an abort wins over a cleared pending outfit (Abort clears it too)");
+        Check(OutfitWaitCore.StaleCause(false, true, 2, 0, 1, 0, none) == OutfitWaitCore.kCauseReplaced, "another pending outfit: replaced even with this helper active");
+        Check(OutfitWaitCore.StaleCause(false, false, 1, 0, 1, 0, none) == OutfitWaitCore.kCauseReplaced, "same outfit pending but another or no active helper: replaced");
         Console.WriteLine(sFails == 0 ? "outfitwait selftest ok" : "outfitwait selftest: " + sFails + " failures");
         Environment.Exit(sFails == 0 ? 0 : 1);
     }

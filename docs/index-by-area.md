@@ -82,7 +82,7 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [98-routing-inroom-search](98-routing-inroom-search.md): in-room quadtree A* spec
 - [99-routing-world-graph-nodes](99-routing-world-graph-nodes.md): world graph R and search node
 
-## Mono and scripts (60)
+## Mono and scripts (61)
 
 - [04a-script-layer-stutter](04a-script-layer-stutter.md): script (C#) side of stutter: scheduler, autonomy and routing retry loops
 - [08-resource-offload-design](08-resource-offload-design.md): offload design
@@ -129,6 +129,7 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [221-mint-float-templates](221-mint-float-templates.md): (contributor, PR #129, Unicorn emulation, no build or game run) compiled templates for the 84 mint float opcodes that match EA bit for bit (`tools/emu/specs/mint_float.py`: 49,152 cases, 0 mismatches); keep x87 for arithmetic, `neg`, r4 stores and `conv.r4.r8` (SSE2 `mulsd`/`divsd` differ on subnormals); compares can drop EA's `_isnan` calls; `fisttp` for `conv.u4/i8/u8.r8` needs one real-CPU check
 - [224-outfit-wait-poll](224-outfit-wait-poll.md): (issue #115, built, not run) `outfitwaitpoll` (off by default): a `Sim.SwitchOutfitHelper.Wait` whose swap was aborted loops on `Sleep(1)` forever (the magical-makeover alarm, 3.0 ms per sim-minute on the day-406 save); after 60 sim-minutes the hook reads `mReady` once per sim-minute; counters 607-609, repro `outfit-wait-stale-check`, self-test `tools/selftest/outfitwait`
 - [225-bake-sale-dead-seller](225-bake-sale-dead-seller.md): (issue #102, built, not run in this form) `bakesaleseller` (off by default): a bake sale table keeps a deleted seller, so every buyer throws and an NPC table is never cleaned up; `GetSeller` reads a deleted seller as none, `HasSeller` follows it, `OnStartup` re-arms an orphaned NPC table's clean-up alarm; counters 610-611, repro `bake-sale-dead-seller-check`, self-test `tools/selftest/bakesale`
+- [505-rabbit-hole-door](505-rabbit-hole-door.md): (verified in game on BP) `rabbitholedoor` (off by default): `RabbitHole.AnimateDoorOpen` / `AnimateDoorClose` ask the rabbit hole state machine for `Open` / `Closed` of actor `Door<n>`; a door the animation cannot open throws `SacsErrorException`, which ends the Sim's entry (seen at Public School 67 on Baseline-BP, door 2); the hooks skip that error after EA's code ran, so the counts stay paired; counter 2015, ledger §904, repro `rabbit-hole-door-check` (queue `rabbit-hole-door.json`).
 - [27-seeded-rng](27-seeded-rng.md): where the script RNG is seeded (`[Config] SimulatorRandomSeed`, else RDTSC), `System.Random()` sites in sim play, `seed_rng` switch design
 - [28-sim-thread-map](28-sim-thread-map.md): every known chunk of sim-thread work by owner, cost and offload blocker, ranked (docs/23 #17 step 1)
 - [29-mono-jit](29-mono-jit.md): embedded Mono 1.2.3 (mint interpreter, no JIT), JIT vs hot-method and runtime fast paths, second managed thread verdict (GC scans one stack)
@@ -146,8 +147,9 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [95-threadedobjects-owners](95-threadedobjects-owners.md): ThreadedObjects script owners
 - [97-autonomy-pilot](97-autonomy-pilot.md): autonomy pilot path
 
-## Memory and saves (20)
+## Memory and saves (21)
 
+- [504-null-service](504-null-service.md): (verified in game on BP and LR) `nullservice` (off by default): `Services.sAllServices` is saved as it is, so a saved service whose type no longer loads comes back as a null element and every EA loop over the list throws on it (object load via `ResortStaffedObjectComponent.GetService`, `PostWorldLoadStartup`, `Services.Simulate`, which would end the services task); the `AllServices` getter drops nulls and `PostWorldLoadStartup` reads the getter first; counter 2014, ledger §903, repro `null-service-check` (queue `null-service.json`).
 - [01-existing-fixes-comparison](01-existing-fixes-comparison.md): every known fix compared, with what each actually changes
 - [09-save-bloat-research](09-save-bloat-research.md): 09 Save bloat in long-running saves: what grows, what cleans it, what is left
 - [115-event59-invocation-cache](115-event59-invocation-cache.md): event 59 handler-list cache (`invcache`); other
@@ -196,7 +198,7 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [72-dropped-frames](72-dropped-frames.md): dropped sim frames (by design: newest-2 interpolation, every message drained)
 - [96-worst-hitches](96-worst-hitches.md): worst hitches
 
-## Travel and gameplay (8)
+## Travel and gameplay (9)
 
 - [10-expansion-travel-shortcuts](10-expansion-travel-shortcuts.md): Expansion travel and off-screen trip shortcuts
 - [16-online-features](16-online-features.md): Online features: what the game contacts, what can block, how to turn it off
@@ -206,6 +208,7 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [19-travel-worlds](19-travel-worlds.md): 19 Travel worlds: which destinations are worst, and what travel itself costs
 - [210-free-vacation-fixes](210-free-vacation-fixes.md): 210 Generations free vacation: seven EA defects (issue #97)
 - [77-nraas-traveler-study](77-nraas-traveler-study.md): NRaas Traveler study (travel start/arrival)
+- [501-menu-maven-all-recipes](501-menu-maven-all-recipes.md): (built, self-tested) `menumaven` (off by default): Menu Maven and the Culinary Librarian wish need every learnable recipe of the install, counted live, instead of the tuned 28
 
 ## Player tools and releases (7)
 

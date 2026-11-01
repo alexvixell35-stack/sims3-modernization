@@ -41489,7 +41489,7 @@
     "bug": "No multi-generation test save exists for the aggressive save cleanup (docs/14 §8): needs dead Sims in graves (some in the mausoleum), aged-up children, memories and a few sim days of story",
     "fix": "test save builder for ts3fixes savecleanupaggressive (SaveCleanupSpread.cs)",
     "save": "Baseline-BP",
-    "note": "UNVERIFIED (built 2026-10-30, never run). Builds the scratch save MultiGen-Test-BP from Baseline-BP (Baseline-BP itself is never overwritten). Elders are made friends of the active Sim before they die so EA keeps their graves (GrimReaperSituation: significant relationship -> AddGraveToRandomMausoleum, else the grave is destroyed). Steps marked optional may fail on some households (pregnancy needs a female YA/adult with a partner). Run the cleanup switches off. Robust on Baseline-BP (2026-10-30): the young adult comes from a non-selectable teen (no Lifetime Wish dialog), two elders die (one friend keeps a grave, one acquaintance does not), autopilot answers popups between steps.",
+    "note": "UNVERIFIED (built 2026-10-30, never run). Builds the scratch save MultiGen-Test-BP from Baseline-BP (Baseline-BP itself is never overwritten). Elders are made friends of the active Sim before they die so EA keeps their graves (GrimReaperSituation: significant relationship -> AddGraveToRandomMausoleum, else the grave is destroyed). Steps marked optional may fail on some households (pregnancy needs a female YA/adult with a partner). Run the cleanup switches off. Robust on Baseline-BP (2026-10-30): the young adult comes from a non-selectable teen (no Lifetime Wish dialog), two elders die (one friend keeps a grave, one acquaintance does not), autopilot answers popups between steps. 2026-10-31 (kit4, two runs): every step ran; both runs failed the clock guard after the final save because the game stayed paused, so the save step now waits for the write and a set_speed step resumes the game.",
     "steps": [
       {
         "cmd": "patches",
@@ -41577,7 +41577,7 @@
           "count": 1
         },
         "waitS": 1,
-        "note": "a teen outside the active household: a selectable Sim's teen -> young adult opens the Lifetime Wish dialog, which pauses the game (2026-10-30 run: clock guard FAIL)"
+        "note": "a teen outside the active household (pick_sims leaves the active household out by default): a selectable teen -> young adult would open the Lifetime Wish dialog, which pauses the game"
       },
       {
         "cmd": "age_up",
@@ -41676,7 +41676,27 @@
         "args": {
           "name": "MultiGen-Test-BP"
         },
-        "waitS": 60
+        "waitS": 5,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            }
+          ],
+          "everyS": 2,
+          "maxS": 180
+        },
+        "note": "until the save is written"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 30,
+        "note": "the game stays paused after the save, and autopilot is off by now: both 2026-10-31 runs failed the clock guard 60 s after this save (save 8.5 s), not at a dialog"
       }
     ],
     "watch": {
@@ -46617,6 +46637,524 @@
         "cmd": "patches",
         "args": {
           "uniformbackup": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "menumaven-all-recipes-check",
+    "bug": "docs/501: Cooking.IsMenuMaven (Menu Maven skill challenge and Culinary Librarian lifetime wish, 'know every recipe') compares the known recipe count with the tuned kRecipesLearnedForMenuMaven, 28 in EA's tuning, never raised for expansion, store or custom recipes",
+    "fix": "ts3fixes MenuMaven.cs: menumaven (default off), docs/501",
+    "save": "Baseline-BP",
+    "note": "Forced repro with EA's own Cooking.AddRecipe on the first active-household Sim, teen or older (given the Cooking skill if it has none). Its known recipes are saved, emptied and put back at stop; the harness does not save.",
+    "expect": "off: after 'learn tuned' IsMenuMaven True. on: after 'learn tuned' IsMenuMaven False (target > tuned); after 'learnall' counting known = target and IsMenuMaven True; after 'unlearn' False; menumaven_reads >= 3, menumaven_done >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "menumaven": false
+        },
+        "note": "applied log lists Cooking.IsMenuMaven: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "off: names the Sim, known list emptied; state: target = recipes that count, tuned (EA 28)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "learn tuned"
+          ]
+        },
+        "note": "off: EA's tuned number of recipes added; IsMenuMaven True (EA rule: count >= tuned)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "off: known list put back",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "menumaven": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "on: known list emptied again",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "learn tuned"
+          ]
+        },
+        "note": "on: same recipes; IsMenuMaven False while target > tuned, reads >= 1",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "learnall"
+          ]
+        },
+        "note": "on: every recipe that counts; counting known = target, IsMenuMaven True, done >= 1",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "unlearn"
+          ]
+        },
+        "note": "on: one recipe that counts removed; IsMenuMaven False",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: the recipe census (snack, not learnable, above level) for the doc",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "on: known list put back",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "counters menumaven_reads, menumaven_done",
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MenuMavenCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "puts the known list back if a step failed",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "menumaven": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "outfit-wait-replace-check",
+    "bug": "issue #115, second cause (docs/224 §5, I-414-5): a SwitchOutfitHelper wait whose delayed swap is replaced by another delayed swap of the same Sim (SimBuilderTask.FinishModelLoad, BuffTransformation, Sim.SwitchToOutfitWithHiding, occult outfit changes) without an Abort; if the game keeps one ready callback per Sim, the helper's never runs and its wait never ends",
+    "fix": "diagnostic only: ts3fixes OutfitWait.cs, outfitwaitpoll (default off) classes each stale wait (counters 2003-2005), docs/224 §5",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-01). Neither swap is completed: \"stop\" aborts the helper, which cancels the Sim's pending swap, so the Sim keeps its outfit. The control part shows an untouched swap calls back. 2026-11-01 run 1: waitS runs after a step, so the control state was read at once; fixed. Clear part added (docs/224 §5).",
+    "expect": "control: the wait returns within 10 s. replace: either (a) second swap ready True, helper ready False, the wait stale after 60 sim-minutes with cause replaced (the game keeps one callback per Sim: cause verified), or (b) the wait returns (both callbacks run: not the cause). clear: the wait returns (refutes the cleared cause for instant switches) or goes stale with cause cleared (verifies it).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitpoll": true
+        },
+        "waitS": 1,
+        "note": "on in both parts: only the on path classes stale waits"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "start control"
+          ]
+        },
+        "note": "control: names the Sim, the category it waits for, no task 2; 30 s for the swap",
+        "waitS": 30
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "control: wait task returned (ready, no change False): an untouched delayed swap calls back within 30 s"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "control: done"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "start replace"
+          ]
+        },
+        "note": "replace: same Sim, a second swap to a third category"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "replace: task 2 'second swap to <cat> started True (helper not aborted)'",
+        "waitS": 10
+      },
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "replace: more than 60 sim-minutes pass"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "replace, if a second swap drops the first one's callback: second swap ready True, helper ready False, wait task in Wait, stale 1, causes replaced 1. If both call back: wait task returned, stale 0."
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "log"
+          ]
+        },
+        "note": "replace: the stale-wait line names 'cause replaced: pending <third>/0 (helper <pick>/0), active helper this'"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "replace: helper aborted, both swaps cancelled; the Sim keeps its outfit"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "start clear"
+          ]
+        },
+        "note": "clear: same kind of Sim, task 2 switches it at once to a third category",
+        "waitS": 10
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "clear: task 2 'instant switch to <cat> (helper not aborted, pending now None/0)'; the hook logged it (clear_instant 1)"
+      },
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "clear: more than 60 sim-minutes pass"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "clear: either the wait task returned (the instant switch does not lose the callback) or it is still in Wait with stale +1 and cause cleared +1 (the cleared cause reproduced)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "log"
+          ]
+        },
+        "note": "clear: the 'instant switch ... while its helper waits' line with its callers, and the stale-wait line with 'cause cleared'"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "clear: helper aborted; the Sim keeps the third outfit"
+      }
+    ]
+  },
+  {
+    "id": "outfit-wait-view-log",
+    "bug": "issue #115, natural stale outfit waits (docs/224 §5): the swap keeps its callback but is not reported ready; does it need the Sim in view?",
+    "fix": "diagnostic only: ts3fixes OutfitWait.cs, outfitwaitpoll (default off) logs on screen / far from the camera / on the active lot at the stale point and the end, counters 2012-2013",
+    "save": "BigSave-LR",
+    "note": "Natural play with the switch on all run; the counters and the first stale and end lines are read at about 5 and 11 min (the job's profile files keep no fixes counters without --ab, 2026-11-01).",
+    "expect": "If the native swap needs the Sim in view: few stale waits on screen when they go stale, and most that end are on screen (or near the camera) when they end. If not: the end lines show Sims off screen and far from the camera.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "counts"
+          ]
+        },
+        "note": "counts at about 5 min",
+        "waitS": 360
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "counts"
+          ]
+        },
+        "note": "counts at about 11 min"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "log"
+          ]
+        },
+        "note": "the first stale and end lines (on screen, far from camera, on active lot)"
+      }
+    ]
+  },
+  {
+    "id": "null-service-check",
+    "bug": "docs/504: Services.sAllServices is [PersistableStatic]; a saved service whose type no longer loads comes back as a null element, and every EA loop over the list dereferences it (ResortStaffedObjectComponent.GetService at object load, Services.PostWorldLoadStartup, Services.Simulate)",
+    "fix": "ts3fixes NullService.cs: nullservice (default off), docs/504",
+    "save": "Baseline-BP",
+    "note": "The check builds the bug state for one call only: it adds a null to Services.sAllServices, runs an EA reader of the getter (TownieMaker.GetModifiableServices, read-only) and takes the null out again before returning, so nothing else in the session sees it. \"broken\" and \"fixed\" throw on the wrong outcome, which fails the step.",
+    "expect": "off: the reader threw NullReferenceException; on: the reader returned, nullservice_dropped 1; the applied log lists Services.get_AllServices and Services.PostWorldLoadStartup: ok",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "nullservice": false
+        },
+        "note": "applied log lists Services.get_AllServices, Services.PostWorldLoadStartup: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NullServiceCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: switch False, entries, 0 null (the test saves hold no null service)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NullServiceCheck",
+          "args": [
+            "broken"
+          ]
+        },
+        "note": "off: the reader threw NullReferenceException (the step throws otherwise)"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "nullservice": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NullServiceCheck",
+          "args": [
+            "fixed"
+          ]
+        },
+        "note": "on: the reader returned, our null gone (the step throws otherwise)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NullServiceCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: 0 null, dropped so far 1"
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "counters: nullservice_dropped 1"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "nullservice": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "rabbit-hole-door-check",
+    "bug": "docs/505: RabbitHole.AnimateDoorOpen raises mDoorOpenCounts[door] and asks the RabbitHoleGeneric state machine for \"Open\" of actor \"Door<n>\"; a door the animation cannot open throws SacsErrorException, which ends the Sim's entry (Public School 67 on Baseline-BP, door 2)",
+    "fix": "ts3fixes RabbitHoleDoor.cs: rabbitholedoor (default off), docs/505",
+    "save": "Baseline-BP",
+    "note": "With the switch off the check opens (and closes again) each enter/exit slot door of every rabbit hole with no Sim at it, until one open throws SacsErrorException at the caller; it puts that count back to 0 and keeps the door. With the switch on it opens and closes the kept door. \"broken\" and \"fixed\" throw on the wrong outcome, which fails the step. Needs a core mod that does not already catch this error (run with an EA or original simler90 core).",
+    "expect": "off: the open threw SacsErrorException at the caller; on: open and close returned, count 0 -> 1 -> 0, rabbitholedoor_skipped >= 1; the applied log lists RabbitHole.AnimateDoorOpen and RabbitHole.AnimateDoorClose: ok",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rabbitholedoor": false
+        },
+        "note": "applied log lists RabbitHole.AnimateDoorOpen, RabbitHole.AnimateDoorClose: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RabbitHoleDoorCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: switch False, rabbit holes, no door yet"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RabbitHoleDoorCheck",
+          "args": [
+            "broken"
+          ]
+        },
+        "note": "off: a door open threw SacsErrorException at the caller (the step throws otherwise)"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rabbitholedoor": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RabbitHoleDoorCheck",
+          "args": [
+            "fixed"
+          ]
+        },
+        "note": "on: open and close returned, count 0 -> 1 -> 0, skipped >= 1 (the step throws otherwise)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RabbitHoleDoorCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: the kept door, count 0"
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "counters: rabbitholedoor_skipped >= 1"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rabbitholedoor": false
         }
       }
     ]

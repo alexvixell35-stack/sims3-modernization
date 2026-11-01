@@ -1,0 +1,66 @@
+{
+  "note": "docs/504: repro of nullservice, off then on in one load, on two worlds.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-null-service-check",
+      "note": "Correctness (5 min, Bridgeport test save): repro null-service-check. Pass: every step ok (off: the EA reader threw NullReferenceException on the null; on: it returned), nullservice_dropped 1 (fixesRequire).",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "null-service-check",
+          "fixesRequire": "nullservice_dropped>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:nullservice_dropped",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm dropped no null: the getter hook is not installed (already compiled?) or the repro did not run"
+        }
+      ]
+    },
+    {
+      "id": "lr-null-service-check",
+      "note": "Correctness (5 min, day-406 save): repro null-service-check. Pass: every step ok (off: the EA reader threw NullReferenceException on the null; on: it returned), nullservice_dropped 1 (fixesRequire).",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+      "save": "BigSave-LR",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "null-service-check",
+          "fixesRequire": "nullservice_dropped>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:nullservice_dropped",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm dropped no null: the getter hook is not installed (already compiled?) or the repro did not run"
+        }
+      ]
+    }
+  ]
+}

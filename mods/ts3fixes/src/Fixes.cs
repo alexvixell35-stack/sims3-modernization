@@ -248,16 +248,20 @@ namespace Ts3Fixes
         // [670-679] autunseencmp Dry per-definition compare (AutLive.cs DefCmpNote, docs/222 §9): searches, pairs, worker-fail /
         // game-pass, worker-pass / game-fail, both pass, both fail, late-slice pairs, late-slice mismatches, objects skipped, snapped slices.
         // [680-682] outfitwaitpoll (OutfitWait.cs, issue #115): outfit waits gone stale, minute polls, stale waits that ended.
+        // [2003-2005] outfitwaitpoll stale-wait causes (OutfitWait.cs, issue #115, docs/224 §5): own swap pending, replaced, nothing pending.
+        // [2008-2009] outfitwaitpoll (OutfitWait.cs, docs/224 §5): pending-outfit resets while a helper waits: instant switches, delayed swaps by another path.
         // [683-684] bakesaleseller (BakeSale.cs, issue #102): dead-seller reads, orphaned NPC tables given a new clean-up alarm.
         // [685-686] docs/222 §10: unseen-direct pairs with a RabbitHole target sent to the game's C1 (autunseenrh; in Dry the same pairs
         // skipped by autunseencmp), worker-pass / game-fail compare pairs whose worker score is 0 (BestScores drops both).
         // [2002] uniformbackup (UniformBackup.cs, issue #101, docs/502): stale career uniform backups cleared.
+        // [2014] nullservice (NullService.cs, docs/504): null elements dropped from Services.AllServices.
+        // [2015] rabbitholedoor (RabbitHoleDoor.cs, docs/505): rabbit hole door requests that threw SacsErrorException, skipped.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2003]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2016]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -386,6 +390,8 @@ namespace Ts3Fixes
                 case "uniformbackup": return Instantiator.kUniformBackup;
                 case "deadrefguards": return Instantiator.kDeadRefGuards;
                 case "bakesaleseller": return Instantiator.kBakeSaleSeller;
+                case "nullservice": return Instantiator.kNullService;
+                case "rabbitholedoor": return Instantiator.kRabbitHoleDoor;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;
                 case "savecleanupaggressive": return Instantiator.kSaveCleanupAggressive;
                 case "vacexport": return Instantiator.kVacExport;
@@ -395,6 +401,7 @@ namespace Ts3Fixes
                 case "vacexitreturn": return Instantiator.kVacExitReturn;
                 case "vaclistenernull": return Instantiator.kVacListenerNull;
                 case "vacimportfix": return Instantiator.kVacImportFix;
+                case "menumaven": return Instantiator.kMenuMaven;
                 case "compactionfail": return false;  // test only (Compaction.cs, docs/204 §6): the reload throws after the screen is up
                 case "spotspread": return true;
                 default: return true;

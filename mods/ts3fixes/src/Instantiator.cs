@@ -128,6 +128,8 @@ namespace Ts3Fixes
         [Tunable] public static bool kOutfitWaitPoll = false;      // opt-in until verified: an outfit wait not ready after 60 sim-minutes reads its flag once per sim-minute instead of every tick (OutfitWait.cs, issue #115)
         [Tunable] public static bool kUniformBackup = false;       // opt-in until verified: the shared career uniform backup is cleared once uncached, so a later re-uniform cannot uncache the new Career outfit (UniformBackup.cs, issue #101)
         [Tunable] public static bool kDeadRefGuards = false;       // opt-in until verified: Relationship.Get makes no entry for a disposed description, dead aging states skipped (DeadRefs.cs, issue #91)
+        [Tunable] public static bool kNullService = false;         // opt-in until verified: Services.AllServices drops the null elements a save can hold, so EA's loops over it do not throw (NullService.cs, docs/504)
+        [Tunable] public static bool kRabbitHoleDoor = false;      // opt-in until verified: a rabbit hole door the animation cannot open or close no longer ends the Sim's entry or exit (RabbitHoleDoor.cs, docs/505)
         [Tunable] public static bool kBakeSaleSeller = false;      // opt-in until verified: a bake sale table's deleted seller reads as no seller, an orphaned NPC table gets its clean-up alarm back (BakeSale.cs, issue #102)
         [Tunable] public static bool kDeadRefSweep = false;        // opt-in, changes save data: EA holders of disposed descriptions / destroyed Sims cleaned, spread hourly + cheap pre-save pass (DeadRefs.cs, issue #91)
         [Tunable] public static bool kVacExport = false;           // opt-in until verified: free vacation adults keep dreams, opportunities, travel moodlets (EaVacation.cs, issue #97 row 1)
@@ -137,6 +139,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kVacExitReturn = false;       // opt-in until verified: a trip exit while the parents are away brings them back (EaVacation.cs, issue #97 row 5)
         [Tunable] public static bool kVacListenerNull = false;     // opt-in until verified: RestoreState(null) starts the listener fresh (EaVacation.cs, issue #97 row 6)
         [Tunable] public static bool kVacImportFix = false;        // opt-in until verified: travel opportunity import refreshes stale Sim ids, no instant fail without a time limit (EaVacation.cs, issue #97 row 7)
+        [Tunable] public static bool kMenuMaven = false;           // opt-in: the Menu Maven challenge and the Culinary Librarian wish need every recipe of this install that a Sim can learn, counted live (MenuMaven.cs, docs/501)
 
         public const string Version = "0.1.1";
 
