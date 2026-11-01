@@ -173,3 +173,20 @@ while its active helper is started, not ready and not aborted, with the Sim's in
 `DoReset` is not hooked. The repro has a third part, "clear": a helper waits, and task 2 switches the Sim at once to a
 third category. If the wait still returns, an instant switch does not lose the callback. If it goes stale with cause
 `cleared`, it does, and the instant switch is the second cause.
+
+**Results, run 2** (2026-11-01, Baseline-BP, `bp-outfit-wait-replace` PASS in 11.3 min, the repro as changed above):
+
+- Control: the untouched swap's wait returned within 30 s and its Sim never went stale **[verified, 1 run]**. On the
+  day-406 save (`lr-outfit-wait-causes-ab` rerun, PASS, 15.3 min): 71 stale waits, 68 `own`, 0 `replaced`, 1
+  `cleared`, 28 ended; 3 instant switches while a helper waited (2008), 0 delayed swaps by another path (2009). Script
+  time with the switch on was 1.025 times that with it off (three 2-min slices per arm, within noise).
+- Replace (second swap to Formalwear): as in run 1, the helper's wait returned by itself and the **second** swap's
+  callback had not run 70 s later **[verified, 2 runs]**. So with a swap pending, a second delayed swap of the same Sim
+  gets no callback, or a very late one (I-414-8). This matters for the callers in the list above that start a second
+  swap and then wait on its callback: `SimBuilderTask.FinishModelLoad` waits forever in that case (docs/503 §2).
+- Clear (instant switch to Everyday while the helper waits): the pending outfit was reset to none, and the helper was
+  ready within 10 s. So an instant switch does not lose the helper's callback: **I-414-7 is refuted**. The new
+  hook logged that switch with its callers, as designed.
+
+Open: what keeps 43 of the day-406 save's stale waits from ending (slow swaps or lost callbacks), what the natural
+`cleared` waits are if not an instant switch, and whether the second swap's callback ever comes.
