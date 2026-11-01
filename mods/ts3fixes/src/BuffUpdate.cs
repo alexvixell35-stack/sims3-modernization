@@ -16,11 +16,13 @@ namespace Ts3Fixes
     // InvalidOperationException ("out of sync"). Nothing on the way up catches it: Autonomy.Update has no handler,
     // SimUpdate.Simulate catches only ResetException, and ScriptCore's proxy rethrows after an error window that the release
     // game never shows, so the Sim's update task ends.
-    // Fix, switch on: an out-of-sync exception from UpdateBuffs is caught. The buff that changed the table already ran; the
-    // rest of this tick's walk is skipped (those buffs move on at the next tick), and the Sim's update goes on. Other
-    // exceptions pass. [2033] out-of-sync exceptions from UpdateBuffs (also with the switch off), [2034] caught.
-    // shortcut: a buff that changes the table on every tick stalls the buffs after it in the walk; the player's core build
-    // walks a copy instead, which a hook cannot add without rewriting EA's method.
+    // Fix, switch on: an out-of-sync exception from UpdateBuffs is caught, and EA's method runs once more with no time
+    // passed, so the walk reaches every buff this tick: each one's OnTimeOutUpdated (time-gated in EA's overrides) and the
+    // removal of buffs that timed out. The buffs the first walk did not reach lose this tick's countdown. The Sim's update
+    // goes on. Other exceptions pass. [2033] out-of-sync exceptions from UpdateBuffs (also with the switch off), [2034] caught.
+    // shortcut: when the second walk also throws out of sync (a buff that changes the table on every call), the rest of
+    // this tick's walk is skipped; the player's core build walks a copy instead, which a hook cannot add without
+    // rewriting EA's method.
     public static partial class Fixes
     {
         public class BuffUpdateHook
@@ -34,19 +36,25 @@ namespace Ts3Fixes
                     PatchCounters()[2033]++;
                     if (!ShortcutOn("buffupdate")) throw;
                     PatchCounters()[2034]++;
-                    BuffUpdateCaught((BuffManager)(object)this);
+                    bool done = false;
+                    try { UpdateOrig(0f); done = true; }
+                    catch (Exception e2) { if (!BuffUpdateCore.OutOfSync(e2)) throw; }
+                    if (done) sBuWalked++;
+                    BuffUpdateCaught((BuffManager)(object)this, done);
                 }
             }
             public void UpdateOrig(float simMinutesPassed) { } // receives BuffManager.UpdateBuffs's original header
         }
         static int sBuLines;
 
-        static void BuffUpdateCaught(BuffManager bm)
+        static int sBuWalked; // second walks that finished (read by the agent check)
+
+        static void BuffUpdateCaught(BuffManager bm, bool done)
         {
             if (sBuLines++ >= 5) return;
             Sim s = null;
             try { s = bm.Actor; } catch (Exception) { }
-            ShortcutLog("buffupdate: " + (s != null ? s.FullName : "a Sim") + ": the buff table changed during UpdateBuffs, rest of this tick's buff walk skipped");
+            ShortcutLog("buffupdate: " + (s != null ? s.FullName : "a Sim") + ": the buff table changed during UpdateBuffs; " + (done ? "walked again with no time passed" : "the second walk broke too, rest of this tick's walk skipped"));
         }
 
         // Agent checks for docs/510 (repro buff-update-check). Each arm uses its own Sim of the active household, because with
@@ -56,7 +64,8 @@ namespace Ts3Fixes
         //            gets the Suntanned buff, acquired kDaysForBronzed + 1 days ago, its event not yet sent, its timeout
         //            running. Its next UpdateBuffs then sends kBronzed inside the walk and the table changes under it.
         //   "expect thrown" (switch off): throws unless the listener ran, an out-of-sync exception was seen and none caught.
-        //   "expect caught" (switch on): throws unless the listener ran, one was seen and caught, and Inspired is present.
+        //   "expect caught" (switch on): throws unless the listener ran, one was seen and caught, the second walk finished,
+        //            and Inspired is present.
         //   "expect alive" (switch on): throws unless the Sim's motives moved since the expect step (its update goes on).
         //   "state": whether the Sim object is the same (2026-11-01: after EA's exception the picked Sim object was gone, so a
         //            reset made a new one), whether its motives moved since the expect step, counters.
@@ -65,7 +74,7 @@ namespace Ts3Fixes
         static SimDescription sBuSd;
         static readonly List<Sim> sBuUsed = new List<Sim>();
         static EventListener sBuListener;
-        static int sBuFired, sBuSeen0, sBuCaught0;
+        static int sBuFired, sBuSeen0, sBuCaught0, sBuWalked0;
         static float[] sBuMotives;
         static readonly CommodityKind[] kBuMotives = { CommodityKind.Hunger, CommodityKind.Energy, CommodityKind.Bladder, CommodityKind.Hygiene };
 
@@ -106,20 +115,20 @@ namespace Ts3Fixes
                 tan.BronzedEventSent = false;
                 tan.mTimeoutPaused = false;
                 if (tan.mTimeoutCount == -1f || tan.mTimeoutCount < 60f) tan.mTimeoutCount = 600f;
-                sBuSeen0 = PatchCounters()[2033]; sBuCaught0 = PatchCounters()[2034];
+                sBuSeen0 = PatchCounters()[2033]; sBuCaught0 = PatchCounters()[2034]; sBuWalked0 = sBuWalked;
                 return sBuSim.FullName + ": Suntanned acquired " + (d + 1) + " days ago, its event not sent; listener on; switch " + ShortcutOn("buffupdate");
             }
-            int seen = PatchCounters()[2033] - sBuSeen0, caught = PatchCounters()[2034] - sBuCaught0;
+            int seen = PatchCounters()[2033] - sBuSeen0, caught = PatchCounters()[2034] - sBuCaught0, walked = sBuWalked - sBuWalked0;
             bool on = ShortcutOn("buffupdate");
             Sim cur = sBuSd != null ? sBuSd.CreatedSim : null;
             bool same = cur != null && cur == sBuSim && !sBuSim.HasBeenDestroyed;
             bool inspired = cur != null && cur.BuffManager != null && cur.BuffManager.HasElement(BuffNames.Inspired);
-            string st = "listener ran " + sBuFired + ", seen +" + seen + ", caught +" + caught + ", Sim object "
+            string st = "listener ran " + sBuFired + ", seen +" + seen + ", caught +" + caught + ", walked again +" + walked + ", Sim object "
                 + (same ? "same" : cur != null ? "replaced (the picked one destroyed " + sBuSim.HasBeenDestroyed + ")" : "none") + ", Inspired " + inspired;
             if (what == "expect thrown" || what == "expect caught")
             {
                 bool ok = what == "expect thrown" ? !on && sBuFired == 1 && seen >= 1 && caught == 0
-                    : on && sBuFired == 1 && seen >= 1 && caught == seen && same && inspired;
+                    : on && sBuFired == 1 && seen >= 1 && caught == seen && walked == caught && same && inspired;
                 if (!ok) throw new InvalidOperationException("buffupdate " + what + ": wrong outcome (switch " + on + ", " + sBuSd.FullName + "); " + st);
                 sBuMotives = cur != null && cur.Motives != null ? BuMotives(cur) : null;
                 return "as expected; " + sBuSd.FullName + ": " + st;

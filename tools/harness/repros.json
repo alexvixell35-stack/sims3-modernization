@@ -47256,7 +47256,7 @@
             "expect caught"
           ]
         },
-        "note": "on: listener ran 1, seen +1, caught +1, Inspired present (throws otherwise)",
+        "note": "on: listener ran 1, seen +1, caught +1, walked again +1, Inspired present (throws otherwise)",
         "waitS": 20
       },
       {

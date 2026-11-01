@@ -46,14 +46,18 @@ Claim marks: **[verified]** = read in the game's IL by us (`ildasm`; no code rep
 A hook on `BuffManager.UpdateBuffs(float)`. EA's method runs unchanged inside a try/catch. An exception that
 `BuffUpdateCore.OutOfSync` recognises (an `InvalidOperationException` whose message says "out of sync" or "Collection was
 modified") is counted [2033], also with the switch off, and rethrown when the switch is off. With the switch on it is
-caught [2034] and the first five are logged with the Sim's name. Every other exception passes.
+caught [2034] and the first five are logged with the Sim's name. Then EA's method runs once more with no time passed,
+so the walk reaches every buff in the same tick: each buff's `OnTimeOutUpdated`, and the removal of buffs that timed
+out. Every other exception passes, also from the second walk.
 
-- What a catch skips: the rest of that tick's walk, and the removal of buffs that timed out in it. Those buffs keep
-  their timeouts and are handled at the next tick, when the buff that changed the table has already done its one-time
-  work (the suntan's event is marked sent before the walk breaks).
+- **The second walk is safe to repeat** [verified, IL]. With no time passed, no timer moves. The overrides of
+  `OnTimeOutUpdated` act on sim-clock time or on their own state (last update time, tick targets, a check for an
+  interaction already queued), so a second call in one tick does nothing new. Male pregnancy pauses its buff when it
+  acts, and the walk skips paused buffs. The suntan's event is marked sent before the first walk breaks.
+- What it still loses: the buffs the first walk did not reach miss this tick's countdown, so they last one tick longer.
 - **Not ported**: the player's core build walks a copy of the table, so the walk never breaks. A hook cannot add that
-  without rewriting EA's method. The limit: a buff that changes the table on every tick would stall the buffs after it
-  in the walk, with the switch on; with it off, the first one ends the Sim's update (or resets the Sim, with ErrorTrap).
+  without rewriting EA's method. The limit: if the second walk also throws out of sync (a buff that changes the table
+  on every call), the rest of that tick's walk is skipped.
 
 ## 4. Checks
 
