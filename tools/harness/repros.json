@@ -48204,5 +48204,160 @@
         "note": "on: gone 0, Players and Teams empty, CurrentPlayer and CheatingSim null; deadrefsweep_dartboards +3"
       }
     ]
+  },
+  {
+    "id": "use-list-gone-check",
+    "bug": "A Sim reset or destroyed while using, referencing or routing to an object stays in that object's mActorsUsingMe, mReferenceList and mRoutingReferenceList (persisted List<Sim>s); the paired Remove never runs for a Sim that is gone, and the destroyed Sim object goes into every save (issue #166 build 40)",
+    "fix": "ts3fixes DeadRefs.cs: deadrefsweep phase 10 (default off), docs/517",
+    "save": "Baseline-BP",
+    "note": "Hard state built by the agent check (DeadRefUseListCheck seed): a social jig made out of world, one townie added to its use, reference and routing reference lists, then that Sim object destroyed as a reset does (the description stays; it is instantiated again where it stood at the end of each arm). Off arm: the sweep refuses, the entries stay. On arm: the spread pass is started at once and polled until the jig is clean; phase 10 walks every GameObject, so the pass takes longer than the dartboard one. The on arm's seed poll waits for the destroy only: the hourly pass (an alarm on its own clock) may clean the seeded object before the poll.",
+    "expect": "off: expect left sees gone 3 with the switch off. on: expect cleaned sees gone 0 and all three lists empty; deadrefsweep_uselists >= 3.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "off: a jig out of world with one townie in its three lists; the Sim object destroyed",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            },
+            {
+              "path": "gone",
+              "atLeast": 3
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "off: started False (switch off); nothing runs",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+          "args": [
+            "expect left"
+          ]
+        },
+        "note": "off: the three gone entries still on the jig; jig destroyed, townie put back"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "on: the same hard state again (another townie)",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "on: started True (safe); phase 10 reaches the jig within the pass",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: poll until the jig holds no gone entry",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "gone",
+              "equals": 0
+            }
+          ],
+          "maxS": 300,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+          "args": [
+            "expect cleaned"
+          ]
+        },
+        "note": "on: gone 0, all three lists empty; deadrefsweep_uselists +3"
+      }
+    ]
   }
 ]

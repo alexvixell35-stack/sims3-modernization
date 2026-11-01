@@ -5488,3 +5488,11 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 | I-914-1 | 516 §1 | `Quit` leaves `CurrentPlayer` and `CheatingSim`; only `DoFinishGame` clears the board's player fields; a Sim destroyed mid-game never reaches either | decompiled `Dartboard.Quit`, `DoFinishGame`, the Wait / TakeTurn clean-ups | static read | the three fields read as described | a clean-up path that clears them | verified (static) |
 | I-914-2 | 516 §2 | Quitting a destroyed Sim through EA's `Quit` and nulling the two fields throws nothing and leaves `Players` and `Teams` empty | the on arm of `dart-gone-check` | `dart-gone-check` on arm | expect cleaned passes, `deadrefsweep_dartboards` +3 | an exception, or an entry left | verified (live 2026-11-02, al12) |
 | I-914-3 | 516 §3 | A dartboard made out of world is reached by `Queries.GetObjects<Dartboard>()` and the seeded townie counts as gone once destroyed | the seed step's `state` poll | `dart-gone-check` both arms | gone 3 and destroyed true within 60 s | the poll times out | verified (live 2026-11-02: met 2 s after the seed, both arms) |
+
+## 915. Object use, reference and routing-reference lists keep Sims that are gone, `deadrefsweep` phase 10 (2026-11-01, docs/517; static + live probe)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-915-1 | 517 §1 | The three lists are persisted and only the using Sim's own clean-up removes it from them | decompiled `GameObject` fields and Remove methods; core build 40's load scans | static read | fields without `[Persistable(false)]`, callers of the Remove methods | a sweep or dispose path that removes destroyed Sims | verified (static) |
+| I-915-2 | 517 §2 | EA's Remove methods throw nothing for a destroyed Sim and leave the lists clean | the on arm of `use-list-gone-check` | `use-list-gone-check` on arm | expect cleaned passes, `deadrefsweep_uselists` +3 | an exception, or an entry left | open until the job runs |
+| I-915-3 | 517 §2 | The whole-object walk stays within the pass's slice budget | `deadrefsweep_max_slice_us` after the on arm | `use-list-gone-check` on arm | max slice at most a few ms | a slice far above `kSliceUs` | open until the job runs |

@@ -194,6 +194,7 @@ namespace Ts3Agent
             if (c.Length > 2042) { r["npcdriverpool_seen"] = c[2041]; r["npcdriverpool_dropped"] = c[2042]; } // NpcDriverPool.cs, docs/514
             if (c.Length > 2044) { r["bookcarry_dropped"] = c[2043]; r["bookcarry_ended"] = c[2044]; } // BookCarry.cs, docs/515
             if (c.Length > 2045) r["deadrefsweep_dartboards"] = c[2045]; // DeadRefs.cs phase 9, docs/516
+            if (c.Length > 2046) r["deadrefsweep_uselists"] = c[2046]; // DeadRefs.cs phase 10, docs/517
             if (c.Length > 604) { r["autshadow_gm6_methods"] = c[602]; r["autshadow_gm6_mismatch"] = c[603]; r["autshadow_gm6_us"] = c[604]; }
             if (c.Length > 605) r["autshadow_gm6_faults"] = c[605];
             if (c.Length > 606) r["autshadow_gm6_owners_skipped"] = c[606];

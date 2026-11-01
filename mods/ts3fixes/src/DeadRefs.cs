@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay;
+using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.ActorSystems;
 using Sims3.Gameplay.CAS;
@@ -38,10 +39,11 @@ namespace Ts3Fixes
     //     Coworkers, FormerBoss, chess challenger, pregnancy dad, empty-outfit count for #100), 5 Sims (LookAtManager react
     //     times, unforgettable topics, push requester, last talking partner, reserved vehicle), 6 fish (fisher), 7 cars and
     //     boats (previous passengers), 8 horseshoe courts (throwers and scores), 9 dartboards (gone players quit through EA's
-    //     Quit, gone current player and cheating Sim cleared; #166 build 42, docs/516).
+    //     Quit, gone current player and cheating Sim cleared; #166 build 42, docs/516), 10 object use, reference and
+    //     routing-reference lists (gone Sims removed through EA's own Remove methods; #166 build 40, docs/517).
     //     [395] relationship keys removed, [396] relationship entries removed, [397] aging states removed, [398] alarm owners
     //     cleared, [399] react-time entries, [400] coworker / boss / chess entries, [401] topics, [402] fishers, [403] Sim
-    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [2045] dartboard entries, [405] passes finished, [406] slices,
+    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [2045] dartboard entries, [2046] use-list entries, [405] passes finished, [406] slices,
     //     [407] longest slice us, [408] total pass ms, [409] longest save pass us, [410] passes refused or stopped (unsafe state, switch off) and items that threw.
     //   Not built (docs/205 §4): CookingProcess appliance handlers, ObjectOwnerComponent.mThief, Celebrity.mWaitingToReact,
     //   adoption pool pets, Service.mPreferredServiceNpc (= preferredservice, #86).
@@ -163,6 +165,7 @@ namespace Ts3Fixes
                 delegate { List<object> l = Objects<CarOwnable>(); l.AddRange(Objects<BoatOwnable>()); return l; },
                 delegate { return Objects<HorseshoeCourt>(); },
                 delegate { return Objects<Dartboard>(); },
+                delegate { return Objects<GameObject>(); },
             };
             try
             {
@@ -263,6 +266,7 @@ namespace Ts3Fixes
                     case 6: VehicleHolders(o); break;
                     case 7: HorseshoeHolders(o as HorseshoeCourt); break;
                     case 8: DartboardHolders(o as Dartboard); break;
+                    case 9: UseListHolders(o as GameObject); break;
                 }
             }
             catch (Exception) { PatchCounters()[410]++; }
@@ -443,16 +447,7 @@ namespace Ts3Fixes
                 // the Late Night catalog names: DartboardCheap, DartboardExpensive; the one-argument overload builds a base-game key
                 Dartboard board = GlobalFunctions.CreateObjectOutOfWorld("DartboardCheap", ProductVersion.EP3) as Dartboard;
                 if (board == null) throw new InvalidOperationException("dart seed: CreateObjectOutOfWorld(\"DartboardCheap\", EP3) made nothing");
-                Household active = Household.ActiveHousehold;
-                Lot home = active != null ? active.LotHome : null;
-                Sim victim = null;
-                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
-                {
-                    SimDescription d = s.SimDescription;
-                    if (s.IsSelectable || s.IsPet || s.HasBeenDestroyed || d == null || !d.IsValidDescription || !d.TeenOrAbove) continue;
-                    if (s.Household == active || (home != null && s.LotCurrent == home) || d.AssignedRole != null || d.CreatedByService != null) continue;
-                    victim = s; break;
-                }
+                Sim victim = DrPickTownie();
                 if (victim == null) { board.Destroy(); throw new InvalidOperationException("dart seed: no townie to use"); }
                 Dartboard.Team team = new Dartboard.Team();
                 team.AddPlayerToTeam(victim, board);
@@ -479,11 +474,106 @@ namespace Ts3Fixes
             string line = "gone " + gone + ", players " + players + ", teams " + teams + ", current " + (b.CurrentPlayer != null) + ", cheating " + (b.CheatingSim != null) + " (switch " + on + ")";
             sDartBoard = null;
             b.Destroy();
-            string back = "not put back";
-            if (sDartDesc != null && sDartDesc.IsValidDescription && (sDartDesc.CreatedSim == null || sDartDesc.CreatedSim.HasBeenDestroyed))
-                back = sDartDesc.Instantiate(sDartPos) != null ? "put back" : "Instantiate returned null";
+            string back = DrPutBack(sDartDesc, sDartPos);
             if (!ok) throw new InvalidOperationException("dart " + what + ": wrong outcome; " + line + "; " + sDartDesc.FullName + " " + back);
             return "as expected; " + line + "; " + sDartDesc.FullName + " " + back;
+        }
+
+        // Phase 10 (issue #166 build 40, docs/517): GameObject.mActorsUsingMe, mReferenceList and mRoutingReferenceList are
+        // persisted List<Sim>s; a Sim reset or destroyed while using, referencing or routing to an object never runs the
+        // paired Remove, so the destroyed Sim object stays in the list and goes into every save. Gone Sims leave through
+        // EA's own RemoveFromUseList (science component, SimLine queue), RemoveFromReferenceList and
+        // RemoveFromRoutingReferenceList, one call per occurrence. [2046] entries.
+        static void UseListHolders(GameObject o)
+        {
+            if (o == null || o.HasBeenDestroyed) return;
+            int[] c = PatchCounters();
+            foreach (Sim s in new List<Sim>(o.ActorsUsingMe)) if (SimGone(s)) { o.RemoveFromUseList(s); c[2046]++; }
+            foreach (Sim s in new List<Sim>(o.ReferenceList)) if (SimGone(s)) { o.RemoveFromReferenceList(s); c[2046]++; }
+            List<Sim> routing = o.RoutingReferenceList; // null until the first route to the object
+            if (routing != null) foreach (Sim s in new List<Sim>(routing)) if (SimGone(s)) { o.RemoveFromRoutingReferenceList(s); c[2046]++; }
+        }
+
+        static int UseListGone(GameObject o)
+        {
+            int n = 0;
+            foreach (Sim s in o.ActorsUsingMe) if (SimGone(s)) n++;
+            foreach (Sim s in o.ReferenceList) if (SimGone(s)) n++;
+            List<Sim> routing = o.RoutingReferenceList;
+            if (routing != null) foreach (Sim s in routing) if (SimGone(s)) n++;
+            return n;
+        }
+
+        // Agent check for docs/517 (repro use-list-gone-check), a hard state built and undone, like DeadRefDartCheck:
+        //   "seed":   a social jig made out of world holds one townie in its use list, reference list and routing reference
+        //             list; that Sim object is then destroyed (the description stays; put back at the end).
+        //   "state":  UseState: gone entries on that object, the three list counts, destroyed.
+        //   "expect left" (switch off) / "expect cleaned" (switch on): throws unless the object still holds the three gone
+        //             entries (left) or none, with all three lists empty (cleaned). Either way the jig is destroyed and
+        //             the townie put back.
+        public class UseState { public int gone, use, reference, routing; public bool destroyed; }
+        static GameObject sUseObj;
+        static SimDescription sUseDesc;
+        static Vector3 sUsePos;
+
+        public static object DeadRefUseListCheck(string what)
+        {
+            if (what == "seed")
+            {
+                GameObject jig = GlobalFunctions.CreateObjectOutOfWorld("SocialJigTwoPerson") as GameObject;
+                if (jig == null) throw new InvalidOperationException("use seed: CreateObjectOutOfWorld(\"SocialJigTwoPerson\") made nothing");
+                Sim victim = DrPickTownie();
+                if (victim == null) { jig.Destroy(); throw new InvalidOperationException("use seed: no townie to use"); }
+                jig.AddToUseList(victim); jig.AddToReferenceList(victim); jig.AddToRoutingReferenceList(victim);
+                sUseObj = jig; sUseDesc = victim.SimDescription; sUsePos = victim.Position;
+                string name = victim.FullName;
+                victim.Destroy();
+                return "use seed: " + name + " in the jig's use, reference and routing reference lists, then destroyed";
+            }
+            GameObject o = sUseObj;
+            if (o == null) throw new InvalidOperationException("use " + what + ": no seed");
+            if (what == "state")
+            {
+                UseState st = new UseState();
+                st.gone = UseListGone(o); st.use = o.ActorsUsingMe.Count; st.reference = o.ReferenceList.Count;
+                st.routing = o.RoutingReferenceList != null ? o.RoutingReferenceList.Count : 0;
+                st.destroyed = sUseDesc.CreatedSim == null || sUseDesc.CreatedSim.HasBeenDestroyed;
+                return st;
+            }
+            if (what != "expect left" && what != "expect cleaned") return "use <seed|state|expect left|expect cleaned>";
+            bool on = ShortcutOn("deadrefsweep");
+            int gone = UseListGone(o), use = o.ActorsUsingMe.Count, reference = o.ReferenceList.Count, routing = o.RoutingReferenceList != null ? o.RoutingReferenceList.Count : 0;
+            bool ok = what == "expect left" ? !on && gone == 3 : on && gone == 0 && use == 0 && reference == 0 && routing == 0;
+            string line = "gone " + gone + ", use " + use + ", reference " + reference + ", routing " + routing + " (switch " + on + ")";
+            sUseObj = null;
+            o.Destroy();
+            string back = DrPutBack(sUseDesc, sUsePos);
+            if (!ok) throw new InvalidOperationException("use " + what + ": wrong outcome; " + line + "; " + sUseDesc.FullName + " " + back);
+            return "as expected; " + line + "; " + sUseDesc.FullName + " " + back;
+        }
+
+        // A townie for a hard state: not selectable, no pet, teen or older, not of the active household, not on its home
+        // lot, no role or service, a valid description.
+        static Sim DrPickTownie()
+        {
+            Household active = Household.ActiveHousehold;
+            Lot home = active != null ? active.LotHome : null;
+            foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+            {
+                SimDescription d = s.SimDescription;
+                if (s.IsSelectable || s.IsPet || s.HasBeenDestroyed || d == null || !d.IsValidDescription || !d.TeenOrAbove) continue;
+                if (s.Household == active || (home != null && s.LotCurrent == home) || d.AssignedRole != null || d.CreatedByService != null) continue;
+                return s;
+            }
+            return null;
+        }
+
+        // The townie's Sim object again where it stood (what a reset does after its Destroy).
+        static string DrPutBack(SimDescription d, Vector3 pos)
+        {
+            if (d == null || !d.IsValidDescription) return "not put back (description gone)";
+            if (d.CreatedSim != null && !d.CreatedSim.HasBeenDestroyed) return "already in the world";
+            return d.Instantiate(pos) != null ? "put back" : "Instantiate returned null";
         }
 
         // Before a save (DisposeSaveHook): the three big dictionaries only, gone entries only (field reads per entry; the
@@ -539,7 +629,7 @@ namespace Ts3Fixes
                 }
                 case "sweep": return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
                 case "savepass": return DeadRefSavePass();
-                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck)";
+                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck)";
             }
         }
 
@@ -563,6 +653,8 @@ namespace Ts3Fixes
                 List<ActiveTopic> u = t != null && sUnforgettable != null ? sUnforgettable.GetValue(t) as List<ActiveTopic> : null;
                 if (u != null) foreach (ActiveTopic a in u) if (a != null && a.Parameter != null && DescGone(a.Parameter)) topics++;
             }
+            int uselists = 0;
+            foreach (GameObject g in Sims3.Gameplay.Queries.GetObjects<GameObject>()) uselists += UseListGone(g);
             int darts = 0;
             foreach (Dartboard b in Sims3.Gameplay.Queries.GetObjects<Dartboard>()) darts += DartGone(b);
             foreach (SimDescription d in Household.EverySimDescription())
@@ -573,7 +665,7 @@ namespace Ts3Fixes
             }
             return "count: relationship keys gone " + relGone + "/" + Relationship.sAllRelationships.Count + ", entries naming gone " + relEntries
                 + ", aging states gone " + AgingStatesToCheck().Count + ", alarm owners gone " + AlarmOwnersToCheck().Count
-                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers + ", dartboard entries gone " + darts
+                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers + ", dartboard entries gone " + darts + ", use-list entries gone " + uselists
                 + ", no-outfit descriptions " + NoOutfitDescriptions().Count + " | " + (DeadRefUnsafe(false) ?? "safe");
         }
     }
