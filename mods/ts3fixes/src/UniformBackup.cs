@@ -51,12 +51,14 @@ namespace Ts3Fixes
 
         static SimDescription sUbSim;
         static readonly List<SimDescription> sUbUsed = new List<SimDescription>(); // the off arm leaves its Sim's Career outfit unloadable
+        static Type sUbOccType; // the first pick's occupation: later picks prefer it (EA's uniform path differs by occupation)
         static object sUbCoreSwitch; // a patched Systems build's own switch (OutfitRepair.kClearBackupUniform), set to EA for the check
         // Agent checks for #101 (repro career-uniform-backup-check), the issue's live sequence with EA's own calls:
         //   "pick":    a Sim in the world with a Career outfit whose occupation hands out a uniform for its level
         //              (TryGetUniformForCurrentLevel true: only then does EA's SetOccupationOutfitForCurrentLevel call
         //              ApplyOccupationUniform; Film never does), active household first, never one picked before (the
-        //              off arm leaves its Sim's Career outfit unloadable, so EA would make no new outfit for the on arm);
+        //              off arm leaves its Sim's Career outfit unloadable, so EA would make no new outfit for the on arm), with
+        //              the first pick's occupation when one is left (Business stores a backup, Medical did not, 2026-11-01);
         //              clears the static backup so each arm starts from EA's state after load.
         //   "wear <category>": SwitchToOutfitWithoutSpin, e.g. "wear Career", "wear Everyday".
         //   "uniform": the occupation's SetOccupationOutfitForCurrentLevel (what a promotion runs).
@@ -72,20 +74,24 @@ namespace Ts3Fixes
                 if (Household.ActiveHousehold != null) cands.AddRange(Household.ActiveHousehold.SimDescriptions);
                 foreach (Sim w in Sims3.Gameplay.Queries.GetObjects<Sim>()) if (w.SimDescription != null) cands.Add(w.SimDescription);
                 int noUniform = 0;
+                for (int pass = sUbOccType != null ? 0 : 1; pass < 2 && sUbSim == null; pass++) // pass 0: the first pick's occupation only
                 foreach (SimDescription d in cands)
                 {
                     if (sUbUsed.Contains(d) || d.Occupation == null || d.CreatedSim == null || !d.CreatedSim.InWorld || d.GetOutfitCount(OutfitCategories.Career) == 0) continue;
+                    if (pass == 0 && d.Occupation.GetType() != sUbOccType) continue;
                     SimOutfit u;
-                    if (!d.Occupation.TryGetUniformForCurrentLevel(out u) || u == null) { noUniform++; continue; }
+                    if (!d.Occupation.TryGetUniformForCurrentLevel(out u) || u == null) { if (pass == 1) noUniform++; continue; }
                     sUbSim = d;
                     sUbUsed.Add(d);
                     break;
                 }
+                bool sameOcc = sUbOccType == null || (sUbSim != null && sUbSim.Occupation.GetType() == sUbOccType);
+                if (sUbOccType == null && sUbSim != null) sUbOccType = sUbSim.Occupation.GetType();
                 if (sUbSim == null) return "no Sim left in the world (not picked before) with a Career outfit and an occupation that hands out a level uniform (" + noUniform + " with a Career outfit but no level uniform)";
                 Occupation.backupOutfit = null;
                 FieldInfo core = UniformCoreSwitch();
                 if (core != null) { if (sUbCoreSwitch == null) sUbCoreSwitch = core.GetValue(null); core.SetValue(null, false); }
-                return sUbSim.FullName + " (" + sUbSim.Occupation.GetType().Name + "); switch " + ShortcutOn("uniformbackup") + (core != null ? "; patched Systems build set to EA" : "") + "; " + UniformBackupCheck("state");
+                return sUbSim.FullName + " (" + sUbSim.Occupation.GetType().Name + (sameOcc ? "" : ", NOT the first pick's " + sUbOccType.Name + ": arms not comparable") + "); switch " + ShortcutOn("uniformbackup") + (core != null ? "; patched Systems build set to EA" : "") + "; " + UniformBackupCheck("state");
             }
             if (what == "stop")
             {
