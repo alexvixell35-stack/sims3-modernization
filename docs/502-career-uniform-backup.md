@@ -73,6 +73,10 @@ All methods are in `Sims3GameplaySystems` unless named otherwise.
   path differs by occupation (rerun 2 got a Medical Sim, for which EA stored no backup). The uniform step puts the last
   "wear" outfit back on first when the Sim has changed in between (rerun 3: the on arm's Sim went back to Everyday
   between the steps, so EA released the old outfit instead of keeping it as the backup).
+- **K free at the start**: #101's sequence needs K free when it starts. When the picked Sim's Career[0] already holds K,
+  every step gets the next key and K is never handed out again (LR run 2, 2026-11-01: Faith MacDuff, the off arm ended
+  with Career[0] loading and no #101). `pick` then runs one uniform call while the Sim is out of Career, which releases
+  the old Career outfit and K with it, and throws if K is still held [verified, log].
 
 ## 4. Results
 
@@ -88,3 +92,11 @@ All methods are in `Sims3GameplaySystems` unless named otherwise.
 GameDeveloperCareer) reproduced #101. The on arm's Sim (Joe MacDuff, asleep at the time) kept the same worn outfit
 through every switch, to Career and to Everyday, so EA never saw him in Career and stored no backup **[verified, log]**.
 `pick` now switches each candidate to Career[0] and back first, and skips a Sim whose worn outfit does not follow.
+
+**Rerun 5** (2026-11-01, Baseline-BP, `bp-career-uniform-check` PASS in 9.3 min, with the expect steps) **[verified, log]**:
+the same Sims as rerun 4. `expect broken` (off, Lala Angelista): Career[0] is K and does not load, the backup holds K,
+nothing cleared. `expect loads` (on, Katrina Pala): every Career outfit loads, no backup, cleared 1.
+
+**LR run 2** (2026-11-01, BigSave-LR, `lr-career-uniform-check` FAIL at `expect broken`): Faith MacDuff's Career[0] was
+K at the pick, so no step lost an outfit (§3, "K free at the start"). The step's throw was right: the off arm did not
+reproduce #101.
