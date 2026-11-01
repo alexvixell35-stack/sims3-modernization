@@ -39,6 +39,7 @@ namespace Ts3Fixes
         // ("Unable to invoke an invalid target", EaFixes.cs PrefRemoveFn).
         delegate void GradWaitFn(StateMachineClient smc, InteractionInstance.LoopData loopData);
         static readonly FieldInfo sGradTable = typeof(School).GetField("sGraduatingSims", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+        static readonly FieldInfo sInstanceActor = typeof(InteractionInstance).GetField("mInstanceActor", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
         static int sGradLines;
 
         static bool GraduationNoTable(object interaction)
@@ -88,6 +89,8 @@ namespace Ts3Fixes
                 MethodInfo wait = t.GetMethod("WaitingLoopDel", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
                 if (fa == null || wait == null) throw new InvalidOperationException("graduationtable: " + t.Name + ".Actor or WaitingLoopDel not found");
                 fa.SetValue(ii, actor);
+                if (sInstanceActor == null) throw new InvalidOperationException("graduationtable: InteractionInstance.mInstanceActor not found");
+                sInstanceActor.SetValue(ii, actor);  // InstanceActor (the hook's read) is set by Init, which this object never ran
                 GradWaitFn call = (GradWaitFn)Delegate.CreateDelegate(typeof(GradWaitFn), ii, wait);
                 try { call(null, new InteractionInstance.LoopData()); returned++; res += t.Name + " returned; "; }
                 catch (NullReferenceException) { nre++; res += t.Name + " threw NullReferenceException; "; }
