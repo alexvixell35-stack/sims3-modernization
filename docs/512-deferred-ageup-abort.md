@@ -50,4 +50,7 @@ current outfit. That is what the player's core build does with a check in the wa
 
 ## 4. Results
 
-Not run yet.
+**Run 1** (2026-11-01, Baseline-BP, `bp-age-up-abort-check` PASS in 8.6 min, original core mod) **[verified, log]**:
+on Shanita Jordon (Adult, not instantiated), both arms. `expect thrown` (off): EA's `NullReferenceException`, seen +1,
+caught +0, age and outfit key unchanged. `expect caught` (on): the method returned, seen +1, caught +1, age and outfit
+key unchanged. The arm puts the deferred flag back itself, so the run does not show that the age-up stays deferred.

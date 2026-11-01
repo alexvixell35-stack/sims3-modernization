@@ -5385,8 +5385,8 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 
 | ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
 |----|-----|-------|----------|-----------|----------|---------|---------|
-| I-910-1 | 512 §1 | AbortSimBuilderTask during PreInstantiateSim's wait makes the wait throw NullReferenceException, and Instantiate creates no Sim | IL of PreInstantiateSim, AbortSimBuilderTask and Instantiate; the report's exception | `age-up-abort-check` off arm | expect thrown passes | the method returns or another exception comes out | open |
-| I-910-2 | 512 §2 | Catching it leaves the age and the outfit key unchanged and the age-up deferred | IL order: the flag, the key and the age are set only after the wait | `age-up-abort-check` on arm | expect caught passes | throws | open |
+| I-910-1 | 512 §1 | AbortSimBuilderTask during PreInstantiateSim's wait makes the wait throw NullReferenceException, and Instantiate creates no Sim | IL of PreInstantiateSim, AbortSimBuilderTask and Instantiate; the report's exception | `age-up-abort-check` off arm | expect thrown passes | the method returns or another exception comes out | verified: `age-up-abort-check` run 1 PASS (2026-11-01, docs/512 §4) |
+| I-910-2 | 512 §2 | Catching it leaves the age and the outfit key unchanged and the age-up deferred | IL order: the flag, the key and the age are set only after the wait | `age-up-abort-check` on arm | expect caught passes | throws | verified for the age and the outfit key (run 1, docs/512 §4); the deferred flag is not observed (the arm restores it) |
 
 ## 901. Issue #101: the career uniform backup is uncached again and again, `uniformbackup` (2026-10-31, docs/502; static + self-test; the bug sequence and a player-side script patch ran live)
 

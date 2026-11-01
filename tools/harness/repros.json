@@ -47213,7 +47213,7 @@
             "arm"
           ]
         },
-        "note": "on: the same race on the next townie",
+        "note": "on: the same race (on the first townie that qualifies: the off arm leaves its age and outfit unchanged)",
         "waitS": 8
       },
       {
