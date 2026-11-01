@@ -79,8 +79,11 @@ runs):
    the header. Reflection and the G-M6 check keep reading EA's bytes (I-506-2). Count `ilp_applied` and the fix's
    counter. Log once per method with the fix id and build.
 
-Cost: a name lookup per transformed method, and a hash only on a name hit. The transform runs once per method per
-session, so the patched path runs once per fix.
+Cost: a name lookup per transformed method, and a hash only on a name hit. Normally the transform runs once per method
+per session, so the patched path runs once per fix. MonoPatcher's on-demand `ForceJIT` (`0xE5637D` `jne` -> `90 90`)
+makes EA transform on every call while it is active [verified: mintcall.cpp, docs/68]. The dispatcher therefore caches the
+verdict per runtime method (patched body, or none), so a repeat transform costs one pointer lookup and reuses the
+patched buffer.
 
 Failure handling: every step that does not hold leaves EA's body unchanged, and a crash inside steps 2-6 is caught by the
 same `__try` pattern `ImageSha` uses. The fix is then off, never half applied.
@@ -96,6 +99,17 @@ The compiler hook runs after EA's transform, the patcher before it, so they do n
 
 The patcher could also work at load time (rewrite the image's bytes once). That needs a writable copy of the module and
 breaks the content hash of PR #169, so the per-call swap is the better fit.
+
+**Prior art: MonoPatcher `ReplaceIL`.** MonoPatcher 0.3.0 detours Mono's `GenerateCode` at `0xE5CA90` and swaps
+`header->ilBegin` / `codeSize` for the methods a mod replaces [verified: docs/68 hook map row `0xE5CA90`, from docs/06].
+That is step 6's mechanism, and it shows that a header swap at code generation works in this Mono. It is community
+evidence for I-506-1, still to be measured with our patcher. What differs here:
+- MonoPatcher takes a whole replacement body from the mod, with no check of what it replaces;
+- the spec carries only our lines and applies on an exact hash;
+- the hook stays at the transform, not at `0xE5CA90`. MonoPatcher writes that site in its DllMain (a second detour there
+  would fail one of the two byte checks), and a body MonoPatcher has already swapped fails our hash and is skipped.
+- ts3fixes' own patch host swaps whole `MonoMethod` headers in the heap (docs/04 F8). That is the whole-method wrap path,
+  and it stays the first choice whenever a fix can wrap the method.
 
 ## 4. The compiler and the other hash lists
 
