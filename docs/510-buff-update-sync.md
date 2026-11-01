@@ -82,3 +82,7 @@ Tiara Angelista. Off: the listener ran once, seen +1, caught +0, and ErrorTrap l
 Sim object was then replaced (the picked one destroyed), and the new one's motives moved. On: the listener ran once,
 seen +1, caught +1, the Sim object the same, Inspired present; 20 s later its motives had moved. Inspired was gone by
 then; the check does not say why (not part of the claim).
+
+**Run 3** (2026-11-01, Baseline-BP, `bp-buff-update-check` PASS in 8.4 min, original core mod, with the second walk)
+**[verified, log]**: off as in run 2 (seen +1, caught +0, the Sim object replaced). On: seen +1, caught +1, walked again +1
+(the second walk finished), the same Sim object, Inspired present, motives moved 20 s later.
