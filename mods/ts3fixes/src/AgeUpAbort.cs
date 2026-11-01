@@ -32,6 +32,7 @@ namespace Ts3Fixes
                 catch (Exception e)
                 {
                     AgingState st = (AgingState)(object)this;
+                    if (sAuTask == null || sAuDeferred == null) throw; // field not found: EA's exception goes on unchanged
                     int d = AgeUpAbortCore.Decide(e, sAuTask.GetValue(st) == null, (bool)sAuDeferred.GetValue(st), ShortcutOn("ageupabort"));
                     if (d == AgeUpAbortCore.kPass) throw;
                     PatchCounters()[2037]++;
