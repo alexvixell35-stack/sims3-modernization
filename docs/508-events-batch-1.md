@@ -93,6 +93,21 @@ loop takes EA's own "nothing to wait for" exit: the actor gets `ExitReason.Stage
 
 ## 6. Results
 
-Pending: queue `events-batch-1`, 2026-11-01.
+2026-11-01, Baseline-BP, simler90's original UPDATE242 core, the player release v0.2.4 asi, 5 min each [verified]. Rows:
+`docs/data/results/2026-11-01-queue-events-batch-1.md` and `...-events-batch-1-rest.md`.
+
+| Repro | Off (switch false) | On (switch true) | Result |
+|---|---|---|---|
+| `photo-session-check` (ScienceLab, two Sims) | `SimDoneWithPhoto` returns false: case 1 leaves 1 Sim listed, case 2 leaves 2; the stale session is kept | both return true with the list cleared; the stale session is ended; counters 2026/2027/2028 +3/+2/+1 | PASS |
+| `egg-spot-check` | the point off the hunt lot is accepted (True), the on-lot point too | off-lot point refused (False), on-lot point accepted, counter 2029 +1 | PASS |
+| `graduation-table-check` | both `WaitingLoopDel` calls throw `NullReferenceException` | both return, the actor has `StageComplete`, counter 2030 +2 | PASS |
+
+The runs before the passes failed for test reasons, not the fixes:
+- The queue's early gate fired after the check reloaded the save. Each repro now names its own counter
+  (`fixesRequire`).
+- The egg and graduation checks called the swapped methods with `MethodInfo.Invoke`, which throws "Unable to invoke an
+  invalid target" for a swapped method. They now use a delegate, as the other ts3fixes checks do.
+- The graduation check's test interaction had `Actor` but not `InstanceActor` (which `Init` sets and the fix reads). The
+  check now sets both.
 
 Written with Claude Code (AI help).
