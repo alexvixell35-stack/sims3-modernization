@@ -70,6 +70,11 @@ namespace Ts3Fixes
             // consumed allow-listed ads
             public bool Direct, Snapped, UnseenDry;
             public int Cut0, Wait0, SavedPairs;
+            // docs/222 §9 (autunseencmp, Dry): compare on for this search, the actor was seen at a later slice (compare stops),
+            // frame of the slice last checked, per object: the direct path would consume it at its B14 call
+            public bool CmpOn, CmpSnapped;
+            public int CmpSlice;
+            public bool[] ObjCmp = new bool[64];
             public readonly AutLiveCore.Pace Pace = new AutLiveCore.Pace();  // docs/222 §8, per B13 slice of a direct search
             public AutonomyT Aut;
             public Sim Actor;
@@ -103,7 +108,7 @@ namespace Ts3Fixes
                 {
                     int n = Math.Max(objs, Obj.Length * 2);
                     Obj = new IMetaObject[n]; ObjImpl = new int[n]; Start = new int[n + 1]; ObjWhy = new int[n];
-                    ObjKey = new ulong[n]; LotKey = new ulong[n]; Visited = new bool[n]; Consumed = new bool[n];
+                    ObjKey = new ulong[n]; LotKey = new ulong[n]; Visited = new bool[n]; Consumed = new bool[n]; ObjCmp = new bool[n];
                 }
                 if (Pair.Length < pairs)
                 {
@@ -232,6 +237,7 @@ namespace Ts3Fixes
             sB14Rate.Reset();
             if (sRateSw == null) sRateSw = StopWatch.Create(StopWatch.TickStyles.Microseconds);
             sDirectAut = null; sDirectInst = null; sDirectPairs.Clear(); sDirectSeen.Clear(); sDirectTags.Clear(); sFlipFrame = -1;
+            sDefCmp.Clear(); sDefCmpN = sDefCmpLogN = 0; sDefCmpLogFrame = AutShadowNative.Config(19);
             AppliedLog().Add("AutShadow: go-live Mode 3 (" + (sLiveDry ? "dry" : "acting") + ") TopN " + sLiveTopN + " Bands " + sLiveBands + " Margin "
                 + sLiveMargin + " MaxWait " + sLiveMaxWait + "; cost guard " + (sLiveDry ? "n/a (dry)" : !sGuardNative ? "off (ts3native without cost keys)"
                 : "Off " + sGuard.OffPm + " On " + sGuard.OnPm + " MinSearches " + sGuard.MinSearches + " MinFrames " + sGuard.MinFrames + " Hold " + sGuard.Hold)
@@ -290,6 +296,7 @@ namespace Ts3Fixes
             L.Aut = null; L.Actor = null; L.LotCur = L.LotHome = null; L.Household = L.Role = L.Occ = L.Job = null; L.Career = null;
             L.Ready = L.Ok = L.Abandoned = L.Late = false; L.EvN = 0; L.Objs = L.Pairs = 0;
             L.Direct = L.Snapped = L.UnseenDry = false; L.SavedPairs = 0;
+            L.CmpOn = L.CmpSnapped = false;
             LiveActive(L, false);
             L.InUse = false;
         }
@@ -306,7 +313,7 @@ namespace Ts3Fixes
             {
                 IMetaObject m = q.Obj[o];
                 L.Obj[o] = m; L.ObjImpl[o] = q.ObjImpl[o]; L.Start[o] = q.Start[o];
-                L.Visited[o] = L.Consumed[o] = false;
+                L.Visited[o] = L.Consumed[o] = L.ObjCmp[o] = false;
                 if (!L.ObjIndex.ContainsKey(m)) L.ObjIndex[m] = o;
                 L.ObjKey[o] = m.ObjectId.Value;
                 Lot lot = m as Lot ?? m.LotCurrent;
@@ -415,8 +422,11 @@ namespace Ts3Fixes
             if (L.Direct) { sDirectPairs.Clear(); sDirectSeen.Clear(); sDirectInst = null; sDirectAut = null; L.Pace.Slice(); }
             BestScores bs = (BestScores)fBestScores.GetValue(a);
             AutLiveCore.Heap before = L.Dry ? Snapshot(L, bs) : null;
-            L.ResumeFrame = L.SliceFrame = AutShadowNative.Config(19);
+            L.ResumeFrame = L.SliceFrame = L.CmpSlice = AutShadowNative.Config(19);
             L.LateOn = ShortcutOn("autlivelate"); L.LateOk = false;
+            // docs/222 §9: an unseen actor's Dry search (still unseen at the resume, as the direct path's snap-back) compared per pair
+            L.CmpOn = L.UnseenDry && ShortcutOn("autunseencmp") && AutLiveCore.Unseen.Stay(SafeUfWhy(a.Actor));
+            if (L.CmpOn) uk[kCUnCmpSearches]++;
             sLiveCur = L;
             LiveActive(L, true);  // cleared by LiveRelease
             int r, req = L.Id, feat = 0;
@@ -590,6 +600,7 @@ namespace Ts3Fixes
             if (m == null || !L.ObjIndex.TryGetValue(m, out o)) { LiveStat(kSObjNotInReq); h.B14Orig(m, c); return; }
             L.Visited[o] = true;
             if (L.Direct) { DirectB14(L, a, m, c, h, o); return; }
+            if (L.CmpOn) DefCmpObj(L, m, o);
             // B13 yielded (Y2) since the resume: the rest of this search is older than one tick. autlivelate (docs/217 L1):
             // a later slice still consumes when it passes the resume checks again and is at most kAutLiveLateTicks old
             int f = AutShadowNative.Config(19);
@@ -705,6 +716,7 @@ namespace Ts3Fixes
             if (p >= 0) { L.Live[p] = s; L.LiveHas[p] = true; }
             if (L.Dry)
             {
+                if (L.CmpOn && p >= 0) DefCmpNote(L, p, s);
                 // AlwaysChooseBest pairs go to BestScores' side list, never the queue [verified, decompiled BestScores.Add]
                 InteractionTuning tun = iop != null ? iop.Tuning : null;
                 if (tun != null && tun.AlwaysChooseBest) return;
@@ -1076,6 +1088,89 @@ namespace Ts3Fixes
             if (add > 0) { t.SetElapsedTimeFloat(ms + (float)add); PatchCounters()[kCUnPaceUs] += (int)(add * 1000.0); }
             if (run) t.Start();
         }
+
+        // ---- docs/222 §9 autunseencmp (Dry, measurement only): the worker's per-pair Test/score vs the game's own C2 ----
+        // Scope as the direct path: an unseen actor's search on every B13 slice (late ones too); a slice where the actor is seen
+        // stops the compare (the direct path snaps back there); per object, only one the direct path would consume (ObjWhy 0,
+        // ObjStale re-asked after the resume slice, not destroyed, same ads). Per pair with a worker verdict (pass / Test failed):
+        // counters 670-679, and per definition (DeclaringType.Name + "." + Name) {"t":"defcmp"} lines, cumulative, the top
+        // kDefCmpTop by mismatches every kDefCmpEvery compared pairs or kDefCmpFrames ticks.
+        const int kCUnCmpSearches = 670, kCUnCmpPairs = 671, kCUnCmpWfGp = 672, kCUnCmpWpGf = 673, kCUnCmpBothPass = 674, kCUnCmpBothFail = 675,
+            kCUnCmpLatePairs = 676, kCUnCmpLateMis = 677, kCUnCmpObjSkip = 678, kCUnCmpSnapped = 679, kDefCmpEvery = 1000, kDefCmpFrames = 300, kDefCmpTop = 15;
+        static readonly Dictionary<string, AutLiveCore.DefCmp> sDefCmp = new Dictionary<string, AutLiveCore.DefCmp>();
+        static int sDefCmpN, sDefCmpLogN, sDefCmpLogFrame;
+
+        static void DefCmpObj(LiveSearch L, IMetaObject m, int o)
+        {
+            int[] k = PatchCounters();
+            try
+            {
+                int f = AutShadowNative.Config(19);
+                if (f != L.CmpSlice)
+                {
+                    L.CmpSlice = f;
+                    if (!L.CmpSnapped && !AutLiveCore.Unseen.Stay(SafeUfWhy(L.Actor))) { L.CmpSnapped = true; k[kCUnCmpSnapped]++; }
+                }
+                bool ok = !L.CmpSnapped && L.ObjWhy[o] == 0;
+                if (ok && f != L.ResumeFrame && (AutShadowNative.ObjStale(L.ObjKey[o], 0, L.CutFrame) != 0
+                    || (L.LotKey[o] != 0UL && AutShadowNative.ObjStale(L.LotKey[o], 1, L.CutFrame) != 0))) ok = false;
+                if (ok && (m.HasBeenDestroyed || !SameAds(L, o, m.MetaAds))) ok = false;
+                if (!L.CmpSnapped && !ok) k[kCUnCmpObjSkip]++;
+                L.ObjCmp[o] = ok;
+            }
+            catch (Exception) { k[kCUnExc]++; L.ObjCmp[o] = false; }
+        }
+
+        // the C2 hook's score s of request pair p (game pass = s != 0: C2 scores only after its Test passed, docs/59 C2)
+        static void DefCmpNote(LiveSearch L, int p, float s)
+        {
+            int[] k = PatchCounters();
+            try
+            {
+                if (L.Def[p] < 0 || !L.ObjCmp[L.PairObj[p]]) return;
+                int code = L.Code[p];
+                if (code != AutShadowCore.kPass && code != AutShadowCore.kTestFailed) return;
+                bool wp = code == AutShadowCore.kPass, gp = s != 0f;
+                int f = AutShadowNative.Config(19);
+                bool late = f != L.ResumeFrame;
+                k[kCUnCmpPairs]++;
+                if (late) k[kCUnCmpLatePairs]++;
+                if (wp != gp) { k[wp ? kCUnCmpWpGf : kCUnCmpWfGp]++; if (late) k[kCUnCmpLateMis]++; }
+                else k[wp ? kCUnCmpBothPass : kCUnCmpBothFail]++;
+                InteractionObjectPair iop = L.Pair[p];
+                string def = iop != null && iop.InteractionDefinition != null ? DefKey(iop.InteractionDefinition.GetType()) : "?";
+                AutLiveCore.DefCmp d;
+                if (!sDefCmp.TryGetValue(def, out d)) sDefCmp[def] = d = new AutLiveCore.DefCmp();
+                d.Note(wp, gp, L.W[p], s, f - L.CutFrame);
+                // cumulative snapshots every kDefCmpEvery pairs or kDefCmpFrames ticks, so the job's last one is recent
+                if (++sDefCmpN - sDefCmpLogN >= kDefCmpEvery || f - sDefCmpLogFrame >= kDefCmpFrames) { sDefCmpLogN = sDefCmpN; sDefCmpLogFrame = f; DefCmpLog(); }
+            }
+            catch (Exception) { k[kCUnExc]++; }
+        }
+
+        static void DefCmpLog()
+        {
+            List<KeyValuePair<string, AutLiveCore.DefCmp>> all = new List<KeyValuePair<string, AutLiveCore.DefCmp>>(sDefCmp);
+            all.Sort(delegate (KeyValuePair<string, AutLiveCore.DefCmp> x, KeyValuePair<string, AutLiveCore.DefCmp> y)
+            {
+                int c = y.Value.Mis.CompareTo(x.Value.Mis);
+                return c != 0 ? c : y.Value.N.CompareTo(x.Value.N);
+            });
+            for (int i = 0; i < all.Count && i < kDefCmpTop; i++)
+            {
+                AutLiveCore.DefCmp d = all[i].Value;
+                string name = all[i].Key.Length > 96 ? all[i].Key.Substring(0, 96) : all[i].Key;
+                StringBuilder b = new StringBuilder(320);
+                b.Append("{\"t\":\"defcmp\",\"n\":").Append(sDefCmpN).Append(",\"def\":\"").Append(JsonEsc(name)).Append("\",\"c\":").Append(d.N)
+                 .Append(",\"wfgp\":").Append(d.WfGp).Append(",\"wpgf\":").Append(d.WpGf).Append(",\"bp\":").Append(d.BothPass).Append(",\"bf\":").Append(d.BothFail)
+                 .Append(",\"med\":").Append(JsonNum(d.Quantile(0.5))).Append(",\"p90\":").Append(JsonNum(d.Quantile(0.9))).Append(",\"age\":[");
+                for (int j = 0; j < d.Age.Length; j++) b.Append(j > 0 ? "," : "").Append(d.Age[j]);
+                b.Append("],\"ageMis\":[");
+                for (int j = 0; j < d.AgeMis.Length; j++) b.Append(j > 0 ? "," : "").Append(d.AgeMis[j]);
+                AutShadowNative.Log(b.Append("]}").ToString());
+            }
+        }
+        static string JsonNum(float v) { return float.IsNaN(v) || float.IsInfinity(v) ? "null" : v.ToString("R", CultureInfo.InvariantCulture); }
 
         static int DirectIndex(InteractionInstance inst)
         {

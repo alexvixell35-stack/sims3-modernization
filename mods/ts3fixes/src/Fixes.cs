@@ -245,12 +245,14 @@ namespace Ts3Fixes
         // [659-660] unseen-direct pacing (AutLive.cs PaceCharge, docs/222 §8): us charged to B13's yield timer, yields brought forward.
         // [661-669] G8 by actor class (AutLive.cs G8Note, docs/222 §8): unseen searches / pushes / no-pick / GoHome (661-664), seen
         // (665-668), unseen Sim-hours x100 (669).
+        // [670-679] autunseencmp Dry per-definition compare (AutLive.cs DefCmpNote, docs/222 §9): searches, pairs, worker-fail /
+        // game-pass, worker-pass / game-fail, both pass, both fail, late-slice pairs, late-slice mismatches, objects skipped, snapped slices.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[670]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[680]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -312,6 +314,7 @@ namespace Ts3Fixes
                 case "autlivelate": return Instantiator.kAutLiveLate; // docs/217 L1 late consume (only acts with autlive)
                 case "autliveguard": return Instantiator.kAutLiveGuard; // docs/124 §17.10 go-live cost guard (only acts with autlive)
                 case "autunseenpace": return Instantiator.kAutUnseenPace; // docs/222 §8 unseen-direct pacing (only acts with autunseen)
+                case "autunseencmp": return Instantiator.kAutUnseenCmp; // docs/222 §9 Dry per-definition compare (only with Dry + autunseen)
                 case "autunseen": return false; // docs/222 unseen-direct go-live (only acts with autlive, acting): test runs only
                 case "replandefer": return Instantiator.kReplanDefer;
                 case "replanspread": return Instantiator.kReplanSpread;

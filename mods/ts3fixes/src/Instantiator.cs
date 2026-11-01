@@ -67,6 +67,7 @@ namespace Ts3Fixes
         [Tunable] public static int kAutLiveLateTicks = 3;         // ... a later slice consumes only up to this many ticks after the resume
         [Tunable] public static int kAutLiveGuardHold = 600;       // ... frames without posting after a skip window, doubled per skip in a row (16 x max)
         [Tunable] public static bool kAutUnseenPace = true;        // docs/222 §8: with autunseen on, charge the skipped ads' vanilla B14 cost to B13's yield timer (searches yield on vanilla's schedule); runtime switch autunseenpace
+        [Tunable] public static bool kAutUnseenCmp = false;        // docs/222 §9: Dry measurement, per definition the worker's Test/score vs the game's C2 for unseen actors on every slice; runtime switch autunseencmp (measurement only)
         [Tunable] public static bool kHoursMemo = false;           // opt-in until measured: a lot's opening hours are worked out once per sim tick (ScriptHotSpots.cs, docs/74)
         [Tunable] public static bool kUnseenEnvThrottle = false;   // opt-in until measured: unseen high-LOD Sims score their surroundings one time in kUnseenThrottleEvery (UnseenThrottle.cs, docs/144)
         [Tunable] public static bool kUnseenMotiveThrottle = false; // opt-in until measured: unseen high-LOD Sims update needs, moodlets and mood every kUnseenThrottleEvery sim-minutes, same totals (docs/144)

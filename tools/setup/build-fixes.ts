@@ -66,6 +66,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kAutLiveLateTicks value="3" />
     <kAutLiveGuardHold value="600" />
     <kAutUnseenPace value="True" />
+    <kAutUnseenCmp value="False" />
     <kSafeSpotReuse value="False" />
     <kWildflowerProbe value="False" />
     <kWildflowerTask value="False" />

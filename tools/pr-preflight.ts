@@ -2,7 +2,9 @@
 // new docs/NNN numbers the base already has, docs/51 ledger sections, counter slots and versions (docs/registry.md and
 // docs/data/registry-reservations.json), ts3native version strings, files both sides changed (git merge-tree), index
 // lines in CLAUDE.md / PLAN.md that name a clashing doc, then check-docs-code and the changed scripts' self-checks.
-//   node tools/pr-preflight.ts [--base origin/main] [--pr <n>] [--repo <owner/name>] [--all] [--json] [--no-checks] [--no-prs]
+//   node tools/pr-preflight.ts [--base origin/main] [--pr <n>] [--repo <owner/name>] [--all] [--json] [--no-checks] [--no-prs] [--maintainer]
+// Contributor ranges are checked by default (new doc / docs/51 § / ts3fixes slot / ts3native counters version outside them,
+// and a changed TS3NATIVE_VERSION, are problems); --maintainer turns that off.
 //   node tools/pr-preflight.ts --self-check
 // Default output: one summary line, the problems, and "needs review: ..." last. --all adds what is fine, --json all of it.
 // --pr <n> fetches the PR head (gh) from the base's remote; checks then run in a temporary worktree. --no-prs skips the
@@ -12,9 +14,9 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { FIX_HEAD, NAT_HEAD, fixRow, natRow, section } from './registry.ts';
+import { CONTRIB, FIX_HEAD, NAT_HEAD, fixRow, natRow, section } from './registry.ts';
 
-type Kind = 'doc' | 'ledger' | 'registry' | 'version' | 'conflict' | 'index' | 'check' | 'note';
+type Kind = 'range' | 'doc' | 'ledger' | 'registry' | 'version' | 'conflict' | 'index' | 'check' | 'note';
 export interface Finding { kind: Kind; problem: boolean; text: string }
 // One side of the comparison: file text at a ref (null = missing) and the docs/ listing.
 export interface Tree { read(path: string): string | null; docs: string[] }
@@ -26,6 +28,7 @@ export interface Input {
   bothChanged: string[];             // files both sides changed since the merge-base
   openClaims: Map<number, number[]>; // new doc numbers other open PRs add -> PR numbers
   baseName: string;
+  ranges?: boolean;                  // contributor mode: new numbers must sit in the CONTRIB ranges (docs/registry.md "Contributor ranges")
 }
 
 const LEDGER = 'docs/51-inference-ledger.md', REGISTRY = 'docs/registry.md', RES = 'docs/data/registry-reservations.json';
@@ -99,7 +102,7 @@ export function analyze(x: Input): Finding[] {
   const vMb = nativeVersion(x.mb.read(NATIVE_CPP)), vBase = nativeVersion(x.base.read(NATIVE_CPP)), vHead = nativeVersion(x.head.read(NATIVE_CPP));
   if (vMb && vBase && vHead) {
     const bumped = cmpVer(vHead, vMb) !== 0;
-    if (bumped && cmpVer(vHead, vBase) <= 0) bad('version', `TS3NATIVE_VERSION ${vstr(vHead)}: ${x.baseName} is already at ${vstr(vBase)}; use ${vBase[0]}.${vBase[1]}.${vBase[2] + 1}`);
+    if (bumped && cmpVer(vHead, vBase) <= 0 && !x.ranges) bad('version', `TS3NATIVE_VERSION ${vstr(vHead)}: ${x.baseName} is already at ${vstr(vBase)}; use ${vBase[0]}.${vBase[1]}.${vBase[2] + 1}`);
     else if (bumped) ok('version', `TS3NATIVE_VERSION ${vstr(vHead)} is past ${x.baseName}'s ${vstr(vBase)}`);
     const named = new Map<string, string>();
     for (const [f, lines] of x.headDiff) for (const l of lines) for (const m of l.matchAll(/\b(\d+)\.(\d+)\.(\d+)\b/g)) {
@@ -107,6 +110,24 @@ export function analyze(x: Input): Finding[] {
       if (v[0] === vBase[0] && v[1] === vBase[1] && cmpVer(v, vMb) > 0 && cmpVer(v, vBase) <= 0 && !named.has(vstr(v))) named.set(vstr(v), f);
     }
     for (const [v, f] of named) bad('version', `${f} names ts3native ${v}, which ${x.baseName} has used since this branch started (now ${vstr(vBase)})`);
+  }
+  if (x.ranges) {
+    const [d0, d1] = CONTRIB.doc, [l0, l1] = CONTRIB.ledger, [f0, f1] = CONTRIB.fixes, v0 = CONTRIB.nativeV;
+    const note = (k: string) => `outside the contributor range (docs/registry.md "Contributor ranges"); ${k}`;
+    // docs
+    let nd = Math.max(d0 - 1, ...[...baseNums.keys(), ...newDocs.map(p => docNum(p)!), ...x.openClaims.keys()].filter(n => n >= d0 && n <= d1)) + 1;
+    for (const p of newDocs.sort()) { const n = docNum(p)!; if (n < d0 || n > d1) bad('range', `${p}: ${n} is ${note(`next free: ${nd++} (node tools/registry.ts reserve --contributor doc --for <topic>)`)}`); }
+    // docs/51
+    let nl = Math.max(l0, ...[...baseL.keys(), ...headL.keys(), ...baseRes.filter(r => r.kind === 'ledger').map(r => r.to)].filter(n => n >= l0 && n <= l1).map(n => n + 1));
+    for (const [n, title] of headL) if (!mbL.has(n) && (n < l0 || n > l1)) bad('range', `docs/51 §${n} "${title.slice(0, 40)}": ${note(`next free: §${nl++} (reserve --contributor ledger --for <topic>)`)}`);
+    // ts3fixes slots and ts3native counters versions
+    let nf = Math.max(f0, ...[...baseR.fixes.values(), ...headR.fixes.values(), ...baseRes.filter(r => r.kind === 'fixes').map(r => [r.from, r.to] as [number, number])].filter(([a]) => a >= f0).map(([, b]) => b + 1));
+    for (const [line, [a, b]] of headR.fixes) if (!mbR.fixes.has(line) && (a < f0 || b > f1)) { bad('range', `ts3fixes slots ${a}-${b}: ${note(`next free: ${nf}-${nf + b - a} (reserve --contributor fixes <n> --by <who> --what <text>)`)}`); nf += b - a + 1; }
+    let nv = Math.max(v0, ...[...baseR.native.values(), ...headR.native.values(), ...baseRes.filter(r => r.kind === 'native').map(r => r.version!)].filter(v => v >= v0).map(v => v + 1));
+    for (const [line, v] of headR.native) if (!mbR.native.has(line) && v < v0) bad('range', `ts3native counters v${v}: ${note(`next free: v${nv++} (reserve --contributor native <n> --by <who> --what <text>)`)}`);
+    // ts3native version string: maintainers assign it at merge
+    const a = nativeVersion(x.mb.read(NATIVE_CPP)), b = nativeVersion(x.head.read(NATIVE_CPP));
+    if (a && b && cmpVer(a, b) !== 0) bad('range', `TS3NATIVE_VERSION changed (${vstr(a)} -> ${vstr(b)}): maintainers assign ts3native versions at merge; keep the define as on ${x.baseName} and write "next version" in docs and changelog`);
   }
   // files
   if (x.conflicts.length) bad('conflict', `rebase conflicts with ${x.baseName}: ${x.conflicts.join(', ')}`);
@@ -227,6 +248,22 @@ async function selfCheck() {
     t(has('version', 'CLAUDE.md names ts3native 0.36.11'), 'version named in docs');
     t(has('conflict', 'shared.txt') && has('conflict', LEDGER), 'merge-tree conflicts');
     t(x.headAdded.includes('docs/12-mine.md') && x.bothChanged.includes(NATIVE_CPP), 'gather lists');
+    // contributor ranges: branch adds doc 12, ledger 3, slots 4-5, v2 and bumps the version: all outside; `clean` below stays free
+    const fr = analyze({ ...x, ranges: true }), hr = (s: string) => fr.some(i => i.problem && i.kind === 'range' && i.text.includes(s));
+    t(hr('docs/12-mine.md: 12 is outside the contributor range') && hr('next free: 500 ('), 'range: doc 12 outside, next free 500');
+    t(hr('docs/51 §3 "mine"') && hr('next free: §900'), 'range: ledger 3 outside, next free 900');
+    t(hr('ts3fixes slots 4-5') && hr('next free: 2000-2001'), 'range: slots 4-5 outside, next free 2000-2001');
+    t(hr('ts3native counters v2') && hr('next free: v900'), 'range: counters v2 outside, next free v900');
+    t(hr('TS3NATIVE_VERSION changed (0.36.10 -> 0.36.11): maintainers assign') && !fr.some(i => i.kind === 'version' && i.text.includes('is already at')), 'range: version change flagged, behind-base rule off');
+    // same numbers inside the ranges: no range problem, and the next free skips what the base already uses in range
+    g('checkout', '-qb', 'inrange', 'main');
+    put({ 'docs/500-x.md': '# x\n', 'docs/501-y.md': '# y\n', [LEDGER]: '# L\n\n## 1. one\n\n## 2. two\n\n## 3. theirs\n\n## 900. c\n', [REGISTRY]: reg(['| 0-3 | a | x |', '| 4-6 | them | z |', '| 2000-2004 | c | c |'], ['| v1 | a | 0x0000-0x0010 | x |', '| v2 | them | 0x0014-0x0030 | z |', '| v900 | c | 0x0034-0x0040 | c |']) });
+    g('add', '-A'); g('commit', '-qm', 'inrange');
+    const ir = analyze({ ...gather(dir, 'main', 'inrange', new Map()), ranges: true });
+    t(!ir.some(i => i.problem && i.kind === 'range'), 'range: numbers inside the contributor ranges are fine');
+    g('checkout', '-qb', 'outrange', 'inrange'); put({ 'docs/20-z.md': '# z\n' }); g('add', '-A'); g('commit', '-qm', 'out');
+    const orr = analyze({ ...gather(dir, 'main', 'outrange', new Map()), ranges: true });
+    t(orr.some(i => i.problem && i.text.includes('docs/20-z.md: 20 is outside') && i.text.includes('next free: 502')), 'range: next free doc skips 500-501 the branch uses');
     // no clash: the branch rebased on main
     g('checkout', '-qb', 'clean', 'main'); put({ 'docs/13-ok.md': '# ok\n' }); g('add', '-A'); g('commit', '-qm', 'ok');
     const f2 = analyze(gather(dir, 'main', 'clean', new Map()));
@@ -243,7 +280,7 @@ async function selfCheck() {
 if (process.argv[1]?.endsWith('pr-preflight.ts')) {
   const { values: v } = parseArgs({ options: {
     base: { type: 'string', default: 'origin/main' }, pr: { type: 'string' }, repo: { type: 'string' }, all: { type: 'boolean' }, json: { type: 'boolean' },
-    'no-checks': { type: 'boolean' }, 'no-prs': { type: 'boolean' }, 'self-check': { type: 'boolean' },
+    'no-checks': { type: 'boolean' }, 'no-prs': { type: 'boolean' }, maintainer: { type: 'boolean' }, 'self-check': { type: 'boolean' },
   } });
   if (v['self-check']) await selfCheck();
   else {
@@ -259,7 +296,7 @@ if (process.argv[1]?.endsWith('pr-preflight.ts')) {
     label += ` (${run('git', ['rev-parse', '--short', headRef], cwd).trim()})`;
     const baseDocs = tree(cwd, v.base!).docs;
     const claims = v['no-prs'] ? null : openClaims(cwd, v.repo, self, baseDocs);
-    const x = gather(cwd, v.base!, headRef, claims ?? new Map());
+    const x = { ...gather(cwd, v.base!, headRef, claims ?? new Map()), ranges: !v.maintainer };
     const f = analyze(x);
     if (!v['no-prs'] && !claims) f.push({ kind: 'note', problem: false, text: 'open PRs not checked (gh not available or not logged in)' });
     if (!v.pr && run('git', ['status', '--porcelain'], cwd).trim()) f.push({ kind: 'note', problem: false, text: 'uncommitted changes are not part of this check' });

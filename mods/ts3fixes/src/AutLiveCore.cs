@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Ts3Fixes
 {
@@ -319,6 +320,43 @@ namespace Ts3Fixes
                 Forced = timerMs - ChargedMs <= limitMs && timerMs + add > limitMs;
                 ChargedMs += add;
                 return add;
+            }
+        }
+
+        // docs/222 §9 measurement (switch autunseencmp, Dry only): per definition, the worker's Test verdict and score vs the
+        // game's own C2 for the same pair of an unseen actor's search, on every B13 slice. Game pass = C2 score != 0 (C2 runs
+        // the Test and scores only on pass, docs/59 C2 [verified]). Age = ticks since the cut, bins <= 1, 2, 3, 4-7, 8+.
+        public sealed class DefCmp
+        {
+            public const int kMaxRatios = 4096;  // shortcut: first 4096 both-pass ratios per definition kept; a reservoir if jobs grow past ~1 h
+            public int N, WfGp, WpGf, BothPass, BothFail;
+            public readonly int[] Age = new int[5], AgeMis = new int[5];
+            public readonly List<float> Ratio = new List<float>();
+            public int Mis { get { return WfGp + WpGf; } }
+            public static int AgeBin(int ticks) { return ticks <= 1 ? 0 : ticks <= 3 ? ticks - 1 : ticks <= 7 ? 3 : 4; }
+            public void Note(bool wPass, bool gPass, float w, float g, int age)
+            {
+                N++;
+                int b = AgeBin(age);
+                Age[b]++;
+                if (wPass == gPass)
+                {
+                    if (!wPass) BothFail++;
+                    else { BothPass++; if (Ratio.Count < kMaxRatios) Ratio.Add(w / g); }
+                    return;
+                }
+                if (wPass) WpGf++; else WfGp++;
+                AgeMis[b]++;
+            }
+            // nearest-rank quantile of the both-pass worker/game score ratios; NaN when there are none
+            public float Quantile(double q)
+            {
+                int n = Ratio.Count;
+                if (n == 0) return float.NaN;
+                float[] a = Ratio.ToArray();
+                Array.Sort(a);
+                int i = (int)Math.Ceiling(q * n) - 1;
+                return a[Math.Max(0, Math.Min(n - 1, i))];
             }
         }
 

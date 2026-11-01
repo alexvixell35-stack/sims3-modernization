@@ -13,6 +13,19 @@ Shared numbers that two PRs must never both take. Test tools, logs and results f
 3. Two PRs that reserved the same number: the first merged keeps it, the other rebases onto the next free one.
 4. Gaps stay gaps (slots 19-20): old logs and results already read them as zero.
 
+## Contributor ranges
+
+The public repo lags the private one, so contributor PRs (currently alexvixell35-stack / Dalexlol) take new numbers only from their own ranges and never clash with ours. Existing numbers stay where they are.
+
+| Kind | Contributor range | Maintainers use |
+|---|---|---|
+| `docs/NNN-*.md` | 500-599 | below 500 |
+| docs/51 inference ledger `## N.` | §900-999 | below 900 |
+| ts3fixes counter slots | 2000-2199 | below 2000 |
+| ts3native counter version blocks | v900+ | below v900 |
+
+`node tools/registry.ts reserve --contributor <doc|ledger|fixes|native> ...` hands out the next free number of the range (same arguments as the normal `reserve`; without `--contributor` the ranges are skipped). ts3native version strings (`TS3NATIVE_VERSION`, changelog headings) are assigned by the maintainers at merge: a contributor PR writes "next version" and does not change the define. `tools/pr-preflight.ts` flags numbers outside the ranges and a changed version string (`--maintainer` turns that check off).
+
 ## Checking a branch before the PR
 
 `node tools/pr-preflight.ts` (or `--pr <n>` for an open PR; `--base` defaults to `origin/main`) compares the branch with the base from their merge-base and lists only the problems:
@@ -141,7 +154,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 641-646 | `UnseenFallback.cs` unseenroute (`fixes-641`, docs/202 §3.9) | relaxed acts, acts without a verdict, acts with the colour unknown, fast-leg holds, snap-backs mid-trip, snap-backs from the stand (`unseenroute_*`)
 | 647-658 | `UnseenFallback.cs` unseenroute2 (`fixes-647`, docs/202 §3.9.5-§3.9.7) | other-task acts, nested refusals, group acts / refusals, child acts, B passes, C learn plans, C hits, D checks, D repairs, ghost starts, ghost exits (`unseenroute_*`); array `new int[659]` |
 | 659-669 | `AutLive.cs` unseen-direct pacing + G8 by class (`fixes-659`, docs/222 §8) | 659 us charged to B13's yield timer (`autunseen_pace_us`), 660 yields brought forward (`autunseen_pace_forced`); G8 by actor class: unseen searches / pushes / no-pick / GoHome 661-664 (`g8_unseen_*`), seen 665-668 (`g8_seen_*`), unseen Sim-hours x100 669; array `new int[670]` |
-| **670+** | next free | reserve here  |
+| 670-679 | reserved (autunseen-defcmp, `fixes-670`) | docs/222 §9 autunseencmp (Dry): unseen actors' worker Test/score vs the game's C2 per pair on every slice: searches, pairs, worker-fail/game-pass, worker-pass/game-fail, both pass, both fail, late-slice pairs, late-slice mismatches, objects skipped, snapped slices |
+| **680+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 

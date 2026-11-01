@@ -312,6 +312,116 @@
       "pinReason": "docs/222 is ts3fixes-only: the golive-final ts3native (0.36.148, Config keys 24-30 + Satb act) is the tested base"
     },
     {
+      "id": "ip-gu-dry-defcmp",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3",
+          "op": ">",
+          "value": 0,
+          "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autunseen_dry_runs",
+          "op": ">",
+          "value": 0,
+          "why": "no Dry search of an unseen actor: scope (UfWhy) never says unseen"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autunseen_cmp_pairs",
+          "op": ">",
+          "value": 0,
+          "why": "no compared pair: autunseencmp not on (agent without the switch?) or no unseen Dry search reached B14"
+        }
+      ],
+      "note": "Per-definition Dry compare IP (docs/222 §9; Dry=1 + autunseen + autunseencmp, 10 min, measurement only: the shipped direct path is unchanged). For unseen actors on every B13 slice (late ones too), the worker's per-pair Test verdict and score vs the game's own C2 for the same pair; counters 670-679 + {\"t\":\"defcmp\"} records. Report: mono-cost-report \"unseen-direct per-pair compare\" line + per-definition table (top 15 by mismatches: worker-fail/game-pass, worker-pass/game-fail, both-pass score ratio median/p90, age bins). Question: does AutonomouslyShopInRabbitHole.Definition (time-of-day Test, live RabbitHole counts) lose pushes to stale worker-fail verdicts or score drift on late slices (golive-unseen G8 IP: unseen pushes -13.5%). No PASS bar: 0 crashes, compare counters > 0.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.unseen3",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive,autunseen,autunseencmp",
+          "noSamplers": true,
+          "fixesReport": "autunseen_,g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "pinReason": "docs/222 is ts3fixes-only: the golive-final ts3native (0.36.148, Config keys 24-30 + Satb act) is the tested base"
+    },
+    {
       "id": "sv-gu-dry",
       "earlyGates": [
         {

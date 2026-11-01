@@ -35,7 +35,7 @@ export const TAU = 0.7, TOPN = 10, CONSUME_FIXED_MS = 0.15;
 
 type Budget = ReturnType<typeof analyze>;
 export type Input = { tag: string; minutes: number; budget?: Budget; budgetWhy?: string; native?: { before?: any; after?: any };
-  fix?: Record<string, { before?: number; after?: number }> };
+  fix?: Record<string, { before?: number; after?: number }>; asLog?: string };
 
 const NA = 'n/a';
 const f1 = (x: number) => x.toFixed(1);
@@ -188,6 +188,7 @@ export function costLines(i: Input): string[] {
     }
     if (as.version >= 15 && as.satbMode) L.push(...satbLines(N, secs));
     if (as.version >= 20 && as.alOn) L.push(...liveLines(N, secs, i.fix));
+    L.push(...defCmpLines(i.fix, i.asLog && existsSync(i.asLog) ? jsonl(i.asLog) : []));
     // docs/122 §14.18 go-live estimate [inferred]: the scoring a worker would take off the sim (reference us per request x
     // every B13 call x the answered share) minus what it costs the sim (one shared cut per frame with a B13 call, guard thunks)
     const calls13 = d(N, 'autshadow', 'metaCalls'), ticks13 = d(N, 'autshadow', 'metaTicks'), breq = d(N, 'autshadow', 'batchReqs'), refUs = d(N, 'autshadow', 'refUs');
@@ -449,7 +450,7 @@ function withBudget(i: Input): Input {
 }
 const readJson = (f?: string) => f && existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : undefined;
 const rowInput = (r: any, minutes: number) => withBudget({ tag: r.profileTag, minutes: r.run?.profile?.minutes ?? minutes,
-  native: readJson(r.nativeDump) ?? readJson(join(QUEUE, `${r.profileTag}-native.json`)), fix: r.fixActivity?.counters });
+  native: readJson(r.nativeDump) ?? readJson(join(QUEUE, `${r.profileTag}-native.json`)), fix: r.fixActivity?.counters, asLog: r.autshadowLog });
 export function inputs(arg: string, minutes: number): Input[] {
   if (arg.endsWith('.jsonl')) return jsonl(arg).filter(r => r.profileTag).map(r => rowInput(r, minutes));
   return [withBudget({ tag: arg, minutes, native: readJson(join(QUEUE, `${arg}-native.json`)) })];
@@ -465,6 +466,32 @@ export function newestPerJob(rows: any[], family?: string): any[] {
     if (!o || String(r.time) > String(o.time)) best.set(id, r);
   }
   return [...best.values()].sort((a, b) => String(a.time) < String(b.time) ? -1 : 1);
+}
+
+// docs/222 §9 autunseencmp (ts3fixes 670-679, Dry): unseen actors' worker Test/score vs the game's C2 per pair on every slice;
+// per definition from the newest cumulative {"t":"defcmp"} snapshot (largest n) in autshadow.jsonl, top 15 by mismatches.
+// Absent counters = no lines.
+export type DefCmpRec = { t: string; n: number; def: string; c: number; wfgp: number; wpgf: number; bp: number; bf: number;
+  med: number | null; p90: number | null; age: number[]; ageMis: number[] };
+export function defCmpLines(fix: Input['fix'] | undefined, recs: any[]): string[] {
+  if (typeof fix?.autunseen_cmp_pairs?.after !== 'number') return [];
+  const fv = (k: string) => { const c = fix?.[k]; return typeof c?.after === 'number' ? c.after - (c.before ?? 0) : 0; };
+  const pc = (x: number, y: number) => y > 0 ? `${(x * 100 / y).toFixed(1)}%` : NA;
+  const n = fv('autunseen_cmp_pairs'), wf = fv('autunseen_cmp_wfail_gpass'), wp = fv('autunseen_cmp_wpass_gfail'), lp = fv('autunseen_cmp_late_pairs');
+  const L = [`- unseen-direct per-pair compare (autunseencmp, docs/222 §9) [measured]: ${fv('autunseen_cmp_searches')} unseen Dry searches, ${n} pairs ` +
+    `(late slices ${lp}, ${pc(lp, n)}); worker-fail/game-pass ${wf} (${pc(wf, n)}), worker-pass/game-fail ${wp} (${pc(wp, n)}), both pass ` +
+    `${fv('autunseen_cmp_both_pass')}, both fail ${fv('autunseen_cmp_both_fail')}; late-slice mismatches ${fv('autunseen_cmp_late_mis')} of ${lp} ` +
+    `(${pc(fv('autunseen_cmp_late_mis'), lp)}); objects the direct path would hand to the game ${fv('autunseen_cmp_obj_skipped')}, slices with the actor seen ${fv('autunseen_cmp_snapped')}`];
+  const dc = recs.filter((r): r is DefCmpRec => r?.t === 'defcmp' && typeof r.def === 'string');
+  if (!dc.length) { L.push('  per definition: no {"t":"defcmp"} records (autshadow.jsonl missing or no snapshot)'); return L; }
+  const top = Math.max(...dc.map(r => r.n));
+  const rows = dc.filter(r => r.n === top).sort((a, b) => (b.wfgp + b.wpgf) - (a.wfgp + a.wpgf) || b.c - a.c).slice(0, 15);
+  const r2 = (x: number | null) => x === null || x === undefined ? NA : x.toFixed(2);
+  L.push(`  per definition (snapshot at ${top} pairs; ratio = worker / game score, both pass; age = ticks since the cut <=1/2/3/4-7/8+):`, '',
+    '  | definition | pairs | wfail/gpass | wpass/gfail | both pass | ratio median | ratio p90 | age all | age mismatches |',
+    '  |---|---|---|---|---|---|---|---|---|',
+    ...rows.map(r => `  | ${r.def} | ${r.c} | ${r.wfgp} | ${r.wpgf} | ${r.bp} | ${r2(r.med)} | ${r2(r.p90)} | ${r.age.join('/')} | ${r.ageMis.join('/')} |`));
+  return L;
 }
 
 function selfCheck() {
@@ -676,6 +703,19 @@ function selfCheck() {
     assert.match(fl, /feature mask \[measured\]: rain 200 searches \/ 3 mismatches \(1\.5%\) \/ 1 give-ups; satb 400 searches \/ 0 mismatches \(0\.0%\) \/ 0 give-ups \(/);
     assert.doesNotMatch(fl, /late \d+ searches/);
     assert.equal(featLine({}), null);
+    // docs/222 §9 per-definition compare: counters line + newest snapshot only, sorted by mismatches; absent counters = no lines
+    const dfix = { autunseen_cmp_searches: z(50), autunseen_cmp_pairs: z(1000), autunseen_cmp_wfail_gpass: z(30), autunseen_cmp_wpass_gfail: z(10),
+      autunseen_cmp_both_pass: z(700), autunseen_cmp_both_fail: z(260), autunseen_cmp_late_pairs: z(400), autunseen_cmp_late_mis: z(36),
+      autunseen_cmp_obj_skipped: z(5), autunseen_cmp_snapped: z(2) };
+    const rec = (n: number, def: string, wfgp: number, c = 100) => ({ t: 'defcmp', n, def, c, wfgp, wpgf: 1, bp: 50, bf: 10, med: 1, p90: 1.5, age: [1, 2, 3, 4, 5], ageMis: [0, 0, 1, 2, 3] });
+    const dl = defCmpLines(dfix, [rec(500, 'Old.Definition', 99), rec(1000, 'A.Definition', 2), rec(1000, 'AutonomouslyShopInRabbitHole.Definition', 25), { t: 'picks' }]).join('\n');
+    assert.match(dl, /50 unseen Dry searches, 1000 pairs \(late slices 400, 40\.0%\); worker-fail\/game-pass 30 \(3\.0%\), worker-pass\/game-fail 10 \(1\.0%\).*late-slice mismatches 36 of 400 \(9\.0%\)/);
+    assert.match(dl, /snapshot at 1000 pairs/);
+    assert.doesNotMatch(dl, /Old\.Definition/);
+    assert.ok(dl.indexOf('AutonomouslyShopInRabbitHole') < dl.indexOf('| A.Definition'));
+    assert.match(dl, /\| AutonomouslyShopInRabbitHole\.Definition \| 100 \| 25 \| 1 \| 50 \| 1\.00 \| 1\.50 \| 1\/2\/3\/4\/5 \| 0\/0\/1\/2\/3 \|/);
+    assert.match(defCmpLines(dfix, []).join('\n'), /no \{"t":"defcmp"\} records/);
+    assert.deepEqual(defCmpLines(lfix, []), []);
     assert.doesNotMatch(liveLines(act, 600, gfix).join('\n'), /feature mask/);
   }
   // absent counters print n/a, never a number; no worker = no stop-rule line

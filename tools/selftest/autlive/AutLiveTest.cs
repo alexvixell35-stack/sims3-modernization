@@ -296,5 +296,15 @@ static class AutLiveTest
         Check("pace: real time already over the limit = not forced", !pc.Forced);
         pc.Slice(); pc.Charge(30, 10, 0.3, 1); pc.Charge(30, 1, 0.9, 1);
         Check("pace: forced only when this charge crosses (0.9 + 0.03 stays under)", !pc.Forced);
+        // docs/222 §9 per-definition compare: mismatch directions, both-pass ratios, age bins
+        AutLiveCore.DefCmp dc = new AutLiveCore.DefCmp();
+        Check("defcmp: no ratios = NaN", float.IsNaN(dc.Quantile(0.5)));
+        dc.Note(false, true, 0, 2, 1); dc.Note(true, false, 3, 0, 5); dc.Note(false, false, 0, 0, 2); dc.Note(false, true, 0, 1, 9);
+        for (int i = 1; i <= 10; i++) dc.Note(true, true, i, 2, 3);  // ratios 0.5 .. 5.0
+        Check("defcmp: counts", dc.N == 14 && dc.WfGp == 2 && dc.WpGf == 1 && dc.BothFail == 1 && dc.BothPass == 10 && dc.Mis == 3);
+        Check("defcmp: age bins all", dc.Age[0] == 1 && dc.Age[1] == 1 && dc.Age[2] == 10 && dc.Age[3] == 1 && dc.Age[4] == 1);
+        Check("defcmp: age bins mismatches", dc.AgeMis[0] == 1 && dc.AgeMis[3] == 1 && dc.AgeMis[4] == 1 && dc.AgeMis[1] + dc.AgeMis[2] == 0);
+        Check("defcmp: median, p90 nearest rank", dc.Quantile(0.5) == 2.5f && dc.Quantile(0.9) == 4.5f && dc.Quantile(1) == 5f);
+        Check("defcmp: age bin edges", AutLiveCore.DefCmp.AgeBin(0) == 0 && AutLiveCore.DefCmp.AgeBin(4) == 3 && AutLiveCore.DefCmp.AgeBin(7) == 3 && AutLiveCore.DefCmp.AgeBin(8) == 4);
     }
 }

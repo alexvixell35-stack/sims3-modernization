@@ -27,7 +27,7 @@ export const EXEMPT: Record<string, string> = {
   unseenfbteleport: 'trip-shortcut type: verified by verify-shortcut.ts --name unseenfbteleport and the unseen-fallback.json sv-ufb-teleport-verify job (fixesRequire), not by an A/B repro (shortcut-verification rule, docs/202 §6)',
   autunseenpace: 'tuning default on, not a separate A/B arm: pacing is on in every golive-unseen.json g8 -on job together with autunseen (docs/222 §8); compared by the G8 cadence lines, not a hitch repro',
   unseenghost: 'native [UnseenGhost] ini section (UnseenGhost.Enabled=1), not an ab/fixesOn name: turned on in every unseen-route-relaxed.json / unseen-route-long-ab.json job (docs/202 §3.9.5); acts only for unseenroute holds, which have repros',
-  autshadowverify: DIAG, ownjobwait: DIAG, autledger: MONO,
+  autshadowverify: DIAG, autunseencmp: DIAG, ownjobwait: DIAG, autledger: MONO,
   autoffenv: OFFLOAD, autoffbcast: OFFLOAD, autoffdry: OFFLOAD, autoffenvapply: OFFLOAD, autoffbcastapply: OFFLOAD, autoffnoref: OFFLOAD, autofftick: OFFLOAD,
   mintcall: 'Mono speed, not a hitch fix: no repro makes script calls more frequent than plain play; correctness by mintcall-verify.json (CallPath=2) and the monohost selftests, timing by the plain-play pairs in mintcall-ab.json (docs/139 §8)',
   workerwait: 'worker CPU, not a hitch fix: no repro makes the job-start wait more likely than plain play; measured by the off/on plain-play pairs in route-worker-wait.json, correctness by the selftest TestRouteWorkerWait (docs/203 §6)',
