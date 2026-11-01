@@ -111,14 +111,20 @@ namespace Ts3Fixes
             if (what == "pick")
             {
                 sCtAsker = null;
-                if (Household.ActiveHousehold != null)
-                    foreach (Sim s in Household.ActiveHousehold.AllActors)
-                    {
-                        Conversation c = s.Conversation;
-                        if (c != null && OtherMember(c, s) != null) { sCtAsker = s; break; }
-                    }
+                string again = "";
+                for (int pass = 0; pass < 2 && sCtAsker == null; pass++)
+                {
+                    // run 7: the conversation ended in the second after chat; join the same two again in this call
+                    if (pass == 1 && sCtA != null) again = ConvTurnCheck("chat") + " again; ";
+                    if (Household.ActiveHousehold != null)
+                        foreach (Sim s in Household.ActiveHousehold.AllActors)
+                        {
+                            Conversation c = s.Conversation;
+                            if (c != null && OtherMember(c, s) != null) { sCtAsker = s; break; }
+                        }
+                }
                 if (sCtAsker == null) throw new InvalidOperationException("convturn pick: no Sim of the active household is in a conversation with another Sim; " + CtDoing());
-                return sCtAsker.FullName + "; switch " + ShortcutOn("convturn") + "; " + ConvTurnCheck("state");
+                return again + sCtAsker.FullName + "; switch " + ShortcutOn("convturn") + "; " + ConvTurnCheck("state");
             }
             if (what == "stop") { sCtAsker = null; return "stopped"; }
             if (sCtAsker == null) throw new InvalidOperationException("convturn: pick first");

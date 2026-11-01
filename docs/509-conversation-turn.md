@@ -70,3 +70,6 @@ went to bed, Lala walked away), and `pick` threw. Each arm now forms its own con
 **Run 6** (FAIL in the off arm's set-up): the conversation ended in the second between `pick` and `expect stuck`. An
 expect step that finds it ended now joins the same two again in its own call, so no tick passes before the check; its
 result says so.
+
+**Run 7** (FAIL in the off arm's set-up): the conversation ended in the second between `chat` and `pick`. `pick` now
+joins the same two again in its own call when it finds no conversation, as the expect steps do.
