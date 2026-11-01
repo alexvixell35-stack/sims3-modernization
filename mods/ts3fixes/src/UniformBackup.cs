@@ -74,7 +74,7 @@ namespace Ts3Fixes
                 List<SimDescription> cands = new List<SimDescription>();
                 if (Household.ActiveHousehold != null) cands.AddRange(Household.ActiveHousehold.SimDescriptions);
                 foreach (Sim w in Sims3.Gameplay.Queries.GetObjects<Sim>()) if (w.SimDescription != null) cands.Add(w.SimDescription);
-                int noUniform = 0;
+                int noUniform = 0, notFollowing = 0;
                 for (int pass = sUbOccType != null ? 0 : 1; pass < 2 && sUbSim == null; pass++) // pass 0: the first pick's occupation only
                 foreach (SimDescription d in cands)
                 {
@@ -82,13 +82,21 @@ namespace Ts3Fixes
                     if (pass == 0 && d.Occupation.GetType() != sUbOccType) continue;
                     SimOutfit u;
                     if (!d.Occupation.TryGetUniformForCurrentLevel(out u) || u == null) { if (pass == 1) noUniform++; continue; }
+                    // 2026-11-01 LR: a sleeping Sim kept its worn outfit through every switch, so EA never saw it in Career.
+                    // Only a Sim whose worn outfit follows an instant switch to Career[0] can run the sequence.
+                    Sim ps = d.CreatedSim;
+                    OutfitCategories was = ps.CurrentOutfitCategory;
+                    ps.SwitchToOutfitWithoutSpin(OutfitCategories.Career);
+                    bool follows = CASUtils.GetOutfitInGameObject(ps.ObjectId) == d.GetOutfit(OutfitCategories.Career, 0).Key;
+                    if (was != OutfitCategories.None && d.GetOutfitCount(was) > 0) ps.SwitchToOutfitWithoutSpin(was);
+                    if (!follows) { notFollowing++; continue; }
                     sUbSim = d;
                     sUbUsed.Add(d);
                     break;
                 }
                 bool sameOcc = sUbOccType == null || (sUbSim != null && sUbSim.Occupation.GetType() == sUbOccType);
                 if (sUbOccType == null && sUbSim != null) sUbOccType = sUbSim.Occupation.GetType();
-                if (sUbSim == null) return "no Sim left in the world (not picked before) with a Career outfit and an occupation that hands out a level uniform (" + noUniform + " with a Career outfit but no level uniform)";
+                if (sUbSim == null) return "no Sim left in the world (not picked before) with a Career outfit and an occupation that hands out a level uniform (" + noUniform + " with a Career outfit but no level uniform, " + notFollowing + " whose worn outfit did not follow a switch to Career)";
                 Occupation.backupOutfit = null;
                 FieldInfo core = UniformCoreSwitch();
                 if (core != null) { if (sUbCoreSwitch == null) sUbCoreSwitch = core.GetValue(null); core.SetValue(null, false); }

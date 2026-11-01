@@ -73,4 +73,9 @@ All methods are in `Sims3GameplaySystems` unless named otherwise.
 - On (Katrina Pala, Business): EA kept the old Career outfit as the backup twice, as in the off arm. The re-wear was
   needed both times. The hook cleared the backup once, after the first call that uncached it (2002 = 1), and the next
   call did not uncache it again. Every Career outfit loads at the end.
-- One clean run so far; the second is still to come.
+- One clean run so far.
+
+**LR run 1** (2026-11-01, BigSave-LR, `lr-career-uniform-check` FAIL at the early gate): the off arm (Faith MacDuff,
+GameDeveloperCareer) reproduced #101. The on arm's Sim (Joe MacDuff, asleep at the time) kept the same worn outfit
+through every switch, to Career and to Everyday, so EA never saw him in Career and stored no backup **[verified, log]**.
+`pick` now switches each candidate to Career[0] and back first, and skips a Sim whose worn outfit does not follow.
