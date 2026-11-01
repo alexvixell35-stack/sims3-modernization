@@ -58,9 +58,11 @@ namespace Ts3Fixes
         //   "expect thrown" (switch off): throws unless the listener ran, an out-of-sync exception was seen and none caught.
         //   "expect caught" (switch on): throws unless the listener ran, one was seen and caught, and Inspired is present.
         //   "expect alive" (switch on): throws unless the Sim's motives moved since the expect step (its update goes on).
-        //   "state": motives moved or not since the expect step, the Sim's update task, counters.
+        //   "state": whether the Sim object is the same (2026-11-01: after EA's exception the picked Sim object was gone, so a
+        //            reset made a new one), whether its motives moved since the expect step, counters.
         //   "stop":  removes the listener.
         static Sim sBuSim;
+        static SimDescription sBuSd;
         static readonly List<Sim> sBuUsed = new List<Sim>();
         static EventListener sBuListener;
         static int sBuFired, sBuSeen0, sBuCaught0;
@@ -77,6 +79,7 @@ namespace Ts3Fixes
                         if (!s.HasBeenDestroyed && s.BuffManager != null && s.SimDescription.TeenOrAbove && !sBuUsed.Contains(s)) { sBuSim = s; break; }
                 if (sBuSim == null) throw new InvalidOperationException("buffupdate pick: no Sim of the active household left (teen or older, not picked before)");
                 sBuUsed.Add(sBuSim);
+                sBuSd = sBuSim.SimDescription; sBuMotives = null;
                 return sBuSim.FullName + "; switch " + ShortcutOn("buffupdate");
             }
             if (what == "stop")
@@ -86,9 +89,10 @@ namespace Ts3Fixes
                 return "stopped";
             }
             if (sBuSim == null) throw new InvalidOperationException("buffupdate: pick first");
-            BuffManager bm = sBuSim.BuffManager;
             if (what == "arm")
             {
+                BuffManager bm = sBuSim.BuffManager;
+                if (bm == null || sBuSim.HasBeenDestroyed) throw new InvalidOperationException("buffupdate arm: " + sBuSim.FullName + " has no buff manager");
                 if (sBuListener == null) sBuListener = EventTracker.AddListener(EventTypeId.kBronzed, OnBuBronzed);
                 sBuFired = 0;
                 if (bm.HasElement(BuffNames.Inspired)) bm.RemoveElement(BuffNames.Inspired);
@@ -107,20 +111,24 @@ namespace Ts3Fixes
             }
             int seen = PatchCounters()[2033] - sBuSeen0, caught = PatchCounters()[2034] - sBuCaught0;
             bool on = ShortcutOn("buffupdate");
-            string st = "listener ran " + sBuFired + ", seen +" + seen + ", caught +" + caught + ", Inspired " + bm.HasElement(BuffNames.Inspired);
+            Sim cur = sBuSd != null ? sBuSd.CreatedSim : null;
+            bool same = cur != null && cur == sBuSim && !sBuSim.HasBeenDestroyed;
+            bool inspired = cur != null && cur.BuffManager != null && cur.BuffManager.HasElement(BuffNames.Inspired);
+            string st = "listener ran " + sBuFired + ", seen +" + seen + ", caught +" + caught + ", Sim object "
+                + (same ? "same" : cur != null ? "replaced (the picked one destroyed " + sBuSim.HasBeenDestroyed + ")" : "none") + ", Inspired " + inspired;
             if (what == "expect thrown" || what == "expect caught")
             {
                 bool ok = what == "expect thrown" ? !on && sBuFired == 1 && seen >= 1 && caught == 0
-                    : on && sBuFired == 1 && seen >= 1 && caught == seen && bm.HasElement(BuffNames.Inspired);
-                if (!ok) throw new InvalidOperationException("buffupdate " + what + ": wrong outcome (switch " + on + ", " + sBuSim.FullName + "); " + st);
-                sBuMotives = BuMotives(sBuSim);
-                return "as expected; " + sBuSim.FullName + ": " + st;
+                    : on && sBuFired == 1 && seen >= 1 && caught == seen && same && inspired;
+                if (!ok) throw new InvalidOperationException("buffupdate " + what + ": wrong outcome (switch " + on + ", " + sBuSd.FullName + "); " + st);
+                sBuMotives = cur != null && cur.Motives != null ? BuMotives(cur) : null;
+                return "as expected; " + sBuSd.FullName + ": " + st;
             }
             if (what == "state" || what == "expect alive")
             {
-                bool moved = BuMoved(sBuSim);
-                string s2 = sBuSim.FullName + ": motives " + (moved ? "moved" : "did not move") + " since the expect step; " + st;
-                if (what == "expect alive" && !(on && moved)) throw new InvalidOperationException("buffupdate expect alive: wrong outcome (switch " + on + "); " + s2);
+                bool moved = cur != null && cur.Motives != null && sBuMotives != null && BuMoved(cur);
+                string s2 = sBuSd.FullName + ": motives " + (moved ? "moved" : "did not move") + " since the expect step; " + st;
+                if (what == "expect alive" && !(on && same && moved)) throw new InvalidOperationException("buffupdate expect alive: wrong outcome (switch " + on + "); " + s2);
                 return (what == "expect alive" ? "as expected; " : "") + s2;
             }
             return "unknown check " + what + " (pick, arm, expect thrown, expect caught, expect alive, state, stop)";
