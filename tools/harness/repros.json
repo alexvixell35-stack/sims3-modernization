@@ -46343,5 +46343,117 @@
         }
       }
     ]
+  },
+  {
+    "id": "outfit-wait-replace-check",
+    "bug": "issue #115, second cause (docs/224 §5, I-414-5): a SwitchOutfitHelper wait whose delayed swap is replaced by another delayed swap of the same Sim (SimBuilderTask.FinishModelLoad, BuffTransformation, Sim.SwitchToOutfitWithHiding, occult outfit changes) without an Abort; if the game keeps one ready callback per Sim, the helper's never runs and its wait never ends",
+    "fix": "diagnostic only: ts3fixes OutfitWait.cs, outfitwaitpoll (default off) classes each stale wait (counters 2003-2005), docs/224 §5",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-01). Neither swap is completed: \"stop\" aborts the helper, which cancels the Sim's pending swap, so the Sim keeps its outfit. The control part shows an untouched swap calls back.",
+    "expect": "control: the wait returns within 10 s. replace: either (a) second swap ready True, helper ready False, the wait stale after 60 sim-minutes with cause replaced (the game keeps one callback per Sim: cause verified), or (b) the wait returns (both callbacks run: not the cause).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitpoll": true
+        },
+        "waitS": 1,
+        "note": "on in both parts: only the on path classes stale waits"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "start control"
+          ]
+        },
+        "note": "control: names the Sim, the category it waits for, no task 2"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "control: wait task returned (ready, no change False): an untouched delayed swap calls back within seconds",
+        "waitS": 10
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "control: done"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "start replace"
+          ]
+        },
+        "note": "replace: same Sim, a second swap to a third category"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "replace: task 2 'second swap to <cat> started True (helper not aborted)'",
+        "waitS": 10
+      },
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "replace: more than 60 sim-minutes pass"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "replace, if a second swap drops the first one's callback: second swap ready True, helper ready False, wait task in Wait, stale 1, causes replaced 1. If both call back: wait task returned, stale 0."
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "log"
+          ]
+        },
+        "note": "replace: the stale-wait line names 'cause replaced: pending <third>/0 (helper <pick>/0), active helper this'"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "replace: helper aborted, both swaps cancelled; the Sim keeps its outfit"
+      }
+    ]
   }
 ]

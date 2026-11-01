@@ -87,3 +87,52 @@ All methods are in `Sims3GameplaySystems` unless named otherwise.
 - **Cost** [not measured]. The LR load of 2026-10-31 had no costly stale wait: `Wait` was in at most 3 of about 884
   managed samples in every arm, so the four per-load timing arms could not show a cut. The #115 case (the makeover
   alarm, I-414-2) is on the day-406 save; the cost check (I-414-3) waits for that save.
+
+## 5. The second cause: waits that were never aborted (2026-11-01, I-414-5, I-414-6)
+
+**What sets `mReady`** [verified IL]. Only the helper's own `Ready`, the `SwapReadyCallback` that `Start` hands to
+`Sim.SwitchToOutfitDelayed(category, index, callback)`. That call stores the Sim's pending outfit (`mPendingOutfitInfo`)
+and passes the callback to the native `CASUtils.SetOutfitInGameObjectDelayed`. `Abort` is the only script code that
+clears `mReady`, and it also sets `mAborted`. So a stale wait with `aborted False` means the callback never ran.
+
+**Other delayed swaps of the same Sim** [verified IL]. These start a delayed swap with their own callback and do not
+abort the Sim's active helper first:
+
+- `SimBuilderTask.FinishModelLoad` (age-up and other model rebuilds) and the sculpting station's copy of it;
+- `BuffTransformation...GenerateAndApplyTransformOutfit` (from `BuffTransformation.OnAddition`);
+- `Sim.SwitchToOutfitWithHiding` (from `GoToCommunityLot.Run` and `Sim.DoReset`);
+- `OccultPlantSim.OnAddition`/`OnRemoval`, `OccultMermaid.AddOutfits`, `OccultMermaid.RemoveMermaidWithVortex.Run`.
+
+A few paths end or cancel a Sim's pending swap without the helper: `Sim.DoOutfitDelayedSwap` from
+`SimBuilderTask.SwapModel`, `BuffTransformation...ApplyTransformedOutfitSwap` and `Sim.OutfitSwapWithHidingReady`; and
+`Sim.AbortOutfitDelayedSwap` when no helper is active.
+
+**Hypothesis** [inferred, I-414-6]. If the game keeps one pending swap and one callback per Sim, a second delayed swap
+drops the helper's callback, and the helper's wait never ends, with `aborted False`. Whether the native call keeps one
+callback or all of them is not read yet.
+
+**Diagnostics** (ts3fixes, switch on only). Each stale wait is classed once, when it is marked
+(`OutfitWaitCore.StaleCause`, self-tested):
+
+| class | test | counter |
+|---|---|---|
+| aborted | `mAborted` (the #115 cause, §1) | none, as before |
+| own | the Sim's pending outfit is still the helper's, and the helper is the Sim's active one | 2003 `outfitwaitpoll_cause_own` |
+| replaced | anything else with an outfit pending (another delayed swap, or another or no active helper) | 2004 `outfitwaitpoll_cause_replaced` |
+| cleared | no outfit pending: the Sim's swap was completed or cancelled without the helper | 2005 `outfitwaitpoll_cause_cleared` |
+
+The stale-wait line also gives the pending and the helper's outfit, the active helper (this, other, none), the Sim's
+current interaction, whether it has a transformation buff, and the five calling frames of `Wait`.
+
+**Checks.**
+
+- Repro `outfit-wait-replace-check` (Baseline-BP):
+  - Control: an untouched delayed swap calls back within seconds.
+  - Replace: a second `SwitchToOutfitDelayed` on the same Sim, without an abort, while the helper waits. If only the
+    second callback runs, the hypothesis is verified. If both run, it is refuted.
+  - Neither swap is completed: `stop` aborts the helper, which cancels the pending swap.
+- Job `lr-outfit-wait-causes-ab` (day-406 save, in-load `--ab outfitwaitpoll`): the cause counts of natural stale waits,
+  and the cost per arm.
+- Queue `tools/harness/queues/outfit-wait-cause.json`.
+
+Results: not run yet.

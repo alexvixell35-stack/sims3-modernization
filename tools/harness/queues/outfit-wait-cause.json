@@ -1,0 +1,56 @@
+{
+  "note": "Issue #115 second cause (docs/224 \u00a75): forced replace check first, then the LR in-load A/B with stale-wait causes. Built 2026-11-01.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-outfit-wait-replace",
+      "note": "Correctness (8 min): repro outfit-wait-replace-check. Pass: control wait returns; replace: outcome (a) or (b) of the repro's expect, read from the state lines (both outcomes answer the question; a crash or a check error fails).",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "outfit-wait-replace-check"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20
+    },
+    {
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only test, no native change",
+      "save": "BigSave-LR",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "id": "lr-outfit-wait-causes-ab",
+      "fixesPackage": "build/ts3fixes-on-kOutfitWaitPoll.package",
+      "note": "In-load A/B on the day-406 save (BigSave-LR): kOutfitWaitPoll True from startup, --ab outfitwaitpoll per 2-min slice, off first. Read: the cause of each natural stale wait (counters outfitwaitpoll_cause_own/_replaced/_cleared, stale-wait lines in the applied log), sim ms/s per arm, and Wait's share of managed samples per arm.",
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "ab": "outfitwaitpoll",
+          "slice": 2,
+          "fixesRequire": "outfitwaitpoll_stale>=1"
+        }
+      },
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:outfitwaitpoll_polls",
+          "op": ">=",
+          "value": 1,
+          "why": "no stale outfit wait polled by the 4th 2-min slice: the hook is not on or not installed"
+        }
+      ]
+    }
+  ]
+}

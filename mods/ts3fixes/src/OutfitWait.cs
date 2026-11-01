@@ -19,6 +19,8 @@ namespace Ts3Fixes
     // moves the outfit change by under a sim-minute, and a wait that never gets ready never returns, as in EA's game.
     // Off at entry: EA's Wait. The loop reads the switch again at each stale poll, so an in-load A/B moves waits that began
     // in an on arm back to EA's rate in the off arms. [680] waits gone stale, [681] minute polls, [682] stale waits ended.
+    // Each stale wait is classed once (OutfitWaitCore.StaleCause, docs/224 §5): [2003] own swap still pending, [2004] replaced
+    // by another delayed swap of the Sim, [2005] nothing pending (aborted waits are the #115 cause and are not counted here).
     public static partial class Fixes
     {
         const float kOutfitWaitStaleMinutes = 60f;
@@ -29,6 +31,9 @@ namespace Ts3Fixes
         static readonly FieldInfo sSohNoChange = typeof(Sim.SwitchOutfitHelper).GetField("mNoChange", kInstAll);
         static readonly FieldInfo sSohSim = typeof(Sim.SwitchOutfitHelper).GetField("mSim", kInstAll);
         static readonly FieldInfo sSimActiveSoh = typeof(Sim).GetField("mActiveSwitchOutfitHelper", kInstAll);
+        static readonly FieldInfo sSohCategory = typeof(Sim.SwitchOutfitHelper).GetField("mCategory", kInstAll);
+        static readonly FieldInfo sSohIndex = typeof(Sim.SwitchOutfitHelper).GetField("mIndex", kInstAll);
+        static readonly FieldInfo sSimPending = typeof(Sim).GetField("mPendingOutfitInfo", kInstAll);
         static readonly Type sAlarmOneShot = typeof(AlarmManager).GetNestedType("AlarmOneShot", BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sOneShotTimer = sAlarmOneShot != null ? sAlarmOneShot.GetField("mTimer", kInstAll) : null;
 
@@ -63,7 +68,7 @@ namespace Ts3Fixes
                             Sim s = sSohSim.GetValue(h) as Sim;
                             string line = "outfitwaitpoll: " + (s != null ? s.FullName : "?") + " outfit wait not ready after "
                                 + kOutfitWaitStaleMinutes + " sim-minutes (aborted " + (sSohAborted != null ? sSohAborted.GetValue(h) : "?")
-                                + "), now read once per sim-minute; task " + OutfitWaitCaller();
+                                + "), now read once per sim-minute; task " + OutfitWaitCaller() + "; " + OutfitWaitCause(h, s);
                             ShortcutLog(line);
                             if (sOwLines.Count < 20) sOwLines.Add(line); // the 40-line recent log is soon full of other shortcuts
                         }
@@ -93,8 +98,34 @@ namespace Ts3Fixes
             catch (Exception e) { return "? (" + e.GetType().Name + ")"; }
         }
 
+        // docs/224 §5: why a wait is stale, counted once per wait ([2003-2005]); the text goes on the stale-wait line
+        static string OutfitWaitCause(object h, Sim s)
+        {
+            try
+            {
+                if (s == null || sSimPending == null || sSohCategory == null || sSohIndex == null) return "cause unread";
+                object pend = sSimPending.GetValue(s); // Sim.OutfitInfo (a struct): Category, Index
+                OutfitCategories pc = (OutfitCategories)pend.GetType().GetField("Category").GetValue(pend);
+                int pi = (int)pend.GetType().GetField("Index").GetValue(pend);
+                OutfitCategories hc = (OutfitCategories)sSohCategory.GetValue(h);
+                int hi = (int)sSohIndex.GetValue(h);
+                object act = sSimActiveSoh != null ? sSimActiveSoh.GetValue(s) : null;
+                bool aborted = sSohAborted != null && (bool)sSohAborted.GetValue(h);
+                int cause = OutfitWaitCore.StaleCause(aborted, object.ReferenceEquals(act, h), (int)pc, pi, (int)hc, hi, (int)OutfitCategories.None);
+                if (cause != OutfitWaitCore.kCauseAborted) PatchCounters()[2002 + cause]++;
+                Sims3.Gameplay.Interactions.InteractionInstance cur = s.CurrentInteraction;
+                bool tf = false;
+                try { tf = s.BuffManager != null && s.BuffManager.HasTransformBuff(); } catch (Exception) { }
+                return "cause " + new string[] { "aborted", "own", "replaced", "cleared" }[cause] + ": pending " + pc + "/" + pi + " (helper " + hc + "/" + hi
+                    + "), active helper " + (act == null ? "none" : object.ReferenceEquals(act, h) ? "this" : "other") + ", Sim doing "
+                    + (cur != null ? cur.GetType().Name : "nothing") + ", transform buff " + tf + ", in world " + s.InWorld + ", by " + Callers();
+            }
+            catch (Exception e) { return "cause unread (" + e.GetType().Name + ")"; }
+        }
+
         static Sim.SwitchOutfitHelper sOwHelper;
         static ObjectGuid sOwWait = ObjectGuid.InvalidObjectGuid, sOwAbort = ObjectGuid.InvalidObjectGuid;
+        static bool sOwReplReady; // the replace check's second swap called back
         static string sOwAbortSaw, sOwWaitEnd; // sOwWaitEnd null = task 1 still in Wait (GetProxy is null for a script Task)
         static readonly List<string> sOwLines = new List<string>(); // first 20 stale-wait lines this session (check "log")
 
@@ -103,15 +134,21 @@ namespace Ts3Fixes
         //   "start": a Sim in the world in a normal outfit with no outfit helper of its own (an active-household one first)
         //            gets a helper for an outfit category it is not wearing; task 1 runs Wait(false) (Start, then the loop),
         //            task 2 aborts the helper in the same tick, after Start and before Ready (what another helper's Start does).
+        //   "start replace": as "start", but task 2 starts a second delayed swap of the same Sim (a third category, its own
+        //            callback) instead of the abort, as SimBuilderTask.FinishModelLoad, BuffTransformation and
+        //            Sim.SwitchToOutfitWithHiding do without aborting the active helper (docs/224 §5). "state" then says which
+        //            ready callbacks ran. "start control": as "start" with no task 2 (the swap should be ready in seconds).
         //   "state": what task 2 saw, the helper's flags, whether task 1 still runs (else how its Wait ended), counters [680-682].
         //   "log":   the first 20 stale-wait lines of the session (Sim, aborted flag, waiting task).
         //   "ready": sets mReady, as a late Ready callback would; on, task 1 returns within a sim-minute; off, within a tick.
-        //   "stop":  destroys both tasks.
+        //   "stop":  destroys both tasks and aborts the helper (which cancels a pending swap; neither swap is completed).
         public static string OutfitWaitCheck(string what)
         {
             switch (what)
             {
                 case "start":
+                case "start replace":
+                case "start control":
                 {
                     if (sOwHelper != null) return "a test wait exists; stop first";
                     if (sSohReady == null || sSohStarted == null || sSimActiveSoh == null) return "SwitchOutfitHelper fields not found";
@@ -127,8 +164,12 @@ namespace Ts3Fixes
                     foreach (OutfitCategories k in kinds)
                         if (k != cur && sim.SimDescription.GetOutfitCount(k) > 0) { pick = k; break; }
                     if (pick == OutfitCategories.None) return sim.FullName + ": no other outfit category";
+                    OutfitCategories third = OutfitCategories.None;
+                    foreach (OutfitCategories k in kinds)
+                        if (k != cur && k != pick && sim.SimDescription.GetOutfitCount(k) > 0) { third = k; break; }
+                    if (what == "start replace" && third == OutfitCategories.None) return sim.FullName + ": no third outfit category";
                     Sim.SwitchOutfitHelper helper = sOwHelper = new Sim.SwitchOutfitHelper(sim, pick, 0);
-                    sOwAbortSaw = "not run"; sOwWaitEnd = null;
+                    sOwAbortSaw = what == "start control" ? "none (control)" : "not run"; sOwWaitEnd = null; sOwReplReady = false;
                     sOwWait = Simulator.AddObject(new LoopTask(delegate
                     {
                         try { helper.Wait(false); sOwWaitEnd = "returned"; }
@@ -136,21 +177,30 @@ namespace Ts3Fixes
                         sOwWaitEnd += " (aborted " + (sSohAborted != null ? sSohAborted.GetValue(helper) : "?") + ", no change " + sSohNoChange.GetValue(helper)
                             + ", disposed " + sSohDisposed.GetValue(helper) + ")";
                     }));
-                    sOwAbort = Simulator.AddObject(new LoopTask(delegate
-                    {
-                        while (!(bool)sSohStarted.GetValue(helper)) Simulator.Sleep(1);
-                        if ((bool)sSohReady.GetValue(helper)) { sOwAbortSaw = "ready before the abort (swap was immediate); stop and start again"; return; }
-                        helper.Abort();
-                        sOwAbortSaw = "aborted in the loop";
-                    }));
-                    return sim.FullName + ": waiting for " + pick + " (wearing " + cur + "), switch " + ShortcutOn("outfitwaitpoll");
+                    Sim simR = sim;
+                    if (what != "start control")
+                        sOwAbort = Simulator.AddObject(new LoopTask(delegate
+                        {
+                            while (!(bool)sSohStarted.GetValue(helper)) Simulator.Sleep(1);
+                            if ((bool)sSohReady.GetValue(helper)) { sOwAbortSaw = "ready before task 2 (swap was immediate); stop and start again"; return; }
+                            if (what == "start replace")
+                            {
+                                bool ok = simR.SwitchToOutfitDelayed(third, 0, new CASUtils.SwapReadyCallback(delegate { sOwReplReady = true; }));
+                                sOwAbortSaw = "second swap to " + third + " started " + ok + " (helper not aborted)";
+                                return;
+                            }
+                            helper.Abort();
+                            sOwAbortSaw = "aborted in the loop";
+                        }));
+                    return sim.FullName + ": waiting for " + pick + " (wearing " + cur + ")" + (what == "start replace" ? ", second swap " + third : "") + ", switch " + ShortcutOn("outfitwaitpoll");
                 }
                 case "state":
                 {
                     if (sOwHelper == null) return "start first";
                     int[] c = PatchCounters();
                     return "abort task: " + sOwAbortSaw + "; ready " + sSohReady.GetValue(sOwHelper) + ", started " + sSohStarted.GetValue(sOwHelper)
-                        + ", wait task " + (sOwWaitEnd == null ? "in Wait" : "returned: " + sOwWaitEnd) + "; stale " + c[680] + ", minute polls " + c[681] + ", ended " + c[682];
+                        + ", wait task " + (sOwWaitEnd == null ? "in Wait" : "returned: " + sOwWaitEnd) + ", second swap ready " + sOwReplReady
+                        + "; stale " + c[680] + ", minute polls " + c[681] + ", ended " + c[682] + "; causes own " + c[2003] + ", replaced " + c[2004] + ", cleared " + c[2005];
                 }
                 case "log":
                     return sOwLines.Count + " stale-wait lines: " + string.Join(" | ", sOwLines.ToArray());
@@ -162,9 +212,10 @@ namespace Ts3Fixes
                     if (sOwWait != ObjectGuid.InvalidObjectGuid && Simulator.GetProxy(sOwWait) != null) Simulator.DestroyObject(sOwWait);
                     if (sOwAbort != ObjectGuid.InvalidObjectGuid && Simulator.GetProxy(sOwAbort) != null) Simulator.DestroyObject(sOwAbort);
                     sOwWait = sOwAbort = ObjectGuid.InvalidObjectGuid;
+                    if (sOwHelper != null) sOwHelper.Abort(); // cancels a swap still pending (the replace check's second one too)
                     sOwHelper = null;
                     return "stopped";
-                default: return "unknown check " + what + " (start, state, log, ready, stop)";
+                default: return "unknown check " + what + " (start, start replace, start control, state, log, ready, stop)";
             }
         }
     }
