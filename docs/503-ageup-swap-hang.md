@@ -118,3 +118,17 @@ stayed 0). **[verified, log]**
 
 Repro change for run 2: the watcher keeps the Sim in Naked[0] until the age-up task is seen, then sets the post-swap
 category to the part's category (Special, Everyday, Outerwear) until the model has loaded.
+
+**Run 2** (2026-11-01, same job, PASS in 17.2 min): **inconclusive** again. Each Sim wore Naked when the age-up
+started, and the task was seen 200 to 1535 ticks later, but all four tasks finished with model loaded False. EA
+compares the worn outfit with the old Naked[0] only after it has rebuilt the outfits for the new age, and by then the
+Sims had changed (they ended in Everyday or Outerwear) **[inferred: the compare comes after the rebuild in
+`UpdateSimOutfitsOnAgeUp`; the Sims' outfit at that moment was not logged]**. Repro change for run 3: the watcher keeps
+the old Naked[0] outfit object (taken before the age-up, so a forced switch after the rebuild does not put on the new
+age's Naked outfit) on the Sim until the model has loaded or the task is done, and logs each put-back.
+
+**A second way to hang** **[inferred]**: `FinishModelLoad` starts the model swap with `SetModelInGameObjectDelayed`, whose
+callback goes into the same one-per-Sim table as outfit swaps (docs/224 §5, I-414-8). If the Sim still has a swap
+callback registered (an outfit swap that nobody completed, aborted or called back), the model callback is not stored,
+the model-loaded flag is never set and the task waits forever. The switch here does not cover that case; the drop
+logger of docs/224 counts it.
