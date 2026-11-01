@@ -289,6 +289,8 @@ function clearCaches(f: Fix) {
   for (const spec of f.install.files as string[]) {
     const p = join(USER, spec.replace(/\/\*$/, ''));
     if (!existsSync(p)) continue;
+    // a player may block the Store ads with a 0-byte FeaturedItems file where the game wants a folder: nothing to clear
+    if (spec.endsWith('/*') && !statSync(p).isDirectory()) continue;
     if (spec.endsWith('/*')) for (const e of readdirSync(p)) {
       if (!keep.has(`${spec.slice(0, -1)}${e}`.toLowerCase())) rmSync(join(p, e), { recursive: true, force: true });
     }
