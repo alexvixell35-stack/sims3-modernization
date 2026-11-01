@@ -132,7 +132,7 @@ mostly before the task was seen; one off-part age-up did not start within the pa
 again had model loaded False. A closer reading of the IL contradicts the runs: `UpdateSimOutfitsOnAgeUp` also sets its
 out outfit when the Sim wears any outfit it rebuilds, and, failing that, falls back to a new outfit (with post-swap
 Everyday) whenever the Sim is instantiated; `Simulate` then calls `FinishModelLoad`. So for an instantiated human Sim
-`FinishModelLoad` should always run **[verified, IL]**, yet in 12 age-ups over three runs it never did (only its
+`FinishModelLoad` should always run **[verified, IL]**, yet in the 11 age-ups that finished over three runs it never did (only its
 callback sets model loaded, and it is never reset) **[verified, log]**. The cause is open: something in this setup
 (another mod's aging code, or the task seen by the check not being the one that ran) changes the path **[open]**. The
 live repro is parked until that is found; the self-test covers the hook.
