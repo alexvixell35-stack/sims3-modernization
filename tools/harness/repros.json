@@ -47158,5 +47158,64 @@
         }
       }
     ]
+  },
+  {
+    "id": "jazz-param-check",
+    "bug": "issue #166 build 21: Sim.UpdateJazzParameter null-checks the interaction half but reads Posture.CurrentStateMachine unchecked, so a Sim with no posture throws NullReferenceException out of BuffEnjoyingMusic's add or remove",
+    "fix": "ts3fixes JazzParam.cs: jazzparam (default off), docs/511",
+    "save": "Baseline-BP",
+    "note": "Needs EA's UpdateJazzParameter: run it with the original core mod (a core with the player's Build 21 checks the posture and never throws). Each expect takes a Sim's posture away for one call of UpdateJazzParameter and puts it back in a finally.",
+    "expect": "off: expect thrown sees EA's NullReferenceException, seen +1, caught +0. on: expect control (posture in place) counts nothing; expect caught sees no exception, seen +1, caught +1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "jazzparam": false
+        },
+        "note": "applied log lists Sim.UpdateJazzParameter: ok",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.JazzParamCheck",
+          "args": [
+            "expect thrown"
+          ]
+        },
+        "note": "off: the bug: NullReferenceException, seen +1, caught +0 (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "jazzparam": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.JazzParamCheck",
+          "args": [
+            "expect control"
+          ]
+        },
+        "note": "on: posture in place: no exception, nothing counted (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.JazzParamCheck",
+          "args": [
+            "expect caught"
+          ]
+        },
+        "note": "on: the fix: no exception, seen +1, caught +1 (throws otherwise)",
+        "waitS": 1
+      }
+    ],
+    "cleanup": []
   }
 ]

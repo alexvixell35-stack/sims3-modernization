@@ -5381,6 +5381,13 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 | I-416-7 | 67 §30.5 | The bit is cleared by a blocked-flag write (`0x82A200` or `0x82B6F3`) through a waypoint past its chunk's count: (1753, 13) and (1563, 20) land exactly on the two words in the shipped layout | exe scan for bit-15 clears; `--mem-image` search over all out-of-range pairs | PortalFlagRefs=1, WorldAStarRefs=0 on Baseline-IP | no crash, skip lines name (1753, 13) / (1563, 20), `waSkip` 0 with both on | a crash or A\* skips with PortalFlagRefs on (a third writer) | partly verified (67 §30.6: writer 1 skips (1563, 20) live; run 177 still crashed with the switch on, so not the whole cause) |
 | I-416-8 | 67 §30.5 | The stale pairs come from waypoints a lot update added and removed while a portal or lot waypoint kept the reference | both pairs 2 past their chunk's count | a watchpoint on the portal id / chunk counts during load | the count of chunk 1753 / 1563 drops while a portal still holds the id | the pairs are wrong from the save's first lot load | inferred |
 
+## 909. A jazz parameter for a Sim with no posture, `jazzparam` (2026-11-01, docs/511; static + self-test)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-909-1 | 511 §1 | UpdateJazzParameter throws NullReferenceException for a Sim with no posture | IL: the posture half has no check; the report's exception | `jazz-param-check` off arm | expect thrown passes | no exception with the posture away | open |
+| I-909-2 | 511 §2 | Catching it changes nothing else: the interaction half already ran | IL order of the two halves | `jazz-param-check` on arm | expect caught and expect control pass | either throws | open |
+
 ## 901. Issue #101: the career uniform backup is uncached again and again, `uniformbackup` (2026-10-31, docs/502; static + self-test; the bug sequence and a player-side script patch ran live)
 
 | ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
