@@ -175,12 +175,13 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [66-address-space-budget](66-address-space-budget.md): address-space budget
 - [MEMORY-RESEARCH](MEMORY-RESEARCH.md): Memory and Error 12 research: start here
 
-## Crashes (5)
+## Crashes (6)
 
 - [135-crash-report-tool](135-crash-report-tool.md): opt-in `[CrashReport]` (ts3native 0.36.7, off): unhandled-exception filter kept on top through the exe IAT slot `0xF9517C`, scrubbed local report (fault module+offset, registers, stack scan, log tail, package names, CPU/RAM/OS), running marker for hard crashes, signature id `crashsig-xxxxxxxx`; `tools/report-crash.ts` shows and sends only on the player's yes (own `gh` or prefilled `crash.yml` page); `.github/workflows/crash-issues.yml` labels and links by signature
 - [172-natural2-hang](172-natural2-hang.md): bp-natural-2 hang (2026-10-22, heartbeat frozen)
 - [173-crash-567121](173-crash-567121.md): Crash at 0x00567121: SequenceController drains its node list (2026-10-22, bp-profcost-on-2)
 - [186-apex-draw-crash](186-apex-draw-crash.md): Apex Radiance draw-pass crashes during a lot-streaming camera pan (2026-10-24)
+- [510-buff-update-sync](510-buff-update-sync.md): (issue #166 build 20, built, self-tested, not run) `buffupdate` (off by default): `BuffManager.UpdateBuffs` walks the live buff table and calls each timed buff's `OnTimeOutUpdated` inside the walk; a buff added there (the suntan's `kBronzed` listeners) makes the walk throw out of sync, which ends the Sim's update task; the hook catches that one exception. Counters 2033-2034, ledger §908, repro `buff-update-check` (queue `buff-update.json`, original core mod).
 - [67-crash-triage](67-crash-triage.md): crash triage
 
 ## Hitches and the main thread (17)

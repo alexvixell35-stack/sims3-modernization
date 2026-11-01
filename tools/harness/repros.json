@@ -47158,5 +47158,142 @@
         }
       }
     ]
+  },
+  {
+    "id": "buff-update-check",
+    "bug": "issue #166 build 20: BuffManager.UpdateBuffs walks the live buff table and calls each timed buff's OnTimeOutUpdated inside the walk; a buff added or removed there (BuffSuntan's sends kBronzed, listeners run at once) makes the walk throw InvalidOperationException (out of sync), which nothing above catches, so the Sim's update task ends",
+    "fix": "ts3fixes BuffUpdate.cs: buffupdate (default off), docs/510",
+    "save": "Baseline-BP",
+    "note": "Needs EA's UpdateBuffs: run it with the original core mod (a core with the player's Build 20 walks a copy and never throws). Each arm uses its own Sim of the active household: a listener on kBronzed adds Inspired once, and the Sim gets Suntanned acquired past kDaysForBronzed with its event not sent, so its next buff update sends the event inside the walk.",
+    "expect": "off: expect thrown sees the listener run and one out-of-sync exception, none caught; state reports whether that Sim's motives still move (EA's consequence). on: expect caught sees it caught and Inspired present; expect alive sees the Sim's motives move afterwards.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "buffupdate": false
+        },
+        "note": "applied log lists BuffManager.UpdateBuffs: ok",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "off: names the first Sim (throws when the household has no teen or older Sim)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "arm"
+          ]
+        },
+        "note": "off: listener on, Suntanned set up so its next buff update sends kBronzed",
+        "waitS": 15
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "expect thrown"
+          ]
+        },
+        "note": "off: listener ran 1, seen +1, caught +0 (throws otherwise)",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: whether the Sim's motives moved in the 20 s after the exception (if not, its update task ended)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "buffupdate": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "on: names the second Sim (throws when there is none)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "arm"
+          ]
+        },
+        "note": "on: the same set-up on the second Sim",
+        "waitS": 15
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "expect caught"
+          ]
+        },
+        "note": "on: listener ran 1, seen +1, caught +1, Inspired present (throws otherwise)",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "expect alive"
+          ]
+        },
+        "note": "on: the Sim's motives moved in the 20 s after the catch (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "done",
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffUpdateCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "removes the listener",
+        "waitS": 1
+      }
+    ]
   }
 ]

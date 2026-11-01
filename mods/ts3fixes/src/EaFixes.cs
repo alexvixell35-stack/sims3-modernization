@@ -98,6 +98,7 @@ namespace Ts3Fixes
             Patch(typeof(Services), "PostWorldLoadStartup", typeof(NullServiceHook), "StartupHook", "StartupOrig");
             Patch(typeof(RabbitHole), "AnimateDoorOpen", typeof(RabbitHoleDoorHook), "OpenHook", "OpenOrig");
             Patch(typeof(RabbitHole), "AnimateDoorClose", typeof(RabbitHoleDoorHook), "CloseHook", "CloseOrig");
+            Patch(typeof(BuffManager), "UpdateBuffs", new Type[] { typeof(float) }, typeof(BuffUpdateHook), "UpdateHook", "UpdateOrig");
         }
 
         // ---- ageupkeepoutfits (#100) ----
