@@ -1097,6 +1097,16 @@
       "what": "docs/122 §14.19 mono-cost11 BP cut round: seeding, causes, pointer prints, RowHot",
       "at": "2026-10-29T23:58:03.500Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-507",
+      "kind": "doc",
+      "from": 507,
+      "to": 507,
+      "by": "dalexlol",
+      "what": "Compiler groundwork: monohost-jit adapter + opcode table (round 7 task 3)",
+      "at": "2026-11-01T11:47:48.000Z",
+      "worktree": "C:\\Users\\<user>\\scratchpad\\s3mod_cgw"
     }
   ]
 }
