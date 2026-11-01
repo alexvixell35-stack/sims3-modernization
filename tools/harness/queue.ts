@@ -767,10 +767,11 @@ export function fixActivity(p0: any, p1: any, t0: any, t1: any, cfg: { fixesOn?:
   return { fails, notes, counters, lists };
 }
 // fixActivity's cfg: the job profile's fixesOn plus every repro item's own fixesOn (on in some window), the job's fixesOff;
-// report = fixesReport + those fixesOn names
+// report = fixesReport + those fixesOn names + the profile.ab switches (2026-11-01: without them an --ab job's row lost the
+// A/B switch's own counters, so mono-cost-report printed no lines for it)
 export const jobFixesCfg = (p: any) => {
   const fixesOn = [p?.fixesOn, ...(p?.repros ?? []).map((r: any) => r?.fixesOn)].filter(Boolean).join(',') || undefined;
-  return { fixesOn, fixesOff: p?.fixesOff, report: [p?.fixesReport, fixesOn].filter(Boolean).join(',') || undefined };
+  return { fixesOn, fixesOff: p?.fixesOff, report: [p?.fixesReport, fixesOn, p?.ab].filter(Boolean).join(',') || undefined };
 };
 // ts3native.log copies to merge into the call-site DB: each repro slice (own game start after a reload) and the row's copy;
 // mergeLog is idempotent per run, so slices of one start add only their growth
@@ -1097,6 +1098,7 @@ if (values['self-check']) {
   assert.deepEqual([ufR.counters, ufR.lists, ufR.fails], [{ unseenfbpre_rj_samelot: { before: 1, after: 9 }, unseenfbleave_rj_goalseen: { before: null, after: 2 } }, { unseenfbpre_callers: ['3 Foo.Run'] }, []]);
   assert.equal(jobFixesCfg({ repros: [{ fixesOn: 'unseenfbarrive' }] }).report, 'unseenfbarrive');
   assert.deepEqual(jobFixesCfg({ fixesOn: 'a', fixesOff: 'c', repros: [{ id: 'r1', fixesOn: 'b' }, 'r2'] }), { fixesOn: 'a,b', fixesOff: 'c', report: 'a,b' });
+  assert.deepEqual(jobFixesCfg({ fixesOn: 'autlive', fixesReport: 'g8_', ab: 'autunseen' }), { fixesOn: 'autlive', fixesOff: undefined, report: 'g8_,autlive,autunseen' });
   assert.deepEqual(callsiteLogs({ nativeLog: 'm', repros: [{ nativeLog: 'a' }, {}, { nativeLog: 'm' }] }), ['a', 'm']);
   assert.deepEqual(featureIdle(fIni.replace('DeferFootprint=1', 'DeferFootprint=0').replace('Mode=1', 'Mode=0'), {}, { rgEntries: 3, usfDeferred: 0, rcDeferred: 0, rcWould: 0 }), []);
   assert.deepEqual(featureIdle(fIni, null, null), []);
