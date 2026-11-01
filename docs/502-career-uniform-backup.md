@@ -59,3 +59,18 @@ All methods are in `Sims3GameplaySystems` unless named otherwise.
   `TryGetUniformForCurrentLevel` returns a uniform. The Film career does not (it dresses Sims in work costumes through its
   own methods), so the first run (2026-10-31, a Film Sim) never reached EA's code and its early gate stopped it. `pick` now
   takes the first Sim with a Career outfit whose occupation returns a level uniform.
+- **Picking the on arm's Sim**: the off arm leaves its Sim's Career outfit unloadable, so `pick` skips Sims it has used
+  (rerun 1, 2026-11-01, reused the off arm's Sim). It also prefers the first pick's occupation, because EA's uniform
+  path differs by occupation (rerun 2 got a Medical Sim, for which EA stored no backup). The uniform step puts the last
+  "wear" outfit back on first when the Sim has changed in between (rerun 3: the on arm's Sim went back to Everyday
+  between the steps, so EA released the old outfit instead of keeping it as the backup).
+
+## 4. Results
+
+**Rerun 4** (2026-11-01, Baseline-BP, `bp-career-uniform-check` PASS in 8.4 min) **[verified, log]**:
+- Off (Lala Angelista, Business): #101 live again. Career[0] ends as K and does not load, and the backup holds K
+  after EA has uncached it twice.
+- On (Katrina Pala, Business): EA kept the old Career outfit as the backup twice, as in the off arm. The re-wear was
+  needed both times. The hook cleared the backup once, after the first call that uncached it (2002 = 1), and the next
+  call did not uncache it again. Every Career outfit loads at the end.
+- One clean run so far; the second is still to come.
