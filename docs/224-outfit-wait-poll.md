@@ -105,7 +105,9 @@ abort the Sim's active helper first:
 
 A few paths end or cancel a Sim's pending swap without the helper: `Sim.DoOutfitDelayedSwap` from
 `SimBuilderTask.SwapModel`, `BuffTransformation...ApplyTransformedOutfitSwap` and `Sim.OutfitSwapWithHidingReady`; and
-`Sim.AbortOutfitDelayedSwap` when no helper is active.
+`Sim.AbortOutfitDelayedSwap` when no helper is active. `Sim.SwitchToOutfitWithoutSpin(category, outfit, index)` also
+sets the new outfit at once and resets the pending outfit to none, without touching the active helper, and so does
+`Sim.DoReset` [verified IL].
 
 **Hypothesis** [inferred, I-414-6]. If the game keeps one pending swap and one callback per Sim, a second delayed swap
 drops the helper's callback, and the helper's wait never ends, with `aborted False`. Whether the native call keeps one
@@ -135,4 +137,31 @@ current interaction, whether it has a transformation buff, and the five calling 
   and the cost per arm.
 - Queue `tools/harness/queues/outfit-wait-cause.json`.
 
-Results: not run yet.
+**Results, run 1** (2026-11-01, Baseline-BP, job `bp-outfit-wait-replace` PASS in 11.1 min, ultra speed, switch on for
+the whole load):
+
+- Control: 10 s after the start, the untouched swap had not called back yet (ready False, the wait task still in
+  `Wait`). Then `stop` aborted it. So at ultra speed 10 s is too short, and this part does not show how long a normal
+  callback takes. **[verified, log]**
+- Replace: the second swap (to Everyday) started, and the helper was not aborted. 80 s later the helper's wait had
+  returned by itself (aborted False, no change False), and the second swap's callback had not run. So the second swap did
+  not drop the helper's callback: **I-414-6 is refuted** for this case **[verified, 1 run]**. A second delayed swap
+  does not explain the stale waits.
+- Natural stale waits in the same load: 7. Of these, 5 were `own`, 0 `replaced` and 2 `cleared`; 5 of the 7 became ready
+  later, and there were 116 minute polls.
+  - `own` (5): the pending outfit was still the helper's, and the helper was the active one. The waits came from outfit
+    changes before routing (`SimScriptAdaptor.CheckForClothingChangesBeforeRouting`, `RoutingComponent.DoRoute`) and
+    from `WorkOutClone`, in `VisitCommunityLotLabLecture`, `GoHome` and `WorkOutClone`. These look like swaps that are
+    slow, not lost **[inferred: 5 waits ended, and these are the likely 5]**.
+  - `cleared` (2): no outfit was pending while the helper, not aborted and still active, waited for Outerwear. Both
+    Sims were in `VisitCommunityLotLabLecture`, waiting from `CheckForClothingChangesBeforeRouting`. Something reset
+    their pending outfit without the helper: `SwitchToOutfitWithoutSpin`, `DoReset` or `DoOutfitDelayedSwap` (see above).
+    Which one is not known yet. If the 5 waits that ended are the `own` ones, these 2 never end **[inferred]**. They are
+    the candidate for the second cause.
+- Job `lr-outfit-wait-causes-ab` (the day-406 save): the game crashed 8 minutes in, inside Apex Radiance's call into
+  the game (TS3W `0x8AB2B0` reading freed memory, called from `ApexRadiance.asi` +0x2C0434). It is the first crash at
+  this site in 11 crash reports on this machine, and probably unrelated to this switch **[inferred]**. A rerun is
+  queued.
+
+Next: log which call resets the pending outfit while a helper waits (the `cleared` case), and give the control part a
+longer wait.
