@@ -9,6 +9,7 @@ using Sims3.Gameplay.ActorSystems;
 using Sims3.Gameplay.CAS;
 using Sims3.Gameplay.Careers;
 using Sims3.Gameplay.Core;
+using Sims3.Gameplay.ObjectComponents;
 using Sims3.Gameplay.Objects.Fishing;
 using Sims3.Gameplay.Objects.HobbiesSkills;
 using Sims3.Gameplay.Objects.Vehicles;
@@ -40,12 +41,13 @@ namespace Ts3Fixes
     //     times, unforgettable topics, push requester, last talking partner, reserved vehicle), 6 fish (fisher), 7 cars and
     //     boats (previous passengers), 8 horseshoe courts (throwers and scores), 9 dartboards (gone players quit through EA's
     //     Quit, gone current player and cheating Sim cleared; #166 build 42, docs/516), 10 object use, reference and
-    //     routing-reference lists (gone Sims removed through EA's own Remove methods; #166 build 40, docs/517).
+    //     routing-reference lists (gone Sims removed through EA's own Remove methods; #166 build 40, docs/517), 11 object owner
+    //     components (a gone owner or thief Sim relinked to its live instance, a reward giver with none dropped; #166 build 43, docs/519).
     //     [395] relationship keys removed, [396] relationship entries removed, [397] aging states removed, [398] alarm owners
     //     cleared, [399] react-time entries, [400] coworker / boss / chess entries, [401] topics, [402] fishers, [403] Sim
-    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [2045] dartboard entries, [2046] use-list entries, [405] passes finished, [406] slices,
+    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [2045] dartboard entries, [2046] use-list entries, [2047] owner entries, [405] passes finished, [406] slices,
     //     [407] longest slice us, [408] total pass ms, [409] longest save pass us, [410] passes refused or stopped (unsafe state, switch off) and items that threw.
-    //   Not built (docs/205 §4): CookingProcess appliance handlers, ObjectOwnerComponent.mThief, Celebrity.mWaitingToReact,
+    //   Not built (docs/205 §4): CookingProcess appliance handlers, Celebrity.mWaitingToReact,
     //   adoption pool pets, Service.mPreferredServiceNpc (= preferredservice, #86).
     public static partial class Fixes
     {
@@ -166,6 +168,7 @@ namespace Ts3Fixes
                 delegate { return Objects<HorseshoeCourt>(); },
                 delegate { return Objects<Dartboard>(); },
                 delegate { return Objects<GameObject>(); },
+                delegate { return Objects<GameObject>(); },
             };
             try
             {
@@ -267,6 +270,7 @@ namespace Ts3Fixes
                     case 7: HorseshoeHolders(o as HorseshoeCourt); break;
                     case 8: DartboardHolders(o as Dartboard); break;
                     case 9: UseListHolders(o as GameObject); break;
+                    case 10: OwnerHolders(o as GameObject); break;
                 }
             }
             catch (Exception) { PatchCounters()[410]++; }
@@ -552,16 +556,121 @@ namespace Ts3Fixes
             return "as expected; " + line + "; " + sUseDesc.FullName + " " + back;
         }
 
+        // Phase 11 (issue #166 build 43, docs/519): ObjectOwnerComponent.mOwner (the Sim a reward came from, the tooltip's
+        // "from <Sim>", or a theft's victim) and mThief are saved by description id and re-read at load as that description's
+        // CreatedSim; in a running world nothing updates them when that Sim object is destroyed (a townie leaving, a reset).
+        // As EA's ImportContent would at the next load: a gone Sim becomes the live instance of its description when there
+        // is one; a reward giver with no live instance drops the component (RemoveComponent disposes it, which takes the
+        // Return To Owner interaction away); a theft with no live instance is left, the stolen state belongs to it. [2047].
+        static readonly FieldInfo sOwnerOwner = typeof(ObjectOwnerComponent).GetField("mOwner", kDrAll);
+        static readonly FieldInfo sOwnerThief = typeof(ObjectOwnerComponent).GetField("mThief", kDrAll);
+
+        static void OwnerHolders(GameObject o)
+        {
+            if (o == null || o.HasBeenDestroyed || sOwnerOwner == null || sOwnerThief == null) return;
+            ObjectOwnerComponent c = o.ObjectOwnerComponent;
+            if (c == null) return;
+            Sim owner = sOwnerOwner.GetValue(c) as Sim, thief = sOwnerThief.GetValue(c) as Sim;
+            bool ownerGone = owner != null && owner.HasBeenDestroyed, thiefGone = thief != null && thief.HasBeenDestroyed;
+            if (!ownerGone && !thiefGone) return;
+            int[] n = PatchCounters();
+            Sim liveOwner = ownerGone ? LiveSim(owner) : null, liveThief = thiefGone ? LiveSim(thief) : null;
+            if (ownerGone && liveOwner == null && thief == null) { o.RemoveComponent<ObjectOwnerComponent>(); n[2047]++; return; }
+            if (ownerGone && liveOwner != null) { sOwnerOwner.SetValue(c, liveOwner); n[2047]++; }
+            if (thiefGone && liveThief != null) { sOwnerThief.SetValue(c, liveThief); n[2047]++; }
+        }
+
+        // The live Sim object of a gone Sim's description, or null (a destroyed Sim keeps its description).
+        static Sim LiveSim(Sim gone)
+        {
+            SimDescription d = gone != null ? gone.SimDescription : null;
+            return d != null && d.IsValidDescription && d.CreatedSim != null && !d.CreatedSim.HasBeenDestroyed ? d.CreatedSim : null;
+        }
+
+        static int OwnerGone(GameObject o)
+        {
+            ObjectOwnerComponent c = o != null && !o.HasBeenDestroyed && sOwnerOwner != null ? o.ObjectOwnerComponent : null;
+            if (c == null) return 0;
+            Sim owner = sOwnerOwner.GetValue(c) as Sim, thief = sOwnerThief.GetValue(c) as Sim;
+            return (owner != null && owner.HasBeenDestroyed ? 1 : 0) + (thief != null && thief.HasBeenDestroyed ? 1 : 0);
+        }
+
+        // Agent check for docs/519 (repro object-owner-gone-check), a hard state built and undone, like DeadRefDartCheck:
+        //   "seed":    two social jigs made out of world, each a reward from one townie (SetRewardGiver); both Sim objects
+        //              are then destroyed, as a reset does.
+        //   "putback": the first townie's Sim object again where it stood (a live instance for the relink case; the second
+        //              stays gone, the drop case).
+        //   "state":   OwnerState: gone entries on the two jigs, relinked (the first jig's owner is the live Sim of that
+        //              description), dropped (the second jig has no owner component), both Sims destroyed, the first live.
+        //   "expect left" (switch off) / "expect cleaned" (switch on): throws unless both gone entries are still there
+        //              (left) or the first jig was relinked and the second dropped (cleaned). Either way the jigs are
+        //              destroyed and the second townie put back.
+        public class OwnerState { public int gone; public bool relinked, dropped, destroyed, live; }
+        static GameObject sOwnJigA, sOwnJigB;
+        static SimDescription sOwnDescA, sOwnDescB;
+        static Vector3 sOwnPosA, sOwnPosB;
+
+        // The reward-giver component by hand: EA's GameObject.SetRewardGiver passes a null thief, and AddComponentInternal
+        // types every argument with GetType() to find the constructor, so that call throws NullReferenceException for any
+        // Sim [verified live 2026-11-02, repro run 1]. The one-argument constructor and the owner field by reflection instead.
+        static void DrGiveReward(GameObject jig, Sim s)
+        {
+            if (!jig.AddComponent<ObjectOwnerComponent>(new object[0]) || jig.ObjectOwnerComponent == null) throw new InvalidOperationException("owner seed: AddComponent<ObjectOwnerComponent> refused on " + jig.GetType().Name);
+            sOwnerOwner.SetValue(jig.ObjectOwnerComponent, s);
+        }
+
+        public static object DeadRefOwnerCheck(string what)
+        {
+            if (what == "seed")
+            {
+                Sim a = DrPickTownie(null), b = a != null ? DrPickTownie(a.SimDescription) : null;
+                if (b == null) throw new InvalidOperationException("owner seed: fewer than two townies to use");
+                GameObject jigA = GlobalFunctions.CreateObjectOutOfWorld("SocialJigTwoPerson") as GameObject;
+                GameObject jigB = GlobalFunctions.CreateObjectOutOfWorld("SocialJigTwoPerson") as GameObject;
+                if (jigA == null || jigB == null) throw new InvalidOperationException("owner seed: CreateObjectOutOfWorld(\"SocialJigTwoPerson\") made nothing");
+                DrGiveReward(jigA, a); DrGiveReward(jigB, b);
+                sOwnJigA = jigA; sOwnJigB = jigB; sOwnDescA = a.SimDescription; sOwnDescB = b.SimDescription; sOwnPosA = a.Position; sOwnPosB = b.Position;
+                string names = a.FullName + " and " + b.FullName;
+                a.Destroy(); b.Destroy();
+                // the destroy completes at the end of the tick (CreatedSim is cleared then): "putback" follows a destroyed poll
+                return "owner seed: rewards from " + names + ", both Sim objects destroyed";
+            }
+            GameObject ja = sOwnJigA, jb = sOwnJigB;
+            if (ja == null || jb == null) throw new InvalidOperationException("owner " + what + ": no seed");
+            if (what == "putback") return "owner putback: " + sOwnDescA.FullName + " " + DrPutBack(sOwnDescA, sOwnPosA);
+            Sim liveA = sOwnDescA.CreatedSim != null && !sOwnDescA.CreatedSim.HasBeenDestroyed ? sOwnDescA.CreatedSim : null;
+            ObjectOwnerComponent ca = ja.ObjectOwnerComponent;
+            bool relinked = liveA != null && ca != null && sOwnerOwner.GetValue(ca) == liveA, dropped = jb.ObjectOwnerComponent == null;
+            int gone = OwnerGone(ja) + OwnerGone(jb);
+            if (what == "state")
+            {
+                OwnerState st = new OwnerState();
+                st.gone = gone; st.relinked = relinked; st.dropped = dropped; st.live = liveA != null;
+                st.destroyed = (sOwnDescA.CreatedSim == null || sOwnDescA.CreatedSim.HasBeenDestroyed) && (sOwnDescB.CreatedSim == null || sOwnDescB.CreatedSim.HasBeenDestroyed);
+                return st;
+            }
+            if (what != "expect left" && what != "expect cleaned") return "owner <seed|putback|state|expect left|expect cleaned>";
+            bool on = ShortcutOn("deadrefsweep");
+            bool ok = what == "expect left" ? !on && gone == 2 && !relinked && !dropped : on && gone == 0 && relinked && dropped;
+            string line = "gone " + gone + ", relinked " + relinked + ", dropped " + dropped + " (switch " + on + ")";
+            sOwnJigA = sOwnJigB = null;
+            ja.Destroy(); jb.Destroy();
+            string back = DrPutBack(sOwnDescB, sOwnPosB);
+            if (!ok) throw new InvalidOperationException("owner " + what + ": wrong outcome; " + line + "; " + sOwnDescB.FullName + " " + back);
+            return "as expected; " + line + "; " + sOwnDescB.FullName + " " + back;
+        }
+
         // A townie for a hard state: not selectable, no pet, teen or older, not of the active household, not on its home
         // lot, no role or service, a valid description.
-        static Sim DrPickTownie()
+        static Sim DrPickTownie() { return DrPickTownie(null); }
+        static Sim DrPickTownie(SimDescription except)
         {
             Household active = Household.ActiveHousehold;
             Lot home = active != null ? active.LotHome : null;
             foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
             {
                 SimDescription d = s.SimDescription;
-                if (s.IsSelectable || s.IsPet || s.HasBeenDestroyed || d == null || !d.IsValidDescription || !d.TeenOrAbove) continue;
+                if (s.IsSelectable || s.IsPet || s.HasBeenDestroyed || d == null || d == except || !d.IsValidDescription || !d.TeenOrAbove) continue;
                 if (s.Household == active || (home != null && s.LotCurrent == home) || d.AssignedRole != null || d.CreatedByService != null) continue;
                 return s;
             }
@@ -629,7 +738,7 @@ namespace Ts3Fixes
                 }
                 case "sweep": return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
                 case "savepass": return DeadRefSavePass();
-                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck)";
+                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck, owner components: DeadRefOwnerCheck)";
             }
         }
 
@@ -653,8 +762,8 @@ namespace Ts3Fixes
                 List<ActiveTopic> u = t != null && sUnforgettable != null ? sUnforgettable.GetValue(t) as List<ActiveTopic> : null;
                 if (u != null) foreach (ActiveTopic a in u) if (a != null && a.Parameter != null && DescGone(a.Parameter)) topics++;
             }
-            int uselists = 0;
-            foreach (GameObject g in Sims3.Gameplay.Queries.GetObjects<GameObject>()) uselists += UseListGone(g);
+            int uselists = 0, owners = 0;
+            foreach (GameObject g in Sims3.Gameplay.Queries.GetObjects<GameObject>()) { uselists += UseListGone(g); owners += OwnerGone(g); }
             int darts = 0;
             foreach (Dartboard b in Sims3.Gameplay.Queries.GetObjects<Dartboard>()) darts += DartGone(b);
             foreach (SimDescription d in Household.EverySimDescription())
@@ -665,7 +774,7 @@ namespace Ts3Fixes
             }
             return "count: relationship keys gone " + relGone + "/" + Relationship.sAllRelationships.Count + ", entries naming gone " + relEntries
                 + ", aging states gone " + AgingStatesToCheck().Count + ", alarm owners gone " + AlarmOwnersToCheck().Count
-                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers + ", dartboard entries gone " + darts + ", use-list entries gone " + uselists
+                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers + ", dartboard entries gone " + darts + ", use-list entries gone " + uselists + ", owner entries gone " + owners
                 + ", no-outfit descriptions " + NoOutfitDescriptions().Count + " | " + (DeadRefUnsafe(false) ?? "safe");
         }
     }

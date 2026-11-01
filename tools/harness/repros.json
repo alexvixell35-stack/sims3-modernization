@@ -48359,5 +48359,224 @@
         "note": "on: gone 0, all three lists empty; deadrefsweep_uselists +3"
       }
     ]
+  },
+  {
+    "id": "object-owner-gone-check",
+    "bug": "ObjectOwnerComponent.mOwner (the Sim a reward came from, or a theft's victim) and mThief are saved by description id and re-read as CreatedSim at load; in a running world nothing updates them when that Sim object is destroyed, so a destroyed Sim object sits on the object until the next load (ErrorTrap's load scan then resets the object; issue #166 build 43)",
+    "fix": "ts3fixes DeadRefs.cs: deadrefsweep phase 11 (default off), docs/519",
+    "save": "Baseline-BP",
+    "note": "Hard state built by the agent check (DeadRefOwnerCheck seed): two social jigs made out of world, each a reward from one townie (AddComponent<ObjectOwnerComponent> + the owner field), both Sim objects destroyed as a reset does; putback instantiates the first townie again (a live instance exists: the relink case), the second stays gone (the drop case). Off arm: the sweep refuses, both gone entries stay. On arm: the spread pass is started at once and polled until the first jig is relinked and the second has no component. The jigs are destroyed and the second townie put back at the end of each arm. The seed puts the first townie back at once when the destroy was synchronous; the on arm's seed poll waits for the destroy only, since the hourly pass (an alarm on its own clock) may run before the poll.",
+    "expect": "off: expect left sees gone 2, nothing relinked or dropped, with the switch off. on: expect cleaned sees gone 0, relinked, dropped; deadrefsweep_objectowners >= 2.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "off: two jigs out of world, a reward-giver component with one townie each; both Sim objects destroyed",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            },
+            {
+              "path": "gone",
+              "equals": 2
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+          "args": [
+            "putback"
+          ]
+        },
+        "note": "off: the first townie's Sim object again (the relink case)",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "live",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "off: started False (switch off); nothing runs",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+          "args": [
+            "expect left"
+          ]
+        },
+        "note": "off: both gone entries still there; jigs destroyed, second townie put back"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "on: two jigs out of world, a reward-giver component with one townie each; both Sim objects destroyed",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+          "args": [
+            "putback"
+          ]
+        },
+        "note": "on: the first townie's Sim object again (the relink case)",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "live",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": true
+        },
+        "note": "on (after the seed and the put-back, so no pass runs before the relink case exists)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "on: started True (safe); phase 11 reaches the jigs within the pass",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: poll until the first jig is relinked and the second dropped",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "gone",
+              "equals": 0
+            },
+            {
+              "path": "relinked",
+              "equals": true
+            },
+            {
+              "path": "dropped",
+              "equals": true
+            }
+          ],
+          "maxS": 300,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+          "args": [
+            "expect cleaned"
+          ]
+        },
+        "note": "on: gone 0, relinked, dropped; deadrefsweep_objectowners +2"
+      }
+    ]
   }
 ]

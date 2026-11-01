@@ -5496,3 +5496,10 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 | I-915-1 | 517 §1 | The three lists are persisted and only the using Sim's own clean-up removes it from them | decompiled `GameObject` fields and Remove methods; core build 40's load scans | static read | fields without `[Persistable(false)]`, callers of the Remove methods | a sweep or dispose path that removes destroyed Sims | verified (static) |
 | I-915-2 | 517 §2 | EA's Remove methods throw nothing for a destroyed Sim and leave the lists clean | the on arm of `use-list-gone-check` | `use-list-gone-check` on arm | expect cleaned passes, `deadrefsweep_uselists` +3 | an exception, or an entry left | verified (live 2026-11-01, al11) |
 | I-915-3 | 517 §2 | The whole-object walk stays within the pass's slice budget | `deadrefsweep_max_slice_us` after the on arm | `use-list-gone-check` on arm | max slice at most a few ms | a slice far above `kSliceUs` | open: the job does not read [407]; read it in the next run on this branch |
+
+## 917. An object's owner component keeps a Sim that is gone, `deadrefsweep` phase 11 (2026-11-01, docs/519; static + live probe)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-917-1 | 519 §1 | The owner and thief are saved by description id and re-read as `CreatedSim`; nothing updates them in a running world | decompiled `ObjectOwnerComponent.ExportContent` / `ImportContent`, `Sim.Destroy`; core build 43's load scans | static read | the two methods as described, no caller writing the fields on destroy | a dispose or reset path that does | verified (static) |
+| I-917-2 | 519 §2 | Relinking by reflection and `RemoveComponent` on a live object change nothing else | the on arm of `object-owner-gone-check` | `object-owner-gone-check` on arm | expect cleaned passes, `deadrefsweep_objectowners` +2, no script error | an exception, or a jig left as it was | open until the job runs |
