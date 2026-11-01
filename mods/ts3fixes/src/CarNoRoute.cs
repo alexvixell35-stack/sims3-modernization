@@ -12,7 +12,7 @@ namespace Ts3Fixes
     // DriveToLotInServiceCar with the service Sim already in the driver's seat, maybe off screen.
     // Fix, switch on: with no car or no car routing component, the method returns false without running EA's code, as for a
     // route that failed to plan. Both callers already handle false: DriveFromPointToMatrixWithinTime teleports the car to
-    // the parking spot, DriveToLotInCar returns false. [2039] drives with no car routing component (also with the switch
+    // the parking spot, DriveToLotInCar returns the value to its caller. [2039] drives with no car routing component (also with the switch
     // off), [2040] returned false.
     public static partial class Fixes
     {

@@ -44,7 +44,8 @@ set before, was not the read machine, and the field is empty after (`BookCarryCo
 carry (request "ExitNoPut", the state that keeps the object where it is, since EA's handler has already put the book
 away), then disposed, which releases its driver [2044]. The request waits for the state when the reading interaction
 allows it, and is made without waiting otherwise. EA's method runs unchanged, and the check sits in a try/catch, so it
-never changes its result.
+never changes its result. The dispose follows the request at once, so the engine may cut the exit transition's blend
+**[inferred; not checked in game]**; the book is already in the inventory, so nothing but that blend can be lost.
 
 Not covered: the rocking, relaxing and lying branches, which keep `Sim.CarryStateMachine` set (the next interaction's
 `InteractionQueue.PutDownCarriedObjects` clears it, also without an exit).
