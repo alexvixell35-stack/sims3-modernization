@@ -27,6 +27,33 @@ namespace Ts3Fixes
             return x > y ? x - y : y - x;
         }
 
+        // docs/218 §5 content guard: which loaded game modules are checked builds. names / shas: the modules (sha = lower-case
+        // hex SHA-256 of the bytes). Null when a sha is missing (the guard cannot run: MVID gate). Sims3GameplaySystems and
+        // Sims3GameplayObjects count only as a pair of one set (G-M1, set = its index, else -1 and neither counts); every
+        // other module by its own hash in others.
+        public static bool[] ContentAccepted(string[] names, string[] shas, string[][] pairSets, string[] others, out int set)
+        {
+            set = -1;
+            if (names.Length == 0) return null;
+            foreach (string s in shas) if (s == null) return null;
+            int sgs = Array.IndexOf(names, "Sims3GameplaySystems"), sgo = Array.IndexOf(names, "Sims3GameplayObjects");
+            if (sgs >= 0 && sgo >= 0)
+                for (int k = 0; k < pairSets.Length && set < 0; k++)
+                    if (shas[sgs] == pairSets[k][0] && shas[sgo] == pairSets[k][1]) set = k;
+            bool[] ok = new bool[names.Length];
+            for (int i = 0; i < names.Length; i++)
+                ok[i] = i == sgs || i == sgo ? set >= 0 : Array.IndexOf(others, shas[i]) >= 0;
+            return ok;
+        }
+
+        public static string Hex(byte[] b)
+        {
+            const string d = "0123456789abcdef";
+            char[] c = new char[b.Length * 2];
+            for (int i = 0; i < b.Length; i++) { c[2 * i] = d[b[i] >> 4]; c[2 * i + 1] = d[b[i] & 15]; }
+            return new string(c);
+        }
+
         // MVID as metadata stores it (16 bytes in hex, docs/data/autonomy-allow.csv) to Guid.ToString("N"): the first three
         // fields are little-endian, so their bytes are reversed.
         public static string GuidNFromRaw(string raw)

@@ -424,7 +424,35 @@ static void __cdecl AsSimEnter() {
 
 // ---- AutShadowNative internal calls (ts3fixes, docs/122 §3.5; registered at the first Simulate tick) ----
 static int AsLgConfig(int key);
-static int __cdecl AsIcVersion() { return 10; }  // 3: RngUnit (docs/125); 4: RngPause, abort reasons rain/posture; 5: Redirect; 6: shared cut, ListType*, Note; 7: ObjClass*, ListTypeCount/At; 8: Fresh; 9: Stat 7-11, PairT0/PairT1, Stat; 10: LiveStat, LiveWatch, ObjStale, Config 13-23 (go-live)
+static int __cdecl AsIcVersion() { return 11; }  // 3: RngUnit (docs/125); 4: RngPause, abort reasons rain/posture; 5: Redirect; 6: shared cut, ListType*, Note; 7: ObjClass*, ListTypeCount/At; 8: Fresh; 9: Stat 7-11, PairT0/PairT1, Stat; 10: LiveStat, LiveWatch, ObjStale, Config 13-23 (go-live); 11: ImageSha (docs/218 §5 content guard)
+// docs/218 §5 (content accept list): SHA-256 of a loaded module's bytes as Mono holds them. MonoImage: raw_data at +0x08,
+// raw_data_len at +0x0C [inferred from Mono's MonoImage layout, whose +0x28 GUID string is verified (docs/104 §5.1);
+// checked here by the "MZ" header and in game by the hashes matching the S3SA bytes]. sha: a byte[32] (MonoArray:
+// max_length +8, data +16, as AsIcObjClassTake). Returns the bytes hashed, 0 when it cannot (no BCrypt SHA-256, a bad
+// image pointer, a short array). Sim thread, once per module per load.
+typedef LONG(WINAPI* AsBcOpenFn)(void**, LPCWSTR, LPCWSTR, ULONG);
+typedef LONG(WINAPI* AsBcHashFn)(void*, PUCHAR, ULONG, PUCHAR, ULONG, PUCHAR, ULONG);
+static AsBcHashFn g_asBcHash;
+static void* g_asBcSha;
+static bool g_asBcTried;
+static int __cdecl AsIcImageSha(const u8* image, u8* sha) {
+    if (!g_asBcTried) {
+        g_asBcTried = true;
+        HMODULE b = LoadLibraryW(L"bcrypt.dll");
+        AsBcOpenFn open = b ? (AsBcOpenFn)(void*)GetProcAddress(b, "BCryptOpenAlgorithmProvider") : nullptr;
+        AsBcHashFn hash = b ? (AsBcHashFn)(void*)GetProcAddress(b, "BCryptHash") : nullptr;
+        if (open && hash && open(&g_asBcSha, L"SHA256", nullptr, 0) == 0) g_asBcHash = hash;
+    }
+    if (!g_asBcHash || !image || !sha) return 0;
+    __try {
+        if (*(const LONG*)(sha + 8) < 32) return 0;
+        const u8* raw = *(const u8* const*)(image + 8);
+        const DWORD len = *(const DWORD*)(image + 0xC);
+        if (!raw || len < 0x200 || len > (256u << 20) || raw[0] != 'M' || raw[1] != 'Z') return 0;
+        if (g_asBcHash(g_asBcSha, nullptr, 0, (PUCHAR)raw, len, sha + 16, 32) != 0) return 0;
+        return (int)len;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
 static int __cdecl AsIcConfig(int key) {
     switch (key) {
         case 0: return g_asMode;
@@ -716,6 +744,7 @@ static void AsRegisterIcs() {
         {"Ts3Fixes.AutShadowNative::ObjStale", (const void*)AsIcObjStale},
         {"Ts3Fixes.AutShadowNative::RainArm", (const void*)AsIcRainArm},
         {"Ts3Fixes.AutShadowNative::SearchMark", (const void*)AsIcSearchMark},
+        {"Ts3Fixes.AutShadowNative::ImageSha", (const void*)AsIcImageSha},
     };
     if (!g_asAddIc) return;
     for (const auto& ic : kIcs) g_asAddIc(ic.name, ic.fn);
