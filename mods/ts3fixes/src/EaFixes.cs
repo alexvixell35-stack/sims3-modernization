@@ -85,6 +85,10 @@ namespace Ts3Fixes
             Patch(typeof(ThrownObjectInfo), "CreateObjectFromMedatorName", new Type[] { typeof(Sims3.Gameplay.Objects.Quality) }, typeof(ThrowHook), "MakeHook", "MakeOrig");
             Patch(typeof(ShowStage.WatchTheShow), "PerformInventoryActions", typeof(ThrowHook), "PerformHook", "PerformOrig");
             Patch(typeof(SimBuilderTask), "FinishOutfitSwap", typeof(AgeUpOutfitHook), "SwapHook", "SwapOrig");
+            Patch(typeof(Sim.SwitchOutfitHelper), "Wait", typeof(OutfitWaitHook), "WaitHook", "WaitOrig");
+            Patch(typeof(BakeSaleTable), "get_GetSeller", typeof(BakeSaleHook), "GetSellerHook", "GetSellerOrig");
+            Patch(typeof(BakeSaleTable), "get_HasSeller", typeof(BakeSaleHook), "HasSellerHook", "HasSellerOrig");
+            Patch(typeof(BakeSaleTable), "OnStartup", typeof(BakeSaleHook), "StartupHook", "StartupOrig");
         }
 
         // ---- ageupkeepoutfits (#100) ----

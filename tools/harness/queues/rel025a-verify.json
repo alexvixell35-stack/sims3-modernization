@@ -1,0 +1,320 @@
+{
+  "note": "rel025b verify (2026-11-01), NOT RUN: correctness jobs on rel025b (docs/data/builds.json rel025b-asi 0.36.152 + rel025b-fixes; file name kept for chain-day25-1101.sh): #117 EA crash fixes, #120 first-chance logging, rain attribution counters 607-610, plus #136 WorldAStarRefs + PortalFlagRefs (Isla Paradiso), #146 outfitwaitpoll, #147 bakesaleseller. Short, early gates, stop on first failure. Run in a correctness window; ~58 min total.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-rel025b-eafix",
+      "note": "rel025b correctness (0.36.152, asi game-copy/ts3native.asi.rel025b + ts3fixes rel025b; release ini game-copy/ts3native.ini.rel025b, release defaults: no Light): #117 EA crash fixes GeomBoneIndex (crash X), GeomNoMaterial (#80), MintDivGuard (#114) switched on over the shipped ini, and #120 first-chance log. 8 min natural play (Sims build their outfits, scripts divide). Pass: the three OK lines, no SKIP/FAIL ea fix line, ts3native.log \"crash log\" line present, no crash. Read the log for \"ea fix: GeomBoneIndex|GeomNoMaterial|MintDivGuard\" lines (0 is normal: the faults are rare; any line must name a resource key / script stack) and \"exception C0000005 at ... (name+0x\" lines (once per address, from other modules only); v144 md* counters via /native. No repro exists for the three (rare EA faults): this is a no-regression check, not proof the faults are fixed. Not a timing run.",
+      "asi": "game-copy/ts3native.asi.rel025b",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025b",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "minCounters": 90,
+      "ini": {
+        "EaCrashFixes.GeomBoneIndex": 1,
+        "EaCrashFixes.GeomNoMaterial": 1,
+        "EaCrashFixes.MintDivGuard": 1,
+        "Crash.Log": 1
+      },
+      "logRequire": {
+        "^OK   ea fix: GeomBoneIndex": 1,
+        "^OK   ea fix: GeomNoMaterial": 1,
+        "^OK   ea fix: MintDivGuard": 1,
+        "ts3native 0.36.152": 1,
+        "crash log: first 16 first-chance exceptions, an AV in another module once per address": 1
+      },
+      "logForbid": {
+        "^SKIP ea fix": 0,
+        "^FAIL ea fix": 0,
+        "tracking stopped": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "pinReason": "rel025b is the tested build (builds.json rel025b-asi 0.36.152 / rel025b-fixes, commit d8c5548f); source has moved on since"
+    },
+    {
+      "id": "ip-rel025b-eafix",
+      "note": "rel025b correctness (0.36.152, asi game-copy/ts3native.asi.rel025b + ts3fixes rel025b; release ini game-copy/ts3native.ini.rel025b, release defaults: no Light): #117 EA crash fixes GeomBoneIndex (crash X), GeomNoMaterial (#80), MintDivGuard (#114) switched on over the shipped ini, and #120 first-chance log. 8 min natural play (Sims build their outfits, scripts divide). Pass: the three OK lines, no SKIP/FAIL ea fix line, ts3native.log \"crash log\" line present, no crash. Read the log for \"ea fix: GeomBoneIndex|GeomNoMaterial|MintDivGuard\" lines (0 is normal: the faults are rare; any line must name a resource key / script stack) and \"exception C0000005 at ... (name+0x\" lines (once per address, from other modules only); v144 md* counters via /native. No repro exists for the three (rare EA faults): this is a no-regression check, not proof the faults are fixed. Not a timing run.",
+      "asi": "game-copy/ts3native.asi.rel025b",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025b",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "minCounters": 90,
+      "ini": {
+        "EaCrashFixes.GeomBoneIndex": 1,
+        "EaCrashFixes.GeomNoMaterial": 1,
+        "EaCrashFixes.MintDivGuard": 1,
+        "Crash.Log": 1
+      },
+      "logRequire": {
+        "^OK   ea fix: GeomBoneIndex": 1,
+        "^OK   ea fix: GeomNoMaterial": 1,
+        "^OK   ea fix: MintDivGuard": 1,
+        "ts3native 0.36.152": 1,
+        "crash log: first 16 first-chance exceptions, an AV in another module once per address": 1
+      },
+      "logForbid": {
+        "^SKIP ea fix": 0,
+        "^FAIL ea fix": 0,
+        "tracking stopped": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "pinReason": "rel025b is the tested build (builds.json rel025b-asi 0.36.152 / rel025b-fixes, commit d8c5548f); source has moved on since"
+    },
+    {
+      "id": "bp-rel025b-rain",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "autshadow.rainArm",
+          "op": ">",
+          "value": 0,
+          "why": "rain branch never armed (H11 rainArm 0)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3",
+          "op": ">",
+          "value": 0,
+          "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_owners_skipped",
+          "op": ">=",
+          "value": 0,
+          "why": "counter 606 readable (agent patches built from rel025b)"
+        }
+      ],
+      "note": "rel025b rain attribution (aut-rain-attrib, counters 607-610 = autshadow_rain_refused_span / refused_tid / hook / done; was bp-rain-moder of rain-h11) plus the #117/#120 fixes on in the same load. BP Mode R, Satb=2, 10 min in rain. PASS: 0 crashes; weather reads Rain; A1-A3 = 0; rainArm > 0; rain aborts (abort2[0]) = sum of 607-610 within rounding, each path nonzero count named in the fixes report (fixesReport autshadow_rain); no SKIP/FAIL ea fix line. Read: node tools/harness/mono-cost-report.ts --tag rain-h11 style abort mix on this queue's row; -native.json autshadow rainArm/rainSkip/rainMiss.",
+      "asi": "game-copy/ts3native.asi.rel025b",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025b",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1,
+        "EaCrashFixes.GeomBoneIndex": 1,
+        "EaCrashFixes.GeomNoMaterial": 1,
+        "EaCrashFixes.MintDivGuard": 1,
+        "Crash.Log": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow r7: PreLearn=0 TierReqLots=1": 1,
+        "ts3native 0.36.152": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow",
+          "repro": "aut-rain-bp",
+          "noEnv": true,
+          "fixesReport": "autshadow_rain",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "logForbid": {
+        "^SKIP ea fix": 0,
+        "^FAIL ea fix": 0,
+        "tracking stopped": 0
+      },
+      "pinReason": "rel025b is the tested build (builds.json rel025b-asi 0.36.152 / rel025b-fixes, commit d8c5548f); source has moved on since"
+    },
+    {
+      "id": "ip-rel025b-wastar",
+      "note": "#136 (docs/67 §30, crash Y) correctness on Dalexlol's repro: Baseline-IP natural play crashed 8 of 8 sessions without the fix, within 24 s to 7 min of the load (docs/67 §30.6). Both switches on (WorldAStarRefs + PortalFlagRefs), 10 min, release ini otherwise. Pass: no crash for 10 min, both OK lines, no SKIP/FAIL ea fix line, early gates waOn/pfOn = 1. Read: \"ea fix: WorldAStarRefs:\" skip lines (any = the corruption still reaches the A*, I-416 open question of §30.6) and \"ea fix: PortalFlagRefs:\" lines; waSkip/pfSkip in -native.json. End-of-session save Error 12 on this save is known (§30.6), not a FAIL by itself.",
+      "asi": "game-copy/ts3native.asi.rel025b",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025b",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "rel025b is the build under test (builds.json rel025b-asi 0.36.152 / rel025b-fixes, commit d8c5548f); source moves on",
+      "save": "Baseline-IP",
+      "minCounters": 90,
+      "ini": {
+        "EaCrashFixes.WorldAStarRefs": 1,
+        "EaCrashFixes.PortalFlagRefs": 1,
+        "Crash.Log": 1
+      },
+      "logRequire": {
+        "^OK   ea fix: WorldAStarRefs": 1,
+        "^OK   ea fix: PortalFlagRefs": 1,
+        "ts3native 0.36.152": 1
+      },
+      "logForbid": {
+        "^SKIP ea fix": 0,
+        "^FAIL ea fix": 0,
+        "tracking stopped": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "waOn",
+          "op": "==",
+          "value": 1,
+          "why": "WorldAStarRefs not installed (waOn 0)"
+        },
+        {
+          "afterSec": 90,
+          "counter": "pfOn",
+          "op": "==",
+          "value": 1,
+          "why": "PortalFlagRefs not installed (pfOn 0)"
+        }
+      ],
+      "timeoutMin": 25
+    },
+    {
+      "id": "bp-rel025b-outfitwait",
+      "note": "#146 (issue #115, docs/224) correctness on rel025b (8 min): repro outfit-wait-stale-check (the contributor's repro). Pass: off: the check's wait task still running after 60 s at triple speed and gone after 'ready', counters 0; on: outfitwaitpoll_stale >= 1 and _ended >= 1 (fixesRequire), the check's \"log\" step lists 'outfitwaitpoll: ... (aborted True)', after 'ready' the wait gone within a sim-minute; the Sim keeps its outfit.",
+      "asi": "game-copy/ts3native.asi.rel025b",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025b",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "rel025b is the build under test (builds.json rel025b-asi 0.36.152 / rel025b-fixes, commit d8c5548f); source moves on",
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "outfit-wait-stale-check",
+          "fixesRequire": "outfitwaitpoll_stale>=1,outfitwaitpoll_ended>=1"
+        }
+      },
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:outfitwaitpoll_stale",
+          "op": ">=",
+          "value": 1,
+          "why": "no outfit wait went stale 3 min after the on arm began: the hook is not on or not installed"
+        }
+      ],
+      "timeoutMin": 20
+    },
+    {
+      "id": "bp-rel025b-bakesale",
+      "note": "#147 (issue #102, docs/225) correctness on rel025b (5 min): repro bake-sale-dead-seller-check. NRaas ErrorTrap is installed in the test install (Mods/Packages), so this job is also the with-ErrorTrap check: ErrorTrap clears a dead seller only at load, the repro deletes the seller during play. Pass: off HasSeller True with the deleted seller, handler threw NullReferenceException, table kept, counters 0; on HasSeller False, re-armed 1 (fixesRequire) and the log line, handler returned, table destroyed; no ErrorTrap script error from the table.",
+      "asi": "game-copy/ts3native.asi.rel025b",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025b",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "rel025b is the build under test (builds.json rel025b-asi 0.36.152 / rel025b-fixes, commit d8c5548f); source moves on",
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "bake-sale-dead-seller-check",
+          "fixesRequire": "bakesaleseller_reads>=1,bakesaleseller_rearmed>=1"
+        }
+      },
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:bakesaleseller_rearmed",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm re-armed no table 2.5 min in: hook not installed or the check failed"
+        }
+      ],
+      "timeoutMin": 20
+    }
+  ]
+}

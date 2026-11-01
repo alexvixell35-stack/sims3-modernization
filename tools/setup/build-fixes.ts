@@ -133,7 +133,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kShowStageThrowables value="False" />
     <kFirePitChair value="False" />
     <kAgeUpKeepOutfits value="False" />
+    <kOutfitWaitPoll value="False" />
     <kDeadRefGuards value="False" />
+    <kBakeSaleSeller value="False" />
     <kDeadRefSweep value="False" />
     <kVacExport value="False" />
     <kVacStoreGuard value="False" />

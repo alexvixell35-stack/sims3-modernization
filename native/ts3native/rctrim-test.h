@@ -11,7 +11,7 @@ static void __fastcall RtFakeShrink(u8* mgr, void*) {  // as 0x733E70: every idl
 
 static void TestRcTrim() {
     static_assert(offsetof(Ts3nCounters, rtOn) == 0x52D0 && offsetof(Ts3nCounters, rtBad) == 0x52E8 &&
-                      offsetof(Ts3nCounters, rtSpare) == 0x52EC && sizeof(Ts3nCounters) == 5468 * 4,
+                      offsetof(Ts3nCounters, rtSpare) == 0x52EC && sizeof(Ts3nCounters) == 5476 * 4,
                   "counters v136 layout after v135 (docs/registry.md)");
     alignas(16) static u8 mgr[0x200], rc[0x100], anim[0x100];
     *(DWORD*)mgr = RT_MGR_VT, *(u8**)(mgr + 0x1E0) = rc, *(u8**)(mgr + 0x1E4) = anim;

@@ -1,10 +1,10 @@
 {
-  "note": "docs/144 unseen script throttle, NOT RUN. Build and install ts3fixes.package from the docs/144 branch (node tools/setup/build-fixes.ts; tuning defaults unchanged: all three switches off) and the release asi game-copy/ts3native.asi.rel0360 with the release ini (as release-validate.json). Order: bp-unseen-share first; then the A/B pairs; bp-unseen-needs last. Timing numbers only on a clean night; daytime runs count for correctness and counters.",
+  "note": "docs/144 unseen script throttle, NOT RUN. Build and install ts3fixes.package from the docs/144 branch (node tools/setup/build-fixes.ts; tuning defaults unchanged: all three switches off) and the release asi game-copy/ts3native.asi.rel0360 with the release ini (as release-validate.json). Order: bp-unseen-share first; then the A/B pairs; bp-unseen-needs last. Timing numbers only on a clean night; daytime runs count for correctness and counters. 2026-11-01: moved to rel025a asi/package; noSamplers on (probe counters only, queue.ts refuses heavy tools in timing jobs).",
   "jobs": [
     {
       "id": "bp-unseen-share",
-      "note": "Data first (docs/144 G-T0): BP play 10 min, unseenprobe on, every throttle off. Answers the unseen share of high-LOD environment calls (unseen_env_unseen / unseen_env_calls) and motive updates (unseen_motive_unseen / unseen_motive_calls). If both shares are under ~5%, skip the unseenenv / unseenmotives A/B jobs (expected gain < 1 ms/s). Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped.",
-      "asi": "game-copy/ts3native.asi.rel0360",
+      "note": "Data first (docs/144 G-T0): BP play 10 min, unseenprobe on, every throttle off. Answers the unseen share of high-LOD environment calls (unseen_env_unseen / unseen_env_calls) and motive updates (unseen_motive_unseen / unseen_motive_calls). If both shares are under ~5%, skip the unseenenv / unseenmotives A/B jobs (expected gain < 1 ms/s). Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped. [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
       "minCounters": 72,
       "gameArgs": [
@@ -15,180 +15,309 @@
         "profile": {
           "minutes": 10,
           "seed": 12345,
-          "fixesOn": "unseenprobe"
+          "fixesOn": "unseenprobe",
+          "noSamplers": true
         }
-      }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_env_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenprobe counts no environment calls"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_motive_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenprobe counts no motive updates"
+        }
+      ]
     },
     {
       "id": "bp-unseen-unseenenv-offfirst",
-      "note": "docs/144 A/B: --ab unseenenv (environment score one call in 4 for unseen high-LOD Sims), BP play 10 min, 2-min slices, off-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped.",
-      "asi": "game-copy/ts3native.asi.rel0360",
+      "note": "docs/144 A/B: --ab unseenenv (environment score one call in 4 for unseen high-LOD Sims), BP play 10 min, 2-min slices, off-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped. [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
       "minCounters": 72,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30,
+      "timeoutMin": 35,
       "run": {
         "profile": {
-          "minutes": 10,
+          "minutes": 15,
           "seed": 12345,
           "fixesOn": "unseenprobe",
           "ab": "unseenenv",
-          "slice": 2
+          "slice": 2,
+          "noSamplers": true
         }
-      }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_env_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenprobe counts no environment calls"
+        }
+      ]
     },
     {
       "id": "bp-unseen-unseenenv-onfirst",
-      "note": "docs/144 A/B: --ab unseenenv (environment score one call in 4 for unseen high-LOD Sims), BP play 10 min, 2-min slices, on-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped.",
-      "asi": "game-copy/ts3native.asi.rel0360",
+      "note": "docs/144 A/B: --ab unseenenv (environment score one call in 4 for unseen high-LOD Sims), BP play 10 min, 2-min slices, on-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped. [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
       "minCounters": 72,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30,
+      "timeoutMin": 35,
       "run": {
         "profile": {
-          "minutes": 10,
+          "minutes": 15,
           "seed": 12345,
           "fixesOn": "unseenprobe",
           "ab": "unseenenv",
           "slice": 2,
-          "abOnFirst": true
+          "abOnFirst": true,
+          "noSamplers": true
         }
-      }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_env_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenprobe counts no environment calls"
+        }
+      ]
     },
     {
       "id": "bp-unseen-unseenmotives-offfirst",
-      "note": "docs/144 A/B: --ab unseenmotives (Autonomy.Update every 4 sim-minutes for unseen high-LOD Sims), BP play 10 min, 2-min slices, off-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped.",
-      "asi": "game-copy/ts3native.asi.rel0360",
+      "note": "docs/144 A/B: --ab unseenmotives (Autonomy.Update every 4 sim-minutes for unseen high-LOD Sims), BP play 10 min, 2-min slices, off-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped. [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
       "minCounters": 72,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30,
+      "timeoutMin": 35,
       "run": {
         "profile": {
-          "minutes": 10,
+          "minutes": 15,
           "seed": 12345,
           "fixesOn": "unseenprobe",
           "ab": "unseenmotives",
-          "slice": 2
+          "slice": 2,
+          "noSamplers": true
         }
-      }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_motive_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenprobe counts no motive updates"
+        }
+      ]
     },
     {
       "id": "bp-unseen-unseenmotives-onfirst",
-      "note": "docs/144 A/B: --ab unseenmotives (Autonomy.Update every 4 sim-minutes for unseen high-LOD Sims), BP play 10 min, 2-min slices, on-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped.",
-      "asi": "game-copy/ts3native.asi.rel0360",
+      "note": "docs/144 A/B: --ab unseenmotives (Autonomy.Update every 4 sim-minutes for unseen high-LOD Sims), BP play 10 min, 2-min slices, on-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped. [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
       "minCounters": 72,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30,
+      "timeoutMin": 35,
       "run": {
         "profile": {
-          "minutes": 10,
+          "minutes": 15,
           "seed": 12345,
           "fixesOn": "unseenprobe",
           "ab": "unseenmotives",
           "slice": 2,
-          "abOnFirst": true
+          "abOnFirst": true,
+          "noSamplers": true
         }
-      }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_motive_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenprobe counts no motive updates"
+        }
+      ]
     },
     {
       "id": "bp-unseen-unseenbroadcast-offfirst",
-      "note": "docs/144 A/B: --ab unseenbroadcast (unseen broadcasters one pulse in 16 each (replaces the shared 1 in 4)), BP play 10 min, 2-min slices, off-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped.",
-      "asi": "game-copy/ts3native.asi.rel0360",
+      "note": "docs/144 A/B: --ab unseenbroadcast (unseen broadcasters one pulse in 16 each (replaces the shared 1 in 4)), BP play 10 min, 2-min slices, off-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped. [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
       "minCounters": 72,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30,
+      "timeoutMin": 35,
       "run": {
         "profile": {
-          "minutes": 10,
+          "minutes": 15,
           "seed": 12345,
           "fixesOn": "unseenprobe",
           "ab": "unseenbroadcast",
-          "slice": 2
+          "slice": 2,
+          "noSamplers": true
         }
-      }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:broadcast_pulses",
+          "op": ">",
+          "value": 0,
+          "why": "no broadcaster pulses counted"
+        }
+      ]
     },
     {
       "id": "bp-unseen-unseenbroadcast-onfirst",
-      "note": "docs/144 A/B: --ab unseenbroadcast (unseen broadcasters one pulse in 16 each (replaces the shared 1 in 4)), BP play 10 min, 2-min slices, on-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped.",
-      "asi": "game-copy/ts3native.asi.rel0360",
+      "note": "docs/144 A/B: --ab unseenbroadcast (unseen broadcasters one pulse in 16 each (replaces the shared 1 in 4)), BP play 10 min, 2-min slices, on-first (pair with the other job to cancel the slot-1 bias; abOnFirst needs the --ab-on-first harness change from the design U/G branches), unseenprobe on for the whole load so both sides classify. Pass: no crash, 0 watchdog lines, applied shows SimUpdate.CalculateSimEnvironmentScore and Autonomy.Update ok, stuck Sims not above the off halves / docs/TESTING.md rule. Read per side: it/s, sim ms/s (profile-compare.mjs <tag>:on vs :off), unseen_* counters (patches), broadcast_pulses/skipped. [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
       "minCounters": 72,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30,
+      "timeoutMin": 35,
       "run": {
         "profile": {
-          "minutes": 10,
+          "minutes": 15,
           "seed": 12345,
           "fixesOn": "unseenprobe",
           "ab": "unseenbroadcast",
           "slice": 2,
-          "abOnFirst": true
+          "abOnFirst": true,
+          "noSamplers": true
         }
-      }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:broadcast_pulses",
+          "op": ">",
+          "value": 0,
+          "why": "no broadcaster pulses counted"
+        }
+      ]
     },
     {
       "id": "bp-unseen-crowd-offfirst",
-      "note": "docs/144 A/B under load: repro rare-big-crowd, --ab unseenenv,unseenmotives,unseenbroadcast together, BP 10 min, 2-min slices, off-first, unseenprobe on. Pass as above plus: the crowd Sims (on screen) show unseen_env_unseen ~0 in their area; no Sim of the crowd left standing (stuck rule).",
-      "asi": "game-copy/ts3native.asi.rel0360",
+      "note": "docs/144 A/B under load: repro rare-big-crowd, --ab unseenenv,unseenmotives,unseenbroadcast together, BP 10 min, 2-min slices, off-first, unseenprobe on. Pass as above plus: the crowd Sims (on screen) show unseen_env_unseen ~0 in their area; no Sim of the crowd left standing (stuck rule). [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
       "minCounters": 72,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30,
+      "timeoutMin": 35,
       "run": {
         "profile": {
-          "minutes": 10,
-          "seed": 12345,
-          "repro": "rare-big-crowd",
-          "fixesOn": "unseenprobe",
-          "ab": "unseenenv,unseenmotives,unseenbroadcast",
-          "slice": 2
-        }
-      }
-    },
-    {
-      "id": "bp-unseen-crowd-onfirst",
-      "note": "docs/144 A/B under load: repro rare-big-crowd, --ab unseenenv,unseenmotives,unseenbroadcast together, BP 10 min, 2-min slices, on-first, unseenprobe on. Pass as above plus: the crowd Sims (on screen) show unseen_env_unseen ~0 in their area; no Sim of the crowd left standing (stuck rule).",
-      "asi": "game-copy/ts3native.asi.rel0360",
-      "save": "Baseline-BP-Spring",
-      "minCounters": 72,
-      "gameArgs": [
-        "-disablestoryprogression"
-      ],
-      "timeoutMin": 30,
-      "run": {
-        "profile": {
-          "minutes": 10,
+          "minutes": 15,
           "seed": 12345,
           "repro": "rare-big-crowd",
           "fixesOn": "unseenprobe",
           "ab": "unseenenv,unseenmotives,unseenbroadcast",
           "slice": 2,
-          "abOnFirst": true
+          "noSamplers": true
         }
-      }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_env_calls",
+          "op": ">",
+          "value": 0,
+          "why": "env score counter 0"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:broadcast_pulses",
+          "op": ">",
+          "value": 0,
+          "why": "no broadcaster pulses counted"
+        }
+      ]
+    },
+    {
+      "id": "bp-unseen-crowd-onfirst",
+      "note": "docs/144 A/B under load: repro rare-big-crowd, --ab unseenenv,unseenmotives,unseenbroadcast together, BP 10 min, 2-min slices, on-first, unseenprobe on. Pass as above plus: the crowd Sims (on screen) show unseen_env_unseen ~0 in their area; no Sim of the crowd left standing (stuck rule). [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 72,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "repro": "rare-big-crowd",
+          "fixesOn": "unseenprobe",
+          "ab": "unseenenv,unseenmotives,unseenbroadcast",
+          "slice": 2,
+          "abOnFirst": true,
+          "noSamplers": true
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_env_calls",
+          "op": ">",
+          "value": 0,
+          "why": "env score counter 0"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:broadcast_pulses",
+          "op": ">",
+          "value": 0,
+          "why": "no broadcaster pulses counted"
+        }
+      ]
     },
     {
       "id": "bp-unseen-needs",
-      "note": "docs/144 stuck-Sim and needs check: all three throttles on for 20 min (no A/B), unseenprobe on. Pass: no crash, 0 watchdog lines, stuck Sims within docs/TESTING.md (compare with bp-rel-play), unseen_motive_critical / (unseen_motive_unseen - unseen_motive_skipped) not above the off halves of the A/B jobs, unseen_gate_restarts 0 or a few. Correctness job, daytime OK.",
-      "asi": "game-copy/ts3native.asi.rel0360",
+      "note": "docs/144 stuck-Sim and needs check: all three throttles on for 20 min (no A/B), unseenprobe on. Pass: no crash, 0 watchdog lines, stuck Sims within docs/TESTING.md (compare with bp-rel-play), unseen_motive_critical / (unseen_motive_unseen - unseen_motive_skipped) not above the off halves of the A/B jobs, unseen_gate_restarts 0 or a few. Correctness job, daytime OK. [2026-11-01: rel025a asi + rel025a package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
       "minCounters": 72,
       "gameArgs": [
@@ -199,9 +328,22 @@
         "profile": {
           "minutes": 20,
           "seed": 12345,
-          "fixesOn": "unseenprobe,unseenenv,unseenmotives,unseenbroadcast"
+          "fixesOn": "unseenprobe,unseenenv,unseenmotives,unseenbroadcast",
+          "noSamplers": true
         }
-      }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025a",
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_env_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenprobe/unseenenv count nothing"
+        }
+      ]
     }
-  ]
+  ],
+  "stopQueueOnFail": true
 }

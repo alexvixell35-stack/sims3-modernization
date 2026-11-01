@@ -2,9 +2,9 @@
   "note": "wake-park-ab: docs/211 wakepark / wakepoll A/B (docs/209 action 2), NOT RUN. Run only after wake-probe.json shows the target >= ~2 ms/s on the world (drop that world's pair otherwise) and after the correctness jobs below pass. Every job installs build/ts3fixes-on-kWakeHooks.package, built from master (node tools/setup/build-fixes.ts --on kWakeHooks before the queue). Each switch judged alone (changed wake order = seeded divergence, docs/209 #94 risk). Order: wake-park-loop and wake-park-travel (correctness, daytime OK) first; then the timing pairs on a clean machine. Verdict: node tools/harness/hitch-ab.ts wake-park-ab and profile-compare per job; gain = sim ms/s off - on pooled over both orders; regression rule as AGENTS.md (it/s down > 2% in both orders). Run: node tools/harness/queue.ts tools/harness/queues/wake-park-ab.json",
   "smoke": {
     "note": "Measurement smoke (AGENTS.md): BP Spring 4 min, wakeprobe on, --ab wakepark,wakepoll 1-min slices. Pass: both arms in the per-arm split, wakepark / wakepoll read back off / on per slice, wake_parks and wake_poll_long grow only in on slices, wake_su_pass_unseen_lo per second lower in on slices, heavy tools off (HitchAttr only), no crash. A FAIL stops the queue.",
-    "asi": "tested",
+    "asi": "game-copy/ts3native.asi.rel025a",
     "save": "Baseline-BP-Spring",
-    "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+    "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
     "ini": {
       "SlotEnabledRO.Enabled": 1,
       "SlotEnabledRO.Mode": 1,
@@ -38,15 +38,16 @@
     "gameArgs": [
       "-disablestoryprogression"
     ],
-    "timeoutMin": 15
+    "timeoutMin": 15,
+    "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)"
   },
   "jobs": [
     {
       "id": "bp-wake-park-loop",
-      "note": "Correctness: repro wake-park-loop (30 unseen walkers, camera jumps, pause, save to a scratch name, off half). Pass: the repro expect.",
-      "asi": "tested",
+      "note": "Correctness: repro wake-park-loop (30 unseen walkers, camera jumps, pause, save to a scratch name, off half). Pass: the repro expect. [2026-11-01: rel025a asi + kit5-wakehooks (kWakeHooks) package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -71,14 +72,15 @@
       "run": {
         "repro": "wake-park-loop"
       },
-      "timeoutMin": 20
+      "timeoutMin": 20,
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)"
     },
     {
       "id": "bp-wake-park-travel",
-      "note": "Correctness: repro wake-park-travel (vacation out and back with all three switches on). Pass: the repro expect.",
-      "asi": "tested",
+      "note": "Correctness: repro wake-park-travel (vacation out and back with all three switches on). Pass: the repro expect. [2026-11-01: rel025a asi + kit5-wakehooks (kWakeHooks) package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP",
-      "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -103,14 +105,15 @@
       "run": {
         "repro": "wake-park-travel"
       },
-      "timeoutMin": 45
+      "timeoutMin": 45,
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)"
     },
     {
       "id": "bp-wakepark-ab",
-      "note": "BP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepark per 2-min slice, off first. Expected [inferred, docs/211 §6]: sim ms/s -3..-12. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_parks > 0 only in on slices, wake_park_early small, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts.",
-      "asi": "tested",
+      "note": "BP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepark per 2-min slice, off first. Expected [inferred, docs/211 §6]: sim ms/s -3..-12. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_parks > 0 only in on slices, wake_park_early small, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts. [2026-11-01: rel025a asi + kit5-wakehooks (kWakeHooks) package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -135,7 +138,7 @@
       "run": {
         "profile": {
           "seed": 12345,
-          "minutes": 10,
+          "minutes": 15,
           "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,wakeprobe",
           "ab": "wakepark",
           "slice": 2
@@ -144,14 +147,24 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30
+      "timeoutMin": 35,
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "wakepark never parked a SimUpdate pass on the on slices"
+        }
+      ]
     },
     {
       "id": "bp-wakepark-ab-onfirst",
-      "note": "BP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepark per 2-min slice, on first. Expected [inferred, docs/211 §6]: sim ms/s -3..-12. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_parks > 0 only in on slices, wake_park_early small, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts.",
-      "asi": "tested",
+      "note": "BP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepark per 2-min slice, on first. Expected [inferred, docs/211 §6]: sim ms/s -3..-12. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_parks > 0 only in on slices, wake_park_early small, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts. [2026-11-01: rel025a asi + kit5-wakehooks (kWakeHooks) package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -176,7 +189,7 @@
       "run": {
         "profile": {
           "seed": 12345,
-          "minutes": 10,
+          "minutes": 15,
           "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,wakeprobe",
           "ab": "wakepark",
           "slice": 2,
@@ -186,14 +199,24 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30
+      "timeoutMin": 35,
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "wakepark never parked a SimUpdate pass on the on slices"
+        }
+      ]
     },
     {
       "id": "ip-wakepark-ab",
-      "note": "IP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepark per 2-min slice, off first. Expected [inferred, docs/211 §6]: sim ms/s -2..-10. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_parks > 0 only in on slices, wake_park_early small, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts.",
-      "asi": "tested",
+      "note": "IP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepark per 2-min slice, off first. Expected [inferred, docs/211 §6]: sim ms/s -2..-10. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_parks > 0 only in on slices, wake_park_early small, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts. [2026-11-01: rel025a asi + kit5-wakehooks (kWakeHooks) package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-IP",
-      "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -218,7 +241,7 @@
       "run": {
         "profile": {
           "seed": 12345,
-          "minutes": 10,
+          "minutes": 15,
           "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,wakeprobe",
           "ab": "wakepark",
           "slice": 2
@@ -227,14 +250,24 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30
+      "timeoutMin": 35,
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "wakepark never parked a SimUpdate pass on the on slices"
+        }
+      ]
     },
     {
       "id": "ip-wakepark-ab-onfirst",
-      "note": "IP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepark per 2-min slice, on first. Expected [inferred, docs/211 §6]: sim ms/s -2..-10. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_parks > 0 only in on slices, wake_park_early small, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts.",
-      "asi": "tested",
+      "note": "IP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepark per 2-min slice, on first. Expected [inferred, docs/211 §6]: sim ms/s -2..-10. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_parks > 0 only in on slices, wake_park_early small, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts. [2026-11-01: rel025a asi + kit5-wakehooks (kWakeHooks) package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-IP",
-      "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -259,7 +292,7 @@
       "run": {
         "profile": {
           "seed": 12345,
-          "minutes": 10,
+          "minutes": 15,
           "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,wakeprobe",
           "ab": "wakepark",
           "slice": 2,
@@ -269,14 +302,24 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30
+      "timeoutMin": 35,
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "wakepark never parked a SimUpdate pass on the on slices"
+        }
+      ]
     },
     {
       "id": "bp-wakepoll-ab",
-      "note": "BP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepoll per 2-min slice, off first. Expected [inferred, docs/211 §6]: sim ms/s -0.5..-3. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_poll_long > 0 only in on slices, wake_poll_over <= 1, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts.",
-      "asi": "tested",
+      "note": "BP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepoll per 2-min slice, off first. Expected [inferred, docs/211 §6]: sim ms/s -0.5..-3. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_poll_long > 0 only in on slices, wake_poll_over <= 1, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts. [2026-11-01: rel025a asi + kit5-wakehooks (kWakeHooks) package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -301,7 +344,7 @@
       "run": {
         "profile": {
           "seed": 12345,
-          "minutes": 10,
+          "minutes": 15,
           "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,wakeprobe",
           "ab": "wakepoll",
           "slice": 2
@@ -310,14 +353,24 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30
+      "timeoutMin": 35,
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_poll_long",
+          "op": ">",
+          "value": 0,
+          "why": "wakepoll never lengthened a poll on the on slices"
+        }
+      ]
     },
     {
       "id": "bp-wakepoll-ab-onfirst",
-      "note": "BP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepoll per 2-min slice, on first. Expected [inferred, docs/211 §6]: sim ms/s -0.5..-3. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_poll_long > 0 only in on slices, wake_poll_over <= 1, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts.",
-      "asi": "tested",
+      "note": "BP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepoll per 2-min slice, on first. Expected [inferred, docs/211 §6]: sim ms/s -0.5..-3. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_poll_long > 0 only in on slices, wake_poll_over <= 1, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts. [2026-11-01: rel025a asi + kit5-wakehooks (kWakeHooks) package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -342,7 +395,7 @@
       "run": {
         "profile": {
           "seed": 12345,
-          "minutes": 10,
+          "minutes": 15,
           "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,wakeprobe",
           "ab": "wakepoll",
           "slice": 2,
@@ -352,14 +405,24 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30
+      "timeoutMin": 35,
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_poll_long",
+          "op": ">",
+          "value": 0,
+          "why": "wakepoll never lengthened a poll on the on slices"
+        }
+      ]
     },
     {
       "id": "ip-wakepoll-ab",
-      "note": "IP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepoll per 2-min slice, off first. Expected [inferred, docs/211 §6]: sim ms/s -0.5..-3. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_poll_long > 0 only in on slices, wake_poll_over <= 1, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts.",
-      "asi": "tested",
+      "note": "IP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepoll per 2-min slice, off first. Expected [inferred, docs/211 §6]: sim ms/s -0.5..-3. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_poll_long > 0 only in on slices, wake_poll_over <= 1, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts. [2026-11-01: rel025a asi + kit5-wakehooks (kWakeHooks) package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-IP",
-      "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -384,7 +447,7 @@
       "run": {
         "profile": {
           "seed": 12345,
-          "minutes": 10,
+          "minutes": 15,
           "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,wakeprobe",
           "ab": "wakepoll",
           "slice": 2
@@ -393,14 +456,24 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30
+      "timeoutMin": 35,
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_poll_long",
+          "op": ">",
+          "value": 0,
+          "why": "wakepoll never lengthened a poll on the on slices"
+        }
+      ]
     },
     {
       "id": "ip-wakepoll-ab-onfirst",
-      "note": "IP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepoll per 2-min slice, on first. Expected [inferred, docs/211 §6]: sim ms/s -0.5..-3. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_poll_long > 0 only in on slices, wake_poll_over <= 1, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts.",
-      "asi": "tested",
+      "note": "IP 10 min, seed 12345, release ini + HitchAttr, wakeprobe on the whole load (both arms classify and count), --ab wakepoll per 2-min slice, on first. Expected [inferred, docs/211 §6]: sim ms/s -0.5..-3. Pass: no crash, 0 watchdog lines, 7 WakePark patches ok, wake_poll_long > 0 only in on slices, wake_poll_over <= 1, stuck Sims not above the off halves (docs/TESTING.md rule). Read: sim ms/s, it/s and hitch counts per arm (profile-compare.mjs, hitch-ab.ts), wake-report.ts. [2026-11-01: rel025a asi + kit5-wakehooks (kWakeHooks) package, in-load --ab 15 min, 2-min slices, early gates on the probe counters.]",
+      "asi": "game-copy/ts3native.asi.rel025a",
       "save": "Baseline-IP",
-      "fixesPackage": "build/ts3fixes-on-kWakeHooks.package",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -425,7 +498,7 @@
       "run": {
         "profile": {
           "seed": 12345,
-          "minutes": 10,
+          "minutes": 15,
           "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,wakeprobe",
           "ab": "wakepoll",
           "slice": 2,
@@ -435,7 +508,18 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 30
+      "timeoutMin": 35,
+      "pinReason": "rel025a asi is the latest tested native (builds.json rel025a-asi 0.36.149); ts3fixes package pinned to the build that has the switches this queue uses (2026-11-01)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_poll_long",
+          "op": ">",
+          "value": 0,
+          "why": "wakepoll never lengthened a poll on the on slices"
+        }
+      ]
     }
-  ]
+  ],
+  "stopQueueOnFail": true
 }

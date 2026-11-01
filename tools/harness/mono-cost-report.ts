@@ -338,6 +338,43 @@ export function g8ClassLines(fix: Input['fix'] | undefined): string[] {
     `- G8 cadence [measured]: searches per Sim-hour all ${rate(nu + ns, sh)} (${f1(sh)} Sim-hours), unseen ${rate(nu, ush)} (${f1(ush)} unseen Sim-hours), ` +
       `seen ${rate(ns, ssh)} (${f1(ssh)}; class from the hourly sample)`];
 }
+// docs/124 §8 G8 (ts3fixes 566-574, kAutLive packages) + docs/222 §8 class lines from a counter set (whole load or one --ab arm)
+export function g8Lines(fix: Input['fix'] | undefined): string[] {
+  const L: string[] = [];
+  const fv = (k: string) => { const c = fix?.[k]; return typeof c?.after === 'number' ? c.after - (c.before ?? 0) : 0; };
+  if (fix?.g8_pushes && typeof fix.g8_pushes.after === 'number') {
+    const sh = fv('g8_simhours_x100') / 100, lat = [0, 1, 2, 3, 4].map(i => fv(`g8_lat${i}`)), ln = lat.reduce((a, b) => a + b, 0);
+    let acc = 0, med: string = NA;
+    for (let i = 0; i < 5 && ln > 0; i++) { acc += lat[i]; if (acc * 2 >= ln) { med = i === 4 ? '4+' : String(i); break; } }
+    L.push(`- G8 behaviour [measured]: ${fv('g8_pushes')} autonomous pushes over ${f1(sh)} Sim-hours (${sh > 0 ? f1(fv('g8_pushes') / sh) : NA} per Sim-hour), ` +
+      `no-pick searches ${fv('g8_null_picks')}, MakeSimGoHome fallbacks ${fv('g8_gohome')}; request-to-push latency (Mode 3 searches, ticks 0/1/2/3/4+) ` +
+      `${lat.join('/')}, median ${med} ticks; picks per definition: {"t":"picks"} lines in autshadow.jsonl`);
+    L.push(...g8ClassLines(fix));
+  }
+  return L;
+}
+// --ab runs: per-arm ts3fixes counter sums from the slice snapshots profile-world writes (<tag>-ab.json slices, <tag>-ab-fixes.jsonl
+// snapshot i = start of slice i, the last = the end). Slice 0 (warm-up) is out; every other slice counts to its side.
+export function abArmFix(slices: { on: boolean }[], snaps: { i: number; c: Record<string, number> }[]): { on: Input['fix']; off: Input['fix'] } {
+  const by = new Map(snaps.map(x => [x.i, x.c])), out = { on: {} as NonNullable<Input['fix']>, off: {} as NonNullable<Input['fix']> };
+  for (let k = 1; k < slices.length; k++) {
+    const a = by.get(k), b = by.get(k + 1);
+    if (!a || !b) continue;
+    const arm = slices[k].on ? out.on : out.off;
+    for (const key of Object.keys(b)) if (typeof b[key] === 'number') (arm[key] ??= { before: 0, after: 0 }).after! += b[key] - (a[key] ?? 0);
+  }
+  return out;
+}
+export function abArmLines(tag: string, dir = join(ROOT, 'probe-out', 'profile')): string[] {
+  const f = join(dir, `${tag}-ab.json`), g = join(dir, `${tag}-ab-fixes.jsonl`);
+  if (!existsSync(f) || !existsSync(g)) return [];
+  const ab = JSON.parse(readFileSync(f, 'utf8'));
+  if (!Array.isArray(ab.slices) || ab.loop) return [];
+  const arms = abArmFix(ab.slices, jsonl(g)), L: string[] = [`--ab ${ab.names?.join(',')}: G8 per arm (${ab.slices.slice(1).filter((s: any) => s.on).length} on / ${ab.slices.slice(1).filter((s: any) => !s.on).length} off slices, warm-up out)`];
+  for (const n of ['off', 'on'] as const) L.push(`  [${n}]`, ...g8Lines(arms[n]).map(x => '  ' + x));
+  return L;
+}
+
 export function liveLines(N: Input['native'], secs: number, fix?: Input['fix']): string[] {
   const al = d1(N, 'al'), as = N?.after?.autshadow;
   if (!al) return ['- go-live: n/a (no al counters)'];
@@ -382,16 +419,7 @@ export function liveLines(N: Input['native'], secs: number, fix?: Input['fix']):
       `${per('autlivelate_us_consumed', v('objConsumed'))}, game's B14 late ${per('autlivelate_us_late_game', late)} ` +
       `(${f1(fv('autlivelate_us_late_game') / 1000 / secs)} ms/s), game's B14 invalid/stale/ident ${per('autlivelate_us_invalid_game', v('invalid') + v('stale') + v('ident'))}`);
   }
-  // docs/124 §8 G8 (ts3fixes 566-574, kAutLive packages, both autlive arms)
-  if (fix?.g8_pushes && typeof fix.g8_pushes.after === 'number') {
-    const sh = fv('g8_simhours_x100') / 100, lat = [0, 1, 2, 3, 4].map(i => fv(`g8_lat${i}`)), ln = lat.reduce((a, b) => a + b, 0);
-    let acc = 0, med: string = NA;
-    for (let i = 0; i < 5 && ln > 0; i++) { acc += lat[i]; if (acc * 2 >= ln) { med = i === 4 ? '4+' : String(i); break; } }
-    L.push(`- G8 behaviour [measured]: ${fv('g8_pushes')} autonomous pushes over ${f1(sh)} Sim-hours (${sh > 0 ? f1(fv('g8_pushes') / sh) : NA} per Sim-hour), ` +
-      `no-pick searches ${fv('g8_null_picks')}, MakeSimGoHome fallbacks ${fv('g8_gohome')}; request-to-push latency (Mode 3 searches, ticks 0/1/2/3/4+) ` +
-      `${lat.join('/')}, median ${med} ticks; picks per definition: {"t":"picks"} lines in autshadow.jsonl`);
-    L.push(...g8ClassLines(fix));
-  }
+  L.push(...g8Lines(fix));
   // per-search feature mask (ts3fixes 575-601, AutLiveCore.Feat): which features the searches that went wrong had; absent = no line
   const fb = featLine(fix);
   if (fb) L.push(fb);

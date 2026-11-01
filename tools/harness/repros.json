@@ -45968,5 +45968,380 @@
       }
     ],
     "expect": "no crash, 0 watchdog lines; unseenroute_d_check >= 1, unseenroute_d_repair >= 1, the Sims leave the fenced spot (sims_activity), no stuck Sim"
+  },
+  {
+    "id": "outfit-wait-stale-check",
+    "bug": "issue #115: Sim.SwitchOutfitHelper.Wait loops on Simulator.Sleep(1) until mReady; an Abort while it waits (another helper's Start on the Sim, MagicalMakeover.Cleanup) cancels the swap, so the waiting task wakes every tick for the rest of the session (a magical-makeover alarm, 3.0 ms per sim-minute on the day-406 save)",
+    "fix": "ts3fixes OutfitWait.cs: outfitwaitpoll (default off), docs/224",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-10-31). The test Sim's outfit does not change: its swap is cancelled before it completes and \"ready\" ends the wait without ChangeOutfit. \"start\" refuses while a test wait exists; \"stop\" ends both tasks.",
+    "expect": "off: abort task \"aborted in the loop\", wait task running, outfitwaitpoll counters 0, wait gone a tick after \"ready\". on: after 60 sim-minutes outfitwaitpoll_stale 1 and a stale-wait line (check \"log\") \"outfitwaitpoll: <name> outfit wait not ready after 60 sim-minutes (aborted True)\", outfitwaitpoll_polls about 1 per sim-minute, then after \"ready\" outfitwaitpoll_ended 1 and the wait gone within a sim-minute. The Sim keeps its outfit in both arms.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitpoll": false
+        },
+        "note": "applied log lists Sim+SwitchOutfitHelper.Wait: ok"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "note": "off: names the Sim and the outfit category it waits for"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: abort task \"aborted in the loop\" (else stop and start again), ready False, wait task running",
+        "waitS": 5
+      },
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "off: more than 60 sim-minutes pass"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: wait task still running, counters 0 (EA: one wake per tick)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "ready"
+          ]
+        },
+        "note": "off: mReady set"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: wait task gone",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "off: done"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitpoll": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "note": "on: same Sim"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: abort task \"aborted in the loop\", wait task running, stale 0",
+        "waitS": 5
+      },
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "on: more than 60 sim-minutes pass"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: stale 1, minute polls > 0; ts3native.log outfitwaitpoll line"
+      },
+      {
+        "cmd": "time",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: minute polls grew by about the sim-minutes passed"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "ready"
+          ]
+        },
+        "note": "on: mReady set"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: ended 1, wait task gone (within a sim-minute)",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "log"
+          ]
+        },
+        "note": "on: the stale-wait lines (Sim, aborted flag, task name: ledger I-414-2), the check's own wait and natural ones"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "on: done"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "ends both test tasks if a step failed"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitpoll": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "bake-sale-dead-seller-check",
+    "bug": "issue #102: BakeSaleTable keeps a deleted seller (mSeller is cleared only by StopTending and the table reset); HasSeller is only mSeller != null, so every PurchaseAutonomously throws in Run, and an NPC table's clean-up handler throws after removing its own alarm, so the table is never cleaned up",
+    "fix": "ts3fixes BakeSale.cs: bakesaleseller (default off), docs/225",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED in this form (the same fix ran live as a core patch, 2 sessions). The check builds the bug state on a test NPC table out of the world (tableBakeSale, EP2) with a new Sim as seller, deleted as remove_sims does. No household Sim is touched. \"rearm\" runs the load-time part directly (OnStartup only runs at load).",
+    "expect": "off: HasSeller True with the deleted seller, the clean-up handler throws NullReferenceException and the table stays, no re-arm, counters 0. on: HasSeller False and GetSeller null (bakesaleseller_reads > 0), rearm gives the table an alarm (bakesaleseller_rearmed 1), the handler returns and destroys the table.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bakesaleseller": false
+        },
+        "note": "applied log lists BakeSaleTable.get_GetSeller, get_HasSeller, OnStartup: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "note": "off: table id, seller name, switch False"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: stored seller destroyed True (queue null), HasSeller True, GetSeller set, alarm none, counters 0"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "rearm"
+          ]
+        },
+        "note": "off: switch off, alarm none"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "cleanup"
+          ]
+        },
+        "note": "off: handler threw NullReferenceException, table destroyed False",
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: 3 s later the table still exists (EA kept it)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "off: done"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bakesaleseller": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "note": "on: a new table and seller"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: HasSeller False, GetSeller null, dead-seller reads > 0"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "rearm"
+          ]
+        },
+        "note": "on: re-armed True, alarm set, re-armed 1"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "cleanup"
+          ]
+        },
+        "note": "on: handler returned (EA then calls Destroy; it finishes after this call)",
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: 3 s later the table is destroyed (EA Destroy after the clean-up)"
+      },
+      {
+        "cmd": "patches",
+        "note": "on: the recent lines carry both bakesaleseller lines; ts3fixes lines are not in ts3native.log"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "on: done"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BakeSaleCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "destroys the test table if a step failed"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bakesaleseller": false
+        }
+      }
+    ]
   }
 ]

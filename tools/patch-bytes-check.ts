@@ -131,6 +131,30 @@ export function readSources(files: [string, string][]): Src {
 
 // a name at ctx: the latest local still in scope there (same file, block not closed since), else the file-scope
 // or function-static one (unity build: one namespace)
+// A bare name that is a parameter of the enclosing function (`GnPatch(u8* site, ...)`) is not a symbol (a same-named global
+// would win): it stands for the callers' arguments. undefined = not a parameter; [] = a parameter with no caller found.
+function paramArgs(src: Src, file: string, pos: number, name: string): { e: string; ctx: Ctx }[] | undefined {
+    const t = src.texts.find(([f]) => f === file)?.[1], dp = src.depths.get(file);
+    if (!t || !dp) return undefined;
+    let b = pos;
+    while (b > 0 && dp[b - 1] > 0) b--;  // the outermost body's `{`
+    const head = t.slice(0, b - 1).replace(/\s+$/, ""), close = head.lastIndexOf(")");
+    if (close < 0 || head.slice(close + 1).replace(/\b(const|noexcept)\b|\s/g, "")) return undefined;
+    let d = 0, open = close;
+    for (; open >= 0; open--) { if (head[open] === ")") d++; else if (head[open] === "(" && --d === 0) break; }
+    const fn = open > 0 ? /(\w+)\s*$/.exec(head.slice(0, open))?.[1] : undefined;
+    if (!fn) return undefined;
+    const params = splitArgs(head, open + 1).map((x) => x.trim().replace(/\s*=.*$/, ""));
+    const idx = params.findIndex((x) => new RegExp("(^|[\\s*&])" + name + "$").test(x));
+    if (idx < 0) return undefined;
+    const out: { e: string; ctx: Ctx }[] = [];
+    for (const [f, tx] of src.texts) for (const m of tx.matchAll(new RegExp("\\b" + fn + "\\s*\\(", "g"))) {
+        if (/\b(bool|void|int|DWORD|u8\s*\*?)\s+$/.test(tx.slice(Math.max(0, m.index! - 16), m.index))) continue;  // the definition
+        const a = splitArgs(tx, m.index! + m[0].length);
+        if (a[idx] !== undefined) out.push({ e: a[idx].trim(), ctx: { file: f, pos: m.index! } });
+    }
+    return out;
+}
 export function look(src: Src, name: string, ctx: Ctx): Sym | undefined {
     const defs = src.syms.get(name) ?? [];
     if (ctx) {
@@ -221,7 +245,12 @@ export function extract(src: Src): { exp: Expect[]; unresolved: string[] } {
             const as = look(src, ia[1], ctx), bs = look(src, ib[1], ctx);
             if (as && bs && typeof as.init !== "string" && typeof bs.init !== "string")
                 as.init.forEach((x, i) => { if (typeof x === "string" && bs.init[i] !== undefined) ok = add(evalExpr(src, x, ctx), arrBytes(src, (bs.init as Node[])[i], ctx), where, `${label}[${i}]`, n) || ok; });
-        } else if (!ia && !ib) ok = add(evalExpr(src, A, ctx), arrBytes(src, B, ctx), where, label, n);
+        } else if (!ia && !ib) {
+            const pa = /^\w+$/.test(A) ? paramArgs(src, file, m.index!, A) : undefined;
+            // a parameter: the callers' arguments; none resolvable = unresolved, never a wrong address
+            if (pa) ok = pa.length > 0 && pa.every((x) => add(evalExpr(src, cast(x.e), x.ctx), arrBytes(src, B, ctx), where, label, n));
+            else ok = add(evalExpr(src, A, ctx), arrBytes(src, B, ctx), where, label, n);
+        }
         if (!ok) unresolved.push(`${where} ${m[1]}(${A}, ${B})`);
     }
     // one row per (addr, bytes)
@@ -351,12 +380,18 @@ function selfCheck(refPath?: string) {
         "    if (!Matches((const void*)(uintptr_t)AT_LOAD, kLoad, sizeof(kLoad)) || !Matches((void*)(uintptr_t)AT_CHG, kChg, 3)) return;",
         "    for (int i = 0; i < 2; i++) Matches((const void*)(uintptr_t)kIdx[i], kIdxPro[i], sizeof(kIdxPro[i]));",
         "    const u8 want[5] = {0xE8}; Matches(at, want, 5);",
+        "}",
+        "static const DWORD site = 0x00409999;",
+        "static const u8 kPar[2] = {0x31, 0xC0};",
+        "static bool Par(u8* site, int k) { return Matches(site, kPar, sizeof(kPar)); }",
+        "void Go2() { Par((u8*)(uintptr_t)0x00401800, 1);",
         "}"].join("\n")]]);
     ok(evalExpr(src, "AT_CHG") === 0x401500 && evalExpr(src, "(DWORD)(FN_A - 8)") === 0x4010f8 && evalExpr(src, "sizeof(kPro)") === 6, "evalExpr");
     const { exp, unresolved } = extract(src);
     const at = (a: number) => exp.filter((x) => x.addr === a);
     ok(at(0x401100).length === 1 && at(0x401100)[0].bytes.length === 6, "InstallDetour prologue");
     ok(at(0x401200)[0]?.bytes.length === 4 && at(0x401300)[0]?.kind === "call" && at(0x403010)[0]?.kind === "slot", "Site / CallSite / slot tables");
+    ok(at(0x401800).some((x) => x.bytes.length === 2) && at(0x409999).length === 0, "Matches on a parameter resolves from the caller, not a same-named global");
     ok(at(0x401400)[0]?.bytes.length === 5 && at(0x401500)[0]?.bytes.length === 3 && at(0x401600).length === 1 && at(0x401700)[0]?.bytes[1] === 2, "Matches: string bytes, #define, indexed");
     ok(unresolved.length === 1 && /want/.test(unresolved[0]), `one unresolved (local want): ${unresolved.join("; ")}`);
     const data = (shift: number) => { const d = Buffer.alloc(0x200); d.writeUInt32LE(0x401100 + shift, 0x10); return d; };
@@ -367,7 +402,7 @@ function selfCheck(refPath?: string) {
     oc.writeUInt32LE(0x404000, 0x40 + 0x401); oc[0x40 + 0x502] = 0x0c;
     const o = parsePe(makePe(oc, []));
     o.img.set(data(0x40), 0x4000);
-    const id = check(r, r, exp);
+    const id = check(r, r, exp.filter((x) => x.addr !== 0x401800));  // 0x401800: the parameter fixture, no bytes in the fake image
     ok(id.every((x) => x.kind2 === "ok"), `identity all ok: ${id.filter((x) => x.kind2 !== "ok").map((x) => hx(x.addr)).join(" ")}`);
     const res = check(r, o, exp), k = (a: number) => res.find((x) => x.addr === a)!.kind2;
     ok(k(0x401100) === "ok" && k(0x401200) === "ok" && k(0x401300) === "ok", "moved code: same bytes");

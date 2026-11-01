@@ -247,12 +247,14 @@ namespace Ts3Fixes
         // (665-668), unseen Sim-hours x100 (669).
         // [670-679] autunseencmp Dry per-definition compare (AutLive.cs DefCmpNote, docs/222 §9): searches, pairs, worker-fail /
         // game-pass, worker-pass / game-fail, both pass, both fail, late-slice pairs, late-slice mismatches, objects skipped, snapped slices.
+        // [680-682] outfitwaitpoll (OutfitWait.cs, issue #115): outfit waits gone stale, minute polls, stale waits that ended.
+        // [683-684] bakesaleseller (BakeSale.cs, issue #102): dead-seller reads, orphaned NPC tables given a new clean-up alarm.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[680]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[685]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -376,7 +378,9 @@ namespace Ts3Fixes
                 case "showstagethrowables": return Instantiator.kShowStageThrowables;
                 case "firepitchair": return Instantiator.kFirePitChair;
                 case "ageupkeepoutfits": return Instantiator.kAgeUpKeepOutfits;
+                case "outfitwaitpoll": return Instantiator.kOutfitWaitPoll;
                 case "deadrefguards": return Instantiator.kDeadRefGuards;
+                case "bakesaleseller": return Instantiator.kBakeSaleSeller;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;
                 case "savecleanupaggressive": return Instantiator.kSaveCleanupAggressive;
                 case "vacexport": return Instantiator.kVacExport;
