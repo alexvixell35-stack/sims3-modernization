@@ -1,0 +1,69 @@
+{
+  "note": "docs/218 §8 test (round 7 task 2): the [AutShadow] content accept list and the per-definition G-M6 pass, Mode 0 (cut and count only, no worker). One job per arm; run each with --only, with the install set up for that arm (a: as installed, b: Tiny UI Fix moved out, c: the player's core and Tiny UI Fix moved out, simler90's original core in).",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-cg-user",
+      "note": "Arm a, the player's install (own core mod + Tiny UI Fix). PASS: 0 crashes; modules hashed (autshadow_content_modules >= 1, not -1 = MVID gate); the applied log names the modules not accepted and AutShadow stays on (no 'off for the session' line); G-M6 misses only on methods that core changed.",
+      "asi": "game-copy/ts3native.asi.cg169",
+      "pinReason": "the PR #169 CI build (contract 11: AutShadowNative.ImageSha)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 0,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 0,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50
+      },
+      "run": { "profile": { "minutes": 5, "seed": 12345, "fixesOn": "autshadow", "fixesRequire": "autshadow_content_modules>=1" } },
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 25
+    },
+    {
+      "id": "bp-cg-notui",
+      "note": "Arm b, as arm a with Tiny UI Fix moved out (its bundle carries patched copies of the core DLLs). PASS: as arm a, and the same modules not accepted and the same G-M6 misses as arm a.",
+      "asi": "game-copy/ts3native.asi.cg169",
+      "pinReason": "the PR #169 CI build (contract 11: AutShadowNative.ImageSha)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 0,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 0,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50
+      },
+      "run": { "profile": { "minutes": 5, "seed": 12345, "fixesOn": "autshadow", "fixesRequire": "autshadow_content_modules>=1" } },
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 25
+    },
+    {
+      "id": "bp-cg-ref",
+      "note": "Arm c, simler90's original UPDATE242 core (accepted set 1). PASS: 0 crashes; the applied log says 'accepted set 1 (by content)'; no module not accepted (autshadow_content_unknown 0), no G-M6 miss.",
+      "asi": "game-copy/ts3native.asi.cg169",
+      "pinReason": "the PR #169 CI build (contract 11: AutShadowNative.ImageSha)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 0,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 0,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50
+      },
+      "run": { "profile": { "minutes": 5, "seed": 12345, "fixesOn": "autshadow", "fixesRequire": "autshadow_content_modules>=1,autshadow_content_unknown<1,autshadow_gm6_mismatch<1" } },
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 25
+    }
+  ]
+}

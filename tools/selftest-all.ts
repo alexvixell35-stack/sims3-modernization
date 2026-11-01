@@ -101,6 +101,7 @@ const NO_SELF_CHECK: Record<string, string> = {
   'tools/ai-usage.ts': 'appends the local Claude usage file to docs/ai-usage.md; no logic to test',
   'tools/autonomy-tier2.ts': ONE_OFF,
   'tools/autonomy-virtual-closure.ts': ONE_OFF,
+  'tools/autshadow-cha-lists.ts': ONE_OFF,
   'tools/autshadow-guard-lists.ts': ONE_OFF,
   'tools/emu/ts-ref.ts': 'stdin helper of the tools/emu specs, checked by them',
   'tools/extract-assemblies.ts': 'readIndex, decryptS3SA and peImage covered by the tools/dbpf.ts self-test',

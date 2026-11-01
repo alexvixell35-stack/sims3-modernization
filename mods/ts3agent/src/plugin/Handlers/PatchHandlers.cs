@@ -189,6 +189,7 @@ namespace Ts3Agent
             if (c.Length > 604) { r["autshadow_gm6_methods"] = c[602]; r["autshadow_gm6_mismatch"] = c[603]; r["autshadow_gm6_us"] = c[604]; }
             if (c.Length > 605) r["autshadow_gm6_faults"] = c[605];
             if (c.Length > 606) r["autshadow_gm6_owners_skipped"] = c[606];
+            if (c.Length > 2025) { r["autshadow_content_modules"] = c[2022]; r["autshadow_content_unknown"] = c[2023]; r["autshadow_gm6_cha_methods"] = c[2024]; r["autshadow_gm6_cha_mismatch"] = c[2025]; } // docs/218 §5 content guard (-1 = MVID gate)
             if (c.Length > 682) { r["outfitwaitpoll_stale"] = c[680]; r["outfitwaitpoll_polls"] = c[681]; r["outfitwaitpoll_ended"] = c[682]; } // OutfitWait.cs, issue #115
             if (c.Length > 2009) { r["outfitwaitpoll_clear_instant"] = c[2008]; r["outfitwaitpoll_clear_delayed"] = c[2009]; } // OutfitWait.cs
             if (c.Length > 2011) { r["outfitwaitpoll_cb_dropped"] = c[2010]; r["outfitwaitpoll_cause_dropped"] = c[2011]; } // OutfitWait.cs

@@ -131,3 +131,71 @@ node tools/mod-method-diff.ts --self-check --asm game-copy/assemblies
 Pass `--game` / `--user` to scan a whole install instead of single packages (about 60 s). For §3, copy a mod's assemblies over `game-copy/assemblies` in a scratch folder, index it, and run `autonomy-tier2.ts` and `autonomy-virtual-closure.ts` with `--asm <folder> --index <folder index>`.
 
 `managed-callgraph.ts` change in this branch: `indexAsm()` is split out of `loadAll`, the self-check output is byte-identical, and `loadStandalone()`, `ilShape()` and the `#US` heap offset are added for single-module use.
+
+## 8. Implementation (round 7 task 2, 2026-11-01)
+
+The §5 recommendation as built: branch `fix/autshadow-content-guard`, switch `autshadow` (no new switch: the guard decides
+whether the existing switch can act). ts3native contract 11, counters 2022-2025, ledger §905.
+
+**Accept list by content.** `AutShadowNative.ImageSha(MonoImage*, byte[32])` (ts3native internal call, contract 11) hashes
+the bytes Mono holds for a loaded module with BCrypt SHA-256 (`raw_data` / `raw_data_len` at MonoImage +0x08 / +0x0C,
+checked by the `MZ` header; I-905-1). The managed side gets the MonoImage pointer from `Module._impl` (I-905-2).
+`AutShadow.ModuleCheck` hashes every non-BCL game module once per game session, at the first `GuardSweep` (the world load
+with `autshadow` on: ts3native registers its internal calls at the first Simulate tick, after ts3fixes starts). Accepted:
+
+| Module | Builds |
+|---|---|
+| Sims3GameplaySystems + Sims3GameplayObjects | as a pair (G-M1): EA Steam 1.67, simler90 UPDATE242 Steam |
+| ScriptCore | EA, NRaas ErrorTrap (VersionStamp 100) |
+| SimIFace, Sims3Metadata, Sims3StoreObjects, UI | EA |
+
+A module that is not accepted no longer turns the session off. When any module cannot be hashed (an older ts3native, no
+`_impl` field, a failed hash), the MVID gate of docs/128 runs as before and its log line says why.
+
+**Unknown module: per definition.** ClosureSweep's G-M6 hash check (PR #112) already hashes the 688 closure methods on
+every load. With a module not on the content list it also hashes, in those modules only, the class-hierarchy overrides
+the closures can dispatch to: `AutShadowChaLists.Methods`, 2,882 keys from `tools/autshadow-cha-lists.ts` (5-hop
+class-hierarchy closure of each owner's own roots, the run §1 labels v0-cha; the shared base path is left out, since through
+`InteractionDefinition.Test` it reaches every definition in the game, and definition receivers have the exact-type check).
+A method whose hash is in no checked build skips only the owners whose closure reaches it (bit masks per method, as
+`AutShadowLists.MethodOwners`). `tools/autshadow-il-hashes.ts` hashes both lists per build into one table (4,477 hashes).
+
+**Fault rule by content.** More than 3 closure misses in modules whose bytes are accepted means our hash disagrees with the
+runtime (guard fault, as before), since equal bytes cannot give different IL. With the modules unhashable it falls back to
+the MVID list.
+
+**Counters.** [2022] modules hashed (-1 = MVID gate), [2023] modules not accepted, [2024] hierarchy methods hashed, [2025]
+of those differing from every checked build (`autshadow_content_modules`, `autshadow_content_unknown`,
+`autshadow_gm6_cha_methods`, `autshadow_gm6_cha_mismatch`).
+
+**Limits.**
+- A type that a mod adds inside a game module and that overrides a closure slot is not in either list (G-M5 sees only mod
+  assemblies). docs/218 §2 found 1 added method in all three mods' game modules, none reachable.
+- The IL hash is not folded for compiler-generated names (§1's ilShape is). simler90's build differs from EA's in 906 of the
+  3,570 keys by this hash, against 77 reachable changes by §2. Both are accepted builds, so the union covers them. A module
+  rewritten by another tool could show misses on methods it did not change. The Tiny UI Fix run checks that (task 2 test).
+- Cost: the hash runs once per game session (about 30 MB of modules); the hierarchy pass only with an unknown module.
+
+**Test (round 7 task 2).** (a) The user's install (their own core and Tiny UI Fix): AutShadow must stay on, and G-M6 misses
+only on methods that core changed. (b) The same with Tiny UI Fix moved out: the same A0-A3 pairs and the same misses. (c)
+The reference core: "accepted set 1 (by content)", no misses.
+
+**Results (2026-11-01, CI build of this branch, queue `autshadow-content-guard`, Baseline-BP, 5 min, Mode 0; rows in
+`docs/data/results/2026-11-01-queue-autshadow-content-guard.md`) [verified]:**
+
+| Arm | Modules hashed | Not accepted | G-M6 misses (closure) | Hierarchy misses / hashed | Owners skipped | Requests | Result |
+|---|---|---|---|---|---|---|---|
+| a. player's install (own core + Tiny UI Fix), 2 runs | 7 | 4 | 96 | 862 / 2,616 | 17 | 478, 522 | PASS, PASS |
+| b. same, Tiny UI Fix moved out | 7 | 2 | 82 | 624 / 2,492 | 17 | 700 | PASS |
+| c. reference core (simler90 UPDATE242) | 7 | 0 | 0 | 0 / 0 | 0 | 642 | PASS |
+
+- All 7 game modules were hashed in every arm, so the MVID gate never ran. AutShadow stayed on in arms a and b (requests
+  counted, no "off for the session" line) and skipped 17 owners there.
+- The reference core is accepted by content with no miss, and the hierarchy pass does not run.
+- The player's core leaves 2 modules unaccepted. Tiny UI Fix adds 2 more and 14 closure misses (its bundle carries
+  patched copies of the core DLLs). Both arm-a runs gave the same counts.
+- Not checked: that each miss is a method the player's core or Tiny UI Fix changed. The counters give counts only, and
+  the applied log names only the first lines.
+- One more arm-a start (the first) froze on the startup loading screen, before the main menu: not responding, CPU idle.
+  It was killed after 4 minutes. The two reruns of the same arm loaded and passed. This change runs only when a world has
+  loaded (the hash runs from GuardSweep), so the freeze is not from it [inferred]. There was no hang capture.

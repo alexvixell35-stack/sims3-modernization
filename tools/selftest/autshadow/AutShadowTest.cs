@@ -141,6 +141,26 @@ static class AutShadowTest
             Check(AutShadowCore.GuidNFromRaw(m) == new Guid(b).ToString("N"), "G-M1 MVID " + m);
         }
 
+        // docs/218 §5 content guard: SGS/SGO only as a pair of one set, other modules by their own hash, a missing hash = no verdict
+        {
+            string[][] sets = { new string[] { "ea-sgs", "ea-sgo" }, new string[] { "s90-sgs", "s90-sgo" } };
+            string[] other = { "ea-sc", "et-sc", "ea-ui" };
+            string[] cn = { "ScriptCore", "Sims3GameplaySystems", "Sims3GameplayObjects", "UI" };
+            int set;
+            bool[] cr = AutShadowCore.ContentAccepted(cn, new string[] { "ea-sc", "s90-sgs", "s90-sgo", "ea-ui" }, sets, other, out set);
+            Check(cr != null && set == 1 && cr[0] && cr[1] && cr[2] && cr[3], "content: simler90 pair = set 1, EA ScriptCore and UI accepted");
+            cr = AutShadowCore.ContentAccepted(cn, new string[] { "et-sc", "ea-sgs", "ea-sgo", "tui-ui" }, sets, other, out set);
+            Check(cr != null && set == 0 && cr[0] && cr[1] && cr[2] && !cr[3], "content: EA pair = set 0, ErrorTrap ScriptCore accepted, a rewritten UI not");
+            cr = AutShadowCore.ContentAccepted(cn, new string[] { "ea-sc", "ea-sgs", "s90-sgo", "ea-ui" }, sets, other, out set);
+            Check(cr != null && set == -1 && !cr[1] && !cr[2] && cr[0], "content: EA SGS + simler90 SGO (mixed pair) = neither (G-M1)");
+            cr = AutShadowCore.ContentAccepted(cn, new string[] { "ea-sc", "tui-sgs", "ea-sgo", "ea-ui" }, sets, other, out set);
+            Check(cr != null && set == -1 && !cr[1] && !cr[2], "content: a rewritten SGS = both of the pair unknown");
+            cr = AutShadowCore.ContentAccepted(cn, new string[] { "ea-sc", null, "ea-sgo", "ea-ui" }, sets, other, out set);
+            Check(cr == null && set == -1, "content: a module without a hash = no verdict (MVID gate)");
+            Check(AutShadowCore.ContentAccepted(new string[0], new string[0], sets, other, out set) == null, "content: no modules = no verdict");
+            Check(AutShadowCore.Hex(new byte[] { 0x00, 0x0f, 0xa5, 0xff }) == "000fa5ff", "content: hex is lower case, 2 digits a byte");
+        }
+
         // G-M4: index keys (tools/managed-callgraph.ts format) from reflection, and their resolution
         Type nt = typeof(Gm.Host.Nested);
         string goKey = "Gm.Host+Nested::Go(int&,System.Collections.Generic.Dictionary`2<string,System.Collections.Generic.List`1<ulong>>,object[],float[,])";

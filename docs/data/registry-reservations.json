@@ -1853,6 +1853,26 @@
       "what": "Compiler groundwork: monohost-jit adapter + opcode table (round 7 task 3)",
       "at": "2026-11-01T11:47:48.000Z",
       "worktree": "C:\\Users\\<user>\\scratchpad\\s3mod_cgw"
+    },
+    {
+      "id": "fixes-2022",
+      "kind": "fixes",
+      "from": 2022,
+      "to": 2025,
+      "by": "dalexlol",
+      "what": "AutShadow content guard (docs/218 §5, round 7 task 2): modules hashed, unknown modules, hierarchy methods hashed / differing",
+      "at": "2026-11-01T11:14:45.451Z",
+      "worktree": "C:\\Users\\<user>\\scratchpad\\s3mod_cg"
+    },
+    {
+      "id": "ledger-905",
+      "kind": "ledger",
+      "from": 905,
+      "to": 905,
+      "by": "dalexlol",
+      "what": "AutShadow content guard: MonoImage raw_data offsets and Module._impl (docs/218 §8)",
+      "at": "2026-11-01T11:27:17.000Z",
+      "worktree": "C:\\Users\\<user>\\scratchpad\\s3mod_cg"
     }
   ]
 }

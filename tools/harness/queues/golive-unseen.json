@@ -586,9 +586,9 @@
         {
           "afterSec": 300,
           "counter": "fixes:autunseen_rh_game",
-          "op": ">",
+          "op": "==",
           "value": 0,
-          "why": "no rabbit-hole pair skipped by the compare: autunseenrh not in the package (unseen4?)"
+          "why": "rh routing must stay off in the rhoff arm (counter 0 proves --fixes-off autunseenrh reached the game)"
         }
       ],
       "note": "Same as ip-gu-dry-defcmp-u4 with autunseenrh OFF: settles docs/222 §10 (counter 686 vs 673: are rabbit-hole worker-pass/game-0 pairs also worker score 0?).",

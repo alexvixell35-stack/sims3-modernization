@@ -27,6 +27,8 @@ namespace Ts3Fixes
     public static class AutShadowNative
     {
         [MethodImpl(MethodImplOptions.InternalCall)] public static extern int Version();
+        // contract 11 (docs/218 §5): SHA-256 of a loaded module's bytes into sha (byte[32]); returns the bytes hashed, 0 = no hash
+        [MethodImpl(MethodImplOptions.InternalCall)] public static extern int ImageSha(IntPtr monoImage, byte[] sha);
         // 0 Mode (-1 off/no cut hook, 0 count only, 1 R, 2 W), 1 Sample, 2 WarmIn, 3 DumpOnMismatch, 4 worker ready 1/0
         [MethodImpl(MethodImplOptions.InternalCall)] public static extern int Config(int key);
         [MethodImpl(MethodImplOptions.InternalCall)] public static extern bool IsWorker();
@@ -186,6 +188,17 @@ namespace Ts3Fixes
         // ScriptCore: EA, NRaas ErrorTrap (15 changed methods, none in a closure: docs/128 §2.2). Not a session gate: an
         // unknown ScriptCore is logged and covered only by the per-method L3 of the closure sweep (docs/132 §3, G-M4).
         static readonly string[] kScriptCoreMvids = { "ee57f83a5f56384f9ede12b34a086c39", "99b5bd68c981aa42a5f220f2cf7ae4d2" };
+        // docs/218 §5 (round 7 task 2): the accept list by content, SHA-256 of each module's bytes (the S3SA image as Mono
+        // holds it). An MVID is not content: tiny-ui-fix keeps the MVIDs of the modules it rewrites (docs/218 §1).
+        // G-M1 pairs (Sims3GameplaySystems, Sims3GameplayObjects), same builds and order as kMvidSets.
+        static readonly string[][] kShaSets = {
+            new string[] { "1e323c53399b18cc1fadb1b4a737534904f5eefd97c4b75cdff31dbfe8bb9ac5", "ac78fb17e0f63092948622d4e7f17423f1df69d6215f605a0e7732e24edae2e2" },
+            new string[] { "77e0cdab38dd74a81ff5bcfb48bb59e2c93b8a22670d0d5644ccec082ad32882", "e65f65c8773f936b3307410633706c3d28adec74da2eafff1eb2a27aed60b4e1" } };
+        // the other game modules: EA (Steam 1.67) ScriptCore, SimIFace, Sims3Metadata, Sims3StoreObjects, UI; NRaas ErrorTrap
+        // ScriptCore (VersionStamp 100, MVID 99b5bd68...)
+        static readonly string[] kShaOther = { "d819df03e3e6d28c5c79334f7a69d92cef80fe6a98411d1f98f21b6169677f68", "f810e3c2e8bed69c70eb8467b0e579fac7e06034d6002acab845a03c309922e8",
+            "da2711bff553038886199e97e2f6a25477521c34b42169465c92d9908f21b7c3", "8ff310620877086e42055b080c85d6141ed1f0f484addb05bb58e532ab8c85ab",
+            "212c119ecb7e57d72e4340975fd2cc17e6a6c9ae06d4a4e6aa9a63bdfe90c1f5", "03389aa74092c0c12d04930dce8698bbdf59418dffc4bbacaca4d4f44e18463d" };
         // Game script modules: their types are not part of the G-M5 mod census (mod copies of them are MVID-gated above).
         static readonly string[] kGameModules = { "mscorlib", "System", "System.Xml", "ScriptCore", "SimIFace", "Sims3GameplaySystems",
             "Sims3GameplayObjects", "Sims3Metadata", "Sims3StoreObjects", "UI" };
@@ -203,6 +216,10 @@ namespace Ts3Fixes
             "Sims3.Gameplay.Objects.CookingObjects.SitHereForEating::EatHereScoringFunction",
             "Sims3.Gameplay.Abstracts.GameObject::SitInteractionModifier", "Sims3.Gameplay.Objects.Plumbing.Sink::GetBrushTeethScore" };
         static int sMvidSet = -1;            // accepted pair this session
+        // docs/218 §5: every game module hashed (else the MVID gate decides, as before); modules not accepted by content
+        static bool sModulesChecked, sContentOk;
+        static readonly Dictionary<Assembly, bool> sUnknownMods = new Dictionary<Assembly, bool>();
+        static FieldInfo sModuleImpl;
         static readonly Dictionary<IntPtr, Type> sPatched = new Dictionary<IntPtr, Type>();  // our own swaps (Fixes.Patch), by MonoMethod*
         static bool[] sImplGuardHit = new bool[7];  // G-M5: an implementor closure dispatches through an overridden slot
         static readonly Type[] kImpl = { typeof(Lot), typeof(RabbitHole), typeof(HomeMetaObject), typeof(WorkMetaObject),
@@ -313,11 +330,67 @@ namespace Ts3Fixes
             if (failed.Count > 0)
                 AppliedLog().Add("AutShadow: not patched: " + string.Join(", ", failed.ToArray()) + (sHooksOk ? "" : "; Modes 1/2 off, Mode 0 (count only) still runs"));
             AppDomain.CurrentDomain.SetData("ts3fixes.autshadow.reasons", sReasons);
-            MvidCheck();
+            // the module check (docs/218 §5) runs at the first GuardSweep: ImageSha is a ts3native internal call, registered
+            // at the first Simulate tick, after this
+        }
+
+        // docs/218 §5 (round 7 task 2): game modules accepted by content. Every module hashed: none turns the session off;
+        // a module not on the list is checked per definition by G-M6 (closure methods and their class-hierarchy overrides,
+        // ClosureSweep). A module that cannot be hashed (no ImageSha, an unreadable image): the MVID gate as before.
+        static void ModuleCheck()
+        {
+            int[] c = PatchCounters();
+            sUnknownMods.Clear();
+            sContentOk = false;
+            List<Assembly> mods = new List<Assembly>();
+            List<string> names = new List<string>(), shas = new List<string>();
+            string why = null;
+            foreach (string n in kGameModules)
+            {
+                if (n == "mscorlib" || n == "System" || n == "System.Xml") continue;  // not in a closure list (G-M4 leaves BCL out)
+                Assembly a = GameAssembly(n);
+                if (a == null) continue;
+                string sha = null;
+                try { sha = ModuleSha(a); }
+                catch (Exception e) { if (why == null) why = n + ": " + e.GetType().Name + " " + e.Message; }
+                if (sha == null && why == null) why = n + ": image not readable";
+                mods.Add(a); names.Add(n); shas.Add(sha);
+            }
+            int set = -1;
+            bool[] acc = why == null ? AutShadowCore.ContentAccepted(names.ToArray(), shas.ToArray(), kShaSets, kShaOther, out set) : null;
+            if (acc == null)
+            {
+                c[2022] = -1;
+                AppliedLog().Add("AutShadow: module content not checked (" + (why ?? "no game modules") + "): MVID gate");
+                MvidCheck();
+                return;
+            }
+            sContentOk = true;
+            sMvidSet = set;
+            List<string> unk = new List<string>();
+            for (int i = 0; i < mods.Count; i++)
+                if (!acc[i]) { sUnknownMods[mods[i]] = true; unk.Add(names[i] + " " + shas[i].Substring(0, 16)); }
+            c[2022] = mods.Count; c[2023] = unk.Count;
+            if (set >= 0) AppliedLog().Add("AutShadow: game assemblies = accepted set " + set + " (by content)");
+            if (unk.Count > 0)
+                AppliedLog().Add("AutShadow: game modules not on the content accept list: " + string.Join(", ", unk.ToArray())
+                    + ": G-M6 checks their closure and hierarchy methods per definition (docs/218 §5)");
+        }
+
+        // MonoImage* of a loaded module: Mono's Module._impl [inferred, Mono 2.x layout]; ImageSha checks "MZ" at its raw data
+        static string ModuleSha(Assembly a)
+        {
+            if (sModuleImpl == null) sModuleImpl = typeof(Module).GetField("_impl", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (sModuleImpl == null) return null;
+            object v = sModuleImpl.GetValue(a.ManifestModule);
+            if (!(v is IntPtr) || (IntPtr)v == IntPtr.Zero) return null;
+            byte[] sha = new byte[32];
+            return AutShadowNative.ImageSha((IntPtr)v, sha) > 0 ? AutShadowCore.Hex(sha) : null;
         }
 
         // docs/122 §4.1 step 4: game script assemblies must be the ones the allow-list was built from, else off for the session.
-        // G-M1: the pair must match one accepted set as a whole (no mixing an EA SGS with a mod SGO).
+        // G-M1: the pair must match one accepted set as a whole (no mixing an EA SGS with a mod SGO). Since docs/218 §5 only
+        // when the modules cannot be hashed (ModuleCheck).
         static void MvidCheck()
         {
             // the game's mscorlib has no Guid.ToByteArray: compare in "N" format
@@ -438,7 +511,7 @@ namespace Ts3Fixes
             int v;
             try { v = AutShadowNative.Version(); }
             catch (Exception) { AppliedLog().Add("AutShadow: no ts3native internal calls this load (off)"); return false; }
-            if (v != 10) { AppliedLog().Add("AutShadow: ts3native contract version " + v + ", want 10 (off)"); return false; }
+            if (v != 11) { AppliedLog().Add("AutShadow: ts3native contract version " + v + ", want 11 (off)"); return false; }
             try
             {
                 if (!sSweptAtLoad && !GuardSweep()) return false;
@@ -555,6 +628,8 @@ namespace Ts3Fixes
         // swapped are skipped; the shared C2 callees hit = every definition skipped. L2 bytes are logged only (docs/68 M2-3).
         static bool GuardSweep()
         {
+            if (!sModulesChecked) { sModulesChecked = true; ModuleCheck(); }
+            if (sSessionOff) return false;
             const BindingFlags st = BindingFlags.Static | BindingFlags.NonPublic;
             bool ownOk = L3Ok(typeof(Fixes).GetMethod("AutFinish", st));
             bool calcSeen = !sCalcPatched || !L3Ok(typeof(AutonomyT).GetMethod("CalculateScore", new Type[] { typeof(InteractionObjectPair) }));
@@ -629,7 +704,8 @@ namespace Ts3Fixes
                 string mv = Mvid(a);
                 int mi = Array.IndexOf(AutShadowLists.Methods, e.Key), om = mi >= 0 ? AutShadowLists.MethodOwners[mi] : -1;
                 maskAll |= om;
-                if (known.ContainsKey(mv)) knownBad++; else maskUnknown |= om;
+                // a checked build's bytes (by content; MVID when the modules could not be hashed) cannot differ: our hash
+                if (sContentOk ? !sUnknownMods.ContainsKey(a) : known.ContainsKey(mv)) knownBad++; else maskUnknown |= om;
                 if (ilBad++ >= 10) continue;
                 AppliedLog().Add("AutShadow: mod guard G-M6: " + e.Key + " in " + a.GetName().Name + " (MVID " + mv + ") differs from every checked build (IL hash "
                     + h.ToString("x16") + "): skips the definitions whose closure reaches it");
@@ -639,7 +715,32 @@ namespace Ts3Fixes
                 try { AutShadowCore.MethodIlHash(e.Key, e.Value, new Dictionary<Module, Dictionary<int, string>>(), tr); } catch (Exception x) { tr.Add("threw " + x.Message); }
                 AppliedLog().Add("AutShadow: G-M6 trace " + e.Key + ": " + string.Join("; ", tr.ToArray()));
             }
-            // many mismatches on modules whose MVID a checked build has = our hash disagrees with the runtime, not a mod change
+            // docs/218 §5 item 2: in a module not accepted by content, also the class-hierarchy overrides the closures can
+            // dispatch to (a changed override changes what the worker runs; G-M5 sees only mod assemblies). [2024] hashed,
+            // [2025] differing from every checked build.
+            int chaN = 0, chaBad = 0;
+            if (sContentOk && sUnknownMods.Count > 0)
+            {
+                Dictionary<string, MethodBase> cha = AutShadowCore.Resolve(new List<Assembly>(sUnknownMods.Keys).ToArray(), AutShadowChaLists.Methods);
+                foreach (KeyValuePair<string, MethodBase> e in cha)
+                {
+                    long t0 = (long)sw.GetElapsedTime();
+                    ulong h = 0;
+                    bool ok;
+                    try { h = AutShadowCore.MethodIlHash(e.Key, e.Value, names); ok = Array.BinarySearch<ulong>(AutShadowIlHashes.Known, h) >= 0; }
+                    catch (Exception) { ok = false; }
+                    ilUs += (long)sw.GetElapsedTime() - t0;
+                    chaN++;
+                    if (ok) continue;
+                    int ci = Array.IndexOf(AutShadowChaLists.Methods, e.Key), om = ci >= 0 ? AutShadowChaLists.Owners[ci] : -1;
+                    maskAll |= om; maskUnknown |= om;
+                    if (chaBad++ < 10)
+                        AppliedLog().Add("AutShadow: mod guard G-M6 (hierarchy): " + e.Key + " in " + e.Value.DeclaringType.Assembly.GetName().Name
+                            + " differs from every checked build (IL hash " + h.ToString("x16") + "): skips the definitions whose closure can dispatch to it");
+                }
+            }
+            c[2024] = chaN; c[2025] = chaBad;
+            // many mismatches on modules whose bytes (or MVID) a checked build has = our hash disagrees with the runtime
             bool fault = knownBad > 3;
             if (fault)
             {

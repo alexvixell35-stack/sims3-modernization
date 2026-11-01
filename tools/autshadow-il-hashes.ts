@@ -158,8 +158,13 @@ async function hashMethods(dir: string, keys: string[]): Promise<{ hashes: Recor
 // ---------- main ----------
 const argv = process.argv.slice(2);
 const listKeys = () => {
-  const src = readFileSync(join(ROOT, 'mods/ts3fixes/src/AutShadowLists.cs'), 'utf8');
-  return [...src.slice(src.indexOf('Methods = {'), src.indexOf('Slots = {')).matchAll(/"([^"]*)"/g)].map((m) => m[1]);
+  // AutShadowLists.Methods (closures) and AutShadowChaLists.Methods (their class-hierarchy overrides, docs/218 §5, from
+  // tools/autshadow-cha-lists.ts): one sorted hash table for both (the key is part of the hash)
+  const part = (file: string, a: string, b: string) => {
+    const src = readFileSync(join(ROOT, 'mods/ts3fixes/src', file), 'utf8');
+    return [...src.slice(src.indexOf(a), src.indexOf(b)).matchAll(/"([^"]*)"/g)].map((m) => m[1]);
+  };
+  return [...part('AutShadowLists.cs', 'Methods = {', 'Slots = {'), ...part('AutShadowChaLists.cs', 'Methods = {', 'Owners = {')];
 };
 // One build per child process: managed-callgraph keeps one global type model.
 function runBuild(label: string, overlay: string[]): { label: string; hashes: Record<string, string>; missing: string[]; stubs: string[]; mvids: string[] } {

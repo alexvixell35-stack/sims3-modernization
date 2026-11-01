@@ -401,7 +401,21 @@ static void TestAutShadowRun() {
     assert(g_mtOnEnter == AsSimEnter && g_mtOnLeave == AsSimLeaveLoop && g_mtJobHook == AsJobHook && g_asMode == 0 && g_sppN == 0);
     // ICs register at the first Simulate entry; Begin refuses until the methods are set
     AsSimEnter();
-    assert(g_t5Ics == 33 && k.icRegistered == 33 && AsIcVersion() == 10 && AsIcConfig(1) == 4 && AsIcConfig(2) == 20);
+    assert(g_t5Ics == 34 && k.icRegistered == 34 && AsIcVersion() == 11 && AsIcConfig(1) == 4 && AsIcConfig(2) == 20);
+    {   // ImageSha (docs/218 §5): a fake MonoImage {.., raw_data +8, raw_data_len +0xC} over "MZ" + 510 zero bytes
+        static u8 img[0x200] = { 'M', 'Z' };
+        DWORD mi[16] = {}, arr[4 + 8] = {}, small[4 + 8] = {};
+        mi[2] = (DWORD)(uintptr_t)img; mi[3] = sizeof(img);
+        arr[2] = 32; small[2] = 16;
+        static const u8 want[32] = { 0xa5, 0xb8, 0x69, 0x7c, 0x56, 0x6f, 0xe9, 0x11, 0xe9, 0xec, 0x7b, 0xcb, 0xca, 0x82, 0xb0, 0x43,
+            0x27, 0xd4, 0xb5, 0x13, 0x5c, 0x47, 0x52, 0x4d, 0xb0, 0x96, 0x9f, 0xad, 0x8a, 0x18, 0x48, 0x30 };  // hashlib.sha256
+        assert(AsIcImageSha((const u8*)mi, (u8*)arr) == 0x200 && memcmp((const u8*)arr + 16, want, 32) == 0);
+        assert(AsIcImageSha((const u8*)mi, (u8*)small) == 0);  // short array
+        img[0] = 'X';
+        assert(AsIcImageSha((const u8*)mi, (u8*)arr) == 0);  // no "MZ": not an image
+        img[0] = 'M';
+        assert(AsIcImageSha(nullptr, (u8*)arr) == 0);
+    }
     // docs/124 §17.10 cost-guard keys: marker, then the counters as they stand
     assert(AsIcConfig(24) == 1 && AsIcConfig(25) == k.cutUs && AsIcConfig(26) == k.cuts && AsIcConfig(29) == k.refUs && AsIcConfig(30) == k.refRuns);
     assert(!AsIcBegin());
@@ -415,7 +429,7 @@ static void TestAutShadowRun() {
     g_mtInvoke = AfT5Invoke;
     AfT5Request(40);
     AsSimLeave();
-    assert(g_t5Ics == 33 && g_t5Roots == 4 && (k.rooted & 3) == 3 && g_asRefsRooted);
+    assert(g_t5Ics == 34 && g_t5Roots == 4 && (k.rooted & 3) == 3 && g_asRefsRooted);
     assert(k.cutReq == 1 && k.refRuns == 0 && k.noWorker == 1 && g_t5Finish == 1 && g_t5Last == AS_LAST_NOWORKER && g_asRun == AS_RUN_IDLE);
     assert(k.batchReqs == 1 && k.batchCuts == 0 && k.simTicks == 1);
     {  // shared cut (docs/122 §14.18): requests posted before the cut join it, one cut and one finish; a full batch is busy

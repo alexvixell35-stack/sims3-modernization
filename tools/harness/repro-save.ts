@@ -20,6 +20,14 @@ export async function reproSave(ag: Ag, tag: string, stuck: object[]): Promise<s
     if (log.ok && log.result.some((l: string) => l.includes(`save ${name} -> `))) break;
     await new Promise(res => setTimeout(res, 2000));
   }
+  // the agent line comes ~2 s after save_game but the save takes ~11 s and the game does not answer meanwhile
+  let answered = false;
+  for (let t0 = Date.now(); Date.now() - t0 < 120_000 && !answered;) {
+    const st = await ag('game_state');
+    answered = !!st.ok && st.result?.save_in_progress !== true;
+    if (!answered) await new Promise(res => setTimeout(res, 2000));
+  }
+  if (!answered) console.log(`repro save ${name}: game did not answer game_state with save_in_progress false within 120 s`);
   mkdirSync(join(ROOT, 'probe-out', 'repro'), { recursive: true });
   writeFileSync(join(ROOT, 'probe-out', 'repro', `${name}.json`), JSON.stringify({ save: name, tag, stuck }, null, 1));
   await ag('autopilot', { enabled: true });
