@@ -49907,5 +49907,80 @@
         "note": "on: no exception, an owner component owned by the Sim; rewardgiver_added +1"
       }
     ]
+  },
+  {
+    "id": "saveslim-save-m0",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "BigSave-LR",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-LR-m0.sims3. Mode 0.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-LR-m0; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-LR-m0"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-save-m2",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "BigSave-LR",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-LR-m2.sims3. Mode 2.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-LR-m2; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-LR-m2"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-save-m2b",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "SlimTest-LR-m2",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-LR-m2b.sims3. Mode 2.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-LR-m2b; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-LR-m2b"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
   }
 ]
