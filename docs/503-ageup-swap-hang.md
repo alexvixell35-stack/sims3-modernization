@@ -20,6 +20,11 @@ Claim marks: **[verified]** = read in the game's IL by us (`ildasm`; no code rep
   callback never runs, and the loop has no other way out: no abort check, no timeout. **[verified]**
 - `SimBuilderTask.Simulate` sets `Done` and calls `AgingManager.StartAgingQueue` only after `FinishModelLoad` returns.
   So a hung task never sets `Done`. **[verified]**
+- `Simulate` rebuilds the model, and calls `FinishModelLoad`, only when the outfit rebuild reports a match: the Sim is
+  in the world and visibly wears the outfit the task started from, which is its Naked[0] outfit (Everyday[0] when it
+  has no Naked outfit). Otherwise the task finishes without a model rebuild and without the wait. **[verified]** So the
+  hang needs an age-up during which the Sim is shown in that outfit when the task starts **[inferred: the visible age-up
+  sequence]**.
 - Effects: `AgingQueue` serves its sorted head (the active household first) and sleeps until that head is `Done` or
   `Failed`, so later age-ups of the same or lower rank wait too. `AgingState.PreInstantiateSim` also waits on `Done`.
   **[verified]** What the player sees is a Sim whose age-up never ends, and other Sims that stop aging that session
@@ -91,16 +96,25 @@ interactions before an age transition. Neither releases a builder task that wait
   toddler, child or teen that it has not aged yet (other households first, since an active-household age-up can open
   the modal trait dialog) and ages it with
   `AgingManager.AgeTransitionWithoutCake`. In "special" mode a watcher sets the task's post-swap category to Special
-  until the model has loaded, which is the state a Sim wearing a Special outfit would be in. Parts:
+  until the model has loaded, which is the state a Sim wearing a Special outfit would be in. Since run 2 the watcher
+  first keeps the Sim in its Naked[0] outfit until the task is seen, so the task rebuilds the model and runs
+  `FinishModelLoad` (§1), and every part sets its own post-swap category. Parts:
   1. Switch off, special: the task's model loads, the outfit never does, and `Done` stays false (the bug). "unstick" then
      sets the flag, and the task finishes.
   2. Switch on, special: the task finishes, counter 2006 or 2007 goes up by one.
   3. Switch on, everyday (control): the task finishes, counters unchanged.
-  4. Switch on, outerwear (the natural case, if a Sim with an Outerwear outfit is in the world): whether EA accepts the
-     swap or the hook moves it to Everyday.
+  4. Switch on, outerwear (if a Sim with an Outerwear outfit is in the world): post-swap Outerwear, case 3 of §2. EA
+     accepts it if the rebuild made an Outerwear outfit for the new age; otherwise the hook moves it to Everyday.
 - Confirms I-503-1: part 1 hangs and part 2 finishes. Refutes it: part 1 finishes by itself.
 - Queue `tools/harness/queues/ageup-swap.json`.
 
 ## 6. Results
 
-Pending.
+**Run 1** (2026-11-01, Baseline-BP, job `bp-ageup-swap` PASS in 17.1 min): **inconclusive**. Four age-ups (three teens
+and a child, one per part) all finished. In each, the builder task was seen and set `Done` with
+model loaded False and outfit loaded False. So `FinishModelLoad` never ran (§1, last point): none of these Sims wore
+its Naked outfit when the task started. The off part could not hang, and the switch had nothing to do (2006 and 2007
+stayed 0). **[verified, log]**
+
+Repro change for run 2: the watcher keeps the Sim in Naked[0] until the age-up task is seen, then sets the post-swap
+category to the part's category (Special, Everyday, Outerwear) until the model has loaded.

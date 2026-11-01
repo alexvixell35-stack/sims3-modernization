@@ -61,10 +61,12 @@ namespace Ts3Fixes
 
         // Agent checks (repro ageup-swap-check). The harness does not save; each age-up is real for the session.
         //   "pick special|outerwear|everyday": a toddler, child or teen in the world (other households first) that this
-        //       check has not aged yet. outerwear/everyday: it must have an outfit in that category and is switched into it now
-        //       (outerwear is the natural case: a Sim aging outdoors in winter). special: no switch; "age" sets the age-up
-        //       task's post-swap category to Special until its model has loaded, as if the Sim wore a Special outfit.
-        //   "age":     EA's AgingManager.AgeTransitionWithoutCake on that Sim; a watcher task records the age-up task.
+        //       check has not aged yet; for outerwear it must have an Outerwear outfit.
+        //   "age":     EA's AgingManager.AgeTransitionWithoutCake on that Sim, with a watcher task. EA rebuilds the model (and
+        //       so runs FinishModelLoad) only when the Sim visibly wears its Naked[0] outfit as the task starts (run 1,
+        //       2026-11-01: four NPC age-ups skipped it), so the watcher keeps the Sim in Naked[0] until the task is seen,
+        //       then sets the task's post-swap category to the mode's (Special, Outerwear, Everyday) until the model has
+        //       loaded, as if the Sim had worn that category.
         //   "state":   age, the task's Done/Failed/model/outfit flags and post-swap category, the Sim's outfit, [2006] [2007].
         //   "unstick": sets the task's mbOutfitLoaded (what the missing callback would do), so a stuck task finishes and the
         //              age-up queue goes on.
@@ -85,7 +87,6 @@ namespace Ts3Fixes
                     if ((d.Household == Household.ActiveHousehold) != (pass == 1)) continue;
                     if (cat != OutfitCategories.None && d.GetOutfitCount(cat) == 0) continue;
                     sAusSim = d; sAusMode = mode; sAusTask = null; sAusLog = ""; sAusUsed.Add(d);
-                    if (cat != OutfitCategories.None) s.SwitchToOutfitWithoutSpin(cat, 0);
                     return d.FullName + " (" + d.Age + "), mode " + mode + ", wearing " + s.CurrentOutfitCategory + ", switch " + ShortcutOn("ageupswap");
                 }
                 return "no toddler, child or teen in the world left to age" + (cat != OutfitCategories.None ? " with a " + cat + " outfit" : "");
@@ -97,18 +98,22 @@ namespace Ts3Fixes
                 case "age":
                 {
                     if (sd.CreatedSim == null) return "the Sim left the world";
+                    if (sd.GetOutfitCount(OutfitCategories.Naked) > 0) sd.CreatedSim.SwitchToOutfitWithoutSpin(OutfitCategories.Naked, 0);
                     AgingManager.Singleton.AgeTransitionWithoutCake(sd.CreatedSim);
                     sAusAgedAt = SimClock.CurrentTicks;
-                    string mode = sAusMode;
+                    OutfitCategories post = sAusMode == "outerwear" ? OutfitCategories.Outerwear : sAusMode == "everyday" ? OutfitCategories.Everyday : OutfitCategories.Special;
                     if (sAusWatch != ObjectGuid.InvalidObjectGuid && Simulator.GetProxy(sAusWatch) != null) Simulator.DestroyObject(sAusWatch);
                     sAusWatch = Simulator.AddObject(new LoopTask(delegate
                     {
                         for (int i = 0; i < 37 * 60 * 24; i++) // a sim-day at most
                         {
                             SimBuilderTask t = sd.AgingState != null && sAgsTask != null ? sAgsTask.GetValue(sd.AgingState) as SimBuilderTask : null;
+                            Sim cs = sd.CreatedSim;
+                            if (sAusTask == null && cs != null && cs.CurrentOutfitCategory != OutfitCategories.Naked && sd.GetOutfitCount(OutfitCategories.Naked) > 0)
+                                cs.SwitchToOutfitWithoutSpin(OutfitCategories.Naked, 0); // until the task is seen
                             if (t != null && sAusTask != t) { sAusTask = t; sAusLog += "task seen after " + (SimClock.CurrentTicks - sAusAgedAt) + " ticks; "; }
                             t = sAusTask; // EA clears AgingState.SimBuilderTask when the age-up completes
-                            if (t != null && mode == "special" && sSbtPost != null && sSbtModelLoaded != null && !(bool)sSbtModelLoaded.GetValue(t)) sSbtPost.SetValue(t, OutfitCategories.Special);
+                            if (t != null && sSbtPost != null && sSbtModelLoaded != null && !(bool)sSbtModelLoaded.GetValue(t)) sSbtPost.SetValue(t, post);
                             if (t != null && sSbtDone != null && (bool)sSbtDone.GetValue(t)) { sAusLog += "Done after " + (SimClock.CurrentTicks - sAusAgedAt) + " ticks; "; return; }
                             Simulator.Sleep(1);
                         }

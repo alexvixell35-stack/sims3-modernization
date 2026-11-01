@@ -46349,8 +46349,8 @@
     "bug": "docs/503 (I-503-1): SimBuilderTask.FinishModelLoad ignores a refused Sim.SwitchToOutfitDelayed and waits forever for its callback, so the age-up never sets Done and the aging queue stops behind it",
     "fix": "ts3fixes AgeUpSwap.cs, ageupswap (default off): a refused age-up swap goes to Everyday, else the callback runs now (counters 2006-2007), docs/503 §3",
     "save": "Baseline-BP",
-    "note": "UNVERIFIED (static + self-test only, 2026-11-01). Needs 4 toddlers, children or teens in the world; 'pick' says so when none is left (that part is then not run, not failed). Each age-up is real for the session; the harness does not save.",
-    "expect": "off special: Done False after 120 s with model loaded True and outfit loaded False (bug confirmed), then Done after unstick. on special: Done, 2006 or 2007 up by one. control: Done, counters unchanged. outerwear: Done either way. 'no age-up task seen' in a part = EA did not start a builder task for that Sim (inconclusive, not a pass).",
+    "note": "UNVERIFIED (static + self-test only, 2026-11-01). Needs 4 toddlers, children or teens in the world; 'pick' says so when none is left (that part is then not run, not failed). Each age-up is real for the session; the harness does not save. Run 1 (2026-11-01) inconclusive: the four age-ups skipped FinishModelLoad (EA rebuilds the model only when the Sim visibly wears Naked[0] as the task starts); since run 2 the watcher keeps the Sim in Naked[0] until the task is seen and sets each part's post-swap category.",
+    "expect": "off special: Done False after 120 s with model loaded True and outfit loaded False (bug confirmed), then Done after unstick. on special: Done, 2006 or 2007 up by one. control: Done, counters unchanged. outerwear: Done either way. 'no age-up task seen' in a part = EA did not start a builder task for that Sim (inconclusive, not a pass). Each part's state must show model loaded True, or the part did not reach FinishModelLoad (inconclusive).",
     "steps": [
       {
         "cmd": "set_speed",
@@ -46527,7 +46527,7 @@
             "pick outerwear"
           ]
         },
-        "note": "on outerwear (natural case): names the Sim, its age and outfit, the switch value"
+        "note": "on outerwear (case 3): names the Sim, its age and outfit, the switch value"
       },
       {
         "cmd": "reflect_call",
@@ -46537,7 +46537,7 @@
             "age"
           ]
         },
-        "note": "on outerwear (natural case): EA's age transition called; a watcher records the age-up task",
+        "note": "on outerwear (case 3): EA's age transition called; a watcher records the age-up task",
         "waitS": 120
       },
       {
@@ -46548,7 +46548,7 @@
             "state"
           ]
         },
-        "note": "on outerwear (natural case): Done True; counters unchanged = EA accepted the swap, up by one = the hook moved or released it"
+        "note": "on outerwear (case 3): Done True; counters unchanged = EA accepted the swap, up by one = the hook moved or released it"
       },
       {
         "cmd": "reflect_call",
