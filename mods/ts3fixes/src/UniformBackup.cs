@@ -50,12 +50,14 @@ namespace Ts3Fixes
         }
 
         static SimDescription sUbSim;
+        static readonly List<SimDescription> sUbUsed = new List<SimDescription>(); // the off arm leaves its Sim's Career outfit unloadable
         static object sUbCoreSwitch; // a patched Systems build's own switch (OutfitRepair.kClearBackupUniform), set to EA for the check
         // Agent checks for #101 (repro career-uniform-backup-check), the issue's live sequence with EA's own calls:
         //   "pick":    a Sim in the world with a Career outfit whose occupation hands out a uniform for its level
         //              (TryGetUniformForCurrentLevel true: only then does EA's SetOccupationOutfitForCurrentLevel call
-        //              ApplyOccupationUniform; Film never does), active household first; clears the static backup so each
-        //              arm starts from EA's state after load.
+        //              ApplyOccupationUniform; Film never does), active household first, never one picked before (the
+        //              off arm leaves its Sim's Career outfit unloadable, so EA would make no new outfit for the on arm);
+        //              clears the static backup so each arm starts from EA's state after load.
         //   "wear <category>": SwitchToOutfitWithoutSpin, e.g. "wear Career", "wear Everyday".
         //   "uniform": the occupation's SetOccupationOutfitForCurrentLevel (what a promotion runs).
         //   "state":   Career outfit keys and whether each loads, the worn key, whether the name's key K loads, the backup,
@@ -72,13 +74,14 @@ namespace Ts3Fixes
                 int noUniform = 0;
                 foreach (SimDescription d in cands)
                 {
-                    if (d.Occupation == null || d.CreatedSim == null || !d.CreatedSim.InWorld || d.GetOutfitCount(OutfitCategories.Career) == 0) continue;
+                    if (sUbUsed.Contains(d) || d.Occupation == null || d.CreatedSim == null || !d.CreatedSim.InWorld || d.GetOutfitCount(OutfitCategories.Career) == 0) continue;
                     SimOutfit u;
                     if (!d.Occupation.TryGetUniformForCurrentLevel(out u) || u == null) { noUniform++; continue; }
                     sUbSim = d;
+                    sUbUsed.Add(d);
                     break;
                 }
-                if (sUbSim == null) return "no Sim in the world with a Career outfit and an occupation that hands out a level uniform (" + noUniform + " with a Career outfit but no level uniform)";
+                if (sUbSim == null) return "no Sim left in the world (not picked before) with a Career outfit and an occupation that hands out a level uniform (" + noUniform + " with a Career outfit but no level uniform)";
                 Occupation.backupOutfit = null;
                 FieldInfo core = UniformCoreSwitch();
                 if (core != null) { if (sUbCoreSwitch == null) sUbCoreSwitch = core.GetValue(null); core.SetValue(null, false); }
