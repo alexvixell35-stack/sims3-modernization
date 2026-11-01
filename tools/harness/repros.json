@@ -46384,7 +46384,7 @@
     "fix": "ts3fixes UniformBackup.cs: uniformbackup (default off), docs/502",
     "save": "Baseline-BP",
     "note": "UNVERIFIED in this form (the same sequence proved the bug live, and a core patch with the same effect ran live; #101). Needs a Sim with a Career outfit whose occupation hands out a uniform for its level (pick tries the active household, then every Sim in the world; Film never re-uniforms). The off arm leaves that Sim with a Career outfit that does not load after a reload; the harness does not save.",
-    "expect": "off: after the last uniform, Career[0] does not load (key K), K loads False, backup K, cleared 0. on: Career[0] loads after every step, backup null after the Everyday re-uniform, cleared >= 1.",
+    "expect": "off: after the last uniform, Career[0] does not load (key K), the backup holds K, cleared 0 (expect broken throws otherwise). on: every Career outfit loads, backup null, cleared >= 1 since the pick (expect loads throws otherwise). pick throws when no Sim qualifies or the on arm's Sim has another occupation.",
     "steps": [
       {
         "cmd": "patches",
@@ -46401,7 +46401,7 @@
             "pick"
           ]
         },
-        "note": "off: names the Sim; backup null",
+        "note": "off: names the Sim; backup null (throws when no Sim qualifies)",
         "waitS": 1
       },
       {
@@ -46486,10 +46486,10 @@
         "args": {
           "path": "Ts3Fixes.Fixes.UniformBackupCheck",
           "args": [
-            "state"
+            "expect broken"
           ]
         },
-        "note": "off: Career[0] (does not load), K loads False, backup set",
+        "note": "off: the bug: Career[0] does not load, the backup holds Career[0]'s key, cleared 0 (the step throws otherwise)",
         "waitS": 1
       },
       {
@@ -46518,7 +46518,7 @@
             "pick"
           ]
         },
-        "note": "on: names the Sim; backup null",
+        "note": "on: names the Sim; backup null (throws when no Sim is left or its occupation is not the off arm's)",
         "waitS": 1
       },
       {
@@ -46603,10 +46603,10 @@
         "args": {
           "path": "Ts3Fixes.Fixes.UniformBackupCheck",
           "args": [
-            "state"
+            "expect loads"
           ]
         },
-        "note": "on: every Career outfit loads, backup null, cleared >= 1",
+        "note": "on: the fix: every Career outfit loads, backup null, cleared >= 1 (the step throws otherwise)",
         "waitS": 1
       },
       {

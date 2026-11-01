@@ -52,9 +52,18 @@ All methods are in `Sims3GameplaySystems` unless named otherwise.
 - **Self-test** (`node tools/selftest/uniformbackup/run.ts`): every input of the decision, plus the cases in §2.
 - **Repro** `career-uniform-backup-check` (Baseline-BP, `Fixes.UniformBackupCheck`): the #101 live sequence with EA's own
   calls on a Sim whose occupation hands out a uniform for its level (active household first, then any Sim in the world): wear Career, re-uniform, wear Career, re-uniform, wear Everyday,
-  re-uniform, re-uniform. `state` prints the Career keys and whether each loads, the worn key, whether K loads, the
-  backup and the counter. Off: after the last step Career[0] is K and does not load. On: every Career outfit loads.
+  re-uniform, re-uniform. `state` prints the Career keys and whether each loads, the worn key, the key K and whether it
+  loads, the backup and the counter since the pick. The last step of each arm asserts its outcome and throws otherwise:
+  `expect broken` (off: Career[0] does not load, the backup holds Career[0]'s key, nothing cleared) and `expect loads`
+  (on: every Career outfit loads, no backup, at least one cleared). `pick` throws when no Sim qualifies, and in the on
+  arm when the Sim left has another occupation than the off arm's (the arms would not be comparable).
   The off arm leaves that Sim with a broken Career outfit for the session; the harness does not save.
+- **The load probe** [verified IL, managed side]: "loads" is EA's own `OutfitUtils.TryGenerateSimOutfit`, that is
+  `new SimOutfit(key).IsValid`. The constructor takes a load handle (`SimOutfitLoad`), the finalizer frees it
+  (`SimOutfitFree`), and nothing caches or uncaches. EA runs the same probe on the same key right after it caches a
+  uniform (`TryApplyUniformToOutfit`), so the check adds no step EA does not take. The native side of the handle is
+  [inferred]. The expect rules use only the Career and backup keys, so a K built with another group id than the one
+  `SimBuilder.CacheOutfit` uses could not fail a run.
 - **Which Sim** [verified IL]: `Occupation.SetOccupationOutfitForCurrentLevel` calls `ApplyOccupationUniform` only when
   `TryGetUniformForCurrentLevel` returns a uniform. The Film career does not (it dresses Sims in work costumes through its
   own methods), so the first run (2026-10-31, a Film Sim) never reached EA's code and its early gate stopped it. `pick` now
