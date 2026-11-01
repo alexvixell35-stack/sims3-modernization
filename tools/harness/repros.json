@@ -46349,8 +46349,8 @@
     "bug": "issue #115, second cause (docs/224 §5, I-414-5): a SwitchOutfitHelper wait whose delayed swap is replaced by another delayed swap of the same Sim (SimBuilderTask.FinishModelLoad, BuffTransformation, Sim.SwitchToOutfitWithHiding, occult outfit changes) without an Abort; if the game keeps one ready callback per Sim, the helper's never runs and its wait never ends",
     "fix": "diagnostic only: ts3fixes OutfitWait.cs, outfitwaitpoll (default off) classes each stale wait (counters 2003-2005), docs/224 §5",
     "save": "Baseline-BP",
-    "note": "UNVERIFIED (static only, 2026-11-01). Neither swap is completed: \"stop\" aborts the helper, which cancels the Sim's pending swap, so the Sim keeps its outfit. The control part shows an untouched swap calls back.",
-    "expect": "control: the wait returns within 10 s. replace: either (a) second swap ready True, helper ready False, the wait stale after 60 sim-minutes with cause replaced (the game keeps one callback per Sim: cause verified), or (b) the wait returns (both callbacks run: not the cause).",
+    "note": "UNVERIFIED (static only, 2026-11-01). Neither swap is completed: \"stop\" aborts the helper, which cancels the Sim's pending swap, so the Sim keeps its outfit. The control part shows an untouched swap calls back. 2026-11-01 run 1: waitS runs after a step, so the control state was read at once; fixed. Clear part added (docs/224 §5).",
+    "expect": "control: the wait returns within 10 s. replace: either (a) second swap ready True, helper ready False, the wait stale after 60 sim-minutes with cause replaced (the game keeps one callback per Sim: cause verified), or (b) the wait returns (both callbacks run: not the cause). clear: the wait returns (refutes the cleared cause for instant switches) or goes stale with cause cleared (verifies it).",
     "steps": [
       {
         "cmd": "set_speed",
@@ -46375,7 +46375,8 @@
             "start control"
           ]
         },
-        "note": "control: names the Sim, the category it waits for, no task 2"
+        "note": "control: names the Sim, the category it waits for, no task 2; 30 s for the swap",
+        "waitS": 30
       },
       {
         "cmd": "reflect_call",
@@ -46385,8 +46386,7 @@
             "state"
           ]
         },
-        "note": "control: wait task returned (ready, no change False): an untouched delayed swap calls back within seconds",
-        "waitS": 10
+        "note": "control: wait task returned (ready, no change False): an untouched delayed swap calls back within 30 s"
       },
       {
         "cmd": "reflect_call",
@@ -46453,6 +46453,62 @@
           ]
         },
         "note": "replace: helper aborted, both swaps cancelled; the Sim keeps its outfit"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "start clear"
+          ]
+        },
+        "note": "clear: same kind of Sim, task 2 switches it at once to a third category",
+        "waitS": 10
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "clear: task 2 'instant switch to <cat> (helper not aborted, pending now None/0)'; the hook logged it (clear_instant 1)"
+      },
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "clear: more than 60 sim-minutes pass"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "clear: either the wait task returned (the instant switch does not lose the callback) or it is still in Wait with stale +1 and cause cleared +1 (the cleared cause reproduced)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "log"
+          ]
+        },
+        "note": "clear: the 'instant switch ... while its helper waits' line with its callers, and the stale-wait line with 'cause cleared'"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "clear: helper aborted; the Sim keeps the third outfit"
       }
     ]
   }

@@ -140,9 +140,9 @@ current interaction, whether it has a transformation buff, and the five calling 
 **Results, run 1** (2026-11-01, Baseline-BP, job `bp-outfit-wait-replace` PASS in 11.1 min, ultra speed, switch on for
 the whole load):
 
-- Control: 10 s after the start, the untouched swap had not called back yet (ready False, the wait task still in
-  `Wait`). Then `stop` aborted it. So at ultra speed 10 s is too short, and this part does not show how long a normal
-  callback takes. **[verified, log]**
+- Control: not a valid test in run 1. A step's `waitS` runs after the step, so the state was read in the same second
+  as the start (ready False, the wait task still in `Wait`), and `stop` aborted it 10 s later. The repro now waits
+  30 s after the start.
 - Replace: the second swap (to Everyday) started, and the helper was not aborted. 80 s later the helper's wait had
   returned by itself (aborted False, no change False), and the second swap's callback had not run. So the second swap did
   not drop the helper's callback: **I-414-6 is refuted** for this case **[verified, 1 run]**. A second delayed swap
@@ -163,5 +163,13 @@ the whole load):
   this site in 11 crash reports on this machine, and probably unrelated to this switch **[inferred]**. A rerun is
   queued.
 
-Next: log which call resets the pending outfit while a helper waits (the `cleared` case), and give the control part a
-longer wait.
+**Diagnostics added after run 1** (switch on only). Two more hooks log each call that resets a Sim's pending outfit
+while its active helper is started, not ready and not aborted, with the Sim's interaction and the five calling frames:
+
+- `Sim.SwitchToOutfitWithoutSpin(category, outfit, index)`, an instant switch: counter 2008 `outfitwaitpoll_clear_instant`;
+- `Sim.DoOutfitDelayedSwap` from another path (the helper's own `ChangeOutfit` runs it only after `Ready`, so that is
+  not counted): counter 2009 `outfitwaitpoll_clear_delayed`.
+
+`DoReset` is not hooked. The repro has a third part, "clear": a helper waits, and task 2 switches the Sim at once to a
+third category. If the wait still returns, an instant switch does not lose the callback. If it goes stale with cause
+`cleared`, it does, and the instant switch is the second cause.

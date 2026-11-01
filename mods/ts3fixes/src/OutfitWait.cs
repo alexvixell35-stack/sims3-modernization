@@ -125,6 +125,47 @@ namespace Ts3Fixes
 
         static Sim.SwitchOutfitHelper sOwHelper;
         static ObjectGuid sOwWait = ObjectGuid.InvalidObjectGuid, sOwAbort = ObjectGuid.InvalidObjectGuid;
+        // docs/224 §5, the cleared cause: calls that reset a Sim's pending outfit while its active helper is started, not
+        // ready and not aborted. Switch on only; logged with the callers. [2008] instant switches
+        // (SwitchToOutfitWithoutSpin with an outfit), [2009] delayed swaps completed by another path (DoOutfitDelayedSwap;
+        // the helper's own ChangeOutfit runs it only after Ready, so it is not counted).
+        public class OutfitClearHook
+        {
+            public void InstantHook(OutfitCategories category, SimOutfit outfit, int index)
+            {
+                ClearSeen((Sim)(object)this, 2008, "instant switch to " + category);
+                InstantOrig(category, outfit, index);
+            }
+            public void InstantOrig(OutfitCategories category, SimOutfit outfit, int index) { } // receives EA's original header
+            public void DoneHook()
+            {
+                ClearSeen((Sim)(object)this, 2009, "delayed swap completed by another path");
+                DoneOrig();
+            }
+            public void DoneOrig() { } // receives EA's original header
+        }
+
+        static void ClearSeen(Sim sim, int slot, string what)
+        {
+            if (sSimActiveSoh == null || sSohStarted == null || sSohReady == null || !ShortcutOn("outfitwaitpoll")) return;
+            object h = sSimActiveSoh.GetValue(sim);
+            if (h == null || !(bool)sSohStarted.GetValue(h) || (bool)sSohReady.GetValue(h) || (sSohAborted != null && (bool)sSohAborted.GetValue(h))) return;
+            PatchCounters()[slot]++;
+            string line = "outfitwaitpoll: " + (sim.SimDescription != null ? sim.SimDescription.FullName : "?") + " " + what + " while its helper waits for "
+                + (sSohCategory != null ? sSohCategory.GetValue(h) : "?") + "; pending was " + PendingText(sim) + ", Sim doing "
+                + (sim.CurrentInteraction != null ? sim.CurrentInteraction.GetType().Name : "nothing") + ", by " + Callers();
+            ShortcutLog(line);
+            if (sOwLines.Count < 20) sOwLines.Add(line);
+        }
+
+        static string PendingText(Sim sim)
+        {
+            object pi = sSimPending != null ? sSimPending.GetValue(sim) : null;
+            if (pi == null) return "?";
+            FieldInfo c = pi.GetType().GetField("Category", kInstAll | BindingFlags.Public), i = pi.GetType().GetField("Index", kInstAll | BindingFlags.Public);
+            return (c != null ? c.GetValue(pi) : "?") + "/" + (i != null ? i.GetValue(pi) : "?");
+        }
+
         static bool sOwReplReady; // the replace check's second swap called back
         static string sOwAbortSaw, sOwWaitEnd; // sOwWaitEnd null = task 1 still in Wait (GetProxy is null for a script Task)
         static readonly List<string> sOwLines = new List<string>(); // first 20 stale-wait lines this session (check "log")
@@ -138,6 +179,8 @@ namespace Ts3Fixes
         //            callback) instead of the abort, as SimBuilderTask.FinishModelLoad, BuffTransformation and
         //            Sim.SwitchToOutfitWithHiding do without aborting the active helper (docs/224 §5). "state" then says which
         //            ready callbacks ran. "start control": as "start" with no task 2 (the swap should be ready in seconds).
+        //   "start clear": as "start", but task 2 switches the Sim to a third category at once (SwitchToOutfitWithoutSpin with
+        //            an outfit), which resets the pending outfit without the helper: the "cleared" stale cause (docs/224 §5).
         //   "state": what task 2 saw, the helper's flags, whether task 1 still runs (else how its Wait ended), counters [680-682].
         //   "log":   the first 20 stale-wait lines of the session (Sim, aborted flag, waiting task).
         //   "ready": sets mReady, as a late Ready callback would; on, task 1 returns within a sim-minute; off, within a tick.
@@ -148,6 +191,7 @@ namespace Ts3Fixes
             {
                 case "start":
                 case "start replace":
+                case "start clear":
                 case "start control":
                 {
                     if (sOwHelper != null) return "a test wait exists; stop first";
@@ -167,7 +211,7 @@ namespace Ts3Fixes
                     OutfitCategories third = OutfitCategories.None;
                     foreach (OutfitCategories k in kinds)
                         if (k != cur && k != pick && sim.SimDescription.GetOutfitCount(k) > 0) { third = k; break; }
-                    if (what == "start replace" && third == OutfitCategories.None) return sim.FullName + ": no third outfit category";
+                    if ((what == "start replace" || what == "start clear") && third == OutfitCategories.None) return sim.FullName + ": no third outfit category";
                     Sim.SwitchOutfitHelper helper = sOwHelper = new Sim.SwitchOutfitHelper(sim, pick, 0);
                     sOwAbortSaw = what == "start control" ? "none (control)" : "not run"; sOwWaitEnd = null; sOwReplReady = false;
                     sOwWait = Simulator.AddObject(new LoopTask(delegate
@@ -189,10 +233,16 @@ namespace Ts3Fixes
                                 sOwAbortSaw = "second swap to " + third + " started " + ok + " (helper not aborted)";
                                 return;
                             }
+                            if (what == "start clear")
+                            {
+                                simR.SwitchToOutfitWithoutSpin(third, simR.SimDescription.GetOutfit(third, 0), 0);
+                                sOwAbortSaw = "instant switch to " + third + " (helper not aborted, pending now " + PendingText(simR) + ")";
+                                return;
+                            }
                             helper.Abort();
                             sOwAbortSaw = "aborted in the loop";
                         }));
-                    return sim.FullName + ": waiting for " + pick + " (wearing " + cur + ")" + (what == "start replace" ? ", second swap " + third : "") + ", switch " + ShortcutOn("outfitwaitpoll");
+                    return sim.FullName + ": waiting for " + pick + " (wearing " + cur + ")" + (what == "start replace" ? ", second swap " + third : what == "start clear" ? ", instant switch " + third : "") + ", switch " + ShortcutOn("outfitwaitpoll");
                 }
                 case "state":
                 {
@@ -215,7 +265,7 @@ namespace Ts3Fixes
                     if (sOwHelper != null) sOwHelper.Abort(); // cancels a swap still pending (the replace check's second one too)
                     sOwHelper = null;
                     return "stopped";
-                default: return "unknown check " + what + " (start, start replace, start control, state, log, ready, stop)";
+                default: return "unknown check " + what + " (start, start replace, start clear, start control, state, log, ready, stop)";
             }
         }
     }
