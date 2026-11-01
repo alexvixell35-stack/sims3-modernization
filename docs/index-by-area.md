@@ -148,7 +148,7 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 
 ## Memory and saves (21)
 
-- [504-null-service](504-null-service.md): (built, not run) `nullservice` (off by default): `Services.sAllServices` is saved as it is, so a saved service whose type no longer loads comes back as a null element and every EA loop over the list throws on it (object load via `ResortStaffedObjectComponent.GetService`, `PostWorldLoadStartup`, `Services.Simulate`, which would end the services task); the `AllServices` getter drops nulls and `PostWorldLoadStartup` reads the getter first; counter 2014, ledger §903, repro `null-service-check` (queue `null-service.json`).
+- [504-null-service](504-null-service.md): (verified in game on BP and LR) `nullservice` (off by default): `Services.sAllServices` is saved as it is, so a saved service whose type no longer loads comes back as a null element and every EA loop over the list throws on it (object load via `ResortStaffedObjectComponent.GetService`, `PostWorldLoadStartup`, `Services.Simulate`, which would end the services task); the `AllServices` getter drops nulls and `PostWorldLoadStartup` reads the getter first; counter 2014, ledger §903, repro `null-service-check` (queue `null-service.json`).
 - [01-existing-fixes-comparison](01-existing-fixes-comparison.md): every known fix compared, with what each actually changes
 - [09-save-bloat-research](09-save-bloat-research.md): 09 Save bloat in long-running saves: what grows, what cleans it, what is left
 - [115-event59-invocation-cache](115-event59-invocation-cache.md): event 59 handler-list cache (`invcache`); other

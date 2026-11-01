@@ -1,7 +1,7 @@
 # 504. A null service from the save breaks every loop over `Services.AllServices` (`nullservice`)
 
-Contributor doc (range 500-599). Switch `nullservice` (ts3fixes, off by default), counter 2014, ledger §903. Status: built
-2026-11-01, repro and self-test written; game runs in §4.
+Contributor doc (range 500-599). Switch `nullservice` (ts3fixes, off by default), counter 2014, ledger §903. Status: verified in
+game 2026-11-01 on BP and LR (§4).
 
 ## 1. The bug
 
@@ -76,6 +76,25 @@ EA's code runs unchanged. [2014] counts the null elements dropped, and the first
 
 ## 4. Results
 
-Pending: `bp-null-service-check` and `lr-null-service-check`, first runs 2026-11-01.
+Queue `null-service`, 2026-11-01, build a03b824 (the same code as this branch; rows in
+`docs/data/results/2026-11-01-queue-null-service.md`) **[verified]**:
+
+| job | save | switch off: the reader | switch on: the reader | `nullservice_dropped` | result |
+|---|---|---|---|---|---|
+| `bp-null-service-check` | Baseline-BP (31 services) | threw `NullReferenceException`, our null still in the list | returned 27 services, our null gone | 1 | PASS, 8.1 min |
+| `lr-null-service-check` | BigSave-LR, day 406 (32 services) | threw `NullReferenceException`, our null still in the list | returned 30 services, our null gone | 1 | PASS, 8.4 min |
+
+Before each step the list held 0 nulls (the shared saves hold no null service), and after each step it held 0 again.
+
+The two earlier rows of that day are setup errors, not results:
+
+- 09:10: the worktree had no `build/ts3-nointro.package`, so `cycle.ts --restart` failed before the game started.
+- 09:11: the off arm failed, because the reader returned. That player's own core mod already patches
+  `Services.get_AllServices` to drop nulls, so the getter took our null out with the switch off. The PASS rows ran with
+  that core mod moved aside and simler90's original core in, so the getter was EA's. The off step's wrong-outcome
+  message now names this case.
+
+**Not shown in game:** the object-load and `PostWorldLoadStartup` paths (§3) and I-903-3. None of the shared saves holds
+a null service.
 
 Written with Claude Code (AI help).
