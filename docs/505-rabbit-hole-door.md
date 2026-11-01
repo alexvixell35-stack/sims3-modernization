@@ -1,7 +1,7 @@
 # 505. A rabbit hole door the animation cannot open ends the Sim's entry (`rabbitholedoor`)
 
-Contributor doc (range 500-599). Switch `rabbitholedoor` (ts3fixes, off by default), counter 2015, ledger §904. Status: built
-2026-11-01, repro and self-test written; game runs in §4.
+Contributor doc (range 500-599). Switch `rabbitholedoor` (ts3fixes, off by default), counter 2015, ledger §904. Status: verified in
+game 2026-11-01 on BP (§4).
 
 ## 1. The bug
 
@@ -65,6 +65,18 @@ and door). The door stays as it is, and the caller goes on as if the animation h
 
 ## 4. Results
 
-Pending: `bp-rabbit-hole-door-check`, first run 2026-11-01.
+Queue `rabbit-hole-door`, 2026-11-01, build 8d454cb (rows in `docs/data/results/2026-11-01-queue-rabbit-hole-door.md`),
+`bp-rabbit-hole-door-check` **PASS** in 8.1 min **[verified]**:
+
+- **Switch off:** of the 29 rabbit holes on Baseline-BP, the check tried 78 slot doors with count 0. Only one open threw
+  `SacsErrorException` at the caller: `SchoolRabbitHole` on Public School 67, `Door2`. That is the door of both live reports.
+  The other 77 opened and closed without an error.
+- **Switch on:** open and close of that door both returned, the count went 0, 1, 0, and `rabbitholedoor_skipped` was 2. So
+  the `Closed` request fails on that door too.
+- The applied log listed `RabbitHole.AnimateDoorOpen: ok` and `RabbitHole.AnimateDoorClose: ok`.
+- The run used simler90's original core: that player's own core mod already catches this error, so the off step would not
+  see it.
+
+**Not shown in game:** a Sim's real entry through that door with the switch on (§3), and I-904-3.
 
 Written with Claude Code (AI help).
