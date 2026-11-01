@@ -35,6 +35,8 @@ asker's own turn.
 - The check runs before every call with the switch off too, and counts what it would do: [2031] stuck turns seen by a
   scoring call (one stuck conversation counts once per scoring call), [2032] turns taken.
 - The check is in a try/catch: it never stops EA's scoring.
+- **Prior fixes** [verified, IL]: NRaas ErrorTrap only drops a destroyed Sim from `mWhoseTurn` (its conversation
+  dereference). No fix for a living holder that never takes the turn in the NRaas assemblies we have, and none found online.
 
 **Not ported** (mid-method, docs/506): the player's core build also let `RunAutonomy` score socials for the townie on
 its own turn when another member is local. With the hook, the local member takes the turn instead, which ends the same
@@ -78,3 +80,10 @@ joins the same two again in its own call when it finds no conversation, as the e
 **Run 8** (FAIL in the on arm's control step): the off arm passed (rejoined in the step, seen +1, taken +0, the turn
 stayed with the holder). `expect control` saw the turn as stuck: in a conversation the repro joins, the holder is busy
 with a non-social interaction, which the hook counts as stuck by design. The control step is out of the repro.
+
+**Run 9** (2026-11-01, Baseline-BP, PASS in 8.7 min). Off: `pick` and `expect stuck` each found the conversation
+ended and joined the two again in the same call; seen +1, taken +0, the turn stayed with the holder (Lala). On: the
+conversation held; seen +1, taken +1, the turn is the asker's (Tiara). The `state` step right after: turn Tiara, 33.0
+sim minutes since the last social (20 backdated plus about 13 that passed), so no social followed within that time; both
+Sims were busy with other interactions. Ledger I-907-2: the turn moving to the asker is verified; that EA then scores and
+the conversation goes on is not shown yet.
