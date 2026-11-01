@@ -46511,5 +46511,53 @@
         "note": "clear: helper aborted; the Sim keeps the third outfit"
       }
     ]
+  },
+  {
+    "id": "outfit-wait-view-log",
+    "bug": "issue #115, natural stale outfit waits (docs/224 §5): the swap keeps its callback but is not reported ready; does it need the Sim in view?",
+    "fix": "diagnostic only: ts3fixes OutfitWait.cs, outfitwaitpoll (default off) logs on screen / far from the camera / on the active lot at the stale point and the end, counters 2012-2013",
+    "save": "BigSave-LR",
+    "note": "Natural play with the switch on all run; the counters and the first stale and end lines are read at about 5 and 11 min (the job's profile files keep no fixes counters without --ab, 2026-11-01).",
+    "expect": "If the native swap needs the Sim in view: few stale waits on screen when they go stale, and most that end are on screen (or near the camera) when they end. If not: the end lines show Sims off screen and far from the camera.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "counts"
+          ]
+        },
+        "note": "counts at about 5 min",
+        "waitS": 360
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "counts"
+          ]
+        },
+        "note": "counts at about 11 min"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "log"
+          ]
+        },
+        "note": "the first stale and end lines (on screen, far from camera, on active lot)"
+      }
+    ]
   }
 ]

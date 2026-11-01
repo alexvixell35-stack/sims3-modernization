@@ -339,6 +339,13 @@ namespace Ts3Fixes
                 }
                 case "log":
                     return sOwLines.Count + " stale-wait lines: " + string.Join(" | ", sOwLines.ToArray());
+                case "counts": // no start needed (repro outfit-wait-view-log)
+                {
+                    int[] c = PatchCounters();
+                    return "switch " + ShortcutOn("outfitwaitpoll") + "; stale " + c[680] + ", minute polls " + c[681] + ", ended " + c[682]
+                        + "; causes own " + c[2003] + ", replaced " + c[2004] + ", cleared " + c[2005] + "; callbacks dropped " + c[2010]
+                        + ", stale with a dropped callback " + c[2011] + "; on screen when stale " + c[2012] + ", on screen when ended " + c[2013];
+                }
                 case "ready":
                     if (sOwHelper == null) return "start first";
                     sSohReady.SetValue(sOwHelper, true);
