@@ -181,7 +181,7 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [172-natural2-hang](172-natural2-hang.md): bp-natural-2 hang (2026-10-22, heartbeat frozen)
 - [173-crash-567121](173-crash-567121.md): Crash at 0x00567121: SequenceController drains its node list (2026-10-22, bp-profcost-on-2)
 - [186-apex-draw-crash](186-apex-draw-crash.md): Apex Radiance draw-pass crashes during a lot-streaming camera pan (2026-10-24)
-- [511-jazz-param-posture](511-jazz-param-posture.md): (issue #166 build 21, built, self-tested, not run) `jazzparam` (off by default): `Sim.UpdateJazzParameter` reads the posture's state machine without checking for a posture, so a Sim with none throws out of `BuffEnjoyingMusic`'s add or remove; the hook catches that one exception. Counters 2035-2036, ledger §909, repro `jazz-param-check` (queue `jazz-param.json`, original core mod).
+- [511-jazz-param-posture](511-jazz-param-posture.md): (issue #166 build 21, verified 2026-11-01 on Baseline-BP) `jazzparam` (off by default): `Sim.UpdateJazzParameter` reads the posture's state machine without checking for a posture, so a Sim with none throws out of `BuffEnjoyingMusic`'s add or remove; the hook catches that one exception. Counters 2035-2036, ledger §909, repro `jazz-param-check` (queue `jazz-param.json`, original core mod).
 - [67-crash-triage](67-crash-triage.md): crash triage
 
 ## Hitches and the main thread (17)

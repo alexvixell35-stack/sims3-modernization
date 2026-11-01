@@ -40,4 +40,7 @@ any exception while the Sim has a posture, passes.
 
 ## 4. Results
 
-Not run yet.
+**Run 1** (2026-11-01, Baseline-BP, `bp-jazz-param-check` PASS in 8.9 min, original core mod) **[verified, log]**:
+on Tiara Angelista, `expect thrown` (off): EA's `NullReferenceException`, seen +1, caught +0. `expect control` (on,
+posture in place): no exception, nothing counted. `expect caught` (on): no exception, seen +1, caught +1. The posture
+was back after each step.

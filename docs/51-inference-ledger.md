@@ -5385,8 +5385,8 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 
 | ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
 |----|-----|-------|----------|-----------|----------|---------|---------|
-| I-909-1 | 511 §1 | UpdateJazzParameter throws NullReferenceException for a Sim with no posture | IL: the posture half has no check; the report's exception | `jazz-param-check` off arm | expect thrown passes | no exception with the posture away | open |
-| I-909-2 | 511 §2 | Catching it changes nothing else: the interaction half already ran | IL order of the two halves | `jazz-param-check` on arm | expect caught and expect control pass | either throws | open |
+| I-909-1 | 511 §1 | UpdateJazzParameter throws NullReferenceException for a Sim with no posture | IL: the posture half has no check; the report's exception | `jazz-param-check` off arm | expect thrown passes | no exception with the posture away | verified: `jazz-param-check` run 1 PASS (2026-11-01, docs/511 §4) |
+| I-909-2 | 511 §2 | Catching it changes nothing else: the interaction half already ran | IL order of the two halves | `jazz-param-check` on arm | expect caught and expect control pass | either throws | verified: `jazz-param-check` run 1 PASS (2026-11-01, docs/511 §4) |
 
 ## 901. Issue #101: the career uniform backup is uncached again and again, `uniformbackup` (2026-10-31, docs/502; static + self-test; the bug sequence and a player-side script patch ran live)
 
