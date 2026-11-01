@@ -46620,5 +46620,82 @@
         }
       }
     ]
+  },
+  {
+    "id": "null-service-check",
+    "bug": "docs/504: Services.sAllServices is [PersistableStatic]; a saved service whose type no longer loads comes back as a null element, and every EA loop over the list dereferences it (ResortStaffedObjectComponent.GetService at object load, Services.PostWorldLoadStartup, Services.Simulate)",
+    "fix": "ts3fixes NullService.cs: nullservice (default off), docs/504",
+    "save": "Baseline-BP",
+    "note": "The check builds the bug state for one call only: it adds a null to Services.sAllServices, runs an EA reader of the getter (TownieMaker.GetModifiableServices, read-only) and takes the null out again before returning, so nothing else in the session sees it. \"broken\" and \"fixed\" throw on the wrong outcome, which fails the step.",
+    "expect": "off: the reader threw NullReferenceException; on: the reader returned, nullservice_dropped 1; the applied log lists Services.get_AllServices and Services.PostWorldLoadStartup: ok",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "nullservice": false
+        },
+        "note": "applied log lists Services.get_AllServices, Services.PostWorldLoadStartup: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NullServiceCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: switch False, entries, 0 null (the test saves hold no null service)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NullServiceCheck",
+          "args": [
+            "broken"
+          ]
+        },
+        "note": "off: the reader threw NullReferenceException (the step throws otherwise)"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "nullservice": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NullServiceCheck",
+          "args": [
+            "fixed"
+          ]
+        },
+        "note": "on: the reader returned, our null gone (the step throws otherwise)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NullServiceCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: 0 null, dropped so far 1"
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "counters: nullservice_dropped 1"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "nullservice": false
+        }
+      }
+    ]
   }
 ]
