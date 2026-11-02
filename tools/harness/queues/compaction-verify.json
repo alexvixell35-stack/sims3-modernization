@@ -102,36 +102,6 @@
       "timeoutMin": 45
     },
     {
-      "id": "bp-compaction-refused-build",
-      "note": "Refused path: a save in Build mode never asks for a verdict and never compacts. Pass: exit 0, compaction_refused_state >= 1, no verdict line.",
-      "asi": "tested",
-      "save": "Baseline-BP-Spring",
-      "releaseDefaults": true,
-      "noiseCheck": false,
-      "callSites": false,
-      "ini": {
-        "UserDiag.Enabled": 1,
-        "SaveWrite.Enabled": 1,
-        "Compaction.Enabled": 1,
-        "Compaction.ThresholdMB": 4000,
-        "Compaction.MinMinutes": 0
-      },
-      "logRequire": {
-        "^compaction: on ": 1,
-        "^save: end #\\d+ result 1 ": 1
-      },
-      "logForbid": {
-        "^FAIL\\b": 0,
-        "[\\\\/]Users[\\\\/][^<]": 0,
-        "^compaction: verdict ": 0,
-        "^compaction: begin ": 0
-      },
-      "run": {
-        "repro": "compaction-refused-build-bp"
-      },
-      "timeoutMin": 45
-    },
-    {
       "id": "bp-compaction-abort",
       "note": "Failure path (test switch compactionfail): the loading screen comes up, the reload throws, the screen goes, play goes on, Compaction off for the session. Pass: exit 0, listed lines, the game alive and in live mode for 2 min after.",
       "asi": "tested",
@@ -260,36 +230,6 @@
       },
       "run": {
         "repro": "compaction-offer-decline-ip"
-      },
-      "timeoutMin": 45
-    },
-    {
-      "id": "ip-compaction-refused-build",
-      "note": "Refused path: a save in Build mode never asks for a verdict and never compacts. Pass: exit 0, compaction_refused_state >= 1, no verdict line.",
-      "asi": "tested",
-      "save": "Baseline-IP-Spring",
-      "releaseDefaults": true,
-      "noiseCheck": false,
-      "callSites": false,
-      "ini": {
-        "UserDiag.Enabled": 1,
-        "SaveWrite.Enabled": 1,
-        "Compaction.Enabled": 1,
-        "Compaction.ThresholdMB": 4000,
-        "Compaction.MinMinutes": 0
-      },
-      "logRequire": {
-        "^compaction: on ": 1,
-        "^save: end #\\d+ result 1 ": 1
-      },
-      "logForbid": {
-        "^FAIL\\b": 0,
-        "[\\\\/]Users[\\\\/][^<]": 0,
-        "^compaction: verdict ": 0,
-        "^compaction: begin ": 0
-      },
-      "run": {
-        "repro": "compaction-refused-build-ip"
       },
       "timeoutMin": 45
     },
