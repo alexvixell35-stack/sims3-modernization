@@ -106,10 +106,14 @@ namespace Ts3Agent
                                    + args.Count + " convertible argument(s)" + (last != null ? ": " + last.Message : ""));
         }
 
-        // method_touch path="Sims3.Gameplay.Actors.Sim.DoOneRoundOfRemoteChat": asks the runtime for the compiled entry of every overload
-        // of that name (RuntimeMethodHandle.GetFunctionPointer, then RuntimeHelpers.PrepareMethod), which runs Mono's IL transform for a
-        // method the game has not executed yet, without executing it. docs/526 §5: the [IlPatch] smoke uses it so every armed fix's
-        // method is transformed in the session (b89's Fixup runs at the load anyway; b80's chat and b87's opportunity would not).
+        // method_touch path="Sims3.Gameplay.Actors.Sim.DoOneRoundOfRemoteChat": runs Mono's IL transform for every overload of that
+        // name in a session that would not call it (docs/526 §5: the [IlPatch] smoke, for b80's chat and b87's opportunity). Mono
+        // transforms a method before its first instruction runs, so one call is enough: each overload is invoked once on the sim
+        // thread (RunAsync) with an uninitialized receiver (FormatterServices.GetUninitializedObject, or the object the path names;
+        // null for a static method) and default arguments (null, zeroed value types), inside try/catch: the body then throws at
+        // its first dereference or returns, and the transform has happened. RuntimeMethodHandle.GetFunctionPointer is no option on
+        // this Mono: it hits an assert (int 3 at 0x58D9B6, then a call to address 0: bp-ilpatch-smoke 2026-11-02 08:52 crashed).
+        // The outcome is an async_log line "touched <path>: <method>: <exception type> | ..." (plus RunAsync's "touch <path> -> ok").
         static object MethodTouch(Args a)
         {
             string path = a.Str("path");
@@ -119,21 +123,44 @@ namespace Ts3Agent
             Type ownerType;
             ResolveOwner(path.Substring(0, dot), out owner, out ownerType);
             string name = path.Substring(dot + 1);
-            List<object> touched = new List<object>();
+            List<MethodInfo> methods = new List<MethodInfo>();
             foreach (MethodInfo mi in ownerType.GetMethods(kAny))
+                if (mi.Name == name && !mi.IsAbstract && !mi.ContainsGenericParameters) methods.Add(mi);
+            if (methods.Count == 0) throw new McpException("no method " + name + " on " + ownerType.FullName);
+            RunAsync("touch " + path, delegate
             {
-                if (mi.Name != name || mi.IsAbstract || mi.ContainsGenericParameters) continue;
-                Dictionary<string, object> r = Util.Obj();
-                r["method"] = mi.DeclaringType.FullName + "::" + mi.ToString();
-                try { r["entry"] = "0x" + mi.MethodHandle.GetFunctionPointer().ToInt64().ToString("X"); }
-                catch (Exception e) { r["entry_error"] = e.GetType().Name + ": " + e.Message; }
-                try { System.Runtime.CompilerServices.RuntimeHelpers.PrepareMethod(mi.MethodHandle); r["prepared"] = true; }
-                catch (Exception e) { r["prepare_error"] = e.GetType().Name + ": " + e.Message; }
-                touched.Add(r);
-            }
-            if (touched.Count == 0) throw new McpException("no method " + name + " on " + ownerType.FullName);
+                List<string> outcomes = new List<string>();
+                foreach (MethodInfo mi in methods)
+                {
+                    string what = mi.DeclaringType.Name + "::" + mi.ToString();
+                    try
+                    {
+                        object recv = mi.IsStatic ? null : owner;
+                        if (recv == null && !mi.IsStatic)
+                            recv = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(mi.DeclaringType);
+                        ParameterInfo[] ps = mi.GetParameters();
+                        object[] args = new object[ps.Length];
+                        for (int i = 0; i < ps.Length; i++)
+                        {
+                            Type t = ps[i].ParameterType;
+                            if (t.IsByRef) t = t.GetElementType();
+                            args[i] = t.IsValueType ? Activator.CreateInstance(t) : null;
+                        }
+                        mi.Invoke(recv, args);
+                        outcomes.Add(what + ": returned");
+                    }
+                    catch (TargetInvocationException e) { outcomes.Add(what + ": " + (e.InnerException ?? e).GetType().Name); }
+                    catch (Exception e) { outcomes.Add(what + ": not invoked, " + e.GetType().Name + ": " + e.Message); }
+                }
+                lock (sAsyncLog)
+                {
+                    sAsyncLog.Add(Sims3.Gameplay.Utilities.SimClock.CurrentTime().ToString() + " touched " + path + ": " + string.Join(" | ", outcomes.ToArray()));
+                    if (sAsyncLog.Count > 30) sAsyncLog.RemoveAt(0);
+                }
+            });
             Dictionary<string, object> res = Util.Obj();
-            res["touched"] = touched;
+            res["queued"] = methods.Count;
+            res["result"] = "async_log line 'touched " + path + ": ...' when the sim thread has run it";
             return res;
         }
 
