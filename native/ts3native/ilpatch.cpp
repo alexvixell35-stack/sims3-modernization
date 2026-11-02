@@ -237,6 +237,22 @@ static void IlpApply(const BYTE* code, DWORD n, WORD maxStack, const DWORD* cl, 
 }
 
 // ---- the detour ----
+// True when the class k is spec class cls ("Outer+Inner" for a nested type) in namespace ns. Mono gives a nested class its
+// own name only (name_space ""), the enclosing class is nested_in (+0x2C, the field before image +0x30 and name +0x34 in
+// this Mono's MonoClass); the namespace is the outermost class's. Until 2026-11-02 the compare was name and name_space
+// only, so no nested-type fix ever applied (smoke 22: b17-2/3, b64, b68-apple, b72, b76, b77, b81 touched, none applied).
+static bool IlpClassIs(const BYTE* k, const char* cls, const char* ns) {
+    const char* end = cls + strlen(cls);
+    for (int depth = 0; k && depth < 8; depth++) {
+        const char* plus = NULL; for (const char* p = cls; p < end; p++) if (*p == '+') plus = p;
+        const char* seg = plus ? plus + 1 : cls; const size_t segLen = (size_t)(end - seg);
+        const char* cn = *(const char* const*)(k + 0x34);
+        if (!cn || strncmp(cn, seg, segLen) || cn[segLen]) return false;
+        if (!plus) { const char* kns = *(const char* const*)(k + 0x38); return !strcmp(kns ? kns : "", ns); }
+        end = plus; k = *(const BYTE* const*)(k + 0x2C);
+    }
+    return false;
+}
 static int IlpMatch(BYTE* rm) {  // the armed spec whose names are this runtime method's, or -1 (the same reads as monohost's JitMethodName)
     __try {
         const BYTE* mm = *(BYTE* const*)(rm + 8);
@@ -245,8 +261,7 @@ static int IlpMatch(BYTE* rm) {  // the armed spec whose names are this runtime 
         if (!k || !mn) return -1;
         for (int i = 0; i < kIlpSpecN; i++) {
             if (!g_ilpArmed[i] || strcmp(mn, kIlpSpecs[i].name)) continue;
-            const char* cn = *(const char* const*)(k + 0x34), *ns = *(const char* const*)(k + 0x38);
-            if (cn && !strcmp(cn, kIlpSpecs[i].cls) && !strcmp(ns ? ns : "", kIlpSpecs[i].ns)) return i;
+            if (IlpClassIs(k, kIlpSpecs[i].cls, kIlpSpecs[i].ns)) return i;
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
     return -1;

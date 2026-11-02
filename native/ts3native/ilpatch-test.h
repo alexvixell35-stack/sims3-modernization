@@ -133,10 +133,19 @@ static void TestIlPatch() {
         bool faulted = false;
         __try { IlpTransformPatched(0, rm, (void*)1, (BYTE*)g_ilpTestHdr, false); } __except (EXCEPTION_EXECUTE_HANDLER) { faulted = true; }
         assert(faulted && g_ilpTestSeen.calls == 2 && g_ilpTestHdr[0] == 6 && g_ilpTestHdr[1] == (DWORD)(uintptr_t)body && g_ilpTestClauses[1] == 3 && ts3native_counters.ilpReused == reused0);
-        // the whole detour on a runtime method named as spec 2 (SimDescription.Fixup) whose body no build matches: hash skip, EA's transform runs
-        BYTE mm[0x40] = {0}, klass[0x40] = {0};
+        // the whole detour on a runtime method named as spec 2 whose body no build matches: hash skip, EA's transform runs. The
+        // class is faked as Mono has it: a nested class carries its inner name and no namespace, the outer class is nested_in.
+        BYTE mm[0x40] = {0}, klass[0x40] = {0}, outer[0x40] = {0};
         *(BYTE**)(rm + 8) = mm; *(BYTE**)(mm + 8) = klass;
-        *(const char**)(mm + 0x18) = kIlpSpecs[2].name; *(const char**)(klass + 0x34) = kIlpSpecs[2].cls; *(const char**)(klass + 0x38) = kIlpSpecs[2].ns;
+        const char* plus = strrchr(kIlpSpecs[2].cls, '+');
+        static char outerName[128]; static const char* emptyNs = "";
+        if (plus) {
+            strncpy_s(outerName, kIlpSpecs[2].cls, (size_t)(plus - kIlpSpecs[2].cls));
+            *(const char**)(klass + 0x34) = plus + 1; *(const char**)(klass + 0x38) = emptyNs; *(BYTE**)(klass + 0x2C) = outer;
+            *(const char**)(outer + 0x34) = outerName; *(const char**)(outer + 0x38) = kIlpSpecs[2].ns;
+        } else { *(const char**)(klass + 0x34) = kIlpSpecs[2].cls; *(const char**)(klass + 0x38) = kIlpSpecs[2].ns; }
+        *(const char**)(mm + 0x18) = kIlpSpecs[2].name;
+        assert(IlpClassIs(klass, kIlpSpecs[2].cls, kIlpSpecs[2].ns) && !IlpClassIs(klass, "Other", kIlpSpecs[2].ns) && !IlpClassIs(klass, kIlpSpecs[2].cls, "Other"));
         const bool armed0 = g_ilpArmed[2]; const LONG logged0 = g_ilpLogged[2], skip0 = ts3native_counters.ilpSkipHash;
         g_ilpArmed[2] = true; g_ilpLogged[2] = 0;
         g_ilpTestSeen.calls = 0;
