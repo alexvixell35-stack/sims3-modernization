@@ -42213,7 +42213,8 @@
       {
         "cmd": "patches",
         "show": "compaction_",
-        "note": "compaction_* counters into the job log"
+        "note": "compaction_* counters into the job log Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       }
     ]
   },
@@ -42256,7 +42257,8 @@
       {
         "cmd": "patches",
         "show": "compaction_",
-        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       },
       {
         "cmd": "time",
@@ -42397,7 +42399,8 @@
       {
         "cmd": "patches",
         "show": "compaction_",
-        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       },
       {
         "cmd": "time",
@@ -42526,7 +42529,8 @@
       {
         "cmd": "patches",
         "show": "compaction_",
-        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       },
       {
         "cmd": "time",
@@ -42603,7 +42607,8 @@
       {
         "cmd": "patches",
         "show": "compaction_",
-        "note": "compaction_* counters into the job log"
+        "note": "compaction_* counters into the job log Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       }
     ]
   },
@@ -42725,7 +42730,8 @@
       {
         "cmd": "patches",
         "show": "compaction_",
-        "note": "compaction_* counters into the job log"
+        "note": "compaction_* counters into the job log Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       }
     ]
   },
@@ -42768,7 +42774,8 @@
       {
         "cmd": "patches",
         "show": "compaction_",
-        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       },
       {
         "cmd": "time",
@@ -42909,7 +42916,8 @@
       {
         "cmd": "patches",
         "show": "compaction_",
-        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       },
       {
         "cmd": "time",
@@ -43038,7 +43046,8 @@
       {
         "cmd": "patches",
         "show": "compaction_",
-        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       },
       {
         "cmd": "time",
@@ -43115,7 +43124,8 @@
       {
         "cmd": "patches",
         "show": "compaction_",
-        "note": "compaction_* counters into the job log"
+        "note": "compaction_* counters into the job log Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       }
     ]
   },
@@ -43151,7 +43161,8 @@
       {
         "cmd": "patches",
         "show": "compaction_",
-        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       },
       {
         "cmd": "time",
