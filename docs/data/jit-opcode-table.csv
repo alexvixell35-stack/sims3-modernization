@@ -14,7 +14,7 @@ opcode,name,class,reason,ms_s_behind,methods,test_cases
 0x0EE,con.boxcallvirt,hand,call+alloc+throw,0.461,2,1
 0x0F7,isinst,hand,call,0.423,6,5
 0x07E,stloc.r4,generatable,,0.420,2,1
-0x069,ldsfld.vt,hand,call+throw,0.349,2,1
+0x069,ldsfld.vt,covered,,0.349,2,1
 0x068,ldsfld.o,covered,,0.303,4,2
 0x037,stinarg.r4,generatable,,0.275,4,1
 0x0F9,box,hand,call+alloc+throw,0.273,1,1
@@ -48,7 +48,7 @@ opcode,name,class,reason,ms_s_behind,methods,test_cases
 0x126,mul.r8,generatable,,0.007,1,1
 0x09F,endfinally,hand,call+throw,0.004,1,2
 0x0D1,bgt.i8.s,generatable,,0.004,1,2
-0x048,ldfld.vt,hand,throw,0.002,1,2
+0x048,ldfld.vt,covered,,0.002,1,2
 0x000,nop,generatable,,0.000,0,1
 0x001,break,hand,throw,0.000,0,1
 0x002,ldnull,covered,,0.000,0,1

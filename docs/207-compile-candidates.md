@@ -818,10 +818,34 @@ whose hot path exits costs more than EA's call**; the eligibility rule (no exit 
 
 ### 15.4 Left
 
-- `ldfld.vt` / `stfld.vt` (hand rows: the field read of a struct temp), `cgt.i8` / `clt.i8` and their unsigned forms
+- `stfld.vt` (0.000 ms/s behind it, docs/data/jit-opcode-table.csv), `cgt.i8` / `clt.i8` and their unsigned forms
   (signed 64-bit compares need the two-step high / low compare), `ret.vt` in a non-lazy body.
 - The `ObjectGuid` dictionary case did not move (0.98x): its chain goes through `ObjectGuid.Equals(object)` with a box.
 - In-game: nothing; C6's plan. Ledger: docs/51 §928.
+
+### 15.5 The value-type field loads `ldfld.vt` and `ldsfld.vt` (2026-11-02, evening)
+
+Two more moves, the ones §16.3 ranked first after `call`: `ldfld.vt` (12.9 ms/s behind it, `Dictionary.GetPrev`) and
+`ldsfld.vt` (4.7 ms/s, `ObjectGuid.InvalidObjectGuid` in `GameObject.GetObject` and `ScriptObject.get_ObjectId`).
+Both are EA's handler shape with the §15.1 pieces [verified: handlers `0xE567B3`, `0xE56EAE`, tail `0xE545DB`]:
+
+| Template | EA's handler | What the template emits |
+|---|---|---|
+| `K_LDFLDVT` (`ldfld.vt`, 4 words: offset, size) | null check, the slot's object pointer becomes the cursor, `memcpy(cursor, obj + offset, size)`, cursor += align8(size) | the same; the null check is the exit (EA's handler throws), `esi` unchanged |
+| `K_LDSFLDVT` (`ldsfld.vt`, 4 words: item, size) | class resolve, class-init check, special-static check, `[esi] = cursor`, copy from the class's statics + offset, cursor += align8, `esi += 8` | the §15.1 static-field resolution (vtable, offset, special-static refusal at compile time), `classInitExit`, the copy |
+
+`stfld.vt` stays an exit: 0.000 ms/s behind it. The compiled store would also need the Satb barrier over the struct's
+bytes, which the width-coded `satb()` does not emit.
+
+Checks [measured, host, 2026-11-02 19:11, the saveslim matrix running beside them]: corpus 198 cases (one new,
+`JitKTF`: a class with a 12-byte and a 20-byte struct field, a static struct with a `.cctor`, a null receiver), 0
+differ on lazy on and off; per-call verify 31,728 ok, 0 mismatch, 1,519 abandoned. Count mode, lazy: `ldfld.vt` exits
+12,086 -> 0 (the 3 left are `JitKTF.Null(null)`'s designed null exits), `ldsfld.vt` 11 -> 0. `tools/jit-hot.ts` rerun
+on that count log: `GetPrev`'s next exit is `callvirt` (0.2 per execution), `GetObject`'s `call` (0.6), `get_ObjectId`'s
+`callvirt` (0.3): the three rows stay "template first", none passes the 0.1 exits-per-execution bar yet, so the compile
+list is unchanged (10 methods, 26 ms/s; 22 held back). The held-back totals move to `call` 39.2 ms/s in 10 methods and
+`callvirt` 21.9 in 5 (§16.3 had 36.2 / 9 and 7.3 / 3). `docs/data/jit-opcode-table.csv`: `0x048` and `0x069` move from `hand` to `covered`
+(191 covered). Ledger I-928-6.
 
 ### 9.2 The fixtures run: 17 of 17 accessors compiled, 0 differ (2026-11-02, round 10 C5)
 
@@ -923,9 +947,9 @@ and `Vector3..ctor` 1.0 (both new).
 | Top exit | ms/s held | Methods | What it is |
 |---|---:|---:|---|
 | `call` | 36.2 | 9 | a callee the compiler does not enter: runtime internal calls (`Enum.Equals` 9.8, `Type.GetTypeFromHandle` 2.8, `Enum.GetHashCode` 1.4: §5's helpers inside self time), BCL callees not on the list (`Enumerator.MoveNext` / `get_Current` 11.2 together, `Array.Resize` 4.8), and the accessors' callees (`ElapsedTimeInMinutes` 9 exits per execution, `GetActorsOfType` 11) |
-| `ldfld.vt` | 12.9 | 1 | `Dictionary.GetPrev`: the struct field read, a hand row (§15.4) |
+| `ldfld.vt` | 12.9 | 1 | `Dictionary.GetPrev`: the struct field read, a hand row (§15.4). Templated the same evening (§15.5): the next exit is `callvirt`, 0.2 per execution |
 | `callvirt` | 7.3 | 3 | `GameObject.GetComponent` 4.5 (5 per execution), `get_LotCurrent`, and an unguarded site |
-| `ldsfld.vt` | 4.7 | 2 | `GameObject.GetObject`, `ScriptObject.get_ObjectId`: `ObjectGuid.InvalidObjectGuid` |
+| `ldsfld.vt` | 4.7 | 2 | `GameObject.GetObject`, `ScriptObject.get_ObjectId`: `ObjectGuid.InvalidObjectGuid`. Templated (§15.5): the next exits are `call` 0.6 and `callvirt` 0.3 per execution |
 | `initobj` | 4.6 | 1 | `Dictionary.TryGetValue`'s `default(TValue)` |
 | `isinst` | 3.7 | 1 | `InteractionObjectPair.Equals` |
 | `con.callvirt`, `newobj`, `con.call`, `shr.un.i8`, `ldarg.r4` | 9.7 | 5 | one method each (`DefaultComparer.Equals`, `List.GetEnumerator`, `IEquatableOfTEqualityComparer.GetHashCode`, `UInt64.GetHashCode`, `Single.IsNaN`) |

@@ -161,7 +161,7 @@ enum JitKind : u8 {
     K_BIN, K_BIN8, K_MUL, K_INC, K_DEC, K_SHIFT, K_UN, K_CMP, K_CEQ0, K_CONV,
     K_LDSFLD, K_LDSFLDA, K_STSFLD, K_STELEM, K_STELEMREF, K_STOBJ, K_LDFLDA, K_CKNULL, K_STRLEN, K_GETCHR,  // round 10 C2
     K_DIVUN, K_REMR8, K_SWITCH,  // round 10 C2, the throw-only handlers, rem.r8 and switch
-    K_LDVT, K_STVT, K_STINARGVT, K_DUPVT, K_VTRESULT, K_CEQ8  // round 10 C1, the value-type moves and ceq.i8 (docs/207 §15)
+    K_LDVT, K_STVT, K_STINARGVT, K_DUPVT, K_VTRESULT, K_CEQ8, K_LDFLDVT, K_LDSFLDVT  // round 10 C1, the value-type moves and ceq.i8 (docs/207 §15)
 };
 // width: 1 = i1, 2 = u1, 3 = i2, 4 = u2, 5 = 32-bit, 6 = 64-bit, 7 = r4 (x87), 8 = typed by the field or class at compile
 // time (JitTypeWidth); x = kind-specific byte (cc, alu op, imm)
@@ -199,7 +199,7 @@ static const struct { const char* name; u8 kind, width; int x; } kJitTmpl[] = {
     {"stinarg.i4", K_STINARG, 5, 0}, {"stinarg.o", K_STINARG, 5, 0}, {"stinarg.p", K_STINARG, 5, 0}, {"stinarg.i8", K_STINARG, 6, 0},
     // round 10 C1: the value-type moves; x = 0 an argument (ebx), 1 a local (edi)
     {"ldarg.vt", K_LDVT, 0, 0}, {"ldloc.vt", K_LDVT, 0, 1}, {"starg.vt", K_STVT, 0, 0}, {"stloc.vt", K_STVT, 0, 1},
-    {"stinarg.vt", K_STINARGVT, 0, 0}, {"dup.vt", K_DUPVT, 0, 0}, {"vtresult", K_VTRESULT, 0, 0},
+    {"stinarg.vt", K_STINARGVT, 0, 0}, {"dup.vt", K_DUPVT, 0, 0}, {"vtresult", K_VTRESULT, 0, 0}, {"ldfld.vt", K_LDFLDVT, 0, 0}, {"ldsfld.vt", K_LDSFLDVT, 9, 0},
     {"ldfld.i1", K_LDFLD, 1, 0}, {"ldfld.u1", K_LDFLD, 2, 0}, {"ldfld.i2", K_LDFLD, 3, 0}, {"ldfld.u2", K_LDFLD, 4, 0},
     {"ldfld.i4", K_LDFLD, 5, 0}, {"ldfld.o", K_LDFLD, 5, 0}, {"ldfld.p", K_LDFLD, 5, 0}, {"ldfld.i8", K_LDFLD, 6, 0},
     {"stfld.i1", K_STFLD, 1, 0}, {"stfld.u1", K_STFLD, 2, 0}, {"stfld.i2", K_STFLD, 3, 0}, {"stfld.u2", K_STFLD, 4, 0},
@@ -814,7 +814,7 @@ static void JitCompiled(u8* rm) {
             // round 10 C2: the static-field and stobj kinds resolve their item now (field, vtable, width); anything they
             // cannot carry as a constant (no domain yet, a thread static, a value type, an unknown type) compiles as an exit
             DWORD sVt = 0; int sOff = 0;
-            if (t.kind == K_LDSFLD || t.kind == K_LDSFLDA || t.kind == K_STSFLD || t.kind == K_STOBJ) {
+            if (t.kind == K_LDSFLD || t.kind == K_LDSFLDA || t.kind == K_STSFLD || t.kind == K_STOBJ || t.kind == K_LDSFLDVT) {
                 const u8* item = (const u8*)(uintptr_t)items[u16];
                 if (t.kind == K_STOBJ) w = item ? JitTypeWidth(item + 0xA0) : 0;  // MonoClass+0xA0 = byval_arg (docs/213)
                 else if (item) {
@@ -1040,6 +1040,18 @@ static void JitCompiled(u8* rm) {
                 e.op(0x8B, EDX, ESI, -16); e.rr(0x33, EAX, EAX); e.op(0x3B, EDX, ESI, -8);
                 e.b(0x0F); e.b(t.x); e.b(0xC0);  // setcc al
                 e.op(0x89, EAX, ESI, -16); e.addEsi(-8); break;
+            case K_LDFLDVT: {  // ldfld.vt (EA's 0xE567B3): null check; the slot becomes the cursor; memcpy(cursor, obj + off, size); cursor += align8
+                const DWORD sz = *(const DWORD*)(ip + 2);
+                e.op(0x8B, ECX, ESI, -8); e.rr(0x85, ECX, ECX); exitRel[0] = e.jcc(0x84);
+                VtLoad(e, EAX); e.op(0x89, EAX, ESI, -8); e.op(0x8D, ECX, ECX, u16);
+                VtCopy(e, EAX, ECX, sz); VtAdd(e, (int)((sz + 7) & ~7u)); break;
+            }
+            case K_LDSFLDVT: {  // ldsfld.vt (0xE56EAE): class-init check; [esi] = cursor; memcpy(cursor, statics + off, size); cursor += align8
+                const DWORD sz = *(const DWORD*)(ip + 2);
+                exitRel[0] = e.classInitExit(sVt);
+                e.b(0xA1); e.d(sVt + 0xC); e.op(0x8D, ECX, EAX, sOff);
+                VtLoad(e, EAX); e.op(0x89, EAX, ESI, 0); VtCopy(e, EAX, ECX, sz); VtAdd(e, (int)((sz + 7) & ~7u)); e.addEsi(8); break;
+            }
             case K_CEQ8:  // (a == b) over two 8-byte slots: xor the halves, or them, sete (EA's 0xE5803C); the low dword gets the result
                 e.op(0x8B, EAX, ESI, -16); e.op(0x33, EAX, ESI, -8); e.op(0x8B, ECX, ESI, -12); e.op(0x33, ECX, ESI, -4);
                 e.rr(0x0B, ECX, EAX); e.b(0x0F); e.b(0x94); e.b(0xC0); e.b(0x0F); e.b(0xB6); e.b(0xC0);  // or eax, ecx; sete al; movzx eax, al
@@ -1982,7 +1994,7 @@ static bool InstallJit() {
                 : t.kind == K_STELEM || t.kind == K_STELEMREF || !strcmp(t.name, "ldelem.r4") || !strcmp(t.name, "ldelem.r8") ? 4
                 : t.kind == K_STOBJ ? 8 : t.kind == K_CKNULL || t.kind == K_STRLEN || t.kind == K_GETCHR ? 16
                 : t.kind == K_DIVUN || t.kind == K_REMR8 ? 32 : t.kind == K_SWITCH ? 64
-                : t.kind == K_LDVT || t.kind == K_STVT || t.kind == K_STINARGVT || t.kind == K_DUPVT || t.kind == K_VTRESULT || t.kind == K_CEQ8 ? 128 : 0;
+                : t.kind == K_LDVT || t.kind == K_STVT || t.kind == K_STINARGVT || t.kind == K_DUPVT || t.kind == K_VTRESULT || t.kind == K_CEQ8 || t.kind == K_LDFLDVT || t.kind == K_LDSFLDVT ? 128 : 0;
             if (g & ~c2) continue;
             for (DWORD op = 0; op <= 0x1A8; op++)
                 if (!strcmp(names[op], t.name)) { g_opInfo[op] = {t.kind, t.width, t.x}; break; }
