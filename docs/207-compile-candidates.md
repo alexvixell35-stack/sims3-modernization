@@ -847,12 +847,51 @@ list is unchanged (10 methods, 26 ms/s; 22 held back). The held-back totals move
 `callvirt` 21.9 in 5 (§16.3 had 36.2 / 9 and 7.3 / 3). `docs/data/jit-opcode-table.csv`: `0x048` and `0x069` move from `hand` to `covered`
 (191 covered). Ledger I-928-6.
 
+### 15.6 `con.callvirt` on a reference type (2026-11-02, late evening)
+
+What held `GetPrev` back after §15.5 was not in `GetPrev` itself. Its guarded `callvirt` calls
+`IEquatableOfTEqualityComparer`1.Equals` / `GetHashCode`, whose bodies make a `con.callvirt` (a constrained call on `T`).
+`con.callvirt` had no template, so those bodies had no lazy form and `GetPrev`'s guard site bailed every time.
+
+EA's callvirt handler `0xE549EB` serves `con.callvirt` too [verified: disassembly]. The constrained class is word 3 and
+the method word 4 (width 5; callvirt is 4). A struct class (`0xE52160`: byval type `VALUETYPE` and not an enum, or a
+generic instance of a struct) is copied to the vt stack. Every other type goes through `stackval_from_data`
+(`0xE521A0`), which for a reference type stores `*ptr` in the receiver slot; then the common callvirt path runs.
+
+The site (lazy frames only, `EmitLazyCall`): when the class is a reference type, decided at compile time from its type
+byte (string, class, array, object, szarray, or a generic instance of a class), it is the §12 callvirt site with one
+more step: `this = *ptr` after a null check of the pointer, and the dereferenced receiver written to its slot at commit,
+as EA's handler leaves it. A null behind the pointer, a struct class and every guard miss exit to EA's handler with the
+slot untouched. The count-mode edge census covers the new sites.
+
+Checks [measured, host, 2026-11-02 23:14, the compaction verify queue running beside them]: corpus 199 cases (one new,
+`JitKCV`: `IEquatable<T>.Equals` and `Object.GetHashCode` through generic methods instantiated with a class, the class
+flipping on every call for the second, a null behind the pointer), 0 differ on lazy on and off; per-call verify 32,062
+ok (lazy) and 32,063 (no lazy), 0 mismatch. Count mode, lazy, `con.callvirt` exits by method:
+
+| Method | Before | After | What is left |
+|---|---:|---:|---|
+| `IEquatableOfTEqualityComparer`1.GetHashCode` | 18,264 | 5,996 | all at the `string` instance: `String.GetHashCode` is not compiled, so the guard has no lazy body to call |
+| `IEquatableOfTEqualityComparer`1.Equals` | 9,531 | 11 | `String.Equals`, the same |
+| `DefaultComparer.Equals` | 1,138 | 1,094 | `Object.Equals` and `Type.Equals` (not compiled) and the `UInt64` instance (a struct: stays an exit) |
+| `DefaultComparer.GetHashCode` | 49 | 18 | the same kinds |
+
+`tools/jit-hot.ts` rerun on that count log: `Dictionary`2.GetPrev` (rank 1, 12.93 ms/s) passes the rule now, 195 exits in
+134,061 executions (0.0015 per execution; it was "template first: callvirt", 0.2). The compile list grows from 10
+methods and 26 ms/s to 11 and 38.9 ms/s; held back by `callvirt` drops to 9.0 ms/s in 4 methods (21.9 in 5).
+`DefaultComparer.Equals` (2.8 ms/s) is still held by `con.callvirt`, 1.4 per execution, for the reasons in the table;
+its struct instances use `con.boxcallvirt` (`0xEE`, box then callvirt), a separate opcode. `con.callvirt` stays a `hand`
+row in `docs/data/jit-opcode-table.csv`, as `callvirt` does: both compile as lazy call sites, not P0 templates.
+Two limits: a guard bail inside a lazy body goes straight to `JitLazyMat` and is not counted per site, so the sites'
+own exit counts cover only calls into a normal body; and `String.GetHashCode` / `String.Equals` are the next callees
+to put on the list (§16.4), not a template. Ledger I-928-7.
+
 ### 9.2 The fixtures run: 17 of 17 accessors compiled, 0 differ (2026-11-02, round 10 C5)
 
 Round 10, task C5: run the B6 fixtures with the CI's `monohost.exe` and keep them as a regression set. Host only.
 
 **Regression set.** The accessor cases are the corpus's last 17 (`node tools/jit-corpus.ts --index "Acc "` prints the
-first index, 180 today). The check, from `native/monohost/out` after `build.cmd` (or with the `monohost` artifact of the
+first index: 180 at C5, 182 since §15.5 and §15.6 added a case each). The check, from `native/monohost/out` after `build.cmd` (or with the `monohost` artifact of the
 CI's `monohost` workflow copied over `monohost.exe`; `MonoHostTest.dll` is built locally, the CI has no game assemblies):
 
 ```
@@ -861,7 +900,7 @@ MONOHOST_JITCORPUS_FROM=$(node tools/jit-corpus.ts --index "Acc ") MONOHOST_JITC
 MONOHOST_JITLIST=$(node tools/jit-corpus.ts --env | sed 's/^MONOHOST_JITLIST=//') monohost.exe <TS3W.exe copy> <assemblies> selftest <hostdata>
 ```
 
-Pass = `jit corpus: 197 cases, 0 differ, 0 unstable` with `MISMATCH 0`, 17 `jit verify <accessor>` rows with `mismatch 0`,
+Pass = `jit corpus: <N> cases, 0 differ, 0 unstable` (197 at C5, 199 since §15.6) with `MISMATCH 0`, 17 `jit verify <accessor>` rows with `mismatch 0`,
 and the three trail lines below unchanged. The full corpus (no `FROM`) is the wider check; both run in 40 s.
 
 **What the first runs found.** The fixtures compile and hash equal on every arm, but the first trail run (the new
@@ -947,7 +986,7 @@ and `Vector3..ctor` 1.0 (both new).
 | Top exit | ms/s held | Methods | What it is |
 |---|---:|---:|---|
 | `call` | 36.2 | 9 | a callee the compiler does not enter: runtime internal calls (`Enum.Equals` 9.8, `Type.GetTypeFromHandle` 2.8, `Enum.GetHashCode` 1.4: §5's helpers inside self time), BCL callees not on the list (`Enumerator.MoveNext` / `get_Current` 11.2 together, `Array.Resize` 4.8), and the accessors' callees (`ElapsedTimeInMinutes` 9 exits per execution, `GetActorsOfType` 11) |
-| `ldfld.vt` | 12.9 | 1 | `Dictionary.GetPrev`: the struct field read, a hand row (§15.4). Templated the same evening (§15.5): the next exit is `callvirt`, 0.2 per execution |
+| `ldfld.vt` | 12.9 | 1 | `Dictionary.GetPrev`: the struct field read, a hand row (§15.4). Templated the same evening (§15.5): the next exit is `callvirt`, 0.2 per execution; with `con.callvirt` (§15.6) `GetPrev` passes the rule |
 | `callvirt` | 7.3 | 3 | `GameObject.GetComponent` 4.5 (5 per execution), `get_LotCurrent`, and an unguarded site |
 | `ldsfld.vt` | 4.7 | 2 | `GameObject.GetObject`, `ScriptObject.get_ObjectId`: `ObjectGuid.InvalidObjectGuid`. Templated (§15.5): the next exits are `call` 0.6 and `callvirt` 0.3 per execution |
 | `initobj` | 4.6 | 1 | `Dictionary.TryGetValue`'s `default(TValue)` |

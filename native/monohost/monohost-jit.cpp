@@ -399,6 +399,7 @@ static void __cdecl JitGuardFill(JitGuardSite* s, const u8* rm) {
     s->entry = cell->entry;
 }
 
+static bool JitConRef(const u8* k);
 // exit to EA's handler of base opcode `op` at ip (state is exactly the interpreter's: esi, frame memory)
 static void EmitExit(Em& e, const unsigned short* ip, DWORD op, bool ret) {
     if (g_jitLazyPass) {  // lazy body: write the frame first (JitLazyMat), then the same exit
@@ -412,15 +413,19 @@ static void EmitExit(Em& e, const unsigned short* ip, DWORD op, bool ret) {
         JitSite& s = g_jitSite[g_jitSiteN++];
         s.meth = g_jitMethN, s.op = (unsigned short)op, s.slow = g_jitSiteSlow != 0, s.n = 0, s.miss = 0, s.ip = ip;
         e.incAbs(&s.n);
-        if (op == 0xEC && !s.slow && g_jitSiteRm) {  // B3 edge census: receiver class != the site's inline-cache class
-            const DWORD* items = *(const DWORD* const*)(g_jitSiteRm + 0x14);
-            const u8* decl = (const u8*)(uintptr_t)items[ip[3]];
+        const DWORD* sitems = g_jitSiteRm ? *(const DWORD* const*)(g_jitSiteRm + 0x14) : NULL;
+        if ((op == 0xEC || (op == 0xED && JitConRef((const u8*)(uintptr_t)sitems[ip[3]]))) && !s.slow && g_jitSiteRm) {
+            // B3 edge census: receiver class != the site's inline-cache class (con.callvirt: the receiver is *ptr)
+            const u8* decl = (const u8*)(uintptr_t)sitems[op == 0xEC ? ip[3] : ip[4]];
             e.op(0x8B, EAX, ESI, -(decl[0x40] + 1) * 8);
             e.rr(0x85, EAX, EAX); u8* j0 = e.jcc(0x84);
+            u8* jn = NULL;
+            if (op == 0xED) { e.op(0x8B, EAX, EAX, 0); e.rr(0x85, EAX, EAX); jn = e.jcc(0x84); }
             e.op(0x8B, EAX, EAX, 0); e.op(0x8B, EAX, EAX, 0);
-            e.b(0x3B); e.b(0x05); e.d((DWORD)(uintptr_t)&items[ip[1]]); u8* j1 = e.jcc(0x84);  // cmp eax, [pair.class]
+            e.b(0x3B); e.b(0x05); e.d((DWORD)(uintptr_t)&sitems[ip[1]]); u8* j1 = e.jcc(0x84);  // cmp eax, [pair.class]
             e.incAbs(&s.miss);
             Fix(j0, e.p), Fix(j1, e.p);
+            if (jn) Fix(jn, e.p);
         }
     }
     e.b(0xBF); e.d((DWORD)(uintptr_t)ip);   // mov edi, ip
@@ -569,18 +574,35 @@ static bool JitTryInline(Em& e, const unsigned short* ip, DWORD op, const u8* ca
     g_jitInlined++;
     return true;
 }
+// con.callvirt (0xED, round 10 C1 leftovers): EA's callvirt handler 0xE549EB serves both and reads the constrained class
+// from word 3 and the method from word 4 (width 5). A struct class (0xE52160: byval type VALUETYPE and not an enum, or a
+// generic instance of a struct) is copied to the vt stack; any other type goes through stackval_from_data (0xE521A0),
+// which for a reference type stores *ptr in the receiver slot, and then the callvirt path runs. Only reference types
+// compile here (decided at compile time): the site loads this = *ptr and writes it to the slot at commit, as EA does.
+static bool JitConRef(const u8* k) {
+    if (!k) return false;
+    const u8 t = k[0xA6];  // byval_arg.type
+    if (t == 0x15) {       // GENERICINST: the container class decides (0xE52160 reads its valuetype bit)
+        const u8* gc = *(const u8* const*)(k + 0xA0);
+        const u8* cc = gc ? *(const u8* const*)(gc + 4) : NULL;
+        return cc && !(cc[0x14] & 8);
+    }
+    return t == 0x0E || t == 0x12 || t == 0x14 || t == 0x1C || t == 0x1D;  // string, class, array, object, szarray
+}
 // a lazy call site's target and kind: call (0xEA, method in word 1), con.call (0xEB: the class word is skipped and the
-// method is word 2, docs/213 §1 row 3), callvirt (0xEC, declared method in word 3) of a non-virtual method of a reference
-// type (direct) or of a virtual one (class guard on EA's inline cache, v2). A direct target must be transformed (the site
-// bakes in its frame sizes); a guarded site reads them from its JitGuardSite at run time.
+// method is word 2, docs/213 §1 row 3), callvirt (0xEC, declared method in word 3) or con.callvirt of a reference type
+// (0xED, method in word 4) of a non-virtual method of a reference type (direct) or of a virtual one (class guard on EA's
+// inline cache, v2). A direct target must be transformed (the site bakes in its frame sizes); a guarded site reads them
+// from its JitGuardSite at run time.
 static bool JitLazySite(const unsigned short* ip, DWORD op, const u8* callerRm, const u8** cOut, bool* guardOut) {
     const DWORD* items = *(const DWORD* const*)(callerRm + 0x14);
-    const u8* c = (const u8*)(uintptr_t)items[op == 0xEA ? ip[1] : op == 0xEB ? ip[2] : ip[3]];
+    const u8* c = (const u8*)(uintptr_t)items[op == 0xEA ? ip[1] : op == 0xEB ? ip[2] : op == 0xEC ? ip[3] : ip[4]];
     const u8* mm = c ? *(const u8* const*)(c + 8) : NULL;
     if (!c || !mm) return false;
+    if (op == 0xED && !JitConRef((const u8*)(uintptr_t)items[ip[3]])) return false;
     const DWORD fl = *(const DWORD*)(c + 0x44);
     bool guard = false;
-    if (op == 0xEC) {
+    if (op == 0xEC || op == 0xED) {
         if (!(fl & 0x200) || (fl & 0x400)) return false;
         guard = (*(const unsigned short*)mm & 0x40) != 0;
     }
@@ -601,13 +623,14 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
     if (guard) { if (g_jitGuardN >= 4096) return false; gs = &g_jitGuard[g_jitGuardN++]; }
     else if (!(cell = JitLazyCellFor(c))) return false;
     const DWORD* items = *(const DWORD* const*)(callerRm + 0x14);
-    const int n = c[0x40], thisOff = -(n + 1) * 8, rsp = inst ? thisOff : -n * 8, ripW = op == 0xEA ? 2 : op == 0xEB ? 3 : 4;
+    const int n = c[0x40], thisOff = -(n + 1) * 8, rsp = inst ? thisOff : -n * 8, ripW = op == 0xEA ? 2 : op == 0xEB ? 3 : op == 0xEC ? 4 : 5;
     const unsigned short w38 = *(const unsigned short*)(c + 0x38), w3E = *(const unsigned short*)(c + 0x3E);
     const unsigned short w34 = *(const unsigned short*)(c + 0x34), w36 = *(const unsigned short*)(c + 0x36);
     u8* bail[16];
     int nb = 0;
     if (guard) {  // receiver not null, with a vtable, not the remoting class, not a value type, of the cache's class; target = the cache's
         e.op(0x8B, ECX, ESI, thisOff); e.rr(0x85, ECX, ECX); bail[nb++] = e.jcc(0x84);
+        if (op == 0xED) { e.op(0x8B, ECX, ECX, 0); e.rr(0x85, ECX, ECX); bail[nb++] = e.jcc(0x84); }  // this = *ptr
         e.op(0x8B, EAX, ECX, 0); e.rr(0x85, EAX, EAX); bail[nb++] = e.jcc(0x84);
         e.op(0x8B, EAX, EAX, 0); e.b(0x3B); e.b(0x05); e.d(0x01220EC0); bail[nb++] = e.jcc(0x84);
         e.b(0xF6); e.m(0, EAX, 0x14); e.b(8); bail[nb++] = e.jcc(0x85);
@@ -626,9 +649,10 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
     if (!guard) {
         if (inst && !vtm) {  // EA's remoting check reads this->vtable->klass (null: EA's path faults or throws)
             e.op(0x8B, ECX, ESI, thisOff); e.rr(0x85, ECX, ECX); bail[nb++] = e.jcc(0x84);
+            if (op == 0xED) { e.op(0x8B, ECX, ECX, 0); e.rr(0x85, ECX, ECX); bail[nb++] = e.jcc(0x84); }  // this = *ptr
             e.op(0x8B, EAX, ECX, 0); e.rr(0x85, EAX, EAX); bail[nb++] = e.jcc(0x84);
             e.op(0x8B, EAX, EAX, 0); e.b(0x3B); e.b(0x05); e.d(0x01220EC0); bail[nb++] = e.jcc(0x84);
-            if (op == 0xEC) { e.b(0xF6); e.m(0, EAX, 0x14); e.b(8); bail[nb++] = e.jcc(0x85); }  // value-type receiver
+            if (op >= 0xEC) { e.b(0xF6); e.m(0, EAX, 0x14); e.b(8); bail[nb++] = e.jcc(0x85); }  // value-type receiver
         } else if (inst)
             e.op(0x8B, ECX, ESI, thisOff);  // a value-type method: this is a pointer (con.call too)
         else
@@ -647,6 +671,7 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
     e.op(0x3B, EAX, EDX, 4); bail[nb++] = e.jcc(0x87);
     // commit: arena bump, EA's return-slot word, the block, the callee's registers
     e.op(0x89, EAX, EDX, 0);                                      // [chunk] = top + size
+    if (op == 0xED) e.op(0x89, ECX, ESI, thisOff);                // con.callvirt: the dereferenced receiver in its slot, as EA's handler leaves it
     if (guard) { e.b(0x2B); e.b(0x05); e.d((DWORD)(uintptr_t)&gs->w38); } else { e.b(0x2D); e.d(w38); }  // eax = callee arena base
     VtLoad(e, EDX);
     e.op(0x89, EDX, ESI, 0);                                      // [return slot] = vt cursor, as EA's call writes
@@ -722,8 +747,8 @@ static void JitPreTransform(u8* rm, void* ctx) {
         if (w == 0xE8) { i += JitSwitchLen(code + i); continue; }
         int len = JitLen(code + i);
         if (len <= 0) return;
-        if (w == 0xEA || w == 0xEB || w == 0xEC) {
-            u8* c = (u8*)(uintptr_t)items[w == 0xEA ? code[i + 1] : w == 0xEB ? code[i + 2] : code[i + 3]];
+        if (w >= 0xEA && w <= 0xED) {
+            u8* c = (u8*)(uintptr_t)items[w == 0xEA ? code[i + 1] : w == 0xEB ? code[i + 2] : w == 0xEC ? code[i + 3] : code[i + 4]];
             const u8* mm = c ? *(const u8* const*)(c + 8) : NULL;
             // instance callees for the inliner; with lazy frames static ones too (a lazy call site bakes in the callee's frame layout).
             // A virtual one is left to its guard site, except a con.call's: that target is static, and an interface implementation
@@ -780,7 +805,7 @@ static void JitCompiled(u8* rm) {
     for (int k = 0; k < n && lazyOk; k++) {
         const JitOpInfo t = posOp[k] < 0x1C1 ? g_opInfo[posOp[k]] : JitOpInfo{K_EXIT, 0, 0};
         const u8* lc; bool lg;
-        if (t.kind == K_EXIT && (posOp[k] == 0xEA || posOp[k] == 0xEB || posOp[k] == 0xEC) && posReal[k] && JitLazySite(code + posW[k], posOp[k], rm, &lc, &lg)) continue;
+        if (t.kind == K_EXIT && posOp[k] >= 0xEA && posOp[k] <= 0xED && posReal[k] && JitLazySite(code + posW[k], posOp[k], rm, &lc, &lg)) continue;
         if (t.kind == K_EXIT || (t.kind == K_RET && posOp[k] != 0x06 && posOp[k] != 0x07)) lazyOk = false;
     }
     if (g_jitCodeEnd - (g_jitCode + g_jitCodeUsed) < (lazyOk ? 512 : 256) * n + 512) { Log("jit: code pool full\n"); return; }
@@ -1065,7 +1090,7 @@ static void JitCompiled(u8* rm) {
             default:
                 if (g_jitLazyPass && (op == 0x06 || op == 0x07)) { EmitLazyRet(e, ip, op, rm, op == 0x06); nat++; continue; }
                 if ((op == 0xEA || op == 0xEC) && g_jitInline && posReal[k] && JitTryInline(e, ip, op, rm)) { nat++; continue; }
-                if ((op == 0xEA || op == 0xEB || op == 0xEC) && g_jitLazy && posReal[k] && EmitLazyCall(e, ip, op, rm)) { nat++; continue; }
+                if ((op == 0xEA || op == 0xEB || op == 0xEC || op == 0xED) && g_jitLazy && posReal[k] && EmitLazyCall(e, ip, op, rm)) { nat++; continue; }
                 EmitExit(e, ip, op, t.kind == K_RET);
                 ex++;
                 continue;
@@ -1665,9 +1690,9 @@ static void JitCountReport() {
     // callee's compiled index (-1 if not compiled), receiver-class misses, flags +0x44, native body +0x24, words, clauses
     for (int s = 0; s < g_jitSiteN; s++) {
         const JitSite& S = g_jitSite[s];
-        if (S.meth >= g_jitMethN || S.slow || (S.op != 0xEA && S.op != 0xEC)) continue;
+        if (S.meth >= g_jitMethN || S.slow || (S.op != 0xEA && S.op != 0xEC && S.op != 0xED)) continue;
         const DWORD* items = *(const DWORD* const*)(g_jitMeth[S.meth].rm + 0x14);
-        const u8* c = (const u8*)(uintptr_t)(S.op == 0xEA ? items[S.ip[1]] : items[S.ip[1] + 1] ? items[S.ip[1] + 1] : items[S.ip[3]]);
+        const u8* c = (const u8*)(uintptr_t)(S.op == 0xEA ? items[S.ip[1]] : items[S.ip[1] + 1] ? items[S.ip[1] + 1] : items[S.op == 0xEC ? S.ip[3] : S.ip[4]]);
         if (!c) continue;
         int cm = -1;
         for (int m = 0; m < g_jitMethN && cm < 0; m++) if (g_jitMeth[m].rm == c) cm = m;

@@ -243,6 +243,9 @@ const KX = `
 // struct-returning call and a call on the temp; Dup the dup.vt of a chained assignment; Big a 20-byte struct (two
 // cursor steps of 8 each side of the copy). JitKTF (C1 leftovers): the value-type field loads ldfld.vt / ldsfld.vt
 // (Fields, Statics; S has a .cctor, so the first call takes the class-init exit) and the null-receiver exit (Null).
+// JitKCV: con.callvirt on a reference type (a constrained call in a generic method instantiated with a class): Eq through
+// IEquatable (guarded, one class), Hash through Object.GetHashCode with the class flipping every call (the guard refills),
+// Null a null reference behind the pointer (the site exits, EA throws).
 const KT = `
     public struct JitTPt { public int X, Y, Z; public JitTPt(int x, int y, int z) { X = x; Y = y; Z = z; } public int Sum() { return X + Y + Z; } }
     public struct JitTBig { public int A, B, C, D, E; public int Sum() { return A + B * 3 + C + D + E; } }
@@ -264,6 +267,21 @@ const KT = `
         public static int Fields(JitKTF o, int n) { int s = 0; for (int i = 0; i < n; i++) { JitTPt p = o.F; p.X += i; o.F = p; s += p.Sum() + Sum3(o.G); } return s; }
         public static int Statics(int n) { int s = 0; for (int i = 0; i < n; i++) { JitTPt p = S; s += p.Y + Sum3(SB) + i; } return s; }
         public static int Null(JitKTF o) { try { JitTPt p = o.F; return p.X; } catch (NullReferenceException) { return -7; } }
+    }
+    public class JitRKey : IEquatable<JitRKey>
+    {
+        public int V; public JitRKey(int v) { V = v; }
+        public bool Equals(JitRKey o) { if (o == null) return false; return o.V == V; }
+        public override int GetHashCode() { if (V < 0) return 1; return V * 31 + 1; }
+    }
+    public class JitRKey2 : JitRKey { public JitRKey2(int v) : base(v) { } public override int GetHashCode() { if (V < 0) return 2; return V * 7 - 2; } }
+    public class JitKCV
+    {
+        static int EqR<T>(T a, T b) where T : IEquatable<T> { if (a.Equals(b)) return 1; return 0; }
+        static int HashR<T>(T a) { int h = a.GetHashCode(); if (h < 0) return -h; return h; }
+        public static int Eq(int n) { int s = 0; JitRKey k = new JitRKey(2); for (int i = 0; i < n; i++) s += EqR(new JitRKey(i & 3), k); return s; }
+        public static int Hash(int n) { int s = 0; for (int i = 0; i < n; i++) s += HashR((i & 1) == 0 ? new JitRKey(i) : new JitRKey2(i)); return s; }
+        public static int Null(int n) { try { JitRKey k = null; return HashR(k) + n; } catch (NullReferenceException) { return -9; } }
     }
 `;
 // B3 lazy frames (docs/207 §12): compiled callers calling compiled static leaves (every position native, ret / ret.void).
@@ -560,6 +578,8 @@ const LAZY_CASES: Case[] = [
   { name: 'JitKX.TraceNames / DeepCatch (the method name of every stack-trace frame through lazy frames, depth 1 and 25)', body: `${T('JitKX.TraceNames(0)')} ${T('JitKX.TraceNames(1)')} ${T('JitKX.DeepCatch(25)')}` },
   { name: 'JitKX.EnvTrace (a StackTrace walk from a lazy callee: the method name of every frame)', body: T('JitKX.EnvTrace(3)') },
   { name: 'JitKX.Escape (an exception from a lazy callee reaches the driver through the compiled caller)', body: `${T('JitKX.Escape(0)')} ${T('JitKX.Escape(1)')} ${T('JitKX.Escape(2)')}` },
+  // round 10 C1 leftovers: con.callvirt on a reference type
+  { name: 'JitKCV.Eq / Hash / Null (con.callvirt on a class: this = *ptr, then the guarded callvirt; a class flip refills the guard; a null behind the pointer exits, EA throws)', body: `${T('JitKCV.Eq(40)')} ${T('JitKCV.Hash(40)')} ${T('JitKCV.Null(1)')}` },
 ];
 // docs/207 §9 accessors (round 8 B6): [corpus name, JitAcc method, inputs, the method the compiler must list]
 export const ACCESSORS: [string, string, number, string][] = [
@@ -696,7 +716,7 @@ ${cs.map((k, i) => `                case ${i}: // ${k.name}
 export function jitList(src: string): string {
   const m = /kJitList\[\] = \{([\s\S]*?)\};/.exec(src);
   if (!m) throw new Error('kJitList not found in monohost-jit.cpp');
-  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', 'JitKX.*', 'JitKT.*', 'JitKTF.*', 'JitTPt.*', 'JitTBig.*', ...ACCESSORS.map(a => a[3])).join(',');
+  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', 'JitKX.*', 'JitKT.*', 'JitKTF.*', 'JitKCV.*', 'JitRKey.*', 'JitRKey2.*', 'JitTPt.*', 'JitTBig.*', ...ACCESSORS.map(a => a[3])).join(',');
 }
 
 // ---- report ----
@@ -764,7 +784,7 @@ function selfCheck() {
   try { disk = readFileSync(OUT, 'utf8'); } catch { /* missing = stale */ }
   ok(disk.replace(/\r\n/g, '\n') === g.replace(/\r\n/g, '\n'), 'native/monohost/JitCorpus.cs is up to date (node tools/jit-corpus.ts --write)');
   const src = 'static const char* const kJitList[] = {\n    // c\n    "A.B", "C`2.D",\n    "E.F",\n};';
-  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,JitKX.*,JitKT.*,JitKTF.*,JitTPt.*,JitTBig.*,' + ACCESSORS.map(a => a[3]).join(','), 'kJitList parse');
+  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,JitKX.*,JitKT.*,JitKTF.*,JitKCV.*,JitRKey.*,JitRKey2.*,JitTPt.*,JitTBig.*,' + ACCESSORS.map(a => a[3]).join(','), 'kJitList parse');
   ok(new Set(ACCESSORS.map(a => a[1])).size === ACCESSORS.length && ACCESSORS.every(a => /^\w+Case$/.test(a[1]) && a[2] > 0), 'accessor table');
   const log = 'jit corpus MISMATCH case 1: compiled 0000002A interpreted 0000002B\njit corpus trail case 1 compiled: DivideByZeroException at X | \njit corpus UNSTABLE case 2: interpreted 1 then 2\n'
     + 'jit corpus: 3 cases, 1 differ, 1 unstable; per-call verify during the corpus: ok 5, MISMATCH 0, abandoned (exception) 2\n';

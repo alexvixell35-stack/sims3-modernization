@@ -308,6 +308,21 @@ namespace MonoHostTest
         public static int Statics(int n) { int s = 0; for (int i = 0; i < n; i++) { JitTPt p = S; s += p.Y + Sum3(SB) + i; } return s; }
         public static int Null(JitKTF o) { try { JitTPt p = o.F; return p.X; } catch (NullReferenceException) { return -7; } }
     }
+    public class JitRKey : IEquatable<JitRKey>
+    {
+        public int V; public JitRKey(int v) { V = v; }
+        public bool Equals(JitRKey o) { if (o == null) return false; return o.V == V; }
+        public override int GetHashCode() { if (V < 0) return 1; return V * 31 + 1; }
+    }
+    public class JitRKey2 : JitRKey { public JitRKey2(int v) : base(v) { } public override int GetHashCode() { if (V < 0) return 2; return V * 7 - 2; } }
+    public class JitKCV
+    {
+        static int EqR<T>(T a, T b) where T : IEquatable<T> { if (a.Equals(b)) return 1; return 0; }
+        static int HashR<T>(T a) { int h = a.GetHashCode(); if (h < 0) return -h; return h; }
+        public static int Eq(int n) { int s = 0; JitRKey k = new JitRKey(2); for (int i = 0; i < n; i++) s += EqR(new JitRKey(i & 3), k); return s; }
+        public static int Hash(int n) { int s = 0; for (int i = 0; i < n; i++) s += HashR((i & 1) == 0 ? new JitRKey(i) : new JitRKey2(i)); return s; }
+        public static int Null(int n) { try { JitRKey k = null; return HashR(k) + n; } catch (NullReferenceException) { return -9; } }
+    }
     public struct JitKey : IEquatable<JitKey>
     {
         public int K;
@@ -322,7 +337,7 @@ namespace MonoHostTest
 
     public static class JitCorpus
     {
-        public const int Count = 198;
+        public const int Count = 199;
         static readonly int[] I4 = { 0, 1, -1, 2, -2, 3, 7, -7, 16, 31, 32, 33, 0x7FFF, 0x8000, 0xFFFF, 0x10000, 0x3FFFFFFF, 0x40000000, int.MaxValue, int.MinValue, int.MinValue + 1, int.MaxValue - 1 };
         static readonly long[] I8 = { 0L, 1L, -1L, 2L, -2L, 7L, 0x7FFFFFFFL, 0x80000000L, -0x80000000L, 0xFFFFFFFFL, 0x100000000L, long.MaxValue, long.MinValue, long.MinValue + 1, -3037000500L, 3037000500L };
         static readonly int[] SH = { 0, 1, 7, 15, 16, 31, 32, 33, 63, 64, 65, -1, int.MinValue };
@@ -1633,87 +1648,92 @@ namespace MonoHostTest
             try { h = M(h, JitKX.Escape(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.Escape(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.Escape(2)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 181: // Acc GameObject.GetComponent
+                case 181: // JitKCV.Eq / Hash / Null (con.callvirt on a class: this = *ptr, then the guarded callvirt; a class flip refills the guard; a null behind the pointer exits, EA throws)
+                {
+            try { h = M(h, JitKCV.Eq(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKCV.Hash(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKCV.Null(1)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 182: // Acc GameObject.GetComponent
                 {
             for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.GetComponentCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 182: // Acc InteractionObjectPair.Equals
+                case 183: // Acc InteractionObjectPair.Equals
                 {
             for (int i = 0; i < 7; i++) try { h = M(h, JitAcc.IopEqualsCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 183: // Acc GameObject.GetObject
+                case 184: // Acc GameObject.GetObject
                 {
             for (int i = 0; i < 3; i++) try { h = M(h, JitAcc.GetObjectCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 184: // Acc SimClock.ElapsedTimeInMinutes
+                case 185: // Acc SimClock.ElapsedTimeInMinutes
                 {
             for (int i = 0; i < 35; i++) try { h = M(h, JitAcc.ElapsedMinutesCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 185: // Acc GameObject.get_Parent
+                case 186: // Acc GameObject.get_Parent
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.ParentCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 186: // Acc ScriptObject.get_ObjectId
+                case 187: // Acc ScriptObject.get_ObjectId
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.ObjectIdCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 187: // Acc GameObject.get_LotCurrent
+                case 188: // Acc GameObject.get_LotCurrent
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.LotCurrentCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 188: // Acc Household.Members.GetActorsOfType
+                case 189: // Acc Household.Members.GetActorsOfType
                 {
             for (int i = 0; i < 5; i++) try { h = M(h, JitAcc.ActorsOfTypeCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 189: // Acc RoutingComponent.get_IsRouting
+                case 190: // Acc RoutingComponent.get_IsRouting
                 {
             for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.IsRoutingCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 190: // Acc Lot.get_CommercialLotSubType
+                case 191: // Acc Lot.get_CommercialLotSubType
                 {
             for (int i = 0; i < 6; i++) try { h = M(h, JitAcc.LotSubTypeCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 191: // Acc ListSorted`1.GetEnumerator
+                case 192: // Acc ListSorted`1.GetEnumerator
                 {
             for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.ListSortedCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 192: // Acc DesireCurve.GetYFromX
+                case 193: // Acc DesireCurve.GetYFromX
                 {
             for (int i = 0; i < 12; i++) try { h = M(h, JitAcc.DesireCurveCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 193: // Acc Sim.get_SimDescription
+                case 194: // Acc Sim.get_SimDescription
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.SimDescriptionCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 194: // Acc Lot.get_ShouldSimulate
+                case 195: // Acc Lot.get_ShouldSimulate
                 {
             for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.ShouldSimulateCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 195: // Acc SimDescription.get_Age
+                case 196: // Acc SimDescription.get_Age
                 {
             for (int i = 0; i < 5; i++) try { h = M(h, JitAcc.AgeCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 196: // Acc Corners.get_Item
+                case 197: // Acc Corners.get_Item
                 {
             for (int i = 0; i < 5; i++) try { h = M(h, JitAcc.CornersCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 197: // Acc Household.EveryHumanSimDescription
+                case 198: // Acc Household.EveryHumanSimDescription
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.EveryHumanCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
