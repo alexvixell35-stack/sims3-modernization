@@ -941,7 +941,7 @@ export function silentFail(code: number | null, out: string, timedOut: boolean):
 // "FAIL in 2.6 min" with no reason and the game stayed open): name it, close the game now, before Bin is restored
 export async function childLost(name: string, r: { code: number | null; signal?: string | null; out: string }, close: () => Promise<void>, logFn: (s: string) => void): Promise<string> {
   if (r.code === 0 && !r.signal) return '';
-  if (!r.signal && verdicts(r.out).some(isFail)) return ''; // the child wrote its own FAIL line; a PASS-like line on a non-zero exit is no result (docs/236 #15)
+  if (!r.signal && verdicts(r.out).some(l => isFail(l) || /^N\/A: /.test(l))) return ''; // the child wrote its own FAIL or N/A line (docs/236 Round 9: vanilla-steps.ts exits 1 on N/A); a PASS-like line on a non-zero exit is no result (docs/236 #15)
   const why = `child ${name} exited (${r.signal ? `signal ${r.signal}` : `code ${r.code}`}) without a result`;
   logFn(`${why}; closing the game`);
   await close();
@@ -1311,6 +1311,11 @@ if (values['self-check']) {
     // docs/236 #15: a PASS-like line on a non-zero exit is not the child's result
     assert.equal(await childLost('save-matrix', { code: 1, signal: null, out: '12:00:00 control: PASS\n12:00:01 summary: 1 cases\n' }, close, lg), 'child save-matrix exited (code 1) without a result');
     assert.equal(await childLost('save-matrix', { code: 1, signal: null, out: '12:00:00 identical: FAIL\n' }, close, lg), '');
+    { // docs/236 Round 9 (Steam vh-move): a child that prints only an N/A line and exits 1 is an N/A row, not "FAIL in 7.6 min" via childLost
+      const out = '12:07:30 N/A: not triggered: no dialog matching "x" in 6 min (1 windows); the offer never appeared; nothing accepted\n';
+      const row = { pass: false, crashed: false, timedOut: false, error: (await childLost('vanilla-steps', { code: 1, signal: null, out }, close, lg)) || null, verdict: silentFail(1, out, false) };
+      assert.equal(row.error, null); assert.ok(naRow(row)); assert.equal(failStop({ id: 'vh-move', stopQueueOnFail: true }, { ...row, na: naRow(row) }, false), '');
+    }
     assert.equal(closes, 3);
     // restore EBUSY: close, retry; still busy: log and go on
     let tries = 0;
