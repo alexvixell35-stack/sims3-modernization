@@ -33,9 +33,18 @@ struct SlimView {  // a read-only file seen through one mapped window at a time
     DWORD at, len, size;
 };
 
-static bool SvOpen(SlimView& v, const wchar_t* path) {
+// hold: no write sharing, for the file the rewrite may rename over (held until then); the others are only read. A file
+// a writer is still closing (the game's copy of the save, a scanner) is retried for up to ~1.4 s: a sharing violation
+// on any file of the folder turns Mode 2 into Mode 1 for that save (2026-11-02: a BigSave-LR run read no reference at all).
+static bool SvOpen(SlimView& v, const wchar_t* path, bool hold) {
     memset(&v, 0, sizeof(v));
-    HANDLE h = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+    const DWORD share = hold ? FILE_SHARE_READ : FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    HANDLE h = INVALID_HANDLE_VALUE;
+    for (int n = 0; n < 8; n++) {
+        if (n) Sleep(200);
+        h = CreateFileW(path, GENERIC_READ, share, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+        if (h != INVALID_HANDLE_VALUE || (GetLastError() != ERROR_SHARING_VIOLATION && GetLastError() != ERROR_LOCK_VIOLATION)) break;
+    }
     if (h == INVALID_HANDLE_VALUE) return false;
     v.file = h;
     LARGE_INTEGER sz;
@@ -101,8 +110,20 @@ struct SlimStats {
     double scanMB;
     LONG scanMs, writeMs, totalMs;
     const char* fail;
+    // the first unreadable file (references unknown): its name, why, the entry, and the Windows error of the failed call
+    wchar_t badName[64];
+    const char* badWhy;
+    DWORD badErr, badEntry;
     SlimDbStats db[kSlimMaxDb];
 };
+
+static void SlimBad(SlimStats& st, const wchar_t* path, const char* why, DWORD entry) {
+    const DWORD err = GetLastError();
+    st.unreadable++;
+    if (st.badWhy) return;
+    st.badWhy = why, st.badErr = err, st.badEntry = entry;
+    wcsncpy_s(st.badName, Tail(path), _TRUNCATE);
+}
 
 struct SlimJob {
     HANDLE heap;
@@ -250,7 +271,7 @@ static bool SlimRefs(SlimJob& j) {  // Mode 2: candidates, roots and edges; fals
         SlimFile& f = j.f[i];
         if (f.kind == 0) {  // plain files (1a5tf1l3.dat): every byte
             const u8* b = SvAt(f.v, 0, f.v.size);
-            if (!b || f.v.size > kSlimMaxBody) { j.st->unreadable++; return false; }
+            if (!b || f.v.size > kSlimMaxBody) { SlimBad(*j.st, f.path, b ? "plain file over 256 MB" : "plain file not mapped", 0); return false; }
             if (!SlimScan(j, b, f.v.size, -1)) { j.st->fail = "out of memory (edges)"; return false; }
         }
         for (DWORD k = 0; k < f.count; k++) {
@@ -262,7 +283,7 @@ static bool SlimRefs(SlimJob& j) {  // Mode 2: candidates, roots and edges; fals
             }
             DWORD len;
             const u8* b = SlimBody(j, f, k, &len);
-            if (!b) { j.st->unreadable++; return false; }
+            if (!b) { SlimBad(*j.st, f.path, "entry not read (not mapped, over 256 MB, or its stream did not decode to its size)", k); return false; }
             if (!SlimScan(j, b, len, cand ? SlimFindEntry(j, e) : -1)) { j.st->fail = "out of memory (edges)"; return false; }
         }
         SvUnmap(f.v);
@@ -358,7 +379,7 @@ static const char* SlimRewrite(SlimJob& j, SlimFile& f, const u8* keep, DWORD nk
     CloseHandle(o.h);
     const char* why = o.ok ? NULL : "write failed";
     SlimView t = {};
-    if (!why && (!SvOpen(t, tmp) || t.size != total)) why = "temp file not readable";
+    if (!why && (!SvOpen(t, tmp, true) || t.size != total)) why = "temp file not readable";
     if (!why) {  // read back: header, index, every kept byte against the source
         const u8* p = SvAt(t, 0, 96);
         if (!p || memcmp(p, hdr, 96)) why = "header differs";
@@ -387,13 +408,18 @@ static void SlimJobRun(SlimJob& j, const wchar_t* dir, const wchar_t* tmp) {
     bool known = true;  // every file of the folder readable
     do {
         if (IsDots(fd.cFileName)) continue;
-        if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || j.nf == kSlimMaxFiles) { known = false; continue; }
+        if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || j.nf == kSlimMaxFiles) {
+            SlimBad(st, fd.cFileName, (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? "a folder inside the save" : "more than 64 files", 0);
+            known = false;
+            continue;
+        }
         SlimFile& f = j.f[j.nf++];
         st.files++;
-        if (!Join(f.path, dir, fd.cFileName) || !SvOpen(f.v, f.path)) { f.kind = -1, known = false; continue; }
+        const bool db = EndsWithI(fd.cFileName, L"ExportDB.package");
+        if (!Join(f.path, dir, fd.cFileName) || !SvOpen(f.v, f.path, db)) { SlimBad(st, fd.cFileName, "not opened or mapped", 0); f.kind = -1, known = false; continue; }
         const int r = SlimReadIndex(j, f);
-        f.kind = r < 0 ? -1 : r == 0 ? 0 : EndsWithI(fd.cFileName, L"ExportDB.package") ? 2 : 1;
-        if (f.kind < 0) known = false;
+        f.kind = r < 0 ? -1 : r == 0 ? 0 : db ? 2 : 1;
+        if (f.kind < 0) { SlimBad(st, fd.cFileName, "a DBPF layout this code does not know", 0); known = false; }
         if (f.kind == 2 && st.ndb < kSlimMaxDb) {
             SlimDbStats& d = st.db[st.ndb++];
             wcsncpy_s(d.name, Tail(f.path), _TRUNCATE);
@@ -402,7 +428,6 @@ static void SlimJobRun(SlimJob& j, const wchar_t* dir, const wchar_t* tmp) {
         SvUnmap(f.v);
     } while (FindNextFileW(h, &fd));
     FindClose(h);
-    if (!known) st.unreadable++;
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     st.drops = st.mode != 1 && known && st.ndb && SlimRefs(j);
@@ -464,6 +489,8 @@ static void SlimLog(const SlimStats& s) {
         kMode[s.mode], s.files, s.ndb, s.drops ? "references read" : s.mode != 1 ? "references NOT read, no drops" : "no drops",
         s.outfits, s.outfitsDropped, s.texDropped, s.texOrphans, s.scanMB, s.nodes, s.edges, s.scanMs, s.writeMs, s.totalMs,
         s.fail ? "; " : "", s.fail ? s.fail : "");
+    if (s.unreadable)
+        Log("save slim: unreadable %d: %ls: %s (entry %lu, Windows error %lu)", s.unreadable, s.badName, s.badWhy ? s.badWhy : "?", s.badEntry, s.badErr);
     for (int i = 0; i < s.ndb; i++) {
         const SlimDbStats& d = s.db[i];
         Log("save slim: %ls: entries %lu -> %lu, outfits %lu -> %lu, textures %lu -> %lu, %.1f -> %.1f MB (dead %.1f MB): %s", d.name,

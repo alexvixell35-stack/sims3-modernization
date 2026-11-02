@@ -19,7 +19,8 @@
         "SaveSlim.Mode": 0
       },
       "logRequire": {
-        "save slim: .*ExportDB[.]package: .*left [(]Mode 0": 1
+        "save slim: .*ExportDB[.]package: .*left [(](Mode 0|under 1 MB)": 1,
+        "save slim: .*references read": 1
       },
       "logForbid": {
         "^FAIL|save slim: .*(mismatch|FAIL|error)": 0
@@ -50,7 +51,8 @@
         "SaveSlim.Mode": 2
       },
       "logRequire": {
-        "save slim: .*ExportDB.*entries [0-9]+ -> [0-9]+": 1
+        "save slim: .*ExportDB.*entries [0-9]+ -> [0-9]+": 1,
+        "save slim: .*references read": 1
       },
       "logForbid": {
         "^FAIL|save slim: .*(mismatch|FAIL|error)": 0
@@ -81,7 +83,8 @@
         "SaveSlim.Mode": 2
       },
       "logRequire": {
-        "save slim: .*ExportDB[.]package: .*: rewritten": 1
+        "save slim: .*ExportDB[.]package: .*: rewritten": 1,
+        "save slim: .*references read": 1
       },
       "logForbid": {
         "^FAIL|save slim: .*(mismatch|FAIL|error)": 0
@@ -120,6 +123,9 @@
           "seed": 12345,
           "noSamplers": true
         }
+      },
+      "logRequire": {
+        "save slim: .*references read": 1
       }
     },
     {
@@ -139,7 +145,8 @@
         "SaveSlim.Mode": 2
       },
       "logRequire": {
-        "save slim: .*ExportDB[.]package: .*: (rewritten|left)": 1
+        "save slim: .*ExportDB[.]package: .*: (rewritten|left)": 1,
+        "save slim: .*references read": 1
       },
       "logForbid": {
         "^FAIL|save slim: .*(mismatch|FAIL|error)": 0
