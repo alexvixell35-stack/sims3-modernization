@@ -64,6 +64,30 @@ The report prints, per world:
 
 The faster route that still closes as much becomes the Compaction route (expected: direct, unless the menu route's statics clear is the difference).
 
+### 2.1 Results (2026-11-02, `save-reload-memory` play + control pairs; largest free block in MB, probe `/memory`) [measured]
+
+| Save | `sr-pre` (before the save) | `sr-save` | `sr-reload` (menu route) | `sr-reload10` | `sr-direct` | `sr-direct10` | `sr-ctl` (fresh start + load) | `sr-ctl10` | restart - reload at load / +10 min | restart time |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Baseline-BP-Spring (SaveReload-BP) | 832.8 | 800.8 | 776.8 | 684.7 | - | - | 1412.7 | 1050.1 | **636** / 365 | 178 s |
+| Baseline-LR-Spring (SaveReload-LR) | 853.2 | 821.2 | 793.2 | 650.7 | 601.0 | 572.4 | 1401.8 | 1030.7 | **609** / 380 (direct 801 / 458) | 186 s |
+| the old save (SaveReload-OLD, 2026-11-01) | 694.0 | - | (the reload step failed) | - | - | - | 1373.7 | 993.6 | - | 185 s |
+| Baseline-BP-CC (SaveReload-BPCC) | 771.9 | 723.9 | 678.1 | 625.6 | - | - | (no control run yet) | - | - | - |
+
+- **closes is negative on every save:** the in-process reload leaves *less* largest free than before the save (BP -56, LR -60, BPCC -94 MB
+  at the reload mark; -148 to -202 MB ten minutes later), while a fresh start + load of the same file has 580 to 680 MB more than the
+  pre-save mark and still 300 to 380 MB more ten minutes later. The direct route (LR) is worse than the menu route (601 vs 793).
+  So the unload keeps what matters (the §1 owners: the high-water allocator, the resource cache's address range, mapped files)
+  and the reload only adds; **as a memory tool the hidden reload gives nothing back** (the §2 "Stop" case). What it still
+  gives is the ~600 MB gap itself as a number: that is what a player gains by restarting before loading again, and it is the
+  budget any in-process release step (Apex-area items) would have to reach.
+- The Isla Paradiso pair gave no number: every harness save of Baseline-IP(-Spring) since 2026-10-31 ends in EA's result 12 with
+  about 1.1 GB free (docs/67 §31, under investigation: the failed world file lacks the same 7 lots every time; Apex Radiance 2.18.3
+  streams lots and replaced the save's RefPack writer and is the first suspect, arms queued).
+- The Compaction's own opt-in flow (§11) never ran in the verify queue: since the state gate gained the modal-window check,
+  `CpStateWhy()` answered "a modal window (Dialog)" after every save, because EA's `SaveGameTask` leaves its progress window
+  modal for a few ticks after it returns (found with the "not considered: <why>" line). `CompactAfterSave` now waits for that
+  window (5 ticks at a time, at most 40 times); the 13-job verify rerun follows.
+
 ## 3. Trigger and threshold
 
 ### 3.1 Signal
