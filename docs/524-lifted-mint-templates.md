@@ -5,8 +5,9 @@ Emulation only (2026-11-02): no build, no game run. Contributor round 8 task B5,
 interpreter from TS3W.exe, rewrites it as a template the docs/207 compiler can place in a method body, and runs EA's
 handler and the template on the same mint frame under Unicorn (the docs/221 harness). **132 of the 136 lift; 2,189 cases,
 0 mismatches, in both renderings of every template [emu].** The four left to hand templates are listed in §4, each with
-its reason. Output: `docs/data/jit-lifted-templates.json` (the templates, their slots and the verdict per opcode) and
-`docs/data/jit-lift-census.csv`.
+its reason. Output: `docs/data/jit-lift-census.csv` (the committed record: per opcode the status, byte and slot counts,
+calls, cases and mismatches) and, local only, `tools/emu/specs/out/jit-lifted-templates.json` (the template bytes and
+their slots: EA's handler code, so git-ignored and never committed; `--write` regenerates it from the player's exe).
 
 Claim marks: **[verified]** = read in the handler bytes or the tool's output on this exe; **[emu]** = the emulated
 comparison; **[inferred]** = our reading, with its check.
@@ -33,7 +34,15 @@ the ip became operand-dependent, a fall-through advance that is not the instruct
 interpreter, two paths meeting with different ip or esi offsets.
 
 Two renderings come from the same role list: the **handler form** (the ip bookkeeping kept, the operands as immediates)
-runs in the handler's own convention, and the **compiler form** (the JSON) has the slots. The check runs both.
+runs in the handler's own convention, and the **compiler form** (the local JSON) has the slots. The check runs both.
+
+The local file has one entry per generatable opcode: `opcode`, `handler` (the fragment's address), `words`, `status`
+(`lifted` or `hand` with its `reason`), `template` (the compiler-form bytes), `slots`, `calls` (absolute CRT targets),
+`clobbers` (`ebx` when wrapped), `uses` (frame reads and import calls), `exitAfterSideEffect`, `operandBytes` and `verify`
+(`cases`, `mismatches`). A slot is `{at, kind}` with `at` the byte offset inside the template: `imm` adds `reg`, `operand`
+(the operand's byte offset in the mint instruction), `size` (2 or 4) and `ext` (`zx`, `sx` or `mov`); `next` and `taken`
+are `jmp rel32` fields the emitter fills from the position labels (`taken` adds `operand`, the branch operand's byte
+offset); `call` carries `target`; `exit` is the P0 exit after the eval-stack pointer is put back. Only the census (no bytes) is in the repo.
 
 ## 2. The check [emu]
 
@@ -82,7 +91,7 @@ now for the hand templates.
 
 ```
 python tools/emu/run.py tools/emu/specs/mint_lift.py             # 0 mismatches, RESULT: PASS
-python tools/emu/specs/mint_lift.py --write                      # docs/data/jit-lifted-templates.json + jit-lift-census.csv
+python tools/emu/specs/mint_lift.py --write                      # tools/emu/specs/out/jit-lifted-templates.json (local) + docs/data/jit-lift-census.csv
 ```
 
 Needs `game-copy/bin/TS3W.exe` (1.67) and the Python packages `unicorn` and `capstone`, as docs/221.

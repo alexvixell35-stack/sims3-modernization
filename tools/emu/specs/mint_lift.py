@@ -22,7 +22,10 @@ target, the vt stack and its pointer, the item table, `this`, the branch decisio
 which exit was taken.
 
   python tools/emu/run.py tools/emu/specs/mint_lift.py          # lifted templates vs EA: must be 0 mismatches
-  python tools/emu/specs/mint_lift.py --write [--exe PATH]      # also writes docs/data/jit-lifted-templates.json + the census
+  python tools/emu/specs/mint_lift.py --write [--exe PATH]      # also writes the templates (local, git-ignored) + the census
+
+The templates file holds EA's handler bytes, so it is written under tools/emu/specs/out/ (git-ignored by the repo's `out/`
+rule) and never committed; docs/data/jit-lift-census.csv (counts and verdicts per opcode, no bytes) is the committed record.
 """
 import csv
 import json
@@ -680,7 +683,7 @@ def compare(got, want):
 
 
 NOTES = ['templates are EA\'s handler bytes with the operand reads as immediates (mint_lift.py lift()); the compiler form '
-         '(docs/data/jit-lifted-templates.json) also drops the ip advance, the ip store and the dispatch tail',
+         '(tools/emu/specs/out/jit-lifted-templates.json, local) also drops the ip advance, the ip store and the dispatch tail',
          'rem.r8, stobj.vt and switch are not run (see NOT_RUN)']
 
 
@@ -727,7 +730,8 @@ def write_files(exe):
                      'reason': L.reason or '', 'template_bytes': len(e.get('template', '')) // 2, 'slots': len(e.get('slots', [])),
                      'calls': ' '.join(f'0x{a:X}' for a in sorted(L.calls)), 'clobbers_ebx': int(L.clobber_ebx),
                      'exit_after_side_effect': int(L.exc_after_effect), 'cases': n, 'mismatches': bad})
-    p = os.path.join(REPO, 'docs', 'data', 'jit-lifted-templates.json')
+    p = os.path.join(REPO, 'tools', 'emu', 'specs', 'out', 'jit-lifted-templates.json')  # EA bytes: git-ignored (out/), never committed
+    os.makedirs(os.path.dirname(p), exist_ok=True)
     with open(p, 'w', encoding='utf-8') as f:
         json.dump(out, f, indent=1)
     p2 = os.path.join(REPO, 'docs', 'data', 'jit-lift-census.csv')
