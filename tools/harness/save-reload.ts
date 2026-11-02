@@ -161,7 +161,7 @@ async function save(label: string) {
   await ag('autopilot', { enabled: false }); // it would unpause during the save
   await ag('set_speed', { speed: 'pause' });
   for (let i = 0; i < 5 && (await ag('auto_dialog')).result?.open; i++) await sleep(1500);
-  const off = logSize(), done0 = ((await ag('async_log')).result ?? []).filter((l: string) => l.startsWith(`save ${NAME} -> `)).length;
+  const off = logSize(), done0 = ((await ag('async_log')).result ?? []).filter((l: string) => l.includes(`save ${NAME} -> `)).length; // the line starts with the sim clock
   const stop = await sampler();
   const t0 = Date.now(), r = await ag('save_game', { name: NAME }); // always by name: after a load SaveName can be empty (EA then opens the Save As dialog); the same name overwrites, as EA's AutoSave does
   if (!r.ok) throw new Error(`save ${label}: ${r.error}`);
@@ -169,8 +169,10 @@ async function save(label: string) {
   const wallMs = await until(`save ${label}`, 900, async () => {
     const st = await ag('game_state');
     if (st.ok && st.result.save_in_progress) seen = true;
-    const done = ((await ag('async_log')).result ?? []).filter((l: string) => l.startsWith(`save ${NAME} -> `)).length > done0;
-    return done || (seen && st.ok && !st.result.save_in_progress);
+    const done = ((await ag('async_log')).result ?? []).filter((l: string) => l.includes(`save ${NAME} -> `)).length > done0;
+    // the sim thread answers nothing while it saves, so a poll rarely lands with save_in_progress true: the native
+    // "save: end" line in the log slice is the sure sign (bp-save-reload 2026-11-02 05:24 waited 900 s on a 7 s save)
+    return done || saveEnds(logFrom(off)).length > 0 || (seen && st.ok && !st.result.save_in_progress);
   });
   await sleep(2000); // the save: end line follows the script side by a moment
   const peak = await stop();
