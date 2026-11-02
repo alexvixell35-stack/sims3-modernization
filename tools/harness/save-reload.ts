@@ -252,3 +252,4 @@ for (const tag of Object.keys(out.marks)) out.marks[tag].diag = markFields(text,
 out.ended = new Date().toISOString();
 flush();
 log(`${process.exitCode ? 'FAIL' : 'PASS'}: ${file}`);
+process.exit(process.exitCode ?? 0); // a save that threw leaves its sampler running; node would sit until the queue gives up (bp-save-reload 2026-11-02 sat 33 min)
