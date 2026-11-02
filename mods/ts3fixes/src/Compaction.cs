@@ -111,16 +111,24 @@ namespace Ts3Fixes
         // Not GameStates.HasTravelData: it is a persisted static that stays set in a home-world save after a trip (both
         // harness baselines have it, every save of theirs was refused on 2026-11-02); IsOnVacation / university / future
         // cover the worlds that reload differently, IsTravelling the transition itself.
-        static bool CpStateOk()
+        // The first gate that refuses, for the native log (the 2026-11-02 harness saves were refused without a trace), or null.
+        static string CpStateWhy()
         {
-            if (!GameStates.IsInWorld() || !GameStates.IsLiveState || GameStates.IsTravelling || GameStates.IsOnVacation
-                || GameStates.IsEditingOtherTown || GameStates.MovingWorldName != null || Sims3.SimIFace.GameUtils.IsUniversityWorld()
-                || Sims3.SimIFace.GameUtils.IsFutureWorld())
-                return false;
-            if (UIManager.GetModalWindow() != null) return false;
+            if (!GameStates.IsInWorld()) return "not in a world";
+            if (!GameStates.IsLiveState) return "not in live mode";
+            if (GameStates.IsTravelling) return "travelling";
+            if (GameStates.IsOnVacation) return "on vacation";
+            if (GameStates.IsEditingOtherTown) return "editing another town";
+            if (GameStates.MovingWorldName != null) return "moving to " + GameStates.MovingWorldName;
+            if (Sims3.SimIFace.GameUtils.IsUniversityWorld()) return "a university world";
+            if (Sims3.SimIFace.GameUtils.IsFutureWorld()) return "a future world";
+            WindowBase modal = UIManager.GetModalWindow();
+            if (modal != null) return "a modal window (" + modal.GetType().Name + ")";
             string emergency = null;
-            return !Sims3.Gameplay.UI.Responder.Instance.HudModel.CheckForEmergency(ref emergency);
+            if (Sims3.Gameplay.UI.Responder.Instance.HudModel.CheckForEmergency(ref emergency)) return "an emergency (" + emergency + ")";
+            return null;
         }
+        static bool CpStateOk() { return CpStateWhy() == null; }
 
         static void CpNotify(string text)
         {
@@ -138,7 +146,8 @@ namespace Ts3Fixes
         {
             int[] c = PatchCounters();
             c[427]++;
-            if (!CpStateOk()) { c[432]++; return; }  // the verdict is not asked: the arm stays for the next save
+            string why = CpStateWhy();
+            if (why != null) { c[432]++; DiagLine("compaction: save #" + c[427] + " not considered: " + why); return; }  // the verdict is not asked: the arm stays for the next save
             if (!CpAsk(0))
             {
                 if (CpAsk(1)) CpNotify(CompactionCore.kStillLowText);
@@ -154,7 +163,8 @@ namespace Ts3Fixes
                     return;
                 }
                 c[430]++;
-                if (!CpStateOk()) { CpFail(kCpWhyState); return; }
+                string why2 = CpStateWhy();
+                if (why2 != null) { DiagLine("compaction: state changed during the prompt: " + why2); CpFail(kCpWhyState); return; }
             }
             CompactGo();
         }

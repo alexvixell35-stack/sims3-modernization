@@ -112,7 +112,7 @@ for (const s of r.steps ?? []) {
   // "show": "<prefix>" prints only the result keys with that prefix (the 160-char cut hid the compaction_* counters, 2026-11-02)
   const show = (v: any, prefix?: string) => prefix && v && typeof v === 'object' && !Array.isArray(v)
     ? Object.fromEntries(Object.entries(v).filter(([k]) => k.startsWith(prefix))) : v;
-  console.log(`${stamp()} step ${s.cmd} ${JSON.stringify(args ?? {}).slice(0, 200)}: ${res.ok ? JSON.stringify(show(res.result, s.show)).slice(0, 160) : 'ERROR ' + res.error}`);
+  console.log(`${stamp()} step ${s.cmd} ${JSON.stringify(args ?? {}).slice(0, 200)}: ${res.ok ? JSON.stringify(show(res.result, s.show)).slice(0, s.show ? 1200 : 160) : 'ERROR ' + res.error}`);
   if (!res.ok && !s.optional) await fail('FAIL: step failed');
   if (res.ok) prev = res.result;
   if (s.waitS) await sleep(s.waitS * 1000);
@@ -127,10 +127,10 @@ for (const s of r.steps ?? []) {
     while (!ok(last = await ag(u.cmd, u.args ?? {}))) {
       const why = await guard();
       if (why) await fail(`${stamp()} FAIL: ${why}`);
-      if (Date.now() - t0 > (u.maxS ?? 300) * 1000) await fail(`${stamp()} FAIL: ${s.cmd} until ${JSON.stringify(u.all)} not met in ${u.maxS ?? 300} s: ${JSON.stringify(show(last?.result, u.show) ?? last?.error).slice(0, 200)}`);
+      if (Date.now() - t0 > (u.maxS ?? 300) * 1000) await fail(`${stamp()} FAIL: ${s.cmd} until ${JSON.stringify(u.all)} not met in ${u.maxS ?? 300} s: ${JSON.stringify(show(last?.result, u.show) ?? last?.error).slice(0, u.show ? 1200 : 200)}`);
       await sleep((u.everyS ?? 5) * 1000);
     }
-    console.log(`${stamp()}   until met after ${((Date.now() - t0) / 1000).toFixed(0)} s: ${JSON.stringify(show(last.result, u.show)).slice(0, 160)}`);
+    console.log(`${stamp()}   until met after ${((Date.now() - t0) / 1000).toFixed(0)} s: ${JSON.stringify(show(last.result, u.show)).slice(0, u.show ? 1200 : 160)}`);
   }
   await mem(`after ${s.cmd}`);
 }
