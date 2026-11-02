@@ -1613,6 +1613,8 @@ rpc.exports = {
         'ghAgentSkipped', 'ghExpired', 'ghFull', 'ghRemoveMissing', ...n('ghSpare', 4));
       // v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs (docs/67 §30, wastar.cpp)
       if (c.readS32() >= 146) f.push('waOn', ...n('waSkip', 3), 'pfOn', ...n('pfSkip', 2), 'pfSpare');
+      // v900 [IlPatch] (docs/506 §2, docs/526, ilpatch.cpp): the contributor block after v146 (docs/registry.md)
+      if (c.readS32() >= 900) f.push('ilpOn', 'ilpArmed', 'ilpApplied', 'ilpReused', 'ilpSkipHash', 'ilpSkipCheck', 'ilpSkipMismatch', 'ilpFaults');
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key
