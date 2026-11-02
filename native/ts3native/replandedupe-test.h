@@ -40,7 +40,7 @@ static void TestReplanDedupe() {
                       sizeof(Ts3nCounters) == 5484 * 4,
                   "counters v90 layout after v88 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
-    assert(k.version == 146);
+    assert(k.version == 900);
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     // fakes and a quiet world
     u8* const* rmSlot = g_orRmSlot;

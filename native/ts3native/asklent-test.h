@@ -38,7 +38,7 @@ static void TestAskLent() {
                       offsetof(Ts3nCounters, auSpare) == 0x5030 && sizeof(Ts3nCounters) == 5484 * 4,
                   "counters v126 layout (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
-    assert(k.version == 146);
+    assert(k.version == 900);
     const size_t v126 = offsetof(Ts3nCounters, auMode);
     memset((u8*)&k + v126, 0, sizeof(Ts3nCounters) - v126);
     const DWORD me = GetCurrentThreadId();

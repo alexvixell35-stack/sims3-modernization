@@ -22,7 +22,7 @@ static void TestPlacementRO() {
                       offsetof(Ts3nCounters, fgShadow) == 0x42D0 && offsetof(Ts3nCounters, fgFb) == 0x42E8 &&
                       offsetof(Ts3nCounters, fgShadowMismatch) == 0x4304 && sizeof(Ts3nCounters) == 5484 * 4,
                   "counters v100 layout after v99 (docs/registry.md)");
-    assert(k.version == 146);
+    assert(k.version == 900);
     assert(kFgSite.site == 0x00635013 && kFgSite.target == 0x00631F10);
     memset(&k.fgReady, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, fgReady));
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);

@@ -11217,7 +11217,7 @@ static void TestP4LotDump() {
     static_assert(offsetof(Ts3nCounters, ldDumps) == 0x4B3C && offsetof(Ts3nCounters, ldObL) == 0x4B60 &&
                       offsetof(Ts3nCounters, ldSpare) == 0x4B64 && sizeof(Ts3nCounters) == 5484 * 4,
                   "counters v121 layout after v120 (docs/registry.md)");
-    assert(ts3native_counters.version == 146);
+    assert(ts3native_counters.version == 900);
     struct Side {
         u8 world[0xA00], P[0x100], M[0x20], Q[0x60], root[0x20], mid[0x20], leaf[0x20], fme[2][0x20], fp[2][0x50], cache[2][0x24];
         u8 poly[2][16], mnode[2][0x14];
@@ -12088,7 +12088,7 @@ static void TestP5() {
     static_assert(offsetof(Ts3nCounters, p4Borrow) == 0x313C && offsetof(Ts3nCounters, p4BorrowMiss) == 0x3140 &&
                   offsetof(Ts3nCounters, p4BorrowDirty) == 0x3144, "counters v71 layout (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, rpKidsKept) == 0x3148, "counters v72 layout (docs/registry.md)");
-    assert(k.version == 146);
+    assert(k.version == 900);
     PlanLockedFn planSave = g_planOrig;
     CacheEntry* tab = g_tab;
     const LONG workerMode = k.workerMode, budgetMode = k.budgetMode;
@@ -12642,7 +12642,7 @@ static void TestP6(int* list, int* s, int* g, u8* opts, DWORD& seq) {
                   offsetof(Ts3nCounters, p6jLines) == 0x4738 &&
                   sizeof(Ts3nCounters) == 5484 * 4, "counters v112 layout after v111 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
-    assert(k.version == 146);
+    assert(k.version == 900);
     // (f1) TakeKinds 8 (default): a Route.Plan START is not armed; 9: it is, and its answer is the clone's
     {
         k.p6Plan = 0;

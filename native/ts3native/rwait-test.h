@@ -27,7 +27,7 @@ static void TestRouteWorkerWait() {
                       offsetof(Ts3nCounters, rwWorkerCpuMs) == 0x54D8 && offsetof(Ts3nCounters, rwSpare) == 0x54DC && sizeof(Ts3nCounters) == 5484 * 4,
                   "counters v142 layout after v141 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
-    assert(k.version == 146 && g_rgOffSimOpen == 0 && g_g0Win == 0);
+    assert(k.version == 900 && g_rgOffSimOpen == 0 && g_g0Win == 0);
     if (!g_rwWakeEv) g_rwWakeEv = CreateEventW(NULL, FALSE, FALSE, NULL);
     memset((void*)&k.rwMode, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, rwMode));
 

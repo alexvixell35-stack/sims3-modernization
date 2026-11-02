@@ -15,7 +15,7 @@ static void TestCrashForensics() {
                       offsetof(Ts3nCounters, ceRecs) == 0x47A8 && sizeof(Ts3nCounters) == 5484 * 4,
                   "counters v115 layout after v114 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
-    assert(k.version == 146);
+    assert(k.version == 900);
     // off: nothing recorded
     const LONG s0 = g_cfSeq;
     CfRec(CF_COPY_NEW, (void*)0x1000, 64);

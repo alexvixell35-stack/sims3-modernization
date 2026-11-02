@@ -38,7 +38,7 @@ static void TestUnseen() {
                   offsetof(Ts3nCounters, utMode) == 0x33C8 && offsetof(Ts3nCounters, utWhy) == 0x33E0 &&
                   offsetof(Ts3nCounters, utPathUs) == 0x3414 && offsetof(Ts3nCounters, utViewerBad) == 0x3420 &&
                   sizeof(Ts3nCounters) == 5484 * 4, "counters v79 layout after v78 (docs/registry.md)");
-    assert(k.version == 146);
+    assert(k.version == 900);
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     // swap every game pointer for a fake
     const UnAgentFn agentSave = g_unAgentOrig;

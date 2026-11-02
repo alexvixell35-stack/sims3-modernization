@@ -159,7 +159,7 @@ static void TestRouteToObjRO() {
                       offsetof(Ts3nCounters, rtoShadowRuns) == 0x406C && offsetof(Ts3nCounters, rtoNested) == 0x4084 &&
                       sizeof(Ts3nCounters) == 5484 * 4,
                   "counters v93 layout after v95 (docs/registry.md)");
-    assert(k.version == 146);
+    assert(k.version == 900);
     assert(kRtoSites[0].site == 0x008316FF && kRtoSites[0].target == 0x004E17B0 && kRtoSites[1].site == 0x00831633 &&
            kRtoSites[1].target == 0x00830340 && kRtoSites[2].site == 0x00831568 && kRtoSites[2].target == 0x004E16F0);
     memset(&k.rtoReady, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, rtoReady));

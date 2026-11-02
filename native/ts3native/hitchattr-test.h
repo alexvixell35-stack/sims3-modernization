@@ -7,7 +7,7 @@ static void TestHitchAttr() {
     static_assert(offsetof(HaFrame, us) == 0x08 && offsetof(HaFrame, n) == 0x18 && offsetof(HaFrame, maxKey) == 0x20 &&
                   offsetof(HaFrame, mvUs) == 0x24 && offsetof(HaFrame, mvKey) == 0x34 && sizeof(HaFrame) == 0x38,
                   "ts3native_hitchattr layout (stutter-profile.js HA_*)");
-    assert(k.version == 146 && ts3native_hitchattr.version == 2);
+    assert(k.version == 900 && ts3native_hitchattr.version == 2);
     HaFrame& f = ts3native_hitchattr;
     const DWORD ownerSave = g_async.owner;
     const LONG enSave = f.enabled;

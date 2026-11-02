@@ -148,7 +148,7 @@ static void TestP5b() {
                   offsetof(Ts3nCounters, p5bGates) == 0x3068 && offsetof(Ts3nCounters, p5bGateAcq) == 0x306C &&
                   offsetof(Ts3nCounters, p5bGateMiss) == 0x3074 && sizeof(Ts3nCounters) == 5484 * 4,
                   "counters v62 + v63 + v65 + v66 layout (docs/registry.md)");
-    assert(k.version == 146);
+    assert(k.version == 900);
     // the fake world and its lock (the game's lock object: CRITICAL_SECTION at +0, its own count at +0x20)
     g_p5bW = (u8*)VirtualAlloc(NULL, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     void* lock = g_p5bW + 0x918;

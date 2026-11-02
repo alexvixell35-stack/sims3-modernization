@@ -25,7 +25,7 @@ static void TestUnseenFallbackSites() {
                       offsetof(Ts3nCounters, ufwMode) == 0x5440 && offsetof(Ts3nCounters, ufwRelease) == 0x545C &&
                       offsetof(Ts3nCounters, ufwFull) == 0x5470 && offsetof(Ts3nCounters, ufcBb) == 0x5474 && sizeof(Ts3nCounters) == 5484 * 4,
                   "counters v139 / v140 layout after v138 (docs/registry.md)");
-    assert(k.version == 146);
+    assert(k.version == 900);
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     // save and fake
     const UnCompFn compSave = g_unComp;

@@ -7,7 +7,7 @@ static void TestMovedWaits() {
                       offsetof(Ts3nCounters, ntIk) == 0x4B14 && sizeof(Ts3nCounters) == 5484 * 4,
                   "counters v120 layout after v119 (docs/registry.md)");
     static_assert(MW_N == 9, "mw arrays are [9]");
-    assert(k.version == 146);
+    assert(k.version == 900);
     const size_t blk = offsetof(Ts3nCounters, ntIk) + sizeof(k.ntIk) - offsetof(Ts3nCounters, mwReady);
     static u8 save[0x400];
     memcpy(save, &k.mwReady, blk);

@@ -95,7 +95,7 @@ static void TestPlanDeadline() {
                       sizeof(Ts3nCounters) == 5484 * 4,
                   "counters v99 layout after v98 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
-    assert(k.version == 146);
+    assert(k.version == 900);
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     memset(&k.pdMode, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, pdMode));
     u8* code = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
