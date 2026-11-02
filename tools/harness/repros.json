@@ -49955,5 +49955,1867 @@
         "note": "on: no exception, an owner component owned by the Sim; rewardgiver_added +1"
       }
     ]
+  },
+  {
+    "id": "showoff-jig-race",
+    "bug": "v0.2.4 player report (docs/226, docs/240): Show Off Badges 'cannot go there'. DoShowOffMove creates its SocialJigTwoPerson out of the world, hands it to the partner's linked interaction, plans (PlanToPoint, PlaceJig's PlanToPointRadius) and only then places it. With [RouteAsync] the initiator sleeps in AsyncWait, the idle partner plans RouteToJigB to the unplaced jig (goal -20000) and fails: FailedBecausePlannerAborted / NoPath, social cancelled",
+    "fix": "ts3fixes asyncjigsync (AsyncJigSync.cs, RouteBackoff.cs AsyncEligible / ForeignEligible, docs/240, tuning kAsyncJigSync, default on): no async START while the task Sim's interaction or its linked one holds a SocialJig that is not in the world",
+    "save": "Baseline-BP",
+    "switches": [
+      "asyncjigsync"
+    ],
+    "note": "In-load A/B. Autonomy off for the household, adult idle. 16 tries per arm, outside and inside alternating, adult 5-10 m from the child (inside tries can cross a room). Test shortcuts (labelled): Scouting set to 1, both Sims placed; EA's ShowOffNewSkills (Badges) queued as the pie menu does. A try fails when the child's DoRoute is not ok, or the adult had a failed plan or DoRoute inside DoShowOffMove.",
+    "expect": "verdict ab passes: off arm >= 1 failed try (adult plan to goal -20000 in ts3native.log 'showoff:' lines), on arm 0 failed; counters asyncjigsync_kept_sync >= 16 after the on arm",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "routefaillog": true
+        },
+        "waitS": 1,
+        "note": "logging on (its default): showoff lines per plan / jig / DoRoute of both Sims"
+      },
+      {
+        "cmd": "make_sim",
+        "args": {
+          "age": "Child"
+        },
+        "waitS": 10,
+        "optional": true,
+        "note": "joins the active household when the active Sim is at home"
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "waitS": 1,
+        "note": "autonomy off: the adult stays idle between tries"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "asyncjigsync": false
+        },
+        "waitS": 1,
+        "note": "arm off: asyncjigsync off (v0.2.4 behaviour)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 5"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 1: child at the outside spot, adult ~5 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 1: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 1 outside 5m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 6"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 2: child at the inside spot, adult ~6 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 2: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 2 inside 6m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 7"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 3: child at the outside spot, adult ~7 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 3: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 3 outside 7m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 8"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 4: child at the inside spot, adult ~8 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 4: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 4 inside 8m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 9"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 5: child at the outside spot, adult ~9 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 5: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 5 outside 9m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 10"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 6: child at the inside spot, adult ~10 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 6: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 6 inside 10m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 6"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 7: child at the outside spot, adult ~6 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 7: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 7 outside 6m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 8"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 8: child at the inside spot, adult ~8 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 8: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 8 inside 8m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 5"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 9: child at the outside spot, adult ~5 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 9: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 9 outside 5m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 6"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 10: child at the inside spot, adult ~6 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 10: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 10 inside 6m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 7"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 11: child at the outside spot, adult ~7 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 11: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 11 outside 7m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 8"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 12: child at the inside spot, adult ~8 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 12: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 12 inside 8m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 9"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 13: child at the outside spot, adult ~9 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 13: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 13 outside 9m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 10"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 14: child at the inside spot, adult ~10 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 14: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 14 inside 10m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 6"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 15: child at the outside spot, adult ~6 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 15: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 15 outside 6m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 8"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 16: child at the inside spot, adult ~8 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "off try 16: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record off try 16 inside 8m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "asyncjigsync": true
+        },
+        "waitS": 1,
+        "note": "arm on: asyncjigsync on (the fix)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 5"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 1: child at the outside spot, adult ~5 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 1: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 1 outside 5m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 6"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 2: child at the inside spot, adult ~6 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 2: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 2 inside 6m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 7"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 3: child at the outside spot, adult ~7 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 3: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 3 outside 7m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 8"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 4: child at the inside spot, adult ~8 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 4: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 4 inside 8m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 9"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 5: child at the outside spot, adult ~9 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 5: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 5 outside 9m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 10"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 6: child at the inside spot, adult ~10 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 6: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 6 inside 10m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 6"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 7: child at the outside spot, adult ~6 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 7: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 7 outside 6m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 8"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 8: child at the inside spot, adult ~8 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 8: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 8 inside 8m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 5"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 9: child at the outside spot, adult ~5 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 9: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 9 outside 5m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 6"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 10: child at the inside spot, adult ~6 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 10: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 10 inside 6m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 7"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 11: child at the outside spot, adult ~7 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 11: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 11 outside 7m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 8"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 12: child at the inside spot, adult ~8 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 12: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 12 inside 8m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 9"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 13: child at the outside spot, adult ~9 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 13: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 13 outside 9m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 10"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 14: child at the inside spot, adult ~10 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 14: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 14 inside 10m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 6"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 15: child at the outside spot, adult ~6 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 15: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 15 outside 6m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 8"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 16: child at the inside spot, adult ~8 m away (test shortcut: placed)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "waitS": 2,
+        "note": "on try 16: Show Off Badges queued on the child",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record on try 16 inside 8m"
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "asyncjigsync": true
+        },
+        "waitS": 1,
+        "note": "asyncjigsync back to its default (on)"
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "verdict ab"
+          ]
+        },
+        "note": "throws unless the off arm failed >= 1 try (race reproduced) and the on arm failed 0"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "asyncjigsync": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "hug-jig-smoke",
+    "bug": "smoke for asyncjigsync (docs/240): another paired social with an out-of-world SocialJig (SocialInteraction.PlaceSocial, CreateJigForTwoPersonSocial)",
+    "fix": "ts3fixes asyncjigsync (default on)",
+    "save": "Baseline-BP",
+    "switches": [
+      "asyncjigsync"
+    ],
+    "note": "Smoke only: 6 Friendly Hugs, adult on the child, 5-10 m apart, outside and inside; autonomy off. No verdict step: read the run for crashes and ts3native.log routefail lines with goal -20000.",
+    "expect": "no crash, no script error; no 'routefail:' line with goal -20000.0,-20000.0,-20000.0",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "routefaillog": true
+        },
+        "waitS": 1,
+        "note": "logging on (its default): showoff lines per plan / jig / DoRoute of both Sims"
+      },
+      {
+        "cmd": "make_sim",
+        "args": {
+          "age": "Child"
+        },
+        "waitS": 10,
+        "optional": true,
+        "note": "joins the active household when the active Sim is at home"
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "waitS": 1,
+        "note": "autonomy off: the adult stays idle between tries"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 5"
+          ]
+        },
+        "waitS": 2,
+        "note": "hug 1: Sims placed outside, ~5 m apart"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire social Friendly Hug"
+          ]
+        },
+        "waitS": 30,
+        "note": "hug 1: adult hugs the child (SocialInteractionA, jig made out of world near walls / doorways)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 6"
+          ]
+        },
+        "waitS": 2,
+        "note": "hug 2: Sims placed inside, ~6 m apart"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire social Friendly Hug"
+          ]
+        },
+        "waitS": 30,
+        "note": "hug 2: adult hugs the child (SocialInteractionA, jig made out of world near walls / doorways)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 7"
+          ]
+        },
+        "waitS": 2,
+        "note": "hug 3: Sims placed outside, ~7 m apart"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire social Friendly Hug"
+          ]
+        },
+        "waitS": 30,
+        "note": "hug 3: adult hugs the child (SocialInteractionA, jig made out of world near walls / doorways)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 8"
+          ]
+        },
+        "waitS": 2,
+        "note": "hug 4: Sims placed inside, ~8 m apart"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire social Friendly Hug"
+          ]
+        },
+        "waitS": 30,
+        "note": "hug 4: adult hugs the child (SocialInteractionA, jig made out of world near walls / doorways)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside 9"
+          ]
+        },
+        "waitS": 2,
+        "note": "hug 5: Sims placed outside, ~9 m apart"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire social Friendly Hug"
+          ]
+        },
+        "waitS": 30,
+        "note": "hug 5: adult hugs the child (SocialInteractionA, jig made out of world near walls / doorways)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside 10"
+          ]
+        },
+        "waitS": 2,
+        "note": "hug 6: Sims placed inside, ~10 m apart"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire social Friendly Hug"
+          ]
+        },
+        "waitS": 30,
+        "note": "hug 6: adult hugs the child (SocialInteractionA, jig made out of world near walls / doorways)"
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        },
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
   }
 ]

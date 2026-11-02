@@ -1,6 +1,6 @@
 # 226. Show Off Badges: "cannot go there" (player report, triage)
 
-Status 2026-11-02: logging build and repro built, not run in game. No fix yet.
+Status 2026-11-02: logging build and repro built, not run in game. No fix yet. Root cause found 2026-11-03 (partner plans to the unplaced jig while the initiator sleeps in AsyncWait): fix `asyncjigsync`, docs/240.
 
 ## Report
 

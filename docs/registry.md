@@ -186,7 +186,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2041-2042 | `NpcDriverPool.cs` (`fixes-2041`, contributor range 2000-2199, issue #166 build 37, docs/514), `npcdriverpool` | built 2026-11-01: calls that found a bad pooled driver description EA would hand out, also with the switch off (`npcdriverpool_seen`); entries dropped, switch on only (`npcdriverpool_dropped`); array `new int[2043]` |
 | 744-749 | `UnseenTable.cs` (`fixes-744`, docs/227 §6), native `[UnseenTable]` (`unseentable`) | built 2026-11-02, not run: `[744]` ticks with a fetched table, `[745]` Sim checks answered from it, `[746]` Sim checks with no row (old rule ran), `[747]` checked: table unseen / old seen (unsafe), `[748]` checked: table seen / old unseen, `[749]` checks compared (`unseentable_*`) |
 | 750-757 | `UnseenCost.cs` sites 11-12 (`fixes-750`, docs/227 §9), `unseencost` | written 2026-11-02, not built: `utfetch` (copy path Fetch) and `utlookup` (one row read: Bits IC or binary search), calls / top / timed / us each (`unseencost_utfetch_*`, `unseencost_utlookup_*`); array unchanged `new int[2045]` |
-| **758+** | next free | reserve here  |
+| 758-759 | reserved (asyncjigsync, `fixes-758`) | asyncjigsync (`AsyncJigSync.cs`, `RouteBackoff.cs` `AsyncEligible`, docs/240): 758 own plans kept sync while the Sim's interaction holds an unplaced SocialJig, 759 of those with the jig only in the linked interaction |
+| **760+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 

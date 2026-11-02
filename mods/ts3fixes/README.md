@@ -1,3 +1,4 @@
+| `kAsyncJigSync` | **on** | Paired socials (Show Off Badges, hugs near walls, ...) set up their spot (a social jig) after planning; with async routing the partner Sim planned to the spot before it existed and gave up ("cannot go there"). While such a spot is not placed yet, route plans stay synchronous as in the unmodded game. Test switch `asyncjigsync` (docs/240). |
 # TS3 stutter fixes (`ts3fixes.package`)
 
 A script mod for The Sims 3 (Steam 1.67, all expansions) that makes the simulation cheaper per tick, so the game stutters less and runs more sim time per real second. It replaces a few game methods at startup; it does not replace whole game assemblies (no core mod).

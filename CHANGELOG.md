@@ -9,6 +9,8 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 - **No more crash from custom-content meshes without a material** (issue #80): a hair or clothing mesh made from a morph mesh crashed the game while it built a Sim. That part is now left out at that distance instead. On by default (`[EaCrashFixes] GeomNoMaterial=1`).
 - **Isla Paradiso routing crash** (issues #132, #136): on by default (`[EaCrashFixes] WorldAStarRefs=1`, `PortalFlagRefs=1`).
 
+- **Paired socials no longer fail with "cannot go there"** (Show Off Badges and other two-Sim socials that set up a spot first): with async routing the partner Sim could plan its walk before the spot existed. Plans now stay synchronous while that spot is being set up (switch `asyncjigsync`, on by default). On v0.2.4, set `Enabled=0` under `[RouteAsync]` in `ts3native.ini` as a workaround.
+
 ### Known issues
 
 - **Tiny UI Fix turns the Mono offload off** (`[AutShadow]`): Tiny UI Fix ships its own copies of `Sims3GameplaySystems` and `Sims3GameplayObjects`, and the offload's safety check switches itself off for the whole session when it sees game assemblies it does not know. The game runs as without the offload; nothing breaks. Tiny UI Fix's changes do not touch the methods the offload uses (docs/218), so a per-method check that keeps the offload on is planned for the next release. Found by Dalexlol.

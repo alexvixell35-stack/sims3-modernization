@@ -174,11 +174,20 @@ namespace Ts3Fixes
             // it as "Foreign" otherwise; older ts3native and the game answer false, so the plan stays synchronous as before.
             // (The code is inlined in PlanBackoffBody above, issue #92.)
 
+            // docs/240 asyncjigsync: no START while the Sim's interaction (or its linked one) holds a SocialJig not yet in the
+            // world, so the partner never runs while the initiator sleeps between CreateObjectOutOfWorld and AddToWorld.
+            // Counters: [758] own plans kept sync, [759] of those with the jig only in the linked interaction.
             bool AsyncEligible(Sims3.Gameplay.Actors.Sim sim, string shortcut)
             {
-                return sim != null && ShortcutOn(shortcut) && Simulator.CurrentTask == sim.ObjectId
+                if (!(sim != null && ShortcutOn(shortcut) && Simulator.CurrentTask == sim.ObjectId
                     && GameStates.IsLiveState && !GameStates.IsTravelling && !GameStates.IsWorldShuttingDown
-                    && Simulator.CheckYieldingContext(false);
+                    && Simulator.CheckYieldingContext(false))) return false;
+                int jig = JigPending(sim);
+                if (jig == 0) return true;
+                int[] c = PatchCounters();
+                c[758]++;
+                if (jig == 2) c[759]++;
+                return false;
             }
 
             // docs/163 §7: foreign plans whose task is the only one that drives the follower, so the own START (bit 58) is as safe
@@ -225,8 +234,10 @@ namespace Ts3Fixes
             // route being followed (Active)
             static bool ForeignEligible()
             {
-                return ShortcutOn("asyncroute") && GameStates.IsLiveState && !GameStates.IsTravelling && !GameStates.IsWorldShuttingDown
-                    && Simulator.CheckYieldingContext(false);
+                if (!(ShortcutOn("asyncroute") && GameStates.IsLiveState && !GameStates.IsTravelling && !GameStates.IsWorldShuttingDown
+                    && Simulator.CheckYieldingContext(false))) return false;
+                IScriptProxy task = Simulator.GetProxy(Simulator.CurrentTask);
+                return JigPending(task != null ? task.Target as Sims3.Gameplay.Actors.Sim : null) == 0; // asyncjigsync (AsyncJigSync.cs), uncounted here
             }
 
             // after a START answered yes: sleep a tick at a time until READY

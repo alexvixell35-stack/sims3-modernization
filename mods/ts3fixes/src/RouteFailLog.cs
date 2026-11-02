@@ -68,6 +68,7 @@ namespace Ts3Fixes
                 if (sim == null) return;
                 bool show = InShowOff(sim);
                 if (show && sim == sSoChild) { sSoSeen = true; sSoPlans++; if (!ok) sSoPlanFails++; if (async) sSoAsync++; }
+                if (show && sim == sSoAdult && !ok && sSoAdultRoute == -1) sSoAdultPlanFails++; // asyncjigsync repro: the partner's plans before its DoRoute (RouteToJigB to an unplaced jig); later plans (e.g. a locked-portal PlanFromPoint after the social) do not count
                 if (ok && !show) return;
                 if (!show && !sim.IsInActiveHousehold) return;
                 if (!ShortcutOn("routefaillog")) return;
@@ -110,6 +111,7 @@ namespace Ts3Fixes
                 {
                     Sim sim = OwnerSim;
                     if (sim != null && sim == sSoChild && InShowOff(sim)) { sSoSeen = true; sSoRoute = ok ? 1 : 0; sSoRoutePlan = r != null ? r.PlanResult.mType.ToString() : "?"; }
+                    if (sim != null && sim == sSoAdult && InShowOff(sim)) sSoAdultRoute = ok ? 1 : 0;
                     if (sim != null && r != null && (!ok || InShowOff(sim)) && (InShowOff(sim) || sim.IsInActiveHousehold) && ShortcutOn("routefaillog"))
                     {
                         RoutePlanResult pr = r.PlanResult;
@@ -149,7 +151,7 @@ namespace Ts3Fixes
         // ---- agent check for repro showoff-badges-route (docs/226) ----
         static Sim sSoChild, sSoAdult;
         static bool sSoSeen;
-        static int sSoPlans, sSoPlanFails, sSoAsync, sSoJig = -1, sSoRoute = -1;
+        static int sSoPlans, sSoPlanFails, sSoAsync, sSoJig = -1, sSoRoute = -1, sSoAdultPlanFails, sSoAdultRoute = -1;
         static string sSoRoutePlan;
         static uint sSoFiredAt;
         static readonly List<string> sSoArms = new List<string>();
@@ -188,6 +190,14 @@ namespace Ts3Fixes
         //   "verdict": throws when any recorded arm failed (lists every arm), else returns them.
         public static object ShowOffBadgesCheck(string arg)
         {
+            if (arg.StartsWith("fire social "))
+            {
+                // asyncjigsync smoke (docs/240): an EA social by its action key (e.g. "Friendly Hug"), adult on the child, as the pie menu queues it
+                if (sSoChild == null || sSoAdult == null) throw new InvalidOperationException("showoff fire social: setup first");
+                Sims3.Gameplay.Socializing.SocialInteractionA.Definition sd = new Sims3.Gameplay.Socializing.SocialInteractionA.Definition(arg.Substring(12), new string[0], null, false);
+                InteractionInstance si = sd.CreateInstance(sSoChild, sSoAdult, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
+                return sSoAdult.FullName + ": " + arg.Substring(12) + " on " + sSoChild.FullName + " queued " + sSoAdult.InteractionQueue.Add(si);
+            }
             if (arg == "fire")
             {
                 if (sSoChild == null || sSoAdult == null) throw new InvalidOperationException("showoff fire: setup first");
@@ -197,7 +207,7 @@ namespace Ts3Fixes
                 if (ctor == null) throw new InvalidOperationException("showoff fire: Sim+ShowOffNewSkills+Definition(ShowOffMoveType) not found");
                 InteractionDefinition def = (InteractionDefinition)ctor.Invoke(new object[] { ShowOffMoveType.Badges });
                 InteractionInstance ii = def.CreateInstance(sSoAdult, sSoChild, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
-                sSoSeen = false; sSoPlans = 0; sSoPlanFails = 0; sSoAsync = 0; sSoJig = -1; sSoRoute = -1; sSoRoutePlan = null;
+                sSoSeen = false; sSoPlans = 0; sSoPlanFails = 0; sSoAsync = 0; sSoJig = -1; sSoRoute = -1; sSoRoutePlan = null; sSoAdultPlanFails = 0; sSoAdultRoute = -1;
                 sSoFiredAt = SrcNowUs();
                 InShowOff(sSoChild); // resolves sShowOffType
                 bool queued = sSoChild.InteractionQueue.Add(ii);
@@ -216,12 +226,25 @@ namespace Ts3Fixes
             {
                 string what = arg.Substring(7) + ": " + (sSoRoute == 1 ? "route ok" : sSoRoute == 0 ? "DoRoute false (balloon), plan " + sSoRoutePlan
                     : sSoJig == 0 ? "jig not placed" : sSoSeen ? "ended before DoRoute" : "DoShowOffMove never ran")
-                    + " (plans " + sSoPlans + ", failed " + sSoPlanFails + ", async " + sSoAsync + ", jig " + sSoJig + ")";
+                    + " (plans " + sSoPlans + ", failed " + sSoPlanFails + ", async " + sSoAsync + ", jig " + sSoJig
+                    + ", adult plan fails " + sSoAdultPlanFails + ", adult DoRoute " + sSoAdultRoute + ")";
                 sSoArms.Add(what);
-                if (sSoRoute != 1) sSoFailed.Add(what);
+                if (sSoRoute != 1 || sSoAdultPlanFails > 0 || sSoAdultRoute == 0) sSoFailed.Add(what); // adult: asyncjigsync repro (docs/240)
                 if (sSoChild != null) sSoChild.InteractionQueue.CancelAllInteractions();
                 if (sSoAdult != null) sSoAdult.InteractionQueue.CancelAllInteractions();
                 return what;
+            }
+            // "verdict ab" (asyncjigsync, docs/240): arms named "off ..." must fail at least once (the race reproduced), every other arm never
+            if (arg == "verdict ab")
+            {
+                int offN = 0, offBad = 0, onBad = 0, total = sSoArms.Count;
+                foreach (string s in sSoArms) if (s.StartsWith("off ")) offN++;
+                foreach (string s in sSoFailed) if (s.StartsWith("off ")) offBad++; else onBad++;
+                string sum = "off arm " + offBad + "/" + offN + " failed, other arms " + onBad + "/" + (total - offN) + " failed";
+                string all2 = string.Join("; ", sSoArms.ToArray());
+                sSoArms.Clear(); sSoFailed.Clear(); sSoChild = null; sSoAdult = null;
+                if (onBad > 0 || offBad == 0 || offN == 0 || offN == total) throw new InvalidOperationException("showoff verdict ab: " + sum + (offBad == 0 ? " (off arm did not reproduce)" : "") + ": " + all2);
+                return sum;
             }
             if (arg == "verdict")
             {
@@ -231,7 +254,9 @@ namespace Ts3Fixes
                 if (bad) throw new InvalidOperationException("showoff verdict: route failed in some arm: " + (all.Length > 0 ? all : "no arm recorded"));
                 return "every arm routed: " + all;
             }
-            if (arg != "setup outside" && arg != "setup inside") return "showoff <setup outside|setup inside|fire|state|record <arm>|verdict>";
+            float dist = 1.5f; // "setup outside 8": the adult about 8 m away (asyncjigsync repro)
+            if (arg.StartsWith("setup ") && arg.LastIndexOf(' ') > 6) { float.TryParse(arg.Substring(arg.LastIndexOf(' ') + 1), NumberStyles.Float, CultureInfo.InvariantCulture, out dist); if (!(dist > 0f)) dist = 1.5f; arg = arg.Substring(0, arg.LastIndexOf(' ')); }
+            if (arg != "setup outside" && arg != "setup inside") return "showoff <setup outside|setup inside|fire|state|record <arm>|verdict|verdict ab> (setup takes an optional distance in m)";
             Household h = Household.ActiveHousehold;
             if (h == null || h.LotHome == null) throw new InvalidOperationException("showoff setup: no active household with a home lot");
             Sim child = null, adult = null;
@@ -260,7 +285,7 @@ namespace Ts3Fixes
                 if (best == ulong.MaxValue) throw new InvalidOperationException("showoff setup inside: no ground-floor object in a room on " + lot.Name);
             }
             SoPlace(child, spot);
-            SoPlace(adult, child.Position + new Vector3(1.5f, 0f, 0f));
+            SoPlace(adult, child.Position + new Vector3(dist, 0f, 0f));
             sSoChild = child; sSoAdult = adult;
             return arg + ": " + child.FullName + " (Scouting " + k.SkillLevel + ") at " + V(child.Position) + " room " + child.RoomId
                 + ", " + adult.FullName + " " + adult.SimDescription.Age + " at " + V(adult.Position) + " room " + adult.RoomId + ", lot " + lot.Name;

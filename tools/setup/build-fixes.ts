@@ -152,6 +152,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBookCarry value="False" />
     <kAgeUpAbort value="False" />
     <kRewardGiver value="False" />
+    <kAsyncJigSync value="True" />
     <kDeadRefSweep value="False" />
     <kVacExport value="False" />
     <kVacStoreGuard value="False" />
