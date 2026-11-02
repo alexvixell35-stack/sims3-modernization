@@ -1142,6 +1142,7 @@ struct JitV { bool active; int phase; u8* rm; JitMeth* meth; DWORD sp0, ebp, fr[
 static const DWORD JIT_VD = 32;  // verified depths (snapshot buffers per depth)
 static JitV* g_jitV;           // [JIT_VD], main thread only (worker threads run compiled code unverified)
 static DWORD g_jitMainTid;
+static volatile LONG g_jitOtherTid;  // entries from another thread (the M5 worker): never compiled, EA's handler runs
 static volatile LONG g_jvRetried, g_jvRetryOk, g_jvInner, g_jvNested, g_jvCalls, g_jvOk, g_jvMismatch, g_jvAbandoned, g_jvAllocEq, g_jvUnverified, g_jvLarge;
 static int g_jvLogged;
 static bool g_jvQuiet;  // first attempt of a verified call: mismatches are logged only if the retry repeats them
@@ -1375,7 +1376,7 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
         }
         return fromExit ? JitOrig(r, r->edi, e->orig) : JitNative(r, e);
     }
-    if (GetCurrentThreadId() != g_jitMainTid) return fromExit ? JitOrig(r, r->edi, e->orig) : JitNative(r, e);
+    if (GetCurrentThreadId() != g_jitMainTid) { InterlockedIncrement(&g_jitOtherTid); return fromExit ? JitOrig(r, r->edi, e->orig) : JitNative(r, e); }
     const u8* rm = e->rm;
     DWORD depth = *(const DWORD*)(uintptr_t)(*(const DWORD*)(uintptr_t)(r->ebp + 8) + 0x140);
     if (depth >= JIT_VD) return fromExit ? JitOrig(r, r->edi, e->orig) : JitNative(r, e);
@@ -1603,11 +1604,13 @@ static void JitCountReport() {
 // one case: its hash, or for a managed exception that left Run (old Mono raises runtime-thrown exceptions such as newarr's
 // by unwinding to the invoke boundary, past interpreted catch blocks) a hash of its type with the top bit set; false on a
 // CPU fault (host state suspect)
+static bool g_corpusEscaped;  // the last JitCorpusCall's exception left Run
 static bool JitCorpusCall(void* m, int c, int* h) {
     void* a[1] = {&c};
     void* exc = NULL; DWORD code = 0;
     void* r = SafeInvoke(m, NULL, a, &exc, &code);
     if (code) return false;
+    g_corpusEscaped = exc != NULL;
     if (exc) {
         char t[128] = "", msg[256] = ""; void* in = NULL;
         Describe(exc, t, msg, &in);
@@ -1660,6 +1663,42 @@ static void JitCorpusRun() {
     g_jitVerifyOn = vOn;
     Log("jit corpus: %d cases, %d differ, %d unstable; per-call verify during the corpus: ok %ld, MISMATCH %ld, abandoned (exception) %ld\n",
         n, bad, unstable, g_jvOk - ok0, g_jvMismatch - mm0, g_jvAbandoned - ab0);
+}
+// round 10 C4 (docs/207 §14): every corpus case on the M5 worker thread with the compiled words patched, from M5 while the
+// worker is idle (the corpus proper runs after the worker stopped). Each entry of a compiled method there takes JitEnter's
+// other-thread path (EA's handler for the original opcode), so the worker's hash must be the interpreted one. A case is run
+// compiled on this thread first (that compiles it here, not on the worker), then interpreted for the reference. A case whose
+// compiled hash already differs, or whose exception leaves Run (the worker entry drops it), is skipped. MONOHOST_JITCORPUS_WORKER=0 skips.
+static void JitCorpusWorkerPass() {
+    char rv[16] = "";
+    if (g_jitMode < 2 || !(GetEnvironmentVariableA("MONOHOST_JITCORPUS", rv, sizeof(rv)) && rv[0] == '1')) return;
+    if (GetEnvironmentVariableA("MONOHOST_JITCORPUS_WORKER", rv, sizeof(rv)) && rv[0] == '0') return;
+    int n = I32(T("JitCorpusCount", 0, NULL));
+    void* m = Meth(g_testK, "JitCorpusRun", 1);
+    if (n <= 0 || n == INT_MIN || !m) return;
+    if (mt::ts3native_mtprobe.workerState != 2) { Log("jit corpus worker: no idle worker (state %ld), skipped\n", mt::ts3native_mtprobe.workerState); return; }
+    const int vOn = g_jitVerifyOn;
+    g_jitVerifyOn = 0;
+    const LONG ot0 = g_jitOtherTid;
+    int wn = 0, wbad = 0, wskip = 0, wesc = 0;
+    for (int c = 0; c < n; c++) {
+        int ref = 0, got = 0;
+        JitSetPatched(true);
+        const bool okC = JitCorpusCall(m, c, &got);
+        JitSetPatched(false);
+        const bool okI = okC && JitCorpusCall(m, c, &ref);
+        JitSetPatched(true);
+        if (!okI) { Log("jit corpus worker FAULT case %d on this thread; pass stopped\n", c); wbad++; break; }
+        if (g_corpusEscaped) { wesc++; continue; }
+        if (got != ref) { wskip++; continue; }
+        int passes = 0; DWORD ms = 0; int cc = c; void* a[1] = {&cc};
+        const int j = WorkerJob("JitCorpusWorker", a, MainIdle, &passes, &ms);
+        const int w = I32(T("GetLastWorker", 0, NULL));
+        wn++;
+        if (j != 0 || w != ref) { wbad++; Log("jit corpus worker MISMATCH case %d: worker %08X (job %d) interpreted %08X\n", c, w, j, ref); LogWorkerError("JitCorpusWorker"); }
+    }
+    g_jitVerifyOn = vOn;
+    Log("jit corpus worker: %d cases, %d differ; skipped: %d escaping, %d compiled differs; other-thread entries %ld\n", wn, wbad, wesc, wskip, g_jitOtherTid - ot0);
 }
 
 // B1: compile methods that cannot run offline (Sims3Gameplay accessors) so jit-dump.txt shows their mint code and P0's

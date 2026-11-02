@@ -194,6 +194,49 @@ const KO = `
     public class JitKF { public float f; public double d; }
     public struct JitPt { public int X, Y; public int Sum(object o) { return X + Y + (o == null ? 0 : 1); } }
 `;
+// round 10 C4 (docs/207 §14): exceptions and stack walks through compiled frames. Thrower throws InvalidOperationException
+// at 0 and DivideByZeroException at 1; Mid / MidCatch / EnvMid / DeepT are lazy middle frames (each has a branch so mint
+// does not inline it). Names hashes the method name of every stack-trace line ("... in Ns.Class:Method (params) (addr)")
+// down to the last JitKX frame.
+const KX = `
+    public class JitKX
+    {
+        public static int s_log;
+        static int Thrower(int a) { if (a == 0) throw new InvalidOperationException("x"); return 100 / (a - 1); }
+        static int Mid(int a) { try { return Thrower(a) + 1; } finally { s_log = s_log * 10 + 1; } }
+        static int MidCatch(int a) { try { return Thrower(a); } catch (DivideByZeroException) { return 7; } }
+        static int Names(string s)
+        {
+            int h = 17;
+            if (s == null) return h;
+            foreach (string line in s.Split('\\n'))
+            {
+                int at = line.IndexOf(" in "), ps = at < 0 ? -1 : line.IndexOf(" (", at + 4);
+                if (at < 0) continue;
+                string name = ps < 0 ? line.Substring(at + 4) : line.Substring(at + 4, ps - at - 4);
+                if (name.IndexOf("JitKX") < 0) break;  // the frames above ours differ by caller (the corpus driver, the worker job)
+                h = h * 31 + name.GetHashCode();
+            }
+            return h;
+        }
+        public static int FinallyMid(int a) { s_log = 0; try { return Mid(a) + 2; } catch (InvalidOperationException) { return -1000 - s_log; } catch (DivideByZeroException) { return -2000 - s_log; } }
+        public static int CatchMid(int a) { return MidCatch(a) * 3 + a; }
+        public static int Rethrow(int a) { s_log = 0; try { try { return Thrower(a); } catch (InvalidOperationException) { s_log++; throw; } } catch (InvalidOperationException e) { return -3 - s_log - e.Message.Length; } }
+        public static int ThrowInFinally(int a) { try { try { return Thrower(a); } finally { if (a == 0) throw new ArgumentException("f"); } } catch (ArgumentException) { return -4; } }
+        public static int TraceNames(int a) { s_log = 0; try { return Mid(a); } catch (Exception e) { return Names(e.StackTrace); } }
+        static int EnvMid(int a)
+        {
+            if (a > 1000) return a;
+            int h = 17; System.Diagnostics.StackFrame[] fs = new System.Diagnostics.StackTrace().GetFrames();
+            if (fs != null) foreach (System.Diagnostics.StackFrame f in fs) { if (f.GetMethod() == null || f.GetMethod().DeclaringType != typeof(JitKX)) break; h = h * 31 + f.GetMethod().Name.GetHashCode(); }
+            return h + a;
+        }
+        public static int EnvTrace(int a) { return EnvMid(a) + 1; }
+        public static int Escape(int a) { return Thrower(a) + 1; }
+        static int DeepT(int n) { if (n <= 0) return Thrower(0); return DeepT(n - 1) + 1; }
+        public static int DeepCatch(int n) { try { return DeepT(n); } catch (InvalidOperationException e) { return n + Names(e.StackTrace); } }
+    }
+`;
 // B3 lazy frames (docs/207 §12): compiled callers calling compiled static leaves (every position native, ret / ret.void).
 // Each leaf has a branch so mint's transform does not inline it; Arr / Set / Deref fault inside the leaf (frame written at
 // the exit, then EA's handler throws).
@@ -477,6 +520,13 @@ const LAZY_CASES: Case[] = [
   { name: 'JitKV.CallVirtThrow (DivideByZeroException in a class-guarded lazy callee)', body: T('JitKV.CallVirt(new JitKV3(), 6)') },
   { name: 'JitKV.CallVirtChain (a guarded lazy callee makes a guarded lazy call; null inner receiver)', body: `${T('JitKV.CallVirtChain(new JitKV2(), new JitKV(), 40)')} ${T('JitKV.CallVirtChain(new JitKV(), null, 3)')}` },
   { name: 'JitKL.CallCon (con.call: a constrained call on a value type in a generic method)', body: T('JitKL.CallCon(40)') },
+  // round 10 C4: exceptions and stack walks through compiled frames (docs/207 §14)
+  { name: 'JitKX.FinallyMid (a finally in a lazy middle frame runs during the unwind; the compiled caller catches)', body: `${T('JitKX.FinallyMid(0)')} ${T('JitKX.FinallyMid(1)')} ${T('JitKX.FinallyMid(3)')}` },
+  { name: 'JitKX.CatchMid (a catch in a lazy middle frame, then a return into the compiled caller; the other exception passes through)', body: `${T('JitKX.CatchMid(0)')} ${T('JitKX.CatchMid(1)')} ${T('JitKX.CatchMid(5)')}` },
+  { name: 'JitKX.Rethrow / ThrowInFinally (rethrow out of a catch; a throw inside a finally replaces the exception)', body: `${T('JitKX.Rethrow(0)')} ${T('JitKX.Rethrow(2)')} ${T('JitKX.ThrowInFinally(0)')} ${T('JitKX.ThrowInFinally(1)')} ${T('JitKX.ThrowInFinally(4)')}` },
+  { name: 'JitKX.TraceNames / DeepCatch (the method name of every stack-trace frame through lazy frames, depth 1 and 25)', body: `${T('JitKX.TraceNames(0)')} ${T('JitKX.TraceNames(1)')} ${T('JitKX.DeepCatch(25)')}` },
+  { name: 'JitKX.EnvTrace (a StackTrace walk from a lazy callee: the method name of every frame)', body: T('JitKX.EnvTrace(3)') },
+  { name: 'JitKX.Escape (an exception from a lazy callee reaches the driver through the compiled caller)', body: `${T('JitKX.Escape(0)')} ${T('JitKX.Escape(1)')} ${T('JitKX.Escape(2)')}` },
 ];
 // docs/207 §9 accessors (round 8 B6): [corpus name, JitAcc method, inputs, the method the compiler must list]
 export const ACCESSORS: [string, string, number, string][] = [
@@ -520,6 +570,7 @@ ${KS.replace(/^\n|\n$/g, '')}
     }
 ${KO.replace(/^\n|\n$/g, '')}
 ${KL.replace(/^\n|\n$/g, '')}
+${KX.replace(/^\n|\n$/g, '')}
     public struct JitKey : IEquatable<JitKey>
     {
         public int K;
@@ -611,7 +662,7 @@ ${cs.map((k, i) => `                case ${i}: // ${k.name}
 export function jitList(src: string): string {
   const m = /kJitList\[\] = \{([\s\S]*?)\};/.exec(src);
   if (!m) throw new Error('kJitList not found in monohost-jit.cpp');
-  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', ...ACCESSORS.map(a => a[3])).join(',');
+  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', 'JitKX.*', ...ACCESSORS.map(a => a[3])).join(',');
 }
 
 // ---- report ----
@@ -679,7 +730,7 @@ function selfCheck() {
   try { disk = readFileSync(OUT, 'utf8'); } catch { /* missing = stale */ }
   ok(disk.replace(/\r\n/g, '\n') === g.replace(/\r\n/g, '\n'), 'native/monohost/JitCorpus.cs is up to date (node tools/jit-corpus.ts --write)');
   const src = 'static const char* const kJitList[] = {\n    // c\n    "A.B", "C`2.D",\n    "E.F",\n};';
-  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,' + ACCESSORS.map(a => a[3]).join(','), 'kJitList parse');
+  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,JitKX.*,' + ACCESSORS.map(a => a[3]).join(','), 'kJitList parse');
   ok(new Set(ACCESSORS.map(a => a[1])).size === ACCESSORS.length && ACCESSORS.every(a => /^\w+Case$/.test(a[1]) && a[2] > 0), 'accessor table');
   const log = 'jit corpus MISMATCH case 1: compiled 0000002A interpreted 0000002B\njit corpus trail case 1 compiled: DivideByZeroException at X | \njit corpus UNSTABLE case 2: interpreted 1 then 2\n'
     + 'jit corpus: 3 cases, 1 differ, 1 unstable; per-call verify during the corpus: ok 5, MISMATCH 0, abandoned (exception) 2\n';

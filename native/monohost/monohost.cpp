@@ -1473,6 +1473,7 @@ static int AsG2() {
     return 0;
 }
 
+static void JitCorpusWorkerPass();  // monohost-jit.cpp (round 10 C4), while the worker is idle
 static int M5() {
     // M1.5 hooked [0x11949CC]; hand it back so ApplyMonoThread finds the game's push and chains it
     *(void**)(uintptr_t)0x11949CC = (void*)g_pushOtherOrig;
@@ -1618,6 +1619,8 @@ static int M5() {
         const int rc = AsG2();
         if (rc) return rc;
     }
+
+    JitCorpusWorkerPass();
 
     void* ah[3] = {&h, &gn, &gs};
     int hb = I32(T("CheckGraph", 3, ah));

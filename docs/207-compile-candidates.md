@@ -711,3 +711,54 @@ Round 10, task C2. Goal: the opcode table's generatable rows and cheap hand rows
   `ceq.r8` 15.4 M, `blt.r8.s` 7.8 M (corpus and bench weights, not the game's). Float argument moves and float compares
   and branches are the next template group; `ret` / `call` are the §12 lazy-frame work.
 - Ledger: docs/51 §926.
+
+## 14. Round 10 C4: exceptions, stack walks and the worker thread through compiled frames (2026-11-02)
+
+Round 10, task C4. Host only (monohost, `MONOHOST_JIT=verify`, `MONOHOST_JITCORPUS=1`). Three questions: does an
+exception raised in or under a compiled frame unwind as the interpreter's does (`finally`, a `catch` in a middle frame, a
+rethrow, a throw inside `finally`); does a stack trace or a stack walk taken through compiled frames name the same frames;
+and what happens when a compiled method is entered on the M5 offload worker thread.
+
+### 14.1 Corpus kernels (`JitKX`, `tools/jit-corpus.ts`)
+
+| Case | Shape |
+|---|---|
+| `JitKX.FinallyMid` | `Mid` (a `try/finally` around `Thrower`, the finally writes `s_log`) under a catch; `Thrower` throws `InvalidOperationException` for 0 and divides by `a - 1` (a `DivideByZeroException` for 1) |
+| `JitKX.CatchMid` | `MidCatch` catches the divide in the middle frame and returns 7 |
+| `JitKX.Rethrow` | the inner catch counts and rethrows (`throw;`), the outer catch reads the count |
+| `JitKX.ThrowInFinally` | the finally of the inner try throws `ArgumentException` while an exception is in flight |
+| `JitKX.TraceNames` | `e.StackTrace` of the exception caught above `Mid`, hashed by frame name |
+| `JitKX.EnvTrace` | a `System.Diagnostics.StackTrace` walk from a lazy middle frame, hashed by frame name (`Environment.StackTrace` is not in EA's mscorlib) |
+| `JitKX.Escape` | the exception leaves the case's `Run` (the corpus marks the hash with the escape bit) |
+| `JitKX.DeepCatch` | 6 recursive frames under a catch, `e.StackTrace` hashed |
+
+The name hashes stop at the last `JitKX` frame: the frames above differ by caller (the corpus driver on the main thread,
+the worker job's entry on the worker). Six cases after `JitKL.CallCon`.
+
+### 14.2 The worker pass (`JitCorpusWorkerPass`, `monohost-jit.cpp`; `HostTest.JitCorpusWorker(int)`)
+
+`JitEnter` compares the thread id with the main thread's and, on another thread, runs EA's handler for the original opcode
+(`JitOrig` / `JitNative`); `g_jitOtherTid` counts those entries. The pass runs from `M5` while the worker is idle (state 2,
+before `M5-stop`; the corpus proper runs after the worker stopped): each case compiled on the main thread first (that is
+where it gets compiled), then interpreted for the reference, then as `WorkerJob("JitCorpusWorker", c)` on the worker; the
+worker's hash must be the interpreted one. A case whose exception leaves `Run` is skipped (the worker's job entry drops it),
+as is one whose compiled hash already differs. `MONOHOST_JITCORPUS_WORKER=0` skips the pass.
+
+### 14.3 Results [measured, host, 2026-11-02]
+
+- Corpus: 194 cases, 0 differ, 0 unstable; per-call verify ok 31,676, 0 mismatches, 1,473 abandoned by exception. The
+  six `JitKX` cases give the interpreter's hashes: the finally runs once, the middle catch returns, the rethrow keeps the
+  count, the throw in finally replaces the exception in flight, and the trace names agree frame for frame.
+- Worker pass: 131 cases, 0 differ; skipped 63 escaping, 0 compiled differs; 34,894 other-thread entries, so every entry
+  of a compiled method on the worker took EA's handler and no compiled code ran there. `M5-stop` passes after it (stop
+  fails 0, worker exceptions 0).
+- The per-call verify cannot cover a call that ends by exception: `FinallyMid` 3, `Mid` 5, `Rethrow` 2, `ThrowInFinally`
+  2, `TraceNames` 2, `DeepCatch` 1 unverified calls; `Thrower` 2 ok and 3 inside a verified caller, `Names` 3 ok. The
+  clause methods' agreement rests on the corpus hash of the case, which sees the end result of the unwind.
+
+### 14.4 Left
+
+- Compiled code never runs on the worker by construction (the thread check), which is the safe answer for the offload
+  thread; running it there needs the compiler's per-thread state (the exit frames, the verify slots) made per thread.
+- The per-call verify of a call that ends by exception; the in-game run of any of this.
+- Ledger: docs/51 §927.
