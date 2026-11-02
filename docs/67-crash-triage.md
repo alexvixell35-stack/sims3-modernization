@@ -1074,3 +1074,77 @@ Live (run 173, `WorldAStarRefs=1` on Baseline-IP, 12 minutes, no crash) plus the
   - BigSave-IP saved normally with `WorldAStarRefs=1`.
   - Baseline-IP without the fix crashes before its first save, so it cannot be compared directly.
   - `PortalFlagRefs` did not change it (run 178), so it is not those flag writes [inferred].
+
+## 31. Isla Paradiso Error 12 (2026-10-31 to 11-02, 13 of 13 saves of Baseline-IP and Baseline-IP-Spring): not memory, not Apex; the world file is written whole, minus the CAS SimService state and 7 lot records
+
+Live (2026-11-02, two local queues `ip-error12-local` and `al35-one-local`, both on `fix/compaction-save-result` at 62f81b7
+with the 2026-11-02 asi) and offline (the DBPF index of every `.sims3.bad` folder the harness left since 10-31, read with a
+40-line index parser). §30 left the end-of-session Error 12 as "this save's, not the fix's"; this section says what the
+failed save is missing.
+
+### 31.1 Arms (all `save normal` at once after the load unless noted; the save returns 12)
+
+| Job | What differs | Memory at save start: free / largest free / commit MB | Result |
+|---|---|---|---|
+| `ip-e12-wa1-play0` | `WorldAStarRefs=1` (§30) | 1454 / 1379 / 2269 | 12 |
+| `ip-e12-wa1-pf1-play0` | `WorldAStarRefs=1`, `PortalFlagRefs=1` | 1485 / 1447 / 2283 | 12 |
+| `ip-e12-nofix-play0` | no EA crash fix (the save goes in at ready, before the §30 crash) | 1481 / 1441 / 2284 | 12 |
+| `ip-e12-wa1-play10` | 10 min of play first | 1188 / 1074 / 2473 | 12 |
+| `ip-e12-apexoff-play0` | `ApexRadiance.asi` moved out of `Bin` | 1540 / 1485 / 2220 | 12 |
+| `ip-e12-apexlots-play0` | Apex on, `LotLodStreaming`, `LotObjectThrottle`, `LotVisibilityOverride`, `LotLightingMotion` off | 1446 / 1406 / 2316 | 12 |
+| `ip-e12-apexrefpack-play0` | Apex on, `FastCacheCompression` off | 1475 / 1423 / 2291 | 12 |
+| `ip-e12-plain-wa1-play0` | the non-Spring Baseline-IP | (the save step hit an agent RPC error; rerun pending) | - |
+
+Bridgeport saves in the same hours, same asi, returned 0 with largest free 730 to 1081 MB (`bp-compaction-*`,
+`bp-save-reload`, `old-deadrefs-*`). The save's own need was 55 MB (`bigNeedMB`). **Error 12 here is not address space
+and not Apex [verified].**
+
+### 31.2 What EA's save does (ts3native `save:` phases, `UserDiag`)
+
+- `prepare` 0 ms, `info` 0 ms, `write (package)` 0 ms, then `write: world save (lots, script state)` 5.6 to 7.6 s, then
+  `result 12`. The game renames the folder `<name>.sims3.bad`. No `ScriptError_*.xml` is written at any of the 8 save
+  times [verified].
+- **The `.bad` world file (`IslaParadiso_0x0c50c382.nhd`) is a complete DBPF 2.0: header, every resource, and the index at
+  the end** (20.0 to 21.3 MB, 7378 to 7392 entries). The source save has 7816 entries in 26.2 MB [verified, 10 of 10 `.bad`
+  folders].
+- Missing from every one of them, against the source's index:
+  - **all 15 resources of type `0x342779A7`**, the native CAS SimService state (`docs/14` §1: outfit compositor and
+    material cache of every built Sim, rewritten whole on each save by `FUN_005ed3e0` / `FUN_005ef7f0` / `FUN_005efb50` /
+    `FUN_005efd60`): instances `0x10001` (1.75 MB), `0x20001` (2.42 MB) and `0x30001` to `0x3000D` (13 chunks of 0.83
+    to 0.89 MB), 15.4 MB uncompressed, 3.9 MB on disk.
+  - **the complete resource set of 7 lots**: 119 lot records (`0x0563919E`) in the source, 112 written, and the same 7
+    instance ids absent from each of the 35 per-lot types (243 entries in all). The ids: `08F30053536284C0` (17 KB
+    record), `08F30053536284F0`, `08F300536B484BF0`, `08F300536F64EAC0`, `08F300546D514280`, `08F30054B95E63B0` (28-byte
+    records, lots with nothing in them) and `08F300546D514270` (36 KB). They are not the last lots in the file's order
+    (the first of them is lot 61 of 119 by offset, lot 119 is present), so the writer skipped them and went on rather than
+    stopping [verified].
+  - 6 entries are new in the failed file (`0x0580A2CC`, `0x0580A2CD`, four more `0x00B2D882`): the save's own bookkeeping.
+- Every other type has the same count and within 3% the same bytes; the script state (`0x06B981ED`, 6.9 MB) is written
+  in full [verified].
+- The saves that work on the same world carry the same things: `BigSave-IP` (10-30, 29.7 MB, returned 0 on 10-31 with
+  `WorldAStarRefs=1`, §30 run 176) and the player's own `Isla Paradiso test 1` (10-30) have the SimService state (14 entries,
+  12 chunks) and 6 of the 7 lot ids; the non-Spring `Baseline-IP` (10-12) has 15 entries and all 7 ids, and its only arm
+  did not reach the save [verified].
+
+### 31.3 Reading
+
+- Error 12 is the world save's return after one of its writers failed; the file was still finalized with an index. What
+  failed is in the native part: the SimService state writer, or the lot writer for one of the 7 lots, or one failure that
+  made both skip (the SimService chunks are the last things written in a good save, the 7 lots are spread through the
+  middle) [inferred]. The script state and the other 7,370 resources went through.
+- The 13-chunk SimService state is not by itself the limit: Baseline-BP-Spring saves with 14 chunks [verified].
+- Five of the 7 lots are 28-byte records, lots with no content; in Isla Paradiso those are the kind the houseboat ports
+  and the empty beach lots leave. Whether the 7 are the port lots and what the 17 KB and 36 KB ones are is not known yet;
+  the agent has no lot-by-id command.
+
+### 31.4 Next
+
+1. **ts3native, one IP arm:** log the return of the four SimService functions and of the lot writer per lot id during a
+   save (`SaveWrite` already wraps the save; the functions are in `game-copy/analysis/functions.csv`). That names the failing
+   writer and, if it is a lot, which one. About 1 h with the build, one live job.
+2. **Name the 7 lots:** a `lots` agent command (id, name, lot type, household, houseboat / port flags) run once on
+   Baseline-IP-Spring, then the same on `BigSave-IP` for the 6 shared ids.
+3. **The non-Spring Baseline-IP arm** again (`ip-e12-plain-wa1-play0` with its save step after the agent is idle): it has the
+   same 15 SimService entries and all 7 lots, so it separates the Spring conversion from the save's own state.
+4. If the SimService writer is the one failing: compare its 15 inputs with BigSave-IP's 14 (the `0x3000D` chunk is the
+   extra one) before anything else; a `SaveCleanup`-style trim is not possible for it (`docs/14` §1).
