@@ -110,11 +110,13 @@ static void TestSaveSlim() {
     g_slimWin = 0x10000;  // windows remap inside every file
     const u64 A = 0x1A0000000000A001ull, B = 0x1B0000000000B002ull, E = 0x1E0000000000E003ull, D = 0x1D0000000000D004ull,
               H = 0x1F0000000000F005ull, T1 = 0x2100000000001006ull, T2 = 0x2200000000002007ull, G = 0x2300000000003008ull,
-              F1 = 0x3100000000004009ull, F2 = 0x320000000000500Aull, F3 = 0x330000000000600Bull, O = 0x340000000000700Cull;
+              F1 = 0x3100000000004009ull, F2 = 0x320000000000500Aull, F3 = 0x330000000000600Bull, O = 0x340000000000700Cull,
+              K1 = 0x410000000000800Dull, K2 = 0x420000000000900Eull, K3 = 0x43000000000A000Full;  // named in another byte order only
     StEnt db[] = {{kSlimSimo, 0, A, {}, true},  {kSlimSimo, 0, B, {}, false}, {kSlimSimo, 0, E, {}, false},
                   {kSlimSimo, 0, D, {}, false}, {kSlimSimo, 0, H, {}, true},  {kSlimTxtc, 0, T1, {}, true},
                   {kSlimTxtc, 0, T2, {}, false}, {kSlimTxtc, 1, G, {}, false}, {kSlimTxtf, 0, F1, {}, false},
-                  {kSlimTxtf, 0, F2, {}, true}, {kSlimTxtf, 0, F3, {}, false}, {kSlimTxtf, 0, O, {}, false}};
+                  {kSlimTxtf, 0, F2, {}, true}, {kSlimTxtf, 0, F3, {}, false}, {kSlimTxtf, 0, O, {}, false},
+                  {kSlimSimo, 0, K1, {}, false}, {kSlimSimo, 0, K2, {}, true}, {kSlimSimo, 0, K3, {}, false}};
     const int nDb = sizeof(db) / sizeof(db[0]);
     for (int i = 0; i < nDb; i++) memset(db[i].body, 0x55, 48);
     memcpy(db[0].body + 5, &T1, 8), memcpy(db[0].body + 21, &E, 8);  // A names T1 and outfit E
@@ -125,6 +127,14 @@ static void TestSaveSlim() {
     StEnt nhd[] = {{0x12345678, 0, 1, {}, false}, {0x0580A2CE, 0, 2, {}, true}, {0x0580A2CD, 0, 3, {}, false}};
     for (int i = 0; i < 3; i++) memset(nhd[i].body, 0x66, 48);
     memcpy(nhd[0].body + 13, &A, 8);  // the world names outfit A at an odd offset
+    {   // the negative cases: K1 named in the index order (high dword first), K2 as a big-endian u64, K3 with each dword
+        // byte-swapped; none as the 8 little-endian bytes. A scan that only knew that order would drop them.
+        u64 k1 = K1, k2 = K2, k3 = K3;  // variables: casting the constants is "cast truncates constant value" (C4310)
+        const DWORD k1lo = (DWORD)k1, k1hi = (DWORD)(k1 >> 32), k3lo = _byteswap_ulong((DWORD)k3), k3hi = _byteswap_ulong((DWORD)(k3 >> 32));
+        memcpy(nhd[0].body + 21, &k1hi, 4), memcpy(nhd[0].body + 25, &k1lo, 4);
+        for (int q = 0; q < 8; q++) nhd[0].body[29 + q] = (u8)(k2 >> (56 - 8 * q));
+        memcpy(nhd[0].body + 37, &k3lo, 4), memcpy(nhd[0].body + 41, &k3hi, 4);
+    }
     StEnt travel[] = {{0x04F88964, 0, D, {}, false}};  // D: only an index key of another package names it
     memset(travel[0].body, 0x77, 48);
     u8 meta[40];
@@ -180,17 +190,18 @@ static void TestSaveSlim() {
         assert(s.drops == (c == 0 || c == 2 || c == 3) && (s.unreadable != 0) == (c >= 4));
         assert(s.outfitsDropped == (drops ? 1u : 0u) && s.texDropped == (drops ? 2u : 0u));
         if (c == 0 || c == 3) assert(n0 == n1 && !memcmp(was, now, n0));  // Mode 0, and nothing left to gain
-        if (c == 0) assert(!strcmp(s.db[0].result, "left (Mode 0: measured only)") && s.db[0].entries[1] == 9);
+        if (c == 0) assert(!strcmp(s.db[0].result, "left (Mode 0: measured only)") && s.db[0].entries[1] == 12);
         if (c == 3) assert(!strcmp(s.db[0].result, "left (under 1 MB to gain)") && s.texOrphans == 1);
         if (c != 0 && c != 3) {
             assert(!strcmp(s.db[0].result, "rewritten") && n1 < n0 - (1u << 20));
             const DWORD kept = StSameEntries(was, now, n1);
-            assert(kept == (c == 2 ? 9u : 12u) && s.db[0].entries[1] == kept);
+            assert(kept == (c == 2 ? 12u : 15u) && s.db[0].entries[1] == kept);
             const bool gone = c == 2;  // B, T2 and F2; everything else stays
             assert(StHas(now, kSlimSimo, B) != gone && StHas(now, kSlimTxtc, T2) != gone && StHas(now, kSlimTxtf, F2) != gone);
             assert(StHas(now, kSlimSimo, A) && StHas(now, kSlimSimo, E) && StHas(now, kSlimSimo, D) && StHas(now, kSlimSimo, H));
             assert(StHas(now, kSlimTxtc, T1) && StHas(now, kSlimTxtc, G) && StHas(now, kSlimTxtf, F1) && StHas(now, kSlimTxtf, F3));
             assert(StHas(now, kSlimTxtf, O));  // named by nothing: kept
+            assert(StHas(now, kSlimSimo, K1) && StHas(now, kSlimSimo, K2) && StHas(now, kSlimSimo, K3));  // named in another byte order: kept
         }
         free(was), free(now);
     }

@@ -13,7 +13,8 @@
 // Mode 2 also drops each outfit whose instance appears as 8 raw bytes in no other saved body or file (every .nhd, the
 // other packages, Meta.data, ...), in no kept outfit or texture, and as the instance of no other index entry; and each
 // group-0 texture that only dropped outfits name (directly or through other textures). Textures nothing names stay.
-// Any 8 bytes equal to an instance keep it, so the test can only err towards keeping.
+// Any 8 bytes equal to an instance, in any of the four byte orders the game writes a key in, keep it, so the test can only
+// err towards keeping.
 // The new file is written to <TS3 user folder>\ts3native-slim.tmp, read back and compared (header, index, every kept
 // byte) with the source, which is held without write sharing until it is renamed over it (same volume). Anything
 // unexpected (header field, compression, failed check) leaves that file as the game wrote it; a body or file that cannot
@@ -171,7 +172,13 @@ static bool SlimScan(SlimJob& j, const u8* b, DWORD n, int from) {
     j.serial++;
     j.st->scanMB += n / 1048576.0;
     for (DWORD i = 0; i + 8 <= n; i++) {
-        const DWORD lo = *(const DWORD*)(b + i), hi = *(const DWORD*)(b + i + 4), h = SlimHash(lo, hi);
+        // the 8 bytes in every order the game writes a key: little-endian u64, the index order (high dword first), each
+        // dword byte-swapped (Stream_WriteU32 swaps unless the context says native order, docs/25 §1), and both. Any match
+        // keeps the entry: a reference the scan does not recognise would drop an outfit a Sim still wears.
+        const DWORD r0 = *(const DWORD*)(b + i), r1 = *(const DWORD*)(b + i + 4), s0 = _byteswap_ulong(r0), s1 = _byteswap_ulong(r1);
+        const DWORD forms[4][2] = {{r0, r1}, {r1, r0}, {s1, s0}, {s0, s1}};
+        for (int f = 0; f < 4; f++) {
+        const DWORD lo = forms[f][0], hi = forms[f][1], h = SlimHash(lo, hi);
         if (!(j.bits[h >> 13] & (1u << ((h >> 8) & 31)))) continue;
         const int k = SlimFind(j, lo, hi, h);
         if (k < 0 || k == from) continue;
@@ -187,6 +194,7 @@ static bool SlimScan(SlimJob& j, const u8* b, DWORD n, int from) {
             j.et = et, j.eCap = cap;
         }
         j.ef[j.ne] = (DWORD)from, j.et[j.ne++] = (DWORD)k;
+        }
     }
     return true;
 }
