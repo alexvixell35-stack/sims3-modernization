@@ -5,6 +5,7 @@
       "id": "sv-v020rel-soak60",
       "note": "v0.2.0 release build, 60 min SV soak, light tools only; pairs with release-015-extra sv-soak-rel015 (same save, seed, length) for the long-freeze comparison",
       "asi": "game-copy/ts3native.asi.rel020",
+      "pinReason": "v0.2.0 release arm (v0.2.1-v0.2.4 ship the same asi): rel020 = ts3native 0.36.105 built locally from the release commit; the published zip asi is a CI rebuild of the same source (sha256 ab16d8d7..., not parked in game-copy)",
       "releaseDefaults": true,
       "save": "Baseline-SV-Spring",
       "noiseCheck": true,

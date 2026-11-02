@@ -1604,6 +1604,52 @@ rpc.exports = {
       // v142 (docs/203 §6, ts3native.cpp RwStartWait): [RouteAsync] WorkerWait, the route worker's job-start wait
       if (c.readS32() >= 142) f.push('rwMode', 'rwBlocked', 'rwBlockUs', 'rwSleep0', 'rwSpinExits', 'rwWaits', 'rwWakes', 'rwTimeouts',
         'rwSignals', 'rwMaxBlockUs', 'rwWorkerCpuMs', 'rwSpare');
+      // v143 [MonoFast] CallPath (docs/139 §8, mintcall.cpp)
+      if (c.readS32() >= 143) f.push('mcSwitch', 'mcReady', 'mcCall', 'mcCallvirt',
+        'mcRet', 'mcBailCall', 'mcBailCallvirt', 'mcBailRet', 'mcVerified', 'mcMismatch', 'mcVSkipped', 'mcVerifyEvery', 'mcFirstBad', ...n('mcSpare', 3));
+      // v144 [EaCrashFixes] MintDivGuard (issue #114, docs/213 §8, eafix.cpp)
+      if (c.readS32() >= 144) f.push('mdOn', 'mdDivOverflow', 'mdRemMinus1', 'mdSpare');
+      if (c.readS32() >= 145) f.push('ghReady', 'ghMode', 'ghAdds', 'ghRemoves', 'ghLive', 'ghLiveMax', 'ghFpSkipped', 'ghFpDisables',
+        'ghAgentSkipped', 'ghExpired', 'ghFull', 'ghRemoveMissing', ...n('ghSpare', 4));
+      // v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs (docs/67 §30, wastar.cpp)
+      if (c.readS32() >= 146) f.push('waOn', ...n('waSkip', 3), 'pfOn', ...n('pfSkip', 2), 'pfSpare');
+      // v147 [UnseenAnim] U-A1 (docs/144 §3.4, unseenanim.cpp); aaN/aaUs: 0 visible Sim, 1 unseen Sim, 2 other actor; aaHold: parent,
+      // nearVis, viewer, noView, slot, cap, visFull, noClass
+      if (c.readS32() >= 147) f.push('aaReady', 'aaMode', 'aaVisSims', 'aaPasses', 'aaPassUs', ...n('aaN', 3), ...n('aaUs', 3), 'aaSkipped',
+        'aaOwedRuns', 'aaSnap', 'aaFlushOff', ...n('aaHold', 8), 'aaDebtMaxUs');
+      // v148 [UnseenCost] probe (docs/227, unseencost.cpp); sites 0 class, 1 list, 2 viewer, 3 agent, 4 taskSim, 5 listed, 6 nearVis, 7 camera
+      if (c.readS32() >= 148) f.push('ucReady', ...n('ucN', 8), ...n('ucTop', 8), ...n('ucSampled', 8), ...n('ucUs', 8), 'ucAsks', 'ucDistinct',
+        'ucPasses', 'ucSelfN', 'ucSelfNs', 'ucFloorN', 'ucFloorNs');
+      // v149 [UnseenTable] (docs/227 §6, unseentable.cpp)
+      if (c.readS32() >= 149) f.push('utbReady', 'utbMode', 'utbCheck', 'utbBuilds', 'utbBuildUs', 'utbRows', 'utbRowsMax', 'utbHits',
+        'utbMiss', 'utbMisUnsafe', 'utbMisSafe', 'utbFetches', 'utbFetchRows', 'utbFetchOff', 'utbFaults', 'utbListCap');
+      // v150 [UnseenAnim] Objects / ObjStats (docs/144 §3.6, unseenanim.cpp); aoKindN_<kind>_<unseen>, aoBktS_<bucket>_<unseen>;
+      // kinds 0 no transform, 1 agent, 2 parented, 3 SACS, 4 plain; bucket 8 = other; aoHold: parent, sacs, agent, nearVis,
+      // viewer, slot, cap, noClass
+      if (c.readS32() >= 150) f.push('aoReady', 'aoMode', 'aoFrozen', ...n('aoKindN', 10, 2), ...n('aoKindUs', 5), ...n('aoBktVt', 8),
+        ...n('aoBktN', 9), ...n('aoBktS', 18, 2), ...n('aoBktUs', 9), ...n('aoBktSacs', 9), 'aoSkipped', 'aoOwedRuns', 'aoSnap', 'aoFlushOff',
+        ...n('aoHold', 8), ...n('aoNear', 2), 'aoDebtMaxUs', 'aoAgents', 'aoWalkFail');
+      // v151 [UnseenRootMotion] (docs/228, unseenrm.cpp); rmK buckets k 0,1,2,3,4-5,6-7,8-9,10+; rmTail* 0 = pass without root
+      // motion, 1 = with; rmN/rmUs class 0 visible Sim, 1 unseen Sim, 2 non-Sim; rmZone: parent, sacs, started, nearVis, viewer,
+      // noAgent, none, noGrid; rmDelta* 0 visible, 1 unseen; rmSlFallback: changed, full, walk1Off, fault (since v153 only full counts)
+      if (c.readS32() >= 151) f.push('rmReady', 'rmMode', 'rmPasses', 'rmPassesRm', ...n('rmK', 8), 'rmRem', 'rmWalks', 'rmCallsAll', 'rmLateRm',
+        'rmActSum', 'rmActMax', 'rmRmSum', 'rmRmMax', 'rmSampled', 'rmW1Us', 'rmTsN', 'rmTsUs', ...n('rmTailN', 2), ...n('rmTailUs', 2), 'rmSWalks',
+        'rmWalkUs', ...n('rmN', 3), ...n('rmUs', 3), ...n('rmZoneN', 8), ...n('rmZoneUs', 8), ...n('rmDeltaN', 2), ...n('rmDeltaCm', 2), 'rmDeltaMaxCm',
+        'rmFlips', 'rmFloorN', 'rmFloorNs', 'rmSlPasses', 'rmSlSteps', ...n('rmSlFallback', 4), 'rmSlUs', 'rmSlMax', 'rmFaults', ...n('rmSpare', 3));
+      // v152 [UnseenTable] lazy rows + RefreshTicks (docs/227 §8)
+      if (c.readS32() >= 152) f.push('utbRowCalc', 'utbRowSampUs10', 'utbTtlMode', 'utbLazyHits', 'utbForced');
+      // v153 [UnseenRootMotion] Mode 1 late starts (docs/228 §10): insert hook, clip dirty, bit 15, audit (rmSlMiss must be 0)
+      if (c.readS32() >= 153) f.push('rmSlIns', 'rmSlClip', 'rmSlFullWalks', 'rmSlLate', 'rmSlBit15', 'rmSlAudit', 'rmSlMiss', 'rmSlCandFull');
+      // v154 [UnseenRootMotion] Mode 2 coarse unseen Sims (docs/228 §11); rm2Why: notSim, camJump, noClass, visible, margin, parent, sacs,
+      // started, nearVis, viewer, noAgent, noRoute, goal, portal, slot, hyst; rm2DriftN_<arm*6+bucket>: arm 0 exact, 1 coarse;
+      // buckets <5, <10, <20, <30, <50, >=50 cm; rm2EndN / rm2End30: route ends per arm of the last eligible pass (>= 30 cm apart)
+      if (c.readS32() >= 154) f.push(...n('rm2Why', 16), 'rm2Elig', 'rm2CoarsePasses', 'rm2Coarse', 'rm2Owed', 'rm2DtMs', 'rm2Snap', 'rm2SnapSteps',
+        'rm2SnapCm', 'rm2SnapMaxCm', 'rm2Lost', 'rm2LostMs', 'rm2EndInMerge', 'rm2CamJump', 'rm2CamHold', 'rm2CamSpeedMax', ...n('rm2DriftN', 12),
+        ...n('rm2DriftMaxCm', 2), 'rm2RouteRecs', 'rm2RouteStale', 'rm2QuatBad', 'rm2Placed', 'rm2Faults', ...n('rm2EndN', 2), ...n('rm2End30', 2));
+      // v155 Mode 2 script camera ICs (docs/228 §11.6): rm2CamIc_<i> = SetPositionAndTarget, RequestLerpToTarget,
+      // RequestLerpToPositionAndTarget, FocusOnLot, FocusOnLotForBuildBuy, EnableObjectFollow, TetherToLot, TetherToObject, Lock,
+      // EnableMapViewMode, DisableMapViewMode; rm2CamIcOff = calls off the sim thread
+      if (c.readS32() >= 155) f.push(...n('rm2CamIc', 11), 'rm2CamIcOff');
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key
@@ -1654,6 +1700,7 @@ rpc.exports = {
       if (mp.readS32() >= 3) mf.push('lockStale'); // v3: +0x84 (docs/120 §10, I-120-8)
       if (mp.readS32() >= 4) mf.push('lockOomReleased'); // v4: +0x88 (docs/120 §10.5, GC_oom_fn wrapper)
       if (mp.readS32() >= 5) mf.push('lazyGate', 'lazyOn', 'lazyOff'); // v5: +0x8C..+0x94 (LazyGate=1, docs/30 §15)
+      if (mp.readS32() >= 6) mf.push('simLockWaits', 'simLockWaitUs', 'simLockMaxWaitUs', 'lazyEarlyOff'); // v6: +0x98..+0xA4 (docs/30 §16)
       r.mtprobe = Object.fromEntries(mf.map((n, i) => [n, mp.add(i * 4).readS32()]));
     }
     // autonomy shadow pilot (docs/122 §13-§14): export ts3native_autshadow (docs/registry.md), null when the asi has none
@@ -1747,6 +1794,37 @@ rpc.exports = {
           'satbJobMaxWords', 'satbJobUs', 'satbIcCallsAll', 'satbSimArena', 'satbWArenaIgn', 'satbWGiveUp', 'satbWGiveUpOp']
           .forEach((n, i) => { a[n] = rd(624 + i); });
       }
+      if (v >= 16) { // v16: +0xA60..+0xAA4 Satb IC arguments logged, unsized runtime writers by site (docs/206 §9); consume counters (docs/122 §14.23)
+        ['satbIcLogged', 'satbIcLogWords', 'satbJobIcLogged', 'satbRtFset', 'satbRtPtrStruct', 'freshTop1Ans', 'freshTop10Ans',
+          'refFreshTop1', 'refFreshTop10', 'refPassA4']
+          .forEach((n, i) => { a[n] = rd(664 + i); });
+        a.pairT = [0, 1, 2, 3].map(i => rd(674 + i)); // C2 time per pair (100 ns): allow-listed pass, fail, off-list pass, fail
+        a.pairN = [0, 1, 2, 3].map(i => rd(678 + i));
+      }
+      if (v >= 17) { // v17: +0xAA8..+0xAF8 transient objects, host classes, shared list walk, RunSkip reasons (docs/122 §14.26)
+        ['transOn', 'transObjs', 'hcOn', 'hcKnown', 'hcNoHandle', 'hcMap2', 'hcUs', 'lwOn', 'lwRows', 'lwWalks', 'lwWalkUs', 'lwHostUs',
+          'lwFall', 'lwChecks', 'lwMis', 'runNoPlain', 'runNoStale', 'runNoWalked', 'runNoSets', 'runNoCold', 'clsGoneSkip']
+          .forEach((n, i) => { a[n] = rd(682 + i); });
+      }
+      if (v >= 18) { // v18: +0xAFC..+0xB40 Sim rows by events, tier moves by lot/room, audit every Nth cut, gone delta (docs/122 §14.27)
+        ['seOn', 'seKept', 'seChecks', 'seMis', 'seIcOff', 'tmOn', 'tmKept', 'laEvery', 'laSkips', 'gdOn', 'gdRecs', 'gdNoRec', 'gdRows',
+          'gdFall', 'gdIncons', 'gdChecks', 'gdMis', 'gdOver']
+          .forEach((n, i) => { a[n] = rd(703 + i); });
+      }
+      if (v >= 19) { // v19: +0xB44..+0xB88 ids delta on list rows, Sim event rows for promoted/seated Sims, tier cap, gone reasons (docs/122 §14.28)
+        ['idOn', 'idSame', 'idApp', 'idCalls', 'idFall', 'idChecks', 'idMis', 'idUs', 'seLearnOn', 'seSeatOn', 'seLearnKept', 'seSeatKept',
+          'tcMax', 'tcCapped']
+          .forEach((n, i) => { a[n] = rd(721 + i); });
+        a.gdWhy = [0, 1, 2, 3].map(i => rd(735 + i)); // no record, another lot, another room, lot full / window lost
+      }
+      if (v >= 20) { // v20: +0xB8C..+0xC88 go-live consume, [AutShadow] Mode=3 (docs/124 §17); al = ts3fixes AutLive.cs slots kS*
+        ['alOn', 'alCuts', 'alVerify', 'alWatchN', 'alWatchResets', 'alStaleQ', 'alStaleHit', 'alStaleEv']
+          .forEach((n, i) => { a[n] = rd(739 + i); });
+        a.al = Array.from({ length: 56 }, (_, i) => rd(747 + i));
+      }
+      if (v >= 21) { // v21: +0xC8C..+0xC94 docs/127 H11 shelter answer (rain pairs armed, CreateInstance skipped, armed with no call)
+        ['rainArm', 'rainSkip', 'rainMiss'].forEach((n, i) => { a[n] = rd(803 + i); });
+      }
       r.autshadow = a;
     }
     return r;
@@ -1767,7 +1845,7 @@ rpc.exports = {
   },
 
   status() {
-    const m = Process.getModuleByName('TS3W.exe');
+    const mods = Process.enumerateModules(), m = (typeof Process.mainModule !== 'undefined' && Process.mainModule) || mods.find(x => /^(TS3W|TS3|Sims3Launcher)\.exe$/i.test(x.name)) || mods[0]; // the host exe (TS3W.exe, or Sims3Launcher.exe on the EA app edition, docs/230)
     return { pid: Process.id, arch: Process.arch, exeBase: m.base.toString(), threads: Process.enumerateThreads().length,
              modules: Process.enumerateModules().length, attachedSeconds: Math.round((Date.now() - startedAt) / 1000),
              lastEventSeq: eventSeq };

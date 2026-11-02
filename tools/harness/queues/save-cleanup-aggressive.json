@@ -4,7 +4,7 @@
     {
       "id": "bp-multigen-build",
       "note": "Builds MultiGen-Test-BP (repro bp-multigen-build, ~22 min): elders made friends of the active Sim then aged to death, children aged up, a birth (optional), 5 min at ultra. Pass: final count line shows buried >= 3 and removable outfits > 0; the save exists; no crash or ScriptError. If buried is 0 the deaths did not finish within the waits: raise the age_up waitS, not the cleanup",
-      "asi": "game-copy/ts3native.asi.int126",
+      "asi": "tested",
       "save": "Baseline-BP",
       "noiseCheck": false,
       "logForbid": {
@@ -23,7 +23,7 @@
     {
       "id": "bp-multigen-aggr",
       "note": "Off/on + save matrix (14 min): repro bp-multigen-aggr on MultiGen-Test-BP. Pass: savecleanup_spread_passes >= 2, savecleanup_spread_refused 0, savecleanup_spread_max_slice_us <= ~3000, savecleanupaggressive_* > 0 on the first pass and ~0 more on the second, every save ok within 120 s, reload reaches live mode with the active household intact, MultiGen-BP-aggr smaller than MultiGen-BP-off (save-stats.ts); no crash, hang, ScriptError or ts3native.log FAIL line",
-      "asi": "game-copy/ts3native.asi.int126",
+      "asi": "tested",
       "save": "MultiGen-Test-BP",
       "noiseCheck": false,
       "logForbid": {
@@ -43,7 +43,7 @@
     {
       "id": "bp-multigen-rotation",
       "note": "Rotation (10 min): repro bp-multigen-rotation on MultiGen-Test-BP. Pass: played_households 2 before and after the reload, read back from the sidecar file, not the save (logRequire: native \"played: <key>: 2 households read\" after the reload, \"played: added hh=\", and the Save As copy \"played: N households copied from\"), played_households_added >= 1, pass finishes, no ts3native.log line with tier=aggr and near=1 (logForbid: any aggressive action on a played household within kPlayedGenerations = FAIL), saves ok, no ScriptError",
-      "asi": "game-copy/ts3native.asi.int126",
+      "asi": "tested",
       "save": "MultiGen-Test-BP",
       "noiseCheck": false,
       "logForbid": {
@@ -68,7 +68,7 @@
     {
       "id": "bp-multigen-ab",
       "note": "Hitch A/B in one load (10 min, 2-min slices) on MultiGen-Test-BP: savecleanup + savecleanupaggressive alternating, natural 2:00 alarm fires only (a pass decides its parts when it starts; one started in an on slice may finish in the next). Pass: hitch-ab.ts shows no more frames >= 100 ms in on slices than off slices, worst-hitches.ts --min 100 has no iteration led by SaveCleanupSpreadRun, savecleanup_spread_max_slice_us <= ~3000",
-      "asi": "game-copy/ts3native.asi.int126",
+      "asi": "tested",
       "save": "MultiGen-Test-BP",
       "run": {
         "profile": {
@@ -89,7 +89,7 @@
     {
       "id": "ip-multigen-aggr",
       "note": "Second world (14 min): repro bp-multigen-aggr on Baseline-IP (saves keep the MultiGen-BP-* names; few dead Sims there). Same pass rules as bp-multigen-aggr except the per-part counts may be 0",
-      "asi": "game-copy/ts3native.asi.int126",
+      "asi": "tested",
       "save": "Baseline-IP",
       "noiseCheck": false,
       "logForbid": {

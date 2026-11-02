@@ -1,0 +1,56 @@
+{
+  "note": "venue-memo-verify: ts3fixes venuememo correctness (docs/122 §14.24), NOT RUN. Every job installs build/ts3fixes-on-kVenueMemo.package, built from master (run node tools/setup/build-fixes.ts --on kVenueMemo before the queue; was game-copy/ts3fixes.package.venuememo until 2026-10-31): the venue score hook is patched only with kVenueMemo on at startup (docs/122 §14.24.7). Correctness only (verify mode runs the game's method beside 1 call in 8: no timing; daytime OK). Pass per job: no crash, applied shows 'MetaAutonomyManager.GetTuning: ok' and 'Lot.HowMuchItWantsSimToCome: ok', venuememo_tuning_mismatches 0, venuememo_score_mismatches 0 (any mismatch: stop and triage, the design claims exact), venuememo_score_checks > 50, venuememo_tuning_hits >> venuememo_tuning_misses, venuememo_passed 0, no script errors, stuck Sims logged only. Run: node tools/harness/queue.ts tools/harness/queues/venue-memo-verify.json --no-smoke",
+  "jobs": [
+    {
+      "id": "bp-venuememo-loop",
+      "note": "BP repro venue-memo (5 townies, ultra 90 s, then the off half). Pass: see the queue note; off half counters flat.",
+      "asi": "tested",
+      "save": "Baseline-BP",
+      "fixesPackage": "build/ts3fixes-on-kVenueMemo.package",
+      "run": {
+        "repro": "venue-memo"
+      },
+      "timeoutMin": 15
+    },
+    {
+      "id": "bp-venuememo-verify",
+      "note": "BP Spring 10 min natural play, seed 12345, venuememo + venuememoverify on the whole load (repro venue-memo-verify). Spring: Seasons on, so the rain/hail branch is reachable. Pass: see the queue note.",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "build/ts3fixes-on-kVenueMemo.package",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "venuememo,venuememoverify",
+          "repro": "venue-memo-verify"
+        }
+      },
+      "noiseCheck": false,
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-venuememo-verify",
+      "note": "IP 10 min natural play, seed 12345, same switches (more venues and resorts: the Resort multiplier and resort occupancy paths). Pass: see the queue note.",
+      "asi": "tested",
+      "save": "Baseline-IP",
+      "fixesPackage": "build/ts3fixes-on-kVenueMemo.package",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "venuememo,venuememoverify",
+          "repro": "venue-memo-verify"
+        }
+      },
+      "noiseCheck": false,
+      "timeoutMin": 30
+    }
+  ]
+}

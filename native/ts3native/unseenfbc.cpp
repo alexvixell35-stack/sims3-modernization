@@ -136,13 +136,14 @@ static int UfcFind(DWORD lo, DWORD hi) {
         if (g_ufcList.lo[i] == lo && g_ufcList.hi[i] == hi) return i;
     return -1;
 }
-static bool UfcListed(DWORD lo, DWORD hi) {
+static bool UfcListedBody(DWORD lo, DWORD hi) {
     if (!UfcFresh()) {
         ts3native_counters.ufcStale++;
         return false;
     }
     return UfcFind(lo, hi) >= 0;
 }
+static bool UfcListed(DWORD lo, DWORD hi) { return g_ucOn ? UcTime(UC_LISTED, [&] { return UfcListedBody(lo, hi); }) : UfcListedBody(lo, hi); }
 static bool UfcObjId(const u8* obj, DWORD* lo, DWORD* hi) {
     __try {
         *lo = *(const DWORD*)(obj + 8), *hi = *(const DWORD*)(obj + 0xC);
@@ -152,7 +153,7 @@ static bool UfcObjId(const u8* obj, DWORD* lo, DWORD* hi) {
 
 // C3, C4: the running script task's id (MonoScriptHost +0xBD0), listed by ts3fixes, and its Sim now unseen by the camera
 // (a Sim, not parented: riders, carried)
-static bool UfcTaskSimUnseen(DWORD* lo, DWORD* hi) {
+static bool UfcTaskSimUnseenBody(DWORD* lo, DWORD* hi) {
     const u8* sim = NULL;
     __try {
         const u8* host = *g_hostPtr ? (const u8*)(uintptr_t)*g_hostPtr : NULL;
@@ -169,9 +170,12 @@ static bool UfcTaskSimUnseen(DWORD* lo, DWORD* hi) {
     const int c = UnObjClass((void*)sim, &kind, NULL, &parented);
     return c == 1 && kind == 0 && !parented;
 }
+static bool UfcTaskSimUnseen(DWORD* lo, DWORD* hi) {
+    return g_ucOn ? UcTime(UC_TASKSIM, [&] { return UfcTaskSimUnseenBody(lo, hi); }) : UfcTaskSimUnseenBody(lo, hi);
+}
 
 // The updating agent's own part (C1, C2): the [UnseenThrottle] holds, then the list
-static bool UfcAgentUnseen(const u8* part, DWORD* lo, DWORD* hi) {
+static bool UfcAgentUnseenBody(const u8* part, DWORD* lo, DWORD* hi) {
     u8* agent = t_unAgent;
     if (!agent || t_unCls != 2 || part != agent + 8 || t_unKind != 0 || t_unRider) return false;
     const u8* owner = NULL;
@@ -180,6 +184,9 @@ static bool UfcAgentUnseen(const u8* part, DWORD* lo, DWORD* hi) {
         owner = *(u8* const*)(agent + 4);
     } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
     return owner && UfcObjId(owner, lo, hi) && UfcListed(*lo, *hi);
+}
+static bool UfcAgentUnseen(const u8* part, DWORD* lo, DWORD* hi) {
+    return g_ucOn ? UcTime(UC_AGENT, [&] { return UfcAgentUnseenBody(part, lo, hi); }) : UfcAgentUnseenBody(part, lo, hi);
 }
 
 // A route job is busy and this sim-thread wait would be behind it: the job owner thread, not the +0x918 owner (recursive or

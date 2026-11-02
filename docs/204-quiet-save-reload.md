@@ -1,7 +1,7 @@
 # 204. Quiet save-reload ("Compaction")
 
-Status 2026-10-30: **design + measurement built, nothing run.** Measure first (§2); build the feature (§4-§9) only if the
-in-process reload gives back a large share of what a full restart gives back.
+Status 2026-10-30: **design, measurement and the feature built (§11), nothing run.** Rodney's go rule is any measurable
+gain (§2), so the Compaction was built while the §2 queue waits its turn; both are default off.
 
 Idea (Rodney 2026-10-30): when the game is close to Error 12, a normal player save turns into a **Compaction**. The game
 saves as usual, then, behind a "Compacting..." screen, unloads the world and loads the same save again **in the same
@@ -58,9 +58,9 @@ The report prints, per world:
 - the gap left 10 min later (`sr-reload10` / `sr-direct10` minus `sr-ctl10`).
 
 **Go / no-go for building the feature:**
-- **Go:** on BP and IP, the largest free block closes at least **60%** of the restart gap at the reload mark and still at least 50% at +10 min.
-- **Stop:** under **30%**. Shelve the idea; the player advice stays "restart the game".
-- **In between:** the fields show which owner keeps its memory over a reload (rc, gcHeap, eaDir, mapped, pools), and that owner gets its own release step in the Compaction (an Apex-area item, coordinated with Apex, issue #32).
+- **Go (Rodney, 2026-10-30):** any real gain. Even ~10% of the restart gap back is worth building, because memory decides how long a player can keep playing before Error 12; the point is that play only ends at the true limit, not early because of wasted or fragmented allocations. There is no 60% / 30% bar.
+- **Stop:** only when the reload gives back nothing measurable (inside run-to-run noise at both marks), or costs more than it returns 10 min later.
+- **Either way:** the fields show which owner keeps its memory over a reload (rc, gcHeap, eaDir, mapped, pools), and that owner gets its own release step in the Compaction (an Apex-area item, coordinated with Apex, issue #32).
 
 The faster route that still closes as much becomes the Compaction route (expected: direct, unless the menu route's statics clear is the difference).
 
@@ -201,7 +201,82 @@ Total ~9-15 h of work plus ~6-9 game runs (about one night) after the §2 data s
 
 ## 10. Decisions for Rodney
 
-1. Go/no-go rule in §2 (60% / 30%).
+1. Go/no-go rule in §2: decided 2026-10-30, any measurable gain is a go (no 60% / 30% bar).
 2. Trigger option (§7): 1 + 2 first, 3 later?
 3. Loading screen with "Compacting..." text (chosen) vs a last-frame screenshot overlay (rejected here: needs a D3D present hook in Apex's area).
 4. Talk to Apex about a shared threshold or an export before building (§8).
+
+## 11. Build (2026-10-30, ts3native 0.36.128, not run)
+
+Trigger options 1 and 2 of §7 are built; option 3 (automatic) is not. Everything is off by default.
+
+**Switches** (`ts3native.ini` `[Compaction]`, read at game start; needs `[UserDiag] Enabled=1` and `[SaveWrite] Enabled=1`):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Enabled` | 0 | 0 off, 1 opt-in (compact after a low save), 2 offered (ask "Compact now?" with Compact / Not now) |
+| `ThresholdMB` | 320 | `T_on`; with Apex MemoryGuard on, at least 320 (§3.2) |
+| `RearmMB` | 256 | §3.3 (2) and §3.4 |
+| `MinMinutes` | 60 | §3.3 (3), real time since the last compaction or world load |
+| `Route` | 0 | 0 direct (`TransitionToGameStateReloadWorld`), 1 main menu (`TransitionToLeaveInWorld`, load from `MainMenuState.Startup`) |
+| `AfterMinutes` | 10 | the "+N min" memory line |
+
+ts3fixes has one test-only runtime switch, `compactionfail` (agent `patches`): the reload throws after the loading screen is up (§6 failure path).
+
+**Native** (`native/ts3native/compaction.cpp`, selftest `compaction-test.h`). The verdict is op **7** on the `0x87` channel; op 6
+was already taken by the played-household store (docs/14 §8.6), so §3.1's "op 6" became op 7. GetOption2 answers a bool,
+so numbers (largest free at the verdict, the gain) are read bit by bit. Deviations from §3.1:
+- the verdict reads the largest free block **after** the save (one VirtualQuery walk on the sim thread, ~0.5-30 ms, once per
+  save), not at save start. Apex releases its reserve before the save and takes it back only once 640 MB are free, so the
+  reserve counts as free either way, and no phase hook is needed [inferred from Apex's source, docs/204 §1];
+- the save must be this task's (the save count moved since the task began), end with native result 1, within the last minute;
+- a declined offer uses the arm up (§7 option 2: at most once per arm);
+- the "restart the game" notice comes only after a compaction that did not help (§3.4), never after a failure;
+- the "+N min" line is written at the first periodic memory sample at least `AfterMinutes` after the reload (5 or 10 min period).
+
+Log lines: `compaction: on ...` (start), `compaction: verdict COMPACT|no after save #N (result R): largest free X MB, threshold T MB, armed|not armed|off for the session`,
+`compaction: begin #N (direct|main menu route), largest free before X MB`, `compaction: done #N after S s: largest free X MB after the reload (before B, gain G MB)`,
+`compaction: +N min after #N: largest free X MB ...`, `compaction: skipped or failed (<why>): off for this session`, `compaction: the player chose Not now ...`,
+and from ts3fixes `ts3fixes: compaction: restored ...`.
+
+**Managed** (`mods/ts3fixes/src/Compaction.cs`, rules in `CompactionCore.cs`, selftest `tools/selftest/compaction`). Hooks are
+installed only when native answers "on" (op 7, 8). `OptionsModel.SaveGameTask` is wrapped (async saves only, §4); the menu
+route hooks `MainMenuState.Startup` (if that method was compiled before ts3fixes loads, the hook is missing and the direct
+route is used, with a log line).
+
+What is restored (all in ts3fixes memory, nothing in the save and no sidecar file: the process survives the reload, so the
+record lives in a static field and is dropped if the next load is another file or more than 10 min later):
+
+| Item | How | Gaps |
+|---|---|---|
+| Camera | the save restores it; set again only when the target is > 2 m off | none known |
+| Selected Sim | `PlumbBob.ForceSelectActor` when the save picked another | none known |
+| Queues of visible Sims | active household, Sims on the active lot, Sims within 30 m of the camera target (`CompactionCore.InScope`; the docs/202 `UfWhy` rule is not used); max 8 entries, head first; the definition's static `Singleton` field is kept and read again at the restore (a mod may replace it at load); target Sim by description id, lot by id, object by type + lot + nearest within 0.5 m; the game's own `Test`, then `InteractionQueue.Add` | skipped and counted (`compaction_not_restorable`): immediate interactions, picker answers, pie-menu paths (`GetPath` not empty, e.g. most socials), definitions without a static singleton, terrain targets (GoHere points: the hit point is not kept by the instance); the running head restarts from the beginning |
+| Open HUD panel | `HudController.InfoState` / `SetInfoState` | other windows (dialogs, Edit Town) are never open: those states refuse |
+| Game speed | `ClockSpeedModel.CurrentGameSpeed`, set last | none known |
+
+Loading screen: EA's own save loading screen (`LoadingScreenController.LoadSaveGameLoadingScreen`) is shown before the
+transition, the way EA's travel start does it (`EnableSceneDraw(false)`, screen, `Simulator.Sleep(0)`); the text is the
+household-name line of a fresh `SaveGameMetadata` ("Compacting... (your game is saved)") [inferred: the screen survives the
+world unload as it does on travel; the verify queue checks it].
+
+Refused states (no verdict asked, the arm stays): not in live mode (Build/Buy/CAS/Edit Town), travelling, travel data
+(vacation, university, future), another town, a move, a modal dialog, an emergency (`HudModel.CheckForEmergency`).
+
+**Counters** (ts3fixes, `docs/registry.md` `fixes-427`, `fixes-439`): 427 saves seen, 428 started, 429 offered, 430 accepted,
+431 declined, 432 refused by state, 433 skipped / failed, 434 queue entries recorded, 435 re-pushed, 436 not pushed (Test
+failed, target or Sim gone, queue refused), 437 not restorable, 438 pushes that threw, 439 restores finished (agent names
+`compaction_*`).
+
+**Tests** (none run): native selftest `TestCompaction` (verdict rules, Apex threshold, rearm, 60 min, did-it-help, notice,
+bit answers); `node tools/selftest/compaction/run.ts`; repros `compaction-optin-bp|ip`, `compaction-offer-accept-bp|ip`,
+`compaction-offer-decline-bp|ip`, `compaction-refused-build-bp|ip`, `compaction-abort-bp|ip`, `compaction-menu-bp`; queue
+`tools/harness/queues/compaction-verify.json` (those 11 + the save matrix on BP (with travel) and IP with the hooks on but never
+firing, `ThresholdMB=1`). Run: `node tools/harness/queue.ts tools/harness/queues/compaction-verify.json --no-smoke` with
+`game-copy/ts3native.asi.compact1` and this branch's ts3fixes / ts3agent.
+
+**Risks** [inferred, the verify queue decides]: the loading screen may not survive the unload (then the player sees EA's
+normal unload, as on an in-game Load); queue re-push can push an interaction the game would not have chosen at that moment
+(Test-gated, same priority and autonomous flag); the menu route may draw the main menu for a frame; mods with statics that
+never reset keep their memory (§8); a crash during the reload loses nothing (the save finished first) but `[CrashReport]` does
+not tag `compaction=1` yet (§6; not built).

@@ -162,6 +162,8 @@ Gain caps are averages over steady play; "hitch cap" is what the option can take
 
 **Not built here:** tomb and scuba memos (small, R3 batch); any cross-search cache; anything off the sim thread.
 
+**Built 2026-10-30 (docs/122 §14.24):** H4 as ts3fixes `venuememo` (per world pair, read on every call; null answers not kept), together with a typed scan of the venue score's rain/hail list. H1-H3 and H5 are not built. R3 has no exact key (curves linear between points, many inputs), so it stays open.
+
 ## 8. Gaps
 
 - Pairs per search, segments per search and lots per meta search are not measured; AM-1's counters give the first two (pairs/segments), lots per search stays inferred.

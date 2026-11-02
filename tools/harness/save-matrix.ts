@@ -32,6 +32,7 @@ import { parseArgs } from 'node:util';
 import { readIndex, refpack } from '../extract-assemblies.ts';
 import { GUARD_MS, stallGuard } from './game-alive.ts';
 import { matchKnown } from './known-script-errors.ts';
+import { BIN } from './game-exe.ts';
 
 const { values } = parseArgs({ options: {
   cases: { type: 'string' }, list: { type: 'boolean' }, 'self-check': { type: 'boolean' }, travel: { type: 'boolean' },
@@ -45,7 +46,6 @@ if (!(Number.isInteger(TRIPS) && TRIPS >= 1 && TRIPS <= 10) || (TRIPS > 1 && val
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const USER_DIR = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3');
 const SAVES = join(USER_DIR, 'Saves');
-const BIN = process.env.TS3_BIN ?? 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\The Sims 3\\Game\\Bin';
 const LOG = join(BIN, 'ts3native.log');
 const OUT = join(ROOT, 'probe-out', 'save-matrix');
 const RES = join(ROOT, 'docs', 'data', 'results');

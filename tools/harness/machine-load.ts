@@ -15,6 +15,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { cpuMask, gameCpus, maskCpus } from './pin.ts';
+import { GAME_NAME } from './game-exe.ts';
 
 const OTHER_MAX = 10, PERF_DROP = 0.8;
 // noise verdict (job means): high = other apps take >= 10% of the game CPUs (with other CPU >= OG_OTHER_MIN), the clock dropped or the machine was busy (the
@@ -45,8 +46,8 @@ while (Get-Process -Id ${process.pid}) {
     if ($prev.ContainsKey($p.Id) -and $p.Id -ne 0) { $rows += [pscustomobject]@{ n = $p.ProcessName; c = ($s - $prev[$p.Id]) / $dt / $n * 100 } }
   }
   $prev = $cur
-  $ts3w = ($rows | Where-Object n -eq 'TS3W' | Measure-Object c -Sum).Sum
-  $others = $rows | Where-Object { $_.n -ne 'TS3W' -and $_.n -ne 'Idle' }
+  $ts3w = ($rows | Where-Object n -eq '${GAME_NAME}' | Measure-Object c -Sum).Sum
+  $others = $rows | Where-Object { $_.n -ne '${GAME_NAME}' -and $_.n -ne 'Idle' }
   $other = ($others | Measure-Object c -Sum).Sum
   $top = $others | Group-Object n | ForEach-Object { [pscustomobject]@{ n = $_.Name; c = ($_.Group | Measure-Object c -Sum).Sum } } |
     Sort-Object c -Descending | Select-Object -First 3 | ForEach-Object { '{0} {1:N1}' -f $_.n, $_.c }
@@ -61,7 +62,7 @@ while (Get-Process -Id ${process.pid}) {
     if ($game -contains [int]$k) { $bg += $busy; $ng++ } else { $bo += $busy; $no++ }
   }
   $pc = $cc
-  $ts = Get-Process -Name TS3W | Select-Object -First 1
+  $ts = Get-Process -Name ${GAME_NAME} | Select-Object -First 1
   $pin = if ($ts -and $gm) { $ts.ProcessorAffinity.ToInt64() -eq $gm } else { $null }
   $og = if ($ng) { [math]::Round([math]::Max(0, $bg - [double]$ts3w * $n) / $ng, 1) } else { $null }
   $oo = if ($no) { [math]::Round($bo / $no, 1) } else { $null }

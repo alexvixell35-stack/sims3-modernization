@@ -1,0 +1,36 @@
+{
+  "note": "docs/523: repro of deadrefsweep phase 13 (celebrity waiting-to-react lists), off then on in one load, with the player's core mod.",
+  "jobs": [
+    {
+      "id": "bp-celebrity-waiting-gone-check",
+      "note": "Correctness (12 min): repro celebrity-waiting-gone-check. Pass: the repro's steps pass (expect left: off, the seeded gone reactor stays; expect cleaned: on, the sweep's phase 13 removed it; each throws otherwise)",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "celebrity-waiting-gone-check",
+          "fixesRequire": "deadrefsweep_celebrity>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:deadrefsweep_celebrity",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm removed nothing 8 min in: phase missing, sweep refused, or the seed failed"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": true
+}

@@ -1,0 +1,170 @@
+{
+  "note": "mono-cost15: ts3native 0.36.134 (asi.mc15, ts3fixes from master as package.mc15, docs/122 §14.26, ledger §403): [AutShadow] Mode R on BP and IP with the mono-cost13 keys + Transient=1 (objects made and destroyed between two cuts mark nothing) + HostCls=1 (the host's own list filter classifies objects at marks and at destroy) + ListWalk=1 (one lot walk per cut feeds every list row; ListWalkCheck=8 compares 1 in 8 with the body) and the RunSkip fix (rows cold since their insert no longer block runs), autshadow v17. Smoke first (4 min), then 2 x 10 min, ~40 min. Goal: BP cut <= ~0.6 ms ([inferred] ~0.55-0.75; <= 0.4 needs the levers in docs/122 §14.26 point 6), A1-A3 0, lwMis 0, listMissed 0, typedAuditMis 0. Read with node tools/harness/mono-cost-report.ts --tag mono-cost15.",
+  "jobs": [
+    {
+      "id": "bp-autshadow-smoke",
+      "note": "0/2 smoke (docs/122 §14.26, ts3native 0.36.134): the switches read back (the logRequire line), the cut runs (-native.json autshadow v17: cuts > 0, lwRows > 0, lwMis 0, lwOn 1, hcKnown > 0), Mode R A1-A3 0, no crash. Stop the queue on any failure.",
+      "asi": "game-copy/ts3native.asi.mc15",
+      "fixesPackage": "game-copy/ts3fixes.package.mc15",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Transient": 1,
+        "AutShadow.HostCls": 1,
+        "AutShadow.ListWalk": 1,
+        "AutShadow.ListWalkCheck": 8
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow cut: RunSkip=1 Transient=1 HostCls=1 ListWalk=1 ListWalkCheck=8": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 4,
+          "seed": 12345,
+          "fixesOn": "autshadow"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20
+    },
+    {
+      "id": "bp-autshadow-r",
+      "note": "1/2 Mode R on 0.36.134 (docs/122 §14.26: Transient, HostCls, ListWalk + the RunSkip fix). PASS = 0 crashes, no freeze; compared pairs > 0, autshadow_a1 == 0, autshadow_a2 == 0 and autshadow_a3 == 0 (any A1-A3 FAILs: queue.ts shadowFails), a4 < 22% of compared pairs; -native.json autshadow v17: transOn 1, hcOn 1, lwOn 1 (-1 = a ListWalkCheck miss: FAIL), lwMis 0, listMissed 0, typedAuditMis 0, auditMis 0, runCheckMis 0, dirtyTripped 0, workExc 0, refExc 0, finishExc 0; mtprobe: workerExceptions 0, n2mOverflow 0, lockOverflow 0, workerCtxSet 0. Read: cut per cut vs mono-cost13 (BP 1.12 ms; [inferred] list bodies 404 -> ~80-150 us, refresh loop ~230 -> ~100-150, publish 65 -> ~30-45, prep 172 -> ~150), the mono-cost15 line (transients per cut, host classes vs no handle, walk vs host us, runs walked by reason), the dirtying and typed marks lines (gone/new/lite rows down), the run skip line. Any crash: stop and triage against 0.36.133 (crash cause before fix).",
+      "asi": "game-copy/ts3native.asi.mc15",
+      "fixesPackage": "game-copy/ts3fixes.package.mc15",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Transient": 1,
+        "AutShadow.HostCls": 1,
+        "AutShadow.ListWalk": 1,
+        "AutShadow.ListWalkCheck": 8
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow cut: RunSkip=1 Transient=1 HostCls=1 ListWalk=1 ListWalkCheck=8": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-autshadow-r",
+      "note": "2/2 Mode R on 0.36.134 (docs/122 §14.26). PASS = 0 crashes, no freeze; compared pairs > 0, autshadow_a1 == 0, autshadow_a2 == 0 and autshadow_a3 == 0 (any A1-A3 FAILs: queue.ts shadowFails), a4 < 22% of compared pairs; -native.json autshadow v17: transOn 1, hcOn 1, lwOn 1 (-1 = a ListWalkCheck miss: FAIL), lwMis 0, listMissed 0, typedAuditMis 0, auditMis 0, runCheckMis 0, dirtyTripped 0, workExc 0, refExc 0, finishExc 0; mtprobe: workerExceptions 0, n2mOverflow 0, lockOverflow 0, workerCtxSet 0. Read: cut per cut vs mono-cost13 (BP 1.12 ms; [inferred] list bodies 404 -> ~80-150 us, refresh loop ~230 -> ~100-150, publish 65 -> ~30-45, prep 172 -> ~150), the mono-cost15 line (transients per cut, host classes vs no handle, walk vs host us, runs walked by reason), the dirtying and typed marks lines (gone/new/lite rows down), the run skip line. Any crash: stop and triage against 0.36.133 (crash cause before fix). Run after 1/2 passed.",
+      "asi": "game-copy/ts3native.asi.mc15",
+      "fixesPackage": "game-copy/ts3fixes.package.mc15",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 10000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Transient": 1,
+        "AutShadow.HostCls": 1,
+        "AutShadow.ListWalk": 1,
+        "AutShadow.ListWalkCheck": 8
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow cut: RunSkip=1 Transient=1 HostCls=1 ListWalk=1 ListWalkCheck=8": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}

@@ -80,9 +80,12 @@ old one. We do not do that. We only count and name these descriptions:
 | `Pregnancy.mDad` | Nothing clears it when that Sim object goes; `CheckForDad` finds the dad again by `DadDescriptionId`. | verified | sweep (cleared, then `CheckForDad`) |
 | `CarOwnable` / `BoatOwnable` previous passengers | Kept until the next route ends; `GetSimsThatGoHomeWithActor` reads every array slot without a null check. | verified | sweep (array rebuilt without the gone Sims, list filtered) |
 | `HorseshoeCourt` throwers and scores | Cleared only at round or game end. | verified | sweep |
-| `Celebrity.mWaitingToReact` | Holder object not located in time. | community | no |
+| `Dartboard` `Players`, `Teams`, `CurrentPlayer`, `CheatingSim` | `Quit` (every cleanup) drops the Sim from its team and `Players`; `CurrentPlayer` and `CheatingSim` clear only in `DoFinishGame`; a Sim reset or destroyed mid-game never reaches `Quit`. | verified | sweep (phase 9, docs/516) |
+| `GameObject` `mActorsUsingMe`, `mReferenceList`, `mRoutingReferenceList` | Persisted lists; the paired Remove runs only from the Sim's own clean-up, which a reset or destroyed Sim never reaches. | verified | sweep (phase 10, docs/517) |
+| `Celebrity.mWaitingToReact` (sweep phase 13, docs/523) | Holder object not located in time. | community | no |
 | `CookingProcess` appliance handlers | Needs event-delegate surgery per appliance; not read in full. | community | no |
-| `ObjectOwnerComponent.mThief` | Removing a component in a sweep needs its own checks. | community | no |
+| `ObjectOwnerComponent` `mOwner` (a reward's giving Sim or a theft's victim), `mThief` | Saved by description id and re-read as `CreatedSim` at load; nothing updates them in a running world when that Sim object is destroyed. | verified | sweep (phase 11, docs/519) |
+| `GameObject.ObjectDisposed` handlers of `GameObjectRelationship` (cars, birds) | The constructor subscribes, nothing unsubscribes: a deleted description or a decayed relationship stays reachable from the object. | verified | sweep (phase 12, docs/522) |
 | Adoption pool pets | Disposing descriptions is a behaviour change, not a cleanup. | community | no |
 | `Service.mPreferredServiceNpc` | Already `preferredservice` (#86). | verified | yes (#86) |
 
@@ -117,7 +120,8 @@ gone. Our sweeps never run at load. On top of that every pass stands down when:
   2 aging states of gone descriptions (`AgingManager.RemoveSimDescription`: state removed, its alarms cancelled), 3 alarm
   owners that are gone descriptions (`AlarmManager.OnDispose`, what `Dispose` itself calls), 4 household descriptions
   (coworkers, former boss, chess challenger, pregnancy dad, no-outfit count), 5 Sims (react times, unforgettable topics,
-  push requester, last talking partner, reserved vehicle), 6 fish, 7 cars and boats, 8 horseshoe courts.
+  push requester, last talking partner, reserved vehicle), 6 fish, 7 cars and boats, 8 horseshoe courts, 9 dartboards
+  (docs/516), 10 object use, reference and routing-reference lists (docs/517), 11 object owner components (docs/519), 12 ObjectDisposed handlers of relationships nobody holds (docs/522), 13 celebrity waiting-to-react lists (docs/523).
 - A cheap final pass before each save (`DisposeSaveHook`): only phases 1-3, gone entries only. That is one walk over three
   dictionaries with a field read per entry; the hourly pass has already done the rest. Its time is counter [409].
 
@@ -126,7 +130,7 @@ gone. Our sweeps never run at load. On top of that every pass stands down when:
 [393] Get refusals, [394] aging states refused, [395] relationship keys removed, [396] relationship entries removed,
 [397] aging states removed, [398] alarm owners cleared, [399] react-time entries, [400] coworker / former boss / chess
 entries, [401] topics, [402] fishers, [403] Sim fields (pusher, talking partner, vehicle, pregnancy dad), [404] passenger
-and horseshoe entries, [405] passes finished, [406] slices, [407] longest slice us, [408] total pass ms, [409] longest
+and horseshoe entries, [2045] dartboard entries (docs/516), [2046] use-list entries (docs/517), [2047] owner entries (docs/519), [2048] disposed handlers (docs/522), [2049] celebrity reactors (docs/523), [405] passes finished, [406] slices, [407] longest slice us, [408] total pass ms, [409] longest
 save pass us, [410] passes refused or stopped, and items that threw. Agent names `deadrefguards_*`, `deadrefsweep_*`.
 
 ## 3. Switches

@@ -1,0 +1,398 @@
+{
+  "note": "Issue #122 (SaveSlim) save matrix, local build 2a09a1d: four saves (Bridgeport spring, Bridgeport CC-heavy, the old lived-in save, Moonlight Falls big save), each Mode 0 measure, Mode 2 write, then a session on the slimmed save. New save names only (SlimTest-<world>-*); delete them after. Isla Paradiso left out: its harness saves end in Error 12 (docs/67 section 31).",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "asi": "game-copy/asi-slim-2a09a1d/ts3native.asi",
+      "pinReason": "local build.cmd of feat/save-slim 2a09a1d (references in all four byte orders of a key)",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1,
+        "save slim: .*ExportDB[.]package: .*left [(]Mode 0": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0
+      },
+      "id": "bp-saveslim-measure",
+      "note": "Matrix Bridgeport (spring): Mode 0 (measured only) on Baseline-BP-Spring saved as SlimTest-BP-m0.",
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-bp-m0"
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-2a09a1d/ts3native.asi",
+      "pinReason": "local build.cmd of feat/save-slim 2a09a1d (references in all four byte orders of a key)",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1,
+        "save slim: .*ExportDB.*entries [0-9]+ -> [0-9]+": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0
+      },
+      "id": "bp-saveslim-write",
+      "note": "Matrix Bridgeport (spring): Mode 2 on Baseline-BP-Spring saved as SlimTest-BP-m2. Pass: per-ExportDB entries a -> b lines, no FAIL / unreadable line.",
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-bp-m2"
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-2a09a1d/ts3native.asi",
+      "pinReason": "local build.cmd of feat/save-slim 2a09a1d (references in all four byte orders of a key)",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0
+      },
+      "id": "bp-saveslim-reload",
+      "note": "Matrix Bridgeport (spring): the slimmed SlimTest-BP-m2 loads and plays 6 min, then a Mode 2 save as SlimTest-BP-m2b (nothing left to gain expected).",
+      "save": "SlimTest-BP-m2",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-bp-m2b"
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-2a09a1d/ts3native.asi",
+      "pinReason": "local build.cmd of feat/save-slim 2a09a1d (references in all four byte orders of a key)",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1,
+        "save slim: .*ExportDB[.]package: .*left [(]Mode 0": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0
+      },
+      "id": "bpcc-saveslim-measure",
+      "note": "Matrix Bridgeport with CC-heavy households: Mode 0 (measured only) on SaveReload-BPCC saved as SlimTest-BPCC-m0.",
+      "save": "SaveReload-BPCC",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-bpcc-m0"
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-2a09a1d/ts3native.asi",
+      "pinReason": "local build.cmd of feat/save-slim 2a09a1d (references in all four byte orders of a key)",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1,
+        "save slim: .*ExportDB.*entries [0-9]+ -> [0-9]+": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0
+      },
+      "id": "bpcc-saveslim-write",
+      "note": "Matrix Bridgeport with CC-heavy households: Mode 2 on SaveReload-BPCC saved as SlimTest-BPCC-m2. Pass: per-ExportDB entries a -> b lines, no FAIL / unreadable line.",
+      "save": "SaveReload-BPCC",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-bpcc-m2"
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-2a09a1d/ts3native.asi",
+      "pinReason": "local build.cmd of feat/save-slim 2a09a1d (references in all four byte orders of a key)",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0
+      },
+      "id": "bpcc-saveslim-reload",
+      "note": "Matrix Bridgeport with CC-heavy households: the slimmed SlimTest-BPCC-m2 loads and plays 6 min, then a Mode 2 save as SlimTest-BPCC-m2b (nothing left to gain expected).",
+      "save": "SlimTest-BPCC-m2",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-bpcc-m2b"
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-2a09a1d/ts3native.asi",
+      "pinReason": "local build.cmd of feat/save-slim 2a09a1d (references in all four byte orders of a key)",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1,
+        "save slim: .*ExportDB[.]package: .*left [(]Mode 0": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0
+      },
+      "id": "old-saveslim-measure",
+      "note": "Matrix the old lived-in save (2+ years of play, NRaas in the Mods folder): Mode 0 (measured only) on 1111 kit5 saved as SlimTest-OLD-m0.",
+      "save": "1111 kit5",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-old-m0"
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-2a09a1d/ts3native.asi",
+      "pinReason": "local build.cmd of feat/save-slim 2a09a1d (references in all four byte orders of a key)",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1,
+        "save slim: .*ExportDB.*entries [0-9]+ -> [0-9]+": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0
+      },
+      "id": "old-saveslim-write",
+      "note": "Matrix the old lived-in save (2+ years of play, NRaas in the Mods folder): Mode 2 on 1111 kit5 saved as SlimTest-OLD-m2. Pass: per-ExportDB entries a -> b lines, no FAIL / unreadable line.",
+      "save": "1111 kit5",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-old-m2"
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-2a09a1d/ts3native.asi",
+      "pinReason": "local build.cmd of feat/save-slim 2a09a1d (references in all four byte orders of a key)",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0
+      },
+      "id": "old-saveslim-reload",
+      "note": "Matrix the old lived-in save (2+ years of play, NRaas in the Mods folder): the slimmed SlimTest-OLD-m2 loads and plays 6 min, then a Mode 2 save as SlimTest-OLD-m2b (nothing left to gain expected).",
+      "save": "SlimTest-OLD-m2",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-old-m2b"
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-2a09a1d/ts3native.asi",
+      "pinReason": "local build.cmd of feat/save-slim 2a09a1d (references in all four byte orders of a key)",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1,
+        "save slim: .*ExportDB[.]package: .*left [(]Mode 0": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0
+      },
+      "id": "mf-saveslim-measure",
+      "note": "Matrix Moonlight Falls big save: Mode 0 (measured only) on BigSave-MF saved as SlimTest-MF-m0.",
+      "save": "BigSave-MF",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-mf-m0"
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-2a09a1d/ts3native.asi",
+      "pinReason": "local build.cmd of feat/save-slim 2a09a1d (references in all four byte orders of a key)",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1,
+        "save slim: .*ExportDB.*entries [0-9]+ -> [0-9]+": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0
+      },
+      "id": "mf-saveslim-write",
+      "note": "Matrix Moonlight Falls big save: Mode 2 on BigSave-MF saved as SlimTest-MF-m2. Pass: per-ExportDB entries a -> b lines, no FAIL / unreadable line.",
+      "save": "BigSave-MF",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-mf-m2"
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-2a09a1d/ts3native.asi",
+      "pinReason": "local build.cmd of feat/save-slim 2a09a1d (references in all four byte orders of a key)",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0
+      },
+      "id": "mf-saveslim-reload",
+      "note": "Matrix Moonlight Falls big save: the slimmed SlimTest-MF-m2 loads and plays 6 min, then a Mode 2 save as SlimTest-MF-m2b (nothing left to gain expected).",
+      "save": "SlimTest-MF-m2",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-mf-m2b"
+        }
+      }
+    }
+  ]
+}

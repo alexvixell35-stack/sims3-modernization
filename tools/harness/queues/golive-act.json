@@ -1,0 +1,427 @@
+{
+  "note": "golive-act: docs/124 §17 acting consume, correctness only, NOT RUN. Gated on golive-g7 passing (top-10 >= 99%, top 1 >= 99.5%). [AutShadow] Mode=3 Dry=0 Satb=2: the game uses the worker's answers (band 1 + bands through the game's C1, live Test + score; every miss falls back to the game's B13/B14). Not timing (Audit and VerifyEvery stay on). ts3native 0.36.143 (asi satb7) + ts3fixes golive2. Read: node tools/harness/mono-cost-report.ts <queue jsonl> (\"go-live\" lines; G7 line with Dry=1) and the Satb act line; records: autshadow.jsonl dry-diff / live-drop next to ts3native.ini.",
+  "smoke": {
+    "id": "bp-golive-act-smoke",
+    "note": "Smoke (4 min BP, acting): PASS = 0 crashes; alOn 1; al consumed > 0; ts3fixes applied log \"AutShadow: go-live Mode 3 (acting)\" with no \"go-live off\". A FAIL stops the queue.",
+    "asi": "game-copy/ts3native.asi.satb8",
+    "fixesPackage": "game-copy/ts3fixes.package.golive5",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 90,
+    "ini": {
+      "HitchAttr.Enabled": 1,
+      "RouteSnap.Enabled": 1,
+      "RouteSnap.Count": 1,
+      "RouteSnap.AuditEvery": 0,
+      "MonoThread.Enabled": 1,
+      "MonoThread.Mode": 1,
+      "MonoThread.GcLock": 1,
+      "MonoThread.FrameTls": 1,
+      "MonoThread.ArenaFix": 1,
+      "MonoThread.N2mPrivate": 1,
+      "MonoThread.LazyGate": 1,
+      "MonoThread.LazyEarly": 1,
+      "AutShadow.Enabled": 1,
+      "AutShadow.Mode": 3,
+      "AutShadow.Sample": 1,
+      "AutShadow.Audit": 50,
+      "AutShadow.DumpOnMismatch": 1,
+      "AutShadow.ColdIc": 1,
+      "AutShadow.CutLean": 2,
+      "AutShadow.TierMs": 1500,
+      "AutShadow.ListAudit": 1,
+      "AutShadow.TierClassMs": 1000,
+      "AutShadow.RowHot": 200,
+      "AutShadow.RunSkip": 1,
+      "AutShadow.FreshEvery": 0,
+      "AutShadow.KeepPartial": 1,
+      "AutShadow.TopN": 10,
+      "AutShadow.Bands": 3,
+      "AutShadow.Margin": 0,
+      "AutShadow.MaxWait": 3,
+      "AutShadow.VerifyEvery": 50,
+      "AutShadow.Dry": 0,
+      "AutShadow.Satb": 2,
+      "AutShadow.WindowWaitUs": 0
+    },
+    "logRequire": {
+      "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+      "OK   mono thread P4": 1,
+      "autshadow go-live: Mode=3": 1
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 4,
+        "fixesOn": "autshadow,autlive"
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 30
+  },
+  "jobs": [
+    {
+      "id": "bp-golive-act-1",
+      "note": "Acting BP, 10 min natural play. PASS: 0 crashes, no freeze, no ScriptError_*.xml from the go-live path (consumer frames AutLive / AutB14Hook / AutMetaHook in a script error = FAIL); -native.json alOn 1, al consumed > 0 and >= 80% of al posted (else size the fallbacks by reason first), verify cuts > 0 with A1-A3 0 and live off by verify 0, guard off 0; pairs through C1 per used search ~ band 1 + off-list (report \"go-live objects\"); behaviour: Sims keep acting (sims_activity / the crowd leaves for venues and comes back each wave as in the off load), no new stuck Sim (log only, docs/data/stuck-log.md), autonomous pushes continue (sim-budget autonomy owner present every minute). Crash rule: a crash stops the queue; triage against ts3native 0.36.143 from the [Crash] Log lines before any rerun; two clean runs per world before a verdict.",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-golive-act-1",
+      "note": "Acting IP, 10 min natural play. PASS: 0 crashes, no freeze, no ScriptError_*.xml from the go-live path (consumer frames AutLive / AutB14Hook / AutMetaHook in a script error = FAIL); -native.json alOn 1, al consumed > 0 and >= 80% of al posted (else size the fallbacks by reason first), verify cuts > 0 with A1-A3 0 and live off by verify 0, guard off 0; pairs through C1 per used search ~ band 1 + off-list (report \"go-live objects\"); behaviour: Sims keep acting (sims_activity / the crowd leaves for venues and comes back each wave as in the off load), no new stuck Sim (log only, docs/data/stuck-log.md), autonomous pushes continue (sim-budget autonomy owner present every minute). Crash rule: a crash stops the queue; triage against ts3native 0.36.143 from the [Crash] Log lines before any rerun; two clean runs per world before a verdict.",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-golive-act-crowd",
+      "note": "Acting BP on the crowd-in-view repro aut-live-crowd-view, 20 min (waves every 150 s). PASS: 0 crashes, no freeze, no ScriptError_*.xml from the go-live path (consumer frames AutLive / AutB14Hook / AutMetaHook in a script error = FAIL); -native.json alOn 1, al consumed > 0 and >= 80% of al posted (else size the fallbacks by reason first), verify cuts > 0 with A1-A3 0 and live off by verify 0, guard off 0; pairs through C1 per used search ~ band 1 + off-list (report \"go-live objects\"); behaviour: Sims keep acting (sims_activity / the crowd leaves for venues and comes back each wave as in the off load), no new stuck Sim (log only, docs/data/stuck-log.md), autonomous pushes continue (sim-budget autonomy owner present every minute). Crash rule: a crash stops the queue; triage against ts3native 0.36.143 from the [Crash] Log lines before any rerun; two clean runs per world before a verdict.",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 20,
+          "fixesOn": "autshadow,autlive",
+          "repro": "aut-live-crowd-view"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-golive-act-save",
+      "note": "Acting BP with two saves while searches are parked (repro aut-live-save, docs/124 §9). PASS: 0 crashes, no freeze, no ScriptError_*.xml from the go-live path (consumer frames AutLive / AutB14Hook / AutMetaHook in a script error = FAIL); -native.json alOn 1, al consumed > 0 and >= 80% of al posted (else size the fallbacks by reason first), verify cuts > 0 with A1-A3 0 and live off by verify 0, guard off 0; pairs through C1 per used search ~ band 1 + off-list (report \"go-live objects\"); behaviour: Sims keep acting (sims_activity / the crowd leaves for venues and comes back each wave as in the off load), no new stuck Sim (log only, docs/data/stuck-log.md), autonomous pushes continue (sim-budget autonomy owner present every minute). Crash rule: a crash stops the queue; triage against ts3native 0.36.143 from the [Crash] Log lines before any rerun; two clean runs per world before a verdict. Also: both saves load-free and complete, al consumed rises after each save.",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 8,
+          "fixesOn": "autshadow,autlive",
+          "repro": "aut-live-save"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-golive-act-2",
+      "note": "Second clean run of bp-golive-act-1 (crash rule). PASS: 0 crashes, no freeze, no ScriptError_*.xml from the go-live path (consumer frames AutLive / AutB14Hook / AutMetaHook in a script error = FAIL); -native.json alOn 1, al consumed > 0 and >= 80% of al posted (else size the fallbacks by reason first), verify cuts > 0 with A1-A3 0 and live off by verify 0, guard off 0; pairs through C1 per used search ~ band 1 + off-list (report \"go-live objects\"); behaviour: Sims keep acting (sims_activity / the crowd leaves for venues and comes back each wave as in the off load), no new stuck Sim (log only, docs/data/stuck-log.md), autonomous pushes continue (sim-budget autonomy owner present every minute). Crash rule: a crash stops the queue; triage against ts3native 0.36.143 from the [Crash] Log lines before any rerun; two clean runs per world before a verdict.",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-golive-act-2",
+      "note": "Second clean run of ip-golive-act-1 (crash rule). PASS: 0 crashes, no freeze, no ScriptError_*.xml from the go-live path (consumer frames AutLive / AutB14Hook / AutMetaHook in a script error = FAIL); -native.json alOn 1, al consumed > 0 and >= 80% of al posted (else size the fallbacks by reason first), verify cuts > 0 with A1-A3 0 and live off by verify 0, guard off 0; pairs through C1 per used search ~ band 1 + off-list (report \"go-live objects\"); behaviour: Sims keep acting (sims_activity / the crowd leaves for venues and comes back each wave as in the off load), no new stuck Sim (log only, docs/data/stuck-log.md), autonomous pushes continue (sim-budget autonomy owner present every minute). Crash rule: a crash stops the queue; triage against ts3native 0.36.143 from the [Crash] Log lines before any rerun; two clean runs per world before a verdict.",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}

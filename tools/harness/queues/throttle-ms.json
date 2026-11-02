@@ -1,0 +1,1501 @@
+{
+  "note": "throttle-ms (2026-11-02): unseen script throttles judged by per-arm ms/s counters (Rodney: throttles and Mono lanes are judged by summed ms/s, not hitches or it/s; hitches only as a no-regression guard). Build unseenrm4 (master 6de5f011, ts3native 0.36.162) + ts3fixes --on kWakeHooks. Table v2 + caches on in every arm; unseenenv and wakepoll off. Order: bundle A/B BP + IP both orders, per-switch A/Bs (unseenbroadcast, wakepark) BP + IP one order each, then the unseenmotives needs/stuck correctness job. Report per job: node tools/harness/arm-ms.ts throttle-ms-<date>-<job> (pools all tags given, e.g. both orders of one world). Early gates audited: no gate on an --ab switch read-back (profile-world.ts checks the read-back per slice), no counter only the off arm increments.",
+  "smoke": {
+    "id": "smoke",
+    "note": "Measurement smoke: BP 5 min, --ab unseenbroadcast,unseenmotives,wakepark 1-min slices. Pass: both arms in the per-arm split (arm-ms.ts shows on and off rows), the three switches read back per slice (profile-world.ts), utbReady 3, unseen_broadcast_run/skipped, unseen_motive_calls and wake_parks > 0, heavy tools off, no crash. A FAIL stops the queue.",
+    "asi": "game-copy/ts3native.asi.unseenrm5",
+    "save": "Baseline-BP-Spring",
+    "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+    "minCounters": 156,
+    "ini": {
+      "SlotEnabledRO.Enabled": 1,
+      "SlotEnabledRO.Mode": 1,
+      "SlotEnabledRO.Shadow": 0,
+      "UnseenThrottle.Enabled": 1,
+      "UnseenThrottle.List": 1,
+      "RouteAsync.FallbackAsync": 1,
+      "RouteAsync.M1Retry": 1,
+      "RouteAsync.SyncCapMs": 1000,
+      "RouteAsync.FbJobCapMs": 300,
+      "RouteAsync.LogFallbackMs": 20,
+      "RouteAsync.LogFallbackStack": 16,
+      "RouteAsync.TailUnlock": 1,
+      "RouteAsync.ReplanDedupe": 1,
+      "RouteAsync.H2": 1,
+      "RouteEarlyOut.Enabled": 1,
+      "RouteEarlyOut.Mode": 2,
+      "RouteEarlyOut.Act": 1,
+      "RouteEarlyOut.LogMs": 200,
+      "HitchAttr.Enabled": 1,
+      "UnseenThrottle.Avoid": 1,
+      "UnseenThrottle.Footprint": 1,
+      "UnseenThrottle.Rate": 1,
+      "UnseenThrottle.Every": 4,
+      "UnseenAnim.Enabled": 1,
+      "UnseenAnim.Mode": 1,
+      "UnseenFallback.Enabled": 1,
+      "UnseenFallback.Sites": 1,
+      "UnseenTable.Enabled": 1,
+      "UnseenTable.Mode": 1,
+      "UnseenTable.Check": 0,
+      "UnseenTable.RefreshTicks": 4
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 5,
+        "noSamplers": true,
+        "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache",
+        "fixesOff": "unseenenv,wakepoll",
+        "ab": "unseenbroadcast,unseenmotives,wakepark",
+        "slice": 1,
+        "fixesReport": "unseen_,wake_,broadcast_"
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 20,
+    "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+    "earlyGates": [
+      {
+        "afterSec": 150,
+        "counter": "utbReady",
+        "op": "==",
+        "value": 3,
+        "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+      },
+      {
+        "afterSec": 150,
+        "counter": "utbTtlMode",
+        "op": "==",
+        "value": 1,
+        "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+      },
+      {
+        "afterSec": 200,
+        "counter": "utbHits",
+        "op": ">",
+        "value": 0,
+        "why": "table answers counted (table v2 on in both arms)"
+      },
+      {
+        "afterSec": 200,
+        "counter": "fixes:unseen_broadcast_run+fixes:unseen_broadcast_skipped",
+        "op": ">",
+        "value": 0,
+        "why": "unseenbroadcast never gated a far broadcaster (on slices, warm-up included)"
+      },
+      {
+        "afterSec": 200,
+        "counter": "fixes:unseen_motive_calls",
+        "op": ">",
+        "value": 0,
+        "why": "unseenmotives never saw a high-LOD Autonomy.Update (on slices, warm-up included)"
+      },
+      {
+        "afterSec": 200,
+        "counter": "fixes:wake_parks",
+        "op": ">",
+        "value": 0,
+        "why": "wakepark never parked a SimUpdate pass (on slices; needs the kWakeHooks package)"
+      }
+    ],
+    "nativeRequire": "utbBuilds>=1,utbHits>=1"
+  },
+  "jobs": [
+    {
+      "id": "bp-thr-bundle",
+      "note": "Bundle A/B --ab unseenbroadcast,unseenmotives,wakepark (one set, all three flip together), BP, off first, 10 min, 2-min slices. Table v2 + caches on in both arms (UnseenTable Mode=1 RefreshTicks=4, unseenposcache); unseenenv and wakepoll off (fixesOff). Verdict: summed ms/s per arm (script + route + animPose + locomotion), node tools/harness/arm-ms.ts throttle-ms-<date>-<job>; hitches only as a no-regression guard.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+      "minCounters": 156,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache",
+          "fixesOff": "unseenenv,wakepoll",
+          "ab": "unseenbroadcast,unseenmotives,wakepark",
+          "slice": 2,
+          "fixesReport": "unseen_,wake_,broadcast_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "utbTtlMode",
+          "op": "==",
+          "value": 1,
+          "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "table answers counted (table v2 on in both arms)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_broadcast_run+fixes:unseen_broadcast_skipped",
+          "op": ">",
+          "value": 0,
+          "why": "unseenbroadcast never gated a far broadcaster (on slices, warm-up included)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_motive_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenmotives never saw a high-LOD Autonomy.Update (on slices, warm-up included)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "wakepark never parked a SimUpdate pass (on slices; needs the kWakeHooks package)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
+    },
+    {
+      "id": "bp-thr-bundle-onfirst",
+      "note": "Bundle A/B --ab unseenbroadcast,unseenmotives,wakepark (one set, all three flip together), BP, on first, 10 min, 2-min slices. Table v2 + caches on in both arms (UnseenTable Mode=1 RefreshTicks=4, unseenposcache); unseenenv and wakepoll off (fixesOff). Verdict: summed ms/s per arm (script + route + animPose + locomotion), node tools/harness/arm-ms.ts throttle-ms-<date>-<job>; hitches only as a no-regression guard.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+      "minCounters": 156,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache",
+          "fixesOff": "unseenenv,wakepoll",
+          "ab": "unseenbroadcast,unseenmotives,wakepark",
+          "slice": 2,
+          "abOnFirst": true,
+          "fixesReport": "unseen_,wake_,broadcast_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "utbTtlMode",
+          "op": "==",
+          "value": 1,
+          "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "table answers counted (table v2 on in both arms)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_broadcast_run+fixes:unseen_broadcast_skipped",
+          "op": ">",
+          "value": 0,
+          "why": "unseenbroadcast never gated a far broadcaster (on slices, warm-up included)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_motive_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenmotives never saw a high-LOD Autonomy.Update (on slices, warm-up included)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "wakepark never parked a SimUpdate pass (on slices; needs the kWakeHooks package)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
+    },
+    {
+      "id": "ip-thr-bundle",
+      "note": "Bundle A/B --ab unseenbroadcast,unseenmotives,wakepark (one set, all three flip together), IP, off first, 10 min, 2-min slices. Table v2 + caches on in both arms (UnseenTable Mode=1 RefreshTicks=4, unseenposcache); unseenenv and wakepoll off (fixesOff). Verdict: summed ms/s per arm (script + route + animPose + locomotion), node tools/harness/arm-ms.ts throttle-ms-<date>-<job>; hitches only as a no-regression guard.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+      "minCounters": 156,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache",
+          "fixesOff": "unseenenv,wakepoll",
+          "ab": "unseenbroadcast,unseenmotives,wakepark",
+          "slice": 2,
+          "fixesReport": "unseen_,wake_,broadcast_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "utbTtlMode",
+          "op": "==",
+          "value": 1,
+          "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "table answers counted (table v2 on in both arms)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_broadcast_run+fixes:unseen_broadcast_skipped",
+          "op": ">",
+          "value": 0,
+          "why": "unseenbroadcast never gated a far broadcaster (on slices, warm-up included)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_motive_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenmotives never saw a high-LOD Autonomy.Update (on slices, warm-up included)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "wakepark never parked a SimUpdate pass (on slices; needs the kWakeHooks package)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
+    },
+    {
+      "id": "ip-thr-bundle-onfirst",
+      "note": "Bundle A/B --ab unseenbroadcast,unseenmotives,wakepark (one set, all three flip together), IP, on first, 10 min, 2-min slices. Table v2 + caches on in both arms (UnseenTable Mode=1 RefreshTicks=4, unseenposcache); unseenenv and wakepoll off (fixesOff). Verdict: summed ms/s per arm (script + route + animPose + locomotion), node tools/harness/arm-ms.ts throttle-ms-<date>-<job>; hitches only as a no-regression guard.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+      "minCounters": 156,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache",
+          "fixesOff": "unseenenv,wakepoll",
+          "ab": "unseenbroadcast,unseenmotives,wakepark",
+          "slice": 2,
+          "abOnFirst": true,
+          "fixesReport": "unseen_,wake_,broadcast_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "utbTtlMode",
+          "op": "==",
+          "value": 1,
+          "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "table answers counted (table v2 on in both arms)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_broadcast_run+fixes:unseen_broadcast_skipped",
+          "op": ">",
+          "value": 0,
+          "why": "unseenbroadcast never gated a far broadcaster (on slices, warm-up included)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_motive_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenmotives never saw a high-LOD Autonomy.Update (on slices, warm-up included)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "wakepark never parked a SimUpdate pass (on slices; needs the kWakeHooks package)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
+    },
+    {
+      "id": "bp-thr-unseenbroadcast-ab",
+      "note": "Per-switch A/B --ab unseenbroadcast alone, BP, off first, 10 min, 2-min slices; the other two throttles off; table v2 + caches on in both arms. Verdict: summed ms/s per arm (arm-ms.ts); hitches no-regression only.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+      "minCounters": 156,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache",
+          "fixesOff": "unseenenv,wakepoll",
+          "ab": "unseenbroadcast",
+          "slice": 2,
+          "fixesReport": "unseen_,wake_,broadcast_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "utbTtlMode",
+          "op": "==",
+          "value": 1,
+          "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "table answers counted (table v2 on in both arms)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_broadcast_run+fixes:unseen_broadcast_skipped",
+          "op": ">",
+          "value": 0,
+          "why": "unseenbroadcast never gated a far broadcaster (on slices, warm-up included)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
+    },
+    {
+      "id": "ip-thr-unseenbroadcast-ab",
+      "note": "Per-switch A/B --ab unseenbroadcast alone, IP, off first, 10 min, 2-min slices; the other two throttles off; table v2 + caches on in both arms. Verdict: summed ms/s per arm (arm-ms.ts); hitches no-regression only.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+      "minCounters": 156,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache",
+          "fixesOff": "unseenenv,wakepoll",
+          "ab": "unseenbroadcast",
+          "slice": 2,
+          "fixesReport": "unseen_,wake_,broadcast_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "utbTtlMode",
+          "op": "==",
+          "value": 1,
+          "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "table answers counted (table v2 on in both arms)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_broadcast_run+fixes:unseen_broadcast_skipped",
+          "op": ">",
+          "value": 0,
+          "why": "unseenbroadcast never gated a far broadcaster (on slices, warm-up included)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
+    },
+    {
+      "id": "bp-thr-wakepark-ab",
+      "note": "Per-switch A/B --ab wakepark alone, BP, off first, 10 min, 2-min slices; the other two throttles off; table v2 + caches on in both arms. Verdict: summed ms/s per arm (arm-ms.ts); hitches no-regression only.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+      "minCounters": 156,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache",
+          "fixesOff": "unseenenv,wakepoll",
+          "ab": "wakepark",
+          "slice": 2,
+          "fixesReport": "unseen_,wake_,broadcast_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "utbTtlMode",
+          "op": "==",
+          "value": 1,
+          "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "table answers counted (table v2 on in both arms)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "wakepark never parked a SimUpdate pass (on slices; needs the kWakeHooks package)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
+    },
+    {
+      "id": "ip-thr-wakepark-ab",
+      "note": "Per-switch A/B --ab wakepark alone, IP, off first, 10 min, 2-min slices; the other two throttles off; table v2 + caches on in both arms. Verdict: summed ms/s per arm (arm-ms.ts); hitches no-regression only.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+      "minCounters": 156,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache",
+          "fixesOff": "unseenenv,wakepoll",
+          "ab": "wakepark",
+          "slice": 2,
+          "fixesReport": "unseen_,wake_,broadcast_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "utbTtlMode",
+          "op": "==",
+          "value": 1,
+          "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "table answers counted (table v2 on in both arms)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "wakepark never parked a SimUpdate pass (on slices; needs the kWakeHooks package)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
+    },
+    {
+      "id": "bp-thr-motives-needs",
+      "note": "unseenmotives correctness (docs/144 needs/stuck check): unseenmotives on for 20 min (no A/B), table v2 + caches on. Pass: no crash, 0 watchdog lines, stuck Sims within docs/TESTING.md (compare with bp-rel-play), unseen_motive_critical / (unseen_motive_unseen - unseen_motive_skipped) not above the off halves of the bundle jobs, unseen_gate_restarts 0 or a few. Correctness job, daytime OK.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+      "minCounters": 156,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 20,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache,unseenmotives",
+          "fixesOff": "unseenenv,wakepoll",
+          "fixesReport": "unseen_,wake_,broadcast_",
+          "fixesRequire": "unseen_motive_calls>=1,unseen_motive_skipped>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "utbTtlMode",
+          "op": "==",
+          "value": 1,
+          "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "table answers counted (table v2 on in both arms)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_motive_calls",
+          "op": ">",
+          "value": 0,
+          "why": "unseenmotives never saw a high-LOD Autonomy.Update (on slices, warm-up included)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbHits>=1",
+      "noiseCheck": false
+    },
+    {
+      "id": "bp-thr-unseenmotives-ab",
+      "note": "Per-switch A/B --ab unseenmotives alone, BP, off first, 10 min, 2-min slices; the other two throttles off; table v2 + caches on in both arms. Verdict: summed ms/s per arm (arm-ms.ts); hitches no-regression only.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+      "minCounters": 156,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache",
+          "fixesOff": "unseenenv,wakepoll",
+          "ab": "unseenmotives",
+          "slice": 2,
+          "fixesReport": "unseen_,wake_,broadcast_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "utbTtlMode",
+          "op": "==",
+          "value": 1,
+          "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "table answers counted (table v2 on in both arms)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "unseenmotives never parked a SimUpdate pass (on slices; needs the kWakeHooks package)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
+    },
+    {
+      "id": "ip-thr-unseenmotives-ab",
+      "note": "Per-switch A/B --ab unseenmotives alone, IP, off first, 10 min, 2-min slices; the other two throttles off; table v2 + caches on in both arms. Verdict: summed ms/s per arm (arm-ms.ts); hitches no-regression only.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+      "minCounters": 156,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache",
+          "fixesOff": "unseenenv,wakepoll",
+          "ab": "unseenmotives",
+          "slice": 2,
+          "fixesReport": "unseen_,wake_,broadcast_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "utbTtlMode",
+          "op": "==",
+          "value": 1,
+          "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "table answers counted (table v2 on in both arms)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "unseenmotives never parked a SimUpdate pass (on slices; needs the kWakeHooks package)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
+    },
+    {
+      "id": "bp-thr-unseenenv-ab",
+      "note": "Per-switch A/B --ab wakepark alone, BP, off first, 10 min, 2-min slices; the other two throttles off; table v2 + caches on in both arms. Verdict: summed ms/s per arm (arm-ms.ts); hitches no-regression only.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+      "minCounters": 156,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache",
+          "fixesOff": "wakepoll",
+          "ab": "unseenenv",
+          "slice": 2,
+          "fixesReport": "unseen_,wake_,broadcast_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "utbTtlMode",
+          "op": "==",
+          "value": 1,
+          "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "table answers counted (table v2 on in both arms)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "wakepark never parked a SimUpdate pass (on slices; needs the kWakeHooks package)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
+    },
+    {
+      "id": "ip-thr-unseenenv-ab",
+      "note": "Per-switch A/B --ab wakepark alone, IP, off first, 10 min, 2-min slices; the other two throttles off; table v2 + caches on in both arms. Verdict: summed ms/s per arm (arm-ms.ts); hitches no-regression only.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+      "minCounters": 156,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache",
+          "fixesOff": "wakepoll",
+          "ab": "unseenenv",
+          "slice": 2,
+          "fixesReport": "unseen_,wake_,broadcast_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "utbTtlMode",
+          "op": "==",
+          "value": 1,
+          "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "table answers counted (table v2 on in both arms)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "wakepark never parked a SimUpdate pass (on slices; needs the kWakeHooks package)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
+    },
+    {
+      "id": "bp-thr-wakepoll-ab",
+      "note": "Per-switch A/B --ab wakepark alone, BP, off first, 10 min, 2-min slices; the other two throttles off; table v2 + caches on in both arms. Verdict: summed ms/s per arm (arm-ms.ts); hitches no-regression only.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+      "minCounters": 156,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache",
+          "fixesOff": "unseenenv",
+          "ab": "wakepoll",
+          "slice": 2,
+          "fixesReport": "unseen_,wake_,broadcast_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "utbTtlMode",
+          "op": "==",
+          "value": 1,
+          "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "table answers counted (table v2 on in both arms)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "wakepark never parked a SimUpdate pass (on slices; needs the kWakeHooks package)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
+    },
+    {
+      "id": "ip-thr-wakepoll-ab",
+      "note": "Per-switch A/B --ab wakepark alone, IP, off first, 10 min, 2-min slices; the other two throttles off; table v2 + caches on in both arms. Verdict: summed ms/s per arm (arm-ms.ts); hitches no-regression only.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5-wakehooks",
+      "minCounters": 156,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseenposcache",
+          "fixesOff": "unseenenv",
+          "ab": "wakepoll",
+          "slice": 2,
+          "fixesReport": "unseen_,wake_,broadcast_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "utbTtlMode",
+          "op": "==",
+          "value": 1,
+          "why": "RefreshTicks TTL mode not on (ini switch, not an --ab switch in this queue)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "table answers counted (table v2 on in both arms)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:wake_parks",
+          "op": ">",
+          "value": 0,
+          "why": "wakepark never parked a SimUpdate pass (on slices; needs the kWakeHooks package)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
+    }
+  ]
+}

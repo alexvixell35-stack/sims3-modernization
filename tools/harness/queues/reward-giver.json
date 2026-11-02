@@ -1,0 +1,36 @@
+{
+  "note": "docs/525: repro of the rewardgiver fix (GameObject.SetRewardGiver's NullReferenceException), off then on in one load, with the player's core mod.",
+  "jobs": [
+    {
+      "id": "bp-reward-giver-check",
+      "note": "Correctness (6 min): repro reward-giver-check. Pass: the repro's steps pass (expect broken: off, EA's NullReferenceException and no owner component; expect fixed: on, no exception and the owner component) and rewardgiver_added >= 1.",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "reward-giver-check",
+          "fixesRequire": "rewardgiver_added>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14,
+      "earlyGates": [
+        {
+          "afterSec": 180,
+          "counter": "fixes:rewardgiver_added",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm added nothing 3 min in: hook missing or the check failed"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": true
+}

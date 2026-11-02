@@ -24,6 +24,8 @@ namespace Ts3Agent
             Dispatcher.Register("zombies", Zombies);
             Dispatcher.Register("spawn_traffic", SpawnTraffic);
             Dispatcher.Register("unseen_snapback", UnseenSnapback);
+            Dispatcher.Register("map_view", MapView);            // docs/228 §11.6: the UI's camera paths (script camera ICs)
+            Dispatcher.Register("focus_sim", FocusSim);
             Dispatcher.Register("unseen_water_check", UnseenWaterCheck);
             Dispatcher.Register("unseen_horse_ride", UnseenHorseRide);
             Dispatcher.Register("unseen_water_watch", UnseenWaterWatch);
@@ -280,7 +282,10 @@ namespace Ts3Agent
         // the in-game camera onto the Sim and keeps it on the Sim every tick (CameraController only; the game window is
         // never moved or focused) until ts3native reports the class flip and for 10 ticks after it, then reads the record.
         // Verdict per Sim: "fail" = it did not run the flip pass, a part skipped it while it was classed visible (code 10),
-        // or the position jump over the flip tick passed its normal per-tick step + 4 m/s x owed time + 0.25 m; "pass" =
+        // or the position jump over the flip tick passed its normal per-tick step + 4 m/s x (Rate owed time + [UnseenAnim] owed
+        // pose time, code 24) + 0.25 m; the normal step is the median over 8-tick windows of the 32 ticks before the camera moves
+        // (whole Rate cycles: a throttled Sim moves every Every-th tick, so per-tick steps after the flip were ~0 and a Stray Dog
+        // failed with 0.623 m over a 0.25 m bound, 2026-11-02); species per row (pets walk and run faster); "pass" =
         // none of that and it stayed classed visible for the whole window; "not tested" = no flip within 2 x 120 ticks
         // (second try with the camera closer) or classed unseen again inside the window (the camera lost it: 2026-10-21
         // bp-ut2-snapback, where those skips were read as failures). The task keeps picking Sims until `count` passed or
@@ -322,9 +327,10 @@ namespace Ts3Agent
                 r["sims"] = sSnapRows ?? new List<object>();
                 bool ok = sSnapState.StartsWith("done") && sSnapFailed == 0 && sSnapWant > 0 && sSnapPassed >= sSnapWant && sSnapRatePassed >= 1;
                 r["check_ok"] = ok;
-                if (a.Bool("require", false) && !ok)
-                    throw new McpException("unseen_snapback check failed: state " + sSnapState + ", passed " + sSnapPassed + " of " + sSnapWant +
-                        ", failed " + sSnapFailed + ", not tested " + sSnapNotTested + ", passed with Rate debt " + sSnapRatePassed + " (needs 1)");
+                string summary = "wanted " + sSnapWant + ", passed " + sSnapPassed + ", failed " + sSnapFailed + ", not tested " + sSnapNotTested +
+                    ", passed with Rate debt " + sSnapRatePassed + " (needs 1), state " + sSnapState;
+                r["summary"] = summary;
+                if (a.Bool("require", false) && !ok) throw new McpException("unseen_snapback check failed: " + summary);
                 return r;
             }
             int n = a.Has("count") ? (int)a.Long("count") : 6;
@@ -400,7 +406,22 @@ namespace Ts3Agent
                 o["verdict"] = "fail";
                 return o;
             }
-            Simulator.Sleep(4);  // a few unseen passes first, so the throttle holds some owed time
+            // the Sim's normal step while unseen, before the camera moves: 32 ticks, path length per 8-tick window / 8
+            // (whole Rate cycles for Every 2, 4, 8); also lets the throttle build owed time
+            o["species"] = s.SimDescription != null ? s.SimDescription.Species.ToString() : "?";
+            List<float> pre = new List<float>();
+            Vector3 last = s.Position;
+            float win = 0f;
+            for (int t = 1; t <= 32; t++)
+            {
+                Simulator.Sleep(0);
+                if (s.HasBeenDestroyed) { o["error"] = "Sim destroyed"; o["verdict"] = "not tested"; SnapMsg(11, 0); return o; }
+                win += (s.Position - last).Length();
+                last = s.Position;
+                if (t % 8 == 0) { pre.Add(win / 8f); win = 0f; }
+            }
+            pre.Sort();
+            float median = pre[pre.Count / 2];
             Vector3 before = s.Position;
             int tick = 0, flipTick = -1, tries = 1;
             float jump = -1f, camAtFlip = -1f, camMax = 0f;
@@ -428,9 +449,10 @@ namespace Ts3Agent
                 CameraController.SetPositionAndTarget(now + offset, now);  // stays on the Sim through the whole window
             }
             int owedMs = flipTick >= 0 ? SnapAtLeast(9, 1000) : 0;
+            int animOwedMs = flipTick >= 0 ? SnapAtLeast(24, 1000) : 0;  // 0 without [UnseenAnim] (or an older asi)
             steps.Sort();
-            float median = steps.Count > 0 ? steps[steps.Count / 2] : 0f;
-            float bound = median + 4f * owedMs / 1000f + 0.25f;
+            float postMedian = steps.Count > 0 ? steps[steps.Count / 2] : 0f;
+            float bound = median + 4f * (owedMs + animOwedMs) / 1000f + 0.25f;
             bool ran = SnapMsg(8, 2);
             int skipsVis = SnapAtLeast(10, 1000), skipsUnseen = SnapAtLeast(16, 1000), unseenAfter = SnapAtLeast(17, 1000);
             o["flipped"] = flipTick >= 0;
@@ -438,6 +460,7 @@ namespace Ts3Agent
             o["tries"] = tries;
             o["ran_same_pass"] = ran;
             o["owed_ms"] = owedMs;
+            o["anim_owed_ms"] = animOwedMs;
             o["avoid_called"] = SnapMsg(8, 3);
             o["avoid_ran"] = SnapMsg(8, 4);
             o["footprint_called"] = SnapMsg(8, 5);
@@ -450,7 +473,8 @@ namespace Ts3Agent
             o["before"] = Pos(before);
             o["after"] = Pos(s.Position);
             o["jump_m"] = Math.Round(jump, 3);
-            o["step_median_m"] = Math.Round(median, 3);
+            o["step_median_m"] = Math.Round(median, 3);  // before the flip, whole passes (the bound's term)
+            o["step_median_post_m"] = Math.Round(postMedian, 3);
             o["jump_bound_m"] = Math.Round(bound, 3);
             o["still_routing"] = s.SimRoutingComponent != null && s.SimRoutingComponent.IsRouting;
             string verdict;
@@ -607,6 +631,44 @@ namespace Ts3Agent
             Terrain.GoHere gh = ii as Terrain.GoHere;
             if (gh != null) gh.SetDestination(pos, false);
             if (!s.InteractionQueue.Add(ii)) throw new McpException("could not queue Go Here for " + s.FullName);
+        }
+
+        // map_view {on?: bool}: the map-view button's path (CameraModel.ToggleMapView -> Camera.ToggleMapView ->
+        // CameraController.EnableMapViewMode / DisableMapViewMode, the script camera ICs ts3native [UnseenRootMotion] hooks,
+        // docs/228 §11.6). on given and already in that state: nothing. Returns the state before and after.
+        static object MapView(Args a)
+        {
+            RequireLive();
+            Dictionary<string, object> r = Util.Obj();
+            bool before = CameraController.IsMapViewModeEnabled();
+            r["before"] = before;
+            if (!a.Has("on") || a.Bool("on", !before) != before) Sims3.UI.Responder.Instance.CameraModel.ToggleMapView();
+            r["after"] = CameraController.IsMapViewModeEnabled();
+            r["pos"] = Pos(CameraController.GetPosition());
+            return r;
+        }
+
+        // focus_sim {pick?: "far" | "near", index?: 0}: the portrait click's path (HudModel.MoveCameraToSim -> Camera.FocusOnSim
+        // -> CameraController.RequestLerpToTarget, plus FollowSim for a routing Sim) onto a spawn_sims Sim; pick far (default)
+        // = the index-th farthest from the camera target (an unseen Sim, so Mode 2's camera-IC hold is what keeps it exact),
+        // near = nearest. found false: no spawn_sims Sim in the world.
+        static object FocusSim(Args a)
+        {
+            RequireLive();
+            Dictionary<string, object> r = Util.Obj();
+            List<Sim> sims = SpawnedInWorld();
+            Vector3 t = CameraController.GetTarget();
+            bool near = a.Str("pick", "far") == "near";
+            sims.Sort(delegate (Sim x, Sim y) { int c = (x.Position - t).Length().CompareTo((y.Position - t).Length()); return near ? c : -c; });
+            int i = (int)a.Long("index", 0);
+            r["found"] = i >= 0 && i < sims.Count;
+            if (!(bool)r["found"]) return r;
+            Sim s = sims[i];
+            r["sim"] = s.FullName;
+            r["dist"] = (double)(s.Position - t).Length();
+            r["routing"] = s.SimRoutingComponent != null && s.SimRoutingComponent.IsRouting;
+            Sims3.UI.Responder.Instance.HudModel.MoveCameraToSim(s.ObjectId);
+            return r;
         }
 
         // Sims spawn_sims made that are in the world now.

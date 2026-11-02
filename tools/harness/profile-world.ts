@@ -78,13 +78,15 @@ import { checkHitchTasks, parseHitchTasks } from './hitch-tasks.ts';
 import { checkTag, parseRule } from './frame-lead.ts';
 import { isSetup, runLoop, runStep, stopLine, untilUnlocked, withRule } from './repro-loop.ts';
 import { loadStory } from './story-fuzzer.ts';
-import { counterSwitches, nativeNames, nativeValues } from './native-switches.ts';
+import { counterSwitches, nativeModeFields, nativeNames, nativeValues } from './native-switches.ts';
+import { addArmColumns } from './arm-ms.ts';
 import { leadInCut, sliceFrames } from './session-reuse.ts';
 import { reproSave } from './repro-save.ts';
 import { focusGame, giveFocusBack } from './focus-game.ts';
 import { mayBeStuck } from './stuck-rule.ts';
 import { clockStep, watchGame } from './game-alive.ts';
 import { startMachineLoad, summarize } from './machine-load.ts';
+import { BIN, GAME_EXE } from './game-exe.ts';
 
 const { values } = parseArgs({ options: { tag: { type: 'string' }, minutes: { type: 'string', default: '10' }, ab: { type: 'string' }, 'ab-on-first': { type: 'boolean' }, 'fixes-off': { type: 'string' }, 'fixes-on': { type: 'string' }, 'until-compares': { type: 'string' }, slice: { type: 'string', default: '2' }, taskstall: { type: 'string' }, seed: { type: 'string' }, repro: { type: 'string' }, mainstack: { type: 'string' }, inroom: { type: 'boolean' }, watchstalk: { type: 'boolean' }, 'watchstalk-worker': { type: 'boolean' }, livereads2: { type: 'boolean' }, f4b: { type: 'boolean' }, vres: { type: 'boolean' }, 'vres-dry': { type: 'string' }, 'no-samplers': { type: 'boolean' }, 'no-env': { type: 'boolean' }, 'no-env-guard': { type: 'boolean' }, 'no-prof': { type: 'boolean' }, 'no-frames': { type: 'boolean' }, 'camera-pan': { type: 'boolean' }, 'prof-opts': { type: 'string' }, travel: { type: 'string' }, 'fixes-require': { type: 'string' }, 'frame-lead': { type: 'string' }, 'hitch-tasks': { type: 'string' }, 'since-load': { type: 'string' }, 'frames-shared': { type: 'string' }, 'loop-rule': { type: 'string' }, story: { type: 'string' } } });
 if (!values.tag) throw new Error('--tag required');
@@ -189,7 +191,7 @@ if (fixesNames.length) {
 let stopped = false;
 const untilN = values['until-compares'] ? Number(values['until-compares']) : 0;
 if (values['until-compares'] && !(Number.isInteger(untilN) && untilN > 0)) throw new Error('--until-compares must be a positive integer');
-const shadowFile = join(process.env.TS3_BIN ?? 'C:/Program Files (x86)/Steam/steamapps/common/The Sims 3/Game/Bin', 'ts3native-shadow.jsonl');
+const shadowFile = join(BIN, 'ts3native-shadow.jsonl');
 let shadowOff = 0, shadowCarry = '', compares = 0, target = untilN;
 function countCompares() {
   try {
@@ -264,7 +266,7 @@ const clockGuard = (async () => {
 const boats0 = (await ag('houseboats')).result ?? []; // empty outside Isla Paradiso
 if (values.taskstall) console.log(`${stamp()} taskstall: ${JSON.stringify(await get(`taskstall?start=1&ms=${Number(values.taskstall)}`))}`);
 
-const prof = values.watchstalk || values['no-prof'] ? null : spawn('python', ['-m', 'frida_tools.repl', '-n', 'TS3W.exe', '-l', join(ROOT, 'tools', 'frida', 'stutter-profile.js'),
+const prof = values.watchstalk || values['no-prof'] ? null : spawn('python', ['-m', 'frida_tools.repl', '-n', GAME_EXE, '-l', join(ROOT, 'tools', 'frida', 'stutter-profile.js'),
   '-P', JSON.stringify({ ...profOpts, out: `${pre}-${secs}`.replace(/\\/g, '/'), hitchMs: 50, ...((reproLoop || untilN) && { stopFile: stopFlag.replace(/\\/g, '/') }) }), '-q', '-t', String(secs)], { stdio: ['ignore', 'pipe', 'pipe'] });
 if (prof) {
   const plog = createWriteStream(`${pre}-${secs}.log`); prof.stdout.pipe(plog); prof.stderr.pipe(plog);
@@ -292,7 +294,7 @@ const t0 = Date.now(), at = (s: number) => t0 + s * 1000;
 // main thread's per-frame hot path): the one end-of-profile crash (freeze-pan 2026-10-22, eip outside every module) hit
 // right when that session unloaded.
 const side = (on: boolean | undefined, file: string, name: string, extra = {}, keep = false) => on ? new Promise(r => {
-  const args = ['-m', 'frida_tools.repl', '-n', 'TS3W.exe', '-l', join(ROOT, 'tools', 'frida', file),
+  const args = ['-m', 'frida_tools.repl', '-n', GAME_EXE, '-l', join(ROOT, 'tools', 'frida', file),
     // +5 s: unload apart from the stutter profiler's session (two agents unloading together, docs/99 §12.7 / I-99-62)
     '-P', JSON.stringify({ out: pre.replace(/\\/g, '/'), minutes: mins, ...extra }), '-q', '-t', String(keep ? secs + 86400 : secs + 5)];
   if (keep) {
@@ -331,7 +333,7 @@ if (values['camera-pan']) {
 }
 // sync-plan lines of ts3native.log get an epoch stamp (the log has none): new bytes read every second, so a line's t is at most ~1 s
 // after it was written
-const NLOG = join(process.env.TS3_BIN ?? 'C:/Program Files (x86)/Steam/steamapps/common/The Sims 3/Game/Bin', 'ts3native.log');
+const NLOG = join(BIN, 'ts3native.log');
 writeFileSync(`${pre}-nativelog.jsonl`, '');
 const nlogDone = (async () => {
   let off = (() => { try { return statSync(NLOG).size; } catch { return 0; } })(), carry = '';
@@ -423,12 +425,27 @@ const toggler = (async () => {
     // ts3fixes counters too (2026-10-22: the spreads pair had no proof the nightly passes ran inside counted slices)
     await ag('patches').then(r => appendFileSync(`${pre}-ab-fixes.jsonl`, JSON.stringify({ i, s: (Date.now() - t0) / 1000, c: numericFields(r.result) }) + '\n')).catch(() => {});
     const patchNames = abNames.filter(n => !nativeNames.includes(n) && !(n in counterSwitches));
-    if (patchNames.length) await ag('patches', Object.fromEntries(patchNames.map(n => [n, on])));
-    for (const n of abNames.filter(n => nativeNames.includes(n))) await get(`native?${n}=${on ? 1 : 0}`);
-    for (const n of abNames.filter(n => n in counterSwitches))
-      await get(`nativeexport?name=ts3native_counters&offset=${counterSwitches[n]}&value=${on ? 1 : 0}`);
+    // per-slice read-back (2026-11-02: early gates must not test an --ab switch, it alternates per slice): a switch that did not
+    // take stops the run with FAIL (the 'native_set: ... did not stick' text is what queue.ts smokeProblems looks for)
+    const bad: string[] = [], want = on ? 1 : 0;
+    if (patchNames.length) {
+      const r = await ag('patches', Object.fromEntries(patchNames.map(n => [n, on])));
+      for (const n of patchNames) if (r.result?.[n] !== on) bad.push(`${n}=${on} did not stick (reads ${r.result?.[n]})`);
+    }
+    for (const n of abNames.filter(n => nativeNames.includes(n))) {
+      const v = Number((await get(`native?${n}=${want}`))?.[nativeModeFields[n]]);
+      if (v !== want) bad.push(`${n}=${want} did not stick (reads ${v})`);
+    }
+    for (const n of abNames.filter(n => n in counterSwitches)) {
+      const w = await get(`nativeexport?name=ts3native_counters&offset=${counterSwitches[n]}&value=${want}`);
+      if (w?.value !== want) bad.push(`${n}=${want} did not stick (reads ${w?.value})`);
+    }
+    if (bad.length) {
+      console.log(`${stamp()} FAIL: --ab slice ${i} read-back: native_set: ${bad.join('; ')}`);
+      await restoreFixes(); process.exit(1);
+    }
     slices.push({ from: (Date.now() - t0) / 1000, on, ...(i === 0 && { warmup: true }) });
-    console.log(`${stamp()} ${abNames.join(',')} ${on ? 'on' : 'off'}`);
+    console.log(`${stamp()} ${abNames.join(',')} ${on ? 'on' : 'off'} (read back)`);
   }
 })();
 const reproFail = async (why: string) => {
@@ -596,6 +613,12 @@ if (hitchTasks.length) {
   if (fails.length) process.exitCode = 1;
 }
 if (abNames.length) { writeFileSync(`${pre}-ab.json`,JSON.stringify({ names: abNames, slices }, null, 1)); await ag('patches', Object.fromEntries(abNames.map(n => [n, true]))); }
+// per-arm ms/s (arm-ms.ts): slice + arm columns on the seconds rows (arm 1 on, 0 off, -1 not counted)
+if (slices.length && (abNames.length || reproLoop)) {
+  const sf = `${pre}-${secs}-seconds.csv`;
+  try { writeFileSync(sf, addArmColumns(readFileSync(sf, 'utf8'), reproLoop ? slices.map(sl => ({ ...sl, loop: true })) : slices)); }
+  catch (e: any) { console.log(`${stamp()} arm columns not added to ${sf}: ${e.message}`); }
+}
 if (reproLoop && slices.length) { // the last firing's end snapshot, then the arm slices (loop: hitch-ab keeps every firing slice whole)
   await get('native').then(c => appendFileSync(`${pre}-ab-native.jsonl`, JSON.stringify({ i: slices.length, s: (Date.now() - t0) / 1000, c }) + '\n')).catch(() => {});
   writeFileSync(`${pre}-ab.json`, JSON.stringify({ names: [`loop:${values.repro}`], loop: true, slices }, null, 1));

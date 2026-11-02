@@ -10,11 +10,12 @@ cd /d "%~dp0"
 set "OUT=%~1"
 if not defined OUT set "OUT=out"
 if not exist %OUT% mkdir %OUT%
-cl /nologo /LD /O2 /MT /W4 /WX /Fo%OUT%\ /Fe%OUT%\ts3native.asi ts3native.cpp /link /DLL kernel32.lib || exit /b 1
+cl /nologo /LD /O2 /MT /W4 /WX /Fo%OUT%\ /Fe%OUT%\ts3native.asi ts3native.cpp /link /DLL /MAP:%OUT%\ts3native.map kernel32.lib || exit /b 1
 rem selftest's own image sits elsewhere too: at 0x400000 it covers game addresses, and its "nothing matches the game's bytes"
 rem checks failed once a probe build (/DTS3N_VCSITES5, docs/133 §6) grew the image
 cl /nologo /O2 /MT /W4 /WX /wd4505 /Fo%OUT%\ /Fe%OUT%\selftest.exe selftest.cpp kernel32.lib /link /BASE:0x20000000 || exit /b 1
 cl /nologo /O2 /MT /W4 /WX /wd4505 /Fo%OUT%\ /Fe%OUT%\decompress-test.exe decompress-test.cpp kernel32.lib || exit /b 1
+cl /nologo /O2 /MT /W4 /WX /wd4505 /Fo%OUT%\ /Fe%OUT%\saveslim-tool.exe saveslim-tool.cpp kernel32.lib || exit /b 1
 rem waterjps-test maps game code at 0x61F000 and 0x66D000, so its own image sits elsewhere
 cl /nologo /O2 /MT /W4 /WX /wd4505 /Fo%OUT%\ /Fe%OUT%\waterjps-test.exe waterjps-test.cpp kernel32.lib /link /BASE:0x20000000 || exit /b 1
 rem savecompress-test maps game code at 0x4EB000

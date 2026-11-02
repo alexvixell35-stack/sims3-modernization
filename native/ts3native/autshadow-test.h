@@ -222,6 +222,18 @@ static DWORD WINAPI AfWorker(void*) {
     assert(((DWORD(__cdecl*)(DWORD, DWORD, DWORD, DWORD))AfSlot(AF_COUNT))(3, 2, 0, 1) == 0);
     assert(AsAborted() == AS_AB_ROW);  // first reason wins
     AsResetAbort();
+    {  // docs/216 §5 per-IC record: stop not counted, row counted twice; counters restored for the checks below
+        const Ts3nAutShadow k0 = k;
+        const int n0 = g_asIcN;
+        if (g_asIcN < 3) g_asIcN = 3;
+        const LONG a0 = g_asAbortIc[2], r0 = g_asAbortIcRow[2];
+        AsAbort(AS_AB_ROW, 2), AsAbort(AS_AB_STOP, 2), AsAbort(AS_AB_MEMO, 2), AsAbort(AS_AB_ROW, (DWORD)-1);
+        assert(g_asAbortIc[2] == a0 + 2 && g_asAbortIcRow[2] == r0 + 1);
+        AsAbortIcLog();
+        g_asAbortIc[2] = a0, g_asAbortIcRow[2] = r0, g_asIcN = n0;
+        k = k0;
+        AsResetAbort();
+    }
     float c[3] = {1, 1, 1};
     assert(((float*(__cdecl*)(float*))AfSlot(AF_CAMPOS))(c) == c && c[0] == 1);  // unlisted 's'
     assert(((DWORD(__cdecl*)(DWORD))AfSlot(AF_UNLISTED))(5) == 0 && AsAborted() == AS_AB_IC);
@@ -389,7 +401,23 @@ static void TestAutShadowRun() {
     assert(g_mtOnEnter == AsSimEnter && g_mtOnLeave == AsSimLeaveLoop && g_mtJobHook == AsJobHook && g_asMode == 0 && g_sppN == 0);
     // ICs register at the first Simulate entry; Begin refuses until the methods are set
     AsSimEnter();
-    assert(g_t5Ics == 26 && k.icRegistered == 26 && AsIcVersion() == 8 && AsIcConfig(1) == 4 && AsIcConfig(2) == 20);
+    assert(g_t5Ics == 34 && k.icRegistered == 34 && AsIcVersion() == 11 && AsIcConfig(1) == 4 && AsIcConfig(2) == 20);
+    {   // ImageSha (docs/218 §5): a fake MonoImage {.., raw_data +8, raw_data_len +0xC} over "MZ" + 510 zero bytes
+        static u8 img[0x200] = { 'M', 'Z' };
+        DWORD mi[16] = {}, arr[4 + 8] = {}, small[4 + 8] = {};
+        mi[2] = (DWORD)(uintptr_t)img; mi[3] = sizeof(img);
+        arr[2] = 32; small[2] = 16;
+        static const u8 want[32] = { 0xa5, 0xb8, 0x69, 0x7c, 0x56, 0x6f, 0xe9, 0x11, 0xe9, 0xec, 0x7b, 0xcb, 0xca, 0x82, 0xb0, 0x43,
+            0x27, 0xd4, 0xb5, 0x13, 0x5c, 0x47, 0x52, 0x4d, 0xb0, 0x96, 0x9f, 0xad, 0x8a, 0x18, 0x48, 0x30 };  // hashlib.sha256
+        assert(AsIcImageSha((const u8*)mi, (u8*)arr) == 0x200 && memcmp((const u8*)arr + 16, want, 32) == 0);
+        assert(AsIcImageSha((const u8*)mi, (u8*)small) == 0);  // short array
+        img[0] = 'X';
+        assert(AsIcImageSha((const u8*)mi, (u8*)arr) == 0);  // no "MZ": not an image
+        img[0] = 'M';
+        assert(AsIcImageSha(nullptr, (u8*)arr) == 0);
+    }
+    // docs/124 §17.10 cost-guard keys: marker, then the counters as they stand
+    assert(AsIcConfig(24) == 1 && AsIcConfig(25) == k.cutUs && AsIcConfig(26) == k.cuts && AsIcConfig(29) == k.refUs && AsIcConfig(30) == k.refRuns);
     assert(!AsIcBegin());
     AsIcSetMethods((void*)1, (void*)2, (void*)3);
     const DWORD emptyStr[4] = {0x51, 0, 0, 0};
@@ -401,7 +429,7 @@ static void TestAutShadowRun() {
     g_mtInvoke = AfT5Invoke;
     AfT5Request(40);
     AsSimLeave();
-    assert(g_t5Ics == 26 && g_t5Roots == 4 && (k.rooted & 3) == 3 && g_asRefsRooted);
+    assert(g_t5Ics == 34 && g_t5Roots == 4 && (k.rooted & 3) == 3 && g_asRefsRooted);
     assert(k.cutReq == 1 && k.refRuns == 0 && k.noWorker == 1 && g_t5Finish == 1 && g_t5Last == AS_LAST_NOWORKER && g_asRun == AS_RUN_IDLE);
     assert(k.batchReqs == 1 && k.batchCuts == 0 && k.simTicks == 1);
     {  // shared cut (docs/122 §14.18): requests posted before the cut join it, one cut and one finish; a full batch is busy
@@ -616,7 +644,11 @@ static void TestAutLedger() {
     Ts3nAutShadow& k = ts3native_autshadow;
     assert(offsetof(Ts3nAutShadow, lgOn) == 0x13C && offsetof(Ts3nAutShadow, lgIn) == 0x158 && offsetof(Ts3nAutShadow, lgSleep) == 0x17C &&
            offsetof(Ts3nAutShadow, lgCls) == 0x1A0 && offsetof(Ts3nAutShadow, lgCall) == 0x260 && offsetof(Ts3nAutShadow, abort2) == 0x760 && offsetof(Ts3nAutShadow, rngPauseDraws) == 0x76C && offsetof(Ts3nAutShadow, abortRoute) == 0x770 &&
-           offsetof(Ts3nAutShadow, overrunIdle) == 0x778 && offsetof(Ts3nAutShadow, windowWaitUs) == 0x780 && k.version == 15 && offsetof(Ts3nAutShadow, satbMode) == 0x9C0 && offsetof(Ts3nAutShadow, satbWGiveUpOp) == 0xA5C);  // registry v3-v6 (v7, v8: TestAutShadowFull), v15 Satb
+           offsetof(Ts3nAutShadow, overrunIdle) == 0x778 && offsetof(Ts3nAutShadow, windowWaitUs) == 0x780 && k.version == 21 && offsetof(Ts3nAutShadow, satbMode) == 0x9C0 && offsetof(Ts3nAutShadow, satbWGiveUpOp) == 0xA5C &&
+           offsetof(Ts3nAutShadow, satbIcLogged) == 0xA60 && offsetof(Ts3nAutShadow, refPassA4) == 0xA84 && offsetof(Ts3nAutShadow, pairT) == 0xA88 && offsetof(Ts3nAutShadow, pairN) == 0xA98 &&
+           offsetof(Ts3nAutShadow, transOn) == 0xAA8 && offsetof(Ts3nAutShadow, runNo) == 0xAE4 && offsetof(Ts3nAutShadow, clsGoneSkip) == 0xAF8 &&
+           offsetof(Ts3nAutShadow, seOn) == 0xAFC && offsetof(Ts3nAutShadow, tmOn) == 0xB10 && offsetof(Ts3nAutShadow, gdOn) == 0xB20 && offsetof(Ts3nAutShadow, gdOver) == 0xB40 &&
+           offsetof(Ts3nAutShadow, idOn) == 0xB44 && offsetof(Ts3nAutShadow, seLearnOn) == 0xB64 && offsetof(Ts3nAutShadow, gdWhy) == 0xB7C);  // registry v3-v6 (v7, v8: TestAutShadowFull), v15 Satb, v16, v17 mono-cost15, v18 mono-cost16, v19 mono-cost17
     assert(AsIcConfig(5) == 0 && AsIcConfig(7) == 0 && AsLgWatchOf("ScriptCore.Queries::Query_GetObjects") < 0);  // Ledger=0: inert
     g_asLedger = true;
     const u8* base = (const u8*)GetModuleHandleW(NULL);
@@ -710,7 +742,7 @@ static void TestAutShadowFull() {
     Ts3nAutShadow& k = ts3native_autshadow;
     assert(offsetof(Ts3nAutShadow, evicted) == 0x784 && offsetof(Ts3nAutShadow, learnBacklog) == 0x7A4 && offsetof(Ts3nAutShadow, cutLearnUs) == 0x7A8 &&
            offsetof(Ts3nAutShadow, bodyN) == 0x7C0 && offsetof(Ts3nAutShadow, coldSkips) == 0x7E0 && offsetof(Ts3nAutShadow, workCsr) == 0x7F8 &&
-           sizeof(Ts3nAutShadow) == 0xA60 && k.version == 15);
+           sizeof(Ts3nAutShadow) == 0xC98 && offsetof(Ts3nAutShadow, alOn) == 0xB8C && k.version == 21);
     const LONG full0 = k.full, ev0 = k.evicted;
     const int audit0 = g_asAudit;
     g_asAudit = 0;  // the timed cut below is the production cut (Audit=50 adds a bounded 1,024-row slice every 50th)
@@ -1942,6 +1974,748 @@ static void TestAutShadowRunSkip() {
     AsCut();
 }
 
+// T14 (docs/122 §14.26): mono-cost15. (a) the shared list walk's game reads on the T8 fake EA structures (lot part, world
+// part, EA's room flag compare, faults); (b) a transient object marks nothing, a longer-lived one does; (c) host classes at
+// a mark and at destroy type the marks without ts3fixes; (d) ListWalk answers equal the bodies (check every row), a lying
+// host trips it off; (e) random steps with transients, destroys, host classes and the walk: no answerable row differs.
+static bool g_afNoHandle[65];
+static int AfHostCls(AsU64 id, DWORD* mask) {
+    const DWORD i = (DWORD)id;
+    if ((DWORD)(id >> 32) != 5 || i < 1 || i > 64 || g_afNoHandle[i]) return 0;
+    const int nt = min(g_asLTypeN, 32);
+    DWORD m = 0;
+    for (int t = 0; t < nt; t++) if (AfTypeHas(g_asLTypes[t].type, (int)i)) m |= 1u << t;
+    *mask = m;
+    return nt;
+}
+static bool AfLwWalk(AsLwLot& w) {  // the fake bodies' world: every object of the lot, in index order (lot part)
+    for (int i = 1; i <= 64; i++)
+        if (g_afo[i].lot == (DWORD)w.lot) g_asLwId[g_asLwUsed] = AfId(i), g_asLwRoom[g_asLwUsed++] = 0, w.nLot++;
+    return true;
+}
+static int g_afLwLie;  // > 0: the Nth answer from now is off by one
+static DWORD AfLwAnswer(bool get, DWORD type, AsU64 lot, DWORD room, const AsU64* ids, int n) {
+    // the fake bodies apply their own room rule; the ids must be the lot's objects (room -1: all of them)
+    int want = 0;
+    for (int i = 1; i <= 64; i++) want += g_afo[i].lot == (DWORD)lot;
+    assert(room != 0xFFFFFFFFu || n == want);
+    for (int j = 0; j < n; j++) assert(g_afo[(DWORD)ids[j]].lot == (DWORD)lot);
+    DWORD r = get ? (DWORD)(uintptr_t)AfOnLot(type, (DWORD)lot, 0, room) : AfCount(type, (DWORD)lot, 0, room);
+    if (g_afLwLie > 0 && --g_afLwLie == 0) r = get ? (DWORD)(uintptr_t)AfOnLot(type ^ 1, (DWORD)lot, 0, room) : r + 16;
+    return r;
+}
+static void TestAutShadowLwGame() {  // (a) AsLwWalkGame + AsLwIds on fake EA structures
+    for (int i = 0; i < 8; i++) g_agObj[i].idLo = 100 + i, g_agObj[i].idHi = 5, g_agObj[i].comp = &g_agComp[i], g_agComp[i].lot = 0;
+    const AsU64 L = 0x700000001ull;
+    for (int i = 0; i < 3; i++) g_agVec[0][i] = &g_agObj[i], g_agComp[i].lot = L;
+    g_agComp[0].room = 3, g_agComp[1].room = 9, g_agComp[2].room = 3;
+    for (int i = 0; i < 4; i++) g_agVec[1][i] = &g_agObj[4 + i];
+    g_agComp[4].lot = L, g_agComp[4].room = 1;  // world objects on the lot: room 1 and room 0
+    g_agComp[5].lot = L, g_agComp[5].room = 0;
+    g_agComp[6].lot = 0x700000002ull, g_agComp[6].room = 1;  // another lot
+    g_agComp[7].lot = L, g_agComp[7].room = 3;
+    g_agLot[0].b = g_agVec[0], g_agLot[0].e = g_agVec[0] + 3, g_agLot[1].b = g_agVec[1], g_agLot[1].e = g_agVec[1] + 4;
+    *(void**)(g_agMgr + 0xB0) = &g_agLot[1];
+    void* const* wm = g_asWmPP; const AsFindLotFn fl = g_asFindLot; const AsCompFn cf = g_asComp; const DWORD* cb = g_asCompBit;
+    g_asWmPP = &g_agMgrP, g_asFindLot = AfGFind, g_asComp = AfGCompFn, g_asCompBit = &g_agBit;
+    auto ids = [&](AsU64 lot, DWORD room, const char* want) {  // want: the low id digits after 100, e.g. "0124"
+        g_asLwN = g_asLwUsed = 0;
+        const int n = AsLwIds(lot, room);
+        assert(n == (int)strlen(want));
+        for (int j = 0; j < n; j++) assert(g_asLwTmp[j] == (0x500000000ull | (100u + (DWORD)(want[j] - '0'))));
+    };
+    ids(L, 0xFFFFFFFFu, "012457");  // lot part in order, then the world objects whose component names L
+    ids(L, 3, "02");       // lot part by room; world part: (room == 3) is 0 or 1, never 3
+    ids(L, 1, "4");        // world part: (room == 1) == 1 only for component room 1
+    ids(L, 0, "47");       // world part: (room == 0) == 0 for component rooms != 0
+    ids(0x700000003ull, 0xFFFFFFFFu, "");  // no such lot: no ids (the IC answers 0)
+    g_agObj[1].comp = NULL;  // a lot object with no component: room rows go to the body (EA's walk faults), room -1 does not
+    g_asLwN = g_asLwUsed = 0;
+    assert(AsLwIds(L, 3) == -1);
+    ids(L, 0xFFFFFFFFu, "012457");
+    g_agObj[1].comp = &g_agComp[1];
+    g_agVec[0][1] = NULL;  // a null object in the lot vector: the body (EA's walk faults)
+    g_asLwN = g_asLwUsed = 0;
+    assert(AsLwIds(L, 0xFFFFFFFFu) == -1);
+    g_agVec[0][1] = &g_agObj[1];
+    *(void**)(g_agMgr + 0xB0) = NULL;  // no world lot: the lot part only
+    ids(L, 0xFFFFFFFFu, "012");
+    g_asWmPP = wm, g_asFindLot = fl, g_asComp = cf, g_asCompBit = cb;
+    g_asLwN = g_asLwUsed = 0;
+}
+static void TestAutShadowCost15() {
+    Ts3nAutShadow& k = ts3native_autshadow;
+    TestAutShadowLwGame();
+    const int audit0 = g_asAudit;
+    g_asAudit = 1;
+    g_asLean = 2, g_asLotPrint = AfPrint, g_asObjLot = AfObjLot3, g_asLotLite = AfLite, g_asSeed = AfSeed, g_asListAudit = 0, g_asColdIc = 0, g_asTierMs = 0, g_asRowHot = 0;
+    g_afNoComp = 0;
+    AsSetClear(g_as->simIds), AsSetClear(g_as->always), AsSetClear(g_as->sims), AsSetClear(g_as->learnSims);
+    for (int i = 1; i <= 64; i++) {
+        g_afo[i].lot = 1 + i % 4, g_afo[i].parent = 0, g_afo[i].hidden = 0, g_afIsSim[i] = false, g_afClsLie[i] = false, g_afNoHandle[i] = false;
+        g_afCls[i] = i % 3 == 0 ? 1 : i % 3 == 1 ? 2 : 0;
+    }
+    for (int i = 57; i <= 64; i++) g_afo[i].lot = 8;  // off every list lot: never seeded, so a first event makes their map row
+    for (DWORD lot = 1; lot <= 4; lot++) {
+        const DWORD a[4] = {8, lot, 0, 0xFFFFFFFFu}, b[4] = {9, lot, 0, 1}, c[4] = {3, lot, 0, 0xFFFFFFFFu};
+        if (AsFind(g_as->m, AF_ONLOT, a, 4) < 0) AsInsert(AF_ONLOT, a, 4, 0);
+        if (AsFind(g_as->m, AF_COUNT, b, 4) < 0) AsInsert(AF_COUNT, b, 4, 0);
+        if (AsFind(g_as->m, AF_ONLOT, c, 4) < 0) AsInsert(AF_ONLOT, c, 4, 0);
+    }
+    AfClassify();  // the queue of earlier tests
+    AsEpochBump();
+    AsCut();
+    AsCut();
+    AfCheckAnswerable();
+    // (b) Transient=0: an object made and destroyed between two cuts marks its lot (gone); Transient=1: nothing, counted
+    g_asTransient = 0;
+    LONG body = k.bodyN[2], gone0 = k.markBy[AS_MC_GONE];
+    g_afo[57].lot = 2;
+    AsObjEvList(&g_afo[57], NULL);
+    AsObjEvDirty(&g_afo[57], NULL);
+    AsObjEvGone(&g_afo[57], NULL);
+    g_afo[57].lot = 0;
+    AsCut();
+    assert(k.markBy[AS_MC_GONE] == gone0 + 1 && k.bodyN[2] > body);
+    g_asTransient = 1;
+    body = k.bodyN[2], gone0 = k.markBy[AS_MC_GONE];
+    LONG trans0 = k.transObjs, dirty0 = k.dirtyLots, unpl0 = k.unplaced;
+    g_afo[58].lot = 3;
+    AsObjEvList(&g_afo[58], NULL);
+    AsObjEvDirty(&g_afo[58], NULL);
+    AsObjEvGone(&g_afo[58], NULL);
+    g_afo[58].lot = 0;
+    g_afo[59].lot = 4;  // one with no component: no unplaced touch either (no print, no suspect)
+    g_afNoComp = 59;
+    AsObjEvList(&g_afo[59], NULL);
+    AsObjEvGone(&g_afo[59], NULL);
+    g_afo[59].lot = 0;
+    AsCut();
+    g_afNoComp = 0;
+    assert(k.transObjs == trans0 + 2 && k.markBy[AS_MC_GONE] == gone0 && k.dirtyLots == dirty0 && k.unplaced == unpl0 && k.bodyN[2] == body);
+    AfCheckAnswerable();
+    // a cut between its add and its destroy: no transient, the destroy marks
+    g_afo[60].lot = 1;
+    AsObjEvList(&g_afo[60], NULL);
+    AsCut();
+    gone0 = k.markBy[AS_MC_GONE], trans0 = k.transObjs;
+    AsObjEvGone(&g_afo[60], NULL);
+    g_afo[60].lot = 0;
+    AsCut();
+    assert(k.markBy[AS_MC_GONE] == gone0 + 1 && k.transObjs == trans0);
+    AfCheckAnswerable();
+    // (c) HostCls: an unclassified prop's move is typed by the host's filter at the cut; a destroyed one's at event 5
+    g_asHostCls = 1, g_asHostClsFn = AfHostCls;
+    AfClassify();
+    AsEpochBump();
+    AsCut();
+    int P = AfPropOn(1, 0);  // a prop of neither 8 nor 9, seeded, never classified
+    assert(!AsOlSlot(AfId(P), false)->clsN);
+    body = k.bodyN[2];
+    LONG hc0 = k.hcKnown;
+    g_afo[P].lot = 2;
+    AsObjEvDirty(&g_afo[P], NULL);
+    LONG want = AfLotRowsOf(1, P) + AfLotRowsOf(2, P);
+    assert(want < AfLotRows(1, false) + AfLotRows(2, false));
+    AsCut();
+    assert(k.bodyN[2] == body + want && k.hcKnown == hc0 + 1);
+    AfCheckAnswerable();
+    const int Q = AfPropOn(3, 1);  // a type-8 object: destroyed, its gone mark keeps type 8 (classes taken at event 5)
+    assert(!AsOlSlot(AfId(Q), false)->clsN);
+    body = k.bodyN[2], hc0 = k.hcKnown;
+    want = AfLotRowsOf(3, Q);
+    AsObjEvGone(&g_afo[Q], NULL);
+    g_afo[Q].lot = 0;
+    AsCut();
+    assert(k.bodyN[2] == body + want && k.hcKnown == hc0 + 1);
+    AfCheckAnswerable();
+    const int R = AfPropOn(4, 0);  // no script handle: unknown, the old untyped mark
+    g_afNoHandle[R] = true;
+    body = k.bodyN[2];
+    const LONG nh0 = k.hcNoHandle;
+    want = AfLotRows(4, false) + AfLotRows(1, false);
+    g_afo[R].lot = 1;
+    AsObjEvDirty(&g_afo[R], NULL);
+    AsCut();
+    assert(k.bodyN[2] == body + want);
+    (void)nh0;  // the fake host has no map counters
+    AfCheckAnswerable();
+    // (d) ListWalk with the fake world and host: every row checked against the body; a lying host turns it off
+    g_asListWalk = 1, g_asListWalkCheck = 1, g_asLwWalk = AfLwWalk, g_asLwAnswer = AfLwAnswer;
+    AsEpochBump();
+    AsCut();
+    const LONG lw0 = k.lwRows, lc0 = k.lwChecks;
+    assert(k.lwRows > 0 && k.lwMis == 0 && k.lwChecks == k.lwRows && g_asListWalk == 1);
+    const int S = AfPropOn(2, 1);
+    g_afo[S].lot = 3;
+    AsObjEvDirty(&g_afo[S], NULL);
+    AsCut();
+    assert(k.lwRows > lw0 && k.lwChecks > lc0 && k.lwMis == 0);
+    AfCheckAnswerable();
+    g_afLwLie = 1;
+    AsEpochBump();
+    AsCut();
+    assert(k.lwMis == 1 && g_asListWalk == -1 && k.lwOn == -1);
+    AfCheckAnswerable();  // the body's answer was kept
+    // (e) random steps: transients, destroys, moves, adds, host classes (some objects without a handle), ListWalk checked
+    k.lwMis = 0, g_asListWalk = 1, k.lwOn = 1, g_asListWalkCheck = 3, g_afLwLie = 0;
+    g_asListAudit = 4;
+    bool dead[65] = {}, inMap[65] = {};
+    const LONG missed = k.listMissed, unk0 = k.dirtyUnknown, tr0 = k.transObjs, lwr0 = k.lwRows;
+    auto revive = [&]() {  // an epoch forgets every row: the dead come back as new objects off the list lots
+        for (int i = 1; i <= 64; i++) { if (dead[i]) g_afo[i].lot = 5 + i % 3, dead[i] = false; inMap[i] = g_afo[i].lot >= 1 && g_afo[i].lot <= 4; }
+    };
+    AsEpochBump();
+    revive();
+    AsCut();
+    for (DWORD seed = 71; seed <= 73; seed++) {
+        DWORD x = seed * 2654435761u;
+        auto rnd = [&x](DWORD n) { x = x * 1664525u + 1013904223u; return (x >> 8) % n; };
+        for (int step = 0; step < 2000; step++) {
+            const int i = 1 + (int)rnd(64);
+            AsFakeObj& f = g_afo[i];
+            if (dead[i]) continue;
+            switch (rnd(10)) {
+                case 0: f.lot = 1 + rnd(4); AsObjEvDirty(&f, NULL); inMap[i] = true; break;
+                case 1: f.hidden ^= 1; AsObjEvDirty(&f, NULL); inMap[i] = true; break;
+                case 2: if (!inMap[i]) {  // a transient: made (on a list lot), maybe moved, destroyed before the next cut
+                        f.lot = 1 + rnd(4); AsObjEvList(&f, NULL);
+                        if (rnd(2)) f.lot = 1 + rnd(4), AsObjEvDirty(&f, NULL);
+                        AsObjEvGone(&f, NULL); f.lot = 0; dead[i] = true;
+                    } break;
+                case 3: AsObjEvGone(&f, NULL); f.lot = 0; dead[i] = true; break;
+                case 4: g_afNoHandle[i] = rnd(4) == 0; break;
+                case 5: if (!inMap[i]) { f.lot = 1 + rnd(4); AsObjEvList(&f, NULL); inMap[i] = true; } break;  // a new object
+                case 6: { static const DWORD ty[3] = {3, 8, 9}; const DWORD key[4] = {ty[rnd(3)], 1 + rnd(4), 0, rnd(2) ? 0xFFFFFFFFu : rnd(2)}; AsLearn(rnd(2) ? AF_ONLOT : AF_COUNT, key, 4); } break;
+                case 7: f.lot = 1 + rnd(4); AsObjEvDirty(&f, NULL); AsWorldEvent(0x11); inMap[i] = true; break;
+                default: if (rnd(24) == 0) { AsEpochBump(); revive(); } break;
+            }
+            if (step % 7 == 6) {
+                if (rnd(2)) AfClassify();  // ts3fixes' requests are not at every cut
+                AsCut();
+                assert(k.auditMis[0] == 0 && k.listMissed == missed && !g_asDirtyTrip && k.dirtyUnknown == unk0 && k.lwMis == 0 && g_asListWalk == 1);
+                if (step % 35 == 34) AfCheckAnswerable();
+            }
+        }
+    }
+    assert(k.full == 0 && k.transObjs > tr0 && k.lwRows > lwr0);
+    printf("autshadow mono-cost15: %ld transients, %ld host classes (%ld no handle), %ld walk rows (%ld walks, %ld checks, %ld misses, %ld to the body), %ld class asks skipped\n",
+           k.transObjs, k.hcKnown, k.hcNoHandle, k.lwRows, k.lwWalks, k.lwChecks, k.lwMis, k.lwFall, k.clsGoneSkip);
+    for (int i = 1; i <= 64; i++) if (dead[i] || g_afo[i].lot == 0) g_afo[i].lot = 1 + i % 4;
+    memset(g_afCls, 0, sizeof(g_afCls)), memset(g_afNoHandle, 0, sizeof(g_afNoHandle));
+    g_asTransient = 0, g_asHostCls = 0, g_asHostClsFn = AsHostClsGame, g_asListWalk = 0, g_asListWalkCheck = 8, g_asLwWalk = AsLwWalkGame, g_asLwAnswer = AsLwAnswerGame;
+    g_asLean = 0, g_asLotPrint = AsLotPrintGame, g_asObjLot = AsObjLotGame, g_asLotLite = AsLotLiteGame, g_asSeed = AsSeedGame, g_asListAudit = 1;
+    g_asAudit = audit0;
+    AsEpochBump();
+    AsCut();
+}
+
+// T15 (docs/122 §14.27): mono-cost16. (a) SimEvRows: a quiet reachable Sim keeps its event-covered rows, an event refreshes
+// them, a change with no event is found by SimEvCheck and takes that IC out; the actor and a parented Sim are never kept;
+// (b) TierMoveLot: a move inside one lot and room does not re-classify, a lot change does; (c) ListAuditEvery; (d) GoneDelta:
+// a destroy answered as a delta equals the body (every row checked), no record = body, a lying record trips it off;
+// (e) random steps with destroys, transients, moves and handle losses: no answerable row differs, no delta or audit miss.
+static bool g_afGdLie;
+static bool AfGdRec(const void* obj, AsU64 id, AsGdRec* r) {
+    memset(r, 0, sizeof(*r));
+    r->id = id, r->part = 2;
+    DWORD m = 0;
+    const int nt = AfHostCls(id, &m);  // no handle: no record
+    if (!nt) return false;
+    r->mobj = (DWORD)id, r->cls = g_afGdLie ? ~m : m, r->clsN = (u8)nt;
+    AsU64 lot = 0;
+    DWORD room = 0;
+    if (g_asObjLot(obj, &lot, &room)) r->lot = lot, r->room = room, r->part = 0;
+    return true;
+}
+static int AfGdIn(const AsGdRec& r, DWORD room) { return room == 0 || r.mobj % 2 == 0; }  // AfOnLot / AfCount's room rule
+static void TestAutShadowCost16() {
+    Ts3nAutShadow& k = ts3native_autshadow;
+    const int audit0 = g_asAudit;
+    g_asAudit = 1;
+    g_asLean = 2, g_asLotPrint = AfPrint, g_asObjLot = AfObjLot3, g_asLotLite = AfLite, g_asSeed = AfSeed, g_asListAudit = 0, g_asColdIc = 0, g_asTierMs = 0, g_asRowHot = 0;
+    g_afNoComp = 0;
+    AsSetClear(g_as->simIds), AsSetClear(g_as->always), AsSetClear(g_as->sims), AsSetClear(g_as->learnSims);
+    for (int i = 1; i <= 64; i++) {
+        g_afo[i].lot = 1 + i % 4, g_afo[i].parent = 0, g_afo[i].hidden = 0, g_afIsSim[i] = i == 1 || i == 3 || i == 6, g_afClsLie[i] = false, g_afNoHandle[i] = false;  // the Sims of (a)-(b): list type 5 is Sim-free
+        g_afCls[i] = g_afIsSim[i] ? 0 : i % 3 == 0 ? 1 : i % 3 == 1 ? 2 : 0;  // Sims are of no typed list type (types 8, 9)
+    }
+    AfClassify();
+    AsEpochBump();
+    AsCut();
+    AsCut();
+    AfCheckAnswerable();
+    // (a) SimEvRows
+    g_asSimEv = 1, g_asSimEvCheck = 0, g_asSimEvIcs = 0x27;
+    g_asActor = 0, g_asActorN = 0;
+    AsAddRowKind(AfId(1), 1);  // the actor
+    AsAddRowKind(AfId(3), 1);  // a reachable Sim, no parent
+    AsAddRowKind(AfId(6), 1);  // a reachable Sim on a seat (parent 2)
+    g_afo[6].parent = AfId(2);
+    AsObjEvDirty(&g_afo[6], NULL);
+    AsCut();
+    AsCut();  // the parent rows are refreshed: Sim 3 has a known parent 0, Sim 6 a parent
+    assert(AsSetHas(g_as->simFree, AfId(3)) && !AsSetHas(g_as->simFree, AfId(6)));
+    LONG kept0 = k.seKept;
+    AsCut();
+    const DWORD k3[2] = {(DWORD)AfId(3), 5}, k1[2] = {(DWORD)AfId(1), 5}, k6[2] = {(DWORD)AfId(6), 5};
+    assert(k.seKept == kept0 + 3);  // Sim 3: parent, position, hidden flags (no stays-after-evict body in the fake table)
+    assert(AsFind(g_as->m, AF_POS, k1, 2) >= 0 && AsFind(g_as->m, AF_POS, k6, 2) >= 0 && AsFind(g_as->m, AF_POS, k3, 2) >= 0);
+    AfCheckAnswerable();
+    g_afo[1].local[0] += 1, g_afo[6].local[0] += 1;  // the actor and the parented Sim are refreshed at every cut, event or not
+    AsCut();
+    assert(k.seKept == kept0 + 6);
+    AfCheckAnswerable();
+    g_afo[3].local[0] += 1;  // an event: Sim 3's rows are refreshed
+    AsObjEvDirty(&g_afo[3], NULL);
+    kept0 = k.seKept;
+    AsCut();
+    assert(k.seKept == kept0);
+    AfCheckAnswerable();
+    g_asSimEvCheck = 1;  // a move with no event: every kept row checked, the position IC leaves SimEvRows
+    g_afo[3].local[0] += 1;
+    const LONG sc0 = k.seChecks;
+    AsCut();
+    assert(k.seMis == 1 && (k.seIcOff & 2) && !(g_asSimEvIcs & 2) && k.seChecks == sc0 + 3);
+    AfCheckAnswerable();
+    g_afo[3].local[0] += 1;  // position now refreshes every cut; parent and hidden flags are still checked (same answer)
+    AsCut();
+    assert(k.seMis == 1);
+    AfCheckAnswerable();
+    g_asSimEv = 0, g_asSimEvCheck = 8, g_asSimEvIcs = 0x27, k.seMis = 0, k.seIcOff = 0;
+    g_afo[6].parent = 0;
+    AsObjEvDirty(&g_afo[6], NULL);
+    // (b) TierMoveLot (Sim 3 alone besides the actor)
+    AsSetClear(g_as->always);
+    g_asActor = 0, g_asActorN = 0;
+    AsAddRowKind(AfId(1), 1);
+    AsAddRowKind(AfId(3), 1);
+    memset(g_asTierTab, 0, sizeof(g_asTierTab));
+    g_asTierMs = 1500, g_asTierFn = AfTier, g_asNowMs = AfNow, g_asTierClassMs = 1000, g_afNow = 100000;
+    AsCut();
+    LONG cls0 = k.tierClassN;
+    g_afNow += 1500, g_afo[3].local[0] += 1;
+    AsObjEvDirty(&g_afo[3], NULL);
+    AsCut();
+    assert(k.tierClassN == cls0 + 1);  // TierMoveLot=0: touched and 1 s passed: classified again
+    g_asTierMoveLot = 1;
+    cls0 = k.tierClassN;
+    const LONG tm0 = k.tmKept;
+    g_afNow += 1500, g_afo[3].local[0] += 1;
+    AsObjEvDirty(&g_afo[3], NULL);
+    AsCut();
+    assert(k.tierClassN == cls0 && k.tmKept == tm0 + 1);  // same lot and room: kept
+    g_afNow += 1500, g_afo[3].lot = 1 + g_afo[3].lot % 4;
+    AsObjEvDirty(&g_afo[3], NULL);
+    AsCut();
+    assert(k.tierClassN == cls0 + 1 && k.tmKept == tm0 + 1);  // another lot: classified
+    g_afNow += 4000;
+    AsCut();
+    assert(k.tierClassN == cls0 + 2);  // the 4 x TierClassMs timer
+    {  // 0.36.147 TierReqLots: a tier-2 Sim on a scored lot (AddRow kind 3) refreshes; off again = published stale
+        const bool far0 = g_afFar[3];
+        g_afFar[3] = true;
+        g_afNow += 5000;
+        AsCut();  // classified tier 2, refreshed (TierMs passed)
+        const AsOl* ol = AsOlSlot(AfId(3), false);
+        assert(ol && ol->seen && ol->lot);
+        const AsU64 lot3 = ol->lot;
+        g_asTierReqLots = 1;
+        AsAddRowKind(lot3, 3);
+        assert(AsSetHas(g_as->reqLots, lot3) && !AsSetHas(g_as->simIds, lot3) && !AsSetHas(g_as->always, lot3));
+        const LONG r0 = g_asReqLotT1, st0 = k.tier2Stale;
+        g_afNow += 100;
+        AsCut();
+        assert(g_asReqLotT1 == r0 + 1 && k.tier2Stale == st0);
+        g_asTierReqLots = 0;
+        g_afNow += 100;
+        AsCut();
+        assert(k.tier2Stale == st0 + 1);
+        AsSetClear(g_as->reqLots);
+        g_afFar[3] = far0;
+    }
+    {  // 0.36.147 PreLearn: learned parent + GetTask rows once per object
+        const LONG r0 = g_asPreLearnRows, o0 = g_asPreLearnObjs;
+        AsPreLearnObject(AfId(61));
+        const LONG got = g_asPreLearnRows - r0;
+        printf("autshadow prelearn: %ld rows for a new object (parent ic %d, task ic %d), table %d rows\n", got, g_asIcParent, g_asIcTask, g_as->m.n);
+        assert(got <= (g_asIcParent >= 0) + (g_asIcTask >= 0 ? 2 : 0) && g_asPreLearnObjs == o0 + (got > 0));
+        const DWORD kp[2] = {(DWORD)AfId(61), (DWORD)(AfId(61) >> 32)};
+        const int pf = g_asIcParent >= 0 ? AsFind(g_as->m, g_asIcParent, kp, 2) : -1;
+        assert(g_asIcParent < 0 || pf < 0 || (g_as->m.e[pf].flags & AE_LEARNED) || got < 3);  // a new parent row is a learned row
+        AsPreLearnObject(AfId(61));
+        assert(g_asPreLearnRows == r0 + got && g_asPreLearnObjs == o0 + (got > 0));
+    }
+    AfCheckAnswerable();
+    g_asTierMs = 0, g_asTierFn = AsTierOf, g_asNowMs = GetTickCount, g_asTierMoveLot = 0;
+    g_asActor = 0, g_asActorN = 0;
+    AsSetClear(g_as->always), AsSetClear(g_as->simIds);
+    // (c) ListAuditEvery: 6 dirty cuts, every 3rd audits
+    g_asListAudit = 1, g_asListAuditEvery = 3;
+    const LONG la0 = k.laSkips;
+    for (int c = 0; c < 6; c++) AsCut();
+    assert(k.laSkips == la0 + 4);
+    g_asListAuditEvery = 1, g_asListAudit = 0;
+    // (d) GoneDelta, every delta row checked against the body
+    g_asGoneDelta = 1, g_asGoneDeltaCheck = 1, g_asGdRecFn = AfGdRec, g_asGdIn = AfGdIn, g_asGdUnit = 16;
+    for (DWORD lot = 1; lot <= 4; lot++) {  // count rows of type 8 and room -1 too
+        const DWORD a[4] = {8, lot, 0, 0}, b[4] = {9, lot, 0, 0xFFFFFFFFu};
+        if (AsFind(g_as->m, AF_COUNT, a, 4) < 0) AsInsert(AF_COUNT, a, 4, 0);
+        if (AsFind(g_as->m, AF_COUNT, b, 4) < 0) AsInsert(AF_COUNT, b, 4, 0);
+    }
+    AsEpochBump();
+    AsCut();
+    AsCut();
+    auto pick = [](DWORD lot, DWORD cls, bool even) { int i = 1; while (i <= 64 && (g_afo[i].lot != lot || g_afCls[i] != cls || (i % 2 == 0) != even)) i++; assert(i <= 64); return i; };
+    const int G = pick(1, 1, true);  // a type-8 object (even: in the room-filtered rows too; lots 1 and 3 hold the even ids)
+    LONG rows0 = k.gdRows, chk0 = k.gdChecks, recs0 = k.gdRecs;
+    AsObjEvGone(&g_afo[G], NULL);
+    g_afo[G].lot = 0;
+    AsCut();
+    assert(k.gdRecs == recs0 + 1 && k.gdRows >= rows0 + 3 && k.gdChecks > chk0 && k.gdMis == 0 && k.gdIncons == 0 && g_asGoneDelta == 1);
+    AfCheckAnswerable();
+    const int G2 = pick(3, 2, true), G3 = pick(3, 0, true);  // two on one lot at one cut (a type-9 one and a plain one)
+    rows0 = k.gdRows;
+    AsObjEvGone(&g_afo[G2], NULL), AsObjEvGone(&g_afo[G3], NULL);
+    g_afo[G2].lot = 0, g_afo[G3].lot = 0;
+    AsCut();
+    assert(k.gdRows >= rows0 + 3 && k.gdMis == 0 && k.gdIncons == 0);
+    AfCheckAnswerable();
+    const int H = pick(4, 1, false);  // no handle: no record, the lot's rows go to the body
+    g_afNoHandle[H] = true;
+    const LONG nr0 = k.gdNoRec;
+    rows0 = k.gdRows;
+    AsObjEvGone(&g_afo[H], NULL);
+    g_afo[H].lot = 0;
+    AsCut();
+    assert(k.gdNoRec == nr0 + 1 && k.gdRows == rows0 && k.gdMis == 0);
+    AfCheckAnswerable();
+    g_afNoHandle[H] = false;
+    const int M = pick(1, 0, true);  // destroyed after a move in the same window: the record names the new lot, the body answers
+    rows0 = k.gdRows;
+    g_afo[M].lot = 2;
+    AsObjEvDirty(&g_afo[M], NULL);
+    AsObjEvGone(&g_afo[M], NULL);
+    g_afo[M].lot = 0;
+    AsCut();
+    assert(k.gdRows == rows0 && k.gdNoRec == nr0 + 2 && k.gdMis == 0);
+    AfCheckAnswerable();
+    g_afGdLie = true;  // a record whose classes lie: the array row disagrees with its element, the count row trips the check
+    const int L = pick(1, 1, true);
+    const LONG inc0 = k.gdIncons;
+    AsObjEvGone(&g_afo[L], NULL);
+    g_afo[L].lot = 0;
+    AsCut();
+    assert(k.gdIncons > inc0 && k.gdMis == 1 && g_asGoneDelta == -1 && k.gdOn == -1);
+    AfCheckAnswerable();  // the body's answer was kept
+    g_afGdLie = false;
+    // (e) random steps: GoneDelta checked 1 in 3, ListAuditEvery 2, ListWalk and HostCls on
+    k.gdMis = 0, g_asGoneDelta = 1, k.gdOn = 1, g_asGoneDeltaCheck = 3;
+    g_asListAudit = 4, g_asListAuditEvery = 2;
+    g_asTransient = 1, g_asHostCls = 1, g_asHostClsFn = AfHostCls, g_asListWalk = 1, g_asListWalkCheck = 3, g_asLwWalk = AfLwWalk, g_asLwAnswer = AfLwAnswer;
+    bool dead[65] = {}, inMap[65] = {};
+    const LONG missed = k.listMissed, unk0 = k.dirtyUnknown, gdr0 = k.gdRows;
+    auto revive = [&]() {
+        for (int i = 1; i <= 64; i++) { if (dead[i] || g_afo[i].lot == 0) g_afo[i].lot = 1 + i % 4, dead[i] = false; inMap[i] = g_afo[i].lot >= 1 && g_afo[i].lot <= 4; }
+    };
+    AsEpochBump();
+    revive();
+    AsCut();
+    for (DWORD seed = 81; seed <= 83; seed++) {
+        DWORD x = seed * 2654435761u;
+        auto rnd = [&x](DWORD n) { x = x * 1664525u + 1013904223u; return (x >> 8) % n; };
+        for (int step = 0; step < 2000; step++) {
+            const int i = 1 + (int)rnd(64);
+            AsFakeObj& f = g_afo[i];
+            if (dead[i]) continue;
+            switch (rnd(10)) {
+                case 0: f.lot = 1 + rnd(4); AsObjEvDirty(&f, NULL); inMap[i] = true; break;
+                case 1: f.hidden ^= 1; AsObjEvDirty(&f, NULL); inMap[i] = true; break;
+                case 2: if (!inMap[i]) {
+                        f.lot = 1 + rnd(4); AsObjEvList(&f, NULL);
+                        AsObjEvGone(&f, NULL); f.lot = 0; dead[i] = true;
+                    } break;
+                case 3: case 4: if (rnd(3) == 0) f.lot = 1 + rnd(4), AsObjEvDirty(&f, NULL);  // destroys, some after a move
+                    AsObjEvGone(&f, NULL); f.lot = 0; dead[i] = true; break;
+                case 5: g_afNoHandle[i] = rnd(4) == 0; break;
+                case 6: if (!inMap[i]) { f.lot = 1 + rnd(4); AsObjEvList(&f, NULL); inMap[i] = true; } break;
+                case 7: { static const DWORD ty[3] = {3, 8, 9}; const DWORD key[4] = {ty[rnd(3)], 1 + rnd(4), 0, rnd(2) ? 0xFFFFFFFFu : rnd(2)}; AsLearn(rnd(2) ? AF_ONLOT : AF_COUNT, key, 4); } break;
+                default: if (rnd(24) == 0) { AsEpochBump(); revive(); } break;
+            }
+            if (step % 7 == 6) {
+                if (rnd(2)) AfClassify();
+                AsCut();
+                assert(k.auditMis[0] == 0 && k.listMissed == missed && !g_asDirtyTrip && k.dirtyUnknown == unk0 && k.gdMis == 0 && g_asGoneDelta == 1 && k.lwMis == 0);
+                if (step % 35 == 34) AfCheckAnswerable();
+            }
+        }
+    }
+    assert(k.full == 0 && k.gdRows > gdr0);
+    printf("autshadow mono-cost16: %ld Sim rows kept by events (%ld checks, %ld misses), %ld tier moves kept, %ld audits skipped, %ld delta rows "
+           "(%ld records, %ld lots without, %ld to the body, %ld inconsistent, %ld checks, %ld misses)\n",
+           k.seKept, k.seChecks, k.seMis, k.tmKept, k.laSkips, k.gdRows, k.gdRecs, k.gdNoRec, k.gdFall, k.gdIncons, k.gdChecks, k.gdMis);
+    for (int i = 1; i <= 64; i++) if (dead[i] || g_afo[i].lot == 0) g_afo[i].lot = 1 + i % 4;
+    memset(g_afCls, 0, sizeof(g_afCls)), memset(g_afNoHandle, 0, sizeof(g_afNoHandle));
+    memset(g_afIsSim, 0, sizeof(g_afIsSim));
+    g_asGoneDelta = 0, g_asGoneDeltaCheck = 8, g_asGdRecFn = AsGdRecGame, g_asGdIn = AsGdInGame, g_asGdUnit = 1, g_asListAuditEvery = 1;
+    g_asTransient = 0, g_asHostCls = 0, g_asHostClsFn = AsHostClsGame, g_asListWalk = 0, g_asListWalkCheck = 8, g_asLwWalk = AsLwWalkGame, g_asLwAnswer = AsLwAnswerGame;
+    g_asLean = 0, g_asLotPrint = AsLotPrintGame, g_asObjLot = AsObjLotGame, g_asLotLite = AsLotLiteGame, g_asSeed = AsSeedGame, g_asListAudit = 1;
+    g_asAudit = audit0;
+    AsEpochBump();
+    AsCut();
+}
+
+// T16 (docs/122 §14.28): mono-cost17. A faithful fake host for partial id lists (the filter per id: the fake bodies' type
+// rule, and their room rule through the row's room) and a walk whose world-part rooms give the bodies' room sets (room 0:
+// all, room 1: even ids, room -1: all, the host keeps the even ones). (a) IdsDelta: same ids = no host call, new objects
+// (anywhere in walk order, not only at the end) = the old answer plus them, every row checked against the full host call;
+// (b) random steps with adds, moves, room changes, destroys, learned rows: no answerable row differs, no IdsDelta miss;
+// (c) SimEvLearn / SimEvSeated; (d) TierClassMax defers and catches up; (e) GoneLoose: moved then destroyed, array rows
+// still take the delta, count rows go to the body.
+static DWORD AfIdsAnswer(bool get, DWORD type, AsU64 lot, DWORD room, const AsU64* ids, int n) {
+    if (!n) return 0;
+    if (g_afArenaAt + 80 > (1 << 16)) g_afArenaAt = 0;
+    DWORD* a = g_afArena + g_afArenaAt;
+    DWORD m = 0;
+    for (int j = 0; j < n; j++) {
+        const DWORD i = (DWORD)ids[j];
+        assert((DWORD)(ids[j] >> 32) == 5 && i >= 1 && i <= 64 && g_afo[i].lot == (DWORD)lot);
+        if (AfTypeHas(type, (int)i) && (room == 0 || i % 2 == 0)) { if (get) a[4 + m] = i; m++; }
+    }
+    if (!get) return m * 16 + (type & 15);
+    a[0] = 0xA0000 + type, a[1] = 0, a[2] = m, a[3] = 0;
+    g_afArenaAt += 4 + m;
+    return (DWORD)(uintptr_t)a;
+}
+static DWORD AfIdsCount(DWORD type, AsU64 lot, DWORD room, const AsU64* ids, int n) {
+    const DWORD* a = (const DWORD*)(uintptr_t)AfIdsAnswer(true, type, lot, room, ids, n);
+    return a ? a[2] : 0;
+}
+static bool AfLwWalk2(AsLwLot& w) {  // every object of the lot in the world part, room 1: rows of room 0, 1 and -1 get every id, the host applies the room rule
+    for (int i = 1; i <= 64; i++)
+        if (g_afo[i].lot == (DWORD)w.lot) g_asLwId[g_asLwUsed] = AfId(i), g_asLwRoom[g_asLwUsed++] = 1, w.nWorld++;
+    return w.nWorld > 0;  // an empty lot: the body (the fake bodies answer an empty array or a count, the IC 0)
+}
+static void TestAutShadowCost17() {
+    Ts3nAutShadow& k = ts3native_autshadow;
+    const int audit0 = g_asAudit;
+    g_asAudit = 1;
+    g_asLean = 2, g_asLotPrint = AfPrint, g_asObjLot = AfObjLot3, g_asLotLite = AfLite, g_asSeed = AfSeed, g_asListAudit = 2, g_asColdIc = 0, g_asTierMs = 0, g_asRowHot = 0;
+    g_afNoComp = 0;
+    AsSetClear(g_as->simIds), AsSetClear(g_as->always), AsSetClear(g_as->sims), AsSetClear(g_as->learnSims);
+    g_asActor = 0, g_asActorN = 0;
+    for (int i = 1; i <= 64; i++) {
+        g_afo[i].lot = i > 56 ? 8 : 1 + i % 4, g_afo[i].parent = 0, g_afo[i].hidden = 0, g_afIsSim[i] = i == 5 || i == 9, g_afClsLie[i] = false, g_afNoHandle[i] = false;
+        g_afCls[i] = g_afIsSim[i] ? 0 : i % 3 == 0 ? 1 : i % 3 == 1 ? 2 : 0;
+    }
+    g_asListWalk = 1, g_asListWalkCheck = 0, g_asLwWalk = AfLwWalk2, g_asLwAnswer = AfIdsAnswer, g_asIdsCount = AfIdsCount, g_asGdUnit = 16;
+    g_asIdsDelta = 1, g_asIdsDeltaCheck = 1;
+    for (DWORD lot = 1; lot <= 4; lot++) {  // room rows too (room 0: every object, room 1: the even ones)
+        const DWORD a0[4] = {8, lot, 0, 0}, a1[4] = {8, lot, 0, 1}, a2[4] = {3, lot, 0, 0xFFFFFFFFu};
+        if (AsFind(g_as->m, AF_COUNT, a0, 4) < 0) AsInsert(AF_COUNT, a0, 4, 0);
+        if (AsFind(g_as->m, AF_ONLOT, a1, 4) < 0) AsInsert(AF_ONLOT, a1, 4, 0);
+        if (AsFind(g_as->m, AF_ONLOT, a2, 4) < 0) AsInsert(AF_ONLOT, a2, 4, 0);
+    }
+    AfClassify();
+    AsEpochBump();
+    AsCut();
+    AsCut();
+    AfCheckAnswerable();
+    // (a) the same ids: a room change (the fake room is the hidden flag) dirties room rows, the walk ids stay
+    const LONG same0 = k.idSame, chk0 = k.idChecks;
+    g_afo[12].hidden ^= 1;
+    AsObjEvDirty(&g_afo[12], NULL);
+    AsCut();
+    assert(k.idSame > same0 && k.idChecks > chk0 && k.idMis == 0 && g_asIdsDelta == 1);
+    AfCheckAnswerable();
+    // new objects: one, then two on one lot (positions from the host's count of the old ids after each: no end-of-vector rule)
+    const LONG app0 = k.idApp;
+    g_afo[58].lot = 2;
+    AsObjEvList(&g_afo[58], NULL);
+    AsCut();
+    assert(k.idApp > app0 && k.idMis == 0);
+    AfCheckAnswerable();
+    const LONG app1 = k.idApp;
+    g_afo[59].lot = 3, g_afo[60].lot = 3;
+    AsObjEvList(&g_afo[59], NULL), AsObjEvList(&g_afo[60], NULL);
+    AsCut();
+    assert(k.idApp > app1 && k.idMis == 0);
+    AfCheckAnswerable();
+    const LONG fall0 = k.idFall;  // a new object and a move on one lot: the host answers
+    g_afo[61].lot = 4, g_afo[13].lot = 4;
+    AsObjEvList(&g_afo[61], NULL), AsObjEvDirty(&g_afo[13], NULL);
+    AsCut();
+    assert(k.idFall > fall0 && k.idMis == 0);
+    AfCheckAnswerable();
+    // (b) random steps, IdsDelta checked 1 in 3
+    g_asIdsDeltaCheck = 3;
+    bool dead[65] = {}, inMap[65] = {};
+    for (int i = 1; i <= 64; i++) inMap[i] = g_afo[i].lot >= 1 && g_afo[i].lot <= 4;
+    const LONG missed = k.listMissed, unk0 = k.dirtyUnknown, sa0 = k.idSame + k.idApp;
+    for (DWORD seed = 91; seed <= 93; seed++) {
+        DWORD x = seed * 2654435761u;
+        auto rnd = [&x](DWORD n) { x = x * 1664525u + 1013904223u; return (x >> 8) % n; };
+        for (int step = 0; step < 2000; step++) {
+            const int i = 1 + (int)rnd(64);
+            AsFakeObj& f = g_afo[i];
+            if (dead[i] || g_afIsSim[i]) continue;
+            switch (rnd(9)) {
+                case 0: f.lot = 1 + rnd(4); AsObjEvDirty(&f, NULL); inMap[i] = true; break;
+                case 1: f.hidden ^= 1; AsObjEvDirty(&f, NULL); inMap[i] = true; break;
+                case 2: case 3: if (!inMap[i]) { f.lot = 1 + rnd(4); AsObjEvList(&f, NULL); inMap[i] = true; } break;  // new objects
+                case 4: if (rnd(3) == 0) { AsObjEvGone(&f, NULL); f.lot = 0; dead[i] = true; } break;
+                case 5: { static const DWORD ty[3] = {3, 8, 9}; const DWORD key[4] = {ty[rnd(3)], 1 + rnd(4), 0, rnd(2) ? 0xFFFFFFFFu : rnd(2)}; AsLearn(rnd(2) ? AF_ONLOT : AF_COUNT, key, 4); } break;
+                default: if (rnd(40) == 0) {  // an epoch: the dead and some objects come back off the list lots, as new objects later
+                        AsEpochBump();
+                        for (int q = 1; q <= 64; q++) if (dead[q] || (!g_afIsSim[q] && rnd(8) == 0)) g_afo[q].lot = 5 + q % 3, dead[q] = false, inMap[q] = false;
+                    } break;
+            }
+            if (step % 7 == 6) {
+                if (rnd(2)) AfClassify();
+                AsCut();
+                assert(k.auditMis[0] == 0 && k.listMissed == missed && !g_asDirtyTrip && k.dirtyUnknown == unk0 && k.idMis == 0 && g_asIdsDelta == 1);
+                if (step % 35 == 34) AfCheckAnswerable();
+            }
+        }
+    }
+    assert(k.full == 0 && k.idSame + k.idApp > sa0);
+    for (int i = 1; i <= 64; i++) if (dead[i] || g_afo[i].lot == 0) g_afo[i].lot = 1 + i % 4;
+    AsEpochBump();
+    AsCut();
+    AfCheckAnswerable();
+    // (c) SimEvLearn and SimEvSeated: Sim 5 promoted by a worker read, Sim 9 on object 2 (a root, no Sim)
+    g_asSimEv = 1, g_asSimEvCheck = 0, g_asSimEvIcs = 0x27;
+    AsAddRowKind(AfId(1), 1);  // the actor
+    AsAddRowKind(AfId(5), 2), AsAddRowKind(AfId(9), 2);
+    AsSetAdd(g_as->learnSims, AfId(5)), AsSetAdd(g_as->learnSims, AfId(9));
+    g_afo[9].parent = AfId(2);
+    AsObjEvDirty(&g_afo[9], NULL);
+    AsCut();
+    AsCut();
+    LONG kept0 = k.seKept, lk0 = k.seLearnKept, sk0 = k.seSeatKept;
+    AsCut();
+    assert(k.seKept == kept0);  // SimEvLearn / SimEvSeated off: promoted Sims refresh every cut
+    g_asSimEvLearn = 1;
+    AsCut();
+    assert(k.seLearnKept == lk0 + 3 && k.seSeatKept == sk0 && k.seKept == kept0 + 3);  // Sim 5: parent, position, hidden flags
+    g_asSimEvSeated = 1;
+    AsCut();
+    assert(k.seSeatKept == sk0 + 2 && k.seLearnKept == lk0 + 3 + 5);  // Sim 9: parent and hidden flags (SimSeatIcs), not position
+    AfCheckAnswerable();
+    kept0 = k.seKept;
+    g_afo[2].local[0] += 1;  // the seat moves (an event on it): Sim 9's rows are refreshed, Sim 5's kept
+    AsObjEvDirty(&g_afo[2], NULL);
+    AsCut();
+    assert(k.seKept == kept0 + 3);
+    AfCheckAnswerable();
+    g_asSimEv = 0, g_asSimEvLearn = 0, g_asSimEvSeated = 0, g_afo[9].parent = 0;
+    AsObjEvDirty(&g_afo[9], NULL);
+    AsSetClear(g_as->learnSims), AsSetClear(g_as->always), AsSetClear(g_as->sims);
+    g_asActor = 0, g_asActorN = 0;
+    AsCut();
+    // (d) TierClassMax: a camera move with 2 Sims due and a cap of 1: one waits a cut
+    AsAddRowKind(AfId(1), 1), AsAddRowKind(AfId(5), 1), AsAddRowKind(AfId(9), 1);
+    memset(g_asTierTab, 0, sizeof(g_asTierTab));
+    g_asTierMs = 1500, g_asTierFn = AfTier2, g_asNowMs = AfNow, g_asTierClassMs = 1000, g_afNow = 200000;
+    AsCut();
+    g_asTierClassMax = 1;
+    LONG cls0 = k.tierClassN;
+    const LONG cap0 = k.tcCapped;
+    g_afCam = true;
+    AsCut();
+    assert(k.tierClassN == cls0 + 1 && k.tcCapped == cap0 + 1);
+    AsCut();
+    assert(k.tierClassN == cls0 + 2);  // the deferred one
+    g_asTierMs = 0, g_asTierFn = AsTierOf, g_asNowMs = GetTickCount, g_asTierClassMax = 0;
+    AsSetClear(g_as->always), AsSetClear(g_as->simIds);
+    g_asActor = 0, g_asActorN = 0;
+    AfCheckAnswerable();
+    // (e) GoneLoose: moved then destroyed in one window; every delta row checked
+    g_asIdsDelta = 0, g_asListWalk = 0;
+    g_asGoneDelta = 1, g_asGoneDeltaCheck = 1, g_asGdRecFn = AfGdRec, g_asGdIn = AfGdIn, g_asGoneLoose = 1;
+    AsEpochBump();
+    AsCut();
+    AsCut();
+    int M = 1;
+    while (M <= 64 && (g_afo[M].lot != 1 || M % 2 || g_afCls[M] != 1)) M++;  // even, type 8, on lot 1
+    assert(M <= 64);
+    const LONG rows0 = k.gdRows, why1 = k.gdWhy[1];
+    g_afo[M].lot = 2;
+    AsObjEvDirty(&g_afo[M], NULL);
+    AsObjEvGone(&g_afo[M], NULL);
+    g_afo[M].lot = 0;
+    AsCut();
+    assert(k.gdWhy[1] == why1 + 1 && k.gdRows > rows0 && k.gdMis == 0 && g_asGoneDelta == 1);
+    AfCheckAnswerable();
+    printf("autshadow mono-cost17: %ld rows same ids, %ld rows plus new (%ld small host calls), %ld to the host, %ld checks, %ld misses; "
+           "%ld promoted / %ld seated Sim rows kept; %ld classifications deferred; gone without record %ld/%ld/%ld/%ld\n",
+           k.idSame, k.idApp, k.idCalls, k.idFall, k.idChecks, k.idMis, k.seLearnKept, k.seSeatKept, k.tcCapped, k.gdWhy[0], k.gdWhy[1], k.gdWhy[2], k.gdWhy[3]);
+    for (int i = 1; i <= 64; i++) if (g_afo[i].lot == 0) g_afo[i].lot = 1 + i % 4;
+    memset(g_afCls, 0, sizeof(g_afCls)), memset(g_afIsSim, 0, sizeof(g_afIsSim));
+    g_asGoneDelta = 0, g_asGoneDeltaCheck = 8, g_asGdRecFn = AsGdRecGame, g_asGdIn = AsGdInGame, g_asGdUnit = 1, g_asGoneLoose = 0;
+    g_asIdsDelta = 0, g_asIdsDeltaCheck = 8, g_asIdsCount = AsIdsCountGame;
+    g_asListWalk = 0, g_asListWalkCheck = 8, g_asLwWalk = AsLwWalkGame, g_asLwAnswer = AsLwAnswerGame;
+    g_asLean = 0, g_asLotPrint = AsLotPrintGame, g_asObjLot = AsObjLotGame, g_asLotLite = AsLotLiteGame, g_asSeed = AsSeedGame, g_asListAudit = 1;
+    g_asAudit = audit0;
+    AsEpochBump();
+    AsCut();
+}
+
+// docs/124 §17 go-live (Mode 3), native half: the reference runs only at every VerifyEvery-th cut, the Config words the
+// consumer compares (frame, epoch, cut frame), LiveStat, and the ObjStale watch map (stamps after the cut, unwatched =
+// stale, a reset makes older cuts stale). No worker here: each run finishes NOWORKER at the cut.
+static bool AfGwLot(const void*, AsU64* lot, DWORD* room) { *lot = 77, *room = 0; return true; }
+static void TestAutShadowLive() {
+    Ts3nAutShadow& k = ts3native_autshadow;
+    g_mtInvoke = AfT5Invoke, g_asHostPtr = &g_t5HostPtr;
+    g_asMode = 3, g_asLiveVerify = 4;
+    AsIcSetMethods((void*)1, (void*)2, (void*)3);
+    assert(AsIcConfig(13) == 10 && AsIcConfig(14) == 3 && AsIcConfig(15) == 0 && AsIcConfig(16) == 3 && AsIcConfig(17) == 4 && AsIcConfig(18) == 0);
+    const LONG ref0 = k.refRuns, cut0 = k.alCuts, ver0 = k.alVerify;
+    for (int r = 0; r < 8; r++) {
+        AfT5Request(300 + r);
+        AsSimLeave();
+        assert(g_asRun == AS_RUN_IDLE && AsIcConfig(22) == AsIcConfig(19) && AsIcConfig(21) == AsIcConfig(20));
+        assert(AsIcConfig(23) == (k.alCuts % 4 == 0 ? 1 : 0));
+    }
+    assert(k.alCuts == cut0 + 8 && k.alVerify - ver0 == 2 && k.refRuns - ref0 == 2);
+    AsEpochBump();
+    assert(AsIcConfig(20) != AsIcConfig(21));  // the consumer's epoch rule sees a move after the cut
+    const LONG s0 = k.al[5];
+    AsIcLiveStat(5, 2), AsIcLiveStat(56, 1), AsIcLiveStat(-1, 1);
+    assert(k.al[5] == s0 + 2);
+    // watch map
+    const LONG f = g_asGwNow;
+    AsIcLiveWatch(0x1234, 0, 0), AsIcLiveWatch(77, 0, 1);
+    assert(!AsIcObjStale(0x1234, 0, 0, f) && !AsIcObjStale(77, 0, 1, f));
+    assert(AsIcObjStale(77, 0, 0, f) && AsIcObjStale(0x9999, 0, 0, f));  // object 77 and 0x9999 not watched: stale
+    AsGwTouch(0x1234);  // an event in the frame in progress (f + 1)
+    assert(AsIcObjStale(0x1234, 0, 0, f) && !AsIcObjStale(0x1234, 0, 0, f + 1));
+    bool (*lot0)(const void*, AsU64*, DWORD*) = g_asObjLot;
+    g_asObjLot = AfGwLot;
+    AsU64 fake[2] = {0, 0x5555};  // object id at +8
+    AsIcLiveWatch(0x5555, 0, 0);
+    g_asGwNow = f + 1;
+    AsGwEvent(fake, false);  // a transform: the object only
+    assert(AsIcObjStale(0x5555, 0, 0, f + 1) && !AsIcObjStale(77, 0, 1, f + 1));
+    AsGwEvent(fake, true);   // an add or destroy: its lot too
+    assert(AsIcObjStale(77, 0, 1, f + 1) && !AsIcObjStale(77, 0, 1, f + 2));
+    g_asObjLot = lot0;
+    const LONG resets0 = k.alWatchResets;
+    for (DWORD i = 1; i <= (DWORD)AS_GW_MAX + 1; i++) AsIcLiveWatch(0x100000 + i, 0, 0);
+    const DWORD last = 0x100000 + AS_GW_MAX + 1;
+    assert(k.alWatchResets == resets0 + 1 && g_asGwN >= 1 && g_asGwN < 16 && g_asGwReset == g_asGwNow + 1);
+    const LONG nAfter = g_asGwN;
+    assert(AsIcObjStale(last, 0, 0, g_asGwNow) && !AsIcObjStale(last, 0, 0, g_asGwNow + 1) && AsIcObjStale(0x1234, 0, 0, g_asGwNow + 1));
+    g_asMode = 1;
+    AsIcLiveWatch(0x4444, 0, 0);  // only Mode 3 watches
+    assert(g_asGwN == nAfter);
+    memset(g_asGwId, 0, sizeof(g_asGwId)), g_asGwN = 0, g_asGwReset = 0;
+    g_asMode = -1, g_asLiveVerify = 50;
+    printf("autshadow live: %ld Mode 3 cuts, %ld verified, %ld stale queries (%ld stale), %ld watch resets\n", k.alCuts, k.alVerify,
+           k.alStaleQ, k.alStaleHit, k.alWatchResets);
+}
+
 static void TestAutShadow() {
     Ts3nAutShadow& k = ts3native_autshadow;
     assert(offsetof(Ts3nAutShadow, abort) == 0x7C && offsetof(Ts3nAutShadow, mode) == 0xCC && offsetof(Ts3nAutShadow, lgOn) == 0x13C);
@@ -2150,4 +2924,8 @@ static void TestAutShadow() {
     TestAutShadowSeed();
     TestAutShadowTyped();
     TestAutShadowRunSkip();
+    TestAutShadowCost15();
+    TestAutShadowCost16();
+    TestAutShadowCost17();
+    TestAutShadowLive();
 }

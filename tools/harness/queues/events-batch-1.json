@@ -1,0 +1,39 @@
+{
+  "note": "docs/508: repros of events batch 1 (photosession, eggspot, graduationtable), each off then on, in one load.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-events-batch-1-check",
+      "note": "Correctness (5 min, Bridgeport test save): repros photo-session-check, egg-spot-check, graduation-table-check. Pass: every step ok (each arm's check throws on a wrong outcome) and each repro's on-arm counters went up (fixesRequire per repro: each repro runs in its own load).",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repros": [
+            {
+              "id": "photo-session-check",
+              "fixesRequire": "photosession_dropped>=3,photosession_ended>=2,photosession_load_ended>=1"
+            },
+            {
+              "id": "egg-spot-check",
+              "fixesRequire": "eggspot_refused>=1"
+            },
+            {
+              "id": "graduation-table-check",
+              "fixesRequire": "graduationtable_no_table>=2"
+            }
+          ]
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25
+    }
+  ]
+}

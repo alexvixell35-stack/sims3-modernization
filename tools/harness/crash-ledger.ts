@@ -9,11 +9,11 @@ import { appendFileSync, existsSync, readdirSync, readFileSync, statSync } from 
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { BIN, GAME_EXE } from './game-exe.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const LEDGER = join(ROOT, 'docs', 'data', 'change-ledger.jsonl');
 const USER = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3');
-const BIN = process.env.TS3_BIN ?? 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\The Sims 3\\Game\\Bin';
 const STATE = join(process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'), 'ts3-fixes', 'state.json');
 
 type Entry = { at: string; key: string; note?: string; git: string; fixes: string[]; files: Record<string, string>; mods: string[]; options: Record<string, string> };
@@ -29,7 +29,7 @@ function current(note?: string): Entry {
     if (execFileSync('git', ['-C', ROOT, 'status', '--porcelain', '--', '.', ':!docs']).toString().trim()) git += '+dirty';
   } catch { /* not a repo */ }
   const state: Record<string, { version: string | null; files: { path: string }[] }> = existsSync(STATE) ? JSON.parse(readFileSync(STATE, 'utf8')) : {};
-  const files: Record<string, string> = { 'TS3W.exe': fileHash(join(BIN, 'TS3W.exe')), 'GraphicsRules.sgr': fileHash(join(BIN, 'GraphicsRules.sgr')) };
+  const files: Record<string, string> = { [GAME_EXE]: fileHash(join(BIN, GAME_EXE)), 'GraphicsRules.sgr': fileHash(join(BIN, 'GraphicsRules.sgr')) };
   for (const f of Object.values(state)) for (const x of f.files) if (!x.path.endsWith('Options.ini')) files[x.path.replace(BIN, 'Bin').replace(USER, 'User')] = fileHash(x.path);
   const pkgDir = join(USER, 'Mods', 'Packages');
   const mods = existsSync(pkgDir) ? readdirSync(pkgDir, { recursive: true }).map(String).filter(n => /\.package$/i.test(n))

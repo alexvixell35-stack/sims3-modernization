@@ -23,9 +23,9 @@ import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { stallGuard } from './game-alive.ts';
 import { parseLog } from '../mem-report.ts';
+import { BIN, GAME_NAME } from './game-exe.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
-const BIN = process.env.TS3_BIN ?? 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\The Sims 3\\Game\\Bin';
 const LOG = join(BIN, 'ts3native.log');
 export const OUT = join(ROOT, 'probe-out', 'save-reload');
 
@@ -190,7 +190,7 @@ try {
   if (values.control) {
     if (!String(st.result.load_file ?? '').includes(NAME)) throw new Error(`control needs ${NAME} loaded, not ${st.result.load_file}`);
     try {
-      const startedAt = execFileSync('powershell', ['-NoProfile', '-Command', "(Get-Process TS3W).StartTime.ToUniversalTime().ToString('o')"], { timeout: 15000 }).toString().trim();
+      const startedAt = execFileSync('powershell', ['-NoProfile', '-Command', `(Get-Process ${GAME_NAME}).StartTime.ToUniversalTime().ToString('o')`], { timeout: 15000 }).toString().trim();
       out.phases.restartMs = Date.now() - Date.parse(startedAt);
     } catch (e) { out.errors.push(`process start time: ${String(e).split('\n')[0]}`); }
     await mark('sr-ctl');

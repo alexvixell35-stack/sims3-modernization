@@ -1,0 +1,29 @@
+# Builds the offline Mono host (native/monohost, docs/119) and the method compiler in it (monohost-jit.cpp, docs/207),
+# on every change to them. monohost runs the game's own Mono runtime out of TS3W.exe, and EA files must never be in
+# the repo or in CI, so the runs themselves (selftest, MONOHOST_JIT=verify, the differential corpus) happen on a machine
+# with a game copy: download the monohost artifact and follow docs/119 §8.
+name: monohost
+
+on:
+  push:
+    branches: [main]
+    paths: ['native/monohost/**', '.github/workflows/monohost.yml']
+  pull_request:
+    paths: ['native/monohost/**', '.github/workflows/monohost.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build monohost (32-bit, /W4 /WX)
+        shell: cmd
+        run: native\monohost\build.cmd
+      - uses: actions/upload-artifact@v4
+        with:
+          name: monohost
+          path: native/monohost/out/monohost.exe

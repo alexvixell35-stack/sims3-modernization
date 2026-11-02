@@ -1,0 +1,36 @@
+{
+  "note": "docs/516: repro of deadrefsweep phase 9 (dartboards), off then on in one load, with the player's core mod.",
+  "jobs": [
+    {
+      "id": "bp-dart-gone-check",
+      "note": "Correctness (10 min): repro dart-gone-check. Pass: the repro's steps pass (expect left: off, the seeded gone entries stay; expect cleaned: on, the sweep's phase 9 removed them; each throws otherwise)",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "dart-gone-check",
+          "fixesRequire": "deadrefsweep_dartboards>=3"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 18,
+      "earlyGates": [
+        {
+          "afterSec": 420,
+          "counter": "fixes:deadrefsweep_dartboards",
+          "op": ">=",
+          "value": 3,
+          "why": "the on arm cleaned nothing 7 min in: phase missing, sweep refused, or the seed failed"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": true
+}

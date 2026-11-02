@@ -179,5 +179,28 @@ static void TestCrashReport() {
     assert(RemoveDirectoryW(g_crUser));  // nothing left behind
     real(mainFilter);
     g_crPrev = NULL, g_crBusy = 0, g_crNeedleN = 0;
+
+    // docs/172 §7: the first-chance logger names another module's address and logs it once; repeats take no slot
+    {
+        const DWORD k32 = (DWORD)(uintptr_t)GetModuleHandleW(L"kernel32.dll") + 0x10;  // the header page: always committed
+        char m[MAX_PATH + 16];
+        assert(XcptOtherModule(k32, m, sizeof(m)) && !_stricmp(m, "kernel32.dll+0x10"));
+        void* const heap = malloc(64);
+        assert(!XcptOtherModule((DWORD)(uintptr_t)heap, m, sizeof(m)));  // not an image: logged every time, as before
+        free(heap);
+        static DWORD stack[64];
+        CONTEXT cx = {};
+        cx.Eip = k32, cx.Esp = cx.Ebp = (DWORD)(uintptr_t)(stack + 32);
+        EXCEPTION_RECORD er = {};
+        er.ExceptionCode = EXCEPTION_ACCESS_VIOLATION, er.ExceptionAddress = (void*)(uintptr_t)k32, er.NumberParameters = 2;
+        EXCEPTION_POINTERS xp = {&er, &cx};
+        const LONG n0 = g_xcptN, other0 = g_xcptOtherN;
+        assert(n0 <= 13 && other0 <= 6);
+        assert(XcptLog(&xp) == EXCEPTION_CONTINUE_SEARCH && g_xcptN == n0 + 1 && g_xcptOtherN == other0 + 1 && g_xcptOther[other0] == k32);
+        assert(XcptLog(&xp) == EXCEPTION_CONTINUE_SEARCH && g_xcptN == n0 + 1 && g_xcptOtherHits[other0] == 1);  // repeat: counted only
+        cx.Eip = k32 + 4, er.ExceptionAddress = (void*)(uintptr_t)(k32 + 4);
+        assert(XcptLog(&xp) == EXCEPTION_CONTINUE_SEARCH && g_xcptN == n0 + 2 && g_xcptOtherN == other0 + 2);  // another address: a line
+        g_xcptN = n0, g_xcptOtherN = other0, g_xcptOtherHits[other0] = g_xcptOtherHits[other0 + 1] = 0;
+    }
     puts("crash report ok");
 }

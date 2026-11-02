@@ -1,0 +1,239 @@
+{
+  "note": "Routing night 2026-10-31 part 2, timing (clean night): lock-taker bundle loop A/B, UnseenThrottle phase 1 crowd pairs (unseen-throttle-ab-v2 re-pointed from asi.int129), JobYield loop A/B last. Smoke = unseen-throttle-ab-v2 measurement smoke on 0.36.146 (the lock-taker loop split is proven by ip-locktaker-verify-146 in part 1). Builds: game-copy/ts3native.asi.satb10 (0.36.146) + build/ts3fixes.package from master.",
+  "smoke": {
+    "id": "smoke",
+    "note": "Measurement smoke (AGENTS.md): BP 5 min, crowd-steady, --ab unseenthrottle 1-min slices. Pass: both arms in the per-arm split, utMode read back 0 / 1 per slice, utSkipped grows only in on slices, heavy tools off, no crash. A FAIL stops the queue.",
+    "asi": "tested",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 79,
+    "ini": {
+      "UnseenProbe.Enabled": 1,
+      "UnseenThrottle.Enabled": 1,
+      "UnseenThrottle.Every": 4,
+      "HitchAttr.Enabled": 1
+    },
+    "run": {
+      "profile": {
+        "minutes": 5,
+        "seed": 12345,
+        "repro": "crowd-steady",
+        "ab": "unseenthrottle",
+        "slice": 1,
+        "noSamplers": true
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 25
+  },
+  "jobs": [
+    {
+      "id": "ip-locktaker-ab-146",
+      "note": "Timing: the 10-23 ip-locktaker-ab rerun on master (source build) (10-23 on asi.0338: >=300 off 10 / on 16, >=1000 0 / 4, max 929 / 3549, no clear difference). Same loop, 10 firings per arm, shadows off. Read: hitch-ab.ts --scenario (arms, moved-waits table: 0x85FE10, 0x631F40, 0x62EF7A, 0x846D21, 0x83156D, 0x8334CC, 0x833593 and absorbers 0x62F782, 0x2000003, 0x82D296, 0x82A0F6). [was: ip-locktaker-ab on game-copy/ts3native.asi.0333]",
+      "asi": "tested",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 101,
+      "nativeRequire": "steerTaken>=1,avTakenMiss>=1,g0Served>=1,usfDeferred>=1,fgTaken>=1,afStarted_2>=1,usfApplyInJob<=0,fp2ApplyInJob<=0,steerSimWriteInRo<=0,avSimWriteInRo<=0,rtoSimWriteInRo<=0,afActiveTrip<=0",
+      "logRequire": {
+        "OK   steer RO": 1,
+        "OK   avoid RO": 1,
+        "OK   gate0 RO": 1,
+        "OK   footprint deferral .design U": 1,
+        "OK   footprint deferral phase 2": 1,
+        "OK   route-to-object RO": 1
+      },
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "HitchAttr.Enabled": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "HitchAttr.Holders": 1,
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 0,
+        "SteerRO.Enabled": 1,
+        "SteerRO.Mode": 1,
+        "SteerRO.Shadow": 0,
+        "AvoidRO.Enabled": 1,
+        "AvoidRO.Mode": 1,
+        "AvoidRO.Shadow": 0,
+        "Gate0RO.Enabled": 1,
+        "Gate0RO.Mode": 1,
+        "Gate0RO.Shadow": 0,
+        "Discourage.DeferFootprint2": 1,
+        "RouteToObjRO.Enabled": 1,
+        "RouteToObjRO.Mode": 1,
+        "RouteToObjRO.Shadow": 0,
+        "PlacementRO.Enabled": 1,
+        "PlacementRO.Mode": 1,
+        "PlacementRO.Shadow": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 62,
+          "repro": "ip-locktaker-loop",
+          "loopRule": {
+            "until": {
+              "perArm": 10,
+              "minFirings": 10
+            },
+            "maxMinutes": 60
+          },
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 76
+    },
+    {
+      "id": "bp-ut2-crowd-offfirst-146",
+      "note": "[UnseenThrottle] A/B v2, BP, off-first: crowd-steady repro (30 Sims spawned in the warm-up, fixed 300 s home/far wave cycle, no removal), --ab unseenthrottle 5-min slices over 25 min (warm-up on with the spawns, then off,on,on,off: 20 counted min, 10 per arm). Pass: no crash, 0 watchdog lines, utSkipped > 0 in on slices and 0 in off slices, utViewerPushes > 0 (ts3fixes from the same commit as the asi installed), it/s per counted slice within ~15% (else the state still drifts: void, not a result). [was: bp-ut2-crowd-offfirst on game-copy/ts3native.asi.int129]",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 79,
+      "ini": {
+        "UnseenProbe.Enabled": 1,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.Every": 4,
+        "HitchAttr.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 25,
+          "seed": 12345,
+          "repro": "crowd-steady",
+          "ab": "unseenthrottle",
+          "slice": 5,
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-ut2-crowd-onfirst-146",
+      "note": "As bp-ut2-crowd-offfirst with the slice order swapped (warm-up on, then on,off,off,on). Read the pair together (pair mean on - off). [was: bp-ut2-crowd-onfirst on game-copy/ts3native.asi.int129]",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 79,
+      "ini": {
+        "UnseenProbe.Enabled": 1,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.Every": 4,
+        "HitchAttr.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 25,
+          "seed": 12345,
+          "repro": "crowd-steady",
+          "ab": "unseenthrottle",
+          "slice": 5,
+          "noSamplers": true,
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    },
+    {
+      "id": "ip-ut2-crowd-offfirst-146",
+      "note": "[UnseenThrottle] A/B v2, IP, off-first: crowd-steady repro (30 Sims spawned in the warm-up, fixed 300 s home/far wave cycle, no removal), --ab unseenthrottle 5-min slices over 25 min (warm-up on with the spawns, then off,on,on,off: 20 counted min, 10 per arm). Pass: no crash, 0 watchdog lines, utSkipped > 0 in on slices and 0 in off slices, utViewerPushes > 0 (ts3fixes from the same commit as the asi installed), it/s per counted slice within ~15% (else the state still drifts: void, not a result). [was: ip-ut2-crowd-offfirst on game-copy/ts3native.asi.int129]",
+      "asi": "tested",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 79,
+      "ini": {
+        "UnseenProbe.Enabled": 1,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.Every": 4,
+        "HitchAttr.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 25,
+          "seed": 12345,
+          "repro": "crowd-steady",
+          "ab": "unseenthrottle",
+          "slice": 5,
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    },
+    {
+      "id": "ip-ut2-crowd-onfirst-146",
+      "note": "As ip-ut2-crowd-offfirst with the slice order swapped (warm-up on, then on,off,off,on). Read the pair together (pair mean on - off). [was: ip-ut2-crowd-onfirst on game-copy/ts3native.asi.int129]",
+      "asi": "tested",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 79,
+      "ini": {
+        "UnseenProbe.Enabled": 1,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.Every": 4,
+        "HitchAttr.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 25,
+          "seed": 12345,
+          "repro": "crowd-steady",
+          "ab": "unseenthrottle",
+          "slice": 5,
+          "noSamplers": true,
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    },
+    {
+      "id": "sv-jobyield-ab-146",
+      "note": "Timing: JobYield forced A/B rerun on master (source build) (10-24 run too short: 2 iterations per arm). Last in the night, run only if time is left. [was: sv-jobyield-ab on game-copy/ts3native.asi.jobyield]",
+      "asi": "tested",
+      "minCounters": 109,
+      "save": "Baseline-SV-Spring",
+      "nativeRequire": "watchdogs<=0",
+      "fixesRequire": "jobyield_capped<=0",
+      "ini": {
+        "RouteAsync.JobYield": 0,
+        "RouteAsync.OwnJobWait": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "HitchAttr.Enabled": 1,
+        "Harness.ForegroundRender": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 47,
+          "repro": "route-ownjob-yield-loop",
+          "loopRule": {
+            "until": {
+              "perArm": 50
+            },
+            "maxMinutes": 45
+          },
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 65
+    }
+  ]
+}

@@ -1,0 +1,247 @@
+{
+  "note": "mono-r7 (2026-10-31, mono round 7, NOT RUN): ts3native 0.36.147 = game-copy/ts3native.asi.satb11 (docs/216 PreLearn + TierReqLots, both on here via ini), ts3fixes --on kAutLive = game-copy/ts3fixes.package.golive8 (docs/217 L1 autlivelate runtime switch, ColdWarm for the Mode 3 worker paths, G8 counters 566-574 + picks records). Correctness only (no timing): queue.ts --no-smoke is not needed (the smoke is short). Order: smoke, Mode R exactness, IP Dry L1 proof, crowd Dry. Stop by hand at a FAIL.",
+  "stopQueueOnFail": true,
+  "smoke": {
+    "id": "bp-r7-smoke",
+    "note": "Smoke (4 min BP, Mode R, Satb=2) on satb11/golive8 (0.36.147): PASS = 0 crashes, satbMode 2, satbConc > 0, autshadow runs > 0, A1-A3 0, ini reads back Satb=2, WindowWaitUs=0, PreLearn=1, TierReqLots=1. A FAIL stops the queue.",
+    "asi": "game-copy/ts3native.asi.satb11",
+    "fixesPackage": "game-copy/ts3fixes.package.golive8",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 90,
+    "ini": {
+      "HitchAttr.Enabled": 1,
+      "RouteSnap.Enabled": 1,
+      "RouteSnap.Count": 1,
+      "RouteSnap.AuditEvery": 0,
+      "MonoThread.Enabled": 1,
+      "MonoThread.Mode": 1,
+      "MonoThread.GcLock": 1,
+      "MonoThread.FrameTls": 1,
+      "MonoThread.ArenaFix": 1,
+      "MonoThread.N2mPrivate": 1,
+      "MonoThread.LazyGate": 1,
+      "AutShadow.Enabled": 1,
+      "AutShadow.Mode": 1,
+      "AutShadow.Sample": 4,
+      "AutShadow.Audit": 50,
+      "AutShadow.DumpOnMismatch": 1,
+      "AutShadow.WindowWaitUs": 0,
+      "AutShadow.ColdIc": 1,
+      "AutShadow.CutLean": 2,
+      "AutShadow.TierMs": 1500,
+      "AutShadow.ListAudit": 1,
+      "AutShadow.TierClassMs": 1000,
+      "AutShadow.RowHot": 200,
+      "AutShadow.RunSkip": 1,
+      "AutShadow.FreshEvery": 8,
+      "AutShadow.KeepPartial": 1,
+      "AutShadow.Satb": 2,
+      "MonoThread.LazyEarly": 1,
+      "AutShadow.PreLearn": 1,
+      "AutShadow.TierReqLots": 1
+    },
+    "logRequire": {
+      "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+      "OK   mono thread P4": 1,
+      "autshadow r7: PreLearn=1 TierReqLots=1": 1
+    },
+    "run": {
+      "profile": {
+        "minutes": 4,
+        "seed": 12345,
+        "fixesOn": "autshadow"
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 30
+  },
+  "jobs": [
+    {
+      "id": "bp-r7-moder",
+      "note": "BP Mode R, Satb=2, PreLearn=1 TierReqLots=1, 10 min (clone of bp-dfn-moder). PASS: 0 crashes, A1-A3 = 0 (exactness of pre-learned rows and tier-1 refreshes on scored lots), abort mix (abortdef records, abortic lines, now every 256 cuts) vs bp-dfn-moder: row and simstale down, nothing else up; worker ms/s and cut us within ~10% of bp-dfn-moder (PreLearn adds rows, TierReqLots adds refreshes). Read: node tools/harness/mono-cost-report.ts --tag mono-r7 (baselines --tag golive-dfn: bp-dfn-moder, bp-dfn-crowd; --tag golive-g7: ip-golive-g7-satb). ts3native.log: \"autshadow r7\" line (PreLearn rows/objects, TierReqLots Sims kept tier 1) and \"autshadow abortic\" (Slots_GetParentIdImpl / Simulator_GetTaskImpl row aborts vs golive-dfn 2,892 / 690 per 8,192 cuts); \"autshadow satb cold transform on the worker\" lines: cold give-ups target ~0 (golive-dfn: ScoreMeta, ScorePair, OffScore, Stopped, RngUnit, Aborted, 2 x Dictionary`2.get_Count each session).",
+      "asi": "game-copy/ts3native.asi.satb11",
+      "fixesPackage": "game-copy/ts3fixes.package.golive8",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.PreLearn": 1,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow r7: PreLearn=1 TierReqLots=1": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-r7-dry",
+      "note": "IP Mode 3 Dry=1, Satb=2, 10 min, autlivelate on (docs/217 L1 proof job) + PreLearn/TierReqLots. PASS: 0 crashes; VerifyEvery cuts A1-A3 = 0; G7 dry apply top-10 set equal >= 99%, top 1 >= 99.5% (up to ties), game queue replay mismatches (drySimMis) 0; report line \"go-live late consume\": late slices checked > 0, late-consumed share of late B14 calls (golive-g7 IP: 0, all ~47 late objects a search went to the game), refusals by reason sized, consumed by age 1/2/3+; abort mix vs ip-golive-g7-satb (row, simstale down); cold give-ups ~0; G8 line present (pushes per Sim-hour, go-home fallbacks, latency median). Read: node tools/harness/mono-cost-report.ts --tag mono-r7 (baselines --tag golive-dfn: bp-dfn-moder, bp-dfn-crowd; --tag golive-g7: ip-golive-g7-satb). ts3native.log: \"autshadow r7\" line (PreLearn rows/objects, TierReqLots Sims kept tier 1) and \"autshadow abortic\" (Slots_GetParentIdImpl / Simulator_GetTaskImpl row aborts vs golive-dfn 2,892 / 690 per 8,192 cuts); \"autshadow satb cold transform on the worker\" lines: cold give-ups target ~0 (golive-dfn: ScoreMeta, ScorePair, OffScore, Stopped, RngUnit, Aborted, 2 x Dictionary`2.get_Count each session).",
+      "asi": "game-copy/ts3native.asi.satb11",
+      "fixesPackage": "game-copy/ts3fixes.package.golive8",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 1,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1,
+        "autshadow r7: PreLearn=1 TierReqLots=1": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive,autlivelate",
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-r7-crowd",
+      "note": "BP crowd in view, Mode 3 Dry=1, Satb=2, 15 min (clone of bp-dfn-crowd), autlivelate on + PreLearn/TierReqLots. PASS: 0 crashes; verify cuts A1-A3 = 0; top-10 >= 99%, top 1 >= 99.5%, replay mismatches 0; abort mix vs bp-dfn-crowd (abortTotal 23,576: row ~2,900 GetParentId + 690 GetTask, simstale, desirefn ~6,900 = parked ShowVenue venue scores) - row and simstale down; late-consumed share and refusals; cold give-ups ~0; worker ms/s vs 23.5. Read: node tools/harness/mono-cost-report.ts --tag mono-r7 (baselines --tag golive-dfn: bp-dfn-moder, bp-dfn-crowd; --tag golive-g7: ip-golive-g7-satb). ts3native.log: \"autshadow r7\" line (PreLearn rows/objects, TierReqLots Sims kept tier 1) and \"autshadow abortic\" (Slots_GetParentIdImpl / Simulator_GetTaskImpl row aborts vs golive-dfn 2,892 / 690 per 8,192 cuts); \"autshadow satb cold transform on the worker\" lines: cold give-ups target ~0 (golive-dfn: ScoreMeta, ScorePair, OffScore, Stopped, RngUnit, Aborted, 2 x Dictionary`2.get_Count each session).",
+      "asi": "game-copy/ts3native.asi.satb11",
+      "fixesPackage": "game-copy/ts3fixes.package.golive8",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 1,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1,
+        "autshadow r7: PreLearn=1 TierReqLots=1": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "autshadow,autlive,autlivelate",
+          "repro": "aut-live-crowd-view",
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40
+    }
+  ]
+}

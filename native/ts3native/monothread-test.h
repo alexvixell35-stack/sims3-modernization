@@ -218,9 +218,10 @@ static void TestMonoThreadM5() {
     Ts3nMtProbe& m = ts3native_mtprobe;
     static_assert(offsetof(Ts3nMtProbe, locking) == 0x0C && offsetof(Ts3nMtProbe, p4Ready) == 0x30 &&
                   offsetof(Ts3nMtProbe, seq) == 0x64 && offsetof(Ts3nMtProbe, arenaRelNonEmpty) == 0x6C && offsetof(Ts3nMtProbe, lockStale) == 0x84 &&
-                  offsetof(Ts3nMtProbe, lockOomReleased) == 0x88 && offsetof(Ts3nMtProbe, lazyOff) == 0x94 && sizeof(Ts3nMtProbe) == 0x98,
-                  "ts3native_mtprobe v5 layout (docs/registry.md)");
-    assert(m.version == 5 && m.locking == 0);
+                  offsetof(Ts3nMtProbe, lockOomReleased) == 0x88 && offsetof(Ts3nMtProbe, lazyOff) == 0x94 && offsetof(Ts3nMtProbe, simLockWaits) == 0x98 &&
+                  offsetof(Ts3nMtProbe, lazyEarlyOff) == 0xA4 && sizeof(Ts3nMtProbe) == 0xA8,
+                  "ts3native_mtprobe v6 layout (docs/registry.md)");
+    assert(m.version == 6 && m.locking == 0);
     MtLockInit();
     const DWORD me = GetCurrentThreadId();
 
@@ -480,6 +481,22 @@ static void TestMonoThreadM5() {
         assert(m.locking == 0 && m.lazyOff == 2);
         MtM5Tick();  // nothing to do
         assert(m.lazyOff == 2);
+        // v6 LazyEarly (docs/30 §16): the sim's first hooked entry after the job (depth 0, worker idle) turns the gate off and
+        // runs unlocked, without waiting for the next tick; a job dispatched after it locks both sides again
+        g_mtLazyEarly = true;
+        for (int j = 0; j < 2; j++) {  // the hammer may outlast the job: then it is the one that turns the gate off
+            const LONG eo = m.lazyEarlyOff;
+            g_mtDup = g_mtNull = 0;
+            assert(MtSubmit((void*)0x40, NULL, params) && m.locking == 1);
+            MtHammer(20000);  // locked while the job runs (worker busy: no early off), both sides allocate
+            MtWaitFor(&m.seq, sq + 2 + j);
+            MtWaitFor(&g_mtBusy, 0);
+            assert(g_mtDup == 0 && g_mtNull == 0 && MtListLen() == 64 && g_mtDepth == 0 && m.simLockWaits <= m.lockWaits);
+            const LONG lc1 = m.lockedCalls;
+            g_mtHFree((MtNode*)g_mtHAlloc(8));  // first sim entry after the job (if the hammer did not get there first)
+            assert(m.locking == 0 && m.lazyEarlyOff == eo + 1 && m.lockedCalls == lc1 && g_mtDepth == 0);
+        }
+        g_mtLazyEarly = false;
     }
     k.mtMode = 0;
     MtM5Tick();  // stop with the lazy gate: the worker unregisters under the lock, then the gate goes off

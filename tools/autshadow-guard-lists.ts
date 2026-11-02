@@ -67,7 +67,12 @@ const checkable = (i: number) => {
   const m = ix.methods[i], decl = m.k.slice(0, m.k.indexOf('::')), name = m.k.slice(m.k.indexOf('::') + 2, m.k.indexOf('('));
   return !BCL.has(ix.asms[m.a]?.name) && !decl.includes('`') && !name.includes('`') && name !== '.cctor' && !m.k.includes('!');
 };
-const methods = [...new Set(owners.flatMap((o) => [...o.c.methods]))].filter(checkable).map((i) => ix.methods[i].k).sort();
+const methodIds = [...new Set(owners.flatMap((o) => [...o.c.methods]))].filter(checkable).sort((a, b) => (ix.methods[a].k < ix.methods[b].k ? -1 : ix.methods[a].k > ix.methods[b].k ? 1 : 0));
+const methods = methodIds.map((i) => ix.methods[i].k);
+// G-M6: per method, bit o = owner o's closure reaches it (a method not from a checked build skips only those owners)
+const methodOwners = methodIds.map((i) => owners.reduce((b, o, j) => (o.c.methods.has(i) ? b | (1 << j) : b), 0));
+const ownerRows: string[] = [];
+for (let j = 0; j < methodOwners.length; j += 16) ownerRows.push('            ' + methodOwners.slice(j, j + 16).map((b) => `${b},`).join(' '));
 const slotIds = [...new Set(owners.flatMap((o) => [...o.c.slots]))].filter(checkable).sort((a, b) => ix.methods[a].k < ix.methods[b].k ? -1 : 1);
 const slots = slotIds.map((i) => ix.methods[i].k);
 const slotIdx = new Map(slotIds.map((i, j) => [i, j]));
@@ -81,6 +86,10 @@ namespace Ts3Fixes
         // G-M4: managed game methods of the closures (L3 on each)
         public static readonly string[] Methods = {
 ${methods.map((m) => `            ${q(m)},`).join('\n')}
+        };
+        // G-M6: per Methods entry, bit o = Owners[o]'s closure reaches it
+        public static readonly int[] MethodOwners = {
+${ownerRows.join('\n')}
         };
         // G-M5: declared virtual / interface call targets in the closures
         public static readonly string[] Slots = {

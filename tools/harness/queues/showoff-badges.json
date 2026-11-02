@@ -1,0 +1,69 @@
+{
+  "note": "docs/226 player report: Show Off Badges 'cannot go there'. Correctness (no timing): repro showoff-badges-route outside + inside, per arm in one load: shipped, routeasync off, kinddeadlines off, discourage off, deferfootprint off (native_set); then the same with [OptsInit] Enabled=0 (ini only, no runtime switch). A FAIL with the shipped arm failing and an off arm passing names the suspect.",
+  "jobs": [
+    {
+      "id": "bp-showoff-badges-route",
+      "note": "in-load arms: shipped, routeasync off, kinddeadlines off, discourage off, deferfootprint off; outside + inside each",
+      "asi": "game-copy/ts3native.0.36.105.rel020",
+      "pinReason": "the player's ts3native 0.36.105 (v0.2.0-v0.2.4 asi); ts3fixes from master with routefaillog",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "showoff-badges-route",
+          "fixesRequire": "routefaillog_showoff>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:routefaillog_showoff",
+          "op": ">=",
+          "value": 1,
+          "why": "no DoShowOffMove plan, jig or DoRoute logged 2.5 min in: setup failed (no child/adult/Scouting) or the social never ran"
+        }
+      ]
+    },
+    {
+      "id": "bp-showoff-badges-optsinit0",
+      "note": "same repro with [OptsInit] Enabled=0 (the OptsInit suspect; not a runtime switch)",
+      "asi": "game-copy/ts3native.0.36.105.rel020",
+      "pinReason": "the player's ts3native 0.36.105 (v0.2.0-v0.2.4 asi); ts3fixes from master with routefaillog",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "OptsInit.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "showoff-badges-route",
+          "fixesRequire": "routefaillog_showoff>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:routefaillog_showoff",
+          "op": ">=",
+          "value": 1,
+          "why": "no DoShowOffMove plan, jig or DoRoute logged 2.5 min in: setup failed (no child/adult/Scouting) or the social never ran"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": false
+}

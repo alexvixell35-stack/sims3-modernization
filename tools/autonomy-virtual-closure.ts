@@ -55,6 +55,9 @@ const v0: Cand[] = [
 ];
 // --edges FILE (docs/133): also write the typed run's callvirt edges and closure methods as JSON for tools/virtual-resolution-report.ts.
 const EDGES = arg('--edges', ''); const edges: Edges = new Map(); const members = new Map<number, Set<string>>();
+// --full FILE (tools/tier2-blockers.ts): also write the typed run's whole classification per candidate as JSON: every IC outside
+// the snapshot set with its class, every blocker with its path, the pre-warm hits (the csv lists only what the overrides add).
+const FULL = arg('--full', ''); const full: object[] = [];
 const esc = (s: string) => (/[",]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
 // docs/127 §7.2 (I-127-2): what each route-building Test does with the route in autonomy (Hit is always NoHit there),
 // read in the decompiled class library [verified]; H12 = worker stub for SimRoutingComponent.CreateRoute*.
@@ -109,6 +112,8 @@ for (const c of [...v0, ...cands]) {
   const changed = cb.verdict !== cv.verdict;
   bump(tally, `${c.group}: ${cb.verdict} -> typed ${cv.verdict} (cha ${ch.verdict})`);
   for (const m of h.mod) bump(modDecl, m);
+  if (FULL) full.push({ group: c.group, name: c.name, rank: c.rank, samples: c.samples, share: c.share, verdict: cv.verdict,
+    ics: cv.newIcs.map(([n, cl, d]) => ({ ic: short(n), cls: cl, d, path: v.path(n) })), blockers: cv.blockers.map((x, i) => ({ what: x, path: v.path(cv.keys[i]) })), warm: cv.warm });
   out.push([c.group, c.name, tgt ?? '', inst ?? '', String(b.size), String(v.size), String(h.size), String(newIcs.length), newIcs.map(([n, cl, d]) => `${short(n)}:${cl}@${d}`).join(';'),
     blocking.map(([n, cl]) => `${short(n)}:${cl}`).join(';'), ye.join(';'), sw.slice(0, 8).join(';') + (sw.length > 8 ? `;+${sw.length - 8}` : ''),
     h.mod.size ? `${h.mod.size}: ${[...h.mod].slice(0, 3).join('; ')}` : '', cb.verdict, cv.verdict, ch.verdict, changed ? 'yes' : '',
@@ -120,6 +125,7 @@ console.error('ICs reached only through overrides, typed run (definitions reachi
 for (const [k, s] of [...icDefs].sort((a, b) => b[1].size - a[1].size)) console.error(`  ${s.size}\t${k}`);
 console.error(`mod overrides seen (cha run): ${modDecl.size}`); for (const [k, n] of [...modDecl].sort((a, b) => b[1] - a[1]).slice(0, 30)) console.error(`  ${n}\t${k}`);
 console.log(out.join('\n'));
+if (FULL) { writeFileSync(FULL, JSON.stringify({ version: 1, hops: HOPS, whatIf: arg('--what-if', ''), cands: full })); console.error(`full: ${full.length} candidates -> ${FULL}`); }
 if (EDGES) {
   const k = (i: number) => ix.methods[i].k;
   writeFileSync(EDGES, JSON.stringify({

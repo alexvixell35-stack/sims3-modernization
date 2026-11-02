@@ -62,7 +62,7 @@ Limits: indirect calls are not resolved beyond the vtable slots read by hand; th
 
 ### 3.4 docs/190 caches closed by the scan
 
-- **CAS part cache** (#21): `[0x11CE404]` is read and written by `CASCache_GetCachedPart 0x5A44A0` alone (lazy build), no other reference in the exe [verified static]: fixed cost, built once, never freed.
+- **CAS part cache** (#21): owned by `CASPartCacheService` at `[0x11CE42C]` (getter `0x5AE140`), built once in `CASPartCacheService_Init 0x5AEDF0` [verified getter; build path inferred]: fixed cost, never freed. `[0x11CE404]`, read and written only in `0x5A44A0` (its 2 references), is a one-time init guard bit, not the cache (docs/209 #95) [verified exe bytes].
 - **ResourceCache** (#8-#10): `Find`/`Add`/`Touch` are virtual (data pointers `0xFFDDAC`/`0xFFDDB0`/`0xFFDDBC` in vtable `0xFFDD94`); trim `0x732E90` is called from shrink-both `0x733E70` (data pointer `0xFFE340`) and `0x737560` [verified]. Cache with eviction; Apex MemoryGuard hooks both. Not a leak.
 - **Preloader** (#11): `0x731AE0` has one caller `0x731CA0` [verified]; held by design.
 - **String tables** (#17): `LocStrSvc_RebuildTableList 0x59BDE0` has one caller `0x59C430` [verified]; fixed after load.

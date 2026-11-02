@@ -6,7 +6,7 @@
 // - Every loop step's note becomes "<note or cmd> <arm> #<firing>" (e.g. "arm off #1", "fire off #1"), the form the
 //   hand-written ABBA repros use; the hitch reports label repro windows by that arm (worst-hitches.ts runContext).
 // - Events: a step with count: {counter: name} adds the rise of that ts3fixes counter (agent `patches`, read just before the
-//   step and after its waitS); count: {result: field} adds that numeric field of the step's answer. A body with no counted
+//   step and after its waitS); count: {result: field} adds that numeric field of the step's answer (a list field: its length). A body with no counted
 //   step counts 1 event per firing.
 // - The rule is checked only at the end of a whole arms cycle (arms stay balanced) and only against the fixed N written in
 //   the repro before the run: never against a p-value or interval (no optional stopping; docs/168 §6).
@@ -263,7 +263,8 @@ export async function runLoop(loop: Loop, capMs: number, io: LoopIO): Promise<Lo
           .catch(e => { throw new Error(`loop ${e.message}`); });
         if (d.why === 'cap') capped++;
         if (counter) n += Math.max(0, d.rises[counter]);
-        else if (s.count && 'result' in s.count) { const v = d.r?.result?.[s.count.result]; n += typeof v === 'number' ? v : 0; }
+        // a list field counts its entries (crowd_do / crowd_go "sent": one per Sim; 10-30 sv-ufbd2-pre-loop saw 0 events)
+        else if (s.count && 'result' in s.count) { const v = d.r?.result?.[s.count.result]; n += typeof v === 'number' ? v : Array.isArray(v) ? v.length : 0; }
       }
       ev[arm] += counted ? n : 1;
     }
@@ -285,7 +286,7 @@ if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/').replace(
         log.push(`${s.cmd} ${s.note} ${JSON.stringify(s.args)}`);
         if (s.cmd === 'patches') on = (s.args as any).overwatchspread;
         if (s.cmd === 'fire') ctr += per(on);
-        return { ok: true, result: { n: per(on) } };
+        return { ok: true, result: { n: per(on), sent: Array(per(on)).fill('x') } };
       },
     };
     return { io, log };
@@ -326,6 +327,8 @@ if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/').replace(
   // result field
   r = await runLoop(L({ events: 8 }, { result: 'n' }), 30 * 60000, sim(() => 2).io);
   assert.deepEqual([r.why, r.total, r.cycles], ['rule', 8, 1]);
+  r = await runLoop(L({ events: 8 }, { result: 'sent' }), 30 * 60000, sim(() => 2).io);
+  assert.deepEqual([r.why, r.total, r.cycles], ['rule', 8, 1], 'list result field counts its entries');
   // zero events: the cap ends it (checked at cycle ends: 4 firings x 46 s = 3.07 min per cycle, cap 5 min -> 2 cycles)
   r = await runLoop(L({ perArm: 6 }, { counter: 'owspread_alarms' }, 5), 5 * 60000, sim(() => 0).io);
   assert.deepEqual([r.why, r.total, r.cycles], ['cap', 0, 2]);
@@ -462,6 +465,13 @@ if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/').replace(
   // every waitUntil in repros.json is well formed (plain steps and loop bodies)
   const { readFileSync } = await import('node:fs');
   const repros = JSON.parse(readFileSync(new URL('./repros.json', import.meta.url), 'utf8')) as any[];
+  // docs/202 D repros (fix names unseenfbpre / unseenroute): crowd_do must not offer Sit or Read, whose plans are not D followers
+  // (Sit plans in PlanToUnusedPart): a lot that only offers them made 2026-10-31 ip-ur-walk-across-loop act 2 times, not >= 10
+  for (const e of repros) {
+    if (!/unseenfbpre|unseenroute/.test(String(e.fix))) continue;
+    const doSteps = [...(e.steps ?? []), ...(e.loop?.steps ?? [])].filter((s: any) => s.cmd === 'crowd_do');
+    for (const s of doSteps) assert.ok(!/(^|\|)(Sit|Read)(\||$)/.test(String(s.args?.interaction)), `${e.id}: crowd_do offers Sit / Read (not a D follower)`);
+  }
   let adaptive = 0;
   for (const e of repros) {
     for (const s of e.steps ?? []) if (s.waitUntil) { checkStep(s); adaptive++; }

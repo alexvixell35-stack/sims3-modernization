@@ -31,7 +31,8 @@ Read first: `CLAUDE.md` (constraints and tooling), `PLAN.md` ("Resume here" and 
    ```
 
    Common gitmojis: ✨ feature · 🐛 fix · ♻️ refactor · ⚡️ performance · ✅ tests · 📝 docs · 🔧 config · 🔥 remove · 🥅 error handling · 🔊 logs. No tool-specific trailers (no `Co-Authored-By` lines for agents). Mention AI help in the PR body if you like.
-5. **Open a PR** with the template filled in, title = commit summary. Draft PRs are fine for early feedback. Results go in the PR and, for anything measured, in a results file (below).
+5. **Before opening a PR**, run `node tools/pr-preflight.ts` on the branch (or `--pr <n>` on an open one): doc numbers, docs/51 §, counter slots and versions, ts3native version strings and files that clash with `origin/main`, plus the checks (`docs/registry.md` "Checking a branch before the PR"). Rebase and renumber until it says `needs review: none`. Contributors take new numbers only from their ranges (`docs/registry.md` "Contributor ranges"): `node tools/registry.ts reserve --contributor <doc|ledger|fixes|native> ...`.
+6. **Open a PR** with the template filled in, title = commit summary. Draft PRs are fine for early feedback. Results go in the PR and, for anything measured, in a results file (below).
 
 ## What a good PR contains
 
@@ -40,6 +41,7 @@ Read first: `CLAUDE.md` (constraints and tooling), `PLAN.md` ("Resume here" and 
   - In-load A/B where the change has a runtime switch: `node tools/harness/profile-world.ts --tag bp-<topic> --ab <switch> --slice 2` (one load, the switch flipped every slice, so world state cancels out). This is the preferred evidence.
   - Otherwise the same save before and after: `profile-world.ts --tag <w>-<topic>` against the same tag on your baseline, or `milestone.ts` for a full per-world run; compare with `tools/probe/profile-compare.mjs` and gate with `tools/harness/run-check.mjs`.
   - Report sim iterations/s, hitches/s (>= 50 ms), worst iteration, stuck Sims and, where it matters, address space (`/memory`) and frame times (`tests-be.ts --only B`).
+  - After a test queue, paste `node tools/harness/queue-digest.ts <queue>` (at most 5 lines per job: verdict and reason, each PASS rule with its measured value, hitches, Mono gates) and keep `run-verdict.ts` / `hitch-ab.ts` tables for the details.
 - **The same save.** Use a save from the community recipe (docs/23 "Community baseline saves") or name exactly how you made yours (`new-save.ts` / `age-save.ts` arguments).
 - **Crash triage.** Any crash during your runs: `node tools/harness/crash-ledger.ts triage`, and paste the line for that crash plus the `xcpt` summary (exception code, address, module) and any NRaas ErrorTrap `ScriptError` summary. Say whether the crash maps to your change set. A crash you cannot explain blocks default-on.
 - **Claims labelled** `[verified]` (seen in the disassembly, decompile or a measurement, with the address or run tag), `[community]` (someone else reports it, with a link) or `[inferred]` (your reasoning, not checked yet). Agents tend to state inferences as facts; reviewers will ask.
@@ -62,6 +64,7 @@ The waterjps self-test copies game code at test time from the user's own `TS3W.e
 ## Sharing findings
 
 - **New topic:** `docs/NN-topic.md`, NN = the next free number (`ls docs`; 23 is taken by the roadmap, so the next is 24). Claim the number in your issue so two PRs do not collide. Start with a short answer, then sections; label claims as above; list sources.
+- **Finding a doc:** `node tools/docs-find.ts <words>` (top 5 by title, file name, index line and headings), `--addr 0x82EDB0`, `--switch "[RouteAsync] JobYield"`. After adding or renaming a doc, add its line to `docs/index.md` (the source) and run `node tools/docs-find.ts --write-index` so `docs/index-by-area.md` lists it by area (`--write-index --check` says whether it is current).
 - **More on an existing topic:** append a dated subsection to the relevant doc (for example `### 7c. ... (2026-10-20)` in `docs/14-save-cleanup.md`) instead of a new file. Correct earlier claims in place with a note, do not leave contradictions.
 - Findings that change priorities also go in `PLAN.md`.
 
@@ -103,7 +106,14 @@ Keep the hardware line even if you think it does not matter: results from differ
 
 Run `node tools/selftest-all.ts` before committing any change under `tools/` or `mods/**/*.ts|js` (no npm, ~20 s). It compile-checks every script (TypeScript parsed by Node's type stripping, nothing executed) and runs every script's self-check, 4 at a time; exit 1 on a compile error, a failing check, or a new script that has neither a self-check nor an entry with a reason in its `NO_SELF_CHECK` list. CI runs `node tools/selftest-all.ts --ci`, which skips the `LOCAL_ONLY` checks (Windows csc, game copy); `--only 'tools/harness/*.ts'` narrows a run, `--list` shows how each script is checked. A new script gets a self-check (a few asserts with fixtures, no game); one that drives the live game or needs local game files goes on `NO_SELF_CHECK` with the reason.
 
-Native and C# builds are checked separately: `native\ts3native\build.cmd` (VS 2022 x86, `/W4 /WX`, runs `out\selftest.exe`; the CI `native` job), `node tools/setup/build-fixes.ts` (ts3fixes against the game DLLs, local), and the C# offline tests `node tools/selftest/<name>/run.ts` (Windows csc; part of `selftest-all.ts` locally).
+Player reports: `node tools/player-log-digest.ts <ts3native.log | doctor zip>` gives one screen per log (exe class, versions and builds, machine, add-ons, mods with known overlaps, session events, exceptions, issues; docs/188 §8). Read it before asking the player for more.
+
+Crashes: `node tools/crash-symbolize.ts <ts3native.log | crash report> --build <dir with ts3native.asi + .map>` names every frame (TS3W.exe from the symbols CSV, ts3native from the linker map `build.cmd` writes; docs/135 §7).
+
+Porting to another exe build (EA app / Origin): one entry, `node tools/port-run.ts --exe <exe>` or `--zip <player report>` (map, expected bytes, TS3A table; one screen, `out/port/<id>/problems.csv`, last line `AI needed: ...`; `--build` prints the build and smoke commands, `--ghidra-names` writes Ghidra names; docs/68 §7.5). Its stages: `node tools/exe-addr-map.ts --other <exe>` maps every native address from the Steam 1.67 exe and reports struct offset changes and vtable slot shifts (docs/68 §7, §7.2); `node tools/patch-bytes-check.ts --other <exe>` checks every expected original byte sequence at the mapped sites (§7.3); never commit their output. Without the exe (EA app players): the player runs `tools/port-probe/Run-PortProbe.cmd` and sends the zip; `node tools/port-report.ts <zip>` turns it into the same map (§7.4).
+Address literals: `node tools/addr-codemod.ts` (dry run) lists every TS3W address literal in ts3native; `--apply` wraps them as `TS3A(0x...)` and `gen --map` builds the `/DTS3A_TABLE` lookup for another exe (docs/68 §7.1). Wrap new addresses in `TS3A()` once the refactor has landed.
+
+Native and C# builds are checked separately: `native\ts3native\build.cmd` (VS 2022 x86, `/W4 /WX`, runs `out\selftest.exe`; the CI `native` job), `native\monohost\build.cmd` (the offline Mono host and its compiler; the CI `monohost` workflow builds it on changes under `native/monohost/` and uploads `monohost.exe`, which runs on a machine with a game copy, docs/119 §8), `node tools/setup/build-fixes.ts` (ts3fixes against the game DLLs, local), and the C# offline tests `node tools/selftest/<name>/run.ts` (Windows csc; part of `selftest-all.ts` locally).
 - Comments say why, not what. Match the style of the file you edit.
 - Small PRs merge faster. A PR that bundles several fixes will be asked to split, unless it is a measured bundle run.
 - Reviewers may ask for a second machine's results before a default-on flip. Disagreements about evidence are settled by another measurement, not by argument.

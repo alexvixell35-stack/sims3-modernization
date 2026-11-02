@@ -11,8 +11,9 @@
 #include <xmmintrin.h>
 #include <emmintrin.h>
 #include <intrin.h>  // _ReturnAddress (vfG11CloseBy)
+#include <psapi.h>  // K32GetMappedFileNameW (XcptOtherModule)
 
-#define TS3NATIVE_VERSION "0.36.126"
+#define TS3NATIVE_VERSION "0.36.163"
 
 typedef unsigned char u8;
 
@@ -133,8 +134,22 @@ static int Clamp(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; 
 // [Crash] Log=1 (0.12.1): the first 16 first-chance exceptions with code, address, thread and up to 8 code addresses found
 // on the stack (game .text or this module), written unbuffered to ts3native.log. Added after a run died with no EA xcpt
 // report and no WER event (2026-10-17 bp-d-async). C++ exceptions (0xE06D7363) count for 2 lines at most.
-static volatile LONG g_xcptN, g_xcptCpp;
-static DWORD g_selfLo, g_selfHi;
+// docs/172 §7: an AV in another DLL's code is logged once per address, with "module+offset" (Apex Radiance's 14 or more
+// handled AVs at 1-2 addresses before the world loads took every slot, so a later TS3W crash had no line); repeats are counted.
+static volatile LONG g_xcptN, g_xcptCpp, g_xcptOtherN, g_xcptOtherHits[8];
+static DWORD g_selfLo, g_selfHi, g_xcptOther[8];
+// "name+0xoffset" when a is in a loaded image other than TS3W.exe (base 0x400000) and this module. No loader lock.
+static bool XcptOtherModule(DWORD a, char* out, int cap) {
+    MEMORY_BASIC_INFORMATION mbi;
+    if (!VirtualQuery((const void*)(uintptr_t)a, &mbi, sizeof(mbi)) || mbi.State != MEM_COMMIT || mbi.Type != MEM_IMAGE) return false;
+    const DWORD base = (DWORD)(uintptr_t)mbi.AllocationBase;
+    if (base == 0x00400000 || base == g_selfLo) return false;
+    wchar_t w[MAX_PATH];
+    if (!K32GetMappedFileNameW(GetCurrentProcess(), mbi.AllocationBase, w, MAX_PATH)) wcscpy_s(w, L"?");
+    const wchar_t* s = wcsrchr(w, L'\\');
+    sprintf_s(out, cap, "%ls+0x%lX", s ? s + 1 : w, a - base);
+    return true;
+}
 // up to `max` code addresses (game .text or this module) in the first 512 stack words, as " %08lX" each
 static void XcptRefs(const CONTEXT* c, char* refs, int cap, int max) {
     int len = 0, k = 0;
@@ -181,6 +196,10 @@ static DWORD P5cRelMatch(const CONTEXT* c);  // p5c.cpp: registers in an object 
 static void CfOnFault(const EXCEPTION_POINTERS* x);  // crashfx.cpp: [CrashForensics] dump (off unless Enabled=1)
 static void P5cRelDump();  // p5c.cpp: the whole released ring (docs/67 §15), once
 static bool AtOwnsXcpt(const EXCEPTION_POINTERS* e);  // arenatail.cpp: [GcRootCheck] TailWatch arm requests and hits (docs/67 §22.7)
+static void AsCrashLine();  // autshadow-run.cpp: the last [AutShadow] search and its feature mask
+static void AaDrainFaultDump(const CONTEXT* c);  // unseenanim.cpp: wild call from the render-message destroy 0x59386B (docs/144 §3.5)
+// a call into data: illegal or privileged instruction (2026-11-02 crash: C0000096 at a heap eip, missed by the forensics dump)
+static bool XcptWild(DWORD code) { return code == EXCEPTION_ILLEGAL_INSTRUCTION || code == EXCEPTION_PRIV_INSTRUCTION; }
 static LONG CALLBACK XcptLog(EXCEPTION_POINTERS* e) {
     const EXCEPTION_RECORD* r = e->ExceptionRecord;
     const DWORD code = r->ExceptionCode;
@@ -191,25 +210,35 @@ static LONG CALLBACK XcptLog(EXCEPTION_POINTERS* e) {
     if (code == 0xE06D7363 && InterlockedIncrement(&g_xcptCpp) > 2) return EXCEPTION_CONTINUE_SEARCH;
     // [CrashForensics] dump before the 16-line cap; not for our own probes' guarded reads (caught in ts3native)
     // docs/67 §17: an illegal instruction too (a wild call into the heap, Crash M / O)
-    if ((code == EXCEPTION_ACCESS_VIOLATION || code == EXCEPTION_ILLEGAL_INSTRUCTION) && !(e->ContextRecord->Eip >= g_selfLo && e->ContextRecord->Eip < g_selfHi)) CfOnFault(e);
-    if (InterlockedIncrement(&g_xcptN) > 16) return EXCEPTION_CONTINUE_SEARCH;
+    if ((code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code)) && !(e->ContextRecord->Eip >= g_selfLo && e->ContextRecord->Eip < g_selfHi)) CfOnFault(e);
     const CONTEXT* c = e->ContextRecord;
-    char refs[128];
+    if (code == EXCEPTION_ACCESS_VIOLATION)  // docs/172 §7: another module's address already logged
+        for (LONG i = 0, n = g_xcptOtherN < 8 ? g_xcptOtherN : 8; i < n; i++)
+            if (g_xcptOther[i] == c->Eip) return InterlockedIncrement(&g_xcptOtherHits[i]), EXCEPTION_CONTINUE_SEARCH;
+    if (InterlockedIncrement(&g_xcptN) > 16) return EXCEPTION_CONTINUE_SEARCH;
+    char refs[128], mod[MAX_PATH + 16] = "", in[MAX_PATH + 24] = "";
+    if (code == EXCEPTION_ACCESS_VIOLATION && XcptOtherModule(c->Eip, mod, sizeof(mod))) {
+        const LONG k = InterlockedIncrement(&g_xcptOtherN);
+        if (k <= 8) g_xcptOther[k - 1] = c->Eip;
+        sprintf_s(in, " (%s)", mod);
+    }
     XcptRefs(c, refs, sizeof(refs), 8);
-    Log("exception %08lX at 0x%08lX (info %08lX %08lX) thread %lu eip %08lX esp %08lX; stack code refs:%s", code,
-        (DWORD)(uintptr_t)r->ExceptionAddress, r->NumberParameters > 0 ? (DWORD)r->ExceptionInformation[0] : 0,
+    Log("exception %08lX at 0x%08lX%s (info %08lX %08lX) thread %lu eip %08lX esp %08lX; stack code refs:%s", code,
+        (DWORD)(uintptr_t)r->ExceptionAddress, in, r->NumberParameters > 0 ? (DWORD)r->ExceptionInformation[0] : 0,
         r->NumberParameters > 1 ? (DWORD)r->ExceptionInformation[1] : 0, GetCurrentThreadId(), c->Eip, c->Esp, refs);
     // docs/67 §15: every register (the 2026-10-25 crash pair logged only eip / esp), for the crash's own exceptions too
     Log("  registers eax %08lX ebx %08lX ecx %08lX edx %08lX esi %08lX edi %08lX ebp %08lX esp %08lX eip %08lX efl %08lX", c->Eax,
         c->Ebx, c->Ecx, c->Edx, c->Esi, c->Edi, c->Ebp, c->Esp, c->Eip, c->EFlags);
-    if (code == EXCEPTION_ACCESS_VIOLATION || code == EXCEPTION_ILLEGAL_INSTRUCTION) P5cRelMatch(c);
+    if (code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code)) P5cRelMatch(c);
+    if (code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code)) AsCrashLine();
+    if ((code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code)) && (c->Eip < 0x00401000 || c->Eip >= 0x00F95000)) AaDrainFaultDump(c);
     char mono[1500];
     if (code == EXCEPTION_ACCESS_VIOLATION && MonoFaultText(c, mono, sizeof(mono))) {
         Log("  %s", mono);
         if (GrFaultText(c, mono, sizeof(mono))) Log("  %s", mono);  // docs/67 §22.4: is the task rooted, is the frame scanned
     }
     // TS3W.exe code (not the start-up AVs in other modules): the released ring once; an illegal instruction counts (wild call)
-    if ((code == EXCEPTION_ACCESS_VIOLATION && c->Eip >= 0x00401000 && c->Eip < 0x00F95000) || code == EXCEPTION_ILLEGAL_INSTRUCTION)
+    if ((code == EXCEPTION_ACCESS_VIOLATION && c->Eip >= 0x00401000 && c->Eip < 0x00F95000) || XcptWild(code))
         P5cRelDump();
     return EXCEPTION_CONTINUE_SEARCH;
 }
@@ -221,7 +250,7 @@ static void InstallXcptLog(const wchar_t* ini) {
     const IMAGE_NT_HEADERS* nt = self ? (const IMAGE_NT_HEADERS*)((const u8*)self + ((const IMAGE_DOS_HEADER*)self)->e_lfanew) : NULL;
     g_selfLo = (DWORD)(uintptr_t)self;
     g_selfHi = nt ? g_selfLo + nt->OptionalHeader.SizeOfImage : g_selfLo;
-    if (AddVectoredExceptionHandler(1, XcptLog)) Log("crash log: first 16 first-chance exceptions (module 0x%08lX-0x%08lX)", g_selfLo, g_selfHi);
+    if (AddVectoredExceptionHandler(1, XcptLog)) Log("crash log: first 16 first-chance exceptions, an AV in another module once per address (module 0x%08lX-0x%08lX)", g_selfLo, g_selfHi);
 }
 
 static void ApplyGc(const wchar_t* ini) {
@@ -250,7 +279,7 @@ static void ApplyGc(const wchar_t* ini) {
 }
 
 // --- Phase 2: negative cache for failed route plans (docs/11 Q5, docs/15 phase 2) ---
-// Counters for test tools: Frida `Module.findExportByName('ts3native.asi', 'ts3native_counters')`, read 5432 int32 (v142 [RouteAsync] WorkerWait after v141, version field 142; v141 [EaCrashFixes] after v140, version field 141; v140 [UnseenFallback] FinishWalk holds after v139, version field 140; v139 [UnseenFallback] C1-C4 site fallbacks after v138, version field 139; v138 [UnseenFallback] after v137, version field 138; v137 [MemDiag] TypeGrowth + [GC] SqrtHeapLimit after v136 [ResourceCache] trim, version field 137; v135 PlanDeadlineMs sync-path exemptions after v134, version field 135; v134 [RouteAsync] KindDeadlines after v133; v133 [RouteSnap] LotUseReadout after v132; v132 [RouteSnap] PoolChunkMB / EpochHeap after v131; v129 [RouteSnap] StaleLotFp after reserved v126-v128, version field 129; v125 [RouteSnap] StaleLot after reserved v123 / v124, version field 125; v119 [IdleCheckRO] after v118, version field 119; v118 [GoalValidRO] slots kept, other branch; v117 CrashForensics ObjResLog after v116, version field 117; v116 CrashForensics EffectLog after v115, version field 116; v115 CrashForensics DrawGuards / OurEvents after v114, version field 115; v114 CrashForensics after v113, version field 114; v113 DeferPrivateFp after v112, version field 113; v112 P6 take kinds + Mode=2 cut sharing + per-job phase split after v111, version field 112; v111 watchpoint constructor-pair count + follow + replay audit rebase hold after v110, version field 111; v110 [Watchpoint] lot arm + child z / parent +0x30 writer probes after v109, version field 110; v109 job yield + sim job waits by site after v108, version field 109; v108 gate site 16 after v107; v107 PlanDrain after v106; v106 P5 steps 2-4 after v105 (layout of merge eaef8a1b; zeros without it); v105 RecsUnlocked after v104, version field 105; v104 refcount guard after v103; v103 job deadline + own waits + goal-step split after v102; v102 goal split + GoalGen D1 + H2 IC window after v101, version field 102; v101 foreign kinds after v100; v100 placement RO after v99; v99 plan deadline + fail memo after v98; v98 lock holders after v97; v97 sync plan phases after v96; v96 host-call split + DoorMemo after v93; v93 route-to-object RO appended after v95 at the 2026-10-22 0325 merge, version field stays 95; v95 F-G held-out count after v94, v94 design U phase 2 after v92, v92 route allocator sites after v91, v91 [Gate0RO] after v90, v90 replan dedupe after v88, all at the 2026-10-22 integration merge; version field 95; v88 cell memo probe appended after v89; v89 tail unlock; v87 route job phases; v86; v77 AvoidRO before v78, v79 unseen probe + throttle after v78, v80 unseen throttle phase 2, v81 foreign job cap, v83 unseen diagnostics, v84 foreign job split, v85 H2 counters, v86 acting early-out, no v52, v58 or v82 fields in this build).
+// Counters for test tools: Frida `Module.findExportByName('ts3native.asi', 'ts3native_counters')`, read 5798 int32 (v156 [UnseenAnim] aaSlotReset / aaStale + [UnseenRootMotion] rmSlMissHold after v155, version field 156; v155 [UnseenRootMotion] Mode 2 script camera IC hooks after v154, version field 155; v154 [UnseenRootMotion] Mode 2 coarse unseen Sims after v153, version field 154; v153 [UnseenRootMotion] Mode 1 late starts after v152, version field 153; v152 [UnseenTable] lazy rows after v151, version field 152; v151 [UnseenRootMotion] after v150, version field 151; v147 [UnseenAnim] after v146, version field 147; v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs after v145, version field 146; v145 [UnseenGhost] after v144; v144 [EaCrashFixes] MintDivGuard after v143, version field 144; v143 [MonoFast] CallPath after v142, version field 143; v142 [RouteAsync] WorkerWait after v141; v141 [EaCrashFixes] after v140, version field 141; v140 [UnseenFallback] FinishWalk holds after v139, version field 140; v139 [UnseenFallback] C1-C4 site fallbacks after v138, version field 139; v138 [UnseenFallback] after v137, version field 138; v137 [MemDiag] TypeGrowth + [GC] SqrtHeapLimit after v136 [ResourceCache] trim, version field 137; v135 PlanDeadlineMs sync-path exemptions after v134, version field 135; v134 [RouteAsync] KindDeadlines after v133; v133 [RouteSnap] LotUseReadout after v132; v132 [RouteSnap] PoolChunkMB / EpochHeap after v131; v129 [RouteSnap] StaleLotFp after reserved v126-v128, version field 129; v125 [RouteSnap] StaleLot after reserved v123 / v124, version field 125; v119 [IdleCheckRO] after v118, version field 119; v118 [GoalValidRO] slots kept, other branch; v117 CrashForensics ObjResLog after v116, version field 117; v116 CrashForensics EffectLog after v115, version field 116; v115 CrashForensics DrawGuards / OurEvents after v114, version field 115; v114 CrashForensics after v113, version field 114; v113 DeferPrivateFp after v112, version field 113; v112 P6 take kinds + Mode=2 cut sharing + per-job phase split after v111, version field 112; v111 watchpoint constructor-pair count + follow + replay audit rebase hold after v110, version field 111; v110 [Watchpoint] lot arm + child z / parent +0x30 writer probes after v109, version field 110; v109 job yield + sim job waits by site after v108, version field 109; v108 gate site 16 after v107; v107 PlanDrain after v106; v106 P5 steps 2-4 after v105 (layout of merge eaef8a1b; zeros without it); v105 RecsUnlocked after v104, version field 105; v104 refcount guard after v103; v103 job deadline + own waits + goal-step split after v102; v102 goal split + GoalGen D1 + H2 IC window after v101, version field 102; v101 foreign kinds after v100; v100 placement RO after v99; v99 plan deadline + fail memo after v98; v98 lock holders after v97; v97 sync plan phases after v96; v96 host-call split + DoorMemo after v93; v93 route-to-object RO appended after v95 at the 2026-10-22 0325 merge, version field stays 95; v95 F-G held-out count after v94, v94 design U phase 2 after v92, v92 route allocator sites after v91, v91 [Gate0RO] after v90, v90 replan dedupe after v88, all at the 2026-10-22 integration merge; version field 95; v88 cell memo probe appended after v89; v89 tail unlock; v87 route job phases; v86; v77 AvoidRO before v78, v79 unseen probe + throttle after v78, v80 unseen throttle phase 2, v81 foreign job cap, v83 unseen diagnostics, v84 foreign job split, v85 H2 counters, v86 acting early-out, no v52, v58 or v82 fields in this build).
 struct Ts3nCounters {
     LONG version;      // layout version, 4
     LONG enabled;      // 1 when the Route_PlanLocked detour is installed
@@ -2237,8 +2266,204 @@ struct Ts3nCounters {
     LONG rwMaxBlockUs;                 // +0x54D4, longest single job-start wait (us)
     LONG rwWorkerCpuMs;                // +0x54D8, route worker thread CPU (user + kernel, ms), refreshed after each blocked start
     LONG rwSpare;                      // +0x54DC
+    // v143 (0.36.127, docs/139 §8, mintcall.cpp): [MonoFast] CallPath: own mint handlers for call / callvirt / ret / ret.void
+    // (counts are plain increments from every interpreting thread: approximate under two threads)
+    volatile LONG mcSwitch;            // +0x54E0, switch (--ab mintcall): 0 = every call bails to EA's handler, 1 = fast path
+    LONG mcReady;                      // +0x54E4, 3 = installed, 7 = installed in verify mode, -1 = refused (log says why)
+    LONG mcCall;                       // +0x54E8, fast calls (0xEA); counted in verify mode only (no per-call cost in CallPath=1)
+    LONG mcCallvirt;                   // +0x54EC, fast callvirts (0xEC, inline-cache hit); verify mode only
+    LONG mcRet;                        // +0x54F0, fast returns (ret + ret.void); verify mode only
+    LONG mcBailCall;                   // +0x54F4, calls left to EA's path (switch off, alloca, transform, native body, arena, remoting)
+    LONG mcBailCallvirt;               // +0x54F8, callvirts left to EA's path (also cache misses, value-type receivers)
+    LONG mcBailRet;                    // +0x54FC, returns left to EA's path (depth 0, exception, newobj, yield, arena chunk change)
+    LONG mcVerified;                   // +0x5500, CallPath=2: calls run both ways and compared
+    LONG mcMismatch;                   // +0x5504, of those, different words or registers (must stay 0; first 16 logged)
+    LONG mcVSkipped;                   // +0x5508, verify snapshot too large (frame > ~20 KB): ran fast only
+    LONG mcVerifyEvery;                // +0x550C, [MonoFast] VerifyEvery in force
+    LONG mcFirstBad;                   // +0x5510, kind + 1 of the first mismatch (1 ret, 2 ret.void, 3 call, 4 callvirt)
+    LONG mcSpare[3];                   // +0x5514
+    // v144 (0.36.149, issue #114, docs/213 §8, eafix.cpp): [EaCrashFixes] MintDivGuard, mint div.i4 / rem.i4 INT_MIN by -1
+    LONG mdOn;                         // +0x5520, 1 = both jump-table entries (0x127, 0x143) point to the guard stubs
+    LONG mdDivOverflow;                // +0x5524, div.i4 INT_MIN / -1: OverflowException instead of the CPU's divide error
+    LONG mdRemMinus1;                  // +0x5528, rem.i4 INT_MIN % -1: result 0 instead of the CPU's divide error
+    LONG mdSpare;                      // +0x552C
+    // v145 (0.36.150, docs/202 §3.9.5, ghost.cpp): [UnseenGhost], unseen Sims ts3fixes unseenroute holds take no +0x918
+    LONG ghReady;                      // +0x5530, bit 0 footprint layer at 0x833560, bit 1 agent update site 0x83CF52
+    volatile LONG ghMode;              // +0x5534, switch (--ab unseenghost): 1 = ghosts accepted and skipped
+    LONG ghAdds;                       // +0x5538, ids added (code 22)
+    LONG ghRemoves;                    // +0x553C, ids removed by ts3fixes at a ghost exit (code 23)
+    LONG ghLive;                       // +0x5540, ghosts now (0 between holds: adds = removes + expired)
+    LONG ghLiveMax;                    // +0x5544, most at once
+    LONG ghFpSkipped;                  // +0x5548, UpdateSimFootprint enable calls of ghosts skipped (no +0x918 remove-all + re-insert)
+    LONG ghFpDisables;                 // +0x554C, disable calls of ghosts passed (the removal ts3fixes asked for)
+    LONG ghAgentSkipped;               // +0x5550, locomotion agent updates of ghosts skipped (no steering / avoidance query)
+    LONG ghExpired;                    // +0x5554, entries dropped by the safety net (switch off, or older than 15 min wall)
+    LONG ghFull;                       // +0x5558, adds refused: 64 ghosts live
+    LONG ghRemoveMissing;              // +0x555C, removes of an id not in the set (already expired, or never added)
+    LONG ghSpare[4];                   // +0x5560
+    // v146 (0.36.151, docs/67 §30, wastar.cpp): [EaCrashFixes] WorldAStarRefs, world A* neighbour pairs outside R
+    LONG waOn;                         // +0x5570, installed (patch at 0x676627)
+    LONG waSkip[3];                    // +0x5574, neighbours skipped: chunk outside the map, waypoint past its chunk's count, record unreadable
+    LONG pfOn;                         // +0x5580, [EaCrashFixes] PortalFlagRefs installed (0.36.152, patches at 0x82A1CF, 0x82B6B1)
+    LONG pfSkip[2];                    // +0x5584, blocked-flag writes skipped: lot portal id, lot waypoint neighbour
+    LONG pfSpare;                      // +0x558C
+    // v147 (0.36.153, docs/144 §3.4, unseenanim.cpp): [UnseenAnim] U-A1, unseen Sims' non-root-motion pose calls summed over Every passes
+    LONG aaReady;                      // +0x5590, 3 = both call sites patched (pass 0xD81C73, pose 0x571C3C)
+    volatile LONG aaMode;              // +0x5594, switch (--ab unseenanim): 1 = unseen Sims skip Every-1 of Every pose calls
+    LONG aaVisSims;                    // +0x5598, Sims classed visible in the last pass (the near-visible hold list)
+    LONG aaPasses;                     // +0x559C, animation passes (0x571B90 calls)
+    LONG aaPassUs;                     // +0x55A0, their time, us (the whole pose pass incl. EA's root-motion sub-steps)
+    LONG aaN[3];                       // +0x55A4, pose calls at 0x571C3C run: visible Sim (or unclassified), unseen Sim, other actor
+    LONG aaUs[3];                      // +0x55B0, their time, us
+    LONG aaSkipped;                    // +0x55BC, pose calls of unseen Sims skipped (dt owed)
+    LONG aaOwedRuns;                   // +0x55C0, runs that carried owed time (the Every-th pass or a hold)
+    LONG aaSnap;                       // +0x55C4, of those: the Sim was visible again (snap-back)
+    LONG aaFlushOff;                   // +0x55C8, owed time run because the switch was off
+    LONG aaHold[8];                    // +0x55CC, unseen runs held: parented, near a visible Sim, near household, no household table, slot taken, debt cap, visible list full, unclassified with debt
+    LONG aaDebtMaxUs;                  // +0x55EC, largest owed game time, us
+    // v148 (0.36.154, docs/227, unseencost.cpp): [UnseenCost] probe; per site UC_*: 0 UnObjClass, 1 UtWhy (list), 2 UtViewerWhy,
+    // 3 UfcAgentUnseen, 4 UfcTaskSimUnseen, 5 UfcListed, 6 AaNearVisible, 7 UnRefreshCamera
+    LONG ucReady;                      // +0x55F0, 1 = [UnseenCost] Enabled=1
+    LONG ucN[8];                       // +0x55F4, calls per site
+    LONG ucTop[8];                     // +0x5614, of those: not nested in another timed site (sum these for a total)
+    LONG ucSampled[8];                 // +0x5634, calls timed (every 16th per site)
+    LONG ucUs[8];                      // +0x5654, their time, us (QPC, inclusive of nested sites)
+    LONG ucAsks;                       // +0x5674, UnObjClass asks on the sim thread
+    LONG ucDistinct;                   // +0x5678, distinct objects summed over locomotion passes (unPasses)
+    LONG ucPasses;                     // +0x567C, passes with asks
+    LONG ucSelfN;                      // +0x5680, calibration calls through the wrapper (the probe's own cost)
+    LONG ucSelfNs;                     // +0x5684, their time, ns
+    LONG ucFloorN;                     // +0x5688, bare QPC pairs timed
+    LONG ucFloorNs;                    // +0x568C, their time, ns (subtracted from each sample)
+    // v149 (0.36.155, docs/227 §6, unseentable.cpp): [UnseenTable] central per-tick unseen table
+    LONG utbReady;                     // +0x5690, bit 0 = sim-pump tick hook added, bit 1 = UnseenTableNative ICs registered
+    LONG utbMode;                      // +0x5694, runtime switch (--ab unseentable): 1 = UnObjClass and the script checks answer from the table
+    LONG utbCheck;                     // +0x5698, ini Check: 1 = every table answer also runs the old rule and counts mismatches
+    LONG utbBuilds;                    // +0x569C, tables built (at most one per sim pump)
+    LONG utbBuildUs;                   // +0x56A0, their time, us
+    LONG utbRows;                      // +0x56A4, rows in the last table
+    LONG utbRowsMax;                   // +0x56A8, most rows in one table
+    LONG utbHits;                      // +0x56AC, native UnObjClass asks answered from the table
+    LONG utbMiss;                      // +0x56B0, native asks for an object not in the table (old rule ran)
+    LONG utbMisUnsafe;                 // +0x56B4, checked: table unseen, old rule visible
+    LONG utbMisSafe;                   // +0x56B8, checked: table visible, old rule unseen
+    LONG utbFetches;                   // +0x56BC, script fetches answered (one per script sim tick)
+    LONG utbFetchRows;                 // +0x56C0, rows handed to the script, summed
+    LONG utbFetchOff;                  // +0x56C4, fetches refused (mode 0, not the sim thread)
+    LONG utbFaults;                    // +0x56C8, table builds that faulted (table left empty: every ask uses the old rule)
+    LONG utbListCap;                   // +0x56CC, builds that stopped at the row cap (1024)
+    // v150 (0.36.156, docs/144 §3.6, unseenanim.cpp): [UnseenAnim] Objects / ObjStats, non-Sim pose calls at 0x571C3C;
+    // kinds 0 no transform, 1 locomotion agent, 2 parented, 3 in a SACS state machine, 4 plain; sampled = 1 ask in 16
+    LONG aoReady;                      // +0x56D0, bit 0 = Objects=1 (gate built), bit 1 = ObjStats=1 (histogram)
+    volatile LONG aoMode;              // +0x56D4, switch (--ab unseenobj): 1 = unseen non-Sim actors skip ObjEvery-1 of ObjEvery calls
+    LONG aoFrozen;                     // +0x56D8, asks when the 8 vtable buckets were fixed (0 = not yet)
+    LONG aoKindN[5][2];                // +0x56DC, sampled asks per kind: seen, unseen
+    LONG aoKindUs[5];                  // +0x5704, their pose time, us (0 for a skipped call)
+    LONG aoBktVt[8];                   // +0x5718, owner vtable of each bucket (top 8 by asks at the freeze)
+    LONG aoBktN[9];                    // +0x5738, asks per bucket after the freeze (all asks), [8] = other
+    LONG aoBktS[9][2];                 // +0x575C, sampled asks per bucket: seen, unseen
+    LONG aoBktUs[9];                   // +0x57A4, their pose time, us
+    LONG aoBktSacs[9];                 // +0x57C8, sampled asks whose owner is in a SACS state machine
+    LONG aoSkipped;                    // +0x57EC, non-Sim pose calls skipped (dt owed)
+    LONG aoOwedRuns;                   // +0x57F0, runs with owed time (ObjEvery-th pass or a hold)
+    LONG aoSnap;                       // +0x57F4, runs with owed time because the object was seen again
+    LONG aoFlushOff;                   // +0x57F8, owed time run because the switch was off
+    LONG aoHold[8];                    // +0x57FC, unseen runs held: parented, SACS, agent (self, within UseM, no list), near visible Sim, household, slot, cap, unclassified
+    LONG aoNear[2];                    // +0x581C, skip candidates: nearest agent within the 3x3 UseM cell window (UseM-2 UseM), none there
+    LONG aoDebtMaxUs;                  // +0x5824, largest owed game time, us
+    LONG aoAgents;                     // +0x5828, agents in the last pass's grid
+    LONG aoWalkFail;                   // +0x582C, agent walks that faulted, hit the cap or had no list (every object held that pass)
+    // v151 (0.36.157, docs/228 §5-6, unseenrm.cpp): [UnseenRootMotion] root-motion sub-step probe (Mode 0) + shortlist (Mode 1);
+    // sampled = 1 pass in 16 (timed, classed); class 0 visible Sim (or unclassified), 1 unseen Sim, 2 non-Sim actor
+    LONG rmReady;                      // +0x5830, bit 0 = probe sites patched (0x571BF3, 0x571C4C, 0x571D20, 0x571DDC), bit 1 = shortlist jump at 0x571C83
+    volatile LONG rmMode;              // +0x5834, switch (--ab unseenrm): 0 = probe only, nonzero = the ini Mode: 1 shortlist sub-step walks, 2 coarse unseen Sims (v154)
+    LONG rmPasses;                     // +0x5838, anim passes seen (pass hook 0xD81C73, needs [UnseenAnim])
+    LONG rmPassesRm;                   // +0x583C, of those: some actor had root motion in walk 1 (EA ran the sub-steps)
+    LONG rmK[8];                       // +0x5840, passes by k = sub-steps EA's loop takes for this dt: 0, 1, 2, 3, 4-5, 6-7, 8-9, 10+
+    LONG rmRem;                        // +0x5860, passes whose remainder after the k steps is >= 1/60 (the 0x571DDC walk)
+    LONG rmWalks;                      // +0x5864, sub-step + remainder walks run (passes with root motion only)
+    LONG rmCallsAll;                   // +0x5868, root-motion pose calls at 0x571D20 / 0x571DDC (every pass)
+    LONG rmLateRm;                     // +0x586C, of those: actor not flagged in walk 1 (root motion started mid-pass; Mode 1 would not step it)
+    LONG rmActSum;                     // +0x5870, actors walked in walk 1 (time-step calls), summed over passes
+    LONG rmActMax;                     // +0x5874, most in one pass
+    LONG rmRmSum;                      // +0x5878, root-motion actors flagged in walk 1 (0x571C4C), summed
+    LONG rmRmMax;                      // +0x587C, most in one pass
+    LONG rmSampled;                    // +0x5880, sampled passes
+    LONG rmW1Us;                       // +0x5884, sampled: pass start to the last time-step return (walk 1 incl. its non-root-motion pose calls), us
+    LONG rmTsN;                        // +0x5888, sampled: time-step calls timed (0x942C00 at 0x571BF3)
+    LONG rmTsUs;                       // +0x588C, their time, us
+    LONG rmTailN[2];                   // +0x5890, sampled passes: without root motion (tail = drains only), with
+    LONG rmTailUs[2];                  // +0x5898, their time from the last time-step return to pass end, us
+    LONG rmSWalks;                     // +0x58A0, sampled: sub-step + remainder walks run (EA's or the shortlist's)
+    LONG rmWalkUs;                     // +0x58A4, sampled root-motion passes: tail minus the timed root-motion pose calls, us (walks + drains)
+    LONG rmN[3];                       // +0x58A8, sampled: root-motion pose calls by class
+    LONG rmUs[3];                      // +0x58B4, their time, us
+    LONG rmZoneN[8];                   // +0x58C0, sampled unseen-Sim calls by first exact zone: parented, SACS, root motion started this pass, near a visible Sim, household / no table, not a locomotion agent, none (coarse candidate), no agent grid
+    LONG rmZoneUs[8];                  // +0x58E0, their time, us
+    LONG rmDeltaN[2];                  // +0x5900, sampled Sim calls with a readable transform: visible, unseen
+    LONG rmDeltaCm[2];                 // +0x5908, summed position change across the call, cm
+    LONG rmDeltaMaxCm;                 // +0x5910, largest one
+    LONG rmFlips;                      // +0x5914, root motion started or ended vs the previous pass (shortlist set difference)
+    LONG rmFloorN;                     // +0x5918, bare QPC pairs timed (the probe's own cost per timed call)
+    LONG rmFloorNs;                    // +0x591C, their time, ns
+    LONG rmSlPasses;                   // +0x5920, Mode 1: passes whose sub-steps ran over the shortlist
+    LONG rmSlSteps;                    // +0x5924, Mode 1: walks run over the shortlist
+    LONG rmSlFallback[4];              // +0x5928, Mode 1 passes handed back to EA's walk: list changed during a walk, shortlist full, walk-1 count off, fault
+    LONG rmSlUs;                       // +0x5938, sampled Mode 1 passes: the pre-walk list check (guard cost, also inside rmWalkUs), us
+    LONG rmSlMax;                      // +0x593C, longest shortlist
+    LONG rmFaults;                     // +0x5940, faults caught in the probe's reads (class, transform)
+    LONG rmSpare[3];                   // +0x5944
+    // v152 (0.36.158, docs/227 §8, unseentable.cpp): [UnseenTable] lazy rows (one row per object at its first ask in a generation of RefreshTicks pumps)
+    LONG utbRowCalc;                   // +0x5950, rows computed (native first asks + the fetch's list walk)
+    LONG utbRowSampUs10;               // +0x5954, time of the sampled rows (1 in 16), 0.1 us
+    volatile LONG utbTtlMode;          // +0x5958, runtime switch (--ab unseentablettl): 1 = rows live RefreshTicks pumps, 0 = one pump (sampled rows = (utbRowCalc + 15) / 16)
+    LONG utbLazyHits;                  // +0x595C, native asks answered from a row computed earlier in the generation
+    LONG utbForced;                    // +0x5960, generations started early (RefreshTicks > 1): camera moved > 1 m, camera lost or found, world load
+    // v153 (0.36.160, docs/228 §10, unseenrm.cpp): [UnseenRootMotion] Mode 1 late root-motion starts (Shortlist=1 hooks)
+    LONG rmSlIns;                      // +0x5964, entries linked into the anim list during a pass (0x9402E3 -> 0x5718C0): candidates
+    LONG rmSlClip;                     // +0x5968, root-motion clip assignments during a pass (0x569CC9, flag byte set): next walk full
+    LONG rmSlFullWalks;                // +0x596C, Mode 1 walks that ran EA's body for every entry (from a clip assignment, audit, candidates full)
+    LONG rmSlLate;                     // +0x5970, Mode 1: late root-motion finds (not flagged in walk 1, not a candidate yet): clip-dirty or audit walks, bit 15; per-call volume = rmLateRm
+    LONG rmSlBit15;                    // +0x5974, of those: found by bit 15 of [entry+0x2C] alone (walk not full)
+    LONG rmSlAudit;                    // +0x5978, Mode 1 audit passes (1 in 64: every walk full)
+    LONG rmSlMiss;                     // +0x597C, audit: root-motion actors the shortlist rules would have skipped (must be 0)
+    LONG rmSlCandFull;                 // +0x5980, passes whose candidate table filled (512): later walks full
+    // v154 (0.36.161, docs/228 §11, unseenrm.cpp): [UnseenRootMotion] Mode 2 coarse root-motion steps for unseen Sims (ini Mode=2;
+    // rmReady bit 2 = Mode 2 configured, bit 3 = steering slot 0x10445C0 recorded); decisions once per actor per pass, both arms
+    LONG rm2Why[16];                   // +0x5984, actor-passes by first exact reason: notSim, camJump, noClass, visible, margin, parent, sacs, started, nearVis, viewer, noAgent, noRoute, goal, portal, slot, hyst
+    LONG rm2Elig;                      // +0x59C4, actor-passes with no exact reason (coarse-eligible), both arms
+    LONG rm2CoarsePasses;              // +0x59C8, of those: in the coarse arm (rmMode nonzero)
+    LONG rm2Coarse;                    // +0x59CC, merged pose calls run (owed steps + this step in one call)
+    LONG rm2Owed;                      // +0x59D0, sub-step calls owed (skipped, run inside a later merged call)
+    LONG rm2DtMs;                      // +0x59D4, game time carried into merged calls, ms
+    LONG rm2Snap;                      // +0x59D8, actors that turned exact with owed steps (switch off mid-pass): owed steps run one EA step each
+    LONG rm2SnapSteps;                 // +0x59DC, steps run at those snaps
+    LONG rm2SnapCm;                    // +0x59E0, position change across the snap steps, summed, cm
+    LONG rm2SnapMaxCm;                 // +0x59E4, largest one
+    LONG rm2Lost;                      // +0x59E8, actors with owed steps but no last call by the pass end (dropped)
+    LONG rm2LostMs;                    // +0x59EC, game time dropped, ms
+    LONG rm2EndInMerge;                // +0x59F0, merged calls after which the actor's root-motion test is false (clip ended inside the step)
+    LONG rm2CamJump;                   // +0x59F4, camera jumps (position, target or reach moved > 20 m in one pass, camera found): all exact CamIcPasses
+    LONG rm2CamHold;                   // +0x59F8, passes under a camera hold
+    LONG rm2CamSpeedMax;               // +0x59FC, fastest camera speed used for the lead, cm/s
+    LONG rm2DriftN[12];                // +0x5A00, eligible actors at their last call of a pass: transform vs the agent's write this step; arm 0 exact (off), 1 coarse; <5, <10, <20, <30, <50, >=50 cm
+    LONG rm2DriftMaxCm[2];             // +0x5A30, largest per arm
+    LONG rm2RouteRecs;                 // +0x5A38, agent transform writes recorded (0x954580)
+    LONG rm2RouteStale;                // +0x5A3C, drift asks without an agent write this step (agent idle while root motion runs)
+    LONG rm2QuatBad;                   // +0x5A40, recorded writes whose first argument is not a unit quaternion (argument order check, must be 0)
+    LONG rm2Placed;                    // +0x5A44, Place=1: agent writes replayed after a merged call
+    LONG rm2Faults;                    // +0x5A48, faults caught in Mode 2 reads and calls
+    LONG rm2EndN[2];                   // +0x5A4C, route ends: eligible last pass, goal band now; per arm of that last pass (0 exact, 1 coarse); transform vs the agent's write at the first call
+    LONG rm2End30[2];                  // +0x5A54, of those: 30 cm or more apart
+    // v155 (0.36.162, docs/228 §11.6, unseenrm.cpp): script camera IC hooks (Mode 2, ini CamIc=1; rmReady bit 4 = all 11 hooked)
+    LONG rm2CamIc[11];                 // +0x5A5C, calls per IC: SetPositionAndTarget, RequestLerpToTarget, RequestLerpToPositionAndTarget, FocusOnLot, FocusOnLotForBuildBuy, EnableObjectFollow, TetherToLot, TetherToObject, Lock, EnableMapViewMode, DisableMapViewMode
+    LONG rm2CamIcOff;                  // +0x5A88, of those: calls off the sim thread (I-420-6; the hold is atomic either way)
+    // v156 (0.36.163, docs/144 §3.5 crash triage 2026-11-02, unseenanim.cpp / unseenrm.cpp)
+    LONG aaSlotReset;                  // +0x5A8C, [UnseenAnim] owed-time table cleared: the actor list changed (world load / unload)
+    LONG aaStale;                      // +0x5A90, owed time dropped: the actor was not posed for > 2 x Every passes (left the list), never paid
+    LONG rmSlMissHold;                 // +0x5A94, [UnseenRootMotion] Mode 1 passes run with EA's full walks after an audit miss (rmSlMiss)
 };
-extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {142,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {156,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -2401,6 +2626,13 @@ static void MaybeLogCounters(ULONGLONG now) {
     if (c.p6wReady) P6wLogCounters();  // docs/189 phase 0
     if (c.workerReady || c.asyncReady)
         Log("route plans: off %ld (fails %ld) on %ld (fails %ld) hostCalls %ld", c.planOffCalls, c.planOffFails, c.planOnCalls, c.planOnFails, c.hostCalls);
+    static LONG xcptSkipLogged;  // docs/172 §7: repeats per logged address, only when the total moved
+    LONG xcptSkip = 0;
+    char xcptBy[8 * 24] = "";
+    for (int i = 0, n = g_xcptOtherN < 8 ? g_xcptOtherN : 8, len = 0; i < n; i++)
+        xcptSkip += g_xcptOtherHits[i], len += sprintf_s(xcptBy + len, sizeof(xcptBy) - len, " %08lX x%ld", g_xcptOther[i], g_xcptOtherHits[i]);
+    if (xcptSkip != xcptSkipLogged)
+        Log("crash log: %ld more AVs at logged addresses in other modules (not logged):%s", xcptSkipLogged = xcptSkip, xcptBy);
 }
 
 static LARGE_INTEGER g_qpf;
@@ -4469,9 +4701,14 @@ static void UdWait(const char* what);    // a wait inside the phase starts (NULL
 static void UdSaveStart(int travelSave, int traveling);
 static void UdSaveEnd(DWORD r);
 static void UdInfoDir(const unsigned char* info);  // the save folder from the save info (sized after the save)
+// saveslim.cpp ([SaveSlim], docs/15 phase 11): the save hooks note the saved folder, start the worker and wait for it
+static void SlimNote(const unsigned char* info);
+static void SlimStart(DWORD r);
+static void SlimWait();
 #include "apex.cpp"
 #include "savewrite.cpp"
 #include "decompress.cpp"
+#include "saveslim.cpp"  // docs/15 phase 11: [SaveSlim] (after savewrite.cpp and decompress.cpp)
 #include "alloc.cpp"
 #include "waterjps.cpp"
 #include "savecompress.cpp"
@@ -4506,6 +4743,30 @@ static void UdInfoDir(const unsigned char* info);  // the save folder from the s
 #include "values.cpp"
 #include "crashfx.h"  // docs/157 §11.7: [CrashForensics] ring core (CfRec / CfFree / CfUse, used by replay.cpp and p4clone.cpp)
 #include "routesnap.cpp"
+#define MC_CTR ts3native_counters
+#include "mintcall.cpp"  // docs/139 §8 [MonoFast] CallPath (before autshadow.cpp: Satb chains over its callvirt entry)
+static_assert(offsetof(Ts3nCounters, mcSwitch) == 0x54E0 && offsetof(Ts3nCounters, mcSpare) == 0x5514, "v143 layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, mdOn) == 0x5520 && offsetof(Ts3nCounters, mdSpare) == 0x552C, "v144 layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, ghReady) == 0x5530 && offsetof(Ts3nCounters, ghSpare) == 0x5560, "v145 layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, waOn) == 0x5570 && offsetof(Ts3nCounters, waSkip) == 0x5574 && offsetof(Ts3nCounters, pfOn) == 0x5580 &&
+              offsetof(Ts3nCounters, pfSkip) == 0x5584, "v146 layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, aaReady) == 0x5590 && offsetof(Ts3nCounters, aaN) == 0x55A4 && offsetof(Ts3nCounters, aaHold) == 0x55CC &&
+              offsetof(Ts3nCounters, aaDebtMaxUs) == 0x55EC, "v147 layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, ucReady) == 0x55F0 && offsetof(Ts3nCounters, ucAsks) == 0x5674 && offsetof(Ts3nCounters, ucFloorNs) == 0x568C &&
+              offsetof(Ts3nCounters, utbFaults) == 0x56C8, "v148 layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, utbReady) == 0x5690 && offsetof(Ts3nCounters, utbMode) == 0x5694 &&
+              offsetof(Ts3nCounters, utbMisUnsafe) == 0x56B4 && offsetof(Ts3nCounters, utbListCap) == 0x56CC,
+              "v149 layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, aoReady) == 0x56D0 && offsetof(Ts3nCounters, aoKindN) == 0x56DC &&
+              offsetof(Ts3nCounters, aoBktVt) == 0x5718 && offsetof(Ts3nCounters, aoHold) == 0x57FC &&
+              offsetof(Ts3nCounters, aoWalkFail) == 0x582C, "v150 layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, rmReady) == 0x5830 && offsetof(Ts3nCounters, rmK) == 0x5840 && offsetof(Ts3nCounters, rmTailN) == 0x5890 &&
+              offsetof(Ts3nCounters, rmZoneN) == 0x58C0 && offsetof(Ts3nCounters, rmDeltaN) == 0x5900 &&
+              offsetof(Ts3nCounters, rmSlFallback) == 0x5928 && offsetof(Ts3nCounters, rmSpare) == 0x5944 &&
+              sizeof(Ts3nCounters) == 5798 * 4, "v151 layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, utbRowCalc) == 0x5950 && offsetof(Ts3nCounters, utbForced) == 0x5960, "v152 layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, rmSlIns) == 0x5964 && offsetof(Ts3nCounters, rmSlCandFull) == 0x5980 && sizeof(Ts3nCounters) == 5798 * 4,
+              "v153 layout (docs/registry.md)");
 #include "autshadow.cpp"
 #include "gcroots.cpp"  // docs/67 §22.4: Crash S task-rooting line + [GcRootCheck] (after autshadow.cpp: autledger's g_lgCtx; memexp.cpp: g_mx)
 #include "snap.cpp"
@@ -4530,6 +4791,7 @@ static void UdInfoDir(const unsigned char* info);  // the save folder from the s
 #include "hitchattr.cpp"
 #include "movedwait.cpp"  // docs/178 §9: [MovedWaits] (after hitchattr.cpp: HaFrame)
 #include "p6wait.cpp"  // docs/189 phase 0: [P6Waits] (after movedwait.cpp)
+#include "unseencost.cpp"    // docs/227: [UnseenCost] probe (before unseen.cpp: its sites use UcTime)
 #include "unseen.cpp"
 #include "worldimage.cpp"
 #include "crashreport.cpp"
@@ -4540,6 +4802,10 @@ static void UdInfoDir(const unsigned char* info);  // the save folder from the s
 #include "plandeadline.cpp"  // docs/164 §7: [RouteAsync] PlanDeadlineMs / FailMemo (routephases.cpp takes its trampolines)
 #include "unseenfb.cpp"      // docs/202: [UnseenFallback] (after plandeadline.cpp: PdSess, the exits)
 #include "unseenfbc.cpp"     // docs/202 §3.4: [UnseenFallback] Sites C1-C4 (after unseen.cpp, rtoro.cpp, fgro.cpp)
+#include "ghost.cpp"         // docs/202 §3.9.5: [UnseenGhost] (after unseenfbc.cpp: agent site, 0x833560 layers)
+#include "unseenanim.cpp"    // docs/144 §3.4: [UnseenAnim] U-A1 (after unseen.cpp: classifier, household table)
+#include "unseenrm.cpp"      // docs/228: [UnseenRootMotion] (after unseenanim.cpp: pass hook, classifier, visible list)
+#include "unseentable.cpp"   // docs/227 §6: [UnseenTable] (after unseen.cpp: classifier; simloop.cpp SimPumpAdd; autshadow-run.cpp g_asAddIc)
 
 // the world A* cost-function stubs: [RouteBudget] on, or a deadline feature with [RouteBudget] off (budgetMode then stays 0:
 // no global cap). docs/134 SyncCapMs / FbJobCapMs, docs/164 §7 PlanDeadlineMs, docs/197 KindDeadlines, docs/202 UnseenFallback
@@ -4556,9 +4822,11 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "played.cpp"    // docs/14 section 8.6: played-household sidecar store for ts3fixes (op 6 + "played:" lines on the 0x87 channel)
 #include "userdiag.cpp"  // docs/188: [UserDiag] player-report lines (header, world load, save trail)
 #include "memdiag.cpp"   // docs/190 phase 1, docs/191: [MemDiag] "diag: mem" lines + self-test (needs userdiag.cpp)
+#include "compaction.cpp"  // docs/204: [Compaction] quiet save-reload verdict for ts3fixes (needs userdiag.cpp, apex.cpp)
 #include "rctrim.cpp"    // docs/198 §4: [ResourceCache] TrimAfterCleanup experiment (needs userdiag.cpp, memdiag.cpp, apex.cpp)
 #include "allocsites.cpp"  // docs/201: [MemDiag] AllocSites, TEST-RUN TOOL (needs memdiag.cpp, alloc.cpp, apex.cpp)
-#include "eafix.cpp"       // docs/67 §26.4 / §27.5: [EaCrashFixes] ConformActor, ThumbPose (needs footprint.cpp's FpCallOk / FpRedirect)
+#include "eafix.cpp"       // docs/67 §26.4 / §27.5 / §28: [EaCrashFixes] ConformActor, ThumbPose, GeomBoneIndex (needs footprint.cpp's FpCallOk / FpRedirect)
+#include "wastar.cpp"      // docs/67 §30: [EaCrashFixes] WorldAStarRefs
 
 // [D3DMultithreaded] (PLAN #4, docs/37 C5, docs/43 §1): Device_Create 0x611080 passes `esi` as the CreateDevice behaviour
 // flags: 0x40 (software VP) at 0x6112A4, replaced by 0x20 (hardware VP) at 0x6112B9 when the caps allow [verified]. Adding
@@ -4598,7 +4866,10 @@ static void Run(HMODULE self) {
     GetModuleFileNameW(NULL, exe, MAX_PATH);
     HMODULE base = GetModuleHandleW(NULL);
     const wchar_t* name = wcsrchr(exe, L'\\');
-    Log("host %ls base 0x%p", name ? name + 1 : exe, base);  // file name only: players send this log (docs/188 privacy)
+    // file name only: players send this log (docs/188 privacy); PE timestamp + SizeOfImage name the build (Steam 1.67
+    // = 52DEC247 / 0xE5A000, EA app 1.69.47 TS3.exe = 6707155C / 0xEB5000) so a SKIP line from another edition is identifiable
+    const IMAGE_NT_HEADERS* hostNt = (const IMAGE_NT_HEADERS*)((const u8*)base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
+    Log("host %ls base 0x%p pe %08lX size 0x%lX", name ? name + 1 : exe, base, hostNt->FileHeader.TimeDateStamp, hostNt->OptionalHeader.SizeOfImage);
     if (base != (HMODULE)0x400000 || _wcsicmp(name ? name + 1 : exe, L"TS3W.exe") != 0) {
         Log("SKIP all: host is not TS3W.exe at 0x400000");
     } else {
@@ -4644,7 +4915,9 @@ static void Run(HMODULE self) {
         InstallPlanDeadline();     // docs/164 §7: after the plan detour, the cost stubs and InstallAsync (SyncIc); before [RouteJobPhases]
         keepLog = ApplySaveWrite(ini) || keepLog;
         ApplySaveFlush(ini);
+        ApplySaveSlim(ini);  // after [SaveFlush] (shares its load-copy hook when that is on)
         keepLog = ApplyUserDiag(ini) || keepLog;  // docs/188: after [SaveWrite] (its save phase sites need the save hooks)
+        ApplyCompaction(ini);  // docs/204: after [UserDiag] (its text channel and save end) and ApexDetect
         ApplyRcTrim(ini);  // docs/198 §4: EXPERIMENT, off ([ResourceCache] TrimAfterCleanup)
         // the NOYIELD query guards ts3fixes' other yields too, so it is answered with async off (START then says no)
         if (!g_getOptOrig)
@@ -4673,7 +4946,9 @@ static void Run(HMODULE self) {
         ApplyForegroundRender(ini);  // TEST ONLY (docs/162 §7): unfocused harness runs pace like focused ones
         keepLog = ApplyLotSinCos(ini) || keepLog;
         keepLog = ApplyIdCache(ini) || keepLog;
-        keepLog = ApplyEaCrashFixes(ini) || keepLog;  // docs/67 §26.4 / §27.5: off by default; before any game object exists
+        keepLog = ApplyEaCrashFixes(ini) || keepLog;  // docs/67 §26.4 / §27.5 / §28: off by default; before any game object exists
+        keepLog = ApplyWorldAStarRefs(ini) || keepLog;  // docs/67 §30: off by default
+        keepLog = ApplyPortalFlagRefs(ini) || keepLog;  // docs/67 §30.5: off by default
         keepLog = ApplyProbeValues(ini) || keepLog;  // after every behaviour section: it counts inside their stubs or skips
         keepLog = ApplyRouteSnap(ini) || keepLog;  // after [ProbeValues]: counts inside its, [SteerRO]'s and [RouteGate]'s stubs
         InstallLotRemoveGuard(ini);                 // after [RouteSnap]: its stub at 0x635700 runs the same guard
@@ -4687,11 +4962,17 @@ static void Run(HMODULE self) {
         keepLog = ApplyHitchAttr(ini) || keepLog;   // docs/96 §9: per-frame sim waits for the route job (observe only)
         keepLog = ApplyUnseenProbe(ini) || keepLog;  // docs/143: locomotion work split visible / unseen (observe only)
         keepLog = ApplyUnseenFallbackSites(ini) || keepLog;  // docs/202 §3.4: after the probe / throttle (shares their agent site and slots)
+        keepLog = ApplyUnseenGhost(ini) || keepLog;  // docs/202 §3.9.5: last, a layer below every 0x833560 owner
+        keepLog = ApplyUnseenCost(ini) || keepLog;   // docs/227: before the unseen hooks fire (no call sites of its own)
+        keepLog = ApplyUnseenAnim(ini) || keepLog;   // docs/144 §3.4: the animation pass and pose call sites (no other owner)
+        keepLog = ApplyUnseenRootMotion(ini) || keepLog;   // docs/228: needs [UnseenAnim]'s pass hook (applied just above)
+        keepLog = ApplyUnseenTable(ini) || keepLog;  // docs/227 §6: no call sites; a sim-pump callback and the UnObjClass hook
         keepLog = ApplyRouteJobPhases(ini) || keepLog;  // docs/150 §7: after every owner of a phase site (observe only)
         keepLog = ApplyCellMemoProbe(ini) || keepLog;   // docs/150 §12: after [RouteJobPhases] (its job window and cell A* frame)
         keepLog = ApplyHostCalls(ini) || keepLog;       // docs/159: after [RouteJobPhases] (rjpReady) and P4 / [ProbeValues] (door chain)
         keepLog = ApplyVerify(ini) || keepLog;  // last: probes skip whatever another section already hooked
         P5Snapshot();                           // P5 M2-1: the code bytes of every site the clone run passes, after every install
+        keepLog = ApplyMintCall(ini) || keepLog;   // docs/139 §8: after every code patch (checks EA's call path bytes), before Satb
         keepLog = ApplyAutShadow(ini) || keepLog;  // docs/122 part 1: guard thunks after every other table owner (routesnap)
         ApexStartLate();  // zzApexRadiance.asi loads after us (its lines reach the log only while it stays open)
     }

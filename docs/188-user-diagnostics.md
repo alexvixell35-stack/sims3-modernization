@@ -100,3 +100,16 @@ diag: memsus alive: seen=4120 trk=96 freed=31 alive=9 hook=1 ms=0.40 top=Ingredi
 ```
 
 and once per load `diag: memsus types: n=10837 kinds=310 ms=12.50 top=Sim:265,...`. Fields: docs/191 module 1 (`wCom` commit, `priv` private, `big` largest free, `rc` resource cache, `gcHeap` Mono heap), module 2 (static-event handler counts) and "Player memory lines" (destroyed-but-alive check). Players send `Game\Bin\ts3native.log` as before; `node tools/memory-report.ts <log>` reads it (per load, over time, leak? vs cache, alive by type, mod types tied to the listed script packages).
+
+## 8. Reading a player's log (`tools/player-log-digest.ts`)
+
+`node tools/player-log-digest.ts <ts3native.log | ts3fixes-doctor zip> [...]` turns a player's log (or the zip `tools/player/ts3fixes-doctor.ps1` puts on their Desktop: report + scrubbed `ts3native.log`) into one screen. `--all` adds every script mod and exception, `--json` everything; the last line is `needs review: N issues`, exit 1 when there is one.
+
+- **exe:** Steam 1.67 when the `diag: edition` line says Steam or the `diag: exe` sha256 is the Steam one (`10b2423e2368`, docs/15). An exe outside a Steam folder or with another hash still counts as Steam 1.67 code when all patch sites matched (no `SKIP`/`FAIL ... bytes differ` line, at least 10 `OK` lines): typically a moved or LAA-patched Steam exe, listed as an issue to confirm. Anything else prints `unsupported exe` and stops: the addresses do not apply (porting: docs/68 §7).
+- **versions:** ts3native version and build date, the build names `docs/data/builds.json` has for that version, ts3fixes version and build id (MVID prefix), and whether the ts3fixes `ui tasks` field is there (v0.2.4+; without it the player runs an older ts3fixes).
+- **machine and mods:** LAA, CPU, RAM, OS, GPUs, display; Bin add-ons, with a note for Apex Radiance (docs/187), the Performance Patch and Settings Setter (docs/68/69); package summary and script mods, with the `overlap` rows of `docs/data/compat-matrix.csv` that match a script mod by name prefix.
+- **one line per session event:** start, previous session without a clean exit, world loads (world size and largest free block), saves (kind, result, seconds), exit; a missing exit line is said.
+- **exceptions:** the first-chance `exception` lines grouped by code and address, placed in ts3native (offset from the `crash log` module range), TS3W.exe, or another module; `tools/crash-symbolize.ts` names them.
+- **issues:** unsupported or changed exe, save results other than 0, saves over 60 s or with long waits, a largest free block under 300 MB (docs/66), a previous session that crashed, no LAA, no or old ts3fixes, exceptions inside ts3native, overlapping add-ons and mods, and every issue of the doctor report.
+
+The self-check (`--self-check`) runs on made-up log lines in the 0.36.148 shapes and a zip built in memory; no player data.

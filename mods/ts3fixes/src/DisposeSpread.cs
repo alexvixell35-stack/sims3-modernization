@@ -52,11 +52,20 @@ namespace Ts3Fixes
         // Not visible and not near anything the player watches: out of the world, or off screen and FarFromViewers.
         static bool DisposeSpreadUnseen(GameObject o)
         {
+            long t = UcBegin(kUcDispose, o is Sim && !o.HasBeenDestroyed ? o.ObjectId.Value : 0);  // docs/227 probe
+            bool r = DisposeSpreadUnseenBody(o);
+            UcEnd(kUcDispose, t);
+            return r;
+        }
+        static bool DisposeSpreadUnseenBody(GameObject o)
+        {
             if (o == null || o.HasBeenDestroyed) return false;
             Sim s = o as Sim;
             if (s != null && (s.IsSelectable || s.Household == Household.ActiveHousehold)) return false;
             if (!o.InWorld) return true;
-            return !World.IsObjectOnScreen(o.ObjectId) && FarFromViewers(o.Position);
+            int b = s != null ? UtbBits(s) : -1;  // docs/227 §6 central table (Sims only; objects keep the old rule)
+            if (b >= 0) return sUtbCheck ? UtbCompare(UtbUnseen(b), !UcOnScreen(o.ObjectId) && FarFromViewers(o.Position)) : UtbUnseen(b);
+            return !UcOnScreen(o.ObjectId) && FarFromViewers(o.Position);
         }
 
         // True when queued; false = the caller destroys now (the game's path).

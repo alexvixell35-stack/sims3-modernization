@@ -10,6 +10,8 @@ using Sims3.Gameplay.DreamsAndPromises;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Skills;
 using Sims3.Gameplay.Socializing;
+using Sims3.Gameplay.Utilities;
+using Sims3.SimIFace;
 using Sims3.UI.Controller;
 
 namespace Ts3Agent
@@ -37,6 +39,8 @@ namespace Ts3Agent
             Dispatcher.Register("modify_relationship", ModifyRelationship);
             Dispatcher.Register("career", CareerCmd);
             Dispatcher.Register("age_up", AgeUp);
+            Dispatcher.Register("aut_interrupt", AutInterrupt);
+            Dispatcher.Register("venue_hours", VenueHours);
         }
 
         // ------------------------------------------------------------ households & sims
@@ -629,6 +633,79 @@ namespace Ts3Agent
                 throw new McpException(s.FullName + " is an Elder: aging up means dying of old age. Pass confirm_elder_death=true if that is really wanted.");
             AgingManager.Singleton.AgeTransitionWithoutCake(s);
             return Util.SimSummary(s.SimDescription);
+        }
+
+        // aut_interrupt {commodity?: Fun, reset?: false} (repro aut-live-interrupt, docs/124 §8.2): every Sim whose manager
+        // search is parked at this moment (Autonomy.CurrentSearchType == Autonomy: a go-live wait or the game's Y2 yield) gets
+        // one Generic FindBestActionForCommodity, as trait reactions and mod story progression start from their own tasks.
+        // The game's SetSearchType then sets mAutonomySearchWasInterrupted and the parked search returns SearchInterrupted on
+        // resume. The answer is dropped (nothing pushed). Counts persist in AppDomain data; reset: true zeroes them first.
+        // FORCED (labelled): the timing a player cannot aim at; the search itself is one the game runs.
+        static object AutInterrupt(Args a)
+        {
+            RequireLive();
+            Dictionary<string, double> tot = DomainState<Dictionary<string, double>>("ts3agent.aut_interrupt");
+            if (a.Bool("reset", false)) tot.Clear();
+            CommodityKind kind = (CommodityKind)Enum.Parse(typeof(CommodityKind), a.Str("commodity", "Fun"), true);
+            int sims = 0, parked = 0, searched = 0, errors = 0;
+            foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+            {
+                sims++;
+                if (s.Autonomy == null || s.Autonomy.CurrentSearchType != AutonomySearchType.Autonomy) continue;
+                parked++;
+                try { s.Autonomy.FindBestActionForCommodity(kind, AutonomySearchType.Generic); searched++; }
+                catch (Exception) { errors++; }
+            }
+            double t;
+            tot.TryGetValue("searched", out t); tot["searched"] = t + searched;
+            tot.TryGetValue("errors", out t); tot["errors"] = t + errors;
+            Dictionary<string, object> r = Util.Obj();
+            r["sims"] = sims;
+            r["parked"] = parked;
+            r["searched"] = searched;
+            r["errors"] = errors;
+            r["total_searched"] = tot["searched"];
+            r["total_errors"] = tot["errors"];
+            return r;
+        }
+
+        // venue_hours {reset?: false} (read-only, repro aut-live-venue-hour): opening and closing hours of every community
+        // lot with hours (Lot.GetHoursOfOperation: venue tuning HourOpen/HourClose or bar hours), the next such boundary from
+        // now in sim hours, and how many boundaries the clock crossed since the reset (AppDomain data, minutes_total based).
+        static object VenueHours(Args a)
+        {
+            Dictionary<string, double> st = DomainState<Dictionary<string, double>>("ts3agent.venue_hours");
+            double now = SimClock.ConvertFromTicks(SimClock.CurrentTicks, TimeUnit.Minutes);
+            List<float> hours = new List<float>();
+            int lots = 0;
+            foreach (Lot lot in LotManager.AllLots)
+            {
+                if (lot == null || !lot.IsCommunityLot) continue;
+                float open = -1f, close = -1f;
+                if (!lot.GetHoursOfOperation(ref open, ref close)) continue;
+                lots++;
+                foreach (float h in new float[] { open, close })
+                    if (h >= 0f && hours.IndexOf(h % 24f) < 0) hours.Add(h % 24f);
+            }
+            hours.Sort();
+            if (a.Bool("reset", false) || !st.ContainsKey("last")) { st["last"] = now; st["crossed"] = 0; }
+            double last = st["last"], crossed = st["crossed"], next = -1;
+            double hourNow = (now / 60.0) % 24.0;
+            foreach (float h in hours)
+            {
+                // a boundary b is crossed once per day: floor((t - b) / 1 day) changes between last and now
+                if (Math.Floor((now - h * 60.0) / 1440.0) > Math.Floor((last - h * 60.0) / 1440.0)) crossed += Math.Floor((now - h * 60.0) / 1440.0) - Math.Floor((last - h * 60.0) / 1440.0);
+                double until = (h - hourNow + 24.0) % 24.0;
+                if (next < 0 || until < next) next = until;
+            }
+            st["last"] = now; st["crossed"] = crossed;
+            Dictionary<string, object> r = Util.Obj();
+            r["lots_with_hours"] = lots;
+            r["boundaries"] = hours;
+            r["hour"] = Math.Round(hourNow, 2);
+            r["next_boundary_in_h"] = Math.Round(next, 2);
+            r["crossed"] = crossed;
+            return r;
         }
     }
 }

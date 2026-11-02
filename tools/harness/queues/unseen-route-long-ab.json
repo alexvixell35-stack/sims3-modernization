@@ -1,0 +1,224 @@
+{
+  "note": "docs/202 §3.9.9 long in-load A/B of unseenroute on unseenroute7 (package game-copy/ts3fixes.package.unseenroute7, asi game-copy/ts3native.asi.unseenroute2 with [UnseenGhost] Enabled=1): 3 IP jobs + 2 BP jobs of 30 min, 1-min alternating --ab unseenroute slices (IP 2 and 3, BP 2 on-first), managed samplers on. Judge with hitch-ab.ts --pool and --causes. NOT RUN.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "ip-ur-long-ab-1",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "asi": "game-copy/ts3native.asi.unseenroute2",
+      "releaseDefaults": true,
+      "fixesPackage": "game-copy/ts3fixes.package.unseenroute7",
+      "minCounters": 145,
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "HitchAttr.Enabled": 1,
+        "ArenaGuard.InitobjFix": 1,
+        "ArenaGuard.TailPad": 1,
+        "UnseenGhost.Enabled": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "note": "TIMING (hitches), IP natural play 30 min (autopilot, camera untouched, seed 12345), in-load --ab unseenroute, 1-min alternating slices, off-first, managed samplers ON. unseenroute7 (docs/202 §3.9.9): ghost start/exit do not toggle the dynamic footprint, UrEditLoop sleeps ~1 s, per-event 'ur:' lines (act, ghost-start, ghost-exit, placement, sweep-check: sim-minute, wall ms since load, Sim id hash) in ts3native.log. Judge with node tools/harness/hitch-ab.ts --pool (pool the jobs of one world, both orders) and --causes; match >= 300 ms hitches to 'ur:' lines by wall-ms. Pass: no crash, 0 watchdog lines, no stuck Sim above the off arm, unseenroute_acts > 0 by 6 min.",
+      "save": "Baseline-IP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 360,
+          "counter": "fixes:unseenroute_acts",
+          "op": ">",
+          "value": 0,
+          "why": "unseenroute never acted: read unseenfbpre_rj_* (fixesReport unseenfb) for the gate that refuses"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 30,
+          "ab": "unseenroute",
+          "slice": 1,
+          "fixesReport": "unseenfb"
+        }
+      },
+      "timeoutMin": 60
+    },
+    {
+      "id": "ip-ur-long-ab-2",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "asi": "game-copy/ts3native.asi.unseenroute2",
+      "releaseDefaults": true,
+      "fixesPackage": "game-copy/ts3fixes.package.unseenroute7",
+      "minCounters": 145,
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "HitchAttr.Enabled": 1,
+        "ArenaGuard.InitobjFix": 1,
+        "ArenaGuard.TailPad": 1,
+        "UnseenGhost.Enabled": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "note": "TIMING (hitches), IP natural play 30 min (autopilot, camera untouched, seed 12345), in-load --ab unseenroute, 1-min alternating slices, on-first (abOnFirst), managed samplers ON. unseenroute7 (docs/202 §3.9.9): ghost start/exit do not toggle the dynamic footprint, UrEditLoop sleeps ~1 s, per-event 'ur:' lines (act, ghost-start, ghost-exit, placement, sweep-check: sim-minute, wall ms since load, Sim id hash) in ts3native.log. Judge with node tools/harness/hitch-ab.ts --pool (pool the jobs of one world, both orders) and --causes; match >= 300 ms hitches to 'ur:' lines by wall-ms. Pass: no crash, 0 watchdog lines, no stuck Sim above the off arm, unseenroute_acts > 0 by 6 min.",
+      "save": "Baseline-IP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 360,
+          "counter": "fixes:unseenroute_acts",
+          "op": ">",
+          "value": 0,
+          "why": "unseenroute never acted: read unseenfbpre_rj_* (fixesReport unseenfb) for the gate that refuses"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 30,
+          "ab": "unseenroute",
+          "slice": 1,
+          "fixesReport": "unseenfb",
+          "abOnFirst": true
+        }
+      },
+      "timeoutMin": 60
+    },
+    {
+      "id": "ip-ur-long-ab-3",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "asi": "game-copy/ts3native.asi.unseenroute2",
+      "releaseDefaults": true,
+      "fixesPackage": "game-copy/ts3fixes.package.unseenroute7",
+      "minCounters": 145,
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "HitchAttr.Enabled": 1,
+        "ArenaGuard.InitobjFix": 1,
+        "ArenaGuard.TailPad": 1,
+        "UnseenGhost.Enabled": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "note": "TIMING (hitches), IP natural play 30 min (autopilot, camera untouched, seed 12345), in-load --ab unseenroute, 1-min alternating slices, on-first (abOnFirst), managed samplers ON. unseenroute7 (docs/202 §3.9.9): ghost start/exit do not toggle the dynamic footprint, UrEditLoop sleeps ~1 s, per-event 'ur:' lines (act, ghost-start, ghost-exit, placement, sweep-check: sim-minute, wall ms since load, Sim id hash) in ts3native.log. Judge with node tools/harness/hitch-ab.ts --pool (pool the jobs of one world, both orders) and --causes; match >= 300 ms hitches to 'ur:' lines by wall-ms. Pass: no crash, 0 watchdog lines, no stuck Sim above the off arm, unseenroute_acts > 0 by 6 min.",
+      "save": "Baseline-IP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 360,
+          "counter": "fixes:unseenroute_acts",
+          "op": ">",
+          "value": 0,
+          "why": "unseenroute never acted: read unseenfbpre_rj_* (fixesReport unseenfb) for the gate that refuses"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 30,
+          "ab": "unseenroute",
+          "slice": 1,
+          "fixesReport": "unseenfb",
+          "abOnFirst": true
+        }
+      },
+      "timeoutMin": 60
+    },
+    {
+      "id": "bp-ur-long-ab-1",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "asi": "game-copy/ts3native.asi.unseenroute2",
+      "releaseDefaults": true,
+      "fixesPackage": "game-copy/ts3fixes.package.unseenroute7",
+      "minCounters": 145,
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "HitchAttr.Enabled": 1,
+        "ArenaGuard.InitobjFix": 1,
+        "ArenaGuard.TailPad": 1,
+        "UnseenGhost.Enabled": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "note": "TIMING (hitches), BP natural play 30 min (autopilot, camera untouched, seed 12345), in-load --ab unseenroute, 1-min alternating slices, off-first, managed samplers ON. unseenroute7 (docs/202 §3.9.9): ghost start/exit do not toggle the dynamic footprint, UrEditLoop sleeps ~1 s, per-event 'ur:' lines (act, ghost-start, ghost-exit, placement, sweep-check: sim-minute, wall ms since load, Sim id hash) in ts3native.log. Judge with node tools/harness/hitch-ab.ts --pool (pool the jobs of one world, both orders) and --causes; match >= 300 ms hitches to 'ur:' lines by wall-ms. Pass: no crash, 0 watchdog lines, no stuck Sim above the off arm, unseenroute_acts > 0 by 6 min.",
+      "save": "Baseline-BP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 360,
+          "counter": "fixes:unseenroute_acts",
+          "op": ">",
+          "value": 0,
+          "why": "unseenroute never acted: read unseenfbpre_rj_* (fixesReport unseenfb) for the gate that refuses"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 30,
+          "ab": "unseenroute",
+          "slice": 1,
+          "fixesReport": "unseenfb"
+        }
+      },
+      "timeoutMin": 60
+    },
+    {
+      "id": "bp-ur-long-ab-2",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "asi": "game-copy/ts3native.asi.unseenroute2",
+      "releaseDefaults": true,
+      "fixesPackage": "game-copy/ts3fixes.package.unseenroute7",
+      "minCounters": 145,
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "HitchAttr.Enabled": 1,
+        "ArenaGuard.InitobjFix": 1,
+        "ArenaGuard.TailPad": 1,
+        "UnseenGhost.Enabled": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "note": "TIMING (hitches), BP natural play 30 min (autopilot, camera untouched, seed 12345), in-load --ab unseenroute, 1-min alternating slices, on-first (abOnFirst), managed samplers ON. unseenroute7 (docs/202 §3.9.9): ghost start/exit do not toggle the dynamic footprint, UrEditLoop sleeps ~1 s, per-event 'ur:' lines (act, ghost-start, ghost-exit, placement, sweep-check: sim-minute, wall ms since load, Sim id hash) in ts3native.log. Judge with node tools/harness/hitch-ab.ts --pool (pool the jobs of one world, both orders) and --causes; match >= 300 ms hitches to 'ur:' lines by wall-ms. Pass: no crash, 0 watchdog lines, no stuck Sim above the off arm, unseenroute_acts > 0 by 6 min.",
+      "save": "Baseline-BP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 360,
+          "counter": "fixes:unseenroute_acts",
+          "op": ">",
+          "value": 0,
+          "why": "unseenroute never acted: read unseenfbpre_rj_* (fixesReport unseenfb) for the gate that refuses"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 30,
+          "ab": "unseenroute",
+          "slice": 1,
+          "fixesReport": "unseenfb",
+          "abOnFirst": true
+        }
+      },
+      "timeoutMin": 60
+    }
+  ]
+}
