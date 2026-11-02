@@ -299,10 +299,16 @@ failed, target or Sim gone, queue refused), 437 not restorable, 438 pushes that 
 
 **Tests** (the native selftest and `run.ts` pass; the queue ran twice on 2026-11-02, results in `docs/data/results/2026-11-02-queue-compaction-verify-local.md`: the first runs found the `HasTravelData` gate above, the rerun after the fix is pending): native selftest `TestCompaction` (verdict rules, Apex threshold, rearm, 60 min, did-it-help, notice,
 bit answers); `node tools/selftest/compaction/run.ts`; repros `compaction-optin-bp|ip`, `compaction-offer-accept-bp|ip`,
-`compaction-offer-decline-bp|ip`, `compaction-refused-build-bp|ip`, `compaction-abort-bp|ip`, `compaction-menu-bp`; queue
-`tools/harness/queues/compaction-verify.json` (those 11 + the save matrix on BP (with travel) and IP with the hooks on but never
+`compaction-offer-decline-bp|ip`, `compaction-abort-bp|ip`, `compaction-menu-bp`; queue
+`tools/harness/queues/compaction-verify.json` (those 9 + the save matrix on BP (with travel) and IP with the hooks on but never
 firing, `ThresholdMB=1`). Run: `node tools/harness/queue.ts tools/harness/queues/compaction-verify.json --no-smoke` with
 `game-copy/ts3native.asi.compact1` and this branch's ts3fixes / ts3agent.
+
+The `compaction-refused-build-bp|ip` repros (a save made in Build mode must be refused by the state gate) are gone
+[measured 2026-11-02 21:02]: EA refuses the save first. `OptionsModel.CanSaveGame()` is false in Build mode, the agent's
+`save_game` answers "the game cannot save right now", and no `save: end` line exists for the gate to see. The gate's
+"not in live mode" branch stays as the defence for saves that reach the native hook from another state (Edit Town's own
+save, a mod's save call); it has no live job and no selftest, the `CpStateWhy` order is the code's own statement.
 
 **Risks** [inferred, the verify queue decides]: the loading screen may not survive the unload (then the player sees EA's
 normal unload, as on an in-game Load); queue re-push can push an interaction the game would not have chosen at that moment
