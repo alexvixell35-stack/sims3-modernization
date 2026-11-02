@@ -261,15 +261,19 @@ transition, the way EA's travel start does it (`EnableSceneDraw(false)`, screen,
 household-name line of a fresh `SaveGameMetadata` ("Compacting... (your game is saved)") [inferred: the screen survives the
 world unload as it does on travel; the verify queue checks it].
 
-Refused states (no verdict asked, the arm stays): not in live mode (Build/Buy/CAS/Edit Town), travelling, travel data
-(vacation, university, future), another town, a move, a modal dialog, an emergency (`HudModel.CheckForEmergency`).
+Refused states (no verdict asked, the arm stays): not in live mode (Build/Buy/CAS/Edit Town), travelling, a vacation,
+university or future world, another town, a move, a modal dialog, an emergency (`HudModel.CheckForEmergency`). Not
+`GameStates.HasTravelData`: that persisted static stays set in a home-world save after any trip (both harness baselines
+have it; EA passes it as the second flag of the native save, the `traveling` word of the `save: start` line), so with it
+in the gate every save of such a save was `compaction_refused_state` and nothing ever compacted (first live runs,
+2026-11-02, 13 of 13 jobs; removed the same day).
 
 **Counters** (ts3fixes, `docs/registry.md` `fixes-427`, `fixes-439`): 427 saves seen, 428 started, 429 offered, 430 accepted,
 431 declined, 432 refused by state, 433 skipped / failed, 434 queue entries recorded, 435 re-pushed, 436 not pushed (Test
 failed, target or Sim gone, queue refused), 437 not restorable, 438 pushes that threw, 439 restores finished (agent names
 `compaction_*`).
 
-**Tests** (none run): native selftest `TestCompaction` (verdict rules, Apex threshold, rearm, 60 min, did-it-help, notice,
+**Tests** (the native selftest and `run.ts` pass; the queue ran twice on 2026-11-02, results in `docs/data/results/2026-11-02-queue-compaction-verify-local.md`: the first runs found the `HasTravelData` gate above, the rerun after the fix is pending): native selftest `TestCompaction` (verdict rules, Apex threshold, rearm, 60 min, did-it-help, notice,
 bit answers); `node tools/selftest/compaction/run.ts`; repros `compaction-optin-bp|ip`, `compaction-offer-accept-bp|ip`,
 `compaction-offer-decline-bp|ip`, `compaction-refused-build-bp|ip`, `compaction-abort-bp|ip`, `compaction-menu-bp`; queue
 `tools/harness/queues/compaction-verify.json` (those 11 + the save matrix on BP (with travel) and IP with the hooks on but never
