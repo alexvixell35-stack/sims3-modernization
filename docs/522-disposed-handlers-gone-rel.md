@@ -46,6 +46,8 @@ still read the field, so the on arm polled `mine` for 300 s. The off arm had pas
 taxi was gone before `expect left` looked). The seed now makes its own car, `state` reports `destroyed`, and `expect`
 throws when the vehicle is gone instead of judging. Rerun pending.
 
+Result (2026-11-02 03:18, `bp-disposed-handler-gone-check`, PASS in 15.1 min, al18 rerun): off arm, the seed made a `CarHatchback` out of world, gave Lenny Shutter a relationship with it (EA's constructor subscribed the handler) and dropped the relationship from the description; the sweep refused (switch off); 20 s later `expect left` found the handler still subscribed (mine true, gone 1) and removed it. On arm, the same seed; the pass started at once (safe mode) and the first poll 20 s later read handlers 0, mine false, gone 0; `expect cleaned` passed; `deadrefsweep_handlers` 1 (the job's gate). No script error in either arm.
+
 ## 4. What is left
 
 Relationships a live description still holds are never touched, deleted or not reachable otherwise. Core build 41's
