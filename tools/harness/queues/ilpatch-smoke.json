@@ -17,7 +17,7 @@
       "logRequire": {
         "^OK   il patch \\(docs/506": 1,
         "^il patch: .* armed ": 3,
-        "^il patch: b89-fixup-no-inventory applied to Sims3\\.Gameplay\\.CAS\\.SimDescription::Fixup\\(\\) \\(ea-1\\.67, 1445 -> ": 1,
+        "^il patch: b89-fixup-no-inventory applied to Sims3\\.Gameplay\\.CAS\\.SimDescription::Fixup\\(\\) \\((ea-1\\.67|simler90-242), 1445 -> ": 1,
         "^il patch: b80-remote-chat-no-everyday-outfit applied to Sims3\\.Gameplay\\.Actors\\.Sim::DoOneRoundOfRemoteChat": 1,
         "^il patch: b87-scavenger-sleep applied to Sims3\\.Gameplay\\.Opportunities\\.ScavengerOpportunity::OnAdded": 1
       },
@@ -36,7 +36,7 @@
         }
       },
       "timeoutMin": 20,
-      "note": "Load (b89 applies at the world fixup) + method_touch of the other two methods (repro ilpatch-touch-bp: the transform without a call) + 5 min of play. Pass: 'OK   il patch', three 'applied' lines (one per fix), three 'armed' lines, nothing refused / mismatched / faulted, no crash."
+      "note": "Load (b89 applies at the world fixup) + method_touch of the other two methods (repro ilpatch-touch-bp: one call each on the sim thread with an uninitialized receiver, which transforms the method). Needs a core whose bodies a spec knows (EA 1.67 or UPDATE242 without patches): a core that already carries the fixes is left alone + 5 min of play. Pass: 'OK   il patch', three 'applied' lines (one per fix), three 'armed' lines, nothing refused / mismatched / faulted, no crash."
     }
   ]
 }
