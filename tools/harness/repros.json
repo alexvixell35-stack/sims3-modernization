@@ -42142,17 +42142,30 @@
     "note": "UNVERIFIED (static only, 2026-10-30): never run. job ini: [Compaction] Enabled=1, ThresholdMB=4000 (always under: forces the verdict), MinMinutes=0. Saves Compaction-BP (new), the compaction reloads it (direct route), then 2 min of play and one more Save over Compaction-BP (not armed again: verdict no). Read: ts3native.log \"compaction:\" lines (verdict COMPACT, begin #1, done #1, +N min), \"ts3fixes: compaction: restored ...\" and the compaction_* counters (requeued vs requeue_skipped vs not_restorable).",
     "steps": [
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save, Sims get queues to restore"
+      },
+      {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-BP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
@@ -42231,22 +42244,33 @@
         "args": {
           "enabled": true,
           "speed": "ultra",
-          "dialogs": false
+          "dialogs": true
         },
-        "note": "our dialog is answered by the step below"
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save; our offer is left to the step below"
       },
       {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": false
+        },
+        "note": "the offer after this save is answered by the step below, not by the autopilot"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-BP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
@@ -42269,6 +42293,13 @@
           "button": "Compact"
         },
         "waitS": 5
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": true
+        },
+        "note": "the welcome dialog comes again after the reload (the save was written before its alarm)"
       },
       {
         "cmd": "time",
@@ -42327,21 +42358,33 @@
         "args": {
           "enabled": true,
           "speed": "ultra",
-          "dialogs": false
-        }
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save; our offer is left to the step below"
       },
       {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": false
+        },
+        "note": "the offer after this save is answered by the step below, not by the autopilot"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-BP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
@@ -42363,6 +42406,13 @@
           "button": "Not now"
         },
         "waitS": 5
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": true
+        },
+        "note": "the welcome dialog comes again after the reload (the save was written before its alarm)"
       },
       {
         "cmd": "time",
@@ -42430,9 +42480,18 @@
     "note": "UNVERIFIED (static only, 2026-10-30): never run. job ini: [Compaction] Enabled=1, ThresholdMB=4000 (always under: forces the verdict), MinMinutes=0. Read: compaction_refused_state >= 1, compaction_started 0, no \"compaction: verdict\" line for the build-mode save (the verdict is not asked, so the arm stays), game back in live mode.",
     "steps": [
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save, Sims get queues to restore"
+      },
+      {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
       },
       {
         "cmd": "build_mode",
@@ -42446,8 +42505,12 @@
         "args": {
           "name": "Compaction-BP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
@@ -42504,6 +42567,15 @@
     "note": "UNVERIFIED (static only, 2026-10-30): never run. job ini: [Compaction] Enabled=1, ThresholdMB=4000 (always under: forces the verdict), MinMinutes=0. Read: compaction_failed 1, compaction_restored 0, log \"compaction: skipped or failed (reload threw): off for this session\", the second save's verdict \"off for the session\", the game in live mode and alive (2 min play), no \"compaction: done\".",
     "steps": [
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save, Sims get queues to restore"
+      },
+      {
         "cmd": "patches",
         "args": {
           "compactionfail": true
@@ -42511,16 +42583,20 @@
       },
       {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-BP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
@@ -42597,17 +42673,30 @@
     "note": "UNVERIFIED (static only, 2026-10-30): never run. job ini: [Compaction] Enabled=1, ThresholdMB=4000 (always under: forces the verdict), MinMinutes=0. Saves Compaction-IP (new), the compaction reloads it (direct route), then 2 min of play and one more Save over Compaction-IP (not armed again: verdict no). Read: ts3native.log \"compaction:\" lines (verdict COMPACT, begin #1, done #1, +N min), \"ts3fixes: compaction: restored ...\" and the compaction_* counters (requeued vs requeue_skipped vs not_restorable).",
     "steps": [
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save, Sims get queues to restore"
+      },
+      {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-IP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
@@ -42686,22 +42775,33 @@
         "args": {
           "enabled": true,
           "speed": "ultra",
-          "dialogs": false
+          "dialogs": true
         },
-        "note": "our dialog is answered by the step below"
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save; our offer is left to the step below"
       },
       {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": false
+        },
+        "note": "the offer after this save is answered by the step below, not by the autopilot"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-IP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
@@ -42724,6 +42824,13 @@
           "button": "Compact"
         },
         "waitS": 5
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": true
+        },
+        "note": "the welcome dialog comes again after the reload (the save was written before its alarm)"
       },
       {
         "cmd": "time",
@@ -42782,21 +42889,33 @@
         "args": {
           "enabled": true,
           "speed": "ultra",
-          "dialogs": false
-        }
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save; our offer is left to the step below"
       },
       {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": false
+        },
+        "note": "the offer after this save is answered by the step below, not by the autopilot"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-IP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
@@ -42818,6 +42937,13 @@
           "button": "Not now"
         },
         "waitS": 5
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": true
+        },
+        "note": "the welcome dialog comes again after the reload (the save was written before its alarm)"
       },
       {
         "cmd": "time",
@@ -42885,9 +43011,18 @@
     "note": "UNVERIFIED (static only, 2026-10-30): never run. job ini: [Compaction] Enabled=1, ThresholdMB=4000 (always under: forces the verdict), MinMinutes=0. Read: compaction_refused_state >= 1, compaction_started 0, no \"compaction: verdict\" line for the build-mode save (the verdict is not asked, so the arm stays), game back in live mode.",
     "steps": [
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save, Sims get queues to restore"
+      },
+      {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
       },
       {
         "cmd": "build_mode",
@@ -42901,8 +43036,12 @@
         "args": {
           "name": "Compaction-IP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
@@ -42959,6 +43098,15 @@
     "note": "UNVERIFIED (static only, 2026-10-30): never run. job ini: [Compaction] Enabled=1, ThresholdMB=4000 (always under: forces the verdict), MinMinutes=0. Read: compaction_failed 1, compaction_restored 0, log \"compaction: skipped or failed (reload threw): off for this session\", the second save's verdict \"off for the session\", the game in live mode and alive (2 min play), no \"compaction: done\".",
     "steps": [
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save, Sims get queues to restore"
+      },
+      {
         "cmd": "patches",
         "args": {
           "compactionfail": true
@@ -42966,16 +43114,20 @@
       },
       {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-IP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
@@ -43052,17 +43204,30 @@
     "note": "UNVERIFIED (static only, 2026-10-30): never run. job ini: [Compaction] Enabled=1, ThresholdMB=4000, MinMinutes=0, Route=1. Read: log \"begin #1 (main menu route)\", no \"MainMenuState hook is missing\" line, compaction_restored 1; note whether the main menu showed for a frame.",
     "steps": [
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save, Sims get queues to restore"
+      },
+      {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-BP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",

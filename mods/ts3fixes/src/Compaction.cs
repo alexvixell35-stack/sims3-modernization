@@ -21,7 +21,7 @@ namespace Ts3Fixes
     // logs; this file acts. Both off unless [Compaction] Enabled=1 (opt-in: compact after a low save) or 2 (offered: ask).
     //   1. Save: OptionsModel.SaveGameTask (Save, Save As, async autosaves; synchronous saves are always followed by EA's own
     //      quit, travel or move) runs as usual; after it, if the state allows it (live mode, no travel / vacation / university
-    //      / other town, no dialog, no emergency), native op 7 gives the verdict (its own walk, save result 1 required).
+    //      / other town, no dialog, no emergency), native op 7 gives the verdict (its own walk, save result 0 required).
     //   2. Record (memory only, never in the save: the process survives the reload): game speed, open HUD panel, selected Sim,
     //      camera, and the queues of the Sims the player can see or would notice (CompactionCore.InScope), max 8 entries each,
     //      only entries whose definition is a static Singleton field (read again at the restore: a mod may replace it at load)
