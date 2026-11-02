@@ -1,0 +1,51 @@
+{
+  "id": "b89-fixup-no-inventory",
+  "switch": "ilp_fixupnoinventory",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.CAS.SimDescription::Fixup()",
+  "ilHashG6": "b2491e31f5ca3071",
+  "builds": {
+    "ea-1.67": {
+      "size": 1445,
+      "sha256": "2b3008e4b0bf2efc004f2df4cec92aaa4825cc3458c495dc8254f498d4992a6e",
+      "tokens": {
+        "instance class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.CAS.SimDescription::get_CreatedSim()": "0x060104f5",
+        "instance class Sims3.Gameplay.Inventory Sims3.Gameplay.Abstracts.GameObject::get_Inventory()": "0x060003d0"
+      },
+      "patchedSha256": "53556b1bfc0858506ab10e715be22e31b3f682bf5c9f05d9c3f21450a5ca0a63"
+    },
+    "simler90-242": {
+      "size": 1445,
+      "sha256": "7a620917373bfd70a0af40af0fa8640710dbf53742fcde522db6f0288914c13c",
+      "tokens": {
+        "instance class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.CAS.SimDescription::get_CreatedSim()": "0x060010b2",
+        "instance class Sims3.Gameplay.Inventory Sims3.Gameplay.Abstracts.GameObject::get_Inventory()": "0x06000872"
+      },
+      "patchedSha256": "8016281ed3ae8612d070e2ac78af50ea4796ed8a98929d9c802c1211b31c85c8"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x2E",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldarg.0"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldarg.0",
+        "call instance class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.CAS.SimDescription::get_CreatedSim()",
+        "callvirt instance class Sims3.Gameplay.Inventory Sims3.Gameplay.Abstracts.GameObject::get_Inventory()",
+        "brfalse @0x81"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_b89_fixup_no_inventory.ps1",
+    "entries": [
+      "b89-fixup-sim-without-inventory-skips-trait-chips"
+    ]
+  }
+}

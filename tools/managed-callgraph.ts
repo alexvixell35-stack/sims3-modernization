@@ -373,7 +373,7 @@ function body(m: Method): Ins[] {
 export function loadStandalone(path: string, name: string): Asm { const a = loadAsm(path, name); indexAsm(a, []); return a; }
 // A token as text from the assembly's own metadata (no cross-assembly resolution): two builds that name the same member
 // give the same text whatever their token numbers.
-function tokenText(a: Asm, tok: number): string {
+export function tokenText(a: Asm, tok: number): string {
   const tt = tok >>> 24, ti = tok & 0xffffff;
   if (tt === 0x06) return a.methods[ti - 1].id;
   if (tt === 0x04) return a.fields[ti - 1].id;
@@ -402,14 +402,19 @@ function tokenText(a: Asm, tok: number): string {
 export function ilShape(m: Method): string {
   if (m.impl & IC_FLAG || m.flags & PINVOKE) return 'native';
   if (m.flags & ABSTRACT || !m.rva) return 'abstract';
-  const a = m.asm, b = a.buf, p0 = rva(a, m.rva), out: string[] = [];
+  return ilShapeBody(m.asm, m.asm.buf, rva(m.asm, m.rva));
+}
+// The same for a method body (header, code, exception sections) in any buffer at p0; tokens resolve against a (ilpatch-convert.ts
+// shapes a patched copy of an EA body this way).
+export function ilShapeBody(a: Asm, b: Buffer, p0: number): string {
+  const out: string[] = [];
   let start: number, len: number, more = false;
   if ((b[p0] & 3) === 2) { start = p0 + 1; len = b[p0] >> 2; }
   else {
     more = (b[p0] & 0x08) !== 0; start = p0 + (b.readUInt16LE(p0) >> 12) * 4; len = b.readUInt32LE(p0 + 4);
     const lt = b.readUInt32LE(p0 + 8);
     if (lt) {
-      const [lp] = blob(a, tbl(a, 0x11)[(lt & 0xffffff) - 1][0]); let q = lp + 1; const [n, k] = cuint(b, q); q += k; const ls: string[] = [];
+      const [lp] = blob(a, tbl(a, 0x11)[(lt & 0xffffff) - 1][0]); let q = lp + 1; const [n, k] = cuint(a.buf, q); q += k; const ls: string[] = []; // the signature is in the assembly, not in b
       for (let i = 0; i < n; i++) { const [t, q2] = sigType(a, q); ls.push(t); q = q2; }
       out.push(`locals ${ls.join(',')}`);
     }
