@@ -48052,7 +48052,7 @@
   },
   {
     "id": "reward-giver-check",
-    "bug": "GameObject.SetRewardGiver(sim) calls AddComponent<ObjectOwnerComponent>(sim, null); AddComponentInternal types every argument with GetType(), so the null thief throws NullReferenceException. Its only caller is RewardsManager.GiveRewards' ObjectInMail case (an opportunity reward object sent by a named Sim): the object is never mailed and the rest of the reward list, the completion text and the follow-up opportunity are skipped (docs/525)",
+    "bug": "GameObject.SetRewardGiver(sim) calls AddComponent<ObjectOwnerComponent>(sim, null); AddComponentInternal types every argument with GetType(), so the null thief throws NullReferenceException. Its only caller is RewardsManager.GiveRewards' ObjectInMail case (an opportunity reward object sent by a named Sim): the object is never mailed and the rest of the reward list, the completion text and the follow-up opportunity are skipped; no shipped opportunity uses this reward type, custom ones only (docs/525)",
     "fix": "ts3fixes RewardGiver.cs: rewardgiver (default off), docs/525",
     "save": "Baseline-BP",
     "note": "The agent check (RewardGiverCheck) makes a SocialJigTwoPerson out of world, calls SetRewardGiver(active Sim) once and destroys it. Off arm: EA's NullReferenceException, no owner component. On arm: no exception, an owner component owned by that Sim; rewardgiver_added +1.",

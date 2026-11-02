@@ -23,8 +23,12 @@ checked in game.
   completion (`RewardsManager.GiveRewards(arrayList, Actor, ...)` after `Cleanup(bSuccess: true)`), so the object is
   never mailed (and never destroyed: it stays out of world), the rewards after it in the list are not given, the
   completion text is not shown and the follow-up opportunity (`mCompletionTriggerOpportunity`) is not set
-  **[verified in the code; the in-game effect is inferred]**. Which opportunities use `ObjectInMail` with a named
-  Sim is not counted here (no unpacked opportunity data on this machine).
+  **[verified in the code]**.
+- No shipped opportunity uses it **[verified 2026-11-02]**: a scan of every resource of the installed `GameplayData.package`
+  (5,727 XML entries; the 3,192 `OpportunitiesCompletion` rows with a `CompletionWinReward1` are all there, including the
+  expansions') and of every expansion and stuff pack build package finds the string `ObjectInMail` nowhere. So the
+  broken path is reached only by custom opportunities that use this reward type; the fix matters to those, not to EA's
+  own opportunities.
 - The sibling `SetStealActors(thief, victim)` passes both arguments non-null and works **[verified]**; the burglar
   path is unaffected.
 
