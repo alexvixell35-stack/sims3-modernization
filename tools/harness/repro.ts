@@ -113,7 +113,9 @@ for (const s of r.steps ?? []) {
   const show = (v: any, prefix?: string) => prefix && v && typeof v === 'object' && !Array.isArray(v)
     ? Object.fromEntries(Object.entries(v).filter(([k]) => k.startsWith(prefix))) : v;
   console.log(`${stamp()} step ${s.cmd} ${JSON.stringify(args ?? {}).slice(0, 200)}: ${res.ok ? JSON.stringify(show(res.result, s.show)).slice(0, s.show ? 1200 : 160) : 'ERROR ' + res.error}`);
-  if (!res.ok && !s.optional) await fail('FAIL: step failed');
+  // a step with "until" lets the poll decide: its own command may get no reply when the game is between worlds (the
+  // compaction's direct route after a save or an answered offer, 2026-11-02 20:23 / 20:36); the poll tolerates a silent agent
+  if (!res.ok && !s.optional && !s.until) await fail('FAIL: step failed');
   if (res.ok) prev = res.result;
   if (s.waitS) await sleep(s.waitS * 1000);
   // "until": poll an agent command until every condition holds (fail-fast: give up after maxS with a FAIL), e.g. the
