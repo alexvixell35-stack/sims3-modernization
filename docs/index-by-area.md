@@ -279,3 +279,4 @@ Edit a summary in docs/index.md (the source), then rerun; areas come from keywor
 - [ai-usage](ai-usage.md): AI usage log
 - [mts-site-map](mts-site-map.md): MTS site map (for the MTS tooling)
 - [registry](registry.md): ts3fixes counter slots and ts3native counter versions: reserve before adding; docs/51 ledger § too: `node tools/registry.ts reserve ledger --for "<topic>"`
+- `docs/527-compiler-ingame-plan.md` (Mono, plan only, round 10 C6): the method compiler in the game: one detour of the transform entry `0xE643B0` shared with the IL patcher (#200: pre-pass IL body, post-pass mint words), `[MonoJit]` switch off by default with a runtime byte for `--ab`, the host's per-call verify sampled in game with a mismatch counter that unpatches the method (`jit-verify`), A/B judged by `arm-ms.ts` script ms/s per arm (`jit-ab`); the compilable list today is 10 methods, 26 ms/s, so the first number will be small until docs/207 §16.3's templates land.
