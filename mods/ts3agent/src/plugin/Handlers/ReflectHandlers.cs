@@ -21,6 +21,7 @@ namespace Ts3Agent
             Dispatcher.Register("reflect_set", ReflectSet);
             Dispatcher.Register("reflect_call", ReflectCall);
             Dispatcher.Register("reflect_members", ReflectMembers);
+            Dispatcher.Register("method_touch", MethodTouch);  // docs/526 §5: force the IL transform of a method without calling it
             Dispatcher.Register("reflect_find_types", ReflectFindTypes);
         }
 
@@ -103,6 +104,37 @@ namespace Ts3Agent
             }
             throw new McpException("no overload of " + ownerType.FullName + "." + name + " takes "
                                    + args.Count + " convertible argument(s)" + (last != null ? ": " + last.Message : ""));
+        }
+
+        // method_touch path="Sims3.Gameplay.Actors.Sim.DoOneRoundOfRemoteChat": asks the runtime for the compiled entry of every overload
+        // of that name (RuntimeMethodHandle.GetFunctionPointer, then RuntimeHelpers.PrepareMethod), which runs Mono's IL transform for a
+        // method the game has not executed yet, without executing it. docs/526 §5: the [IlPatch] smoke uses it so every armed fix's
+        // method is transformed in the session (b89's Fixup runs at the load anyway; b80's chat and b87's opportunity would not).
+        static object MethodTouch(Args a)
+        {
+            string path = a.Str("path");
+            int dot = LastMemberSeparator(path);
+            if (dot < 0) throw new McpException("path must end in a method name");
+            object owner;
+            Type ownerType;
+            ResolveOwner(path.Substring(0, dot), out owner, out ownerType);
+            string name = path.Substring(dot + 1);
+            List<object> touched = new List<object>();
+            foreach (MethodInfo mi in ownerType.GetMethods(kAny))
+            {
+                if (mi.Name != name || mi.IsAbstract || mi.ContainsGenericParameters) continue;
+                Dictionary<string, object> r = Util.Obj();
+                r["method"] = mi.DeclaringType.FullName + "::" + mi.ToString();
+                try { r["entry"] = "0x" + mi.MethodHandle.GetFunctionPointer().ToInt64().ToString("X"); }
+                catch (Exception e) { r["entry_error"] = e.GetType().Name + ": " + e.Message; }
+                try { System.Runtime.CompilerServices.RuntimeHelpers.PrepareMethod(mi.MethodHandle); r["prepared"] = true; }
+                catch (Exception e) { r["prepare_error"] = e.GetType().Name + ": " + e.Message; }
+                touched.Add(r);
+            }
+            if (touched.Count == 0) throw new McpException("no method " + name + " on " + ownerType.FullName);
+            Dictionary<string, object> res = Util.Obj();
+            res["touched"] = touched;
+            return res;
         }
 
         static object ReflectMembers(Args a)

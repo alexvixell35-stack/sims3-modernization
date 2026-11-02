@@ -48049,5 +48049,45 @@
       }
     ],
     "cleanup": []
+  },
+  {
+    "id": "ilpatch-touch-bp",
+    "bug": "docs/526 [IlPatch]: the three docs/506 fixes are applied at the first IL transform of their method; b80 (Sim.DoOneRoundOfRemoteChat) and b87 (ScavengerOpportunity.OnAdded) may never run in a 5-minute session, so their application would go unseen",
+    "fix": "ts3native ilpatch.cpp (next version, [IlPatch] Enabled=1 + the three switches)",
+    "save": "Baseline-BP-Spring",
+    "note": "After the load (b89's SimDescription.Fixup is already transformed: 'applied' line at the load), method_touch asks the runtime for the compiled entry of the two other methods, which runs the transform without calling them; the ts3native.log then has three 'il patch: ... applied' lines (queue logRequire). Fixup is touched too: a repeat transform must reuse the body (ilpReused), never re-apply. If the touch does not transform (the entry is only a trampoline), the log keeps one applied line and the queue says so: then the fixes need their own repros.",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 30,
+        "note": "the load's own transforms are done"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Actors.Sim.DoOneRoundOfRemoteChat"
+        },
+        "note": "b80"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Opportunities.ScavengerOpportunity.OnAdded"
+        },
+        "note": "b87"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.CAS.SimDescription.Fixup"
+        },
+        "note": "b89, already applied at the load: a reuse, not a second apply"
+      },
+      {
+        "cmd": "time",
+        "waitS": 30
+      }
+    ],
+    "cleanup": []
   }
 ]

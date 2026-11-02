@@ -89,9 +89,12 @@ does not carry. Insertions move the clause boundaries after them and an insertio
   whole detour on a runtime method named as spec 2 whose body no build matches (hash skip once, EA's transform runs) and on a
   method of another name (straight through).
 - `node tools/ilpatch-convert.ts --self-check` (unchanged) and `--emit-native` regenerates `ilpatch-specs.h` byte for byte.
-- Live: `tools/harness/queues/ilpatch-smoke.json` (Baseline-BP-Spring, the three switches on, 5 min of play): requires the
-  `OK` line, `b89-fixup-no-inventory applied to ...SimDescription::Fixup() (ea-1.67, 1445 -> ` (every Sim's `Fixup` runs at
-  the world load), three `armed` lines; forbids any refused / mismatch / fault / `left alone` line.
+- Live: `tools/harness/queues/ilpatch-smoke.json` (Baseline-BP-Spring, the three switches on, repro `ilpatch-touch-bp`, 5 min
+  of play): requires the `OK` line, three `armed` lines and one `applied` line per fix; forbids any refused / mismatch /
+  fault / `left alone` line. `Fixup` is transformed at the world load (every Sim's); the chat and the opportunity methods
+  may never run in a short session, so the repro's `method_touch` steps (ts3agent `ReflectHandlers.cs`) ask the runtime for
+  their compiled entry (`RuntimeMethodHandle.GetFunctionPointer`, then `RuntimeHelpers.PrepareMethod`), which runs the
+  transform without a call [inferred until the smoke: if the entry is only a trampoline the log keeps one applied line].
 
 ## 6. State
 
