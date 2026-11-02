@@ -472,6 +472,7 @@ namespace Ts3Agent
             r["save_name"] = Sims3.Gameplay.UI.Responder.Instance.OptionsModel.SaveName;
             r["load_file"] = GameStates.LoadFileName; // set by load_save too; save_name stays null until a save
             r["save_in_progress"] = Sims3.Gameplay.UI.Responder.Instance.OptionsModel.SaveGameInProgress;
+            r["modal"] = UIManager.GetModalWindow() != null; // repro waits "until modal false" after a save (its own dialog) read a missing key before
             return r;
         }
 
