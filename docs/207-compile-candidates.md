@@ -872,3 +872,77 @@ verifier does not compare a method with clauses word for word; its result still 
 
 Not done: 11 `UpdateCloudiness` and 13 `get_IsSufficientlyOnScreenForHighLODSimulation` (§9.1, L class) stay out. The
 regression set is a command, not a CI job: the CI runner has no game files. Ledger §929.
+
+## 16. Round 10 C3: hot-method selection and the compile threshold (2026-11-02)
+
+Round 10, task C3: which game script methods are hot in real play, and the threshold for compiling one. Static plus host
+count mode, nothing in the game. Tool: `node tools/jit-hot.ts [--count <monohost.exe.log>] [--threshold 1.0] [--write]`,
+table `docs/data/jit-hot.csv` (one row per sampled method; the rows below are its 2026-11-02 state).
+
+### 16.1 The rule
+
+A method joins the in-game compile list when all three hold:
+
+1. **Hot in play**: mean self time over the sampled worlds at or above the threshold (§16.2), from
+   `docs/data/compile-candidates.csv` (§1 to §3: the sampler of the v0.2.x builds, two 10-minute runs per world). A new
+   sampler run, ours or a contributor's, goes through `tools/compile-candidates.ts --run <world>=<managed.jsonl>` first and
+   reaches the table by the same file; no contributor data has arrived yet, so the three worlds of §1 are the input today.
+2. **Never yields**: class N from the call-graph index (D, a delegate path, with the Invoke target named; Y and `?` stay
+   interpreted, §4 and §5).
+3. **Runs compiled when compiled**: in a count-mode run of the host (`MONOHOST_JITCOUNT=1` over the corpus and the bench),
+   the body leaves through at most 0.1 exits per execution, not counting `ret*` (the normal end of a non-lazy body, one per
+   execution; executions = max(entries from the interpreter, `ret` exits), since a lazy call into a body is not an entry).
+   A body whose hot path exits costs more than EA's call (§15.3, the "templates off" arm), so such a method waits for the
+   template its top exit names. The corpus has to reach the method for this count to exist; the B6 fixtures (§9.2) are
+   what gives the gameplay accessors one.
+
+Call counts do not exist in play (the sampler sees stacks, not calls), so the rule is self time, not calls, and the exit
+rate comes from the host's inputs, not the game's.
+
+### 16.2 The threshold
+
+Sampled self time: 177.3 ms/s over 125 methods; never-yielding 123.2 ms/s over 66 (the §6 share, after the index's
+over-approximation). One sample is about 0.4 ms/s, and a row carries ±20-40% Poisson error at 10-80 hits (§3), so a
+cut below about 1 ms/s (some 7 hits over three worlds) selects on noise. The cuts [measured, `jit-hot.ts`]:
+
+| Threshold | Methods | ms/s (share of N) | Held back by an exit today |
+|---|---:|---:|---:|
+| 2.0 ms/s | 19 | 86.3 (70%) | 15, 69.3 ms/s |
+| **1.0 ms/s** | 32 | 105.1 (85%) | 22, 79.1 ms/s |
+| 0.5 ms/s | 52 | 117.6 (96%) | 22, 79.1 ms/s |
+
+**1.0 ms/s** is the cut: 85% of the never-yielding time in 32 methods, every row above two worlds and 7 hits; the next
+20 methods add 12 ms/s with rows of 3-6 hits each. The number that matters is the last column: at every cut, most of the
+selected time is held back by the exit rule, not by the threshold. The 10 that pass all three rules today (26 ms/s):
+`RuntimeTypeHandle.get_Value` 7.4, `Dictionary.GetSlot` 3.5, `Array.Copy` 3.1 (not in the host list yet), `CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags`
+3.0, `List.Add` 1.8, `List.get_Item` 1.8, `List.GrowIfNeeded` 1.6, `ObjectGuid.op_Inequality` 1.5, `Slots.GetParentId` 1.2
+and `Vector3..ctor` 1.0 (both new).
+
+### 16.3 What holds the rest back, by exit (the next templates, ranked by the time they unlock)
+
+| Top exit | ms/s held | Methods | What it is |
+|---|---:|---:|---|
+| `call` | 36.2 | 9 | a callee the compiler does not enter: runtime internal calls (`Enum.Equals` 9.8, `Type.GetTypeFromHandle` 2.8, `Enum.GetHashCode` 1.4: §5's helpers inside self time), BCL callees not on the list (`Enumerator.MoveNext` / `get_Current` 11.2 together, `Array.Resize` 4.8), and the accessors' callees (`ElapsedTimeInMinutes` 9 exits per execution, `GetActorsOfType` 11) |
+| `ldfld.vt` | 12.9 | 1 | `Dictionary.GetPrev`: the struct field read, a hand row (§15.4) |
+| `callvirt` | 7.3 | 3 | `GameObject.GetComponent` 4.5 (5 per execution), `get_LotCurrent`, and an unguarded site |
+| `ldsfld.vt` | 4.7 | 2 | `GameObject.GetObject`, `ScriptObject.get_ObjectId`: `ObjectGuid.InvalidObjectGuid` |
+| `initobj` | 4.6 | 1 | `Dictionary.TryGetValue`'s `default(TValue)` |
+| `isinst` | 3.7 | 1 | `InteractionObjectPair.Equals` |
+| `con.callvirt`, `newobj`, `con.call`, `shr.un.i8`, `ldarg.r4` | 9.7 | 5 | one method each (`DefaultComparer.Equals`, `List.GetEnumerator`, `IEquatableOfTEqualityComparer.GetHashCode`, `UInt64.GetHashCode`, `Single.IsNaN`) |
+
+Two of the host list's own entries are net negative by this measure and should leave it until their template exists:
+`Single.IsNaN` (4.1 exits per execution on `ldarg.r4`; 8.7 M calls in the bench, 77 M exits) and `Math.Min` (the same
+pattern, 85 M exits; not in the sampled top rows). The `call` row is the one a template cannot fix alone: a runtime
+internal call needs a direct-call template (the icall's address is static), and a BCL callee needs to be on the list and
+pass the rule itself; `Enumerator.MoveNext` / `get_Current` (11.2 ms/s) are the first to chase.
+
+### 16.4 Reading the table and the limits
+
+- `host_executions` / `host_exits` / `top_exit` come from one count-mode run of the current tree (the corpus plus the bench);
+  a method the corpus does not reach has empty columns and the verdict `compile` on the sampler alone.
+- The sampler's names have no parameter list and print nested types without the outer type (§5), so a key such as
+  `Enumerator.MoveNext` or `.ctor` merges overloads and types; `Vector3..ctor` is the sampler's frame, not one overload.
+- 25 sampled methods are `?` (mods, ts3fixes, unmatched frames: 20 ms/s) and 34 are Y (34 ms/s): outside the rule.
+- The threshold is a cut on the ranking, applied once per release when the list is built, not a counter in the game: the
+  game has no call counts, and a per-call counter at the transform hook would cost on every call (C6's plan keeps the list
+  static). Ledger §930.
