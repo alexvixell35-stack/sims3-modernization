@@ -31,7 +31,7 @@ export const OUT = join(ROOT, 'probe-out', 'save-reload');
 
 // ---------------------------------------------------------------- pure parts (covered by --self-check)
 
-// [UserDiag] "save: end #N result R after X ms" lines in a log slice (the native save time; result 1 = ok)
+// [UserDiag] "save: end #N result R after X ms" lines in a log slice (the native save time; result 0 = the game saved, every good save in the logs)
 export function saveEnds(text: string): { n: number; result: number; ms: number }[] {
   return [...text.matchAll(/^save: end #(\d+) result (\d+) after (\d+) ms/gm)].map(m => ({ n: +m[1], result: +m[2], ms: +m[3] }));
 }
@@ -177,7 +177,7 @@ async function save(label: string) {
   const end = saveEnds(logFrom(off)).at(-1) ?? null;
   out.saves.push({ label, wallMs, nativeMs: end?.ms ?? null, result: end?.result ?? null, peak });
   log(`save ${label}: wall ${wallMs} ms, native ${end?.ms ?? '?'} ms, result ${end?.result ?? '?'}; largest free ${peak.bigBefore} -> low ${peak.minBig} MB (need ${peak.bigNeedMB}), commit peak +${peak.commitPeakMB} MB, ${peak.reads} reads`);
-  if (end && end.result !== 1) throw new Error(`save ${label}: native result ${end.result}`);
+  if (end && end.result !== 0) throw new Error(`save ${label}: native result ${end.result}`);
   out.phases[`${label}Ms`] = Date.now() - t0;
   flush();
 }
