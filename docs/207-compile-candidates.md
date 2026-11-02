@@ -324,6 +324,55 @@ Findings:
 
 Fixtures: **not built.** This machine has no C++ compiler and the CI does not build `native/monohost`, so nothing could be run, and an unrun fixture would only move the debugging to the next person. The recipe per method is the `fixture` column. For the top 5: rows 2 and 4 (no IC) are JitBench cases on objects from constructors plus `FieldInfo.SetValue`; rows 1, 3 and 5 also need a concrete `GameObject` subclass, and rows 3 and 5 need an M2 answer code that reads the guid table from a static field of the test assembly.
 
+### 9.1 Fixtures built: they compile, they have not run (2026-11-02, round 8 B6)
+
+`native/monohost/JitAccessors.cs` (hand-written, C# 2) builds the objects each accessor reads and calls it once for an
+input index; `tools/jit-corpus.ts` wraps the 17 fixtures in corpus cases named `Acc <method>` (cases 158-174 of the 175),
+so the value or the exception is hashed interpreted twice and compiled once like every other case (§10), and `--env` adds
+the 17 methods to the compile list (`kJitList` itself is unchanged: the game's default list does not grow). `build.cmd`
+now references the game's `ScriptCore.dll`, `Sims3GameplaySystems.dll` and `UI.dll` copies for it.
+
+How the objects are made [verified: the fixture compiles with csc against the game's assemblies, `MonoHostTest.dll`
+209 KB]: real constructors only (this mscorlib has no `GetUninitializedObject`): `FxObject : GameObject` (the base
+constructor sets one delegate), `FxLot : Lot` (its constructor makes a `CommodityInteractionMap`), `FxRouting :
+RoutingComponent`, three `ObjectComponent` subclasses whose `BaseType` is their own type, `FxProxy : IScriptProxy` that
+answers only its `ObjectId`; private fields (`mObjComponents`, `mLotCurrent`, `mSimFlags`, `mSim`, `mCommercialSubType`,
+`mLotType`, the clock's three statics, `LotManager.sActiveLot`, a route list's `_size`) are set by reflection and the
+statics put back in `finally`. `GameObject.GetComponent<C>` is private, so the fixture calls it through
+`MethodInfo.Invoke` (the compiled entry is the method's own; the caller does not matter) and rethrows the inner exception.
+
+| # | Accessor (§9 table) | Fixture, inputs | What the cases cover |
+|---|---|---|---|
+| 1 | `GameObject.GetComponent` | `GetComponentCase` 4 | found A, found B, absent C, no list |
+| 2 | `InteractionObjectPair.Equals` | `IopEqualsCase` 7 | same pair, other target, other definition (two of `Sim`'s `Singleton` definitions by reflection), a string, null, itself, a null definition (the NullReference path) |
+| 3 | `GameObject.GetObject` | `GetObjectCase` 3 | the invalid guid (no simulator call), two guids through `Simulator.GetProxy` (the host's proxy IC answers) |
+| 4 | `SimClock.ElapsedTimeInMinutes` | `ElapsedMinutesCase` 35 | 7 tick counts x 5 `lastTime` values incl. NaN; result and the written `ref` packed in one long |
+| 5 | `GameObject.get_Parent` | `ParentCase` 2 | no proxy (invalid id), a proxy with id 5: `Slots.GetParentId` then `GetObject` |
+| 6 | `ScriptObject.get_ObjectId` | `ObjectIdCase` 2 | no proxy -> `InvalidObjectGuid`; a proxy -> 77 |
+| 7 | `GameObject.get_LotCurrent` | `LotCurrentCase` 2 | `mLotCurrent` null, a `FxLot` |
+| 8 | `Household.Members.GetActorsOfType` | `ActorsOfTypeCase` 5 | two human descriptions and a dog, masks human / animal / none / teen; case 2 gives the adult a `Sim` object |
+| 9 | `RoutingComponent.get_IsRouting` | `IsRoutingCase` 4 | route list size 0-3 |
+| 10 | `Lot.get_CommercialLotSubType` | `LotSubTypeCase` 6 | 0, 1, 5, 9, 100, -1 through `GetOutwardFacingLotSubType` |
+| 12 | `ListSorted<T>.GetEnumerator` | `ListSortedCase` 4 | empty, 3 unsorted, 3 equal, the int limits |
+| 14 | `DesireCurve.GetYFromX` | `DesireCurveCase` 12 | a 4-point curve with a vertical step: below, on, between, above the points, NaN, +-inf; the empty curve (its own catch) |
+| 15 | `Sim.get_SimDescription` | `SimDescriptionCase` 2 | null, a description |
+| 16 | `Lot.get_ShouldSimulate` | `ShouldSimulateCase` 4 | active lot yes / no x residential / commercial |
+| 17 | `SimDescription.get_Age` | `AgeCase` 5 | adult, teen+male, child+female+human, none, all bits |
+| 18 | `Corners.get_Item` | `CornersCase` 5 | the four corners of a rectangle, then index 4 (IndexOutOfRange) |
+| 19 | `Household.EveryHumanSimDescription` | `EveryHumanCase` 2 | an empty household list, a null one (NullReference) |
+
+Left out (L class, §9): 11 `WeatherManager.UpdateCloudiness` (319 bytes of IL over 33 closure methods and the weather
+statics) and 13 `Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation` (two ICs, 59 closure methods). Both need a
+weather / camera state the fixture would have to invent.
+
+Not run: no C++ toolchain here, so `monohost.exe` is not built (as §9 said on 2026-10-31). What the first run tells:
+`build.cmd`, then the §10 command line with `MONOHOST_JITLIST=$(node tools/jit-corpus.ts --env)` and
+`MONOHOST_JITCORPUS_FROM=158`; `node tools/jit-corpus.ts --report out\monohost.exe.log` must show 0 differ over the 17,
+and the trail lines say which fixtures throw on both arms. Two constructors are the known risks there: `new Sim()`
+(cases 8/2 and 15; `Sim`'s static state) and `new FxLot()` (cases 7/1, 10, 16; the lot map). A fixture that throws the
+same exception on both arms is still a passing differential case, but not a test of the accessor: replace the
+constructor then. Ledger §921.
+
 ## 10. Differential corpus: compiled vs interpreted, bit for bit (2026-10-31)
 
 Round 6, task B4. Goal: every case that P0 compiles must give the same results and the same exceptions as EA's interpreter.
