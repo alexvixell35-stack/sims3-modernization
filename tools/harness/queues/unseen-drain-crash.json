@@ -4,9 +4,9 @@
     {
       "id": "bp-utb2-ttl-ab-c1",
       "note": "Crash rerun 1 of 2 (clean-run rule) of bp-utb2-ttl-ab: 11-02 07:38 C0000096 in the render-message destroy (FrameDb_DrainEvents ret 0x59386B), docs/144 §3.5.1. Same job and ini as unseen-table.json bp-utb2-ttl-ab on unseenrm5. Pass: no crash; a crash now logs drain fault: message / manager / aa event lines.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -50,7 +50,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 (counters v156): crash reruns of the 11-02 drain crash on the fixed build",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 (counters v156): crash reruns of the 11-02 drain crash on the fixed build",
       "earlyGates": [
         {
           "afterSec": 150,
@@ -73,9 +73,9 @@
     {
       "id": "bp-utb2-ttl-ab-c2",
       "note": "Crash rerun 2 of 2 (clean-run rule) of bp-utb2-ttl-ab: 11-02 07:38 C0000096 in the render-message destroy (FrameDb_DrainEvents ret 0x59386B), docs/144 §3.5.1. Same job and ini as unseen-table.json bp-utb2-ttl-ab on unseenrm5. Pass: no crash; a crash now logs drain fault: message / manager / aa event lines.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -119,7 +119,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 (counters v156): crash reruns of the 11-02 drain crash on the fixed build",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 (counters v156): crash reruns of the 11-02 drain crash on the fixed build",
       "earlyGates": [
         {
           "afterSec": 150,
@@ -142,9 +142,9 @@
     {
       "id": "bp-ua1-churn",
       "note": "U-A1 stress (docs/144 §3.5.1): [UnseenAnim] Mode 1 CapPasses=4 + Objects=1 while ua1-churn-loop spawns 8 Sims at other households' lots, places 30 EA objects town-wide, removes both (off screen), 15 min, BP. Correctness only. Pass: no crash, aaSkipped and aoSkipped rise (owed-time paths ran against created/destroyed actors); read aaStale / aaSlotReset.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -191,8 +191,8 @@
       ],
       "timeoutMin": 30,
       "noiseCheck": false,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 (counters v156): crash reruns of the 11-02 drain crash on the fixed build",
-      "minCounters": 156,
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 (counters v156): crash reruns of the 11-02 drain crash on the fixed build",
+      "minCounters": 157,
       "earlyGates": [
         {
           "afterSec": 150,
@@ -203,6 +203,108 @@
         }
       ],
       "nativeRequire": "aaSkipped>=1,aoSkipped>=1"
+    },
+    {
+      "id": "ip-ua-stuck-off",
+      "note": "As bp-ua-stuck-off on IP (U-A1 stuck pair, 11-02): Stuck-Sim reference: release ini + [UnseenAnim] Enabled=1 Mode=0 (counts and times, skips nothing), BP 15 min, seed 12345, no --ab, no samplers. Read the end-of-run stuck Sims (docs/TESTING.md).",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 32,
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 (counters v156): crash reruns of the 11-02 drain crash on the fixed build"
+    },
+    {
+      "id": "ip-ua-stuck-on",
+      "note": "As bp-ua-stuck-on on IP (U-A1 stuck pair, 11-02): Stuck-Sim check: as bp-ua-stuck-off with Mode=1 the whole run. Pass: no crash, 0 watchdog lines, aaSkipped > 0, stuck Sims at the end no more than bp-ua-stuck-off (at most one more, none standing at a door or route goal it walked to while unseen); new cases to docs/data/stuck-log.md.",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 32,
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 (counters v156): crash reruns of the 11-02 drain crash on the fixed build",
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        },
+        {
+          "afterSec": 300,
+          "counter": "aaSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "[UnseenAnim] never skipped an unseen Sim pose call"
+        }
+      ]
     }
   ]
 }

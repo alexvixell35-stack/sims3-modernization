@@ -27,7 +27,8 @@
 // (the only clip write of the ClipController flag, `mov [esi+0x5FB],al` at 0x569CC9, replaced by `call RmClipStub; nop`)
 // marks the pass dirty, and the next walk (and the rest of the current one) runs EA's body for every entry, adding new finds
 // to the candidates. 1 Mode 1 pass in 64 is an audit: every walk runs EA's body for every entry and counts a find the rules
-// above would have skipped (rmSlMiss, must stay 0; e.g. a controller with a root-motion clip linked into a tree). Only
+// above would have skipped (rmSlMiss, must stay 0; e.g. a controller with a root-motion clip linked into a tree). v156+:
+// last pass's root-motion set is on the shortlist too (§10.6: the unseenrm5 misses were all in it, walk 1's test no). Only
 // fallback left: shortlist full (> 512) before the first step = the whole pass to EA's code at 0x571C8E.
 // Mode 2 (coarse unseen Sims, docs/228 §11, counters v154 rm2*, ini Mode=2; Rodney 2026-11-02): on EA's own loop (no shortlist),
 // RmStepThunk / RmRemThunk run one pose call per MergeSteps sub-steps with the summed dt for an unseen Sim with root motion
@@ -46,7 +47,7 @@ typedef void(__fastcall* RmStepFn)(void* actor, void* edx, float dt);  // 0x942C
 typedef bool(__fastcall* RmTestFn)(void* actor);                       // 0x93E190
 typedef void(__fastcall* RmInsFn)(void* list, void* edx, void* entry);  // 0x5718C0, thiscall(list; entry), ret 4: link at the head
 typedef void(__fastcall* RmRelFn)(void* owner, void* edx, int del);   // owner vtable +0, thiscall(owner; 1)
-typedef void(__fastcall* Rm2SteerFn)(void* self, void* edx, const float* q16, const float* p16);  // 0x954580, ret 8, movaps reads
+typedef void(__fastcall* Rm2SteerFn)(void* self, void* edx, const float* p16, const float* q16);  // 0x954580, ret 8, movaps reads
 static const DWORD RM_TS_CALL = 0x00571BF3, RM_TS = 0x00942C00, RM_FLAG_CALL = 0x00571C4C, RM_FLAG = 0x00C0FD60,
                    RM_STEP_CALL = 0x00571D20, RM_REM_CALL = 0x00571DDC, RM_POSE = 0x00940430, RM_TEST = 0x0093E190,
                    RM_SUB_AT = 0x00571C83, RM_SUB_EA = 0x00571C8E, RM_SUB_DONE = 0x00571E0A, RM_INS_CALL = 0x009402E3,
@@ -63,7 +64,7 @@ static const float* g_rmRemC = (const float*)(uintptr_t)0x00FC25C4;   // 1/60, r
 static DWORD g_rmJmpEa = RM_SUB_EA, g_rmJmpDone = RM_SUB_DONE;
 enum { RM_SET = 1024, RM_SLMAX = 512 };
 enum { RMZ_PARENT, RMZ_SACS, RMZ_STARTED, RMZ_NEARVIS, RMZ_VIEWER, RMZ_NOAGENT, RMZ_NONE, RMZ_NOGRID };
-static void* g_rmSet[2][RM_SET];  // walk-1 root-motion actors: [g_rmCur] this pass, other = last pass (compared, never read)
+static void* g_rmSet[2][RM_SET];  // walk-1 root-motion actors: [g_rmCur] this pass, other = last pass (also on the shortlist)
 static int g_rmCur, g_rmSlN, g_rmPrevN;
 static bool g_rmSlFull, g_rmIn, g_rmSample;
 static void* g_rmCand[RM_SET];  // this pass: entries linked during it and late root-motion finds (EA's body in every walk)
@@ -72,6 +73,7 @@ static bool g_rmAllFull, g_rmAudit;  // candidates full: every later walk runs E
 // audit miss (rmSlMiss, 2026-11-02 smoke: 1 in 62 audits): the rest of that pass and the 63 passes up to the next audit run EA's
 // full walks (rmSlMissHold counts them), so a late-start path no hook covers is posed as EA does until an audit comes back clean
 static DWORD g_rmMissHold;
+static bool g_rmHeld;  // this pass is a hold pass (rmSlMissHold counts it in RmSubSteps: Mode 1 passes only, not --ab off slices)
 static int g_rmWalkN;  // walks this pass (1 = first sub-step), for the miss log
 static volatile LONG g_rmMissLogs;
 static volatile LONG g_rmDirty, g_rmClipN;  // RmClipStub: a root-motion clip was assigned (since pass start)
@@ -81,7 +83,7 @@ static DWORD g_rmPassN;
 static LARGE_INTEGER g_rmT0, g_rmTw1;
 static LONGLONG g_rmPoseTk, g_rmOwnTk;  // sampled pass: ticks in root-motion pose calls, in the probe's own reads
 static u64 g_rmCarry[72];               // per counter: sub-us remainder (ticks x 1e6 mod qpf), so short calls add up
-static struct { LONG mergeSteps, goalM, portalM, nearVisM, marginPct, leadMs, hystPasses, camIcPasses, place; bool on; } g_rm2;  // Mode 2 (ini Mode=2)
+static struct { LONG mergeSteps, goalM, portalM, nearVisM, marginPct, leadMs, hystPasses, camIcPasses, place, sacsHold; bool on; } g_rm2;  // Mode 2 (ini Mode=2)
 // effective mode: rmMode 0 = probe; nonzero = the ini mode (Mode 2 configured: 2, else 1 only as before; a 2 without Mode 2 = 0)
 static int RmEff() {
     const LONG m = ts3native_counters.rmMode;
@@ -136,7 +138,8 @@ static bool RmPassBegin(float dt) {
     if (g_rmCandN) memset(g_rmCand, 0, sizeof g_rmCand), g_rmCandN = 0;
     g_rmAllFull = false, g_rmAudit = (g_rmPassN & 63) == 8, g_rmDirty = g_rmClipN = 0;  // 8: never a sampled (timed) pass
     g_rmWalkN = 0;
-    if (g_rmMissHold) g_rmMissHold--, g_rmAllFull = true, ts3native_counters.rmSlMissHold++;
+    g_rmHeld = g_rmMissHold != 0;
+    if (g_rmHeld) g_rmMissHold--, g_rmAllFull = true;
     if (g_rm2.on) Rm2PassBegin(dt);
     if (g_rmSample) {  // the probe's floor: 4 bare QPC pairs
         Ts3nCounters& k = ts3native_counters;
@@ -298,8 +301,10 @@ static void Rm2AddMs(LONG* ctr, float* carry, float sec) {
     *ctr += ms, *carry -= (float)ms;
 }
 
-// steering slot 0x10445C0 (0x954580, thiscall(self; q*, p*), ret 8; owner = [self-4]): record, then EA's write
-static void __fastcall Rm2SteerThunk(void* self, void* edx, const float* q, const float* p) {
+// steering slot 0x10445C0 (0x954580, thiscall(self; p*, q*), ret 8; owner = [self-4]): record, then EA's write. Arg order
+// [verified Steam 1.67 disassembly, I-420-17]: 0x954580 builds {[arg2], [arg1]} for 0x959720 -> 0x959670, which compares
+// +0 on 4 lanes (movmskps == 0xF, transform +0x10 = rotation) and +0x10 on 3 lanes (& 7, transform +0x20 = position)
+static void __fastcall Rm2SteerThunk(void* self, void* edx, const float* p, const float* q) {
     if (g_rm2.on && GetCurrentThreadId() == g_aaTid) {
         Ts3nCounters& k = ts3native_counters;
         __try {
@@ -308,10 +313,10 @@ static void __fastcall Rm2SteerThunk(void* self, void* edx, const float* q, cons
             memcpy(r.q, q, 16), memcpy(r.p, p, 16), r.owner = owner, r.self = self, r.pass = g_rmPassN;
             k.rm2RouteRecs++;
             const float n2 = q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3];
-            if (!(n2 > 0.81f && n2 < 1.21f)) k.rm2QuatBad++;  // arg order check: arg 1 must be a unit quaternion (I-420-17)
+            if (!(n2 > 0.81f && n2 < 1.21f)) k.rm2QuatBad++;  // arg order check: arg 2 must be a unit quaternion (I-420-17)
         } __except (EXCEPTION_EXECUTE_HANDLER) { k.rm2Faults++; }
     }
-    g_rm2SteerOrig(self, edx, q, p);
+    g_rm2SteerOrig(self, edx, p, q);
 }
 // the write the agent made in the locomotion pass just before this anim pass (stamped with the previous pass number)
 static Rm2Route* Rm2RouteOf(void* owner) {
@@ -448,6 +453,34 @@ static bool Rm2NearVis(const float* p) {
     }
     return false;
 }
+// SACS hold (docs/228 §11.7, I-419-1). Component [0x11E90F0] +8/+0xC = mDrivers (StateMachineDriver*, refcount +4); per
+// driver the actor slots at +0x10/+0x14 ({name hash, slot*}, 8 bytes; 0x8040B0 / 0x800470 / 0x800740), slot +8 = actor
+// holder, holder +0x10/+0x14 = bound object id (0x581F70 writes [obj+8]/[obj+0xC], 0x581560 tests it) [verified Steam 1.67
+// disassembly]. Histograms per decision: drivers 0..3+, most bound actors in one driver 0..4+. Mode 2 = hold when one
+// driver binds 2+ actors (the Sim plus an object / Sim), 1 = old test (any driver), 0 = never; caller catches faults
+static bool Rm2SacsHold(const u8* sc, LONG mode) {
+    Ts3nCounters& k = ts3native_counters;
+    int n = 0, best = 0;
+    if (sc) {
+        void* const* d = *(void* const* const*)(sc + 8);
+        void* const* const de = *(void* const* const*)(sc + 0xC);
+        for (; d < de && n < 64; d++, n++) {
+            const u8* drv = (const u8*)*d;
+            if (!drv) continue;
+            const u8* s = *(const u8* const*)(drv + 0x10);
+            const u8* const se = *(const u8* const*)(drv + 0x14);
+            int a = 0;
+            for (int i = 0; s < se && i < 64; s += 8, i++) {
+                const u8* slot = *(const u8* const*)(s + 4);
+                const u8* h = slot ? *(const u8* const*)(slot + 8) : NULL;
+                if (h && (*(const DWORD*)(h + 0x10) | *(const DWORD*)(h + 0x14))) a++;
+            }
+            if (a > best) best = a;
+        }
+    }
+    k.rm2SacsDrv[n < 3 ? n : 3]++, k.rm2SacsAct[best < 4 ? best : 4]++;
+    return mode == 2 ? best >= 2 : mode == 1 && n > 0;
+}
 // first exact reason for a root-motion actor this pass, or -1 (coarse-eligible); cheapest tests first
 static int Rm2WhyGame(void* actor) {
     Ts3nCounters& k = ts3native_counters;
@@ -469,8 +502,7 @@ static int Rm2WhyGame(void* actor) {
     if (Rm2InMargin(pos)) return RM2_MARGIN;
     if (par || UtHeldObj(owner)) return RM2_PARENT;
     __try {
-        const u8* sc = (const u8*)g_unComp(owner, NULL, *g_aaBitSacs);
-        if (sc && *(void* const*)(sc + 8) != *(void* const*)(sc + 0xC)) return RM2_SACS;
+        if (Rm2SacsHold((const u8*)g_unComp(owner, NULL, *g_aaBitSacs), g_rm2.sacsHold)) return RM2_SACS;
     } __except (EXCEPTION_EXECUTE_HANDLER) { k.rm2Faults++; return RM2_SACS; }
     if (g_rmSlFull || !RmHas(g_rmSet[g_rmCur], actor) || !RmHas(g_rmSet[g_rmCur ^ 1], actor)) return RM2_STARTED;
     if (Rm2NearVis(pos)) return RM2_NEARVIS;
@@ -542,7 +574,7 @@ static void Rm2Place(void* actor) {
     if (!r) return;
     __declspec(align(16)) float q[4], p[4];
     memcpy(q, r->q, 16), memcpy(p, r->p, 16);
-    __try { g_rm2SteerOrig(r->self, NULL, q, p); k.rm2Placed++; } __except (EXCEPTION_EXECUTE_HANDLER) { k.rm2Faults++; }
+    __try { g_rm2SteerOrig(r->self, NULL, p, q); k.rm2Placed++; } __except (EXCEPTION_EXECUTE_HANDLER) { k.rm2Faults++; }
 }
 // the actor turned exact with owed steps: run them one EA step each before its normal step
 static void Rm2Snap(void* actor, Rm2Slot* s) {
@@ -658,7 +690,8 @@ static void RmMiss(const u8* e, const u8* owner) {
         RmHas(g_rmSet[g_rmCur ^ 1], (void*)e) ? 1 : 0, g_rmPassN, g_rmWalkN, g_rmAudit ? 1 : 0);
 }
 // One walk with EA's cursor protocol (cursor at list +0x10 always points at the next entry, so an entry unlinked by a pose
-// call is skipped as in EA). EA's per-actor body runs for flagged actors, candidates and bit-15 actors; for every entry when
+// call is skipped as in EA). EA's per-actor body runs for flagged actors, candidates, last pass's root-motion actors and
+// bit-15 actors (a superset: an entry EA's test says no for gets only the refcount pair and the test, as in EA); for every entry when
 // the walk is full (audit, candidates full) or dirty (a root-motion clip was assigned since the last walk start, or by a
 // pose call earlier in this walk: then the flag stays set, so the next walk covers the entries before that point).
 static void RmSlWalk(u8* list, float step) {
@@ -678,8 +711,10 @@ static void RmSlWalk(u8* list, float step) {
         *cur = nx ? nx - 0x18 : NULL;
         if (!dirty && g_rmDirty) dirty = true, k.rmSlFullWalks += full ? 0 : 1;
         const bool known = RmHas(g_rmSet[g_rmCur], e) || (g_rmCandN && RmHas(g_rmCand, e));  // flagged in walk 1 or a candidate
+        // last pass's root-motion actors (docs/228 §10.6, I-228-12: walk 1 says no, a later walk says yes; 5 of 5 unseenrm5 misses)
+        const bool prev = !known && RmHas(g_rmSet[g_rmCur ^ 1], e);
         const bool b15 = (*(const DWORD*)(e + 0x2C) & 0x8000) != 0;
-        if (!known && !b15 && !full && !dirty) continue;
+        if (!known && !prev && !b15 && !full && !dirty) continue;
         u8* const owner = *(u8**)(e + 4);
         if (owner) InterlockedIncrement((LONG*)(owner + 4));
         if (g_rmTest(e)) {
@@ -688,7 +723,7 @@ static void RmSlWalk(u8* list, float step) {
                 if (!known) {  // a late find (rmLateRm counts the calls)
                     k.rmSlLate++;
                     if (b15 && !full && !dirty) k.rmSlBit15++;
-                    if (!b15 && !dirty && !g_rmAllFull) k.rmSlMiss++, RmMiss(e, owner);  // only an audit walk gets here
+                    if (!prev && !b15 && !dirty && !g_rmAllFull) k.rmSlMiss++, RmMiss(e, owner);  // only an audit walk gets here
                     RmCandAdd(e);
                 }
                 RmPose(e, NULL, step);
@@ -709,6 +744,7 @@ static int __cdecl RmSubSteps(u8* list, float* dt) {
     if (g_rmSlFull) { k.rmSlFallback[1]++; return 0; }
     k.rmSlPasses++;
     if (g_rmAudit) k.rmSlAudit++;
+    if (g_rmHeld) k.rmSlMissHold++;
     const float c = *g_rmStepC;
     float d = *dt;
     while (d >= c) d -= c, RmSlWalk(list, c);
@@ -748,6 +784,7 @@ static bool ApplyUnseenRootMotion(const wchar_t* ini) {
     g_rm2.mergeSteps = in(L"MergeSteps", 4, 2, 8), g_rm2.goalM = in(L"GoalM", 3, 0, 30), g_rm2.portalM = in(L"PortalM", 3, 0, 30);
     g_rm2.nearVisM = in(L"NearVisM", 10, 0, 50), g_rm2.marginPct = in(L"MarginPct", 25, 0, 100), g_rm2.leadMs = in(L"LeadMs", 500, 0, 3000);
     g_rm2.hystPasses = in(L"HystPasses", 8, 0, 64), g_rm2.camIcPasses = in(L"CamIcPasses", 30, 0, 300), g_rm2.place = in(L"Place", 0, 0, 1);
+    g_rm2.sacsHold = k.rm2SacsHold = in(L"SacsHold", 2, 0, 2);
     const CallSite sites[] = {{RM_TS_CALL, RM_TS, (void*)RmTsThunk}, {RM_FLAG_CALL, RM_FLAG, (void*)RmFlagThunk},
                               {RM_STEP_CALL, RM_POSE, (void*)RmStepThunk}, {RM_REM_CALL, RM_POSE, (void*)RmRemThunk}};
     if (!PatchCalls("unseen root motion (0x571BF3, 0x571C4C, 0x571D20, 0x571DDC)", sites, 4)) return true;

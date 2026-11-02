@@ -6,7 +6,9 @@
 // (0x5718C0). Checks: EA's step count for k ticks; the Mode 1 shortlist walks call the pose in exactly EA's order with EA's
 // dts (reference loop below) for an unchanged list, an entry linked after walk 1 (insert hook), an unlink inside a walk, a
 // root-motion start by a pose call after the victim's walk-1 test (clip dirty; victim later and earlier in the list), a
-// bit-15 start, and an audit pass that steps an unhooked start and counts it in rmSlMiss; off and full shortlist hand
+// bit-15 start, an unhooked start of an actor in last pass's root-motion set (stepped, no miss: v156 superset, docs/228
+// §10.6), and an audit pass that steps an unhooked start and counts it in rmSlMiss, then the 63-pass hold (counted in Mode 1
+// passes); off and full shortlist hand
 // everything to EA; refcount pair and release as EA; rmLateRm; flips; one sampled pass (v153, docs/228 §10).
 struct RmFakeOwner { void** vt; LONG ref; };
 static LONG g_rmFakeRel;
@@ -198,14 +200,21 @@ static void TestUnseenRootMotion() {
     // bit 15 set by a pose call, no clip assignment: found by the bit read
     const LONG b15 = k.rmSlBit15;
     assert(versus(RMF_START_B15, ent[1], ent[3], 0) == 1 && k.rmSlBit15 >= b15 + 1);
+    // unhooked start of an actor in last pass's root-motion set (unseenrm5 misses: walk 1 no, a sub-step yes): on the
+    // shortlist through last pass's set, stepped as EA does, a late find, no miss (and no audit needed)
+    const LONG late3 = k.rmSlLate;
+    RmAdd(g_rmSet[g_rmCur], ent[3]);  // becomes "last pass" at the next RmPassBegin
+    assert(versus(RMF_START_SILENT, ent[1], ent[3], 0) == 1 && k.rmSlMiss == miss && k.rmSlLate >= late3 + 1);
     // audit pass (pass 8 of 64): a start no hook sees is stepped as EA does and counted as a miss
     const LONG aud = k.rmSlAudit;
     assert(versus(RMF_START_SILENT, ent[1], ent[3], 7) == 1 && k.rmSlAudit == aud + 1 && k.rmSlMiss == miss + 1);
     // the miss holds EA's full walks up to the next audit (2026-11-02 smoke rmSlMiss=1): next pass starts all-full, counted
     const LONG mh = k.rmSlMissHold;
     assert(g_rmMissHold == 63 && g_rmMissLogs >= 1);
-    g_rmMissHold = 1, RmPassBegin(c30);
-    assert(g_rmAllFull && g_rmMissHold == 0 && k.rmSlMissHold == mh + 1);
+    build(6), g_rmMissHold = 1, g_rmFakeN = 0;
+    walk1(c30);
+    float dh = c30;
+    assert(g_rmAllFull && g_rmMissHold == 0 && g_rmHeld && RmSubSteps(list, &dh) == 1 && k.rmSlMissHold == mh + 1);
     RmPassEnd(), g_rmMissLogs = 0;
     g_rmFakeAct = 0, g_rmFakeTrigger = NULL;
 
@@ -257,10 +266,12 @@ static void TestUnseenRootMotion() {
 static int g_rm2FakeWhy[2];
 static u8 g_rm2FakeAct[2][0x30];
 static int Rm2FakeWhy(void* a) { return a == g_rm2FakeAct[0] ? g_rm2FakeWhy[0] : a == g_rm2FakeAct[1] ? g_rm2FakeWhy[1] : -1; }
+static const float *g_rm2FakeSteerP, *g_rm2FakeSteerQ;
+static void __fastcall Rm2FakeSteer(void*, void*, const float* p, const float* q) { g_rm2FakeSteerP = p, g_rm2FakeSteerQ = q; }
 static void TestUnseenRootMotion2() {
     static_assert(offsetof(Ts3nCounters, rm2Why) == 0x5984 && offsetof(Ts3nCounters, rm2Elig) == 0x59C4 &&
                   offsetof(Ts3nCounters, rm2DriftN) == 0x5A00 && offsetof(Ts3nCounters, rm2Faults) == 0x5A48 &&
-                  offsetof(Ts3nCounters, rm2EndN) == 0x5A4C && offsetof(Ts3nCounters, rm2End30) == 0x5A54 && sizeof(Ts3nCounters) == 0x5A98, "counters v154 layout after v153 (docs/registry.md)");
+                  offsetof(Ts3nCounters, rm2EndN) == 0x5A4C && offsetof(Ts3nCounters, rm2End30) == 0x5A54 && sizeof(Ts3nCounters) == 0x5AC0, "counters v154 layout after v153 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     static Ts3nCounters saved;
     memcpy(&saved, &k, sizeof k);
@@ -432,7 +443,7 @@ static void TestUnseenRootMotion2() {
     // v155 script camera ICs: a hit asks CamIcPasses + lerp time x 30 (atomic max), the next pass start takes it; a jump
     // during a longer IC hold keeps the longer one; NaN / > 10 s lerp times add nothing
     static_assert(offsetof(Ts3nCounters, rm2CamIc) == 0x5A5C && offsetof(Ts3nCounters, rm2CamIcOff) == 0x5A88 &&
-                  sizeof(Ts3nCounters) == 0x5A98 && RM2_IC_N == 11, "counters v155 layout after v154 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 0x5AC0 && RM2_IC_N == 11, "counters v155 layout after v154 (docs/registry.md)");
     for (int i = 0; i < 4; i++) Rm2CamStep(cpos, ctgt, 300, true, 0.05f);
     assert(g_rm2Cam.hold == 0);
     const LONG ic1 = k.rm2CamIc[1], ic9 = k.rm2CamIc[9];
@@ -453,11 +464,52 @@ static void TestUnseenRootMotion2() {
     g_rm2IcHold = 0;
     memset(&g_rm2Cam, 0, sizeof g_rm2Cam);
 
+    // v157 steering record: 0x954580 is thiscall(self; p*, q*) [verified, I-420-17]; a synthetic write records q as a unit
+    // quaternion (rm2QuatBad unchanged) and calls EA's in the same order; swapped arguments count as bad
+    static_assert(offsetof(Ts3nCounters, rm2SacsHold) == 0x5A98 && offsetof(Ts3nCounters, rm2SacsAct) == 0x5AAC &&
+                  sizeof(Ts3nCounters) == 0x5AC0, "counters v157 layout after v156 (docs/registry.md)");
+    {
+        static u8 steer[8];
+        *(void**)steer = rig;  // owner = [self - 4]
+        __declspec(align(16)) static const float p[4] = {10, 20, 30, 0}, q[4] = {0, 0, 0.70710678f, 0.70710678f};
+        const Rm2SteerFn so = g_rm2SteerOrig;
+        g_rm2SteerOrig = Rm2FakeSteer, g_rm2.on = true;
+        const LONG recs = k.rm2RouteRecs, bad = k.rm2QuatBad;
+        Rm2SteerThunk(steer + 4, NULL, p, q);
+        const Rm2Route& r = g_rm2Route[RmHash(rig) & (RM2_ROUTES - 1)];
+        assert(k.rm2RouteRecs == recs + 1 && k.rm2QuatBad == bad && r.owner == rig && !memcmp(r.q, q, 16) && !memcmp(r.p, p, 16));
+        assert(g_rm2FakeSteerP == p && g_rm2FakeSteerQ == q);
+        Rm2SteerThunk(steer + 4, NULL, q, p);  // swapped: arg 2 (p) is not unit length
+        assert(k.rm2QuatBad == bad + 1 && k.rm2RouteRecs == recs + 2);
+        g_rm2SteerOrig = so;
+        memset(g_rm2Route, 0, sizeof g_rm2Route);
+    }
+    // v157 SACS hold on a fake component (docs/228 §11.7): driver A binds the Sim only; driver B binds the Sim and an object
+    // (id high word only) next to an unbound slot
+    {
+        static u8 hs[3][0x18], sl[3][0xC], drvA[0x18], drvB[0x18], sc[0x10];
+        static void *slotsA[2], *slotsB[6], *drivers[2];
+        *(DWORD*)(hs[0] + 0x10) = 7, *(DWORD*)(hs[1] + 0x14) = 9;  // hs[2] unbound (id 0)
+        for (int i = 0; i < 3; i++) *(void**)(sl[i] + 8) = hs[i];
+        slotsA[1] = sl[0], slotsB[1] = sl[0], slotsB[3] = sl[2], slotsB[5] = sl[1];
+        *(void**)(drvA + 0x10) = slotsA, *(void**)(drvA + 0x14) = slotsA + 2;
+        *(void**)(drvB + 0x10) = slotsB, *(void**)(drvB + 0x14) = slotsB + 6;
+        drivers[0] = drvA, drivers[1] = drvB;
+        const auto comp = [&](int n) { *(void**)(sc + 8) = drivers, *(void**)(sc + 0xC) = drivers + n; return (const u8*)sc; };
+        LONG d[4], a[5];
+        memcpy(d, k.rm2SacsDrv, sizeof d), memcpy(a, k.rm2SacsAct, sizeof a);
+        assert(!Rm2SacsHold(NULL, 2) && !Rm2SacsHold(comp(0), 1));                                   // 0 drivers, 0 actors (x2)
+        assert(!Rm2SacsHold(comp(1), 2) && Rm2SacsHold(comp(1), 1) && !Rm2SacsHold(comp(1), 0));    // 1 driver, 1 actor (x3)
+        assert(Rm2SacsHold(comp(2), 2) && !Rm2SacsHold(comp(2), 0));                                 // 2 drivers, 2 actors (x2)
+        assert(k.rm2SacsDrv[0] == d[0] + 2 && k.rm2SacsDrv[1] == d[1] + 3 && k.rm2SacsDrv[2] == d[2] + 2 && k.rm2SacsDrv[3] == d[3]);
+        assert(k.rm2SacsAct[0] == a[0] + 2 && k.rm2SacsAct[1] == a[1] + 3 && k.rm2SacsAct[2] == a[2] + 2 && k.rm2SacsAct[4] == a[4]);
+    }
+
     g_rmTsOrig = tsSave, g_rmPoseOrig = poseSave, g_rmTest = testSave, g_rmStepC = cSave, g_rmRemC = rSave, g_rm2WhyFn = Rm2WhyGame;
     g_aaTid = tidSave, g_rmIn = false, g_rm2 = rm2Save;
     memset(g_rm2Slot, 0, sizeof g_rm2Slot), g_rm2Open = 0, g_rm2DtCarry = g_rm2LostCarry = 0, memset(g_rm2Vis, 0, sizeof g_rm2Vis);
     memset(g_rmSet, 0, sizeof g_rmSet), memset(g_rmCand, 0, sizeof g_rmCand), g_rmCandN = 0, memset(g_rmCarry, 0, sizeof g_rmCarry);
     memcpy(&k, &saved, sizeof k);
     printf("unseen root motion Mode 2: layout, RmEff, hysteresis, merge 4/4/2 (+remainder, k=1), off arm, snap, lost, reason "
-           "reset, slot taken, camera found/jump/reach/lost, margin radius ok\n");
+           "reset, slot taken, camera found/jump/reach/lost, margin radius, steer arg order, SACS hold 0/1/2 ok\n");
 }

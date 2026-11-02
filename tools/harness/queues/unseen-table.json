@@ -2,9 +2,9 @@
   "note": "unseen-table: docs/227 §6 [UnseenTable] (ts3native 0.36.155 v149 + ts3fixes UnseenTable.cs 744-749, off by default), NOT RUN. Build feature/unseen-table (both commits), copy native/ts3native/out-*/ts3native.asi to game-copy/ts3native.asi.unseentable1 and the ts3fixes package to game-copy/ts3fixes.package.unseentable1. Order: smoke (auto), bp-utb-check + ip-utb-check (correctness + mismatch counters, Check=1), then the 4 in-load A/Bs (Check=0, probe on in both arms). Stop rule: unsafe mismatches >= 0.1% or utbMiss >= 20% in a check job = stop, triage the rule difference (static first) before the A/Bs. Run: node tools/harness/queue.ts tools/harness/queues/unseen-table.json docs/227 §8 (feature/utb-lazy): bp-utb-ttl-check then bp-utb-ttl-ab need game-copy/ts3native.asi.utblazy1 (build feature/utb-lazy); without that asi skip them (queue.ts --only to pick). 2026-11-02 utb2 section (unseenrm2 build, master 4c0e0f41, NOT RUN): bp-utb2-check, bp/ip-utb2-cost (vs bp/ip-utb-cost 2026-11-02), bp-utb2-copy-ab (--ab unseentablecopy), bp-utb2-ttl-ab (RefreshTicks 1 vs 4); run with --only bp-utb2-check,bp-utb2-cost,ip-utb2-cost,bp-utb2-copy-ab,bp-utb2-ttl-ab.",
   "smoke": {
     "note": "Measurement smoke (AGENTS.md): BP Spring 4 min, --ab unseentable,unseenposcache 1-min slices, Check=0. Pass: both arms in the per-arm split, unseentable + unseenposcache read back off / on per slice, utbReady 3, utbBuilds and utbFetches grow only in on slices, unseentable_answers > 0, heavy tools off (HitchAttr + the light UnseenCost probe), no crash. A FAIL stops the queue.",
-    "asi": "game-copy/ts3native.asi.unseenrm5",
+    "asi": "game-copy/ts3native.asi.unseenrm6",
     "save": "Baseline-BP-Spring",
-    "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+    "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
     "ini": {
       "SlotEnabledRO.Enabled": 1,
       "SlotEnabledRO.Mode": 1,
@@ -47,7 +47,7 @@
       "-disablestoryprogression"
     ],
     "timeoutMin": 15,
-    "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+    "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
     "nativeRequire": "utbBuilds>=1,utbFetches>=1,ucAsks>=1",
     "earlyGates": [
       {
@@ -70,9 +70,9 @@
     {
       "id": "bp-utb-check",
       "note": "Correctness + mismatch check: repro unseen-snapback (the in-game camera jumps onto unseen Sims), [UnseenTable] Mode=1 Check=1 the whole run (every table answer also runs the old rule), [UnseenAnim] + [UnseenThrottle] on so UnObjClass has its consumers. Pass: no crash, utbFaults 0, utbMiss / (utbHits + utbMiss) < 20% (else the agent-list walk misses Sims, I-418-4), unsafe mismatches utbMisUnsafe / utbHits < 0.1% and unseentable_mis_unsafe / unseentable_compared < 0.1% (I-418-5; safe-direction mismatches are expected: wider sphere and reach), unseen_snapback summary passes.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "UnseenProbe.Enabled": 1,
         "UnseenThrottle.Enabled": 1,
@@ -106,7 +106,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 40,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 150,
@@ -129,9 +129,9 @@
     {
       "id": "ip-utb-check",
       "note": "Mismatch check on IP: Baseline-IP 10 min, no --ab, [UnseenTable] Mode=1 Check=1; pass rules as bp-utb-check (no snap-back repro).",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-IP",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -172,7 +172,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 150,
@@ -195,9 +195,9 @@
     {
       "id": "bp-utb-ab",
       "note": "[UnseenTable] in-load A/B, 10 min, --ab unseentable,unseenposcache (off arm = old checks, on arm = table + per-tick caches) 2-min slices, off first, Check=0, [UnseenCost] probe on in both arms (per-site unseen-check cost old vs table: unseen-cost-report.ts). Verdict: script + native unseen-check ms/s off minus on (minus utbBuildUs), sim ms/s, hitch-ab.ts counts; gain needs > noise, else keep only for the one-rule consistency.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -240,7 +240,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 150,
@@ -262,9 +262,9 @@
     {
       "id": "bp-utb-ttl-check",
       "note": "docs/227 §8 RefreshTicks=4 correctness: as bp-utb-check (repro unseen-snapback: camera jumps onto unseen Sims, Check=1) with rows kept 4 pumps. Pass: as bp-utb-check (utbMisUnsafe / utbHits < 0.1%, unseentable_mis_unsafe / unseentable_compared < 0.1%), utbForced > 0 (the snap-back camera jumps start generations early), utbLazyHits > 0. Unsafe >= 0.1% = stop, keep RefreshTicks=1.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "UnseenProbe.Enabled": 1,
         "UnseenThrottle.Enabled": 1,
@@ -299,7 +299,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 40,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 150,
@@ -320,7 +320,7 @@
           "counter": "utbTtlMode",
           "op": "==",
           "value": 1,
-          "why": "unseenrm5 asi not loaded (no v152 utbTtlMode) or RefreshTicks switch not set"
+          "why": "unseenrm6 asi not loaded (no v152 utbTtlMode) or RefreshTicks switch not set"
         }
       ],
       "nativeRequire": "utbBuilds>=1,utbHits>=1,utbFetches>=1,utbLazyHits>=1,utbForced>=1,ucN_0>=1",
@@ -329,9 +329,9 @@
     {
       "id": "bp-utb-ttl-ab",
       "note": "docs/227 §8 RefreshTicks A/B, 10 min, --ab unseentablettl 2-min slices off first (off arm = a generation per pump, on arm = RefreshTicks=4), table on in both arms (Mode=1), Check=0, [UnseenCost] probe on in both arms. Verdict: native unseen ms/s (utbRowSampUs10 x 16 / 10 + utbBuildUs per s) and script unseen-check ms/s off minus on, sim ms/s, hitch-ab.ts p99/p99.9/max; utbRowCalc per s should drop ~4x in the on arm. Run only after bp-utb-ttl-check passes.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -375,7 +375,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 150,
@@ -398,9 +398,9 @@
     {
       "id": "bp-utb-ab-onfirst",
       "note": "[UnseenTable] in-load A/B, 10 min, --ab unseentable,unseenposcache (off arm = old checks, on arm = table + per-tick caches) 2-min slices, on first, Check=0, [UnseenCost] probe on in both arms (per-site unseen-check cost old vs table: unseen-cost-report.ts). Verdict: script + native unseen-check ms/s off minus on (minus utbBuildUs), sim ms/s, hitch-ab.ts counts; gain needs > noise, else keep only for the one-rule consistency.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -444,7 +444,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 150,
@@ -466,9 +466,9 @@
     {
       "id": "ip-utb-ab",
       "note": "[UnseenTable] in-load A/B, 10 min, --ab unseentable,unseenposcache (off arm = old checks, on arm = table + per-tick caches) 2-min slices, off first, Check=0, [UnseenCost] probe on in both arms (per-site unseen-check cost old vs table: unseen-cost-report.ts). Verdict: script + native unseen-check ms/s off minus on (minus utbBuildUs), sim ms/s, hitch-ab.ts counts; gain needs > noise, else keep only for the one-rule consistency.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-IP",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -511,7 +511,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 150,
@@ -533,9 +533,9 @@
     {
       "id": "ip-utb-ab-onfirst",
       "note": "[UnseenTable] in-load A/B, 10 min, --ab unseentable,unseenposcache (off arm = old checks, on arm = table + per-tick caches) 2-min slices, on first, Check=0, [UnseenCost] probe on in both arms (per-site unseen-check cost old vs table: unseen-cost-report.ts). Verdict: script + native unseen-check ms/s off minus on (minus utbBuildUs), sim ms/s, hitch-ab.ts counts; gain needs > noise, else keep only for the one-rule consistency.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-IP",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -579,7 +579,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 150,
@@ -601,9 +601,9 @@
     {
       "id": "bp-utb-cost",
       "note": "Cost probe with table + caches on, compare per site with unseen-cost-probe-2026-11-02 bp-uc-probe (BP 10.2 ms/s, IP 7.4 ms/s total): same ini/switches as that job plus [UnseenTable] Mode=1 Check=0 and unseenposcache. Read: node tools/harness/unseen-cost-report.ts unseen-table-<date>-bp-utb-cost.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -651,7 +651,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -680,9 +680,9 @@
     {
       "id": "ip-utb-cost",
       "note": "Cost probe with table + caches on, compare per site with unseen-cost-probe-2026-11-02 ip-uc-probe (BP 10.2 ms/s, IP 7.4 ms/s total): same ini/switches as that job plus [UnseenTable] Mode=1 Check=0 and unseenposcache. Read: node tools/harness/unseen-cost-report.ts unseen-table-<date>-ip-utb-cost.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-IP",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -730,7 +730,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -759,9 +759,9 @@
     {
       "id": "bp-utb2-check",
       "note": "docs/227 §8-9 lazy table correctness on unseenrm2: as bp-utb-ttl-check (repro unseen-snapback, Check=1, RefreshTicks=4, unseenposcache on) with the zero-copy Bits(id) script reads (default; unseentablecopy off). Pass: utbMisUnsafe / utbHits < 0.1%, unseentable_mis_unsafe / unseentable_compared < 0.1%, utbForced > 0, utbLazyHits > 0, unseencost_utlookup_calls > 0 (zero-copy path ran), utfetch 0. Unsafe >= 0.1% = stop, no utb2 A/B.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "UnseenProbe.Enabled": 1,
         "UnseenThrottle.Enabled": 1,
@@ -796,7 +796,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 40,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 150,
@@ -817,7 +817,7 @@
           "counter": "utbTtlMode",
           "op": "==",
           "value": 1,
-          "why": "unseenrm5 asi not loaded (no v152 utbTtlMode) or RefreshTicks switch not set"
+          "why": "unseenrm6 asi not loaded (no v152 utbTtlMode) or RefreshTicks switch not set"
         }
       ],
       "nativeRequire": "utbBuilds>=1,utbHits>=1,utbLazyHits>=1,utbForced>=1,ucN_0>=1",
@@ -825,10 +825,10 @@
     },
     {
       "id": "bp-utb2-cost",
-      "note": "Cost probe on unseenrm2, table + caches on, RefreshTicks=4, zero-copy reads: same ini/switches as bp-utb-cost of 2026-11-02 plus RefreshTicks=4 and the new build, so per-site ms/s compare 1:1 (expect ufwhy below 4.3 ms/s, utlookup mean < 0.5 us, docs/227 §9). Read: node tools/harness/unseen-cost-report.ts unseen-table-<date>-bp-utb2-cost.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "note": "Cost probe on unseenrm2, table + caches on, RefreshTicks=4, zero-copy reads: same ini/switches as bp-utb-cost of 2026-11-02 plus RefreshTicks=4 and the new build, so per-site ms/s compare 1:1 (expect ufwhy below 4.3 ms/s, utlookup mean < 0.5 us, docs/227 §9). Read: node tools/harness/unseen-cost-report.ts unseen-table-<date>-bp-utb2-cost. 11-02: ucAsks dropped from nativeRequire: it counts only UnObjClassOld (old rule), which the table answers bypass with Check=0 (both 11-02 07:09 runs FAILed on ucAsks=0 only).",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -877,7 +877,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -905,17 +905,17 @@
           "counter": "utbTtlMode",
           "op": "==",
           "value": 1,
-          "why": "unseenrm5 asi not loaded (no v152 utbTtlMode) or RefreshTicks switch not set"
+          "why": "unseenrm6 asi not loaded (no v152 utbTtlMode) or RefreshTicks switch not set"
         }
       ],
-      "nativeRequire": "utbBuilds>=1,utbHits>=1,ucAsks>=1"
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
     },
     {
       "id": "ip-utb2-cost",
-      "note": "As bp-utb2-cost on IP: compare with ip-utb-cost of 2026-11-02. Read: node tools/harness/unseen-cost-report.ts unseen-table-<date>-ip-utb2-cost.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "note": "As bp-utb2-cost on IP: compare with ip-utb-cost of 2026-11-02. Read: node tools/harness/unseen-cost-report.ts unseen-table-<date>-ip-utb2-cost. 11-02: ucAsks dropped from nativeRequire: it counts only UnObjClassOld (old rule), which the table answers bypass with Check=0 (both 11-02 07:09 runs FAILed on ucAsks=0 only).",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-IP",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -964,7 +964,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -992,17 +992,17 @@
           "counter": "utbTtlMode",
           "op": "==",
           "value": 1,
-          "why": "unseenrm5 asi not loaded (no v152 utbTtlMode) or RefreshTicks switch not set"
+          "why": "unseenrm6 asi not loaded (no v152 utbTtlMode) or RefreshTicks switch not set"
         }
       ],
-      "nativeRequire": "utbBuilds>=1,utbHits>=1,ucAsks>=1"
+      "nativeRequire": "utbBuilds>=1,utbHits>=1"
     },
     {
       "id": "bp-utb2-copy-ab",
       "note": "docs/227 §9 copy vs zero-copy A/B on unseenrm2, 10 min, --ab unseentablecopy 2-min slices off first (off arm = zero-copy Bits(id) per ask, on arm = the §6 per-tick copy of every row), RefreshTicks=4, table on (Mode=1), Check=0, [UnseenCost] on in both arms. Verdict: script ufwhy + utlookup/utfetch ms/s per arm, native utb ms/s, sim ms/s, hitch-ab.ts p99/p99.9/max. Run only after bp-utb2-check passes.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -1046,7 +1046,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 150,
@@ -1067,7 +1067,7 @@
           "counter": "utbTtlMode",
           "op": "==",
           "value": 1,
-          "why": "unseenrm5 asi not loaded (no v152 utbTtlMode) or RefreshTicks switch not set"
+          "why": "unseenrm6 asi not loaded (no v152 utbTtlMode) or RefreshTicks switch not set"
         }
       ],
       "nativeRequire": "utbBuilds>=1,utbRowCalc>=1,ucAsks>=1"
@@ -1075,9 +1075,9 @@
     {
       "id": "bp-utb2-ttl-ab",
       "note": "docs/227 §8 RefreshTicks 1 vs 4 A/B on unseenrm2 (zero-copy reads), 10 min, --ab unseentablettl 2-min slices off first (off = a generation per pump = RefreshTicks 1, on = RefreshTicks=4), table on, Check=0, [UnseenCost] on. Verdict as bp-utb-ttl-ab: native unseen ms/s, script unseen ms/s, sim ms/s, hitch p99/p99.9/max; utbRowCalc per s ~4x lower in the on arm. Run only after bp-utb2-check passes.",
-      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "asi": "game-copy/ts3native.asi.unseenrm6",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -1121,7 +1121,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 150,

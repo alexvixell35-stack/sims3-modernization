@@ -415,6 +415,41 @@ Gain then = `coarse-eligible rmUs x (1 - 1/MergeSteps)` (Mode 2) and `~rmWalkUs 
 
 The unseenrm4 smoke PASSed with `rmSlMiss` 1 in 62 audits (`rmLateRm` 770, `rmSlClip` 4,471, `rmSlFullWalks` 2,296, fallbacks 0): one root-motion actor was neither flagged in walk 1, a candidate, nor bit 15, nor caught by a clip assignment, so a normal Mode 1 pass would have skipped its sub-steps. Path unknown (I-421-7). Since 0.36.163 a miss logs one line (first 16: actor, owner and handle, owner vtable, Sim or not, flags `[+0x2C]` with bits 15 / 31, rig and TrackManager, root-motion clip assigns this pass and the dirty flag, in last pass's set, pass and walk index) and is made safe: the rest of that pass and the 63 passes up to the next audit run EA's full walks (`rmSlMissHold`), so the uncovered path is posed as EA does until an audit comes back clean. Gain is lost only for those passes.
 
+### 10.6 unseenrm5 misses: last pass's root-motion actors (2026-11-02; written, not compiled while a queue ran)
+
+unseenrm5 smoke (BP, 4 min): `rmSlPasses` 5,295, audits 81, `rmSlMiss` 5, `rmLateRm` 1,593, fallbacks 0. All five miss lines
+alike: Sim actor (owner vtable `0x1042CA8`), flags `[+0x2C]` `0x10C` (bit 15 and bit 31 clear), no root-motion clip assignment
+this pass (dirty 0), **in last pass's set**. So each was a root-motion actor last pass, walk 1's test said no, a later walk's
+test said yes.
+
+Why walk 1 and the sub-step test disagree [verified disassembly, Steam 1.67]: the test is the same function both times.
+Walk 1 (`0x571BF3..0x571C51`): time step `0x942C00` (only `0x935810` on the owner, refcount pair), then `has rig = [e+0x24] &&
+[[e+0x24]+0xB0] && dt > 0`, then `0x93E190`; the flag is set only for test yes and has rig. `0x93E190` = bit 15 of `[e+0x2C]`,
+else with a rig and TrackManager tail-jumps to `0x582830`, which walks the TrackManager's track list (`[tm+4]`, node `+8` =
+track) and returns yes when any track's vtable `+0x2C` does; for a ClipController that is `0x5681C0` = `mov al,[ecx+0x5FB]`.
+`+0x5FB` is written only by the clip assign `0x569CC9` (hooked, 0 this pass). With bit 15 clear and no clip write, the test
+can only flip no -> yes by a track that already has `+0x5FB` = 1 entering the TrackManager list (or the rig / TrackManager
+pointer changing) between walk 1 and the sub-step. [inferred, I-421-8] The path: the actor's root-motion clip ended in the
+time step (test no in walk 1, so EA runs the non-root-motion pose `0x571C3C call 0x940430(dt)` for it), and that pose (or
+another actor's walk-1 pose) links the next queued root-motion clip, assigned in an earlier pass, into the list; the
+sub-steps then see it. A clip-to-clip hand-off, which is why the actor is always in last pass's set.
+
+Fix (0.36.164 candidate, counters unchanged v156):
+- **Superset shortlist.** Each Mode 1 walk runs EA's body for walk-1 finds ∪ candidates ∪ **last pass's root-motion set**
+  (`g_rmSet[g_rmCur ^ 1]`, pointer compare only, never dereferenced) ∪ bit 15, and every entry when full or dirty (clip
+  assignments mark dirty, unchanged). EA's body for an actor whose test says no is only the refcount pair and the test,
+  so behaviour stays EA's; the per-step test drops it. A find through last pass's set counts `rmSlLate` and joins the
+  candidates, never `rmSlMiss`. Cost: the set is the root-motion actors (`rmRmMax`), tested once per walk.
+- **Hold count.** The hold itself worked as built (rest of the pass plus 63 passes of full walks). `rmSlMissHold` read 0
+  because `tools/probe/agent.js` did not read the v156 fields (`aaSlotReset`, `aaStale`, `rmSlMissHold`); fixed. The counter
+  now counts in `RmSubSteps` (Mode 1 passes with root motion that ran full walks under the hold), not in `RmPassBegin`,
+  so `--ab` off slices and passes without root motion are not counted.
+- Self-test (`unseenrm-test.h`): an unhooked start of an actor in last pass's set is stepped exactly as EA, `rmSlLate` +1,
+  no miss; the hold test now runs a Mode 1 pass and checks the count.
+
+Verify: smoke with `rmSlMiss` 0 over >= 60 audits; a miss that remains is a start outside last pass's set (new path: log
+line, then I-421-8 is wrong for it).
+
 ## 11. Mode 2: coarse root-motion steps for unseen Sims (2026-11-02, ts3native 0.36.161, counters v154; built, untested)
 
 Status: **written, not compiled, not run** (a game queue ran; no build, selftest or Ghidra). Rodney approved building it
@@ -463,7 +498,7 @@ default: only `[UnseenRootMotion] Mode=2` turns it on. Mode 1 is unchanged (its 
 
 ### 11.3 Drift reference and Place
 
-- The locomotion agent's own transform write (steering slot `0x10445C0` -> `0x954580`, thiscall(self; q*, p*), `ret 8`,
+- The locomotion agent's own transform write (steering slot `0x10445C0` -> `0x954580`, thiscall(self; p*, q*) since 0.36.164 (§11.7), `ret 8`,
   owner `[self-4]`, both `movaps` reads [verified bytes, I-420-16]) is recorded per owner (`rm2RouteRecs`; slot checked
   to hold `0x954580`, `rmReady` bit 3). It is the route-expected position of option 1 in §2.2 (I-420-18). `rm2QuatBad`
   checks the argument order (I-420-17).
@@ -540,3 +575,32 @@ the anim-pass thread (`g_aaTid`), which answers I-420-6 in the first run.
 `HudModel.MoveCameraToSim`) replace the 600 m camera set in `unseen-rm-snapback`; queue job `bp-urm2-snapback` moves to the
 `unseenrm4` build and gates on `rmReady == 29`, `rm2CamIc_9 + rm2CamIc_10 > 0` and `rm2CamIc_1 > 0`. Self-test: v155 layout, hold
 max with a jump, lerp-time slot, NaN and > 10 s ignored.
+
+### 11.7 Smoke findings: steer argument order and the SACS hold (2026-11-02, ts3native 0.36.164, counters v157; written while a timing queue ran: NOT compiled, NOT run)
+
+The unseenrm5 Mode 2 smoke (`probe-out/queue/unseen-root-motion-2026-11-02-bp-urm2-smoke-native.json`, "after") had `rm2Elig` 0:
+`rm2Why_6` (SACS) caught 9560 decisions, every unseen root-motion Sim past the camera / visibility / margin / parent tests. And
+`rm2QuatBad` == `rm2RouteRecs` (284640): every recorded steering write failed the unit-quaternion check.
+
+**Steer argument order [verified Steam 1.67 disassembly, I-420-17].** `0x954580(self; arg1, arg2)` copies `[arg2]` to a local +0 and
+`[arg1]` to +0x10 and passes the local to `0x959720` -> `0x959670`. That compares local +0 with the transform's +0x10 on all four lanes
+(`movmskps` == 0xF: a quaternion) and local +0x10 with +0x20 on three lanes (`and edx, 7`: a position), then stores both. So arg1 = position,
+arg2 = rotation. `Rm2SteerThunk` / `Rm2SteerFn` now take (p, q), record them in `Rm2Route.p` / `.q` and call EA's in the same order; Place
+replays (p, q). Self-test: a synthetic write (p = (10, 20, 30), q = 90 deg about z) leaves `rm2QuatBad` unchanged and reaches the fake
+original as (p, q); swapped arguments count one bad.
+
+**SACS component [verified layout, meaning I-419-1 / I-420-23].** `[0x11E90F0]` +8 / +0xC is `mDrivers`: refcounted SACS state-machine
+drivers (+4 refcount; `0x94E9C0` updates each with `0x804580`, `0x94E940` drops finished ones with `0x8006F0`). Each driver keeps its actor
+slots at +0x10 / +0x14 as {name hash, slot*} pairs (`0x8040B0`, `0x800470`, `0x800740`); slot +8 is the actor holder and holder +0x10 / +0x14
+the bound object id (`SACS_SetActorImpl 0x767890` -> `0x804110` -> `0x581F70` writes `[obj+8]` / `[obj+0xC]`; `0x581560` reads it back to the
+object). A Sim is in a driver whenever script runs a state machine on it, so "vector non-empty" held every Sim.
+
+**New test** (`Rm2SacsHold`, ini `[UnseenRootMotion] SacsHold=`): 2 (default) = exact while one driver binds 2+ actors (the Sim plus an
+object, prop or other Sim); 1 = the old test (any driver); 0 = off. Loops are capped at 64 drivers / 64 slots; a fault counts `rm2Faults`
+and holds exact. Counters v157 (+0x5A98): `rm2SacsHold` (ini value in force), `rm2SacsDrv[4]` (decisions at the SACS test by driver count
+0 / 1 / 2 / 3+), `rm2SacsAct[5]` (by the most bound actors in one driver 0 / 1 / 2 / 3 / 4+), counted in every SacsHold mode.
+
+**Queue** (`unseen-root-motion.json`): every Mode 2 job sets `SacsHold=2` and `report` [`rm2Why_`, `rm2CamIc_`, `rm2Quat`, `rm2Sacs`], so an
+early-gate FAIL line names the non-zero reason counters (queue.ts `reportCounters`). `bp-urm2-smoke-sacs0` = the smoke with `SacsHold=0`
+(correctness only, `minCounters` 157, gate `rm2Why_6` <= 0) for the comparison. Read the histograms first: if `rm2SacsAct_2+` covers almost
+every decision, the 2-actor test is as useless as the old one (I-419-1 refutes) and the next step is to name the driver's state machine.

@@ -1650,6 +1650,10 @@ rpc.exports = {
       // RequestLerpToPositionAndTarget, FocusOnLot, FocusOnLotForBuildBuy, EnableObjectFollow, TetherToLot, TetherToObject, Lock,
       // EnableMapViewMode, DisableMapViewMode; rm2CamIcOff = calls off the sim thread
       if (c.readS32() >= 155) f.push(...n('rm2CamIc', 11), 'rm2CamIcOff');
+      // v156 drain-crash triage (docs/144 §3.5) + [UnseenRootMotion] audit-miss hold (docs/228 §10.5; unread before: rmSlMissHold showed 0)
+      if (c.readS32() >= 156) f.push('aaSlotReset', 'aaStale', 'rmSlMissHold');
+      // v157 Mode 2 SACS hold (docs/228 §11.7): ini SacsHold; rm2SacsDrv_<0..3+ drivers>, rm2SacsAct_<0..4+ bound actors in one driver>
+      if (c.readS32() >= 157) f.push('rm2SacsHold', ...n('rm2SacsDrv', 4), ...n('rm2SacsAct', 5));
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key
