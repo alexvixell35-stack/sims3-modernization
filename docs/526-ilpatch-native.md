@@ -197,7 +197,21 @@ Touch semantics, seen in these runs: `method_touch` queues the call and answers 
 shows is unknown, not failed. b73 `EggHuntController::IsValidEggPosition` was touched in all three runs (`queued 1`) and
 never logged an outcome or an `applied` line: still open. b75-2's `ProcessLifeEvent` has a 194-byte overload that is logged
 as "not a build this fix knows, left alone": `IlpMatch` matches by name and has no signature check, the other overload
-applies, the line is the designed answer.
+applies, the line is the designed answer. The smoke queues' forbidden rule now allows that one line (`not a build this
+fix knows, left alone` at most 1); `refused`, `not the converter's` and `fault` still fail the job.
+
+**Smoke 26 (asi b22f82b, 2026-11-02 19:58, the harness logging touch outcomes whole, 83b1176): b73 explained.** The touch
+of `EggHuntController.IsValidEggPosition` ran and reported `EggSpotHook::Boolean IsValidEggPosition(Single, Single,
+Single, Single): returned`: the method the game runs under that name is ts3fixes' `eggspot` hook (`EaFixes.cs`:
+`Patch(typeof(EggHuntController), "IsValidEggPosition", typeof(EggSpotHook), "ValidHook", "ValidOrig")`, docs/508, the
+same core Build 73 fix as a script hook). The header swap at ts3fixes start-up moves EA's body to `EggSpotHook::ValidOrig`,
+so the transform of `EggHuntController::IsValidEggPosition` never sees the body b73 matches; no `il patch:` line is the
+expected trace. No assembly names an `EggSpotHook` type (EA's and both UPDATE242 cores checked), which is why the name
+did not match a spec. Consequence: with ts3fixes installed b73 is unreachable; the fix is the same either way. Open:
+either ts3fixes skips its `eggspot` patch when `[IlPatch] ilp_eggsplacedonthehuntlot=1` is armed (ts3native would have
+to publish the armed set to managed code), or b73 leaves the IL set and docs/508's hook stays the one owner. Until one
+of those lands, a smoke with ts3fixes installed cannot show b73 `applied`; the required line stays so the row says so.
+Smoke 26 otherwise: 20 of 21 applied, no hang, no fault, 10.3 min.
 
 Smoke 25 (asi b22f82b, queue `ilpatch-smoke11-local.json`, 17:59 to 18:09): **20 of 21 applied, no hang, no crash**, the
 10 min of play after the touches ran clean (stuck Sims 0, game alive); the harness verdict is FAIL only for b73's missing

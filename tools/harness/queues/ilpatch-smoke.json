@@ -59,7 +59,8 @@
       },
       "logForbid": {
         "^FAIL\b": 0,
-        "^il patch: .*(refused|not the converter's|fault|left alone)": 0,
+        "^il patch: .*(refused|not the converter's|fault)": 0,
+        "^il patch: .*not a build this fix knows, left alone": 1,
         "^SKIP il patch": 0,
         "[\\/]Users[\\/][^<]": 0
       },
