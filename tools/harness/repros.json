@@ -48578,5 +48578,139 @@
         "note": "on: gone 0, relinked, dropped; deadrefsweep_objectowners +2"
       }
     ]
+  },
+  {
+    "id": "disposed-handler-gone-check",
+    "bug": "GameObjectRelationship's constructor subscribes its GameObjectDisposed handler to the object's ObjectDisposed event and nothing unsubscribes it; a deleted description or a decayed relationship stays reachable from the car, and a load-time graph reset (ErrorTrap) resets the car (issue #166 build 41)",
+    "fix": "ts3fixes DeadRefs.cs: deadrefsweep phase 12 (default off), docs/522",
+    "save": "Baseline-BP",
+    "note": "Hard state built by the agent check (DeadRefHandlerCheck seed) without destroying anything: a car relationship of a townie's description with a vehicle of the world, made through EA's Vehicle.GetNewRelationship (subscribes the handler) and never added to the description's list, so nobody holds it. Off arm: the sweep refuses, the handler stays. On arm: the spread pass is started at once and polled until the handler is gone (the hourly pass may run first; same outcome). The check removes a handler of ours that is still subscribed at the end of each arm.",
+    "expect": "off: expect left sees our handler still subscribed with the switch off. on: expect cleaned sees it gone; deadrefsweep_handlers >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefHandlerCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "off: a relationship nobody holds, subscribed to a vehicle's ObjectDisposed",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefHandlerCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "mine",
+              "equals": true
+            }
+          ],
+          "maxS": 30,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "off: started False (switch off); nothing runs",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefHandlerCheck",
+          "args": [
+            "expect left"
+          ]
+        },
+        "note": "off: our handler still subscribed; removed by the check"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefHandlerCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "on: the same hard state again",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "on: started True (safe); phase 12 reaches the vehicle within the pass",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefHandlerCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: poll until our handler is gone",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefHandlerCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "mine",
+              "equals": false
+            }
+          ],
+          "maxS": 300,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefHandlerCheck",
+          "args": [
+            "expect cleaned"
+          ]
+        },
+        "note": "on: our handler gone; deadrefsweep_handlers +1"
+      }
+    ]
   }
 ]

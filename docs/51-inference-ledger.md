@@ -5503,3 +5503,10 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 |----|-----|-------|----------|-----------|----------|---------|---------|
 | I-917-1 | 519 §1 | The owner and thief are saved by description id and re-read as `CreatedSim`; nothing updates them in a running world | decompiled `ObjectOwnerComponent.ExportContent` / `ImportContent`, `Sim.Destroy`; core build 43's load scans | static read | the two methods as described, no caller writing the fields on destroy | a dispose or reset path that does | verified (static) |
 | I-917-2 | 519 §2 | Relinking by reflection and `RemoveComponent` on a live object change nothing else | the on arm of `object-owner-gone-check` | `object-owner-gone-check` on arm | expect cleaned passes, `deadrefsweep_objectowners` +2, no script error | an exception, or a jig left as it was | verified (live 2026-11-02, al18: relinked and dropped within the pass, both townies put back) |
+
+## 918. An object's ObjectDisposed event keeps relationships nobody holds, `deadrefsweep` phase 12 (2026-11-02, docs/522; static + live probe)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-918-1 | 522 §1 | The constructor subscribes and nothing unsubscribes; the handler only prunes the description's list | decompiled `GameObjectRelationship`, `SimDescription.Dispose`, `CarRelationship.RemoveRelationship` | static read | no `ObjectDisposed -=` anywhere for the handler | one found | verified (static) |
+| I-918-2 | 522 §2 | Removing such a handler changes nothing else, and the pass reaches a vehicle's event | the on arm of `disposed-handler-gone-check` | `disposed-handler-gone-check` on arm | expect cleaned passes, `deadrefsweep_handlers` +1 | an exception, or the handler left | open until the job runs |

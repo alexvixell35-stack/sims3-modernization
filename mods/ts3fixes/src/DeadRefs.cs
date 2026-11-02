@@ -42,10 +42,11 @@ namespace Ts3Fixes
     //     boats (previous passengers), 8 horseshoe courts (throwers and scores), 9 dartboards (gone players quit through EA's
     //     Quit, gone current player and cheating Sim cleared; #166 build 42, docs/516), 10 object use, reference and
     //     routing-reference lists (gone Sims removed through EA's own Remove methods; #166 build 40, docs/517), 11 object owner
-    //     components (a gone owner or thief Sim relinked to its live instance, a reward giver with none dropped; #166 build 43, docs/519).
+    //     components (a gone owner or thief Sim relinked to its live instance, a reward giver with none dropped; #166 build 43, docs/519),
+    //     12 ObjectDisposed handlers of relationships nobody holds (a deleted description, or a decayed relationship; #166 build 41, docs/522).
     //     [395] relationship keys removed, [396] relationship entries removed, [397] aging states removed, [398] alarm owners
     //     cleared, [399] react-time entries, [400] coworker / boss / chess entries, [401] topics, [402] fishers, [403] Sim
-    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [2045] dartboard entries, [2046] use-list entries, [2047] owner entries, [405] passes finished, [406] slices,
+    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [2045] dartboard entries, [2046] use-list entries, [2047] owner entries, [2048] disposed handlers, [405] passes finished, [406] slices,
     //     [407] longest slice us, [408] total pass ms, [409] longest save pass us, [410] passes refused or stopped (unsafe state, switch off) and items that threw.
     //   Not built (docs/205 §4): CookingProcess appliance handlers, Celebrity.mWaitingToReact,
     //   adoption pool pets, Service.mPreferredServiceNpc (= preferredservice, #86).
@@ -169,6 +170,7 @@ namespace Ts3Fixes
                 delegate { return Objects<Dartboard>(); },
                 delegate { return Objects<GameObject>(); },
                 delegate { return Objects<GameObject>(); },
+                delegate { return Objects<GameObject>(); },
             };
             try
             {
@@ -271,6 +273,7 @@ namespace Ts3Fixes
                     case 8: DartboardHolders(o as Dartboard); break;
                     case 9: UseListHolders(o as GameObject); break;
                     case 10: OwnerHolders(o as GameObject); break;
+                    case 11: HandlerHolders(o as GameObject); break;
                 }
             }
             catch (Exception) { PatchCounters()[410]++; }
@@ -660,6 +663,92 @@ namespace Ts3Fixes
             return "as expected; " + line + "; " + sOwnDescB.FullName + " " + back;
         }
 
+        // Phase 12 (issue #166 build 41, docs/522): GameObjectRelationship's constructor subscribes its GameObjectDisposed handler
+        // to the object's ObjectDisposed event (a car's or a bird's) and nothing unsubscribes it: SimDescription.Dispose leaves
+        // GameObjectRelationships alone and a decayed relationship (RemoveRelationship) only leaves the Sim's list. The handler
+        // is saved with the object, so a deleted description, or a relationship nobody holds, stays reachable from the object
+        // (a load-time graph reset then resets the car). Such handlers leave the invocation list; run at disposal they would
+        // only remove the relationship from a list that no longer has it, or from a deleted description's list. [2048].
+        static readonly FieldInfo sObjDisposed = typeof(GameObject).GetField("ObjectDisposed", kDrAll);
+        static readonly FieldInfo sRelDesc = typeof(GameObjectRelationship).GetField("mSimDesc", kDrAll);
+
+        static bool RelGone(GameObjectRelationship r)
+        {
+            SimDescription d = sRelDesc != null ? sRelDesc.GetValue(r) as SimDescription : null;
+            return d == null || !d.IsValidDescription || d.GameObjectRelationships == null || !d.GameObjectRelationships.Contains(r);
+        }
+
+        static void HandlerHolders(GameObject o)
+        {
+            if (o == null || o.HasBeenDestroyed || sObjDisposed == null || sRelDesc == null) return;
+            Delegate ev = sObjDisposed.GetValue(o) as Delegate;
+            if (ev == null) return;
+            int[] c = PatchCounters(); bool changed = false;
+            foreach (Delegate d in ev.GetInvocationList())
+            {
+                GameObjectRelationship r = d.Target as GameObjectRelationship;
+                if (r == null || !RelGone(r)) continue;
+                ev = Delegate.Remove(ev, d); c[2048]++; changed = true;
+            }
+            if (changed) sObjDisposed.SetValue(o, ev);
+        }
+
+        static int HandlerGone(GameObject o)
+        {
+            Delegate ev = o != null && !o.HasBeenDestroyed && sObjDisposed != null && sRelDesc != null ? sObjDisposed.GetValue(o) as Delegate : null;
+            if (ev == null) return 0;
+            int n = 0;
+            foreach (Delegate d in ev.GetInvocationList()) { GameObjectRelationship r = d.Target as GameObjectRelationship; if (r != null && RelGone(r)) n++; }
+            return n;
+        }
+
+        // Agent check for docs/522 (repro disposed-handler-gone-check), a hard state built and undone without destroying anything:
+        //   "seed":   a car relationship of one townie's description with a vehicle of the world, made through EA's own
+        //             Vehicle.GetNewRelationship (which subscribes the handler) and never added to the description's list:
+        //             the decayed-relationship case of RelGone.
+        //   "state":  HandlerState: gone handlers on that vehicle, mine (our relationship's handler still subscribed), handlers.
+        //   "expect left" (switch off) / "expect cleaned" (switch on): throws unless our handler is still there (left) or gone
+        //             (cleaned). Either way a handler of ours that is still subscribed is removed.
+        public class HandlerState { public int gone, handlers; public bool mine; }
+        static GameObject sHdObj; static GameObjectRelationship sHdRel;
+
+        static bool HdMine(GameObject o)
+        {
+            Delegate ev = sObjDisposed.GetValue(o) as Delegate;
+            if (ev == null) return false;
+            foreach (Delegate d in ev.GetInvocationList()) if (d.Target == sHdRel) return true;
+            return false;
+        }
+
+        public static object DeadRefHandlerCheck(string what)
+        {
+            if (sObjDisposed == null || sRelDesc == null) throw new InvalidOperationException("handler check: ObjectDisposed or mSimDesc field not found");
+            if (what == "seed")
+            {
+                Vehicle car = null;
+                foreach (Vehicle v in Sims3.Gameplay.Queries.GetObjects<Vehicle>()) if (!v.HasBeenDestroyed) { car = v; break; }
+                Sim townie = DrPickTownie();
+                if (car == null || townie == null) throw new InvalidOperationException("handler seed: no vehicle or no townie");
+                GameObjectRelationship rel = car.GetNewRelationship(townie.SimDescription);
+                if (rel == null) throw new InvalidOperationException("handler seed: GetNewRelationship returned null");
+                sHdObj = car; sHdRel = rel;
+                return "handler seed: a car relationship of " + townie.FullName + " with " + car.GetType().Name + ", subscribed and not in the description's list";
+            }
+            GameObject o = sHdObj;
+            if (o == null || sHdRel == null) throw new InvalidOperationException("handler " + what + ": no seed");
+            bool mine = HdMine(o);
+            Delegate all = sObjDisposed.GetValue(o) as Delegate;
+            if (what == "state") { HandlerState st = new HandlerState(); st.gone = HandlerGone(o); st.mine = mine; st.handlers = all != null ? all.GetInvocationList().Length : 0; return st; }
+            if (what != "expect left" && what != "expect cleaned") return "handler <seed|state|expect left|expect cleaned>";
+            bool on = ShortcutOn("deadrefsweep");
+            bool ok = what == "expect left" ? !on && mine : on && !mine;
+            string line = "mine " + mine + ", gone " + HandlerGone(o) + " (switch " + on + ")";
+            if (mine) { foreach (Delegate d in all.GetInvocationList()) if (d.Target == sHdRel) all = Delegate.Remove(all, d); sObjDisposed.SetValue(o, all); }
+            sHdObj = null; sHdRel = null;
+            if (!ok) throw new InvalidOperationException("handler " + what + ": wrong outcome; " + line);
+            return "as expected; " + line + (mine ? "; our handler removed" : "");
+        }
+
         // A townie for a hard state: not selectable, no pet, teen or older, not of the active household, not on its home
         // lot, no role or service, a valid description.
         static Sim DrPickTownie() { return DrPickTownie(null); }
@@ -738,7 +827,7 @@ namespace Ts3Fixes
                 }
                 case "sweep": return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
                 case "savepass": return DeadRefSavePass();
-                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck, owner components: DeadRefOwnerCheck)";
+                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck, owner components: DeadRefOwnerCheck, disposed handlers: DeadRefHandlerCheck)";
             }
         }
 
@@ -762,8 +851,8 @@ namespace Ts3Fixes
                 List<ActiveTopic> u = t != null && sUnforgettable != null ? sUnforgettable.GetValue(t) as List<ActiveTopic> : null;
                 if (u != null) foreach (ActiveTopic a in u) if (a != null && a.Parameter != null && DescGone(a.Parameter)) topics++;
             }
-            int uselists = 0, owners = 0;
-            foreach (GameObject g in Sims3.Gameplay.Queries.GetObjects<GameObject>()) { uselists += UseListGone(g); owners += OwnerGone(g); }
+            int uselists = 0, owners = 0, handlers = 0;
+            foreach (GameObject g in Sims3.Gameplay.Queries.GetObjects<GameObject>()) { uselists += UseListGone(g); owners += OwnerGone(g); handlers += HandlerGone(g); }
             int darts = 0;
             foreach (Dartboard b in Sims3.Gameplay.Queries.GetObjects<Dartboard>()) darts += DartGone(b);
             foreach (SimDescription d in Household.EverySimDescription())
@@ -774,7 +863,7 @@ namespace Ts3Fixes
             }
             return "count: relationship keys gone " + relGone + "/" + Relationship.sAllRelationships.Count + ", entries naming gone " + relEntries
                 + ", aging states gone " + AgingStatesToCheck().Count + ", alarm owners gone " + AlarmOwnersToCheck().Count
-                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers + ", dartboard entries gone " + darts + ", use-list entries gone " + uselists + ", owner entries gone " + owners
+                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers + ", dartboard entries gone " + darts + ", use-list entries gone " + uselists + ", owner entries gone " + owners + ", disposed handlers gone " + handlers
                 + ", no-outfit descriptions " + NoOutfitDescriptions().Count + " | " + (DeadRefUnsafe(false) ?? "safe");
         }
     }
