@@ -52,6 +52,8 @@ The agent check `Ts3Fixes.Fixes.RewardGiverCheck` makes a `SocialJigTwoPerson` o
 throw `NullReferenceException` and the object must have no owner component. On arm (`expect fixed`): no exception, an
 owner component whose `mOwner` is that Sim; `rewardgiver_added` reaches 1. Early gate: the counter at 3 min.
 
+Result (2026-11-02 03:33, `bp-reward-giver-check`, PASS in 9.1 min, al18, the player's core): off arm, `SetRewardGiver(Sim.ActiveActor)` on a `SocialJigTwoPerson` made out of world threw `NullReferenceException` and the jig had no owner component; on arm, the same call threw nothing and the jig had an `ObjectOwnerComponent` owned by that Sim; `rewardgiver_added` 1 (the job's gate). No script error in either arm.
+
 ## 4. What is left
 
 - A real opportunity completion with an `ObjectInMail` reward through the fixed path (the check calls the method
