@@ -456,11 +456,39 @@ static bool Rm2NearVis(const float* p) {
 // SACS hold (docs/228 §11.7, I-419-1). Component [0x11E90F0] +8/+0xC = mDrivers (StateMachineDriver*, refcount +4); per
 // driver the actor slots at +0x10/+0x14 ({name hash, slot*}, 8 bytes; 0x8040B0 / 0x800470 / 0x800740), slot +8 = actor
 // holder, holder +0x10/+0x14 = bound object id (0x581F70 writes [obj+8]/[obj+0xC], 0x581560 tests it) [verified Steam 1.67
-// disassembly]. Histograms per decision: drivers 0..3+, most bound actors in one driver 0..4+. Mode 2 = hold when one
-// driver binds 2+ actors (the Sim plus an object / Sim), 1 = old test (any driver), 0 = never; caller catches faults
-static bool Rm2SacsHold(const u8* sc, LONG mode) {
+// disassembly]. Histograms per decision: drivers 0..3+, most bound actors in one driver 0..4+; per bound actor its class
+// (v159 rm2SacsCls, every mode). Mode 3 (docs/228 §11.8) = hold when a bound actor is another Sim (horse, pet), an object
+// slotted elsewhere, an unparented object within RM2_USE_M of the Sim (in use at a slot / route goal: vehicle, chair),
+// or not found / unreadable; the Sim itself, props parented within RM2_USE_M and unparented objects farther away (the
+// goal band holds the arrival) allow coarse steps. 2 = a driver binds 2+ actors, 1 = any driver, 0 = never. Caller
+// catches faults.
+enum { RM2C_SELF, RM2C_SIM, RM2C_PROP, RM2C_SLOTTED, RM2C_NEAR, RM2C_FAR, RM2C_NOOBJ, RM2C_FAULT, RM2C_N };
+static const unsigned RM2C_HOLD = 1u << RM2C_SIM | 1u << RM2C_SLOTTED | 1u << RM2C_NEAR | 1u << RM2C_NOOBJ | 1u << RM2C_FAULT;
+static const float RM2_USE_M = 2.0f;  // shortcut: "at the Sim" radius [inferred]; tune from rm2SacsCls_4 / _5 and the drift jobs
+// class of one bound actor (id lo/hi) of owner (Sim at pos); game reads, own __try
+static int Rm2ActClsGame(void* owner, DWORD lo, DWORD hi, const float* pos) {
+    __declspec(align(16)) float b[4];
+    __try {
+        if (*(const DWORD*)((const u8*)owner + 8) == lo && *(const DWORD*)((const u8*)owner + 0xC) == hi) return RM2C_SELF;
+        void* mgr = *g_unObjMgr;
+        void* obj = mgr ? g_unFind(mgr, NULL, lo, hi) : NULL;
+        if (!obj) return RM2C_NOOBJ;
+        if (obj == owner) return RM2C_SELF;
+        if (g_unComp(obj, NULL, *g_unBitSim)) return RM2C_SIM;
+        void* tc = g_unComp(obj, NULL, *g_unBitTransform);
+        if (!tc) return RM2C_FAULT;
+        const bool par = *(void* const*)((const u8*)tc + 0x30) != NULL;  // transform +0x30 = parent (unseen.cpp UnObjClassBody)
+        const float* p = g_unPos(tc, NULL, b);
+        const float x = p[0] - pos[0], y = p[1] - pos[1], z = p[2] - pos[2];
+        const bool atSim = x * x + y * y + z * z <= RM2_USE_M * RM2_USE_M;
+        return par ? (atSim ? RM2C_PROP : RM2C_SLOTTED) : atSim ? RM2C_NEAR : RM2C_FAR;  // "near" is a windows.h macro
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return RM2C_FAULT; }
+}
+static int (*g_rm2ActCls)(void* owner, DWORD lo, DWORD hi, const float* pos) = Rm2ActClsGame;  // selftest swaps in a fake
+static bool Rm2SacsHold(const u8* sc, LONG mode, void* owner = NULL, const float* pos = NULL) {
     Ts3nCounters& k = ts3native_counters;
     int n = 0, best = 0;
+    unsigned seen = 0;  // classes of the bound actors
     if (sc) {
         void* const* d = *(void* const* const*)(sc + 8);
         void* const* const de = *(void* const* const*)(sc + 0xC);
@@ -473,13 +501,20 @@ static bool Rm2SacsHold(const u8* sc, LONG mode) {
             for (int i = 0; s < se && i < 64; s += 8, i++) {
                 const u8* slot = *(const u8* const*)(s + 4);
                 const u8* h = slot ? *(const u8* const*)(slot + 8) : NULL;
-                if (h && (*(const DWORD*)(h + 0x10) | *(const DWORD*)(h + 0x14))) a++;
+                if (!h) continue;
+                const DWORD lo = *(const DWORD*)(h + 0x10), hi = *(const DWORD*)(h + 0x14);
+                if (!(lo | hi)) continue;
+                a++;
+                if (owner && pos) {
+                    const int c = g_rm2ActCls(owner, lo, hi, pos);
+                    k.rm2SacsCls[c]++, seen |= 1u << c;
+                }
             }
             if (a > best) best = a;
         }
     }
     k.rm2SacsDrv[n < 3 ? n : 3]++, k.rm2SacsAct[best < 4 ? best : 4]++;
-    return mode == 2 ? best >= 2 : mode == 1 && n > 0;
+    return mode == 3 ? (seen & RM2C_HOLD) != 0 : mode == 2 ? best >= 2 : mode == 1 && n > 0;
 }
 // first exact reason for a root-motion actor this pass, or -1 (coarse-eligible); cheapest tests first
 static int Rm2WhyGame(void* actor) {
@@ -502,7 +537,7 @@ static int Rm2WhyGame(void* actor) {
     if (Rm2InMargin(pos)) return RM2_MARGIN;
     if (par || UtHeldObj(owner)) return RM2_PARENT;
     __try {
-        if (Rm2SacsHold((const u8*)g_unComp(owner, NULL, *g_aaBitSacs), g_rm2.sacsHold)) return RM2_SACS;
+        if (Rm2SacsHold((const u8*)g_unComp(owner, NULL, *g_aaBitSacs), g_rm2.sacsHold, owner, pos)) return RM2_SACS;
     } __except (EXCEPTION_EXECUTE_HANDLER) { k.rm2Faults++; return RM2_SACS; }
     if (g_rmSlFull || !RmHas(g_rmSet[g_rmCur], actor) || !RmHas(g_rmSet[g_rmCur ^ 1], actor)) return RM2_STARTED;
     if (Rm2NearVis(pos)) return RM2_NEARVIS;
@@ -806,7 +841,7 @@ static bool ApplyUnseenRootMotion(const wchar_t* ini) {
     g_rm2.mergeSteps = in(L"MergeSteps", 4, 2, 8), g_rm2.goalM = in(L"GoalM", 3, 0, 30), g_rm2.portalM = in(L"PortalM", 3, 0, 30);
     g_rm2.nearVisM = in(L"NearVisM", 10, 0, 50), g_rm2.marginPct = in(L"MarginPct", 25, 0, 100), g_rm2.leadMs = in(L"LeadMs", 500, 0, 3000);
     g_rm2.hystPasses = in(L"HystPasses", 8, 0, 64), g_rm2.camIcPasses = in(L"CamIcPasses", 30, 0, 300), g_rm2.place = in(L"Place", 0, 0, 1);
-    g_rm2.sacsHold = k.rm2SacsHold = in(L"SacsHold", 2, 0, 2);
+    g_rm2.sacsHold = k.rm2SacsHold = in(L"SacsHold", 3, 0, 3);
     const CallSite sites[] = {{RM_TS_CALL, RM_TS, (void*)RmTsThunk}, {RM_FLAG_CALL, RM_FLAG, (void*)RmFlagThunk},
                               {RM_STEP_CALL, RM_POSE, (void*)RmStepThunk}, {RM_REM_CALL, RM_POSE, (void*)RmRemThunk}};
     if (!PatchCalls("unseen root motion (0x571BF3, 0x571C4C, 0x571D20, 0x571DDC)", sites, 4)) return true;

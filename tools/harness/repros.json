@@ -48837,11 +48837,11 @@
       {
         "cmd": "unseen_snapback",
         "args": {
-          "count": 4
+          "count": 5
         },
         "waitS": 180,
         "optional": true,
-        "note": "camera onto unseen Sims one by one (no require step: its pass rule is [UnseenThrottle] Rate)"
+        "note": "camera onto unseen Sims one by one (no require step: its pass rule is [UnseenThrottle] Rate); count must be 5..12 (RareHandlers.cs): 4 failed this step on 11-02 and the map_view / focus_sim steps never ran"
       },
       {
         "cmd": "map_view",

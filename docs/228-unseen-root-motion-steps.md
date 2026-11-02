@@ -649,3 +649,27 @@ and holds exact. Counters v157 (+0x5A98): `rm2SacsHold` (ini value in force), `r
 early-gate FAIL line names the non-zero reason counters (queue.ts `reportCounters`). `bp-urm2-smoke-sacs0` = the smoke with `SacsHold=0`
 (correctness only, `minCounters` 157, gate `rm2Why_6` <= 0) for the comparison. Read the histograms first: if `rm2SacsAct_2+` covers almost
 every decision, the 2-actor test is as useless as the old one (I-419-1 refutes) and the next step is to name the driver's state machine.
+
+### 11.8 SacsHold=3: hold by bound-actor class (2026-11-03, ts3native 0.36.166, counters v159; round 2 of Mode 2)
+
+**Why.** The unseenrm7 Mode 2 jobs (`probe-out/queue/unseen-root-motion-2026-11-02.jsonl`) never merged a step (`rm2Coarse` 0): with
+SacsHold=2 the SACS test held ~70-75% of unseen root-motion decisions (`bp-urm2-stuck-on`: 12,642 of 18,357 decisions bind 2+ actors in
+one driver, 71% with 3+ drivers). "A driver binds 2+ actors" is as broad as the old "any driver" test (I-419-1, I-420-23 refuted for 2).
+
+**What the extra actors are** [inferred; measured by `rm2SacsCls_*`, I-423-1]. Not named statically this round: the driver's actor
+holders give an object id only (§11.7), and the state-machine name is not mapped. v159 classifies every bound actor of every driver at
+the SACS test, in every SacsHold mode, by reading the object: `rm2SacsCls_0` the Sim itself (id = owner's `[obj+8]/[obj+0xC]`), `_1`
+another Sim (Sim component `[0x11E90FC]`: also horses and pets), `_2` a prop (parented, transform `+0x30` set, within 2 m of the Sim),
+`_3` slotted elsewhere (parented, farther), `_4` an unparented object within 2 m (in use at a slot or route goal: chair, vehicle,
+door), `_5` an unparented object farther away, `_6` not found by `FindById 0x939560`, `_7` no transform or a fault.
+
+**Rule** (`[UnseenRootMotion] SacsHold=3`, default now 3; 2 / 1 / 0 kept): exact while any bound actor is class 1, 3, 4, 6 or 7.
+The Sim itself, props parented within 2 m and unparented objects farther than 2 m allow coarse steps; for the last, the route goal band
+(`GoalM`) and the margin / near-visible tests still hold the arrival exact. `RM2_USE_M` = 2 m is a shortcut [inferred], tuned from
+`_4` / `_5` and the drift jobs. Self-test: fake classifier, each class held or not as above, histogram counts per bound actor,
+mode 2 unchanged.
+
+**Queue** (`unseen-root-motion.json`, all jobs on `unseenrm8`, `minCounters` 159): Mode 2 jobs set `SacsHold=3` with early gates
+`rm2SacsHold == 3` (read-back) and `rm2SacsCls_0 > 0` (the classifier ran); `bp-urm2-smoke` is 6 min with `rm2Coarse > 0`,
+`rm2Elig > 0` and `rm2QuatBad <= 0` from 300 s. Repro `unseen-rm-snapback`: `unseen_snapback` count 4 -> 5 (the agent wants 5..12;
+11-02 failed that step, so map view and portrait clicks never reached the camera ICs). Results: `probe-out/queue/mode2-round2-1103.md`.

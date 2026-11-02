@@ -38,9 +38,9 @@ static void TestIdleCheckRO() {
     static_assert(offsetof(Ts3nCounters, gvReady) == 0x47DC && offsetof(Ts3nCounters, ikReady) == 0x4824 &&
                       offsetof(Ts3nCounters, ikMode) == 0x4828 && offsetof(Ts3nCounters, ikShadow) == 0x482C &&
                       offsetof(Ts3nCounters, ikOnward) == 0x4840 && offsetof(Ts3nCounters, ikFb) == 0x484C &&
-                      offsetof(Ts3nCounters, ikShadowMismatch) == 0x4868 && sizeof(Ts3nCounters) == 5809 * 4,
+                      offsetof(Ts3nCounters, ikShadowMismatch) == 0x4868 && sizeof(Ts3nCounters) == 5817 * 4,
                   "counters v119 layout after v118 (docs/registry.md)");
-    assert(k.version == 158);
+    assert(k.version == 159);
     assert(kIkSites[0].site == 0x007558D7 && kIkSites[0].target == 0x0062FB60);
     assert(kIkSites[1].site == 0x00755916 && kIkSites[1].target == 0x00625140);
     memset(&k.ikReady, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, ikReady));

@@ -2265,6 +2265,27 @@
       "what": "docs/228 §10.7 walk-1 flips without a clip write",
       "at": "2026-11-02T13:38:19.279Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v159",
+      "kind": "native",
+      "version": 159,
+      "from": 23236,
+      "to": 23267,
+      "by": "mode2-round2",
+      "what": "UnseenRootMotion Mode 2 SacsHold=3 bound-actor class histogram rm2SacsCls[8] (docs/228 §11.8)",
+      "at": "2026-11-02T22:30:44.169Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-423",
+      "kind": "ledger",
+      "from": 423,
+      "to": 423,
+      "by": "mode2-round2",
+      "what": "docs/228 §11.8 SACS bound-actor classes",
+      "at": "2026-11-02T22:30:44.372Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
     }
   ]
 }

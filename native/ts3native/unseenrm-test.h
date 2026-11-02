@@ -294,7 +294,7 @@ static void __fastcall Rm2FakeSteer(void*, void*, const float* p, const float* q
 static void TestUnseenRootMotion2() {
     static_assert(offsetof(Ts3nCounters, rm2Why) == 0x5984 && offsetof(Ts3nCounters, rm2Elig) == 0x59C4 &&
                   offsetof(Ts3nCounters, rm2DriftN) == 0x5A00 && offsetof(Ts3nCounters, rm2Faults) == 0x5A48 &&
-                  offsetof(Ts3nCounters, rm2EndN) == 0x5A4C && offsetof(Ts3nCounters, rm2End30) == 0x5A54 && sizeof(Ts3nCounters) == 0x5AC4, "counters v154 layout after v153 (docs/registry.md)");
+                  offsetof(Ts3nCounters, rm2EndN) == 0x5A4C && offsetof(Ts3nCounters, rm2End30) == 0x5A54 && sizeof(Ts3nCounters) == 0x5AE4, "counters v154 layout after v153 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     static Ts3nCounters saved;
     memcpy(&saved, &k, sizeof k);
@@ -466,7 +466,7 @@ static void TestUnseenRootMotion2() {
     // v155 script camera ICs: a hit asks CamIcPasses + lerp time x 30 (atomic max), the next pass start takes it; a jump
     // during a longer IC hold keeps the longer one; NaN / > 10 s lerp times add nothing
     static_assert(offsetof(Ts3nCounters, rm2CamIc) == 0x5A5C && offsetof(Ts3nCounters, rm2CamIcOff) == 0x5A88 &&
-                  sizeof(Ts3nCounters) == 0x5AC4 && RM2_IC_N == 11, "counters v155 layout after v154 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 0x5AE4 && RM2_IC_N == 11, "counters v155 layout after v154 (docs/registry.md)");
     for (int i = 0; i < 4; i++) Rm2CamStep(cpos, ctgt, 300, true, 0.05f);
     assert(g_rm2Cam.hold == 0);
     const LONG ic1 = k.rm2CamIc[1], ic9 = k.rm2CamIc[9];
@@ -490,7 +490,7 @@ static void TestUnseenRootMotion2() {
     // v157 steering record: 0x954580 is thiscall(self; p*, q*) [verified, I-420-17]; a synthetic write records q as a unit
     // quaternion (rm2QuatBad unchanged) and calls EA's in the same order; swapped arguments count as bad
     static_assert(offsetof(Ts3nCounters, rm2SacsHold) == 0x5A98 && offsetof(Ts3nCounters, rm2SacsAct) == 0x5AAC &&
-                  sizeof(Ts3nCounters) == 0x5AC4, "counters v157 layout after v156 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 0x5AE4, "counters v157 layout after v156 (docs/registry.md)");
     {
         static u8 steer[8];
         *(void**)steer = rig;  // owner = [self - 4]
@@ -526,6 +526,28 @@ static void TestUnseenRootMotion2() {
         assert(Rm2SacsHold(comp(2), 2) && !Rm2SacsHold(comp(2), 0));                                 // 2 drivers, 2 actors (x2)
         assert(k.rm2SacsDrv[0] == d[0] + 2 && k.rm2SacsDrv[1] == d[1] + 3 && k.rm2SacsDrv[2] == d[2] + 2 && k.rm2SacsDrv[3] == d[3]);
         assert(k.rm2SacsAct[0] == a[0] + 2 && k.rm2SacsAct[1] == a[1] + 3 && k.rm2SacsAct[2] == a[2] + 2 && k.rm2SacsAct[4] == a[4]);
+        // v159 SacsHold=3 (docs/228 §11.8): id 7 = the Sim itself, id hi 9 = the scripted class; hold only on other Sim,
+        // slotted elsewhere, object near, not found, fault; every bound actor counted once per decision in rm2SacsCls
+        static_assert(offsetof(Ts3nCounters, rm2SacsCls) == 0x5AC4 && sizeof(Ts3nCounters) == 0x5AE4 && RM2C_N == 8,
+                      "counters v159 layout after v158 (docs/registry.md)");
+        static int s_cls;
+        const auto fake = [](void*, DWORD lo, DWORD hi, const float*) -> int { return lo == 7 && !hi ? RM2C_SELF : s_cls; };
+        const auto clsSave = g_rm2ActCls;
+        g_rm2ActCls = fake;
+        static const float pos[3] = {};
+        LONG c[RM2C_N];
+        memcpy(c, k.rm2SacsCls, sizeof c);
+        assert(!Rm2SacsHold(comp(1), 3, rig, pos));  // the Sim alone: coarse
+        assert(!Rm2SacsHold(comp(2), 3));            // no owner: nothing classified, no hold
+        for (int i = 0; i < RM2C_N; i++) {
+            s_cls = i;
+            const bool want = i == RM2C_SIM || i == RM2C_SLOTTED || i == RM2C_NEAR || i == RM2C_NOOBJ || i == RM2C_FAULT;
+            assert(Rm2SacsHold(comp(2), 3, rig, pos) == want);
+            assert(Rm2SacsHold(comp(2), 2, rig, pos));  // mode 2 unchanged, classes still counted
+        }
+        assert(k.rm2SacsCls[RM2C_SELF] == c[RM2C_SELF] + 1 + RM2C_N * 4 + 2);  // 2 self slots per call, 2 calls per class; the i == SELF round adds 2
+        for (int i = 1; i < RM2C_N; i++) assert(k.rm2SacsCls[i] == c[i] + 2);
+        g_rm2ActCls = clsSave;
     }
 
     g_rmTsOrig = tsSave, g_rmPoseOrig = poseSave, g_rmTest = testSave, g_rmStepC = cSave, g_rmRemC = rSave, g_rm2WhyFn = Rm2WhyGame;
