@@ -1,8 +1,8 @@
 {
-  "note": "docs/202 §3.4 C1-C4 site fallbacks for unseen Sims (ts3native 0.36.90 [UnseenFallback] Sites=1, counters v139 ufc*; ts3fixes unseenfbsites, counters 323-325). DRAFT, NOT RUN (dry-run only). Run after the branch is merged (cycle.ts rebuilds ts3fixes and ts3agent from source: the agent's patches names unseenfbsites_*). asi game-copy/ts3native.asi.unseenfb-c (out-unseenfbc of feature/unseenfb-c). Correctness first, day OK: smoke, the positive loop (far unseen crowd, visible jobs), the same loop with phase A on (the release candidate pair), the negative loop (seen crowd: no fake answers), then Build/Buy (nothing acts out of live mode). Stop rule: a crash, a watchdog line, a nativeRequire / fixesRequire miss, or any ufcFake moving in the negative or Build/Buy job = stop, fix, rerun. Natural IP + SV on/off pairs (hitch-ab.ts --causes) only after these pass. docs/202 §3.4.2 FinishWalk jobs (sv-ufw-*, ip-ufw-*; asi game-copy/ts3native.asi.unseenfb-finish = out-ufw of feature/ufb-finish-walk, ts3native 0.36.105): two forced ABBA loops (finish vs C fake, finish vs off), then the natural IP + SV finish / fake pair; run the loops first, the pair only after they pass.",
+  "note": "docs/202 §3.4 C1-C4 site fallbacks for unseen Sims (ts3native 0.36.90 [UnseenFallback] Sites=1, counters v139 ufc*; ts3fixes unseenfbsites, counters 323-325). DRAFT, NOT RUN (dry-run only). Run after the branch is merged (cycle.ts rebuilds ts3fixes and ts3agent from source: the agent's patches names unseenfbsites_*). asi source build (asi tested since 2026-10-31; was game-copy/ts3native.asi.unseenfb-c) (out-unseenfbc of feature/unseenfb-c). Correctness first, day OK: smoke, the positive loop (far unseen crowd, visible jobs), the same loop with phase A on (the release candidate pair), the negative loop (seen crowd: no fake answers), then Build/Buy (nothing acts out of live mode). Stop rule: a crash, a watchdog line, a nativeRequire / fixesRequire miss, or any ufcFake moving in the negative or Build/Buy job = stop, fix, rerun. Natural IP + SV on/off pairs (hitch-ab.ts --causes) only after these pass. docs/202 §3.4.2 FinishWalk jobs (sv-ufw-*, ip-ufw-*; asi source build (asi tested since 2026-10-31; was game-copy/ts3native.asi.unseenfb-finish) = out-ufw of feature/ufb-finish-walk, ts3native 0.36.105): two forced ABBA loops (finish vs C fake, finish vs off), then the natural IP + SV finish / fake pair; run the loops first, the pair only after they pass.",
   "smoke": {
     "note": "Measurement smoke: SV 10 min with [UnseenFallback] Sites=1 and unseenfbsites on: every site installs (ufcReady 63: C1, C2, C3, C4, task owner, agent context), the list arrives (ufcPushes, unseenfbsites_lists), the switch reads back (fixes on ... verified), the minute line 'unseen fallback sites:' appears.",
-    "asi": "game-copy/ts3native.asi.unseenfb-all14",
+    "asi": "tested",
     "releaseDefaults": true,
     "save": "Baseline-SV-Spring",
     "minCounters": 139,
@@ -36,7 +36,7 @@
         "scope": "unseen"
       },
       "note": "C1-C4 correctness (positive): forced ABBA on unseenfbc-far-walkers-loop (30 Sims at the farthest community lot, unseen; each loop the active Sim plans cross-town (a visible job) while the crowd walks), 4 loops per arm, cap 16 min; the loop flips ufcMode. Pass: no crash, 0 watchdog lines, ufcTry_0 + ufcTry_1 >= 1 and ufcFake_0 + ufcFake_1 >= 1 (on arms; the off arms add none), ufcMaxWaitUs <= ~120 ms, no hitch >= 300 ms led by 0x85FE10 / 0x846D21 / 0x83156D / 0x631F40 for an unseen waiter in on windows (hitch-ab.ts --causes), no Sim stuck at the end, stuck_check_reset unchanged. Read: ufcTry_2 / ufcTry_3 (C3 / C4 from the crowd's own interactions at the venue: may stay 0 [inferred]), ufcRecover (one wait per job working), ufcStale (list gaps), unseenfbsites_ids per list.",
-      "asi": "game-copy/ts3native.asi.unseenfb-all14",
+      "asi": "tested",
       "releaseDefaults": true,
       "save": "Baseline-SV-Spring",
       "minCounters": 139,
@@ -82,7 +82,7 @@
         "scope": "unseen"
       },
       "note": "The release-candidate pair: the same loop with phase A on in both arms ([UnseenFallback] Enabled=1, unseenfbplan: the unseen crowd's own jobs end < 300 ms: cut at the setting minus the learned overrun, 0.36.94 strict), so the C sites act mainly behind the visible job. Pass as sv-ufc-farwalkers-loop plus ufMarks >= 10; read how many C waits remain behind unseen jobs (ufcTimeout with A on vs the job above).",
-      "asi": "game-copy/ts3native.asi.unseenfb-all14",
+      "asi": "tested",
       "releaseDefaults": true,
       "save": "Baseline-SV-Spring",
       "minCounters": 139,
@@ -130,7 +130,7 @@
         "scope": "unseen"
       },
       "note": "Negative (never acts on seen Sims, docs/202 §6): unseenfbc-seen-crowd-loop, the crowd and the household make long no-path jobs on the home lot under the camera. Pass: no crash, ufcFake_0..3 all 0 for the whole job, ufcSeen_0 >= 1 (busy jobs, seen owners counted).",
-      "asi": "game-copy/ts3native.asi.unseenfb-all14",
+      "asi": "tested",
       "releaseDefaults": true,
       "save": "Baseline-SV-Spring",
       "minCounters": 139,
@@ -171,7 +171,7 @@
         "scope": "unseen"
       },
       "note": "Not outside live mode (docs/202 §6): bb-cc-short (Build/Buy placement cycles on the home lot, short form of bb-cc-cycle) with Sites=1 and unseenfbsites on: out of live mode the list is empty (UfWhy kNotLive) or stale, so no site acts. Pass: no crash, and the repro's native_check steps: ufcTry_0..3 and ufcFake_0..3 all 0 inside each Build/Buy window (native_mark before the cycle, native_check after it). The whole-job ufcTry_3<=0 rule of the 2026-10-26 runs counted the ~8.5 live-mode minutes after the cycles (C4 28 tries spread over the whole run, all got the lock, 0 fakes; docs/202 §6). ccSet cc-2k: bb_cc_cycle places only cc-gen products named CCGen (first run 2026-10-26 failed 'no placeable catalogue product named like ccgen' without it, docs/202 §6).",
-      "asi": "game-copy/ts3native.asi.unseenfb-all14",
+      "asi": "tested",
       "releaseDefaults": true,
       "save": "Baseline-SV-Spring",
       "ccSet": "game-copy/cc-synth/cc-2k",
@@ -205,7 +205,7 @@
         "scope": "unseen"
       },
       "note": "docs/202 §3.4.2 finish the walk, forced ABBA on unseenfbfinish-far-walkers-loop (crowd far -> far2 while the active Sim's Go Here holds the job; 4 loops per arm, cap 16 min). Arms: on = FinishWalk (ufcMode 1, ufwMode 1); off = the C fake (ufcMode 1, ufwMode 0). Pass: no crash, 0 watchdog lines, no Sim stuck at the end (moved Sims in MovedSims as 'unseenfbfinish route end'), ufwHolds >= 1, ufwClaims >= 1, unseenfbfinish_shortcuts >= 1, stuck_check_reset and owstucknotice_held unchanged across the repro window. Judge: hitch-ab.ts --causes per arm: Route_Replan / ReplanFromPosition sync plans and >= 200 ms hitches led by them fewer on than off; ufcFake_0 / ufcFake_1 grow only in off windows. Read: ufwRelease_0..3 (finished / given up / seen / expired), ufwPlainWait, unseenfbfinish_no_spot / _cancelled / _rj_end / _rj_route, unseenfbfinish_max_hold_min. Stop rule: a crash, a watchdog line or a stuck moved Sim = stop and triage (docs/67 order) before the natural pair.",
-      "asi": "game-copy/ts3native.asi.unseenfb-finish",
+      "asi": "tested",
       "releaseDefaults": true,
       "save": "Baseline-SV-Spring",
       "minCounters": 140,
@@ -252,7 +252,7 @@
         "scope": "unseen"
       },
       "note": "docs/202 §3.4.2 finish the walk, forced ABBA on unseenfbfinish-far-walkers-vs-off-loop (crowd far -> far2 while the active Sim's Go Here holds the job; 4 loops per arm, cap 16 min). Arms: on = FinishWalk (ufcMode 1, ufwMode 1); off = no site fallback (ufcMode 0, ufwMode 0). Pass: no crash, 0 watchdog lines, no Sim stuck at the end (moved Sims in MovedSims as 'unseenfbfinish route end'), ufwHolds >= 1, ufwClaims >= 1, unseenfbfinish_shortcuts >= 1, stuck_check_reset and owstucknotice_held unchanged across the repro window. Judge: hitch-ab.ts --causes per arm: Route_Replan / ReplanFromPosition sync plans and >= 200 ms hitches led by them fewer on than off; ufcFake_0 / ufcFake_1 grow only in no windows. Read: ufwRelease_0..3 (finished / given up / seen / expired), ufwPlainWait, unseenfbfinish_no_spot / _cancelled / _rj_end / _rj_route, unseenfbfinish_max_hold_min. Stop rule: a crash, a watchdog line or a stuck moved Sim = stop and triage (docs/67 order) before the natural pair.",
-      "asi": "game-copy/ts3native.asi.unseenfb-finish",
+      "asi": "tested",
       "releaseDefaults": true,
       "save": "Baseline-SV-Spring",
       "minCounters": 140,
@@ -299,7 +299,7 @@
         "scope": "unseen"
       },
       "note": "FINISH half of the natural IP pair (docs/202 §3.4.2; separate loads, same save and seed 12345, 15 min autopilot, camera untouched): the v020-natural ON set (release defaults, v0.2.0 routing set, spread fixes, hitch guard A/B/C/D) plus [UnseenFallback] FinishWalk=1 + ts3fixes unseenfbfinish. Pass: no crash, 0 watchdog lines, no Sim stuck at the end, ufwHolds >= 1, unseenfbfinish_shortcuts reported. Judge with the other half: TS3_REPO=<main checkout> node tools/harness/hitch-ab.ts --causes unseen-fallback-c-<date>-ip-ufw-natural-fake vs ...-ip-ufw-natural-finish: routing-led >= 200 / 300 ms per 10 min (Route_Replan / ReplanFromPosition sync plans and +0x918 site waits first), p99 / p99.9 / max, taskObjects ms/s (the flag cost), loop detector counts (ufloop_flagged).",
-      "asi": "game-copy/ts3native.asi.unseenfb-finish",
+      "asi": "tested",
       "releaseDefaults": true,
       "save": "Baseline-IP-Spring",
       "minCounters": 140,
@@ -349,7 +349,7 @@
         "scope": "unseen"
       },
       "note": "C-FAKE half of the natural IP pair (docs/202 §3.4.2; separate loads, same save and seed 12345, 15 min autopilot, camera untouched): the v020-natural ON set (release defaults, v0.2.0 routing set, spread fixes, hitch guard A/B/C/D) with C1 / C2 fakes (no FinishWalk). Pass: no crash, 0 watchdog lines, no Sim stuck at the end. Judge with the other half: TS3_REPO=<main checkout> node tools/harness/hitch-ab.ts --causes unseen-fallback-c-<date>-ip-ufw-natural-fake vs ...-ip-ufw-natural-finish: routing-led >= 200 / 300 ms per 10 min (Route_Replan / ReplanFromPosition sync plans and +0x918 site waits first), p99 / p99.9 / max, taskObjects ms/s (the flag cost), loop detector counts (ufloop_flagged).",
-      "asi": "game-copy/ts3native.asi.unseenfb-finish",
+      "asi": "tested",
       "releaseDefaults": true,
       "save": "Baseline-IP-Spring",
       "minCounters": 140,
@@ -398,7 +398,7 @@
         "scope": "unseen"
       },
       "note": "C-FAKE half of the natural SV pair (docs/202 §3.4.2; separate loads, same save and seed 12345, 15 min autopilot, camera untouched): the v020-natural ON set (release defaults, v0.2.0 routing set, spread fixes, hitch guard A/B/C/D) with C1 / C2 fakes (no FinishWalk). Pass: no crash, 0 watchdog lines, no Sim stuck at the end. Judge with the other half: TS3_REPO=<main checkout> node tools/harness/hitch-ab.ts --causes unseen-fallback-c-<date>-sv-ufw-natural-fake vs ...-sv-ufw-natural-finish: routing-led >= 200 / 300 ms per 10 min (Route_Replan / ReplanFromPosition sync plans and +0x918 site waits first), p99 / p99.9 / max, taskObjects ms/s (the flag cost), loop detector counts (ufloop_flagged).",
-      "asi": "game-copy/ts3native.asi.unseenfb-finish",
+      "asi": "tested",
       "releaseDefaults": true,
       "save": "Baseline-SV-Spring",
       "minCounters": 140,
@@ -447,7 +447,7 @@
         "scope": "unseen"
       },
       "note": "FINISH half of the natural SV pair (docs/202 §3.4.2; separate loads, same save and seed 12345, 15 min autopilot, camera untouched): the v020-natural ON set (release defaults, v0.2.0 routing set, spread fixes, hitch guard A/B/C/D) plus [UnseenFallback] FinishWalk=1 + ts3fixes unseenfbfinish. Pass: no crash, 0 watchdog lines, no Sim stuck at the end, ufwHolds >= 1, unseenfbfinish_shortcuts reported. Judge with the other half: TS3_REPO=<main checkout> node tools/harness/hitch-ab.ts --causes unseen-fallback-c-<date>-sv-ufw-natural-fake vs ...-sv-ufw-natural-finish: routing-led >= 200 / 300 ms per 10 min (Route_Replan / ReplanFromPosition sync plans and +0x918 site waits first), p99 / p99.9 / max, taskObjects ms/s (the flag cost), loop detector counts (ufloop_flagged).",
-      "asi": "game-copy/ts3native.asi.unseenfb-finish",
+      "asi": "tested",
       "releaseDefaults": true,
       "save": "Baseline-SV-Spring",
       "minCounters": 140,

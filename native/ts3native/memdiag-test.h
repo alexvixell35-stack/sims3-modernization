@@ -60,22 +60,28 @@ static void TestMemDiag() {
     assert(MdWorldEvent("not a world line") == NULL);
 
     // game structures on fakes: EA heap direct blocks, GC counters, ResourceCache (priority 0) + AnimationCache (1000)
-    static u8 heap[0x518], rcC[0xA0], animC[0xA0], mgr[0xA8];
+    static u8 heap[0x518], core0[0x20], core1[0x20], rcC[0xA0], animC[0xA0], mgr[0xA8];
     static DWORD gc[3] = {360u << 20, 151u << 20, 812}, entries[4];
     static const u8* heapP = heap;
     static const u8* mgrP = mgr;
     static const u8* nullP = NULL;
     static const DWORD zero[3] = {};
     *(DWORD*)(heap + 0x488) = 3, *(DWORD*)(heap + 0x48C) = 22u << 20;
+    // two cores in the ring headed at heap +0x448 (first at +0x460, next at core +0x18): 100+12 MB committed, 128+16 reserved
+    *(DWORD*)(heap + 0x460) = (DWORD)(uintptr_t)core0, *(DWORD*)(core0 + 0x18) = (DWORD)(uintptr_t)core1;
+    *(DWORD*)(core1 + 0x18) = (DWORD)(uintptr_t)(heap + 0x448);
+    *(DWORD*)(core0 + 4) = 100u << 20, *(DWORD*)(core0 + 8) = 128u << 20, *(DWORD*)(core1 + 4) = 12u << 20, *(DWORD*)(core1 + 8) = 16u << 20;
     *(DWORD*)rcC = *(DWORD*)animC = 0xFFDD94;
     *(DWORD*)(rcC + 0x94) = 388u << 20, *(DWORD*)(rcC + 0x98) = 14u << 20, *(DWORD*)(rcC + 0x8C) = 200u << 20, *(DWORD*)(rcC + 0x28) = 41000;
     *(DWORD*)(animC + 0x94) = 4u << 20;
     entries[0] = (DWORD)(uintptr_t)animC, entries[1] = 1000, entries[2] = (DWORD)(uintptr_t)rcC, entries[3] = 0;
     *(DWORD*)mgr = 0xFFE250, *(DWORD*)(mgr + 0xA0) = (DWORD)(uintptr_t)entries, *(DWORD*)(mgr + 0xA4) = (DWORD)(uintptr_t)(entries + 4);
     const u8* const* savedEa = g_mdEaHeapSlot;
+    const u8* const* savedCore[2] = {g_mdEaCoreSlot[0], g_mdEaCoreSlot[1]};
     const u8* const* savedRc = g_mdRcMgrSlot;
     const DWORD* savedGc[3] = {g_mdGc[0], g_mdGc[1], g_mdGc[2]};
     g_mdEaHeapSlot = &heapP, g_mdRcMgrSlot = &mgrP;
+    g_mdEaCoreSlot[0] = g_mdEaCoreSlot[1] = &heapP;  // same object twice: counted once
     for (int i = 0; i < 3; i++) g_mdGc[i] = &gc[i];
     Ts3nCounters& k = ts3native_counters;
     const LONG savedPl = k.plKB, savedSp = k.spKB;
@@ -87,13 +93,16 @@ static void TestMemDiag() {
     MdValues(s, 1851ull << 20, x);
     assert(x.have[MD_EADIR] && x.v[MD_EADIR] == 22 && x.v[MD_EADIRN] == 3 && x.v[MD_GCHEAP] == 360 && x.v[MD_GCN] == 812);
     assert(x.v[MD_RC] == 388 && x.v[MD_RCCOLD] == 14 && x.v[MD_RCBUD] == 200 && x.v[MD_RCN] == 41000 && x.v[MD_ANIM] == 4);
-    assert(fabs(x.v[MD_REST] - (1851 - 360 - 22 - 210 - x.v[MD_RP] - 96 - 7 - 9)) < 1e-6);
+    assert(x.v[MD_EACOM] == 112 && x.v[MD_EARES] == 144 && x.v[MD_EACOREN] == 2);
+    assert(fabs(x.v[MD_REST] - (1851 - 360 - 22 - 112 - 210 - x.v[MD_RP] - 96 - 7 - 9)) < 1e-6);
     *(DWORD*)mgr = 0x12345678;  // not the manager's vtable: no rc fields
     g_mdEaHeapSlot = &nullP;    // heap not created yet
+    g_mdEaCoreSlot[0] = g_mdEaCoreSlot[1] = &nullP;
     g_mdGc[0] = NULL;           // unreadable: SEH, no gc fields
     MdValues(s, 1851ull << 20, x);
-    assert(!x.have[MD_RC] && !x.have[MD_ANIM] && !x.have[MD_EADIR] && !x.have[MD_GCHEAP] && x.have[MD_PRIV]);
+    assert(!x.have[MD_RC] && !x.have[MD_ANIM] && !x.have[MD_EADIR] && !x.have[MD_EACOM] && !x.have[MD_GCHEAP] && x.have[MD_PRIV]);
     *(DWORD*)mgr = 0xFFE250, g_mdEaHeapSlot = &heapP, g_mdGc[0] = &gc[0];
+    g_mdEaCoreSlot[0] = g_mdEaCoreSlot[1] = &heapP;
 
     // log capture: the line, marks, legend once
     wchar_t tmp[MAX_PATH], lp[MAX_PATH];
@@ -110,11 +119,11 @@ static void TestMemDiag() {
     MdAfterSample("diag: memory at 10 min", NULL, s, 1851ull << 20);
     UdtLog(buf, sizeof(buf), h);
     const char* L = strstr(buf, "diag: mem #1 load ev=travel,world-switch priv=1851 wPriv=1830 wCom=2167 free=1646 big=1525? img=0.0? map=0.0 ");
-    assert(L && strstr(L, " eaDir=22.0? eaDirN=3? ") && strstr(L, " pl=96.0? sp=7.0? gcHeap=360? gcFree=151? gcN=812? rc=388? rcCold=14.0? "));
+    assert(L && strstr(L, " eaDir=22.0? eaDirN=3? eaCom=112? eaRes=144? eaCoreN=2? rp=") && strstr(L, " pl=96.0? sp=7.0? gcHeap=360? gcFree=151? gcN=812? rc=388? rcCold=14.0? "));
     assert(strstr(L, " rcBudget=200? rcN=41000? anim=4.0? rest=") && strstr(buf, "diag: mem #2 periodic priv=1851 "));
     const char* T = strstr(L, " t=");
     assert(T && T < strchr(L, '\r') && strchr(L, '\r') - T <= 12);  // seconds since start, last field
-    for (const char* e = L; *e != '\n'; e++) assert(e - L < 500);
+    for (const char* e = L; *e != '\n'; e++) assert(e - L < 640);
     const char* G = strstr(buf, "diag: mem fields (docs/190 phase 1;");
     assert(G && G < L && !strstr(G + 1, "diag: mem fields (") && strstr(G, "validated priv wPriv wCom free map stkRes miRes miCom rp; unvalidated big img"));
     g_mdFail = 1 << MD_MAP;  // a failed field is marked '!'
@@ -178,6 +187,7 @@ static void TestMemDiag() {
 
     // the self-test on this process: real allocations, every checked field within tolerance (no EA heap here)
     g_mdEaHeapSlot = &nullP, g_mdRcMgrSlot = &nullP;
+    g_mdEaCoreSlot[0] = g_mdEaCoreSlot[1] = &nullP;
     for (int i = 0; i < 3; i++) g_mdGc[i] = &zero[i];
     k.plKB = k.spKB = 0;
     const bool pass = MdSelfTest(false);
@@ -191,6 +201,7 @@ static void TestMemDiag() {
 
     g_mdOn = wasOn, g_mdLegend = 0, g_mdPass = g_mdFail = 0;
     g_mdEaHeapSlot = savedEa, g_mdRcMgrSlot = savedRc;
+    g_mdEaCoreSlot[0] = savedCore[0], g_mdEaCoreSlot[1] = savedCore[1];
     for (int i = 0; i < 3; i++) g_mdGc[i] = savedGc[i];
     k.plKB = savedPl, k.spKB = savedSp;
     g_log = saved;

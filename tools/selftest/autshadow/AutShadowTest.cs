@@ -46,6 +46,22 @@ namespace Gm
     public class GameDef : IDefLike { public virtual bool Test() { return true; } }
     public class ModOwnDef : IDefLike { public bool Test() { return false; } }      // a mod's own, unrelated definition
     public class ModSubDef : GameDef { public override bool Test() { return false; } }  // derives an allow-listed one
+    // G-M6 fixture: tools/autshadow-il-hashes.ts --hash-file must give the same hashes for these (run.ts compares)
+    public class IlSample
+    {
+        public static int sF;
+        string mS;
+        public static string Run(int a, string b)
+        {
+            try { sF += a; if (a > 2) return string.Concat(b, "x"); return new System.Text.StringBuilder(b).Append(a).ToString(); }
+            catch (InvalidOperationException e) { return e.Message; }
+            finally { sF--; }
+        }
+        public int Switchy(int k) { switch (k) { case 0: return 1; case 1: return 5; case 2: return 9; default: mS = "d"; return Run(k, mS).Length; } }
+        public static string Pick(int a) { return null; }
+        public static T Pick<T>(int a) where T : class { return null; }  // same SigKey as Pick(int), declared after it
+        public System.Collections.Generic.List<int> Gen() { System.Collections.Generic.List<int> l = new System.Collections.Generic.List<int>(); l.Add(1); return l; }
+    }
 }
 
 class Probe : AutShadowCore.IRainProbe
@@ -125,6 +141,26 @@ static class AutShadowTest
             Check(AutShadowCore.GuidNFromRaw(m) == new Guid(b).ToString("N"), "G-M1 MVID " + m);
         }
 
+        // docs/218 §5 content guard: SGS/SGO only as a pair of one set, other modules by their own hash, a missing hash = no verdict
+        {
+            string[][] sets = { new string[] { "ea-sgs", "ea-sgo" }, new string[] { "s90-sgs", "s90-sgo" } };
+            string[] other = { "ea-sc", "et-sc", "ea-ui" };
+            string[] cn = { "ScriptCore", "Sims3GameplaySystems", "Sims3GameplayObjects", "UI" };
+            int set;
+            bool[] cr = AutShadowCore.ContentAccepted(cn, new string[] { "ea-sc", "s90-sgs", "s90-sgo", "ea-ui" }, sets, other, out set);
+            Check(cr != null && set == 1 && cr[0] && cr[1] && cr[2] && cr[3], "content: simler90 pair = set 1, EA ScriptCore and UI accepted");
+            cr = AutShadowCore.ContentAccepted(cn, new string[] { "et-sc", "ea-sgs", "ea-sgo", "tui-ui" }, sets, other, out set);
+            Check(cr != null && set == 0 && cr[0] && cr[1] && cr[2] && !cr[3], "content: EA pair = set 0, ErrorTrap ScriptCore accepted, a rewritten UI not");
+            cr = AutShadowCore.ContentAccepted(cn, new string[] { "ea-sc", "ea-sgs", "s90-sgo", "ea-ui" }, sets, other, out set);
+            Check(cr != null && set == -1 && !cr[1] && !cr[2] && cr[0], "content: EA SGS + simler90 SGO (mixed pair) = neither (G-M1)");
+            cr = AutShadowCore.ContentAccepted(cn, new string[] { "ea-sc", "tui-sgs", "ea-sgo", "ea-ui" }, sets, other, out set);
+            Check(cr != null && set == -1 && !cr[1] && !cr[2], "content: a rewritten SGS = both of the pair unknown");
+            cr = AutShadowCore.ContentAccepted(cn, new string[] { "ea-sc", null, "ea-sgo", "ea-ui" }, sets, other, out set);
+            Check(cr == null && set == -1, "content: a module without a hash = no verdict (MVID gate)");
+            Check(AutShadowCore.ContentAccepted(new string[0], new string[0], sets, other, out set) == null, "content: no modules = no verdict");
+            Check(AutShadowCore.Hex(new byte[] { 0x00, 0x0f, 0xa5, 0xff }) == "000fa5ff", "content: hex is lower case, 2 digits a byte");
+        }
+
         // G-M4: index keys (tools/managed-callgraph.ts format) from reflection, and their resolution
         Type nt = typeof(Gm.Host.Nested);
         string goKey = "Gm.Host+Nested::Go(int&,System.Collections.Generic.Dictionary`2<string,System.Collections.Generic.List`1<ulong>>,object[],float[,])";
@@ -175,6 +211,43 @@ static class AutShadowTest
         Check(!AutShadowCore.RainShelter(true, pr2, 1, 2) && pr2.Calls == 1111, "H11: hail, indoor object");
         pr2.Outside = true; pr2.W = 1;
         Check(AutShadowCore.RainShelter(true, pr2, 1, 2), "H11: rain, outdoor object: abort");
+
+        // H11 shelter answer (docs/127 §4.1): cut bit, worker answer, done rule
+        Check(AutShadowCore.ShelterBit(false, false, false, true, false) == AutShadowCore.kShelterNone, "shelter bit: dry weather: none");
+        Check(AutShadowCore.ShelterBit(true, true, false, true, false) == AutShadowCore.kShelterNone, "shelter bit: Sim: none");
+        Check(AutShadowCore.ShelterBit(true, false, true, true, true) == AutShadowCore.kShelterNone, "shelter bit: ICanCountAsBeingIndoors: none (needs the instance)");
+        Check(AutShadowCore.ShelterBit(true, false, false, false, false) == AutShadowCore.kShelterNone, "shelter bit: indoors: none (branch not taken)");
+        Check(AutShadowCore.ShelterBit(true, false, false, true, true) == AutShadowCore.kSheltered, "shelter bit: outside under a roof: sheltered");
+        Check(AutShadowCore.ShelterBit(true, false, false, true, false) == AutShadowCore.kUnsheltered, "shelter bit: outside, open sky: unsheltered");
+        Check(AutShadowCore.ShelterAnswer(true, true, AutShadowCore.kSheltered) == 1, "shelter answer: sheltered");
+        Check(AutShadowCore.ShelterAnswer(true, true, AutShadowCore.kUnsheltered) == 0, "shelter answer: unsheltered (multiplier applies)");
+        Check(AutShadowCore.ShelterAnswer(false, true, AutShadowCore.kSheltered) == -1, "shelter answer: a real instance: abort");
+        Check(AutShadowCore.ShelterAnswer(true, false, AutShadowCore.kSheltered) == -1, "shelter answer: another object: abort");
+        Check(AutShadowCore.ShelterAnswer(true, true, AutShadowCore.kShelterNone) == -1, "shelter answer: no cut bit: abort");
+        Check(AutShadowCore.ShelterDone(1, true) && !AutShadowCore.ShelterDone(0, true) && !AutShadowCore.ShelterDone(1, false) && !AutShadowCore.ShelterDone(2, true), "shelter done: one skip and one answer");
+        Check(AutShadowCore.ShelterDone(0, false), "shelter done: branch not reached (meta CalculateScore outside local autonomy): valid");
+        // G-M6 (PR #112): IlHash pinned on the vector tools/autshadow-il-hashes.ts --self-check pins too
+        byte[] il = { 0x02, 0x28, 1, 0, 0, 0x0a, 0x72, 1, 0, 0, 0x70, 0x2b, 5, 0x45, 1, 0, 0, 0, 2, 0, 0, 0, 0xfe, 0x15, 2, 0, 0, 0x1b, 0x2a };
+        AutShadowCore.TokenName nm = delegate(int t) { return t == 0x0a000001 ? "System.String::Concat(string,string)" : t == 0x70000001 ? "hi" : null; };
+        ulong vh = AutShadowCore.IlHash("K::M()", il, new int[] { 0, 0, 5, 5, 3, 0, 2, 0, 8, 8, 2, 0 }, new string[] { "System.Exception", null }, nm);
+        Check(vh == 0x3214442e9ad01960UL, "G-M6 vector hash " + vh.ToString("x16"));
+        Check(AutShadowCore.IlHash("K::M()", il, new int[0], new string[0], delegate(int t) { return t == 0x70000001 ? "ho" : nm(t); }) != AutShadowCore.IlHash("K::M()", il, new int[0], new string[0], nm), "G-M6: string text in the hash");
+        // a header-swapped callee is named as before the swap (Fixes.Patch records it; rain-h11 2026-10-31)
+        MethodBase runM = typeof(Gm.IlSample).GetMethod("Run");
+        Check(AutShadowCore.ResolveName(runM.Module, runM.MetadataToken) == "Gm.IlSample::Run(int,string)", "G-M6: method token name " + AutShadowCore.ResolveName(runM.Module, runM.MetadataToken));
+        AutShadowCore.SwapNames[runM.MethodHandle.Value] = "Orig::Run(int,string)";
+        Check(AutShadowCore.ResolveName(runM.Module, runM.MetadataToken) == "Orig::Run(int,string)", "G-M6: swapped callee keeps its recorded name");
+        AutShadowCore.SwapNames.Clear();
+        System.Collections.Generic.Dictionary<string, MethodBase> pk = AutShadowCore.Resolve(new Assembly[] { typeof(Gm.IlSample).Assembly }, new string[] { "Gm.IlSample::Pick(int)" });
+        Check(pk.Count == 1 && !pk["Gm.IlSample::Pick(int)"].IsGenericMethodDefinition, "Resolve: a generic overload with the same SigKey does not replace the listed method");
+        // e2e lines for run.ts: the runtime side (reflection) of the fixture methods
+        System.Collections.Generic.Dictionary<Module, System.Collections.Generic.Dictionary<int, string>> cache = new System.Collections.Generic.Dictionary<Module, System.Collections.Generic.Dictionary<int, string>>();
+        foreach (string mn in new string[] { "Run", "Switchy", "Gen" })
+        {
+            MethodBase mb = typeof(Gm.IlSample).GetMethod(mn);
+            string key = AutShadowCore.SigKey(mb);
+            Console.WriteLine("ilhash " + key + " " + AutShadowCore.MethodIlHash(key, mb, cache).ToString("x16"));
+        }
 
         Console.WriteLine(sFails == 0 ? "autshadow selftest: PASS" : "autshadow selftest: " + sFails + " FAIL");
         return sFails == 0 ? 0 : 1;

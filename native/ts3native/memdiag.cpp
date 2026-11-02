@@ -2,11 +2,14 @@
 // only, plus an opt-in self-test that proves each field moves by a known injected size. Included by ts3native.cpp right
 // after userdiag.cpp (it reuses UdMemStat / UdMemWalk / UdMemSample / the memory worker; no second walk code).
 //   diag: mem #4 load ev=travel,world-switch priv=1851 wPriv=1830 wCom=2167 free=1646 big=1525? img=310? map=120 stkRes=140
-//     stkCom=9.1? miRes=320 miCom=210 eaDir=22.0? eaDirN=3? rp=20.1 pl=96.0? sp=7.0? gcHeap=360? gcFree=151? gcN=812?
+//     stkCom=9.1? miRes=320 miCom=210 eaDir=22.0? eaDirN=3? eaCom=612? eaRes=640? eaCoreN=46? rp=20.1 pl=96.0? sp=7.0? gcHeap=360? gcFree=151? gcN=812?
 //     rc=388? rcCold=14.2? rcBudget=200? rcN=41000? anim=4.1? rest=402? t=734   (t = seconds since the game started)
 // MB unless the key ends in N (count) or is gcN. "-" = not readable (no game, feature off). Suffix "?" = no validation has
 // passed for this field (read from a documented address, unproven), "!" = it failed this session's self-test; no suffix =
 // a self-test check passed (host selftest for walk / OS / routesnap fields, or this session's game self-test).
+// eaCom/eaRes/eaCoreN: EA GeneralAllocator cores (MemoryMan heap + the script heap when it is a separate object), committed /
+// reserved MB and count (docs/209 #96). rc is cache bytes, not 32-bit address space: under DXVK most texture data does not
+// sit in TS3W's address space (docs/40 §4-5), so rc falling does not mean free space rising by as much.
 // Validation in docs/191 "Goal: a correct memory measuring tool first".
 #include <initializer_list>
 
@@ -18,7 +21,7 @@ static const DWORD kMdSelfTestDelayMs = 30000;
 
 enum {
     MD_PRIV, MD_WPRIV, MD_WCOM, MD_FREE, MD_BIG, MD_IMG, MD_MAP, MD_STKRES, MD_STKCOM, MD_MIRES, MD_MICOM, MD_EADIR, MD_EADIRN,
-    MD_RP, MD_PL, MD_SP, MD_GCHEAP, MD_GCFREE, MD_GCN, MD_RC, MD_RCCOLD, MD_RCBUD, MD_RCN, MD_ANIM, MD_REST, MD_N
+    MD_EACOM, MD_EARES, MD_EACOREN, MD_RP, MD_PL, MD_SP, MD_GCHEAP, MD_GCFREE, MD_GCN, MD_RC, MD_RCCOLD, MD_RCBUD, MD_RCN, MD_ANIM, MD_REST, MD_N
 };
 // check: 'H' = a check in the host selftest (selftest-all, every build) and in the game self-test, 'G' = game self-test
 // only (needs the EA heap), 0 = no check: unvalidated until docs/191's later modules add one.
@@ -26,7 +29,7 @@ struct MdDef { const char* key; bool count; char check; };
 static const MdDef kMd[MD_N] = {
     {"priv", 0, 'H'},   {"wPriv", 0, 'H'},  {"wCom", 0, 'H'},  {"free", 0, 'H'},    {"big", 0, 0},     {"img", 0, 0},
     {"map", 0, 'H'},    {"stkRes", 0, 'H'}, {"stkCom", 0, 0},  {"miRes", 0, 'H'},   {"miCom", 0, 'H'}, {"eaDir", 0, 'G'},
-    {"eaDirN", 1, 'G'}, {"rp", 0, 'H'},     {"pl", 0, 0},      {"sp", 0, 0},        {"gcHeap", 0, 0},  {"gcFree", 0, 0},
+    {"eaDirN", 1, 'G'}, {"eaCom", 0, 0},    {"eaRes", 0, 0},     {"eaCoreN", 1, 0}, {"rp", 0, 'H'},     {"pl", 0, 0},      {"sp", 0, 0},        {"gcHeap", 0, 0},  {"gcFree", 0, 0},
     {"gcN", 1, 0},      {"rc", 0, 0},       {"rcCold", 0, 0},  {"rcBudget", 0, 0},  {"rcN", 1, 0},     {"anim", 0, 0},
     {"rest", 0, 0},
 };
@@ -40,6 +43,10 @@ static const u8* const* g_mdRcMgrSlot = (const u8* const*)(uintptr_t)0x011C78D8;
 static const DWORD* g_mdGc[3] = {(const DWORD*)(uintptr_t)0x012225A0, (const DWORD*)(uintptr_t)0x012225B4,
                                  (const DWORD*)(uintptr_t)0x011F2F90};  // GC_heapsize, GC_large_free_bytes, GC_gc_no (docs/66 §6.1)
 
+// GeneralAllocator instances whose cores are summed: MemoryMan [0x11CB864] and the script host's [0x11D4BC8] (docs/130
+// I-130-7: a dedicated heap or the same object; the same object is counted once)
+static const u8* const* g_mdEaCoreSlot[2] = {(const u8* const*)(uintptr_t)0x011CB864, (const u8* const*)(uintptr_t)0x011D4BC8};
+
 struct MdVals { double v[MD_N]; bool have[MD_N]; };
 
 static bool MdEaDirect(DWORD* bytes, DWORD* count) {  // heap +0x488 count / +0x48C bytes of direct-mapped blocks
@@ -49,6 +56,26 @@ static bool MdEaDirect(DWORD* bytes, DWORD* count) {  // heap +0x488 count / +0x
         *count = *(const volatile DWORD*)(h + 0x488);
         *bytes = *(const volatile DWORD*)(h + 0x48C);
         return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+// Cores (AddCore 0x4E4E30, exe bytes): a ring through core +0x18 (next) whose head node is heap +0x448 (first core =
+// [heap+0x460]); core +4 committed bytes, +8 reserved bytes. Read without the heap lock like eaDir: a core added or
+// trimmed mid-walk costs one sample's accuracy; a broken ring ends at the cap or the SEH guard (no field then).
+static bool MdEaCores(double* com, double* res, DWORD* n) {
+    __try {
+        *com = *res = 0, *n = 0;
+        const u8* seen = NULL;
+        for (const u8* const* slot : g_mdEaCoreSlot) {
+            const u8* h = *slot;
+            if (!h || h == seen) continue;
+            seen = h;
+            const u8* c = *(const u8* const volatile*)(h + 0x460);
+            for (; c && c != h + 0x448; c = *(const u8* const volatile*)(c + 0x18)) {
+                if (++*n > 4096) return false;
+                *com += *(const volatile DWORD*)(c + 4), *res += *(const volatile DWORD*)(c + 8);
+            }
+        }
+        return seen != NULL;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
 static bool MdGc(DWORD* out) {
@@ -90,6 +117,9 @@ static void MdValues(const UdMemStat& s, u64 privUsage, MdVals& x) {
     set(MD_STKRES, s.stkRes * MB), set(MD_STKCOM, s.stkCom * MB), set(MD_MIRES, s.miRes * MB), set(MD_MICOM, s.miCom * MB);
     DWORD a = 0, b = 0, r[5] = {}, g[3] = {};
     if (MdEaDirect(&a, &b)) set(MD_EADIR, a * MB), set(MD_EADIRN, b);
+    double ec = 0, er = 0;
+    DWORD en = 0;
+    if (MdEaCores(&ec, &er, &en)) set(MD_EACOM, ec * MB), set(MD_EARES, er * MB), set(MD_EACOREN, en);
     const Ts3nCounters& k = ts3native_counters;
     set(MD_RP, k.rpKB / 1024.0), set(MD_PL, k.plKB / 1024.0), set(MD_SP, k.spKB / 1024.0);
     if (MdGc(g)) set(MD_GCHEAP, g[0] * MB), set(MD_GCFREE, g[1] * MB), set(MD_GCN, g[2]);
@@ -99,7 +129,7 @@ static void MdValues(const UdMemStat& s, u64 privUsage, MdVals& x) {
     }
     // remainder of the OS private bytes after the attributed owners that were readable (an upper bound when one is "-")
     double rest = x.v[MD_PRIV];
-    for (int i : {MD_GCHEAP, MD_EADIR, MD_MICOM, MD_RP, MD_PL, MD_SP, MD_STKCOM})
+    for (int i : {MD_GCHEAP, MD_EADIR, MD_EACOM, MD_MICOM, MD_RP, MD_PL, MD_SP, MD_STKCOM})
         if (x.have[i]) rest -= x.v[i];
     set(MD_REST, rest);
 }
@@ -115,7 +145,7 @@ static void MdNum(char* out, size_t cap, double v, bool count) {
     _snprintf_s(out, cap, _TRUNCATE, count || v >= 100 || v <= -100 ? "%.0f" : "%.1f", v);
 }
 
-// "diag: mem #N <tag>[ ev=<ev>] key=value[?|!] ... t=<s since start>" (~330-460 characters; the Log buffer is 512)
+// "diag: mem #N <tag>[ ev=<ev>] key=value[?|!] ... t=<s since start>" (~360-500 characters; the Log buffer is 1536)
 static void MdFormat(char* out, size_t cap, LONG n, const char* tag, const char* ev, const MdVals& x, DWORD secs) {
     int at = _snprintf_s(out, cap, _TRUNCATE, "diag: mem #%ld %s%s%s", n, tag, ev && *ev ? " ev=" : "", ev && *ev ? ev : "");
     for (int i = 0; i < MD_N && at > 0; i++) {
@@ -214,7 +244,7 @@ static void MdAfterSample(const char* what, const char* ev, const UdMemStat& s, 
     if (!InterlockedExchange(&g_mdLegend, 1)) MdLegend("docs/190 phase 1");
     MdVals x;
     MdValues(s, privUsage, x);
-    char line[500];
+    char line[640];
     const LONG n = InterlockedIncrement(&g_mdN);
     MdFormat(line, sizeof(line), n, MdTag(what), ev, x, (GetTickCount() - g_udT0) / 1000);
     Log("%s", line);

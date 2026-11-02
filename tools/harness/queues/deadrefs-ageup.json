@@ -4,7 +4,7 @@
     {
       "id": "bp-ageup-outfits-check",
       "note": "Correctness (6 min): repro bp-ageup-outfits-check. Pass: off result 'outfits 0' (EA's wipe reproduced), on result = the townie's count before, ageupkeepoutfits_kept 1, log line 'ageupkeepoutfits: ... kept its outfits; builder failed: OperationCanceledException'; applied log 'SimBuilderTask.FinishOutfitSwap: ok'; no crash. If off does not wipe, the abort landed before the builder ran (fix the repro, not the switch)",
-      "asi": "game-copy/ts3native.asi.rel020",
+      "asi": "tested",
       "save": "Baseline-BP",
       "run": { "profile": { "minutes": 6, "seed": 12345, "noSamplers": true, "repro": "bp-ageup-outfits-check" } },
       "gameArgs": ["-disablestoryprogression"],
@@ -13,7 +13,7 @@
     {
       "id": "bp-deadrefs-check",
       "note": "Correctness (6 min): repro bp-deadrefs-check. Pass: off 'relget: key added True' / 'aging: valid True', on False / False with deadrefguards_relget +1 / _aging +1; sweep started True (safe); after it every gone count 0, deadrefsweep_passes >= 1, deadrefsweep_max_slice_us <= ~3000, deadrefsweep_refused 0; applied log 'Relationship.Get: ok', 'AgingManager.IsAgingStateValid: ok'; no crash or ScriptError",
-      "asi": "game-copy/ts3native.asi.rel020",
+      "asi": "tested",
       "save": "Baseline-BP",
       "run": { "profile": { "minutes": 6, "seed": 12345, "noSamplers": true, "repro": "bp-deadrefs-check" } },
       "gameArgs": ["-disablestoryprogression"],
@@ -22,7 +22,7 @@
     {
       "id": "bp-deadrefs-saves",
       "note": "Save matrix (12 min): repro bp-deadrefs-saves on Bridgeport. Pass: 7 saves all ok within 120 s, reload of DeadRefs-BP-1 reaches live mode, count right after load says safe or refused with relkeys unchanged (no pass acted before Fixup), 60 s play clean, final save ok; no crash, hang, ScriptError or ts3native.log FAIL line",
-      "asi": "game-copy/ts3native.asi.rel020",
+      "asi": "tested",
       "save": "Baseline-BP",
       "noiseCheck": false,
       "logForbid": { "^FAIL\\b": 0 },
@@ -33,7 +33,7 @@
     {
       "id": "ip-deadrefs-saves",
       "note": "Save matrix (12 min): repro bp-deadrefs-saves on Isla Paradiso (second world; saves keep the DeadRefs-BP-* names). Same pass rules as bp-deadrefs-saves",
-      "asi": "game-copy/ts3native.asi.rel020",
+      "asi": "tested",
       "save": "Baseline-IP",
       "noiseCheck": false,
       "logForbid": { "^FAIL\\b": 0 },
@@ -44,7 +44,7 @@
     {
       "id": "bp-deadrefs-travel",
       "note": "Save matrix travel case (France): profile-world.ts --travel france (save-matrix.ts travel case with --stay: travel save, then the repro in France) with the three switches on for the whole run; the repro switches them off then on again. Pass: travel ok, in France 'sweep: started False (travelling or on vacation)', deadrefsweep_refused > 0 and relkeys 0 removed while away, guards still answer (relget False, aging False with the switch on), no crash or ScriptError. Home saves are covered by jobs 3-4",
-      "asi": "game-copy/ts3native.asi.rel020",
+      "asi": "tested",
       "save": "Baseline-BP",
       "noiseCheck": false,
       "logForbid": { "^FAIL\\b": 0 },

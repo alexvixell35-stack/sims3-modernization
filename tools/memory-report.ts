@@ -27,6 +27,7 @@ import { parseLog, type Sample } from './mem-report.ts';
 export const METRICS: { key: string; label: string; count?: boolean }[] = [
   { key: 'wCom', label: 'commit' }, { key: 'priv', label: 'private' }, { key: 'big', label: 'largest free' },
   { key: 'rc', label: 'resource cache' }, { key: 'gcHeap', label: 'Mono heap' }, { key: 'eaDir', label: 'EA direct blocks' },
+  { key: 'eaCom', label: 'EA heap cores committed' }, { key: 'eaRes', label: 'EA heap cores reserved' },
   { key: 'rest', label: 'unattributed' },
   ...['cc', 'ppc', 'etRef', 'gsc', 'mapv', 'wq', 'wpl', 'ogs', 'smh'].map((key) => ({ key, label: `handlers ${key}`, count: true })),
   { key: 'alive', label: 'destroyed but alive', count: true },
@@ -252,6 +253,8 @@ export function report(text: string): string {
     const v = verdict(m.key === 'big' ? vals.map((x) => -x) : vals, m.count ? 2 : 8);
     out.push(`${m.label} (${m.key}${m.count ? '' : ', MB'}) | ${per || '-'} | ${fmt(vals[0])} -> ${fmt(vals[vals.length - 1])}${ph} | ${m.key === 'big' ? v.replace('growing', 'shrinking') : v}`);
   }
+  // docs/209 #96: under DXVK most texture data sits outside TS3W's address space, so rc moves far more than free space does
+  if (play.some((s) => typeof s.v.rc === 'number')) out.push('note: rc (resource cache) is not 32-bit address space under DXVK (docs/40 §4-5, docs/209 #96); judge Error 12 room by big and free.');
   if (r.alive.length) {
     const f = r.alive[0], l = r.alive[r.alive.length - 1];
     out.push('', `destroyed but alive (1 in 32 destroys tracked, alive = survived 2+ GCs): hook ${l.hook ? 'on' : 'NOT applied'}, destroys seen ${l.seen}, tracked ${l.trk}, freed ${l.freed}, alive ${f.alive} -> ${l.alive} (${verdict(r.alive.map((x) => x.alive), 2)}), read ${Math.max(...r.alive.map((x) => x.ms)).toFixed(2)} ms max`);
@@ -357,7 +360,7 @@ function selfCheck() {
   assert.match(modOf('simler90Extras/Y', pk), /simler90GameplayCoreMod/);
   assert.match(modOf('Unknown/Z', pk), /package not listed/);
   const mem = (n: number, tag: string, ev: string, priv: number, rc: number, t: number) =>
-    `diag: mem #${n} ${tag}${ev ? ` ev=${ev}` : ''} priv=${priv} wPriv=${priv - 40} wCom=${priv + 500} free=1600 big=${3000 - priv}? img=400? map=100 stkRes=98 stkCom=10.0? miRes=192 miCom=60 eaDir=160? eaDirN=110? rp=0.0 pl=0.0? sp=0.0? gcHeap=350? gcFree=70? gcN=359? rc=${rc}? rcCold=30? rcBudget=200? rcN=1000? anim=4.0? rest=900? t=${t}`;
+    `diag: mem #${n} ${tag}${ev ? ` ev=${ev}` : ''} priv=${priv} wPriv=${priv - 40} wCom=${priv + 500} free=1600 big=${3000 - priv}? img=400? map=100 stkRes=98 stkCom=10.0? miRes=192 miCom=60 eaDir=160? eaDirN=110? eaCom=600? eaRes=640? eaCoreN=40? rp=0.0 pl=0.0? sp=0.0? gcHeap=350? gcFree=70? gcN=359? rc=${rc}? rcCold=30? rcBudget=200? rcN=1000? anim=4.0? rest=900? t=${t}`;
   const sus = (n: number, tag: string, wq: number) => `diag: memsus #${n} ${tag} cc=100 ccIcon=0? ppc=3 etRef=1 gsc=5 mapv=40 wq=${wq} wpl=2 ogs=5 smh=0? gcCnt=${380 + n} rdMs=0.25 lag=100 t=${n * 300}`;
   const alive = (k: number) => `diag: memsus alive: seen=${k * 300} trk=${k * 9} freed=${k * 5} alive=${k * 2} hook=1 ms=0.40 top=Ingredient:${k},NRaasOverwatch/Thing:${k - 1},Plate:1`;
   const lines = ['ts3native 0.36.79 2026-10-26 09:00:00',
@@ -378,6 +381,8 @@ function selfCheck() {
   const txt = report(lines.join('\n'));
   assert.match(txt, /private \(priv, MB\) .*\| leak\? \(keeps growing\)/);
   assert.match(txt, /resource cache \(rc, MB\) .*\| cache \(plateau\)/);
+  assert.match(txt, /EA heap cores committed \(eaCom, MB\) \| /);
+  assert.match(txt, /note: rc \(resource cache\) is not 32-bit address space under DXVK/);
   assert.match(txt, /largest free \(big, MB\) .*leak\? \(keeps shrinking\)/);
   assert.match(txt, /handlers wq .*\| leak\? \(keeps growing\)/);
   assert.match(txt, /handlers ppc .*\| flat/);

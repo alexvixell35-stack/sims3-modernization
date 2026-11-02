@@ -165,8 +165,10 @@ static __declspec(naked) void MtSimReturn() {
     }
 }
 
+static DWORD g_mtHostThis;  // MonoScriptHost `this` (thiscall: ecx at the slot call), read by satb.cpp for the tick statics (+0xC20/+0xC24)
 static __declspec(naked) void MtSimulateStub() {
     __asm {
+        mov dword ptr [g_mtHostThis], ecx
         pushad
         pushfd
         call MtTick
@@ -202,6 +204,7 @@ static bool ApplyMonoThread(const wchar_t* ini) {
     g_mtArenaFix = GetPrivateProfileIntW(L"MonoThread", L"ArenaFix", 1, ini) != 0;  // with GcLock=1: frame arena pool fix (docs/120 §9)
     g_mtN2mPrivate = GetPrivateProfileIntW(L"MonoThread", L"N2mPrivate", 1, ini) != 0;  // with GcLock=1: F1 detour at 0xD8A8E0 (docs/120 §9.4)
     g_mtLazyGate = GetPrivateProfileIntW(L"MonoThread", L"LazyGate", 0, ini) != 0;  // with Mode=1: gate on only while a job runs (docs/30 §15)
+    g_mtLazyEarly = g_mtLazyGate && GetPrivateProfileIntW(L"MonoThread", L"LazyEarly", 0, ini) != 0;  // gate off at the first sim entry after the job (docs/30 §16)
     ts3native_mtprobe.lazyGate = g_mtLazyGate ? 1 : 0;
     if (k.mtMode >= 2) { Log("mono thread: Mode=%ld (GC stress) not built yet, running Mode 1", k.mtMode); k.mtMode = 1; }
     if (k.mtMode == 1 && !(g_mtWantP3 && g_mtWantP4)) { Log("mono thread: Mode=1 needs GcLock=1 and FrameTls=1, running Mode 0"); k.mtMode = 0; }

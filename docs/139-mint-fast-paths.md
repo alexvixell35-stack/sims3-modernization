@@ -9,7 +9,7 @@ Sources: capstone over the Steam 1.67 `TS3W.exe` (copy under `game-copy/`), docs
 | Rank | Option | Expected gain in game | Hours (Claude + agents) | Game runs | State |
 |---|---|---|---|---|---|
 | 1 | **Sub-run fusion** of the existing 22 superops (§4): fuse a descriptor wherever it occurs inside a run, not only when the whole run equals it | **~2-8 ms/s** [inferred]; offline: -0.7% to -11.8% dispatches, **-7.1%** time on the bench | 1-2 h to port to ts3native (switch, default off) | 2 loads (transform-time: no in-load A/B), clean night | **built in monohost**, 37/37 selftest and same checksum in 59 of 60 runs (54 in a row); one unexplained failure (§4.4) |
-| 2 | **Call/return fast path** (§5): own handlers for `call`/`callvirt`/`ret*` through the jump table, falling back to EA's handler before any state change | **~15-30 ms/s** [inferred] of ~78 ms/s non-stall call machinery | 8-14 h | 1 BP A/B night, **in one load** (table entries can be swapped live) | design only |
+| 2 | **Call/return fast path** (§5, §8): own handlers for `call`/`callvirt`/`ret*` through the jump table, falling back to EA's handler before any state change | design said ~15-30 ms/s; **as built ~5-10 ms/s** [inferred from host benches, §8.5]: a bit-exact frame keeps nearly all of EA's stores (209-233 -> 191-201 instructions) | done | verify queue + A/B **in one load** (`--ab mintcall`) | **built** (ts3native 0.36.127 `[MonoFast] CallPath`, off), host-verified 0 mismatches over 19-21 M calls, not run in game |
 | 3 | New superinstructions for frequent pairs (§3) on top of rank 1 | ~1-4 ms/s [inferred] | 4-8 h, after G-I1 picks the pairs | 2 loads | design only |
 | 4 | Threaded (replicated) dispatch, G-I10 (§2) | **≤ ~2-3 ms/s** of a 16 ms/s ceiling; offline -1.7%, at the noise floor | done offline; port 1 h | not worth one | **built in monohost**, not recommended |
 | 5 | Drop the opcode range check in the dispatch head (§2) | ~0 (no gain measured) | - | - | built, rejected (also removes the "Unimplemented opcode" guard) |
@@ -136,6 +136,70 @@ Complementary, not a replacement: G-I2's transform-time inliner removes trivial 
 
 1. Sub-run fusion: port to ts3native as `[MintFuse] Sub=1` (default off) and a two-load BP A/B on a clean night.
 2. G-I1 managed sampler (1 BP job) to weight pairs and calls by hot methods; then decide §5 vs G-I2 inliner order.
-3. §5 call/return fast path with a host differential harness.
+3. §5 call/return fast path with a host differential harness: **built, §8**.
 
 Ledger: docs/51 §194.
+
+## 8. Call/return fast path as built (`[MonoFast] CallPath`, ts3native 0.36.127, 2026-10-30)
+
+Rodney approved §5 after docs/207 §7 showed that compiled bodies stay call-bound. Code: `native/ts3native/mintcall.cpp` (shared: ts3native includes it before `autshadow.cpp`, monohost inside `namespace mt`), host harness in `native/monohost/monohost.cpp` (`McTests`, `McBench`) and `HostTest.cs` (`CallTest`), selftest `mintcall-test.h`, counters v143 (`docs/registry.md`). Built, proven offline, **not run in game**.
+
+### 8.1 What it does
+
+Own handlers for `ret` 0x06, `ret.void` 0x07, `call` 0xEA and `callvirt` 0xEC, installed as four jump-table entries (aligned data writes, no code byte changed). Each handler tests every case in which EA's path does something else, **before any write**, and on any of them jumps to EA's handler with the entry state unchanged (eax = edx = opcode, edi = ip, esi = sp):
+
+| Path | Goes to EA's handler when |
+|---|---|
+| `call` | switch off; remoting check would run (instance, not a value-type method: null `this` or null vtable (EA faults there), class equal to `[0x1220EC0]`); MonoPatcher ForceJIT active (byte `0xE5637D` is not `0x75`); callee not transformed (`+0x44 & 0x100`); EA native body (`+0x24`); the next record slot has no `MonoInvocation` yet (depth + 1 >= high-water mark `[ebp-0x30]`, i.e. EA would `alloca`); no arena chunk or not enough room |
+| `callvirt` | as `call`, plus null receiver, inline-cache miss (EA looks up and writes the cache), value-type receiver (EA's unbox adjust); `con.callvirt` / `con.boxcallvirt` keep EA's handler |
+| `ret`, `ret.void` | depth 0 (exit A), yield flag `state+0x149`, pending exception `inv+0x20`, newobj return (record `+0x14`), values left on the eval stack (EA logs), arena base 0 or outside the current chunk (EA's slow pop) |
+
+Otherwise it writes the same live words as EA (record of the caller and the callee, `MonoInvocation` fields, depth and max depth, `ThreadContext+8`, arena bump / pop, frame words `[ebp-4]`, `-8`, `-0xC`, `-0x10`, `-0x14`, `-0x2C`, the return copy including the dead high dword of a 4-byte value, init-locals clear) and dispatches the next instruction with its own copy of the dispatch head. `ret` and frame return run as one block.
+
+### 8.2 Facts found on the way [verified]
+
+- **EA's hit paths are longer than §5 counted:** `call` + push 128 instructions, `callvirt` (cache hit) + push 152, `ret` + frame return 71, each plus the 5-instruction dispatch head: **209 per static call + return, 233 per virtual call + return** (capstone path walk over the Steam exe).
+- **Scratch frame slots:** every read of `[ebp-0x18]`, `-0x1C`, `-0x24`, `-0x28`, `-0x34`, `-0x48`, `-0x50`, `-0x54`, `-0x58` in `ves_exec` (`0xE53EB0`-`0xE59880`) is preceded by a write in the same handler (call / callvirt / calli / newobj before the common push, frame return, exception search; address-order first-access scan of every `[ebp-x]` operand). They are dead across a dispatch, so the fast path does not write them and verify does not compare them.
+- **MonoPatcher 0.3.0** patches two bytes inside the modeled code (docs/68 §1.3): `0xE59218` (`90 E9`, drops the "more values on stack" print; accepted by a second code hash, behaviour equal since our `ret` bails on that case) and `0xE5637D` on demand (ForceJIT: transform on every call; tested per call). `[GcRootCheck] TailWatch=1` patches `0xE563B2` (push): CallPath refuses (code hash).
+- **mint's transform already inlines trivial getters**: a `callvirt` to a non-virtual `return V;` costs ~1 ns in the host (CallBench kind 4), an empty static method ~0 ns (kind 2).
+
+### 8.3 Correctness [verified: host runs 2026-10-30]
+
+Verify mode (`MONOHOST_MINTCALL=verify`, in game `[MonoFast] CallPath=2`): every jump-table entry goes through a compare stub; an eligible call snapshots everything both paths may write (frame words `[ebp-0x80, ebp)`, both records, the callee's and the caller's `MonoInvocation`, `state+0x13C..0x14C`, the chunk header, `ThreadContext`, the return slot, the callee frame), runs the fast writes, records them, restores the snapshot and runs EA's handler from the same entry state; at the next dispatch every byte (scratch slots excepted) and edi / esi / esp must be equal. One call in flight over all threads.
+
+| Run (monohost selftest + `CallTest` + 6-deep yield task) | Result |
+|---|---|
+| `MINTCALL=off` / `fast` / `verify` | 39/39 each, same `CallTest.Run(300)` checksum 2096027, deep yield task 6 runs, result 775 |
+| verify, every eligible call (`MINTCALLEVERY=1`), before the scratch trim | 21,230,211 compared, **0 mismatches** |
+| verify after the scratch trim | 19,303,133 compared, **0 mismatches** |
+| negative control (`MONOHOST_MCNEG=1`: the fast pass flips one frame word EA does not write) | 892,600 of 892,600 flagged |
+| fast + `MONOHOST_SATB=1` (Satb act: worker scores the cut while the main thread mutates) | **44/44**, `AS-satb-exact` A0 6000 of 6000, A1-A3 0, G-A2 10,000 of 10,000 |
+| fast + P0 compiler verify (`MONOHOST_JIT=verify`), with and without inlining (docs/207 §8) | 2.0 M verified compiled calls each, 0 mismatches, 23/23 bench checksums |
+
+Covered by the tests: static, instance, virtual, interface and value-type calls, wide / struct returns (`ret.vt` stays EA's), cache misses, throw through `finally` with the stack trace text in the checksum, null receivers, the 63-frame limit (`StackOverflowException` caught), a task yielding 6 frames deep (save / resume of every frame) with collections between resumes, two interpreting threads (M5), and the conservative GC's view (every live word compared at each call). Not covered offline: the game's own script mix (the in-game verify queue below).
+
+### 8.4 Cost [measured offline; quiet machine 2026-10-30 07:08-07:13 UTC under a hold, plus earlier noisy runs for the spread]
+
+| | EA | fast path |
+|---|---|---|
+| static call + return (instructions on the hit path, incl. dispatch) | 209 | ~191 (-9%) |
+| virtual call (cache hit) + return | 233 | ~201 (-14%) |
+| `CallBench` static call, ns per call (best of 41, pinned, stock and fast interleaved in one process); quiet | 14.34 | 14.63 (+2%; noisy runs -1% to +9%) |
+| `CallBench` virtual call (cache hit); quiet | 14.17 | 13.14 (-7.3%; noisy runs 0 to -10%) |
+| `MintBench(1000)`, same interleaving; quiet | 95.5 ms | 91.0 ms (-4.7%; noisy runs +2% to -7%) |
+| `JitBench` per op, interpreted (docs/207 cases): `Dictionary<int,Shape>.TryGetValue` / `Dictionary<ObjectGuid,int>.TryGetValue` / `ContainsKey + set_Item`; quiet, separate processes | 174 / 260 / 376 ns | 149 / 237 / 337 ns (-14% / -9% / -10%) |
+| `MintBench(3000)` interpreted (JitBench harness, separate processes: ±5% process to process) | 286.1 ms | 272.4 / 285.4 ms (two processes: -5% / 0%) |
+
+Per-call increments of a counter cost ~1-2 ns in this path, so fast calls are counted in verify mode only (bails always). **The gain is far below §5's estimate:** a bit-exact frame keeps nearly every store EA makes (the protocol is store-bound: ~60 cycles for ~210 instructions, IPC ~3.5), so cutting the spills and reloads buys ~10-15% of the call side and nothing on the return side.
+
+### 8.5 Expected gain in game [inferred]
+
+Call machinery outside the receiver stall ~78 ms/s (§5). Call side (callvirt non-stall + call + push, ~60 ms/s) x ~10-15% + return side (~18 ms/s) x ~0 = **~5-10 ms/s, realistic ~8 ms/s**; low ~3 (bare-call microbench: no change), optimistic ~15 (if the game's calls look like the dictionary cases). The in-game A/B decides it.
+
+### 8.6 ts3native port, switches, queues (built, not run)
+
+- `[MonoFast] CallPath=0|1|2`, `VerifyEvery=16` (ts3native.ini, default off), installed right before `[AutShadow]` (after every code patch; refuses on other bytes in the five modeled ranges or another owner of the four entries). Runtime switch `mcSwitch` (+0x54E0, harness `--ab mintcall`): 0 = every call goes to EA's handler through ours (one extra indirect jump), 1 = fast path. Counters v143 `mc*`; `agent.js`, `native-switches.ts`, docs/68 row.
+- Satb (docs/206 §7) accepts our callvirt entry as the stock one (`McOwns`) and chains to it on the sim thread; its worker side never reaches it (`SatbWCallvirtTail`).
+- asi `game-copy/ts3native.asi.mcall1`.
+- `tools/harness/queues/mintcall-verify.json` (correctness, `--no-smoke`): BP / IP / SV 10 min with `CallPath=2 VerifyEvery=16` (pass: `mcReady` 7, `mcVerified` > 100,000, `mcMismatch` 0), plus BP `CallPath=1` under `[AutShadow]` Mode R with the mono-cost13 keys (pass: mono-cost13's gates). Run: `node tools/harness/queue.ts tools/harness/queues/mintcall-verify.json --no-smoke`.
+- `tools/harness/queues/mintcall-ab.json` (timing, clean machine, after mintcall-verify passed): BP / IP / SV off-first and on-first plus a second IP job, 10 min, `--ab mintcall` 2-min slices, declared 4-min smoke job first. Read with `hitch-ab.ts` and `sim-budget-report.ts`; gain = Mono ms/s off - on. Run: `node tools/harness/queue.ts tools/harness/queues/mintcall-ab.json`.

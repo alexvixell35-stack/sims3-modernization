@@ -93,6 +93,6 @@ Does not prove:
 | `tools/emu/emu.py` | loader, emulator, stubs, CFG and coverage |
 | `tools/emu/run.py` | spec runner, `--self-check` |
 | `tools/emu/ts-ref.ts` | the repo's TypeScript reference functions (`refpack`, `fnv64`) over a JSON batch on stdin |
-| `tools/emu/specs/*.py` | the example specs (`run.py --self-check` runs eight of them; `ro_point_visitor.py`, `los_level_mask.py` (docs/105 §9.1), `watergrid_mark_remove.py`, `houseboat_slot.py` and `lot_type_ics.py` (docs/100 §12) are run by name) |
+| `tools/emu/specs/*.py` | the example specs (`run.py --self-check` runs eight of them; `ro_point_visitor.py`, `los_level_mask.py` (docs/105 §9.1), `watergrid_mark_remove.py`, `houseboat_slot.py` and `lot_type_ics.py` (docs/100 §12), and `mint_float.py` (docs/221, a whole interpreter frame) are run by name) |
 
 No EA bytes are stored: specs hold addresses and models only, and the exe is read from your own copy at run time.

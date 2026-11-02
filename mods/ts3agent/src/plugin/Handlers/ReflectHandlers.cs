@@ -21,6 +21,7 @@ namespace Ts3Agent
             Dispatcher.Register("reflect_set", ReflectSet);
             Dispatcher.Register("reflect_call", ReflectCall);
             Dispatcher.Register("reflect_members", ReflectMembers);
+            Dispatcher.Register("method_touch", MethodTouch);  // docs/526 §5: force the IL transform of a method without calling it
             Dispatcher.Register("reflect_find_types", ReflectFindTypes);
         }
 
@@ -103,6 +104,64 @@ namespace Ts3Agent
             }
             throw new McpException("no overload of " + ownerType.FullName + "." + name + " takes "
                                    + args.Count + " convertible argument(s)" + (last != null ? ": " + last.Message : ""));
+        }
+
+        // method_touch path="Sims3.Gameplay.Actors.Sim.DoOneRoundOfRemoteChat": runs Mono's IL transform for every overload of that
+        // name in a session that would not call it (docs/526 §5: the [IlPatch] smoke, for b80's chat and b87's opportunity). Mono
+        // transforms a method before its first instruction runs, so one call is enough: each overload is invoked once on the sim
+        // thread (RunAsync) with an uninitialized receiver (FormatterServices.GetUninitializedObject, or the object the path names;
+        // null for a static method) and default arguments (null, zeroed value types), inside try/catch: the body then throws at
+        // its first dereference or returns, and the transform has happened. RuntimeMethodHandle.GetFunctionPointer is no option on
+        // this Mono: it hits an assert (int 3 at 0x58D9B6, then a call to address 0: bp-ilpatch-smoke 2026-11-02 08:52 crashed).
+        // The outcome is an async_log line "touched <path>: <method>: <exception type> | ..." (plus RunAsync's "touch <path> -> ok").
+        static object MethodTouch(Args a)
+        {
+            string path = a.Str("path");
+            int dot = LastMemberSeparator(path);
+            if (dot < 0) throw new McpException("path must end in a method name");
+            object owner;
+            Type ownerType;
+            ResolveOwner(path.Substring(0, dot), out owner, out ownerType);
+            string name = path.Substring(dot + 1);
+            List<MethodInfo> methods = new List<MethodInfo>();
+            foreach (MethodInfo mi in ownerType.GetMethods(kAny))
+                if (mi.Name == name && !mi.IsAbstract && !mi.ContainsGenericParameters) methods.Add(mi);
+            if (methods.Count == 0) throw new McpException("no method " + name + " on " + ownerType.FullName);
+            RunAsync("touch " + path, delegate
+            {
+                List<string> outcomes = new List<string>();
+                foreach (MethodInfo mi in methods)
+                {
+                    string what = mi.DeclaringType.Name + "::" + mi.ToString();
+                    try
+                    {
+                        object recv = mi.IsStatic ? null : owner;
+                        if (recv == null && !mi.IsStatic)
+                            recv = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(mi.DeclaringType);
+                        ParameterInfo[] ps = mi.GetParameters();
+                        object[] args = new object[ps.Length];
+                        for (int i = 0; i < ps.Length; i++)
+                        {
+                            Type t = ps[i].ParameterType;
+                            if (t.IsByRef) t = t.GetElementType();
+                            args[i] = t.IsValueType ? Activator.CreateInstance(t) : null;
+                        }
+                        mi.Invoke(recv, args);
+                        outcomes.Add(what + ": returned");
+                    }
+                    catch (TargetInvocationException e) { outcomes.Add(what + ": " + (e.InnerException ?? e).GetType().Name); }
+                    catch (Exception e) { outcomes.Add(what + ": not invoked, " + e.GetType().Name + ": " + e.Message); }
+                }
+                lock (sAsyncLog)
+                {
+                    sAsyncLog.Add(Sims3.Gameplay.Utilities.SimClock.CurrentTime().ToString() + " touched " + path + ": " + string.Join(" | ", outcomes.ToArray()));
+                    if (sAsyncLog.Count > 30) sAsyncLog.RemoveAt(0);
+                }
+            });
+            Dictionary<string, object> res = Util.Obj();
+            res["queued"] = methods.Count;
+            res["result"] = "async_log line 'touched " + path + ": ...' when the sim thread has run it";
+            return res;
         }
 
         static object ReflectMembers(Args a)

@@ -1,0 +1,432 @@
+{
+  "note": "NOT RUN (built 2026-10-30). docs/204 Compaction correctness queue (no timing: noiseCheck false; run with --no-smoke): opt-in, offered (accept, decline), refused (build mode), failure (test switch), main-menu route on BP and IP, plus the save matrix with the hooks installed but never firing. Runs the source build (asi tested since 2026-10-31; was ts3native 0.36.128 game-copy/ts3native.asi.compact1) and the ts3fixes/ts3agent build from master (cycle.ts installs build/ts3fixes.package). ThresholdMB=4000 forces the verdict (largest free is always under 4 GB); MinMinutes=0 skips the 60-min rule. Read per job: ts3native.log \"compaction:\" lines, the repro log (compaction_* counters before / after), and the save matrix md for the matrix jobs. ~15 min per repro job, ~60-120 min per matrix job.",
+  "jobs": [
+    {
+      "id": "bp-compaction-optin",
+      "note": "Opt-in path: save under the (forced) threshold -> direct reload -> restore; then a Save over the compacted file that must not compact again. Pass: exit 0, every listed log line, both saves result 1, no failure line, no crash; compaction_requeued + compaction_requeue_skipped + compaction_requeue_fail = compaction_recorded (every recorded entry tried).",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "SaveWrite.Enabled": 1,
+        "Compaction.Enabled": 1,
+        "Compaction.ThresholdMB": 4000,
+        "Compaction.MinMinutes": 0
+      },
+      "logRequire": {
+        "^compaction: on ": 1,
+        "^compaction: verdict COMPACT ": 1,
+        "^compaction: begin #1 ": 1,
+        "^compaction: done #1 ": 1,
+        "^ts3fixes: compaction: restored ": 1,
+        "^save: end #\\d+ result 1 ": 2,
+        "^compaction: verdict no ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^compaction: skipped or failed": 0,
+        "^compaction: begin #2 ": 0
+      },
+      "run": {
+        "repro": "compaction-optin-bp"
+      },
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-compaction-offer-accept",
+      "note": "Offered path, answered Compact. Pass: exit 0, listed lines, compaction_offered 1 / accepted 1 / restored 1.",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "SaveWrite.Enabled": 1,
+        "Compaction.Enabled": 2,
+        "Compaction.ThresholdMB": 4000,
+        "Compaction.MinMinutes": 0
+      },
+      "logRequire": {
+        "^compaction: on ": 1,
+        "^compaction: verdict COMPACT ": 1,
+        "^compaction: begin #1 ": 1,
+        "^compaction: done #1 ": 1,
+        "^ts3fixes: compaction: restored ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^compaction: skipped or failed": 0,
+        "^compaction: the player chose Not now": 0
+      },
+      "run": {
+        "repro": "compaction-offer-accept-bp"
+      },
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-compaction-offer-decline",
+      "note": "Offered path, answered Not now; a second save is not offered again. Pass: exit 0, listed lines, compaction_started 0.",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "SaveWrite.Enabled": 1,
+        "Compaction.Enabled": 2,
+        "Compaction.ThresholdMB": 4000,
+        "Compaction.MinMinutes": 0
+      },
+      "logRequire": {
+        "^compaction: on ": 1,
+        "^compaction: verdict COMPACT ": 1,
+        "^compaction: the player chose Not now": 1,
+        "^compaction: verdict no ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^compaction: begin ": 0,
+        "^compaction: skipped or failed": 0
+      },
+      "run": {
+        "repro": "compaction-offer-decline-bp"
+      },
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-compaction-refused-build",
+      "note": "Refused path: a save in Build mode never asks for a verdict and never compacts. Pass: exit 0, compaction_refused_state >= 1, no verdict line.",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "SaveWrite.Enabled": 1,
+        "Compaction.Enabled": 1,
+        "Compaction.ThresholdMB": 4000,
+        "Compaction.MinMinutes": 0
+      },
+      "logRequire": {
+        "^compaction: on ": 1,
+        "^save: end #\\d+ result 1 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^compaction: verdict ": 0,
+        "^compaction: begin ": 0
+      },
+      "run": {
+        "repro": "compaction-refused-build-bp"
+      },
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-compaction-abort",
+      "note": "Failure path (test switch compactionfail): the loading screen comes up, the reload throws, the screen goes, play goes on, Compaction off for the session. Pass: exit 0, listed lines, the game alive and in live mode for 2 min after.",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "SaveWrite.Enabled": 1,
+        "Compaction.Enabled": 1,
+        "Compaction.ThresholdMB": 4000,
+        "Compaction.MinMinutes": 0
+      },
+      "logRequire": {
+        "^compaction: on ": 1,
+        "^compaction: verdict COMPACT ": 1,
+        "^compaction: begin #1 ": 1,
+        "^compaction: skipped or failed \\(reload threw\\)": 1,
+        "^compaction: verdict no .*off for the session": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^compaction: done ": 0
+      },
+      "run": {
+        "repro": "compaction-abort-bp"
+      },
+      "timeoutMin": 45
+    },
+    {
+      "id": "ip-compaction-optin",
+      "note": "Opt-in path: save under the (forced) threshold -> direct reload -> restore; then a Save over the compacted file that must not compact again. Pass: exit 0, every listed log line, both saves result 1, no failure line, no crash; compaction_requeued + compaction_requeue_skipped + compaction_requeue_fail = compaction_recorded (every recorded entry tried).",
+      "asi": "tested",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "SaveWrite.Enabled": 1,
+        "Compaction.Enabled": 1,
+        "Compaction.ThresholdMB": 4000,
+        "Compaction.MinMinutes": 0
+      },
+      "logRequire": {
+        "^compaction: on ": 1,
+        "^compaction: verdict COMPACT ": 1,
+        "^compaction: begin #1 ": 1,
+        "^compaction: done #1 ": 1,
+        "^ts3fixes: compaction: restored ": 1,
+        "^save: end #\\d+ result 1 ": 2,
+        "^compaction: verdict no ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^compaction: skipped or failed": 0,
+        "^compaction: begin #2 ": 0
+      },
+      "run": {
+        "repro": "compaction-optin-ip"
+      },
+      "timeoutMin": 45
+    },
+    {
+      "id": "ip-compaction-offer-accept",
+      "note": "Offered path, answered Compact. Pass: exit 0, listed lines, compaction_offered 1 / accepted 1 / restored 1.",
+      "asi": "tested",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "SaveWrite.Enabled": 1,
+        "Compaction.Enabled": 2,
+        "Compaction.ThresholdMB": 4000,
+        "Compaction.MinMinutes": 0
+      },
+      "logRequire": {
+        "^compaction: on ": 1,
+        "^compaction: verdict COMPACT ": 1,
+        "^compaction: begin #1 ": 1,
+        "^compaction: done #1 ": 1,
+        "^ts3fixes: compaction: restored ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^compaction: skipped or failed": 0,
+        "^compaction: the player chose Not now": 0
+      },
+      "run": {
+        "repro": "compaction-offer-accept-ip"
+      },
+      "timeoutMin": 45
+    },
+    {
+      "id": "ip-compaction-offer-decline",
+      "note": "Offered path, answered Not now; a second save is not offered again. Pass: exit 0, listed lines, compaction_started 0.",
+      "asi": "tested",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "SaveWrite.Enabled": 1,
+        "Compaction.Enabled": 2,
+        "Compaction.ThresholdMB": 4000,
+        "Compaction.MinMinutes": 0
+      },
+      "logRequire": {
+        "^compaction: on ": 1,
+        "^compaction: verdict COMPACT ": 1,
+        "^compaction: the player chose Not now": 1,
+        "^compaction: verdict no ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^compaction: begin ": 0,
+        "^compaction: skipped or failed": 0
+      },
+      "run": {
+        "repro": "compaction-offer-decline-ip"
+      },
+      "timeoutMin": 45
+    },
+    {
+      "id": "ip-compaction-refused-build",
+      "note": "Refused path: a save in Build mode never asks for a verdict and never compacts. Pass: exit 0, compaction_refused_state >= 1, no verdict line.",
+      "asi": "tested",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "SaveWrite.Enabled": 1,
+        "Compaction.Enabled": 1,
+        "Compaction.ThresholdMB": 4000,
+        "Compaction.MinMinutes": 0
+      },
+      "logRequire": {
+        "^compaction: on ": 1,
+        "^save: end #\\d+ result 1 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^compaction: verdict ": 0,
+        "^compaction: begin ": 0
+      },
+      "run": {
+        "repro": "compaction-refused-build-ip"
+      },
+      "timeoutMin": 45
+    },
+    {
+      "id": "ip-compaction-abort",
+      "note": "Failure path (test switch compactionfail): the loading screen comes up, the reload throws, the screen goes, play goes on, Compaction off for the session. Pass: exit 0, listed lines, the game alive and in live mode for 2 min after.",
+      "asi": "tested",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "SaveWrite.Enabled": 1,
+        "Compaction.Enabled": 1,
+        "Compaction.ThresholdMB": 4000,
+        "Compaction.MinMinutes": 0
+      },
+      "logRequire": {
+        "^compaction: on ": 1,
+        "^compaction: verdict COMPACT ": 1,
+        "^compaction: begin #1 ": 1,
+        "^compaction: skipped or failed \\(reload threw\\)": 1,
+        "^compaction: verdict no .*off for the session": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^compaction: done ": 0
+      },
+      "run": {
+        "repro": "compaction-abort-ip"
+      },
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-compaction-menu",
+      "note": "Main-menu route (Route=1). Pass: exit 0, listed lines; note whether the menu flashed (screen recording or by eye).",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "SaveWrite.Enabled": 1,
+        "Compaction.Enabled": 1,
+        "Compaction.ThresholdMB": 4000,
+        "Compaction.MinMinutes": 0,
+        "Compaction.Route": 1
+      },
+      "logRequire": {
+        "^compaction: on ": 1,
+        "^compaction: verdict COMPACT ": 1,
+        "^compaction: begin #1 ": 1,
+        "^compaction: done #1 ": 1,
+        "^ts3fixes: compaction: restored ": 1,
+        "^compaction: begin #1 \\(main menu route\\)": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^compaction: skipped or failed": 0,
+        "^ts3fixes: compaction: main menu route wanted but": 0
+      },
+      "run": {
+        "repro": "compaction-menu-bp"
+      },
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-compaction-matrix",
+      "note": "Save matrix (save-path change rule): every case (control, identical, per-fix, overwrite, back-to-back, unpaused, build-mode, verify-counters, reload, travel) with ts3fixes' SaveGameTask hook and ts3native [Compaction] installed but never firing (ThresholdMB=1: no save is under 1 MB). Pass: every case PASS as in the last matrix run, logForbid holds (no compaction ever begins), \"compaction: verdict no\" lines on the async saves.",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "SaveWrite.Enabled": 1,
+        "Compaction.Enabled": 1,
+        "Compaction.ThresholdMB": 1,
+        "Compaction.MinMinutes": 0
+      },
+      "run": {
+        "matrix": [
+          "--travel"
+        ]
+      },
+      "saveMatrix": {
+        "fixes": "all"
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^compaction: on ": 1,
+        "^compaction: verdict no ": 1
+      },
+      "logForbid": {
+        "^compaction: begin ": 0,
+        "^compaction: verdict COMPACT ": 0
+      },
+      "timeoutMin": 120,
+      "callSites": false,
+      "noiseCheck": false
+    },
+    {
+      "id": "ip-compaction-matrix",
+      "note": "Save matrix (save-path change rule): every case (control, identical, per-fix, overwrite, back-to-back, unpaused, build-mode, verify-counters, reload) with ts3fixes' SaveGameTask hook and ts3native [Compaction] installed but never firing (ThresholdMB=1: no save is under 1 MB). Pass: every case PASS as in the last matrix run, logForbid holds (no compaction ever begins), \"compaction: verdict no\" lines on the async saves.",
+      "asi": "tested",
+      "save": "Baseline-IP-Spring",
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "SaveWrite.Enabled": 1,
+        "Compaction.Enabled": 1,
+        "Compaction.ThresholdMB": 1,
+        "Compaction.MinMinutes": 0
+      },
+      "run": {
+        "matrix": []
+      },
+      "saveMatrix": {
+        "fixes": "all"
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^compaction: on ": 1,
+        "^compaction: verdict no ": 1
+      },
+      "logForbid": {
+        "^compaction: begin ": 0,
+        "^compaction: verdict COMPACT ": 0
+      },
+      "timeoutMin": 120,
+      "callSites": false,
+      "noiseCheck": false
+    }
+  ]
+}

@@ -87,7 +87,7 @@ function check(user: string) {
   const conflicts: { path: string; of: string; MB: number }[] = [];
   for (const d of CONFLICT_DIRS) {
     const dir = join(user, d);
-    if (!existsSync(dir)) continue;
+    if (!existsSync(dir) || !statSync(dir).isDirectory()) continue; // an empty FeaturedItems file is a known store-ads blocker
     const names = readdirSync(dir);
     const set = new Set(names.map(n => n.toLowerCase()));
     for (const n of names) {

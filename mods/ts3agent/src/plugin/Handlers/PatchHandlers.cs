@@ -132,15 +132,15 @@ namespace Ts3Agent
             AppDomain d = AppDomain.CurrentDomain;
             Dictionary<string, object> r = Util.Obj();
             r["applied"] = d.GetData("ts3fixes.applied");
-            int[] c = d.GetData("ts3fixes.counters") as int[] ?? new int[427];
+            int[] c = d.GetData("ts3fixes.counters") as int[] ?? new int[2045];
             Dictionary<string, bool> sw = d.GetData("ts3fixes.switches") as Dictionary<string, bool>;
             if (sw == null) { sw = new Dictionary<string, bool>(); d.SetData("ts3fixes.switches", sw); }
-            string[] names = { "gohome", "rabbithole", "visit", "visitlot", "gotolot", "gotocommunity", "broadcast", "virtualhome", "failreplan", "watchdog", "watchdogidle", "backoff", "stations", "spotspread", "savecleanup", "overwatchstuck", "asyncreplanforeign", "portaladaptorleak", "casgrid", "casmemo", "spatialcache", "routablecache", "stuckcheckbusy", "stuckcheckasync", "safespotcap", "farthestsorted", "indoorcap", "fastreftable", "cachedreflection", "motivebar", "buffgrid", "namecache", "detailprio", "detailprioverify", "hoursmemo", "hoursmemoverify", "caneearly", "tooltipthrottle", "safespotreuse", "safespotreuseverify", "wildflowerprobe", "wildflowertask", "doormirror", "autshadow", "autshadowverify", "autledger", "replandefer", "replanspread", "unseenenv", "unseenmotives", "unseenbroadcast", "unseenprobe", "unseencars", "overwatchspread", "overwatchchain", "overwatchspreadverify", "overwatchspreadfakeupstream", "errortrapspread", "errortrapspreadverify", "errortrapspreadfakeupstream", "easpreadlots", "easpreadlotsverify", "easpreadpets", "easpreaddecay", "easpreaddecayverify", "routesrc", "legreplanskip", "bouncerskip", "idlememo", "stuckchecknear", "failrepeat", "jobyield", "drivertaskasync", "stuckcheckown", "overwatchstuckslice", "seasonmarkercache", "safespotyield", "disposespread", "overwatchstucknotice", "preplancb", "owprobeplans", "stuckcheckcap", "unseenfbstuck", "unseenfbplan", "unseenfbteleport", "unseenfbsites", "unseenfbpre", "unseenfbarrive", "unseenfbleave", "unseenfbtrip", "unseenfbtriphold", "unseenfbloopdet", "unseenfbloopbreak", "unseenfbfinish", "posturepopcycle", "seasonimposter", "seasonimpostercold", "preferredservice", "socialworkeronlot", "eanullguards", "showstagethrowables", "firepitchair", "ageupkeepoutfits", "deadrefguards", "deadrefsweep", "savecleanupaggressive" };
+            string[] names = { "gohome", "rabbithole", "visit", "visitlot", "gotolot", "gotocommunity", "broadcast", "virtualhome", "failreplan", "watchdog", "watchdogidle", "backoff", "stations", "spotspread", "savecleanup", "overwatchstuck", "asyncreplanforeign", "portaladaptorleak", "casgrid", "casmemo", "spatialcache", "routablecache", "stuckcheckbusy", "stuckcheckasync", "safespotcap", "farthestsorted", "indoorcap", "fastreftable", "cachedreflection", "motivebar", "buffgrid", "namecache", "detailprio", "detailprioverify", "hoursmemo", "hoursmemoverify", "venuememo", "venuememoverify", "caneearly", "tooltipthrottle", "safespotreuse", "safespotreuseverify", "wildflowerprobe", "wildflowertask", "doormirror", "autshadow", "autshadowverify", "autledger", "replandefer", "replanspread", "unseenenv", "unseenmotives", "unseenbroadcast", "unseenprobe", "unseencars", "overwatchspread", "overwatchchain", "overwatchspreadverify", "overwatchspreadfakeupstream", "errortrapspread", "errortrapspreadverify", "errortrapspreadfakeupstream", "easpreadlots", "easpreadlotsverify", "easpreadpets", "easpreaddecay", "easpreaddecayverify", "routesrc", "legreplanskip", "bouncerskip", "idlememo", "stuckchecknear", "failrepeat", "jobyield", "drivertaskasync", "stuckcheckown", "overwatchstuckslice", "seasonmarkercache", "safespotyield", "disposespread", "overwatchstucknotice", "preplancb", "owprobeplans", "stuckcheckcap", "unseenfbstuck", "unseenfbplan", "unseenfbteleport", "unseenfbsites", "unseenfbpre", "unseenfbarrive", "unseenfbleave", "unseenfbtrip", "unseenfbtriphold", "unseenfbloopdet", "unseenfbloopbreak", "unseenfbfinish", "unseenroute", "posturepopcycle", "seasonimposter", "seasonimpostercold", "preferredservice", "socialworkeronlot", "eanullguards", "showstagethrowables", "firepitchair", "ageupkeepoutfits", "outfitwaitpoll", "bakesaleseller", "deadrefguards", "deadrefsweep", "savecleanupaggressive", "autoffenv", "autoffbcast", "autoffdry", "vacexport", "vacstoreguard", "vacreturnskip", "vacteendelete", "vacexitreturn", "vaclistenernull", "vacimportfix", "wakeprobe", "wakepark", "wakepoll", "autoffenvapply", "autoffbcastapply", "autoffnoref", "autofftick", "autlive", "autliveguard", "autunseenpace", "autlivelate", "autunseen", "autunseencmp", "autunseenrh", "uniformbackup", "menumaven", "nullservice", "rabbitholedoor", "photosession", "eggspot", "graduationtable", "jazzparam", "buffupdate", "carnoroute", "convturn", "npcdriverpool", "bookcarry" };
             foreach (string n in names)
             {
                 if (a.Has(n)) sw[n] = a.Bool(n, true);
                 bool on;
-                r[n] = sw.TryGetValue(n, out on) ? on : n != "savecleanup" && n != "casgrid" && n != "casmemo" && n != "spatialcache" && n != "routablecache" && n != "stuckcheckbusy" && n != "stuckcheckasync" && n != "safespotcap" && n != "farthestsorted" && n != "indoorcap" &&n != "fastreftable" && n != "cachedreflection" && n != "motivebar" && n != "buffgrid" && n != "namecache" && n != "detailprio" && n != "detailprioverify" && n != "hoursmemo" && n != "hoursmemoverify" && n != "caneearly" && n != "tooltipthrottle" && n != "safespotreuse" && n != "safespotreuseverify" && n != "wildflowerprobe" && n != "wildflowertask" && n != "doormirror" && n != "autshadow" && n != "autshadowverify" && n != "autledger" && n != "replandefer" && n != "replanspread" && n != "unseenenv" && n != "unseenmotives" && n != "unseenbroadcast" && n != "unseenprobe" && n != "unseencars" && !n.StartsWith("overwatchspread") && n != "overwatchchain" && !n.StartsWith("errortrapspread") && !n.StartsWith("easpread") && n != "routesrc" && n != "legreplanskip" && n != "bouncerskip" && n != "idlememo" && n != "stuckchecknear" && n != "failrepeat" && n != "jobyield" && n != "drivertaskasync" && n != "stuckcheckown" && n != "overwatchstuckslice" && n != "seasonmarkercache" && n != "safespotyield" && n != "disposespread" && n != "overwatchstucknotice" && n != "preplancb" && n != "stuckcheckcap" && n != "unseenfbstuck" && n != "unseenfbplan" && n != "unseenfbteleport" && n != "unseenfbsites" && n != "unseenfbpre" && n != "unseenfbarrive" && n != "unseenfbleave" && n != "unseenfbtrip" && n != "unseenfbtriphold" && n != "unseenfbloopdet" && n != "unseenfbloopbreak" && n != "unseenfbfinish" && n != "posturepopcycle" && n != "seasonimposter" && n != "seasonimpostercold" && n != "preferredservice" && n != "socialworkeronlot" && n != "eanullguards" && n != "showstagethrowables" && n != "firepitchair" && n != "ageupkeepoutfits" && n != "deadrefguards" && n != "deadrefsweep" && n != "savecleanupaggressive"; // unset = the mod's tuning (all on by default except savecleanup, the CAS grid and the spatial cache)
+                r[n] = sw.TryGetValue(n, out on) ? on : n != "savecleanup" && n != "casgrid" && n != "casmemo" && n != "spatialcache" && n != "routablecache" && n != "stuckcheckbusy" && n != "stuckcheckasync" && n != "safespotcap" && n != "farthestsorted" && n != "indoorcap" &&n != "fastreftable" && n != "cachedreflection" && n != "motivebar" && n != "buffgrid" && n != "namecache" && n != "detailprio" && n != "detailprioverify" && n != "hoursmemo" && n != "hoursmemoverify" && n != "venuememo" && n != "venuememoverify" && n != "caneearly" && n != "tooltipthrottle" && n != "safespotreuse" && n != "safespotreuseverify" && n != "wildflowerprobe" && n != "wildflowertask" && n != "doormirror" && n != "autshadow" && n != "autshadowverify" && n != "autledger" && n != "replandefer" && n != "replanspread" && n != "unseenenv" && n != "unseenmotives" && n != "unseenbroadcast" && n != "unseenprobe" && n != "unseencars" && !n.StartsWith("overwatchspread") && n != "overwatchchain" && !n.StartsWith("errortrapspread") && !n.StartsWith("easpread") && n != "routesrc" && n != "legreplanskip" && n != "bouncerskip" && n != "idlememo" && n != "stuckchecknear" && n != "failrepeat" && n != "jobyield" && n != "drivertaskasync" && n != "stuckcheckown" && n != "overwatchstuckslice" && n != "seasonmarkercache" && n != "safespotyield" && n != "disposespread" && n != "overwatchstucknotice" && n != "preplancb" && n != "stuckcheckcap" && n != "unseenfbstuck" && n != "unseenfbplan" && n != "unseenfbteleport" && n != "unseenfbsites" && n != "unseenfbpre" && n != "unseenfbarrive" && n != "unseenfbleave" && n != "unseenfbtrip" && n != "unseenfbtriphold" && n != "unseenfbloopdet" && n != "unseenfbloopbreak" && n != "unseenfbfinish" && n != "unseenroute" && n != "posturepopcycle" && n != "seasonimposter" && n != "seasonimpostercold" && n != "preferredservice" && n != "socialworkeronlot" && n != "eanullguards" && n != "showstagethrowables" && n != "firepitchair" && n != "ageupkeepoutfits" && n != "outfitwaitpoll" && n != "bakesaleseller" && n != "deadrefguards" && n != "deadrefsweep" && n != "savecleanupaggressive" && n != "nullservice" && n != "rabbitholedoor" && n != "photosession" && n != "eggspot" && n != "graduationtable" && n != "jazzparam" && n != "buffupdate" && n != "carnoroute" && !n.StartsWith("autoff") && n != "autlive" && n != "autlivelate" && n != "autunseen" && n != "autunseencmp" && !n.StartsWith("vac") && !n.StartsWith("wake") && n != "uniformbackup" && n != "menumaven" && n != "convturn" && n != "npcdriverpool" && n != "bookcarry"; // unset = the mod's tuning (all on by default except savecleanup, the CAS grid and the spatial cache)
             }
             r["gohome_runs"] = c[0]; r["gohome_shortcuts"] = c[1]; r["gohome_no_spot"] = c[2]; r["gohome_loop_guard"] = c[3];
             r["rabbithole_calls"] = c[4]; r["rabbithole_shortcuts"] = c[5]; r["rabbithole_no_spot"] = c[6];
@@ -183,6 +183,27 @@ namespace Ts3Agent
             if (c.Length > 105) { r["doormirror_imports"] = c[102]; r["doormirror_invalidations"] = c[103]; r["doormirror_builds"] = c[104]; r["doormirror_refused"] = c[105]; } // P3 door mirror (DoorMirror.cs, docs/105 §10.5): CommonDoor.ImportContent postfixes, lot invalidations, lot tables built, builds refused (a door not readable)
             if (c.Length > 121) { r["autshadow_a0"] = c[106]; r["autshadow_a1"] = c[107]; r["autshadow_a2"] = c[108]; r["autshadow_a3"] = c[109]; r["autshadow_a4"] = c[110]; r["autshadow_a5"] = c[111]; r["autshadow_l_pairs"] = c[112]; r["autshadow_l_equal"] = c[113]; r["autshadow_l_testagree"] = c[114]; r["autshadow_l_top1agree"] = c[115]; r["autshadow_skips"] = c[116]; r["autshadow_warmin"] = c[117]; r["autshadow_requests"] = c[118]; r["autshadow_busy"] = c[119]; r["autshadow_guardskips"] = c[120]; r["autshadow_exceptions"] = c[121]; } // [AutShadow] pilot (AutShadow.cs, docs/122 §5): Mode R classes, Mode W L report, request and skip counts
             if (c.Length > 126) { r["autshadow_sf_skips"] = c[122]; r["autshadow_gm4_methods"] = c[123]; r["autshadow_gm4_us"] = c[124]; r["autshadow_gm4_foreign"] = c[125]; r["autshadow_gm5_types"] = c[126]; }
+            if (c.Length > 2002) r["uniformbackup_cleared"] = c[2002]; // UniformBackup.cs, issue #101, docs/502
+            if (c.Length > 2014) r["nullservice_dropped"] = c[2014]; // NullService.cs, docs/504
+            if (c.Length > 2015) r["rabbitholedoor_skipped"] = c[2015]; // RabbitHoleDoor.cs, docs/505
+            if (c.Length > 2030) { r["photosession_dropped"] = c[2026]; r["photosession_ended"] = c[2027]; r["photosession_load_ended"] = c[2028]; r["eggspot_refused"] = c[2029]; r["graduationtable_no_table"] = c[2030]; } // docs/508
+            if (c.Length > 2036) { r["jazzparam_seen"] = c[2035]; r["jazzparam_caught"] = c[2036]; } // JazzParam.cs, docs/511
+            if (c.Length > 2034) { r["buffupdate_seen"] = c[2033]; r["buffupdate_caught"] = c[2034]; } // BuffUpdate.cs, docs/510
+            if (c.Length > 2040) { r["carnoroute_seen"] = c[2039]; r["carnoroute_false"] = c[2040]; } // CarNoRoute.cs, docs/513
+            if (c.Length > 2032) { r["convturn_seen"] = c[2031]; r["convturn_taken"] = c[2032]; } // ConvTurn.cs, docs/509
+            if (c.Length > 2042) { r["npcdriverpool_seen"] = c[2041]; r["npcdriverpool_dropped"] = c[2042]; } // NpcDriverPool.cs, docs/514
+            if (c.Length > 2044) { r["bookcarry_dropped"] = c[2043]; r["bookcarry_ended"] = c[2044]; } // BookCarry.cs, docs/515
+            if (c.Length > 604) { r["autshadow_gm6_methods"] = c[602]; r["autshadow_gm6_mismatch"] = c[603]; r["autshadow_gm6_us"] = c[604]; }
+            if (c.Length > 605) r["autshadow_gm6_faults"] = c[605];
+            if (c.Length > 606) r["autshadow_gm6_owners_skipped"] = c[606];
+            if (c.Length > 2025) { r["autshadow_content_modules"] = c[2022]; r["autshadow_content_unknown"] = c[2023]; r["autshadow_gm6_cha_methods"] = c[2024]; r["autshadow_gm6_cha_mismatch"] = c[2025]; } // docs/218 §5 content guard (-1 = MVID gate)
+            if (c.Length > 682) { r["outfitwaitpoll_stale"] = c[680]; r["outfitwaitpoll_polls"] = c[681]; r["outfitwaitpoll_ended"] = c[682]; } // OutfitWait.cs, issue #115
+            if (c.Length > 2009) { r["outfitwaitpoll_clear_instant"] = c[2008]; r["outfitwaitpoll_clear_delayed"] = c[2009]; } // OutfitWait.cs
+            if (c.Length > 2011) { r["outfitwaitpoll_cb_dropped"] = c[2010]; r["outfitwaitpoll_cause_dropped"] = c[2011]; } // OutfitWait.cs
+            if (c.Length > 2013) { r["outfitwaitpoll_stale_onscreen"] = c[2012]; r["outfitwaitpoll_ended_onscreen"] = c[2013]; } // OutfitWait.cs, docs/224 §5
+            if (c.Length > 2005) { r["outfitwaitpoll_cause_own"] = c[2003]; r["outfitwaitpoll_cause_replaced"] = c[2004]; r["outfitwaitpoll_cause_cleared"] = c[2005]; } // OutfitWait.cs, docs/224 §5
+            if (c.Length > 684) { r["bakesaleseller_reads"] = c[683]; r["bakesaleseller_rearmed"] = c[684]; } // BakeSale.cs, issue #102
+            if (c.Length > 686) { r["autunseen_rh_game"] = c[685]; r["autunseen_cmp_wpgf_w0"] = c[686]; } // AutLive.cs autunseenrh + compare split (docs/222 §10)
             if (c.Length > 131) { r["stuckcheckasync_queued"] = c[127]; r["stuckcheckasync_run"] = c[128]; r["stuckcheckasync_dropped"] = c[129]; r["stuckcheckasync_maxdepth"] = c[130]; r["stuckcheckasync_maxwait_simsec"] = c[131]; } // 3 AM stuck check in our task (FewerPlans.cs, docs/134 §8)
             if (c.Length > 136) { r["replandefer_deferred"] = c[132]; r["replandefer_kept_sync"] = c[133]; r["replanspread_held"] = c[134]; r["replanspread_replayed"] = c[135]; r["replanspread_exceptions"] = c[136]; } // ReplanDefer.cs (docs/141 §6)
             if (c.Length > 145) { r["safespotcap_calls"] = c[137]; r["safespotcap_limited"] = c[138]; r["farthest_calls"] = c[139]; r["farthest_plans"] = c[140]; r["farthest_cache"] = c[141]; r["farthest_capped"] = c[142]; r["indoorcap_calls"] = c[143]; r["indoorcap_plans"] = c[144]; r["indoorcap_rooms_given_up"] = c[145]; } // candidate-loop caps (CandidateLoops.cs, docs/141 section 7)
@@ -249,8 +270,99 @@ namespace Ts3Agent
             if (c.Length > 410) { r["ageupkeepoutfits_kept"] = c[391]; r["ageupkeepoutfits_nooutfit"] = c[392]; r["deadrefguards_relget"] = c[393]; r["deadrefguards_aging"] = c[394]; r["deadrefsweep_relkeys"] = c[395]; r["deadrefsweep_relentries"] = c[396]; r["deadrefsweep_aging"] = c[397]; r["deadrefsweep_alarmowners"] = c[398]; r["deadrefsweep_react"] = c[399]; r["deadrefsweep_coworkers"] = c[400]; r["deadrefsweep_topics"] = c[401]; r["deadrefsweep_fishers"] = c[402]; r["deadrefsweep_simfields"] = c[403]; r["deadrefsweep_passengers"] = c[404]; r["deadrefsweep_passes"] = c[405]; r["deadrefsweep_slices"] = c[406]; r["deadrefsweep_max_slice_us"] = c[407]; r["deadrefsweep_total_ms"] = c[408]; r["deadrefsweep_max_save_us"] = c[409]; r["deadrefsweep_refused"] = c[410]; } // EaFixes.cs #100, DeadRefs.cs #91
             if (c.Length > 422) { r["savecleanup_spread_passes"] = c[411]; r["savecleanup_spread_slices"] = c[412]; r["savecleanup_spread_max_slice_us"] = c[413]; r["savecleanup_spread_total_ms"] = c[414]; r["savecleanup_spread_refused"] = c[415]; r["savecleanupaggressive_snapshots"] = c[416]; r["savecleanupaggressive_pairs"] = c[417]; r["savecleanupaggressive_history"] = c[418]; r["savecleanupaggressive_dead_outfits"] = c[419]; r["savecleanupaggressive_dead_disposed"] = c[420]; r["savecleanupaggressive_cleanse_overwatch"] = c[421]; r["savecleanupaggressive_dead_passport"] = c[422]; }
             if (c.Length > 426) { r["played_households"] = c[423]; r["played_households_added"] = c[424]; r["savecleanup_light_pictures"] = c[425]; r["savecleanupaggressive_played_skipped"] = c[426]; } // PlayedHouseholds.cs (docs/14 section 8.6) // SaveCleanupSpread.cs (docs/14 section 8)
+            if (c.Length > 438) { r["compaction_saves"] = c[427]; r["compaction_started"] = c[428]; r["compaction_offered"] = c[429]; r["compaction_accepted"] = c[430]; r["compaction_declined"] = c[431]; r["compaction_refused_state"] = c[432]; r["compaction_failed"] = c[433]; r["compaction_recorded"] = c[434]; r["compaction_requeued"] = c[435]; r["compaction_requeue_skipped"] = c[436]; r["compaction_not_restorable"] = c[437]; r["compaction_requeue_fail"] = c[438]; }
+            if (c.Length > 439) r["compaction_restored"] = c[439]; // Compaction.cs (docs/204)
+            if (c.Length > 465) // AutOffload.cs (docs/208): Mode R per candidate, dry checks at the game's own call
+            {
+                string[] on = { "autoff_env_items", "autoff_env_a0", "autoff_env_a2", "autoff_env_a4", "autoff_env_a5", "autoff_env_exc", "autoff_env_dry", "autoff_env_dry_eq", "autoff_env_game_eq",
+                    "autoff_bcast_items", "autoff_bcast_a0", "autoff_bcast_a1", "autoff_bcast_a2", "autoff_bcast_a4", "autoff_bcast_a5", "autoff_bcast_exc", "autoff_bcast_dry", "autoff_bcast_dry_eq" };
+                for (int i = 0; i < on.Length; i++) r[on[i]] = c[448 + i];
+                r["autoff_reasons"] = d.GetData("ts3fixes.autoffload.reasons");
+            }
+            if (c.Length > 480) // EaVacation.cs (issue #97, docs/210)
+            {
+                string[] vn = { "vacexport_exported", "vacexport_dreams", "vacstoreguard_readded", "vacstoreguard_threw", "vacstoreguard_load_bringback", "vacstoreguard_load_ended",
+                    "vacreturnskip_skipped", "vacreturnskip_ended", "vacteendelete_deferred", "vacteendelete_rejoined", "vacteendelete_returns", "vacexitreturn_back",
+                    "vaclistenernull_skipped", "vacimportfix_ids", "vacimportfix_expiry" };
+                for (int i = 0; i < vn.Length; i++) r[vn[i]] = c[466 + i];
+            }
+            if (c.Length > 541) { r["autliveguard_windows"] = c[538]; r["autliveguard_skipwindows"] = c[539]; r["autliveguard_skipped"] = c[540]; r["autliveguard_ratio_pm"] = c[541]; } // AutLive.cs cost guard (docs/124 §17.10)
+            if (c.Length > 574) // AutLive.cs autlivelate (docs/217 L1) and G8 counters (docs/124 §8)
+            {
+                string[] ln = { "autlivelate_slices", "autlivelate_ref_age", "autlivelate_ref_epoch", "autlivelate_ref_state", "autlivelate_ref_lot",
+                    "autlivelate_ref_head", "autlivelate_ref_actor", "autlivelate_ref_other", "autlivelate_consumed", "autlivelate_stale",
+                    "autlivelate_age1", "autlivelate_age2", "autlivelate_age3", "autlivelate_us_consumed", "autlivelate_us_late_game",
+                    "autlivelate_us_invalid_game", "g8_pushes", "g8_null_picks", "g8_gohome", "g8_simhours_x100", "g8_lat0", "g8_lat1",
+                    "g8_lat2", "g8_lat3", "g8_lat4" };
+                for (int i = 0; i < ln.Length; i++) r[ln[i]] = c[550 + i];
+            }
+            if (c.Length > 610) { r["autshadow_rain_refused_span"] = c[607]; r["autshadow_rain_refused_tid"] = c[608]; r["autshadow_rain_hook"] = c[609]; r["autshadow_rain_done"] = c[610]; } // AutShadow.cs `rain` aborts by path
+            if (c.Length > 658) // UnseenFallback.cs unseenroute2 (docs/202 §3.9.5-§3.9.7)
+            {
+                string[] u2 = { "unseenroute_other_task", "unseenroute_rj_nested", "unseenroute_group", "unseenroute_rj_group", "unseenroute_child",
+                    "unseenroute_b_pass", "unseenroute_c_learn", "unseenroute_c_hit", "unseenroute_d_check", "unseenroute_d_repair",
+                    "unseenroute_ghost_start", "unseenroute_ghost_exit" };
+                for (int i = 0; i < u2.Length; i++) r[u2[i]] = c[647 + i];
+                int n = c[653] + c[654];
+                r["unseenroute_c_hit_pm"] = n > 0 ? (int)((long)c[654] * 1000 / n) : -1;  // C warm-up: hits per mille of C asks
+            }
+            if (c.Length > 646) // UnseenFallback.cs unseenroute (docs/202 §3.9)
+            {
+                string[] ur = { "unseenroute_acts", "unseenroute_no_verdict", "unseenroute_colour_unknown", "unseenroute_fast", "unseenroute_snap_mid", "unseenroute_snap_stand" };
+                for (int i = 0; i < ur.Length; i++) r[ur[i]] = c[641 + i];
+            }
+            if (c.Length > 2001) { r["menumaven_reads"] = c[2000]; r["menumaven_done"] = c[2001]; } // MenuMaven.cs, docs/501
+            if (c.Length > 669) // AutLive.cs unseen-direct pacing + G8 by actor class (docs/222 §8)
+            {
+                string[] pg = { "autunseen_pace_us", "autunseen_pace_forced", "g8_unseen_searches", "g8_unseen_pushes", "g8_unseen_null_picks",
+                    "g8_unseen_gohome", "g8_seen_searches", "g8_seen_pushes", "g8_seen_null_picks", "g8_seen_gohome", "g8_unseen_simhours_x100" };
+                for (int i = 0; i < pg.Length; i++) r[pg[i]] = c[659 + i];
+            }
+            if (c.Length > 679) // AutLive.cs autunseencmp Dry per-definition compare (docs/222 §9)
+            {
+                string[] dc = { "autunseen_cmp_searches", "autunseen_cmp_pairs", "autunseen_cmp_wfail_gpass", "autunseen_cmp_wpass_gfail", "autunseen_cmp_both_pass",
+                    "autunseen_cmp_both_fail", "autunseen_cmp_late_pairs", "autunseen_cmp_late_mis", "autunseen_cmp_obj_skipped", "autunseen_cmp_snapped" };
+                for (int i = 0; i < dc.Length; i++) r[dc[i]] = c[670 + i];
+            }
+            if (c.Length > 640) // AutLive.cs unseen-direct go-live (docs/222, switch autunseen)
+            {
+                string[] un = { "autunseen_posted", "autunseen_seen_post", "autunseen_snap_resume", "autunseen_snap_slice", "autunseen_dropped",
+                    "autunseen_direct", "autunseen_pairs", "autunseen_offlist", "autunseen_obj_game", "autunseen_test_pass", "autunseen_test_fail",
+                    "autunseen_vanilla", "autunseen_nopick", "autunseen_tagged", "autunseen_flip_kept", "autunseen_flip_cancel",
+                    "autunseen_guard_windows", "autunseen_guard_skipwindows", "autunseen_guard_skipped", "autunseen_guard_ratio_pm",
+                    "autunseen_cost_us", "autunseen_saved_us", "autlive_b14_ads", "autlive_b14_us", "autunseen_dry_runs",
+                    "autunseen_dry_top10", "autunseen_dry_top1", "autunseen_exc", "autunseen_dry_seen_runs", "autunseen_test_us" };
+                for (int i = 0; i < un.Length; i++) r[un[i]] = c[611 + i];
+            }
+            if (c.Length > 601) // AutLive.cs per-search feature mask (AutLiveCore.Feat): searches / mismatches / give-ups per bit
+            {
+                string[] fb = { "late", "prelearn", "tierreqlots", "rain", "desirefn", "satb", "guard", "cold", "partial" };
+                for (int i = 0; i < fb.Length; i++) { r["feat_" + fb[i] + "_searches"] = c[575 + i]; r["feat_" + fb[i] + "_mis"] = c[584 + i]; r["feat_" + fb[i] + "_drop"] = c[593 + i]; }
+            }
+            if (c.Length > 537) { r["autoff_tick_items"] = c[534]; r["autoff_tick_a0"] = c[535]; r["autoff_tick_a2"] = c[536]; r["autoff_tick_unfinished"] = c[537]; } // AutOffload.cs autofftick (docs/206 §15)
+            if (c.Length > 490) // AutOffload.cs (docs/208 §8): ready store and the apply at the game's own call
+            {
+                string[] ap = { "autoff_env_ready", "autoff_env_applied", "autoff_env_apply_none", "autoff_env_apply_stale", "autoff_env_apply_dry_eq",
+                    "autoff_bcast_ready", "autoff_bcast_applied", "autoff_bcast_apply_none", "autoff_bcast_apply_stale", "autoff_bcast_dry_order" };
+                for (int i = 0; i < ap.Length; i++) r[ap[i]] = c[481 + i];
+            }
+            if (c.Length > 447) { r["venuememo_tuning_hits"] = c[440]; r["venuememo_tuning_misses"] = c[441]; r["venuememo_tuning_mismatches"] = c[442]; r["venuememo_clears"] = c[443]; r["venuememo_scores"] = c[444]; r["venuememo_passed"] = c[445]; r["venuememo_score_mismatches"] = c[446]; r["venuememo_score_checks"] = c[447]; } // VenueMemo.cs (docs/122 section 14.24)
+            if (c.Length > 533) // WakePark.cs (docs/211): unseen wake-ups by class (seen/unseen x high/low LOD), park and poll
+            {
+                string[] k4 = { "_seen_hi", "_seen_lo", "_unseen_hi", "_unseen_lo" }, kr = { "_full_seen", "_full_unseen", "_bcast_seen", "_bcast_unseen" };
+                for (int i = 0; i < 4; i++)
+                {
+                    r["wake_su_pass" + k4[i]] = c[491 + i]; r["wake_su_us" + k4[i]] = c[495 + i]; r["wake_su_samples" + k4[i]] = c[530 + i];
+                    r["wake_poll" + k4[i]] = c[499 + i]; r["wake_idle" + k4[i]] = c[505 + i]; r["wake_react" + kr[i]] = c[509 + i]; r["wake_react_us" + kr[i]] = c[513 + i];
+                }
+                r["wake_wait_seen"] = c[503]; r["wake_wait_unseen"] = c[504]; r["wake_yielded"] = c[517]; r["wake_classify"] = c[518]; r["wake_classify_us"] = c[519];
+                r["wake_parks"] = c[520]; r["wake_park_ticks"] = c[521]; r["wake_park_early"] = c[522]; r["wake_wakeall"] = c[523]; r["wake_park_refused"] = c[524];
+                r["wake_poll_long"] = c[525]; r["wake_poll_woken"] = c[526]; r["wake_poll_deadline"] = c[527]; r["wake_poll_shared"] = c[528]; r["wake_poll_over"] = c[529];
+            }
             Dictionary<string, int> ufCallers = d.GetData("ts3fixes.unseenfb.callers") as Dictionary<string, int>; // caller frames D refused (gate 336)
             if (ufCallers != null) { List<object> l = new List<object>(); foreach (KeyValuePair<string, int> kv in ufCallers) l.Add(kv.Value + " " + kv.Key); r["unseenfbpre_callers"] = l; }
+            Dictionary<string, int> urRj = d.GetData("ts3fixes.unseenroute.rj") as Dictionary<string, int>; // relaxed D refusals "gate:reason" (docs/202 §3.9.7b)
+            if (urRj != null) { List<object> l = new List<object>(); foreach (KeyValuePair<string, int> kv in urRj) l.Add(kv.Value + " " + kv.Key); r["unseenroute_rj_detail"] = l; }
             if (c.Length > 302) r["owstuck_max_select_us"] = c[302]; // overwatchstuckslice: longest stretch at the IsSelectable hook (OverwatchStuck.cs, docs/145 §12)
             r["easpread_log"] = d.GetData("ts3fixes.easpread"); // one line per pass and path (ours / game's), verify censuses
             r["autshadow_reasons"] = d.GetData("ts3fixes.autshadow.reasons"); // A4 aborts per native reason index (row, pos, memo, rng, ... other)

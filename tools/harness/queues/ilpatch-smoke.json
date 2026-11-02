@@ -1,0 +1,42 @@
+{
+  "note": "docs/526 [IlPatch] smoke (Baseline-BP-Spring, ~8 min): the three docs/506 §5 fixes armed on a world load + 5 min of play. SimDescription.Fixup runs for every Sim at the load (GameStates world fixup), so b89 must apply there with the patched body's sha256 as the converter's; b80 and b87 are transformed by the repro's method_touch steps (the compiled entry asked for by reflection), so all three must apply. Pass: the OK line, b89 applied, no refused / mismatch / fault line, no crash. Local copy: asi = the CI build of the branch.",
+  "jobs": [
+    {
+      "id": "bp-ilpatch-smoke",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "IlPatch.Enabled": 1,
+        "IlPatch.ilp_fixupnoinventory": 1,
+        "IlPatch.ilp_remotechatnoeverydayoutfit": 1,
+        "IlPatch.ilp_scavengersleep": 1
+      },
+      "logRequire": {
+        "^OK   il patch \\(docs/506": 1,
+        "^il patch: .* armed ": 3,
+        "^il patch: b89-fixup-no-inventory applied to Sims3\\.Gameplay\\.CAS\\.SimDescription::Fixup\\(\\) \\((ea-1\\.67|simler90-242), 1445 -> ": 1,
+        "^il patch: b80-remote-chat-no-everyday-outfit applied to Sims3\\.Gameplay\\.Actors\\.Sim::DoOneRoundOfRemoteChat": 1,
+        "^il patch: b87-scavenger-sleep applied to Sims3\\.Gameplay\\.Opportunities\\.ScavengerOpportunity::OnAdded": 1
+      },
+      "logForbid": {
+        "^FAIL\b": 0,
+        "^il patch: .*(refused|not the converter's|fault|left alone)": 0,
+        "^SKIP il patch": 0,
+        "[\\/]Users[\\/][^<]": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ilpatch-touch-bp"
+        }
+      },
+      "timeoutMin": 20,
+      "note": "Load (b89 applies at the world fixup) + method_touch of the other two methods (repro ilpatch-touch-bp: one call each on the sim thread with an uninitialized receiver, which transforms the method). Needs a core whose bodies a spec knows (EA 1.67 or UPDATE242 without patches): a core that already carries the fixes is left alone + 5 min of play. Pass: 'OK   il patch', three 'applied' lines (one per fix), three 'armed' lines, nothing refused / mismatched / faulted, no crash."
+    }
+  ]
+}

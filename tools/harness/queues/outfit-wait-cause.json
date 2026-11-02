@@ -1,0 +1,173 @@
+{
+  "note": "Issue #115 second cause (docs/224 §5): forced replace check first, then the LR in-load A/B with stale-wait causes. Built 2026-11-01.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-outfit-wait-replace",
+      "note": "Correctness (8 min): repro outfit-wait-replace-check. Pass: control wait returns; replace: outcome (a) or (b) of the repro's expect, read from the state lines (both outcomes answer the question; a crash or a check error fails).",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "outfit-wait-replace-check"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20
+    },
+    {
+      "id": "bp-outfit-wait-cbdrop",
+      "note": "Correctness (8 min): repro outfit-wait-replace-check with the swap-callback drop logger (docs/224 §5, I-414-8). Pass: the replace part's second swap is counted as a dropped callback (outfitwaitpoll_cb_dropped>=1), which confirms in game what the IL shows.",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "outfit-wait-replace-check",
+          "fixesRequire": "outfitwaitpoll_cb_dropped>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:outfitwaitpoll_cb_dropped",
+          "op": ">=",
+          "value": 1,
+          "why": "no dropped swap callback 5 min in: the RegisterCallback hook is not installed (already compiled?) or the replace part did not run"
+        }
+      ]
+    },
+    {
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only test, no native change",
+      "save": "BigSave-LR",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "id": "lr-outfit-wait-causes-ab",
+      "fixesPackage": "build/ts3fixes-on-kOutfitWaitPoll.package",
+      "note": "In-load A/B on the day-406 save (BigSave-LR): kOutfitWaitPoll True from startup, --ab outfitwaitpoll per 2-min slice, off first. Read: the cause of each natural stale wait (counters outfitwaitpoll_cause_own/_replaced/_cleared, stale-wait lines in the applied log), sim ms/s per arm, and Wait's share of managed samples per arm.",
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "ab": "outfitwaitpoll",
+          "slice": 2,
+          "fixesRequire": "outfitwaitpoll_stale>=1"
+        }
+      },
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:outfitwaitpoll_polls",
+          "op": ">=",
+          "value": 1,
+          "why": "no stale outfit wait polled by the 4th 2-min slice: the hook is not on or not installed"
+        }
+      ]
+    },
+    {
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only test, no native change",
+      "save": "BigSave-LR",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "id": "lr-outfit-wait-cbdrop-ab",
+      "fixesPackage": "build/ts3fixes-on-kOutfitWaitPoll.package",
+      "note": "Cause (12 min, day-406 save, in-load A/B): how many of the stale `own` waits have a helper whose swap callback EA dropped (outfitwaitpoll_cause_dropped vs outfitwaitpoll_cause_own), with the drop log lines. Pass: at least one stale wait.",
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "ab": "outfitwaitpoll",
+          "slice": 2,
+          "fixesRequire": "outfitwaitpoll_stale>=1"
+        }
+      },
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:outfitwaitpoll_polls",
+          "op": ">=",
+          "value": 1,
+          "why": "no stale outfit wait polled by the 4th 2-min slice: the hook is not on or not installed"
+        }
+      ]
+    },
+    {
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only test, no native change; the switch-on package: the question needs the switch on in the whole run",
+      "save": "BigSave-LR",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "id": "lr-outfit-wait-view",
+      "fixesPackage": "build/ts3fixes-on-kOutfitWaitPoll.package",
+      "note": "View (12 min, day-406 save, switch on all run): does a stale `own` wait end only when its Sim comes on screen? Counts outfitwaitpoll_stale_onscreen / _ended_onscreen against stale / ended, with the end lines. Pass: at least one stale wait.",
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "fixesRequire": "outfitwaitpoll_stale>=1"
+        }
+      },
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:outfitwaitpoll_polls",
+          "op": ">=",
+          "value": 1,
+          "why": "no stale outfit wait polled by the 4th 2-min slice: the hook is not on or not installed"
+        }
+      ]
+    },
+    {
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only test, no native change; the switch-on package: the question needs the switch on in the whole run",
+      "save": "BigSave-LR",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "id": "lr-outfit-wait-view-log",
+      "fixesPackage": "build/ts3fixes-on-kOutfitWaitPoll.package",
+      "note": "View, with the counters and lines read by repro outfit-wait-view-log (lr-outfit-wait-view PASSED but its files keep no fixes counters). View (12 min, day-406 save, switch on all run): does a stale `own` wait end only when its Sim comes on screen? Counts outfitwaitpoll_stale_onscreen / _ended_onscreen against stale / ended, with the end lines. Pass: at least one stale wait.",
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "fixesRequire": "outfitwaitpoll_stale>=1",
+          "repro": "outfit-wait-view-log"
+        }
+      },
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:outfitwaitpoll_polls",
+          "op": ">=",
+          "value": 1,
+          "why": "no stale outfit wait polled by the 4th 2-min slice: the hook is not on or not installed"
+        }
+      ]
+    }
+  ]
+}

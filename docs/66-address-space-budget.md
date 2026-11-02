@@ -80,7 +80,7 @@ Mapped is highest at the menu (219) and lower later in live mode (145), so the m
 | DXVK and NVIDIA driver private memory | not measured | - |
 | **Unattributed remainder** (private - GC - ResourceCache - AnimationCache - stacks - indexes - catalog - shaders - glyphs) | **~940 at start, ~1,135 after** | [computed] |
 
-Caveat on the ResourceCache row: a texture reports its pixel bytes to the cache only when it has a system copy (`0x619DB0`, docs/40), and under DXVK that copy lives in the mapped `MemoryFilePool`, not in private memory. So part of the 359 MB is mapped, and the remainder above is a lower bound [inferred].
+Caveat on the ResourceCache row: a texture reports its pixel bytes to the cache only when it has a system copy (`0x619DB0`, docs/40), and under DXVK that copy lives in the mapped `MemoryFilePool`, not in private memory. So part of the 359 MB is mapped, and the remainder above is a lower bound [inferred]. **`rc` is not 32-bit address space under DXVK:** a contributor pair (docs/209 #96, one heavy-CC save) saw 168 MB of textures leave `rc` while mapped memory fell by only 22 MB and free space rose by 40 MB [contributor-measured]; read `big`/`free` for Error 12 room, `rc` for cache pressure, VRAM and upload stutter. Since ts3native 0.36.135 the `diag: mem` line also carries the EA heap cores (`eaCom`/`eaRes`/`eaCoreN`), which used to fall into `rest`.
 
 ### 3.4 Reserved but unused, 264-326 MB
 

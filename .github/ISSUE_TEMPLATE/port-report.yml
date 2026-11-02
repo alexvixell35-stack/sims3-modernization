@@ -1,0 +1,34 @@
+name: Port report (EA app / Origin edition)
+description: The zip Sims3PortProbe wrote to your Desktop, so the fixes can be ported to your edition of the game.
+title: "[port] "
+labels: [triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping. Drag the `Sims3PortReport-xxxxxxxx.zip` from your Desktop into the box below. It holds only numbers, names and hashes about the game files (addresses, function sizes, imported function names, string texts the game uses, script method sizes), no game code, no paths, no user or machine name. Please do not attach game files, saves or dumps.
+  - type: dropdown
+    id: edition
+    attributes:
+      label: Edition
+      options: [EA app, Origin, Disc, Other]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Game version shown in the launcher (optional)
+  - type: textarea
+    id: report
+    attributes:
+      label: Report zip
+      description: Drag the zip into this box.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I attached only the Sims3PortReport zip (no game files, saves or dumps).
+          required: true

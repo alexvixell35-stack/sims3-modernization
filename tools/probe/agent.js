@@ -1604,6 +1604,17 @@ rpc.exports = {
       // v142 (docs/203 §6, ts3native.cpp RwStartWait): [RouteAsync] WorkerWait, the route worker's job-start wait
       if (c.readS32() >= 142) f.push('rwMode', 'rwBlocked', 'rwBlockUs', 'rwSleep0', 'rwSpinExits', 'rwWaits', 'rwWakes', 'rwTimeouts',
         'rwSignals', 'rwMaxBlockUs', 'rwWorkerCpuMs', 'rwSpare');
+      // v143 [MonoFast] CallPath (docs/139 §8, mintcall.cpp)
+      if (c.readS32() >= 143) f.push('mcSwitch', 'mcReady', 'mcCall', 'mcCallvirt',
+        'mcRet', 'mcBailCall', 'mcBailCallvirt', 'mcBailRet', 'mcVerified', 'mcMismatch', 'mcVSkipped', 'mcVerifyEvery', 'mcFirstBad', ...n('mcSpare', 3));
+      // v144 [EaCrashFixes] MintDivGuard (issue #114, docs/213 §8, eafix.cpp)
+      if (c.readS32() >= 144) f.push('mdOn', 'mdDivOverflow', 'mdRemMinus1', 'mdSpare');
+      if (c.readS32() >= 145) f.push('ghReady', 'ghMode', 'ghAdds', 'ghRemoves', 'ghLive', 'ghLiveMax', 'ghFpSkipped', 'ghFpDisables',
+        'ghAgentSkipped', 'ghExpired', 'ghFull', 'ghRemoveMissing', ...n('ghSpare', 4));
+      // v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs (docs/67 §30, wastar.cpp)
+      if (c.readS32() >= 146) f.push('waOn', ...n('waSkip', 3), 'pfOn', ...n('pfSkip', 2), 'pfSpare');
+      // v900 [IlPatch] (docs/506 §2, docs/526, ilpatch.cpp): the contributor block after v146 (docs/registry.md)
+      if (c.readS32() >= 900) f.push('ilpOn', 'ilpArmed', 'ilpApplied', 'ilpReused', 'ilpSkipHash', 'ilpSkipCheck', 'ilpSkipMismatch', 'ilpFaults');
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key
@@ -1654,6 +1665,7 @@ rpc.exports = {
       if (mp.readS32() >= 3) mf.push('lockStale'); // v3: +0x84 (docs/120 §10, I-120-8)
       if (mp.readS32() >= 4) mf.push('lockOomReleased'); // v4: +0x88 (docs/120 §10.5, GC_oom_fn wrapper)
       if (mp.readS32() >= 5) mf.push('lazyGate', 'lazyOn', 'lazyOff'); // v5: +0x8C..+0x94 (LazyGate=1, docs/30 §15)
+      if (mp.readS32() >= 6) mf.push('simLockWaits', 'simLockWaitUs', 'simLockMaxWaitUs', 'lazyEarlyOff'); // v6: +0x98..+0xA4 (docs/30 §16)
       r.mtprobe = Object.fromEntries(mf.map((n, i) => [n, mp.add(i * 4).readS32()]));
     }
     // autonomy shadow pilot (docs/122 §13-§14): export ts3native_autshadow (docs/registry.md), null when the asi has none
@@ -1746,6 +1758,37 @@ rpc.exports = {
           'satbStale', 'satbSwapUs', 'satbJobSpans', 'satbJobStores', 'satbJobWords', 'satbJobPages', 'satbJobLoads', 'satbJobIc',
           'satbJobMaxWords', 'satbJobUs', 'satbIcCallsAll', 'satbSimArena', 'satbWArenaIgn', 'satbWGiveUp', 'satbWGiveUpOp']
           .forEach((n, i) => { a[n] = rd(624 + i); });
+      }
+      if (v >= 16) { // v16: +0xA60..+0xAA4 Satb IC arguments logged, unsized runtime writers by site (docs/206 §9); consume counters (docs/122 §14.23)
+        ['satbIcLogged', 'satbIcLogWords', 'satbJobIcLogged', 'satbRtFset', 'satbRtPtrStruct', 'freshTop1Ans', 'freshTop10Ans',
+          'refFreshTop1', 'refFreshTop10', 'refPassA4']
+          .forEach((n, i) => { a[n] = rd(664 + i); });
+        a.pairT = [0, 1, 2, 3].map(i => rd(674 + i)); // C2 time per pair (100 ns): allow-listed pass, fail, off-list pass, fail
+        a.pairN = [0, 1, 2, 3].map(i => rd(678 + i));
+      }
+      if (v >= 17) { // v17: +0xAA8..+0xAF8 transient objects, host classes, shared list walk, RunSkip reasons (docs/122 §14.26)
+        ['transOn', 'transObjs', 'hcOn', 'hcKnown', 'hcNoHandle', 'hcMap2', 'hcUs', 'lwOn', 'lwRows', 'lwWalks', 'lwWalkUs', 'lwHostUs',
+          'lwFall', 'lwChecks', 'lwMis', 'runNoPlain', 'runNoStale', 'runNoWalked', 'runNoSets', 'runNoCold', 'clsGoneSkip']
+          .forEach((n, i) => { a[n] = rd(682 + i); });
+      }
+      if (v >= 18) { // v18: +0xAFC..+0xB40 Sim rows by events, tier moves by lot/room, audit every Nth cut, gone delta (docs/122 §14.27)
+        ['seOn', 'seKept', 'seChecks', 'seMis', 'seIcOff', 'tmOn', 'tmKept', 'laEvery', 'laSkips', 'gdOn', 'gdRecs', 'gdNoRec', 'gdRows',
+          'gdFall', 'gdIncons', 'gdChecks', 'gdMis', 'gdOver']
+          .forEach((n, i) => { a[n] = rd(703 + i); });
+      }
+      if (v >= 19) { // v19: +0xB44..+0xB88 ids delta on list rows, Sim event rows for promoted/seated Sims, tier cap, gone reasons (docs/122 §14.28)
+        ['idOn', 'idSame', 'idApp', 'idCalls', 'idFall', 'idChecks', 'idMis', 'idUs', 'seLearnOn', 'seSeatOn', 'seLearnKept', 'seSeatKept',
+          'tcMax', 'tcCapped']
+          .forEach((n, i) => { a[n] = rd(721 + i); });
+        a.gdWhy = [0, 1, 2, 3].map(i => rd(735 + i)); // no record, another lot, another room, lot full / window lost
+      }
+      if (v >= 20) { // v20: +0xB8C..+0xC88 go-live consume, [AutShadow] Mode=3 (docs/124 §17); al = ts3fixes AutLive.cs slots kS*
+        ['alOn', 'alCuts', 'alVerify', 'alWatchN', 'alWatchResets', 'alStaleQ', 'alStaleHit', 'alStaleEv']
+          .forEach((n, i) => { a[n] = rd(739 + i); });
+        a.al = Array.from({ length: 56 }, (_, i) => rd(747 + i));
+      }
+      if (v >= 21) { // v21: +0xC8C..+0xC94 docs/127 H11 shelter answer (rain pairs armed, CreateInstance skipped, armed with no call)
+        ['rainArm', 'rainSkip', 'rainMiss'].forEach((n, i) => { a[n] = rd(803 + i); });
       }
       r.autshadow = a;
     }

@@ -1,0 +1,155 @@
+{
+  "note": "mintcall-verify: [MonoFast] CallPath (docs/139 §8, ts3native 0.36.127, counters v143, asi game-copy/ts3native.asi.mcall1) correctness in game, Mode-R style: CallPath=2 runs every 16th eligible call / callvirt / ret both ways (our handler, then EA's from the restored state) and compares every word both may write plus edi / esi / esp at the next dispatch. Correctness only (verify mode routes every dispatch through a compare stub: no timing; daytime OK). Pass per job: no crash, 0 watchdog lines, mcReady 7 (installed, verify), mcVerified > 100000, mcMismatch 0 (any mismatch: stop, the first 16 are logged as 'mintcall verify MISMATCH kind .. rm .. ip ..' in ts3native.log; triage before anything else), mcVSkipped small, fast counts mcCall / mcCallvirt / mcRet > 0, bails present (mcBail*: cache misses, new frame slots). The last job runs the fast path (CallPath=1) under [AutShadow] Mode R (mono-cost13 keys) to show the worker and the call fast path together: pass = mono-cost13's own gates (A1-A3 = 0) and mcCall > 0. Run: node tools/harness/queue.ts tools/harness/queues/mintcall-verify.json --no-smoke",
+  "jobs": [
+    {
+      "id": "bp-mcall-verify",
+      "note": "BP Spring 10 min, seed 12345, release ini defaults of the sim-budget queue + [MonoFast] CallPath=2 VerifyEvery=16. Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.mcall1",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 143,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoFast.CallPath": 2,
+        "MonoFast.VerifyEvery": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-mcall-verify",
+      "note": "IP Spring 10 min (the script-heaviest world), otherwise as bp-mcall-verify.",
+      "asi": "game-copy/ts3native.asi.mcall1",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 143,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoFast.CallPath": 2,
+        "MonoFast.VerifyEvery": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 30
+    },
+    {
+      "id": "sv-mcall-verify",
+      "note": "SV Spring 10 min, otherwise as bp-mcall-verify; also covers a save (the profile's own) with the fast path's frames live.",
+      "asi": "game-copy/ts3native.asi.mcall1",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 143,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoFast.CallPath": 2,
+        "MonoFast.VerifyEvery": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-mcall-autshadow-r",
+      "note": "Fast path (CallPath=1) under [AutShadow] Mode R: mono-cost13's bp-autshadow-r keys (asi.mcall1 carries the same [AutShadow] code plus Satb, Satb off) with the ts3fixes package mc13. Pass: mono-cost13's gates (A1-A3 = 0, no crash), mcReady 3 (fast calls are not counted in CallPath=1; bails are). Read with node tools/harness/mono-cost-report.ts --tag mintcall-verify.",
+      "asi": "game-copy/ts3native.asi.mcall1",
+      "fixesPackage": "game-copy/ts3fixes.package.mc13",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 143,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "MonoFast.CallPath": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow"
+        }
+      },
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 30
+    }
+  ]
+}

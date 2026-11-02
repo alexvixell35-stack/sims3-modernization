@@ -1,10 +1,10 @@
 {
-  "note": "NOT RUN (2026-10-30). docs/67 §26.4 / §27.5 [EaCrashFixes] ConformActor + ThumbPose (ts3native 0.36.121, game-copy/ts3native.asi.eafix1, both off by default; issues #98 / #99). Correctness check, not a timing A/B: each job turns both switches on over the shipped ini and runs one repro. Pass: both OK lines, no FAIL / SKIP line for the fix, no crash. Read the v141 counters: caLive rises and falls with the spawns, caSkip[1] (destroyed actors answered 'done'; 0 is possible), caOther (asks to other actor types: I-394-4), tpHeld (> 0 = thumbnail branch (a) ran), tpLastRef, tpNoSlot 0. Two clean runs of each job before the switches go into the release ini.",
+  "note": "NOT RUN (2026-10-30). docs/67 §26.4 / §27.5 [EaCrashFixes] ConformActor + ThumbPose (ts3native 0.36.121, source build (asi tested since 2026-10-31; was game-copy/ts3native.asi.eafix1), both off by default; issues #98 / #99). Correctness check, not a timing A/B: each job turns both switches on over the shipped ini and runs one repro. Pass: both OK lines, no FAIL / SKIP line for the fix, no crash. Read the v141 counters: caLive rises and falls with the spawns, caSkip[1] (destroyed actors answered 'done'; 0 is possible), caOther (asks to other actor types: I-394-4), tpHeld (> 0 = thumbnail branch (a) ran), tpLastRef, tpNoSlot 0. Two clean runs of each job before the switches go into the release ini.",
   "jobs": [
     {
       "id": "bp-eafix-conform",
       "note": "repro ea-conform-actor-destroy-loop: spawned Sims removed mid-walk at ultra speed, three rounds plus a kill_sim of a routing Sim",
-      "asi": "game-copy/ts3native.asi.eafix1",
+      "asi": "tested",
       "save": "Baseline-BP",
       "releaseDefaults": true,
       "noiseCheck": false,
@@ -25,7 +25,7 @@
     {
       "id": "bp-eafix-thumb",
       "note": "repro ea-thumb-pose-pack-loop: household thumbnails while spawned Sims are removed, three rounds",
-      "asi": "game-copy/ts3native.asi.eafix1",
+      "asi": "tested",
       "save": "Baseline-BP",
       "releaseDefaults": true,
       "noiseCheck": false,

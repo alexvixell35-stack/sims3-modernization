@@ -1,5 +1,5 @@
 // Unattended game-test queue: runs a list of jobs back to back, one game start per job, and records one result row each.
-//   node tools/harness/queue.ts tools/harness/queues/<name>.json [--from <job id>] [--only id,id] [--dry-run] [--no-smoke]
+//   node tools/harness/queue.ts tools/harness/queues/<name>.json [--from <job id>] [--only id,id] [--dry-run] [--no-smoke] [--stop-on-fail]
 //   node tools/harness/queue.ts --self-check          queue parsing, ini merge, verdict and usage parsing, content stash round trip, no game
 //   node tools/harness/queue.ts --restore-content     put CC/Store packages back from the stash manifest of an unfinished run
 // Queue file: a JSON list of jobs (or { "jobs": [...] }):
@@ -8,6 +8,8 @@
 //     | {profile: {minutes, seed?, repro?, mainstack?}} | {routelock: {minutes, speed?}} | {age: {days, checkpoint, keepAlive?, save?}}, gameArgs?: ["-disablestoryprogression"], defaultIni?: { "Config.SimulatorRandomSeed": n },
 //     s3ppIni?: { "Patches.MonoTypeEHashProbe": 0 }, s3ssToml?: { "patches.LotStreamingOptimizations.enabled": false }, minCounters?: 20, timeoutMin?,
 //     pin?: false | { cpus?: "4-15", priority?: "High", others?: boolean | [names] } }   (also queue-level beside "jobs"; pin.ts)
+// pinReason: why a job pins a game-copy asi / fixesPackage (release or baseline arm, published-release check, a job about one old
+// build); without it, an asi older than the source or a game-copy package older than the ts3fixes source gets a WARN pin line.
 // pin (default on, TS3_PIN=off): while the game is up TS3W.exe runs on the game CPUs at High priority and heavy user apps on
 // the rest, put back after each job and on exit (pin.ts). Every job samples machine load (machine-load.ts) into
 // <queue>-<date>-<job>-machine.jsonl: row.machine (full line), row.noise (low|medium|high) and the short form in the md note.
@@ -49,6 +51,11 @@
 // routingFailFast: { ms, scope: "unseen" | "all", allow?: [{ match, reason, ref }] } (Rodney 2026-10-26, routing-failfast.ts): from the profile
 // start, every 30 s, routing above ms (unseen fallback lines; with scope all also sync plans, own-job waits, route-led hitches)
 // stops the job at once with FAIL: routing fail-fast: ...; triaged false positives go into routing-failfast-allow.json.
+// earlyGates: [{ afterSec, counter, op, value, why }] (Rodney 2026-10-31, profile jobs): live /native paths (autshadow.req) or ts3fixes
+// counters (fixes:autshadow_gm6_faults, + sums) read every GUARD_MS from the profile start; past afterSec a gate that does not hold
+// stops the job at once with FAIL: early gate: <why> (<counter>=<v>) (see earlyGateGuard / gateFail).
+// stopQueueOnFail: true (job or queue level) or --stop-on-fail: after a FAIL row the queue stops with 'STOP: <job> failed (stopQueueOnFail): ...'
+// (chain scripts grep it); a noisy timing job whose -rerun was queued does not stop it.
 // scriptErrorsMax: N = at most N new ScriptError_*.xml in the user folder since the job start (known EA errors, known-script-errors.json,
 // not counted); more turns the row FAIL (docs/191 bp-cc-load-smoke: synthetic CC loads, places and wears without script errors).
 // profile: profile-world.ts --tag <queue>-<date>-<job> (--seed: seed_rng at the window start, docs/27); rng-compare.ts reads the rows.
@@ -139,7 +146,8 @@
 // After each job: `ai-usage.ts G <job id>`; at >= 80% in either window the queue pauses and prints the --from line to resume.
 // Output: probe-out/queue/<queue>-<date>.jsonl (one row per job, times UTC), docs/data/results/<date>-queue-<queue>.md (table, UTC + PHT).
 // After each job the game's Bin/ts3native.log is copied to probe-out/queue/<queue>-<date>-<job>-<HHMM>-ts3native.log (row.nativeLog),
-// and Bin/ts3native-shadow.jsonl (P4 shadow records) to ...-<HHMM>-shadow.jsonl (row.shadowLog) when the job wrote one.
+// and Bin/ts3native-shadow.jsonl (P4 shadow records) to ...-<HHMM>-shadow.jsonl (row.shadowLog) when the job wrote one;
+// Bin/autshadow.jsonl ([AutShadow] records; emptied at job start) to ...-<HHMM>-autshadow.jsonl (row.autshadowLog) when not empty.
 // At the end the Bin ts3native.asi and ts3native.ini found at the start are put back as a pair (copies in probe-out/queue/bin-before/;
 // until 2026-10-24 the asi came from native/ts3native/out/, which left an old build next to a job ini in Bin). The restored asi is
 // named from docs/data/builds.json; a WARN line says when it is not a release build. Windows-only by nature (TS3W.exe, taskkill).
@@ -170,10 +178,10 @@ import { earlyNoise, startMachineLoad, summarize as loadSummary } from './machin
 import { jsonlRows, queueFile, rowTiming, timingText } from './run-verdict.ts';
 import { loadRun as hitchRun, runIters, toolCosts, toolsOn, withBaseIni } from './hitch-ab.ts';
 import { mergeFile as mergeCallsites } from '../callsite-db.ts';
-import { asiCheck, fixesCheck, loadDb, logVersionCheck, packageTuning, type Build } from '../builds.ts';
+import { asiCheck, asiVersion, fixesCheck, loadDb, logVersionCheck, packageTuning, type Build } from '../builds.ts';
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: {
-  'dry-run': { type: 'boolean' }, from: { type: 'string' }, only: { type: 'string' }, 'self-check': { type: 'boolean' }, 'restore-content': { type: 'boolean' }, 'no-smoke': { type: 'boolean' }, 'close-spotify': { type: 'boolean' }, port: { type: 'string', default: '47891' },
+  'dry-run': { type: 'boolean' }, from: { type: 'string' }, only: { type: 'string' }, 'self-check': { type: 'boolean' }, 'restore-content': { type: 'boolean' }, 'no-smoke': { type: 'boolean' }, 'stop-on-fail': { type: 'boolean' }, 'close-spotify': { type: 'boolean' }, port: { type: 'string', default: '47891' },
 } });
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const BIN = process.env.TS3_BIN ?? 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\The Sims 3\\Game\\Bin';
@@ -195,9 +203,11 @@ const log = (m: string) => console.log(`${stamp()} queue: ${m}`);
 // ---------------------------------------------------------------- pure parts (covered by --self-check)
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; run: { repro?: string; saveReload?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
-    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; scriptErrorsMax?: number; timeoutMin?: number; pin?: false | PinOpts;
-  saveMatrix?: { fixes?: 'all' | 'shipped' }; fixesBuild?: string; fixesPackage?: string; rerunOf?: string };
+    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; stopQueueOnFail?: boolean; scriptErrorsMax?: number; timeoutMin?: number; pin?: false | PinOpts;
+  saveMatrix?: { fixes?: 'all' | 'shipped' }; fixesBuild?: string; fixesPackage?: string; pinReason?: string; rerunOf?: string; shadowCheck?: boolean };
 
+// every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
+const JOB_KEYS = new Set(['id', 'note', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'noiseCheck', 'earlyGates', 'routingFailFast', 'scriptErrorsMax', 'stopQueueOnFail', 'reuseSession', 'releaseDefaults']);
 export function parseQueue(json: unknown): Job[] {
   const jobs = Array.isArray(json) ? json : (json as any)?.jobs;
   if (!Array.isArray(jobs) || !jobs.length) throw new Error('queue: expected a non-empty list of jobs (or { "jobs": [...] })');
@@ -208,6 +218,8 @@ export function parseQueue(json: unknown): Job[] {
     if (seen.has(j.id)) throw new Error(`${at}: duplicate id`);
     seen.add(j.id);
     if (typeof j.asi !== 'string' || !j.asi) throw new Error(`${at}: asi must be "tested" or a path`);
+    // fail fast (2026-11-01: job-level fixesOff was ignored, the rhoff arm ran with rabbit-hole routing on): only known job keys; profile keys at job level are named
+    for (const k of Object.keys(j)) if (!JOB_KEYS.has(k)) throw new Error(`${at}: unknown job key "${k}"${/^(fixesOn|fixesOff|fixesReport|ab|abOnFirst|seed|minutes|slice|noSamplers|repros|repro|hitchTasks|frameLead|story)$/.test(k) ? ' (belongs in run.profile)' : ''}`);
     if (j.fixesBuild === undefined && !Array.isArray(json) && (json as any).fixesBuild !== undefined) j.fixesBuild = (json as any).fixesBuild; // queue-level default
     if (j.fixesBuild !== undefined && !(typeof j.fixesBuild === 'string' && /^[\w.+-]+$/.test(j.fixesBuild))) throw new Error(`${at}: fixesBuild must be a ts3fixes name from docs/data/builds.json`);
     for (const k of Object.keys(j.ini ?? {})) if (!/^\w+\.\w+$/.test(k)) throw new Error(`${at}: ini key "${k}" must be Section.Key`);
@@ -284,6 +296,7 @@ export function parseQueue(json: unknown): Job[] {
     // fixesPackage: a shipped ts3fixes.package (path from the repo root) installed over cycle.ts's build/ copy before each start (repro jobs: the start-path controls, release-validate *-v016)
     if (j.fixesPackage !== undefined && (typeof j.fixesPackage !== 'string' || !j.fixesPackage || j.fixesBuild !== undefined || !(j.run?.profile || j.run?.soak || j.run?.repro)))
       throw new Error(`${at}: fixesPackage must be a path, only on profile/soak/repro jobs, not with fixesBuild`);
+    if (j.pinReason !== undefined && (typeof j.pinReason !== 'string' || !j.pinReason.trim())) throw new Error(`${at}: pinReason must be a non-empty text (why this job pins its asi/package)`);
     if (fridaAttach(j) && (j.callSites || Number(j.ini?.['ProbeSnap.CallSites']))) throw new Error(`${at}: ProbeSnap.CallSites with a second Frida agent (${fridaAttach(j)}): int3 traps + agent attach crashed the game (docs/67 §7); set run.profile.noProf (and drop the side probe) or callSites false`);
     if (j.timeoutMin !== undefined && !(j.timeoutMin > 0)) throw new Error(`${at}: timeoutMin must be > 0`);
     if (j.minCounters !== undefined && !(Number.isInteger(j.minCounters) && j.minCounters > 0)) throw new Error(`${at}: minCounters must be a positive integer (a counters version)`);
@@ -296,6 +309,16 @@ export function parseQueue(json: unknown): Job[] {
       if (j.routingFailFast.scope === 'all' && (j.run.profile.ab || (j.run.profile as any).loopRule)) throw new Error(`${at}: routingFailFast scope "all" on an --ab / loop job: the off arm's plans and hitches would trip it; use scope "unseen"`);
     }
     if (j.scriptErrorsMax !== undefined && !(Number.isInteger(j.scriptErrorsMax) && j.scriptErrorsMax >= 0)) throw new Error(`${at}: scriptErrorsMax must be an integer >= 0`);
+    if (j.stopQueueOnFail === undefined && !Array.isArray(json) && (json as any).stopQueueOnFail !== undefined) j.stopQueueOnFail = (json as any).stopQueueOnFail; // queue-level default
+    if (j.stopQueueOnFail !== undefined && typeof j.stopQueueOnFail !== 'boolean') throw new Error(`${at}: stopQueueOnFail must be true or false`);
+    if (j.earlyGates !== undefined) {
+      checkGates(j.earlyGates, `${at}: earlyGates`);
+      if (!j.run.profile) throw new Error(`${at}: earlyGates needs run.profile (they start at the profile start)`);
+      // a gate due at or after the profile end never runs, and the job passes without that check (2026-11-01: a 300 s
+      // autunseen_posted gate on a 4-min smoke)
+      const late = (j.earlyGates as EarlyGate[]).filter(g => g.afterSec >= j.run.profile!.minutes * 60);
+      if (late.length) throw new Error(`${at}: earlyGates ${late.map(g => `${g.counter} from ${g.afterSec} s`).join(', ')} never run: the profile ends at ${j.run.profile.minutes * 60} s`);
+    }
     const ccDir = (x: unknown) => typeof x === 'string' && /^game-copy\/cc-synth\/[\w.-]+$/.test(x);
     if (j.ccSet !== undefined && !(ccDir(j.ccSet) || (Array.isArray(j.ccSet) && j.ccSet.length && j.ccSet.every(ccDir) && new Set(j.ccSet.map(x => basename(x))).size === j.ccSet.length))) throw new Error(`${at}: ccSet must be "game-copy/cc-synth/<set>" (a tools/cc-gen.ts output dir) or a list of distinct ones`);
     if (j.ccLots !== undefined && !ccDir(j.ccLots)) throw new Error(`${at}: ccLots must be "game-copy/cc-synth/<dir>" (a tools/cc-lot-gen.ts output dir)`);
@@ -316,7 +339,12 @@ export function parseQueue(json: unknown): Job[] {
 // ts3fixes.applied (agent `patches` .applied): the AutShadow / AutLedger lines and every refused patch, for the job row
 // (docs/51 §188: a refused hook used to leave no trace in the row)
 export const fixesApplied = (applied: unknown): string[] => (Array.isArray(applied) ? applied.map(String) : [])
-  .filter(l => /^Aut(Shadow|Ledger)\b/.test(l) || (/^[\w.+]+\.\w+: /.test(l) && !/: ok$/.test(l))).slice(0, 40);
+  .filter(l => /^(Aut(Shadow|Ledger)\b|tuned: )/.test(l) || (/^[\w.+]+\.\w+: /.test(l) && !/: ok$/.test(l))).slice(0, 40);
+
+// tuning-gated patches (ts3fixes Fixes.ApplyTuned, docs/124 §17.8): a tuning is on but its patch did not go in, so the switch
+// reads on while the code path is absent (golive-g7 round 1). Every profile/soak job with ts3fixes fails on such a line.
+export const tunedFails = (applied: unknown): string[] => (Array.isArray(applied) ? applied.map(String) : [])
+  .filter(l => /^tuned: .* MISSING$/.test(l)).map(l => `ts3fixes tuning-gated patch missing: ${l.slice(7)} (docs/124 §17.8)`);
 
 // shadow jobs ([AutShadow] Enabled=1 and the autshadow switch on): a job without cuts or snapshot entries, or with ts3fixes
 // "off for the session", measured nothing (mono-cost2 2026-10-29: four shadow jobs PASSED with cuts 0 entries 0, docs/67)
@@ -348,6 +376,45 @@ export function shadowFails(ini: Record<string, unknown>, fixesOn: string | unde
   }
   return out;
 }
+
+// earlyGates (Rodney 2026-10-31, fail fast: two void rain-h11 jobs burned ~12 min each with G-M6 skipping every definition):
+// [{ afterSec, counter, op, value, why }] checked every GUARD_MS from the profile child's start while the game runs; once
+// afterSec has passed a gate must hold at every check, else the child stops and the job FAILs with
+// `early gate: <why> (<counter>=<v>)`. counter = a live /native path (`autshadow.req`, `autshadow.rainArm`, arrays `x.0`) or a
+// ts3fixes `patches` counter as `fixes:<name>`; terms joined by + are summed (`fixes:autshadow_a0+fixes:autshadow_a1`).
+// Values are absolute, not deltas since the load: the G-M6 sweep counts before the first read (shortcut: a reuseSession job
+// would see the previous window's counts; gate deltas if such a queue needs gates).
+export type EarlyGate = { afterSec: number; counter: string; op: string; value: number; why: string };
+const GATE_OPS = ['>=', '<=', '==', '!=', '>', '<'];
+export function checkGates(gs: unknown, at: string): void {
+  if (!Array.isArray(gs) || !gs.length) throw new Error(`${at} must be a non-empty list`);
+  for (const g of gs as any[]) {
+    if (!(g?.afterSec > 0) || typeof g.counter !== 'string' || !/^(fixes:)?[\w.]+(\+(fixes:)?[\w.]+)*$/.test(g.counter)
+      || !GATE_OPS.includes(g.op) || typeof g.value !== 'number' || typeof g.why !== 'string' || !g.why.trim())
+      throw new Error(`${at}: ${JSON.stringify(g)} must be { afterSec > 0, counter: "path" | "fixes:name" (+ sums), op: ${GATE_OPS.join(' ')}, value: number, why }`);
+  }
+}
+// one term's value; undefined = that source did not answer this round (skip), null = answered but no such counter
+function gateTerm(t: string, native: any, fixes: any): number | null | undefined {
+  const fx = t.startsWith('fixes:'), src = fx ? fixes : native;
+  if (src == null) return undefined;
+  const v = fx ? src[t.slice(6)] : t.split('.').reduce((o: any, k) => o?.[k], src);
+  return typeof v === 'number' ? v : typeof v === 'boolean' ? Number(v) : null;
+}
+// '' = all due gates hold (or a source did not answer), else the FAIL reason of the first failing gate
+export function gateFail(gs: EarlyGate[], elapsedSec: number, native: any, fixes: any): string {
+  for (const g of gs) {
+    if (elapsedSec < g.afterSec) continue;
+    const vs = g.counter.split('+').map(t => gateTerm(t, native, fixes));
+    if (vs.some(v => v === undefined)) continue;
+    if (vs.some(v => v === null)) return `early gate: ${g.why} (${g.counter} missing)`;
+    const v = (vs as number[]).reduce((s, x) => s + x, 0), w = g.value;
+    const ok = g.op === '>=' ? v >= w : g.op === '<=' ? v <= w : g.op === '==' ? v === w : g.op === '!=' ? v !== w : g.op === '>' ? v > w : v < w;
+    if (!ok) return `early gate: ${g.why} (${g.counter}=${v}) [want ${g.op}${w} from ${g.afterSec} s]`;
+  }
+  return '';
+}
+export const describeGates = (gs: EarlyGate[]) => `early gates every ${GUARD_MS / 1000} s from the profile start: ${gs.map(g => `${g.counter}${g.op}${g.value} from ${g.afterSec} s`).join(', ')}; a miss stops the job (FAIL: early gate: ...)`;
 
 // ---- worldimage (docs/123 §8.6): capture job pieces
 const GAME_COPY = join(ROOT, 'game-copy');
@@ -519,7 +586,7 @@ const COUNTERS: Record<string, RegExp> = {
   RouteCache: /^(enabled|calls|hits|misses|stored|otherFails)$/, RouteWorker: /^(worker\w*|waitUs|fallbacks|watchdogs|invoke\w*|hostCalls|planO\w*)$/,
   RouteAsync: /^async\w*$/, RouteBudget: /^budget\w*$/, SaveWrite: /^save\w*$/, Decompress: /^decompress\w*$/, Alloc: /^alloc\w*$/,
   WaterJps: /^waterJps\w*$/, SaveFlush: /^flush\w*$/, SaveCompress: /^compress\w*$/, HeightCache: /^height\w*$/, GcThreadCheck: /^gc\w*$/,
-  LotStream: /^(ls[A-Z]\w*|lot[A-Z]\w*|pump[A-Z]\w*|sync[A-Z]\w*|objScene\w*)$/, Verify: /^vf\w*$/,
+  LotStream: /^(ls[A-Z]\w*|lot[A-Z]\w*|pump[A-Z]\w*|sync[A-Z]\w*|objScene\w*)$/, Verify: /^vf\w*$/, IlPatch: /^ilp\w*$/,
 };
 // minCounters gate on the /native answer after the load: '' = go, else why the job refuses
 export function counterGate(c: Record<string, unknown> | null, min?: number): string {
@@ -603,6 +670,8 @@ export function heavyTools(j: Job, repoIniText: string, costs = toolCosts()): st
     .filter(t => costs.tools[t]?.class === 'heavy');
 }
 // one profile window of the smoke: arms = A/B or armed loop; iters = hitch-ab runIters, wait = wait-ab seconds per side
+// A rerun on the same UTC date must not overwrite the first run's per-tag files: first free of base, base-r2, base-r3 ...
+export const freeTag = (base: string, taken: (tag: string) => boolean): string => { let t = base, n = 1; while (taken(t)) t = `${base}-r${++n}`; return t; };
 export type SmokeWin = { tag: string; arms: boolean; iters: { on: number; off: number } | null; invalid: string | null; wait: { on: number; off: number } | null };
 export function smokeProblems(x: { row: any; wins: SmokeWin[]; log: string; p6: boolean; nativeLog: string }): string[] {
   if (!x.row) return ['no smoke row (child queue ended before the job did)'];
@@ -708,10 +777,11 @@ export function fixActivity(p0: any, p1: any, t0: any, t1: any, cfg: { fixesOn?:
   return { fails, notes, counters, lists };
 }
 // fixActivity's cfg: the job profile's fixesOn plus every repro item's own fixesOn (on in some window), the job's fixesOff;
-// report = fixesReport + those fixesOn names
+// report = fixesReport + those fixesOn names + the profile.ab switches (2026-11-01: without them an --ab job's row lost the
+// A/B switch's own counters, so mono-cost-report printed no lines for it)
 export const jobFixesCfg = (p: any) => {
   const fixesOn = [p?.fixesOn, ...(p?.repros ?? []).map((r: any) => r?.fixesOn)].filter(Boolean).join(',') || undefined;
-  return { fixesOn, fixesOff: p?.fixesOff, report: [p?.fixesReport, fixesOn].filter(Boolean).join(',') || undefined };
+  return { fixesOn, fixesOff: p?.fixesOff, report: [p?.fixesReport, fixesOn, p?.ab].filter(Boolean).join(',') || undefined };
 };
 // ts3native.log copies to merge into the call-site DB: each repro slice (own game start after a reload) and the row's copy;
 // mergeLog is idempotent per run, so slices of one start add only their growth
@@ -734,6 +804,21 @@ export function pairWarnings(jobs: Job[]): string[] {
   }));
   return out;
 }
+// stale pins (Rodney 2026-10-31): a job that pins a parked asi older than the source build, or a game-copy ts3fixes.package
+// older than the last ts3fixes source change, tests an old build; a warning (queue log, --dry-run), never a refusal.
+// Deliberate pins (release/baseline arm, a published-release check, a job about one old build) say why in pinReason.
+const verKey = (v: string) => { const m = /^(\d+)\.(\d+)\.(\d+)([a-z]?)$/.exec(v); return m ? [+m[1], +m[2], +m[3], m[4]] as const : null; };
+export const verOlder = (a: string, b: string) => { const x = verKey(a), y = verKey(b); if (!x || !y) return false; for (let i = 0; i < 4; i++) if (x[i] !== y[i]) return x[i] < y[i]; return false; };
+export function pinWarnings(jobs: Job[], src: string | undefined, asiVer: (path: string) => string | undefined, pkgStale: (path: string) => boolean): string[] {
+  const out: string[] = [];
+  for (const j of jobs.filter(j => !j.pinReason)) {
+    const v = j.asi === 'tested' ? undefined : asiVer(j.asi);
+    if (v && src && verOlder(v, src)) out.push(`WARN pin ${j.id}: asi ${j.asi} is ts3native ${v}, source is ${src}: "asi": "tested" runs the source build; else set pinReason`);
+    if (j.fixesPackage?.startsWith('game-copy/') && pkgStale(j.fixesPackage))
+      out.push(`WARN pin ${j.id}: fixesPackage ${j.fixesPackage} is older than the last ts3fixes source change: build-fixes.ts [--on kX] -> build/ts3fixes[-on-kX].package; else set pinReason`);
+  }
+  return out;
+}
 // logForbid: { "<regex>": max lines }; failed rules as text
 export function logForbidFails(text: string, forb: Record<string, number>): string[] {
   return Object.entries(forb).flatMap(([re, max]) => { const n = text.split(/\r?\n/).filter(l => new RegExp(re).test(l)).length; return n <= max ? [] : [`log /${re}/ ${n} lines (want <= ${max})`]; });
@@ -741,6 +826,11 @@ export function logForbidFails(text: string, forb: Record<string, number>): stri
 const delta = (a: any, b: any) => (a && b ?Object.fromEntries(Object.keys(b).filter(k => typeof b[k] === 'number' && typeof a[k] === 'number' && b[k] !== a[k]).map(k => [k, b[k] - a[k]])) : null);
 
 // verdict lines of a child's output: repro.ts "<id>: PASS (...)", "FAIL: ...", save-matrix.ts "<case>: PASS", "summary: ..."
+export function profileHead(code: number | null, timedOut: boolean, stop: string | null, out: string): 'PASS' | 'ran' | 'FAIL' {
+  if (code === 0) return 'PASS';
+  return !timedOut && !!stop && /^stopped at /.test(stop) && verdicts(out).some(v => /^FAIL: /.test(v)) ? 'ran' : 'FAIL';
+}
+
 export function verdicts(out: string): string[] {
   return out.split(/\r?\n/).map(l => l.replace(/^\d\d:\d\d:\d\d /, '').trim())
     .filter(l => /(^|[\s:])(PASS|FAIL|PENDING)\b|^summary:/.test(l) && !/^(fix under test|step )/.test(l)).slice(-8);
@@ -791,6 +881,11 @@ export function routelockSummary(r: any): any {
   return { ...r, g11: r.g11 ? g11 : null };
 }
 
+// stopQueueOnFail / --stop-on-fail: '' = go on, else the STOP reason naming the job (a noisy job with its -rerun queued goes on)
+export function failStop(j: { id: string; stopQueueOnFail?: boolean }, row: { pass?: boolean; rerun?: string; error?: string | null; verdict?: string[] }, cli: boolean): string {
+  if (row.pass || row.rerun || !(j.stopQueueOnFail || cli)) return '';
+  return `${j.id} failed (stopQueueOnFail): ${String(row.error || row.verdict?.find(v => /^FAIL/.test(v)) || 'see the row').slice(0, 200)}`;
+}
 // stop rule after a job: same job crashed twice (earlier rows count), or this and the previous job both crashed
 export function crashStop(crashed: boolean, earlierCrashesOfJob: number, prevCrashed: boolean): string {
   if (!crashed) return '';
@@ -1013,6 +1108,7 @@ if (values['self-check']) {
   assert.deepEqual([ufR.counters, ufR.lists, ufR.fails], [{ unseenfbpre_rj_samelot: { before: 1, after: 9 }, unseenfbleave_rj_goalseen: { before: null, after: 2 } }, { unseenfbpre_callers: ['3 Foo.Run'] }, []]);
   assert.equal(jobFixesCfg({ repros: [{ fixesOn: 'unseenfbarrive' }] }).report, 'unseenfbarrive');
   assert.deepEqual(jobFixesCfg({ fixesOn: 'a', fixesOff: 'c', repros: [{ id: 'r1', fixesOn: 'b' }, 'r2'] }), { fixesOn: 'a,b', fixesOff: 'c', report: 'a,b' });
+  assert.deepEqual(jobFixesCfg({ fixesOn: 'autlive', fixesReport: 'g8_', ab: 'autunseen' }), { fixesOn: 'autlive', fixesOff: undefined, report: 'g8_,autlive,autunseen' });
   assert.deepEqual(callsiteLogs({ nativeLog: 'm', repros: [{ nativeLog: 'a' }, {}, { nativeLog: 'm' }] }), ['a', 'm']);
   assert.deepEqual(featureIdle(fIni.replace('DeferFootprint=1', 'DeferFootprint=0').replace('Mode=1', 'Mode=0'), {}, { rgEntries: 3, usfDeferred: 0, rcDeferred: 0, rcWould: 0 }), []);
   assert.deepEqual(featureIdle(fIni, null, null), []);
@@ -1023,6 +1119,14 @@ if (values['self-check']) {
   assert.deepEqual(pairWarnings(parseQueue([pj('sv-soak-v014', { profOpts: { tasks: false } }), pj('sv-soak-cand'), pj('bp-soak-cand', { noSamplers: true }), pj('solo')])),
     ['WARN pair sv-soak-v014 / sv-soak-cand differ in profiler tools: profOpts {"tasks":false} vs - (cost known? else not comparable)']);
   assert.deepEqual(pairWarnings(parseQueue([pj('ip-a-on', { fixesOff: 'x' }), pj('ip-a-off', { fixesOff: 'y' })])), []);
+  // stale pins: older asi / stale game-copy package warn, pinReason, tested, same version and build/ packages do not
+  assert.ok(verOlder('0.36.105', '0.36.148') && verOlder('0.36.37', '0.36.37a') && !verOlder('0.36.148', '0.36.148') && !verOlder('0.37.0', '0.36.148'));
+  const pw = pinWarnings(parseQueue([pj('old', { minutes: 5 }), { ...pj('rel'), asi: 'game-copy/ts3native.asi.rel020', pinReason: 'v0.2.0 release arm' }, pj('t'), { ...pj('same'), asi: 'game-copy/ts3native.asi.now' },
+    { ...pj('pkg'), fixesPackage: 'game-copy/ts3fixes.package.x' }, { ...pj('bld'), fixesPackage: 'build/ts3fixes-on-kX.package' }].map((j, i) => (i === 0 ? { ...j, asi: 'game-copy/ts3native.asi.old' } : j))),
+    '0.36.148', p => (p.endsWith('.now') ? '0.36.148' : '0.36.105'), () => true);
+  assert.equal(pw.length, 2); assert.match(pw[0], /^WARN pin old: .*0\.36\.105, source is 0\.36\.148/); assert.match(pw[1], /^WARN pin pkg: fixesPackage/);
+  assert.throws(() => parseQueue([{ ...pj('e'), pinReason: ' ' }]), /pinReason/);
+  { const used = new Set(['q-d-j', 'q-d-j-r2']); assert.equal(freeTag('q-d-j', t => used.has(t)), 'q-d-j-r3'); assert.equal(freeTag('q-d-k', t => used.has(t)), 'q-d-k'); }
   // ABBA set and two-load pair: paired across on/off and across repeats; a same-stem stranger (-x) and a longer id are not
   assert.deepEqual(pairWarnings(parseQueue([pj('bp-pc-off-1'), pj('bp-pc-on-1', { noSamplers: true }), pj('bp-pc-x'), pj('bp-pc-on-2', { noSamplers: true })])),
     ['WARN pair bp-pc-off-1 / bp-pc-on-1 differ in profiler tools: noSamplers - vs true (cost known? else not comparable)',
@@ -1048,6 +1152,10 @@ if (values['self-check']) {
   checkLoop((JSON.parse(readFileSync(H('repros.json'), 'utf8')) as any[]).find(r => r.id === lq.run.profile!.repro).loop);
   assert.equal(STOP_LINE.exec('12:00:00 repro x step reflect_call [fire off #20]: {}\n12:15:20 stopped at 20 events after 15.3 min (off 10, on 10; 20 firings, 5 cycles; rule 10 events per arm)\n')?.[1],
     'stopped at 20 events after 15.3 min (off 10, on 10; 20 firings, 5 cycles; rule 10 events per arm)');
+  assert.equal(profileHead(1, false, 'stopped at 120 events after 5.0 min (off 60, on 60)', '16:57:39 FAIL: fixes counters: x=0 (want >=10)\n'), 'ran');
+  assert.equal(profileHead(1, false, 'loop cap reached: 4 events after 20.1 min, rule not met', '16:57:39 FAIL: fixes counters: x=0\n'), 'FAIL');
+  assert.equal(profileHead(1, false, null, ''), 'FAIL');
+  assert.equal(profileHead(0, false, null, ''), 'PASS');
   assert.ok(STOP_LINE.test('12:22:00 loop cap reached: 4 events after 20.1 min, rule not met (off 2, on 2; 8 firings, 2 cycles; rule 10 events per arm)'));
   assert.equal(STOP_LINE.exec('12:00:00 stopped at 40 compares after 6.0 min (target 20)'), null); // --until-compares is not a loop line
   for (const q of ['rare-scenarios', 'rare-scenarios-2']) assert.ok(parseQueue(JSON.parse(readFileSync(H(`queues/${q}.json`), 'utf8'))).every(j => !j.run.profile?.repro || rids.has(j.run.profile.repro)), q);
@@ -1116,6 +1224,11 @@ if (values['self-check']) {
     'AutLedger: ts3native Ledger=0 this load (off)', 'TooltipManager.Simulate at patch time: not started', 'Autonomy.CalculateScore: ok']),
     ['Localization.LocalizeString: already compiled', 'AutShadow: game assemblies = accepted set 1', 'AutLedger: ts3native Ledger=0 this load (off)']);
   assert.deepEqual(fixesApplied(null), []);
+  assert.deepEqual(fixesApplied(['tuned: tuning-gated patches at app startup', 'tuned: kVenueMemo on: venue score hook patched']),
+    ['tuned: tuning-gated patches at app startup', 'tuned: kVenueMemo on: venue score hook patched']);
+  assert.deepEqual(tunedFails(['tuned: kVenueMemo on: venue score hook patched', 'tuned: kAutLive on: go-live B14 hook MISSING', 'GoHome.Run: ok']),
+    ['ts3fixes tuning-gated patch missing: kAutLive on: go-live B14 hook MISSING (docs/124 §17.8)']);
+  assert.deepEqual(tunedFails(undefined), []);
   {  // shadowFails: only shadow jobs, zero cuts/entries and session-off lines fail
     const on = { 'AutShadow.Enabled': 1 }, good = { autshadow: { cuts: 40, entries: 900 } };
     assert.deepEqual(shadowFails(on, 'autshadow', { autshadow: { cuts: 0 } }, good, ['AutShadow: game assemblies = accepted set 1']), []);
@@ -1149,6 +1262,36 @@ if (values['self-check']) {
   assert.equal(crashStop(true, 0, false), '');
   assert.equal(crashStop(true, 1, false), 'same job crashed twice');
   assert.equal(crashStop(true, 0, true), 'two jobs in a row crashed');
+  // stopQueueOnFail / --stop-on-fail (2026-10-31): queue-level default, type check, STOP reason names the job
+  assert.equal(parseQueue({ stopQueueOnFail: true, jobs: [{ id: 's', asi: 'x', save: 'S', run: { soak: { minutes: 1 } } }] })[0].stopQueueOnFail, true);
+  assert.equal(parseQueue({ stopQueueOnFail: true, jobs: [{ id: 's', asi: 'x', save: 'S', stopQueueOnFail: false, run: { soak: { minutes: 1 } } }] })[0].stopQueueOnFail, false);
+  assert.throws(() => parseQueue([{ id: 's', asi: 'x', save: 'S', stopQueueOnFail: 'yes', run: { soak: { minutes: 1 } } }]), /stopQueueOnFail must be true or false/);
+  assert.equal(failStop({ id: 'a', stopQueueOnFail: true }, { pass: true }, false), '');
+  assert.equal(failStop({ id: 'a' }, { pass: false, verdict: ['FAIL: x'] }, false), '');
+  assert.equal(failStop({ id: 'a', stopQueueOnFail: true }, { pass: false, rerun: 'a-rerun' }, false), '');
+  assert.equal(failStop({ id: 'a', stopQueueOnFail: true }, { pass: false, verdict: ['note', 'FAIL: x'] }, false), 'a failed (stopQueueOnFail): FAIL: x');
+  assert.equal(failStop({ id: 'a' }, { pass: false, error: 'early gate: w (c=0)', verdict: [] }, true), 'a failed (stopQueueOnFail): early gate: w (c=0)');
+  // earlyGates (2026-10-31): parse rules, absolute values, fixes: + sums, missing counters, skipped rounds
+  const eg = (g: object) => [{ id: 'g', asi: 'x', save: 'S', earlyGates: [g], run: { profile: { minutes: 5 } } }];
+  const g1 = { afterSec: 150, counter: 'fixes:autshadow_gm6_faults', op: '==', value: 0, why: 'G-M6 guard faults' };
+  assert.equal(parseQueue(eg(g1))[0].earlyGates!.length, 1);
+  assert.throws(() => parseQueue(eg({ ...g1, op: '=>' })), /earlyGates/);
+  assert.throws(() => parseQueue(eg({ ...g1, why: '' })), /earlyGates/);
+  assert.throws(() => parseQueue(eg({ ...g1, counter: 'a b' })), /earlyGates/);
+  assert.throws(() => parseQueue(eg({ ...g1, afterSec: 300 })), /never run: the profile ends at 300 s/);
+  assert.throws(() => parseQueue([{ id: 'g', asi: 'x', save: 'S', earlyGates: [g1], run: { soak: { minutes: 1 } } }]), /needs run.profile/);
+  const gates: EarlyGate[] = [g1, { afterSec: 150, counter: 'autshadow.req', op: '>', value: 0, why: 'worker never posted' },
+    { afterSec: 300, counter: 'fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3', op: '>', value: 0, why: 'no compared pairs' }];
+  const nat = (req: number) => ({ autshadow: { req, rainArm: 0 } }), gfx = (a0: number, f = 0) => ({ autshadow_gm6_faults: f, autshadow_a0: a0, autshadow_a1: 0, autshadow_a2: 0, autshadow_a3: 0 });
+  assert.equal(gateFail(gates, 100, nat(0), gfx(0, 3)), ''); // nothing due yet
+  assert.equal(gateFail(gates, 160, nat(5), gfx(0, 3)), 'early gate: G-M6 guard faults (fixes:autshadow_gm6_faults=3) [want ==0 from 150 s]');
+  assert.equal(gateFail(gates, 160, nat(0), gfx(0)), 'early gate: worker never posted (autshadow.req=0) [want >0 from 150 s]');
+  assert.equal(gateFail(gates, 160, nat(5), gfx(0)), ''); // pairs not due until 300 s
+  assert.match(gateFail(gates, 310, nat(5), gfx(0)), /^early gate: no compared pairs \(fixes:autshadow_a0\+.*=0\)/); // the void rain-h11 shape
+  assert.equal(gateFail(gates, 310, nat(5), gfx(7)), '');
+  assert.equal(gateFail(gates, 310, null, null), ''); // probe/agent did not answer: skip the round (the game guard covers a dead probe)
+  assert.equal(gateFail(gates, 160, nat(5), {}), 'early gate: G-M6 guard faults (fixes:autshadow_gm6_faults missing)'); // old package / wrong name
+  assert.equal(gateFail([{ afterSec: 1, counter: 'p.1', op: '>=', value: 2, why: 'arr' }], 5, { p: [0, 2] }, null), '');
 
   // content stash round trip on a temp Mods tree
   const tmp = mkdtempSync(join(tmpdir(), 'queue-content-')), mods = join(tmp, 'Mods'), stash = join(tmp, 'stash');
@@ -1275,6 +1418,8 @@ if (values['self-check']) {
   const bad = smokeProblems({ row: { pass: false, verdict: ['FAIL: x'] }, wins: [{ ...win, iters: { on: 2, off: 0 }, wait: null }], log: 'repro step native_set failed: native_set: p6warm=2 did not stick (reads 1)', p6: true, nativeLog: 'p6 waits arm 1 taken' });
   assert.deepEqual(bad.map(b => b.split(':')[0]), ['smoke job failed', 't', 't', '[P6Waits] no \'p6 waits arm 0\' line in ts3native.log', 'switch read-back']);
   assert.deepEqual(smokeProblems({ row: okRow, wins: [{ ...win, arms: false, iters: null, wait: null }], log: '', p6: false, nativeLog: '' }), [], 'no arms: no split needed'); }
+  assert.throws(() => parseQueue([{ id: 'k', asi: 'x', save: 'S', fixesOff: 'a', run: { profile: { minutes: 5 } } }]), /job 1 .k.: unknown job key "fixesOff".*run[.]profile/); // job-level profile key
+  assert.throws(() => parseQueue([{ id: 'k', asi: 'x', save: 'S', bogus: 1, run: { profile: { minutes: 5 } } }]), /unknown job key "bogus"/);
   console.log('self-check ok');
   process.exit(0);
 }
@@ -1316,7 +1461,7 @@ if (values['restore-content']) {
 
 // ---------------------------------------------------------------- queue run
 const file = positionals[0];
-if (!file) { console.error('usage: node tools/harness/queue.ts <queue.json> [--from id] [--only id,id] [--dry-run] [--no-smoke] | --self-check | --restore-content'); process.exit(2); }
+if (!file) { console.error('usage: node tools/harness/queue.ts <queue.json> [--from id] [--only id,id] [--dry-run] [--no-smoke] [--stop-on-fail] | --self-check | --restore-content'); process.exit(2); }
 // an unfinished run's packages are still in the stash: put them back before measuring anything
 const staleDir = [CONTENT_STASH, CC_DIR].find(d => existsSync(manifestOf(d)));
 const staleFile = staleDir ? manifestOf(staleDir) : existsSync(LOTS_MANIFEST) ? LOTS_MANIFEST : '';
@@ -1357,7 +1502,9 @@ function storyCopy(j: Job, s: string) { // a declaration: --self-check runs befo
     : `Story-${s.replace(/\.sims3$/i, '').replace(/[^A-Za-z0-9_-]/g, '_')}-s${(j.run.profile.story as any).seed ?? j.run.profile.seed ?? 1}`;
 }
 const ageName = (j: Job) => j.run.age?.save ?? `${j.id}-${new Date().toISOString().slice(0, 10)}`;
-const profileTag = (j: Job) => `${queueName}-${new Date().toISOString().slice(0, 10)}-${j.id}`;
+const tagTaken = (t: string) => [join(ROOT, 'probe-out', 'profile'), OUT].some(d => existsSync(d) && readdirSync(d).some(f => f.startsWith(`${t}-`) || f.startsWith(`${t}.`)));
+const tagOf = new Map<Job, string>(); // resolved once per job: every artifact path, the row and the reports share it
+const profileTag = (j: Job) => tagOf.get(j) ?? (tagOf.set(j, freeTag(`${queueName}-${new Date().toISOString().slice(0, 10)}-${j.id}`, tagTaken)), tagOf.get(j)!);
 // p: the job's profile, or for one repro of profile.repros that merged with the item (docs/170 §1); extra: session flags
 const profileArgs = (j: Job, p: any = j.run.profile!, tag = profileTag(j), extra: string[] = []): string[] => [H('profile-world.ts'), '--tag', tag, '--minutes', String(p.minutes), ...(p.seed !== undefined ? ['--seed', String(p.seed)] : []),
       ...(p.repro ? ['--repro', p.repro] : []), ...(p.loopRule ? ['--loop-rule', JSON.stringify(p.loopRule)] : []),...(p.mainstack ? ['--mainstack', String(p.mainstack)] : []),
@@ -1418,7 +1565,10 @@ if (!values['dry-run'] && (process.env.TS3_NIGHT === '1' || values['close-spotif
   if (n) { try { execFileSync('taskkill', ['/F', '/T', '/IM', 'Spotify.exe'], { stdio: 'ignore', timeout: 15000 }); } catch { /* checked below */ } }
   log(n ? `Spotify: ${n} processes stopped${spotify() ? ` (${spotify()} still running)` : ''}` : 'Spotify: not running');
 }
-const pairs = pairWarnings(all);
+let fixesSrcAt = 0; // last commit time of the ts3fixes source (ms), for the stale package pin warning
+try { fixesSrcAt = 1000 * Number(execFileSync('git', ['-C', ROOT, 'log', '-1', '--format=%ct', '--', 'mods/ts3fixes', 'tools/setup/build-fixes.ts']).toString().trim()); } catch { /* not a repo */ }
+const pairs = [...pairWarnings(all), ...pinWarnings(all, SRC_VERSION, p => (existsSync(resolve(ROOT, p)) ? asiVersion(readFileSync(resolve(ROOT, p))) : undefined),
+  p => existsSync(resolve(ROOT, p)) && statSync(resolve(ROOT, p)).mtimeMs < fixesSrcAt)];
 
 // measurement smoke (header): planned here so --dry-run shows it, run below before the queue touches the machine
 const smoke = values['no-smoke'] || timingMinutes(jobs) <= SMOKE_OVER_MIN ? null : smokeJob(queueJson, jobs);
@@ -1483,6 +1633,8 @@ if (values['dry-run']) {
     if (j.dxvkConf) console.log(`  3 Bin/dxvk.conf + ${Object.entries(j.dxvkConf).map(([k, v]) => `${k} = ${v}`).join(', ')}${existsSync(DXVK_CONF) ? '' : '  ** MISSING **'}   (put back after the job)`);
     if (j.s3ssToml) console.log(`  3 S3SS/S3SS.toml + ${Object.entries(j.s3ssToml).map(([k, v]) => `${k}=${v}`).join(', ')}${existsSync(S3SS_TOML) ? '' : '  ** MISSING **'}   (put back after the job)`);
     if (j.routingFailFast) console.log(`  5 ${describeFailFast(j.routingFailFast)}`);
+    if (j.earlyGates) console.log(`  5 ${describeGates(j.earlyGates)}`);
+    if (j.stopQueueOnFail || values['stop-on-fail']) console.log('  9 stopQueueOnFail: a FAIL row stops the queue (STOP: line)');
     if (j.fixes?.install?.length) console.log(`  4 node tools/setup/install-fixes.ts install --only ${j.fixes.install.join(',')}   (uninstalled after the job)`);
     if (j.fixes?.uninstall?.length) console.log(`  4 node tools/setup/install-fixes.ts uninstall --only ${j.fixes.uninstall.join(',')}   (reinstalled after the job)`);
     console.log(`  5 python tools/probe/ts3probe.py serve --launch${j.gameArgs?.length ? ` -- ${j.gameArgs.join(' ')}` : ''}   (child, killed at job end)`);
@@ -1549,6 +1701,23 @@ let jobGuard: (() => string) | null = null, stall = '';
 let noiseGuard: (() => string) | null = null;
 // set while a routingFailFast job's profile runs: '' or the FAIL reason (stops the child at once, like noiseGuard)
 let routeGuard: (() => string) | null = null;
+// set while an earlyGates job's profile runs: '' or the FAIL reason. The guard is sync, so each call starts one async /native
+// (+ agent patches when a gate reads fixes:) read and returns the verdict of the previous one (one GUARD_MS behind)
+let gateGuard: (() => string) | null = null;
+function earlyGateGuard(gs: EarlyGate[]): () => string {
+  const t0 = Date.now(), needFixes = gs.some(g => g.counter.includes('fixes:'));
+  let verdict = '', busy = false;
+  return () => {
+    if (!busy && !verdict) {
+      busy = true;
+      (async () => {
+        const sec = (Date.now() - t0) / 1000, n = await get('native'), f = needFixes ? (await agent('patches'))?.result ?? null : null;
+        verdict = gateFail(gs, sec, n, f);
+      })().catch(() => { /* next round */ }).finally(() => { busy = false; });
+    }
+    return verdict;
+  };
+}
 // child process with output to the console and the job log; killed (whole tree) at the deadline
 function run(cmd: string, args: string[], logFile: string, deadline: number, onLine?: (l: string) => void): Promise<{ code: number | null; signal: string | null; out: string; timedOut: boolean }> {
   return new Promise(res => {
@@ -1571,6 +1740,8 @@ function run(cmd: string, args: string[], logFile: string, deadline: number, onL
 `)); }
       if (rf) { routeGuard = null; stall ||= rf; on(Buffer.from(`FAIL: ${rf}; child stopped
 `)); killTree(p.pid); return; }
+      const eg = gateGuard?.() ?? '';
+      if (eg) { gateGuard = null; stall ||= eg; on(Buffer.from(`FAIL: ${eg}; child stopped\n`)); killTree(p.pid); return; }
       const why = jobGuard!();
       misses = why ? misses + 1 : 0;
       if (misses >= 2) { stall ||= `${why} for ~${2 * GUARD_MS / 1000} s (fail-fast guard)`; on(Buffer.from(`FAIL: ${stall}; child stopped\n${dumpHungGame('fail-fast guard')}\n`)); killTree(p.pid); }
@@ -1880,6 +2051,8 @@ for (const [n, j] of jobs.entries()) {
     installFixesPackage(j);
     copyFileSync(asiPath(j), join(BIN, 'ts3native.asi'));
     writeFileSync(join(BIN, 'ts3native.ini'), mergeIni(repoIni, jobIni(j)));
+    // ts3native appends Bin/autshadow.jsonl across loads ([AutShadow] live-drop, dry-diff, dry-sim-mis): fresh per job
+    try { writeFileSync(join(BIN, 'autshadow.jsonl'), ''); } catch (e) { log(`${j.id}: truncate autshadow.jsonl: ${e}`); }
     if (callSitesOffNote(j)) log(`${j.id}: ${callSitesOffNote(j)}`);
     if (j.defaultIni) { defaultIniOrig = readFileSync(DEFAULT_INI, 'utf8'); writeFileSync(DEFAULT_INI, mergeIni(defaultIniOrig, j.defaultIni)); }
     if (j.s3ppIni) {
@@ -1960,6 +2133,7 @@ for (const [n, j] of jobs.entries()) {
       noiseGuard = () => { const v = earlyNoise(machineFile, from); if (v !== null) noiseGuard = null; return v ?? ''; };
     }
     if (j.routingFailFast) { routeGuard = routingGuard(j.routingFailFast, LOG, join(ROOT, 'probe-out', 'profile', profileTag(j))); log(`${j.id}: ${describeFailFast(j.routingFailFast)}`); }
+    if (j.earlyGates) { gateGuard = earlyGateGuard(j.earlyGates); log(`${j.id}: ${describeGates(j.earlyGates)}`); }
     if (items) {
       // ---- profile.repros (docs/170 §1): one window per repro in this load, each its own tag, pass rules and log slice
       row.repros = [];
@@ -2058,7 +2232,9 @@ for (const [n, j] of jobs.entries()) {
         }
       }
       if (j.run.profile) row.stop = STOP_LINE.exec(r.out)?.[1] ?? null; // loop repro: 'stopped at N events after M min (...)' or the cap line
-      if (j.run.profile) row.verdict = [`${r.code === 0 ? 'PASS' : 'FAIL'}: profile ${row.stop ? `${row.stop}, cap ${j.run.profile.minutes} min` : `${j.run.profile.minutes} min`}, ${j.run.profile.seed !== undefined ? `seed ${j.run.profile.seed}` : 'unseeded'} (rng-compare.ts)`, ...(r.code === 0 ? [] : silentFail(r.code, r.out, r.timedOut))]; // keeps the child's FAIL reason, e.g. a failed repro step
+      // a loop that met its stop rule is not a failure of its own: when the child named a FAIL (e.g. fixes counters), the profile
+      // line says 'ran' so the row's first FAIL is the real reason (2026-11-01 sv-ur-car-loop: two FAILs, one cause)
+      if (j.run.profile) row.verdict = [`${profileHead(r.code, r.timedOut, row.stop, r.out)}: profile ${row.stop ? `${row.stop}, cap ${j.run.profile.minutes} min` : `${j.run.profile.minutes} min`}, ${j.run.profile.seed !== undefined ? `seed ${j.run.profile.seed}` : 'unseeded'} (rng-compare.ts)`, ...(r.code === 0 ? [] : silentFail(r.code, r.out, r.timedOut))]; // keeps the child's FAIL reason, e.g. a failed repro step
       const fo = j.run.profile && r.code === 0 ? fixesOnFail((j.run.profile as any).fixesOn, r.out) : '';
       if (fo) { row.verdict.push(`FAIL: ${fo}`); row.selfCheckFail = fo; }
     } else if (j.run.soak) {
@@ -2112,6 +2288,7 @@ for (const [n, j] of jobs.entries()) {
       const ls = Object.entries(fa.lists).map(([k, v]) => `${k} [${v.slice(0, 12).join(' | ')}${v.length > 12 ? ` | +${v.length - 12}` : ''}]`).join('; ');
       if (cs || ls || fa.notes.length) row.verdict.push(`ts3fixes activity: ${[cs, ls, ...fa.notes].filter(Boolean).join('; ')}`);
       for (const f of fa.fails) { row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f; }
+      for (const f of tunedFails(fx1.p?.applied)) { row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f; }
     }
     if (j.minCounters !== undefined) { row.nativeDump = join(OUT, `${queueName}-${date}-${j.id}-native.json`); writeFileSync(row.nativeDump, JSON.stringify({ before: c0, after: c1, maxReset: resetMax && Number(c0?.vfMaxReset) > 0 }, null, 1)); }
     if (c1?.autshadow?.ledger?.on & 1) {  // [AutShadow] Ledger=1: one line per docs/51 item (block is always exported; on bit 0 = probe ran)
@@ -2121,14 +2298,18 @@ for (const [n, j] of jobs.entries()) {
       ledgerBlocks.push(`\n### ${j.id}: mono ledger probe (docs/51)\n\n${lr.lines.map(l => '    ' + l).join('\n')}\n`);
     }
     if (c1?.autshadow || /\baut/.test(j.run.profile?.fixesOn ?? '')) {
-      row.fixesApplied = fixesApplied((await agent('patches'))?.result?.applied);
-      log(`${j.id}: ts3fixes.applied: ${row.fixesApplied.join(' | ') || '(no AutShadow/AutLedger or refused-patch lines)'}`);
-      for (const f of shadowFails(rowIni(j), j.run.profile?.fixesOn, c0, c1, row.fixesApplied, row.fixActivity?.counters)) { row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f; }
+      // the game may be gone by now (2026-11-01: a crash after the early-gate stop left this empty): fall back to the read
+      // made after load, which lacks only lines added later in the session
+      const appEnd = (await agent('patches').catch(() => null))?.result?.applied;
+      row.fixesApplied = fixesApplied(appEnd ?? fx0?.p?.applied);
+      log(`${j.id}: ts3fixes.applied${appEnd === undefined && fx0?.p?.applied ? ' (read after load: the game did not answer at the end)' : ''}: ${row.fixesApplied.join(' | ') || '(no AutShadow/AutLedger or refused-patch lines)'}`);
+      // shadowCheck false: a vanilla arm that keeps the autshadow switch for its counters but never posts (golive-unseen g8-off)
+      if (j.shadowCheck !== false) for (const f of shadowFails(rowIni(j), j.run.profile?.fixesOn, c0, c1, row.fixesApplied, row.fixActivity?.counters)) { row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f; }
     }
     row.counters ={ before: pickCounters(c0, sections), after: pickCounters(c1, sections) };
     row.counters.delta = delta(row.counters.before, row.counters.after);
   } catch (e) { row.error = String((e as Error).message ?? e); log(`${j.id}: ${row.error}`); }
-  noiseGuard = null; routeGuard = null;
+  noiseGuard = null; routeGuard = null; gateGuard = null;
   if (stopLoad) { stopLoad(); const ml = loadSummary(machineFile); Object.assign(row, { machine: ml.line, noise: ml.noise, noiseNote: ml.short, machineLog: machineFile }); log(`${j.id}: ${ml.line}`); }
   if (stall && !row.error?.includes(stall)) row.error = [row.error, stall].filter(Boolean).join('; ');
   stall = '';
@@ -2179,6 +2360,9 @@ for (const [n, j] of jobs.entries()) {
   // P4 shadow records (RouteSnap Mode=1, docs/94 §13): rewritten at every start too (row.shadowLog; shadow-compare-report.ts)
   const SHADOW = join(BIN, 'ts3native-shadow.jsonl');
   if (launched && existsSync(SHADOW)) try { copyFileSync(SHADOW, row.shadowLog = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-shadow.jsonl`)); } catch (e) { log(`${j.id}: copy ts3native-shadow.jsonl: ${e}`); } // shortcut: whole load's records in a shared load; slice like the log when a P4 job uses reuse
+  // [AutShadow] records (go-live dry-diff / dry-sim-mis, docs/124 §17), truncated at job start (row.autshadowLog)
+  const AUTSHADOW = join(BIN, 'autshadow.jsonl');
+  if (launched && existsSync(AUTSHADOW) && statSync(AUTSHADOW).size > 0) try { copyFileSync(AUTSHADOW, row.autshadowLog = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-autshadow.jsonl`)); } catch (e) { log(`${j.id}: copy autshadow.jsonl: ${e}`); }
   let keep = mayKeep && row.pass;
   if (keep) {
     const c = await carryCheck(reuseOf(next)!, { windows: sess!.windows, stuck: row.repros?.at(-1)?.stuck ?? row.stuck ?? 0, cleanupFailed: !!(row.repros?.at(-1)?.cleanupFailed ?? row.cleanupFailed) });
@@ -2219,6 +2403,8 @@ for (const [n, j] of jobs.entries()) {
 
   const earlierCrashes = earlier.filter(r => r.job === j.id && r.crashed).length;
   stopWhy ||= crashStop(row.crashed, earlierCrashes, prevCrashed);
+  // stopQueueOnFail / --stop-on-fail (Rodney 2026-10-31): a FAIL row ends the queue; a noisy timing job with its rerun queued does not
+  stopWhy ||= failStop(j, row, !!values['stop-on-fail']);
   prevCrashed = row.crashed;
   earlier.push(row);
   if (stopWhy) { log(`STOP: ${stopWhy}${next ? `; resume: node tools/harness/queue.ts ${file} --from ${next.id}` : ''}`); exitCode = 1; break; }

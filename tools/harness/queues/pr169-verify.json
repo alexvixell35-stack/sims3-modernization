@@ -1,0 +1,473 @@
+{
+  "note": "PR #169 verify (2026-11-01, round 7 task 2, docs/218 §8): content guard arm c on our install + AutShadow/regression copies of rel025a-verify (eafix bp/ip, rain, outfitwait, bakesale) and golive-unseen ip-gu-dry-defcmp-u4, all on the pr169 build (builds.json pr169-asi / pr169-fixes / pr169u4-fixes). Correctness only, not timing. Runs after chain-night32 (probe-out/queue/chain-pr169v33-1101.sh).",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-pr169-cg-ref",
+      "note": "PR #169 arm c on our install (simler90 UPDATE242 core + NRaas ErrorTrap are installed in the test Mods/Packages, so the as-installed arm is the reference-core arm). Arm c, simler90's original UPDATE242 core (accepted set 1). PASS: 0 crashes; the applied log says 'accepted set 1 (by content)'; no module not accepted (autshadow_content_unknown 0), no G-M6 miss. Arms a/b (player core, Tiny UI Fix in/out) are not in this queue: the queue has no install step for Tiny UI Fix and no copy of it or of the player core is on this machine.",
+      "asi": "game-copy/ts3native.asi.pr169",
+      "pinReason": "pr169 is the build under test (builds.json pr169-asi 0.36.152 / pr169-fixes, commit 8450196c = master + PR #169 content guard, ts3native contract 11)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 0,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 0,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "fixesOn": "autshadow",
+          "fixesRequire": "autshadow_content_modules>=1,autshadow_content_unknown<1,autshadow_gm6_mismatch<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "fixesPackage": "game-copy/ts3fixes.package.pr169",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_content_modules",
+          "op": ">=",
+          "value": 1,
+          "why": "PR #169: game modules not hashed (-1 = MVID gate fallback, 0 = ModuleCheck never ran)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_content_unknown",
+          "op": "==",
+          "value": 0,
+          "why": "PR #169: a module of the test install (EA + simler90 UPDATE242 core + ErrorTrap) not on the content accept list"
+        }
+      ]
+    },
+    {
+      "id": "bp-pr169-eafix",
+      "note": "Copy of bp-rel025b-eafix (rel025a-verify.json) on the pr169 build: no regression from PR #169 (autshadow off: the PR must change nothing). Original: rel025b correctness (0.36.152, asi game-copy/ts3native.asi.rel025b + ts3fixes rel025b; release ini game-copy/ts3native.ini.rel025b, release defaults: no Light): #117 EA crash fixes GeomBoneIndex (crash X), GeomNoMaterial (#80), MintDivGuard (#114) switched on over the shipped ini, and #120 first-chance log. 8 min natural play (Sims build their outfits, scripts divide). Pass: the three OK lines, no SKIP/FAIL ea fix line, ts3native.log \"crash log\" line present, no crash. Read the log for \"ea fix: GeomBoneIndex|GeomNoMaterial|MintDivGuard\" lines (0 is normal: the faults are rare; any line must name a resource key / script stack) and \"exception C0000005 at ... (name+0x\" lines (once per address, from other modules only); v144 md* counters via /native. No repro exists for the three (rare EA faults): this is a no-regression check, not proof the faults are fixed. Not a timing run.",
+      "asi": "game-copy/ts3native.asi.pr169",
+      "fixesPackage": "game-copy/ts3fixes.package.pr169",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "minCounters": 90,
+      "ini": {
+        "EaCrashFixes.GeomBoneIndex": 1,
+        "EaCrashFixes.GeomNoMaterial": 1,
+        "EaCrashFixes.MintDivGuard": 1,
+        "Crash.Log": 1
+      },
+      "logRequire": {
+        "^OK   ea fix: GeomBoneIndex": 1,
+        "^OK   ea fix: GeomNoMaterial": 1,
+        "^OK   ea fix: MintDivGuard": 1,
+        "ts3native 0.36.152": 1,
+        "crash log: first 16 first-chance exceptions, an AV in another module once per address": 1
+      },
+      "logForbid": {
+        "^SKIP ea fix": 0,
+        "^FAIL ea fix": 0,
+        "tracking stopped": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "pinReason": "pr169 is the build under test (builds.json pr169-asi 0.36.152 / pr169-fixes, commit 8450196c = master + PR #169 content guard, ts3native contract 11)"
+    },
+    {
+      "id": "ip-pr169-eafix",
+      "note": "Copy of ip-rel025b-eafix (rel025a-verify.json) on the pr169 build: no regression from PR #169 (autshadow off: the PR must change nothing). Original: rel025b correctness (0.36.152, asi game-copy/ts3native.asi.rel025b + ts3fixes rel025b; release ini game-copy/ts3native.ini.rel025b, release defaults: no Light): #117 EA crash fixes GeomBoneIndex (crash X), GeomNoMaterial (#80), MintDivGuard (#114) switched on over the shipped ini, and #120 first-chance log. 8 min natural play (Sims build their outfits, scripts divide). Pass: the three OK lines, no SKIP/FAIL ea fix line, ts3native.log \"crash log\" line present, no crash. Read the log for \"ea fix: GeomBoneIndex|GeomNoMaterial|MintDivGuard\" lines (0 is normal: the faults are rare; any line must name a resource key / script stack) and \"exception C0000005 at ... (name+0x\" lines (once per address, from other modules only); v144 md* counters via /native. No repro exists for the three (rare EA faults): this is a no-regression check, not proof the faults are fixed. Not a timing run.",
+      "asi": "game-copy/ts3native.asi.pr169",
+      "fixesPackage": "game-copy/ts3fixes.package.pr169",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "minCounters": 90,
+      "ini": {
+        "EaCrashFixes.GeomBoneIndex": 1,
+        "EaCrashFixes.GeomNoMaterial": 1,
+        "EaCrashFixes.MintDivGuard": 1,
+        "Crash.Log": 1
+      },
+      "logRequire": {
+        "^OK   ea fix: GeomBoneIndex": 1,
+        "^OK   ea fix: GeomNoMaterial": 1,
+        "^OK   ea fix: MintDivGuard": 1,
+        "ts3native 0.36.152": 1,
+        "crash log: first 16 first-chance exceptions, an AV in another module once per address": 1
+      },
+      "logForbid": {
+        "^SKIP ea fix": 0,
+        "^FAIL ea fix": 0,
+        "tracking stopped": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "pinReason": "pr169 is the build under test (builds.json pr169-asi 0.36.152 / pr169-fixes, commit 8450196c = master + PR #169 content guard, ts3native contract 11)"
+    },
+    {
+      "id": "bp-pr169-rain",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "autshadow.rainArm",
+          "op": ">",
+          "value": 0,
+          "why": "rain branch never armed (H11 rainArm 0)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3",
+          "op": ">",
+          "value": 0,
+          "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_owners_skipped",
+          "op": ">=",
+          "value": 0,
+          "why": "counter 606 readable (agent patches built from rel025b)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_content_modules",
+          "op": ">=",
+          "value": 1,
+          "why": "PR #169: game modules not hashed (-1 = MVID gate fallback, 0 = ModuleCheck never ran)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_content_unknown",
+          "op": "==",
+          "value": 0,
+          "why": "PR #169: a module of the test install (EA + simler90 UPDATE242 core + ErrorTrap) not on the content accept list"
+        }
+      ],
+      "note": "Copy of bp-rel025b-rain (rel025a-verify.json) on the pr169 build: no regression from PR #169 (AutShadow Mode 1 on: the content guard runs; early gates add the content counters). Original: rel025b rain attribution (aut-rain-attrib, counters 607-610 = autshadow_rain_refused_span / refused_tid / hook / done; was bp-rain-moder of rain-h11) plus the #117/#120 fixes on in the same load. BP Mode R, Satb=2, 10 min in rain. PASS: 0 crashes; weather reads Rain; A1-A3 = 0; rainArm > 0; rain aborts (abort2[0]) = sum of 607-610 within rounding, each path nonzero count named in the fixes report (fixesReport autshadow_rain); no SKIP/FAIL ea fix line. Read: node tools/harness/mono-cost-report.ts --tag rain-h11 style abort mix on this queue's row; -native.json autshadow rainArm/rainSkip/rainMiss.",
+      "asi": "game-copy/ts3native.asi.pr169",
+      "fixesPackage": "game-copy/ts3fixes.package.pr169",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1,
+        "EaCrashFixes.GeomBoneIndex": 1,
+        "EaCrashFixes.GeomNoMaterial": 1,
+        "EaCrashFixes.MintDivGuard": 1,
+        "Crash.Log": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow r7: PreLearn=0 TierReqLots=1": 1,
+        "ts3native 0.36.152": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow",
+          "repro": "aut-rain-bp",
+          "noEnv": true,
+          "fixesReport": "autshadow_rain",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "logForbid": {
+        "^SKIP ea fix": 0,
+        "^FAIL ea fix": 0,
+        "tracking stopped": 0
+      },
+      "pinReason": "pr169 is the build under test (builds.json pr169-asi 0.36.152 / pr169-fixes, commit 8450196c = master + PR #169 content guard, ts3native contract 11)"
+    },
+    {
+      "id": "bp-pr169-outfitwait",
+      "note": "Copy of bp-rel025b-outfitwait (rel025a-verify.json) on the pr169 build: no regression from PR #169 (autshadow off: the PR must change nothing). Original: #146 (issue #115, docs/224) correctness on rel025b (8 min): repro outfit-wait-stale-check (the contributor's repro). Pass: off: the check's wait task still running after 60 s at triple speed and gone after 'ready', counters 0; on: outfitwaitpoll_stale >= 1 and _ended >= 1 (fixesRequire), the check's \"log\" step lists 'outfitwaitpoll: ... (aborted True)', after 'ready' the wait gone within a sim-minute; the Sim keeps its outfit.",
+      "asi": "game-copy/ts3native.asi.pr169",
+      "fixesPackage": "game-copy/ts3fixes.package.pr169",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "pr169 is the build under test (builds.json pr169-asi 0.36.152 / pr169-fixes, commit 8450196c = master + PR #169 content guard, ts3native contract 11)",
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "outfit-wait-stale-check",
+          "fixesRequire": "outfitwaitpoll_stale>=1,outfitwaitpoll_ended>=1"
+        }
+      },
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:outfitwaitpoll_stale",
+          "op": ">=",
+          "value": 1,
+          "why": "no outfit wait went stale 3 min after the on arm began: the hook is not on or not installed"
+        }
+      ],
+      "timeoutMin": 20
+    },
+    {
+      "id": "bp-pr169-bakesale",
+      "note": "Copy of bp-rel025b-bakesale (rel025a-verify.json) on the pr169 build: no regression from PR #169 (autshadow off: the PR must change nothing). Original: #147 (issue #102, docs/225) correctness on rel025b (5 min): repro bake-sale-dead-seller-check. NRaas ErrorTrap is installed in the test install (Mods/Packages), so this job is also the with-ErrorTrap check: ErrorTrap clears a dead seller only at load, the repro deletes the seller during play. Pass: off HasSeller True with the deleted seller, handler threw NullReferenceException, table kept, counters 0; on HasSeller False, re-armed 1 (fixesRequire) and the log line, handler returned, table destroyed; no ErrorTrap script error from the table.",
+      "asi": "game-copy/ts3native.asi.pr169",
+      "fixesPackage": "game-copy/ts3fixes.package.pr169",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "pr169 is the build under test (builds.json pr169-asi 0.36.152 / pr169-fixes, commit 8450196c = master + PR #169 content guard, ts3native contract 11)",
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "bake-sale-dead-seller-check",
+          "fixesRequire": "bakesaleseller_reads>=1,bakesaleseller_rearmed>=1"
+        }
+      },
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:bakesaleseller_rearmed",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm re-armed no table 2.5 min in: hook not installed or the check failed"
+        }
+      ],
+      "timeoutMin": 20
+    },
+    {
+      "id": "ip-pr169-gu-dry-defcmp-u4",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3",
+          "op": ">",
+          "value": 0,
+          "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autunseen_dry_runs",
+          "op": ">",
+          "value": 0,
+          "why": "no Dry search of an unseen actor: scope (UfWhy) never says unseen"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autunseen_cmp_pairs",
+          "op": ">",
+          "value": 0,
+          "why": "no compared pair: autunseencmp not on (agent without the switch?) or no unseen Dry search reached B14"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autunseen_rh_game",
+          "op": ">",
+          "value": 0,
+          "why": "no rabbit-hole pair skipped by the compare: autunseenrh not in the package (unseen4?)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_content_modules",
+          "op": ">=",
+          "value": 1,
+          "why": "PR #169: game modules not hashed (-1 = MVID gate fallback, 0 = ModuleCheck never ran)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_content_unknown",
+          "op": "==",
+          "value": 0,
+          "why": "PR #169: a module of the test install (EA + simler90 UPDATE242 core + ErrorTrap) not on the content accept list"
+        }
+      ],
+      "note": "Copy of ip-gu-dry-defcmp-u4 (golive-unseen.json) on the pr169 build (asi pr169, fixes pr169u4 = unseen4 tuning --on kAutLive): AutShadow pairs must not drop vs the unseen4 run (2026-11-01 07:56 UTC, docs/data/results/2026-11-01-queue-golive-unseen.md: autshadow_a0 3207, A1-A3 0, a4 115; rhoff a0 2988): PASS adds a0 >= ~2900, A1-A3 0, content modules >= 1, unknown 0. Original: Copy of ip-gu-dry-defcmp on unseen4 (docs/222 §10): with autunseenrh on (tuning default) the compare mirrors the direct path, so RabbitHole-target pairs are not compared but counted (autunseen_rh_game); new counter autunseen_cmp_wpgf_w0 = worker-pass/game-fail pairs whose worker score is 0 (BestScores drops both: not a behaviour mismatch). PASS: AutonomouslyGoForMealInRestaurant / ShopInRabbitHole / GoToCityHall / VisitHospital absent from the defcmp table, worker-pass/game-fail share of compared pairs < 1%, worker-fail/game-pass 0, 0 crashes.",
+      "asi": "game-copy/ts3native.asi.pr169",
+      "fixesPackage": "game-copy/ts3fixes.package.pr169u4",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive,autunseen,autunseencmp",
+          "noSamplers": true,
+          "fixesReport": "autunseen_,g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "pinReason": "pr169 is the build under test (builds.json pr169-asi 0.36.152 / pr169u4-fixes, commit 8450196c = master + PR #169 content guard, ts3native contract 11)"
+    }
+  ]
+}

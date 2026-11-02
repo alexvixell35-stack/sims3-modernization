@@ -1,0 +1,172 @@
+{
+  "note": "golive-dfn (2026-10-31): docs/216 fix #2 (Mode 3 skips the driver meta score) + §5 abort records (ts3fixes abortdef in autshadow.jsonl, native autshadow abortic lines) + go-live cost guard (02f520b8, Config 24-30). ts3native 0.36.145 = game-copy/ts3native.asi.satb9, ts3fixes --on kAutLive = game-copy/ts3fixes.package.golive6. Read with node tools/harness/mono-cost-report.ts --tag golive-dfn; baselines bp-satb-act-1 (satb-act) and bp-golive-g7-crowd (golive-g7).",
+  "smoke": {
+    "id": "bp-dfn-smoke",
+    "note": "Smoke (4 min BP, Mode R, Satb=2) on satb9/golive6: PASS = 0 crashes, satbMode 2, satbConc > 0, autshadow runs > 0, A1-A3 0, ini reads back Satb=2 and WindowWaitUs=0. A FAIL stops the queue.",
+    "asi": "game-copy/ts3native.asi.satb9",
+    "fixesPackage": "game-copy/ts3fixes.package.golive6",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 90,
+    "ini": {
+      "HitchAttr.Enabled": 1,
+      "RouteSnap.Enabled": 1,
+      "RouteSnap.Count": 1,
+      "RouteSnap.AuditEvery": 0,
+      "MonoThread.Enabled": 1,
+      "MonoThread.Mode": 1,
+      "MonoThread.GcLock": 1,
+      "MonoThread.FrameTls": 1,
+      "MonoThread.ArenaFix": 1,
+      "MonoThread.N2mPrivate": 1,
+      "MonoThread.LazyGate": 1,
+      "AutShadow.Enabled": 1,
+      "AutShadow.Mode": 1,
+      "AutShadow.Sample": 4,
+      "AutShadow.Audit": 50,
+      "AutShadow.DumpOnMismatch": 1,
+      "AutShadow.WindowWaitUs": 0,
+      "AutShadow.ColdIc": 1,
+      "AutShadow.CutLean": 2,
+      "AutShadow.TierMs": 1500,
+      "AutShadow.ListAudit": 1,
+      "AutShadow.TierClassMs": 1000,
+      "AutShadow.RowHot": 200,
+      "AutShadow.RunSkip": 1,
+      "AutShadow.FreshEvery": 8,
+      "AutShadow.KeepPartial": 1,
+      "AutShadow.Satb": 2,
+      "MonoThread.LazyEarly": 1
+    },
+    "logRequire": {
+      "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+      "OK   mono thread P4": 1
+    },
+    "run": {
+      "profile": {
+        "minutes": 4,
+        "seed": 12345,
+        "fixesOn": "autshadow"
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 30
+  },
+  "jobs": [
+    {
+      "id": "bp-dfn-moder",
+      "note": "BP Mode R, Satb=2, 10 min (clone of bp-satb-act-1 on satb9/golive6). Gate: A1-A3 = 0 (Mode R keeps the driver meta score). New: autshadow.jsonl abortdef records (desire = [driver objects, pairs]) and ts3native.log autshadow abortic lines; compare abort mix, worker ms/s and job length with bp-satb-act-1.",
+      "asi": "game-copy/ts3native.asi.satb9",
+      "fixesPackage": "game-copy/ts3fixes.package.golive6",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-dfn-crowd",
+      "note": "BP crowd in view, Mode 3 Dry=1, Satb=2, 15 min (clone of bp-golive-g7-crowd on satb9/golive6). docs/216 fix #2: Mode 3 skips the driver per-object HowMuchItWantsSimToCome, so desirefn aborts -> ~0 vs G7 crowd (29.6% of 76,567), worker jobs ~45% shorter, fewer stop aborts. Gate: VerifyEvery cuts A1-A3 = 0, replay/top-10 as G7; abortdef + abortic records present; cost guard counters 538-541 present (inert in Dry).",
+      "asi": "game-copy/ts3native.asi.satb9",
+      "fixesPackage": "game-copy/ts3fixes.package.golive6",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "autshadow,autlive",
+          "repro": "aut-live-crowd-view"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40
+    }
+  ]
+}
