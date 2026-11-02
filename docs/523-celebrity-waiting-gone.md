@@ -36,6 +36,8 @@ the townie instantiated again where it stood. Off arm: `DeadRefCheck sweep` refu
 entry. On arm: the pass is polled until the list holds no gone entry; `expect cleaned` requires that; the job requires
 `deadrefsweep_celebrity >= 1`.
 
+Result (2026-11-02 01:34, `bp-celebrity-waiting-gone-check`, PASS in 15.1 min, al16): off arm, the seeded state was met 2 s after the seed (Lenny Shutter waiting to react to Katrina Pala, his Sim object destroyed: gone 1, waiting 1) and `expect left` found it unchanged; on arm, the pass ran at once and the state poll 2 s after the seed already read gone 0, waiting 0; `expect cleaned` passed and `deadrefsweep_celebrity` reached 1. Both townies were put back.
+
 ## 4. What is left
 
 The reaction records (`mReactionRecords`, by object id, no Sim object) are not a holder. Cooking appliance handlers,
