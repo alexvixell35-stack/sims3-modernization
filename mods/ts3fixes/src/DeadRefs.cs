@@ -709,8 +709,8 @@ namespace Ts3Fixes
         //   "state":  HandlerState: gone handlers on that vehicle, mine (our relationship's handler still subscribed), handlers.
         //   "expect left" (switch off) / "expect cleaned" (switch on): throws unless our handler is still there (left) or gone
         //             (cleaned). Either way a handler of ours that is still subscribed is removed.
-        public class HandlerState { public int gone, handlers; public bool mine; }
-        static GameObject sHdObj; static GameObjectRelationship sHdRel;
+        public class HandlerState { public int gone, handlers; public bool mine, destroyed; }
+        static GameObject sHdObj; static GameObjectRelationship sHdRel; static bool sHdMade;
 
         static bool HdMine(GameObject o)
         {
@@ -725,26 +725,32 @@ namespace Ts3Fixes
             if (sObjDisposed == null || sRelDesc == null) throw new InvalidOperationException("handler check: ObjectDisposed or mSimDesc field not found");
             if (what == "seed")
             {
-                Vehicle car = null;
-                foreach (Vehicle v in Sims3.Gameplay.Queries.GetObjects<Vehicle>()) if (!v.HasBeenDestroyed) { car = v; break; }
+                // a car made out of world, as the dart seed makes its board: a vehicle of the world may be a taxi or a carpool
+                // that despawns within the minute (run 1 lost its LightweightTaxi 20 s after the seed, and a destroyed object
+                // is outside the pass), destroyed again at "expect"; the pick of a world vehicle is the fallback
+                Vehicle car = GlobalFunctions.CreateObjectOutOfWorld("CarHatchback") as Vehicle;
+                sHdMade = car != null;
+                if (car == null) foreach (Vehicle v in Sims3.Gameplay.Queries.GetObjects<Vehicle>()) if (!v.HasBeenDestroyed && (v.InInventory || v.LotCurrent != null) && !(v is CarNpc) && !(v is CarpoolWithDriver)) { car = v; break; }
                 Sim townie = DrPickTownie();
                 if (car == null || townie == null) throw new InvalidOperationException("handler seed: no vehicle or no townie");
                 GameObjectRelationship rel = car.GetNewRelationship(townie.SimDescription);
                 if (rel == null) throw new InvalidOperationException("handler seed: GetNewRelationship returned null");
                 sHdObj = car; sHdRel = rel;
-                return "handler seed: a car relationship of " + townie.FullName + " with " + car.GetType().Name + ", subscribed and not in the description's list";
+                return "handler seed: a car relationship of " + townie.FullName + " with " + car.GetType().Name + (sHdMade ? " made out of world" : " of the world") + ", subscribed and not in the description's list";
             }
             GameObject o = sHdObj;
             if (o == null || sHdRel == null) throw new InvalidOperationException("handler " + what + ": no seed");
             bool mine = HdMine(o);
             Delegate all = sObjDisposed.GetValue(o) as Delegate;
-            if (what == "state") { HandlerState st = new HandlerState(); st.gone = HandlerGone(o); st.mine = mine; st.handlers = all != null ? all.GetInvocationList().Length : 0; return st; }
+            if (what == "state") { HandlerState st = new HandlerState(); st.gone = HandlerGone(o); st.mine = mine; st.destroyed = o.HasBeenDestroyed; st.handlers = all != null ? all.GetInvocationList().Length : 0; return st; }
             if (what != "expect left" && what != "expect cleaned") return "handler <seed|state|expect left|expect cleaned>";
+            if (o.HasBeenDestroyed) { sHdObj = null; sHdRel = null; throw new InvalidOperationException("handler " + what + ": the seeded vehicle was destroyed meanwhile (the hard state is gone, not cleaned)"); }
             bool on = ShortcutOn("deadrefsweep");
             bool ok = what == "expect left" ? !on && mine : on && !mine;
             string line = "mine " + mine + ", gone " + HandlerGone(o) + " (switch " + on + ")";
             if (mine) { foreach (Delegate d in all.GetInvocationList()) if (d.Target == sHdRel) all = Delegate.Remove(all, d); sObjDisposed.SetValue(o, all); }
-            sHdObj = null; sHdRel = null;
+            if (sHdMade) o.Destroy();
+            sHdObj = null; sHdRel = null; sHdMade = false;
             if (!ok) throw new InvalidOperationException("handler " + what + ": wrong outcome; " + line);
             return "as expected; " + line + (mine ? "; our handler removed" : "");
         }

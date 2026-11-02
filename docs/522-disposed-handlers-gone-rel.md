@@ -32,12 +32,19 @@ before a save is unchanged (phases 1-3 only). Nothing runs with `deadrefsweep` o
 ## 3. Test
 
 Repro `disposed-handler-gone-check` (queue `tools/harness/queues/disposed-handler-gone.json`, save Baseline-BP). The
-hard state is built by the agent check `DeadRefHandlerCheck seed` without destroying anything: a vehicle of the world
-and a townie's description (same pick rule as docs/516), `Vehicle.GetNewRelationship` makes the relationship (and
-subscribes the handler) and it is never added to the description's list, so it is one nobody holds. Off arm:
+hard state is built by the agent check `DeadRefHandlerCheck seed` without destroying a Sim: a car made out of world
+(`CarHatchback`, destroyed again at `expect`; a vehicle of the world is the fallback) and a townie's description (same
+pick rule as docs/516), `Vehicle.GetNewRelationship` makes the relationship (and subscribes the handler) and it is never
+added to the description's list, so it is one nobody holds. Off arm:
 `DeadRefCheck sweep` refuses and `expect left` sees our handler still subscribed (the check then removes it). On arm:
 the pass is started at once and `state` polled until our handler is gone; `expect cleaned` requires that; the job
 requires `deadrefsweep_handlers >= 1`.
+
+Run 1 (2026-11-02 00:42, al15) FAIL, a seed fault: it took the first vehicle of the world, a `LightweightTaxi`, which
+despawned about 20 s after the seed; a destroyed object is outside the pass, `HandlerGone` reads 0 on it while `mine`
+still read the field, so the on arm polled `mine` for 300 s. The off arm had passed for the same wrong reason (the
+taxi was gone before `expect left` looked). The seed now makes its own car, `state` reports `destroyed`, and `expect`
+throws when the vehicle is gone instead of judging. Rerun pending.
 
 ## 4. What is left
 

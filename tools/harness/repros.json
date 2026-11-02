@@ -48603,7 +48603,7 @@
             "seed"
           ]
         },
-        "note": "off: a relationship nobody holds, subscribed to a vehicle's ObjectDisposed",
+        "note": "off: a relationship nobody holds, subscribed to a car's ObjectDisposed (the car made out of world)",
         "waitS": 2,
         "until": {
           "cmd": "reflect_call",
