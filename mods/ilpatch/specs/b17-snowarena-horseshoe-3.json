@@ -1,0 +1,56 @@
+{
+  "id": "b17-snowarena-horseshoe-3",
+  "switch": "ilp_snowarenahorseshoe3",
+  "counter": null,
+  "assembly": "Sims3GameplayObjects",
+  "method": "Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt+TakeTurn::Run()",
+  "ilHashG6": "c0b4b0242b3cdc40",
+  "builds": {
+    "ea-1.67": {
+      "size": 1225,
+      "sha256": "93d1ef907aa59b6c17e6c2e25b9f5b433427608b94fd8a81ec2ce470335acbfe",
+      "tokens": {
+        "!1 class [Sims3GameplaySystems]Sims3.Gameplay.Interactions.InteractionInstance`2<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim,class Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt>::Target": "0x0a000813",
+        "class [System]System.Collections.Generic.Queue`1<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim> Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt::mPlayerQueue": "0x04000459",
+        "instance int32 class [System]System.Collections.Generic.Queue`1<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim>::get_Count()": "0x0a00080e"
+      },
+      "patchedSha256": "b9a15b3adec6eae9470edeb01cdb3b15035f3c61dbc0d92dbcde2d88de2f9a74"
+    },
+    "simler90-242": {
+      "size": 1225,
+      "sha256": "64584c1ee6506c93050671dc174265e9bfe2f45a17d7608ee79a2c7fe896bd4c",
+      "tokens": {
+        "!1 class [Sims3GameplaySystems]Sims3.Gameplay.Interactions.InteractionInstance`2<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim,class Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt>::Target": "0x0a002cfa",
+        "class [System]System.Collections.Generic.Queue`1<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim> Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt::mPlayerQueue": "0x040040a6",
+        "instance int32 class [System]System.Collections.Generic.Queue`1<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim>::get_Count()": "0x0a002cf5"
+      },
+      "patchedSha256": "a32e28aa0f809b8b1df4e4bb8bcd5cc522739f6d6b99f73830dd2ea9c5c2b0b4"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x1",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldfld"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldfld !1 class [Sims3GameplaySystems]Sims3.Gameplay.Interactions.InteractionInstance`2<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim,class Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt>::Target",
+        "ldfld class [System]System.Collections.Generic.Queue`1<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim> Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt::mPlayerQueue",
+        "callvirt instance int32 class [System]System.Collections.Generic.Queue`1<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim>::get_Count()",
+        "brtrue B17_HS_TURN",
+        "ldc.i4.0",
+        "ret",
+        "B17_HS_TURN: ldarg.0"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zz6_b17_snowarena_horseshoe.ps1",
+    "entries": [
+      "b17-horseshoe-taketurn-empty-queue"
+    ]
+  }
+}

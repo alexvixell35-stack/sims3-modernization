@@ -1,0 +1,71 @@
+{
+  "id": "b75-life-event-lists-only-when-used-2",
+  "switch": "ilp_lifeeventlistsonlywhenused2",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.ActorSystems.LifeEventManager::ProcessLifeEvent(Sims3.Gameplay.ActorSystems.LifeEventManager+LifeEventData,Sims3.Gameplay.EventSystem.Event)",
+  "ilHashG6": "3ecc4d5021a62abc",
+  "builds": {
+    "ea-1.67": {
+      "size": 221,
+      "sha256": "6b5e4d741916f4ed45c88f85339b319171b0d00ae78b033fc621c344191def5b",
+      "tokens": {
+        "class [mscorlib]System.Collections.Generic.Dictionary`2<uint32,class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.ActorSystems.LifeEventManager/LifeEvent>> Sims3.Gameplay.ActorSystems.LifeEventManager::mLifeEvents": "0x0400602c",
+        "instance uint32 Sims3.Gameplay.ActorSystems.LifeEventManager/LifeEventData::get_Id()": "0x06009a20",
+        "instance void class [mscorlib]System.Collections.Generic.Dictionary`2<uint32,class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.ActorSystems.LifeEventManager/LifeEvent>>::set_Item(!0, !1)": "0x0a002b61"
+      },
+      "patchedSha256": "fa901dc5d0628a48913a2159282e505563fb6d46f602db1d20ddab972493d788"
+    },
+    "simler90-242": {
+      "size": 221,
+      "sha256": "7cca24f1225101ce9aca293c387044554addceb66cda506dcd3138117c10466a",
+      "tokens": {
+        "class [mscorlib]System.Collections.Generic.Dictionary`2<uint32,class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.ActorSystems.LifeEventManager/LifeEvent>> Sims3.Gameplay.ActorSystems.LifeEventManager::mLifeEvents": "0x04004d5e",
+        "instance uint32 Sims3.Gameplay.ActorSystems.LifeEventManager/LifeEventData::get_Id()": "0x0600c571",
+        "instance void class [mscorlib]System.Collections.Generic.Dictionary`2<uint32,class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.ActorSystems.LifeEventManager/LifeEvent>>::set_Item(!0, !1)": "0x0a001cc3"
+      },
+      "patchedSha256": "48e85150d3dc4238d38da22476224fc179b6017f66da0f8463f59a7a354efbb6"
+    }
+  },
+  "edits": [
+    {
+      "at": "0xAE",
+      "mode": "replace",
+      "entry": "incoming",
+      "expect": [
+        "ldarg.0",
+        "ldfld",
+        "ldarg.1",
+        "callvirt",
+        "ldloc.1",
+        "callvirt"
+      ],
+      "maxStack": 0,
+      "il": []
+    },
+    {
+      "at": "0xD2",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldarg.0"
+      ],
+      "maxStack": 3,
+      "il": [
+        "ldarg.0",
+        "ldfld class [mscorlib]System.Collections.Generic.Dictionary`2<uint32,class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.ActorSystems.LifeEventManager/LifeEvent>> Sims3.Gameplay.ActorSystems.LifeEventManager::mLifeEvents",
+        "ldarg.1",
+        "callvirt instance uint32 Sims3.Gameplay.ActorSystems.LifeEventManager/LifeEventData::get_Id()",
+        "ldloc.1",
+        "callvirt instance void class [mscorlib]System.Collections.Generic.Dictionary`2<uint32,class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.ActorSystems.LifeEventManager/LifeEvent>>::set_Item(!0, !1)"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_b75_life_event_lists_only_when_used.ps1",
+    "entries": [
+      "b75-life-event-list-stored-when-an-event-is-added",
+      "b75-life-event-list-stored-when-an-event-is-added-2"
+    ]
+  }
+}

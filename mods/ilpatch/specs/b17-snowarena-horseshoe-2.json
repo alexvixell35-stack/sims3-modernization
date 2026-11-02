@@ -1,0 +1,63 @@
+{
+  "id": "b17-snowarena-horseshoe-2",
+  "switch": "ilp_snowarenahorseshoe2",
+  "counter": null,
+  "assembly": "Sims3GameplayObjects",
+  "method": "Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt+WaitToThrow::WaitLoop(Sims3.SimIFace.StateMachineClient,Sims3.Gameplay.Interactions.InteractionInstance+LoopData)",
+  "ilHashG6": "46adbad285fcb674",
+  "builds": {
+    "ea-1.67": {
+      "size": 236,
+      "sha256": "99ef12967893ba9cc663f82c07abe8241b212e26449dfc91eae9327c469a66f9",
+      "tokens": {
+        "!1 class [Sims3GameplaySystems]Sims3.Gameplay.Interactions.InteractionInstance`2<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim,class Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt>::Target": "0x0a000813",
+        "class [System]System.Collections.Generic.Queue`1<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim> Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt::mPlayerQueue": "0x04000459",
+        "instance int32 class [System]System.Collections.Generic.Queue`1<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim>::get_Count()": "0x0a00080e",
+        "!0 class [Sims3GameplaySystems]Sims3.Gameplay.Interactions.InteractionInstance`2<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim,class Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt>::Actor": "0x0a000814",
+        "instance void [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim::AddExitReason(valuetype [Sims3GameplaySystems]Sims3.Gameplay.Actors.ExitReason)": "0x0a0000b4"
+      },
+      "patchedSha256": "9561e96868fc5362a78e41b9028c68b966eb2b6b6e411c97050e1f5a7871087d"
+    },
+    "simler90-242": {
+      "size": 236,
+      "sha256": "6b3eb1137c8aeb6e1bb98af5e091479ae8a97d399b887ec8618a7b7226f28cf1",
+      "tokens": {
+        "!1 class [Sims3GameplaySystems]Sims3.Gameplay.Interactions.InteractionInstance`2<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim,class Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt>::Target": "0x0a002cfa",
+        "class [System]System.Collections.Generic.Queue`1<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim> Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt::mPlayerQueue": "0x040040a6",
+        "instance int32 class [System]System.Collections.Generic.Queue`1<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim>::get_Count()": "0x0a002cf5",
+        "!0 class [Sims3GameplaySystems]Sims3.Gameplay.Interactions.InteractionInstance`2<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim,class Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt>::Actor": "0x0a002cfb",
+        "instance void [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim::AddExitReason(valuetype [Sims3GameplaySystems]Sims3.Gameplay.Actors.ExitReason)": "0x0a000097"
+      },
+      "patchedSha256": "2c775b068c64d8b92cb781b30846f801dd826a4596c2983f54c101cfdb9d3d39"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x1C",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldfld"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldfld !1 class [Sims3GameplaySystems]Sims3.Gameplay.Interactions.InteractionInstance`2<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim,class Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt>::Target",
+        "ldfld class [System]System.Collections.Generic.Queue`1<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim> Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt::mPlayerQueue",
+        "callvirt instance int32 class [System]System.Collections.Generic.Queue`1<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim>::get_Count()",
+        "brtrue B17_HS_PEEK",
+        "ldarg.0",
+        "ldfld !0 class [Sims3GameplaySystems]Sims3.Gameplay.Interactions.InteractionInstance`2<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim,class Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt>::Actor",
+        "ldc.i4.s 64",
+        "callvirt instance void [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim::AddExitReason(valuetype [Sims3GameplaySystems]Sims3.Gameplay.Actors.ExitReason)",
+        "ret",
+        "B17_HS_PEEK: ldarg.0"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zz6_b17_snowarena_horseshoe.ps1",
+    "entries": [
+      "b17-horseshoe-waitloop-empty-queue"
+    ]
+  }
+}

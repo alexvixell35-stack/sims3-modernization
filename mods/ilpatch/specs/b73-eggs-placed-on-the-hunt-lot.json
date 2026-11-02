@@ -1,0 +1,68 @@
+{
+  "id": "b73-eggs-placed-on-the-hunt-lot",
+  "switch": "ilp_eggsplacedonthehuntlot",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.Objects.EggHuntController::IsValidEggPosition(float,float,float,float)",
+  "ilHashG6": "bf5a33fabade2897",
+  "builds": {
+    "ea-1.67": {
+      "size": 52,
+      "sha256": "c52f9e9fefa6cd45a3c4193d729acdbf2bc952ab2ac24c7d7bcabd4f26859c9a",
+      "tokens": {
+        "class Sims3.Gameplay.Core.Lot Sims3.Gameplay.Core.LotManager::GetLotAtPoint(valuetype [SimIFace]Sims3.SimIFace.Vector3)": "0x0600d6e1",
+        "class Sims3.Gameplay.Core.Lot Sims3.Gameplay.Objects.EggHuntController::EggHuntLot": "0x0400c66e",
+        "class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.Actors.Sim::get_ActiveActor()": "0x06000706"
+      },
+      "patchedSha256": "5ff73dff8b30bcd3d5fdbd5a5a8d7694af2bb0b5212137fd585c603984c671b6"
+    },
+    "simler90-242": {
+      "size": 52,
+      "sha256": "7cddd7846d5359d143399039d63ffeaf837b26abc14e147fcc1f90482667627d",
+      "tokens": {
+        "class Sims3.Gameplay.Core.Lot Sims3.Gameplay.Core.LotManager::GetLotAtPoint(valuetype [SimIFace]Sims3.SimIFace.Vector3)": "0x06000f55",
+        "class Sims3.Gameplay.Core.Lot Sims3.Gameplay.Objects.EggHuntController::EggHuntLot": "0x0400b943",
+        "class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.Actors.Sim::get_ActiveActor()": "0x060001f1"
+      },
+      "patchedSha256": "a6019342ad3a988b363656afc089e34207e8c3cf779a6a1ee68921124fcfde35"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x14",
+      "mode": "insert",
+      "entry": "incoming",
+      "expect": [
+        "call"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldloc.0"
+      ]
+    },
+    {
+      "at": "0x19",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "stloc.1"
+      ],
+      "maxStack": 1,
+      "il": [
+        "call class Sims3.Gameplay.Core.Lot Sims3.Gameplay.Core.LotManager::GetLotAtPoint(valuetype [SimIFace]Sims3.SimIFace.Vector3)",
+        "ldarg.0",
+        "ldfld class Sims3.Gameplay.Core.Lot Sims3.Gameplay.Objects.EggHuntController::EggHuntLot",
+        "beq B73_ON_LOT",
+        "ldc.i4.0",
+        "ret",
+        "B73_ON_LOT: call class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.Actors.Sim::get_ActiveActor()"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zzzzzzzzzzzzzzzzzzzzzzzzzzzzz_b73_eggs_placed_on_the_hunt_lot.ps1",
+    "entries": [
+      "b73-egg-position-must-be-on-the-hunt-lot"
+    ]
+  }
+}

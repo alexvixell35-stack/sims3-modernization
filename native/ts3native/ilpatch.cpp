@@ -156,7 +156,7 @@ static void IlpApply(const BYTE* code, DWORD n, WORD maxStack, const DWORD* cl, 
             if (x.kind == IK_BR_ORIG) {
                 if (Idx::of(dec, nd, n, x.v) < 0) { HeapFree(heap, 0, dec); r.why = "our branch target is not an instruction start"; return; }
                 if (!IlpSameRegion(cl, nCl, ed.at, x.v)) { HeapFree(heap, 0, dec); r.why = "our branch leaves the exception region of its edit"; return; }
-            } else if (x.kind == IK_BR_OURS) { if (x.v >= ed.nIns) { HeapFree(heap, 0, dec); r.why = "our branch names a line the edit has not"; return; } }
+            } else if (x.kind == IK_BR_OURS) { if ((x.v >> 16) >= s.nEdits || (x.v & 0xFFFF) >= s.edits[x.v >> 16].nIns) { HeapFree(heap, 0, dec); r.why = "our branch names a line the spec has not"; return; } }  // v = edit << 16 | line
             else if (x.kind == IK_TOK) { if (x.v >= b.nTokens) { HeapFree(heap, 0, dec); r.why = "a token index past the build's token list"; return; } }
             else if (x.kind > IK_I32 && x.kind != IK_TOK) { HeapFree(heap, 0, dec); r.why = "an operand kind the native table does not carry"; return; }
         }
@@ -219,7 +219,7 @@ static void IlpApply(const BYTE* code, DWORD n, WORD maxStack, const DWORD* cl, 
                 case IK_I32: *(DWORD*)(out + p) = x.v; break;
                 case IK_TOK: *(DWORD*)(out + p) = b.tokens[x.v]; break;
                 case IK_BR_ORIG: { const DWORD t = Map::of(x.v, m.edit, s, dec, nd, n, newLen, origOff, oursOff, &why); *(int*)(out + p) = (int)(t - (p + 4)); break; }
-                case IK_BR_OURS: *(int*)(out + p) = (int)(lineOff[lineBase[m.edit] + x.v] - (p + 4)); break;
+                case IK_BR_OURS: *(int*)(out + p) = (int)(lineOff[lineBase[x.v >> 16] + (x.v & 0xFFFF)] - (p + 4)); break;
                 default: why = "an operand kind the native table does not carry"; break;
             }
         }

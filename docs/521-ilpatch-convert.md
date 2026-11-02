@@ -95,3 +95,30 @@ this tool is the TypeScript copy docs/506 §6 step 4 asks for; the C++ copy must
   docs/506 B89-shaped text patch, and the member keys (ildasm text vs the reader's rendering, plain and generic).
 - I-521-1 [inferred]: the converted B80 and B87 bodies are what the core build runs. Check: equal shapes (done, §3);
   the live check is the patcher's own repro per fix (docs/506 §8).
+
+## 6. Labels, counter bumps, merged entries (2026-11-02, second pass) [verified: `--self-check`, census]
+
+Three defects of the first pass, found while converting #166's b77 (the toddler put-down):
+
+1. **Our labels.** The core patches branch to labels of their own (`brtrue.s B77_GONE`, `B77_GONE:` on a line of its own,
+   `FIX_HOME_OK:  IL_006c:  callvirt ...` on an EA line, or a label as the block's last line). The parser only knew
+   `IL_xxxx`, so a label line was glued onto the operand before it and `parseInt("B77_GONE", 16)` made the branch target
+   `0xB77` (or `0xF` for `FIX_...`). Those entries were rejected ("branch target 0xb77 is inside a replaced range or not an
+   instruction start"), so no wrong spec was written, but b17, b69, b73, b77 and 67 others were lost to it. Now a label
+   names the next instruction: one of ours stays a label in the spec's IL (`B77_GONE: ldarg.0`, `brtrue B77_GONE`; the
+   native table carries `edit index << 16 | line index`, so a branch may cross edits of one spec), one on an unchanged EA
+   line becomes that line's offset (`@0x6C`), one at the end of the block the offset after it.
+2. **Run counters.** A core build's own counter (`ldsfld sB77ParentGone; ldc.i4.1; add; stsfld sB77ParentGone` on a field
+   another entry of the same file adds) has no token in any build. The converter drops the bump (`source.droppedCounters`
+   in the spec, "counter ... dropped" in the status); the patcher counts applications itself, the per-run count is lost.
+   The comparison with the core build takes the bump out of the core's shape first.
+3. **Merged entries.** A second entry on the same method was appended to the first spec's edits without the offline
+   application, the self-check or its tokens (the b64 spec had no token for `List<Sim>.get_Count()` and the native table
+   could not be emitted). The whole spec is checked again at each merge; 6 merged entries turned out unresolved.
+
+Census after the pass (`docs/data/ilpatch-convert.csv`, 859 entries): converted 390 (357 + 31 merged + 2 with a counter
+dropped; was 325), equal to the core build in both builds 153 (was 120), unresolved 90 (was 155), error 14, the other
+groups unchanged. Five converted entries differ from the core build without our instructions found in it (`99_o7_magicgnome`
+RemoveAgingAlarms, `99_s15_styling` GetCustomerReactionType, `99_s2_sim_1` extinguish outfit wait, `99_zr2_b2_o3` pet
+cancel wait, `99_zzb_b22` free-vacation wishes): the core's later edits of the same lines; they must not ship as they are.
+Of #166's 45 builds, 21 fixes (14 methods more than docs/526 §7's seven) now convert whole: see docs/526 §7.

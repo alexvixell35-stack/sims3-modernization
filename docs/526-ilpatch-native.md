@@ -117,6 +117,7 @@ does not carry. Insertions move the clause boundaries after them and an insertio
 | Smoke queue | run 2026-11-02 09:15, PASS (section 5): all three fixes applied on UPDATE242 with the converter's hashes |
 | Repros per fix (B80 phone chat with a target with no everyday outfit, B87 opportunity from a non-yielding context) | not written; B89 is covered by the load |
 | Batch 2 (section 7): b15, b72, b76, b81 | specs written and self-checked offline, native table 7 specs, selftest ok; the smoke queue arms all seven; live run pending |
+| Batch 3 (section 7): b17 (3 methods), b64, b68 (3), b69, b70, b73, b75 (2), b77, b90 after the converter's label fix (docs/521 §6) | 14 more specs, native table 21 specs, selftest ok; the smoke queue arms all 21; live run pending |
 
 Open: I-506-2 (reflection's IL bytes for G-M6 come from the metadata stream, not the header: the swap is invisible to
 hashing) stays [inferred]: the smoke logged no mismatch line, but its job ran without MonoPatcher's log being read, and the
@@ -140,12 +141,32 @@ patcher can carry today without phase 2 (helpers) or a ts3fixes wrap.
 
 Sizes: 248, 785, 1094 and 462 bytes in both builds (the bodies differ only in tokens between EA 1.67 and UPDATE242, as
 the §5 three did). `tools/ilpatch-convert.ts --only b15_ --only b72_ --only b76_ --only b81_ --write` wrote them;
-`--emit-native` regenerated `ilpatch-specs.h` (7 specs); the ts3native build's selftest passes [verified]. The smoke
-queue and the `ilpatch-touch-bp` repro now arm and touch all seven (the batch-2 methods are interactions' `Run()` and the
+`--emit-native` regenerated `ilpatch-specs.h`; the ts3native build's selftest passes [verified]. The smoke
+queue and the `ilpatch-touch-bp` repro now arm and touch all of them (the batch-2 methods are interactions' `Run()` and the
 autonomy scorer: none is sure to run in 5 min of play). Live result: pending (the first run goes in the PR).
 
-The remaining builds of the 45, by what blocks them (docs/521 §3 census): helpers (b14, b52, b64's counter, b77's
-counter, b78, b94's field), a header rewrite (b13, b94), a branch into the replaced range that the relocator refuses
-(b17, b69, b73, b77's main edit: the core patch moves a label onto our lines, which phase 1 does not express), a listing of
-an intermediate core build (b14, b52), compiler-generated twins (b23, b94). b77 (the toddler one, Rodney's first pick) is
-in the third group: its fix is a ts3fixes hook, not a spec.
+**Batch 3 (the same day).** The "branch into the replaced range" group was the converter's own defect (docs/521 §6: the
+core patches' labels such as `B77_GONE` were parsed as hex). With labels, dropped run counters and merged entries fixed,
+14 more methods of the 45 convert:
+
+| Spec (switch) | Core build | Method | Fix |
+|---|---|---|---|
+| `b17-snowarena-horseshoe-1` (`ilp_snowarenahorseshoe1`) | 17 | `SnowWaterFightArena::DoScoring(Sim)` | a negative player slot does not score |
+| `b17-snowarena-horseshoe-2` / `-3` (`ilp_snowarenahorseshoe2` / `3`) | 17 | `HorseshoeCourt+WaitToThrow::WaitLoop`, `HorseshoeCourt+TakeTurn::Run` | an empty player queue ends the wait / the turn |
+| `b64-doorbell-prank-nobody-home` (`ilp_doorbellpranknobodyhome`) | 64 | `Door+PrankDoorbellDitch::Run` | a household that is gone or empty: the prank ends (the core's run counter is dropped) |
+| `b68-skinny-dip-broadcaster-1` / `-2` (`ilp_skinnydipbroadcaster1` / `2`) | 68 | `Pool::AddSkinnyDipper`, `HotTubBase::StartSkinnyDipBroadcastersAndSendWishEvents` | a disposed broadcaster is not reused |
+| `b68-apple-bobbing-late-joiner` (`ilp_applebobbinglatejoiner`) | 68 | `AppleBobbingContestTank+ParticipateInContest::Loop` | a late joiner with no state machine gets ready first / skips the exit animation |
+| `b69-skinny-dipper-gone` (`ilp_skinnydippergone`) | 69 | `Pool::ReactToSkinnyDippers` | a dipper whose Sim is gone is dropped from the list |
+| `b70-seed-spawner-roll-first` (`ilp_seedspawnerrollfirst`) | 70 | `SeedSpawnerRarity::SpawnObject` | the pet and wildflower rolls come before the world scan |
+| `b73-eggs-placed-on-the-hunt-lot` (`ilp_eggsplacedonthehuntlot`) | 73 | `EggHuntController::IsValidEggPosition` | an egg position must be on the hunt lot |
+| `b75-life-event-lists-only-when-used-1` / `-2` (`ilp_lifeeventlistsonlywhenused1` / `2`) | 75 | `LifeEventManager::GetActiveNode`, `::ProcessLifeEvent` | a per-event list is stored only when something goes into it |
+| `b77-put-down-parent-gone` (`ilp_putdownparentgone`) | 77 | `BeingCarriedPosture+PushPutDownOnParent::Run` | **toddler**: a carrier that was destroyed (no `InteractionQueue`) resets the child instead of throwing (the core's run counter `sB77ParentGone` is dropped) |
+| `b90-duel-wand-put-away` (`ilp_duelwandputaway`) | 90 | `InteractionQueue::PutDownCarriedObjects` | a wand left in the hand goes back to the inventory |
+
+Self-check: b17's horseshoe pair, b68's apple bobbing and b75's two are equal to the core build in both builds; the others
+share their method with other core patches (our instructions are in the core's body, branch targets not compared); b64
+and b77 are compared with the core's counter bump taken out. 21 specs in the table, selftest ok.
+
+The remaining builds of the 45, by what blocks them: helpers that are more than a counter (b14, b52, b78, b94's field), a
+header rewrite (b13, b94), a listing of an intermediate core build (b14, b52), compiler-generated twins (b23, b94), and
+the fixes that are already ts3fixes hooks (b16, b18, b19, b20, b21, b32, b33, b37: PRs #176-#184).

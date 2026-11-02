@@ -48052,10 +48052,10 @@
   },
   {
     "id": "ilpatch-touch-bp",
-    "bug": "docs/526 [IlPatch]: the docs/506 fixes are applied at the first IL transform of their method; b80 (Sim.DoOneRoundOfRemoteChat), b87 (ScavengerOpportunity.OnAdded) and the batch-2 methods (b15 Autonomy.ScoreInteractionsForLocalAutonomy, b72 EasterEgg.PickUpEgg.Run, b76 WhackASupernatural.Watch.Run, b81 Sim.GhostReaction.Run) may never run in a 5-minute session, so their application would go unseen",
-    "fix": "ts3native ilpatch.cpp (next version, [IlPatch] Enabled=1 + the seven switches)",
+    "bug": "docs/526 [IlPatch]: the docs/506 fixes are applied at the first IL transform of their method; most of the methods (interactions' Run, loops, scorers, the toddler put-down) may never run in a 5-minute session, so their application would go unseen",
+    "fix": "ts3native ilpatch.cpp (next version, [IlPatch] Enabled=1 + one switch per fix, 21 fixes)",
     "save": "Baseline-BP-Spring",
-    "note": "After the load (b89's SimDescription.Fixup is already transformed: 'applied' line at the load), method_touch invokes each overload of the six other methods once on the sim thread (uninitialized receiver, default arguments, exceptions caught: Mono transforms before the first instruction, so the body throws at once and the transform has happened; GetFunctionPointer crashed the game, 2026-11-02 08:52); the ts3native.log then has seven 'il patch: ... applied' lines (queue logRequire). Fixup is touched too: a repeat transform must reuse the body (ilpReused), never re-apply. The core in play must have bodies a spec knows: on this machine the player's core already carries the fixes (Fixup 1501 bytes), so the smoke runs with the pure UPDATE242 package swapped in.",
+    "note": "After the load (b89's SimDescription.Fixup is already transformed: 'applied' line at the load), method_touch invokes each overload of the other 20 methods once on the sim thread (uninitialized receiver, default arguments, exceptions caught: Mono transforms before the first instruction, so the body throws at once and the transform has happened; GetFunctionPointer crashed the game, 2026-11-02 08:52); the ts3native.log then has 21 'il patch: ... applied' lines (queue logRequire). Fixup is touched too: a repeat transform must reuse the body (ilpReused), never re-apply. The core in play must have bodies a spec knows: on this machine the player's core already carries the fixes (Fixup 1501 bytes), so the smoke runs with the pure UPDATE242 package swapped in.",
     "steps": [
       {
         "cmd": "time",
@@ -48110,6 +48110,104 @@
           "path": "Sims3.Gameplay.Actors.Sim.GhostReaction.Run"
         },
         "note": "b81 (batch 2)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.SnowWaterFightArena.DoScoring"
+        },
+        "note": "b17-snowarena-horseshoe-1 (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt.WaitToThrow.WaitLoop"
+        },
+        "note": "b17-snowarena-horseshoe-2 (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt.TakeTurn.Run"
+        },
+        "note": "b17-snowarena-horseshoe-3 (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Abstracts.Door.PrankDoorbellDitch.Run"
+        },
+        "note": "b64-doorbell-prank-nobody-home (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.Miscellaneous.AppleBobbingContestTank.ParticipateInContest.Loop"
+        },
+        "note": "b68-apple-bobbing-late-joiner (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Pools.Pool.AddSkinnyDipper"
+        },
+        "note": "b68-skinny-dip-broadcaster-1 (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.Plumbing.HotTubBase.StartSkinnyDipBroadcastersAndSendWishEvents"
+        },
+        "note": "b68-skinny-dip-broadcaster-2 (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Pools.Pool.ReactToSkinnyDippers"
+        },
+        "note": "b69-skinny-dipper-gone (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.Gardening.SeedSpawnerRarity.SpawnObject"
+        },
+        "note": "b70-seed-spawner-roll-first (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.EggHuntController.IsValidEggPosition"
+        },
+        "note": "b73-eggs-placed-on-the-hunt-lot (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.ActorSystems.LifeEventManager.GetActiveNode"
+        },
+        "note": "b75-life-event-lists-only-when-used-1 (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.ActorSystems.LifeEventManager.ProcessLifeEvent"
+        },
+        "note": "b75-life-event-lists-only-when-used-2 (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.ActorSystems.Children.BeingCarriedPosture.PushPutDownOnParent.Run"
+        },
+        "note": "b77-put-down-parent-gone (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.ActorSystems.InteractionQueue.PutDownCarriedObjects"
+        },
+        "note": "b90-duel-wand-put-away (batch 3)"
       },
       {
         "cmd": "time",

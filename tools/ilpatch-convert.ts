@@ -129,19 +129,24 @@ const bodyOf = (m: Method): Body | null => (m.rva && !(m.impl & 0x1003) && !(m.f
 const sha = (b: Buffer) => createHash('sha256').update(b).digest('hex');
 
 // ---------- ildasm text: lines, operands, member names ----------
-type Line = { label?: number; op: Op; operand: string; text: string };
+type Line = { label?: number; op: Op; operand: string; text: string; name?: string };  // name: one of our labels (B77_GONE), not an IL_ offset
 // Lines of a Find or Replace block: "IL_xxxx:  opcode  operand" (EA's) or "opcode operand" (ours); "//" comments and blanks
 // dropped; a line that starts with neither a label nor an opcode continues the operand of the line before (ildasm wraps
 // long parameter lists).
-function parseBlock(text: string): Line[] {
-  const out: Line[] = [];
+type Block = Line[] & { tail?: string };  // tail: our label on the block's last line (it names the instruction after the block)
+function parseBlock(text: string): Block {
+  const out: Block = [];
+  let pending: string | undefined; // our label on a line of its own ("B77_GONE:"): it names the next instruction
   for (const raw of text.split(/\r?\n/)) {
-    const t = raw.trim(); if (!t || t.startsWith('//')) continue;
+    let t = raw.trim(); if (!t || t.startsWith('//') || t.startsWith('}')) continue;
+    const lab = /^([A-Za-z_]\w*):\s*(.*)$/.exec(t);
+    if (lab && !/^IL_[0-9a-fA-F]+$/.test(lab[1]) && !BY_NAME.has(lab[1])) { pending = lab[1]; t = lab[2].trim(); if (!t) continue; }
     const m = /^(?:IL_([0-9a-fA-F]+):\s*)?(\S+)(?:\s+(.*))?$/.exec(t);
-    if (m && BY_NAME.has(m[2])) { out.push({ label: m[1] != null ? parseInt(m[1], 16) : undefined, op: BY_NAME.get(m[2])!, operand: (m[3] ?? '').trim(), text: t }); continue; }
+    if (m && BY_NAME.has(m[2])) { out.push({ label: m[1] != null ? parseInt(m[1], 16) : undefined, op: BY_NAME.get(m[2])!, operand: (m[3] ?? '').trim(), text: t, name: pending }); pending = undefined; continue; }
     if (!out.length) throw new Error(`the block starts inside an operand (${t.slice(0, 40)}); the patch anchors on a wrapped line`);
     out[out.length - 1].operand = `${out[out.length - 1].operand} ${t}`.trim(); // continuation
   }
+  if (pending) out.tail = pending;
   return out;
 }
 const PRIMS: Record<string, string> = { int32: 'int', uint32: 'uint', int64: 'long', uint64: 'ulong', int16: 'short', uint16: 'ushort', int8: 'sbyte', uint8: 'byte', float32: 'float', float64: 'double', 'native int': 'IntPtr', 'native unsigned int': 'UIntPtr', 'unsigned int32': 'uint', 'unsigned int64': 'ulong', 'unsigned int16': 'ushort', 'unsigned int8': 'byte', typedref: 'typedref' };
@@ -262,17 +267,46 @@ function locate(a: Asm, find: Line[]): { m: Method; body: Body }[] {
 
 // ---------- alignment: Find vs Replace -> edits ----------
 type Edit = { at: number; mode: 'insert' | 'replace'; entry: 'fallthrough' | 'incoming'; expect: string[]; il: string[]; maxStack: number; drop: number };
-const ourText = (l: Line) => isBr(l.op) ? `${longForm(l.op).name} @0x${parseInt(l.operand.replace(/^IL_/, ''), 16).toString(16).toUpperCase()}` : l.op.kind === 'u8' || l.op.kind === 'u16' ? `${l.op.name} ${l.operand.replace(/^V_/, '')}` : `${l.op.name}${l.operand ? ' ' + l.operand : ''}`;
+// A branch of ours: "@0x53" for an EA offset (IL_0053), the label's name for one of our lines (B77_GONE). A labelled line is "B77_GONE: op ...".
+const brText = (l: Line) => { const il = /^IL_([0-9a-fA-F]+)$/.exec(l.operand); return `${longForm(l.op).name} ${il ? '@0x' + parseInt(il[1], 16).toString(16).toUpperCase() : l.operand}`; };
+const ourText = (l: Line) => (l.name ? `${l.name}: ` : '') + (isBr(l.op) ? brText(l) : l.op.kind === 'u8' || l.op.kind === 'u16' ? `${l.op.name} ${l.operand.replace(/^V_/, '')}` : `${l.op.name}${l.operand ? ' ' + l.operand : ''}`);
+// A core patch's own run counter ("ldsfld F; ldc.i4.1; add; stsfld F" on a field another entry of the same file adds) has no
+// token in any build; the patcher counts its applications itself, so the bump is dropped and the spec says so.
+function dropCounterBumps(lines: Line[], fields: Set<string>): { lines: Line[]; dropped: string[] } {
+  const fieldOf = (operand: string) => operand.slice(operand.lastIndexOf('::') + 2).trim();
+  const isOne = (l: Line) => l.op.name === 'ldc.i4.1' || ((l.op.name === 'ldc.i4.s' || l.op.name === 'ldc.i4') && l.operand === '1');
+  const out: Line[] = []; const dropped: string[] = []; const rename = new Map<string, string>();
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (l.op.name === 'ldsfld' && i + 3 < lines.length && fields.has(fieldOf(l.operand)) && isOne(lines[i + 1]) && lines[i + 2].op.name === 'add' && lines[i + 3].op.name === 'stsfld' && lines[i + 3].operand === l.operand && lines[i + 3].label == null) {
+      dropped.push(fieldOf(l.operand));
+      const names = [l, lines[i + 1], lines[i + 2], lines[i + 3]].map((x) => x.name).filter((n): n is string => !!n);
+      if (names.length && i + 4 < lines.length) { const next = lines[i + 4]; if (next.name) names.forEach((n) => rename.set(n, next.name!)); else { next.name = names[0]; names.slice(1).forEach((n) => rename.set(n, names[0])); } }
+      else if (names.length) { out.push(l, lines[i + 1], lines[i + 2], lines[i + 3]); dropped.pop(); continue; } // a labelled bump at the very end: kept (no line to move the label to)
+      i += 3; continue;
+    }
+    out.push(l);
+  }
+  for (const l of out) if (isBr(l.op) && rename.has(l.operand)) l.operand = rename.get(l.operand)!;
+  return { lines: out, dropped };
+}
 // Stack depth change of one of our lines; calls by their signature text.
 function effect(l: Line): [number, number] {
   const k = memberKind(l.op);
   if (k === 'method' && l.op.name !== 'ldftn' && l.op.name !== 'ldvirtftn') { const r = parseMember('method', l.operand); const pop = r.params + (r.instance && l.op.name !== 'newobj' ? 1 : 0); return [pop, l.op.name === 'newobj' || r.ret !== 'void' ? 1 : 0]; }
   return [l.op.pop, l.op.push];
 }
-function align(find: Line[], replace: Line[], body: Body): Edit[] {
+function align(find: Line[], replace: Block, body: Body): Edit[] {
   const findAt = new Map(find.filter((l) => l.label != null).map((l) => [l.label!, l]));
   const bodyAt = new Map(body.ins.map((x) => [x.at, x]));
   const lastFind = find[find.length - 1]; const after = lastFind.label != null ? lastFind.label + bodyAt.get(lastFind.label)!.size : -1;
+  // One of our labels written on an EA line that stays ("FIX_HOME_OK:  IL_006c:  callvirt ...", or on the line before it)
+  // names that offset: our branches to it become branches to the EA instruction. A label on an EA line that changes stays
+  // ours (the line is emitted with the label).
+  const isUnchanged = (r: Line) => r.label != null && findAt.has(r.label) && sameOp(bodyAt.get(r.label)!, r) && (!isBr(r.op) ? r.operand === findAt.get(r.label)!.operand : true);
+  const nameAt = new Map<string, number>(); for (const r of replace) if (r.name && isUnchanged(r)) nameAt.set(r.name, r.label!);
+  if (replace.tail && after >= 0) nameAt.set(replace.tail, after);
+  for (const r of replace) if (r.label == null && isBr(r.op) && nameAt.has(r.operand)) r.operand = `IL_${nameAt.get(r.operand)!.toString(16).padStart(4, '0')}`;
   const edits: Edit[] = []; let ours: Line[] = []; let prev = -1;
   const flush = (at: number, dropped: number[], entry: 'fallthrough' | 'incoming') => {
     if (!ours.length && !dropped.length) return;
@@ -395,10 +429,44 @@ type Row = { file: string; entry: string; asm: string; method: string; status: s
 function convert(): Row[] {
   const builds = loadBuilds(), ea = builds[0], base = builds[builds.length - 1];
   const entries = readPatchFiles(join(CORE, 'patches'), args('--only'));
-  const rows: Row[] = []; const specs = new Map<string, { spec: any; rows: Row[] }>();
+  const rows: Row[] = []; const specs = new Map<string, { spec: any; rows: Row[]; edits: Edit[]; dropped: string[] }>();
   const coreAsms = new Map<string, Asm | null>();
   const coreAsm = (name: string) => { if (!coreAsms.has(name)) { const f = join(CORE, 'out', `${name}.dll`); coreAsms.set(name, existsSync(f) ? loadStandalone(f, name) : null); } return coreAsms.get(name)!; };
   const perFile = new Map<string, Entry[]>(); for (const e of entries) (perFile.get(e.file) ?? perFile.set(e.file, []).get(e.file)!).push(e);
+  // The spec against each build: tokens, hashes, the offline application and the comparison with the core build's own body.
+  const checkSpec = (spec: any, edits: Edit[], dropped: string[], m: Method, asmName: string): { okBuilds: string[]; checks: string[] } => {
+    spec.builds = {};
+    const maxAdd = Math.max(0, ...edits.map((x) => x.maxStack));
+    const okBuilds: string[] = []; const checks: string[] = [];
+    for (const b of builds) {
+      const ba = asmOf(b, asmName, ea); if (!ba) continue;
+      const bm = ba.methods.find((x) => x.id === m.id); const bb = bm ? bodyOf(bm) : null;
+      if (!bm || !bb) { checks.push(`${b.label}: method missing`); continue; }
+      let applied; try { applied = apply(bb, edits, (ref) => tokenFor(ba, ref), maxAdd); } catch (err) { checks.push(`${b.label}: ${(err as Error).message}`); continue; }
+      if (applied.missing.length) { checks.push(`${b.label}: no token for ${applied.missing.join(' ; ')}`); continue; }
+      const tokens: Record<string, string> = {};
+      for (const ed of edits) for (const line of ed.il) { const al = assembleLine(line); const k = memberKind(al.op); if (al.op.kind === 'tok' && k !== 'other') tokens[al.operand] = '0x' + (tokenFor(ba, parseMember(k, al.operand))! >>> 0).toString(16).padStart(8, '0'); }
+      spec.builds[b.label] = { size: bb.code.length, sha256: sha(bb.code), tokens, patchedSha256: sha(applied.code) };
+      okBuilds.push(b.label);
+      if (b === ea) spec.ilHashG6 = g6Hash(join(b.dir, `${asmName}.dll`), m.id);
+      // self-check: the patched shape against the core build's own body of the method
+      const ca = coreAsm(asmName); const cm = ca?.methods.find((x) => x.id === m.id);
+      if (!cm) { checks.push(`${b.label}: core build has no ${m.id}`); continue; }
+      const ours = ilShapeBody(ba, applied.full, 0).split('\n'), core = ilShape(cm).split('\n');
+      let d = -1; for (let i = 0; i < Math.max(ours.length, core.length); i++) if (ours[i] !== core[i]) { d = i; break; }
+      if (d < 0) { checks.push(`${b.label}: equal to the core build`); continue; }
+      // other core patches in the same method move everything: then the weaker check, our inserted run of instructions
+      // (opcodes and tokens; branch targets are instruction indices and differ) must appear in the core body
+      const mask = (l: string) => l.replace(/^(2b|2c|2d|2e|2f|3[0-9a-f]|4[0-4]|dd|de) .*$/, '$1 *');
+      let coreM = core.map(mask);
+      if (dropped.length) { // "ldsfld F; ldc.i4.1; add; stsfld F" (7e, 17, 58, 80) on the same field: the core has it, the spec does not
+        const o: string[] = []; for (let i = 0; i < coreM.length; i++) { if (coreM[i].startsWith('7e ') && coreM[i + 1] === '20 1' && coreM[i + 2].startsWith('58') && coreM[i + 3] === '80 ' + coreM[i].slice(3)) { i += 3; continue; } o.push(coreM[i]); } coreM = o;
+      }
+      const found = edits.every((ed) => { const run = runShape(ba, bb, ed).map(mask); return coreM.some((_, i) => run.every((l, k) => coreM[i + k] === l)); });
+      checks.push(found ? `${b.label}: ${dropped.length ? `the core build has the counter bump the spec drops` : `the core build's method has other patches too`}; our instructions are in it (branch targets not compared)` : `${b.label}: differs from the core build at line ${d} (${ours[d] ?? 'end'} | ${core[d] ?? 'end'}) and our instructions are not in it`);
+    }
+    return { okBuilds, checks };
+  };
   for (const [file, list] of perFile) {
     list.forEach((e) => {
       const row: Row = { file, entry: e.name, asm: e.asm, method: '', status: '', builds: '', selfCheck: '', spec: '' }; rows.push(row);
@@ -406,7 +474,9 @@ function convert(): Row[] {
       if (e.addsMembers) { row.status = 'needs helper: adds members (.method/.field)'; return; }
       if (/^\s*\.(maxstack|locals)\b/m.test(e.find) || /^\s*\.(maxstack|locals)\b/m.test(e.replace)) { row.status = 'whole method: the patch rewrites the header (max stack / locals); a ts3fixes wrap, not a spec'; return; }
       try {
-        const find = parseBlock(e.find), replace = parseBlock(e.replace);
+        const find = parseBlock(e.find), parsed = parseBlock(e.replace);
+        const fields = new Set(list.flatMap((x) => [...x.replace.matchAll(/^\s*\.field\s+[^\n]*?\b(\w+)\s*$/gm)].map((mm) => mm[1])));
+        const { lines: replace, dropped } = dropCounterBumps(parsed, fields);
         const a = asmOf(base, e.asm, ea); if (!a) { row.status = `skip: no ${e.asm}.dll in ${base.label}`; return; }
         const hits = locate(a, find);
         if (hits.length !== 1) { row.status = hits.length ? `multi-method: ${hits.length} bodies match (${hits.slice(0, 3).map((h) => h.m.id).join(' | ')})` : 'no method match'; return; }
@@ -415,38 +485,17 @@ function convert(): Row[] {
         if (!edits.length) { row.status = 'no change (Replace equals Find)'; return; }
         const key = `${e.asm}|${m.id}`; const prior = specs.get(`${file}|${key}`);
         if (prior) { // a second entry on the same method: merge the edits into that spec
-          prior.spec.edits.push(...edits.map(edSpec)); prior.spec.edits.sort((p: any, q: any) => parseInt(p.at, 16) - parseInt(q.at, 16)); prior.spec.source.entries.push(e.name); prior.rows.push(row); row.status = 'converted (merged)'; row.spec = prior.spec.id; return;
+          prior.edits.push(...edits); prior.edits.sort((p, q) => p.at - q.at); prior.spec.edits = prior.edits.map(edSpec); prior.spec.source.entries.push(e.name);
+          prior.dropped.push(...dropped); if (prior.dropped.length) prior.spec.source.droppedCounters = prior.dropped;
+          const chk = checkSpec(prior.spec, prior.edits, prior.dropped, m, e.asm); // the whole spec again, with this entry's edits in it
+          row.builds = chk.okBuilds.join(' '); row.selfCheck = chk.checks.join(' / '); prior.rows.push(row); row.spec = prior.spec.id;
+          row.status = chk.okBuilds.length ? 'converted (merged)' : 'unresolved (merged): no build resolves every token'; return;
         }
-        const spec: any = { id: '', switch: '', counter: null, assembly: e.asm, method: m.id, ilHashG6: '', builds: {}, edits: edits.map(edSpec), source: { file, entries: [e.name] } };
-        const maxAdd = Math.max(0, ...edits.map((x) => x.maxStack));
-        const okBuilds: string[] = []; const checks: string[] = [];
-        for (const b of builds) {
-          const ba = asmOf(b, e.asm, ea); if (!ba) continue;
-          const bm = ba.methods.find((x) => x.id === m.id); const bb = bm ? bodyOf(bm) : null;
-          if (!bm || !bb) { checks.push(`${b.label}: method missing`); continue; }
-          let applied; try { applied = apply(bb, edits, (ref) => tokenFor(ba, ref), maxAdd); } catch (err) { checks.push(`${b.label}: ${(err as Error).message}`); continue; }
-          if (applied.missing.length) { checks.push(`${b.label}: no token for ${applied.missing.join(' ; ')}`); continue; }
-          const tokens: Record<string, string> = {};
-          for (const ed of edits) for (const line of ed.il) { const al = assembleLine(line); const k = memberKind(al.op); if (al.op.kind === 'tok' && k !== 'other') tokens[al.operand] = '0x' + (tokenFor(ba, parseMember(k, al.operand))! >>> 0).toString(16).padStart(8, '0'); }
-          spec.builds[b.label] = { size: bb.code.length, sha256: sha(bb.code), tokens, patchedSha256: sha(applied.code) };
-          okBuilds.push(b.label);
-          if (b === ea) spec.ilHashG6 = g6Hash(join(b.dir, `${e.asm}.dll`), m.id);
-          // self-check: the patched shape against the core build's own body of the method
-          const ca = coreAsm(e.asm); const cm = ca?.methods.find((x) => x.id === m.id);
-          if (!cm) { checks.push(`${b.label}: core build has no ${m.id}`); continue; }
-          const ours = ilShapeBody(ba, applied.full, 0).split('\n'), core = ilShape(cm).split('\n');
-          let d = -1; for (let i = 0; i < Math.max(ours.length, core.length); i++) if (ours[i] !== core[i]) { d = i; break; }
-          if (d < 0) { checks.push(`${b.label}: equal to the core build`); continue; }
-          // other core patches in the same method move everything: then the weaker check, our inserted run of instructions
-          // (opcodes and tokens; branch targets are instruction indices and differ) must appear in the core body
-          const mask = (l: string) => l.replace(/^(2b|2c|2d|2e|2f|3[0-9a-f]|4[0-4]|dd|de) .*$/, '$1 *');
-          const coreM = core.map(mask);
-          const found = edits.every((ed) => { const run = runShape(ba, bb, ed).map(mask); return coreM.some((_, i) => run.every((l, k) => coreM[i + k] === l)); });
-          checks.push(found ? `${b.label}: the core build's method has other patches too; our instructions are in it (branch targets not compared)` : `${b.label}: differs from the core build at line ${d} (${ours[d] ?? 'end'} | ${core[d] ?? 'end'}) and our instructions are not in it`);
-        }
+        const spec: any = { id: '', switch: '', counter: null, assembly: e.asm, method: m.id, ilHashG6: '', builds: {}, edits: edits.map(edSpec), source: { file, entries: [e.name], ...(dropped.length ? { droppedCounters: dropped } : {}) } };
+        const chk = checkSpec(spec, edits, dropped, m, e.asm); const okBuilds = chk.okBuilds, checks = chk.checks;
         row.builds = okBuilds.join(' '); row.selfCheck = checks.join(' / ');
         if (!okBuilds.length) { row.status = 'unresolved: no build resolves every token'; return; }
-        row.status = 'converted'; specs.set(`${file}|${key}`, { spec, rows: [row] });
+        row.status = dropped.length ? `converted (counter ${dropped.join(', ')} dropped)` : 'converted'; specs.set(`${file}|${key}`, { spec, rows: [row], edits, dropped });
       } catch (err) { row.status = `error: ${(err as Error).message}`; }
     });
     // ids: the file's name (b89-fixup-no-inventory), numbered only when the file yields several specs
@@ -462,7 +511,8 @@ function convert(): Row[] {
 // The shape lines of one edit's instructions alone: the edit applied to an empty body with the same locals and tokens.
 function runShape(a: Asm, like: Body, ed: Edit): string[] {
   const empty: Body = { code: Buffer.alloc(0), maxStack: like.maxStack, localsTok: like.localsTok, initLocals: like.initLocals, clauses: [], ins: [] };
-  const il = ed.il.map((l) => l.replace(/@0x[0-9A-Fa-f]+/g, '@0x0'));
+  const here = new Set(ed.il.map((l) => /^(\w+): /.exec(l)?.[1]).filter((x): x is string => !!x));
+  const il = ed.il.map((l) => l.replace(/@0x[0-9A-Fa-f]+/g, '@0x0').replace(/^((?:\w+: )?(?:br|brtrue|brfalse|beq|bne\.un|bge|bgt|ble|blt|bge\.un|bgt\.un|ble\.un|blt\.un|leave)) (?!@)(\S+)$/, (m, a, b) => (here.has(b) ? m : `${a} @0x0`)));
   const r = apply(empty, [{ ...ed, at: 0, mode: 'insert', entry: 'fallthrough', expect: [], il, drop: 0 }], (ref) => tokenFor(a, ref), 0);
   return ilShapeBody(a, r.full, 0).split('\n').slice(like.localsTok ? 1 : 0);
 }
@@ -490,6 +540,14 @@ function selfCheck(): void {
   const ed = align(find, rep, body);
   if (ed.length !== 1 || ed[0].at !== 3 || ed[0].mode !== 'insert' || ed[0].entry !== 'fallthrough' || ed[0].il.join(';') !== 'ldarg.0;brfalse @0x5' || ed[0].maxStack !== 1) throw new Error(`self-check: align ${JSON.stringify(ed)}`);
   // a replaced EA instruction
+  const lb = parseBlock('IL_0001:  brfalse.s  IL_0005\nbrtrue.s   L_A\nnop\nL_A:\nldsfld     int32 Ns.T::sCount\nldc.i4.1\nadd\nstsfld     int32 Ns.T::sCount\nL_B: nop\nIL_0003:  ldc.i4.1\nIL_0004:  ret');
+  if (lb[1].operand !== 'L_A' || lb[3].name !== 'L_A' || lb[7].name !== 'L_B' || lb.length !== 10) throw new Error('self-check: label lines');
+  const dc = dropCounterBumps(lb, new Set(['sCount']));
+  if (dc.dropped.join() !== 'sCount' || dc.lines.length !== 6 || dc.lines[3].name !== 'L_B' || dc.lines[1].operand !== 'L_B') throw new Error(`self-check: counter bump: ${dc.lines.map(ourText).join(' | ')}`);
+  const edL = align(find, dc.lines, body); if (edL.length !== 1 || edL[0].il.join(' | ') !== 'brtrue @0x5 | nop | L_B: nop' && edL[0].il.join(' | ') !== 'brtrue L_B | nop | L_B: nop') throw new Error(`self-check: label text: ${edL[0].il.join(' | ')}`);
+  const rL = decode(apply(body, edL, () => null, 0).code); if (rL.map((x) => x.op.name).join(' ') !== 'ldarg.0 brfalse brtrue nop nop ldc.i4.1 ret ldc.i4.0 ret' || rL[2].v !== rL[4].at) throw new Error(`self-check: label apply: ${rL.map((x) => x.op.name + (isBr(x.op) ? '>' + x.v : '')).join(' ')}`);
+  const tb = parseBlock('IL_0001:  brfalse.s  IL_0005\nIL_0003:  ldc.i4.1\nIL_0004:  ret\nbrtrue.s L_END\nnop\nL_END:'); if (tb.tail !== 'L_END') throw new Error('self-check: tail label');
+  const edT = align(find, tb, body); if (edT.length !== 1 || edT[0].at !== 5 || edT[0].il[0] !== 'brtrue @0x5') throw new Error(`self-check: tail label target: ${JSON.stringify(edT)}`);
   const ed2 = align(find, parseBlock('IL_0001:  brfalse.s  IL_0005\nldc.i4.2\nIL_0004:  ret'), body);
   if (ed2.length !== 1 || ed2[0].mode !== 'replace' || ed2[0].at !== 3 || ed2[0].expect.join() !== 'ldc.i4.1' || ed2[0].il.join() !== 'ldc.i4.2') throw new Error(`self-check: replace ${JSON.stringify(ed2)}`);
   const r3 = decode(apply(body, ed2, () => null, 0).code); if (r3.map((x) => x.op.name).join(' ') !== 'ldarg.0 brfalse ldc.i4.2 ret ldc.i4.0 ret') throw new Error('self-check: replace apply');
@@ -509,7 +567,7 @@ function selfCheck(): void {
 // the native relocator (ilpatch.cpp). Our data only: no EA bytes. A spec whose lines need an operand kind the native
 // table does not carry (i64, r4, r8, switch) is refused.
 const NATIVE_KIND: Record<Kind, number> = { none: 0, i8: 1, u8: 2, u16: 3, i32: 4, i64: 5, f32: 6, f64: 7, br8: 8, br32: 9, tok: 10, switch: 11 };
-const NK_BR_ORIG = 12, NK_BR_OURS = 13;  // our branches: to an original offset (v = the offset) or to one of our lines (v = its index in the edit)
+const NK_BR_ORIG = 12, NK_BR_OURS = 13;  // our branches: to an original offset (v = the offset) or to one of our lines (v = edit index << 16 | line index)
 function emitNative(out: string): void {
   const files = readdirSync(SPECS).filter((f) => f.endsWith('.json')).sort();
   const hex = (s: string) => s.match(/../g)!.map((b) => '0x' + b).join(', ');
@@ -529,9 +587,10 @@ function emitNative(out: string): void {
     const tokKeys: string[] = [];
     const tokIdx = (k: string) => { let i = tokKeys.indexOf(k); if (i < 0) { i = tokKeys.length; tokKeys.push(k); } return i; };
     const edits: { at: number; mode: number; entry: number; expect: number[]; maxStack: number; drop: number; ins: { op: number; kind: number; v: number }[] }[] = [];
+    const labels = new Map<string, number>(); // our label -> (edit index << 16) | line index: a branch may cross edits
+    (s.edits as any[]).forEach((e, ei) => (e.il as string[]).forEach((line, i) => { const al = assembleLine(line); if (al.label) labels.set(al.label, (ei << 16) | i); }));
     for (const e of s.edits) {
       const lines = (e.il as string[]).map(assembleLine);
-      const labels = new Map<string, number>(); lines.forEach((l, i) => { if (l.label) labels.set(l.label, i); });
       const ins = lines.map((l) => {
         const k = l.op.kind;
         if (k === 'none') return { op: l.op.code, kind: 0, v: 0 };
@@ -547,7 +606,7 @@ function emitNative(out: string): void {
     const p = `ilp${si}`;
     edits.forEach((e, ei) => {
       L.push(`static const WORD ${p}_expect${ei}[] = {${e.expect.length ? e.expect.map((c) => '0x' + c.toString(16)).join(', ') : '0'}};`);
-      L.push(`static const IlpIns ${p}_ins${ei}[] = {${e.ins.map((x) => `{0x${x.op.toString(16)}, ${x.kind}, 0, 0x${x.v.toString(16)}}`).join(', ')}};`);
+      L.push(`static const IlpIns ${p}_ins${ei}[] = {${e.ins.length ? e.ins.map((x) => `{0x${x.op.toString(16)}, ${x.kind}, 0, 0x${x.v.toString(16)}}`).join(', ') : '{0, 0, 0, 0}'}};`);  // a pure deletion has no lines: one unused placeholder (nIns stays 0)
     });
     L.push(`static const IlpEdit ${p}_edits[] = {${edits.map((e, ei) => `{0x${e.at.toString(16)}, ${e.mode}, ${e.entry}, ${e.expect.length}, ${e.ins.length}, ${e.maxStack}, ${e.drop}, ${p}_expect${ei}, ${p}_ins${ei}}`).join(', ')}};`);
     builds.forEach(([label, b], bi) => {
