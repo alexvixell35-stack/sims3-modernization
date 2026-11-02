@@ -117,7 +117,7 @@ does not carry. Insertions move the clause boundaries after them and an insertio
 | Smoke queue | run 2026-11-02 09:15, PASS (section 5): all three fixes applied on UPDATE242 with the converter's hashes |
 | Repros per fix (B80 phone chat with a target with no everyday outfit, B87 opportunity from a non-yielding context) | not written; B89 is covered by the load |
 | Batch 2 (section 7): b15, b72, b76, b81 | specs written and self-checked offline, native table 7 specs, selftest ok; the smoke queue arms all seven; live run pending |
-| Batch 3 (section 7): b17 (3 methods), b64, b68 (3), b69, b70, b73, b75 (2), b77, b90 after the converter's label fix (docs/521 §6) | 14 more specs, native table 21 specs, selftest ok; the smoke queue arms all 21; live run pending |
+| Batch 3 (section 7): b17 (3 methods), b64, b68 (3), b69, b70, b73, b75 (2), b77, b90 after the converter's label fix (docs/521 §6) | 14 more specs, native table 21 specs, selftest ok; the smoke queue arms all 21; smokes 22 to 24 found two patcher defects (section 8), smoke 25 pending |
 
 Open: I-506-2 (reflection's IL bytes for G-M6 come from the metadata stream, not the header: the swap is invisible to
 hashing) stays [inferred]: the smoke logged no mismatch line, but its job ran without MonoPatcher's log being read, and the
@@ -170,3 +170,33 @@ and b77 are compared with the core's counter bump taken out. 21 specs in the tab
 The remaining builds of the 45, by what blocks them: helpers that are more than a counter (b14, b52, b78, b94's field), a
 header rewrite (b13, b94), a listing of an intermediate core build (b14, b52), compiler-generated twins (b23, b94), and
 the fixes that are already ts3fixes hooks (b16, b18, b19, b20, b21, b32, b33, b37: PRs #176-#184).
+
+## 8. Batch 3 live: smokes 22 to 25 (2026-11-02) [measured: `probe-out/queue/ilpatch-smoke10-local-*`]
+
+Three runs on the pure UPDATE242 core with all 21 specs armed found two defects of the patcher, neither visible offline:
+
+1. **Nested classes (smokes 22, 23, asi 3384648): 12 of 21 applied.** The nine missing were the nested ones
+   (`Door+PrankDoorbellDitch`, `HorseshoeCourt+WaitToThrow`, ...). `IlpClassIs` walked the enclosing classes through
+   `nested_in` at `+0x2C` of MonoClass, the offset of the public Mono 2.x layout. A monohost probe of this Mono's MonoClass
+   (temporary code in `GuardSweepTest`, removed) showed `nested_in` at `+0x28` (`+0x2C` is another pointer; the name at
+   `+0x34`, the namespace at `+0x38`). Fixed in 3d05b33 (`ilpatch.cpp`, the fake class of `ilpatch-test.h`). Smoke 24 with
+   it: 20 of 21 applied.
+2. **A block's own branch to its "at" (smoke 24, asi 3d05b33): a hang at 8.3 min.** The agent's heartbeat froze, the harness
+   killed the game; the hang capture's sim thread is in `Pool.ReactToSkinnyDippers` (b69) under `Lot.Simulate`. The core
+   patch ends its block with `brtrue.s IL_007d`: continue with EA's instruction at `0x7D`, which is also the block's `at`.
+   The offset map (the converter's `map()` and the patcher's `Map::of`) sent a branch to an insert's `at` to the block's
+   first line when the branch came from that same edit, so the block looped on itself whenever `CreatedSim` was not null,
+   the common case. b17-1 (`bge @0x8`) and b90 (`brfalse @0x4BB`) had the same shape; smokes 22 and 23 had ended in the same
+   silent hang, read then as an agent stop. Fixed in b22f82b: that clause is gone from both maps, a fallthrough insert's
+   `@at` means the original instruction after the block (an incoming insert's or a replace's `at` still means our first
+   line); converter self-check and selftest case D cover it, the three specs and the native table regenerated. docs/521 §6
+   point 4.
+
+Touch semantics, seen in these runs: `method_touch` queues the call and answers at once; the outcome line
+(`touched <path>: <method>: returned | <exception>`) appears only in a later `async_log` reply, so a touch whose outcome never
+shows is unknown, not failed. b73 `EggHuntController::IsValidEggPosition` was touched in all three runs (`queued 1`) and
+never logged an outcome or an `applied` line: still open. b75-2's `ProcessLifeEvent` has a 194-byte overload that is logged
+as "not a build this fix knows, left alone": `IlpMatch` matches by name and has no signature check, the other overload
+applies, the line is the designed answer.
+
+Smoke 25 (asi b22f82b, queue `ilpatch-smoke11-local.json`): pending.

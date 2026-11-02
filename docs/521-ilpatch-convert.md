@@ -119,6 +119,13 @@ Three defects of the first pass, found while converting #166's b77 (the toddler 
    application, the self-check or its tokens (the b64 spec had no token for `List<Sim>.get_Count()` and the native table
    could not be emitted). The whole spec is checked again at each merge; 6 merged entries turned out unresolved.
 
+4. **A block's own branch to its `at`** (found live, docs/526 §8). The core patches end a fallthrough block with a
+   branch to the EA line the block sits before (`brtrue.s IL_007d` in b69, `brfalse.s IL_04bb` in b90, a tail label in
+   b17-1): continue with the original instruction. `map()` sent a branch to an insert's `at` to the block's first line
+   when it came from that same edit, an endless loop once taken (the smoke 24 hang). Now an insert's `@at` from anywhere
+   means the original instruction after the block; only an incoming insert's or a replace's `at` means our first line.
+   `--self-check` covers it; the native patcher had the same clause and the same fix.
+
 Census after the pass (`docs/data/ilpatch-convert.csv`, 859 entries): converted 390 (357 + 31 merged + 2 with a counter
 dropped; was 325), equal to the core build in both builds 153 (was 120), unresolved 90 (was 155), error 14, the other
 groups unchanged. Five converted entries differ from the core build without our instructions found in it (`99_o7_magicgnome`
