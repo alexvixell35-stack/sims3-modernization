@@ -19,6 +19,9 @@ rem Usage: build.cmd [<assembly folder>], default ..\..\game-copy\assemblies (ma
 set "ASM=%~1"
 if not defined ASM set "ASM=%~dp0..\..\game-copy\assemblies"
 if not exist "%ASM%\SimIFace.dll" (echo no %ASM%\SimIFace.dll: MonoHostTest.dll not built & exit /b 0)
-if not exist "%ASM%\Sims3GameplaySystems.dll" (echo no %ASM%\Sims3GameplaySystems.dll: MonoHostTest.dll not built & exit /b 0)
-"%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe" -nologo -nostdlib -noconfig -target:library -optimize -out:out\MonoHostTest.dll "-r:%ASM%\mscorlib.dll" "-r:%ASM%\SimIFace.dll" "-r:%ASM%\ScriptCore.dll" "-r:%ASM%\Sims3GameplaySystems.dll" "-r:%ASM%\UI.dll" HostTest.cs JitCorpus.cs JitAccessors.cs ..\..\mods\ts3fixes\src\AutShadowCore.cs ..\..\mods\ts3fixes\src\AutShadowLists.cs || exit /b 1
-echo built out\MonoHostTest.dll
+rem Without the gameplay copies the older corpus (HostTest.cs, JitCorpus.cs) is still built; only JitAccessors.cs is left out.
+set "ACC=JitAccessors.cs"
+set ACCREF="-r:%ASM%\ScriptCore.dll" "-r:%ASM%\Sims3GameplaySystems.dll" "-r:%ASM%\UI.dll"
+if not exist "%ASM%\Sims3GameplaySystems.dll" (echo no %ASM%\Sims3GameplaySystems.dll: JitAccessors.cs left out of MonoHostTest.dll & set "ACC=" & set "ACCREF=")
+"%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe" -nologo -nostdlib -noconfig -target:library -optimize -out:out\MonoHostTest.dll "-r:%ASM%\mscorlib.dll" "-r:%ASM%\SimIFace.dll" %ACCREF% HostTest.cs JitCorpus.cs %ACC% ..\..\mods\ts3fixes\src\AutShadowCore.cs ..\..\mods\ts3fixes\src\AutShadowLists.cs || exit /b 1
+if defined ACC (echo built out\MonoHostTest.dll) else (echo built out\MonoHostTest.dll without JitAccessors.cs)
