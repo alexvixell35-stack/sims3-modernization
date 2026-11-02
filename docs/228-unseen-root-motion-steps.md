@@ -673,3 +673,10 @@ mode 2 unchanged.
 `rm2SacsHold == 3` (read-back) and `rm2SacsCls_0 > 0` (the classifier ran); `bp-urm2-smoke` is 6 min with `rm2Coarse > 0`,
 `rm2Elig > 0` and `rm2QuatBad <= 0` from 300 s. Repro `unseen-rm-snapback`: `unseen_snapback` count 4 -> 5 (the agent wants 5..12;
 11-02 failed that step, so map view and portrait clicks never reached the camera ICs). Results: `probe-out/queue/mode2-round2-1103.md`.
+
+**Result 2026-11-03 [measured]: smoke FAIL, Mode 2 parked.** `bp-urm2-smoke` on unseenrm8: `rm2Elig` 0 by 5 min (rm2Coarse 0,
+rm2QuatBad 0, rm2Faults 0). The SACS hold fell to 46% of tested decisions (6,542 of 14,305; was ~70-75%), but 7,197 of the 7,763
+decisions that passed it were held by `RM2_NOROUTE` (agent not walking or no path): unseen Sims playing root-motion clips are
+not route-walking [inferred from the counts], so Mode 2 has no eligible population. Bound actors (`rm2SacsCls_*`): self 56,353,
+other Sim 4,227, prop 1,159, parented > 2 m 7,570, object <= 2 m 612, object > 2 m 8,124, not found 898, fault 0. Details:
+`probe-out/queue/mode2-round2-1103.md`. Drift, snapback, stuck and A/B jobs not run (fail fast).
