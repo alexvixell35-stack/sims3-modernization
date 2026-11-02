@@ -41,6 +41,8 @@ empty, both fields null; the job requires `deadrefsweep_dartboards >= 3`.
 
 Offline self-test: `tools/selftest/deadrefs` (the holder helpers) is unchanged; the phase adds no pure code.
 
+Result (2026-11-02 00:30, `bp-dart-gone-check`, PASS in 13.1 min, al12): off arm, the seeded state was met 2 s after the seed (gone 3, players 1, teams 1, current and cheating set) and `expect left` found it unchanged; on arm, the pass ran at once and the state poll 2 s after the seed already read gone 0, players 0, teams 0, both fields null; `expect cleaned` passed and `deadrefsweep_dartboards` reached 3. Both townies were put back where they stood (Lenny Shutter, Diana Jones).
+
 ## 4. What is left
 
 `Dartboard.Darts` and the thrown dart objects are not touched. The other gone-Sim holders of #166 (object use lists and
