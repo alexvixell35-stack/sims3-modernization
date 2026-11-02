@@ -1378,7 +1378,7 @@ static int AsG2() {
     mt::g_asMode = 1;  // R: reference on this thread, then the worker
     mt::MtTick();      // first Simulate entry: the AutShadowNative ICs register
     const int ver = I32(TA("Setup", 0, NULL));
-    if (!Check("AS-install", guards && k.descIcs == nIc && k.icRegistered == 31 && ver == 10 && p.workerState == 2,
+    if (!Check("AS-install", guards && k.descIcs == nIc && k.icRegistered == 34 && ver == 11 && p.workerState == 2,
                "guards %d (%ld descriptor ICs), AutShadowNative ICs %ld, Setup -> Version %d, worker state %ld", guards, k.descIcs,
                k.icRegistered, ver, p.workerState))
         return 160;

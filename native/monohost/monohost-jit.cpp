@@ -129,6 +129,22 @@ enum JitKind : u8 {
 struct JitOpInfo { u8 kind, width; int x; };
 static JitOpInfo g_opInfo[0x1C1];
 static void* g_opHandler[0x1C1];  // EA handlers, read from the jump table before JIT_OP is installed
+
+// ---- [AutShadow] Satb (docs/206 §7, docs/507 B3): compiled code and the barrier ----
+// The sim's reference stores must be logged while a span is on; Satb gets the interpreter's by swapping the store handlers
+// in the jump table, which compiled stores never reach. So: (1) stfld / stind templates call JitSatbStore before the
+// store (SatbSimRange: frame-arena targets are private and skipped, a full log or a big store waits as the stubs do);
+// (2) every exit to a handler goes through the live jump table, not the entries read at install, so a store opcode the
+// compiler does not cover meets Satb's stub; (3) JitEnter sends the worker thread back to the live handler of the
+// original opcode, so the worker's loads keep their redirect (act) and it never runs compiled code during a span.
+static volatile LONG g_jitSatbStores, g_jitSatbBails;
+static volatile LONG* const g_jitSatbOnP = &mt::g_satbOn;
+static volatile DWORD* const g_jitSatbWTidP = &mt::g_satbWTid;
+static void __cdecl JitSatbStore(DWORD addr, DWORD n) {
+    if (!mt::SatbSimSide()) return;
+    g_jitSatbStores++;
+    mt::SatbSimRange(addr, n);
+}
 static const struct { const char* name; u8 kind, width; int x; } kJitTmpl[] = {
     {"ret", K_RET, 0, 0}, {"ret.void", K_RET, 0, 0}, {"ret.vt", K_RET, 0, 0},
     {"ldarg.i1", K_LDARG, 1, 0}, {"ldarg.u1", K_LDARG, 2, 0}, {"ldarg.i2", K_LDARG, 3, 0}, {"ldarg.u2", K_LDARG, 4, 0},
@@ -204,6 +220,17 @@ struct Em {
     u8* jmp() { b(0xE9); d(0); return p - 4; }
     void jmpTo(const void* t) { b(0xE9); d((DWORD)(uintptr_t)t - ((DWORD)(uintptr_t)p + 4)); }
     void incAbs(volatile LONG* c) { b(0xFF); b(0x05); d((DWORD)(uintptr_t)c); }
+    // Satb barrier before a heap store of width w at [base+disp] (docs/507 B3): outside a span one cmp and a taken jump;
+    // inside, JitSatbStore(address, bytes). base survives (push/pop); eax, ecx, edx are scratch at every emitting site.
+    void satb(int w, int base, int disp) {
+        b(0x83); b(0x3D); d((DWORD)(uintptr_t)g_jitSatbOnP); b(0);  // cmp dword ptr [g_satbOn], 0
+        b(0x74); u8* skip = p; b(0);                                 // je skip
+        b(0x50 + base); op(0x8D, EDX, base, disp);                   // push base; lea edx, [base+disp]
+        b(0x6A); b(w <= 2 ? 1 : w <= 4 ? 2 : w == 5 ? 4 : 8); b(0x52);  // push bytes; push edx
+        b(0xE8); d((DWORD)(uintptr_t)JitSatbStore - ((DWORD)(uintptr_t)p + 4));  // call JitSatbStore
+        b(0x83); b(0xC4); b(8); b(0x58 + base);                      // add esp, 8; pop base
+        *skip = (u8)(p - (skip + 1));
+    }
 };
 static void Fix(u8* rel, const u8* target) { *(int*)rel = (int)(target - (rel + 4)); }
 
@@ -299,7 +326,7 @@ static void EmitExit(Em& e, const unsigned short* ip, DWORD op, bool ret) {
     e.op(0x89, EDI, EBP, -4);                // mov [ebp-4], edi
     e.movRI(EAX, op);
     e.rr(0x8B, EAX, EDX);                    // mov edx, eax (rr: r/m operand first, reg operand second)
-    e.jmpTo(g_opHandler[op]);
+    e.b(0xFF); e.b(0x25); e.d(MINT_TABLE + op * 4);  // jmp dword ptr [table + op*4]: the live entry (Satb's stub in a span)
 }
 
 // ---- inlining of tiny leaf instance methods at compiled call / callvirt sites (docs/207 §8, MONOHOST_JITINLINE=1) ----
@@ -653,6 +680,7 @@ static void JitCompiled(u8* rm) {
                 e.load(w == 6 ? 5 : w, EAX, EAX, u16); e.op(0x89, EAX, ESI, -8); break;
             case K_STFLD:
                 e.op(0x8B, EAX, ESI, -16); e.rr(0x85, EAX, EAX); exitRel[0] = e.jcc(0x84);
+                e.satb(w, EAX, u16);
                 e.op(0x8B, ECX, ESI, -8); e.store(w, ECX, EAX, u16);
                 if (w == 6) { e.op(0x8B, EDX, ESI, -4); e.op(0x89, EDX, EAX, u16 + 4); }
                 e.addEsi(-16); break;
@@ -691,6 +719,7 @@ static void JitCompiled(u8* rm) {
                 e.load(w == 6 ? 5 : w, EAX, EAX, 0); e.op(0x89, EAX, ESI, -8); break;
             case K_STIND:
                 e.op(0x8B, ECX, ESI, -16); e.rr(0x85, ECX, ECX); exitRel[0] = e.jcc(0x84);
+                e.satb(w, ECX, 0);
                 e.op(0x8B, EDX, ESI, -8); e.store(w, EDX, ECX, 0);
                 if (w == 6) { e.op(0x8B, EDX, ESI, -4); e.op(0x89, EDX, ECX, 4); }
                 e.addEsi(-16); break;
@@ -802,6 +831,19 @@ static __declspec(naked) void JitEnter() {
     found:
         cmp g_jitVerifyOn, 0
         jne slow
+        mov ecx, g_jitSatbOnP      // Satb span on and this is its worker: the live handler (redirect stub) of the original opcode
+        cmp dword ptr [ecx], 0
+        je fast
+        mov ecx, dword ptr fs:[24h]
+        mov edx, g_jitSatbWTidP
+        cmp ecx, [edx]
+        jne fast
+        inc g_jitSatbBails
+        mov edx, [eax + 8]         // JitEnt.orig
+        mov eax, edx
+        mov [ebp - 4], edi
+        jmp dword ptr [edx * 4 + 0E59880h]  // MINT_TABLE
+    fast:
         mov ebx, [ebp - 8]
         mov ebx, [ebx + 0x10]      // arena base (arguments)
         mov edi, [ebp - 0x14]      // locals base
@@ -1009,7 +1051,7 @@ static u8* JitNative(JitRegs* r, const JitEnt* e) {
 static void* JitOrig(JitRegs* r, DWORD ip, DWORD op) {
     r->edi = ip, r->eax = r->edx = op;
     *(DWORD*)(uintptr_t)(r->ebp - 4) = ip;
-    return g_opHandler[op];
+    return (void*)(uintptr_t)((const DWORD*)(uintptr_t)MINT_TABLE)[op];  // the live entry, as EmitExit
 }
 static JitMeth* JitMethOf(const u8* rm) {
     for (int i = 0; i < g_jitMethN; i++) if (g_jitMeth[i].rm == rm) return &g_jitMeth[i];
@@ -1061,7 +1103,7 @@ static __declspec(naked) void JitLazyMat() {  // edi = exit ip, eax = opcode; [e
         add esp, 40             // return address + block (B_SIZE); the caller resumes through EA's return (JitEnter)
         mov [ebp - 4], edi
         mov edx, eax
-        jmp dword ptr g_opHandler[eax * 4]
+        jmp dword ptr [eax * 4 + 0E59880h]  // MINT_TABLE: the live entry, as EmitExit
     }
 }
 static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
@@ -1256,6 +1298,7 @@ static void JitStats() {
     Log("jit: %d methods compiled (%d instantiations incl. generics), %d native ops, %d exits, code %d bytes (%.1f KB, pool use %.1f KB), "
         "table %d entries (%u KB), shadow %d words\n", g_jitMethN, g_jitMethN, nat, ex, bytes, bytes / 1024.0, g_jitCodeUsed / 1024.0,
         g_jitEntN, (unsigned)(sizeof(JitEnt) * (JIT_TAB_N + 4096) / 1024), g_jitPosN);
+    Log("jit: satb barrier: %ld compiled heap stores logged in spans, %ld worker entries sent back to the interpreter\n", g_jitSatbStores, g_jitSatbBails);
     if (g_jitInline) Log("jit: inlined call sites %ld, sites refused by the inliner %ld\n", g_jitInlined, g_jitInlineNo);
     if (g_jitLazy)
         Log("jit lazy: %d lazy bodies, %d lazy call sites, %d callees seen; lazy calls %ld (count mode), frames written at an exit %ld\n",
