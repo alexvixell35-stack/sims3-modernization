@@ -96,8 +96,42 @@ static bool g_jitLazy, g_jitLazyPass;  // MONOHOST_JITLAZY (docs/207 §12); the 
 static void JitCompiled(u8* rm);  // compiler (below)
 static void JitPreTransform(u8* rm, void* ctx);  // inliner (below)
 static u8* g_xformTramp;
+// ---- round 10 C2 (docs/207 §13): static fields, stobj, the array and string stores ----
+static void* g_jitDomain;       // the transform context's domain (EA's stsfld reads [ebp+0xC]->domain the same way); NULL until the first transform
+static void* g_jitObjectClass;  // mono_defaults.object_class: an object[] takes any reference without the class check
+// width code of a MonoType (type byte at +6) as EA's stackval_to_data / stackval_from_data move it; 0 = not compiled (value
+// types, generic instances, anything else: the opcode compiles as an exit)
+static int JitTypeWidth(const u8* type) {
+    switch (type[6]) {
+    case 0x04: return 1;                        // I1
+    case 0x02: case 0x05: return 2;             // BOOLEAN, U1
+    case 0x06: return 3;                        // I2
+    case 0x03: case 0x07: return 4;             // CHAR, U2
+    case 0x08: case 0x09: case 0x0E: case 0x0F: case 0x12: case 0x14: case 0x18: case 0x19: case 0x1B: case 0x1C: case 0x1D:
+        return 5;                               // I4, U4, STRING, PTR, CLASS, ARRAY, I, U, FNPTR, OBJECT, SZARRAY
+    case 0x0A: case 0x0B: case 0x0D: return 6;  // I8, U8, R8
+    case 0x0C: return 7;                        // R4 (x87 widen on a load, round on a store, as EA's handlers do)
+    default: return 0;
+    }
+}
+// Thread / context statics live in the domain's special-static table (domain+0x88, g_hash_table_lookup 0xE45F00) and EA's
+// stsfld / ldsfld / ldsflda take the per-thread address for them; such a field compiles as an exit.
+static bool JitSpecialStatic(const u8* field) {
+    if (!g_jitDomain) return true;
+    void* hash = *(void**)((u8*)g_jitDomain + 0x88);
+    return hash && ((void*(__cdecl*)(void*, const void*))(uintptr_t)0xE45F00)(hash, field) != NULL;
+}
+// mono_class_vtable(domain, field->parent) as EA's stsfld and ldsflda call it every execution (0xEA2AD0); one vtable per
+// domain and class, so the compiled code carries it as a constant. field+0x14 = parent, field+8 = offset [verified: the
+// handlers at 0xE56F52 / 0xE56D20 / 0xE56E1E].
+static void* JitStaticVt(const u8* field) {
+    if (!g_jitDomain) return NULL;
+    return ((void*(__cdecl*)(void*, const void*))(uintptr_t)0xEA2AD0)(g_jitDomain, *(const void* const*)(field + 0x14));
+}
+
 static void* __cdecl JitTransformHook(u8* rm, void* ctx) {
     void* exc = ((void*(__cdecl*)(u8*, void*))(void*)g_xformTramp)(rm, ctx);
+    if (ctx && !g_jitDomain) { g_jitDomain = *(void**)ctx; Log("jit: domain %p (the transform context's)\n", g_jitDomain); }
     if (exc || !rm || !*(void**)rm) return exc;
     char name[256];
     JitMethodName(rm, name, sizeof(name));
@@ -124,9 +158,11 @@ static bool InstallJitHook() {
 enum JitKind : u8 {
     K_EXIT, K_RET, K_LDARG, K_LDTHIS, K_LDARGA, K_LDLOC, K_LDLOCA, K_STLOC, K_STLOCNP, K_STINARG, K_LDFLD, K_STFLD, K_LDC,
     K_LDCS, K_LDCI4, K_DUP, K_POP, K_BRS, K_BR, K_BTS, K_BT, K_BFS, K_BF, K_BCS, K_BC, K_LDLEN, K_LDELEM, K_LDIND, K_STIND,
-    K_BIN, K_BIN8, K_MUL, K_INC, K_DEC, K_SHIFT, K_UN, K_CMP, K_CEQ0, K_CONV
+    K_BIN, K_BIN8, K_MUL, K_INC, K_DEC, K_SHIFT, K_UN, K_CMP, K_CEQ0, K_CONV,
+    K_LDSFLD, K_LDSFLDA, K_STSFLD, K_STELEM, K_STELEMREF, K_STOBJ, K_LDFLDA, K_CKNULL, K_STRLEN, K_GETCHR  // round 10 C2
 };
-// width: 1 = i1, 2 = u1, 3 = i2, 4 = u2, 5 = 32-bit, 6 = 64-bit; x = kind-specific byte (cc, alu op, imm)
+// width: 1 = i1, 2 = u1, 3 = i2, 4 = u2, 5 = 32-bit, 6 = 64-bit, 7 = r4 (x87), 8 = typed by the field or class at compile
+// time (JitTypeWidth); x = kind-specific byte (cc, alu op, imm)
 struct JitOpInfo { u8 kind, width; int x; };
 static JitOpInfo g_opInfo[0x1C1];
 static void* g_opHandler[0x1C1];  // EA handlers, read from the jump table before JIT_OP is installed
@@ -184,6 +220,13 @@ static const struct { const char* name; u8 kind, width; int x; } kJitTmpl[] = {
     {"ldind.i8", K_LDIND, 6, 0},
     {"stind.i1", K_STIND, 1, 0}, {"stind.i2", K_STIND, 3, 0}, {"stind.i4", K_STIND, 5, 0}, {"stind.i", K_STIND, 5, 0},
     {"stind.ref", K_STIND, 5, 0}, {"stind.i8", K_STIND, 6, 0},
+    // round 10 C2 (docs/207 §13): float fields, field addresses, static fields, stobj, the array and string stores
+    {"ldfld.r4", K_LDFLD, 7, 0}, {"ldfld.r8", K_LDFLD, 6, 0}, {"stfld.r4", K_STFLD, 7, 0}, {"stfld.r8", K_STFLD, 6, 0}, {"ldflda", K_LDFLDA, 0, 0},
+    {"ldsfld", K_LDSFLD, 8, 0}, {"ldsfld.i4", K_LDSFLD, 5, 0}, {"ldsfld.o", K_LDSFLD, 5, 0}, {"ldsflda", K_LDSFLDA, 0, 0}, {"stsfld", K_STSFLD, 8, 0},
+    {"ldelem.r4", K_LDELEM, 7, 0}, {"ldelem.r8", K_LDELEM, 6, 0},
+    {"stelem.i", K_STELEM, 5, 0}, {"stelem.i1", K_STELEM, 1, 0}, {"stelem.i2", K_STELEM, 3, 0}, {"stelem.i4", K_STELEM, 5, 0},
+    {"stelem.i8", K_STELEM, 6, 0}, {"stelem.r4", K_STELEM, 7, 0}, {"stelem.r8", K_STELEM, 6, 0}, {"stelem.ref", K_STELEMREF, 5, 0},
+    {"stobj", K_STOBJ, 8, 0}, {"cknull", K_CKNULL, 0, 0}, {"strlen", K_STRLEN, 0, 0}, {"getchr", K_GETCHR, 0, 0},
     // ALU r/m32, r32 opcodes: add 01, or 09, and 21, sub 29, xor 31 (i8: low op, high op adc 11 / sbb 19)
     {"add.i4", K_BIN, 0, 0x01}, {"sub.i4", K_BIN, 0, 0x29}, {"and.i4", K_BIN, 0, 0x21}, {"or.i4", K_BIN, 0, 0x09}, {"xor.i4", K_BIN, 0, 0x31},
     {"add.i8", K_BIN8, 0, 0x1101}, {"sub.i8", K_BIN8, 0, 0x1929}, {"and.i8", K_BIN8, 0, 0x2121}, {"or.i8", K_BIN8, 0, 0x0909},
@@ -217,6 +260,13 @@ struct Em {
     void store(int w, int r, int base, int disp) {  // store the low 8/16/32 bits of r (r = eax/ecx/edx/ebx for 8-bit)
         if (w <= 2) op(0x88, r, base, disp); else if (w <= 4) { b(0x66); op(0x89, r, base, disp); } else op(0x89, r, base, disp);
     }
+    // x87 for the r4 forms: EA widens a float with fld dword / fstp qword and rounds a double to a float with fld qword / fstp dword
+    void fld4(int base, int disp) { op(0xD9, 0, base, disp); }
+    void fld8(int base, int disp) { op(0xDD, 0, base, disp); }
+    void fstp4(int base, int disp) { op(0xD9, 3, base, disp); }
+    void fstp8(int base, int disp) { op(0xDD, 3, base, disp); }
+    // [vt+0x18] bit 1: the class is initialised; clear = EA's handler runs the class constructor (the exit re-runs the instruction)
+    u8* classInitExit(DWORD vt) { b(0xF6); b(0x05); d(vt + 0x18); b(2); return jcc(0x84); }
     u8* jcc(int cc) { b(0x0F); b(cc); d(0); return p - 4; }
     u8* jmp() { b(0xE9); d(0); return p - 4; }
     void jmpTo(const void* t) { b(0xE9); d((DWORD)(uintptr_t)t - ((DWORD)(uintptr_t)p + 4)); }
@@ -227,7 +277,7 @@ struct Em {
         b(0x83); b(0x3D); d((DWORD)(uintptr_t)g_jitSatbOnP); b(0);  // cmp dword ptr [g_satbOn], 0
         b(0x74); u8* skip = p; b(0);                                 // je skip
         b(0x50 + base); op(0x8D, EDX, base, disp);                   // push base; lea edx, [base+disp]
-        b(0x6A); b(w <= 2 ? 1 : w <= 4 ? 2 : w == 5 ? 4 : 8); b(0x52);  // push bytes; push edx
+        b(0x6A); b(w <= 2 ? 1 : w <= 4 ? 2 : w == 5 || w == 7 ? 4 : 8); b(0x52);  // push bytes; push edx
         b(0xE8); d((DWORD)(uintptr_t)JitSatbStore - ((DWORD)(uintptr_t)p + 4));  // call JitSatbStore
         b(0x83); b(0xC4); b(8); b(0x58 + base);                      // add esp, 8; pop base
         *skip = (u8)(p - (skip + 1));
@@ -716,6 +766,7 @@ static void JitCompiled(u8* rm) {
     Em e = {g_jitCode + g_jitCodeUsed};
     u8* lazyEntry = NULL;
     const DWORD* argOff = *(const DWORD* const*)(rm + 0x1C);
+    const DWORD* items = *(const DWORD* const*)(rm + 0x14);
     for (int pass = lazyOk ? 0 : 1; pass < 2; pass++) {
         g_jitLazyPass = pass == 0;
         nf = 0, nat = 0, ex = 0;
@@ -732,7 +783,22 @@ static void JitCompiled(u8* rm) {
             if (g_jitExitAll) t.kind = t.kind == K_RET ? K_RET : K_EXIT;
             int w = t.width, o16 = (short)ip[1];
             unsigned u16 = ip[1];
-            u8* exitRel[2] = {NULL, NULL};
+            u8* exitRel[3] = {NULL, NULL, NULL};
+            // round 10 C2: the static-field and stobj kinds resolve their item now (field, vtable, width); anything they
+            // cannot carry as a constant (no domain yet, a thread static, a value type, an unknown type) compiles as an exit
+            DWORD sVt = 0; int sOff = 0;
+            if (t.kind == K_LDSFLD || t.kind == K_LDSFLDA || t.kind == K_STSFLD || t.kind == K_STOBJ) {
+                const u8* item = (const u8*)(uintptr_t)items[u16];
+                if (t.kind == K_STOBJ) w = item ? JitTypeWidth(item + 0xA0) : 0;  // MonoClass+0xA0 = byval_arg (docs/213)
+                else if (item) {
+                    if (w == 8) w = JitTypeWidth(*(const u8* const*)item);
+                    sOff = *(const int*)(item + 8);
+                    const bool fast = op == 0x067 || op == 0x068;  // ldsfld.i4 / ldsfld.o carry the vtable and skip the special-static lookup
+                    sVt = op == 0x066 || fast ? items[ip[2]] : (DWORD)(uintptr_t)JitStaticVt(item);
+                    if (!sVt || sOff < 0 || (!fast && JitSpecialStatic(item))) w = 0;
+                } else w = 0;
+                if (!w) t.kind = K_EXIT;
+            }
             switch (t.kind) {
             case K_LDARG:  // [esi] = arena[u16] (i8: two words)
                 e.load(w == 6 ? 5 : w, EAX, EBX, u16); e.op(0x89, EAX, ESI, 0);
@@ -762,14 +828,81 @@ static void JitCompiled(u8* rm) {
             }
             case K_LDFLD:
                 e.op(0x8B, EAX, ESI, -8); e.rr(0x85, EAX, EAX); exitRel[0] = e.jcc(0x84);
+                if (w == 7) { e.fld4(EAX, u16); e.fstp8(ESI, -8); break; }
                 if (w == 6) { e.op(0x8B, ECX, EAX, u16 + 4); e.op(0x89, ECX, ESI, -4); }
                 e.load(w == 6 ? 5 : w, EAX, EAX, u16); e.op(0x89, EAX, ESI, -8); break;
             case K_STFLD:
                 e.op(0x8B, EAX, ESI, -16); e.rr(0x85, EAX, EAX); exitRel[0] = e.jcc(0x84);
                 e.satb(w, EAX, u16);
+                if (w == 7) { e.fld8(ESI, -8); e.fstp4(EAX, u16); e.addEsi(-16); break; }
                 e.op(0x8B, ECX, ESI, -8); e.store(w, ECX, EAX, u16);
                 if (w == 6) { e.op(0x8B, EDX, ESI, -4); e.op(0x89, EDX, EAX, u16 + 4); }
                 e.addEsi(-16); break;
+            case K_LDFLDA:
+                e.op(0x8B, EAX, ESI, -8); e.rr(0x85, EAX, EAX); exitRel[0] = e.jcc(0x84);
+                e.op(0x8D, EAX, EAX, u16); e.op(0x89, EAX, ESI, -8); break;
+            case K_LDSFLD:  // value at [vt+0xC] (the class's static data) + the field offset
+                exitRel[0] = e.classInitExit(sVt);
+                e.b(0xA1); e.d(sVt + 0xC);  // mov eax, [vt+0xC]
+                if (w == 7) { e.fld4(EAX, sOff); e.fstp8(ESI, 0); }
+                else {
+                    if (w == 6) { e.op(0x8B, ECX, EAX, sOff + 4); e.op(0x89, ECX, ESI, 4); }
+                    e.load(w == 6 ? 5 : w, EAX, EAX, sOff); e.op(0x89, EAX, ESI, 0);
+                }
+                e.addEsi(8); break;
+            case K_LDSFLDA:
+                exitRel[0] = e.classInitExit(sVt);
+                e.b(0xA1); e.d(sVt + 0xC); e.op(0x8D, EAX, EAX, sOff); e.op(0x89, EAX, ESI, 0); e.addEsi(8); break;
+            case K_STSFLD:
+                exitRel[0] = e.classInitExit(sVt);
+                e.b(0xA1); e.d(sVt + 0xC); e.satb(w, EAX, sOff);
+                if (w == 7) { e.fld8(ESI, -8); e.fstp4(EAX, sOff); }
+                else {
+                    e.op(0x8B, ECX, ESI, -8); e.store(w, ECX, EAX, sOff);
+                    if (w == 6) { e.op(0x8B, ECX, ESI, -4); e.op(0x89, ECX, EAX, sOff + 4); }
+                }
+                e.addEsi(-8); break;
+            case K_STOBJ:  // address [esi-16], value [esi-8]; EA has no null check (the handler faults), a null exits so the fault stays EA's
+                e.op(0x8B, EAX, ESI, -16); e.rr(0x85, EAX, EAX); exitRel[0] = e.jcc(0x84);
+                e.satb(w, EAX, 0);
+                if (w == 7) { e.fld8(ESI, -8); e.fstp4(EAX, 0); }
+                else {
+                    e.op(0x8B, ECX, ESI, -8); e.store(w, ECX, EAX, 0);
+                    if (w == 6) { e.op(0x8B, ECX, ESI, -4); e.op(0x89, ECX, EAX, 4); }
+                }
+                e.addEsi(-16); break;
+            case K_STELEM: case K_STELEMREF: {  // array [esi-24], index [esi-16], value [esi-8]; null and bounds exit before any change
+                int sz = w <= 2 ? 1 : w <= 4 ? 2 : w == 5 || w == 7 ? 4 : 8, sc = sz == 1 ? 0 : sz == 2 ? 1 : sz == 4 ? 2 : 3;
+                e.op(0x8B, EAX, ESI, -24); e.rr(0x85, EAX, EAX); exitRel[0] = e.jcc(0x84);
+                e.op(0x8B, ECX, ESI, -16); e.op(0x3B, ECX, EAX, 8); exitRel[1] = e.jcc(0x83);
+                if (t.kind == K_STELEMREF) {  // a null, a value of exactly the element class (array klass+8), or any value into an
+                    u8* ok[2];                // object[] stores; the rest (EA: mono_object_isinst, ArrayTypeMismatchException) exits
+                    e.op(0x8B, EDX, ESI, -8); e.rr(0x85, EDX, EDX); ok[0] = e.jcc(0x84);
+                    e.op(0x8B, EDX, EDX, 0); e.op(0x8B, EDX, EDX, 0);  // the value's class
+                    e.op(0x8B, ECX, EAX, 0); e.op(0x8B, ECX, ECX, 0);  // the array's class
+                    e.op(0x3B, EDX, ECX, 8); ok[1] = e.jcc(0x84);
+                    e.op(0x81, 7, ECX, 8); e.d((DWORD)(uintptr_t)g_jitObjectClass); exitRel[2] = e.jcc(0x85);  // cmp [klass+8], object_class
+                    Fix(ok[0], e.p); Fix(ok[1], e.p);
+                    e.op(0x8B, ECX, ESI, -16);
+                }
+                e.b(0x8D); e.b(0x84); e.b((sc << 6) | (ECX << 3) | EAX); e.d(0x10);  // lea eax, [eax + ecx*sz + 0x10]
+                e.satb(w, EAX, 0);
+                if (w == 7) { e.fld8(ESI, -8); e.fstp4(EAX, 0); }
+                else {
+                    e.op(0x8B, EDX, ESI, -8); e.store(w, EDX, EAX, 0);
+                    if (w == 6) { e.op(0x8B, EDX, ESI, -4); e.op(0x89, EDX, EAX, 4); }
+                }
+                e.addEsi(-24); break;
+            }
+            case K_CKNULL: e.b(0x83); e.m(7, ESI, -8); e.b(0); exitRel[0] = e.jcc(0x84); break;  // cmp dword [esi-8], 0
+            case K_STRLEN:  // EA strings: length at +4, chars at +8 (4-byte object header, docs/130 §2)
+                e.op(0x8B, EAX, ESI, -8); e.rr(0x85, EAX, EAX); exitRel[0] = e.jcc(0x84);
+                e.op(0x8B, EAX, EAX, 4); e.op(0x89, EAX, ESI, -8); break;
+            case K_GETCHR:  // string [esi-16], index [esi-8]; one unsigned compare refuses what EA's signed pair refuses
+                e.op(0x8B, EAX, ESI, -16); e.rr(0x85, EAX, EAX); exitRel[0] = e.jcc(0x84);
+                e.op(0x8B, ECX, ESI, -8); e.op(0x3B, ECX, EAX, 4); exitRel[1] = e.jcc(0x83);
+                e.b(0x0F); e.b(0xB7); e.b(0x84); e.b((1 << 6) | (ECX << 3) | EAX); e.d(8);  // movzx eax, word [eax + ecx*2 + 8]
+                e.op(0x89, EAX, ESI, -16); e.addEsi(-8); break;
             case K_LDC: e.b(0xC7); e.m(0, ESI, 0); e.d((DWORD)t.x); e.addEsi(8); break;
             case K_LDCS: e.b(0xC7); e.m(0, ESI, 0); e.d((DWORD)o16); e.addEsi(8); break;
             case K_LDCI4: e.b(0xC7); e.m(0, ESI, 0); e.d(*(const DWORD*)(ip + 1)); e.addEsi(8); break;
@@ -791,11 +924,12 @@ static void JitCompiled(u8* rm) {
             }
             case K_LDLEN: e.op(0x8B, EAX, ESI, -8); e.rr(0x85, EAX, EAX); exitRel[0] = e.jcc(0x84); e.op(0x8B, EAX, EAX, 8); e.op(0x89, EAX, ESI, -8); break;
             case K_LDELEM: {  // null and bounds checks exit before any change; element at data + 0x10
-                int sz = w <= 2 ? 1 : w <= 4 ? 2 : w == 5 ? 4 : 8, sc = sz == 1 ? 0 : sz == 2 ? 1 : sz == 4 ? 2 : 3;
+                int sz = w <= 2 ? 1 : w <= 4 ? 2 : w == 5 || w == 7 ? 4 : 8, sc = sz == 1 ? 0 : sz == 2 ? 1 : sz == 4 ? 2 : 3;
                 e.op(0x8B, EAX, ESI, -16); e.rr(0x85, EAX, EAX); exitRel[0] = e.jcc(0x84);
                 e.op(0x8B, ECX, ESI, -8); e.op(0x3B, ECX, EAX, 8); exitRel[1] = e.jcc(0x83);
                 // lea eax, [eax + ecx*sz + 0x10]
                 e.b(0x8D); e.b(0x84); e.b((sc << 6) | (ECX << 3) | EAX); e.d(0x10);
+                if (w == 7) { e.fld4(EAX, 0); e.fstp8(ESI, -16); e.addEsi(-8); break; }
                 if (w == 6) { e.op(0x8B, EDX, EAX, 4); e.op(0x89, EDX, ESI, -12); }
                 e.load(w == 6 ? 5 : w, EDX, EAX, 0); e.op(0x89, EDX, ESI, -16); e.addEsi(-8); break;
             }
@@ -837,10 +971,11 @@ static void JitCompiled(u8* rm) {
                 continue;
             }
             nat++;
-            if (exitRel[0] || exitRel[1]) {  // out-of-line slow path: back to EA's handler with nothing changed
+            if (exitRel[0] || exitRel[1] || exitRel[2]) {  // out-of-line slow path: back to EA's handler with nothing changed
                 u8* skip = e.jmp();
                 if (exitRel[0]) Fix(exitRel[0], e.p);
                 if (exitRel[1]) Fix(exitRel[1], e.p);
+                if (exitRel[2]) Fix(exitRel[2], e.p);
                 g_jitSiteSlow = 1;
                 EmitExit(e, ip, op, false);
                 g_jitSiteSlow = 0;
@@ -1690,17 +1825,28 @@ static bool InstallJit() {
     InitializeCriticalSection(&g_jitCs);
     if (g_jitMode >= 2) {
         const char* const* names = (const char* const*)(uintptr_t)0x11949E0;
+        char x[8] = "";
+        g_jitObjectClass = *(void**)(uintptr_t)(0x1220E40 + 4);  // mono_defaults.object_class (monohost.cpp reads the same)
         DWORD* table = (DWORD*)(uintptr_t)MINT_TABLE;
         for (DWORD op = 0; op < 0x1C1; op++) g_opHandler[op] = (void*)(uintptr_t)table[op];
-        for (auto& t : kJitTmpl)
+        // MONOHOST_JITC2=<mask> keeps only these round 10 C2 template groups (default all): 1 float fields + ldflda, 2 static
+        // fields, 4 the array loads / stores added here, 8 stobj, 16 cknull / strlen / getchr
+        unsigned c2 = 31;
+        if (GetEnvironmentVariableA("MONOHOST_JITC2", x, sizeof(x))) c2 = (unsigned)atoi(x);
+        for (auto& t : kJitTmpl) {
+            const unsigned g = t.kind == K_LDFLDA || !strcmp(t.name, "ldfld.r4") || !strcmp(t.name, "ldfld.r8") || !strcmp(t.name, "stfld.r4") || !strcmp(t.name, "stfld.r8") ? 1
+                : t.kind == K_LDSFLD || t.kind == K_LDSFLDA || t.kind == K_STSFLD ? 2
+                : t.kind == K_STELEM || t.kind == K_STELEMREF || !strcmp(t.name, "ldelem.r4") || !strcmp(t.name, "ldelem.r8") ? 4
+                : t.kind == K_STOBJ ? 8 : t.kind == K_CKNULL || t.kind == K_STRLEN || t.kind == K_GETCHR ? 16 : 0;
+            if (g & ~c2) continue;
             for (DWORD op = 0; op <= 0x1A8; op++)
                 if (!strcmp(names[op], t.name)) { g_opInfo[op] = {t.kind, t.width, t.x}; break; }
+        }
         g_jitTab = (JitEnt*)VirtualAlloc(NULL, sizeof(JitEnt) * (JIT_TAB_N + 4096), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
         g_jitCode = (u8*)VirtualAlloc(NULL, 4 << 20, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
         g_jitCodeEnd = g_jitCode + (4 << 20);
         g_jitPos = (unsigned short*)malloc(400000 * 2), g_jitOrigW = (unsigned short*)malloc(400000 * 2);
         g_jitPatched = true;
-        char x[8] = "";
         g_jitExitAll = GetEnvironmentVariableA("MONOHOST_JITEXITALL", x, sizeof(x)) && x[0] == '1';
         g_jitCountOn = GetEnvironmentVariableA("MONOHOST_JITCOUNT", x, sizeof(x)) && x[0] == '1';
         if (g_jitCountOn) g_jitSite = (JitSite*)calloc(65536, sizeof(JitSite));

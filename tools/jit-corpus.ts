@@ -91,6 +91,31 @@ const KS = `
         public static float StoreR4(float a, float b) { float t = a * b; s_f = t + a; float u = s_f; return u * b; }
         public static double StoreR8(double a, double b) { double t = a * b; s_d = t + a; return s_d - b; }
         public static int StaticI4(int a, int b) { s_i = a; s_i += b; s_l = (long)s_i * a; return s_i ^ (int)(s_l >> 7); }
+        // round 10 C2: static fields of every width (ldsfld / stsfld typed by the field), references, the array stores, stobj,
+        // the string intrinsics, field addresses and float fields
+        static object s_o; static byte s_b; static short s_s; static char s_c; static bool s_bool;
+        public static int StaticMix(int a, int b)
+        {
+            s_b = (byte)a; s_s = (short)b; s_c = (char)(a ^ b); s_bool = a < b; s_o = a == 0 ? null : (object)a;
+            s_l = ((long)a << 32) | (uint)b; s_d = a * 0.5; s_f = b * 0.25f;
+            return s_b + s_s + s_c + (s_bool ? 1 : 0) + (s_o == null ? 0 : ((int)s_o & 0xFF)) + (int)(s_l >> 31) + (int)s_d + (int)s_f;
+        }
+        public static int StaticRef(object a) { s_o = a; object t = s_o; return t == null ? 0 : t is int ? (int)t : 7; }
+        public static int StelemI1(sbyte[] a, int i, int v) { a[i] = (sbyte)v; return a[i]; }
+        public static int StelemI2(short[] a, int i, int v) { a[i] = (short)v; return a[i]; }
+        public static long StelemI8(long[] a, int i, long v) { a[i] = v; return a[i]; }
+        public static float StelemR4(float[] a, int i, double v) { a[i] = (float)v; return a[i]; }
+        public static double StelemR8(double[] a, int i, double v) { a[i] = v; return a[i]; }
+        public static int StelemRefK(JitKO[] a, int i, JitKO v) { a[i] = v; return a[i] == null ? 0 : a[i].v + 1; }
+        static int StobjT<T>(ref T r, T v) { r = v; return 1; }
+        public static int StobjUse(int a, object o)
+        {
+            int x = 0; StobjT(ref x, a); object y = null; StobjT(ref y, o); long l = 0; StobjT(ref l, (long)a << 20); double d = 0; StobjT(ref d, a * 0.5);
+            return x + (y == null ? 0 : 1) + (int)(l >> 20) + (int)d;
+        }
+        public static int StrLenChr(string s, int i) { return s.Length * 1000 + s[i]; }
+        public static int FldAddr(JitKO o, int d) { return RefAdd(ref o.v, d); }
+        public static double FldR(JitKF o, float a, double b) { o.f = a; o.d = b; return o.f + o.d; }
         public static int Sw(int a)
         {
             switch (a) { case 0: return 10; case 1: return 11; case 2: return 12; case 3: return 13; case 7: return 17; case 16: return 26; default: return -a; }
@@ -166,6 +191,7 @@ const KO = `
         public int Walk() { int s = 0; JitKO p = this; for (int i = 0; i < 64 && p != null; i++) { s += p.v + (p.arr != null ? p.arr.Length : 0); p = p.next; } return s; }
     }
     public class JitKO2 : JitKO { public int w; }
+    public class JitKF { public float f; public double d; }
     public struct JitPt { public int X, Y; public int Sum(object o) { return X + Y + (o == null ? 0 : 1); } }
 `;
 // B3 lazy frames (docs/207 §12): compiled callers calling compiled static leaves (every position native, ret / ret.void).
@@ -277,6 +303,31 @@ const STMT_CASES: Case[] = [
                 int i = ix[k];
                 ${T('JitK.StelemRef(st, i, "v")')} ${T('JitK.StelemRef(st, i, (object)5)')}
             }` },
+  { name: 'JitK.StaticMix / StaticRef (static field widths, references)', body: `for (int i = 0; i < I4.Length; i++) for (int j = 0; j < I4.Length; j++) ${T('JitK.StaticMix(I4[i], I4[j])')}
+            object[] os2 = new object[] { null, 5, "s", new JitKO() };
+            for (int k = 0; k < os2.Length; k++) ${T('JitK.StaticRef(os2[k])')}` },
+  { name: 'JitK.StelemI1 / I2 / I8 / R4 / R8 (bounds, widths, rounding)', body: `int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            sbyte[] sb = new sbyte[3]; short[] ss = new short[3]; long[] ls = new long[3]; float[] fs = new float[3]; double[] ds = new double[3];
+            for (int k = 0; k < ix.Length; k++)
+            {
+                int i = ix[k], v = I4[k % I4.Length];
+                ${T('JitK.StelemI1(sb, i, v)')} ${T('JitK.StelemI2(ss, i, v)')} ${T('JitK.StelemI8(ls, i, (long)v << 33)')}
+            }
+            for (int r = 0; r < R8.Length; r++) { ${T('JitK.StelemR4(fs, 1, R8[r])')} ${T('JitK.StelemR8(ds, 2, R8[r])')} }
+            ${T('JitK.StelemR4(null, 0, 1.0)')} ${T('JitK.StelemR8(ds, 3, 1.0)')}` },
+  { name: 'JitK.StelemRefK (exact class, a derived value, a covariant mismatch)', body: `int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            JitKO[] ka = new JitKO[3]; JitKO[] kb = new JitKO2[3]; JitKO k1 = new JitKO(); JitKO k2 = new JitKO2(); k1.v = 3; k2.v = 5;
+            for (int k = 0; k < ix.Length; k++)
+            {
+                int i = ix[k];
+                ${T('JitK.StelemRefK(ka, i, null)')} ${T('JitK.StelemRefK(ka, i, k1)')} ${T('JitK.StelemRefK(ka, i, k2)')} ${T('JitK.StelemRefK(kb, i, k2)')} ${T('JitK.StelemRefK(kb, i, k1)')} ${T('JitK.StelemRefK(null, i, k1)')}
+            }` },
+  { name: 'JitK.StobjUse / StrLenChr / FldAddr / FldR (stobj, string intrinsics, field address, float fields)', body: `int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            object[] os3 = new object[] { null, "x" }; string[] strs = new string[] { null, "", "abc", "\\u00e9\\ud83d" }; JitKF kf = new JitKF();
+            for (int i = 0; i < I4.Length; i++) ${T('JitK.StobjUse(I4[i], os3[i & 1])')}
+            for (int s = 0; s < strs.Length; s++) for (int k = 0; k < ix.Length; k++) ${T('JitK.StrLenChr(strs[s], ix[k])')}
+            ${T('JitK.FldAddr(null, 1)')} ${T('JitK.FldAddr(new JitKO(), 5)')} ${T('JitK.FldR(null, 1f, 2.0)')}
+            for (int i = 0; i < R4.Length; i++) for (int j = 0; j < R8.Length; j++) ${T('JitK.FldR(kf, R4[i], R8[j])')}` },
   { name: 'JitK.LdelemI1 on null', body: `int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
             sbyte[] sb = new sbyte[] { -128, -1, 127 }; ushort[] us = new ushort[] { 0, 0x8000, 0xFFFF }; long[] ls = new long[] { long.MinValue, -1, long.MaxValue };
             double[] ds = new double[] { D(0x7FF0000000000001UL), -0.0, 1e308 }; float[] fs = new float[] { F(0x7F800001U), F(0x80000000U), F(0x00000001U) };
