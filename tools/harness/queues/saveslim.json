@@ -1,5 +1,5 @@
 {
-  "note": "Issue #122 (SaveSlim), CI asi c846543. Forced path first: Mode 0 measure, Mode 2 write, then two sessions on the slimmed save. New save names only (SlimTest-LR-*); delete them after.",
+  "note": "Issue #122 (SaveSlim), CI asi c846543. Forced path first: Mode 0 measure, Mode 2 write, then two sessions on the slimmed save, and a 20-min third one (run 2, 2026-11-02). New save names only (SlimTest-LR-*); delete them after.",
   "stopQueueOnFail": true,
   "jobs": [
     {
@@ -119,6 +119,37 @@
           "minutes": 5,
           "seed": 12345,
           "noSamplers": true
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-c846543/ts3native.asi",
+      "pinReason": "CI build of feat/save-slim c846543 (no local C++ tools)",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "id": "lr-saveslim-longplay",
+      "note": "Session 3 (20 min): load SlimTest-LR-m2b (slimmed twice), save as SlimTest-LR-m2c with Mode 2 at the start, play 20 min. Pass: loads, the third rewrite ok or left (nothing new to drop), no FAIL line, no new script errors beyond known.",
+      "save": "SlimTest-LR-m2b",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "logRequire": {
+        "save slim: .*ExportDB[.]package: .*: (rewritten|left)": 1
+      },
+      "logForbid": {
+        "^FAIL|save slim: .*(mismatch|FAIL|error)": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 20,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-save-m2c"
         }
       }
     }

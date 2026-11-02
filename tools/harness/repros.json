@@ -49982,5 +49982,30 @@
         "cmd": "time"
       }
     ]
+  },
+  {
+    "id": "saveslim-save-m2c",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "SlimTest-LR-m2b",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-LR-m2b.sims3. Mode 2. Third session on the slimmed save: a longer play (20 min) after a Mode 2 save of it as SlimTest-LR-m2c.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-LR-m2b; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-LR-m2c"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
   }
 ]
