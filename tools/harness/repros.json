@@ -42137,7 +42137,8 @@
           "everyS": 5,
           "maxS": 600
         },
-        "note": "the opt-in compaction saves, unloads and reloads at once (no offer): no agent reply until the world is back; the refused-state counters show in the compaction_ step below"
+        "note": "the opt-in compaction saves, unloads and reloads at once (no offer): no agent reply until the world is back, so the time call itself may fail (optional) and the until poll waits; the refused-state counters show in the compaction_ step below",
+        "optional": true
       },
       {
         "cmd": "time",
@@ -42747,7 +42748,8 @@
           "everyS": 5,
           "maxS": 600
         },
-        "note": "the opt-in compaction saves, unloads and reloads at once (no offer): no agent reply until the world is back; the refused-state counters show in the compaction_ step below"
+        "note": "the opt-in compaction saves, unloads and reloads at once (no offer): no agent reply until the world is back, so the time call itself may fail (optional) and the until poll waits; the refused-state counters show in the compaction_ step below",
+        "optional": true
       },
       {
         "cmd": "time",
