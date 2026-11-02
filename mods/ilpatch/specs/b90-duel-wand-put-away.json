@@ -14,7 +14,7 @@
         "class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.ActorSystems.InteractionQueue::mActor": "0x04007620",
         "instance void Sims3.Gameplay.Objects.Alchemy.MagicWand::FinishUsing(class Sims3.Gameplay.Actors.Sim)": "0x06011a94"
       },
-      "patchedSha256": "f7508310cd99331f70f6cbdc79ea80a9970d6687c78ac2f654e54366e327d8d2"
+      "patchedSha256": "77f924eb10bea33600ea32271212b9ccb2696de084f77bdfb6fe2ee51203eccc"
     },
     "simler90-242": {
       "size": 1313,
@@ -24,7 +24,7 @@
         "class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.ActorSystems.InteractionQueue::mActor": "0x04000f22",
         "instance void Sims3.Gameplay.Objects.Alchemy.MagicWand::FinishUsing(class Sims3.Gameplay.Actors.Sim)": "0x06007e5a"
       },
-      "patchedSha256": "8ee54964a22b74e0dbd98210cc3d83c82b8f1b020ca1094df31b910f9e9014e2"
+      "patchedSha256": "7332931b9c8f9ef2d3921c451e9c58163162c1e33a0c3bf242136024edc390d5"
     }
   },
   "edits": [

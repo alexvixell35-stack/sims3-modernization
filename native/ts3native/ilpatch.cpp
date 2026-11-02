@@ -186,10 +186,10 @@ static void IlpApply(const BYTE* code, DWORD n, WORD maxStack, const DWORD* cl, 
     for (DWORD k = 0; k < ni; k++) { if (it[k].orig >= 0) origOff[it[k].orig] = it[k].off; else { if (it[k].line == 0) oursOff[it[k].edit] = it[k].off; } }
     DWORD lineBase[16] = {0}; { DWORD acc = 0; for (DWORD e = 0; e < s.nEdits; e++) { lineBase[e] = acc; acc += s.edits[e].nIns; } }
     for (DWORD k = 0; k < ni; k++) if (it[k].orig < 0) lineOff[lineBase[it[k].edit] + it[k].line] = it[k].off;
-    struct Map { static DWORD of(DWORD old, int from, const IlpSpec& s, const IlpDec* dec, int nd, DWORD n, DWORD newLen, const DWORD* origOff, const DWORD* oursOff, const char** why) {
+    struct Map { static DWORD of(DWORD old, const IlpSpec& s, const IlpDec* dec, int nd, DWORD n, DWORD newLen, const DWORD* origOff, const DWORD* oursOff, const char** why) {
         if (old == n) return newLen;
         int e = -1; for (DWORD k = 0; k < s.nEdits; k++) if (s.edits[k].at == old) e = (int)k;
-        if (e >= 0 && (s.edits[e].entry == 1 || s.edits[e].mode == 1 || from == e)) return oursOff[e];
+        if (e >= 0 && (s.edits[e].entry == 1 || s.edits[e].mode == 1)) return oursOff[e];  // a fallthrough insert's own branch to "at": the original instruction after the block (b69 brtrue.s IL_007d)
         const int i = Idx::of(dec, nd, n, old);
         if (i < 0 || origOff[i] == 0xFFFFFFFF) { *why = "a branch target is inside a replaced range or not an instruction start"; return 0; }
         return origOff[i];
@@ -205,8 +205,8 @@ static void IlpApply(const BYTE* code, DWORD n, WORD maxStack, const DWORD* cl, 
             if (op > 0xFF) { out[p++] = 0xFE; out[p++] = (BYTE)op; } else out[p++] = (BYTE)op;
             const BYTE* src = code + d.at + (d.op > 0xFF ? 2 : 1);
             switch (d.kind) {
-                case IK_BR8: case IK_BR32: { const DWORD t = Map::of(d.v, -1, s, dec, nd, n, newLen, origOff, oursOff, &why); *(int*)(out + p) = (int)(t - (p + 4)); break; }
-                case IK_SWITCH: { *(DWORD*)(out + p) = d.v; const DWORD base = p + 4 + 4 * d.v; for (DWORD c = 0; c < d.v && !why; c++) { const DWORD old = d.at + d.size + (DWORD)*(const int*)(src + 4 + 4 * c); const DWORD t = Map::of(old, -1, s, dec, nd, n, newLen, origOff, oursOff, &why); *(int*)(out + p + 4 + 4 * c) = (int)(t - base); } break; }
+                case IK_BR8: case IK_BR32: { const DWORD t = Map::of(d.v, s, dec, nd, n, newLen, origOff, oursOff, &why); *(int*)(out + p) = (int)(t - (p + 4)); break; }
+                case IK_SWITCH: { *(DWORD*)(out + p) = d.v; const DWORD base = p + 4 + 4 * d.v; for (DWORD c = 0; c < d.v && !why; c++) { const DWORD old = d.at + d.size + (DWORD)*(const int*)(src + 4 + 4 * c); const DWORD t = Map::of(old, s, dec, nd, n, newLen, origOff, oursOff, &why); *(int*)(out + p + 4 + 4 * c) = (int)(t - base); } break; }
                 default: memcpy(out + p, src, kIlpKindSize[d.kind]); break;
             }
         } else {
@@ -218,7 +218,7 @@ static void IlpApply(const BYTE* code, DWORD n, WORD maxStack, const DWORD* cl, 
                 case IK_U16: *(WORD*)(out + p) = (WORD)x.v; break;
                 case IK_I32: *(DWORD*)(out + p) = x.v; break;
                 case IK_TOK: *(DWORD*)(out + p) = b.tokens[x.v]; break;
-                case IK_BR_ORIG: { const DWORD t = Map::of(x.v, m.edit, s, dec, nd, n, newLen, origOff, oursOff, &why); *(int*)(out + p) = (int)(t - (p + 4)); break; }
+                case IK_BR_ORIG: { const DWORD t = Map::of(x.v, s, dec, nd, n, newLen, origOff, oursOff, &why); *(int*)(out + p) = (int)(t - (p + 4)); break; }
                 case IK_BR_OURS: *(int*)(out + p) = (int)(lineOff[lineBase[x.v >> 16] + (x.v & 0xFFFF)] - (p + 4)); break;
                 default: why = "an operand kind the native table does not carry"; break;
             }
@@ -227,9 +227,9 @@ static void IlpApply(const BYTE* code, DWORD n, WORD maxStack, const DWORD* cl, 
     for (DWORD i = 0; i < nCl && !why; i++) {  // every clause through the same map; a filter's offset too
         const DWORD* c = cl + 6 * i; DWORD* o = r.clauses + 6 * i;
         o[0] = c[0];
-        o[1] = Map::of(c[1], -1, s, dec, nd, n, newLen, origOff, oursOff, &why); o[2] = Map::of(c[1] + c[2], -1, s, dec, nd, n, newLen, origOff, oursOff, &why) - o[1];
-        o[3] = Map::of(c[3], -1, s, dec, nd, n, newLen, origOff, oursOff, &why); o[4] = Map::of(c[3] + c[4], -1, s, dec, nd, n, newLen, origOff, oursOff, &why) - o[3];
-        o[5] = c[0] == 1 ? Map::of(c[5], -1, s, dec, nd, n, newLen, origOff, oursOff, &why) : c[5];
+        o[1] = Map::of(c[1], s, dec, nd, n, newLen, origOff, oursOff, &why); o[2] = Map::of(c[1] + c[2], s, dec, nd, n, newLen, origOff, oursOff, &why) - o[1];
+        o[3] = Map::of(c[3], s, dec, nd, n, newLen, origOff, oursOff, &why); o[4] = Map::of(c[3] + c[4], s, dec, nd, n, newLen, origOff, oursOff, &why) - o[3];
+        o[5] = c[0] == 1 ? Map::of(c[5], s, dec, nd, n, newLen, origOff, oursOff, &why) : c[5];
     }
     HeapFree(heap, 0, lineOff); HeapFree(heap, 0, origOff); HeapFree(heap, 0, it); HeapFree(heap, 0, dec);
     if (why) { if (out) HeapFree(heap, 0, out); memset(&r, 0, sizeof(r)); r.why = why; return; }

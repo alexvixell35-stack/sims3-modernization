@@ -12,7 +12,7 @@
       "tokens": {
         "instance bool class [mscorlib]System.Collections.Generic.List`1<uint64>::Remove(!0)": "0x0a001486"
       },
-      "patchedSha256": "a80834060dc55af09f049e4720ff5049a87054fb7921800d4c9c2044825db9e1"
+      "patchedSha256": "3fd9e35a3119e974ad83b682295770fd8017eb2c3a8e20f0522de66ccbc4d735"
     },
     "simler90-242": {
       "size": 200,
@@ -20,7 +20,7 @@
       "tokens": {
         "instance bool class [mscorlib]System.Collections.Generic.List`1<uint64>::Remove(!0)": "0x0a000419"
       },
-      "patchedSha256": "46fde2029c18b99fe77865deefdbe1d4a18997670c86514beea7734f5954705b"
+      "patchedSha256": "6553c2aa440f7c63065a342c206108e8c8173b0baa9b8dfc762d0bcb78000002"
     }
   },
   "edits": [

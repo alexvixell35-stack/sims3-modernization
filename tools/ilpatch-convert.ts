@@ -363,13 +363,14 @@ function apply(body: Body, edits: Edit[], tok: (ref: MemberRef) => number | null
   }
   const end = byAt.get(body.code.length); if (end) end.ins.forEach((y, k) => items.push({ kind: 'ours', r: end, k, size: 1 + (y.op.code > 0xff ? 1 : 0) + SIZE[y.op.kind], off: 0 }));
   let off = 0; for (const it of items) { it.off = off; off += it.size; } const newLen = off;
-  // old offset -> new offset: an original instruction's new place; an edit's "at" per its entry; the end stays the end
+  // old offset -> new offset: an original instruction's new place; an edit's "at" per its entry (a fallthrough insert's own
+  // branch to "@at" means the original instruction after the block, as in the core patches' `brtrue.s IL_007d`); the end stays the end
   const origOff = new Map<number, number>(); for (const it of items) if (it.kind === 'orig') origOff.set(it.x.at, it.off);
   const oursOff = new Map<Resolved, number>(); for (const it of items) if (it.kind === 'ours' && it.k === 0) oursOff.set(it.r, it.off);
   const map = (old: number, from?: Resolved): number => {
     if (old === body.code.length) return newLen;
     const r = byAt.get(old);
-    if (r && (r.edit.entry === 'incoming' || r.edit.mode === 'replace' || from === r)) return oursOff.get(r)!;
+    if (r && (r.edit.entry === 'incoming' || r.edit.mode === 'replace')) return oursOff.get(r)!;
     if (r && r.edit.mode === 'insert') return origOff.get(old)!;
     const o = origOff.get(old); if (o == null) throw new Error(`branch target 0x${old.toString(16)} is inside a replaced range or not an instruction start`);
     return o;
@@ -539,6 +540,10 @@ function selfCheck(): void {
   // incoming entry: branches to "at" land on our first instruction
   const e2: Edit = { at: 5, mode: 'insert', entry: 'incoming', expect: ['ldc.i4.0'], il: ['nop', 'nop'], maxStack: 0, drop: 0 };
   const r2 = decode(apply(body, [e2], () => null, 0).code); if (r2[1].v !== 5 + 3 || r2[r2.findIndex((x) => x.at === r2[1].v)].op.name !== 'nop') throw new Error('self-check: incoming entry');
+  // fallthrough entry: our own branch to "at" lands on the original instruction after the block, not on our first one (b69)
+  const e3: Edit = { at: 5, mode: 'insert', entry: 'fallthrough', expect: ['ldc.i4.0'], il: ['ldarg.0', 'brtrue @0x5', 'nop'], maxStack: 1, drop: 0 };
+  const r3f = decode(apply(body, [e3], () => null, 0).code); const b3 = r3f.find((x) => x.op.name === 'brtrue')!;
+  if (r3f[r3f.findIndex((x) => x.at === b3.v)].op.name !== 'ldc.i4.0' || b3.v <= b3.at) throw new Error('self-check: fallthrough entry, own branch to at');
   // alignment of a text patch (the docs/506 B89 shape) against this body
   const find = parseBlock('IL_0001:  brfalse.s  IL_0005\n\nIL_0003:  ldc.i4.1\nIL_0004:  ret');
   const rep = parseBlock('IL_0001:  brfalse.s  IL_0005\n// ours\nldarg.0\nbrfalse    IL_0005\nIL_0003:  ldc.i4.1\nIL_0004:  ret');

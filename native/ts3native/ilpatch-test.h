@@ -65,6 +65,20 @@ static void TestIlPatch() {
         assert(r.code[18] == 0x00 && r.code[19] == 0x38 && *(const int*)(r.code + 20) == -6 && r.code[24] == 0x2A);
         HeapFree(GetProcessHeap(), 0, r.code);
     }
+    // D: a fallthrough insert whose own branch targets "at": it lands on the original instruction after our block (the core
+    // patches' brtrue.s IL_007d), not on our first line; until 2026-11-02 it looped (smoke 24, b69)
+    {
+        static const IlpIns ins[3] = {{0x17, IK_NONE, 0, 0}, {0x3A, IK_BR_ORIG, 0, 3}, {0x00, IK_NONE, 0, 0}};
+        const IlpEdit e = {3, 0, 0, 1, 3, 1, 0, exp16, ins};
+        const IlpSpec s = {"tD", L"tD", "", "T", "m", "T::m()", 1, 1, &bld, &e};
+        IlpReloc r;
+        IlpApply(body, 6, 8, NULL, 0, s, bld, r);
+        assert(!r.why && r.size == 16 && r.maxStack == 9);
+        assert(r.code[1] == 0x38 && *(const int*)(r.code + 2) == 9);  // br -> 5, now 15
+        assert(r.code[6] == 0x17 && r.code[7] == 0x3A && *(const int*)(r.code + 8) == 1 && r.code[12] == 0x00);  // brtrue -> original 3, now 13
+        assert(r.code[13] == 0x16 && r.code[14] == 0x16 && r.code[15] == 0x2A);
+        HeapFree(GetProcessHeap(), 0, r.code);
+    }
     // C: a replace (ldc.i4.0 at 3 becomes ldc.i4.2); then a branch into a replaced range, a wrong expect, a cross-region branch: refused
     {
         static const IlpIns ins[1] = {{0x18, IK_NONE, 0, 0}};
