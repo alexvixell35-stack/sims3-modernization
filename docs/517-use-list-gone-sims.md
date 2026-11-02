@@ -39,6 +39,8 @@ clean; `expect cleaned` requires gone 0 and all three lists empty; the job requi
 
 Offline self-test: `tools/selftest/deadrefs` (the holder helpers) is unchanged; the phase adds no pure code.
 
+Result (2026-11-01 23:58, `bp-use-list-gone-check`, PASS in 15.1 min, al11): off arm gone 3, use 1, reference 1, routing 1, unchanged at `expect left`; on arm gone 0 and all three lists empty, `expect cleaned` passed, `deadrefsweep_uselists` reached 3; both townies put back (Lenny Shutter, Diana Jones). The longest-slice counter ([407]) is not in the job's readback; I-915-3 stays open until a run reads it.
+
 ## 4. What is left
 
 Part seats (`ContainedSim` of a destroyed Sim) and conversation members that are gone (core build 40's other half,
