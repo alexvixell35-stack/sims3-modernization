@@ -48049,5 +48049,51 @@
       }
     ],
     "cleanup": []
+  },
+  {
+    "id": "reward-giver-check",
+    "bug": "GameObject.SetRewardGiver(sim) calls AddComponent<ObjectOwnerComponent>(sim, null); AddComponentInternal types every argument with GetType(), so the null thief throws NullReferenceException. Its only caller is RewardsManager.GiveRewards' ObjectInMail case (an opportunity reward object sent by a named Sim): the object is never mailed and the rest of the reward list, the completion text and the follow-up opportunity are skipped (docs/525)",
+    "fix": "ts3fixes RewardGiver.cs: rewardgiver (default off), docs/525",
+    "save": "Baseline-BP",
+    "note": "The agent check (RewardGiverCheck) makes a SocialJigTwoPerson out of world, calls SetRewardGiver(active Sim) once and destroys it. Off arm: EA's NullReferenceException, no owner component. On arm: no exception, an owner component owned by that Sim; rewardgiver_added +1.",
+    "expect": "off: expect broken sees NullReferenceException and no owner component. on: expect fixed sees no exception and the owner component; rewardgiver_added >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rewardgiver": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RewardGiverCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: EA's NullReferenceException, no owner component"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rewardgiver": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RewardGiverCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: no exception, an owner component owned by the Sim; rewardgiver_added +1"
+      }
+    ]
   }
 ]
