@@ -117,7 +117,7 @@ does not carry. Insertions move the clause boundaries after them and an insertio
 | Smoke queue | run 2026-11-02 09:15, PASS (section 5): all three fixes applied on UPDATE242 with the converter's hashes |
 | Repros per fix (B80 phone chat with a target with no everyday outfit, B87 opportunity from a non-yielding context) | not written; B89 is covered by the load |
 | Batch 2 (section 7): b15, b72, b76, b81 | specs written and self-checked offline, native table 7 specs, selftest ok; the smoke queue arms all seven; live run pending |
-| Batch 3 (section 7): b17 (3 methods), b64, b68 (3), b69, b70, b73, b75 (2), b77, b90 after the converter's label fix (docs/521 §6) | 14 more specs, native table 21 specs, selftest ok; the smoke queue arms all 21; smokes 22 to 24 found two patcher defects (section 8), smoke 25 pending |
+| Batch 3 (section 7): b17 (3 methods), b64, b68 (3), b69, b70, b73, b75 (2), b77, b90 after the converter's label fix (docs/521 §6) | 14 more specs, native table 21 specs, selftest ok; the smoke queue arms all 21; smokes 22 to 24 found two patcher defects (section 8); smoke 25: 20 of 21 applied, no hang, b73 never transformed (open) |
 
 Open: I-506-2 (reflection's IL bytes for G-M6 come from the metadata stream, not the header: the swap is invisible to
 hashing) stays [inferred]: the smoke logged no mismatch line, but its job ran without MonoPatcher's log being read, and the
@@ -199,4 +199,10 @@ never logged an outcome or an `applied` line: still open. b75-2's `ProcessLifeEv
 as "not a build this fix knows, left alone": `IlpMatch` matches by name and has no signature check, the other overload
 applies, the line is the designed answer.
 
-Smoke 25 (asi b22f82b, queue `ilpatch-smoke11-local.json`): pending.
+Smoke 25 (asi b22f82b, queue `ilpatch-smoke11-local.json`, 17:59 to 18:09): **20 of 21 applied, no hang, no crash**, the
+10 min of play after the touches ran clean (stuck Sims 0, game alive); the harness verdict is FAIL only for b73's missing
+`applied` line. b73 is the one method that no run has ever seen at the transform hook: every skip path of the patcher logs
+once (no readable body, unknown hash, refused, relocator mismatch) and none did, so its transform never happened while
+armed; the touch is queued (`queued 1`, the method is an instance one, 52 bytes, found by name) and the harness log cuts
+the `async_log` replies short, so its outcome is unread. Open: read the touch outcome in full (a filtered `async_log`, or
+the agent returning the outcome of the previous touch), then decide whether the smoke requires b73.
