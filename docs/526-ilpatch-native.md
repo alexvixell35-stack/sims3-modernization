@@ -116,10 +116,36 @@ does not carry. Insertions move the clause boundaries after them and an insertio
 | CI build + selftest | see the PR: the first builds failed on size asserts and the version check that every `*-test.h` carries (fixed) |
 | Smoke queue | run 2026-11-02 09:15, PASS (section 5): all three fixes applied on UPDATE242 with the converter's hashes |
 | Repros per fix (B80 phone chat with a target with no everyday outfit, B87 opportunity from a non-yielding context) | not written; B89 is covered by the load |
+| Batch 2 (section 7): b15, b72, b76, b81 | specs written and self-checked offline, native table 7 specs, selftest ok; the smoke queue arms all seven; live run pending |
 
 Open: I-506-2 (reflection's IL bytes for G-M6 come from the metadata stream, not the header: the swap is invisible to
 hashing) stays [inferred]: the smoke logged no mismatch line, but its job ran without MonoPatcher's log being read, and the
 harness's counters column did not list the `ilp*` counters (the `IlPatch` section is in its table from this change on); a
 spec for a method MonoPatcher also patches would be transformed twice (ForceJIT) and reuses the body both times. A core
 that already carries a fix (the user's patched UPDATE242) gets `left alone` with the live hash; `ilpatch.cpp` could name
-that case when a body equals a build's `patchedSha256` (not done).
+that case when a body equals a build's `patchedSha256`: it does now (`already carries the fix (<build> patched form), left alone`, the same `ilpSkipHash` count).
+
+## 7. Batch 2: the next four fixes that convert whole (2026-11-02)
+
+Of the 45 core builds in #166, the converter rebuilds the core build's method exactly (docs/521 §3, "equal to the core
+build" in both EA 1.67 and UPDATE242, one insert each, no helper) for four more: these are the whole of the 45 that the
+patcher can carry today without phase 2 (helpers) or a ts3fixes wrap.
+
+| Spec | Core build | Method | Insert at | Fix |
+|---|---|---|---|---|
+| `b15-autonomy-inventory` (`ilp_autonomyinventory`) | 15 | `Autonomy::ScoreInteractionsForLocalAutonomy(CommodityKind)` | `0xBD` | a Sim with no inventory yet is skipped instead of throwing |
+| `b72-egg-pickup-no-hunt-controller` (`ilp_eggpickupnohuntcontroller`) | 72 | `EasterEgg\+PickUpEgg::Run()` | `0x167` | picking up an egg with no egg hunt controller ends the interaction |
+| `b76-whack-watch-owner-gone` (`ilp_whackwatchownergone`) | 76 | `WhackASupernatural\+Watch::Run()` | `0x7C` | the watch loop ends when the player is gone |
+| `b81-ghost-reaction-no-scared-buff` (`ilp_ghostreactionnoscaredbuff`) | 81 | `Sim\+GhostReaction::Run()` | `0x87` | a Coward whose Scared buff is missing does not throw |
+
+Sizes: 248, 785, 1094 and 462 bytes in both builds (the bodies differ only in tokens between EA 1.67 and UPDATE242, as
+the §5 three did). `tools/ilpatch-convert.ts --only b15_ --only b72_ --only b76_ --only b81_ --write` wrote them;
+`--emit-native` regenerated `ilpatch-specs.h` (7 specs); the ts3native build's selftest passes [verified]. The smoke
+queue and the `ilpatch-touch-bp` repro now arm and touch all seven (the batch-2 methods are interactions' `Run()` and the
+autonomy scorer: none is sure to run in 5 min of play). Live result: pending (the first run goes in the PR).
+
+The remaining builds of the 45, by what blocks them (docs/521 §3 census): helpers (b14, b52, b64's counter, b77's
+counter, b78, b94's field), a header rewrite (b13, b94), a branch into the replaced range that the relocator refuses
+(b17, b69, b73, b77's main edit: the core patch moves a label onto our lines, which phase 1 does not express), a listing of
+an intermediate core build (b14, b52), compiler-generated twins (b23, b94). b77 (the toddler one, Rodney's first pick) is
+in the third group: its fix is a ts3fixes hook, not a spec.

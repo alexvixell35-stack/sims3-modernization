@@ -48052,10 +48052,10 @@
   },
   {
     "id": "ilpatch-touch-bp",
-    "bug": "docs/526 [IlPatch]: the three docs/506 fixes are applied at the first IL transform of their method; b80 (Sim.DoOneRoundOfRemoteChat) and b87 (ScavengerOpportunity.OnAdded) may never run in a 5-minute session, so their application would go unseen",
-    "fix": "ts3native ilpatch.cpp (next version, [IlPatch] Enabled=1 + the three switches)",
+    "bug": "docs/526 [IlPatch]: the docs/506 fixes are applied at the first IL transform of their method; b80 (Sim.DoOneRoundOfRemoteChat), b87 (ScavengerOpportunity.OnAdded) and the batch-2 methods (b15 Autonomy.ScoreInteractionsForLocalAutonomy, b72 EasterEgg.PickUpEgg.Run, b76 WhackASupernatural.Watch.Run, b81 Sim.GhostReaction.Run) may never run in a 5-minute session, so their application would go unseen",
+    "fix": "ts3native ilpatch.cpp (next version, [IlPatch] Enabled=1 + the seven switches)",
     "save": "Baseline-BP-Spring",
-    "note": "After the load (b89's SimDescription.Fixup is already transformed: 'applied' line at the load), method_touch invokes each overload of the two other methods once on the sim thread (uninitialized receiver, default arguments, exceptions caught: Mono transforms before the first instruction, so the body throws at once and the transform has happened; GetFunctionPointer crashed the game, 2026-11-02 08:52); the ts3native.log then has three 'il patch: ... applied' lines (queue logRequire). Fixup is touched too: a repeat transform must reuse the body (ilpReused), never re-apply. The core in play must have bodies a spec knows: on this machine the player's core already carries the three fixes (Fixup 1501 bytes), so the smoke runs with the pure UPDATE242 package swapped in.",
+    "note": "After the load (b89's SimDescription.Fixup is already transformed: 'applied' line at the load), method_touch invokes each overload of the six other methods once on the sim thread (uninitialized receiver, default arguments, exceptions caught: Mono transforms before the first instruction, so the body throws at once and the transform has happened; GetFunctionPointer crashed the game, 2026-11-02 08:52); the ts3native.log then has seven 'il patch: ... applied' lines (queue logRequire). Fixup is touched too: a repeat transform must reuse the body (ilpReused), never re-apply. The core in play must have bodies a spec knows: on this machine the player's core already carries the fixes (Fixup 1501 bytes), so the smoke runs with the pure UPDATE242 package swapped in.",
     "steps": [
       {
         "cmd": "time",
@@ -48082,6 +48082,34 @@
           "path": "Sims3.Gameplay.CAS.SimDescription.Fixup"
         },
         "note": "b89, already applied at the load: a reuse, not a second apply"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Autonomy.Autonomy.ScoreInteractionsForLocalAutonomy"
+        },
+        "note": "b15 (batch 2)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.EasterEgg.PickUpEgg.Run"
+        },
+        "note": "b72 (batch 2; nested type, FindType's Outer.Inner fallback)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.HobbiesSkills.WhackASupernatural.Watch.Run"
+        },
+        "note": "b76 (batch 2)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Actors.Sim.GhostReaction.Run"
+        },
+        "note": "b81 (batch 2)"
       },
       {
         "cmd": "time",

@@ -269,7 +269,12 @@ static bool IlpBuildPatched(int si, BYTE* rm, const BYTE* hdr) {
     for (DWORD i = 0; i < s.nBuilds; i++) if (s.builds[i].size == size && !memcmp(s.builds[i].sha, sha, 32)) b = &s.builds[i];
     if (!b) {
         InterlockedIncrement(&ts3native_counters.ilpSkipHash);
-        if (InterlockedIncrement(&g_ilpLogged[si]) == 1) Log("il patch: %s: %s is %lu bytes, sha256 %s: not a build this fix knows, left alone", s.id, s.method, size, IlpHex(sha, 8, hex));
+        const IlpBuild* done = NULL;  // a core that already carries this fix in the converter's form (the contributor's patched core)
+        for (DWORD i = 0; i < s.nBuilds; i++) if (!memcmp(s.builds[i].patched, sha, 32)) done = &s.builds[i];
+        if (InterlockedIncrement(&g_ilpLogged[si]) == 1) {
+            if (done) Log("il patch: %s: %s is %lu bytes, sha256 %s: already carries the fix (%s patched form), left alone", s.id, s.method, size, IlpHex(sha, 8, hex), done->label);
+            else Log("il patch: %s: %s is %lu bytes, sha256 %s: not a build this fix knows, left alone", s.id, s.method, size, IlpHex(sha, 8, hex));
+        }
         return false;
     }
     IlpReloc r;

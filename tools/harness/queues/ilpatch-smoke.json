@@ -1,5 +1,5 @@
 {
-  "note": "docs/526 [IlPatch] smoke (Baseline-BP-Spring, ~8 min): the three docs/506 §5 fixes armed on a world load + 5 min of play. SimDescription.Fixup runs for every Sim at the load (GameStates world fixup), so b89 must apply there with the patched body's sha256 as the converter's; b80 and b87 are transformed by the repro's method_touch steps (the compiled entry asked for by reflection), so all three must apply. Pass: the OK line, b89 applied, no refused / mismatch / fault line, no crash. Local copy: asi = the CI build of the branch.",
+  "note": "docs/526 [IlPatch] smoke (Baseline-BP-Spring, ~8 min): the three docs/506 §5 fixes and the four batch-2 fixes (docs/526 §7) armed on a world load + 5 min of play. SimDescription.Fixup runs for every Sim at the load (GameStates world fixup), so b89 must apply there with the patched body's sha256 as the converter's; b80 and b87 are transformed by the repro's method_touch steps (the compiled entry asked for by reflection), so all three must apply. Pass: the OK line, b89 applied, no refused / mismatch / fault line, no crash. Local copy: asi = the CI build of the branch.",
   "jobs": [
     {
       "id": "bp-ilpatch-smoke",
@@ -12,14 +12,22 @@
         "IlPatch.Enabled": 1,
         "IlPatch.ilp_fixupnoinventory": 1,
         "IlPatch.ilp_remotechatnoeverydayoutfit": 1,
-        "IlPatch.ilp_scavengersleep": 1
+        "IlPatch.ilp_scavengersleep": 1,
+        "IlPatch.ilp_autonomyinventory": 1,
+        "IlPatch.ilp_eggpickupnohuntcontroller": 1,
+        "IlPatch.ilp_whackwatchownergone": 1,
+        "IlPatch.ilp_ghostreactionnoscaredbuff": 1
       },
       "logRequire": {
         "^OK   il patch \\(docs/506": 1,
-        "^il patch: .* armed ": 3,
+        "^il patch: .* armed ": 7,
         "^il patch: b89-fixup-no-inventory applied to Sims3\\.Gameplay\\.CAS\\.SimDescription::Fixup\\(\\) \\((ea-1\\.67|simler90-242), 1445 -> ": 1,
         "^il patch: b80-remote-chat-no-everyday-outfit applied to Sims3\\.Gameplay\\.Actors\\.Sim::DoOneRoundOfRemoteChat": 1,
-        "^il patch: b87-scavenger-sleep applied to Sims3\\.Gameplay\\.Opportunities\\.ScavengerOpportunity::OnAdded": 1
+        "^il patch: b87-scavenger-sleep applied to Sims3\\.Gameplay\\.Opportunities\\.ScavengerOpportunity::OnAdded": 1,
+        "^il patch: b15-autonomy-inventory applied to Sims3\\.Gameplay\\.Autonomy\\.Autonomy::ScoreInteractionsForLocalAutonomy": 1,
+        "^il patch: b72-egg-pickup-no-hunt-controller applied to Sims3\\.Gameplay\\.Objects\\.EasterEgg\\+PickUpEgg::Run": 1,
+        "^il patch: b76-whack-watch-owner-gone applied to Sims3\\.Gameplay\\.Objects\\.HobbiesSkills\\.WhackASupernatural\\+Watch::Run": 1,
+        "^il patch: b81-ghost-reaction-no-scared-buff applied to Sims3\\.Gameplay\\.Actors\\.Sim\\+GhostReaction::Run": 1
       },
       "logForbid": {
         "^FAIL\b": 0,
@@ -36,7 +44,7 @@
         }
       },
       "timeoutMin": 20,
-      "note": "Load (b89 applies at the world fixup) + method_touch of the other two methods (repro ilpatch-touch-bp: one call each on the sim thread with an uninitialized receiver, which transforms the method). Needs a core whose bodies a spec knows (EA 1.67 or UPDATE242 without patches): a core that already carries the fixes is left alone + 5 min of play. Pass: 'OK   il patch', three 'applied' lines (one per fix), three 'armed' lines, nothing refused / mismatched / faulted, no crash."
+      "note": "Load (b89 applies at the world fixup) + method_touch of the other six methods (repro ilpatch-touch-bp: one call each on the sim thread with an uninitialized receiver, which transforms the method). Needs a core whose bodies a spec knows (EA 1.67 or UPDATE242 without patches): a core that already carries the fixes is left alone + 5 min of play. Pass: 'OK   il patch', three 'applied' lines (one per fix), three 'armed' lines, nothing refused / mismatched / faulted, no crash."
     }
   ]
 }

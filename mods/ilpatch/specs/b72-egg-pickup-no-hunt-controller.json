@@ -1,0 +1,43 @@
+{
+  "id": "b72-egg-pickup-no-hunt-controller",
+  "switch": "ilp_eggpickupnohuntcontroller",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.Objects.EasterEgg+PickUpEgg::Run()",
+  "ilHashG6": "cce48fe4c584f699",
+  "builds": {
+    "ea-1.67": {
+      "size": 785,
+      "sha256": "4b6dd1d572ef825987aa514f921bea923e652227e72830f2b633e66ba1214a8b",
+      "tokens": {},
+      "patchedSha256": "cb8c8fa46687cf9964d5f53fdb3128fb43457febca7be8e41ed51f9a607fc68c"
+    },
+    "simler90-242": {
+      "size": 785,
+      "sha256": "28262bfd66a4e584c6d792a15b2b5a410fea02331ee9c00bb07ad8c856473ef9",
+      "tokens": {},
+      "patchedSha256": "982eacce0aa57c9beb8e1d130b506178c5a5f10f9d180bcff96cd1463a3ce38f"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x167",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldarg.0"
+      ],
+      "maxStack": 0,
+      "il": [
+        "brfalse @0x1B2",
+        "ldloc.0"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zzzzzzzzzzzzzzzzzzzzzzzzzzzz_b72_egg_pickup_no_hunt_controller.ps1",
+    "entries": [
+      "b72-pick-up-egg-no-hunt-controller"
+    ]
+  }
+}
