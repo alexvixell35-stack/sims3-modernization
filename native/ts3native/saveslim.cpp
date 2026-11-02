@@ -36,12 +36,13 @@ struct SlimView {  // a read-only file seen through one mapped window at a time
 // hold: no write sharing, for the file the rewrite may rename over (held until then); the others are only read. A file
 // a writer is still closing (the game's copy of the save, a scanner) is retried for up to ~1.4 s: a sharing violation
 // on any file of the folder turns Mode 2 into Mode 1 for that save (2026-11-02: a BigSave-LR run read no reference at all).
+static LONG g_svRetries = 0;  // opens retried in this save's pass (logged with the summary when not 0)
 static bool SvOpen(SlimView& v, const wchar_t* path, bool hold) {
     memset(&v, 0, sizeof(v));
     const DWORD share = hold ? FILE_SHARE_READ : FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
     HANDLE h = INVALID_HANDLE_VALUE;
     for (int n = 0; n < 8; n++) {
-        if (n) Sleep(200);
+        if (n) Sleep(200), g_svRetries++;
         h = CreateFileW(path, GENERIC_READ, share, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
         if (h != INVALID_HANDLE_VALUE || (GetLastError() != ERROR_SHARING_VIOLATION && GetLastError() != ERROR_LOCK_VIOLATION)) break;
     }
@@ -401,6 +402,7 @@ static const char* SlimRewrite(SlimJob& j, SlimFile& f, const u8* keep, DWORD nk
 
 static void SlimJobRun(SlimJob& j, const wchar_t* dir, const wchar_t* tmp) {
     SlimStats& st = *j.st;
+    g_svRetries = 0;
     wchar_t pat[MAX_PATH];
     WIN32_FIND_DATAW fd;
     HANDLE h = Join(pat, dir, L"*") ? FindFirstFileW(pat, &fd) : INVALID_HANDLE_VALUE;
@@ -489,6 +491,8 @@ static void SlimLog(const SlimStats& s) {
         kMode[s.mode], s.files, s.ndb, s.drops ? "references read" : s.mode != 1 ? "references NOT read, no drops" : "no drops",
         s.outfits, s.outfitsDropped, s.texDropped, s.texOrphans, s.scanMB, s.nodes, s.edges, s.scanMs, s.writeMs, s.totalMs,
         s.fail ? "; " : "", s.fail ? s.fail : "");
+    if (g_svRetries)
+        Log("save slim: %ld file opens retried (a writer was still closing it)", g_svRetries);
     if (s.unreadable)
         Log("save slim: unreadable %d: %ls: %s (entry %lu, Windows error %lu)", s.unreadable, s.badName, s.badWhy ? s.badWhy : "?", s.badEntry, s.badErr);
     for (int i = 0; i < s.ndb; i++) {
