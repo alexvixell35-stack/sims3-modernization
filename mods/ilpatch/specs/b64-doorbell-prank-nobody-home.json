@@ -13,7 +13,7 @@
         "instance class Sims3.Gameplay.CAS.Household Sims3.Gameplay.Core.Lot::get_Household()": "0x0600652f",
         "instance int32 class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.Actors.Sim>::get_Count()": "0x0a000037"
       },
-      "patchedSha256": "729e4dffbcb188a704331ee6f72463fe258321d1eea8fa19cdd3e67149df91a1"
+      "patchedSha256": "bb45f00246bad80567fe37669a84e4b82ee27dbace0f676449d580741577082d"
     },
     "simler90-242": {
       "size": 630,
@@ -22,7 +22,7 @@
         "instance class Sims3.Gameplay.CAS.Household Sims3.Gameplay.Core.Lot::get_Household()": "0x0600052b",
         "instance int32 class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.Actors.Sim>::get_Count()": "0x0a0001d6"
       },
-      "patchedSha256": "2b8a96089797e2e637db705da84e99a68ef5ccc5ff4ad434d14ef97b48d4f08c"
+      "patchedSha256": "e7e6f1c506cdc9fb5058149278e0e9584ee206f372294d5b770acc885f916584"
     }
   },
   "edits": [
@@ -42,7 +42,7 @@
     },
     {
       "at": "0x172",
-      "mode": "insert",
+      "mode": "replace",
       "entry": "incoming",
       "expect": [
         "ldloc.s"

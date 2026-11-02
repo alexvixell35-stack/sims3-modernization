@@ -16,7 +16,7 @@
         "float32 Sims3.Gameplay.Objects.Wildflower::kChanceSeedSpawnerSpawnsWildflower": "0x040053ec",
         "bool Sims3.Gameplay.Objects.Wildflower::CanSpawnWildflowers()": "0x06008624"
       },
-      "patchedSha256": "6dde559252828e66e77d849245ac9ec539328cb5608a7eec1e334f41cde6a9cf"
+      "patchedSha256": "71ed3c158d339ae897053894dd48cdb89520a03572e1c1f3da3dee474743ba84"
     },
     "simler90-242": {
       "size": 253,
@@ -28,13 +28,13 @@
         "float32 Sims3.Gameplay.Objects.Wildflower::kChanceSeedSpawnerSpawnsWildflower": "0x04008dff",
         "bool Sims3.Gameplay.Objects.Wildflower::CanSpawnWildflowers()": "0x0600ac63"
       },
-      "patchedSha256": "a7d6cae6a132150a9573d12a7e9ccdf924629e535779be44809768dcb30598a5"
+      "patchedSha256": "7cf8894dc3448ea4a941ee7e873bc7d1905fd037d9daf06118aef5e17263aa94"
     }
   },
   "edits": [
     {
       "at": "0x14",
-      "mode": "insert",
+      "mode": "replace",
       "entry": "incoming",
       "expect": [
         "call"
@@ -62,7 +62,7 @@
     },
     {
       "at": "0x7B",
-      "mode": "insert",
+      "mode": "replace",
       "entry": "incoming",
       "expect": [
         "call"

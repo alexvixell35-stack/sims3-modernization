@@ -37,7 +37,10 @@ node tools/ilpatch-convert.ts --self-check
    and spacing dropped; ildasm primitive names mapped to the reader's), locals by index, constants by value. One match
    is required; several are reported as `multi-method`.
 3. **Align.** Walk Replace: our lines before a labelled line that is unchanged are an insert at that offset with
-   `entry: fallthrough`; a labelled line whose content changed means the label moved onto our code (`incoming`); Find
+   `entry: fallthrough`; a labelled line whose opcode changed means the label moved onto our code (`incoming`) and the
+   EA instruction at that label is dropped (a `replace`): the Replace text is the whole truth, an EA line that stays is
+   listed again unlabelled (until 2026-11-02 the EA instruction was kept too, so B68's `IL_0096: brfalse.s` came out as
+   brfalse + EA's brtrue.s on one stack value and the transform crashed; B64, B68, B70 and B73 changed with the fix); Find
    labels missing from Replace are a replace of those instructions. An EA branch that only changed from its short to its
    long form (B80's `brfalse.s` → `brfalse`) is unchanged: the relocator writes every branch long anyway. `maxStack` is
    the peak extra depth of our lines (calls by their signature text).

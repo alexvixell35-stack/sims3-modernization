@@ -322,7 +322,12 @@ function align(find: Line[], replace: Block, body: Body): Edit[] {
     const unchanged = sameOp(bodyAt.get(r.label)!, r) && (!isBr(r.op) ? r.operand === f.operand : true);
     const dropped = droppedBetween(prev, r.label);
     if (unchanged) { const at = dropped.length ? dropped[0] : r.label; flush(at, dropped, 'fallthrough'); }
-    else { ours.push(r); const at = dropped.length ? dropped[0] : r.label; flush(at, dropped, 'incoming'); ours = []; }
+    else {
+      // A labelled line with another opcode replaces the EA instruction at that label (the Replace text is the whole
+      // truth: an EA line that stays is listed again, unlabelled). Before 2026-11-02 the EA instruction was kept as well:
+      // b68's "IL_0096: brfalse.s" came out as brfalse + EA's brtrue.s on one stack value (smoke 21 crashed in the transform).
+      ours.push(r); const at = dropped.length ? dropped[0] : r.label; flush(at, [...dropped, r.label], 'incoming'); ours = [];
+    }
     prev = r.label;
   }
   const tail = droppedBetween(prev, after + 1);

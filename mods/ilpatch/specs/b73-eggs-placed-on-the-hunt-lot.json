@@ -14,7 +14,7 @@
         "class Sims3.Gameplay.Core.Lot Sims3.Gameplay.Objects.EggHuntController::EggHuntLot": "0x0400c66e",
         "class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.Actors.Sim::get_ActiveActor()": "0x06000706"
       },
-      "patchedSha256": "5ff73dff8b30bcd3d5fdbd5a5a8d7694af2bb0b5212137fd585c603984c671b6"
+      "patchedSha256": "a3d144422336103ffb18fa80db2c5b42728155cfefa9d12724a03d23102af3bc"
     },
     "simler90-242": {
       "size": 52,
@@ -24,13 +24,13 @@
         "class Sims3.Gameplay.Core.Lot Sims3.Gameplay.Objects.EggHuntController::EggHuntLot": "0x0400b943",
         "class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.Actors.Sim::get_ActiveActor()": "0x060001f1"
       },
-      "patchedSha256": "a6019342ad3a988b363656afc089e34207e8c3cf779a6a1ee68921124fcfde35"
+      "patchedSha256": "53779acb3d64079a18031e4562094ec03c9090f5d9055bf59357c6d88209fe64"
     }
   },
   "edits": [
     {
       "at": "0x14",
-      "mode": "insert",
+      "mode": "replace",
       "entry": "incoming",
       "expect": [
         "call"

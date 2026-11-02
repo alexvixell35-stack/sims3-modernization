@@ -13,7 +13,7 @@
         "class [Sims3GameplaySystems]Sims3.Gameplay.Autonomy.ReactionBroadcaster Sims3.Gameplay.Objects.Plumbing.HotTubBase::mSkinnyDipBroadcaster": "0x04001fe3",
         "instance class [Sims3GameplaySystems]Sims3.Gameplay.Interfaces.IGameObject [Sims3GameplaySystems]Sims3.Gameplay.Autonomy.ReactionBroadcaster::get_BroadcastingObject()": "0x0a0002b0"
       },
-      "patchedSha256": "32f3c3e70823978fd8f6a9c1fda88281e0e220ec8f56f4b29413fb0e7195151b"
+      "patchedSha256": "6bb14e20f0dfaf283df2e2e7f193e952bb3b07af38adbcb46c67a6cc0b3cfca4"
     },
     "simler90-242": {
       "size": 261,
@@ -22,13 +22,13 @@
         "class [Sims3GameplaySystems]Sims3.Gameplay.Autonomy.ReactionBroadcaster Sims3.Gameplay.Objects.Plumbing.HotTubBase::mSkinnyDipBroadcaster": "0x04001d7d",
         "instance class [Sims3GameplaySystems]Sims3.Gameplay.Interfaces.IGameObject [Sims3GameplaySystems]Sims3.Gameplay.Autonomy.ReactionBroadcaster::get_BroadcastingObject()": "0x0a000754"
       },
-      "patchedSha256": "ed11179ef9a9801aa928ea959979a885a1a2ea7313faad2f4d70b1c4ce86e456"
+      "patchedSha256": "1988bd7e2d5e0fd2064ece0d2247e496fcc8b830b8b756ce1be4505ba459cb94"
     }
   },
   "edits": [
     {
       "at": "0x73",
-      "mode": "insert",
+      "mode": "replace",
       "entry": "incoming",
       "expect": [
         "brtrue.s"
