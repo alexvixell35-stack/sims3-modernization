@@ -159,7 +159,8 @@ enum JitKind : u8 {
     K_EXIT, K_RET, K_LDARG, K_LDTHIS, K_LDARGA, K_LDLOC, K_LDLOCA, K_STLOC, K_STLOCNP, K_STINARG, K_LDFLD, K_STFLD, K_LDC,
     K_LDCS, K_LDCI4, K_DUP, K_POP, K_BRS, K_BR, K_BTS, K_BT, K_BFS, K_BF, K_BCS, K_BC, K_LDLEN, K_LDELEM, K_LDIND, K_STIND,
     K_BIN, K_BIN8, K_MUL, K_INC, K_DEC, K_SHIFT, K_UN, K_CMP, K_CEQ0, K_CONV,
-    K_LDSFLD, K_LDSFLDA, K_STSFLD, K_STELEM, K_STELEMREF, K_STOBJ, K_LDFLDA, K_CKNULL, K_STRLEN, K_GETCHR  // round 10 C2
+    K_LDSFLD, K_LDSFLDA, K_STSFLD, K_STELEM, K_STELEMREF, K_STOBJ, K_LDFLDA, K_CKNULL, K_STRLEN, K_GETCHR,  // round 10 C2
+    K_DIVUN, K_REMR8, K_SWITCH  // round 10 C2, the throw-only handlers, rem.r8 and switch
 };
 // width: 1 = i1, 2 = u1, 3 = i2, 4 = u2, 5 = 32-bit, 6 = 64-bit, 7 = r4 (x87), 8 = typed by the field or class at compile
 // time (JitTypeWidth); x = kind-specific byte (cc, alu op, imm)
@@ -227,6 +228,7 @@ static const struct { const char* name; u8 kind, width; int x; } kJitTmpl[] = {
     {"stelem.i", K_STELEM, 5, 0}, {"stelem.i1", K_STELEM, 1, 0}, {"stelem.i2", K_STELEM, 3, 0}, {"stelem.i4", K_STELEM, 5, 0},
     {"stelem.i8", K_STELEM, 6, 0}, {"stelem.r4", K_STELEM, 7, 0}, {"stelem.r8", K_STELEM, 6, 0}, {"stelem.ref", K_STELEMREF, 5, 0},
     {"stobj", K_STOBJ, 8, 0}, {"cknull", K_CKNULL, 0, 0}, {"strlen", K_STRLEN, 0, 0}, {"getchr", K_GETCHR, 0, 0},
+    {"div.un.i4", K_DIVUN, 0, 0}, {"rem.un.i4", K_DIVUN, 0, 1}, {"rem.r8", K_REMR8, 0, 0}, {"switch", K_SWITCH, 0, 0},
     // ALU r/m32, r32 opcodes: add 01, or 09, and 21, sub 29, xor 31 (i8: low op, high op adc 11 / sbb 19)
     {"add.i4", K_BIN, 0, 0x01}, {"sub.i4", K_BIN, 0, 0x29}, {"and.i4", K_BIN, 0, 0x21}, {"or.i4", K_BIN, 0, 0x09}, {"xor.i4", K_BIN, 0, 0x31},
     {"add.i8", K_BIN8, 0, 0x1101}, {"sub.i8", K_BIN8, 0, 0x1929}, {"and.i8", K_BIN8, 0, 0x2121}, {"or.i8", K_BIN8, 0, 0x0909},
@@ -758,7 +760,7 @@ static void JitCompiled(u8* rm) {
     }
     if (g_jitCodeEnd - (g_jitCode + g_jitCodeUsed) < (lazyOk ? 512 : 256) * n + 512) { Log("jit: code pool full\n"); return; }
     static u8* label[4096];
-    static struct { u8* rel; int targetW; } fix[4096];
+    static struct { u8* rel; int targetW; bool abs; } fix[4096];  // abs: a switch table slot takes the label itself
     static int wordToPos[65536];
     for (int k = 0; k < words; k++) wordToPos[k] = -1;
     for (int k = 0; k < n; k++) wordToPos[posW[k]] = k;
@@ -910,17 +912,17 @@ static void JitCompiled(u8* rm) {
             case K_POP: e.addEsi(-8); break;
             case K_BRS: case K_BR: {
                 int tw = posW[k] + (t.kind == K_BRS ? o16 : *(const int*)(ip + 1));
-                fix[nf].rel = e.jmp(), fix[nf++].targetW = tw; break;
+                fix[nf].rel = e.jmp(), fix[nf].abs = false, fix[nf++].targetW = tw; break;
             }
             case K_BTS: case K_BT: case K_BFS: case K_BF: {
                 int tw = posW[k] + (t.kind == K_BTS || t.kind == K_BFS ? o16 : *(const int*)(ip + 1));
                 e.addEsi(-8); e.b(0x83); e.m(7, ESI, 0); e.b(0);  // cmp dword [esi], 0
-                fix[nf].rel = e.jcc(t.kind == K_BTS || t.kind == K_BT ? 0x85 : 0x84), fix[nf++].targetW = tw; break;
+                fix[nf].rel = e.jcc(t.kind == K_BTS || t.kind == K_BT ? 0x85 : 0x84), fix[nf].abs = false, fix[nf++].targetW = tw; break;
             }
             case K_BCS: case K_BC: {
                 int tw = posW[k] + (t.kind == K_BCS ? o16 : *(const int*)(ip + 1));
                 e.op(0x8B, EAX, ESI, -16); e.addEsi(-16); e.op(0x3B, EAX, ESI, 8);
-                fix[nf].rel = e.jcc(t.x), fix[nf++].targetW = tw; break;
+                fix[nf].rel = e.jcc(t.x), fix[nf].abs = false, fix[nf++].targetW = tw; break;
             }
             case K_LDLEN: e.op(0x8B, EAX, ESI, -8); e.rr(0x85, EAX, EAX); exitRel[0] = e.jcc(0x84); e.op(0x8B, EAX, EAX, 8); e.op(0x89, EAX, ESI, -8); break;
             case K_LDELEM: {  // null and bounds checks exit before any change; element at data + 0x10
@@ -952,6 +954,24 @@ static void JitCompiled(u8* rm) {
             case K_DEC: e.b(0x83); e.m(5, ESI, -8); e.b(1); break;
             case K_SHIFT: e.op(0x8B, ECX, ESI, -8); e.op(0xD3, t.x, ESI, -16); e.addEsi(-8); break;
             case K_UN: e.op(0xF7, t.x, ESI, -8); break;
+            case K_DIVUN:  // dividend [esi-16], divisor [esi-8]; a zero divisor exits before any change (EA's handler throws there)
+                e.op(0x8B, ECX, ESI, -8); e.rr(0x85, ECX, ECX); exitRel[0] = e.jcc(0x84);
+                e.op(0x8B, EAX, ESI, -16); e.rr(0x31, EDX, EDX); e.b(0xF7); e.b(0xF1);  // xor edx, edx; div ecx
+                e.op(0x89, t.x ? EDX : EAX, ESI, -16); e.addEsi(-8); break;
+            case K_REMR8:  // x [esi-16], y [esi-8]: fld x; fld y; call the CRT _CIfmod as EA's handler at 0xE55C65 does; the result replaces x
+                e.fld8(ESI, -16); e.fld8(ESI, -8); e.b(0xE8); e.d((DWORD)0xF7EFB0 - ((DWORD)(uintptr_t)e.p + 4)); e.fstp8(ESI, -16); e.addEsi(-8); break;
+            case K_SWITCH: {  // value [esi-8]; u32 n at ip+1, then n i32 word offsets from the end of the instruction (EA's 0xE558B1);
+                const int cnt = *(const int*)(ip + 1);  // out of range falls through
+                if (cnt < 0 || cnt > 1024 || nf + cnt > 4000) { EmitExit(e, ip, op, false); ex++; continue; }
+                e.op(0x8B, EAX, ESI, -8); e.addEsi(-8);
+                e.b(0x3D); e.d((DWORD)cnt);  // cmp eax, n
+                u8* over = e.jcc(0x83);  // jae: next instruction
+                e.b(0xFF); e.b(0x24); e.b(0x85); u8* tabRef = e.p; e.d(0);  // jmp dword [eax*4 + table]
+                const u8* table = e.p; memcpy(tabRef, &table, 4);
+                const int endW = posW[k] + 3 + 2 * cnt;
+                for (int c = 0; c < cnt; c++) { fix[nf].rel = e.p, fix[nf].abs = true, fix[nf++].targetW = endW + ((const int*)(ip + 3))[c]; e.d(0); }
+                Fix(over, e.p); break;
+            }
             case K_CMP:
                 e.op(0x8B, EDX, ESI, -16); e.rr(0x33, EAX, EAX); e.op(0x3B, EDX, ESI, -8);
                 e.b(0x0F); e.b(t.x); e.b(0xC0);  // setcc al
@@ -987,7 +1007,7 @@ static void JitCompiled(u8* rm) {
         for (int f = 0; f < nf; f++) {
             int tw = fix[f].targetW, tp = tw >= 0 && tw < words ? wordToPos[tw] : -1;
             if (tp < 0) { Log("jit: branch target %d not an instruction\n", tw); g_jitLazyPass = false; return; }
-            Fix(fix[f].rel, label[tp]);
+            if (fix[f].abs) memcpy(fix[f].rel, &label[tp], 4); else Fix(fix[f].rel, label[tp]);
         }
     }
     g_jitLazyPass = false;
@@ -1830,14 +1850,16 @@ static bool InstallJit() {
         DWORD* table = (DWORD*)(uintptr_t)MINT_TABLE;
         for (DWORD op = 0; op < 0x1C1; op++) g_opHandler[op] = (void*)(uintptr_t)table[op];
         // MONOHOST_JITC2=<mask> keeps only these round 10 C2 template groups (default all): 1 float fields + ldflda, 2 static
-        // fields, 4 the array loads / stores added here, 8 stobj, 16 cknull / strlen / getchr
-        unsigned c2 = 31;
+        // fields, 4 the array loads / stores added here, 8 stobj, 16 cknull / strlen / getchr, 32 div.un.i4 / rem.un.i4 / rem.r8,
+        // 64 switch
+        unsigned c2 = 127;
         if (GetEnvironmentVariableA("MONOHOST_JITC2", x, sizeof(x))) c2 = (unsigned)atoi(x);
         for (auto& t : kJitTmpl) {
             const unsigned g = t.kind == K_LDFLDA || !strcmp(t.name, "ldfld.r4") || !strcmp(t.name, "ldfld.r8") || !strcmp(t.name, "stfld.r4") || !strcmp(t.name, "stfld.r8") ? 1
                 : t.kind == K_LDSFLD || t.kind == K_LDSFLDA || t.kind == K_STSFLD ? 2
                 : t.kind == K_STELEM || t.kind == K_STELEMREF || !strcmp(t.name, "ldelem.r4") || !strcmp(t.name, "ldelem.r8") ? 4
-                : t.kind == K_STOBJ ? 8 : t.kind == K_CKNULL || t.kind == K_STRLEN || t.kind == K_GETCHR ? 16 : 0;
+                : t.kind == K_STOBJ ? 8 : t.kind == K_CKNULL || t.kind == K_STRLEN || t.kind == K_GETCHR ? 16
+                : t.kind == K_DIVUN || t.kind == K_REMR8 ? 32 : t.kind == K_SWITCH ? 64 : 0;
             if (g & ~c2) continue;
             for (DWORD op = 0; op <= 0x1A8; op++)
                 if (!strcmp(names[op], t.name)) { g_opInfo[op] = {t.kind, t.width, t.x}; break; }

@@ -32,11 +32,11 @@ opcode,name,class,reason,ms_s_behind,methods,test_cases
 0x0F6,castclass,hand,call+throw,0.133,1,4
 0x149,shr.un.i8,generatable,,0.118,1,3
 0x0F8,newarr,hand,call+alloc+throw,0.116,1,1
-0x12A,div.un.i4,hand,throw,0.105,1,2
+0x12A,div.un.i4,covered,,0.105,1,2
 0x116,stelem.i4,covered,,0.082,1,3
 0x0F5,initobj,generatable,,0.075,1,2
 0x110,ldelema,hand,call+throw,0.056,3,3
-0x146,rem.un.i4,hand,throw,0.048,2,2
+0x146,rem.un.i4,covered,,0.048,2,2
 0x09C,leave.s,hand,call,0.037,3,2
 0x0ED,con.callvirt,hand,call+throw,0.029,4,1
 0x11A,stelem.ref,covered,,0.019,3,3
@@ -256,7 +256,7 @@ opcode,name,class,reason,ms_s_behind,methods,test_cases
 0x0E5,blt.un.i4.s,covered,,0.000,0,2
 0x0E6,blt.un.i8.s,generatable,,0.000,0,2
 0x0E7,blt.un.r8.s,generatable,,0.000,0,2
-0x0E8,switch,generatable,,0.000,0,2
+0x0E8,switch,covered,,0.000,0,2
 0x0E9,ldstr,generatable,,0.000,7,1
 0x0EF,calli,hand,call+throw,0.000,0,1
 0x0F0,calli.nat,hand,call,0.000,0,1
@@ -328,7 +328,7 @@ opcode,name,class,reason,ms_s_behind,methods,test_cases
 0x142,xor.i8,covered,,0.000,0,1
 0x143,rem.i4,hand,throw,0.000,0,3
 0x144,rem.i8,hand,throw,0.000,0,3
-0x145,rem.r8,generatable,,0.000,0,3
+0x145,rem.r8,covered,,0.000,0,3
 0x147,rem.un.i8,hand,throw,0.000,0,2
 0x148,shr.un.i4,covered,,0.000,0,2
 0x14A,shl.i4,covered,,0.000,0,2
