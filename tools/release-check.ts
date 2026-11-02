@@ -167,6 +167,7 @@ export function measuredTimes(validate: Job[]): Times {
   const prof = new Map(validate.filter(j => j.run.profile && !j.run.profile.travel).map(j => [j.id, j.run.profile.minutes]));
   for (const f of existsSync(dir) ? readdirSync(dir) : []) {
     const text = readFileSync(join(dir, f), 'utf8');
+    if (/^Machine: (?!main\b)/m.test(text)) continue; // another machine's runs (TS3_MACHINE): its times never feed the main machine's estimates
     if (/-queue-/.test(f)) for (const m of text.matchAll(/^\| ([\w.-]+) \| \d\d:\d\d[^|]*\| ([\d.]+) \| (\*\*FAIL\*\*|PASS)/gm)) {
       const [, id, min, res] = m;
       if (res !== 'PASS') continue;

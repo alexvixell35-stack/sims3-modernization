@@ -10,6 +10,7 @@ import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { mayBeStuck } from './stuck-rule.ts';
 import { sampleGame, stallStep } from './game-alive.ts';
+import { GAME_EXE } from './game-exe.ts';
 
 const { values } = parseArgs({ options: {
   every: { type: 'string', default: '1' }, port: { type: 'string', default: '47891' }, 'min-free-mb': { type: 'string', default: '300' },
@@ -38,7 +39,7 @@ async function agent(cmd: string, args?: object): Promise<any> {
 }
 // Windows marks a window "Not Responding" when its UI thread stops pumping messages for ~5 s.
 function windowStatus(): string {
-  const csv = execFileSync('tasklist', ['/V', '/FO', 'CSV', '/NH', '/FI', 'IMAGENAME eq TS3W.exe']).toString().trim();
+  const csv = execFileSync('tasklist', ['/V', '/FO', 'CSV', '/NH', '/FI', `IMAGENAME eq ${GAME_EXE}`]).toString().trim();
   const cols = csv.split('","');
   return cols.length > 6 ? cols[5] : 'unknown';
 }
@@ -69,7 +70,7 @@ async function checkSims(): Promise<void> {
   for (const id of [...simSeen.keys()]) if (!now.has(id)) simSeen.delete(id);
 }
 
-const gameRunning = () => execFileSync('tasklist', ['/NH', '/FI', 'IMAGENAME eq TS3W.exe']).toString().includes('TS3W.exe');
+const gameRunning = () => execFileSync('tasklist', ['/NH', '/FI', `IMAGENAME eq ${GAME_EXE}`]).toString().includes(GAME_EXE);
 
 async function simStack(): Promise<string> {
   try {

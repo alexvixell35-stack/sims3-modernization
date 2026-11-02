@@ -139,6 +139,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kCarNoRoute = false;          // opt-in until verified: a car with no car routing component no longer throws when it drives to a lot; the drive fails as a failed plan does (CarNoRoute.cs, docs/513)
         [Tunable] public static bool kNpcDriverPool = false;       // opt-in until verified: a taxi, limo, bus or fire-truck driver is never built from a pooled description that is no longer a live NPC (NpcDriverPool.cs, docs/514)
         [Tunable] public static bool kBookCarry = false;           // opt-in until verified: a Sim who puts a book in the inventory after reading no longer keeps the book-holding arm pose (BookCarry.cs, docs/515)
+        [Tunable] public static bool kAgeUpAbort = false;          // opt-in until verified: a Sim whose deferred age-up build is aborted while it is instantiated is still created (AgeUpAbort.cs, docs/512)
         [Tunable] public static bool kBakeSaleSeller = false;      // opt-in until verified: a bake sale table's deleted seller reads as no seller, an orphaned NPC table gets its clean-up alarm back (BakeSale.cs, issue #102)
         [Tunable] public static bool kDeadRefSweep = false;        // opt-in, changes save data: EA holders of disposed descriptions / destroyed Sims cleaned, spread hourly + cheap pre-save pass (DeadRefs.cs, issue #91)
         [Tunable] public static bool kVacExport = false;           // opt-in until verified: free vacation adults keep dreams, opportunities, travel moodlets (EaVacation.cs, issue #97 row 1)

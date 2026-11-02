@@ -21,6 +21,7 @@ namespace Ts3Fixes
 
         internal static void StartViewerPush()
         {
+            UtbWorldLoad();  // docs/227 §6: ask ts3native for the unseen table again this load
             int gen = ++sViewerGen;  // a loop left from an earlier load ends at its next wake-up
             Simulator.AddObject(new LoopTask(delegate { ViewerPushLoop(gen); }));
         }

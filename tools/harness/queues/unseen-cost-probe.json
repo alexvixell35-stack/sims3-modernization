@@ -1,0 +1,192 @@
+{
+  "note": "unseen-cost-probe: docs/227 unseen-check cost probe (ts3fixes unseencost counters 690-743, ts3native [UnseenCost] v148 uc*, both off by default), NOT RUN, NOT BUILT. Measurement only: no A/B, no behaviour change. Build from branch wt/unseen-probe: ts3native.asi -> game-copy/ts3native.asi.unseencost1, ts3fixes.package -> game-copy/ts3fixes.package.unseencost1, and the ts3agent package from the same branch (unseencost_* names, the patches command). Config: release ini + fixes, plus every unseen consumer on so all check sites run (native [UnseenThrottle] phase 2, [UnseenAnim] Mode 1, [UnseenFallback] Sites=1; script throttles, disposespread, unseenfb sites/pre/plan/teleport/trip). Order: smoke (auto), BP 10 min, IP 10 min. Verdict (docs/227 §3): build the central per-tick unseen table only if total unseen-check cost > ~2 ms/s or the repeat ratio >= 3 on either world; the probe cost line must stay under ~2-3% of the sim budget, else the numbers are suspect. Daytime OK (machine quiet rule), no build-heavy agents during the jobs. Run: node tools/harness/queue.ts tools/harness/queues/unseen-cost-probe.json",
+  "smoke": {
+    "note": "Measurement smoke (AGENTS.md): BP Spring 4 min, same ini and switches. Pass: fixes on: ... (verified) line (unseencost read back on), ucReady 1, ucN_0 > 0, fixesRequire (script sites, calibration and floor counters > 0), heavy tools off (noSamplers, HitchAttr only), no crash. Read: node tools/harness/unseen-cost-report.ts unseen-cost-probe-<date>-smoke prints both parts without NO DATA. A FAIL stops the queue.",
+    "asi": "game-copy/ts3native.asi.unseencost1",
+    "save": "Baseline-BP-Spring",
+    "fixesPackage": "game-copy/ts3fixes.package.unseencost1",
+    "ini": {
+      "SlotEnabledRO.Enabled": 1,
+      "SlotEnabledRO.Mode": 1,
+      "SlotEnabledRO.Shadow": 0,
+      "UnseenThrottle.Enabled": 1,
+      "UnseenThrottle.List": 1,
+      "RouteAsync.FallbackAsync": 1,
+      "RouteAsync.M1Retry": 1,
+      "RouteAsync.SyncCapMs": 1000,
+      "RouteAsync.FbJobCapMs": 300,
+      "RouteAsync.LogFallbackMs": 20,
+      "RouteAsync.LogFallbackStack": 16,
+      "RouteAsync.TailUnlock": 1,
+      "RouteAsync.ReplanDedupe": 1,
+      "RouteAsync.H2": 1,
+      "RouteEarlyOut.Enabled": 1,
+      "RouteEarlyOut.Mode": 2,
+      "RouteEarlyOut.Act": 1,
+      "RouteEarlyOut.LogMs": 200,
+      "HitchAttr.Enabled": 1,
+      "UnseenThrottle.Avoid": 1,
+      "UnseenThrottle.Footprint": 1,
+      "UnseenThrottle.Rate": 1,
+      "UnseenThrottle.Every": 4,
+      "UnseenAnim.Enabled": 1,
+      "UnseenAnim.Mode": 1,
+      "UnseenFallback.Enabled": 1,
+      "UnseenFallback.Sites": 1,
+      "UnseenCost.Enabled": 1
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 4,
+        "noSamplers": true,
+        "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseenenv,unseenmotives,unseenbroadcast,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseencost",
+        "fixesReport": "unseencost",
+        "fixesRequire": "unseencost_ticks>=1,unseencost_far_calls>=1,unseencost_simunseen_calls>=1,unseencost_ufwhy_calls>=1,unseencost_self_n>=16,unseencost_floor_n>=1"
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 15,
+    "pinReason": "unseencost1 = ts3native 0.36.154 + ts3fixes from branch wt/unseen-probe ([UnseenCost] / unseencost probe, docs/227); NOT BUILT YET"
+  },
+  "jobs": [
+    {
+      "id": "bp-uc-probe",
+      "note": "Unseen-check cost, Baseline-BP-Spring, 10 min, seed 12345, all unseen consumers on (see the queue note). Pass: no crash, 0 watchdog lines, fixesRequire. Read: node tools/harness/unseen-cost-report.ts unseen-cost-probe-<date>-bp-uc-probe: per-site ms/s, interop calls/s, repeat ratios, probe cost, decision line.",
+      "asi": "game-copy/ts3native.asi.unseencost1",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseencost1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenCost.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseenenv,unseenmotives,unseenbroadcast,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseencost",
+          "fixesReport": "unseencost",
+          "fixesRequire": "unseencost_ticks>=1,unseencost_far_calls>=1,unseencost_simunseen_calls>=1,unseencost_ufwhy_calls>=1,unseencost_self_n>=16,unseencost_floor_n>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseencost1 = ts3native 0.36.154 + ts3fixes from branch wt/unseen-probe ([UnseenCost] / unseencost probe, docs/227); NOT BUILT YET",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "ucReady",
+          "op": "==",
+          "value": 1,
+          "why": "[UnseenCost] not on (old asi or Enabled=0)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "ucN_0",
+          "op": ">",
+          "value": 0,
+          "why": "no UnObjClass call counted"
+        }
+      ]
+    },
+    {
+      "id": "ip-uc-probe",
+      "note": "As bp-uc-probe on Baseline-IP (the world that still hitches). Read: node tools/harness/unseen-cost-report.ts unseen-cost-probe-<date>-ip-uc-probe.",
+      "asi": "game-copy/ts3native.asi.unseencost1",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseencost1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenFallback.Enabled": 1,
+        "UnseenFallback.Sites": 1,
+        "UnseenCost.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseenenv,unseenmotives,unseenbroadcast,unseencars,disposespread,unseenfbsites,unseenfbpre,unseenfbplan,unseenfbteleport,unseenfbtrip,unseenfbtriphold,unseencost",
+          "fixesReport": "unseencost",
+          "fixesRequire": "unseencost_ticks>=1,unseencost_far_calls>=1,unseencost_simunseen_calls>=1,unseencost_ufwhy_calls>=1,unseencost_self_n>=16,unseencost_floor_n>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseencost1 = ts3native 0.36.154 + ts3fixes from branch wt/unseen-probe ([UnseenCost] / unseencost probe, docs/227); NOT BUILT YET",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "ucReady",
+          "op": "==",
+          "value": 1,
+          "why": "[UnseenCost] not on (old asi or Enabled=0)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "ucN_0",
+          "op": ">",
+          "value": 0,
+          "why": "no UnObjClass call counted"
+        }
+      ]
+    }
+  ]
+}

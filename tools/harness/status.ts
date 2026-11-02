@@ -28,6 +28,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { summarize } from './machine-load.ts';
 import { classify, jsonlRows } from './run-verdict.ts';
+import { GAME_EXE } from './game-exe.ts';
 
 const ROOT = process.env.TS3_REPO ?? join(import.meta.dirname, '..', '..');
 const DEFS = join(import.meta.dirname, 'queues');
@@ -42,7 +43,7 @@ const profMin = (j: Def) => { const p = j.run?.profile; if (!p?.minutes) return 
 export const estMin = (j: Def, overhead: number) => { const p = profMin(j); return p !== null ? p + overhead : j.timeoutMin ?? 60; };
 
 export type JobState = { id: string; state: 'PASS' | 'FAIL' | 'VOID' | 'running' | 'stopped' | 'left'; start?: number; end?: number; min?: number; why?: string; machine?: string };
-export type QStatus = { name: string; date: string; dir: string; jobs: JobState[]; alive: boolean; last: number; eta: number | null; overhead: number };
+export type QStatus = { machine?: string; name: string; date: string; dir: string; jobs: JobState[]; alive: boolean; last: number; eta: number | null; overhead: number };
 
 // one run of a queue: <dir>/<name>-<date>.jsonl rows + <name>-<date>-<job>.log files
 export function queueStatus(name: string, date: string, dir: string, now = Date.now(), defs = DEFS): QStatus {
@@ -72,13 +73,14 @@ export function queueStatus(name: string, date: string, dir: string, now = Date.
     eta = Math.max(now, ...jobs.filter(j => j.state === 'running').map(j => j.end ?? now));
     for (const j of jobs) if (j.state === 'left') { const d = byId.get(j.id); j.start = eta; eta += (d ? estMin(d, overhead) : 60) * 60000; j.end = eta; }
   }
-  return { name, date, dir, jobs, alive, last, eta, overhead };
+  const machine = rows.map(r => r.machineTag).filter(m => m && m !== 'main').at(-1); // tag of a non-main machine's run
+  return { machine, name, date, dir, jobs, alive, last, eta, overhead };
 }
 
 const cell = (s = '') => s.replace(/\|/g, '\\|').replace(/\n/g, ' ').slice(0, 160);
 export function render(q: QStatus): string {
   const n = (s: string) => q.jobs.filter(j => j.state === s).length;
-  const out = [`### ${q.name} ${q.date}: ${n('PASS')} PASS, ${n('FAIL')} FAIL, ${n('VOID')} VOID, ${n('running')} running, ${n('left')} left${n('stopped') ? `, ${n('stopped')} stopped` : ''} (overhead ${q.overhead.toFixed(1)} min/job)`, '',
+  const out = [`### ${q.name} ${q.date}${q.machine ? ` [${q.machine}]` : ''}: ${n('PASS')} PASS, ${n('FAIL')} FAIL, ${n('VOID')} VOID, ${n('running')} running, ${n('left')} left${n('stopped') ? `, ${n('stopped')} stopped` : ''} (overhead ${q.overhead.toFixed(1)} min/job)`, '',
     '| Job | State | Start PHT | End PHT | min | Reason / machine |', '|---|---|---|---|---|---|'];
   for (const j of q.jobs) {
     const end = j.end === undefined ? '' : j.state === 'PASS' || j.state === 'FAIL' || j.state === 'VOID' ? pht(j.end) : `~${pht(j.end)}`;
@@ -233,7 +235,7 @@ export function renderApex(a: AStatus, now = Date.now(), game?: boolean): string
   return out.join('\n');
 }
 export const apexDirs = (root: string) => { const d = join(root, 'probe-out', 'apex'); return existsSync(d) ? readdirSync(d).map(x => join(d, x)).filter(x => existsSync(join(x, 'run.json'))).sort((x, y) => mtime(join(x, 'run.json')) - mtime(join(y, 'run.json'))) : []; };
-const ts3wRunning = () => { if (process.platform !== 'win32') return undefined; try { return /^TS3W\.exe/im.test(execFileSync('tasklist', ['/NH', '/FI', 'IMAGENAME eq TS3W.exe'], { timeout: 15000 }).toString()); } catch { return undefined; } };
+const ts3wRunning = () => { if (process.platform !== 'win32') return undefined; try { return new RegExp(`^${GAME_EXE.replace(/\./g, '\\.')}`, 'im').test(execFileSync('tasklist', ['/NH', '/FI', `IMAGENAME eq ${GAME_EXE}`], { timeout: 15000 }).toString()); } catch { return undefined; } };
 
 function selfCheck() {
   const tmp = mkdtempSync(join(tmpdir(), 'ts3-status-')), dir = join(tmp, 'q'), defs = join(tmp, 'defs');

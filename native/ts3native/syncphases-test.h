@@ -11,7 +11,7 @@ static void TestSyncPhases() {
     static_assert(offsetof(Ts3nCounters, sypMode) == 0x4120 && offsetof(Ts3nCounters, sypPhaseUs) == 0x4150 &&
                   offsetof(Ts3nCounters, sypLongN) == 0x418C && offsetof(Ts3nCounters, sypLongPhaseUs) == 0x4190 &&
                   offsetof(Ts3nCounters, sypLoopN) == 0x41CC && offsetof(Ts3nCounters, sypLongLoopUs) == 0x41FC &&
-                  offsetof(Ts3nCounters, sypLinesDropped) == 0x4210 && sizeof(Ts3nCounters) == 5476 * 4,
+                  offsetof(Ts3nCounters, sypLinesDropped) == 0x4210 && sizeof(Ts3nCounters) == 5798 * 4,
                   "counters v97 layout after v96 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.sypMode, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, sypMode));

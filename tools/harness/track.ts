@@ -13,6 +13,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
+import { GAME_EXE } from './game-exe.ts';
 
 export type Proc = { pid: number; ppid: number; name: string; cmd: string; start?: string };
 type Env = { dir: string; procs: () => Proc[]; kill: (pid: number) => void; sleepMs: number; log: (m: string) => void };
@@ -51,7 +52,7 @@ export function classify(all: Proc[], self = process.pid) {
     .map(p => ({ ...p, queue: /--queue[ =]"?([^\s"]+)/.exec(p.cmd)?.[1] ?? /([^\s"\\/]+\.json)/.exec(p.cmd)?.[1] ?? '?' }));
   const tails = ps.filter(p => /^tail(\.exe)?$/i.test(p.name) && /-F/.test(p.cmd) && /probe-out[\\/]queue/.test(p.cmd))
     .map(p => ({ ...p, orphan: !pids.has(p.ppid) || !ps.some(q => q.pid === p.ppid && /bash|sh|node/i.test(q.name)) }));
-  const game = ps.filter(p => /^TS3W\.exe$/i.test(p.name));
+  const game = ps.filter(p => p.name.toLowerCase() === GAME_EXE.toLowerCase());
   const builds = ps.filter(p => /^(cl|link|csc|msbuild)\.exe$/i.test(p.name));
   return { chains, queues, tails, game, builds, alive: (pid: number) => pids.has(pid) };
 }
@@ -115,7 +116,7 @@ export async function stop(e: Env, afterJob: boolean) {
     const j = jobState(e, c.alive);
     if (j?.alive) { e.kill(j.pid); did.push(`killed job ${j.id} tree (pid ${j.pid})`); }
     for (const g of c.game) e.kill(g.pid);
-    if (c.game.length) did.push(`killed TS3W.exe (${c.game.map(g => g.pid).join(', ')}): check Game\\Bin pair before the next run`);
+    if (c.game.length) did.push(`killed ${GAME_EXE} (${c.game.map(g => g.pid).join(', ')}): check Game\\Bin pair before the next run`);
   }
   c = classify(e.procs());
   did.push(...clean(e, c));
@@ -129,7 +130,7 @@ export function status(e: Env) {
   L.push(`hold:        ${h ? `${h} (${ageMin(holdFile(e)).toFixed(0)} min)` : '-'}`);
   const j = jobState(e, c.alive);
   L.push(`job:         ${j ? `${j.id} pid ${j.pid} ${j.alive ? 'alive' : 'DEAD (stale marker)'}` : '-'}`);
-  L.push(`game:        ${c.game.length ? `TS3W.exe ${c.game.map(g => g.pid).join(', ')}` : '-'}`);
+  L.push(`game:        ${c.game.length ? `${GAME_EXE} ${c.game.map(g => g.pid).join(', ')}` : '-'}`);
   L.push(`chains:      ${c.chains.length ? c.chains.map(p => `${p.script} pid ${p.pid} since ${p.start ?? '?'}`).join('; ') : '-'}`);
   L.push(`queues:      ${c.queues.length ? c.queues.map(p => `${p.queue} pid ${p.pid}`).join('; ') : '-'}`);
   const la = ageMin(join(e.dir, 'main.lock'));
@@ -160,7 +161,7 @@ if (import.meta.main) {
         { pid: 12, ppid: 10, name: 'node.exe', cmd: 'node tools/harness/queue.ts --queue mono-x' },
         { pid: 13, ppid: 999, name: 'tail.exe', cmd: 'tail -n 0 -F probe-out/queue/a.log' },
         { pid: 14, ppid: 10, name: 'tail.exe', cmd: 'tail -n 0 -F probe-out/queue/b.log' },
-        { pid: 15, ppid: 12, name: 'TS3W.exe', cmd: 'TS3W.exe' },
+        { pid: 15, ppid: 12, name: GAME_EXE, cmd: GAME_EXE },
         { pid: 16, ppid: 1, name: 'bash.exe', cmd: 'bash -c ls' },
       ];
       const killed: number[] = [];

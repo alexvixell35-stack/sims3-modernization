@@ -62,7 +62,7 @@ export function digest(rows: any[], jobs: Map<string, any>, ctx: Ctx): { lines: 
     if (v.v !== 'PASS') failed.push(v.v === 'VOID' ? `${id} void` : id);
     if (v.v === 'VOID') review.push(`${id}: VOID, rerun`);
     const timing = row.timing === 'invalid' ? `, timing invalid (${clip(String(row.timingWhy ?? '?'), 60)})` : '';
-    L.push(`${id}: ${v.v}, ${row.minutes ?? '?'} min from ${hhmm(row.time)}${timing}${v.v !== 'PASS' && v.why ? `; ${clip(v.why.replace(/FAIL:\s*/g, ''), 200)}` : ''}`);
+    L.push(`${id}${row.machineTag ? ` [${row.machineTag}]` : ''}: ${v.v}, ${row.minutes ?? '?'} min from ${hhmm(row.time)}${timing}${v.v !== 'PASS' && v.why ? `; ${clip(v.why.replace(/FAIL:\s*/g, ''), 200)}` : ''}`);
     if (job) {
       const extra = Object.keys(job).filter(k => /require|forbid|max$/i.test(k) && !RULES.includes(k));
       if (extra.length) review.push(`${id}: rule fields not read: ${extra.join(', ')}`);

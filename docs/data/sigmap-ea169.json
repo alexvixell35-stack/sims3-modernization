@@ -1,0 +1,7324 @@
+{
+ "image": "ts3-ea169.bin",
+ "timestamp": "0x6707155C",
+ "imageBase": "0x00400000",
+ "totals": {
+  "unique": 740,
+  "ambiguous": 0,
+  "none": 135,
+  "nosig": 0
+ },
+ "perFeature": {
+  "allocsites": {
+   "unique": 5,
+   "ambiguous": 0,
+   "none": 2,
+   "nosig": 0
+  },
+  "crashfx": {
+   "unique": 36,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "eafix": {
+   "unique": 20,
+   "ambiguous": 0,
+   "none": 2,
+   "nosig": 0
+  },
+  "ts3native": {
+   "unique": 38,
+   "ambiguous": 0,
+   "none": 6,
+   "nosig": 0
+  },
+  "verify": {
+   "unique": 76,
+   "ambiguous": 0,
+   "none": 15,
+   "nosig": 0
+  },
+  "savecompress": {
+   "unique": 12,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "apex": {
+   "unique": 11,
+   "ambiguous": 0,
+   "none": 2,
+   "nosig": 0
+  },
+  "routephases": {
+   "unique": 27,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "rtoro": {
+   "unique": 27,
+   "ambiguous": 0,
+   "none": 3,
+   "nosig": 0
+  },
+  "snap": {
+   "unique": 5,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "unseenfbc": {
+   "unique": 10,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "rcguard": {
+   "unique": 18,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "routegate": {
+   "unique": 16,
+   "ambiguous": 0,
+   "none": 2,
+   "nosig": 0
+  },
+  "threadstack": {
+   "unique": 1,
+   "ambiguous": 0,
+   "none": 2,
+   "nosig": 0
+  },
+  "p4clone": {
+   "unique": 11,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "replay": {
+   "unique": 16,
+   "ambiguous": 0,
+   "none": 2,
+   "nosig": 0
+  },
+  "steerro": {
+   "unique": 52,
+   "ambiguous": 0,
+   "none": 14,
+   "nosig": 0
+  },
+  "values": {
+   "unique": 53,
+   "ambiguous": 0,
+   "none": 7,
+   "nosig": 0
+  },
+  "alloc": {
+   "unique": 4,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "decompress": {
+   "unique": 2,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "autshadow-run": {
+   "unique": 4,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "jobqueue": {
+   "unique": 6,
+   "ambiguous": 0,
+   "none": 2,
+   "nosig": 0
+  },
+  "lotstream": {
+   "unique": 7,
+   "ambiguous": 0,
+   "none": 2,
+   "nosig": 0
+  },
+  "simloop": {
+   "unique": 3,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "avoidro": {
+   "unique": 12,
+   "ambiguous": 0,
+   "none": 3,
+   "nosig": 0
+  },
+  "pools": {
+   "unique": 5,
+   "ambiguous": 0,
+   "none": 7,
+   "nosig": 0
+  },
+  "p4": {
+   "unique": 10,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "cellmemo": {
+   "unique": 3,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "plandeadline": {
+   "unique": 2,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "waterjps": {
+   "unique": 4,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "watchpt": {
+   "unique": 4,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "idlero": {
+   "unique": 3,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "stalelot": {
+   "unique": 1,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "routesnap": {
+   "unique": 66,
+   "ambiguous": 0,
+   "none": 15,
+   "nosig": 0
+  },
+  "loadprof": {
+   "unique": 32,
+   "ambiguous": 0,
+   "none": 5,
+   "nosig": 0
+  },
+  "gate0ro": {
+   "unique": 5,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "locowin": {
+   "unique": 6,
+   "ambiguous": 0,
+   "none": 4,
+   "nosig": 0
+  },
+  "lotfd": {
+   "unique": 12,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "movedwait": {
+   "unique": 9,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "p5b": {
+   "unique": 4,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "slotro": {
+   "unique": 4,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "fgro": {
+   "unique": 3,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "discourage": {
+   "unique": 13,
+   "ambiguous": 0,
+   "none": 3,
+   "nosig": 0
+  },
+  "footprint": {
+   "unique": 5,
+   "ambiguous": 0,
+   "none": 2,
+   "nosig": 0
+  },
+  "tailunlock": {
+   "unique": 8,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "optsinit": {
+   "unique": 1,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "rtsites": {
+   "unique": 22,
+   "ambiguous": 0,
+   "none": 4,
+   "nosig": 0
+  },
+  "syncphases": {
+   "unique": 3,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "p5": {
+   "unique": 10,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "earlyout": {
+   "unique": 2,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "wastar": {
+   "unique": 9,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "heightcache": {
+   "unique": 3,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "unseen": {
+   "unique": 16,
+   "ambiguous": 0,
+   "none": 2,
+   "nosig": 0
+  },
+  "rctrim": {
+   "unique": 2,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "savewrite": {
+   "unique": 13,
+   "ambiguous": 0,
+   "none": 3,
+   "nosig": 0
+  },
+  "obstructro": {
+   "unique": 2,
+   "ambiguous": 0,
+   "none": 2,
+   "nosig": 0
+  },
+  "replandedupe": {
+   "unique": 1,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "gvro": {
+   "unique": 3,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "goalgen": {
+   "unique": 3,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "p10": {
+   "unique": 4,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "autshadow": {
+   "unique": 3,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "idcache": {
+   "unique": 2,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "userdiag": {
+   "unique": 2,
+   "ambiguous": 0,
+   "none": 2,
+   "nosig": 0
+  },
+  "lotsincos": {
+   "unique": 1,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "memexp": {
+   "unique": 4,
+   "ambiguous": 0,
+   "none": 2,
+   "nosig": 0
+  },
+  "satb": {
+   "unique": 137,
+   "ambiguous": 0,
+   "none": 12,
+   "nosig": 0
+  },
+  "monothread": {
+   "unique": 5,
+   "ambiguous": 0,
+   "none": 3,
+   "nosig": 0
+  },
+  "arenatail": {
+   "unique": 16,
+   "ambiguous": 0,
+   "none": 2,
+   "nosig": 0
+  },
+  "monothread-m5": {
+   "unique": 28,
+   "ambiguous": 0,
+   "none": 2,
+   "nosig": 0
+  },
+  "gcroots": {
+   "unique": 5,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "gcthreads": {
+   "unique": 2,
+   "ambiguous": 0,
+   "none": 0,
+   "nosig": 0
+  },
+  "mintcall": {
+   "unique": 8,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "iclock": {
+   "unique": 1,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  },
+  "fgrender": {
+   "unique": 1,
+   "ambiguous": 0,
+   "none": 1,
+   "nosig": 0
+  }
+ },
+ "sites": [
+  {
+   "site": "0x00401000",
+   "feature": "allocsites+crashfx+eafix+ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00401000"
+  },
+  {
+   "site": "0x00401BE0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00401BD0"
+  },
+  {
+   "site": "0x00452630",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00452800"
+  },
+  {
+   "site": "0x00452D30",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00452F00"
+  },
+  {
+   "site": "0x0049C5F0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0049C740"
+  },
+  {
+   "site": "0x004A7910",
+   "feature": "savecompress",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004A78A0"
+  },
+  {
+   "site": "0x004A850F",
+   "feature": "savecompress",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004A845F"
+  },
+  {
+   "site": "0x004AA1B0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004AA080"
+  },
+  {
+   "site": "0x004AFFC0",
+   "feature": "apex+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004AFD40"
+  },
+  {
+   "site": "0x004B1AE0",
+   "feature": "apex+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004B1950"
+  },
+  {
+   "site": "0x004B2D00",
+   "feature": "apex+verify",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x004E16F0",
+   "feature": "routephases+rtoro+savecompress+snap+ts3native+unseenfbc+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004E18E0"
+  },
+  {
+   "site": "0x004E17B0",
+   "feature": "rcguard+routegate+rtoro+savecompress+snap+ts3native+unseenfbc",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004E19A0"
+  },
+  {
+   "site": "0x004E1DF0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004E1FE0"
+  },
+  {
+   "site": "0x004E2E30",
+   "feature": "threadstack",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x004E30A0",
+   "feature": "threadstack",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x004E3D00",
+   "feature": "allocsites",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x004E3F70",
+   "feature": "p4clone+replay+routephases+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004E41C0"
+  },
+  {
+   "site": "0x004E3F90",
+   "feature": "replay+routephases+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004E41E0"
+  },
+  {
+   "site": "0x004E5920",
+   "feature": "alloc+allocsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004E5B80"
+  },
+  {
+   "site": "0x004E5CB0",
+   "feature": "alloc",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004E5F10"
+  },
+  {
+   "site": "0x004E69D0",
+   "feature": "alloc+allocsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004E6C30"
+  },
+  {
+   "site": "0x004E6A20",
+   "feature": "alloc+allocsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004E6C80"
+  },
+  {
+   "site": "0x004E6A70",
+   "feature": "allocsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004E6CD0"
+  },
+  {
+   "site": "0x004E9000",
+   "feature": "allocsites",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x004EB340",
+   "feature": "savecompress",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004EB480"
+  },
+  {
+   "site": "0x004EB3B0",
+   "feature": "decompress+savecompress",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004EB4F0"
+  },
+  {
+   "site": "0x004EB750",
+   "feature": "savecompress",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004EB890"
+  },
+  {
+   "site": "0x004EBFD0",
+   "feature": "savecompress",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004EC110"
+  },
+  {
+   "site": "0x004EC065",
+   "feature": "decompress",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004EC1A5"
+  },
+  {
+   "site": "0x004EC0A0",
+   "feature": "savecompress",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004EC1E0"
+  },
+  {
+   "site": "0x004EC200",
+   "feature": "savecompress",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004EC340"
+  },
+  {
+   "site": "0x004EC282",
+   "feature": "savecompress",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004EC3C2"
+  },
+  {
+   "site": "0x004FA840",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004FA950"
+  },
+  {
+   "site": "0x004FA990",
+   "feature": "autshadow-run",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x004FAAA0"
+  },
+  {
+   "site": "0x004FAA70",
+   "feature": "autshadow-run",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00505620",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x005056A0"
+  },
+  {
+   "site": "0x0050A860",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0050A6F0"
+  },
+  {
+   "site": "0x0050B270",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0050B100"
+  },
+  {
+   "site": "0x0050B300",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x005172E0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00517140"
+  },
+  {
+   "site": "0x00572400",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00571D30"
+  },
+  {
+   "site": "0x00580420",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00A34C40"
+  },
+  {
+   "site": "0x00593590",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00593300"
+  },
+  {
+   "site": "0x00593600",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00593370"
+  },
+  {
+   "site": "0x005989C0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x005991B0"
+  },
+  {
+   "site": "0x00598F90",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00599780"
+  },
+  {
+   "site": "0x005992DD",
+   "feature": "jobqueue",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00599ACD"
+  },
+  {
+   "site": "0x00599720",
+   "feature": "jobqueue+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00599F10"
+  },
+  {
+   "site": "0x00599FC0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0059A7B0"
+  },
+  {
+   "site": "0x0059A430",
+   "feature": "jobqueue+lotstream+simloop+verify",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0059BDE0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x005AD8F0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x005AE140"
+  },
+  {
+   "site": "0x005C6DF0",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x005C7F10"
+  },
+  {
+   "site": "0x005C6E00",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x005C7F20"
+  },
+  {
+   "site": "0x005DDB63",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x005DEAB3"
+  },
+  {
+   "site": "0x005DDB6D",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x005DEABD"
+  },
+  {
+   "site": "0x005DE0E2",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x005DF032"
+  },
+  {
+   "site": "0x005E2050",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x005EE1E0",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x005EED20"
+  },
+  {
+   "site": "0x0060D290",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0060E310"
+  },
+  {
+   "site": "0x006112A4",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00612384"
+  },
+  {
+   "site": "0x006112B9",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00612399"
+  },
+  {
+   "site": "0x006119F0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00619540",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0061A770"
+  },
+  {
+   "site": "0x00619770",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0061A9A0"
+  },
+  {
+   "site": "0x00619EF0",
+   "feature": "avoidro+rtoro+steerro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0061AC90",
+   "feature": "pools",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0061AD13",
+   "feature": "pools",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0061AE80",
+   "feature": "pools",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0061B533",
+   "feature": "pools",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0061C6F3"
+  },
+  {
+   "site": "0x0061BF60",
+   "feature": "p4clone",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0061D080"
+  },
+  {
+   "site": "0x0061C020",
+   "feature": "routegate",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0061D140"
+  },
+  {
+   "site": "0x0061CC73",
+   "feature": "p4",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0061DD93"
+  },
+  {
+   "site": "0x0061E030",
+   "feature": "p4",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0061F150"
+  },
+  {
+   "site": "0x0061E320",
+   "feature": "cellmemo+routegate+routephases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0061F440"
+  },
+  {
+   "site": "0x0061E360",
+   "feature": "p4+routegate",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0061F480"
+  },
+  {
+   "site": "0x0061E420",
+   "feature": "routegate",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0061F540"
+  },
+  {
+   "site": "0x0061E500",
+   "feature": "plandeadline+routephases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0061F620"
+  },
+  {
+   "site": "0x0061EB90",
+   "feature": "pools",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0061EBE5",
+   "feature": "pools",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0061FD05"
+  },
+  {
+   "site": "0x0061ED10",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0061FE30"
+  },
+  {
+   "site": "0x0061ED80",
+   "feature": "replay+steerro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0061F750",
+   "feature": "waterjps",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0061FE10",
+   "feature": "waterjps",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00620EE0"
+  },
+  {
+   "site": "0x0061FF93",
+   "feature": "waterjps",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00621063"
+  },
+  {
+   "site": "0x006207FB",
+   "feature": "waterjps",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0062186B"
+  },
+  {
+   "site": "0x00620CC0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00621CF0"
+  },
+  {
+   "site": "0x00620D60",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00620D80",
+   "feature": "watchpt",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00621DA0"
+  },
+  {
+   "site": "0x00620DD0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00621DF0"
+  },
+  {
+   "site": "0x00620E50",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00620E60",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x008BC970"
+  },
+  {
+   "site": "0x00624450",
+   "feature": "rtoro+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00625970"
+  },
+  {
+   "site": "0x00624A10",
+   "feature": "replay",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00625F80"
+  },
+  {
+   "site": "0x00624AB0",
+   "feature": "replay",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00626020"
+  },
+  {
+   "site": "0x00624ED0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00625140",
+   "feature": "idlero",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00626680"
+  },
+  {
+   "site": "0x00626210",
+   "feature": "avoidro+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006275F0"
+  },
+  {
+   "site": "0x00626220",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00627600"
+  },
+  {
+   "site": "0x00626270",
+   "feature": "watchpt",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x008595C0"
+  },
+  {
+   "site": "0x0062627B",
+   "feature": "watchpt",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x006262B0",
+   "feature": "replay",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00627680"
+  },
+  {
+   "site": "0x006262D0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006276A0"
+  },
+  {
+   "site": "0x006262E0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00626300",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00627E00",
+   "feature": "stalelot+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006291B0"
+  },
+  {
+   "site": "0x006281A0",
+   "feature": "replay",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006295B0"
+  },
+  {
+   "site": "0x00628A90",
+   "feature": "replay+routegate+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00629E10"
+  },
+  {
+   "site": "0x00629140",
+   "feature": "routephases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0062A420"
+  },
+  {
+   "site": "0x006291E3",
+   "feature": "routephases",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0062D9F0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0062E420",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0062FA10"
+  },
+  {
+   "site": "0x0062E680",
+   "feature": "loadprof+routesnap+steerro+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0062FC70"
+  },
+  {
+   "site": "0x0062EAB0",
+   "feature": "routegate",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006300A0"
+  },
+  {
+   "site": "0x0062EF7A",
+   "feature": "gate0ro+locowin+lotfd+movedwait+ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0063056A"
+  },
+  {
+   "site": "0x0062F782",
+   "feature": "lotfd+p5b+slotro+ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00630D72"
+  },
+  {
+   "site": "0x0062F8A0",
+   "feature": "loadprof+routesnap+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00630E90"
+  },
+  {
+   "site": "0x0062FB60",
+   "feature": "idlero+replay",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0062FB74",
+   "feature": "lotfd+movedwait+ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00631164"
+  },
+  {
+   "site": "0x00631800",
+   "feature": "lotfd",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00631814",
+   "feature": "lotfd+p5b+ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00632E04"
+  },
+  {
+   "site": "0x00631F10",
+   "feature": "fgro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00633500"
+  },
+  {
+   "site": "0x00631F40",
+   "feature": "lotfd+p5b+ts3native+unseenfbc",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00633530"
+  },
+  {
+   "site": "0x00632559",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00633B49"
+  },
+  {
+   "site": "0x0063257E",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00633B6E"
+  },
+  {
+   "site": "0x00632595",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00633B85"
+  },
+  {
+   "site": "0x00632630",
+   "feature": "cellmemo",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00633C20"
+  },
+  {
+   "site": "0x00632E40",
+   "feature": "cellmemo",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00634430"
+  },
+  {
+   "site": "0x00634500",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00635AF0"
+  },
+  {
+   "site": "0x00634F10",
+   "feature": "fgro+unseenfbc",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00636500"
+  },
+  {
+   "site": "0x00635013",
+   "feature": "fgro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00636603"
+  },
+  {
+   "site": "0x00635700",
+   "feature": "discourage+routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00636CF0"
+  },
+  {
+   "site": "0x0063576A",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00636D5A"
+  },
+  {
+   "site": "0x00636BF0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006381E0"
+  },
+  {
+   "site": "0x0063C690",
+   "feature": "footprint",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0063DC80"
+  },
+  {
+   "site": "0x0063CB90",
+   "feature": "loadprof+routegate+routephases+routesnap+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0063E180"
+  },
+  {
+   "site": "0x0063D2F0",
+   "feature": "loadprof+replay+routegate+routephases+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0063E8E0"
+  },
+  {
+   "site": "0x0063D7B0",
+   "feature": "routegate",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0063D860",
+   "feature": "routegate",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0063EE50"
+  },
+  {
+   "site": "0x0063E340",
+   "feature": "routephases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0063F930"
+  },
+  {
+   "site": "0x0063E708",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0063FCF8"
+  },
+  {
+   "site": "0x0063EC40",
+   "feature": "routephases+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00640230"
+  },
+  {
+   "site": "0x0063F490",
+   "feature": "routegate+routephases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00640A80"
+  },
+  {
+   "site": "0x0063F65E",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00640C4E"
+  },
+  {
+   "site": "0x0063F6E0",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00640CD0"
+  },
+  {
+   "site": "0x00640E00",
+   "feature": "routephases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006423F0"
+  },
+  {
+   "site": "0x00641026",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00642616"
+  },
+  {
+   "site": "0x006410B0",
+   "feature": "routephases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006426A0"
+  },
+  {
+   "site": "0x00641DF0",
+   "feature": "tailunlock",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006433C0"
+  },
+  {
+   "site": "0x0064A690",
+   "feature": "tailunlock",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0064BE00"
+  },
+  {
+   "site": "0x0064C7C0",
+   "feature": "tailunlock",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0064DF30"
+  },
+  {
+   "site": "0x0064D5B0",
+   "feature": "tailunlock",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0064ED20"
+  },
+  {
+   "site": "0x0064E380",
+   "feature": "routephases+tailunlock",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0064FAF0"
+  },
+  {
+   "site": "0x0064E4ED",
+   "feature": "tailunlock",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0064FC5D"
+  },
+  {
+   "site": "0x0064E50B",
+   "feature": "tailunlock",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0064FC7B"
+  },
+  {
+   "site": "0x0064E523",
+   "feature": "tailunlock",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0064E533",
+   "feature": "tailunlock",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0064FCA3"
+  },
+  {
+   "site": "0x0064E8E0",
+   "feature": "lotfd+slotro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0064FEC0"
+  },
+  {
+   "site": "0x0064E8F0",
+   "feature": "lotfd+slotro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0064FED0"
+  },
+  {
+   "site": "0x0064F2C0",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006508A0"
+  },
+  {
+   "site": "0x0064F4D3",
+   "feature": "p4+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00650AB3"
+  },
+  {
+   "site": "0x0064F55A",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00650B3A"
+  },
+  {
+   "site": "0x0064F57A",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00650B5A"
+  },
+  {
+   "site": "0x00652BF0",
+   "feature": "optsinit",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00654240"
+  },
+  {
+   "site": "0x00652C50",
+   "feature": "p4clone",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006542A0"
+  },
+  {
+   "site": "0x00654110",
+   "feature": "p4clone",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006553F0"
+  },
+  {
+   "site": "0x00655AFB",
+   "feature": "rcguard",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00656D9B"
+  },
+  {
+   "site": "0x00657650",
+   "feature": "p4clone",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00658860"
+  },
+  {
+   "site": "0x006583E0",
+   "feature": "rtsites+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006594A0"
+  },
+  {
+   "site": "0x0065E0D0",
+   "feature": "routephases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0065F190"
+  },
+  {
+   "site": "0x0065F80E",
+   "feature": "syncphases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006608CE"
+  },
+  {
+   "site": "0x0065FB9E",
+   "feature": "syncphases",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0065FDAA",
+   "feature": "syncphases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00660E6A"
+  },
+  {
+   "site": "0x00663B20",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00664BF0"
+  },
+  {
+   "site": "0x00663E20",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00665280"
+  },
+  {
+   "site": "0x006653A0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00666490"
+  },
+  {
+   "site": "0x00665C50",
+   "feature": "loadprof+replay+routesnap+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00666F20"
+  },
+  {
+   "site": "0x00665D1E",
+   "feature": "replay",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00666FEE"
+  },
+  {
+   "site": "0x00665F87",
+   "feature": "replay",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00667257"
+  },
+  {
+   "site": "0x00666010",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006672E0"
+  },
+  {
+   "site": "0x006663C0",
+   "feature": "footprint",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006677E0"
+  },
+  {
+   "site": "0x00666488",
+   "feature": "footprint",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006678A8"
+  },
+  {
+   "site": "0x00666740",
+   "feature": "footprint",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00667B60"
+  },
+  {
+   "site": "0x00666750",
+   "feature": "replay+routesnap+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00667B70"
+  },
+  {
+   "site": "0x00666796",
+   "feature": "replay",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00667BB6"
+  },
+  {
+   "site": "0x00666A40",
+   "feature": "loadprof+p4clone+routesnap+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00667ED0"
+  },
+  {
+   "site": "0x00666C50",
+   "feature": "p4clone+p5+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006680E0"
+  },
+  {
+   "site": "0x00666E30",
+   "feature": "p4clone+p5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006682C0"
+  },
+  {
+   "site": "0x006675B0",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00668A40"
+  },
+  {
+   "site": "0x00667920",
+   "feature": "pools",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00667990",
+   "feature": "pools",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x006679D8",
+   "feature": "pools",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00668E68"
+  },
+  {
+   "site": "0x00668962",
+   "feature": "pools",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00669DC2"
+  },
+  {
+   "site": "0x0066AC37",
+   "feature": "p4",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0066C097"
+  },
+  {
+   "site": "0x0066BB50",
+   "feature": "pools",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0066BFAE",
+   "feature": "pools",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0066D40E"
+  },
+  {
+   "site": "0x0066D110",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0066DC50",
+   "feature": "waterjps",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0066F0B0"
+  },
+  {
+   "site": "0x0066F6D0",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00670BD0"
+  },
+  {
+   "site": "0x0066FB40",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00671040"
+  },
+  {
+   "site": "0x00670510",
+   "feature": "routesnap+snap+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00671A10"
+  },
+  {
+   "site": "0x00670750",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00671C50"
+  },
+  {
+   "site": "0x00671930",
+   "feature": "plandeadline+routephases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00672EA0"
+  },
+  {
+   "site": "0x006733C0",
+   "feature": "routesnap+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00674930"
+  },
+  {
+   "site": "0x006734A0",
+   "feature": "routesnap+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00674A10"
+  },
+  {
+   "site": "0x006734E0",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00674A50"
+  },
+  {
+   "site": "0x006735C0",
+   "feature": "p4clone",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00674BA0"
+  },
+  {
+   "site": "0x00673600",
+   "feature": "earlyout",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00674BE0"
+  },
+  {
+   "site": "0x00673850",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00674E30"
+  },
+  {
+   "site": "0x006741D0",
+   "feature": "p4clone",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00674250",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006757E0"
+  },
+  {
+   "site": "0x00674E40",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006763D0"
+  },
+  {
+   "site": "0x00675800",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00676D90"
+  },
+  {
+   "site": "0x00676260",
+   "feature": "earlyout+routephases+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00677630"
+  },
+  {
+   "site": "0x006762B9",
+   "feature": "syncphases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00677689"
+  },
+  {
+   "site": "0x00676340",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0067634A",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00676354",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0067635E",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00676368",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00677738"
+  },
+  {
+   "site": "0x00676627",
+   "feature": "wastar",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006779F7"
+  },
+  {
+   "site": "0x0067662E",
+   "feature": "wastar",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006779FE"
+  },
+  {
+   "site": "0x0067673F",
+   "feature": "wastar",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00677B0F"
+  },
+  {
+   "site": "0x00681820",
+   "feature": "rtsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00682C70"
+  },
+  {
+   "site": "0x006819B0",
+   "feature": "rtsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00682E00"
+  },
+  {
+   "site": "0x00681E00",
+   "feature": "rtsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00683250"
+  },
+  {
+   "site": "0x00681E50",
+   "feature": "rtsites",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00682080",
+   "feature": "rtsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006834D0"
+  },
+  {
+   "site": "0x006823E0",
+   "feature": "rtsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00683830"
+  },
+  {
+   "site": "0x00682590",
+   "feature": "rtsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006839E0"
+  },
+  {
+   "site": "0x00682760",
+   "feature": "heightcache+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00683BA0"
+  },
+  {
+   "site": "0x00686CC0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006882C0"
+  },
+  {
+   "site": "0x00686FD0",
+   "feature": "rtsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006885D0"
+  },
+  {
+   "site": "0x006883A0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0068D130",
+   "feature": "unseen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0068E720"
+  },
+  {
+   "site": "0x0068E8F0",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0068FEE0"
+  },
+  {
+   "site": "0x0068EEF0",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006904B0"
+  },
+  {
+   "site": "0x0068FD80",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00691300"
+  },
+  {
+   "site": "0x0068FDA4",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00691324"
+  },
+  {
+   "site": "0x006916F0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00692C70"
+  },
+  {
+   "site": "0x00693780",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00694CF0"
+  },
+  {
+   "site": "0x006C93D0",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006FB870"
+  },
+  {
+   "site": "0x006DBB50",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006DC9D0"
+  },
+  {
+   "site": "0x006DBCE0",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006DCB60"
+  },
+  {
+   "site": "0x006DC5B0",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006DD430"
+  },
+  {
+   "site": "0x006DCC93",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006DDB13"
+  },
+  {
+   "site": "0x006DCD23",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006DDBA3"
+  },
+  {
+   "site": "0x006DCD34",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006DDBB4"
+  },
+  {
+   "site": "0x006DCD90",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006DDC10"
+  },
+  {
+   "site": "0x006DD353",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006DE1D3"
+  },
+  {
+   "site": "0x006E4770",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006E5530"
+  },
+  {
+   "site": "0x006EA260",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006EB070"
+  },
+  {
+   "site": "0x006EBE30",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006ECBC0"
+  },
+  {
+   "site": "0x006EBF50",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006ECCE0"
+  },
+  {
+   "site": "0x006EDA60",
+   "feature": "jobqueue",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006EE7F0"
+  },
+  {
+   "site": "0x006EEB30",
+   "feature": "jobqueue",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x006EEB50",
+   "feature": "jobqueue",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006EF880"
+  },
+  {
+   "site": "0x006F1B00",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006F2830"
+  },
+  {
+   "site": "0x006F1D10",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006F2A40"
+  },
+  {
+   "site": "0x006F3C30",
+   "feature": "jobqueue",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006F4960"
+  },
+  {
+   "site": "0x006F3C50",
+   "feature": "jobqueue",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006F4980"
+  },
+  {
+   "site": "0x006F3DC0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006F4AF0"
+  },
+  {
+   "site": "0x006F6250",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006F6F50"
+  },
+  {
+   "site": "0x006F6B5B",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006F785B"
+  },
+  {
+   "site": "0x006F7331",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006F8031"
+  },
+  {
+   "site": "0x006F734E",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006F804E"
+  },
+  {
+   "site": "0x006F7B40",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006F8840"
+  },
+  {
+   "site": "0x006F7B5D",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006F885D"
+  },
+  {
+   "site": "0x006FA0B0",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x006FA2DB",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x006FAEFB"
+  },
+  {
+   "site": "0x00703CB0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00704980"
+  },
+  {
+   "site": "0x0070AE20",
+   "feature": "rtoro+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x007262C0"
+  },
+  {
+   "site": "0x00712480",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00713170"
+  },
+  {
+   "site": "0x00712F00",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00713BF0"
+  },
+  {
+   "site": "0x007135B0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x007142C0"
+  },
+  {
+   "site": "0x007140D0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0071D440",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0071E0C0"
+  },
+  {
+   "site": "0x0071D562",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0071E1E2"
+  },
+  {
+   "site": "0x0071D56B",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0071E1EB"
+  },
+  {
+   "site": "0x0071D660",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0071E2E0"
+  },
+  {
+   "site": "0x0071FD20",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00720A40"
+  },
+  {
+   "site": "0x0071FF10",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00720C30"
+  },
+  {
+   "site": "0x00722190",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00722EB0"
+  },
+  {
+   "site": "0x00722E00",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00723C20"
+  },
+  {
+   "site": "0x007294F0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0072A2C0"
+  },
+  {
+   "site": "0x0072DB80",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0072E9A0"
+  },
+  {
+   "site": "0x0072DBD0",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0072E9F0"
+  },
+  {
+   "site": "0x00733E70",
+   "feature": "rctrim",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00734B60"
+  },
+  {
+   "site": "0x007377F0",
+   "feature": "rctrim",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x007384A0"
+  },
+  {
+   "site": "0x0073D410",
+   "feature": "unseen",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0073D480",
+   "feature": "unseen",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00742A95",
+   "feature": "savewrite",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00743905"
+  },
+  {
+   "site": "0x007460F0",
+   "feature": "discourage+eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00746F80"
+  },
+  {
+   "site": "0x0074B2C0",
+   "feature": "obstructro+ts3native+unseen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0074C160"
+  },
+  {
+   "site": "0x0074B380",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0074C220"
+  },
+  {
+   "site": "0x0074B3B0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0074B3E0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0074B410",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0074B440",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0074C250"
+  },
+  {
+   "site": "0x0074B470",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0074B490",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0074C330"
+  },
+  {
+   "site": "0x0074B4D0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0074C370"
+  },
+  {
+   "site": "0x0074B540",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0074C3E0"
+  },
+  {
+   "site": "0x0074B5C0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0074C460"
+  },
+  {
+   "site": "0x0074B600",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0074B680",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0074C520"
+  },
+  {
+   "site": "0x0074B6B0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0074C550"
+  },
+  {
+   "site": "0x0074C820",
+   "feature": "locowin",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0074C8E0",
+   "feature": "locowin",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0074CFC0",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0074D040",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0074DF80"
+  },
+  {
+   "site": "0x0074D3F0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0074D6B0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00750430",
+   "feature": "locowin",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00751320"
+  },
+  {
+   "site": "0x00751480",
+   "feature": "locowin+obstructro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00752380"
+  },
+  {
+   "site": "0x007516B8",
+   "feature": "rcguard",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x007525B8"
+  },
+  {
+   "site": "0x00751FF0",
+   "feature": "routephases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00752EF0"
+  },
+  {
+   "site": "0x00752480",
+   "feature": "replandedupe",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00753380"
+  },
+  {
+   "site": "0x00754580",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00755440"
+  },
+  {
+   "site": "0x00754610",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x007554D0"
+  },
+  {
+   "site": "0x0075465E",
+   "feature": "discourage",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0075551E"
+  },
+  {
+   "site": "0x00755390",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00755600",
+   "feature": "locowin",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x007564C0"
+  },
+  {
+   "site": "0x007558D7",
+   "feature": "idlero",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00756797"
+  },
+  {
+   "site": "0x00755916",
+   "feature": "idlero",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x007567D6"
+  },
+  {
+   "site": "0x00755990",
+   "feature": "movedwait+rcguard",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00756850"
+  },
+  {
+   "site": "0x00755FDD",
+   "feature": "movedwait+rcguard",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00756E9D"
+  },
+  {
+   "site": "0x00757E10",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00758110",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00758FD0"
+  },
+  {
+   "site": "0x00758220",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x007590E0"
+  },
+  {
+   "site": "0x00758BA0",
+   "feature": "locowin",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00759BB0"
+  },
+  {
+   "site": "0x00759B20",
+   "feature": "gvro+routephases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0075AAE0"
+  },
+  {
+   "site": "0x0075A647",
+   "feature": "gvro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0075B607"
+  },
+  {
+   "site": "0x0075A64C",
+   "feature": "movedwait+rcguard",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0075B60C"
+  },
+  {
+   "site": "0x0075AA16",
+   "feature": "movedwait+rcguard",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0075B9D6"
+  },
+  {
+   "site": "0x0075AC22",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0075BBE2"
+  },
+  {
+   "site": "0x0075B610",
+   "feature": "goalgen",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0075BD8B",
+   "feature": "goalgen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0075CD4B"
+  },
+  {
+   "site": "0x0075C05C",
+   "feature": "goalgen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0075D01C"
+  },
+  {
+   "site": "0x0075C246",
+   "feature": "goalgen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0075D206"
+  },
+  {
+   "site": "0x0075C2D0",
+   "feature": "routegate+routephases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0075D290"
+  },
+  {
+   "site": "0x0075CC3B",
+   "feature": "rcguard",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0075DBFB"
+  },
+  {
+   "site": "0x0075CFE5",
+   "feature": "rcguard",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0075DFA5"
+  },
+  {
+   "site": "0x0075DB50",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0075EB10"
+  },
+  {
+   "site": "0x0075DCF0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0075ECB0"
+  },
+  {
+   "site": "0x0075DE1A",
+   "feature": "discourage",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x007606E0",
+   "feature": "routegate+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x007616A0"
+  },
+  {
+   "site": "0x00760BFF",
+   "feature": "lotfd+movedwait+ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00761BBF"
+  },
+  {
+   "site": "0x007623A0",
+   "feature": "locowin",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00764298",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x007643FB",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00765160",
+   "feature": "lotfd+p10+p5+routesnap+ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00766120"
+  },
+  {
+   "site": "0x00765240",
+   "feature": "lotfd+p10+p5+routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00766200"
+  },
+  {
+   "site": "0x00765490",
+   "feature": "lotfd+p10+p5+routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00766450"
+  },
+  {
+   "site": "0x00765550",
+   "feature": "lotfd+p10+p5+routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00766510"
+  },
+  {
+   "site": "0x00769993",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0076B1A0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0076C090"
+  },
+  {
+   "site": "0x0076B470",
+   "feature": "threadstack",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0076C360"
+  },
+  {
+   "site": "0x0076F0A0",
+   "feature": "rtoro+slotro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0076FFF0"
+  },
+  {
+   "site": "0x0076F15D",
+   "feature": "p5b",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00782BC0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00783D90"
+  },
+  {
+   "site": "0x007868A0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x007868E0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00787AB0"
+  },
+  {
+   "site": "0x00788310",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x007883C0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00788800",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00789980"
+  },
+  {
+   "site": "0x007897D0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00789DD0",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0078AF50"
+  },
+  {
+   "site": "0x00789EB5",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0078B035"
+  },
+  {
+   "site": "0x0078A218",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0078B398"
+  },
+  {
+   "site": "0x0078AE40",
+   "feature": "routesnap+rtsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0078BFC0"
+  },
+  {
+   "site": "0x0078C440",
+   "feature": "routegate",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0078D360",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0078E4E0"
+  },
+  {
+   "site": "0x0078D3E0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0078E560"
+  },
+  {
+   "site": "0x0078D520",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0078D5B0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0078E730"
+  },
+  {
+   "site": "0x0078F2B0",
+   "feature": "loadprof+routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00790440"
+  },
+  {
+   "site": "0x00791C00",
+   "feature": "p4+values",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x007920A0",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x007929F0",
+   "feature": "routegate",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00793B80"
+  },
+  {
+   "site": "0x00792CA0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00793E30"
+  },
+  {
+   "site": "0x00799780",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00799810",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x007B0A00",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x007B19D0"
+  },
+  {
+   "site": "0x007B0A06",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x007B19D6"
+  },
+  {
+   "site": "0x007B0A24",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x007B19F4"
+  },
+  {
+   "site": "0x007CFA30",
+   "feature": "discourage",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x007D07D0"
+  },
+  {
+   "site": "0x007D2DB0",
+   "feature": "apex+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x007D2C40"
+  },
+  {
+   "site": "0x007D98C0",
+   "feature": "lotstream+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x007D9840"
+  },
+  {
+   "site": "0x007EAEA0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x007F3790",
+   "feature": "p4clone",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00549E30"
+  },
+  {
+   "site": "0x008066C0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00805960"
+  },
+  {
+   "site": "0x00806770",
+   "feature": "routesnap+snap+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00805A10"
+  },
+  {
+   "site": "0x00806BF0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00805E90"
+  },
+  {
+   "site": "0x00806F00",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x008061A0"
+  },
+  {
+   "site": "0x00806FC0",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00806250"
+  },
+  {
+   "site": "0x00806FD0",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00806260"
+  },
+  {
+   "site": "0x00806FE0",
+   "feature": "replay+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00806270"
+  },
+  {
+   "site": "0x00807090",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00807110",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x008063C0"
+  },
+  {
+   "site": "0x0080750D",
+   "feature": "watchpt",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x008067BD"
+  },
+  {
+   "site": "0x00807557",
+   "feature": "watchpt",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00806807"
+  },
+  {
+   "site": "0x008077A0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00806A50"
+  },
+  {
+   "site": "0x00807B70",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00806E20"
+  },
+  {
+   "site": "0x0080C300",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0080B5B0"
+  },
+  {
+   "site": "0x0080CB40",
+   "feature": "routesnap+snap+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0080BDF0"
+  },
+  {
+   "site": "0x0080E0B0",
+   "feature": "routesnap+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0080D360"
+  },
+  {
+   "site": "0x0080E540",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0080D850"
+  },
+  {
+   "site": "0x0080E5B0",
+   "feature": "loadprof+p5b+routesnap+steerro+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0080D8C0"
+  },
+  {
+   "site": "0x0080E610",
+   "feature": "loadprof+routesnap+rtoro+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0080D920"
+  },
+  {
+   "site": "0x0080E690",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0080D9A0"
+  },
+  {
+   "site": "0x0080E8A0",
+   "feature": "avoidro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0080DBB0"
+  },
+  {
+   "site": "0x0080E910",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0080DC20"
+  },
+  {
+   "site": "0x0080E980",
+   "feature": "routesnap+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0080DC90"
+  },
+  {
+   "site": "0x0080EC30",
+   "feature": "routesnap+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0080DF40"
+  },
+  {
+   "site": "0x0080EF80",
+   "feature": "replay",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0080E2A0"
+  },
+  {
+   "site": "0x0080F030",
+   "feature": "obstructro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0080F080",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0080F6A0",
+   "feature": "routesnap+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0080E800"
+  },
+  {
+   "site": "0x0080F840",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0080E9A0"
+  },
+  {
+   "site": "0x00818EA0",
+   "feature": "rtsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00818050"
+  },
+  {
+   "site": "0x0081B2A0",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0081A450"
+  },
+  {
+   "site": "0x0081BC65",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0081AE15"
+  },
+  {
+   "site": "0x0081C810",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0081B9C0"
+  },
+  {
+   "site": "0x0081C880",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0081BA30"
+  },
+  {
+   "site": "0x0081C930",
+   "feature": "avoidro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0081BAE0"
+  },
+  {
+   "site": "0x0081C970",
+   "feature": "avoidro+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0081BB20"
+  },
+  {
+   "site": "0x0081CBE0",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0081BD90"
+  },
+  {
+   "site": "0x0081D090",
+   "feature": "avoidro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0081C060"
+  },
+  {
+   "site": "0x0081D3C0",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0081C390"
+  },
+  {
+   "site": "0x00821B3D",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00820A9D"
+  },
+  {
+   "site": "0x00824497",
+   "feature": "rcguard",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x008233F7"
+  },
+  {
+   "site": "0x008292D0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00828090"
+  },
+  {
+   "site": "0x00829410",
+   "feature": "loadprof+rtsites",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x008299E0",
+   "feature": "rtsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00828780"
+  },
+  {
+   "site": "0x00829D50",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0082A030",
+   "feature": "loadprof+routesnap+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00828DD0"
+  },
+  {
+   "site": "0x0082A098",
+   "feature": "routesnap+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00828E38"
+  },
+  {
+   "site": "0x0082A0C0",
+   "feature": "discourage+routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00828E60"
+  },
+  {
+   "site": "0x0082A190",
+   "feature": "loadprof+routesnap+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00828F30"
+  },
+  {
+   "site": "0x0082A1CF",
+   "feature": "wastar",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00828F6F"
+  },
+  {
+   "site": "0x0082A1DA",
+   "feature": "wastar",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00828F7A"
+  },
+  {
+   "site": "0x0082A204",
+   "feature": "wastar",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00828FA4"
+  },
+  {
+   "site": "0x0082A720",
+   "feature": "discourage",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00829410"
+  },
+  {
+   "site": "0x0082AD60",
+   "feature": "discourage",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00829A90"
+  },
+  {
+   "site": "0x0082B3A1",
+   "feature": "replay",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082A0D1"
+  },
+  {
+   "site": "0x0082B590",
+   "feature": "loadprof+routesnap+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082A2C0"
+  },
+  {
+   "site": "0x0082B6B1",
+   "feature": "wastar",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082A3E1"
+  },
+  {
+   "site": "0x0082B6B7",
+   "feature": "wastar",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082A3E7"
+  },
+  {
+   "site": "0x0082B7D5",
+   "feature": "wastar",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082A505"
+  },
+  {
+   "site": "0x0082C420",
+   "feature": "p4clone+routephases+rtsites+ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082B0F0"
+  },
+  {
+   "site": "0x0082C6E0",
+   "feature": "routephases+ts3native+unseenfbc",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082B3B0"
+  },
+  {
+   "site": "0x0082C7AD",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082B47D"
+  },
+  {
+   "site": "0x0082C940",
+   "feature": "footprint",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0082D140",
+   "feature": "rtsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082BE10"
+  },
+  {
+   "site": "0x0082D280",
+   "feature": "discourage",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0082D296",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082BF66"
+  },
+  {
+   "site": "0x0082EDB0",
+   "feature": "avoidro+gvro+routephases+rtsites+steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082DA20"
+  },
+  {
+   "site": "0x0082F098",
+   "feature": "rcguard",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082DD08"
+  },
+  {
+   "site": "0x0082F0B0",
+   "feature": "routephases+rtsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082DD20"
+  },
+  {
+   "site": "0x0082F45C",
+   "feature": "rcguard",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082E0CC"
+  },
+  {
+   "site": "0x00830340",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082EFB0"
+  },
+  {
+   "site": "0x008303EA",
+   "feature": "rcguard",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0082F05A"
+  },
+  {
+   "site": "0x00831568",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x008301D8"
+  },
+  {
+   "site": "0x0083156D",
+   "feature": "rtoro+ts3native+unseenfbc",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x008301DD"
+  },
+  {
+   "site": "0x00831633",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x008302A3"
+  },
+  {
+   "site": "0x008316FF",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0083036F"
+  },
+  {
+   "site": "0x00831BA0",
+   "feature": "discourage+routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00830810"
+  },
+  {
+   "site": "0x008321F0",
+   "feature": "loadprof+routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00830E60"
+  },
+  {
+   "site": "0x008334A0",
+   "feature": "discourage",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x008334CC",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0083213C"
+  },
+  {
+   "site": "0x00833560",
+   "feature": "discourage+unseen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x008321D0"
+  },
+  {
+   "site": "0x00833593",
+   "feature": "movedwait+ts3native+unseen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00832203"
+  },
+  {
+   "site": "0x00834370",
+   "feature": "discourage",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00832FE0"
+  },
+  {
+   "site": "0x00834860",
+   "feature": "discourage",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x008334D0"
+  },
+  {
+   "site": "0x008349C0",
+   "feature": "loadprof+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00833630"
+  },
+  {
+   "site": "0x00834A82",
+   "feature": "routesnap+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x008336F2"
+  },
+  {
+   "site": "0x00834B80",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x008337F0"
+  },
+  {
+   "site": "0x00834DC0",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00835110",
+   "feature": "routegate+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00833D80"
+  },
+  {
+   "site": "0x00835240",
+   "feature": "routegate+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00833EB0"
+  },
+  {
+   "site": "0x008352F1",
+   "feature": "loadprof+routesnap+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00833F61"
+  },
+  {
+   "site": "0x00835390",
+   "feature": "loadprof+routesnap+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00834000"
+  },
+  {
+   "site": "0x008358B5",
+   "feature": "loadprof+routesnap+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00834525"
+  },
+  {
+   "site": "0x00835A27",
+   "feature": "loadprof+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00834697"
+  },
+  {
+   "site": "0x008361B0",
+   "feature": "rtsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00834E20"
+  },
+  {
+   "site": "0x00836200",
+   "feature": "p4",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00834E70"
+  },
+  {
+   "site": "0x0083B3A0",
+   "feature": "routephases+rtsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00839FF0"
+  },
+  {
+   "site": "0x0083CED0",
+   "feature": "locowin",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0083BB40"
+  },
+  {
+   "site": "0x0083CF52",
+   "feature": "unseen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0083BBC2"
+  },
+  {
+   "site": "0x0083F5F0",
+   "feature": "avoidro+rtoro+steerro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x008468C0",
+   "feature": "avoidro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0074CDA0"
+  },
+  {
+   "site": "0x008469F0",
+   "feature": "unseen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00845410"
+  },
+  {
+   "site": "0x00846B70",
+   "feature": "avoidro+unseenfbc",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00845590"
+  },
+  {
+   "site": "0x00846D1C",
+   "feature": "avoidro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0084573C"
+  },
+  {
+   "site": "0x00846D21",
+   "feature": "rcguard+rtsites+ts3native+unseen+unseenfbc",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00845741"
+  },
+  {
+   "site": "0x00846E0E",
+   "feature": "gate0ro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0084582E"
+  },
+  {
+   "site": "0x00847390",
+   "feature": "unseen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00845DB0"
+  },
+  {
+   "site": "0x00847697",
+   "feature": "unseenfbc",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x008460B7"
+  },
+  {
+   "site": "0x00849588",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00847FA8"
+  },
+  {
+   "site": "0x0084EABD",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0084D6FD"
+  },
+  {
+   "site": "0x00853521",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x008521C1"
+  },
+  {
+   "site": "0x0085AAA0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00845310"
+  },
+  {
+   "site": "0x0085AE60",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00859B10"
+  },
+  {
+   "site": "0x0085B470",
+   "feature": "avoidro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0085A120"
+  },
+  {
+   "site": "0x0085B50C",
+   "feature": "rcguard+ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0085A1BC"
+  },
+  {
+   "site": "0x0085B57E",
+   "feature": "gate0ro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0085A22E"
+  },
+  {
+   "site": "0x0085F6CB",
+   "feature": "rcguard",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0085E37B"
+  },
+  {
+   "site": "0x0085F76D",
+   "feature": "gate0ro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0085E41D"
+  },
+  {
+   "site": "0x0085F7A9",
+   "feature": "gate0ro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0085E459"
+  },
+  {
+   "site": "0x0085FD10",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x0085FE10",
+   "feature": "movedwait+rcguard+ts3native+unseen+unseenfbc",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0085EAC0"
+  },
+  {
+   "site": "0x0085FE81",
+   "feature": "rcguard",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0085EB31"
+  },
+  {
+   "site": "0x0085FF30",
+   "feature": "avoidro+routephases",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0085EBE0"
+  },
+  {
+   "site": "0x0085FFE0",
+   "feature": "unseen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0085EC90"
+  },
+  {
+   "site": "0x00863DC0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00862990"
+  },
+  {
+   "site": "0x00866E90",
+   "feature": "p4",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00865BA0"
+  },
+  {
+   "site": "0x00935770",
+   "feature": "autshadow+rtoro+unseen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00935BE0"
+  },
+  {
+   "site": "0x00936BC0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00936F90"
+  },
+  {
+   "site": "0x00938B50",
+   "feature": "discourage",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00938F10"
+  },
+  {
+   "site": "0x00938D00",
+   "feature": "apex+idcache",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x009390C0"
+  },
+  {
+   "site": "0x00939100",
+   "feature": "apex+idcache+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x009394C0"
+  },
+  {
+   "site": "0x00939170",
+   "feature": "apex+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00939530"
+  },
+  {
+   "site": "0x00939420",
+   "feature": "rtsites+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x009397E0"
+  },
+  {
+   "site": "0x00939560",
+   "feature": "unseen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00939920"
+  },
+  {
+   "site": "0x009395A0",
+   "feature": "discourage",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00939960"
+  },
+  {
+   "site": "0x0093E5C0",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0093EB80"
+  },
+  {
+   "site": "0x0093F90D",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0093FEAD"
+  },
+  {
+   "site": "0x00941CD0",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00942E73",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00943413"
+  },
+  {
+   "site": "0x00946E90",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x009474B0"
+  },
+  {
+   "site": "0x00947590",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00947BB0"
+  },
+  {
+   "site": "0x00947620",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00947C40"
+  },
+  {
+   "site": "0x009479D0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00948030"
+  },
+  {
+   "site": "0x00947FA0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00948600"
+  },
+  {
+   "site": "0x00948050",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x009486B0"
+  },
+  {
+   "site": "0x00948F30",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x009496B0"
+  },
+  {
+   "site": "0x00951420",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00951B50"
+  },
+  {
+   "site": "0x00953690",
+   "feature": "avoidro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00953DA0"
+  },
+  {
+   "site": "0x00957210",
+   "feature": "unseen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00957920"
+  },
+  {
+   "site": "0x009573B7",
+   "feature": "unseen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00957AC7"
+  },
+  {
+   "site": "0x00958560",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00958C70"
+  },
+  {
+   "site": "0x00959000",
+   "feature": "rtoro+unseen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00959710"
+  },
+  {
+   "site": "0x00959060",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00959770"
+  },
+  {
+   "site": "0x0095EFF2",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0095F692"
+  },
+  {
+   "site": "0x0096B850",
+   "feature": "unseen",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0096BDD0"
+  },
+  {
+   "site": "0x009C1B00",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00AABB80",
+   "feature": "userdiag",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AAA740"
+  },
+  {
+   "site": "0x00AABBC0",
+   "feature": "userdiag",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AAA780"
+  },
+  {
+   "site": "0x00AABE33",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00AAC090",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C9FDC0"
+  },
+  {
+   "site": "0x00AAC110",
+   "feature": "rtsites+savewrite",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AAAD10"
+  },
+  {
+   "site": "0x00AAC2F3",
+   "feature": "userdiag",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00AAC320",
+   "feature": "footprint",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00AAC34A",
+   "feature": "userdiag",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00AAE950",
+   "feature": "savewrite",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AAD490"
+  },
+  {
+   "site": "0x00AAF4B0",
+   "feature": "savewrite",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00AAF5F0",
+   "feature": "savewrite",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AAE130"
+  },
+  {
+   "site": "0x00AAF737",
+   "feature": "savewrite",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AAE277"
+  },
+  {
+   "site": "0x00AAFD8A",
+   "feature": "savewrite",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AAE8CA"
+  },
+  {
+   "site": "0x00AB0E80",
+   "feature": "savewrite",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00AB0F80",
+   "feature": "savewrite",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00AB1030",
+   "feature": "savewrite",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AAFB70"
+  },
+  {
+   "site": "0x00AB10F6",
+   "feature": "savewrite",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AAFC36"
+  },
+  {
+   "site": "0x00AB12AF",
+   "feature": "apex+savewrite",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AAFDEF"
+  },
+  {
+   "site": "0x00AB134E",
+   "feature": "savewrite",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AAFE8E"
+  },
+  {
+   "site": "0x00AB1363",
+   "feature": "savewrite",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AAFEA3"
+  },
+  {
+   "site": "0x00AB1410",
+   "feature": "savewrite",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AAFF50"
+  },
+  {
+   "site": "0x00AB16ED",
+   "feature": "savewrite",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AB022D"
+  },
+  {
+   "site": "0x00AB4C00",
+   "feature": "lotstream",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AB37D0"
+  },
+  {
+   "site": "0x00AB8540",
+   "feature": "lotsincos+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AB71B0"
+  },
+  {
+   "site": "0x00ABD3C0",
+   "feature": "lotstream+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00ABC190"
+  },
+  {
+   "site": "0x00ABD3E0",
+   "feature": "lotstream",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00ABC1B0"
+  },
+  {
+   "site": "0x00ABFAC0",
+   "feature": "apex+lotstream+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00ABEEA0"
+  },
+  {
+   "site": "0x00AC0570",
+   "feature": "p4+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00ABFBF0"
+  },
+  {
+   "site": "0x00AC0763",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00AC1130",
+   "feature": "apex+lotstream+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AC07B0"
+  },
+  {
+   "site": "0x00AC20E0",
+   "feature": "apex+lotstream",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AC1830"
+  },
+  {
+   "site": "0x00AC2190",
+   "feature": "p4",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AC18E0"
+  },
+  {
+   "site": "0x00AC5C90",
+   "feature": "p4",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00AC53E0"
+  },
+  {
+   "site": "0x00ACF3CF",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00ACEB1F"
+  },
+  {
+   "site": "0x00ADAE50",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00ADD2C0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00ADC9D0"
+  },
+  {
+   "site": "0x00ADD860",
+   "feature": "obstructro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00B02360",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00B009C0"
+  },
+  {
+   "site": "0x00B57F20",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00B56760"
+  },
+  {
+   "site": "0x00B69840",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00B680D0"
+  },
+  {
+   "site": "0x00BFB320",
+   "feature": "avoidro+steerro",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00C08C30",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00C094E0",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C07930"
+  },
+  {
+   "site": "0x00C0FD60",
+   "feature": "memexp",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00C2A570",
+   "feature": "heightcache+verify",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00C2A840",
+   "feature": "heightcache+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C28D90"
+  },
+  {
+   "site": "0x00C2A896",
+   "feature": "heightcache+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C28DE6"
+  },
+  {
+   "site": "0x00C5FA60",
+   "feature": "crashfx",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C5EE70"
+  },
+  {
+   "site": "0x00C60D30",
+   "feature": "apex+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C60100"
+  },
+  {
+   "site": "0x00C61FE0",
+   "feature": "values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C613B0"
+  },
+  {
+   "site": "0x00C622D0",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C61660"
+  },
+  {
+   "site": "0x00C626F8",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C61A88"
+  },
+  {
+   "site": "0x00C62AC0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C61E50"
+  },
+  {
+   "site": "0x00C62D40",
+   "feature": "autshadow",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C620D0"
+  },
+  {
+   "site": "0x00C64630",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C63A50"
+  },
+  {
+   "site": "0x00C65E00",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C65270"
+  },
+  {
+   "site": "0x00C678D0",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C66C50"
+  },
+  {
+   "site": "0x00C68680",
+   "feature": "routephases+rtsites",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C67A00"
+  },
+  {
+   "site": "0x00C688A0",
+   "feature": "rtsites+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C67C20"
+  },
+  {
+   "site": "0x00C68990",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C67D10"
+  },
+  {
+   "site": "0x00C6AEB0",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C6A230"
+  },
+  {
+   "site": "0x00C6BE53",
+   "feature": "loadprof+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C6B1D3"
+  },
+  {
+   "site": "0x00C6C290",
+   "feature": "apex+lotstream+verify",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00C6CD02",
+   "feature": "loadprof+values",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C6C082"
+  },
+  {
+   "site": "0x00C6CF80",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C6C300"
+  },
+  {
+   "site": "0x00C6D105",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C6C485"
+  },
+  {
+   "site": "0x00C6D24E",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C6C5CE"
+  },
+  {
+   "site": "0x00C6D264",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C6C5E4"
+  },
+  {
+   "site": "0x00C6D460",
+   "feature": "footprint",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C6C7E0"
+  },
+  {
+   "site": "0x00C6D970",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C6CCF0"
+  },
+  {
+   "site": "0x00C6D9E8",
+   "feature": "loadprof",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C6CD68"
+  },
+  {
+   "site": "0x00C7BF70",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C7B2A0"
+  },
+  {
+   "site": "0x00C88FD0",
+   "feature": "steerro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C88790"
+  },
+  {
+   "site": "0x00C8EC50",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00C8E4A0"
+  },
+  {
+   "site": "0x00D442B0",
+   "feature": "routesnap",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D442C0"
+  },
+  {
+   "site": "0x00D5B77A",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D5B79A"
+  },
+  {
+   "site": "0x00D5B874",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D5B894"
+  },
+  {
+   "site": "0x00D5D910",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D5D930"
+  },
+  {
+   "site": "0x00D6FCB0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D6FC90"
+  },
+  {
+   "site": "0x00D71820",
+   "feature": "monothread",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D71860"
+  },
+  {
+   "site": "0x00D718CC",
+   "feature": "arenatail",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00D71900",
+   "feature": "arenatail+monothread-m5+satb+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D71940"
+  },
+  {
+   "site": "0x00D71946",
+   "feature": "arenatail",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00D719EA",
+   "feature": "arenatail",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D71A2A"
+  },
+  {
+   "site": "0x00D71A20",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D71A60"
+  },
+  {
+   "site": "0x00D71A4E",
+   "feature": "arenatail",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D71A8E"
+  },
+  {
+   "site": "0x00D71AEA",
+   "feature": "arenatail",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D71B2A"
+  },
+  {
+   "site": "0x00D71B70",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D71BB0"
+  },
+  {
+   "site": "0x00D71B88",
+   "feature": "arenatail",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D71BC8"
+  },
+  {
+   "site": "0x00D71C00",
+   "feature": "arenatail",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D71C40"
+  },
+  {
+   "site": "0x00D75FA0",
+   "feature": "ts3native+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D76200"
+  },
+  {
+   "site": "0x00D7E560",
+   "feature": "p5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D7E920"
+  },
+  {
+   "site": "0x00D7E62A",
+   "feature": "gcroots+memexp",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D7E9EA"
+  },
+  {
+   "site": "0x00D7F8B0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D7FC70"
+  },
+  {
+   "site": "0x00D81840",
+   "feature": "monothread",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D81C00"
+  },
+  {
+   "site": "0x00D818C0",
+   "feature": "simloop",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D81C80"
+  },
+  {
+   "site": "0x00D819AA",
+   "feature": "memexp",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00D81C5C",
+   "feature": "locowin",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00D81FDC",
+   "feature": "simloop",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D8239C"
+  },
+  {
+   "site": "0x00D81FF6",
+   "feature": "simloop",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D823B6"
+  },
+  {
+   "site": "0x00D89BF0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00D89C60",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D89FE0"
+  },
+  {
+   "site": "0x00D89CD0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00D8A8E0",
+   "feature": "monothread-m5+satb+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00D8AA40"
+  },
+  {
+   "site": "0x00DA9790",
+   "feature": "autshadow",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00DA9810"
+  },
+  {
+   "site": "0x00DCA870",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00DCA890"
+  },
+  {
+   "site": "0x00E0A6D0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E0A790",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E0A950",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E0AA30"
+  },
+  {
+   "site": "0x00E0C640",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E0C720"
+  },
+  {
+   "site": "0x00E0D290",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E0D340"
+  },
+  {
+   "site": "0x00E0D450",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E0D500"
+  },
+  {
+   "site": "0x00E45F00",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E45F50"
+  },
+  {
+   "site": "0x00E49C80",
+   "feature": "memexp",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E49CD0"
+  },
+  {
+   "site": "0x00E4A050",
+   "feature": "memexp+monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4A0A0"
+  },
+  {
+   "site": "0x00E4A0B0",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4A100"
+  },
+  {
+   "site": "0x00E4A120",
+   "feature": "memexp",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4A170"
+  },
+  {
+   "site": "0x00E4A1D8",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4A228"
+  },
+  {
+   "site": "0x00E4A1FF",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4A24F"
+  },
+  {
+   "site": "0x00E4A206",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4A256"
+  },
+  {
+   "site": "0x00E4A2B0",
+   "feature": "gcthreads",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4A300"
+  },
+  {
+   "site": "0x00E4A3F0",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4A440"
+  },
+  {
+   "site": "0x00E4AAC0",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4AB10"
+  },
+  {
+   "site": "0x00E4ABE0",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4AC30"
+  },
+  {
+   "site": "0x00E4AE30",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E4B3F0",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4B440"
+  },
+  {
+   "site": "0x00E4BA90",
+   "feature": "gcthreads",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4BAE0"
+  },
+  {
+   "site": "0x00E4BCE0",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4BD30"
+  },
+  {
+   "site": "0x00E4BDC0",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4BE10"
+  },
+  {
+   "site": "0x00E4BE30",
+   "feature": "autshadow-run+monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4BE80"
+  },
+  {
+   "site": "0x00E4BEB0",
+   "feature": "monothread-m5+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4BF00"
+  },
+  {
+   "site": "0x00E4BF90",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4BFE0"
+  },
+  {
+   "site": "0x00E4CEE0",
+   "feature": "monothread",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4CF30"
+  },
+  {
+   "site": "0x00E4D520",
+   "feature": "monothread",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E4D9DC",
+   "feature": "monothread",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4DA2C"
+  },
+  {
+   "site": "0x00E4D9F0",
+   "feature": "autshadow-run+monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4DA40"
+  },
+  {
+   "site": "0x00E4E168",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E4E450",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4E4A0"
+  },
+  {
+   "site": "0x00E4EC40",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E4EC90"
+  },
+  {
+   "site": "0x00E4EF90",
+   "feature": "monothread",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E50DE0",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E50E30"
+  },
+  {
+   "site": "0x00E51000",
+   "feature": "arenatail+gcroots+ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E51050"
+  },
+  {
+   "site": "0x00E51070",
+   "feature": "monothread",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E510C0"
+  },
+  {
+   "site": "0x00E51350",
+   "feature": "monothread",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E51400",
+   "feature": "satb+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E51450"
+  },
+  {
+   "site": "0x00E51FC0",
+   "feature": "gcroots+satb+ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E52010"
+  },
+  {
+   "site": "0x00E520C0",
+   "feature": "gcroots+ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E52110"
+  },
+  {
+   "site": "0x00E52160",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E521B0"
+  },
+  {
+   "site": "0x00E521A0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E521F0"
+  },
+  {
+   "site": "0x00E52350",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E523A0"
+  },
+  {
+   "site": "0x00E525C0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E52610"
+  },
+  {
+   "site": "0x00E53070",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E530C0"
+  },
+  {
+   "site": "0x00E534E0",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E53530"
+  },
+  {
+   "site": "0x00E53EB0",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E53EBD",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E53F0D"
+  },
+  {
+   "site": "0x00E543C7",
+   "feature": "mintcall",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E54417"
+  },
+  {
+   "site": "0x00E54453",
+   "feature": "arenatail",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E544A3"
+  },
+  {
+   "site": "0x00E544D5",
+   "feature": "eafix+mintcall+satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E54525"
+  },
+  {
+   "site": "0x00E5493E",
+   "feature": "mintcall",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5498E"
+  },
+  {
+   "site": "0x00E549EB",
+   "feature": "mintcall+satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E54A3B"
+  },
+  {
+   "site": "0x00E54B28",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E54B78"
+  },
+  {
+   "site": "0x00E558DF",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5592F"
+  },
+  {
+   "site": "0x00E558F3",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E55943"
+  },
+  {
+   "site": "0x00E55907",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E55957"
+  },
+  {
+   "site": "0x00E5591B",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5596B"
+  },
+  {
+   "site": "0x00E5592F",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5597F"
+  },
+  {
+   "site": "0x00E55942",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E55992"
+  },
+  {
+   "site": "0x00E5595B",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E559AB"
+  },
+  {
+   "site": "0x00E5596E",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E559BE"
+  },
+  {
+   "site": "0x00E55981",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E559D1"
+  },
+  {
+   "site": "0x00E55994",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E559E4"
+  },
+  {
+   "site": "0x00E559A7",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E559F7"
+  },
+  {
+   "site": "0x00E559BD",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E55A0D"
+  },
+  {
+   "site": "0x00E559D3",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E55A23"
+  },
+  {
+   "site": "0x00E559EB",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E55A3B"
+  },
+  {
+   "site": "0x00E55A01",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E55A51"
+  },
+  {
+   "site": "0x00E55A1D",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E55A6D"
+  },
+  {
+   "site": "0x00E55A39",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E55A89"
+  },
+  {
+   "site": "0x00E55B4C",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E55B9C"
+  },
+  {
+   "site": "0x00E55C0F",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E55C5F"
+  },
+  {
+   "site": "0x00E560CD",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5611D"
+  },
+  {
+   "site": "0x00E56287",
+   "feature": "mintcall",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E562D7"
+  },
+  {
+   "site": "0x00E5637D",
+   "feature": "mintcall+p5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E563CD"
+  },
+  {
+   "site": "0x00E563B2",
+   "feature": "arenatail",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56402"
+  },
+  {
+   "site": "0x00E563BF",
+   "feature": "arenatail",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5640F"
+  },
+  {
+   "site": "0x00E563D3",
+   "feature": "arenatail",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56423"
+  },
+  {
+   "site": "0x00E563D5",
+   "feature": "arenatail",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56425"
+  },
+  {
+   "site": "0x00E566A8",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E566F8"
+  },
+  {
+   "site": "0x00E566C9",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56719"
+  },
+  {
+   "site": "0x00E566EA",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5673A"
+  },
+  {
+   "site": "0x00E5670B",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5675B"
+  },
+  {
+   "site": "0x00E5672C",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5677C"
+  },
+  {
+   "site": "0x00E5674C",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5679C"
+  },
+  {
+   "site": "0x00E56773",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E567C3"
+  },
+  {
+   "site": "0x00E56793",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E567E3"
+  },
+  {
+   "site": "0x00E567B3",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56803"
+  },
+  {
+   "site": "0x00E567DA",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5682A"
+  },
+  {
+   "site": "0x00E56835",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56885"
+  },
+  {
+   "site": "0x00E56B06",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56B56"
+  },
+  {
+   "site": "0x00E56B29",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56B79"
+  },
+  {
+   "site": "0x00E56B4E",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56B9E"
+  },
+  {
+   "site": "0x00E56B71",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56BC1"
+  },
+  {
+   "site": "0x00E56B9B",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56BEB"
+  },
+  {
+   "site": "0x00E56BC4",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56C14"
+  },
+  {
+   "site": "0x00E56BE7",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56C37"
+  },
+  {
+   "site": "0x00E56C0A",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56C5A"
+  },
+  {
+   "site": "0x00E56C43",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56C93"
+  },
+  {
+   "site": "0x00E56CA9",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56CF9"
+  },
+  {
+   "site": "0x00E56DA1",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56DF1"
+  },
+  {
+   "site": "0x00E56E1E",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56E6E"
+  },
+  {
+   "site": "0x00E56E66",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56EB6"
+  },
+  {
+   "site": "0x00E56EAE",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E56F52",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E56FA2"
+  },
+  {
+   "site": "0x00E56FEC",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E57089",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E570D9"
+  },
+  {
+   "site": "0x00E570C8",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E57118"
+  },
+  {
+   "site": "0x00E572CE",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5731E"
+  },
+  {
+   "site": "0x00E57303",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E57353"
+  },
+  {
+   "site": "0x00E57382",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E573D2"
+  },
+  {
+   "site": "0x00E573D7",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E57427"
+  },
+  {
+   "site": "0x00E574DA",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5752A"
+  },
+  {
+   "site": "0x00E575CF",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5761F"
+  },
+  {
+   "site": "0x00E57AA5",
+   "feature": "eafix",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E57AF5"
+  },
+  {
+   "site": "0x00E589F7",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E58A17",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E58A67"
+  },
+  {
+   "site": "0x00E58A49",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E58A99"
+  },
+  {
+   "site": "0x00E58A73",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E58AC3"
+  },
+  {
+   "site": "0x00E58AC2",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E58B12"
+  },
+  {
+   "site": "0x00E58B18",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E58B68"
+  },
+  {
+   "site": "0x00E58B71",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E58BC1"
+  },
+  {
+   "site": "0x00E58BD6",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E58C26"
+  },
+  {
+   "site": "0x00E58C0A",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E58C5A"
+  },
+  {
+   "site": "0x00E58C72",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E58CC2"
+  },
+  {
+   "site": "0x00E58C8F",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E58CDF"
+  },
+  {
+   "site": "0x00E58E37",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E58E87"
+  },
+  {
+   "site": "0x00E58E98",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E58EE8"
+  },
+  {
+   "site": "0x00E58F55",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E58FA5"
+  },
+  {
+   "site": "0x00E58FC8",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E59018"
+  },
+  {
+   "site": "0x00E5904D",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5909D"
+  },
+  {
+   "site": "0x00E591FF",
+   "feature": "mintcall",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5924F"
+  },
+  {
+   "site": "0x00E59218",
+   "feature": "p5",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E59236",
+   "feature": "mintcall",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E59286"
+  },
+  {
+   "site": "0x00E593DF",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5942F"
+  },
+  {
+   "site": "0x00E597BA",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5980A"
+  },
+  {
+   "site": "0x00E59866",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E598B6"
+  },
+  {
+   "site": "0x00E59880",
+   "feature": "eafix+mintcall+satb",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E59FD0",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5A020"
+  },
+  {
+   "site": "0x00E5A600",
+   "feature": "arenatail+gcroots+monothread-m5+ts3native+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5A650"
+  },
+  {
+   "site": "0x00E5CA90",
+   "feature": "p5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E5CAE0"
+  },
+  {
+   "site": "0x00E63427",
+   "feature": "arenatail",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E63477"
+  },
+  {
+   "site": "0x00E643B0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E64400"
+  },
+  {
+   "site": "0x00E648DC",
+   "feature": "p5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E6492C"
+  },
+  {
+   "site": "0x00E66E10",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E66E60"
+  },
+  {
+   "site": "0x00E69820",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E69870"
+  },
+  {
+   "site": "0x00E6AD10",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E6AD60"
+  },
+  {
+   "site": "0x00E6B690",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E6B6E0"
+  },
+  {
+   "site": "0x00E6F5A0",
+   "feature": "arenatail",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E6F600"
+  },
+  {
+   "site": "0x00E70D50",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E70DB0"
+  },
+  {
+   "site": "0x00E72010",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E72070"
+  },
+  {
+   "site": "0x00E75260",
+   "feature": "monothread-m5+satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E752C0"
+  },
+  {
+   "site": "0x00E75270",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E752D0"
+  },
+  {
+   "site": "0x00E770E0",
+   "feature": "autshadow",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E78610",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E78660"
+  },
+  {
+   "site": "0x00E78780",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E787D0"
+  },
+  {
+   "site": "0x00E78FD0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E79020"
+  },
+  {
+   "site": "0x00E79210",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E79260"
+  },
+  {
+   "site": "0x00E793D0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E79420"
+  },
+  {
+   "site": "0x00E7A040",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E7A090"
+  },
+  {
+   "site": "0x00E7A070",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E7A0C0"
+  },
+  {
+   "site": "0x00E7A300",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E7A350"
+  },
+  {
+   "site": "0x00E7A330",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E7A380"
+  },
+  {
+   "site": "0x00E7A400",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E7A450"
+  },
+  {
+   "site": "0x00E7B150",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E7B170"
+  },
+  {
+   "site": "0x00E7B320",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E7B340"
+  },
+  {
+   "site": "0x00E7B4D0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E7B4F0"
+  },
+  {
+   "site": "0x00E7CDC0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E81260",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E81280"
+  },
+  {
+   "site": "0x00E81280",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E812A0"
+  },
+  {
+   "site": "0x00E82550",
+   "feature": "autshadow-run",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E82570"
+  },
+  {
+   "site": "0x00E85020",
+   "feature": "iclock+verify",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E85030",
+   "feature": "iclock",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E85060"
+  },
+  {
+   "site": "0x00E85040",
+   "feature": "monothread-m5",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E85070"
+  },
+  {
+   "site": "0x00E874B0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E874E0"
+  },
+  {
+   "site": "0x00E8DB40",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E8DC70",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E8DCB0"
+  },
+  {
+   "site": "0x00E8DC80",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E8DCC0"
+  },
+  {
+   "site": "0x00E8DC90",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E8DCD0"
+  },
+  {
+   "site": "0x00E8DCB0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E8DCF0"
+  },
+  {
+   "site": "0x00E99A50",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00E99B10",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E99B70"
+  },
+  {
+   "site": "0x00E9C3A0",
+   "feature": "arenatail",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00E9C400"
+  },
+  {
+   "site": "0x00EA1E30",
+   "feature": "satb+verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EA1EA0"
+  },
+  {
+   "site": "0x00EA2AD0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EA2B40"
+  },
+  {
+   "site": "0x00EA3140",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00EA3370",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EA33E0"
+  },
+  {
+   "site": "0x00EA3382",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EA33F2"
+  },
+  {
+   "site": "0x00EA3800",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EA3870"
+  },
+  {
+   "site": "0x00EB9040",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EB90B0"
+  },
+  {
+   "site": "0x00EB92F0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EB9360"
+  },
+  {
+   "site": "0x00EB9320",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EB9390"
+  },
+  {
+   "site": "0x00EB9350",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EB93C0"
+  },
+  {
+   "site": "0x00EB9380",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EB93F0"
+  },
+  {
+   "site": "0x00EBA000",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EBA070"
+  },
+  {
+   "site": "0x00EBA190",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EBA200"
+  },
+  {
+   "site": "0x00EBA1C0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EBA230"
+  },
+  {
+   "site": "0x00EBA1F0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EBA260"
+  },
+  {
+   "site": "0x00EBA210",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EBA280"
+  },
+  {
+   "site": "0x00EBA240",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EBA2B0"
+  },
+  {
+   "site": "0x00EBA280",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EBA2F0"
+  },
+  {
+   "site": "0x00EBA2B0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EBA320"
+  },
+  {
+   "site": "0x00EBA2D0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EBA340"
+  },
+  {
+   "site": "0x00EBA300",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EBA370"
+  },
+  {
+   "site": "0x00EBA340",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EBA3B0"
+  },
+  {
+   "site": "0x00EBA390",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EBA400"
+  },
+  {
+   "site": "0x00EBA3C0",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EBA430"
+  },
+  {
+   "site": "0x00EBAB30",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EBABA0"
+  },
+  {
+   "site": "0x00EC1180",
+   "feature": "rtsites",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00EC11B0",
+   "feature": "rtsites",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00EC9FD1",
+   "feature": "fgrender",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EC9FB1"
+  },
+  {
+   "site": "0x00ECA350",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00ECA9E2",
+   "feature": "fgrender",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00ECA9ED",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "none",
+   "hits": 0
+  },
+  {
+   "site": "0x00ECAA65",
+   "feature": "verify",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00ECAA45"
+  },
+  {
+   "site": "0x00F00000",
+   "feature": "ts3native",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00EFFE50"
+  },
+  {
+   "site": "0x00F20360",
+   "feature": "rtoro",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x0079BF70"
+  },
+  {
+   "site": "0x00F42400",
+   "feature": "savecompress",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00F423B0"
+  },
+  {
+   "site": "0x00F4F560",
+   "feature": "satb",
+   "steamUnique": true,
+   "status": "unique",
+   "hits": 1,
+   "va": "0x00F4F520"
+  }
+ ]
+}

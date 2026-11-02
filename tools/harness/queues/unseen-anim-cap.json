@@ -1,0 +1,387 @@
+{
+  "note": "unseen-anim-cap: docs/144 §3.5 [UnseenAnim] CapPasses=4 (cap = max(MaxOwedMs, 4 x pass dt), HardCapMs 1500), NOT RUN. Build both commits of feature/unseen-table, copy out-*/ts3native.asi to game-copy/ts3native.asi.unseentable1 and the ts3fixes package to game-copy/ts3fixes.package.unseentable1. Order: smoke (auto), bp-uac-snapback (correctness, owed pose time run on seen again), bp-uac-stuck-on (stuck Sims vs bp-ua-stuck-off of unseen-anim-ab, same ini otherwise), then the 4 in-load A/Bs (--ab unseenanim, CapPasses=4 in both arms). Pass/verdict: aaSkipped >> 50/s and aaHold_5 falls in on slices (I-418-2), aaDebtMaxUs <= 1,500,000, no crash, no frozen pose; gain = aaUs_1 and aaPassUs off minus on, sim ms/s, hitch-ab.ts counts. Stop rule: aaSkipped still < 500/s in the smoke = the cap is not the blocker, stop and triage. Run: node tools/harness/queue.ts tools/harness/queues/unseen-anim-cap.json",
+  "smoke": {
+    "note": "Measurement smoke: BP Spring 4 min, --ab unseenanim 1-min slices, CapPasses=4. Pass: per-arm split, unseenanim read back per slice, aaReady 3, aaSkipped grows only in on slices and > 500/s there, heavy tools off, no crash.",
+    "asi": "game-copy/ts3native.asi.unseenrm5",
+    "save": "Baseline-BP-Spring",
+    "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+    "ini": {
+      "SlotEnabledRO.Enabled": 1,
+      "SlotEnabledRO.Mode": 1,
+      "SlotEnabledRO.Shadow": 0,
+      "UnseenThrottle.Enabled": 1,
+      "UnseenThrottle.List": 1,
+      "RouteAsync.FallbackAsync": 1,
+      "RouteAsync.M1Retry": 1,
+      "RouteAsync.SyncCapMs": 1000,
+      "RouteAsync.FbJobCapMs": 300,
+      "RouteAsync.LogFallbackMs": 20,
+      "RouteAsync.LogFallbackStack": 16,
+      "RouteAsync.TailUnlock": 1,
+      "RouteAsync.ReplanDedupe": 1,
+      "RouteAsync.H2": 1,
+      "RouteEarlyOut.Enabled": 1,
+      "RouteEarlyOut.Mode": 2,
+      "RouteEarlyOut.Act": 1,
+      "RouteEarlyOut.LogMs": 200,
+      "HitchAttr.Enabled": 1,
+      "UnseenAnim.Enabled": 1,
+      "UnseenAnim.Mode": 0,
+      "UnseenAnim.CapPasses": 4,
+      "UnseenAnim.HardCapMs": 1500
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 4,
+        "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+        "ab": "unseenanim",
+        "slice": 1
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 15,
+    "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+    "earlyGates": [
+      {
+        "afterSec": 150,
+        "counter": "aaReady",
+        "op": "==",
+        "value": 3,
+        "why": "[UnseenAnim] call sites not both patched"
+      }
+    ]
+  },
+  "jobs": [
+    {
+      "id": "bp-uac-snapback",
+      "note": "Correctness: repro unseen-snapback with [UnseenAnim] mode 1 CapPasses=4 the whole run (larger owed steps than 0.36.153). Pass: aaSnap > 0, unseen_snapback summary passes, no crash.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "ini": {
+        "UnseenProbe.Enabled": 1,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.Every": 4,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.AvoidNearM": 3,
+        "UnseenThrottle.FpMs": 500,
+        "UnseenThrottle.RateNearM": 3,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500
+      },
+      "run": {
+        "profile": {
+          "minutes": 16,
+          "seed": 12345,
+          "repro": "unseen-snapback"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 840,
+          "counter": "aaSnap",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen Sim with owed pose time was seen again (snap-back never exercised)"
+        }
+      ]
+    },
+    {
+      "id": "bp-uac-stuck-on",
+      "note": "Stuck-Sim check, CapPasses=4, Mode=1 the whole run; compare stuck Sims with unseen-anim-ab bp-ua-stuck-off (at most one more).",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500
+      },
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        },
+        {
+          "afterSec": 300,
+          "counter": "aaSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "[UnseenAnim] never skipped an unseen Sim pose call"
+        }
+      ]
+    },
+    {
+      "id": "bp-uac-ab",
+      "note": "[UnseenAnim] CapPasses=4 in-load A/B, 10 min, --ab unseenanim 2-min slices, off first; release ini + HitchAttr. Verdict as the queue note.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "unseenanim",
+          "slice": 2
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        }
+      ]
+    },
+    {
+      "id": "bp-uac-ab-onfirst",
+      "note": "[UnseenAnim] CapPasses=4 in-load A/B, 10 min, --ab unseenanim 2-min slices, on first; release ini + HitchAttr. Verdict as the queue note.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "unseenanim",
+          "slice": 2,
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        }
+      ]
+    },
+    {
+      "id": "ip-uac-ab",
+      "note": "[UnseenAnim] CapPasses=4 in-load A/B, 10 min, --ab unseenanim 2-min slices, off first; release ini + HitchAttr. Verdict as the queue note.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "unseenanim",
+          "slice": 2
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        }
+      ]
+    },
+    {
+      "id": "ip-uac-ab-onfirst",
+      "note": "[UnseenAnim] CapPasses=4 in-load A/B, 10 min, --ab unseenanim 2-min slices, on first; release ini + HitchAttr. Verdict as the queue note.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "unseenanim",
+          "slice": 2,
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        }
+      ]
+    }
+  ]
+}

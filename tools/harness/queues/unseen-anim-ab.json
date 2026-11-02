@@ -1,0 +1,476 @@
+{
+  "note": "unseen-anim-ab: docs/144 §3.4 U-A1 ([UnseenAnim], ts3native 0.36.153, off by default), NOT RUN. Build: native/ts3native/out-unseenanim/ts3native.asi copied to game-copy/ts3native.asi.unseenanim1. Order: smoke (auto), correctness (snap-back camera repro, stuck pair), then the 10-min in-load A/B on BP and IP in both orders. Stop rule: if the smoke or the first A/B shows aaUs_1 (unseen Sims' pose calls) under ~3 ms/s, drop U-A1 (ledger I-417-4). Verdict: pose pass and sim ms/s off minus on per world pooled over both orders, hitch counts (hitch-ab.ts), stuck Sims (docs/TESTING.md). Daytime OK (machine quiet rule), no build-heavy agents during the A/B jobs. Run: node tools/harness/queue.ts tools/harness/queues/unseen-anim-ab.json 2026-11-02: bp-ua-ab PASS on unseenanim1, then paused for the unseencost probe build; rerun bp-ua-snapback + the 4 A/Bs on unseencost1 (0.36.154 + ts3fixes unseencost1) with the probe on in both arms (UnseenCost.Enabled=1, fixesOn unseencost); the stuck pair already PASSed on 0.36.153 and keeps unseenanim1. Rerun: node tools/harness/queue.ts tools/harness/queues/unseen-anim-ab.json --only bp-ua-snapback,bp-ua-ab,bp-ua-ab-onfirst,ip-ua-ab,ip-ua-ab-onfirst. Read the per-site unseen-check cost: node tools/harness/unseen-cost-report.ts unseen-anim-ab-<date>-<job>. The rerun list sums 56 timing minutes (<= 60), so queue.ts runs no measurement smoke; each rerun job therefore carries the smoke checks itself: early gate ucReady==1 at 150 s, fixes on: ...unseencost (verified), fixesRequire unseencost_ticks > 0, nativeRequire ucN_0 / ucAsks / ucSelfN / ucFloorN > 0 (bp-ua-snapback runs first, so a broken probe stops the queue there).",
+  "smoke": {
+    "note": "Measurement smoke (AGENTS.md): BP Spring 4 min, --ab unseenanim 1-min slices. Pass: both arms in the per-arm split, unseenanim read back off / on per slice, aaReady 3, aaSkipped grows only in on slices, aaN / aaUs per class > 0 (the per-class split works), heavy tools off (HitchAttr only), no crash. A FAIL stops the queue. 2026-11-02 rerun with the [UnseenCost] probe on (docs/227): also fixes on: ...unseencost (verified) read-back, fixesRequire unseencost_ticks > 0 (only the probe tick: the script unseen consumers are off in these jobs, so per-site script calls may be 0), nativeRequire ucN_0 / ucAsks / ucSelfN / ucFloorN > 0, early gate ucReady 1.",
+    "asi": "game-copy/ts3native.asi.unseencost1",
+    "save": "Baseline-BP-Spring",
+    "fixesPackage": "game-copy/ts3fixes.package.unseencost1",
+    "ini": {
+      "SlotEnabledRO.Enabled": 1,
+      "SlotEnabledRO.Mode": 1,
+      "SlotEnabledRO.Shadow": 0,
+      "UnseenThrottle.Enabled": 1,
+      "UnseenThrottle.List": 1,
+      "RouteAsync.FallbackAsync": 1,
+      "RouteAsync.M1Retry": 1,
+      "RouteAsync.SyncCapMs": 1000,
+      "RouteAsync.FbJobCapMs": 300,
+      "RouteAsync.LogFallbackMs": 20,
+      "RouteAsync.LogFallbackStack": 16,
+      "RouteAsync.TailUnlock": 1,
+      "RouteAsync.ReplanDedupe": 1,
+      "RouteAsync.H2": 1,
+      "RouteEarlyOut.Enabled": 1,
+      "RouteEarlyOut.Mode": 2,
+      "RouteEarlyOut.Act": 1,
+      "RouteEarlyOut.LogMs": 200,
+      "HitchAttr.Enabled": 1,
+      "UnseenAnim.Enabled": 1,
+      "UnseenAnim.Mode": 0,
+      "UnseenCost.Enabled": 1
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 4,
+        "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencost",
+        "ab": "unseenanim",
+        "slice": 1,
+        "fixesReport": "unseencost",
+        "fixesRequire": "unseencost_ticks>=1"
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 15,
+    "pinReason": "unseencost1 = ts3native 0.36.154 (master + [UnseenAnim] 0.36.153 + [UnseenCost] probe v148 + snap-back check, docs/227, built 2026-11-02) + ts3fixes from the same master (unseencost counters 690-743; kit5-wakehooks switches still set by fixesOn); probe on in both arms",
+    "nativeRequire": "ucN_0>=1,ucAsks>=1,ucSelfN>=64,ucFloorN>=1",
+    "earlyGates": [
+      {
+        "afterSec": 150,
+        "counter": "ucReady",
+        "op": "==",
+        "value": 1,
+        "why": "[UnseenCost] not installed (ucReady != 1)"
+      }
+    ]
+  },
+  "jobs": [
+    {
+      "id": "bp-ua-snapback",
+      "note": "Correctness: repro unseen-snapback (spawned Sims walk far, the agent moves the in-game camera onto unseen Sims, never the game window), [UnseenAnim] mode 1 the whole run, [UnseenThrottle] parts as bp-ut2-snapback (the repro's require step needs Rate debt). Pass: the repro require step, no crash or freeze, 0 watchdog lines, aaSnap > 0 at the end (unseen Sims seen again ran their owed pose time), no Sim seen frozen in the repro log. BP 16 min, daytime OK.",
+      "asi": "game-copy/ts3native.asi.unseencost1",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseencost1",
+      "ini": {
+        "UnseenProbe.Enabled": 1,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.Every": 4,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.AvoidNearM": 3,
+        "UnseenThrottle.FpMs": 500,
+        "UnseenThrottle.RateNearM": 3,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenCost.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 16,
+          "seed": 12345,
+          "repro": "unseen-snapback",
+          "fixesOn": "unseencost",
+          "fixesReport": "unseencost",
+          "fixesRequire": "unseencost_ticks>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "pinReason": "unseencost1 = ts3native 0.36.154 (master + [UnseenAnim] 0.36.153 + [UnseenCost] probe v148 + snap-back check, docs/227, built 2026-11-02) + ts3fixes from the same master (unseencost counters 690-743; kit5-wakehooks switches still set by fixesOn); probe on in both arms",
+      "earlyGates": [
+        {
+          "afterSec": 840,
+          "counter": "aaSnap",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen Sim with owed pose time was seen again (snap-back never exercised)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "ucReady",
+          "op": "==",
+          "value": 1,
+          "why": "[UnseenCost] not installed (ucReady != 1)"
+        }
+      ],
+      "nativeRequire": "ucN_0>=1,ucAsks>=1,ucSelfN>=64,ucFloorN>=1"
+    },
+    {
+      "id": "bp-ua-stuck-off",
+      "note": "Stuck-Sim reference: release ini + [UnseenAnim] Enabled=1 Mode=0 (counts and times, skips nothing), BP 15 min, seed 12345, no --ab, no samplers. Read the end-of-run stuck Sims (docs/TESTING.md).",
+      "asi": "game-copy/ts3native.asi.unseenanim1",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "pinReason": "unseenanim1 = ts3native 0.36.153 (master + [UnseenAnim], docs/144 §3.4, built 2026-11-02); ts3fixes package as wake-park-ab (kit5-wakehooks: release switches + viewer push)"
+    },
+    {
+      "id": "bp-ua-stuck-on",
+      "note": "Stuck-Sim check: as bp-ua-stuck-off with Mode=1 the whole run. Pass: no crash, 0 watchdog lines, aaSkipped > 0, stuck Sims at the end no more than bp-ua-stuck-off (at most one more, none standing at a door or route goal it walked to while unseen); new cases to docs/data/stuck-log.md.",
+      "asi": "game-copy/ts3native.asi.unseenanim1",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.kit5-wakehooks",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "pinReason": "unseenanim1 = ts3native 0.36.153 (master + [UnseenAnim], docs/144 §3.4, built 2026-11-02); ts3fixes package as wake-park-ab (kit5-wakehooks: release switches + viewer push)",
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        },
+        {
+          "afterSec": 300,
+          "counter": "aaSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "[UnseenAnim] never skipped an unseen Sim pose call"
+        }
+      ]
+    },
+    {
+      "id": "bp-ua-ab",
+      "note": "[UnseenAnim] in-load A/B (docs/144 §3.4), Baseline-BP-Spring, 10 min, seed 12345, --ab unseenanim per 2-min slice, off first; release ini + HitchAttr. Expected [inferred]: pose pass (aaPassUs, animPose) -7..-25 ms/s, sim ms/s the same. Pass: no crash, 0 watchdog lines, aaSkipped > 0 only in on slices, stuck Sims not above off. Read: node tools/harness/hitch-ab.ts unseen-anim-ab; profile-compare per job; aaUs_1 / aaPassUs per slice.",
+      "asi": "game-copy/ts3native.asi.unseencost1",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseencost1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenCost.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencost",
+          "ab": "unseenanim",
+          "slice": 2,
+          "fixesReport": "unseencost",
+          "fixesRequire": "unseencost_ticks>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseencost1 = ts3native 0.36.154 (master + [UnseenAnim] 0.36.153 + [UnseenCost] probe v148 + snap-back check, docs/227, built 2026-11-02) + ts3fixes from the same master (unseencost counters 690-743; kit5-wakehooks switches still set by fixesOn); probe on in both arms",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        },
+        {
+          "afterSec": 150,
+          "counter": "ucReady",
+          "op": "==",
+          "value": 1,
+          "why": "[UnseenCost] not installed (ucReady != 1)"
+        }
+      ],
+      "nativeRequire": "ucN_0>=1,ucAsks>=1,ucSelfN>=64,ucFloorN>=1"
+    },
+    {
+      "id": "bp-ua-ab-onfirst",
+      "note": "[UnseenAnim] in-load A/B (docs/144 §3.4), Baseline-BP-Spring, 10 min, seed 12345, --ab unseenanim per 2-min slice, on first; release ini + HitchAttr. Expected [inferred]: pose pass (aaPassUs, animPose) -7..-25 ms/s, sim ms/s the same. Pass: no crash, 0 watchdog lines, aaSkipped > 0 only in on slices, stuck Sims not above off. Read: node tools/harness/hitch-ab.ts unseen-anim-ab; profile-compare per job; aaUs_1 / aaPassUs per slice.",
+      "asi": "game-copy/ts3native.asi.unseencost1",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseencost1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenCost.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencost",
+          "ab": "unseenanim",
+          "slice": 2,
+          "abOnFirst": true,
+          "fixesReport": "unseencost",
+          "fixesRequire": "unseencost_ticks>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseencost1 = ts3native 0.36.154 (master + [UnseenAnim] 0.36.153 + [UnseenCost] probe v148 + snap-back check, docs/227, built 2026-11-02) + ts3fixes from the same master (unseencost counters 690-743; kit5-wakehooks switches still set by fixesOn); probe on in both arms",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        },
+        {
+          "afterSec": 150,
+          "counter": "ucReady",
+          "op": "==",
+          "value": 1,
+          "why": "[UnseenCost] not installed (ucReady != 1)"
+        }
+      ],
+      "nativeRequire": "ucN_0>=1,ucAsks>=1,ucSelfN>=64,ucFloorN>=1"
+    },
+    {
+      "id": "ip-ua-ab",
+      "note": "[UnseenAnim] in-load A/B (docs/144 §3.4), Baseline-IP, 10 min, seed 12345, --ab unseenanim per 2-min slice, off first; release ini + HitchAttr. Expected [inferred]: pose pass (aaPassUs, animPose) -7..-25 ms/s, sim ms/s the same. Pass: no crash, 0 watchdog lines, aaSkipped > 0 only in on slices, stuck Sims not above off. Read: node tools/harness/hitch-ab.ts unseen-anim-ab; profile-compare per job; aaUs_1 / aaPassUs per slice.",
+      "asi": "game-copy/ts3native.asi.unseencost1",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseencost1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenCost.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencost",
+          "ab": "unseenanim",
+          "slice": 2,
+          "fixesReport": "unseencost",
+          "fixesRequire": "unseencost_ticks>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseencost1 = ts3native 0.36.154 (master + [UnseenAnim] 0.36.153 + [UnseenCost] probe v148 + snap-back check, docs/227, built 2026-11-02) + ts3fixes from the same master (unseencost counters 690-743; kit5-wakehooks switches still set by fixesOn); probe on in both arms",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        },
+        {
+          "afterSec": 150,
+          "counter": "ucReady",
+          "op": "==",
+          "value": 1,
+          "why": "[UnseenCost] not installed (ucReady != 1)"
+        }
+      ],
+      "nativeRequire": "ucN_0>=1,ucAsks>=1,ucSelfN>=64,ucFloorN>=1"
+    },
+    {
+      "id": "ip-ua-ab-onfirst",
+      "note": "[UnseenAnim] in-load A/B (docs/144 §3.4), Baseline-IP, 10 min, seed 12345, --ab unseenanim per 2-min slice, on first; release ini + HitchAttr. Expected [inferred]: pose pass (aaPassUs, animPose) -7..-25 ms/s, sim ms/s the same. Pass: no crash, 0 watchdog lines, aaSkipped > 0 only in on slices, stuck Sims not above off. Read: node tools/harness/hitch-ab.ts unseen-anim-ab; profile-compare per job; aaUs_1 / aaPassUs per slice.",
+      "asi": "game-copy/ts3native.asi.unseencost1",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseencost1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenCost.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencost",
+          "ab": "unseenanim",
+          "slice": 2,
+          "abOnFirst": true,
+          "fixesReport": "unseencost",
+          "fixesRequire": "unseencost_ticks>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseencost1 = ts3native 0.36.154 (master + [UnseenAnim] 0.36.153 + [UnseenCost] probe v148 + snap-back check, docs/227, built 2026-11-02) + ts3fixes from the same master (unseencost counters 690-743; kit5-wakehooks switches still set by fixesOn); probe on in both arms",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        },
+        {
+          "afterSec": 150,
+          "counter": "ucReady",
+          "op": "==",
+          "value": 1,
+          "why": "[UnseenCost] not installed (ucReady != 1)"
+        }
+      ],
+      "nativeRequire": "ucN_0>=1,ucAsks>=1,ucSelfN>=64,ucFloorN>=1"
+    }
+  ]
+}

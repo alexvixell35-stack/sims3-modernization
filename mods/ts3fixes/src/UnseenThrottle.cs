@@ -50,9 +50,18 @@ namespace Ts3Fixes
         // The trip shortcuts' rule (TownieUnseen) without its posture and follower tests, which only matter for moving a Sim.
         static bool SimUnseen(Sim s)
         {
+            long t = UcBegin(kUcSimUnseen, s != null ? s.ObjectId.Value : 0);  // docs/227 probe
+            bool r = SimUnseenBody(s);
+            UcEnd(kUcSimUnseen, t);
+            return r;
+        }
+        static bool SimUnseenBody(Sim s)
+        {
             if (s == null || s.IsSelectable || s.Household == Household.ActiveHousehold) return false;
+            int b = UtbBits(s);  // docs/227 §6 central table
+            if (b >= 0) return sUtbCheck ? UtbCompare(UtbUnseen(b), FarFromViewers(s.Position) && !UcOnScreen(s)) : UtbUnseen(b);
             if (!FarFromViewers(s.Position)) return false;
-            return !World.IsObjectOnScreen(s);
+            return !UcOnScreen(s);
         }
 
         static void NoteGateClears(int[] c) { c[155] = sEnvGate.Clears + sBroadcastGate.Clears + sCarGate.Clears; }
@@ -73,7 +82,9 @@ namespace Ts3Fixes
                 c[147]++;
                 if (on)
                 {
+                    long ut = UcBegin(kUcGate, 0);  // docs/227 probe
                     bool run = sEnvGate.Unseen(key, UnseenEvery());
+                    UcEnd(kUcGate, ut);
                     NoteGateClears(c);
                     if (!run) { c[148]++; return; } // score, environment buffs and events stay as the last run left them
                 }
@@ -102,14 +113,16 @@ namespace Ts3Fixes
                 c[197]++;
                 if (!SpotOrig(car, ref mat)) return false;
                 int key = UnseenMath.Key(car.ObjectId.Value);
-                if (!FarFromViewers(car.Position) || World.IsObjectOnScreen(car) || !FarFromViewers(mat.pos.V3))
+                if (!FarFromViewers(car.Position) || UcOnScreen(car) || !FarFromViewers(mat.pos.V3))
                 {
                     sCarGate.Seen(key);
                     c[200]++;
                     return true;
                 }
                 c[198]++;
+                long ut = UcBegin(kUcGate, 0);  // docs/227 probe
                 bool run = sCarGate.Unseen(key, Math.Max(1, Instantiator.kUnseenCarEvery));
+                UcEnd(kUcGate, ut);
                 if (run) return true;
                 c[199]++;
                 ((StreetParking)(object)this).FreeParkingSpotForCar(car); // as if none was free: the reservation goes back

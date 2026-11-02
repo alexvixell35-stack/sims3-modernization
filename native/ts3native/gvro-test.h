@@ -33,9 +33,9 @@ static void TestGoalValidRO() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, gvReady) == 0x47DC && offsetof(Ts3nCounters, gvMode) == 0x47E0 &&
                       offsetof(Ts3nCounters, gvShadow) == 0x47E4 && offsetof(Ts3nCounters, gvFb) == 0x47FC &&
-                      offsetof(Ts3nCounters, gvShadowEmpty) == 0x4820 && sizeof(Ts3nCounters) == 5476 * 4,
+                      offsetof(Ts3nCounters, gvShadowEmpty) == 0x4820 && sizeof(Ts3nCounters) == 5798 * 4,
                   "counters v118 layout after v117 (docs/registry.md)");
-    assert(k.version == 146);
+    assert(k.version == 156);
     assert(kGvSite.site == 0x0075A647 && kGvSite.target == 0x0082EDB0);
     memset(&k.gvReady, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, gvReady));
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);

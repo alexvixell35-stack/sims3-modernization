@@ -1613,6 +1613,43 @@ rpc.exports = {
         'ghAgentSkipped', 'ghExpired', 'ghFull', 'ghRemoveMissing', ...n('ghSpare', 4));
       // v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs (docs/67 §30, wastar.cpp)
       if (c.readS32() >= 146) f.push('waOn', ...n('waSkip', 3), 'pfOn', ...n('pfSkip', 2), 'pfSpare');
+      // v147 [UnseenAnim] U-A1 (docs/144 §3.4, unseenanim.cpp); aaN/aaUs: 0 visible Sim, 1 unseen Sim, 2 other actor; aaHold: parent,
+      // nearVis, viewer, noView, slot, cap, visFull, noClass
+      if (c.readS32() >= 147) f.push('aaReady', 'aaMode', 'aaVisSims', 'aaPasses', 'aaPassUs', ...n('aaN', 3), ...n('aaUs', 3), 'aaSkipped',
+        'aaOwedRuns', 'aaSnap', 'aaFlushOff', ...n('aaHold', 8), 'aaDebtMaxUs');
+      // v148 [UnseenCost] probe (docs/227, unseencost.cpp); sites 0 class, 1 list, 2 viewer, 3 agent, 4 taskSim, 5 listed, 6 nearVis, 7 camera
+      if (c.readS32() >= 148) f.push('ucReady', ...n('ucN', 8), ...n('ucTop', 8), ...n('ucSampled', 8), ...n('ucUs', 8), 'ucAsks', 'ucDistinct',
+        'ucPasses', 'ucSelfN', 'ucSelfNs', 'ucFloorN', 'ucFloorNs');
+      // v149 [UnseenTable] (docs/227 §6, unseentable.cpp)
+      if (c.readS32() >= 149) f.push('utbReady', 'utbMode', 'utbCheck', 'utbBuilds', 'utbBuildUs', 'utbRows', 'utbRowsMax', 'utbHits',
+        'utbMiss', 'utbMisUnsafe', 'utbMisSafe', 'utbFetches', 'utbFetchRows', 'utbFetchOff', 'utbFaults', 'utbListCap');
+      // v150 [UnseenAnim] Objects / ObjStats (docs/144 §3.6, unseenanim.cpp); aoKindN_<kind>_<unseen>, aoBktS_<bucket>_<unseen>;
+      // kinds 0 no transform, 1 agent, 2 parented, 3 SACS, 4 plain; bucket 8 = other; aoHold: parent, sacs, agent, nearVis,
+      // viewer, slot, cap, noClass
+      if (c.readS32() >= 150) f.push('aoReady', 'aoMode', 'aoFrozen', ...n('aoKindN', 10, 2), ...n('aoKindUs', 5), ...n('aoBktVt', 8),
+        ...n('aoBktN', 9), ...n('aoBktS', 18, 2), ...n('aoBktUs', 9), ...n('aoBktSacs', 9), 'aoSkipped', 'aoOwedRuns', 'aoSnap', 'aoFlushOff',
+        ...n('aoHold', 8), ...n('aoNear', 2), 'aoDebtMaxUs', 'aoAgents', 'aoWalkFail');
+      // v151 [UnseenRootMotion] (docs/228, unseenrm.cpp); rmK buckets k 0,1,2,3,4-5,6-7,8-9,10+; rmTail* 0 = pass without root
+      // motion, 1 = with; rmN/rmUs class 0 visible Sim, 1 unseen Sim, 2 non-Sim; rmZone: parent, sacs, started, nearVis, viewer,
+      // noAgent, none, noGrid; rmDelta* 0 visible, 1 unseen; rmSlFallback: changed, full, walk1Off, fault (since v153 only full counts)
+      if (c.readS32() >= 151) f.push('rmReady', 'rmMode', 'rmPasses', 'rmPassesRm', ...n('rmK', 8), 'rmRem', 'rmWalks', 'rmCallsAll', 'rmLateRm',
+        'rmActSum', 'rmActMax', 'rmRmSum', 'rmRmMax', 'rmSampled', 'rmW1Us', 'rmTsN', 'rmTsUs', ...n('rmTailN', 2), ...n('rmTailUs', 2), 'rmSWalks',
+        'rmWalkUs', ...n('rmN', 3), ...n('rmUs', 3), ...n('rmZoneN', 8), ...n('rmZoneUs', 8), ...n('rmDeltaN', 2), ...n('rmDeltaCm', 2), 'rmDeltaMaxCm',
+        'rmFlips', 'rmFloorN', 'rmFloorNs', 'rmSlPasses', 'rmSlSteps', ...n('rmSlFallback', 4), 'rmSlUs', 'rmSlMax', 'rmFaults', ...n('rmSpare', 3));
+      // v152 [UnseenTable] lazy rows + RefreshTicks (docs/227 §8)
+      if (c.readS32() >= 152) f.push('utbRowCalc', 'utbRowSampUs10', 'utbTtlMode', 'utbLazyHits', 'utbForced');
+      // v153 [UnseenRootMotion] Mode 1 late starts (docs/228 §10): insert hook, clip dirty, bit 15, audit (rmSlMiss must be 0)
+      if (c.readS32() >= 153) f.push('rmSlIns', 'rmSlClip', 'rmSlFullWalks', 'rmSlLate', 'rmSlBit15', 'rmSlAudit', 'rmSlMiss', 'rmSlCandFull');
+      // v154 [UnseenRootMotion] Mode 2 coarse unseen Sims (docs/228 §11); rm2Why: notSim, camJump, noClass, visible, margin, parent, sacs,
+      // started, nearVis, viewer, noAgent, noRoute, goal, portal, slot, hyst; rm2DriftN_<arm*6+bucket>: arm 0 exact, 1 coarse;
+      // buckets <5, <10, <20, <30, <50, >=50 cm; rm2EndN / rm2End30: route ends per arm of the last eligible pass (>= 30 cm apart)
+      if (c.readS32() >= 154) f.push(...n('rm2Why', 16), 'rm2Elig', 'rm2CoarsePasses', 'rm2Coarse', 'rm2Owed', 'rm2DtMs', 'rm2Snap', 'rm2SnapSteps',
+        'rm2SnapCm', 'rm2SnapMaxCm', 'rm2Lost', 'rm2LostMs', 'rm2EndInMerge', 'rm2CamJump', 'rm2CamHold', 'rm2CamSpeedMax', ...n('rm2DriftN', 12),
+        ...n('rm2DriftMaxCm', 2), 'rm2RouteRecs', 'rm2RouteStale', 'rm2QuatBad', 'rm2Placed', 'rm2Faults', ...n('rm2EndN', 2), ...n('rm2End30', 2));
+      // v155 Mode 2 script camera ICs (docs/228 §11.6): rm2CamIc_<i> = SetPositionAndTarget, RequestLerpToTarget,
+      // RequestLerpToPositionAndTarget, FocusOnLot, FocusOnLotForBuildBuy, EnableObjectFollow, TetherToLot, TetherToObject, Lock,
+      // EnableMapViewMode, DisableMapViewMode; rm2CamIcOff = calls off the sim thread
+      if (c.readS32() >= 155) f.push(...n('rm2CamIc', 11), 'rm2CamIcOff');
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key
@@ -1808,7 +1845,7 @@ rpc.exports = {
   },
 
   status() {
-    const m = Process.getModuleByName('TS3W.exe');
+    const mods = Process.enumerateModules(), m = (typeof Process.mainModule !== 'undefined' && Process.mainModule) || mods.find(x => /^(TS3W|TS3|Sims3Launcher)\.exe$/i.test(x.name)) || mods[0]; // the host exe (TS3W.exe, or Sims3Launcher.exe on the EA app edition, docs/230)
     return { pid: Process.id, arch: Process.arch, exeBase: m.base.toString(), threads: Process.enumerateThreads().length,
              modules: Process.enumerateModules().length, attachedSeconds: Math.round((Date.now() - startedAt) / 1000),
              lastEventSeq: eventSeq };

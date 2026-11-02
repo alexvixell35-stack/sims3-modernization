@@ -467,6 +467,8 @@ namespace Ts3Agent
             bool reload = a.Bool("reload", false);
             if (GameStates.IsInWorld() && !reload) throw new McpException("already in a world; quit to the main menu first, or pass reload: true");
             string file = a.Str("file");
+            // GetSaveFileDetails accepts a bare name and the load then fails with "A serious error has occurred" (2026-11-02)
+            if (!file.EndsWith(".sims3", StringComparison.OrdinalIgnoreCase)) file += ".sims3";
             SaveGameMetadata info = new SaveGameMetadata();
             info.mSaveFile = file;
             if (!Sims3.Gameplay.UI.Responder.Instance.MainMenuModel.GetSaveFileDetails(ref info))

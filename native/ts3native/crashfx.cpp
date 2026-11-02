@@ -177,7 +177,7 @@ static void CfOnFault(const EXCEPTION_POINTERS* x) {
     // TS3W.exe .text only: every run has 3 handled first-chance AVs at start-up in other modules (queue logs 2026-10-24);
     // an illegal instruction anywhere = a wild call into data (Crash M / O: eip in the heap), dumped with the fault at eip
     const DWORD eip = x->ContextRecord->Eip;
-    const bool wild = x->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION;
+    const bool wild = XcptWild(x->ExceptionRecord->ExceptionCode);  // C0000096 too (2026-11-02 drain crash wrote no dump)
     if (!g_cfOn || (!wild && (eip < 0x00401000 || eip >= 0x00F95000)) || InterlockedIncrement(&g_cfDumpN) > 4) return;
     Ts3nCounters& k = ts3native_counters;
     InterlockedIncrement(&k.cfDumps);

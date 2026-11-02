@@ -59,16 +59,45 @@ namespace Ts3Fixes
         // already calls seen (docs/202 §5.4b).
         static int UfWhy(Sim s)
         {
+            long t = UcBegin(kUcUfWhy, s != null ? s.ObjectId.Value : 0);  // docs/227 probe
+            int r = UfWhyBody(s);
+            UcEnd(kUcUfWhy, t);
+            return r;
+        }
+        static int UfWhyBody(Sim s)
+        {
             if (!GameStates.IsLiveState || GameStates.IsTravelling || GameStates.IsWorldShuttingDown) return UnseenFallbackCore.kNotLive;
             if (s == null || s.HasBeenDestroyed || s.SimDescription == null) return UnseenFallbackCore.kGone;
             if (s.IsSelectable || s.Household == Household.ActiveHousehold) return UnseenFallbackCore.kHousehold;
             if (UfLotSeen(s.LotCurrent)) return UnseenFallbackCore.kActiveLot;
-            if (World.IsObjectOnScreen(s)) return UnseenFallbackCore.kOnScreen;
-            if (!UfPosUnseen(s.Position, kUfSimRadiusM)) return UnseenFallbackCore.kNearViewers;
+            // docs/227 §6 central table: on screen (bit 1) = kOnScreen, reach or household (bits 2, 3) = kNearViewers; the map
+            // view (all seen) and a Sim without a row keep the old tests
+            int b = CameraController.IsMapViewModeEnabled() ? -1 : UtbBits(s);
+            if (b >= 0)
+            {
+                int w = (b & kUtbOnScreen) != 0 ? UnseenFallbackCore.kOnScreen : (b & (kUtbReach | kUtbViewer)) != 0 ? UnseenFallbackCore.kNearViewers : -1;
+                if (sUtbCheck) UtbCompare(w < 0, !UcOnScreen(s) && UfPosUnseen(s.Position, kUfSimRadiusM));
+                if (w >= 0) return w;
+            }
+            else
+            {
+                if (UcOnScreen(s)) return UnseenFallbackCore.kOnScreen;
+                if (!UfPosUnseen(s.Position, kUfSimRadiusM)) return UnseenFallbackCore.kNearViewers;
+            }
             if (UfHeld(s)) return UnseenFallbackCore.kHeld;
             Sim t = s.CurrentInteraction != null ? s.CurrentInteraction.Target as Sim : null;
-            return t != null && t != s && (t.IsSelectable || t.Household == Household.ActiveHousehold || World.IsObjectOnScreen(t) || !UfPosUnseen(t.Position, kUfSimRadiusM))
+            return t != null && t != s && (t.IsSelectable || t.Household == Household.ActiveHousehold || UfSimSeen(t))
                 ? UnseenFallbackCore.kSocialSeen : UnseenFallbackCore.kSeen;
+        }
+
+        // on screen or near the viewers: the Sim's table row (docs/227 §6, as UfWhy's own Sim above), else the old tests
+        static bool UfSimSeen(Sim t)
+        {
+            int b = CameraController.IsMapViewModeEnabled() ? -1 : UtbBits(t);
+            if (b < 0) return UcOnScreen(t) || !UfPosUnseen(t.Position, kUfSimRadiusM);
+            bool seen = (b & (kUtbOnScreen | kUtbReach | kUtbViewer)) != 0;
+            if (sUtbCheck) UtbCompare(!seen, !UcOnScreen(t) && UfPosUnseen(t.Position, kUfSimRadiusM));
+            return seen;
         }
 
         // docs/202 §2.1 camera checks. Seen unless ts3native's camera query (unseenfb.cpp UfCamMsg: the game's camera frustum
@@ -77,14 +106,44 @@ namespace Ts3Fixes
         const float kUfSimRadiusM = 3f;  // EA's per-agent on-screen byte tests 3x the model bounds (docs/143 §3)
         static bool UfPosUnseen(Vector3 p, float r)
         {
+            long t = UcBegin(kUcPos, 0);  // docs/227 probe
+            bool res = UfPosUnseenBody(p, r);
+            UcEnd(kUcPos, t);
+            return res;
+        }
+        // probe run 2: 6.0 us, 4 UfCamAsk ICs each. The camera query is now one PosUnseen IC (same answer; old ts3native = the
+        // four calls), and with "unseenposcache" the whole answer is kept per tick by the exact point and radius
+        static bool UfPosUnseenBody(Vector3 p, float r)
+        {
+            long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+            if (!UpcOn(now)) return UfPosUnseenCalc(p, r);
+            bool v;
+            uint bx = Bits(p.x), by = Bits(p.y), bz = Bits(p.z), br = Bits(r);
+            if (sUfPosCache.Get(now, bx, by, bz, br, out v)) return v;
+            v = UfPosUnseenCalc(p, r);
+            sUfPosCache.Put(now, bx, by, bz, br, v);
+            return v;
+        }
+        static bool UfPosUnseenCalc(Vector3 p, float r)
+        {
             if (CameraController.IsMapViewModeEnabled() || !FarFromViewers(p)) return false;
+            int a = UtbPosUnseen(p.x, p.y, p.z, r);
+            if (a >= 0) { UcCount(kUcCamAsk); return a == 1; }
             return UfCamAsk(3, p.x) && UfCamAsk(4, p.y) && UfCamAsk(5, p.z) && UfCamAsk(6, r);
         }
-        static bool UfCamAsk(int code, float f) { return sYieldProbe.GetOption2((Sims3.SimIFace.Route.RouteOption2)(0x8300000000000000UL | (ulong)(uint)code << 48 | Bits(f))); }
+        static readonly UcPosCache sUfPosCache = new UcPosCache(), sUfGoalCache = new UcPosCache();
+        static bool UfCamAsk(int code, float f) { UcCount(kUcCamAsk); return sYieldProbe.GetOption2((Sims3.SimIFace.Route.RouteOption2)(0x8300000000000000UL | (ulong)(uint)code << 48 | Bits(f))); }
 
         // the camera's lot (the lot under the camera target, LotManager.GetLotAtPoint), the active household's lot, or a lot whose
         // bounding circle reaches into the view (frustum or reach); the world lot (streets) is judged by position only
         static bool UfLotSeen(Lot lot)
+        {
+            long t = UcBegin(kUcLot, 0);  // docs/227 probe
+            bool r = UfLotSeenBody(lot);
+            UcEnd(kUcLot, t);
+            return r;
+        }
+        static bool UfLotSeenBody(Lot lot)
         {
             if (lot == null || lot.IsWorldLot) return false;
             if (lot == Household.ActiveHouseholdLot || lot == UfCameraLot()) return true;
@@ -92,14 +151,36 @@ namespace Ts3Fixes
             if (now != sUfLotTick) { sUfLotTick = now; sUfLotSeen.Clear(); }
             bool seen;
             if (sUfLotSeen.TryGetValue(lot.LotId, out seen)) return seen;
-            Vector3 c = lot.GetCenterPosition();
-            float r = 0f;
-            Corners k = lot.Corners;
-            if (k != null) for (int i = 0; i < 4; i++) r = Math.Max(r, (k[i] - c).Length());
+            Vector3 c;
+            float r;
+            UfLotShape(lot, now, out c, out r);
             seen = !UfPosUnseen(c, r);
             sUfLotSeen[lot.LotId] = seen;
             return seen;
         }
+        // the lot's centre (GetCenterPosition: a terrain-height IC) and bounding radius (4 sqrt); with "unseenposcache" kept per
+        // lot while its corners stay put (a moved lot gets new corners), cleared per world load.
+        // shortcut: a build-mode terraform under the centre keeps the old height (a few m on a 10 m+ sphere); key on terrain edits if it matters
+        static void UfLotShape(Lot lot, long now, out Vector3 c, out float r)
+        {
+            Corners k = lot.Corners;
+            bool cache = k != null && UpcOn(now);
+            UfLotGeo g;
+            if (cache && sUfLotGeo.TryGetValue(lot.LotId, out g) && g.Same(k)) { c = g.C; r = g.R; return; }
+            c = lot.GetCenterPosition();
+            r = 0f;
+            if (k != null) for (int i = 0; i < 4; i++) r = Math.Max(r, (k[i] - c).Length());
+            if (cache) sUfLotGeo[lot.LotId] = new UfLotGeo(k, c, r);
+        }
+        sealed class UfLotGeo
+        {
+            readonly Vector3 m0, m1, m2, m3;
+            public readonly Vector3 C;
+            public readonly float R;
+            public UfLotGeo(Corners k, Vector3 c, float r) { m0 = k[0]; m1 = k[1]; m2 = k[2]; m3 = k[3]; C = c; R = r; }
+            public bool Same(Corners k) { return k[0] == m0 && k[1] == m1 && k[2] == m2 && k[3] == m3; }
+        }
+        static readonly System.Collections.Generic.Dictionary<ulong, UfLotGeo> sUfLotGeo = new System.Collections.Generic.Dictionary<ulong, UfLotGeo>();
         static long sUfLotTick = -1, sUfCamLotTick = -1;
         static readonly System.Collections.Generic.Dictionary<ulong, bool> sUfLotSeen = new System.Collections.Generic.Dictionary<ulong, bool>();
         static Lot sUfCamLot;
@@ -112,6 +193,26 @@ namespace Ts3Fixes
 
         // §3.2 / §2.1 (2): a teleport goal must be out of view: the point (Sim-sized), its lot (not the camera's, not in view)
         static bool UfGoalUnseen(Vector3 goal)
+        {
+            long t = UcBegin(kUcGoal, 0);  // docs/227 probe
+            bool r = UfGoalUnseenBody(goal);
+            UcEnd(kUcGoal, t);
+            return r;
+        }
+        // probe run 2: 20.7 us; with "unseenposcache" the answer is kept per tick by the exact goal (inferred: a goal is asked
+        // again by the next plan of the same trip)
+        static bool UfGoalUnseenBody(Vector3 goal)
+        {
+            long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+            if (!UpcOn(now)) return UfGoalUnseenCalc(goal);
+            bool v;
+            uint bx = Bits(goal.x), by = Bits(goal.y), bz = Bits(goal.z);
+            if (sUfGoalCache.Get(now, bx, by, bz, 0, out v)) return v;
+            v = UfGoalUnseenCalc(goal);
+            sUfGoalCache.Put(now, bx, by, bz, 0, v);
+            return v;
+        }
+        static bool UfGoalUnseenCalc(Vector3 goal)
         {
             if (!UfPosUnseen(goal, kUfSimRadiusM)) return false;
             Lot lot = LotManager.GetLotAtPoint(goal);

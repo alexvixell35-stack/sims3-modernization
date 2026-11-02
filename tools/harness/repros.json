@@ -48049,5 +48049,999 @@
       }
     ],
     "cleanup": []
+  },
+  {
+    "id": "showoff-badges-route",
+    "bug": "player report (docs/226): a child of the active household cannot do the scouting Show Off Badges social to any adult, inside or outside (\"cannot go there\"); fine without our mods. Sim+DoShowOffMove.Run plans the child to the adult (PlanToPoint, only for jig placement; SocialJigTwoPerson.PlaceJigAlongRoute ignores that route), places the jig next to the adult, plans RouteToJigA and runs DoRoute; DoRoute false = the balloon",
+    "fix": "none yet (triage): ts3fixes RouteFailLog.cs logs every plan / jig / DoRoute of the social (routefaillog, on); suspects [inferred]: [RouteAsync] own job (routeasync), KindDeadlines own-plan cut at 250 ms (kinddeadlines), [Discourage] / DeferFootprint (discourage, deferfootprint) delaying the jig's footprint, [OptsInit] (ini only: the job with OptsInit.Enabled=0)",
+    "save": "Baseline-BP",
+    "note": "Needs an active household with a home lot, a child and a young adult or older; make_sim {age: Child} adds a child when the active Sim is at home (optional: skipped when the household is full or already has one). Test shortcuts (labelled): Scouting set to 1 on the child and both Sims placed (outside next to the mailbox, inside next to the first ground-floor object in a room), then EA's own ShowOffNewSkills (Badges) is queued as the pie menu does. Per arm (all shipped, then each suspect switched off in the same load): outside and inside, each waits until DoRoute ran, the jig failed or the social left the queue (60 s cap), then records the outcome. The final verdict throws when any arm failed and lists every arm, so one failing arm does not hide the others.",
+    "expect": "pass = every arm 'route ok'. A bug repro: the shipped arm records 'DoRoute false (balloon)' (or 'jig not placed'); the arm whose switch is off and that records 'route ok' names the suspect. ts3native.log has the matching 'showoff:' lines (plan kind, async/sync, result, goal, ms).",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "routefaillog": true
+        },
+        "note": "logging on (its default); applied log lists SimRoutingComponent.DoRoute and SocialJigTwoPerson.PlaceJigAlongRoute: ok",
+        "waitS": 1
+      },
+      {
+        "cmd": "make_sim",
+        "args": {
+          "age": "Child"
+        },
+        "waitS": 10,
+        "optional": true,
+        "note": "joins the active household when the active Sim is at home"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside"
+          ]
+        },
+        "note": "shipped: child and adult placed outside on the home lot",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "note": "shipped outside: Show Off Badges queued on the child",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record shipped outside"
+          ]
+        },
+        "note": "shipped outside: outcome noted (route ok / DoRoute false = the balloon / jig not placed)",
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside"
+          ]
+        },
+        "note": "shipped: child and adult placed inside on the home lot",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "note": "shipped inside: Show Off Badges queued on the child",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record shipped inside"
+          ]
+        },
+        "note": "shipped inside: outcome noted (route ok / DoRoute false = the balloon / jig not placed)",
+        "waitS": 3
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "routeasync": 0
+        },
+        "waitS": 1,
+        "note": "routeasync off: routeasync off"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside"
+          ]
+        },
+        "note": "routeasync off: child and adult placed outside on the home lot",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "note": "routeasync off outside: Show Off Badges queued on the child",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record routeasync off outside"
+          ]
+        },
+        "note": "routeasync off outside: outcome noted (route ok / DoRoute false = the balloon / jig not placed)",
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside"
+          ]
+        },
+        "note": "routeasync off: child and adult placed inside on the home lot",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "note": "routeasync off inside: Show Off Badges queued on the child",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record routeasync off inside"
+          ]
+        },
+        "note": "routeasync off inside: outcome noted (route ok / DoRoute false = the balloon / jig not placed)",
+        "waitS": 3
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "routeasync": 1
+        },
+        "waitS": 1,
+        "note": "routeasync back on"
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "kinddeadlines": 0
+        },
+        "waitS": 1,
+        "note": "kinddeadlines off: kinddeadlines off"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside"
+          ]
+        },
+        "note": "kinddeadlines off: child and adult placed outside on the home lot",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "note": "kinddeadlines off outside: Show Off Badges queued on the child",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record kinddeadlines off outside"
+          ]
+        },
+        "note": "kinddeadlines off outside: outcome noted (route ok / DoRoute false = the balloon / jig not placed)",
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside"
+          ]
+        },
+        "note": "kinddeadlines off: child and adult placed inside on the home lot",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "note": "kinddeadlines off inside: Show Off Badges queued on the child",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record kinddeadlines off inside"
+          ]
+        },
+        "note": "kinddeadlines off inside: outcome noted (route ok / DoRoute false = the balloon / jig not placed)",
+        "waitS": 3
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "kinddeadlines": 1
+        },
+        "waitS": 1,
+        "note": "kinddeadlines back on"
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "discourage": 0
+        },
+        "waitS": 1,
+        "note": "discourage off: discourage off"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside"
+          ]
+        },
+        "note": "discourage off: child and adult placed outside on the home lot",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "note": "discourage off outside: Show Off Badges queued on the child",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record discourage off outside"
+          ]
+        },
+        "note": "discourage off outside: outcome noted (route ok / DoRoute false = the balloon / jig not placed)",
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside"
+          ]
+        },
+        "note": "discourage off: child and adult placed inside on the home lot",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "note": "discourage off inside: Show Off Badges queued on the child",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record discourage off inside"
+          ]
+        },
+        "note": "discourage off inside: outcome noted (route ok / DoRoute false = the balloon / jig not placed)",
+        "waitS": 3
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "discourage": 1
+        },
+        "waitS": 1,
+        "note": "discourage back on"
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "deferfootprint": 0
+        },
+        "waitS": 1,
+        "note": "deferfootprint off: deferfootprint off"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup outside"
+          ]
+        },
+        "note": "deferfootprint off: child and adult placed outside on the home lot",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "note": "deferfootprint off outside: Show Off Badges queued on the child",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record deferfootprint off outside"
+          ]
+        },
+        "note": "deferfootprint off outside: outcome noted (route ok / DoRoute false = the balloon / jig not placed)",
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "setup inside"
+          ]
+        },
+        "note": "deferfootprint off: child and adult placed inside on the home lot",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "fire"
+          ]
+        },
+        "note": "deferfootprint off inside: Show Off Badges queued on the child",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "record deferfootprint off inside"
+          ]
+        },
+        "note": "deferfootprint off inside: outcome noted (route ok / DoRoute false = the balloon / jig not placed)",
+        "waitS": 3
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "deferfootprint": 1
+        },
+        "waitS": 1,
+        "note": "deferfootprint back on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowOffBadgesCheck",
+          "args": [
+            "verdict"
+          ]
+        },
+        "note": "throws when any arm failed (lists every arm)",
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "routeasync": 1
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "kinddeadlines": 1
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "discourage": 1
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "deferfootprint": 1
+        }
+      }
+    ]
+  },
+  {
+    "id": "age-up-abort-check",
+    "bug": "issue #166 build 32: AgingState.PreInstantiateSim waits (Simulator.Sleep) for a deferred age-up's outfit build; AbortSimBuilderTask during the wait nulls the task field, the next Done read throws NullReferenceException, EA's catch rethrows and SimDescription.Instantiate never creates the Sim",
+    "fix": "ts3fixes AgeUpAbort.cs: ageupabort (default off), docs/512",
+    "save": "Baseline-BP",
+    "note": "Needs EA's PreInstantiateSim: run it with the original core mod (a core with the player's Build 32 leaves the wait when the task is gone). Built on a townie that is not instantiated. ageupkeepoutfits is on in both arms so the aborted build does not wipe the townie's outfits (docs/205).",
+    "expect": "off: expect thrown sees EA's NullReferenceException, seen +1, caught +0, age unchanged. on: expect caught sees no exception, seen +1, caught +1, age and outfit key unchanged.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ageupabort": false,
+          "ageupkeepoutfits": true
+        },
+        "note": "applied log lists AgingState.PreInstantiateSim: ok",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpAbortCheck",
+          "args": [
+            "arm"
+          ]
+        },
+        "note": "off: the race in a game task (age-up marked deferred, abort queued, PreInstantiateSim called); throws when there is no townie",
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpAbortCheck",
+          "args": [
+            "expect thrown"
+          ]
+        },
+        "note": "off: the bug: NullReferenceException, seen +1, caught +0 (throws otherwise)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ageupabort": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpAbortCheck",
+          "args": [
+            "arm"
+          ]
+        },
+        "note": "on: the same race (on the first townie that qualifies: the off arm leaves its age and outfit unchanged)",
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpAbortCheck",
+          "args": [
+            "expect caught"
+          ]
+        },
+        "note": "on: the fix: no exception, seen +1, caught +1, age and outfit key unchanged (throws otherwise)",
+        "waitS": 1
+      }
+    ],
+    "cleanup": []
+  },
+  {
+    "id": "unseen-rm-snapback",
+    "bug": "none (fix check, Rodney 2026-11-02: unseen Sims with coarse root-motion steps must look exact when the camera reaches them): docs/228 §11",
+    "fix": "ts3native [UnseenRootMotion] Mode 2 (Mode=2): almost-visible margin + lead, camera-jump hold (script camera ICs rm2CamIc + 20 m fallback rm2CamJump, rm2CamHold, CamIcPasses), owed steps never leave the pass, snap of owed steps at a switch-off (rm2Snap, rm2SnapMaxCm)",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (static only, 2026-11-02): never run. Needs the unseenrm3 build with [UnseenRootMotion] Mode=2 and [UnseenAnim] Enabled=1. Ultra speed: merges need k > 1 sub-steps per pass. Map view and portrait clicks go through the UI paths (map_view, focus_sim: the script camera ICs Mode 2 hooks, docs/228 §11.6); camera_jumps add instant lot jumps (SetPositionAndTarget). Only the in-game camera moves.",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2,
+        "note": "Mode 2 merges only when a pass has several 1/30 s sub-steps (k ~10 at catch-up, docs/228 §10.1)"
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 20,
+        "note": "unseen walkers mid-route"
+      },
+      {
+        "cmd": "unseen_snapback",
+        "args": {
+          "count": 4
+        },
+        "waitS": 180,
+        "optional": true,
+        "note": "camera onto unseen Sims one by one (no require step: its pass rule is [UnseenThrottle] Rate)"
+      },
+      {
+        "cmd": "map_view",
+        "args": {
+          "on": true
+        },
+        "waitS": 10,
+        "note": "map-view button path: CameraController.EnableMapViewMode (script camera IC hooked by Mode 2)"
+      },
+      {
+        "cmd": "map_view",
+        "args": {
+          "on": false
+        },
+        "waitS": 10,
+        "note": "back from map view: DisableMapViewMode"
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "far",
+          "index": 0
+        },
+        "waitS": 8,
+        "note": "portrait-click path onto the farthest walker: RequestLerpToTarget (+ FollowSim when routing)"
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "far",
+          "index": 1
+        },
+        "waitS": 8
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "far",
+          "index": 2
+        },
+        "waitS": 8
+      },
+      {
+        "cmd": "camera_jumps",
+        "args": {
+          "order": "populated",
+          "lots": 6,
+          "dwellS": 8,
+          "loops": 2
+        },
+        "waitS": 110,
+        "note": "portrait-like instant jumps onto lots with Sims"
+      },
+      {
+        "cmd": "camera_jumps",
+        "args": {
+          "stop": true
+        },
+        "optional": true
+      },
+      {
+        "cmd": "map_view",
+        "args": {
+          "on": true
+        },
+        "waitS": 10,
+        "note": "map-view button path: CameraController.EnableMapViewMode (script camera IC hooked by Mode 2)"
+      },
+      {
+        "cmd": "map_view",
+        "args": {
+          "on": false
+        },
+        "waitS": 10,
+        "note": "back from map view: DisableMapViewMode"
+      },
+      {
+        "cmd": "camera_jumps",
+        "args": {
+          "order": "far",
+          "lots": 4,
+          "dwellS": 8,
+          "loops": 1
+        },
+        "waitS": 40,
+        "note": "jumps across town"
+      },
+      {
+        "cmd": "camera_jumps",
+        "args": {
+          "stop": true
+        },
+        "optional": true
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 40
+      }
+    ],
+    "expect": "no crash; native rm2CamIc_9 > 0 and rm2CamIc_10 > 0 (map view on/off), rm2CamIc_1 > 0 (portrait lerp), rm2CamIcOff 0, rm2CamHold > 0, rm2Coarse > 0, rm2SnapMaxCm < 100, rm2Faults 0; screenshots at the jumps show no frozen or jumping Sims"
+  },
+  {
+    "id": "ua1-churn-loop",
+    "bug": "2026-11-02 drain crash (docs/144 §3.5.1): a render-message destroy in FrameDb_DrainEvents called a freed manager on the [UnseenAnim] build; U-A1 owed-time paths never ran against Sims and objects that are created and destroyed off screen",
+    "fix": "ts3native 0.36.163 [UnseenAnim] stale owed-time drop (aaStale) + list reset (aaSlotReset), drain fault dump; run with [UnseenAnim] Mode 1 CapPasses=4 (and Objects=1 for the object arm)",
+    "save": "Baseline-BP-Spring",
+    "expect": "no crash; aaSkipped and aoSkipped rise; aaStale may rise; no drain fault line in ts3native.log",
+    "note": "Loop form of alloc-churn-loop without CAS: 8 Sims spawned at non-active households' home lots (off screen from the active lot), 30 EA objects placed in 6 calls of 5 (residential/community lots alternating; one 30-object call exceeded the agent reply timeout), removed, Sims removed. Ends on quiet. UNVERIFIED: first run failed on the single 30-object call, now batched.",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "spawn_sims",
+          "setup": false,
+          "args": {
+            "count": 8
+          },
+          "waitS": 30,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 5,
+          "maxS": 30
+        },
+        {
+          "cmd": "place_objects",
+          "setup": false,
+          "args": {
+            "filter": "ea",
+            "count": 5,
+            "lot": "residential"
+          },
+          "waitS": 15,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 1,
+          "maxS": 15
+        },
+        {
+          "cmd": "place_objects",
+          "setup": false,
+          "args": {
+            "filter": "ea",
+            "count": 5,
+            "lot": "community"
+          },
+          "waitS": 15,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 1,
+          "maxS": 15
+        },
+        {
+          "cmd": "place_objects",
+          "setup": false,
+          "args": {
+            "filter": "ea",
+            "count": 5,
+            "lot": "residential"
+          },
+          "waitS": 15,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 1,
+          "maxS": 15
+        },
+        {
+          "cmd": "place_objects",
+          "setup": false,
+          "args": {
+            "filter": "ea",
+            "count": 5,
+            "lot": "community"
+          },
+          "waitS": 15,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 1,
+          "maxS": 15
+        },
+        {
+          "cmd": "place_objects",
+          "setup": false,
+          "args": {
+            "filter": "ea",
+            "count": 5,
+            "lot": "residential"
+          },
+          "waitS": 15,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 1,
+          "maxS": 15
+        },
+        {
+          "cmd": "place_objects",
+          "setup": false,
+          "args": {
+            "filter": "ea",
+            "count": 5,
+            "lot": "community"
+          },
+          "waitS": 15,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 1,
+          "maxS": 15,
+          "count": {
+            "result": "tracked"
+          }
+        },
+        {
+          "cmd": "remove_objects",
+          "setup": false,
+          "args": {},
+          "waitS": 20,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 2,
+          "maxS": 20
+        },
+        {
+          "cmd": "remove_sims",
+          "setup": false,
+          "args": {},
+          "waitS": 30,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 2,
+          "maxS": 30,
+          "note": "fire: Sims and their objects released"
+        }
+      ],
+      "arms": [
+        "on"
+      ],
+      "until": {
+        "events": 120
+      },
+      "maxMinutes": 15
+    }
   }
 ]

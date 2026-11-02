@@ -11,11 +11,11 @@ import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { focusGame, giveFocusBack } from './focus-game.ts';
 import { stallGuard } from './game-alive.ts';
+import { BIN, GAME_EXE } from './game-exe.ts';
 
 const { values } = parseArgs({ options: { save: { type: 'string' }, restart: { type: 'boolean' }, port: { type: 'string', default: '47891' } } });
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const USER_DIR = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3');
-const BIN = process.env.TS3_BIN ?? 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\The Sims 3\\Game\\Bin';
 const base = `http://127.0.0.1:${values.port}`;
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const stamp = () => new Date().toISOString().slice(11, 19);
@@ -41,13 +41,13 @@ async function until(what: string, limitS: number, check: () => Promise<boolean>
   }
   log(`${what} after ${Math.round((Date.now() - t0) / 1000)} s`);
 }
-const gameRunning = () => execFileSync('tasklist', ['/NH', '/FI', 'IMAGENAME eq TS3W.exe']).toString().includes('TS3W.exe');
+const gameRunning = () => execFileSync('tasklist', ['/NH', '/FI', `IMAGENAME eq ${GAME_EXE}`]).toString().includes(GAME_EXE);
 
 if (values.restart) {
   // stop cleanly: detaching first matters, killing a host mid-call can take the game down with it
   await get('detach', 10000).catch(() => {});
   if (gameRunning()) {
-    try { execFileSync('taskkill', ['/F', '/IM', 'TS3W.exe'], { stdio: 'ignore' }); } catch { /* already gone */ }
+    try { execFileSync('taskkill', ['/F', '/IM', GAME_EXE], { stdio: 'ignore' }); } catch { /* already gone */ }
     await until('game closed', 60, async () => !gameRunning());
   }
   // ts3native: install the source build when it differs (a stale asi broke the 2026-10-15 save matrix); the

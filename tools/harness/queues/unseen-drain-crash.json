@@ -1,0 +1,208 @@
+{
+  "note": "unseen-drain-crash (2026-11-02): reruns of the bp-utb2-ttl-ab crash (2x, clean-run rule) and a U-A1 object/Sim churn stress on unseenrm5 (docs/144 §3.5.1). Correctness: crashes, not timing; run with --no-smoke.",
+  "jobs": [
+    {
+      "id": "bp-utb2-ttl-ab-c1",
+      "note": "Crash rerun 1 of 2 (clean-run rule) of bp-utb2-ttl-ab: 11-02 07:38 C0000096 in the render-message destroy (FrameDb_DrainEvents ret 0x59386B), docs/144 §3.5.1. Same job and ini as unseen-table.json bp-utb2-ttl-ab on unseenrm5. Pass: no crash; a crash now logs drain fault: message / manager / aa event lines.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenCost.Enabled": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencost",
+          "ab": "unseentablettl",
+          "slice": 2,
+          "fixesReport": "unseencost",
+          "fixesRequire": "unseencost_ticks>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 (counters v156): crash reruns of the 11-02 drain crash on the fixed build",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "ucReady",
+          "op": "==",
+          "value": 1,
+          "why": "[UnseenCost] not installed (ucReady != 1)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbRowCalc>=1,ucAsks>=1",
+      "minCounters": 156
+    },
+    {
+      "id": "bp-utb2-ttl-ab-c2",
+      "note": "Crash rerun 2 of 2 (clean-run rule) of bp-utb2-ttl-ab: 11-02 07:38 C0000096 in the render-message destroy (FrameDb_DrainEvents ret 0x59386B), docs/144 §3.5.1. Same job and ini as unseen-table.json bp-utb2-ttl-ab on unseenrm5. Pass: no crash; a crash now logs drain fault: message / manager / aa event lines.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenCost.Enabled": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,unseencost",
+          "ab": "unseentablettl",
+          "slice": 2,
+          "fixesReport": "unseencost",
+          "fixesRequire": "unseencost_ticks>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 (counters v156): crash reruns of the 11-02 drain crash on the fixed build",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "utbReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenTable] not installed or ICs not registered (utbReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "ucReady",
+          "op": "==",
+          "value": 1,
+          "why": "[UnseenCost] not installed (ucReady != 1)"
+        }
+      ],
+      "nativeRequire": "utbBuilds>=1,utbRowCalc>=1,ucAsks>=1",
+      "minCounters": 156
+    },
+    {
+      "id": "bp-ua1-churn",
+      "note": "U-A1 stress (docs/144 §3.5.1): [UnseenAnim] Mode 1 CapPasses=4 + Objects=1 while ua1-churn-loop spawns 8 Sims at other households' lots, places 30 EA objects town-wide, removes both (off screen), 15 min, BP. Correctness only. Pass: no crash, aaSkipped and aoSkipped rise (owed-time paths ran against created/destroyed actors); read aaStale / aaSlotReset.",
+      "asi": "game-copy/ts3native.asi.unseenrm5",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm5",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 1,
+        "UnseenCost.Enabled": 1,
+        "UnseenTable.Enabled": 1,
+        "UnseenTable.Mode": 1,
+        "UnseenTable.Check": 0,
+        "UnseenTable.RefreshTicks": 4,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.Objects": 1,
+        "UnseenAnim.ObjMode": 1,
+        "CrashForensics.Light": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "repro": "ua1-churn-loop",
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "noiseCheck": false,
+      "pinReason": "unseenrm5 = ts3native 0.36.163 (counters v156): crash reruns of the 11-02 drain crash on the fixed build",
+      "minCounters": 156,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] not installed (aaReady != 3)"
+        }
+      ],
+      "nativeRequire": "aaSkipped>=1,aoSkipped>=1"
+    }
+  ]
+}

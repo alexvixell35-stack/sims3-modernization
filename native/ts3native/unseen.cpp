@@ -94,7 +94,7 @@ static int UnClassify(const float* p, bool onScreen) {
     return d2t < r2 || d2p < r2 ? 0 : 1;
 }
 
-static void UnRefreshCamera() {
+static void UnRefreshCameraBody() {
     __declspec(align(16)) float a[4] = {}, b[4] = {};
     g_unCam.ok = false;
     __try {
@@ -109,9 +109,13 @@ static void UnRefreshCamera() {
     if (!g_unCam.ok) InterlockedIncrement(&ts3native_counters.unCamFail);
     QueryPerformanceCounter(&g_unCam.at);
 }
+static void UnRefreshCamera() {
+    if (!g_ucOn) { UnRefreshCameraBody(); return; }
+    UcTime(UC_CAMERA, [] { UnRefreshCameraBody(); return 0; });  // docs/227 probe
+}
 
 // class of an object (0 visible, 1 unseen) and its kind (0 Sim, 1 other); -1 = no transform or a fault
-static int UnObjClass(void* obj, int* kind, float* posOut = NULL, bool* parented = NULL) {
+static int UnObjClassBody(void* obj, int* kind, float* posOut, bool* parented) {
     __declspec(align(16)) float pos[4], sphere[4];
     __try {
         void* tc = obj ? g_unComp(obj, NULL, *g_unBitTransform) : NULL;
@@ -128,6 +132,21 @@ static int UnObjClass(void* obj, int* kind, float* posOut = NULL, bool* parented
         return UnClassify(sphere, on);
     } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; }
 }
+// docs/227 §6 [UnseenTable] (unseentable.cpp UtbClass): the per-tick table's answer; -2 = no answer (off, other thread, not
+// listed), the old rule runs. NULL unless installed.
+static int (*g_utbClass)(void* obj, int* kind, float* posOut, bool* parented);
+static int UnObjClassOld(void* obj, int* kind, float* posOut, bool* parented) {
+    if (!g_ucOn) return UnObjClassBody(obj, kind, posOut, parented);
+    if (GetCurrentThreadId() == g_unSimTid) UcNoteMain(obj, ts3native_counters.unPasses);  // docs/227 repeat ratio
+    return UcTime(UC_CLASS, [&] { return UnObjClassBody(obj, kind, posOut, parented); });
+}
+static int UnObjClass(void* obj, int* kind, float* posOut = NULL, bool* parented = NULL) {
+    if (g_utbClass) {
+        const int c = g_utbClass(obj, kind, posOut, parented);
+        if (c != -2) return c;
+    }
+    return UnObjClassOld(obj, kind, posOut, parented);
+}
 
 static bool g_utRateOn, g_utFpOn;  // [UnseenThrottle] phase 2 parts installed (Rate=1, Footprint=1)
 // Snap-back watch (docs/143 §8.9, agent command unseen_snapback): one object id armed over the viewer channel (codes 6/7);
@@ -136,7 +155,7 @@ static bool g_utRateOn, g_utFpOn;  // [UnseenThrottle] phase 2 parts installed (
 // skipsVis = a part skipped while the Sim was classed visible (impossible by the rules: the bug the check looks for);
 // skipsUnseen = skips after the Sim was classed unseen again (the camera no longer shows it); unseenAfter = its updates
 // classed unseen after the flip (2026-10-21 bp-ut2-snapback: 3 of 6 Sims had skips after the flip, all while unseen again)
-static struct { DWORD lo, hi; bool armed, flipped, ran, avCalled, avRan, fpCalled, fpRan; LONG pass, skipsVis, skipsUnseen, unseenAfter; float owed, curDebt; } g_utWatch;  // curDebt: Rate debt at its last update (code 18)
+static struct { DWORD lo, hi; bool armed, flipped, ran, avCalled, avRan, fpCalled, fpRan, animFlipped; LONG pass, skipsVis, skipsUnseen, unseenAfter; float owed, curDebt, animOwed; } g_utWatch;  // curDebt: Rate debt at its last update (code 18); animOwed: [UnseenAnim] owed pose time run at the Sim's first visible pose call (code 24, unseenanim.cpp)
 static void UtWatchSkip(bool visible) { if (visible) g_utWatch.skipsVis++; else g_utWatch.skipsUnseen++; }
 static __declspec(thread) bool t_utWatchRun;  // the watched agent's update after its flip is running
 static bool UtWatched(const void* obj) {
@@ -313,6 +332,9 @@ enum { UTW_OFF, UTW_NOAGENT, UTW_VISIBLE, UTW_EAON, UTW_STATE, UTW_LINKED, UTW_V
 enum { UTW_KIND = UTW_N, UTW_TIMER, UTW_NEWPATH, UTW_CAP, UTW_SLOT, UTW_N2 };
 static bool g_utOn;
 static bool g_utNeedViewers = true;
+static bool g_aaOn;  // [UnseenAnim] installed (unseenanim.cpp): it reads the household table below too
+static bool g_utbOn;  // [UnseenTable] installed (unseentable.cpp): same
+static u8 UtbReadyMsg(DWORD code);  // unseentable.cpp: viewer-channel codes 25 (ICs ready) / 26 (Check on)
 static float g_utNearM = 15.0f, g_utPortalM = 3.0f;  // 15 m = [0xF9A62C], the avoidance near-goal default
 static const float UT_VIEWER_M = 80.0f;                // ts3fixes kShortcutMinDistance
 static const DWORD UT_VIEWER_AGE_MS = 2000;
@@ -329,12 +351,14 @@ static DWORD g_utInHave;
 static float g_utInCur[3];
 static u8 UtViewerMsg(DWORD lo, DWORD hi) {
     Ts3nCounters& k = ts3native_counters;
-    if (!g_utOn && !(g_asTierMs > 0 && ((hi >> 16) & 0xFF) <= 5)) return 0;  // the viewer table also feeds [AutShadow] TierMs
     const DWORD code = (hi >> 16) & 0xFF;
+    if (code == 25 || code == 26) return UtbReadyMsg(code);  // docs/227 §6 [UnseenTable]: ts3fixes may call UnseenTableNative (unseentable.cpp)
+    if (!g_utOn && !((g_asTierMs > 0 || g_aaOn || g_utbOn) && code <= 5)) return 0;  // the viewer table also feeds [AutShadow] TierMs, [UnseenAnim], [UnseenTable]
     if (code == 1) { g_utInOpen = true, g_utIn.n = 0, g_utInHave = 0; return 1; }
     // snap-back watch (unseen_snapback): 6 arm with the object id's low half (record cleared), 7 its high half (armed);
     // 8 bit `lo` of the record (0 armed, 1 flipped, 2 ran that same pass, 3 avoidance called, 4 avoidance ran,
-    // 5 footprint called, 6 footprint ran, 7 owed time > 0); 9 owed ms >= lo; 10 skips after the flip >= lo; 11 disarm
+    // 5 footprint called, 6 footprint ran, 7 owed time > 0); 9 owed ms >= lo; 10 skips after the flip >= lo; 11 disarm;
+    // 24 [UnseenAnim] owed pose ms at its first visible pose call >= lo (0 until that call)
     if (code >= 12 && code <= 15) {  // held objects (horses): see g_utHeld
         if (code == 12) { g_utHeldOpen = true, g_utHeldIn.n = 0; return 1; }
         if (!g_utHeldOpen) { k.utViewerBad++; return 0; }
@@ -350,7 +374,7 @@ static u8 UtViewerMsg(DWORD lo, DWORD hi) {
         g_utHeld.at = GetTickCount() ? GetTickCount() : 1;
         return 1;
     }
-    if ((code >= 6 && code <= 11) || (code >= 16 && code <= 18)) {
+    if ((code >= 6 && code <= 11) || (code >= 16 && code <= 18) || code == 24) {
         if (code == 6) { memset(&g_utWatch, 0, sizeof(g_utWatch)); g_utWatch.lo = lo; return 1; }
         if (code == 7) { g_utWatch.hi = lo, g_utWatch.armed = true; return 1; }
         if (code == 11) { g_utWatch.armed = false; return 1; }
@@ -359,6 +383,7 @@ static u8 UtViewerMsg(DWORD lo, DWORD hi) {
         if (code == 16) return g_utWatch.skipsUnseen >= (LONG)lo ? 1 : 0;
         if (code == 17) return g_utWatch.unseenAfter >= (LONG)lo ? 1 : 0;
         if (code == 18) return g_utWatch.curDebt * 1000.0f >= (float)lo ? 1 : 0;
+        if (code == 24) return g_utWatch.animOwed * 1000.0f >= (float)lo ? 1 : 0;
         const bool b[8] = {g_utWatch.armed, g_utWatch.flipped, g_utWatch.ran, g_utWatch.avCalled, g_utWatch.avRan,
                            g_utWatch.fpCalled, g_utWatch.fpRan, g_utWatch.owed > 0};
         return lo < 8 && b[lo] ? 1 : 0;
@@ -386,7 +411,7 @@ static u8 UtViewerMsg(DWORD lo, DWORD hi) {
 }
 
 // near a viewer (ts3fixes FarFromViewers' household part), or no fresh table while NeedViewers=1; -1 = neither
-static int UtViewerWhy(const float* p) {
+static int UtViewerWhyBody(const float* p) {
     if (!g_utView.at || GetTickCount() - g_utView.at > UT_VIEWER_AGE_MS) return g_utNeedViewers ? UTW_NOVIEW : -1;
     for (int i = 0; i < g_utView.n; i++) {
         float d2 = 0;
@@ -395,6 +420,7 @@ static int UtViewerWhy(const float* p) {
     }
     return -1;
 }
+static int UtViewerWhy(const float* p) { return g_ucOn ? UcTime(UC_VIEWER, [&] { return UtViewerWhyBody(p); }) : UtViewerWhyBody(p); }
 
 // [AutShadow] TierMs (autshadow.cpp, docs/122 §14.16): 1 = tier 2 (a far unseen Sim: off screen, beyond the camera reach, no
 // active-household viewer within 80 m in a fresh table), 0 = tier 1 (also when anything is unknown). id 0: start of a cut.
@@ -585,7 +611,7 @@ static int UtPathWhy(u8* agent, void* path, float nearM, float portalM) {
 // why this call runs (UTW_*), or -1 to skip it. Rules (docs/143 §4): visible by the probe's rule or EA's byte, not a
 // walking Sim, linked agent, near a viewer; the first call after any of those (or a path reason) held, or of an agent not
 // seen before; the agent's stagger turn ((pass + owner id) % N == 0); near goal or portal.
-static int UtWhy(u8* part, void* path) {
+static int UtWhyBody(u8* part, void* path) {
     Ts3nCounters& k = ts3native_counters;
     if (k.utMode != 1) return UTW_OFF;
     u8* agent = t_unAgent;
@@ -615,6 +641,8 @@ static int UtWhy(u8* part, void* path) {
     *slot = (void*)((uintptr_t)agent | (held >= 0 ? 1 : 0));
     return why;
 }
+
+static int UtWhy(u8* part, void* path) { return g_ucOn ? UcTime(UC_LIST, [&] { return UtWhyBody(part, path); }) : UtWhyBody(part, path); }
 
 static void __cdecl UtListThunk(void* part, void* path, void* vec, DWORD a3, DWORD a4) {
     Ts3nCounters& k = ts3native_counters;

@@ -12,10 +12,10 @@ static void TestCrashForensics() {
                       offsetof(Ts3nCounters, cfDumps) == 0x4790,
                   "counters v114 layout after v113 (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, cdReady) == 0x4794 && offsetof(Ts3nCounters, cdBad) == 0x4798 &&
-                      offsetof(Ts3nCounters, ceRecs) == 0x47A8 && sizeof(Ts3nCounters) == 5476 * 4,
+                      offsetof(Ts3nCounters, ceRecs) == 0x47A8 && sizeof(Ts3nCounters) == 5798 * 4,
                   "counters v115 layout after v114 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
-    assert(k.version == 146);
+    assert(k.version == 156);
     // off: nothing recorded
     const LONG s0 = g_cfSeq;
     CfRec(CF_COPY_NEW, (void*)0x1000, 64);
@@ -137,6 +137,15 @@ static void TestCrashForensics() {
     cx.Eip = (DWORD)(uintptr_t)(obj + 1), cx.Esp = (DWORD)(uintptr_t)stk;
     CfOnFault(&xp);
     assert(k.cfDumps == dm0 + 2 && k.cfRingHit == rh1 + 4);
+    // 2026-11-02 drain crash: a privileged instruction at a heap eip is a wild call too (dumped), and the drain-destroy dump
+    // reads the message (arg - 0x10) and the manager without faulting on unreadable ones
+    r.ExceptionCode = EXCEPTION_PRIV_INSTRUCTION;
+    CfOnFault(&xp);
+    assert(k.cfDumps == dm0 + 3 && XcptWild(EXCEPTION_PRIV_INSTRUCTION) && !XcptWild(EXCEPTION_ACCESS_VIOLATION));
+    DWORD dstk[2] = {0x0059386B, 0x1010};  // message at 0x1000: unreadable
+    cx.Esp = (DWORD)(uintptr_t)dstk, cx.Ecx = 0x1000;
+    AaDrainFaultDump(&cx);
+    cx.Esp = (DWORD)(uintptr_t)stk;
 
     // docs/67 §17: scene node check (0xC5FA60) on dummies: .rdata vtable passes, garbage / unreadable counted, NULL skipped
     static DWORD good[2];
@@ -421,7 +430,7 @@ static __declspec(naked) void OrtCallRes() {  // as 0x6FA2DB: edi = the object, 
 
 static void TestCrashForensicsObjRes() {
     static_assert(offsetof(Ts3nCounters, mhReady) == 0x47C4 && offsetof(Ts3nCounters, mhFxQueued) == 0x47D8 &&
-                      sizeof(Ts3nCounters) == 5476 * 4, "counters v117 layout after v116 (docs/registry.md)");
+                      sizeof(Ts3nCounters) == 5798 * 4, "counters v117 layout after v116 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const DWORD savedMain = g_mainTid;
     g_mainTid = GetCurrentThreadId();

@@ -1,0 +1,575 @@
+{
+  "note": "unseen-anim-objects: docs/144 §3.6 [UnseenAnim] Objects (unseen non-Sim actors summed over ObjEvery=4 passes) + ObjStats histogram, NOT RUN. Built on master (merge of feature/unseen-table + feature/unseen-anim-objects): game-copy/ts3native.asi.unseentable1 + ts3fixes.package.unseentable1. First chain runs only the smoke + bp/ip-uao-hist (histogram, behaviour unchanged); the A/Bs wait for the histogram (stop rule). Sims stay exact in every job (UnseenAnim.Mode=0), so only the object rule differs. Order: smoke (auto), bp-uao-snapback (correctness: snap-back repro, objects in use keep animating), bp-uao-stuck-on (stuck Sims vs unseen-anim-ab bp-ua-stuck-off), then the 4 in-load A/Bs (--ab unseenobj). Verdict per arm from the counters, not it/s: pose ms/s = aaUs_2 (non-Sim pose calls) and aaPassUs per slice, pooled over both orders per world; aoKindUs_* / aoBktUs_* x16 say which owner kinds and vtable buckets the gain comes from. Stop rule: smoke aoKindN unseen plain+sacs (aoKindN_3_1 + aoKindN_4_1) x16 < 1,000/s or their aoKindUs < 1 ms/s = nothing to gain, stop. Run: node tools/harness/queue.ts tools/harness/queues/unseen-anim-objects.json",
+  "smoke": {
+    "note": "Measurement smoke: BP Spring 4 min, --ab unseenobj 1-min slices, ObjStats=1. Pass: per-arm split, aoMode read back per slice, aoReady 3, aoFrozen > 0 and aoBktVt_0 != 0 (buckets fixed), aoKindN_* sum > 0 (histogram), aoSkipped grows only in on slices, aoWalkFail ~0, heavy tools off, no crash.",
+    "asi": "game-copy/ts3native.asi.unseentable1",
+    "save": "Baseline-BP-Spring",
+    "fixesPackage": "game-copy/ts3fixes.package.unseentable1",
+    "ini": {
+      "SlotEnabledRO.Enabled": 1,
+      "SlotEnabledRO.Mode": 1,
+      "SlotEnabledRO.Shadow": 0,
+      "UnseenThrottle.Enabled": 1,
+      "UnseenThrottle.List": 1,
+      "RouteAsync.FallbackAsync": 1,
+      "RouteAsync.M1Retry": 1,
+      "RouteAsync.SyncCapMs": 1000,
+      "RouteAsync.FbJobCapMs": 300,
+      "RouteAsync.LogFallbackMs": 20,
+      "RouteAsync.LogFallbackStack": 16,
+      "RouteAsync.TailUnlock": 1,
+      "RouteAsync.ReplanDedupe": 1,
+      "RouteAsync.H2": 1,
+      "RouteEarlyOut.Enabled": 1,
+      "RouteEarlyOut.Mode": 2,
+      "RouteEarlyOut.Act": 1,
+      "RouteEarlyOut.LogMs": 200,
+      "HitchAttr.Enabled": 1,
+      "UnseenAnim.Enabled": 1,
+      "UnseenAnim.Mode": 0,
+      "UnseenAnim.CapPasses": 4,
+      "UnseenAnim.HardCapMs": 1500,
+      "UnseenAnim.Objects": 1,
+      "UnseenAnim.ObjEvery": 4,
+      "UnseenAnim.UseM": 8,
+      "UnseenAnim.ObjRadiusM": 5,
+      "UnseenAnim.ObjStats": 1,
+      "UnseenAnim.ObjMode": 0
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 4,
+        "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+        "ab": "unseenobj",
+        "slice": 1
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 15,
+    "pinReason": "unseentable1 = ts3native from feature/unseen-anim-objects (feature/unseen-table + [UnseenAnim] Objects/ObjStats, counters v150 ao*, docs/144 §3.6) + ts3fixes from the same branch",
+    "earlyGates": [
+      {
+        "afterSec": 150,
+        "counter": "aoReady",
+        "op": "==",
+        "value": 3,
+        "why": "[UnseenAnim] Objects + ObjStats not both on"
+      },
+      {
+        "afterSec": 200,
+        "counter": "aoFrozen",
+        "op": ">",
+        "value": 0,
+        "why": "histogram never fixed its vtable buckets (no non-Sim asks?)"
+      }
+    ]
+  },
+  "jobs": [
+    {
+      "id": "bp-uao-hist",
+      "note": "Histogram only (behaviour unchanged): Objects=0, ObjStats=1, 10 min, no --ab. Read aoKindN_* / aoKindUs_* / aoBkt* for the stop rule in the queue note before any A/B.",
+      "asi": "game-copy/ts3native.asi.unseentable1",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseentable1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500,
+        "UnseenAnim.Objects": 0,
+        "UnseenAnim.ObjEvery": 4,
+        "UnseenAnim.UseM": 8,
+        "UnseenAnim.ObjRadiusM": 5,
+        "UnseenAnim.ObjStats": 1,
+        "UnseenAnim.ObjMode": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseentable1 = ts3native 0.36.156 on master (feature/unseen-table + feature/unseen-anim-objects merged: [UnseenTable] v149 utb* + [UnseenAnim] Objects/ObjStats v150 ao*) + ts3fixes from the same master",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        },
+        {
+          "afterSec": 200,
+          "counter": "aoReady",
+          "op": "==",
+          "value": 2,
+          "why": "[UnseenAnim] ObjStats not on (aoReady != 2)"
+        }
+      ]
+    },
+    {
+      "id": "ip-uao-hist",
+      "note": "Histogram only (behaviour unchanged): Objects=0, ObjStats=1, 10 min, no --ab. Read aoKindN_* / aoKindUs_* / aoBkt* for the stop rule in the queue note before any A/B.",
+      "asi": "game-copy/ts3native.asi.unseentable1",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseentable1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500,
+        "UnseenAnim.Objects": 0,
+        "UnseenAnim.ObjEvery": 4,
+        "UnseenAnim.UseM": 8,
+        "UnseenAnim.ObjRadiusM": 5,
+        "UnseenAnim.ObjStats": 1,
+        "UnseenAnim.ObjMode": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseentable1 = ts3native 0.36.156 on master (feature/unseen-table + feature/unseen-anim-objects merged: [UnseenTable] v149 utb* + [UnseenAnim] Objects/ObjStats v150 ao*) + ts3fixes from the same master",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        },
+        {
+          "afterSec": 200,
+          "counter": "aoReady",
+          "op": "==",
+          "value": 2,
+          "why": "[UnseenAnim] ObjStats not on (aoReady != 2)"
+        }
+      ]
+    },
+    {
+      "id": "bp-uao-snapback",
+      "note": "Correctness: repro unseen-snapback with Objects=1 ObjMode=1 the whole run. Pass: aoSnap > 0 (objects seen again run their owed time), unseen_snapback summary passes, aoHold_1 (SACS, objects in interactions) > 0 and no in-use object skipped (no frozen prop or door seen in the repro screenshots), aoDebtMaxUs <= 1,500,000, no crash.",
+      "asi": "game-copy/ts3native.asi.unseentable1",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseentable1",
+      "ini": {
+        "UnseenProbe.Enabled": 1,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.Every": 4,
+        "HitchAttr.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.AvoidNearM": 3,
+        "UnseenThrottle.FpMs": 500,
+        "UnseenThrottle.RateNearM": 3,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500,
+        "UnseenAnim.Objects": 1,
+        "UnseenAnim.ObjEvery": 4,
+        "UnseenAnim.UseM": 8,
+        "UnseenAnim.ObjRadiusM": 5,
+        "UnseenAnim.ObjStats": 1,
+        "UnseenAnim.ObjMode": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 16,
+          "seed": 12345,
+          "repro": "unseen-snapback"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "pinReason": "unseentable1 = ts3native 0.36.156 on master (feature/unseen-table + feature/unseen-anim-objects merged: [UnseenTable] v149 utb* + [UnseenAnim] Objects/ObjStats v150 ao*) + ts3fixes from the same master",
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "aoSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "[UnseenAnim] Objects never skipped a non-Sim pose call"
+        },
+        {
+          "afterSec": 840,
+          "counter": "aoSnap",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen object with owed pose time was seen again"
+        }
+      ]
+    },
+    {
+      "id": "bp-uao-stuck-on",
+      "note": "Stuck-Sim check, Objects=1 ObjMode=1 the whole run (doors, gates, elevators: route objects); compare stuck Sims with unseen-anim-ab bp-ua-stuck-off (at most one more).",
+      "asi": "game-copy/ts3native.asi.unseentable1",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseentable1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500,
+        "UnseenAnim.Objects": 1,
+        "UnseenAnim.ObjEvery": 4,
+        "UnseenAnim.UseM": 8,
+        "UnseenAnim.ObjRadiusM": 5,
+        "UnseenAnim.ObjStats": 1,
+        "UnseenAnim.ObjMode": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "pinReason": "unseentable1 = ts3native 0.36.156 on master (feature/unseen-table + feature/unseen-anim-objects merged: [UnseenTable] v149 utb* + [UnseenAnim] Objects/ObjStats v150 ao*) + ts3fixes from the same master",
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        },
+        {
+          "afterSec": 300,
+          "counter": "aoSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "[UnseenAnim] Objects never skipped a non-Sim pose call"
+        }
+      ]
+    },
+    {
+      "id": "bp-uao-ab",
+      "note": "[UnseenAnim] Objects in-load A/B on BP, 10 min, --ab unseenobj 2-min slices, off first; ObjStats=1 in both arms; release ini + HitchAttr. Verdict as the queue note (aaUs_2, aaPassUs per arm).",
+      "asi": "game-copy/ts3native.asi.unseentable1",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseentable1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500,
+        "UnseenAnim.Objects": 1,
+        "UnseenAnim.ObjEvery": 4,
+        "UnseenAnim.UseM": 8,
+        "UnseenAnim.ObjRadiusM": 5,
+        "UnseenAnim.ObjStats": 1,
+        "UnseenAnim.ObjMode": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "unseenobj",
+          "slice": 2
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseentable1 = ts3native 0.36.156 on master (feature/unseen-table + feature/unseen-anim-objects merged: [UnseenTable] v149 utb* + [UnseenAnim] Objects/ObjStats v150 ao*) + ts3fixes from the same master",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        }
+      ]
+    },
+    {
+      "id": "bp-uao-ab-onfirst",
+      "note": "[UnseenAnim] Objects in-load A/B on BP, 10 min, --ab unseenobj 2-min slices, on first; ObjStats=1 in both arms; release ini + HitchAttr. Verdict as the queue note (aaUs_2, aaPassUs per arm).",
+      "asi": "game-copy/ts3native.asi.unseentable1",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.unseentable1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500,
+        "UnseenAnim.Objects": 1,
+        "UnseenAnim.ObjEvery": 4,
+        "UnseenAnim.UseM": 8,
+        "UnseenAnim.ObjRadiusM": 5,
+        "UnseenAnim.ObjStats": 1,
+        "UnseenAnim.ObjMode": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "unseenobj",
+          "slice": 2,
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseentable1 = ts3native 0.36.156 on master (feature/unseen-table + feature/unseen-anim-objects merged: [UnseenTable] v149 utb* + [UnseenAnim] Objects/ObjStats v150 ao*) + ts3fixes from the same master",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        }
+      ]
+    },
+    {
+      "id": "ip-uao-ab",
+      "note": "[UnseenAnim] Objects in-load A/B on IP, 10 min, --ab unseenobj 2-min slices, off first; ObjStats=1 in both arms; release ini + HitchAttr. Verdict as the queue note (aaUs_2, aaPassUs per arm).",
+      "asi": "game-copy/ts3native.asi.unseentable1",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseentable1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500,
+        "UnseenAnim.Objects": 1,
+        "UnseenAnim.ObjEvery": 4,
+        "UnseenAnim.UseM": 8,
+        "UnseenAnim.ObjRadiusM": 5,
+        "UnseenAnim.ObjStats": 1,
+        "UnseenAnim.ObjMode": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "unseenobj",
+          "slice": 2
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseentable1 = ts3native 0.36.156 on master (feature/unseen-table + feature/unseen-anim-objects merged: [UnseenTable] v149 utb* + [UnseenAnim] Objects/ObjStats v150 ao*) + ts3fixes from the same master",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        }
+      ]
+    },
+    {
+      "id": "ip-uao-ab-onfirst",
+      "note": "[UnseenAnim] Objects in-load A/B on IP, 10 min, --ab unseenobj 2-min slices, on first; ObjStats=1 in both arms; release ini + HitchAttr. Verdict as the queue note (aaUs_2, aaPassUs per arm).",
+      "asi": "game-copy/ts3native.asi.unseentable1",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.unseentable1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500,
+        "UnseenAnim.Objects": 1,
+        "UnseenAnim.ObjEvery": 4,
+        "UnseenAnim.UseM": 8,
+        "UnseenAnim.ObjRadiusM": 5,
+        "UnseenAnim.ObjStats": 1,
+        "UnseenAnim.ObjMode": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "unseenobj",
+          "slice": 2,
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "unseentable1 = ts3native 0.36.156 on master (feature/unseen-table + feature/unseen-anim-objects merged: [UnseenTable] v149 utb* + [UnseenAnim] Objects/ObjStats v150 ao*) + ts3fixes from the same master",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched"
+        }
+      ]
+    }
+  ]
+}

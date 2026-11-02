@@ -28,7 +28,7 @@ import { FEATURES, status } from './release-features.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
 // built from pieces so this file survives its own scrub
-const SCRUB: [RegExp, string][] = [[new RegExp('rod' + 'ne\\b', 'g'), '<user>'], [new RegExp('LAPTOP' + '-M15', 'g'), '<pc>']];
+const SCRUB: [RegExp, string][] = [[new RegExp('rod' + 'ne\\b', 'g'), '<user>'], [new RegExp('LAPTOP' + '-M15', 'g'), '<pc>'], [new RegExp('ALRPan' + 'tonial1', 'g'), '<pc2>'], [new RegExp('RPan' + 'tonial', 'g'), '<user>']];
 const SECRETS: [string, RegExp][] = [
   ['GitHub token', /\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})/],
   ['Slack token', /\bxox[bp]-[A-Za-z0-9-]{10,}/],
@@ -244,9 +244,13 @@ export function publish(o: Opts): { clone: string; commit: string } {
 // --- self-check (offline) ---
 
 function selfCheck(): void {
-  const user = 'rod' + 'ne', pc = 'LAPTOP' + '-M15';
+  const user = 'rod' + 'ne', pc = 'LAPTOP' + '-M15', pc2 = 'ALRPan' + 'tonial1', user2 = 'RPan' + 'tonial';
   assert.equal(scrub(`C:\\Users\\${user}\\x ${pc} ${user}y`), `C:\\Users\\<user>\\x <pc> ${user}y`, 'scrub');
-  assert.deepEqual(leftovers(scrub(`/home/${user}/ ${pc}`)), [], 'nothing left after scrub');
+  assert.equal(scrub(`ScriptError_${pc2}__11-02.xml ${pc2}`), 'ScriptError_<pc2>__11-02.xml <pc2>', 'scrub second host');
+  assert.deepEqual(leftovers(scrub(`/home/${user}/ ${pc} ${pc2}`)), [], 'nothing left after scrub');
+  assert.equal(leftovers(pc2).length, 2, 'second host is a leftover (host pattern and the user name inside it)');
+  assert.equal(scrub(`C:\\Users\\${user2}\\x ${pc2}`), 'C:\\Users\\<user>\\x <pc2>', 'scrub second user; host first');
+  assert.deepEqual(leftovers(scrub(user2)), [], 'second user scrubbed');
   { // waitUntil on a fake clock: checks appear on poll 4 after two gh errors; never = throws at the timeout with the last error
     let t = 0, n = 0;
     const clock = () => t, tick = (ms: number) => { t += ms; };

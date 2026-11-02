@@ -6,13 +6,15 @@
 // job, on exit/Ctrl-C, and at the next queue start (a killed run). Only processes in this user's session; never kills
 // anything; elevated or other-user processes fail the set and are skipped. No-op off Windows.
 // Off: TS3_PIN=off (everything), TS3_PIN_OTHERS=off (only the app moves), TS3_GAME_PRIORITY=off (affinity only);
-// TS3_GAME_CPUS="4-15" (the rest go to the apps), TS3_PIN_NAMES="chrome,vlc,..." (replaces the default list).
+// TS3_GAME_CPUS="4-15" (the rest go to the apps), TS3_PIN_NAMES="chrome,vlc,..." (replaces the default list),
+// TS3_MACHINE=ea-laptop (per-machine game CPU set, MACHINES below; unset = the main machine's default; TS3_GAME_CPUS wins).
 // Queue job (or queue-level { "pin": ... } beside "jobs"): "pin": false | { cpus?: "4-15", priority?: "High" | "AboveNormal" | "Normal" | "off", others?: boolean | [names] }.
 //   node tools/harness/pin.ts --self-check     mask math only, touches nothing
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { availableParallelism, tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { GAME_EXE, GAME_NAME, MACHINE } from './game-exe.ts';
 
 export type PinOpts = { cpus?: string; priority?: string; others?: boolean | string[] };
 export type PinCfg = { cpus: string; gameMask: bigint; otherMask: bigint; fullMask: bigint; priority: string | null; others: string[] };
@@ -38,7 +40,16 @@ export function cpuMask(spec: string, n = N): bigint {
 export const maskCpus = (m: bigint) => [...m.toString(2)].reverse().flatMap((b, i) => (b === '1' ? [i] : []));
 // default: everything from CPU 4 up; null on machines too small to split
 export const defaultCpus = (n = N) => (n > 8 ? `4-${n - 1}` : null);
-export const gameCpus = (env = process.env, n = N) => env.TS3_GAME_CPUS ?? defaultCpus(n);
+// ea-laptop: Core Ultra 7 155U, 14 logical CPUs (GetLogicalProcessorInformationEx, docs/230): P-cores (EfficiencyClass 1, SMT) =
+// logical 0-1 and 10-11, E-cores 2-9, LP E-cores 12-13. Game on both P-cores + 4 E-cores, apps on the remaining 6.
+export const MACHINES: Record<string, string> = { 'ea-laptop': '0-5,10-11' };
+export const gameCpus = (env = process.env, n = N) => {
+  if (env.TS3_GAME_CPUS) return env.TS3_GAME_CPUS;
+  const m = env === process.env ? MACHINE : env.TS3_MACHINE ?? 'main'; // an injected env (self-check) is read as is
+  if (m === 'main') return defaultCpus(n);
+  if (!(m in MACHINES)) throw new Error(`TS3_MACHINE "${m}": use ${Object.keys(MACHINES).join(', ')} or unset`);
+  return MACHINES[m];
+};
 
 export function pinConfig(job?: false | PinOpts, env: NodeJS.ProcessEnv = process.env, n = N): PinCfg | null {
   if (job === false || env.TS3_PIN === 'off') return null;
@@ -54,7 +65,7 @@ export function pinConfig(job?: false | PinOpts, env: NodeJS.ProcessEnv = proces
   return { cpus, gameMask, otherMask, fullMask, priority: priority === 'off' ? null : priority, others };
 }
 export const describePin = (c: PinCfg | null) => (!c ? 'pin off'
-  : `TS3W.exe -> CPUs ${c.cpus}${c.priority ? ` priority ${c.priority}` : ''}; ${c.others.length ? `${c.others.length} app names -> CPUs ${maskCpus(c.otherMask).join(',')}, restored after the job` : 'other apps untouched'}`);
+  : `${GAME_EXE} -> CPUs ${c.cpus}${c.priority ? ` priority ${c.priority}` : ''}; ${c.others.length ? `${c.others.length} app names -> CPUs ${maskCpus(c.otherMask).join(',')}, restored after the job` : 'other apps untouched'}`);
 
 const q = (s: string) => `'${s.replace(/'/g, "''")}'`;
 const names = (c: PinCfg) => c.others.map(q).join(',');
@@ -71,7 +82,7 @@ $me = (Get-Process -Id $PID).SessionId
 ${c.otherMask ? `[Diagnostics.Process]::GetCurrentProcess().ProcessorAffinity = [IntPtr][long]${c.otherMask}` : ''}
 $seen = @{}
 while (Get-Process -Id ${process.pid}) {
-  foreach ($p in Get-Process -Name TS3W) {
+  foreach ($p in Get-Process -Name ${GAME_NAME}) {
     if ($p.SessionId -ne $me) { continue }
     try { if ($p.ProcessorAffinity.ToInt64() -ne ${c.gameMask}) { $p.ProcessorAffinity = [IntPtr][long]${c.gameMask} } } catch {}
     ${c.priority ? `try { if ("$($p.PriorityClass)" -ne '${c.priority}') { $p.PriorityClass = '${c.priority}' } } catch {}` : ''}
@@ -130,6 +141,10 @@ if (import.meta.main && process.argv.includes('--self-check')) {
   eq(pinConfig(undefined, { TS3_GAME_PRIORITY: 'off' }, 16)!.priority, null, 'priority off');
   eq(pinConfig({ cpus: '0-15' }, {}, 16)!.others.length, 0, 'no rest CPUs -> no app moves');
   eq(pinConfig(undefined, {}, 8), null, 'small machine: off by default');
+  const l = pinConfig(undefined, { TS3_MACHINE: 'ea-laptop' }, 14)!;
+  eq(l.gameMask, 0xC3Fn, 'ea-laptop game = P-cores 0-1,10-11 + E-cores 2-5'); eq(l.otherMask, 0x33C0n, 'ea-laptop apps = 6-9,12-13');
+  eq(pinConfig(undefined, { TS3_MACHINE: 'ea-laptop', TS3_GAME_CPUS: '0-3' }, 14)!.gameMask, 0xFn, 'TS3_GAME_CPUS beats TS3_MACHINE');
+  { let t = false; try { pinConfig(undefined, { TS3_MACHINE: 'nope' }, 14); } catch { t = true; } eq(t, true, 'rejects unknown TS3_MACHINE'); }
   eq(pinConfig({ cpus: '8-15', others: ['vlc'] }, {}, 16)!.otherMask, 0xFFn, 'job cpus');
   let threw = false; try { pinConfig({ priority: 'RealTime' }, {}, 16); } catch { threw = true; } eq(threw, true, 'rejects RealTime');
   threw = false; try { pinConfig({ priority: 'RealTime' }, {}, 8); } catch { threw = true; } eq(threw, true, 'rejects RealTime on a small machine');

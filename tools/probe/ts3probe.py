@@ -13,6 +13,7 @@ the Node binding is a native npm module. Standard library otherwise.
 serve attaches to a running TS3W.exe (or starts it with --launch), loads tools/probe/agent.js
 (and tools/frida/stutter-profile.js with --profile), serves JSON on 127.0.0.1 only, and appends
 every event (native exceptions, script errors, detach/crash) to probe-out/<timestamp>/events.jsonl.
+Env: TS3_EXE process name (default TS3W.exe); TS3_LAUNCH=ea starts EALauncher.exe (TS3_EA_LAUNCHER, TS3_EA_URI), no game args; the startup-popup answerer runs only then or with TS3_ANSWER_STARTUP_DIALOG=1.
 """
 import argparse, bisect, csv, glob, json, os, subprocess, sys, threading, time, urllib.error, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -23,6 +24,16 @@ frida = None  # imported in serve only, so `get` runs without it
 
 ROOT = Path(__file__).resolve().parents[2]
 GAME_BIN = Path(os.environ.get('TS3_BIN', r'C:\Program Files (x86)\Steam\steamapps\common\The Sims 3\Game\Bin'))
+GAME_EXE = os.environ.get('TS3_EXE', 'TS3W.exe')
+# Native start-up warning "unofficial game modification that does not match your current version" (docs/231): a Win32
+# dialog (template 104 in the exe: buttons 1001 Quit, 1004 Continue, static 1003) shown before the script VM runs, so the
+# in-game agent cannot answer it. The probe posts the Continue click (no focus, nothing else changes).
+MOD_VERSION_DIALOG = {'quit': 1001, 'continue': 1004, 'text': 1003}
+
+def is_mod_version_dialog(class_name, control_ids):
+    """Only the exe's own warning template: dialog class and all three control ids present."""
+    return class_name == '#32770' and set(MOD_VERSION_DIALOG.values()) <= set(control_ids)
+
 USER_DIR = Path(os.environ.get('TS3_USER', Path.home() / 'Documents' / 'Electronic Arts' / 'The Sims 3'))
 FUNCTIONS_CSV = ROOT / 'game-copy' / 'analysis' / 'functions.csv'
 
@@ -88,24 +99,31 @@ class Probe:
             print(f"[ts3probe] {event.get('kind')}: {event.get('type') or event.get('file') or event.get('reason', '')}", flush=True)
 
     def launch(self):
-        cmd = [str(GAME_BIN / 'TS3W.exe')]
-        if self.args.world:
-            cmd.append(f'-worldFile:{self.args.world}')
-        cmd += self.args.extra or []
+        ea = os.environ.get('TS3_LAUNCH', 'direct') == 'ea'
+        if ea:  # EA app edition: only EALauncher.exe with the offer URI works (a direct start is bounced by the DRM)
+            cmd = [os.environ.get('TS3_EA_LAUNCHER', r'C:\Program Files\Electronic Arts\EA Desktop\EA Desktop\EALauncher.exe'),
+                   os.environ.get('TS3_EA_URI', 'origin2://game/launch/?offerIds=sims3_dd,1002441,70384_CE,70384_Unrevised')]
+            if self.args.world or self.args.extra:
+                print('[ts3probe] WARN: TS3_LAUNCH=ea cannot pass game arguments; --world and extra arguments are ignored', flush=True)
+        else:
+            cmd = [str(GAME_BIN / GAME_EXE)]
+            if self.args.world:
+                cmd.append(f'-worldFile:{self.args.world}')
+            cmd += self.args.extra or []
         print(f'[ts3probe] launching {cmd}', flush=True)
         env = dict(os.environ, **dict(e.split('=', 1) for e in self.args.env))
         if self.args.env:
             print(f'[ts3probe] game environment: {self.args.env}', flush=True)
-        subprocess.Popen(cmd, cwd=GAME_BIN, env=env)
+        subprocess.Popen(cmd, cwd=None if ea else GAME_BIN, env=env)
         for _ in range(120):  # the exe may hand over to another instance; wait for the process by name
             try:
-                return frida.attach('TS3W.exe')
+                return frida.attach(GAME_EXE)
             except frida.ProcessNotFoundError:
                 time.sleep(0.5)
-        raise SystemExit('TS3W.exe did not start within 60 s')
+        raise SystemExit(f'{GAME_EXE} did not start within 60 s')
 
     def start(self):
-        self.session = self.launch() if self.args.launch else frida.attach('TS3W.exe')
+        self.session = self.launch() if self.args.launch else frida.attach(GAME_EXE)
         self.session.on('detached', self.on_detached)
         self.script = self.session.create_script((ROOT / 'tools' / 'probe' / 'agent.js').read_text(encoding='utf-8'))
         self.script.on('message', self.on_message)
@@ -119,6 +137,10 @@ class Probe:
             prof.load()
             prof.exports_sync.init('late', {'out': str(self.out / 'profile').replace('\\', '/')})
         threading.Thread(target=self.watch_script_errors, daemon=True).start()
+        if os.environ.get('TS3_LAUNCH') == 'ea' or os.environ.get('TS3_ANSWER_STARTUP_DIALOG') == '1':
+            threading.Thread(target=self.answer_startup_dialog, daemon=True).start()
+        else:
+            print('[ts3probe] startup-dialog answerer skipped (TS3_LAUNCH != ea and TS3_ANSWER_STARTUP_DIALOG != 1)', flush=True)
         threading.Thread(target=self.sample_memory, daemon=True).start()
         if sys.platform == 'win32':
             threading.Thread(target=self.keep_window_place, daemon=True).start()
@@ -139,6 +161,36 @@ class Probe:
             info['crash'] = {'summary': crash.summary, 'report': crash.report}
         self.log(info)
         self.alive = False
+
+    def answer_startup_dialog(self):
+        """Clicks Continue on the mod-version warning (MOD_VERSION_DIALOG) for up to 5 min after start, polling once a second."""
+        import ctypes
+        from ctypes import wintypes
+        u = ctypes.windll.user32
+        u.GetDlgItem.restype = wintypes.HWND
+        pid = frida.get_local_device().get_process(GAME_EXE).pid
+        buf = ctypes.create_unicode_buffer(1024)
+        t0 = time.time()
+        while self.alive and time.time() - t0 < 300:
+            hits = []
+            def cb(h, _):
+                p = wintypes.DWORD()
+                u.GetWindowThreadProcessId(h, ctypes.byref(p))
+                if p.value == pid and u.GetClassNameW(h, buf, 64) and u.IsWindowVisible(h):
+                    ids = [i for i in MOD_VERSION_DIALOG.values() if u.GetDlgItem(h, i)]
+                    if is_mod_version_dialog(buf.value, ids):
+                        hits.append(h)
+                return True
+            u.EnumWindows(ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(cb), 0)
+            for h in hits:
+                u.GetWindowTextW(u.GetDlgItem(h, MOD_VERSION_DIALOG['text']), buf, 1024)
+                btn = u.GetDlgItem(h, MOD_VERSION_DIALOG['continue'])
+                # WM_COMMAND(BN_CLICKED) to the dialog, as the button itself would send it; PostMessage never blocks the probe
+                ok = bool(u.PostMessageW(h, 0x0111, MOD_VERSION_DIALOG['continue'], btn))
+                self.log({'kind': 'startup-dialog', 'reason': f"Continue {'posted' if ok else 'failed'}: {buf.value[:160]}"})
+                if ok:
+                    return
+            time.sleep(1)
 
     def sample_memory(self):
         """Address-space timeline (memory.csv): shows what fills the 4 GB before an out-of-memory crash."""
@@ -168,7 +220,7 @@ class Probe:
         from ctypes import wintypes
         u = ctypes.windll.user32
         if not hasattr(self, 'pid'):
-            self.pid = frida.get_local_device().get_process('TS3W.exe').pid
+            self.pid = frida.get_local_device().get_process(GAME_EXE).pid
         found = []
         def cb(h, _):
             p = wintypes.DWORD()
@@ -425,7 +477,7 @@ def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest='cmd', required=True)
     s = sub.add_parser('serve')
-    s.add_argument('--launch', action='store_true', help='start TS3W.exe first')
+    s.add_argument('--launch', action='store_true', help=f'start {GAME_EXE} first')
     s.add_argument('--env', action='append', default=[], metavar='NAME=VALUE', help='environment for the launched game, e.g. GC_INITIAL_HEAP_SIZE=536870912 (docs/13)')
     s.add_argument('--world', help='save to auto-load, e.g. Baseline-SV.sims3 (passed as -worldFile)')
     s.add_argument('--profile', action='store_true', help='also load the stutter profiler')
@@ -433,11 +485,17 @@ def main():
                    help='also log stacks for native exceptions (JS handler; the game raises thousands per second, which can starve the probe)')
     s.add_argument('--port', type=int, default=47891)
     s.add_argument('--memory-interval', type=float, default=10, help='seconds between address-space samples')
-    s.add_argument('extra', nargs='*', help='extra TS3W.exe arguments after --')
+    s.add_argument('extra', nargs='*', help=f'extra {GAME_EXE} arguments after --')
     g = sub.add_parser('get')
     g.add_argument('path')
     g.add_argument('--port', type=int, default=47891)
+    sub.add_parser('self-check', help='asserts the start-up dialog matcher; no game needed')
     args = ap.parse_args()
+    if args.cmd == 'self-check':
+        assert is_mod_version_dialog('#32770', [1001, 1004, 1003]) and is_mod_version_dialog('#32770', [1003, 1004, 1001, 2])
+        assert not is_mod_version_dialog('#32770', [1001, 1004]) and not is_mod_version_dialog('Canvas', [1001, 1004, 1003])
+        print('self-check ok')
+        return
     serve(args) if args.cmd == 'serve' else get(args)
 
 

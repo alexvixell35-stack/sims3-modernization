@@ -29,11 +29,11 @@ import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { asiVersion, loadDb, type Build } from '../builds.ts';
 import { dumpHungGame } from './game-alive.ts';
+import { BIN, GAME_EXE } from './game-exe.ts';
 
 const HERE = resolve(import.meta.dirname, '..', '..');
 export const mainRoot = (r: string) => /^(.*?)[\\/]\.claude[\\/]worktrees[\\/][^\\/]+[\\/]?$/.exec(r)?.[1] ?? r;
 const ROOT = process.env.TS3_REPO ?? mainRoot(HERE);
-const BIN = process.env.TS3_BIN ?? 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\The Sims 3\\Game\\Bin';
 const USER = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3');
 export const APEX_OUT = join(ROOT, 'probe-out', 'apex');
 const MARKER = join(APEX_OUT, 'restore-pending.json');
@@ -107,12 +107,12 @@ export function runnerArgs(o: { bin: string; job: string; apexAsi?: string; vari
 
 const gameRunning = () => {
   if (process.platform !== 'win32') return false;
-  try { return /^TS3W\.exe/im.test(execFileSync('tasklist', ['/NH', '/FI', 'IMAGENAME eq TS3W.exe'], { timeout: 15000 }).toString()); } catch { return false; }
+  try { return new RegExp(`^${GAME_EXE.replace(/\./g, '\\.')}`, 'im').test(execFileSync('tasklist', ['/NH', '/FI', `IMAGENAME eq ${GAME_EXE}`], { timeout: 15000 }).toString()); } catch { return false; }
 };
 function waitGameGone(log: (s: string) => void, maxMs = 180000) {
   const t0 = Date.now();
   while (gameRunning()) {
-    if (Date.now() - t0 > maxMs) { log(`TS3W.exe still running after 3 min: killed; ${dumpHungGame('apex-run: still running after 3 min')}`); try { execFileSync('taskkill', ['/F', '/T', '/IM', 'TS3W.exe'], { stdio: 'ignore', timeout: 15000 }); } catch { /* checked by the loop */ } sleep(3000); if (gameRunning()) return; }
+    if (Date.now() - t0 > maxMs) { log(`${GAME_EXE} still running after 3 min: killed; ${dumpHungGame('apex-run: still running after 3 min')}`); try { execFileSync('taskkill', ['/F', '/T', '/IM', GAME_EXE], { stdio: 'ignore', timeout: 15000 }); } catch { /* checked by the loop */ } sleep(3000); if (gameRunning()) return; }
     sleep(5000);
   }
 }
@@ -147,7 +147,7 @@ async function main(v: Record<string, any>) {
   if (v['dry-run']) return 0;
   if (existsSync(MARKER)) fail(`an earlier apex run did not restore Bin (${MARKER}): node tools/harness/apex-run.ts --restore`);
   if (existsSync(apexPending)) fail(`Apex restore pending (${apexPending}): close TS3W.exe, then run.ps1 -Restore <its run dir>`);
-  if (gameRunning()) fail('TS3W.exe is running: close it first');
+  if (gameRunning()) fail(`${GAME_EXE} is running: close it first`);
   if (existsSync(summary)) fail(`${out} already has a run: pass another --tag`);
 
   mkdirSync(before, { recursive: true });
@@ -185,7 +185,7 @@ async function main(v: Record<string, any>) {
   try {
     for (let i = 0; i < plan.length && !stopReq; i++) {
       const arm = plan[i], n = i + 1, base = join(out, `load-${n}-${arm}`);
-      if (gameRunning()) { stopWhy = `TS3W.exe running before load ${n}`; break; }
+      if (gameRunning()) { stopWhy = `${GAME_EXE} running before load ${n}`; break; }
       if (arm === 'alone') rmSync(join(BIN, 'ts3native.asi'), { force: true });
       else for (const f of PAIR) { const s = src ? (f === 'ts3native.asi' ? src.asi : src.ini) : files[f] ? join(before, f) : null; if (s && sha(s) !== sha(join(BIN, f))) copyFileSync(s, join(BIN, f)); }
       const t0 = Date.now();

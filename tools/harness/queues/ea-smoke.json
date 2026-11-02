@@ -1,0 +1,27 @@
+{
+  "jobs": [
+    {
+      "id": "ea-sv-smoke",
+      "note": "EA laptop harness smoke (docs/230, EA app 1.69.47, TS3_LAUNCH=ea: no game args, the save is loaded by the in-game agent). Baseline-style arm: the only asi on this laptop is the CI build b99f370, which SKIPs all hooks on 1.69, so the job needs no ts3native counters; every section the release ini enables is set Enabled=0 so no self check expects worker or hook activity. Pass: EA launch, mod-version popup answered by the probe (docs/231), agent attached, Baseline-SV-Spring loaded into live mode, 5 min soak with the watchdog quiet (sim clock advancing), 0 new script errors, Bin asi+ini restored. Correctness only, no timing.",
+      "asi": "game-copy/ci-b99f370/ts3native.asi",
+      "pinReason": "CI artifact b99f370 is the only asi on the EA laptop; ts3native SKIPs all on 1.69 until the port (docs/230)",
+      "ini": {
+        "GC.Enabled": 0,
+        "RouteAsync.Enabled": 0,
+        "SaveWrite.Enabled": 0,
+        "Decompress.Enabled": 0,
+        "WaterJps.Enabled": 0,
+        "UserDiag.Enabled": 0,
+        "RouteGate.Enabled": 0,
+        "Discourage.Enabled": 0,
+        "LotRemoveGuard.Enabled": 0,
+        "OptsInit.Enabled": 0,
+        "UnseenFallback.Enabled": 0
+      },
+      "save": "Baseline-SV-Spring",
+      "run": { "soak": { "minutes": 5 } },
+      "scriptErrorsMax": 0,
+      "timeoutMin": 25
+    }
+  ]
+}

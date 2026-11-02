@@ -1903,6 +1903,336 @@
       "what": "events batch 1 claims (docs/508)",
       "at": "2026-11-01T12:14:50.000Z",
       "worktree": "C:\\Users\\<user>\\scratchpad\\s3mod_fest"
+    },
+    {
+      "id": "native-v147",
+      "kind": "native",
+      "version": 147,
+      "from": 21904,
+      "to": 21999,
+      "by": "unseenanim",
+      "what": "[UnseenAnim] U-A1 docs/144 §3.4",
+      "at": "2026-11-01T22:31:33.997Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-417",
+      "kind": "ledger",
+      "from": 417,
+      "to": 417,
+      "by": "unseenanim",
+      "what": "U-A1 unseen anim throttle (docs/144 §3.4)",
+      "at": "2026-11-01T22:31:34.255Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-687",
+      "kind": "fixes",
+      "from": 687,
+      "to": 689,
+      "by": "showoffbadges",
+      "what": "routefaillog: active-household failed route plans / DoRoutes logged, lines over cap (showoff-badges-route)",
+      "at": "2026-11-01T22:33:05.114Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-226",
+      "kind": "doc",
+      "from": 226,
+      "to": 226,
+      "by": "showoffbadges",
+      "what": "Show Off Badges route failure triage (routefaillog, showoff-badges-route)",
+      "at": "2026-11-01T22:33:05.304Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v148",
+      "kind": "native",
+      "version": 148,
+      "from": 22000,
+      "to": 22159,
+      "by": "unseencost",
+      "what": "[UnseenCost] probe, unseen-check cost per site",
+      "at": "2026-11-01T23:32:30.512Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-unseenprobe"
+    },
+    {
+      "id": "fixes-690",
+      "kind": "fixes",
+      "from": 690,
+      "to": 743,
+      "by": "unseencost",
+      "what": "unseencost probe: per-site calls/top/sampled/us, interop, repeat ratio, self cost",
+      "at": "2026-11-01T23:32:30.722Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-unseenprobe"
+    },
+    {
+      "id": "doc-227",
+      "kind": "doc",
+      "from": 227,
+      "to": 227,
+      "by": "unseencost",
+      "what": "unseen-check cost probe and central unseen table",
+      "at": "2026-11-01T23:32:30.931Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-unseenprobe"
+    },
+    {
+      "id": "native-v149",
+      "kind": "native",
+      "version": 149,
+      "from": 22160,
+      "to": 22223,
+      "by": "unseentable",
+      "what": "[UnseenTable] central per-tick unseen table (utb*), docs/227 §5",
+      "at": "2026-11-02T01:02:16.683Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-unseentable"
+    },
+    {
+      "id": "fixes-744",
+      "kind": "fixes",
+      "from": 744,
+      "to": 749,
+      "by": "unseentable",
+      "what": "unseentable: script table fetches, answers, misses, mismatches by direction",
+      "at": "2026-11-02T01:02:16.915Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-unseentable"
+    },
+    {
+      "id": "ledger-418",
+      "kind": "ledger",
+      "from": 418,
+      "to": 418,
+      "by": "unseentable",
+      "what": "unseen table + UnseenAnim cap (docs/227 §6, docs/144 §3.5)",
+      "at": "2026-11-02T01:02:17.163Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-unseentable"
+    },
+    {
+      "id": "native-v150",
+      "kind": "native",
+      "version": 150,
+      "from": 22224,
+      "to": 22575,
+      "by": "unseenobj",
+      "what": "[UnseenAnim] Objects: non-Sim pose histogram + unseen object decimation (ao*)",
+      "at": "2026-11-02T01:24:09.817Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-unseenobj"
+    },
+    {
+      "id": "ledger-419",
+      "kind": "ledger",
+      "from": 419,
+      "to": 419,
+      "by": "unseenobj",
+      "what": "unseenobj",
+      "at": "2026-11-02T01:24:10.068Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-unseenobj"
+    },
+    {
+      "id": "doc-228",
+      "kind": "doc",
+      "from": 228,
+      "to": 228,
+      "by": "rm-agent",
+      "what": "unseen root-motion coarse steps",
+      "at": "2026-11-02T01:50:25.592Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-420",
+      "kind": "ledger",
+      "from": 420,
+      "to": 420,
+      "by": "rm-agent",
+      "what": "unseen root-motion coarse steps",
+      "at": "2026-11-02T01:50:25.824Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v151",
+      "kind": "native",
+      "version": 151,
+      "from": 22576,
+      "to": 22863,
+      "by": "unseenrm",
+      "what": "[UnseenRootMotion] probe + shortlist (rm*), docs/228",
+      "at": "2026-11-02T01:58:33.336Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-rootmotion"
+    },
+    {
+      "id": "native-v152",
+      "kind": "native",
+      "version": 152,
+      "from": 22864,
+      "to": 22883,
+      "by": "utblazy",
+      "what": "[UnseenTable] lazy rows + RefreshTicks: utbRowCalc, utbRowSampUs10, utbRowSamp, utbLazyHits, utbForced (docs/227 §8)",
+      "at": "2026-11-02T02:08:45.683Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-utblazy"
+    },
+    {
+      "id": "fixes-750",
+      "kind": "fixes",
+      "from": 750,
+      "to": 757,
+      "by": "utblazy",
+      "what": "unseencost sites utfetch + utlookup (UnseenCost.cs, docs/227 §9): calls/top/timed/us each",
+      "at": "2026-11-02T03:13:48.363Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-utblazy"
+    },
+    {
+      "id": "doc-230",
+      "kind": "doc",
+      "from": 230,
+      "to": 230,
+      "by": "ea-laptop-session",
+      "what": "EA-laptop / 1.69 port lane (2 of 10: 230 ea-app-edition, 231 mod-version-popup, 232 ea-port-design, 233 ea-mods-1-69, 234-239 smoke/ported-features/managed-side)",
+      "at": "2026-11-02T04:20:15.148Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-231",
+      "kind": "doc",
+      "from": 231,
+      "to": 231,
+      "by": "ea-laptop-session",
+      "what": "EA-laptop / 1.69 port lane (3 of 10: 230 ea-app-edition, 231 mod-version-popup, 232 ea-port-design, 233 ea-mods-1-69, 234-239 smoke/ported-features/managed-side)",
+      "at": "2026-11-02T04:20:15.362Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-232",
+      "kind": "doc",
+      "from": 232,
+      "to": 232,
+      "by": "ea-laptop-session",
+      "what": "EA-laptop / 1.69 port lane (4 of 10: 230 ea-app-edition, 231 mod-version-popup, 232 ea-port-design, 233 ea-mods-1-69, 234-239 smoke/ported-features/managed-side)",
+      "at": "2026-11-02T04:20:15.574Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-233",
+      "kind": "doc",
+      "from": 233,
+      "to": 233,
+      "by": "ea-laptop-session",
+      "what": "EA-laptop / 1.69 port lane (5 of 10: 230 ea-app-edition, 231 mod-version-popup, 232 ea-port-design, 233 ea-mods-1-69, 234-239 smoke/ported-features/managed-side)",
+      "at": "2026-11-02T04:20:15.764Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-234",
+      "kind": "doc",
+      "from": 234,
+      "to": 234,
+      "by": "ea-laptop-session",
+      "what": "EA-laptop / 1.69 port lane (6 of 10: 230 ea-app-edition, 231 mod-version-popup, 232 ea-port-design, 233 ea-mods-1-69, 234-239 smoke/ported-features/managed-side)",
+      "at": "2026-11-02T04:20:15.995Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-235",
+      "kind": "doc",
+      "from": 235,
+      "to": 235,
+      "by": "ea-laptop-session",
+      "what": "EA-laptop / 1.69 port lane (7 of 10: 230 ea-app-edition, 231 mod-version-popup, 232 ea-port-design, 233 ea-mods-1-69, 234-239 smoke/ported-features/managed-side)",
+      "at": "2026-11-02T04:20:16.184Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-236",
+      "kind": "doc",
+      "from": 236,
+      "to": 236,
+      "by": "ea-laptop-session",
+      "what": "EA-laptop / 1.69 port lane (8 of 10: 230 ea-app-edition, 231 mod-version-popup, 232 ea-port-design, 233 ea-mods-1-69, 234-239 smoke/ported-features/managed-side)",
+      "at": "2026-11-02T04:20:16.406Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-237",
+      "kind": "doc",
+      "from": 237,
+      "to": 237,
+      "by": "ea-laptop-session",
+      "what": "EA-laptop / 1.69 port lane (9 of 10: 230 ea-app-edition, 231 mod-version-popup, 232 ea-port-design, 233 ea-mods-1-69, 234-239 smoke/ported-features/managed-side)",
+      "at": "2026-11-02T04:20:16.639Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-238",
+      "kind": "doc",
+      "from": 238,
+      "to": 238,
+      "by": "ea-laptop-session",
+      "what": "EA-laptop / 1.69 port lane (10 of 10: 230 ea-app-edition, 231 mod-version-popup, 232 ea-port-design, 233 ea-mods-1-69, 234-239 smoke/ported-features/managed-side)",
+      "at": "2026-11-02T04:20:16.865Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-239",
+      "kind": "doc",
+      "from": 239,
+      "to": 239,
+      "by": "ea-laptop-session",
+      "what": "EA-laptop / 1.69 port lane (239)",
+      "at": "2026-11-02T04:20:23.797Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v153",
+      "kind": "native",
+      "version": 153,
+      "from": 22884,
+      "to": 22915,
+      "by": "fix/rm-shortlist-late",
+      "what": "[UnseenRootMotion] Mode 1 late starts: insert hook, clip dirty, bit 15, audit walks (docs/228 §10)",
+      "at": "2026-11-02T05:37:05.406Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-rmfix"
+    },
+    {
+      "id": "native-v154",
+      "kind": "native",
+      "version": 154,
+      "from": 22916,
+      "to": 23131,
+      "by": "fix/rm-shortlist-late",
+      "what": "docs/228 §11 [UnseenRootMotion] Mode 2 coarse unseen Sims (rm2*): decisions per reason, merges, snaps, lost, camera, drift, route ends, route records",
+      "at": "2026-11-02T06:13:33.247Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-rmfix"
+    },
+    {
+      "id": "native-v155",
+      "kind": "native",
+      "version": 155,
+      "from": 23132,
+      "to": 23179,
+      "by": "fix/rm-shortlist-late",
+      "what": "docs/228 §11.x [UnseenRootMotion] Mode 2 script camera IC hooks: rm2CamIc[11] per IC, rm2CamIcOff",
+      "at": "2026-11-02T06:21:43.789Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-rmfix"
+    },
+    {
+      "id": "native-v156",
+      "kind": "native",
+      "version": 156,
+      "from": 23180,
+      "to": 23191,
+      "by": "unseenrm5-crash",
+      "what": "docs/144 §3.5 [UnseenAnim] aaSlotReset, aaStale (crash triage 11-02) + docs/228 [UnseenRootMotion] rmSlMissHold",
+      "at": "2026-11-02T07:48:19.556Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-421",
+      "kind": "ledger",
+      "from": 421,
+      "to": 421,
+      "by": "unseenrm5-crash",
+      "what": "docs/144 §3.5 drain crash 11-02",
+      "at": "2026-11-02T08:06:15.827Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
     }
   ]
 }

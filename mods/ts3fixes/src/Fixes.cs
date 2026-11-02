@@ -53,6 +53,7 @@ namespace Ts3Fixes
             Patch(typeof(Sims3.Gameplay.Autonomy.ReactionBroadcaster), "PulseSims", typeof(BroadcasterPulseHook), "PulseHook", "PulseOrig");
             ApplyRouteFixes();
             ApplyRouteBackoff();
+            ApplyRouteFailLog();  // docs/226: logging only (routefaillog)
             ApplyOverwatchStuck(false);
             ApplyOverwatchSpread(false);
             ApplyOverwatchNotice(false);
@@ -264,7 +265,11 @@ namespace Ts3Fixes
         // [2039-2040] carnoroute (CarNoRoute.cs, issue #166 build 33, docs/513): car drives with no car routing component, returned false.
         // [2031-2032] convturn (ConvTurn.cs, issue #166 build 19, docs/509): stuck conversation turns seen by a scoring call, turns taken.
         // [2041-2042] npcdriverpool (NpcDriverPool.cs, issue #166 build 37, docs/514): bad pooled driver descriptions EA would hand out, dropped.
+        // [687-689] routefaillog (RouteFailLog.cs, docs/226): routefail lines, showoff lines, lines dropped by the cap.
+        // [690-743] unseencost (UnseenCost.cs, docs/227): unseen-check calls / top-level / timed / us per site, interop calls,
+        // Sim asks vs distinct Sims per tick, the probe's own calibrated cost. [750-757] unseencost sites utfetch + utlookup (docs/227 §9).
         // [2043-2044] bookcarry (BookCarry.cs, docs/515): carry state machines Book.StopUsingBook dropped without an exit, ended.
+        // [2037-2038] ageupabort (AgeUpAbort.cs, issue #166 build 32, docs/512): deferred age-up builds aborted during instantiation, caught.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -349,6 +354,9 @@ namespace Ts3Fixes
                 case "unseenbroadcast": return Instantiator.kUnseenBroadcastThrottle;
                 case "unseenprobe": return false; // probe switch: test runs only
                 case "wakeprobe": return false; // probe switch: test runs only (WakePark.cs, docs/211)
+                case "unseencost": return false; // probe switch: test runs only (UnseenCost.cs, docs/227)
+                case "unseenposcache": return false; // new perf cache (UnseenTable.cs, docs/227 §7): off until verified
+                case "unseentablecopy": return false; // A/B baseline (UnseenTable.cs, docs/227 §9): on = the per-tick copy of every row
                 case "wakepark": return Instantiator.kWakePark;
                 case "wakepoll": return Instantiator.kWakePoll;
                 case "easpreadlots": return Instantiator.kEaSpreadLots;
@@ -410,6 +418,7 @@ namespace Ts3Fixes
                 case "convturn": return Instantiator.kConvTurn;
                 case "npcdriverpool": return Instantiator.kNpcDriverPool;
                 case "bookcarry": return Instantiator.kBookCarry;
+                case "ageupabort": return Instantiator.kAgeUpAbort;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;
                 case "savecleanupaggressive": return Instantiator.kSaveCleanupAggressive;
                 case "vacexport": return Instantiator.kVacExport;
@@ -500,6 +509,13 @@ namespace Ts3Fixes
             // active household. Houseboats and apartment shells keep their own arrival code.
             bool Unseen(Sims3.Gameplay.Actors.Sim sim, Lot home)
             {
+                long t = UcBegin(kUcGoHome, sim != null ? sim.ObjectId.Value : 0);  // docs/227 probe
+                bool r = UnseenBody(sim, home);
+                UcEnd(kUcGoHome, t);
+                return r;
+            }
+            bool UnseenBody(Sims3.Gameplay.Actors.Sim sim, Lot home)
+            {
                 if (home == null || !TownieUnseen(sim, SimFollowers)) return false;
                 // GoHome.Run may add the household horse as a follower after this point; keep pet households on foot
                 if (sim.Household != null && sim.Household.Pets.Count > 0) return false;
@@ -512,27 +528,64 @@ namespace Ts3Fixes
         // Outside the camera's reach (a radius that grows as the camera zooms out) and not near any active-household Sim.
         static bool FarFromViewers(Sims3.SimIFace.Vector3 p)
         {
-            RefreshViewers();
-            if ((p - sCamTarget).Length() < sReach || (p - sCamPos).Length() < sReach) return false;
+            long t = UcBegin(kUcFar, 0);  // docs/227 probe
+            bool r = FarFromViewersBody(p);
+            UcEnd(kUcFar, t);
+            return r;
+        }
+        // docs/227 probe run 2 (bp-uc-probe): 3.55 us a call. Now squared distances in plain floats (Vector3 operator- and
+        // Length() are calls, Length a double sqrt), the tick test inline (RefreshViewers only on a new tick), and a per-tick
+        // answer cache by the exact position (the answer only depends on the point and this tick's viewers: same answer, up to
+        // float rounding exactly at the 80 m / reach edge). Broadcasters, lots and doors ask the same points many times a tick.
+        static bool FarFromViewersBody(Sims3.SimIFace.Vector3 p)
+        {
+            long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+            if (now != sViewTick) RefreshViewers(now);
+            bool r;
+            uint bx = Bits(p.x), by = Bits(p.y), bz = Bits(p.z);
+            if (sFarCache.Get(now, bx, by, bz, 0, out r)) return r;
+            r = FarCompute(p.x, p.y, p.z);
+            sFarCache.Put(now, bx, by, bz, 0, r);
+            return r;
+        }
+        static bool FarCompute(float x, float y, float z)
+        {
+            float dx = x - sCamTarget.x, dy = y - sCamTarget.y, dz = z - sCamTarget.z;
+            if (dx * dx + dy * dy + dz * dz < sReach2) return false;
+            dx = x - sCamPos.x; dy = y - sCamPos.y; dz = z - sCamPos.z;
+            if (dx * dx + dy * dy + dz * dz < sReach2) return false;
+            const float kMin2 = kShortcutMinDistance * kShortcutMinDistance;
             for (int i = 0; i < sViewerCount; i++)
-                if ((p - sViewers[i]).Length() < kShortcutMinDistance) return false;
+            {
+                dx = x - sViewers[i].x; dy = y - sViewers[i].y; dz = z - sViewers[i].z;
+                if (dx * dx + dy * dy + dz * dz < kMin2) return false;
+            }
             return true;
         }
+        static readonly UcPosCache sFarCache = new UcPosCache();
 
         // Camera and active-household positions, read once per sim tick (the broadcaster hook alone asks ~800 times/s).
         static long sViewTick = -1;
         static Sims3.SimIFace.Vector3 sCamTarget, sCamPos;
-        static float sReach;
+        static float sReach, sReach2;
         static Sims3.SimIFace.Vector3[] sViewers = new Sims3.SimIFace.Vector3[16];
         static int sViewerCount;
-        static void RefreshViewers()
+        // the caller tests the tick (probe run 2: 1373 calls/s at 0.77 us, almost all the same-tick early return plus the probe
+        // pair around it); the refresh site now times only the real reads
+        static void RefreshViewers(long now)
         {
-            long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
-            if (now == sViewTick) return;
+            long t = UcBegin(kUcRefresh, 0);  // docs/227 probe
+            RefreshViewersBody(now);
+            UcEnd(kUcRefresh, t);
+        }
+        static void RefreshViewersBody(long now)
+        {
             sViewTick = now;
+            UcCount(kUcViewRead);
             sCamTarget = CameraController.GetTarget();
             sCamPos = CameraController.GetPosition();
             sReach = Math.Max(kShortcutMinDistance, 2f * Math.Abs(sCamPos.y - sCamTarget.y));
+            sReach2 = sReach * sReach;
             sViewerCount = 0;
             if (Household.ActiveHousehold == null) return;
             foreach (Sims3.Gameplay.Actors.Sim s in Household.ActiveHousehold.AllActors)
@@ -739,10 +792,20 @@ namespace Ts3Fixes
         // A townie on its own, on foot, standing, and not near anything the player can see. Shared by the trip shortcuts.
         static bool TownieUnseen(Sims3.Gameplay.Actors.Sim sim, List<Sims3.Gameplay.Actors.Sim> followers)
         {
+            long t = UcBegin(kUcTownie, sim != null ? sim.ObjectId.Value : 0);  // docs/227 probe
+            bool r = TownieUnseenBody(sim, followers);
+            UcEnd(kUcTownie, t);
+            return r;
+        }
+        static bool TownieUnseenBody(Sims3.Gameplay.Actors.Sim sim, List<Sims3.Gameplay.Actors.Sim> followers)
+        {
             if (sim == null || sim.IsSelectable || sim.Household == Household.ActiveHousehold) return false;
             if (followers != null && followers.Count > 0) return false;
             if (sim.Posture != sim.Standing || sim.IsInRidingPosture || sim.IsInBeingRiddenPosture) return false;
-            if (Sims3.Gameplay.Controllers.TombRoomManager.IsObjectInATombRoom(sim) || World.IsObjectOnScreen(sim)) return false;
+            if (Sims3.Gameplay.Controllers.TombRoomManager.IsObjectInATombRoom(sim)) return false;
+            int b = UtbBits(sim);  // docs/227 §6 central table
+            if (b >= 0) return sUtbCheck ? UtbCompare(UtbUnseen(b), !UcOnScreen(sim) && FarFromViewers(sim.Position)) : UtbUnseen(b);
+            if (UcOnScreen(sim)) return false;
             return FarFromViewers(sim.Position);
         }
 
@@ -786,7 +849,7 @@ namespace Ts3Fixes
                     Lot lot = proxy.LotCurrent;
                     Sims3.SimIFace.Vector3 door = proxy.GetPositionOfSlot(proxy.EnterSlots[0]);
                     if (lot != null && !lot.IsWorldLot && a.LotCurrent != lot && (a.Position - door).Length() > kShortcutMinDistance
-                        && !World.IsObjectOnScreen(proxy) && FarFromViewers(door))
+                        && !UcOnScreen(proxy) && FarFromViewers(door))
                     {
                         Sims3.SimIFace.Vector3 pos, fwd;
                         if (SafeSpot(a, lot, door, out pos, out fwd)
@@ -888,7 +951,9 @@ namespace Ts3Fixes
                     int key = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(b);
                     if (FarFromViewers(o.Position))
                     {
+                        long ut = UcBegin(kUcGate, 0);  // docs/227 probe
                         bool run = sBroadcastGate.Unseen(key, Math.Max(1, Instantiator.kUnseenBroadcastEvery));
+                        UcEnd(kUcGate, ut);
                         NoteGateClears(c);
                         if (!run) { c[23]++; c[153]++; return; }
                         c[152]++;

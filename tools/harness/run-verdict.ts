@@ -118,8 +118,9 @@ export function verdictTable(file: string, baseline?: string): string {
   };
   for (const row of rows) {
     const t = row.timing ? { timing: row.timing, why: row.timingWhy ?? '' } : rowTiming(row); // stored by queue.ts, else computed
-    add(row.job, row, row.repros?.length ? null : row.profileTag ?? null, row.minutes ?? '-', t);
-    for (const rr of row.repros ?? []) add(`${row.job} / ${rr.id}`, subPass(rr), rr.tag, '', rr.timing ? { timing: rr.timing, why: rr.timingWhy ?? '' } : (t as any).windows?.[rr.id]);
+    const tag = row.machineTag ? ` [${row.machineTag}]` : '';
+    add(row.job + tag, row, row.repros?.length ? null : row.profileTag ?? null, row.minutes ?? '-', t);
+    for (const rr of row.repros ?? []) add(`${row.job}${tag} / ${rr.id}`, subPass(rr), rr.tag, '', rr.timing ? { timing: rr.timing, why: rr.timingWhy ?? '' } : (t as any).windows?.[rr.id]);
   }
   out.push('', `${count.PASS} PASS, ${count.FAIL} FAIL, ${count.VOID} VOID of ${count.PASS + count.FAIL + count.VOID}. Timing (docs/168 §10): valid = in-load A/B usable as timing evidence, valid-half = valid once pooled with the opposite-order run (same job, same build), valid-single = one side of a cross-run comparison (hitch-ab.ts --reuse). A/B runs: off / on. p99 '<50' = below the profiler's 50 ms hitch threshold.`);
   return out.join('\n');

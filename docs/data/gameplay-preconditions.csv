@@ -90,6 +90,8 @@ kill_sim,RareHandlers,Live,none (no vanilla kill command; MasterController-style
 zombies,RareHandlers,Live,none: full-moon zombies come from the game's 20% roll per night (Supernatural),stress,EP Supernatural,handler + R-EP-2,live
 spawn_traffic,RareHandlers,Live,none (more cars than the game spawns),stress,,handler,live
 unseen_snapback,RareHandlers,Live,none (probe),stress,,handler,live
+map_view,RareHandlers,Live,map-view button (CameraModel.ToggleMapView),natural,,handler,live
+focus_sim,RareHandlers,Live,Sim portrait click (HudModel.MoveCameraToSim),natural,,handler,live
 unseen_water_check,RareHandlers,Live,none (probe),harness,,handler,live
 unseen_horse_ride,RareHandlers,Live,riding a horse off-screen,natural,EP Pets; horse in the household,handler,live
 unseen_water_watch,RareHandlers,Live,none (probe),harness,,handler,live
