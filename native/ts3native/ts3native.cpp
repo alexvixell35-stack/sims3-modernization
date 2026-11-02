@@ -4592,7 +4592,7 @@ static void UdInfoDir(const unsigned char* info);  // the save folder from the s
 #include "mintcall.cpp"  // docs/139 §8 [MonoFast] CallPath (before autshadow.cpp: Satb chains over its callvirt entry)
 static_assert(offsetof(Ts3nCounters, mcSwitch) == 0x54E0 && offsetof(Ts3nCounters, mcSpare) == 0x5514, "v143 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, mdOn) == 0x5520 && offsetof(Ts3nCounters, mdSpare) == 0x552C, "v144 layout (docs/registry.md)");
-static_assert(offsetof(Ts3nCounters, ghReady) == 0x5530 && offsetof(Ts3nCounters, ghSpare) == 0x5560 && sizeof(Ts3nCounters) == 0x5590, "v145 layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, ghReady) == 0x5530 && offsetof(Ts3nCounters, ghSpare) == 0x5560 && sizeof(Ts3nCounters) == 0x55B0, "v145 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, waOn) == 0x5570 && offsetof(Ts3nCounters, waSkip) == 0x5574 && offsetof(Ts3nCounters, pfOn) == 0x5580 &&
               offsetof(Ts3nCounters, pfSkip) == 0x5584 && sizeof(Ts3nCounters) == 5484 * 4, "v146 layout (docs/registry.md)");
 #include "ilpatch.cpp"    // docs/506 §2, docs/526: [IlPatch] mid-method core fixes at the IL transform (before autshadow.cpp: satb.cpp's cold site 0 is its client)
