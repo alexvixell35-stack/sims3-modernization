@@ -42164,9 +42164,19 @@
         "note": "Save As to a new scratch file (the Baseline is never written)"
       },
       {
-        "cmd": "patches",
-        "show": "compaction_",
-        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
+        "cmd": "time",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 600
+        },
+        "note": "the opt-in compaction saves, unloads and reloads at once (no offer): no agent reply until the world is back; the refused-state counters show in the compaction_ step below"
       },
       {
         "cmd": "time",
@@ -42764,9 +42774,19 @@
         "note": "Save As to a new scratch file (the Baseline is never written)"
       },
       {
-        "cmd": "patches",
-        "show": "compaction_",
-        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
+        "cmd": "time",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 600
+        },
+        "note": "the opt-in compaction saves, unloads and reloads at once (no offer): no agent reply until the world is back; the refused-state counters show in the compaction_ step below"
       },
       {
         "cmd": "time",
