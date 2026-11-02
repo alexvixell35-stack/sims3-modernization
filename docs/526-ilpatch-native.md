@@ -92,9 +92,21 @@ does not carry. Insertions move the clause boundaries after them and an insertio
 - Live: `tools/harness/queues/ilpatch-smoke.json` (Baseline-BP-Spring, the three switches on, repro `ilpatch-touch-bp`, 5 min
   of play): requires the `OK` line, three `armed` lines and one `applied` line per fix; forbids any refused / mismatch /
   fault / `left alone` line. `Fixup` is transformed at the world load (every Sim's); the chat and the opportunity methods
-  may never run in a short session, so the repro's `method_touch` steps (ts3agent `ReflectHandlers.cs`) ask the runtime for
-  their compiled entry (`RuntimeMethodHandle.GetFunctionPointer`, then `RuntimeHelpers.PrepareMethod`), which runs the
-  transform without a call [inferred until the smoke: if the entry is only a trampoline the log keeps one applied line].
+  may never run in a short session, so the repro's `method_touch` steps (ts3agent `ReflectHandlers.cs`) invoke each
+  overload once on the sim thread with an uninitialized receiver and default arguments; the call throws inside the method
+  (a null field) but the runtime has transformed it first, which is all the smoke needs. The first form asked
+  `RuntimeMethodHandle.GetFunctionPointer` for the entry instead: on this Mono that is an assert (`int3` at
+  `0x0058D9B6`, then a jump to 0) and the game died [measured, smoke run 1].
+- Smoke result (2026-11-02 09:15, asi dc4ca26, local queue `ilpatch-smoke-local.json`, results doc
+  `docs/data/results/2026-11-02-queue-ilpatch-smoke-local.md`): PASS in 8.4 min. Three `armed` lines, `3 of 3 fixes armed`,
+  `Fixup` applied at the world load (`simler90-242, 1445 -> 1662 bytes, max stack 4 -> 5, 1 clauses, patched sha256
+  8016281ed3ae as the converter's`), `DoOneRoundOfRemoteChat` (`315 -> 379`) and `OnAdded` (`705 -> 788`) applied at the
+  touch, each patched hash equal to the converter's; no refused, mismatch, fault or `left alone` line; no crash, and the
+  5 min of autopilot play after the touch ran clean. The run needs a core the specs know: with the user's own core (UPDATE242
+  plus their patches) in `Mods/Packages`, smoke run 1 logged `Fixup() is 1501 bytes, sha256 014f9e4dfa8647d6: not a build
+  this fix knows, left alone` and `DoOneRoundOfRemoteChat is 331 bytes, sha256 58bf8ce37cf9a57e ... left alone` (that core
+  already carries both fixes in its own form; "left alone" is the designed answer), so the passing run swapped in the pure
+  UPDATE242 package for the job and put the user's core back after it.
 
 ## 6. State
 
@@ -102,9 +114,12 @@ does not carry. Insertions move the clause boundaries after them and an insertio
 |---|---|
 | Converter emitter, specs table, patcher, wiring (counters v900, ini section, probe fields, satb client, registry row, docs/68 row) | done, committed on `feat/ilpatch-native` |
 | CI build + selftest | see the PR: the first builds failed on size asserts and the version check that every `*-test.h` carries (fixed) |
-| Smoke queue | written, not run: it needs the CI asi (no C++ toolchain here); a local copy with that asi runs after the compaction and save-reload reruns |
+| Smoke queue | run 2026-11-02 09:15, PASS (section 5): all three fixes applied on UPDATE242 with the converter's hashes |
 | Repros per fix (B80 phone chat with a target with no everyday outfit, B87 opportunity from a non-yielding context) | not written; B89 is covered by the load |
 
 Open: I-506-2 (reflection's IL bytes for G-M6 come from the metadata stream, not the header: the swap is invisible to
-hashing) stays [inferred] until the smoke's `ilpSkipMismatch` and the MonoPatcher log of the same session show no change; a
-spec for a method MonoPatcher also patches would be transformed twice (ForceJIT) and reuses the body both times.
+hashing) stays [inferred]: the smoke logged no mismatch line, but its job ran without MonoPatcher's log being read, and the
+harness's counters column did not list the `ilp*` counters (the `IlPatch` section is in its table from this change on); a
+spec for a method MonoPatcher also patches would be transformed twice (ForceJIT) and reuses the body both times. A core
+that already carries a fix (the user's patched UPDATE242) gets `left alone` with the live hash; `ilpatch.cpp` could name
+that case when a body equals a build's `patchedSha256` (not done).
