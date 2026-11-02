@@ -94,6 +94,15 @@ namespace MonoHostTest
         static LzBox s_lz = new LzBox();
         public static int JitLz(LzBox o, int n) { int acc = 0; for (int i = 0; i < n; i++) acc += LzClamp(i, 8, 40) + o.Get(i - 32); return acc; }
         public static int JitLzPlain(LzBox o, int n) { int acc = 0; for (int i = 0; i < n; i++) acc += LzClamp(i, 8, 40) + o.Get(i - 32); return acc; }
+        // docs/207 §12.7 (v2): a lazy chain (LzMid makes the two lazy calls of JitLz) and a class-guarded callvirt of a virtual method
+        public static int LzMid(LzBox o, int k) { int t = LzClamp(k, 8, 40); if (t > 1000) return t; return t + o.Get(k - 32); }
+        public class LzShape { public virtual int Area(int k) { if (k > 0) return k; return -k; } }
+        public class LzSq : LzShape { public int S = 3; public override int Area(int k) { if (k > 0) return S * k; return S - k; } }
+        static LzShape s_sq = new LzSq();
+        public static int JitLzChain(LzBox o, int n) { int acc = 0; for (int i = 0; i < n; i++) acc += LzMid(o, i); return acc; }
+        public static int JitLzChainPlain(LzBox o, int n) { int acc = 0; for (int i = 0; i < n; i++) acc += LzMid(o, i); return acc; }
+        public static int JitLzVirt(LzShape o, int n) { int acc = 0; for (int i = 0; i < n; i++) acc += o.Area(i - 32); return acc; }
+        public static int JitLzVirtPlain(LzShape o, int n) { int acc = 0; for (int i = 0; i < n; i++) acc += o.Area(i - 32); return acc; }
 
         static System.Collections.Generic.Dictionary<int, Shape> s_map;
         static System.Collections.Generic.Dictionary<ulong, int> s_mapU;
@@ -164,6 +173,10 @@ namespace MonoHostTest
                 case 22: for (int r = 0; r < n; r += 64) acc += JitInlPlain(s_ig, 64); break;
                 case 23: for (int r = 0; r < n; r += 64) acc += JitLz(s_lz, 64); break;
                 case 24: for (int r = 0; r < n; r += 64) acc += JitLzPlain(s_lz, 64); break;
+                case 25: for (int r = 0; r < n; r += 64) acc += JitLzChain(s_lz, 64); break;
+                case 26: for (int r = 0; r < n; r += 64) acc += JitLzChainPlain(s_lz, 64); break;
+                case 27: for (int r = 0; r < n; r += 64) acc += JitLzVirt(s_sq, 64); break;
+                case 28: for (int r = 0; r < n; r += 64) acc += JitLzVirtPlain(s_sq, 64); break;
                 default: return -1;
             }
             return acc;

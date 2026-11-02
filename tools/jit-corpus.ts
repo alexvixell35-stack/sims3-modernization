@@ -192,8 +192,33 @@ const KL = `
         public static int CatchInCaller(JitKL p, JitKL q) { try { return p.Deref(q); } catch (NullReferenceException) { return -5; } }
         public static int Deep(int d, int x) { if (d == 0) return Clamp(x, 0, 9); return Deep(d - 1, x) + 1; }
         public static int CallStruct(int n) { JitKLPt p; p.X = 3; int s = 0; for (int i = -n; i < n; i++) s += p.Dot(i); return s; }
+        // v2 (docs/207 §12.7): lazy bodies that make lazy calls (chains), exceptions below a chain, con.call
+        static int Inner(int x) { if (x > 3) return x - 3; return 3 - x; }
+        static int Mid(int x) { int t = Inner(x); if (t > 1000) return t; return t + Clamp(x, -2, 2); }
+        static int Mid2(JitKL p, int x) { int t = p.Get(x); if (t > 1000) return t; return t + Inner(x); }
+        static int Outer(int x) { int t = Mid(x); if (t > 1000) return t; return t * 2; }
+        static int ArrIn(int[] a, int i) { if (i < -1) return -1; return a[i]; }
+        static int ArrMid(int[] a, int i) { int t = ArrIn(a, i); if (t > 1000) return t; return t + 1; }
+        public static int CallChain(int n) { int s = 0; for (int i = -n; i < n; i++) s += Mid(i) + Outer(i); return s; }
+        public static int CallChainInst(JitKL p, int n) { int s = 0; for (int i = -n; i < n; i++) s += Mid2(p, i); return s; }
+        public static int CallChainArr(int[] a, int i) { return ArrMid(a, i) + 1; }
+        public static int CatchChain(int[] a, int i) { try { return ArrMid(a, i); } catch (IndexOutOfRangeException) { return -9; } }
+        public static int DeepChain(int d, int x) { if (d == 0) return Mid(x); return DeepChain(d - 1, x) + 1; }
+        static int EqT<T>(T a, T b) where T : IEquatable<T> { if (a.Equals(b)) return 1; return 0; }
+        public static int CallCon(int n) { int s = 0; for (int i = 0; i < n; i++) s += EqT(new JitKey(i & 3), new JitKey(2)); return s; }
     }
     public struct JitKLPt { public int X; public int Dot(int k) { if (k > 0) return X * k; return X - k; } }
+    // v2: class-guarded callvirt (a virtual method through EA's inline cache); JitKV3.F divides by zero on even k
+    public class JitKV
+    {
+        public virtual int F(int k) { if (k > 0) return k + 1; return -k; }
+        public virtual int G(JitKV o, int k) { if (o == null) return -1; return o.F(k) + 1; }
+        public static int CallVirt(JitKV o, int n) { int s = 0; for (int i = -n; i < n; i++) s += o.F(i); return s; }
+        public static int CallVirtPoly(JitKV[] a, int n) { int s = 0; for (int i = 0; i < n; i++) s += a[i & 1].F(i); return s; }
+        public static int CallVirtChain(JitKV o, JitKV p, int n) { int s = 0; for (int i = -n; i < n; i++) s += o.G(p, i); return s; }
+    }
+    public class JitKV2 : JitKV { public int m = 2; public override int F(int k) { if (k > 1) return k * m; return m - k; } }
+    public class JitKV3 : JitKV { public override int F(int k) { if (k > 1000) return k; return k / (k & 1); } }
 `;
 
 // ---- cases ----
@@ -389,6 +414,16 @@ const LAZY_CASES: Case[] = [
   { name: 'JitKL.CatchInCaller (lazy callee throws, the compiled caller catches)', body: `JitKL p = new JitKL(), q = new JitKL(); q.v = 1; ${T('JitKL.CatchInCaller(p, q)')} q.next = q; ${T('JitKL.CatchInCaller(p, q)')}` },
   { name: 'JitKL.Deep (lazy call at depth 30 / 70 / 130)', body: `${T('JitKL.Deep(30, 4)')} ${T('JitKL.Deep(70, 12)')} ${T('JitKL.Deep(130, -2)')}` },
   { name: 'JitKL.CallStruct (lazy call, value-type this)', body: T('JitKL.CallStruct(40)') },
+  // v2 (docs/207 §12.7): chains, exceptions below a chain, class-guarded callvirt, con.call
+  { name: 'JitKL.CallChain (lazy chain: a lazy body with two lazy calls, and a chain of three)', body: T('JitKL.CallChain(40)') },
+  { name: 'JitKL.CallChainInst (chain through a non-virtual callvirt; null receiver: NullReferenceException in the middle frame)', body: `JitKL p = new JitKL(); p.v = 5; ${T('JitKL.CallChainInst(p, 40)')} ${T('JitKL.CallChainInst(null, 3)')}` },
+  { name: 'JitKL.CallChainArr (IndexOutOfRangeException two lazy frames down; CatchChain catches it in the compiled caller)', body: `int[] a = new int[] { 4, 5, 6 }; ${T('JitKL.CallChainArr(a, 1)')} ${T('JitKL.CallChainArr(a, 5)')} ${T('JitKL.CatchChain(a, 7)')} ${T('JitKL.CatchChain(a, 0)')}` },
+  { name: 'JitKL.DeepChain (lazy chain under recursion at depth 30 / 70)', body: `${T('JitKL.DeepChain(30, 4)')} ${T('JitKL.DeepChain(70, -9)')}` },
+  { name: 'JitKV.CallVirt (class-guarded callvirt: base class, derived class, null receiver)', body: `${T('JitKV.CallVirt(new JitKV(), 40)')} ${T('JitKV.CallVirt(new JitKV2(), 40)')} ${T('JitKV.CallVirt(null, 3)')}` },
+  { name: 'JitKV.CallVirtPoly (two classes at one site: every call misses the cache and takes the normal exit)', body: `JitKV[] a = new JitKV[] { new JitKV(), new JitKV2() }; ${T('JitKV.CallVirtPoly(a, 40)')}` },
+  { name: 'JitKV.CallVirtThrow (DivideByZeroException in a class-guarded lazy callee)', body: T('JitKV.CallVirt(new JitKV3(), 6)') },
+  { name: 'JitKV.CallVirtChain (a guarded lazy callee makes a guarded lazy call; null inner receiver)', body: `${T('JitKV.CallVirtChain(new JitKV2(), new JitKV(), 40)')} ${T('JitKV.CallVirtChain(new JitKV(), null, 3)')}` },
+  { name: 'JitKL.CallCon (con.call: a constrained call on a value type in a generic method)', body: T('JitKL.CallCon(40)') },
 ];
 export const cases = (): Case[] => [...kernelCases(), ...STMT_CASES, ...bclCases(), ...CLAUSE_CASES, ...LAZY_CASES];
 
@@ -502,7 +537,7 @@ ${cs.map((k, i) => `                case ${i}: // ${k.name}
 export function jitList(src: string): string {
   const m = /kJitList\[\] = \{([\s\S]*?)\};/.exec(src);
   if (!m) throw new Error('kJitList not found in monohost-jit.cpp');
-  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*').join(',');
+  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*').join(',');
 }
 
 // ---- report ----
@@ -570,7 +605,7 @@ function selfCheck() {
   try { disk = readFileSync(OUT, 'utf8'); } catch { /* missing = stale */ }
   ok(disk.replace(/\r\n/g, '\n') === g.replace(/\r\n/g, '\n'), 'native/monohost/JitCorpus.cs is up to date (node tools/jit-corpus.ts --write)');
   const src = 'static const char* const kJitList[] = {\n    // c\n    "A.B", "C`2.D",\n    "E.F",\n};';
-  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*', 'kJitList parse');
+  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*', 'kJitList parse');
   const log = 'jit corpus MISMATCH case 1: compiled 0000002A interpreted 0000002B\njit corpus trail case 1 compiled: DivideByZeroException at X | \njit corpus UNSTABLE case 2: interpreted 1 then 2\n'
     + 'jit corpus: 3 cases, 1 differ, 1 unstable; per-call verify during the corpus: ok 5, MISMATCH 0, abandoned (exception) 2\n';
   const dump = '== MonoHostTest.JitKO.S1AB rm 0 words 3\n  0000 super_1AB        0000\n   compiled: 2 positions\n== Other.M rm 0\n  0000 super_1AD\n';

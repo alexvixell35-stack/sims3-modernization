@@ -557,3 +557,67 @@ Not explained yet: `JitInl` (three interface calls per element, inlining off) to
 - `callvirt` with a class guard (12.1: those sites miss under 1%). Each site gets a cell with (class, lazy body), filled from the inline cache on the normal path.
 - `con.call` (`0xEB` [op, class, method]) skips the class word and then is a plain `call` (docs/213 §1 row 3, verified), so a lazy site can treat it as `call` with the method in word 2. The callee is a value-type method: `this` is a pointer, as in `JitKL.CallStruct`.
 - The gameplay accessors need the world image (docs/123 M3) before their edges can be measured.
+
+### 12.7 v2 as built (2026-11-02, round 8 B4; `MONOHOST_JITLAZY=1` still covers it, off by default) [verified: host corpus + bench]
+
+Three of the four 12.6 items, in `monohost-jit.cpp` (nothing in the game, the §12.1 world image is still missing for the fourth):
+
+1. **Lazy chains.** A lazy body may make lazy calls. A method keeps its lazy body when every position is native, `ret` /
+   `ret.void`, or a call site the compiler makes lazily (`JitLazySite`: the same filter the emitter applies). The block gets a
+   word `B_LVL` (36; the block is 40 bytes): 1 at a site in a normal body, the caller's level + 1 at a site in a lazy body.
+   A lazy site in a lazy body adds its own level to EA's depth test (the slot `depth + pending + 1` must hold a
+   `MonoInvocation`: the slots fill in order, docs/139 §8.1, so the ones between are there too) and writes its own vt cursor
+   (`ebx` + eval offset + eval size: its frame does not exist) as the return-slot word. `JitLazyMat` walks the blocks
+   (each lazy body pushes nothing of its own, so the outer block sits right above the return address into the outer lazy
+   body), writes the frames outermost first, each with the frame just written as its caller and the inner block's saved
+   `ebx` as its arena base, and drops every native call of the chain (`ecx` bytes from `JitLazyMatC`).
+2. **Class-guarded `callvirt`.** A `callvirt` of a virtual method (the declared method's `0x40` flag) gets a `JitGuardSite`.
+   The site tests the receiver (not null, a vtable, not the remoting class, not a value type), compares its class with EA's
+   inline-cache class and takes the cache's target. When the target is not the site's method yet, `JitGuardFill` (pushad,
+   one C call) looks its lazy body and frame sizes up once; a target that is not transformed yet is asked again at the next
+   call (EA's call transforms it meanwhile), one with no lazy body leaves `entry` NULL and the site bails until the cache
+   changes or the target compiles (the publish step refills). The frame sizes, `rm` and entry are read from the site at run
+   time; the argument count and the return kind come from the declared method (the signature is shared). A polymorphic
+   site misses the class compare and takes the normal exit, as EA's cache would miss.
+3. **`con.call`.** `0xEB` is a direct site with the method in word 2 and a 3-word return ip (docs/213 §1 row 3); the callee is
+   a value-type method, so `this` is the pointer on the eval stack, as `JitKL.CallStruct` already used it.
+
+Also: `JitPreTransform` transforms `con.call` callees too, and the bench now subtracts the empty loop's cost divided by the
+case's own step (the per-64 cases had a whole 20 ns taken off and printed negative times).
+
+**Gate.** The corpus has 9 more cases (`JitKL` chains: `CallChain`, `CallChainInst` with a null receiver in the middle frame,
+`CallChainArr` with `IndexOutOfRangeException` two lazy frames down and `CatchChain`, `DeepChain` at depth 30 / 70;
+`JitKV` guarded `callvirt`: base and derived class, null, a polymorphic site, `DivideByZeroException` in a guarded callee,
+a guarded callee making a guarded call; `JitKL.CallCon`: a constrained call on a value type in a generic method), 167 in all
+[measured 2026-11-02, the game test ran on the same machine]:
+
+| Run | Cases that differ | Per-call verifier | Lazy |
+|---|---|---|---|
+| verify, lazy on | 1 (`JitKO.S1AF`, §10 "stack-trace text only", as with lazy off) | 71,593 ok, 0 mismatches, 1,856 abandoned (exception) | 208 lazy bodies, 744 sites (91 guarded, 8 filled); 103,329 exits wrote 103,445 frames (116 wrote a chain of two) |
+| verify, lazy off | 1 (the same) | 71,595 ok, 0 mismatches, 1,857 abandoned | - |
+| `on`, count mode, corpus | - | - | 116,722 lazy calls: 26,163 from a lazy body, 30,686 through a guard |
+
+`JitKL.EqT` compiles with its `con.call` as a lazy site (5 native positions of 11; the other 6 are `stinarg.vt`, `ldarg.vt`,
+`vtresult` and the two `ret`). The verify-mode bench checksums (29 cases) are equal to the interpreter's in both arms.
+
+**Speed** [measured, noisy: best of 15, the game ran beside it; ns per iteration with the case's own loop overhead off]:
+
+| Case | Interpreted | Compiled, lazy off | Compiled, lazy on |
+|---|---:|---:|---:|
+| `JitLz` (two direct lazy calls per iteration, §12.4) | 56.9 | 38.4 | 18.8 |
+| `JitLzChain` (`LzMid`, a lazy body that makes `JitLz`'s two calls: three lazy calls per iteration) | 72.7 | 59.5 | 27.3 |
+| `JitLzVirt` (one class-guarded `callvirt` of `LzSq.Area` per iteration) | 30.3 | 20.5 | 9.4 |
+| `MintBench(3000)`, ms | 275.0 / 261.4 | 225.7 (-13.7%) | 223.5 (-18.7%; the two interpreter arms differ by 5%, the compiled ones by 1%) |
+
+A chained or guarded lazy call saves what a direct one did, about 11 ns per call. `MintBench` does not move: its
+class-guarded edges (§12.1, 25% of the calls: `Dictionary.GetPrev` -> `IEquatableOfTEqualityComparer<T>.Equals` ->
+`T.Equals` by `con.call`) are guarded sites now, but their targets take and return value types through `stinarg.vt`,
+`ldarg.vt` and `vtresult`, which exit, so they have no lazy body and the sites bail (8 of 91 guard sites were ever filled).
+The next step for that 25% is value-type argument and result templates, the same kind of work as B2's floats, not more
+call-site machinery.
+
+**Limits.** A guard site is filled once per target change; a target compiled after the fill is picked up only by the publish
+refill. The Satb worker never runs lazy code in a span (docs/507 §c: every entry bails at `JitEnter`, and lazy bodies are
+reached only from compiled code). `JitLazyMatC` walks at most 64 pending frames; the depth test keeps a chain below EA's
+record limit anyway. Verify mode runs lazy bodies unverified, as v1 did (their calls count as "inside a verified caller").
+Ledger: docs/51 §925.
