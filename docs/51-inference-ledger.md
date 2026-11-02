@@ -5492,16 +5492,16 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 | I-905-1 | 218 §8 | In this game's Mono, MonoImage holds `raw_data` at +0x08 and `raw_data_len` at +0x0C | Mono 1.x/2.x MonoImage layout; +0x28 GUID verified (docs/104 §5.1) | any load with `autshadow` on and ts3native contract 11 | "accepted set N (by content)" with the reference core (the hash equals the S3SA bytes) | "module content not checked (...): MVID gate" | open |
 | I-905-2 | 218 §8 | `System.Reflection.Module` in the game's mscorlib has the instance field `_impl` (IntPtr to the MonoImage) | the name `_impl` is in the mscorlib string heap; Mono 2.x Module.cs | the same load | a hash is read for every game module | "image not readable" for every module | open |
 
-## 906. Events batch 1: photo booth sessions, egg hunt eggs, graduation waits, `photosession` / `eggspot` / `graduationtable` (2026-11-01, docs/508; IL + self-test, game run pending)
+## 906. Events batch 1: photo booth sessions, egg hunt eggs, graduation waits, `photosession` / `eggspot` / `graduationtable` (2026-11-01, docs/508; IL + self-test + game runs: the three repros PASS 2026-11-01, docs/508 §6)
 
 | ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
 |----|-----|-------|----------|-----------|----------|---------|---------|
-| I-906-1 | 508 §1 | With EA's code, a photo session whose second expected Sim never comes stays open after the first Sim is done, also when the Sims were ready for the photo | IL (`SimDoneWithPhoto` removes the Sim only in WaitingForSims / DoneTakingPhoto; only an empty list resets) | `photo-session-check` off arm (`broken`) | cases 1 and 2 return false with Sims still listed | a session ended | open |
-| I-906-2 | 508 §1 | With `photosession` on, both sessions end and a stale session is cleared at world load | hook order (EA body first, then the drop and EA's `Reset`) | same, on arm (`fixed`) | cases 1-3 ended, counters 2026-2028 +3/+2/+1 | a session stayed | open |
+| I-906-1 | 508 §1 | With EA's code, a photo session whose second expected Sim never comes stays open after the first Sim is done, also when the Sims were ready for the photo | IL (`SimDoneWithPhoto` removes the Sim only in WaitingForSims / DoneTakingPhoto; only an empty list resets) | `photo-session-check` off arm (`broken`) | cases 1 and 2 return false with Sims still listed | a session ended | verified (repro PASS 2026-11-01) |
+| I-906-2 | 508 §1 | With `photosession` on, both sessions end and a stale session is cleared at world load | hook order (EA body first, then the drop and EA's `Reset`) | same, on arm (`fixed`) | cases 1-3 ended, counters 2026-2028 +3/+2/+1 | a session stayed | verified (repro PASS 2026-11-01) |
 | I-906-3 | 508 §1 | A booth session saved in that state keeps the booth unavailable after a reload | no `Persistable(false)` on `mPhotoHelper` (IL) | none yet (needs a save with a stuck booth) | a reloaded save still shows the booth in use | the reloaded booth is free | open (inferred) |
-| I-906-4 | 508 §2 | `EggHuntController.IsValidEggPosition` accepts an outdoor routable point off the hunt lot | IL (no lot test in the check) | `egg-spot-check` off arm | the point off the hunt lot is accepted | it is refused | open |
+| I-906-4 | 508 §2 | `EggHuntController.IsValidEggPosition` accepts an outdoor routable point off the hunt lot | IL (no lot test in the check) | `egg-spot-check` off arm | the point off the hunt lot is accepted | it is refused | verified (repro PASS 2026-11-01) |
 | I-906-5 | 508 §2 | An egg off the hunt lot throws on pick-up and the hunt never ends | IL (`PickUpEgg.Run` reads the egg lot's `CurrEggHuntController`) | none yet (needs a live hunt) | a pick-up error from an off-lot egg | off-lot eggs picked up cleanly | open (inferred) |
-| I-906-6 | 508 §3 | With no graduation table, both graduation `WaitingLoopDel` methods throw `NullReferenceException`; with `graduationtable` on they return with `StageComplete` on the actor | IL (no null check, unlike `WatchingLoopDel`) | `graduation-table-check` off and on arms | off: 2 NREs; on: 2 returns, `StageComplete`, counter 2030 +2 | any other outcome | open |
+| I-906-6 | 508 §3 | With no graduation table, both graduation `WaitingLoopDel` methods throw `NullReferenceException`; with `graduationtable` on they return with `StageComplete` on the actor | IL (no null check, unlike `WatchingLoopDel`) | `graduation-table-check` off and on arms | off: 2 NREs; on: 2 returns, `StageComplete`, counter 2030 +2 | any other outcome | verified (repro PASS 2026-11-01) |
 
 ## 907. A conversation turn held by a Sim that never takes it, `convturn` (2026-11-01, docs/509; static + self-test)
 
@@ -5556,3 +5556,84 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 | I-913-1 | 515 §1 | In the standing and sitting branch with the book put in the inventory, StopUsingBook clears Sim.CarryStateMachine and never asks that carry machine to exit | IL of StopUsingBook, GetBook, CarrySystem.PickUp, ExitAndKeepHolding, ExitCarry; probe log: 303 such calls, all dropped | `book-carry-check` off arm | expect left passes | the machine is ended or released by EA | verified: run 4 off arm (seen +1, driver held) |
 | I-913-2 | 515 §1 | The dropped machine is what keeps a Sim's arms in the hold pose | an earlier dispose that ended one stuck Sim's pose | a read with the switch off on a Sim whose pose was restarted | the arms stick after the read | the arms stay normal | refuted: run 4, the player saw the arms normal after an off read, with the dropped machine kept alive |
 | I-913-3 | 515 §2 | Ending and disposing the dropped machine after EA's method throws nothing and releases it | the on arm of `book-carry-check` | `book-carry-check` on arm | expect ended passes | an exception, or the driver still held | verified: run 4 on arm (ended +1, driver released) |
+
+## 914. A dartboard keeps players that are gone, `deadrefsweep` phase 9 (2026-11-01, docs/516; static + live probe)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-914-1 | 516 §1 | `Quit` leaves `CurrentPlayer` and `CheatingSim`; only `DoFinishGame` clears the board's player fields; a Sim destroyed mid-game never reaches either | decompiled `Dartboard.Quit`, `DoFinishGame`, the Wait / TakeTurn clean-ups | static read | the three fields read as described | a clean-up path that clears them | verified (static) |
+| I-914-2 | 516 §2 | Quitting a destroyed Sim through EA's `Quit` and nulling the two fields throws nothing and leaves `Players` and `Teams` empty | the on arm of `dart-gone-check` | `dart-gone-check` on arm | expect cleaned passes, `deadrefsweep_dartboards` +3 | an exception, or an entry left | verified (live 2026-11-02, al12) |
+| I-914-3 | 516 §3 | A dartboard made out of world is reached by `Queries.GetObjects<Dartboard>()` and the seeded townie counts as gone once destroyed | the seed step's `state` poll | `dart-gone-check` both arms | gone 3 and destroyed true within 60 s | the poll times out | verified (live 2026-11-02: met 2 s after the seed, both arms) |
+
+## 915. Object use, reference and routing-reference lists keep Sims that are gone, `deadrefsweep` phase 10 (2026-11-01, docs/517; static + live probe)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-915-1 | 517 §1 | The three lists are persisted and only the using Sim's own clean-up removes it from them | decompiled `GameObject` fields and Remove methods; core build 40's load scans | static read | fields without `[Persistable(false)]`, callers of the Remove methods | a sweep or dispose path that removes destroyed Sims | verified (static) |
+| I-915-2 | 517 §2 | EA's Remove methods throw nothing for a destroyed Sim and leave the lists clean | the on arm of `use-list-gone-check` | `use-list-gone-check` on arm | expect cleaned passes, `deadrefsweep_uselists` +3 | an exception, or an entry left | verified (live 2026-11-01, al11) |
+| I-915-3 | 517 §2 | The whole-object walk stays within the pass's slice budget | `deadrefsweep_max_slice_us` after the on arm | `use-list-gone-check` on arm | max slice at most a few ms | a slice far above `kSliceUs` | open: the job does not read [407]; read it in the next run on this branch |
+
+## 917. An object's owner component keeps a Sim that is gone, `deadrefsweep` phase 11 (2026-11-01, docs/519; static + live probe)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-917-1 | 519 §1 | The owner and thief are saved by description id and re-read as `CreatedSim`; nothing updates them in a running world | decompiled `ObjectOwnerComponent.ExportContent` / `ImportContent`, `Sim.Destroy`; core build 43's load scans | static read | the two methods as described, no caller writing the fields on destroy | a dispose or reset path that does | verified (static) |
+| I-917-2 | 519 §2 | Relinking by reflection and `RemoveComponent` on a live object change nothing else | the on arm of `object-owner-gone-check` | `object-owner-gone-check` on arm | expect cleaned passes, `deadrefsweep_objectowners` +2, no script error | an exception, or a jig left as it was | verified (live 2026-11-02, al18: relinked and dropped within the pass, both townies put back) |
+
+## 918. An object's ObjectDisposed event keeps relationships nobody holds, `deadrefsweep` phase 12 (2026-11-02, docs/522; static + live probe)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-918-1 | 522 §1 | The constructor subscribes and nothing unsubscribes; the handler only prunes the description's list | decompiled `GameObjectRelationship`, `SimDescription.Dispose`, `CarRelationship.RemoveRelationship` | static read | no `ObjectDisposed -=` anywhere for the handler | one found | verified (static) |
+| I-918-2 | 522 §2 | Removing such a handler changes nothing else, and the pass reaches a vehicle's event | the on arm of `disposed-handler-gone-check` | `disposed-handler-gone-check` on arm | expect cleaned passes, `deadrefsweep_handlers` +1 | an exception, or the handler left | verified (live 2026-11-02, al18 rerun: the handler gone at the first poll, counter 1) |
+
+## 919. A celebrity's waiting-to-react list keeps Sims that are gone, `deadrefsweep` phase 13 (2026-11-02, docs/523; static + live probe)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-919-1 | 523 §1 | Only the reaction's end removes a reactor; the list is persisted with the celebrity Sim | decompiled `Celebrity.OnEntered`, the reaction interactions, `Sim.mCelebrity` | static read | the Remove's callers are the reactions only | a destroy or reset path that removes | verified (static) |
+| I-919-2 | 523 §2 | EA's Remove on a destroyed Sim leaves the list clean and changes nothing else | the on arm of `celebrity-waiting-gone-check` | `celebrity-waiting-gone-check` on arm | expect cleaned passes, `deadrefsweep_celebrity` +1 | an exception, or the entry left | verified (live 2026-11-02, al16: cleaned within 2 s of the seed) |
+
+## 920. Lifted mint templates vs EA's handlers (2026-11-02, docs/524; emulation)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-920-1 | 524 §1-2 | For 132 of the 136 generatable opcodes, EA's handler body with the operand reads as immediates leaves the frame exactly as the handler does | `tools/emu/run.py tools/emu/specs/mint_lift.py`: 2,189 cases, both renderings, 0 mismatches; every case reached the dispatch; all 50 branches took both directions | emu | the PASS line | a mismatch, or a case that faults on both sides (counted as a mismatch since the first pass) | verified (emu) |
+| I-920-2 | 524 §3 | The compiler form works in P0's convention once a `K_LIFT` emitter fills the slots and the vt pointer stays at `[ebp-0xC]` | the templates read the interpreter frame only through ebp, esi; ebx wrapped; edi never used | monohost `MONOHOST_JIT=verify` on the corpus (needs a C++ build) | 0 mismatches in verify mode | a verify mismatch on a lifted opcode | open: no build on the contributor's machine |
+| I-920-3 | 524 §4 | `brfalse.r8` long cannot be lifted: the handler falls through 2 words of a 3-word instruction | the lifter's fall-through rule on `0xE54BFE` (tail at `0xE56147`, `add edi, 4`); docs/213 §4 row `0xA2` | static | the rule's message | — | verified |
+
+## 921. S4 accessor fixtures (2026-11-02, docs/207 §9.1; compiled, not run)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-921-1 | 207 §9.1 | The 17 fixtures and the corpus cases compile against the game's mscorlib, SimIFace, ScriptCore, Sims3GameplaySystems and UI | csc 4.0 as `build.cmd` runs it: `MonoHostTest.dll` built, 175 cases, self-check 11 ok | offline | the build line | a compile error | verified |
+| I-921-2 | 207 §9.1 | Each fixture reaches its accessor offline: the constructors it uses (`GameObject`, `Lot`, `Sim`, `SimDescription`, `RoutingComponent`, the components) run without a world | read: `GameObject()` sets a delegate, `Sim()` counts and sets a posture, `Lot()` makes a commodity map, `SimDescription()` checks a static list | `MONOHOST_JITCORPUS=1 ... MONOHOST_JITCORPUS_FROM=158`, the trail lines | no exception on cases 158-174 except the ones the table names | a constructor exception on both arms | open: no monohost build on the contributor's machine |
+| I-921-3 | 207 §9.1 | Compiled and interpreted agree on the 17 accessors | — | the same run, `--report`: 0 differ | 0 differ | a MISMATCH | open |
+
+## 922. Reward giver owner component (2026-11-02, docs/525; `rewardgiver`)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-922-1 | 525 §1 | `GameObject.SetRewardGiver` throws `NullReferenceException` for every argument: `AddComponentInternal` calls `GetType()` on the null thief | decompiled `GameObject.SetRewardGiver`, `AddComponentInternal` (`ConvertAll(o => o.GetType())`) | `bp-reward-giver-check` off arm | `expect broken`: NullReferenceException, no owner component | the call returns, or another exception | verified (static) |
+| I-922-2 | 525 §1 | The only caller is `RewardsManager.GiveRewards` `ObjectInMail`; the exception skips the mail, the later rewards, the completion text and the follow-up opportunity | grep over the decompiled gameplay assemblies: one call site; `Opportunity` completion calls `GiveRewards` with no catch around it | — | — | a catch in the completion path | verified (static) |
+| I-922-3 | 525 §2 | With the switch on the component is added, owned by the Sim, and nothing throws | the hook replicates `AddComponentInternal` for this component | `bp-reward-giver-check` on arm | `expect fixed` passes; `rewardgiver_added` 1 | an exception, or no owner component | verified (live 2026-11-02, al18: off arm throws, on arm owner component owned by the Sim, counter 1) |
+| I-922-4 | 525 §1 | No shipped opportunity uses `ObjectInMail`: the path is reached by custom opportunities only | scan of every resource of the installed `GameplayData.package` (5,727 XML, 3,192 completion reward rows) and of every EP/SP build package: 0 occurrences | offline | 0 occurrences | an occurrence | verified (static, this install: all EPs and SPs) |
+
+## 924. Compiled code and the Satb barrier (2026-11-02, docs/507 §c; host build + host selftest)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-924-1 | 507 §c | A compiled method's stores pass no Satb barrier, so the worker reads post-cut values | `JIT_OP` replaces the opcode words; Satb wraps jump-table entries only | monohost selftest, `MONOHOST_SATB=1 MONOHOST_JIT=on`, `SatbWorld.Mutate` listed | AS-satb-exact fails only when the mutator is compiled | AS-satb-exact passes with the mutator compiled and no barrier | **verified**: A0 1 of 6000 compiled vs 6000 of 6000 interpreted |
+| I-924-2 | 507 §c | Compiled exits bypass swapped handlers too, because they jump to the pointers read at install | `EmitExit` used `g_opHandler[op]`; `SatbSwap` writes the table after install | code read; not isolated in a run (the templates and the exits were changed together) | a run with the templates fixed and the exits still direct shows A2 from `stsfld` / `stelem` | the same run is clean | **verified by reading** (effect not measured alone) |
+| I-924-3 | 507 §c | Sending the worker back to the interpreter at every `JitEnter` is enough: no compiled load runs on it in a span | lazy callees and inlined bodies are reached only from compiled code | the same selftest run | 47 of 47 with 12,283,402 bails and 0 give-ups | A2 or give-ups with the barrier on | **verified** (host run) |
+| I-924-4 | 507 §c | Outside a span the barrier costs one compare and a taken jump per heap store | emitted bytes | AS satb cost line with and without the JIT | mutation time with the JIT within the run-to-run noise of the interpreter | a clear slowdown of compiled mutations with Satb off | [measured, noisy]: 1.51 ms compiled vs 1.39 ms interpreted per 100 mutations with Satb off (a game test ran beside it) |
+
+## 925. Lazy frames v2: chains, class-guarded callvirt, con.call (2026-11-02, docs/207 §12.7; host corpus + bench)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-925-1 | 207 §12.7 | A lazy body that makes lazy calls keeps EA's frame invariants: an exit anywhere in the chain writes every pending frame, outermost first, before EA's handler runs | `JitLazyMatC` walks the blocks by `B_LVL`; each frame's caller state is the frame just written | corpus verify, lazy on: `CallChain`, `CallChainInst` (null in the middle frame), `CallChainArr` / `CatchChain` (throw two frames down), `DeepChain` | hashes equal to the interpreter's, stack-trace frames included; 0 verifier mismatches | a chain case differs, or a CPU fault | **verified** (host): 167 cases, 1 differs (`S1AF`, as before), 116 exits wrote two frames |
+| I-925-2 | 207 §12.7 | A site that takes EA's inline-cache target when the receiver's class equals the cache's class calls what EA's `callvirt` would call | the cache holds (class, target) [docs/133 §1.1]; a miss takes the normal exit | corpus `JitKV.CallVirt` (base, derived, null), `CallVirtPoly`, `CallVirtThrow`, `CallVirtChain` | hashes equal; count mode shows guard calls | a guarded case differs | **verified** (host); the race between our two reads and EA's cache rewrite on another thread is EA's own |
+| I-925-3 | 207 §12.7 | `con.call` is a plain call with the method in word 2 and a 3-word instruction | docs/213 §1 row 3 | corpus `JitKL.CallCon`; the dump of `JitKL.EqT` | hash equal; `EqT` compiled with the `con.call` native (5 of 11 positions) | the case differs | **verified** (host) |
+| I-925-4 | 207 §12.7 | The §12.1 class-guarded edges (25% of calls) gain nothing yet: their targets have no lazy body because `stinarg.vt` / `ldarg.vt` / `vtresult` exit | `JitKL.EqT` dump; 8 of 91 guard sites filled | `MintBench(3000)` lazy on vs off | compiled 223.5 vs 225.7 ms (noise) | a clear MintBench gain with lazy on | **verified** (host); the fix is value-type templates [inferred] |
+| I-925-5 | 207 §12.7 | A chained or guarded lazy call saves what a direct one does (~11 ns) | bench cases 25 and 27 vs 23 | `JitLzChain` 59.5 -> 27.3 ns (three calls), `JitLzVirt` 20.5 -> 9.4 ns (one call) | per-call saving near 11 ns | a chained or guarded call saving much less | [measured, noisy] (the game ran beside the bench) |

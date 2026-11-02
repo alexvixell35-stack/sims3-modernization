@@ -110,6 +110,7 @@ namespace Ts3Fixes
             Patch(typeof(Sims3.Gameplay.Objects.Vehicles.NpcDriversManager), "CreateNpcDriver", new Type[] { typeof(Sims3.Gameplay.Objects.Vehicles.NpcDriversManager.NpcDrivers) }, typeof(NpcDriverPoolHook), "CreateHook", "CreateOrig");
             Patch(typeof(Sims3.Gameplay.Objects.Book), "StopUsingBook", typeof(BookCarryHook), "StopHook", "StopOrig");
             Patch(typeof(AgingState), "PreInstantiateSim", new Type[] { typeof(ResourceKey).MakeByRefType() }, typeof(AgeUpAbortHook), "PreHook", "PreOrig");
+            Patch(typeof(GameObject), "SetRewardGiver", typeof(RewardGiverHook), "GiverHook", "GiverOrig");  // RewardGiver.cs, docs/525
         }
 
         // ---- ageupkeepoutfits (#100) ----

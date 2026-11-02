@@ -2,6 +2,10 @@
 
 Static, 2026-11-01. No build, no game run. Contributor round 7 task 3 (offline).
 
+Status 2026-11-02: §b's generatable class is lifted and checked under emulation in docs/524 (132 of 136 opcodes, 0
+mismatches; `tools/emu/specs/mint_lift.py`; the template bytes stay local under `tools/emu/specs/out/`, the census is
+`docs/data/jit-lift-census.csv`).
+
 Inputs: `native/monohost/monohost-jit.cpp` (P0, docs/207), `native/ts3native/*.cpp`, `docs/data/mint-opcode-spec.csv`
 (docs/213), `docs/data/jit-exit-census.csv` (docs/207, weighted by `compile-candidates.csv` ms/s). Output:
 `docs/data/jit-opcode-table.csv` from `node tools/jit-opcode-table.ts` (`--check`, `--self-check`).
@@ -85,3 +89,46 @@ Order this suggests (time per opcode, not a plan):
 2. compiled-to-compiled `call` / `callvirt` (hand, 8.3 ms/s);
 3. the 21 generatable opcodes with time (8.3 ms/s, mechanical);
 4. the throw-only stub (0.7 ms/s).
+
+## c) The Satb barrier, built (2026-11-02, contributor round 8 B3; host build + host selftest)
+
+Section a) left one gap: while an `[AutShadow] Satb` span is on (docs/206 §7), the sim thread's stores must be logged, and
+Satb gets the interpreter's by swapping the store handlers in the mint jump table, which compiled code never reaches.
+Reading the code for the fix showed a second one: every compiled exit to a handler jumped to the handler pointers read at
+install (`g_opHandler`), not to the live table, so even the store opcodes the compiler does not cover (`stsfld`, `stelem.*`,
+`stobj`, the value-type stores) skipped Satb's stubs inside a compiled method [verified: `EmitExit`, `JitOrig`, `JitLazyMat`].
+
+Proof of the gap before the fix, offline (`monohost.exe ... selftest`, `MONOHOST_SATB=1`, `MONOHOST_JIT=on`,
+`MONOHOST_JITLIST=SatbWorld.Mutate,SatbWorld.WriteRefI4,...,SatbWorld.Score,SatbWorld.Fill`: the Satb test's own
+mutator and scorer compiled, 9 methods, 691 native ops, 458 exits) [measured]:
+
+| Run | AS-satb-exact | Rest of the selftest |
+|---|---|---|
+| JIT off | A0 6000 of 6000, A1-A3 0 | 47 of 47 |
+| JIT on, no barrier | **A0 1 of 6000, A2 5999** (the worker saw the compiled stores); survive and rtwriters fail with it | 44 of 47 |
+| JIT on, barrier | A0 6000 of 6000, A1-A3 0; 627,628 compiled heap stores logged in spans, 12,283,402 worker entries sent back to the interpreter | 47 of 47 |
+
+The fix is three changes in `monohost-jit.cpp` (the shared source; nothing in satb.cpp):
+
+1. **Store templates.** `stfld.*` and `stind.*` (the only heap stores the compiler emits; `stloc` / `starg` / `stinarg` write
+   the frame arena, which Satb treats as private) call `JitSatbStore(address, bytes)` before the store. The helper is
+   `SatbSimSide()` then `SatbSimRange(addr, n)`: the same path as the stubs, so a frame-arena target is skipped, a full log
+   or a store over `SATB_BIGW` words waits for the worker. Emitted: `cmp dword ptr [g_satbOn], 0; je skip; push base;
+   lea edx, [base+disp]; push n; push edx; call; add esp, 8; pop base` (19 bytes; outside a span one compare and a taken
+   jump; the base register survives, eax/ecx/edx are scratch at both sites).
+2. **Exits through the live table.** `EmitExit`, `JitOrig` (verify mode) and `JitLazyMat` jump through `[0xE59880 + op*4]`
+   instead of the install-time snapshot, so a handler Satb (or mintcall) has swapped is the one that runs.
+3. **The worker never runs compiled code in a span.** `JitEnter` tests `g_satbOn`, then the thread id (`fs:[0x24]`) against
+   `g_satbWTid`; the worker goes to the live handler of the original opcode (`JitEnt.orig`) with the exit protocol
+   (`edi` = ip, `[ebp-4]` = ip, `eax` = `edx` = opcode), so its loads keep Satb's redirect (act mode). Lazy callees and
+   inlined bodies are entered only from compiled code, so the bail at every `JitEnter` covers them too.
+
+Cost, same host run, best of 20 with a game test running on the machine [measured, noisy]: 100 mutations 1.51 ms with
+Satb off / 1.85 ms on when compiled, 1.39 / 1.71 ms interpreted. The per-store barrier cost is inside that noise; what
+the worker loses is the compiled speed of its own job during a span (every entry bails), which the ts3native build can
+measure when it exists.
+
+Not covered: verify mode's `JitVerifyExitStub` path (never on with Satb); a ts3native build still needs the adapter of
+section a). Also found: the host selftest on main stopped at `AS-install` because it expected 31 AutShadowNative ICs and
+`Setup` version 10 while the code has had 34 and 11 since the PR #169 import; the expectation is updated in the same
+change. Ledger: docs/51 §924.

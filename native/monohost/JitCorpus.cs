@@ -197,8 +197,33 @@ namespace MonoHostTest
         public static int CatchInCaller(JitKL p, JitKL q) { try { return p.Deref(q); } catch (NullReferenceException) { return -5; } }
         public static int Deep(int d, int x) { if (d == 0) return Clamp(x, 0, 9); return Deep(d - 1, x) + 1; }
         public static int CallStruct(int n) { JitKLPt p; p.X = 3; int s = 0; for (int i = -n; i < n; i++) s += p.Dot(i); return s; }
+        // v2 (docs/207 §12.7): lazy bodies that make lazy calls (chains), exceptions below a chain, con.call
+        static int Inner(int x) { if (x > 3) return x - 3; return 3 - x; }
+        static int Mid(int x) { int t = Inner(x); if (t > 1000) return t; return t + Clamp(x, -2, 2); }
+        static int Mid2(JitKL p, int x) { int t = p.Get(x); if (t > 1000) return t; return t + Inner(x); }
+        static int Outer(int x) { int t = Mid(x); if (t > 1000) return t; return t * 2; }
+        static int ArrIn(int[] a, int i) { if (i < -1) return -1; return a[i]; }
+        static int ArrMid(int[] a, int i) { int t = ArrIn(a, i); if (t > 1000) return t; return t + 1; }
+        public static int CallChain(int n) { int s = 0; for (int i = -n; i < n; i++) s += Mid(i) + Outer(i); return s; }
+        public static int CallChainInst(JitKL p, int n) { int s = 0; for (int i = -n; i < n; i++) s += Mid2(p, i); return s; }
+        public static int CallChainArr(int[] a, int i) { return ArrMid(a, i) + 1; }
+        public static int CatchChain(int[] a, int i) { try { return ArrMid(a, i); } catch (IndexOutOfRangeException) { return -9; } }
+        public static int DeepChain(int d, int x) { if (d == 0) return Mid(x); return DeepChain(d - 1, x) + 1; }
+        static int EqT<T>(T a, T b) where T : IEquatable<T> { if (a.Equals(b)) return 1; return 0; }
+        public static int CallCon(int n) { int s = 0; for (int i = 0; i < n; i++) s += EqT(new JitKey(i & 3), new JitKey(2)); return s; }
     }
     public struct JitKLPt { public int X; public int Dot(int k) { if (k > 0) return X * k; return X - k; } }
+    // v2: class-guarded callvirt (a virtual method through EA's inline cache); JitKV3.F divides by zero on even k
+    public class JitKV
+    {
+        public virtual int F(int k) { if (k > 0) return k + 1; return -k; }
+        public virtual int G(JitKV o, int k) { if (o == null) return -1; return o.F(k) + 1; }
+        public static int CallVirt(JitKV o, int n) { int s = 0; for (int i = -n; i < n; i++) s += o.F(i); return s; }
+        public static int CallVirtPoly(JitKV[] a, int n) { int s = 0; for (int i = 0; i < n; i++) s += a[i & 1].F(i); return s; }
+        public static int CallVirtChain(JitKV o, JitKV p, int n) { int s = 0; for (int i = -n; i < n; i++) s += o.G(p, i); return s; }
+    }
+    public class JitKV2 : JitKV { public int m = 2; public override int F(int k) { if (k > 1) return k * m; return m - k; } }
+    public class JitKV3 : JitKV { public override int F(int k) { if (k > 1000) return k; return k / (k & 1); } }
     public struct JitKey : IEquatable<JitKey>
     {
         public int K;
@@ -213,7 +238,7 @@ namespace MonoHostTest
 
     public static class JitCorpus
     {
-        public const int Count = 158;
+        public const int Count = 184;
         static readonly int[] I4 = { 0, 1, -1, 2, -2, 3, 7, -7, 16, 31, 32, 33, 0x7FFF, 0x8000, 0xFFFF, 0x10000, 0x3FFFFFFF, 0x40000000, int.MaxValue, int.MinValue, int.MinValue + 1, int.MaxValue - 1 };
         static readonly long[] I8 = { 0L, 1L, -1L, 2L, -2L, 7L, 0x7FFFFFFFL, 0x80000000L, -0x80000000L, 0xFFFFFFFFL, 0x100000000L, long.MaxValue, long.MinValue, long.MinValue + 1, -3037000500L, 3037000500L };
         static readonly int[] SH = { 0, 1, 7, 15, 16, 31, 32, 33, 63, 64, 65, -1, int.MinValue };
@@ -1386,6 +1411,136 @@ namespace MonoHostTest
                 case 157: // JitKL.CallStruct (lazy call, value-type this)
                 {
             try { h = M(h, JitKL.CallStruct(40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 158: // JitKL.CallChain (lazy chain: a lazy body with two lazy calls, and a chain of three)
+                {
+            try { h = M(h, JitKL.CallChain(40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 159: // JitKL.CallChainInst (chain through a non-virtual callvirt; null receiver: NullReferenceException in the middle frame)
+                {
+            JitKL p = new JitKL(); p.v = 5; try { h = M(h, JitKL.CallChainInst(p, 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallChainInst(null, 3)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 160: // JitKL.CallChainArr (IndexOutOfRangeException two lazy frames down; CatchChain catches it in the compiled caller)
+                {
+            int[] a = new int[] { 4, 5, 6 }; try { h = M(h, JitKL.CallChainArr(a, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallChainArr(a, 5)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CatchChain(a, 7)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CatchChain(a, 0)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 161: // JitKL.DeepChain (lazy chain under recursion at depth 30 / 70)
+                {
+            try { h = M(h, JitKL.DeepChain(30, 4)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.DeepChain(70, -9)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 162: // JitKV.CallVirt (class-guarded callvirt: base class, derived class, null receiver)
+                {
+            try { h = M(h, JitKV.CallVirt(new JitKV(), 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKV.CallVirt(new JitKV2(), 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKV.CallVirt(null, 3)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 163: // JitKV.CallVirtPoly (two classes at one site: every call misses the cache and takes the normal exit)
+                {
+            JitKV[] a = new JitKV[] { new JitKV(), new JitKV2() }; try { h = M(h, JitKV.CallVirtPoly(a, 40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 164: // JitKV.CallVirtThrow (DivideByZeroException in a class-guarded lazy callee)
+                {
+            try { h = M(h, JitKV.CallVirt(new JitKV3(), 6)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 165: // JitKV.CallVirtChain (a guarded lazy callee makes a guarded lazy call; null inner receiver)
+                {
+            try { h = M(h, JitKV.CallVirtChain(new JitKV2(), new JitKV(), 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKV.CallVirtChain(new JitKV(), null, 3)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 166: // JitKL.CallCon (con.call: a constrained call on a value type in a generic method)
+                {
+            try { h = M(h, JitKL.CallCon(40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 167: // Acc GameObject.GetComponent
+                {
+            for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.GetComponentCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 168: // Acc InteractionObjectPair.Equals
+                {
+            for (int i = 0; i < 7; i++) try { h = M(h, JitAcc.IopEqualsCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 169: // Acc GameObject.GetObject
+                {
+            for (int i = 0; i < 3; i++) try { h = M(h, JitAcc.GetObjectCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 170: // Acc SimClock.ElapsedTimeInMinutes
+                {
+            for (int i = 0; i < 35; i++) try { h = M(h, JitAcc.ElapsedMinutesCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 171: // Acc GameObject.get_Parent
+                {
+            for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.ParentCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 172: // Acc ScriptObject.get_ObjectId
+                {
+            for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.ObjectIdCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 173: // Acc GameObject.get_LotCurrent
+                {
+            for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.LotCurrentCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 174: // Acc Household.Members.GetActorsOfType
+                {
+            for (int i = 0; i < 5; i++) try { h = M(h, JitAcc.ActorsOfTypeCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 175: // Acc RoutingComponent.get_IsRouting
+                {
+            for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.IsRoutingCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 176: // Acc Lot.get_CommercialLotSubType
+                {
+            for (int i = 0; i < 6; i++) try { h = M(h, JitAcc.LotSubTypeCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 177: // Acc ListSorted`1.GetEnumerator
+                {
+            for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.ListSortedCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 178: // Acc DesireCurve.GetYFromX
+                {
+            for (int i = 0; i < 12; i++) try { h = M(h, JitAcc.DesireCurveCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 179: // Acc Sim.get_SimDescription
+                {
+            for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.SimDescriptionCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 180: // Acc Lot.get_ShouldSimulate
+                {
+            for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.ShouldSimulateCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 181: // Acc SimDescription.get_Age
+                {
+            for (int i = 0; i < 5; i++) try { h = M(h, JitAcc.AgeCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 182: // Acc Corners.get_Item
+                {
+            for (int i = 0; i < 5; i++) try { h = M(h, JitAcc.CornersCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 183: // Acc Household.EveryHumanSimDescription
+                {
+            for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.EveryHumanCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
             }

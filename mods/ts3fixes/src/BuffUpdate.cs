@@ -20,6 +20,9 @@ namespace Ts3Fixes
     // passed, so the walk reaches every buff this tick: each one's OnTimeOutUpdated (time-gated in EA's overrides) and the
     // removal of buffs that timed out. The buffs the first walk did not reach lose this tick's countdown. The Sim's update
     // goes on. Other exceptions pass. [2033] out-of-sync exceptions from UpdateBuffs (also with the switch off), [2034] caught.
+    // The second walk calls AutoSolveRecord.AttemptToPrioritize again for the buffs the first walk reached; EA's record
+    // attempts once only (mbAttempted) and only with auto-solve enabled, so the repeat does nothing for a record already
+    // attempted [verified: decompile].
     // shortcut: when the second walk also throws out of sync (a buff that changes the table on every call), the rest of
     // this tick's walk is skipped; the player's core build walks a copy instead, which a hook cannot add without
     // rewriting EA's method.

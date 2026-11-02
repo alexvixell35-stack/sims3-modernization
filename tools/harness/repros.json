@@ -49043,5 +49043,869 @@
       },
       "maxMinutes": 15
     }
+  },
+  {
+    "id": "dart-gone-check",
+    "bug": "A dartboard keeps a Sim that was reset or destroyed mid-game in Players, its Team, CurrentPlayer and CheatingSim: EA clears those only in DoFinishGame, and Quit (every cleanup) never runs for a Sim that is gone; the fields are saved with the board (issue #166 build 42)",
+    "fix": "ts3fixes DeadRefs.cs: deadrefsweep phase 9 (default off), docs/516",
+    "save": "Baseline-BP",
+    "note": "Hard state built by the agent check (DeadRefDartCheck seed): a dartboard made out of world, one townie added as team player, CurrentPlayer and CheatingSim, then that Sim object destroyed as a reset does (the description stays; it is instantiated again where it stood at the end of each arm). Off arm: the sweep refuses, the entries stay. On arm: the spread pass is started at once and polled until the board is clean. The on arm's seed poll waits for the destroy only: the hourly pass (an alarm that fires on its own clock) may clean the board before the poll, as it did on 2026-11-01 23:42.",
+    "expect": "off: expect left sees gone 3 with the switch off. on: expect cleaned sees gone 0, Players 0, Teams 0, CurrentPlayer and CheatingSim null; deadrefsweep_dartboards >= 3.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "off: a dartboard out of world with one townie as player, current player and cheating Sim; the Sim object destroyed",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            },
+            {
+              "path": "gone",
+              "atLeast": 3
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "off: started False (switch off); nothing runs",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+          "args": [
+            "expect left"
+          ]
+        },
+        "note": "off: the three gone entries still on the board; board destroyed, townie put back"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "on: the same hard state again (another townie)",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "on: started True (safe); phase 9 reaches the board within the pass",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: poll until the board holds no gone entry",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "gone",
+              "equals": 0
+            }
+          ],
+          "maxS": 240,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefDartCheck",
+          "args": [
+            "expect cleaned"
+          ]
+        },
+        "note": "on: gone 0, Players and Teams empty, CurrentPlayer and CheatingSim null; deadrefsweep_dartboards +3"
+      }
+    ]
+  },
+  {
+    "id": "use-list-gone-check",
+    "bug": "A Sim reset or destroyed while using, referencing or routing to an object stays in that object's mActorsUsingMe, mReferenceList and mRoutingReferenceList (persisted List<Sim>s); the paired Remove never runs for a Sim that is gone, and the destroyed Sim object goes into every save (issue #166 build 40)",
+    "fix": "ts3fixes DeadRefs.cs: deadrefsweep phase 10 (default off), docs/517",
+    "save": "Baseline-BP",
+    "note": "Hard state built by the agent check (DeadRefUseListCheck seed): a social jig made out of world, one townie added to its use, reference and routing reference lists, then that Sim object destroyed as a reset does (the description stays; it is instantiated again where it stood at the end of each arm). Off arm: the sweep refuses, the entries stay. On arm: the spread pass is started at once and polled until the jig is clean; phase 10 walks every GameObject, so the pass takes longer than the dartboard one. The on arm's seed poll waits for the destroy only: the hourly pass (an alarm on its own clock) may clean the seeded object before the poll.",
+    "expect": "off: expect left sees gone 3 with the switch off. on: expect cleaned sees gone 0 and all three lists empty; deadrefsweep_uselists >= 3.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "off: a jig out of world with one townie in its three lists; the Sim object destroyed",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            },
+            {
+              "path": "gone",
+              "atLeast": 3
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "off: started False (switch off); nothing runs",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+          "args": [
+            "expect left"
+          ]
+        },
+        "note": "off: the three gone entries still on the jig; jig destroyed, townie put back"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "on: the same hard state again (another townie)",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "on: started True (safe); phase 10 reaches the jig within the pass",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: poll until the jig holds no gone entry",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "gone",
+              "equals": 0
+            }
+          ],
+          "maxS": 300,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefUseListCheck",
+          "args": [
+            "expect cleaned"
+          ]
+        },
+        "note": "on: gone 0, all three lists empty; deadrefsweep_uselists +3"
+      }
+    ]
+  },
+  {
+    "id": "object-owner-gone-check",
+    "bug": "ObjectOwnerComponent.mOwner (the Sim a reward came from, or a theft's victim) and mThief are saved by description id and re-read as CreatedSim at load; in a running world nothing updates them when that Sim object is destroyed, so a destroyed Sim object sits on the object until the next load (ErrorTrap's load scan then resets the object; issue #166 build 43)",
+    "fix": "ts3fixes DeadRefs.cs: deadrefsweep phase 11 (default off), docs/519",
+    "save": "Baseline-BP",
+    "note": "Hard state built by the agent check (DeadRefOwnerCheck seed): two social jigs made out of world, each a reward from one townie (AddComponent<ObjectOwnerComponent> + the owner field), both Sim objects destroyed as a reset does; putback instantiates the first townie again (a live instance exists: the relink case), the second stays gone (the drop case). Off arm: the sweep refuses, both gone entries stay. On arm: the spread pass is started at once and polled until the first jig is relinked and the second has no component. The jigs are destroyed and the second townie put back at the end of each arm. The seed puts the first townie back at once when the destroy was synchronous; the on arm's seed poll waits for the destroy only, since the hourly pass (an alarm on its own clock) may run before the poll.",
+    "expect": "off: expect left sees gone 2, nothing relinked or dropped, with the switch off. on: expect cleaned sees gone 0, relinked, dropped; deadrefsweep_objectowners >= 2.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "off: two jigs out of world, a reward-giver component with one townie each; both Sim objects destroyed",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            },
+            {
+              "path": "gone",
+              "equals": 2
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+          "args": [
+            "putback"
+          ]
+        },
+        "note": "off: the first townie's Sim object again (the relink case)",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "live",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "off: started False (switch off); nothing runs",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+          "args": [
+            "expect left"
+          ]
+        },
+        "note": "off: both gone entries still there; jigs destroyed, second townie put back"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "on: two jigs out of world, a reward-giver component with one townie each; both Sim objects destroyed",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+          "args": [
+            "putback"
+          ]
+        },
+        "note": "on: the first townie's Sim object again (the relink case)",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "live",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": true
+        },
+        "note": "on (after the seed and the put-back, so no pass runs before the relink case exists)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "on: started True (safe); phase 11 reaches the jigs within the pass",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: poll until the first jig is relinked and the second dropped",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "gone",
+              "equals": 0
+            },
+            {
+              "path": "relinked",
+              "equals": true
+            },
+            {
+              "path": "dropped",
+              "equals": true
+            }
+          ],
+          "maxS": 300,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefOwnerCheck",
+          "args": [
+            "expect cleaned"
+          ]
+        },
+        "note": "on: gone 0, relinked, dropped; deadrefsweep_objectowners +2"
+      }
+    ]
+  },
+  {
+    "id": "disposed-handler-gone-check",
+    "bug": "GameObjectRelationship's constructor subscribes its GameObjectDisposed handler to the object's ObjectDisposed event and nothing unsubscribes it; a deleted description or a decayed relationship stays reachable from the car, and a load-time graph reset (ErrorTrap) resets the car (issue #166 build 41)",
+    "fix": "ts3fixes DeadRefs.cs: deadrefsweep phase 12 (default off), docs/522",
+    "save": "Baseline-BP",
+    "note": "Hard state built by the agent check (DeadRefHandlerCheck seed) without destroying anything: a car relationship of a townie's description with a vehicle of the world, made through EA's Vehicle.GetNewRelationship (subscribes the handler) and never added to the description's list, so nobody holds it. Off arm: the sweep refuses, the handler stays. On arm: the spread pass is started at once and polled until the handler is gone (the hourly pass may run first; same outcome). The check removes a handler of ours that is still subscribed at the end of each arm.",
+    "expect": "off: expect left sees our handler still subscribed with the switch off. on: expect cleaned sees it gone; deadrefsweep_handlers >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefHandlerCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "off: a relationship nobody holds, subscribed to a car's ObjectDisposed (the car made out of world)",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefHandlerCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "mine",
+              "equals": true
+            }
+          ],
+          "maxS": 30,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "off: started False (switch off); nothing runs",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefHandlerCheck",
+          "args": [
+            "expect left"
+          ]
+        },
+        "note": "off: our handler still subscribed; removed by the check"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefHandlerCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "on: the same hard state again",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "on: started True (safe); phase 12 reaches the vehicle within the pass",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefHandlerCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: poll until our handler is gone",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefHandlerCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "mine",
+              "equals": false
+            }
+          ],
+          "maxS": 300,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefHandlerCheck",
+          "args": [
+            "expect cleaned"
+          ]
+        },
+        "note": "on: our handler gone; deadrefsweep_handlers +1"
+      }
+    ]
+  },
+  {
+    "id": "celebrity-waiting-gone-check",
+    "bug": "A celebrity Sim's Celebrity.mWaitingToReact keeps the Sims who rolled a reaction and have not reacted yet; a reactor reset or destroyed before its reaction never leaves the list, which is saved with the Sim (issue #166, docs/205 §4)",
+    "fix": "ts3fixes DeadRefs.cs: deadrefsweep phase 13 (default off), docs/523",
+    "save": "Baseline-BP",
+    "note": "Hard state built by the agent check (DeadRefCelebrityCheck seed): a Sim of the world whose Celebrity object exists gets one townie in its waiting-to-react list; that townie's Sim object is destroyed as a reset does (the description stays; put back at the end of each arm). Off arm: the sweep refuses, the entry stays. On arm: the pass started by the switch or by the sweep step removes it; the seed poll waits for the destroy only.",
+    "expect": "off: expect left sees gone >= 1 with the switch off. on: expect cleaned sees gone 0; deadrefsweep_celebrity >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "off: a townie in a celebrity's waiting list, then destroyed",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            },
+            {
+              "path": "gone",
+              "atLeast": 1
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "off: started False (switch off); nothing runs",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+          "args": [
+            "expect left"
+          ]
+        },
+        "note": "off: the gone entry still there; removed by the check, townie put back"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "on: the same hard state again (another townie)",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "on: started True (safe); phase 13 reaches the celebrity within the pass",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: poll until the list holds no gone entry",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "gone",
+              "equals": 0
+            }
+          ],
+          "maxS": 300,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+          "args": [
+            "expect cleaned"
+          ]
+        },
+        "note": "on: gone 0; deadrefsweep_celebrity +1"
+      }
+    ]
+  },
+  {
+    "id": "reward-giver-check",
+    "bug": "GameObject.SetRewardGiver(sim) calls AddComponent<ObjectOwnerComponent>(sim, null); AddComponentInternal types every argument with GetType(), so the null thief throws NullReferenceException. Its only caller is RewardsManager.GiveRewards' ObjectInMail case (an opportunity reward object sent by a named Sim): the object is never mailed and the rest of the reward list, the completion text and the follow-up opportunity are skipped; no shipped opportunity uses this reward type, custom ones only (docs/525)",
+    "fix": "ts3fixes RewardGiver.cs: rewardgiver (default off), docs/525",
+    "save": "Baseline-BP",
+    "note": "The agent check (RewardGiverCheck) makes a SocialJigTwoPerson out of world, calls SetRewardGiver(active Sim) once and destroys it. Off arm: EA's NullReferenceException, no owner component. On arm: no exception, an owner component owned by that Sim; rewardgiver_added +1.",
+    "expect": "off: expect broken sees NullReferenceException and no owner component. on: expect fixed sees no exception and the owner component; rewardgiver_added >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rewardgiver": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RewardGiverCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: EA's NullReferenceException, no owner component"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rewardgiver": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RewardGiverCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: no exception, an owner component owned by the Sim; rewardgiver_added +1"
+      }
+    ]
   }
 ]

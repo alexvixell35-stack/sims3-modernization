@@ -1,6 +1,8 @@
 # 506. IL patch spec and patcher: mid-method fixes shipped as a diff, not as EA code
 
 Design 2026-11-01, not built. Contributor round 7 task 5 (Rodney: "design first; we review before the build").
+**2026-11-02:** the converter of §6 is built (`tools/ilpatch-convert.ts`, docs/521) with the three §5 specs in `mods/ilpatch/specs/`;
+the ts3native patcher (§2) is not.
 
 **Question:** many core fixes change a few instructions in the middle of an EA method (e.g. Build 89 in
 `SimDescription.Fixup`). A ts3fixes port must wrap the whole method, and when the change is in the middle it cannot

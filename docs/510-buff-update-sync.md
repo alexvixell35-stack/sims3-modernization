@@ -50,6 +50,9 @@ caught [2034] and the first five are logged with the Sim's name. Then EA's metho
 so the walk reaches every buff in the same tick: each buff's `OnTimeOutUpdated`, and the removal of buffs that timed
 out. Every other exception passes, also from the second walk.
 
+- **`AttemptToPrioritize` runs again** for the buffs with a solve commodity that the first walk reached. EA's
+  `AutoSolveRecord` attempts once only (`mbAttempted`) and only with auto-solve enabled, so the repeat does nothing for a
+  record already attempted [verified, decompile].
 - **The second walk is safe to repeat** [verified, IL]. With no time passed, no timer moves. The overrides of
   `OnTimeOutUpdated` act on sim-clock time or on their own state (last update time, tick targets, a check for an
   interaction already queued), so a second call in one tick does nothing new. Male pregnancy pauses its buff when it

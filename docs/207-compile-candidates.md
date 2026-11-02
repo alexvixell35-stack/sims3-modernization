@@ -324,6 +324,55 @@ Findings:
 
 Fixtures: **not built.** This machine has no C++ compiler and the CI does not build `native/monohost`, so nothing could be run, and an unrun fixture would only move the debugging to the next person. The recipe per method is the `fixture` column. For the top 5: rows 2 and 4 (no IC) are JitBench cases on objects from constructors plus `FieldInfo.SetValue`; rows 1, 3 and 5 also need a concrete `GameObject` subclass, and rows 3 and 5 need an M2 answer code that reads the guid table from a static field of the test assembly.
 
+### 9.1 Fixtures built: they compile, they have not run (2026-11-02, round 8 B6)
+
+`native/monohost/JitAccessors.cs` (hand-written, C# 2) builds the objects each accessor reads and calls it once for an
+input index; `tools/jit-corpus.ts` wraps the 17 fixtures in corpus cases named `Acc <method>` (cases 158-174 of the 175),
+so the value or the exception is hashed interpreted twice and compiled once like every other case (§10), and `--env` adds
+the 17 methods to the compile list (`kJitList` itself is unchanged: the game's default list does not grow). `build.cmd`
+now references the game's `ScriptCore.dll`, `Sims3GameplaySystems.dll` and `UI.dll` copies for it.
+
+How the objects are made [verified: the fixture compiles with csc against the game's assemblies, `MonoHostTest.dll`
+209 KB]: real constructors only (this mscorlib has no `GetUninitializedObject`): `FxObject : GameObject` (the base
+constructor sets one delegate), `FxLot : Lot` (its constructor makes a `CommodityInteractionMap`), `FxRouting :
+RoutingComponent`, three `ObjectComponent` subclasses whose `BaseType` is their own type, `FxProxy : IScriptProxy` that
+answers only its `ObjectId`; private fields (`mObjComponents`, `mLotCurrent`, `mSimFlags`, `mSim`, `mCommercialSubType`,
+`mLotType`, the clock's three statics, `LotManager.sActiveLot`, a route list's `_size`) are set by reflection and the
+statics put back in `finally`. `GameObject.GetComponent<C>` is private, so the fixture calls it through
+`MethodInfo.Invoke` (the compiled entry is the method's own; the caller does not matter) and rethrows the inner exception.
+
+| # | Accessor (§9 table) | Fixture, inputs | What the cases cover |
+|---|---|---|---|
+| 1 | `GameObject.GetComponent` | `GetComponentCase` 4 | found A, found B, absent C, no list |
+| 2 | `InteractionObjectPair.Equals` | `IopEqualsCase` 7 | same pair, other target, other definition (two of `Sim`'s `Singleton` definitions by reflection), a string, null, itself, a null definition (the NullReference path) |
+| 3 | `GameObject.GetObject` | `GetObjectCase` 3 | the invalid guid (no simulator call), two guids through `Simulator.GetProxy` (the host's proxy IC answers) |
+| 4 | `SimClock.ElapsedTimeInMinutes` | `ElapsedMinutesCase` 35 | 7 tick counts x 5 `lastTime` values incl. NaN; result and the written `ref` packed in one long |
+| 5 | `GameObject.get_Parent` | `ParentCase` 2 | no proxy (invalid id), a proxy with id 5: `Slots.GetParentId` then `GetObject` |
+| 6 | `ScriptObject.get_ObjectId` | `ObjectIdCase` 2 | no proxy -> `InvalidObjectGuid`; a proxy -> 77 |
+| 7 | `GameObject.get_LotCurrent` | `LotCurrentCase` 2 | `mLotCurrent` null, a `FxLot` |
+| 8 | `Household.Members.GetActorsOfType` | `ActorsOfTypeCase` 5 | two human descriptions and a dog, masks human / animal / none / teen; case 2 gives the adult a `Sim` object |
+| 9 | `RoutingComponent.get_IsRouting` | `IsRoutingCase` 4 | route list size 0-3 |
+| 10 | `Lot.get_CommercialLotSubType` | `LotSubTypeCase` 6 | 0, 1, 5, 9, 100, -1 through `GetOutwardFacingLotSubType` |
+| 12 | `ListSorted<T>.GetEnumerator` | `ListSortedCase` 4 | empty, 3 unsorted, 3 equal, the int limits |
+| 14 | `DesireCurve.GetYFromX` | `DesireCurveCase` 12 | a 4-point curve with a vertical step: below, on, between, above the points, NaN, +-inf; the empty curve (its own catch) |
+| 15 | `Sim.get_SimDescription` | `SimDescriptionCase` 2 | null, a description |
+| 16 | `Lot.get_ShouldSimulate` | `ShouldSimulateCase` 4 | active lot yes / no x residential / commercial |
+| 17 | `SimDescription.get_Age` | `AgeCase` 5 | adult, teen+male, child+female+human, none, all bits |
+| 18 | `Corners.get_Item` | `CornersCase` 5 | the four corners of a rectangle, then index 4 (IndexOutOfRange) |
+| 19 | `Household.EveryHumanSimDescription` | `EveryHumanCase` 2 | an empty household list, a null one (NullReference) |
+
+Left out (L class, §9): 11 `WeatherManager.UpdateCloudiness` (319 bytes of IL over 33 closure methods and the weather
+statics) and 13 `Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation` (two ICs, 59 closure methods). Both need a
+weather / camera state the fixture would have to invent.
+
+Not run: no C++ toolchain here, so `monohost.exe` is not built (as §9 said on 2026-10-31). What the first run tells:
+`build.cmd`, then the §10 command line with `MONOHOST_JITLIST=$(node tools/jit-corpus.ts --env)` and
+`MONOHOST_JITCORPUS_FROM=158`; `node tools/jit-corpus.ts --report out\monohost.exe.log` must show 0 differ over the 17,
+and the trail lines say which fixtures throw on both arms. Two constructors are the known risks there: `new Sim()`
+(cases 8/2 and 15; `Sim`'s static state) and `new FxLot()` (cases 7/1, 10, 16; the lot map). A fixture that throws the
+same exception on both arms is still a passing differential case, but not a test of the accessor: replace the
+constructor then. Ledger §921.
+
 ## 10. Differential corpus: compiled vs interpreted, bit for bit (2026-10-31)
 
 Round 6, task B4. Goal: every case that P0 compiles must give the same results and the same exceptions as EA's interpreter.
@@ -557,3 +606,67 @@ Not explained yet: `JitInl` (three interface calls per element, inlining off) to
 - `callvirt` with a class guard (12.1: those sites miss under 1%). Each site gets a cell with (class, lazy body), filled from the inline cache on the normal path.
 - `con.call` (`0xEB` [op, class, method]) skips the class word and then is a plain `call` (docs/213 §1 row 3, verified), so a lazy site can treat it as `call` with the method in word 2. The callee is a value-type method: `this` is a pointer, as in `JitKL.CallStruct`.
 - The gameplay accessors need the world image (docs/123 M3) before their edges can be measured.
+
+### 12.7 v2 as built (2026-11-02, round 8 B4; `MONOHOST_JITLAZY=1` still covers it, off by default) [verified: host corpus + bench]
+
+Three of the four 12.6 items, in `monohost-jit.cpp` (nothing in the game, the §12.1 world image is still missing for the fourth):
+
+1. **Lazy chains.** A lazy body may make lazy calls. A method keeps its lazy body when every position is native, `ret` /
+   `ret.void`, or a call site the compiler makes lazily (`JitLazySite`: the same filter the emitter applies). The block gets a
+   word `B_LVL` (36; the block is 40 bytes): 1 at a site in a normal body, the caller's level + 1 at a site in a lazy body.
+   A lazy site in a lazy body adds its own level to EA's depth test (the slot `depth + pending + 1` must hold a
+   `MonoInvocation`: the slots fill in order, docs/139 §8.1, so the ones between are there too) and writes its own vt cursor
+   (`ebx` + eval offset + eval size: its frame does not exist) as the return-slot word. `JitLazyMat` walks the blocks
+   (each lazy body pushes nothing of its own, so the outer block sits right above the return address into the outer lazy
+   body), writes the frames outermost first, each with the frame just written as its caller and the inner block's saved
+   `ebx` as its arena base, and drops every native call of the chain (`ecx` bytes from `JitLazyMatC`).
+2. **Class-guarded `callvirt`.** A `callvirt` of a virtual method (the declared method's `0x40` flag) gets a `JitGuardSite`.
+   The site tests the receiver (not null, a vtable, not the remoting class, not a value type), compares its class with EA's
+   inline-cache class and takes the cache's target. When the target is not the site's method yet, `JitGuardFill` (pushad,
+   one C call) looks its lazy body and frame sizes up once; a target that is not transformed yet is asked again at the next
+   call (EA's call transforms it meanwhile), one with no lazy body leaves `entry` NULL and the site bails until the cache
+   changes or the target compiles (the publish step refills). The frame sizes, `rm` and entry are read from the site at run
+   time; the argument count and the return kind come from the declared method (the signature is shared). A polymorphic
+   site misses the class compare and takes the normal exit, as EA's cache would miss.
+3. **`con.call`.** `0xEB` is a direct site with the method in word 2 and a 3-word return ip (docs/213 §1 row 3); the callee is
+   a value-type method, so `this` is the pointer on the eval stack, as `JitKL.CallStruct` already used it.
+
+Also: `JitPreTransform` transforms `con.call` callees too, and the bench now subtracts the empty loop's cost divided by the
+case's own step (the per-64 cases had a whole 20 ns taken off and printed negative times).
+
+**Gate.** The corpus has 9 more cases (`JitKL` chains: `CallChain`, `CallChainInst` with a null receiver in the middle frame,
+`CallChainArr` with `IndexOutOfRangeException` two lazy frames down and `CatchChain`, `DeepChain` at depth 30 / 70;
+`JitKV` guarded `callvirt`: base and derived class, null, a polymorphic site, `DivideByZeroException` in a guarded callee,
+a guarded callee making a guarded call; `JitKL.CallCon`: a constrained call on a value type in a generic method), 167 in all
+[measured 2026-11-02, the game test ran on the same machine]:
+
+| Run | Cases that differ | Per-call verifier | Lazy |
+|---|---|---|---|
+| verify, lazy on | 1 (`JitKO.S1AF`, §10 "stack-trace text only", as with lazy off) | 71,593 ok, 0 mismatches, 1,856 abandoned (exception) | 208 lazy bodies, 744 sites (91 guarded, 8 filled); 103,329 exits wrote 103,445 frames (116 wrote a chain of two) |
+| verify, lazy off | 1 (the same) | 71,595 ok, 0 mismatches, 1,857 abandoned | - |
+| `on`, count mode, corpus | - | - | 116,722 lazy calls: 26,163 from a lazy body, 30,686 through a guard |
+
+`JitKL.EqT` compiles with its `con.call` as a lazy site (5 native positions of 11; the other 6 are `stinarg.vt`, `ldarg.vt`,
+`vtresult` and the two `ret`). The verify-mode bench checksums (29 cases) are equal to the interpreter's in both arms.
+
+**Speed** [measured, noisy: best of 15, the game ran beside it; ns per iteration with the case's own loop overhead off]:
+
+| Case | Interpreted | Compiled, lazy off | Compiled, lazy on |
+|---|---:|---:|---:|
+| `JitLz` (two direct lazy calls per iteration, §12.4) | 56.9 | 38.4 | 18.8 |
+| `JitLzChain` (`LzMid`, a lazy body that makes `JitLz`'s two calls: three lazy calls per iteration) | 72.7 | 59.5 | 27.3 |
+| `JitLzVirt` (one class-guarded `callvirt` of `LzSq.Area` per iteration) | 30.3 | 20.5 | 9.4 |
+| `MintBench(3000)`, ms | 275.0 / 261.4 | 225.7 (-13.7%) | 223.5 (-18.7%; the two interpreter arms differ by 5%, the compiled ones by 1%) |
+
+A chained or guarded lazy call saves what a direct one did, about 11 ns per call. `MintBench` does not move: its
+class-guarded edges (§12.1, 25% of the calls: `Dictionary.GetPrev` -> `IEquatableOfTEqualityComparer<T>.Equals` ->
+`T.Equals` by `con.call`) are guarded sites now, but their targets take and return value types through `stinarg.vt`,
+`ldarg.vt` and `vtresult`, which exit, so they have no lazy body and the sites bail (8 of 91 guard sites were ever filled).
+The next step for that 25% is value-type argument and result templates, the same kind of work as B2's floats, not more
+call-site machinery.
+
+**Limits.** A guard site is filled once per target change; a target compiled after the fill is picked up only by the publish
+refill. The Satb worker never runs lazy code in a span (docs/507 §c: every entry bails at `JitEnter`, and lazy bodies are
+reached only from compiled code). `JitLazyMatC` walks at most 64 pending frames; the depth test keeps a chain below EA's
+record limit anyway. Verify mode runs lazy bodies unverified, as v1 did (their calls count as "inside a verified caller").
+Ledger: docs/51 §925.

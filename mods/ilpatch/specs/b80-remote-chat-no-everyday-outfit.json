@@ -1,0 +1,50 @@
+{
+  "id": "b80-remote-chat-no-everyday-outfit",
+  "switch": "ilp_remotechatnoeverydayoutfit",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.Actors.Sim::DoOneRoundOfRemoteChat(Sims3.UI.CAS.IMiniSimDescription)",
+  "ilHashG6": "e47ded781aeccedc",
+  "builds": {
+    "ea-1.67": {
+      "size": 315,
+      "sha256": "c596faa4f14c1e12303e31473fc366ff2d0f065c2892683b16c076de4d8ba505",
+      "tokens": {
+        "instance class [SimIFace]Sims3.SimIFace.CAS.SimOutfit Sims3.Gameplay.CAS.SimDescriptionCore::GetOutfit(valuetype [SimIFace]Sims3.SimIFace.CAS.OutfitCategories, int32)": "0x06004cd9"
+      },
+      "patchedSha256": "4b4a7f369b999cba8356db8ffe5792e1de7a6ca125f31ec632b7093ee0f16f5b"
+    },
+    "simler90-242": {
+      "size": 315,
+      "sha256": "9a3fe9119e05c760ce7fb179a4dd34e454e4e25304f8dfa2ce1734c2a1327c18",
+      "tokens": {
+        "instance class [SimIFace]Sims3.SimIFace.CAS.SimOutfit Sims3.Gameplay.CAS.SimDescriptionCore::GetOutfit(valuetype [SimIFace]Sims3.SimIFace.CAS.OutfitCategories, int32)": "0x060011d8"
+      },
+      "patchedSha256": "f01c616926d68e3419a170e9b5d46cd55b89e19a4106204fe624944594254c2f"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x23",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldloc.0"
+      ],
+      "maxStack": 3,
+      "il": [
+        "ldloc.0",
+        "ldc.i4.2",
+        "ldc.i4.0",
+        "callvirt instance class [SimIFace]Sims3.SimIFace.CAS.SimOutfit Sims3.Gameplay.CAS.SimDescriptionCore::GetOutfit(valuetype [SimIFace]Sims3.SimIFace.CAS.OutfitCategories, int32)",
+        "brfalse @0x5F"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_b80_remote_chat_no_everyday_outfit.ps1",
+    "entries": [
+      "b80-remote-chat-portrait-needs-an-everyday-outfit"
+    ]
+  }
+}

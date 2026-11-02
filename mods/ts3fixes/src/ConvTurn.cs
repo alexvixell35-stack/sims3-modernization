@@ -22,7 +22,6 @@ namespace Ts3Fixes
     public static partial class Fixes
     {
         static readonly FieldInfo sCtSim = typeof(SocialComponent).GetField("mSim", kInstAll);
-        static readonly FieldInfo sCtConv = typeof(SocialComponent).GetField("Conversation", kInstAll);
         static readonly FieldInfo sCtTurn = typeof(Conversation).GetField("mWhoseTurn", kInstAll);
         static readonly FieldInfo sCtTalked = typeof(Conversation).GetField("mWhenTalkedLast", kInstAll);
 
@@ -40,18 +39,18 @@ namespace Ts3Fixes
         // true when the asker took the turn
         static bool ConvTurnBefore(SocialComponent sc)
         {
-            Conversation c = sCtConv.GetValue(sc) as Conversation;
-            Sim asker = sCtSim.GetValue(sc) as Sim;
-            if (c == null || asker == null) return false;
+            Conversation c = sc.Conversation;
+            if (c == null) return false;
             Sim h = c.WhoseTurn;
-            if (h == asker) return false;
             Autonomy au = h != null ? h.Autonomy : null;
             InteractionQueue q = h != null ? h.InteractionQueue : null;
             InteractionInstance head = q != null ? q.GetHeadInteraction() : null;
-            float since = SimClock.ElapsedTime(TimeUnit.Minutes) - (float)sCtTalked.GetValue(c);
+            float since = SimClock.ElapsedTime(TimeUnit.Minutes) - c.WhenTalkedLast;
             if (!ConvTurnCore.Stuck(h == null, false, h != null && h.HasBeenDestroyed, au == null, au != null && au.IsRunningLocalAutonomy,
                     q == null, head == null, head is SocialInteraction, since))
                 return false;
+            Sim asker = sCtSim.GetValue(sc) as Sim; // the one reflection read, on the stuck path only (mSim is private)
+            if (asker == null || h == asker) return false;
             PatchCounters()[2031]++;
             if (!ShortcutOn("convturn")) return false;
             sCtTurn.SetValue(c, asker);

@@ -1,0 +1,48 @@
+{
+  "id": "b87-scavenger-sleep",
+  "switch": "ilp_scavengersleep",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.Opportunities.ScavengerOpportunity::OnAdded()",
+  "ilHashG6": "800840b16ef68169",
+  "builds": {
+    "ea-1.67": {
+      "size": 705,
+      "sha256": "632bde193dd8c2a104c6fd5f3255802bed03289011ee5c8cddb37490b8c6181d",
+      "tokens": {
+        "bool [SimIFace]Sims3.SimIFace.Simulator::CheckYieldingContext(bool)": "0x0a00046c"
+      },
+      "patchedSha256": "b9dab07dde7ab831fb25320b16f45a5ba3f711a740133f9644b19ea647128ada"
+    },
+    "simler90-242": {
+      "size": 705,
+      "sha256": "3356395f55878b46f161a2cd04bcbb2796420f8f744087db03c205c79a3e2a18",
+      "tokens": {
+        "bool [SimIFace]Sims3.SimIFace.Simulator::CheckYieldingContext(bool)": "0x0a00037b"
+      },
+      "patchedSha256": "5a6bc544f958af4b792b96e037999a450c6c5568bb3e3bc16083360ffdb96d17"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x282",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "call"
+      ],
+      "maxStack": 0,
+      "il": [
+        "call bool [SimIFace]Sims3.SimIFace.Simulator::CheckYieldingContext(bool)",
+        "brfalse @0x287",
+        "ldc.i4.0"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_b87_scavenger_sleep.ps1",
+    "entries": [
+      "b87-scavenger-onadded-sleeps-only-when-it-may"
+    ]
+  }
+}

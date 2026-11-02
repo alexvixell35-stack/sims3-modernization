@@ -13,10 +13,12 @@ if not exist out mkdir out
 cl /nologo /O2 /MT /W4 /WX /Foout\ /Feout\monohost.exe monohost.cpp kernel32.lib /link /BASE:0x30000000 /FIXED /DYNAMICBASE:NO /LARGEADDRESSAWARE || exit /b 1
 del out\*.obj 2>nul
 echo built out\monohost.exe
-rem Selftest (docs/119 §11): managed test assembly, compiled against the game's mscorlib/SimIFace copies (not shipped).
+rem Selftest (docs/119 §11): managed test assembly, compiled against the game's mscorlib/SimIFace copies (not shipped);
+rem JitAccessors.cs (docs/207 §9.1) also needs the game's ScriptCore, Sims3GameplaySystems and UI copies in the same folder.
 rem Usage: build.cmd [<assembly folder>], default ..\..\game-copy\assemblies (main checkout layout)
 set "ASM=%~1"
 if not defined ASM set "ASM=%~dp0..\..\game-copy\assemblies"
 if not exist "%ASM%\SimIFace.dll" (echo no %ASM%\SimIFace.dll: MonoHostTest.dll not built & exit /b 0)
-"%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe" -nologo -nostdlib -noconfig -target:library -optimize -out:out\MonoHostTest.dll "-r:%ASM%\mscorlib.dll" "-r:%ASM%\SimIFace.dll" HostTest.cs JitCorpus.cs ..\..\mods\ts3fixes\src\AutShadowCore.cs ..\..\mods\ts3fixes\src\AutShadowLists.cs || exit /b 1
+if not exist "%ASM%\Sims3GameplaySystems.dll" (echo no %ASM%\Sims3GameplaySystems.dll: MonoHostTest.dll not built & exit /b 0)
+"%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe" -nologo -nostdlib -noconfig -target:library -optimize -out:out\MonoHostTest.dll "-r:%ASM%\mscorlib.dll" "-r:%ASM%\SimIFace.dll" "-r:%ASM%\ScriptCore.dll" "-r:%ASM%\Sims3GameplaySystems.dll" "-r:%ASM%\UI.dll" HostTest.cs JitCorpus.cs JitAccessors.cs ..\..\mods\ts3fixes\src\AutShadowCore.cs ..\..\mods\ts3fixes\src\AutShadowLists.cs || exit /b 1
 echo built out\MonoHostTest.dll

@@ -151,6 +151,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kNpcDriverPool value="False" />
     <kBookCarry value="False" />
     <kAgeUpAbort value="False" />
+    <kRewardGiver value="False" />
     <kDeadRefSweep value="False" />
     <kVacExport value="False" />
     <kVacStoreGuard value="False" />

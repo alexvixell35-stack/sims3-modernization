@@ -3,11 +3,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay;
+using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.ActorSystems;
 using Sims3.Gameplay.CAS;
 using Sims3.Gameplay.Careers;
 using Sims3.Gameplay.Core;
+using Sims3.Gameplay.ObjectComponents;
 using Sims3.Gameplay.Objects.Fishing;
 using Sims3.Gameplay.Objects.HobbiesSkills;
 using Sims3.Gameplay.Objects.Vehicles;
@@ -37,12 +39,17 @@ namespace Ts3Fixes
     //     owners that are gone descriptions (AlarmManager.OnDispose), 4 household descriptions (occupation and school
     //     Coworkers, FormerBoss, chess challenger, pregnancy dad, empty-outfit count for #100), 5 Sims (LookAtManager react
     //     times, unforgettable topics, push requester, last talking partner, reserved vehicle), 6 fish (fisher), 7 cars and
-    //     boats (previous passengers), 8 horseshoe courts (throwers and scores).
+    //     boats (previous passengers), 8 horseshoe courts (throwers and scores), 9 dartboards (gone players quit through EA's
+    //     Quit, gone current player and cheating Sim cleared; #166 build 42, docs/516), 10 object use, reference and
+    //     routing-reference lists (gone Sims removed through EA's own Remove methods; #166 build 40, docs/517), 11 object owner
+    //     components (a gone owner or thief Sim relinked to its live instance, a reward giver with none dropped; #166 build 43, docs/519),
+    //     12 ObjectDisposed handlers of relationships nobody holds (a deleted description, or a decayed relationship; #166 build 41, docs/522),
+    //     13 celebrity waiting-to-react lists (gone reactors removed through EA's RemoveSimFromWaitingToReactList; docs/523).
     //     [395] relationship keys removed, [396] relationship entries removed, [397] aging states removed, [398] alarm owners
     //     cleared, [399] react-time entries, [400] coworker / boss / chess entries, [401] topics, [402] fishers, [403] Sim
-    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [405] passes finished, [406] slices,
+    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [2045] dartboard entries, [2046] use-list entries, [2047] owner entries, [2048] disposed handlers, [2049] celebrity reactors, [405] passes finished, [406] slices,
     //     [407] longest slice us, [408] total pass ms, [409] longest save pass us, [410] passes refused or stopped (unsafe state, switch off) and items that threw.
-    //   Not built (docs/205 §4): CookingProcess appliance handlers, ObjectOwnerComponent.mThief, Celebrity.mWaitingToReact,
+    //   Not built (docs/205 §4): CookingProcess appliance handlers,
     //   adoption pool pets, Service.mPreferredServiceNpc (= preferredservice, #86).
     public static partial class Fixes
     {
@@ -161,6 +168,11 @@ namespace Ts3Fixes
                 delegate { return Objects<Fish>(); },
                 delegate { List<object> l = Objects<CarOwnable>(); l.AddRange(Objects<BoatOwnable>()); return l; },
                 delegate { return Objects<HorseshoeCourt>(); },
+                delegate { return Objects<Dartboard>(); },
+                delegate { return Objects<GameObject>(); },
+                delegate { return Objects<GameObject>(); },
+                delegate { return Objects<GameObject>(); },
+                delegate { return Objects<Sim>(); },
             };
             try
             {
@@ -260,6 +272,11 @@ namespace Ts3Fixes
                     case 5: FishHolder(o as Fish); break;
                     case 6: VehicleHolders(o); break;
                     case 7: HorseshoeHolders(o as HorseshoeCourt); break;
+                    case 8: DartboardHolders(o as Dartboard); break;
+                    case 9: UseListHolders(o as GameObject); break;
+                    case 10: OwnerHolders(o as GameObject); break;
+                    case 11: HandlerHolders(o as GameObject); break;
+                    case 12: CelebrityHolders(o as Sim); break;
                 }
             }
             catch (Exception) { PatchCounters()[410]++; }
@@ -397,6 +414,448 @@ namespace Ts3Fixes
             if (sShoeScores != null) c[404] += DeadRefsCore.DropKeys(sShoeScores.GetValue(court) as Dictionary<Sim, int>, SimGone);
         }
 
+        // Phase 9 (issue #166 build 42, docs/516): EA clears a dartboard's lists only in DoFinishGame. Quit(sim), which every
+        // Wait / TakeTurnThrowingDarts cleanup calls, takes the Sim out of its team and Players but leaves CurrentPlayer and
+        // CheatingSim; a Sim reset or destroyed mid-game never reaches Quit, and the fields are saved with the board. Gone
+        // players leave through EA's Quit (team turn index kept right, an empty team removed, ActorsUsingMe); a gone
+        // CurrentPlayer / CheatingSim is cleared (EA tests both for null before use). [2045] entries.
+        static void DartboardHolders(Dartboard board)
+        {
+            if (board == null || board.HasBeenDestroyed) return;
+            int[] c = PatchCounters();
+            foreach (Sim s in new List<Sim>(board.Players)) if (SimGone(s)) { board.Quit(s); c[2045]++; }
+            if (board.CurrentPlayer != null && SimGone(board.CurrentPlayer)) { board.CurrentPlayer = null; c[2045]++; }
+            if (board.CheatingSim != null && SimGone(board.CheatingSim)) { board.CheatingSim = null; c[2045]++; }
+        }
+
+        static int DartGone(Dartboard b)
+        {
+            int n = 0;
+            foreach (Sim s in b.Players) if (SimGone(s)) n++;
+            if (b.CurrentPlayer != null && SimGone(b.CurrentPlayer)) n++;
+            if (b.CheatingSim != null && SimGone(b.CheatingSim)) n++;
+            return n;
+        }
+
+        // Agent check for docs/516 (repro dart-gone-check), a hard state built and undone:
+        //   "seed":   a dartboard made out of world holds one townie as team player, CurrentPlayer and CheatingSim; that Sim
+        //             object is then destroyed (what a reset does; the description stays and is instantiated again at the
+        //             end). The Sim: not selectable, no pet, not of the active household, not on its home lot, no role or service.
+        //   "state":  DartState: gone entries on that board, players, teams, the current / cheating flags, destroyed.
+        //   "expect left" (switch off) / "expect cleaned" (switch on): throws unless the board still holds the three gone
+        //             entries (left) or none, with Players and Teams empty (cleaned). Either way the board is destroyed
+        //             and the townie put back where it stood.
+        public class DartState { public int gone, players, teams; public bool current, cheating, destroyed; }
+        static Dartboard sDartBoard;
+        static SimDescription sDartDesc;
+        static Vector3 sDartPos;
+
+        public static object DeadRefDartCheck(string what)
+        {
+            if (what == "seed")
+            {
+                // the Late Night catalog names: DartboardCheap, DartboardExpensive; the one-argument overload builds a base-game key
+                Dartboard board = GlobalFunctions.CreateObjectOutOfWorld("DartboardCheap", ProductVersion.EP3) as Dartboard;
+                if (board == null) throw new InvalidOperationException("dart seed: CreateObjectOutOfWorld(\"DartboardCheap\", EP3) made nothing");
+                Sim victim = DrPickTownie();
+                if (victim == null) { board.Destroy(); throw new InvalidOperationException("dart seed: no townie to use"); }
+                Dartboard.Team team = new Dartboard.Team();
+                team.AddPlayerToTeam(victim, board);
+                board.Teams.Add(team); board.CurrentTeam = team; board.CurrentPlayer = victim; board.CheatingSim = victim;
+                sDartBoard = board; sDartDesc = victim.SimDescription; sDartPos = victim.Position;
+                string name = victim.FullName;
+                victim.Destroy();
+                return "dart seed: " + name + " on the board as player, current player and cheating Sim, then destroyed";
+            }
+            Dartboard b = sDartBoard;
+            if (b == null) throw new InvalidOperationException("dart " + what + ": no seed");
+            if (what == "state")
+            {
+                DartState st = new DartState();
+                st.gone = DartGone(b); st.players = b.Players.Count; st.teams = b.Teams.Count;
+                st.current = b.CurrentPlayer != null; st.cheating = b.CheatingSim != null;
+                st.destroyed = sDartDesc.CreatedSim == null || sDartDesc.CreatedSim.HasBeenDestroyed;
+                return st;
+            }
+            if (what != "expect left" && what != "expect cleaned") return "dart <seed|state|expect left|expect cleaned>";
+            bool on = ShortcutOn("deadrefsweep");
+            int gone = DartGone(b), players = b.Players.Count, teams = b.Teams.Count;
+            bool ok = what == "expect left" ? !on && gone == 3 : on && gone == 0 && players == 0 && teams == 0 && b.CurrentPlayer == null && b.CheatingSim == null;
+            string line = "gone " + gone + ", players " + players + ", teams " + teams + ", current " + (b.CurrentPlayer != null) + ", cheating " + (b.CheatingSim != null) + " (switch " + on + ")";
+            sDartBoard = null;
+            b.Destroy();
+            string back = DrPutBack(sDartDesc, sDartPos);
+            if (!ok) throw new InvalidOperationException("dart " + what + ": wrong outcome; " + line + "; " + sDartDesc.FullName + " " + back);
+            return "as expected; " + line + "; " + sDartDesc.FullName + " " + back;
+        }
+
+        // Phase 10 (issue #166 build 40, docs/517): GameObject.mActorsUsingMe, mReferenceList and mRoutingReferenceList are
+        // persisted List<Sim>s; a Sim reset or destroyed while using, referencing or routing to an object never runs the
+        // paired Remove, so the destroyed Sim object stays in the list and goes into every save. Gone Sims leave through
+        // EA's own RemoveFromUseList (science component, SimLine queue), RemoveFromReferenceList and
+        // RemoveFromRoutingReferenceList, one call per occurrence. [2046] entries.
+        static void UseListHolders(GameObject o)
+        {
+            if (o == null || o.HasBeenDestroyed) return;
+            int[] c = PatchCounters();
+            foreach (Sim s in new List<Sim>(o.ActorsUsingMe)) if (SimGone(s)) { o.RemoveFromUseList(s); c[2046]++; }
+            foreach (Sim s in new List<Sim>(o.ReferenceList)) if (SimGone(s)) { o.RemoveFromReferenceList(s); c[2046]++; }
+            List<Sim> routing = o.RoutingReferenceList; // null until the first route to the object
+            if (routing != null) foreach (Sim s in new List<Sim>(routing)) if (SimGone(s)) { o.RemoveFromRoutingReferenceList(s); c[2046]++; }
+        }
+
+        static int UseListGone(GameObject o)
+        {
+            int n = 0;
+            foreach (Sim s in o.ActorsUsingMe) if (SimGone(s)) n++;
+            foreach (Sim s in o.ReferenceList) if (SimGone(s)) n++;
+            List<Sim> routing = o.RoutingReferenceList;
+            if (routing != null) foreach (Sim s in routing) if (SimGone(s)) n++;
+            return n;
+        }
+
+        // Agent check for docs/517 (repro use-list-gone-check), a hard state built and undone, like DeadRefDartCheck:
+        //   "seed":   a social jig made out of world holds one townie in its use list, reference list and routing reference
+        //             list; that Sim object is then destroyed (the description stays; put back at the end).
+        //   "state":  UseState: gone entries on that object, the three list counts, destroyed.
+        //   "expect left" (switch off) / "expect cleaned" (switch on): throws unless the object still holds the three gone
+        //             entries (left) or none, with all three lists empty (cleaned). Either way the jig is destroyed and
+        //             the townie put back.
+        public class UseState { public int gone, use, reference, routing; public bool destroyed; }
+        static GameObject sUseObj;
+        static SimDescription sUseDesc;
+        static Vector3 sUsePos;
+
+        public static object DeadRefUseListCheck(string what)
+        {
+            if (what == "seed")
+            {
+                GameObject jig = GlobalFunctions.CreateObjectOutOfWorld("SocialJigTwoPerson") as GameObject;
+                if (jig == null) throw new InvalidOperationException("use seed: CreateObjectOutOfWorld(\"SocialJigTwoPerson\") made nothing");
+                Sim victim = DrPickTownie();
+                if (victim == null) { jig.Destroy(); throw new InvalidOperationException("use seed: no townie to use"); }
+                jig.AddToUseList(victim); jig.AddToReferenceList(victim); jig.AddToRoutingReferenceList(victim);
+                sUseObj = jig; sUseDesc = victim.SimDescription; sUsePos = victim.Position;
+                string name = victim.FullName;
+                victim.Destroy();
+                return "use seed: " + name + " in the jig's use, reference and routing reference lists, then destroyed";
+            }
+            GameObject o = sUseObj;
+            if (o == null) throw new InvalidOperationException("use " + what + ": no seed");
+            if (what == "state")
+            {
+                UseState st = new UseState();
+                st.gone = UseListGone(o); st.use = o.ActorsUsingMe.Count; st.reference = o.ReferenceList.Count;
+                st.routing = o.RoutingReferenceList != null ? o.RoutingReferenceList.Count : 0;
+                st.destroyed = sUseDesc.CreatedSim == null || sUseDesc.CreatedSim.HasBeenDestroyed;
+                return st;
+            }
+            if (what != "expect left" && what != "expect cleaned") return "use <seed|state|expect left|expect cleaned>";
+            bool on = ShortcutOn("deadrefsweep");
+            int gone = UseListGone(o), use = o.ActorsUsingMe.Count, reference = o.ReferenceList.Count, routing = o.RoutingReferenceList != null ? o.RoutingReferenceList.Count : 0;
+            bool ok = what == "expect left" ? !on && gone == 3 : on && gone == 0 && use == 0 && reference == 0 && routing == 0;
+            string line = "gone " + gone + ", use " + use + ", reference " + reference + ", routing " + routing + " (switch " + on + ")";
+            sUseObj = null;
+            o.Destroy();
+            string back = DrPutBack(sUseDesc, sUsePos);
+            if (!ok) throw new InvalidOperationException("use " + what + ": wrong outcome; " + line + "; " + sUseDesc.FullName + " " + back);
+            return "as expected; " + line + "; " + sUseDesc.FullName + " " + back;
+        }
+
+        // Phase 11 (issue #166 build 43, docs/519): ObjectOwnerComponent.mOwner (the Sim a reward came from, the tooltip's
+        // "from <Sim>", or a theft's victim) and mThief are saved by description id and re-read at load as that description's
+        // CreatedSim; in a running world nothing updates them when that Sim object is destroyed (a townie leaving, a reset).
+        // As EA's ImportContent would at the next load: a gone Sim becomes the live instance of its description when there
+        // is one; a reward giver with no live instance drops the component (RemoveComponent disposes it, which takes the
+        // Return To Owner interaction away); a theft with no live instance is left, the stolen state belongs to it. [2047].
+        static readonly FieldInfo sOwnerOwner = typeof(ObjectOwnerComponent).GetField("mOwner", kDrAll);
+        static readonly FieldInfo sOwnerThief = typeof(ObjectOwnerComponent).GetField("mThief", kDrAll);
+
+        static void OwnerHolders(GameObject o)
+        {
+            if (o == null || o.HasBeenDestroyed || sOwnerOwner == null || sOwnerThief == null) return;
+            ObjectOwnerComponent c = o.ObjectOwnerComponent;
+            if (c == null) return;
+            Sim owner = sOwnerOwner.GetValue(c) as Sim, thief = sOwnerThief.GetValue(c) as Sim;
+            bool ownerGone = owner != null && owner.HasBeenDestroyed, thiefGone = thief != null && thief.HasBeenDestroyed;
+            if (!ownerGone && !thiefGone) return;
+            int[] n = PatchCounters();
+            Sim liveOwner = ownerGone ? LiveSim(owner) : null, liveThief = thiefGone ? LiveSim(thief) : null;
+            if (ownerGone && liveOwner == null && thief == null) { o.RemoveComponent<ObjectOwnerComponent>(); n[2047]++; return; }
+            if (ownerGone && liveOwner != null) { sOwnerOwner.SetValue(c, liveOwner); n[2047]++; }
+            if (thiefGone && liveThief != null) { sOwnerThief.SetValue(c, liveThief); n[2047]++; }
+        }
+
+        // The live Sim object of a gone Sim's description, or null (a destroyed Sim keeps its description).
+        static Sim LiveSim(Sim gone)
+        {
+            SimDescription d = gone != null ? gone.SimDescription : null;
+            return d != null && d.IsValidDescription && d.CreatedSim != null && !d.CreatedSim.HasBeenDestroyed ? d.CreatedSim : null;
+        }
+
+        static int OwnerGone(GameObject o)
+        {
+            ObjectOwnerComponent c = o != null && !o.HasBeenDestroyed && sOwnerOwner != null ? o.ObjectOwnerComponent : null;
+            if (c == null) return 0;
+            Sim owner = sOwnerOwner.GetValue(c) as Sim, thief = sOwnerThief.GetValue(c) as Sim;
+            return (owner != null && owner.HasBeenDestroyed ? 1 : 0) + (thief != null && thief.HasBeenDestroyed ? 1 : 0);
+        }
+
+        // Agent check for docs/519 (repro object-owner-gone-check), a hard state built and undone, like DeadRefDartCheck:
+        //   "seed":    two social jigs made out of world, each a reward from one townie (SetRewardGiver); both Sim objects
+        //              are then destroyed, as a reset does.
+        //   "putback": the first townie's Sim object again where it stood (a live instance for the relink case; the second
+        //              stays gone, the drop case).
+        //   "state":   OwnerState: gone entries on the two jigs, relinked (the first jig's owner is the live Sim of that
+        //              description), dropped (the second jig has no owner component), both Sims destroyed, the first live.
+        //   "expect left" (switch off) / "expect cleaned" (switch on): throws unless both gone entries are still there
+        //              (left) or the first jig was relinked and the second dropped (cleaned). Either way the jigs are
+        //              destroyed and the second townie put back.
+        public class OwnerState { public int gone; public bool relinked, dropped, destroyed, live; }
+        static GameObject sOwnJigA, sOwnJigB;
+        static SimDescription sOwnDescA, sOwnDescB;
+        static Vector3 sOwnPosA, sOwnPosB;
+
+        // The reward-giver component by hand: EA's GameObject.SetRewardGiver passes a null thief, and AddComponentInternal
+        // types every argument with GetType() to find the constructor, so that call throws NullReferenceException for any
+        // Sim [verified live 2026-11-02, repro run 1]. The one-argument constructor and the owner field by reflection instead.
+        static void DrGiveReward(GameObject jig, Sim s)
+        {
+            if (!jig.AddComponent<ObjectOwnerComponent>(new object[0]) || jig.ObjectOwnerComponent == null) throw new InvalidOperationException("owner seed: AddComponent<ObjectOwnerComponent> refused on " + jig.GetType().Name);
+            sOwnerOwner.SetValue(jig.ObjectOwnerComponent, s);
+        }
+
+        public static object DeadRefOwnerCheck(string what)
+        {
+            if (what == "seed")
+            {
+                Sim a = DrPickTownie(null), b = a != null ? DrPickTownie(a.SimDescription) : null;
+                if (b == null) throw new InvalidOperationException("owner seed: fewer than two townies to use");
+                GameObject jigA = GlobalFunctions.CreateObjectOutOfWorld("SocialJigTwoPerson") as GameObject;
+                GameObject jigB = GlobalFunctions.CreateObjectOutOfWorld("SocialJigTwoPerson") as GameObject;
+                if (jigA == null || jigB == null) throw new InvalidOperationException("owner seed: CreateObjectOutOfWorld(\"SocialJigTwoPerson\") made nothing");
+                DrGiveReward(jigA, a); DrGiveReward(jigB, b);
+                sOwnJigA = jigA; sOwnJigB = jigB; sOwnDescA = a.SimDescription; sOwnDescB = b.SimDescription; sOwnPosA = a.Position; sOwnPosB = b.Position;
+                string names = a.FullName + " and " + b.FullName;
+                a.Destroy(); b.Destroy();
+                // the destroy completes at the end of the tick (CreatedSim is cleared then): "putback" follows a destroyed poll
+                return "owner seed: rewards from " + names + ", both Sim objects destroyed";
+            }
+            GameObject ja = sOwnJigA, jb = sOwnJigB;
+            if (ja == null || jb == null) throw new InvalidOperationException("owner " + what + ": no seed");
+            if (what == "putback") return "owner putback: " + sOwnDescA.FullName + " " + DrPutBack(sOwnDescA, sOwnPosA);
+            Sim liveA = sOwnDescA.CreatedSim != null && !sOwnDescA.CreatedSim.HasBeenDestroyed ? sOwnDescA.CreatedSim : null;
+            ObjectOwnerComponent ca = ja.ObjectOwnerComponent;
+            bool relinked = liveA != null && ca != null && sOwnerOwner.GetValue(ca) == liveA, dropped = jb.ObjectOwnerComponent == null;
+            int gone = OwnerGone(ja) + OwnerGone(jb);
+            if (what == "state")
+            {
+                OwnerState st = new OwnerState();
+                st.gone = gone; st.relinked = relinked; st.dropped = dropped; st.live = liveA != null;
+                st.destroyed = (sOwnDescA.CreatedSim == null || sOwnDescA.CreatedSim.HasBeenDestroyed) && (sOwnDescB.CreatedSim == null || sOwnDescB.CreatedSim.HasBeenDestroyed);
+                return st;
+            }
+            if (what != "expect left" && what != "expect cleaned") return "owner <seed|putback|state|expect left|expect cleaned>";
+            bool on = ShortcutOn("deadrefsweep");
+            bool ok = what == "expect left" ? !on && gone == 2 && !relinked && !dropped : on && gone == 0 && relinked && dropped;
+            string line = "gone " + gone + ", relinked " + relinked + ", dropped " + dropped + " (switch " + on + ")";
+            sOwnJigA = sOwnJigB = null;
+            ja.Destroy(); jb.Destroy();
+            string back = DrPutBack(sOwnDescB, sOwnPosB);
+            if (!ok) throw new InvalidOperationException("owner " + what + ": wrong outcome; " + line + "; " + sOwnDescB.FullName + " " + back);
+            return "as expected; " + line + "; " + sOwnDescB.FullName + " " + back;
+        }
+
+        // Phase 12 (issue #166 build 41, docs/522): GameObjectRelationship's constructor subscribes its GameObjectDisposed handler
+        // to the object's ObjectDisposed event (a car's or a bird's) and nothing unsubscribes it: SimDescription.Dispose leaves
+        // GameObjectRelationships alone and a decayed relationship (RemoveRelationship) only leaves the Sim's list. The handler
+        // is saved with the object, so a deleted description, or a relationship nobody holds, stays reachable from the object
+        // (a load-time graph reset then resets the car). Such handlers leave the invocation list; run at disposal they would
+        // only remove the relationship from a list that no longer has it, or from a deleted description's list. [2048].
+        static readonly FieldInfo sObjDisposed = typeof(GameObject).GetField("ObjectDisposed", kDrAll);
+        static readonly FieldInfo sRelDesc = typeof(GameObjectRelationship).GetField("mSimDesc", kDrAll);
+
+        static bool RelGone(GameObjectRelationship r)
+        {
+            SimDescription d = sRelDesc != null ? sRelDesc.GetValue(r) as SimDescription : null;
+            return d == null || !d.IsValidDescription || d.GameObjectRelationships == null || !d.GameObjectRelationships.Contains(r);
+        }
+
+        static void HandlerHolders(GameObject o)
+        {
+            if (o == null || o.HasBeenDestroyed || sObjDisposed == null || sRelDesc == null) return;
+            Delegate ev = sObjDisposed.GetValue(o) as Delegate;
+            if (ev == null) return;
+            int[] c = PatchCounters(); bool changed = false;
+            foreach (Delegate d in ev.GetInvocationList())
+            {
+                GameObjectRelationship r = d.Target as GameObjectRelationship;
+                if (r == null || !RelGone(r)) continue;
+                ev = Delegate.Remove(ev, d); c[2048]++; changed = true;
+            }
+            if (changed) sObjDisposed.SetValue(o, ev);
+        }
+
+        static int HandlerGone(GameObject o)
+        {
+            Delegate ev = o != null && !o.HasBeenDestroyed && sObjDisposed != null && sRelDesc != null ? sObjDisposed.GetValue(o) as Delegate : null;
+            if (ev == null) return 0;
+            int n = 0;
+            foreach (Delegate d in ev.GetInvocationList()) { GameObjectRelationship r = d.Target as GameObjectRelationship; if (r != null && RelGone(r)) n++; }
+            return n;
+        }
+
+        // Agent check for docs/522 (repro disposed-handler-gone-check), a hard state built and undone without destroying anything:
+        //   "seed":   a car relationship of one townie's description with a vehicle of the world, made through EA's own
+        //             Vehicle.GetNewRelationship (which subscribes the handler) and never added to the description's list:
+        //             the decayed-relationship case of RelGone.
+        //   "state":  HandlerState: gone handlers on that vehicle, mine (our relationship's handler still subscribed), handlers.
+        //   "expect left" (switch off) / "expect cleaned" (switch on): throws unless our handler is still there (left) or gone
+        //             (cleaned). Either way a handler of ours that is still subscribed is removed.
+        public class HandlerState { public int gone, handlers; public bool mine, destroyed; }
+        static GameObject sHdObj; static GameObjectRelationship sHdRel; static bool sHdMade;
+
+        static bool HdMine(GameObject o)
+        {
+            Delegate ev = sObjDisposed.GetValue(o) as Delegate;
+            if (ev == null) return false;
+            foreach (Delegate d in ev.GetInvocationList()) if (d.Target == sHdRel) return true;
+            return false;
+        }
+
+        public static object DeadRefHandlerCheck(string what)
+        {
+            if (sObjDisposed == null || sRelDesc == null) throw new InvalidOperationException("handler check: ObjectDisposed or mSimDesc field not found");
+            if (what == "seed")
+            {
+                // a car made out of world, as the dart seed makes its board: a vehicle of the world may be a taxi or a carpool
+                // that despawns within the minute (run 1 lost its LightweightTaxi 20 s after the seed, and a destroyed object
+                // is outside the pass), destroyed again at "expect"; the pick of a world vehicle is the fallback
+                Vehicle car = GlobalFunctions.CreateObjectOutOfWorld("CarHatchback") as Vehicle;
+                sHdMade = car != null;
+                if (car == null) foreach (Vehicle v in Sims3.Gameplay.Queries.GetObjects<Vehicle>()) if (!v.HasBeenDestroyed && (v.InInventory || v.LotCurrent != null) && !(v is CarNpc) && !(v is CarpoolWithDriver)) { car = v; break; }
+                Sim townie = DrPickTownie();
+                if (car == null || townie == null) throw new InvalidOperationException("handler seed: no vehicle or no townie");
+                GameObjectRelationship rel = car.GetNewRelationship(townie.SimDescription);
+                if (rel == null) throw new InvalidOperationException("handler seed: GetNewRelationship returned null");
+                sHdObj = car; sHdRel = rel;
+                return "handler seed: a car relationship of " + townie.FullName + " with " + car.GetType().Name + (sHdMade ? " made out of world" : " of the world") + ", subscribed and not in the description's list";
+            }
+            GameObject o = sHdObj;
+            if (o == null || sHdRel == null) throw new InvalidOperationException("handler " + what + ": no seed");
+            bool mine = HdMine(o);
+            Delegate all = sObjDisposed.GetValue(o) as Delegate;
+            if (what == "state") { HandlerState st = new HandlerState(); st.gone = HandlerGone(o); st.mine = mine; st.destroyed = o.HasBeenDestroyed; st.handlers = all != null ? all.GetInvocationList().Length : 0; return st; }
+            if (what != "expect left" && what != "expect cleaned") return "handler <seed|state|expect left|expect cleaned>";
+            if (o.HasBeenDestroyed) { sHdObj = null; sHdRel = null; throw new InvalidOperationException("handler " + what + ": the seeded vehicle was destroyed meanwhile (the hard state is gone, not cleaned)"); }
+            bool on = ShortcutOn("deadrefsweep");
+            bool ok = what == "expect left" ? !on && mine : on && !mine;
+            string line = "mine " + mine + ", gone " + HandlerGone(o) + " (switch " + on + ")";
+            if (mine) { foreach (Delegate d in all.GetInvocationList()) if (d.Target == sHdRel) all = Delegate.Remove(all, d); sObjDisposed.SetValue(o, all); }
+            if (sHdMade) o.Destroy();
+            sHdObj = null; sHdRel = null; sHdMade = false;
+            if (!ok) throw new InvalidOperationException("handler " + what + ": wrong outcome; " + line);
+            return "as expected; " + line + (mine ? "; our handler removed" : "");
+        }
+
+        // Phase 13 (issue #166, docs/205 §4 item, docs/523): a celebrity Sim's Celebrity object (Sim.mCelebrity, made when the
+        // celebrity broadcaster starts) keeps mWaitingToReact, the Sims who rolled a reaction to the celebrity and have not
+        // reacted yet. A reactor reset or destroyed before its reaction never leaves (only the reaction's own end removes it),
+        // and the list is saved with the Sim. Gone reactors leave through EA's own RemoveSimFromWaitingToReactList. [2049].
+        static readonly FieldInfo sSimCelebrity = typeof(Sim).GetField("mCelebrity", kDrAll);
+        static readonly FieldInfo sCelebWaiting = typeof(Celebrity).GetField("mWaitingToReact", kDrAll);
+
+        static List<Sim> CelebWaiting(Sim s)
+        {
+            Celebrity c = s != null && !s.HasBeenDestroyed && sSimCelebrity != null && sCelebWaiting != null ? sSimCelebrity.GetValue(s) as Celebrity : null;
+            return c != null ? sCelebWaiting.GetValue(c) as List<Sim> : null;
+        }
+
+        static void CelebrityHolders(Sim s)
+        {
+            List<Sim> waiting = CelebWaiting(s);
+            if (waiting == null || waiting.Count == 0) return;
+            Celebrity c = (Celebrity)sSimCelebrity.GetValue(s);
+            int[] n = PatchCounters();
+            foreach (Sim r in new List<Sim>(waiting)) if (SimGone(r)) { c.RemoveSimFromWaitingToReactList(r); n[2049]++; }
+        }
+
+        static int CelebrityGone(Sim s)
+        {
+            List<Sim> waiting = CelebWaiting(s); int n = 0;
+            if (waiting != null) foreach (Sim r in waiting) if (SimGone(r)) n++;
+            return n;
+        }
+
+        // Agent check for docs/523 (repro celebrity-waiting-gone-check), a hard state built and undone, like DeadRefDartCheck:
+        //   "seed":   a Sim of the world whose Celebrity object exists (a celebrity whose broadcaster has run) gets one townie
+        //             in its waiting-to-react list; that townie's Sim object is then destroyed (put back at the end).
+        //   "state":  CelebState: gone entries in that list, its count, destroyed.
+        //   "expect left" (switch off) / "expect cleaned" (switch on): throws unless the gone entry is still there (left) or
+        //             gone (cleaned). Either way an entry of ours still there is removed and the townie put back.
+        public class CelebState { public int gone, waiting; public bool destroyed; }
+        static Sim sCeHost; static SimDescription sCeDesc; static Vector3 sCePos;
+
+        public static object DeadRefCelebrityCheck(string what)
+        {
+            if (sSimCelebrity == null || sCelebWaiting == null) throw new InvalidOperationException("celebrity check: mCelebrity or mWaitingToReact field not found");
+            if (what == "seed")
+            {
+                Sim host = null;
+                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>()) if (CelebWaiting(s) != null) { host = s; break; }
+                Sim victim = DrPickTownie(host != null ? host.SimDescription : null);
+                if (host == null || victim == null) throw new InvalidOperationException("celebrity seed: no Sim with a Celebrity object, or no townie");
+                CelebWaiting(host).Add(victim);
+                sCeHost = host; sCeDesc = victim.SimDescription; sCePos = victim.Position;
+                string names = victim.FullName + " waiting to react to " + host.FullName;
+                victim.Destroy();
+                return "celebrity seed: " + names + ", the reactor's Sim object destroyed";
+            }
+            Sim h = sCeHost;
+            if (h == null || sCeDesc == null) throw new InvalidOperationException("celebrity " + what + ": no seed");
+            List<Sim> w = CelebWaiting(h);
+            int gone = w != null ? CelebrityGone(h) : 0;
+            if (what == "state")
+            {
+                CelebState st = new CelebState(); st.gone = gone; st.waiting = w != null ? w.Count : 0;
+                st.destroyed = sCeDesc.CreatedSim == null || sCeDesc.CreatedSim.HasBeenDestroyed; return st;
+            }
+            if (what != "expect left" && what != "expect cleaned") return "celebrity <seed|state|expect left|expect cleaned>";
+            bool on = ShortcutOn("deadrefsweep");
+            bool ok = what == "expect left" ? !on && gone >= 1 : on && gone == 0;
+            string line = "gone " + gone + ", waiting " + (w != null ? w.Count : 0) + " (switch " + on + ")";
+            if (w != null) foreach (Sim r in new List<Sim>(w)) if (SimGone(r)) w.Remove(r);
+            sCeHost = null;
+            string back = DrPutBack(sCeDesc, sCePos);
+            if (!ok) throw new InvalidOperationException("celebrity " + what + ": wrong outcome; " + line + "; " + sCeDesc.FullName + " " + back);
+            return "as expected; " + line + "; " + sCeDesc.FullName + " " + back;
+        }
+
+        // A townie for a hard state: not selectable, no pet, teen or older, not of the active household, not on its home
+        // lot, no role or service, a valid description.
+        static Sim DrPickTownie() { return DrPickTownie(null); }
+        static Sim DrPickTownie(SimDescription except)
+        {
+            Household active = Household.ActiveHousehold;
+            Lot home = active != null ? active.LotHome : null;
+            foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+            {
+                SimDescription d = s.SimDescription;
+                if (s.IsSelectable || s.IsPet || s.HasBeenDestroyed || d == null || d == except || !d.IsValidDescription || !d.TeenOrAbove) continue;
+                if (s.Household == active || (home != null && s.LotCurrent == home) || d.AssignedRole != null || d.CreatedByService != null) continue;
+                return s;
+            }
+            return null;
+        }
+
+        // The townie's Sim object again where it stood (what a reset does after its Destroy).
+        static string DrPutBack(SimDescription d, Vector3 pos)
+        {
+            if (d == null || !d.IsValidDescription) return "not put back (description gone)";
+            if (d.CreatedSim != null && !d.CreatedSim.HasBeenDestroyed) return "already in the world";
+            return d.Instantiate(pos) != null ? "put back" : "Instantiate returned null";
+        }
+
         // Before a save (DisposeSaveHook): the three big dictionaries only, gone entries only (field reads per entry; the
         // spread pass did the rest during play). Returns the work line.
         public static string DeadRefSavePass()
@@ -450,7 +909,7 @@ namespace Ts3Fixes
                 }
                 case "sweep": return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
                 case "savepass": return DeadRefSavePass();
-                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass)";
+                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck, owner components: DeadRefOwnerCheck, disposed handlers: DeadRefHandlerCheck, celebrity reactors: DeadRefCelebrityCheck)";
             }
         }
 
@@ -474,6 +933,12 @@ namespace Ts3Fixes
                 List<ActiveTopic> u = t != null && sUnforgettable != null ? sUnforgettable.GetValue(t) as List<ActiveTopic> : null;
                 if (u != null) foreach (ActiveTopic a in u) if (a != null && a.Parameter != null && DescGone(a.Parameter)) topics++;
             }
+            int uselists = 0, owners = 0, handlers = 0;
+            int celebs = 0;
+            foreach (Sim cs in Sims3.Gameplay.Queries.GetObjects<Sim>()) celebs += CelebrityGone(cs);
+            foreach (GameObject g in Sims3.Gameplay.Queries.GetObjects<GameObject>()) { uselists += UseListGone(g); owners += OwnerGone(g); handlers += HandlerGone(g); }
+            int darts = 0;
+            foreach (Dartboard b in Sims3.Gameplay.Queries.GetObjects<Dartboard>()) darts += DartGone(b);
             foreach (SimDescription d in Household.EverySimDescription())
             {
                 if (d == null || d.CareerManager == null) continue;
@@ -482,7 +947,7 @@ namespace Ts3Fixes
             }
             return "count: relationship keys gone " + relGone + "/" + Relationship.sAllRelationships.Count + ", entries naming gone " + relEntries
                 + ", aging states gone " + AgingStatesToCheck().Count + ", alarm owners gone " + AlarmOwnersToCheck().Count
-                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers
+                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers + ", dartboard entries gone " + darts + ", use-list entries gone " + uselists + ", owner entries gone " + owners + ", disposed handlers gone " + handlers + ", celebrity reactors gone " + celebs
                 + ", no-outfit descriptions " + NoOutfitDescriptions().Count + " | " + (DeadRefUnsafe(false) ?? "safe");
         }
     }

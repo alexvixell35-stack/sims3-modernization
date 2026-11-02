@@ -270,12 +270,18 @@ namespace Ts3Fixes
         // Sim asks vs distinct Sims per tick, the probe's own calibrated cost. [750-757] unseencost sites utfetch + utlookup (docs/227 §9).
         // [2043-2044] bookcarry (BookCarry.cs, docs/515): carry state machines Book.StopUsingBook dropped without an exit, ended.
         // [2037-2038] ageupabort (AgeUpAbort.cs, issue #166 build 32, docs/512): deferred age-up builds aborted during instantiation, caught.
+        // [2045] deadrefsweep phase 9 (DeadRefs.cs, issue #166 build 42, docs/516): dartboard entries that were gone (players quit, current player / cheating Sim cleared).
+        // [2046] deadrefsweep phase 10 (DeadRefs.cs, issue #166 build 40, docs/517): object use, reference and routing-reference list entries that were gone.
+        // [2047] deadrefsweep phase 11 (DeadRefs.cs, issue #166 build 43, docs/519): object owner components whose owner or thief Sim was gone (relinked or dropped).
+        // [2048] deadrefsweep phase 12 (DeadRefs.cs, issue #166 build 41, docs/522): ObjectDisposed handlers of relationships nobody holds, removed.
+        // [2049] deadrefsweep phase 13 (DeadRefs.cs, issue #166, docs/523): celebrity waiting-to-react entries that were gone, removed.
+        // [2050] rewardgiver (RewardGiver.cs, docs/525): owner components SetRewardGiver added in place of EA's NullReferenceException.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2045]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2051]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -419,6 +425,7 @@ namespace Ts3Fixes
                 case "npcdriverpool": return Instantiator.kNpcDriverPool;
                 case "bookcarry": return Instantiator.kBookCarry;
                 case "ageupabort": return Instantiator.kAgeUpAbort;
+                case "rewardgiver": return Instantiator.kRewardGiver;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;
                 case "savecleanupaggressive": return Instantiator.kSaveCleanupAggressive;
                 case "vacexport": return Instantiator.kVacExport;
