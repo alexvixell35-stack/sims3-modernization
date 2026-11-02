@@ -229,7 +229,8 @@ so numbers (largest free at the verdict, the gain) are read bit by bit. Deviatio
 - the verdict reads the largest free block **after** the save (one VirtualQuery walk on the sim thread, ~0.5-30 ms, once per
   save), not at save start. Apex releases its reserve before the save and takes it back only once 640 MB are free, so the
   reserve counts as free either way, and no phase hook is needed [inferred from Apex's source, docs/204 §1];
-- the save must be this task's (the save count moved since the task began), end with native result 1, within the last minute;
+- the save must be this task's (the save count moved since the task began), end with native result 0 (the game's success code: every good save in the logs ends `save: end #N result 0`; the first
+  draft and 0.36.128 required 1, so the verdict was never asked), within the last minute;
 - a declined offer uses the arm up (§7 option 2: at most once per arm);
 - the "restart the game" notice comes only after a compaction that did not help (§3.4), never after a failure;
 - the "+N min" line is written at the first periodic memory sample at least `AfterMinutes` after the reload (5 or 10 min period).
