@@ -238,7 +238,7 @@ static void IlpApply(const BYTE* code, DWORD n, WORD maxStack, const DWORD* cl, 
 
 // ---- the detour ----
 // True when the class k is spec class cls ("Outer+Inner" for a nested type) in namespace ns. Mono gives a nested class its
-// own name only (name_space ""), the enclosing class is nested_in (+0x2C, the field before image +0x30 and name +0x34 in
+// own name only (name_space ""), the enclosing class is nested_in (+0x28: monohost read Door+PrankDoorbellDitch, 2026-11-02; name +0x34 and name_space +0x38 in
 // this Mono's MonoClass); the namespace is the outermost class's. Until 2026-11-02 the compare was name and name_space
 // only, so no nested-type fix ever applied (smoke 22: b17-2/3, b64, b68-apple, b72, b76, b77, b81 touched, none applied).
 static bool IlpClassIs(const BYTE* k, const char* cls, const char* ns) {
@@ -249,7 +249,7 @@ static bool IlpClassIs(const BYTE* k, const char* cls, const char* ns) {
         const char* cn = *(const char* const*)(k + 0x34);
         if (!cn || strncmp(cn, seg, segLen) || cn[segLen]) return false;
         if (!plus) { const char* kns = *(const char* const*)(k + 0x38); return !strcmp(kns ? kns : "", ns); }
-        end = plus; k = *(const BYTE* const*)(k + 0x2C);
+        end = plus; k = *(const BYTE* const*)(k + 0x28);
     }
     return false;
 }

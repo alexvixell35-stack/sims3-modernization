@@ -141,7 +141,7 @@ static void TestIlPatch() {
         static char outerName[128]; static const char* emptyNs = "";
         if (plus) {
             strncpy_s(outerName, kIlpSpecs[2].cls, (size_t)(plus - kIlpSpecs[2].cls));
-            *(const char**)(klass + 0x34) = plus + 1; *(const char**)(klass + 0x38) = emptyNs; *(BYTE**)(klass + 0x2C) = outer;
+            *(const char**)(klass + 0x34) = plus + 1; *(const char**)(klass + 0x38) = emptyNs; *(BYTE**)(klass + 0x28) = outer;
             *(const char**)(outer + 0x34) = outerName; *(const char**)(outer + 0x38) = kIlpSpecs[2].ns;
         } else { *(const char**)(klass + 0x34) = kIlpSpecs[2].cls; *(const char**)(klass + 0x38) = kIlpSpecs[2].ns; }
         *(const char**)(mm + 0x18) = kIlpSpecs[2].name;
