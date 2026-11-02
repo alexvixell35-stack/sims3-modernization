@@ -670,3 +670,44 @@ refill. The Satb worker never runs lazy code in a span (docs/507 §c: every entr
 reached only from compiled code). `JitLazyMatC` walks at most 64 pending frames; the depth test keeps a chain below EA's
 record limit anyway. Verify mode runs lazy bodies unverified, as v1 did (their calls count as "inside a verified caller").
 Ledger: docs/51 §925.
+
+## 13. Round 10 C2: store, static, float-field, array, string, divide and switch templates (2026-11-02)
+
+Round 10, task C2. Goal: the opcode table's generatable rows and cheap hand rows that P0 still exited on. Host only
+(monohost, `MONOHOST_JIT`); nothing runs in the game yet. Commits a2258bb (part 1) and bcc2360 (part 2) on
+`feat/jit-stores`.
+
+### 13.1 Templates
+
+- **Part 1 (24 templates):** `ldfld.r4/.r8`, `stfld.r4/.r8`, `ldflda`, `ldsfld`, `ldsfld.i4/.o`, `ldsflda`, `stsfld`,
+  `ldelem.r4/.r8`, `stelem.i/.i1/.i2/.i4/.i8/.r4/.r8/.ref`, `stobj` (primitive and reference), `cknull`, `strlen`,
+  `getchr`. `stsfld`, `stobj` and `stelem.ref` emit the Satb barrier (docs/507 §c). `cpobj` is not in EA's mint set.
+- **Part 2 (4 opcodes):** `div.un.i4` / `rem.un.i4` (a zero divisor takes the out-of-line slow exit, where EA's handler
+  throws); `rem.r8` (`fld x; fld y; call _CIfmod`, EA's own handler body at `0xE55C65`); `switch` (`cmp eax, n; jae next;
+  jmp dword [eax*4 + table]`, the table holding the native labels as absolute addresses, which is sound because the code
+  pool is at its final address when a method is emitted; more than 1024 cases stays an exit).
+- `MONOHOST_JITC2=<mask>` keeps only some groups: 1 float fields and `ldflda`, 2 statics, 4 arrays, 8 `stobj`, 16
+  `cknull` / `strlen` / `getchr`, 32 the divides and `rem.r8`, 64 `switch`; default 127.
+- `docs/data/jit-opcode-table.csv` regenerated: covered 177 -> 181 (`tools/jit-opcode-table.ts --check` passes).
+
+### 13.2 Checks [measured, host, 2026-11-02]
+
+- Verify corpus (§10 command, `MONOHOST_JITCORPUS=1`): 188 cases, 0 differ, 0 unstable; per-call verify 31,043 ok,
+  0 mismatches, 1,145 abandoned by exception. `JitK.DivUnI4` / `RemUnI4` 462 ok each, `JitK.RemR8` 1,156 ok, `JitK.Sw` /
+  `SwSparse` 22 ok each.
+- Count mode (§11): `Dictionary`2.GetPrev` (the §12.7 25% edge) had one opcode exit, `rem.un.i4`, 132 per 132 calls;
+  it is a slow site now, taken 0 times. The 22 `switch` exits of `JitK.Sw` / `SwSparse` are gone. The run's opcode exits
+  went from 196.98 M to 195.70 M over 566 compiled methods (bench loops dominate both numbers).
+- **A green verify run does not show that a template ran.** The first part-2 build left the mask default at 31, so
+  groups 32 and 64 were off, and the verify run was still 0 mismatches with `rem.un.i4` exiting as before. Verify counts
+  calls whose results agree; only count mode's `jitexit` rows show which opcodes still exit. Both are needed for a
+  template claim.
+
+### 13.3 Left
+
+- `brfalse.r8` (long) must stay an exit (EA's handler mis-decodes it, docs/524 §4); `stobj.vt` and `ldfld.vt` need
+  value-type moves the compiler does not have; the other hand rows are the handler-shaped ones of docs/524.
+- In the count run the opcode exits by count are `ldarg.r4` 70.3 M, `ret` 36.5 M, `stinarg.r4` 31.5 M, `call` 17.0 M,
+  `ceq.r8` 15.4 M, `blt.r8.s` 7.8 M (corpus and bench weights, not the game's). Float argument moves and float compares
+  and branches are the next template group; `ret` / `call` are the §12 lazy-frame work.
+- Ledger: docs/51 §926.
