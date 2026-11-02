@@ -107,10 +107,13 @@ namespace Ts3Fixes
             public void StartupOrig() { } // MainMenuState.Startup
         }
 
-        // EA refuses Quit to Main Menu in the same states; a travel, vacation or university world reloads differently
+        // EA refuses Quit to Main Menu in the same states; a travel, vacation or university world reloads differently.
+        // Not GameStates.HasTravelData: it is a persisted static that stays set in a home-world save after a trip (both
+        // harness baselines have it, every save of theirs was refused on 2026-11-02); IsOnVacation / university / future
+        // cover the worlds that reload differently, IsTravelling the transition itself.
         static bool CpStateOk()
         {
-            if (!GameStates.IsInWorld() || !GameStates.IsLiveState || GameStates.IsTravelling || GameStates.HasTravelData || GameStates.IsOnVacation
+            if (!GameStates.IsInWorld() || !GameStates.IsLiveState || GameStates.IsTravelling || GameStates.IsOnVacation
                 || GameStates.IsEditingOtherTown || GameStates.MovingWorldName != null || Sims3.SimIFace.GameUtils.IsUniversityWorld()
                 || Sims3.SimIFace.GameUtils.IsFutureWorld())
                 return false;
