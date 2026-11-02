@@ -47,6 +47,8 @@ again, so the first jig is the relink case and the second the drop case. Off arm
 is the live Sim and the second jig has no component; `expect cleaned` requires that; the job requires
 `deadrefsweep_objectowners >= 2`.
 
+Result (2026-11-02 02:47, `bp-object-owner-gone-check`, PASS in 15.1 min, al18 rerun): off arm, the seed made two jigs out of world with a reward-giver component each (Lenny Shutter, Diana Jones), destroyed both Sim objects (gone 2 after 2 s), put the first back (live, still gone 2: nothing relinks on its own), and `expect left` found both entries unchanged. On arm, the same seed with Johnny Jones and Katrina Pala; the pass started by the sweep step relinked the first jig to the live Sim object and dropped the second's component at once (gone 0, relinked, dropped at the first poll); `expect cleaned` passed and `deadrefsweep_objectowners` reached 2. Run 1 (00:48) had failed in the seed itself: EA's `SetRewardGiver` throws for every call (docs/525), so the seed now builds the component directly.
+
 ## 4. What is left
 
 A theft with a gone Sim and no live instance stays as it is (§2). `Celebrity.mWaitingToReact` and the cooking appliance
