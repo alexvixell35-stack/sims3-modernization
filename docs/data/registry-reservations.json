@@ -2233,6 +2233,38 @@
       "what": "docs/144 §3.5 drain crash 11-02",
       "at": "2026-11-02T08:06:15.827Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v157",
+      "kind": "native",
+      "version": 157,
+      "from": 23192,
+      "to": 23231,
+      "by": "fix/rm-miss",
+      "what": "UnseenRootMotion SacsHold mode + SACS driver/actor histograms (docs/228 §11)",
+      "at": "2026-11-02T10:58:22.645Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-rmmiss"
+    },
+    {
+      "id": "native-v158",
+      "kind": "native",
+      "version": 158,
+      "from": 23232,
+      "to": 23235,
+      "by": "fix/rm-miss2",
+      "what": "UnseenRootMotion Mode 1 walk-1 rescan rmSlW1Late (docs/228 §10.7)",
+      "at": "2026-11-02T13:38:19.046Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-422",
+      "kind": "ledger",
+      "from": 422,
+      "to": 422,
+      "by": "sims-3-modernization",
+      "what": "docs/228 §10.7 walk-1 flips without a clip write",
+      "at": "2026-11-02T13:38:19.279Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
     }
   ]
 }

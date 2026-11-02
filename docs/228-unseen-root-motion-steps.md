@@ -450,6 +450,51 @@ Fix (0.36.164 candidate, counters unchanged v156):
 Verify: smoke with `rmSlMiss` 0 over >= 60 audits; a miss that remains is a start outside last pass's set (new path: log
 line, then I-421-8 is wrong for it).
 
+### 10.7 unseenrm6 misses: walk-1 flips outside last pass's set (2026-11-02; 0.36.165, counters v158; written, not compiled while a queue ran)
+
+unseenrm6 smoke (0.36.164, `unseen-root-motion-smoke-2026-11-02-smoke-1325`): `rmSlMiss` 2. Both miss lines: Sim actor (owner
+vtable `0x1042CA8`), flags `[+0x2C]` `0x10C` / `0x30C` (bits 15 and 31 clear), no root-motion clip assign this pass (dirty 0),
+**not** in last pass's set, at sub-step **walk 1** of an audit pass (passes 8328, 8648). So walk 1's test said no (else
+`RmFlagThunk` would have flagged it), nothing hooked changed it, and EA's test said yes at the first sub-step walk.
+
+Which of the brief's three paths [verified disassembly, Steam 1.67, `0x571BC0..0x571C7D`]:
+- (a) The flag call `0x571C4C` runs for every entry walk 1 visits: walk 1 has no skip condition (no visibility / LOD
+  check); per entry: refcount +1, time step `0x571BF3`, `has rig = [e+0x24] && [[e+0x24]+0xB0] && dt > 0`, `0x93E190`, then
+  test yes + rig -> `0x571C4C` + flag, test no + rig -> the non-root-motion pose `0x571C3C`. Entries linked at the head
+  during walk 1 go through `0x9402E3` (hooked, candidates). Not the cause.
+- (b) The audit (`RmSlWalk`, full) and the sub-step walks call the same `0x93E190` that walk 1 calls. Not the cause.
+- (c) So the test result changed between walk 1 and the first sub-step without a `+0x5FB` write (`0x5688BA` stores 0:
+  `eax` = 0 from `0x568864`, the same reset clears the clip pointer `+0x5D0` [verified]) and without bit 15. `0x93E190` -> `0x582830` walks
+  the TrackManager list (`[tm+4]`, std::list nodes, track at `+8`) and asks each track's vtable `+0x2C`; composite
+  controllers answer for their child slots: vtable `0xFC1AB8` (getter `0x566010`, slots `+0x3C` / `+0x50`, Advance
+  `0x567A50`), `0xFC1BB0` (`0x56A1D0`, `+0x2C` / `+0x30`), `0xFC2068` (`0x56E310`, `+0x30`), `0xFC20C0` / `0xFC2128` /
+  `0xFC21E0` (`0x570060`, `+0x2C`). The slots are refcounted pointers re-pointed by `0x5665F0` (smart-pointer assign) and
+  cleared by `0x566650` / the reset around `0x5667E2..0x566816` [verified]. A slot re-pointed to a controller whose clip
+  was assigned in an earlier pass flips the answer with no clip write. TrackManager inserts go through `0x5839E0` (get or
+  create a track by id, new node at the tail) [verified]. Which of these ran for the two actors [inferred, I-422-1]: their
+  own walk-1 non-root-motion pose `0x571C3C` (Advance of every track, finished tracks removed, clip events) moved a queued
+  root-motion controller into the active tree; another actor's walk-1 call touching this actor is the other option.
+
+Fix (0.36.165, counters v158): **walk-1 rescan.** `RmSubSteps` (Mode 1, before the first sub-step walk) runs
+`RmW1Rescan`: one pass over the live list; for every entry that is not flagged, not a candidate, not in last pass's set
+and without bit 15, it calls EA's `0x93E190` (getters only: `0x5681C0` reads `+0x5FB`, the composites read their slots,
+`0x620D60` is constant false, `0x582830` only walks the list) and, on yes with rig and TrackManager, adds it to the
+candidates (`rmSlW1Late`). Same list state EA's first sub-step walk starts from, so every actor EA steps in that walk is
+on the shortlist whatever path flipped it during walk 1; no pose or refcount change, behaviour stays EA's. Skipped when
+the pass is already all-full (hold, candidates full). The audit runs it too, so `rmSlMiss` keeps measuring what the
+rules still miss: a flip **inside** the sub-step walks with no clip write (none seen yet).
+
+Cost: one `0x93E190` per uncovered entry per root-motion pass (~70 entries, no atomics), against the ~9-10 skipped
+walks per pass at k ~10; ~1/10 of one EA walk [inferred, to be measured: `rmWalkUs` on the sampled passes includes it].
+
+Self-test (`unseenrm-test.h`): actor 3 turns root motion after walk 1 (not flagged, not in last pass's set, no dirty):
+EA's calls exactly, `rmSlW1Late` +1, no miss, in a normal and in an audit pass. Probe `agent.js` reads `rmSlW1Late`
+(v158).
+
+Verify: unseenrm smoke (BP, 4 min, >= 60 audits): `rmSlMiss` 0, `rmSlW1Late` > 0 (the flips seen); a remaining miss line
+with `walk` > 1 is a flip inside the sub-steps (Mode 1 runs only root-motion poses there, so another actor's root-motion
+pose flipped it; next step: find that writer and mark the walk dirty from it).
+
 ## 11. Mode 2: coarse root-motion steps for unseen Sims (2026-11-02, ts3native 0.36.161, counters v154; built, untested)
 
 Status: **written, not compiled, not run** (a game queue ran; no build, selftest or Ghidra). Rodney approved building it

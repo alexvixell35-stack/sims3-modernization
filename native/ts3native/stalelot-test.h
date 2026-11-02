@@ -12,7 +12,7 @@ static void TestStaleLotUnit() {
                   offsetof(Ts3nCounters, stlWhy) == 0x4F68 && offsetof(Ts3nCounters, stlWorld) == 0x4F80 &&
                   offsetof(Ts3nCounters, stlWrites) == 0x4FB0 && offsetof(Ts3nCounters, stlReadHist) == 0x4FB8 &&
                   offsetof(Ts3nCounters, stlVer) == 0x4FD8 && offsetof(Ts3nCounters, stlActOff) == 0x4FF4 &&
-                  offsetof(Ts3nCounters, stlSpare) == 0x4FF8 && sizeof(Ts3nCounters) == 5808 * 4,
+                  offsetof(Ts3nCounters, stlSpare) == 0x4FF8 && sizeof(Ts3nCounters) == 5809 * 4,
                   "counters v125 layout after reserved v123 / v124 (docs/registry.md)");
     const LONG on0 = g_stlOn;
     g_stlOn = 1;
@@ -231,7 +231,7 @@ static void TestStaleLotFp(int* list, int* s, int* g, u8* opts, DWORD& seq) {
                   offsetof(Ts3nCounters, fplGrid) == 0x5114 && offsetof(Ts3nCounters, fplMat) == 0x5120 &&
                   offsetof(Ts3nCounters, fplVer) == 0x5130 && offsetof(Ts3nCounters, fplFb) == 0x513C &&
                   offsetof(Ts3nCounters, fplOff) == 0x5154 && offsetof(Ts3nCounters, fplSpare) == 0x5158 &&
-                  sizeof(Ts3nCounters) == 5808 * 4, "counters v129 layout after reserved v126-v128 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 5809 * 4, "counters v129 layout after reserved v126-v128 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     for (int i = 0; i < SL_N; i++) g_stlFpRow[i] = -1;
     for (int i = 0; i < SN_N; i++) if (kSn[i].leaf < SL_N && g_stlFpRow[kSn[i].leaf] < 0) g_stlFpRow[kSn[i].leaf] = i;

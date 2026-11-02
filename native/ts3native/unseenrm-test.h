@@ -8,7 +8,8 @@
 // root-motion start by a pose call after the victim's walk-1 test (clip dirty; victim later and earlier in the list), a
 // bit-15 start, an unhooked start of an actor in last pass's root-motion set (stepped, no miss: v156 superset, docs/228
 // §10.6), and an audit pass that steps an unhooked start and counts it in rmSlMiss, then the 63-pass hold (counted in Mode 1
-// passes); off and full shortlist hand
+// passes), a walk-1 flip outside last pass's set found by the rescan before the first sub-step (rmSlW1Late, no miss, also
+// in an audit pass: docs/228 §10.7); off and full shortlist hand
 // everything to EA; refcount pair and release as EA; rmLateRm; flips; one sampled pass (v153, docs/228 §10).
 struct RmFakeOwner { void** vt; LONG ref; };
 static LONG g_rmFakeRel;
@@ -218,6 +219,28 @@ static void TestUnseenRootMotion() {
     RmPassEnd(), g_rmMissLogs = 0;
     g_rmFakeAct = 0, g_rmFakeTrigger = NULL;
 
+    // walk-1 flip (unseenrm6 misses, docs/228 §10.7): actor 3's test turns yes during walk 1 (e.g. its own non-root-motion
+    // pose re-points a composite's child), no clip write, not in last pass's set: the rescan before the first sub-step puts it
+    // on the shortlist, EA's calls exactly, rmSlW1Late +1, no miss in a normal (pass 1) or an audit pass (pass 8)
+    build(6), *(DWORD*)(ent[3] + 0x2C) = 1, *(void**)(ent[3] + 0x24) = rig, g_rmFakeN = 0;
+    RmRefSub(list, dt3);
+    const int nf = snap(want);
+    assert(nf == 9);
+    static const DWORD kPn[] = {0, 7};
+    for (DWORD pn : kPn) {
+        build(6), g_rmFakeN = 0;
+        walk1(c30), RmPassEnd();  // last pass's set = {1, 4}
+        const LONG w1 = k.rmSlW1Late, miss2 = k.rmSlMiss;
+        walk1(dt3, pn);
+        assert(g_rmAudit == (pn == 7) && !g_rmAllFull && !RmHas(g_rmSet[g_rmCur], ent[3]) && !RmHas(g_rmSet[g_rmCur ^ 1], ent[3]));
+        *(DWORD*)(ent[3] + 0x2C) = 1, *(void**)(ent[3] + 0x24) = rig;  // the flip, after walk 1's test said no
+        g_rmFakeN = 0, d = dt3;
+        assert(RmSubSteps(list, &d) == 1 && k.rmSlW1Late == w1 + 1 && k.rmSlMiss == miss2);
+        same(want, nf);
+        RmPassEnd();
+    }
+    assert(g_rmMissHold == 0);
+
     // Mode 0 probe: a pose call for an actor not flagged in walk 1 counts as late root motion; calls pass through
     build(6), k.rmMode = 0, g_rmFakeN = 0;
     walk1(c30);
@@ -253,7 +276,7 @@ static void TestUnseenRootMotion() {
     memset(g_rmSet, 0, sizeof g_rmSet), memset(g_rmCand, 0, sizeof g_rmCand), g_rmCandN = 0, memset(g_rmCarry, 0, sizeof g_rmCarry);
     memcpy(&k, &saved, sizeof k);
     printf("unseen root motion: step count, shortlist = EA's calls (unchanged, inserted, unlinked, clip start later/earlier, "
-           "bit 15, audit miss), fallbacks (off, full), refcount, late, flips, sample ok\n");
+           "bit 15, audit miss, walk-1 flip rescan), fallbacks (off, full), refcount, late, flips, sample ok\n");
 }
 
 // TestUnseenRootMotion2: Mode 2 (docs/228 §11) decision and merge mechanics on fakes. The game-side reasons (Rm2WhyGame) are
@@ -271,7 +294,7 @@ static void __fastcall Rm2FakeSteer(void*, void*, const float* p, const float* q
 static void TestUnseenRootMotion2() {
     static_assert(offsetof(Ts3nCounters, rm2Why) == 0x5984 && offsetof(Ts3nCounters, rm2Elig) == 0x59C4 &&
                   offsetof(Ts3nCounters, rm2DriftN) == 0x5A00 && offsetof(Ts3nCounters, rm2Faults) == 0x5A48 &&
-                  offsetof(Ts3nCounters, rm2EndN) == 0x5A4C && offsetof(Ts3nCounters, rm2End30) == 0x5A54 && sizeof(Ts3nCounters) == 0x5AC0, "counters v154 layout after v153 (docs/registry.md)");
+                  offsetof(Ts3nCounters, rm2EndN) == 0x5A4C && offsetof(Ts3nCounters, rm2End30) == 0x5A54 && sizeof(Ts3nCounters) == 0x5AC4, "counters v154 layout after v153 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     static Ts3nCounters saved;
     memcpy(&saved, &k, sizeof k);
@@ -443,7 +466,7 @@ static void TestUnseenRootMotion2() {
     // v155 script camera ICs: a hit asks CamIcPasses + lerp time x 30 (atomic max), the next pass start takes it; a jump
     // during a longer IC hold keeps the longer one; NaN / > 10 s lerp times add nothing
     static_assert(offsetof(Ts3nCounters, rm2CamIc) == 0x5A5C && offsetof(Ts3nCounters, rm2CamIcOff) == 0x5A88 &&
-                  sizeof(Ts3nCounters) == 0x5AC0 && RM2_IC_N == 11, "counters v155 layout after v154 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 0x5AC4 && RM2_IC_N == 11, "counters v155 layout after v154 (docs/registry.md)");
     for (int i = 0; i < 4; i++) Rm2CamStep(cpos, ctgt, 300, true, 0.05f);
     assert(g_rm2Cam.hold == 0);
     const LONG ic1 = k.rm2CamIc[1], ic9 = k.rm2CamIc[9];
@@ -467,7 +490,7 @@ static void TestUnseenRootMotion2() {
     // v157 steering record: 0x954580 is thiscall(self; p*, q*) [verified, I-420-17]; a synthetic write records q as a unit
     // quaternion (rm2QuatBad unchanged) and calls EA's in the same order; swapped arguments count as bad
     static_assert(offsetof(Ts3nCounters, rm2SacsHold) == 0x5A98 && offsetof(Ts3nCounters, rm2SacsAct) == 0x5AAC &&
-                  sizeof(Ts3nCounters) == 0x5AC0, "counters v157 layout after v156 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 0x5AC4, "counters v157 layout after v156 (docs/registry.md)");
     {
         static u8 steer[8];
         *(void**)steer = rig;  // owner = [self - 4]

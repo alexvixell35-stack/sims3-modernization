@@ -736,6 +736,27 @@ static void RmSlWalk(u8* list, float step) {
     }
     k.rmSlSteps++;
 }
+// After walk 1, before the first sub-step (docs/228 §10.7, I-422-1): EA's test can flip no -> yes during walk 1 with no clip
+// write and for an actor that was not root motion last pass (unseenrm6: 2 misses at sub-step walk 1, last pass's set 0, dirty
+// 0), e.g. its own non-root-motion pose 0x571C3C advancing a composite controller whose child slot (+0x3C / +0x50, getter
+// 0x566010) is re-pointed to a controller holding a root-motion clip. Re-run EA's test (0x93E190, getters only, no writes)
+// once for every entry the shortlist does not already cover; a yes with a rig joins the candidates (rmSlW1Late). Same list
+// state EA's first sub-step walk starts from, so no actor EA steps there is left out.
+static void RmW1Rescan(u8* list) {
+    if (g_rmAllFull) return;  // every walk runs EA's body anyway
+    Ts3nCounters& k = ts3native_counters;
+    u8* const sent = list - 0x18;
+    u8* const head = *(u8**)list;
+    for (u8* e = head ? head - 0x18 : NULL; e && e != sent;) {
+        u8* const nx = *(u8**)(e + 0x18);
+        if (!RmHas(g_rmSet[g_rmCur], e) && !(g_rmCandN && RmHas(g_rmCand, e)) && !RmHas(g_rmSet[g_rmCur ^ 1], e) &&
+            !(*(const DWORD*)(e + 0x2C) & 0x8000) && g_rmTest(e)) {
+            const u8* rig = *(const u8* const*)(e + 0x24);
+            if (rig && *(void* const*)(rig + 0xB0)) k.rmSlW1Late++, RmCandAdd(e);
+        }
+        e = nx ? nx - 0x18 : NULL;
+    }
+}
 // from RmSubStub (flag set): 1 = sub-steps and remainder ran here, caller goes to 0x571E0A; 0 = EA's code at 0x571C8E runs
 // them (Mode 1 off, not the sim thread's pass, or the walk-1 shortlist overflowed: rmSlFallback_1)
 static int __cdecl RmSubSteps(u8* list, float* dt) {
@@ -745,6 +766,7 @@ static int __cdecl RmSubSteps(u8* list, float* dt) {
     k.rmSlPasses++;
     if (g_rmAudit) k.rmSlAudit++;
     if (g_rmHeld) k.rmSlMissHold++;
+    RmW1Rescan(list);
     const float c = *g_rmStepC;
     float d = *dt;
     while (d >= c) d -= c, RmSlWalk(list, c);

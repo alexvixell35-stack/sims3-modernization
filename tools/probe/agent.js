@@ -1654,6 +1654,8 @@ rpc.exports = {
       if (c.readS32() >= 156) f.push('aaSlotReset', 'aaStale', 'rmSlMissHold');
       // v157 Mode 2 SACS hold (docs/228 §11.7): ini SacsHold; rm2SacsDrv_<0..3+ drivers>, rm2SacsAct_<0..4+ bound actors in one driver>
       if (c.readS32() >= 157) f.push('rm2SacsHold', ...n('rm2SacsDrv', 4), ...n('rm2SacsAct', 5));
+      // v158 Mode 1 walk-1 rescan (docs/228 §10.7): actors whose test turned yes during walk 1, found before the first sub-step
+      if (c.readS32() >= 158) f.push('rmSlW1Late');
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key

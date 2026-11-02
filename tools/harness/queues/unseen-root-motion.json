@@ -3,9 +3,9 @@
   "smoke": {
     "id": "smoke",
     "note": "Measurement smoke: BP Spring 4 min, --ab unseenrm 1-min slices, Shortlist=1, Mode=0 start. Pass: per-arm split, rmMode read back per slice (0 / 1), rmReady 3, rmPasses and rmSampled > 0, rmK_* sum = rmPasses (k histogram filled), rmCallsAll > 0, rmSlPasses grows only in on slices, rmSlFallback_3 0, rmFaults ~0, heavy tools off, no crash. 11-02 unseenrm6: 6 min (4 min gave 62 audits) and rmSlMiss must stay 0 over >= 60 audits (rmSlAudit), the Mode 1 miss fix gate.",
-    "asi": "game-copy/ts3native.asi.unseenrm6",
+    "asi": "game-copy/ts3native.asi.unseenrm7",
     "save": "Baseline-BP-Spring",
-    "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+    "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
     "ini": {
       "SlotEnabledRO.Enabled": 1,
       "SlotEnabledRO.Mode": 1,
@@ -50,7 +50,7 @@
       "-disablestoryprogression"
     ],
     "timeoutMin": 15,
-    "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+    "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
     "earlyGates": [
       {
         "afterSec": 150,
@@ -85,19 +85,19 @@
         "counter": "rmSlMiss",
         "op": "<=",
         "value": 0,
-        "why": "Mode 1 shortlist audit found a root-motion actor the shortlist would skip (rmSlMiss > 0; 0.36.164 fix: last pass root-motion set)"
+        "why": "Mode 1 shortlist audit found a root-motion actor the shortlist would skip (rmSlMiss > 0; 0.36.164 fix: last pass root-motion set; 0.36.165 fix: walk-1 rescan)"
       }
     ],
-    "minCounters": 156,
-    "nativeRequire": "rmSlAudit>=60,rmSlMiss<=0"
+    "minCounters": 158,
+    "nativeRequire": "rmSlAudit>=60,rmSlMiss<=0,rmSlW1Late>=1"
   },
   "jobs": [
     {
       "id": "bp-urm-probe",
       "note": "Mode 0 probe on BP, 10 min, no --ab, Shortlist=0 (behaviour identical). Read: k histogram rmK_* (mean k; settles docs/228 §1.2 vs I-418-2), rmActSum/rmPasses vs rmRmSum/rmPasses (actors walked vs root-motion actors per pass), x16 per s: rmW1Us, rmTsUs, rmWalkUs - rmTailN_1 x rmTailUs_0/rmTailN_0 (sub-step walks without drains), per walk = that / rmSWalks, rmUs_0..2 (root-motion pose by class), rmZoneUs_6 (unseen, no exact zone = Mode 2 candidate upper bound; goal/portal zones not mapped), rmDeltaCm_1/rmDeltaN_1 (cm per unseen call, docs/228 §2.1 reading a vs b), rmLateRm (Mode 1 divergence), probe floor rmFloorNs/rmFloorN per timed call. Stop rules: Mode 1 jobs below only if sub-step walks >= ~3 ms/s on BP or IP; Mode 2 build only if rmZoneUs_6 x16 >= ~3 ms/s.",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -141,7 +141,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -165,14 +165,14 @@
           "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
         }
       ],
-      "minCounters": 156
+      "minCounters": 158
     },
     {
       "id": "ip-urm-probe",
       "note": "Mode 0 probe on IP, 10 min, no --ab, Shortlist=0 (behaviour identical). Read: k histogram rmK_* (mean k; settles docs/228 §1.2 vs I-418-2), rmActSum/rmPasses vs rmRmSum/rmPasses (actors walked vs root-motion actors per pass), x16 per s: rmW1Us, rmTsUs, rmWalkUs - rmTailN_1 x rmTailUs_0/rmTailN_0 (sub-step walks without drains), per walk = that / rmSWalks, rmUs_0..2 (root-motion pose by class), rmZoneUs_6 (unseen, no exact zone = Mode 2 candidate upper bound; goal/portal zones not mapped), rmDeltaCm_1/rmDeltaN_1 (cm per unseen call, docs/228 §2.1 reading a vs b), rmLateRm (Mode 1 divergence), probe floor rmFloorNs/rmFloorN per timed call. Stop rules: Mode 1 jobs below only if sub-step walks >= ~3 ms/s on BP or IP; Mode 2 build only if rmZoneUs_6 x16 >= ~3 ms/s.",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-IP",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -216,7 +216,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -240,14 +240,14 @@
           "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
         }
       ],
-      "minCounters": 156
+      "minCounters": 158
     },
     {
       "id": "bp-urm-snapback",
       "note": "Mode 1 correctness: repro unseen-snapback with Shortlist=1 Mode=1 the whole run. Pass: unseen_snapback summary passes (no pose freeze or jump at the flip), rmSlPasses > 0, rmSlFallback_3 0, rmFaults 0, no crash.",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "UnseenProbe.Enabled": 1,
         "UnseenThrottle.Enabled": 1,
@@ -282,7 +282,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 40,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -313,14 +313,14 @@
           "why": "Mode 1 never ran a pass over the shortlist"
         }
       ],
-      "minCounters": 156
+      "minCounters": 158
     },
     {
       "id": "bp-urm-stuck-off",
       "note": "Stuck-Sim pair, off arm: Shortlist=1, Mode=0, 15 min (same build and ini as -on but EA walks). Compare stuck Sims with bp-urm-stuck-on.",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -364,7 +364,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 40,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 300,
@@ -388,14 +388,14 @@
           "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
         }
       ],
-      "minCounters": 156
+      "minCounters": 158
     },
     {
       "id": "bp-urm-stuck-on",
       "note": "Stuck-Sim pair, on arm: Shortlist=1, Mode=1, 15 min. Pass: stuck Sims at most one more than bp-urm-stuck-off, rmSlFallback_3 0.",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -439,7 +439,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 40,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 300,
@@ -470,14 +470,14 @@
           "why": "Mode 1 never ran a pass over the shortlist"
         }
       ],
-      "minCounters": 156
+      "minCounters": 158
     },
     {
       "id": "bp-urm-ab",
       "note": "[UnseenRootMotion] Mode 1 in-load A/B on BP, 10 min, --ab unseenrm 2-min slices, off first; Shortlist=1, probe counters in both arms; release ini + HitchAttr. Verdict as the queue note (aaPassUs, x16 rmWalkUs per arm; not it/s).",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -523,7 +523,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -547,14 +547,14 @@
           "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
         }
       ],
-      "minCounters": 156
+      "minCounters": 158
     },
     {
       "id": "bp-urm-ab-onfirst",
       "note": "[UnseenRootMotion] Mode 1 in-load A/B on BP, 10 min, --ab unseenrm 2-min slices, on first; Shortlist=1, probe counters in both arms; release ini + HitchAttr. Verdict as the queue note (aaPassUs, x16 rmWalkUs per arm; not it/s).",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -601,7 +601,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -625,14 +625,14 @@
           "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
         }
       ],
-      "minCounters": 156
+      "minCounters": 158
     },
     {
       "id": "ip-urm-ab",
       "note": "[UnseenRootMotion] Mode 1 in-load A/B on IP, 10 min, --ab unseenrm 2-min slices, off first; Shortlist=1, probe counters in both arms; release ini + HitchAttr. Verdict as the queue note (aaPassUs, x16 rmWalkUs per arm; not it/s).",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-IP",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -678,7 +678,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -702,14 +702,14 @@
           "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
         }
       ],
-      "minCounters": 156
+      "minCounters": 158
     },
     {
       "id": "ip-urm-ab-onfirst",
       "note": "[UnseenRootMotion] Mode 1 in-load A/B on IP, 10 min, --ab unseenrm 2-min slices, on first; Shortlist=1, probe counters in both arms; release ini + HitchAttr. Verdict as the queue note (aaPassUs, x16 rmWalkUs per arm; not it/s).",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-IP",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -756,7 +756,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 28,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -780,14 +780,14 @@
           "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
         }
       ],
-      "minCounters": 156
+      "minCounters": 158
     },
     {
       "id": "bp-urm2-smoke",
       "note": "Mode 2 measurement smoke: BP Spring 4 min, --ab unseenrm 1-min slices, Mode=2 Shortlist=0. Pass: per-arm split, rmMode read back per slice (0 / 1 = Mode 2), rmReady 13, rm2Elig > 0, rm2Coarse > 0 and rm2CoarsePasses growing only in on slices (rm2Elig grows in both), rm2Owed / rm2Coarse ~ MergeSteps - 1 at k ~10, rm2SnapMaxCm < 100 (owed steps at a switch-off snap), rm2Faults 0, rm2QuatBad 0, rm2RouteRecs > 0, rm2Why_* filled (exact reasons), heavy tools off, no crash.",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -842,7 +842,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 15,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 150,
@@ -901,7 +901,7 @@
           "why": "steering write argument order wrong (I-420-17)"
         }
       ],
-      "minCounters": 156,
+      "minCounters": 158,
       "report": [
         "rm2Why_",
         "rm2CamIc_",
@@ -912,9 +912,9 @@
     {
       "id": "bp-urm2-smoke-sacs0",
       "note": "Mode 2 smoke with SacsHold=0 (docs/228 §11.7), comparison arm for bp-urm2-smoke (SacsHold=2): same load, slices and gates; the SACS reason is off, so rm2Why_6 must stay 0 and rm2Elig shows how many unseen root-motion Sims the SACS test holds. Correctness only (multi-actor Sims may go coarse here); never a timing arm. rm2SacsDrv_* / rm2SacsAct_* (v157) give the driver and bound-actor histograms of the same decisions. Needs the next build (counters v157; unseenrm5 ignores SacsHold).",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -969,7 +969,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 15,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 150,
@@ -1035,7 +1035,7 @@
           "why": "SacsHold=0 not in force (rm2Why_6 counted)"
         }
       ],
-      "minCounters": 157,
+      "minCounters": 158,
       "report": [
         "rm2Why_",
         "rm2CamIc_",
@@ -1046,9 +1046,9 @@
     {
       "id": "bp-urm2-drift",
       "note": "Position drift, BP 10 min, --ab unseenrm 2-min slices: rm2DriftN per arm (arm 0 = exact off slices, arm 1 = coarse on slices; same would-coarse Sims) at each eligible Sim's last call of a pass, and route ends rm2EndN / rm2End30 (goal band reached after an eligible pass). FAIL if the coarse arm's share >= 30 cm ((rm2DriftN_9 + _10 + _11) / sum rm2DriftN_6.._11) is over 1% (p99 >= 30 cm) or over the exact arm's share (rm2DriftN_3 + _4 + _5) / sum _0.._5 by more than 0.5 pt, or rm2End30_1 / rm2EndN_1 over 1% and above rm2End30_0 / rm2EndN_0. Read rm2RouteStale vs the drift asks (I-420-18: no reference while the agent is idle) and rm2QuatBad 0 (I-420-17).",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -1103,7 +1103,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 25,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -1148,7 +1148,7 @@
           "why": "steering write argument order wrong (I-420-17): drift and Place read the wrong vector"
         }
       ],
-      "minCounters": 156,
+      "minCounters": 158,
       "report": [
         "rm2Why_",
         "rm2CamIc_",
@@ -1159,9 +1159,9 @@
     {
       "id": "bp-urm2-snapback",
       "note": "Mode 2 snap-back: repro unseen-rm-snapback with Mode=2 the whole run (camera onto unseen Sims, map view on/off and portrait clicks through the UI paths (map_view, focus_sim -> script camera ICs), instant lot jumps). Pass: rm2CamJump > 0 at the jumps, rm2CamHold > 0, rm2Coarse > 0, rm2SnapMaxCm < 100, no visible pose freeze or position jump in the screenshots at the flips (manual look), rm2Faults 0, no crash.",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -1215,7 +1215,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 31,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -1274,7 +1274,7 @@
           "why": "portrait-click path never reached IC_Camera_RequestLerpToTarget by 10 min (focus_sim step or hook)"
         }
       ],
-      "minCounters": 156,
+      "minCounters": 158,
       "report": [
         "rm2Why_",
         "rm2CamIc_",
@@ -1285,9 +1285,9 @@
     {
       "id": "bp-urm2-stuck-off",
       "note": "Mode 2 stuck pair, off arm: Mode=0 Shortlist=0, 15 min (same build and other ini as -on, EA steps). Compare stuck Sims with bp-urm2-stuck-on.",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -1341,7 +1341,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 30,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -1358,7 +1358,7 @@
           "why": "[UnseenRootMotion] probe sites not patched (Mode 0 = 1)"
         }
       ],
-      "minCounters": 156,
+      "minCounters": 158,
       "report": [
         "rm2Why_",
         "rm2CamIc_",
@@ -1369,9 +1369,9 @@
     {
       "id": "bp-urm2-stuck-on",
       "note": "Mode 2 stuck pair, on arm: Mode=2, 15 min. Pass: stuck Sims at most one more than bp-urm2-stuck-off, rm2Lost small vs rm2Coarse, rm2Faults 0.",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -1425,7 +1425,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 30,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -1456,7 +1456,7 @@
           "why": "no merged root-motion call by 5 min"
         }
       ],
-      "minCounters": 156,
+      "minCounters": 158,
       "report": [
         "rm2Why_",
         "rm2CamIc_",
@@ -1467,9 +1467,9 @@
     {
       "id": "bp-urm2-ab",
       "note": "[UnseenRootMotion] Mode 2 in-load A/B on BP, 10 min, --ab unseenrm 2-min slices; probe counters in both arms. Verdict as the queue note: root-motion pose ms/s per arm (x16 rmUs_*, x16 rmUs_1 for unseen Sims), aaPassUs, hitch counts per threshold; not it/s. Gain only if the on arm's x16 rmUs_1 drops and stuck/drift jobs passed.",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -1525,7 +1525,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 25,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -1556,7 +1556,7 @@
           "why": "no merged root-motion call by 5 min (the on arm never went coarse)"
         }
       ],
-      "minCounters": 156,
+      "minCounters": 158,
       "report": [
         "rm2Why_",
         "rm2CamIc_",
@@ -1567,9 +1567,9 @@
     {
       "id": "bp-urm2-ab-onfirst",
       "note": "[UnseenRootMotion] Mode 2 in-load A/B on BP, 10 min, --ab unseenrm 2-min slices, on first; probe counters in both arms. Verdict as the queue note: root-motion pose ms/s per arm (x16 rmUs_*, x16 rmUs_1 for unseen Sims), aaPassUs, hitch counts per threshold; not it/s. Gain only if the on arm's x16 rmUs_1 drops and stuck/drift jobs passed.",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -1626,7 +1626,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 25,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -1657,7 +1657,7 @@
           "why": "no merged root-motion call by 5 min (the on arm never went coarse)"
         }
       ],
-      "minCounters": 156,
+      "minCounters": 158,
       "report": [
         "rm2Why_",
         "rm2CamIc_",
@@ -1668,9 +1668,9 @@
     {
       "id": "ip-urm2-ab",
       "note": "[UnseenRootMotion] Mode 2 in-load A/B on IP, 10 min, --ab unseenrm 2-min slices; probe counters in both arms. Verdict as the queue note: root-motion pose ms/s per arm (x16 rmUs_*, x16 rmUs_1 for unseen Sims), aaPassUs, hitch counts per threshold; not it/s. Gain only if the on arm's x16 rmUs_1 drops and stuck/drift jobs passed.",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-IP",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -1726,7 +1726,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 25,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -1757,7 +1757,7 @@
           "why": "no merged root-motion call by 5 min (the on arm never went coarse)"
         }
       ],
-      "minCounters": 156,
+      "minCounters": 158,
       "report": [
         "rm2Why_",
         "rm2CamIc_",
@@ -1768,9 +1768,9 @@
     {
       "id": "ip-urm2-ab-onfirst",
       "note": "[UnseenRootMotion] Mode 2 in-load A/B on IP, 10 min, --ab unseenrm 2-min slices, on first; probe counters in both arms. Verdict as the queue note: root-motion pose ms/s per arm (x16 rmUs_*, x16 rmUs_1 for unseen Sims), aaPassUs, hitch counts per threshold; not it/s. Gain only if the on arm's x16 rmUs_1 drops and stuck/drift jobs passed.",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-IP",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -1827,7 +1827,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 25,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -1858,7 +1858,7 @@
           "why": "no merged root-motion call by 5 min (the on arm never went coarse)"
         }
       ],
-      "minCounters": 156,
+      "minCounters": 158,
       "report": [
         "rm2Why_",
         "rm2CamIc_",
@@ -1869,9 +1869,9 @@
     {
       "id": "bp-urm2-drift-place",
       "note": "Position drift with Place=1 (test arm: the agent write replayed after each merged call), BP 10 min, --ab unseenrm 2-min slices: rm2DriftN per arm (arm 0 = exact off slices, arm 1 = coarse on slices; same would-coarse Sims) at each eligible Sim's last call of a pass, and route ends rm2EndN / rm2End30 (goal band reached after an eligible pass). FAIL if the coarse arm's share >= 30 cm ((rm2DriftN_9 + _10 + _11) / sum rm2DriftN_6.._11) is over 1% (p99 >= 30 cm) or over the exact arm's share (rm2DriftN_3 + _4 + _5) / sum _0.._5 by more than 0.5 pt, or rm2End30_1 / rm2EndN_1 over 1% and above rm2End30_0 / rm2EndN_0. Read rm2RouteStale vs the drift asks (I-420-18: no reference while the agent is idle) and rm2QuatBad 0 (I-420-17). Compare with bp-urm2-drift; Place stays off unless it lowers the coarse share without stuck Sims (rm2Placed > 0 needed).",
-      "asi": "game-copy/ts3native.asi.unseenrm6",
+      "asi": "game-copy/ts3native.asi.unseenrm7",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.unseenrm6",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenrm7",
       "ini": {
         "SlotEnabledRO.Enabled": 1,
         "SlotEnabledRO.Mode": 1,
@@ -1926,7 +1926,7 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 25,
-      "pinReason": "unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
+      "pinReason": "unseenrm7 = ts3native 0.36.165 (counters v158): Mode 1 walk-1 rescan RmW1Rescan (rmSlW1Late); earlier: unseenrm6 = ts3native 0.36.164 (counters v157): Mode 1 shortlist miss fix (last pass root-motion set) + Mode 2 steer arg order and SACS hold (SacsHold=2), PR #205 harness; earlier: unseenrm5 = ts3native 0.36.163 on master (counters v156): unseenrm4 + 11-02 drain-crash triage ([UnseenAnim] stale owed-time drop aaStale + list reset aaSlotReset, drain-destroy fault dump, forensics dump on C0000096) + [UnseenRootMotion] audit-miss log and full-walk hold (rmSlMissHold)",
       "earlyGates": [
         {
           "afterSec": 200,
@@ -1971,7 +1971,7 @@
           "why": "steering write argument order wrong (I-420-17): drift and Place read the wrong vector"
         }
       ],
-      "minCounters": 156,
+      "minCounters": 158,
       "report": [
         "rm2Why_",
         "rm2CamIc_",
