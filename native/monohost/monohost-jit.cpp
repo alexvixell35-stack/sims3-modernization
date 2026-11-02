@@ -160,7 +160,8 @@ enum JitKind : u8 {
     K_LDCS, K_LDCI4, K_DUP, K_POP, K_BRS, K_BR, K_BTS, K_BT, K_BFS, K_BF, K_BCS, K_BC, K_LDLEN, K_LDELEM, K_LDIND, K_STIND,
     K_BIN, K_BIN8, K_MUL, K_INC, K_DEC, K_SHIFT, K_UN, K_CMP, K_CEQ0, K_CONV,
     K_LDSFLD, K_LDSFLDA, K_STSFLD, K_STELEM, K_STELEMREF, K_STOBJ, K_LDFLDA, K_CKNULL, K_STRLEN, K_GETCHR,  // round 10 C2
-    K_DIVUN, K_REMR8, K_SWITCH  // round 10 C2, the throw-only handlers, rem.r8 and switch
+    K_DIVUN, K_REMR8, K_SWITCH,  // round 10 C2, the throw-only handlers, rem.r8 and switch
+    K_LDVT, K_STVT, K_STINARGVT, K_DUPVT, K_VTRESULT, K_CEQ8  // round 10 C1, the value-type moves and ceq.i8 (docs/207 §15)
 };
 // width: 1 = i1, 2 = u1, 3 = i2, 4 = u2, 5 = 32-bit, 6 = 64-bit, 7 = r4 (x87), 8 = typed by the field or class at compile
 // time (JitTypeWidth); x = kind-specific byte (cc, alu op, imm)
@@ -196,6 +197,9 @@ static const struct { const char* name; u8 kind, width; int x; } kJitTmpl[] = {
     {"stloc.np.i4", K_STLOCNP, 5, 0}, {"stloc.np.o", K_STLOCNP, 5, 0},
     {"stinarg.i1", K_STINARG, 1, 0}, {"stinarg.u1", K_STINARG, 2, 0}, {"stinarg.i2", K_STINARG, 3, 0}, {"stinarg.u2", K_STINARG, 4, 0},
     {"stinarg.i4", K_STINARG, 5, 0}, {"stinarg.o", K_STINARG, 5, 0}, {"stinarg.p", K_STINARG, 5, 0}, {"stinarg.i8", K_STINARG, 6, 0},
+    // round 10 C1: the value-type moves; x = 0 an argument (ebx), 1 a local (edi)
+    {"ldarg.vt", K_LDVT, 0, 0}, {"ldloc.vt", K_LDVT, 0, 1}, {"starg.vt", K_STVT, 0, 0}, {"stloc.vt", K_STVT, 0, 1},
+    {"stinarg.vt", K_STINARGVT, 0, 0}, {"dup.vt", K_DUPVT, 0, 0}, {"vtresult", K_VTRESULT, 0, 0},
     {"ldfld.i1", K_LDFLD, 1, 0}, {"ldfld.u1", K_LDFLD, 2, 0}, {"ldfld.i2", K_LDFLD, 3, 0}, {"ldfld.u2", K_LDFLD, 4, 0},
     {"ldfld.i4", K_LDFLD, 5, 0}, {"ldfld.o", K_LDFLD, 5, 0}, {"ldfld.p", K_LDFLD, 5, 0}, {"ldfld.i8", K_LDFLD, 6, 0},
     {"stfld.i1", K_STFLD, 1, 0}, {"stfld.u1", K_STFLD, 2, 0}, {"stfld.i2", K_STFLD, 3, 0}, {"stfld.u2", K_STFLD, 4, 0},
@@ -235,7 +239,7 @@ static const struct { const char* name; u8 kind, width; int x; } kJitTmpl[] = {
     {"xor.i8", K_BIN8, 0, 0x3131}, {"mul.i4", K_MUL, 0, 0}, {"add1.i4", K_INC, 0, 0}, {"sub1.i4", K_DEC, 0, 0},
     {"shl.i4", K_SHIFT, 0, 4}, {"shr.i4", K_SHIFT, 0, 7}, {"shr.un.i4", K_SHIFT, 0, 5}, {"neg.i4", K_UN, 0, 3}, {"not.i4", K_UN, 0, 2},
     // setcc second byte (0F 9x): sete 94, setg 9F, setl 9C, seta 97, setb 92
-    {"ceq.i4", K_CMP, 0, 0x94}, {"cgt.i4", K_CMP, 0, 0x9F}, {"clt.i4", K_CMP, 0, 0x9C}, {"cgt.un.i4", K_CMP, 0, 0x97},
+    {"ceq.i4", K_CMP, 0, 0x94}, {"ceq.i8", K_CEQ8, 0, 0}, {"cgt.i4", K_CMP, 0, 0x9F}, {"clt.i4", K_CMP, 0, 0x9C}, {"cgt.un.i4", K_CMP, 0, 0x97},
     {"clt.un.i4", K_CMP, 0, 0x92}, {"ceq0.i4", K_CEQ0, 0, 0},
     {"conv.i8.i4", K_CONV, 0, 1}, {"conv.u8.i4", K_CONV, 0, 2}, {"conv.i4.i8", K_CONV, 0, 3}, {"conv.i1.i4", K_CONV, 0, 4},
     {"conv.u1.i4", K_CONV, 0, 5}, {"conv.i2.i4", K_CONV, 0, 6}, {"conv.u2.i4", K_CONV, 0, 7},
@@ -340,8 +344,25 @@ static void JitVerifyExitStub();
 // goes through a class guard on EA's inline cache (JitGuardSite).
 // Block the call site pushes (the lazy body sees it at [esp+4]; it pushes nothing itself, so in a chain the outer block
 // sits right above the return address into the outer lazy body):
-enum { B_ARGS = 0, B_THIS = 4, B_RIP = 8, B_RSP = 12, B_RSLOT = 16, B_RM = 20, B_EBX = 24, B_EDI = 28, B_CIP = 32, B_LVL = 36, B_SIZE = 40 };
+enum { B_ARGS = 0, B_THIS = 4, B_RIP = 8, B_RSP = 12, B_RSLOT = 16, B_RM = 20, B_EBX = 24, B_EDI = 28, B_CIP = 32, B_LVL = 36, B_VT = 40, B_SIZE = 44 };
+// B_VT (round 10 C1): the lazy body's vt cursor, the word the interpreter keeps at [ebp-0xC] for a written frame; the site
+// starts it at the callee's vt area, the value-type moves of the body advance it, JitLazyMat copies it into the frame.
 static void JitLazyMat();
+// the value-type moves' pieces: the vt cursor ([ebp-0xC], or the block's B_VT in a lazy body), a memcpy through EA's CRT
+// thunk (0xF7E8A6, cdecl: eax, ecx, edx go). The block reads happen with esp at the body's entry value (before the pushes
+// or after the add esp, 12), so the opEsp offsets hold.
+static void VtLoad(Em& e, int r) { if (g_jitLazyPass) e.opEsp(0x8B, r, 4 + B_VT); else e.op(0x8B, r, EBP, -0xC); }
+static void VtStore(Em& e, int r) { if (g_jitLazyPass) e.opEsp(0x89, r, 4 + B_VT); else e.op(0x89, r, EBP, -0xC); }
+static void VtAdd(Em& e, int n) {  // add dword [cursor], n
+    if (!n) return;
+    if (g_jitLazyPass) { e.b(0x81); e.b(0x84); e.b(0x24); e.d(4 + B_VT); } else { e.b(0x81); e.m(0, EBP, -0xC); }
+    e.d((DWORD)n);
+}
+static void VtCopy(Em& e, int dst, int src, DWORD n) {  // memcpy(dst, src, n): push n; push src; push dst; call thunk; add esp, 12
+    e.b(0x68); e.d(n); e.b(0x50 + src); e.b(0x50 + dst);
+    e.b(0xE8); e.d(0xF7E8A6 - ((DWORD)(uintptr_t)e.p + 4));
+    e.b(0x83); e.b(0xC4); e.b(12);
+}
 static bool g_jitDumpCode;  // MONOHOST_JITDUMPCODE=1
 struct JitLazyCell { const u8* rm; u8* entry; };  // callee -> its lazy body (NULL until compiled); call sites read entry
 static JitLazyCell g_jitLazyCell[8192];
@@ -358,7 +379,7 @@ static JitLazyCell* JitLazyCellFor(const u8* rm) {
 // (once per target change). A target that is not transformed yet leaves rm NULL (asked again at the next call, after EA's
 // call has transformed it); one with no lazy body leaves entry NULL (the site bails until the cache changes, or until the
 // target compiles: the publish step refills). Counters: lazy calls made from a lazy body and through a guard (count mode).
-struct JitGuardSite { const u8* rm; u8* entry; DWORD w38, w3E, wLoc, w3C; volatile LONG fills; };
+struct JitGuardSite { const u8* rm; u8* entry; DWORD w38, w3E, wLoc, w3C, wVt; volatile LONG fills; };
 static JitGuardSite g_jitGuard[4096];
 static int g_jitGuardN, g_jitLazyGuardSites;
 static volatile LONG g_jitLazyChain, g_jitLazyGuard;
@@ -372,7 +393,8 @@ static void __cdecl JitGuardFill(JitGuardSite* s, const u8* rm) {
     JitLazyCell* cell = JitLazyCellFor(rm);
     if (!cell || !cell->entry) return;
     s->w38 = *(const unsigned short*)(rm + 0x38), s->w3E = *(const unsigned short*)(rm + 0x3E);
-    s->wLoc = s->w3E + *(const unsigned short*)(rm + 0x34) + *(const unsigned short*)(rm + 0x36);
+    s->wVt = s->w3E + *(const unsigned short*)(rm + 0x34);
+    s->wLoc = s->wVt + *(const unsigned short*)(rm + 0x36);
     s->w3C = (fl & 0x800) ? *(const unsigned short*)(rm + 0x3C) : 0;
     s->entry = cell->entry;
 }
@@ -582,7 +604,6 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
     const int n = c[0x40], thisOff = -(n + 1) * 8, rsp = inst ? thisOff : -n * 8, ripW = op == 0xEA ? 2 : op == 0xEB ? 3 : 4;
     const unsigned short w38 = *(const unsigned short*)(c + 0x38), w3E = *(const unsigned short*)(c + 0x3E);
     const unsigned short w34 = *(const unsigned short*)(c + 0x34), w36 = *(const unsigned short*)(c + 0x36);
-    const int vtOff = *(const unsigned short*)(callerRm + 0x3E) + *(const unsigned short*)(callerRm + 0x34);
     u8* bail[16];
     int nb = 0;
     if (guard) {  // receiver not null, with a vtable, not the remoting class, not a value type, of the cache's class; target = the cache's
@@ -627,8 +648,10 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
     // commit: arena bump, EA's return-slot word, the block, the callee's registers
     e.op(0x89, EAX, EDX, 0);                                      // [chunk] = top + size
     if (guard) { e.b(0x2B); e.b(0x05); e.d((DWORD)(uintptr_t)&gs->w38); } else { e.b(0x2D); e.d(w38); }  // eax = callee arena base
-    if (lazy) e.op(0x8D, EDX, EBX, vtOff); else e.op(0x8B, EDX, EBP, -0xC);
+    VtLoad(e, EDX);
     e.op(0x89, EDX, ESI, 0);                                      // [return slot] = vt cursor, as EA's call writes
+    if (guard) { e.rr(0x8B, EAX, EDX); e.b(0x03); e.b(0x15); e.d((DWORD)(uintptr_t)&gs->wVt); } else e.op(0x8D, EDX, EAX, w3E + w34);
+    e.b(0x50 + EDX);                                              // B_VT = the callee's vt area start
     if (g_jitCountOn) { e.incAbs(&g_jitLazyCalls); if (lazy) e.incAbs(&g_jitLazyChain); if (guard) e.incAbs(&g_jitLazyGuard); }
     if (lazy) { e.b(0xFF); e.b(0xB4); e.b(0x24); e.d(4 + B_LVL); e.b(0xFF); e.b(0x04); e.b(0x24); }  // B_LVL = own level + 1
     else { e.b(0x6A); e.b(1); }                                                                      // B_LVL = 1
@@ -702,8 +725,10 @@ static void JitPreTransform(u8* rm, void* ctx) {
         if (w == 0xEA || w == 0xEB || w == 0xEC) {
             u8* c = (u8*)(uintptr_t)items[w == 0xEA ? code[i + 1] : w == 0xEB ? code[i + 2] : code[i + 3]];
             const u8* mm = c ? *(const u8* const*)(c + 8) : NULL;
-            // instance callees for the inliner; with lazy frames static ones too (a lazy call site bakes in the callee's frame layout)
-            if (c && mm && !(*(const DWORD*)(c + 0x44) & 0x100) && ((*(const DWORD*)(c + 0x44) & 0x200) || g_jitLazy) && !(*(const unsigned short*)mm & 0x40))
+            // instance callees for the inliner; with lazy frames static ones too (a lazy call site bakes in the callee's frame layout).
+            // A virtual one is left to its guard site, except a con.call's: that target is static, and an interface implementation
+            // such as UInt64.Equals(ulong) is "virtual final" in metadata (round 10 C1: its site compiled as an exit before).
+            if (c && mm && !(*(const DWORD*)(c + 0x44) & 0x100) && ((*(const DWORD*)(c + 0x44) & 0x200) || g_jitLazy) && (w == 0xEB || !(*(const unsigned short*)mm & 0x40)))
                 JitTransformHook(c, ctx);
         }
         i += len;
@@ -972,9 +997,52 @@ static void JitCompiled(u8* rm) {
                 for (int c = 0; c < cnt; c++) { fix[nf].rel = e.p, fix[nf].abs = true, fix[nf++].targetW = endW + ((const int*)(ip + 3))[c]; e.d(0); }
                 Fix(over, e.p); break;
             }
+            // round 10 C1: the value-type moves, EA's handlers ported (docs/213 §3, docs/207 §15). The vt stack is the frame's own
+            // area; a slot that holds a value type holds a pointer into it; sizes round up to 8 on the cursor, not in the copy.
+            case K_LDVT: {  // ldarg.vt / ldloc.vt: [esi] = cursor; copy size (words 2-3) bytes there; cursor += align8
+                const DWORD sz = *(const DWORD*)(ip + 2);
+                VtLoad(e, EAX); e.op(0x89, EAX, ESI, 0); e.op(0x8D, ECX, t.x ? EDI : EBX, u16);
+                VtCopy(e, EAX, ECX, sz); VtAdd(e, (int)((sz + 7) & ~7u)); e.addEsi(8); break;
+            }
+            case K_STVT: {  // starg.vt / stloc.vt: the pointed-at bytes go to the argument / local; cursor -= align8 (EA's tail 0xE56C21)
+                const DWORD sz = *(const DWORD*)(ip + 2);
+                e.op(0x8B, ECX, ESI, -8); e.op(0x8D, EDX, t.x ? EDI : EBX, u16);
+                VtCopy(e, EDX, ECX, sz); VtAdd(e, -(int)((sz + 7) & ~7u)); e.addEsi(-8); break;
+            }
+            case K_STINARGVT: {  // arena[argOff[i]] = *(stackargs[i].p), size bytes; the caller's copy stays on its vt stack
+                const DWORD sz = *(const DWORD*)(ip + 2);
+                if (g_jitLazyPass) e.opEsp(0x8B, ECX, 4 + B_ARGS); else { e.op(0x8B, ECX, EBP, -8); e.op(0x8B, ECX, ECX, 0x14); }
+                e.op(0x8B, ECX, ECX, u16 * 8); e.op(0x8D, EDX, EBX, (int)argOff[u16]);
+                VtCopy(e, EDX, ECX, sz); break;
+            }
+            case K_DUPVT: {  // size at words 1-2: a second copy at the cursor, [esi] points at it
+                const DWORD sz = *(const DWORD*)(ip + 1);
+                e.op(0x8B, ECX, ESI, -8); VtLoad(e, EAX); e.op(0x89, EAX, ESI, 0);
+                VtCopy(e, EAX, ECX, sz); VtAdd(e, (int)((sz + 7) & ~7u)); e.addEsi(8); break;
+            }
+            case K_VTRESULT: {  // after a call that returned a value type: release the callee's vt bytes (words 2-3, aligned 8); a
+                // result of w1 (word 1) bytes moves down to the new cursor (memmove through EA's import, skipped when it is there
+                // already) and [esi-8] points at it; then its aligned size is kept on the cursor. EA's 0xE545B0.
+                const DWORD a2 = (*(const DWORD*)(ip + 2) + 7) & ~7u, a1 = (u16 + 7) & ~7u;
+                VtLoad(e, ECX); e.rr(0x8B, ECX, EAX);                                   // eax = old cursor
+                if (a2) { e.b(0x81); e.b(0xE9); e.d(a2); }                               // sub ecx, a2
+                VtStore(e, ECX);
+                if (u16) {
+                    e.rr(0x3B, EAX, ECX); e.b(0x74); u8* same = e.p; e.b(0);              // cmp ecx, eax; je same
+                    e.b(0x68); e.d(u16); e.b(0x50 + EAX); e.b(0x50 + ECX); e.op(0x89, ECX, ESI, -8);
+                    e.b(0xFF); e.b(0x15); e.d(0xF95684); e.b(0x83); e.b(0xC4); e.b(12);   // call dword ptr [memmove]; add esp, 12
+                    *same = (u8)(e.p - (same + 1));
+                    VtAdd(e, (int)a1);
+                }
+                break;
+            }
             case K_CMP:
                 e.op(0x8B, EDX, ESI, -16); e.rr(0x33, EAX, EAX); e.op(0x3B, EDX, ESI, -8);
                 e.b(0x0F); e.b(t.x); e.b(0xC0);  // setcc al
+                e.op(0x89, EAX, ESI, -16); e.addEsi(-8); break;
+            case K_CEQ8:  // (a == b) over two 8-byte slots: xor the halves, or them, sete (EA's 0xE5803C); the low dword gets the result
+                e.op(0x8B, EAX, ESI, -16); e.op(0x33, EAX, ESI, -8); e.op(0x8B, ECX, ESI, -12); e.op(0x33, ECX, ESI, -4);
+                e.rr(0x0B, ECX, EAX); e.b(0x0F); e.b(0x94); e.b(0xC0); e.b(0x0F); e.b(0xB6); e.b(0xC0);  // or eax, ecx; sete al; movzx eax, al
                 e.op(0x89, EAX, ESI, -16); e.addEsi(-8); break;
             case K_CEQ0: e.rr(0x33, EAX, EAX); e.b(0x83); e.m(7, ESI, -8); e.b(0); e.b(0x0F); e.b(0x94); e.b(0xC0); e.op(0x89, EAX, ESI, -8); break;
             case K_CONV:
@@ -1342,7 +1410,7 @@ static void __cdecl JitLazyMatC(JitRegs* r) {
         DWORD a = ebx + *(const unsigned short*)(rm + 0x3E);  // eval stack base
         *(DWORD*)(rec + 8) = a, *(DWORD*)(inv + 0x18) = a;
         a += *(const unsigned short*)(rm + 0x34);
-        *(DWORD*)(rec + 0xC) = a, F(-0xC) = a;
+        *(DWORD*)(rec + 0xC) = a, F(-0xC) = B[B_VT / 4];  // the cursor: the body's value-type moves may have advanced it
         a += *(const unsigned short*)(rm + 0x36);
         *(DWORD*)(rec + 0x10) = a, F(-0x14) = a;
         *(DWORD*)(rec + 4) = *(const DWORD*)rm, F(-4) = *(const DWORD*)rm;
@@ -1351,7 +1419,7 @@ static void __cdecl JitLazyMatC(JitRegs* r) {
     r->ecx = L * (4 + B_SIZE);
     g_jitLazyMats++;
 }
-static_assert(B_SIZE == 40, "JitLazyMat drops 4 + B_SIZE bytes per pending frame");
+static_assert(B_SIZE == 44, "JitLazyMat drops 4 + B_SIZE bytes per pending frame");
 static __declspec(naked) void JitLazyMat() {  // edi = exit ip, eax = opcode; [esp] = return address, [esp+4] = block
     __asm {
         pushad
@@ -1890,15 +1958,16 @@ static bool InstallJit() {
         for (DWORD op = 0; op < 0x1C1; op++) g_opHandler[op] = (void*)(uintptr_t)table[op];
         // MONOHOST_JITC2=<mask> keeps only these round 10 C2 template groups (default all): 1 float fields + ldflda, 2 static
         // fields, 4 the array loads / stores added here, 8 stobj, 16 cknull / strlen / getchr, 32 div.un.i4 / rem.un.i4 / rem.r8,
-        // 64 switch
-        unsigned c2 = 127;
+        // 64 switch, 128 the value-type moves and ceq.i8 (round 10 C1)
+        unsigned c2 = 255;
         if (GetEnvironmentVariableA("MONOHOST_JITC2", x, sizeof(x))) c2 = (unsigned)atoi(x);
         for (auto& t : kJitTmpl) {
             const unsigned g = t.kind == K_LDFLDA || !strcmp(t.name, "ldfld.r4") || !strcmp(t.name, "ldfld.r8") || !strcmp(t.name, "stfld.r4") || !strcmp(t.name, "stfld.r8") ? 1
                 : t.kind == K_LDSFLD || t.kind == K_LDSFLDA || t.kind == K_STSFLD ? 2
                 : t.kind == K_STELEM || t.kind == K_STELEMREF || !strcmp(t.name, "ldelem.r4") || !strcmp(t.name, "ldelem.r8") ? 4
                 : t.kind == K_STOBJ ? 8 : t.kind == K_CKNULL || t.kind == K_STRLEN || t.kind == K_GETCHR ? 16
-                : t.kind == K_DIVUN || t.kind == K_REMR8 ? 32 : t.kind == K_SWITCH ? 64 : 0;
+                : t.kind == K_DIVUN || t.kind == K_REMR8 ? 32 : t.kind == K_SWITCH ? 64
+                : t.kind == K_LDVT || t.kind == K_STVT || t.kind == K_STINARGVT || t.kind == K_DUPVT || t.kind == K_VTRESULT || t.kind == K_CEQ8 ? 128 : 0;
             if (g & ~c2) continue;
             for (DWORD op = 0; op <= 0x1A8; op++)
                 if (!strcmp(names[op], t.name)) { g_opInfo[op] = {t.kind, t.width, t.x}; break; }

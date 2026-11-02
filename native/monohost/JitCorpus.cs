@@ -287,6 +287,19 @@ namespace MonoHostTest
         static int DeepT(int n) { if (n <= 0) return Thrower(0); return DeepT(n - 1) + 1; }
         public static int DeepCatch(int n) { try { return DeepT(n); } catch (InvalidOperationException e) { return n + Names(e.StackTrace); } }
     }
+    public struct JitTPt { public int X, Y, Z; public JitTPt(int x, int y, int z) { X = x; Y = y; Z = z; } public int Sum() { return X + Y + Z; } }
+    public struct JitTBig { public int A, B, C, D, E; public int Sum() { return A + B * 3 + C + D + E; } }
+    public class JitKT
+    {
+        static JitTPt Mk(int a) { return new JitTPt(a, a * 2, a - 1); }
+        static int Take(JitTPt p, int k) { JitTPt q = p; q.X += k; p.Y = q.X; return p.Sum() * 3 + q.Z; }
+        public static int Locals(int n) { int s = 0; for (int i = 0; i < n; i++) { JitTPt p = Mk(i); JitTPt q = p; q.Y = -q.Y; s += Take(q, i) + p.Sum(); } return s; }
+        public static int Result(int n) { int s = 0; for (int i = 0; i < n; i++) s += Mk(i).Sum() + Mk(i + 1).X; return s; }
+        public static int Dup(int n) { int s = 0; for (int i = 0; i < n; i++) { JitTPt a, b; a = b = Mk(i); b.Z = 9; s += a.X + a.Z + b.Z; } return s; }
+        static JitTBig MkBig(int a) { JitTBig b; b.A = a; b.B = a + 1; b.C = a + 2; b.D = a + 3; b.E = a + 4; return b; }
+        static int TakeBig(JitTBig b, int k) { JitTBig c = b; c.E = k; b.A = c.E; return b.Sum() + c.Sum(); }
+        public static int Big(int n) { int s = 0; for (int i = 0; i < n; i++) { JitTBig b = MkBig(i); s += TakeBig(b, i) + MkBig(i).Sum(); } return s; }
+    }
     public struct JitKey : IEquatable<JitKey>
     {
         public int K;
@@ -301,7 +314,7 @@ namespace MonoHostTest
 
     public static class JitCorpus
     {
-        public const int Count = 194;
+        public const int Count = 197;
         static readonly int[] I4 = { 0, 1, -1, 2, -2, 3, 7, -7, 16, 31, 32, 33, 0x7FFF, 0x8000, 0xFFFF, 0x10000, 0x3FFFFFFF, 0x40000000, int.MaxValue, int.MinValue, int.MinValue + 1, int.MaxValue - 1 };
         static readonly long[] I8 = { 0L, 1L, -1L, 2L, -2L, 7L, 0x7FFFFFFFL, 0x80000000L, -0x80000000L, 0xFFFFFFFFL, 0x100000000L, long.MaxValue, long.MinValue, long.MinValue + 1, -3037000500L, 3037000500L };
         static readonly int[] SH = { 0, 1, 7, 15, 16, 31, 32, 33, 63, 64, 65, -1, int.MinValue };
@@ -1562,117 +1575,132 @@ namespace MonoHostTest
             try { h = M(h, JitKL.CallCon(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 171: // JitKX.FinallyMid (a finally in a lazy middle frame runs during the unwind; the compiled caller catches)
+                case 171: // JitKT.Locals (ldloc.vt / stloc.vt / ldarg.vt / starg.vt / stinarg.vt on a 12-byte struct)
+                {
+            try { h = M(h, JitKT.Locals(40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 172: // JitKT.Result (vtresult after a struct-returning call, a call on the temp)
+                {
+            try { h = M(h, JitKT.Result(40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 173: // JitKT.Dup / Big (dup.vt of a chained assignment; a 20-byte struct through the same moves)
+                {
+            try { h = M(h, JitKT.Dup(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKT.Big(40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 174: // JitKX.FinallyMid (a finally in a lazy middle frame runs during the unwind; the compiled caller catches)
                 {
             try { h = M(h, JitKX.FinallyMid(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.FinallyMid(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.FinallyMid(3)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 172: // JitKX.CatchMid (a catch in a lazy middle frame, then a return into the compiled caller; the other exception passes through)
+                case 175: // JitKX.CatchMid (a catch in a lazy middle frame, then a return into the compiled caller; the other exception passes through)
                 {
             try { h = M(h, JitKX.CatchMid(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.CatchMid(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.CatchMid(5)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 173: // JitKX.Rethrow / ThrowInFinally (rethrow out of a catch; a throw inside a finally replaces the exception)
+                case 176: // JitKX.Rethrow / ThrowInFinally (rethrow out of a catch; a throw inside a finally replaces the exception)
                 {
             try { h = M(h, JitKX.Rethrow(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.Rethrow(2)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.ThrowInFinally(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.ThrowInFinally(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.ThrowInFinally(4)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 174: // JitKX.TraceNames / DeepCatch (the method name of every stack-trace frame through lazy frames, depth 1 and 25)
+                case 177: // JitKX.TraceNames / DeepCatch (the method name of every stack-trace frame through lazy frames, depth 1 and 25)
                 {
             try { h = M(h, JitKX.TraceNames(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.TraceNames(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.DeepCatch(25)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 175: // JitKX.EnvTrace (a StackTrace walk from a lazy callee: the method name of every frame)
+                case 178: // JitKX.EnvTrace (a StackTrace walk from a lazy callee: the method name of every frame)
                 {
             try { h = M(h, JitKX.EnvTrace(3)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 176: // JitKX.Escape (an exception from a lazy callee reaches the driver through the compiled caller)
+                case 179: // JitKX.Escape (an exception from a lazy callee reaches the driver through the compiled caller)
                 {
             try { h = M(h, JitKX.Escape(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.Escape(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.Escape(2)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 177: // Acc GameObject.GetComponent
+                case 180: // Acc GameObject.GetComponent
                 {
             for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.GetComponentCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 178: // Acc InteractionObjectPair.Equals
+                case 181: // Acc InteractionObjectPair.Equals
                 {
             for (int i = 0; i < 7; i++) try { h = M(h, JitAcc.IopEqualsCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 179: // Acc GameObject.GetObject
+                case 182: // Acc GameObject.GetObject
                 {
             for (int i = 0; i < 3; i++) try { h = M(h, JitAcc.GetObjectCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 180: // Acc SimClock.ElapsedTimeInMinutes
+                case 183: // Acc SimClock.ElapsedTimeInMinutes
                 {
             for (int i = 0; i < 35; i++) try { h = M(h, JitAcc.ElapsedMinutesCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 181: // Acc GameObject.get_Parent
+                case 184: // Acc GameObject.get_Parent
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.ParentCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 182: // Acc ScriptObject.get_ObjectId
+                case 185: // Acc ScriptObject.get_ObjectId
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.ObjectIdCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 183: // Acc GameObject.get_LotCurrent
+                case 186: // Acc GameObject.get_LotCurrent
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.LotCurrentCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 184: // Acc Household.Members.GetActorsOfType
+                case 187: // Acc Household.Members.GetActorsOfType
                 {
             for (int i = 0; i < 5; i++) try { h = M(h, JitAcc.ActorsOfTypeCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 185: // Acc RoutingComponent.get_IsRouting
+                case 188: // Acc RoutingComponent.get_IsRouting
                 {
             for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.IsRoutingCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 186: // Acc Lot.get_CommercialLotSubType
+                case 189: // Acc Lot.get_CommercialLotSubType
                 {
             for (int i = 0; i < 6; i++) try { h = M(h, JitAcc.LotSubTypeCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 187: // Acc ListSorted`1.GetEnumerator
+                case 190: // Acc ListSorted`1.GetEnumerator
                 {
             for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.ListSortedCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 188: // Acc DesireCurve.GetYFromX
+                case 191: // Acc DesireCurve.GetYFromX
                 {
             for (int i = 0; i < 12; i++) try { h = M(h, JitAcc.DesireCurveCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 189: // Acc Sim.get_SimDescription
+                case 192: // Acc Sim.get_SimDescription
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.SimDescriptionCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 190: // Acc Lot.get_ShouldSimulate
+                case 193: // Acc Lot.get_ShouldSimulate
                 {
             for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.ShouldSimulateCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 191: // Acc SimDescription.get_Age
+                case 194: // Acc SimDescription.get_Age
                 {
             for (int i = 0; i < 5; i++) try { h = M(h, JitAcc.AgeCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 192: // Acc Corners.get_Item
+                case 195: // Acc Corners.get_Item
                 {
             for (int i = 0; i < 5; i++) try { h = M(h, JitAcc.CornersCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 193: // Acc Household.EveryHumanSimDescription
+                case 196: // Acc Household.EveryHumanSimDescription
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.EveryHumanCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;

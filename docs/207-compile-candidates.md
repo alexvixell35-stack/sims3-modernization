@@ -762,3 +762,63 @@ as is one whose compiled hash already differs. `MONOHOST_JITCORPUS_WORKER=0` ski
   thread; running it there needs the compiler's per-thread state (the exit frames, the verify slots) made per thread.
 - The per-call verify of a call that ends by exception; the in-game run of any of this.
 - Ledger: docs/51 §927.
+
+## 15. Round 10 C1: the guarded `callvirt` chain compiled end to end (2026-11-02)
+
+Round 10, task C1 ("guarded callvirt fast path: monomorphic inline cache / devirtualization for class-guarded calls").
+The call-site machinery was #203's (§12.7: a class guard on EA's inline cache, a `JitGuardSite` filled once per target
+change). What kept `MintBench`'s 25% of guarded edges interpreted was the targets: `Dictionary.GetPrev` ->
+`IEquatableOfTEqualityComparer<T>.Equals` -> `T.Equals` by `con.call` had no lazy bodies. Host only, off by default
+(`MONOHOST_JITLAZY=1` for the lazy part, the templates under `MONOHOST_JIT`), nothing in the game.
+
+### 15.1 What was in the way, and what changed
+
+1. **The value-type moves** (`stinarg.vt`, `ldarg.vt`, `ldloc.vt`, `stloc.vt`, `starg.vt`, `dup.vt`, `vtresult`): the
+   struct instantiations' bodies exited on them (§12.7). Hand templates now, EA's handlers ported (`0xE5877F`,
+   `0xE58517`, `0xE588A9`, `0xE589BA` with the store tail `0xE56C21`, `0xE5866A`, `0xE5473A`, `0xE545B0`): the copy goes
+   through EA's CRT `memcpy` thunk (`0xF7E8A6`), `vtresult`'s move through its `memmove` import (`[0xF95684]`), sizes
+   round up to 8 on the cursor and not in the copy, `vtresult` skips the move when the result is already at the new cursor
+   and repoints the slot only then (docs/213 §3 row 6). In a lazy body there is no interpreter frame word for the vt
+   cursor, so the call block got one (`B_VT`, block 44 bytes): the site starts it at the callee's vt area (`JitGuardSite`
+   carries `wVt` for a guarded target), the body's moves advance it, a site in the body writes it as the return-slot word,
+   and `JitLazyMat` copies it into `[ebp-0xC]` when the frame is written.
+2. **`ceq.i8`** had no template: `UInt64.Equals` exited on it 4.66 M times per bench run (count mode), so its lazy body
+   wrote two frames on every call. Template: xor the halves, or, `sete`.
+3. **The `con.call` callee was never pre-transformed.** `JitPreTransform` left virtual callees to their guard sites, and
+   an interface implementation such as `UInt64.Equals(ulong)` is `virtual final` in metadata; a `con.call` target is
+   static, so it is transformed like a non-virtual one now. Before, the `con.call` site in `Equals<ulong>` compiled as an
+   exit (4.66 M per run) and the body, with an exit in it, had no lazy form, so GetPrev's guard site never filled.
+4. `MONOHOST_JITC2` group 128 = the C1 templates (default 255); corpus kernels `JitKT` (`JitTPt` 12 bytes, `JitTBig` 20:
+   locals, arguments, a struct-returning call with `vtresult`, a chained assignment's `dup.vt`), 3 cases after
+   `JitKL.CallCon`; `docs/data/jit-opcode-table.csv` covered 181 -> 189.
+
+### 15.2 Checks [measured, host, 2026-11-02; the game was running beside these]
+
+- Corpus, lazy on and off: 197 cases, 0 differ, 0 unstable; per-call verify ok 31,686, 0 mismatches, 1,502 abandoned by
+  exception; the worker pass (§14) 137 cases, 0 differ. The four `JitKT` cases and the struct-key dictionaries hash as
+  the interpreter's; `JitKT.Take` (`stinarg.vt`, `ldarg.vt`, `stloc.vt`, `starg.vt`) compiles with a lazy body.
+- Lazy: 303 lazy bodies, 934 sites, 165 guarded, 26 filled (§12.7: 208, 744, 91, 8). Count mode: 2,035,978 lazy
+  calls (991,062 from a lazy body, 980,267 through a guard); before items 2 and 3: 100,977 (26,830 / 9,552).
+- The hot chain's exits (count mode, per run): `Equals<ulong>` `con.call` 4,662,546 -> 0, `UInt64.Equals` `ceq.i8`
+  4,662,546 -> 0; the value-type moves exit nowhere. What still exits among the `.vt` rows: `ldfld.vt` (12,066, a hand
+  row), `stfld.vt`, `ldelem.any.vt` / `stelem.any.vt`, and `ret.vt` in a non-lazy body (`K_RET` exits as `ret` does).
+
+### 15.3 Speed (one run each, `MONOHOST_JITREPS=9`, noisy: the two interpreter arms of `MintBench` ranged 284 to 302 ms)
+
+| Case | Interp | Lazy off | Lazy on, C1 templates off | Lazy on |
+|---|---:|---:|---:|---:|
+| `Dictionary<ulong,int>.TryGetValue` (256-entry collision chain, GetPrev loop, `UInt64.Equals`), ns | 10,441 | 8,858 (1.17x) | 11,688 (0.90x) | **3,931 (2.66x)** |
+| `Dictionary<int,Shape>.TryGetValue`, ns | 151 | 142 | 131 | 129 |
+| `MintBench(3000)`, ms | 286 | 248 (-17.9%) | 240 (-15.4%) | 232 (-19.0%) |
+
+The ulong case is the guarded chain itself and the clean signal; `MintBench` moved for the first time since §12.4 but by
+less than its noise. The "C1 templates off" arm (`MONOHOST_JITC2=127`, item 3 kept) is slower than lazy off: the lazy
+body of `UInt64.Equals` exits at `ceq.i8` on every call and `JitLazyMat` writes two frames each time, so **a lazy body
+whose hot path exits costs more than EA's call**; the eligibility rule (no exit at all, §12.3) is right to be strict.
+
+### 15.4 Left
+
+- `ldfld.vt` / `stfld.vt` (hand rows: the field read of a struct temp), `cgt.i8` / `clt.i8` and their unsigned forms
+  (signed 64-bit compares need the two-step high / low compare), `ret.vt` in a non-lazy body.
+- The `ObjectGuid` dictionary case did not move (0.98x): its chain goes through `ObjectGuid.Equals(object)` with a box.
+- In-game: nothing; C6's plan. Ledger: docs/51 §928.

@@ -237,6 +237,25 @@ const KX = `
         public static int DeepCatch(int n) { try { return DeepT(n); } catch (InvalidOperationException e) { return n + Names(e.StackTrace); } }
     }
 `;
+// round 10 C1 (docs/207 §15): the value-type moves. JitTPt is 12 bytes: Take runs stinarg.vt, ldarg.vt, stloc.vt and
+// starg.vt; Locals ldloc.vt / stloc.vt and a struct call (con.call with a pointer this); Result the vtresult after a
+// struct-returning call and a call on the temp; Dup the dup.vt of a chained assignment; Big a 20-byte struct (two
+// cursor steps of 8 each side of the copy).
+const KT = `
+    public struct JitTPt { public int X, Y, Z; public JitTPt(int x, int y, int z) { X = x; Y = y; Z = z; } public int Sum() { return X + Y + Z; } }
+    public struct JitTBig { public int A, B, C, D, E; public int Sum() { return A + B * 3 + C + D + E; } }
+    public class JitKT
+    {
+        static JitTPt Mk(int a) { return new JitTPt(a, a * 2, a - 1); }
+        static int Take(JitTPt p, int k) { JitTPt q = p; q.X += k; p.Y = q.X; return p.Sum() * 3 + q.Z; }
+        public static int Locals(int n) { int s = 0; for (int i = 0; i < n; i++) { JitTPt p = Mk(i); JitTPt q = p; q.Y = -q.Y; s += Take(q, i) + p.Sum(); } return s; }
+        public static int Result(int n) { int s = 0; for (int i = 0; i < n; i++) s += Mk(i).Sum() + Mk(i + 1).X; return s; }
+        public static int Dup(int n) { int s = 0; for (int i = 0; i < n; i++) { JitTPt a, b; a = b = Mk(i); b.Z = 9; s += a.X + a.Z + b.Z; } return s; }
+        static JitTBig MkBig(int a) { JitTBig b; b.A = a; b.B = a + 1; b.C = a + 2; b.D = a + 3; b.E = a + 4; return b; }
+        static int TakeBig(JitTBig b, int k) { JitTBig c = b; c.E = k; b.A = c.E; return b.Sum() + c.Sum(); }
+        public static int Big(int n) { int s = 0; for (int i = 0; i < n; i++) { JitTBig b = MkBig(i); s += TakeBig(b, i) + MkBig(i).Sum(); } return s; }
+    }
+`;
 // B3 lazy frames (docs/207 §12): compiled callers calling compiled static leaves (every position native, ret / ret.void).
 // Each leaf has a branch so mint's transform does not inline it; Arr / Set / Deref fault inside the leaf (frame written at
 // the exit, then EA's handler throws).
@@ -520,6 +539,9 @@ const LAZY_CASES: Case[] = [
   { name: 'JitKV.CallVirtThrow (DivideByZeroException in a class-guarded lazy callee)', body: T('JitKV.CallVirt(new JitKV3(), 6)') },
   { name: 'JitKV.CallVirtChain (a guarded lazy callee makes a guarded lazy call; null inner receiver)', body: `${T('JitKV.CallVirtChain(new JitKV2(), new JitKV(), 40)')} ${T('JitKV.CallVirtChain(new JitKV(), null, 3)')}` },
   { name: 'JitKL.CallCon (con.call: a constrained call on a value type in a generic method)', body: T('JitKL.CallCon(40)') },
+  { name: 'JitKT.Locals (ldloc.vt / stloc.vt / ldarg.vt / starg.vt / stinarg.vt on a 12-byte struct)', body: T('JitKT.Locals(40)') },
+  { name: 'JitKT.Result (vtresult after a struct-returning call, a call on the temp)', body: T('JitKT.Result(40)') },
+  { name: 'JitKT.Dup / Big (dup.vt of a chained assignment; a 20-byte struct through the same moves)', body: `${T('JitKT.Dup(40)')} ${T('JitKT.Big(40)')}` },
   // round 10 C4: exceptions and stack walks through compiled frames (docs/207 §14)
   { name: 'JitKX.FinallyMid (a finally in a lazy middle frame runs during the unwind; the compiled caller catches)', body: `${T('JitKX.FinallyMid(0)')} ${T('JitKX.FinallyMid(1)')} ${T('JitKX.FinallyMid(3)')}` },
   { name: 'JitKX.CatchMid (a catch in a lazy middle frame, then a return into the compiled caller; the other exception passes through)', body: `${T('JitKX.CatchMid(0)')} ${T('JitKX.CatchMid(1)')} ${T('JitKX.CatchMid(5)')}` },
@@ -571,6 +593,7 @@ ${KS.replace(/^\n|\n$/g, '')}
 ${KO.replace(/^\n|\n$/g, '')}
 ${KL.replace(/^\n|\n$/g, '')}
 ${KX.replace(/^\n|\n$/g, '')}
+${KT.replace(/^\n|\n$/g, '')}
     public struct JitKey : IEquatable<JitKey>
     {
         public int K;
@@ -662,7 +685,7 @@ ${cs.map((k, i) => `                case ${i}: // ${k.name}
 export function jitList(src: string): string {
   const m = /kJitList\[\] = \{([\s\S]*?)\};/.exec(src);
   if (!m) throw new Error('kJitList not found in monohost-jit.cpp');
-  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', 'JitKX.*', ...ACCESSORS.map(a => a[3])).join(',');
+  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', 'JitKX.*', 'JitKT.*', 'JitTPt.*', 'JitTBig.*', ...ACCESSORS.map(a => a[3])).join(',');
 }
 
 // ---- report ----
@@ -730,7 +753,7 @@ function selfCheck() {
   try { disk = readFileSync(OUT, 'utf8'); } catch { /* missing = stale */ }
   ok(disk.replace(/\r\n/g, '\n') === g.replace(/\r\n/g, '\n'), 'native/monohost/JitCorpus.cs is up to date (node tools/jit-corpus.ts --write)');
   const src = 'static const char* const kJitList[] = {\n    // c\n    "A.B", "C`2.D",\n    "E.F",\n};';
-  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,JitKX.*,' + ACCESSORS.map(a => a[3]).join(','), 'kJitList parse');
+  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,JitKX.*,JitKT.*,JitTPt.*,JitTBig.*,' + ACCESSORS.map(a => a[3]).join(','), 'kJitList parse');
   ok(new Set(ACCESSORS.map(a => a[1])).size === ACCESSORS.length && ACCESSORS.every(a => /^\w+Case$/.test(a[1]) && a[2] > 0), 'accessor table');
   const log = 'jit corpus MISMATCH case 1: compiled 0000002A interpreted 0000002B\njit corpus trail case 1 compiled: DivideByZeroException at X | \njit corpus UNSTABLE case 2: interpreted 1 then 2\n'
     + 'jit corpus: 3 cases, 1 differ, 1 unstable; per-call verify during the corpus: ok 5, MISMATCH 0, abandoned (exception) 2\n';
