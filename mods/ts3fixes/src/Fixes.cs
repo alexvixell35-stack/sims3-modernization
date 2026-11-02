@@ -269,12 +269,13 @@ namespace Ts3Fixes
         // [2046] deadrefsweep phase 10 (DeadRefs.cs, issue #166 build 40, docs/517): object use, reference and routing-reference list entries that were gone.
         // [2047] deadrefsweep phase 11 (DeadRefs.cs, issue #166 build 43, docs/519): object owner components whose owner or thief Sim was gone (relinked or dropped).
         // [2048] deadrefsweep phase 12 (DeadRefs.cs, issue #166 build 41, docs/522): ObjectDisposed handlers of relationships nobody holds, removed.
+        // [2049] deadrefsweep phase 13 (DeadRefs.cs, issue #166, docs/523): celebrity waiting-to-react entries that were gone, removed.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2049]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2050]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 

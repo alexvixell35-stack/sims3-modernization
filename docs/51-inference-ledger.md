@@ -5510,3 +5510,10 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 |----|-----|-------|----------|-----------|----------|---------|---------|
 | I-918-1 | 522 §1 | The constructor subscribes and nothing unsubscribes; the handler only prunes the description's list | decompiled `GameObjectRelationship`, `SimDescription.Dispose`, `CarRelationship.RemoveRelationship` | static read | no `ObjectDisposed -=` anywhere for the handler | one found | verified (static) |
 | I-918-2 | 522 §2 | Removing such a handler changes nothing else, and the pass reaches a vehicle's event | the on arm of `disposed-handler-gone-check` | `disposed-handler-gone-check` on arm | expect cleaned passes, `deadrefsweep_handlers` +1 | an exception, or the handler left | verified (live 2026-11-02, al18 rerun: the handler gone at the first poll, counter 1) |
+
+## 919. A celebrity's waiting-to-react list keeps Sims that are gone, `deadrefsweep` phase 13 (2026-11-02, docs/523; static + live probe)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-919-1 | 523 §1 | Only the reaction's end removes a reactor; the list is persisted with the celebrity Sim | decompiled `Celebrity.OnEntered`, the reaction interactions, `Sim.mCelebrity` | static read | the Remove's callers are the reactions only | a destroy or reset path that removes | verified (static) |
+| I-919-2 | 523 §2 | EA's Remove on a destroyed Sim leaves the list clean and changes nothing else | the on arm of `celebrity-waiting-gone-check` | `celebrity-waiting-gone-check` on arm | expect cleaned passes, `deadrefsweep_celebrity` +1 | an exception, or the entry left | open until the job runs |

@@ -43,12 +43,13 @@ namespace Ts3Fixes
     //     Quit, gone current player and cheating Sim cleared; #166 build 42, docs/516), 10 object use, reference and
     //     routing-reference lists (gone Sims removed through EA's own Remove methods; #166 build 40, docs/517), 11 object owner
     //     components (a gone owner or thief Sim relinked to its live instance, a reward giver with none dropped; #166 build 43, docs/519),
-    //     12 ObjectDisposed handlers of relationships nobody holds (a deleted description, or a decayed relationship; #166 build 41, docs/522).
+    //     12 ObjectDisposed handlers of relationships nobody holds (a deleted description, or a decayed relationship; #166 build 41, docs/522),
+    //     13 celebrity waiting-to-react lists (gone reactors removed through EA's RemoveSimFromWaitingToReactList; docs/523).
     //     [395] relationship keys removed, [396] relationship entries removed, [397] aging states removed, [398] alarm owners
     //     cleared, [399] react-time entries, [400] coworker / boss / chess entries, [401] topics, [402] fishers, [403] Sim
-    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [2045] dartboard entries, [2046] use-list entries, [2047] owner entries, [2048] disposed handlers, [405] passes finished, [406] slices,
+    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [2045] dartboard entries, [2046] use-list entries, [2047] owner entries, [2048] disposed handlers, [2049] celebrity reactors, [405] passes finished, [406] slices,
     //     [407] longest slice us, [408] total pass ms, [409] longest save pass us, [410] passes refused or stopped (unsafe state, switch off) and items that threw.
-    //   Not built (docs/205 §4): CookingProcess appliance handlers, Celebrity.mWaitingToReact,
+    //   Not built (docs/205 §4): CookingProcess appliance handlers,
     //   adoption pool pets, Service.mPreferredServiceNpc (= preferredservice, #86).
     public static partial class Fixes
     {
@@ -171,6 +172,7 @@ namespace Ts3Fixes
                 delegate { return Objects<GameObject>(); },
                 delegate { return Objects<GameObject>(); },
                 delegate { return Objects<GameObject>(); },
+                delegate { return Objects<Sim>(); },
             };
             try
             {
@@ -274,6 +276,7 @@ namespace Ts3Fixes
                     case 9: UseListHolders(o as GameObject); break;
                     case 10: OwnerHolders(o as GameObject); break;
                     case 11: HandlerHolders(o as GameObject); break;
+                    case 12: CelebrityHolders(o as Sim); break;
                 }
             }
             catch (Exception) { PatchCounters()[410]++; }
@@ -755,6 +758,79 @@ namespace Ts3Fixes
             return "as expected; " + line + (mine ? "; our handler removed" : "");
         }
 
+        // Phase 13 (issue #166, docs/205 §4 item, docs/523): a celebrity Sim's Celebrity object (Sim.mCelebrity, made when the
+        // celebrity broadcaster starts) keeps mWaitingToReact, the Sims who rolled a reaction to the celebrity and have not
+        // reacted yet. A reactor reset or destroyed before its reaction never leaves (only the reaction's own end removes it),
+        // and the list is saved with the Sim. Gone reactors leave through EA's own RemoveSimFromWaitingToReactList. [2049].
+        static readonly FieldInfo sSimCelebrity = typeof(Sim).GetField("mCelebrity", kDrAll);
+        static readonly FieldInfo sCelebWaiting = typeof(Celebrity).GetField("mWaitingToReact", kDrAll);
+
+        static List<Sim> CelebWaiting(Sim s)
+        {
+            Celebrity c = s != null && !s.HasBeenDestroyed && sSimCelebrity != null && sCelebWaiting != null ? sSimCelebrity.GetValue(s) as Celebrity : null;
+            return c != null ? sCelebWaiting.GetValue(c) as List<Sim> : null;
+        }
+
+        static void CelebrityHolders(Sim s)
+        {
+            List<Sim> waiting = CelebWaiting(s);
+            if (waiting == null || waiting.Count == 0) return;
+            Celebrity c = (Celebrity)sSimCelebrity.GetValue(s);
+            int[] n = PatchCounters();
+            foreach (Sim r in new List<Sim>(waiting)) if (SimGone(r)) { c.RemoveSimFromWaitingToReactList(r); n[2049]++; }
+        }
+
+        static int CelebrityGone(Sim s)
+        {
+            List<Sim> waiting = CelebWaiting(s); int n = 0;
+            if (waiting != null) foreach (Sim r in waiting) if (SimGone(r)) n++;
+            return n;
+        }
+
+        // Agent check for docs/523 (repro celebrity-waiting-gone-check), a hard state built and undone, like DeadRefDartCheck:
+        //   "seed":   a Sim of the world whose Celebrity object exists (a celebrity whose broadcaster has run) gets one townie
+        //             in its waiting-to-react list; that townie's Sim object is then destroyed (put back at the end).
+        //   "state":  CelebState: gone entries in that list, its count, destroyed.
+        //   "expect left" (switch off) / "expect cleaned" (switch on): throws unless the gone entry is still there (left) or
+        //             gone (cleaned). Either way an entry of ours still there is removed and the townie put back.
+        public class CelebState { public int gone, waiting; public bool destroyed; }
+        static Sim sCeHost; static SimDescription sCeDesc; static Vector3 sCePos;
+
+        public static object DeadRefCelebrityCheck(string what)
+        {
+            if (sSimCelebrity == null || sCelebWaiting == null) throw new InvalidOperationException("celebrity check: mCelebrity or mWaitingToReact field not found");
+            if (what == "seed")
+            {
+                Sim host = null;
+                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>()) if (CelebWaiting(s) != null) { host = s; break; }
+                Sim victim = DrPickTownie(host != null ? host.SimDescription : null);
+                if (host == null || victim == null) throw new InvalidOperationException("celebrity seed: no Sim with a Celebrity object, or no townie");
+                CelebWaiting(host).Add(victim);
+                sCeHost = host; sCeDesc = victim.SimDescription; sCePos = victim.Position;
+                string names = victim.FullName + " waiting to react to " + host.FullName;
+                victim.Destroy();
+                return "celebrity seed: " + names + ", the reactor's Sim object destroyed";
+            }
+            Sim h = sCeHost;
+            if (h == null || sCeDesc == null) throw new InvalidOperationException("celebrity " + what + ": no seed");
+            List<Sim> w = CelebWaiting(h);
+            int gone = w != null ? CelebrityGone(h) : 0;
+            if (what == "state")
+            {
+                CelebState st = new CelebState(); st.gone = gone; st.waiting = w != null ? w.Count : 0;
+                st.destroyed = sCeDesc.CreatedSim == null || sCeDesc.CreatedSim.HasBeenDestroyed; return st;
+            }
+            if (what != "expect left" && what != "expect cleaned") return "celebrity <seed|state|expect left|expect cleaned>";
+            bool on = ShortcutOn("deadrefsweep");
+            bool ok = what == "expect left" ? !on && gone >= 1 : on && gone == 0;
+            string line = "gone " + gone + ", waiting " + (w != null ? w.Count : 0) + " (switch " + on + ")";
+            if (w != null) foreach (Sim r in new List<Sim>(w)) if (SimGone(r)) w.Remove(r);
+            sCeHost = null;
+            string back = DrPutBack(sCeDesc, sCePos);
+            if (!ok) throw new InvalidOperationException("celebrity " + what + ": wrong outcome; " + line + "; " + sCeDesc.FullName + " " + back);
+            return "as expected; " + line + "; " + sCeDesc.FullName + " " + back;
+        }
+
         // A townie for a hard state: not selectable, no pet, teen or older, not of the active household, not on its home
         // lot, no role or service, a valid description.
         static Sim DrPickTownie() { return DrPickTownie(null); }
@@ -833,7 +909,7 @@ namespace Ts3Fixes
                 }
                 case "sweep": return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
                 case "savepass": return DeadRefSavePass();
-                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck, owner components: DeadRefOwnerCheck, disposed handlers: DeadRefHandlerCheck)";
+                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck, owner components: DeadRefOwnerCheck, disposed handlers: DeadRefHandlerCheck, celebrity reactors: DeadRefCelebrityCheck)";
             }
         }
 
@@ -858,6 +934,8 @@ namespace Ts3Fixes
                 if (u != null) foreach (ActiveTopic a in u) if (a != null && a.Parameter != null && DescGone(a.Parameter)) topics++;
             }
             int uselists = 0, owners = 0, handlers = 0;
+            int celebs = 0;
+            foreach (Sim cs in Sims3.Gameplay.Queries.GetObjects<Sim>()) celebs += CelebrityGone(cs);
             foreach (GameObject g in Sims3.Gameplay.Queries.GetObjects<GameObject>()) { uselists += UseListGone(g); owners += OwnerGone(g); handlers += HandlerGone(g); }
             int darts = 0;
             foreach (Dartboard b in Sims3.Gameplay.Queries.GetObjects<Dartboard>()) darts += DartGone(b);
@@ -869,7 +947,7 @@ namespace Ts3Fixes
             }
             return "count: relationship keys gone " + relGone + "/" + Relationship.sAllRelationships.Count + ", entries naming gone " + relEntries
                 + ", aging states gone " + AgingStatesToCheck().Count + ", alarm owners gone " + AlarmOwnersToCheck().Count
-                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers + ", dartboard entries gone " + darts + ", use-list entries gone " + uselists + ", owner entries gone " + owners + ", disposed handlers gone " + handlers
+                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers + ", dartboard entries gone " + darts + ", use-list entries gone " + uselists + ", owner entries gone " + owners + ", disposed handlers gone " + handlers + ", celebrity reactors gone " + celebs
                 + ", no-outfit descriptions " + NoOutfitDescriptions().Count + " | " + (DeadRefUnsafe(false) ?? "safe");
         }
     }

@@ -48712,5 +48712,160 @@
         "note": "on: our handler gone; deadrefsweep_handlers +1"
       }
     ]
+  },
+  {
+    "id": "celebrity-waiting-gone-check",
+    "bug": "A celebrity Sim's Celebrity.mWaitingToReact keeps the Sims who rolled a reaction and have not reacted yet; a reactor reset or destroyed before its reaction never leaves the list, which is saved with the Sim (issue #166, docs/205 §4)",
+    "fix": "ts3fixes DeadRefs.cs: deadrefsweep phase 13 (default off), docs/523",
+    "save": "Baseline-BP",
+    "note": "Hard state built by the agent check (DeadRefCelebrityCheck seed): a Sim of the world whose Celebrity object exists gets one townie in its waiting-to-react list; that townie's Sim object is destroyed as a reset does (the description stays; put back at the end of each arm). Off arm: the sweep refuses, the entry stays. On arm: the pass started by the switch or by the sweep step removes it; the seed poll waits for the destroy only.",
+    "expect": "off: expect left sees gone >= 1 with the switch off. on: expect cleaned sees gone 0; deadrefsweep_celebrity >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "off: a townie in a celebrity's waiting list, then destroyed",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            },
+            {
+              "path": "gone",
+              "atLeast": 1
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "off: started False (switch off); nothing runs",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+          "args": [
+            "expect left"
+          ]
+        },
+        "note": "off: the gone entry still there; removed by the check, townie put back"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "on: the same hard state again (another townie)",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "on: started True (safe); phase 13 reaches the celebrity within the pass",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: poll until the list holds no gone entry",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "gone",
+              "equals": 0
+            }
+          ],
+          "maxS": 300,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCelebrityCheck",
+          "args": [
+            "expect cleaned"
+          ]
+        },
+        "note": "on: gone 0; deadrefsweep_celebrity +1"
+      }
+    ]
   }
 ]
