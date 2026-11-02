@@ -3,8 +3,8 @@
   "stopQueueOnFail": true,
   "jobs": [
     {
-      "asi": "game-copy/asi-slim-c846543/ts3native.asi",
-      "pinReason": "CI build of feat/save-slim c846543 (no local C++ tools)",
+      "asi": "game-copy/asi-slim-0211ced/ts3native.asi",
+      "pinReason": "CI build of feat/save-slim 0211ced (no local C++ tools): the unreadable diagnostic and the open retry",
       "noiseCheck": false,
       "gameArgs": [
         "-disablestoryprogression"
@@ -35,8 +35,8 @@
       }
     },
     {
-      "asi": "game-copy/asi-slim-c846543/ts3native.asi",
-      "pinReason": "CI build of feat/save-slim c846543 (no local C++ tools)",
+      "asi": "game-copy/asi-slim-0211ced/ts3native.asi",
+      "pinReason": "CI build of feat/save-slim 0211ced (no local C++ tools): the unreadable diagnostic and the open retry",
       "noiseCheck": false,
       "gameArgs": [
         "-disablestoryprogression"
@@ -67,8 +67,8 @@
       }
     },
     {
-      "asi": "game-copy/asi-slim-c846543/ts3native.asi",
-      "pinReason": "CI build of feat/save-slim c846543 (no local C++ tools)",
+      "asi": "game-copy/asi-slim-0211ced/ts3native.asi",
+      "pinReason": "CI build of feat/save-slim 0211ced (no local C++ tools): the unreadable diagnostic and the open retry",
       "noiseCheck": false,
       "gameArgs": [
         "-disablestoryprogression"
@@ -99,8 +99,8 @@
       }
     },
     {
-      "asi": "game-copy/asi-slim-c846543/ts3native.asi",
-      "pinReason": "CI build of feat/save-slim c846543 (no local C++ tools)",
+      "asi": "game-copy/asi-slim-0211ced/ts3native.asi",
+      "pinReason": "CI build of feat/save-slim 0211ced (no local C++ tools): the unreadable diagnostic and the open retry",
       "noiseCheck": false,
       "gameArgs": [
         "-disablestoryprogression"
@@ -129,8 +129,8 @@
       }
     },
     {
-      "asi": "game-copy/asi-slim-c846543/ts3native.asi",
-      "pinReason": "CI build of feat/save-slim c846543 (no local C++ tools)",
+      "asi": "game-copy/asi-slim-0211ced/ts3native.asi",
+      "pinReason": "CI build of feat/save-slim 0211ced (no local C++ tools): the unreadable diagnostic and the open retry",
       "noiseCheck": false,
       "gameArgs": [
         "-disablestoryprogression"
