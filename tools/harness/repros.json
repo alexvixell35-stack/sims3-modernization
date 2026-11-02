@@ -42163,6 +42163,15 @@
         "note": "back in live mode on the compacted file"
       },
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
+      },
+      {
         "cmd": "time",
         "waitS": 120,
         "note": "2 min of autopilot play after the reload (restored queues run, game alive)"
@@ -42295,6 +42304,15 @@
           "maxS": 300
         },
         "note": "back in live mode on the compacted file"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
       },
       {
         "cmd": "time",
@@ -42515,6 +42533,15 @@
         "note": "back in live mode on the compacted file"
       },
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
+      },
+      {
         "cmd": "patches",
         "note": "compaction_* counters into the job log"
       }
@@ -42592,6 +42619,15 @@
           "maxS": 300
         },
         "note": "back in live mode on the compacted file"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
       },
       {
         "cmd": "time",
@@ -42692,6 +42728,15 @@
           "maxS": 300
         },
         "note": "back in live mode on the compacted file"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
       },
       {
         "cmd": "time",
@@ -42826,6 +42871,15 @@
           "maxS": 300
         },
         "note": "back in live mode on the compacted file"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
       },
       {
         "cmd": "time",
@@ -43046,6 +43100,15 @@
         "note": "back in live mode on the compacted file"
       },
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
+      },
+      {
         "cmd": "patches",
         "note": "compaction_* counters into the job log"
       }
@@ -43123,6 +43186,15 @@
           "maxS": 300
         },
         "note": "back in live mode on the compacted file"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
       },
       {
         "cmd": "time",
@@ -43223,6 +43295,15 @@
           "maxS": 300
         },
         "note": "back in live mode on the compacted file"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
       },
       {
         "cmd": "time",
