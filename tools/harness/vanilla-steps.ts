@@ -2,6 +2,8 @@
 //   node tools/harness/vanilla-steps.ts accept --title "<lowercase fragment>" [--minutes 30] [--after 10] [--speed ultra]
 //       H-move: autopilot on, dialog_expect {title, accept:true, rules:false} armed (re-armed when a window expires) until the agent itself accepts
 //       a matching dialog, then the game must stay up --after minutes. No match in --minutes: UNKNOWN (exit 1), nothing else accepted.
+//       --all-seconds flow: no offer in --minutes is "N/A: not triggered" (exit 1; queue.ts row N/A, never PASS): the offer never appeared,
+//       e.g. Steam, where the move offer was never seen (docs/236 Round 9).
 //       --all-seconds N (Round 6): the first match starts dialog_expect accept_all for N s (every dialog of the move flow accepted, each click logged);
 //       PASS needs the household to have moved (mode exit / other household / out of the world) and the game up --after minutes after the move.
 //       Offer taken but no move: UNKNOWN with the clicks. A crash after the accept is a RESULT line (crash ledger triage), the queue row shows CRASH.
@@ -15,7 +17,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { GUARD_MS, stallGuard } from './game-alive.ts';
-import { BIN, GAME_EXE } from './game-exe.ts';
+import { BIN, GAME_EXE, isSteamGame } from './game-exe.ts';
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   title: { type: 'string' }, 'all-seconds': { type: 'string' }, minutes: { type: 'string', default: '30' }, after: { type: 'string' }, speed: { type: 'string', default: 'ultra' },
@@ -38,6 +40,9 @@ export type Snap = { inWorld: boolean; sub: string | null; hh: string | null };
 export const movedWhy = (base: Snap, cur: Snap): string => !cur.inWorld ? 'out of the world' : cur.sub !== base.sub ? `sub state ${base.sub} -> ${cur.sub}` : cur.hh !== base.hh ? `household ${base.hh} -> ${cur.hh}` : '';
 export const allLines = (lines: string[]) => lines.filter(l => /dialog_expect accept_all: /.test(l));
 export const allEnded = (lines: string[]) => lines.some(l => /dialog_expect accept_all ended: /.test(l));
+// docs/236 Round 9: an offer that never appeared is not a result either way (Steam showed no "new towns" offer in the vanilla matrix)
+export const notTriggered = (title: string, minutes: number, windows: number, steam: boolean) =>
+  `N/A: not triggered: no dialog matching "${title}" in ${minutes} min (${windows} windows); the offer never appeared${steam ? ' (Steam edition: never seen there)' : ''}; nothing accepted`;
 const snap = async (): Promise<Snap | null> => { const g = await agent('game_state'); return g.ok && g.result ? { inWorld: !!g.result.in_world, sub: g.result.sub_state ?? null, hh: g.result.active_household ?? null } : null; };
 const triageNow = (since: string) => { try { return execFileSync(process.execPath, [join(import.meta.dirname, 'crash-ledger.ts'), 'triage', '--since', since], { timeout: 60000 }).toString().trim().split(/\n\s*\n/).at(-1) ?? ''; } catch (e) { return `crash-ledger triage failed: ${String(e).split('\n')[0]}`; } };
 
@@ -88,7 +93,7 @@ async function acceptFlow(title: string, minutes: number, after: number, allSec:
     const why = await guard();
     if (why) { console.log(`FAIL: ${why}`); process.exit(1); }
   }
-  if (!triggered) { console.log(`UNKNOWN: not triggered: no dialog matching "${title}" in ${minutes} min (${windows} windows); nothing accepted`); process.exit(1); }
+  if (!triggered) { console.log(notTriggered(title, minutes, windows, isSteamGame())); process.exit(1); }
   log('offer shown, accept_all window started');
   // move phase: until accept_all ended and the move was seen (or allSec + 120 s); a dead game here is the RESULT
   const g1 = stallGuard('move flow', { port: Number(values.port), liveOnly: true });
@@ -196,8 +201,9 @@ if (values['self-check']) {
   if (acceptLines(lines).length !== 2 || expiryLines(lines).length !== 1) process.exit(1);
   const b: Snap = { inWorld: true, sub: 'LiveModeState', hh: 'A' };
   const sc = movedWhy(b, b) === '' && movedWhy(b, { ...b, inWorld: false }) === 'out of the world' && movedWhy(b, { ...b, hh: 'B' }).includes('A -> B') && movedWhy(b, { ...b, sub: 'CASState' }).includes('sub state')
-    && allLines(['x dialog_expect accept_all: #1 ok']).length === 1 && allEnded(['dialog_expect accept_all ended: 3 clicks']) && !allEnded(['dialog_expect accept: x']);
-  console.assert(sc, 'moved/accept_all line match');
+    && allLines(['x dialog_expect accept_all: #1 ok']).length === 1 && allEnded(['dialog_expect accept_all ended: 3 clicks']) && !allEnded(['dialog_expect accept: x'])
+    && /^N\/A: not triggered: .*\(Steam edition/.test(notTriggered('x', 6, 1, true)) && !/Steam/.test(notTriggered('x', 6, 1, false));
+  console.assert(sc, 'moved/accept_all/N/A line match');
   if (!sc) process.exit(1);
   console.log('vanilla-steps.ts self-check OK');
 } else if (positionals[0] === 'accept') await accept();

@@ -25,7 +25,7 @@ export function queueFile(name: string, date?: string, dir = QUEUE_DIR): string 
   return f ? join(dir, f) : null;
 }
 
-export type Verdict = { v: 'PASS' | 'FAIL' | 'VOID'; why: string };
+export type Verdict = { v: 'PASS' | 'FAIL' | 'VOID' | 'N/A'; why: string };
 const VOID_RE = /run void|noisy machine|NOT comparable/;
 // a queue row (or a repro sub-row) -> verdict; invalid = runInvalid reason of its profile run, if any
 export function classify(row: any, invalid: string | null = null): Verdict {
@@ -34,6 +34,7 @@ export function classify(row: any, invalid: string | null = null): Verdict {
   if (voids.length || invalid) return { v: 'VOID', why: [...voids, ...(invalid ? [`runInvalid: ${invalid}`] : [])].join('; ') };
   const bad = [row.crashed && `crash${row.crash ? `: ${String(row.crash).split('\n')[0].slice(0, 120)}` : ''}`, row.timedOut && 'timed out',
     ...lines.filter(l => /^(FAIL|STOP)\b|FAIL:|ERROR/.test(l))].filter(Boolean) as string[];
+  if (row.na) return { v: 'N/A', why: lines.filter(l => /^N\/A: /.test(l)).join('; ') }; // queue.ts naRow (docs/236 Round 9): never PASS
   const pass = row.pass ?? (row.exitCode === 0 && !bad.length);
   if (!pass) return { v: 'FAIL', why: bad.join('; ') || `exit code ${row.exitCode ?? '?'}` };
   return { v: 'PASS', why: lines.filter(l => /^ts3fixes activity|self check|mono ledger INCOMPLETE/.test(l)).join('; ') };
@@ -109,7 +110,7 @@ export function verdictTable(file: string, baseline?: string): string {
   const out = [`### ${file.replace(/^.*[\\/]/, '').replace(/\.jsonl$/, '')}`, '',
     `| Job | Verdict | Timing | Reason | min | ${NUM_COLS.map(c => c[0]).join(' | ')} |${baseline ? ` vs ${baseline} |` : ''}`,
     `|${'---|'.repeat(5 + NUM_COLS.length + (baseline ? 1 : 0))}`];
-  const count = { PASS: 0, FAIL: 0, VOID: 0 };
+  const count = { PASS: 0, FAIL: 0, VOID: 0, 'N/A': 0 };
   const add = (name: string, row: any, tag: string | null, mins: number | string, tm: { timing: string; why: string } | undefined) => {
     const r = tag ? runNums(tag) : null, v = classify(row, r?.invalid ?? null); count[v.v]++;
     let cmp = '';
@@ -122,12 +123,13 @@ export function verdictTable(file: string, baseline?: string): string {
     add(row.job + tag, row, row.repros?.length ? null : row.profileTag ?? null, row.minutes ?? '-', t);
     for (const rr of row.repros ?? []) add(`${row.job}${tag} / ${rr.id}`, subPass(rr), rr.tag, '', rr.timing ? { timing: rr.timing, why: rr.timingWhy ?? '' } : (t as any).windows?.[rr.id]);
   }
-  out.push('', `${count.PASS} PASS, ${count.FAIL} FAIL, ${count.VOID} VOID of ${count.PASS + count.FAIL + count.VOID}. Timing (docs/168 §10): valid = in-load A/B usable as timing evidence, valid-half = valid once pooled with the opposite-order run (same job, same build), valid-single = one side of a cross-run comparison (hitch-ab.ts --reuse). A/B runs: off / on. p99 '<50' = below the profiler's 50 ms hitch threshold.`);
+  out.push('', `${count.PASS} PASS, ${count.FAIL} FAIL, ${count.VOID} VOID, ${count['N/A']} N/A of ${count.PASS + count.FAIL + count.VOID + count['N/A']}. Timing (docs/168 §10): valid = in-load A/B usable as timing evidence, valid-half = valid once pooled with the opposite-order run (same job, same build), valid-single = one side of a cross-run comparison (hitch-ab.ts --reuse). A/B runs: off / on. p99 '<50' = below the profiler's 50 ms hitch threshold.`);
   return out.join('\n');
 }
 
 function selfCheck() {
   assert.equal(classify({ pass: true, verdict: ['PASS: profile 10 min'] }).v, 'PASS');
+  assert.deepEqual(classify({ pass: false, na: true, exitCode: 1, verdict: ['N/A: not triggered: x', 'N/A (vanilla): asi build check'] }), { v: 'N/A', why: 'N/A: not triggered: x' });
   assert.equal(classify({ pass: false, exitCode: 1, verdict: ['FAIL: self check: [RouteAsync] on but 0 async route jobs started (invokeHook 0): async off, run void'] }).v, 'VOID');
   assert.equal(classify({ pass: false, exitCode: 1, verdict: ['FAIL: noisy machine early: machine load: ...'] }).v, 'VOID');
   assert.equal(classify({ pass: true, verdict: ['PASS'] }, 'profiler cut short (100 of 600 s)').v, 'VOID');

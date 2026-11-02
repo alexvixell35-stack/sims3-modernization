@@ -41,7 +41,7 @@ namespace Ts3Agent
         // accept_all: every dialog in the window is accepted (rules and safe default off), the window stays open; reproduces the old unattended autopilot for a whole flow (docs/236 Round 6)
         static int sExpectAllClicks, sExpectAllTick, sExpectAllSec;
         static object sExpectAllModal;
-        static string sApBlocked; // last dialog the autopilot would not click (AutoDialog: no safe button); logged once per dialog
+        static string sApBlocked; // dialog the autopilot would not click (AutoDialog: no safe button), null once no modal is up; logged once per dialog
 
         static void StartAutopilot()
         {
@@ -221,7 +221,18 @@ namespace Ts3Agent
                     catch (McpException e)
                     {
                         // the harness fails the run on this line (queue.ts mode guard): a click here could change the game state
-                        if (e.Message != sApBlocked) { sApBlocked = e.Message; ApLog("(not clicked)", e.Message); if (sApCleared.Count < 200) sApCleared.Add("BLOCKED " + e.Message); }
+                        if (e.Message != sApBlocked)
+                        {
+                            sApBlocked = e.Message;
+                            if (e.Message.EndsWith("buttons: "))
+                            {
+                                // docs/236 Round 9: nothing to click (a notification or transition window): not a block line; the harness
+                                // fails only when it stays (queue.ts vanillaBlockFor). Type logged to learn what it is.
+                                string bl = "ap buttonless: " + System.Text.RegularExpressions.Regex.Replace(e.Message, @"^.*nothing clicked: '(.*)' buttons: $", "'$1'") + " " + modal.GetType().FullName;
+                                DiagLine(bl); ApHist(bl); if (sApCleared.Count < 200) sApCleared.Add(bl);
+                            }
+                            else { ApLog("(not clicked)", e.Message); if (sApCleared.Count < 200) sApCleared.Add("BLOCKED " + e.Message); }
+                        }
                         return;
                     }
                     sApBlocked = null;
@@ -229,6 +240,7 @@ namespace Ts3Agent
                     if (d != null) ApLog(d["title"] as string, ApClicked(d));
                     return; // let the dialog close before touching the speed
                 }
+                sApBlocked = null; // the window went away by itself (Round 9: a buttonless window stayed in `blocked` and failed vh-repro)
             }
             if (now - lastSpeed < 1000 || (string)c["speed"] == "none" || SubState() != "LiveModeState") return;
             lastSpeed = now;

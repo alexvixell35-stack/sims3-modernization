@@ -917,9 +917,13 @@ export function profileHead(code: number | null, timedOut: boolean, stop: string
 // every FAIL line plus the last 8 others: an early FAIL must not drop out of the row (docs/236 #15)
 export function verdicts(out: string): string[] {
   const v = out.split(/\r?\n/).map(l => l.replace(/^\d\d:\d\d:\d\d /, '').trim())
-    .filter(l => /(^|[\s:])(PASS|FAIL|PENDING|UNKNOWN)\b|^summary:/.test(l) && !/^(fix under test|step )/.test(l));
+    .filter(l => /(^|[\s:])(PASS|FAIL|PENDING|UNKNOWN)\b|^summary:|^N\/A: /.test(l) && !/^(fix under test|step )/.test(l));
   return v.filter((l, i) => isFail(l) || i >= v.length - 8);
 }
+// docs/236 Round 9: a child's "N/A: <why>" line (vanilla-steps.ts: the move offer never appeared) with no FAIL, crash, timeout or error:
+// the row is N/A, never PASS (row.pass stays false), and not a FAIL (no queue exit 1, no stopQueueOnFail stop)
+export const naRow = (row: { pass?: boolean; crashed?: boolean; timedOut?: boolean; error?: string | null; selfCheckFail?: string; verdict: string[] }): boolean =>
+  !row.pass && !row.crashed && !row.timedOut && !row.error && !row.selfCheckFail && row.verdict.some(l => /^N\/A: /.test(l)) && !row.verdict.some(isFail);
 // a verdict line in the children's own format: "FAIL: why" (repro.ts, profile-world.ts, cycle.ts) or "<id>: FAIL" (repro.ts, save-matrix.ts);
 // UNKNOWN (absent data, e1cdbc4) counts as a failed result too: repro.ts prints "<id>: UNKNOWN: ..." and exits 1
 export const isFail = (l: string) => /^(FAIL|UNKNOWN): |^[\w.\- ]+: (FAIL|UNKNOWN)\b/.test(l);
@@ -970,8 +974,8 @@ export function routelockSummary(r: any): any {
 }
 
 // stopQueueOnFail / --stop-on-fail: '' = go on, else the STOP reason naming the job (a noisy job with its -rerun queued goes on)
-export function failStop(j: { id: string; stopQueueOnFail?: boolean }, row: { pass?: boolean; rerun?: string; error?: string | null; verdict?: string[] }, cli: boolean): string {
-  if (row.pass || row.rerun || !(j.stopQueueOnFail || cli)) return '';
+export function failStop(j: { id: string; stopQueueOnFail?: boolean }, row: { pass?: boolean; na?: boolean; rerun?: string; error?: string | null; verdict?: string[] }, cli: boolean): string {
+  if (row.pass || row.na || row.rerun || !(j.stopQueueOnFail || cli)) return '';
   return `${j.id} failed (stopQueueOnFail): ${String(row.error || row.verdict?.find(v => /^FAIL/.test(v)) || 'see the row').slice(0, 200)}`;
 }
 // stop rule after a job: same job crashed twice (earlier rows count), or this and the previous job both crashed
@@ -1280,6 +1284,13 @@ if (values['self-check']) {
   assert.deepEqual(verdicts('12:00:00 bp-x: UNKNOWN: counters missing from /native: a (expected: b)'), ['bp-x: UNKNOWN: counters missing from /native: a (expected: b)']);
   assert.ok(!isFail('summary: 3 PASS, 0 FAIL') && !isFail('control: PASS') && !isFail('PASS: no FAIL lines'));
   assert.deepEqual(silentFail(1, matrix, false), verdicts(matrix));
+  { // docs/236 Round 9: N/A rows (offer never appeared) are neither PASS nor FAIL
+    const na = 'N/A: not triggered: no dialog matching "x" in 6 min (1 windows); the offer never appeared (Steam edition: never seen there); nothing accepted';
+    assert.deepEqual(silentFail(1, `12:00:00 dialog_expect armed\n12:06:00 ${na}`, false), [na]);
+    const r = { pass: false, crashed: false, timedOut: false, error: null, verdict: [na, 'N/A (vanilla): asi build check'] };
+    assert.ok(naRow(r)); assert.ok(!naRow({ ...r, pass: true }) && !naRow({ ...r, crashed: true }) && !naRow({ ...r, verdict: [na, 'FAIL: x'] }) && !naRow({ ...r, verdict: ['N/A (vanilla): asi build check'] }));
+    assert.equal(failStop({ id: 'm', stopQueueOnFail: true }, { pass: false, na: true, verdict: [na] }, false), '');
+  }
   assert.deepEqual(silentFail(0, 'ok', false), []);
   assert.deepEqual(silentFail(1, '12:00:00 trip status: loaded true\n', false), ['FAIL: exit 1 with no verdict line (child stopped from outside or died before its summary); last output: 12:00:00 trip status: loaded true']);
   // profile-world.ts failed repro step: the reason reaches the job verdict (2026-10-19 bp-ab-wildflowertask)
@@ -1910,7 +1921,7 @@ function unrequestedModeGuard(from = 0, clicksFile = ''): () => string { // from
           const na = (tail.match(/ap click: .* -> dialog_expect accept:/g) ?? []).length;
           if (na > nAccept) { nAccept = na; acceptAt = Date.now(); }
         }
-        if (ns) { verdict = `autopilot: dialog with no safe button, nothing clicked (${ns.slice(0, 300)})`; return; }
+        if (ns) { verdict = emptyButtons(ns) ? `autopilot: window with no buttons stayed over ${2 * GUARD_MS / 1000} s (${ns.slice(0, 300)})` : `autopilot: dialog with no safe button, nothing clicked (${ns.slice(0, 300)})`; return; }
         const ago = (await get('status'))?.state_cmd_ago_s, acc = acceptAt ? (Date.now() - acceptAt) / 1000 : null;
         // an accept the harness armed (dialog_expect accept) may leave live mode for a long time (a move): excused for ACCEPT_WINDOW_S
         const cur = modeSnap(await agent('game_state')), why = acc !== null && acc <= ACCEPT_WINDOW_S ? '' : modeExit(prev, cur, ago);
@@ -2673,13 +2684,14 @@ for (const [n, j] of jobs.entries()) {
     Object.assign(row, { timing: tm.timing, timingWhy: tm.why });
     for (const rr of row.repros ?? []) { const w = tm.windows?.[rr.id]; if (w) Object.assign(rr, { timing: w.timing, timingWhy: w.why }); }
   } catch (e) { row.timing = 'invalid'; row.timingWhy = `timing verdict failed: ${String(e).split('\n')[0]}`; }
+  row.na = naRow(row);
   appendFileSync(jsonl, JSON.stringify(row) + '\n');
   clearJob();
   const cd = row.counters.delta ? Object.entries(row.counters.delta).map(([k, v]) => `${k} ${(v as number) > 0 ? '+' : ''}${v}`).join(', ') : '-';
   const cell = (x: string) => x.replace(/\|/g, '/').replace(/\r?\n/g, '<br>').slice(0, 400);
-  appendFileSync(md, `| ${j.id} | ${t0.slice(11, 16)} (${pht(t0)}) | ${row.minutes} | ${row.pass ? 'PASS' : row.crashed ? '**CRASH**' : '**FAIL**'} | ${cell(row.verdict.join('<br>') || row.error || '-')} | ${row.exitCode ?? '-'} | ${memLine(row.memory.before)} -> ${memLine(row.memory.after)} | ${cell(cd || '-')} | ${cell([countsNote(row), `timing: ${timingText({ timing: row.timing, why: row.timingWhy })}`, buildLine(row.buildCheck), row.saveHashes.after && saveDrift(row.saveHashes.before, row.saveHashes.after).length ? 'BASELINE SAVE CHANGED' : '', row.session.line !== 'fresh load' || row.session.after ? [row.session.line, row.session.after, row.session.next].filter(Boolean).join('; ') : '', row.noiseNote, row.hangCapture, j.note, row.content !== 'as-is' ? `content ${row.content} (${row.contentMoved} moved)` : '', row.crashed ? row.crash.split('\n')[1]?.trim() : '', row.error && row.verdict.length ? row.error : ''].filter(Boolean).join('; ') || '')} |${machineCols(machineTag()).cell(MACHINE)}\n`);
-  log(`${j.id}: ${row.pass ? 'PASS' : row.crashed ? 'CRASH' : 'FAIL'} in ${row.minutes} min`);
-  if (!row.pass) exitCode = 1;
+  appendFileSync(md, `| ${j.id} | ${t0.slice(11, 16)} (${pht(t0)}) | ${row.minutes} | ${row.pass ? 'PASS' : row.na ? '**N/A**' : row.crashed ? '**CRASH**' : '**FAIL**'} | ${cell(row.verdict.join('<br>') || row.error || '-')} | ${row.exitCode ?? '-'} | ${memLine(row.memory.before)} -> ${memLine(row.memory.after)} | ${cell(cd || '-')} | ${cell([countsNote(row), `timing: ${timingText({ timing: row.timing, why: row.timingWhy })}`, buildLine(row.buildCheck), row.saveHashes.after && saveDrift(row.saveHashes.before, row.saveHashes.after).length ? 'BASELINE SAVE CHANGED' : '', row.session.line !== 'fresh load' || row.session.after ? [row.session.line, row.session.after, row.session.next].filter(Boolean).join('; ') : '', row.noiseNote, row.hangCapture, j.note, row.content !== 'as-is' ? `content ${row.content} (${row.contentMoved} moved)` : '', row.crashed ? row.crash.split('\n')[1]?.trim() : '', row.error && row.verdict.length ? row.error : ''].filter(Boolean).join('; ') || '')} |${machineCols(machineTag()).cell(MACHINE)}\n`);
+  log(`${j.id}: ${row.pass ? 'PASS' : row.na ? 'N/A' : row.crashed ? 'CRASH' : 'FAIL'} in ${row.minutes} min`);
+  if (!row.pass && !row.na) exitCode = 1;
 
   const earlierCrashes = earlier.filter(r => r.job === j.id && r.crashed).length;
   stopWhy ||= crashStop(row.crashed, earlierCrashes, prevCrashed);
