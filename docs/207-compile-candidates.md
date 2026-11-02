@@ -324,7 +324,7 @@ Findings:
 
 Fixtures: **not built.** This machine has no C++ compiler and the CI does not build `native/monohost`, so nothing could be run, and an unrun fixture would only move the debugging to the next person. The recipe per method is the `fixture` column. For the top 5: rows 2 and 4 (no IC) are JitBench cases on objects from constructors plus `FieldInfo.SetValue`; rows 1, 3 and 5 also need a concrete `GameObject` subclass, and rows 3 and 5 need an M2 answer code that reads the guid table from a static field of the test assembly.
 
-### 9.1 Fixtures built: they compile, they have not run (2026-11-02, round 8 B6)
+### 9.1 Fixtures built: they compile, they have not run (2026-11-02, round 8 B6; they ran: §9.2)
 
 `native/monohost/JitAccessors.cs` (hand-written, C# 2) builds the objects each accessor reads and calls it once for an
 input index; `tools/jit-corpus.ts` wraps the 17 fixtures in corpus cases named `Acc <method>` (cases 158-174 of the 175),
@@ -822,3 +822,53 @@ whose hot path exits costs more than EA's call**; the eligibility rule (no exit 
   (signed 64-bit compares need the two-step high / low compare), `ret.vt` in a non-lazy body.
 - The `ObjectGuid` dictionary case did not move (0.98x): its chain goes through `ObjectGuid.Equals(object)` with a box.
 - In-game: nothing; C6's plan. Ledger: docs/51 §928.
+
+### 9.2 The fixtures run: 17 of 17 accessors compiled, 0 differ (2026-11-02, round 10 C5)
+
+Round 10, task C5: run the B6 fixtures with the CI's `monohost.exe` and keep them as a regression set. Host only.
+
+**Regression set.** The accessor cases are the corpus's last 17 (`node tools/jit-corpus.ts --index "Acc "` prints the
+first index, 180 today). The check, from `native/monohost/out` after `build.cmd` (or with the `monohost` artifact of the
+CI's `monohost` workflow copied over `monohost.exe`; `MonoHostTest.dll` is built locally, the CI has no game assemblies):
+
+```
+MONOHOST_JIT=verify MONOHOST_MINTCALL=fast MONOHOST_JITLAZY=1 MONOHOST_JITCORPUS=1 MONOHOST_DIVGUARD=1 \
+MONOHOST_JITCORPUS_FROM=$(node tools/jit-corpus.ts --index "Acc ") MONOHOST_JITCORPUS_TRAIL=1 \
+MONOHOST_JITLIST=$(node tools/jit-corpus.ts --env | sed 's/^MONOHOST_JITLIST=//') monohost.exe <TS3W.exe copy> <assemblies> selftest <hostdata>
+```
+
+Pass = `jit corpus: 197 cases, 0 differ, 0 unstable` with `MISMATCH 0`, 17 `jit verify <accessor>` rows with `mismatch 0`,
+and the three trail lines below unchanged. The full corpus (no `FROM`) is the wider check; both run in 40 s.
+
+**What the first runs found.** The fixtures compile and hash equal on every arm, but the first trail run (the new
+`MONOHOST_JITCORPUS_TRAIL=1`, every case's interpreted exception trail, not only a mismatch's) showed 9 of the 17 cases
+ending on an exception that escaped the case body, and the verify rows showed what that cost: `GetActorsOfType` and
+`SimDescription.get_Age` never ran, `Sim.get_SimDescription` ran neither input, `GetObject`, `get_Parent` and
+`get_LotCurrent` ran their first input only. Two findings:
+
+1. **An exception thrown by a `throw` leaves the case's `catch` in monohost** (the EA fault handlers' exceptions, div by
+   zero and the `.ovf` arithmetic, are caught). The corpus knew (§10's escape bit, `JitKX.Escape`, the newarr note in
+   §10's results); 60 of the 197 cases end that way, on both arms alike, so the differential holds, but a fixture's
+   designed exception ends its input loop. The three that remain are each the case's last input, by design:
+   `InteractionObjectPair.Equals` input 6 (the null definition), `Corners.get_Item` input 4, `EveryHumanSimDescription`
+   input 1; every other input ran. A corpus trail now names an escaped exception (type, message, inner) instead of
+   `(trail run threw)`.
+2. **Three internal calls were stubs, not answers.** §9 and §9.1 assumed the host's proxy IC answers; `IcStub` throws
+   `NotImplementedException("monohost stub: ...")` for `Simulator_GetTaskImpl` (`GetObject` inputs 1-2),
+   `Slots_GetParentIdImpl` (`get_Parent` and `get_LotCurrent` input 1) and `GameUtils_GetWorldName` (every
+   `new SimDescription()` and `new Sim()`: `GetActorsOfType`, `get_SimDescription`, `get_Age`). The corpus now answers
+   those three with a typed zero (no task, no parent, a null world name) for its own duration and puts the allow-list back
+   after, so the M1.3 sweep's counts do not move. `new Sim()` and `new FxLot()` (§9.1's two risks) construct.
+
+**Result [measured, host, 2026-11-02, CI `monohost.exe` of 54e0814 for the full corpus, the local build of this change
+for the accessor range]:** 197 cases, 0 differ, 0 unstable, lazy on and off; per-call verify `MISMATCH 0`; the 17 verify
+rows: `GetComponent` 2+1+1 (three instantiations), `InteractionObjectPair.Equals` 6, `GetObject` 3 unverified (clauses) +
+8 inside a verified caller, `ElapsedTimeInMinutes` 35 unverified (clauses), `get_Parent` 2, `get_ObjectId` 2 + 8,
+`get_LotCurrent` 2, `GetActorsOfType` 5 unverified (clauses), `get_IsRouting` 4, `get_CommercialLotSubType` 6,
+`ListSorted.GetEnumerator` 4, `DesireCurve.GetYFromX` 12 unverified (clauses), `get_SimDescription` 2,
+`get_ShouldSimulate` 4, `get_Age` 12 (5 inputs plus the 7 `Desc` calls of `GetActorsOfType` and `get_SimDescription`),
+`Corners.get_Item` 4, `EveryHumanSimDescription` 2 unverified (clauses). "Unverified (clauses)" means the per-call
+verifier does not compare a method with clauses word for word; its result still hashes equal on all arms.
+
+Not done: 11 `UpdateCloudiness` and 13 `get_IsSufficientlyOnScreenForHighLODSimulation` (§9.1, L class) stay out. The
+regression set is a command, not a CI job: the CI runner has no game files. Ledger §929.

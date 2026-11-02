@@ -10,7 +10,8 @@
 //   node tools/jit-corpus.ts --report <monohost.exe.log> [--dump <jit-dump.txt>]   summary, mismatches by case name, superop coverage
 //   node tools/jit-corpus.ts --self-check
 // Run (docs/207 §10): MONOHOST_JIT=verify MONOHOST_MINTCALL=fast MONOHOST_JITCORPUS=1 MONOHOST_DIVGUARD=1 MONOHOST_JITLIST=<--env>
-//   [MONOHOST_JITCORPUS_FROM=<first case> MONOHOST_JITCORPUS_TO=<last case>]
+//   [MONOHOST_JITCORPUS_FROM=<first case> MONOHOST_JITCORPUS_TO=<last case>] [MONOHOST_JITCORPUS_TRAIL=1: every case's interpreted exception trail]
+//   node tools/jit-corpus.ts --index <name prefix>   first case index with that name prefix (the accessor fixtures: --index "Acc ")
 //   monohost.exe <repo>\game-copy\monohost\TS3W.exe <repo>\game-copy\assemblies selftest <repo>\game-copy\monohost\hostdata.txt
 // Yields are out of scope: P0 compiles only never-yielding methods, and monohost runs no task scheduler (P1 adds them).
 // Round 8 B6 (docs/207 §9.1): the ACCESSOR cases call the Sims3Gameplay* accessor fixtures of native/monohost/JitAccessors.cs
@@ -773,6 +774,7 @@ if (import.meta.main) {
   if (process.argv.includes('--self-check')) selfCheck();
   else if (process.argv.includes('--write')) { const g = generate(); writeFileSync(OUT, g); console.log(`wrote ${OUT}: ${cases().length} cases, ${K.length} arithmetic kernels`); }
   else if (process.argv.includes('--env')) console.log(jitList(readFileSync(resolve(ROOT, 'native/monohost/monohost-jit.cpp'), 'utf8')));
+  else if (arg('--index')) console.log(cases().findIndex(c => c.name.startsWith(arg('--index')!)));
   else if (arg('--report')) {
     const d = arg('--dump'), r = report(readFileSync(arg('--report')!, 'utf8'), d ? readFileSync(d, 'utf8') : undefined, cases().map(c => c.name));
     if (!r.cases) { console.log('jit-corpus: no "jit corpus:" summary line (MONOHOST_JITCORPUS=1 set? MonoHostTest.dll built with JitCorpus.cs?)'); process.exitCode = 1; }
@@ -781,5 +783,5 @@ if (import.meta.main) {
     if (d) console.log(`superops in the compiled methods: ${r.superops.length} of 22${r.missingSuper.length ? ` (missing ${r.missingSuper.join(' ')})` : ''}`);
     const review = r.lines.length - 3 * r.traceOnly + (r.cases ? 0 : 1);  // a trace-only mismatch and its two trail lines
     console.log(`needs review: ${review ? `${review} item(s) above` : 'none'}`);
-  } else console.log('usage: --write | --env | --report <monohost.exe.log> [--dump <jit-dump.txt>] | --self-check');
+  } else console.log('usage: --write | --env | --index <name prefix> | --report <monohost.exe.log> [--dump <jit-dump.txt>] | --self-check');
 }

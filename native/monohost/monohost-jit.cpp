@@ -1696,7 +1696,13 @@ static void JitCorpusTrail(void* tm, int c, const char* arm) {
     void* s = tm ? SafeInvoke(tm, NULL, a, &exc, &code) : NULL;
     char out[1200] = "";
     if (s && !exc && !code) Narrow(s, out, sizeof(out));
-    Log("jit corpus trail case %d %s: %s\n", c, arm, out[0] ? out : exc || code ? "(trail run threw)" : "(no exceptions)");
+    else if (exc) {  // the exception escaped the case body (thrown before its try: the case's own transform, a fixture's type load)
+        char t[128] = "", msg[256] = "", ti[128] = "", mi[256] = ""; void* in = NULL, *in2 = NULL;
+        Describe(exc, t, msg, &in);
+        if (in) Describe(in, ti, mi, &in2);
+        _snprintf_s(out, sizeof(out), _TRUNCATE, "(escaped) %s: %s%s%s%s%s", t, msg, in ? " <- " : "", ti, in ? ": " : "", mi);
+    }
+    Log("jit corpus trail case %d %s: %s\n", c, arm, out[0] ? out : code ? "(trail run faulted)" : "(no exceptions)");
 }
 static void JitCorpusRun() {
     int n = I32(T("JitCorpusCount", 0, NULL));
@@ -1708,7 +1714,14 @@ static void JitCorpusRun() {
     char rv[16] = "";
     if (GetEnvironmentVariableA("MONOHOST_JITCORPUS_FROM", rv, sizeof(rv))) c0 = atoi(rv);
     if (GetEnvironmentVariableA("MONOHOST_JITCORPUS_TO", rv, sizeof(rv))) c1 = atoi(rv);
+    const bool trailAll = GetEnvironmentVariableA("MONOHOST_JITCORPUS_TRAIL", rv, sizeof(rv)) && atoi(rv) > 0;  // every case's interpreted trail (round 10 C5)
     if (c0 > 0 || c1 < n - 1) Log("jit corpus: cases %d to %d of %d\n", c0, c1, n);
+    // the internal calls the accessor fixtures (JitAccessors.cs) reach answer zero (no task, no parent, no world name) for the
+    // corpus only: the stub's NotImplementedException escapes the case body and ended six accessor cases early (round 10 C5)
+    static const char* const kCorpusZero[] = {"::Simulator_GetTaskImpl", "::Slots_GetParentIdImpl", "::GameUtils_GetWorldName"};
+    char allow0[sizeof(g_icAllow) / sizeof(g_icAllow[0])];
+    memcpy(allow0, g_icAllow, sizeof(allow0));
+    for (int i = 0; i < g_icCount; i++) for (const char* z : kCorpusZero) if (!g_icAllow[i] && strstr(g_icNames[i], z)) g_icAllow[i] = 1;
     for (int c = c0; c <= c1 && c < n; c++) {
         int ref = 0, ref2 = 0, got = 0;
         g_jitVerifyOn = 0, JitSetPatched(false);
@@ -1721,7 +1734,8 @@ static void JitCorpusRun() {
         }
         if (ref != ref2) unstable++, Log("jit corpus UNSTABLE case %d: interpreted %08X then %08X\n", c, ref, ref2);
         else if (got != ref) bad++, Log("jit corpus MISMATCH case %d: compiled %08X interpreted %08X\n", c, got, ref);
-        else continue;
+        else if (!trailAll) continue;
+        else { g_jitVerifyOn = 0, JitSetPatched(false); JitCorpusTrail(tm, c, "interpreted"); JitSetPatched(true), g_jitVerifyOn = vOn; continue; }
         g_jitVerifyOn = 0, JitSetPatched(false);
         JitCorpusTrail(tm, c, "interpreted");
         JitSetPatched(true);
@@ -1729,6 +1743,7 @@ static void JitCorpusRun() {
     }
     JitSetPatched(true);
     g_jitVerifyOn = vOn;
+    memcpy(g_icAllow, allow0, sizeof(allow0));
     Log("jit corpus: %d cases, %d differ, %d unstable; per-call verify during the corpus: ok %ld, MISMATCH %ld, abandoned (exception) %ld\n",
         n, bad, unstable, g_jvOk - ok0, g_jvMismatch - mm0, g_jvAbandoned - ab0);
 }
