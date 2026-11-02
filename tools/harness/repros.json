@@ -42126,12 +42126,14 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
         "until": {
           "cmd": "patches",
+     "show": "compaction_",
           "all": [
             {
               "path": "compaction_restored",
@@ -42178,6 +42180,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_* counters into the job log"
       },
       {
@@ -42198,6 +42201,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
@@ -42240,6 +42244,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
@@ -42275,6 +42280,7 @@
         "cmd": "time",
         "until": {
           "cmd": "patches",
+     "show": "compaction_",
           "all": [
             {
               "path": "compaction_restored",
@@ -42321,6 +42327,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
@@ -42363,6 +42370,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
@@ -42397,6 +42405,7 @@
         "cmd": "time",
         "until": {
           "cmd": "patches",
+     "show": "compaction_",
           "all": [
             {
               "path": "compaction_declined",
@@ -42447,6 +42456,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
@@ -42489,12 +42499,14 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
         "until": {
           "cmd": "patches",
+     "show": "compaction_",
           "all": [
             {
               "path": "compaction_refused_state",
@@ -42543,6 +42555,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
@@ -42565,6 +42578,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "args": {
           "compactionfail": true
         }
@@ -42584,12 +42598,14 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
         "until": {
           "cmd": "patches",
+     "show": "compaction_",
           "all": [
             {
               "path": "compaction_failed",
@@ -42636,6 +42652,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "args": {
           "compactionfail": false
         }
@@ -42658,6 +42675,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
@@ -42693,12 +42711,14 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
         "until": {
           "cmd": "patches",
+     "show": "compaction_",
           "all": [
             {
               "path": "compaction_restored",
@@ -42745,6 +42765,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_* counters into the job log"
       },
       {
@@ -42765,6 +42786,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
@@ -42807,6 +42829,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
@@ -42842,6 +42865,7 @@
         "cmd": "time",
         "until": {
           "cmd": "patches",
+     "show": "compaction_",
           "all": [
             {
               "path": "compaction_restored",
@@ -42888,6 +42912,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
@@ -42930,6 +42955,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
@@ -42964,6 +42990,7 @@
         "cmd": "time",
         "until": {
           "cmd": "patches",
+     "show": "compaction_",
           "all": [
             {
               "path": "compaction_declined",
@@ -43014,6 +43041,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
@@ -43056,12 +43084,14 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
         "until": {
           "cmd": "patches",
+     "show": "compaction_",
           "all": [
             {
               "path": "compaction_refused_state",
@@ -43110,6 +43140,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
@@ -43132,6 +43163,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "args": {
           "compactionfail": true
         }
@@ -43151,12 +43183,14 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
         "until": {
           "cmd": "patches",
+     "show": "compaction_",
           "all": [
             {
               "path": "compaction_failed",
@@ -43203,6 +43237,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "args": {
           "compactionfail": false
         }
@@ -43225,6 +43260,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
@@ -43260,12 +43296,14 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait"
       },
       {
         "cmd": "time",
         "until": {
           "cmd": "patches",
+     "show": "compaction_",
           "all": [
             {
               "path": "compaction_restored",
@@ -43312,6 +43350,7 @@
       },
       {
         "cmd": "patches",
+     "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
