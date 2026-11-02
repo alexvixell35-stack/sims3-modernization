@@ -2,6 +2,9 @@
 
 Static, 2026-11-01. No build, no game run. Contributor round 7 task 3 (offline).
 
+Status 2026-11-02: §b's generatable class is lifted and checked under emulation in docs/524 (132 of 136 opcodes, 0
+mismatches; `tools/emu/specs/mint_lift.py`, `docs/data/jit-lifted-templates.json`).
+
 Inputs: `native/monohost/monohost-jit.cpp` (P0, docs/207), `native/ts3native/*.cpp`, `docs/data/mint-opcode-spec.csv`
 (docs/213), `docs/data/jit-exit-census.csv` (docs/207, weighted by `compile-candidates.csv` ms/s). Output:
 `docs/data/jit-opcode-table.csv` from `node tools/jit-opcode-table.ts` (`--check`, `--self-check`).

@@ -1,0 +1,4306 @@
+{
+ "what": "docs/524: EA mint handlers lifted to compiler templates (tools/emu/specs/mint_lift.py --write)",
+ "convention": "esi = eval top, ebp = the interpreter frame ([ebp-8] invocation, [ebp-0xC] vt_sp, [ebp-0x10] runtime method, [ebp-0x14] locals); slots: imm = the operand at `operand` bytes from the instruction start, `size` bytes, ext zx/sx/mov into `reg`; next = the following instruction; taken = ip + 2 * the signed operand; exit = P0 exit to EA's handler (esi already put back); call = absolute target",
+ "opcodes": {
+  "vtresult": {
+   "opcode": 9,
+   "handler": 15025584,
+   "words": 4,
+   "status": "lifted",
+   "template": "53ba000000008b4df4bb0000000083c20783e2f88bc12bca85db894df40f8e200000003bc80f840f000000535051894ef8ff158456f90083c40c83c30783e3f8015df45be900000000",
+   "slots": [
+    {
+     "at": 2,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 4,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 10,
+     "kind": "imm",
+     "reg": "ebx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 69,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call",
+    "vt_sp"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 2,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "stinarg.vt": {
+   "opcode": 59,
+   "handler": 15042431,
+   "words": 4,
+   "status": "lifted",
+   "template": "b900000000b800000000518b4df88b51148b14c2528b55f08b521c8b048203411050e80000000083c40ce900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 4,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 6,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 35,
+     "kind": "call",
+     "target": 16246950
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16246950
+   ],
+   "clobbers": [],
+   "uses": [
+    "invocation",
+    "runtime method"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 2,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "ldarg.vt": {
+   "opcode": 35,
+   "handler": 15041815,
+   "words": 4,
+   "status": "lifted",
+   "template": "538b45f48b55f88906b900000000bb00000000034a10535150e80000000083c30783e3f8015df483c40c83c6085be900000000",
+   "slots": [
+    {
+     "at": 10,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 15,
+     "kind": "imm",
+     "reg": "ebx",
+     "operand": 4,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 26,
+     "kind": "call",
+     "target": 16246950
+    },
+    {
+     "at": 47,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16246950
+   ],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "invocation",
+    "vt_sp"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 2,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "ldloc.r4": {
+   "opcode": 115,
+   "handler": 15042649,
+   "words": 2,
+   "status": "lifted",
+   "template": "b9000000008b55ecd9041183c608dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 18,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "locals"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "ldarg.r4": {
+   "opcode": 31,
+   "handler": 15041697,
+   "words": 2,
+   "status": "lifted",
+   "template": "b9000000008b55f88b4210d9040183c608dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 21,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "invocation"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "stloc.r4": {
+   "opcode": 126,
+   "handler": 15042918,
+   "words": 2,
+   "status": "lifted",
+   "template": "dd46f8b8000000008b4decd95de4d945e483ee08d91c08e900000000",
+   "slots": [
+    {
+     "at": 4,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 24,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "locals"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "stinarg.r4": {
+   "opcode": 55,
+   "handler": 15042347,
+   "words": 2,
+   "status": "lifted",
+   "template": "b8000000008b4df88b51148b4910dd04c28b55f08b521cd95de4d945e48b0482d91c08e900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 36,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "invocation",
+    "runtime method"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "stloc.vt": {
+   "opcode": 130,
+   "handler": 15043002,
+   "words": 4,
+   "status": "lifted",
+   "template": "53ba000000008b4ef883ee080355ece900000000bb00000000535152e80000000083c30783e3f8295df483c40c5be900000000",
+   "slots": [
+    {
+     "at": 2,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 21,
+     "kind": "imm",
+     "reg": "ebx",
+     "operand": 4,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 29,
+     "kind": "call",
+     "target": 16246950
+    },
+    {
+     "at": 47,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16246950
+   ],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "locals"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 2,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "ldloc.vt": {
+   "opcode": 119,
+   "handler": 15042729,
+   "words": 4,
+   "status": "lifted",
+   "template": "538b45f48906ba00000000bb000000000355ec535250e80000000083c30783e3f8015df483c40c83c6085be900000000",
+   "slots": [
+    {
+     "at": 7,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 12,
+     "kind": "imm",
+     "reg": "ebx",
+     "operand": 4,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 23,
+     "kind": "call",
+     "target": 16246950
+    },
+    {
+     "at": 44,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16246950
+   ],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "locals",
+    "vt_sp"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 2,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "sub.r8": {
+   "opcode": 290,
+   "handler": 15030992,
+   "words": 1,
+   "status": "lifted",
+   "template": "dd46f083ee08dc26dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 12,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "ldind.r4": {
+   "opcode": 142,
+   "handler": 15030638,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b46f8d900dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 9,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "stind.r4": {
+   "opcode": 150,
+   "handler": 15030813,
+   "words": 1,
+   "status": "lifted",
+   "template": "dd46f88b56f0d95de4d945e483ee10d91ae900000000",
+   "slots": [
+    {
+     "at": 18,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "ceq.r8": {
+   "opcode": 390,
+   "handler": 15040625,
+   "words": 1,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee0883ec08dd1c24ffd383c40885c00f8533000000dd0683ec08dd1c24ffd383c40885c00f851e000000dd06dc5ef8dfe0f6c4440f8a1b000000b8010000008946f85be900000000c746f8000000005be90000000033c08946f85be900000000",
+   "slots": [
+    {
+     "at": 79,
+     "kind": "next"
+    },
+    {
+     "at": 92,
+     "kind": "next"
+    },
+    {
+     "at": 103,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "ceq.i8": {
+   "opcode": 389,
+   "handler": 15040572,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b56f083ee083b160f85190000008b46fc3b46040f850d000000b8010000008946f8e90000000033c08946f8e900000000",
+   "slots": [
+    {
+     "at": 35,
+     "kind": "next"
+    },
+    {
+     "at": 45,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "shr.un.i8": {
+   "opcode": 329,
+   "handler": 15031782,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b46f08b56f48b4ef883ee08e8000000008946f88956fce900000000",
+   "slots": [
+    {
+     "at": 13,
+     "kind": "call",
+     "target": 16248544
+    },
+    {
+     "at": 24,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16248544
+   ],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "initobj": {
+   "opcode": 245,
+   "handler": 15043063,
+   "words": 3,
+   "status": "lifted",
+   "template": "b8000000008b4ef85083ee086a0051e80000000083c40ce900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 16,
+     "kind": "call",
+     "target": 16246968
+    },
+    {
+     "at": 24,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16246968
+   ],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "bge.un.r8.s": {
+   "opcode": 222,
+   "handler": 15029294,
+   "words": 2,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f852c000000dd460883ec08dd1c24ffd383c40885c00f8516000000dd4608dc1edfe0f6c4410f8b060000005be900000000ba000000005be900000000",
+   "slots": [
+    {
+     "at": 72,
+     "kind": "next"
+    },
+    {
+     "at": 77,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 83,
+     "kind": "taken",
+     "operand": 2
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "ldc.r4": {
+   "opcode": 23,
+   "handler": 15025900,
+   "words": 3,
+   "status": "lifted",
+   "template": "b900000000894de4d945e4dd1e83c608e900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 17,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "add.r8": {
+   "opcode": 286,
+   "handler": 15030909,
+   "words": 1,
+   "status": "lifted",
+   "template": "dd46f083ee08dc06dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 12,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "mul.r8": {
+   "opcode": 294,
+   "handler": 15031094,
+   "words": 1,
+   "status": "lifted",
+   "template": "dd46f083ee08dc0edd5ef8e900000000",
+   "slots": [
+    {
+     "at": 12,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bgt.i8.s": {
+   "opcode": 209,
+   "handler": 15028058,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f8c1b0000000f8f0b0000008b063b46080f860a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 33,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 38,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "nop": {
+   "opcode": 0,
+   "handler": 15025426,
+   "words": 1,
+   "status": "lifted",
+   "template": "e900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "dup.vt": {
+   "opcode": 4,
+   "handler": 15025978,
+   "words": 3,
+   "status": "lifted",
+   "template": "53bb000000008b4ef88b45f45351508906e80000000083c30783e3f8015df483c40c83c6085be900000000",
+   "slots": [
+    {
+     "at": 2,
+     "kind": "imm",
+     "reg": "ebx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 18,
+     "kind": "call",
+     "target": 16246950
+    },
+    {
+     "at": 39,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16246950
+   ],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "vt_sp"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "ldc.i8": {
+   "opcode": 22,
+   "handler": 15025872,
+   "words": 5,
+   "status": "lifted",
+   "template": "ba000000008916b80000000089460483c608e900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 8,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 6,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 19,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 2,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "ldc.r8": {
+   "opcode": 24,
+   "handler": 15025928,
+   "words": 5,
+   "status": "lifted",
+   "template": "ba000000008916b80000000089460483c608e900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 8,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 6,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 19,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 2,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "ldarg.r8": {
+   "opcode": 32,
+   "handler": 15041727,
+   "words": 2,
+   "status": "lifted",
+   "template": "b9000000008b55f88b4210dd040183c608dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 21,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "invocation"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "starg.i1": {
+   "opcode": 37,
+   "handler": 15041867,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b4df8b8000000008b51108a4ef883ee08880c10e900000000",
+   "slots": [
+    {
+     "at": 4,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 21,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "invocation"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "starg.u1": {
+   "opcode": 38,
+   "handler": 15041897,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b45f8ba000000008b48108a46f883ee0888040ae900000000",
+   "slots": [
+    {
+     "at": 4,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 21,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "invocation"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "starg.i2": {
+   "opcode": 39,
+   "handler": 15041927,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b55f8b9000000008b4210668b56f883ee0866891401e900000000",
+   "slots": [
+    {
+     "at": 4,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 23,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "invocation"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "starg.u2": {
+   "opcode": 40,
+   "handler": 15041959,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b4df8b8000000008b5110668b4ef883ee0866890c10e900000000",
+   "slots": [
+    {
+     "at": 4,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 23,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "invocation"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "starg.i4": {
+   "opcode": 41,
+   "handler": 15041991,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b45f8ba000000008b48108b46f883ee0889040ae900000000",
+   "slots": [
+    {
+     "at": 4,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 21,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "invocation"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "starg.i8": {
+   "opcode": 42,
+   "handler": 15042021,
+   "words": 2,
+   "status": "lifted",
+   "template": "b8000000008b4df88b56f88b491083ee088914088b560489540804e900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 28,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "invocation"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "starg.r4": {
+   "opcode": 43,
+   "handler": 15042058,
+   "words": 2,
+   "status": "lifted",
+   "template": "dd46f8b8000000008b4df8d95de4d945e48b511083ee08d91c10e900000000",
+   "slots": [
+    {
+     "at": 4,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 27,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "invocation"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "starg.r8": {
+   "opcode": 44,
+   "handler": 15042094,
+   "words": 2,
+   "status": "lifted",
+   "template": "b800000000dd46f88b4df88b511083ee08dd1c10e900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 21,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "invocation"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "starg.o": {
+   "opcode": 45,
+   "handler": 15042124,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b4df8b8000000008b51108b4ef883ee08890c10e900000000",
+   "slots": [
+    {
+     "at": 4,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 21,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "invocation"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "starg.p": {
+   "opcode": 46,
+   "handler": 15041991,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b45f8ba000000008b48108b46f883ee0889040ae900000000",
+   "slots": [
+    {
+     "at": 4,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 21,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "invocation"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "starg.vt": {
+   "opcode": 47,
+   "handler": 15042154,
+   "words": 4,
+   "status": "lifted",
+   "template": "53ba000000008b45f88b4ef883ee08035010e900000000bb00000000535152e80000000083c30783e3f8295df483c40c5be900000000",
+   "slots": [
+    {
+     "at": 2,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 24,
+     "kind": "imm",
+     "reg": "ebx",
+     "operand": 4,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 32,
+     "kind": "call",
+     "target": 16246950
+    },
+    {
+     "at": 50,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16246950
+   ],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "invocation"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 2,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "stthis": {
+   "opcode": 48,
+   "handler": 15041467,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b56f88b45f883ee0889500ce900000000",
+   "slots": [
+    {
+     "at": 13,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "invocation"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "stinarg.r8": {
+   "opcode": 56,
+   "handler": 15042392,
+   "words": 2,
+   "status": "lifted",
+   "template": "53b8000000008b4df88b51148b5df08b5b1c8b1c83dd04c28b4910dd1c0b5be900000000",
+   "slots": [
+    {
+     "at": 2,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 32,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "invocation",
+    "runtime method"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "ldthisa": {
+   "opcode": 61,
+   "handler": 15041490,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b4df883c10c890e83c608e900000000",
+   "slots": [
+    {
+     "at": 12,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "invocation"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "ldloc.r8": {
+   "opcode": 116,
+   "handler": 15042676,
+   "words": 2,
+   "status": "lifted",
+   "template": "b8000000008b4decdd040883c608dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 18,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "locals"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "stloc.r8": {
+   "opcode": 127,
+   "handler": 15042951,
+   "words": 2,
+   "status": "lifted",
+   "template": "ba00000000dd46f88b45ec83ee08dd1c02e900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 18,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "locals"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "ldind.r8": {
+   "opcode": 143,
+   "handler": 15030657,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b4ef8dd01dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 9,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "stind.r8": {
+   "opcode": 151,
+   "handler": 15030841,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b46f0dd46f8dd1883ee10e900000000",
+   "slots": [
+    {
+     "at": 12,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "brfalse.i8": {
+   "opcode": 161,
+   "handler": 15027169,
+   "words": 3,
+   "status": "lifted",
+   "template": "8b4ef883ee080b4e040f850a000000ba00000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 16,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 21,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 26,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "brfalse.r8": {
+   "opcode": 162,
+   "handler": 15027198,
+   "words": 3,
+   "status": "hand",
+   "reason": "the handler advances ip by 4 bytes on the fall-through, the instruction is 6 bytes (EA bug, docs/213 \u00a74): the compiler form would mis-place the next instruction",
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "brtrue.i8": {
+   "opcode": 164,
+   "handler": 15027347,
+   "words": 3,
+   "status": "lifted",
+   "template": "8b46f883ee080b46040f840a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 16,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 21,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 26,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "brtrue.r8": {
+   "opcode": 165,
+   "handler": 15027376,
+   "words": 3,
+   "status": "lifted",
+   "template": "d9ee83ee08dc1edfe0f6c4440f8b0a000000ba00000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 19,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 24,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 29,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "brfalse.i8.s": {
+   "opcode": 167,
+   "handler": 15027080,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b46f883ee080b46040f850a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 16,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 21,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 26,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "brfalse.r8.s": {
+   "opcode": 168,
+   "handler": 15027110,
+   "words": 2,
+   "status": "lifted",
+   "template": "d9ee83ee08dc1edfe0f6c4440f8a0a000000ba00000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 19,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 24,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 29,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "brtrue.i8.s": {
+   "opcode": 170,
+   "handler": 15027258,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b56f883ee080b56040f840a000000b800000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 16,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 21,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 26,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "brtrue.r8.s": {
+   "opcode": 171,
+   "handler": 15027288,
+   "words": 2,
+   "status": "lifted",
+   "template": "d9ee83ee08dc1edfe0f6c4440f8b0a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 19,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 24,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 29,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "beq.i8": {
+   "opcode": 173,
+   "handler": 15027593,
+   "words": 3,
+   "status": "lifted",
+   "template": "8b56f083ee103b56080f85160000008b46043b460c0f850a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 28,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 33,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 38,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "beq.r8": {
+   "opcode": 174,
+   "handler": 15027634,
+   "words": 3,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f8531000000dd460883ec08dd1c24ffd383c40885c00f851b000000dd4608dc1edfe0f6c4440f8a0b000000ba000000005be9000000005be900000000",
+   "slots": [
+    {
+     "at": 71,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 77,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 83,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bge.i8": {
+   "opcode": 176,
+   "handler": 15027903,
+   "words": 3,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f8c1b0000000f8f0b0000008b063b46080f820a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 33,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 38,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bge.r8": {
+   "opcode": 177,
+   "handler": 15027945,
+   "words": 3,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f8531000000dd460883ec08dd1c24ffd383c40885c00f851b000000dd4608dc1edfe0f6c4410f8a0b000000ba000000005be9000000005be900000000",
+   "slots": [
+    {
+     "at": 71,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 77,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 83,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bgt.i8": {
+   "opcode": 179,
+   "handler": 15028214,
+   "words": 3,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f8c1b0000000f8f0b0000008b063b46080f860a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 33,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 38,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bgt.r8": {
+   "opcode": 180,
+   "handler": 15028256,
+   "words": 3,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f8531000000dd460883ec08dd1c24ffd383c40885c00f851b000000dd4608dc1edfe0f6c4050f8a0b000000ba000000005be9000000005be900000000",
+   "slots": [
+    {
+     "at": 71,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 77,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 83,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "blt.i8": {
+   "opcode": 182,
+   "handler": 15028525,
+   "words": 3,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f8f1b0000000f8c0b0000008b063b46080f830a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 33,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 38,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "blt.r8": {
+   "opcode": 183,
+   "handler": 15028567,
+   "words": 3,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f8531000000dd460883ec08dd1c24ffd383c40885c00f851b000000dd4608dc1edfe0f6c4410f850b000000ba000000005be9000000005be900000000",
+   "slots": [
+    {
+     "at": 71,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 77,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 83,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "ble.i8": {
+   "opcode": 185,
+   "handler": 15028836,
+   "words": 3,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f8f1b0000000f8c0b0000008b063b46080f870a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 33,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 38,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "ble.r8": {
+   "opcode": 186,
+   "handler": 15028878,
+   "words": 3,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f8531000000dd460883ec08dd1c24ffd383c40885c00f851b000000dd4608dc1edfe0f6c4010f850b000000ba000000005be9000000005be900000000",
+   "slots": [
+    {
+     "at": 71,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 77,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 83,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bne.un.i8": {
+   "opcode": 188,
+   "handler": 15029141,
+   "words": 3,
+   "status": "lifted",
+   "template": "8b56f083ee103b56080f850c0000008b46043b460c0f840a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 28,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 33,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 38,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bne.un.r8": {
+   "opcode": 189,
+   "handler": 15029178,
+   "words": 3,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f852c000000dd460883ec08dd1c24ffd383c40885c00f8516000000dd4608dc1edfe0f6c4440f8a060000005be900000000ba000000005be900000000",
+   "slots": [
+    {
+     "at": 72,
+     "kind": "next"
+    },
+    {
+     "at": 77,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 83,
+     "kind": "taken",
+     "operand": 2
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bge.un.i8": {
+   "opcode": 191,
+   "handler": 15029403,
+   "words": 3,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f821b0000000f870b0000008b063b46080f820a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 33,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 38,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bge.un.r8": {
+   "opcode": 192,
+   "handler": 15029445,
+   "words": 3,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f852c000000dd460883ec08dd1c24ffd383c40885c00f8516000000dd4608dc1edfe0f6c4410f8b060000005be900000000ba000000005be900000000",
+   "slots": [
+    {
+     "at": 72,
+     "kind": "next"
+    },
+    {
+     "at": 77,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 83,
+     "kind": "taken",
+     "operand": 2
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bgt.un.i8": {
+   "opcode": 194,
+   "handler": 15029711,
+   "words": 3,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f821b0000000f870b0000008b063b46080f860a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 33,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 38,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bgt.un.r8": {
+   "opcode": 195,
+   "handler": 15029753,
+   "words": 3,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f852c000000dd460883ec08dd1c24ffd383c40885c00f8516000000dd4608dc1edfe0f6c4050f8b060000005be900000000ba000000005be900000000",
+   "slots": [
+    {
+     "at": 72,
+     "kind": "next"
+    },
+    {
+     "at": 77,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 83,
+     "kind": "taken",
+     "operand": 2
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "ble.un.i8": {
+   "opcode": 197,
+   "handler": 15030019,
+   "words": 3,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f871b0000000f820b0000008b063b46080f870a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 33,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 38,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "ble.un.r8": {
+   "opcode": 198,
+   "handler": 15030061,
+   "words": 3,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f852c000000dd460883ec08dd1c24ffd383c40885c00f8516000000dd4608dc1edfe0f6c4010f84060000005be900000000ba000000005be900000000",
+   "slots": [
+    {
+     "at": 72,
+     "kind": "next"
+    },
+    {
+     "at": 77,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 83,
+     "kind": "taken",
+     "operand": 2
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "blt.un.i8": {
+   "opcode": 200,
+   "handler": 15030327,
+   "words": 3,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f871b0000000f820b0000008b063b46080f830a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 33,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 38,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "blt.un.r8": {
+   "opcode": 201,
+   "handler": 15030369,
+   "words": 3,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f852c000000dd460883ec08dd1c24ffd383c40885c00f8516000000dd4608dc1edfe0f6c4410f84060000005be900000000ba000000005be900000000",
+   "slots": [
+    {
+     "at": 72,
+     "kind": "next"
+    },
+    {
+     "at": 77,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 4,
+     "ext": "mov"
+    },
+    {
+     "at": 83,
+     "kind": "taken",
+     "operand": 2
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "beq.i8.s": {
+   "opcode": 203,
+   "handler": 15027438,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b56f083ee103b56080f85160000008b46043b460c0f850a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 28,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 33,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 38,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "beq.r8.s": {
+   "opcode": 204,
+   "handler": 15027480,
+   "words": 2,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f8531000000dd460883ec08dd1c24ffd383c40885c00f851b000000dd4608dc1edfe0f6c4440f8a0b000000ba000000005be9000000005be900000000",
+   "slots": [
+    {
+     "at": 71,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 77,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 83,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bge.i8.s": {
+   "opcode": 206,
+   "handler": 15027747,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f8c1b0000000f8f0b0000008b063b46080f820a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 33,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 38,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bge.r8.s": {
+   "opcode": 207,
+   "handler": 15027790,
+   "words": 2,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f8531000000dd460883ec08dd1c24ffd383c40885c00f851b000000dd4608dc1edfe0f6c4410f8a0b000000ba000000005be9000000005be900000000",
+   "slots": [
+    {
+     "at": 71,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 77,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 83,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bgt.r8.s": {
+   "opcode": 210,
+   "handler": 15028101,
+   "words": 2,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f8531000000dd460883ec08dd1c24ffd383c40885c00f851b000000dd4608dc1edfe0f6c4050f8a0b000000ba000000005be9000000005be900000000",
+   "slots": [
+    {
+     "at": 71,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 77,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 83,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "blt.i8.s": {
+   "opcode": 212,
+   "handler": 15028369,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f8f1b0000000f8c0b0000008b063b46080f830a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 33,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 38,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "blt.r8.s": {
+   "opcode": 213,
+   "handler": 15028412,
+   "words": 2,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f8531000000dd460883ec08dd1c24ffd383c40885c00f851b000000dd4608dc1edfe0f6c4410f850b000000ba000000005be9000000005be900000000",
+   "slots": [
+    {
+     "at": 71,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 77,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 83,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "ble.i8.s": {
+   "opcode": 215,
+   "handler": 15028680,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f8f1b0000000f8c0b0000008b063b46080f870a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 33,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 38,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "ble.r8.s": {
+   "opcode": 216,
+   "handler": 15028723,
+   "words": 2,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f8531000000dd460883ec08dd1c24ffd383c40885c00f851b000000dd4608dc1edfe0f6c4010f850b000000ba000000005be9000000005be900000000",
+   "slots": [
+    {
+     "at": 71,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 77,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 83,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bne.un.i8.s": {
+   "opcode": 218,
+   "handler": 15028991,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b56f083ee103b56080f850c0000008b46043b460c0f840a000000b900000000e900000000e900000000",
+   "slots": [
+    {
+     "at": 28,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 33,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 38,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bne.un.r8.s": {
+   "opcode": 219,
+   "handler": 15029029,
+   "words": 2,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f852c000000dd460883ec08dd1c24ffd383c40885c00f8516000000dd4608dc1edfe0f6c4440f8a060000005be900000000ba000000005be900000000",
+   "slots": [
+    {
+     "at": 72,
+     "kind": "next"
+    },
+    {
+     "at": 77,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 83,
+     "kind": "taken",
+     "operand": 2
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bge.un.i8.s": {
+   "opcode": 221,
+   "handler": 15029268,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f820b0000000f8715000000e905000000e9000000008b063b46080f82f0ffffffb900000000e900000000",
+   "slots": [
+    {
+     "at": 27,
+     "kind": "next"
+    },
+    {
+     "at": 43,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 48,
+     "kind": "taken",
+     "operand": 2
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bgt.un.i8.s": {
+   "opcode": 224,
+   "handler": 15029555,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f821b0000000f871a0000008b063b46080f860a000000b900000000e900000000e900000000b900000000e900000000",
+   "slots": [
+    {
+     "at": 33,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 38,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    },
+    {
+     "at": 48,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 53,
+     "kind": "taken",
+     "operand": 2
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "bgt.un.r8.s": {
+   "opcode": 225,
+   "handler": 15029602,
+   "words": 2,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f852c000000dd460883ec08dd1c24ffd383c40885c00f8516000000dd4608dc1edfe0f6c4050f8b060000005be900000000ba000000005be900000000",
+   "slots": [
+    {
+     "at": 72,
+     "kind": "next"
+    },
+    {
+     "at": 77,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 83,
+     "kind": "taken",
+     "operand": 2
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "ble.un.i8.s": {
+   "opcode": 227,
+   "handler": 15029863,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f871b0000000f821a0000008b063b46080f870a000000b900000000e900000000e900000000b900000000e900000000",
+   "slots": [
+    {
+     "at": 33,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 38,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    },
+    {
+     "at": 48,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 53,
+     "kind": "taken",
+     "operand": 2
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "ble.un.r8.s": {
+   "opcode": 228,
+   "handler": 15029910,
+   "words": 2,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f852c000000dd460883ec08dd1c24ffd383c40885c00f8516000000dd4608dc1edfe0f6c4010f84060000005be900000000ba000000005be900000000",
+   "slots": [
+    {
+     "at": 72,
+     "kind": "next"
+    },
+    {
+     "at": 77,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 83,
+     "kind": "taken",
+     "operand": 2
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "blt.un.i8.s": {
+   "opcode": 230,
+   "handler": 15030171,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b56f483ee103b560c0f871b0000000f821a0000008b063b46080f830a000000b900000000e900000000e900000000b900000000e900000000",
+   "slots": [
+    {
+     "at": 33,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 38,
+     "kind": "taken",
+     "operand": 2
+    },
+    {
+     "at": 43,
+     "kind": "next"
+    },
+    {
+     "at": 48,
+     "kind": "imm",
+     "reg": "ecx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 53,
+     "kind": "taken",
+     "operand": 2
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "blt.un.r8.s": {
+   "opcode": 231,
+   "handler": 15030218,
+   "words": 2,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee1083ec08dd1c24ffd383c40885c00f852c000000dd460883ec08dd1c24ffd383c40885c00f8516000000dd4608dc1edfe0f6c4410f84060000005be900000000ba000000005be900000000",
+   "slots": [
+    {
+     "at": 72,
+     "kind": "next"
+    },
+    {
+     "at": 77,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "sx"
+    },
+    {
+     "at": 83,
+     "kind": "taken",
+     "operand": 2
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "switch": {
+   "opcode": 232,
+   "handler": 15030449,
+   "words": 0,
+   "status": "hand",
+   "reason": "reads its case table through the ip with an index (P0 compiles switch as an exit)",
+   "verify": {
+    "cases": 0,
+    "note": "not run"
+   }
+  },
+  "ldstr": {
+   "opcode": 233,
+   "handler": 15032629,
+   "words": 2,
+   "status": "lifted",
+   "template": "ba000000008b45f08b48148b1491891683c608e900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 20,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "runtime method"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "ldtoken": {
+   "opcode": 251,
+   "handler": 15038993,
+   "words": 2,
+   "status": "lifted",
+   "template": "8b45f48906ba0000000083c0088945f48b45f08b48148b068b0c91890883c608e900000000",
+   "slots": [
+    {
+     "at": 6,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 33,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "runtime method",
+    "vt_sp"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "ldftn": {
+   "opcode": 252,
+   "handler": 15041368,
+   "words": 2,
+   "status": "lifted",
+   "template": "ba000000008b45f08b48148b1491891683c608e900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "edx",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 20,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "runtime method"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "stobj.vt": {
+   "opcode": 256,
+   "handler": 15036553,
+   "words": 2,
+   "status": "hand",
+   "reason": "the value size comes from a MonoClass lookup (0xE6F5A0): no class model in the frame",
+   "verify": {
+    "cases": 0,
+    "note": "not run"
+   }
+  },
+  "initlocals": {
+   "opcode": 260,
+   "handler": 15025519,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b55f00fb7423c8b4dec506a0051e80000000083c40ce900000000",
+   "slots": [
+    {
+     "at": 15,
+     "kind": "call",
+     "target": 16246968
+    },
+    {
+     "at": 23,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16246968
+   ],
+   "clobbers": [],
+   "uses": [
+    "locals",
+    "runtime method"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "mul.i8": {
+   "opcode": 293,
+   "handler": 15031053,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b56fc8b46f88b4ef483ee08528b56f8505152e8000000008946f88956fce900000000",
+   "slots": [
+    {
+     "at": 20,
+     "kind": "call",
+     "target": 16247616
+    },
+    {
+     "at": 31,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16247616
+   ],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "div.r8": {
+   "opcode": 297,
+   "handler": 15031202,
+   "words": 1,
+   "status": "lifted",
+   "template": "dd46f083ee08dc36dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 12,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "neg.i8": {
+   "opcode": 313,
+   "handler": 15031835,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b4ef88b56fcf7d983d200f7da894ef88956fce900000000",
+   "slots": [
+    {
+     "at": 20,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "neg.r8": {
+   "opcode": 314,
+   "handler": 15031865,
+   "words": 1,
+   "status": "lifted",
+   "template": "dd46f8d9e0dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 9,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "not.i8": {
+   "opcode": 316,
+   "handler": 15031903,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b4ef88b56fcf7d1f7d2894ef88956fce900000000",
+   "slots": [
+    {
+     "at": 17,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "rem.r8": {
+   "opcode": 325,
+   "handler": 15031397,
+   "words": 1,
+   "status": "hand",
+   "reason": "calls the CRT _CIfmod (an x87 fprem loop this emulator does not model; docs/221 skips it too)",
+   "verify": {
+    "cases": 0,
+    "note": "not run"
+   }
+  },
+  "shl.i8": {
+   "opcode": 331,
+   "handler": 15031669,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b46f08b56f48b4ef883ee08e8000000008946f88956fce900000000",
+   "slots": [
+    {
+     "at": 13,
+     "kind": "call",
+     "target": 16248768
+    },
+    {
+     "at": 24,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16248768
+   ],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "shr.i8": {
+   "opcode": 333,
+   "handler": 15031723,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b46f08b56f48b4ef883ee08e8000000008946f88956fce900000000",
+   "slots": [
+    {
+     "at": 13,
+     "kind": "call",
+     "target": 16248816
+    },
+    {
+     "at": 24,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16248816
+   ],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "conv.r.un.i4": {
+   "opcode": 334,
+   "handler": 15033794,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b46f8db46f885c00f8d06000000dc0528d0f900dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 24,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "conv.r.un.i8": {
+   "opcode": 335,
+   "handler": 15033824,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b4ef88b46fc894d8c8bc825ffffff7f81e100000080894590df6d8c894d98c7459400000000df6d94d9e0dec1dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 49,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.i1.i8": {
+   "opcode": 337,
+   "handler": 15031948,
+   "words": 1,
+   "status": "lifted",
+   "template": "0fbe4ef8894ef8e900000000",
+   "slots": [
+    {
+     "at": 8,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.i1.r8": {
+   "opcode": 338,
+   "handler": 15031966,
+   "words": 1,
+   "status": "lifted",
+   "template": "dd46f8e8000000000fbed08956f8e900000000",
+   "slots": [
+    {
+     "at": 4,
+     "kind": "call",
+     "target": 16247872
+    },
+    {
+     "at": 15,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16247872
+   ],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.u1.i8": {
+   "opcode": 340,
+   "handler": 15032009,
+   "words": 1,
+   "status": "lifted",
+   "template": "0fb64ef8894ef8e900000000",
+   "slots": [
+    {
+     "at": 8,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.u1.r8": {
+   "opcode": 341,
+   "handler": 15032027,
+   "words": 1,
+   "status": "lifted",
+   "template": "dd46f8d97dfe0fb745fe0d000c00008945e4d96de4db5de48a55e40fb6c28946f8d96dfee900000000",
+   "slots": [
+    {
+     "at": 37,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "frame-0x1c",
+    "frame-0x2"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.i2.i8": {
+   "opcode": 343,
+   "handler": 15032092,
+   "words": 1,
+   "status": "lifted",
+   "template": "0fbf56f88956f8e900000000",
+   "slots": [
+    {
+     "at": 8,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.i2.r8": {
+   "opcode": 344,
+   "handler": 15032110,
+   "words": 1,
+   "status": "lifted",
+   "template": "dd46f8e8000000000fbfc08946f8e900000000",
+   "slots": [
+    {
+     "at": 4,
+     "kind": "call",
+     "target": 16247872
+    },
+    {
+     "at": 15,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16247872
+   ],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.u2.i8": {
+   "opcode": 346,
+   "handler": 15032153,
+   "words": 1,
+   "status": "lifted",
+   "template": "0fb756f88956f8e900000000",
+   "slots": [
+    {
+     "at": 8,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.u2.r8": {
+   "opcode": 347,
+   "handler": 15032171,
+   "words": 1,
+   "status": "lifted",
+   "template": "dd46f8d97dfe0fb745fe0d000c00008945e4d96de4db5de4668b45e40fb7c8894ef8d96dfee900000000",
+   "slots": [
+    {
+     "at": 38,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "frame-0x1c",
+    "frame-0x2"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.i4.r8": {
+   "opcode": 349,
+   "handler": 15032219,
+   "words": 1,
+   "status": "lifted",
+   "template": "dd46f8e8000000008946f8e900000000",
+   "slots": [
+    {
+     "at": 4,
+     "kind": "call",
+     "target": 16247872
+    },
+    {
+     "at": 12,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16247872
+   ],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.u4.i8": {
+   "opcode": 350,
+   "handler": 15032241,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b56f88956f8e900000000",
+   "slots": [
+    {
+     "at": 7,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.u4.r8": {
+   "opcode": 351,
+   "handler": 15032275,
+   "words": 1,
+   "status": "lifted",
+   "template": "dd46f8d97dfe0fb745fe0d000c00008945e4d96de4df7de08b4de0894ef8d96dfee900000000",
+   "slots": [
+    {
+     "at": 34,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "frame-0x2",
+    "frame-0x20"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.i8.u4": {
+   "opcode": 353,
+   "handler": 15032361,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b56f88956f8c746fc00000000e900000000",
+   "slots": [
+    {
+     "at": 14,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "conv.i8.r8": {
+   "opcode": 354,
+   "handler": 15032385,
+   "words": 1,
+   "status": "lifted",
+   "template": "dd46f8e8000000008946f88956fce900000000",
+   "slots": [
+    {
+     "at": 4,
+     "kind": "call",
+     "target": 16247926
+    },
+    {
+     "at": 15,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16247926
+   ],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.r4.i4": {
+   "opcode": 355,
+   "handler": 15032410,
+   "words": 1,
+   "status": "lifted",
+   "template": "db46f8dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 7,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "conv.r4.i8": {
+   "opcode": 356,
+   "handler": 15032427,
+   "words": 1,
+   "status": "lifted",
+   "template": "df6ef8dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 7,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.r4.r8": {
+   "opcode": 357,
+   "handler": 15032444,
+   "words": 1,
+   "status": "lifted",
+   "template": "dd46f8d95de4d945e4dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 13,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.r8.i4": {
+   "opcode": 358,
+   "handler": 15032467,
+   "words": 1,
+   "status": "lifted",
+   "template": "db46f8dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 7,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "conv.r8.i8": {
+   "opcode": 359,
+   "handler": 15032484,
+   "words": 1,
+   "status": "lifted",
+   "template": "df6ef8dd5ef8e900000000",
+   "slots": [
+    {
+     "at": 7,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "conv.i4.i8.sp": {
+   "opcode": 360,
+   "handler": 15032258,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b46f08946f0e900000000",
+   "slots": [
+    {
+     "at": 7,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "conv.i8.i4.sp": {
+   "opcode": 361,
+   "handler": 15032340,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b46f0998946f08956f4e900000000",
+   "slots": [
+    {
+     "at": 11,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  },
+  "conv.u8.r8": {
+   "opcode": 363,
+   "handler": 15032385,
+   "words": 1,
+   "status": "lifted",
+   "template": "dd46f8e8000000008946f88956fce900000000",
+   "slots": [
+    {
+     "at": 4,
+     "kind": "call",
+     "target": 16247926
+    },
+    {
+     "at": 15,
+     "kind": "next"
+    }
+   ],
+   "calls": [
+    16247926
+   ],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 18,
+    "mismatches": 0
+   }
+  },
+  "cgt.i8": {
+   "opcode": 393,
+   "handler": 15040745,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b46f483ee083b46040f8c1e0000000f8f0b0000008b4ef83b0e0f860d000000b8010000008946f8e90000000033c08946f8e900000000",
+   "slots": [
+    {
+     "at": 41,
+     "kind": "next"
+    },
+    {
+     "at": 51,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "cgt.r8": {
+   "opcode": 394,
+   "handler": 15040792,
+   "words": 1,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee0883ec08dd1c24ffd383c40885c00f853e000000dd0683ec08dd1c24ffd383c40885c00f8529000000dd06dc5ef8dfe0f6c4050f8a0e000000b8010000008946f85be90000000033c08946f85be900000000c746f8000000005be900000000",
+   "slots": [
+    {
+     "at": 79,
+     "kind": "next"
+    },
+    {
+     "at": 90,
+     "kind": "next"
+    },
+    {
+     "at": 103,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "cgt.un.i8": {
+   "opcode": 396,
+   "handler": 15040901,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b4ef483ee083b4e040f821e0000000f870b0000008b56f83b160f860d000000b8010000008946f8e90000000033c08946f8e900000000",
+   "slots": [
+    {
+     "at": 41,
+     "kind": "next"
+    },
+    {
+     "at": 51,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "cgt.un.r8": {
+   "opcode": 397,
+   "handler": 15040948,
+   "words": 1,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee0883ec08dd1c24ffd383c40885c00f853e000000dd0683ec08dd1c24ffd383c40885c00f8529000000dd06dc5ef8dfe0f6c4050f8a0e000000b8010000008946f85be90000000033c08946f85be900000000c746f8010000005be900000000",
+   "slots": [
+    {
+     "at": 79,
+     "kind": "next"
+    },
+    {
+     "at": 90,
+     "kind": "next"
+    },
+    {
+     "at": 103,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "clt.i8": {
+   "opcode": 399,
+   "handler": 15041074,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b56f483ee083b56040f8f1e0000000f8c0b0000008b46f83b060f830d000000b8010000008946f8e90000000033c08946f8e900000000",
+   "slots": [
+    {
+     "at": 41,
+     "kind": "next"
+    },
+    {
+     "at": 51,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "clt.r8": {
+   "opcode": 400,
+   "handler": 15041121,
+   "words": 1,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee0883ec08dd1c24ffd383c40885c00f853e000000dd0683ec08dd1c24ffd383c40885c00f8529000000dd06dc5ef8dfe0f6c4410f850e000000b8010000008946f85be90000000033c08946f85be900000000c746f8000000005be900000000",
+   "slots": [
+    {
+     "at": 79,
+     "kind": "next"
+    },
+    {
+     "at": 90,
+     "kind": "next"
+    },
+    {
+     "at": 103,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "clt.un.i8": {
+   "opcode": 402,
+   "handler": 15041234,
+   "words": 1,
+   "status": "lifted",
+   "template": "8b46f483ee083b46040f871e0000000f820b0000008b4ef83b0e0f830d000000b8010000008946f8e90000000033c08946f8e900000000",
+   "slots": [
+    {
+     "at": 41,
+     "kind": "next"
+    },
+    {
+     "at": 51,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "clt.un.r8": {
+   "opcode": 403,
+   "handler": 15041281,
+   "words": 1,
+   "status": "lifted",
+   "template": "53dd46f08b1dd054f90083ee0883ec08dd1c24ffd383c40885c00f8533000000dd0683ec08dd1c24ffd383c40885c00f851e000000dd06dc5ef8dfe0f6c4410f851b000000b8010000008946f85be900000000c746f8010000005be90000000033c08946f85be900000000",
+   "slots": [
+    {
+     "at": 79,
+     "kind": "next"
+    },
+    {
+     "at": 92,
+     "kind": "next"
+    },
+    {
+     "at": 103,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [
+    "ebx"
+   ],
+   "uses": [
+    "import call"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 0,
+   "verify": {
+    "cases": 19,
+    "mismatches": 0
+   }
+  },
+  "mono_ldptr": {
+   "opcode": 418,
+   "handler": 15040424,
+   "words": 2,
+   "status": "lifted",
+   "template": "b8000000008b4df08b51148b0482890683c608e900000000",
+   "slots": [
+    {
+     "at": 1,
+     "kind": "imm",
+     "reg": "eax",
+     "operand": 2,
+     "size": 2,
+     "ext": "zx"
+    },
+    {
+     "at": 20,
+     "kind": "next"
+    }
+   ],
+   "calls": [],
+   "clobbers": [],
+   "uses": [
+    "runtime method"
+   ],
+   "exitAfterSideEffect": false,
+   "operandBytes": 1,
+   "verify": {
+    "cases": 12,
+    "mismatches": 0
+   }
+  }
+ }
+}
