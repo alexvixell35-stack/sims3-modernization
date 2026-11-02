@@ -60,6 +60,7 @@ namespace Ts3Agent
             RegisterFreshWorld();
             Dispatcher.Register("quiet_ui", QuietUi);
             Dispatcher.Register("autopilot", Autopilot);
+            Dispatcher.Register("dialog_expect", DialogExpect);
             RegisterGates(); // docs/179: game-mode gates wrap the handlers registered above
             StartAutopilot();
         }
@@ -264,6 +265,9 @@ namespace Ts3Agent
 
         static readonly string[] kAcceptWords = { "ok", "accept", "yes", "continue", "done", "confirm", "close", "got it" };
         static readonly string[] kRejectWords = { "cancel", "no", "back", "quit", "exit", "decline", "never", "customize" }; // customize opens a second picker (lifetime wish) the autopilot cannot answer
+        // Answers for a dialog no rule knows when nobody asked to accept it, in this order (the long-distance move offer was
+        // accepted by the old highest-score default and took the household out of the world: runs 7h, 7j2).
+        static readonly string[] kSafeWords = { "cancel", "not now", "later", "no", "decline", "close", "don't", "dont", "ignore", "reject", "refuse" };
         static readonly string[] kNames = { "Alex", "Sam", "Jamie", "Robin", "Casey", "Morgan", "Riley", "Quinn", "Avery", "Reese" };
         static int sNameIndex;
 
@@ -296,7 +300,19 @@ namespace Ts3Agent
             new[] { new[] { "placing the following lots", "new lots available" }, new[] { "don't place", "dont place", "no" } },
             new[] { new[] { "save your town before continuing" }, new[] { "just continue", "continue" } },
             new[] { new[] { "name your saved game" }, new[] { "cancel" } },
-            new[] { new[] { "come over", "invite", "would like to visit", "wants to visit", "join them" }, new[] { "decline", "not now", "no", "cancel" } },
+            // Career job offer (H1 2026-11-02, EA 1.69: "...has offered her the Patrol Officer (job level 4) position... Should Justine leave her
+            // current position...?" buttons 'change job' / 'keep job'): both buttons scored 1, no safe word, so the soak stopped. Keep the job.
+            new[] { new[] { "leave her current position", "leave his current position", "keep job" }, new[] { "keep job", "keep", "cancel", "no" } },
+            new[] { new[] { "come over", "invite", "would like to visit", "wants to visit", "join them", "go on a date", "to the prom" }, new[] { "decline", "not now", "no", "cancel" } },
+            // NPC move-in request (Gameplay/Moving:MoveInPrompt, AcceptCancelDialog) and stray-pet adoption (StrayPets:AdoptionConfirmation, yes/no):
+            // either one adds a household member.
+            new[] { new[] { "move in with", "wants to move in", "move into your", "join your household", "adopt" }, new[] { "cancel", "decline", "no" } },
+            // School: field trip and visit-a-friend asks (School.cs, AcceptCancelDialog), boarding school homesick / continue enrollment (yes/no).
+            new[] { new[] { "field trip", "boarding school", "homesick", "visit a friend" }, new[] { "cancel", "decline", "no" } },
+            // Long-distance move offers: accepting one leaves LiveMode (1.69 run 7h/7j2 exits, crash at 0x00AD04EC); a player does not accept one in a 10 min test.
+            new[] { new[] { "new towns available", "long-distance move", "preparing to move" }, new[] { "not now", "cancel", "later", "decline", "no" } },
+            // Event invitations (Round 5: "Committee Hearing", "The Dish Showdown", "The Complete Circuit") and the move flow's second dialog: normal play must not move house or start events.
+            new[] { new[] { "committee hearing", "the dish showdown", "the complete circuit", "moving to a new town" }, new[] { "cancel", "decline", "no" } },
             new[] { new[] { "mod scripts found" }, new[] { "accept", "ok", "continue" } },
         };
 
@@ -349,8 +365,11 @@ namespace Ts3Agent
             return true;
         }
 
-        // Clears whatever modal dialog blocks the game: fills empty text fields (e.g. naming a newborn),
-        // then clicks the most "accepting" enabled button. Prefers tooltips because EA icon buttons have no caption.
+        // Clears whatever modal dialog blocks the game. Known dialogs follow kDialogRules. Otherwise: a naming dialog
+        // (empty text field, e.g. a newborn) is filled and accepted, a dialog with one enabled button gets that button,
+        // args {accept: true} (a harness step that opened the dialog itself) clicks the most "accepting" button, and any
+        // other dialog gets the first kSafeWords button; with none, nothing is clicked and McpException says why
+        // ("no safe button"). r["how"] names the path. Prefers tooltips because EA icon buttons have no caption.
         static object AutoDialog(Args a)
         {
             WindowBase modal = UIManager.GetModalWindow();
@@ -364,7 +383,7 @@ namespace Ts3Agent
             CollectTexts(modal, texts, 0);
             r["title"] = texts.Count > 0 ? texts[0] : null;
             string allText = string.Join(" ", texts.ToArray()).ToLowerInvariant();
-            string[] preferred = RuleFor(allText);
+            string[] preferred = a.Bool("rules", true) ? RuleFor(allText) : null; // rules:false: the harness wants this dialog accepted even where a rule declines it (dialog_expect)
             r["rule"] = preferred != null ? preferred[0] : null;
 
             KeyValuePair<WindowBase, object>? best = null;
@@ -411,6 +430,25 @@ namespace Ts3Agent
                 if (s > bestScore) { bestScore = s; best = kv; }
             }
             r["buttons"] = seen;
+            string how = preferred != null && bestScore == 100 ? "rule" : filled.Count > 0 ? "name dialog" : a.Bool("accept", false) ? "accept requested" : null;
+            if (how == null)
+            {
+                List<KeyValuePair<WindowBase, object>> live = buttons.FindAll(kv => { try { return kv.Key.Enabled; } catch (Exception) { return true; } });
+                best = null;
+                if (live.Count == 1) { best = live[0]; how = "only button"; }
+                foreach (string w in kSafeWords)
+                {
+                    if (best != null) break;
+                    foreach (KeyValuePair<WindowBase, object> kv in live)
+                    {
+                        string words = Words(kv.Key);
+                        if (words == w || words.StartsWith(w + " ") || (w.Length > 2 && words.IndexOf(w) >= 0)) { best = kv; how = "safe default"; break; }
+                    }
+                }
+                if (best == null) throw new McpException("no safe button, nothing clicked: '" + (r["title"] ?? "") + "' buttons: " + string.Join(", ", seen.ConvertAll(o => (string)o).ToArray()));
+                bestScore = 0;
+            }
+            r["how"] = how;
             if (best == null || bestScore < 0) throw new McpException("no acceptable button: " + string.Join(", ", seen.ConvertAll(o => (string)o).ToArray()));
             WindowBase btn = best.Value.Key;
             object glue = best.Value.Value;
@@ -418,7 +456,7 @@ namespace Ts3Agent
             UIButtonClickEventArgs args = new UIButtonClickEventArgs();
             args.Init(kButtonClick, btn, btn, (int)btn.ID, 0, 0, 0f, 0f, 0f, 0f, false, null);
             RunAsync("auto_dialog #" + btn.ID, delegate { invoke.Invoke(glue, new object[] { btn, args }); });
-            r["clicked"] = "#" + btn.ID + " " + Words(btn);
+            r["clicked"] = "#" + btn.ID + " " + Words(btn) + " (" + how + ")";
             return r;
         }
 

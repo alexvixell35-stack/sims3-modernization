@@ -10,7 +10,7 @@ import { TYPE_S3SA, fnv64, s3saEncode, writePackage } from '../dbpf.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const CSC = 'C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\csc.exe';
-const REF_DIR = join(ROOT, 'game-copy', 'assemblies'); // from tools/extract-assemblies.ts
+const REF_DIR = process.env.TS3_REF_DIR ?? join(ROOT, 'game-copy', 'assemblies'); // from tools/extract-assemblies.ts
 const REFS = ['mscorlib', 'System', 'System.Xml', 'ScriptCore', 'SimIFace', 'Sims3Metadata',
               'Sims3GameplaySystems', 'Sims3GameplayObjects', 'Sims3StoreObjects', 'UI'];
 const ASSEMBLY = 'Ts3Agent';
@@ -35,7 +35,7 @@ if (missing.length) {
   console.error(`missing game DLLs in ${REF_DIR}: ${missing.join(', ')}. Run tools/extract-assemblies.ts first.`);
   process.exit(1);
 }
-const outDir = join(ROOT, 'build');
+const outDir = process.env.TS3_BUILD_DIR ?? join(ROOT, 'build');
 mkdirSync(outDir, { recursive: true });
 const src = join(ROOT, 'mods', 'ts3agent', 'src');
 const refs = REFS.map(r => `/reference:${join(REF_DIR, `${r}.dll`)}`);

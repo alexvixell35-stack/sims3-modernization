@@ -17,9 +17,11 @@ async function agent(cmd: string, args?: object): Promise<any> {
   if (args) q.set('args', JSON.stringify(args));
   return (await fetch(`${base}/agent?${q}`, { signal: AbortSignal.timeout(40000) })).json();
 }
-async function clearDialogs() {
+// accept: dialogs of the new-game flow this script started (world load, household pick); else the safe button (docs/236 #3)
+async function clearDialogs(accept = false) {
   for (let i = 0; i < 8; i++) {
-    const d = await agent('auto_dialog').catch(() => null);
+    if (accept) await agent('dialog_expect', { seconds: 60, accept: true }).catch(() => null); // the agent accepts the new-game dialog (413f985); older agents: autopilot off it (03e2bfe)
+    const d = await agent('auto_dialog', accept ? { accept: true } : undefined).catch(() => null);
     if (!d?.ok || !d.result.open) return;
     log(`dialog "${String(d.result.title).slice(0, 60)}" -> ${d.result.clicked}`);
     await sleep(1500);
@@ -32,7 +34,7 @@ async function until(what: string, limitS: number, check: () => Promise<boolean>
     if (Date.now() - t0 > limitS * 1000) throw new Error(`${what}: not reached within ${limitS} s`);
     const why = await guard();
     if (why) throw new Error(why);
-    await clearDialogs();
+    await clearDialogs(true);
     await sleep(3000);
   }
   log(`${what} after ${Math.round((Date.now() - t0) / 1000)} s`);

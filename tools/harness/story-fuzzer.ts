@@ -494,6 +494,8 @@ export async function runStories(io: StoryIO, cfg: StoryConfig, content: Content
         return r2;
       };
       // fixed waitS (default 10) or adaptive waitUntil, as repro steps (repro-loop.ts); the wait is the story's own, other stories run on
+      // the next step answers the dialog this one opens (auto_dialog accept:true): keep the in-game autopilot off it during the wait
+      if (t.steps[i + 1]?.cmd === 'auto_dialog' && t.steps[i + 1].args?.accept === true) await call('dialog_expect', { seconds: (s.waitS ?? 10) + 30, accept: true }); // the agent accepts it (413f985); the next step then finds it closed
       await runStep({ cmd: s.cmd, waitS: s.waitS ?? 10, waitUntil: s.waitUntil, minS: s.minS, maxS: s.maxS, note: `story ${t.id} k${k} step ${i}` } as LoopStep,
         { ag: call, step: exec, sleep: io.sleep, now: io.now, halted: () => io.halted() || io.now() - t0 >= capMs, log: l => print(l) }).catch(x => { r2 = { ok: false, error: x.message }; });
       // a step back to live mode hands the game back once the game is there (ensureLive), the rest of the story runs beside others

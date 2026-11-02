@@ -20,6 +20,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import assert from 'node:assert/strict';
+import { GAME_NAME } from './game-exe.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const { values } = parseArgs({ options: {
@@ -35,7 +36,7 @@ export const APPS: Record<string, string[]> = {
   logi: ['logioptionsplus_agent', 'lghub_agent'],
 };
 // never closed, even if a name above ever matched one of them
-export const PROTECTED = new Set(['TS3W', 'steam', 'steamwebhelper', 'claude', 'node', 'python', 'WindowsTerminal', 'OpenConsole',
+export const PROTECTED = new Set([GAME_NAME, 'TS3W', 'Sims3Launcher', 'steam', 'steamwebhelper', 'claude', 'node', 'python', 'WindowsTerminal', 'OpenConsole',
   'powershell', 'pwsh', 'cmd', 'bash', 'conhost', 'explorer', 'dwm', 'LogonUI', 'frida-server']);
 
 export const toClose = (running: string[]) => Object.entries(APPS)

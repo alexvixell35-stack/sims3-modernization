@@ -10,8 +10,9 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { focusGame, giveFocusBack } from './focus-game.ts';
-import { stallGuard } from './game-alive.ts';
-import { BIN, GAME_EXE } from './game-exe.ts';
+import { launchGuard, stallGuard } from './game-alive.ts';
+import { BIN, GAME_EXE, killLeftovers } from './game-exe.ts';
+import { defaultSpec, problems, vanilla } from './vanilla.ts';
 
 const { values } = parseArgs({ options: { save: { type: 'string' }, restart: { type: 'boolean' }, port: { type: 'string', default: '47891' } } });
 const ROOT = resolve(import.meta.dirname, '..', '..');
@@ -30,8 +31,9 @@ async function agent(cmd: string, args?: object): Promise<any> {
   if (args) q.set('args', JSON.stringify(args));
   return get(`agent?${q}`);
 }
-// guard: fail-fast check (game-alive.ts stallGuard), run outside check() so its verdict is not swallowed
-async function until(what: string, limitS: number, check: () => Promise<boolean>, everyMs = 1000, guard?: () => Promise<string>): Promise<void> {
+// guard: fail-fast check (game-alive.ts stallGuard), run outside check() so its verdict is not swallowed. Default: progress
+// checked every 30 s, two misses fail (docs/236 #18); null only where no progress can be seen (the game closing).
+async function until(what: string, limitS: number, check: () => Promise<boolean>, everyMs = 1000, guard: (() => Promise<string>) | null = stallGuard(what, { port: Number(values.port) })): Promise<void> {
   const t0 = Date.now();
   while (!(await check().catch(() => false))) {
     if (Date.now() - t0 > limitS * 1000) throw new Error(`${what}: not reached within ${limitS} s`);
@@ -48,13 +50,18 @@ if (values.restart) {
   await get('detach', 10000).catch(() => {});
   if (gameRunning()) {
     try { execFileSync('taskkill', ['/F', '/IM', GAME_EXE], { stdio: 'ignore' }); } catch { /* already gone */ }
-    await until('game closed', 60, async () => !gameRunning());
+    await until('game closed', 60, async () => !gameRunning(), 1000, null);
   }
+  if (vanilla()) { // TS3_VANILLA=1 (docs/236): no asi, ts3fixes or main-tree agent install; vanilla.ts install owns the Mods set
+    const p = problems(defaultSpec());
+    if (p.length) throw new Error(`vanilla state check failed: ${p.join('; ')}`);
+    log('vanilla: state read back OK, nothing installed, script cache kept; now start: python tools/probe/ts3probe.py serve --launch');
+  } else {
   // ts3native: install the source build when it differs (a stale asi broke the 2026-10-15 save matrix); the
   // installed ts3native.ini is left alone so per-run test settings survive. Build with native/ts3native/build.cmd.
   const asiNew = join(ROOT, 'native', 'ts3native', 'out', 'ts3native.asi'), asiBin = join(BIN, 'ts3native.asi');
   const sha = (p: string) => createHash('sha256').update(readFileSync(p)).digest('hex');
-  if (existsSync(asiNew) && existsSync(asiBin) && sha(asiNew) !== sha(asiBin)) { copyFileSync(asiNew, asiBin); log('ts3native.asi: installed the source build'); }
+  if (existsSync(asiNew) && existsSync(asiBin) && sha(asiNew) !== sha(asiBin)) { copyFileSync(asiNew, asiBin); if (sha(asiNew) !== sha(asiBin)) throw new Error(`read-back: ${asiBin} differs from ${asiNew} after the copy`); log('ts3native.asi: installed the source build'); } // docs/236 #16
   // scriptCache holds compiled mods, so a stale one would run the old agent
   const pkgs = join(USER_DIR, 'Mods', 'Packages');
   mkdirSync(pkgs, { recursive: true });
@@ -77,18 +84,29 @@ if (values.restart) {
   const same = (n: string) => existsSync(join(pkgs, n)) && readFileSync(join(pkgs, n)).equals(readFileSync(join(ROOT, 'build', n)));
   const unchanged = existsSync(stampFile) && readFileSync(stampFile, 'utf8') === stamp && same('ts3agent.package') && same('ts3fixes.package');
   if (!unchanged) {
-    for (const p of ['ts3agent.package', 'ts3-nointro.package', 'ts3fixes.package']) copyFileSync(join(ROOT, 'build', p), join(pkgs, p));
+    for (const p of ['ts3agent.package', 'ts3-nointro.package', 'ts3fixes.package']) { copyFileSync(join(ROOT, 'build', p), join(pkgs, p)); if (!same(p)) throw new Error(`read-back: Mods/Packages/${p} differs from build/${p} after the copy`); } // docs/236 #16
     rmSync(join(USER_DIR, 'scriptCache.package'), { force: true });
     mkdirSync(dirname(stampFile), { recursive: true });
     writeFileSync(stampFile, stamp);
   }
   log(`game closed, ${unchanged ? 'agent and mods unchanged, script cache kept' : 'packages installed, script cache cleared'}; now start: python tools/probe/ts3probe.py serve --launch`);
+  }
 }
 
 // load a save, ending in live mode (a save can come back in Edit Town, which pauses the clock)
 if (values.save) {
   // game start: the probe launches TS3W.exe; only "process gone for ~1 min" fails before the agent exists
-  await until('agent answering', 300, async () => (await agent('ping')).ok === true, 1000, stallGuard('game start', { port: Number(values.port), liveOnly: true }));
+  // and a launch stuck before the agent loads (flat committed MB, docs/236 round 4) fails in ~60-90 s: probe detached, the game and the
+  // EA per-launch helpers killed (never the EA app), the reason named
+  const startGuard = stallGuard('game start', { port: Number(values.port), liveOnly: true }), hang = launchGuard(Number(values.port));
+  await until('agent answering', 300, async () => (await agent('ping')).ok === true, 1000, async () => {
+    const why = await startGuard();
+    if (why) return why;
+    const h = await hang();
+    if (!h) return '';
+    await get('detach', 10000).catch(() => {});
+    return `${h}; killed: ${killLeftovers().join('; ') || 'nothing left running'}`;
+  });
   // "Mod Scripts Found" (native, script mods present) opens at the menu up to ~90 s after the agent answers.
   // Accepting it during a load leaves the game stuck on the loading screen, so clear it first and wait for quiet.
   let quietSince = Date.now(), sawWarning = false;
@@ -125,9 +143,10 @@ if (values.save) {
   // The agent sets the mailbox's world-loaded flag in OnWorldLoadFinished; /agentstatus reads it without a round trip.
   // Dialogs once in the world are the autopilot's job; every 10 s also try a modal that blocks the load itself.
   let waits = 0;
+  await agent('dialog_expect', { seconds: 60 }); // a modal blocking the load: the autopilot leaves it to the accept below (ts3agent 03e2bfe)
   await until('world loaded', 600, async () => {
     if ((await get('agentstatus', 5000)).worldLoaded === true) return true;
-    if (++waits % 20 === 0) { const d = await agent('auto_dialog'); if (d.ok && d.result.open) log(`dialog "${d.result.title}" -> ${d.result.clicked}`); }
+    if (++waits % 20 === 0) { await agent('dialog_expect', { seconds: 60 }); const d = await agent('auto_dialog', { accept: true }); if (d.ok && d.result.open) log(`dialog "${d.result.title}" -> ${d.result.clicked}`); } // accept: a modal blocking the load we asked for (docs/236 #3)
     return false;
   }, 500, loadGuard);
   // Settle: dialogs and notifications keep appearing for a few seconds after a load (new lots, lots in the
@@ -151,7 +170,9 @@ if (values.save) {
     await agent('enter_live_mode');
     // leaving Edit Town asks "save your town before continuing?"; clear it or the switch never happens
     await until('live mode', 120, async () => {
-      const d = await agent('auto_dialog');
+      // accept-on-match (ts3agent 413f985): the agent answers the town-save prompt itself; its rule picks "just continue" (no save)
+      await agent('dialog_expect', { seconds: 60, title: 'save your town before continuing', accept: true });
+      const d = await agent('auto_dialog', { accept: true }); // the switch we asked for (docs/236 #3); fallback for older agents
       if (d.ok && d.result.open) log(`dialog "${d.result.title}" -> ${d.result.clicked}`);
       return (await agent('game_state')).result?.sub_state === 'LiveModeState';
     }, 1000, stallGuard('enter live mode', { port: Number(values.port) }));

@@ -211,9 +211,9 @@ function selfCheck() {
     'signature: TS3W+0x23456 TS3W+0x1000 d3d9+0x42 TS3W+0x2000', 'ts3native: 0.36.7',
     'fault: TS3W+0x23456', 'stack (return addresses found on the stack, top first):', '  TS3W+0x1000',
     'exe sha256: abc', '--- package files (names only) ---', ...Array.from({ length: 900 }, (_, i) => `  cc-${i}.package`),
-    'packages: 900', '--- ts3native.log (last 50 lines) ---', 'host C:\\Users\\Zed\\Steam\\TS3W.exe on box-zed', '--- end ---',
+    'packages: 900', '--- ts3native.log (last 50 lines) ---', 'host C:\\Users\\<user>\\Steam\\TS3W.exe on box-zed', '--- end ---',
   ].join('\r\n');
-  const r: Report = { file: 'crash-x.txt', text: scrub(sample, { user: 'zed', host: 'box-zed', home: 'C:\\Users\\Zed' }), fields: parse(sample) };
+  const r: Report = { file: 'crash-x.txt', text: scrub(sample, { user: 'zed', host: 'box-zed', home: 'C:\\Users\\<user>' }), fields: parse(sample) };
   const ok = (c: boolean, what: string) => { if (!c) { console.error(`self-check FAILED: ${what}`); process.exit(1); } };
   ok(r.fields.title === '[crash] TS3W+0x23456 (ts3native 0.36.7)' && r.fields['signature id'] === 'crashsig-0a1b2c3d', 'parse header');
   ok(!/zed/i.test(r.text) && r.text.includes('host <home>\\Steam\\TS3W.exe on <machine>'), 'scrub');
@@ -227,14 +227,14 @@ function selfCheck() {
   for (const id of ['signature', 'version', 'report']) ok(new RegExp(`^\\s+id: ${id}$`, 'm').test(yml), `crash.yml field ${id}`);
   // Error 12 report
   const log = [
-    'ts3native 0.36.86 2026-10-26 09:00:00', 'route async: plan 12 ms', 'host C:\\Users\\Zed\\x on box-zed',
+    'ts3native 0.36.86 2026-10-26 09:00:00', 'route async: plan 12 ms', 'host C:\\Users\\<user>\\x on box-zed',
     'diag: packages (first 200 names): My CC Set.package, cc-1.package, Zed Hair (2).package',
     'diag: script mods (S3SA packages): NRaas_Overwatch.package', 'diag: Documents in \\\\box-zed\\share\\Docs, mail zed.doe@example.com',
     'diag: mem #3 periodic priv=1839 big=1275 t=1534',
     'allocsites: #3 periodic live r=1 k=map at=d3d9.dll+0x4A1C2 from=d3d9.dll+0x3B7E0 MB=96.00 n=6 dMB=+16.00 dN=+1 aMB=812.0 fMB=716.0',
     ...Array.from({ length: 30 }, (_, i) => `noise ${i}`), 'loading C:\\Mods\\Packages\\secret.package failed',
   ].join('\r\n');
-  const zed = { user: 'zed', host: 'box-zed', home: 'C:\\Users\\Zed' };
+  const zed = { user: 'zed', host: 'box-zed', home: 'C:\\Users\\<user>' };
   const mt = memoryText(log, false, zed), mn = memoryText(log, true, zed);
   ok(!/zed|box|example\.com|My CC|Hair|NRaas_|secret|\.package/i.test(mt), `memory scrub: ${mt}`);
   ok(mt.includes('<email>') && mt.includes('\\\\<machine>\\') && !mt.includes('route async') && !mt.includes('noise 0') && mt.includes('noise 29'), 'memory keep + tail');

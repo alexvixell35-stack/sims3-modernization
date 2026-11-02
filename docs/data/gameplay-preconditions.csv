@@ -27,6 +27,7 @@ seed_rng,HarnessHandlers,Any,none (fixed RNG seed for A/B),harness,,handler,none
 test_env,HarnessHandlers,Live,none: season and weather follow the calendar (Seasons options set lengths only; Weather Stone changes weather in game),cheat,mode realistic only undoes winter cold and a near full moon; mode fixed forces season/weather/moon,handler + R-EP-3 (community-reported),none
 quiet_ui,HarnessHandlers,Any,Options > memories off; dismissing notifications,natural,,handler,none
 autopilot,HarnessHandlers,Live,none (harness: keeps speed and answers dialogs),harness,,handler,none
+dialog_expect,AutopilotHandlers,Any,none (harness: tells the autopilot to leave the next dialog to auto_dialog),harness,,handler,none
 build_mode,BuildHandlers,Live;Build,Build button,natural,active household has a home lot; on = Build on the home lot; clock stops (R-MODE-2),handler + R-MODE-2,none
 pick,BuildHandlers,Any,none (read),harness,,handler,none
 calibrate,BuildHandlers,Any,none (harness),harness,,handler,none

@@ -20,6 +20,7 @@ import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import assert from 'node:assert/strict';
 import { focusGame } from './focus-game.ts';
+import { GAME_EXE, GAME_NAME } from './game-exe.ts';
 import { GUARD_MS, watchGame } from './game-alive.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
@@ -112,7 +113,7 @@ const write = (test: string, data: object, summary: string) => {
 
 // Frame capture in its own Frida session, stopped by a line on stdin (EOF too, so a dying harness still unhooks cleanly).
 const PY = `import frida, json, sys
-s = frida.attach('TS3W.exe')
+s = frida.attach('${GAME_EXE}')
 sc = s.create_script(open(sys.argv[1], encoding='utf-8').read())
 sc.on('message', lambda m, d: print(m.get('payload', m), flush=True))
 sc.load()
@@ -163,7 +164,7 @@ if (only.includes('B')) {
   const cap = await capture('B');
   // sim-thread hitches on the same QPC clock, as profile-world.ts runs it; its own session, stops itself after -t
   const simOut = join(OUT, `${tag}-B-sim`);
-  const prof = spawn('python', ['-m', 'frida_tools.repl', '-n', 'TS3W.exe', '-l', join(ROOT, 'tools', 'frida', 'stutter-profile.js'),
+  const prof = spawn('python', ['-m', 'frida_tools.repl', '-n', GAME_EXE, '-l', join(ROOT, 'tools', 'frida', 'stutter-profile.js'),
     '-P', JSON.stringify({ out: simOut.replace(/\\/g, '/'), hitchMs: SLOW_MS }), '-q', '-t', String(B_SECONDS + 5)], { stdio: ['ignore', 'pipe', 'pipe'] });
   let profLog = '';
   prof.stdout.on('data', d => profLog += d); prof.stderr.on('data', d => profLog += d);
@@ -235,7 +236,7 @@ if (only.includes('C')) {
 if (only.includes('D')) {
   // Task Manager's "Commit size" is the process's private bytes; /memory's commitMB also counts images and mapped files.
   const privateBytes = () => { try {
-    return Math.round(Number(execFileSync('powershell', ['-NoProfile', '-Command', '(Get-Process TS3W).PrivateMemorySize64'], { timeout: 15000 }).toString().trim()) / 1048576);
+    return Math.round(Number(execFileSync('powershell', ['-NoProfile', '-Command', `(Get-Process '${GAME_NAME}').PrivateMemorySize64`], { timeout: 15000 }).toString().trim()) / 1048576);
   } catch { return null; } };
   const samples: any[] = [];
   const t0 = Date.now();

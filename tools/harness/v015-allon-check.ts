@@ -24,8 +24,8 @@ export function check(d: { before: C; after: C }, log: string, stuck: number, fi
   const rows: Row[] = [];
   const bad = log.split('\n').filter(l => /unhandled exception|access violation|crash|tripwire|FAIL:/i.test(l));
   rows.push({ rule: 'no crash/freeze/tripwire line', ok: !bad.length, why: bad.length ? bad.slice(0, 3).join(' | ') : 'none' });
-  const z = ZERO.filter(k => dl(k) !== 0);
-  rows.push({ rule: 'tripwire counters zero (tuTrip_0-2, eoWrong, eoActDiff, eoActOff, fbActiveTrip, p5bWatchdog)', ok: !z.length, why: z.length ? z.map(k => `${k}=${dl(k)}`).join(', ') : 'all 0' });
+  const z = ZERO.filter(k => !(k in d.after) || dl(k) !== 0); // docs/236: an absent tripwire counter is not 0
+  rows.push({ rule: 'tripwire counters zero (tuTrip_0-2, eoWrong, eoActDiff, eoActOff, fbActiveTrip, p5bWatchdog)', ok: !z.length, why: z.length ? z.map(k => k in d.after ? `${k}=${dl(k)}` : `${k} missing`).join(', ') : 'all 0' });
   for (const [f, ks] of Object.entries(MUST_MOVE)) rows.push({ rule: `${f}: ${ks.join(',')} > 0`, ok: ks.every(k => dl(k) > 0), why: ks.map(k => `${k}=${dl(k)}`).join(', ') });
   if (fixes) { const lo = MUST_MOVE_FIXES.filter(k => !((fixes[k] ?? 0) > 0)); rows.push({ rule: `ts3fixes ${MUST_MOVE_FIXES.join(',')} > 0`, ok: !lo.length, why: lo.length ? `not moved: ${lo.join(', ')}` : 'all moved' }); }
   else rows.push({ rule: 'ts3fixes counters', ok: null, why: 'SKIP (no --fixes)' });
@@ -43,12 +43,14 @@ if (process.argv[1] && import.meta.filename === process.argv[1]) {
   const rd = (p: string) => readFileSync(p, 'utf8');
   const cnt = (p?: string) => (p ? JSON.parse(rd(p)).length : undefined);
   if (v['self-check']) {
-    const after: C = { slTaken: 5, utSkipped: 9, fbForeignStarted: 2, eoActed: 3, tuWins: 4, rdServed: 6, h2Released: 7 };
+    const after: C = { ...Object.fromEntries(ZERO.map(k => [k, 0])), slTaken: 5, utSkipped: 9, fbForeignStarted: 2, eoActed: 3, tuWins: 4, rdServed: 6, h2Released: 7 };
     const fx: C = { legreplanskip_skipped: 1, idlememo_skipped: 1, stuckcheckasync_run: 1, etspread_passes: 1 };
     const good = check({ before: {}, after }, 'ok\n', 2, fx, { stuck: 2, log: '' });
     assert.ok(good.every(r => r.ok === true), JSON.stringify(good));
     const bad = check({ before: {}, after: { ...after, eoWrong: 1, tuWins: 0 } }, 'x ScriptError boom\nTailUnlock: tripwire\n', 3, { ...fx, idlememo_skipped: 0 }, { stuck: 2, log: '' });
     assert.equal(bad.filter(r => r.ok === false).length, 6, JSON.stringify(bad));
+    const noTrip = check({ before: {}, after: { slTaken: 5 } }, 'ok', 0)[1]; // docs/236: absent tripwire counters fail, not read as 0
+    assert.ok(noTrip.ok === false && /tuTrip_0 missing/.test(noTrip.why), JSON.stringify(noTrip));
     console.log('v015-allon-check self-check ok');
     process.exit(0);
   }

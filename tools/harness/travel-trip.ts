@@ -47,8 +47,10 @@ async function until(what: string, limitS: number, check: () => Promise<boolean>
   log(`${what} after ${s.toFixed(1)} s`);
   return s;
 }
-async function dialog(): Promise<void> {
-  const d = await agent('auto_dialog');
+// accept: the trip's own dialogs (travel confirm); elsewhere the agent's safe button (docs/236 #3)
+async function dialog(accept = false): Promise<void> {
+  if (accept) await agent('dialog_expect', { seconds: 60, accept: true }); // the agent accepts it the frame it opens (413f985; rules apply); older agents leave it to this call (03e2bfe)
+  const d = await agent('auto_dialog', accept ? { accept: true } : undefined);
   if (d.ok && d.result.open) log(`dialog "${String(d.result.title ?? '').slice(0, 60)}" -> ${d.result.clicked}`);
 }
 async function snapshot() {
@@ -91,8 +93,9 @@ async function leg(name: string, cmd: string, args: object, fromWorld: string) {
   };
   const tripGuard = (g: () => Promise<string>) => async () => dead || await g();
   // boarding: the van/portal routes and confirm dialogs happen here; the world flag drops when the old world unloads
+  await agent('dialog_expect', { seconds: 60, accept: true }); // travel confirm: accepted by the agent, never cancelled by the autopilot (ts3agent 413f985)
   const boardS = await until(`${name}: left ${fromWorld}`, 600, async () => {
-    if (++n % 3 === 0) await dialog();
+    if (++n % 3 === 0) await dialog(true);
     if ((await get('agentstatus', 5000)).worldLoaded === false) return true;
     const ts = await agent('travel_state');
     if (ts.ok && (ts.result.in_travel === true || ts.result.world !== fromWorld)) return true;
@@ -107,7 +110,7 @@ async function leg(name: string, cmd: string, args: object, fromWorld: string) {
   misses = 0; nextTrip = Date.now() + GUARD_MS;
   const loadS = await until(`${name}: arrived in live mode`, 900, async () => {
     if ((await get('agentstatus', 5000)).worldLoaded !== true) { misses = 0; return false; }
-    if (++n % 10 === 0) await dialog();
+    if (++n % 10 === 0) await dialog(true);
     const ts = await agent('travel_state');
     if (!ts.ok || ts.result.in_travel) { misses = 0; return false; }
     if (ts.result.world === fromWorld) { // loaded, not travelling, still the start world: the switch was called off

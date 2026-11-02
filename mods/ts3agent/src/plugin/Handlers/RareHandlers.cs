@@ -64,9 +64,9 @@ namespace Ts3Agent
             return r;
         }
 
-        static bool MemMarkTag(string tag, out bool suspects)
+        // One free text line into the ts3native log (same channel and framing as ts3fixes DiagLine); false = channel off.
+        static bool DiagLine(string s)
         {
-            string s = "mem: " + tag;
             bool ok = MemSend(0, 0);
             for (int i = 0; ok && i < s.Length; i += 4)
             {
@@ -74,7 +74,12 @@ namespace Ts3Agent
                 for (int k = 0; k < 4 && i + k < s.Length; k++) v |= (uint)(s[i + k] & 0xFF) << (8 * k);
                 ok = MemSend(1, v);
             }
-            ok = ok && MemSend(2, 0);
+            return ok && MemSend(2, 0);
+        }
+
+        static bool MemMarkTag(string tag, out bool suspects)
+        {
+            bool ok = DiagLine("mem: " + tag);
             suspects = ok && SusPoll();
             return ok;
         }

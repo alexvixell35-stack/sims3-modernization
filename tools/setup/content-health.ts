@@ -151,7 +151,7 @@ function selfTest() {
   assert.ok(!globMatch('Packages/*/*.package', 'Packages/a/b/hair.package'));
   assert.ok(!globMatch('Packages/*.package', 'hair.package'));
   assert.ok(!globMatch('Packages/*.package', 'Packages/hair.package.bak'));
-  const sib = new Set(['compositorcache.package', 'compositorcache-laptop-g3.package', 'featureditems', 'featureditems-laptop-m15']);
+  const sib = new Set(['compositorcache.package', 'compositorcache-laptop-g3.package', 'featureditems', 'featureditems-<pc>']);
   assert.equal(conflictBase('compositorCache-LAPTOP-G3.package', sib), 'compositorCache.package');
   assert.equal(conflictBase('FeaturedItems-<pc>', sib), 'FeaturedItems');
   assert.equal(conflictBase('simCompositorCache.package', sib), null);

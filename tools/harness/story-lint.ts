@@ -77,6 +77,8 @@ export function lintTemplate(t: Template): string[] {
     if (s.cmd === 'buy_open' || s.cmd === 'cas_open' || s.cmd === 'build_mode' && s.args?.on !== false) mode = s.cmd;
     else if (s.cmd === 'buy_close' || s.cmd === 'cas_close' || s.cmd === 'build_mode') mode = '';
     else if (mode && LIVE_ONLY.has(s.cmd) && !(mode === 'buy_open' && /^(buy|sell)_object$/.test(s.cmd))) at(`${s.cmd} after ${mode}: Sims and objects change only in live mode (close it first)`);
+    // docs/236 #3: the agent answers an unasked dialog with a safe button; a step that opened one must say accept true/false
+    if (s.cmd === 'auto_dialog' && typeof s.args?.accept !== 'boolean') at('auto_dialog: set args.accept (true when this story opened the dialog, false to take the safe button)');
     if (s.cmd === 'make_sim' && s.args?.species && s.args.species !== 'Human' && !['Child', 'Adult', 'Elder'].includes(s.args.age ?? 'Adult')) at(`make_sim: a ${s.args.species} cannot be ${s.args.age} (pets: Child, Adult, Elder)`);
   }
   const pair = (a: string | undefined, b: string | undefined, what: string) => {
@@ -260,6 +262,9 @@ async function selfCheck() {
   has(T('buy-in-build', [], [{ cmd: 'build_mode', args: { on: true } }, { cmd: 'buy_object', args: { product: 'random' } }, { cmd: 'build_mode', args: { on: false } }]), /buy_object after build_mode/);
   has(T('pup', [], [{ cmd: 'make_sim', args: { species: 'Dog', age: 'Toddler' } }]), /a Dog cannot be Toddler/);
   assert.deepEqual(lintTemplate(T('buy-ok', [], [{ cmd: 'buy_open' }, { cmd: 'buy_close' }, { cmd: 'buy_object', args: { product: 'random' } }, { cmd: 'make_sim', args: { species: 'Cat' } }])), []);
+  // docs/236 #3: auto_dialog must say whether the story expects accept
+  has(T('dlg-default', [], [{ cmd: 'auto_dialog', args: {} }]), /auto_dialog: set args\.accept/);
+  assert.ok(!lintTemplate(T('dlg-accept', [], [{ cmd: 'auto_dialog', args: { accept: true } }])).some(x => /auto_dialog/.test(x)));
   // age: toddler cooking, child pregnancy, elder age-up, teen wedding
   has(T('tod-cook', [{ role: 'c', age: ['Toddler', 'Adult'] }], [{ cmd: 'interact', actor: 'c', label: 'Have Dinner', target: { find: 'object', value: 'fridge' } }], [{ kind: 'object', value: 'fridge' }]), /cooking is Teen\+: role c may be Toddler/);
   has(T('kid-preg', [{ role: 'm', age: ['Child'], gender: 'Female' }, { role: 'd', age: ['Adult'], gender: 'Male' }], [{ cmd: 'pregnancy_advance', args: { sim: '$actor.m', partner: '$actor.d', to: 'birth' } }]), /pregnancy is YA\/Adult: role m may be Child/);

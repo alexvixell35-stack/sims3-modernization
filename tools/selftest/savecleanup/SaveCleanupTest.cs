@@ -32,7 +32,7 @@ static class SaveCleanupTest
 
         // played-household sidecar key (native played.cpp PlKeyOk: 1-100 of [A-Za-z0-9._-], no leading '.')
         Check(SaveCleanupCore.PlayedKey("MultiGen-Test-BP.sims3", "BP") == "MultiGen-Test-BP.sims3", "plain key");
-        Check(SaveCleanupCore.PlayedKey("C:\\Users\\x\\Saves\\My Town!.sims3", "BP") == "My_Town_.sims3", "folders cut, bad chars");
+        Check(SaveCleanupCore.PlayedKey("C:\\Users\\<user>\\Saves\\My Town!.sims3", "BP") == "My_Town_.sims3", "folders cut, bad chars");
         Check(SaveCleanupCore.PlayedKey(null, "SunsetValley") == "unsaved_SunsetValley", "no save yet");
         Check(SaveCleanupCore.PlayedKey("  ", null) == "unsaved_world", "blank save, no world");
         Check(SaveCleanupCore.PlayedKey("..\\..\\evil", "BP") == "evil", "no path escape");

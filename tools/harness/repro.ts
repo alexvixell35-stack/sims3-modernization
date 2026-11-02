@@ -13,7 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { mayBeStuck } from './stuck-rule.ts';
-import { watchGame } from './game-alive.ts';
+import { stallGuard, watchGame } from './game-alive.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const LIB = JSON.parse(readFileSync(join(ROOT, 'tools', 'harness', 'repros.json'), 'utf8')) as any[];
@@ -120,7 +120,10 @@ for (const s of r.steps ?? []) {
     const ok = (res: any) => res?.ok && u.all.every((c: any) => { const v = get(res.result, c.path);
       return c.equals !== undefined ? v === c.equals : c.atLeast !== undefined ? v >= c.atLeast : c.atMost !== undefined ? v <= c.atMost : !!v; });
     let last: any = null;
+    const guard = stallGuard(`${s.cmd} until`); // progress every 30 s, two misses fail (docs/236 #18)
     while (!ok(last = await ag(u.cmd, u.args ?? {}))) {
+      const why = await guard();
+      if (why) await fail(`${stamp()} FAIL: ${why}`);
       if (Date.now() - t0 > (u.maxS ?? 300) * 1000) await fail(`${stamp()} FAIL: ${s.cmd} until ${JSON.stringify(u.all)} not met in ${u.maxS ?? 300} s: ${JSON.stringify(last?.result ?? last?.error).slice(0, 200)}`);
       await sleep((u.everyS ?? 5) * 1000);
     }
@@ -146,20 +149,23 @@ if (w.kind === 'counter') {
   if (!nativeStart || !end || nativeStart.error || end.error) verdict = `FAIL: /native unreadable (${nativeStart?.error ?? end?.error ?? 'no answer'})`;
   else {
     const d = (n: string) => (end[n] ?? 0) - (nativeStart[n] ?? 0);
+    const miss = (w.checks as any[]).flatMap(c => [c.name, c.equalsName]).filter(n => n !== undefined && !(n in end)); // docs/236: absent is not 0
     console.log(`${stamp()} native deltas: ${(w.checks as any[]).map(c => `${c.name} ${d(c.name)}`).join(', ')}`);
     const bad = (w.checks as any[]).filter(c => {
       const v = d(c.name);
       return c.equalsName !== undefined ? v !== d(c.equalsName) : c.equals !== undefined ? v !== c.equals
         : c.atLeast !== undefined ? v < c.atLeast : c.atMost !== undefined ? v > c.atMost : !v;
     });
-    verdict = bad.length ? `FAIL: ${bad.map(c => JSON.stringify(c)).join('; ')}` : 'PASS';
+    verdict = miss.length ? `UNKNOWN: counters missing from /native: ${[...new Set(miss)].join(', ')}` : bad.length ? `FAIL: ${bad.map(c => JSON.stringify(c)).join('; ')}` : 'PASS';
   }
 } else if (w.kind !== 'none') {
   const seen = new Map<string, { key: string; checks: number }>();
   const stuck = new Set<string>();
+  let answered = 0;
   while (Date.now() - t0 < w.minutes * 60000) {
     await sleep(30000);
     const act = await ag('sims_activity');
+    if (act.ok) answered++;
     if (!act.ok) { console.log(`${stamp()} stuck: ? (no answer: ${act.error})`); continue; } // a failed call is not "no stuck Sims"
     for (const s of act.result) {
       if (w.sims?.length && !w.sims.includes(s.name)) continue;
@@ -171,7 +177,7 @@ if (w.kind === 'counter') {
     }
     console.log(`${stamp()} stuck: ${stuck.size ? [...stuck].join('; ') : 'none'}`);
   }
-  verdict = stuck.size ? `FAIL: ${stuck.size} stuck` : 'PASS';
+  verdict = stuck.size ? `FAIL: ${stuck.size} stuck` : answered < 2 ? `UNKNOWN: sims_activity answered ${answered} times, stuck check not done` : 'PASS'; // docs/236
 }
 await alive.check();
 console.log(`${stamp()} ${r.id}: ${verdict} (expected: ${r.expect})`);

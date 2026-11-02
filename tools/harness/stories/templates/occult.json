@@ -53,7 +53,7 @@
     "steps": [
       { "cmd": "make_occult", "args": { "sim": "$actor.genie", "type": "Genie" } },
       { "cmd": "any_interaction", "actor": "owner", "target": "$actor.genie", "waitS": 40 },
-      { "cmd": "auto_dialog", "args": {}, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "optional": true }
     ],
     "cooldownMin": 480, "maxConcurrent": 1, "note": "wish menu (money, revive, love): household-wide effects" },
 

@@ -12,7 +12,9 @@
 import { execFile, execFileSync } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, statfsSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { BIN, GAME_EXE, gameRunning } from './game-exe.ts';
+import { BIN, GAME_EXE, gameRunning, seenPids } from './game-exe.ts';
+
+const STARTED = new Date().toISOString(); // crash pickup: reports since this process started, of the game PIDs it saw
 
 const LIMIT_MS = 60000;
 const stamp = (t = Date.now()) => new Date(t).toISOString().slice(11, 19);
@@ -27,7 +29,7 @@ export function deadReason(s: { running: boolean; now: number; lastBeatAt: numbe
 
 function lastTriage(): string {
   try {
-    const out = execFileSync(process.execPath, [join(import.meta.dirname, 'crash-ledger.ts'), 'triage']).toString().trim();
+    const out = execFileSync(process.execPath, [join(import.meta.dirname, 'crash-ledger.ts'), 'triage', '--since', STARTED, ...(seenPids.size ? ['--pids', [...seenPids].join(',')] : [])]).toString().trim();
     return out.split(/\n\s*\n/).at(-1) ?? out;
   } catch (e) { return `crash-ledger triage failed: ${String(e).split('\n')[0]}`; }
 }
@@ -51,10 +53,26 @@ export function graceStep(st: GraceState, s: { now: number; phase: string | null
   return { excused: true, why: '' };
 }
 
-function logTail(bytes = 1 << 20): string {
+// unrequested state change (docs/236): live mode left, or the active household changed, with no state-changing ts3agent command
+// (ts3probe.py STATE_CMD) sent in the last windowS seconds (/status state_cmd_ago_s). Pure, covered by --self-check.
+// 7h/7j2: the autopilot accepted a long-distance move offer, the household left the world and the game crashed later.
+export type ModeSnap = { inWorld: boolean; sub: string | null; hh: string | null };
+export const modeSnap = (gs: any): ModeSnap | null => gs?.ok && gs.result ? { inWorld: !!gs.result.in_world, sub: gs.result.sub_state ?? null, hh: gs.result.active_household ?? null } : null;
+export function modeExit(prev: ModeSnap | null, cur: ModeSnap | null, requestedAgoS: number | null | undefined, windowS = 180): string {
+  if (!prev || !cur || (requestedAgoS != null && requestedAgoS <= windowS)) return '';
+  if (prev.inWorld && prev.sub === 'LiveModeState' && (!cur.inWorld || !cur.sub || cur.sub === 'None'))
+    return `unrequested mode exit: LiveModeState -> ${cur.inWorld ? cur.sub ?? 'None' : 'out of the world'}`;
+  if (prev.inWorld && cur.inWorld && prev.hh && cur.hh !== prev.hh) return `unrequested mode exit: household ${prev.hh} -> ${cur.hh ?? 'none'}`;
+  return '';
+}
+// ts3agent autopilot click log lines in ts3native.log (`ap click: <title> -> <button> (<how>)`), and its "no safe button" line
+export const clickLines = (log: string, n = 10) => log.split(/\r?\n/).filter(l => l.includes('ap click: ')).slice(-n);
+export const noSafeButton = (log: string) => log.split(/\r?\n/).filter(l => /ap click: .*no safe button/.test(l)).at(-1) ?? '';
+
+export function logTail(bytes = 1 << 20, from = 0): string {
   try {
-    const f = join(BIN, 'ts3native.log'), size = statSync(f).size, b = Buffer.alloc(Math.min(bytes, size)), fd = openSync(f, 'r');
-    try { readSync(fd, b, 0, b.length, size - b.length); } finally { closeSync(fd); }
+    const f = join(BIN, 'ts3native.log'), size = statSync(f).size, start = Math.max(from > size ? 0 : from, size - bytes), b = Buffer.alloc(size - start), fd = openSync(f, 'r');
+    try { readSync(fd, b, 0, b.length, start); } finally { closeSync(fd); }
     return b.toString('latin1');
   } catch { return ''; }
 }
@@ -149,6 +167,27 @@ export async function sampleGame(port = 47891, extra?: () => unknown): Promise<G
     try { log = statSync(join(BIN, 'ts3native.log')).size; } catch { /* no plugin */ }
     return { running, answering: true, mark: [a?.heartbeat, a?.worldLoaded, typeof m?.commitMB === 'number' ? Math.round(m.commitMB) : '', log, String(await extra?.() ?? '')].join('|') };
   } catch (e) { return { running, answering: false, error: String((e as any)?.cause?.code ?? e), mark: '' }; }
+}
+
+// Launcher-stage hang (docs/236 round 4, EA 1.69, three launches in a row): the game process up at ~100 MB / 17 threads, the agent never
+// loaded, the DXVK log ending after "Found device". Pure step, one call per GUARD_MS sample while the agent has not answered yet: a miss =
+// committed MB below LAUNCH_HANG_MB and within 2 MB of the last sample; two misses in a row = the verdict.
+export const LAUNCH_HANG_MB = 400;
+export function launchStep(st: { last: number | null; misses: number }, s: { running: boolean; commitMB: number | null }): string {
+  const flat = s.running && s.commitMB != null && s.commitMB < LAUNCH_HANG_MB && st.last != null && Math.abs(s.commitMB - st.last) < 2;
+  st.misses = flat ? st.misses + 1 : 0;
+  st.last = s.commitMB;
+  return st.misses >= 2 ? `hung at launcher stage: ${GAME_EXE} up at ${Math.round(s.commitMB!)} MB committed with no growth for ~${2 * GUARD_MS / 1000} s, agent never answered` : '';
+}
+export function launchGuard(port = 47891) {
+  const st = { last: null as number | null, misses: 0 };
+  let next = Date.now() + GUARD_MS, why = '';
+  return async (): Promise<string> => {
+    if (why || Date.now() < next) return why;
+    next = Date.now() + GUARD_MS;
+    const m = await fetch(`http://127.0.0.1:${port}/memory`, { signal: AbortSignal.timeout(20000) }).then(r => r.json()).catch(() => null);
+    return why = launchStep(st, { running: gameRunning(), commitMB: typeof m?.commitMB === 'number' ? m.commitMB : null });
+  };
 }
 
 // const guard = stallGuard('world load'); then in the wait loop: const why = await guard(); if (why) throw new Error(why);
@@ -404,5 +443,40 @@ if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-
     assert.ok(Date.now() - t0 < 1500, 'cap holds against a probe that never answers');
     assert.match(hung, /0 sim stacks.*managed: skipped \(a sim stack sample timed out\); dump skipped: capture cap reached/);
   } finally { rmSync(tmp, { recursive: true, force: true }); }
+  { // unrequested mode exit / household change, requested window, autopilot click log
+    const live = { inWorld: true, sub: 'LiveModeState', hh: 'Goth' };
+    assert.equal(modeExit(live, { ...live, sub: null }, null), 'unrequested mode exit: LiveModeState -> None');
+    assert.equal(modeExit(live, { inWorld: false, sub: null, hh: null }, 900), 'unrequested mode exit: LiveModeState -> out of the world');
+    assert.equal(modeExit(live, { ...live, hh: 'Landgraab' }, undefined), 'unrequested mode exit: household Goth -> Landgraab');
+    assert.equal(modeExit(live, { ...live, sub: null }, 20), '', 'requested 20 s ago');
+    assert.equal(modeExit(live, { ...live, sub: 'BuildModeState' }, null), '', 'build mode is not an exit');
+    assert.equal(modeExit(null, { ...live, sub: null }, null), ''); assert.equal(modeExit(live, null, null), '', 'agent not answering: no verdict');
+    assert.equal(modeExit({ ...live, sub: 'CASState' }, { ...live, sub: null }, null), '', 'only live mode exits count');
+    assert.deepEqual(modeSnap({ ok: true, result: { in_world: true, sub_state: 'LiveModeState', active_household: 'Goth' } }), live);
+    assert.equal(modeSnap({ ok: false, error: 'x' }), null);
+    const lg = Array.from({ length: 12 }, (_, i) => `t ap click: d${i} -> #1 ok (only button)`).join('\r\n') + '\r\nother\r\nt ap click: (not clicked) -> no safe button, nothing clicked: \'Move?\' buttons: #2 \'move\' score 2\r\n';
+    assert.equal(clickLines(lg).length, 10); assert.match(clickLines(lg).at(-1)!, /no safe button/);
+    assert.match(noSafeButton(lg), /no safe button, nothing clicked: 'Move\?'/); assert.equal(noSafeButton('t ap click: a -> #1 cancel (safe default)'), '');
+  }
+  { // docs/236 #18: the cycle, save-matrix and repro waits check progress (stallGuard) unless a wait opts out with null
+    const src = (f: string) => readFileSync(join(import.meta.dirname, f), 'utf8');
+    for (const f of ['cycle.ts', 'save-matrix.ts']) assert.match(src(f), /async function until\([^\n]*guard: [^\n]*= stallGuard\(what/, `${f}: until() needs the stallGuard default`);
+    assert.match(src('repro.ts'), /const guard = stallGuard\([^\n]*\n\s*while \(!ok\(last = await ag[^\n]*\n\s*const why = await guard\(\);/, 'repro.ts: the until loop needs a stallGuard');
+    assert.deepEqual([...src('cycle.ts').matchAll(/await until\('([^']+)'[^\n]*, null\)/g)].map(m => m[1]), ['game closed'], 'cycle.ts: only the game-closed wait may opt out');
+  }
+  { // docs/236 round 4: launcher-stage hang = flat committed MB under LAUNCH_HANG_MB in two samples in a row after the first
+    const st = { last: null as number | null, misses: 0 }, up = (mb: number | null) => launchStep(st, { running: true, commitMB: mb });
+    assert.equal(up(80), ''); assert.equal(up(80.5), ''); assert.match(up(81), /^hung at launcher stage: .* 81 MB/);
+    const g = { last: null as number | null, misses: 0 }, step = (mb: number | null, running = true) => launchStep(g, { running, commitMB: mb });
+    assert.deepEqual([step(60), step(155), step(400), step(400), step(400)], ['', '', '', '', ''], 'growing or past the threshold is no hang');
+    assert.deepEqual([step(90), step(90), step(null), step(90), step(90, false)], ['', '', '', '', ''], 'no sample or no process resets');
+  }
+  { // docs/236 round 3: a script that answers a dialog with accept:true first tells the in-game autopilot (dialog_expect), or it can cancel it first
+    const src = (f: string) => readFileSync(join(import.meta.dirname, f), 'utf8');
+    for (const f of ['cycle.ts', 'save-matrix.ts', 'travel-trip.ts', 'new-save.ts']) assert.match(src(f), /dialog_expect/, `${f}: accept:true needs dialog_expect`);
+    assert.match(src('story-fuzzer.ts'), /dialog_expect/, 'story-fuzzer.ts: the step before an accept:true auto_dialog arms dialog_expect');
+    // round 4: the in-game accept-on-match (dialog_expect accept:true) closes the window/poll race of H-move run 1
+    for (const f of ['cycle.ts', 'save-matrix.ts', 'travel-trip.ts', 'new-save.ts', 'story-fuzzer.ts', 'vanilla-steps.ts']) assert.match(src(f), /'dialog_expect', \{[^}]*accept: true/, `${f}: dialog_expect without accept:true`);
+  }
   console.log('self-check ok');
 }

@@ -17,6 +17,7 @@ Facts from the EA laptop. Tags: [verified] = observed here, [inferred] = not con
 - Swap `TS3.exe` over `Sims3Launcher.exe` (backup `Sims3Launcher.exe.orig`, sha256 prefix 845199D3ED66), then start `EALauncher.exe <URI>`.
 - The game then runs as process `Sims3Launcher.exe`: window "The Sims 3" after ~11 s, parent EADesktop.exe, command line `-test`.
 - An EA app repair/update restores the launcher: re-swap.
+- The swap skips the launcher's Play step, which writes the pack selection to `Documents\Electronic Arts\The Sims 3\LoadOption.ini` (`[productoption] selectedflags`); the game mounts only packs in that mask, so a swapped launch with `selectedflags = 00000000` is BaseGame only (docs/234). `ts3probe.py` EA launch sets it from the launcher's `HKCU\...\Launcher\Settings` `LastRunIProducts & LastRunEProducts` (`TS3_SELECTED_FLAGS` overrides; run the real launcher once if the keys are missing).
 - Settings (user env): `TS3_BIN`, `TS3_EXE=Sims3Launcher.exe`, `TS3_LAUNCH=ea`. See `docs/TESTING.md`, `tools/harness/game-exe.ts`.
 
 ## ASI loader [verified]

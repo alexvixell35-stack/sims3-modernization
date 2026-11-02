@@ -33,6 +33,7 @@ import { readIndex, refpack } from '../extract-assemblies.ts';
 import { GUARD_MS, stallGuard } from './game-alive.ts';
 import { matchKnown } from './known-script-errors.ts';
 import { BIN } from './game-exe.ts';
+import { vanilla } from './vanilla.ts';
 
 const { values } = parseArgs({ options: {
   cases: { type: 'string' }, list: { type: 'boolean' }, 'self-check': { type: 'boolean' }, travel: { type: 'boolean' },
@@ -281,8 +282,9 @@ async function ag(cmd: string, args?: object): Promise<any> {
   if (args) q.set('args', JSON.stringify(args));
   try { return await get(`agent?${q}`, 20000); } catch (e) { return { ok: false, error: String(e) }; }
 }
-// guard: fail-fast check (game-alive.ts stallGuard or a wait's own), run outside check() so its verdict is not swallowed
-async function until(what: string, limitS: number, check: () => Promise<boolean>, everyMs = 500, guard?: () => Promise<string>): Promise<number> {
+// guard: fail-fast check (game-alive.ts stallGuard or a wait's own), run outside check() so its verdict is not swallowed.
+// Default: progress checked every 30 s, two misses fail, instead of only the case timeout (docs/236 #18).
+async function until(what: string, limitS: number, check: () => Promise<boolean>, everyMs = 500, guard: () => Promise<string> = stallGuard(what, { port: Number(values.port) })): Promise<number> {
   const t0 = Date.now();
   while (!(await check().catch(() => false))) {
     if (Date.now() - t0 > limitS * 1000) throw new Error(`${what}: not reached within ${limitS} s`);
@@ -339,6 +341,7 @@ async function probeReady() {
   for (const f of ['footprint', 'compress', 'flush'] as Fix[]) notReady[f] = ready[f] ? '' : nl.why[f];
   for (const f of nl.broken) if (!ready[f]) broken.add(f);
   if (!ready.fastreftable) { broken.add('fastreftable'); notReady.fastreftable = p.ok ? 'not in ts3fixes patches (shipped on)' : `patches: ${p.error}`; }
+  if (vanilla()) { broken.clear(); for (const f of FIXES) notReady[f] = 'N/A: vanilla (TS3_VANILLA=1, no ts3native or ts3fixes)'; } // docs/236: fix arms run as plain saves
   // shipped routing features: installed, and on at start (= the shipped ini turned them on)
   ready.routeasync = n?.asyncReady === 1 && n?.asyncMode === 1;
   ready.discourage = n?.discReady === 1 && n?.discMode === 1;
@@ -375,7 +378,10 @@ function nextName(label: string): string {
   assertSafeName(name);
   return name;
 }
-async function dialogs() { const d = await ag('auto_dialog'); if (d.ok && d.result?.open) log(`dialog "${String(d.result.title ?? '').slice(0, 60)}" -> ${d.result.clicked}`); }
+// accept: a dialog this step opened itself (trip confirm, PlayFlow venue prompt); else the agent's safe button (docs/236 #3)
+// accept also arms the in-game accept-on-match for 60 s (dialog_expect accept:true, ts3agent 413f985: the agent clicks it the frame it opens,
+// kDialogRules still apply); older agents ignore accept and leave the dialog to this call (03e2bfe)
+async function dialogs(accept = false) { if (accept) await ag('dialog_expect', { seconds: 60, accept: true }); const d = await ag('auto_dialog', accept ? { accept: true } : {}); if (d.ok && d.result?.open) log(`dialog "${String(d.result.title ?? '').slice(0, 60)}" -> ${d.result.clicked}`); }
 async function pause() { await ag('set_speed', { speed: 'pause' }); }
 
 // label: new save Matrix-<world>-<label>-<n>; overwrite: that existing Matrix-* name again. Always by name: a nameless
@@ -395,7 +401,7 @@ async function save(label: string, o: { overwrite?: string; keepSpeed?: boolean;
   } catch { /* still refused after 30 s: reported below with the game's last answer */ }
   if (!r.ok) { log(`save ${name}: refused: ${r.error}`); return { name, ok: false, error: String(r.error), wallMs: 0, before, after: before, off }; }
   let ev: SaveEv | undefined, fileDone = false;
-  const lineless = /^save write disabled/m.test(logFrom(0)); // [SaveWrite] Enabled=0: no `save:` line will come
+  const lineless = vanilla() || /^save write disabled/m.test(logFrom(0)); // [SaveWrite] Enabled=0 or vanilla (no ts3native): no `save:` line will come
   try {
     // fail fast: the agent answers, no save in progress and no save line in ts3native.log, twice ~30 s apart = the save
     // never ran (the heartbeat moves while paused, so only this sees it); the 600 s limit stays for slow saves
@@ -405,7 +411,7 @@ async function save(label: string, o: { overwrite?: string; keepSpeed?: boolean;
       const gs = await ag('game_state');
       if (gs.result?.save_in_progress === true) seenBusy = true;
       if (!ev && Date.now() >= idleAt) { idleAt = Date.now() + GUARD_MS; idle = gs.ok && gs.result?.save_in_progress === false ? idle + 1 : 0; }
-      if (lineless) return fileDone = savedWithoutLine(existsSync(dirOf(name)) && statSync(dirOf(name)).mtimeMs >= t0 - 2000, gs.result?.save_in_progress, seenBusy, idle);
+      if (lineless) return fileDone = savedWithoutLine(newestMtime(dirOf(name)) >= t0 - 2000, gs.result?.save_in_progress, seenBusy, idle);
       return !!ev && gs.result?.save_in_progress === false;
     }, 500, async () => idle >= 2 ? `save ${name}: not in progress and no save line in ts3native.log for ~${2 * GUARD_MS / 1000} s (fail-fast guard)` : '');
     if (ev && ev.deferred > 0 && o.flushWait !== false)
@@ -420,7 +426,9 @@ async function save(label: string, o: { overwrite?: string; keepSpeed?: boolean;
 function saveChecks(s: SaveRec, strict = false): Check[] {
   const c: Check[] = [];
   const ev = s.ev;
-  c.push({ name: `${s.name} result 0`, status: s.ok ? 'pass' : 'fail', why: s.error ?? (ev ? `result ${ev.result}` : s.ok ? 'save folder written; [SaveWrite] off, so no save line and no result code' : 'no save line in ts3native.log') });
+  c.push({ name: `${s.name} result 0`, status: s.ok ? 'pass' : 'fail', why: s.error ?? (ev ? `result ${ev.result}` : s.ok ? (vanilla() ? 'save folder written, agent save_in_progress went false (vanilla: no ts3native save line, no result code)' : 'save folder written; [SaveWrite] off, so no save line and no result code') : 'no save line in ts3native.log') });
+  // vanilla (docs/236): compress, flush, footprint and the save fallback counters are ts3native's; N/A, never PASS
+  if (vanilla()) { c.push({ name: `${s.name} compress/flush/footprint/fallback checks`, status: 'skip', why: 'N/A: vanilla (no ts3native log or counters)' }); return c; }
   const cm = delta(s.before, s.after, 'compressMismatches') + (ev?.compressMismatches ?? 0) + (ev?.mismatchLines ?? 0);
   c.push({ name: `${s.name} compress mismatches`, status: cm ? 'fail' : 'pass', why: `counter +${delta(s.before, s.after, 'compressMismatches')}, log ${ev?.compressMismatches ?? '-'} / ${ev?.mismatchLines ?? 0} lines` });
   const ff = delta(s.before, s.after, 'flushFails') + (ev?.flush?.fails ?? 0);
@@ -433,6 +441,8 @@ function saveChecks(s: SaveRec, strict = false): Check[] {
 }
 
 const dirOf = (n: string) => join(SAVES, `${n}.sims3`);
+// an overwrite rewrites files in place: the folder's own mtime may not move, so the newest file counts too
+const newestMtime = (d: string) => existsSync(d) ? Math.max(statSync(d).mtimeMs, ...readdirSync(d).map(f => statSync(join(d, f)).mtimeMs)) : 0;
 function snapshot(dir: string): Snap {
   const out: Snap = new Map();
   for (const f of readdirSync(dir)) {
@@ -576,7 +586,7 @@ async function asyncLog(): Promise<string[]> {
 // who: the travellers for the autonomy switch (agent sim arg: active | household)
 async function enterWorld(cmd: string, args: object, from: string, who: string): Promise<{ world: string; travelEvs: SaveEv[] }> {
   const off = logSize();
-  tripEvs = [];
+  tripEvs = []; travelSaveSeen = false;
   const before = await asyncLog();
   try { return await enterWorldInner(cmd, args, from, who, off, before); }
   catch (e) {
@@ -625,7 +635,7 @@ async function enterWorldInner(cmd: string, args: object, from: string, who: str
   let moveIn = '', uniGrace = 0;
   const uniMoveIn = async (t: any): Promise<string> => {
     if (moveIn !== 'started' && (await ag('game_state')).result?.sub_state === 'PlayFlowState') {
-      await dialogs(); // the required-venue prompt PlayFlow may open
+      await dialogs(true); // the required-venue prompt PlayFlow may open
       const m = await ag('uni_move_in');
       if (!m.ok) return `uni_move_in: ${m.error}`;
       if (m.result.started || m.result.started_before) {
@@ -641,8 +651,9 @@ async function enterWorldInner(cmd: string, args: object, from: string, who: str
     return '';
   };
   const stalled = async (loaded: boolean, t: any): Promise<string> => {
-    const why = t ? tripStall({ loaded, inTravel: t.in_travel === true, world: t.world, household: t.household,
-      saving: t.in_travel === true && (await ag('game_state')).result?.save_in_progress === true }, from) : '';
+    const saving = !!t && t.in_travel === true && (await ag('game_state')).result?.save_in_progress === true;
+    if (saving) travelSaveSeen = true;
+    const why = t ? tripStall({ loaded, inTravel: t.in_travel === true, world: t.world, household: t.household, saving }, from) : '';
     if (!why) { stallSince = 0; return ''; }
     stallSince ||= Date.now();
     return Date.now() - stallSince > STALL_S * 1000 ? `no progress: ${why} for ${STALL_S} s (loaded, no save running)` : '';
@@ -650,8 +661,9 @@ async function enterWorldInner(cmd: string, args: object, from: string, who: str
   let leftBy = '';
   // left = the start world unloaded or another world answers; in_travel alone is not enough (2026-10-16 future: in_travel
   // set, Bridgeport never unloaded): the stall rule covers that phase
+  await ag('dialog_expect', { seconds: 60, accept: true }); // the trip confirm: the agent accepts it, the autopilot must not cancel it first
   await until(`left ${from}`, 900, async () => {
-    if (++n % 3 === 0) await dialogs();
+    if (++n % 3 === 0) await dialogs(true); // trip confirm
     if (n % 5 === 0 && (dead = gameTaskError(await asyncLog()))) return true;
     if (n % 60 === 0) await maxNeeds().catch(e => log(String(e))); // keep needs full while the Sim walks to the trip
     await tripStatus();
@@ -671,11 +683,12 @@ async function enterWorldInner(cmd: string, args: object, from: string, who: str
   if (dead) throw new Error(dead);
   log(`left ${from}: ${leftBy}`); // which signal ended the wait (2026-10-16 future run: passed within ~30 s, cause not logged)
   misses = 0;
+  await ag('dialog_expect', { seconds: 60, accept: true });
   await until('arrived in live mode', 1200, async () => {
     await tripStatus();
     if (watchTravelSaves(off)) { stallSince = 0; stale('', Date.now()); }
     if ((await get('agentstatus', 5000)).worldLoaded !== true) { misses = 0; stallSince = 0; stale('', Date.now()); return false; }
-    if (++n % 10 === 0) await dialogs();
+    if (++n % 10 === 0) await dialogs(true);
     if (n % 5 === 0 && (dead = gameTaskError(await asyncLog()))) return true;
     const ts = await ag('travel_state');
     if (uni && ts.ok && ts.result.in_travel && sameWorld(ts.result.world, 'University') && (dead = await uniMoveIn(ts.result))) return true;
@@ -695,7 +708,11 @@ async function enterWorldInner(cmd: string, args: object, from: string, who: str
   watchTravelSaves(off); // final read: the flush line of the last travel save may have come since
   return { world: w, travelEvs: tripEvs };
 }
+// vanilla: no `save: ... travel 1/1` line; the agent's save_in_progress seen during in_travel (stalled(), polled every ~1 s) is the only signal
+let travelSaveSeen = false;
 function travelSaveChecks(what: string, evs: SaveEv[]): Check[] {
+  if (vanilla()) return [{ name: `${what} travel save`, status: travelSaveSeen ? 'pass' : 'skip',
+    why: travelSaveSeen ? 'agent game_state save_in_progress true while in_travel (vanilla: no ts3native result line, so no result code)' : 'N/A: vanilla, save_in_progress not seen true during the leg (polled ~1 s; the leg itself is judged by the world switches)' }];
   if (!evs.length) return [{ name: `${what} travel save`, status: 'fail', why: 'no `save: ... travel 1/1` line during the trip' }];
   return evs.map((e, i) => ({ name: `${what} travel save ${i + 1}`, status: e.result === 0 && !(e.flush?.fails) && !e.compressMismatches && !e.mismatchLines && e.footprint?.verify !== 'mismatches' ? 'pass' : 'fail',
     why: `result ${e.result} travel ${e.travel} total ${e.totalMs} ms, flush fails ${e.flush?.fails ?? '-'}, compress mismatches ${e.compressMismatches ?? '-'}` }));
@@ -765,7 +782,7 @@ const CASES: Case[] = [
     a.ev = parseLog(logFrom(a.off))[0] ?? a.ev; // the first save's flush line came while the second waited
     const fw = delta(a.before, b.after, 'flushWaits');
     return { fixes, saves: [a, b], checks: [...availableCheck(fixes), ...saveChecks(a), ...saveChecks(b),
-      { name: 'flush waits', status: 'info', why: `+${fw} (0 means the worker had finished before the second save)` }] };
+      { name: 'flush waits', status: vanilla() ? 'skip' : 'info', why: vanilla() ? 'N/A: vanilla (no ts3native counters)' : `+${fw} (0 means the worker had finished before the second save)` }] };
   } },
   { id: 'unpaused', desc: 'fixes on: save while the game runs at speed 3 (normal player behaviour)', run: async () => {
     const fixes = await setFixes(allOn);
@@ -931,7 +948,7 @@ const { watchGame } = await import('./game-alive.ts');
 const st = await ag('game_state');
 if (!st.ok || !st.result?.in_world) { console.error(`not in a world: ${JSON.stringify(st)}`); process.exit(2); }
 world = String((await ag('travel_state')).result?.world ?? 'World').replace(/[^A-Za-z0-9]/g, '');
-if (!existsSync(LOG)) { console.error(`no ts3native.log at ${LOG} (set TS3_BIN)`); process.exit(2); }
+if (!vanilla() && !existsSync(LOG)) { console.error(`no ts3native.log at ${LOG} (set TS3_BIN)`); process.exit(2); }
 
 if (values['reload-check']) {
   const p = existsSync(PENDING) ? JSON.parse(readFileSync(PENDING, 'utf8')) : null;

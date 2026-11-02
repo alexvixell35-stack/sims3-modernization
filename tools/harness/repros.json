@@ -544,7 +544,17 @@
     "steps": [
       {
         "cmd": "cas_open",
-        "waitS": 30
+        "waitS": 30,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
       },
       {
         "cmd": "cas_category",
@@ -601,11 +611,30 @@
       },
       {
         "cmd": "cas_close",
-        "waitS": 20
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
       },
       {
         "cmd": "buy_open",
-        "waitS": 15
+        "waitS": 15,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 180
+        }
       },
       {
         "cmd": "buy_category",
@@ -651,7 +680,17 @@
       },
       {
         "cmd": "buy_close",
-        "waitS": 10
+        "waitS": 10,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
       },
       {
         "cmd": "cas_state"
@@ -48049,6 +48088,15 @@
       }
     ],
     "cleanup": []
+  },
+  {
+    "id": "ea-long-distance-move",
+    "bug": "Accepting EA's long-distance move dialogs in world (\"There are new towns available... long-distance move\", \"Your Sim family is preparing to move\") exits LiveMode -> None; on 1.69 the game then crashed at 0x00AD04EC (runs 7h, 7j2). Open question: EA's bug or ours (vanilla 1.69 control run needed)",
+    "fix": "ts3agent kDialogRules declines these dialogs; no ts3native fix",
+    "save": "Baseline-SV-Spring",
+    "steps": [],
+    "expect": "harness declines the move dialogs: no LiveMode -> None exit, no crash",
+    "switches": []
   },
   {
     "id": "showoff-badges-route",

@@ -28,7 +28,9 @@ import { FEATURES, status } from './release-features.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
 // built from pieces so this file survives its own scrub
-const SCRUB: [RegExp, string][] = [[new RegExp('rod' + 'ne\\b', 'g'), '<user>'], [new RegExp('LAPTOP' + '-M15', 'g'), '<pc>'], [new RegExp('ALRPan' + 'tonial1', 'g'), '<pc2>'], [new RegExp('RPan' + 'tonial', 'g'), '<user>']];
+const SCRUB: [RegExp, string][] = [[new RegExp('rod' + 'ne\\b', 'gi'), '<user>'], [new RegExp('LAPTOP' + '-M15', 'gi'), '<pc>'], [new RegExp('ALRPan' + 'tonial1', 'gi'), '<pc2>'], [new RegExp('RPan' + 'tonial', 'gi'), '<user>'], // host before user: the host name contains the user name
+  // any Windows home folder: back/forward/doubled slashes, 8.3 names (ABC~1); Public/Default stay, <user> and other <placeholders> never match
+  [/(C:[\\/]+Users[\\/]+)(?!(?:Public|Default)(?:[^\w~.-]|$))[^\\/\s"'<>:*?|%$`{}()]+/gi, '$1<user>']];
 const SECRETS: [string, RegExp][] = [
   ['GitHub token', /\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})/],
   ['Slack token', /\bxox[bp]-[A-Za-z0-9-]{10,}/],
@@ -55,7 +57,7 @@ export function waitUntil(ready: () => boolean, what: string, timeoutMs: number,
 // latin1 keeps every byte as is; the replacements are ASCII
 export function scrub(text: string): string { return SCRUB.reduce((t, [re, to]) => t.replace(re, to), text); }
 export const isText = (b: Buffer) => !b.subarray(0, 8000).includes(0);
-export function leftovers(text: string): string[] { return SCRUB.filter(([re]) => new RegExp(re.source).test(text)).map(([re]) => re.source); }
+export function leftovers(text: string): string[] { return SCRUB.filter(([re]) => new RegExp(re.source, re.flags.replace('g', '')).test(text)).map(([re]) => re.source); }
 
 // added lines of a unified diff that look like secrets: "file: kind"
 export function secretScan(diff: string): string[] {
@@ -247,10 +249,25 @@ function selfCheck(): void {
   const user = 'rod' + 'ne', pc = 'LAPTOP' + '-M15', pc2 = 'ALRPan' + 'tonial1', user2 = 'RPan' + 'tonial';
   assert.equal(scrub(`C:\\Users\\${user}\\x ${pc} ${user}y`), `C:\\Users\\<user>\\x <pc> ${user}y`, 'scrub');
   assert.equal(scrub(`ScriptError_${pc2}__11-02.xml ${pc2}`), 'ScriptError_<pc2>__11-02.xml <pc2>', 'scrub second host');
+  assert.equal(scrub(`xcpt ${pc.toUpperCase()} 26-11-02.mdmp ${pc2.toUpperCase()} ${user.toUpperCase()}`), 'xcpt <pc> 26-11-02.mdmp <pc2> <user>', 'scrub upper-case names');
+  assert.equal(leftovers(pc.toLowerCase()).length, 1, 'lower-case host is a leftover');
   assert.deepEqual(leftovers(scrub(`/home/${user}/ ${pc} ${pc2}`)), [], 'nothing left after scrub');
   assert.equal(leftovers(pc2).length, 2, 'second host is a leftover (host pattern and the user name inside it)');
   assert.equal(scrub(`C:\\Users\\${user2}\\x ${pc2}`), 'C:\\Users\\<user>\\x <pc2>', 'scrub second user; host first');
   assert.deepEqual(leftovers(scrub(user2)), [], 'second user scrubbed');
+  { // any C:\Users\<name>; synthetic names only
+    const B = String.fromCharCode(92), L = 'C:' + B + 'Users' + B, n = 'Jd' + 'oe', D = 'C:' + B + B + 'Users' + B + B; // pieces: the file survives its own scrub
+    assert.equal(scrub(`${L}${n}${B}x`), `${L}<user>${B}x`, 'back-slash home');
+    assert.equal(scrub(`c:/users/${n}/x C:/Users/${n}`), 'c:/users/<user>/x C:/Users/<user>', 'forward-slash home');
+    assert.equal(scrub(`"${D}${n}${B}${B}x"`), `"${D}<user>${B}${B}x"`, 'doubled-backslash home');
+    assert.equal(scrub(`${L}AB${'C'}~1${B}x`), `${L}<user>${B}x`, '8.3 short name');
+    const keep = `${L}Public${B}x ${L}Public ${L}<user>${B}x C:/Users/Default/x`;
+    assert.equal(scrub(keep), keep, 'Public, Default and scrubbed paths stay');
+    assert.equal(scrub(`${L}Public${n}${B}x`), `${L}<user>${B}x`, 'name that starts with Public');
+    assert.equal(leftovers(`${L}${n}`).length, 1, 'real-looking home is a leftover');
+    assert.deepEqual(leftovers(keep), [], 'Public and scrubbed paths are not leftovers');
+    assert.deepEqual(leftovers(scrub(`${L}${n}${B}x C:/Users/${n}~1`)), [], 'nothing left after home scrub');
+  }
   { // waitUntil on a fake clock: checks appear on poll 4 after two gh errors; never = throws at the timeout with the last error
     let t = 0, n = 0;
     const clock = () => t, tick = (ms: number) => { t += ms; };

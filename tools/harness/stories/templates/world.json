@@ -100,7 +100,7 @@
     "steps": [
       { "cmd": "household_funds", "args": { "add": 2000 } },
       { "cmd": "interact", "actor": "a", "target": { "find": "shop", "value": "register" }, "label": "Buy", "waitS": 40 },
-      { "cmd": "auto_dialog", "args": {}, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "optional": true }
     ],
     "cooldownMin": 120, "maxConcurrent": 1, "note": "Elixir consignment: elixirs, alchemy items" },
 

@@ -59,17 +59,17 @@ static void TestCrashReport() {
 
     // scrubber: fake profile "alice" on machine "ALICE-PC"
     g_crNeedleN = 0;
-    CrAddNeedle(L"C:\\Users\\alice\\OneDrive\\Documents\\Electronic Arts\\The Sims 3\\", "<TS3User>", 4);
+    CrAddNeedle(L"C:\\Users\\<user>\\OneDrive\\Documents\\Electronic Arts\\The Sims 3\\", "<TS3User>", 4);
     CrAddNeedle(L"D:\\Games\\Steam\\steamapps\\common\\The Sims 3\\Game\\Bin", "<Bin>", 4);
-    CrAddNeedle(L"C:\\Users\\alice", "<home>", 4);
+    CrAddNeedle(L"C:\\Users\\<user>", "<home>", 4);
     CrAddNeedle(L"alice", "<user>", 3);
     CrAddNeedle(L"ALICE-PC", "<machine>", 3);
     CrAddNeedle(L"al", "<user>", 3);  // too short: skipped (would eat every "al")
     assert(g_crNeedleN == 5 && g_crNeedle[0].n > g_crNeedle[1].n && !strcmp(g_crNeedle[0].to, "<TS3User>"));
     const char* in =
         "host d:\\games\\steam\\steamapps\\common\\The Sims 3\\Game\\Bin\\TS3W.exe base 0x00400000\r\n"
-        "save C:\\Users\\Alice\\OneDrive\\Documents\\Electronic Arts\\The Sims 3\\Saves\\x.sims3\r\n"
-        "cfg C:\\Users\\alice\\AppData\\x.ini on alice-pc by ALICE, total 12\r\n"
+        "save C:\\Users\\<user>\\OneDrive\\Documents\\Electronic Arts\\The Sims 3\\Saves\\x.sims3\r\n"
+        "cfg C:\\Users\\<user>\\AppData\\x.ini on alice-pc by ALICE, total 12\r\n"
         "other E:\\Users\\bob\\x and /Users/carol/y and \\Users\\\r\n";
     char out[1024];
     const size_t n = CrScrub(in, strlen(in), out, sizeof(out));

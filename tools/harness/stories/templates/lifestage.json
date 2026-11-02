@@ -17,7 +17,7 @@
       { "cmd": "pregnancy_advance", "args": { "sim": "$actor.mom", "partner": "$actor.dad", "to": "pregnant" }, "waitS": 30 },
       { "cmd": "pregnancy_advance", "args": { "sim": "$actor.mom", "to": "labor" }, "waitS": 30 },
       { "cmd": "pregnancy_advance", "args": { "sim": "$actor.mom", "to": "birth" }, "waitS": 60 },
-      { "cmd": "auto_dialog", "args": {}, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "optional": true }
     ],
     "cooldownMin": 240, "maxConcurrent": 1, "note": "maternity outfits, birth: new Sim build, naming dialog, crib routing" },
 
@@ -28,7 +28,7 @@
     "steps": [
       { "cmd": "pregnancy_advance", "args": { "sim": "$actor.mom", "partner": "$actor.dad", "to": "labor" }, "waitS": 10 },
       { "cmd": "interact", "actor": "mom", "target": { "find": "rabbithole", "value": ["Hospital", "ComboHospitalScienceLab"] }, "label": "Have Baby", "waitS": 120, "optional": true },
-      { "cmd": "auto_dialog", "args": {}, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "optional": true }
     ],
     "cooldownMin": 480, "maxConcurrent": 1, "note": "taxi to hospital, baby spawn off-lot" },
 
@@ -67,7 +67,7 @@
     "needs": [],
     "steps": [
       { "cmd": "age_up", "args": { "sim": "$actor.sim" }, "waitS": 40 },
-      { "cmd": "auto_dialog", "args": {}, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "optional": true }
     ],
     "cooldownMin": 120, "maxConcurrent": 2, "note": "age transition: new outfits, trait dialog" },
 
@@ -85,7 +85,7 @@
     "needs": [{ "kind": "age", "value": "Elder", "prepare": true }],
     "steps": [
       { "cmd": "age_up", "args": { "sim": "$actor.elder", "confirm_elder_death": true }, "waitS": 90 },
-      { "cmd": "auto_dialog", "args": {}, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "optional": true }
     ],
     "death": "elder", "cooldownMin": 480, "maxConcurrent": 1, "note": "Grim Reaper visit, urn/tombstone, household change; scratch save only" },
 
@@ -104,7 +104,7 @@
     "needs": [{ "kind": "object", "value": "phone" }],
     "steps": [
       { "cmd": "interact", "actor": "parent", "target": { "find": "object", "value": "phone" }, "label": "Adopt", "waitS": 30 },
-      { "cmd": "auto_dialog", "args": {}, "waitS": 90, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "waitS": 90, "optional": true }
     ],
     "cooldownMin": 480, "maxConcurrent": 1, "note": "social worker arrival, new Sim build" },
 
@@ -135,7 +135,7 @@
     "steps": [
       { "cmd": "set_aging", "args": { "enabled": true, "lifespan": "short" } },
       { "cmd": "pregnancy_advance", "args": { "sim": "$actor.mom", "partner": "$actor.dad", "to": "birth" }, "waitS": 60 },
-      { "cmd": "auto_dialog", "args": {}, "optional": true },
+      { "cmd": "auto_dialog", "args": { "accept": true }, "optional": true },
       { "cmd": "set_speed", "args": { "speed": 3 }, "waitS": 240 },
       { "cmd": "set_speed", "args": { "speed": 1 } },
       { "cmd": "set_aging", "args": { "enabled": true, "lifespan": "normal" } }

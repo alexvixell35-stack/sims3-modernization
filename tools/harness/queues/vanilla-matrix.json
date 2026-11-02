@@ -1,0 +1,97 @@
+{
+  "vanilla": true,
+  "note": "Vanilla harness baseline (docs/236): the game without ts3native and ts3fixes, only the ts3agent package from TS3_AGENT_PACKAGE (needs dialog_expect accept_all with a title trigger, ea169-port 495d100 or later). Run: TS3_AGENT_PACKAGE=<build>/ts3agent.package node tools/harness/queue.ts tools/harness/queues/vanilla-matrix.json --no-smoke (EA laptop: also TS3_MACHINE=ea-laptop TS3_LAUNCH=ea TS3_EXE=Sims3Launcher.exe TS3_BIN=<EA Bin>). Correctness only, no timing. hf-kill FAILs by design (last); every other job should PASS, and each row lists the skipped ts3native/ts3fixes checks as N/A (vanilla).",
+  "pin": false,
+  "jobs": [
+    {
+      "id": "vh-move",
+      "note": "H-move (Round 6): the agent waits for the long-distance move offer (title from docs/236), then accepts every dialog of the move flow for 180 s (dialog_expect accept_all, each click logged, rules and safe default off). PASS = the household moved and the game stayed up 10 min after it (7h/7j2 crashed at 0x00AD04EC about 90 s after the move). A crash is a RESULT (CRASH row, address/xcpt/dump from the ledger), not a harness failure. The offer is not on a timer (docs/236 finding 3): armed up to 6 min, UNKNOWN (not triggered) if it never comes. The mode guard excuses the move for 900 s after the accept. Safe-default clicks in any job are WARN lines in the verdict.",
+      "asi": "none",
+      "save": "Baseline-SV-Spring",
+      "run": { "script": ["vanilla-steps.ts", "accept", "--title", "new towns available for your sims to live in", "--minutes", "6", "--all-seconds", "180", "--after", "10"] },
+      "scriptErrorsMax": 0,
+      "timeoutMin": 40
+    },
+    {
+      "id": "vh1-soak",
+      "note": "H1: 10 min ultra soak, watchdog quiet; career job offers, dates and other household-changing dialogs are declined by the new rules instead of stopping the run.",
+      "asi": "none",
+      "save": "Baseline-SV-Spring",
+      "run": { "soak": { "minutes": 10, "speed": "ultra" } },
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30
+    },
+    {
+      "id": "vh-cycle-a",
+      "note": "H-cycle part 1: cycle.ts --restart in vanilla mode (read-back only, nothing installed), load, 2 min soak.",
+      "asi": "none",
+      "save": "Baseline-SV-Spring",
+      "run": { "soak": { "minutes": 2, "speed": "normal" } },
+      "timeoutMin": 20
+    },
+    {
+      "id": "vh-cycle-b",
+      "note": "H-cycle part 2: a second fresh start; the vanilla read-back after --restart must still pass (no package reinstalled).",
+      "asi": "none",
+      "save": "Baseline-SV-Spring",
+      "run": { "soak": { "minutes": 2, "speed": "normal" } },
+      "timeoutMin": 20
+    },
+    {
+      "id": "vh-travel-matrix",
+      "note": "H-travel 1: save-matrix travel case to University (travel save, save away, home, save home); confirms answered by the harness (dialog_expect accept-on-match), not the autopilot.",
+      "asi": "none",
+      "save": "Baseline-SV-Spring",
+      "run": { "matrix": ["--travel", "--cases", "travel", "--to", "university"] },
+      "timeoutMin": 60
+    },
+    {
+      "id": "vh-travel-trip",
+      "note": "H-travel 2: travel-trip.ts one round trip to France.",
+      "asi": "none",
+      "save": "Baseline-SV-Spring",
+      "run": { "script": ["travel-trip.ts", "--to", "france", "--trips", "1"] },
+      "timeoutMin": 45
+    },
+    {
+      "id": "vh-newsave",
+      "note": "H-newsave: from the main menu, Sunset Valley, first 2-member household, saved as Vanilla-SV-fresh (scratch name, never Baseline-*).",
+      "asi": "none",
+      "save": "menu",
+      "run": { "script": ["new-save.ts", "--world", "Sunset Valley.world", "--save", "Vanilla-SV-fresh"] },
+      "timeoutMin": 25
+    },
+    {
+      "id": "vh-matrix",
+      "note": "H-matrix: save cases without the travel and reload cases; fix arms are N/A in vanilla (plain saves), identical compares two plain saves.",
+      "asi": "none",
+      "save": "Baseline-SV-Spring",
+      "run": { "matrix": ["--cases", "control,identical,overwrite,back-to-back,unpaused"] },
+      "timeoutMin": 40
+    },
+    {
+      "id": "vh-repro",
+      "note": "H-repro: repros.json store-cas-browse (CAS and Buy catalog visits, back to live mode), no counters.",
+      "asi": "none",
+      "save": "Baseline-SV-Spring",
+      "run": { "repro": "store-cas-browse" },
+      "timeoutMin": 25
+    },
+    {
+      "id": "hf-statecmd",
+      "note": "H-fault #2: harness state commands (buy_open, buy_close, enter_live_mode) must not trip the unrequested-mode-exit guard: PASS expected.",
+      "asi": "none",
+      "save": "Baseline-SV-Spring",
+      "run": { "script": ["vanilla-steps.ts", "state-cmd"] },
+      "timeoutMin": 20
+    },
+    {
+      "id": "hf-kill",
+      "note": "H-fault #1: the game is killed 60 s into the job: the row must be FAIL/CRASH with 'process gone' and the xcpt triage line, never PASS. Last on purpose. (#3 accepted dialog: vh-move; #4 broken read-back: queue.ts and vanilla.ts self-checks.)",
+      "asi": "none",
+      "save": "Baseline-SV-Spring",
+      "run": { "script": ["vanilla-steps.ts", "kill-game", "--after", "60"] },
+      "timeoutMin": 20
+    }
+  ]
+}

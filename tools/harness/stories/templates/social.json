@@ -48,7 +48,7 @@
     "steps": [
       { "cmd": "modify_relationship", "args": { "sim": "$actor.a", "other": "$actor.b", "liking": 100, "state": "Partner" }, "optional": true },
       { "cmd": "interact", "actor": "a", "target": "$actor.b", "label": "Propose Marriage", "waitS": 30 },
-      { "cmd": "auto_dialog", "args": {}, "optional": true },
+      { "cmd": "auto_dialog", "args": { "accept": true }, "optional": true },
       { "cmd": "interact", "actor": "a", "target": "$actor.b", "label": "Get Married", "waitS": 40, "optional": true }
     ],
     "cooldownMin": 240, "maxConcurrent": 1, "note": "household merge dialog: move-in rebuilds household, family tree" },
@@ -60,7 +60,7 @@
     "steps": [
       { "cmd": "modify_relationship", "args": { "sim": "$actor.host", "other": "$actor.fiance", "liking": 100, "state": "Fiance" }, "optional": true },
       { "cmd": "interact", "actor": "host", "target": "$actor.host", "label": "Throw Wedding Party", "waitS": 30 },
-      { "cmd": "auto_dialog", "args": {}, "waitS": 180, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "waitS": 180, "optional": true }
     ],
     "cooldownMin": 480, "maxConcurrent": 1, "note": "guests arrive by car/taxi: route plans for 10+ Sims, outfit changes" },
 
@@ -69,7 +69,7 @@
     "needs": [],
     "steps": [
       { "cmd": "interact", "actor": "host", "target": "$actor.host", "label": "Throw a Party", "waitS": 20 },
-      { "cmd": "auto_dialog", "args": {}, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "optional": true }
     ],
     "cooldownMin": 240, "maxConcurrent": 1, "note": "party arrivals, autonomy on a crowded lot" },
 
@@ -110,7 +110,7 @@
     "steps": [
       { "cmd": "any_interaction", "actor": "caller", "target": { "find": "object", "value": "phone" }, "waitS": 30 },
       { "cmd": "pending_dialogs", "args": {}, "optional": true },
-      { "cmd": "auto_dialog", "args": {}, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "optional": true }
     ],
     "cooldownMin": 30, "maxConcurrent": 2, "note": "phone menu lists every known Sim: relationship walk" },
 
@@ -119,7 +119,7 @@
     "needs": [{ "kind": "object", "value": "phone" }],
     "steps": [
       { "cmd": "interact", "actor": "host", "target": { "find": "object", "value": "phone" }, "label": "Invite Over", "args": { "pick": [""] }, "waitS": 90 },
-      { "cmd": "auto_dialog", "args": {}, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "optional": true }
     ],
     "cooldownMin": 120, "maxConcurrent": 1, "note": "Phone > Call > Invite Over (Phone.CallInviteOver), the first Sim the phone's picker lists (a Sim the household knows): the guest leaves its own day and routes over (docs/180 §6; label unverified)" },
 
@@ -128,7 +128,7 @@
     "needs": [{ "kind": "object", "value": "phone" }, { "kind": "venue", "value": "any", "prepare": false }],
     "steps": [
       { "cmd": "interact", "actor": "host", "target": { "find": "object", "value": "phone" }, "label": "Invite Out", "args": { "pick": [""] }, "waitS": 30 },
-      { "cmd": "auto_dialog", "args": {}, "waitS": 120, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "waitS": 120, "optional": true }
     ],
     "cooldownMin": 240, "maxConcurrent": 1, "note": "Phone > Call > invite a known Sim to a community lot (Phone.CallInviteToLot; map-tag lot picker answered by auto_dialog): both meet there (docs/180 §6; label unverified)" },
 
@@ -137,7 +137,7 @@
     "needs": [{ "kind": "object", "value": "phone" }],
     "steps": [
       { "cmd": "interact", "actor": "host", "target": { "find": "object", "value": "phone" }, "label": "Throw", "waitS": 30 },
-      { "cmd": "auto_dialog", "args": {}, "waitS": 180, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "waitS": 180, "optional": true }
     ],
     "cooldownMin": 480, "maxConcurrent": 1, "note": "Phone > Throw Party (Phone.CallThrowParty, party type and guest list dialogs by auto_dialog): guests from other households come over (docs/180 §6; label unverified)" },
 

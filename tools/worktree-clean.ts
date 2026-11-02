@@ -42,7 +42,8 @@ function run(args: string[], cwd = process.cwd()): number {
   const merged = (w: { head?: string }) => spawnSync('git', ['merge-base', '--is-ancestor', w.head!, base], { cwd: main }).status === 0;
   let targets = wts;
   if (pathArg) {
-    targets = wts.filter(w => norm(w.path) === norm(pathArg));
+    const want = existsSync(pathArg) ? realpathSync.native(pathArg) : pathArg;  // expands 8.3 short names (TEMP is C:\Users\<user> on some machines); git lists long ones
+    targets = wts.filter(w => norm(w.path) === norm(want));
     if (!targets.length) { console.error(`not an agent worktree under ${root}: ${pathArg}`); return 1; }
   } else if (all) targets = wts.filter(merged);
   else { for (const w of wts) console.log(`${merged(w) ? 'merged  ' : 'unmerged'}  ${w.branch}  ${w.path}`); return 0; }

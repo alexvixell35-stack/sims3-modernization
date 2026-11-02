@@ -5,12 +5,12 @@
 // Only in a loaded world does a frozen clock count; the main menu and loading screens are skipped.
 // Usage: node tools/harness/watchdog.ts [--every 1] [--port 47891] [--min-free-mb 300]
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { mayBeStuck } from './stuck-rule.ts';
-import { sampleGame, stallStep } from './game-alive.ts';
-import { GAME_EXE } from './game-exe.ts';
+import { clickLines, logTail, type ModeSnap, modeExit, modeSnap, noSafeButton, sampleGame, stallStep } from './game-alive.ts';
+import { BIN, GAME_EXE, gameRunning, seenPids } from './game-exe.ts';
 
 const { values } = parseArgs({ options: {
   every: { type: 'string', default: '1' }, port: { type: 'string', default: '47891' }, 'min-free-mb': { type: 'string', default: '300' },
@@ -48,6 +48,7 @@ const EXPECTED_SIM_MIN_PER_MIN: Record<string, number> = { Triple: 460, Double: 
 const simSeen = new Map<string, { key: string; checks: number; reported: boolean }>();
 let lastHeartbeat: number | null = null;
 let lastCheckAt = Date.now();
+const STARTED = new Date().toISOString();
 
 // Gameplay-level stuck Sims: same spot and same interaction (or routing without moving) across several checks.
 async function checkSims(): Promise<void> {
@@ -70,7 +71,6 @@ async function checkSims(): Promise<void> {
   for (const id of [...simSeen.keys()]) if (!now.has(id)) simSeen.delete(id);
 }
 
-const gameRunning = () => execFileSync('tasklist', ['/NH', '/FI', `IMAGENAME eq ${GAME_EXE}`]).toString().includes(GAME_EXE);
 
 async function simStack(): Promise<string> {
   try {
@@ -82,20 +82,23 @@ async function simStack(): Promise<string> {
 function fail(reason: string, details: string[]): never {
   log(`STUCK: ${reason}`);
   for (const d of details) log(`  ${d}`);
-  // a crash leaves an xcpt report: show which change set it ran under
-  if (!gameRunning()) log(execFileSync(process.execPath, [join(import.meta.dirname, 'crash-ledger.ts'), 'triage']).toString().trim());
+  // a crash leaves an xcpt report: show which change set it ran under (only reports of this watch: since its start, game PIDs it saw;
+  // 7e2 printed an older run's xcpt)
+  if (!gameRunning()) log(execFileSync(process.execPath, [join(import.meta.dirname, 'crash-ledger.ts'), 'triage', '--since', STARTED, ...(seenPids.size ? ['--pids', [...seenPids].join(',')] : [])]).toString().trim());
   process.exit(1);
 }
 
 let lastMinutes: number | null = null;
 let stalledChecks = 0;
 const outside = { last: null as string | null, misses: 0 }; // fail-fast state for checks out of a world
+let prevMode: ModeSnap | null = null;
+const logFrom = existsSync(join(BIN, 'ts3native.log')) ? statSync(join(BIN, 'ts3native.log')).size : 0; // autopilot lines after this start only (logTail reads from 0 once the log is rewritten)
 log(`watchdog started, checking every ${values.every} min`);
 for (;;) {
   await sleep(Number(values.every) * 60000);
   const realMin = (Date.now() - lastCheckAt) / 60000;
   lastCheckAt = Date.now();
-  if (!gameRunning()) fail('game process is gone', ['look for an xcpt *.txt crash report in Documents\\Electronic Arts\\The Sims 3']);
+  if (!gameRunning()) fail('game process is gone', []);
   const status = await get('status', 30000).catch(e => ({ error: (e as Error).message }));
   if ((status as any).error) fail('probe not answering', [(status as any).error]);
 
@@ -109,6 +112,12 @@ for (;;) {
     `memory: ${mem ? `${mem.commitMB} MB committed, largest free ${mem.largestFreeMB} MB` : 'unavailable'}`,
     `dialog: ${dialog?.ok ? (dialog.result.open ? JSON.stringify(dialog.result.dialog.text?.[0] ?? '').slice(0, 80) : 'none') : 'unavailable'}`,
   ];
+  // before any recovery below (it enters live mode, which would hide the exit): unrequested mode exit / no safe button (docs/236)
+  const tail = logTail(1 << 20, logFrom), cur = modeSnap(state), ns = noSafeButton(tail);
+  const mx = ns ? `autopilot: dialog with no safe button, nothing clicked (${ns.replace(/^.*ap click: /, '').slice(0, 300)})`
+    : modeExit(prevMode, cur, (status as any).state_cmd_ago_s, Number(values.every) * 60 + 180);
+  if (mx) fail(mx, [...summary, ...clickLines(tail).map(l => `click: ${l.replace(/^.*ap click: /, '')}`)]);
+  if (cur) prevMode = cur;
 
   if (!(state.ok && state.result.in_world)) { // menu, loading, or the agent not answering: no clock to judge
     // fail fast: two checks in a row with nothing moving (heartbeat, world flag, committed MB, ts3native.log) = hung,

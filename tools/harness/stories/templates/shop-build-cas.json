@@ -4,7 +4,7 @@
     "needs": [{ "kind": "rabbithole", "value": ["Bookstore", "ComboBookstoreDaySpa", "ComboBusinessBookstore"], "prepare": false }],
     "steps": [
       { "cmd": "interact", "actor": "buyer", "target": { "find": "rabbithole", "value": ["Bookstore", "ComboBookstoreDaySpa", "ComboBusinessBookstore"] }, "label": "Buy Books", "waitS": 40 },
-      { "cmd": "auto_dialog", "args": {}, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "optional": true }
     ],
     "cooldownMin": 60, "maxConcurrent": 1, "note": "shop UI lists every book (string/thumbnail loads)" },
 
@@ -13,7 +13,7 @@
     "needs": [{ "kind": "rabbithole", "value": ["Grocery", "ComboDinerGrocery", "ComboDinerGroceryEP10"], "prepare": false }],
     "steps": [
       { "cmd": "interact", "actor": "buyer", "target": { "find": "rabbithole", "value": ["Grocery", "ComboDinerGrocery", "ComboDinerGroceryEP10"] }, "label": "Buy Groceries", "waitS": 40 },
-      { "cmd": "auto_dialog", "args": {}, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "optional": true }
     ],
     "cooldownMin": 60, "maxConcurrent": 1 },
 
@@ -23,7 +23,7 @@
     "steps": [
       { "cmd": "interact", "actor": "seller", "target": { "find": "shop", "value": "register" }, "label": "Consign", "waitS": 40 },
       { "cmd": "interact", "actor": "seller", "target": { "find": "shop", "value": "register" }, "label": "Browse", "waitS": 30, "optional": true },
-      { "cmd": "auto_dialog", "args": {}, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "optional": true }
     ],
     "cooldownMin": 120, "maxConcurrent": 1 },
 
@@ -33,7 +33,7 @@
     "steps": [
       { "cmd": "sim_visit_lot", "args": { "sim": "$actor.buyer", "lot": "$lot" }, "target": { "find": "shop", "value": "stall" }, "waitS": 60 },
       { "cmd": "any_interaction", "actor": "buyer", "target": { "find": "shop", "value": "stall" }, "waitS": 30 },
-      { "cmd": "auto_dialog", "args": {}, "optional": true }
+      { "cmd": "auto_dialog", "args": { "accept": true }, "optional": true }
     ],
     "cooldownMin": 90, "maxConcurrent": 1, "note": "shop register UI; also covers any register/stall shop elsewhere" },
 

@@ -4,6 +4,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { GAME_NAME } from './game-exe.ts';
 
 const STATE = join(resolve(import.meta.dirname, '..', '..'), 'probe-out', 'foreground.json');
 const FG = "Add-Type 'using System; using System.Runtime.InteropServices; public static class Fg {" +
@@ -17,7 +18,7 @@ const ps = (script: string): string => {
 };
 
 export function focusGame(): boolean {
-  return ps("$p = Get-Process TS3W -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $p) { 'no game'; exit }; " + FG +
+  return ps(`$p = Get-Process '${GAME_NAME}' -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $p) { 'no game'; exit }; ` + FG +
     "; $id = 0; [void][Fg]::GetWindowThreadProcessId([Fg]::GetForegroundWindow(), [ref]$id); [bool]($id -eq $p.Id)") === 'True';
 }
 
@@ -26,7 +27,7 @@ export function saveForeground(): void {
   const out = ps(FG + "; $h = [Fg]::GetForegroundWindow(); $id = 0; [void][Fg]::GetWindowThreadProcessId($h, [ref]$id);" +
     " $n = (Get-Process -Id $id -ErrorAction SilentlyContinue).ProcessName; \"$([int64]$h) $n\"");
   const [hwnd, name] = out.split(' ');
-  if (!hwnd || name === 'TS3W') return;
+  if (!hwnd || name === GAME_NAME) return;
   mkdirSync(dirname(STATE), { recursive: true });
   writeFileSync(STATE, JSON.stringify({ hwnd: Number(hwnd), name }));
 }
