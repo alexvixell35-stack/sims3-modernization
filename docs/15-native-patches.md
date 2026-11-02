@@ -656,12 +656,13 @@ Settings `[SaveSlim]`: `Enabled=0` (needs `[SaveWrite] Enabled=1`, else `SKIP`),
 - `save slim: <mode>, N files, N ExportDB, references read; outfits N, dropped N outfits + N textures (orphan textures kept N); scan N MB, N instances, N links, N ms; write N ms; total N ms`;
 - then one `save slim: <world>ExportDB.package: entries a -> b, outfits, textures, MB before -> after (dead MB): rewritten | left (why)` per ExportDB;
 - `save slim: waited N ms for the worker` when a save or load had to wait.
+- `save slim: unreadable N: <file>: <why> (entry N, Windows error N)` when a file or an entry could not be read: that save ran as Mode 1 (`references NOT read, no drops` in the summary). Opens that hit a sharing violation are retried for ~1.4 s first; the files the job only reads are opened with write sharing (2026-11-02: a BigSave-LR run read no reference at all while the same asi and save had read them the day before; the folder checked out offline, so a handle the game or a scanner still held is the suspect; this line names it next time).
 
 Tests: `selftest.exe` (`saveslim-test.h`): made-up save folders, Modes 0/1/2, outfit named only by another outfit, by an index key of another package or by `Meta.data` (a package with index flags 7, as the game writes it), an empty package and a plain file in the folder, texture chains TXTC -> TXTF, orphan textures kept, unknown compression and an undecodable body (Mode 2 -> Mode 1), unknown index type (file untouched), second run with nothing to gain, 64 KB read windows. `saveslim-tool.exe <save folder> [mode]` runs the job outside the game (Mode 0 reads only; Modes 1 and 2 only on a copy).
 
 ### How to test in game
 
-1. `[SaveWrite] Enabled=1`, `[SaveSlim] Enabled=1 Mode=0`. Load an old save, play 10+ minutes, save as a new name: the `save slim:` lines give what Mode 2 would drop and the scan time.
+1. `[SaveWrite] Enabled=1`, `[SaveSlim] Enabled=1 Mode=0`. Load an old save, play 10+ minutes, save as a new name: the `save slim:` lines give what Mode 2 would drop and the scan time. `references NOT read` in the summary means nothing was measured: read the `unreadable` line.
 2. `Mode=2`, same save, save as another new name. Check the `rewritten` lines, the new folder's ExportDB size, no `ts3native-slim.tmp` left.
 3. Load the new save twice: no script errors, every Sim dressed and textured as before, travel visitors arriving dressed (LagScope outfit health at load: same counts, invalid 0).
 
