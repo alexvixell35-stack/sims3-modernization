@@ -147,6 +147,12 @@ namespace Ts3Fixes
             int[] c = PatchCounters();
             c[427]++;
             string why = CpStateWhy();
+            // EA's SaveGameTask leaves its own progress window (a plain Dialog) modal for a few ticks after it returns, so the
+            // state check saw "a modal window (Dialog)" after every save and the opt-in path never ran (2026-11-02). This task is
+            // a simulator task: sleep until that window is gone (a player's real dialog stays and still refuses below).
+            int waited = 0;
+            while (why != null && why.StartsWith("a modal window") && waited < 40) { Simulator.Sleep(5u); waited++; why = CpStateWhy(); }
+            if (waited > 0) DiagLine("compaction: save #" + c[427] + ": waited " + waited + " x 5 ticks for the save's modal window" + (why == null ? "" : "; still refused: " + why));
             if (why != null) { c[432]++; DiagLine("compaction: save #" + c[427] + " not considered: " + why); return; }  // the verdict is not asked: the arm stays for the next save
             if (!CpAsk(0))
             {
