@@ -20,3 +20,7 @@ The settle loop that follows then sees the autopilot clear it within a second.
 
 - `node tools/harness/game-alive.ts --self-check`: ok (its `dialog_expect` source asserts still hold).
 - Syntax: the type-stripped `cycle.ts` passes `node --check`.
+- In game, same save and mods (2026-11-03): before the fix the welcome appeared 11 s after the load and was clicked 47 s
+  later (`left to the harness, dialog_expect`, then `#2 accept (only button)` 60 s after the last re-arm). With the fix, on
+  the next load: world loaded 21:42:20, welcome clicked by the autopilot at 21:42:32 as it appeared, no `left to the harness`
+  line [measured, ts3agent `dialog_expect {status:true}` history].
