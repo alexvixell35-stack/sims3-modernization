@@ -169,6 +169,19 @@ static void TestWorldAStarRefs() {
     g_pf1Back = PF1_BACK, g_pf1Skip = PF1_SKIP, g_pf2Back = PF2_BACK, g_pf2Skip = PF2_SKIP;
     k.pfSkip[0] = k.pfSkip[1] = 0;
     VirtualFree(hole, 0, MEM_RELEASE);
+    // LotGridMiss: the je keeps its opcode and points at LgStub; other bytes are left alone; each hit counts
+    alignas(4) static u8 lg[6];
+    memcpy(lg, kLgSite, 6), lg[2] = 0xFA;
+    assert(!LgPatch(lg) && lg[2] == 0xFA);
+    lg[2] = 0xF9;
+    assert(LgPatch(lg) && lg[0] == 0x0F && lg[1] == 0x84 && (uintptr_t)lg + 6 + *(LONG*)(lg + 2) == (uintptr_t)&LgStub);
+    assert(!LgPatch(lg));
+    alignas(4) static u8 lot[0x50];
+    *(DWORD*)(lot + 0x48) = 0x536284F0, *(DWORD*)(lot + 0x4C) = 0x08F30053;
+    const LONG h0 = g_lgHits;
+    LgHit(lot), LgHit(lot);
+    assert(g_lgHits == h0 + 2);
+    g_lgHits = h0;
     printf("WorldAStarRefs: patch bytes, in-range pairs kept (moved instructions run), chunk outside the map / waypoint past "
            "the chunk count / unreadable record skipped to the closed path; PortalFlagRefs: patch bytes, portal ids and lot "
            "neighbours outside R skip the blocked-flag write: ok\n");
