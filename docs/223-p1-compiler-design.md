@@ -141,7 +141,12 @@ Stop rules: S1 under ~5 ms/s in game: stop before S2 (the body compiler then doe
 
 **Risks, top 3:**
 
-1. **A frame reader we did not find** (EA host code, a mod's icall, our own tools) sees a lazy chain: wrong stack traces at best, a crash in EA's search or yield save at worst. Mitigation: B1 census, "every exit materializes unless proven frame-free", materialize-check mode in game, `Direct` switch separate from the body compiler.
+1. **A frame reader we did not find** (EA host code, a mod's icall, our own tools) sees a lazy chain: wrong stack traces at best, a crash in EA's search or yield save at worst. Mitigation: B1 census, "every exit materializes unless proven frame-free", materialize-check mode in game, `Direct` switch separate from the body compiler. Added 2026-11-03 (Rodney), in order:
+   - **Reader trap (gate for S2/S3):** a verify build poisons the unwritten fields of lazy entries and traps reads of the chain fields (guard page or hardware breakpoint on `ThreadContext+8` / the `MonoInvocation` words); each hit logs caller + stack. Plus a static Ghidra xref list of every access to those fields. No S2/S3 build until a correctness run with all frame readers active shows 0 unknown readers.
+   - **Valid chain head as fallback:** lazy entries still keep the chain head and method pointer valid, so a reader we missed sees a correct chain with missing contents instead of garbage.
+   - **Narrow scope first:** start with hot leaf methods from the exit census that cannot yield, throw out or call back into script; widen the allowlist step by step, one verify run per step.
+   - **Recovery:** per-method kill switch; SEH catch around compiled code that marks the method bad, falls back to the interpreter and counts it; IL-hash guard; shadow mode in monohost (both paths, compare results) before game runs.
+   - **Reader-heavy correctness runs:** sampler, NRaas ErrorTrap, ScriptError dumps and saves during Sim waits on, crash logging, long soaks, save matrix.
 2. **Exactness drift in the real script mix** that the offline verify does not reach: statics outside the graph, x87 control word on a thread D3D changed, the `_ftol2` CRT flag, mod overrides behind a known hash. Effect: behaviour change or desync of seeded runs. Mitigation: verify mode in game, `rng-compare.ts` on/off, IL-hash + MVID guards, corpus rows per template.
 3. **Gain below projection**: the in-game ratio is noisy (BP 1.0x vs IP 2.4x), the call protocol is store-bound and the receiver stall stays; the compiled sim thread also lowers [AutShadow]'s measured offload gain. Mitigation: per-step `jit-ab` with stop rules; A/Bs state the [AutShadow] setting.
 
