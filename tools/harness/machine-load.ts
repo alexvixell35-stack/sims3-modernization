@@ -17,7 +17,9 @@ import { availableParallelism } from 'node:os';
 import { cpuMask, gameCpus, maskCpus } from './pin.ts';
 import { GAME_NAME } from './game-exe.ts';
 
-const OTHER_MAX = 10, PERF_DROP = 0.8;
+// PERF_DIPS: samples under the drop line that make a run NOT comparable; one is a boost dip of a quiet machine, not a slower
+// run (2026-11-03: 168 -> 134% in 1 of 3 early samples voided an A/B with other CPU at 4%)
+const OTHER_MAX = 10, PERF_DROP = 0.8, PERF_DIPS = 2;
 // noise verdict (job means): high = other apps take >= 10% of the game CPUs (with other CPU >= OG_OTHER_MIN), the clock dropped or the machine was busy (the
 // NOT comparable rule), or another app keeps the GPU 3D engine >= 30% busy; medium = >= 3% of the game CPUs, other CPUs >= 50%
 // busy, other CPU >= 10% of the machine, GPU 3D (not TS3W) or video decode >= 10%; else low
@@ -104,11 +106,12 @@ export function summarizeRows(rows: any[]): { line: string; ok: boolean; noise: 
   const mean = (k: string) => rows.reduce((s, r) => s + (r[k] ?? 0), 0) / rows.length;
   const perfs = rows.map(r => r.perf).filter((x: number | null) => x != null);
   const perfMin = perfs.length ? Math.min(...perfs) : null, perf0 = perfs[0] ?? null;
+  const dips = perf0 ? perfs.filter((x: number) => x < perf0 * PERF_DROP).length : 0;
   const busiest = rows.reduce((a, r) => (r.other > a.other ? r : a));
   const why = [mean('other') >= OTHER_MAX && `other CPU ${mean('other').toFixed(1)}% >= ${OTHER_MAX}%`,
-    perf0 && perfMin !== null && perfMin < perf0 * PERF_DROP && `clock fell to ${perfMin}% from ${perf0}%`].filter(Boolean);
+    dips >= PERF_DIPS && `clock fell to ${perfMin}% from ${perf0}% (${dips} samples under ${Math.round(perf0! * PERF_DROP)}%)`].filter(Boolean);
   const line = `machine load: other CPU mean ${mean('other').toFixed(1)}% max ${busiest.other}% (${busiest.top.join(', ')}), TS3W ${mean('ts3w').toFixed(1)}%, ` +
-    `clock ${perf0 ?? '-'}% -> min ${perfMin ?? '-'}% (${rows.length} samples): ${why.length ? `NOT comparable: ${why.join('; ')}` : 'ok'}`;
+    `clock ${perf0 ?? '-'}% -> min ${perfMin ?? '-'}%${dips === 1 ? ' (1 dip, ignored)' : ''} (${rows.length} samples): ${why.length ? `NOT comparable: ${why.join('; ')}` : 'ok'}`;
   const n = noise(rows, why.length > 0);
   return { line: `${line}; ${n.text}`, ok: !why.length, noise: n.level, short: n.short };
 }
@@ -146,7 +149,9 @@ if (import.meta.main) {
     w([r(70000), r(100000), r(130000)]); check(earlyNoise(f, 0) === '', 'early: fine');
     w([r(70000, { other: 14 }), r(100000, { other: 12 }), r(130000)]); check(earlyNoise(f, 0) === '', 'early: mean 9.3% < 10%');
     w([r(70000, { other: 20 }), r(100000, { other: 12 }), r(130000)]); check(/^noisy machine early: .*NOT comparable: other CPU 11\.3% >= 10%/.test(earlyNoise(f, 0) ?? ''), 'early: noisy');
-    w([r(70000), r(100000), r(130000, { perf: 70 })]); check(/clock fell to 70% from 100%/.test(earlyNoise(f, 0) ?? ''), 'early: clock drop');
+    w([r(70000), r(100000), r(130000, { perf: 70 })]); check(earlyNoise(f, 0) === '', 'early: one clock dip is not a drop');
+    check(/min 70% \(1 dip, ignored\)/.test(summarize(f).line), 'one dip named in the line');
+    w([r(70000), r(100000, { perf: 75 }), r(130000, { perf: 70 })]); check(/clock fell to 70% from 100% \(2 samples under 80%\)/.test(earlyNoise(f, 0) ?? ''), 'early: clock drop');
     rmSync(f);
   }
   check(lv([{ other: 2, perf: 100 }]) === 'low', 'old rows without the new fields');
