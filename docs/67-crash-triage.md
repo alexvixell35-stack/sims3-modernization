@@ -1148,3 +1148,40 @@ and not Apex [verified].**
    same 15 SimService entries and all 7 lots, so it separates the Spring conversion from the save's own state.
 4. If the SimService writer is the one failing: compare its 15 inputs with BigSave-IP's 14 (the `0x3000D` chunk is the
    extra one) before anything else; a `SaveCleanup`-style trim is not possible for it (`docs/14` §1).
+
+### 31.5 Four more arms: the save's own state, not our builds, not the caches, not the Spring conversion (2026-11-02 night)
+
+Live, on `fix/compaction-save-result` (the compaction verify worktree), one job per arm, save at once after the load.
+Each failed file was read with the same index diff as §31.2 [verified for every row]:
+
+| Arm | Save | Setup | Result | Missing from the written world file |
+|---|---|---|---|---|
+| plain (§31.4 item 3) | `Baseline-IP` | 2026-11-02 asi (WorldAStarRefs on), the branch's ts3fixes | 12 | all 15 SimService entries, the same 7 lots |
+| release pair | `Baseline-IP` | the player's own pair: ts3native v0.2.4 (0.36.105) and their ts3fixes | 12, then the §30 A\* crash at `0x6742B5` 15 s later (v0.2.4 has no WorldAStarRefs) | the same |
+| fresh world caches | `Baseline-IP` | as plain, with `IslaParadiso_sims.package` (1,071,414,891 B, at the 1 GiB cap) and `_objects` moved aside | 12 | the same |
+| control | `BigSave-IP` | as plain | **0**, and the in-session reload save 0 | nothing |
+
+- **Not the Spring conversion, not our builds, not the world caches.** The non-Spring save fails the same way, and so
+  does the player's release setup. Fresh caches do not change it. (The original caches went back after the arm.)
+- **The world itself saves.** `BigSave-IP` (the same world, the same mods, the same asi) saves today. So it is
+  `Baseline-IP`'s own state, which `Baseline-IP-Spring` inherits.
+- **The 7 lots, named** (`list_lots` on `Baseline-IP-Spring`): 33 Surf Circle, Shimmering Sands, Ocean View (Isla
+  Romantica) and 2 Sharks Bay (4 empty residential lots), Island Jewel Park (`kSmallPark`), Ichtaca Community Garden
+  (`kMisc_NoVisitors`) and Sparkling Sands Beach (`kBeach`). None is a port or a houseboat lot (the world has 18
+  `kEP10_Port` lots).
+- **Their records are not the cause by themselves.** Each of the 5 small records is byte-identical to the other 29
+  empty-lot records of the file (`05000000 10000000 ... 02000000 04000000`). The two larger ones are the same size in
+  `BigSave-IP`, which writes them.
+- **One lot-level difference:** `Baseline-IP` has 119 lot records, `BigSave-IP` 118. The extra one is 33 Surf Circle
+  (`08F30053536284F0`), one of the seven. Whether it starts the failure or is only skipped with the others is not known.
+- **An attempt without the player's mods was inconclusive.** All of `Mods/Packages` and `Mods/Overrides` were moved
+  aside except the harness's three packages; they were moved back after the job and counted. The world loaded in 9 s
+  but never reached live mode within 60 s, so there was no save. ts3fixes still listed 16 script assemblies, NRaas ones
+  among them, with 3 packages installed; where they loaded from is open.
+
+Next, in this order:
+
+1. Remove or bulldoze 33 Surf Circle in a copy of `Baseline-IP`, then save. If the copy saves, the extra lot is the
+   cause.
+2. Native writer logging (§31.4 item 1): which writer returns the failure, the lot writer or the SimService writer.
+3. The no-mods arm again, once the 16 assemblies' source is known.
