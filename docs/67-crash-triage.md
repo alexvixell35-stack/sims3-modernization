@@ -1181,7 +1181,8 @@ Each failed file was read with the same index diff as §31.2 [verified for every
 
 Next, in this order:
 
-1. Remove or bulldoze 33 Surf Circle in a copy of `Baseline-IP`, then save. If the copy saves, the extra lot is the
-   cause.
+1. Find why `Baseline-IP` has 33 Surf Circle and `BigSave-IP` does not (how each save was made). The game cannot
+   take the lot out to test it: Edit Town bulldozes a lot's contents but does not delete the plot, and this one is
+   already empty.
 2. Native writer logging (§31.4 item 1): which writer returns the failure, the lot writer or the SimService writer.
 3. The no-mods arm again, once the 16 assemblies' source is known.
