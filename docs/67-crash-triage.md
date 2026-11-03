@@ -1311,6 +1311,10 @@ play. Local queue (the save is the player's).
 | `LotGridMiss=1` | normal: 0 (5,968 ms), reload save: 0 (5,078 ms), after the menu reload: 0 (6,281 ms) | `OK` at start; both lots after the first load, again before the first save, after the menu reload, after the direct reload (8 lines, the cap) | PASS, 8.7 min |
 
 - The menu reload and the direct reload both loaded the file that the fixed save wrote, and played 2 min each.
+- **Soak** (same build, `--play 15 --after 3` with the Buy and CAS visits, 25.7 min, PASS): after 15 min of autopilot
+  play, the three saves gave 0, 0, 0 (6,422 / 5,610 / 6,672 ms). Both reloads played 3 min. 8 hit lines, the cap. The
+  main-thread access violations at `0x69F235` in that log are also in the IP runs from before the fix (11-02
+  `ip-e12-wa1-play10`, 11-03 `ip-lot33`), so they do not come from it.
 - An earlier Frida run (the same patch in memory, then save, Quit to Main Menu, reload, 2 min of play, save) also gave
   `result 0` twice.
 - With the fix, the two lots are rebuilt now and then in play, and each rebuild is marked done at once. Without it the
