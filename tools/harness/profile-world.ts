@@ -394,7 +394,9 @@ const vresDone = vresOn ? (async () => {
 const abNames = values.ab ? values.ab.split(',') : [];
 const slices: { from: number; on: boolean }[] = [];
 // a rerun with the same tag must not append to the last run's snapshots (wait-ab read run 1 twice, 2026-10-20)
-if (abNames.length) { writeFileSync(`${pre}-ab-native.jsonl`, ''); writeFileSync(`${pre}-ab-fixes.jsonl`, ''); }
+// ... nor leave the last run's slice table: a run stopped before its end writes none, and wait-ab.ts paired the old table with
+// the new (cut) snapshots (2026-11-03, noise stops)
+if (abNames.length) { writeFileSync(`${pre}-ab-native.jsonl`, ''); writeFileSync(`${pre}-ab-fixes.jsonl`, ''); rmSync(`${pre}-ab.json`, { force: true }); }
 // ts3native switch tables (nativeNames, counterSwitches, nativeValues: native_set repro steps and --ab): native-switches.ts,
 // shared with session-reuse.ts, which puts them back between jobs that share one game load (docs/170 §2)
 async function nativeSet(args: Record<string, unknown>): Promise<{ ok: boolean; result?: unknown; error?: string }> {

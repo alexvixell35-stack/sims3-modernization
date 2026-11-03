@@ -2594,6 +2594,10 @@ for (const [n, j] of jobs.entries()) {
       if (j.shadowCheck !== false) for (const f of shadowFails(rowIni(j), j.run.profile?.fixesOn, c0, c1, row.fixesApplied, row.fixActivity?.counters)) { row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f; }
     }
     row.counters ={ before: pickCounters(c0, sections), after: pickCounters(c1, sections) };
+    // every counter, before and after, beside the row: the row keeps only the sections of the job's ini (COUNTERS), so a
+    // module without an entry there lost its counters on a run without an A/B (2026-11-03)
+    if (c0 || c1) try { writeFileSync(row.nativeFile = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-native.json`), JSON.stringify({ before: c0, after: c1 })); }
+    catch (e) { log(`${j.id}: native counter file not written: ${e}`); }
     row.counters.delta = delta(row.counters.before, row.counters.after);
     for (const f of counterGaps(j.ini ?? {}, row.counters.after)) { row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f; }
   } catch (e) { row.error = String((e as Error).message ?? e); log(`${j.id}: ${row.error}`); }
