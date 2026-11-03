@@ -16,8 +16,9 @@ namespace Ts3Fixes
     // profile, and Remove lasts only until the next lookup makes the record again [verified in the IL]. Fix, default off:
     // SimHasProfile is true only for a record with a Profile (this also covers the empty records already in a save, so
     // nothing scans them at load), and DidSimsMeetOnline on the sim thread reads the records without making one. That
-    // second part lives in AutShadow's H4 hook (AutDatingHook.MetHook): one patch per method, so it runs only where
-    // AutShadow installed H4. Counters [2051] SimHasProfile answers turned false, [2052] DidSimsMeetOnline calls answered
+    // second part lives in AutShadow's H4 hook (AutDatingHook.MetHook): one patch per method. ApplyAutShadow installs
+    // the managed hooks at every start, whatever the native [AutShadow] section says, so it runs unless AutShadow's member
+    // lookup failed. Counters [2051] SimHasProfile answers turned false, [2052] DidSimsMeetOnline calls answered
     // without making a record.
     public static partial class Fixes
     {

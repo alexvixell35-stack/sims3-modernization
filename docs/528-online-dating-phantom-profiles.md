@@ -36,27 +36,40 @@ Two parts, both behind `datingprofile` (off by default):
    worker side of the same hook (AutShadow H4, I-122-15) already answered this way. Counter [2052]
    `datingprofile_no_record`: calls where EA's body would have made a record.
 
-Part 2 lives in AutShadow's hook because ts3fixes puts one patch on a method: AutShadow already swaps
-`DidSimsMeetOnline` (H4) when it is on. With AutShadow off the method has no hook, the empty records are still made,
-and part 1 keeps them from counting as a profile.
+Part 2 lives in AutShadow's hook because ts3fixes puts one patch on a method, and AutShadow swaps `DidSimsMeetOnline`
+(H4). ts3fixes installs AutShadow's managed hooks at every start (`ApplyAutShadow` in `Fixes.cs`), whatever the native
+`[AutShadow]` section says. So part 2 is in place with the release defaults too [verified: job
+`bp-dating-profile-noaut`, §3]. The method has no hook only when AutShadow's member lookup fails (an "AutShadow: off"
+line in `ts3fixes.applied`). Then the empty records are still made, and part 1 keeps them from counting as a profile.
 
 Not changed: EA's other `GetRecordForSim` callers (the profile UI paths, `SimMetOnlineDate`). They run only for a Sim
 with a profile or after an online date.
 
 ## 3. Test
 
-Repro `dating-profile-check`, queue `tools/harness/queues/dating-profile.json`, save Baseline-BP, the player's core
-mod on. The agent check `Ts3Fixes.Fixes.DatingProfileCheck` picks two Sims with no record outside the active household,
+Repro `dating-profile-check`, queue `tools/harness/queues/dating-profile.json`, save Baseline-BP. **It needs a core
+without the b98 IL patch** (simler90's UPDATE242 core without our patches). The player's core mod carries the same fix
+as an IL patch, so with it the off arm sees no bug. The agent check `Ts3Fixes.Fixes.DatingProfileCheck` picks two Sims with no record outside the active household,
 calls `DidSimsMeetOnline` on them once, then `SimHasProfile` on each.
 
 - Off arm (`expect broken`): both records made (records added 2), both read as a profile.
 - On arm (`expect fixed`): the off arm's two empty records read as no profile; two more Sims get no record when H4 is
   in place (records added 0), or records that read as no profile when it is not. Then every empty record the check
   made is removed.
-- Job `bp-dating-profile-check` runs with AutShadow on (Mode 0) and needs both counters at 1 or more; job
-  `bp-dating-profile-noaut` runs the release defaults (AutShadow off) and needs `datingprofile_no_profile`.
+- Job `bp-dating-profile-check` runs with AutShadow on (Mode 0) and needs both counters at 1 or more.
+- Job `bp-dating-profile-noaut` runs the release defaults (native AutShadow off) and needs `datingprofile_no_profile`.
+- Both jobs have H4's managed hook (§2).
 
-Result: not run yet.
+**Result (2026-11-03, build 94b7eac, `docs/data/results/2026-11-03-queue-dating-profile.md`):**
+
+- **05:37 run, simler90's UPDATE242 core without our patches in `Mods/Packages`:** both jobs PASS. The player's core
+  and Tiny UI Fix were held aside for the run, then moved back and checked.
+  - Off arm, both jobs: records added 2, `SimHasProfile` True/True.
+  - On arm, both jobs: records added 0, `SimHasProfile` False/False. The off arm's 2 empty records read as no profile.
+    The check removed the empty records it made.
+  - The release-defaults job also made no record: H4's managed hook was in place with native AutShadow off.
+- **05:29 run, the player's core (b98):** FAIL on the off arm. Records added 0 and no profile with the switch off: the
+  core's IL patch had already fixed it.
 
 ## 4. What is left
 
