@@ -612,7 +612,7 @@ if (hitchTasks.length) {
   console.log(`${stamp()} ${fails.length ? `FAIL: hitch tasks: ${fails.join('; ')}` : `PASS: hitch tasks ${hitchTasks.map((r, i) => `${r} (${counts[i]})`).join(', ')}`}`);
   if (fails.length) process.exitCode = 1;
 }
-if (abNames.length) { writeFileSync(`${pre}-ab.json`,JSON.stringify({ names: abNames, slices }, null, 1)); await ag('patches', Object.fromEntries(abNames.map(n => [n, true]))); }
+if (abNames.length) { writeFileSync(`${pre}-ab.json`,JSON.stringify({ names: abNames, t0, slices }, null, 1)); /* t0: profile start (epoch ms), to join <tag>-machine.jsonl */ await ag('patches', Object.fromEntries(abNames.map(n => [n, true]))); }
 // per-arm ms/s (arm-ms.ts): slice + arm columns on the seconds rows (arm 1 on, 0 off, -1 not counted)
 if (slices.length && (abNames.length || reproLoop)) {
   const sf = `${pre}-${secs}-seconds.csv`;

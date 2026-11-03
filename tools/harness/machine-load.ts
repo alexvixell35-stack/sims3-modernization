@@ -7,10 +7,14 @@
 //           counters over the same 30 s; the split is exact only while TS3W is pinned: pin = its affinity == the game set)
 //   mhz   = clock in MHz (base 'Processor Frequency' x perf); g3d / g3dOther / gdec = GPU 3D engine % (all, not TS3W) and
 //           video decode % ('\GPU Engine(*)\Utilization Percentage', 1 s snapshot, null when the counters are missing)
+//   pAvg / pMin = '% Processor Performance' read every ~5 s inside the window: mean and lowest (perf is one reading at the
+//           window's end; this laptop's clock swings 109-175% within minutes, so per-slice clock needs the mean)
+//   gtop  = the 3 biggest GPU 3D users by process name, TS3W included (g3dOther also holds dwm / csrss, which compose the game's
+//           own window: tells them apart from another app)
 // summarize() gives the run-log line and a verdict: a run with other >= 10% on average, or perf below 80% of its first
 // sample, is flagged as not comparable; plus noise: low|medium|high (NOISE below). Windows only, like the rest of the harness.
 // The sampler runs on the non-game CPUs and ends on its own once the node process that started it is gone.
-//   node tools/harness/machine-load.ts [seconds]   self-check: samples every 5 s for N s (default 15) and prints the summary
+//   node tools/harness/machine-load.ts [seconds]   self-check: samples every 5 s for N s (default 30: a row takes ~8 s with the clock and GPU reads) and prints the summary
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
@@ -38,7 +42,7 @@ $pc = & $raw
 $prev = @{}; foreach ($p in Get-Process) { $prev[$p.Id] = $p.TotalProcessorTime.TotalSeconds }
 $t = Get-Date
 while (Get-Process -Id ${process.pid}) {
-  Start-Sleep -Seconds ${everyS}
+  $pf = @(); for ($i = 0; $i -lt [math]::Max(1, [math]::Floor(${everyS} / 5)); $i++) { Start-Sleep -Seconds 4; $v = (Get-Counter '\\Processor Information(_Total)\\% Processor Performance').CounterSamples[0].CookedValue; if ($v) { $pf += $v } }
   $now = Get-Date; $dt = ($now - $t).TotalSeconds; $t = $now
   $cur = @{}; $rows = @()
   foreach ($p in Get-Process) {
@@ -66,17 +70,21 @@ while (Get-Process -Id ${process.pid}) {
   $pin = if ($ts -and $gm) { $ts.ProcessorAffinity.ToInt64() -eq $gm } else { $null }
   $og = if ($ng) { [math]::Round([math]::Max(0, $bg - [double]$ts3w * $n) / $ng, 1) } else { $null }
   $oo = if ($no) { [math]::Round($bo / $no, 1) } else { $null }
-  $g3d = $null; $g3o = $null; $gdec = $null
+  $g3d = $null; $g3o = $null; $gdec = $null; $gtop = @()
   $gs = (Get-Counter '\\GPU Engine(*engtype_3D)\\Utilization Percentage', '\\GPU Engine(*engtype_VideoDecode)\\Utilization Percentage').CounterSamples
   if ($gs) {
     $g3 = @($gs | Where-Object InstanceName -like '*engtype_3d')
     $tsp = if ($ts) { "pid_$($ts.Id)_*" } else { 'none' }
     $g3d = [math]::Min(100, [math]::Round([double]($g3 | Measure-Object CookedValue -Sum).Sum, 1))
     $g3o = [math]::Min(100, [math]::Round([double]($g3 | Where-Object InstanceName -notlike $tsp | Measure-Object CookedValue -Sum).Sum, 1))
+    $gtop = @($g3 | Where-Object CookedValue -gt 0.5 | ForEach-Object { if ($_.InstanceName -match 'pid_(\\d+)_') { [pscustomobject]@{ p = [int]$Matches[1]; c = $_.CookedValue } } } |
+      Group-Object p | ForEach-Object { [pscustomobject]@{ n = (Get-Process -Id ([int]$_.Name)).ProcessName; c = ($_.Group | Measure-Object c -Sum).Sum } } |
+      Sort-Object c -Descending | Select-Object -First 3 | ForEach-Object { '{0} {1:N0}' -f $_.n, $_.c })
     $gdec = [math]::Min(100, [math]::Round([double]($gs | Where-Object InstanceName -like '*engtype_videodecode' | Measure-Object CookedValue -Sum).Sum, 1))
   }
   $o = [ordered]@{ t = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); other = [math]::Round($other, 1); ts3w = [math]::Round([double]$ts3w, 1); top = @($top); perf = if ($perf) { [math]::Round($perf) } else { $null };
-    mhz = if ($perf -and $freq) { [math]::Round($freq * $perf / 100) } else { $null }; gc = '${cpus ?? ''}'; og = $og; oo = $oo; pin = $pin; g3d = $g3d; g3dOther = $g3o; gdec = $gdec }
+    mhz = if ($perf -and $freq) { [math]::Round($freq * $perf / 100) } else { $null }; gc = '${cpus ?? ''}'; og = $og; oo = $oo; pin = $pin; g3d = $g3d; g3dOther = $g3o; gdec = $gdec; gtop = @($gtop);
+    pAvg = if ($pf.Count) { [math]::Round(($pf | Measure-Object -Average).Average) } else { $null }; pMin = if ($pf.Count) { [math]::Round(($pf | Measure-Object -Minimum).Minimum) } else { $null } }
   Add-Content -Path '${file.replace(/'/g, "''")}' -Value ($o | ConvertTo-Json -Compress)
 }`;
 };
@@ -151,7 +159,7 @@ if (import.meta.main) {
   }
   check(lv([{ other: 2, perf: 100 }]) === 'low', 'old rows without the new fields');
   if (process.argv.includes('--verdict-only')) { console.log('self-check PASS (verdict only)'); process.exit(0); }
-  const secs = Number(process.argv[2] ?? 15), file = `${process.env.TEMP ?? '.'}/machine-load-selfcheck-${Date.now()}.jsonl`;
+  const secs = Number(process.argv[2] ?? 30), file = `${process.env.TEMP ?? '.'}/machine-load-selfcheck-${Date.now()}.jsonl`;
   const stop = startMachineLoad(file, 5);
   await new Promise(r => setTimeout(r, (secs + 3) * 1000));
   stop();
