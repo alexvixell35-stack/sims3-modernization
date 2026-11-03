@@ -51901,5 +51901,79 @@
         "note": "on: no profile for the empty records; no record made where H4 is in place; the check's empty records removed"
       }
     ]
+  },
+  {
+    "id": "leavejob-dispose-check",
+    "bug": "Career.LeaveJob only notes the leave (mLeaveJobOnExit) while the Sim is in WorkInRabbitHole; WorkInRabbitHole.Cleanup does LeaveJobNow later only while Actor.CareerManager is not null. SimDescription.Dispose calls LeaveAllJobs, then sets CareerManager to null, then destroys the Sim, so a Sim deleted at work never leaves its job: its description stays in CareerLocation.Workers and in the co-workers' Coworkers lists, and other Sims keep it as Boss (docs/529 §2)",
+    "fix": "ts3fixes LeaveJobDispose.cs: leavejobdispose (default off), docs/529",
+    "save": "Baseline-BP",
+    "note": "The agent check (LeaveJobDisposeCheck) waits for 2 Sims at work in a rabbit hole, not of the active household (seed sends up to 3 townies whose career should be at work now, as go_to_work), then per arm deletes one of them as EA's household deletion does (Household.Remove, Dispose) and reads the work place's Workers list and its workers' Coworkers and Boss for the deleted description. The load starts at about 11:50, a work hour.",
+    "expect": "off: in Workers True, leaves done 0. on: in Workers False, co-worker lists 0, boss of 0, leaves done 1; leavejobdispose_leaves >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "leavejobdispose": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LeaveJobDisposeCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "2 Sims at work (townies sent if needed)",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.LeaveJobDisposeCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "ready",
+              "equals": true
+            }
+          ],
+          "maxS": 240,
+          "everyS": 5
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LeaveJobDisposeCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: the deleted Sim stays in the work place's Workers"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "leavejobdispose": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LeaveJobDisposeCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: the deleted Sim left its job: in no Workers, Coworkers or Boss"
+      }
+    ]
   }
 ]

@@ -153,6 +153,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kAgeUpAbort value="False" />
     <kRewardGiver value="False" />
     <kDatingProfile value="False" />
+    <kLeaveJobDispose value="False" />
     <kAsyncJigSync value="True" />
     <kDeadRefSweep value="False" />
     <kVacExport value="False" />

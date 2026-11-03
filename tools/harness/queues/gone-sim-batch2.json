@@ -1,0 +1,36 @@
+{
+  "note": "docs/529: repro of leavejobdispose (a Sim deleted at work keeps its job), off then on in one load, release defaults, with the player's core mod (simler90's core does not change Career.LeaveJob or WorkInRabbitHole.Cleanup).",
+  "jobs": [
+    {
+      "id": "bp-leavejob-dispose-check",
+      "note": "Correctness (7 min). Pass: the repro's steps pass (off: the deleted Sim stays in Workers; on: in no Workers, Coworkers or Boss), leavejobdispose_leaves >= 1.",
+      "asi": "game-copy/ts3native.asi.ca8fc13",
+      "pinReason": "main ca8fc13 CI build; a ts3fixes-only correctness test",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 7,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "leavejob-dispose-check",
+          "fixesRequire": "leavejobdispose_leaves>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14,
+      "earlyGates": [
+        {
+          "afterSec": 330,
+          "counter": "fixes:leavejobdispose_leaves",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm changed nothing: hook missing or the check failed"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": false
+}
