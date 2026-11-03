@@ -2286,6 +2286,47 @@
       "what": "docs/228 §11.8 SACS bound-actor classes",
       "at": "2026-11-02T22:30:44.372Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-758",
+      "kind": "fixes",
+      "from": 758,
+      "to": 759,
+      "by": "asyncjigsync",
+      "what": "asyncjigsync: plans kept sync while the Sim's interaction holds an unplaced SocialJig / of those on the partner side",
+      "at": "2026-11-02T22:39:59.018Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-asyncjigsync"
+    },
+    {
+      "id": "doc-240",
+      "kind": "doc",
+      "from": 240,
+      "to": 240,
+      "by": "asyncjigsync",
+      "what": "asyncjigsync: RouteAsync paired-social jig race",
+      "at": "2026-11-02T22:39:59.232Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-asyncjigsync"
+    },
+    {
+      "id": "ledger-424",
+      "kind": "ledger",
+      "from": 424,
+      "to": 424,
+      "by": "asyncjigsync",
+      "what": "asyncjigsync -20000 goal origin",
+      "at": "2026-11-02T22:39:59.461Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-asyncjigsync"
+    },
+    {
+      "id": "native-v160",
+      "kind": "native",
+      "version": 160,
+      "from": 23268,
+      "to": 23271,
+      "by": "saveslim-optin",
+      "what": "[SaveSlim] slimFails: worker passes that failed (exception or rewrite error), save left as the game wrote it",
+      "at": "2026-11-03T00:27:46.711Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a9b915b9a46fcf7b1"
     }
   ]
 }

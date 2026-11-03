@@ -1,0 +1,27 @@
+{
+  "note": "Apex report 2026-10-28: ts3native 0.36.37 (v0.1.5 release asi) + Apex Radiance 2.17.1 (game-copy/apex-2.17.1/ApexRadiance.asi copied into Game/Bin by hand before the queue, removed after) freezes the sim for minutes: own START jobs of 6-7.4 s repeated on one route. Repro attempt in natural play; fail-fast at 2 s route-led hitches catches the freeze.",
+  "jobs": [
+    {
+      "id": "sv-apex-rel015-nat",
+      "note": "SV 15 min natural play, v0.1.5 asi + release defaults, Apex in Bin. Read: 'route async: long job' >= 1000 ms lines, 'waited N s for the job', hitches >= 2 s.",
+      "asi": "game-copy/ts3native.asi.rel015",
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "routingFailFast": { "ms": 2000, "scope": "all" },
+      "ini": { "RouteAsync.Mode": 1, "RouteAsync.Kinds": 0, "RouteAsync.LogFallbackMs": 20 },
+      "run": { "profile": { "minutes": 15, "seed": 12345 } },
+      "timeoutMin": 32
+    },
+    {
+      "id": "ip-apex-rel015-nat",
+      "note": "IP 15 min natural play, as sv-apex-rel015-nat.",
+      "asi": "game-copy/ts3native.asi.rel015",
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "routingFailFast": { "ms": 2000, "scope": "all" },
+      "ini": { "RouteAsync.Mode": 1, "RouteAsync.Kinds": 0, "RouteAsync.LogFallbackMs": 20 },
+      "run": { "profile": { "minutes": 15, "seed": 12345 } },
+      "timeoutMin": 32
+    }
+  ]
+}

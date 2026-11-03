@@ -1,0 +1,10 @@
+# Queue eafix-verify 2026-10-30
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/eafix-verify-2026-10-30.jsonl`.
+
+## 2026-10-30T05:36 UTC, build 87b275a3, jobs bp-eafix-conform, bp-eafix-thumb
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| bp-eafix-conform | 05:36 (13:36) | 11.9 | PASS | PASS: profile 10 min, seed 12345 (rng-compare.ts)<br>ts3fixes activity: owchain_alarms 0->2, owspread_types_run 0->40, stuckcheckasync_queued 0->72, stuckcheckasync_run 0->72, etspread_passes 0->1, stuckcheck_noplan 0->58, stuckcheck_notstuck 0->2, stuckcheck_rearmed 0->9, stuckcheck_reset 0->3<br>PASS: repro events fired<br>PASS: no forbidden log lines | 0 | 2195.9/1858/1516.8 -> 2355.7/2076.3/1246.1 | - | timing: invalid (noise medium); build: asi 305cfadcd5d3 not in DB ts3native 0.36.121 (log ok); ts3fixes tuning 94c60769ef8f not in DB (expected build/ts3fixes.package); noise: medium (other apps 16.7% of game CPUs); others on game CPUs 16.7%; clock avg/min 4174/4096 MHz; repro ea-conform-actor-destroy-loop: spawned Sims removed mid-walk at ultra speed, three rounds plus a kill_sim of a routing Sim |
+| bp-eafix-thumb | 05:48 (13:48) | 11.8 | PASS | PASS: profile 10 min, seed 12345 (rng-compare.ts)<br>ts3fixes activity: owchain_alarms 0->5, owspread_types_run 0->100, stuckcheckasync_queued 0->242, stuckcheckasync_run 0->242, etspread_passes 0->1, stuckcheck_noplan 0->190, stuckcheck_notstuck 0->28, stuckcheck_rearmed 0->26, stuckcheck_reset 0->8<br>PASS: repro events fired<br>PASS: no forbidden log lines | 0 | 2197.1/1854.7/1500.9 -> 2311.5/2095.1/1268.9 | - | timing: invalid (noise medium); build: asi 305cfadcd5d3 not in DB ts3native 0.36.121 (log ok); ts3fixes tuning 94c60769ef8f not in DB (expected build/ts3fixes.package); noise: medium (other apps 9.1% of game CPUs); others on game CPUs 9.1%; clock avg/min 4214/4147 MHz; repro ea-thumb-pose-pack-loop: household thumbnails while spawned Sims are removed, three rounds |

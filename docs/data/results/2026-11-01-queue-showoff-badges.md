@@ -1,0 +1,10 @@
+# Queue showoff-badges 2026-11-01
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/showoff-badges-2026-11-01.jsonl`.
+
+## 2026-11-01T22:48 UTC, build 9f23ed8a, jobs bp-showoff-badges-route, bp-showoff-badges-optsinit0
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| bp-showoff-badges-route | 22:48 (06:48) | 11.8 | PASS | PASS: profile 8 min, seed 12345 (rng-compare.ts)<br>ts3fixes activity: owchain_alarms 0->1, owspread_types_run 0->20, etspread_passes 0->1 | 0 | 2151.5/1859.3/1516.9 -> 2174.3/1873.5/1467.6 | - | timing: invalid (noise medium); build: asi ac313272ebb6 ts3native.0.36.105.rel020 ts3native 0.36.105 (log ok); ts3fixes tuning 0d19ef086257 not in DB (expected build/ts3fixes.package); noise: medium (other apps 9.3% of game CPUs); others on game CPUs 9.3%; clock avg/min 4231/4169 MHz; in-load arms: shipped, routeasync off, kinddeadlines off, discourage off, deferfootprint off; outside + inside eac |
+| bp-showoff-badges-optsinit0 | 23:00 (07:00) | 2.9 | **FAIL** | FAIL: profile 8 min, seed 12345 (rng-compare.ts)<br>FAIL: repro step reflect_call: reflect_call until [{"path":"done","equals":true}] not met in 60 s: {"route":-1,"plans":0,"done":false,"planFails":0,"$type":"Ts3Fixes.Fixes+SoState","seen":false,"jig":-1,"async":0,"$str":"Ts3Fixes.Fixes+SoState","queued":true}<br>ts3fixes activity: owchain_alarms 0->1, owspread_types_run 0->20, etspread_passes 0-> | 1 | 2145.3/1855.8/1516.9 -> 2119.3/1865.3/1499.3 | - | timing: invalid (job VOID: runInvalid: profiler cut short (79 of 480 s); crash or abort (no "done; game alive"); noise medium); build: asi ac313272ebb6 ts3native.0.36.105.rel020 ts3native 0.36.105 (log ok); ts3fixes tuning 0d19ef086257 not in DB (expected build/ts3fixes.package); noise: medium (other apps 12.2% of game CPUs); others on game CPUs 12.2%; clock avg/min 4136/4076 MHz; same repro with  |

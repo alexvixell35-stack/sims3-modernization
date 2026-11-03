@@ -1,0 +1,119 @@
+{
+  "note": "v0.1.5 comparison loads 2-3 per town, run from the v0.1.5 worktree (2026-10-28)",
+  "jobs": [
+    {
+      "id": "bp-rvb-rel015-2",
+      "note": "README comparison, release side (BP): v0.1.5 release build asi.rel015 with the repo (release) ts3native.ini and the built ts3fixes.package as shipped, no switch overrides. 10 min seeded (12345). Read with hitch-ab.ts against bp-rvb-vanilla / bp-rvb-v014.",
+      "asi": "game-copy/ts3native.asi.rel015",
+      "fixesBuild": "ts3fixes.v0.1.5",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 108,
+      "ini": {},
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22
+    },
+    {
+      "id": "ip-rvb-rel015-2",
+      "note": "README comparison, release side (IP): v0.1.5 release build asi.rel015 with the repo (release) ts3native.ini and the built ts3fixes.package as shipped, no switch overrides. 10 min seeded (12345). Read with hitch-ab.ts against ip-rvb-vanilla / ip-rvb-v014.",
+      "asi": "game-copy/ts3native.asi.rel015",
+      "fixesBuild": "ts3fixes.v0.1.5",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 108,
+      "ini": {},
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22
+    },
+    {
+      "id": "sv-rvb-rel015-2",
+      "note": "README comparison, release side (SV): v0.1.5 release build asi.rel015 with the repo (release) ts3native.ini and the built ts3fixes.package as shipped, no switch overrides. 10 min seeded (12345). Read with hitch-ab.ts against sv-rvb-vanilla / sv-rvb-v014.",
+      "asi": "game-copy/ts3native.asi.rel015",
+      "fixesBuild": "ts3fixes.v0.1.5",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 108,
+      "ini": {},
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22
+    },
+    {
+      "id": "bp-rvb-rel015-3",
+      "note": "README comparison, release side (BP): v0.1.5 release build asi.rel015 with the repo (release) ts3native.ini and the built ts3fixes.package as shipped, no switch overrides. 10 min seeded (12345). Read with hitch-ab.ts against bp-rvb-vanilla / bp-rvb-v014.",
+      "asi": "game-copy/ts3native.asi.rel015",
+      "fixesBuild": "ts3fixes.v0.1.5",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 108,
+      "ini": {},
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22
+    },
+    {
+      "id": "ip-rvb-rel015-3",
+      "note": "README comparison, release side (IP): v0.1.5 release build asi.rel015 with the repo (release) ts3native.ini and the built ts3fixes.package as shipped, no switch overrides. 10 min seeded (12345). Read with hitch-ab.ts against ip-rvb-vanilla / ip-rvb-v014.",
+      "asi": "game-copy/ts3native.asi.rel015",
+      "fixesBuild": "ts3fixes.v0.1.5",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 108,
+      "ini": {},
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22
+    },
+    {
+      "id": "sv-rvb-rel015-3",
+      "note": "README comparison, release side (SV): v0.1.5 release build asi.rel015 with the repo (release) ts3native.ini and the built ts3fixes.package as shipped, no switch overrides. 10 min seeded (12345). Read with hitch-ab.ts against sv-rvb-vanilla / sv-rvb-v014.",
+      "asi": "game-copy/ts3native.asi.rel015",
+      "fixesBuild": "ts3fixes.v0.1.5",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 108,
+      "ini": {},
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22
+    }
+  ]
+}
