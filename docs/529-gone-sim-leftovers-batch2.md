@@ -70,9 +70,14 @@ The results file has two earlier rows that are not about the fix. At 05:32 the j
 
 ## 4. Audit leads not fixed here
 
+- **`Political.PoliticalTakeARisk`** (the Take a Risk tone's result; the tone is offered below level 10 whatever the
+  boss): two of its three outcomes update the boss's liking through `GetRelationship(Boss, true).LTR` with no check
+  [verified, simler90's core too]. `Relationship.Get` returns null for a null boss or one whose description is no longer
+  valid, so `.LTR` throws after the outcome's notification. The third outcome also loops over the co-workers the same
+  way, so a gone co-worker throws too and the rest of that outcome is lost. `leavejobdispose` (§2) takes Sims deleted at
+  work out of those references; a career with no boss is still unguarded. Not fixed here.
+
 Not yet checked against simler90's core:
-- **`Political.PoliticalTakeARisk`:** reads `GetRelationship(career.Boss, true).LTR` with no null check, so a boss
-  that is null or gone throws.
 - **`Annex` graduation:**
   - The diploma, trait, buff and `SetRewardsGranted` come only from the ceremony's `InRabbitHole` loop finishing, so a
     graduate who misses the ceremony gets the degree without them.
