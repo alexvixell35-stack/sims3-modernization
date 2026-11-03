@@ -1186,3 +1186,26 @@ Next, in this order:
    already empty.
 2. Native writer logging (§31.4 item 1): which writer returns the failure, the lot writer or the SimService writer.
 3. The no-mods arm again, once the 16 assemblies' source is known.
+
+### 31.6 The extra lot was made in play, and the save wrote fine before 2026-10-18 (2026-11-03)
+
+- **33 Surf Circle is not in the shipped world.** `IslaParadiso.world` has no resource under `0x08F30053536284F0`.
+  The five other empty lots checked have 68 to 76 each. The player's working `Isla Paradiso test 1` has no such lot, and
+  `BigSave-IP` has none either. In the game (`LotManager.GetLot` and `lot_layout` on `Baseline-IP-Spring`), it is a
+  residential plot with no name, aligned with the street like its neighbours. It is not a houseboat lot
+  (`mbIsEP10HouseboatLot` false), and it is empty except for the mailbox and trash can the game puts on a new lot.
+  So it was made while `Baseline-IP` was played. The Edit Town lot tool is the likely way; the agent has no command
+  that makes a lot.
+- **The lot alone does not cause Error 12.** `Baseline-IP` was written on 2026-10-12 with the lot. `Baseline-IP-Spring`
+  was loaded from it and written twice on 2026-10-17 (13:17 and 19:15). All of those saves returned 0 [verified: file
+  times; the lot is in both, by the index diff and by `list_lots`]. The same saves fail today on every setup tried. So Error 12 needs this
+  save's state plus something on this machine that changed after 2026-10-17.
+- **What changed:** many files in `Mods`. The largest change is a core mod (the gameplay DLLs replaced, in
+  `Mods\Packages`), installed from 2026-10-18 and rebuilt often since.
+- **The arms that would test it do not run.** Three arms stop at the `cycle.ts` world-state wait, so the save step
+  never runs: the player's mods moved aside (twice), and only the core mod moved aside. In each, `game_state` never
+  reports a `...State` sub-state within 60 s. Also, with `Mods` moved aside, ts3fixes still listed NRaas and other script
+  assemblies (16) while ts3native counted 3 packages. Where those load from is not known.
+
+Next: (1) the agent's `game_state` reply text without the core mod, then the core-out arm with a fixed wait;
+(2) native writer logging (§31.4 item 1), as before.
