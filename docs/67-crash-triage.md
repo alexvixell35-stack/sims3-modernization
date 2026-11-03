@@ -1189,6 +1189,9 @@ Next, in this order:
 
 ### 31.6 The extra lot was made in play, and the save wrote fine before 2026-10-18 (2026-11-03)
 
+(Correction, §31.8: the extra lot is a world-builder lot, `43_vacant`, from the version of the world this save was
+started on; it was not made in play.)
+
 - **33 Surf Circle is not in the shipped world.** `IslaParadiso.world` has no resource under `0x08F30053536284F0`.
   The five other empty lots checked have 68 to 76 each. The player's working `Isla Paradiso test 1` has no such lot, and
   `BigSave-IP` has none either. In the game (`LotManager.GetLot` and `lot_layout` on `Baseline-IP-Spring`), it is a
@@ -1270,32 +1273,44 @@ Frida scripts attached to `Baseline-IP` (bare native, as §31.7), one step per r
     save.
   - Every other lot finalized in the run cleared the byte: 8 found their grid point, 5 had `+0x4BC` 1.
 - **The two lots.**
-  - `08F30053536284F0` is 33 Surf Circle, the lot made in play (§31.6). It is not in the world file.
+  - `08F30053536284F0` is 33 Surf Circle. It is not in the installed world file (a world-builder lot from another version
+    of the world, see below; not made in play as §31.6 inferred).
   - `08F30053536284C0` is a world lot: 71 resources in `IslaParadiso.world`, corners (856.4, 832.8) / (910.3, 784.3).
     There is still no grid point at its centre.
   - The player's `IslaParadiso.world` is a community-fixed version, decompressed (2026-03-14, 295,686,993 bytes, no
     compressed entries). It was in place for the saves that wrote fine on 10-12 and 10-17. Whether EA's original
     world has a grid point there was not tested: the player keeps this world.
-- **Why the world lot misses its grid point: it was moved in this save [verified, files].**
-  - `08F30053536284C0` is Sparkling Sands Beach (`kBeach`).
-  - Its lot record (`0xD063545B`) in `Baseline-IP` puts it at (856.42, 20.38, 832.8). The world file and `BigSave-IP`
-    put it at (861.08, 21.06, 820.44). The rotation (1.22) is the same in all three. So it moved 13.2 m in play, before
-    the 10-12 save.
-  - The world graph's lot node for it (chunk 1563, waypoint 0, type 0x1) is at (887.875, 796.125). That fits the
-    shipped position, not the moved one. The save has no waypoint graph of its own (no `0x05CD4BB3` in the `.nhd`).
+- **Why the two lots miss their grid points: the save's layout is from another version of the world [verified, files].**
+  - `08F30053536284C0` is Sparkling Sands Beach (world-builder name `78_BeachBigIsland`, `kBeach`).
+  - `Baseline-IP` and `Baseline-IP-Spring` put it at (856.42, 20.38, 832.8) in its lot record (`0xD063545B`).
+  - The installed world file, and every other IP save on this machine, put it at (861.08, 21.06, 820.44), with the same
+    rotation (1.22). The saves checked: `1.sims3` from 10-04, `Isla Paradiso2`, `Isla Paradiso`, both test saves,
+    `BigSave-IP` and the compaction saves.
+  - `08F30053536284F0` ("33 Surf Circle") is not a lot made in play, as §31.6 inferred. Its record carries the
+    world-builder name `43_vacant` (`EP10_World/Empty/LotAddress:Lot17`). Only the Baseline-IP saves have it; the
+    installed world file does not.
+  - So Baseline-IP was started from a version of `IslaParadiso.world` that has `43_vacant` and the beach at the other
+    spot. The installed file has been in place since 2026-03-14 (the folder's write time), so that start was earlier.
+    The installed one is a community-fixed version; which version Baseline-IP started from is not known.
+  - The world graph's lot node for the beach (chunk 1563, waypoint 0, type 0x1) is at (887.875, 796.125). That fits the
+    installed layout, not the save's. The save has no waypoint graph of its own (no `0x05CD4BB3` in the `.nhd`).
   - The shipped waypoint counts of chunks 1563 and 1626 are 18 and 6: the counts that §30's stale lot portal ids,
     (1563, 18-23) and (1626, 6-7), point past. So the §30 crash and this failure have one cause.
-- **What moved it is not known.** The player recalls moving a houseboat in this save. The script paths that parent a
-  lot to a houseboat don't fit [verified, simler90's core]:
-  - `Houseboat.DEBUG_SetHouseboatLot` lists only lots that are houseboat lots and have no houseboat.
-  - `Houseboat.PostLoadWorldBuilderDataFixup` runs only from `LoadWorldBuilderData`, with the boat's own saved lot id.
-  - `Lot.PostWorldLoad` re-parents only lots for which `World.IsHouseboatLot` is true.
-  - The native lot move was not traced. In the save today, the only houseboat object is Sea Spirit, at Port Pescado,
-    704 m from the beach.
+  - Not a houseboat move (the player asked). EA's scripts parent only houseboat lots to a boat
+    (`Houseboat.DEBUG_SetHouseboatLot`, `Houseboat.PostLoadWorldBuilderDataFixup`, `Lot.PostWorldLoad`). In the save,
+    all 10 houseboats are docked at ports.
+- **The place-lots prompt [verified].** Every Baseline-IP load shows EA's "new lots available" prompt
+  (`InWorldSubState.PlaceLotWizardCheck`) for the four Ambitions venues. Their lots (`Lot01` to `Lot04`) are empty plots
+  here, while `1.sims3` has the venues placed. The agent's dialog rule accepts it ("Accept" scores as accept), which
+  opens Edit Town's place-lots wizard. In `1.sims3` the prompt does not appear.
 - **What builds these lots at load [verified, Frida, 2026-11-03].** The routing update builds their levels on the main
   thread about 137 s after start: `0x836172` -> `0x63D86A` -> `0x63D7B0`, then the finalize from `0x83617A`. Four lots
   get levels built at load; these two are among them. The rebuild `0x82B810` runs only at save, for the 7 lots.
-- **Not explained.** Why the 10-12 and 10-17 saves wrote fine, with the beach already moved.
+- **Not explained.** Why the 10-12 and 10-17 saves wrote fine with the same layout and the same world file.
+  - The 10-17 machine had neither ts3native nor Sims3Performance.
+  - Without both on this machine (a do-nothing DLL in place of ts3native, Sims3Performance moved aside), the two lots are
+    still built at load the same way. That run then crashed at `0x67664F` (§30's A\* crash, no fix loaded) before its
+    save.
 - **Live fix test (Frida, in the game's memory only).**
   - The patch: the `je` at 0x82B608 jumps to 0x82B7F4. That is the game's own exit for a lot with nothing to connect
     (0x82B659 `jbe`), which clears the byte and returns.

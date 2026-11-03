@@ -22,8 +22,8 @@
 //
 // [EaCrashFixes] LotGridMiss (next version, docs/67 §31.8, PR #212): Isla Paradiso Error 12. The lot routing finalize
 // 0x82B590 clears the lot's "build in progress" byte (lot routing record + 0x8E, 0x631A30 at 0x82B802) only on the way out
-// of its connection pass. A lot with lot+0x4BC == 0 whose centre has no world grid point within 1 m (0x651DA0 false: a lot
-// made in play, or one whose bounds moved) leaves at 0x82B608 without the clear. The lot then stays "in progress": the
+// of its connection pass. A lot with lot+0x4BC == 0 whose centre has no world grid point within 1 m (0x651DA0 false: a save started
+// on another version of the world, or a lot made in play) leaves at 0x82B608 without the clear. The lot then stays "in progress": the
 // finalize runs again about once a second, and the save's per-lot routing writer 0x63C690 fails for it after its forced
 // rebuild (still in progress at 0x63C781) and clears the save context's ok flag. Every later write of that lot entry is
 // then skipped, and World_Save returns false (Error 12). Fix: the je at 0x82B608 keeps its condition but goes to LgStub,
