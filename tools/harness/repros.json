@@ -51855,5 +51855,51 @@
       "minutes": 1
     },
     "expect": "save: result 0 each; no .sims3.bad in Saves"
+  },
+  {
+    "id": "dating-profile-check",
+    "bug": "OnlineDatingManager.GetRecordForSim adds an empty record for any Sim it is asked about, and DidSimsMeetOnline asks about both Sims (CelebrityManager.CanSocialize: every social with a celebrity who is not a friend, autonomy included; InviteToLotSituation.MeetUp.Init). SimHasProfile only checks that a record exists, so such a Sim has a profile it never made: Browse, Check Messages and Remove show up, Edit builds a blank profile, Remove lasts until the next lookup (issue #175, docs/528)",
+    "fix": "ts3fixes DatingProfile.cs + AutShadow.cs MetPeek: datingprofile (default off), docs/528",
+    "save": "Baseline-BP",
+    "note": "The agent check (DatingProfileCheck) picks two Sims with no dating record outside the active household and calls DidSimsMeetOnline on them once, then SimHasProfile on each. Off arm: both records made, both read as a profile. On arm: the off arm's empty records read as no profile, two more Sims get no record when AutShadow's H4 hook is in place (else records that read as no profile); then every empty record the check made is removed.",
+    "expect": "off: records added 2, SimHasProfile True/True. on: SimHasProfile False/False, off arm's empty records read as a profile 0; with AutShadow on, records added 0 and datingprofile_no_record >= 1; datingprofile_no_profile >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "datingprofile": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DatingProfileCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: both records made, both read as a profile"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "datingprofile": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DatingProfileCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: no profile for the empty records; no record made where H4 is in place; the check's empty records removed"
+      }
+    ]
   }
 ]

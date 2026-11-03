@@ -5647,6 +5647,14 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 | I-925-4 | 207 §12.7 | The §12.1 class-guarded edges (25% of calls) gain nothing yet: their targets have no lazy body because `stinarg.vt` / `ldarg.vt` / `vtresult` exit | `JitKL.EqT` dump; 8 of 91 guard sites filled | `MintBench(3000)` lazy on vs off | compiled 223.5 vs 225.7 ms (noise) | a clear MintBench gain with lazy on | **verified** (host); the fix is value-type templates [inferred] |
 | I-925-5 | 207 §12.7 | A chained or guarded lazy call saves what a direct one does (~11 ns) | bench cases 25 and 27 vs 23 | `JitLzChain` 59.5 -> 27.3 ns (three calls), `JitLzVirt` 20.5 -> 9.4 ns (one call) | per-call saving near 11 ns | a chained or guarded call saving much less | [measured, noisy] (the game ran beside the bench) |
 
+## 932. Online dating records for Sims who never made a profile (2026-11-03, docs/528; `datingprofile`)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-932-1 | 528 §1 | `DidSimsMeetOnline` makes an empty record for each Sim that has none, and `SimHasProfile` then answers true | IL of `GetRecordForSim`, `DidSimsMeetOnline`, `SimHasProfile` (UPDATE242 listing) | `bp-dating-profile-check` off arm | records added 2, `SimHasProfile` True/True | no record made, or false | inferred (IL) |
+| I-932-2 | 528 §2 | With the switch on, a record with no `Profile` is not a profile, also one made earlier | the hook reads the record's `Profile` after EA's answer | `bp-dating-profile-check`, `bp-dating-profile-noaut` on arm | `SimHasProfile` False for both new and old empty records; `datingprofile_no_profile` >= 1 | true for an empty record | inferred |
+| I-932-3 | 528 §2 | With the switch on and AutShadow's H4 in place, `DidSimsMeetOnline` on the sim thread makes no record and answers as EA's body | `MetPeek` reads `mAcceptedDates` as the worker side does (I-122-15) | `bp-dating-profile-check` on arm | records added 0, met False; `datingprofile_no_record` >= 1 | a record made, or met True | inferred |
+
 ## 423. Mode 2 SACS bound-actor classes (2026-11-03, docs/228 §11.8, ts3native 0.36.166, counters v159)
 
 | ID | Doc | Claim | Basis | Probe or repro | Expect | Refuted if | Tag |
