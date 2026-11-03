@@ -8,6 +8,7 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 - **No more crash from custom-content meshes without a material** (issue #80): a hair or clothing mesh made from a morph mesh crashed the game while it built a Sim. That part is now left out at that distance instead. On by default (`[EaCrashFixes] GeomNoMaterial=1`).
 - **Isla Paradiso routing crash** (issues #132, #136): on by default (`[EaCrashFixes] WorldAStarRefs=1`, `PortalFlagRefs=1`).
+- **Isla Paradiso saves failing with Error 12** (PR #212): a lot whose centre has no point in the world's lot grid (a lot made in Edit Town, or one whose bounds moved) never finished its routing setup, and every save then failed, leaving out that lot, the lots after it and the CAS state. Such a lot now finishes its setup and the save writes in full (`[EaCrashFixes] LotGridMiss=1`).
 
 ### Known issues
 

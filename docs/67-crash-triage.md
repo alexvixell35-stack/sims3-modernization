@@ -1239,3 +1239,81 @@ unless noted. Every file an arm changed went back after it and was hash-checked 
 
 Next: native writer logging (§31.4 item 1) is now the main lead: which writer returns 12, the SimService state writer or
 the lot writer for one of the 7 lots.
+
+### 31.8 Cause: two lots whose routing build never finishes; fix `[EaCrashFixes] LotGridMiss` (2026-11-03)
+
+Frida scripts attached to `Baseline-IP` (bare native, as §31.7), one step per run. The writers were followed from
+`World_Save` 0xC6D460 down to the failing one, then the failing branch, then why it fails.
+
+- **Where the save fails [verified].**
+  - `World_SaveLots` 0xC62860 saves each lot entry through the entry's `+0x1C` call.
+  - In two entries, the save context's ok flag (`ctx+0x14`) drops to 0 right after `BeginResource 0x046A7235:<lot>`
+    (the lot's routing levels). The lots are `08F30053536284C0` and `08F30053536284F0`.
+  - The flag is cleared in `LotRouting_SaveLevels` 0x63C690, through 0x63C620 and then 0x7D77C0 (`flag &= arg`).
+  - From then on that entry's `BeginResource` 0x7D8290 calls return false, so the rest of the entry is not written:
+    the 7 lots of §31.2. `World_Save` returns false (Error 12), and the SimService state of §31.2 is missing too.
+- **Why 0x63C690 fails [verified].**
+  - The lot's routing record has a "build in progress" byte at `+0x8E`. The level build 0x63CB90 sets it (0x63CC17),
+    and 0x631A60 reads it.
+  - For both lots the byte is set at save time.
+  - 0x63C690 then forces a rebuild (0x82B810), which returns true. The byte is still set (0x63C781), so the function
+    takes its failure branch at 0x63C8C1.
+- **Why the byte stays set [verified].**
+  - Its only clear is 0x631A30, called at 0x82B802 at the end of the lot routing finalize 0x82B590 (one argument, the
+    lot).
+  - The finalize leaves early, without the clear, at 0x82B608 when both of these hold:
+    - `lot+0x4BC == 0`;
+    - 0x651DA0 finds no world grid point within 1 m of the lot's centre. The grid has 32 m cells, with points stored
+      at 1/8 m.
+  - For both lots, every call: `+0x4BC` is 0 and the lookup fails. So the lot is never marked built.
+  - The finalize then runs again about once a second: 26 calls in the 45 s before the save, and 16 during the 5 s
+    save.
+  - Every other lot finalized in the run cleared the byte: 8 found their grid point, 5 had `+0x4BC` 1.
+- **The two lots.**
+  - `08F30053536284F0` is 33 Surf Circle, the lot made in play (§31.6). It is not in the world file.
+  - `08F30053536284C0` is a world lot: 71 resources in `IslaParadiso.world`, corners (856.4, 832.8) / (910.3, 784.3).
+    There is still no grid point at its centre.
+  - The player's `IslaParadiso.world` is a community-fixed version, decompressed (2026-03-14, 295,686,993 bytes, no
+    compressed entries). It was in place for the saves that wrote fine on 10-12 and 10-17. Whether EA's original
+    world has a grid point there was not tested: the player keeps this world.
+- **Not explained.** Why the 10-12 and 10-17 saves wrote fine with the same lots and world. The failure needs the
+  byte set at save time. What starts the rebuild of these lots at every load now was not traced.
+- **Live fix test (Frida, in the game's memory only).**
+  - The patch: the `je` at 0x82B608 jumps to 0x82B7F4. That is the game's own exit for a lot with nothing to connect
+    (0x82B659 `jbe`), which clears the byte and returns.
+  - Each lot was finalized once, with the byte cleared, and the once-a-second rerun stopped.
+  - `World_Save` returned true, and the log read `save: end #1 result 0`: the first good IP save since 10-17.
+  - The written world file has all 7 lots, with 33 to 35 resource types each: 119 lot records against 112 in the failed
+    save. The SimService state is back too: 13 entries of `0x342779A7` against 0.
+  - The `.nhd` is 24.06 MB against 19.96 MB. `Meta.data` and `1a5tf1l3.dat` were written too; the failed save leaves
+    them at their 10-12 versions.
+
+**Fix: `[EaCrashFixes] LotGridMiss`** (`wastar.cpp`, next version, off by default).
+- The `je` at 0x82B608 keeps its condition, but its target becomes `LgStub`.
+- `LgStub` logs the lot ("ea fix: LotGridMiss: lot 0x...", first 8), then goes on at 0x82B7F4.
+- The connection pass is skipped as before. Only the byte now gets cleared.
+- Install checks: the 6 bytes at 0x82B608 (`0F 84 F9 01 00 00`) and at 0x82B7F4 (`8B 4B 4C 8B 53 48`) are the game's.
+- Selftest (`TestWorldAStarRefs`): a mismatched byte refuses the patch; the patch keeps the opcode and points at
+  `LgStub`; a second patch is refused; each hit counts.
+
+Result: §31.9.
+
+### 31.9 Result: `LotGridMiss` on saves Isla Paradiso through save, quit, reload and save (2026-11-03)
+
+Local build `07b9659` (this branch), `Baseline-IP`, release defaults plus `[UserDiag]`, `[MemDiag]` and
+`WorldAStarRefs=1` as §31.7. `save-reload.ts --world IP --play 0 --after 2 --no-visits`: a normal save, then a save,
+Quit to Main Menu and a reload of that file, 2 min of play, then a save, EA's in-game Load (direct route) and 2 min of
+play. Local queue (the save is the player's).
+
+| Arm | Saves (native result) | `LotGridMiss` lines | Job |
+|---|---|---|---|
+| `LotGridMiss=0` | normal: 12 (5,281 ms); the tool stops there | none | FAIL as expected, 3.4 min |
+| `LotGridMiss=1` | normal: 0 (5,968 ms), reload save: 0 (5,078 ms), after the menu reload: 0 (6,281 ms) | `OK` at start; both lots after the first load, again before the first save, after the menu reload, after the direct reload (8 lines, the cap) | PASS, 8.7 min |
+
+- The menu reload and the direct reload both loaded the file that the fixed save wrote, and played 2 min each.
+- An earlier Frida run (the same patch in memory, then save, Quit to Main Menu, reload, 2 min of play, save) also gave
+  `result 0` twice.
+- With the fix, the two lots are rebuilt now and then in play, and each rebuild is marked done at once. Without it the
+  finalize ran about once a second for good.
+- The first hit lines come right after the load, so the load starts these lots' rebuild. Why the
+  10-12 and 10-17 saves wrote fine is still not known.
