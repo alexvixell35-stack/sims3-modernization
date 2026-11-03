@@ -1200,12 +1200,42 @@ Next, in this order:
   was loaded from it and written twice on 2026-10-17 (13:17 and 19:15). All of those saves returned 0 [verified: file
   times; the lot is in both, by the index diff and by `list_lots`]. The same saves fail today on every setup tried. So Error 12 needs this
   save's state plus something on this machine that changed after 2026-10-17.
-- **What changed:** many files in `Mods`. The largest change is a core mod (the gameplay DLLs replaced, in
-  `Mods\Packages`), installed from 2026-10-18 and rebuilt often since.
+- **What changed since then, outside the save** (2026-10-18 and 10-19): the core mod in `Mods/Packages`; the 21
+  `Default.ini` files (the four CAS compositor cache sizes raised to 1 GiB); the nine stuff-pack FullBuilds (each merged
+  with its delta, SP1 to SP3 also without 396 empty entries) and the nine stuff-pack deltas retired; and a 2-byte
+  `TS3W.exe` patch (the interpreter stack chunk's GC descriptor moved from `+0x7FC` to `+0xFF8`). The originals of all of
+  them are kept. §31.7 undoes each one.
 - **The arms that would test it do not run.** Three arms stop at the `cycle.ts` world-state wait, so the save step
   never runs: the player's mods moved aside (twice), and only the core mod moved aside. In each, `game_state` never
   reports a `...State` sub-state within 60 s. Also, with `Mods` moved aside, ts3fixes still listed NRaas and other script
-  assemblies (16) while ts3native counted 3 packages. Where those load from is not known.
+  assemblies (16) while ts3native counted 3 packages. Where those load from is not known. (§31.7: why, and those arms run now.)
 
-Next: (1) the agent's `game_state` reply text without the core mod, then the core-out arm with a fixed wait;
-(2) native writer logging (§31.4 item 1), as before.
+Next: §31.7.
+
+### 31.7 None of the post-10-17 changes is the cause (2026-11-03)
+
+One job per arm, `Baseline-IP`, `save normal` at once after the load, the plain job of §31.5 (the player's mods in)
+unless noted. Every file an arm changed went back after it and was hash-checked [verified for each arm]:
+
+| Arm | Put back or moved aside | Native save | Result |
+|---|---|---:|---|
+| core out | the core mod and Tiny UI Fix moved aside: EA's own gameplay DLLs | 5,500 ms | 12 |
+| no mods | all 100 entries of `Mods/Packages` and `Mods/Overrides`, and Tiny UI Fix, moved aside (left: ts3agent, ts3fixes, ts3-nointro) | 4,984 ms | 12 |
+| bare native | every ts3native section that is on in the release ini switched off (`GC`, `RouteAsync`, `RouteGate`, `Decompress`, `WaterJps`, `Discourage`, `LotRemoveGuard`, `OptsInit`, `UnseenFallback`), `SaveWrite` at Mode 0 (time only); `UserDiag`, `MemDiag` and `WorldAStarRefs` kept | 5,329 ms | 12 |
+| old `Default.ini` | the 21 files from before 2026-10-19 (EA's cache sizes) | 5,172 ms | 12 |
+| old stuff packs | the nine FullBuilds from before the merge and the nine deltas, copied back | 5,312 ms | 12 |
+| original exe | `TS3W.exe` without the chunk patch | 5,032 ms | 12 |
+
+- **No change found outside the save is the cause.** Each one undone on its own still gives 12, with the same save time
+  as §31.1. So the §31.6 reading ("this save's state plus something that changed after 10-17") does not hold for any
+  change found. Not tested: the DCCache, the thumbnail caches, the GPU driver and Windows updates.
+- **Why the earlier arms stopped at the world-state wait** (§31.6): the stash kept the Tiny UI Fix folder in place. Its
+  core bridge is built against the core mod; without the core, the world never reports a sub-state. With Tiny UI Fix moved
+  aside too, the world loads.
+- **The 16 assemblies** of the earlier no-mods arms came from what those stashes left in `Mods`. With everything moved
+  aside, ts3fixes lists 3 (ts3agent, its plugin and ts3fixes) and ts3native counts 3 packages.
+- The first no-mods try did not reach a result: after the save request ApexRadiance faulted on the main thread, and no
+  save phase ran in 900 s (the known Apex save hang). The rerun went through.
+
+Next: native writer logging (§31.4 item 1) is now the main lead: which writer returns 12, the SimService state writer or
+the lot writer for one of the 7 lots.
