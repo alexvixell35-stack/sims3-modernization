@@ -1276,8 +1276,26 @@ Frida scripts attached to `Baseline-IP` (bare native, as §31.7), one step per r
   - The player's `IslaParadiso.world` is a community-fixed version, decompressed (2026-03-14, 295,686,993 bytes, no
     compressed entries). It was in place for the saves that wrote fine on 10-12 and 10-17. Whether EA's original
     world has a grid point there was not tested: the player keeps this world.
-- **Not explained.** Why the 10-12 and 10-17 saves wrote fine with the same lots and world. The failure needs the
-  byte set at save time. What starts the rebuild of these lots at every load now was not traced.
+- **Why the world lot misses its grid point: it was moved in this save [verified, files].**
+  - `08F30053536284C0` is Sparkling Sands Beach (`kBeach`).
+  - Its lot record (`0xD063545B`) in `Baseline-IP` puts it at (856.42, 20.38, 832.8). The world file and `BigSave-IP`
+    put it at (861.08, 21.06, 820.44). The rotation (1.22) is the same in all three. So it moved 13.2 m in play, before
+    the 10-12 save.
+  - The world graph's lot node for it (chunk 1563, waypoint 0, type 0x1) is at (887.875, 796.125). That fits the
+    shipped position, not the moved one. The save has no waypoint graph of its own (no `0x05CD4BB3` in the `.nhd`).
+  - The shipped waypoint counts of chunks 1563 and 1626 are 18 and 6: the counts that §30's stale lot portal ids,
+    (1563, 18-23) and (1626, 6-7), point past. So the §30 crash and this failure have one cause.
+- **What moved it is not known.** The player recalls moving a houseboat in this save. The script paths that parent a
+  lot to a houseboat don't fit [verified, simler90's core]:
+  - `Houseboat.DEBUG_SetHouseboatLot` lists only lots that are houseboat lots and have no houseboat.
+  - `Houseboat.PostLoadWorldBuilderDataFixup` runs only from `LoadWorldBuilderData`, with the boat's own saved lot id.
+  - `Lot.PostWorldLoad` re-parents only lots for which `World.IsHouseboatLot` is true.
+  - The native lot move was not traced. In the save today, the only houseboat object is Sea Spirit, at Port Pescado,
+    704 m from the beach.
+- **What builds these lots at load [verified, Frida, 2026-11-03].** The routing update builds their levels on the main
+  thread about 137 s after start: `0x836172` -> `0x63D86A` -> `0x63D7B0`, then the finalize from `0x83617A`. Four lots
+  get levels built at load; these two are among them. The rebuild `0x82B810` runs only at save, for the 7 lots.
+- **Not explained.** Why the 10-12 and 10-17 saves wrote fine, with the beach already moved.
 - **Live fix test (Frida, in the game's memory only).**
   - The patch: the `je` at 0x82B608 jumps to 0x82B7F4. That is the game's own exit for a lot with nothing to connect
     (0x82B659 `jbe`), which clears the byte and returns.
