@@ -640,6 +640,9 @@ static void UdWorldLoad() {  // sim thread, from the ts3fixes "world:" line
     UdMemAsk("diag: memory at world load #%ld", n, MdWorldEvent(g_udTxt));
     if (n == 1) UdModulesLines();
     CpWorldLoad();
+    char ev[32];
+    sprintf_s(ev, "world load #%ld", n);
+    GcCapWindow(true, ev);  // gcgrow.cpp: [GC] BlackListCapKB strict while the world plays
     InterlockedIncrement(&g_utbWorlds);  // unseentable.cpp: a new [UnseenTable] generation at the next ask
 }
 
@@ -679,6 +682,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
             }
             if (g_udTxtLines++ < 400) Log("ts3fixes: %s", g_udTxt);  // cap: a looping sender cannot fill the disk
             if (!strncmp(g_udTxt, "world:", 6)) UdWorldLoad();
+            else if (!strcmp(g_udTxt, "world quit")) GcCapWindow(false, "world quit");  // gcgrow.cpp: lenient on the load screen
             else if (!strncmp(g_udTxt, "mem: ", 5)) MdMark(g_udTxt + 5);  // [MemDiag] event mark (ts3agent mem_mark)
             g_udTxtN = 0;
             return 1;

@@ -452,17 +452,17 @@ static void InstallAvoidRO(const wchar_t* ini) {
         return;
     }
     if (!InstallSrWriters()) { Log("SKIP avoid RO: the S2 writer set (W1-W6, W4, tripwires) is not all in place"); return; }
-    g_avTwTramp[0] = InstallDetour("RoutingOptions_Assign (T-AV)", 0x0081D090, kAvAssignPro, sizeof(kAvAssignPro), (void*)AvTwAssign);
+    g_avTwTramp[0] = InstallDetour("RoutingOptions_Assign (T-AV)", 0x0081D090, kAvAssignPro, sizeof(kAvAssignPro), (void*)AvTwAssign, &g_avTwTramp[0]);
     if (!g_avTwTramp[0]) return;
-    g_avTwTramp[1] = InstallDetour("RouteFollow_EditPathForRoute (T-AV)", 0x0085FF30, kAvPro, sizeof(kAvPro), (void*)AvTwEdit);
+    g_avTwTramp[1] = InstallDetour("RouteFollow_EditPathForRoute (T-AV)", 0x0085FF30, kAvPro, sizeof(kAvPro), (void*)AvTwEdit, &g_avTwTramp[1]);
     if (!g_avTwTramp[1]) return;  // the first wrapper stays: it only counts
     k.avReady = 8;
     const CallSite cs = {AV_SITE, AV_QUERY, (void*)AvSiteEntry};
     if (!PatchCalls("avoid RO A-site", &cs, 1)) return;
     k.avReady |= 2;
-    if (!(g_avAOrig = (AvAFn)InstallDetour("RouteFollow_A", AV_A, kAvPro, sizeof(kAvPro), (void*)AvAHook))) return;
+    if (!(g_avAOrig = (AvAFn)InstallDetour("RouteFollow_A", AV_A, kAvPro, sizeof(kAvPro), (void*)AvAHook, &g_avAOrig))) return;
     k.avReady |= 1;
-    if ((g_avBOrig = (AvBFn)InstallDetour("RouteFollow_B", AV_B, kAvPro, sizeof(kAvPro), (void*)AvBHook)) != NULL) k.avReady |= 4;
+    if ((g_avBOrig = (AvBFn)InstallDetour("RouteFollow_B", AV_B, kAvPro, sizeof(kAvPro), (void*)AvBHook, &g_avBOrig)) != NULL) k.avReady |= 4;
     k.avMode = Clamp(GetPrivateProfileIntW(L"AvoidRO", L"Mode", 1, ini), 0, 1);
     k.avShadow = Clamp(GetPrivateProfileIntW(L"AvoidRO", L"Shadow", 0, ini), 0, 1);
     Log("OK   avoid RO: 0x846B70 + site 0x846D1C + 0x85B470 + 2 T-AV wrappers + the S2 writer set (ready %ld, Mode=%ld Shadow=%ld)",

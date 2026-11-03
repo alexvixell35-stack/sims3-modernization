@@ -554,7 +554,7 @@ static bool ApplyMemExp(const wchar_t* ini) {
         const CallSite cs = {0x00D819AA, 0x00E4A050, (void*)MxStep};
         g_mxStepOrig = (MxStepFn)(uintptr_t)0x00E4A050;
         if (!PatchCalls("per-frame GC_try_to_collect timing (mem experiments)", &cs, 1)) g_mxStepOrig = NULL;
-        g_mxCoeOrig = (MxCoeFn)InstallDetour("GC_collect_or_expand (SqrtHeapLimit)", 0x00E4A120, kMxCoePro, sizeof(kMxCoePro), (void*)MxCoe);
+        g_mxCoeOrig = (MxCoeFn)InstallDetour("GC_collect_or_expand (SqrtHeapLimit)", 0x00E4A120, kMxCoePro, sizeof(kMxCoePro), (void*)MxCoe, &g_mxCoeOrig);
         if (!g_mxStepOrig || !g_mxCoeOrig) Log("note: SqrtHeapLimit without %s: GC time undercounted%s", g_mxStepOrig ? "the collect_or_expand detour" : "the per-frame timing",
                                                g_mxCoeOrig ? "" : ", heap policy unchanged");
     }

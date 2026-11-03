@@ -113,7 +113,7 @@ static bool CmInstallAt(int i, DWORD at, void** owner) {
     if (Matches((const void*)(uintptr_t)at, s.pro, s.len)) {
         char name[80];
         sprintf_s(name, "%s (cell memo probe)", s.name);
-        return (g_cmJmp[i] = InstallDetour(name, at, s.pro, s.len, (void*)kCmStubs[i])) != NULL;
+        return (g_cmJmp[i] = InstallDetour(name, at, s.pro, s.len, (void*)kCmStubs[i], &g_cmJmp[i])) != NULL;
     }
     if (owner && *owner) {
         g_cmJmp[i] = *owner;

@@ -1021,6 +1021,7 @@ static bool Write(void* addr, const void* bytes, size_t n) {
 }
 // ts3native pieces the included files call (monothread-m5 arena guard detours, autshadow FPU state, locowin shims): host no-ops
 static void* InstallDetour(const char*, DWORD, const u8*, size_t, void*) { return NULL; }
+template <class F> static void* InstallDetour(const char*, DWORD, const u8*, size_t, void*, F*) { return NULL; }
 #include "../ts3native/simloop.cpp"  // the per-iteration hook ApplyMonoThread adds (the host never runs Simulate)
 #include "../ts3native/monothread.cpp"
 // [AutShadow] (docs/122 §13-§14) on top of M5: routesnap's pieces it touches, as no-ops (no routing in the host)

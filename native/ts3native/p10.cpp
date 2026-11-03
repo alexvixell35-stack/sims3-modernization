@@ -71,7 +71,7 @@ static void InstallP10(const wchar_t* ini) {
             return;
         }
     for (int i = 1; i < 4; i++)
-        if (!a10(i) && !(g_p10Tramp[i] = InstallDetour(kP10Name[i], kP10Ic[i], kP10Pro[i], sizeof(kP10Pro[i]), (void*)kP10Stubs[i]))) {
+        if (!a10(i) && !(g_p10Tramp[i] = InstallDetour(kP10Name[i], kP10Ic[i], kP10Pro[i], sizeof(kP10Pro[i]), (void*)kP10Stubs[i], &g_p10Tramp[i]))) {
             Log("FAIL probe P10: %s detour (stubs installed so far stay pass-through)", kP10Name[i]);
             return;
         }

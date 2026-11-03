@@ -34,7 +34,7 @@ static __declspec(naked) void OiStub() {
 static bool OiInstall() {
     if (g_oiJmp) return true;
     static const u8 kPro[] = {0x0F, 0x57, 0xC0, 0x8B, 0xC1};
-    g_oiJmp = InstallDetour("RoutePlanOptions_ctor (I-94-322 hub refs)", 0x00652BF0, kPro, sizeof(kPro), (void*)OiStub);
+    g_oiJmp = InstallDetour("RoutePlanOptions_ctor (I-94-322 hub refs)", 0x00652BF0, kPro, sizeof(kPro), (void*)OiStub, &g_oiJmp);
     return g_oiJmp != NULL;
 }
 static bool ApplyOptsInit(const wchar_t* ini) {

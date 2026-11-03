@@ -1087,9 +1087,9 @@ static void PcRegister() {
     if (!g_p4On) return;
     if (!g_rpOn) { Log("route snapshot P4: no clone provider (needs [RouteSnap] Lots=replay): every shadow refused \"clone\""); return; }
     static const u8 kIns[] = {0x83, 0xEC, 0x18, 0x53, 0x55}, kRem[] = {0x83, 0xEC, 0x10, 0x53, 0x56};  // sub esp,n; push x2
-    g_pcQIns = (PcQInsFn)InstallDetour("LotQuadTree_Insert (P4 deferral stop)", 0x00666C50, kIns, sizeof(kIns), (void*)PcQInsHook);
+    g_pcQIns = (PcQInsFn)InstallDetour("LotQuadTree_Insert (P4 deferral stop)", 0x00666C50, kIns, sizeof(kIns), (void*)PcQInsHook, &g_pcQIns);
     g_pcQRem = g_pcQIns ? (PcQRemFn)InstallDetour("LotQuadTree_Remove (P4 deferral stop)", 0x00666E30, kRem, sizeof(kRem),
-                                                 (void*)PcQRemHook) : NULL;
+                                                 (void*)PcQRemHook, &g_pcQRem) : NULL;
     if (!g_pcQRem) { Log("FAIL route snapshot P4: deferral stop not installed: no clone provider (every shadow refused \"clone\")"); return; }
     P4SetCloneProvider(&kPcProvider);
     ts3native_counters.snPcReady = 1;

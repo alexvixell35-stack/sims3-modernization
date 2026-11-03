@@ -219,7 +219,7 @@ static void InstallObstructedRO(const wchar_t* ini) {
     if (!k.rgEnforce || !k.asyncReady) { Log("SKIP obstructed RO: needs [RouteGate] Enforce=1 with the async path"); return; }
     if (!Matches((const void*)(uintptr_t)OR_IC, kOrPro, sizeof(kOrPro))) { Log("SKIP obstructed RO: 0x751480 prologue differs"); return; }
     if (!InstallSrWriters()) { Log("SKIP obstructed RO: the S2 writer set (W1-W6, W4, tripwires) is not all in place"); return; }
-    g_orOrig = (OrFn)InstallDetour("IC_Route_IsPointObstructedBySim", OR_IC, kOrPro, sizeof(kOrPro), (void*)OrHook);
+    g_orOrig = (OrFn)InstallDetour("IC_Route_IsPointObstructedBySim", OR_IC, kOrPro, sizeof(kOrPro), (void*)OrHook, &g_orOrig);
     if (!g_orOrig) return;
     k.orMode = Clamp(GetPrivateProfileIntW(L"ObstructedRO", L"Mode", 1, ini), 0, 1);
     k.orShadow = Clamp(GetPrivateProfileIntW(L"ObstructedRO", L"Shadow", 0, ini), 0, 1);

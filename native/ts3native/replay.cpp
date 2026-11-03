@@ -1970,7 +1970,7 @@ static __declspec(naked) void RpLockKeyStub() {
 }
 static void RpLockKeyInstall() {
     static const u8 kPro[] = {0x8B, 0x17, 0x8B, 0x82, 0x8C, 0x00, 0x00, 0x00};  // mov edx,[edi]; mov eax,[edx+0x8C]
-    g_rpLkTramp = InstallDetour("RouteManager_FootprintLockKeyApply set call (lock-key cover)", kRpLkAt, kPro, sizeof(kPro), (void*)RpLockKeyStub);
+    g_rpLkTramp = InstallDetour("RouteManager_FootprintLockKeyApply set call (lock-key cover)", kRpLkAt, kPro, sizeof(kPro), (void*)RpLockKeyStub, &g_rpLkTramp);
     if (!g_rpLkTramp) Log("route snapshot replay: lock-key cover not installed: P5 answers may read a stale lock-key set (docs/156 U1)");
 }
 static void RpPreBody(int site, const DWORD* slot);

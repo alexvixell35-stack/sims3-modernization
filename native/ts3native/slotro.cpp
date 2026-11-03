@@ -180,7 +180,7 @@ static void InstallSlotRo(const wchar_t* ini) {
     if (!InstallQlSubset()) { Log("SKIP slot position RO: the QL writer stubs W4/W5/W6g are not all in place"); return; }
     if (!InstallPortalRefX()) { Log("SKIP slot position RO: portal vtable 0xFED048 holds other count slots"); return; }
     k.slRefSwap = 1;
-    g_slOrig = (SlFn)InstallDetour("Slots_PortalLanePosition", SL_POS, kSlPro, sizeof(kSlPro), (void*)SlHook);
+    g_slOrig = (SlFn)InstallDetour("Slots_PortalLanePosition", SL_POS, kSlPro, sizeof(kSlPro), (void*)SlHook, &g_slOrig);
     if (!g_slOrig) return;
     k.slMode = Clamp(GetPrivateProfileIntW(L"SlotEnabledRO", L"Mode", 1, ini), 0, 1);
     k.slShadow = Clamp(GetPrivateProfileIntW(L"SlotEnabledRO", L"Shadow", 0, ini), 0, 1);

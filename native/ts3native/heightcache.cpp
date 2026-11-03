@@ -240,9 +240,9 @@ static bool ApplyHeightCache(const wchar_t* ini) {
     }
     ts3native_counters.heightMode = g_hc && GetPrivateProfileIntW(L"HeightCache", L"Mode", 1, ini) != 0 ? 1 : 0;
     // the invalidation first: the cache never runs without it
-    g_hcRebuildOrig = (HcRebuildFn)InstallDetour("cell rebuild (height cache)", HC_REBUILD, kHcPrologue, sizeof(kHcPrologue), (void*)HcRebuildHook);
+    g_hcRebuildOrig = (HcRebuildFn)InstallDetour("cell rebuild (height cache)", HC_REBUILD, kHcPrologue, sizeof(kHcPrologue), (void*)HcRebuildHook, &g_hcRebuildOrig);
     if (!g_hcRebuildOrig) { free(g_hc); g_hc = NULL; ts3native_counters.heightMode = 0; return false; }
-    g_hcOrig = (HcFn)InstallDetour("terrain height (height cache)", HC_FN, kHcPrologue, sizeof(kHcPrologue), (void*)HcHook);
+    g_hcOrig = (HcFn)InstallDetour("terrain height (height cache)", HC_FN, kHcPrologue, sizeof(kHcPrologue), (void*)HcHook, &g_hcOrig);
     if (!g_hcOrig) return false;  // the rebuild detour stays: it only bumps counters after the game's code
     if (g_hc) {
         ts3native_counters.heightReady = 1;
@@ -252,7 +252,7 @@ static bool ApplyHeightCache(const wchar_t* ini) {
     if (grave) {
         g_tgOn = true;  // rays are counted from here on, before any release can park
         ts3native_counters.tgMode = GetPrivateProfileIntW(L"TerrainGrave", L"Mode", 1, ini) == 0 ? 0 : 1;
-        g_tgTramp = InstallDetour("PhysShape_Release (terrain graveyard)", TG_RELEASE, kTgPrologue, sizeof(kTgPrologue), (void*)TgStub);
+        g_tgTramp = InstallDetour("PhysShape_Release (terrain graveyard)", TG_RELEASE, kTgPrologue, sizeof(kTgPrologue), (void*)TgStub, &g_tgTramp);
         ts3native_counters.tgReady = g_tgTramp != NULL;
         Log("%s terrain graveyard: 0x%08X (the release from 0x%08X is parked until no ray runs), Mode=%ld", g_tgTramp ? "OK  " : "FAIL",
             TG_RELEASE, g_tgSwapRet, ts3native_counters.tgMode);

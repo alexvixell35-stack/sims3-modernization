@@ -269,7 +269,7 @@ static bool InstallQlSubset() {
         if (!g_qlTramp[i] && !Matches((const void*)(uintptr_t)kQlSites[i].addr, kQlSites[i].pro, kQlSites[i].len)) return false;
     for (int i : kIdx)
         if (!g_qlTramp[i] &&
-            !(g_qlTramp[i] = InstallDetour(kQlSites[i].name, kQlSites[i].addr, kQlSites[i].pro, kQlSites[i].len, (void*)kQlStubs[i])))
+            !(g_qlTramp[i] = InstallDetour(kQlSites[i].name, kQlSites[i].addr, kQlSites[i].pro, kQlSites[i].len, (void*)kQlStubs[i], &g_qlTramp[i])))
             return false;
     g_qlOn = 1;
     return true;
@@ -294,7 +294,7 @@ static void InstallLotFd(const wchar_t* ini) {
     }
     if (!l1) return;
     if (!ql) { Log("SKIP lot front door RO: the QL writer stubs are not all in place"); return; }
-    g_fdOrig = (FdFn)InstallDetour("LotRouting_FrontDoorPortal", LT_FD, kFdPro, sizeof(kFdPro), (void*)FdHook);
+    g_fdOrig = (FdFn)InstallDetour("LotRouting_FrontDoorPortal", LT_FD, kFdPro, sizeof(kFdPro), (void*)FdHook, &g_fdOrig);
     if (!g_fdOrig) return;
     k.ltMode = Clamp(GetPrivateProfileIntW(L"LotFrontDoorRO", L"Mode", 1, ini), 0, 1);
     k.ltShadow = Clamp(GetPrivateProfileIntW(L"LotFrontDoorRO", L"Shadow", 0, ini), 0, 1);

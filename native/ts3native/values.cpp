@@ -382,7 +382,7 @@ static int PvInstallAt(int id, DWORD at, DWORD target) {
     if (!target) {
         char name[64];
         sprintf_s(name, "%s (values)", s.name);
-        return (g_pvJmp[id] = InstallDetour(name, at, s.pro, s.len, (void*)kPvStubs[id])) != NULL;
+        return (g_pvJmp[id] = InstallDetour(name, at, s.pro, s.len, (void*)kPvStubs[id], &g_pvJmp[id])) != NULL;
     }
     g_pvJmp[id] = (void*)(uintptr_t)target;
     const LONG rel = (LONG)((DWORD)(uintptr_t)kPvStubs[id] - (at + 5));

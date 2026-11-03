@@ -164,11 +164,12 @@ static DWORD WINAPI AstStress(void* arg) {
     }
     return 0;
 }
-static HANDLE g_astReady;
+static HANDLE g_astReady, g_astDone;
 static DWORD WINAPI AstFirstEntry(void* ev) {  // waits, then enters a hook for the first time
     SetEvent(g_astReady);  // past the loader's thread init (static TLS block from the process heap), in our own code
     WaitForSingleObject((HANDLE)ev, INFINITE);
     VirtualFree(AstCallReserve(1 << 20), 0, MEM_RELEASE);
+    SetEvent(g_astDone);  // the hook entries are through; thread exit (LdrShutdownThread frees TLS on the process heap) is not tested
     return 0;
 }
 
@@ -436,14 +437,11 @@ static void TestAllocSites() {
         g_astPebAcq = (AstPebFn)(void*)GetProcAddress(ntm, "RtlAcquirePebLock");
         g_astPebRel = (AstPebFn)(void*)GetProcAddress(ntm, "RtlReleasePebLock");
         assert(g_astPebAcq && g_astPebRel);
-        // shortcut: skipped on CI (flaky under runner load, cause not found yet); root-cause before AllocSites ships to players
-        const bool onCi = GetEnvironmentVariableA("GITHUB_ACTIONS", NULL, 0) || GetEnvironmentVariableA("CI", NULL, 0);
-        if (onCi) printf("allocsites first-entry lock test SKIPPED on CI (flaky under CI load, docs/201 §15; runs locally)\n");
-        for (int lockKind = 0; lockKind < 2 && !onCi; lockKind++) {
+        for (int lockKind = 0; lockKind < 2; lockKind++) {
             HANDLE ev = CreateEventW(NULL, TRUE, FALSE, NULL);
-            g_astReady = CreateEventW(NULL, TRUE, FALSE, NULL);
+            g_astReady = CreateEventW(NULL, TRUE, FALSE, NULL), g_astDone = CreateEventW(NULL, TRUE, FALSE, NULL);
             HANDLE t = CreateThread(NULL, 0, AstFirstEntry, ev, 0, NULL);
-            assert(ev && g_astReady && t);
+            assert(ev && g_astReady && g_astDone && t);
             // the thread is through its start-up before the lock is taken: LdrpAllocateTls takes the process heap lock in
             // the new thread (crashreport.cpp thread_local), so a fixed Sleep(20) failed on a loaded CI runner (not the hook)
             const DWORD rw = WaitForSingleObject(g_astReady, 30000);
@@ -451,11 +449,13 @@ static void TestAllocSites() {
             CloseHandle(g_astReady);
             if (lockKind) HeapLock(GetProcessHeap()); else g_astPebAcq();
             SetEvent(ev);
-            const DWORD w = WaitForSingleObject(t, 3000);
+            // wait for the hook, not the thread's exit: exit frees its TLS on the process heap, so under HeapLock it waited
+            // for our unlock whenever that free missed the LFH (the flake: 3 s timeout although the hook had returned)
+            const DWORD w = WaitForSingleObject(g_astDone, 3000);
             if (lockKind) HeapUnlock(GetProcessHeap()); else g_astPebRel();
             if (w != WAIT_OBJECT_0) printf("allocsites FAIL: first hook entry blocked on the %s lock held elsewhere\n", lockKind ? "process heap" : "PEB");
             assert(w == WAIT_OBJECT_0);
-            WaitForSingleObject(t, INFINITE), CloseHandle(t), CloseHandle(ev);
+            WaitForSingleObject(t, INFINITE), CloseHandle(t), CloseHandle(ev), CloseHandle(g_astDone);
         }
         DWORD idx[80];
         int ni = 0;
@@ -492,12 +492,12 @@ static void TestAllocSites() {
     {
         u8* e = g_astCode + 256;
         e[0] = 0xE9, *(LONG*)(e + 1) = (LONG)((u8*)(void*)AstRet7 - (e + 5));
-        g_astChainOrig = (AstIntFn)AsDetour("selftest chain", AstFn(e), kEaLockedPrologue, (int)sizeof(kEaLockedPrologue), (void*)AstChainHook);
+        g_astChainOrig = (AstIntFn)AsDetour("selftest chain", AstFn(e), kEaLockedPrologue, (int)sizeof(kEaLockedPrologue), (void*)AstChainHook, &g_astChainOrig);
         assert(g_astChainOrig && ((AstIntFn)(void*)e)() == 8 && g_astChainOrig() == 7);
         // bytes that are neither the prologue nor a jmp: refused, nothing written
         u8* f = g_astCode + 288;
         memset(f, 0x90, 16);
-        assert(!AsDetour("selftest other bytes", AstFn(f), kEaLockedPrologue, (int)sizeof(kEaLockedPrologue), (void*)AstChainHook) && f[0] == 0x90);
+        assert(!AsDetour("selftest other bytes", AstFn(f), kEaLockedPrologue, (int)sizeof(kEaLockedPrologue), (void*)AstChainHook, &g_astChainOrig) && f[0] == 0x90 && g_astChainOrig);  // refused: slot kept
     }
 
     // cost with the hooks in: 1 in 64 sampled (the default) and every block sampled (worst case)

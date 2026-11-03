@@ -192,7 +192,7 @@ static bool LpInstallAt(int id, DWORD at, DWORD target) {
     if (!target) {
         char name[80];
         sprintf_s(name, "%s (loadprof)", s.name);
-        return (g_lpJmp[id] = InstallDetour(name, at, s.pro, s.len, (void*)kLpStubs[id])) != NULL;
+        return (g_lpJmp[id] = InstallDetour(name, at, s.pro, s.len, (void*)kLpStubs[id], &g_lpJmp[id])) != NULL;
     }
     g_lpJmp[id] = (void*)(uintptr_t)target;
     const LONG rel = (LONG)((DWORD)(uintptr_t)kLpStubs[id] - (at + 5));

@@ -109,7 +109,7 @@ static bool ApplyLotSinCos(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"LotSinCos", L"Enabled", 0, ini)) { Log("lot sin/cos cache disabled (Enabled=0)"); return false; }
     g_lscVerify = GetPrivateProfileIntW(L"LotSinCos", L"Verify", 0, ini) != 0;
     ts3native_counters.lscMode = GetPrivateProfileIntW(L"LotSinCos", L"Mode", 1, ini) == 0 ? 0 : 1;
-    g_lscOrig = (LscFn)InstallDetour("lot world-to-local (sin/cos cache)", LSC_FN, kLscPrologue, sizeof(kLscPrologue), (void*)LscHook);
+    g_lscOrig = (LscFn)InstallDetour("lot world-to-local (sin/cos cache)", LSC_FN, kLscPrologue, sizeof(kLscPrologue), (void*)LscHook, &g_lscOrig);
     if (!g_lscOrig) return false;
     ts3native_counters.lscReady = 1;
     Log("OK   lot sin/cos cache: 0x%08X (Mode=%ld Verify=%d, 256 angles)", LSC_FN, ts3native_counters.lscMode, g_lscVerify ? 1 : 0);

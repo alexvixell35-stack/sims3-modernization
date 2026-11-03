@@ -124,9 +124,9 @@ static bool ApplyIdCache(const wchar_t* ini) {
     g_idcVerify = GetPrivateProfileIntW(L"IdCache", L"Verify", 0, ini) != 0;
     ts3native_counters.idcMode = GetPrivateProfileIntW(L"IdCache", L"Mode", 1, ini) == 0 ? 0 : 1;
     // the invalidation first: the cache never runs without it
-    g_idcEraseOrig = (IdcEraseFn)InstallDetour("object id erase (id cache)", IDC_ERASE, kIdcErasePrologue, sizeof(kIdcErasePrologue), (void*)IdcEraseHook);
+    g_idcEraseOrig = (IdcEraseFn)InstallDetour("object id erase (id cache)", IDC_ERASE, kIdcErasePrologue, sizeof(kIdcErasePrologue), (void*)IdcEraseHook, &g_idcEraseOrig);
     if (!g_idcEraseOrig) return false;
-    g_idcLookupOrig = (IdcLookupFn)InstallDetour("object id lookup (id cache)", IDC_LOOKUP, kIdcLookupPrologue, sizeof(kIdcLookupPrologue), (void*)IdcLookupHook);
+    g_idcLookupOrig = (IdcLookupFn)InstallDetour("object id lookup (id cache)", IDC_LOOKUP, kIdcLookupPrologue, sizeof(kIdcLookupPrologue), (void*)IdcLookupHook, &g_idcLookupOrig);
     if (!g_idcLookupOrig) return false;  // the erase detour stays: it only clears entries before the game's code
     ts3native_counters.idcReady = 1;
     Log("OK   object id cache: 0x%08X, 0x%08X (Mode=%ld Verify=%d, 4096 entries, sim thread only)", IDC_LOOKUP, IDC_ERASE,

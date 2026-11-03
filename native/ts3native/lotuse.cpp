@@ -165,7 +165,7 @@ static void LuExit() { if (g_luOn) LuReport("exit", 0); }
 static void ApplyLu(const wchar_t* ini) {
     if (GetPrivateProfileIntW(L"RouteSnap", L"LotUseReadout", 0, ini) != 1) return;
     if (!g_stlFindTramp)
-        g_stlFindTramp = InstallDetour("LotTable_Find (lot use read set)", STL_FIND, kStlFindPro, sizeof(kStlFindPro), (void*)StlFindStub);
+        g_stlFindTramp = InstallDetour("LotTable_Find (lot use read set)", STL_FIND, kStlFindPro, sizeof(kStlFindPro), (void*)StlFindStub, &g_stlFindTramp);
     if (!g_stlFindTramp) { Log("SKIP route snapshot LotUseReadout: LotTable_Find detour not installed"); return; }
     g_luOn = true;
     ts3native_counters.luOn = 1;

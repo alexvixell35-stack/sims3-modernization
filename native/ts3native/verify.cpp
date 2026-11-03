@@ -647,7 +647,7 @@ static DWORD WINAPI VfPollThread(void* memory) {
 static bool VfInstallAt(int id, DWORD at, const u8* pro) {
     char name[48];
     sprintf_s(name, "%s (verify)", kVf[id].name);
-    return (g_vfTramp[id] = InstallDetour(name, at, pro, kVf[id].len, (void*)kVfStubs[id])) != NULL;
+    return (g_vfTramp[id] = InstallDetour(name, at, pro, kVf[id].len, (void*)kVfStubs[id], &g_vfTramp[id])) != NULL;
 }
 
 // [Verify] Enabled=1 (master) with Threads / Races / Costs / Memory = 1 per group; Mode = start value of vfMode;

@@ -1499,7 +1499,7 @@ static int SatbInstallCold() {
     int n = 0;
     for (int i = 0; i < 5; i++)
         if (!g_satbColdNext[i] && (g_satbColdNext[i] = InstallDetour("satb cold path", kSatbCold[i].at, kSatbCold[i].bytes, kSatbCold[i].len,
-                                                                     (void*)hooks[i])) != NULL) n++;
+                                                                     (void*)hooks[i], &g_satbColdNext[i])) != NULL) n++;
     return n;
 }
 
@@ -1711,7 +1711,7 @@ static void __cdecl SatbStaticGet(DWORD cf, DWORD out) {
 }
 static int SatbInstallNative() {
     int n = 0;
-    if (!g_satbBindNext && (g_satbBindNext = InstallDetour("satb binder bodies 0xE525C0", 0x00E525C0, kSatbBind, sizeof(kSatbBind), (void*)SatbBindCall)) != NULL) n++;
+    if (!g_satbBindNext && (g_satbBindNext = InstallDetour("satb binder bodies 0xE525C0", 0x00E525C0, kSatbBind, sizeof(kSatbBind), (void*)SatbBindCall, &g_satbBindNext)) != NULL) n++;
     static bool st;
     if (!st) {
         st = true;

@@ -230,7 +230,7 @@ static void InstallReplanDedupe(const wchar_t* ini) {
         const LONG bit = kind == 1 ? 1 : 2;
         if (g_arOrig[kind]) { k.rdReady |= bit; continue; }  // A10's collect detour: CallIc runs RdRun
         g_rdOrig[kind] = InstallDetour(kP10Name[kind], kP10Ic[kind], kP10Pro[kind], sizeof(kP10Pro[kind]),
-                                       kind == 1 ? (void*)RdReplanHook : (void*)RdReplanPosHook);
+                                       kind == 1 ? (void*)RdReplanHook : (void*)RdReplanPosHook, &g_rdOrig[kind]);
         if (g_rdOrig[kind]) k.rdReady |= bit | 8;
     }
     g_rdOn = (k.rdReady & 3) ? 1 : 0;

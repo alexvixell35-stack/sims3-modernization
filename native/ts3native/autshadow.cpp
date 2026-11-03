@@ -3007,7 +3007,7 @@ static int AsInstallGuards(DWORD* lo, DWORD* hi, DWORD imgLo, DWORD imgHi, DWORD
 }
 
 static bool AsInstallFmt(DWORD at) {
-    g_asFmtTramp = InstallDetour("String.ParseFormatSpecifier (autshadow F2)", at, kAsFmtPro, sizeof(kAsFmtPro), (void*)AsFmtHook);
+    g_asFmtTramp = InstallDetour("String.ParseFormatSpecifier (autshadow F2)", at, kAsFmtPro, sizeof(kAsFmtPro), (void*)AsFmtHook, &g_asFmtTramp);
     if (g_asFmtTramp) ts3native_autshadow.ready |= 2;
     return g_asFmtTramp != NULL;
 }

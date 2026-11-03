@@ -484,25 +484,11 @@ struct AsPatch { DWORD at; u8 old[5]; };
 static AsPatch g_asPatch[16];
 static int g_asPatchN;
 
-static bool AsWrite5(u8* t, const u8* five) {  // one 8-byte locked write when the 5 bytes sit in one aligned qword
-    DWORD old;
-    if (!VirtualProtect(t, 5, PAGE_EXECUTE_READWRITE, &old)) return false;
-    const uintptr_t q = (uintptr_t)t & ~(uintptr_t)7;
-    if ((uintptr_t)t - q <= 3) {
-        for (;;) {
-            const LONG64 cur = *(volatile LONG64*)q;
-            LONG64 nw = cur;
-            memcpy((u8*)&nw + ((uintptr_t)t - q), five, 5);
-            if (InterlockedCompareExchange64((volatile LONG64*)q, nw, cur) == cur) break;
-        }
-    } else memcpy(t, five, 5);
-    VirtualProtect(t, 5, old, &old);
-    FlushInstructionCache(GetCurrentProcess(), t, 5);
-    return true;
-}
 // jmp at `at` to `hook`; returns code that runs what was there: the verified prologue (pro, len), a mov eax,imm32 stub
-// (pro NULL: an ntdll system call stub), or an earlier jmp (chained: [Alloc], Frida, another tool).
-static void* AsDetour(const char* name, DWORD at, const u8* pro, int len, void* hook) {
+// (pro NULL: an ntdll system call stub), or an earlier jmp (chained: [Alloc], Frida, another tool). `slot` (what the hook
+// calls through) is stored before the jmp goes live: a DXVK thread entering NtAllocateVirtualMemory's hook in that window
+// called address 0 on EA 1.69 (docs/232 Run 8e).
+static void* AsDetourCore(const char* name, DWORD at, const u8* pro, int len, void* hook, void* volatile* slot) {
     u8* t = (u8*)(uintptr_t)at;
     if (!Readable(t, pro ? len : 5) || g_asTrampUsed + 32 > 4096 || g_asPatchN >= 16) { Log("SKIP alloc sites %s: unreadable", name); return NULL; }
     u8* tr = g_asTramp + g_asTrampUsed;
@@ -527,16 +513,24 @@ static void* AsDetour(const char* name, DWORD at, const u8* pro, int len, void* 
     memcpy(p.old, t, 5);
     u8 jmp[5] = {0xE9};
     *(LONG*)(jmp + 1) = (LONG)((u8*)hook - (t + 5));
-    if (!AsWrite5(t, jmp)) { Log("FAIL alloc sites %s: VirtualProtect (err %lu)", name, GetLastError()); return NULL; }
+    FlushInstructionCache(GetCurrentProcess(), tr, 32);
+    void* const prev = *slot;
+    *slot = tr;
+    MemoryBarrier();
+    if (!Write5(t, jmp)) { *slot = prev; Log("FAIL alloc sites %s: VirtualProtect (err %lu)", name, GetLastError()); return NULL; }
     g_asPatchN++;
     g_asTrampUsed += 32;
     Log("OK   alloc sites %s %s at 0x%08lX", name, how, at);
     return tr;
 }
+template <class F> static void* AsDetour(const char* name, DWORD at, const u8* pro, int len, void* hook, F* slot) {
+    static_assert(sizeof(F) == sizeof(void*), "slot holds a code pointer");
+    return AsDetourCore(name, at, pro, len, hook, (void* volatile*)slot);
+}
 static void AsUnhookAll() {  // original bytes back, newest first (host selftest; a partial install with no complete group)
     while (g_asPatchN > 0) {
         const AsPatch& p = g_asPatch[--g_asPatchN];
-        AsWrite5((u8*)(uintptr_t)p.at, p.old);
+        Write5((u8*)(uintptr_t)p.at, p.old);
     }
     g_asTrampUsed = 0;
 }
@@ -587,10 +581,10 @@ static int AsInstallHeap() {
         }
     }
     const int L = (int)sizeof(kEaLockedPrologue);
-    g_asFree = (EaFreeFn)AsDetour("EA heap Free", g_asHeapAt[3], kEaLockedPrologue, L, (void*)AsFreeHook);
-    g_asRealloc = g_asFree ? (AsReallocFn)AsDetour("EA heap Realloc", g_asHeapAt[2], kEaLockedPrologue, L, (void*)AsReallocHook) : NULL;
-    g_asMalloc = g_asRealloc ? (EaMallocFn)AsDetour("EA heap Malloc", g_asHeapAt[0], kEaLockedPrologue, L, (void*)AsMallocHook) : NULL;
-    g_asMemalign = g_asMalloc ? (EaMemalignFn)AsDetour("EA heap Memalign", g_asHeapAt[1], kEaLockedPrologue, L, (void*)AsMemalignHook) : NULL;
+    g_asFree = (EaFreeFn)AsDetour("EA heap Free", g_asHeapAt[3], kEaLockedPrologue, L, (void*)AsFreeHook, &g_asFree);
+    g_asRealloc = g_asFree ? (AsReallocFn)AsDetour("EA heap Realloc", g_asHeapAt[2], kEaLockedPrologue, L, (void*)AsReallocHook, &g_asRealloc) : NULL;
+    g_asMalloc = g_asRealloc ? (EaMallocFn)AsDetour("EA heap Malloc", g_asHeapAt[0], kEaLockedPrologue, L, (void*)AsMallocHook, &g_asMalloc) : NULL;
+    g_asMemalign = g_asMalloc ? (EaMemalignFn)AsDetour("EA heap Memalign", g_asHeapAt[1], kEaLockedPrologue, L, (void*)AsMemalignHook, &g_asMemalign) : NULL;
     return g_asMemalign ? 4 : 0;  // shortcut: a later failure leaves the earlier hooks in (frees only: harmless lookups)
 }
 // release before reserve, unmap before map: every reserve / view we record has its release hooked already
@@ -604,16 +598,16 @@ static int AsInstallVirtual() {
     void* fax = (void*)GetProcAddress(nt, "NtAllocateVirtualMemoryEx");  // Windows 10 1803+: VirtualAlloc2
     void* fmx = (void*)GetProcAddress(nt, "NtMapViewOfSectionEx");       // Windows 10 1803+: MapViewOfFile3
     int n = 0;
-    if (fa && ff && (g_asNtFree = (AsNtFreeFn)AsDetour("NtFreeVirtualMemory", (DWORD)(uintptr_t)ff, NULL, 5, (void*)AsNtFreeHook)) &&
-        (g_asNtAlloc = (AsNtAllocFn)AsDetour("NtAllocateVirtualMemory", (DWORD)(uintptr_t)fa, NULL, 5, (void*)AsNtAllocHook))) {
+    if (fa && ff && (g_asNtFree = (AsNtFreeFn)AsDetour("NtFreeVirtualMemory", (DWORD)(uintptr_t)ff, NULL, 5, (void*)AsNtFreeHook, &g_asNtFree)) &&
+        (g_asNtAlloc = (AsNtAllocFn)AsDetour("NtAllocateVirtualMemory", (DWORD)(uintptr_t)fa, NULL, 5, (void*)AsNtAllocHook, &g_asNtAlloc))) {
         n += 2;
-        if (fax && (g_asNtAllocEx = (AsNtAllocExFn)AsDetour("NtAllocateVirtualMemoryEx", (DWORD)(uintptr_t)fax, NULL, 5, (void*)AsNtAllocExHook))) n++;
+        if (fax && (g_asNtAllocEx = (AsNtAllocExFn)AsDetour("NtAllocateVirtualMemoryEx", (DWORD)(uintptr_t)fax, NULL, 5, (void*)AsNtAllocExHook, &g_asNtAllocEx))) n++;
     }
-    if (fm && fu && (g_asNtUnmap = (AsNtUnmapFn)AsDetour("NtUnmapViewOfSection", (DWORD)(uintptr_t)fu, NULL, 5, (void*)AsNtUnmapHook)) &&
-        (!fx || (g_asNtUnmapEx = (AsNtUnmapExFn)AsDetour("NtUnmapViewOfSectionEx", (DWORD)(uintptr_t)fx, NULL, 5, (void*)AsNtUnmapExHook))) &&
-        (g_asNtMap = (AsNtMapFn)AsDetour("NtMapViewOfSection", (DWORD)(uintptr_t)fm, NULL, 5, (void*)AsNtMapHook))) {
+    if (fm && fu && (g_asNtUnmap = (AsNtUnmapFn)AsDetour("NtUnmapViewOfSection", (DWORD)(uintptr_t)fu, NULL, 5, (void*)AsNtUnmapHook, &g_asNtUnmap)) &&
+        (!fx || (g_asNtUnmapEx = (AsNtUnmapExFn)AsDetour("NtUnmapViewOfSectionEx", (DWORD)(uintptr_t)fx, NULL, 5, (void*)AsNtUnmapExHook, &g_asNtUnmapEx))) &&
+        (g_asNtMap = (AsNtMapFn)AsDetour("NtMapViewOfSection", (DWORD)(uintptr_t)fm, NULL, 5, (void*)AsNtMapHook, &g_asNtMap))) {
         n += fx ? 3 : 2;
-        if (fmx && (g_asNtMapEx = (AsNtMapExFn)AsDetour("NtMapViewOfSectionEx", (DWORD)(uintptr_t)fmx, NULL, 5, (void*)AsNtMapExHook))) n++;
+        if (fmx && (g_asNtMapEx = (AsNtMapExFn)AsDetour("NtMapViewOfSectionEx", (DWORD)(uintptr_t)fmx, NULL, 5, (void*)AsNtMapExHook, &g_asNtMapEx))) n++;
     }
     return n;
 }

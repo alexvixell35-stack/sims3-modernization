@@ -313,6 +313,9 @@ namespace Ts3Agent
             new[] { new[] { "new towns available", "long-distance move", "preparing to move" }, new[] { "not now", "cancel", "later", "decline", "no" } },
             // Event invitations (Round 5: "Committee Hearing", "The Dish Showdown", "The Complete Circuit") and the move flow's second dialog: normal play must not move house or start events.
             new[] { new[] { "committee hearing", "the dish showdown", "the complete circuit", "moving to a new town" }, new[] { "cancel", "decline", "no" } },
+            // Career choice event (2026-11-03 bp-gug-t-ab: "...company is losing people due to low morale..." buttons 'Workshops' / 'Raises'):
+            // no safe word, the game sat paused 60 s and the fail-fast guard ended the job. Either answer is normal play; take raises.
+            new[] { new[] { "low morale" }, new[] { "raises", "workshops" } },
             new[] { new[] { "mod scripts found" }, new[] { "accept", "ok", "continue" } },
         };
 

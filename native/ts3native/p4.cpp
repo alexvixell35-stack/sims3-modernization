@@ -538,7 +538,7 @@ static void* const kP4DlStub[3] = {(void*)P4DlStub0, (void*)P4DlStub1, (void*)P4
 static int P4InstallDl(const DWORD* at) {  // count of the stubs installed (prologue checked by InstallDetour)
     int n = 0;
     for (int i = 0; i < 3; i++)
-        if (!g_p4DlJmp[i] && (g_p4DlJmp[i] = InstallDetour(kP4Dl[i].name, at[i], kP4Dl[i].pro, kP4Dl[i].len, kP4DlStub[i]))) n++;
+        if (!g_p4DlJmp[i] && (g_p4DlJmp[i] = InstallDetour(kP4Dl[i].name, at[i], kP4Dl[i].pro, kP4Dl[i].len, kP4DlStub[i], &g_p4DlJmp[i]))) n++;
     return n;
 }
 

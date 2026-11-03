@@ -442,8 +442,8 @@ static const u8 kPdWaterPro[] = {0x8B, 0x44, 0x24, 0x24, 0x83, 0xEC, 0x50};  // 
 // parameters let the selftest put the stubs on dummies
 static void PdInstallAt(DWORD cellAt, DWORD waterAt) {
     Ts3nCounters& k = ts3native_counters;
-    g_pdOrig[0] = InstallDetour("QuadTreeCellAStar (plan deadline)", cellAt, kPdCellPro, sizeof(kPdCellPro), (void*)PdCellStub);
-    g_pdOrig[1] = InstallDetour("WaterPath_Plan (plan deadline)", waterAt, kPdWaterPro, sizeof(kPdWaterPro), (void*)PdWaterStub);
+    g_pdOrig[0] = InstallDetour("QuadTreeCellAStar (plan deadline)", cellAt, kPdCellPro, sizeof(kPdCellPro), (void*)PdCellStub, &g_pdOrig[0]);
+    g_pdOrig[1] = InstallDetour("WaterPath_Plan (plan deadline)", waterAt, kPdWaterPro, sizeof(kPdWaterPro), (void*)PdWaterStub, &g_pdOrig[1]);
     k.pdReady = (k.budgetReady ? 1 : 0) | (g_pdOrig[0] ? 2 : 0) | (g_pdOrig[1] ? 4 : 0);
     g_pdOn = 1;
 }

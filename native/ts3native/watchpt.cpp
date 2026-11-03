@@ -253,8 +253,8 @@ static bool ApplyWatchpoint(const wchar_t* ini) {
             "constructor pairs (eip 0x80750D, eip 0x62627B from 0x807557) counted, not logged",
             (DWORD)(g_wpLot >> 32), (DWORD)g_wpLot, g_wpArmMax, g_wpFollow);
     if (GetPrivateProfileIntW(L"Watchpoint", L"Writers", 0, ini)) {
-        g_wrZTramp = InstallDetour("child z setter 0x626270 (count only)", kWrZAt, kWrPro, sizeof(kWrPro), (void*)WrZStub);
-        g_wrPTramp = InstallDetour("parent +0x30 setter 0x620D80 (count only)", kWrP30At, kWrPro, sizeof(kWrPro), (void*)WrPStub);
+        g_wrZTramp = InstallDetour("child z setter 0x626270 (count only)", kWrZAt, kWrPro, sizeof(kWrPro), (void*)WrZStub, &g_wrZTramp);
+        g_wrPTramp = InstallDetour("parent +0x30 setter 0x620D80 (count only)", kWrP30At, kWrPro, sizeof(kWrPro), (void*)WrPStub, &g_wrPTramp);
     }
     return g_wpVeh != NULL;
 }

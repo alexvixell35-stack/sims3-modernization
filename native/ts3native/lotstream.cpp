@@ -250,12 +250,12 @@ static bool ApplyLotStream(const wchar_t* ini) {
     }
     LONG ready = 0;
     for (const Req& r : req)
-        if ((*r.orig = InstallDetour(r.name, r.at, r.bytes, r.len, r.hook)) != NULL) ready |= r.bit;
+        if ((*r.orig = InstallDetour(r.name, r.at, r.bytes, r.len, r.hook, r.orig)) != NULL) ready |= r.bit;
     if (GetPrivateProfileIntW(L"LotStream", L"SyncWait", 0, ini) &&
-        (g_lsSyncOrig = (LsSyncFn)InstallDetour("remote call dispatch (lot stream sync wait)", LS_SYNC, kLsSync, sizeof(kLsSync), (void*)LsSyncHook)) != NULL)
+        (g_lsSyncOrig = (LsSyncFn)InstallDetour("remote call dispatch (lot stream sync wait)", LS_SYNC, kLsSync, sizeof(kLsSync), (void*)LsSyncHook, &g_lsSyncOrig)) != NULL)
         ready |= 32;
     if (GetPrivateProfileIntW(L"LotStream", L"ObjScene", 0, ini) &&
-        (g_lsObjOrig = (LsObjFn)InstallDetour("UpdateObjectSceneNode (lot stream objScene)", LS_OBJ, kLsObj, sizeof(kLsObj), (void*)LsObjHook)) != NULL)
+        (g_lsObjOrig = (LsObjFn)InstallDetour("UpdateObjectSceneNode (lot stream objScene)", LS_OBJ, kLsObj, sizeof(kLsObj), (void*)LsObjHook, &g_lsObjOrig)) != NULL)
         ready |= 64;
     ts3native_counters.lsReady = ready;
     Log("%s lot stream: ready 0x%lX (Mode=%ld, event log %s, ObjLogMs=%ld)", (ready & 31) == 31 ? "OK  " : "FAIL", ready,

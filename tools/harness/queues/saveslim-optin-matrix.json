@@ -1,0 +1,345 @@
+{
+  "note": "SaveSlim opt-in (feature/saveslim-optin 65867145, ts3native 0.36.167 = rel025c + PR #122 + SEH guard, pre-slim backup, slimFails v160) on the rel025c ts3fixes package with v0.2.5 release defaults: the four-save matrix of saveslim-matrix.json again (Mode 0 measure, Mode 2 write, reload of the slimmed save). New save names only (SlimTest-<world>-*); delete them and <Documents>\\Electronic Arts\\The Sims 3\\SaveSlimBackup after. After each write job: SaveSlimBackup\\SlimTest-<world>-m2.preslim\\<world>ExportDB.package exists and equals the pre-slim size in the summary line. MF jobs dropped 2026-11-03: BigSave-MF exists only on the contributor machine (N/A here; his matrix PASS stands).",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "asi": "game-copy/ts3native.asi.saveslim-optin",
+      "pinReason": "feature/saveslim-optin 65867145 build (0.36.167): SaveSlim opt-in candidate for v0.2.5 on the rel025c package",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1,
+        "save slim: .*ExportDB[.]package: .*left [(]Mode 0": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0,
+        "save slim: exception": 0,
+        "save slim: FAILED": 0
+      },
+      "id": "bp-slimoptin-measure",
+      "note": "Matrix Bridgeport (spring): Mode 0 (measured only) on Baseline-BP-Spring saved as SlimTest-BP-m0.",
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-bp-m0"
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "releaseDefaults": true,
+      "minCounters": 160
+    },
+    {
+      "asi": "game-copy/ts3native.asi.saveslim-optin",
+      "pinReason": "feature/saveslim-optin 65867145 build (0.36.167): SaveSlim opt-in candidate for v0.2.5 on the rel025c package",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1,
+        "save slim: .*ExportDB.*entries [0-9]+ -> [0-9]+": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0,
+        "save slim: exception": 0,
+        "save slim: FAILED": 0
+      },
+      "id": "bp-slimoptin-write",
+      "note": "Matrix Bridgeport (spring): Mode 2 on Baseline-BP-Spring saved as SlimTest-BP-m2. Pass: per-ExportDB entries a -> b lines, no FAIL / unreadable line.",
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-bp-m2"
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "releaseDefaults": true,
+      "minCounters": 160
+    },
+    {
+      "asi": "game-copy/ts3native.asi.saveslim-optin",
+      "pinReason": "feature/saveslim-optin 65867145 build (0.36.167): SaveSlim opt-in candidate for v0.2.5 on the rel025c package",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0,
+        "save slim: exception": 0,
+        "save slim: FAILED": 0
+      },
+      "id": "bp-slimoptin-reload",
+      "note": "Matrix Bridgeport (spring): the slimmed SlimTest-BP-m2 loads and plays 6 min, then a Mode 2 save as SlimTest-BP-m2b (nothing left to gain expected).",
+      "save": "SlimTest-BP-m2",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-bp-m2b"
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "releaseDefaults": true,
+      "minCounters": 160
+    },
+    {
+      "asi": "game-copy/ts3native.asi.saveslim-optin",
+      "pinReason": "feature/saveslim-optin 65867145 build (0.36.167): SaveSlim opt-in candidate for v0.2.5 on the rel025c package",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1,
+        "save slim: .*ExportDB[.]package: .*left [(]Mode 0": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0,
+        "save slim: exception": 0,
+        "save slim: FAILED": 0
+      },
+      "id": "bpcc-slimoptin-measure",
+      "note": "Matrix Bridgeport with CC-heavy households: Mode 0 (measured only) on SaveReload-BPCC saved as SlimTest-BPCC-m0.",
+      "save": "SaveReload-BPCC",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-bpcc-m0"
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "releaseDefaults": true,
+      "minCounters": 160
+    },
+    {
+      "asi": "game-copy/ts3native.asi.saveslim-optin",
+      "pinReason": "feature/saveslim-optin 65867145 build (0.36.167): SaveSlim opt-in candidate for v0.2.5 on the rel025c package",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1,
+        "save slim: .*ExportDB.*entries [0-9]+ -> [0-9]+": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0,
+        "save slim: exception": 0,
+        "save slim: FAILED": 0
+      },
+      "id": "bpcc-slimoptin-write",
+      "note": "Matrix Bridgeport with CC-heavy households: Mode 2 on SaveReload-BPCC saved as SlimTest-BPCC-m2. Pass: per-ExportDB entries a -> b lines, no FAIL / unreadable line.",
+      "save": "SaveReload-BPCC",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-bpcc-m2"
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "releaseDefaults": true,
+      "minCounters": 160
+    },
+    {
+      "asi": "game-copy/ts3native.asi.saveslim-optin",
+      "pinReason": "feature/saveslim-optin 65867145 build (0.36.167): SaveSlim opt-in candidate for v0.2.5 on the rel025c package",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0,
+        "save slim: exception": 0,
+        "save slim: FAILED": 0
+      },
+      "id": "bpcc-slimoptin-reload",
+      "note": "Matrix Bridgeport with CC-heavy households: the slimmed SlimTest-BPCC-m2 loads and plays 6 min, then a Mode 2 save as SlimTest-BPCC-m2b (nothing left to gain expected).",
+      "save": "SlimTest-BPCC-m2",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-bpcc-m2b"
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "releaseDefaults": true,
+      "minCounters": 160
+    },
+    {
+      "asi": "game-copy/ts3native.asi.saveslim-optin",
+      "pinReason": "feature/saveslim-optin 65867145 build (0.36.167): SaveSlim opt-in candidate for v0.2.5 on the rel025c package",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1,
+        "save slim: .*ExportDB[.]package: .*left [(]Mode 0": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0,
+        "save slim: exception": 0,
+        "save slim: FAILED": 0
+      },
+      "id": "old-slimoptin-measure",
+      "note": "Matrix the old lived-in save (2+ years of play, NRaas in the Mods folder): Mode 0 (measured only) on 1111 kit5 saved as SlimTest-OLD-m0.",
+      "save": "1111 kit5",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-old-m0"
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "releaseDefaults": true,
+      "minCounters": 160
+    },
+    {
+      "asi": "game-copy/ts3native.asi.saveslim-optin",
+      "pinReason": "feature/saveslim-optin 65867145 build (0.36.167): SaveSlim opt-in candidate for v0.2.5 on the rel025c package",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1,
+        "save slim: .*ExportDB.*entries [0-9]+ -> [0-9]+": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0,
+        "save slim: exception": 0,
+        "save slim: FAILED": 0
+      },
+      "id": "old-slimoptin-write",
+      "note": "Matrix the old lived-in save (2+ years of play, NRaas in the Mods folder): Mode 2 on 1111 kit5 saved as SlimTest-OLD-m2. Pass: per-ExportDB entries a -> b lines, no FAIL / unreadable line.",
+      "save": "1111 kit5",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-old-m2"
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "releaseDefaults": true,
+      "minCounters": 160
+    },
+    {
+      "asi": "game-copy/ts3native.asi.saveslim-optin",
+      "pinReason": "feature/saveslim-optin 65867145 build (0.36.167): SaveSlim opt-in candidate for v0.2.5 on the rel025c package",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "save slim: .*references read": 1
+      },
+      "logForbid": {
+        "save slim: .*FAIL": 0,
+        "save slim: unreadable": 0,
+        "save slim: exception": 0,
+        "save slim: FAILED": 0
+      },
+      "id": "old-slimoptin-reload",
+      "note": "Matrix the old lived-in save (2+ years of play, NRaas in the Mods folder): the slimmed SlimTest-OLD-m2 loads and plays 6 min, then a Mode 2 save as SlimTest-OLD-m2b (nothing left to gain expected).",
+      "save": "SlimTest-OLD-m2",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-old-m2b"
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "releaseDefaults": true,
+      "minCounters": 160
+    }
+  ]
+}

@@ -355,7 +355,7 @@ static int InstallTripwires() {
     int n = 0;
     for (int i = 0; i < TW_N; i++) {
         g_twGo[i] = (void*)kTwStubs[i];
-        n += (g_twTramp[i] = InstallDetour(kTwSites[i].name, kTwSites[i].addr, kTwSites[i].pro, kTwSites[i].len, (void*)kTwGo[i])) != NULL;
+        n += (g_twTramp[i] = InstallDetour(kTwSites[i].name, kTwSites[i].addr, kTwSites[i].pro, kTwSites[i].len, (void*)kTwGo[i], &g_twTramp[i])) != NULL;
         if (g_twTramp[i] && !g_twArmed) g_twGo[i] = g_twTramp[i];
     }
     ts3native_counters.steerTwStubs = n;
@@ -847,7 +847,7 @@ static void InstallCa(const wchar_t* ini, bool needStub) {
     Ts3nCounters& k = ts3native_counters;
     if (needStub) {
         const QlSite& s = kQlSites[QL_W6A];
-        if (!(g_qlTramp[QL_W6A] = InstallDetour(s.name, s.addr, s.pro, s.len, (void*)kQlStubs[QL_W6A]))) return;
+        if (!(g_qlTramp[QL_W6A] = InstallDetour(s.name, s.addr, s.pro, s.len, (void*)kQlStubs[QL_W6A], &g_qlTramp[QL_W6A]))) return;
     }
     if (!g_qlTramp[QL_W6A]) return;
     k.caMode = Clamp(GetPrivateProfileIntW(L"FpRebuildLock", L"Mode", 0, ini), 0, 1);
@@ -869,7 +869,7 @@ static bool InstallSrWriters() {
     if (!ok) { Log("SKIP S2 writer set: a prologue differs (W1-W6, T4/T-S7) or the LotGraph_Build gate stub is missing"); return false; }
     int n = 0;
     for (int i = 0; i < QL_N; i++) {  // [LotFrontDoorRO] / [ProbeP1b] may have W5 and W6g in place already
-        if (!g_qlTramp[i]) g_qlTramp[i] = InstallDetour(kQlSites[i].name, kQlSites[i].addr, kQlSites[i].pro, kQlSites[i].len, (void*)kQlStubs[i]);
+        if (!g_qlTramp[i]) g_qlTramp[i] = InstallDetour(kQlSites[i].name, kQlSites[i].addr, kQlSites[i].pro, kQlSites[i].len, (void*)kQlStubs[i], &g_qlTramp[i]);
         n += g_qlTramp[i] != NULL;
     }
     g_qlOn = 1;
@@ -903,7 +903,7 @@ static void InstallSteerRO(const wchar_t* ini) {
     if (ca) InstallCa(ini, false);  // rides on the W6a stub when it exists
     if (!writers) return;
     const int n = QL_N, tws = k.steerTwStubs;
-    g_locoOrig = (LocoFn)InstallDetour("Locomotion_ObstacleCheck", STEER_LOCO, kLocoPro, sizeof(kLocoPro), (void*)LocoHook);
+    g_locoOrig = (LocoFn)InstallDetour("Locomotion_ObstacleCheck", STEER_LOCO, kLocoPro, sizeof(kLocoPro), (void*)LocoHook, &g_locoOrig);
     if (!g_locoOrig) return;
     k.steerMode = Clamp(GetPrivateProfileIntW(L"SteerRO", L"Mode", 1, ini), 0, 1);
     k.steerShadow = Clamp(GetPrivateProfileIntW(L"SteerRO", L"Shadow", 0, ini), 0, 1);

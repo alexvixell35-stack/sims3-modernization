@@ -12,10 +12,15 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ### Fixed
 
+- **Rare memory runaway at game start.** The game's script memory manager avoids placing big blocks on memory pages that look in use, and how picky it is grows with the heap size. With our larger start heap it could refuse one big start-up file again and again and keep asking Windows for more memory instead of cleaning up, until the 32-bit game ran out of address space and crashed (seen on the EA app 1.69 version in about 4 of 24 launches; never seen on Steam, but the same code is there). Now it is lenient at start-up, at the main menu and on every loading screen, and goes back to the game's own rule once your world is loaded, so long play sessions are unchanged. `[GC] BlackListCapKB=1024` in `ts3native.ini` (0 = off). Tested on Steam: start-ups, 6 save/reload cycles with and without it, travel and normal play, all passed. Found and fixed on the EA app port (PR #238).
 - **No more crash from custom-content meshes without a material** (issue #80): a hair or clothing mesh made from a morph mesh crashed the game while it built a Sim. That part is now left out at that distance instead. On by default (`[EaCrashFixes] GeomNoMaterial=1`).
 - **Isla Paradiso routing crash** (issues #132, #136): on by default (`[EaCrashFixes] WorldAStarRefs=1`, `PortalFlagRefs=1`).
 
 - **Paired socials no longer fail with "cannot go there"** (Show Off Badges and other two-Sim socials that set up a spot first): with async routing the partner Sim could plan its walk before the spot existed. Plans now stay synchronous while that spot is being set up (switch `asyncjigsync`, on by default). On v0.2.4, set `Enabled=0` under `[RouteAsync]` in `ts3native.ini` as a workaround.
+
+### Test features (off, opt-in)
+
+- **Smaller save files (SaveSlim, test feature, keep backups).** Every time a Sim leaves a lot, the game stores a new copy of that Sim's outfits in your save and never throws the old copy away, so long-played saves keep growing. With `Enabled=1` under `[SaveSlim]` in `ts3native.ini` (needs `[SaveWrite] Enabled=1`), after each normal save a background job rewrites the save's outfit store without the wasted space and, in `Mode=2` (the default), without outfit copies that nothing in the save uses any more. It checks the new file byte for byte before it replaces the old one; if anything goes wrong, your save stays exactly as the game wrote it. The file from before each rewrite is kept in `Documents\Electronic Arts\The Sims 3\SaveSlimBackup\<save name>.preslim\` (only the newest one), so an outfit that was dropped by mistake can be restored. `Mode=0` only measures and writes nothing. Tested: 12 of 12 runs passed over 4 saves (Bridgeport, Bridgeport with lots of custom content, a 2+ year NRaas save, Moonlight Falls), in Mode 0, Mode 2 and save-then-reload runs. By Dalexlol (PR #122). It changes your save files: copy your saves before you try it.
 
 ### Known issues
 

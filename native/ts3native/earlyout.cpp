@@ -565,7 +565,7 @@ static bool ReadEarlyOut(const wchar_t* ini) {
 static void InstallEarlyOut(bool planDetour) {
     if (!planDetour) { Log("FAIL route early-out: no Route_PlanLocked detour, nothing installed"); return; }
     g_eoAsOrig = (EoAsFn)InstallDetour("WorldAStar_Search (early-out)", WORLD_ASTAR, kWorldAStarPrologue,
-                                       sizeof(kWorldAStarPrologue), (void*)EoAsHook);
+                                       sizeof(kWorldAStarPrologue), (void*)EoAsHook, &g_eoAsOrig);
     ts3native_counters.eoReady = g_eoAsOrig != NULL;
 }
 

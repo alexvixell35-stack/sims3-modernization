@@ -378,14 +378,8 @@ static int Rm2InstallCamIc() {
     for (int i = 0; i < RM2_IC_N; i++) {
         char name[80];
         sprintf_s(name, "%s (unseen root motion camera IC)", kRm2CamIc[i].name);
-        u8* tr = (u8*)InstallDetour(name, kRm2CamIc[i].addr, kRm2CamIc[i].pro, kRm2CamIc[i].len, (void*)kRm2IcStubs[i]);
-        if (!tr) continue;
-        if (tr[0] == 0xE8) {
-            const u8* callee = (const u8*)(uintptr_t)kRm2CamIc[i].addr + 5 + *(const LONG*)(kRm2CamIc[i].pro + 1);
-            *(LONG*)(tr + 1) = (LONG)(callee - (tr + 5));
-        }
-        g_rm2IcTramp[i] = tr;
-        n++;
+        // trampoline (its call rel32 re-targeted) published before the jmp goes live
+        if (InstallDetour(name, kRm2CamIc[i].addr, kRm2CamIc[i].pro, kRm2CamIc[i].len, (void*)kRm2IcStubs[i], &g_rm2IcTramp[i])) n++;
     }
     return n;
 }

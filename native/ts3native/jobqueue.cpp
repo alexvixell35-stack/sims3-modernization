@@ -125,7 +125,7 @@ static bool ApplyJobQueue(const wchar_t* ini) {
             Log("OK   job queue workers: JobManager_Init arg 1 -> 0x%X (%ld generic workers)", bits, k.jqWorkers);
         }
     }
-    g_jqExecOrig = InstallDetour("ExecuteJob (job queue counters)", JQ_EXECUTE, kJqExecPrologue, sizeof(kJqExecPrologue), (void*)JqExecStub);
+    g_jqExecOrig = InstallDetour("ExecuteJob (job queue counters)", JQ_EXECUTE, kJqExecPrologue, sizeof(kJqExecPrologue), (void*)JqExecStub, &g_jqExecOrig);
     if (g_jqExecOrig) k.jqReady |= 2;
     return k.jqReady != 0;
 }

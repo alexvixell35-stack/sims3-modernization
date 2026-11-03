@@ -1,0 +1,161 @@
+{
+  "note": "Issue #122 (SaveSlim), CI asi c846543. Forced path first: Mode 0 measure, Mode 2 write, then two sessions on the slimmed save, and a 20-min third one (run 2, 2026-11-02). New save names only (SlimTest-LR-*); delete them after.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "asi": "game-copy/asi-slim-0211ced/ts3native.asi",
+      "pinReason": "CI build of feat/save-slim 0211ced (no local C++ tools): the unreadable diagnostic and the open retry",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "id": "lr-saveslim-measure",
+      "note": "Correctness (5 min): Mode 0 on BigSave-LR saved as SlimTest-LR-m0. Pass: one 'save slim:' summary (what Mode 2 would drop), nothing written, no FAIL line.",
+      "save": "BigSave-LR",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 0
+      },
+      "logRequire": {
+        "save slim: .*ExportDB[.]package: .*left [(](Mode 0|under 1 MB)": 1,
+        "save slim: .*references read": 1
+      },
+      "logForbid": {
+        "^FAIL|save slim: .*(mismatch|FAIL|error)": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-save-m0"
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-0211ced/ts3native.asi",
+      "pinReason": "CI build of feat/save-slim 0211ced (no local C++ tools): the unreadable diagnostic and the open retry",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "id": "lr-saveslim-write",
+      "note": "Correctness (5 min): Mode 2 on BigSave-LR saved as SlimTest-LR-m2. Pass: per-ExportDB 'entries a -> b ... : ok' lines, no FAIL line.",
+      "save": "BigSave-LR",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "logRequire": {
+        "save slim: .*ExportDB.*entries [0-9]+ -> [0-9]+": 1,
+        "save slim: .*references read": 1
+      },
+      "logForbid": {
+        "^FAIL|save slim: .*(mismatch|FAIL|error)": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-save-m2"
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-0211ced/ts3native.asi",
+      "pinReason": "CI build of feat/save-slim 0211ced (no local C++ tools): the unreadable diagnostic and the open retry",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "id": "lr-saveslim-reload-1",
+      "note": "Session 1 after the write (6 min): load SlimTest-LR-m2 (slimmed), play, save as SlimTest-LR-m2b with Mode 2 again. Pass: loads, no new script errors beyond known, stuck Sims as on BigSave-LR, the second slim runs.",
+      "save": "SlimTest-LR-m2",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "logRequire": {
+        "save slim: .*ExportDB[.]package: .*: rewritten": 1,
+        "save slim: .*references read": 1
+      },
+      "logForbid": {
+        "^FAIL|save slim: .*(mismatch|FAIL|error)": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-save-m2b"
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-0211ced/ts3native.asi",
+      "pinReason": "CI build of feat/save-slim 0211ced (no local C++ tools): the unreadable diagnostic and the open retry",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "id": "lr-saveslim-reload-2",
+      "note": "Session 2 (5 min): load SlimTest-LR-m2b (slimmed twice) and play. Pass: loads, plays 5 min, no FAIL. (No save in this session, so no slim summary is required here; the first run of 2026-11-02 07:09 failed only on that rule.)",
+      "save": "SlimTest-LR-m2b",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "logForbid": {
+        "^FAIL|save slim: .*(mismatch|FAIL|error)": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      }
+    },
+    {
+      "asi": "game-copy/asi-slim-0211ced/ts3native.asi",
+      "pinReason": "CI build of feat/save-slim 0211ced (no local C++ tools): the unreadable diagnostic and the open retry",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "id": "lr-saveslim-longplay",
+      "note": "Session 3 (20 min): load SlimTest-LR-m2b (slimmed twice), save as SlimTest-LR-m2c with Mode 2 at the start, play 20 min. Pass: loads, the third rewrite ok or left (nothing new to drop), no FAIL line, no new script errors beyond known.",
+      "save": "SlimTest-LR-m2b",
+      "ini": {
+        "SaveWrite.Enabled": 1,
+        "SaveSlim.Enabled": 1,
+        "SaveSlim.Mode": 2
+      },
+      "logRequire": {
+        "save slim: .*ExportDB[.]package: .*: (rewritten|left)": 1,
+        "save slim: .*references read": 1
+      },
+      "logForbid": {
+        "^FAIL|save slim: .*(mismatch|FAIL|error)": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 20,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "saveslim-save-m2c"
+        }
+      }
+    }
+  ]
+}

@@ -411,7 +411,7 @@ static bool RjpInstallAt(int i, DWORD at, void** owner) {
     if (Matches((const void*)(uintptr_t)at, s.pro, s.len)) {
         char name[80];
         sprintf_s(name, "%s (route phases)", s.name);
-        return (g_rjpJmp[i] = InstallDetour(name, at, s.pro, s.len, (void*)kRjpStubs[i])) != NULL;
+        return (g_rjpJmp[i] = InstallDetour(name, at, s.pro, s.len, (void*)kRjpStubs[i], &g_rjpJmp[i])) != NULL;
     }
     if (owner && *owner) {
         g_rjpJmp[i] = *owner;

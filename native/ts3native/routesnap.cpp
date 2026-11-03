@@ -511,8 +511,7 @@ static void InstallLotRemoveGuard(const wchar_t* ini) {
         if (kSn[i].leaf == SL_LOTREMOVEFP && g_snJmp[i]) { Log("lot-0 remove guard: inside the [RouteSnap] stub"); return; }
     if (!GetPrivateProfileIntW(L"LotRemoveGuard", L"Enabled", 1, ini)) { Log("lot-0 remove guard off (Enabled=0)"); return; }
     static const u8 kPro[] = {0x83, 0xEC, 0x34, 0x8B, 0x44, 0x24, 0x38};  // sub esp,34h; mov eax,[esp+38h]
-    void* t = InstallDetour("LotRouting_RemoveObjectFootprints (lot-0 guard)", 0x00635700, kPro, sizeof(kPro), (void*)LrGuardHook);
-    if (t) g_lrOrig = (LrRemoveFn)t;
+    InstallDetour("LotRouting_RemoveObjectFootprints (lot-0 guard)", 0x00635700, kPro, sizeof(kPro), (void*)LrGuardHook, &g_lrOrig);
 }
 static volatile LONG g_snWorldStopLog;
 // slot = the return-address slot at the hooked instruction (a function entry or a call)
@@ -705,7 +704,7 @@ static int SnInstallAt(int i, DWORD at, DWORD target) {
     if (!target) {
         char name[64];
         sprintf_s(name, "%s (routesnap)", s.name);
-        return (g_snJmp[i] = InstallDetour(name, at, s.pro, s.len, (void*)kSnStubs[i])) != NULL;
+        return (g_snJmp[i] = InstallDetour(name, at, s.pro, s.len, (void*)kSnStubs[i], &g_snJmp[i])) != NULL;
     }
     g_snJmp[i] = (void*)(uintptr_t)target;
     const LONG rel = (LONG)((DWORD)(uintptr_t)kSnStubs[i] - (at + 5));

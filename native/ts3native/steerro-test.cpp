@@ -2608,7 +2608,7 @@ int main(int argc, char** argv) {
 
     // B. the S2 hook on the mapped 0x85FD10
     Ts3nCounters& k = ts3native_counters;
-    g_locoOrig = (LocoFn)InstallDetour("Locomotion_ObstacleCheck", STEER_LOCO, kLocoPro, sizeof(kLocoPro), (void*)LocoHook);
+    g_locoOrig = (LocoFn)InstallDetour("Locomotion_ObstacleCheck", STEER_LOCO, kLocoPro, sizeof(kLocoPro), (void*)LocoHook, &g_locoOrig);
     assert(g_locoOrig);
     const DWORD me = GetCurrentThreadId();
     static DWORD simTid;
@@ -2721,7 +2721,7 @@ int main(int argc, char** argv) {
 
     // C. the worker writer stubs on the game's prologues; W6a end to end on a worker thread
     for (int i = 0; i < QL_N; i++) {
-        g_qlTramp[i] = InstallDetour(kQlSites[i].name, kQlSites[i].addr, kQlSites[i].pro, kQlSites[i].len, (void*)kQlStubs[i]);
+        g_qlTramp[i] = InstallDetour(kQlSites[i].name, kQlSites[i].addr, kQlSites[i].pro, kQlSites[i].len, (void*)kQlStubs[i], &g_qlTramp[i]);
         assert(g_qlTramp[i]);
     }
     g_qlOn = 1;
@@ -2889,7 +2889,7 @@ int main(int argc, char** argv) {
                cmp, withDoor, perType[0], perType[1], perType[2], k.portalRef[0], k.portalRef[4]);
         assert(withDoor > cmp / 10 && perType[3] == 0 && perType[4] == 0 && k.portalRef[0] == withDoor && k.portalRef[4] == withDoor);
         // the L1 detour on the mapped 0x631800: job -> clone (no AddRef/Release), no job -> the game's code; shadow; QL busy
-        g_fdOrig = (FdFn)InstallDetour("LotRouting_FrontDoorPortal", LT_FD, kFdPro, sizeof(kFdPro), (void*)FdHook);
+        g_fdOrig = (FdFn)InstallDetour("LotRouting_FrontDoorPortal", LT_FD, kFdPro, sizeof(kFdPro), (void*)FdHook, &g_fdOrig);
         assert(g_fdOrig);
         k.ltMode = 1;
         const LONG ref0 = k.portalRef[0];
@@ -3816,7 +3816,7 @@ int main(int argc, char** argv) {
                fb[SR_FB_SHAPE], cases - cmp - fb[SR_FB_LOTMISS] - fb[SR_FB_DEFERRED] - fb[SR_FB_CACHE] - fb[SR_FB_SHAPE]);
         assert(cmp > cases / 2 && hits > cases / 20);
         // the detour on the mapped 0x751480 (tripwire and W stubs in place since C and F): job -> clone, no job -> the game's code
-        g_orOrig = (OrFn)InstallDetour("IC_Route_IsPointObstructedBySim", OR_IC, kOrPro, sizeof(kOrPro), (void*)OrHook);
+        g_orOrig = (OrFn)InstallDetour("IC_Route_IsPointObstructedBySim", OR_IC, kOrPro, sizeof(kOrPro), (void*)OrHook, &g_orOrig);
         assert(g_orOrig);
         k.orMode = 1;
         long orN = 0;
@@ -4040,8 +4040,8 @@ int main(int argc, char** argv) {
         // G-AV5: the A-site and the two detours on the mapped image
         const CallSite cs = {AV_SITE, AV_QUERY, (void*)AvSite};
         assert(PatchCalls("avoid RO A-site", &cs, 1));
-        g_avAOrig = (AvAFn)InstallDetour("RouteFollow_A", AV_A, kAvPro, sizeof(kAvPro), (void*)AvAHook);
-        g_avBOrig = (AvBFn)InstallDetour("RouteFollow_B", AV_B, kAvPro, sizeof(kAvPro), (void*)AvBHook);
+        g_avAOrig = (AvAFn)InstallDetour("RouteFollow_A", AV_A, kAvPro, sizeof(kAvPro), (void*)AvAHook, &g_avAOrig);
+        g_avBOrig = (AvBFn)InstallDetour("RouteFollow_B", AV_B, kAvPro, sizeof(kAvPro), (void*)AvBHook, &g_avBOrig);
         assert(g_avAOrig && g_avBOrig);
         g_async.owner = me;
         k.avMode = 1;
@@ -4491,10 +4491,10 @@ int main(int argc, char** argv) {
         for (int i = 0; i < 4; i++) savedPool[i] = *(DWORD*)(uintptr_t)kPoolGlobal[i], ((void(__cdecl*)())(uintptr_t)kPoolInit[i])();
         {
             static const u8 kCw[] = {0x51, 0x53, 0x8B, 0x5C, 0x24, 0x2C}, kAs[] = {0x83, 0xEC, 0x3C, 0x53, 0x8B, 0x5C, 0x24, 0x58};
-            g_k8CwOrig = (K8CwFn)InstallDetour("K8 count 0x65BB90", 0x0065BB90, kCw, sizeof(kCw), (void*)K8CwCount);
-            g_k8AsOrig = (K8AsFn)InstallDetour("K8 count 0x676260", 0x00676260, kAs, sizeof(kAs), (void*)K8AsCount);
+            g_k8CwOrig = (K8CwFn)InstallDetour("K8 count 0x65BB90", 0x0065BB90, kCw, sizeof(kCw), (void*)K8CwCount, &g_k8CwOrig);
+            g_k8AsOrig = (K8AsFn)InstallDetour("K8 count 0x676260", 0x00676260, kAs, sizeof(kAs), (void*)K8AsCount, &g_k8AsOrig);
             static const u8 kGa[] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};
-            g_k8GaOrig = (K8GaFn)InstallDetour("K8 count 0x654CC0", 0x00654CC0, kGa, sizeof(kGa), (void*)K8GaCount);
+            g_k8GaOrig = (K8GaFn)InstallDetour("K8 count 0x654CC0", 0x00654CC0, kGa, sizeof(kGa), (void*)K8GaCount, &g_k8GaOrig);
         }
         // STEERRO_PHASES=1 (docs/150 §7 fix): [RouteJobPhases] stubs on every planner site whose prologue is still the game's
         // (the allocator, Lock_Acquire and world A* are K8's own fakes/counters here: skipped); the old RjpPop crashed on the

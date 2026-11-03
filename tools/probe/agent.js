@@ -1658,6 +1658,12 @@ rpc.exports = {
       if (c.readS32() >= 158) f.push('rmSlW1Late');
       // v159 Mode 2 SACS bound-actor classes (docs/228 §11.8): rm2SacsCls_<0 self, 1 other Sim, 2 prop near, 3 slotted elsewhere, 4 object near, 5 object far, 6 not found, 7 fault>
       if (c.readS32() >= 159) f.push(...n('rm2SacsCls', 8));
+      // v160 [SaveSlim] (docs/15 phase 11): worker passes with an exception or a failed rewrite step (save left as written)
+      if (c.readS32() >= 160) f.push('slimFails');
+      // v161 [GcGrowLog] (docs/232 Run 8l), v162 [GC] BlackListCapKB (Run 8n), v163 its load-screen window (Run 8q)
+      if (c.readS32() >= 161) f.push('gwMode', 'gwReady', 'gwExpands', 'gwFails', 'gwKB', 'gwMaxAskKB', 'gwUnseenKB', 'gwLines', 'gwXmlCalls', 'gwXmlMaxKB');
+      if (c.readS32() >= 162) f.push('gcCapKB', 'gcBlackOk', 'gcBlackOkMaxKB', 'gcExpandStreak', 'gcExpandStreakMax', 'gcStrictN');
+      if (c.readS32() >= 163) f.push('gcLenientN', 'gcSwitchSec');
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key

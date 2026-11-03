@@ -1,0 +1,97 @@
+{
+  "note": "blcap verify (2026-11-03, branch feature/v025-gc-blcap aec05d5b, ts3native 0.36.168 counters v163, builds.json blcap-asi / blcap-fixes): [GC] BlackListCapKB=1024 with the load-screen window (lenient at start-up, menu and load screens; EA's 8 MB clamp written back at each world load, the cap again at each world quit) vs BlackListCapKB=0, for the v0.2.5 Steam go/no-go (docs/232 Run 8q). Correctness and memory only, not a timing queue; stop on first failure; ~2 h.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-blcap-reload-win",
+      "note": "Start-up smoke + memory stress, window arm. Baseline-BP, cap 1024, [MemDiag] marks. save-reload.ts: 2 min play (CAS + Buy visit), save as SaveReload-BP, then 6 menu-route reloads (save, main menu, load the same save, 1 min play). Each mark records the GC_black_list_spacing (0x0119482C) and the gc* counters. Pass: the cap line, 7 'restored 8 MB clamp' lines (first load + 6 reloads) and 6 'cap lenient again at world quit' lines, the first restore line shows spacing <= 1024 KB (cap active during start-up), spacing 8192 KB at the sr-reload10 marks (strict after the next GC in play), no crash, no FAIL/SKIP gc line. Read: per-cycle heap / private / largest free from the sr-reload10-N marks.",
+      "asi": "game-copy/ts3native.asi.blcap",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "minCounters": 163,
+      "ini": { "GC.BlackListCapKB": 1024, "MemDiag.Enabled": 1, "UserDiag.Enabled": 1 },
+      "logRequire": {
+        "ts3native 0.36.168": 1,
+        "^OK   GC black-list spacing cap: 0x00E4A856": 1,
+        "^gc blcap: restored 8 MB clamp at world load #": 7,
+        "^gc blcap: cap lenient again at world quit": 6
+      },
+      "logForbid": { "^(SKIP|FAIL) GC black-list": 0, "^SKIP gc black-list": 0, "^FAIL gc black-list": 0, "tracking stopped": 0 },
+      "run": { "saveReload": ["--world", "BP", "--play", "2", "--after", "1", "--cycles", "6", "--no-direct"] },
+      "timeoutMin": 60
+    },
+    {
+      "id": "bp-blcap-reload-off",
+      "note": "Memory stress, cap 0 arm: the same flow and save as bp-blcap-reload-win with BlackListCapKB=0 (the shipped default). Pass: 'gc black-list cap off', 6 reloads done, no crash. Compare per cycle with the window arm: heap / private within ~5 % or 10 MB per cycle, largest free not worse.",
+      "asi": "game-copy/ts3native.asi.blcap",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "minCounters": 163,
+      "ini": { "GC.BlackListCapKB": 0, "MemDiag.Enabled": 1, "UserDiag.Enabled": 1 },
+      "logRequire": { "ts3native 0.36.168": 1, "^gc black-list cap off": 1 },
+      "logForbid": { "^gc blcap:": 0, "tracking stopped": 0 },
+      "run": { "saveReload": ["--world", "BP", "--play", "2", "--after", "1", "--cycles", "6", "--no-direct"] },
+      "timeoutMin": 60
+    },
+    {
+      "id": "bp-blcap-travel",
+      "note": "Travel switches, window arm: Baseline-BP, cap 1024, one round trip to France (1 sim hour there). Pass: restored at world load #1 (BP), #2 (France), #3 (home), lenient at each of the 2 world quits, no crash.",
+      "asi": "game-copy/ts3native.asi.blcap",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "minCounters": 163,
+      "ini": { "GC.BlackListCapKB": 1024, "UserDiag.Enabled": 1 },
+      "logRequire": { "^gc blcap: restored 8 MB clamp at world load #": 3, "^gc blcap: cap lenient again at world quit": 2 },
+      "logForbid": { "^SKIP gc black-list": 0, "^FAIL gc black-list": 0, "tracking stopped": 0 },
+      "run": { "script": ["travel-trip.ts", "--to", "france", "--trips", "1", "--hours", "1"] },
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-blcap-play",
+      "note": "10 min natural play with the release ini + cap 1024 (release defaults, blcap-fixes package). Pass: 0 crash / exception / stuck, restore line once, hitches not worse than today's rel025c bp jobs (read with hitch tools, not a timing claim).",
+      "asi": "game-copy/ts3native.asi.blcap",
+      "fixesPackage": "game-copy/ts3fixes.package.blcap",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "minCounters": 163,
+      "ini": { "GC.BlackListCapKB": 1024 },
+      "logRequire": { "^gc blcap: restored 8 MB clamp at world load #1": 1 },
+      "logForbid": { "^SKIP gc black-list": 0, "^FAIL gc black-list": 0, "tracking stopped": 0 },
+      "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true } },
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 30,
+      "pinReason": "blcap is the build under test (builds.json blcap-asi / blcap-fixes, 0.36.168)"
+    },
+    {
+      "id": "ip-blcap-smoke-1",
+      "note": "Start-up smoke, IP, cap 1024: 5 min play. Pass: the cap line, restore line once with spacing <= 1024 KB, no crash.",
+      "asi": "game-copy/ts3native.asi.blcap",
+      "fixesPackage": "game-copy/ts3fixes.package.blcap",
+      "save": "Baseline-IP",
+      "noiseCheck": false,
+      "minCounters": 163,
+      "ini": { "GC.BlackListCapKB": 1024 },
+      "logRequire": { "^OK   GC black-list spacing cap: 0x00E4A856": 1, "^gc blcap: restored 8 MB clamp at world load #1": 1 },
+      "logForbid": { "^SKIP gc black-list": 0, "^FAIL gc black-list": 0, "tracking stopped": 0 },
+      "run": { "profile": { "minutes": 5, "seed": 12345, "noSamplers": true } },
+      "timeoutMin": 25,
+      "pinReason": "blcap is the build under test"
+    },
+    {
+      "id": "ip-blcap-smoke-2",
+      "note": "Second IP start-up smoke (launch count), same as ip-blcap-smoke-1.",
+      "asi": "game-copy/ts3native.asi.blcap",
+      "fixesPackage": "game-copy/ts3fixes.package.blcap",
+      "save": "Baseline-IP",
+      "noiseCheck": false,
+      "minCounters": 163,
+      "ini": { "GC.BlackListCapKB": 1024 },
+      "logRequire": { "^OK   GC black-list spacing cap: 0x00E4A856": 1, "^gc blcap: restored 8 MB clamp at world load #1": 1 },
+      "logForbid": { "^SKIP gc black-list": 0, "^FAIL gc black-list": 0, "tracking stopped": 0 },
+      "run": { "profile": { "minutes": 5, "seed": 23456, "noSamplers": true } },
+      "timeoutMin": 25,
+      "pinReason": "blcap is the build under test"
+    }
+  ]
+}

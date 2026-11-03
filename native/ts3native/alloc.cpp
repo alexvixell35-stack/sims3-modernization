@@ -286,10 +286,10 @@ static bool ApplyAlloc(const wchar_t* ini) {
         Log("SKIP alloc cache: EA allocator entry bytes differ (another patch there?), nothing written");
         return false;
     }
-    g_eaShutdownOrig = (EaShutdownFn)InstallDetour("EA heap Shutdown", EA_SHUTDOWN, kEaShutdownPrologue, sizeof(kEaShutdownPrologue), (void*)EaShutdownHook);
-    g_eaFreeOrig = g_eaShutdownOrig ? (EaFreeFn)InstallDetour("EA heap Free", EA_FREE, kEaLockedPrologue, sizeof(kEaLockedPrologue), (void*)EaFreeHook) : NULL;
-    g_eaMallocOrig = g_eaFreeOrig ? (EaMallocFn)InstallDetour("EA heap Malloc", EA_MALLOC, kEaLockedPrologue, sizeof(kEaLockedPrologue), (void*)EaMallocHook) : NULL;
-    g_eaMemalignOrig = g_eaMallocOrig ? (EaMemalignFn)InstallDetour("EA heap Memalign", EA_MEMALIGN, kEaLockedPrologue, sizeof(kEaLockedPrologue), (void*)EaMemalignHook) : NULL;
+    g_eaShutdownOrig = (EaShutdownFn)InstallDetour("EA heap Shutdown", EA_SHUTDOWN, kEaShutdownPrologue, sizeof(kEaShutdownPrologue), (void*)EaShutdownHook, &g_eaShutdownOrig);
+    g_eaFreeOrig = g_eaShutdownOrig ? (EaFreeFn)InstallDetour("EA heap Free", EA_FREE, kEaLockedPrologue, sizeof(kEaLockedPrologue), (void*)EaFreeHook, &g_eaFreeOrig) : NULL;
+    g_eaMallocOrig = g_eaFreeOrig ? (EaMallocFn)InstallDetour("EA heap Malloc", EA_MALLOC, kEaLockedPrologue, sizeof(kEaLockedPrologue), (void*)EaMallocHook, &g_eaMallocOrig) : NULL;
+    g_eaMemalignOrig = g_eaMallocOrig ? (EaMemalignFn)InstallDetour("EA heap Memalign", EA_MEMALIGN, kEaLockedPrologue, sizeof(kEaLockedPrologue), (void*)EaMemalignHook, &g_eaMemalignOrig) : NULL;
     if (!g_eaMemalignOrig) { Log("FAIL alloc cache: detour install"); return false; }  // shortcut: an earlier detour stays; it only counts/forwards
     c.allocReady = 1;
     Log("OK   alloc cache: mode %ld, chunks <= %lu bytes, %d KB per thread, %ld threads max (%d MB), %d per bin", c.allocMode, kAcMaxChunk,

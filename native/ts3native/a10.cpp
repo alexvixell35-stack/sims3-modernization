@@ -55,7 +55,7 @@ static void InstallA10(const wchar_t* ini) {
     k.afMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"ForeignKindsMode", 1, ini), 0, 1);
     for (int kind = 1; kind <= 3; kind++) {
         if (!((kinds | fkinds) & kArBuilt & (1 << (kind - 1)))) continue;
-        g_arOrig[kind] = InstallDetour(kP10Name[kind], kP10Ic[kind], kP10Pro[kind], sizeof(kP10Pro[kind]), kArHooks[kind]);
+        g_arOrig[kind] = InstallDetour(kP10Name[kind], kP10Ic[kind], kP10Pro[kind], sizeof(kP10Pro[kind]), kArHooks[kind], &g_arOrig[kind]);
         if (g_arOrig[kind]) k.arReady |= 1 << (kind - 1);  // a kind without its detour is refused at START
     }
     g_arOwnKinds = kinds;

@@ -62,8 +62,8 @@ static __declspec(naked) void GtLargeStub() {
 // [GcThreadCheck] Enabled=1 installs both detours (measurement only, no behaviour change).
 static bool ApplyGcThreadCheck(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"GcThreadCheck", L"Enabled", 0, ini)) { Log("gc thread check disabled (Enabled=0)"); return false; }
-    g_gtObjOrig = InstallDetour("GC_allocobj (gc thread check)", GT_ALLOCOBJ, kGtAllocObj, sizeof(kGtAllocObj), (void*)GtObjStub);
-    g_gtLargeOrig = InstallDetour("GC_alloc_large (gc thread check)", GT_ALLOCLARGE, kGtAllocLarge, sizeof(kGtAllocLarge), (void*)GtLargeStub);
+    g_gtObjOrig = InstallDetour("GC_allocobj (gc thread check)", GT_ALLOCOBJ, kGtAllocObj, sizeof(kGtAllocObj), (void*)GtObjStub, &g_gtObjOrig);
+    g_gtLargeOrig = InstallDetour("GC_alloc_large (gc thread check)", GT_ALLOCLARGE, kGtAllocLarge, sizeof(kGtAllocLarge), (void*)GtLargeStub, &g_gtLargeOrig);
     ts3native_counters.gcCheckReady = (g_gtObjOrig ? 1 : 0) | (g_gtLargeOrig ? 2 : 0);
     return g_gtObjOrig || g_gtLargeOrig;
 }

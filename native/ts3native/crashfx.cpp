@@ -1037,8 +1037,8 @@ static void DiDump(const CONTEXT* c) {
     }
 }
 static void DiInstall() {
-    g_diRelOrig = InstallDetour("crash forensics db index release 0x72DB80 (record only)", kDiRelAt, kDiRelPro, sizeof(kDiRelPro), (void*)DiRelThunk);
-    g_diHasOrig = InstallDetour("crash forensics db index contains 0x72DBD0 (check only)", kDiHasAt, kDiHasPro, sizeof(kDiHasPro), (void*)DiHasThunk);
+    g_diRelOrig = InstallDetour("crash forensics db index release 0x72DB80 (record only)", kDiRelAt, kDiRelPro, sizeof(kDiRelPro), (void*)DiRelThunk, &g_diRelOrig);
+    g_diHasOrig = InstallDetour("crash forensics db index contains 0x72DBD0 (check only)", kDiHasAt, kDiHasPro, sizeof(kDiHasPro), (void*)DiHasThunk, &g_diHasOrig);
     Log("crash forensics: docs/67 §16: db index log release %s, contains check %s (ring %lu events)", g_diRelOrig ? "on" : "off",
         g_diHasOrig ? "on" : "off", kDiRing);
 }
@@ -1091,7 +1091,7 @@ static bool ApplyCrashForensics(const wchar_t* ini) {
         return true;
     }
     if (GetPrivateProfileIntW(L"CrashForensics", L"Guards", 1, ini)) {
-        g_cfEraseOrig = (CfEraseFn)InstallDetour("crash forensics map erase 0x5EE1E0 (check only)", kCfEraseAt, kCfErasePro, sizeof(kCfErasePro), (void*)CfEraseHook);
+        g_cfEraseOrig = (CfEraseFn)InstallDetour("crash forensics map erase 0x5EE1E0 (check only)", kCfEraseAt, kCfErasePro, sizeof(kCfErasePro), (void*)CfEraseHook, &g_cfEraseOrig);
         if (g_cfEraseOrig) k.cfReady |= 2;
         CfClrFn t = Matches((const void*)(uintptr_t)kCfClrAt, kCfClrPro, sizeof(kCfClrPro)) ? CfClrTramp() : NULL;
         if (t) {
@@ -1099,7 +1099,7 @@ static bool ApplyCrashForensics(const wchar_t* ini) {
             if (CfJmp(kCfClrAt, kCfClrPro, sizeof(kCfClrPro), (void*)CfClrHook)) k.cfReady |= 4, Log("OK   detour crash forensics array clear 0x7B0A00 (check only)");
         } else Log("SKIP crash forensics guard at 0x7B0A00: prologue differs");
         // docs/67 §15: the parent check before the 0x958944 path
-        g_xgOrig = (XgFn)InstallDetour("crash forensics transform parent 0x958560 (check only)", kXgAt, kXgPro, sizeof(kXgPro), (void*)XgHook);
+        g_xgOrig = (XgFn)InstallDetour("crash forensics transform parent 0x958560 (check only)", kXgAt, kXgPro, sizeof(kXgPro), (void*)XgHook, &g_xgOrig);
     }
     // docs/186 §8: our-events ring and the draw guards (both default off)
     if (GetPrivateProfileIntW(L"CrashForensics", L"OurEvents", 0, ini)) g_ceOn = 1, k.cdReady |= 16;
@@ -1112,7 +1112,7 @@ static bool ApplyCrashForensics(const wchar_t* ini) {
     if (GetPrivateProfileIntW(L"CrashForensics", L"DbIndexLog", 0, ini)) DiInstall();
     // docs/67 §17: scene node check before SceneNode_FindRecursive reads (default off); adds to everything above
     if (GetPrivateProfileIntW(L"CrashForensics", L"SceneTreeGuard", 0, ini))
-        g_stOrig = InstallDetour("crash forensics scene node search 0xC5FA60 (check only)", kStAt, kStPro, sizeof(kStPro), (void*)StThunk);
+        g_stOrig = InstallDetour("crash forensics scene node search 0xC5FA60 (check only)", kStAt, kStPro, sizeof(kStPro), (void*)StThunk, &g_stOrig);
     Log("crash forensics: docs/186 §8: our-events ring %s (%lu events), draw guards model %s resource %s effect %s binding %s",
         g_ceOn ? "on" : "off", kCeRing, k.cdReady & 1 ? "on" : "off", k.cdReady & 2 ? "on" : "off", k.cdReady & 4 ? "on" : "off",
         k.cdReady & 8 ? "on" : "off");

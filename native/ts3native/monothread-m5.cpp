@@ -431,8 +431,8 @@ static bool ApplyArenaGuard(const wchar_t* ini) {
         Log("arena guard: left to [MonoThread] ArenaFix (P3 owns 0xD71900 / 0xD71B70)");
         return false;
     }
-    if ((g_mtGrowOrig = InstallDetour("arena grow (arena guard)", 0x00D71900, kAgGrow, 5, (void*)MtArenaGrow)) != NULL) g_agReady |= 1;
-    if ((g_mtRelAllOrig = InstallDetour("arena release all (arena guard)", 0x00D71B70, kAgRelAll, 5, (void*)MtArenaReleaseAll)) != NULL) g_agReady |= 2;
+    if ((g_mtGrowOrig = InstallDetour("arena grow (arena guard)", 0x00D71900, kAgGrow, 5, (void*)MtArenaGrow, &g_mtGrowOrig)) != NULL) g_agReady |= 1;
+    if ((g_mtRelAllOrig = InstallDetour("arena release all (arena guard)", 0x00D71B70, kAgRelAll, 5, (void*)MtArenaReleaseAll, &g_mtRelAllOrig)) != NULL) g_agReady |= 2;
     Log("%s arena guard: ready 0x%X (bit 0 heal before grow, 1 clear after release-all)", g_agReady == 3 ? "OK  " : "PART", g_agReady);
     return g_agReady != 0;
 }

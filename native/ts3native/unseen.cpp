@@ -1010,7 +1010,7 @@ static void ApplyUnseenThrottle(const wchar_t* ini) {
             g_usfOrig = UtFpHook;
             k.ut2Ready |= 2 | 4;
         } else if ((g_utFpNext = (UnUsfFn)InstallDetour("UpdateSimFootprint (unseen throttle)", UN_USF, kUnUsfPrologue,
-                                                        sizeof(kUnUsfPrologue), (void*)UtFpHook)) != NULL) {
+                                                        sizeof(kUnUsfPrologue), (void*)UtFpHook, &g_utFpNext)) != NULL) {
             k.ut2Ready |= 2;
         }
         if (g_utFpNext) {
@@ -1037,7 +1037,8 @@ static void ApplyUnseenThrottle(const wchar_t* ini) {
     for (int i = 0; i < 2; i++) {
         const int ic = i ? 3 : 1;
         void* const hook = i ? (void*)UtRpPosHook : (void*)UtRpHook;
-        void* t = InstallDetour(kP10Name[ic], kP10Ic[ic], kP10Pro[ic], sizeof(kP10Pro[ic]), hook);
+        void* t = i ? InstallDetour(kP10Name[ic], kP10Ic[ic], kP10Pro[ic], sizeof(kP10Pro[ic]), hook, &g_utRpPosOrig)
+                    : InstallDetour(kP10Name[ic], kP10Ic[ic], kP10Pro[ic], sizeof(kP10Pro[ic]), hook, &g_utRpOrig);
         // [RouteAsync] ReplanDedupe's own detour (A10 off) owns the prologue: chain behind it, so the split counts the calls
         // that planned (served repeats never reach it); the trampoline is published before the swap
         const bool chained = !t && g_rdOrig[ic];
@@ -1073,7 +1074,7 @@ static bool ApplyUnseenProbe(const wchar_t* ini) {
                 *bottom = UnUsfHook;
                 ready |= 2;
             } else if ((g_unUsfOrig = (UnUsfFn)InstallDetour("UpdateSimFootprint (unseen probe)", UN_USF, kUnUsfPrologue,
-                                                             sizeof(kUnUsfPrologue), (void*)UnUsfHook)) != NULL)
+                                                             sizeof(kUnUsfPrologue), (void*)UnUsfHook, &g_unUsfOrig)) != NULL)
                 ready |= 2;
         }
         if (g_icPlanOrig) ready |= 4;  // plans are split only through the async plan detour

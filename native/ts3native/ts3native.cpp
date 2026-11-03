@@ -13,7 +13,7 @@
 #include <intrin.h>  // _ReturnAddress (vfG11CloseBy)
 #include <psapi.h>  // K32GetMappedFileNameW (XcptOtherModule)
 
-#define TS3NATIVE_VERSION "0.36.166"
+#define TS3NATIVE_VERSION "0.36.168"
 
 typedef unsigned char u8;
 
@@ -44,8 +44,20 @@ static bool Readable(const void* p, size_t n) {
     return (const u8*)p + n <= (const u8*)mbi.BaseAddress + mbi.RegionSize;
 }
 
+#ifdef TS3N_TEST_EXPECTED
+// selftest: one fake table row (address + live bytes), so a test can make the live bytes differ from the literal, as the
+// EA port's translated-bytes table does (TestDetourCallRel)
+static DWORD g_testExpAt;
+static const u8* g_testExpBytes;
+static const u8* ExpectedAt(const void* addr, const u8* lit, size_t) {
+    return g_testExpBytes && (DWORD)(uintptr_t)addr == g_testExpAt ? g_testExpBytes : lit;
+}
+#else
+#define ExpectedAt(addr, lit, n) (lit)
+#endif
+
 static bool Matches(const void* addr, const u8* expect, size_t n) {
-    return Readable(addr, n) && memcmp(addr, expect, n) == 0;
+    return Readable(addr, n) && memcmp(addr, ExpectedAt(addr, expect, n), n) == 0;
 }
 
 static bool Write(void* addr, const void* bytes, size_t n) {
@@ -59,7 +71,7 @@ static bool Write(void* addr, const void* bytes, size_t n) {
 
 struct Site {
     DWORD addr;      // VA of the instruction
-    u8 expect[8];    // original instruction bytes
+    u8 expect[10];   // original instruction bytes
     size_t len;
     size_t immOff;   // offset of the 32-bit immediate inside the instruction
 };
@@ -88,10 +100,34 @@ static bool PatchImm32(const char* name, const Site* sites, int count, DWORD val
     return true;
 }
 
-// Phase 2 helper (unused so far): 5-byte jmp detour at `target`. `prologue` is the verified original
-// code, `len` >= 5 and ending on an instruction boundary, with no relative operands (it is copied
-// verbatim into the trampoline). Returns the trampoline that runs the original function, or NULL.
-void* InstallDetour(const char* name, DWORD target, const u8* prologue, size_t len, void* hook) {
+// One 8-byte locked write (a thread never runs half a jmp): the aligned qword around the 5 bytes, or, when they cross an
+// 8-byte boundary (offset 4-7), the 8 bytes at `t` itself: a locked cmpxchg8b is atomic at any alignment (a split lock,
+// slow but one-off); refusing instead would drop a detour that only moved by a few bytes on another exe build.
+static bool Write5(u8* t, const u8* five) {
+    const uintptr_t off = (uintptr_t)t & 7;
+    u8* const q = off <= 3 ? t - off : t;
+    DWORD old;
+    if (!VirtualProtect(q, 8, PAGE_EXECUTE_READWRITE, &old)) return false;
+    if (q == t) {
+        static volatile LONG warned;
+        if (!InterlockedExchange(&warned, 1)) Log("WARN detour write at 0x%08X crosses an 8-byte boundary: unaligned locked write", (DWORD)(uintptr_t)t);
+    }
+    for (;;) {
+        const LONG64 cur = *(volatile LONG64*)q;
+        LONG64 nw = cur;
+        memcpy((u8*)&nw + (t - q), five, 5);
+        if (InterlockedCompareExchange64((volatile LONG64*)q, nw, cur) == cur) break;
+    }
+    VirtualProtect(q, 8, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), t, 5);
+    return true;
+}
+
+// 5-byte jmp detour at `target`. `prologue` is the verified original code, `len` >= 5 and ending on an instruction
+// boundary, with no relative operands (it is copied verbatim into the trampoline). Returns the trampoline that runs the
+// original function, or NULL. A leading call rel32 is re-targeted in the trampoline at the original callee. `slot` (the caller's trampoline pointer, read by the hook) is stored before the jmp goes
+// live: a thread entering the hook between the jmp write and the caller's own store called address 0 (docs/232 Run 8e).
+static void* DetourCore(const char* name, DWORD target, const u8* prologue, size_t len, void* hook, void* volatile* slot) {
     u8* t = (u8*)(uintptr_t)target;
     if (len < 5 || len > 16 || !Matches(t, prologue, len)) {
         Log("SKIP detour %s at 0x%08X: prologue differs", name, target);
@@ -99,16 +135,36 @@ void* InstallDetour(const char* name, DWORD target, const u8* prologue, size_t l
     }
     u8* tramp = (u8*)VirtualAlloc(NULL, 32, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     if (!tramp) return NULL;
-    memcpy(tramp, prologue, len);
+    memcpy(tramp, t, len);  // the live bytes (Matches checked them against the expected ones)
     tramp[len] = 0xE9;
     *(LONG*)(tramp + len + 1) = (LONG)((t + len) - (tramp + len + 5));
-    u8 jmp[16];
-    memset(jmp, 0x90, sizeof(jmp));
-    jmp[0] = 0xE9;
+    if (tramp[0] == 0xE8) {  // rel32 from the copy of the live bytes, never the caller's literal (EA: docs/232 Run 7e / 8e)
+        const LONG rel = *(const LONG*)(tramp + 1);
+        *(LONG*)(tramp + 1) = (LONG)((t + 5 + rel) - (tramp + 5));
+    }
+    FlushInstructionCache(GetCurrentProcess(), tramp, len + 5);
+    void* const prev = slot ? *slot : NULL;
+    if (slot) *slot = tramp;
+    MemoryBarrier();
+    u8 jmp[5] = {0xE9};
     *(LONG*)(jmp + 1) = (LONG)((u8*)hook - (t + 5));
-    if (!Write(t, jmp, len)) { VirtualFree(tramp, 0, MEM_RELEASE); return NULL; }
+    // only the 5-byte jmp: bytes 5..len stay as they were (never reached through the jmp; a thread or branch already at an
+    // instruction there runs it intact, where a non-atomic nop tail would hand it half-written bytes)
+    if (!Write5(t, jmp)) {  // fails before writing anything (VirtualProtect), so undoing is safe
+        if (slot) *slot = prev;
+        VirtualFree(tramp, 0, MEM_RELEASE);
+        return NULL;
+    }
     Log("OK   detour %s at 0x%08X", name, target);
     return tramp;
+}
+// Every hook that calls through its trampoline passes `&slot`; the 5-argument form is for hooks that never do.
+template <class F> static void* InstallDetour(const char* name, DWORD target, const u8* prologue, size_t len, void* hook, F* slot) {
+    static_assert(sizeof(F) == sizeof(void*), "slot holds a code pointer");
+    return DetourCore(name, target, prologue, len, hook, (void* volatile*)slot);
+}
+static void* InstallDetour(const char* name, DWORD target, const u8* prologue, size_t len, void* hook) {
+    return DetourCore(name, target, prologue, len, hook, NULL);
 }
 
 static DWORD g_mainTid;  // thread that loaded us (Run)
@@ -279,7 +335,7 @@ static void ApplyGc(const wchar_t* ini) {
 }
 
 // --- Phase 2: negative cache for failed route plans (docs/11 Q5, docs/15 phase 2) ---
-// Counters for test tools: Frida `Module.findExportByName('ts3native.asi', 'ts3native_counters')`, read 5817 int32 (v159 [UnseenRootMotion] Mode 2 SacsHold=3 bound-actor classes rm2SacsCls after v158, version field 159; v158 [UnseenRootMotion] Mode 1 walk-1 rescan rmSlW1Late after v157, version field 158; v157 [UnseenRootMotion] Mode 2 SacsHold + SACS driver / actor histograms after v156, version field 157; v156 [UnseenAnim] aaSlotReset / aaStale + [UnseenRootMotion] rmSlMissHold after v155, version field 156; v155 [UnseenRootMotion] Mode 2 script camera IC hooks after v154, version field 155; v154 [UnseenRootMotion] Mode 2 coarse unseen Sims after v153, version field 154; v153 [UnseenRootMotion] Mode 1 late starts after v152, version field 153; v152 [UnseenTable] lazy rows after v151, version field 152; v151 [UnseenRootMotion] after v150, version field 151; v147 [UnseenAnim] after v146, version field 147; v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs after v145, version field 146; v145 [UnseenGhost] after v144; v144 [EaCrashFixes] MintDivGuard after v143, version field 144; v143 [MonoFast] CallPath after v142, version field 143; v142 [RouteAsync] WorkerWait after v141; v141 [EaCrashFixes] after v140, version field 141; v140 [UnseenFallback] FinishWalk holds after v139, version field 140; v139 [UnseenFallback] C1-C4 site fallbacks after v138, version field 139; v138 [UnseenFallback] after v137, version field 138; v137 [MemDiag] TypeGrowth + [GC] SqrtHeapLimit after v136 [ResourceCache] trim, version field 137; v135 PlanDeadlineMs sync-path exemptions after v134, version field 135; v134 [RouteAsync] KindDeadlines after v133; v133 [RouteSnap] LotUseReadout after v132; v132 [RouteSnap] PoolChunkMB / EpochHeap after v131; v129 [RouteSnap] StaleLotFp after reserved v126-v128, version field 129; v125 [RouteSnap] StaleLot after reserved v123 / v124, version field 125; v119 [IdleCheckRO] after v118, version field 119; v118 [GoalValidRO] slots kept, other branch; v117 CrashForensics ObjResLog after v116, version field 117; v116 CrashForensics EffectLog after v115, version field 116; v115 CrashForensics DrawGuards / OurEvents after v114, version field 115; v114 CrashForensics after v113, version field 114; v113 DeferPrivateFp after v112, version field 113; v112 P6 take kinds + Mode=2 cut sharing + per-job phase split after v111, version field 112; v111 watchpoint constructor-pair count + follow + replay audit rebase hold after v110, version field 111; v110 [Watchpoint] lot arm + child z / parent +0x30 writer probes after v109, version field 110; v109 job yield + sim job waits by site after v108, version field 109; v108 gate site 16 after v107; v107 PlanDrain after v106; v106 P5 steps 2-4 after v105 (layout of merge eaef8a1b; zeros without it); v105 RecsUnlocked after v104, version field 105; v104 refcount guard after v103; v103 job deadline + own waits + goal-step split after v102; v102 goal split + GoalGen D1 + H2 IC window after v101, version field 102; v101 foreign kinds after v100; v100 placement RO after v99; v99 plan deadline + fail memo after v98; v98 lock holders after v97; v97 sync plan phases after v96; v96 host-call split + DoorMemo after v93; v93 route-to-object RO appended after v95 at the 2026-10-22 0325 merge, version field stays 95; v95 F-G held-out count after v94, v94 design U phase 2 after v92, v92 route allocator sites after v91, v91 [Gate0RO] after v90, v90 replan dedupe after v88, all at the 2026-10-22 integration merge; version field 95; v88 cell memo probe appended after v89; v89 tail unlock; v87 route job phases; v86; v77 AvoidRO before v78, v79 unseen probe + throttle after v78, v80 unseen throttle phase 2, v81 foreign job cap, v83 unseen diagnostics, v84 foreign job split, v85 H2 counters, v86 acting early-out, no v52, v58 or v82 fields in this build).
+// Counters for test tools: Frida `Module.findExportByName('ts3native.asi', 'ts3native_counters')`, read 5836 int32 (v163 [GC] BlackListCapKB window gcLenientN / gcSwitchSec at 0x5B28 after v162, version field 163; v162 [GC] BlackListCapKB gc* at 0x5B10 after v161, version field 162; v161 [GcGrowLog] gw* at 0x5AE8 after v160, version field 161; v160 [SaveSlim] slimFails after v159, version field 160; v159 [UnseenRootMotion] Mode 2 SacsHold=3 bound-actor classes rm2SacsCls after v158, version field 159; v158 [UnseenRootMotion] Mode 1 walk-1 rescan rmSlW1Late after v157, version field 158; v157 [UnseenRootMotion] Mode 2 SacsHold + SACS driver / actor histograms after v156, version field 157; v156 [UnseenAnim] aaSlotReset / aaStale + [UnseenRootMotion] rmSlMissHold after v155, version field 156; v155 [UnseenRootMotion] Mode 2 script camera IC hooks after v154, version field 155; v154 [UnseenRootMotion] Mode 2 coarse unseen Sims after v153, version field 154; v153 [UnseenRootMotion] Mode 1 late starts after v152, version field 153; v152 [UnseenTable] lazy rows after v151, version field 152; v151 [UnseenRootMotion] after v150, version field 151; v147 [UnseenAnim] after v146, version field 147; v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs after v145, version field 146; v145 [UnseenGhost] after v144; v144 [EaCrashFixes] MintDivGuard after v143, version field 144; v143 [MonoFast] CallPath after v142, version field 143; v142 [RouteAsync] WorkerWait after v141; v141 [EaCrashFixes] after v140, version field 141; v140 [UnseenFallback] FinishWalk holds after v139, version field 140; v139 [UnseenFallback] C1-C4 site fallbacks after v138, version field 139; v138 [UnseenFallback] after v137, version field 138; v137 [MemDiag] TypeGrowth + [GC] SqrtHeapLimit after v136 [ResourceCache] trim, version field 137; v135 PlanDeadlineMs sync-path exemptions after v134, version field 135; v134 [RouteAsync] KindDeadlines after v133; v133 [RouteSnap] LotUseReadout after v132; v132 [RouteSnap] PoolChunkMB / EpochHeap after v131; v129 [RouteSnap] StaleLotFp after reserved v126-v128, version field 129; v125 [RouteSnap] StaleLot after reserved v123 / v124, version field 125; v119 [IdleCheckRO] after v118, version field 119; v118 [GoalValidRO] slots kept, other branch; v117 CrashForensics ObjResLog after v116, version field 117; v116 CrashForensics EffectLog after v115, version field 116; v115 CrashForensics DrawGuards / OurEvents after v114, version field 115; v114 CrashForensics after v113, version field 114; v113 DeferPrivateFp after v112, version field 113; v112 P6 take kinds + Mode=2 cut sharing + per-job phase split after v111, version field 112; v111 watchpoint constructor-pair count + follow + replay audit rebase hold after v110, version field 111; v110 [Watchpoint] lot arm + child z / parent +0x30 writer probes after v109, version field 110; v109 job yield + sim job waits by site after v108, version field 109; v108 gate site 16 after v107; v107 PlanDrain after v106; v106 P5 steps 2-4 after v105 (layout of merge eaef8a1b; zeros without it); v105 RecsUnlocked after v104, version field 105; v104 refcount guard after v103; v103 job deadline + own waits + goal-step split after v102; v102 goal split + GoalGen D1 + H2 IC window after v101, version field 102; v101 foreign kinds after v100; v100 placement RO after v99; v99 plan deadline + fail memo after v98; v98 lock holders after v97; v97 sync plan phases after v96; v96 host-call split + DoorMemo after v93; v93 route-to-object RO appended after v95 at the 2026-10-22 0325 merge, version field stays 95; v95 F-G held-out count after v94, v94 design U phase 2 after v92, v92 route allocator sites after v91, v91 [Gate0RO] after v90, v90 replan dedupe after v88, all at the 2026-10-22 integration merge; version field 95; v88 cell memo probe appended after v89; v89 tail unlock; v87 route job phases; v86; v77 AvoidRO before v78, v79 unseen probe + throttle after v78, v80 unseen throttle phase 2, v81 foreign job cap, v83 unseen diagnostics, v84 foreign job split, v85 H2 counters, v86 acting early-out, no v52, v58 or v82 fields in this build).
 struct Ts3nCounters {
     LONG version;      // layout version, 4
     LONG enabled;      // 1 when the Route_PlanLocked detour is installed
@@ -2470,8 +2526,31 @@ struct Ts3nCounters {
     LONG rmSlW1Late;                   // +0x5AC0, actors whose EA test turned yes during walk 1 (not flagged, not last pass's set), found by the rescan before the first sub-step
     // v159 (0.36.166, docs/228 §11.8, unseenrm.cpp): [UnseenRootMotion] Mode 2 SACS bound-actor classes (every SacsHold mode)
     LONG rm2SacsCls[8];                // +0x5AC4, bound actors at the SACS test by class: self, other Sim, prop (parented, near), slotted elsewhere (parented, far), object near (unparented), object far, not found, fault; SacsHold=3 holds on 1, 3, 4, 6, 7
+    // v160 (0.36.167, docs/15 phase 11, saveslim.cpp): [SaveSlim] worker passes that failed
+    LONG slimFails;                    // +0x5AE4, passes with an exception or a failed rewrite step (temp file deleted, the save file left as the game wrote it)
+    // v161 (0.36.168, docs/232 Run 8l, gcgrow.cpp): [GcGrowLog] Boehm heap expansions through GC_collect_or_expand, log only
+    LONG gwMode;                       // +0x5AE8, runtime switch (--ab gcgrowlog): 1 = gcgrow: lines, 0 = count only
+    LONG gwReady;                      // +0x5AEC, both calls of GC_expand_hp_inner go to GwThunk (bit 0), xml detour (bit 1)
+    LONG gwExpands;                    // +0x5AF0, expansions asked
+    LONG gwFails;                      // +0x5AF4, of those, GC_expand_hp_inner returned 0
+    LONG gwKB;                         // +0x5AF8, heap growth through them, KB
+    LONG gwMaxAskKB;                   // +0x5AFC, largest single ask, KB
+    LONG gwUnseenKB;                   // +0x5B00, heap growth between two of ours (not through these calls), KB
+    LONG gwLines;                      // +0x5B04, gcgrow: lines written (500 at most)
+    LONG gwXmlCalls;                   // +0x5B08, Simulator_LoadXmlAsString calls (detour, gwReady bit 1)
+    LONG gwXmlMaxKB;                   // +0x5B0C, largest string it returned, KB
+    // v162 (0.36.168, docs/232 Run 8n, gcgrow.cpp): [GC] BlackListCapKB, Boehm black-list spacing cap and its counters
+    LONG gcCapKB;                      // +0x5B10, spacing cap in force, KB (0 = off)
+    LONG gcBlackOk;                    // +0x5B14, large blocks taken despite black-listed pages (GC_allochblk_nth punt)
+    LONG gcBlackOkMaxKB;               // +0x5B18, largest of those, KB
+    LONG gcExpandStreak;               // +0x5B1C, heap expansions since the last collection (same GC_gc_no)
+    LONG gcExpandStreakMax;            // +0x5B20, longest such streak
+    LONG gcStrictN;                    // +0x5B24, switches to strict (EA's 8 MB clamp back): a world finished loading
+    // v163 (0.36.168, docs/232 Run 8q, gcgrow.cpp): [GC] BlackListCapKB window
+    LONG gcLenientN;                   // +0x5B28, switches back to the cap: a world quit (menu, travel, another save, exit)
+    LONG gcSwitchSec;                  // +0x5B2C, seconds after init of the last switch
 };
-extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {159,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {163,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -4639,9 +4718,9 @@ static int ReadRouteAsync(const wchar_t* ini) {
 // a missing one leaves asyncReady 0, and START is then never answered yes.
 static bool InstallAsync(int mode) {
     if (!g_hostCallOrig) { Log("FAIL route async: host call detour missing, async plans stay off"); return false; }
-    g_lockOrig = (LockAcquireFn)InstallDetour("Lock_Acquire", LOCK_ACQUIRE, kLockAcquirePrologue, sizeof(kLockAcquirePrologue), (void*)LockAcquireHook);
-    g_icPlanOrig = g_lockOrig ? (IcPlanFn)InstallDetour("IC_Route_Plan", IC_ROUTE_PLAN, kIcPlanPrologue, sizeof(kIcPlanPrologue), (void*)IcPlanHook) : NULL;
-    g_getOptOrig = g_icPlanOrig ? (GetOptionFn)InstallDetour("Route_GetOption", ROUTE_GET_OPTION, kGetOptionPrologue, sizeof(kGetOptionPrologue), (void*)GetOptionHook) : NULL;
+    g_lockOrig = (LockAcquireFn)InstallDetour("Lock_Acquire", LOCK_ACQUIRE, kLockAcquirePrologue, sizeof(kLockAcquirePrologue), (void*)LockAcquireHook, &g_lockOrig);
+    g_icPlanOrig = g_lockOrig ? (IcPlanFn)InstallDetour("IC_Route_Plan", IC_ROUTE_PLAN, kIcPlanPrologue, sizeof(kIcPlanPrologue), (void*)IcPlanHook, &g_icPlanOrig) : NULL;
+    g_getOptOrig = g_icPlanOrig ? (GetOptionFn)InstallDetour("Route_GetOption", ROUTE_GET_OPTION, kGetOptionPrologue, sizeof(kGetOptionPrologue), (void*)GetOptionHook, &g_getOptOrig) : NULL;
     if (!g_getOptOrig) { Log("FAIL route async: detours incomplete, async plans stay off"); return false; }
     ts3native_counters.asyncMode = mode;
     ts3native_counters.asyncReady = 1;
@@ -4691,11 +4770,11 @@ static bool ApplyRouteBudget(const wchar_t* ini) {
 // Returns true when installed (the log must then stay open for the periodic counters and the watchdog).
 static bool InstallPlanDetour(bool cache, bool worker, bool budget, bool gate) {
     if (!cache && !worker && !budget && !gate) return false;
-    g_planOrig = (PlanLockedFn)InstallDetour("Route_PlanLocked", ROUTE_PLAN_LOCKED, kPlanLockedPrologue, sizeof(kPlanLockedPrologue), (void*)PlanLockedHook);
+    g_planOrig = (PlanLockedFn)InstallDetour("Route_PlanLocked", ROUTE_PLAN_LOCKED, kPlanLockedPrologue, sizeof(kPlanLockedPrologue), (void*)PlanLockedHook, &g_planOrig);
     if (!g_planOrig) { ts3native_counters.windowMs = 0; return false; }
     ts3native_counters.budgetReady = budget && PatchCostSites(kCostSites, kCostFns);
     // the worker's host delegate calls must run on the caller/owner thread; without that detour the worker stays unused
-    if (worker) g_hostCallOrig = (HostCallFn)InstallDetour("host call", HOST_CALL, kHostCallPrologue, sizeof(kHostCallPrologue), (void*)HostCallHook);
+    if (worker) g_hostCallOrig = (HostCallFn)InstallDetour("host call", HOST_CALL, kHostCallPrologue, sizeof(kHostCallPrologue), (void*)HostCallHook, &g_hostCallOrig);
     if (worker && !g_hostCallOrig) Log("FAIL route worker: host call detour missing, plans stay on the calling thread");
     ts3native_counters.workerReady = worker && g_hostCallOrig;
     ts3native_counters.enabled = 1;
@@ -4709,9 +4788,14 @@ static void UdWait(const char* what);    // a wait inside the phase starts (NULL
 static void UdSaveStart(int travelSave, int traveling);
 static void UdSaveEnd(DWORD r);
 static void UdInfoDir(const unsigned char* info);  // the save folder from the save info (sized after the save)
+// saveslim.cpp ([SaveSlim], docs/15 phase 11): the save hooks note the saved folder, start the worker and wait for it
+static void SlimNote(const unsigned char* info);
+static void SlimStart(DWORD r);
+static void SlimWait();
 #include "apex.cpp"
 #include "savewrite.cpp"
 #include "decompress.cpp"
+#include "saveslim.cpp"  // docs/15 phase 11: [SaveSlim] (after savewrite.cpp and decompress.cpp)
 #include "alloc.cpp"
 #include "waterjps.cpp"
 #include "savecompress.cpp"
@@ -4719,6 +4803,7 @@ static void UdInfoDir(const unsigned char* info);  // the save folder from the s
 #include "heightcache.cpp"
 #include "gcthreads.cpp"
 #include "memexp.cpp"  // docs/199: [MemDiag] TypeGrowth, [GC] SqrtHeapLimit (off)
+#include "gcgrow.cpp"  // docs/232 Run 8l/8n: [GcGrowLog] + [GC] BlackListCapKB (after memexp.cpp: g_mx; savewrite.cpp: PatchCalls)
 #include "threadstack.cpp"
 #include "iclock.cpp"
 #include "routegate.cpp"
@@ -4766,10 +4851,13 @@ static_assert(offsetof(Ts3nCounters, aoReady) == 0x56D0 && offsetof(Ts3nCounters
 static_assert(offsetof(Ts3nCounters, rmReady) == 0x5830 && offsetof(Ts3nCounters, rmK) == 0x5840 && offsetof(Ts3nCounters, rmTailN) == 0x5890 &&
               offsetof(Ts3nCounters, rmZoneN) == 0x58C0 && offsetof(Ts3nCounters, rmDeltaN) == 0x5900 &&
               offsetof(Ts3nCounters, rmSlFallback) == 0x5928 && offsetof(Ts3nCounters, rmSpare) == 0x5944 &&
-              sizeof(Ts3nCounters) == 5817 * 4, "v151 layout (docs/registry.md)");
+              sizeof(Ts3nCounters) == 5836 * 4, "v151 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, utbRowCalc) == 0x5950 && offsetof(Ts3nCounters, utbForced) == 0x5960, "v152 layout (docs/registry.md)");
-static_assert(offsetof(Ts3nCounters, rmSlIns) == 0x5964 && offsetof(Ts3nCounters, rmSlCandFull) == 0x5980 && sizeof(Ts3nCounters) == 5817 * 4,
+static_assert(offsetof(Ts3nCounters, rmSlIns) == 0x5964 && offsetof(Ts3nCounters, rmSlCandFull) == 0x5980 && sizeof(Ts3nCounters) == 5836 * 4,
               "v153 layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, gwMode) == 0x5AE8 && offsetof(Ts3nCounters, gwXmlMaxKB) == 0x5B0C && offsetof(Ts3nCounters, gcCapKB) == 0x5B10 &&
+                  offsetof(Ts3nCounters, gcExpandStreakMax) == 0x5B20 && offsetof(Ts3nCounters, gcSwitchSec) == 0x5B2C && sizeof(Ts3nCounters) == 5836 * 4,
+              "v161 + v162 + v163 layout (docs/registry.md)");
 #include "autshadow.cpp"
 #include "gcroots.cpp"  // docs/67 §22.4: Crash S task-rooting line + [GcRootCheck] (after autshadow.cpp: autledger's g_lgCtx; memexp.cpp: g_mx)
 #include "snap.cpp"
@@ -4918,12 +5006,13 @@ static void Run(HMODULE self) {
         InstallPlanDeadline();     // docs/164 §7: after the plan detour, the cost stubs and InstallAsync (SyncIc); before [RouteJobPhases]
         keepLog = ApplySaveWrite(ini) || keepLog;
         ApplySaveFlush(ini);
+        ApplySaveSlim(ini);  // after [SaveFlush] (shares its load-copy hook when that is on)
         keepLog = ApplyUserDiag(ini) || keepLog;  // docs/188: after [SaveWrite] (its save phase sites need the save hooks)
         ApplyCompaction(ini);  // docs/204: after [UserDiag] (its text channel and save end) and ApexDetect
         ApplyRcTrim(ini);  // docs/198 §4: EXPERIMENT, off ([ResourceCache] TrimAfterCleanup)
         // the NOYIELD query guards ts3fixes' other yields too, so it is answered with async off (START then says no)
         if (!g_getOptOrig)
-            g_getOptOrig = (GetOptionFn)InstallDetour("Route_GetOption", ROUTE_GET_OPTION, kGetOptionPrologue, sizeof(kGetOptionPrologue), (void*)GetOptionHook);
+            g_getOptOrig = (GetOptionFn)InstallDetour("Route_GetOption", ROUTE_GET_OPTION, kGetOptionPrologue, sizeof(kGetOptionPrologue), (void*)GetOptionHook, &g_getOptOrig);
         keepLog = ApplyDecompress(ini) || keepLog;
         keepLog = ApplyAlloc(ini) || keepLog;
         keepLog = ApplyWaterJps(ini) || keepLog;
@@ -4932,6 +5021,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyHeightCache(ini) || keepLog;
         keepLog = ApplyGcThreadCheck(ini) || keepLog;
         keepLog = ApplyMemExp(ini) || keepLog;  // docs/199 (default off)
+        keepLog = ApplyGcGrowLog(ini) || keepLog;  // docs/232 Run 8l/8n: [GcGrowLog] log + [GC] BlackListCapKB (both off by default)
         keepLog = ApplyGcRootCheck(ini) || keepLog;  // docs/67 §22.4 (off): after ApplyMemExp, chains its GC_notify_event hook
         keepLog = ApplyThreadStack(ini) || keepLog;  // docs/66 §6: exe IAT CreateThread/_beginthreadex (default off)
         keepLog = ApplyWatchpoint(ini) || keepLog;  // docs/157 §8: vectored handler for WpArm (default off)

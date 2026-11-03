@@ -427,13 +427,13 @@ static bool InstallRouteGate(bool planHooked) {
     InitializeCriticalSection(&g_rgCs);
     Ts3nCounters& k = ts3native_counters;
     if (!g_lockOrig)
-        g_lockOrig = (LockAcquireFn)InstallDetour("Lock_Acquire (route gate)", LOCK_ACQUIRE, kLockAcquirePrologue, sizeof(kLockAcquirePrologue), (void*)LockAcquireHook);
+        g_lockOrig = (LockAcquireFn)InstallDetour("Lock_Acquire (route gate)", LOCK_ACQUIRE, kLockAcquirePrologue, sizeof(kLockAcquirePrologue), (void*)LockAcquireHook, &g_lockOrig);
     if (!g_lockOrig) return false;
-    g_rgRelOrig = (LockReleaseFn)InstallDetour("Lock_Release (route gate)", LOCK_RELEASE, kLockReleasePrologue, sizeof(kLockReleasePrologue), (void*)LockReleaseHook);
+    g_rgRelOrig = (LockReleaseFn)InstallDetour("Lock_Release (route gate)", LOCK_RELEASE, kLockReleasePrologue, sizeof(kLockReleasePrologue), (void*)LockReleaseHook, &g_rgRelOrig);
     if (!g_rgRelOrig) { k.rgReady = 1; return false; }
     int n = 0;
     for (int i = 0; i < RG_SITES; i++)
-        n += (g_rgTramp[i] = InstallDetour(kRgSites[i].name, kRgSites[i].addr, kRgSites[i].pro, kRgSites[i].len, (void*)kRgStubs[i])) != NULL;
+        n += (g_rgTramp[i] = InstallDetour(kRgSites[i].name, kRgSites[i].addr, kRgSites[i].pro, kRgSites[i].len, (void*)kRgStubs[i], &g_rgTramp[i])) != NULL;
     k.rgReady = 3 | (n == RG_SITES ? 4 : 0);
     if (g_g10c && g_rgTramp[10]) k.p10Ready |= 2;  // counting needs all three (7); a partial set stays pass-through
     Log("%s route gate: %d of %d gate sites, owner tracking on Lock_Acquire/Lock_Release (measurement only)",

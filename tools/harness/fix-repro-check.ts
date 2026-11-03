@@ -34,7 +34,7 @@ export const EXEMPT: Record<string, string> = {
   unseentablettl: 'native [UnseenTable] RefreshTicks arm (--ab unseentablettl, utbTtlMode), a cost knob of the shared classifier: correctness by unseen-table.json bp-utb-ttl-check (Check=1, unseen-snapback repro), cost by bp-utb-ttl-ab (docs/227 §8)',
   unseentablecopy: 'ts3fixes UnseenTable.cs copy path (docs/227 §9), the A/B baseline of the zero-copy Bits(id) reads, default off: correctness by unseen-table.json bp-utb2-check (zero-copy default, repro unseen-snapback; the copy path is the §6 path bp-utb-check tested), cost by bp-utb2-copy-ab (--ab unseentablecopy)',
   unseenghost: 'native [UnseenGhost] ini section (UnseenGhost.Enabled=1), not an ab/fixesOn name: turned on in every unseen-route-relaxed.json / unseen-route-long-ab.json job (docs/202 §3.9.5); acts only for unseenroute holds, which have repros',
-  autshadowverify: DIAG, autunseencmp: DIAG, ownjobwait: DIAG, autledger: MONO,
+  autshadowverify: DIAG, autunseencmp: DIAG, ownjobwait: DIAG, gcgrowlog: DIAG, autledger: MONO,
   autoffenv: OFFLOAD, autoffbcast: OFFLOAD, autoffdry: OFFLOAD, autoffenvapply: OFFLOAD, autoffbcastapply: OFFLOAD, autoffnoref: OFFLOAD, autofftick: OFFLOAD,
   mintcall: 'Mono speed, not a hitch fix: no repro makes script calls more frequent than plain play; correctness by mintcall-verify.json (CallPath=2) and the monohost selftests, timing by the plain-play pairs in mintcall-ab.json (docs/139 §8)',
   workerwait: 'worker CPU, not a hitch fix: no repro makes the job-start wait more likely than plain play; measured by the off/on plain-play pairs in route-worker-wait.json, correctness by the selftest TestRouteWorkerWait (docs/203 §6)',

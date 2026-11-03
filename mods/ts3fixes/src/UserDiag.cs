@@ -63,6 +63,10 @@ namespace Ts3Fixes
             try { return Mvid(a).Substring(0, 8); } catch (Exception) { return "?"; }
         }
 
+        // Called from Instantiator's world-quit handler (menu, travel, another save, exit): ts3native [GC] BlackListCapKB
+        // puts the lenient black-list cap back for the load screen (gcgrow.cpp; "world:" below makes it strict again).
+        public static void DiagWorldQuit() { DiagLine("world quit"); }
+
         // Called from Instantiator's world-load handler.
         public static void DiagWorldLoad()
         {

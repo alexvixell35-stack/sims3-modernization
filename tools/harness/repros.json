@@ -51855,5 +51855,405 @@
       "minutes": 1
     },
     "expect": "save: result 0 each; no .sims3.bad in Saves"
+  },
+  {
+    "id": "saveslim-save-m0",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "BigSave-LR",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-LR-m0.sims3. Mode 0.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-LR-m0; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-LR-m0"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-save-m2",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "BigSave-LR",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-LR-m2.sims3. Mode 2.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-LR-m2; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-LR-m2"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-save-m2b",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "SlimTest-LR-m2",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-LR-m2b.sims3. Mode 2.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-LR-m2b; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-LR-m2b"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-save-m2c",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "SlimTest-LR-m2b",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-LR-m2b.sims3. Mode 2. Third session on the slimmed save: a longer play (20 min) after a Mode 2 save of it as SlimTest-LR-m2c.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-LR-m2b; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-LR-m2c"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-bp-m0",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "Baseline-BP-Spring",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-BP-m0.sims3. Mode 0. Save matrix (#122): Bridgeport (spring).",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-BP-m0; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-BP-m0"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-bp-m2",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "Baseline-BP-Spring",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-BP-m2.sims3. Mode 2. Save matrix (#122): Bridgeport (spring).",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-BP-m2; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-BP-m2"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-bp-m2b",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "SlimTest-BP-m2",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-BP-m2b.sims3. Mode 2. Save matrix (#122): Bridgeport (spring). Second session on the slimmed save.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-BP-m2b; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-BP-m2b"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-bpcc-m0",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "SaveReload-BPCC",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-BPCC-m0.sims3. Mode 0. Save matrix (#122): Bridgeport with CC-heavy households.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-BPCC-m0; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-BPCC-m0"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-bpcc-m2",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "SaveReload-BPCC",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-BPCC-m2.sims3. Mode 2. Save matrix (#122): Bridgeport with CC-heavy households.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-BPCC-m2; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-BPCC-m2"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-bpcc-m2b",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "SlimTest-BPCC-m2",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-BPCC-m2b.sims3. Mode 2. Save matrix (#122): Bridgeport with CC-heavy households. Second session on the slimmed save.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-BPCC-m2b; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-BPCC-m2b"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-old-m0",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "1111 kit5",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-OLD-m0.sims3. Mode 0. Save matrix (#122): the old lived-in save (2+ years of play, NRaas in the Mods folder).",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-OLD-m0; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-OLD-m0"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-old-m2",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "1111 kit5",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-OLD-m2.sims3. Mode 2. Save matrix (#122): the old lived-in save (2+ years of play, NRaas in the Mods folder).",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-OLD-m2; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-OLD-m2"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-old-m2b",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "SlimTest-OLD-m2",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-OLD-m2b.sims3. Mode 2. Save matrix (#122): the old lived-in save (2+ years of play, NRaas in the Mods folder). Second session on the slimmed save.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-OLD-m2b; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-OLD-m2b"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-mf-m0",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "BigSave-MF",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-MF-m0.sims3. Mode 0. Save matrix (#122): Moonlight Falls big save.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-MF-m0; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-MF-m0"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-mf-m2",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "BigSave-MF",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-MF-m2.sims3. Mode 2. Save matrix (#122): Moonlight Falls big save.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-MF-m2; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-MF-m2"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "saveslim-mf-m2b",
+    "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
+    "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
+    "save": "SlimTest-MF-m2",
+    "note": "Saves as a NEW name (never the loaded save); the SaveSlim worker then reads or rewrites only Saves\\SlimTest-MF-m2b.sims3. Mode 2. Save matrix (#122): Moonlight Falls big save. Second session on the slimmed save.",
+    "expect": "ts3native.log 'save slim:' summary for SlimTest-MF-m2b; Mode 0 writes nothing, Mode 2 rewrites each ExportDB after a byte compare",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SlimTest-MF-m2b"
+        },
+        "waitS": 90,
+        "note": "the worker runs after the save returns"
+      },
+      {
+        "cmd": "time"
+      }
+    ]
   }
 ]

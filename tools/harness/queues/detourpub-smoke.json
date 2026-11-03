@@ -1,0 +1,39 @@
+{
+  "note": "Detour publish-order fix (PR #233, branch bugfix/detour-publish-order: InstallDetour / AsDetour store the trampoline slot, full barrier, then one atomic 5-byte jmp via Write5; call rel32 retarget inside InstallDetour). Asi game-copy/ts3native.asi.detourpub = master + the fix. Correctness only (noiseCheck false, --no-smoke): AllocSites hooks install and run under DXVK threads (the docs/232 Run 8e crash path), and every release-default detour still installs. Not a timing run. ~25 min with loads.",
+  "jobs": [
+    {
+      "id": "bp-detourpub-allocsites",
+      "note": "[MemDiag] AllocSites=1 AllocSitesVirtual=1, world load + 3 min natural play. Pass: 7 OK alloc sites Nt* lines, the on line, no FAIL/SKIP alloc sites line, no exception line, no crash.",
+      "asi": "game-copy/ts3native.asi.detourpub",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "pinReason": "ts3fixes of the v0.2.5 release under test (rel025c); the asi is the detour fix build",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "ini": { "MemDiag.AllocSites": 1, "MemDiag.AllocSitesVirtual": 1 },
+      "logRequire": {
+        "^OK   alloc sites Nt": 7,
+        "^alloc sites on ": 1
+      },
+      "logForbid": { "^FAIL\\b": 0, "^SKIP alloc sites": 0, "^SKIP detour": 0, "exception C0000005": 0 },
+      "run": { "profile": { "minutes": 3, "seed": 12345, "noSamplers": true } },
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 20
+    },
+    {
+      "id": "bp-detourpub-release",
+      "note": "v0.2.5 release defaults (repo ts3native.ini, AllocSites off), world load + 5 min natural play. Pass: every OK detour line of a rel025c release-defaults job present (compare names by hand), no FAIL / SKIP detour line, no exception line, no crash.",
+      "asi": "game-copy/ts3native.asi.detourpub",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "pinReason": "ts3fixes of the v0.2.5 release under test (rel025c); the asi is the detour fix build",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "logRequire": { "^OK   detour ": 40 },
+      "logForbid": { "^FAIL\\b": 0, "^SKIP detour": 0, "exception C0000005": 0 },
+      "run": { "profile": { "minutes": 5, "seed": 12345, "noSamplers": true } },
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 25
+    }
+  ]
+}

@@ -382,6 +382,7 @@ static void FlushStart() {  // sim thread, after the save returned
 
 static DWORD __fastcall LoadCopyHook(void* lsm, void*, const wchar_t* name, int dir) {
     FlushWait();
+    SlimWait();  // [SaveSlim]: the worker may still rewrite this save folder
     return g_loadCopyOrig(lsm, NULL, name, dir);
 }
 
@@ -389,6 +390,7 @@ static DWORD __fastcall LoadCopyHook(void* lsm, void*, const wchar_t* name, int 
 static DWORD __fastcall SaveGameHook(void* lsm, void*, void* info, int travelSave, int traveling) {
     UdSaveStart(travelSave, traveling);  // [UserDiag] "save: start" + watchdog, before anything here can wait
     FlushWait();  // the previous save's flushes, before this save touches any save folder
+    SlimWait();   // [SaveSlim]: the previous save's rewrite, likewise
     SaveTimesReset();
     g_fj.n = 0;
     g_fj.tid = GetCurrentThreadId();
@@ -411,6 +413,7 @@ static DWORD __fastcall SaveGameHook(void* lsm, void*, void* info, int travelSav
     SaveJobDiscard();  // a save that never reached the backup step (error, travel) leaves no copy behind
     const int deferred = g_fj.n;
     FlushStart();
+    SlimStart(r);  // [SaveSlim]: after a save that worked, the saved ExportDB on a worker
     const LONG total = UsSince(g_st.t0);
     ts3native_counters.saveLastUs = total;
     ts3native_counters.saveLastWriteUs = g_st.write < 0 ? 0 : g_st.write;  // counters: 0 = not measured, as before
@@ -435,6 +438,7 @@ static DWORD __fastcall SaveInfoHook(void* lsm, void*, u8* info, int keepId, int
     const DWORD r = g_saveInfoOrig(lsm, NULL, info, keepId, travelSave);
     g_st.infoEnd = UsSince(g_st.t0);
     UdInfoDir(info);
+    if (r == 0 && !(travelSave & 0xFF)) SlimNote(info);
     UdPhase("write (package)");
     if (r == 0 && !(travelSave & 0xFF) && ts3native_counters.saveMode == 1) SaveJobStart(info);
     return r;

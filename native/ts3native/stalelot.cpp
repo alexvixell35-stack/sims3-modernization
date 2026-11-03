@@ -144,7 +144,7 @@ static void ApplySl(const wchar_t* ini) {
     if (m != 1 && m != 2) return;
     g_stlOn = 1;
     k.stlReady |= 1;
-    g_stlFindTramp = InstallDetour("LotTable_Find (StaleLot read set)", STL_FIND, kStlFindPro, sizeof(kStlFindPro), (void*)StlFindStub);
+    g_stlFindTramp = InstallDetour("LotTable_Find (StaleLot read set)", STL_FIND, kStlFindPro, sizeof(kStlFindPro), (void*)StlFindStub, &g_stlFindTramp);
     if (g_stlFindTramp) k.stlReady |= 2;
     k.stlMode = m;
     const int fm = GetPrivateProfileIntW(L"RouteSnap", L"StaleLotFp", 0, ini);

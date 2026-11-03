@@ -117,7 +117,7 @@ static bool ApplyUnseenGhost(const wchar_t* ini) {
         *layer = GhFpHook;
         k.ghReady |= 1;
     } else if ((g_ghFpNext = (UnUsfFn)InstallDetour("UpdateSimFootprint (unseen ghost)", UN_USF, kUnUsfPrologue,
-                                                    sizeof(kUnUsfPrologue), (void*)GhFpHook)) != NULL) {
+                                                    sizeof(kUnUsfPrologue), (void*)GhFpHook, &g_ghFpNext)) != NULL) {
         k.ghReady |= 1;
     }
     if ((k.ghReady & 3) == 3) g_ghOn = true, k.ghMode = 1;

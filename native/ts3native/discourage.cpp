@@ -627,8 +627,8 @@ static void InstallFootprintDefer2(const wchar_t* ini) {
     if (!k.usfReady) { Log("FAIL footprint deferral phase 2: needs design U ([Discourage] DeferFootprint=1)"); return; }
     // the flush sites first: without them a deferred record could land after a private-footprint change of its object
     if (!PfSitesInstall()) { Log("FAIL footprint deferral phase 2: flush sites"); return; }
-    g_ftOrig = (Fp2Fn)InstallDetour("RoutingWorld_ObjectFootprintFromTool", FT_FN, kFtPro, sizeof(kFtPro), (void*)FtHook);
-    g_uolOrig = g_ftOrig ? (Fp2Fn)InstallDetour("RoutingWorld_UpdateObjectLot", UOL_FN, kUolPro, sizeof(kUolPro), (void*)UolHook) : NULL;
+    g_ftOrig = (Fp2Fn)InstallDetour("RoutingWorld_ObjectFootprintFromTool", FT_FN, kFtPro, sizeof(kFtPro), (void*)FtHook, &g_ftOrig);
+    g_uolOrig = g_ftOrig ? (Fp2Fn)InstallDetour("RoutingWorld_UpdateObjectLot", UOL_FN, kUolPro, sizeof(kUolPro), (void*)UolHook, &g_uolOrig) : NULL;
     if (!g_uolOrig) { Log("FAIL footprint deferral phase 2: detours incomplete"); return; }  // shortcut: a lone FromTool detour stays, mode 0
     k.fp2Ready = 1;
     k.fp2Mode = v == 2 ? 0 : 1;
@@ -638,7 +638,7 @@ static void InstallFootprintDefer2(const wchar_t* ini) {
 static void InstallFootprintDefer(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"Discourage", L"DeferFootprint", 0, ini)) { Log("footprint deferral off (DeferFootprint=0)"); return; }
     if (!ts3native_counters.discReady) { Log("FAIL footprint deferral: needs the discourage deferral ([Discourage] Enabled=1)"); return; }
-    g_usfOrig = (UsfFn)InstallDetour("RoutingWorld_UpdateSimFootprint", USF_FN, kUsfPro, sizeof(kUsfPro), (void*)UsfHook);
+    g_usfOrig = (UsfFn)InstallDetour("RoutingWorld_UpdateSimFootprint", USF_FN, kUsfPro, sizeof(kUsfPro), (void*)UsfHook, &g_usfOrig);
     if (!g_usfOrig) { Log("FAIL footprint deferral: detour"); return; }
     ts3native_counters.usfReady = 1;
     ts3native_counters.usfMode = 1;
@@ -662,9 +662,9 @@ static void InstallDiscourage(const wchar_t* ini) {
     }
     // default off until the 0.12.4 alignment fix has run in game (0.12.2 crashed on an 8-byte aligned points copy)
     if (!GetPrivateProfileIntW(L"Discourage", L"Enabled", 0, ini)) { Log("discourage deferral off (Enabled=0)"); return; }
-    g_discAddOrig = (DiscAddFn)InstallDetour("RoutingWorld_AddDiscourageFootprint", DISC_ADD, kDiscAddPro, sizeof(kDiscAddPro), (void*)DiscAddHook);
+    g_discAddOrig = (DiscAddFn)InstallDetour("RoutingWorld_AddDiscourageFootprint", DISC_ADD, kDiscAddPro, sizeof(kDiscAddPro), (void*)DiscAddHook, &g_discAddOrig);
     g_discRemoveOrig = g_discAddOrig ? (DiscRemoveFn)InstallDetour("RoutingWorld_RemoveDiscourageFootprint", DISC_REMOVE, kDiscRemovePro,
-                                                                 sizeof(kDiscRemovePro), (void*)DiscRemoveHook) : NULL;
+                                                                 sizeof(kDiscRemovePro), (void*)DiscRemoveHook, &g_discRemoveOrig) : NULL;
     if (!g_discRemoveOrig) { Log("FAIL discourage deferral: detours incomplete"); return; }  // shortcut: a lone Add detour stays, mode 0
     ts3native_counters.discReady = 1;
     ts3native_counters.discMode = Clamp(GetPrivateProfileIntW(L"Discourage", L"Mode", 1, ini), 0, 1);
