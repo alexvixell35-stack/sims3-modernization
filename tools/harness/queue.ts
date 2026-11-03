@@ -1887,6 +1887,12 @@ const killTree = (pid?: number) => { if (pid) try { execFileSync('taskkill', ['/
 
 // set while a job's game runs: '' when the game and the probe server are up, else why not; stall = the guard's verdict
 let jobGuard: (() => string) | null = null, stall = '';
+// a fail-fast stop of a healthy game (noise, routing, early gate) takes the game down first: killing the child alone tore
+// down its Frida sessions (stutter profiler, frame-times CModule hook) inside the running game, which crashed it
+// (2026-11-03: AV in frida-agent.dll writing a code page, twice in a row, which stopped the queue). With the game gone the
+// sessions just detach. Not a crash: the job's row reads guardClosed.
+let guardClosed = false;
+const stopGameFirst = () => { if (gameRunning()) { guardClosed = true; try { execFileSync('taskkill', ['/F', '/IM', GAME_EXE], { stdio: 'ignore' }); } catch { /* gone */ } } };
 // set while a timing (profile) job's child runs: '' = fine or not judged yet, else the early noise verdict (stops the child at once)
 let noiseGuard: (() => string) | null = null;
 // set while a routingFailFast job's profile runs: '' or the FAIL reason (stops the child at once, like noiseGuard)
@@ -1977,13 +1983,13 @@ function run(cmd: string, args: string[], logFile: string, deadline: number, onL
     let misses = 0;
     const g = jobGuard && setInterval(() => {
       const nz = noiseGuard?.() ?? '';
-      if (nz) { noiseGuard = null; stall ||= nz; on(Buffer.from(`FAIL: ${nz}; child stopped\n`)); killTree(p.pid); return; }
+      if (nz) { noiseGuard = null; stall ||= nz; on(Buffer.from(`FAIL: ${nz}; child stopped\n`)); stopGameFirst(); killTree(p.pid); return; }
       let rf = ''; try { rf = routeGuard?.() ?? ''; } catch (e) { on(Buffer.from(`routing fail-fast check failed (ignored): ${e}
 `)); }
       if (rf) { routeGuard = null; stall ||= rf; on(Buffer.from(`FAIL: ${rf}; child stopped
-`)); killTree(p.pid); return; }
+`)); stopGameFirst(); killTree(p.pid); return; }
       const eg = gateGuard?.() ?? '';
-      if (eg) { gateGuard = null; stall ||= eg; on(Buffer.from(`FAIL: ${eg}; child stopped\n`)); killTree(p.pid); return; }
+      if (eg) { gateGuard = null; stall ||= eg; on(Buffer.from(`FAIL: ${eg}; child stopped\n`)); stopGameFirst(); killTree(p.pid); return; }
       const mx = modeGuard?.() ?? '';
       if (mx) { modeGuard = null; stall ||= mx; on(Buffer.from(`FAIL: ${mx}; child stopped\n`)); killTree(p.pid); return; }
       const why = jobGuard!();
@@ -2601,7 +2607,8 @@ for (const [n, j] of jobs.entries()) {
   if (stopLoad) { stopLoad(); const ml = loadSummary(machineFile); Object.assign(row, { machine: ml.line, noise: ml.noise, noiseNote: ml.short, machineLog: machineFile }); log(`${j.id}: ${ml.line}`); }
   if (stall && !row.error?.includes(stall)) row.error = [row.error, stall].filter(Boolean).join('; ');
   stall = '';
-  row.crashed = launched && !closedByUs && !gameRunning() || row.verdict.some((v: string) => /game died/.test(v));
+  row.crashed = launched && !closedByUs && !guardClosed && !gameRunning() || row.verdict.some((v: string) => /game died/.test(v));
+  guardClosed = false;
   if (row.crashed) { row.crash = triage(t0); log(`${j.id}: game crashed\n${row.crash}`); await logUntrackedGame(s => log(`${j.id}: ${s}`)); } // EA only: names game processes this run never saw (docs/236 #20)
   try { row.hangCapture = hangCaptureLine(readFileSync(logFile).subarray(logOff).toString()); } catch { /* no job log */ }
   if (VANILLA) row.verdict.push(`N/A (vanilla): ${VANILLA_NA.join(', ')}`); // skipped, never PASS
