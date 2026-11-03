@@ -71,7 +71,9 @@ namespace Ts3Fixes
         static void PushHeld()
         {
             sHeld.Clear();
-            foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+            // LotManager.Actors: EA's list of Sims in the world (added on a lot, removed when destroyed). Queries.GetObjects<Sim>()
+            // walked every world object every 5 ticks: ~5% of the sim thread on a 14,500-object save (issue #156 sampler).
+            foreach (Sim s in Sims3.Gameplay.Core.LotManager.Actors)
             {
                 if (s == null || s.HasBeenDestroyed) continue;
                 Sims3.Gameplay.ActorSystems.BeingRiddenPosture ridden = s.Posture as Sims3.Gameplay.ActorSystems.BeingRiddenPosture;
