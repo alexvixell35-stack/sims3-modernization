@@ -1664,6 +1664,8 @@ rpc.exports = {
       if (c.readS32() >= 161) f.push('gwMode', 'gwReady', 'gwExpands', 'gwFails', 'gwKB', 'gwMaxAskKB', 'gwUnseenKB', 'gwLines', 'gwXmlCalls', 'gwXmlMaxKB');
       if (c.readS32() >= 162) f.push('gcCapKB', 'gcBlackOk', 'gcBlackOkMaxKB', 'gcExpandStreak', 'gcExpandStreakMax', 'gcStrictN');
       if (c.readS32() >= 163) f.push('gcLenientN', 'gcSwitchSec');
+      // v900 contributor block (issue #156, fsro.cpp): [FootstepRO] footstep surface cache, after v163
+      if (c.readS32() >= 900) f.push('fsReady', 'fsMode', 'fsCalls', 'fsJob', 'fsHit', 'fsMiss', 'fsLast', 'fsStored', 'fsStale', 'fsJobGameUs', 'fsJobGameMaxUs', 'fsChk', 'fsChkDiff', 'fsLastChk', 'fsLastDiff', 'fsNear', 'fsNearChk', 'fsNearDiff');
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key
