@@ -1,0 +1,34 @@
+{
+  "vanilla": true,
+  "note": "IP Error 12 vanilla arm (PR #212)",
+  "pin": false,
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "ipv-spring",
+      "note": "IP Error 12 check (docs/67 s31): load, 3 saves via matrix overwrite case; check .sims3.bad and result code",
+      "asi": "none",
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "matrix": [
+          "--cases",
+          "overwrite"
+        ]
+      },
+      "timeoutMin": 40
+    },
+    {
+      "id": "ipv-plain",
+      "note": "IP Error 12 check (docs/67 s31): load, 3 saves via matrix overwrite case; check .sims3.bad and result code",
+      "asi": "none",
+      "save": "Baseline-IP",
+      "run": {
+        "matrix": [
+          "--cases",
+          "overwrite"
+        ]
+      },
+      "timeoutMin": 40
+    }
+  ]
+}

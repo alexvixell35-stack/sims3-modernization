@@ -362,7 +362,7 @@ namespace Ts3Fixes
                 case "unseenprobe": return false; // probe switch: test runs only
                 case "wakeprobe": return false; // probe switch: test runs only (WakePark.cs, docs/211)
                 case "unseencost": return false; // probe switch: test runs only (UnseenCost.cs, docs/227)
-                case "unseenposcache": return false; // new perf cache (UnseenTable.cs, docs/227 §7): off until verified
+                case "unseenposcache": return true; // perf cache (UnseenTable.cs, docs/227 §7): on since v0.2.5 with [UnseenTable]
                 case "unseentablecopy": return false; // A/B baseline (UnseenTable.cs, docs/227 §9): on = the per-tick copy of every row
                 case "wakepark": return Instantiator.kWakePark;
                 case "wakepoll": return Instantiator.kWakePoll;

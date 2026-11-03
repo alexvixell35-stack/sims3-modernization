@@ -1,5 +1,5 @@
 {
-  "note": "rel025c verify (Monday build, NOT RUN): correctness jobs on rel025c (docs/data/builds.json rel025c-asi 0.36.152 + rel025c-fixes; file name kept for chain-day25-1101.sh): #117 EA crash fixes, #120 first-chance logging, rain attribution counters 607-610, plus #136 WorldAStarRefs + PortalFlagRefs (Isla Paradiso), #146 outfitwaitpoll, #147 bakesaleseller. Short, early gates, stop on first failure. Run in a correctness window; ~58 min total.",
+  "note": "rel025c verify (2026-11-03 build, ts3native 0.36.166 + ts3fixes rel025c, v0.2.5 release ini): #117 EA crash fixes, #120 first-chance logging, rain attribution 607-610, #136 WorldAStarRefs + PortalFlagRefs, #146, #147, #164 nullservice and #167 rabbitholedoor ON arms (final on/off is Rodney's call after these), plus the v0.2.5 unseen defaults ([UnseenAnim] U-A1 Sims, [UnseenTable], [UnseenRootMotion] Mode 1): per-feature gates on the natural jobs (aaSkipped > 0, rmSlMiss == 0, utbHits > 0, asyncjigsync counter readable), bp/ip snap-back and stuck smokes, and bp-showoff-jig-race (verdict by the on arm's goal -20000 signature). No Tiny UI Fix arm (not supported in v0.2.5). Correctness only, stop on first failure; ~2.6 h.",
   "stopQueueOnFail": true,
   "jobs": [
     {
@@ -10,7 +10,7 @@
       "save": "Baseline-BP",
       "releaseDefaults": true,
       "noiseCheck": false,
-      "minCounters": 90,
+      "minCounters": 159,
       "ini": {
         "EaCrashFixes.GeomBoneIndex": 1,
         "EaCrashFixes.GeomNoMaterial": 1,
@@ -21,7 +21,7 @@
         "^OK   ea fix: GeomBoneIndex": 1,
         "^OK   ea fix: GeomNoMaterial": 1,
         "^OK   ea fix: MintDivGuard": 1,
-        "ts3native 0.36.152": 1,
+        "ts3native 0.36.166": 1,
         "crash log: first 16 first-chance exceptions, an AV in another module once per address": 1
       },
       "logForbid": {
@@ -40,7 +40,51 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 25,
-      "pinReason": "rel025c is the build under test (builds.json rel025c-asi / rel025c-fixes, registered after Monday's build); source moves on"
+      "pinReason": "rel025c is the build under test (builds.json rel025c-asi 0.36.166 / rel025c-fixes: v0.2.5 release defaults incl. [UnseenAnim] Mode=1 CapPasses=4, [UnseenTable] Mode=1, [UnseenRootMotion] Mode=1 Shortlist=1, ts3fixes unseenposcache + asyncjigsync on); source moves on",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (release ini Enabled=1)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + Mode 1 shortlist jump not both in (release ini Shortlist=1)"
+        },
+        {
+          "afterSec": 250,
+          "counter": "aaSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "U-A1 skipped no unseen Sim pose call (Mode 1 not acting)"
+        },
+        {
+          "afterSec": 250,
+          "counter": "rmSlMiss",
+          "op": "==",
+          "value": 0,
+          "why": "Mode 1 shortlist audit miss (rmSlMiss > 0): walk differs from EA's"
+        },
+        {
+          "afterSec": 250,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "[UnseenTable] answered nothing (utbHits 0)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:asyncjigsync_kept_sync",
+          "op": ">=",
+          "value": 0,
+          "why": "asyncjigsync counter 758 not readable (rel025c agent / fixes not loaded)"
+        }
+      ]
     },
     {
       "id": "ip-rel025c-eafix",
@@ -50,7 +94,7 @@
       "save": "Baseline-IP-Spring",
       "releaseDefaults": true,
       "noiseCheck": false,
-      "minCounters": 90,
+      "minCounters": 159,
       "ini": {
         "EaCrashFixes.GeomBoneIndex": 1,
         "EaCrashFixes.GeomNoMaterial": 1,
@@ -61,7 +105,7 @@
         "^OK   ea fix: GeomBoneIndex": 1,
         "^OK   ea fix: GeomNoMaterial": 1,
         "^OK   ea fix: MintDivGuard": 1,
-        "ts3native 0.36.152": 1,
+        "ts3native 0.36.166": 1,
         "crash log: first 16 first-chance exceptions, an AV in another module once per address": 1
       },
       "logForbid": {
@@ -80,7 +124,51 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 25,
-      "pinReason": "rel025c is the build under test (builds.json rel025c-asi / rel025c-fixes, registered after Monday's build); source moves on"
+      "pinReason": "rel025c is the build under test (builds.json rel025c-asi 0.36.166 / rel025c-fixes: v0.2.5 release defaults incl. [UnseenAnim] Mode=1 CapPasses=4, [UnseenTable] Mode=1, [UnseenRootMotion] Mode=1 Shortlist=1, ts3fixes unseenposcache + asyncjigsync on); source moves on",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (release ini Enabled=1)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + Mode 1 shortlist jump not both in (release ini Shortlist=1)"
+        },
+        {
+          "afterSec": 250,
+          "counter": "aaSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "U-A1 skipped no unseen Sim pose call (Mode 1 not acting)"
+        },
+        {
+          "afterSec": 250,
+          "counter": "rmSlMiss",
+          "op": "==",
+          "value": 0,
+          "why": "Mode 1 shortlist audit miss (rmSlMiss > 0): walk differs from EA's"
+        },
+        {
+          "afterSec": 250,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "[UnseenTable] answered nothing (utbHits 0)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:asyncjigsync_kept_sync",
+          "op": ">=",
+          "value": 0,
+          "why": "asyncjigsync counter 758 not readable (rel025c agent / fixes not loaded)"
+        }
+      ]
     },
     {
       "id": "bp-rel025c-rain",
@@ -132,7 +220,7 @@
       "asi": "game-copy/ts3native.asi.rel025c",
       "fixesPackage": "game-copy/ts3fixes.package.rel025c",
       "save": "Baseline-BP-Spring",
-      "minCounters": 90,
+      "minCounters": 159,
       "ini": {
         "HitchAttr.Enabled": 1,
         "RouteSnap.Enabled": 1,
@@ -173,7 +261,7 @@
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
         "OK   mono thread P4": 1,
         "autshadow r7: PreLearn=0 TierReqLots=1": 1,
-        "ts3native 0.36.152": 1
+        "ts3native 0.36.166": 1
       },
       "run": {
         "profile": {
@@ -197,7 +285,7 @@
         "^FAIL ea fix": 0,
         "tracking stopped": 0
       },
-      "pinReason": "rel025c is the build under test (builds.json rel025c-asi / rel025c-fixes, registered after Monday's build); source moves on"
+      "pinReason": "rel025c is the build under test (builds.json rel025c-asi 0.36.166 / rel025c-fixes: v0.2.5 release defaults incl. [UnseenAnim] Mode=1 CapPasses=4, [UnseenTable] Mode=1, [UnseenRootMotion] Mode=1 Shortlist=1, ts3fixes unseenposcache + asyncjigsync on); source moves on"
     },
     {
       "id": "ip-rel025c-wastar",
@@ -209,9 +297,9 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "rel025c is the build under test (builds.json rel025c-asi / rel025c-fixes, registered after Monday's build); source moves on",
+      "pinReason": "rel025c is the build under test (builds.json rel025c-asi 0.36.166 / rel025c-fixes: v0.2.5 release defaults incl. [UnseenAnim] Mode=1 CapPasses=4, [UnseenTable] Mode=1, [UnseenRootMotion] Mode=1 Shortlist=1, ts3fixes unseenposcache + asyncjigsync on); source moves on",
       "save": "Baseline-IP",
-      "minCounters": 90,
+      "minCounters": 159,
       "ini": {
         "EaCrashFixes.WorldAStarRefs": 1,
         "EaCrashFixes.PortalFlagRefs": 1,
@@ -220,7 +308,7 @@
       "logRequire": {
         "^OK   ea fix: WorldAStarRefs": 1,
         "^OK   ea fix: PortalFlagRefs": 1,
-        "ts3native 0.36.152": 1
+        "ts3native 0.36.166": 1
       },
       "logForbid": {
         "^SKIP ea fix": 0,
@@ -248,6 +336,48 @@
           "op": "==",
           "value": 1,
           "why": "PortalFlagRefs not installed (pfOn 0)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (release ini Enabled=1)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + Mode 1 shortlist jump not both in (release ini Shortlist=1)"
+        },
+        {
+          "afterSec": 250,
+          "counter": "aaSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "U-A1 skipped no unseen Sim pose call (Mode 1 not acting)"
+        },
+        {
+          "afterSec": 250,
+          "counter": "rmSlMiss",
+          "op": "==",
+          "value": 0,
+          "why": "Mode 1 shortlist audit miss (rmSlMiss > 0): walk differs from EA's"
+        },
+        {
+          "afterSec": 250,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "[UnseenTable] answered nothing (utbHits 0)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:asyncjigsync_kept_sync",
+          "op": ">=",
+          "value": 0,
+          "why": "asyncjigsync counter 758 not readable (rel025c agent / fixes not loaded)"
         }
       ],
       "timeoutMin": 25
@@ -262,7 +392,7 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "rel025c is the build under test (builds.json rel025c-asi / rel025c-fixes, registered after Monday's build); source moves on",
+      "pinReason": "rel025c is the build under test (builds.json rel025c-asi 0.36.166 / rel025c-fixes: v0.2.5 release defaults incl. [UnseenAnim] Mode=1 CapPasses=4, [UnseenTable] Mode=1, [UnseenRootMotion] Mode=1 Shortlist=1, ts3fixes unseenposcache + asyncjigsync on); source moves on",
       "save": "Baseline-BP",
       "run": {
         "profile": {
@@ -282,7 +412,8 @@
           "why": "no outfit wait went stale 3 min after the on arm began: the hook is not on or not installed"
         }
       ],
-      "timeoutMin": 20
+      "timeoutMin": 20,
+      "minCounters": 159
     },
     {
       "id": "bp-rel025c-bakesale",
@@ -294,7 +425,7 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "rel025c is the build under test (builds.json rel025c-asi / rel025c-fixes, registered after Monday's build); source moves on",
+      "pinReason": "rel025c is the build under test (builds.json rel025c-asi 0.36.166 / rel025c-fixes: v0.2.5 release defaults incl. [UnseenAnim] Mode=1 CapPasses=4, [UnseenTable] Mode=1, [UnseenRootMotion] Mode=1 Shortlist=1, ts3fixes unseenposcache + asyncjigsync on); source moves on",
       "save": "Baseline-BP",
       "run": {
         "profile": {
@@ -314,7 +445,8 @@
           "why": "the on arm re-armed no table 2.5 min in: hook not installed or the check failed"
         }
       ],
-      "timeoutMin": 20
+      "timeoutMin": 20,
+      "minCounters": 159
     },
     {
       "id": "bp-rel025c-rabbitholedoor",
@@ -326,7 +458,7 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "rel025c is the build under test (builds.json rel025c-asi / rel025c-fixes, registered after Monday's build); source moves on",
+      "pinReason": "rel025c is the build under test (builds.json rel025c-asi 0.36.166 / rel025c-fixes: v0.2.5 release defaults incl. [UnseenAnim] Mode=1 CapPasses=4, [UnseenTable] Mode=1, [UnseenRootMotion] Mode=1 Shortlist=1, ts3fixes unseenposcache + asyncjigsync on); source moves on",
       "save": "Baseline-BP",
       "run": {
         "profile": {
@@ -347,7 +479,8 @@
           "why": "no door request skipped: hook not installed or repro did not run"
         }
       ],
-      "timeoutMin": 20
+      "timeoutMin": 20,
+      "minCounters": 159
     },
     {
       "id": "bp-rel025c-nullservice",
@@ -359,7 +492,7 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "rel025c is the build under test (builds.json rel025c-asi / rel025c-fixes, registered after Monday's build); source moves on",
+      "pinReason": "rel025c is the build under test (builds.json rel025c-asi 0.36.166 / rel025c-fixes: v0.2.5 release defaults incl. [UnseenAnim] Mode=1 CapPasses=4, [UnseenTable] Mode=1, [UnseenRootMotion] Mode=1 Shortlist=1, ts3fixes unseenposcache + asyncjigsync on); source moves on",
       "save": "Baseline-BP",
       "run": {
         "profile": {
@@ -380,7 +513,8 @@
           "why": "no null dropped: getter hook not installed or repro did not run"
         }
       ],
-      "timeoutMin": 20
+      "timeoutMin": 20,
+      "minCounters": 159
     },
     {
       "id": "lr-rel025c-nullservice",
@@ -392,7 +526,7 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "rel025c is the build under test (builds.json rel025c-asi / rel025c-fixes, registered after Monday's build); source moves on",
+      "pinReason": "rel025c is the build under test (builds.json rel025c-asi 0.36.166 / rel025c-fixes: v0.2.5 release defaults incl. [UnseenAnim] Mode=1 CapPasses=4, [UnseenTable] Mode=1, [UnseenRootMotion] Mode=1 Shortlist=1, ts3fixes unseenposcache + asyncjigsync on); source moves on",
       "save": "BigSave-LR",
       "run": {
         "profile": {
@@ -413,7 +547,359 @@
           "why": "no null dropped: getter hook not installed or repro did not run"
         }
       ],
-      "timeoutMin": 20
+      "timeoutMin": 20,
+      "minCounters": 159
+    },
+    {
+      "id": "bp-rel025c-unseen-snapback",
+      "note": "v0.2.5 unseen defaults snap-back on Baseline-BP-Spring (release ini: [UnseenAnim] Mode 1 CapPasses 4, [UnseenTable], [UnseenRootMotion] Mode 1 Shortlist 1). [UnseenThrottle] is on ONLY as the unseen_snapback instrument: the agent's watch (viewer codes 6/7/18) and its required Rate-debt pass live there (bp-urm-snapback 11-02 setup); not a release setting. Pass: unseen_snapback require (>= 6 passed, 0 failed, 1 with Rate debt), rows with anim_owed_ms > 0 show the U-A1 owed pose time caught up at the flip, rmSlMiss 0, aaSkipped / utbHits > 0, no crash.",
+      "asi": "game-copy/ts3native.asi.rel025c",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "rel025c is the build under test (builds.json rel025c-asi 0.36.166 / rel025c-fixes: v0.2.5 release defaults incl. [UnseenAnim] Mode=1 CapPasses=4, [UnseenTable] Mode=1, [UnseenRootMotion] Mode=1 Shortlist=1, ts3fixes unseenposcache + asyncjigsync on); source moves on",
+      "minCounters": 159,
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "UnseenProbe.Enabled": 1,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenThrottle.List": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.AvoidNearM": 3,
+        "UnseenThrottle.FpMs": 500,
+        "UnseenThrottle.RateNearM": 3,
+        "HitchAttr.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 16,
+          "seed": 12345,
+          "repro": "unseen-snapback"
+        }
+      },
+      "timeoutMin": 40,
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (release ini Enabled=1)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + Mode 1 shortlist jump not both in (release ini Shortlist=1)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "aaSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "U-A1 skipped no unseen Sim pose call (Mode 1 not acting)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "rmSlMiss",
+          "op": "==",
+          "value": 0,
+          "why": "Mode 1 shortlist audit miss (rmSlMiss > 0): walk differs from EA's"
+        },
+        {
+          "afterSec": 300,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "[UnseenTable] answered nothing (utbHits 0)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:asyncjigsync_kept_sync",
+          "op": ">=",
+          "value": 0,
+          "why": "asyncjigsync counter 758 not readable (rel025c agent / fixes not loaded)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "rmSlPasses",
+          "op": ">",
+          "value": 0,
+          "why": "Mode 1 never ran a pass over the shortlist"
+        }
+      ]
+    },
+    {
+      "id": "ip-rel025c-unseen-snapback",
+      "note": "v0.2.5 unseen defaults snap-back on Baseline-IP-Spring (release ini: [UnseenAnim] Mode 1 CapPasses 4, [UnseenTable], [UnseenRootMotion] Mode 1 Shortlist 1). [UnseenThrottle] is on ONLY as the unseen_snapback instrument: the agent's watch (viewer codes 6/7/18) and its required Rate-debt pass live there (bp-urm-snapback 11-02 setup); not a release setting. Pass: unseen_snapback require (>= 6 passed, 0 failed, 1 with Rate debt), rows with anim_owed_ms > 0 show the U-A1 owed pose time caught up at the flip, rmSlMiss 0, aaSkipped / utbHits > 0, no crash.",
+      "asi": "game-copy/ts3native.asi.rel025c",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "rel025c is the build under test (builds.json rel025c-asi 0.36.166 / rel025c-fixes: v0.2.5 release defaults incl. [UnseenAnim] Mode=1 CapPasses=4, [UnseenTable] Mode=1, [UnseenRootMotion] Mode=1 Shortlist=1, ts3fixes unseenposcache + asyncjigsync on); source moves on",
+      "minCounters": 159,
+      "save": "Baseline-IP-Spring",
+      "ini": {
+        "UnseenProbe.Enabled": 1,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenThrottle.List": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.AvoidNearM": 3,
+        "UnseenThrottle.FpMs": 500,
+        "UnseenThrottle.RateNearM": 3,
+        "HitchAttr.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 16,
+          "seed": 12345,
+          "repro": "unseen-snapback"
+        }
+      },
+      "timeoutMin": 40,
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (release ini Enabled=1)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + Mode 1 shortlist jump not both in (release ini Shortlist=1)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "aaSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "U-A1 skipped no unseen Sim pose call (Mode 1 not acting)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "rmSlMiss",
+          "op": "==",
+          "value": 0,
+          "why": "Mode 1 shortlist audit miss (rmSlMiss > 0): walk differs from EA's"
+        },
+        {
+          "afterSec": 300,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "[UnseenTable] answered nothing (utbHits 0)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:asyncjigsync_kept_sync",
+          "op": ">=",
+          "value": 0,
+          "why": "asyncjigsync counter 758 not readable (rel025c agent / fixes not loaded)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "rmSlPasses",
+          "op": ">",
+          "value": 0,
+          "why": "Mode 1 never ran a pass over the shortlist"
+        }
+      ]
+    },
+    {
+      "id": "bp-rel025c-unseen-stuck",
+      "note": "v0.2.5 unseen defaults stuck smoke on Baseline-BP: pure release ini + rel025c fixes defaults, 10 min natural play. Pass: no crash, per-feature gates, stuck Sims (watchdog / stuck counters) not above the 11-02 bp-urm-stuck-off level (+1), no FAIL hook line.",
+      "asi": "game-copy/ts3native.asi.rel025c",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "rel025c is the build under test (builds.json rel025c-asi 0.36.166 / rel025c-fixes: v0.2.5 release defaults incl. [UnseenAnim] Mode=1 CapPasses=4, [UnseenTable] Mode=1, [UnseenRootMotion] Mode=1 Shortlist=1, ts3fixes unseenposcache + asyncjigsync on); source moves on",
+      "minCounters": 159,
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 25,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (release ini Enabled=1)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + Mode 1 shortlist jump not both in (release ini Shortlist=1)"
+        },
+        {
+          "afterSec": 250,
+          "counter": "aaSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "U-A1 skipped no unseen Sim pose call (Mode 1 not acting)"
+        },
+        {
+          "afterSec": 250,
+          "counter": "rmSlMiss",
+          "op": "==",
+          "value": 0,
+          "why": "Mode 1 shortlist audit miss (rmSlMiss > 0): walk differs from EA's"
+        },
+        {
+          "afterSec": 250,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "[UnseenTable] answered nothing (utbHits 0)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:asyncjigsync_kept_sync",
+          "op": ">=",
+          "value": 0,
+          "why": "asyncjigsync counter 758 not readable (rel025c agent / fixes not loaded)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "rmSlPasses",
+          "op": ">",
+          "value": 0,
+          "why": "Mode 1 never ran a pass over the shortlist"
+        }
+      ]
+    },
+    {
+      "id": "ip-rel025c-unseen-stuck",
+      "note": "v0.2.5 unseen defaults stuck smoke on Baseline-IP: pure release ini + rel025c fixes defaults, 10 min natural play. Pass: no crash, per-feature gates, stuck Sims (watchdog / stuck counters) not above the 11-02 bp-urm-stuck-off level (+1), no FAIL hook line.",
+      "asi": "game-copy/ts3native.asi.rel025c",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "rel025c is the build under test (builds.json rel025c-asi 0.36.166 / rel025c-fixes: v0.2.5 release defaults incl. [UnseenAnim] Mode=1 CapPasses=4, [UnseenTable] Mode=1, [UnseenRootMotion] Mode=1 Shortlist=1, ts3fixes unseenposcache + asyncjigsync on); source moves on",
+      "minCounters": 159,
+      "save": "Baseline-IP",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 25,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (release ini Enabled=1)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + Mode 1 shortlist jump not both in (release ini Shortlist=1)"
+        },
+        {
+          "afterSec": 250,
+          "counter": "aaSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "U-A1 skipped no unseen Sim pose call (Mode 1 not acting)"
+        },
+        {
+          "afterSec": 250,
+          "counter": "rmSlMiss",
+          "op": "==",
+          "value": 0,
+          "why": "Mode 1 shortlist audit miss (rmSlMiss > 0): walk differs from EA's"
+        },
+        {
+          "afterSec": 250,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "[UnseenTable] answered nothing (utbHits 0)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:asyncjigsync_kept_sync",
+          "op": ">=",
+          "value": 0,
+          "why": "asyncjigsync counter 758 not readable (rel025c agent / fixes not loaded)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "rmSlPasses",
+          "op": ">",
+          "value": 0,
+          "why": "Mode 1 never ran a pass over the shortlist"
+        }
+      ]
+    },
+    {
+      "id": "bp-rel025c-showoff-jig-race",
+      "note": "asyncjigsync (docs/240) on rel025c (RouteAsync on as shipped): repro showoff-jig-race, in-load A/B on the switch, 16 tries per arm. Verdict by the on arm's signature: 0 adult plans / routefail lines with goal -20000,-20000,-20000 in the on arm (off arm must show them). The repro's own 'verdict ab' step may still count unrelated adult failures; read the showoff: / routefail: lines per arm before calling it.",
+      "asi": "game-copy/ts3native.asi.rel025c",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025c",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "rel025c is the build under test (builds.json rel025c-asi 0.36.166 / rel025c-fixes: v0.2.5 release defaults incl. [UnseenAnim] Mode=1 CapPasses=4, [UnseenTable] Mode=1, [UnseenRootMotion] Mode=1 Shortlist=1, ts3fixes unseenposcache + asyncjigsync on); source moves on",
+      "minCounters": 159,
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "minutes": 25,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "showoff-jig-race",
+          "fixesRequire": "routefaillog_showoff>=1"
+        }
+      },
+      "timeoutMin": 45,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:routefaillog_showoff",
+          "op": ">=",
+          "value": 1,
+          "why": "no DoShowOffMove plan, jig or DoRoute logged 2.5 min in: setup failed or the social never ran"
+        }
+      ]
     }
   ]
 }

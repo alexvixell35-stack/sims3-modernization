@@ -1,0 +1,37 @@
+{
+  "note": "docs/240 asyncjigsync (release fix for the v0.2.4 Show Off Badges report): repro showoff-jig-race, in-load A/B on the switch (off arm must reproduce the partner's failed plan to the unplaced jig, on arm 0 failures); then a 5-min Friendly Hug smoke with the switch on. Correctness only (no timing). Player asi 0.36.105 (RouteAsync on as shipped).",
+  "jobs": [
+    {
+      "id": "bp-showoff-jig-race",
+      "note": "16 tries per arm (off, on), outside / inside alternating, adult 5-10 m away, autonomy off",
+      "asi": "game-copy/ts3native.0.36.105.rel020",
+      "pinReason": "the player's ts3native 0.36.105 (v0.2.0-v0.2.4 asi, RouteAsync on); ts3fixes from master with asyncjigsync",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 25,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "showoff-jig-race",
+          "fixesRequire": "routefaillog_showoff>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:routefaillog_showoff",
+          "op": ">=",
+          "value": 1,
+          "why": "no DoShowOffMove plan, jig or DoRoute logged 2.5 min in: setup failed (no child/adult/Scouting) or the social never ran"
+        }
+      ],
+      "fixesPackage": "game-copy/ts3fixes.package.showoff-test2"
+    }
+  ],
+  "stopQueueOnFail": false
+}

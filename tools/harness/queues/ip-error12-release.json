@@ -1,0 +1,45 @@
+{
+  "note": "IP Error 12 release arm rel025b (PR #212)",
+  "pin": false,
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "ipr-spring",
+      "note": "IP Error 12 release arm: load, 3 saves (repro ip-save-error12), rel025b asi + fixes",
+      "asi": "game-copy/ts3native.asi.rel025b",
+      "pinReason": "release arm rel025b for the IP Error 12 check",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025b",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ip-save-error12"
+        }
+      },
+      "timeoutMin": 25
+    },
+    {
+      "id": "ipr-plain",
+      "note": "IP Error 12 release arm: load, 3 saves (repro ip-save-error12), rel025b asi + fixes",
+      "asi": "game-copy/ts3native.asi.rel025b",
+      "pinReason": "release arm rel025b for the IP Error 12 check",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025b",
+      "save": "Baseline-IP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ip-save-error12"
+        }
+      },
+      "timeoutMin": 25
+    }
+  ]
+}

@@ -4,6 +4,12 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ## v0.2.5 (unreleased)
 
+### Faster
+
+- **Sims you can't see cost less to animate.** For a Sim the camera cannot see, the game now updates its body pose every few frames instead of every frame, with the skipped time added in, so nothing is lost. Sims you can see, Sims near them and Sims near your household always update every frame. On by default (`[UnseenAnim] Enabled=1`, `CapPasses=4`; objects stay as before).
+- **Walking Sims cost less, with the same result.** The game re-checks every animated object several times per frame for walking Sims; it now re-checks only the ones that are actually walking. Same calls in the same order, so Sims move exactly as before. On by default (`[UnseenRootMotion] Enabled=1`, `Mode=1`, `Shortlist=1`).
+- **One "can the player see it?" answer per object per frame.** Several of our speed-ups ask whether you can see a Sim or object; they now share one answer per frame instead of each asking the game again. On by default (`[UnseenTable] Enabled=1`). It is what the two speed-ups above build on.
+
 ### Fixed
 
 - **No more crash from custom-content meshes without a material** (issue #80): a hair or clothing mesh made from a morph mesh crashed the game while it built a Sim. That part is now left out at that distance instead. On by default (`[EaCrashFixes] GeomNoMaterial=1`).
@@ -13,7 +19,7 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ### Known issues
 
-- **Tiny UI Fix turns the Mono offload off** (`[AutShadow]`): Tiny UI Fix ships its own copies of `Sims3GameplaySystems` and `Sims3GameplayObjects`, and the offload's safety check switches itself off for the whole session when it sees game assemblies it does not know. The game runs as without the offload; nothing breaks. Tiny UI Fix's changes do not touch the methods the offload uses (docs/218), so a per-method check that keeps the offload on is planned for the next release. Found by Dalexlol.
+- **Tiny UI Fix is not supported yet in this release:** with it installed, the Mono speed-up (AutShadow) may switch itself off. The game still works; you just don't get that speed-up. Found by Dalexlol.
 
 ## v0.2.4 (2026-10-29)
 

@@ -35,6 +35,7 @@ Less stutter, mostly by skipping work nobody can see:
 - **Moving Sims and objects don't wait for route plans.** When a Sim sits, stands up or picks something up while a route is planned in the background, the game no longer stands still until the plan is done.
 - **Fewer short freezes in crowds.** When many Sims look around them while a route is planned in the background, the game waits less.
 - **Crash guards for background route planning.** Leftover route data of removed objects is cleaned up, every route search starts from clean values, and searches for a spot on the shore wait for the background planner instead of crashing.
+- **Cheaper Sims you can't see.** Sims the camera cannot see update their body pose every few frames (with the skipped time added in), walking Sims re-check only the objects that actually walk, and our speed-ups share one "can the player see it?" answer per object per frame. Sims you can see move exactly as before.
 
 Everything else in `ts3native.ini` is **off**: experiments still being tested. Leave them off unless you want to help test, and keep backups.
 
@@ -106,6 +107,8 @@ This is a **test feature**: it is off in the release and still being tested. Not
 ### Other mods
 
 If you use NRaas Overwatch and notice a half-second freeze about once per game day, turn off City Hall > NRaas > Overwatch > Settings > Clean up Inventory. That nightly job looks up the name of every inventory item; with it off, broken or orphaned inventory items are no longer removed. The setting is saved per save game.
+
+Tiny UI Fix is not supported yet in this release: with it installed, the Mono speed-up (AutShadow) may switch itself off. The game still works; you just don't get that speed-up.
 
 Tested together with DXVK, Sims 3 Settings Setter, NRaas (ErrorTrap, Overwatch), the Smooth Patch and the Sims 3 Performance Patch. If something looks wrong, remove our files first and see if it goes away, then [open an issue](https://github.com/rodneypantonial/sims3-modernization/issues) with what you saw.
 

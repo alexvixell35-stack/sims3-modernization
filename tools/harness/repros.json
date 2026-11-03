@@ -51817,5 +51817,43 @@
         }
       }
     ]
+  },
+  {
+    "id": "ip-save-error12",
+    "bug": "PR #212 / docs/67 s31: Isla Paradiso saves return result 12 with 1.0-1.5 GB free (.sims3.bad, missing SimService 0x342779A7)",
+    "fix": "measurement only: EA or ours? Release arm of the vanilla-vs-release IP save check",
+    "save": "Baseline-IP-Spring",
+    "steps": [
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "IP-Err12-Scratch"
+        },
+        "waitS": 60,
+        "note": "scratch name, never Baseline"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "IP-Err12-Scratch"
+        },
+        "waitS": 60,
+        "note": "scratch name, never Baseline"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "IP-Err12-Scratch"
+        },
+        "waitS": 60,
+        "note": "scratch name, never Baseline"
+      }
+    ],
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 1
+    },
+    "expect": "save: result 0 each; no .sims3.bad in Saves"
   }
 ]
