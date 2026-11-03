@@ -22,7 +22,7 @@ checked in game.
 
 ## 2. The clean-up
 
-Phase 12 of the hourly spread pass (`DeadRefs.cs` `HandlerHolders`), for every `GameObject` with a subscribed
+Phase 12 of the spread pass (hourly; since 2026-11-03 only after a Sim leaves or daily, docs/205 §2.3a) (`DeadRefs.cs` `HandlerHolders`), for every `GameObject` with a subscribed
 `ObjectDisposed`: each handler whose target is a `GameObjectRelationship` nobody holds (`RelGone`: its description null
 or not valid, or the relationship not in that description's `GameObjectRelationships`) leaves the invocation list
 (`Delegate.Remove`, the field written back once). The event's backing field and the relationship's `mSimDesc` are

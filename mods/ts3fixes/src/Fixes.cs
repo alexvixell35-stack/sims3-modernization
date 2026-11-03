@@ -276,13 +276,15 @@ namespace Ts3Fixes
         // [2048] deadrefsweep phase 12 (DeadRefs.cs, issue #166 build 41, docs/522): ObjectDisposed handlers of relationships nobody holds, removed.
         // [2049] deadrefsweep phase 13 (DeadRefs.cs, issue #166, docs/523): celebrity waiting-to-react entries that were gone, removed.
         // [2050] rewardgiver (RewardGiver.cs, docs/525): owner components SetRewardGiver added in place of EA's NullReferenceException.
+        // [2055-2057] deadrefsweep object walks (DeadRefs.cs, docs/205 §2.3a): GameObject walks shared by phases 10-12, ms in finished
+        // walks, walks asked by kSimDestroyed / kSimDescriptionDisposed (the rest are the daily walk).
         // [758-759] asyncjigsync (AsyncJigSync.cs, RouteBackoff.cs AsyncEligible, docs/240): own plans kept sync while the Sim's interaction holds an unplaced SocialJig / of those with the jig only in the linked interaction.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2051]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2058]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 

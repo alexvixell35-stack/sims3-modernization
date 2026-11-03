@@ -201,6 +201,7 @@ namespace Ts3Agent
             if (c.Length > 2048) r["deadrefsweep_handlers"] = c[2048]; // DeadRefs.cs phase 12, docs/522
             if (c.Length > 2049) r["deadrefsweep_celebrity"] = c[2049]; // DeadRefs.cs phase 13, docs/523
             if (c.Length > 2050) r["rewardgiver_added"] = c[2050]; // RewardGiver.cs, docs/525
+            if (c.Length > 2057) { r["deadrefsweep_objwalks"] = c[2055]; r["deadrefsweep_objms"] = c[2056]; r["deadrefsweep_objasked"] = c[2057]; } // DeadRefs.cs phases 10-12, docs/205 §2.3a
             if (c.Length > 759) { r["asyncjigsync_kept_sync"] = c[758]; r["asyncjigsync_linked"] = c[759]; } // AsyncJigSync.cs, docs/240
             if (c.Length > 604) { r["autshadow_gm6_methods"] = c[602]; r["autshadow_gm6_mismatch"] = c[603]; r["autshadow_gm6_us"] = c[604]; }
             if (c.Length > 605) r["autshadow_gm6_faults"] = c[605];

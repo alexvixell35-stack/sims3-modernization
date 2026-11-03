@@ -23,7 +23,7 @@ checked in game.
 
 ## 2. The clean-up
 
-Phase 11 of the hourly spread pass (`DeadRefs.cs` `OwnerHolders`), for every `GameObject` with the component, mirrors
+Phase 11 of the spread pass (hourly; since 2026-11-03 only after a Sim leaves or daily, docs/205 §2.3a) (`DeadRefs.cs` `OwnerHolders`), for every `GameObject` with the component, mirrors
 what EA's import would do at the next load:
 
 - a gone owner or thief Sim (`HasBeenDestroyed`) becomes the live instance of the same description, when there is one

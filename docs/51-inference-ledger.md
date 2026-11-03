@@ -5647,6 +5647,14 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 | I-925-4 | 207 §12.7 | The §12.1 class-guarded edges (25% of calls) gain nothing yet: their targets have no lazy body because `stinarg.vt` / `ldarg.vt` / `vtresult` exit | `JitKL.EqT` dump; 8 of 91 guard sites filled | `MintBench(3000)` lazy on vs off | compiled 223.5 vs 225.7 ms (noise) | a clear MintBench gain with lazy on | **verified** (host); the fix is value-type templates [inferred] |
 | I-925-5 | 207 §12.7 | A chained or guarded lazy call saves what a direct one does (~11 ns) | bench cases 25 and 27 vs 23 | `JitLzChain` 59.5 -> 27.3 ns (three calls), `JitLzVirt` 20.5 -> 9.4 ns (one call) | per-call saving near 11 ns | a chained or guarded call saving much less | [measured, noisy] (the game ran beside the bench) |
 
+## 934. deadrefsweep phases 10-12: one walk, after a Sim leaves or daily (2026-11-03, docs/205 §2.3a; `deadrefsweep`)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-934-1 | 205 §2.3a | Every destroyed Sim object and every disposed description asks for the next walk: `Sim.Destroy` sends `kSimDestroyed`, `SimDescription.Dispose` sends `kSimDescriptionDisposed` | decompiled `Sim.Destroy`, `SimDescription.Dispose` | `old-gone-objdaily` (local queue, old save) | [2057] >= 1 while Sims leave the world | [2057] 0 with Sims leaving | verified (code; live: [2057] 40 of 40 walks in 215 passes, 2026-11-03) |
+| I-934-2 | 205 §2.3a | Phases 10-12 are most of the pass time on the old save | the three phases walk every GameObject; the others walk Sims, descriptions or one object type | `old-gone-objdaily` | [2056] / [2055] per walk >= half of the ~91 ms per pass of `old-gone-on` | less than half | verified (~69 ms per shared walk; the rest of the pass ~10 ms, so ~81 of ~91 ms before) |
+| I-934-3 | 205 §2.3a | No cleanup is delayed except phase 12's decayed relationships: phases 10-11 test for destroyed Sim objects, phase 12 for disposed descriptions or relationships off the description's list | the phases' gone tests (`SimGone`, `OwnerHolders`, `RelGone`) | none | - | an entry of phase 10 or 11 that goes stale without a `Sim.Destroy` | inferred |
+
 ## 423. Mode 2 SACS bound-actor classes (2026-11-03, docs/228 §11.8, ts3native 0.36.166, counters v159)
 
 | ID | Doc | Claim | Basis | Probe or repro | Expect | Refuted if | Tag |
