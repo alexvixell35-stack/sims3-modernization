@@ -368,6 +368,15 @@ static void TestRouteToObjRO() {
         RtoCallStub(world, NULL, out, sim, target, pt, opts, 0x5A, 0, 0, 0, 1);
         RtoRelStub(lock, NULL);
         assert(t_rtoN == 0 && out[0] == 6 && refCalls == ref0 + 3 && ((CRITICAL_SECTION*)lock)->RecursionCount == 0);
+        // no Sim (the game's 0x830352: code 0, nothing read): answered without the clone, the game or the lock
+        ((LockAcquireFn)(void*)RtoAcqStub)(lock, NULL, &dl);
+        assert(t_rtoN == 1 && t_rtoSt[0] == RTO_SKIP);
+        out[0] = out[2] = out[3] = 0xEEEEEEEE;
+        const LONG taken0n = k.rtoTaken;
+        assert(RtoCallStub(world, NULL, out, NULL, target, pt, opts, 0x5A, 0, 0, 0, 1) == out && !out[0] && !out[2] && !out[3]);
+        assert(t_rtoSt[0] == RTO_ANSWERED && refCalls == ref0 + 3 && k.rtoTaken == taken0n);
+        RtoRelStub(lock, NULL);
+        assert(t_rtoN == 0 && ((CRITICAL_SECTION*)lock)->RecursionCount == 0);
     }
 
     // threaded: the worker holds +0x918 per job and flips the world between A (segment 9: 6, 0x600) and B (query 0x11: 4)

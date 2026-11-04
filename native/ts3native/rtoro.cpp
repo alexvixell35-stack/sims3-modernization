@@ -618,6 +618,14 @@ static DWORD* __fastcall RtoCallStub(u8* world, void* edx, DWORD* out, u8* sim, 
         return out;
     }
     if (st != RTO_SKIP && st != RTO_SHADOW) return g_rtoRoute(world, edx, out, sim, target, point, opts, a6, a7, a8, a9, a10);
+    // no Sim: 0x830340 answers code 0 at 0x830352 and reads nothing [verified disassembly]; the clone would read sim + 0x2C0
+    // (AV in a 2026-11-04 soak). Shadow: the lock is held, the game answers.
+    if (!sim) {
+        if (st == RTO_SHADOW) return g_rtoRoute(world, edx, out, sim, target, point, opts, a6, a7, a8, a9, a10);
+        out[0] = out[2] = out[3] = 0;
+        t_rtoSt[lvl] = RTO_ANSWERED;
+        return out;
+    }
     static RtoIn in;  // owner thread only
     in.world = world, in.sim = sim, in.target = target, in.point = point, in.opts = opts;
     in.a6 = a6, in.a7 = a7, in.a8 = a8, in.a9 = a9, in.a10 = a10;
