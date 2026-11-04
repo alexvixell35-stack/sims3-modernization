@@ -137,6 +137,9 @@ Job calls 973: 590 cell hits, 210 neighbours, 173 last surface, 0 to the game. C
 - Ini `SiteCLoop=0` (needs `SiteC=1`, `SiteCMode=1`); runtime switch `--ab idlecheckc2` (+0x5BD8). Selftest: the loop cases, the frame check, the job path and the shadow compare, in `TestIdleCheckC`.
 
 **C2b: `[IdleCheckRO] SiteCLoopJump` (counters v906 `icJumpMode`, `icJumped`; `--ab idlecheckc2b`, off by default, needs `SiteCLoop=1`).** After C2 the calls a footprint decides (about 20%, mostly 0x10) still call the game. With C2b, IcStub writes the IC's exit for that answer into its own return slot instead of `0x755990`: 4 `0x755A12`, 8 `0x755A82`, 0x10 `0x755A97`, 0x20 `0x755A6D`. Each exit is `lea ecx, [esp+0x38]; call 0x652470` (the vector's release: `ReleaseRange` on its range, then free when allocated; empty here), `mov eax, answer`, the pops and `ret`. No exit reads a register the loop set [verified disassembly]. The return slot is the one IcFrameOf checked (`0x755990`); the stack after IcStub's `ret 0x14` is the one the IC's own path has. Install checks each exit's first 9 bytes (lea + call to `0x652470`) and the `mov eax, answer` after it, or leaves C2b off. The answer is the one the shadow compares (code diffs 0 of 223 non-zero answers in round 2). A doubt still calls the game.
+Measured (2026-11-04, two A/B runs with C2 on in both arms, plus a 35-min soak): site C `0x755990` 3.9 and 18.5 ms/s off,
+0.0 on, and the keyed sim waits fall 19% and 54%. In the soak, 2,050 jumps and 0 doubts
+(docs/data/results/2026-11-04-alexvixell35-stack-idle-check-c2.md).
 
 **Round 1 (2026-11-04, c2-local, final setup on both arms).**
 

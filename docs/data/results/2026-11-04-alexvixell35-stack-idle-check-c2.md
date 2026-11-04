@@ -36,12 +36,37 @@ Round 1's doubts were all one kind getter (`0x624E00`, kind 9) missing from the 
 - Cost: about 9 us per taken call (clone and loop).
 - Hitches (`hitch-ab.ts`): no on-arm hitch >= 300 ms; p99 62-66 ms on vs 71-77 off.
 
+## C2b: `SiteCLoopJump=1`, A/B `--ab idlecheckc2b` (C2 on in both arms)
+
+Same save, seed and setup as above (ThumbPose on). Waits per arm are probe P0's keyed sim-thread waits (`blockKey` /
+`blockUs`) between the slice snapshots, warm-up slice left out; the same reading gives the C2 rows above.
+
+| Job | jumped | site C `0x755990`, ms/s off vs on | all keyed sim waits, ms/s | arm sum, ms/s | stuck Sims |
+|---|---|---|---|---|---|
+| c2b-ab | 188 | 3.9 vs 0.0 | 29.9 vs 24.1 (-19%) | 87.6 vs 70.9 (-19%) | 11 |
+| c2b-ab-b | 207 | 18.5 vs 0.0 | 68.0 vs 31.5 (-54%) | 88.8 vs 70.9 (-20%) | 3 |
+
+- The site C wait left after C2 (the calls a footprint decides) is gone: 0.0 ms/s in both on arms.
+- The off arm of c2b-ab-b had a burst of waits (goal validation `0x75A64C` 18.8, `0x833697` 13.0 ms/s), so its -54% is
+  partly that burst. Goal validation is flat on the quiet run (9.8 vs 9.2).
+- The arm sums differ mostly in animPose (-11.5 and -10.3 ms/s), which C2b does not touch. Read them as noise (single-run
+  arm sums move about 10% with nothing changed); the keyed waits are the measure.
+- Stuck Sims: 11 and 3. Other runs on this save gave 1 to 20 with unrelated switches.
+- Soak: 35 min with C2b on the whole time, PASS. 2,050 jumps; the loop ran 8,594 times, took 6,544, 0 doubts.
+
 ## Crash during testing
 
 `c2e-ab-b` (same build, ThumbPose off) died after about 8 minutes: crash W (docs/67 §27), the main thread's Sim thumbnail
 render reading a released pose at `0x54E79A`, an EA bug that also happens in vanilla. The stack held only TS3W addresses.
 It was the first crash W in this machine's runs. The next two jobs ran with `[EaCrashFixes] ThumbPose=1` on both arms
 (`tpHeld` 186 and 438, `tpLastRef` 0) and passed.
+
+The first C2b build crashed every job 3 to 10 s into play: an access violation in the IC loop at `0x7559AC`, the vector's
+end holding `RcLeaveThunk`. It crashed with `SiteCLoopJump=0` too, and the C2 build passed on the same setup. The cause was
+`[RouteAsync] RefcountGuard`. `StubKey` keys the call from IcStub by the IC's own site, so RcGuard took it for the listed
+caller and used the query's saved ebp as that caller's frame. IcStub omits the frame pointer, and in that build it kept
+the vector pointer in ebp. So the leave thunk was written into the vector's end. Fixed in `1ffa846`: a query under a
+call-site stub passes through (rcPass[1]). The runs above are on the fixed build.
 
 ## Checks
 
@@ -51,7 +76,5 @@ It was the first crash W in this machine's runs. The next two jobs ran with `[Ea
 
 ## Open
 
-- C2b: a jump at `0x755990` to the IC's return label would also skip the game for the 20% that a footprint decides
-  (docs/195 §8).
 - Goal validation (`0x75A64C`) is now the next wait; its loop is larger (an AddRef per element, a 23-way type switch,
   geometry), so the same approach does not carry over cheaply.
