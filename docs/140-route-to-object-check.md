@@ -86,6 +86,8 @@ S2's job-path gates (docs/84 §3.6): owner thread, a job running (`A_RUNNING`), 
 
 ### 5.3 The clone of `0x830340`
 
+**No Sim (fix 2026-11-04):** `0x830340` answers code 0 at `0x830352` when its Sim argument is NULL, before any read [verified disassembly]. The skip path does the same: code 0, no clone, no game call, no lock. A shadow call (lock held) goes to the game. Before the fix the clone read `sim + 0x2C0` and faulted (AV reading `0x2C0`, 29 min into a soak with `[RouteToObjRO] Enabled=1`).
+
 **Phase S (slot, only when step 4 applies):** the target's slot component and transform through the game's calls (sim-owned reads), then the game's `0x76F0A0` through SH's `SlCall` (its own QL-shared hold and gate-pass rules, docs/90 §3). SH drop or SH off: give up. Running the slot helper before the obstacle query changes nothing observable: it writes only its out point and stack, and its portal refcounts are an interlocked pair with net 0 over the call [docs/90 §2, verified there]. It is wasted work when step 2 or 3 would have returned early.
 
 **Phase R (QL shared, try only, one hold):**
