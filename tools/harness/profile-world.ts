@@ -258,6 +258,10 @@ const clockGuard = (async () => {
     // which modal holds the clock (title, buttons) and whether a world switch is under way (story-smoke 2026-10-23)
     const pd = await ag('pending_dialogs').catch(() => null), gs = await ag('game_state').catch(() => null);
     console.log(`${stamp()} at the trip: dialog ${JSON.stringify(pd?.ok ? pd.result : pd?.error).slice(0, 400)}; sub_state ${gs?.result?.sub_state ?? '?'}, world ${gs?.result?.load_file ?? '?'}`);
+    // what the autopilot did meanwhile: a dialog answered in a loop shows here (2026-11-03: a wish dialog under the age-up dialog,
+    // 210 answers in 60 s, seen only in the upkeep log)
+    const ap = await ag('autopilot').catch(() => null), cl: string[] = ap?.result?.cleared ?? [];
+    console.log(`${stamp()} at the trip: autopilot ${ap?.ok ? `${cl.length} answers since the last upkeep${cl.length ? ` (last: ${cl[cl.length - 1].slice(0, 120)})` : ''}, blocked ${ap.result.blocked ?? 'none'}${ap.result.restarted ? ', restarted (task had stopped)' : ''}` : ap?.error}`);
     prof?.kill();
     await restoreFixes();
     process.exit(1);
