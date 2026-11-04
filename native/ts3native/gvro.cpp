@@ -77,18 +77,17 @@ static int GvRun(u8* world, const float* pt, float r, DWORD opt, bool job, bool*
     return why;
 }
 
-static void GvFallback(int why) {
-    int i;
+static int GvFbIdx(int why) {  // also [IdleCheckRO] SiteC (idlero.cpp)
     switch (why) {
-    case SR_FB_TRY: i = GV_FB_TRY; break;
-    case SR_FB_DIRTY: case SR_FB_LOTMISS: case SR_FB_DEFERRED: i = GV_FB_LOT; break;
-    case SR_FB_SHAPE: case SR_FB_CACHE: i = GV_FB_SHAPE; break;
-    case SR_FB_TRIP: i = GV_FB_TRIP; break;
-    case GV_WHY_JOBEND: i = GV_FB_JOBEND; break;
-    default: i = GV_FB_STATE; break;
+    case SR_FB_TRY: return GV_FB_TRY;
+    case SR_FB_DIRTY: case SR_FB_LOTMISS: case SR_FB_DEFERRED: return GV_FB_LOT;
+    case SR_FB_SHAPE: case SR_FB_CACHE: return GV_FB_SHAPE;
+    case SR_FB_TRIP: return GV_FB_TRIP;
+    case GV_WHY_JOBEND: return GV_FB_JOBEND;
+    default: return GV_FB_STATE;
     }
-    InterlockedIncrement(&ts3native_counters.gvFb[i]);
 }
+static void GvFallback(int why) { InterlockedIncrement(&ts3native_counters.gvFb[GvFbIdx(why)]); }
 
 static volatile LONG g_gvNoted;
 static DWORD GvShadow(u8* world, void* edx, const float* pt, float r, DWORD* vec, DWORD mode, DWORD opt) {
@@ -112,6 +111,7 @@ static DWORD GvShadow(u8* world, void* edx, const float* pt, float r, DWORD* vec
 
 static DWORD __fastcall GvStub(u8* world, void* edx, const float* pt, float r, DWORD* vec, DWORD mode, DWORD opt) {
     Ts3nCounters& k = ts3native_counters;
+    const StubKey sk(GV_SITE + 5);  // probe P0: the game's calls below keep the site's key
     const DWORD tid = GetCurrentThreadId();
     if ((!k.gvMode && !k.gvShadow) || tid != g_async.owner) return g_gvOrig(world, edx, pt, r, vec, mode, opt);
     InterlockedIncrement(&k.gvCalls);

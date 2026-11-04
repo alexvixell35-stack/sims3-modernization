@@ -168,6 +168,75 @@ static DWORD __fastcall IkTestStub(u8* p, void* edx, const u8* entry, DWORD room
     return g_ikTest(p, edx, e, room, b, pt, r);
 }
 
+// Site C (docs/195 §4 C1, 2026-11-04): the IC's obstacle query 0x82EDB0 at 0x75598B (return key 0x755990), reached when A
+// misses or 0x625140 answers 0. The call matches [GoalValidRO]'s (gvro.cpp) [verified disassembly 2026-11-04]: thiscall world
+// = [esp+0x34]; pt = the 0x6508F0 point (xyz +0, level +0x24); r = [ebp+0x14]; vec = a fresh empty FootprintRefVec (begin =
+// end = cap = 0, tag "Routing/Host"); mode 0 (0x755960); opt = [ebp+0x18]. After it the IC reads only the vector: begin ==
+// end -> 0x755A5B (frees the empty range, returns 0); al is not read. So an empty answer is exact without the game's call:
+// GvRun under QL shared as GvStub does; footprints found or any doubt call the game's 0x82EDB0 (today's wait). Shadow (no
+// job): the game's call, then GvRun, compared (al, footprint count). Counters v903 (+0x5B84): icMode (--ab idlecheckc),
+// icShadow (--ab idlecheckcshadow).
+static const DWORD IC_SITE_OQ = 0x0075598B;
+static GvFn g_icOrig = (GvFn)(uintptr_t)GV_TARGET;
+static volatile LONG g_icNoted;
+static DWORD IcShadow(u8* world, void* edx, const float* pt, float r, DWORD* vec, DWORD mode, DWORD opt) {
+    Ts3nCounters& k = ts3native_counters;
+    const DWORD a = g_icOrig(world, edx, pt, r, vec, mode, opt);
+    const int size = (int)((vec[1] - vec[0]) / 4);  // the game's copy: sorted, unique footprint refs
+    bool lot = false;
+    int n = 0;
+    const int why = mode ? SR_FB_STATE : GvRun(world, pt, r, opt, false, &lot, &n);
+    InterlockedIncrement(&k.icShadowRuns);
+    if (why) { InterlockedIncrement(&k.icFb[GvFbIdx(why)]); return a; }
+    if (!(u8)a || !size) InterlockedIncrement(&k.icShadowEmpty);
+    if (((u8)a != 0) != lot || (lot && size != n)) {
+        InterlockedIncrement(&k.icShadowMismatch);
+        if (InterlockedIncrement(&g_icNoted) <= 16)
+            Log("idle check RO site C: shadow mismatch at (%.2f, %.2f) level %ld opt 0x%lX: game al %u / %d footprints, clone lot %u / %d",
+                pt[0], pt[2], *(const LONG*)(pt + 9), opt, (unsigned)(u8)a, size, (unsigned)lot, n);
+    }
+    return a;
+}
+static DWORD __fastcall IcStub(u8* world, void* edx, const float* pt, float r, DWORD* vec, DWORD mode, DWORD opt) {
+    Ts3nCounters& k = ts3native_counters;
+    const StubKey sk(IC_SITE_OQ + 5);  // probe P0: the game's calls below keep the site's key
+    const DWORD tid = GetCurrentThreadId();
+    if ((!k.icMode && !k.icShadow) || tid != g_async.owner) return g_icOrig(world, edx, pt, r, vec, mode, opt);
+    InterlockedIncrement(&k.icCalls);
+    if (g_async.state != A_RUNNING) {
+        if (!k.icShadow) return g_icOrig(world, edx, pt, r, vec, mode, opt);
+        InterlockedIncrement(&g_rgOffSimOpen);  // no job starts while the two answers are compared (worker Dekker order)
+        const DWORD a = g_async.state == A_RUNNING ? g_icOrig(world, edx, pt, r, vec, mode, opt) : IcShadow(world, edx, pt, r, vec, mode, opt);
+        RgOffSimDrop();
+        return a;
+    }
+    if (!k.icMode) return g_icOrig(world, edx, pt, r, vec, mode, opt);
+    int why = SR_FB_STATE;
+    if (!mode && vec[0] == vec[1] && AvMayRun(tid)) {  // as the call site passes them; not the +0x918 owner, no callback
+        LARGE_INTEGER t0;
+        QueryPerformanceCounter(&t0);
+        bool lot;
+        int n;
+        why = GvRun(world, pt, r, opt, true, &lot, &n);
+        if (!why && !n) {
+            const LONG us = UsSince(t0);
+            InterlockedIncrement(&k.icTaken);
+            MwSkip(MW_IK);
+            if (!lot) InterlockedIncrement(&k.icNoLot);
+            InterlockedExchangeAdd(&k.icUs, us);
+            Max(&k.icMaxUs, us);
+            return lot ? 1 : 0;
+        }
+        if (!why) {  // footprints near the point: the IC's loop needs the game's refs
+            InterlockedIncrement(&k.icFb[GV_FB_HITS]);
+            return g_icOrig(world, edx, pt, r, vec, mode, opt);
+        }
+    }
+    InterlockedIncrement(&k.icFb[GvFbIdx(why)]);
+    return g_icOrig(world, edx, pt, r, vec, mode, opt);
+}
+static const CallSite kIcSite = {IC_SITE_OQ, GV_TARGET, (void*)IcStub};
+
 static const CallSite kIkSites[] = {{IK_SITE_GIP, IK_GIP, (void*)IkGipStub}, {IK_SITE_TEST, IK_TEST, (void*)IkTestStub}};
 
 // [IdleCheckRO] Enabled=1: needs [RouteGate] Enforce=1 with the async path and the S2 writer set (QL, W1-W6, tripwires)
@@ -181,4 +250,10 @@ static void InstallIdleCheckRO(const wchar_t* ini) {
     k.ikShadow = Clamp(GetPrivateProfileIntW(L"IdleCheckRO", L"Shadow", 0, ini), 0, 1);
     k.ikReady = 1;
     Log("OK   idle check RO: 0x7558D7 + 0x755916 + the S2 writer set (Mode=%ld Shadow=%ld)", k.ikMode, k.ikShadow);
+    if (!GetPrivateProfileIntW(L"IdleCheckRO", L"SiteC", 0, ini)) return;
+    if (!PatchCalls("idle check RO site C (0x7556B0 -> ObstacleQuery)", &kIcSite, 1)) return;
+    k.icMode = Clamp(GetPrivateProfileIntW(L"IdleCheckRO", L"SiteCMode", 1, ini), 0, 1);
+    k.icShadow = Clamp(GetPrivateProfileIntW(L"IdleCheckRO", L"SiteCShadow", 0, ini), 0, 1);
+    k.icReady = 1;
+    Log("OK   idle check RO site C: 0x75598B (SiteCMode=%ld SiteCShadow=%ld)", k.icMode, k.icShadow);
 }

@@ -71,3 +71,39 @@ Shadow: with no job, the game's call, then the clone, compared (`al`, footprint 
 - Caller split on current builds and in the ladder (P1b was off): I-195-1.
 - C1 empty share in a crowd: I-195-3; if small, only C2 helps.
 - Whether the moved wait lands on destroy / gate 0 (I-195-4); if so, this belongs with DestroyPark and G1 (docs/152) in one bundle, not alone.
+
+## 6. Footsteps: `[FootstepRO]` (2026-11-03/04, issue #156, `fsro.cpp`, counters v901)
+
+**Caller [measured].** With the eleven read-only pieces on (old save, P1b), the `0x62FB74` wait from `0x834201` was 14.2 ms/s (0.9 with them off): `RoutingWorld_SurfaceAtPoint 0x834B80` -> `EnsureTerrainFootprints 0x8341D0` -> `LotTable_GetIfPresent 0x62FB60`. A Frida drill (840 s) put 7,166 of 7,232 `SurfaceAtPoint` calls inside the pose pass `0x571B90`, all from footstep sounds: `FootstepAudio_Surface 0x8693E0` asks `World_SurfaceTypeAtPoint 0xAB9580` at `0x869713` [verified disassembly]. Only the sound reads the answer (`0x869130` maps it to the sound name).
+
+**Design.** Call-site retarget at `0x869713`. On the sim thread the stub keeps the game's last answer per (0.5 m cell, level, flags) in a 4096-slot table. While a job is `A_RUNNING`, a fresh entry (`MaxAgeMs`, default 60 s) answers without the game's call. On a miss: `MissNear=1` takes a fresh entry of one of the 8 neighbouring cells, then `MissLast=1` the last surface the game gave, else the game is called (today's wait). With no job every call goes to the game, and the counters check what each answer would have been (`fsChk*`, `fsNearChk*`, `fsLastChk*`). A wrong answer plays another surface's step sound once; nothing else reads it.
+
+**A/B [measured, `combo-local-2026-11-04-combo-fs-near`, save "1111 kit5", main b1d6b3c + this build, in-load `--ab footstepro`, 2-min slices, 10 min, `MissNear=1 MissLast=1`, the eleven pieces on in both arms].**
+
+| | on | off |
+|---|---|---|
+| `0x62FB74` gate 12 (F-F) wait, ms/s | 1.0 | 13.1 |
+| all keyed sim waits, ms/s | 36.4 | 42.6 |
+| arm sum (`arm-ms.ts`: script + route + animPose + locomotion), ms/s | 78.9 | 101.5 (on - off -22.5, -22%; animPose -16.7) |
+
+Job calls 973: 590 cell hits, 210 neighbours, 173 last surface, 0 to the game. Checks with no job (how often each answer differs from the game's): cell 46 of 2,749 (1.7%), neighbour 203 of 2,923 (6.9%), last surface 1,263 of 4,368 (28.9%). So in that run about 50 of the 973 job steps played another surface's sound, most from `MissLast`. One run; the same round's FailMemo job, whose switch did nothing (`fmRep` 0), differed by -9.2 ms/s (-11%) between its arms, so single-run arm sums carry about +-10% noise; the gate-12 key drop is the direct effect.
+
+**`MissLast=0` run (2026-11-04, stack-local `stack-fs-nolast`, `--ab footstepro`, `MissNear=1`, Tail and DestroyPark on both arms).** Gate 12 F-F `0x62FB74` 16.0 to 2.6 ms/s; all keyed sim waits 45.4 to 34.8 ms/s; arm sum 106.2 to 73.5 ms/s (-31%, one run). Job calls 1,308: 831 cell hits, 342 neighbours, 135 to the game (10%). Checks with no job: cell 36 of 3,206 (1.1%), neighbour 197 of 3,809 (5.2%), last surface 1,480 of 4,900 (30.2%, measured, not used). So `MissLast=1` saves about 1.6 ms/s of F-F wait and costs a wrong surface sound on about 5% of job steps; `MissLast=0` gives about 2% wrong.
+
+**Recommendation.** `MissLast=0` (the safe side when the gain is this small). Defaults stay `Enabled=0` until the PR review.
+
+## 7. Site C1 built: `[IdleCheckRO] SiteC` (2026-11-04, counters v903, `idlero.cpp`)
+
+**Call site [verified disassembly 2026-11-04].** `0x75598B` `call 0x82EDB0`, thiscall world = `[esp+0x34]`. Arguments: pt = the point `0x6508F0` builds (xyz +0, level +0x24, the layout GvRun reads); r = `[ebp+0x14]`; vec = a fresh empty FootprintRefVec (begin = end = cap = 0, tag `"Routing/Host"`); mode 0 (`0x755960`); opt = `[ebp+0x18]`. After the call the IC reads only the vector: begin == end jumps to `0x755A5B` (frees the empty range, returns 0); `al` is not read. So C1 is §4 step 1 as designed: the shape of `[GoalValidRO]`'s call site.
+
+**Build.** `IcStub` at `0x75598B` runs `GvRun` (gvro.cpp) under QL shared while a job runs. An empty answer (no footprint, or no lot) returns without the game's call. Footprints found (`icFb[6]`) or any doubt (`icFb[0..5]`, GoalValidRO's reasons) call the game's `0x82EDB0`, which is today's wait. Shadow with no job: the game's answer, then `GvRun`, compared (`icShadowMismatch`); `icShadowEmpty` is the share Mode 1 would take (I-195-3). Ini `[IdleCheckRO] SiteC=0` (needs `Enabled=1`), `SiteCMode`, `SiteCShadow`; runtime switches `--ab idlecheckc` (+0x5B88) and `--ab idlecheckcshadow` (+0x5B8C). Selftest `TestIdleCheckC` (on GoalValidRO's fakes). C2 (non-empty answers) is not built.
+
+**Runs (2026-11-04, stack-local, one save, 10 min each, in-load A/B).**
+
+- Shadow (`SiteCShadow=1`, mode 0): 1,747 compares, 0 mismatches. Only 8 were empty (0.46%): the IC almost always finds footprints near the point.
+- `--ab idlecheckc` (Tail on both arms): `icCalls` 2,080, `icTaken` 3 (all no-lot answers). Arm sum -6%, inside the noise: the shadow job, which cannot help, also read -6%.
+- Tail and site C together vs neither: `0x83156D` 11.5 to 0.1 ms/s; all keyed waits 32.2 to 34.6 ms/s. The wait moves on.
+
+**Verdict.** C1 does not pay and stays off. Only C2 (non-empty answers under QL shared) can make site C pay; it needs the footprint refs the IC's loop reads (§4 step 2).
+
+**Harness bug found by these runs.** With SiteC installed, the IC's wait was keyed by `IcStub`'s own return address in ts3native.asi, not by `0x755990`. That address changes every run and differs per call instruction. The 32 P0 key slots fill first-come, so the off arm's key got no slot: its wait went to the untimed `blockOther` (262 vs 143 per min), and the off arm's keyed total read low by about 11 ms/s. Fix: `t_stubKey` (`StubKey` in `GvStub` and `IcStub`) keys the outermost ObstacleQuery wait by the game site (`0x755990`, `0x75A64C`), as AvSite does with `0x846D21`; both keys are seeded. The asi-range key in older runs (for example `0x6696A870`, 3 to 5 ms/s) was `GvStub`'s wait: the dx-local round (fixed keys) shows `0x75A64C` at 5-9 ms/s and no asi-range key.

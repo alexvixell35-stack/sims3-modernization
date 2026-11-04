@@ -335,7 +335,7 @@ static void ApplyGc(const wchar_t* ini) {
 }
 
 // --- Phase 2: negative cache for failed route plans (docs/11 Q5, docs/15 phase 2) ---
-// Counters for test tools: Frida `Module.findExportByName('ts3native.asi', 'ts3native_counters')`, read 5857 int32 (v901 [RouteToObjRO] Tail rtoTail* at 0x5B78 after v900, contributor block; v900 [FootstepRO] fs* at 0x5B30 after v163, contributor block; v163 [GC] BlackListCapKB window gcLenientN / gcSwitchSec at 0x5B28 after v162, version field 163; v162 [GC] BlackListCapKB gc* at 0x5B10 after v161, version field 162; v161 [GcGrowLog] gw* at 0x5AE8 after v160, version field 161; v160 [SaveSlim] slimFails after v159, version field 160; v159 [UnseenRootMotion] Mode 2 SacsHold=3 bound-actor classes rm2SacsCls after v158, version field 159; v158 [UnseenRootMotion] Mode 1 walk-1 rescan rmSlW1Late after v157, version field 158; v157 [UnseenRootMotion] Mode 2 SacsHold + SACS driver / actor histograms after v156, version field 157; v156 [UnseenAnim] aaSlotReset / aaStale + [UnseenRootMotion] rmSlMissHold after v155, version field 156; v155 [UnseenRootMotion] Mode 2 script camera IC hooks after v154, version field 155; v154 [UnseenRootMotion] Mode 2 coarse unseen Sims after v153, version field 154; v153 [UnseenRootMotion] Mode 1 late starts after v152, version field 153; v152 [UnseenTable] lazy rows after v151, version field 152; v151 [UnseenRootMotion] after v150, version field 151; v147 [UnseenAnim] after v146, version field 147; v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs after v145, version field 146; v145 [UnseenGhost] after v144; v144 [EaCrashFixes] MintDivGuard after v143, version field 144; v143 [MonoFast] CallPath after v142, version field 143; v142 [RouteAsync] WorkerWait after v141; v141 [EaCrashFixes] after v140, version field 141; v140 [UnseenFallback] FinishWalk holds after v139, version field 140; v139 [UnseenFallback] C1-C4 site fallbacks after v138, version field 139; v138 [UnseenFallback] after v137, version field 138; v137 [MemDiag] TypeGrowth + [GC] SqrtHeapLimit after v136 [ResourceCache] trim, version field 137; v135 PlanDeadlineMs sync-path exemptions after v134, version field 135; v134 [RouteAsync] KindDeadlines after v133; v133 [RouteSnap] LotUseReadout after v132; v132 [RouteSnap] PoolChunkMB / EpochHeap after v131; v129 [RouteSnap] StaleLotFp after reserved v126-v128, version field 129; v125 [RouteSnap] StaleLot after reserved v123 / v124, version field 125; v119 [IdleCheckRO] after v118, version field 119; v118 [GoalValidRO] slots kept, other branch; v117 CrashForensics ObjResLog after v116, version field 117; v116 CrashForensics EffectLog after v115, version field 116; v115 CrashForensics DrawGuards / OurEvents after v114, version field 115; v114 CrashForensics after v113, version field 114; v113 DeferPrivateFp after v112, version field 113; v112 P6 take kinds + Mode=2 cut sharing + per-job phase split after v111, version field 112; v111 watchpoint constructor-pair count + follow + replay audit rebase hold after v110, version field 111; v110 [Watchpoint] lot arm + child z / parent +0x30 writer probes after v109, version field 110; v109 job yield + sim job waits by site after v108, version field 109; v108 gate site 16 after v107; v107 PlanDrain after v106; v106 P5 steps 2-4 after v105 (layout of merge eaef8a1b; zeros without it); v105 RecsUnlocked after v104, version field 105; v104 refcount guard after v103; v103 job deadline + own waits + goal-step split after v102; v102 goal split + GoalGen D1 + H2 IC window after v101, version field 102; v101 foreign kinds after v100; v100 placement RO after v99; v99 plan deadline + fail memo after v98; v98 lock holders after v97; v97 sync plan phases after v96; v96 host-call split + DoorMemo after v93; v93 route-to-object RO appended after v95 at the 2026-10-22 0325 merge, version field stays 95; v95 F-G held-out count after v94, v94 design U phase 2 after v92, v92 route allocator sites after v91, v91 [Gate0RO] after v90, v90 replan dedupe after v88, all at the 2026-10-22 integration merge; version field 95; v88 cell memo probe appended after v89; v89 tail unlock; v87 route job phases; v86; v77 AvoidRO before v78, v79 unseen probe + throttle after v78, v80 unseen throttle phase 2, v81 foreign job cap, v83 unseen diagnostics, v84 foreign job split, v85 H2 counters, v86 acting early-out, no v52, v58 or v82 fields in this build).
+// Counters for test tools: Frida `Module.findExportByName('ts3native.asi', 'ts3native_counters')`, read 5878 int32 (v904 [Discourage] DestroyParkDx dx* at 0x5BCC after v903, contributor block; v903 [IdleCheckRO] SiteC ic* at 0x5B84 after v902, contributor block; v902 [RouteToObjRO] Tail rtoTail* at 0x5B78 after v901, contributor block; v901 [FootstepRO] fs* at 0x5B30 after v163, contributor block; v163 [GC] BlackListCapKB window gcLenientN / gcSwitchSec at 0x5B28 after v162, version field 163; v162 [GC] BlackListCapKB gc* at 0x5B10 after v161, version field 162; v161 [GcGrowLog] gw* at 0x5AE8 after v160, version field 161; v160 [SaveSlim] slimFails after v159, version field 160; v159 [UnseenRootMotion] Mode 2 SacsHold=3 bound-actor classes rm2SacsCls after v158, version field 159; v158 [UnseenRootMotion] Mode 1 walk-1 rescan rmSlW1Late after v157, version field 158; v157 [UnseenRootMotion] Mode 2 SacsHold + SACS driver / actor histograms after v156, version field 157; v156 [UnseenAnim] aaSlotReset / aaStale + [UnseenRootMotion] rmSlMissHold after v155, version field 156; v155 [UnseenRootMotion] Mode 2 script camera IC hooks after v154, version field 155; v154 [UnseenRootMotion] Mode 2 coarse unseen Sims after v153, version field 154; v153 [UnseenRootMotion] Mode 1 late starts after v152, version field 153; v152 [UnseenTable] lazy rows after v151, version field 152; v151 [UnseenRootMotion] after v150, version field 151; v147 [UnseenAnim] after v146, version field 147; v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs after v145, version field 146; v145 [UnseenGhost] after v144; v144 [EaCrashFixes] MintDivGuard after v143, version field 144; v143 [MonoFast] CallPath after v142, version field 143; v142 [RouteAsync] WorkerWait after v141; v141 [EaCrashFixes] after v140, version field 141; v140 [UnseenFallback] FinishWalk holds after v139, version field 140; v139 [UnseenFallback] C1-C4 site fallbacks after v138, version field 139; v138 [UnseenFallback] after v137, version field 138; v137 [MemDiag] TypeGrowth + [GC] SqrtHeapLimit after v136 [ResourceCache] trim, version field 137; v135 PlanDeadlineMs sync-path exemptions after v134, version field 135; v134 [RouteAsync] KindDeadlines after v133; v133 [RouteSnap] LotUseReadout after v132; v132 [RouteSnap] PoolChunkMB / EpochHeap after v131; v129 [RouteSnap] StaleLotFp after reserved v126-v128, version field 129; v125 [RouteSnap] StaleLot after reserved v123 / v124, version field 125; v119 [IdleCheckRO] after v118, version field 119; v118 [GoalValidRO] slots kept, other branch; v117 CrashForensics ObjResLog after v116, version field 117; v116 CrashForensics EffectLog after v115, version field 116; v115 CrashForensics DrawGuards / OurEvents after v114, version field 115; v114 CrashForensics after v113, version field 114; v113 DeferPrivateFp after v112, version field 113; v112 P6 take kinds + Mode=2 cut sharing + per-job phase split after v111, version field 112; v111 watchpoint constructor-pair count + follow + replay audit rebase hold after v110, version field 111; v110 [Watchpoint] lot arm + child z / parent +0x30 writer probes after v109, version field 110; v109 job yield + sim job waits by site after v108, version field 109; v108 gate site 16 after v107; v107 PlanDrain after v106; v106 P5 steps 2-4 after v105 (layout of merge eaef8a1b; zeros without it); v105 RecsUnlocked after v104, version field 105; v104 refcount guard after v103; v103 job deadline + own waits + goal-step split after v102; v102 goal split + GoalGen D1 + H2 IC window after v101, version field 102; v101 foreign kinds after v100; v100 placement RO after v99; v99 plan deadline + fail memo after v98; v98 lock holders after v97; v97 sync plan phases after v96; v96 host-call split + DoorMemo after v93; v93 route-to-object RO appended after v95 at the 2026-10-22 0325 merge, version field stays 95; v95 F-G held-out count after v94, v94 design U phase 2 after v92, v92 route allocator sites after v91, v91 [Gate0RO] after v90, v90 replan dedupe after v88, all at the 2026-10-22 integration merge; version field 95; v88 cell memo probe appended after v89; v89 tail unlock; v87 route job phases; v86; v77 AvoidRO before v78, v79 unseen probe + throttle after v78, v80 unseen throttle phase 2, v81 foreign job cap, v83 unseen diagnostics, v84 foreign job split, v85 H2 counters, v86 acting early-out, no v52, v58 or v82 fields in this build).
 struct Ts3nCounters {
     LONG version;      // layout version, 4
     LONG enabled;      // 1 when the Route_PlanLocked detour is installed
@@ -2549,7 +2549,7 @@ struct Ts3nCounters {
     // v163 (0.36.168, docs/232 Run 8q, gcgrow.cpp): [GC] BlackListCapKB window
     LONG gcLenientN;                   // +0x5B28, switches back to the cap: a world quit (menu, travel, another save, exit)
     LONG gcSwitchSec;                  // +0x5B2C, seconds after init of the last switch
-    // v900 (contributor block, issue #156, fsro.cpp): [FootstepRO] footstep surface cache, after v163
+    // v901 (contributor block, issue #156, fsro.cpp): [FootstepRO] footstep surface cache, after v163
     LONG fsReady;                      // +0x5B30, 1 = the call at 0x869713 is retargeted
     volatile LONG fsMode;              // +0x5B34, switch (--ab footstepro): 1 = while a job runs, the cache answers the footstep surface
     LONG fsCalls;                      // +0x5B38, sim calls with the switch on
@@ -2568,12 +2568,29 @@ struct Ts3nCounters {
     LONG fsNear;                       // +0x5B6C, of the job calls, MissNear=1: answered from a fresh entry of a neighbouring cell
     LONG fsNearChk;                    // +0x5B70, no-job calls with a fresh neighbouring entry: that answer checked against the game
     LONG fsNearDiff;                   // +0x5B74, of those, it differed (MissNear=1 would have played another surface's sound)
-    // v901 (contributor block, docs/140 §5.3 phase P, rtoro.cpp): [RouteToObjRO] Tail, after v900
+    // v902 (contributor block, docs/140 §5.3 phase P, rtoro.cpp): [RouteToObjRO] Tail, after v901
     volatile LONG rtoTailMode;             // +0x5B78, switch (--ab routetoobjtail): 1 = the clone runs BlockerCheck2d's physics tail
     LONG rtoTailRuns;                      // +0x5B7C, tails run by the clone after QL is released (each was an rtoFb[8] fallback)
     LONG rtoTailHits;                      // +0x5B80, of those, a physics blocker answered code 1
+    // v903 (contributor block, docs/195 §4 C1, idlero.cpp): [IdleCheckRO] SiteC, after v902
+    LONG icReady;                      // +0x5B84, 1 = the call at 0x75598B is retargeted ([IdleCheckRO] SiteC=1)
+    volatile LONG icMode;              // +0x5B88, switch (--ab idlecheckc): 1 = while a job runs, empty answers of the obstacle query come from GvRun
+    volatile LONG icShadow;            // +0x5B8C, switch (--ab idlecheckcshadow): with no job, the game answers and GvRun is compared
+    LONG icCalls;                      // +0x5B90, sim calls with a switch on
+    LONG icTaken;                      // +0x5B94, of those, answered empty during a job (no game call, no wait at 0x755990)
+    LONG icNoLot;                      // +0x5B98, of the taken ones, no lot at the point (al 0)
+    LONG icUs;                         // +0x5B9C, time in GvRun for the taken ones (us)
+    LONG icMaxUs;                      // +0x5BA0, longest of those
+    LONG icFb[7];                      // +0x5BA4, the game called, by reason: 0 state (mode, vector, +0x918 owner, callback), 1 QL busy, 2 lot/deferred, 3 shape, 4 tripwire, 5 job end, 6 footprints found
+    LONG icShadowRuns;                 // +0x5BC0, shadow compares
+    LONG icShadowEmpty;                // +0x5BC4, of those, the game answered empty (what Mode 1 would take)
+    LONG icShadowMismatch;             // +0x5BC8, of those, al or the footprint count differed (must stay 0)
+    // v904 (contributor block, docs/88 §10, p5c.cpp): [Discourage] DestroyParkDx, after v903
+    volatile LONG dxMode;                  // +0x5BCC, switch (--ab destroyparkdx): 1 = queued discourage records of the id no longer keep the wait
+    LONG dxParked;                         // +0x5BD0, destroys parked that had queued records (each was a p5cKeptWait[0] wait)
+    LONG dxLeft;                           // +0x5BD4, their records left queued (applied at the next drain by the gone-object rules)
 };
-extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {901,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {904,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -3099,6 +3116,14 @@ static __declspec(thread) int t_g10cOpen;
 static void* volatile g_rgLock;
 static __declspec(thread) DWORD t_steerRet;  // rtsites.cpp: caller of 0x82EDB0 / 0x82F0B0 while one runs on this thread
 static __declspec(thread) bool t_avSite;     // avoidro.cpp: AvSite calls 0x82EDB0 for the retargeted 0x846D1C (key 0x846D21)
+// a call-site stub (GvStub, IcStub) that calls 0x82EDB0 for the game: the game site + 5, so probe P0 keys the wait as without
+// the stub (the stub's own return is a per-run asi address, one per call instruction: 2026-11-04 stack-local lost 0x755990)
+static __declspec(thread) DWORD t_stubKey;
+struct StubKey {
+    DWORD prev;
+    explicit StubKey(DWORD key) : prev(t_stubKey) { t_stubKey = key; }
+    ~StubKey() { t_stubKey = prev; }
+};
 static __declspec(thread) DWORD t_rtoKey;    // rtoro.cpp: the late +0x918 take of a given-up clone, keyed 0x83156D as the original
 static __declspec(thread) DWORD t_waitKey;   // routegate.cpp: set around a gate's +0x918 wait (probe P0)
 static __declspec(thread) int t_p5bSite;     // routegate.cpp / p5b.cpp (0.34.2): site + 1 of the gate waiting for +0x918 here, 0 none
@@ -3143,7 +3168,8 @@ static void WaitNote(DWORD key, LONG us, DWORD mwTok = 0) {
 // (2026-10-22 pairs, docs/51 §218). The A/B keys get their slots at start.
 static void SeedWaitKeys() {
     static const DWORD kKeys[] = {0x0085FE10, 0x0062EF7A, 0x0062F782, 0x00833593, 0x02000003, 0x00846D21, 0x008334CC,
-                                  0x00760BFF, 0x0062FB74, 0x00631814, 0x00631F40, 0x0083156D, 0x0082D296, 0x0085B50C};
+                                  0x00760BFF, 0x0062FB74, 0x00631814, 0x00631F40, 0x0083156D, 0x0082D296, 0x0085B50C,
+                                  0x00755990, 0x0075A64C};  // 2026-11-04: idle check site C, GoalValidRO site
     for (int i = 0; i < (int)(sizeof(kKeys) / sizeof(kKeys[0])); i++) ts3native_counters.blockKey[i] = (LONG)kKeys[i];
 }
 static HANDLE g_asyncReady, g_asyncDone;
@@ -4874,16 +4900,19 @@ static_assert(offsetof(Ts3nCounters, aoReady) == 0x56D0 && offsetof(Ts3nCounters
 static_assert(offsetof(Ts3nCounters, rmReady) == 0x5830 && offsetof(Ts3nCounters, rmK) == 0x5840 && offsetof(Ts3nCounters, rmTailN) == 0x5890 &&
               offsetof(Ts3nCounters, rmZoneN) == 0x58C0 && offsetof(Ts3nCounters, rmDeltaN) == 0x5900 &&
               offsetof(Ts3nCounters, rmSlFallback) == 0x5928 && offsetof(Ts3nCounters, rmSpare) == 0x5944 &&
-              sizeof(Ts3nCounters) == 5857 * 4, "v151 layout (docs/registry.md)");
+              sizeof(Ts3nCounters) == 5878 * 4, "v151 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, utbRowCalc) == 0x5950 && offsetof(Ts3nCounters, utbForced) == 0x5960, "v152 layout (docs/registry.md)");
-static_assert(offsetof(Ts3nCounters, rmSlIns) == 0x5964 && offsetof(Ts3nCounters, rmSlCandFull) == 0x5980 && sizeof(Ts3nCounters) == 5857 * 4,
+static_assert(offsetof(Ts3nCounters, rmSlIns) == 0x5964 && offsetof(Ts3nCounters, rmSlCandFull) == 0x5980 && sizeof(Ts3nCounters) == 5878 * 4,
               "v153 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, gwMode) == 0x5AE8 && offsetof(Ts3nCounters, gwXmlMaxKB) == 0x5B0C && offsetof(Ts3nCounters, gcCapKB) == 0x5B10 &&
-                  offsetof(Ts3nCounters, gcExpandStreakMax) == 0x5B20 && offsetof(Ts3nCounters, gcSwitchSec) == 0x5B2C && sizeof(Ts3nCounters) == 5857 * 4,
+                  offsetof(Ts3nCounters, gcExpandStreakMax) == 0x5B20 && offsetof(Ts3nCounters, gcSwitchSec) == 0x5B2C && sizeof(Ts3nCounters) == 5878 * 4,
               "v161 + v162 + v163 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, fsReady) == 0x5B30 && offsetof(Ts3nCounters, fsMode) == 0x5B34 && offsetof(Ts3nCounters, fsNearDiff) == 0x5B74,
-              "v900 [FootstepRO] layout");
-static_assert(offsetof(Ts3nCounters, rtoTailMode) == 0x5B78 && offsetof(Ts3nCounters, rtoTailHits) == 0x5B80, "v901 [RouteToObjRO] Tail layout");
+              "v901 [FootstepRO] layout");
+static_assert(offsetof(Ts3nCounters, rtoTailMode) == 0x5B78 && offsetof(Ts3nCounters, rtoTailHits) == 0x5B80, "v902 [RouteToObjRO] Tail layout");
+static_assert(offsetof(Ts3nCounters, icReady) == 0x5B84 && offsetof(Ts3nCounters, icFb) == 0x5BA4 && offsetof(Ts3nCounters, icShadowMismatch) == 0x5BC8,
+              "v903 [IdleCheckRO] SiteC layout");
+static_assert(offsetof(Ts3nCounters, dxMode) == 0x5BCC && offsetof(Ts3nCounters, dxLeft) == 0x5BD4, "v904 [Discourage] DestroyParkDx layout");
 #include "autshadow.cpp"
 #include "gcroots.cpp"  // docs/67 §22.4: Crash S task-rooting line + [GcRootCheck] (after autshadow.cpp: autledger's g_lgCtx; memexp.cpp: g_mx)
 #include "snap.cpp"

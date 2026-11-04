@@ -16,7 +16,7 @@
 // (today's wait). With no job every call goes to the game, refreshes the entry, and checks what each answer would have
 // been against the game's (fsChk*, fsNearChk*, fsLastChk*). Only the footstep sound reads the answer (0x869130 maps it to the
 // sound name); a wrong answer picks another surface's sound for one step. Other threads: the game's call.
-// Counters v900 (+0x5B30, after upstream's v163 block): fsMode (+0x5B34, --ab footstepro).
+// Counters v901 (+0x5B30, after upstream's v163 block): fsMode (+0x5B34, --ab footstepro).
 #include <math.h>
 
 static const DWORD FS_SITE = 0x00869713, FS_TARGET = 0x00AB9580;
