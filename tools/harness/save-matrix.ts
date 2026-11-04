@@ -175,9 +175,13 @@ export function errSig(xml: string): string {
 // reload verdict: an error that also appears after loading the OFF save is the game's, not ours (2026-10-14 ReadBook)
 // known: ids of known EA errors (known-script-errors.json) found on this side; their files are left out of sigs
 export type ReloadSide = { save: string; households: string[]; files: string[]; sigs: string[]; known?: string[] };
+// NRaas ErrorTrap also writes its cleanup report ("-- Correction Logs --": out-of-world or destroyed objects it fixed) as a
+// ScriptError file. What it lists changes from load to load, so one side having it is no new error (2026-11-04 #208 matrix:
+// a CarHatchback out of world after the ON load, compaction not run)
+const CORRECTION_LOG = /--\s*Correction Logs\s*--/;
 export function reloadErrors(xmls: string[]): { sigs: string[]; known: string[] } {
   const sigs: string[] = [], known: string[] = [];
-  for (const x of xmls) { const k = matchKnown(x); if (k) known.push(k.id); else sigs.push(errSig(x)); }
+  for (const x of xmls) { const k = CORRECTION_LOG.test(x) ? { id: 'nraas-errortrap-correction-log' } : matchKnown(x); if (k) known.push(k.id); else sigs.push(errSig(x)); }
   return { sigs, known };
 }
 const countIds = (ids: string[]) => [...new Set(ids)].map(id => `${id} x${ids.filter(x => x === id).length}`).join(', ');
@@ -236,6 +240,8 @@ if (values['self-check']) {
   const kc = compareReload({ ...side([book]), known: kn.known }, side([book]));
   assert.equal(v(kc, 'new errors with fixes on'), 'pass'); assert.match(kc.find(x => x.name === 'known EA errors')!.why, /known EA error ea-wedding-cleanup-nre x1 \(ignored\): ON 1, OFF 0/);
   assert.equal(v(compareReload({ ...side([book]), ...mod }, side([book])), 'new errors with fixes on'), 'fail');
+  const corr = reloadErrors([xe('-- Correction Logs --\nOut of World Object Found 1: Sims3.Gameplay.Objects.Vehicles.CarHatchback')]);
+  assert.deepEqual(corr, { sigs: [], known: ['nraas-errortrap-correction-log'] }, 'ErrorTrap correction report: known, not new');
   assert.ok(sameWorld('NewDowntownWorld', 'newdowntownworld')); assert.ok(!sameWorld('NewDowntownWorld', 'University'));
   assert.ok(!sameWorld(undefined, undefined)); assert.ok(!sameWorld('NewDowntownWorld', undefined));
   const ts = (o: object) => ({ loaded: true, inTravel: true, saving: false, world: 'NewDowntownWorld', household: 'H', ...o });
