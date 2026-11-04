@@ -53,6 +53,10 @@ static int CpVerdict(CpState& st, int mode, DWORD onMB, DWORD rearmMB, DWORD min
     return 1;
 }
 
+// Pure (selftest): the save that just ran is this task's and saved: it ended after the task began (op 7), within the last
+// minute, with result 0 (the game's success code: every good save logs "save: end #N result 0"; 1 and 12 are failures)
+static bool CpSaveOk(const CpState& st, DWORD now) { return st.lastSaveN > st.saveSnap && st.lastSaveR == 0 && now - st.lastSaveEnd < 60000; }
+
 // Pure "did it help" (§3.4): the block after the reload must be back at T_on + RearmMB, else off for the session.
 static bool CpHelped(DWORD afterMB, DWORD onMB, DWORD rearmMB, bool apexGuard) { return afterMB >= CpThreshold(onMB, apexGuard) + rearmMB; }
 
@@ -100,8 +104,7 @@ static u8 CpOp(DWORD lo) {
         case 9: Log("compaction: the player chose Not now (asked again only after a re-arm)"); return 1;
         case 0: {
             const DWORD now = GetTickCount();
-            // the save that just ran: ended after the task began, result 1, within the last minute
-            const bool saveOk = g_cp.lastSaveN > g_cp.saveSnap && g_cp.lastSaveR == 0 && now - g_cp.lastSaveEnd < 60000;  // 0 = the game saved (every good save logs "save: end #N result 0")
+            const bool saveOk = CpSaveOk(g_cp, now);
             const DWORD big = CpBigMB();
             const int v = CpVerdict(g_cp, g_cpMode, g_cpOnMB, g_cpRearmMB, g_cpMinMin, g_cpApexGuard, big, now, saveOk);
             Log("compaction: verdict %s after save #%ld (result %lu%s): largest free %lu MB, threshold %lu MB%s, %s%s", v ? "COMPACT" : "no",
