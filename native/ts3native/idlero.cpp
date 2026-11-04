@@ -203,6 +203,28 @@ static IcClassFn g_icClass = IcClassGame;                    // selftest hands i
 static const DWORD* g_icMask = (const DWORD*)(uintptr_t)0x011E90FC;
 static const u8* g_icTestFrame;                               // selftest: the frame (its own return address is not 0x755990)
 static const int IC_LOOP_DOUBT = -1;
+// SiteCLoopJump (C2b, counters v906): the IC's exit for each answer. Each one is lea ecx, [esp+0x38]; call 0x652470 (the
+// vector's release: ReleaseRange, then free if allocated; empty here), mov eax, answer, the pops and ret; none reads a
+// register the loop set [verified disassembly 2026-11-04]. Answer 0 already ends at 0x755A5B the same way.
+static const DWORD kIcExit[4][2] = {{4, 0x00755A12}, {8, 0x00755A82}, {0x10, 0x00755A97}, {0x20, 0x00755A6D}};
+static bool g_icJumpOk;   // the four exits' bytes as verified at install
+static DWORD g_icJumpTo;  // selftest (g_icTestFrame): the exit IcStub would have returned to
+static DWORD IcExit(int a) {
+    for (const auto& e : kIcExit)
+        if ((int)e[0] == a) return e[1];
+    return 0;
+}
+static bool IcExitsOk() {  // lea ecx, [esp+0x38]; call 0x652470; then mov eax, answer within the next 12 bytes
+    for (const auto& e : kIcExit) {
+        const u8* p = (const u8*)(uintptr_t)e[1];
+        if (!Readable(p, 21) || memcmp(p, "\x8D\x4C\x24\x38\xE8", 5) || p + 9 + *(const LONG*)(p + 5) != (const u8*)0x00652470)
+            return false;
+        bool mov = false;
+        for (int i = 9; i < 17 && !mov; i++) mov = p[i] == 0xB8 && *(const DWORD*)(p + i + 1) == e[0];
+        if (!mov) return false;
+    }
+    return true;
+}
 // a doubt is -why: 1 no interface table, 2 kind slot target, 3 kind-5 id slot, 4 slot +0x1C, 5 class function, 6 slot +8,
 // 7 clone list truncated; the last one's slot targets for the log (owner thread only)
 static struct { int why; DWORD sv1, sv2, sv3, sv7, vt2; } g_icDoubt;
@@ -354,6 +376,17 @@ static DWORD __fastcall IcStub(u8* world, void* edx, const float* pt, float r, D
                 InterlockedExchangeAdd(&k.icLoopUs, us);
                 return 1;  // a lot was found (al 1); the IC reads only the vector, which stays empty: it returns 0
             }
+            if (const DWORD to = ans > 0 && k.icJumpMode && g_icJumpOk ? IcExit(ans) : 0) {  // SiteCLoopJump (C2b)
+                const LONG us = UsSince(t0);
+                InterlockedIncrement(&k.icJumped);
+                IcLoopCode(ans);
+                MwSkip(MW_IK);
+                InterlockedExchangeAdd(&k.icLoopUs, us);
+                // the IC's exit for this answer instead of 0x755990 (IcFrameOf checked that slot); the vector stays empty
+                if (g_icTestFrame) g_icJumpTo = to;
+                else *(DWORD*)_AddressOfReturnAddress() = to;
+                return 1;
+            }
             IcLoopCode(ans);
             return g_icOrig(world, edx, pt, r, vec, mode, opt);
         }
@@ -385,6 +418,10 @@ static void InstallIdleCheckRO(const wchar_t* ini) {
     k.icMode = Clamp(GetPrivateProfileIntW(L"IdleCheckRO", L"SiteCMode", 1, ini), 0, 1);
     k.icShadow = Clamp(GetPrivateProfileIntW(L"IdleCheckRO", L"SiteCShadow", 0, ini), 0, 1);
     k.icLoopMode = Clamp(GetPrivateProfileIntW(L"IdleCheckRO", L"SiteCLoop", 0, ini), 0, 1);
+    g_icJumpOk = IcExitsOk();
+    k.icJumpMode = g_icJumpOk ? Clamp(GetPrivateProfileIntW(L"IdleCheckRO", L"SiteCLoopJump", 0, ini), 0, 1) : 0;
+    if (!g_icJumpOk) Log("SKIP idle check RO site C loop jump: the IC's exits (0x755A12 / 0x755A6D / 0x755A82 / 0x755A97) differ");
     k.icReady = 1;
-    Log("OK   idle check RO site C: 0x75598B (SiteCMode=%ld SiteCShadow=%ld SiteCLoop=%ld)", k.icMode, k.icShadow, k.icLoopMode);
+    Log("OK   idle check RO site C: 0x75598B (SiteCMode=%ld SiteCShadow=%ld SiteCLoop=%ld SiteCLoopJump=%ld)", k.icMode, k.icShadow,
+        k.icLoopMode, k.icJumpMode);
 }

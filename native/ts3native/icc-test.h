@@ -31,9 +31,9 @@ static void TestIdleCheckC() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, icReady) == 0x5B84 && offsetof(Ts3nCounters, icMode) == 0x5B88 &&
                       offsetof(Ts3nCounters, icShadow) == 0x5B8C && offsetof(Ts3nCounters, icFb) == 0x5BA4 &&
-                      offsetof(Ts3nCounters, icShadowMismatch) == 0x5BC8 && sizeof(Ts3nCounters) == 5891 * 4,
+                      offsetof(Ts3nCounters, icShadowMismatch) == 0x5BC8 && sizeof(Ts3nCounters) == 5893 * 4,
                   "counters v903 layout after v902 (docs/registry.md)");
-    assert(k.version == 905);
+    assert(k.version == 906);
     assert(kIcSite.site == 0x0075598B && kIcSite.target == 0x0082EDB0);
     memset(&k.icReady, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, icReady));
     const LONG gvTaken0 = k.gvTaken, gvCalls0 = k.gvCalls, gvShadow0 = k.gvShadowRuns;  // GoalValidRO's own, untouched here
@@ -187,6 +187,22 @@ static void TestIdleCheckC() {
         svK7[3] = 0x00620E00, k.icLoopMode = 0;  // switch off: footprints call the game as in C1
         assert(lcall() == 0xABCD01 && origCalls == o0 + 3 && k.icFb[GV_FB_HITS] == hits0 + 1 && k.icLoopRuns == 3);
         assert(k.icLoopTaken == 1 && !t_qlShared && !t_inRo && !g_srInClone);
+        {  // SiteCLoopJump (C2b): a deciding footprint returns to the IC's exit for its answer (the test records the exit)
+            k.icLoopMode = 1, k.icJumpMode = 1, g_icJumpOk = true, g_icJumpTo = 0;
+            const LONG o1 = origCalls, j0 = k.icJumped, c0 = k.icLoopCode[2];
+            assert(lcall() == 1 && fv[0] == fv[1] && origCalls == o1 && g_icJumpTo == 0x00755A97 && k.icJumped == j0 + 1 &&
+                   k.icLoopCode[2] == c0 + 1);
+            b[0x35] = 12;
+            assert(lcall() == 1 && g_icJumpTo == 0x00755A82 && origCalls == o1);
+            b[0x35] = 1, svK7[3] = 0x00999999, g_icJumpTo = 0;  // a doubt still calls the game
+            assert(lcall() == 0xABCD01 && origCalls == o1 + 1 && !g_icJumpTo);
+            svK7[3] = 0x00620E00, g_icJumpOk = false;  // exits not verified: the game
+            assert(lcall() == 0xABCD01 && origCalls == o1 + 2 && !g_icJumpTo);
+            g_icJumpOk = true, k.icJumpMode = 0;  // switch off: the game, as in C2
+            assert(lcall() == 0xABCD01 && origCalls == o1 + 3 && !g_icJumpTo && k.icJumped == j0 + 2);
+            assert(IcExit(4) == 0x00755A12 && IcExit(0x20) == 0x00755A6D && !IcExit(0) && !IcExit(-1));
+            k.icLoopMode = 0, g_icJumpOk = false;
+        }
         // shadow, no job: the loop on the game's vector (fill = interface pointers) and on the clone, compared
         k.icShadow = 1, g_async.state = A_IDLE, g_twArmed = 0;
         icl::qObjs[0] = a, icl::qObjs[1] = c5, icl::qn = 2;
@@ -205,7 +221,8 @@ static void TestIdleCheckC() {
         k.icLoopMode = 0, origFill = 0, fill[0] = fill[1] = 0, icl::findHit = false;
         puts("IdleCheckRO SiteCLoop: counters v905; the IC's loop: kinds by slot target, type bytes 1 / 12 / 23, class 2..12, "
              "member false, kind 5 id list / lookup / flag mask, doubts; first decisive answer; frame guard; in a job answer 0 "
-             "without the game's call, an answer or a doubt calls it, switch off = C1; shadow zero share, mismatch, code diff");
+             "without the game's call, an answer or a doubt calls it, switch off = C1; shadow zero share, mismatch, code diff; "
+             "SiteCLoopJump (v906): an answer returns to the IC's exit for it, a doubt / unverified exits / switch off call the game");
     }
 
     k.icMode = k.icShadow = 0;
