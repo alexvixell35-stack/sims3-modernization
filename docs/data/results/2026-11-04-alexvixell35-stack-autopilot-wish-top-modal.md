@@ -33,4 +33,13 @@ The trip lines did not show this. The 210 answers were only in `<tag>-upkeep.log
 
 ## Game runs
 
-(pending)
+Same save, queue roall-ab-oldsave (local), 2026-11-04. Faith ages up in both jobs. Answers from `<tag>-upkeep.log`:
+
+| job | agent | answers in the 30 s window, in order |
+|---|---|---|
+| old-roall-ab (00:11) | before the fix | `lifetime wish -> first wish + okay`, then `Faith is finally a young adult ... -> #2 accept (only button)` |
+| old-roall-ab-onfirst (00:26) | with the fix (package rebuilt at the job start from the fixed source) | `Faith is finally ... -> #2 accept (only button)`, `Workaholic -> #12 cancel (safe default; ...)`, `lifetime wish -> first wish + okay` |
+
+- Before the fix the wish dialog was answered while the age-up dialog was on top: here once and it worked, in the failed job 210 times without effect.
+- With the fix the top dialog goes first each time: the age-up message, then EA's trait picker, then the wish dialog once it is on top.
+- The wish dialog on top is still recognised (`first wish + okay`, no "no safe button" line), so the window compare works in game.
