@@ -68,7 +68,7 @@ do_interaction,ControlHandlers,Live,clicking a pie menu entry,natural,actor is i
 cancel_interactions,ControlHandlers,Live,cancelling queue items,natural,active household Sim,handler,live
 go_here,ControlHandlers,Live,Go Here on terrain / lot,natural,active household Sim; one Sim per click (R-VOL-1),handler + R-HH-4,live
 cheat,ControlHandlers,Live,cheat console (Ctrl+Shift+C),cheat,,handler,none
-save_game,ControlHandlers,Live,Save / Save As,natural,not while traveling to or from another world,handler,none
+save_game,ControlHandlers,Live;Build;Buy,Save / Save As (Options menu; also open in Build / Buy),natural,not while traveling to or from another world,handler,none
 pending_dialogs,ControlHandlers,Any,none (read),harness,,handler,none
 respond_dialog,ControlHandlers,Any,clicking a dialog button,natural,,handler,none
 catalog_search,ControlHandlers,Any,none (read),harness,,handler,none
@@ -149,6 +149,8 @@ relationships,SimHandlers,Any,none (read),harness,,handler,none
 modify_relationship,SimHandlers,Live,none (testingcheats / MasterController relationship),cheat,romance and engagement need the age rules of R-LIFE-2,handler + R-CHEAT-1,live
 career,SimHandlers,Live,join: newspaper / computer / rabbit hole Join; promote / quit: quit is natural; promote is a cheat,natural,Teen part-time / YA+ full-time (R-DAY-1); promote = cheat,handler + R-DAY-1,live
 age_up,SimHandlers,Live,birthday cake (Blow Out Candles) when the age bar is full; forced = debug Trigger Age Transition,cheat,never with a cake in the same story (double age-up); Elder only with confirm_elder_death,handler + R-LIFE-1,live
+aut_interrupt,SimHandlers,Live,none: a Generic commodity search for every Sim whose manager search is parked (trait reactions and mods such as NRaas StoryProgression start these from their own tasks; the timing is forced),cheat,go-live repro aut-live-interrupt (docs/124 §8.2); answers dropped,handler,live
+venue_hours,SimHandlers,Any,none (read),harness,,handler,none
 make_occult,StoryHandlers,Live,a new Sim: CAS (Vampire LN/SN; Werewolf/Witch/Fairy/Ghost SN; Genie SH; Mermaid IP; Plumbot ITF); an existing Sim: bite / curse / potion / death (no instant transform),cheat,new Sim with a CAS occult = natural (CAS-equivalent); existing Sim or Mummy/Zombie/PlantSim/ImaginaryFriend/SimBot = cheat,handler + R-OCC-1,live
 start_fire,StoryHandlers,Live,none: fires come from cooking at low skill / fireplaces / candles / lightning,cheat,home lot,handler + R-LIFE-7,live
 pregnancy_advance,StoryHandlers,Live,Try for Baby then 72 sim hours (to=pregnant is the conception; labor / birth jump timers = cheat),cheat,woman YA/Adult; partner YA+; household room (R-LIFE-3),handler + R-LIFE-3,live
@@ -186,3 +188,5 @@ picker_confirm,StartPathHandlers,Map,purchase dialog: furnish choice + Purchase,
 picker_nav,StartPathHandlers,Map,family picker: Play arrow (or Cancel),natural,family picker up,handler + PlayFlowController.IFlow.OnNavigation,none
 et_move_lot,StartPathHandlers,Live;EditTown,Edit Town: Move lot tool > pick a lot > pick an empty plot > Accept,natural,Edit Town (action enter from live mode); a built residential lot without household and a free plot it fits,handler + EditTownMoveRotateTool,none
 posture_chain_check,HitchReproHandlers,Any,none (read: Sims whose posture chain loops; issue #89),harness,,handler,none
+camera_to_tagged,ContentHandlers,Live,none (test setup: camera onto a tagged Sim or point; a player moves the camera by hand),stress,,handler,live
+fenced_place,RouteFreezeHandlers,Live,none (test setup: places Sims on a fenced spot),stress,,handler,live

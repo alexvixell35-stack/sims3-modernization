@@ -1,0 +1,2822 @@
+{
+  "note": "golive-final: the single go-live run (Rodney: all Mono work first, one go-live test), NOT RUN. Order = cheapest decisive gate first: smoke (Dry, switch read-back) -> G7 dry apply (BP, IP, SV, crowd, build/buy + Edit Town, venue hour, second runs) -> acting (smoke, BP, IP, crowd, saves, pets, interrupts, second runs) -> crowd cost guard on/off (both orders) -> G8 seeded behaviour pairs (BP, IP, 2 x 30 min) -> G9b save + reload during acting (SV, BP, IP, 2 runs each). Gate stops (by hand, queue.ts does not stop on a FAIL row): any G7 row FAIL = stop before bp-gf-act-smoke (docs/124 §14.4 S3 stop rule: widen TopN/Margin once); act smoke FAIL = stop; G8 FAIL = exclude the definition, rerun the G8 pair (--only); resume with --from <id>. golive-ab.json stays a separate timing queue (clean night, ABBA). PLACEHOLDERS: asi game-copy/ts3native.asi.golive-final and package game-copy/ts3fixes.package.golive-final are filled by the build round (ts3native with docs/124 §17.10 Config keys 24-30 + docs/206 Satb act; ts3fixes = node tools/setup/build-fixes.ts --on kAutLive, ApplyTuned + autliveguard). Every job: Mode=3 Satb=2 WindowWaitUs 0, TopN 10, Bands 3, Margin 0, MaxWait 3, VerifyEvery 50, [MonoThread] LazyGate/LazyEarly 1 (golive-g7/act ini); Dry 1 only in G7 jobs; guard jobs Audit 0 DumpOnMismatch 0 (golive-guard ini). Read-back: logRequire on the ts3native go-live line (exact TopN/Bands/Margin/MaxWait/VerifyEvery/Dry) and the Satb line; queue.ts fails a job on a \"tuned: ... MISSING\" ts3fixes line and on shadow jobs without cuts. noSamplers on every job (no heavy tool, so the declared smoke can gate the run). Reports: node tools/harness/mono-cost-report.ts <queue jsonl> (\"go-live\", \"go-live objects\", \"G7 dry apply\", \"go-live cost guard\"); records autshadow.jsonl dry-diff / live-drop / live-guard. Estimated game time ~9.5 h (447 profile minutes + ~4 min load/close per job, 30 jobs + smoke). Crash rule: stop the queue by hand at the first crash (queue.ts itself stops only on the same job twice or two crashed jobs in a row; night chains go on), triage with node tools/harness/crash-ledger.ts triage and the [Crash] Log lines before any rerun; two clean runs per world before a gate verdict.",
+  "stopQueueOnFail": true,
+  "smoke": {
+    "id": "bp-gf-smoke",
+    "earlyGates": [
+      {
+        "afterSec": 150,
+        "counter": "fixes:autshadow_gm6_faults",
+        "op": "==",
+        "value": 0,
+        "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+      },
+      {
+        "afterSec": 150,
+        "counter": "fixes:autshadow_gm6_mismatch",
+        "op": "==",
+        "value": 0,
+        "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+      },
+      {
+        "afterSec": 150,
+        "counter": "autshadow.req",
+        "op": ">",
+        "value": 0,
+        "why": "worker never posted (no [AutShadow] request)"
+      },
+      {
+        "afterSec": 300,
+        "counter": "fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3",
+        "op": ">",
+        "value": 0,
+        "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
+      }
+    ],
+    "note": "Smoke (4 min BP, Satb=2, Dry=1): PASS = 0 crashes; logRequire read-back of the go-live line (TopN 10 Bands 3 Margin 0 MaxWait 3 VerifyEvery 50 Dry=1) and \"autshadow satb: Satb=2 -> mode 2\"; -native.json alOn 3, al eligible > 0, posted > 0, dry > 0, drySimMis 0; ts3fixes applied log \"AutShadow: go-live Mode 3 (dry)\", a \"tuned: kAutLive on: ... patched\" line and no \"go-live off\". A FAIL stops the queue (queue.ts measurement smoke).",
+    "asi": "game-copy/ts3native.asi.golive-final",
+    "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 90,
+    "ini": {
+      "HitchAttr.Enabled": 1,
+      "RouteSnap.Enabled": 1,
+      "RouteSnap.Count": 1,
+      "RouteSnap.AuditEvery": 0,
+      "MonoThread.Enabled": 1,
+      "MonoThread.Mode": 1,
+      "MonoThread.GcLock": 1,
+      "MonoThread.FrameTls": 1,
+      "MonoThread.ArenaFix": 1,
+      "MonoThread.N2mPrivate": 1,
+      "MonoThread.LazyGate": 1,
+      "MonoThread.LazyEarly": 1,
+      "AutShadow.Enabled": 1,
+      "AutShadow.Mode": 3,
+      "AutShadow.Sample": 1,
+      "AutShadow.Audit": 50,
+      "AutShadow.DumpOnMismatch": 1,
+      "AutShadow.ColdIc": 1,
+      "AutShadow.CutLean": 2,
+      "AutShadow.TierMs": 1500,
+      "AutShadow.ListAudit": 1,
+      "AutShadow.TierClassMs": 1000,
+      "AutShadow.RowHot": 200,
+      "AutShadow.RunSkip": 1,
+      "AutShadow.FreshEvery": 0,
+      "AutShadow.KeepPartial": 1,
+      "AutShadow.TopN": 10,
+      "AutShadow.Bands": 3,
+      "AutShadow.Margin": 0,
+      "AutShadow.MaxWait": 3,
+      "AutShadow.VerifyEvery": 50,
+      "AutShadow.Dry": 1,
+      "AutShadow.Satb": 2,
+      "AutShadow.WindowWaitUs": 0,
+      "AutShadow.PreLearn": 0,
+      "AutShadow.TierReqLots": 1
+    },
+    "logRequire": {
+      "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+      "OK   mono thread P4": 1,
+      "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1": 1,
+      "autshadow satb: Satb=2 -> mode 2 ": 1
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 4,
+        "fixesOn": "autshadow,autlive",
+        "noSamplers": true,
+        "fixesReport": "g8_"
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 30
+  },
+  "jobs": [
+    {
+      "id": "bp-gf-g7",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3",
+          "op": ">",
+          "value": 0,
+          "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
+        }
+      ],
+      "note": "G7 BP natural, Dry=1. PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-gf-g7",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3",
+          "op": ">",
+          "value": 0,
+          "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
+        }
+      ],
+      "note": "G7 IP natural, Dry=1. PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "sv-gf-g7",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3",
+          "op": ">",
+          "value": 0,
+          "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
+        }
+      ],
+      "note": "G7 SV natural, Dry=1. PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-gf-g7-crowd",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3",
+          "op": ">",
+          "value": 0,
+          "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
+        }
+      ],
+      "note": "G7 BP crowd in view (aut-live-crowd-view, STRESS labelled), Dry=1. PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "repro": "aut-live-crowd-view",
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35
+    },
+    {
+      "id": "bp-gf-g7-edit",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3",
+          "op": ">",
+          "value": 0,
+          "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
+        }
+      ],
+      "note": "G7 BP build/buy and Edit Town during Dry (bp-autlive-edit): al slot 10 (epoch since the cut) rises after each mode exit, no dry-diff with cause other at a switch. PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "repro": "bp-autlive-edit",
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 32
+    },
+    {
+      "id": "bp-gf-g7-venue",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3",
+          "op": ">",
+          "value": 0,
+          "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
+        }
+      ],
+      "note": "G7 BP across a venue opening/closing hour during a burst (aut-live-venue-hour): misses at the boundary must be dryMissStale (worker-failed pair now passes) or dryMissBand, never other; the venue_hours step must report crossed >= 1. PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "repro": "aut-live-venue-hour",
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 32
+    },
+    {
+      "id": "bp-gf-g7-2",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3",
+          "op": ">",
+          "value": 0,
+          "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
+        }
+      ],
+      "note": "Second clean run of bp-gf-g7 (crash rule). PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-gf-g7-2",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3",
+          "op": ">",
+          "value": 0,
+          "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
+        }
+      ],
+      "note": "Second clean run of ip-gf-g7 (crash rule). PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "sv-gf-g7-2",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:autshadow_a0+fixes:autshadow_a1+fixes:autshadow_a2+fixes:autshadow_a3",
+          "op": ">",
+          "value": 0,
+          "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
+        }
+      ],
+      "note": "Second clean run of sv-gf-g7 (crash rule). PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-gf-act-smoke",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "Act smoke (4 min BP, Dry=0): GATE G7 first (all G7 rows PASS, else stop here). PASS = 0 crashes; ts3native.log go-live line with Dry=0 (logRequire read-back); alOn 1; al consumed > 0; ts3fixes applied log \"AutShadow: go-live Mode 3 (acting)\" and no \"go-live off\". FAIL: stop the queue by hand.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 4,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-gf-act",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "Acting BP natural. PASS: 0 crashes, no freeze, no ScriptError_*.xml from the go-live path (frames AutLive / AutB14Hook / AutMetaHook in a script error = FAIL); -native.json alOn 1; al consumed > 0 and >= 80% of al posted (else size the fallbacks by reason first); verify cuts > 0 with A1-A3 0 and live off by verify 0; guard off 0; pairs through C1 per used search ~ band 1 + off-list (report \"go-live objects\"); Sims keep acting (sims_activity), possible stuck Sims logged only (docs/data/stuck-log.md). Crash rule: stop the queue by hand at the first crash (queue.ts itself stops only on the same job twice or two crashed jobs in a row; night chains go on), triage with node tools/harness/crash-ledger.ts triage and the [Crash] Log lines before any rerun; two clean runs per world before a gate verdict.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-gf-act",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "Acting IP natural. PASS: 0 crashes, no freeze, no ScriptError_*.xml from the go-live path (frames AutLive / AutB14Hook / AutMetaHook in a script error = FAIL); -native.json alOn 1; al consumed > 0 and >= 80% of al posted (else size the fallbacks by reason first); verify cuts > 0 with A1-A3 0 and live off by verify 0; guard off 0; pairs through C1 per used search ~ band 1 + off-list (report \"go-live objects\"); Sims keep acting (sims_activity), possible stuck Sims logged only (docs/data/stuck-log.md). Crash rule: stop the queue by hand at the first crash (queue.ts itself stops only on the same job twice or two crashed jobs in a row; night chains go on), triage with node tools/harness/crash-ledger.ts triage and the [Crash] Log lines before any rerun; two clean runs per world before a gate verdict.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-gf-act-crowd",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "Acting BP crowd in view (aut-live-crowd-view, STRESS labelled), waves every 150 s. PASS: 0 crashes, no freeze, no ScriptError_*.xml from the go-live path (frames AutLive / AutB14Hook / AutMetaHook in a script error = FAIL); -native.json alOn 1; al consumed > 0 and >= 80% of al posted (else size the fallbacks by reason first); verify cuts > 0 with A1-A3 0 and live off by verify 0; guard off 0; pairs through C1 per used search ~ band 1 + off-list (report \"go-live objects\"); Sims keep acting (sims_activity), possible stuck Sims logged only (docs/data/stuck-log.md).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 20,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "repro": "aut-live-crowd-view",
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-gf-act-save",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "Acting BP with two saves while searches are parked (aut-live-save, docs/124 §9). PASS: 0 crashes, no freeze, no ScriptError_*.xml from the go-live path (frames AutLive / AutB14Hook / AutMetaHook in a script error = FAIL); -native.json alOn 1; al consumed > 0 and >= 80% of al posted (else size the fallbacks by reason first); verify cuts > 0 with A1-A3 0 and live off by verify 0; guard off 0; pairs through C1 per used search ~ band 1 + off-list (report \"go-live objects\"); Sims keep acting (sims_activity), possible stuck Sims logged only (docs/data/stuck-log.md). Both saves complete; al consumed rises after each save.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 8,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "repro": "aut-live-save",
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-gf-act-pet",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "Acting BP with pets in the active household (aut-live-pet, docs/124 §8.2): pets' meta searches run through go-live; objects whose pairs the worker aborted (rng or other) run the game's B14 (al slot 17 invalid), never a consumed worker score. PASS: 0 crashes, no freeze, no ScriptError_*.xml from the go-live path (frames AutLive / AutB14Hook / AutMetaHook in a script error = FAIL); -native.json alOn 1; al consumed > 0 and >= 80% of al posted (else size the fallbacks by reason first); verify cuts > 0 with A1-A3 0 and live off by verify 0; guard off 0; pairs through C1 per used search ~ band 1 + off-list (report \"go-live objects\"); Sims keep acting (sims_activity), possible stuck Sims logged only (docs/data/stuck-log.md). The made pets keep acting (sims_activity).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "repro": "aut-live-pet",
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-gf-act-interrupt",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "Acting BP: commodity searches started for Sims whose manager search is parked (aut-live-interrupt, docs/124 §8.2). PASS: 0 crashes, no freeze, no ScriptError_*.xml from the go-live path (frames AutLive / AutB14Hook / AutMetaHook in a script error = FAIL); -native.json alOn 1; al consumed > 0 and >= 80% of al posted (else size the fallbacks by reason first); verify cuts > 0 with A1-A3 0 and live off by verify 0; guard off 0; pairs through C1 per used search ~ band 1 + off-list (report \"go-live objects\"); Sims keep acting (sims_activity), possible stuck Sims logged only (docs/data/stuck-log.md). Plus: aut_interrupt total_searched >= 20 (repro step), al slot 14 (interrupted after our yield) > 0, those searches push nothing (vanilla SearchInterrupted), no script error from the interrupted path.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "repro": "aut-live-interrupt",
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-gf-act-2",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "Second clean run of bp-gf-act (crash rule). PASS: 0 crashes, no freeze, no ScriptError_*.xml from the go-live path (frames AutLive / AutB14Hook / AutMetaHook in a script error = FAIL); -native.json alOn 1; al consumed > 0 and >= 80% of al posted (else size the fallbacks by reason first); verify cuts > 0 with A1-A3 0 and live off by verify 0; guard off 0; pairs through C1 per used search ~ band 1 + off-list (report \"go-live objects\"); Sims keep acting (sims_activity), possible stuck Sims logged only (docs/data/stuck-log.md).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-gf-act-2",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "Second clean run of ip-gf-act (crash rule). PASS: 0 crashes, no freeze, no ScriptError_*.xml from the go-live path (frames AutLive / AutB14Hook / AutMetaHook in a script error = FAIL); -native.json alOn 1; al consumed > 0 and >= 80% of al posted (else size the fallbacks by reason first); verify cuts > 0 with A1-A3 0 and live off by verify 0; guard off 0; pairs through C1 per used search ~ band 1 + off-list (report \"go-live objects\"); Sims keep acting (sims_activity), possible stuck Sims logged only (docs/data/stuck-log.md).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-gf-guard-crowd",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "Guard A/B, BP crowd in view, --ab autliveguard 5-min slices, off first (golive-guard.json bp-golive-guard-crowd). Judge (golive-guard.json rules): sim busy ms/s and the autonomy-search owner per arm (node tools/harness/sim-budget-report.ts), pooled over both orders; hitches node tools/harness/hitch-ab.ts golive-final; mono-cost-report.ts \"go-live cost guard\" line (windows, skip windows, searches skipped, last ratio); PASS = on arm not slower than off outside the noise band, skips only where the off arm's ratio is above 1000. Clean machine (load line).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 25,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "repro": "aut-live-crowd-view",
+          "ab": "autliveguard",
+          "slice": 5,
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-gf-guard-crowd-onfirst",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "As bp-gf-guard-crowd, on first. Judge (golive-guard.json rules): sim busy ms/s and the autonomy-search owner per arm (node tools/harness/sim-budget-report.ts), pooled over both orders; hitches node tools/harness/hitch-ab.ts golive-final; mono-cost-report.ts \"go-live cost guard\" line (windows, skip windows, searches skipped, last ratio); PASS = on arm not slower than off outside the noise band, skips only where the off arm's ratio is above 1000. Clean machine (load line).",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 25,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "repro": "aut-live-crowd-view",
+          "ab": "autliveguard",
+          "slice": 5,
+          "abOnFirst": true,
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-gf-g8-off",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "G8 BP off arm. G8 behaviour (docs/124 §8 G8, §14.4 S5): seeded on/off pair, separate loads, same save and seed 12345 (profile seed = seed_rng at the window start, docs/27), 30 min natural play each; off = Mode 3 with autlive off (the game's own search, B14 pass-through in both arms, as golive-ab's off arm). Read the pair (bp-gf-g8-off vs bp-gf-g8-on, ip alike): (1) picks per interaction from <tag>-activity.jsonl (rng-compare.ts picks(): interaction changes in the 30 s sims_activity samples), chi-square over interactions with >= 50 picks in the pair: PASS p >= 0.01; (2) picks per Sim-hour within +-5% (proxy for autonomous pushes per Sim-hour: no push counter exists); (3) MakeSimGoHome fallbacks within +-10%: NO COUNTER EXISTS (docs/124 §17.2: pick histogram per definition not built) = report as not measured, not as PASS; (4) mean wait ticks (al slot 40 / al posted, report \"go-live\" line) <= 1 tick above 0 (the off arm does not wait; docs/124 asks the median: only the mean is counted); (5) fallback share (al eligible - al consumed searches) / al eligible < 10% with every reason sized (slots 4-15); (6) 0 crashes; stuck Sims log only. FAIL: find the biased definition (dry-diff records by definition from the G7 jobs), take it off the allow-list, rerun this pair once.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 30,
+          "fixesOn": "autshadow",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 50
+    },
+    {
+      "id": "bp-gf-g8-on",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "G8 BP on arm. G8 behaviour (docs/124 §8 G8, §14.4 S5): seeded on/off pair, separate loads, same save and seed 12345 (profile seed = seed_rng at the window start, docs/27), 30 min natural play each; off = Mode 3 with autlive off (the game's own search, B14 pass-through in both arms, as golive-ab's off arm). Read the pair (bp-gf-g8-off vs bp-gf-g8-on, ip alike): (1) picks per interaction from <tag>-activity.jsonl (rng-compare.ts picks(): interaction changes in the 30 s sims_activity samples), chi-square over interactions with >= 50 picks in the pair: PASS p >= 0.01; (2) picks per Sim-hour within +-5% (proxy for autonomous pushes per Sim-hour: no push counter exists); (3) MakeSimGoHome fallbacks within +-10%: NO COUNTER EXISTS (docs/124 §17.2: pick histogram per definition not built) = report as not measured, not as PASS; (4) mean wait ticks (al slot 40 / al posted, report \"go-live\" line) <= 1 tick above 0 (the off arm does not wait; docs/124 asks the median: only the mean is counted); (5) fallback share (al eligible - al consumed searches) / al eligible < 10% with every reason sized (slots 4-15); (6) 0 crashes; stuck Sims log only. FAIL: find the biased definition (dry-diff records by definition from the G7 jobs), take it off the allow-list, rerun this pair once.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 30,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 50
+    },
+    {
+      "id": "ip-gf-g8-off",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "G8 IP off arm. G8 behaviour (docs/124 §8 G8, §14.4 S5): seeded on/off pair, separate loads, same save and seed 12345 (profile seed = seed_rng at the window start, docs/27), 30 min natural play each; off = Mode 3 with autlive off (the game's own search, B14 pass-through in both arms, as golive-ab's off arm). Read the pair (bp-gf-g8-off vs bp-gf-g8-on, ip alike): (1) picks per interaction from <tag>-activity.jsonl (rng-compare.ts picks(): interaction changes in the 30 s sims_activity samples), chi-square over interactions with >= 50 picks in the pair: PASS p >= 0.01; (2) picks per Sim-hour within +-5% (proxy for autonomous pushes per Sim-hour: no push counter exists); (3) MakeSimGoHome fallbacks within +-10%: NO COUNTER EXISTS (docs/124 §17.2: pick histogram per definition not built) = report as not measured, not as PASS; (4) mean wait ticks (al slot 40 / al posted, report \"go-live\" line) <= 1 tick above 0 (the off arm does not wait; docs/124 asks the median: only the mean is counted); (5) fallback share (al eligible - al consumed searches) / al eligible < 10% with every reason sized (slots 4-15); (6) 0 crashes; stuck Sims log only. FAIL: find the biased definition (dry-diff records by definition from the G7 jobs), take it off the allow-list, rerun this pair once.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 30,
+          "fixesOn": "autshadow",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 50
+    },
+    {
+      "id": "ip-gf-g8-on",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "G8 IP on arm. G8 behaviour (docs/124 §8 G8, §14.4 S5): seeded on/off pair, separate loads, same save and seed 12345 (profile seed = seed_rng at the window start, docs/27), 30 min natural play each; off = Mode 3 with autlive off (the game's own search, B14 pass-through in both arms, as golive-ab's off arm). Read the pair (bp-gf-g8-off vs bp-gf-g8-on, ip alike): (1) picks per interaction from <tag>-activity.jsonl (rng-compare.ts picks(): interaction changes in the 30 s sims_activity samples), chi-square over interactions with >= 50 picks in the pair: PASS p >= 0.01; (2) picks per Sim-hour within +-5% (proxy for autonomous pushes per Sim-hour: no push counter exists); (3) MakeSimGoHome fallbacks within +-10%: NO COUNTER EXISTS (docs/124 §17.2: pick histogram per definition not built) = report as not measured, not as PASS; (4) mean wait ticks (al slot 40 / al posted, report \"go-live\" line) <= 1 tick above 0 (the off arm does not wait; docs/124 asks the median: only the mean is counted); (5) fallback share (al eligible - al consumed searches) / al eligible < 10% with every reason sized (slots 4-15); (6) 0 crashes; stuck Sims log only. FAIL: find the biased definition (dry-diff records by definition from the G7 jobs), take it off the allow-list, rerun this pair once.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 30,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 50
+    },
+    {
+      "id": "sv-gf-g9b-1",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "G9b stability (docs/124 §8 G9, §14.4 S6): acting go-live with one save + reload during a meta burst (repro aut-live-save-reload), 14 min. PASS: 0 crashes over the 6 G9b runs; save completes and the reloaded save reaches live mode (repro steps pass); -native.json asUnguarded 0 and asWorkerClassInit 0; searches parked at the save drop (fallbacks: game state / epoch slots 10, 13 rise at the save, nothing consumed from a pre-save cut after the reload); al consumed rises again after the reload (patches steps before and after); no ScriptError_*.xml from the go-live path. Crash rule: stop the queue by hand at the first crash (queue.ts itself stops only on the same job twice or two crashed jobs in a row; night chains go on), triage with node tools/harness/crash-ledger.ts triage and the [Crash] Log lines before any rerun; two clean runs per world before a gate verdict.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "repro": "aut-live-save-reload",
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40
+    },
+    {
+      "id": "bp-gf-g9b-1",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "G9b stability (docs/124 §8 G9, §14.4 S6): acting go-live with one save + reload during a meta burst (repro aut-live-save-reload), 14 min. PASS: 0 crashes over the 6 G9b runs; save completes and the reloaded save reaches live mode (repro steps pass); -native.json asUnguarded 0 and asWorkerClassInit 0; searches parked at the save drop (fallbacks: game state / epoch slots 10, 13 rise at the save, nothing consumed from a pre-save cut after the reload); al consumed rises again after the reload (patches steps before and after); no ScriptError_*.xml from the go-live path. Crash rule: stop the queue by hand at the first crash (queue.ts itself stops only on the same job twice or two crashed jobs in a row; night chains go on), triage with node tools/harness/crash-ledger.ts triage and the [Crash] Log lines before any rerun; two clean runs per world before a gate verdict.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "repro": "aut-live-save-reload",
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40
+    },
+    {
+      "id": "ip-gf-g9b-1",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "G9b stability (docs/124 §8 G9, §14.4 S6): acting go-live with one save + reload during a meta burst (repro aut-live-save-reload), 14 min. PASS: 0 crashes over the 6 G9b runs; save completes and the reloaded save reaches live mode (repro steps pass); -native.json asUnguarded 0 and asWorkerClassInit 0; searches parked at the save drop (fallbacks: game state / epoch slots 10, 13 rise at the save, nothing consumed from a pre-save cut after the reload); al consumed rises again after the reload (patches steps before and after); no ScriptError_*.xml from the go-live path. Crash rule: stop the queue by hand at the first crash (queue.ts itself stops only on the same job twice or two crashed jobs in a row; night chains go on), triage with node tools/harness/crash-ledger.ts triage and the [Crash] Log lines before any rerun; two clean runs per world before a gate verdict.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "repro": "aut-live-save-reload",
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40
+    },
+    {
+      "id": "sv-gf-g9b-2",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "Second clean run. G9b stability (docs/124 §8 G9, §14.4 S6): acting go-live with one save + reload during a meta burst (repro aut-live-save-reload), 14 min. PASS: 0 crashes over the 6 G9b runs; save completes and the reloaded save reaches live mode (repro steps pass); -native.json asUnguarded 0 and asWorkerClassInit 0; searches parked at the save drop (fallbacks: game state / epoch slots 10, 13 rise at the save, nothing consumed from a pre-save cut after the reload); al consumed rises again after the reload (patches steps before and after); no ScriptError_*.xml from the go-live path. Crash rule: stop the queue by hand at the first crash (queue.ts itself stops only on the same job twice or two crashed jobs in a row; night chains go on), triage with node tools/harness/crash-ledger.ts triage and the [Crash] Log lines before any rerun; two clean runs per world before a gate verdict.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "repro": "aut-live-save-reload",
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40
+    },
+    {
+      "id": "bp-gf-g9b-2",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "Second clean run. G9b stability (docs/124 §8 G9, §14.4 S6): acting go-live with one save + reload during a meta burst (repro aut-live-save-reload), 14 min. PASS: 0 crashes over the 6 G9b runs; save completes and the reloaded save reaches live mode (repro steps pass); -native.json asUnguarded 0 and asWorkerClassInit 0; searches parked at the save drop (fallbacks: game state / epoch slots 10, 13 rise at the save, nothing consumed from a pre-save cut after the reload); al consumed rises again after the reload (patches steps before and after); no ScriptError_*.xml from the go-live path. Crash rule: stop the queue by hand at the first crash (queue.ts itself stops only on the same job twice or two crashed jobs in a row; night chains go on), triage with node tools/harness/crash-ledger.ts triage and the [Crash] Log lines before any rerun; two clean runs per world before a gate verdict.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "repro": "aut-live-save-reload",
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40
+    },
+    {
+      "id": "ip-gf-g9b-2",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        }
+      ],
+      "note": "Second clean run. G9b stability (docs/124 §8 G9, §14.4 S6): acting go-live with one save + reload during a meta burst (repro aut-live-save-reload), 14 min. PASS: 0 crashes over the 6 G9b runs; save completes and the reloaded save reaches live mode (repro steps pass); -native.json asUnguarded 0 and asWorkerClassInit 0; searches parked at the save drop (fallbacks: game state / epoch slots 10, 13 rise at the save, nothing consumed from a pre-save cut after the reload); al consumed rises again after the reload (patches steps before and after); no ScriptError_*.xml from the go-live path. Crash rule: stop the queue by hand at the first crash (queue.ts itself stops only on the same job twice or two crashed jobs in a row; night chains go on), triage with node tools/harness/crash-ledger.ts triage and the [Crash] Log lines before any rerun; two clean runs per world before a gate verdict.",
+      "asi": "game-copy/ts3native.asi.golive-final",
+      "fixesPackage": "game-copy/ts3fixes.package.golive-final",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "fixesOn": "autshadow,autlive",
+          "noSamplers": true,
+          "repro": "aut-live-save-reload",
+          "fixesReport": "g8_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40
+    }
+  ]
+}

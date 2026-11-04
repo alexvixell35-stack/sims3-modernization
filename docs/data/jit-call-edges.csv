@@ -1,0 +1,97 @@
+caller,callee,kind,calls,cache_misses,callee_compiled,callee_positions,callee_calls,callee_inner_calls_per_call,callee_throws,callee_allocates,callee_native_body,dispatch,lazy_frame_written,inline_candidate
+System.Math.Min,System.Single.IsNaN,call,15793600,0,yes,6,14524461,0.000,no,no,no,direct,never (leaf),yes
+System.Collections.Generic.Dictionary`2.GetPrev,System.Collections.Generic.IEquatableOfTEqualityComparer`1.Equals,callvirt,4740351,10,yes,12,4662544,1.000,no,no,no,class guard,at the first inner call (1.00 per call),no
+System.Array.IndexOf,System.Collections.Generic.IEquatableOfTEqualityComparer`1.Equals,callvirt,782608,1,yes,9,847423,1.000,no,no,no,class guard,at the first inner call (1.00 per call),no
+System.Enum.Equals,System.ValueType.DefaultEquals,call,585292,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Collections.Generic.Dictionary`2.GetPrev,System.Collections.Generic.IEquatableOfTEqualityComparer`1.GetHashCode,callvirt,122933,12,yes,4,72914,1.000,no,no,no,class guard,at the first inner call (1.00 per call),no
+System.Collections.Generic.Dictionary`2.GetSlot,System.Collections.Generic.Dictionary`2.GetPrev,call,98173,0,yes,51,72544,1.495,yes,yes,no,direct,at the first inner call (1.50 per call),no
+System.Collections.Generic.Dictionary`2.TryGetValue,System.Collections.Generic.Dictionary`2.GetSlot,call,72424,0,yes,17,48192,1.000,yes,no,no,direct,at the first inner call (1.00 per call),no
+System.Array.Copy,System.Array.GetLowerBound,callvirt,49884,30,no,,0,,no,no,no,none: callee not compiled,,no
+System.Type.GetTypeFromHandle,System.Type.internal_from_handle,call,39489,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.Resize,System.Array.Resize,call,25318,0,yes,36,25228,1.970,yes,yes,no,direct,at the first inner call (1.97 per call),no
+System.Array.Copy,System.Array.FastCopy,call,25037,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Collections.Generic.Dictionary`2.set_Item,System.Collections.Generic.Dictionary`2.GetPrev,call,25018,0,yes,49,72544,1.495,yes,yes,no,direct,at the first inner call (1.50 per call),no
+System.Array.Copy,System.Array.Copy,call,24942,0,yes,199,25038,1.000,yes,yes,no,none: callee has clauses,,no
+System.Array.Resize,System.Math.Min,call,24941,0,yes,9,24941,0.000,no,no,no,direct,never (leaf),yes
+System.Array.Resize,System.Array.Copy,call,24941,0,yes,24,24942,3.000,yes,yes,no,direct,at the first inner call (3.00 per call),no
+System.Collections.Generic.List`1.Add,System.Collections.Generic.List`1.GrowIfNeeded,call,24801,0,yes,21,24112,0.109,yes,no,no,direct,at the first inner call (0.11 per call),no
+System.Enum.GetHashCode,System.Enum.get_value,call,24509,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Enum.GetHashCode,System.Int32.GetHashCode,callvirt,24508,12,yes,3,97369,0.000,yes,no,no,class guard,never (leaf),no
+Enumerator.MoveNext,Enumerator.VerifyState,call,24422,0,no,,0,,no,no,no,none: callee not compiled,,no
+Enumerator.CurrentSlot,Enumerator.VerifyState,call,24326,0,no,,0,,no,no,no,none: callee not compiled,,no
+Enumerator.get_Current,Enumerator.CurrentSlot,call,24326,0,yes,11,24320,1.000,yes,yes,no,direct,at the first inner call (1.00 per call),no
+System.Array.IndexOf,System.Array.GetLowerBound,callvirt,24129,3,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.IndexOf,System.Array.GetUpperBound,callvirt,24129,3,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.IndexOf,System.Array.IndexOf,call,24096,0,yes,53,24096,34.479,yes,yes,no,direct,at the first inner call (34.48 per call),no
+System.Collections.Generic.Dictionary`2.ContainsKey,System.Collections.Generic.Dictionary`2.GetSlot,call,24096,0,yes,17,48192,1.000,yes,no,no,direct,at the first inner call (1.00 per call),no
+System.Collections.Hashtable.get_Item,System.Collections.Hashtable.GetHash,callvirt,3025,1,no,,0,,no,no,no,none: callee not compiled,,no
+System.Collections.Generic.List`1.GrowIfNeeded,System.Math.Max,call,2444,0,yes,9,2444,0.000,no,no,no,direct,never (leaf),yes
+System.Collections.Generic.Dictionary`2.DoAdd,System.Collections.Generic.Dictionary`2.set_Count,call,1653,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Collections.Generic.List`1.GrowIfNeeded,System.Collections.Generic.List`1.get_Capacity,call,1222,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Collections.Generic.List`1.GrowIfNeeded,System.Collections.Generic.List`1.set_Capacity,call,1222,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Collections.Generic.Dictionary`2.set_Item,System.Collections.Generic.Dictionary`2.set_Count,call,922,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.IndexOf,DefaultComparer.Equals,callvirt,346,2,yes,10,650,1.000,no,yes,no,class guard,at the first inner call (1.00 per call),no
+System.Collections.Generic.Dictionary`2.GetPrev,DefaultComparer.GetHashCode,callvirt,258,16,yes,4,273,1.000,no,no,no,polymorphic,at the first inner call (1.00 per call),no
+Enumerator.MoveNext,System.Collections.ArrayList.get_Count,callvirt,70,2,no,,0,,no,no,no,none: callee not compiled,,no
+System.Collections.Generic.Dictionary`2.GetPrev,DefaultComparer.Equals,callvirt,69,5,yes,10,37,,no,yes,no,polymorphic,unknown (callee not run),no
+Enumerator.get_Current,System.Collections.ArrayList.get_Count,callvirt,20,1,no,,0,,no,no,no,none: callee not compiled,,no
+Enumerator.get_Current,System.Collections.ArrayList.get_Item,callvirt,20,1,no,,0,,no,no,no,none: callee not compiled,,no
+System.Collections.Generic.Dictionary`2.DoAdd,System.Collections.Generic.Dictionary`2.Resize,call,19,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Collections.Generic.Dictionary`2.DoAdd,System.Collections.Generic.Dictionary`2.DoHash,call,19,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Collections.Generic.Dictionary`2.set_Item,System.Collections.Generic.Dictionary`2.Resize,call,17,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Collections.Generic.Dictionary`2.set_Item,System.Collections.Generic.Dictionary`2.DoHash,call,17,0,no,,0,,no,no,no,none: callee not compiled,,no
+Enumerator..ctor,Enumerator.Reset,call,16,0,no,,0,,no,no,no,none: callee not compiled,,no
+Enumerator.MoveNext,Enumerator.MoveNext,call,7,0,yes,41,7,,yes,no,no,direct,unknown (callee not run),no
+Enumerator.get_Current,Enumerator.get_Current,call,6,0,yes,9,6,,yes,yes,no,direct,unknown (callee not run),no
+Enumerator..ctor,System.Collections.Generic.Dictionary`2.GetEnumerator,callvirt,1,1,no,,0,,no,no,no,none: callee not compiled,,no
+Enumerator.MoveNext,Enumerator.FailFast,call,1,0,no,,0,,no,no,no,none: callee not compiled,,no
+ScriptCore.Simulator.GetProxy,ScriptCore.Simulator.Simulator_GetTaskImpl,call,1,0,no,,0,,no,no,no,none: callee not compiled,,no
+ScriptCore.Slots.GetParentId,ScriptCore.Slots.Slots_GetParentIdImpl,call,1,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Abstracts.GameObject.get_LotCurrent,Sims3.Gameplay.Abstracts.GameObject.get_Parent,callvirt,1,0,yes,10,1,,no,no,no,class guard,unknown (callee not run),no
+Sims3.Gameplay.Abstracts.GameObject.get_Parent,Sims3.Gameplay.Abstracts.ScriptObject.get_ObjectId,call,1,0,yes,10,1,,yes,no,no,direct,unknown (callee not run),no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Sims3.SimIFace.Simulator.TicksElapsed,call,1,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Utilities.SimClock.ElapsedTimeInMinutes,Sims3.Gameplay.Utilities.SimClock.ElapsedTime,call,1,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.SimIFace.Simulator.GetProxy,ScriptCore.Simulator.GetProxy,callvirt,1,1,yes,7,1,,yes,no,no,polymorphic,unknown (callee not run),no
+Sims3.SimIFace.Slots.GetParentId,ScriptCore.Slots.GetParentId,callvirt,1,1,yes,7,1,,yes,yes,no,polymorphic,unknown (callee not run),no
+Sims3.Gameplay.Abstracts.GameObject.get_Parent,Sims3.SimIFace.Slots.GetParentId,call,0,0,yes,6,1,,no,no,no,direct,unknown (callee not run),no
+Sims3.Gameplay.Abstracts.GameObject.get_Parent,Sims3.Gameplay.Abstracts.GameObject.GetObject,call,0,0,yes,17,1,,no,no,no,direct,unknown (callee not run),no
+Sims3.Gameplay.Abstracts.GameObject.GetObject,Sims3.SimIFace.ObjectGuid.op_Inequality,call,0,0,yes,9,24096,0.000,yes,no,no,direct,never (leaf),no
+Sims3.Gameplay.Abstracts.GameObject.GetObject,Sims3.SimIFace.Simulator.GetProxy,call,0,0,yes,6,1,,no,no,no,direct,unknown (callee not run),no
+Sims3.Gameplay.Abstracts.GameObject.GetObject,Sims3.SimIFace.IScriptProxy.get_Target,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Abstracts.ScriptObject.get_ObjectId,Sims3.SimIFace.ITask.get_ObjectId,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Sims3.Gameplay.Actors.Sim.get_ActiveActor,call,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Sims3.Gameplay.Actors.Sim.get_Household,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Sims3.Gameplay.Autonomy.Autonomy.SetIsHighAutonomyLOD,call,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Sims3.Gameplay.Abstracts.GameObject.get_LotCurrent,callvirt,0,0,yes,22,1,,yes,no,no,polymorphic,unknown (callee not run),no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Sims3.Gameplay.Core.Lot.get_IsActive,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Sims3.Gameplay.Core.Lot.get_IsWorldLot,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,System.Collections.Generic.List`1.GetEnumerator,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Enumerator.get_Current,call,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Sims3.Gameplay.Actors.Sim.get_IsSelectable,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,System.Collections.Generic.List`1.Contains,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Enumerator.MoveNext,call,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Sims3.Gameplay.ActiveCareer.ActiveCareers.DaycareSituation.GetDaycareSituationForChild,call,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Sims3.Gameplay.Controllers.ResortManager.IsResortWorker,call,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Sims3.Gameplay.Abstracts.GameObject.get_RoomId,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Sims3.Gameplay.Abstracts.GameObject.get_IsOutside,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Sims3.Gameplay.Abstracts.ScriptObject.get_ObjectId,callvirt,0,0,yes,10,1,,yes,no,no,polymorphic,unknown (callee not run),no
+Sims3.Gameplay.Autonomy.Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation,Sims3.SimIFace.World.IsObjectOnScreen,call,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Autonomy.InteractionObjectPair.Equals,System.Object.Equals,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.Core.Lot.get_CommercialLotSubType,Sims3.Gameplay.Core.Lot.GetOutwardFacingLotSubType,call,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+Sims3.Gameplay.ObjectComponents.RoutingComponent.get_IsRouting,System.Collections.Generic.List`1.get_Count,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.Copy,Locale.GetText,call,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.Copy,System.Object.GetType,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.Copy,System.Type.GetElementType,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.Copy,System.Object.ReferenceEquals,call,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.Copy,System.Array.GetValueImpl,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.Copy,System.Array.SetValueImpl,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.Copy,System.Type.get_IsValueType,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.Copy,System.Type.GetTypeFromHandle,call,0,0,yes,5,39489,1.000,yes,no,no,direct,at the first inner call (1.00 per call),no
+System.Array.Copy,System.Type.Equals,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.Copy,System.Type.get_FullName,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.Copy,System.String.Format,call,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.IndexOf,Locale.GetText,call,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.IndexOf,System.Array.GetValueImpl,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Array.IndexOf,System.Object.Equals,call,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Collections.Generic.Dictionary`2.GetPrev,System.Collections.Generic.IEqualityComparer`1.Equals,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no
+System.Collections.Hashtable.get_Item,System.Collections.Hashtable.KeyEquals,callvirt,0,0,no,,0,,no,no,no,none: callee not compiled,,no

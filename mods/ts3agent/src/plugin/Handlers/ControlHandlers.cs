@@ -683,7 +683,9 @@ namespace Ts3Agent
         {
             IOptionsModel om = Sims3.Gameplay.UI.Responder.Instance.OptionsModel;
             if (om.SaveGameInProgress) throw new McpException("a save is already in progress");
-            if (UIManager.GetModalWindow() != null) throw new McpException("close the open dialog before saving");
+            WindowBase modal = UIManager.GetModalWindow();
+            if (modal != null)
+                throw new McpException("close the open dialog before saving: " + string.Join(" | ", ((List<string>)DescribeDialog(modal)["text"]).ToArray()));
             if (!om.CanSaveGame()) throw new McpException("the game cannot save right now");
             if (a.Has("name")) om.SaveName = a.Str("name");
             if (string.IsNullOrEmpty(om.SaveName))

@@ -1,0 +1,36 @@
+{
+  "note": "Issue #166 build 20 (docs/510): repro of buffupdate, off then on in one load, two Sims of the active household. Run it with the original core mod: a core with the player's Build 20 never throws here.",
+  "jobs": [
+    {
+      "id": "bp-buff-update-check",
+      "note": "Correctness (5 min): repro buff-update-check. Pass: the repro's steps pass (expect thrown: off, the listener ran and one out-of-sync exception was seen, none caught; expect caught: on, it was caught and Inspired is present; expect alive: on, the Sim's motives move afterwards; each throws otherwise)",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "buff-update-check",
+          "fixesRequire": "buffupdate_caught>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "earlyGates": [
+        {
+          "afterSec": 180,
+          "counter": "fixes:buffupdate_caught",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm caught nothing 3 min in: hook not installed, a core with Build 20, or the set-up did not reach the walk"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": true
+}

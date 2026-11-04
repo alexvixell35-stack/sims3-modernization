@@ -28,12 +28,14 @@ export const GUARD_NS = 17;
 // load stub (thread test, worker path not taken). [measured, monohost AS satb cost line, best of 20: 4.9-6.0 ns per store
 // at 18% first writes, 9.1 ns per load after its own stores; split 4 + 6 per word: docs/206 §7.6]
 export const SATB_STORE_NS = 4, SATB_WORD_NS = 6, SATB_LOAD_NS = 9;
+// docs/206 §11 (0.36.136): per-opcode load thunks (direct jumps, own cache lines); monohost 3.30 ns a load incl. the score's own stores [measured, upper bound]
+export const SATB_LOAD_THUNK_NS = 3.3;
 // docs/124 §15: Test share of meta pair scoring (docs/75 meta samples: base path + Test frames vs score overrides), TopN, per-search fixed ms
 export const TAU = 0.7, TOPN = 10, CONSUME_FIXED_MS = 0.15;
 
 type Budget = ReturnType<typeof analyze>;
 export type Input = { tag: string; minutes: number; budget?: Budget; budgetWhy?: string; native?: { before?: any; after?: any };
-  fix?: Record<string, { before?: number; after?: number }> };
+  fix?: Record<string, { before?: number; after?: number }>; asLog?: string };
 
 const NA = 'n/a';
 const f1 = (x: number) => x.toFixed(1);
@@ -41,6 +43,11 @@ const f1 = (x: number) => x.toFixed(1);
 function d(nat: Input['native'], block: string, k: string): number | undefined {
   const a = nat?.after?.[block]?.[k], b = nat?.before?.[block]?.[k];
   return typeof a === 'number' ? a - (typeof b === 'number' ? b : 0) : undefined;
+}
+// delta of an array counter of the autshadow block (pairT, pairN); undefined when absent
+function d1(nat: Input['native'], k: string): number[] | undefined {
+  const a = nat?.after?.autshadow?.[k], b = nat?.before?.autshadow?.[k];
+  return Array.isArray(a) ? a.map((x: number, j: number) => x - (Array.isArray(b) ? b[j] ?? 0 : 0)) : undefined;
 }
 const fx = (i: Input, k: string) => { const c = i.fix?.[k]; return typeof c?.after === 'number' ? c.after - (c.before ?? 0) : undefined; };
 
@@ -69,7 +76,9 @@ export function costLines(i: Input): string[] {
   else {
     L.push(`- [MonoThread] p3Sites ${mt.p3Sites}, p4Ready ${mt.p4Ready}, locking ${mt.locking}, workerState ${mt.workerState}; tripwires lockOverflow ${mt.lockOverflow}, workerCtxSet ${mt.workerCtxSet}, n2mOverflow ${mt.n2mOverflow}, lockStale ${mt.lockStale ?? NA}`);
     L.push(`- worker busy: ${worker ? perS(runUs) : NA} [measured], ${d(N, 'mtprobe', 'workerJobs') ?? NA} jobs, ${d(N, 'mtprobe', 'workerExceptions') ?? NA} exceptions`);
-    L.push(`- GC lock (covers the hooked GC/alloc entries): waits ${perS(waitUs)} [measured, every thread], ${d(N, 'mtprobe', 'lockWaits') ?? NA} waits, max ${mt.lockMaxWaitUs} us; entries ${calls ?? NA} (worker ${callsW ?? NA})`);
+    L.push(`- GC lock (covers the hooked GC/alloc entries): waits ${perS(waitUs)} [measured, every thread], ${d(N, 'mtprobe', 'lockWaits') ?? NA} waits, max ${mt.lockMaxWaitUs} us; entries ${calls ?? NA} (worker ${callsW ?? NA})` +
+      // v6 (docs/30 §16): the sim's own waits, and gate-offs at the first sim entry after a job (LazyEarly)
+      (mt.version >= 6 ? `; sim waits ${perS(d(N, 'mtprobe', 'simLockWaitUs'))}, ${d(N, 'mtprobe', 'simLockWaits') ?? NA} waits, max ${mt.simLockMaxWaitUs} us; early gate-offs ${d(N, 'mtprobe', 'lazyEarlyOff') ?? NA}` : ''));
     if (calls !== undefined) L.push(`- GC lock uncontended entries: ${f1(calls / secs / 1000)}k/s x ${LOCK_ENTRY_NS} ns = ${perS(calls * LOCK_ENTRY_NS / 1000)} [inferred: measured entries x selftest ns, docs/30 §15]${mt.version >= 5 ? `; lazy gate ${mt.lazyGate ? 'on' : 'off'}, on ${d(N, 'mtprobe', 'lazyOn') ?? NA}, off ${d(N, 'mtprobe', 'lazyOff') ?? NA}` : ''}`);
   }
   // 4. [AutShadow]
@@ -141,17 +150,66 @@ export function costLines(i: Input): string[] {
           `(FreshEvery ${as.freshEvery ?? NA}): ${fr} searches, ${fp} pairs, ${pct(d(N, 'autshadow', 'freshDiff'), fp)} differ, top pick changes ` +
           `${pct(d(N, 'autshadow', 'freshTop1'), fr)}, top-10 changes ${pct(d(N, 'autshadow', 'freshTop10'), fr)}, ${fr ? f1((d(N, 'autshadow', 'freshUs') ?? 0) / fr / 1000) : NA} ms each (test cost); ` +
           `KeepPartial ${as.keepPartial ?? NA}: ${d(N, 'autshadow', 'partialKept') ?? NA} overrun searches kept their finished objects`);
+        if (as.version >= 16) {  // docs/122 §14.23: answered-only top compare, reference vs fresh, reference passes among A4 pairs
+          const a4 = a[4], rp = d(N, 'autshadow', 'refPassA4');
+          L.push(`- consume side, v16 [measured]: over pairs both answered top pick changes ${pct(d(N, 'autshadow', 'freshTop1Ans'), fr)}, top-10 set ` +
+            `changes ${pct(d(N, 'autshadow', 'freshTop10Ans'), fr)}; cut-time reference vs fresh (all pairs, staleness) top pick ` +
+            `${pct(d(N, 'autshadow', 'refFreshTop1'), fr)}, top-10 set ${pct(d(N, 'autshadow', 'refFreshTop10'), fr)}; reference passes among ` +
+            `worker-A4 pairs ${a4 ? pct(rp, a4) : NA} (${rp ?? NA} of ${a4 ?? NA}), pass share over answered ${cp && a4 !== undefined && pp !== undefined ? pct(pp, cp - a4) : NA}`);
+          const pt = d1(N, 'pairT'), pn = d1(N, 'pairN'), us = (j: number) => pn && pn[j] ? f1(pt![j] / pn[j] / 10) : NA;
+          if (pn) L.push(`- game C2 per pair (sampled searches) [measured]: allow-listed pass ${us(0)} us (${pn[0]}), fail ${us(1)} us (${pn[1]}); ` +
+            `off-list pass ${us(2)} us (${pn[2]}), fail ${us(3)} us (${pn[3]})`);
+        }
+      }
+      if (as.version >= 17) {  // docs/122 §14.26: transients, host classes, the shared list walk, why runs are walked
+        const g = (n: string) => d(N, 'autshadow', n) ?? NA;
+        L.push(`- mono-cost15 per cut [measured]: Transient ${as.transOn ?? NA}: ${per('transObjs')} objects made and destroyed between cuts (no mark); ` +
+          `HostCls ${as.hcOn ?? NA}: ${g('hcKnown')} classified by the host filter, ${g('hcNoHandle')} no handle, ${g('hcMap2')} second map only (${per('hcUs')} us); ` +
+          `ListWalk ${as.lwOn ?? NA}: ${per('lwRows')} rows from ${per('lwWalks')} lot walks (walk ${per('lwWalkUs')} us, host ${per('lwHostUs')} us), ${g('lwFall')} to the body, ` +
+          `checks ${g('lwChecks')}, misses ${g('lwMis')} (must be 0); runs walked by reason: not plain ${per('runNoPlain')}, stale ${per('runNoStale')}, ` +
+          `new ${per('runNoWalked')}, per-cut sets ${per('runNoSets')}, cold gate ${per('runNoCold')}; class asks skipped ${g('clsGoneSkip')}`);
+      }
+      if (as.version >= 18) {  // docs/122 §14.27: Sim rows by events, tier moves by lot/room, audit every Nth cut, gone delta
+        const g = (n: string) => d(N, 'autshadow', n) ?? NA;
+        L.push(`- mono-cost16 per cut [measured]: SimEvRows ${as.seOn ?? NA}: ${per('seKept')} Sim rows kept by events, checks ${g('seChecks')}, ` +
+          `misses ${g('seMis')} (must be 0; ICs off 0x${((as.seIcOff ?? 0) >>> 0).toString(16)}); TierMoveLot ${as.tmOn ?? NA}: ${per('tmKept')} re-classifications ` +
+          `skipped (same lot and room); ListAuditEvery ${as.laEvery ?? NA}: ${g('laSkips')} dirty cuts without audit; GoneDelta ${as.gdOn ?? NA}: ` +
+          `${per('gdRows')} rows by delta, ${per('gdFall')} to the body, records ${g('gdRecs')} (${g('gdNoRec')} lots without, ${g('gdOver')} lost), ` +
+          `inconsistent ${g('gdIncons')}, checks ${g('gdChecks')}, misses ${g('gdMis')} (must be 0)`);
+      }
+      if (as.version >= 19) {  // docs/122 §14.28: ids delta, Sim event rows for promoted / seated Sims, tier cap, why gone marks had no record
+        const g = (n: string) => d(N, 'autshadow', n) ?? NA, gw = d1(N, 'gdWhy');
+        L.push(`- mono-cost17 per cut [measured]: IdsDelta ${as.idOn ?? NA}: ${per('idSame')} rows same ids, ${per('idApp')} rows plus new objects ` +
+          `(${per('idCalls')} small host calls), ${per('idFall')} to the host, ${per('idUs')} us; checks ${g('idChecks')}, misses ${g('idMis')} (must be 0); ` +
+          `SimEvLearn ${as.seLearnOn ?? NA} / SimEvSeated ${as.seSeatOn ?? NA}: ${per('seLearnKept')} / ${per('seSeatKept')} rows kept; ` +
+          `TierClassMax ${as.tcMax ?? NA}: ${per('tcCapped')} classifications deferred; gone marks without a record: ` +
+          (gw ? `none ${gw[0]}, other lot ${gw[1]}, other room ${gw[2]}, full ${gw[3]}` : NA));
       }
     }
     if (as.version >= 15 && as.satbMode) L.push(...satbLines(N, secs));
+    if (as.version >= 20 && as.alOn) L.push(...liveLines(N, secs, i.fix));
+    L.push(...defCmpLines(i.fix, i.asLog && existsSync(i.asLog) ? jsonl(i.asLog) : []));
     // docs/122 §14.18 go-live estimate [inferred]: the scoring a worker would take off the sim (reference us per request x
     // every B13 call x the answered share) minus what it costs the sim (one shared cut per frame with a B13 call, guard thunks)
     const calls13 = d(N, 'autshadow', 'metaCalls'), ticks13 = d(N, 'autshadow', 'metaTicks'), breq = d(N, 'autshadow', 'batchReqs'), refUs = d(N, 'autshadow', 'refUs');
     const allC = a.every(x => x !== undefined) ? a.reduce((t, x) => t! + x!, 0)! : 0, cutsN = d(N, 'autshadow', 'cuts');
     if (as.version >= 11 && calls13 && breq && refUs !== undefined && cutsN && allC) {
-      const moved = refUs / 1000 / breq * (calls13 / secs) * (1 - a[4]! / allC), cutMs = (cutUs ?? 0) / 1000 / cutsN * (ticks13 ?? 0) / secs;
+      // reference ms per request: refUs only covers the runs that did a reference (Mode 3 VerifyEvery cuts), so divide by refRuns
+      const refRuns = d(N, 'autshadow', 'refRuns'), refMs = refUs / 1000 / (refRuns ? refRuns : breq);
+      // docs/222 §6: moved = the game's own B14 time for the allow-listed ads (ts3fixes vanilla B14 rate, us per ad, x
+      // allow-listed ads per request) x the consumed share (go-live: consumed objects of all B14 calls; shadow modes: the
+      // answered share). Without the rate (older ts3fixes): the R model (worker reference us per request x answered).
+      const b14Us = fx(i, 'autlive_b14_us'), b14Ads = fx(i, 'autlive_b14_ads'), alc = d1(N, 'al');
+      const objsAll = alc ? [AL.objConsumed, AL.notInReq, AL.invalid, AL.stale, AL.ident, AL.acb, AL.late].reduce((t, k) => t + (alc[k] ?? 0), 0) : 0;
+      const ansSh = 1 - a[4]! / allC, consSh = objsAll > 0 ? (alc![AL.objConsumed] ?? 0) / objsAll : ansSh;
+      const vanMs = b14Us !== undefined && b14Ads ? b14Us / b14Ads / 1000 * (allC - a[5]!) / (refRuns ? refRuns : breq) : undefined;
+      const moved = vanMs !== undefined ? vanMs * (calls13 / secs) * consSh : refMs * (calls13 / secs) * ansSh;
+      const cutMs = (cutUs ?? 0) / 1000 / cutsN * (ticks13 ?? 0) / secs;
       const g = (guard ?? 0) * GUARD_NS / 1e6 / secs, net = moved - cutMs - g, share = moved > 0 ? cutMs * 100 / moved : Infinity;
-      L.push(`- go-live estimate [inferred]: scoring moved ${f1(moved)} ms/s (${f1(refUs / 1000 / breq)} ms per request x ${f1(calls13 / secs)} B13 calls/s x ${(100 - a[4]! * 100 / allC).toFixed(1)}% answered) - cut ${f1(cutMs)} ms/s ` +
+      const how = vanMs !== undefined
+        ? `vanilla B14 ${f1(b14Us! / b14Ads!)} us per ad x ${f1((allC - a[5]!) / (refRuns ? refRuns : breq))} allow-listed ads per request x ${f1(calls13 / secs)} B13 calls/s x ${(consSh * 100).toFixed(1)}% ${objsAll > 0 ? 'consumed' : 'answered'}`
+        : `${f1(refMs)} ms per request x ${f1(calls13 / secs)} B13 calls/s x ${(ansSh * 100).toFixed(1)}% answered`;
+      L.push(`- go-live estimate [inferred]: scoring moved ${f1(moved)} ms/s (${how}) - cut ${f1(cutMs)} ms/s ` +
         `(${f1((ticks13 ?? 0) / secs)} cuts/s x ${f1((cutUs ?? 0) / cutsN / 1000)} ms) - guard ${f1(g)} ms/s = net ${f1(net)} ms/s; cut = ${share.toFixed(0)}% of the scoring moved ` +
         `(gate <= 25%: ${share <= 25 ? 'PASS' : 'FAIL'}); GC lock entries are [MonoThread]'s, in the stop-rule line, not here`);
       // docs/122 §14.20: the worker only runs in the window (cut end to the next Simulate entry); when that is far shorter
@@ -173,23 +231,208 @@ export function costLines(i: Input): string[] {
       // "moved" stays the allow-listed answered scoring. Pass share p from the Mode R pass counter when present, else the range.
       // Overrun searches (native overrun / req) move nothing but pay the cut; CONSUME_FIXED_MS = post, Sleep(0), resume, selection.
       // shortcut: pass counter name assumed (native autshadow passPairs or ts3fixes autshadow_pass); align when it lands
-      const P = (allC - a[5]!) / breq, ov = (d(N, 'autshadow', 'overrun') ?? 0) / (req || breq), rate = calls13 / secs;
+      const P = (allC - a[5]!) / (d(N, 'autshadow', 'refRuns') || breq), ov = (d(N, 'autshadow', 'overrun') ?? 0) / (req || breq), rate = calls13 / secs;
       const passN = d(N, 'autshadow', 'passPairs') ?? fx(i, 'autshadow_pass'), ans = 1 - a[4]! / allC;
-      const base = (1 - ov) * moved - cutMs - g - rate * CONSUME_FIXED_MS, ps = passN !== undefined ? [passN / (allC - a[5]!)] : [0.25, 0.5, 0.75, 1];
-      const at = ps.map(p => { const c = refUs / 1000 / breq / P * (TAU + (1 - TAU) / p), cost = (n: number) => base - rate * (1 - ov) * n * c;
+      // p = passes among answered pairs: passPairs counts worker passes, which are answered by definition, so the A4 pairs leave
+      // the denominator; selected = p x P x answered (0.36.129 and older took p over all classified pairs and then x answered:
+      // the aborts were discounted twice, docs/122 §14.23)
+      const base = (1 - ov) * moved - cutMs - g - rate * CONSUME_FIXED_MS, ps = passN !== undefined ? [passN / (allC - a[5]! - a[4]!)] : [0.25, 0.5, 0.75, 1];
+      // a selected pair's live C1 cost: the game's C2 time of an allow-listed passing pair when the v16 timer has it [measured],
+      // else the R-based model R/P x (TAU + (1 - TAU)/p) [inferred]
+      const pt = d1(N, 'pairT'), pn = d1(N, 'pairN'), cMeas = pn && pn[0] > 0 ? pt![0] / pn[0] / 1e4 : undefined;
+      const at = ps.map(p => { const c = cMeas ?? refMs / P * (TAU + (1 - TAU) / p), cost = (n: number) => base - rate * (1 - ov) * n * c;
         return { b1: cost(Math.min(TOPN, p * P * ans)), all: cost(p * P * ans), nb: base / (rate * (1 - ov) * c) }; });
       if (P > 0) L.push(`- go-live after consume [inferred]: overrun ${(ov * 100).toFixed(1)}% of searches, before consume ${f1(base)} ms/s; live C1, top ${TOPN} + bands, ` +
-        `pass share ${passN !== undefined ? `${ps[0].toFixed(2)} [measured]` : `${ps.join('/')} (no pass counter)`}: net ${at.map(x => f1(x.b1)).join('/')} ms/s with band 1 only, ` +
+        `pass share ${passN !== undefined ? `${ps[0].toFixed(2)} of answered [measured]` : `${ps.join('/')} (no pass counter)`}, pair cost ${cMeas !== undefined ? `${f1(cMeas * 1000)} us [measured C2]` : 'R model'}: ` +
+        `net ${at.map(x => f1(x.b1)).join('/')} ms/s with band 1 only, ` +
         `${at.map(x => f1(x.all)).join('/')} with every band; break-even N ${at.map(x => f1(x.nb)).join('/')} (${f1(P)} allow-listed pairs per search)`);
     }
   }
-  // stop rule: sim-side cost of the worker path = cut + snapshot + GC lock waits (all threads: conservative) [measured] +
-  // uncontended lock entries x LOCK_ENTRY_NS + sim guard calls x GUARD_NS [inferred]; the Mode R reference and the
-  // WindowWaitUs wait are test costs and stay out
+  // stop rule: sim-side cost of the worker path = cut + snapshot + GC lock waits [measured] + uncontended lock entries x
+  // LOCK_ENTRY_NS + sim guard calls x GUARD_NS [inferred]; the Mode R reference and the WindowWaitUs wait are test costs and
+  // stay out. mtprobe v6 (docs/30 §16): only the sim's waits and the sim's entries (the worker's are on the worker's core);
+  // before v6 every thread's (conservative).
   if (worker || as?.mode >= 1) {
-    const meas = (cutUs ?? 0) / 1000 / secs + (waitUs ?? 0) / 1000 / secs;
-    const inf = ((calls ?? 0) * LOCK_ENTRY_NS + (guard ?? 0) * GUARD_NS) / 1e6 / secs, x = meas + inf;
+    const v6 = (mt?.version ?? 0) >= 6, simWaitUs = v6 ? d(N, 'mtprobe', 'simLockWaitUs') : waitUs;
+    const simCalls = v6 && calls !== undefined ? calls - (callsW ?? 0) : calls;
+    const meas = (cutUs ?? 0) / 1000 / secs + (simWaitUs ?? 0) / 1000 / secs;
+    const inf = ((simCalls ?? 0) * LOCK_ENTRY_NS + (guard ?? 0) * GUARD_NS) / 1e6 / secs, x = meas + inf;
     L.push(`- worker adds ${f1(x)} ms/s to the sim (stop rule: >= ${STOP_MS}): ${f1(meas)} [measured: cut ${cutUs === undefined ? NA : 'yes'} + GC lock waits ${waitUs === undefined ? NA : 'yes'}] + ${f1(inf)} [inferred: lock entries ${calls === undefined ? NA : `x ${LOCK_ENTRY_NS} ns`} + guard calls ${guard === undefined ? NA : `x ${GUARD_NS} ns`}]; Mode R reference and window waits left out${x >= STOP_MS ? ' STOP' : ''}`);
+  }
+  return L;
+}
+
+// docs/124 §17 go-live ([AutShadow] Mode=3, autshadow v20): ts3fixes AutLive.cs al[] slots (kS*). One line of searches and
+// drops, one of the consume itself (objects, pairs through C1, bands, drift), one of G7 (Dry=1) or of the acting checks.
+export const AL = { eligible: 0, posted: 1, consumed: 2, dry: 3, notPosted: 4, wait: 5, stopped: 6, epochRun: 7, noWorker: 8, exc: 9, epoch: 10,
+  lot: 11, actor: 12, state: 13, interrupted: 14, destroyed: 15, notInReq: 16, invalid: 17, stale: 18, ident: 19, acb: 20, late: 21, objConsumed: 22,
+  band1: 23, bandPairs: 24, offList: 25, band2: 26, band3: 27, bandFull: 28, whyCount: 29, whyMargin: 30, drift0: 31, dryTop10: 36, dryTop1: 37,
+  drySimMis: 38, applyUs: 39, waitTicks: 40, verifyOff: 41, candidates: 42, head: 43, dryMissStale: 44, dryMissBand: 45, guardOff: 46,
+  verifyRuns: 47, verifyTop1: 48, verifyTop10: 49, filterDiff: 50, other: 51, dryOffList: 52, dryMissOther: 53, c2Rehomed: 54, dryTop1Tie: 55,
+  // Dry=1 only: AutLive.cs kSDryNoCmp / kSDryExtra reuse the acting-only slots consumed / band1 (al[] is 56 fixed in autshadow v20)
+  dryNoCmp: 2, dryExtra: 23 } as const;
+export const FEAT_BITS = ['late', 'prelearn', 'tierreqlots', 'rain', 'desirefn', 'satb', 'guard', 'cold', 'partial'] as const;
+// one line: per feature bit, searches that had it, mismatches (dry unequal or replay mismatch) and give-ups (fallbacks, dry-nocmp)
+// among them, with the mismatch rate; bits no search had are left out. Records: "feat"/"feats" fields in autshadow.jsonl.
+export function featLine(fix?: Input['fix']): string | null {
+  const dv = (k: string) => { const c = fix?.[k]; return typeof c?.after === 'number' ? c.after - (c.before ?? 0) : null; };
+  if (dv('feat_late_searches') === null) return null;
+  const parts = FEAT_BITS.map(b => ({ b, n: dv(`feat_${b}_searches`) ?? 0, m: dv(`feat_${b}_mis`) ?? 0, g: dv(`feat_${b}_drop`) ?? 0 }))
+    .filter(x => x.n > 0 || x.m > 0 || x.g > 0)
+    .map(x => `${x.b} ${x.n} searches / ${x.m} mismatches (${x.n > 0 ? `${(x.m * 100 / x.n).toFixed(1)}%` : NA}) / ${x.g} give-ups`);
+  return `- go-live feature mask [measured]: ${parts.length ? parts.join('; ') : 'no search had a feature bit'} (feat/feats fields on dry-diff, dry-sim-mis, dry-nocmp, live-drop, live-use records)`;
+}
+// docs/222 unseen-direct (ts3fixes 611-640, switch autunseen): searches by path, direct consume, D2 live Test, snap-back,
+// own cost vs vanilla scoring saved, per-path guard; Dry: top-10/top-1 by actor class. Absent counters = no lines.
+export function unseenLines(fix: Input['fix'] | undefined, secs: number, dry: boolean): string[] {
+  const has = (k: string) => typeof fix?.[k]?.after === 'number';
+  if (!has('autunseen_posted')) return [];
+  const fv = (k: string) => { const c = fix?.[k]; return typeof c?.after === 'number' ? c.after - (c.before ?? 0) : 0; };
+  const pc = (x: number, y: number) => y > 0 ? `${(x * 100 / y).toFixed(1)}%` : NA;
+  const L: string[] = [];
+  if (dry) {
+    const n = fv('autunseen_dry_runs'), ns = fv('autunseen_dry_seen_runs');
+    if (n + ns > 0) L.push(`- unseen-direct Dry by actor class (docs/222) [measured]: unseen actors ${n} searches compared, top-10 set equal ` +
+      `${pc(fv('autunseen_dry_top10'), n)}, top 1 equal ${pc(fv('autunseen_dry_top1'), n)}; seen actors ${ns} searches; unseen share of compared ${pc(n, n + ns)}`);
+    return L;
+  }
+  const posted = fv('autunseen_posted'), direct = fv('autunseen_direct'), seen = fv('autunseen_seen_post');
+  const tp = fv('autunseen_test_pass'), tf = fv('autunseen_test_fail'), pairs = fv('autunseen_pairs');
+  L.push(`- unseen-direct (autunseen, docs/222) [measured]: eligible searches seen at the post (exact path) ${seen}, unseen posted ${posted} ` +
+    `(unseen share ${pc(posted, posted + seen)}); direct ${direct}, snap-back at the resume ${fv('autunseen_snap_resume')}, at a later slice ` +
+    `${fv('autunseen_snap_slice')}, dropped (exact fallback) ${fv('autunseen_dropped')}; objects to the game's B14 ${fv('autunseen_obj_game')}; ` +
+    `ads inserted ${pairs} (${direct ? f1(pairs / direct) : NA} a search), off-list C1 ${fv('autunseen_offlist')}${has('autunseen_rh_game') ? `, rabbit-hole C1 ${fv('autunseen_rh_game')} (autunseenrh, docs/222 §10)` : ''}; D2 live Test pass ${tp} / fail ${tf} ` +
+    `(${pc(tf, tp + tf)} fail, ${tp + tf ? f1(fv('autunseen_test_us') / (tp + tf)) : NA} us a Test), vanilla fallbacks ${fv('autunseen_vanilla')}, ` +
+    `no pick ${fv('autunseen_nopick')}; queued picks tagged ${fv('autunseen_tagged')}, at the flip kept ${fv('autunseen_flip_kept')} / cancelled ` +
+    `${fv('autunseen_flip_cancel')}; exceptions ${fv('autunseen_exc')}`);
+  const cost = fv('autunseen_cost_us'), saved = fv('autunseen_saved_us'), ads = fv('autlive_b14_ads');
+  const pm = fix?.autunseen_guard_ratio_pm?.after;
+  L.push(`- unseen-direct cost [measured]: own sim cost ${f1(cost / 1000 / secs)} ms/s (consumer + cut + GC lock waits) vs vanilla scoring saved ` +
+    `${f1(saved / 1000 / secs)} ms/s (game B14 ${ads ? f1(fv('autlive_b14_us') / ads) : NA} us per ad x consumed ads) = net ${f1((saved - cost) / 1000 / secs)} ms/s ` +
+    `(guard thunks and the D2 Test excluded: fixed / in "cost" only via consumer); guard ${fv('autunseen_guard_windows')} windows, ` +
+    `${fv('autunseen_guard_skipwindows')} skip windows, ${fv('autunseen_guard_skipped')} searches skipped, last window ` +
+    `${typeof pm !== 'number' || pm < 0 ? 'n/a (no vanilla rate yet)' : `${pm} per mille`}`);
+  // docs/222 §8 pacing (ts3fixes 659-660, switch autunseenpace): skipped ads' vanilla cost charged to B13's 1 ms yield timer
+  if (has('autunseen_pace_us')) {
+    const pus = fv('autunseen_pace_us'), pf = fv('autunseen_pace_forced');
+    L.push(`- unseen-direct pacing (autunseenpace, docs/222 §8) [measured]: ${f1(pus / 1000)} ms charged to the yield timer ` +
+      `(${direct ? f1(pus / direct) : NA} us a direct search), yields brought forward ${pf} (${direct ? f1(pf / direct) : NA} a direct search)` +
+      `${pus === 0 ? '; 0 = switch off, no vanilla B14 rate yet, or nothing consumed' : ''}`);
+  }
+  return L;
+}
+
+// docs/222 §8 G8 by actor class (ts3fixes 661-669): per-search outcome rates per class, kept apart from the cadence (searches per
+// Sim-hour), which go-live pacing changes. Absent counters (older build) = no lines.
+export function g8ClassLines(fix: Input['fix'] | undefined): string[] {
+  if (typeof fix?.g8_unseen_searches?.after !== 'number') return [];
+  const fv = (k: string) => { const c = fix?.[k]; return typeof c?.after === 'number' ? c.after - (c.before ?? 0) : 0; };
+  const pc = (x: number, y: number) => y > 0 ? `${(x * 100 / y).toFixed(1)}%` : NA, per = (x: number, y: number) => y > 0 ? (x / y).toFixed(3) : NA;
+  const cls = (c: string) => {
+    const n = fv(`g8_${c}_searches`), np = fv(`g8_${c}_null_picks`);
+    return `${c} ${n} searches: no-pick share ${pc(np, n)}, GoHome per no-pick ${per(fv(`g8_${c}_gohome`), np)}, pushes per search ${per(fv(`g8_${c}_pushes`), n)}`;
+  };
+  const sh = fv('g8_simhours_x100') / 100, ush = fv('g8_unseen_simhours_x100') / 100, ssh = sh - ush;
+  const nu = fv('g8_unseen_searches'), ns = fv('g8_seen_searches'), rate = (n: number, h: number) => h > 0 ? f1(n / h) : NA;
+  return [`- G8 per search by actor class (class at the push / no-pick) [measured]: ${cls('unseen')}; ${cls('seen')}`,
+    `- G8 cadence [measured]: searches per Sim-hour all ${rate(nu + ns, sh)} (${f1(sh)} Sim-hours), unseen ${rate(nu, ush)} (${f1(ush)} unseen Sim-hours), ` +
+      `seen ${rate(ns, ssh)} (${f1(ssh)}; class from the hourly sample)`];
+}
+// docs/124 §8 G8 (ts3fixes 566-574, kAutLive packages) + docs/222 §8 class lines from a counter set (whole load or one --ab arm)
+export function g8Lines(fix: Input['fix'] | undefined): string[] {
+  const L: string[] = [];
+  const fv = (k: string) => { const c = fix?.[k]; return typeof c?.after === 'number' ? c.after - (c.before ?? 0) : 0; };
+  if (fix?.g8_pushes && typeof fix.g8_pushes.after === 'number') {
+    const sh = fv('g8_simhours_x100') / 100, lat = [0, 1, 2, 3, 4].map(i => fv(`g8_lat${i}`)), ln = lat.reduce((a, b) => a + b, 0);
+    let acc = 0, med: string = NA;
+    for (let i = 0; i < 5 && ln > 0; i++) { acc += lat[i]; if (acc * 2 >= ln) { med = i === 4 ? '4+' : String(i); break; } }
+    L.push(`- G8 behaviour [measured]: ${fv('g8_pushes')} autonomous pushes over ${f1(sh)} Sim-hours (${sh > 0 ? f1(fv('g8_pushes') / sh) : NA} per Sim-hour), ` +
+      `no-pick searches ${fv('g8_null_picks')}, MakeSimGoHome fallbacks ${fv('g8_gohome')}; request-to-push latency (Mode 3 searches, ticks 0/1/2/3/4+) ` +
+      `${lat.join('/')}, median ${med} ticks; picks per definition: {"t":"picks"} lines in autshadow.jsonl`);
+    L.push(...g8ClassLines(fix));
+  }
+  return L;
+}
+// --ab runs: per-arm ts3fixes counter sums from the slice snapshots profile-world writes (<tag>-ab.json slices, <tag>-ab-fixes.jsonl
+// snapshot i = start of slice i, the last = the end). Slice 0 (warm-up) is out; every other slice counts to its side.
+export function abArmFix(slices: { on: boolean }[], snaps: { i: number; c: Record<string, number> }[]): { on: Input['fix']; off: Input['fix'] } {
+  const by = new Map(snaps.map(x => [x.i, x.c])), out = { on: {} as NonNullable<Input['fix']>, off: {} as NonNullable<Input['fix']> };
+  for (let k = 1; k < slices.length; k++) {
+    const a = by.get(k), b = by.get(k + 1);
+    if (!a || !b) continue;
+    const arm = slices[k].on ? out.on : out.off;
+    for (const key of Object.keys(b)) if (typeof b[key] === 'number') (arm[key] ??= { before: 0, after: 0 }).after! += b[key] - (a[key] ?? 0);
+  }
+  return out;
+}
+export function abArmLines(tag: string, dir = join(ROOT, 'probe-out', 'profile')): string[] {
+  const f = join(dir, `${tag}-ab.json`), g = join(dir, `${tag}-ab-fixes.jsonl`);
+  if (!existsSync(f) || !existsSync(g)) return [];
+  const ab = JSON.parse(readFileSync(f, 'utf8'));
+  if (!Array.isArray(ab.slices) || ab.loop) return [];
+  const arms = abArmFix(ab.slices, jsonl(g)), L: string[] = [`--ab ${ab.names?.join(',')}: G8 per arm (${ab.slices.slice(1).filter((s: any) => s.on).length} on / ${ab.slices.slice(1).filter((s: any) => !s.on).length} off slices, warm-up out)`];
+  for (const n of ['off', 'on'] as const) L.push(`  [${n}]`, ...g8Lines(arms[n]).map(x => '  ' + x));
+  return L;
+}
+
+export function liveLines(N: Input['native'], secs: number, fix?: Input['fix']): string[] {
+  const al = d1(N, 'al'), as = N?.after?.autshadow;
+  if (!al) return ['- go-live: n/a (no al counters)'];
+  const v = (k: keyof typeof AL) => al[AL[k]] ?? 0, pc = (x: number, y: number) => y > 0 ? `${(x * 100 / y).toFixed(1)}%` : NA;
+  const dry = ((as?.alOn ?? 0) & 2) !== 0;
+  const used = (dry ? 0 : v('consumed')) + v('dry'), drops = v('wait') + v('stopped') + v('epochRun') + v('noWorker') + v('exc') + v('epoch') + v('lot') + v('actor') +
+    v('state') + v('head') + v('other');
+  const objs = v('objConsumed') + v('notInReq') + v('invalid') + v('stale') + v('ident') + v('acb') + v('late');
+  const dr = [0, 1, 2, 3, 4].map(i => al[AL.drift0 + i] ?? 0);
+  const L = [`- go-live (${(as?.alOn ?? 0) & 2 ? 'Dry, G7' : 'acting'}) [measured]: ${v('eligible')} eligible searches (${f1(v('eligible') / secs)}/s), posted ${v('posted')}, ` +
+      `not posted ${v('notPosted')} (sampling, busy, guard); used ${used} (${pc(used, v('posted'))}); fell back ${drops}: not ready in MaxWait ${v('wait')}, ` +
+      `run stopped ${v('stopped')}, epoch in run ${v('epochRun')}, no worker/refused ${v('noWorker')}, exception ${v('exc')}, epoch since cut ${v('epoch')}, ` +
+      `lot ${v('lot')}, actor fields ${v('actor')}, head interaction ${v('head')}, game state ${v('state')}, other ${v('other')}; game returns after our ` +
+      `yield: interrupted ${v('interrupted')}, destroyed ${v('destroyed')}; wait ${v('posted') ? f1(v('waitTicks') / v('posted')) : NA} ticks a search; ` +
+      `consumer time ${used ? f1(v('applyUs') / used) : NA} us a search (${f1(v('applyUs') / 1000 / secs)} ms/s); verify cuts ${d(N, 'autshadow', 'alVerify') ?? NA} ` +
+      `(top-1 same ${v('verifyTop1')} / top-10 same ${v('verifyTop10')} of ${v('verifyRuns')}), live off: verify ${v('verifyOff')}, guard ${v('guardOff')}`,
+    `- go-live objects [measured]: ${objs} B14 calls in used searches: consumed ${pc(v('objConsumed'), objs)}, game's B14 for not in request ${v('notInReq')}, ` +
+      `worker abort/off-list implementor ${v('invalid')}, stale (ObjStale ${d(N, 'autshadow', 'alStaleHit') ?? NA} of ${d(N, 'autshadow', 'alStaleQ') ?? NA} queries) ` +
+      `${v('stale')}, ads changed ${v('ident')}, AlwaysChooseBest ${v('acb')}, late (B13 yielded) ${v('late')}; pairs through C1: band 1 ${dry ? 'n/a (Dry)' : v('band1')}, bands 2+ ` +
+      `${v('bandPairs')}, off-list ${v('offList')}, worker-filtered ${v('filterDiff')} (candidates ${v('candidates')}, ${used ? f1(v('candidates') / used) : NA} a search); ` +
+      `bands fired: 2 ${v('band2')}, 3 ${v('band3')}, full ${v('bandFull')} (count rule ${v('whyCount')}, margin rule ${v('whyMargin')}); drift per search ` +
+      `0: ${dr[0]}, <1%: ${dr[1]}, <5%: ${dr[2]}, <20%: ${dr[3]}, more: ${dr[4]}`];
+  // docs/124 §17.10 cost guard (ts3fixes 538-541, acting only): windows, skips, the last window's cost per mille of the scoring
+  // saved (a gauge: the after value, not a delta). Absent on a ts3fixes before the guard.
+  const gw = fix?.autliveguard_windows;
+  if (!dry && gw && typeof gw.after === 'number') {
+    const dv = (k: string) => { const c = fix?.[k]; return typeof c?.after === 'number' ? c.after - (c.before ?? 0) : 0; };
+    const pm = fix?.autliveguard_ratio_pm?.after, sk = dv('autliveguard_skipped');
+    L.push(`- go-live cost guard [measured]: ${dv('autliveguard_windows')} windows, ${dv('autliveguard_skipwindows')} skip windows, ` +
+      `${sk} eligible searches skipped (${pc(sk, v('eligible'))} of eligible); last window cost = ` +
+      `${typeof pm !== 'number' || pm < 0 ? 'n/a (no reference yet)' : `${pm} per mille of the scoring saved (${pm > 1000 ? 'above' : 'at or below'} break-even)`}`);
+  }
+  L.push(...unseenLines(fix, secs, dry));
+  const fv = (k: string) => { const c = fix?.[k]; return typeof c?.after === 'number' ? c.after - (c.before ?? 0) : 0; };
+  // docs/217 L1 autlivelate (ts3fixes 550-565): absent or 0 slices = switch off / older build, no line
+  if (fv('autlivelate_slices') > 0) {
+    const lc = fv('autlivelate_consumed'), late = v('late'), ref = ['age', 'epoch', 'state', 'lot', 'head', 'actor', 'other'].map(r => `${r} ${fv(`autlivelate_ref_${r}`)}`);
+    const per = (us: string, n: number) => n > 0 ? `${f1(fv(us) / n)} us` : NA;
+    L.push(`- go-live late consume (autlivelate, docs/217 L1) [measured]: ${fv('autlivelate_slices')} later slices checked, refused: ${ref.join(', ')}; ` +
+      `late objects consumed ${lc} (late-consumed share ${pc(lc, lc + late)} of late B14 calls), stale on re-query ${fv('autlivelate_stale')}; ` +
+      `age 1/2/3+ ticks ${fv('autlivelate_age1')}/${fv('autlivelate_age2')}/${fv('autlivelate_age3')}; B14 per object: consumed ` +
+      `${per('autlivelate_us_consumed', v('objConsumed'))}, game's B14 late ${per('autlivelate_us_late_game', late)} ` +
+      `(${f1(fv('autlivelate_us_late_game') / 1000 / secs)} ms/s), game's B14 invalid/stale/ident ${per('autlivelate_us_invalid_game', v('invalid') + v('stale') + v('ident'))}`);
+  }
+  L.push(...g8Lines(fix));
+  // per-search feature mask (ts3fixes 575-601, AutLiveCore.Feat): which features the searches that went wrong had; absent = no line
+  const fb = featLine(fix);
+  if (fb) L.push(fb);
+  if (dry) {
+    // compared = dry searches minus those whose compare never ran (game B13 returned interrupted/destroyed, compare exception)
+    const n = v('dry') - v('dryNoCmp'), causes = v('dryMissStale') + v('dryMissBand') + v('dryMissOther') + v('dryExtra');
+    const noCause = n > v('dryTop10') && causes === 0 ? `; ${n - v('dryTop10')} unequal with no counted cause (a build before dry-nocmp: searches never compared)` : '';
+    L.push(`- G7 dry apply [measured]: ${n} searches compared (not compared ${v('dryNoCmp')}: game B13 returned interrupted/destroyed or compare ` +
+      `exception, dry-nocmp records): top-10 set equal ${pc(v('dryTop10'), n)}, top 1 equal ${pc(v('dryTop1'), n)} ` +
+      `(up to ties at the top score; ${v('dryTop1Tie')} equal only by a tie) (gate >= 99% / >= 99.5%); game queue replay mismatches ${v('drySimMis')} ` +
+      `(must be 0; C2 calls kept across a B13 yield ${v('c2Rehomed')}); missed top-10 pairs by cause: worker failed Test ` +
+      `(stale reject) ${v('dryMissStale')}, ranked below the bands ${v('dryMissBand')}, other ${v('dryMissOther')}; our top-10 entries the game's queue ` +
+      `lacks ${v('dryExtra')}${noCause}; off-list C1 calls ${v('dryOffList')} (dry-diff / dry-sim-mis / dry-nocmp records in autshadow.jsonl)`);
   }
   return L;
 }
@@ -202,6 +445,10 @@ export const SATB_GATE_MS = 3, SATB_STOP_MS = 5;
 export function satbLines(N: Input['native'], secs: number): string[] {
   const g = (k: string) => d(N, 'autshadow', k), as = N?.after?.autshadow;
   const spans = g('satbJobSpans'), ticks13 = g('metaTicks');
+  // act (Satb=2, docs/206 §7.3): no probe spans; what matters is whether jobs ran through the next tick unstopped
+  if (as?.satbMode === 2) return [`- Satb act: ${g('satbSpans') ?? NA} spans, jobs still running at the next Simulate entry ${g('satbConc') ?? NA}, ` +
+    `stopped/stale ${g('satbStale') ?? NA}, worker give-ups ${g('satbWGiveUp') ?? NA} (last op 0x${(as?.satbWGiveUpOp ?? 0).toString(16)}; ts3native.log 'autshadow satb give-up' by op), ` +
+    `sim waits ${g('satbWaits') ?? NA} (timeouts ${g('satbWaitTimeouts') ?? NA}), worker log hits ${g('satbWHits') ?? NA} of ${g('satbWLoads') ?? NA} loads, sim loads ${g('satbLoads') ?? NA}`];
   if (!spans) return [`- Satb (mode ${as?.satbMode}): no job spans timed (satbJobSpans 0)`];
   const per = (k: string) => (g(k) ?? 0) / spans;
   const st = per('satbJobStores'), w = per('satbJobWords'), ld = per('satbJobLoads'), ev = per('satbJobIc'), us = per('satbJobUs');
@@ -213,9 +460,16 @@ export function satbLines(N: Input['native'], secs: number): string[] {
   return [`- Satb probe per job span (${f1(us / 1000)} ms, ${spans} spans) [measured]: ${f1(st)} sim stores, ${f1(w)} words first written (max ${as?.satbJobMaxWords ?? NA}, ` +
     `${f1(maxMB)} MB log), ${f1(per('satbJobPages'))} pages, ${f1(ld)} sim loads, ${f1(ev)} unlogged events (IC shared pointer / runtime writer); whole tick: ` +
     `${f1((g('satbStores') ?? 0) / (g('satbSpans') || 1))} stores, ${f1((g('satbWords') ?? 0) / (g('satbSpans') || 1))} words; IC calls ${g('satbIcCalls') ?? NA} ` +
-    `(byref/array ICs ${g('satbIcCallsAll') ?? NA}, shared ${g('satbIcShared') ?? NA}), runtime writers ${g('satbRtCalls') ?? NA} (unlogged ${g('satbRtWaits') ?? NA}), big ${g('satbBig') ?? NA}, overflow ${g('satbOverflow') ?? NA}`,
+    `(byref/array ICs ${g('satbIcCallsAll') ?? NA}, shared ${g('satbIcShared') ?? NA}), runtime writers ${g('satbRtCalls') ?? NA} (unlogged ${g('satbRtWaits') ?? NA}), big ${g('satbBig') ?? NA}, overflow ${g('satbOverflow') ?? NA}` +
+    // v16 (docs/206 §9): IC byref/array arguments logged instead of waits; the unsized runtime writers left by site
+    (as?.version >= 16 ? `; v16: IC arguments logged ${g('satbIcLogged') ?? NA} (${g('satbIcLogWords') ?? NA} words, ${f1(per('satbJobIcLogged'))} a job span), ` +
+      `not logged ${g('satbIcShared') ?? NA}; runtime calls MonoField.SetValue ${g('satbRtFset') ?? NA}, PtrToStructure(object) ${g('satbRtPtrStruct') ?? NA} ` +
+      `(0.36.136+: logged, only 'unlogged' above waits; 0.36.133-135: each one waits)` : ''),
   `- Satb barrier at go-live [inferred]: ${jobsS === undefined ? NA : f1(jobsS)} jobs/s x (${f1(nsJob / 1000)} us barrier: stores x ${SATB_STORE_NS} + words x ${SATB_WORD_NS} + loads x ${SATB_LOAD_NS} ns` +
-    ` + waits ${f1(waitMs)} ms) = ${ms === undefined ? NA : `${f1(ms)} ms/s`}: ${verdict} (gate <= ${SATB_GATE_MS} ms/s and <= 20k words a job; stop > ${SATB_STOP_MS} ms/s or > 4 MB)`];
+    ` + waits ${f1(waitMs)} ms) = ${ms === undefined ? NA : `${f1(ms)} ms/s`}: ${verdict} (gate <= ${SATB_GATE_MS} ms/s and <= 20k words a job; stop > ${SATB_STOP_MS} ms/s or > 4 MB)`,
+  // docs/206 §11: the same counts with 0.36.136's load thunks (the loads' share is most of the barrier in satb-s0b)
+  `- Satb barrier with 0.36.136 load thunks [inferred]: loads x ${SATB_LOAD_THUNK_NS} ns -> ` +
+    `${jobsS === undefined ? NA : `${f1(jobsS * ((nsJob - ld * (SATB_LOAD_NS - SATB_LOAD_THUNK_NS)) / 1e6 + waitMs))} ms/s`}`];
 }
 
 const jsonl = (f: string) => readFileSync(f, 'utf8').split('\n').filter(Boolean).flatMap(l => { try { return [JSON.parse(l)]; } catch { return []; } });
@@ -224,13 +478,13 @@ function withBudget(i: Input): Input {
 }
 const readJson = (f?: string) => f && existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : undefined;
 const rowInput = (r: any, minutes: number) => withBudget({ tag: r.profileTag, minutes: r.run?.profile?.minutes ?? minutes,
-  native: readJson(r.nativeDump) ?? readJson(join(QUEUE, `${r.profileTag}-native.json`)), fix: r.fixActivity?.counters });
+  native: readJson(r.nativeDump) ?? readJson(join(QUEUE, `${r.profileTag}-native.json`)), fix: r.fixActivity?.counters, asLog: r.autshadowLog });
 export function inputs(arg: string, minutes: number): Input[] {
   if (arg.endsWith('.jsonl')) return jsonl(arg).filter(r => r.profileTag).map(r => rowInput(r, minutes));
   return [withBudget({ tag: arg, minutes, native: readJson(join(QUEUE, `${arg}-native.json`)) })];
 }
 // queue files of every mono-cost family (mono-cost-<date>.jsonl, mono-cost2-..., later ones); family = the part before the date
-export const FAMILY_RE = /^(mono-cost\d*|satb-s\d+)-(\d{4}-\d\d-\d\d)\.jsonl$/;
+export const FAMILY_RE = /^(mono-cost\d*|satb-s\d+[a-z]?|golive-[a-z0-9]+)-(\d{4}-\d\d-\d\d)\.jsonl$/;
 // newest row per job id (a rerun counts for the job it reruns), optionally one family; rows sorted by job start time
 export function newestPerJob(rows: any[], family?: string): any[] {
   const best = new Map<string, any>();
@@ -240,6 +494,33 @@ export function newestPerJob(rows: any[], family?: string): any[] {
     if (!o || String(r.time) > String(o.time)) best.set(id, r);
   }
   return [...best.values()].sort((a, b) => String(a.time) < String(b.time) ? -1 : 1);
+}
+
+// docs/222 §9 autunseencmp (ts3fixes 670-679, Dry): unseen actors' worker Test/score vs the game's C2 per pair on every slice;
+// per definition from the newest cumulative {"t":"defcmp"} snapshot (largest n) in autshadow.jsonl, top 15 by mismatches.
+// Absent counters = no lines.
+export type DefCmpRec = { t: string; n: number; def: string; c: number; wfgp: number; wpgf: number; bp: number; bf: number;
+  med: number | null; p90: number | null; age: number[]; ageMis: number[] };
+export function defCmpLines(fix: Input['fix'] | undefined, recs: any[]): string[] {
+  if (typeof fix?.autunseen_cmp_pairs?.after !== 'number') return [];
+  const fv = (k: string) => { const c = fix?.[k]; return typeof c?.after === 'number' ? c.after - (c.before ?? 0) : 0; };
+  const pc = (x: number, y: number) => y > 0 ? `${(x * 100 / y).toFixed(1)}%` : NA;
+  const n = fv('autunseen_cmp_pairs'), wf = fv('autunseen_cmp_wfail_gpass'), wp = fv('autunseen_cmp_wpass_gfail'), lp = fv('autunseen_cmp_late_pairs');
+  const L = [`- unseen-direct per-pair compare (autunseencmp, docs/222 §9) [measured]: ${fv('autunseen_cmp_searches')} unseen Dry searches, ${n} pairs ` +
+    `(late slices ${lp}, ${pc(lp, n)}); worker-fail/game-pass ${wf} (${pc(wf, n)}), worker-pass/game-fail ${wp} (${pc(wp, n)}${typeof fix?.autunseen_cmp_wpgf_w0?.after === 'number' ? `, worker score 0 in ${fv('autunseen_cmp_wpgf_w0')}` : ''}), both pass ` +
+    `${fv('autunseen_cmp_both_pass')}, both fail ${fv('autunseen_cmp_both_fail')}; late-slice mismatches ${fv('autunseen_cmp_late_mis')} of ${lp} ` +
+    `(${pc(fv('autunseen_cmp_late_mis'), lp)}); objects the direct path would hand to the game ${fv('autunseen_cmp_obj_skipped')}, slices with the actor seen ${fv('autunseen_cmp_snapped')}` +
+    `${typeof fix?.autunseen_rh_game?.after === 'number' ? `; rabbit-hole pairs not compared (autunseenrh, docs/222 §10) ${fv('autunseen_rh_game')}` : ''}`];
+  const dc = recs.filter((r): r is DefCmpRec => r?.t === 'defcmp' && typeof r.def === 'string');
+  if (!dc.length) { L.push('  per definition: no {"t":"defcmp"} records (autshadow.jsonl missing or no snapshot)'); return L; }
+  const top = Math.max(...dc.map(r => r.n));
+  const rows = dc.filter(r => r.n === top).sort((a, b) => (b.wfgp + b.wpgf) - (a.wfgp + a.wpgf) || b.c - a.c).slice(0, 15);
+  const r2 = (x: number | null) => x === null || x === undefined ? NA : x.toFixed(2);
+  L.push(`  per definition (snapshot at ${top} pairs; ratio = worker / game score, both pass; age = ticks since the cut <=1/2/3/4-7/8+):`, '',
+    '  | definition | pairs | wfail/gpass | wpass/gfail | both pass | ratio median | ratio p90 | age all | age mismatches |',
+    '  |---|---|---|---|---|---|---|---|---|',
+    ...rows.map(r => `  | ${r.def} | ${r.c} | ${r.wfgp} | ${r.wpgf} | ${r.bp} | ${r2(r.med)} | ${r2(r.p90)} | ${r.age.join('/')} | ${r.ageMis.join('/')} |`));
+  return L;
 }
 
 function selfCheck() {
@@ -291,6 +572,8 @@ function selfCheck() {
     unplaced: 400, liteLots: 10_000, liteUs: 5_000, liteMarks: 50, resyncTouch: 1, resyncMap: 0, olCompact: 0, olRows: 9000, tierKept: 30_000, batchCuts: 20, batchReqs: 500,
     batchMax: 3, metaCalls: 3000, metaTicks: 1000, simTicks: 20_000 } } };
   const out6 = costLines({ tag: 'v11', minutes: 10, native: v11, fix }).join('\n');
+  const out6v = costLines({ tag: 'v11v', minutes: 10, native: v11, fix: { ...fix, autlive_b14_us: { before: 0, after: 50_000 }, autlive_b14_ads: { before: 0, after: 10_000 } } }).join('\n');
+  assert.match(out6v, /go-live estimate \[inferred\]: scoring moved 0\.0 ms\/s \(vanilla B14 5\.0 us per ad x 0\.7 allow-listed ads per request x 5\.0 B13 calls\/s x 85\.0% answered\)/);
   assert.match(out6, /list kinds per cut: Sim-free rows kept 6\.0, Sim marks 10\.0 \(types 9 Sim-free of 12\); unplaced touches 0\.8, lot-vector prints 20\.0 \(10\.0 us\), their marks 0\.1; resyncs 1 touch list \/ 0 map full, map rows 9000, compactions 0; tiers kept 60\.0 Sims; shared cuts 20, 1\.0 requests per cut \(max 3\)/);
   const z8 = Object.fromEntries(['First', 'New', 'Lot', 'Room', 'Gone', 'Lost', 'Lite', 'Kid'].flatMap(n => [['mark' + n, 0], ['row' + n, 0]]));
   const z9 = Object.fromEntries(['4', '5', '6', '0B', '0C', '0E', '12', '18', '21'].map(n => ['markEv' + n, 0]));
@@ -315,6 +598,30 @@ function selfCheck() {
   const out15 = costLines({ tag: 'v15', minutes: 10, native: v15, fix }).join('\n');
   assert.match(out15, /Satb probe per job span \(4\.0 ms, 100 spans\) \[measured\]: 300\.0 sim stores, 100\.0 words first written \(max 900, 0\.0 MB log\), 20\.0 pages, 2000\.0 sim loads, 0\.1 unlogged events/);
   assert.match(out15, /Satb barrier at go-live \[inferred\]: 5\.0 jobs\/s x \(19\.8 us barrier: .* \+ waits 0\.2 ms\) = 1\.1 ms\/s: PASS/);
+  // v16 (docs/206 §9, docs/122 §14.23): IC arguments logged, runtime waits by site, answered-only / reference tops, C2 pair timer
+  const v16 = { before: v15.before, after: { ...v15.after, autshadow: { ...v15.after.autshadow, version: 16, satbIcLogged: 900, satbIcLogWords: 4000,
+    satbJobIcLogged: 300, satbRtFset: 2, satbRtPtrStruct: 0, freshTop1Ans: 1, freshTop10Ans: 3, refFreshTop1: 2, refFreshTop10: 4, refPassA4: 15,
+    pairT: [200_000, 30_000, 50_000, 10_000], pairN: [1000, 1000, 500, 500] } } };
+  const out16 = costLines({ tag: 'v16', minutes: 10, native: v16, fix }).join('\n');
+  assert.match(out16, /v16: IC arguments logged 900 \(4000 words, 3\.0 a job span\), not logged 10; runtime calls MonoField\.SetValue 2, PtrToStructure\(object\) 0 \(0\.36\.136\+/);
+  assert.match(out16, /over pairs both answered top pick changes 2\.0%, top-10 set changes 6\.0%; cut-time reference vs fresh \(all pairs, staleness\) top pick 4\.0%, top-10 set 8\.0%; reference passes among worker-A4 pairs 25\.0% \(15 of 60\)/);
+  assert.match(out16, /game C2 per pair \(sampled searches\) \[measured\]: allow-listed pass 20\.0 us \(1000\), fail 3\.0 us \(1000\); off-list pass 10\.0 us \(500\), fail 2\.0 us \(500\)/);
+  assert.match(out16, /pair cost 20\.0 us \[measured C2\]/);
+  const v17 = { before: v16.before, after: { ...v16.after, autshadow: { ...v16.after.autshadow, version: 17, transOn: 1, transObjs: 2000, hcOn: 1,
+    hcKnown: 900, hcNoHandle: 100, hcMap2: 0, hcUs: 4000, lwOn: 1, lwRows: 3000, lwWalks: 1000, lwWalkUs: 30_000, lwHostUs: 20_000, lwFall: 0,
+    lwChecks: 375, lwMis: 0, runNoPlain: 100, runNoStale: 200, runNoWalked: 50, runNoSets: 300, runNoCold: 10, clsGoneSkip: 77 } } };
+  assert.match(costLines({ tag: 'v17', minutes: 10, native: v17, fix }).join('\n'),
+    /mono-cost15 per cut \[measured\]: Transient 1: 4\.0 objects .*HostCls 1: 900 classified by the host filter, 100 no handle, 0 second map only \(8\.0 us\); ListWalk 1: 6\.0 rows from 2\.0 lot walks \(walk 60\.0 us, host 40\.0 us\), 0 to the body, checks 375, misses 0 .*not plain 0\.2, stale 0\.4, new 0\.1, per-cut sets 0\.6, cold gate 0\.0; class asks skipped 77/);
+  const v18 = { before: v17.before, after: { ...v17.after, autshadow: { ...v17.after.autshadow, version: 18, seOn: 1, seKept: 4000, seChecks: 500,
+    seMis: 0, seIcOff: 0, tmOn: 1, tmKept: 1000, laEvery: 2, laSkips: 250, gdOn: 1, gdRecs: 300, gdNoRec: 20, gdRows: 600, gdFall: 40,
+    gdIncons: 0, gdChecks: 75, gdMis: 0, gdOver: 0 } } };
+  assert.match(costLines({ tag: 'v18', minutes: 10, native: v18, fix }).join('\n'),
+    /mono-cost16 per cut \[measured\]: SimEvRows 1: 8\.0 Sim rows kept by events, checks 500, misses 0 \(must be 0; ICs off 0x0\); TierMoveLot 1: 2\.0 re-classifications skipped \(same lot and room\); ListAuditEvery 2: 250 dirty cuts without audit; GoneDelta 1: 1\.2 rows by delta, 0\.1 to the body, records 300 \(20 lots without, 0 lost\), inconsistent 0, checks 75, misses 0 \(must be 0\)/);
+  const v19 = { before: v18.before, after: { ...v18.after, autshadow: { ...v18.after.autshadow, version: 19, idOn: 1, idSame: 2000, idApp: 500,
+    idCalls: 1500, idFall: 250, idChecks: 300, idMis: 0, idUs: 5000, seLearnOn: 1, seSeatOn: 1, seLearnKept: 10_000, seSeatKept: 2000,
+    tcMax: 16, tcCapped: 100, gdWhy: [10, 20, 30, 0] } } };
+  assert.match(costLines({ tag: 'v19', minutes: 10, native: v19, fix }).join('\n'),
+    /mono-cost17 per cut \[measured\]: IdsDelta 1: 4\.0 rows same ids, 1\.0 rows plus new objects \(3\.0 small host calls\), 0\.5 to the host, 10\.0 us; checks 300, misses 0 \(must be 0\); SimEvLearn 1 \/ SimEvSeated 1: 20\.0 \/ 4\.0 rows kept; TierClassMax 16: 0\.2 classifications deferred; gone marks without a record: none 10, other lot 20, other room 30, full 0/);
   const v13w = { before: v13.before, after: { ...v13.after, autshadow: { ...v13.after.autshadow, windowUs: 4_000 } } };
   assert.match(costLines({ tag: 'v13w', minutes: 10, native: v13w, fix }).join('\n'),
     /worker window \[measured\]: quiescent gap .* 10\.0 us vs 3\.0 ms a job.*overruns 40 of 400 \(10\.0%\) at the test wait; .*sim waits 3\.0 ms a request x 5\.0\/s = 15\.0 ms\/s: net /);
@@ -323,10 +630,19 @@ function selfCheck() {
   assert.match(out6, /go-live estimate \[inferred\]: scoring moved 25\.5 ms\/s \(6\.0 ms per request x 5\.0 B13 calls\/s x 85\.0% answered\) - cut 2\.0 ms\/s \(1\.7 cuts\/s x 1\.2 ms\) - guard 1\.7 ms\/s = net 21\.8 ms\/s; cut = 8% of the scoring moved \(gate <= 25%: PASS\)/);
   // consume: P = 360 / 500 = 0.72, overrun 40 / 500 = 8%; base 0.92 x 25.5 - 2.0 - 1.7 - 5 x 0.15 = 19.0; p = 0.25: a pair 6 / 0.72 x 1.9 =
   // 15.83 ms, 0.153 selected, consume 5 x 0.92 x 0.153 x 15.83 = 11.1, net 7.9; break-even N 19.0 / (5 x 0.92 x 15.83) = 0.3
-  assert.match(out6, /go-live after consume \[inferred\]: overrun 8\.0% of searches, before consume 19\.0 ms\/s; live C1, top 10 \+ bands, pass share 0\.25\/0\.5\/0\.75\/1 \(no pass counter\): net 7\.9\/.* ms\/s with band 1 only, 7\.9\/.* with every band; break-even N 0\.3\/.* \(0\.7 allow-listed pairs per search\)/);
-  // pass counter 180 of 360 = 0.5: a pair 6 / 0.72 x 1.3 = 10.83 ms, 0.306 selected, consume 15.25, net 3.8; break-even 19.0 / 49.8 = 0.4
+  assert.match(out6, /go-live after consume \[inferred\]: overrun 8\.0% of searches, before consume 19\.0 ms\/s; live C1, top 10 \+ bands, pass share 0\.25\/0\.5\/0\.75\/1 \(no pass counter\), pair cost R model: net 7\.9\/.* ms\/s with band 1 only, 7\.9\/.* with every band; break-even N 0\.3\/.* \(0\.7 allow-listed pairs per search\)/);
+  // Mode 3 VerifyEvery: only 50 of the 500 requests ran the reference (0.3 s = 6 ms each): same per-request cost, same go-live lines
+  const v11r = { before: { ...v11.before, autshadow: { ...(v11.before as any).autshadow, refRuns: 0 } },
+    after: { ...v11.after, autshadow: { ...v11.after.autshadow, refUs: 300_000, refRuns: 50 } } };
+  const out6r = costLines({ tag: 'v11r', minutes: 10, native: v11r, fix }).join('\n');
+  // A0-A5 are counted only on reference runs (CompareR, AutShadow.cs:1019/1159), so pairs per request divide by refRuns: 360 / 50 = 7.2
+  assert.equal(out6r.match(/- go-live estimate .*/)?.[0], out6.match(/- go-live estimate .*/)?.[0]);
+  assert.match(out6r, /- go-live after consume .*\(7\.2 allow-listed pairs per search\)/);
+  // pass counter 180 of 300 answered (400 - 40 A5 - 60 A4) = 0.6 (docs/122 §14.23: A4 leaves the denominator instead of being
+  // discounted twice): a pair 6 / 0.72 x (0.7 + 0.3 / 0.6) = 10.0 ms, 0.6 x 0.72 x 0.85 = 0.367 selected, consume
+  // 5 x 0.92 x 0.367 x 10.0 = 16.9, net 2.1; break-even 19.0 / 46.0 = 0.4
   const outP = costLines({ tag: 'v11p', minutes: 10, native: v11, fix: { ...fix, autshadow_pass: { before: 0, after: 180 } } }).join('\n');
-  assert.match(outP, /pass share 0\.50 \[measured\]: net 3\.8 ms\/s with band 1 only, 3\.8 with every band; break-even N 0\.4 /);
+  assert.match(outP, /pass share 0\.60 of answered \[measured\], pair cost R model: net 2\.1 ms\/s with band 1 only, 2\.1 with every band; break-even N 0\.4 /);
   assert.match(out5, /dirty lots \(CutLean=2\) per cut: rows kept 16\.0, refreshed 4\.0, lots marked 2\.0, objects placed 80\.0 \(40\.0 us\); resync cuts 3; list audit 1\.0 rows \(40\.0 us\), misses 0, tripped 0; tier cache: classified 100\.0 Sims, camera moves 7, holds 12; list tiers: 1\.2 rows waiting, 0\.2 lot refreshes, tier-1 lots 5/);
   assert.match(out4, /lists \(CutLean\) per cut: kept by print 8\.0, prints 4\.0 \(20\.0 us\), refreshed same 0\.2; Sim tiers \(TierMs 1500\) per cut: tier 1 10\.0 Sims, body 40\.0 \(120\.0 us\); tier 2 6\.0 Sims, 4\.0 waiting \(stale\), body 8\.0 \(24\.0 us\); classify 16\.0 us; aging runs 62/);
   const out2 = costLines({ tag: 'z', minutes: 10, native: busy, fix }).join('\n');
@@ -343,6 +659,94 @@ function selfCheck() {
   assert.deepEqual(newestPerJob(rows).map(r => r.profileTag), ['d', 'c']);
   assert.deepEqual(newestPerJob(rows, 'mono-cost3').map(r => r.profileTag), ['a']);
   assert.ok(FAMILY_RE.test('mono-cost-2026-10-29.jsonl') && FAMILY_RE.test('mono-cost12-2026-11-01.jsonl') && !FAMILY_RE.test('mono-cost4-2026-10-29-ip-r-native.json') && !FAMILY_RE.test('mono-ledger-2026-10-29.jsonl'));
+  assert.ok(FAMILY_RE.exec('satb-s0b-2026-10-31.jsonl')?.[1] === 'satb-s0b' && FAMILY_RE.exec('satb-s0-2026-10-30.jsonl')?.[1] === 'satb-s0');
+  assert.ok(FAMILY_RE.exec('golive-g7-2026-10-31.jsonl')?.[1] === 'golive-g7');
+  {  // docs/124 §17 go-live lines from the v20 al[] slots (deltas after - before)
+    const al0 = Array(56).fill(0), al1 = Array(56).fill(0);
+    Object.assign(al1, { [AL.eligible]: 100, [AL.posted]: 90, [AL.dry]: 80, [AL.wait]: 4, [AL.epoch]: 6, [AL.objConsumed]: 30, [AL.stale]: 10,
+      [AL.dryTop10]: 79, [AL.dryTop1]: 80, [AL.dryTop1Tie]: 3, [AL.c2Rehomed]: 7, [AL.dryMissBand]: 1, [AL.waitTicks]: 180 });
+    const nat = { before: { autshadow: { version: 20, alOn: 3, al: al0 } }, after: { autshadow: { version: 20, alOn: 3, al: al1, alVerify: 2 } } };
+    const lv = liveLines(nat, 600).join('\n');
+    assert.match(lv, /go-live \(Dry, G7\) \[measured\]: 100 eligible searches .* used 80 \(88\.9%\); fell back 10: not ready in MaxWait 4/);
+    assert.match(lv, /wait 2\.0 ticks a search/);
+    assert.match(lv, /consumed 75\.0%/);
+    assert.match(lv, /G7 dry apply \[measured\]: 80 searches compared \(not compared 0: [^)]*\): top-10 set equal 98\.8%, top 1 equal 100\.0% \(up to ties at the top score; 3 equal only by a tie\)/);
+    assert.match(lv, /replay mismatches 0 \(must be 0; C2 calls kept across a B13 yield 7\)/);
+    assert.match(lv, /ranked below the bands 1, other 0; our top-10 entries the game's queue lacks 0; off-list/);
+    // searches never compared leave the rate denominator; slot 2 is not "consumed" in Dry; unequal with no cause is flagged
+    Object.assign(al1, { [AL.dryNoCmp]: 5, [AL.dryExtra]: 2, [AL.dryTop10]: 74, [AL.dryTop1]: 75 });
+    const lv2 = liveLines(nat, 600).join('\n');
+    assert.match(lv2, /used 80 \(88\.9%\)/);
+    assert.match(lv2, /75 searches compared \(not compared 5: .*\): top-10 set equal 98\.7%, top 1 equal 100\.0%/);
+    assert.match(lv2, /lacks 2; off-list/);
+    Object.assign(al1, { [AL.dryNoCmp]: 0, [AL.dryExtra]: 0, [AL.dryMissBand]: 0, [AL.dryTop10]: 70, [AL.dryTop1]: 70 });
+    assert.match(liveLines(nat, 600).join('\n'), /lacks 0; 10 unequal with no counted cause/);
+    assert.match(liveLines({ after: { autshadow: { version: 20 } } }, 600).join(''), /go-live: n\/a/);
+    // §17.10 cost guard line: acting only, deltas for windows/skips/skipped, the ratio gauge as is
+    const act = { before: { autshadow: { version: 20, alOn: 1, al: al0 } }, after: { autshadow: { version: 20, alOn: 1, al: al1 } } };
+    const gfix = { autliveguard_windows: { before: 2, after: 12 }, autliveguard_skipwindows: { before: 0, after: 3 },
+      autliveguard_skipped: { before: 0, after: 25 }, autliveguard_ratio_pm: { before: -1, after: 1250 } };
+    assert.match(liveLines(act, 600, gfix).join('\n'), /go-live cost guard \[measured\]: 10 windows, 3 skip windows, 25 eligible searches skipped \(25\.0% of eligible\); last window cost = 1250 per mille of the scoring saved \(above break-even\)/);
+    assert.match(liveLines(act, 600, { ...gfix, autliveguard_ratio_pm: { after: -1 } }).join('\n'), /last window cost = n\/a \(no reference yet\)/);
+    assert.doesNotMatch(liveLines(act, 600).join('\n'), /cost guard/);
+    // docs/222 unseen-direct lines
+    const uz = (after: number) => ({ before: 0, after });
+    const ufix = { autunseen_posted: uz(80), autunseen_seen_post: uz(20), autunseen_direct: uz(70), autunseen_snap_resume: uz(5),
+      autunseen_snap_slice: uz(2), autunseen_dropped: uz(5), autunseen_obj_game: uz(30), autunseen_pairs: uz(700), autunseen_offlist: uz(140),
+      autunseen_test_pass: uz(60), autunseen_test_fail: uz(20), autunseen_test_us: uz(8000), autunseen_vanilla: uz(4), autunseen_nopick: uz(6),
+      autunseen_tagged: uz(50), autunseen_flip_kept: uz(3), autunseen_flip_cancel: uz(1), autunseen_exc: uz(0), autunseen_cost_us: uz(600_000),
+      autunseen_saved_us: uz(1_800_000), autlive_b14_us: uz(50_000), autlive_b14_ads: uz(10_000), autunseen_guard_windows: uz(4),
+      autunseen_guard_skipwindows: uz(0), autunseen_guard_skipped: uz(0), autunseen_guard_ratio_pm: { before: -1, after: 333 } };
+    const uo = liveLines(act, 600, ufix).join('\n');
+    assert.match(uo, /unseen-direct \(autunseen, docs\/222\) \[measured\]: eligible searches seen at the post \(exact path\) 20, unseen posted 80 \(unseen share 80\.0%\); direct 70, .*ads inserted 700 \(10\.0 a search\).*D2 live Test pass 60 \/ fail 20 \(25\.0% fail, 100\.0 us a Test\)/);
+    assert.match(uo, /unseen-direct cost \[measured\]: own sim cost 1\.0 ms\/s .* saved 3\.0 ms\/s \(game B14 5\.0 us per ad x consumed ads\) = net 2\.0 ms\/s .*last window 333 per mille/);
+    assert.doesNotMatch(liveLines(act, 600, gfix).join('\n'), /unseen-direct/);
+    assert.doesNotMatch(uo, /pacing/);
+    const po = liveLines(act, 600, { ...ufix, autunseen_pace_us: uz(35_000), autunseen_pace_forced: uz(14) }).join('\n');
+    assert.match(po, /unseen-direct pacing \(autunseenpace, docs\/222 §8\) \[measured\]: 35\.0 ms charged to the yield timer \(500\.0 us a direct search\), yields brought forward 14 \(0\.2 a direct search\)$/m);
+    assert.match(liveLines(act, 600, { ...ufix, autunseen_pace_us: uz(0), autunseen_pace_forced: uz(0) }).join('\n'), /0 = switch off/);
+    assert.match(unseenLines({ autunseen_posted: uz(0), autunseen_dry_runs: uz(40), autunseen_dry_top10: uz(40), autunseen_dry_top1: uz(39), autunseen_dry_seen_runs: uz(10) }, 600, true).join('\n'),
+      /unseen actors 40 searches compared, top-10 set equal 100\.0%, top 1 equal 97\.5%; seen actors 10 searches; unseen share of compared 80\.0%/);
+    assert.doesNotMatch(liveLines(nat, 600, gfix).join('\n'), /cost guard/);
+    // docs/217 L1 late line and docs/124 §8 G8 line from ts3fixes counters (deltas); absent = no line
+    const z = (after: number) => ({ before: 0, after });
+    const lfix = { autlivelate_slices: z(40), autlivelate_ref_age: z(5), autlivelate_ref_epoch: z(3), autlivelate_consumed: z(90),
+      autlivelate_stale: z(2), autlivelate_age1: z(60), autlivelate_age2: z(25), autlivelate_age3: z(5), autlivelate_us_late_game: z(6000),
+      g8_pushes: z(120), g8_simhours_x100: z(4000), g8_null_picks: z(7), g8_gohome: z(3), g8_lat0: z(10), g8_lat1: z(20), g8_lat2: z(50), g8_lat3: z(5), g8_lat4: z(1) };
+    const ll = liveLines(act, 600, lfix).join('\n');
+    assert.match(ll, /40 later slices checked, refused: age 5, epoch 3, state 0/);
+    assert.match(ll, /late objects consumed 90 .*age 1\/2\/3\+ ticks 60\/25\/5/);
+    assert.match(ll, /120 autonomous pushes over 40\.0 Sim-hours \(3\.0 per Sim-hour\), no-pick searches 7, MakeSimGoHome fallbacks 3; .* 10\/20\/50\/5\/1, median 2 ticks/);
+    assert.doesNotMatch(liveLines(act, 600, gfix).join('\n'), /late consume|G8 behaviour/);
+    assert.doesNotMatch(ll, /G8 cadence/);
+    const cfix = { ...lfix, g8_unseen_searches: z(300), g8_unseen_pushes: z(240), g8_unseen_null_picks: z(30), g8_unseen_gohome: z(12),
+      g8_seen_searches: z(100), g8_seen_pushes: z(90), g8_seen_null_picks: z(5), g8_seen_gohome: z(1), g8_unseen_simhours_x100: z(3000) };
+    const cl = liveLines(act, 600, cfix).join('\n');
+    assert.match(cl, /G8 per search by actor class .*: unseen 300 searches: no-pick share 10\.0%, GoHome per no-pick 0\.400, pushes per search 0\.800; seen 100 searches: no-pick share 5\.0%, GoHome per no-pick 0\.200, pushes per search 0\.900/);
+    assert.match(cl, /G8 cadence \[measured\]: searches per Sim-hour all 10\.0 \(40\.0 Sim-hours\), unseen 10\.0 \(30\.0 unseen Sim-hours\), seen 10\.0 \(10\.0;/);
+    // per-search feature mask line: deltas per bit, bits with nothing left out, absent counters = no line
+    const ffix: any = {};
+    for (const b of FEAT_BITS) for (const k of ['searches', 'mis', 'drop']) ffix[`feat_${b}_${k}`] = z(0);
+    ffix.feat_rain_searches = z(200); ffix.feat_rain_mis = z(3); ffix.feat_rain_drop = z(1); ffix.feat_satb_searches = { before: 10, after: 410 };
+    const fl = liveLines(act, 600, ffix).join('\n');
+    assert.match(fl, /feature mask \[measured\]: rain 200 searches \/ 3 mismatches \(1\.5%\) \/ 1 give-ups; satb 400 searches \/ 0 mismatches \(0\.0%\) \/ 0 give-ups \(/);
+    assert.doesNotMatch(fl, /late \d+ searches/);
+    assert.equal(featLine({}), null);
+    // docs/222 §9 per-definition compare: counters line + newest snapshot only, sorted by mismatches; absent counters = no lines
+    const dfix = { autunseen_cmp_searches: z(50), autunseen_cmp_pairs: z(1000), autunseen_cmp_wfail_gpass: z(30), autunseen_cmp_wpass_gfail: z(10),
+      autunseen_cmp_both_pass: z(700), autunseen_cmp_both_fail: z(260), autunseen_cmp_late_pairs: z(400), autunseen_cmp_late_mis: z(36),
+      autunseen_cmp_obj_skipped: z(5), autunseen_cmp_snapped: z(2) };
+    const rec = (n: number, def: string, wfgp: number, c = 100) => ({ t: 'defcmp', n, def, c, wfgp, wpgf: 1, bp: 50, bf: 10, med: 1, p90: 1.5, age: [1, 2, 3, 4, 5], ageMis: [0, 0, 1, 2, 3] });
+    const dl = defCmpLines(dfix, [rec(500, 'Old.Definition', 99), rec(1000, 'A.Definition', 2), rec(1000, 'AutonomouslyShopInRabbitHole.Definition', 25), { t: 'picks' }]).join('\n');
+    assert.match(dl, /50 unseen Dry searches, 1000 pairs \(late slices 400, 40\.0%\); worker-fail\/game-pass 30 \(3\.0%\), worker-pass\/game-fail 10 \(1\.0%\).*late-slice mismatches 36 of 400 \(9\.0%\)/);
+    assert.match(dl, /snapshot at 1000 pairs/);
+    assert.doesNotMatch(dl, /Old\.Definition/);
+    assert.ok(dl.indexOf('AutonomouslyShopInRabbitHole') < dl.indexOf('| A.Definition'));
+    assert.match(dl, /\| AutonomouslyShopInRabbitHole\.Definition \| 100 \| 25 \| 1 \| 50 \| 1\.00 \| 1\.50 \| 1\/2\/3\/4\/5 \| 0\/0\/1\/2\/3 \|/);
+    assert.match(defCmpLines(dfix, []).join('\n'), /no \{"t":"defcmp"\} records/);
+    assert.deepEqual(defCmpLines(lfix, []), []);
+    assert.doesNotMatch(liveLines(act, 600, gfix).join('\n'), /feature mask/);
+  }
   // absent counters print n/a, never a number; no worker = no stop-rule line
   const bare = costLines({ tag: 'x', minutes: 10, budgetWhy: 'no x-<secs>-seconds.csv' }).join('\n');
   assert.match(bare, /Mono interpreter: n\/a; GC: n\/a/); assert.match(bare, /\[MonoThread\]: n\/a/); assert.match(bare, /\[AutShadow\]: n\/a/);

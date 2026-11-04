@@ -3,7 +3,7 @@
   "jobs": [
     {
       "id": "bp-save-reload",
-      "note": "Play + save + menu reload + direct reload on Bridgeport (spring, no winter skew). Pass: exit 0 (every save native result 1, both reloads back in live mode), all 6 marks in ts3native.log, no crash.",
+      "note": "Play + save + menu reload + direct reload on Bridgeport (spring, no winter skew). Pass: exit 0 (every save native result 0, both reloads back in live mode), all 6 marks in ts3native.log, no crash.",
       "asi": "game-copy/ts3native.asi.mono-cost10",
       "save": "Baseline-BP-Spring",
       "releaseDefaults": true,

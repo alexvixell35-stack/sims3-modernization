@@ -1,0 +1,38 @@
+{
+  "note": "Settle ledger I-150-12-3 (docs/51): is the would-hit in-room cell A* time (design M, docs/150 §8.3/§12) >= 5 ms/s on the current build? 2026-11-01, NOT RUN. The 10-22 cellmemo-verify jobs passed but never recorded the cm* counters; this reruns on rel025b (0.36.152) with release defaults + [RouteJobPhases] + [CellMemoProbe] (observe only). Read cmCellUs, cmHitCellUs (would-hit), cmPlans, cmLegs_0/1, cmRepeats_0/1, cmMaxRepeats, cmFull, cmHist_* from the /native before/after dump probe-out/queue/<queue>-<date>-<job>-native.json (the existing nativeRequire/minCounters mechanism writes it; no row field prints them). Decision: cmHitCellUs delta / 600 s >= 5 ms/s builds M. Counts and shares, not a sim timing run.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "ip-cellmemo-1101",
+      "note": "Isla Paradiso, 10 min, rel025b release defaults + RouteJobPhases + CellMemoProbe. IP plans are water-bound, so fewer in-room legs than BP; read the would-hit ms/s from cmHitCellUs. Early gates: probe ready and counting plans by 150 s.",
+      "asi": "game-copy/ts3native.asi.rel025b",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025b",
+      "save": "Baseline-IP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "minCounters": 90,
+      "ini": {
+        "RouteJobPhases.Enabled": 1,
+        "CellMemoProbe.Enabled": 1
+      },
+      "nativeRequire": "cmPlans>=1",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "earlyGates": [
+        { "afterSec": 150, "counter": "rjpReady", "op": "==", "value": 1, "why": "RouteJobPhases not ready (rjpReady 0)" },
+        { "afterSec": 150, "counter": "cmReady", "op": "==", "value": 1, "why": "CellMemoProbe not ready (cmReady 0)" },
+        { "afterSec": 150, "counter": "cmPlans", "op": ">", "value": 0, "why": "CellMemoProbe counted no plans (cmPlans 0)" }
+      ],
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "pinReason": "rel025b is the build under test (builds.json rel025b-asi 0.36.152 / rel025b-fixes, commit d8c5548f); source moves on"
+    }
+  ]
+}

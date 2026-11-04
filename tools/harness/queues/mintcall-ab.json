@@ -1,0 +1,343 @@
+{
+  "note": "mintcall-ab: [MonoFast] CallPath timing A/B in one load per job (docs/139 §8, ts3native 0.36.127, asi game-copy/ts3native.asi.mcall1, counters v143), BP / IP / SV, both slice orders. Timing: clean machine only (night or Rodney away); queue.ts runs the measurement smoke job first (arm split, heavy tools off, mcSwitch read back). Verdict: node tools/harness/hitch-ab.ts mintcall-ab and node tools/harness/sim-budget-report.ts per job; gain = Mono ms/s off - on, pooled over both orders; a regression rule as AGENTS.md (it/s down > 2% in both orders). Run only after mintcall-verify passed. Run: node tools/harness/queue.ts tools/harness/queues/mintcall-ab.json",
+  "smoke": {
+    "note": "Measurement smoke (AGENTS.md): BP 4 min, --ab mintcall 1-min slices. Pass: both arms present in the per-arm split, mcSwitch read back 0 / 1 per slice, mcCall grows only in on slices, heavy tools off (HitchAttr only), no crash. A FAIL stops the queue.",
+    "asi": "game-copy/ts3native.asi.mcall1",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 143,
+    "ini": {
+      "SlotEnabledRO.Enabled": 1,
+      "SlotEnabledRO.Mode": 1,
+      "SlotEnabledRO.Shadow": 0,
+      "UnseenThrottle.Enabled": 1,
+      "UnseenThrottle.List": 1,
+      "RouteAsync.FallbackAsync": 1,
+      "RouteAsync.M1Retry": 1,
+      "RouteAsync.SyncCapMs": 1000,
+      "RouteAsync.FbJobCapMs": 300,
+      "RouteAsync.LogFallbackMs": 20,
+      "RouteAsync.LogFallbackStack": 16,
+      "RouteAsync.TailUnlock": 1,
+      "RouteAsync.ReplanDedupe": 1,
+      "RouteAsync.H2": 1,
+      "RouteEarlyOut.Enabled": 1,
+      "RouteEarlyOut.Mode": 2,
+      "RouteEarlyOut.Act": 1,
+      "RouteEarlyOut.LogMs": 200,
+      "HitchAttr.Enabled": 1,
+      "MonoFast.CallPath": 1
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 4,
+        "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+        "ab": "mintcall",
+        "slice": 1
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 15
+  },
+  "jobs": [
+    {
+      "id": "bp-mcall-ab",
+      "note": "BP Spring 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoFast] CallPath=1, flipped per 2-min slice by --ab mintcall (mcSwitch 0 = every call through EA's path plus one indirect jump, 1 = fast path). Pass: no crash, 0 watchdog lines, mcReady 3, mcBailCall + mcBailCallvirt grow with every call in off slices and drop to the real bails (cache misses, new frame slots) in on slices (fast calls are counted in verify mode only). Read: sim it/s and Mono ms/s per arm (sim-budget-report.ts / hitch-ab.ts --causes), expected -15..-30 ms/s of Mono time on (docs/139 §8.5, inferred).",
+      "asi": "game-copy/ts3native.asi.mcall1",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 143,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoFast.CallPath": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "mintcall",
+          "slice": 2
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-mcall-ab-onfirst",
+      "note": "On-first twin of bp-mcall-ab (slice order swapped: warm-up on, then on,off,off,on). BP Spring 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoFast] CallPath=1, flipped per 2-min slice by --ab mintcall (mcSwitch 0 = every call through EA's path plus one indirect jump, 1 = fast path). Pass: no crash, 0 watchdog lines, mcReady 3, mcBailCall + mcBailCallvirt grow with every call in off slices and drop to the real bails (cache misses, new frame slots) in on slices (fast calls are counted in verify mode only). Read: sim it/s and Mono ms/s per arm (sim-budget-report.ts / hitch-ab.ts --causes), expected -15..-30 ms/s of Mono time on (docs/139 §8.5, inferred).",
+      "asi": "game-copy/ts3native.asi.mcall1",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 143,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoFast.CallPath": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "mintcall",
+          "slice": 2,
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-mcall-ab",
+      "note": "IP Spring 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoFast] CallPath=1, flipped per 2-min slice by --ab mintcall (mcSwitch 0 = every call through EA's path plus one indirect jump, 1 = fast path). Pass: no crash, 0 watchdog lines, mcReady 3, mcBailCall + mcBailCallvirt grow with every call in off slices and drop to the real bails (cache misses, new frame slots) in on slices (fast calls are counted in verify mode only). Read: sim it/s and Mono ms/s per arm (sim-budget-report.ts / hitch-ab.ts --causes), expected -15..-30 ms/s of Mono time on (docs/139 §8.5, inferred).",
+      "asi": "game-copy/ts3native.asi.mcall1",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 143,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoFast.CallPath": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "mintcall",
+          "slice": 2
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-mcall-ab-onfirst",
+      "note": "On-first twin of ip-mcall-ab (slice order swapped: warm-up on, then on,off,off,on). IP Spring 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoFast] CallPath=1, flipped per 2-min slice by --ab mintcall (mcSwitch 0 = every call through EA's path plus one indirect jump, 1 = fast path). Pass: no crash, 0 watchdog lines, mcReady 3, mcBailCall + mcBailCallvirt grow with every call in off slices and drop to the real bails (cache misses, new frame slots) in on slices (fast calls are counted in verify mode only). Read: sim it/s and Mono ms/s per arm (sim-budget-report.ts / hitch-ab.ts --causes), expected -15..-30 ms/s of Mono time on (docs/139 §8.5, inferred).",
+      "asi": "game-copy/ts3native.asi.mcall1",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 143,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoFast.CallPath": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "mintcall",
+          "slice": 2,
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-mcall-ab-2",
+      "note": "Second off-first IP job (IP is the script-heaviest world and the noisiest A/B): same as ip-mcall-ab, pooled with it. IP Spring 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoFast] CallPath=1, flipped per 2-min slice by --ab mintcall (mcSwitch 0 = every call through EA's path plus one indirect jump, 1 = fast path). Pass: no crash, 0 watchdog lines, mcReady 3, mcBailCall + mcBailCallvirt grow with every call in off slices and drop to the real bails (cache misses, new frame slots) in on slices (fast calls are counted in verify mode only). Read: sim it/s and Mono ms/s per arm (sim-budget-report.ts / hitch-ab.ts --causes), expected -15..-30 ms/s of Mono time on (docs/139 §8.5, inferred).",
+      "asi": "game-copy/ts3native.asi.mcall1",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 143,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoFast.CallPath": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "mintcall",
+          "slice": 2
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "sv-mcall-ab",
+      "note": "SV Spring 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoFast] CallPath=1, flipped per 2-min slice by --ab mintcall (mcSwitch 0 = every call through EA's path plus one indirect jump, 1 = fast path). Pass: no crash, 0 watchdog lines, mcReady 3, mcBailCall + mcBailCallvirt grow with every call in off slices and drop to the real bails (cache misses, new frame slots) in on slices (fast calls are counted in verify mode only). Read: sim it/s and Mono ms/s per arm (sim-budget-report.ts / hitch-ab.ts --causes), expected -15..-30 ms/s of Mono time on (docs/139 §8.5, inferred).",
+      "asi": "game-copy/ts3native.asi.mcall1",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 143,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoFast.CallPath": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "mintcall",
+          "slice": 2
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "sv-mcall-ab-onfirst",
+      "note": "On-first twin of sv-mcall-ab (slice order swapped: warm-up on, then on,off,off,on). SV Spring 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoFast] CallPath=1, flipped per 2-min slice by --ab mintcall (mcSwitch 0 = every call through EA's path plus one indirect jump, 1 = fast path). Pass: no crash, 0 watchdog lines, mcReady 3, mcBailCall + mcBailCallvirt grow with every call in off slices and drop to the real bails (cache misses, new frame slots) in on slices (fast calls are counted in verify mode only). Read: sim it/s and Mono ms/s per arm (sim-budget-report.ts / hitch-ab.ts --causes), expected -15..-30 ms/s of Mono time on (docs/139 §8.5, inferred).",
+      "asi": "game-copy/ts3native.asi.mcall1",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 143,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoFast.CallPath": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "mintcall",
+          "slice": 2,
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}

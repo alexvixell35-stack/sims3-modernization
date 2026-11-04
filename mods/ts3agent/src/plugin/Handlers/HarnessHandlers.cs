@@ -233,7 +233,11 @@ namespace Ts3Agent
                 if (inWorld == null) return null;
                 object sm = inWorld.GetType().GetField("mStateMachine", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(inWorld);
                 object cur = sm.GetType().GetProperty("CurState").GetValue(sm, null);
-                return cur == null ? null : cur.GetType().Name;
+                if (cur == null) return null;
+                // mods replace game states with subclasses (NRaas Traveler: LiveModeStateEx): report the game's own state name
+                Type t = cur.GetType();
+                while (t.BaseType != null && t.Assembly != typeof(GameStates).Assembly) t = t.BaseType;
+                return t.Name;
             }
             catch (Exception e) { return "unknown: " + e.Message; }
         }
@@ -259,7 +263,7 @@ namespace Ts3Agent
         // ------------------------------------------------------------ blocking dialogs
 
         static readonly string[] kAcceptWords = { "ok", "accept", "yes", "continue", "done", "confirm", "close", "got it" };
-        static readonly string[] kRejectWords = { "cancel", "no", "back", "quit", "exit", "decline", "never" };
+        static readonly string[] kRejectWords = { "cancel", "no", "back", "quit", "exit", "decline", "never", "customize" }; // customize opens a second picker (lifetime wish) the autopilot cannot answer
         static readonly string[] kNames = { "Alex", "Sam", "Jamie", "Robin", "Casey", "Morgan", "Riley", "Quinn", "Avery", "Reese" };
         static int sNameIndex;
 
@@ -311,6 +315,40 @@ namespace Ts3Agent
             return words.Length == 0 ? 0 : 1;
         }
 
+        // EA's lifetime wish dialog (a Sim ages up): Okay stays disabled until a wish is picked, and the buttons without
+        // a wish tag open WishPickerDialog, whose OK also waits for a pick. Button scoring cannot answer either, so use
+        // their own handlers: cancel an open picker, else select the first offered wish and press Okay.
+        static bool AnswerLifetimeWish(Dictionary<string, object> r)
+        {
+            const BindingFlags kAny = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+            Assembly ui = typeof(ModalDialog).Assembly;
+            Type pickerType = ui.GetType("Sims3.UI.WishPickerDialog"), wishType = ui.GetType("Sims3.UI.LifetimeWishSelectionDialog");
+            object picker = pickerType != null ? pickerType.GetField("sDialog", kAny).GetValue(null) : null;
+            object dlg = wishType != null ? wishType.GetField("sDialog", kAny).GetValue(null) : null;
+            if (picker == null && dlg == null) return false;
+            r["title"] = picker != null ? "lifetime wish picker" : "lifetime wish";
+            object wish = null;
+            if (picker == null)
+                foreach (string f in new string[] { "mPossibleWishes", "mGenericWishes" })
+                {
+                    System.Collections.IList l = wishType.GetField(f, kAny).GetValue(dlg) as System.Collections.IList;
+                    if (l != null && l.Count > 0) { wish = l[0]; break; }
+                }
+            if (picker == null && wish == null) { r["clicked"] = "(no wish offered)"; return false; }
+            object target = picker ?? dlg;
+            MethodInfo select = wishType.GetMethod("SelectWish", kAny);
+            MethodInfo press = target.GetType().GetMethod(picker != null ? "OnCancelButtonClick" : "OnOkayButtonClick", kAny);
+            UIButtonClickEventArgs args = new UIButtonClickEventArgs();
+            args.Init(kButtonClick, null, null, 0, 0, 0, 0f, 0f, 0f, 0f, false, null);
+            RunAsync("auto_dialog " + r["title"], delegate
+            {
+                if (picker == null) select.Invoke(dlg, new object[] { wish });
+                press.Invoke(target, new object[] { null, args });
+            });
+            r["clicked"] = picker != null ? "picker cancel" : "first wish + okay";
+            return true;
+        }
+
         // Clears whatever modal dialog blocks the game: fills empty text fields (e.g. naming a newborn),
         // then clicks the most "accepting" enabled button. Prefers tooltips because EA icon buttons have no caption.
         static object AutoDialog(Args a)
@@ -321,6 +359,7 @@ namespace Ts3Agent
             r["open"] = true;
             // a start-path step answers this dialog itself (StartPathHandlers: purchase confirm, Edit Town place dialog)
             if (HarnessOwnsDialog()) { r["title"] = null; r["clicked"] = "(left to a harness step)"; return r; }
+            if (AnswerLifetimeWish(r)) return r;
             List<string> texts = new List<string>();
             CollectTexts(modal, texts, 0);
             r["title"] = texts.Count > 0 ? texts[0] : null;

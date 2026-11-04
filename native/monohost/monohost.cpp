@@ -757,6 +757,7 @@ static void HostTickGc() {
 }
 
 static void* g_testK;  // MonoHostTest.HostTest
+static void* g_callK;  // MonoHostTest.CallTest (docs/139 §8)
 static void* g_asK;    // MonoHostTest.AsDriver (G-A2)
 // static test method -> boxed result, (void*)1 for void, NULL on a managed exception or fault (logged)
 static void* T(const char* name, int n, void** args) {
@@ -780,6 +781,7 @@ static int M14() {
     void* a = img ? ((AsmLoadFromFull)0xE68290)(img, "MonoHostTest.dll", &st, 0) : NULL;
     g_testK = Cls(img, "MonoHostTest", "HostTest");
     g_asK = Cls(img, "MonoHostTest", "AsDriver");
+    g_callK = Cls(img, "MonoHostTest", "CallTest");
     if (!Check("M1.4-testasm", a && g_testK, "MonoHostTest.dll assembly %p status %d, class %p", a, st, g_testK)) return 140;
     DWORD gc0 = *GC_GC_NO;
     int n = 2000, s1 = 3, s2 = 4, churn = 2000, fin = 50, ticks = 300, badGraph = 0;
@@ -912,12 +914,18 @@ static bool RunTask(HostTask& t) {
     return true;
 }
 
-static int M15() {
+static void FakeHostOnce() {  // M1.5 and the docs/139 §8 task test (which runs first)
+    static bool done;
+    if (done) return;
+    done = true;
     InstallFakeHost();
-    bool inRoots = InRootSets(g_tasks);
-    Log("M1.5 host .data (g_tasks %p) inside a Boehm root set: %d\n", g_tasks, inRoots);
     g_pushOtherOrig = *(void(__cdecl**)())(uintptr_t)0x11949CC;
     *(void**)(uintptr_t)0x11949CC = (void*)PushHostRoots;  // without it the task state was collected before the 2nd resume
+}
+static int M15() {
+    FakeHostOnce();
+    bool inRoots = InRootSets(g_tasks);
+    Log("M1.5 host .data (g_tasks %p) inside a Boehm root set: %d\n", g_tasks, inRoots);
     void* sleepLoop = Meth(g_testK, "SleepLoop", 1);
     // (a) runtime_invoke'd code cannot yield: its state has +0x148 clear, so the Sleep intrinsic throws
     int one = 1;
@@ -1011,6 +1019,7 @@ static bool Write(void* addr, const void* bytes, size_t n) {
     FlushInstructionCache(GetCurrentProcess(), addr, n);
     return true;
 }
+// ts3native pieces the included files call (monothread-m5 arena guard detours, autshadow FPU state, locowin shims): host no-ops
 static void* InstallDetour(const char*, DWORD, const u8*, size_t, void*) { return NULL; }
 #include "../ts3native/simloop.cpp"  // the per-iteration hook ApplyMonoThread adds (the host never runs Simulate)
 #include "../ts3native/monothread.cpp"
@@ -1024,6 +1033,11 @@ static void (*const kHxShims[7])() = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 static unsigned short GetX87() { unsigned short cw; __asm { fnstcw cw } return cw; }  // as ts3native.cpp
 static void SetX87(unsigned short cw) { __asm { fldcw cw } }
 static void* g_snJmp[1];
+// [MonoFast] CallPath (docs/139 §8): before autshadow.cpp, whose Satb chains over our callvirt entry
+struct McCtr { LONG mcSwitch, mcReady, mcCall, mcCallvirt, mcRet, mcBailCall, mcBailCallvirt, mcBailRet, mcVerified, mcMismatch, mcVSkipped, mcVerifyEvery, mcFirstBad; };
+static McCtr g_mcCtr;
+#define MC_CTR g_mcCtr
+#include "../ts3native/mintcall.cpp"
 #include "../ts3native/autshadow.cpp"
 static int AsTierOf(AsU64) { return 1; }  // unseen.cpp's tier rule (TierMs is 0 in the host: never asked)
 #pragma warning(pop)
@@ -1213,7 +1227,7 @@ static int AsSatb() {
     TA("ResetCounts", 0, NULL);
     const LONG hits0 = k.satbWHits, loads0 = k.satbWLoads, words0 = k.satbWords, give0 = k.satbWGiveUp, conf0 = k.satbWConflict,
                rt0 = k.satbRtCalls, fix0 = k.satbWRtFix, conc0 = k.satbConc, stale0 = k.satbStale, waits0 = k.satbWaits, ign0 = k.satbWArenaIgn,
-               st0 = k.satbStores;
+               st0 = k.satbStores, fset0 = k.satbRtFset, pts0 = k.satbRtPtrStruct, rtw0 = k.satbRtWaits, grows0 = mt::g_satbWGrows;
     const int stuck = AsSatbRounds(rounds, &seed, &conc, &muts);
     const int a0 = AsGet(0), a1 = AsGet(1), a2 = AsGet(2), a3 = AsGet(3), a4 = AsGet(4), a5 = AsGet(5), runs = AsGet(6), rng = AsGet(8), other = AsGet(9),
               abandoned = AsGet(12), errLen = AsGet(13);
@@ -1238,6 +1252,16 @@ static int AsSatb() {
                     k.satbWHits - hits0 > 0 && runs >= rounds * 9 / 10 && a0 + a4 + abandoned == runs * perRun && a0 >= runs * perRun * 9 / 10;
     Check("AS-satb-exact", ok, "worker scored the cut while this thread mutated the world in %d of %d jobs: A0 %d of %d, A1-A3 %d, "
           "log hits %ld, give-ups %ld", conc, rounds, a0, runs * perRun, a1 + a2 + a3, k.satbWHits - hits0, k.satbWGiveUp - give0);
+    // docs/206 §10 (0.36.136): reflection field sets and PtrToStructure(ptr, object) in the mutator are logged, never a wait
+    // docs/206 §12 (bp-satb-act-1: every job stopped): a Satb=2 job submitted at the cut keeps running through the next
+    // Simulate entry and is never stopped: no stale job, no A4/A5, every concurrent job compared
+    Check("AS-satb-survive", stuck == 0 && k.satbStale == stale0 && a4 == 0 && a5 == 0 && abandoned == 0 && k.satbConc - conc0 > 0 && a0 == runs * perRun,
+          "jobs running at the next Simulate entry %ld, stopped (stale) %ld, A0 %d of %d, A4 %d A5 %d; worker arena grows %ld (docs/206 §13: deep paths, same chunks)",
+          k.satbConc - conc0, k.satbStale - stale0, a0, runs * perRun, a4, a5, mt::g_satbWGrows - grows0);
+    // docs/206 §12: the worker's reflection reads (Score) are answered from the cut, never a give-up
+    Check("AS-satb-rtwriters", ok && k.satbRtFset - fset0 > 0 && k.satbRtPtrStruct - pts0 > 0 && k.satbRtWaits == rtw0 && k.satbWGiveUp == give0,
+          "MonoField.SetValue %ld, PtrToStructure(object) %ld during spans, runtime waits %ld, worker give-ups %ld (GetValue reads answered from the cut)",
+          k.satbRtFset - fset0, k.satbRtPtrStruct - pts0, k.satbRtWaits - rtw0, k.satbWGiveUp - give0);
 
     // barrier cost on this thread [measured]: the same mutation and score loops with a span on (no job) vs off; ns per
     // store through the stub (first writes included) and per load through the thread test
@@ -1354,7 +1378,7 @@ static int AsG2() {
     mt::g_asMode = 1;  // R: reference on this thread, then the worker
     mt::MtTick();      // first Simulate entry: the AutShadowNative ICs register
     const int ver = I32(TA("Setup", 0, NULL));
-    if (!Check("AS-install", guards && k.descIcs == nIc && k.icRegistered == 26 && ver == 8 && p.workerState == 2,
+    if (!Check("AS-install", guards && k.descIcs == nIc && k.icRegistered == 31 && ver == 10 && p.workerState == 2,
                "guards %d (%ld descriptor ICs), AutShadowNative ICs %ld, Setup -> Version %d, worker state %ld", guards, k.descIcs,
                k.icRegistered, ver, p.workerState))
         return 160;
@@ -1419,6 +1443,26 @@ static int AsG2() {
     const bool stopped = k.overrun > over0 ? AsGet(5) == a5b + 1 && AsGet(11) == 1 : AsGet(11) == 0;  // a fast worker may finish first
     Check("AS-overrun", posted && !mt::g_mtBusy && mt::g_asRun == 0 && stopped && AsGet(13) == 0,
           "request posted %d, overrun %ld, last status %d, worker idle %d", posted, k.overrun - over0, AsGet(11), !mt::g_mtBusy);
+    {  // docs/124 §17 go-live (Mode 3): every request reaches the worker and the finish; the reference only at every 4th cut
+        const LONG ref0 = k.refRuns, wr0 = k.workRuns, ver0 = k.alVerify;
+        const int runs0 = AsGet(6);
+        mt::g_asMode = 3, mt::g_asLiveVerify = 4;
+        int okReq = 0;
+        for (int r = 0; r < 8; r++) {
+            int lid = 20000 + r;
+            void* la[1] = {&lid};
+            okReq += I32(TA("Request", 1, la)) == 1;
+            mt::MtSimLeave();
+            for (int s = 0; s < 5000 && mt::g_mtBusy; s++) Sleep(1);
+            mt::MtTick();
+            mt::MtSimLeave();
+        }
+        mt::g_asMode = 1, mt::g_asLiveVerify = 50;
+        Check("AS-live-verify", okReq == 8 && k.workRuns - wr0 == 8 && AsGet(6) - runs0 == 8 && k.refRuns - ref0 == 2 && k.alVerify - ver0 == 2 &&
+                                    mt::g_asRun == 0,
+              "Mode 3: %d requests, worker runs %ld, finished runs %d, reference runs %ld (VerifyEvery 4: want 2)", okReq, k.workRuns - wr0,
+              AsGet(6) - runs0, k.refRuns - ref0);
+    }
     char sv[4] = "";
     GetEnvironmentVariableA("MONOHOST_SATB", sv, sizeof(sv));
     if (sv[0] == '1') {
@@ -1793,12 +1837,112 @@ static void MintBench() {
     Log("mintbench mode %d n %d: best %.1f ms, checksum %d\n", g_mintMode, n, best, sum);
 }
 
+// ---- docs/139 §8: call/return fast path (native/ts3native/mintcall.cpp). Env MONOHOST_MINTCALL=off|fast|verify
+// (MONOHOST_MINTCALLEVERY=<n>: verify every n-th eligible call), MONOHOST_MCBENCH=<n>: after the selftest, CallBench
+// kinds and MintBench timed with the four stock entries and with ours, interleaved in one process (pinned, best of 9).
+static int g_mcMode;  // installed: 0 off, 1 fast, 2 verify, -1 refused
+static bool InstallMintCall() {
+    char v[16] = "", e[16] = "";
+    GetEnvironmentVariableA("MONOHOST_MINTCALL", v, sizeof(v));
+    GetEnvironmentVariableA("MONOHOST_MINTCALLEVERY", e, sizeof(e));
+    const int mode = !strcmp(v, "fast") ? 1 : !strcmp(v, "verify") ? 2 : 0;
+    if (!mode) return true;
+    mt::g_mcCtr.mcSwitch = 1;
+    mt::g_mcvNegative = GetEnvironmentVariableA("MONOHOST_MCNEG", NULL, 0) > 0;
+    g_mcMode = mt::McInstall(mode, (DWORD)atoi(e));
+    return g_mcMode > 0;
+}
+static int McInvoke(const char* name, int n, void** args) {
+    void* m = Meth(g_callK, name, n);
+    void* exc = NULL;
+    DWORD code = 0;
+    void* r = m ? SafeInvoke(m, NULL, args, &exc, &code) : NULL;
+    if (!m || exc || code) { Log("CallTest.%s: missing %d, exception %p, fault 0x%lX\n", name, !m, exc, code); return INT_MIN; }
+    return I32(r);
+}
+static void McLogCounters(const char* when) {
+    const mt::McCtr& c = mt::g_mcCtr;
+    Log("mintcall %s: mode %d ready %ld; fast call %ld callvirt %ld ret %ld; bail call %ld callvirt %ld ret %ld; verified %ld mismatch %ld skipped %ld\n",
+        when, g_mcMode, c.mcReady, c.mcCall, c.mcCallvirt, c.mcRet, c.mcBailCall, c.mcBailCallvirt, c.mcBailRet, c.mcVerified, c.mcMismatch, c.mcVSkipped);
+}
+// every mode runs these; the checksums must be the same with MONOHOST_MINTCALL=off, fast and verify
+static int McTests() {
+    int n = 300;
+    void* a[1] = {&n};
+    const int sum = McInvoke("Run", 1, a);
+    Log("mintcall tests: CallTest.Run(300) checksum %d\n", sum);
+    Check("MC-run", sum != INT_MIN, "call shapes (static, instance, virtual, interface, value-type, wide/struct returns, cache misses, throw through finally, stack traces, null receiver, depth overflow) checksum %d", sum);
+    // a task that yields 6 frames deep: the save / resume of every frame between (records, MonoInvocation, arena)
+    static int five = 5;
+    static void* targs[1] = {&five};
+    FakeHostOnce();
+    HostTask& k = g_tasks[2];
+    k = HostTask{};
+    k.id = 0x0000ABCD00000033ULL;
+    k.state = ((TaskNew)0xE52D70)(Meth(g_callK, "SleepDeep", 1), NULL, targs, &k.exc);
+    k.wake = g_tick;
+    int runs = 0;
+    for (int i = 0; i < 40 && !k.done; i++, g_tick++) {
+        if (k.wake <= g_tick) RunTask(k), runs++;
+        HostTickGc();
+    }
+    Log("mintcall tests: SleepDeep(5) runs %d result %d exc %p fault 0x%lX\n", runs, I32(k.result), k.exc, k.fault);
+    Check("MC-deep-yield", k.done && !k.exc && !k.fault && runs == 6 && I32(k.result) == 775, "5 yields 6 frames deep, resumed, result %d (want 775)", I32(k.result));
+    g_nSleep = 0;  // M1.5 counts its own sleeps from 0
+    McLogCounters("after tests");
+    return 0;
+}
+static double McTime(const char* name, int n, int kind, int* sum) {
+    LARGE_INTEGER fq, t0, t1;
+    QueryPerformanceFrequency(&fq);
+    void* a[2] = {&n, &kind};
+    QueryPerformanceCounter(&t0);
+    *sum = McInvoke(name, kind < 0 ? 1 : 2, a);
+    QueryPerformanceCounter(&t1);
+    return 1000.0 * (t1.QuadPart - t0.QuadPart) / fq.QuadPart;
+}
+static void McBench() {
+    char v[16] = "";
+    if (!GetEnvironmentVariableA("MONOHOST_MCBENCH", v, sizeof(v)) || g_mcMode != 1) return;
+    const int n = atoi(v), mb = 1000;
+    static const char* const kKind[5] = {"empty loop", "call static int", "call static void", "callvirt override", "callvirt non-virtual"};
+    double best[2][6];
+    int sums[2][6];
+    for (auto& b : best) for (double& x : b) x = 1e9;
+    char cv[8] = "";
+    SetThreadAffinityMask(GetCurrentThread(), (DWORD_PTR)1 << (GetEnvironmentVariableA("MONOHOST_MCCORE", cv, sizeof(cv)) ? atoi(cv) : 2));
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+    char rv[16] = "";
+    const int reps = GetEnvironmentVariableA("MONOHOST_MCREPS", rv, sizeof(rv)) ? atoi(rv) : 25;
+    for (int r = 0; r < reps; r++)
+        for (int arm = 0; arm < 2; arm++) {  // 0 stock entries, 1 ours
+            mt::McRestoreStock(arm == 0);
+            for (int k = 0; k < 5; k++) best[arm][k] = min(best[arm][k], McTime("CallBench", n, k, &sums[arm][k]));
+            void* a[1] = {(void*)&mb};
+            LARGE_INTEGER fq, t0, t1;
+            QueryPerformanceFrequency(&fq);
+            QueryPerformanceCounter(&t0);
+            sums[arm][5] = I32(T("MintBench", 1, a));
+            QueryPerformanceCounter(&t1);
+            best[arm][5] = min(best[arm][5], 1000.0 * (t1.QuadPart - t0.QuadPart) / fq.QuadPart);
+        }
+    mt::McRestoreStock(false);
+    for (int k = 0; k < 5; k++) {
+        const double s = k ? (best[0][k] - best[0][0]) * 1e6 / n : best[0][k] * 1e6 / n, f = k ? (best[1][k] - best[1][0]) * 1e6 / n : best[1][k] * 1e6 / n;
+        Log("mcbench %-22s n %d: stock %.1f ms, fast %.1f ms; per call stock %.2f ns, fast %.2f ns (%+.1f%%); checksums %d / %d\n", kKind[k], n,
+            best[0][k], best[1][k], s, f, k ? 100.0 * (f - s) / s : 0.0, sums[0][k], sums[1][k]);
+    }
+    Log("mcbench MintBench(%d): stock %.1f ms, fast %.1f ms (%+.1f%%); checksums %d / %d\n", mb, best[0][5], best[1][5],
+        100.0 * (best[1][5] - best[0][5]) / best[0][5], sums[0][5], sums[1][5]);
+}
+
 #include "monohost-jit.cpp"  // docs/207 P0 method compiler (MONOHOST_JIT)
 
 static int SelfTest(void* domain) {
     int rc = M13(domain);
     MintDump("m13");  // docs/139: the .cctor sweep = EA script code; the rest is HostTest code
     if (!rc) rc = M14();
+    if (!rc) rc = McTests();  // docs/139 §8, before M1.5 (its exception task makes the pool state M5-arena-dedupe checks)
     if (!rc) rc = M15();
     JitAtomic(false);  // docs/207 verify: M5 installs P3 detours on the GC entry points
     if (!rc) rc = M5();
@@ -1808,6 +1952,8 @@ static int SelfTest(void* domain) {
     if (!rc || g_jitMode) MintBench();
     MintDump("bench");
     if (!rc || g_jitMode) JitBenchRun();
+    McBench();
+    McLogCounters("end");
     Log("SELFTEST %s: %d passed, %d failed%s\n", g_fail || rc ? "FAILED" : "OK", g_pass, g_fail, rc ? " (stopped early)" : "");
     return rc ? rc : g_fail;
 }
@@ -1839,7 +1985,8 @@ static int Run(const wchar_t* exe) {
         if (!Jmp(p.at, p.to)) { Log("STEP 2 FAIL: patch 0x%08lX\n", p.at); return 20; }
     Log("STEP 2 OK: eglib g_malloc/g_malloc0/g_free/g_strdup/g_realloc and GeneralAllocator alloc/free/realloc -> host CRT\n");
     Log("STEP 3 OK: image loader 0xD6FCB0 and config path 0xD6FC40 detoured (assemblies from %s)\n", g_asmDir);
-    if (!InstallMint() || !InstallSubFuse() || !InstallJit()) { Log("STEP 3 FAIL: mint instrumentation (docs/139)\n"); return 30; }
+    // MintCall before the JIT: its exits jump to the table entries read at install
+    if (!InstallMint() || !InstallSubFuse() || !InstallMintCall() || !InstallJit()) { Log("STEP 3 FAIL: mint instrumentation (docs/139)\n"); return 30; }
     {  // docs/206 §7: MONOHOST_SATB=1 wraps mono's runtime icall table before any icall is resolved (as ts3native at DllMain)
         char sv[4] = "";
         GetEnvironmentVariableA("MONOHOST_SATB", sv, sizeof(sv));

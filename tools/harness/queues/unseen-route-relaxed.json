@@ -1,0 +1,454 @@
+{
+  "note": "docs/202 §3.9 unseenroute (relaxed unseen routing, Rodney 2026-10-31): unseen townies skip the plan whenever exactness is the only reason (D without verdict / colour-known / lot-kind / walk-only proofs; fast-leg travel time for drive/boat/subway/hover-capable routes; snap-back when the goal turns seen mid-hold); also the gate-332 fix shared by D, D-arrive, D-leave (EnablePlanningAsBoat no longer refused: kit issue #135). NOT RUN. Package game-copy/ts3fixes.package.unseenroute7 (switch unseenroute off by default); built from feature/unseen-route-relaxed); asi = game-copy/ts3native.asi.unseenroute2 (0.36.150, [UnseenGhost] Enabled=1 in every job: it acts only for ts3fixes unseenroute holds); ts3agent from source (cycle.ts: camera_to_tagged key + unseenroute_* names). Order = cheapest decisive first: smoke (acts at all) -> forced loops SV car trip, IP walk across, SV snap-back (correctness, routing fail-fast on unseen) -> BP/IP/SV natural 10 min in-load A/B (hitch counts with hitch-ab.ts). stopQueueOnFail: the first FAIL row stops the queue. Lock split (Rodney 2026-10-31, docs/202 §3.9.5): bp/ip-ur-lock-ab measure +0x918 waits by waiter class and holds by holder per arm (probes on, not timing). unseenroute2 (2026-10-31): other-task plans, children and groups, B/C/D reachability (§3.9.6-§3.9.7), ghosts take no +0x918 (§3.9.5); sv-ur-fenced-repair checks D.",
+  "stopQueueOnFail": true,
+  "smoke": {
+    "id": "sv-ur-smoke",
+    "routingFailFast": {
+      "ms": 300,
+      "scope": "unseen"
+    },
+    "asi": "game-copy/ts3native.asi.unseenroute2",
+    "releaseDefaults": true,
+    "fixesPackage": "game-copy/ts3fixes.package.unseenroute7",
+    "minCounters": 145,
+    "ini": {
+      "RouteAsync.LogFallbackMs": 20,
+      "HitchAttr.Enabled": 1,
+      "ArenaGuard.InitobjFix": 1,
+      "ArenaGuard.TailPad": 1,
+      "UnseenGhost.Enabled": 1
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "stopQueueOnFail": true,
+    "save": "Baseline-SV-Spring",
+    "noiseCheck": false,
+    "note": "Smoke (SV, unseenroute-car-trip loop cut to ~8 min): PASS = no crash, switch reads back (fixes on: unseenroute verified), unseenroute_acts > 0 by 450 s (early gate), unseenfbpre_rj_vehicle far below the kit run (1457-1932 per job). FAIL: queue stops.",
+    "earlyGates": [
+      {
+        "afterSec": 450,
+        "counter": "fixes:unseenroute_acts",
+        "op": ">",
+        "value": 0,
+        "why": "unseenroute never acted: read unseenfbpre_rj_* (fixesReport unseenfb) for the gate that refuses"
+      }
+    ],
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 9,
+        "repro": "unseenroute-car-trip",
+        "loopRule": {
+          "until": {
+            "perArm": 10,
+            "minFirings": 1
+          },
+          "maxMinutes": 7
+        },
+        "noSamplers": true,
+        "fixesRequire": "unseenroute_acts>=1",
+        "fixesReport": "unseenfb"
+      }
+    },
+    "timeoutMin": 25
+  },
+  "jobs": [
+    {
+      "id": "sv-ur-car-loop",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "asi": "game-copy/ts3native.asi.unseenroute2",
+      "releaseDefaults": true,
+      "fixesPackage": "game-copy/ts3fixes.package.unseenroute7",
+      "minCounters": 145,
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "HitchAttr.Enabled": 1,
+        "ArenaGuard.InitobjFix": 1,
+        "ArenaGuard.TailPad": 1,
+        "UnseenGhost.Enabled": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "note": "Correctness: forced ABBA on unseenroute-car-trip (30 far Sims, View on a far2-ranked outdoor object: cross-town own-task plans that may drive). Pass: no crash, 0 watchdog lines, unseenroute_acts >= 10, no stuck Sim at the end, held Sims in_transit. Read: unseenroute_fast (fast-leg holds), _no_verdict / _colour_unknown (acts the old proofs refused), unseenfbpre_rj_* (remaining gates), route jobs per arm.",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 16,
+          "repro": "unseenroute-car-trip",
+          "loopRule": {
+            "until": {
+              "perArm": 30,
+              "minFirings": 2
+            },
+            "maxMinutes": 14
+          },
+          "noSamplers": true,
+          "fixesRequire": "unseenroute_acts>=10",
+          "fixesReport": "unseenfb"
+        }
+      },
+      "timeoutMin": 35
+    },
+    {
+      "id": "ip-ur-walk-across-loop",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "asi": "game-copy/ts3native.asi.unseenroute2",
+      "releaseDefaults": true,
+      "fixesPackage": "game-copy/ts3fixes.package.unseenroute7",
+      "minCounters": 145,
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "HitchAttr.Enabled": 1,
+        "ArenaGuard.InitobjFix": 1,
+        "ArenaGuard.TailPad": 1,
+        "UnseenGhost.Enabled": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "note": "Correctness, Isla Paradiso (boat + water planning on every adult route, islands): forced ABBA on unseenroute-walk-across. Pass: no crash, 0 watchdog lines, unseenroute_acts >= 10, no stuck Sim, unseenfbpre_failfast does not grow on on arms (different colour + boat planning = planned normally).",
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 16,
+          "repro": "unseenroute-walk-across",
+          "loopRule": {
+            "until": {
+              "perArm": 30,
+              "minFirings": 2
+            },
+            "maxMinutes": 14
+          },
+          "noSamplers": true,
+          "fixesRequire": "unseenroute_acts>=10",
+          "fixesReport": "unseenfb"
+        }
+      },
+      "timeoutMin": 35
+    },
+    {
+      "id": "sv-ur-snapback-loop",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "asi": "game-copy/ts3native.asi.unseenroute2",
+      "releaseDefaults": true,
+      "fixesPackage": "game-copy/ts3fixes.package.unseenroute7",
+      "minCounters": 145,
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "HitchAttr.Enabled": 1,
+        "ArenaGuard.InitobjFix": 1,
+        "ArenaGuard.TailPad": 1,
+        "UnseenGhost.Enabled": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "note": "Correctness: snap-back. Each firing the camera looks at the goal of the last relaxed hold (snap_mid expected) and at the held Sim (snap_stand expected). Pass: no crash, 0 watchdog lines, unseenroute_snap_mid + unseenroute_snap_stand >= 1 (read in the row; fixesRequire cannot sum), no stuck Sim.",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 16,
+          "repro": "unseenroute-snapback",
+          "loopRule": {
+            "until": {
+              "perArm": 30,
+              "minFirings": 2
+            },
+            "maxMinutes": 14
+          },
+          "noSamplers": true,
+          "fixesRequire": "unseenroute_acts>=5",
+          "fixesReport": "unseenfb"
+        }
+      },
+      "timeoutMin": 35
+    },
+    {
+      "id": "sv-ur-fenced-repair",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "asi": "game-copy/ts3native.asi.unseenroute2",
+      "releaseDefaults": true,
+      "fixesPackage": "game-copy/ts3fixes.package.unseenroute7",
+      "minCounters": 145,
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "HitchAttr.Enabled": 1,
+        "ArenaGuard.InitobjFix": 1,
+        "ArenaGuard.TailPad": 1,
+        "UnseenGhost.Enabled": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "note": "Correctness, docs/202 §3.9.7 (D) safety net: repro unseenroute-fenced-repair (5 spawned Sims placed on an unroutable fenced spot of the far lot and listed as relaxed placements, then the camera looks at them). Pass: no crash, 0 watchdog lines, unseenroute_d_check >= 1 and unseenroute_d_repair >= 1 (moved to the lot entry, then exact plans), no stuck Sim at the end.",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 8,
+          "repro": "unseenroute-fenced-repair",
+          "noSamplers": true,
+          "fixesOn": "unseenroute",
+          "fixesRequire": "unseenroute_d_repair>=1",
+          "fixesReport": "unseenfb"
+        }
+      },
+      "timeoutMin": 25
+    },
+    {
+      "id": "bp-ur-nat-ab",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "asi": "game-copy/ts3native.asi.unseenroute2",
+      "releaseDefaults": true,
+      "fixesPackage": "game-copy/ts3fixes.package.unseenroute7",
+      "minCounters": 145,
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "HitchAttr.Enabled": 1,
+        "ArenaGuard.InitobjFix": 1,
+        "ArenaGuard.TailPad": 1,
+        "UnseenGhost.Enabled": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "note": "TIMING (hitches), BP natural play 10 min (autopilot, camera untouched, seed 12345), in-load --ab unseenroute, 2-min slices, off-first. Judge with node tools/harness/hitch-ab.ts (counts >= 300 / >= 1000 ms per 10 min per arm, p99 / p99.9, max) and --causes (routing-led share). Pass: no crash, 0 watchdog lines, no stuck Sim above the off arm (docs/TESTING.md rule), unseenroute_acts > 0 by 6 min (early gate). Expect [inferred, docs/202 §3.9.4]: routing-led >= 300 ms hitches on the on arm down by the acted share of unseen cross-lot plans.",
+      "save": "Baseline-BP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 360,
+          "counter": "fixes:unseenroute_acts",
+          "op": ">",
+          "value": 0,
+          "why": "unseenroute never acted: read unseenfbpre_rj_* (fixesReport unseenfb) for the gate that refuses"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "ab": "unseenroute",
+          "slice": 2,
+          "noSamplers": true,
+          "fixesReport": "unseenfb"
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-ur-nat-ab",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "asi": "game-copy/ts3native.asi.unseenroute2",
+      "releaseDefaults": true,
+      "fixesPackage": "game-copy/ts3fixes.package.unseenroute7",
+      "minCounters": 145,
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "HitchAttr.Enabled": 1,
+        "ArenaGuard.InitobjFix": 1,
+        "ArenaGuard.TailPad": 1,
+        "UnseenGhost.Enabled": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "note": "TIMING (hitches), IP natural play 10 min (autopilot, camera untouched, seed 12345), in-load --ab unseenroute, 2-min slices, off-first. Judge with node tools/harness/hitch-ab.ts (counts >= 300 / >= 1000 ms per 10 min per arm, p99 / p99.9, max) and --causes (routing-led share). Pass: no crash, 0 watchdog lines, no stuck Sim above the off arm (docs/TESTING.md rule), unseenroute_acts > 0 by 6 min (early gate). Expect [inferred, docs/202 §3.9.4]: routing-led >= 300 ms hitches on the on arm down by the acted share of unseen cross-lot plans.",
+      "save": "Baseline-IP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 360,
+          "counter": "fixes:unseenroute_acts",
+          "op": ">",
+          "value": 0,
+          "why": "unseenroute never acted: read unseenfbpre_rj_* (fixesReport unseenfb) for the gate that refuses"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "ab": "unseenroute",
+          "slice": 2,
+          "noSamplers": true,
+          "fixesReport": "unseenfb"
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "sv-ur-nat-ab",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "asi": "game-copy/ts3native.asi.unseenroute2",
+      "releaseDefaults": true,
+      "fixesPackage": "game-copy/ts3fixes.package.unseenroute7",
+      "minCounters": 145,
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "HitchAttr.Enabled": 1,
+        "ArenaGuard.InitobjFix": 1,
+        "ArenaGuard.TailPad": 1,
+        "UnseenGhost.Enabled": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "note": "TIMING (hitches), SV natural play 10 min (autopilot, camera untouched, seed 12345), in-load --ab unseenroute, 2-min slices, off-first. Judge with node tools/harness/hitch-ab.ts (counts >= 300 / >= 1000 ms per 10 min per arm, p99 / p99.9, max) and --causes (routing-led share). Pass: no crash, 0 watchdog lines, no stuck Sim above the off arm (docs/TESTING.md rule), unseenroute_acts > 0 by 6 min (early gate). Expect [inferred, docs/202 §3.9.4]: routing-led >= 300 ms hitches on the on arm down by the acted share of unseen cross-lot plans.",
+      "save": "Baseline-SV-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 360,
+          "counter": "fixes:unseenroute_acts",
+          "op": ">",
+          "value": 0,
+          "why": "unseenroute never acted: read unseenfbpre_rj_* (fixesReport unseenfb) for the gate that refuses"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "ab": "unseenroute",
+          "slice": 2,
+          "noSamplers": true,
+          "fixesReport": "unseenfb"
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-ur-lock-ab",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "asi": "game-copy/ts3native.asi.unseenroute2",
+      "releaseDefaults": true,
+      "fixesPackage": "game-copy/ts3fixes.package.unseenroute7",
+      "minCounters": 145,
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "HitchAttr.Enabled": 1,
+        "ArenaGuard.InitobjFix": 1,
+        "ArenaGuard.TailPad": 1,
+        "UnseenProbe.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "UnseenGhost.Enabled": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "note": "MEASUREMENT (not timing: the probe costs per agent), BP natural 10 min, in-load --ab unseenroute, 2-min slices: +0x918 waits by waiter class (unseen / visible / outside an agent update; [UnseenProbe], node tools/harness/unseen-report.ts <job>-native.json per arm) and holds by holder ([HitchAttr] Holders=1, hoWaits / holder keys) on vs off. Baseline (docs/202 §5.1, all off): unseen waiters 28.6% BP / 27.7% crowd / 49.1% IP of all +0x918 wait ms. Expect [inferred, §3.9.5]: the on arm's unseen-waiter share falls by the acted share of unseen trips (stand-and-place takes no steering / avoidance query and no route job); ghost (not built) would remove the footprint re-inserts too. Pass: no crash, 0 watchdog lines, unseenroute_acts > 0 by 6 min.",
+      "save": "Baseline-BP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 360,
+          "counter": "fixes:unseenroute_acts",
+          "op": ">",
+          "value": 0,
+          "why": "unseenroute never acted: read unseenfbpre_rj_* (fixesReport unseenfb) for the gate that refuses"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "ab": "unseenroute",
+          "slice": 2,
+          "noSamplers": true,
+          "fixesReport": "unseenfb"
+        }
+      },
+      "timeoutMin": 30,
+      "noiseCheck": false
+    },
+    {
+      "id": "ip-ur-lock-ab",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "asi": "game-copy/ts3native.asi.unseenroute2",
+      "releaseDefaults": true,
+      "fixesPackage": "game-copy/ts3fixes.package.unseenroute7",
+      "minCounters": 145,
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "HitchAttr.Enabled": 1,
+        "ArenaGuard.InitobjFix": 1,
+        "ArenaGuard.TailPad": 1,
+        "UnseenProbe.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "UnseenGhost.Enabled": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "note": "MEASUREMENT (not timing: the probe costs per agent), IP natural 10 min, in-load --ab unseenroute, 2-min slices: +0x918 waits by waiter class (unseen / visible / outside an agent update; [UnseenProbe], node tools/harness/unseen-report.ts <job>-native.json per arm) and holds by holder ([HitchAttr] Holders=1, hoWaits / holder keys) on vs off. Baseline (docs/202 §5.1, all off): unseen waiters 28.6% BP / 27.7% crowd / 49.1% IP of all +0x918 wait ms. Expect [inferred, §3.9.5]: the on arm's unseen-waiter share falls by the acted share of unseen trips (stand-and-place takes no steering / avoidance query and no route job); ghost (not built) would remove the footprint re-inserts too. Pass: no crash, 0 watchdog lines, unseenroute_acts > 0 by 6 min.",
+      "save": "Baseline-IP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 360,
+          "counter": "fixes:unseenroute_acts",
+          "op": ">",
+          "value": 0,
+          "why": "unseenroute never acted: read unseenfbpre_rj_* (fixesReport unseenfb) for the gate that refuses"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "ab": "unseenroute",
+          "slice": 2,
+          "noSamplers": true,
+          "fixesReport": "unseenfb"
+        }
+      },
+      "timeoutMin": 30,
+      "noiseCheck": false
+    }
+  ]
+}

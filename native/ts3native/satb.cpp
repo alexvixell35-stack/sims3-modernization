@@ -38,8 +38,20 @@ static volatile DWORD g_satbE8, g_satbE16;  // current job epochs (0 = no job ye
 static volatile LONG g_satbLive;         // a job may read the log: push the entries as roots
 static volatile LONG g_satbStale;        // SATB_ST_* seen in this job (act: the job was stopped before the event)
 static volatile DWORD g_satbWTid;        // worker thread id the stubs test (0 = none)
+// docs/206 §11: the sim's load path reads the worker id and counts its loads on every heap load of a span; both sit on their
+// own cache lines (the neighbours above are written by the worker during a job: a shared line would bounce per load)
+struct __declspec(align(64)) SatbLine { volatile DWORD v; DWORD pad[15]; };
+static SatbLine g_satbWTidL;              // = g_satbWTid (set together in SatbBegin), read by the load thunks
+static SatbLine g_satbSimLoadsL;          // sim loads through the load thunks (folded into satbLoads when read)
+static DWORD g_satbGcNo0;                 // GC_gc_no at SatbBegin (docs/206 §15, weak handles)
+static volatile const DWORD* g_satbGcNo = (volatile const DWORD*)(uintptr_t)0x011F2F90;  // GC_gc_no (docs/66 §6.1); selftest repoints
+static void SatbLogTicks();               // below: Simulator/SimClock sSimTickCnt at the cut
+static DWORD g_satbWStaticAt;             // below (SatbWStaticView): worker static copies, reset per span
 static LONG g_satbPageN, g_satbJobWords;  // pages / words first marked in this job
 static void SatbHookGrow();               // below: the worker's arena chunks taken during a job
+static void SatbGiveOpLog();              // below: worker give-ups by op, logged at span end
+static void SatbColdNameLog();            // below: methods the worker transformed first, named at span end
+static void SatbBodyLog();                // below: binder bodies seen in spans (docs/206 §15)
 static volatile LONG g_satbWArenaN;      // chunks the worker took in this job (SatbHookGrow)
 
 static bool SatbAlloc() {
@@ -188,32 +200,72 @@ static void SatbSimRange(DWORD addr, DWORD n) {
         if (!SatbLogWord(w)) { ts3native_autshadow.satbOverflow++; SatbSimWait(SATB_ST_FULL); return; }
 }
 
-// ---- EA ICs on the sim during a span (guard thunk, autshadow.cpp AsGuardEntry): a byref/out or array argument into
-// shared memory can be written by the body with a size we do not know: wait for the worker (act), count (probe).
-// An argument in a thread's stack or the interpreter's frame arena is private (not a shared page). [inferred: EA IC bodies
-// write managed memory only through their pointer arguments and the hidden struct-return slot, which mint puts on its
-// eval stack; native field writes go through 0xE69820, hooked in SatbInstallRt]
+// ---- EA ICs on the sim during a span (guard thunk, autshadow.cpp AsGuardEntry): the body can write managed memory through
+// its byref/out and array arguments. Each such argument into shared memory has its writable range logged before the body
+// runs (docs/206 §9): byref = the parameter type's size, array = its elements, byref array = the slot and the current
+// array's elements. Only the parameter's own argument dword is read (satb-ics.h: dword index, kind, size; 0.36.125 scanned
+// every dword up to the last byref parameter, so object ids and floats >= 0x10000 counted as shared pointers: S0 BP 102,962
+// of 102,962 calls). A range the log cannot take (over SATB_IC_MAXW words, log full) or a parameter of unknown layout: wait
+// for the worker (act), count (probe). An argument in a thread's stack or the interpreter's frame arena is private.
+// [inferred: EA IC bodies write managed memory only through their pointer arguments and the hidden struct-return slot, which
+// mint puts on its eval stack (no IC of the 180 returns a struct); native field writes go through 0xE69820, hooked in
+// SatbInstallRt; an array argument's length and element size do not change during the call]
 #include "satb-ics.h"
-static u8 g_satbIcDw[AS_MAXIC];  // dwords to scan per guard index (0 = no byref/array parameter)
+static const DWORD SATB_IC_MAXW = 16384;  // one IC argument logs at most this many words (the log holds SATB_CAP)
+static short g_satbIcRow[AS_MAXIC];       // kSatbIcs row + 1 per guard index (0 = no byref/array parameter, also before the mapping)
+static LONG g_satbIcSiteLog[AS_MAXIC], g_satbIcSiteWait[AS_MAXIC];  // per IC: arguments logged / waits (log lines at 1, 10, 100, ...)
+static void SatbIcSiteNote(DWORD idx, LONG* tab, const char* what) {
+    const LONG n = ++tab[idx];
+    for (LONG p = 1; p <= n && p <= 100000000; p *= 10)
+        if (n == p) { Log("autshadow satb ic %s: %s x%ld", what, g_asName[idx] ? g_asName[idx] : "?", n); break; }
+}
+// sim: log [addr, addr + n) for an IC argument; false = the log cannot take it (the caller waits)
+static bool SatbIcRange(DWORD addr, DWORD n) {
+    const DWORD lo = addr & ~3u, hi = (addr + n + 3) & ~3u;
+    if ((hi - lo) / 4 > SATB_IC_MAXW) return false;
+    Ts3nAutShadow& k = ts3native_autshadow;
+    for (DWORD w = lo; w < hi; w += 4) {
+        if (!SatbLogWord(w)) { k.satbOverflow++; return false; }
+        k.satbIcLogWords++;
+    }
+    return true;
+}
+static DWORD SatbEs(DWORD arr);  // below (runtime icalls): an array's element size from its class
+// sim: one byref/array argument p: 1 logged, 0 cannot be logged (wait), -1 nothing to log (null or private)
+static int SatbIcArgLog(const SatbIcArg& a, DWORD p) {
+    if (p < 0x10000 || SatbSimPrivate(p)) return -1;  // null (the body throws or skips it) or a local of the sim's own frame
+    if (a.kind == 1) return SatbIcRange(p, a.size);
+    if (a.kind == 3) {  // byref array: the slot (a new array may land there), then the elements of the array it holds now
+        if (!SatbIcRange(p, 4)) return 0;
+        if ((p = *(const DWORD*)(uintptr_t)p) < 0x10000 || SatbSimPrivate(p)) return 1;
+    }
+    const DWORD es = a.size ? a.size : SatbEs(p), len = *(const DWORD*)(uintptr_t)(p + 8);  // MonoArray: max_length +8, data +0x10
+    if (!es || (unsigned __int64)len * es > SATB_IC_MAXW * 4) return 0;
+    return !len || SatbIcRange(p + 0x10, len * es);
+}
 static void __cdecl SatbIcSim(DWORD idx, const DWORD* args) {
     if (GetCurrentThreadId() == g_satbWTid || idx >= (DWORD)AS_MAXIC) return;
     Ts3nAutShadow& k = ts3native_autshadow;
     k.satbIcCalls++;
-    const int n = g_satbIcDw[idx];
-    if (!n) return;
+    const int row = g_satbIcRow[idx] - 1;
+    if (row < 0) return;
     k.satbIcCallsAll++;
-    for (int i = 0; i < n; i++) {
-        const DWORD p = args[i];
-        if (p >= 0x10000 && !SatbSimPrivate(p)) { k.satbIcShared++; SatbSimWait(SATB_ST_IC); return; }
+    const SatbIcRow& r = kSatbIcs[row];
+    for (int i = 0; i < r.n; i++) {
+        const SatbIcArg& a = r.a[i];
+        const int got = a.kind == 4 ? 0 : SatbIcArgLog(a, args[a.at]);  // kind 4: layout unknown, the argument cannot be found
+        if (got < 0) continue;
+        if (!got) { k.satbIcShared++, SatbIcSiteNote(idx, g_satbIcSiteWait, "wait"); SatbSimWait(SATB_ST_IC); return; }
+        k.satbIcLogged++, SatbIcSiteNote(idx, g_satbIcSiteLog, "logged");
     }
 }
 static int SatbMapIcs() {
     int n = 0;
-    for (int i = 0; i < g_asIcN && i < AS_MAXIC; i++) {
-        g_satbIcDw[i] = 0;
-        if (!g_asName[i]) continue;
+    for (int i = 0; i < AS_MAXIC; i++) {
+        g_satbIcRow[i] = 0;
+        if (i >= g_asIcN || !g_asName[i]) continue;
         for (int j = 0; j < SATB_NICS; j++)
-            if (!strcmp(g_asName[i], kSatbIcs[j].name)) { g_satbIcDw[i] = kSatbIcs[j].dw; n++; break; }
+            if (!strcmp(g_asName[i], kSatbIcs[j].name)) { g_satbIcRow[i] = (short)(j + 1); n++; break; }
     }
     return n;
 }
@@ -227,18 +279,20 @@ static void __cdecl SatbPushRoots() {
 // ---- probe timer (S0): the counts at one job length after the span start ----
 static HANDLE g_satbTimerEv;
 static volatile LONG g_satbTimerUs, g_satbTimerArmed;
-static LONG g_satbBase0[5];  // stores, words, pages, loads, unlogged IC / runtime events at span start
+static LONG g_satbBase0[6];  // stores, words, pages, loads, unlogged IC / runtime events, IC arguments logged at span start
 static void SatbSnapNow(LONG* out) {
     const Ts3nAutShadow& k = ts3native_autshadow;
-    out[0] = k.satbStores, out[1] = k.satbWords, out[2] = k.satbPages, out[3] = k.satbLoads, out[4] = k.satbIcShared + k.satbRtWaits;
+    out[0] = k.satbStores, out[1] = k.satbWords, out[2] = k.satbPages, out[3] = (LONG)g_satbSimLoadsL.v, out[4] = k.satbIcShared + k.satbRtWaits;
+    out[5] = k.satbIcLogged;
 }
 static void SatbJobSnap() {
     Ts3nAutShadow& k = ts3native_autshadow;
-    LONG now[5];
+    LONG now[6];
     SatbSnapNow(now);
     k.satbJobSpans++, k.satbJobUs += g_satbTimerUs;
     k.satbJobStores += now[0] - g_satbBase0[0], k.satbJobWords += now[1] - g_satbBase0[1];
     k.satbJobPages += now[2] - g_satbBase0[2], k.satbJobLoads += now[3] - g_satbBase0[3], k.satbJobIc += now[4] - g_satbBase0[4];
+    k.satbJobIcLogged += now[5] - g_satbBase0[5];
     SatbMax(k.satbJobMaxWords, now[1] - g_satbBase0[1]);
 }
 static DWORD WINAPI SatbTimerMain(void*) {
@@ -261,6 +315,10 @@ static void SatbBegin(DWORD workerTid, LONG jobUs) {
     SatbReset();
     SatbHookGrow();
     g_satbWTid = workerTid;  // probe too: the worker's own stores and loads are never counted as the sim's
+    g_satbWTidL.v = workerTid;
+    g_satbGcNo0 = *g_satbGcNo;
+    g_satbWStaticAt = 0;  // the worker's static copies (SatbWStaticView)
+    SatbLogTicks();  // docs/206 §15: the tick statics at the cut
     g_satbWArenaN = 0;
     g_satbLive = 1;
     if (g_satbMode == SATB_ACT) g_mtNoSharedFallback = 1, g_mtFallbackExc = g_asFmtExc;  // X03: no F1 fallback onto the sim's chain
@@ -289,10 +347,14 @@ static void SatbEnd() {
     g_mtNoSharedFallback = 0;
     if (InterlockedExchange(&g_satbTimerArmed, 0)) SatbJobSnap();  // the tick ended within one job length
     Ts3nAutShadow& k = ts3native_autshadow;
+    k.satbLoads = (LONG)g_satbSimLoadsL.v;
     k.satbSpanUs += SatbUs(g_satbT0);
     SatbMax(k.satbMaxWords, g_satbJobWords);
     SatbMax(k.satbMaxPages, g_satbPageN);
     if (g_satbStale) k.satbStale++;
+    SatbGiveOpLog();
+    SatbColdNameLog();
+    SatbBodyLog();
 }
 
 // ---- decode (docs/data/satb-handlers.csv, every row from the disassembly). The stubs pass their pushad frame:
@@ -434,15 +496,30 @@ static void __cdecl SatbSimStore(DWORD* r) {
 }
 
 // ---- worker side (act) ----
+// give-ups by op (docs/206 §12: satb-act's last-op counter hid the mix): the worker counts, the sim logs at span end
+static volatile LONG g_satbGiveOp[16], g_satbGiveN[16], g_satbGiveLogged[16];
+static void SatbGiveOpNote(DWORD op) {
+    for (int i = 0; i < 16; i++) {
+        if (!g_satbGiveOp[i]) InterlockedCompareExchange(&g_satbGiveOp[i], (LONG)op, 0);
+        if (g_satbGiveOp[i] == (LONG)op) { InterlockedIncrement(&g_satbGiveN[i]); return; }
+    }
+}
+static void SatbGiveOpLog() {  // sim, worker idle: 'autshadow satb give-up: op 0x... xN' at 1, 10, 100, ...
+    for (int i = 0; i < 16 && g_satbGiveOp[i]; i++)
+        for (LONG n = g_satbGiveN[i], p = 1; p <= n && p <= 100000000; p *= 10)
+            if (p > g_satbGiveLogged[i]) { g_satbGiveLogged[i] = p; Log("autshadow satb give-up: op 0x%lX x%ld", g_satbGiveOp[i], n); }
+}
 static void SatbWGiveUp(DWORD op) {  // this object's reads are no longer the cut's: abort it and stop the job (KeepPartial)
     Ts3nAutShadow& k = ts3native_autshadow;
     k.satbWGiveUp++, k.satbWGiveUpOp = (LONG)op;
+    SatbGiveOpNote(op);
     InterlockedOr(&g_satbStale, SATB_ST_GIVEUP);
     InterlockedExchange(&g_asStop, 1);
     AsAbort(AS_AB_STOP, (DWORD)-1);
 }
 // arena chunks the worker took during this job (filled by SatbGrowWrap; the worker is the only writer)
-static DWORD g_satbWArena[64][2];
+static const LONG SATB_WARENA = 256;  // distinct chunks a job can take (0.36.140: deduplicated; was 64 grows)
+static DWORD g_satbWArena[SATB_WARENA][2];
 static bool SatbWInArena(DWORD a) {
     for (LONG i = 0; i < g_satbWArenaN; i++) if (a >= g_satbWArena[i][0] && a < g_satbWArena[i][1]) return true;
     return false;
@@ -530,6 +607,29 @@ static int SatbWCallvirtTail(DWORD* r, const u8* rm) {
     if (!recv || !*(const DWORD*)(uintptr_t)recv) return 4;
     *(DWORD*)(uintptr_t)(ebp - 0x58) = SatbVLookup(recv, (DWORD)(uintptr_t)rm);
     return 3;
+}
+
+// docs/127 H11 shelter answer (worker, act only): ts3fixes arms one callvirt (AutShadowNative.RainArm: receiver = the pair's
+// definition, site = the interface method InteractionDefinition.CreateInstance(IGameObject, IActor, InteractionPriority,
+// bool, bool)) right before it scores a rain/hail outdoor pair. The matching callvirt in Autonomy.CalculateScoreForObjectInteraction
+// is not made: receiver and arguments are popped and a null reference is the result, as if the callee had returned null
+// (the callee writes its result into the receiver's slot, sp = that slot + 8 [inferred: mint 1.2 call convention, as
+// SatbWCallvirtTail]; a valuetype argument's vt stack goes with the VTRESULT after the call). So no InteractionInstance,
+// no InteractionInstance.sNextId++ on the worker; ts3fixes' IsShelteredFromPrecipitation hook answers from the cut's bit.
+static DWORD g_asRainDef, g_asRainMm;  // worker only: armed receiver and site MonoMethod (0 = disarmed)
+// per-search feature mask, native bits (ts3fixes AutLiveCore.Feat maps them): cut work and job deltas (autshadow-run.cpp)
+enum { AS_FEAT_PRELEARN = 1, AS_FEAT_TIERREQ = 2, AS_FEAT_SATB = 4, AS_FEAT_COLD = 8 };
+static LONG g_asJobBits, g_asLastJobBits, g_asJobLoads0, g_asJobCold0, g_asMarkReq, g_asMarkMask;
+static char g_asMarkDef[64];
+static LONG g_asRainSkips;
+static int SatbRainSkip(DWORD* r, const u8* rm) {
+    const DWORD at = r[SR_ESI] - rm[0x40] * 8 - 8;  // receiver slot = the result slot
+    *(DWORD*)(uintptr_t)at = 0, *(DWORD*)(uintptr_t)(at + 4) = 0;
+    r[SR_ESI] = at;
+    SatbAdvance(r, 8, 8);  // callvirt is 4 words (op, cache, -, method item)
+    g_asRainSkips++;  // stays armed: every such call in the pair is skipped and counted (ts3fixes accepts exactly one)
+    ts3native_autshadow.rainSkip++;
+    return 1;
 }
 
 // 1 = emulated (r[] advanced, continue at the dispatch head); 3 / 4 = callvirt family after its load, without the inline
@@ -728,6 +828,9 @@ static int __cdecl SatbWorkerLoad(DWORD* r) {
         const DWORD ip0 = r[SR_EDI], ebp = r[SR_EBP];
         const u8* rm = SatbItem(r, *(const WORD*)(uintptr_t)(ip0 + 6));
         const DWORD recv = *(const DWORD*)(uintptr_t)(r[SR_ESI] - rm[0x40] * 8 - 8);
+        // H11: by site, any receiver: while a pair is armed no CreateInstance(5) call runs on the worker (a skip that was not
+        // the branch's own leaves the hook unanswered: ts3fixes aborts the pair)
+        if (g_asRainDef && *(const DWORD*)(rm + 8) == g_asRainMm) return SatbRainSkip(r, rm);
         if (!recv || !*(const DWORD*)(uintptr_t)recv) return 0;  // the handler's null path comes before its cache
         *(DWORD*)(uintptr_t)(*(const DWORD*)(uintptr_t)(ebp - 8) + 0x1C) = ip0;
         *(DWORD*)(uintptr_t)(ebp - 0x24) = (DWORD)(uintptr_t)&((const DWORD*)(uintptr_t)*(const DWORD*)(uintptr_t)(*(const DWORD*)(uintptr_t)(ebp - 0x10) + 0x14))[SatbW1(r)];
@@ -878,16 +981,13 @@ static __declspec(naked) void SatbStoreStub() {
         jmp dword ptr [g_satbHead]
     }
 }
-static __declspec(naked) void SatbLoadStub() {
+// Load opcodes: the sim pays this test on every heap load of a span (S0b: 16.6k / 19.7k loads a job at ~9 ns = most of the
+// barrier). Per-opcode thunks (SatbMakeLoadThunk, docs/206 §11) do it with direct jumps: ecx (not live at handler entry)
+// takes the thread id, the worker id and the count live on their own cache lines, and the jump to the game's handler is a
+// direct `jmp rel32` per opcode instead of one shared `jmp [g_satbOrig + edx*4]` that all 41 load opcodes went through.
+// SatbLoadStub is the same test with the shared jump (used when the thunk page cannot be allocated).
+static __declspec(naked) void SatbLoadWorker() {
     __asm {
-        push eax
-        mov eax, dword ptr fs:[0x24]
-        cmp eax, dword ptr [g_satbWTid]
-        pop eax
-        je worker
-        add dword ptr [ts3native_autshadow + 0x9DC], 1  // satbLoads (sim thread only)
-        jmp dword ptr [g_satbOrig + edx * 4]
-    worker:
         pushad
         push esp
         call SatbWorkerLoad
@@ -909,6 +1009,34 @@ static __declspec(naked) void SatbLoadStub() {
         jmp dword ptr [g_satbNre]
     }
 }
+static __declspec(naked) void SatbLoadStub() {
+    __asm {
+        mov ecx, dword ptr fs:[0x24]
+        cmp ecx, dword ptr [g_satbWTidL]
+        je worker
+        add dword ptr [g_satbSimLoadsL], 1  // sim loads (sim thread only)
+        jmp dword ptr [g_satbOrig + edx * 4]
+    worker:
+        jmp SatbLoadWorker
+    }
+}
+// One thunk per wrapped load opcode (32 bytes): mov ecx, fs:[0x24]; cmp ecx, [tid]; je worker; add [count], 1; jmp handler.
+static u8* g_satbThunks;  // RWX page, SATB_NOP x 32 bytes worst case (only load opcodes get one)
+static void SatbPutRel(u8* at, const void* target) { *(DWORD*)at = (DWORD)(uintptr_t)target - (DWORD)(uintptr_t)(at + 4); }
+static void* SatbMakeLoadThunk(DWORD op, const void* handler, const void* worker, volatile DWORD* tid, volatile DWORD* count) {
+    if (!g_satbThunks) g_satbThunks = (u8*)VirtualAlloc(NULL, SATB_NOP * 32, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!g_satbThunks) return NULL;
+    u8* t = g_satbThunks + op * 32;
+    static const u8 kHead[7] = {0x64, 0x8B, 0x0D, 0x24, 0x00, 0x00, 0x00};  // mov ecx, fs:[0x24]
+    memcpy(t, kHead, 7);
+    t[7] = 0x3B, t[8] = 0x0D, *(DWORD*)(t + 9) = (DWORD)(uintptr_t)tid;          // cmp ecx, [tid]
+    t[13] = 0x0F, t[14] = 0x84, SatbPutRel(t + 15, worker);                      // je worker
+    t[19] = 0x83, t[20] = 0x05, *(DWORD*)(t + 21) = (DWORD)(uintptr_t)count, t[25] = 1;  // add dword [count], 1
+    t[26] = 0xE9, SatbPutRel(t + 27, handler);                                    // jmp handler
+    t[31] = 0xCC;
+    FlushInstructionCache(GetCurrentProcess(), t, 32);
+    return t;
+}
 // worker: a superinstruction runs as its base sequence (EA's peephole replaced only the first word, docs/data/satb-handlers.csv)
 static __declspec(naked) void SatbSuperStub() {
     __asm {
@@ -925,21 +1053,31 @@ static __declspec(naked) void SatbSuperStub() {
         jmp dword ptr [g_satbOrig + edx * 4]
     }
 }
-// (ts3native_autshadow + 0x9DC) must stay satbLoads
-static_assert(offsetof(Ts3nAutShadow, satbLoads) == 0x9DC, "SatbLoadStub counts into satbLoads");
 
 // ---- the worker's arena chunks taken during a job: a chunk the sim used earlier in the job can come back through the
 // shared pool [verified: 0xD71900 takes the pool head], with log entries at addresses that are now the worker's frame.
 // P3 sends grow through g_mtTramp[13] on both gate paths; after it, the state's chain head is the chunk in use. ----
 typedef void*(__cdecl* SatbGrowFn)(DWORD* state, DWORD size);
 static SatbGrowFn g_satbGrowNext;
+static LONG g_satbWGrows;  // worker grows in act spans (monohost reads it)
+// worker: one chunk taken by a grow. satb-act on satb4 (0.36.139): ~11,100 give-ups at 0xD71900, the 64-entry list filled
+// within a job because every grow was a new entry, while a deep call path takes the same few pool chunks again and again
+// (a return gives its chunk back to the pool head, the next grow takes it) [inferred from the counts: 1,121 jobs, a
+// handful of chunks in the pool]. A chunk already listed is not added again; a list past SATB_WARENA distinct chunks still
+// gives up (its frames could not be told from logged words).
+static void SatbWArenaAdd(DWORD lo, DWORD hi) {
+    const LONG n = g_satbWArenaN;
+    for (LONG i = 0; i < n; i++)
+        if (g_satbWArena[i][0] == lo) { if (hi > g_satbWArena[i][1]) g_satbWArena[i][1] = hi; return; }
+    if (n < SATB_WARENA) g_satbWArena[n][0] = lo, g_satbWArena[n][1] = hi, g_satbWArenaN = n + 1;
+    else SatbWGiveUp(0xD71900);
+}
 static void* __cdecl SatbGrowWrap(DWORD* st, DWORD size) {
     void* r = g_satbGrowNext(st, size);
     if (g_satbLive && st && GetCurrentThreadId() == g_satbWTid) {
         const DWORD* c = (const DWORD*)(uintptr_t)st[0x13C / 4];
-        const LONG n = g_satbWArenaN;
-        if (c && n < 64) g_satbWArena[n][0] = (DWORD)(uintptr_t)c, g_satbWArena[n][1] = c[1], g_satbWArenaN = n + 1;
-        else if (c) SatbWGiveUp(0xD71900);  // more than 64 chunks in one job: cannot tell its frames from logged words
+        g_satbWGrows++;
+        if (c) SatbWArenaAdd((DWORD)(uintptr_t)c, c[1]);
     }
     return r;
 }
@@ -981,11 +1119,11 @@ static bool SatbWAnyLogged(DWORD addr, DWORD n) {
 enum { SRT_CLEAR, SRT_FASTCOPY, SRT_SETVALUE, SRT_GETVALUE, SRT_GETGENERIC, SRT_CLONE, SRT_BLOCKCOPY, SRT_SETBYTE, SRT_STRCPY1, SRT_STRCPY2,
        SRT_STRCPY3, SRT_STRCPY4, SRT_COPYTO, SRT_INC, SRT_DEC, SRT_XCHG, SRT_XCHGF, SRT_CMPX, SRT_CMPXF, SRT_ADD, SRT_ADD64, SRT_INC64,
        SRT_DEC64, SRT_XCHG64, SRT_XCHGD, SRT_CMPX64, SRT_CMPXD, SRT_FSET, SRT_FGET, SRT_MCOPY, SRT_MWB, SRT_MW16, SRT_MW32, SRT_MW64,
-       SRT_INITARR, SRT_CLONEOBJ, SRT_PTRTOSTRUCT, SRT_PTRTOSTRUCT2, SRT_N };
+       SRT_INITARR, SRT_CLONEOBJ, SRT_PTRTOSTRUCT, SRT_PTRTOSTRUCT2, SRT_PROPINFO, SRT_LCID, SRT_INVOKE, SRT_GCTARGET, SRT_N };
 static const DWORD kSatbRtAddr[SRT_N] = {0xE7A040, 0xE7A070, 0xE793D0, 0xE79210, 0xE7A300, 0xEA3800, 0xE81280, 0xE81260,
     0xEB92F0, 0xEB9320, 0xEB9350, 0xEB9380, 0xEB9040, 0xE66E10, 0xF4F560, 0xEBA1F0, 0xEBA210, 0xEBA2B0, 0xEBA2D0, 0xEBA390,
     0xEBA3C0, 0xEBA190, 0xEBA1C0, 0xEBA240, 0xEBA280, 0xEBA340, 0xEBA300, 0xE7B320, 0xE7B150, 0xE8DB40, 0xE8DC70, 0xE8DC90,
-    0xE8DC80, 0xE8DCB0, 0xE7A330, 0xE7A400, 0xE99A50, 0xE99B10};
+    0xE8DC80, 0xE8DCB0, 0xE7A330, 0xE7A400, 0xE99A50, 0xE99B10, 0xE7B4D0, 0xE874B0, 0xE7CDC0, 0xE78FD0};
 static void* g_satbRt[SRT_N];  // the original function of each wrapper
 #define SATB_RT(i, T) ((T)g_satbRt[i])
 typedef DWORD(__cdecl* SatbRt2)(DWORD, DWORD);
@@ -1126,15 +1264,100 @@ static __declspec(naked) void SatbRtCmpxD() {  // CompareExchange(ref double, do
         jmp dword ptr [g_satbRt + 104]
     }
 }
+// MonoField.SetValueInternal 0xE7B320 (this, obj, value) [verified, disassembly, docs/206 §10]: cf = this[+8] (MonoClassField:
+// +0 MonoType*, +8 offset, +0x14 parent class). Static (type attrs +4 & 0x10): vtable = mono_class_vtable(this->vtable->domain,
+// cf->parent) 0xEA2AD0, dest = vtable[+0xC] + offset (0xEA12E0); instance: dest = obj + offset (0xEA1290). set_value 0xEA10A0
+// writes by the MonoType: byref flag = a pointer; the kind byte +6 (table 0xEA1274); enum = its base type; valuetype and a
+// valuetype generic instance = mono_class_value_size (class +0x54 instance size - 4-byte header, 0xE6F5A0). Logged before the
+// call (0.36.136); an unknown kind or a class whose size is not set yet still waits (satbRtWaits).
+typedef DWORD(__cdecl* SatbPtrFn1)(DWORD);
+typedef DWORD(__cdecl* SatbPtrFn2)(DWORD, DWORD);
+static SatbPtrFn1 g_satbClassOfType = (SatbPtrFn1)(uintptr_t)0x00E70D50;  // mono_class_from_mono_type
+static SatbPtrFn2 g_satbClassVtable = (SatbPtrFn2)(uintptr_t)0x00EA2AD0;  // mono_class_vtable(domain, class): finds or makes it
+static SatbPtrFn1 g_satbIsNullable = (SatbPtrFn1)(uintptr_t)0x00E6AD10;   // mono_class_is_nullable(class) [verified, 0xE7B259]
+static DWORD SatbValueSize(DWORD klass) {  // mono_class_value_size without its init call: 0 = layout not set yet
+    const u8* k = (const u8*)(uintptr_t)klass;
+    return k && (k[0x14] & 4) && *(const DWORD*)(k + 0x54) > 4 ? *(const DWORD*)(k + 0x54) - 4 : 0;
+}
+static DWORD SatbTypeSize(DWORD type) {
+    const u8* t = (const u8*)(uintptr_t)type;
+    if (*(const DWORD*)(t + 4) & 0x40000000) return 4;  // byref: the slot holds a pointer
+    u8 kind = t[6];
+    const DWORD data = *(const DWORD*)t;  // class (valuetype) or generic class (generic instance)
+    if (kind == 0x15) {  // generic instance: the container's own kind
+        if (((const u8*)(uintptr_t)*(const DWORD*)(uintptr_t)(data + 4))[0xA6] == 0x11) return SatbValueSize(g_satbClassOfType(type));
+        return 4;
+    }
+    if (kind == 0x11) {
+        if (!(((const u8*)(uintptr_t)data)[0x14] & 0x10)) return SatbValueSize(g_satbClassOfType(type));
+        kind = ((const u8*)(uintptr_t)*(const DWORD*)(uintptr_t)(data + 4))[6];  // enum: the base type's kind
+    }
+    switch (kind) {
+    case 0x02: case 0x04: case 0x05: return 1;                  // bool, i1, u1
+    case 0x03: case 0x06: case 0x07: return 2;                  // char, i2, u2
+    case 0x0A: case 0x0B: case 0x0D: return 8;                  // i8, u8, r8
+    case 0x08: case 0x09: case 0x0C: case 0x0E: case 0x0F: case 0x12: case 0x14: case 0x18: case 0x19: case 0x1B: case 0x1C:
+    case 0x1D: return 4;                                        // i4 u4 r4 string ptr class array i u fnptr object szarray
+    default: return 0;                                          // the game's set_value refuses these: unknown, wait
+    }
+}
+// [dest, dest + size) the call writes; 0 size = unknown
+static DWORD SatbFieldDest(DWORD self, DWORD obj, DWORD* size) {
+    const DWORD cf = *(const DWORD*)(uintptr_t)(self + 8), type = cf ? *(const DWORD*)(uintptr_t)cf : 0;
+    *size = 0;
+    if (!type) return 0;
+    const DWORD off = *(const DWORD*)(uintptr_t)(cf + 8);
+    DWORD base = obj;
+    if (*(const DWORD*)(uintptr_t)(type + 4) & 0x10) {  // static: the class's vtable data (made now if missing, as the call does)
+        const DWORD dom = *(const DWORD*)(uintptr_t)(*(const DWORD*)(uintptr_t)self + 8);
+        const DWORD vt = g_satbClassVtable(dom, *(const DWORD*)(uintptr_t)(cf + 0x14));
+        base = vt ? *(const DWORD*)(uintptr_t)(vt + 0xC) : 0;
+    }
+    if (base < 0x10000) return 0;  // null object: the call throws, nothing to log
+    *size = SatbTypeSize(type);
+    return base + off;
+}
 static DWORD __cdecl SatbRtFieldSet(DWORD self, DWORD obj, DWORD value) {
-    if (SatbSimSide()) SatbRtUnknown();  // reflection: field and size not decoded; the worker leaves first
+    if (SatbSimSide()) {
+        ts3native_autshadow.satbRtFset++;
+        DWORD n = 0;
+        const DWORD at = self ? SatbFieldDest(self, obj, &n) : 0;
+        if (n) SatbRtLog(at, n);
+        else if (at || !self) SatbRtUnknown();  // a kind or layout not sized: the worker leaves first
+    }
     return SATB_RT(SRT_FSET, SatbRt3)(self, obj, value);
 }
+// MonoField.GetValueInternal 0xE7B150 (this, obj) [verified, disassembly, docs/206 §12]: the same cf; a reference-kind field
+// (string, class, array, object, szarray, reference generic instance; table 0xE7B304 entry 1) returns the field's pointer
+// as read (0xEA1350 instance / 0xEA2510 static); a value kind (primitives, i/u, valuetype, enum) returns a new box with the
+// field's bytes at box + 4; Nullable<T> (0xE6AD10) goes through mono_nullable_box 0xEA3AC0. On the worker the result is
+// patched to the cut: a logged pointer is answered from the log, a logged value is copied into the box from the log.
+// Nullable / other generic structs, pointers and unknown kinds with a logged word: give up as before (satbWGiveUp).
+// bp-satb-act-1 (0.36.136): 4,336 give-ups at 0xE7B150 from ts3fixes' worker-side FieldInfo.GetValue reads stopped all 1,087
+// jobs (satbStale 1,087, A4 `stop` 99%).
 static DWORD __cdecl SatbRtFieldGet(DWORD self, DWORD obj) {
-    if (SatbWorkerSide()) SatbWGiveUp(0xE7B150);  // reflection read on the worker: not redirected
-    return SATB_RT(SRT_FGET, SatbRt2)(self, obj);
+    const DWORD r = SATB_RT(SRT_FGET, SatbRt2)(self, obj);
+    if (!SatbWorkerSide() || !self) return r;
+    DWORD n = 0;
+    const DWORD at = SatbFieldDest(self, obj, &n);  // static: the vtable the call just used (a lookup now)
+    if (at && n && !SatbWAnyLogged(at, n)) return r;  // the common case: the field was not written since the cut
+    const DWORD cf = *(const DWORD*)(uintptr_t)(self + 8), type = *(const DWORD*)(uintptr_t)cf;
+    const u8 kind = ((const u8*)(uintptr_t)type)[6];
+    const bool ref = kind == 0x0E || kind == 0x12 || kind == 0x14 || kind == 0x1C || kind == 0x1D ||
+                     (kind == 0x15 && ((const u8*)(uintptr_t)*(const DWORD*)(uintptr_t)(*(const DWORD*)(uintptr_t)type + 4))[0xA6] != 0x11);
+    const bool val = (kind >= 0x02 && kind <= 0x0D) || kind == 0x18 || kind == 0x19 || kind == 0x11;
+    DWORD old;
+    if (at && n == 4 && ref && !(at & 3) && SatbFind(at, &old)) { ts3native_autshadow.satbWRtFix++; return old; }
+    if (at && n && val && r && !g_satbIsNullable(g_satbClassOfType(type))) { SatbWPatchCopy(at, n, (u8*)(uintptr_t)(r + 4)); return r; }
+    SatbWGiveUp(0xE7B150);
+    return r;
 }
-static DWORD __cdecl SatbRtMcopy(DWORD a, DWORD b, DWORD c, DWORD d) { if (SatbSimSide()) SatbRtUnknown(); return SATB_RT(SRT_MCOPY, SatbRt4)(a, b, c, d); }
+// Marshal.copy_from_unmanaged(src, startIndex, dest array, length): writes dest's elements [startIndex, startIndex + length)
+// (docs/data/satb-handlers.csv: length x element size); the body checks the bounds and throws before writing [inferred]
+static DWORD __cdecl SatbRtMcopy(DWORD src, DWORD start, DWORD dest, DWORD len) {
+    if (SatbSimSide() && dest) { const DWORD es = SatbEs(dest); SatbRtLog(dest + 0x10 + start * es, len * es); }
+    return SATB_RT(SRT_MCOPY, SatbRt4)(src, start, dest, len);
+}
 static DWORD __cdecl SatbRtMwB(DWORD p, DWORD o, DWORD v) { if (SatbSimSide()) SatbRtLog(p + o, 1); return SATB_RT(SRT_MWB, SatbRt3)(p, o, v); }
 static DWORD __cdecl SatbRtMw16(DWORD p, DWORD o, DWORD v) { if (SatbSimSide()) SatbRtLog(p + o, 2); return SATB_RT(SRT_MW16, SatbRt3)(p, o, v); }
 static DWORD __cdecl SatbRtMw32(DWORD p, DWORD o, DWORD v) { if (SatbSimSide()) SatbRtLog(p + o, 4); return SATB_RT(SRT_MW32, SatbRt3)(p, o, v); }
@@ -1152,15 +1375,57 @@ static DWORD __cdecl SatbRtCloneObj(DWORD obj) {
     }
     return r;
 }
-static DWORD __cdecl SatbRtPtrToStruct(DWORD a, DWORD b) { if (SatbSimSide()) SatbRtUnknown(); return SATB_RT(SRT_PTRTOSTRUCT, SatbRt2)(a, b); }
-static DWORD __cdecl SatbRtPtrToStruct2(DWORD a, DWORD b) { if (SatbSimSide()) SatbRtUnknown(); return SATB_RT(SRT_PTRTOSTRUCT2, SatbRt2)(a, b); }
+// Marshal.PtrToStructure [verified, disassembly, docs/206 §10]: 0xE99A50 = (intptr, object): writes the existing object, through
+// the class's ptr-to-struct wrapper (0xE99770) run by mono_runtime_invoke 0xEA1090 = the interpreter (its stores pass the store
+// stubs too); value types are refused before (kind 0x11 check). Logged: the object's fields [obj + 4, obj + instance size).
+// 0xE99B10 = (intptr, Type): mono_object_new 0xEA36F0, then the same wrapper on the new object (no cut word: nothing to log).
+static DWORD __cdecl SatbRtPtrToStruct(DWORD a, DWORD b) {
+    if (SatbSimSide() && b >= 0x10000) {
+        ts3native_autshadow.satbRtPtrStruct++;
+        const DWORD klass = **(const DWORD* const*)(uintptr_t)b, size = klass ? *(const DWORD*)(uintptr_t)(klass + 0x54) : 0;
+        if (size > 4) SatbRtLog(b + 4, size - 4);
+        else SatbRtUnknown();
+    }
+    return SATB_RT(SRT_PTRTOSTRUCT, SatbRt2)(a, b);
+}
+static DWORD __cdecl SatbRtPtrToStruct2(DWORD a, DWORD b) { return SATB_RT(SRT_PTRTOSTRUCT2, SatbRt2)(a, b); }  // new object only
+// docs/206 §15 (PR #105 row 8) [verified, disassembly]: three icalls the table had left unwrapped, now sized writers.
+// MonoPropertyInfo.get_property_info 0xE7B4D0 (property, info*, req): fills the 5-pointer struct `info` (often the caller's
+// frame: then private, skipped).
+static DWORD __cdecl SatbRtPropInfo(DWORD prop, DWORD info, DWORD req) {
+    if (SatbSimSide() && info) SatbRtLog(info, 20);
+    return SATB_RT(SRT_PROPINFO, SatbRt3)(prop, info, req);
+}
+// CultureInfo.construct_internal_locale_from_lcid 0xE874B0 (this, lcid): refills this CultureInfo's fields
+static DWORD SatbObjFields(DWORD obj) {  // instance size - 4-byte header, 0 = unknown
+    const DWORD klass = obj >= 0x10000 ? **(const DWORD* const*)(uintptr_t)obj : 0;
+    const DWORD size = klass ? *(const DWORD*)(uintptr_t)(klass + 0x54) : 0;
+    return size > 4 ? size - 4 : 0;
+}
+static DWORD __cdecl SatbRtLcid(DWORD self, DWORD lcid) {
+    if (SatbSimSide() && self >= 0x10000) { const DWORD n = SatbObjFields(self); if (n) SatbRtLog(self + 4, n); else SatbRtUnknown(); }
+    return SATB_RT(SRT_LCID, SatbRt2)(self, lcid);
+}
+// MonoMethod.InternalInvoke 0xE7CDC0 (this, obj, params): writes out/ref values back into `params`' elements
+static DWORD __cdecl SatbRtInvoke(DWORD self, DWORD obj, DWORD params) {
+    if (SatbSimSide() && params >= 0x10000) SatbRtLog(params + 0x10, *(const DWORD*)(uintptr_t)(params + 8) * 4);
+    return SATB_RT(SRT_INVOKE, SatbRt3)(self, obj, params);
+}
+// GCHandle.GetTarget 0xE78FD0 (row 10): a weak handle the sim's collection cleared during the job reads null on the worker
+// where the cut had an object. The worker gives up if a collection ran since the cut (GC_gc_no [0x11F2F90], docs/66 §6.1).
+static DWORD __cdecl SatbRtGcTarget(DWORD handle) {
+    const DWORD r = SATB_RT(SRT_GCTARGET, SatbRt1)(handle);
+    if (SatbWorkerSide() && *g_satbGcNo != g_satbGcNo0) SatbWGiveUp(0xE78FD0);
+    return r;
+}
 static void* const kSatbRtWrap[SRT_N] = {(void*)SatbRtClear, (void*)SatbRtFastCopy, (void*)SatbRtSetValue, (void*)SatbRtGetValue,
     (void*)SatbRtGetGeneric, (void*)SatbRtClone, (void*)SatbRtBlockCopy, (void*)SatbRtSetByte, (void*)SatbRtStrcpy1, (void*)SatbRtStrcpy2,
     (void*)SatbRtStrcpy3, (void*)SatbRtStrcpy4, (void*)SatbRtCopyTo, (void*)SatbRtInc, (void*)SatbRtDec, (void*)SatbRtXchg,
     (void*)SatbRtXchgF, (void*)SatbRtCmpx, (void*)SatbRtCmpxF, (void*)SatbRtAdd, (void*)SatbRtAdd64, (void*)SatbRtInc64, (void*)SatbRtDec64,
     (void*)SatbRtXchg64, (void*)SatbRtXchgD, (void*)SatbRtCmpx64, (void*)SatbRtCmpxD, (void*)SatbRtFieldSet, (void*)SatbRtFieldGet,
     (void*)SatbRtMcopy, (void*)SatbRtMwB, (void*)SatbRtMw16, (void*)SatbRtMw32, (void*)SatbRtMw64, (void*)SatbRtInitArr,
-    (void*)SatbRtCloneObj, (void*)SatbRtPtrToStruct, (void*)SatbRtPtrToStruct2};
+    (void*)SatbRtCloneObj, (void*)SatbRtPtrToStruct, (void*)SatbRtPtrToStruct2, (void*)SatbRtPropInfo, (void*)SatbRtLcid, (void*)SatbRtInvoke,
+    (void*)SatbRtGcTarget};
 // EA's field-store helper 0xE69820 (callers 0xD79AF0 and ScriptHost_InvokeDelegate, docs/118 D11): `*(arg2) = arg3`, cdecl,
 // 11 bytes [verified]. Replaced whole (InstallDetour) while Satb is on: the sim logs the word first; a worker store to a
 // word the sim changed goes into the log entry (the worker's view), as SatbWorkerStore does.
@@ -1187,18 +1452,39 @@ static const SatbColdSite kSatbCold[5] = {
     {0x00D6FCB0, 6, {0x81, 0xEC, 0x24, 0x02, 0x00, 0x00}},              // image load (temp string refcount [0x11CB920])
 };
 static void* g_satbColdNext[5];
-static void __cdecl SatbColdEnter(int site) {
+// docs/206 §14: the methods the worker transforms first (site 0: arg0 = RuntimeMethod, +8 = MonoMethod [verified, 0xE643B7])
+// are kept by the worker and named on the sim at span end (SatbGiveOpLog), so the warm-up can be given them
+static volatile LONG g_satbColdRmN;
+static volatile LONG g_satbColdGiveUps;  // worker cold-path give-ups (all sites), read by the feature mask
+static DWORD g_satbColdRm[16];
+static LONG g_satbColdNamed;
+static void __cdecl SatbColdEnter(int site, DWORD arg0) {
     if (!g_satbLive || g_satbMode != SATB_ACT) return;
-    if (GetCurrentThreadId() == g_satbWTid) SatbWGiveUp(0xC000 + site);
-    else if (site == 2 && g_satbOn) SatbSimWait(SATB_ST_CLASS);
+    if (GetCurrentThreadId() == g_satbWTid) {
+        if (site == 0 && arg0 && g_satbColdRmN < 16) g_satbColdRm[g_satbColdRmN] = arg0, g_satbColdRmN++;
+        g_satbColdGiveUps++;  // per-search feature mask: a cold give-up in this job
+        SatbWGiveUp(0xC000 + site);
+    } else if (site == 2 && g_satbOn) SatbSimWait(SATB_ST_CLASS);
+}
+// sim, worker idle (SatbEnd): 'autshadow satb cold transform on the worker: <method>' once per method (warm-up list input).
+// 0xE72010 = mono_method_full_name(method, signature) [verified args, docs/130 G-I1]; its string is not freed (a few per run).
+typedef const char*(__cdecl* SatbNameFn)(DWORD method, int signature);
+static SatbNameFn g_satbMethodName = (SatbNameFn)(uintptr_t)0x00E72010;
+static void SatbColdNameLog() {
+    for (; g_satbColdNamed < g_satbColdRmN; g_satbColdNamed++) {
+        const DWORD rm = g_satbColdRm[g_satbColdNamed], mm = rm ? *(const DWORD*)(uintptr_t)(rm + 8) : 0;
+        const char* nm = mm ? g_satbMethodName(mm, 0) : NULL;
+        Log("autshadow satb cold transform on the worker: %s (runtime method %08lX)", nm ? nm : "?", rm);
+    }
 }
 #define SATB_COLD_HOOK(i)                                  \
     static __declspec(naked) void SatbCold##i() {          \
         __asm { pushad }                                   \
         __asm { pushfd }                                   \
+        __asm { push dword ptr [esp + 40] }                \
         __asm { push i }                                   \
         __asm { call SatbColdEnter }                       \
-        __asm { add esp, 4 }                               \
+        __asm { add esp, 8 }                               \
         __asm { popfd }                                    \
         __asm { popad }                                    \
         __asm { jmp dword ptr [g_satbColdNext + i * 4] }   \
@@ -1235,6 +1521,208 @@ static int SatbInstallRt() {
 }
 
 
+// ---- docs/206 §15: native writers and readers the barrier did not see (contributor PR #105, our review
+// docs/data/upstream/dalexlol-prs-104-107-review.md §1.2). All act only (Satb=2), installed with the cold detours. ----
+
+// Row 1 [verified, disassembly]: MonoScriptHost_Simulate stores the new tick into Simulator.sSimTickCnt and
+// SimClock.sSimTickCnt (8 bytes each) at 0xD81D39 / 0xD81D49 through the host's pointers +0xC20 / +0xC24 (set at 0xD7E93D /
+// 0xD7E98D): raw native stores, unlogged. Logged here at the cut, the log keeps tick t: the worker's managed reads (load
+// stubs) and its static-helper reads (SatbStaticGet) answer tick t while the sim has moved on.
+static void SatbLogTicks() {
+    const DWORD host = g_mtHostThis;
+    if (!host || !g_satb) return;
+    for (int i = 0; i < 2; i++) {
+        const DWORD p = *(const DWORD*)(uintptr_t)(host + 0xC20 + 4 * i);
+        if (p >= 0x10000) SatbLogWord(p), SatbLogWord(p + 4);
+    }
+}
+
+// worker-private memory: its own stack or a frame-arena chunk it took in this job
+static bool SatbWPrivate(DWORD a) {
+    return (a < __readfsdword(4) && a >= __readfsdword(8)) || (g_satbWArenaN && SatbWInArena(a));
+}
+
+// Rows 2, 3, 5, 6, 12: EA binder native bodies, all reached through 0xE525C0(MonoInvocation* frame, ThreadContext* ctx)
+// [verified: `call [[frame+4]+0x24](frame, ctx)`; MonoInvocation +0x04 RuntimeMethod, +0x0C this, +0x14 stack args (8-byte
+// slots), docs/130 §1; RuntimeMethod +0x24 invoker, +0x28 body, docs/119 §9.4]. Bodies by address (+0x24 or +0x28), from the
+// PR's table [theirs; seen counts in ts3native.log confirm the match in game]:
+enum { SB_PQ_ADD, SB_PQ_REMOVEAT, SB_PQ_SETCAP, SB_HT_REHASH, SB_ELAPSED_MIN, SB_ELAPSED_HRS, SB_CURVE_FX, SB_N };
+static const DWORD kSatbBodies[SB_N] = {0xE0D450, 0xE0C640, 0xE0D290, 0xDCA870, 0xE0A6D0, 0xE0A790, 0xE0A950};
+static const char* const kSatbBodyNames[SB_N] = {"PriorityQueue.Add", "PriorityQueue.RemoveAt", "PriorityQueue.SetCapacity",
+    "Hashtable.Rehash", "SimClock.ElapsedTimeInMinutes(ref float)", "SimClock.ElapsedTimeHours(ref float)", "Curve.Fx"};
+static LONG g_satbBodySeen[SB_N][2], g_satbBodyLogged[SB_N][2];  // [body][sim, worker]: calls in spans; log lines at 1, 10, 100, ...
+static LONG g_satbBindGiveUps;
+static void* g_satbBindNext;
+static const u8 kSatbBind[6] = {0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x48};  // push ebp; mov ebp,esp; sub esp,0x48
+typedef void(__cdecl* SatbBindFn)(DWORD frame, DWORD ctx);
+static int SatbBodyOf(DWORD rm) {
+    if (rm < 0x10000) return -1;
+    const DWORD a = *(const DWORD*)(uintptr_t)(rm + 0x24), b = *(const DWORD*)(uintptr_t)(rm + 0x28);
+    for (int i = 0; i < SB_N; i++) if (kSatbBodies[i] == a || kSatbBodies[i] == b) return i;
+    return -1;
+}
+// sim: an object's fields, and with arrays = true the elements of an array its first field holds (PriorityQueue.mItems:
+// +4 mItems, +8 mCapacity, +0xC mCount [verified: 0xE0D4AA-0xE0D4B5]); array test: class rank byte +0x10, element size +0x5C
+// [verified: 0xE6B690]
+static void SatbLogObj(DWORD obj, bool arrays) {
+    const DWORD n = SatbObjFields(obj);
+    if (!n) { if (obj >= 0x10000) SatbRtUnknown(); return; }
+    SatbRtLog(obj + 4, n);
+    const DWORD items = arrays ? *(const DWORD*)(uintptr_t)(obj + 4) : 0;
+    if (items < 0x10000) return;
+    const u8* k = (const u8*)(uintptr_t)**(const DWORD* const*)(uintptr_t)items;
+    if (!k || !k[0x10]) return;
+    SatbRtLog(items + 0x10, *(const DWORD*)(uintptr_t)(items + 8) * *(const DWORD*)(k + 0x5C));
+}
+static void __cdecl SatbBindCall(DWORD frame, DWORD ctx) {
+    const SatbBindFn next = (SatbBindFn)g_satbBindNext;
+    if (!g_satbOn) { next(frame, ctx); return; }
+    const DWORD rm = *(const DWORD*)(uintptr_t)(frame + 4), self = *(const DWORD*)(uintptr_t)(frame + 0xC);
+    const DWORD args = *(const DWORD*)(uintptr_t)(frame + 0x14);
+    const int b = SatbBodyOf(rm);
+    if (SatbSimSide()) {
+        if (b >= 0) g_satbBodySeen[b][0]++;
+        if (b == SB_PQ_ADD || b == SB_PQ_REMOVEAT || b == SB_PQ_SETCAP) SatbLogObj(self, true);  // row 3: header + items
+        else if (b == SB_HT_REHASH) SatbLogObj(self, false);  // row 5: buckets / count / modificationCount (the new array is fresh)
+        else if ((b == SB_ELAPSED_MIN || b == SB_ELAPSED_HRS) && args) {  // row 2: the ref float the body stores (0xE0A755)
+            const DWORD p = *(const DWORD*)(uintptr_t)args;
+            if (p >= 0x10000) SatbRtLog(p, 4);
+        }
+        next(frame, ctx);
+        return;
+    }
+    if (!SatbWorkerSide()) { next(frame, ctx); return; }
+    if (b >= 0) g_satbBodySeen[b][1]++;
+    if (b == SB_ELAPSED_MIN || b == SB_ELAPSED_HRS) {
+        // the body stores through the ref into shared memory (Autonomy.mLastTime and the like): the worker must not
+        const DWORD p = args ? *(const DWORD*)(uintptr_t)args : 0;
+        if (p >= 0x10000 && !SatbWPrivate(p)) { g_satbBindGiveUps++; SatbWGiveUp(kSatbBodies[b]); return; }  // object aborted: skip it
+    } else if (b == SB_CURVE_FX && self >= 0x10000) {
+        // row 6: Fx caches its argument in m_x (+0x14, store 0xE0AD21) on a shared tuning curve; Fx itself never reads it back
+        // [verified]. The worker's store is taken back unless the sim stored meanwhile [inferred: no managed reader of m_x
+        // was checked, so the worker leaves the sim's value as it found it]
+        volatile LONG* mx = (volatile LONG*)(uintptr_t)(self + 0x14);
+        const LONG saved = *mx;
+        next(frame, ctx);
+        const LONG now = *mx;
+        if (now != saved) InterlockedCompareExchange(mx, saved, now);
+        return;
+    } else if (self >= 0x10000 && !SatbWPrivate(self)) {
+        // row 12 (b): a body reads `this` natively, past the load redirect; any word of it the sim changed since the cut
+        const DWORD n = SatbObjFields(self);
+        if (n && n <= 4 * SATB_IC_MAXW && SatbWAnyLogged(self + 4, n)) { g_satbBindGiveUps++; SatbWGiveUp(0xE525C0); }
+    }
+    next(frame, ctx);
+}
+// sim, span end: one line per body and side at 1, 10, 100, ... calls (confirms the address match in game)
+static void SatbBodyLog() {
+    for (int i = 0; i < SB_N; i++)
+        for (int s = 0; s < 2; s++)
+            for (LONG n = g_satbBodySeen[i][s], p = 1; p <= n && p <= 100000000; p *= 10)
+                if (p > g_satbBodyLogged[i][s]) { g_satbBodyLogged[i][s] = p; Log("autshadow satb binder body on the %s: %s x%ld", s ? "worker" : "sim", kSatbBodyNames[i], n); }
+}
+
+// Rows 7, 11: EA's static-field helpers in native bodies [verified, disassembly]: set 0xD89BF0(field, value*), address-of
+// 0xD89C60(field, out*), get 0xD89CD0(field, out*): domain 0xE75260, vtable 0xEA2AD0(domain, field+0x14), class init 0xEA3370
+// when vtable+0x18 bit 1 is clear, special (thread/context) statics through the domain's +0x88 hash 0xE45F00 -> 0xEBAB30,
+// else vtable+0xC + field+8; then stackval_to_data 0xE52350(type, value, dest, 0) / stackval_from_data 0xE521A0(type, out,
+// data, 0). Replaced whole (same steps), plus: the sim logs a set's destination (and an address-of's: the caller writes
+// through it); the worker's get answers a logged static from the log; the worker's set and a logged address-of give up.
+// Special statics are per thread: never shared, never logged.
+typedef DWORD(__cdecl* SatbFn0)();
+typedef DWORD(__cdecl* SatbFn2)(DWORD, DWORD);
+typedef void(__cdecl* SatbStvFn)(DWORD type, DWORD a, DWORD b, int pinvoke);
+static const u8 kSatbStSet[8] = {0x53, 0x56, 0x57, 0xE8, 0x68, 0xB6, 0x0E, 0x00};  // push ebx/esi/edi; call 0xE75260
+static const u8 kSatbStAddr[8] = {0x53, 0x56, 0x57, 0xE8, 0xF8, 0xB5, 0x0E, 0x00};
+static const u8 kSatbStGet[8] = {0x53, 0x56, 0x57, 0xE8, 0x88, 0xB5, 0x0E, 0x00};
+static LONG g_satbStaticFix, g_satbStaticN;
+static DWORD SatbStaticAddr(DWORD cf, bool* special) {
+    const DWORD dom = ((SatbFn0)(uintptr_t)0x00E75260)();
+    const DWORD vt = ((SatbFn2)(uintptr_t)0x00EA2AD0)(dom, *(const DWORD*)(uintptr_t)(cf + 0x14));
+    if (!(*(const u8*)(uintptr_t)(vt + 0x18) & 2)) ((SatbPtrFn1)(uintptr_t)0x00EA3370)(vt);
+    const DWORD h = *(const DWORD*)(uintptr_t)(dom + 0x88);
+    if (h) {
+        const DWORD r = ((SatbFn2)(uintptr_t)0x00E45F00)(h, cf);
+        if (r) { *special = true; return ((SatbPtrFn1)(uintptr_t)0x00EBAB30)(r); }
+    }
+    *special = false;
+    return *(const DWORD*)(uintptr_t)(vt + 0xC) + *(const DWORD*)(uintptr_t)(cf + 8);
+}
+static void __cdecl SatbStaticSet(DWORD cf, DWORD val) {
+    bool sp;
+    const DWORD dest = SatbStaticAddr(cf, &sp), type = *(const DWORD*)(uintptr_t)cf;
+    if (!sp && g_satbOn) {
+        if (SatbSimSide()) { const DWORD n = SatbTypeSize(type); if (n) SatbRtLog(dest, n); else SatbRtUnknown(); }
+        else if (SatbWorkerSide()) { SatbWGiveUp(0xD89BF0); return; }  // a worker store into a shared static: never
+    }
+    ((SatbStvFn)(uintptr_t)0x00E52350)(type, val, dest, 0);
+}
+// worker, address-of a static the sim changed since the cut: the caller gets a worker-private copy holding the cut bytes
+// (it reads through the pointer, or writes into the copy, never into the shared static); an unchanged static keeps its own
+// address. satb7 (0.36.143) gave up here instead, and the tick statics are logged at every cut (row 1), so every job
+// whose SimClock body took their address stopped: bp-satb-act-1 1,009 of 1,017 jobs stale (docs/206 §16). Copies live
+// until the next span (SatbBegin resets the buffer; the worker is idle then).
+static u8 g_satbWStatic[16384];
+static LONG g_satbWStaticCopies;
+static DWORD SatbWStaticView(DWORD a, DWORD n) {
+    if (!SatbWAnyLogged(a, n)) return a;
+    const DWORD at = (g_satbWStaticAt + 7) & ~7u;
+    if (at + n > sizeof(g_satbWStatic)) return 0;
+    u8* p = g_satbWStatic + at;
+    g_satbWStaticAt = at + n;
+    memcpy(p, (const void*)(uintptr_t)a, n);
+    SatbWPatchCopy(a, n, p);
+    g_satbWStaticCopies++;
+    return (DWORD)(uintptr_t)p;
+}
+static void __cdecl SatbStaticAddrOf(DWORD cf, DWORD* out) {
+    bool sp;
+    DWORD a = SatbStaticAddr(cf, &sp);
+    if (!sp && g_satbOn) {
+        const DWORD n = SatbTypeSize(*(const DWORD*)(uintptr_t)cf);
+        if (SatbSimSide()) { if (n) SatbRtLog(a, n); else SatbRtUnknown(); }
+        else if (SatbWorkerSide()) {
+            const DWORD v = n ? SatbWStaticView(a, n) : 0;
+            if (v) a = v;
+            else SatbWGiveUp(0xD89C60);  // unknown size or the copy buffer full
+        }
+    }
+    *out = a;
+}
+static void __cdecl SatbStaticGet(DWORD cf, DWORD out) {
+    bool sp;
+    const DWORD src = SatbStaticAddr(cf, &sp), type = *(const DWORD*)(uintptr_t)cf;
+    if (!sp && SatbWorkerSide()) {
+        g_satbStaticN++;
+        const DWORD n = SatbTypeSize(type);
+        if (!n || SatbWAnyLogged(src, n)) {
+            u8 tmp[64];
+            if (!n || n > sizeof(tmp)) { SatbWGiveUp(0xD89CD0); }
+            else {  // the cut value: live bytes with every logged word put back, converted the way the game does
+                memcpy(tmp, (const void*)(uintptr_t)src, n);
+                SatbWPatchCopy(src, n, tmp);
+                g_satbStaticFix++;
+                ((SatbStvFn)(uintptr_t)0x00E521A0)(type, out, (DWORD)(uintptr_t)tmp, 0);
+                return;
+            }
+        }
+    }
+    ((SatbStvFn)(uintptr_t)0x00E521A0)(type, out, src, 0);
+}
+static int SatbInstallNative() {
+    int n = 0;
+    if (!g_satbBindNext && (g_satbBindNext = InstallDetour("satb binder bodies 0xE525C0", 0x00E525C0, kSatbBind, sizeof(kSatbBind), (void*)SatbBindCall)) != NULL) n++;
+    static bool st;
+    if (!st) {
+        st = true;
+        // replaced whole: the trampolines (a copied relative call) are never used
+        n += InstallDetour("satb static set 0xD89BF0", 0x00D89BF0, kSatbStSet, 8, (void*)SatbStaticSet) != NULL;
+        n += InstallDetour("satb static address 0xD89C60", 0x00D89C60, kSatbStAddr, 8, (void*)SatbStaticAddrOf) != NULL;
+        n += InstallDetour("satb static get 0xD89CD0", 0x00D89CD0, kSatbStGet, 8, (void*)SatbStaticGet) != NULL;
+    }
+    return n;
+}
+
 // ---- install: the wrapped jump-table entries must still be the game's handlers (docs/data/satb-handlers.csv) ----
 struct SatbOpRow { WORD op; u8 kind; DWORD handler; WORD base; };
 static const SatbOpRow kSatbOps[] = {
@@ -1267,7 +1755,7 @@ static const SatbOpRow kSatbOps[] = {
     {0x1C0, SATB_K_SUPER, 0xE5904D, 0x39},
 };
 static const int SATB_NOPS = (int)(sizeof(kSatbOps) / sizeof(kSatbOps[0]));
-static int g_satbIcMapped, g_satbRtSwapped, g_satbColdN;
+static int g_satbIcMapped, g_satbRtSwapped, g_satbColdN, g_satbNativeN;
 static void __cdecl SatbN2mRefused() { SatbWGiveUp(0xD8A8E0); }  // X03
 // [AutShadow] Satb=0/1/2. ini NULL: monohost / selftest set g_satbMode themselves. Returns the mode in force.
 static int SatbInstall(int mode) {
@@ -1276,7 +1764,7 @@ static int SatbInstall(int mode) {
     if (mode <= 0) return 0;
     if (!SatbAlloc()) { Log("FAIL autshadow satb: no memory for the log"); return 0; }
     for (int i = 0; i < SATB_NOPS; i++)
-        if (g_satbTable[kSatbOps[i].op] != kSatbOps[i].handler) {
+        if (g_satbTable[kSatbOps[i].op] != kSatbOps[i].handler && !McOwns(kSatbOps[i].op, g_satbTable[kSatbOps[i].op])) {  // [MonoFast] CallPath callvirt: chained
             Log("SKIP autshadow satb: jump-table entry 0x%03X is 0x%08lX, not the game's 0x%08lX (another hook owns it)", kSatbOps[i].op,
                 g_satbTable[kSatbOps[i].op], kSatbOps[i].handler);
             k.satbMode = -1;
@@ -1286,15 +1774,22 @@ static int SatbInstall(int mode) {
     if (!VirtualProtect((void*)g_satbTable, SATB_NOP * 4, PAGE_EXECUTE_READWRITE, &old)) { k.satbMode = -1; return 0; }
     for (int i = 0; i < SATB_NOPS; i++) {
         const SatbOpRow& o = kSatbOps[i];
-        g_satbOrig[o.op] = (void*)(uintptr_t)o.handler, g_satbKind[o.op] = o.kind, g_satbBase[o.op] = o.base;
+        // the entry as found: the game's handler, or [MonoFast] CallPath's callvirt (mintcall.cpp, installed before us), which the
+        // sim side then keeps; the worker side never reaches it (SatbWCallvirtTail runs EA's tail without the inline cache)
+        g_satbOrig[o.op] = (void*)(uintptr_t)g_satbTable[o.op], g_satbKind[o.op] = o.kind, g_satbBase[o.op] = o.base;
         g_satbMine[o.op] = o.kind == SATB_K_STORE ? (void*)SatbStoreStub : o.kind == SATB_K_LOAD ? (void*)SatbLoadStub : (void*)SatbSuperStub;
+        if (o.kind == SATB_K_LOAD) {  // docs/206 §11: direct-jump thunk per opcode (the shared stub if the page is refused)
+            void* t = SatbMakeLoadThunk(o.op, g_satbOrig[o.op], (void*)SatbLoadWorker, &g_satbWTidL.v, &g_satbSimLoadsL.v);
+            if (t) g_satbMine[o.op] = t;
+        }
     }
+    Log("autshadow satb: load thunks %s", g_satbThunks ? "per opcode" : "refused (shared stub)");
     g_satbMode = mode >= 2 ? SATB_ACT : SATB_PROBE;
     k.satbMode = g_satbMode;
     g_asSatbIcFn = SatbIcSim;
     g_satbIcMapped = SatbMapIcs();
     g_mtPushExtra = SatbPushRoots;
-    if (g_satbMode == SATB_ACT) g_satbColdN = SatbInstallCold(), g_mtNoFallbackHook = SatbN2mRefused;
+    if (g_satbMode == SATB_ACT) g_satbColdN = SatbInstallCold(), g_mtNoFallbackHook = SatbN2mRefused, g_satbNativeN = SatbInstallNative();
     if (g_satbMode == SATB_PROBE && !g_satbTimerEv) {
         g_satbTimerEv = CreateEventW(NULL, FALSE, FALSE, NULL);
         HANDLE th = g_satbTimerEv ? CreateThread(NULL, 64 << 10, SatbTimerMain, NULL, 0, NULL) : NULL;

@@ -1,10 +1,10 @@
 {
-  "note": "NOT RUN (2026-10-26). docs/198 §4 [ResourceCache] TrimAfterCleanup EXPERIMENT (ts3native 0.36.80, game-copy/ts3native.asi.rctrim, off by default; ResourceCache is Apex Radiance's area: nothing goes to Apex unless this shows a proven gain, Rodney 2026-10-26). Correctness + effect read, not a timing A/B: each job turns the switch on over the shipped ini and checks that the game's own shrink-both runs on the main thread after the ResourceSystem update without a crash; the effect is read from the rctrim: lines (cache held/idle before -> after, freed MB, private bytes, commit, largest free, ms) and the diag: mem lines ([MemDiag] Light, release default). Baseline for the memory curve: release-check-2026-10-24-bp-rc-soak and the cc-soak queue tags. Order: bp-rctrim (20 min natural BP, load + periodic every 5 min), bp-rctrim-travel (travel round trip: two world-switch trims), bp-rctrim-cc2k (only if the first two pass and cc-soak's 2k arm loaded clean; 2,000 synthetic items from tools/cc-gen.ts in game-copy/cc-synth/cc-2k).",
+  "note": "NOT RUN (2026-10-26). docs/198 §4 [ResourceCache] TrimAfterCleanup EXPERIMENT (ts3native 0.36.80, source build (asi tested since 2026-10-31; was game-copy/ts3native.asi.rctrim), off by default; ResourceCache is Apex Radiance's area: nothing goes to Apex unless this shows a proven gain, Rodney 2026-10-26). Correctness + effect read, not a timing A/B: each job turns the switch on over the shipped ini and checks that the game's own shrink-both runs on the main thread after the ResourceSystem update without a crash; the effect is read from the rctrim: lines (cache held/idle before -> after, freed MB, private bytes, commit, largest free, ms) and the diag: mem lines ([MemDiag] Light, release default). Baseline for the memory curve: release-check-2026-10-24-bp-rc-soak and the cc-soak queue tags. Order: bp-rctrim (20 min natural BP, load + periodic every 5 min), bp-rctrim-travel (travel round trip: two world-switch trims), bp-rctrim-cc2k (only if the first two pass and cc-soak's 2k arm loaded clean; 2,000 synthetic items from tools/cc-gen.ts in game-copy/cc-synth/cc-2k).",
   "jobs": [
     {
       "id": "bp-rctrim",
       "note": "BP natural play 20 min, shipped ini + [ResourceCache] TrimAfterCleanup=1 TrimEveryMin=5. Pass: the on line, one load trim ~2 s after the world load, >= 2 periodic trims, no skip / stand-down line, no crash. Read: freed MB per trim, private and largest free before -> after (does the EA heap return anything to the OS?), shrink ms (main-thread hitch cost), hitches right after a trim (hitch-ab.ts; reloads of dropped idle resources).",
-      "asi": "game-copy/ts3native.asi.rctrim",
+      "asi": "tested",
       "save": "Baseline-BP-Spring",
       "releaseDefaults": true,
       "noiseCheck": false,
@@ -31,7 +31,7 @@
     {
       "id": "bp-rctrim-travel",
       "note": "Travel round trip Bridgeport -> France -> Bridgeport (save-matrix travel case, as mem-diag-verify bp-memdiag-travel) with TrimAfterCleanup=1, TrimEveryMin=0: a trim after each arrival. Pass: a load trim and >= 2 world-switch trims (out and back), no crash. Read: idle MB the previous world left in the cache (freed at each arrival) and largest free before -> after.",
-      "asi": "game-copy/ts3native.asi.rctrim",
+      "asi": "tested",
       "save": "Baseline-BP",
       "releaseDefaults": true,
       "noiseCheck": false,
@@ -55,7 +55,7 @@
     {
       "id": "bp-rctrim-cc2k",
       "note": "bp-rctrim with 2,000 synthetic CC items (ccSet game-copy/cc-synth/cc-2k, moved in before the load and back after; interrupted run: node tools/harness/queue.ts --restore-content). The case where the trim could matter: more idle resources, less largest free. Pass: as bp-rctrim, no crash or Error 12. Read vs cc-soak bp-ccsoak-2k (same set, no trim) for largest free over time.",
-      "asi": "game-copy/ts3native.asi.rctrim",
+      "asi": "tested",
       "save": "Baseline-BP-Spring",
       "releaseDefaults": true,
       "noiseCheck": false,

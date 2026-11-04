@@ -32,7 +32,7 @@ const CUT = arg('--cut', '').split(',').filter(Boolean);
 // ---------- PE + metadata reader ----------
 export type Asm = {
   name: string; buf: Buffer; mvid: string; sections: { va: number; size: number; raw: number }[];
-  strOff: number; blobOff: number; guidOff: number; rows: number[]; tables: number[][][];
+  strOff: number; blobOff: number; guidOff: number; usOff: number; rows: number[]; tables: number[][][];
   types: TypeDef[]; methods: Method[]; fields: Field[];
 };
 export type TypeDef = { asm: Asm; row: number; ns: string; name: string; full: string; flags: number; extendsCi: number; methods: Method[]; fields: Field[]; enclosing?: TypeDef; ifaces: number[]; base?: TypeDef | null };
@@ -88,7 +88,7 @@ function loadAsm(path: string, name: string): Asm {
     p = (e + 4) & ~3;
   }
   if (streams['#-'] !== undefined) throw new Error(`${name}: uncompressed (#-) metadata not supported`);
-  asm.strOff = streams['#Strings']; asm.blobOff = streams['#Blob']; asm.guidOff = streams['#GUID'];
+  asm.strOff = streams['#Strings']; asm.blobOff = streams['#Blob']; asm.guidOff = streams['#GUID']; asm.usOff = streams['#US'] ?? 0;
   const t = streams['#~'];
   const heap = buf[t + 6];
   const valid = buf.readBigUInt64LE(t + 8);
@@ -212,6 +212,13 @@ function loadAll(dir: string, skipped?: string[]): void {
     const a = loadAsm(join(MOD_DIR, f), f.replace(/\.dll$/, '')); asms.push(a); modAsms.add(a.name);
   }
   for (const a of asms) {
+    indexAsm(a, methods);
+    for (const t of a.types) if (!typeByFull.has(t.full)) typeByFull.set(t.full, t);
+  }
+}
+// Types, methods (gi = position in sink), fields and method ids of one assembly, from its own metadata only.
+function indexAsm(a: Asm, sink: Method[]): void {
+  {
     const tds = tbl(a, 2), mds = tbl(a, 6), fds = tbl(a, 4);
     a.types = tds.map((r, i) => ({ asm: a, row: i + 1, ns: str(a, r[2]), name: str(a, r[1]), full: '', flags: r[0], extendsCi: r[3], methods: [], fields: [], ifaces: [] }));
     for (const r of tbl(a, 0x29)) a.types[r[0] - 1].enclosing = a.types[r[1] - 1];
@@ -226,8 +233,8 @@ function loadAll(dir: string, skipped?: string[]): void {
         const md = mds[m - 1];
         const [bp] = blob(a, md[4]);
         const sig = methodSig(a, bp);
-        const meth: Method = { gi: methods.length, asm: a, row: m, type: t, name: str(a, md[3]), flags: md[2], impl: md[1], rva: md[0], sigBlob: md[4], params: sig.params, ret: sig.ret, arity: sig.arity, id: '' };
-        methods.push(meth); t.methods.push(meth); a.methods[m - 1] = meth;
+        const meth: Method = { gi: sink.length, asm: a, row: m, type: t, name: str(a, md[3]), flags: md[2], impl: md[1], rva: md[0], sigBlob: md[4], params: sig.params, ret: sig.ret, arity: sig.arity, id: '' };
+        sink.push(meth); t.methods.push(meth); a.methods[m - 1] = meth;
       }
       const fEnd = i + 1 < tds.length ? tds[i + 1][4] : fds.length + 1;
       for (let f = r[4]; f < fEnd; f++) {
@@ -236,9 +243,8 @@ function loadAll(dir: string, skipped?: string[]): void {
         t.fields.push(fld); a.fields[f - 1] = fld;
       }
     });
-    for (const t of a.types) if (!typeByFull.has(t.full)) typeByFull.set(t.full, t);
   }
-  for (const t of asms.flatMap((a) => a.types)) {
+  for (const t of a.types) {
     const seen = new Map<string, Method[]>();
     for (const m of t.methods) {
       m.id = `${t.full}::${m.name}${m.arity ? '`' + m.arity : ''}(${m.params})`;
@@ -362,6 +368,85 @@ function body(m: Method): Ins[] {
   return decodeIl(b, p + hdr, b.readUInt32LE(p + 4));
 }
 
+// ---------- per-method IL shape (tools/mod-method-diff.ts) ----------
+// One assembly outside the global model (own methods array), to compare two builds of the same module.
+export function loadStandalone(path: string, name: string): Asm { const a = loadAsm(path, name); indexAsm(a, []); return a; }
+// A token as text from the assembly's own metadata (no cross-assembly resolution): two builds that name the same member
+// give the same text whatever their token numbers.
+function tokenText(a: Asm, tok: number): string {
+  const tt = tok >>> 24, ti = tok & 0xffffff;
+  if (tt === 0x06) return a.methods[ti - 1].id;
+  if (tt === 0x04) return a.fields[ti - 1].id;
+  if (tt === 0x01 || tt === 0x02 || tt === 0x1b) return tdorName(a, tt, ti);
+  if (tt === 0x0a) {
+    const r = tbl(a, 0x0a)[ti - 1]; const [pt, pi] = decodeCi('MemberRefParent', r[0]);
+    const owner = pt === 6 ? a.methods[pi - 1].id : pt === 0x1a ? `module:${pi}` : tdorName(a, pt, pi);
+    const [bp] = blob(a, r[2]);
+    if ((a.buf[bp] & 0x0f) === 6) return `${owner}::${str(a, r[1])}:${sigType(a, bp + 1)[0]}`;
+    const s = methodSig(a, bp);
+    return `${owner}::${str(a, r[1])}${s.arity ? '`' + s.arity : ''}(${s.params}):${s.ret}`;
+  }
+  if (tt === 0x2b) {
+    const r = tbl(a, 0x2b)[ti - 1]; const [mt, mi] = decodeCi('MethodDefOrRef', r[0]);
+    const [bp] = blob(a, r[1]); let p = bp + 1; const [n, k] = cuint(a.buf, p); p += k; const g: string[] = [];
+    for (let i = 0; i < n; i++) { const [t, q] = sigType(a, p); g.push(t); p = q; }
+    return `${tokenText(a, ((mt === 6 ? 0x06 : 0x0a) << 24) | mi)}<${g.join(',')}>`;
+  }
+  if (tt === 0x70) { const [len, n] = cuint(a.buf, a.usOff + ti); const s = a.usOff + ti + n; return JSON.stringify(a.buf.toString('utf16le', s, s + (len & ~1))); }
+  if (tt === 0x11) { const [bp] = blob(a, tbl(a, 0x11)[ti - 1][0]); const s = methodSig(a, bp); return `sig(${s.params}):${s.ret}`; }
+  return `?${tok.toString(16)}`;
+}
+// Normalized IL of one body: short and macro opcode forms folded into the long form (br.s -> br, ldloc.0 -> ldloc 0,
+// ldc.i4.s -> ldc.i4), branch and switch targets and exception clauses as instruction indices, tokens as tokenText,
+// locals as their types. Max stack and the init-locals flag are left out. No body: 'native' (IC / PInvoke) or 'abstract'.
+export function ilShape(m: Method): string {
+  if (m.impl & IC_FLAG || m.flags & PINVOKE) return 'native';
+  if (m.flags & ABSTRACT || !m.rva) return 'abstract';
+  const a = m.asm, b = a.buf, p0 = rva(a, m.rva), out: string[] = [];
+  let start: number, len: number, more = false;
+  if ((b[p0] & 3) === 2) { start = p0 + 1; len = b[p0] >> 2; }
+  else {
+    more = (b[p0] & 0x08) !== 0; start = p0 + (b.readUInt16LE(p0) >> 12) * 4; len = b.readUInt32LE(p0 + 4);
+    const lt = b.readUInt32LE(p0 + 8);
+    if (lt) {
+      const [lp] = blob(a, tbl(a, 0x11)[(lt & 0xffffff) - 1][0]); let q = lp + 1; const [n, k] = cuint(b, q); q += k; const ls: string[] = [];
+      for (let i = 0; i < n; i++) { const [t, q2] = sigType(a, q); ls.push(t); q = q2; }
+      out.push(`locals ${ls.join(',')}`);
+    }
+  }
+  const { ins } = decodeAll(b, start, len);
+  const idx = new Map(ins.map((x, i) => [x.at, i]));
+  const tgt = (off: number) => off === len ? ins.length : idx.get(off) ?? `@${off}`;
+  for (const x of ins) {
+    let op = x.op, v: number | string = x.v; const at = start + x.at;
+    if (op >= 0x2b && op <= 0x37) { op += 0x0d; v = tgt(x.next + x.v); }
+    else if ((op >= 0x38 && op <= 0x44) || op === 0xdd || op === 0xde) { if (op === 0xde) op = 0xdd; v = tgt(x.next + x.v); }
+    else if (op >= 0x02 && op <= 0x05) { v = op - 0x02; op = 0xfe09; }
+    else if (op >= 0x06 && op <= 0x09) { v = op - 0x06; op = 0xfe0c; }
+    else if (op >= 0x0a && op <= 0x0d) { v = op - 0x0a; op = 0xfe0e; }
+    else if (op >= 0x0e && op <= 0x13) op = [0xfe09, 0xfe0a, 0xfe0b, 0xfe0c, 0xfe0d, 0xfe0e][op - 0x0e];
+    else if (op >= 0x15 && op <= 0x1e) { v = op - 0x16; op = 0x20; }
+    else if (op === 0x1f) { v = b.readInt8(at + 1); op = 0x20; }
+    else if (op === 0x21 || op === 0x23) v = b.readBigUInt64LE(at + 1).toString(16);
+    else if (op === 0x22) v = b.readUInt32LE(at + 1).toString(16);
+    else if (op === 0x45) { const n = b.readUInt32LE(at + 1), base = x.next; v = Array.from({ length: n }, (_, k) => tgt(base + b.readInt32LE(at + 5 + 4 * k))).join(','); }
+    else if (x.tok) v = tokenText(a, x.tok);
+    out.push(`${op.toString(16)} ${v}`);
+  }
+  for (let p = (start + len + 3) & ~3; more; ) {
+    const kind = b[p], fat = (kind & 0x40) !== 0, size = fat ? b.readUIntLE(p + 1, 3) : b[p + 1];
+    more = (kind & 0x80) !== 0;
+    if (kind & 0x01) for (let c = p + 4; c + (fat ? 24 : 12) <= p + size; c += fat ? 24 : 12) {
+      const f = fat ? b.readUInt32LE(c) : b.readUInt16LE(c);
+      const [to, tl, ho, hl, x] = fat ? [b.readUInt32LE(c + 4), b.readUInt32LE(c + 8), b.readUInt32LE(c + 12), b.readUInt32LE(c + 16), b.readUInt32LE(c + 20)]
+        : [b.readUInt16LE(c + 2), b[c + 4], b.readUInt16LE(c + 5), b[c + 7], b.readUInt32LE(c + 8)];
+      out.push(`eh ${f} ${tgt(to)}-${tgt(to + tl)} ${tgt(ho)}-${tgt(ho + hl)} ${f === 0 ? tokenText(a, x) : f === 1 ? tgt(x) : ''}`);
+    }
+    p += size;
+  }
+  return out.join('\n');
+}
+
 // ---------- receiver static type (docs/127) ----------
 // C# emits callvirt to the original declaration, so the IL target says nothing about the receiver. Its static type is the
 // type of the expression that pushed it: walk back from the callvirt over instructions with a known stack effect until the
@@ -394,7 +479,9 @@ export function receiverTypes(caller: number): Map<number, Recv> {
   if (!asms.length) loadAll(ASM_DIR);
   let out = recvCache.get(caller); if (out) return out;
   out = new Map(); recvCache.set(caller, out);
-  for (const { target: tm, recv: res } of methodIl(caller)?.sites ?? []) {
+  for (const { target: tm, recv: r0 } of methodIl(caller)?.sites ?? []) {
+    const exact = r0.via && !r0.via.includes('(') ? exactStaticFieldType(r0.via) : undefined;
+    const res = exact ? { ...r0, type: exact } : r0;
     // ifaceN edges point at the implementations, so key those too.
     for (const g of [tm.gi, ...(isIface(tm.type) ? ifaceImpls(tm)?.map((x) => x.gi) ?? [] : [])]) {
       const prev = out.get(g);
@@ -403,11 +490,31 @@ export function receiverTypes(caller: number): Map<number, Recv> {
   }
   return out;
 }
+// Static fields whose every store is `newobj T; stsfld` (EA's `Singleton = new Definition()`) and whose address is never
+// taken (no ldsflda) hold an exact T or null, so a receiver loaded from one has type T, not the field's declared type
+// (docs/data/tier2-blockers.csv: `Terrain+PlayOnCarpetInternal::Singleton` is declared InteractionDefinition).
+let sfldExact: Map<string, string | null> | undefined;
+export function exactStaticFieldType(id: string): string | undefined {
+  if (!sfldExact) {
+    sfldExact = new Map();
+    for (let i = 0; i < methods.length; i++) {
+      const il = methodIl(i); if (!il) continue;
+      il.ins.forEach((x, j) => {
+        if (x.op !== 0x80 && x.op !== 0x7f) return;
+        const f = resolveFieldToken(il.asm, x.tok).id, p = il.ins[j - 1];
+        const t = x.op === 0x80 && p?.op === 0x73 && !il.targets.has(x.at) ? resolveMethodToken(il.asm, p.tok).m?.type.full : undefined;
+        const prev = sfldExact!.get(f);
+        sfldExact!.set(f, t && (prev === undefined || prev === t) ? t : null);
+      });
+    }
+  }
+  return sfldExact.get(id) ?? undefined;
+}
 // Per method: every IL instruction (at = offset in the body) and every instance call site (call/callvirt) with its
 // receiver: j = index of the call in ins, src = index of the instruction that pushed the receiver (-1 = unknown).
 // docs/192 (script-leak-scan.ts) matches collection mutators to the static or instance field they run on.
 export type CallSite = { j: number; target: Method; recv: Recv; src: number };
-export function methodIl(caller: number): { ins: FullIns[]; sites: CallSite[]; asm: Asm } | undefined {
+export function methodIl(caller: number): { ins: FullIns[]; sites: CallSite[]; asm: Asm; targets: Set<number> } | undefined {
   if (!asms.length) loadAll(ASM_DIR);
   const m = methods[caller];
   if (!m || !m.rva || m.impl & IC_FLAG || m.flags & (ABSTRACT | PINVOKE)) return undefined;
@@ -459,7 +566,7 @@ export function methodIl(caller: number): { ins: FullIns[]; sites: CallSite[]; a
     }
     sites.push({ j, target: tm, recv: res, src });
   }
-  return { ins: dec.ins, sites, asm: a };
+  return { ins: dec.ins, sites, asm: a, targets: dec.targets };
 }
 
 // ---------- build ----------
@@ -761,6 +868,9 @@ export function subtypes(type: string): { full: string; asm: string; abstract: b
   return t ? derivedTypes(t).map((x) => ({ full: x.full, asm: x.asm.name, abstract: (x.flags & 0x80) !== 0 })) : null;
 }
 
+// tools/autshadow-il-hashes.ts: metadata helpers for token names
+export { decodeCi, str as heapString, typeRefName, resolveTdor, blob };
+
 // tools/offload-override-scan.ts: type model over one directory (game + mod assemblies; files sort game first, and the
 // first type of a full name wins resolution). Unreadable assemblies are listed in `skipped`, not fatal.
 export function typeModel(dir: string, skipped: string[]) {
@@ -1001,6 +1111,10 @@ function selfCheck(): void {
   const csfo = lookup(ix, 'Sims3.Gameplay.Autonomy.Autonomy::CalculateScoreForObjectInteraction'); const igm = lookup(ix, 'Sims3.Gameplay.Interfaces.IGameObject::GetInUseAutonomyMultiplier');
   const r2 = csfo.length && igm.length ? csfo.map((c) => receiverTypes(c).get(igm[0])).find(Boolean) : undefined;
   if (r2?.type !== 'Sims3.Gameplay.Interfaces.IGameObject' || r2.isThis) fail(`receiver of GetInUseAutonomyMultiplier: ${JSON.stringify(r2)}`);
+  // A receiver loaded from a singleton field takes the type of the only object stored there (exactStaticFieldType).
+  const rug = lookup(ix, 'Sims3.Gameplay.Objects.Decorations.PlayOnRug+Definition::Test(Sims3.Gameplay.Interactions.InteractionInstanceParameters&,Sims3.SimIFace.GreyedOutTooltipCallback&)'), idt = lookup(ix, 'Sims3.Gameplay.Interactions.InteractionDefinition::Test(Sims3.Gameplay.Interactions.InteractionInstanceParameters&,Sims3.SimIFace.GreyedOutTooltipCallback&)');
+  const r3 = rug.length && idt.length ? receiverTypes(rug[0]).get(idt[0]) : undefined;
+  if (r3?.type !== 'Sims3.Gameplay.Core.Terrain+PlayOnCarpetInternal+Definition') fail(`receiver of the PlayOnCarpetInternal.Singleton Test call: ${JSON.stringify(r3)}`);
   const lotOv = familyTargets(inUse[0], 'Sims3.Gameplay.Core.Lot') ?? [];
   if (lotOv.length >= virtualTargets(inUse[0]).ea.length) fail('Lot family not narrower than all get_InUse overrides');
   console.log(`  docs/127: Sim.OnPortalPathPlan + overrides reaches Turnstile.IsAllowedThrough; BCL targets not expanded; this rule: generic Test -> ${self.length} VisitLot+Definition family Tests (of ${virtualTargets(gt[0]).ea.length}); receiver types: this.InUse, IGameObject local`);
@@ -1015,6 +1129,31 @@ function positional(): string[] {
   for (let i = 0; i < a.length; i++) { if (VALUE_FLAGS.has(a[i])) i++; else if (!a[i].startsWith('--')) out.push(a[i]); }
   return out;
 }
+export function bindKeys(): { hash: string; id: string; key: string; m: Method }[] {
+  // docs/122 S0: EA's native-method binder 0xD9A7B0 keys each method by the FNV-1 hash (lowercased bytes, 0x811C9DC5,
+  // prime 0x1000193, multiply then xor) of "<ret> <Class>:<Method>(<arg>,...)" with Mono reflection type names
+  // (0xD9A530). One entry per non-abstract method (the bindkeys command prints them); join with the 1,085 hashes 0xE3E570
+  // registers (tools/binder-bodies.py).
+  if (!asms.length) loadAll(ASM_DIR);
+  const FULL: Record<string, string> = { void: 'Void', bool: 'Boolean', char: 'Char', sbyte: 'SByte', byte: 'Byte', short: 'Int16', ushort: 'UInt16', int: 'Int32', uint: 'UInt32', long: 'Int64', ulong: 'UInt64', float: 'Single', double: 'Double', string: 'String', object: 'Object', IntPtr: 'IntPtr', UIntPtr: 'UIntPtr', typedref: 'TypedReference' };
+  const split = (s: string): string[] => { const o: string[] = []; let d = 0, st = 0; for (let i = 0; i < s.length; i++) { const c = s[i]; if (c === '<') d++; else if (c === '>') d--; else if (c === ',' && !d) { o.push(s.slice(st, i)); st = i + 1; } } if (s) o.push(s.slice(st)); return o; };
+  const rname = (t: string): string => {
+    const m = /^([^<\[&*]+)(?:<(.*)>)?((?:\[,*\]|\*)*)(&?)$/.exec(t);
+    if (!m) return t;
+    const base = FULL[m[1]] ? `System.${FULL[m[1]]}` : m[1];
+    const gen = m[2] ? `[${split(m[2]).map(rname).join(',')}]` : '';
+    return base + gen + m[3] + m[4];
+  };
+  const fnv = (s: string): string => { let h = 0x811c9dc5; for (const c of s.toLowerCase()) h = (Math.imul(h, 0x1000193) ^ c.charCodeAt(0)) >>> 0; return h.toString(16); };
+  const out: { hash: string; id: string; key: string; m: Method }[] = [];
+  for (const m of methods) {
+    if (m.flags & ABSTRACT) continue;
+    const key = `${rname(m.ret)} ${m.type.full}:${m.name}(${split(m.params).map(rname).join(',')})`;
+    out.push({ hash: fnv(key), id: m.id, key, m });
+  }
+  return out;
+}
+
 // Imported as a library (mono-host-ics.ts): no CLI.
 const cmd = /managed-callgraph\.ts$/.test(process.argv[1] ?? '') ? process.argv[2] : 'lib';
 if (cmd === '--self-check' || (cmd !== 'lib' && process.argv.includes('--self-check'))) selfCheck();
@@ -1073,23 +1212,5 @@ else if (cmd === 'hostdata') {
   writeFileSync(arg('--out', 'game-copy/monohost/hostdata.txt'), out.join('\n') + '\n');
   console.log(`${out.filter((l) => l[0] === 'R').length} externs, ${out.filter((l) => l[0] === 'C').length} .cctor types`);
 } else if (cmd === 'bindkeys') {
-  // docs/122 S0: EA's native-method binder 0xD9A7B0 keys each method by the FNV-1 hash (lowercased bytes, 0x811C9DC5,
-  // prime 0x1000193, multiply then xor) of "<ret> <Class>:<Method>(<arg>,...)" with Mono reflection type names
-  // (0xD9A530). Prints "<hash> <method id>" per method; join with the 1,085 hashes 0xE3E570 registers.
-  loadAll(ASM_DIR);
-  const FULL: Record<string, string> = { void: 'Void', bool: 'Boolean', char: 'Char', sbyte: 'SByte', byte: 'Byte', short: 'Int16', ushort: 'UInt16', int: 'Int32', uint: 'UInt32', long: 'Int64', ulong: 'UInt64', float: 'Single', double: 'Double', string: 'String', object: 'Object', IntPtr: 'IntPtr', UIntPtr: 'UIntPtr', typedref: 'TypedReference' };
-  const split = (s: string): string[] => { const o: string[] = []; let d = 0, st = 0; for (let i = 0; i < s.length; i++) { const c = s[i]; if (c === '<') d++; else if (c === '>') d--; else if (c === ',' && !d) { o.push(s.slice(st, i)); st = i + 1; } } if (s) o.push(s.slice(st)); return o; };
-  const rname = (t: string): string => {
-    const m = /^([^<\[&*]+)(?:<(.*)>)?((?:\[,*\]|\*)*)(&?)$/.exec(t);
-    if (!m) return t;
-    const base = FULL[m[1]] ? `System.${FULL[m[1]]}` : m[1];
-    const gen = m[2] ? `[${split(m[2]).map(rname).join(',')}]` : '';
-    return base + gen + m[3] + m[4];
-  };
-  const fnv = (s: string): string => { let h = 0x811c9dc5; for (const c of s.toLowerCase()) h = (Math.imul(h, 0x1000193) ^ c.charCodeAt(0)) >>> 0; return h.toString(16); };
-  for (const m of methods) {
-    if (m.flags & ABSTRACT) continue;
-    const key = `${rname(m.ret)} ${m.type.full}:${m.name}(${split(m.params).map(rname).join(',')})`;
-    console.log(`${fnv(key)}\t${m.id}\t${key}`);
-  }
+  for (const k of bindKeys()) console.log(`${k.hash}\t${k.id}\t${k.key}`);
 } else if (cmd !== 'lib') console.log('usage: build | query <method>... | def <type>... | callers <method> | overrides <method>... | subtypes <type>... | dispatch [--csv out] | hostdata [--out f] | bindkeys | --self-check');

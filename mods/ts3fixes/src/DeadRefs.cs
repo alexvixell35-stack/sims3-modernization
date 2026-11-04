@@ -426,6 +426,8 @@ namespace Ts3Fixes
         //   "aging":    AgingManager.IsAgingStateValid on an AgingState of that kind of description: off true, on false.
         //   "sweep":    starts the spread pass now (deadrefsweep must be on); counters show it finish.
         //   "savepass": the pre-save pass now.
+        delegate bool AgingValidFn(AgingState state);
+
         public static string DeadRefCheck(string what)
         {
             switch (what)
@@ -443,7 +445,8 @@ namespace Ts3Fixes
                     MethodInfo valid = typeof(AgingManager).GetMethod("IsAgingStateValid", kDrAll);
                     if (ctor == null || valid == null || AgingManager.Singleton == null) return "aging: not found";
                     object state = ctor.Invoke(new object[] { new SimDescription() });
-                    return "aging: valid " + valid.Invoke(AgingManager.Singleton, new object[] { state });
+                    // swapped method: a delegate, not MethodInfo.Invoke (see EaFixes PrefRemoveFn)
+                    return "aging: valid " + ((AgingValidFn)Delegate.CreateDelegate(typeof(AgingValidFn), AgingManager.Singleton, valid))((AgingState)state);
                 }
                 case "sweep": return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
                 case "savepass": return DeadRefSavePass();

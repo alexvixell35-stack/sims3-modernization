@@ -18,6 +18,10 @@ static DWORD g_udT0;  // GetTickCount at start (uptime)
 static wchar_t g_udIni[MAX_PATH];
 static void MdSaveStart(bool travelSave);       // memdiag.cpp ([MemDiag], docs/190 phase 1)
 static void ApplyMemDiag(const wchar_t* ini);  // memdiag.cpp
+static void CpSaveEnd(DWORD r);      // compaction.cpp ([Compaction], docs/204)
+static void CpWorldLoad();
+static void CpAfterSample(DWORD bigMB);
+static u8 CpOp(DWORD lo);
 
 // ---------------------------------------------------------------------------------------------------------------------
 // pure helpers (selftest)
@@ -246,6 +250,7 @@ static void UdMemSample(const char* what, const char* ev = NULL) {
     if (UdMemLow(line, sizeof(line), big)) Log("%s", line);
     LuAsk();  // [RouteSnap] LotUseReadout: the replay consumer walks the clone now
     MdAfterSample(what, ev, s, privUsage);  // [MemDiag]: the "diag: mem" line right after (no-op when off)
+    CpAfterSample(big);  // [Compaction]: re-arm above threshold + rearm, the "+N min" line
 }
 
 // Memory worker: samples asked for by the sim thread (world load, save start / end) plus one every 10 min of play (5 min
@@ -634,12 +639,13 @@ static void UdWorldLoad() {  // sim thread, from the ts3fixes "world:" line
         g_udScanDone ? g_udSum : "mods scan still running");
     UdMemAsk("diag: memory at world load #%ld", n, MdWorldEvent(g_udTxt));
     if (n == 1) UdModulesLines();
+    CpWorldLoad();
 }
 
 // ts3fixes text channel (UserDiag.cs): Route.GetOption2 with optHi = 0x87000000 | op << 16, 4 ASCII bytes in optLo.
 // op 0 = begin a line, 1 = append (NUL pads), 2 = end: log it as "ts3fixes: <line>". Answer 1 = accepted; with [UserDiag]
 // off 0, so ts3fixes stops at the first message. Without ts3native the game answers false (no RouteOption2 name there).
-// Ops 3-5 memdiag.cpp; op 6 and "played: " lines played.cpp (docs/14 section 8.6).
+// Ops 3-5 memdiag.cpp; op 6 and "played: " lines played.cpp (docs/14 section 8.6); op 7 compaction.cpp (docs/204).
 static const DWORD kUdTextHi = 0x87000000;  // 0x86000000 exact = the stuck-check PROBE mark (docs/163 §10)
 static int g_udTxtN;
 static LONG g_udTxtLines;
@@ -651,6 +657,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
     switch ((hi >> 16) & 0xFF) {
         case 3: case 4: case 5: return MsOp((hi >> 16) & 0xFF);
         case 6: return PlAnswer();  // played.cpp: store ready / household played (docs/14 section 8.6)
+        case 7: return CpOp(lo);    // compaction.cpp: [Compaction] verdict and steps (docs/204)
         case 0: g_udTxtN = 0; return 1;
         case 1:
             for (int i = 0; i < 4; i++) {
@@ -784,6 +791,7 @@ static void UdSaveEnd(DWORD r) {
     UdPhase(NULL);
     Log("save: end #%ld result %lu after %lu ms", g_udSaves, r, GetTickCount() - g_udSaveTick);
     UdMemAsk("save: memory at end #%ld", g_udSaves);
+    CpSaveEnd(r);
     g_udSaveTick = 0;
     if (g_udDogEv) SetEvent(g_udDogEv);  // the watchdog then sizes the save folder and ends
 }

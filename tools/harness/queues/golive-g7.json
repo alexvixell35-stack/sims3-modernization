@@ -1,0 +1,667 @@
+{
+  "note": "golive-g7: docs/124 §17 G7 dry apply, NOT RUN. [AutShadow] Mode=3 Dry=1: every eligible meta search posts, waits for the worker (Satb=2: the job runs on through the next tick; Satb off: in the window, WindowWaitUs 5000) and computes what consume would send (band 1 = the worker's top 10 passing pairs, off-list ads, live objects, the §16.1 bands), then runs the game's own B13 unchanged and compares the queue it builds with the one consume would have built (top-10 set, top 1). Nothing is used. ts3native 0.36.143 (asi satb7: 0.36.142 go-live + docs/206 Satb native writers and cold warm-up) + ts3fixes.package.golive5 (golive1 never posted: B14 not patched, own B13 swap read as a mod; docs/124 §17.8) (build-fixes.ts --on kAutLive: the B14 hook is patched only in that package). Correctness queue, daytime allowed. Read: node tools/harness/mono-cost-report.ts <queue jsonl> (\"go-live\" lines; G7 line with Dry=1) and the Satb act line; records: autshadow.jsonl dry-diff / live-drop next to ts3native.ini. 2026-10-31: + SV (sv-golive-g7-satb, -2) and bp-golive-g7-edit (repro bp-autlive-edit) for the docs/124 §8 G7 row; the single go-live run is tools/harness/queues/golive-final.json.",
+  "smoke": {
+    "id": "bp-golive-g7-smoke",
+    "note": "Smoke (4 min BP, Satb=2, Dry=1): PASS = 0 crashes; ts3native.log \"autshadow go-live: Mode=3 ... Dry=1\"; -native.json alOn 3, al eligible > 0, al posted > 0, al dry > 0, drySimMis 0; ts3fixes applied log has \"AutShadow: go-live Mode 3 (dry)\" and no \"go-live off\". A FAIL stops the queue.",
+    "asi": "game-copy/ts3native.asi.satb8",
+    "fixesPackage": "game-copy/ts3fixes.package.golive5",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 90,
+    "ini": {
+      "HitchAttr.Enabled": 1,
+      "RouteSnap.Enabled": 1,
+      "RouteSnap.Count": 1,
+      "RouteSnap.AuditEvery": 0,
+      "MonoThread.Enabled": 1,
+      "MonoThread.Mode": 1,
+      "MonoThread.GcLock": 1,
+      "MonoThread.FrameTls": 1,
+      "MonoThread.ArenaFix": 1,
+      "MonoThread.N2mPrivate": 1,
+      "MonoThread.LazyGate": 1,
+      "MonoThread.LazyEarly": 1,
+      "AutShadow.Enabled": 1,
+      "AutShadow.Mode": 3,
+      "AutShadow.Sample": 1,
+      "AutShadow.Audit": 50,
+      "AutShadow.DumpOnMismatch": 1,
+      "AutShadow.ColdIc": 1,
+      "AutShadow.CutLean": 2,
+      "AutShadow.TierMs": 1500,
+      "AutShadow.ListAudit": 1,
+      "AutShadow.TierClassMs": 1000,
+      "AutShadow.RowHot": 200,
+      "AutShadow.RunSkip": 1,
+      "AutShadow.FreshEvery": 0,
+      "AutShadow.KeepPartial": 1,
+      "AutShadow.TopN": 10,
+      "AutShadow.Bands": 3,
+      "AutShadow.Margin": 0,
+      "AutShadow.MaxWait": 3,
+      "AutShadow.VerifyEvery": 50,
+      "AutShadow.Dry": 1,
+      "AutShadow.Satb": 2,
+      "AutShadow.WindowWaitUs": 0
+    },
+    "logRequire": {
+      "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+      "OK   mono thread P4": 1,
+      "autshadow go-live: Mode=3": 1
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 4,
+        "fixesOn": "autshadow,autlive"
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 30
+  },
+  "jobs": [
+    {
+      "id": "bp-golive-g7-satb",
+      "note": "G7 BP, Satb=2 (the go-live configuration), 10 min natural play. PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule). Crash rule: a crash stops the queue; triage against ts3native 0.36.143 from the [Crash] Log lines before any rerun; two clean runs per world before a verdict.",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-golive-g7-satb",
+      "note": "G7 IP, Satb=2, 10 min natural play. PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule). Crash rule: a crash stops the queue; triage against ts3native 0.36.143 from the [Crash] Log lines before any rerun; two clean runs per world before a verdict.",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-golive-g7-nosatb",
+      "note": "G7 BP, Satb off (worker in the window, WindowWaitUs 5000): the staleness and fallback share without concurrency, next to bp-golive-g7-satb. PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule).",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 0,
+        "AutShadow.WindowWaitUs": 5000
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-golive-g7-nosatb",
+      "note": "G7 IP, Satb off (WindowWaitUs 5000). PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule).",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 0,
+        "AutShadow.WindowWaitUs": 5000
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-golive-g7-crowd",
+      "note": "G7 BP on the crowd-in-view repro aut-live-crowd-view (30 spawned Sims idle on the visible home lot, waves every 150 s; memory offload-goal: offload is judged on crowded visible scenes), Satb=2, 15 min. PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule).",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "autshadow,autlive",
+          "repro": "aut-live-crowd-view"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40
+    },
+    {
+      "id": "sv-golive-g7-satb",
+      "note": "G7 SV (docs/124 §8 G7: BP, IP and SV), Satb=2, 10 min natural play. PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule). Crash rule: a crash stops the queue; triage against the asi version from the [Crash] Log lines before any rerun; two clean runs per world before a verdict.",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-golive-g7-edit",
+      "note": "G7 BP with build/buy and Edit Town during Dry (repro bp-autlive-edit, docs/124 §8 G7): Buy mode, Build mode and Edit Town entered and left while a crowd's meta searches are parked; Satb=2, 12 min. PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule). Plus: the epoch rule drops every search posted before a mode switch (al slot 10 epoch since the cut > 0 after each exit), no dry-diff record with cause other at a mode switch, ts3fixes applied log has no \"go-live off\".",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "fixesOn": "autshadow,autlive",
+          "repro": "bp-autlive-edit"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40
+    },
+    {
+      "id": "bp-golive-g7-satb-2",
+      "note": "Second clean run of bp-golive-g7-satb (crash rule). PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule).",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-golive-g7-satb-2",
+      "note": "Second clean run of ip-golive-g7-satb (crash rule). PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule).",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "sv-golive-g7-satb-2",
+      "note": "Second clean run of sv-golive-g7-satb (crash rule). PASS (docs/124 §8 G7, §16.3): 0 crashes; -native.json autshadow alOn 3 (Mode 3 + Dry), al dry >= 2,000 searches per world over the queue; top-10 set equal >= 99% and top 1 equal >= 99.5% (report \"G7 dry apply\"); game queue replay mismatches (drySimMis) 0; every miss has a cause (dryMissStale = a worker-failed pair now passes, dryMissBand = ranked below the bands; dryMissOther must be ~0: read the dry-diff records); verify cuts: A1-A3 0, live off by verify 0; fallbacks sized by reason (wait, stopped, epoch, lot, actor fields). Fail: widen TopN/Margin once or add the missing invalidation (docs/124 §14.4 S3 stop rule).",
+      "asi": "game-copy/ts3native.asi.satb8",
+      "fixesPackage": "game-copy/ts3fixes.package.golive5",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 1,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}

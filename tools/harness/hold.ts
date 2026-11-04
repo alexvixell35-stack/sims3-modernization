@@ -4,7 +4,7 @@
 //   node tools/harness/hold.ts off            remove it; the queue goes on within 10 s
 //   node tools/harness/hold.ts wait-job-end   block until the job running now ends (queue.ts writes probe-out/queue/job-running
 //                                             "<job id> <pid>" at job start and deletes it at job end; gone, another job, or a
-//                                             dead queue pid = ended). Run it after `on`, so no new job starts in between.
+//                                             dead queue pid = ended, stale marker removed). Run it after `on`, so no new job starts in between.
 //   node tools/harness/hold.ts --self-check   temp dir only
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -62,10 +62,13 @@ if (import.meta.main) {
   } else if (cmd === 'off') {
     rmSync(join(QUEUE_DIR, 'hold'), { force: true }); log('off');
   } else if (cmd === 'wait-job-end') {
+    const dropStale = () => { const s = read(join(QUEUE_DIR, 'job-running')); if (s && !runningJob()) { clearJob(); log(`removed stale job-running (${s}: pid dead)`); } };
+    dropStale();
     const job = runningJob();
     if (!job) { log('no job running'); process.exit(0); }
     log(`waiting for ${job.split(' ')[0]} to end`);
     for (let t = 1; runningJob() === job; t++) { await sleep(5000); if (t % 60 === 0) log(`still running: ${job.split(' ')[0]} (${t / 12} min)`); }
+    dropStale();
     log(`${job.split(' ')[0]} ended${existsSync(join(QUEUE_DIR, 'hold')) ? '' : ' (WARN: no hold file: the next job may start; run `hold.ts on` first)'}`);
   } else { console.error('usage: node tools/harness/hold.ts on <reason> | off | wait-job-end | --self-check'); process.exit(2); }
 }

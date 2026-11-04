@@ -59,8 +59,16 @@ struct Ts3nMtProbe {
     LONG lazyGate;           // +0x8C, 1 = LazyGate=1 in effect
     LONG lazyOn;             // +0x90, gate switched on by MtSubmit (sim thread, tick boundary)
     LONG lazyOff;            // +0x94, gate switched off at a tick boundary with the worker idle
+    // v6 (0.36.141, docs/30 §16): who waits on the GC lock, and the gate switched off at the sim's first hooked entry after the job
+    LONG simLockWaits;       // +0x98, of lockWaits: the sim thread's (any thread that is not the worker)
+    LONG simLockWaitUs;      // +0x9C
+    LONG simLockMaxWaitUs;   // +0xA0
+    LONG lazyEarlyOff;       // +0xA4, LazyEarly=1: gate off at a depth-0 sim entry once the worker is idle (no wait for the next tick)
 };
-extern "C" __declspec(dllexport) Ts3nMtProbe ts3native_mtprobe = {5};
+extern "C" __declspec(dllexport) Ts3nMtProbe ts3native_mtprobe = {6};
+static volatile LONG g_mtStopReq, g_mtBusy;  // worker stop request; a job (or a skip) is inside the worker
+static bool g_mtLazyGate;   // [MonoThread] LazyGate=1 (default off: the gate stays on while a worker exists)
+static bool g_mtLazyEarly;  // [MonoThread] LazyEarly=1 (with LazyGate=1, docs/30 §16)
 
 static const DWORD MT_COLLECT_A = 0x00E4A050, MT_COLLECT_B = 0x00E4A0B0;
 
@@ -127,6 +135,10 @@ static void MtLockTake() {
     const LONG us = (LONG)((t1.QuadPart - t0.QuadPart) * g_mtUsPerTick);
     m.lockWaits++, m.lockWaitUs += us;  // under the lock now
     if (us > m.lockMaxWaitUs) m.lockMaxWaitUs = us;
+    if (!g_mtWorkerTid || GetCurrentThreadId() != g_mtWorkerTid) {  // v6: the sim's share (the stop rule counts only this)
+        m.simLockWaits++, m.simLockWaitUs += us;
+        if (us > m.simLockMaxWaitUs) m.simLockMaxWaitUs = us;
+    }
 }
 
 // A locked hook frame left by longjmp (GC_oom_fn -> 0xE53740, docs/120 §10) or any unwind never reaches the thunk: its
@@ -143,6 +155,18 @@ static void __cdecl MtLockEnter(DWORD site, DWORD* retSlot) {
     // any entry left is ours (we hold the lock); one at or below the new slot is a frame already unwound
     while (g_mtDepth > 0 && g_mtSlot[g_mtDepth - 1] <= retSlot) MtDropTop();
     Ts3nMtProbe& m = ts3native_mtprobe;
+    // LazyEarly (docs/30 §16): with Satb act the job runs into the next tick and ends mid-tick, but MtLazyOff waits for the
+    // top of the tick after it, so the sim paid the gate for the rest of that tick (bp-satb-act-1 on satb5: 17.2 M sim
+    // locked entries). Here, on the sim, holding the lock with no locked frame of its own open (depth 0: this entry is not
+    // nested in a hooked GC frame) and the worker idle (g_mtBusy 0 = after its last GC exit; only the sim dispatches the next
+    // job), no GC entry of either thread is inside the GC: the gate goes off and this entry runs unlocked, as at a tick boundary.
+    if (g_mtLazyEarly && g_mtDepth == 0 && m.locking && g_mtWorkerTid && GetCurrentThreadId() != g_mtWorkerTid && m.workerState == 2 &&
+        !g_mtBusy && !g_mtStopReq) {
+        InterlockedExchange(&m.locking, 0);
+        m.lazyEarlyOff++;
+        LeaveCriticalSection(&g_mtLock);
+        return;
+    }
     m.lockedCalls++;
     if (g_mtWorkerTid && GetCurrentThreadId() == g_mtWorkerTid) {
         m.lockedWorker++;
@@ -578,8 +602,6 @@ static volatile LONG* g_mtTrackMode = (volatile LONG*)(uintptr_t)0x011DC18C;  //
 struct MtJob { void* method; void* obj; void** params; };
 static MtJob g_mtJob;
 static HANDLE g_mtWorker, g_mtJobEv;
-static volatile LONG g_mtStopReq, g_mtBusy;
-static bool g_mtLazyGate;  // [MonoThread] LazyGate=1 (default off: the gate stays on while a worker exists)
 static void* g_mtDomain;
 // worker, around each job: phase 0 before the invoke, 1 after, 2 after with a managed exception ([AutShadow] part 2)
 static void(__cdecl* g_mtJobHook)(int phase, void* method);

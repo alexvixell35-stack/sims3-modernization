@@ -4,7 +4,7 @@
     {
       "id": "bp-seasonimposter-season",
       "note": "Correctness (8 min): repro bp-seasonimposter-season under /taskstall 250. Pass: 'season: N lots' with N >= 1 (0 = no marked community lot on this save: switch the save, not the fix); game's half: one stall per lot under Lot.ChangeSeason with World.RegenImposter; our half: seasonimposter_queued >= 1 and no stall there; cold on: seasonimposter_cold >= 1; save: seasonimposter_flushed >= 1, seasonimposter_dropped 0; no ScriptError",
-      "asi": "game-copy/ts3native.asi.rel020",
+      "asi": "tested",
       "save": "Baseline-BP",
       "run": {
         "profile": {
@@ -22,7 +22,7 @@
     {
       "id": "bp-seasonimposter-ab",
       "note": "Hitch A/B (12 min, in one load): repro bp-seasonimposter-loop, ABBA until 4 firings per arm. Pass: off arms >= 300 ms on most firings (4 RegenImposter waits in one tick); on arms no >= 300 ms iteration from a firing, seasonimposter_queued rising, seasonimposter_max_depth 4; cleanup flush seasonimposter_flushed 4. Clear-regression rules of AGENTS.md apply",
-      "asi": "game-copy/ts3native.asi.rel020",
+      "asi": "tested",
       "save": "Baseline-BP",
       "ini": {
         "HitchAttr.Enabled": 1,
@@ -50,7 +50,7 @@
     {
       "id": "bp-eafixes-check",
       "note": "Correctness (5 min): repro bp-eafixes-check. Pass: off lines show EA's errors (topic threw 4, carry threw 1, prefdup after 2, throwdb +30), on lines none (threw 0, prefdup after 0, throwdb +0), counters eanullguards_topic 4 / _carry 1, preferredservice_extra >= 2, showstagethrowables_destroyed 30; applied log has every EaFixes patch 'ok'; no crash",
-      "asi": "game-copy/ts3native.asi.rel020",
+      "asi": "tested",
       "save": "Baseline-BP",
       "run": {
         "profile": {

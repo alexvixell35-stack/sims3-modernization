@@ -1,0 +1,158 @@
+{
+  "note": "Routing night 2026-10-31 part 1, correctness (day rules, no timing read): re-pointed copies of stale-build jobs on master (source build: asi tested since 2026-10-31; was game-copy/ts3native.asi.satb10 = 0.36.146) with build/ts3fixes.package rebuilt from master by the chain. Run with --no-smoke. Chain: probe-out/queue/chain-routing-night-1031.sh.",
+  "jobs": [
+    {
+      "id": "ip-locktaker-verify-146",
+      "note": "Correctness (shadows on, 1 firing per arm) of the lock-taker set (SteerRO, AvoidRO, Gate0RO, DeferFootprint+2, RouteToObjRO, PlacementRO, a10foreign) on master (source build) at release defaults (non-release extras of the 10-23 ini removed: SlotEnabledRO, UnseenThrottle, TailUnlock, H2, EarlyOut act). Note: the loop flips DeferFootprint too, so the off arm has the shipped DeferFootprint=1 off. Any FAIL: the chain skips ip-locktaker-ab-146. [was: ip-locktaker-verify on source build (asi tested since 2026-10-31; was game-copy/ts3native.asi.0333)]",
+      "asi": "tested",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 101,
+      "nativeRequire": "steerTaken>=1,avTakenMiss>=1,g0Served>=1,usfDeferred>=1,fgTaken>=1,afStarted_2>=1,usfApplyInJob<=0,fp2ApplyInJob<=0,steerSimWriteInRo<=0,avSimWriteInRo<=0,rtoSimWriteInRo<=0,afActiveTrip<=0,steerShadowMismatch<=0,avShadowMismatch<=0,avShadowMismatchB<=0,g0Mismatch<=0,rtoShadowMismatch<=0,fgShadowMismatch<=0",
+      "logRequire": {
+        "OK   steer RO": 1,
+        "OK   avoid RO": 1,
+        "OK   gate0 RO": 1,
+        "OK   footprint deferral .design U": 1,
+        "OK   footprint deferral phase 2": 1,
+        "OK   route-to-object RO": 1
+      },
+      "ini": {
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "HitchAttr.Enabled": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "HitchAttr.Holders": 1,
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 0,
+        "SteerRO.Enabled": 1,
+        "SteerRO.Mode": 1,
+        "SteerRO.Shadow": 1,
+        "AvoidRO.Enabled": 1,
+        "AvoidRO.Mode": 1,
+        "AvoidRO.Shadow": 1,
+        "Gate0RO.Enabled": 1,
+        "Gate0RO.Mode": 1,
+        "Gate0RO.Shadow": 1,
+        "Discourage.DeferFootprint2": 1,
+        "RouteToObjRO.Enabled": 1,
+        "RouteToObjRO.Mode": 1,
+        "RouteToObjRO.Shadow": 1,
+        "PlacementRO.Enabled": 1,
+        "PlacementRO.Mode": 1,
+        "PlacementRO.Shadow": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 8,
+          "repro": "ip-locktaker-loop",
+          "loopRule": {
+            "until": {
+              "perArm": 1,
+              "minFirings": 1
+            },
+            "maxMinutes": 6
+          },
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22
+    },
+    {
+      "id": "sv-ufc-buildbuy-146",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "note": "Correctness: [UnseenFallback] Sites Build/Buy fix (0.36.111 list drop + 0.36.117 span watch, never run in game) on master (source build): the native_check buy window must show ufcTry_0/ufcTry_1/ufcFake_0 = 0 (failed 10-26 and 10-28 on unseenfb-all14). [was: sv-ufc-buildbuy on source build (asi tested since 2026-10-31; was game-copy/ts3native.asi.unseenfb-all14)]",
+      "asi": "tested",
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "ccSet": "game-copy/cc-synth/cc-2k",
+      "minCounters": 139,
+      "noiseCheck": false,
+      "nativeRequire": "ufcReady>=63,watchdogs<=0",
+      "ini": {
+        "UnseenFallback.Sites": 1,
+        "ArenaGuard.InitobjFix": 1,
+        "ArenaGuard.TailPad": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "repro": "bb-cc-short",
+          "noSamplers": true,
+          "fixesOn": "unseenfbsites",
+          "fixesReport": "unseenfb"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35
+    },
+    {
+      "id": "sv-jobyield-verify-146",
+      "note": "Correctness: JobYield (native [RouteAsync] JobYield + ts3fixes jobyield) on master (source build) (10-25 PASS on asi.jobyield 0.36.38). [was: sv-jobyield-verify on source build (asi tested since 2026-10-31; was game-copy/ts3native.asi.jobyield)]",
+      "asi": "tested",
+      "minCounters": 109,
+      "save": "Baseline-SV-Spring",
+      "nativeRequire": "jyBusy>=1,watchdogs<=0",
+      "fixesRequire": "jobyield_steps>=1,jobyield_capped<=0",
+      "ini": {
+        "RouteAsync.JobYield": 1,
+        "RouteAsync.OwnJobWait": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.HostSplit": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "repro": "route-ownjob-yield-loop",
+          "fixesOn": "jobyield"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25
+    },
+    {
+      "id": "bp-nostart-verify-3am-146",
+      "note": "Correctness: ts3fixes stuckchecknear + failrepeat on the 3 AM stuck check, master (source build) (no earlier result on file). [was: bp-nostart-verify-3am on source build (asi tested since 2026-10-31; was game-copy/ts3native.asi.0325)]",
+      "asi": "tested",
+      "minCounters": 81,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 8,
+          "repro": "stuck-check-3am",
+          "fixesOn": "stuckchecknear,failrepeat",
+          "fixesRequire": "stuckchecknear_checks>=1"
+        }
+      },
+      "timeoutMin": 25
+    }
+  ]
+}

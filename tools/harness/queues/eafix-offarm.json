@@ -1,0 +1,132 @@
+{
+  "note": "eafix OFF-arm evidence (2026-11-01), NOT RUN: crash V (#98) and crash W (#99) release rule needs a reproduced crash with the switch OFF plus a clean ON twin, on rel025b. OFF jobs are EXPECTED to crash: FAIL with a crash at the site named in the job note = evidence for the fix (queue.ts has no expect-crash option); triage with crash triage. stopQueueOnFail is false so the ON twins still run. ~4 x 12 min cap.",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-eafix-conform-off",
+      "note": "Release-rule evidence (ConformActor, switch OFF), rel025b builds. Repro ea-conform-actor-destroy-loop. OFF arm: a CRASH is the EXPECTED outcome and shows the bug is real; the queue marks it FAIL, which here = evidence for the fix. Judge with crash triage: expected site = crash V: call eax at 0x84EAC6 (follower body list, first node 0x84EAB2/0x84EABD/0x84EAC3) through a freed actor; also 0x849570/0x853500 ask sites; eip often 0 or vtable word garbage (docs/67 s26.1). A clean OFF run proves nothing (rare race): rerun up to 3 times. Not a timing run.",
+      "asi": "game-copy/ts3native.asi.rel025b",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025b",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "ini": {
+        "EaCrashFixes.ConformActor": 0,
+        "Crash.Log": 1
+      },
+      "logForbid": {
+        "^FAIL ea fix": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ea-conform-actor-destroy-loop"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "pinReason": "rel025b is the tested build (builds.json rel025b-asi 0.36.152 / rel025b-fixes); source has moved on since"
+    },
+    {
+      "id": "bp-eafix-conform-on",
+      "note": "Release-rule evidence (ConformActor, switch ON), rel025b builds. Repro ea-conform-actor-destroy-loop. ON arm twin: must be clean (OK ea fix line, no crash); read v141 counters (ca*/tp*). Not a timing run.",
+      "asi": "game-copy/ts3native.asi.rel025b",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025b",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "ini": {
+        "EaCrashFixes.ConformActor": 1,
+        "Crash.Log": 1
+      },
+      "logRequire": {
+        "^OK   ea fix: ConformActor": 1
+      },
+      "logForbid": {
+        "^SKIP ea fix": 0,
+        "^FAIL ea fix": 0,
+        "tracking stopped": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ea-conform-actor-destroy-loop"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "pinReason": "rel025b is the tested build (builds.json rel025b-asi 0.36.152 / rel025b-fixes); source has moved on since"
+    },
+    {
+      "id": "bp-eafix-thumb-off",
+      "note": "Release-rule evidence (ThumbPose, switch OFF), rel025b builds. Repro ea-thumb-pose-pack-loop. OFF arm: a CRASH is the EXPECTED outcome and shows the bug is real; the queue marks it FAIL, which here = evidence for the fix. Judge with crash triage: expected site = crash W: read fault at 0x54E79A movaps xmm0,[ecx+eax] in pose modifier 0x54E630 from thumbnail render 0xD59C10 (docs/67 s27.1). A clean OFF run proves nothing (rare race): rerun up to 3 times. Not a timing run.",
+      "asi": "game-copy/ts3native.asi.rel025b",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025b",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "ini": {
+        "EaCrashFixes.ThumbPose": 0,
+        "Crash.Log": 1
+      },
+      "logForbid": {
+        "^FAIL ea fix": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ea-thumb-pose-pack-loop"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "pinReason": "rel025b is the tested build (builds.json rel025b-asi 0.36.152 / rel025b-fixes); source has moved on since"
+    },
+    {
+      "id": "bp-eafix-thumb-on",
+      "note": "Release-rule evidence (ThumbPose, switch ON), rel025b builds. Repro ea-thumb-pose-pack-loop. ON arm twin: must be clean (OK ea fix line, no crash); read v141 counters (ca*/tp*). Not a timing run.",
+      "asi": "game-copy/ts3native.asi.rel025b",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025b",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "ini": {
+        "EaCrashFixes.ThumbPose": 1,
+        "Crash.Log": 1
+      },
+      "logRequire": {
+        "^OK   ea fix: ThumbPose": 1
+      },
+      "logForbid": {
+        "^SKIP ea fix": 0,
+        "^FAIL ea fix": 0,
+        "tracking stopped": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ea-thumb-pose-pack-loop"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "pinReason": "rel025b is the tested build (builds.json rel025b-asi 0.36.152 / rel025b-fixes); source has moved on since"
+    }
+  ]
+}

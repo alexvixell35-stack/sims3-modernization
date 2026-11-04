@@ -1,0 +1,255 @@
+{
+  "note": "offload3-moder: docs/208 Mode R for two docs/129 candidates on the [AutShadow] worker (environment score, broadcaster candidate sets; motive decay is design-only, docs/208 §4). ts3native 0.36.132 (asi game-copy/ts3native.asi.off3) + ts3fixes package off3 (AutOffload.cs, counters 448-465). Correctness only, no timing verdict: smoke first, then env BP/IP, then bcast BP/IP; stop at any crash or A2. Read the autoff_* counters in each job's patches answer and the off-env / off-bcast lines of autshadow.jsonl. 4 + 4 x 10 min, ~1 h with loads.",
+  "smoke": {
+    "id": "bp-autoff-smoke",
+    "note": "Smoke (docs/208, 4 min BP, both candidates on): PASS = 0 crashes, autoff_env_items > 0 and autoff_bcast_items > 0 (hooks fed the rings, the batch carried items), autoff_env_a0 + autoff_bcast_a0 > 0, autoff_*_exc == 0, the agent reads back autoffenv / autoffbcast / autoffdry on. A FAIL stops the queue.",
+    "asi": "game-copy/ts3native.asi.off3",
+    "fixesPackage": "game-copy/ts3fixes.package.off3",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 90,
+    "ini": {
+      "HitchAttr.Enabled": 1,
+      "RouteSnap.Enabled": 1,
+      "RouteSnap.Count": 1,
+      "RouteSnap.AuditEvery": 0,
+      "MonoThread.Enabled": 1,
+      "MonoThread.Mode": 1,
+      "MonoThread.GcLock": 1,
+      "MonoThread.FrameTls": 1,
+      "MonoThread.ArenaFix": 1,
+      "MonoThread.N2mPrivate": 1,
+      "AutShadow.Enabled": 1,
+      "AutShadow.Mode": 1,
+      "AutShadow.Sample": 4,
+      "AutShadow.Audit": 50,
+      "AutShadow.DumpOnMismatch": 1,
+      "AutShadow.WindowWaitUs": 5000,
+      "AutShadow.ColdIc": 1,
+      "AutShadow.CutLean": 2,
+      "AutShadow.TierMs": 1500,
+      "AutShadow.ListAudit": 1,
+      "AutShadow.TierClassMs": 1000,
+      "AutShadow.RowHot": 200,
+      "AutShadow.RunSkip": 1,
+      "AutShadow.FreshEvery": 8,
+      "AutShadow.KeepPartial": 1
+    },
+    "logRequire": {
+      "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+      "OK   mono thread P4": 1
+    },
+    "run": {
+      "profile": {
+        "minutes": 4,
+        "seed": 12345,
+        "fixesOn": "autshadow,autoffenv,autoffbcast,autoffdry"
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 30
+  },
+  "jobs": [
+    {
+      "id": "bp-autoff-env-r",
+      "note": "docs/208 Mode R, environment score, BP (ts3native 0.36.132, asi.off3; mono-cost13 keys). PASS = 0 crashes, no freeze; autoff_env_a0 > 0, autoff_env_a2 == 0 (any A2: off-env records in autshadow.jsonl, triage before the next job), autoff_env_exc == 0, autoff_env_a4 < 30% of autoff_env_items (reasons: autoff_reasons 0-23; row/list/query = learned keys, 23 = mod type); autshadow A1-A3 still 0 (the meta pairs are unchanged), workerExceptions 0. Read: autoff_env_dry / _dry_eq (cut answer vs the live driver at the Sim's own update: staleness) and _game_eq (live driver vs the game's Decoration / Dirtiness writes: apply equivalence, docs/208 §2.4). -native.json: auditMis 0; World_GetInformationAboutRoomImpl / World_TreesWithinRadialRangeImpl keys learned (no `other` aborts once learned).",
+      "asi": "game-copy/ts3native.asi.off3",
+      "fixesPackage": "game-copy/ts3fixes.package.off3",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffdry"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-autoff-env-r",
+      "note": "docs/208 Mode R, environment score, IP (ts3native 0.36.132, asi.off3; mono-cost13 keys). PASS = 0 crashes, no freeze; autoff_env_a0 > 0, autoff_env_a2 == 0 (any A2: off-env records in autshadow.jsonl, triage before the next job), autoff_env_exc == 0, autoff_env_a4 < 30% of autoff_env_items (reasons: autoff_reasons 0-23; row/list/query = learned keys, 23 = mod type); autshadow A1-A3 still 0 (the meta pairs are unchanged), workerExceptions 0. Read: autoff_env_dry / _dry_eq (cut answer vs the live driver at the Sim's own update: staleness) and _game_eq (live driver vs the game's Decoration / Dirtiness writes: apply equivalence, docs/208 §2.4). -native.json: auditMis 0; World_GetInformationAboutRoomImpl / World_TreesWithinRadialRangeImpl keys learned (no `other` aborts once learned).",
+      "asi": "game-copy/ts3native.asi.off3",
+      "fixesPackage": "game-copy/ts3fixes.package.off3",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 10000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffdry"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-autoff-bcast-r",
+      "note": "docs/208 Mode R, broadcaster candidate sets, BP (ts3native 0.36.132, asi.off3; mono-cost13 keys). PASS = 0 crashes, no freeze; autoff_bcast_a0 > 0, autoff_bcast_a1 == 0 and autoff_bcast_a2 == 0 (worker and reference read the same query key: an order or set change is a snapshot bug), autoff_bcast_exc == 0, autoff_bcast_a4 < 30% of autoff_bcast_items (reasons 24-47); autshadow A1-A3 still 0, workerExceptions 0. Read: autoff_bcast_dry / _dry_eq = the apply step rebuilt from the cut candidates against the game's own GetInRadiusSims (set and order, docs/208 §3.3); go-live wants >= 99%.",
+      "asi": "game-copy/ts3native.asi.off3",
+      "fixesPackage": "game-copy/ts3fixes.package.off3",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffbcast,autoffdry"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-autoff-bcast-r",
+      "note": "docs/208 Mode R, broadcaster candidate sets, IP (ts3native 0.36.132, asi.off3; mono-cost13 keys). PASS = 0 crashes, no freeze; autoff_bcast_a0 > 0, autoff_bcast_a1 == 0 and autoff_bcast_a2 == 0 (worker and reference read the same query key: an order or set change is a snapshot bug), autoff_bcast_exc == 0, autoff_bcast_a4 < 30% of autoff_bcast_items (reasons 24-47); autshadow A1-A3 still 0, workerExceptions 0. Read: autoff_bcast_dry / _dry_eq = the apply step rebuilt from the cut candidates against the game's own GetInRadiusSims (set and order, docs/208 §3.3); go-live wants >= 99%.",
+      "asi": "game-copy/ts3native.asi.off3",
+      "fixesPackage": "game-copy/ts3fixes.package.off3",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 10000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffbcast,autoffdry"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}

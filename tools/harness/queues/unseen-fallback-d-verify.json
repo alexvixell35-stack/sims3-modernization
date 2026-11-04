@@ -1,14 +1,14 @@
 {
-  "note": "D / D-arrive / D-leave forced loops after the 2026-10-30 fixes (docs/202 §3.6.5), NOT RUN. ts3fixes: UfCaller skipped our own frame wrongly (every D plan refused at gate 336, 10-27 callers = Ts3Fixes.Fixes.UfFollows), now skips Ts3Fixes.Fixes Uf* frames; ViewObjects.CreateRouteToObject + RouteToObject accepted as a plan-then-DoRoute pair. ts3agent repros: crowd_do farobj targets viewable objects (Sculpture|Statue|Fountain|Painting|Art, View first). cycle.ts rebuilds ts3fixes + ts3agent from this source. Correctness only, day OK, SV. Pass per job: no crash, 0 watchdog lines, its shortcut / hold counter >= 10 (fixesRequire), Sims not left stuck at the end; reject counters and callers recorded by fixesReport unseenfb. asi = game-copy/ts3native.asi.route1 (colour codes 11-13 since 0.36.94). A FAIL with crowd_do interaction Sit = no viewable object on the community lots tried: read lots_tried, then pick a fixed lot by name.",
+  "note": "D / D-arrive / D-leave forced loops after the 2026-10-30 fixes (docs/202 §3.6.5, §3.6.6), NOT RUN. §3.6.6 (second 10-30 fix): gate 332 refused every candidate (2083 in sv-ufbd2-pre-loop) because the game sets EnablePlanningAsCar on every child-or-older Sim route; it now refuses only BeginAsCar, DisablePlanningAsPedestrian and the boat options. repro-loop count {result: sent} counted 0 (a list): it now counts the list's length; the loops need 2 ABBA cycles (minFirings 2) so the first on-firing may fill verdicts and later ones act. §3.6.5: UfCaller skips our own Uf* frames; ViewObjects.CreateRouteToObject + RouteToObject accepted as a plan-then-DoRoute pair. crowd_do farobj picks viewable objects (View: ViewObjects on statues, ViewPlant on trees = RoutingComponent.RouteToPointRadialRange, both D followers). cycle.ts rebuilds ts3fixes + ts3agent from this source. Correctness only, day OK, SV. Pass per job: no crash, 0 watchdog lines, its shortcut / hold counter >= 10 (fixesRequire), Sims not left stuck at the end; reject counters and callers recorded by fixesReport unseenfb. asi = source build (asi tested since 2026-10-31; was game-copy/ts3native.asi.route1) (colour codes 11-13 since 0.36.94). A FAIL with crowd_do interaction Sit = no viewable object on the lots tried.",
   "jobs": [
     {
-      "id": "sv-ufbd2-pre-loop",
+      "id": "sv-ufbd3-pre-loop",
       "routingFailFast": {
         "ms": 300,
         "scope": "unseen"
       },
-      "note": "docs/202 §3.6.5 rerun: D correctness: forced ABBA on unseenfb-pre-far-object (30 Sims at the farthest community lot, each loop Sit on a bench of far2: own-task RouteToSlot plans with both ends unseen), 30 per arm, cap 14 min. Pass: no crash, 0 watchdog lines, unseenfbpre_shortcuts >= 10, no stuck teleported Sim, held Sims in_transit during holds. Read: unseenfbpre_no_spot / _failfast / _cancelled, route jobs per arm (D removes the plans). Read row.fixActivity: unseenfbpre_rj_* (328-340; 336 caller must now fall), unseenfbpre_callers (no Ts3Fixes.Fixes.UfFollows entry may appear), and the crowd_do answer (interaction View; Sit cannot fire D).",
-      "asi": "game-copy/ts3native.asi.route1",
+      "note": "docs/202 §3.6.6 rerun: D correctness: forced ABBA on unseenfb-pre-far-object (30 Sims at the farthest community lot, each loop View on an outdoor statue or tree of a far community lot: own-task RouteToPointRadialRange / ViewObjects plans with both ends unseen), 30 Sims per arm and >= 2 firings per arm, cap 14 min. Pass: no crash, 0 watchdog lines, unseenfbpre_shortcuts >= 10, no stuck teleported Sim, held Sims in_transit during holds. Read: unseenfbpre_no_verdict / _filled (first visit to a goal cell plans normally and fills), _no_spot / _failfast / _cancelled, route jobs per arm. Read row.fixActivity: unseenfbpre_rj_vehicle must fall to the few car/boat starters (was 2083), then the next gate that leads (338 colour, 339 / 326 verdict) says what is left; unseenfbpre_callers, and the crowd_do answer (interaction View; Sit cannot fire D).",
+      "asi": "tested",
       "releaseDefaults": true,
       "save": "Baseline-SV-Spring",
       "minCounters": 138,
@@ -27,7 +27,8 @@
           "repro": "unseenfb-pre-far-object",
           "loopRule": {
             "until": {
-              "perArm": 30
+              "perArm": 30,
+              "minFirings": 2
             },
             "maxMinutes": 14
           },
@@ -42,13 +43,13 @@
       "timeoutMin": 35
     },
     {
-      "id": "sv-ufbd2-hold-overwatch",
+      "id": "sv-ufbd3-hold-overwatch",
       "routingFailFast": {
         "ms": 300,
         "scope": "unseen"
       },
-      "note": "docs/202 §3.6.5 rerun: Stuck-detector compatibility of D holds (docs/202 §3.7): repro unseenfb-hold-overwatch (20 far Sims held for the far -> far2 walk time, two Overwatch passes forced inside the holds, our watchdog's own checks). Pass: no crash, unseenfbpre_holds >= 10, owstucknotice_held unchanged (no Overwatch Unroutable / Stationary reset), watchdog resets and stuck_check_reset unchanged. Needs NRaas Overwatch in the test Mods (as the Overwatch jobs). Read row.fixActivity: unseenfbpre_rj_* (328-340; 336 caller must now fall), unseenfbpre_callers (no Ts3Fixes.Fixes.UfFollows entry may appear), and the crowd_do answer (interaction View; Sit cannot fire D).",
-      "asi": "game-copy/ts3native.asi.route1",
+      "note": "docs/202 §3.6.6 rerun: Stuck-detector compatibility of D holds (docs/202 §3.7): repro unseenfb-hold-overwatch (20 far Sims held for the far -> far2 walk time, two Overwatch passes forced inside the holds, our watchdog's own checks). Pass: no crash, unseenfbpre_holds >= 10, owstucknotice_held unchanged (no Overwatch Unroutable / Stationary reset), watchdog resets and stuck_check_reset unchanged. Needs NRaas Overwatch in the test Mods (as the Overwatch jobs). Read row.fixActivity: unseenfbpre_rj_vehicle must fall to the few car/boat starters (was 2083), then the next gate that leads (338 colour, 339 / 326 verdict) says what is left; unseenfbpre_callers, and the crowd_do answer (interaction View; Sit cannot fire D).",
+      "asi": "tested",
       "releaseDefaults": true,
       "save": "Baseline-SV-Spring",
       "minCounters": 138,
@@ -76,13 +77,13 @@
       "timeoutMin": 25
     },
     {
-      "id": "sv-ufbd2-arrive-loop",
+      "id": "sv-ufbd3-arrive-loop",
       "routingFailFast": {
         "ms": 300,
         "scope": "unseen"
       },
-      "note": "docs/202 §3.6.5 rerun: D-arrive correctness (docs/202 §3.6): forced ABBA on unseenfb-arrive-home (30 Sims at the farthest community lot, each loop Sit (or View / Admire ...) on an outdoor object of far2 with the camera on it: start unseen, goal in view), 30 per arm. Pass: no crash, 0 watchdog lines, unseenfbarrive_shortcuts >= 10, no stuck teleported Sim, Sims appear out of view and walk in. Read: unseenfbarrive_no_spot, unseenfbpre_no_verdict / _filled, unseenfbpre_cancelled. Read row.fixActivity: unseenfbpre_rj_* (328-340; 336 caller must now fall), unseenfbpre_callers (no Ts3Fixes.Fixes.UfFollows entry may appear), and the crowd_do answer (interaction View; Sit cannot fire D).",
-      "asi": "game-copy/ts3native.asi.route1",
+      "note": "docs/202 §3.6.6 rerun: D-arrive correctness (docs/202 §3.6): forced ABBA on unseenfb-arrive-home (30 Sims at the farthest community lot, each loop View on an outdoor object of a far community lot with the camera on it: start unseen, goal in view), 30 Sims per arm and >= 2 firings per arm. Pass: no crash, 0 watchdog lines, unseenfbarrive_shortcuts >= 10, no stuck teleported Sim, Sims appear out of view and walk in. Read: unseenfbarrive_no_spot, unseenfbpre_no_verdict / _filled, unseenfbpre_cancelled. Read row.fixActivity: unseenfbpre_rj_vehicle must fall to the few car/boat starters (was 2083), then the next gate that leads (338 colour, 339 / 326 verdict) says what is left; unseenfbpre_callers, and the crowd_do answer (interaction View; Sit cannot fire D).",
+      "asi": "tested",
       "releaseDefaults": true,
       "save": "Baseline-SV-Spring",
       "minCounters": 138,
@@ -101,7 +102,8 @@
           "repro": "unseenfb-arrive-home",
           "loopRule": {
             "until": {
-              "perArm": 30
+              "perArm": 30,
+              "minFirings": 2
             },
             "maxMinutes": 14
           },
@@ -116,13 +118,13 @@
       "timeoutMin": 35
     },
     {
-      "id": "sv-ufbd2-leave-loop",
+      "id": "sv-ufbd3-leave-loop",
       "routingFailFast": {
         "ms": 300,
         "scope": "unseen"
       },
-      "note": "docs/202 §3.6.5 rerun: D-leave correctness (docs/202 §3.6): forced ABBA on unseenfb-leave-far (30 Sims on the household lot, each loop Sit on a bench of far2: start in view, goal unseen), 30 per arm. Pass: no crash, 0 watchdog lines, unseenfbleave_shortcuts >= 10 (the first loops may only fill verdicts: unseenfbpre_filled > 0), no stuck teleported Sim, the visible leg walked normally. Read row.fixActivity: unseenfbpre_rj_* (328-340; 336 caller must now fall), unseenfbpre_callers (no Ts3Fixes.Fixes.UfFollows entry may appear), and the crowd_do answer (interaction View; Sit cannot fire D).",
-      "asi": "game-copy/ts3native.asi.route1",
+      "note": "docs/202 §3.6.6 rerun: D-leave correctness (docs/202 §3.6): forced ABBA on unseenfb-leave-far (30 Sims on the household lot, each loop View on an outdoor object of a far community lot: start in view, goal unseen), 30 Sims per arm and >= 2 firings per arm. Pass: no crash, 0 watchdog lines, unseenfbleave_shortcuts >= 10 (the first loops may only fill verdicts: unseenfbpre_filled > 0), no stuck teleported Sim, the visible leg walked normally. Read row.fixActivity: unseenfbpre_rj_vehicle must fall to the few car/boat starters (was 2083), then the next gate that leads (338 colour, 339 / 326 verdict) says what is left; unseenfbpre_callers, and the crowd_do answer (interaction View; Sit cannot fire D).",
+      "asi": "tested",
       "releaseDefaults": true,
       "save": "Baseline-SV-Spring",
       "minCounters": 138,
@@ -141,7 +143,8 @@
           "repro": "unseenfb-leave-far",
           "loopRule": {
             "until": {
-              "perArm": 30
+              "perArm": 30,
+              "minFirings": 2
             },
             "maxMinutes": 14
           },

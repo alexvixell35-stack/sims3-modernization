@@ -109,6 +109,16 @@ If you use NRaas Overwatch and notice a half-second freeze about once per game d
 
 Tested together with DXVK, Sims 3 Settings Setter, NRaas (ErrorTrap, Overwatch), the Smooth Patch and the Sims 3 Performance Patch. If something looks wrong, remove our files first and see if it goes away, then [open an issue](https://github.com/rodneypantonial/sims3-modernization/issues) with what you saw.
 
+## Help port to the EA app version
+
+The fixes are built for the Steam edition only. If you own The Sims 3 from the **EA app or Origin**, you can help port them without sending any game files:
+
+1. Download `Sims3PortProbe.ps1`, `port-sigs.txt` and `Run-PortProbe.cmd` from `tools/port-probe/` (or the release zip) into one folder.
+2. Start the game and wait for the **main menu**. Then double-click `Run-PortProbe.cmd` (no admin needed). It reads the running game's code in memory, read only, and after about a minute writes `Sims3PortReport-xxxxxxxx.zip` to your Desktop. Close the game afterwards as usual.
+3. Send the zip to Rodney: [open a port report](https://github.com/rodneypantonial/sims3-modernization/issues/new?template=port-report.yml) and drag the zip in, or send it in a Discord DM.
+
+The report holds only numbers, names and hashes (addresses, function sizes, imported function names, string texts the game uses, script method sizes and hashes, your installed pack folders and Windows version). It holds no game code, no paths, no user or machine name. The script is plain PowerShell you can read; it uses no AI and sends nothing by itself. Windows only (it reads another program's memory). Rarely Rodney may send back a small `questions.json`: run `powershell -ExecutionPolicy Bypass -File Sims3PortProbe.ps1 -Questions questions.json` with the game at the main menu and send the answers zip the same way.
+
 ## For testers and developers: setting names
 
 You don't need anything in this section to play. It maps the list above to the settings that are on in the shipped files, so testers can tell what is what. Technical notes per release: `docs/release-notes/`.
@@ -116,4 +126,5 @@ You don't need anything in this section to play. It maps the list above to the s
 - `ts3fixes.package` tunables set to True: `kGoHomeShortcut`, `kBuildingTripShortcut`, `kLotTripShortcut` (townies skip the walk), `kVirtualHomeShortcut` (homeless townies), `kNoRouteFailWalkOffscreen`, `kRouteFailureBackoff`, `kNoStationDetourOffscreen` (route retries), `kStuckWatchdog`, `kStuckWatchdogIdle` (stuck Sims), `kPortalAdaptorLeak` (swimming and houseboats), `kBroadcasterThrottle`, `kWalkStyleComparer` (background work), `kFastRefTable` (saving), `kMotiveBarImageCache`, `kBuffGridInPlace`, `kSimNameCache` (Sim panel), `kStuckCheckAsync` (3 AM check), `kOverwatchChain`, `kOverwatchIgnoreStuckProbes` (Overwatch), `kErrorTrapSpread` (ErrorTrap).
 - `ts3native.ini` sections with `Enabled=1`: `[GC]` (memory), `[WaterJps]` (water routes), `[Decompress]` (unpacking), `[SaveWrite]` (saving), `[RouteAsync]` with `[RouteGate]` and `[Discourage]` (background routing and its safety locks, which must stay on together; `[Discourage]` `DeferFootprint=1` = moving Sims and objects, `[RouteAsync]` `RefcountGuard=1` = crowds), `[LotRemoveGuard]` and `[OptsInit]` (crash guards).
 - New in v0.2.0, on: `ts3fixes.package` tunables `kEaSpreadLots`, `kEaSpreadPets`, `kEaSpreadDecay` (nightly chores in small steps), `kOverwatchStuckSlice` (NRaas Overwatch stuck check split up), `kUnseenFallbackStuck`, `kUnseenFallbackPlan`, `kUnseenFallbackTeleport`, `kUnseenFallbackPre`, `kUnseenFallbackArrive`, `kUnseenFallbackLeave`, `kUnseenFallbackLoopDetect` (hitch guard for Sims you can't see); `ts3native.ini` sections `[UnseenFallback]` (the same guard, native side) and `[UserDiag]` (the problem-report lines in `ts3native.log`, since v0.1.6).
+- `ts3native.ini` `[EaCrashFixes]` keys set to 1 (fixes for the game's own crashes): `GeomNoMaterial` (custom-content hair or clothing mesh without a material: that part is skipped at that distance instead of crashing, since v0.2.5), `WorldAStarRefs` and `PortalFlagRefs` (Isla Paradiso routing crash, since v0.2.5). The other keys there stay 0 until they are proven the same way.
 - To switch background routing off: `Enabled=0` under `[RouteAsync]` in `ts3native.ini`; the game then plans every route itself as before.

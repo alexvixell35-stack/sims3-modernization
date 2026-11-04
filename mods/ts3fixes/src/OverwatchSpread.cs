@@ -198,8 +198,8 @@ namespace Ts3Fixes
                 sOwTypeWatch.Restart();
                 long tick = Simulator.TicksElapsed();
                 OwPerformFn perform = OwPerformDelegate(option);
-                if (perform != null) perform();
-                else sOwPerform.Invoke(option, null);
+                if (perform == null) { OwLog(OwName(option) + ": no PerformAlarm delegate, skipped"); return; }
+                perform();
                 long us = sOwTypeWatch.GetElapsedTime();
                 if (ours) OwTypeTime(option, tick, us);
             }
@@ -208,7 +208,9 @@ namespace Ts3Fixes
 
         // Spread slots and the single-type trigger only (the chain goes through Overwatch's own loop). A delegate, not
         // MethodInfo.Invoke (a nested native->managed call: no yield inside it); StuckCheck still got no per-plan yield
-        // this way in the 2026-10-23 loop (docs/145 §11). null (no interface map) = Invoke.
+        // this way in the 2026-10-23 loop (docs/145 §11). Never sOwPerform.Invoke: it dispatches to the swapped
+        // AlarmOption.PerformAlarm and Mono throws TargetException (tools/selftest/swapinvoke). No interface map = the
+        // option type's own PerformAlarm; null = skip the type.
         delegate void OwPerformFn();
         static OwPerformFn OwPerformDelegate(object option)
         {
@@ -219,7 +221,13 @@ namespace Ts3Fixes
                     if (map.InterfaceMethods[i] == sOwPerform)
                         return (OwPerformFn)Delegate.CreateDelegate(typeof(OwPerformFn), option, map.TargetMethods[i]);
             }
-            catch (Exception e) { OwLog(OwName(option) + ": no delegate, reflection call (" + e.Message + ")"); }
+            catch (Exception e) { OwLog(OwName(option) + ": no interface map (" + e.Message + ")"); }
+            try
+            {
+                MethodInfo m = option.GetType().GetMethod("PerformAlarm", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+                if (m != null) return (OwPerformFn)Delegate.CreateDelegate(typeof(OwPerformFn), option, m);
+            }
+            catch (Exception e) { OwLog(OwName(option) + ": no delegate (" + e.Message + ")"); }
             return null;
         }
 

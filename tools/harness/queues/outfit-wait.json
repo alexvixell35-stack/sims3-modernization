@@ -1,0 +1,66 @@
+{
+  "note": "Issue #115 (outfitwaitpoll: OutfitWait.cs), default off, docs/224. Built 2026-10-31. Forced repro first, then one in-load A/B (both on the 2026-10-31 run). The per-load off/on timing jobs of that run were dropped: BigSave-LR had no costly stale wait (Wait in <= 3 of ~884 samples per arm), so the cost check needs the #115 day-406 save.",
+  "jobs": [
+    {
+      "id": "bp-outfit-wait-check",
+      "note": "Correctness (8 min): repro outfit-wait-stale-check. Pass: off: the check's wait task still running after 60 s at triple speed and gone after 'ready', counters 0; on: outfitwaitpoll_stale >= 1 (fixesRequire; the check's wait plus any natural stale waits), the check's \"log\" step lists 'outfitwaitpoll: ... (aborted True)' and the task names, after 'ready' the check's wait gone within a sim-minute; the Sim keeps its outfit",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "outfit-wait-stale-check",
+          "fixesRequire": "outfitwaitpoll_stale>=1,outfitwaitpoll_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:outfitwaitpoll_stale",
+          "op": ">=",
+          "value": 1,
+          "why": "no outfit wait went stale 3 min after the on arm began: the hook is not on or not installed"
+        }
+      ]
+    },
+    {
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only test, no native change",
+      "save": "BigSave-LR",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "id": "lr-outfit-wait-ab",
+      "fixesPackage": "build/ts3fixes-on-kOutfitWaitPoll.package",
+      "note": "In-load A/B: kOutfitWaitPoll True from startup, so every wait enters the hook; --ab outfitwaitpoll per 2-min slice, off first (off arms poll every tick, as EA). Read: sim ms/s per arm (profile-compare, hitch-ab), _polls rising only in on slices; no outfit difference.",
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "ab": "outfitwaitpoll",
+          "slice": 2,
+          "fixesRequire": "outfitwaitpoll_stale>=1,outfitwaitpoll_polls>=1"
+        }
+      },
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:outfitwaitpoll_polls",
+          "op": ">=",
+          "value": 1,
+          "why": "no stale outfit wait polled by the 4th 2-min slice: the hook is not on or not installed"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": true
+}

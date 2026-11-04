@@ -20,11 +20,17 @@ const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
 
 const DIAG = 'diagnostic switch (verify / probe / fake upstream): a test aid, not a fix';
 const SHADOW = 'diagnostic: shadow mode of a read-only fix (runs both answers and compares); the fix itself has repros';
+const OFFLOAD = 'sim-thread offload on the [AutShadow] worker (docs/208): checked by Mode R A0-A5 and the dry checks in offload3-moder.json / offload3-act.json, not a hitch repro';
 const MONO ='Mono offload, parked: no Mono game runs allowed now (memory mono-parked, docs/118)';
 // Switches with no repro on purpose. Dead ends: "dead end: <evidence>"; diagnostics; parked work.
 export const EXEMPT: Record<string, string> = {
   unseenfbteleport: 'trip-shortcut type: verified by verify-shortcut.ts --name unseenfbteleport and the unseen-fallback.json sv-ufb-teleport-verify job (fixesRequire), not by an A/B repro (shortcut-verification rule, docs/202 §6)',
-  autshadowverify: DIAG, ownjobwait: DIAG, autshadow: MONO, autledger: MONO,
+  autunseenpace: 'tuning default on, not a separate A/B arm: pacing is on in every golive-unseen.json g8 -on job together with autunseen (docs/222 §8); compared by the G8 cadence lines, not a hitch repro',
+  autunseenrh: 'tuning default on, not a separate A/B arm: on in every golive-unseen.json job with autunseen from unseen4 (docs/222 §10); judged by ip-gu-dry-defcmp-u4 (rabbit-hole pairs not compared, counted) and ip-gu-g8-ab-u4',
+  unseenghost: 'native [UnseenGhost] ini section (UnseenGhost.Enabled=1), not an ab/fixesOn name: turned on in every unseen-route-relaxed.json / unseen-route-long-ab.json job (docs/202 §3.9.5); acts only for unseenroute holds, which have repros',
+  autshadowverify: DIAG, autunseencmp: DIAG, ownjobwait: DIAG, autledger: MONO,
+  autoffenv: OFFLOAD, autoffbcast: OFFLOAD, autoffdry: OFFLOAD, autoffenvapply: OFFLOAD, autoffbcastapply: OFFLOAD, autoffnoref: OFFLOAD, autofftick: OFFLOAD,
+  mintcall: 'Mono speed, not a hitch fix: no repro makes script calls more frequent than plain play; correctness by mintcall-verify.json (CallPath=2) and the monohost selftests, timing by the plain-play pairs in mintcall-ab.json (docs/139 §8)',
   workerwait: 'worker CPU, not a hitch fix: no repro makes the job-start wait more likely than plain play; measured by the off/on plain-play pairs in route-worker-wait.json, correctness by the selftest TestRouteWorkerWait (docs/203 §6)',
   steershadow: SHADOW, lotfdshadow: SHADOW, obstructedshadow: SHADOW, slotenabledshadow: SHADOW, avoidshadow: SHADOW,
   gate0shadow: SHADOW, routetoobjroshadow: SHADOW, placementroshadow: SHADOW, goalvalidroshadow: SHADOW, idlecheckroshadow: SHADOW,

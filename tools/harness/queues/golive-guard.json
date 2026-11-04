@@ -1,0 +1,260 @@
+{
+  "note": "golive-guard: docs/124 §17.10 go-live crowd cost guard, timing A/B in one load, NOT RUN. Needs the next ts3native (Config keys 24-30: asi game-copy/ts3native.asi.guard1, not built) and ts3fixes (switch autliveguard, counters 538-541: package game-copy/ts3fixes.package.guard1 = build-fixes.ts --on kAutLive, not built); gated on golive-act passing. Acting go-live in both arms (autshadow,autlive on); --ab autliveguard flips only the guard per slice: off = always post (measures and reports its ratio, never skips), on = skip posting for a hold when a window's sim-side cost tops the scoring saved. Timing ini as golive-ab except VerifyEvery 50 (the guard's reference). Judge: sim busy ms/s and the autonomy-search owner per arm (node tools/harness/sim-budget-report.ts), pooled over both orders; hitches with node tools/harness/hitch-ab.ts golive-guard; mono-cost-report.ts \"go-live cost guard\" line per job (windows, skip windows, searches skipped, last ratio); the guard passes if the on arm is not slower than the off arm outside the noise band and skips only where the off arm's ratio is above 1000. Clean machine (load line), no other build or agent during the job.",
+  "smoke": {
+    "id": "bp-golive-guard-smoke",
+    "note": "Measurement smoke (4 min BP, 1-min slices): arms split, autliveguard read back per slice, ts3fixes applied log \"go-live Mode 3 (acting) ... cost guard Off 1000 On 800\" (not \"off (ts3native without cost keys)\"), autliveguard_windows > 0 and autliveguard_ratio_pm >= 0 after the first minute (a reference ran). A FAIL stops the queue.",
+    "asi": "game-copy/ts3native.asi.guard1",
+    "fixesPackage": "game-copy/ts3fixes.package.guard1",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 90,
+    "ini": {
+      "HitchAttr.Enabled": 1,
+      "RouteSnap.Enabled": 1,
+      "RouteSnap.Count": 1,
+      "RouteSnap.AuditEvery": 0,
+      "MonoThread.Enabled": 1,
+      "MonoThread.Mode": 1,
+      "MonoThread.GcLock": 1,
+      "MonoThread.FrameTls": 1,
+      "MonoThread.ArenaFix": 1,
+      "MonoThread.N2mPrivate": 1,
+      "MonoThread.LazyGate": 1,
+      "MonoThread.LazyEarly": 1,
+      "AutShadow.Enabled": 1,
+      "AutShadow.Mode": 3,
+      "AutShadow.Sample": 1,
+      "AutShadow.Audit": 0,
+      "AutShadow.DumpOnMismatch": 0,
+      "AutShadow.ColdIc": 1,
+      "AutShadow.CutLean": 2,
+      "AutShadow.TierMs": 1500,
+      "AutShadow.ListAudit": 1,
+      "AutShadow.TierClassMs": 1000,
+      "AutShadow.RowHot": 200,
+      "AutShadow.RunSkip": 1,
+      "AutShadow.FreshEvery": 0,
+      "AutShadow.KeepPartial": 1,
+      "AutShadow.TopN": 10,
+      "AutShadow.Bands": 3,
+      "AutShadow.Margin": 0,
+      "AutShadow.MaxWait": 3,
+      "AutShadow.VerifyEvery": 50,
+      "AutShadow.Dry": 0,
+      "AutShadow.Satb": 2,
+      "AutShadow.WindowWaitUs": 0
+    },
+    "logRequire": {
+      "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+      "OK   mono thread P4": 1,
+      "autshadow go-live: Mode=3": 1
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 4,
+        "fixesOn": "autshadow,autlive",
+        "ab": "autliveguard",
+        "slice": 1,
+        "noSamplers": true
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 30
+  },
+  "jobs": [
+    {
+      "id": "bp-golive-guard-crowd",
+      "note": "BP crowd in view (aut-live-crowd-view, waves every 150 s), --ab autliveguard 5-min slices over 25 min (warm-up, then off,on,on,off), off first. The case the guard is for: golive-g7 crowd cut 1.1 ms a search, 36% of the scoring moved. Judge: sim busy ms/s and the autonomy-search owner per arm (node tools/harness/sim-budget-report.ts), pooled over both orders; hitches with node tools/harness/hitch-ab.ts golive-guard; mono-cost-report.ts \"go-live cost guard\" line per job (windows, skip windows, searches skipped, last ratio); the guard passes if the on arm is not slower than the off arm outside the noise band and skips only where the off arm's ratio is above 1000. Clean machine (load line), no other build or agent during the job.",
+      "asi": "game-copy/ts3native.asi.guard1",
+      "fixesPackage": "game-copy/ts3fixes.package.guard1",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 25,
+          "fixesOn": "autshadow,autlive",
+          "repro": "aut-live-crowd-view",
+          "ab": "autliveguard",
+          "slice": 5,
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-golive-guard-crowd-onfirst",
+      "note": "As bp-golive-guard-crowd, on first (on,off,off,on). Judge: sim busy ms/s and the autonomy-search owner per arm (node tools/harness/sim-budget-report.ts), pooled over both orders; hitches with node tools/harness/hitch-ab.ts golive-guard; mono-cost-report.ts \"go-live cost guard\" line per job (windows, skip windows, searches skipped, last ratio); the guard passes if the on arm is not slower than the off arm outside the noise band and skips only where the off arm's ratio is above 1000. Clean machine (load line), no other build or agent during the job.",
+      "asi": "game-copy/ts3native.asi.guard1",
+      "fixesPackage": "game-copy/ts3fixes.package.guard1",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 25,
+          "fixesOn": "autshadow,autlive",
+          "repro": "aut-live-crowd-view",
+          "ab": "autliveguard",
+          "slice": 5,
+          "abOnFirst": true,
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-golive-guard",
+      "note": "BP natural play 10 min, 2-min slices, off first: the guard must not skip where go-live pays (normal BP cut 0.7 ms, 23%): autliveguard_skipwindows 0 expected, ratio below 1000 in both arms. Judge: sim busy ms/s and the autonomy-search owner per arm (node tools/harness/sim-budget-report.ts), pooled over both orders; hitches with node tools/harness/hitch-ab.ts golive-guard; mono-cost-report.ts \"go-live cost guard\" line per job (windows, skip windows, searches skipped, last ratio); the guard passes if the on arm is not slower than the off arm outside the noise band and skips only where the off arm's ratio is above 1000. Clean machine (load line), no other build or agent during the job.",
+      "asi": "game-copy/ts3native.asi.guard1",
+      "fixesPackage": "game-copy/ts3fixes.package.guard1",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autlive",
+          "ab": "autliveguard",
+          "slice": 2,
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}

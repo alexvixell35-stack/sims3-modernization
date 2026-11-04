@@ -899,3 +899,178 @@ Design: the release call at `0xD5B77A` is retargeted to `TpDefer` (same register
 | Tests (offline) | selftest `TestEaCrashFixes`: last reference kept across the evaluation and freed after it, another frame releases nothing, a shared owner is released without `tpLastRef`, an empty RefPtr keeps nothing, full slots release at once; the naked stub run on a real stack (frame match, release, `ecx` = the moved load, `eax`/`ebx`/`esi`/`edi` kept); patch on dummy bytes (foreign bytes: nothing written) |
 | Repro | `tools/harness/repros.json` `ea-thumb-pose-pack-loop`: household thumbnails while 8 spawned Sims are removed, three rounds (the contributor's cross-world thumbnail during pack-up has no agent action). `tpHeld > 0` shows branch (a) ran |
 | Conflicts | none with S3SS / S3PP / Apex at `0xD5B77A` / `0xD5B874` (docs/68) |
+
+## 28. Crash X (2026-10-30, a contributor's 35-minute test session on v0.2.4 release defaults with Apex Radiance): the Sim builder reads a CAS mesh's bone list past its end
+
+Static only (2026-10-30): the EA crash report and capstone on the Steam exe copy. There is no dump.
+
+### 28.1 Fault [verified: report + disassembly]
+
+| | |
+|---|---|
+| Report | ACCESS_VIOLATION reading `0xA2F900B4` (`MEM_FREE`) at `0x5C6E07`. Main thread. EA's walk shows `0x5D3885`, `0x5DC19C`, `0x5F06C6` (`SimService_Process 0x5EBC50`) and `0x5F120C` (`SimService_Update 0x5F0E50`): the same service path as crash B (§1) |
+| Fault site | `0x5C6E00` (13 bytes, `ret 4`): `eax = [ecx+0x58]`, `ecx = [esp+4]`, `eax = [eax+ecx*4]`. It is slot `+0x54` of vtable `0xFE32C0`, which the `CAS/GeometryResource` name follows in `.rdata`. Slot `+0x50` = `0x5C6DF0` returns `([ecx+0x5C] - [ecx+0x58]) >> 2`. So `+0x58`/`+0x5C` are the begin and end of the mesh's bone-hash vector, and slot `+0x54` returns entry `i` with no bounds check. Only `0x5C6EBB` and `0x5C7045` store the vtable, and nothing calls either getter directly |
+| Registers | `eax` (vector begin) = `0xA2F8FF00`, `ecx` (index) = `0x6D` = 109. The read at `begin + 109 * 4` lands in a free region that starts `0x100` bytes after `begin`. The vector therefore has at most 64 entries, and the index is past its end. The `+0x58` load succeeded, so the GEOM object itself was readable |
+| Caller | `[esp]` = `0x5D1633`. The getter has no frame, so EA's walk skips this frame and shows `0x5D3885` instead (the return of `call 0x5D1010` at `0x5D3880`). `0x5D1010` is the skin pass. It reads each of a vertex's four blend indices as a byte (`0x5D1627`), calls slot `+0x54` at `0x5D1631`, then looks the returned hash up in an EASTL map at `[ebp+0x20]` (the rig's bones). On a miss, `edx` is the map's anchor and the code stores `[anchor+0x14]` (the map's size field) as the bone slot (`0x5D165B`-`0x5D1672`). This is EA's own path for a bone the rig lacks. `edx` is reloaded at `0x5D163B` and `ecx` at `0x5D1633`, so nothing but `eax` is live after the call |
+
+### 28.2 Cause [inferred]
+
+The most likely cause is a GEOM resource whose vertex blend indices name a bone past the mesh's own bone list, probably custom content: a mesh edited without its bone list being updated. The index is a byte, so the getter can read up to 255 entries. Most such reads land in other heap data and return a hash the rig lacks, which takes the miss path above without a crash. The read only crashes when the list sits near the end of a committed region, which is why this crash is rare. The report does not say which mesh it was.
+
+It is not a use-after-free, because the object's own fields were readable. No ts3native hook is on this path. The nearest Apex Radiance site is `CasTriSort 0x5D1960` (docs/data/apex-hooks.csv), and `node tools/hook-sites.ts --check` lists no shared address.
+
+### 28.3 Fix: `[EaCrashFixes] GeomBoneIndex` (0.36.149, eafix.cpp, off by default; ledger docs/51 §411)
+
+The fix points vtable slot `0xFE3314` at `GbGetBone`, which has the same contract: `ecx` = the GEOM, one stack argument, `ret 4`. For an index inside the vector it returns the game's entry. Past the end it returns 0, so the caller's map lookup misses and EA's missing-bone path runs.
+
+A rig bone whose hash is exactly 0 would take that vertex weight instead of missing [inferred: no such bone is known]. The install checks three things before it writes: the slot names `0x5C6E00`, the getter's 13 bytes match, and the count getter's 10 bytes match (they confirm the vector layout). If any check fails, it logs a SKIP and writes nothing. Every virtual caller of slot `+0x54` gets the game's answer for in-range indices.
+
+| | |
+|---|---|
+| Counters | none. The first 8 out-of-range asks are logged as `ea fix: GeomBoneIndex: GEOM <p> (key <type>:<group>:<instance>) asked for bone <i> of <n> (caller <return address>)` |
+| Tests (offline) | selftest `TestEaCrashFixes` covers four cases. (1) In-range bones are unchanged. (2) An index equal to the size, index `0x6D` and an empty list are all answered 0. (3) The game's two getter byte strings run on the fake GEOM, which checks the layout. (4) The patch on a stand-in slot: a foreign count getter means nothing is written, the slot is patched only once, and the patched slot answers like the hook |
+| Repro | none. A repro needs a mesh with a bad blend index. The log line names the GEOM pointer, not its resource key |
+| Conflicts | none with S3SS / S3PP / Apex at `0xFE3314` / `0x5C6E00` (docs/68) |
+| Open | none left from crash X: the mesh is named in §28.4 |
+
+### 28.4 Live check (2026-10-30, one session) [verified]
+
+One 35-minute session on a contributor's test save, with the branch's CI build (then 0.36.143, before the rebase onto 0.36.148) and `GeomBoneIndex=1`. During world load (`ScriptProxy.PostLoad`) it logged 8 lines for one GEOM: `asked for bone 109 / 104 / 113 / 115 of 5 (caller 0x005D1633)`. 109 is crash X's index, and the mesh has 5 bones, so this save loads the bad mesh every time. The game ran on for the whole session. The lines confirm I-409-4: a readable GEOM with a real list (`n` = 5) whose blend indices are past it. Without the fix these reads land past the list; whether they crash depends on the heap layout (§28.2). A second session (same save and switch, plus the other two guards) logged the same 8 asks. Its first line also printed the resource base's fields: instance `0xC014AA218DAFEEA9` at `+8`, type `0x015A1849` (GEOM) at `+0x10`, group `0x009B6C36` at `+0x14`. The CC scan below has exactly that GEOM (5 bones, 512 vertices, filler 115) [verified]. It is a LOD of the EA Store hair `amHairSTORE09FaLayeredSide` (adult male), which the contributor's CC manager had merged into one of its library packages. So store meshes from EA itself carry these filler indices. The log lines now print the key as `<type>:<group>:<instance>`.
+
+A scan of the same install's CC (every GEOM in `Mods\Packages`, read-only) found 251 of 9,856 GEOMs with a bone-assignment index past the mesh's own bone list: 27 with 5 bones, 61 with 1, others up to 58. Their out-of-range values are 115 or 255. **Every out-of-range index sits in a slot whose weight is 0** [verified: scan]: 0 vertices have a weighted index past the list. So these values are filler that the export tool wrote into unused slots, and the skin pass reads all four slots whatever their weight. The fix's answer of 0 changes no weighted bone for any of them (I-409-5). It also means the out-of-range read happens for every such mesh on every build, so crash X can come back on any install with this kind of CC whenever a bone list ends at a free region.
+
+## 29. Issue #80 (2026-10-18 to 10-28, four crashes in about 60 sessions on 0.36.37a, heavy CC): the Sim builder reads a CAS mesh's material through a null pointer
+
+Static, plus the contributor's two full dumps (described in the issue; none is committed).
+
+### 29.1 Fault [verified: dumps + disassembly]
+
+| | |
+|---|---|
+| Report | ACCESS_VIOLATION reading `0x00000004` at `0x5DDFBD`, main thread, `eax` = 0. Signature `crashsig-95ce882e`. The nearest symbol names it `ModelBuilder_Dtor+0x1B6D`, but it is a separate function: the Sim builder's per-part step `0x5DDB30`, called once per part from the loop at `0x5DE4CA` |
+| Site | `0x5DDFA9`-`0x5DDFB0` calls the part's GEOM slot `+0x58`. For the GEOM vtable `0xFE32C0` that slot is `0x580420` (`mov eax,[ecx+0x28]; ret`): the embedded material. `0x5DDFBD` then reads the shader hash at `[eax+4]` with no null check. `0x5DE009`-`0x5DE01C` calls the slot again and copies 16 bytes from it |
+| Every path | The step reads the material on every path. When the part joins an existing group it reads it at `0x5DDC45`-`0x5DDC5A`. When it starts a new group it reads it at `0x5DDFB0`-`0x5DDFBD`. No branch between the start check and those reads leaves the function |
+| Cause | A CAS VPXY LOD 1-3 entry names a GEOM with shader 0 and vertices: a custom-content morph mesh used as a LOD. Such a GEOM has no embedded material (MTNF). In both dumps it was the same CC hair. EA's own CAS parts have no such entry (the contributor's scan of the install). The VPXY must be the part's mesh VPXY: morph VPXYs (fat, fit, thin, special) name only shader-0 meshes with position, normal and vertex-id data, by design, and are not built through this step [verified: VPXY LOD lists of an EA Store library package] |
+
+### 29.2 Fix: `[EaCrashFixes] GeomNoMaterial` (0.36.149, eafix.cpp, off by default; ledger docs/51 §413)
+
+The step already skips a part whose mesh pointer is null or tagged. That check is at `0x5DDB5D` / `0x5DDB67`, which go to the tail `0x5DE0E2`; the tail returns 1, and the caller ignores the result. The fix replaces the 10 bytes at `0x5DDB63` (`mov eax,[ebx]; test eax,eax; je 0x5DE0E2`) with a jump to `GnStub`. The stub keeps the null check. It also takes the same skip when the GEOM's slot `+0x58` is the game's getter `0x580420` and `[GEOM+0x28]` is 0. Every other part continues at `0x5DDB6D`, which reloads `eax`, `ecx` and `edx`.
+
+Because every path reads the material, the fix changes only parts that crash today [verified static]. The skipped part is not built for that LOD, so a CC hair goes missing at that distance instead of crashing the game. The install checks three things first: the 10 site bytes, the slot `0xFE3318` naming `0x580420`, and the getter's 4 bytes. If any check fails, it logs a SKIP and writes nothing. No instruction branches into `0x5DDB64`-`0x5DDB6C` (scan of `.text`).
+
+| | |
+|---|---|
+| Counters | none. The first 8 skips are logged as `ea fix: GeomNoMaterial: GEOM <p> (key <type>:<group>:<instance>, builder LOD <n>) has no embedded material` |
+| Tests (offline) | selftest `TestEaCrashFixes` runs the stub with landing pads in place of the two targets. Four cases: a GEOM with a material continues, a GEOM without one is skipped and counted, another type with the same field 0 continues, and a null mesh takes the game's skip without being counted. `ebx`, `esi`, `edi` and `ebp` are unchanged at both pads. The game's getter bytes run on the fake GEOM. The patch on a stand-in site: a foreign slot or foreign site bytes mean nothing is written, and the site is patched only once |
+| Repro | `node tools/cc-mesh-scan.ts --repro <package> <GEOM instance> <out>` (PR #119) writes a copy of one GEOM without its material; in `Mods\Overrides` for one session it reproduces the fault (§29.3) |
+| Conflicts | none with S3SS / S3PP / Apex at `0x5DDB63` / `0xFE3318` / `0x580420` (docs/68). Apex's nearest site is `CasTriSort 0x5D1960` |
+| Open | Whether a Sim with the part skipped at one LOD shows anything wrong besides the missing part at that distance [inferred: the same as a part whose mesh failed to load] |
+
+### 29.3 Live A/B with a made repro (2026-10-31) [verified]
+
+No CC with the #80 shape was at hand, so the test made one. It took LOD 3 of the EA Store hair from §28.4 (`015A1849:009B6C36:C014AA218DAFEEA9`), cut its material, set shader 0, and loaded it as a one-resource package from `Mods\Overrides`, one session per arm. The hair's mesh VPXY still names LOD 0-2 with a material, so the part has the §29.1 shape. Both arms used the same contributor save, CI build `a7572875` (0.36.149 plus key logging) and `GeomBoneIndex=1`:
+
+| Arm | Result |
+|---|---|
+| `GeomNoMaterial=1` | From world load on, 8 log lines (the cap): `GEOM … (key 015A1849:009B6C36:C014AA218DAFEEA9, builder LOD 3) has no embedded material: part skipped`. 20 minutes of play, saved, no script errors. A second session from that save: 30 minutes, the same 8 lines, saved, no errors |
+| `GeomNoMaterial=0` | Crash during world load: ACCESS_VIOLATION reading `0x00000004` at `0x5DDFBD`, main thread, `eax` = 0, `edx` = `0x580420` (the getter). This is the fault in the #80 report |
+
+This is I-411-3's check: the skip is logged and the crash does not happen. Nobody looked at the Sim at that distance, so whether it looks right is not checked. With the hair's LOD 3 skipped before the skin pass, `GeomBoneIndex` logged a different filler mesh instead: `015A1849:00BEE823:93A4E607E5383AFE`, bone 2 of 2, from the install's merged overrides package. The second session logged a third one, `015A1849:00BEE823:00000000ECC7C68B`, also bone 2 of 2. The scan finds 59 such meshes in `Mods\Overrides`, all with weight 0.
+
+## 30. Crash Y (2026-10-31, kit4 Baseline-IP, 5 of 5 sessions): the world A\* follows a neighbour reference outside the routing graph
+
+Live and static (2026-10-31): three kit4 jobs (`ip-locktaker-verify-146`, `ip-venuememo-verify`, `ip-deadrefs-saves`), one control with the v0.2.4 release pair, and one run with only `[RouteAsync] Enabled=0`. The EA crash files' registers and stacks were read; capstone was run on the Steam exe. Issue #132, ledger docs/51 §416.
+
+### 30.1 Sites and what they read
+
+| Session | Fault | Function | Read |
+|---|---|---|---|
+| kit `ip-locktaker-verify-146`, `ip-venuememo-verify` | `0x67664F` | world A\* `0x676260` | the closed-bitset row byte for the neighbour's (chunk + 1, waypoint >> 3) |
+| kit `ip-deadrefs-saves` | `0x67663F` | world A\* | the closed-bitset row-pointer table at index chunk + 1 |
+| control (release pair) | `0x6743FE` | `RouteCost_Mode3 0x674250` | the parent search node's chunk record: `R+8[chunk]` + `R+0xC`, then `recOff[waypoint]` |
+| `[RouteAsync] Enabled=0` | `0x6742B5` | `RouteCost_Mode3` | the same for the neighbour ("to") pair |
+
+All five read past a table's end into pages that are not committed: `MEM_RESERVE` in three sessions, `MEM_FREE` in the two `0x67664F` ones.
+
+### 30.2 The bad pair
+
+- **The A\* decodes a neighbour without a range check [verified, disassembly].** For each reference of the current waypoint (docs/99 §1.3 packing), the A\* computes target chunk = current chunk + (dz - 3) · w + (dx - 3) in 16-bit registers, with w read as a u16 from `R+0`. It masks the waypoint to 10 bits and stores both at `[esp+0x1C]` / `[esp+0x1E]` (`0x67661D`, `0x676622`). The pair then indexes the closed bitset (`0x67663F`, `0x67664F`) and goes to the cost function, which indexes R's tables with it (`0x67429C`, `0x6742B5`). Only `0xFFFF` is tested, in the cost function.
+- **Run 168 holds the bad pair [verified, crash file].** The "to" pair on the A\*'s stack is chunk `0xFFD5` (-43) and waypoint `0x207` (519); the fault register shows the same waypoint. Isla Paradiso is 64 x 64 chunks (4,096), and no shipped chunk has more than 254 waypoints. With w = 64, -43 is one chunk north of chunk 21, which is on the map's north edge [inferred: the word could also be garbage from a wrong record].
+- **Call stack (run 168):** A\* `0x67667F` <- `0x65F80E` <- `0x661B9B` <- `0x81BF7E` <- `0x82C7B2` <- `0x82F09D` <- `0x74BD8D`.
+- **The shipped graph is clean [verified, `tools/rtdata-decode.ts`].** `IslaParadiso.world` reports version 2, 64 x 64 chunks, 42,081 waypoints, 173,104 edges, `refs out of range 0`, `one-way edges 0` and 61 components. So the out-of-map reference, or the wrong current node, appears at runtime. Candidates are a lot update rewriting R (Isla Paradiso is the world where houseboats add lots, docs/200) or a start node built from a position outside the map. The fix's log lines (§30.4) name the current waypoint and the reference word.
+- **Not ours [verified, 1 run].** The `[RouteAsync] Enabled=0` session logs `route async disabled (Enabled=0)` and has no route worker; all 14 route-gate lines are on the sim thread. It crashed 15 s after the world loaded. The release ini has no switch that patches inside the A\*: `[RouteBudget]` replaces the cost-function immediates `0x676340`-`0x676368` only when on, and `[RouteEarlyOut]` is off.
+- **Save-dependent [measured].**
+  - Baseline-IP (kit4) and Baseline-IP-Spring crashed 5 of 5, at 15 s to 5 min.
+  - `BigSave-IP` with v0.2.4 had 0 crashes in 8 sessions (2026-10-30, 4 with release defaults and 4 with RouteAsync / GC / SaveWrite / Decompress off).
+  - The Bridgeport and Sunset Valley kit jobs on the same build had no crash.
+
+### 30.3 Fix: `[EaCrashFixes] WorldAStarRefs` (0.36.151, `wastar.cpp`, counters v146, off by default)
+
+- **Patch.** The 7 bytes at `0x676627` (`mov edx,[esp+1Ch]; movzx ecx,ax`, right after both stores) become `jmp WaStub; nop2`.
+- **The check.** The stub calls `WaRefOk(esp, esi)`, which tests chunk < `w · h` (`R+0`, `R+4`) and waypoint < the chunk's count (the u16 at `R+0xC + R+8[chunk]`, read under SEH).
+- **In range:** it runs the two moved instructions and continues at `0x67662E`.
+- **Out of range:** it jumps to `0x67673F`, the A\*'s own path for an already closed neighbour. That path reloads the neighbour index (`[esp+0x58]`) and the current record (`[esp+0x2C]`) from the stack, so no register state carries over [verified disassembly].
+- **Coverage.** A bad pair then never enters the open list, so the parent-pair site `0x6743FE` is covered as well. Start and goal nodes do not pass through this decode [inferred: no crash at the current-record read `0x6765AF` so far].
+- **Effect.** The search behaves as if that edge were absent: a route that only existed through it fails like any other blocked route. Game state is never written.
+- **Cost.** One call per expanded neighbour [inferred: under 1% of an A\* expansion; not measured].
+- **Counters.** `waOn`; `waSkip[0..2]` = chunk outside the map, waypoint past its chunk's count, record unreadable.
+- **Log.** One line for each of the first 8 skips: neighbour index and count, current (chunk, waypoint), record flags, reference word, decoded pair, map size, chunk count.
+- **Tests.** Selftest `TestWorldAStarRefs` (`wastar-test.h`): patch bytes; in-range and four out-of-range pairs; the stub runs with both exits recorded and the callee-saved registers kept.
+
+### 30.4 Test plan
+
+- **A/B.** Baseline-IP with the CI asi, `[EaCrashFixes] WorldAStarRefs=1` against `=0`, at least 2 clean sessions per arm. The off arm is expected to crash (5 of 5 so far); the on arm is expected to run 12 minutes with `waSkip` > 0.
+- **The skip lines.** They tell whether the bad reference sits in a waypoint's own list (a reference word with dz or dx pointing off the map) or comes from a wrong current node (the record flags, or a count that does not fit).
+- **If the reference is R data:** next is the writer, i.e. which lot update writes a reference across the map edge (docs/91 `ApplyLotUpdate`).
+
+### 30.5 The cause: blocked-flag writes through stale waypoint ids (0.36.152, `[EaCrashFixes] PortalFlagRefs`)
+
+Live (run 173, `WorldAStarRefs=1` on Baseline-IP, 12 minutes, no crash) plus the shipped graph and the exe, 2026-10-31.
+
+- **The skipped references are shipped references with bit 15 cleared [verified, 1 run + file].** All 8 skip lines name two reference words.
+  - Waypoint (1754, 2), neighbour 0: `0x0C0E` at runtime. The file has `1818/14` there, i.e. dz +1, dx 0, which encodes as `0x8C0E`.
+  - Waypoint (1563, 0), neighbour 91: `0x0C17` at runtime. The file has `1627/23` there, i.e. dz +1, which encodes as `0x8C17`.
+
+  With bit 15 cleared, dz + 3 = 4 becomes 0, so dz +1 decodes as dz -3. The targets (1562, 14) and (1371, 23) are in chunks with no waypoints, the case the A\* then reads past.
+- **Two writers clear that bit [verified, disassembly].** Only two instructions in the routing code clear bit 7 of a byte at +1 of a computed address: `0x82A200` and `0x82B6F3` (a scan of the exe for `and byte [m+1], 7Fh`, `and word [m], 7FFFh` and `btr word [m], 15`). Both clear a waypoint's blocked flag (record + 1, bit 0x80), and both have `or ..., 80h` partners.
+  - `RoutingWorld_RestoreLotBlockedBits 0x82A190` (docs/112) walks a lot's portal objects (flag bit 1 at `+0x58`) and decodes each one's stored id at `+0x4C`: chunk = id & 0x3FFF, waypoint = id >> 14 & 0x3FF, bit 29 = blocked.
+  - `RoutingWorld_ApplyLotUpdate 0x82B590` decodes each reference of a lot waypoint with the A\*'s own formula (32-bit chunk here).
+
+  Neither checks the pair. The record address is chunk base + `recOff[waypoint]`, so for a waypoint past its chunk's count the "offset" is whatever the next bytes hold.
+- **The two corrupted words are exactly where two such pairs land [verified, offline on the shipped layout].** `rtdata-decode.ts --mem-image` rebuilds the in-memory R. For every chunk and every waypoint index from the chunk's count to 1023, it computes the record address the writers would use.
+  - Only (1753, 13) lands on the first word. Chunk 1753 has 11 waypoints.
+  - (1563, 20) lands on the second (chunk 1563 has 18), and so does (1478, 737).
+
+  The writers then clear bit 7 of byte + 1, i.e. bit 15 of the reference. Both pairs are 2 past their chunk's count, which fits waypoints a lot update added and later removed while a portal or a lot waypoint kept the stale reference [inferred: the lot update that left them is not identified].
+- **Why only some saves [inferred].** The pair depends on which lots carry portals near which chunks. Baseline-IP and Baseline-IP-Spring (the same town, so presumably the same lots) crash; BigSave-IP and the other worlds' kit saves do not.
+- **Fix: `[EaCrashFixes] PortalFlagRefs`** (off by default, counters `pfOn`, `pfSkip[2]`).
+  - The writer 1 index computation (11 bytes at `0x82A1CF`) becomes a jump to `PfStub1`; the writer 2 one (6 bytes at `0x82B6B1`) becomes a jump to `PfStub2`.
+  - Each stub checks the pair with the same test as `WorldAStarRefs` (chunk < w · h, waypoint < count, R at world + 0x54).
+  - For a pair outside R it skips that write: writer 1 goes on with the next portal (`0x82A204`); writer 2 goes on with the next reference (`0x82B7D5`, which reloads its state from the stack). Writer 2's skip also leaves out that reference's portal bookkeeping (`0x633EA0`, `0x656120`, the bit 29 copy), which would otherwise run on the same bad pair.
+  - The first 8 skips are logged.
+  - `WorldAStarRefs` stays useful as a second line for corruption from other writers.
+- **Test.** Baseline-IP with `PortalFlagRefs=1` and `WorldAStarRefs=0`, at least 2 sessions.
+  - Expected: no crash, `pfSkip` > 0 with the pairs (1753, 13) and (1563, 20) among the skip lines, and with both on, `waSkip` = 0.
+  - A crash, or A\* skips with `PortalFlagRefs` on, would point to a third writer.
+
+### 30.6 In-game A/B (the contributor's CI asi, numbered 0.36.150 / 0.36.151 in PR #136 = 0.36.151 / 0.36.152 here, Baseline-IP, 12-minute sessions, 2026-10-31)
+
+| Run | Switches | Result |
+|---|---|---|
+| 173 | WorldAStarRefs=1 | no crash; 8 A\* skip lines (the two references of §30.5); both end saves returned 12 |
+| 174 | off | crash at `0x6742B5`, 24 s after the world loaded |
+| 175 | WorldAStarRefs=1 | no crash; 8 A\* skip lines (the same two references); both end saves returned 12 |
+| 176 | WorldAStarRefs=1 on BigSave-IP (control, 8 minutes) | no crash, 0 skips, save returned 0 |
+| 177 | PortalFlagRefs=1, WorldAStarRefs=0 | crash at `0x6742B5` (sim thread), 7 minutes after the world loaded |
+| 178 | PortalFlagRefs=1, WorldAStarRefs=0 | no crash; 8 skip lines, all from writer 1 (lot portal ids): (1563, 18) to (1563, 23) with chunk count 18, (1626, 6) and (1626, 7) with chunk count 6; both end saves returned 12 |
+| 179 | off | crash, 3 minutes after the world loaded |
+
+- **`WorldAStarRefs` stops the crash [verified, 2 of 2 sessions; off 8 of 8 crashed].** The off count includes three kit4 jobs, a release-pair control, two `[RouteAsync] Enabled=0` runs and runs 174 / 179.
+- **`PortalFlagRefs` is the right writer but not the whole cause [verified, 2 sessions].**
+  - Writer 1 does write through stale lot portal ids, and (1563, 20) is among them, as §30.5 predicted.
+  - (1753, 13) was not among the 8 logged skips, and run 177 crashed with the switch on. So either more skips came after the 8 logged ones and something else still reaches the A\*, or a third writer clears the first word [inferred; a session with both switches on would show which: A\* skips there mean the corruption still happens].
+  - The stale ids are 1 to 6 past their chunk's count. They are lot portals that kept their ids after the chunk lost waypoints [inferred].
+- **The end-of-session save failure (Error 12) is this save's, not the fix's [inferred].**
+  - BigSave-IP saved normally with `WorldAStarRefs=1`.
+  - Baseline-IP without the fix crashes before its first save, so it cannot be compared directly.
+  - `PortalFlagRefs` did not change it (run 178), so it is not those flag writes [inferred].

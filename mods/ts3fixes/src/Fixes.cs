@@ -46,8 +46,10 @@ namespace Ts3Fixes
             Patch(typeof(GoToLot), "Run", typeof(GoToLotHook), "RunHook", "RunOrig");
             Patch(typeof(GoToCommunityLot), "Run", typeof(GoToCommunityLotHook), "RunHook", "RunOrig");
             ApplyTripSubclasses();
-            if (Instantiator.kWalkStyleComparer)
-                Patch(typeof(Sims3.Gameplay.Actors.SimRoutingComponent).GetNestedType("WalkStyleComparer", BindingFlags.NonPublic), "Compare", typeof(WalkStyleCompareHook), "CompareHook", null);
+            // No tuning gate here: Apply runs in Instantiator's static constructor, before the tuning loader sets the [Tunable]
+            // fields, so every tuning reads its C# default (docs/124 §17.8). Hooks read their tuning per call; patches that must
+            // stay out unless a tuning is on go in ApplyTuned.
+            Patch(typeof(Sims3.Gameplay.Actors.SimRoutingComponent).GetNestedType("WalkStyleComparer", BindingFlags.NonPublic), "Compare", typeof(WalkStyleCompareHook), "CompareHook", "CompareOrig");
             Patch(typeof(Sims3.Gameplay.Autonomy.ReactionBroadcaster), "PulseSims", typeof(BroadcasterPulseHook), "PulseHook", "PulseOrig");
             ApplyRouteFixes();
             ApplyRouteBackoff();
@@ -66,8 +68,10 @@ namespace Ts3Fixes
             ApplyUiCaches();
             ApplyNameCache();
             ApplyScriptHotSpots();
+            ApplyVenueMemo();
             ApplyDoorMirror();
             ApplyAutShadow();
+            ApplyAutOffload();
             ApplyReplanDefer();
             ApplyUnseenThrottle();
             ApplyEaSpread();
@@ -80,7 +84,39 @@ namespace Ts3Fixes
             ApplySeasonImposter();
             ApplyEaFixes();
             ApplyDeadRefs();
+            ApplyEaVacation();
+            ApplyCompaction();  // docs/204: hooks only with ts3native [Compaction] Enabled=1 or 2
         }
+
+        // Patches that go in only when a tuning is on (docs/124 §17.8): Apply cannot read tunings (C# defaults there), so these
+        // run once the tuning is set: at app startup when the tuning was already parsed (kInstantiator True: every
+        // ts3fixes tuning sets it), else at the first world load. Each logs "tuned: <tuning> on: <what> patched|MISSING";
+        // queue.ts fails a job on a MISSING line. A target the interpreter already compiled is refused (Patch), never swapped.
+        static bool sTunedDone;
+        internal static void ApplyTuned(string when)
+        {
+            if (sTunedDone) return;
+            sTunedDone = true;
+            AppliedLog().Add("tuned: tuning-gated patches at " + when + (Instantiator.TuningSet ? "" : " (tuning not set: kInstantiator False)"));
+            ApplyVenueScore();
+            ApplyWakePark();
+            ApplyAutLiveB14();
+        }
+
+        static void TunedLog(string tuning, bool ok, string what)
+        {
+            AppliedLog().Add("tuned: " + tuning + " on: " + what + (ok ? " patched" : " MISSING"));
+        }
+
+        // Null when target.method exists and is not compiled yet (a Patch would go in), else "Type.method".
+        static string NotPatchable(Type target, string method, Type[] args)
+        {
+            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+            MethodInfo t = target.GetMethod(method, all, null, args, null);
+            return t != null && !Compiled(t) ? null : target.Name + "." + method;
+        }
+
+        static bool Compiled(MethodInfo t) { return Marshal.ReadInt32(new IntPtr(t.MethodHandle.Value.ToInt32() + 0x14)) != 0; }
 
         static List<object> AppliedLog() { return (List<object>)AppDomain.CurrentDomain.GetData("ts3fixes.applied"); }
 
@@ -175,12 +211,66 @@ namespace Ts3Fixes
         // longest slice us, total ms, refused or stopped, outside-household pictures, quiet friend pairs, history entries,
         // dead outfits, dead Sims disposed, cleanse skipped for Overwatch, dead passport lists seen. [423-426] played households
         // (PlayedHouseholds.cs, docs/14 §8.6): set size, ids added, lighter-tier pictures removed, aggressive actions skipped.
+        // [427-438] Compaction (Compaction.cs, docs/204): saves seen, compactions started, offers, accepted, declined, refused by state,
+        // skipped / failed, queue entries recorded, re-pushed, not pushed, not restorable, pushes that threw; [439] restores finished.
+        // [440-447] venue memo (VenueMemo.cs, docs/122 §14.24): GetTuning memo hits, misses, verify mismatches, clears; venue
+        // scores by the hook's steps, passed to the game's method, verify mismatches, verify checks.
+        // [466-480] free vacation (EaVacation.cs, issue #97, docs/210): vacexport adults exported / dream managers from the export,
+        // vacstoreguard slots re-added / stores that threw / bring-backs scheduled at load / dead-pickup trips ended at load,
+        // vacreturnskip adults skipped / returns ended, vacteendelete deletions deferred / teens rejoined / returns from the check,
+        // vacexitreturn adults brought back at exit, vaclistenernull null states skipped, vacimportfix ids refreshed / expiry skipped.
+        // [448-465] offload Mode R (AutOffload.cs, docs/208): env / bcast items, A0-A5, exceptions, dry checks. [481-490] offload
+        // apply (docs/208 §8): env ready / applied / no answer / stale / applied = live, bcast ready / applied / no answer / stale / same order.
+        // [534-537] autofftick (AutOffload.cs, docs/206 §15): items, A0, A2, unfinished.
+        // [538-541] go-live cost guard (AutLive.cs, docs/124 §17.10): windows closed, skip windows, searches skipped, last ratio
+        // (cost per mille of the scoring saved; -1 = no reference yet).
+        // [550-565] autlivelate (AutLive.cs, docs/217 L1): later slices checked, refused by age/epoch/state/lot/head/actor/other,
+        // late objects consumed / stale, consumed by age 1/2/3+ ticks, B14 us consumed / game late / game invalid.
+        // [566-574] G8 (AutLive.cs AutPushHook, docs/124 §8): pushes, no-pick searches, MakeSimGoHome fallbacks, Sim-hours x100,
+        // request-to-push latency 0/1/2/3/4+ ticks (Mode 3 searches).
+        // [575-601] go-live per-search feature mask (AutLive.cs, AutLiveCore.Feat bits late, prelearn, tierreqlots, rain,
+        // desirefn, satb, guard, cold, partial): 575-583 searches per bit, 584-592 mismatches (dry unequal or replay mismatch),
+        // 593-601 give-ups (live-drop fallbacks, dry-nocmp).
+        // [491-533] unseen wake-ups (WakePark.cs, docs/211: wakeprobe / wakepark / wakepoll): see the header of WakePark.cs.
+        // [602-604] [AutShadow] G-M6 (AutShadow.cs ClosureSweep, PR #112): closure methods IL-hashed, hashes not from a checked
+        // build (owners whose closure reaches it skipped), hashing us. [605] G-M6 guard faults (> 3 mismatches on checked-build MVIDs: IL check ignored). [606] G-M6 owners (definitions + implementors) skipped this load.
+        // [641-646] unseenroute (UnseenFallback.cs UfPre relaxed / UfSnap, docs/202 §3.9): relaxed acts (placed at the goal after
+        // the hold), acts without a verdict, acts with the colour unknown, holds shortened by the fast-leg estimate, snap-backs placed
+        // mid-trip (exact plan from there), snap-backs that planned from where the Sim stood.
+        // [647-658] unseenroute2 (UnseenFallback.cs, docs/202 §3.9.5-§3.9.7): acts of plans made in another task, plans refused
+        // inside another plan's callback, group acts (members placed with the leader), groups refused (a member seen, held or
+        // not human; or a member's own plan), child acts, B passes (street / public lot, same colour), C learn plans (real plan,
+        // result cached), C cached hits, D checks (a placed Sim seen again), D repairs (moved to the lot entry), ghost starts
+        // (ts3native [UnseenGhost] took the id, footprint removed), ghost exits (off the native set, footprint back).
+        // [659-660] unseen-direct pacing (AutLive.cs PaceCharge, docs/222 §8): us charged to B13's yield timer, yields brought forward.
+        // [661-669] G8 by actor class (AutLive.cs G8Note, docs/222 §8): unseen searches / pushes / no-pick / GoHome (661-664), seen
+        // (665-668), unseen Sim-hours x100 (669).
+        // [670-679] autunseencmp Dry per-definition compare (AutLive.cs DefCmpNote, docs/222 §9): searches, pairs, worker-fail /
+        // game-pass, worker-pass / game-fail, both pass, both fail, late-slice pairs, late-slice mismatches, objects skipped, snapped slices.
+        // [680-682] outfitwaitpoll (OutfitWait.cs, issue #115): outfit waits gone stale, minute polls, stale waits that ended.
+        // [2003-2005] outfitwaitpoll stale-wait causes (OutfitWait.cs, issue #115, docs/224 §5): own swap pending, replaced, nothing pending.
+        // [2008-2009] outfitwaitpoll (OutfitWait.cs, docs/224 §5): pending-outfit resets while a helper waits: instant switches, delayed swaps by another path.
+        // [683-684] bakesaleseller (BakeSale.cs, issue #102): dead-seller reads, orphaned NPC tables given a new clean-up alarm.
+        // [685-686] docs/222 §10: unseen-direct pairs with a RabbitHole target sent to the game's C1 (autunseenrh; in Dry the same pairs
+        // skipped by autunseencmp), worker-pass / game-fail compare pairs whose worker score is 0 (BestScores drops both).
+        // [2002] uniformbackup (UniformBackup.cs, issue #101, docs/502): stale career uniform backups cleared.
+        // [2014] nullservice (NullService.cs, docs/504): null elements dropped from Services.AllServices.
+        // [2015] rabbitholedoor (RabbitHoleDoor.cs, docs/505): rabbit hole door requests that threw SacsErrorException, skipped.
+        // [2026-2028] photosession (PhotoSession.cs, docs/508): expected Sims dropped, sessions ended by the hook, sessions ended at world load.
+        // [2029] eggspot (EggSpot.cs, docs/508): egg positions refused because they are off the hunt lot.
+        // [2030] graduationtable (GraduationTable.cs, docs/508): graduation waiting-loop ticks that found no table.
+        // [2035-2036] jazzparam (JazzParam.cs, issue #166 build 21, docs/511): UpdateJazzParameter NullReferenceExceptions with no posture, caught.
+        // [2033-2034] buffupdate (BuffUpdate.cs, issue #166 build 20, docs/510): out-of-sync exceptions from UpdateBuffs, caught.
+        // [2039-2040] carnoroute (CarNoRoute.cs, issue #166 build 33, docs/513): car drives with no car routing component, returned false.
+        // [2031-2032] convturn (ConvTurn.cs, issue #166 build 19, docs/509): stuck conversation turns seen by a scoring call, turns taken.
+        // [2041-2042] npcdriverpool (NpcDriverPool.cs, issue #166 build 37, docs/514): bad pooled driver descriptions EA would hand out, dropped.
+        // [2043-2044] bookcarry (BookCarry.cs, docs/515): carry state machines Book.StopUsingBook dropped without an exit, ended.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[427]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2045]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -223,6 +313,8 @@ namespace Ts3Fixes
                 case "namecache": return Instantiator.kSimNameCache;
                 case "detailprio": return Instantiator.kDetailPriorityCache;
                 case "hoursmemo": return Instantiator.kHoursMemo;
+                case "venuememo": return Instantiator.kVenueMemo;
+                case "venuememoverify": return false; // verify switch: test runs only
                 case "caneearly": return Instantiator.kCaneEarlyOut;
                 case "tooltipthrottle": return Instantiator.kTooltipThrottle;
                 case "detailprioverify": case "hoursmemoverify": return false; // verify switches: test runs only, no tuning
@@ -232,6 +324,17 @@ namespace Ts3Fixes
                 case "wildflowertask": return Instantiator.kWildflowerTask;
                 case "doormirror": return Instantiator.kDoorMirror;
                 case "autshadow": return Instantiator.kAutShadow;
+                case "autoffenv": case "autoffbcast": case "autoffdry": return false; // docs/208 offload Mode R (AutOffload.cs): test runs only
+                // docs/208 §8 apply switches: unset read true here (default branch) while the agent showed them off
+                case "autoffenvapply": case "autoffbcastapply": case "autoffnoref": return false;
+                case "autofftick": return false; // docs/206 §15 Mode R tick item: test runs only
+                case "autlive": return false; // docs/124 §17 go-live consume ([AutShadow] Mode=3): test runs only
+                case "autlivelate": return Instantiator.kAutLiveLate; // docs/217 L1 late consume (only acts with autlive)
+                case "autliveguard": return Instantiator.kAutLiveGuard; // docs/124 §17.10 go-live cost guard (only acts with autlive)
+                case "autunseenpace": return Instantiator.kAutUnseenPace; // docs/222 §8 unseen-direct pacing (only acts with autunseen)
+                case "autunseenrh": return Instantiator.kAutUnseenRabbitHoleGame; // docs/222 §10 rabbit-hole pairs to the game's C1 (only acts with autunseen)
+                case "autunseencmp": return Instantiator.kAutUnseenCmp; // docs/222 §9 Dry per-definition compare (only with Dry + autunseen)
+                case "autunseen": return false; // docs/222 unseen-direct go-live (only acts with autlive, acting): test runs only
                 case "replandefer": return Instantiator.kReplanDefer;
                 case "replanspread": return Instantiator.kReplanSpread;
                 case "autshadowverify": return false; // verify switch: test runs only
@@ -245,6 +348,9 @@ namespace Ts3Fixes
                 case "unseenmotives": return Instantiator.kUnseenMotiveThrottle;
                 case "unseenbroadcast": return Instantiator.kUnseenBroadcastThrottle;
                 case "unseenprobe": return false; // probe switch: test runs only
+                case "wakeprobe": return false; // probe switch: test runs only (WakePark.cs, docs/211)
+                case "wakepark": return Instantiator.kWakePark;
+                case "wakepoll": return Instantiator.kWakePoll;
                 case "easpreadlots": return Instantiator.kEaSpreadLots;
                 case "easpreadpets": return Instantiator.kEaSpreadPets;
                 case "easpreaddecay": return Instantiator.kEaSpreadDecay;
@@ -279,6 +385,7 @@ namespace Ts3Fixes
                 case "unseenfbloopdet": return Instantiator.kUnseenFallbackLoopDetect;
                 case "unseenfbloopbreak": return Instantiator.kUnseenFallbackLoopBreak;
                 case "unseenfbfinish": return Instantiator.kUnseenFallbackFinish;
+                case "unseenroute": return Instantiator.kUnseenRouteRelaxed;
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
                 case "seasonimpostercold": return Instantiator.kSeasonImposterCold;
@@ -288,9 +395,32 @@ namespace Ts3Fixes
                 case "showstagethrowables": return Instantiator.kShowStageThrowables;
                 case "firepitchair": return Instantiator.kFirePitChair;
                 case "ageupkeepoutfits": return Instantiator.kAgeUpKeepOutfits;
+                case "outfitwaitpoll": return Instantiator.kOutfitWaitPoll;
+                case "uniformbackup": return Instantiator.kUniformBackup;
                 case "deadrefguards": return Instantiator.kDeadRefGuards;
+                case "bakesaleseller": return Instantiator.kBakeSaleSeller;
+                case "nullservice": return Instantiator.kNullService;
+                case "rabbitholedoor": return Instantiator.kRabbitHoleDoor;
+                case "photosession": return Instantiator.kPhotoSession;
+                case "eggspot": return Instantiator.kEggSpot;
+                case "graduationtable": return Instantiator.kGraduationTable;
+                case "jazzparam": return Instantiator.kJazzParam;
+                case "buffupdate": return Instantiator.kBuffUpdate;
+                case "carnoroute": return Instantiator.kCarNoRoute;
+                case "convturn": return Instantiator.kConvTurn;
+                case "npcdriverpool": return Instantiator.kNpcDriverPool;
+                case "bookcarry": return Instantiator.kBookCarry;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;
                 case "savecleanupaggressive": return Instantiator.kSaveCleanupAggressive;
+                case "vacexport": return Instantiator.kVacExport;
+                case "vacstoreguard": return Instantiator.kVacStoreGuard;
+                case "vacreturnskip": return Instantiator.kVacReturnSkip;
+                case "vacteendelete": return Instantiator.kVacTeenDelete;
+                case "vacexitreturn": return Instantiator.kVacExitReturn;
+                case "vaclistenernull": return Instantiator.kVacListenerNull;
+                case "vacimportfix": return Instantiator.kVacImportFix;
+                case "menumaven": return Instantiator.kMenuMaven;
+                case "compactionfail": return false;  // test only (Compaction.cs, docs/204 §6): the reload throws after the screen is up
                 case "spotspread": return true;
                 default: return true;
             }
@@ -308,11 +438,12 @@ namespace Ts3Fixes
             try
             {
                 MethodInfo t = args == null ? target.GetMethod(method, all) : target.GetMethod(method, all, null, args, null), r = hook.GetMethod(replacement, all);
-                if (Marshal.ReadInt32(new IntPtr(t.MethodHandle.Value.ToInt32() + 0x14)) != 0)
-                    throw new InvalidOperationException("already compiled");
+                if (Compiled(t)) throw new InvalidOperationException("already compiled");
+                string swName = AutShadowCore.MemberName(t);  // G-M6: callers' IL hashes name t as before the swap
+                if (swName != null) AutShadowCore.SwapNames[t.MethodHandle.Value] = swName;
                 if (stub != null) SwapMethod(hook.GetMethod(stub, all), t);
                 SwapMethod(t, r);
-                sPatched[t] = hook;  // docs/128 G-M4: our own swap, accepted by the closure sweep
+                sPatched[t.MethodHandle.Value] = hook;  // docs/128 G-M4: our own swap, accepted by the closure sweep (by MonoMethod: GetMethods hands out other MethodInfo objects)
                 AppliedLog().Add(target.Name + "." + method + ": ok");
                 return true;
             }
@@ -707,16 +838,20 @@ namespace Ts3Fixes
         // in a Dictionary<WalkStyle, int>, and with the default enum comparer each lookup boxes and calls Enum.Equals and
         // GetHashCode: 5% of script time as Enum.Equals alone in Bridgeport (docs/04 F7). The enum is sequential from 0, so
         // an array indexed by value gives the same priorities; a style missing from the table still throws, as before.
+        // Always patched (routing may compile Compare before the first world load); the tuning kWalkStyleComparer is read per
+        // call, because Apply runs before the tuning loader sets it (docs/124 §17.8): a player's False now runs the game's code.
         public class WalkStyleCompareHook
         {
             static int[] sPrio;
             public int CompareHook(Sims3.Gameplay.Actors.Sim.WalkStyle x, Sims3.Gameplay.Actors.Sim.WalkStyle y)
             {
+                if (!Instantiator.kWalkStyleComparer) return CompareOrig(x, y);
                 if (sPrio == null) sPrio = WalkStylePriorities();
                 int px = (int)x < sPrio.Length ? sPrio[(int)x] : -1, py = (int)y < sPrio.Length ? sPrio[(int)y] : -1;
                 if (px < 0 || py < 0) throw new KeyNotFoundException();
                 return py - px;
             }
+            public int CompareOrig(Sims3.Gameplay.Actors.Sim.WalkStyle x, Sims3.Gameplay.Actors.Sim.WalkStyle y) { return 0; } // receives Compare's original header
 
             static int[] WalkStylePriorities()
             {

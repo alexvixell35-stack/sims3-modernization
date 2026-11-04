@@ -1,0 +1,142 @@
+{
+  "note": "[UnseenThrottle] phase 1 (docs/143 §6.5) crowd A/B rerun. Why: the 2026-10-30 unseen-throttle-ab-v024 crowd pair was confounded (rare-big-crowd waves ran inside the first counted arm at ~30 it/s, the second arm after remove_sims at ~140 it/s) and the arms were 1-3 min. Here: crowd-steady repro (new repros.json entry: spawns inside the 5-min warm-up slice, then a fixed 300 s wave cycle and no removal, so every slice sees the same crowd and wave phase), 5-min slices (each arm 2 x 5 min), both slice orders, BP + IP. Build: game-copy/ts3native.asi.int129 (0.36.129, newest parked integration build of master) with ts3fixes from the same commit. Heavy tools off (noSamplers; HitchAttr light). Timing: clean machine only. Run time: smoke ~10 min + 4 jobs x ~30 min = ~2 h 10 min. Verdicts: TS3_REPO=<main> node tools/harness/hitch-ab.ts unseen-throttle-ab-v2-<date>-bp-ut2-crowd unseen-throttle-ab-v2-<date>-ip-ut2-crowd (offfirst + onfirst pair means: p99/p99.9, max, counts >= 100/300/500/1000/2000 ms per 10 min); node tools/harness/wait-ab.ts <tag> (key 0x85FE10 steering on vs off beyond the docs/136 null); node tools/harness/unseen-report.ts <native.json>; it/s per slice from <tag>-ab.json. Pass: hitch counts not higher on, steering key lower on, it/s on not down more than 2% (docs/143 §8.15 measured ~10% loss from the avoidance skip: confirm or refute under the steady crowd).",
+  "smoke": {
+    "id": "smoke",
+    "note": "Measurement smoke (AGENTS.md): BP 5 min, crowd-steady, --ab unseenthrottle 1-min slices. Pass: both arms in the per-arm split, utMode read back 0 / 1 per slice, utSkipped grows only in on slices, heavy tools off, no crash. A FAIL stops the queue.",
+    "asi": "game-copy/ts3native.asi.int129",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 79,
+    "ini": {
+      "UnseenProbe.Enabled": 1,
+      "UnseenThrottle.Enabled": 1,
+      "UnseenThrottle.Every": 4,
+      "HitchAttr.Enabled": 1
+    },
+    "run": {
+      "profile": {
+        "minutes": 5,
+        "seed": 12345,
+        "repro": "crowd-steady",
+        "ab": "unseenthrottle",
+        "slice": 1,
+        "noSamplers": true
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 25
+  },
+  "jobs": [
+    {
+      "id": "bp-ut2-crowd-offfirst",
+      "note": "[UnseenThrottle] A/B v2, BP, off-first: crowd-steady repro (30 Sims spawned in the warm-up, fixed 300 s home/far wave cycle, no removal), --ab unseenthrottle 5-min slices over 25 min (warm-up on with the spawns, then off,on,on,off: 20 counted min, 10 per arm). Pass: no crash, 0 watchdog lines, utSkipped > 0 in on slices and 0 in off slices, utViewerPushes > 0 (ts3fixes from the same commit as the asi installed), it/s per counted slice within ~15% (else the state still drifts: void, not a result).",
+      "asi": "game-copy/ts3native.asi.int129",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 79,
+      "ini": {
+        "UnseenProbe.Enabled": 1,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.Every": 4,
+        "HitchAttr.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 25,
+          "seed": 12345,
+          "repro": "crowd-steady",
+          "ab": "unseenthrottle",
+          "slice": 5,
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-ut2-crowd-onfirst",
+      "note": "As bp-ut2-crowd-offfirst with the slice order swapped (warm-up on, then on,off,off,on). Read the pair together (pair mean on - off).",
+      "asi": "game-copy/ts3native.asi.int129",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 79,
+      "ini": {
+        "UnseenProbe.Enabled": 1,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.Every": 4,
+        "HitchAttr.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 25,
+          "seed": 12345,
+          "repro": "crowd-steady",
+          "ab": "unseenthrottle",
+          "slice": 5,
+          "noSamplers": true,
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    },
+    {
+      "id": "ip-ut2-crowd-offfirst",
+      "note": "[UnseenThrottle] A/B v2, IP, off-first: crowd-steady repro (30 Sims spawned in the warm-up, fixed 300 s home/far wave cycle, no removal), --ab unseenthrottle 5-min slices over 25 min (warm-up on with the spawns, then off,on,on,off: 20 counted min, 10 per arm). Pass: no crash, 0 watchdog lines, utSkipped > 0 in on slices and 0 in off slices, utViewerPushes > 0 (ts3fixes from the same commit as the asi installed), it/s per counted slice within ~15% (else the state still drifts: void, not a result).",
+      "asi": "game-copy/ts3native.asi.int129",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 79,
+      "ini": {
+        "UnseenProbe.Enabled": 1,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.Every": 4,
+        "HitchAttr.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 25,
+          "seed": 12345,
+          "repro": "crowd-steady",
+          "ab": "unseenthrottle",
+          "slice": 5,
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    },
+    {
+      "id": "ip-ut2-crowd-onfirst",
+      "note": "As ip-ut2-crowd-offfirst with the slice order swapped (warm-up on, then on,off,off,on). Read the pair together (pair mean on - off).",
+      "asi": "game-copy/ts3native.asi.int129",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 79,
+      "ini": {
+        "UnseenProbe.Enabled": 1,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.Every": 4,
+        "HitchAttr.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 25,
+          "seed": 12345,
+          "repro": "crowd-steady",
+          "ab": "unseenthrottle",
+          "slice": 5,
+          "noSamplers": true,
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    }
+  ]
+}

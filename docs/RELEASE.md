@@ -115,4 +115,6 @@ Via the scrubbed public copy only (Rodney): sync the tree into a clone of the pu
 - `node tools/publish-public.ts --self-check`: offline checks plus a full `sync` dry run against a local bare repo.
 The manual steps above stay as the fallback.
 
+After the release is out, record its published asi in `docs/data/builds.json`, so the harness knows Bin holds a release after a restore (`queue.ts` warns "not a release build" otherwise; `apex-run.ts --release` picks the newest `ts3native.asi.rel*` entry): unzip `ts3native-vX.Y.Z.zip` and run `node tools/builds.ts add <dir>/ts3native.asi --name ts3native.asi.relXYZ --commit <tag commit> --note "vX.Y.Z release asi (published asset ts3native-vX.Y.Z.zip)"`. Record the published file: the CI build is not byte-identical to a local build of the same commit (v0.2.0: published `ab16d8d7`, local `ac313272`).
+
 From v0.1.5 also on ModTheSims, right after the GitHub release and with the same three files: `release/mts/CHECKLIST.md`.

@@ -242,7 +242,7 @@ struct Ts3nAutShadow {
     LONG satbLoads;       // +0x9DC, sim loads that passed a load stub (probe: counted; act: the thread test)
     LONG satbSpanUs;      // +0x9E0, barrier-on time (sum, us)
     LONG satbIcCalls;     // +0x9E4, sim IC calls in spans (guarded EA ICs)
-    LONG satbIcShared;    // +0x9E8, of those, a byref or array argument into shared memory (act: the sim waits for the worker)
+    LONG satbIcShared;    // +0x9E8, of those, a byref or array argument into shared memory not logged (v16: too big or log full; act: the sim waits for the worker)
     LONG satbRtCalls;     // +0x9EC, sim runtime writers in spans (Array.Copy dest, Buffer, String.InternalStrcpy, field helper)
     LONG satbRtWaits;     // +0x9F0, of those, ranges not logged (unknown or too big; act: wait)
     LONG satbBig;         // +0x9F4, single stores over 1024 words (act: wait)
@@ -273,8 +273,93 @@ struct Ts3nAutShadow {
     LONG satbWArenaIgn;   // +0xA54, act: worker log hits inside an arena chunk it took during the job (its own frame: live value kept)
     LONG satbWGiveUp;     // +0xA58, act: worker loads it could not redirect (the object is aborted `stop`, the job stops)
     LONG satbWGiveUpOp;   // +0xA5C, act: the last such opcode (diagnostic)
+    // v16 (0.36.133): Satb IC arguments logged instead of waited for, unsized runtime writers by site (docs/206 §9); Mode R
+    // consume counters from ts3fixes Stat 7-11 and PairT (docs/122 §14.23, contract 9)
+    LONG satbIcLogged;    // +0xA60, IC byref/array arguments into shared memory whose range was logged before the body (no wait)
+    LONG satbIcLogWords;  // +0xA64, words they logged (also in satbWords)
+    LONG satbJobIcLogged; // +0xA68, probe: of satbIcLogged, within one job length
+    LONG satbRtFset;      // +0xA6C, MonoField.SetValueInternal on the sim in spans (0.36.136: field range logged; unknown kind waits, in satbRtWaits)
+    LONG satbRtPtrStruct; // +0xA70, PtrToStructure(intptr, object) on the sim in spans (0.36.136: the object's fields logged; new-object entry not counted)
+    LONG freshTop1Ans;    // +0xA74, fresh re-scores whose top pair differs over the pairs both sides answered
+    LONG freshTop10Ans;   // +0xA78, ... whose top-10 sets differ over those pairs (compared over the shorter list)
+    LONG refFreshTop1;    // +0xA7C, fresh re-scores whose top pair differs from the cut-time reference's (all pairs, no aborts)
+    LONG refFreshTop10;   // +0xA80, ... whose top-10 sets differ from the reference's
+    LONG refPassA4;       // +0xA84, reference passes among worker-A4 pairs
+    LONG pairT[4];        // +0xA88, game C2 (Autonomy.CalculateScore) time per pair of a sampled search (sum, 100 ns): allow-listed
+                          //         pass, allow-listed fail (score 0), off-list pass, off-list fail
+    LONG pairN[4];        // +0xA98, their pairs
+    // v17: mono-cost15 cut round (docs/122 §14.26)
+    LONG transOn;         // +0xAA8, [AutShadow] Transient in force
+    LONG transObjs;       // +0xAAC, objects created and destroyed between two cuts: no mark, no print (Transient=1)
+    LONG hcOn;            // +0xAB0, [AutShadow] HostCls in force
+    LONG hcKnown;         // +0xAB4, objects classified by the host's own list filter (at a mark or at destroy event 5)
+    LONG hcNoHandle;      // +0xAB8, no script handle in the host's map: unknown (every type, ts3fixes asked)
+    LONG hcMap2;          // +0xABC, only in the host's second map (+0x1678): unknown
+    LONG hcUs;            // +0xAC0, host classification time (sum, us; sim thread)
+    LONG lwOn;            // +0xAC4, [AutShadow] ListWalk in force (1 on, -1 tripped by a check miss)
+    LONG lwRows;          // +0xAC8, list rows answered by the shared lot walk + one host call
+    LONG lwWalks;         // +0xACC, lot walks (one per lot and cut)
+    LONG lwWalkUs;        // +0xAD0, their time (sum, us)
+    LONG lwHostUs;        // +0xAD4, host +0xC0/+0xC4 time of those rows (sum, us)
+    LONG lwFall;          // +0xAD8, list rows sent to the body (walk failed, buffer full, room row over a lot object with no component)
+    LONG lwChecks;        // +0xADC, ListWalkCheck: rows also answered by the body and compared
+    LONG lwMis;           // +0xAE0, of those, a different answer (ListWalk off for the session; must stay 0)
+    LONG runNo[5];        // +0xAE4, RunSkip on: walked runs by first reason: not plain, stale, never walked, in a per-cut set, cold gate
+    LONG clsGoneSkip;     // +0xAF8, class queue ids dropped at the request (object gone or classified since)
+    // v18: mono-cost16 cut round (docs/122 §14.27)
+    LONG seOn;            // +0xAFC, [AutShadow] SimEvRows in force
+    LONG seKept;          // +0xB00, reachable-Sim rows kept by events (no object event, no parent, not the actor): no body
+    LONG seChecks;        // +0xB04, SimEvCheck: such rows answered by the body anyway and compared
+    LONG seMis;           // +0xB08, of those, a different answer (that IC refreshes every cut again for the session; must be 0)
+    LONG seIcOff;         // +0xB0C, bit i: IC i taken out of SimEvRows by a check miss
+    LONG tmOn;            // +0xB10, [AutShadow] TierMoveLot in force
+    LONG tmKept;          // +0xB14, Sim re-classifications skipped: placed by a touch, same lot and room as at its classification
+    LONG laEvery;         // +0xB18, [AutShadow] ListAuditEvery in force (1 = every dirty cut)
+    LONG laSkips;         // +0xB1C, dirty cuts that ran no ListAudit (ListAuditEvery)
+    LONG gdOn;            // +0xB20, [AutShadow] GoneDelta in force (1 on, -1 tripped by a check miss)
+    LONG gdRecs;          // +0xB24, destroy records taken at event 5 (managed object, classes, vector part, room)
+    LONG gdNoRec;         // +0xB28, gone marks with no usable record (that lot's rows go to the body this cut)
+    LONG gdRows;          // +0xB2C, list rows answered by removing the destroyed objects from the stored answer
+    LONG gdFall;          // +0xB30, gone-only list rows sent to the body (class or part unknown, empty result, no payload)
+    LONG gdIncons;        // +0xB34, array rows where the element and the record's classes disagree (sent to the body)
+    LONG gdChecks;        // +0xB38, GoneDeltaCheck: delta rows also answered by the body and compared
+    LONG gdMis;           // +0xB3C, of those, a different answer (GoneDelta off for the session; must be 0)
+    LONG gdOver;          // +0xB40, destroy records lost to a full window (their lots go to the body)
+    // v19: mono-cost17 cut round (docs/122 §14.28)
+    LONG idOn;            // +0xB44, [AutShadow] IdsDelta in force (1 on, -1 tripped by a check miss)
+    LONG idSame;          // +0xB48, list rows kept: the same walk ids as at their last answer (no host call)
+    LONG idApp;           // +0xB4C, list rows answered as the old answer plus this cut's new objects
+    LONG idCalls;         // +0xB50, the small host calls of those (one new id, or the ids after it)
+    LONG idFall;          // +0xB54, rows with a stored ids hash that matched neither way (full host call)
+    LONG idChecks;        // +0xB58, IdsDeltaCheck: such rows also answered by the full host call and compared
+    LONG idMis;           // +0xB5C, of those, a different answer (IdsDelta off for the session; must be 0)
+    LONG idUs;            // +0xB60, IdsDelta time (hash compare, copies, small host calls; sum, us)
+    LONG seLearnOn;       // +0xB64, [AutShadow] SimEvLearn in force (SimEvRows also for Sims a worker read promoted)
+    LONG seSeatOn;        // +0xB68, [AutShadow] SimEvSeated in force (SimEvRows also for Sims on a non-Sim parent)
+    LONG seLearnKept;     // +0xB6C, of seKept: rows of promoted Sims
+    LONG seSeatKept;      // +0xB70, of seKept: rows of Sims with a parent
+    LONG tcMax;           // +0xB74, [AutShadow] TierClassMax (0 = no cap)
+    LONG tcCapped;        // +0xB78, Sim classifications deferred by the cap (kept their cached tier this cut)
+    LONG gdWhy[4];        // +0xB7C, gone marks with no usable record: no record, record names another lot, another room
+                          //         (arrays still take it since 0.36.138), lot full (8) or window lost
+    // v20: go-live consume (docs/124 §17, Mode=3)
+    LONG alOn;            // +0xB8C, [AutShadow] Mode=3 in force (bit 0), Dry=1 (bit 1)
+    LONG alCuts;          // +0xB90, Mode 3 cuts
+    LONG alVerify;        // +0xB94, of those, cuts that also ran the sim-thread reference (VerifyEvery)
+    LONG alWatchN;        // +0xB98, watched ids (meta objects and lots of live requests) now
+    LONG alWatchResets;   // +0xB9C, watch map resets (full): queries for an older cut answer stale
+    LONG alStaleQ;        // +0xBA0, ObjStale queries
+    LONG alStaleHit;      // +0xBA4, of those, answered stale (an event on the object or its lot since the cut, or not watched)
+    LONG alStaleEv;       // +0xBA8, watch stamps set by object events
+    LONG al[56];          // +0xBAC, ts3fixes go-live counters by slot (AutLive.cs kS*, docs/124 §17.3)
+    // v21: docs/127 H11 shelter answer (satb.cpp SatbRainSkip, ts3fixes AutShelterHook)
+    LONG rainArm;         // +0xC8C, rain/hail outdoor pairs the worker armed (RainArm with a definition)
+    LONG rainSkip;        // +0xC90, of those, CreateInstance calls not made (null result)
+    LONG rainMiss;        // +0xC94, armed but the call never came (disarmed with no skip: ts3fixes aborts the pair `rain`)
 };
-extern "C" __declspec(dllexport) Ts3nAutShadow ts3native_autshadow = {15};
+extern "C" __declspec(dllexport) Ts3nAutShadow ts3native_autshadow = {21};
+static_assert(offsetof(Ts3nAutShadow, alOn) == 0xB8C && offsetof(Ts3nAutShadow, al) == 0xBAC, "autshadow v20 layout");
+static_assert(offsetof(Ts3nAutShadow, rainArm) == 0xC8C && sizeof(Ts3nAutShadow) == 0xC98, "autshadow v21 layout");
 
 enum { AO_OBJ, AO_LIST, AO_CUT, AO_WORLD, AO_MEMO, AO_STUB, AO_ABORT, AO_RNG };  // AO_RNG: per-unit MT streams (docs/125 §2)
 enum { AK_INT, AK_FP, AK_STRUCT, AK_REF, AK_ARRAY };
@@ -345,6 +430,12 @@ static const AsDesc kAsDesc[] = {
     // shortcut: AO_CUT reruns each key's body at every cut (~25-100 us per key, docs/127 §7.1) instead of only when the
     // global container changed; add the container trigger if the cut time shows it
     AS_D("ScriptCore.Queries::Query_GetGlobalObjects", AO_CUT, AK_ARRAY, 1, 4, 0, AS_AB_QUERY),
+    // docs/208 env driver: learned keys re-asked at every cut like the rows above. (ulong lot, int room, int def) ->
+    // RoomInfo (6 dwords, 24 B: st[16] runs on into out[24], unused by an IC without out parameters; static_assert below).
+    // docs/131 §9: the body may run the lazy terrain footprint update under +0x918, so it is filled at the cut (sim thread)
+    // only, never by the worker. (ulong obj, Vector3, float) -> uint tree count.
+    AS_D("ScriptCore.World::World_GetInformationAboutRoomImpl", AO_CUT, AK_STRUCT, 4, 24, 0, AS_AB_OTHER),
+    AS_D("ScriptCore.World::World_TreesWithinRadialRangeImpl", AO_CUT, AK_INT, 6, 4, 0, AS_AB_OTHER),
 };
 static const int AS_NDESC = sizeof(kAsDesc) / sizeof(kAsDesc[0]);
 
@@ -381,9 +472,53 @@ static int AsKindOfName(const char* name) {
     return 0;
 }
 
+// docs/216 §3 rows 1 and 5 (0.36.147, both off by default; counts in the "autshadow r7" line next to abortic):
+// PreLearn=1: an object placed by this cut's touches (new or moved) on a lot with list rows or a scored lot of the request
+// gets learned Slots_GetParentIdImpl + Simulator_GetTaskImpl rows before the refresh, so the worker's first read of it is
+// answered (golive-dfn crowd: GetParentId 2,892 + GetTask 690 `row` aborts). TierReqLots=1: a tier-2 Sim on a scored lot of
+// the request (ts3fixes AddRow kind 3 = LotId) refreshes at this cut instead of being published stale (`simstale`). Exact by
+// construction: a learned row is filled by the game's body at the cut like any learned key; a tier only gates refreshes.
+static int g_asPreLearn, g_asTierReqLots;
+static LONG g_asPreLearnRows, g_asPreLearnObjs, g_asReqLotT1;
+// docs/216 §5: aborts per IC (stop excluded) and of those `row`; top 24 in an "autshadow abortic" line every 256 cuts
+static LONG g_asAbortIc[AS_MAXIC], g_asAbortIcRow[AS_MAXIC];
+static void AsAbortIcLog() {
+    if (g_asPreLearn || g_asTierReqLots)
+        Log("autshadow r7 @%ld cuts: PreLearn rows %ld (objects %ld), TierReqLots Sims kept tier 1 %ld (docs/216 row, simstale)", ts3native_autshadow.cutReq,
+            g_asPreLearnRows, g_asPreLearnObjs, g_asReqLotT1);
+    int top[24], n = 0;
+    for (int i = 0; i < g_asIcN; i++) {
+        const LONG v = g_asAbortIc[i];
+        if (!v) continue;
+        int j = n;
+        if (n < 24) n++;
+        else if (g_asAbortIc[top[23]] >= v) continue;
+        else j = 23;
+        for (; j > 0 && g_asAbortIc[top[j - 1]] < v; j--) top[j] = top[j - 1];
+        top[j] = i;
+    }
+    if (!n) return;
+    char buf[1100];
+    int len = 0;
+    for (int t = 0; t < n; t++) {
+        const char* nm = g_asName[top[t]] ? g_asName[top[t]] : "-";
+        const char* c = strstr(nm, "::");
+        if (c) nm = c + 2;
+        const int w = (int)strcspn(nm, "(");
+        const int m = _snprintf_s(buf + len, sizeof(buf) - len, _TRUNCATE, "%s%.*s=%ld/%ld", t ? " " : "", w, nm, g_asAbortIc[top[t]], g_asAbortIcRow[top[t]]);
+        if (m < 0) break;  // full: the rest are smaller
+        len += m;
+    }
+    Log("autshadow abortic @%ld cuts (ic=aborts/row): %s", ts3native_autshadow.cutReq, buf);
+}
+
 static void AsAbort(int reason, DWORD idx) {
     Ts3nAutShadow& k = ts3native_autshadow;
     InterlockedIncrement(&k.abortTotal);
+    if (idx < (DWORD)g_asIcN && reason != AS_AB_STOP) {
+        InterlockedIncrement(&g_asAbortIc[idx]);
+        if (reason == AS_AB_ROW) InterlockedIncrement(&g_asAbortIcRow[idx]);
+    }
     InterlockedIncrement(reason < 20 ? &k.abort[reason] : reason < AS_AB_ROUTE ? &k.abort2[reason - 20] : &k.abortRoute);
     InterlockedCompareExchange(&g_asAbortReason, reason, -1);
     if (InterlockedIncrement(&g_asLogged) <= 64)
@@ -435,6 +570,8 @@ struct AsEnt {
         LONG lastRead;  // object rows (RowHot, docs/122 §14.19): cut of the last worker read of this row (not request adds)
     };
 };
+// docs/208: World_GetInformationAboutRoomImpl's 24-byte RoomInfo is written through e.st and runs on into e.out
+static_assert(offsetof(AsEnt, out) == offsetof(AsEnt, st) + 16 && sizeof(((AsEnt*)0)->out) >= 8, "AsEnt st/out layout");
 struct AsTab {
     LONG n, poolN;
     AsEnt e[AS_CAP];
@@ -454,7 +591,8 @@ static bool AsSetAdd(AsSet& s, AsU64 id);
 // touch (AS_EV_* bits, docs/122 §14.19 attribution)
 // cls/clsN (docs/122 §14.20): bit i = the object is of list type i (AsLTypeOf order), known for types 0..clsN-1 (clsN 0 =
 // not classified); clsQ: waiting in the classification queue
-struct AsOl { AsU64 id, lot; const void* obj; DWORD room; LONG placedCut; u8 seen : 1, gone : 1, touched : 1, unpl : 1, clsQ : 1; u8 clsN; WORD ev; DWORD cls; };
+// trans (docs/122 §14.26): created and destroyed since the last cut (Transient=1): the cut drops it without a mark
+struct AsOl { AsU64 id, lot; const void* obj; DWORD room; LONG placedCut; u8 seen : 1, gone : 1, touched : 1, unpl : 1, clsQ : 1, trans : 1; u8 clsN; WORD ev; DWORD cls; };
 // 65,536 rows (2 MB): the seeded rows of every list lot (docs/122 §14.19) come on top of mono-cost10 BP's 17,655 touched rows
 static const int AS_OL = 65536, AS_OL_MAX = 49152, AS_TOUCH = 4096;
 enum { AS_EV_ADD = 1, AS_EV_GONE = 2 };  // bit i = kAsObjIds[i]
@@ -476,6 +614,12 @@ struct AsMem {
     // created since the last cut (window: event side, under g_asDirtyLock; cut: what the lot-vector prints test)
     AsSet seeded, suspectW, suspect;
     AsSet readCold;  // docs/122 §14.21, per cut: owners of cold object rows the worker read (their runs are walked)
+    // docs/122 §14.27 SimEvRows, per cut: ids with an object event since the last cut; Sims whose parent answer is a known 0
+    AsSet evDirty, simFree;
+    // docs/122 §14.28: objects new at this cut (IdsDelta); ids an object event reached through our parent rows (SimEvSeated);
+    // Sims on a root non-Sim parent with no event on either; objects whose parent answer is a refreshed 0
+    AsSet newIds, simSeat, par0;
+    AsSet reqLots;  // 0.36.147 TierReqLots/PreLearn: the batch's scored lots (LotId, AddRow kind 3), cleared at each new batch
     AsOl ol[AS_OL];
     LONG olN, touchN;        // map rows used; touched rows since the last cut (under g_asDirtyLock)
     int touch[AS_TOUCH];
@@ -603,6 +747,7 @@ static void AsMaskRet(const AsDesc& d, DWORD* r) {
 }
 
 // the body's answer for entry e, into e itself; payload appended to pool (AE_NOPAY when it does not fit)
+static void AsStoreAnswer(const AsDesc& d, AsEnt& e, const AsRet& r, DWORD* pool, LONG* poolN);
 static void AsRefresh(int idx, AsEnt& e, DWORD* pool, LONG* poolN) {
     const AsDesc& d = *g_asDescOf[idx];
     DWORD a[1 + 8 + 5];
@@ -615,6 +760,10 @@ static void AsRefresh(int idx, AsEnt& e, DWORD* pool, LONG* poolN) {
     }
     AsRet r = {0, 0, 0};
     AsCallRaw(g_asOrig[idx], a, n, &r, d.kind == AK_FP);
+    AsStoreAnswer(d, e, r, pool, poolN);
+}
+// the body's (or the shared list walk's, docs/122 §14.26) result r into entry e
+static void AsStoreAnswer(const AsDesc& d, AsEnt& e, const AsRet& r, DWORD* pool, LONG* poolN) {
     e.r[0] = r.lo, e.r[1] = r.hi, e.f = r.f;
     AsMaskRet(d, e.r);
     if (d.kind == AK_REF && &e >= g_as->m.e && &e < g_as->m.e + AS_CAP) g_as->m.refs[&e - g_as->m.e] = e.r[0];  // rooted at once
@@ -785,15 +934,90 @@ static void AsClsWantLocked(AsOl& o) {
 }
 // the types this object can be: bit i for list type i; types it was not classified against (i >= clsN) count as possible
 static DWORD AsOlMask(const AsOl& o) { return !o.clsN ? 0xFFFFFFFFu : o.cls | (o.clsN >= 32 ? 0 : ~((1u << o.clsN) - 1)); }
-// under g_asDirtyLock; gone = destroy (5 before, 6 after): the pointer is never read again; ev = AS_EV_* bit of the event
-static void AsObjNote(const void* obj, bool gone, WORD ev) {
+// ---- docs/122 §14.26 (mono-cost15) ----
+// Transient=1: an object created (event 4) and destroyed (5/6) between two cuts leaves every lot's object vector as it was:
+// the containers add by push_back (0xC71340: owner set once, append at the end) and remove by an order-keeping erase
+// (0xC70150 -> 0x5C0970: memmove of the tail, end -= 4) [verified disassembly], so the other objects keep their order, and it
+// was in no list answer (none was refreshed while it lived). No mark, no lot-vector print, no suspect.
+static double g_asPrintUsPerTick;  // us per QPC tick (set at install)
+static int g_asTransient;
+// HostCls=1: an object is classified by the host's own list filter when a mark needs its class (at the cut) or at its
+// destroy (event 5, still whole): MonoScriptHost +0xC4 (0xD74C00, the Count IC's filter: handle map +0x1658 lookup,
+// isinst, 0xD71F40) with one id per list type. The array filter (+0xC0, 0xD798F0) also takes ids found only in the second
+// map (+0x1678): those stay unknown, as do ids with no handle [verified disassembly]. [inferred, I-403-2: an id's handle and
+// class do not change while the object lives and the handle outlives event 5; the typed ListAudit rows and Mode R check it]
+static int g_asHostCls;
+static const DWORD* const g_asHostPP = (const DWORD*)(uintptr_t)0x011D4BBC;  // MonoScriptHost* (the getter 0x7692B0 reads it)
+typedef DWORD(__fastcall* AsHostListFn)(void* host, void* edx, DWORD type, const AsU64* ids, DWORD n);  // thiscall, ret 0xC
+// the host's id -> handle maps (0xD726F0): {?, buckets +4, bucket count +8}; node {id lo, id hi, ?, handle +0xC, next +0x10}
+static const u8* AsHostNode(const u8* map, AsU64 id) {
+    const DWORD cnt = *(const DWORD*)(map + 8);
+    if (!cnt) return NULL;
+    for (const u8* n = (*(const u8* const* const*)(map + 4))[(DWORD)id % cnt]; n; n = *(const u8* const*)(n + 0x10))
+        if (*(const DWORD*)n == (DWORD)id && *(const DWORD*)(n + 4) == (DWORD)(id >> 32)) return n;
+    return NULL;
+}
+// 1..32 = list types tested (bit i: the host would list the id for type i), 0 = unknown
+static int AsHostClsGame(AsU64 id, DWORD* mask) {
+    Ts3nAutShadow& k = ts3native_autshadow;
+    const int nt = min(g_asLTypeN, 32);
+    if (!nt) return 0;
+    __try {
+        u8* host = (u8*)(uintptr_t)*g_asHostPP;
+        if (!host) return 0;
+        if (!AsHostNode(host + 0x1658, id)) { (AsHostNode(host + 0x1678, id) ? k.hcMap2 : k.hcNoHandle)++; return 0; }
+        // the filter's last test (0xD71F40): ids on the host's list at +0xBFC (std::list, id at node +8/+0xC) are never
+        // listed. An id on it is unknown here, not "no type": it may have been listed at the rows' last refresh
+        const u8* const head = host + 0xBFC;
+        int guard = 0;
+        for (const u8* n = *(const u8* const*)head; n && n != head && guard < 1 << 20; n = *(const u8* const*)n, guard++)
+            if (*(const AsU64*)(n + 8) == id) { k.hcNoHandle++; return 0; }
+        if (guard >= 1 << 20) return 0;
+        const AsHostListFn count = *(const AsHostListFn*)(*(const u8* const*)host + 0xC4);
+        DWORD m = 0;
+        for (int i = 0; i < nt; i++) if (count(host, NULL, g_asLTypes[i].type, &id, 1)) m |= 1u << i;
+        *mask = m;
+        return nt;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+static int (*g_asHostClsFn)(AsU64, DWORD*) = AsHostClsGame;  // selftest: a fake host
+static void AsHostClsInto(AsOl& o) {
+    if (!g_asHostCls || o.clsN) return;
+    LARGE_INTEGER a, b;
+    QueryPerformanceCounter(&a);
+    DWORD m = 0;
+    const int n = g_asHostClsFn(o.id, &m);
+    if (n) o.cls = m, o.clsN = (u8)n, ts3native_autshadow.hcKnown++;
+    QueryPerformanceCounter(&b);
+    ts3native_autshadow.hcUs += (LONG)((b.QuadPart - a.QuadPart) * g_asPrintUsPerTick);
+}
+// ---- GoneDelta (docs/122 §14.27): a destroyed object leaves the stored list answers as a delta ----
+// The erase is order-keeping (0xC70150 -> 0x5C0970, docs/122 §14.26 [verified]), so a destroy changes a list row only by
+// that object: an array row loses its managed object (the host's handle map +0x1658, node +0xC, is what +0xC0 lists), a
+// count row loses 1 when the object passed the row's type and room filter. At event 5 (the object still whole, sim thread)
+// a record keeps the managed object, the host's classes (count filter +0xC4 per list type), the vector part (owner +0x30:
+// the lot itself = lot part, the world lot = world part) and the component lot and room. A gone mark at the cut takes the
+// record when it names the lot and room the map had; any gone mark of a lot without one makes that lot's rows bodies.
+struct AsGdRec { AsU64 id, lot; DWORD mobj, room, cls; u8 clsN, part; };  // part 0 lot vector, 1 world vector, 2 unknown
+static int g_asGoneDelta, g_asGoneDeltaCheck = 8, g_asGoneLoose;  // GoneLoose=1 (docs/122 §14.28): AsGdLot.loose
+static AsGdRec g_asGdWin[256];  // event side, under g_asDirtyLock
+static LONG g_asGdWinN;
+static bool g_asGdWinOver;
+static bool AsGdRecGame(const void* obj, AsU64 id, AsGdRec* r);  // after the walker's addresses (below)
+static bool (*g_asGdRecFn)(const void*, AsU64, AsGdRec*) = AsGdRecGame;  // selftest: fake objects and host
+// under g_asDirtyLock; gone = destroy (5 before, 6 after): the pointer is never read again; ev = AS_EV_* bit of the event;
+// hcN/hcM: the host's classes taken at event 5 (HostCls, outside the lock)
+static void AsObjNote(const void* obj, bool gone, WORD ev, int hcN = 0, DWORD hcM = 0) {
     if (g_asLean != 2 || !obj) return;
     const AsU64 id = AsObjId(obj);
     if (!id) return;
     AsOl* o = AsOlSlot(id, true);
     if (!o) { g_as->olOver = true, g_as->olFull = true; return; }
+    if (hcN && !o->clsN && !o->gone) o->cls = hcM, o->clsN = (u8)hcN, ts3native_autshadow.hcKnown++;
     if (gone) {
-        if (!o->gone && !o->seen) {  // destroyed before any cut placed it: its lot now (event 5: the object is still whole)
+        // born since the last cut (its add is among this window's events) and never placed by a cut: a transient
+        if (g_asTransient && !o->gone && !o->seen && o->touched && (o->ev & AS_EV_ADD)) o->trans = 1;
+        else if (!o->gone && !o->seen) {  // destroyed before any cut placed it: its lot now (event 5: the object is still whole)
             AsU64 lot; DWORD room;
             // no lot: no component, so no lot's world-vector part held it; a lot vector that did is caught by its
             // lot-vector print at the cut (docs/122 §14.18), no resync; its pointer is a suspect there (§14.19: the prints
@@ -816,9 +1040,29 @@ static void AsObjNote(const void* obj, bool gone, WORD ev) {
 }
 static void AsDirtyObj(const void* obj, bool gone, WORD ev) {
     const AsU64 id = AsObjId(obj);
+    int hcN = 0;
+    DWORD hcM = 0;
+    // HostCls: the destroy event 5 is the last moment the host still lists the object; a row a later cut marks `gone` keeps
+    // these classes. Sim thread only (the host maps are the sim's); skipped for rows already classified and transients.
+    if (g_asHostCls && g_asLean == 2 && (ev & 2) && id && (!g_mtSimTid || GetCurrentThreadId() == g_mtSimTid)) {
+        const AsOl* o = AsOlSlot(id, false);
+        if (!o || (!o->clsN && !o->gone && !(g_asTransient && !o->seen && o->touched && (o->ev & AS_EV_ADD)))) {
+            AsOl tmp = {};
+            tmp.id = id;
+            AsHostClsInto(tmp);
+            hcN = tmp.clsN, hcM = tmp.cls;
+            if (hcN) ts3native_autshadow.hcKnown--;  // counted once, where the row takes it (AsObjNote)
+        }
+    }
+    AsGdRec gr = {};  // GoneDelta: the destroy record (sim thread, outside the lock: it calls the host)
+    const bool grOk = g_asGoneDelta > 0 && g_asLean == 2 && (ev & 2) && id && (!g_mtSimTid || GetCurrentThreadId() == g_mtSimTid) && g_asGdRecFn(obj, id, &gr);
     while (InterlockedExchange(&g_asDirtyLock, 1)) YieldProcessor();
     const bool ok = AsSetAdd(g_as->dirty, id);
-    AsObjNote(obj, gone, ev);
+    if (grOk) {
+        if (g_asGdWinN < 256) g_asGdWin[g_asGdWinN++] = gr, ts3native_autshadow.gdRecs++;
+        else g_asGdWinOver = true, ts3native_autshadow.gdOver++;
+    }
+    AsObjNote(obj, gone, ev, hcN, hcM);
     InterlockedExchange(&g_asDirtyLock, 0);
     if (!ok) { ts3native_autshadow.dirtyOverflow++; AsEpochBump(); }
 }
@@ -832,9 +1076,72 @@ static void AsObjSeen(const void* obj) {
 // object-event handlers (docs/76 §3.3): fn(object, data), return 1 so the chain goes on. One handler per event id (B = its
 // index in kAsObjIds) so a touch knows which events it carries (docs/122 §14.19 attribution, new-object suspects).
 static const DWORD kAsObjIds[] = {4, 5, 6, 0x0B, 0x0C, 0x0E, 0x12, 0x18, 0x21};  // docs/122 §2.2 object rows, docs/79 0x12, §14.17 5
+
+// ---- go-live object staleness (docs/124 §3.2, §17; Mode 3) ----
+// ts3fixes watches each live request's meta objects (by object id) and their lots (by LotId, key tagged with bit 63). An
+// object event on a watched object (destroy, scene, transform, child, visibility, parent), or an add/destroy of an object
+// whose world component is on a watched lot, stamps the key with the frame in progress. ObjStale(key, cut frame) answers
+// 1 when the stamp is after the cut (that object runs the game's B14), when the key is not watched, or when the map was
+// reset after the cut. Not seen [inferred, I-124-16]: an object moving onto or off a lot without add/destroy (world event
+// 0x11 carries no object) - accepted staleness (docs/124 §3.3), sized by G7.
+static const int AS_GW = 8192, AS_GW_MAX = 6144;
+static AsU64 g_asGwId[AS_GW];
+static LONG g_asGwStamp[AS_GW];
+static LONG g_asGwN, g_asGwReset, g_asGwNow;  // g_asGwNow: frames ended (AsSimLeave), so the frame in progress is +1
+static volatile LONG g_asGwLock;
+static const AsU64 AS_GW_LOT = 1ull << 63;
+static int AsGwSlot(AsU64 id, bool add) {  // under g_asGwLock
+    for (DWORD h = (DWORD)(id ^ id >> 29) * 0x9E3779B1u, i = 0; i < (DWORD)AS_GW; i++) {
+        const int s = (int)((h + i) & (AS_GW - 1));
+        if (g_asGwId[s] == id) return s;
+        if (!g_asGwId[s]) {
+            if (!add) return -1;
+            g_asGwId[s] = id, g_asGwStamp[s] = 0, g_asGwN++;
+            return s;
+        }
+    }
+    return -1;
+}
+static void AsGwWatch(AsU64 id) {
+    if (!id) return;
+    Ts3nAutShadow& k = ts3native_autshadow;
+    while (InterlockedExchange(&g_asGwLock, 1)) YieldProcessor();
+    if (g_asGwN >= AS_GW_MAX && AsGwSlot(id, false) < 0) {
+        memset(g_asGwId, 0, sizeof(g_asGwId));
+        g_asGwN = 0, g_asGwReset = g_asGwNow + 1, k.alWatchResets++;
+    }
+    AsGwSlot(id, true);
+    k.alWatchN = g_asGwN;
+    InterlockedExchange(&g_asGwLock, 0);
+}
+static void AsGwTouch(AsU64 id) {
+    if (!id) return;
+    while (InterlockedExchange(&g_asGwLock, 1)) YieldProcessor();
+    const int s = AsGwSlot(id, false);
+    if (s >= 0) g_asGwStamp[s] = g_asGwNow + 1, ts3native_autshadow.alStaleEv++;
+    InterlockedExchange(&g_asGwLock, 0);
+}
+static int AsGwStale(AsU64 id, LONG cutFrame) {
+    Ts3nAutShadow& k = ts3native_autshadow;
+    while (InterlockedExchange(&g_asGwLock, 1)) YieldProcessor();
+    const int s = AsGwSlot(id, false);
+    const int stale = g_asGwReset > cutFrame || s < 0 || g_asGwStamp[s] > cutFrame;
+    InterlockedExchange(&g_asGwLock, 0);
+    k.alStaleQ++, k.alStaleHit += stale;
+    return stale;
+}
+static void AsGwEvent(const void* obj, bool lotToo) {
+    if (!g_asGwN || !obj) return;
+    AsGwTouch(AsObjId(obj));
+    AsU64 lot = 0;
+    DWORD room = 0;
+    if (lotToo && g_asObjLot(obj, &lot, &room) && lot) AsGwTouch(lot ^ AS_GW_LOT);
+}
+
 template <int B> static char __cdecl AsObjEv(void* obj, void*) {
     InterlockedIncrement(&ts3native_autshadow.objEvents);
     const bool add = B == 0, gone = B == 1 || B == 2;  // ids 4; 5, 6
+    AsGwEvent(obj, add || gone);  // before AsDirtyObj: a gone object still has its component here
     InterlockedExchangeAdd(&g_asListGen, add || gone ? 1 : 0);
     AsDirtyObj(obj, gone, (WORD)(1u << B));
     return 1;
@@ -1142,12 +1449,31 @@ static void AsLearnObject(AsU64 id) {
     }
 }
 
+// PreLearn=1 (0.36.147, docs/216 row): the learned parent and GetTask rows of an object a cut placed on a lot the worker
+// lists or scores, before its first worker read; the other (ulong) ICs stay learn-on-miss (AsLearnObject)
+static int g_asIcTask = -2;  // guard index of Simulator_GetTaskImpl (kAsDesc[7]); -2 = not looked up yet
+static void AsPreLearnObject(AsU64 id) {
+    if (g_asIcTask == -2) {
+        g_asIcTask = -1;
+        for (int i = 0; i < g_asIcN; i++) if (g_asDescOf[i] == &kAsDesc[7]) { g_asIcTask = i; break; }
+    }
+    const DWORD k3[3] = {(DWORD)id, (DWORD)(id >> 32), 0};
+    bool any = false;
+    if (g_asIcParent >= 0 && AsFind(g_as->m, g_asIcParent, k3, 2) < 0 && AsInsert(g_asIcParent, k3, 2, AE_LEARNED) >= 0) any = true, g_asPreLearnRows++;
+    for (DWORD b = 0; g_asIcTask >= 0 && b < 2; b++) {
+        const DWORD kb[3] = {k3[0], k3[1], b};
+        if (AsFind(g_as->m, g_asIcTask, kb, 3) < 0 && AsInsert(g_asIcTask, kb, 3, AE_LEARNED) >= 0) any = true, g_asPreLearnRows++;
+    }
+    g_asPreLearnObjs += any;
+}
+
 // The request's rows (actor, Sims, meta objects, doors). kind 0 = object (refreshed when dirty), 1 = Sim the request can
 // reach (refreshed at every cut), 2 = other Sim: listed, refreshed only when dirty, else published stale (simstale).
 void AsAddRowKind(AsU64 id, int kind);
 void AsAddRow(AsU64 id, bool sim) { AsAddRowKind(id, sim ? 1 : 0); }
 void AsAddRowKind(AsU64 id, int kind) {
     if (!g_as) return;
+    if (kind == 3) { AsSetAdd(g_as->reqLots, id); return; }  // a scored lot's LotId (TierReqLots, PreLearn): no rows of its own
     const bool sim = kind == 1;
     if (kind == 2) AsSetAdd(g_as->sims, id);
     const DWORD key[3] = {(DWORD)id, (DWORD)(id >> 32), 0};
@@ -1228,7 +1554,6 @@ static bool AsLotPrintGame(AsU64 lot, AsU64* p) {
 static bool (*g_asLotPrint)(AsU64, AsU64*) = AsLotPrintGame;  // selftest: a fake world
 static struct { AsU64 lot, p[2]; bool ok; } g_asPrint[64];
 static int g_asPrintN;
-static double g_asPrintUsPerTick;
 static bool AsPrintOf(AsU64 lot, int room, AsU64* out) {
     int i = 0;
     while (i < g_asPrintN && g_asPrint[i].lot != lot) i++;
@@ -1248,6 +1573,344 @@ static bool AsPrintOf(AsU64 lot, int room, AsU64* out) {
     return g_asPrint[i].ok;
 }
 
+// ---- ListWalk (docs/122 §14.26): one walk per lot and cut, one host call per list row ----
+// mono-cost13 BP: 7.1 list bodies a cut at ~57 us, each re-walking the lot vector and the whole world-lot vector (the print
+// cost of §14.17, ~34 us a lot). The walker 0x7499B0 [verified disassembly] pushes, for (lot, room): the lot's own vector
+// in order (lot +0x14; room != -1: only objects whose world component room +0x20 == room; a null object or component
+// faults in EA's code), then the world lot's vector ([mgr +0xB0] +0x14): non-null objects with a component whose lot +8/+0xC
+// is the lot (room != -1: EA's flag compare `(room == component room) == room`); ids at object +8/+0xC. The ICs then call
+// the host (+0xC0 array for Query_GetObjectsOnLot, +0xC4 count for Query_CountObjectsOnLot) with (type, ids, n), or
+// answer 0 for no ids. Here a lot is walked once per cut (both parts, with each entry's room), every row of it takes its
+// ids from that walk, and the host is called as the IC calls it. ListWalkCheck=N: every Nth such row is also answered by
+// the body and compared (a difference turns ListWalk off for the session); ListAudit keeps comparing with the body.
+static int g_asListWalk, g_asListWalkCheck = 8;
+static const int AS_LW_IDS = 32768, AS_LW_LOTS = 64;
+struct AsLwLot { AsU64 lot; int at, nLot, nWorld; bool ok, noLot; };
+static AsLwLot g_asLw[AS_LW_LOTS];
+static int g_asLwN, g_asLwUsed;
+static AsU64 g_asLwId[AS_LW_IDS];
+static DWORD g_asLwRoom[AS_LW_IDS];  // lot part: the component's room, 0xFFFFFFFE = no component (room rows go to the body)
+static AsU64 g_asLwTmp[AS_LW_IDS];
+static bool AsLwWalkGame(AsLwLot& w) {
+    __try {
+        void* mgr = *g_asWmPP;
+        if (!mgr) { w.noLot = true; return true; }
+        const u8* L = (const u8*)g_asFindLot(mgr, NULL, (DWORD)w.lot, (DWORD)(w.lot >> 32), 0);
+        if (!L) { w.noLot = true; return true; }
+        for (const void* const* b = *(const void* const* const*)(L + 0x14), * const* e = *(const void* const* const*)(L + 0x18); b && b < e; b++) {
+            const u8* o = (const u8*)*b;
+            if (!o || g_asLwUsed >= AS_LW_IDS) return false;
+            const u8* c = g_asComp(o, NULL, *g_asCompBit);
+            g_asLwId[g_asLwUsed] = *(const AsU64*)(o + 8), g_asLwRoom[g_asLwUsed++] = c ? *(const DWORD*)(c + 0x20) : 0xFFFFFFFEu;
+            w.nLot++;
+        }
+        const u8* W = *(const u8* const*)((const u8*)mgr + 0xB0);
+        if (!W) return true;
+        for (const void* const* b = *(const void* const* const*)(W + 0x14), * const* e = *(const void* const* const*)(W + 0x18); b && b < e; b++) {
+            const u8* o = (const u8*)*b;
+            if (!o) continue;
+            const u8* c = g_asComp(o, NULL, *g_asCompBit);
+            if (!c || *(const AsU64*)(c + 8) != w.lot) continue;
+            if (g_asLwUsed >= AS_LW_IDS) return false;
+            g_asLwId[g_asLwUsed] = *(const AsU64*)(o + 8), g_asLwRoom[g_asLwUsed++] = *(const DWORD*)(c + 0x20);
+            w.nWorld++;
+        }
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+static bool (*g_asLwWalk)(AsLwLot&) = AsLwWalkGame;  // selftest: a fake world
+static DWORD AsLwAnswerGame(bool get, DWORD type, AsU64, DWORD, const AsU64* ids, int n) {
+    if (!n) return 0;  // the ICs skip the host call for no ids
+    u8* host = (u8*)(uintptr_t)*g_asHostPP;
+    const AsHostListFn fn = *(const AsHostListFn*)(*(const u8* const*)host + (get ? 0xC0 : 0xC4));
+    return fn(host, NULL, type, ids, (DWORD)n);
+}
+static DWORD (*g_asLwAnswer)(bool, DWORD, AsU64, DWORD, const AsU64*, int) = AsLwAnswerGame;  // selftest: a fake host
+// the row's ids from its lot's walk this cut; -1 = the body answers (walk failed, or EA's walk would fault)
+static int AsLwIds(AsU64 lot, DWORD room) {
+    Ts3nAutShadow& k = ts3native_autshadow;
+    int i = 0;
+    while (i < g_asLwN && g_asLw[i].lot != lot) i++;
+    if (i == g_asLwN) {
+        if (i == AS_LW_LOTS) return -1;
+        AsLwLot& w = g_asLw[g_asLwN++];
+        w.lot = lot, w.at = g_asLwUsed, w.nLot = w.nWorld = 0, w.noLot = false;
+        LARGE_INTEGER a, b;
+        QueryPerformanceCounter(&a);
+        w.ok = g_asLwWalk(w);
+        QueryPerformanceCounter(&b);
+        k.lwWalks++, k.lwWalkUs += (LONG)((b.QuadPart - a.QuadPart) * g_asPrintUsPerTick);
+    }
+    const AsLwLot& w = g_asLw[i];
+    if (!w.ok) return -1;
+    if (w.noLot) return 0;
+    int n = 0;
+    for (int j = w.at; j < w.at + w.nLot; j++) {
+        if (room != 0xFFFFFFFFu) {
+            if (g_asLwRoom[j] == 0xFFFFFFFEu) return -1;
+            if (g_asLwRoom[j] != room) continue;
+        }
+        g_asLwTmp[n++] = g_asLwId[j];
+    }
+    for (int j = w.at + w.nLot; j < w.at + w.nLot + w.nWorld; j++) {
+        if (room != 0xFFFFFFFFu && (DWORD)(g_asLwRoom[j] == room) != room) continue;
+        g_asLwTmp[n++] = g_asLwId[j];
+    }
+    return n;
+}
+
+// ---- IdsDelta (docs/122 §14.28): the host filter called only for what changed in a row's walk ids ----
+// mono-cost15/16 BP: 5.3-5.5 list rows a cut through ListWalk, ~28 us a host call (154 us a cut), and every one of them
+// answered the same as before (`listSame`). A row's answer is the host filter over its walk ids in walk order; the filter
+// is per object (handle, isinst, exclusion list, §14.26), so the same ids give the same answer [the rule every typed mark
+// and the Sim-free kinds already rest on; ListAudit and Mode R check it]. IdsDelta=1 keeps per list row (CutLean=2 dirty
+// mode, in the print field `lp`, free there) a hash of the ids it was answered for: (A) the same ids now = the stored
+// answer, no host call; (B) the ids now minus this cut's new objects = the stored ids: an add is an append to its vector
+// (0xC71340, I-396-1), so the old answer keeps its order and each new object goes in where the host would list it: a host
+// call with that one id (is it listed, its managed object) and one over the ids after it (how many old elements follow).
+// Anything else, or a stored answer that is null (no ids then), goes to the host as before. IdsDeltaCheck=N: every Nth
+// such row is also answered by the full host call and compared; a difference keeps that answer, IdsDelta off (idMis).
+static int g_asIdsDelta, g_asIdsDeltaCheck = 8;
+static DWORD g_asGdUnit = 1;  // selftest: the fake count body counts in 16s (GoneDelta, IdsDelta count rows)
+static AsU64 g_asLwHashOut;  // the ids hash of the row AsRefreshList just answered (0 = none: the print field is cleared)
+static AsU64 AsIdsHash(const AsU64* ids, int n) {
+    AsU64 h = 0xCBF29CE484222325ull;
+    AsMix(h, (DWORD)n);
+    for (int i = 0; i < n; i++) AsMix(h, (DWORD)ids[i]), AsMix(h, (DWORD)(ids[i] >> 32));
+    return h | 1;  // 0 = no hash
+}
+// selftest: how many of ids the host lists for a count row (the game: the count filter +0xC4)
+static DWORD AsIdsCountGame(DWORD type, AsU64 lot, DWORD room, const AsU64* ids, int n) { return n ? g_asLwAnswer(false, type, lot, room, ids, n) : 0; }
+static DWORD (*g_asIdsCount)(DWORD, AsU64, DWORD, const AsU64*, int) = AsIdsCountGame;
+static AsU64 g_asIdsRest[AS_LW_IDS];
+// (B) for one row: old answer (payload in poolOld) + the new ids at positions np[] of ids[0..n); false = the host answers
+static bool AsIdsAppend(AsEnt& e, const AsDesc& d, const AsU64* ids, int n, const int* np, int nn, const DWORD* poolOld, DWORD* pool, LONG* poolN) {
+    Ts3nAutShadow& k = ts3native_autshadow;
+    const DWORD type = e.key[0], room = e.key[3];
+    if (d.kind == AK_INT) {
+        DWORD add = 0;
+        for (int j = 0; j < nn; j++) add += g_asIdsCount(type, e.owner, room, ids + np[j], 1), k.idCalls++;
+        e.r[0] += add * g_asGdUnit;
+        return true;
+    }
+    if (d.kind != AK_ARRAY || !e.r[0] || e.payN < 2) return false;
+    const DWORD* src = poolOld + e.pay;
+    const LONG len = (LONG)src[1];
+    if (len < 0 || 2 + len != e.payN || *poolN + 2 + len + nn > AS_POOL) return false;
+    DWORD obj[16];
+    LONG at[16];
+    int m = 0;
+    for (int j = 0; j < nn; j++) {
+        const DWORD* a = (const DWORD*)(uintptr_t)g_asLwAnswer(true, type, e.owner, room, ids + np[j], 1);
+        k.idCalls++;
+        if (!a || a[2] > 1) return false;
+        if (!a[2]) continue;
+        const DWORD el = a[4];  // read before the next host call (a new array; the old one is not ours to keep)
+        int r = 0;  // the old ids after this one: how many the host lists = how many old elements follow it
+        for (int x = np[j] + 1, q = j + 1; x < n; x++) { if (q < nn && np[q] == x) { q++; continue; } g_asIdsRest[r++] = ids[x]; }
+        const DWORD* t = r ? (const DWORD*)(uintptr_t)g_asLwAnswer(true, type, e.owner, room, g_asIdsRest, r) : NULL;
+        if (r) k.idCalls++;
+        const LONG after = t ? (LONG)t[2] : 0;
+        if (r && !t) return false;
+        if (after > len) return false;
+        obj[m] = el, at[m++] = len - after;
+    }
+    DWORD* dst = pool + *poolN;
+    LONG w = 0;
+    for (LONG x = 0, q = 0; x <= len; x++) {
+        while (q < m && at[q] == x) dst[2 + w++] = obj[q++];
+        if (x < len) dst[2 + w++] = src[2 + x];
+    }
+    dst[0] = src[0], dst[1] = (DWORD)w;
+    e.pay = *poolN, e.payN = 2 + w, *poolN += 2 + w;
+    return true;
+}
+// (A)/(B) for a row whose ids are in g_asLwTmp[0..n); true = answered without the full host call
+static bool AsIdsDeltaRow(AsEnt& e, const AsDesc& d, int n, AsU64 h, DWORD* pool, LONG* poolN) {
+    Ts3nAutShadow& k = ts3native_autshadow;
+    if (!e.lp || (e.flags & (AE_FRESH | AE_NOPAY | AE_DISTRUST | AE_COLD))) return false;
+    LARGE_INTEGER a, b;
+    QueryPerformanceCounter(&a);
+    bool ok = false;
+    if (h == e.lp) {  // (A) the same ids
+        if (e.payN) {
+            if (*poolN + e.payN > AS_POOL) return false;
+            memcpy(pool + *poolN, g_as->m.pool + e.pay, e.payN * 4);
+            e.pay = *poolN, *poolN += e.payN;
+        }
+        ok = true, k.idSame++;
+    } else if (g_as->newIds.n) {  // (B) the ids minus this cut's new objects
+        int np[16], nn = 0, r = 0;
+        for (int x = 0; x < n; x++) {
+            if (AsSetHas(g_as->newIds, g_asLwTmp[x])) { if (nn == 16) return false; np[nn++] = x; }
+            else g_asIdsRest[r++] = g_asLwTmp[x];
+        }
+        if (nn && AsIdsHash(g_asIdsRest, r) == e.lp) {
+            const AsEnt keep = e;
+            ok = AsIdsAppend(e, d, g_asLwTmp, n, np, nn, g_as->m.pool, pool, poolN);
+            if (ok) k.idApp++;
+            else e = keep;
+        }
+    }
+    QueryPerformanceCounter(&b);
+    k.idUs += (LONG)((b.QuadPart - a.QuadPart) * g_asPrintUsPerTick);
+    if (!ok) { k.idFall++; return false; }
+    e.gen = g_asListGen;
+    return true;
+}
+// a list row answered from the shared walk; false = not done (the caller calls the body)
+// ids: 0 = no ids hash, 1 = hash the ids (any IdsDelta cut), 2 = also answer by (A)/(B) (dirty-mode cuts)
+static bool AsRefreshList(AsEnt& e, DWORD* pool, LONG* poolN, int ids = 0) {
+    const AsDesc& d = *g_asDescOf[e.ic];
+    Ts3nAutShadow& k = ts3native_autshadow;
+    g_asLwHashOut = 0;
+    if (e.nKey < 4) return false;
+    const int n = AsLwIds(e.owner, e.key[3]);
+    if (n < 0) { k.lwFall++; return false; }
+    const AsU64 h = ids ? AsIdsHash(g_asLwTmp, n) : 0;
+    if (ids == 2 && AsIdsDeltaRow(e, d, n, h, pool, poolN)) {
+        static LONG s_idN;
+        g_asLwHashOut = h;
+        if (g_asIdsDeltaCheck <= 0 || ++s_idN % g_asIdsDeltaCheck) return true;
+        AsEnt x = e;  // the check: the full host call must give the same answer
+        AsRet r = {0, 0, 0};
+        r.lo = g_asLwAnswer(d.kind == AK_ARRAY, e.key[0], e.owner, e.key[3], g_asLwTmp, n);
+        AsStoreAnswer(d, x, r, pool, poolN);
+        k.refreshed--, k.idChecks++;
+        if (!AsSame(d, e, pool, x, pool)) {
+            k.idMis++, g_asIdsDelta = -1, k.idOn = -1;
+            if (k.idMis <= 8) Log("autshadow ids delta miss: %s lot 0x%08lX%08lX room %ld (IdsDelta off)", g_asName[e.ic], (DWORD)(e.owner >> 32), (DWORD)e.owner, (LONG)e.key[3]);
+            e = x;
+        }
+        return true;
+    }
+    g_asLwHashOut = h;
+    LARGE_INTEGER a, b;
+    QueryPerformanceCounter(&a);
+    AsRet r = {0, 0, 0};
+    r.lo = g_asLwAnswer(d.kind == AK_ARRAY, e.key[0], e.owner, e.key[3], g_asLwTmp, n);
+    QueryPerformanceCounter(&b);
+    k.lwHostUs += (LONG)((b.QuadPart - a.QuadPart) * g_asPrintUsPerTick);
+    AsStoreAnswer(d, e, r, pool, poolN);
+    k.lwRows++;
+    return true;
+}
+
+// ---- GoneDelta (docs/122 §14.27, see AsGdRec above): the record, the cut's lots, the delta ----
+// false = no record (no handle in +0x1658, on the exclusion list +0xBFC, no managed object): the gone mark goes to the body
+static bool AsGdRecGame(const void* obj, AsU64 id, AsGdRec* r) {
+    memset(r, 0, sizeof(*r));
+    r->id = id, r->part = 2;
+    __try {
+        const u8* host = (const u8*)(uintptr_t)*g_asHostPP;
+        if (!host) return false;
+        const u8* n = AsHostNode(host + 0x1658, id);
+        if (!n || !(r->mobj = *(const DWORD*)(n + 0xC))) return false;
+        DWORD m = 0;
+        const int nt = g_asHostClsFn(id, &m);  // 0 = excluded or unknown: an array row may hold it from before, no record
+        if (!nt) return false;
+        r->cls = m, r->clsN = (u8)nt;
+        AsU64 lot = 0;
+        DWORD room = 0;
+        if (!g_asObjLot(obj, &lot, &room)) return true;  // no component: lot 0, no gone mark of a placed lot can take it
+        r->lot = lot, r->room = room;
+        void* mgr = *g_asWmPP;
+        const void* owner = *(const void* const*)((const u8*)obj + 0x30);  // the container (0x68EC50 [verified])
+        if (!mgr || !owner) return true;
+        if (owner == g_asFindLot(mgr, NULL, (DWORD)lot, (DWORD)(lot >> 32), 0)) r->part = 0;
+        else if (owner == *(const void* const*)((const u8*)mgr + 0xB0)) r->part = 1;
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+// the walker's room rule for one record: 1 in the row's walk, 0 not, -1 unknown (AsLwIds: lot part by component room, world
+// part by EA's flag compare)
+static int AsGdInGame(const AsGdRec& r, DWORD room) {
+    if (r.part > 1) return -1;
+    if (room == 0xFFFFFFFFu) return 1;
+    return r.part == 0 ? r.room == room : (DWORD)(r.room == room) == room;
+}
+static int (*g_asGdIn)(const AsGdRec&, DWORD) = AsGdInGame;  // selftest: the fake bodies' room rule
+static int AsLTypeIdx(DWORD type);
+static AsGdRec g_asGdCut[256];
+static int g_asGdCutN;
+static bool g_asGdCutOver;
+// loose[j]: the record names another lot or room than the map's last placement (moved, then destroyed in one window): an
+// array row still drops the element (it left this lot either way), a count row goes to the body (docs/122 §14.28)
+struct AsGdLot { AsU64 lot; int idx[8]; int n; bool bad; u8 loose[8]; };
+static AsGdLot g_asGdLot[64];
+static int g_asGdLotN;
+static AsGdLot* AsGdLotOf(AsU64 lot, bool add) {
+    for (int i = 0; i < g_asGdLotN; i++) if (g_asGdLot[i].lot == lot) return &g_asGdLot[i];
+    if (!add || g_asGdLotN >= 64) return NULL;
+    AsGdLot& l = g_asGdLot[g_asGdLotN++];
+    l.lot = lot, l.n = 0, l.bad = false;
+    return &l;
+}
+// a gone mark of object o on its last placed lot and room (AsOlResolve): its record, or the lot goes to the body this cut
+static void AsGdNote(const AsOl& o) {
+    if (g_asGoneDelta <= 0) return;
+    AsGdLot* l = AsGdLotOf(o.lot, true);
+    if (!l) return;  // a lot past 64: no entry, so its rows go to the body (AsGoneDelta finds none)
+    int j = 0;
+    while (j < g_asGdCutN && g_asGdCut[j].id != o.id) j++;
+    const bool other = j < g_asGdCutN && (g_asGdCut[j].lot != o.lot || g_asGdCut[j].room != o.room);
+    if (other) ts3native_autshadow.gdWhy[g_asGdCut[j].lot != o.lot ? 1 : 2]++;
+    if (g_asGdCutOver || j == g_asGdCutN || l->n >= 8 || (other && !g_asGoneLoose)) {
+        if (g_asGdCutOver || l->n >= 8) ts3native_autshadow.gdWhy[3]++;
+        else if (j == g_asGdCutN) ts3native_autshadow.gdWhy[0]++;  // (other: counted above)
+        if (!l->bad) ts3native_autshadow.gdNoRec++;
+        l->bad = true;
+        return;
+    }
+    l->loose[l->n] = other;
+    l->idx[l->n++] = j;
+}
+// the row's new answer from its stored one minus this cut's destroyed objects of its lot; false = the body answers.
+// Only for rows dirtied by gone marks alone (the caller checks the lot's causes and the Sim marks)
+static bool AsGoneDelta(AsEnt& e, const AsDesc& d, const DWORD* poolOld, DWORD* poolNew, LONG* poolN) {
+    Ts3nAutShadow& k = ts3native_autshadow;
+    const AsGdLot* l = AsGdLotOf(e.owner, false);
+    const int ti = AsLTypeIdx(e.key[0]);
+    if (!l || l->bad || !l->n || e.nKey < 4 || ti < 0 || ti >= 32 || (e.flags & (AE_NOPAY | AE_DISTRUST | AE_FRESH | AE_COLD))) return false;
+    const DWORD room = e.key[3];
+    if (d.kind == AK_INT) {
+        DWORD sub = 0;
+        for (int j = 0; j < l->n; j++) {
+            const AsGdRec& r = g_asGdCut[l->idx[j]];
+            const int in = g_asGdIn(r, room);
+            if (r.clsN <= ti || in < 0 || l->loose[j]) return false;
+            if (in && (r.cls >> ti & 1)) sub += g_asGdUnit;
+        }
+        if (e.r[0] < sub) return false;
+        e.r[0] -= sub;
+    } else if (d.kind == AK_ARRAY) {
+        if (!e.r[0] || e.payN < 2) return false;
+        const DWORD* src = poolOld + e.pay;
+        const LONG len = (LONG)src[1];
+        if (len < 0 || 2 + len != e.payN || *poolN + 2 + len > AS_POOL) return false;
+        DWORD* dst = poolNew + *poolN;
+        LONG w = 0;
+        int found[8] = {0};
+        for (LONG x = 0; x < len; x++) {
+            int hit = -1;
+            for (int j = 0; j < l->n && hit < 0; j++) if (src[2 + x] == g_asGdCut[l->idx[j]].mobj) hit = j;
+            if (hit >= 0) found[hit]++;
+            else dst[2 + w++] = src[2 + x];
+        }
+        for (int j = 0; j < l->n; j++) {  // the record's classes and room say whether the row held it: they must agree
+            const AsGdRec& r = g_asGdCut[l->idx[j]];
+            const int in = l->loose[j] ? -1 : g_asGdIn(r, room);
+            if (found[j] > 1 || (r.clsN > ti && in >= 0 && ((r.cls >> ti & 1) && in) != (found[j] == 1))) { k.gdIncons++; return false; }
+        }
+        if (!w) return false;  // an empty result: only the body tells null (no ids at all) from an empty array
+        dst[0] = src[0], dst[1] = (DWORD)w;
+        e.pay = *poolN, e.payN = 2 + w, *poolN += 2 + w;
+    } else return false;
+    e.gen = g_asListGen;
+    k.gdRows++;
+    return true;
+}
+
 // CutLean=2: the walker's per-object reads (component lot +8, room +0x20); no component = not placeable (resync)
 static bool AsObjLotGame(const void* obj, AsU64* lot, DWORD* room) {
     __try {
@@ -1260,6 +1923,9 @@ static bool AsObjLotGame(const void* obj, AsU64* lot, DWORD* room) {
 static bool g_asOlUnknown;  // this cut: touches were lost (touch list or map full); every list row goes through the print and the map resyncs
 static bool g_asDirtyTrip;  // a ListAudit miss: dirty mode off for the session
 static int g_asListAudit = 1;
+// ListAuditEvery=N (docs/122 §14.27): the audit runs at every Nth dirty cut only. A missed event leaves its row wrong until
+// the row is refreshed, so the rotating audit still finds it, N times later; the typed-row share stays one audit in two
+static int g_asListAuditEvery = 1;
 // lot-vector print baselines (below): per lot, the print of each part (0 objects, 1 Sims) and the cut it was taken at;
 // -1 = no baseline (a membership mark since then: the rows were refreshed against a state the print never saw)
 struct AsLite { AsU64 lot, p[2]; LONG cut[2]; };
@@ -1381,6 +2047,8 @@ static void AsOlPlace(AsOl& o, const void* obj, bool mark) {
         o.seen = 0, o.unpl = 1;
         return;
     }
+    // HostCls (docs/122 §14.26): a live, verified object about to be marked gets the host's classes first
+    if (mark && !o.clsN && (!o.seen || lot != o.lot || room != o.room) && !AsSetHas(g_as->simIds, o.id)) AsHostClsInto(o);
     // placed again after an unplaceable stretch: where it sat meanwhile only a lot vector knows (the prints run this cut)
     if (o.unpl && mark) g_asLiteDue = true, AsLiteObj(o);
     o.unpl = 0;
@@ -1388,6 +2056,7 @@ static void AsOlPlace(AsOl& o, const void* obj, bool mark) {
         // docs/122 §14.19: with seeding, an object of a list lot already has its row, so a first sight here is an object
         // that was on no list lot (or a new one): only its new lot can have changed
         if (!o.seen) AsObjMark(o, lot, true, o.ev & AS_EV_ADD ? AS_MC_NEW : AS_MC_FIRST);
+        if (!o.seen && (o.ev & AS_EV_ADD)) AsSetAdd(g_as->newIds, o.id);  // IdsDelta (docs/122 §14.28)
         else if (lot != o.lot) AsObjMark(o, o.lot, true, AS_MC_LOT), AsObjMark(o, lot, true, AS_MC_LOT);
         else if (room != o.room) AsObjMark(o, lot, false, AS_MC_ROOM);
     }
@@ -1558,6 +2227,8 @@ static void AsOlResolve(bool clear) {
     g_asOlUnknown = false;
     g_asLotWhyN = 0;
     g_asLotTyN = 0, g_asLiteMask = 0, g_asLiteAll = false;
+    g_asGdLotN = 0;
+    AsSetClear(g_as->newIds);
     if (g_asLean != 2) return;
     LARGE_INTEGER a, b;
     QueryPerformanceCounter(&a);
@@ -1576,13 +2247,26 @@ static void AsOlResolve(bool clear) {
     g_as->olOver = g_as->olFull = false;
     for (LONG i = 0; i < g_as->suspectW.n; i++) AsSetAdd(g_as->suspect, g_as->suspectW.k[g_as->suspectW.at[i]]);
     AsSetClear(g_as->suspectW);
+    g_asGdCutN = g_asGdWinN, g_asGdCutOver = g_asGdWinOver;  // GoneDelta: this window's destroy records
+    memcpy(g_asGdCut, g_asGdWin, g_asGdWinN * sizeof(AsGdRec));
+    g_asGdWinN = 0, g_asGdWinOver = false;
     InterlockedExchange(&g_asDirtyLock, 0);
     // shortcut: map rows are written here and by destroy notes without the lock (both on the sim thread, docs/76 §3.3);
     // a destroy note racing this pass from another thread could lose its lot mark (the ListAudit net catches it)
+    int preN = 0;
     for (int i = 0; i < n; i++) {
         AsOl& o = g_as->ol[s_t[i].slot];
-        if (o.gone) { if (o.seen) AsObjMark(o, o.lot, true, AS_MC_GONE); else g_asLiteDue = true, AsLiteObj(o); o.seen = 0; continue; }
+        if (o.gone) {
+            if (o.trans) k.transObjs++, o.trans = 0;  // docs/122 §14.26: lived between two cuts only, no lot changed for it
+            else if (o.seen) AsObjMark(o, o.lot, true, AS_MC_GONE), AsGdNote(o);
+            else g_asLiteDue = true, AsLiteObj(o);
+            o.seen = 0;
+            continue;
+        }
         AsOlPlace(o, s_t[i].obj, true);
+        // PreLearn: a placed non-Sim object on a lot the worker lists or scores, at most 256 a cut
+        if (g_asPreLearn && o.seen && preN < 256 && (AsSetHas(g_as->listLots, o.lot) || AsSetHas(g_as->reqLots, o.lot)) && !AsSetHas(g_as->simIds, o.id))
+            AsPreLearnObject(o.id), preN++;
     }
     k.objResolved += n;
     // docs/122 §14.19: objects of lots that got list rows (or all, after an epoch) into the map, before the rows refresh
@@ -1621,7 +2305,17 @@ static LONG g_asTierMs;
 // camera moves (AsTierOf(0) = 1); a worker read of a waiting Sim or lot holds it at tier 1 for AS_TIER_HOLD cuts
 static LONG g_asTierClassMs = 1000;
 static const LONG AS_TIER_HOLD = 32;
-struct AsTierEnt { AsU64 id; DWORD refMs, clsMs; LONG visitCut, holdCut, clsCut; u8 tier; };
+// clsLot/clsRoom (TierMoveLot, docs/122 §14.27): where the object-lot map had the Sim at its last classification
+// pend (TierClassMax, docs/122 §14.28): due but deferred by the per-cut cap: classified first at a later cut
+struct AsTierEnt { AsU64 id; DWORD refMs, clsMs; LONG visitCut, holdCut, clsCut; u8 tier, pend; AsU64 clsLot; DWORD clsRoom; };
+// TierMoveLot=1 (docs/122 §14.27): a Sim placed by a touch counts as moved only when its lot or room changed since its
+// classification; a walk inside one room waits for the 4 x TierClassMs timer or a camera move. Exact by construction: a
+// tier only gates refreshes (a tier-2 row is published stale and a worker read of it aborts), never an answer
+static int g_asTierMoveLot;
+// TierClassMax=N (docs/122 §14.28): at most N Sim classifications a cut (mono-cost16 BP: 52 us a cut for ~34, all of them
+// after each of 119 camera moves); a due Sim past the cap keeps its cached tier and is classified at a later cut (pend).
+// Exact by the same rule as TierMoveLot: a tier gates refreshes, never an answer
+static int g_asTierClassMax, g_asTierClassCut;
 static AsTierEnt g_asTierTab[1024];
 static AsTierEnt* AsTierSlot(AsU64 id) {
     for (DWORD h = (DWORD)(id ^ id >> 29) * 0x9E3779B1u, i = 0; i < 1024; i++) {
@@ -1672,11 +2366,18 @@ static void AsTierSet(const AsSet& s, DWORD now, bool camMoved, bool workOnly) {
         t->visitCut = g_asCut;
         if (workOnly && t->clsMs && !AsSetHas(g_as->work, id)) { k.tierKept++; if (!t->tier) AsT1Lot(id); continue; }
         const AsOl* o = g_asLean == 2 ? AsOlSlot(id, false) : NULL;
-        const bool moved = !o || o->placedCut > t->clsCut;
+        bool moved = !o || o->placedCut > t->clsCut;
         const DWORD age = now - t->clsMs;
-        if (!t->clsMs || camMoved || age >= (DWORD)g_asTierClassMs * (moved ? 1 : 4))
-            t->tier = (u8)(g_asTierFn(id) == 1), t->clsMs = now ? now : 1, t->clsCut = g_asCut, k.tierClassN++;
-        else k.tierKept++;
+        if (moved && o && g_asTierMoveLot && t->clsMs && !camMoved && o->seen && o->lot == t->clsLot && o->room == t->clsRoom && age >= (DWORD)g_asTierClassMs &&
+            age < (DWORD)g_asTierClassMs * 4)
+            moved = false, k.tmKept++;  // the timer alone would have classified it again
+        const bool due = !t->clsMs || camMoved || t->pend || age >= (DWORD)g_asTierClassMs * (moved ? 1 : 4);
+        if (due && t->clsMs && g_asTierClassMax > 0 && g_asTierClassCut >= g_asTierClassMax) t->pend = 1, k.tcCapped++, k.tierKept++;
+        else if (due) {
+            t->tier = (u8)(g_asTierFn(id) == 1), t->clsMs = now ? now : 1, t->clsCut = g_asCut, k.tierClassN++, t->pend = 0, g_asTierClassCut++;
+            t->clsLot = o && o->seen ? o->lot : 0, t->clsRoom = o && o->seen ? o->room : 0xFFFFFFFFu;
+        } else k.tierKept++;
+        if (t->tier && g_asTierReqLots && o && o->seen && AsSetHas(g_as->reqLots, o->lot)) { g_asReqLotT1++; t->refMs = now; k.tier1Sims++; AsT1Lot(id); continue; }
         if (!t->tier || t->holdCut >= g_asCut) { k.tier1Sims++; t->refMs = now; AsT1Lot(id); continue; }
         k.tier2Sims++;
         if (!t->refMs || now - t->refMs >= (DWORD)g_asTierMs) { t->refMs = now ? now : 1; AsSetAdd(g_as->t2ref, id); }
@@ -1685,6 +2386,7 @@ static void AsTierSet(const AsSet& s, DWORD now, bool camMoved, bool workOnly) {
 }
 static void AsTierCut() {
     AsSetClear(g_as->t2skip), AsSetClear(g_as->t2ref), AsSetClear(g_as->t1Lots);
+    g_asTierClassCut = 0;
     if (g_asTierMs <= 0) return;
     LARGE_INTEGER a, b;
     QueryPerformanceCounter(&a);
@@ -1709,12 +2411,14 @@ static void AsListAudit(LONG gen) {
     Ts3nAutShadow& k = ts3native_autshadow;
     AsTab& m = g_as->m;
     static int s_at;
+    static LONG s_runs;  // ListAuditEvery > 1: audits counted instead of cuts, so the typed share does not depend on N's parity
     LARGE_INTEGER a, b;
     QueryPerformanceCounter(&a);
     int done = 0;
     bool miss = false;
+    const LONG t = g_asListAuditEvery > 1 ? s_runs++ : g_asCut;
     // every other cut with a typed-kept row, one audit goes to such a row (the new rule's own check, same cost)
-    const int ty = g_asTyKeptN && (g_asCut & 1) ? g_asTyKept[(g_asCut >> 1) % min(g_asTyKeptN, 8L)] : -1;
+    const int ty = g_asTyKeptN && (t & 1) ? g_asTyKept[(t >> 1) % min(g_asTyKeptN, 8L)] : -1;
     for (int j = 0; j < m.n && done < g_asListAudit; j++) {
         const bool typed = j == 0 && ty >= 0;
         if (!typed && s_at >= m.n) s_at = 0;
@@ -1793,6 +2497,27 @@ static void AsIcStampCut() {
     if (h != g_asIcBitsHash) g_asIcBitsHash = h, g_asIcStamp++, ts3native_autshadow.icStampMoves++;
 }
 
+// ---- SimEvRows (docs/122 §14.27): a reachable Sim's rows refreshed on its own object events ----
+// Kind-1 Sims (AsAddRowKind) were refreshed at every cut (docs/122 §2.3 "Sims always dirty"; mono-cost13 BP 96 us a cut).
+// The object rows of every other object are refreshed only on object events (docs/76, docs/79), and the same events cover
+// a Sim: its parent (0x21 at each of the three writers), its position while it has no parent (root motion, script and
+// steering moves all publish 0x0E), its hidden flags. SimEvRows=1 keeps a reachable Sim's rows of the SimEvIcs ICs (bit =
+// descriptor index; default 0x27: parent, position, hidden flags, stays-after-evict) when the Sim had no object event since
+// the last cut, has a parent answer of a known 0 (a parented Sim's world position moves with the parent chain), is no
+// actor and no learned Sim. Left out by default: tomb room (routing room updates may lag the transform), outfit, task and
+// slot contents (no object event is known for them). SimEvCheck=N: every Nth kept row is answered by the body anyway and
+// compared; a difference keeps the body's answer and takes that IC out of SimEvRows for the session (seIcOff).
+static int g_asSimEv, g_asSimEvCheck = 8;
+static DWORD g_asSimEvIcs = 0x27;
+// docs/122 §14.28 (mono-cost17): mono-cost16 kept 0.9 rows a cut, because the reachable (kind 1) Sims are few and most
+// tier-1 Sim rows belong to Sims a worker read promoted (learnSims: refreshed at every cut since). SimEvLearn=1 applies the
+// same event rule to them. SimEvSeated=1 also to a Sim whose parent is a root object that is no Sim (a seat, a bed), when
+// neither had an object event: the parent's own moves fire 0x0E / 0x12 (docs/79 §10d); a Sim parent is left out (a bone
+// carries its child with no event, docs/79). A seated Sim's world position also reads the slot matrix through the slot's
+// virtuals, so position is not in its default mask: SimSeatIcs (default 0x25: parent, hidden flags, stays-after-evict).
+static int g_asSimEvLearn, g_asSimEvSeated;
+static DWORD g_asSimSeatIcs = 0x25;
+
 LONG AsCut() {
     if (!g_as) return 0;
     Ts3nAutShadow& k = ts3native_autshadow;
@@ -1862,7 +2587,11 @@ LONG AsCut() {
     }
     while (InterlockedExchange(&g_asDirtyLock, 1)) YieldProcessor();
     AsSetClear(g_as->work);  // set walks by the used-slot list (docs/122 §14.18), not 4,096 slots or 32 KB copies
-    for (LONG i = 0; i < g_as->dirty.n; i++) AsSetAdd(g_as->work, g_as->dirty.k[g_as->dirty.at[i]]);
+    AsSetClear(g_as->evDirty);
+    for (LONG i = 0; i < g_as->dirty.n; i++) {
+        AsSetAdd(g_as->work, g_as->dirty.k[g_as->dirty.at[i]]);
+        if (g_asSimEv > 0) AsSetAdd(g_as->evDirty, g_as->dirty.k[g_as->dirty.at[i]]);
+    }
     AsSetClear(g_as->dirty);
     InterlockedExchange(&g_asDirtyLock, 0);
     for (LONG i = 0; i < g_as->always.n; i++) AsSetAdd(g_as->work, g_as->always.k[g_as->always.at[i]]);
@@ -1894,9 +2623,28 @@ LONG AsCut() {
     }
     AsSetClear(g_as->kids);  // Sims with a child in our parent rows: their moves mark every list kind (docs/122 §14.18)
     for (int j = 0; j < nPar; j++) if (s_par[j].parent && AsSetHas(g_as->simIds, s_par[j].parent)) AsSetAdd(g_as->kids, s_par[j].parent);
+    AsSetClear(g_as->simFree), AsSetClear(g_as->simSeat), AsSetClear(g_as->par0);  // SimEvRows: Sims whose parent answer is known
+    if (g_asSimEv > 0) {
+        auto simOk = [](AsU64 id) { return AsSetHas(g_as->always, id) || (g_asSimEvLearn && AsSetHas(g_as->learnSims, id)); };
+        for (int j = 0; j < nPar; j++) {
+            if (s_par[j].flags & (AE_FRESH | AE_COLD | AE_STALE)) continue;
+            if (!s_par[j].parent) {
+                if (g_asSimEvSeated) AsSetAdd(g_as->par0, s_par[j].owner);
+                if (simOk(s_par[j].owner)) AsSetAdd(g_as->simFree, s_par[j].owner);
+            }
+        }
+        if (g_asSimEvSeated)
+            for (int j = 0; j < nPar; j++) {
+                const AsU64 p = s_par[j].parent;
+                if (p && !(s_par[j].flags & (AE_FRESH | AE_COLD | AE_STALE)) && simOk(s_par[j].owner) && AsSetHas(g_as->par0, p) &&
+                    !AsSetHas(g_as->simIds, p) && !AsSetHas(g_as->evDirty, p))
+                    AsSetAdd(g_as->simSeat, s_par[j].owner);
+            }
+    }
     AsOlResolve(newEpoch);  // CutLean=2: touched objects placed, dirty lots (before the tiers: tier-1 lots read the map)
     AsTierCut();  // TierMs: which Sims of the work set wait (t2skip) and which tier-2 Sims are due (t2ref)
     g_asPrintN = 0;
+    g_asLwN = g_asLwUsed = 0;  // ListWalk: lots are walked again at each cut
     QueryPerformanceCounter(&tp[1]);
     const LONG gen = g_asListGen, refreshed0 = k.refreshed;
     const bool tiers = g_asTierMs > 0;
@@ -1909,7 +2657,7 @@ LONG AsCut() {
     // docs/122 §14.19: an object's rows sit together (AsAddRowKind, AsLearnObject insert them in a run), so the set lookups
     // are made once per owner run instead of three per row (~4,650 rows a cut on BP)
     AsU64 cOwner = 0;
-    bool cWork = false, cT2 = false, cSims = false, cActor = false;
+    bool cWork = false, cT2 = false, cSims = false, cActor = false, cQuiet = false, cSeat = false, cLearn = false;
     AsRunsSync();
     AsIcStampCut();
     const bool skipOk = g_asRunSkip && !full;
@@ -1918,9 +2666,12 @@ LONG AsCut() {
     if (ri + 1 < g_asRunN) _mm_prefetch((const char*)&m.e[g_asRuns[ri + 1].start], _MM_HINT_T0);
     bool checking = false;  // selftest (g_asRunSkipCheck): a run judged skippable is walked anyway and must come out unchanged
     const AsU64 o = run.owner;
-    const bool skip = skipOk && run.plain && !run.stale && run.walked >= 0 && (!run.coldN || (run.stamp == g_asIcStamp && !g_asReadColdOver)) &&
-                      !AsSetHas(g_as->work, o) && !(tiers && AsSetHas(g_as->t2skip, o)) && !AsSetHas(g_as->sims, o) &&
-                      !(run.coldN && (AsSetHas(g_as->readCold, o) || AsIsActor(o)));
+    // docs/122 §14.26: the first reason a run is walked (mono-cost13 BP skipped 157 of ~5,900 rows a cut)
+    const int no = !skipOk ? -1 : !run.plain ? 0 : run.stale ? 1 : run.walked < 0 ? 2 :
+                   AsSetHas(g_as->work, o) || (tiers && AsSetHas(g_as->t2skip, o)) || AsSetHas(g_as->sims, o) ? 3 :
+                   run.coldN && (run.stamp != g_asIcStamp || g_asReadColdOver || AsSetHas(g_as->readCold, o) || AsIsActor(o)) ? 4 : 5;
+    if (no >= 0 && no < 5) k.runNo[no]++;
+    const bool skip = no == 5;
     if (skip) {
         k.runSkips++, k.rowSkips += run.end - run.start;
         if (g_asRunSkipCheck && run.end - run.start <= 256) {
@@ -1948,13 +2699,17 @@ LONG AsCut() {
             cOwner = e.owner;
             cWork = AsSetHas(g_as->work, cOwner), cT2 = tiers && AsSetHas(g_as->t2skip, cOwner), cSims = AsSetHas(g_as->sims, cOwner);
             cActor = AsIsActor(cOwner);
+            cSeat = g_asSimEv > 0 && AsSetHas(g_as->simSeat, cOwner);
+            cLearn = AsSetHas(g_as->learnSims, cOwner);
+            cQuiet = g_asSimEv > 0 && !full && !cActor && (cSeat || AsSetHas(g_as->simFree, cOwner)) && !AsSetHas(g_as->evDirty, cOwner) &&
+                     (!cLearn || g_asSimEvLearn);  // simFree/simSeat hold only reachable (or, SimEvLearn, promoted) Sims
         }
         const bool inWork = obj && cWork;
         const bool t2 = obj && cT2;
         // cause: 0 new row or full rebuild (or cold until now), 1 dirty object / reachable Sim, 2 list generation, 3 per-cut row
         int why = full || (e.flags & (AE_FRESH | AE_COLD)) ? 0 : d.owner == AO_CUT ? 3 :
                   inWork && !t2 ? 1 : d.owner == AO_LIST && e.gen != gen ? 2 : -1;
-        bool t2wait = false;
+        bool t2wait = false, gdOk = false;
         if (d.owner == AO_LIST && why != 0) {
             if (dirtyMode) {
                 const bool room = e.nKey >= 4 && e.key[3] != 0xFFFFFFFFu;
@@ -1980,6 +2735,9 @@ LONG AsCut() {
                     if (g_asTyKeptN < 8) g_asTyKept[g_asTyKeptN] = i;
                     g_asTyKeptN++;
                 }
+                // GoneDelta (docs/122 §14.27): dirty through this cut's gone marks alone (no other cause, no Sim mark, trusted)
+                gdOk = why == 2 && g_asGoneDelta > 0 && !(e.flags & AE_DISTRUST) && AsLotWhyOf(e.owner) == 1u << AS_MC_GONE &&
+                       !AsSetHas(g_as->lotDirtySim, e.owner) && !AsSetHas(g_as->lotRoomSim, e.owner);
             } else if (printAll) why = 2;
         }
         AsU64 lp = 0;
@@ -1993,14 +2751,55 @@ LONG AsCut() {
         if (!cold && why >= 0 && g_asRowHot && obj && e.nKey && !full && e.ic != g_asIcParent && !cActor && g_asCut - e.lastRead > g_asRowHot)
             cold = true, k.rowColdSkips++;
         if (cold) e.flags |= AE_COLD, k.coldSkips++;
+        bool seCheck = false;  // SimEvRows (docs/122 §14.27): a quiet reachable Sim's row of an event-covered IC keeps its answer
+        int seBit = -1;
+        if (why == 1 && !cold && cQuiet && &d >= kAsDesc && &d < kAsDesc + 32 && (seBit = (int)(&d - kAsDesc), (g_asSimEvIcs & (cSeat ? g_asSimSeatIcs : ~0u)) >> seBit & 1)) {
+            static LONG s_seN;
+            if (g_asSimEvCheck > 0 && ++s_seN % g_asSimEvCheck == 0) seCheck = true, k.seChecks++;
+            else why = -1, k.seKept++, k.seLearnKept += cLearn, k.seSeatKept += cSeat;
+        }
         if (why >= 0 && !cold) {
             const AsEnt old = e;
             LARGE_INTEGER r0, r1;
             QueryPerformanceCounter(&r0);
-            AsRefresh(e.ic, e, g_as->poolTmp, &poolN);
+            g_asLwHashOut = 0;  // IdsDelta: set only by a row the walk answers
+            const bool gd = gdOk && g_asGoneDelta > 0 && AsGoneDelta(e, d, m.pool, g_as->poolTmp, &poolN);
+            if (gdOk && g_asGoneDelta > 0 && !gd) k.gdFall++;
+            if (gd) {
+                static LONG s_gdN;
+                if (g_asGoneDeltaCheck > 0 && ++s_gdN % g_asGoneDeltaCheck == 0) {  // the body answers too: must be the same
+                    AsEnt x = old;
+                    AsRefresh(x.ic, x, g_as->poolTmp, &poolN);
+                    k.refreshed--, k.gdChecks++;
+                    if (!AsSame(d, e, g_as->poolTmp, x, g_as->poolTmp)) {
+                        k.gdMis++, g_asGoneDelta = -1, k.gdOn = -1;
+                        if (k.gdMis <= 8) Log("autshadow gone delta miss: %s lot 0x%08lX%08lX room %ld (GoneDelta off)", g_asName[e.ic], (DWORD)(e.owner >> 32), (DWORD)e.owner, (LONG)e.key[3]);
+                        e = x;  // the body's answer (its payload is in poolTmp too)
+                        m.refs[i] = d.kind == AK_REF ? e.r[0] : 0;
+                    }
+                }
+            } else if (g_asListWalk > 0 && d.owner == AO_LIST && AsRefreshList(e, g_as->poolTmp, &poolN, g_asIdsDelta > 0 ? (dirtyMode ? 2 : 1) : 0)) {
+                static LONG s_lwN;
+                if (g_asListWalkCheck > 0 && ++s_lwN % g_asListWalkCheck == 0) {  // the body answers too: must be the same
+                    AsEnt x = old;
+                    AsRefresh(x.ic, x, g_as->poolTmp, &poolN);
+                    k.refreshed--, k.lwChecks++;
+                    if (!AsSame(d, e, g_as->poolTmp, x, g_as->poolTmp)) {
+                        k.lwMis++, g_asListWalk = -1, k.lwOn = -1;
+                        if (k.lwMis <= 8) Log("autshadow list walk miss: %s lot 0x%08lX%08lX room %ld (ListWalk off)", g_asName[e.ic], (DWORD)(e.owner >> 32), (DWORD)e.owner, (LONG)e.key[3]);
+                        e = x;  // the body's answer (its payload is in poolTmp too)
+                        m.refs[i] = d.kind == AK_REF ? e.r[0] : 0;
+                    }
+                }
+            } else AsRefresh(e.ic, e, g_as->poolTmp, &poolN);
             QueryPerformanceCounter(&r1);
+            if (seCheck && !AsSame(d, old, m.pool, e, g_as->poolTmp)) {  // a change with no event: this IC leaves SimEvRows
+                k.seMis++, k.seIcOff |= 1 << seBit, g_asSimEvIcs &= ~(1u << seBit);
+                if (k.seMis <= 8) Log("autshadow sim event miss: %s of Sim 0x%08lX%08lX changed with no object event (IC off for SimEvRows)", g_asName[e.ic], (DWORD)(e.owner >> 32), (DWORD)e.owner);
+            }
             e.flags &= ~AE_COLD;
-            if (d.owner == AO_LIST) e.lp = lpOk ? lp : 0;  // object rows keep lastRead in the union
+            // object rows keep lastRead in the union; IdsDelta: the ids hash (a print compare against it only refreshes more)
+            if (d.owner == AO_LIST) e.lp = g_asIdsDelta > 0 && g_asLwHashOut ? g_asLwHashOut : lpOk ? lp : 0;
             k.bodyN[why]++;
             k.bodyUs[why] += us(r0, r1);
             if (dirtyMode && why == 2) {
@@ -2025,7 +2824,10 @@ LONG AsCut() {
         stale += st;
         m.refs[i] = d.kind == AK_REF ? e.r[0] : 0;  // the rooted column matches the entries
         if (e.ic == g_asIcParent) g_asPar[g_asParN].owner = e.owner, g_asPar[g_asParN].parent = e.r[0] | (AsU64)e.r[1] << 32, g_asPar[g_asParN++].flags = e.flags, run.par = i;
-        if (!obj || e.payN || (e.flags & AE_FRESH)) plain = false;
+        // docs/122 §14.26: a row cold since its insert keeps AE_FRESH (never refreshed) but takes the cold path again at the
+        // next cut like any cold row (the IC stamp, readCold and the actor test cover what could warm it); mono-cost13 BP had
+        // such a row in almost every object run, so RunSkip skipped 157 rows a cut
+        if (!obj || e.payN || (e.flags & (AE_FRESH | AE_COLD)) == AE_FRESH) plain = false;
         anyStale |= st;
     }
     if (checking) {  // the walk of a run judged skippable: rows, rooted column and cold counts as the skip would leave them
@@ -2044,7 +2846,11 @@ LONG AsCut() {
     k.stale = stale;
     memcpy(m.pool, g_as->poolTmp, poolN * 4);
     m.poolN = poolN;
-    if (dirtyMode && g_asListAudit > 0) AsListAudit(gen);
+    if (dirtyMode && g_asListAudit > 0) {
+        static LONG s_dirtyCuts;
+        if (g_asListAuditEvery <= 1 || s_dirtyCuts++ % g_asListAuditEvery == 0) AsListAudit(gen);
+        else k.laSkips++;
+    }
     if (k.refreshed - refreshed0 > k.refreshMax) k.refreshMax = k.refreshed - refreshed0;
     QueryPerformanceCounter(&tp[2]);
     // learned keys and memo rows unused for AS_AGE cuts (CutLean=1: every AS_AGE_EVERY-th cut, so the reindex is rare)
@@ -2237,7 +3043,7 @@ static bool ApplyAutShadow(const wchar_t* ini) {
         k.guardSlots && g_asFmtTramp && g_snJmp[SN_WEV] && g_asMode >= 0 ? "OK  " : "PART", guard, k.guardSlots, k.guardChained,
         k.guardSkipped, k.descIcs, AS_NDESC, g_asFmtTramp ? "on" : "SKIPPED", g_snJmp[SN_WEV] ? "from routesnap's World_FireEvent detour" :
         "OFF ([RouteSnap] Count=0: every cut rebuilds in full)", g_asMode,
-        g_asMode < 0 ? "no cut: needs [MonoThread] Enabled=1" : g_asMode == 0 ? "count only" : g_asMode == 1 ? "R: reference + worker" : "W: worker",
+        g_asMode < 0 ? "no cut: needs [MonoThread] Enabled=1" : g_asMode == 0 ? "count only" : g_asMode == 1 ? "R: reference + worker" : g_asMode == 2 ? "W: worker" : "live: the game uses the worker's answers (docs/124 §17)",
         g_asSample, g_asWarmIn, g_asLedger ? 1 : 0);
     return true;
 }

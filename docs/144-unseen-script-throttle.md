@@ -9,7 +9,7 @@ Written 2026-10-21. Rodney's direction: instead of moving script work to a secon
 
 | Candidate | Cost now | Per tick | N x dt equivalent? | Verdict | Expected gain (N as built) |
 |---|---|---|---|---|---|
-| Reaction broadcaster pulse (`PulseSims` -> `GetInRadiusSims`) | 16.4 ms/s BP, 12.8 IP (after the 1-in-4 rule) | per broadcaster ~1 / sim-second | no integrator; enter/exit callbacks start late | **build** `unseenbroadcast`, N = 16 per broadcaster | **~4-8 ms/s BP, ~3-7 IP, ~0.5-1.5 SV** [inferred from measured counters, §2.1] |
+| Reaction broadcaster pulse (`PulseSims` -> `GetInRadiusSims`) | 16.4 ms/s BP, 12.8 IP (after the 1-in-4 rule) | per broadcaster 1 / sim-minute | no integrator; enter/exit callbacks start late | **build** `unseenbroadcast`, N = 16 per broadcaster | **~4-8 ms/s BP, ~3-7 IP, ~0.5-1.5 SV** [inferred from measured counters, §2.1] |
 | Environment score (`SimUpdate.CalculateSimEnvironmentScore`) | 18.3 BP, 17.4 IP | per high-LOD Sim every 2 sim-min | moving value: skip = keep the last score and buffs | **build** `unseenenv`, N = 4 | **0.7-2.7 ms/s** for an unseen share of 5-20% of high-LOD calls; real number from the probe |
 | Motive decay and the rest of `Autonomy.Update` (`Motives.UpdateMotives` ~32 ms/s, of it decay ~8) | ~32+ BP | per high-LOD Sim per SimUpdate slot (>= 1 sim-min) | **yes**: every step integrates the sim-minutes since the last one; clamps, buff thresholds and rate changes make it first-order equal, at most N-1 minutes late | **build** `unseenmotives`, N = 4 sim-minutes | **1.2-4.8 ms/s** at 5-20% unseen share; probe first |
 | Closest visible lot (`Camera.GetClosestVisibleLot`) | 6.0 BP | camera task, not per Sim | - | not a per-Sim throttle; `kHoursMemo` covers its hot callee | 0 |
@@ -41,13 +41,13 @@ Cached `mbHighLOD`, recomputed at most every 60 ticks: true for the active Sim's
 
 ### 2.1 Reaction broadcasters (`unseenbroadcast`)
 
-**What it does.** Every broadcaster (music, fire, smell, a Sim's clothing, ...) pulses about once per sim-second: a radius query for Sims (`Queries.GetObjects`), room/species/tomb filters, `Sim.CanSeeObject` per candidate, then enter/exit callbacks. `BroadcasterPulseHook` (`kBroadcasterThrottle`, on by default) lets a broadcaster far from the camera and the active household pulse one call in four, through **one shared counter** `(++sCalls & 3)`.
+**What it does.** Every broadcaster (music, fire, smell, a Sim's clothing, ...) pulses once per sim-minute (`kSimulateFrequencyMinutes = 1`: `Lot.UpdateReactions` passes elapsed sim-minutes, `Simulate` pulses once when its accumulator passes 1 and drops it by 1) [verified, decompile; docs/209 #94 corrected "once per sim-second"]: a radius query for Sims (`Queries.GetObjects`), room/species/tomb filters, `Sim.CanSeeObject` per candidate, then enter/exit callbacks. `BroadcasterPulseHook` (`kBroadcasterThrottle`, on by default) lets a broadcaster far from the camera and the active household pulse one call in four, through **one shared counter** `(++sCalls & 3)`.
 
 **Unseen share [measured counters, share inferred].** `broadcast_skipped / broadcast_pulses`: IP 0.68 (`moved-ip-*`), BP 0.66 (wildflower first-minute run, `t14`), SV 0.24-0.26 (`moved-sv-*`). Skipped = 3/4 of unseen calls, so the unseen share of pulse calls is ~0.88 (BP), ~0.91 (IP), ~0.33 (SV). Of the pulses that still **run**, unseen ones are 0.22 / (0.22 + 0.12) = **~65% on BP**, ~72% on IP, ~11% on SV. docs/129's 16.4 ms/s BP is that residual.
 
 **Throttle.** Per broadcaster (key = reference hash, no reference kept), one pulse in `kUnseenBroadcastEvery` (16) while far from viewers, first pulse staggered by the key; near the player always. The shared counter goes: with fixed pulse orders it can starve the same broadcasters (a broadcaster whose calls keep landing on the residue that runs pulses every time, the others never) [inferred; the per-key gate cannot].
 
-**Effect.** No integrator: an unseen Sim starts or stops reacting (enjoying music, fleeing a fire, smelling food) up to 16 pulses (~16 sim-seconds) late instead of 4. Fire and panic reactions on an unseen lot come later; the fire itself is not a broadcaster-driven object. Near the player nothing changes.
+**Effect.** No integrator: an unseen Sim starts or stops reacting (enjoying music, fleeing a fire, smelling food) up to 16 pulses (~16 sim-minutes) late instead of 4. Fire and panic reactions on an unseen lot come later; the fire itself is not a broadcaster-driven object. Near the player nothing changes.
 
 **Gain.** 65% x 16.4 x (1 - 4/16) = **~8 ms/s BP** if an unseen pulse costs what a seen one does; half that if unseen areas are emptier (radius query finds fewer Sims): **~4-8 ms/s BP, ~3-7 IP**, small on SV.
 
