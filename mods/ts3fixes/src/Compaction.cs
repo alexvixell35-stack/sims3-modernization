@@ -142,7 +142,19 @@ namespace Ts3Fixes
             if (why != kCpWhyLoad) CpNotify(CompactionCore.kSkippedText);
         }
 
+        // One check at a time. A save made while the game is paused leaves its SaveGameTask asleep in the modal-window wait below;
+        // on 2026-11-04 (#208 save matrix) twelve of them woke together after save #12 and each asked for a verdict. With the
+        // threshold reached that would be twelve prompts or compactions. The check that waits reads the newest save anyway.
+        static bool sCpChecking;
+
         static void CompactAfterSave()
+        {
+            if (sCpChecking) { DiagLine("compaction: a check from an earlier save is still waiting; this save adds none"); return; }
+            sCpChecking = true;
+            try { CompactAfterSaveCheck(); } finally { sCpChecking = false; }
+        }
+
+        static void CompactAfterSaveCheck()
         {
             int[] c = PatchCounters();
             c[427]++;
