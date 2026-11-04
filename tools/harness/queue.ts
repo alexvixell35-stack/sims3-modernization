@@ -2030,6 +2030,11 @@ async function closeGame(probePid?: number) {
   if (gameRunning()) log(`closeGame: ${GAME_EXE} still running after 60 s`);
   else { const left = killLeftovers(); if (left.length) log(`closeGame: leftovers killed: ${left.join('; ')}`); } // EA helpers of a hung launch (docs/236 round 4)
 }
+// an EA crash report (xcpt*.txt) written since the job started
+const freshCrashReport = (since: string) => {
+  try { return readdirSync(USER).some(n => /^xcpt .*\.txt$/i.test(n) && statSync(join(USER, n)).mtime >= new Date(since)); }
+  catch { return false; }
+};
 const triage = (since: string) => {
   try { return execFileSync(process.execPath, [H('crash-ledger.ts'), 'triage', '--since', since, ...(seenPids.size ? ['--pids', [...seenPids].join(',')] : [])]).toString().trim().split(/\n\s*\n/).at(-1) ?? ''; }
   catch (e) { return `crash-ledger triage failed: ${String(e).split('\n')[0]}`; }
@@ -2627,7 +2632,10 @@ for (const [n, j] of jobs.entries()) {
   if (stopLoad) { stopLoad(); const ml = loadSummary(machineFile); Object.assign(row, { machine: ml.line, noise: ml.noise, noiseNote: ml.short, machineLog: machineFile }); log(`${j.id}: ${ml.line}`); }
   if (stall && !row.error?.includes(stall)) row.error = [row.error, stall].filter(Boolean).join('; ');
   stall = '';
-  row.crashed = launched && !closedByUs && !guardClosed && !gameRunning() || row.verdict.some((v: string) => /game died/.test(v));
+  // a fresh EA crash report also counts (2026-11-04: the game died while a read-back FAIL closed it, so closedByUs was set
+  // and the job showed as FAIL; the queue's two-crashes stop then missed it)
+  row.crashed = launched && !closedByUs && !guardClosed && !gameRunning() || row.verdict.some((v: string) => /game died/.test(v)) ||
+    launched && freshCrashReport(t0);
   guardClosed = false;
   if (row.crashed) { row.crash = triage(t0); log(`${j.id}: game crashed\n${row.crash}`); await logUntrackedGame(s => log(`${j.id}: ${s}`)); } // EA only: names game processes this run never saw (docs/236 #20)
   try { row.hangCapture = hangCaptureLine(readFileSync(logFile).subarray(logOff).toString()); } catch { /* no job log */ }
