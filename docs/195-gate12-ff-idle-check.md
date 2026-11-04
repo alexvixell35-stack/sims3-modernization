@@ -108,7 +108,7 @@ Job calls 973: 590 cell hits, 210 neighbours, 173 last surface, 0 to the game. C
 
 **Harness bug found by these runs.** With SiteC installed, the IC's wait was keyed by `IcStub`'s own return address in ts3native.asi, not by `0x755990`. That address changes every run and differs per call instruction. The 32 P0 key slots fill first-come, so the off arm's key got no slot: its wait went to the untimed `blockOther` (262 vs 143 per min), and the off arm's keyed total read low by about 11 ms/s. Fix: `t_stubKey` (`StubKey` in `GvStub` and `IcStub`) keys the outermost ObstacleQuery wait by the game site (`0x755990`, `0x75A64C`), as AvSite does with `0x846D21`; both keys are seeded. The asi-range key in older runs (for example `0x6696A870`, 3 to 5 ms/s) was `GvStub`'s wait: the dx-local round (fixed keys) shows `0x75A64C` at 5-9 ms/s and no asi-range key.
 
-## 8. Site C2: the IC's own loop on the clone (`[IdleCheckRO] SiteCLoop`, 2026-11-04, counters v905, built, not run)
+## 8. Site C2: the IC's own loop on the clone (`[IdleCheckRO] SiteCLoop`, 2026-11-04, counters v905)
 
 **Why.** After the footstep cache, the route-to-object tail and DestroyParkDx, idle check site C (`0x755990`) is the biggest sim wait left (about 19 ms/s on, docs/88 §11). C1 answers only empty results (0.46%). The other 99.5% find footprints near the point.
 
@@ -116,7 +116,7 @@ Job calls 973: 590 cell hits, 210 neighbours, 173 last surface, 0 to the game. C
 
 **What the loop does** (`0x7559A0..0x755A4C`) [verified disassembly 2026-11-04]. Per element, in vector order; the first footprint that decides ends the IC:
 
-- Interface slot `+0xC` is the kind. All 10 targets are `sub ecx, 4` then a constant getter: `0x6262F0` 1, `0x74BB10` 2, `0x624EC0` 3, `0x624E10` 4, `0x624E60` 5, `0x6250A0` 6, `0x620E00` 7, `0x624E50` 8, `0x620E50` 10, `0x624EB0` 11.
+- Interface slot `+0xC` is the kind. All 11 targets are `sub ecx, 4` then a constant getter: `0x6262F0` 1, `0x74BB10` 2, `0x624EC0` 3, `0x624E10` 4, `0x624E60` 5, `0x6250A0` 6, `0x620E00` 7, `0x624E50` 8, `0x624E00` 9, `0x620E50` 10, `0x624EB0` 11.
 - Kind 5:
   - With no ids in the frame (`[f+0x1C]` 0), the answer is 0x20.
   - Otherwise the id is read (slot `+4` = `0x620E60` -> `0x806FE0`: object `+0x14`/`+0x18`) and looked up in the frame's id list (`0x788EA0` is a plain find). Found means the next element.
@@ -138,4 +138,14 @@ Job calls 973: 590 cell hits, 210 neighbours, 173 last surface, 0 to the game. C
 
 **C2b (not built).** A non-zero answer could also skip the game: a jump at `0x755990` to the IC's return label for that answer (0x20 `0x755A6D`, 8 `0x755A82`, 0x10 `0x755A97`, 4 `0x755A12`; each frees the empty vector). Only worth it if the shadow shows few zero answers.
 
-**Next.** A shadow job (`SiteCShadow=1 SiteCLoop=1`, mode 0): mismatch 0 and the zero share. Then an A/B `--ab idlecheckc2` on the final setup.
+**Round 1 (2026-11-04, c2-local, final setup on both arms).**
+
+- Shadow: 598 loop compares, 0 mismatches, 0 code diffs; 426 (71%) answered 0. But 1,132 evaluations were doubts.
+- A/B `--ab idlecheckc2` twice: of 1,021 and 1,112 runs, 222 and 245 taken (22%), 669 and 715 doubts. Site C `0x755990` 13.8 vs 17.5 and 21.7 vs 16.5 ms/s: noise at that share.
+- Doubt log (doubt reason codes added, the first 24 logged with their slot targets): all 24 were the kind getter `0x624E00` (interface `0xFEBA74`, kind 9), which the first table missed. Added.
+
+**Round 2 (kind 9 added, c2e-local).**
+
+- Shadow: 1,737 loop compares, 0 mismatches, 0 code diffs, 0 doubts; 1,514 (87%) answered 0.
+- A/B `c2e-ab`: 1,268 runs, 1,028 taken (81%), 240 decided by a footprint (229 of them 0x10), 0 doubts. Site C `0x755990` 4.7 vs 13.7 ms/s; all keyed sim waits 23.9 vs 30.7 (-22%). Arm sum +7% (inside the noise). Stuck Sims 5. 10 ms of clone and loop time over 1,028 taken calls.
+- A/B `c2e-ab-b` died after about 8 min: crash W (docs/67 §27), the main thread's Sim thumbnail render reading a released pose at `0x54E79A` (an EA bug, also vanilla). The stack holds only TS3W addresses; C2 answers only what the game would. The first crash W in our runs. The next runs turn on `[EaCrashFixes] ThumbPose` (docs/67 §27.5) on both arms.

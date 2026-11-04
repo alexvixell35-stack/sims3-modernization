@@ -203,10 +203,20 @@ static IcClassFn g_icClass = IcClassGame;                    // selftest hands i
 static const DWORD* g_icMask = (const DWORD*)(uintptr_t)0x011E90FC;
 static const u8* g_icTestFrame;                               // selftest: the frame (its own return address is not 0x755990)
 static const int IC_LOOP_DOUBT = -1;
+// a doubt is -why: 1 no interface table, 2 kind slot target, 3 kind-5 id slot, 4 slot +0x1C, 5 class function, 6 slot +8,
+// 7 clone list truncated; the last one's slot targets for the log (owner thread only)
+static struct { int why; DWORD sv1, sv2, sv3, sv7, vt2; } g_icDoubt;
+static int IcDoubt(int why, const u8* obj) {
+    const DWORD* sv = obj ? *(const DWORD* const*)(obj + 4) : NULL;
+    const DWORD* vt = obj ? *(const DWORD* const*)obj : NULL;
+    g_icDoubt.why = why, g_icDoubt.vt2 = vt ? vt[2] : 0;
+    g_icDoubt.sv1 = sv ? sv[1] : 0, g_icDoubt.sv2 = sv ? sv[2] : 0, g_icDoubt.sv3 = sv ? sv[3] : 0, g_icDoubt.sv7 = sv ? sv[7] : 0;
+    return -why;
+}
 // one element of the IC's loop (obj = the primary object; the vector holds obj + 4): 0 = next, -1 = doubt, else the answer
 static int IcLoopOne(const u8* obj, const u8* f) {
     const DWORD* sv = *(const DWORD* const*)(obj + 4);
-    if (!sv) return IC_LOOP_DOUBT;
+    if (!sv) return IcDoubt(1, obj);
     int kind;
     switch (sv[3]) {  // interface slot +0xC: sub ecx, 4, then a constant getter
     case 0x006262F0: kind = 1; break;
@@ -217,13 +227,14 @@ static int IcLoopOne(const u8* obj, const u8* f) {
     case 0x006250A0: kind = 6; break;
     case 0x00620E00: kind = 7; break;
     case 0x00624E50: kind = 8; break;
+    case 0x00624E00: kind = 9; break;  // 0xFEBA74 (2026-11-04: all 24 logged doubts of the first shadow)
     case 0x00620E50: kind = 0xA; break;
     case 0x00624EB0: kind = 0xB; break;
-    default: return IC_LOOP_DOUBT;
+    default: return IcDoubt(2, obj);
     }
     if (kind == 5) {  // 0x7559B8
         if (!*(const DWORD*)(f + 0x1C)) return 0x20;
-        if (sv[1] != 0x00620E60) return IC_LOOP_DOUBT;
+        if (sv[1] != 0x00620E60) return IcDoubt(3, obj);
         const DWORD lo = *(const DWORD*)(obj + 0x14), hi = *(const DWORD*)(obj + 0x18);
         for (const DWORD *p = *(const DWORD* const*)(f + 0x18), *e = *(const DWORD* const*)(f + 0x34); p != e; p += 2)
             if (p[0] == lo && p[1] == hi) return 0;
@@ -231,14 +242,14 @@ static int IcLoopOne(const u8* obj, const u8* f) {
         return o && (*(const DWORD*)(o + 0x2C) & *g_icMask) ? 4 : 0x20;
     }
     if (sv[7] == 0x00624F70) return 0;  // the member footprint's +0x1C: false
-    if (sv[7] != 0x00620D20) return IC_LOOP_DOUBT;
+    if (sv[7] != 0x00620D20) return IcDoubt(4, obj);
     int cls;
-    if (!g_icClass(obj, &cls)) return IC_LOOP_DOUBT;
+    if (!g_icClass(obj, &cls)) return IcDoubt(5, obj);
     if ((DWORD)cls < 2 || cls == 0xD) return 0;
     int t;
     if (sv[2] == 0x00624ED0) t = *(const signed char*)(obj + 0x35);
     else if (sv[2] == 0x00620E50) t = 0xA;
-    else return IC_LOOP_DOUBT;
+    else return IcDoubt(6, obj);
     return t == 1 ? 0x10 : t == 12 || t == 23 ? 8 : 0;
 }
 // the loop over a list (sub 0: the clone's primary objects, 4: the game's vector of interface pointers); NULL entries skipped
@@ -249,7 +260,7 @@ static int IcLoopRun(const u8* const* list, int n, int sub, const u8* f) {
     }
     return 0;
 }
-static int IcVisit(const SrCtx& c, const void* f) { return c.over ? IC_LOOP_DOUBT : IcLoopRun(c.objs, c.n, 0, (const u8*)f); }
+static int IcVisit(const SrCtx& c, const void* f) { return c.over ? IcDoubt(7, NULL) : IcLoopRun(c.objs, c.n, 0, (const u8*)f); }
 // the IC's frame from IcStub's return slot, or NULL when the caller is not the IC as verified
 static const u8* IcFrameOf(const void* retSlot, const DWORD* vec) {
     const u8* f = g_icTestFrame ? g_icTestFrame : (const u8*)retSlot + 4 + 0x14;
@@ -260,7 +271,14 @@ static const u8* IcFrameOf(const void* retSlot, const DWORD* vec) {
 }
 static void IcLoopCode(int a) {
     Ts3nCounters& k = ts3native_counters;
-    if (a < 0) InterlockedIncrement(&k.icLoopDoubt);
+    if (a < 0) {
+        static volatile LONG noted;
+        InterlockedIncrement(&k.icLoopDoubt);
+        if (InterlockedIncrement(&noted) <= 24)
+            Log("idle check RO site C loop: doubt %d (1 table, 2 kind, 3 id slot, 4 slot +0x1C, 5 class, 6 slot +8, 7 truncated): "
+                "interface +4 %08lX +8 %08lX +0xC %08lX +0x1C %08lX, primary +8 %08lX", g_icDoubt.why, g_icDoubt.sv1, g_icDoubt.sv2,
+                g_icDoubt.sv3, g_icDoubt.sv7, g_icDoubt.vt2);
+    }
     else InterlockedIncrement(&k.icLoopCode[a == 4 ? 0 : a == 8 ? 1 : a == 0x10 ? 2 : 3]);
 }
 static DWORD IcShadow(u8* world, void* edx, const float* pt, float r, DWORD* vec, DWORD mode, DWORD opt, const u8* f) {
@@ -272,7 +290,7 @@ static DWORD IcShadow(u8* world, void* edx, const float* pt, float r, DWORD* vec
     const int why = mode ? SR_FB_STATE : GvRun(world, pt, r, opt, false, &lot, &n, f ? IcVisit : NULL, f, &mine);
     if (!why && f && size && n == size) {  // SiteCLoop: the loop on the game's refs vs on the clone
         const int game = IcLoopRun((const u8* const*)(uintptr_t)vec[0], size, 4, f);
-        if (game < 0 || mine < 0) InterlockedIncrement(&k.icLoopDoubt);
+        if (game < 0 || mine < 0) IcLoopCode(game < 0 ? game : mine);
         else {
             InterlockedIncrement(&k.icLoopShadowRuns);
             if (!game) InterlockedIncrement(&k.icLoopShadowZero);

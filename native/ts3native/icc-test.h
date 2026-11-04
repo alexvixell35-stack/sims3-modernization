@@ -128,6 +128,9 @@ static void TestIdleCheckC() {
         g_icClass = icl::Class, g_icFind = icl::Find, g_icMask = &icl::mask;
         a[0x35] = 3, b[0x35] = 1;
         assert(IcLoopOne(a, fr) == 0 && IcLoopOne(b, fr) == 0x10);
+        svK7[3] = 0x00624E00;  // kind 9 (0xFEBA74): the class path too
+        assert(IcLoopOne(b, fr) == 0x10);
+        svK7[3] = 0x00620E00;
         b[0x35] = 12;
         assert(IcLoopOne(b, fr) == 8);
         b[0x35] = 23;
@@ -140,13 +143,13 @@ static void TestIdleCheckC() {
         svK7[2] = 0x00620E50;  // type 10
         assert(IcLoopOne(b, fr) == 0);
         svK7[2] = 0x00012345;
-        assert(IcLoopOne(b, fr) == IC_LOOP_DOUBT);
+        assert(IcLoopOne(b, fr) < 0);
         svK7[2] = 0x00624ED0, svK7[7] = 0x00624F70;  // the member footprint: IsKind false
         assert(IcLoopOne(b, fr) == 0);
         svK7[7] = 0x00620D20, icl::clsOk = false;
-        assert(IcLoopOne(b, fr) == IC_LOOP_DOUBT);
+        assert(IcLoopOne(b, fr) < 0);
         icl::clsOk = true, svK7[3] = 0x00999999;
-        assert(IcLoopOne(b, fr) == IC_LOOP_DOUBT);
+        assert(IcLoopOne(b, fr) < 0);
         svK7[3] = 0x00620E00;
         assert(IcLoopOne(c5, fr) == 0);  // kind 5, id in the list
         *(DWORD*)(c5 + 0x14) = 0x77;
@@ -158,7 +161,7 @@ static void TestIdleCheckC() {
         *(DWORD*)(fr + 0x1C) = 0;  // no ids: 0x20 before the lookup
         assert(IcLoopOne(c5, fr) == 0x20);
         *(DWORD*)(fr + 0x1C) = 2, svK5[1] = 0;
-        assert(IcLoopOne(c5, fr) == IC_LOOP_DOUBT);
+        assert(IcLoopOne(c5, fr) == -3 && g_icDoubt.why == 3 && g_icDoubt.sv3 == 0x00624E60);
         svK5[1] = 0x00620E60, *(DWORD*)(c5 + 0x14) = 0x66, b[0x35] = 1;
         const u8* l0[3] = {a, NULL, b};  // first decisive answer, NULL skipped
         assert(IcLoopRun(l0, 3, 0, fr) == 0x10 && IcLoopRun(l0, 1, 0, fr) == 0);
