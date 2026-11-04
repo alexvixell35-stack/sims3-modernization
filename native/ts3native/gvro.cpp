@@ -33,8 +33,11 @@ static GvQueryFn g_gvQuery = GvQueryGame;  // selftest hands in fake footprint l
 enum { GV_FB_STATE, GV_FB_TRY, GV_FB_LOT, GV_FB_SHAPE, GV_FB_TRIP, GV_FB_JOBEND, GV_FB_HITS };
 static const int GV_WHY_JOBEND = 100;  // above the SR_* codes
 
-// The clone of 0x82EDB0 from its lot lookup on: *lot = World_LotLookup found one (the game's al), *n = footprints collected
-static int GvRun(u8* world, const float* pt, float r, DWORD opt, bool job, bool* lot, int* n) {
+// The clone of 0x82EDB0 from its lot lookup on: *lot = World_LotLookup found one (the game's al), *n = footprints collected.
+// visit (SiteCLoop): runs on the collected footprints inside the QL hold (they stay valid only there), its answer in *ans.
+typedef int (*GvVisitFn)(const SrCtx& c, const void* arg);
+static int GvRun(u8* world, const float* pt, float r, DWORD opt, bool job, bool* lot, int* n, GvVisitFn visit = NULL,
+                 const void* arg = NULL, int* ans = NULL) {
     *lot = false, *n = 0;
     if (!world) return SR_FB_STATE;
     const u8* p = *(const u8* const*)(world + 0x95C);  // 0x82EEC8: the planner as 0x82EDB0 passes it
@@ -67,6 +70,7 @@ static int GvRun(u8* world, const float* pt, float r, DWORD opt, bool job, bool*
     static SrCtx c;  // owner thread only
     if (!why) why = g_gvQuery(&c, p, lo, hi, sp, r, rec);
     if (!why && t_srFail) why = t_srFail;
+    if (!why && visit && c.n) *ans = visit(c, arg);  // before the checks below, so they cover it too
     if (!why && (g_qlSeq != seq || g_twActive || g_twEpoch != twEpoch)) why = SR_FB_TRIP;
     if (!why && job && g_twGen != twGen) why = GV_WHY_JOBEND;  // disarmed during the clone: writers unseen
     t_inRo = false;

@@ -179,13 +179,111 @@ static DWORD __fastcall IkTestStub(u8* p, void* edx, const u8* entry, DWORD room
 static const DWORD IC_SITE_OQ = 0x0075598B;
 static GvFn g_icOrig = (GvFn)(uintptr_t)GV_TARGET;
 static volatile LONG g_icNoted;
-static DWORD IcShadow(u8* world, void* edx, const float* pt, float r, DWORD* vec, DWORD mode, DWORD opt) {
+
+// [IdleCheckRO] SiteCLoop (C2, docs/195 §8, counters v905): with footprints near the point, the IC's own loop
+// (0x7559A0..0x755A4C) runs on the clone's footprints inside GvRun's QL hold. Answer 0 (no footprint decides): the vector
+// stays empty and the IC returns 0 at 0x755A5B, as after the game's call. Any other answer (4, 8, 0x10, 0x20) or a doubt
+// calls the game. Every call of the loop is a read [verified disassembly 2026-11-04]: interface slot +0xC is a constant kind
+// getter, +4 (0x620E60 -> 0x806FE0) the id at +0x14, +0x1C (0x620D20) the primary class slot +8 with (0, 0) (one of the k8
+// functions the S2 clone calls), +8 the type byte +0x35 (0x624ED0) or 10 (0x620E50); kind 5 looks the id up in the frame's
+// id list (0x788EA0 is a find) and ObjectService_FindById 0x939560 (no lock, no AddRef), then flag word +0x2C & [0x11E90FC].
+// The frame is the IC's esp at 0x755990 (the call returns with ret 0x14): +0x18 ids, +0x1C count, +0x34 ids end, +0x38 the
+// vector, +0x4C the object service [verified disassembly: 0x75576C, 0x75592F-0x755949, 0x7556CF].
+typedef const u8*(__fastcall* IcFindFn)(const void* svc, void* edx, DWORD lo, DWORD hi);
+typedef bool (*IcClassFn)(const u8* obj, int* cls);
+static bool IcClassGame(const u8* obj, int* cls) {  // 0x620D20's call; false = not a verified class function
+    static const DWORD k8[] = {0x0080F840, 0x0080C300, 0x00807090, 0x00807B70, 0x008066C0, 0x006119F0};
+    const void* const* vt = *(const void* const* const*)obj;
+    if (!vt || !SrIn((DWORD)(uintptr_t)vt[2], k8, 6)) return false;
+    *cls = ((SlotClassFn)vt[2])(obj, NULL, NULL, 0);
+    return true;
+}
+static IcFindFn g_icFind = (IcFindFn)(uintptr_t)0x00939560;
+static IcClassFn g_icClass = IcClassGame;                    // selftest hands in fakes
+static const DWORD* g_icMask = (const DWORD*)(uintptr_t)0x011E90FC;
+static const u8* g_icTestFrame;                               // selftest: the frame (its own return address is not 0x755990)
+static const int IC_LOOP_DOUBT = -1;
+// one element of the IC's loop (obj = the primary object; the vector holds obj + 4): 0 = next, -1 = doubt, else the answer
+static int IcLoopOne(const u8* obj, const u8* f) {
+    const DWORD* sv = *(const DWORD* const*)(obj + 4);
+    if (!sv) return IC_LOOP_DOUBT;
+    int kind;
+    switch (sv[3]) {  // interface slot +0xC: sub ecx, 4, then a constant getter
+    case 0x006262F0: kind = 1; break;
+    case 0x0074BB10: kind = 2; break;
+    case 0x00624EC0: kind = 3; break;
+    case 0x00624E10: kind = 4; break;
+    case 0x00624E60: kind = 5; break;
+    case 0x006250A0: kind = 6; break;
+    case 0x00620E00: kind = 7; break;
+    case 0x00624E50: kind = 8; break;
+    case 0x00620E50: kind = 0xA; break;
+    case 0x00624EB0: kind = 0xB; break;
+    default: return IC_LOOP_DOUBT;
+    }
+    if (kind == 5) {  // 0x7559B8
+        if (!*(const DWORD*)(f + 0x1C)) return 0x20;
+        if (sv[1] != 0x00620E60) return IC_LOOP_DOUBT;
+        const DWORD lo = *(const DWORD*)(obj + 0x14), hi = *(const DWORD*)(obj + 0x18);
+        for (const DWORD *p = *(const DWORD* const*)(f + 0x18), *e = *(const DWORD* const*)(f + 0x34); p != e; p += 2)
+            if (p[0] == lo && p[1] == hi) return 0;
+        const u8* o = g_icFind(*(const void* const*)(f + 0x4C), NULL, lo, hi);
+        return o && (*(const DWORD*)(o + 0x2C) & *g_icMask) ? 4 : 0x20;
+    }
+    if (sv[7] == 0x00624F70) return 0;  // the member footprint's +0x1C: false
+    if (sv[7] != 0x00620D20) return IC_LOOP_DOUBT;
+    int cls;
+    if (!g_icClass(obj, &cls)) return IC_LOOP_DOUBT;
+    if ((DWORD)cls < 2 || cls == 0xD) return 0;
+    int t;
+    if (sv[2] == 0x00624ED0) t = *(const signed char*)(obj + 0x35);
+    else if (sv[2] == 0x00620E50) t = 0xA;
+    else return IC_LOOP_DOUBT;
+    return t == 1 ? 0x10 : t == 12 || t == 23 ? 8 : 0;
+}
+// the loop over a list (sub 0: the clone's primary objects, 4: the game's vector of interface pointers); NULL entries skipped
+static int IcLoopRun(const u8* const* list, int n, int sub, const u8* f) {
+    for (int i = 0; i < n; i++) {
+        if (!list[i]) continue;
+        if (const int a = IcLoopOne(list[i] - sub, f)) return a;
+    }
+    return 0;
+}
+static int IcVisit(const SrCtx& c, const void* f) { return c.over ? IC_LOOP_DOUBT : IcLoopRun(c.objs, c.n, 0, (const u8*)f); }
+// the IC's frame from IcStub's return slot, or NULL when the caller is not the IC as verified
+static const u8* IcFrameOf(const void* retSlot, const DWORD* vec) {
+    const u8* f = g_icTestFrame ? g_icTestFrame : (const u8*)retSlot + 4 + 0x14;
+    if (!g_icTestFrame && *(const DWORD*)retSlot != IC_SITE_OQ + 5) return NULL;
+    if ((const u8*)vec != f + 0x38) return NULL;
+    const DWORD b = *(const DWORD*)(f + 0x18), cnt = *(const DWORD*)(f + 0x1C), e = *(const DWORD*)(f + 0x34);
+    return cnt < 0x10000 && e == b + cnt * 8 ? f : NULL;
+}
+static void IcLoopCode(int a) {
+    Ts3nCounters& k = ts3native_counters;
+    if (a < 0) InterlockedIncrement(&k.icLoopDoubt);
+    else InterlockedIncrement(&k.icLoopCode[a == 4 ? 0 : a == 8 ? 1 : a == 0x10 ? 2 : 3]);
+}
+static DWORD IcShadow(u8* world, void* edx, const float* pt, float r, DWORD* vec, DWORD mode, DWORD opt, const u8* f) {
     Ts3nCounters& k = ts3native_counters;
     const DWORD a = g_icOrig(world, edx, pt, r, vec, mode, opt);
     const int size = (int)((vec[1] - vec[0]) / 4);  // the game's copy: sorted, unique footprint refs
     bool lot = false;
-    int n = 0;
-    const int why = mode ? SR_FB_STATE : GvRun(world, pt, r, opt, false, &lot, &n);
+    int n = 0, mine = 0;
+    const int why = mode ? SR_FB_STATE : GvRun(world, pt, r, opt, false, &lot, &n, f ? IcVisit : NULL, f, &mine);
+    if (!why && f && size && n == size) {  // SiteCLoop: the loop on the game's refs vs on the clone
+        const int game = IcLoopRun((const u8* const*)(uintptr_t)vec[0], size, 4, f);
+        if (game < 0 || mine < 0) InterlockedIncrement(&k.icLoopDoubt);
+        else {
+            InterlockedIncrement(&k.icLoopShadowRuns);
+            if (!game) InterlockedIncrement(&k.icLoopShadowZero);
+            if (!game != !mine) {
+                InterlockedIncrement(&k.icLoopShadowMismatch);
+                if (InterlockedIncrement(&g_icNoted) <= 16)
+                    Log("idle check RO site C loop: shadow mismatch at (%.2f, %.2f): game list 0x%X, clone 0x%X, %d footprints",
+                        pt[0], pt[2], game, mine, size);
+            } else if (game != mine) InterlockedIncrement(&k.icLoopShadowCodeDiff);
+        }
+    }
     InterlockedIncrement(&k.icShadowRuns);
     if (why) { InterlockedIncrement(&k.icFb[GvFbIdx(why)]); return a; }
     if (!(u8)a || !size) InterlockedIncrement(&k.icShadowEmpty);
@@ -201,12 +299,13 @@ static DWORD __fastcall IcStub(u8* world, void* edx, const float* pt, float r, D
     Ts3nCounters& k = ts3native_counters;
     const StubKey sk(IC_SITE_OQ + 5);  // probe P0: the game's calls below keep the site's key
     const DWORD tid = GetCurrentThreadId();
+    const u8* const f = k.icLoopMode || k.icShadow ? IcFrameOf(_AddressOfReturnAddress(), vec) : NULL;
     if ((!k.icMode && !k.icShadow) || tid != g_async.owner) return g_icOrig(world, edx, pt, r, vec, mode, opt);
     InterlockedIncrement(&k.icCalls);
     if (g_async.state != A_RUNNING) {
         if (!k.icShadow) return g_icOrig(world, edx, pt, r, vec, mode, opt);
         InterlockedIncrement(&g_rgOffSimOpen);  // no job starts while the two answers are compared (worker Dekker order)
-        const DWORD a = g_async.state == A_RUNNING ? g_icOrig(world, edx, pt, r, vec, mode, opt) : IcShadow(world, edx, pt, r, vec, mode, opt);
+        const DWORD a = g_async.state == A_RUNNING ? g_icOrig(world, edx, pt, r, vec, mode, opt) : IcShadow(world, edx, pt, r, vec, mode, opt, f);
         RgOffSimDrop();
         return a;
     }
@@ -216,8 +315,9 @@ static DWORD __fastcall IcStub(u8* world, void* edx, const float* pt, float r, D
         LARGE_INTEGER t0;
         QueryPerformanceCounter(&t0);
         bool lot;
-        int n;
-        why = GvRun(world, pt, r, opt, true, &lot, &n);
+        int n, ans = IC_LOOP_DOUBT;
+        const u8* const lf = k.icLoopMode ? f : NULL;
+        why = GvRun(world, pt, r, opt, true, &lot, &n, lf ? IcVisit : NULL, lf, &ans);
         if (!why && !n) {
             const LONG us = UsSince(t0);
             InterlockedIncrement(&k.icTaken);
@@ -226,6 +326,18 @@ static DWORD __fastcall IcStub(u8* world, void* edx, const float* pt, float r, D
             InterlockedExchangeAdd(&k.icUs, us);
             Max(&k.icMaxUs, us);
             return lot ? 1 : 0;
+        }
+        if (!why && lf) {  // SiteCLoop: the IC's loop already ran on the clone
+            InterlockedIncrement(&k.icLoopRuns);
+            if (!ans) {
+                const LONG us = UsSince(t0);
+                InterlockedIncrement(&k.icLoopTaken);
+                MwSkip(MW_IK);
+                InterlockedExchangeAdd(&k.icLoopUs, us);
+                return 1;  // a lot was found (al 1); the IC reads only the vector, which stays empty: it returns 0
+            }
+            IcLoopCode(ans);
+            return g_icOrig(world, edx, pt, r, vec, mode, opt);
         }
         if (!why) {  // footprints near the point: the IC's loop needs the game's refs
             InterlockedIncrement(&k.icFb[GV_FB_HITS]);
@@ -254,6 +366,7 @@ static void InstallIdleCheckRO(const wchar_t* ini) {
     if (!PatchCalls("idle check RO site C (0x7556B0 -> ObstacleQuery)", &kIcSite, 1)) return;
     k.icMode = Clamp(GetPrivateProfileIntW(L"IdleCheckRO", L"SiteCMode", 1, ini), 0, 1);
     k.icShadow = Clamp(GetPrivateProfileIntW(L"IdleCheckRO", L"SiteCShadow", 0, ini), 0, 1);
+    k.icLoopMode = Clamp(GetPrivateProfileIntW(L"IdleCheckRO", L"SiteCLoop", 0, ini), 0, 1);
     k.icReady = 1;
-    Log("OK   idle check RO site C: 0x75598B (SiteCMode=%ld SiteCShadow=%ld)", k.icMode, k.icShadow);
+    Log("OK   idle check RO site C: 0x75598B (SiteCMode=%ld SiteCShadow=%ld SiteCLoop=%ld)", k.icMode, k.icShadow, k.icLoopMode);
 }

@@ -1673,6 +1673,9 @@ rpc.exports = {
         'icShadowRuns', 'icShadowEmpty', 'icShadowMismatch');
       // v904 contributor block (docs/88 §10, p5c.cpp): [Discourage] DestroyParkDx
       if (c.readS32() >= 904) f.push('dxMode', 'dxParked', 'dxLeft');
+      // v905 contributor block (docs/195 §8, idlero.cpp): [IdleCheckRO] SiteCLoop
+      if (c.readS32() >= 905) f.push('icLoopMode', 'icLoopRuns', 'icLoopTaken', 'icLoopDoubt', ...n('icLoopCode', 4), 'icLoopShadowRuns',
+        'icLoopShadowZero', 'icLoopShadowMismatch', 'icLoopShadowCodeDiff', 'icLoopUs');
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key

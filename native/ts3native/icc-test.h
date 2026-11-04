@@ -2,14 +2,38 @@
 // (gvro-test.h: the game's 0x82EDB0, the lot lookup and S2's point query replaced): layout, pass-through rules, empty
 // answer and no-lot answer without the game's call, footprints = the game's call, a fallback, shadow compare. Included by
 // selftest.cpp after gvro-test.h.
+// SiteCLoop (C2) fakes: the clone's list, the class function, ObjectService_FindById and the flag mask
+namespace icl {
+static const u8* qObjs[4];
+static int qn, clsVal = 5;
+static bool clsOk = true, findHit;
+static u8 found[0x40];
+static DWORD fLo, fHi, mask = 0x100;
+static const void* fSvc;
+static int LQuery(SrCtx* c, const u8*, DWORD, DWORD, const SrPt&, float, const u8*) {
+    c->n = qn, c->over = 0;
+    for (int i = 0; i < qn; i++) c->objs[i] = qObjs[i];
+    return SR_OK;
+}
+static bool Class(const u8*, int* cls) {
+    if (!clsOk) return false;
+    *cls = clsVal;
+    return true;
+}
+static const u8* __fastcall Find(const void* svc, void*, DWORD lo, DWORD hi) {
+    fSvc = svc, fLo = lo, fHi = hi;
+    return findHit ? found : NULL;
+}
+}  // namespace icl
+
 static void TestIdleCheckC() {
     using namespace gvt;
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, icReady) == 0x5B84 && offsetof(Ts3nCounters, icMode) == 0x5B88 &&
                       offsetof(Ts3nCounters, icShadow) == 0x5B8C && offsetof(Ts3nCounters, icFb) == 0x5BA4 &&
-                      offsetof(Ts3nCounters, icShadowMismatch) == 0x5BC8 && sizeof(Ts3nCounters) == 5878 * 4,
+                      offsetof(Ts3nCounters, icShadowMismatch) == 0x5BC8 && sizeof(Ts3nCounters) == 5891 * 4,
                   "counters v903 layout after v902 (docs/registry.md)");
-    assert(k.version == 904);
+    assert(k.version == 905);
     assert(kIcSite.site == 0x0075598B && kIcSite.target == 0x0082EDB0);
     memset(&k.icReady, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, icReady));
     const LONG gvTaken0 = k.gvTaken, gvCalls0 = k.gvCalls, gvShadow0 = k.gvShadowRuns;  // GoalValidRO's own, untouched here
@@ -83,6 +107,103 @@ static void TestIdleCheckC() {
     puts("IdleCheckRO SiteC: counters v903; switch off / other thread pass; job: empty and no-lot answers without the game's "
          "call, with the frame's point, level, radius and option word; footprints, tripwire, +0x918 owner, mode 1 and switch off "
          "call the game; shadow compare, count skew, empty share");
+
+    // SiteCLoop (C2, docs/195 §8): the IC's loop on fake footprints (interface table at +4) and a fake IC frame
+    {
+        static DWORD ids[4] = {0x55, 0, 0x66, 0};
+        alignas(16) static u8 fr[0x60];
+        memset(fr, 0, sizeof(fr));
+        *(DWORD**)(fr + 0x18) = ids, *(DWORD*)(fr + 0x1C) = 2, *(DWORD**)(fr + 0x34) = ids + 4, *(DWORD*)(fr + 0x4C) = 0x5EC;
+        static DWORD vtA[4], svK5[9], svK7[9];
+        static u8 a[0x40], b[0x40], c5[0x40];
+        svK7[2] = 0x00624ED0, svK7[3] = 0x00620E00, svK7[7] = 0x00620D20;  // kind 7: class slot, type byte
+        svK5[1] = 0x00620E60, svK5[3] = 0x00624E60;                         // kind 5: the id slot
+        *(DWORD**)a = vtA, *(DWORD**)(a + 4) = svK7;
+        *(DWORD**)b = vtA, *(DWORD**)(b + 4) = svK7;
+        *(DWORD**)c5 = vtA, *(DWORD**)(c5 + 4) = svK5;
+        *(DWORD*)(c5 + 0x14) = 0x66;  // in the frame's id list
+        const IcClassFn savedClass = g_icClass;
+        const IcFindFn savedFind = g_icFind;
+        const DWORD* savedMask = g_icMask;
+        g_icClass = icl::Class, g_icFind = icl::Find, g_icMask = &icl::mask;
+        a[0x35] = 3, b[0x35] = 1;
+        assert(IcLoopOne(a, fr) == 0 && IcLoopOne(b, fr) == 0x10);
+        b[0x35] = 12;
+        assert(IcLoopOne(b, fr) == 8);
+        b[0x35] = 23;
+        assert(IcLoopOne(b, fr) == 8);
+        icl::clsVal = 1;  // class below 2 or 13: IsKind false
+        assert(IcLoopOne(b, fr) == 0);
+        icl::clsVal = 0xD;
+        assert(IcLoopOne(b, fr) == 0);
+        icl::clsVal = 5;
+        svK7[2] = 0x00620E50;  // type 10
+        assert(IcLoopOne(b, fr) == 0);
+        svK7[2] = 0x00012345;
+        assert(IcLoopOne(b, fr) == IC_LOOP_DOUBT);
+        svK7[2] = 0x00624ED0, svK7[7] = 0x00624F70;  // the member footprint: IsKind false
+        assert(IcLoopOne(b, fr) == 0);
+        svK7[7] = 0x00620D20, icl::clsOk = false;
+        assert(IcLoopOne(b, fr) == IC_LOOP_DOUBT);
+        icl::clsOk = true, svK7[3] = 0x00999999;
+        assert(IcLoopOne(b, fr) == IC_LOOP_DOUBT);
+        svK7[3] = 0x00620E00;
+        assert(IcLoopOne(c5, fr) == 0);  // kind 5, id in the list
+        *(DWORD*)(c5 + 0x14) = 0x77;
+        assert(IcLoopOne(c5, fr) == 0x20 && icl::fLo == 0x77 && icl::fHi == 0 && icl::fSvc == (const void*)(uintptr_t)0x5EC);
+        icl::findHit = true, *(DWORD*)(icl::found + 0x2C) = 0x100;
+        assert(IcLoopOne(c5, fr) == 4);
+        *(DWORD*)(icl::found + 0x2C) = 0x200;
+        assert(IcLoopOne(c5, fr) == 0x20);
+        *(DWORD*)(fr + 0x1C) = 0;  // no ids: 0x20 before the lookup
+        assert(IcLoopOne(c5, fr) == 0x20);
+        *(DWORD*)(fr + 0x1C) = 2, svK5[1] = 0;
+        assert(IcLoopOne(c5, fr) == IC_LOOP_DOUBT);
+        svK5[1] = 0x00620E60, *(DWORD*)(c5 + 0x14) = 0x66, b[0x35] = 1;
+        const u8* l0[3] = {a, NULL, b};  // first decisive answer, NULL skipped
+        assert(IcLoopRun(l0, 3, 0, fr) == 0x10 && IcLoopRun(l0, 1, 0, fr) == 0);
+        const u8* l4[2] = {a + 4, b + 4};  // the game's vector: interface pointers
+        assert(IcLoopRun(l4, 2, 4, fr) == 0x10);
+        g_icTestFrame = fr;  // the frame guard: the vector at +0x38, ids end = ids + count * 8
+        assert(IcFrameOf(NULL, (DWORD*)(fr + 0x38)) == fr && !IcFrameOf(NULL, (DWORD*)(fr + 0x3C)));
+        *(DWORD*)(fr + 0x1C) = 3;
+        assert(!IcFrameOf(NULL, (DWORD*)(fr + 0x38)));
+        *(DWORD*)(fr + 0x1C) = 2;
+        // IcStub in a job: no footprint decides -> 1 with the vector empty and no game call; one decides or a doubt -> the game
+        DWORD* const fv = (DWORD*)(fr + 0x38);
+        auto lcall = [&]() { fv[0] = fv[1] = 0; return IcStub(world, NULL, pt, 0.3f, fv, 0, 0x41); };
+        g_gvQuery = icl::LQuery;
+        k.icShadow = 0, k.icMode = 1, k.icLoopMode = 1, g_async.state = A_RUNNING, g_twArmed = 1, origFill = 0;
+        icl::qObjs[0] = a, icl::qObjs[1] = c5, icl::qn = 2;
+        const LONG o0 = origCalls, hits0 = k.icFb[GV_FB_HITS];
+        assert(lcall() == 1 && fv[0] == fv[1] && origCalls == o0 && k.icLoopRuns == 1 && k.icLoopTaken == 1);
+        icl::qObjs[1] = b;  // type byte 1: 0x10
+        assert(lcall() == 0xABCD01 && origCalls == o0 + 1 && k.icLoopCode[2] == 1 && k.icLoopRuns == 2);
+        svK7[3] = 0x00999999;
+        assert(lcall() == 0xABCD01 && origCalls == o0 + 2 && k.icLoopDoubt == 1 && k.icLoopRuns == 3);
+        svK7[3] = 0x00620E00, k.icLoopMode = 0;  // switch off: footprints call the game as in C1
+        assert(lcall() == 0xABCD01 && origCalls == o0 + 3 && k.icFb[GV_FB_HITS] == hits0 + 1 && k.icLoopRuns == 3);
+        assert(k.icLoopTaken == 1 && !t_qlShared && !t_inRo && !g_srInClone);
+        // shadow, no job: the loop on the game's vector (fill = interface pointers) and on the clone, compared
+        k.icShadow = 1, g_async.state = A_IDLE, g_twArmed = 0;
+        icl::qObjs[0] = a, icl::qObjs[1] = c5, icl::qn = 2;
+        fill[0] = (DWORD)(uintptr_t)(a + 4), fill[1] = (DWORD)(uintptr_t)(c5 + 4), origFill = 2;
+        lcall();
+        assert(k.icLoopShadowRuns == 1 && k.icLoopShadowZero == 1 && k.icLoopShadowMismatch == 0 && k.icLoopShadowCodeDiff == 0);
+        fill[1] = (DWORD)(uintptr_t)(b + 4);  // the game's list decides (0x10), the clone's does not
+        lcall();
+        assert(k.icLoopShadowRuns == 2 && k.icLoopShadowZero == 1 && k.icLoopShadowMismatch == 1);
+        fill[0] = (DWORD)(uintptr_t)(b + 4), origFill = 1;  // both decide, differently: 0x10 vs 4
+        icl::qObjs[0] = c5, icl::qn = 1, *(DWORD*)(c5 + 0x14) = 0x77, *(DWORD*)(icl::found + 0x2C) = 0x100;
+        lcall();
+        assert(k.icLoopShadowRuns == 3 && k.icLoopShadowMismatch == 1 && k.icLoopShadowCodeDiff == 1);
+        assert(g_rgOffSimOpen == 0 && !t_qlShared && g_async.state == A_IDLE);
+        g_icClass = savedClass, g_icFind = savedFind, g_icMask = savedMask, g_icTestFrame = NULL;
+        k.icLoopMode = 0, origFill = 0, fill[0] = fill[1] = 0, icl::findHit = false;
+        puts("IdleCheckRO SiteCLoop: counters v905; the IC's loop: kinds by slot target, type bytes 1 / 12 / 23, class 2..12, "
+             "member false, kind 5 id list / lookup / flag mask, doubts; first decisive answer; frame guard; in a job answer 0 "
+             "without the game's call, an answer or a doubt calls it, switch off = C1; shadow zero share, mismatch, code diff");
+    }
 
     k.icMode = k.icShadow = 0;
     g_icOrig = savedOrig, g_gvQuery = savedQuery, g_srLotLookup = savedLookup, g_srOne = savedOne;

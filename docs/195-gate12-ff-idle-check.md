@@ -107,3 +107,35 @@ Job calls 973: 590 cell hits, 210 neighbours, 173 last surface, 0 to the game. C
 **Verdict.** C1 does not pay and stays off. Only C2 (non-empty answers under QL shared) can make site C pay; it needs the footprint refs the IC's loop reads (§4 step 2).
 
 **Harness bug found by these runs.** With SiteC installed, the IC's wait was keyed by `IcStub`'s own return address in ts3native.asi, not by `0x755990`. That address changes every run and differs per call instruction. The 32 P0 key slots fill first-come, so the off arm's key got no slot: its wait went to the untimed `blockOther` (262 vs 143 per min), and the off arm's keyed total read low by about 11 ms/s. Fix: `t_stubKey` (`StubKey` in `GvStub` and `IcStub`) keys the outermost ObstacleQuery wait by the game site (`0x755990`, `0x75A64C`), as AvSite does with `0x846D21`; both keys are seeded. The asi-range key in older runs (for example `0x6696A870`, 3 to 5 ms/s) was `GvStub`'s wait: the dx-local round (fixed keys) shows `0x75A64C` at 5-9 ms/s and no asi-range key.
+
+## 8. Site C2: the IC's own loop on the clone (`[IdleCheckRO] SiteCLoop`, 2026-11-04, counters v905, built, not run)
+
+**Why.** After the footstep cache, the route-to-object tail and DestroyParkDx, idle check site C (`0x755990`) is the biggest sim wait left (about 19 ms/s on, docs/88 §11). C1 answers only empty results (0.46%). The other 99.5% find footprints near the point.
+
+**Why not hand refs back.** The vector holds footprint interface pointers (object + 4). `FootprintRefVec_ReleaseRange` (`0xAAC090`) does a plain `-1` on `[el+4]` and deletes at zero. The sim thread cannot add refs while a job may change the same counts on the worker [verified disassembly 2026-11-04].
+
+**What the loop does** (`0x7559A0..0x755A4C`) [verified disassembly 2026-11-04]. Per element, in vector order; the first footprint that decides ends the IC:
+
+- Interface slot `+0xC` is the kind. All 10 targets are `sub ecx, 4` then a constant getter: `0x6262F0` 1, `0x74BB10` 2, `0x624EC0` 3, `0x624E10` 4, `0x624E60` 5, `0x6250A0` 6, `0x620E00` 7, `0x624E50` 8, `0x620E50` 10, `0x624EB0` 11.
+- Kind 5:
+  - With no ids in the frame (`[f+0x1C]` 0), the answer is 0x20.
+  - Otherwise the id is read (slot `+4` = `0x620E60` -> `0x806FE0`: object `+0x14`/`+0x18`) and looked up in the frame's id list (`0x788EA0` is a plain find). Found means the next element.
+  - Not found: `ObjectService_FindById` (`0x939560`, no lock, no AddRef). No object gives 0x20; an object's `+0x2C & [0x11E90FC]` gives 4, else 0x20.
+- Other kinds:
+  - Slot `+0x1C` is `0x620D20`: the primary class slot `+8` with `(0, 0)`, true for classes 2..12. The class functions are the six the S2 clone already calls under QL shared. The member footprint's slot `+0x1C` (`0x624F70`) is false.
+  - When true, slot `+8` is the type byte `+0x35` (`0x624ED0`) or 10 (`0x620E50`). Type 1 gives 0x10, types 12 and 23 give 8; any other type means the next element.
+- No footprint decides: the answer is 0 (`0x755A5B`).
+
+**Frame** (the IC's esp at `0x755990`, after the call's `ret 0x14`): `+0x18` ids, `+0x1C` count, `+0x34` ids end (`0x755949`), `+0x38` the vector, `+0x4C` the object service (`0x7556CF`). `IcStub` takes it from its return slot and checks three things: the return address `0x755990`, `vec == f + 0x38`, and `end == ids + count * 8`.
+
+**Build (C2a).**
+
+- While a job runs, `GvRun` runs the loop on the clone's footprints inside its QL hold (a visitor), with only reads.
+- Answer 0 (no footprint decides): the vector stays empty, and the IC returns 0 at `0x755A5B`, as after the game's call. The answer does not depend on list order.
+- Any other answer, or a doubt (an unlisted slot target or class function, a frame that fails the checks, a truncated clone list): the game's call.
+- Shadow (`SiteCShadow=1`, no job): the loop on the game's vector and on the clone, compared. `icLoopShadowZero` is the share C2a would take; `icLoopShadowMismatch` (one list answered 0, the other did not) must stay 0. `icLoopShadowCodeDiff` (both non-zero, different) can come from list order.
+- Ini `SiteCLoop=0` (needs `SiteC=1`, `SiteCMode=1`); runtime switch `--ab idlecheckc2` (+0x5BD8). Selftest: the loop cases, the frame check, the job path and the shadow compare, in `TestIdleCheckC`.
+
+**C2b (not built).** A non-zero answer could also skip the game: a jump at `0x755990` to the IC's return label for that answer (0x20 `0x755A6D`, 8 `0x755A82`, 0x10 `0x755A97`, 4 `0x755A12`; each frees the empty vector). Only worth it if the shadow shows few zero answers.
+
+**Next.** A shadow job (`SiteCShadow=1 SiteCLoop=1`, mode 0): mismatch 0 and the zero share. Then an A/B `--ab idlecheckc2` on the final setup.
