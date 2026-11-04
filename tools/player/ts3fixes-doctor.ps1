@@ -6,7 +6,8 @@
 #   Run-ts3fixes-doctor.cmd -GameDir "D:\Games\The Sims 3"
 # PowerShell 5.1 compatible. No network, no AI.
 #   Run-ts3fixes-doctor.cmd -UserDir "D:\OneDrive\Documents\Electronic Arts\The Sims 3"
-param([string]$GameDir = '', [string]$UserDir = '', [switch]$ReportOnly, [switch]$Yes, [switch]$IgnoreRunning)
+#   powershell -ExecutionPolicy Bypass -File ts3fixes-doctor.ps1 -SelfTest   edition checks on temp files only, then exit
+param([string]$GameDir = '', [string]$UserDir = '', [switch]$ReportOnly, [switch]$Yes, [switch]$IgnoreRunning, [switch]$SelfTest)
 
 $ErrorActionPreference = 'Continue'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -61,9 +62,53 @@ $nTs3Fixes = @($ascii.GetBytes('Ts3Fixes'), $u16.GetBytes('ui tasks'))   # 0 = o
 
 function Hash([string]$p) { try { return (Get-FileHash -Algorithm SHA256 -Path $p).Hash.Substring(0, 12) } catch { return '?' } }
 
+# --- game edition: ts3native ships one build per edition; the wrong one logs "SKIP all: host is not ..." and patches nothing
+$knownExes = @{   # full sha256 of the game exe (docs/15, docs/230)
+  '10B2423E2368E161774462B0EF1960231AD0AF298D564A7BB6A6E78C5E880609' = 'Steam 1.67'
+  '7352DD6E599F4475F812BBCA19BBC7E5D8E84BBD5B6D21ACAAC9B1C5236ADFE4' = 'EA app 1.69.47' }
+function PeStamp([string]$p) {   # PE header TimeDateStamp: Steam 1.67 52DEC247, EA app 1.69.47 6707155C
+  try { $b = New-Object byte[] 4096; $fs = [IO.File]::OpenRead($p); [void]$fs.Read($b, 0, 4096); $fs.Close()
+        return '{0:X8}' -f [BitConverter]::ToUInt32($b, [BitConverter]::ToInt32($b, 0x3C) + 8) } catch { return '?' } }
+# @(edition, exe name, short sha, pe stamp). TS3W.exe first: the Steam Bin also has a 30 KB TS3.exe stub.
+function GameEdition([string]$bin) {
+  $first = $null
+  foreach ($n in 'TS3W.exe', 'TS3.exe') {
+    $p = Join-Path $bin $n
+    if (-not (Test-Path $p)) { continue }
+    # .NET, not Get-FileHash: that cmdlet is missing when PSModulePath points at PowerShell 7 modules
+    $sha = try { $fs = [IO.File]::OpenRead($p); -join ([Security.Cryptography.SHA256]::Create().ComputeHash($fs) | ForEach-Object { $_.ToString('X2') }) } catch { '?' } finally { if ($fs) { $fs.Close() } }
+    $row = @($(if ($knownExes.ContainsKey($sha)) { $knownExes[$sha] } else { 'unknown' }), $n, $sha.Substring(0, [Math]::Min(12, $sha.Length)), (PeStamp $p))
+    if ($row[0] -ne 'unknown') { return $row }
+    if (-not $first) { $first = $row }
+  }
+  if ($first) { return $first } else { return @('unknown', '-', '-', '-') }
+}
+# which edition a ts3native.asi was built for: the EA build names its host, the Steam build checks for TS3W.exe
+$nAsiBuild = @($ascii.GetBytes('EA app 1.69.47'), $ascii.GetBytes('host is not TS3W.exe at 0x400000'))
+function AsiBuild([string]$p) { $h = FileHas $p $nAsiBuild; if ($h.ContainsKey(0)) { 'EA app 1.69.47' } elseif ($h.ContainsKey(1)) { 'Steam 1.67' } else { 'unknown' } }
+
+if ($SelfTest) {
+  $t = Join-Path $env:TEMP "ts3fixes-doctor-selftest-$PID"; New-Item -ItemType Directory -Path $t -Force | Out-Null
+  $fail = 0; function Check([bool]$ok, [string]$what) { if (-not $ok) { $script:fail++; Write-Host "FAIL $what" } }
+  $pe = New-Object byte[] 512; [BitConverter]::GetBytes([int]0x80).CopyTo($pe, 0x3C); [BitConverter]::GetBytes([uint32]0x6707155C).CopyTo($pe, 0x88)
+  [IO.File]::WriteAllBytes((Join-Path $t 'TS3.exe'), $pe)
+  Check ((PeStamp (Join-Path $t 'TS3.exe')) -eq '6707155C') 'PE stamp read'
+  $e = GameEdition $t; Check ($e[0] -eq 'unknown' -and $e[1] -eq 'TS3.exe') "unknown exe -> unknown ($($e -join ' '))"
+  Check ((GameEdition (Join-Path $t 'none'))[0] -eq 'unknown') 'no exe -> unknown'
+  Check ($knownExes.Count -eq 2 -and @($knownExes.Values) -contains 'EA app 1.69.47') 'known exe table'
+  [IO.File]::WriteAllBytes((Join-Path $t 'ea.asi'), $ascii.GetBytes('xx SKIP all: host is not EA app 1.69.47 (pe'))
+  [IO.File]::WriteAllBytes((Join-Path $t 'steam.asi'), $ascii.GetBytes('xx SKIP all: host is not TS3W.exe at 0x400000 xx'))
+  [IO.File]::WriteAllBytes((Join-Path $t 'other.asi'), $ascii.GetBytes('ts3native 0.36.1'))
+  Check ((AsiBuild (Join-Path $t 'ea.asi')) -eq 'EA app 1.69.47') 'EA asi'
+  Check ((AsiBuild (Join-Path $t 'steam.asi')) -eq 'Steam 1.67') 'Steam asi'
+  Check ((AsiBuild (Join-Path $t 'other.asi')) -eq 'unknown') 'unknown asi'
+  Remove-Item -LiteralPath $t -Recurse -Force
+  if ($fail) { Write-Host "doctor self-test: $fail FAIL"; exit 1 } else { Write-Host 'doctor self-test: PASS'; exit 0 }
+}
+
 Say "ts3fixes doctor $stamp"
 # -IgnoreRunning is for our own tests on a copied folder (-UserDir) while a game runs.
-if (-not $ReportOnly -and -not $IgnoreRunning -and (Get-Process -Name TS3W, TS3 -ErrorAction SilentlyContinue)) { Say 'The Sims 3 is running. Close the game first, then run this again.'; exit 1 }
+if (-not $ReportOnly -and -not $IgnoreRunning -and (Get-Process -Name TS3W, TS3, Sims3Launcher -ErrorAction SilentlyContinue)) { Say 'The Sims 3 is running. Close the game first, then run this again.'; exit 1 }
 
 # --- user folder(s): Documents\Electronic Arts\<The Sims 3, localized> with Mods or Saves
 $docs = [Environment]::GetFolderPath('MyDocuments')
@@ -165,9 +210,12 @@ if ($copies -eq 0) { Say '  none found'; Issue 'No ts3fixes.package found: the s
 if ($copies -gt 1) { Issue "$copies copies of ts3fixes found: the game may load an old one. Keep exactly one, in Mods\Packages." }
 
 Say ''
-Say '== ts3native.asi / ini in game Bin =='
+Say '== game edition, ts3native.asi / ini in game Bin =='
 foreach ($g in $games) {
   $bin = Join-Path $g 'Game\Bin'
+  $ed = GameEdition $bin
+  Say ("  game edition: {0} ({1}, sha {2}, pe {3})" -f $ed[0], $ed[1], $ed[2], $ed[3])
+  if ($ed[0] -eq 'unknown') { Issue "Unknown game edition in ${bin}: ts3native supports only Steam 1.67 (TS3W.exe) and EA app 1.69.47 (TS3.exe) and patches nothing on other versions." }
   foreach ($a in Get-ChildItem $bin -File -Filter 'ts3native*' -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in '.asi', '.ini' }) {
     $v = ''
     if ($a.Extension -eq '.asi') {
@@ -175,9 +223,20 @@ foreach ($g in $games) {
       try { $txt = [Text.Encoding]::GetEncoding(28591).GetString([IO.File]::ReadAllBytes($a.FullName))
             $best = [regex]::Matches($txt, '0\.36\.(\d+)') | ForEach-Object { [int]$_.Groups[1].Value } | Sort-Object -Descending | Select-Object -First 1
             if ($best -ne $null) { $v = " version 0.36.$best" } } catch { } }
+    if ($a.Extension -eq '.asi') { $b = AsiBuild $a.FullName; $v += ", built for $b" }
     Say ("  {0} ({1:N0} KB){2}" -f $a.FullName, ($a.Length / 1KB), $v)
-    if ($a.Extension -eq '.asi') { $asiSeen = $true }
+    if ($a.Extension -eq '.asi') {
+      $asiSeen = $true
+      if ($a.Name -eq 'ts3native.asi' -and $b -ne 'unknown' -and $ed[0] -ne 'unknown' -and $b -ne $ed[0]) {
+        $zip = if ($ed[0] -like 'EA*') { 'ts3native-ea169-<version>.zip' } else { 'ts3native-<version>.zip' }
+        Issue "Wrong ts3native build: the game is $($ed[0]) but ts3native.asi is the $b build, so it patches nothing. Replace ts3native.asi and ts3native.ini with the ones from $zip." }
+    }
   }
+  $log = Join-Path $bin 'ts3native.log'
+  if (Test-Path $log) {
+    try { $fs = [IO.File]::Open($log, 'Open', 'Read', 'ReadWrite'); $sr = New-Object IO.StreamReader($fs); $txt = $sr.ReadToEnd(); $sr.Close()
+          $m = [regex]::Match($txt, 'SKIP all: host is not [^\r\n]*')
+          if ($m.Success) { Say "  ts3native.log: $($m.Value)"; Issue "ts3native.log says the plugin switched itself off on the last start ($($m.Value)): wrong build for this game edition, or an unsupported game version." } } catch { } }
   if (-not $asiSeen) { Issue "No ts3native.asi in ${bin}: the native part of the mod is not installed." }
   $asiSeen = $false
 }

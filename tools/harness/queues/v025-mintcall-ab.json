@@ -1,0 +1,26 @@
+{
+  "note": "Rodney 2026-11-04 rel025d slowdown, step 2: mint call path A/B on the fix build.",
+  "jobs": [
+    {
+      "id": "bp-ph-mintcall-ab",
+      "note": "In-load A/B of [MonoFast] CallPath (--ab mintcall, slice 2, ABBA) on the fix build (rel025d asi + rel025d-ini2 + rel025d-ph-fixes). v025-slow-ab bp-ph-b1: TaskObjects fixed (74 ms/s) but it/s still 39 vs v024 54 with equal stage ms/s: every iteration costs more (ThreadedObjects 15.2 vs 10.6 ms/iteration), a uniform managed slowdown that a method-share diff cannot see. Main suspect: the mint call path.",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "pinReason": "rel025d asi + rel025d-ini2 + ts3fixes rel025d-ph-fixes (PushHeld fix, builds.json)",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d-ph",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 18,
+          "ab": "mintcall",
+          "slice": 2
+        }
+      },
+      "timeoutMin": 34
+    }
+  ]
+}

@@ -1,0 +1,291 @@
+{
+  "note": "v0.2.5 clean night 2026-11-04 (PHT): all-features bundle verify + release numbers on the final build rel025d (same job shapes as v020-release-metrics + v020-release-soak: 3 x 15 min per town BP/IP/SV, IP + SV 45-min soaks, light tools only). Numbers: release-numbers.ts --vanilla overnight-1023-2026-10-23-{bp,ip,sv}-rvb-vanilla --prev v020-release-metrics 10-28 tags (v0.2.1-v0.2.4 ship the same asi rel020; v0.2.4 changed only the Play-arrow path) --rel these tags. noiseCheck off: this laptop is always medium (~9% other CPU on game cores); noted, not blocking. Rodney 2026-11-04: release-ON switches only: RouteAsync.OwnJobWait dropped (off in the release ini); the HitchAttr / LogFallback overrides stay as observe-only light measurement tools.",
+  "jobs": [
+    {
+      "id": "bp-v025rel-1",
+      "note": "v0.2.5 release config (asi rel025d, repo ini = v0.2.5 release defaults, ts3fixes rel025d), all-features bundle verify + release numbers; 15 min natural play, light tools only; release-notes numbers (docs/release-notes/v0.2.0-dev.md)",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "pinReason": "v0.2.5 release arm: rel025d = final v0.2.5 build (builds.json rel025d-asi 0.36.168 / rel025d-fixes, master e49c3201)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 32,
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d",
+      "minCounters": 163
+    },
+    {
+      "id": "ip-v025rel-1",
+      "note": "v0.2.5 release config (asi rel025d, repo ini = v0.2.5 release defaults, ts3fixes rel025d), all-features bundle verify + release numbers; 15 min natural play, light tools only; release-notes numbers (docs/release-notes/v0.2.0-dev.md)",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "pinReason": "v0.2.5 release arm: rel025d = final v0.2.5 build (builds.json rel025d-asi 0.36.168 / rel025d-fixes, master e49c3201)",
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 32,
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d",
+      "minCounters": 163
+    },
+    {
+      "id": "sv-v025rel-1",
+      "note": "v0.2.5 release config (asi rel025d, repo ini = v0.2.5 release defaults, ts3fixes rel025d), all-features bundle verify + release numbers; 15 min natural play, light tools only; release-notes numbers (docs/release-notes/v0.2.0-dev.md)",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "pinReason": "v0.2.5 release arm: rel025d = final v0.2.5 build (builds.json rel025d-asi 0.36.168 / rel025d-fixes, master e49c3201)",
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 32,
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d",
+      "minCounters": 163
+    },
+    {
+      "id": "bp-v025rel-2",
+      "note": "v0.2.5 release config (asi rel025d, repo ini = v0.2.5 release defaults, ts3fixes rel025d), all-features bundle verify + release numbers; 15 min natural play, light tools only; release-notes numbers (docs/release-notes/v0.2.0-dev.md)",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "pinReason": "v0.2.5 release arm: rel025d = final v0.2.5 build (builds.json rel025d-asi 0.36.168 / rel025d-fixes, master e49c3201)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 32,
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d",
+      "minCounters": 163
+    },
+    {
+      "id": "ip-v025rel-2",
+      "note": "v0.2.5 release config (asi rel025d, repo ini = v0.2.5 release defaults, ts3fixes rel025d), all-features bundle verify + release numbers; 15 min natural play, light tools only; release-notes numbers (docs/release-notes/v0.2.0-dev.md)",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "pinReason": "v0.2.5 release arm: rel025d = final v0.2.5 build (builds.json rel025d-asi 0.36.168 / rel025d-fixes, master e49c3201)",
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 32,
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d",
+      "minCounters": 163
+    },
+    {
+      "id": "sv-v025rel-2",
+      "note": "v0.2.5 release config (asi rel025d, repo ini = v0.2.5 release defaults, ts3fixes rel025d), all-features bundle verify + release numbers; 15 min natural play, light tools only; release-notes numbers (docs/release-notes/v0.2.0-dev.md)",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "pinReason": "v0.2.5 release arm: rel025d = final v0.2.5 build (builds.json rel025d-asi 0.36.168 / rel025d-fixes, master e49c3201)",
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 32,
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d",
+      "minCounters": 163
+    },
+    {
+      "id": "bp-v025rel-3",
+      "note": "v0.2.5 release config (asi rel025d, repo ini = v0.2.5 release defaults, ts3fixes rel025d), all-features bundle verify + release numbers; 15 min natural play, light tools only; release-notes numbers (docs/release-notes/v0.2.0-dev.md)",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "pinReason": "v0.2.5 release arm: rel025d = final v0.2.5 build (builds.json rel025d-asi 0.36.168 / rel025d-fixes, master e49c3201)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 32,
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d",
+      "minCounters": 163
+    },
+    {
+      "id": "ip-v025rel-3",
+      "note": "v0.2.5 release config (asi rel025d, repo ini = v0.2.5 release defaults, ts3fixes rel025d), all-features bundle verify + release numbers; 15 min natural play, light tools only; release-notes numbers (docs/release-notes/v0.2.0-dev.md)",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "pinReason": "v0.2.5 release arm: rel025d = final v0.2.5 build (builds.json rel025d-asi 0.36.168 / rel025d-fixes, master e49c3201)",
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 32,
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d",
+      "minCounters": 163
+    },
+    {
+      "id": "sv-v025rel-3",
+      "note": "v0.2.5 release config (asi rel025d, repo ini = v0.2.5 release defaults, ts3fixes rel025d), all-features bundle verify + release numbers; 15 min natural play, light tools only; release-notes numbers (docs/release-notes/v0.2.0-dev.md)",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "pinReason": "v0.2.5 release arm: rel025d = final v0.2.5 build (builds.json rel025d-asi 0.36.168 / rel025d-fixes, master e49c3201)",
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 32,
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d",
+      "minCounters": 163
+    },
+    {
+      "id": "ip-v025rel-soak",
+      "note": "v0.2.5 release config (asi rel025d, repo ini = v0.2.5 release defaults, ts3fixes rel025d), all-features bundle verify + release numbers; 45 min natural play, light tools only; release-notes numbers (docs/release-notes/v0.2.0-dev.md)",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "pinReason": "v0.2.5 release arm: rel025d = final v0.2.5 build (builds.json rel025d-asi 0.36.168 / rel025d-fixes, master e49c3201)",
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 45
+        }
+      },
+      "timeoutMin": 62,
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d",
+      "minCounters": 163
+    },
+    {
+      "id": "sv-v025rel-soak60",
+      "note": "v0.2.0 release build, 60 min SV soak, light tools only; pairs with release-015-extra sv-soak-rel015 (same save, seed, length) for the long-freeze comparison",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "pinReason": "v0.2.5 release arm: rel025d = final v0.2.5 build (builds.json rel025d-asi 0.36.168 / rel025d-fixes, master e49c3201)",
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 45
+        }
+      },
+      "timeoutMin": 80,
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d",
+      "minCounters": 163
+    }
+  ]
+}

@@ -118,6 +118,17 @@ Native and C# builds are checked separately: `native\ts3native\build.cmd` (VS 20
 - Small PRs merge faster. A PR that bundles several fixes will be asked to split, unless it is a measured bundle run.
 - Reviewers may ask for a second machine's results before a default-on flip. Disagreements about evidence are settled by another measurement, not by argument.
 
+## Development: EA app port
+
+The EA app edition (TS3.exe 1.69.47, PE timestamp `6707155C`, SizeOfImage `0xEB5000`) gets its own ts3native build from the same source: the CI job `native-ea169` compiles with `/DTS3A_TABLE` (addresses from `ts3addr-ea169.h`, expected bytes from `ts3bytes-ea169.h`), and the host check accepts the exe by PE timestamp + SizeOfImage, because the EA game runs as `Sims3Launcher.exe` or `TS3.exe`. A build in the wrong game logs `SKIP all: host is not ...` and installs nothing. The release ships it as `ts3native-ea169-<version>.zip` with the same file names as the Steam zip. Port work lives on branch `ea169-port` until it merges; the queue.ts EA mode is draft PR #226 (branch `ea-mod-mode`).
+
+- **Harness EA mode** (header of `tools/harness/game-exe.ts`): `TS3_BIN` = the EA `Game\Bin`, `TS3_EXE=Sims3Launcher.exe`, `TS3_LAUNCH=ea` (starts the game through EALauncher.exe with the EA launch URI) and a `TS3_MACHINE` tag so results never mix with the main machine's. `TS3_NATIVE_DIR` points at the EA CI build folder (`ts3native-ea169.asi` + `ts3native-ea169-rc.ini`); queue.ts detects the edition from the exe (PE timestamp + the 1.69.47 sha256), installs that pair and requires `host build: EA app 1.69.47` in `ts3native.log`.
+- **EA inis**: `node tools/ea-ini.ts` writes `ts3native-ea169.ini` (minimal) and `ts3native-ea169-rc.ini` (release candidate) from the Steam ini. A section keeps its shipped value only when none of its files has an unresolved address or bad-bytes row; `EA_SET` holds EA-only values (`[GC] BlackListCapKB=1024`), `RC_ZERO_KEYS` keys kept off on EA (`[MemDiag] Light`). Change the generator, never the generated inis.
+- **Packs**: an EA launch that skips the launcher's Play button must set `[productoption] selectedflags` in `Documents\Electronic Arts\The Sims 3\LoadOption.ini`, or the game mounts only the base game (`tools/probe/ts3probe.py` does it; docs/234).
+- **Players**: `tools/player/ts3fixes-doctor.ps1` reports the game edition (exe sha256 + PE timestamp) and which build `ts3native.asi` is, and flags a mismatch; `-SelfTest` checks that logic on temp files.
+- **Docs**: docs/230 (edition facts, launch chain), docs/231 and docs/233 (mod-version popup, mods on 1.69), docs/232 (port design and every EA run), docs/234 (pack gate), docs/235 (managed side), docs/236 (harness trust audit), docs/237 (detour register liveness), docs/238 (struct offsets). Some of them are not on `main` yet.
+- The EA machine runs correctness tests only (Intel iGPU): no timing results from it.
+
 ## Working with parallel AI agents safely
 
 Several agents (or people) can work at once if they do not share mutable state:

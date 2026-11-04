@@ -337,7 +337,10 @@ namespace Ts3Agent
         // EA's lifetime wish dialog (a Sim ages up): Okay stays disabled until a wish is picked, and the buttons without
         // a wish tag open WishPickerDialog, whose OK also waits for a pick. Button scoring cannot answer either, so use
         // their own handlers: cancel an open picker, else select the first offered wish and press Okay.
-        static bool AnswerLifetimeWish(Dictionary<string, object> r)
+        // Only when that dialog is the top modal: sDialog stays set while another modal sits on top (2026-11-03: a second Sim's
+        // age-up dialog over a wish dialog), its Okay then ends nothing, and answering it every step left the top dialog unanswered
+        // until the clock guard failed the run (210 answers in 60 s).
+        static bool AnswerLifetimeWish(WindowBase modal, Dictionary<string, object> r)
         {
             const BindingFlags kAny = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
             Assembly ui = typeof(ModalDialog).Assembly;
@@ -345,6 +348,9 @@ namespace Ts3Agent
             object picker = pickerType != null ? pickerType.GetField("sDialog", kAny).GetValue(null) : null;
             object dlg = wishType != null ? wishType.GetField("sDialog", kAny).GetValue(null) : null;
             if (picker == null && dlg == null) return false;
+            ModalDialog top = (picker ?? dlg) as ModalDialog;
+            Dialog win = top != null ? top.ModalDialogWindow : null;
+            if (win == null || !object.ReferenceEquals(win, modal)) return false; // one wrapper per window handle (UIManager cache)
             r["title"] = picker != null ? "lifetime wish picker" : "lifetime wish";
             object wish = null;
             if (picker == null)
@@ -381,7 +387,7 @@ namespace Ts3Agent
             r["open"] = true;
             // a start-path step answers this dialog itself (StartPathHandlers: purchase confirm, Edit Town place dialog)
             if (HarnessOwnsDialog()) { r["title"] = null; r["clicked"] = "(left to a harness step)"; return r; }
-            if (AnswerLifetimeWish(r)) return r;
+            if (AnswerLifetimeWish(modal, r)) return r;
             List<string> texts = new List<string>();
             CollectTexts(modal, texts, 0);
             r["title"] = texts.Count > 0 ? texts[0] : null;
@@ -475,6 +481,7 @@ namespace Ts3Agent
             r["save_name"] = Sims3.Gameplay.UI.Responder.Instance.OptionsModel.SaveName;
             r["load_file"] = GameStates.LoadFileName; // set by load_save too; save_name stays null until a save
             r["save_in_progress"] = Sims3.Gameplay.UI.Responder.Instance.OptionsModel.SaveGameInProgress;
+            r["modal"] = UIManager.GetModalWindow() != null; // repro waits "until modal false" after a save (its own dialog) read a missing key before
             return r;
         }
 

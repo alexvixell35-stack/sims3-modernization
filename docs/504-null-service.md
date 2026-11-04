@@ -1,6 +1,6 @@
 # 504. A null service from the save breaks every loop over `Services.AllServices` (`nullservice`)
 
-Contributor doc (range 500-599). Switch `nullservice` (ts3fixes, off by default), counter 2014, ledger §903. Status: verified in
+Contributor doc (range 500-599). Switch `nullservice` (ts3fixes, on by default since v0.2.5), counter 2014, ledger §903. Status: verified in
 game 2026-11-01 on BP and LR (§4).
 
 ## 1. The bug

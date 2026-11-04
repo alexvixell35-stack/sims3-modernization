@@ -47047,7 +47047,7 @@
   {
     "id": "null-service-check",
     "bug": "docs/504: Services.sAllServices is [PersistableStatic]; a saved service whose type no longer loads comes back as a null element, and every EA loop over the list dereferences it (ResortStaffedObjectComponent.GetService at object load, Services.PostWorldLoadStartup, Services.Simulate)",
-    "fix": "ts3fixes NullService.cs: nullservice (default off), docs/504",
+    "fix": "ts3fixes NullService.cs: nullservice (default on since v0.2.5), docs/504",
     "save": "Baseline-BP",
     "note": "The check builds the bug state for one call only: it adds a null to Services.sAllServices, runs an EA reader of the getter (TownieMaker.GetModifiableServices, read-only) and takes the null out again before returning, so nothing else in the session sees it. \"broken\" and \"fixed\" throw on the wrong outcome, which fails the step.",
     "expect": "off: the reader threw NullReferenceException; on: the reader returned, nullservice_dropped 1; the applied log lists Services.get_AllServices and Services.PostWorldLoadStartup: ok",
@@ -47124,7 +47124,7 @@
   {
     "id": "rabbit-hole-door-check",
     "bug": "docs/505: RabbitHole.AnimateDoorOpen raises mDoorOpenCounts[door] and asks the RabbitHoleGeneric state machine for \"Open\" of actor \"Door<n>\"; a door the animation cannot open throws SacsErrorException, which ends the Sim's entry (Public School 67 on Baseline-BP, door 2)",
-    "fix": "ts3fixes RabbitHoleDoor.cs: rabbitholedoor (default off), docs/505",
+    "fix": "ts3fixes RabbitHoleDoor.cs: rabbitholedoor (default on since v0.2.5), docs/505",
     "save": "Baseline-BP",
     "note": "With the switch off the check opens (and closes again) each enter/exit slot door of every rabbit hole with no Sim at it, until one open throws SacsErrorException at the caller; it puts that count back to 0 and keeps the door. With the switch on it opens and closes the kept door. \"broken\" and \"fixed\" throw on the wrong outcome, which fails the step. Needs a core mod that does not already catch this error (run with an EA or original simler90 core).",
     "expect": "off: the open threw SacsErrorException at the caller; on: open and close returned, count 0 -> 1 -> 0, rabbitholedoor_skipped >= 1; the applied log lists RabbitHole.AnimateDoorOpen and RabbitHole.AnimateDoorClose: ok",

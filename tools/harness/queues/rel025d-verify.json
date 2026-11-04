@@ -1,0 +1,291 @@
+{
+  "note": "rel025d verify (2026-11-04, master e49c3201, ts3native 0.36.168 counters v163, builds.json rel025d-asi / rel025d-fixes): ONLY the features new since rel025c (memory rule): GC blacklist cap window (BP reload + travel), rabbitholedoor + nullservice ON by default (BP/IP 10-min play, BP nullservice repro), #233 detour publish-order fix (release job, Windows spfileq/setupapi first-chance allowed). bp-rabbitholedoor repro N/A here (not triggered on our setup). Rodney 2026-11-04: only release-ON features are tested; SaveSlim (opt-in) jobs dropped.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-rel025d-blcap-reload",
+      "note": "GC cap window on rel025d (start-up + 6 menu save/load cycles). Start-up smoke + memory stress, window arm. Baseline-BP, cap 1024, [MemDiag] marks. save-reload.ts: 2 min play (CAS + Buy visit), save as SaveReload-BP, then 6 menu-route reloads (save, main menu, load the same save, 1 min play). Each mark records the GC_black_list_spacing (0x0119482C) and the gc* counters. Pass: the cap line, 7 'restored 8 MB clamp' lines (first load + 6 reloads) and 6 'cap lenient again at world quit' lines, the first restore line shows spacing <= 1024 KB (cap active during start-up), spacing 8192 KB at the sr-reload10 marks (strict after the next GC in play), no crash, no FAIL/SKIP gc line. Read: per-cycle heap / private / largest free from the sr-reload10-N marks.",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "minCounters": 163,
+      "ini": {
+        "GC.BlackListCapKB": 1024,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1
+      },
+      "logRequire": {
+        "ts3native 0.36.168": 1,
+        "^OK   GC black-list spacing cap: 0x00E4A856": 1,
+        "^gc blcap: restored 8 MB clamp at world load #": 7,
+        "^gc blcap: cap lenient again at world quit": 6
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) GC black-list": 0,
+        "^SKIP gc black-list": 0,
+        "^FAIL gc black-list": 0,
+        "tracking stopped": 0
+      },
+      "run": {
+        "saveReload": [
+          "--world",
+          "BP",
+          "--play",
+          "2",
+          "--after",
+          "1",
+          "--cycles",
+          "6",
+          "--no-direct"
+        ]
+      },
+      "timeoutMin": 60,
+      "pinReason": "rel025d is the build under test (builds.json rel025d-asi 0.36.168 / rel025d-fixes from master e49c3201: v0.2.5 final, rabbitholedoor + nullservice on, GC cap window)",
+      "fixesBuild": "rel025d-fixes"
+    },
+    {
+      "id": "bp-rel025d-blcap-travel",
+      "note": "GC cap window on rel025d (one travel round trip). Travel switches, window arm: Baseline-BP, cap 1024, one round trip to France (1 sim hour there). Pass: restored at world load #1 (BP), #2 (France), #3 (home), lenient at each of the 2 world quits, no crash.",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "minCounters": 163,
+      "ini": {
+        "GC.BlackListCapKB": 1024,
+        "UserDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^gc blcap: restored 8 MB clamp at world load #": 3,
+        "^gc blcap: cap lenient again at world quit": 2
+      },
+      "logForbid": {
+        "^SKIP gc black-list": 0,
+        "^FAIL gc black-list": 0,
+        "tracking stopped": 0
+      },
+      "run": {
+        "script": [
+          "travel-trip.ts",
+          "--to",
+          "france",
+          "--trips",
+          "1",
+          "--hours",
+          "1"
+        ]
+      },
+      "timeoutMin": 45,
+      "pinReason": "rel025d is the build under test (builds.json rel025d-asi 0.36.168 / rel025d-fixes from master e49c3201: v0.2.5 final, rabbitholedoor + nullservice on, GC cap window)",
+      "fixesBuild": "rel025d-fixes"
+    },
+    {
+      "id": "bp-rel025d-play",
+      "note": "rel025d release defaults (rabbitholedoor + nullservice ON by default in the package, no fixesOn): 10 min natural play; pass 0 crash / exception, plus the rel025c gates. v0.2.5 unseen defaults stuck smoke on Baseline-BP: pure release ini + rel025c fixes defaults, 10 min natural play. Pass: no crash, per-feature gates, stuck Sims (watchdog / stuck counters) not above the 11-02 bp-urm-stuck-off level (+1), no FAIL hook line.",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "rel025d is the build under test (builds.json rel025d-asi 0.36.168 / rel025d-fixes from master e49c3201: v0.2.5 final, rabbitholedoor + nullservice on, GC cap window)",
+      "minCounters": 163,
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 25,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (release ini Enabled=1)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + Mode 1 shortlist jump not both in (release ini Shortlist=1)"
+        },
+        {
+          "afterSec": 250,
+          "counter": "aaSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "U-A1 skipped no unseen Sim pose call (Mode 1 not acting)"
+        },
+        {
+          "afterSec": 250,
+          "counter": "rmSlMiss",
+          "op": "==",
+          "value": 0,
+          "why": "Mode 1 shortlist audit miss (rmSlMiss > 0): walk differs from EA's"
+        },
+        {
+          "afterSec": 250,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "[UnseenTable] answered nothing (utbHits 0)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:asyncjigsync_kept_sync",
+          "op": ">=",
+          "value": 0,
+          "why": "asyncjigsync counter 758 not readable (rel025c agent / fixes not loaded)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "rmSlPasses",
+          "op": ">",
+          "value": 0,
+          "why": "Mode 1 never ran a pass over the shortlist"
+        }
+      ]
+    },
+    {
+      "id": "ip-rel025d-play",
+      "note": "rel025d release defaults (rabbitholedoor + nullservice ON by default in the package, no fixesOn): 10 min natural play; pass 0 crash / exception, plus the rel025c gates. v0.2.5 unseen defaults stuck smoke on Baseline-IP: pure release ini + rel025c fixes defaults, 10 min natural play. Pass: no crash, per-feature gates, stuck Sims (watchdog / stuck counters) not above the 11-02 bp-urm-stuck-off level (+1), no FAIL hook line.",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "rel025d is the build under test (builds.json rel025d-asi 0.36.168 / rel025d-fixes from master e49c3201: v0.2.5 final, rabbitholedoor + nullservice on, GC cap window)",
+      "minCounters": 163,
+      "save": "Baseline-IP",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 25,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (release ini Enabled=1)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + Mode 1 shortlist jump not both in (release ini Shortlist=1)"
+        },
+        {
+          "afterSec": 250,
+          "counter": "aaSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "U-A1 skipped no unseen Sim pose call (Mode 1 not acting)"
+        },
+        {
+          "afterSec": 250,
+          "counter": "rmSlMiss",
+          "op": "==",
+          "value": 0,
+          "why": "Mode 1 shortlist audit miss (rmSlMiss > 0): walk differs from EA's"
+        },
+        {
+          "afterSec": 250,
+          "counter": "utbHits",
+          "op": ">",
+          "value": 0,
+          "why": "[UnseenTable] answered nothing (utbHits 0)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:asyncjigsync_kept_sync",
+          "op": ">=",
+          "value": 0,
+          "why": "asyncjigsync counter 758 not readable (rel025c agent / fixes not loaded)"
+        },
+        {
+          "afterSec": 300,
+          "counter": "rmSlPasses",
+          "op": ">",
+          "value": 0,
+          "why": "Mode 1 never ran a pass over the shortlist"
+        }
+      ]
+    },
+    {
+      "id": "bp-rel025d-nullservice",
+      "note": "rel025d: nullservice ON by package default (no fixesOn). #164 (docs/504) ship-ON check on rel025c (5 min): switch nullservice on via fixesOn, repro null-service-check (forced null service). Pass: steps ok, nullservice_dropped >= 1, no crash.",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "rel025d is the build under test (builds.json rel025d-asi 0.36.168 / rel025d-fixes from master e49c3201: v0.2.5 final, rabbitholedoor + nullservice on, GC cap window)",
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "null-service-check",
+          "fixesRequire": "nullservice_dropped>=1"
+        }
+      },
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:nullservice_dropped",
+          "op": ">=",
+          "value": 1,
+          "why": "no null dropped: getter hook not installed or repro did not run"
+        }
+      ],
+      "timeoutMin": 20,
+      "minCounters": 163
+    },
+    {
+      "id": "bp-rel025d-detour",
+      "note": "#233 detour fix on rel025d. First-chance C0000005 in Windows spfileq.dll / setupapi.dll is allowed (in 194 logs since 10-31, not ours); any other C0000005 fails. v0.2.5 release defaults (repo ts3native.ini, AllocSites off), world load + 5 min natural play. Pass: every OK detour line of a rel025c release-defaults job present (compare names by hand), no FAIL / SKIP detour line, no exception line, no crash.",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025d",
+      "pinReason": "rel025d is the build under test (builds.json rel025d-asi 0.36.168 / rel025d-fixes from master e49c3201: v0.2.5 final, rabbitholedoor + nullservice on, GC cap window)",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "logRequire": {
+        "^OK   detour ": 40
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^SKIP detour": 0,
+        "exception C0000005 at 0x[0-9A-F]+ [(](?!spfileq[.]dll|setupapi[.]dll)": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "minCounters": 163
+    }
+  ]
+}

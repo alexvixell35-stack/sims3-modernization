@@ -27,7 +27,9 @@ const TUNING_INST = fnv64('Ts3Fixes.Instantiator');
 export type AsiBuild = { name: string; kind: 'asi'; sha256: string; version: string; commit?: string; created: string; note?: string };
 export type FixesBuild = { name: string; kind: 'ts3fixes'; sha256: string; tuningDigest: string; srcDigest?: string; commit?: string; created: string; note?: string;
   tuning: Record<string, boolean | number | string> };
-export type Build = AsiBuild | FixesBuild;
+// IniBuild: a shipped ts3native.ini (sha only; release pairs name it, the queue build check does not read it)
+export type IniBuild = { name: string; kind: 'ini'; sha256: string; created: string; note?: string };
+export type Build = AsiBuild | FixesBuild | IniBuild;
 
 export const sha256 = (b: Buffer | string) => createHash('sha256').update(b).digest('hex');
 export function loadDb(path = DB_PATH): Build[] { return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')).builds : []; }
@@ -145,7 +147,7 @@ if (process.argv[1]?.endsWith('builds.ts')) {
       assert.ok(!names.has(b.name), `duplicate DB name ${b.name}`); names.add(b.name);
       assert.match(b.sha256, /^[0-9a-f]{64}$/, `${b.name}: sha256`);
       if (b.kind === 'asi') assert.match(b.version, /^\d+\.\d+\.\d+/, `${b.name}: version`);
-      else { assert.match(b.tuningDigest, /^[0-9a-f]{64}$/, `${b.name}: tuningDigest`); assert.ok(Object.keys(b.tuning).length > 10, `${b.name}: tuning`); }
+      else if (b.kind === 'ts3fixes') { assert.match(b.tuningDigest, /^[0-9a-f]{64}$/, `${b.name}: tuningDigest`); assert.ok(Object.keys(b.tuning).length > 10, `${b.name}: tuning`); }
     }
     console.log(`builds self-check ok (${db.length} DB entries)`);
     process.exit(0);

@@ -2,7 +2,7 @@
 
 Make The Sims 3 run well on modern PCs: less in-game stutter, fewer Error 12 (out of address space) crashes, and room for heavy store content and custom content (CC). First we collect and measure what the community fixes already do, then we reverse engineer the game and build our own fixes where those fall short: a C# script mod, a native ASI plugin, and the test tools to prove each change.
 
-Target: The Sims 3 **Steam** edition, patch 1.67, all expansion and stuff packs, Windows 10/11. The Origin / EA app version is not supported.
+Target: The Sims 3 **Steam** edition, patch 1.67, all expansion and stuff packs, Windows 10/11. Since v0.2.5 also the **EA app** edition, patch 1.69.47: take `ts3native-ea169-<version>.zip` instead of the Steam zip, put it in `C:\Program Files\EA Games\The Sims 3\Game\Bin` and start the game from the EA app ([EA app install](docs/PLAYERS.md#ea-app-version-16947)). Origin, disc and other patches are not supported.
 
 **Just want to play with the fixes?** Download the latest [release](https://github.com/rodneypantonial/sims3-modernization/releases) and follow [docs/PLAYERS.md](docs/PLAYERS.md): what's switched on, and how to install it in a few steps.
 

@@ -140,8 +140,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kConvTurn value="False" />
     <kDeadRefGuards value="False" />
     <kBakeSaleSeller value="False" />
-    <kNullService value="False" />
-    <kRabbitHoleDoor value="False" />
+    <kNullService value="True" />
+    <kRabbitHoleDoor value="True" />
     <kPhotoSession value="False" />
     <kEggSpot value="False" />
     <kGraduationTable value="False" />

@@ -78,7 +78,7 @@ import { checkHitchTasks, parseHitchTasks } from './hitch-tasks.ts';
 import { checkTag, parseRule } from './frame-lead.ts';
 import { isSetup, runLoop, runStep, stopLine, untilUnlocked, withRule } from './repro-loop.ts';
 import { loadStory } from './story-fuzzer.ts';
-import { counterSwitches, nativeModeFields, nativeNames, nativeValues } from './native-switches.ts';
+import { abFixesClash, counterSwitches, nativeModeFields, nativeNames, nativeValues } from './native-switches.ts';
 import { addArmColumns } from './arm-ms.ts';
 import { leadInCut, sliceFrames } from './session-reuse.ts';
 import { reproSave } from './repro-save.ts';
@@ -175,7 +175,7 @@ const fixesPrev: Record<string, boolean> = {};
 let fixesRestored = !fixesNames.length;
 const restoreFixes = async () => { if (fixesRestored) return; fixesRestored = true; await ag('patches', fixesPrev); };
 if (fixesNames.length) {
-  const both = fixesNames.filter(n => values.ab?.split(',').includes(n) || (fixesOff.includes(n) && fixesOn.includes(n)));
+  const both = abFixesClash(values.ab ? values.ab.split(',') : [], fixesOn, fixesOff);
   if (both.length) throw new Error(`--fixes-off / --fixes-on / --ab name ${both.join(',')} twice`);
   const before = await ag('patches');
   const unknown = fixesNames.filter(n => typeof before.result?.[n] !== 'boolean'); // native / counter switches and typos are not patches switches
@@ -258,6 +258,10 @@ const clockGuard = (async () => {
     // which modal holds the clock (title, buttons) and whether a world switch is under way (story-smoke 2026-10-23)
     const pd = await ag('pending_dialogs').catch(() => null), gs = await ag('game_state').catch(() => null);
     console.log(`${stamp()} at the trip: dialog ${JSON.stringify(pd?.ok ? pd.result : pd?.error).slice(0, 400)}; sub_state ${gs?.result?.sub_state ?? '?'}, world ${gs?.result?.load_file ?? '?'}`);
+    // what the autopilot did meanwhile: a dialog answered in a loop shows here (2026-11-03: a wish dialog under the age-up dialog,
+    // 210 answers in 60 s, seen only in the upkeep log)
+    const ap = await ag('autopilot').catch(() => null), cl: string[] = ap?.result?.cleared ?? [];
+    console.log(`${stamp()} at the trip: autopilot ${ap?.ok ? `${cl.length} answers since the last upkeep${cl.length ? ` (last: ${cl[cl.length - 1].slice(0, 120)})` : ''}, blocked ${ap.result.blocked ?? 'none'}${ap.result.restarted ? ', restarted (task had stopped)' : ''}` : ap?.error}`);
     prof?.kill();
     await restoreFixes();
     process.exit(1);
@@ -394,7 +398,9 @@ const vresDone = vresOn ? (async () => {
 const abNames = values.ab ? values.ab.split(',') : [];
 const slices: { from: number; on: boolean }[] = [];
 // a rerun with the same tag must not append to the last run's snapshots (wait-ab read run 1 twice, 2026-10-20)
-if (abNames.length) { writeFileSync(`${pre}-ab-native.jsonl`, ''); writeFileSync(`${pre}-ab-fixes.jsonl`, ''); }
+// ... nor leave the last run's slice table: a run stopped before its end writes none, and wait-ab.ts paired the old table with
+// the new (cut) snapshots (2026-11-03, noise stops)
+if (abNames.length) { writeFileSync(`${pre}-ab-native.jsonl`, ''); writeFileSync(`${pre}-ab-fixes.jsonl`, ''); rmSync(`${pre}-ab.json`, { force: true }); }
 // ts3native switch tables (nativeNames, counterSwitches, nativeValues: native_set repro steps and --ab): native-switches.ts,
 // shared with session-reuse.ts, which puts them back between jobs that share one game load (docs/170 §2)
 async function nativeSet(args: Record<string, unknown>): Promise<{ ok: boolean; result?: unknown; error?: string }> {
@@ -612,7 +618,7 @@ if (hitchTasks.length) {
   console.log(`${stamp()} ${fails.length ? `FAIL: hitch tasks: ${fails.join('; ')}` : `PASS: hitch tasks ${hitchTasks.map((r, i) => `${r} (${counts[i]})`).join(', ')}`}`);
   if (fails.length) process.exitCode = 1;
 }
-if (abNames.length) { writeFileSync(`${pre}-ab.json`,JSON.stringify({ names: abNames, slices }, null, 1)); await ag('patches', Object.fromEntries(abNames.map(n => [n, true]))); }
+if (abNames.length) { writeFileSync(`${pre}-ab.json`,JSON.stringify({ names: abNames, t0, slices }, null, 1)); /* t0: profile start (epoch ms), to join <tag>-machine.jsonl */ await ag('patches', Object.fromEntries(abNames.map(n => [n, true]))); }
 // per-arm ms/s (arm-ms.ts): slice + arm columns on the seconds rows (arm 1 on, 0 off, -1 not counted)
 if (slices.length && (abNames.length || reproLoop)) {
   const sf = `${pre}-${secs}-seconds.csv`;

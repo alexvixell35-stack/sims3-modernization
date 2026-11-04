@@ -238,6 +238,17 @@ export function decodeHolders(hex: string) {
 type HangGet = (path: string, ms: number) => Promise<any>;
 const sleepMs = (ms: number) => new Promise(r => setTimeout(r, ms));
 const frameName = (f: string) => f.split(' ').slice(1).join(' ') || f; // "0x1234 TS3W.exe!Name+0x12" -> "TS3W.exe!Name+0x12"
+// first frame outside the OS modules: a wait's top frame (ntdll.dll+0x7837c) says only "waiting"; the module that called it says
+// who (2026-11-03 load hang: every summary read ntdll, while the sim thread waited in Sims3SettingsSetter.asi and the main thread
+// in ApexRadiance.asi, found only by reading the thread file)
+const OS_MOD = /^(ntdll|kernelbase|kernel32|win32u|user32|combase|msvcrt|ucrtbase|msvcp\d*|vcruntime\d*)\.dll/i;
+export const ownFrame = (stack?: string[] | null) => stack?.map(frameName).find(f => !OS_MOD.test(f)) ?? '-';
+// "86 x A, 8 x B": threads grouped by their first non-OS frame, the n largest groups
+export function frameGroups(threads: { stack?: string[] | null }[], n = 4): string {
+  const c = new Map<string, number>();
+  for (const t of threads) if (t.stack?.length) { const f = ownFrame(t.stack); c.set(f, (c.get(f) ?? 0) + 1); }
+  return [...c].sort((a, b) => b[1] - a[1]).slice(0, n).map(([f, k]) => `${k} x ${f}`).join(', ');
+}
 
 function procdump(file: string, ms: number): Promise<string> {
   const mode = process.env.TS3_HANG_DUMP ?? 'mini';
@@ -272,7 +283,7 @@ export async function captureHang(dir: string, o: { port?: number; get?: HangGet
   }
   put('simstack', sims);
   const ok = sims.filter(s => s.stack?.length), top = ok[0] ? frameName(ok[0].stack[0]) : '-';
-  const same = ok.filter(s => frameName(s.stack[0]) === top).length;
+  const same = ok.filter(s => frameName(s.stack[0]) === top).length, under = ok[0] ? ownFrame(ok[0].stack) : '-';
   const th = await get('threadstack?which=all&frames=24', 8000).catch(err);
   put('threadstack', th);
   const nat = await get('native', 4000).catch(err);
@@ -296,7 +307,8 @@ export async function captureHang(dir: string, o: { port?: number; get?: HangGet
   const dumpFile = `${process.env.TS3_HANG_DUMP_DIR ? join(process.env.TS3_HANG_DUMP_DIR, pre.split(/[\\/]/).at(-1)!) : pre}.dmp`;
   const dump = left() > 2000 ? await (o.dump ?? procdump)(dumpFile, left()) : 'dump skipped: capture cap reached';
   const threads = th.threads?.filter((t: any) => t.stack?.length).length ?? 0;
-  const line = `hang capture: ${ok.length} sim stacks, top frame ${top}${ok.length > 1 ? ` (${same}/${ok.length} same)` : ''}; ${threads} other thread stacks${th.error ? ` (${th.error})` : ''}; native ${nat?.error ?? `v${nat?.version ?? '?'}`}; ${holders}; ${managed}; ${dump}; ${pre}-*`;
+  const main = th.threads?.find((t: any) => t.role === 'main' && t.stack?.length), groups = th.threads ? frameGroups(th.threads) : '';
+  const line = `hang capture: ${ok.length} sim stacks, top frame ${top}${under !== top && under !== '-' ? ` under ${under}` : ''}${ok.length > 1 ? ` (${same}/${ok.length} same)` : ''}; ${threads} other thread stacks${th.error ? ` (${th.error})` : ''}${main ? `; main thread under ${ownFrame(main.stack)}` : ''}${groups ? `; thread frames ${groups}` : ''}; native ${nat?.error ?? `v${nat?.version ?? '?'}`}; ${holders}; ${managed}; ${dump}; ${pre}-*`;
   writeFileSync(`${pre}-summary.txt`, line + '\n');
   return line;
 }
@@ -426,7 +438,7 @@ if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-
   assert.match(String((decodeHolders('00') as any).error), /need/);
   const fixtures: Record<string, unknown> = {
     simstack: { thread: 7, stack: ['0x6EB41234 ts3native.asi+0x11234', '0x0062EF7A TS3W.exe!Gate0+0x4a'] },
-    threadstack: { threads: [{ thread: 8, role: 'main', stack: ['0x1 TS3W.exe!Main+0x1'] }, { thread: 9, stack: null, error: 'x' }] },
+    threadstack: { threads: [{ thread: 8, role: 'main', stack: ['0x2 ntdll.dll+0x41e02', '0x1 TS3W.exe!Main+0x1'] }, { thread: 9, stack: null, error: 'x' }] },
     native: { version: 99 }, nativeexport: { name: 'ts3native_lockholders', value: 1, address: '0x6EC00000' }, read: { hex: ring.toString('hex') },
     managedstack: { methods: ['Sims3.Gameplay.Autonomy.Run'] },
   };
@@ -434,7 +446,11 @@ if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-
   const tmp = mkdtempSync(join(tmpdir(), 'hang-'));
   try {
     const okLine = await captureHang(join(tmp, 'a'), { get: fake, spacingMs: 0, dump: async () => 'dump fake' });
-    assert.match(okLine, /^hang capture: 5 sim stacks, top frame ts3native\.asi\+0x11234 \(5\/5 same\); 1 other thread stacks; native v99; holders on, 1 records; managed top Sims3\.Gameplay\.Autonomy\.Run; dump fake; /);
+    assert.match(okLine, /^hang capture: 5 sim stacks, top frame ts3native\.asi\+0x11234 \(5\/5 same\); 1 other thread stacks; main thread under TS3W\.exe!Main\+0x1; thread frames 1 x TS3W\.exe!Main\+0x1; native v99; holders on, 1 records; managed top Sims3\.Gameplay\.Autonomy\.Run; dump fake; /);
+    // a wait's top frame names the module below it; groups count threads by that frame
+    assert.equal(ownFrame(['0x1 ntdll.dll+0x7837c', '0x2 KERNELBASE.dll+0x160032', '0x3 Sims3SettingsSetter.asi+0x4c68c']), 'Sims3SettingsSetter.asi+0x4c68c');
+    assert.equal(ownFrame(['0x1 ntdll.dll+0x7837c']), '-');
+    assert.equal(frameGroups([{ stack: ['0x1 ntdll.dll+0x1', '0x2 TS3W.exe+0xdaefe'] }, { stack: ['0x3 TS3W.exe+0xdaefe'] }, { stack: ['0x4 d3d9.dll+0x5'] }, { stack: null }]), '2 x TS3W.exe+0xdaefe, 1 x d3d9.dll+0x5');
     assert.deepEqual(readdirSync(join(tmp, 'a')).map(f => f.replace(/^hang-\d+-/, '')).sort(), ['lockholders.json', 'managedstack.json', 'native.json', 'simstack.json', 'summary.txt', 'threadstack.json']);
     const dead = await captureHang(join(tmp, 'b'), { get: () => Promise.reject(new Error('ECONNREFUSED')), spacingMs: 0, dump: async () => 'dump fake' });
     assert.match(dead, /^hang capture: 0 sim stacks, top frame -; 0 other thread stacks \(ECONNREFUSED\); native ECONNREFUSED; holders: ECONNREFUSED; managed: ECONNREFUSED; dump fake/);

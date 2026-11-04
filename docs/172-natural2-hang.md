@@ -129,6 +129,8 @@ Summary line, printed by the child just before `FAIL: game died ...`:
 
 `queue.ts` copies the last such line from the job log, up to the dump part, into `row.hangCapture` and the md row's note.
 
+Since 2026-11-03 the line also names, for a top frame in an OS module (a wait in `ntdll.dll`), the first frame below it outside the OS modules (`top frame ntdll.dll+0x7837c under Sims3SettingsSetter.asi+0x4c68c`), the main thread's first such frame (`main thread under ApexRadiance.asi+0x3d98ae`), and the four largest groups of threads by that frame (`thread frames 86 x TS3W.exe+0xdaefe, 8 x d3d9.dll+0x1f52c8, ...`). Before, a load hang read `top frame ntdll.dll+0x7837c` only, and the modules were found by reading `threadstack.json` by hand.
+
 Reading it against §4: `5/5 same` with a top frame in `ts3native.asi` means cause 1, and the holders ring plus the route worker's stack in `threadstack.json` name the other side of the lock. `frida-agent` on top means cause 2. Interpreter frames, plus a managed top that is the same across samples, mean cause 3.
 
 Self-check (`node tools/harness/game-alive.ts --self-check`, with fake probes) covers:

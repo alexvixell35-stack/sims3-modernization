@@ -7,8 +7,7 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 ### Faster
 
 - **Sims you can't see cost less to animate.** For a Sim the camera cannot see, the game now updates its body pose every few frames instead of every frame, with the skipped time added in, so nothing is lost. Sims you can see, Sims near them and Sims near your household always update every frame. On by default (`[UnseenAnim] Enabled=1`, `CapPasses=4`; objects stay as before).
-- **Walking Sims cost less, with the same result.** The game re-checks every animated object several times per frame for walking Sims; it now re-checks only the ones that are actually walking. Same calls in the same order, so Sims move exactly as before. On by default (`[UnseenRootMotion] Enabled=1`, `Mode=1`, `Shortlist=1`).
-- **One "can the player see it?" answer per object per frame.** Several of our speed-ups ask whether you can see a Sim or object; they now share one answer per frame instead of each asking the game again. On by default (`[UnseenTable] Enabled=1`). It is what the two speed-ups above build on.
+- **One "can the player see it?" answer per object per frame.** Several of our speed-ups ask whether you can see a Sim or object; they now share one answer per frame instead of each asking the game again. On by default (`[UnseenTable] Enabled=1`). The speed-up above builds on it.
 
 ### Fixed
 
@@ -17,9 +16,12 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 - **Isla Paradiso routing crash** (issues #132, #136): on by default (`[EaCrashFixes] WorldAStarRefs=1`, `PortalFlagRefs=1`).
 
 - **Paired socials no longer fail with "cannot go there"** (Show Off Badges and other two-Sim socials that set up a spot first): with async routing the partner Sim could plan its walk before the spot existed. Plans now stay synchronous while that spot is being set up (switch `asyncjigsync`, on by default). On v0.2.4, set `Enabled=0` under `[RouteAsync]` in `ts3native.ini` as a workaround.
+- **Rabbit hole doors no longer block Sims** (issue #167): a rabbit hole door the animation can't open no longer stops the Sim from going in. Found by Dalexlol. On by default (switch `rabbitholedoor`).
+- **Saves with a removed service no longer break services** (issue #164): when a save holds a service whose mod or pack is gone, the maid, mail carrier, repairman and other services kept failing. The broken entry is now skipped. Found by Dalexlol. On by default (switch `nullservice`).
 
 ### Test features (off, opt-in)
 
+- **Walking Sims re-check (test feature, off).** The game re-checks every animated object several times per frame for walking Sims; with `Enabled=1` under `[UnseenRootMotion]` in `ts3native.ini` (`Mode=1`, `Shortlist=1` are preset) it re-checks only the ones that are actually walking, same calls in the same order. Off in this release: in our same-session speed test the v0.2.5 build was slower than v0.2.4 with it on, so it stays off until we have a clean measurement.
 - **Smaller save files (SaveSlim, test feature, keep backups).** Every time a Sim leaves a lot, the game stores a new copy of that Sim's outfits in your save and never throws the old copy away, so long-played saves keep growing. With `Enabled=1` under `[SaveSlim]` in `ts3native.ini` (needs `[SaveWrite] Enabled=1`), after each normal save a background job rewrites the save's outfit store without the wasted space and, in `Mode=2` (the default), without outfit copies that nothing in the save uses any more. It checks the new file byte for byte before it replaces the old one; if anything goes wrong, your save stays exactly as the game wrote it. The file from before each rewrite is kept in `Documents\Electronic Arts\The Sims 3\SaveSlimBackup\<save name>.preslim\` (only the newest one), so an outfit that was dropped by mistake can be restored. `Mode=0` only measures and writes nothing. Tested: 12 of 12 runs passed over 4 saves (Bridgeport, Bridgeport with lots of custom content, a 2+ year NRaas save, Moonlight Falls), in Mode 0, Mode 2 and save-then-reload runs. By Dalexlol (PR #122). It changes your save files: copy your saves before you try it.
 
 ### Known issues

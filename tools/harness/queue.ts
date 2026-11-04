@@ -176,6 +176,7 @@ import { checkCfg as checkFailFast, describe as describeFailFast, routingGuard, 
 import { checkRequire, flatDelta, parseRequire } from './fixes-require.ts';
 import { parseHitchTasks } from './hitch-tasks.ts';
 import { parseRule } from './frame-lead.ts';
+import { abFixesClash } from './native-switches.ts';
 import { checkLoop, ruleText, STOP_LINE, withRule, type Loop } from './repro-loop.ts';
 import { drift, driftLine, failMode, logCopy, parseReuse, readSwitches, REUSE_DEFAULTS, reproItems, restoreSwitches, reuseBlock, snapshot, stableKey, subTag, type Extra, type ReproItem, type ReuseOpts, type WorldSnap } from './session-reuse.ts';
 import { saveForeground } from './focus-game.ts';
@@ -309,6 +310,10 @@ export function parseQueue(json: unknown): Job[] {
     if (j.run.profile?.frameLead !== undefined) parseRule(JSON.stringify(j.run.profile.frameLead));
     if (j.run.profile?.fixesOn !== undefined && !/^[a-z0-9]+(,[a-z0-9]+)*$/.test(String(j.run.profile.fixesOn))) throw new Error(`${at}: run.profile.fixesOn must be comma-separated switch names`);
     if (j.run.profile?.untilCompares !== undefined && !(Number.isInteger(j.run.profile.untilCompares) && j.run.profile.untilCompares > 0)) throw new Error(`${at}: run.profile.untilCompares must be a positive integer`);
+    // the check profile-world.ts makes after the load, here before the game starts (2026-11-04: it cost a 3-minute launch)
+    { const sp = (v: unknown) => (v === undefined ? [] : String(v).split(',')), p = j.run.profile ?? {};
+      const twice = abFixesClash(sp(p.ab), sp(p.fixesOn), sp(p.fixesOff));
+      if (twice.length) throw new Error(`${at}: run.profile ab / fixesOn / fixesOff name the switch ${twice.join(',')} twice`); }
     if (j.run.profile?.abOnFirst !== undefined && (typeof j.run.profile.abOnFirst !== 'boolean' || !j.run.profile.ab)) throw new Error(`${at}: run.profile.abOnFirst must be true/false and needs run.profile.ab`);
     if (j.run.profile?.slice !== undefined && !(Number(j.run.profile.slice) > 0)) throw new Error(`${at}: run.profile.slice must be > 0 minutes`);
     if (j.run.profile?.inroom !== undefined && typeof j.run.profile.inroom !== 'boolean') throw new Error(`${at}: run.profile.inroom must be true or false`);
@@ -744,6 +749,10 @@ export function heavyTools(j: Job, repoIniText: string, costs = toolCosts()): st
 // one profile window of the smoke: arms = A/B or armed loop; iters = hitch-ab runIters, wait = wait-ab seconds per side
 // A rerun on the same UTC date must not overwrite the first run's per-tag files: first free of base, base-r2, base-r3 ...
 export const freeTag = (base: string, taken: (tag: string) => boolean): string => { let t = base, n = 1; while (taken(t)) t = `${base}-r${++n}`; return t; };
+// a file of tag t: t then '-' or '.', but not a file of a longer sibling tag that extends t (2026-11-04: combo-rtotail ran after
+// combo-rtotail-shadow, whose files start with 'combo-rtotail-', so it ran as combo-rtotail-r2 and the reports missed it)
+export const tagOwns = (t: string, f: string, siblings: string[]): boolean =>
+  (f.startsWith(`${t}-`) || f.startsWith(`${t}.`)) && !siblings.some(o => o.startsWith(`${t}-`) && (f.startsWith(`${o}-`) || f.startsWith(`${o}.`)));
 export type SmokeWin = { tag: string; arms: boolean; iters: { on: number; off: number } | null; invalid: string | null; wait: { on: number; off: number } | null };
 export function smokeProblems(x: { row: any; wins: SmokeWin[]; log: string; p6: boolean; nativeLog: string }): string[] {
   if (!x.row) return ['no smoke row (child queue ended before the job did)'];
@@ -1235,6 +1244,10 @@ if (values['self-check']) {
   assert.equal(pw.length, 2); assert.match(pw[0], /^WARN pin old: .*0\.36\.105, source is 0\.36\.148/); assert.match(pw[1], /^WARN pin pkg: fixesPackage/);
   assert.throws(() => parseQueue([{ ...pj('e'), pinReason: ' ' }]), /pinReason/);
   { const used = new Set(['q-d-j', 'q-d-j-r2']); assert.equal(freeTag('q-d-j', t => used.has(t)), 'q-d-j-r3'); assert.equal(freeTag('q-d-k', t => used.has(t)), 'q-d-k'); }
+  // a longer sibling's files (its reruns too) do not take the shorter tag; a stranger with the same start does not either
+  { const sib = ['q-d-j', 'q-d-j-x'];
+    assert.ok(tagOwns('q-d-j', 'q-d-j-ab.json', sib) && tagOwns('q-d-j', 'q-d-j.log', sib) && tagOwns('q-d-j-x', 'q-d-j-x-ab.json', sib));
+    assert.ok(!tagOwns('q-d-j', 'q-d-j-x-ab.json', sib) && !tagOwns('q-d-j', 'q-d-j-x-r2-ab.json', sib) && !tagOwns('q-d-j', 'q-d-jj-ab.json', sib)); }
   // ABBA set and two-load pair: paired across on/off and across repeats; a same-stem stranger (-x) and a longer id are not
   assert.deepEqual(pairWarnings(parseQueue([pj('bp-pc-off-1'), pj('bp-pc-on-1', { noSamplers: true }), pj('bp-pc-x'), pj('bp-pc-on-2', { noSamplers: true })])),
     ['WARN pair bp-pc-off-1 / bp-pc-on-1 differ in profiler tools: noSamplers - vs true (cost known? else not comparable)',
@@ -1688,7 +1701,10 @@ function storyCopy(j: Job, s: string) { // a declaration: --self-check runs befo
     : `Story-${s.replace(/\.sims3$/i, '').replace(/[^A-Za-z0-9_-]/g, '_')}-s${(j.run.profile.story as any).seed ?? j.run.profile.seed ?? 1}`;
 }
 const ageName = (j: Job) => j.run.age?.save ?? `${j.id}-${new Date().toISOString().slice(0, 10)}`;
-const tagTaken = (t: string) => [join(ROOT, 'probe-out', 'profile'), OUT].some(d => existsSync(d) && readdirSync(d).some(f => f.startsWith(`${t}-`) || f.startsWith(`${t}.`)));
+const tagTaken = (t: string) => {
+  const sib = all.map(j => `${queueName}-${new Date().toISOString().slice(0, 10)}-${j.id}`);
+  return [join(ROOT, 'probe-out', 'profile'), OUT].some(d => existsSync(d) && readdirSync(d).some(f => tagOwns(t, f, sib)));
+};
 const tagOf = new Map<Job, string>(); // resolved once per job: every artifact path, the row and the reports share it
 const profileTag = (j: Job) => tagOf.get(j) ?? (tagOf.set(j, freeTag(`${queueName}-${new Date().toISOString().slice(0, 10)}-${j.id}`, tagTaken)), tagOf.get(j)!);
 // p: the job's profile, or for one repro of profile.repros that merged with the item (docs/170 §1); extra: session flags
@@ -1887,6 +1903,12 @@ const killTree = (pid?: number) => { if (pid) try { execFileSync('taskkill', ['/
 
 // set while a job's game runs: '' when the game and the probe server are up, else why not; stall = the guard's verdict
 let jobGuard: (() => string) | null = null, stall = '';
+// a fail-fast stop of a healthy game (noise, routing, early gate) takes the game down first: killing the child alone tore
+// down its Frida sessions (stutter profiler, frame-times CModule hook) inside the running game, which crashed it
+// (2026-11-03: AV in frida-agent.dll writing a code page, twice in a row, which stopped the queue). With the game gone the
+// sessions just detach. Not a crash: the job's row reads guardClosed.
+let guardClosed = false;
+const stopGameFirst = () => { if (gameRunning()) { guardClosed = true; try { execFileSync('taskkill', ['/F', '/IM', GAME_EXE], { stdio: 'ignore' }); } catch { /* gone */ } } };
 // set while a timing (profile) job's child runs: '' = fine or not judged yet, else the early noise verdict (stops the child at once)
 let noiseGuard: (() => string) | null = null;
 // set while a routingFailFast job's profile runs: '' or the FAIL reason (stops the child at once, like noiseGuard)
@@ -1977,13 +1999,13 @@ function run(cmd: string, args: string[], logFile: string, deadline: number, onL
     let misses = 0;
     const g = jobGuard && setInterval(() => {
       const nz = noiseGuard?.() ?? '';
-      if (nz) { noiseGuard = null; stall ||= nz; on(Buffer.from(`FAIL: ${nz}; child stopped\n`)); killTree(p.pid); return; }
+      if (nz) { noiseGuard = null; stall ||= nz; on(Buffer.from(`FAIL: ${nz}; child stopped\n`)); stopGameFirst(); killTree(p.pid); return; }
       let rf = ''; try { rf = routeGuard?.() ?? ''; } catch (e) { on(Buffer.from(`routing fail-fast check failed (ignored): ${e}
 `)); }
       if (rf) { routeGuard = null; stall ||= rf; on(Buffer.from(`FAIL: ${rf}; child stopped
-`)); killTree(p.pid); return; }
+`)); stopGameFirst(); killTree(p.pid); return; }
       const eg = gateGuard?.() ?? '';
-      if (eg) { gateGuard = null; stall ||= eg; on(Buffer.from(`FAIL: ${eg}; child stopped\n`)); killTree(p.pid); return; }
+      if (eg) { gateGuard = null; stall ||= eg; on(Buffer.from(`FAIL: ${eg}; child stopped\n`)); stopGameFirst(); killTree(p.pid); return; }
       const mx = modeGuard?.() ?? '';
       if (mx) { modeGuard = null; stall ||= mx; on(Buffer.from(`FAIL: ${mx}; child stopped\n`)); killTree(p.pid); return; }
       const why = jobGuard!();
@@ -2594,6 +2616,10 @@ for (const [n, j] of jobs.entries()) {
       if (j.shadowCheck !== false) for (const f of shadowFails(rowIni(j), j.run.profile?.fixesOn, c0, c1, row.fixesApplied, row.fixActivity?.counters)) { row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f; }
     }
     row.counters ={ before: pickCounters(c0, sections), after: pickCounters(c1, sections) };
+    // every counter, before and after, beside the row: the row keeps only the sections of the job's ini (COUNTERS), so a
+    // module without an entry there lost its counters on a run without an A/B (2026-11-03)
+    if (c0 || c1) try { writeFileSync(row.nativeFile = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-native.json`), JSON.stringify({ before: c0, after: c1 })); }
+    catch (e) { log(`${j.id}: native counter file not written: ${e}`); }
     row.counters.delta = delta(row.counters.before, row.counters.after);
     for (const f of counterGaps(j.ini ?? {}, row.counters.after)) { row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f; }
   } catch (e) { row.error = String((e as Error).message ?? e); log(`${j.id}: ${row.error}`); }
@@ -2601,7 +2627,8 @@ for (const [n, j] of jobs.entries()) {
   if (stopLoad) { stopLoad(); const ml = loadSummary(machineFile); Object.assign(row, { machine: ml.line, noise: ml.noise, noiseNote: ml.short, machineLog: machineFile }); log(`${j.id}: ${ml.line}`); }
   if (stall && !row.error?.includes(stall)) row.error = [row.error, stall].filter(Boolean).join('; ');
   stall = '';
-  row.crashed = launched && !closedByUs && !gameRunning() || row.verdict.some((v: string) => /game died/.test(v));
+  row.crashed = launched && !closedByUs && !guardClosed && !gameRunning() || row.verdict.some((v: string) => /game died/.test(v));
+  guardClosed = false;
   if (row.crashed) { row.crash = triage(t0); log(`${j.id}: game crashed\n${row.crash}`); await logUntrackedGame(s => log(`${j.id}: ${s}`)); } // EA only: names game processes this run never saw (docs/236 #20)
   try { row.hangCapture = hangCaptureLine(readFileSync(logFile).subarray(logOff).toString()); } catch { /* no job log */ }
   if (VANILLA) row.verdict.push(`N/A (vanilla): ${VANILLA_NA.join(', ')}`); // skipped, never PASS

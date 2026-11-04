@@ -149,6 +149,9 @@ if (values.save) {
     if (++waits % 20 === 0) { await agent('dialog_expect', { seconds: 60 }); const d = await agent('auto_dialog', { accept: true }); if (d.ok && d.result.open) log(`dialog "${d.result.title}" -> ${d.result.clicked}`); } // accept: a modal blocking the load we asked for (docs/236 #3)
     return false;
   }, 500, loadGuard);
+  // the load is done: end the window armed above (re-armed every 10 s while loading, so it ran ~60 s past the load), or a
+  // modal right after the load (a mod's welcome) waits that long with nobody clicking it (2026-11-03)
+  await agent('dialog_expect', { seconds: 0 });
   // Settle: dialogs and notifications keep appearing for a few seconds after a load (new lots, lots in the
   // world, tutorials). Poll every second until 2 s pass without one (at most 30 s), then clear the corner.
   {

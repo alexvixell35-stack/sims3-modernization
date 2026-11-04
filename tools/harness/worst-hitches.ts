@@ -533,7 +533,7 @@ function selfCheck() {
   const qok = { start: 0, events: [{ at: 1, text: 'done; game alive' }] }, inv = (lines: object[], n = 600, q: any = qok) => { writeFileSync(tmp, lines.map(mrow).join('\n') + '\n'); return runInvalid(tmp, n, 600, q); };
   assert(inv([{}], 400)?.startsWith('profiler cut short') === true, 'cut');
   assert(inv([{ og: 18.8 }]) === null, 'og alone with other CPU 2% (kernel/driver time) is valid');
-  assert(inv([{ og: 18.8, other: 6 }])?.startsWith('noisy machine (others 18.8%') === true && inv([{ other: 12 }])?.startsWith('noisy machine') === true && inv([{}, { perf: 100 }])?.startsWith('noisy machine') === true, 'noisy');
+  assert(inv([{ og: 18.8, other: 6 }])?.startsWith('noisy machine (others 18.8%') === true && inv([{ other: 12 }])?.startsWith('noisy machine') === true && inv([{}, { perf: 100 }, { perf: 100 }])?.startsWith('noisy machine') === true && inv([{}, { perf: 100 }]) === null, 'noisy (two clock dips; one is ignored)');
   assert(inv([{}], 600, { start: 0, events: [] })?.startsWith('crash') === true && inv([{}]) === null, 'crash / valid');
   rmSync(tmp);
   const et = new Map<string, ExclRow>(); exclAdd(et, 'sampler', 400, 180); exclAdd(et, 'sampler', 1200); exclAdd(et, 'render-paced', 60);

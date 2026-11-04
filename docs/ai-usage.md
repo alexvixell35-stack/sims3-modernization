@@ -1605,3 +1605,9 @@ Budget per usage window (PLAN.md "Action plan"): lanes G + M 30%, lane H 50%, of
 | 2026-11-03 | 15:51 | 5h -, 7d 93% | G | ip-gug-stuck | |
 | 2026-11-03 | 16:12 | 5h -, 7d 93% | G | bp-gug-t-ab | |
 | 2026-11-03 | 17:12 | 5h -, 7d 95% | G | bp-blcap-reload-win | |
+| 2026-11-04 | 03:45 | 5h -, 7d 96% | G | bp-rel025d-blcap-reload | |
+| 2026-11-04 | 03:59 | 5h -, 7d 96% | G | bp-rel025d-blcap-travel | |
+| 2026-11-04 | 04:11 | 5h -, 7d 96% | G | bp-rel025d-play | |
+| 2026-11-04 | 04:11 | 5h -, 7d 96% | G | ip-rel025d-play | |
+| 2026-11-04 | 04:27 | 5h -, 7d 96% | G | bp-rel025d-nullservice | |
+| 2026-11-04 | 04:30 | 5h -, 7d 96% | G | bp-rel025d-detour | |
