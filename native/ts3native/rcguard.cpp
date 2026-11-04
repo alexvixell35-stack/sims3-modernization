@@ -75,7 +75,10 @@ static int __cdecl RcRel(const DWORD* ebpQ, void* lock) {
     if (!vec || vec[0] == vec[1]) { InterlockedIncrement(&k.rcPass[0]); return 0; }
     int fn = g_rcTestRet && t_steerRet == g_rcTestRet ? 0 : -1;
     for (int i = 0; i < 15 && fn < 0; i++) if (kRcCallers[i].ret == t_steerRet) fn = kRcCallers[i].fn;
-    if (fn < 0 || lock != g_rgLock) { InterlockedIncrement(&k.rcPass[1]); return 0; }
+    // t_stubKey: a call-site stub (GvStub, IcStub) runs this query for the listed caller and keys it by that caller's site,
+    // but its ebp is no frame (the stubs omit frame pointers): passed through like the other ts3native callers. Without this
+    // the leave thunk went into IcStub's ebp + 4, the IC's vector end (2026-11-04, AV in the IC loop at 0x7559AC)
+    if (fn < 0 || lock != g_rgLock || t_stubKey) { InterlockedIncrement(&k.rcPass[1]); return 0; }
     if (g_inInvoke || t_borrow) { InterlockedIncrement(&k.rcPass[2]); return 0; }  // the worker waits in a callback for us
     DWORD* const cebp = t_avSite ? g_avRfEbp : (DWORD*)(uintptr_t)ebpQ[0];
     if ((uintptr_t)cebp <= (uintptr_t)ebpQ || (uintptr_t)cebp - (uintptr_t)ebpQ > 0x40000) { InterlockedIncrement(&k.rcPass[4]); return 0; }
