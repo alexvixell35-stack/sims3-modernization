@@ -52255,5 +52255,489 @@
         "cmd": "time"
       }
     ]
+  },
+  {
+    "id": "ip-idlecheckc-crowd-loop",
+    "bug": "idle check site C waits (key 0x755990): IC_RouteManager_IsOkToIdleAtCurrentLocation 0x7556B0 calls RoutingWorld_ObstacleQuery 0x82EDB0 at 0x75598B, which takes +0x918 and waits for the running async route job (docs/195 §7)",
+    "fix": "[IdleCheckRO] SiteC (native_set idlecheckc arms; ini [IdleCheckRO] Enabled=1 SiteC=1 SiteCMode=1), docs/195 §7",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED as a repro (2026-11-04): the loop of ip-idlecheck-crowd-loop with idlecheckro on in both arms and idlecheckc armed per firing. Needs the job ini [IdleCheckRO] Enabled=1 SiteC=1 (the call site is patched at install). Measured in plain play (docs/195 §7): only 0.46% of the answers are empty, so the on arms take few calls; the repro checks it stays correct under 30+ idle Sims beside running jobs.",
+    "expect": "no crash; on arms: icTaken > 0, icShadowMismatch 0, icFb small; off arms: icTaken flat; key 0x755990 read by arm",
+    "steps": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "idlecheckro": 1
+        },
+        "waitS": 1,
+        "note": "preconditions (the parent fix on in both arms)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "idlecheckc": "$on"
+          },
+          "waitS": 1,
+          "note": "arm"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far",
+            "household": true
+          },
+          "waitS": 2,
+          "note": "start: 30+ Go Here plans (async jobs)"
+        },
+        {
+          "cmd": "set_speed",
+          "setup": false,
+          "args": {
+            "speed": "ultra"
+          },
+          "waitS": 30,
+          "waitUntil": {
+            "quiet": 4000
+          },
+          "minS": 15,
+          "maxS": 45,
+          "note": "fire: arrivals idle while the late jobs run"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "target": "home",
+            "household": true
+          },
+          "waitS": 40,
+          "note": "home (fixed)"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 4
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "idlecheckc": 0,
+          "idlecheckro": 0
+        }
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 20
+      }
+    ]
+  },
+  {
+    "id": "ip-footstep-crowd-loop",
+    "bug": "gate-12 F-F waits (key 0x62FB74): the footstep surface lookup asks the lot table under gate 12 while a route job runs; up to 13 ms/s on an old save (docs/195 §6)",
+    "fix": "[FootstepRO] (native_set footstepro arms; ini [FootstepRO] Enabled=1), docs/195 §6",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED as a repro (2026-11-04): the loop of ip-idlecheck-crowd-loop with footstepro armed per firing: 30+ Sims walk to the farthest community lot and home, every step a footstep surface lookup while the other plans' jobs run. Needs the job ini [FootstepRO] Enabled=1 (MissNear=1 MissLast=0 as in the measured setup).",
+    "expect": "no crash; on arms: fsHit rises (fsMiss = the lookups left to the game); key 0x62FB74 lower in the on windows",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "footstepro": "$on"
+          },
+          "waitS": 1,
+          "note": "arm"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far",
+            "household": true
+          },
+          "waitS": 2,
+          "note": "start: 30+ Go Here plans (async jobs)"
+        },
+        {
+          "cmd": "set_speed",
+          "setup": false,
+          "args": {
+            "speed": "ultra"
+          },
+          "waitS": 30,
+          "waitUntil": {
+            "quiet": 4000
+          },
+          "minS": 15,
+          "maxS": 45,
+          "note": "fire: arrivals idle while the late jobs run"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "target": "home",
+            "household": true
+          },
+          "waitS": 40,
+          "note": "home (fixed)"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 4
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "footstepro": 0
+        }
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 20
+      }
+    ]
+  },
+  {
+    "id": "ip-rtotail-steer-loop",
+    "bug": "IP natural play 2026-10-22 (asi.0332): 750 sim iterations >= 50 ms whose longest route-job wait is the steering obstacle query 0x85FE10 (57 of 255 iterations >= 200 ms, 6 of 7 'locomotion' freezes >= 300 ms); S2/AvoidRO/Gate0RO/DeferFootprint(2)/RouteToObjRO were all off in that set (docs/175)",
+    "fix": "[RouteToObjRO] Tail (native_set routetoobjtail arms; ini [RouteToObjRO] Enabled=1 Tail=1 and [SlotEnabledRO] for SH), docs/140 §13",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED as a repro (2026-11-04): the loop of ip-steer-pass-loop with its lock-free pass (steerro, avoidro, gate0ro, deferfootprint, deferfootprint2, routetoobjro) on in both arms and routetoobjtail armed per firing: route-to-object checks reach BlockerCheck2d's physics tail while the other plans' jobs run.",
+    "expect": "no crash; on arms: rtoTailRuns and rtoTailHits > 0, rtoShadowMismatch 0; key 0x83156D lower in the on windows (the wait may move to the next taker)",
+    "steps": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "steerro": 1,
+          "avoidro": 1,
+          "gate0ro": 1,
+          "deferfootprint": 1,
+          "deferfootprint2": 1,
+          "routetoobjro": 1
+        },
+        "waitS": 1,
+        "note": "preconditions (the parent fix on in both arms)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "routetoobjtail": "$on"
+          },
+          "waitS": 1,
+          "note": "arm"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far",
+            "household": true
+          },
+          "waitS": 45,
+          "note": "fire: 30+ Sims walk to one lot while their jobs run"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "target": "home",
+            "household": true
+          },
+          "waitS": 40,
+          "note": "back (fixed)"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 4
+      },
+      "maxMinutes": 16
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "routetoobjtail": 0,
+          "steerro": 0,
+          "avoidro": 0,
+          "gate0ro": 0,
+          "deferfootprint": 0,
+          "deferfootprint2": 0,
+          "routetoobjro": 0
+        }
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 20
+      }
+    ]
+  },
+  {
+    "id": "object-churn-dx-loop",
+    "bug": "rt-s2b-sweep ran once per job (plain, minutes)",
+    "fix": "[Discourage] DestroyParkDx (native_set destroyparkdx arms; ini [Discourage] DestroyPark=1 DestroyParkDx=1 DeferFootprint=1), docs/88 §10",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED as a repro (2026-11-04): the loop of object-churn-loop with destroypark and deferfootprint on in both arms and destroyparkdx armed per firing: objects destroyed while route jobs run, some with footprint records still queued (the DX case).",
+    "expect": "no crash; on arms: dxParked > 0, p5cCountLow 0, discIdMismatch 0; destroy #4 waits lower in the on windows",
+    "steps": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "destroypark": 1,
+          "deferfootprint": 1
+        },
+        "waitS": 1,
+        "note": "preconditions (the parent fix on in both arms)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 30
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 5
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "destroyparkdx": "$on"
+          },
+          "waitS": 1,
+          "note": "arm"
+        },
+        {
+          "cmd": "place_objects",
+          "setup": true,
+          "args": {
+            "filter": "ea",
+            "count": 20
+          },
+          "waitS": 30,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 5,
+          "maxS": 30,
+          "count": {
+            "result": "tracked"
+          }
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "to": "far"
+          },
+          "waitS": 2,
+          "note": "route jobs running for the destroys"
+        },
+        {
+          "cmd": "remove_objects",
+          "setup": false,
+          "args": {},
+          "waitS": 20,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 2,
+          "maxS": 20,
+          "note": "fire: destroys while jobs run"
+        },
+        {
+          "cmd": "build_mode",
+          "setup": true,
+          "args": {
+            "on": true
+          },
+          "waitS": 4
+        },
+        {
+          "cmd": "build_mode",
+          "setup": false,
+          "args": {
+            "on": false
+          },
+          "waitS": 10,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 3,
+          "maxS": 10
+        },
+        {
+          "cmd": "set_speed",
+          "setup": true,
+          "args": {
+            "speed": "ultra"
+          },
+          "waitS": 1
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "target": "home"
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 30
+      },
+      "maxMinutes": 10
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "destroyparkdx": 0,
+          "destroypark": 0,
+          "deferfootprint": 0
+        }
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 20
+      }
+    ]
   }
 ]
