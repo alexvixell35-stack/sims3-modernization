@@ -8,7 +8,7 @@
 // cycle.ts --save calls snapshot, so every harness run is covered.
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, closeSync, existsSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -85,6 +85,26 @@ export function dumpProcess(path: string): { pid: number; started: Date | null }
     return null;
   } finally { closeSync(fd); }
 }
+// TS3W's own exit status from ts3probe's "detached" event (probe-out/<stamp>/events.jsonl). A stack overflow or fast fail ends
+// the game with no xcpt report, so the queue saw only "process gone" (16 such crash rows by 2026-11-04).
+const EXIT_NAMES: Record<string, string> = { '0xC0000005': 'access violation', '0xC00000FD': 'stack overflow', '0xC0000409': 'fast fail',
+  '0xC0000374': 'heap corruption', '0xC0000017': 'out of memory', '0x00000000': 'clean exit' };
+export function gameExit(dir: string, since?: string, pids?: number[]): string {
+  let last = '';
+  if (!existsSync(dir)) return last;
+  for (const s of readdirSync(dir).filter(n => /^\d{8}-\d{6}$/.test(n)).sort()) {
+    const f = join(dir, s, 'events.jsonl');
+    if (!existsSync(f) || (since && statSync(f).mtime < new Date(since))) continue;
+    for (const l of readFileSync(f, 'utf8').split('\n')) {
+      if (!l.includes('"exitCode"')) continue;
+      let e: any; try { e = JSON.parse(l); } catch { continue; } // a line still being written
+      if (e.kind !== 'detached' || (pids?.length && !pids.includes(e.pid)) || (since && new Date(e.time) < new Date(since))) continue; // e.time is local
+      last = `; game exit code ${e.exitCode}${EXIT_NAMES[e.exitCode] ? ` (${EXIT_NAMES[e.exitCode]})` : ''}`;
+    }
+  }
+  return last;
+}
+
 // reports of this run: PID filter when pids are given (see header); the others are listed in one note line
 export function pickReports(dir: string, names: string[], pids?: number[]) {
   const keep: { n: string; proc: ReturnType<typeof dumpProcess> }[] = [], other: string[] = [];
@@ -100,7 +120,7 @@ function triage(since?: string, pids?: number[]) {
   const all = readdirSync(USER).filter(n => /^xcpt .*\.txt$/i.test(n) && (!since || statSync(join(USER, n)).mtime >= new Date(since))).sort();
   const { keep, other } = pickReports(USER, all, pids);
   if (other.length) console.log(`not this run's game (pid ${pids!.join(',')}): ${other.join('; ')}\n`); // first: callers take the last block
-  if (!keep.length) { console.log(since || pids?.length ? `no crash report of this run${since ? ` written since ${since}` : ''}${pids?.length ? ` with pid ${pids.join(',')}` : ''}` : 'no crash reports'); return; }
+  if (!keep.length) { console.log((since || pids?.length ? `no crash report of this run${since ? ` written since ${since}` : ''}${pids?.length ? ` with pid ${pids.join(',')}` : ''}` : 'no crash reports') + gameExit(join(ROOT, 'probe-out'), since, pids)); return; }
   for (const { n, proc } of keep) {
     const t = readFileSync(join(USER, n), 'latin1');
     const [d, tm] = [t.match(/^date: (\S+)/m)?.[1], t.match(/^time: (\S+)/m)?.[1]];
@@ -146,6 +166,12 @@ if (import.meta.main) {
       assert.deepEqual(r.keep.map(k => k.n), ['xcpt A 1.txt', 'xcpt A 3.txt']); assert.deepEqual(r.other, ['xcpt A 2.txt (pid 14068)']);
       assert.equal(pickReports(d, names).keep.length, 3, 'no pids: no filter');
       assert.deepEqual(pickReports(d, names, [999]).keep.map(k => k.n), ['xcpt A 3.txt'], 'other PIDs only: none of this run');
+      const ev = join(d, 'probe-out', '20261104-114729'); mkdirSync(ev, { recursive: true });
+      writeFileSync(join(ev, 'events.jsonl'), '{"kind": "detached", "reason": "process-terminated", "time": "2026-11-04T11:56:31", "pid": 41004, "exitCode": "0xC00000FD"}\n{"kind": "det');
+      assert.equal(gameExit(join(d, 'probe-out'), undefined, [41004]), '; game exit code 0xC00000FD (stack overflow)');
+      assert.equal(gameExit(join(d, 'probe-out'), undefined, [7]), '', 'other pid');
+      assert.equal(gameExit(join(d, 'probe-out'), '2099-01-01T00:00:00Z'), '', 'before since');
+      assert.equal(gameExit(join(d, 'none')), '');
     } finally { rmSync(d, { recursive: true, force: true }); }
     console.log('self-check ok');
   } else if (positionals[0] === 'snapshot') snapshot(values.note);
