@@ -23,10 +23,12 @@ shadow job, which cannot help, read -6%.
 | dx-a | `destroyparkdx` | destroy #4 `0x2000003` 0.4 vs 13.9 | 41.7 vs 45.3 | 80.2 vs 88.8 (-10%) |
 | dx-b | `destroyparkdx` (repeat) | destroy #4 0.9 vs 11.7 | 33.5 vs 35.6 | 75.9 vs 74.4 (+2%) |
 | new3 | `destroyparkdx,routetoobjtail,footstepro` | F-F 0.5 vs 14.5, `0x83156D` 0.1 vs 7.9, destroy #4 0.3 vs 10.1 | 31.3 vs 47.0 (-33%) | 78.5 vs 91.8 (-15%) |
+| final-a | the same three, MissLast=0, site C off | F-F 3.4 vs 16.5, `0x83156D` 0.0 vs 9.8, destroy #4 0.3 vs 9.6 | 42.5 vs 54.4 (-22%) | 76.6 vs 126.7 (-40%) |
+| final-b | repeat of final-a | F-F 3.2 vs 17.4, `0x83156D` 0.2 vs 8.9, destroy #4 0.4 vs 8.2 | 42.4 vs 50.7 (-16%) | 77.6 vs 98.7 (-21%) |
 
 Guards: every job PASS (no crash, early gates `p5cCountLow` and `fp2ApplyInJob` 0). Shadows: route-to-object tail 13,062
 compares, 0 mismatches; site C 1,747 compares, 0 mismatches. No hitch regression (`hitch-ab.ts`: no on-arm wait >= 500 ms; max
-on 186-426 ms vs off 277-321 ms). Stuck Sims per job (both arms pooled) 1, 3, 8, 15, 2, 2 and 5, inside the 1-34 spread of the earlier
+on 186-426 ms vs off 277-321 ms). Stuck Sims per job (both arms pooled) 1, 3, 8, 15, 2, 2, 5, 3 and 0, inside the 1-34 spread of the earlier
 old-save rounds.
 
 ## Footstep cache (`[FootstepRO]`, counters v901)
@@ -68,6 +70,10 @@ needs `DestroyPark=1`. Design and safety: docs/88 §11.
 Alone, DestroyParkDx removes destroy #4 but most of the wait moves to site C and goal validation: keyed total -2 to -4 ms/s,
 arm sums inside the noise. With the footstep cache and the tail (new3) the three together cut all keyed sim waits by a third.
 The biggest wait left is idle check site C (`0x755990`, 19.5 ms/s on), then goal validation (`0x75A64C`, 7.4 ms/s).
+
+The recommended setup (final-a, final-b: MissLast=0, site C off) gave -16% and -22% keyed sim waits and -21% and -40% arm
+sums; with new3 that is three samples of the three pieces together, arm sums -15% to -40%. MissLast=0 leaves about 3 ms/s of
+F-F wait (0.5 with MissLast=1). The moved wait shows at site C (8-9 off, 18-19 ms/s on) and goal validation (2 off, 6-9 on).
 
 ## Checks
 
