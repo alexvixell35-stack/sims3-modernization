@@ -13,8 +13,9 @@ static void __cdecl RcTEnter(DWORD ret) {  // the query's acquire and rtsites.cp
     EnterCriticalSection(g_rcTLock);
     t_steerRet = ret;
     if (g_rcTCase != 6) g_rcTestRet = ret;
+    if (g_rcTCase == 10) t_stubKey = 0x00755990;  // the query runs under a call-site stub (IcStub)
 }
-static void __cdecl RcTLeave() { t_steerRet = 0; }
+static void __cdecl RcTLeave() { t_steerRet = 0, t_stubKey = 0; }
 static __declspec(naked) void RcTQuery() {  // thiscall-like, 3 stack arguments (a, b, vector), ret 0xC
     __asm {
         push ebp
@@ -132,6 +133,9 @@ static void TestRcGuard() {
     g_rcTestRet = 0;
     RcTRun(6, 1);
     assert(g_rcTHeld == 0 && k.rcPass[1] == 1);
+    // 10. a listed caller's query from a call-site stub (t_stubKey; the stub's ebp is no frame): passed through
+    RcTRun(10, 1);
+    assert(g_rcTHeld == 0 && k.rcPass[1] == 2 && RcTCount() == 0 && t_rc.n == 0);
     // 7. an exception through the caller leaves its frame and level; the next query drops both (stale)
     __try { RcTRun(7, 1); } __except (EXCEPTION_EXECUTE_HANDLER) {}
     assert(t_rc.n == 1 && RcTCount() == 1);
