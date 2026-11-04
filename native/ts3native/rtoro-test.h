@@ -157,9 +157,9 @@ static void TestRouteToObjRO() {
     static_assert(offsetof(Ts3nCounters, rtoReady) == 0x3FF0 && offsetof(Ts3nCounters, rtoMode) == 0x3FF4 &&
                       offsetof(Ts3nCounters, rtoFb) == 0x4010 && offsetof(Ts3nCounters, rtoCode) == 0x4048 &&
                       offsetof(Ts3nCounters, rtoShadowRuns) == 0x406C && offsetof(Ts3nCounters, rtoNested) == 0x4084 &&
-                      sizeof(Ts3nCounters) == 5854 * 4,
+                      sizeof(Ts3nCounters) == 5857 * 4,
                   "counters v93 layout after v95 (docs/registry.md)");
-    assert(k.version == 900);
+    assert(k.version == 901);
     assert(kRtoSites[0].site == 0x008316FF && kRtoSites[0].target == 0x004E17B0 && kRtoSites[1].site == 0x00831633 &&
            kRtoSites[1].target == 0x00830340 && kRtoSites[2].site == 0x00831568 && kRtoSites[2].target == 0x004E16F0);
     memset(&k.rtoReady, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, rtoReady));
@@ -327,6 +327,32 @@ static void TestRouteToObjRO() {
             }
             if (c.fpKind == 9 && !fb) assert(gatherIdx == 2 && lastU1[0] == 11.0f && lastU1[1] == 11.5f);  // goal 1, shifted 1.5
             for (int i = 0; i < 8; i++) assert(*(const DWORD*)(fp[i] + 8) == 1 || !*(const void* const*)fp[i]);
+        }
+        if (c.code == F - RTO_FB_TAIL) {  // [RouteToObjRO] Tail (rtotail-test.h stubs): the clone runs the tail, no fallback
+            const LONG runs0 = k.rtoTailRuns;
+            rtt::Use(), k.rtoTailMode = 1;
+            for (int pass = 0; pass < 4; pass++) {  // bit 0: shadow, bit 1: a physics blocker at sample 1
+                const bool sh = (pass & 1) != 0, hit = (pass & 2) != 0;
+                rtt::Reset();
+                rtt::ids[0][0] = 0xABC, rtt::ids[0][1] = 0, rtt::nIds = 1;
+                rtt::blockers[0][0] = 0xABC, rtt::blockers[0][1] = 0, rtt::nBlockers = 1;
+                rtt::hitAt = hit ? 1 : -1;
+                expCode = hit ? 1 : 0, expLo = hit ? 0xABC : 0, expHi = 0;
+                k.rtoMode = !sh, k.rtoShadow = sh;
+                g_async.state = sh ? A_IDLE : A_RUNNING;
+                g_twArmed = !sh;
+                const LONG taken0 = k.rtoTaken, ref0 = refCalls, mm0 = k.rtoShadowMismatch + k.rtoShadowQueryMismatch;
+                const LONG sfb0 = k.rtoShadowFb, tfb0 = k.rtoFb[RTO_FB_TAIL];
+                gatherIdx = 0;
+                Emu(c.a7, c.a10);
+                assert(out[0] == expCode && out[2] == expLo && out[3] == 0 && t_rtoN == 0 &&
+                       ((CRITICAL_SECTION*)lock)->RecursionCount == 0 && refUnlocked == 0 && g_rgOffSimOpen == 0);
+                assert(rtt::ranges == (hit ? 2 : 5) && rtt::frees == (hit ? 1 : 0) && k.rtoFb[RTO_FB_TAIL] == tfb0);
+                if (!sh) assert(refCalls == ref0 && k.rtoTaken == taken0 + 1);
+                else assert(refCalls == ref0 + 1 && k.rtoShadowMismatch + k.rtoShadowQueryMismatch == mm0 && k.rtoShadowFb == sfb0);
+            }
+            assert(k.rtoTailRuns == runs0 + 4);
+            k.rtoTailMode = 0, rtt::Restore();
         }
     }
     // a skewed clone in shadow (the game answers otherwise): one mismatch

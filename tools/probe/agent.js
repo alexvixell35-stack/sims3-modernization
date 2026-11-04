@@ -1666,6 +1666,8 @@ rpc.exports = {
       if (c.readS32() >= 163) f.push('gcLenientN', 'gcSwitchSec');
       // v900 contributor block (issue #156, fsro.cpp): [FootstepRO] footstep surface cache, after v163
       if (c.readS32() >= 900) f.push('fsReady', 'fsMode', 'fsCalls', 'fsJob', 'fsHit', 'fsMiss', 'fsLast', 'fsStored', 'fsStale', 'fsJobGameUs', 'fsJobGameMaxUs', 'fsChk', 'fsChkDiff', 'fsLastChk', 'fsLastDiff', 'fsNear', 'fsNearChk', 'fsNearDiff');
+      // v901 contributor block (docs/140 §5.3 phase P, rtoro.cpp): [RouteToObjRO] Tail, after v900
+      if (c.readS32() >= 901) f.push('rtoTailMode', 'rtoTailRuns', 'rtoTailHits');
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key
