@@ -78,7 +78,7 @@ import { checkHitchTasks, parseHitchTasks } from './hitch-tasks.ts';
 import { checkTag, parseRule } from './frame-lead.ts';
 import { isSetup, runLoop, runStep, stopLine, untilUnlocked, withRule } from './repro-loop.ts';
 import { loadStory } from './story-fuzzer.ts';
-import { counterSwitches, nativeModeFields, nativeNames, nativeValues } from './native-switches.ts';
+import { abFixesClash, counterSwitches, nativeModeFields, nativeNames, nativeValues } from './native-switches.ts';
 import { addArmColumns } from './arm-ms.ts';
 import { leadInCut, sliceFrames } from './session-reuse.ts';
 import { reproSave } from './repro-save.ts';
@@ -175,7 +175,7 @@ const fixesPrev: Record<string, boolean> = {};
 let fixesRestored = !fixesNames.length;
 const restoreFixes = async () => { if (fixesRestored) return; fixesRestored = true; await ag('patches', fixesPrev); };
 if (fixesNames.length) {
-  const both = fixesNames.filter(n => values.ab?.split(',').includes(n) || (fixesOff.includes(n) && fixesOn.includes(n)));
+  const both = abFixesClash(values.ab ? values.ab.split(',') : [], fixesOn, fixesOff);
   if (both.length) throw new Error(`--fixes-off / --fixes-on / --ab name ${both.join(',')} twice`);
   const before = await ag('patches');
   const unknown = fixesNames.filter(n => typeof before.result?.[n] !== 'boolean'); // native / counter switches and typos are not patches switches
