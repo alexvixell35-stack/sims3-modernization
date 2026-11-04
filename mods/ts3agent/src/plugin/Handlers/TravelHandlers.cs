@@ -132,6 +132,7 @@ namespace Ts3Agent
             lead.InteractionQueue.CancelAllInteractions();
             Dictionary<string, object> r = Util.Obj();
             r["queued"] = lead.InteractionQueue.Add(trip);
+            sTripSaveUntil = System.Environment.TickCount + 15 * 60000;  // the travel save's name dialog is accepted (HarnessHandlers RuleFor)
             r["world"] = world.ToString();
             r["days"] = trip.TravelDuration;
             r["sims"] = sims.ConvertAll(s => (object)s.FullName);
@@ -611,6 +612,7 @@ namespace Ts3Agent
         static object TravelHome(Args a)
         {
             if (GameStates.IsTravelling) throw new McpException("a world switch is already running");
+            sTripSaveUntil = System.Environment.TickCount + 15 * 60000;  // as travel_vacation: the trip's save name dialog is accepted
             Sim s = Util.ActiveSim();
             if (GameUtils.IsFutureWorld())
             {

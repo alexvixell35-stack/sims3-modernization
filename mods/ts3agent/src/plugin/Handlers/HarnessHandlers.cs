@@ -319,11 +319,17 @@ namespace Ts3Agent
             new[] { new[] { "mod scripts found" }, new[] { "accept", "ok", "continue" } },
         };
 
+        // A World Adventures trip asks to name its travel save, and cancelling that dialog drops the trip (2026-11-04 #208 save
+        // matrix: France, China and Egypt all "trip dropped"). travel_vacation and travel_home set this; until it runs out the
+        // "name your saved game" rule steps aside and the dialog gets the normal accept.
+        internal static int sTripSaveUntil;
+        static bool TripSavePending() { return sTripSaveUntil != 0 && System.Environment.TickCount - sTripSaveUntil < 0; }
+
         static string[] RuleFor(string text)
         {
             foreach (string[][] rule in kDialogRules)
                 foreach (string frag in rule[0])
-                    if (text.IndexOf(frag) >= 0) return rule[1];
+                    if (text.IndexOf(frag) >= 0) return frag == "name your saved game" && TripSavePending() ? null : rule[1];
             return null;
         }
 
