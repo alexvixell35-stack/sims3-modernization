@@ -53587,5 +53587,51 @@
         "note": "on: no exception, ExitReason.Finished"
       }
     ]
+  },
+  {
+    "id": "pet-pool-orphan-check",
+    "bug": "PetPool.RandomRemovePet / ClearAllPets take a pet out of the pool and the pet household; EA disposes none, simler90's core only those with family links, so a dropped pet without family links stays valid with no household, goes into the save and is dropped at the next load (issue #166 build 52, docs/534)",
+    "fix": "ts3fixes PetPoolOrphan.cs: petpoolorphan (default off), docs/534",
+    "save": "Baseline-BP",
+    "note": "The agent check (PetPoolOrphanCheck) makes a new adoption cat with EA's creator, puts it alone in a new AdoptCat pool and calls RandomRemovePet. Off arm: removed, still valid, no household (the check disposes it). On arm: removed and disposed; petpoolorphan_disposed +1. Needs simler90's UPDATE242 core without the player's patches (the player's core carries build 52).",
+    "expect": "off: expect broken sees a valid pet with no household. on: expect fixed sees it disposed; petpoolorphan_disposed >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petpoolorphan": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetPoolOrphanCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: the dropped cat stays valid with no household"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petpoolorphan": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetPoolOrphanCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: the dropped cat is disposed"
+      }
+    ]
   }
 ]

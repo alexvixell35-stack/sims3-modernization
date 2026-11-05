@@ -1,0 +1,36 @@
+{
+  "note": "docs/534: repro of the petpoolorphan fix (a pet dropped from an adoption pool with no family links stays alive with no household), off then on in one load, on simler90's UPDATE242 core without the player's patches (the player's core carries issue #166 build 52).",
+  "jobs": [
+    {
+      "id": "bp-pet-pool-orphan-check",
+      "note": "Correctness (6 min): repro pet-pool-orphan-check. Pass: the repro's steps pass (expect broken: off, the dropped cat stays valid with no household; expect fixed: on, it is disposed) and petpoolorphan_disposed >= 1.",
+      "asi": "game-copy/asi-v0.2.5/ts3native.asi",
+      "pinReason": "the player release v0.2.5 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "pet-pool-orphan-check",
+          "fixesRequire": "petpoolorphan_disposed>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14,
+      "earlyGates": [
+        {
+          "afterSec": 180,
+          "counter": "fixes:petpoolorphan_disposed",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm disposed nothing 3 min in: hook missing or the check failed"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": true
+}
