@@ -42,9 +42,12 @@ Fixes (all optional, off by default): `cache-overflow-budget` (GraphicsRules.sgr
 - `rcN` is not a missing erase [verified disassembly]: trim `0x732E90`, the predicate sweep `0x732B60` and remove (`0x732A00`
   with flag 0) all erase the map node (`0x732130`). The growing entries are still referenced. Next: a census of the map by
   resource type and refcount.
-- `rest` follows Apex Radiance [measured, 2 runs with Apex vs 3 without, 11-04 old-prof-10, 5-15 min]: +105 and +114 MB per
-  10 min with Apex, +1 / +27 / +46 without. `rcN` and `eaRes` grow at the same rate either way. A switch bisect of
-  ApexRadiance.toml is running (FastMemory; the four lookup caches; the two compression patches).
+- `rest` and Apex Radiance: open, not shown [measured, 5-20 min window, MB per 10 min]. The 3 Apex-off runs (11-04
+  old-prof-10, 10 min each) gave +1 / +27 / +46; 23 Apex-on runs gave +17 to +246 (most +56 to +160). An ApexRadiance.toml
+  bisect (2026-11-05, 20 min each, no fixes) could not separate switches: its as-is control gave only +17, lookup caches off
+  +31, compression off +77. FastMemory off crashed at 7.1 min (null read `0x68EEF0`, after access violations inside
+  ApexRadiance.asi; 1 run). Short windows are too noisy for this; it needs longer Apex-off runs. `rcN` and `eaRes` grow
+  at the same rate with and without Apex.
 
 ## Crash W dump (docs/67 §27): an out-of-bounds read, not a released pose
 
