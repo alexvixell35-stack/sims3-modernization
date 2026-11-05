@@ -88,7 +88,11 @@ not call base is no longer tracked.
 
 ## 4. Result
 
-Open: the job `bp-virtual-swap-check` (queue `tools/harness/queues/virtual-swap.json`) has not run yet.
+**PASS** (2026-11-05, run al233): job `bp-virtual-swap-check`, 11.2 min, on the player's mods (simler90 core + patches),
+release v0.2.5 asi, Baseline-BP. The check returned: old way: derived 11, base 11; KeepVirtual: derived 2, base 11;
+`ScriptObject.Destroy` virtual True; bowl stack built True, `kCleanedOrThrewAwayObject` x2. No new script errors. The
+one ErrorTrap report is its load-time correction log (43 destroyed objects in the save), the same as a load without the
+fix 14 minutes earlier. Results: `docs/data/results/2026-11-05-alexvixell35-stack-virtual-swap.md`.
 
 Not tested:
 - a long run with the fix: the Destroy overrides that now run again may surface their own bugs, which the base-only
