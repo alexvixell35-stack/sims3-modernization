@@ -30,8 +30,11 @@
 //   then creates it through the type's factory and registers it again);
 // - the parent's Load 0x607070 (0x60733E): a miss rebuilds the child from the parent's own data (new 0x68, ctor 0x600560,
 //   Load again, register 0x7D9100).
-// So with NeedDb=1 (the default) a compositor is marked old only if a database holds its key (asked once, again after
-// AgeSec): every way back then exists. Without a database, nothing could build it again.
+// NeedDb=1: a compositor is marked old only if a database holds its key (asked once, again after AgeSec): every way back
+// then exists. al246 (old save, 60 min): none of them has one, so it trims nothing; off by default.
+// Named=1 (the default): a compositor is marked old only if no other part compositor in the map, itself not marked old,
+// names its key as a child in its op list (read as 0x6057F0 reads it). The names are collected per full walk of the map
+// (a cycle); a mark needs this cycle and the last full one, and a new compositor's names count from its insert.
 // Safety rule: no erase of anything with a third reference; the would-miss / missed counters and their first 20 events
 // (caller, age) are the evidence that nothing a live Sim renders from goes. Inserts from a second thread are counted and
 // never trimmed from. A fault inside the walk turns the mode off for the session.
@@ -80,7 +83,7 @@ static CtEnt* CtSlot(DWORD o, bool claim) {
 // the lookup the get 0x7366B0 makes right after a cache miss: a database = the game would load it again, none = a trim
 // would lose it (the get returns false). Read only. EA calls it on every get (0x7D80E0, under the get's lock); it takes
 // the manager's own list lock (+0x48) and drops it while it asks each database (0x4AFFC0), so the walk's thread may ask too.
-static bool g_ctNeedDb = true;
+static bool g_ctNeedDb = false;
 static volatile LONG g_ctMarkDb[2], g_ctReload;  // marks (NeedDb): no database (not marked) / a database; trimmed, then loaded again
 static LONGLONG g_ctDbQpc;                       // time in those mark checks (the walk's thread only)
 typedef void*(__fastcall* CtDbFn)(void* rm, void* edx, const void* key);
@@ -91,6 +94,71 @@ static int CtInDb(const void* key) {  // 1 a database has it, 0 none, -1 not ask
     if (!rm || *(const DWORD*)rm != g_ctRmVt) return -1;
     return (*(CtDbFn const*)(uintptr_t)(g_ctRmVt + 0x44))(rm, NULL, key) ? 1 : 0;
 }
+// Named: the keys part compositors name as children, per walk cycle (every bucket once): [0] this cycle, [1] the last full
+// one. FNV hashes, open addressing, the walk's thread only; a hash collision keeps a compositor (the safe side).
+// shortcut: 512k slots each (2 MB); a full table keeps everything until it has cycled out (logged): grow it if that shows.
+static bool g_ctNamed = true;
+static const DWORD CT_NAMED = 1 << 19;
+static LONG* g_ctNm[2];
+static bool g_ctNmFull[2];
+static DWORD g_ctCyB, g_ctCyNb, g_ctCyAt, g_ctCyMs;  // buckets walked this cycle, the bucket count it counts to, start, last length
+static LONG g_ctCycles, g_ctKids, g_ctKept;  // full cycles; child keys read; walk visits of an old one kept because one names it
+static void CtNmAdd(const void* key) {
+    const DWORD h = CtKeyHash(key);
+    g_ctKids++;
+    for (DWORD i = (h * 2654435761u) >> 13, k = 0; k < 64; i = (i + 1) & (CT_NAMED - 1), k++) {
+        if (g_ctNm[0][i] == (LONG)h) return;
+        if (!g_ctNm[0][i]) { g_ctNm[0][i] = (LONG)h; return; }
+    }
+    g_ctNmFull[0] = true;
+}
+static bool CtNmHas(const LONG* t, DWORD h) {
+    for (DWORD i = (h * 2654435761u) >> 13, k = 0; k < 64; i = (i + 1) & (CT_NAMED - 1), k++) {
+        if (t[i] == (LONG)h) return true;
+        if (!t[i]) return false;
+    }
+    return true;  // a probe this long: keep
+}
+static bool CtNamedKey(const void* key) {  // before the first full cycle, or with a full table, everything is named
+    if (!g_ctCycles || g_ctNmFull[0] || g_ctNmFull[1]) return true;
+    const DWORD h = CtKeyHash(key);
+    return CtNmHas(g_ctNm[0], h) || CtNmHas(g_ctNm[1], h);
+}
+static void CtCycle(DWORD now) {  // a full walk: this cycle's names become the last full one's
+    LONG* t = g_ctNm[1];
+    g_ctNm[1] = g_ctNm[0], g_ctNmFull[1] = g_ctNmFull[0];
+    memset(t, 0, CT_NAMED * 4), g_ctNm[0] = t, g_ctNmFull[0] = false;
+    g_ctCyB = 0, g_ctCycles++, g_ctCyMs = now - g_ctCyAt, g_ctCyAt = now;
+}
+// A compositor's children, read as the texture rebuild 0x6057F0 reads them (0x605910-0x605A1A) [verified disassembly]:
+// each op of type 0x34210A5 (op & 0xFF indexes the type table 0x1157E04) has the parameter block 0x602380(op >> 8);
+// parameter 0xDCFF6D7B (name table [0x1157EB8] / size [0x1157EBC], node {name, type byte +4, next +8}) is found in it with
+// the lower bound 0x600280 (order table [0x1157ED4]); its value >> 8 is a key id, and 0x600850 copies the key. 0x602380
+// and 0x600850 take EA's critical section 0x11CEB38 (recursive) and take no other lock inside it.
+typedef const DWORD*(__cdecl* CtParamsFn)(DWORD id);
+typedef const DWORD*(__cdecl* CtLowerFn)(DWORD b, DWORD e, const DWORD* want, DWORD n);
+typedef bool(__cdecl* CtKeyFn)(DWORD id, void* key);
+static void CtKidsEa(DWORD o) {
+    const DWORD n = *(const u8*)(uintptr_t)(o + 0x60), *ops = *(const DWORD* const*)(uintptr_t)(o + 0x5C);
+    for (DWORD i = 0; ops && i < n; i++) {
+        const DWORD op = ops[i];
+        if (*(const DWORD*)(uintptr_t)(0x01157E04 + (op & 0xFF) * 4) != 0x034210A5) continue;
+        const DWORD* pb = ((CtParamsFn)(uintptr_t)0x00602380)(op >> 8);
+        DWORD v = *(const DWORD*)(uintptr_t)0x01157EB0;  // EA's "no such parameter"
+        const DWORD sz = *(const DWORD*)(uintptr_t)0x01157EBC;
+        const DWORD* const* tbl = *(const DWORD* const* const*)(uintptr_t)0x01157EB8;
+        const DWORD* nd = sz && tbl ? tbl[0xDCFF6D7Bu % sz] : NULL;
+        while (nd && nd[0] != 0xDCFF6D7Bu) nd = (const DWORD*)(uintptr_t)nd[2];
+        if (nd) {
+            const DWORD want = *(const u8*)(nd + 1) | 0xFFFFFF00, *ord = *(const DWORD* const*)(uintptr_t)0x01157ED4;
+            const DWORD* p = ((CtLowerFn)(uintptr_t)0x00600280)(pb[0], pb[1], &want, *(const u8*)(pb + 4));
+            if (p != (const DWORD*)(uintptr_t)pb[1] && !(ord[(want & 0xFF) * 2] < ord[(*p & 0xFF) * 2])) v = *p;
+        }
+        u8 key[16];
+        if ((v & 0xFF) != 0xFF && ((CtKeyFn)(uintptr_t)0x00600850)(v >> 8, key)) CtNmAdd(key);
+    }
+}
+static void (*g_ctKidsFn)(DWORD o) = CtKidsEa;  // selftest: a fake
 static void CtEvent(const char* what, DWORD o, DWORD at, DWORD sinceMark, DWORD age, const DWORD* sp, int db = -1) {
     const DWORD m = sinceMark / 60000;
     InterlockedIncrement(&g_ctAge[m < 1 ? 0 : m < 10 ? 1 : m < 60 ? 2 : 3]);
@@ -113,6 +181,7 @@ static void CtStep(u8* svc, DWORD now) {
     __try {
         const DWORD* b = *(const DWORD* const*)(svc + 0x108);
         const DWORD nb = *(const DWORD*)(svc + 0x10C);
+        if (nb != g_ctCyNb) g_ctCyNb = nb, g_ctCyB = 0;  // a new bucket array (the map grew): the cycle starts again
         for (int k = 0; b && nb && k < g_ctBuckets; k++) {
             for (u8 *e = (u8*)(uintptr_t)b[g_ctCursor++ % nb], *next; e; e = next) {
                 next = *(u8* const*)(e + 0x18);  // node {ResourceKey, compositor +0x10, next +0x18} (docs/191)
@@ -120,10 +189,12 @@ static void CtStep(u8* svc, DWORD now) {
                 const DWORD o = *(const DWORD*)(e + 0x10), vt = o ? *(const DWORD*)(uintptr_t)o : 0;
                 if (vt != g_ctVt[0] && vt != g_ctVt[1]) continue;
                 CtEnt* t = CtSlot(o, true);
+                if (g_ctNamed && (!t || !t->cand)) g_ctKidsFn(o);  // it names its children unless it is marked old itself
                 if (!t) { z.ctFull++; continue; }
                 if (!t->seen) t->seen = t->used = now;
                 const DWORD a1 = now - t->seen, a2 = now - t->used, age = a1 < a2 ? a1 : a2;
                 if (*(const LONG*)(uintptr_t)(o + 4) >> 8 != 2 || age < g_ctAgeMs) { t->cand = 0; continue; }
+                if (g_ctNamed && CtNamedKey(e)) { g_ctKept++, t->cand = 0; continue; }  // the node starts with the key
                 if (!t->cand) {
                     if (g_ctNeedDb) {
                         if (t->dbNo && now - t->dbNo < g_ctAgeMs) continue;
@@ -146,6 +217,7 @@ static void CtStep(u8* svc, DWORD now) {
                 // each cache's Find(key, NULL), and those failed finds are not misses (al237, 2026-11-05: 20 false MISSED)
                 if (g_ctErase(svc, NULL, key)) erased++, z.ctErased++, g_ctGone[h & (CT_GONE - 1)] = (LONG)h;  // (mode 1)
             }
+            if (++g_ctCyB >= nb) CtCycle(now);
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         z.ctMode = 0;
@@ -166,6 +238,9 @@ static void CtLog(const u8* svc) {
     QueryPerformanceFrequency(&f);
     Log("cas trim: NeedDb %d: old ones with a database %ld (marked), without %ld (kept), %lu ms asking; trimmed then loaded again %ld",
         g_ctNeedDb, g_ctMarkDb[1], g_ctMarkDb[0], f.QuadPart ? (DWORD)(g_ctDbQpc * 1000 / f.QuadPart) : 0, g_ctReload);
+    Log("cas trim: Named %d: walk cycles %ld (the last %lu s), child keys read %ld, old ones kept because a compositor names "
+        "them %ld (walk visits); name table full: this cycle %d, the last %d", g_ctNamed, g_ctCycles, g_ctCyMs / 1000, g_ctKids,
+        g_ctKept, g_ctNmFull[0], g_ctNmFull[1]);
 }
 static int __fastcall CtInsertHook(u8* svc, void* edx, u8* comp) {
     const int r = g_ctInsert(svc, edx, comp);
@@ -174,12 +249,17 @@ static int __fastcall CtInsertHook(u8* svc, void* edx, u8* comp) {
     const DWORD now = GetTickCount(), tid = GetCurrentThreadId();
     InterlockedIncrement(&z.ctInserts);
     if (!g_ctTid) {
-        g_ctTid = tid, g_ctLogAt = now;
+        g_ctTid = tid, g_ctLogAt = g_ctCyAt = now;
         Log("cas trim: first insert on thread %lu (the thread that loaded us: %lu); the walk runs on that one", tid, g_mainTid);
     }
     if (tid != g_ctTid) { InterlockedIncrement(&z.ctOtherThread); return r; }
-    if (comp)
+    if (comp) {
         if (CtEnt* t = CtSlot((DWORD)(uintptr_t)comp, true)) t->seen = t->used = now, t->cand = 0;
+        if (g_ctNamed) __try {  // its names count now
+            const DWORD vt = *(const DWORD*)comp;
+            if (vt == g_ctVt[0] || vt == g_ctVt[1]) g_ctKidsFn((DWORD)(uintptr_t)comp);
+        } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    }
     CtStep(svc, now);
     if (now - g_ctLogAt >= g_ctLogMs) g_ctLogAt = now, CtLog(svc);
     return r;
@@ -226,9 +306,10 @@ static bool __fastcall CtFindHook(void* cache, void* edx, const void* key, void*
 }
 static bool CtAlloc() {
     if (g_ct) return true;
-    u8* m = (u8*)VirtualAlloc(NULL, CT_SLOTS * sizeof(CtEnt) + CT_GONE * 4, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    u8* m = (u8*)VirtualAlloc(NULL, CT_SLOTS * sizeof(CtEnt) + CT_GONE * 4 + 2 * CT_NAMED * 4, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (!m) return false;
     g_ct = (CtEnt*)m, g_ctGone = (volatile LONG*)(m + CT_SLOTS * sizeof(CtEnt));
+    g_ctNm[0] = (LONG*)(m + CT_SLOTS * sizeof(CtEnt) + CT_GONE * 4), g_ctNm[1] = g_ctNm[0] + CT_NAMED;
     return true;
 }
 static void ApplyCasTrim(const wchar_t* ini) {
@@ -236,12 +317,13 @@ static void ApplyCasTrim(const wchar_t* ini) {
     const int age = GetPrivateProfileIntW(L"CasTrim", L"AgeSec", 1800, ini);
     const int buckets = GetPrivateProfileIntW(L"CasTrim", L"Buckets", 16, ini);
     const int maxErase = GetPrivateProfileIntW(L"CasTrim", L"MaxErase", 8, ini);
-    g_ctNeedDb = GetPrivateProfileIntW(L"CasTrim", L"NeedDb", 1, ini) != 0;
+    g_ctNeedDb = GetPrivateProfileIntW(L"CasTrim", L"NeedDb", 0, ini) != 0;
+    g_ctNamed = GetPrivateProfileIntW(L"CasTrim", L"Named", 1, ini) != 0;
     g_ctAgeMs = (DWORD)(age < 10 ? 10 : age > 36000 ? 36000 : age) * 1000;
     g_ctBuckets = buckets < 1 ? 1 : buckets > 256 ? 256 : buckets;
     g_ctMaxErase = maxErase < 1 ? 1 : maxErase > 64 ? 64 : maxErase;
     if (mode <= 0 && GetPrivateProfileIntW(L"CasTrim", L"Install", 0, ini) <= 0) return;
-    if (!CtAlloc()) return (void)Log("FAIL cas trim: no memory for the tables (5.5 MB): not installed");
+    if (!CtAlloc()) return (void)Log("FAIL cas trim: no memory for the tables (9.5 MB): not installed");
     RhRanges();  // the exe .text range for the event chains
     if (!g_ctFind)
         g_ctFind = (CtFindFn)InstallDetour("ResourceCache_Find", CT_FIND, kCtFindPro, sizeof(kCtFindPro), (void*)CtFindHook, &g_ctFind);
@@ -252,6 +334,7 @@ static void ApplyCasTrim(const wchar_t* ini) {
     Ts3nCounters& z = ts3native_counters;
     z.ctOn = 1, z.ctMode = mode < 0 ? 0 : mode > 2 ? 2 : mode;
     Log("cas trim: on (docs/191 step 2), mode %ld (%s): part compositors at 2 references, not inserted or found for %lu s; %d buckets a "
-        "step, at most %d erases a step; %s", z.ctMode, z.ctMode == 1 ? "trim with EA's erase 0x5EE640" : z.ctMode == 2 ? "count only" : "armed, off",
-        g_ctAgeMs / 1000, g_ctBuckets, g_ctMaxErase, g_ctNeedDb ? "only ones a database holds (NeedDb 1)" : "with or without a database (NeedDb 0)");
+        "step, at most %d erases a step; %s; %s", z.ctMode, z.ctMode == 1 ? "trim with EA's erase 0x5EE640" : z.ctMode == 2 ? "count only" : "armed, off",
+        g_ctAgeMs / 1000, g_ctBuckets, g_ctMaxErase, g_ctNamed ? "only ones no other compositor names (Named 1)" : "named or not (Named 0)",
+        g_ctNeedDb ? "only ones a database holds (NeedDb 1)" : "with or without a database (NeedDb 0)");
 }

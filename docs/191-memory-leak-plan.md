@@ -170,20 +170,30 @@ compositor is reached through the ResourceCache by key, which the insert registe
     = `0x4AFDA0` -> `0x4AFFC0` finds which one; the get then creates it through the type's factory and registers it);
   - the parent's Load `0x607070` (`0x60733E`): a miss rebuilds the child from the parent's own data (new `0x68`, ctor
     `0x600560`, Load again, register `0x7D9100`).
-- **`NeedDb` (default 1, 2026-11-05):** a compositor is old only if a database holds its key (manager `+0x44`, the
-  lookup EA itself makes at the start of every get, `0x7D80E0`; asked once per compositor, again after `AgeSec`). Every
-  way back then exists: a trimmed one asked for again is loaded from that database (counted, not missed). Without a
-  database, nothing could build it again, so it stays. Whether enough of the growth has a database to flatten `rcN` is
-  the next count run.
+- **`NeedDb` (default 0):** a compositor is old only if a database holds its key (manager `+0x44`, the lookup EA itself
+  makes at the start of every get, `0x7D80E0`; asked once per compositor, again after `AgeSec`). Every way back then
+  exists. al246 (old save, count mode, 60 min): 0 of the old ones has a database (384,058 asks, 11.3 s), so it trims
+  nothing. EA's disk caches (`compositorCache.package`, `simCompositorCache.package`) hold finished textures, not the
+  compositors [inferred: strings and handle flow].
+- **`Named` (default 1, 2026-11-05):** a compositor is old only if no other part compositor in the registry, itself not
+  marked old, names its key as a child. The children are read as `0x6057F0` reads them: parameter block `0x602380`,
+  the `0xDCFF6D7B` parameter (name table `[0x1157EB8]`, lower bound `0x600280`), key `0x600850`; both take EA's
+  recursive critical section `0x11CEB38`. The names are collected per full walk of the map (a cycle, restarted when the
+  bucket array changes); a mark needs the last full cycle and the current one, and a new compositor's names count from
+  its insert. A parent marked old stops naming, so a dead outfit's tree is marked top down, one level per two cycles.
+  Only type `0x0341ACC9` (vtable `0xFE68F4`) answers the child cast `0x3420F34` that `0x6057F0` makes. The count run
+  shows whether every would-miss was named.
 - **Not covered:** the export paths read the registry itself (`Contains`): a lot or Sim exported to the library after its
   compositors were trimmed would miss those textures in the export [inferred]. Mode 2 on an export would show it as no
   counter; the export check is a manual step of the step 3 checks.
 - **Counters v909:** `ctMode` (switch), `ctOn`, `ctInserts`, `ctScanned`, `ctCand`, `ctErased`, `ctWouldMiss`,
-  `ctMissed`, `ctFull`, `ctOtherThread`. Tables: 5.5 MB, allocated only when installed.
+  `ctMissed`, `ctFull`, `ctOtherThread`. Tables: 9.5 MB, allocated only when installed.
 - **Selftest:** a fake map (two buckets, four nodes), fake EA erase / insert / Find: an old compositor marked (count) then
   erased (trim), one at 3 references and one found 11 s before left alone, one without a database kept (`NeedDb`, not
   asked again before `AgeSec`), a would-miss, a failed find of the erased key loaded again while a fake database holds
-  it and missed once none does, the parent-Load find, the second-thread insert, a walk fault (mode off).
+  it and missed once none does, the parent-Load find, `Named` (a child kept while a live compositor names it, marked
+  two cycles after its parent is marked, kept again by a new compositor's insert), the second-thread insert, a walk
+  fault (mode off).
 - **Checks before any default (Rodney's step 3):** count mode first on the old save (would-miss near 0 over 60 min with a
   travel and a save + reload); then off vs on, same seed: `rcN` / `eaRes` flat after minute 15, the largest free block
   at the end, no missing or wrong textures in CAS, live mode, after a travel and after a save and reload, no new

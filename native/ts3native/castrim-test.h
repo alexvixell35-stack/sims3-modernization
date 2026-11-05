@@ -25,6 +25,10 @@ static void* __fastcall CtsDb(void*, void*, const void* k) { return g_ctsDbKey &
 static DWORD g_ctsRmVt[0x50 / 4], g_ctsRm[1];
 static void* g_ctsRmPtr;
 static bool __fastcall CtsFind(void*, void*, const void*, void** out) { *out = (void*)g_ctsFound; return g_ctsFound != NULL; }
+static DWORD g_ctsNew[4];  // a new compositor (not in the map) that names C, like B
+static void CtsKids(DWORD o) {  // B and the new one name C (its node's key) as a child
+    if (o == (DWORD)(uintptr_t)g_ctsComp[1] || o == (DWORD)(uintptr_t)g_ctsNew) CtNmAdd(g_ctsNode[2]);
+}
 
 static void TestCasTrim() {
     static_assert(offsetof(Ts3nCounters, ctMode) == 0x5C54 && offsetof(Ts3nCounters, ctOtherThread) == 0x5C78 &&
@@ -33,6 +37,8 @@ static void TestCasTrim() {
     Ts3nCounters& z = ts3native_counters;
     const CtEraseFn erase0 = g_ctErase;
     const DWORD vt0[2] = {g_ctVt[0], g_ctVt[1]}, age0 = g_ctAgeMs;
+    const bool named0 = g_ctNamed, needDb0 = g_ctNeedDb;
+    g_ctNamed = false, g_ctNeedDb = true;  // steps 2-3: NeedDb alone
     assert(CtAlloc());
     const DWORD rmAt0 = g_ctRmAt, rmVt0 = g_ctRmVt;
     g_ctsRmVt[0x44 / 4] = (DWORD)(uintptr_t)&CtsDb, g_ctsRm[0] = (DWORD)(uintptr_t)g_ctsRmVt, g_ctsRmPtr = g_ctsRm;
@@ -100,6 +106,34 @@ static void TestCasTrim() {
     CtFound(false, keyA, NULL, CT_LOAD_RET, NULL);  // the parent's Load builds it again from its own data
     assert(z.ctMissed == 1 && g_ctReload == 2);
     assert(g_ctGap[0] + g_ctGap[1] + g_ctGap[2] + g_ctGap[3] + g_ctGap[4] + g_ctGap[5] >= 2);  // C's and A's finds above
+    // 3b. Named (count mode, NeedDb off; 2 buckets a step = one full cycle a step): B (3 references) names C, so old C stays
+    // unmarked; A, named by none, is marked. Once B is old and marked it names nothing: C keeps the last full cycle's name
+    // one more step, then is marked. A new compositor naming C at its insert keeps C again
+    z.ctMode = 2, g_ctNeedDb = false, g_ctNamed = true, g_ctKidsFn = &CtsKids, g_ctCursor = 0, g_ctCycles = 0, g_ctCyB = 0;
+    memset(g_ct, 0, CT_SLOTS * sizeof(CtEnt));
+    *(DWORD*)(g_ctsNode[0] + 0x18) = (DWORD)(uintptr_t)g_ctsNode[1], g_ctsBkt[0] = (DWORD)(uintptr_t)g_ctsNode[0];  // A back
+    *(DWORD*)(g_ctsSvc + 0x110) = 4;
+    const LONG cand0 = z.ctCand;
+    const DWORD t1 = t0 + 400000;
+    CtStep(g_ctsSvc, t1);
+    assert(g_ctCycles == 1 && g_ctKids == 1);
+    CtStep(g_ctsSvc, t1 + 61000);
+    CtEnt *ta = CtSlot((DWORD)(uintptr_t)g_ctsComp[0], false), *tb = CtSlot((DWORD)(uintptr_t)g_ctsComp[1], false),
+          *tc = CtSlot((DWORD)(uintptr_t)g_ctsComp[2], false);
+    assert(ta->cand && !tc->cand && z.ctCand == cand0 + 1 && g_ctKept == 1);
+    g_ctsComp[1][1] = 2 << 8 | 1;  // B at 2 references: old
+    CtStep(g_ctsSvc, t1 + 122000);
+    assert(tb->cand && !tc->cand);  // B named C before its own mark
+    CtStep(g_ctsSvc, t1 + 183000);
+    assert(!tc->cand);  // the last full cycle still has B's name for C
+    CtStep(g_ctsSvc, t1 + 244000);
+    assert(tc->cand && z.ctCand == cand0 + 3);
+    g_ctsNew[0] = (DWORD)(uintptr_t)g_ctsVt[1], g_ctsNew[1] = 3 << 8 | 1, g_ctTid = 0, g_ctBuckets = 0;
+    assert(CtInsertHook(g_ctsSvc, NULL, (u8*)g_ctsNew) == 1);  // walks no bucket: only the insert reads its names
+    g_ctBuckets = 2;
+    CtStep(g_ctsSvc, t1 + 250000);
+    assert(!tc->cand);
+    z.ctInserts = 0, g_ctsComp[1][1] = 3 << 8 | 1;
     // 4. the insert hook (count mode): counts, walks on its first thread only
     g_ctTid = 0, z.ctMode = 2;
     const LONG scanned = z.ctScanned;
@@ -112,7 +146,7 @@ static void TestCasTrim() {
     CtStep(g_ctsSvc, t0 + 300000);
     assert(z.ctMode == 0);
     CtLog(g_ctsSvc);
-    printf("cas trim: selftest ok (walk, marks, NeedDb, would-miss, EA-erase stand-in, missed / loaded again, other thread, fault)\n");
+    printf("cas trim: selftest ok (walk, marks, NeedDb, Named + its cycles + insert, would-miss, EA-erase stand-in, missed / loaded again, other thread, fault)\n");
 
     memset((void*)&z.ctMode, 0, 10 * sizeof(LONG));
     memset(g_ct, 0, CT_SLOTS * sizeof(CtEnt)), memset((void*)g_ctGone, 0, CT_GONE * 4);
@@ -120,4 +154,6 @@ static void TestCasTrim() {
     g_ctErase = erase0, g_ctInsert = NULL, g_ctFind = NULL, g_ctVt[0] = vt0[0], g_ctVt[1] = vt0[1], g_ctAgeMs = age0;
     g_ctBuckets = 16, g_ctRmAt = rmAt0, g_ctRmVt = rmVt0, g_ctDbYes = g_ctDbNo = 0, g_ctsDbKey = 0;
     g_ctMarkDb[0] = g_ctMarkDb[1] = g_ctReload = 0, g_ctDbQpc = 0;
+    memset(g_ctNm[0], 0, 2 * CT_NAMED * 4), g_ctNmFull[0] = g_ctNmFull[1] = false, g_ctKidsFn = CtKidsEa;
+    g_ctCycles = g_ctKids = g_ctKept = 0, g_ctCyB = g_ctCyNb = g_ctCyAt = g_ctCyMs = 0, g_ctNamed = named0, g_ctNeedDb = needDb0;
 }
