@@ -5680,6 +5680,15 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 | I-934-2 | 205 §2.3a | Phases 10-12 are most of the pass time on the old save | the three phases walk every GameObject; the others walk Sims, descriptions or one object type | `old-gone-objdaily` | [2056] / [2055] per walk >= half of the ~91 ms per pass of `old-gone-on` | less than half | verified (~69 ms per shared walk; the rest of the pass ~10 ms, so ~81 of ~91 ms before) |
 | I-934-3 | 205 §2.3a | No cleanup is delayed except phase 12's decayed relationships: phases 10-11 test for destroyed Sim objects, phase 12 for disposed descriptions or relationships off the description's list | the phases' gone tests (`SimGone`, `OwnerHolders`, `RelGone`) | none | - | an entry of phase 10 or 11 that goes stale without a `Sim.Destroy` | inferred |
 
+## 940. A hooked virtual method lost its overrides: `SwapMethod` copied the hook's flags and slot (2026-11-05, docs/536; no switch)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-940-1 | 536 §1 | After the old header copy, a callvirt site naming a hooked slot-introducing virtual runs the hook for every receiver (no override runs) | `SwapMethod` copies `+0` flags and `+0x1C` slot; the resolver `0xE51FC0` returns the named method when VIRTUAL is clear (disassembly) | `bp-virtual-swap-check`, old-way test pair | derived receiver returns 11 | derived returns 2 | open until the job runs |
+| I-940-2 | 536 §1.2 | Since v0.2.3 every `x.Destroy()` ran only `ScriptObject.Destroy` (memalive), which left a washed stack's middle dish at 0,0,0 | run al231: the bottom bowl gone with no `kCleanedOrThrewAwayObject`, the middle bowl unparented at 0,0,0 with the top one still on it | `bp-virtual-swap-check`: two-bowl stack destroyed with the fix | the event x2 (or x1 without a stack) | x0 | open until the job runs |
+| I-940-3 | 536 §2 | `KeepVirtual` restores dispatch and leaves hooked overrides and stubs as they were | the code; the resolver reads only the named method's flags and slot | `bp-virtual-swap-check`, KeepVirtual test pair + `ScriptObject.Destroy` IsVirtual | derived 2, base 11, IsVirtual True | derived 11 or IsVirtual False | open until the job runs |
+| I-940-4 | 536 §1.2 | With `FindSimForAssignment` hooked, a busy Grim Reaper could get a second reaper description (base pool logic) | the decompiled `GrimReaper` and `Service` | not built | — | — | open |
+
 ## 423. Mode 2 SACS bound-actor classes (2026-11-03, docs/228 §11.8, ts3native 0.36.166, counters v159)
 
 | ID | Doc | Claim | Basis | Probe or repro | Expect | Refuted if | Tag |

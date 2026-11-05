@@ -18,17 +18,29 @@ namespace Ts3Fixes
     //   ts3fixes.recent (last shortcuts), ts3fixes.moved (every Sim a shortcut moved).
     public static partial class Fixes
     {
-        const int kMethodHeader = 40, kNameOffset = 0x18;
+        const int kMethodHeader = 40, kNameOffset = 0x18, kSlotOffset = 0x1C;
 
-        static byte[] SwapMethod(MethodBase original, MethodBase replacement)
+        static byte[] SwapMethod(MethodBase original, MethodBase replacement, bool keepVirtual = true)  // false: VirtualSwapCheck's old-way pair only
         {
             IntPtr o = original.MethodHandle.Value, r = replacement.MethodHandle.Value;
             byte[] saved = new byte[kMethodHeader], repl = new byte[kMethodHeader];
             Marshal.Copy(o, saved, 0, kMethodHeader);
             Marshal.Copy(r, repl, 0, kMethodHeader);
+            if (keepVirtual) KeepVirtual(saved, repl);
             Marshal.Copy(repl, 0, o, kNameOffset);
             Marshal.Copy(repl, kNameOffset + 4, new IntPtr(o.ToInt32() + kNameOffset + 4), kMethodHeader - kNameOffset - 4);
             return saved;
+        }
+
+        // docs/536: a virtual original keeps its flags word (+0) and vtable slot (+0x1C bits 12-31). The callvirt resolver
+        // (0xE51FC0) reads both from the method a call site names; with the hook's (no VIRTUAL flag) every receiver ran this
+        // body and no override did, e.g. every x.Destroy() ran only ScriptObject.Destroy.
+        static void KeepVirtual(byte[] saved, byte[] repl)
+        {
+            if ((BitConverter.ToUInt16(saved, 0) & (ushort)MethodAttributes.Virtual) == 0) return;
+            repl[0] = saved[0]; repl[1] = saved[1];
+            int slot = (BitConverter.ToInt32(repl, kSlotOffset) & 0xFFF) | (BitConverter.ToInt32(saved, kSlotOffset) & ~0xFFF);
+            Array.Copy(BitConverter.GetBytes(slot), 0, repl, kSlotOffset, 4);
         }
 
 

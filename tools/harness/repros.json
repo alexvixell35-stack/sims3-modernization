@@ -53449,5 +53449,25 @@
         }
       }
     ]
+  },
+  {
+    "id": "virtual-swap-check",
+    "bug": "ts3fixes' SwapMethod copied the hook's MonoMethod flags and slot over a virtual original, so every callvirt site naming that method ran the hook for every receiver and skipped all overrides: since v0.2.3 (memalive's ScriptObject.Destroy hook) every x.Destroy() ran only ScriptObject.Destroy (no GameObject.Destroy: contained objects left at the world origin, no PreparedFood event), and Service.FindSimForAssignment, RabbitHole.AnimateDoorOpen/Close and EventListener.RestoreState lost their overrides (docs/536)",
+    "fix": "ts3fixes Fixes.cs SwapMethod: KeepVirtual keeps a virtual original's flags word and slot (no switch), docs/536",
+    "save": "Baseline-BP",
+    "note": "The agent check (VirtualSwapCheck) hooks two fresh base/derived test pairs at check time, one the old way and one with KeepVirtual, then calls each through a base-typed callvirt site compiled after the swap. Old way: the derived receiver runs the hooked base (11). KeepVirtual: derived 2, base 11. It also reads ScriptObject.Destroy (hooked by memalive at startup) as virtual and destroys a new bowl with a second bowl in its stacking slot: kCleanedOrThrewAwayObject twice (PreparedFood.Destroy for both; once if the stack could not be built out of the world).",
+    "expect": "expect fixed: old way 11/11, KeepVirtual 2/11, ScriptObject.Destroy virtual, kCleanedOrThrewAwayObject x2 (x1 without a stack).",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VirtualSwapCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "old-way pair broken, KeepVirtual pair and the real Destroy dispatch"
+      }
+    ]
   }
 ]

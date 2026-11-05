@@ -1,0 +1,26 @@
+{
+  "note": "docs/536: repro of the KeepVirtual fix in ts3fixes' SwapMethod (a hooked virtual lost its flags and slot, so every call site naming it skipped all overrides). One load, any core: the fix is in ts3fixes itself and has no switch.",
+  "jobs": [
+    {
+      "id": "bp-virtual-swap-check",
+      "note": "Correctness (6 min): repro virtual-swap-check. Pass: the repro's step passes (old-way test pair 11/11, KeepVirtual pair 2/11, ScriptObject.Destroy virtual, a destroyed two-bowl stack sends kCleanedOrThrewAwayObject for both bowls).",
+      "asi": "game-copy/asi-v0.2.5/ts3native.asi",
+      "pinReason": "the player release v0.2.5 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "virtual-swap-check"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14
+    }
+  ],
+  "stopQueueOnFail": true
+}
