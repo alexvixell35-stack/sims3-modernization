@@ -900,6 +900,23 @@ Design: the release call at `0xD5B77A` is retargeted to `TpDefer` (same register
 | Repro | `tools/harness/repros.json` `ea-thumb-pose-pack-loop`: household thumbnails while 8 spawned Sims are removed, three rounds (the contributor's cross-world thumbnail during pack-up has no agent action). `tpHeld > 0` shows branch (a) ran |
 | Conflicts | none with S3SS / S3PP / Apex at `0xD5B77A` / `0xD5B874` (docs/68) |
 
+### 27.6 First dump: an out-of-bounds read, and `[EaCrashFixes] ThumbPoseBones` (off by default)
+
+Dump: Apex Radiance's `ApexRadiance_Crash.dmp` of a contributor's old-save base run (2026-11-04, no fixes, 18.8 min; registers, stacks and pointed-to memory, no memory map). Same fault and `ebx 0x1AB760` as §27.1.
+
+| | |
+|---|---|
+| Branch | (a) [verified]: RefPtr local `[0x1AB378]` = `0xC3853C90`; its `+0xC` = `0xC412F140` = `ecx` = context `+0x4C` |
+| Owner alive | [verified] vtable `0xFC2D30`, refcount `+4` = 1, `+8` = 42 after the release, so ThumbPose (§27.5) would not change this crash |
+| Holder | [verified disassembly] ctor `0x574750`: `+8` bone count, `+0xC` a `count x 48`-byte pose (`0x4E3F90`). `0x5E0FD0` builds it once per model (`+0x214`) from the model's rig and returns it only when the counts still match (`0x5E1080`) |
+| Read | [verified dump + disassembly] the modifier `0x54E630` looks up `rootWorld`, `L_footWorld`, `R_footWorld` (`0xFC1230` / `0xFC1224` / `0xFC1218`) in the destination rig `[ctx+0x40]` (indices 222, 223, 224 at `[esp+0x40]`) and reads the source pose at those indices; the only size check is `[ctx+0x4C] != 0` (`0x54E754`). 222 x 48 = `0x29A0`, past a 42-bone pose (2016 bytes); it faults only when the read crosses into an unmapped page |
+| Fix | `ThumbPoseBones`: at the three stores of the source pose (`0xD5B708` b, `0xD5B76C` a via `0xD5B768`, `0xD5B7A1` c) a `0xFC2D30` holder with fewer bones than the destination rig (`([rig+0x30] - [rig+0x2C]) / 112`, as `0x575650`) stores 0. A holder with as many or more bones, another holder type and an unknown rig keep the game's value. The modifier reads `[ctx+0x4C]` only at `0x54E78D` [verified: whole function], and branch (c) already stores 0 |
+| Log | `ea fix: ThumbPoseBones: branch <a|b|c>: source pose <n> bones, destination rig <m>: not used (<dropped> of <seen>)` for the first 8 and every 1024th |
+| Tests (offline) | selftest `TestEaCrashFixes`: 42 vs 225 dropped, 225 / 300 / another type / no rig unchanged, unreadable holder 0; the three naked stubs on a real stack (stored value, `ecx` / `esi` / `eax` contract, other registers kept); patch all-or-none, once |
+| Game run | [measured] 2026-11-05, the same old save, 20-min autopilot profile, release defaults + `ThumbPoseBones=1`: PASS 25.5 min; installed (`OK   ea fix: ThumbPoseBones`); 8 drop lines, all branch (a), source pose 42 bones vs destination rig 257, the 8th at 8 of 29 renders seen (each one an out-of-bounds read without the fix) |
+| Unverified | that it prevents crash W (2 crash W in ~12 old-save runs on 11-04; needs more runs); which model has a 42-bone rig |
+| Conflicts | none with S3SS / S3PP / Apex in `0xD59C10`-`0xD5B8FF` (docs/68) |
+
 ## 28. Crash X (2026-10-30, a contributor's 35-minute test session on v0.2.4 release defaults with Apex Radiance): the Sim builder reads a CAS mesh's bone list past its end
 
 Static only (2026-10-30): the EA crash report and capstone on the Steam exe copy. There is no dump.

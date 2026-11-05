@@ -26,6 +26,11 @@
 // evaluation (0xD5B874 `mov ecx,[esp+0xAC]`) becomes a call to TpAfterStub, which releases it there (same thread, same
 // release function). Branches (b) and (c) hold no reference at all and stay as they are [verified disassembly].
 //
+// ThumbPoseBones (#99, crash W; 2026-11-05). The first crash W dump showed branch (a) with its object still alive after the
+// release (refcount 1), so the fault is not a released pose: the source pose has the model's own bone count (42) and the
+// modifier 0x54E630 indexes it with the destination rig's bone indices (222-224). Fix: at the three stores of the source
+// pose, a pose holder with fewer bones than the destination rig gives 0, which the modifier already skips (see below).
+//
 // GeomBoneIndex (0.36.149, docs/67 §28, crash X). The GEOM resource (vtable 0xFE32C0, "CAS/GeometryResource") keeps its
 // bone hashes in a vector at +0x58/+0x5C; slot +0x54 (0x5C6E00) returns bones[i] with no bounds check, slot +0x50
 // (0x5C6DF0) the count. The Sim builder's skin pass 0x5D1010 asks slot +0x54 for each of a vertex's four blend indices
@@ -290,6 +295,102 @@ static bool ApplyThumbPose(const wchar_t* ini) {
     return false;
 }
 
+// ---- ThumbPoseBones ----
+// Crash W dump (2026-11-04, docs/67 §27.6): the source pose comes from a pose holder (vtable 0xFC2D30, ctor 0x574750: +8 bone
+// count, +0xC count x 48 bytes) built for the model's own rig, and the modifier 0x54E630 reads it at the destination rig's
+// bone indices (rootWorld / L_footWorld / R_footWorld, 222-224 in the dump; 42-bone holder) with no size check. At the three
+// stores of the source pose ([esp+0x45C] = context +0x4C) a holder with fewer bones than the destination rig ([esp+0x7C],
+// bone vector +0x2C / +0x30 of 112-byte entries, as 0x575650) gives 0: the modifier skips a null source pose (0x54E754), and
+// branch (c) already stores 0 when the model has no holder [verified disassembly].
+static const DWORD TB_SITE_B = 0x00D5B708, TB_SITE_A = 0x00D5B768, TB_SITE_C = 0x00D5B7A1, TB_HOLDER_VT = 0x00FC2D30;
+// b: mov ecx,[eax+0Ch]; mov esi,[esp+0A8h]; mov [esp+45Ch],ecx   a: mov eax,[esp+28h]; mov ecx,[eax+0Ch]; mov [esp+45Ch],ecx
+// c: mov eax,[eax+0Ch]; jmp +2 (to the store at 0xD5B7A8)
+static const u8 kTbB[17] = {0x8B, 0x48, 0x0C, 0x8B, 0xB4, 0x24, 0xA8, 0x00, 0x00, 0x00, 0x89, 0x8C, 0x24, 0x5C, 0x04, 0x00, 0x00};
+static const u8 kTbA[14] = {0x8B, 0x44, 0x24, 0x28, 0x8B, 0x48, 0x0C, 0x89, 0x8C, 0x24, 0x5C, 0x04, 0x00, 0x00};
+static const u8 kTbC[5] = {0x8B, 0x40, 0x0C, 0xEB, 0x02};
+static DWORD g_tbBackC = TB_SITE_C + 7;  // the store; selftest: its landing pad
+static volatile LONG g_tbSeen, g_tbDropped;
+
+// The source pose the render may use: the holder's +0xC, or 0 when its bone list is shorter than the destination rig's.
+static const u8* __stdcall TbPose(const u8* holder, const u8* rig, DWORD branch) {
+    const u8* pose = NULL;
+    __try {
+        pose = *(const u8* const*)(holder + 0xC);
+        if (*(const DWORD*)holder != TB_HOLDER_VT || !rig) return pose;  // another holder type: the game's value
+        const DWORD n = *(const DWORD*)(holder + 8), rn = (*(const DWORD*)(rig + 0x30) - *(const DWORD*)(rig + 0x2C)) / 112;
+        const LONG seen = InterlockedIncrement(&g_tbSeen);
+        if (n >= rn) return pose;
+        const LONG k = InterlockedIncrement(&g_tbDropped);
+        if (k <= 8 || (k & 1023) == 0)
+            Log("ea fix: ThumbPoseBones: branch %c: source pose %lu bones, destination rig %lu: not used (%ld of %ld)", (char)('a' + branch), n, rn, k, seen);
+        return NULL;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return NULL; }  // an unreadable holder faulted at the game's own load
+}
+
+// pushad frame: edi +0, esi +4, ebp +8, esp +12, ebx +16, edx +20, ecx +24, eax +28. Called (b, a): render esp = esp + 36.
+static __declspec(naked) void TbStubB() {  // eax = holder; out: ecx = the stored pose, esi = [esp+0A8h]
+    __asm {
+        pushad
+        push 1
+        push dword ptr [esp + 40 + 0x7C]
+        push eax
+        call TbPose
+        mov [esp + 36 + 0x45C], eax
+        mov [esp + 24], eax
+        popad
+        mov esi, [esp + 4 + 0xA8]
+        ret
+    }
+}
+static __declspec(naked) void TbStubA() {  // holder = [esp+28h]; out: eax = holder, ecx = the stored pose
+    __asm {
+        pushad
+        push 0
+        push dword ptr [esp + 40 + 0x7C]
+        push dword ptr [esp + 44 + 0x28]
+        call TbPose
+        mov [esp + 36 + 0x45C], eax
+        mov [esp + 24], eax
+        mov eax, [esp + 36 + 0x28]
+        mov [esp + 28], eax
+        popad
+        ret
+    }
+}
+static __declspec(naked) void TbStubC() {  // jumped to: render esp = esp + 32 after pushad; eax = holder, out eax = pose
+    __asm {
+        pushad
+        push 2
+        push dword ptr [esp + 36 + 0x7C]
+        push eax
+        call TbPose
+        mov [esp + 28], eax
+        popad
+        jmp dword ptr [g_tbBackC]
+    }
+}
+
+static bool TbPatch(u8* b, u8* a, u8* c) {
+    if (!Matches(b, kTbB, sizeof(kTbB)) || !Matches(a, kTbA, sizeof(kTbA)) || !Matches(c, kTbC, sizeof(kTbC))) return false;
+    u8 pb[17], pa[14], pc[5] = {0xE9};
+    memset(pb, 0x90, sizeof(pb)), memset(pa, 0x90, sizeof(pa));
+    pb[0] = pa[0] = 0xE8;
+    *(LONG*)(pb + 1) = (LONG)((uintptr_t)&TbStubB - ((uintptr_t)b + 5));
+    *(LONG*)(pa + 1) = (LONG)((uintptr_t)&TbStubA - ((uintptr_t)a + 5));
+    *(LONG*)(pc + 1) = (LONG)((uintptr_t)&TbStubC - ((uintptr_t)c + 5));
+    return Write(b, pb, sizeof(pb)) && Write(a, pa, sizeof(pa)) && Write(c, pc, sizeof(pc));  // DllMain: no render runs yet
+}
+
+static bool ApplyThumbPoseBones(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"EaCrashFixes", L"ThumbPoseBones", 0, ini)) return false;
+    if (!TbPatch((u8*)(uintptr_t)TB_SITE_B, (u8*)(uintptr_t)TB_SITE_A, (u8*)(uintptr_t)TB_SITE_C)) {
+        Log("SKIP ea fix: ThumbPoseBones: bytes at 0x%08X / 0x%08X / 0x%08X differ: not installed", TB_SITE_B, TB_SITE_A, TB_SITE_C);
+        return false;
+    }
+    Log("OK   ea fix: ThumbPoseBones (docs/67 §27.6): a thumbnail source pose with fewer bones than the destination rig is not used");
+    return true;  // keep the log open for the drop lines
+}
+
 // ---- GeomBoneIndex ----
 static const DWORD GB_SLOT = 0x00FE3314, GB_GET = 0x005C6E00, GB_COUNT = 0x005C6DF0;  // vtable 0xFE32C0 +0x54, +0x50
 // mov eax,[ecx+58h]; mov ecx,[esp+4]; mov eax,[eax+ecx*4]; ret 4
@@ -479,6 +580,7 @@ static bool ApplyMintDivGuard(const wchar_t* ini) {
 static bool ApplyEaCrashFixes(const wchar_t* ini) {
     bool keep = ApplyConformActor(ini);
     ApplyThumbPose(ini);
+    keep = ApplyThumbPoseBones(ini) || keep;
     keep = ApplyGeomBoneIndex(ini) || keep;
     keep = ApplyGeomNoMaterial(ini) || keep;
     keep = ApplyMintDivGuard(ini) || keep;
