@@ -9,6 +9,7 @@ using Sims3.Gameplay.ActorSystems;
 using Sims3.Gameplay.CAS;
 using Sims3.Gameplay.Careers;
 using Sims3.Gameplay.Core;
+using Sims3.Gameplay.EventSystem;
 using Sims3.Gameplay.ObjectComponents;
 using Sims3.Gameplay.Objects.Fishing;
 using Sims3.Gameplay.Objects.HobbiesSkills;
@@ -79,6 +80,15 @@ namespace Ts3Fixes
         static ObjectGuid sDeadRefTask = ObjectGuid.InvalidObjectGuid;
         static StopWatch sDeadRefWatch;
         static long sDeadRefTotalUs;
+        // Phases 10-12 walk every GameObject. They share one walk and run only when a Sim object was destroyed or a description
+        // disposed since the last walk (EA's kSimDestroyed / kSimDescriptionDisposed), else once per kDeadRefObjHours: phase 12's
+        // decayed-relationship case sends no event (docs/205 §2.3a). [2055] walks, [2056] ms in finished walks, [2057] walks an
+        // event asked for (the first walk after a load counts as asked).
+        const float kDeadRefObjHours = 24f;
+        static EventListener sDeadRefDestroyedListener, sDeadRefDisposedListener;
+        static bool sDeadRefObjDue = true;
+        static float sDeadRefObjLastH;
+        static long sDeadRefObjUs;
 
         static void ApplyDeadRefs()
         {
@@ -128,6 +138,11 @@ namespace Ts3Fixes
             if (AlarmManager.Global == null) return;
             if (sDeadRefAlarm != AlarmHandle.kInvalidHandle) AlarmManager.Global.RemoveAlarm(sDeadRefAlarm);
             sDeadRefTask = ObjectGuid.InvalidObjectGuid;
+            if (sDeadRefDestroyedListener != null) EventTracker.RemoveListener(sDeadRefDestroyedListener);
+            if (sDeadRefDisposedListener != null) EventTracker.RemoveListener(sDeadRefDisposedListener);
+            sDeadRefDestroyedListener = EventTracker.AddListener(EventTypeId.kSimDestroyed, OnDeadRefObjEvent);
+            sDeadRefDisposedListener = EventTracker.AddListener(EventTypeId.kSimDescriptionDisposed, OnDeadRefObjEvent);
+            sDeadRefObjDue = true;
             sDeadRefAlarm = AlarmManager.Global.AddAlarmRepeating(1f, TimeUnit.Hours, delegate { DeadRefSweepStart(); }, 1f, TimeUnit.Hours, "Ts3Fixes.DeadRefSweep", AlarmType.NeverPersisted, null);
         }
 
@@ -153,12 +168,24 @@ namespace Ts3Fixes
             return true;
         }
 
+        // Sim.Destroy (a townie leaving, a reset) and SimDescription.Dispose: the next pass walks the objects.
+        static ListenerAction OnDeadRefObjEvent(Sims3.Gameplay.EventSystem.Event e)
+        {
+            sDeadRefObjDue = true;
+            return ListenerAction.Keep;
+        }
+
         delegate List<object> Gather();
 
         static void DeadRefSweepRun()
         {
             int[] c = PatchCounters();
             if (sDeadRefWatch == null) sDeadRefWatch = StopWatch.Create(StopWatch.TickStyles.Microseconds);
+            List<object> objs = null;
+            Gather objWalk = delegate { if (objs == null) { objs = Objects<GameObject>(); c[2055]++; } return objs; };
+            bool objByEvent = sDeadRefObjDue, objOpen = false;
+            bool objRun = objByEvent || SimClock.ElapsedTime(TimeUnit.Hours) - sDeadRefObjLastH >= kDeadRefObjHours;
+            long objUs0 = 0;
             Gather[] phases = {
                 delegate { return ToObjects(Relationship.sAllRelationships.Keys); },
                 delegate { return AgingStatesToCheck(); },
@@ -169,15 +196,20 @@ namespace Ts3Fixes
                 delegate { List<object> l = Objects<CarOwnable>(); l.AddRange(Objects<BoatOwnable>()); return l; },
                 delegate { return Objects<HorseshoeCourt>(); },
                 delegate { return Objects<Dartboard>(); },
-                delegate { return Objects<GameObject>(); },
-                delegate { return Objects<GameObject>(); },
-                delegate { return Objects<GameObject>(); },
+                objWalk,
+                objWalk,
+                objWalk,
                 delegate { return Objects<Sim>(); },
             };
             try
             {
                 for (int p = 0; p < phases.Length; p++)
                 {
+                    if (p >= 9 && p <= 11) // phases 10-12
+                    {
+                        if (!objRun) continue;
+                        if (p == 9) { sDeadRefObjDue = false; objOpen = true; objUs0 = sDeadRefTotalUs; } // an event from here on asks again
+                    }
                     sDeadRefWatch.Restart();
                     List<object> items = phases[p]();
                     if (p < 3)
@@ -200,12 +232,24 @@ namespace Ts3Fixes
                         sDeadRefWatch.Restart();
                     }
                     if (p == 3) c[392] = sNoOutfitSeen; // #100 end state, counted here so the count is spread too
+                    if (p == 11)
+                    {
+                        objOpen = false;
+                        sDeadRefObjLastH = SimClock.ElapsedTime(TimeUnit.Hours);
+                        sDeadRefObjUs += sDeadRefTotalUs - objUs0;
+                        c[2056] = (int)(sDeadRefObjUs / 1000);
+                        if (objByEvent) c[2057]++;
+                    }
                     Simulator.Sleep(0);
                     if (DeadRefUnsafe(false) != null) { c[410]++; return; }
                 }
                 c[405]++;
             }
-            finally { sDeadRefTask = ObjectGuid.InvalidObjectGuid; }
+            finally
+            {
+                sDeadRefTask = ObjectGuid.InvalidObjectGuid;
+                if (objOpen) sDeadRefObjDue = true; // stopped inside phases 10-12: walk again next pass
+            }
         }
 
         static void DeadRefSliceDone(int[] c)
@@ -907,7 +951,7 @@ namespace Ts3Fixes
                     // swapped method: a delegate, not MethodInfo.Invoke (see EaFixes PrefRemoveFn)
                     return "aging: valid " + ((AgingValidFn)Delegate.CreateDelegate(typeof(AgingValidFn), AgingManager.Singleton, valid))((AgingState)state);
                 }
-                case "sweep": return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
+                case "sweep": sDeadRefObjDue = true; return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
                 case "savepass": return DeadRefSavePass();
                 default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck, owner components: DeadRefOwnerCheck, disposed handlers: DeadRefHandlerCheck, celebrity reactors: DeadRefCelebrityCheck)";
             }

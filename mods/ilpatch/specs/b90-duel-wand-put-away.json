@@ -1,0 +1,58 @@
+{
+  "id": "b90-duel-wand-put-away",
+  "switch": "ilp_duelwandputaway",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.ActorSystems.InteractionQueue::PutDownCarriedObjects(Sims3.Gameplay.Interactions.InteractionInstance)",
+  "ilHashG6": "de475f0258db91a2",
+  "builds": {
+    "ea-1.67": {
+      "size": 1313,
+      "sha256": "6600ce6015a09aad1d29f48b1c2481de39046192ce6f6664355d17fee152b198",
+      "tokens": {
+        "Sims3.Gameplay.Objects.Alchemy.MagicWand": "0x0200290c",
+        "class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.ActorSystems.InteractionQueue::mActor": "0x04007620",
+        "instance void Sims3.Gameplay.Objects.Alchemy.MagicWand::FinishUsing(class Sims3.Gameplay.Actors.Sim)": "0x06011a94"
+      },
+      "patchedSha256": "77f924eb10bea33600ea32271212b9ccb2696de084f77bdfb6fe2ee51203eccc"
+    },
+    "simler90-242": {
+      "size": 1313,
+      "sha256": "66942e580dbd73f76133e4b632b4dee684afdd471aa1aae0fb633dc42ca11767",
+      "tokens": {
+        "Sims3.Gameplay.Objects.Alchemy.MagicWand": "0x02000a01",
+        "class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.ActorSystems.InteractionQueue::mActor": "0x04000f22",
+        "instance void Sims3.Gameplay.Objects.Alchemy.MagicWand::FinishUsing(class Sims3.Gameplay.Actors.Sim)": "0x06007e5a"
+      },
+      "patchedSha256": "7332931b9c8f9ef2d3921c451e9c58163162c1e33a0c3bf242136024edc390d5"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x4BB",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldloc.0"
+      ],
+      "maxStack": 2,
+      "il": [
+        "ldloc.s 10",
+        "isinst Sims3.Gameplay.Objects.Alchemy.MagicWand",
+        "brfalse @0x4BB",
+        "ldloc.s 10",
+        "castclass Sims3.Gameplay.Objects.Alchemy.MagicWand",
+        "ldarg.0",
+        "ldfld class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.ActorSystems.InteractionQueue::mActor",
+        "call instance void Sims3.Gameplay.Objects.Alchemy.MagicWand::FinishUsing(class Sims3.Gameplay.Actors.Sim)",
+        "ret"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_b90_duel_wand_put_away.ps1",
+    "entries": [
+      "b90-wand-left-in-hand-goes-back-to-inventory"
+    ]
+  }
+}

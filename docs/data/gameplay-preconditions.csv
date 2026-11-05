@@ -117,6 +117,7 @@ ride,RareVehicleHandlers,Live,Ride horse,natural,EP Pets; Teen+ rider; horse lik
 reflect_get,ReflectHandlers,Any,none (read),harness,,handler,none
 reflect_set,ReflectHandlers,Any,none (raw field write),cheat,,handler,none
 reflect_call,ReflectHandlers,Any,none (raw script call),cheat,a raw call can do anything: label the repro by what the path does,handler,none
+method_touch,ReflectHandlers,Any,none (calls a method once with an uninitialized receiver so Mono transforms it; the body throws at once),harness,,handler,none
 reflect_members,ReflectHandlers,Any,none (read),harness,,handler,none
 reflect_find_types,ReflectHandlers,Any,none (read),harness,,handler,none
 place_sim,ReproHandlers,Live,none: teleport (testingcheats / MasterController),cheat,,handler,live

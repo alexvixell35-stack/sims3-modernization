@@ -100,13 +100,19 @@ static void P5cObjLog(const char* what, void* obj, LONG ageUs) {
         o[8], o[9], ageUs, g_async.state == A_RUNNING ? "running" : "idle", g_p5cGyN);
 }
 
-static bool P5cDiscHas(DWORD idLo, DWORD idHi) {  // D-X: a queued discourage record of this id (owner thread only)
+static int P5cDiscN(DWORD idLo, DWORD idHi) {  // D-X: queued discourage records of this id (owner thread only)
+    int n = 0;
     for (int i = 0; i < g_discCount; i++) {
         const DiscRec& r = g_disc[(g_discHead + i) % kDiscCap];
-        if (r.idLo == idLo && r.idHi == idHi && r.lock == g_rgLock) return true;
+        if (r.idLo == idLo && r.idHi == idHi && r.lock == g_rgLock) n++;
     }
-    return false;
+    return n;
 }
+// DestroyParkDx (dxMode 1, 2026-11-04): the last P5cPark parked an object that had queued records; RT_DESTROY then skips
+// D-X 1 (it takes +0x918, the job wait) and the records stay queued. At the next drain (before any flush: DiscPoll runs
+// before P5cFlush at the START / READY polls, save and closing drain first) the id is gone, and DiscApplyOne's gone rules
+// apply: Remove, usf disable and pf removes swept by id, Add, usf enable and fp2 dropped, a reused id dropped
+// (discIdMismatch). Owner thread only. g_p5cParkDx is defined in rtsites.cpp, beside P5cPark's declaration.
 
 // rtsites.cpp RT_DESTROY (thiscall svc; idLo, idHi), before D2 and the job wait: true = one reference parked, the destroy runs
 // now; its last Release cannot run before a flush, so nothing the suspended frame or the clone run reads is freed.
@@ -116,9 +122,10 @@ static bool P5cPark(DWORD idLo, DWORD idHi) {
     Ts3nCounters& k = ts3native_counters;
     const bool alone = !(g_p5cJob && g_p5bWin);
     if (alone && !(k.dpReady && k.dpMode == 1 && g_async.state == A_RUNNING && !k.rtClosing)) return false;
-    int kept = -1;
+    int kept = -1, dx = 0;
+    g_p5cParkDx = false;
     if (GetCurrentThreadId() != g_async.owner || g_inInvoke) kept = 2;
-    else if (P5cDiscHas(idLo, idHi)) kept = 0;  // D-X applies its records under the job wait
+    else if ((dx = P5cDiscN(idLo, idHi)) && (k.dxMode != 1 || !k.discSweepMode)) kept = 0;  // D-X applies its records under the job wait; DestroyParkDx leans on the sweep
     else if (g_p5cGyN >= kP5cGrave) kept = 1;   // only this thread parks; a flush only shrinks the list
     void* obj = NULL;
     if (kept < 0) {
@@ -139,6 +146,7 @@ static bool P5cPark(DWORD idLo, DWORD idHi) {
     Max(&k.p5cPendMax, g_p5cGyN);
     InterlockedIncrement(&k.p5cParked);  // every park (graveyard total); dpParked = those outside a P5c window
     if (alone) InterlockedIncrement(&k.dpParked);
+    if (dx) { g_p5cParkDx = true; InterlockedIncrement(&k.dxParked); InterlockedExchangeAdd(&k.dxLeft, dx); }
     CeRec(CE_P5C_PARK, (DWORD)(uintptr_t)obj, idLo, idHi);
     P5cObjLog("park", obj, 0);
     return true;

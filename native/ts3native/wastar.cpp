@@ -19,6 +19,16 @@
 // another record: on Baseline-IP it cleared bit 15 of two references (dz +1 became dz -3), which then sent the A* off the
 // graph. Fix: both index computations become jumps to stubs that skip the write (writer 1: the next portal; writer 2: the
 // next reference) when the pair is not a waypoint of R. One "ea fix: PortalFlagRefs" line for each of the first 8 skips.
+//
+// [EaCrashFixes] LotGridMiss (next version, docs/67 §31.8, PR #212): Isla Paradiso Error 12. The lot routing finalize
+// 0x82B590 clears the lot's "build in progress" byte (lot routing record + 0x8E, 0x631A30 at 0x82B802) only on the way out
+// of its connection pass. A lot with lot+0x4BC == 0 whose centre has no world grid point within 1 m (0x651DA0 false: a save started
+// on another version of the world, or a lot made in play) leaves at 0x82B608 without the clear. The lot then stays "in progress": the
+// finalize runs again about once a second, and the save's per-lot routing writer 0x63C690 fails for it after its forced
+// rebuild (still in progress at 0x63C781) and clears the save context's ok flag. Every later write of that lot entry is
+// then skipped, and World_Save returns false (Error 12). Fix: the je at 0x82B608 keeps its condition but goes to LgStub,
+// which goes on at the game's own exit for a lot with nothing to connect (0x82B7F4, the target of 0x82B659): it clears the
+// byte and returns. The connection pass is skipped as before. One "ea fix: LotGridMiss" line for each of the first 8 lots.
 
 static const DWORD WA_SITE = 0x00676627, WA_BACK = 0x0067662E, WA_SKIP = 0x0067673F;
 static const u8 kWaSite[7] = {0x8B, 0x54, 0x24, 0x1C, 0x0F, 0xB7, 0xC8};  // mov edx,[esp+1Ch]; movzx ecx,ax
@@ -181,6 +191,48 @@ static bool PfPatch(u8* at, const u8* want, size_t n, void (*stub)()) {
     b[0] = 0xE9;
     *(LONG*)(b + 1) = (LONG)((uintptr_t)stub - ((uintptr_t)at + 5));
     return Write(at, b, n);
+}
+
+// --- [EaCrashFixes] LotGridMiss ---
+static const DWORD LG_SITE = 0x0082B608, LG_CLEAR = 0x0082B7F4;
+static const u8 kLgSite[6] = {0x0F, 0x84, 0xF9, 0x01, 0x00, 0x00};   // je 0x82B807 (the exit without the clear)
+static const u8 kLgClear[6] = {0x8B, 0x4B, 0x4C, 0x8B, 0x53, 0x48};  // mov ecx,[ebx+4Ch]; mov edx,[ebx+48h] (the lot id)
+static DWORD g_lgClear = LG_CLEAR;
+static volatile LONG g_lgHits;
+
+static void __stdcall LgHit(const u8* lot) {
+    const LONG n = InterlockedIncrement(&g_lgHits);
+    if (n <= 8 && Readable(lot + 0x48, 8))
+        Log("ea fix: LotGridMiss: lot 0x%08lX%08lX has no world grid point at its centre: its routing build is marked done "
+            "(otherwise the save fails, docs/67 §31.8)", *(const DWORD*)(lot + 0x4C), *(const DWORD*)(lot + 0x48));
+}
+
+// ebx = the lot (checked non-null at 0x82B5C1); the clear path reads only ebx and esi.
+static __declspec(naked) void LgStub() {
+    __asm {
+        pushad
+        push ebx
+        call LgHit
+        popad
+        jmp dword ptr [g_lgClear]
+    }
+}
+
+// The je's rel32 at `at` + 2 is pointed at LgStub; the condition and the fall-through stay the game's.
+static bool LgPatch(u8* at) {
+    if (!Matches(at, kLgSite, sizeof(kLgSite))) return false;
+    const LONG rel = (LONG)((uintptr_t)&LgStub - ((uintptr_t)at + 6));
+    return Write(at + 2, &rel, 4);
+}
+
+static bool ApplyLotGridMiss(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"EaCrashFixes", L"LotGridMiss", 0, ini)) return false;
+    if (!Matches((u8*)(uintptr_t)LG_CLEAR, kLgClear, sizeof(kLgClear)) || !LgPatch((u8*)(uintptr_t)LG_SITE)) {
+        Log("SKIP ea fix: LotGridMiss: bytes at 0x%08X / 0x%08X differ (another mod or a probe build owns them): not installed", LG_SITE, LG_CLEAR);
+        return false;
+    }
+    Log("OK   ea fix: LotGridMiss (docs/67 §31.8): a lot routing finalize with no world grid point clears its build flag (0x%08X)", LG_SITE);
+    return true;  // keep the log open for the hit lines
 }
 
 static bool ApplyPortalFlagRefs(const wchar_t* ini) {

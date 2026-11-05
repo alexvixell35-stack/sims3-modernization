@@ -1,0 +1,77 @@
+{
+  "id": "b68-apple-bobbing-late-joiner",
+  "switch": "ilp_applebobbinglatejoiner",
+  "counter": null,
+  "assembly": "Sims3GameplayObjects",
+  "method": "Sims3.Gameplay.Objects.Miscellaneous.AppleBobbingContestTank+ParticipateInContest::Loop(Sims3.SimIFace.StateMachineClient,Sims3.Gameplay.Interactions.InteractionInstance+LoopData)",
+  "ilHashG6": "1da31607b2ea1577",
+  "builds": {
+    "ea-1.67": {
+      "size": 542,
+      "sha256": "8af516e0e05ea6ee02ca2ff06dd6df4c5c82ae3daab11fca54148778846f97fb",
+      "tokens": {
+        "bool Sims3.Gameplay.Objects.Miscellaneous.AppleBobbingContestTank/ParticipateInContest::mEnteredStateMachine": "0x040039b1"
+      },
+      "patchedSha256": "0c76864687fb23b37c4ad68ee96de8daef7b17fc94fffd66ab62197c7caf1b4e"
+    },
+    "simler90-242": {
+      "size": 542,
+      "sha256": "1b4dd5654aec260dedc143eaf84a4f34896cafe65789b7c88085aae9f99da521",
+      "tokens": {
+        "bool Sims3.Gameplay.Objects.Miscellaneous.AppleBobbingContestTank/ParticipateInContest::mEnteredStateMachine": "0x04004ef6"
+      },
+      "patchedSha256": "62dab9464a9a2f75ac36b6e8e262bd3a33cef3c215cb2fc94a2dca2dfe7a8a72"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x1AE",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ret"
+      ],
+      "maxStack": 2,
+      "il": [
+        "ldloc.0",
+        "ldc.i4.3",
+        "beq @0x1B3"
+      ]
+    },
+    {
+      "at": "0x1B3",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldarg.0"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldarg.0",
+        "ldfld bool Sims3.Gameplay.Objects.Miscellaneous.AppleBobbingContestTank/ParticipateInContest::mEnteredStateMachine",
+        "brfalse @0x10D"
+      ]
+    },
+    {
+      "at": "0x205",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldarg.0"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldarg.0",
+        "ldfld bool Sims3.Gameplay.Objects.Miscellaneous.AppleBobbingContestTank/ParticipateInContest::mEnteredStateMachine",
+        "brfalse @0x210"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zzzzzzzzzzzzzzzzzzzzzzzz_b68_apple_bobbing_late_joiner.ps1",
+    "entries": [
+      "b68-apple-bobbing-active-without-state-machine-gets-ready-first",
+      "b68-apple-bobbing-ended-without-state-machine-skips-exit-animation"
+    ]
+  }
+}

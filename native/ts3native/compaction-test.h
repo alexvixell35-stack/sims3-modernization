@@ -34,6 +34,16 @@ static void TestCompaction() {
     assert(!CpVerdict(o, 1, 320, 256, 0, false, 100, H, true) && o.noticeDue);
     o.noticeDue = false, o.noticeGiven = true;
     assert(!CpVerdict(o, 1, 320, 256, 0, false, 100, H, true) && !o.noticeDue);
+    // the save rule: this task's save (after op 7), result 0 = saved, within a minute; 1 and 12 are failed saves
+    CpState v0;
+    v0.saveSnap = 4, v0.lastSaveN = 5, v0.lastSaveR = 0, v0.lastSaveEnd = H;
+    assert(CpSaveOk(v0, H + 59999) && !CpSaveOk(v0, H + 60000));
+    v0.lastSaveR = 1;
+    assert(!CpSaveOk(v0, H));
+    v0.lastSaveR = 12;
+    assert(!CpSaveOk(v0, H));
+    v0.lastSaveR = 0, v0.lastSaveN = 4;  // the save before op 7
+    assert(!CpSaveOk(v0, H));
     // op 7 value bits: largest free at the verdict and the gain, bit by bit; mode / route answers
     const int m0 = g_cpMode, r0 = g_cpRoute;
     const CpState c0 = g_cp;

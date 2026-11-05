@@ -1,0 +1,75 @@
+{
+  "note": "docs/528: repro of the datingprofile fix (online dating records made for Sims who never made a profile, issue #175), off then on in one load. Needs a core without the b98 IL patch (simler90's UPDATE242 core without our patches in Mods/Packages): the player's core carries the same fix, so with it the off arm sees no bug. Job 1 with AutShadow on, job 2 with the release defaults; both have AutShadow's managed H4 hook (installed at every start), which carries the DidSimsMeetOnline part.",
+  "jobs": [
+    {
+      "id": "bp-dating-profile-check",
+      "note": "Correctness (6 min), AutShadow on (Mode 0). Pass: the repro's steps pass (off: records added 2, both read as a profile; on: records added 0, no profile for any empty record, the check's records removed), datingprofile_no_profile >= 1 and datingprofile_no_record >= 1.",
+      "asi": "game-copy/ts3native.asi.ca8fc13",
+      "pinReason": "main ca8fc13 CI build (the AutShadow job needs main's [AutShadow]); a ts3fixes-only correctness test",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 0,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 0,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50
+      },
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "dating-profile-check",
+          "fixesRequire": "datingprofile_no_profile>=1,datingprofile_no_record>=1",
+          "fixesOn": "autshadow"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14,
+      "earlyGates": [
+        {
+          "afterSec": 180,
+          "counter": "fixes:datingprofile_no_record",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm changed nothing 3 min in: hook missing or the check failed"
+        }
+      ]
+    },
+    {
+      "id": "bp-dating-profile-noaut",
+      "note": "Correctness (6 min), release defaults (native AutShadow off; the managed H4 hook is still installed). Pass: the repro's steps pass (off: records added 2, both read as a profile; on: records added 0, no profile for any empty record), datingprofile_no_profile >= 1.",
+      "asi": "game-copy/ts3native.asi.ca8fc13",
+      "pinReason": "main ca8fc13 CI build (the AutShadow job needs main's [AutShadow]); a ts3fixes-only correctness test",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "dating-profile-check",
+          "fixesRequire": "datingprofile_no_profile>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14,
+      "earlyGates": [
+        {
+          "afterSec": 180,
+          "counter": "fixes:datingprofile_no_profile",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm changed nothing 3 min in: hook missing or the check failed"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": true
+}

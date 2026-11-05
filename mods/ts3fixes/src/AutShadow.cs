@@ -1691,12 +1691,24 @@ namespace Ts3Fixes
         {
             public static bool MetHook(ulong a, ulong b)
             {
-                if (!OnWorker()) return MetOrig(a, b);
+                if (!OnWorker()) return ShortcutOn("datingprofile") ? MetPeek(a, b) : MetOrig(a, b);
                 if (!OnlineDatingManager.IsActive) return false;
                 IDictionary recs = fDatingRecords.GetValue(OnlineDatingManager.Instance) as IDictionary;
                 return recs != null && (Accepted(recs, a, b) || Accepted(recs, b, a));
             }
             public static bool MetOrig(ulong a, ulong b) { return false; } // receives OnlineDatingManager.DidSimsMeetOnline's original header
+
+            // datingprofile (DatingProfile.cs, docs/528): the sim thread's answer without EA's GetRecordForSim, which adds an
+            // empty record for each Sim it is asked about. EA's body answers false for a Sim with no accepted dates, as a
+            // missing record does here. [2052] calls where EA's body would have made a record.
+            static bool MetPeek(ulong a, ulong b)
+            {
+                if (!OnlineDatingManager.IsActive) return false;
+                IDictionary recs = fDatingRecords.GetValue(OnlineDatingManager.Instance) as IDictionary;
+                if (recs == null) return false;
+                if (!recs.Contains(a) || !recs.Contains(b)) PatchCounters()[2052]++;
+                return Accepted(recs, a, b) || Accepted(recs, b, a);
+            }
 
             // I-122-37: the game never calls IDictionary.Contains/indexer on this dictionary type; run them once on the sim thread.
             // Dictionary<ulong, OnlineDatingRecord>'s IDictionary.Add refuses a null value ("not of type", mono-cost3) and its

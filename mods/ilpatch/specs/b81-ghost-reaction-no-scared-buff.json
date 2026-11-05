@@ -1,0 +1,43 @@
+{
+  "id": "b81-ghost-reaction-no-scared-buff",
+  "switch": "ilp_ghostreactionnoscaredbuff",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.Actors.Sim+GhostReaction::Run()",
+  "ilHashG6": "a6542e659b12c622",
+  "builds": {
+    "ea-1.67": {
+      "size": 462,
+      "sha256": "4b6e3fe0f354c83b23b92af6e358f3c197af7e353c0939106debdc05a2142760",
+      "tokens": {},
+      "patchedSha256": "70254907105a40c866f6827b4f31fcff77c1e96dad79eded005c40bcc5c05309"
+    },
+    "simler90-242": {
+      "size": 462,
+      "sha256": "30b28c186557ffccfb88c99930612ad15fa30cd6d33d51eebd5a67d44ebe2f18",
+      "tokens": {},
+      "patchedSha256": "2307d659c618aec2b552d87326d2986958c802c78944f778df056037da6483f6"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x87",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldloc.0"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldloc.0",
+        "brfalse @0x93"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_b81_ghost_reaction_no_scared_buff.ps1",
+    "entries": [
+      "b81-ghost-reaction-scared-buff-may-be-missing"
+    ]
+  }
+}

@@ -91,7 +91,7 @@
       "dxvk-conf"
     ],
     "default": true,
-    "notes": "Zlib. Published 2026-09-15. Built-in TS3W.exe profile spoofs GeForce GTX 580 (10de:1080) [verified config.cpp], so no GraphicsRules edits. Leave d3d9.textureMemory at default."
+    "notes": "Zlib. Published 2026-09-15. Built-in TS3W.exe profile spoofs GeForce GTX 580 (10de:1080) [verified config.cpp], so no GraphicsRules edits. d3d9.textureMemory stays at DXVK's default unless the optional dxvk-texture-memory fix sets it."
   },
   {
     "id": "dxvk-conf",
@@ -1720,6 +1720,58 @@
       "mb": 200
     },
     "notes": "Experiment, not a fix. Patches GraphicsRules.sgr `setProp $ResourceGroup CacheBudget` (Default.ini [Resources] CacheBudget is ignored by the game [verified 2026-10-12: all 20 copies at 50 MB, /rescache still 200]). Sets the generic ResourceCache budget (docs/08 §2.5; EA default 209,715,200 B = 200 MB). Value from --cache-budget-mb (0..476), else config.mb. Phase 0 runs 200, 50 and 0; what 0 does (no caching of unreferenced resources, or unbounded) is [to measure]: watch /rescache. Re-installing with another value keeps the first backup; uninstall restores EA's file."
+  },
+  {
+    "id": "cache-overflow-budget",
+    "name": "GraphicsRules.sgr ResourceCache CacheOverflowBudget (fewer texture reloads)",
+    "author": "sims-3-modernization",
+    "category": "config",
+    "version": null,
+    "source": {
+      "kind": "direct",
+      "url": null
+    },
+    "sha256": null,
+    "conflictsWith": [],
+    "requires": [],
+    "default": false,
+    "install": {
+      "target": "bin",
+      "files": [
+        "GraphicsRules.sgr"
+      ]
+    },
+    "config": {
+      "mb": 64
+    },
+    "notes": "Optional. Adds `setProp $ResourceGroup CacheOverflowBudget <mb MB>` after the CacheBudget line (EA's file has none, so the cold list of released resources stays ~10 MB and the game unpacks the same textures again: 68% of decompressed bytes on an old save were repeats). Old-save A/B 2026-11-04, 3+3 runs of 8 min (ABBAAB), 64 MB vs EA: cold list ~64 MB, decompressed bytes -15%, repeats -21%, frame median 20.7 -> 19.7 ms (all 3 B runs below all 3 A runs), p95 60.5 -> 57.0 ms, frames over 50 ms 7.9% -> 6.7%; cost ~70 MB less free address space (min 928 -> 859 MB). Only 64 was measured. Shares GraphicsRules.sgr with graphicsrules-vram and cache-budget: uninstall restores the copy taken when this fix was installed, so uninstall in reverse install order. Steam \"verify files\" reverts it. With dxvk-texture-memory and [ThreadStack] 512: 30- and 60-min runs passed (docs/data/results/2026-11-05-alexvixell35-stack-memory-fixes-long-runs.md)."
+  },
+  {
+    "id": "dxvk-texture-memory",
+    "name": "dxvk.conf d3d9.textureMemory 64 (more free address space)",
+    "author": "sims-3-modernization",
+    "category": "config",
+    "version": null,
+    "source": {
+      "kind": "direct",
+      "url": null
+    },
+    "sha256": null,
+    "conflictsWith": [],
+    "requires": [
+      "dxvk-conf"
+    ],
+    "default": false,
+    "install": {
+      "target": "bin",
+      "files": [
+        "dxvk.conf"
+      ]
+    },
+    "config": {
+      "mb": 64
+    },
+    "notes": "Optional. Sets `d3d9.textureMemory = <mb>` in dxvk.conf (DXVK default 100): the virtual memory DXVK keeps mapped for locked D3D9 textures. DXVK's dxvk.conf says it does not change real memory use or texture quality. Old-save runs 2026-11-04, 8 min each, 2 runs at 64 vs 3 at the default: free address space min 1036 vs 932 MB (mean), mapped max 125-130 vs 149-155 MB, frame median and frames over 50 ms unchanged (same-time pair 20.80 vs 21.29 ms, 6.31% vs 6.34%). A third run at 64 hung in world load under ApexRadiance, the same hang seen at the default the same day. Only 64 was measured. Install after dxvk-conf: that fix rewrites dxvk.conf whole. With cache-overflow-budget and [ThreadStack] 512: 30- and 60-min runs passed (docs/data/results/2026-11-05-alexvixell35-stack-memory-fixes-long-runs.md)."
   },
   {
     "id": "user-cc",

@@ -142,6 +142,7 @@ static void DiscOnDestroy(DWORD idLo, DWORD idHi, bool canWait);
 static DWORD CeDestroyObj(DWORD idLo, DWORD idHi);  // discourage.cpp: docs/186 §8 our-events ring
 static bool P5cPark(DWORD idLo, DWORD idHi);  // p5c.cpp: a destroy in a FreeLock window parks one reference and runs
 static void P5cFlush();                       // p5c.cpp: parked references released (no job running)
+static bool g_p5cParkDx;                      // p5c.cpp P5cPark: the last park had queued discourage records (DestroyParkDx)
 
 // 1 = skip the site's body and return to its caller (only the routing debug frame, a plain `ret` function)
 static int __cdecl RtEnter(int i, DWORD* slot) {
@@ -223,7 +224,7 @@ static int __cdecl RtEnter(int i, DWORD* slot) {
                 CeRec(CE_DESTROY_RUN, ceObj, slot[1], (DWORD)(k.vfRtDestroyWaitUs - w0));
                 if (!waited) { InterlockedIncrement(&k.vfRtDestroyInInvoke); note = "destroy inside a job callback"; }
                 // D-X (docs/84 §7.2): thiscall(svc; idLo, idHi), ret 8 [verified 0x939420..0x939506]: slot[1], slot[2]
-                DiscOnDestroy(slot[1], slot[2], waited);
+                if (!(parked && g_p5cParkDx)) DiscOnDestroy(slot[1], slot[2], waited);  // DestroyParkDx: records stay queued
             }
             break;
         }
@@ -259,7 +260,7 @@ static int __cdecl RtEnter(int i, DWORD* slot) {
         case RT_STEER:  // outermost only: a nested call keeps the outer caller as the key
             if (!t_steerRet) {
                 const DWORD prev = t_steerRet;
-                t_steerRet = t_avSite ? 0x00846D21 : VfRealRet(slot);  // AvSite's own return would key it (0x6F28F468)
+                t_steerRet = t_avSite ? 0x00846D21 : t_stubKey ? t_stubKey : VfRealRet(slot);  // a stub's own return would key it (0x6F28F468)
                 if (!RgPush(t, slot, 1, RG_REL_STEER, (void*)(uintptr_t)prev)) t_steerRet = prev;
             }
             break;

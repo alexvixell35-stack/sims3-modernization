@@ -133,6 +133,8 @@ struct RtoIn {
 #pragma warning(pop)
 static __declspec(align(16)) u8 g_rtoCopy[2][0x100];  // owner thread only (0x82E340's frame holds the copy in < 0x80 bytes)
 static SrCtx g_rtoQ, g_rtoG;                           // owner thread only: the last clone's query and gather sets
+static bool g_rtoTailPend;                             // owner thread only: the first check left the physics tail to phase P
+static float g_rtoTailGoal[2];                         // ... and its goal (x, z)
 
 static void RtoMerge(DWORD* r, LONG code, DWORD lo, DWORD hi) {  // 0x829250: raise to the higher code, its id
     if (code > (LONG)r[0]) r[0] = code, r[2] = lo, r[3] = hi;
@@ -330,9 +332,12 @@ static int RtoBlock(const RtoIn& in, const u8* entry, DWORD* res, const float* g
         if (b30 && (t == 0x13 || t == 0x18)) continue;
         RtoMerge(res, 7, 0, 0);
     }
-    // shortcut: the physics samples after a clean footprint pass (0x82EB49..0x82ED0D) are not cloned; the game's call runs
-    // (count rtoFb[8]; clone them with the exact SSE path if the shadow shows a large share)
-    if (!res[0] && !b34 && o4) return RTO_WHY_TAIL;
+    // the physics samples after a clean footprint pass (0x82EB49..0x82ED0D): with rtoTailMode, RtoTail runs them after QL is
+    // released (phase P); else the game's call runs (rtoFb[8])
+    if (!res[0] && !b34 && o4) {
+        if (!ts3native_counters.rtoTailMode) return RTO_WHY_TAIL;
+        g_rtoTailPend = true, g_rtoTailGoal[0] = goal[0], g_rtoTailGoal[1] = goal[1];
+    }
     return SR_OK;
 }
 
@@ -525,11 +530,61 @@ template <class F> static int RtoLocked(bool job, F body) {
     return why;
 }
 
+// Phase P (docs/140 §5.3, no lock): BlockerCheck2d's physics tail 0x82EB49..0x82ED0D of the first check [verified disassembly
+// 2026-11-04]. The physics world 0x686A90 ([0x11CF490]) and its scene (+8, 0xC93970); step d = ((goal x, start y, goal z,
+// goal x) - start) * 0.25 [0x106E8A8]; samples i = 0..4 at i * d + start (the game's SSE lanes and order); each a range query
+// 0x682590 (scene, point, 0.15 [0x106B4B4], 0x10060, &vector "Physics/RangeResult") that returns 1; the first id that 0x82A780
+// calls a blocker and that is neither the target's (+8 / +0xC) nor the ignore id (a8, a9) answers code 1 with that id; every
+// vector freed (0x4E3F70); no sample after a hit. Run only when the merged answer is still code 0: the second check gives 0
+// or 4 and 4 replaces the tail's 1 with id 0 (0x829250), so running the tail after the second check gives the game's answer.
+// The physics calls need no +0x918 (docs/140 §3, store scan) and take no QL, so they run after QL shared is released.
+typedef void*(__cdecl* RtoPhysFn)();
+typedef u8(__fastcall* RtoRangeFn)(void* scene, void* edx, const float* pt, float r, DWORD flags, void* vec);  // ret 0x10
+typedef u8(__cdecl* RtoBlockerFn)(DWORD lo, DWORD hi);
+typedef void(__cdecl* RtoMemFreeFn)(void* p);
+static RtoPhysFn g_rtoPhys = (RtoPhysFn)(uintptr_t)0x00686A90;
+static RtoRangeFn g_rtoRange = (RtoRangeFn)(uintptr_t)0x00682590;
+static RtoBlockerFn g_rtoBlocker = (RtoBlockerFn)(uintptr_t)0x0082A780;
+static RtoMemFreeFn g_rtoMemFree = (RtoMemFreeFn)(uintptr_t)0x004E3F70;
+static const char* const RTO_RANGE_NAME = (const char*)(uintptr_t)0x01003D7C;  // "Physics/RangeResult", the vector's allocator name
+struct RtoVec { DWORD *b, *e, *cap; const char* name; };
+static void RtoTail(const RtoIn& in, DWORD* res) {
+    Ts3nCounters& k = ts3native_counters;
+    InterlockedIncrement(&k.rtoTailRuns);
+    const u8* phys = (const u8*)g_rtoPhys();
+    void* scene = phys ? *(void* const*)(phys + 8) : NULL;
+    if (!scene) return;
+    const __m128 s = _mm_load_ps(in.point);
+    __declspec(align(16)) float g[4] = {g_rtoTailGoal[0], in.point[1], g_rtoTailGoal[1], g_rtoTailGoal[0]};
+    const __m128 d = _mm_mul_ps(_mm_sub_ps(_mm_load_ps(g), s), _mm_set1_ps(0.25f));
+    for (DWORD i = 0; i <= 4; i++) {
+        __declspec(align(16)) float pt[4];
+        _mm_store_ps(pt, _mm_add_ps(_mm_mul_ps(_mm_set1_ps((float)i), d), s));
+        RtoVec v = {NULL, NULL, NULL, RTO_RANGE_NAME};
+        bool hit = false;
+        if (g_rtoRange(scene, NULL, pt, 0.15f, 0x10060, &v) == 1) {
+            const DWORD n = (DWORD)(((const u8*)v.e - (const u8*)v.b) >> 3);
+            for (DWORD j = 0; j < n && !hit; j++) {
+                const DWORD lo = v.b[2 * j], hi = v.b[2 * j + 1];
+                if (!g_rtoBlocker(lo, hi)) continue;
+                if (in.target && lo == *(const DWORD*)(in.target + 8) && hi == *(const DWORD*)(in.target + 0xC)) continue;
+                if (lo == in.a8 && hi == in.a9) continue;
+                if ((LONG)res[0] < 1) res[0] = 1, res[2] = lo, res[3] = hi;
+                hit = true;
+            }
+        }
+        if (v.b) g_rtoMemFree(v.b);
+        if (hit) { InterlockedIncrement(&k.rtoTailHits); return; }
+    }
+}
+
 static int RtoRun(bool job, RtoIn& in, DWORD* res) {
     res[0] = res[2] = res[3] = 0;
+    g_rtoTailPend = false;
     bool done;
     int why = RtoPhase1(job, in, &done);
     if (!why && !done) why = RtoLocked(job, [&]() { return RtoPhaseR(in, res); });
+    if (!why && g_rtoTailPend && !res[0]) RtoTail(in, res);  // phase P, QL released
     RtoFree(in);
     return why;
 }
@@ -618,6 +673,14 @@ static DWORD* __fastcall RtoCallStub(u8* world, void* edx, DWORD* out, u8* sim, 
         return out;
     }
     if (st != RTO_SKIP && st != RTO_SHADOW) return g_rtoRoute(world, edx, out, sim, target, point, opts, a6, a7, a8, a9, a10);
+    // no Sim: 0x830340 answers code 0 at 0x830352 and reads nothing [verified disassembly]; the clone would read sim + 0x2C0
+    // (AV in a 2026-11-04 soak). Shadow: the lock is held, the game answers.
+    if (!sim) {
+        if (st == RTO_SHADOW) return g_rtoRoute(world, edx, out, sim, target, point, opts, a6, a7, a8, a9, a10);
+        out[0] = out[2] = out[3] = 0;
+        t_rtoSt[lvl] = RTO_ANSWERED;
+        return out;
+    }
     static RtoIn in;  // owner thread only
     in.world = world, in.sim = sim, in.target = target, in.point = point, in.opts = opts;
     in.a6 = a6, in.a7 = a7, in.a8 = a8, in.a9 = a9, in.a10 = a10;
@@ -734,6 +797,7 @@ static void InstallRouteToObjRO(const wchar_t* ini) {
     if (k.slReady) k.rtoReady |= 8;
     k.rtoMode = Clamp(GetPrivateProfileIntW(L"RouteToObjRO", L"Mode", 1, ini), 0, 1);
     k.rtoShadow = Clamp(GetPrivateProfileIntW(L"RouteToObjRO", L"Shadow", 0, ini), 0, 1);
-    Log("OK   route-to-object RO: sites 0x831568 / 0x831633 / 0x8316FF (ready %ld, Mode=%ld Shadow=%ld; SH %s)", k.rtoReady,
-        k.rtoMode, k.rtoShadow, k.slReady ? "on" : "OFF: slot targets fall back");
+    k.rtoTailMode = Clamp(GetPrivateProfileIntW(L"RouteToObjRO", L"Tail", 0, ini), 0, 1);
+    Log("OK   route-to-object RO: sites 0x831568 / 0x831633 / 0x8316FF (ready %ld, Mode=%ld Shadow=%ld Tail=%ld; SH %s)", k.rtoReady,
+        k.rtoMode, k.rtoShadow, k.rtoTailMode, k.slReady ? "on" : "OFF: slot targets fall back");
 }

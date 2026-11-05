@@ -23,9 +23,9 @@ static void TestUnseenFallbackSites() {
                       offsetof(Ts3nCounters, ufcMaxWaitUs) == 0x5418 && offsetof(Ts3nCounters, ufcStale) == 0x5420 &&
                       offsetof(Ts3nCounters, ufEffCutUs) == 0x5424 && offsetof(Ts3nCounters, ufOverSamples) == 0x543C &&
                       offsetof(Ts3nCounters, ufwMode) == 0x5440 && offsetof(Ts3nCounters, ufwRelease) == 0x545C &&
-                      offsetof(Ts3nCounters, ufwFull) == 0x5470 && offsetof(Ts3nCounters, ufcBb) == 0x5474 && sizeof(Ts3nCounters) == 5836 * 4,
+                      offsetof(Ts3nCounters, ufwFull) == 0x5470 && offsetof(Ts3nCounters, ufcBb) == 0x5474 && sizeof(Ts3nCounters) == 5901 * 4,
                   "counters v139 / v140 layout after v138 (docs/registry.md)");
-    assert(k.version == 163);
+    assert(k.version == 907);
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     // save and fake
     const UnCompFn compSave = g_unComp;

@@ -39,7 +39,7 @@ export const EXEMPT: Record<string, string> = {
   mintcall: 'Mono speed, not a hitch fix: no repro makes script calls more frequent than plain play; correctness by mintcall-verify.json (CallPath=2) and the monohost selftests, timing by the plain-play pairs in mintcall-ab.json (docs/139 §8)',
   workerwait: 'worker CPU, not a hitch fix: no repro makes the job-start wait more likely than plain play; measured by the off/on plain-play pairs in route-worker-wait.json, correctness by the selftest TestRouteWorkerWait (docs/203 §6)',
   steershadow: SHADOW, lotfdshadow: SHADOW, obstructedshadow: SHADOW, slotenabledshadow: SHADOW, avoidshadow: SHADOW,
-  gate0shadow: SHADOW, routetoobjroshadow: SHADOW, placementroshadow: SHADOW, goalvalidroshadow: SHADOW, idlecheckroshadow: SHADOW,
+  gate0shadow: SHADOW, routetoobjroshadow: SHADOW, placementroshadow: SHADOW, goalvalidroshadow: SHADOW, idlecheckroshadow: SHADOW, idlecheckcshadow: SHADOW,
   routesnapgate: 'dead end for now: P5b ReleaseGates (lends +0x918 to gate reads), with routesnaprel in the P5 path dropped from v0.1.5 and parked (docs/136 §3.8, docs/94 §22.10)',
   spatialcache: 'dead end: kSpatialCache A/B 25.7 vs 27.4 it/s, hitches 5.55 vs 4.75 (2026-10-13 +5% worse), PLAN.md results table',
   stuckcheckbusy: 'dead end: kRoutableCache + kStuckCheckBusy A/B 38.0 vs 44.3 it/s, 0 busy skipped, FAIL (PLAN.md results table); superseded by stuckcheckasync',

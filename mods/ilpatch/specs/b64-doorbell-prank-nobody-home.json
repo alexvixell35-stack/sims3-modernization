@@ -1,0 +1,83 @@
+{
+  "id": "b64-doorbell-prank-nobody-home",
+  "switch": "ilp_doorbellpranknobodyhome",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.Abstracts.Door+PrankDoorbellDitch::Run()",
+  "ilHashG6": "c2b1f7a41a5f5153",
+  "builds": {
+    "ea-1.67": {
+      "size": 630,
+      "sha256": "2fb1e538cdeb7318d430c8629f98b1623005df3b8150e06abefa3b984fafbf55",
+      "tokens": {
+        "instance class Sims3.Gameplay.CAS.Household Sims3.Gameplay.Core.Lot::get_Household()": "0x0600652f",
+        "instance int32 class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.Actors.Sim>::get_Count()": "0x0a000037"
+      },
+      "patchedSha256": "bb45f00246bad80567fe37669a84e4b82ee27dbace0f676449d580741577082d"
+    },
+    "simler90-242": {
+      "size": 630,
+      "sha256": "28eff401673a826a345984f6a7ec74a6306a2eede5f698e6b8b46ae2e31a85c8",
+      "tokens": {
+        "instance class Sims3.Gameplay.CAS.Household Sims3.Gameplay.Core.Lot::get_Household()": "0x0600052b",
+        "instance int32 class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.Actors.Sim>::get_Count()": "0x0a0001d6"
+      },
+      "patchedSha256": "e7e6f1c506cdc9fb5058149278e0e9584ee206f372294d5b770acc885f916584"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x12A",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldloc.0"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldloc.0",
+        "callvirt instance class Sims3.Gameplay.CAS.Household Sims3.Gameplay.Core.Lot::get_Household()",
+        "brfalse @0x172"
+      ]
+    },
+    {
+      "at": "0x172",
+      "mode": "replace",
+      "entry": "incoming",
+      "expect": [
+        "ldloc.s"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldnull"
+      ]
+    },
+    {
+      "at": "0x174",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "call"
+      ],
+      "maxStack": 0,
+      "il": [
+        "stloc.s 6",
+        "ldloc.s 4",
+        "callvirt instance int32 class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.Actors.Sim>::get_Count()",
+        "brtrue B64_PICK",
+        "br @0x17B",
+        "B64_PICK: ldloc.s 4"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zzzzzzzzzzzzzzzzzzzzz_b64_doorbell_prank_nobody_home.ps1",
+    "entries": [
+      "b64-prank-household-gone",
+      "b64-prank-nobody-home"
+    ],
+    "droppedCounters": [
+      "sB64NobodyHome"
+    ]
+  }
+}

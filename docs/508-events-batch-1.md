@@ -1,6 +1,6 @@
 # 508. Events batch 1: photo booth sessions, egg hunt eggs, graduation waits (`photosession`, `eggspot`, `graduationtable`)
 
-Contributor doc (range 500-599). Three ts3fixes switches (off by default), counters 2026-2030, ledger §906. They port three
+Contributor doc (range 500-599). Three ts3fixes switches (on by default), counters 2026-2030, ledger §906. They port three
 fixes of a player's core mod (Builds 16 + 97, 73 and 18) to whole-method wraps, so EA's code runs as it is. Parts of those
 builds that need a change inside an EA method are not ported (§4, candidates for the docs/506 IL patcher). Status: static,
 self-test and repros written; game run in §5.

@@ -42142,22 +42142,48 @@
     "note": "UNVERIFIED (static only, 2026-10-30): never run. job ini: [Compaction] Enabled=1, ThresholdMB=4000 (always under: forces the verdict), MinMinutes=0. Saves Compaction-BP (new), the compaction reloads it (direct route), then 2 min of play and one more Save over Compaction-BP (not armed again: verdict no). Read: ts3native.log \"compaction:\" lines (verdict COMPACT, begin #1, done #1, +N min), \"ts3fixes: compaction: restored ...\" and the compaction_* counters (requeued vs requeue_skipped vs not_restorable).",
     "steps": [
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save, Sims get queues to restore"
+      },
+      {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-BP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
       },
       {
         "cmd": "time",
         "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 600
+        },
+        "note": "the opt-in compaction saves, unloads and reloads at once (no offer): no agent reply until the world is back, so the time call itself may fail (optional) and the until poll waits; the refused-state counters show in the compaction_ step below",
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "until": {
           "cmd": "patches",
+          "show": "compaction_",
           "all": [
             {
               "path": "compaction_restored",
@@ -42189,12 +42215,22 @@
         "note": "back in live mode on the compacted file"
       },
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
+      },
+      {
         "cmd": "time",
         "waitS": 120,
         "note": "2 min of autopilot play after the reload (restored queues run, game alive)"
       },
       {
         "cmd": "patches",
+        "show": "compaction_",
         "note": "compaction_* counters into the job log"
       },
       {
@@ -42215,7 +42251,9 @@
       },
       {
         "cmd": "patches",
-        "note": "compaction_* counters into the job log"
+        "show": "compaction_",
+        "note": "compaction_* counters into the job log Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       }
     ]
   },
@@ -42231,22 +42269,35 @@
         "args": {
           "enabled": true,
           "speed": "ultra",
-          "dialogs": false
+          "dialogs": true
         },
-        "note": "our dialog is answered by the step below"
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save; our offer is left to the step below"
       },
       {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": false
+        },
+        "note": "the offer after this save is answered by the step below, not by the autopilot"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-BP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "show": "compaction_",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       },
       {
         "cmd": "time",
@@ -42273,7 +42324,30 @@
       {
         "cmd": "time",
         "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 600
+        },
+        "note": "the compaction saves and reloads (~20 s plus the load): no agent reply until the world is back"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": true
+        },
+        "note": "the welcome dialog comes again after the reload (the save was written before its alarm)"
+      },
+      {
+        "cmd": "time",
+        "until": {
           "cmd": "patches",
+          "show": "compaction_",
           "all": [
             {
               "path": "compaction_restored",
@@ -42305,12 +42379,22 @@
         "note": "back in live mode on the compacted file"
       },
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
+      },
+      {
         "cmd": "time",
         "waitS": 120,
         "note": "2 min of autopilot play after the reload (restored queues run, game alive)"
       },
       {
         "cmd": "patches",
+        "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
@@ -42327,21 +42411,35 @@
         "args": {
           "enabled": true,
           "speed": "ultra",
-          "dialogs": false
-        }
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save; our offer is left to the step below"
       },
       {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": false
+        },
+        "note": "the offer after this save is answered by the step below, not by the autopilot"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-BP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "show": "compaction_",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       },
       {
         "cmd": "time",
@@ -42365,9 +42463,17 @@
         "waitS": 5
       },
       {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": true
+        },
+        "note": "the welcome dialog comes again after the reload (the save was written before its alarm)"
+      },
+      {
         "cmd": "time",
         "until": {
           "cmd": "patches",
+          "show": "compaction_",
           "all": [
             {
               "path": "compaction_declined",
@@ -42418,80 +42524,7 @@
       },
       {
         "cmd": "patches",
-        "note": "compaction_* counters into the job log"
-      }
-    ]
-  },
-  {
-    "id": "compaction-refused-build-bp",
-    "bug": "docs/204 Compaction refused by state on Bridgeport: a save made in Build mode never compacts (EA refuses Quit to Main Menu there too)",
-    "fix": "ts3native 0.36.128 [Compaction] + ts3fixes Compaction.cs CpStateOk",
-    "save": "Baseline-BP-Spring",
-    "note": "UNVERIFIED (static only, 2026-10-30): never run. job ini: [Compaction] Enabled=1, ThresholdMB=4000 (always under: forces the verdict), MinMinutes=0. Read: compaction_refused_state >= 1, compaction_started 0, no \"compaction: verdict\" line for the build-mode save (the verdict is not asked, so the arm stays), game back in live mode.",
-    "steps": [
-      {
-        "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
-      },
-      {
-        "cmd": "build_mode",
-        "args": {
-          "on": true
-        },
-        "waitS": 10
-      },
-      {
-        "cmd": "save_game",
-        "args": {
-          "name": "Compaction-BP"
-        },
-        "waitS": 5,
-        "note": "Save As to a new scratch file (the Baseline is never written)"
-      },
-      {
-        "cmd": "time",
-        "until": {
-          "cmd": "patches",
-          "all": [
-            {
-              "path": "compaction_refused_state",
-              "atLeast": 1
-            }
-          ],
-          "everyS": 10,
-          "maxS": 600
-        },
-        "note": "the save task saw build mode"
-      },
-      {
-        "cmd": "build_mode",
-        "args": {
-          "on": false
-        },
-        "waitS": 10
-      },
-      {
-        "cmd": "time",
-        "until": {
-          "cmd": "game_state",
-          "all": [
-            {
-              "path": "sub_state",
-              "equals": "LiveModeState"
-            },
-            {
-              "path": "load_file",
-              "equals": "Compaction-BP.sims3"
-            }
-          ],
-          "everyS": 5,
-          "maxS": 300
-        },
-        "note": "back in live mode on the compacted file"
-      },
-      {
-        "cmd": "patches",
+        "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
@@ -42504,28 +42537,45 @@
     "note": "UNVERIFIED (static only, 2026-10-30): never run. job ini: [Compaction] Enabled=1, ThresholdMB=4000 (always under: forces the verdict), MinMinutes=0. Read: compaction_failed 1, compaction_restored 0, log \"compaction: skipped or failed (reload threw): off for this session\", the second save's verdict \"off for the session\", the game in live mode and alive (2 min play), no \"compaction: done\".",
     "steps": [
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save, Sims get queues to restore"
+      },
+      {
         "cmd": "patches",
+        "show": "compaction_",
         "args": {
           "compactionfail": true
         }
       },
       {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-BP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "show": "compaction_",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       },
       {
         "cmd": "time",
         "until": {
           "cmd": "patches",
+          "show": "compaction_",
           "all": [
             {
               "path": "compaction_failed",
@@ -42557,12 +42607,22 @@
         "note": "back in live mode on the compacted file"
       },
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
+      },
+      {
         "cmd": "time",
         "waitS": 120,
         "note": "2 min of autopilot play after the reload (restored queues run, game alive)"
       },
       {
         "cmd": "patches",
+        "show": "compaction_",
         "args": {
           "compactionfail": false
         }
@@ -42585,7 +42645,9 @@
       },
       {
         "cmd": "patches",
-        "note": "compaction_* counters into the job log"
+        "show": "compaction_",
+        "note": "compaction_* counters into the job log Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       }
     ]
   },
@@ -42597,22 +42659,48 @@
     "note": "UNVERIFIED (static only, 2026-10-30): never run. job ini: [Compaction] Enabled=1, ThresholdMB=4000 (always under: forces the verdict), MinMinutes=0. Saves Compaction-IP (new), the compaction reloads it (direct route), then 2 min of play and one more Save over Compaction-IP (not armed again: verdict no). Read: ts3native.log \"compaction:\" lines (verdict COMPACT, begin #1, done #1, +N min), \"ts3fixes: compaction: restored ...\" and the compaction_* counters (requeued vs requeue_skipped vs not_restorable).",
     "steps": [
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save, Sims get queues to restore"
+      },
+      {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-IP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
       },
       {
         "cmd": "time",
         "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 600
+        },
+        "note": "the opt-in compaction saves, unloads and reloads at once (no offer): no agent reply until the world is back, so the time call itself may fail (optional) and the until poll waits; the refused-state counters show in the compaction_ step below",
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "until": {
           "cmd": "patches",
+          "show": "compaction_",
           "all": [
             {
               "path": "compaction_restored",
@@ -42644,12 +42732,22 @@
         "note": "back in live mode on the compacted file"
       },
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
+      },
+      {
         "cmd": "time",
         "waitS": 120,
         "note": "2 min of autopilot play after the reload (restored queues run, game alive)"
       },
       {
         "cmd": "patches",
+        "show": "compaction_",
         "note": "compaction_* counters into the job log"
       },
       {
@@ -42670,7 +42768,9 @@
       },
       {
         "cmd": "patches",
-        "note": "compaction_* counters into the job log"
+        "show": "compaction_",
+        "note": "compaction_* counters into the job log Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       }
     ]
   },
@@ -42686,22 +42786,35 @@
         "args": {
           "enabled": true,
           "speed": "ultra",
-          "dialogs": false
+          "dialogs": true
         },
-        "note": "our dialog is answered by the step below"
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save; our offer is left to the step below"
       },
       {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": false
+        },
+        "note": "the offer after this save is answered by the step below, not by the autopilot"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-IP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "show": "compaction_",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       },
       {
         "cmd": "time",
@@ -42728,7 +42841,30 @@
       {
         "cmd": "time",
         "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 600
+        },
+        "note": "the compaction saves and reloads (~20 s plus the load): no agent reply until the world is back"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": true
+        },
+        "note": "the welcome dialog comes again after the reload (the save was written before its alarm)"
+      },
+      {
+        "cmd": "time",
+        "until": {
           "cmd": "patches",
+          "show": "compaction_",
           "all": [
             {
               "path": "compaction_restored",
@@ -42760,12 +42896,22 @@
         "note": "back in live mode on the compacted file"
       },
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
+      },
+      {
         "cmd": "time",
         "waitS": 120,
         "note": "2 min of autopilot play after the reload (restored queues run, game alive)"
       },
       {
         "cmd": "patches",
+        "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
@@ -42782,21 +42928,35 @@
         "args": {
           "enabled": true,
           "speed": "ultra",
-          "dialogs": false
-        }
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save; our offer is left to the step below"
       },
       {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": false
+        },
+        "note": "the offer after this save is answered by the step below, not by the autopilot"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-IP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "show": "compaction_",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       },
       {
         "cmd": "time",
@@ -42820,9 +42980,17 @@
         "waitS": 5
       },
       {
+        "cmd": "autopilot",
+        "args": {
+          "dialogs": true
+        },
+        "note": "the welcome dialog comes again after the reload (the save was written before its alarm)"
+      },
+      {
         "cmd": "time",
         "until": {
           "cmd": "patches",
+          "show": "compaction_",
           "all": [
             {
               "path": "compaction_declined",
@@ -42873,80 +43041,7 @@
       },
       {
         "cmd": "patches",
-        "note": "compaction_* counters into the job log"
-      }
-    ]
-  },
-  {
-    "id": "compaction-refused-build-ip",
-    "bug": "docs/204 Compaction refused by state on Isla Paradiso: a save made in Build mode never compacts (EA refuses Quit to Main Menu there too)",
-    "fix": "ts3native 0.36.128 [Compaction] + ts3fixes Compaction.cs CpStateOk",
-    "save": "Baseline-IP-Spring",
-    "note": "UNVERIFIED (static only, 2026-10-30): never run. job ini: [Compaction] Enabled=1, ThresholdMB=4000 (always under: forces the verdict), MinMinutes=0. Read: compaction_refused_state >= 1, compaction_started 0, no \"compaction: verdict\" line for the build-mode save (the verdict is not asked, so the arm stays), game back in live mode.",
-    "steps": [
-      {
-        "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
-      },
-      {
-        "cmd": "build_mode",
-        "args": {
-          "on": true
-        },
-        "waitS": 10
-      },
-      {
-        "cmd": "save_game",
-        "args": {
-          "name": "Compaction-IP"
-        },
-        "waitS": 5,
-        "note": "Save As to a new scratch file (the Baseline is never written)"
-      },
-      {
-        "cmd": "time",
-        "until": {
-          "cmd": "patches",
-          "all": [
-            {
-              "path": "compaction_refused_state",
-              "atLeast": 1
-            }
-          ],
-          "everyS": 10,
-          "maxS": 600
-        },
-        "note": "the save task saw build mode"
-      },
-      {
-        "cmd": "build_mode",
-        "args": {
-          "on": false
-        },
-        "waitS": 10
-      },
-      {
-        "cmd": "time",
-        "until": {
-          "cmd": "game_state",
-          "all": [
-            {
-              "path": "sub_state",
-              "equals": "LiveModeState"
-            },
-            {
-              "path": "load_file",
-              "equals": "Compaction-IP.sims3"
-            }
-          ],
-          "everyS": 5,
-          "maxS": 300
-        },
-        "note": "back in live mode on the compacted file"
-      },
-      {
-        "cmd": "patches",
+        "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
@@ -42959,28 +43054,45 @@
     "note": "UNVERIFIED (static only, 2026-10-30): never run. job ini: [Compaction] Enabled=1, ThresholdMB=4000 (always under: forces the verdict), MinMinutes=0. Read: compaction_failed 1, compaction_restored 0, log \"compaction: skipped or failed (reload threw): off for this session\", the second save's verdict \"off for the session\", the game in live mode and alive (2 min play), no \"compaction: done\".",
     "steps": [
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save, Sims get queues to restore"
+      },
+      {
         "cmd": "patches",
+        "show": "compaction_",
         "args": {
           "compactionfail": true
         }
       },
       {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-IP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "show": "compaction_",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       },
       {
         "cmd": "time",
         "until": {
           "cmd": "patches",
+          "show": "compaction_",
           "all": [
             {
               "path": "compaction_failed",
@@ -43012,12 +43124,22 @@
         "note": "back in live mode on the compacted file"
       },
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
+      },
+      {
         "cmd": "time",
         "waitS": 120,
         "note": "2 min of autopilot play after the reload (restored queues run, game alive)"
       },
       {
         "cmd": "patches",
+        "show": "compaction_",
         "args": {
           "compactionfail": false
         }
@@ -43040,7 +43162,9 @@
       },
       {
         "cmd": "patches",
-        "note": "compaction_* counters into the job log"
+        "show": "compaction_",
+        "note": "compaction_* counters into the job log Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       }
     ]
   },
@@ -43052,22 +43176,38 @@
     "note": "UNVERIFIED (static only, 2026-10-30): never run. job ini: [Compaction] Enabled=1, ThresholdMB=4000, MinMinutes=0, Route=1. Read: log \"begin #1 (main menu route)\", no \"MainMenuState hook is missing\" line, compaction_restored 1; note whether the main menu showed for a frame.",
     "steps": [
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "mod welcome dialogs (Deep Conversations shows one from a sim-time alarm after every load of the Baseline) are answered before the save, Sims get queues to restore"
+      },
+      {
         "cmd": "time",
-        "waitS": 45,
-        "note": "[UserDiag] / [Compaction] up after the world load, autopilot fills queues"
+        "waitS": 75,
+        "note": "[UserDiag] / [Compaction] up after the world load; the welcome dialog has come and gone (job 1 saw it at 45-52 s)"
       },
       {
         "cmd": "save_game",
         "args": {
           "name": "Compaction-BP"
         },
-        "waitS": 5,
+        "waitS": 15,
         "note": "Save As to a new scratch file (the Baseline is never written)"
+      },
+      {
+        "cmd": "patches",
+        "show": "compaction_",
+        "note": "compaction_saves / compaction_refused_state right after the save: a refused state shows here, not after the 15 min wait Optional: the compaction may already be unloading the world (no agent reply); the until step after it reads the counters.",
+        "optional": true
       },
       {
         "cmd": "time",
         "until": {
           "cmd": "patches",
+          "show": "compaction_",
           "all": [
             {
               "path": "compaction_restored",
@@ -43099,12 +43239,22 @@
         "note": "back in live mode on the compacted file"
       },
       {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        },
+        "note": "again after the reload: the welcome dialog returns (the save predates its alarm) and would block the next save and its post-save state check"
+      },
+      {
         "cmd": "time",
         "waitS": 120,
         "note": "2 min of autopilot play after the reload (restored queues run, game alive)"
       },
       {
         "cmd": "patches",
+        "show": "compaction_",
         "note": "compaction_* counters into the job log"
       }
     ]
@@ -46045,7 +46195,7 @@
   {
     "id": "outfit-wait-stale-check",
     "bug": "issue #115: Sim.SwitchOutfitHelper.Wait loops on Simulator.Sleep(1) until mReady; an Abort while it waits (another helper's Start on the Sim, MagicalMakeover.Cleanup) cancels the swap, so the waiting task wakes every tick for the rest of the session (a magical-makeover alarm, 3.0 ms per sim-minute on the day-406 save)",
-    "fix": "ts3fixes OutfitWait.cs: outfitwaitpoll (default off), docs/224",
+    "fix": "ts3fixes OutfitWait.cs: outfitwaitpoll (default on), docs/224",
     "save": "Baseline-BP",
     "note": "UNVERIFIED (static only, 2026-10-31). The test Sim's outfit does not change: its swap is cancelled before it completes and \"ready\" ends the wait without ChangeOutfit. \"start\" refuses while a test wait exists; \"stop\" ends both tasks.",
     "expect": "off: abort task \"aborted in the loop\", wait task running, outfitwaitpoll counters 0, wait gone a tick after \"ready\". on: after 60 sim-minutes outfitwaitpoll_stale 1 and a stale-wait line (check \"log\") \"outfitwaitpoll: <name> outfit wait not ready after 60 sim-minutes (aborted True)\", outfitwaitpoll_polls about 1 per sim-minute, then after \"ready\" outfitwaitpoll_ended 1 and the wait gone within a sim-minute. The Sim keeps its outfit in both arms.",
@@ -46252,7 +46402,7 @@
   {
     "id": "bake-sale-dead-seller-check",
     "bug": "issue #102: BakeSaleTable keeps a deleted seller (mSeller is cleared only by StopTending and the table reset); HasSeller is only mSeller != null, so every PurchaseAutonomously throws in Run, and an NPC table's clean-up handler throws after removing its own alarm, so the table is never cleaned up",
-    "fix": "ts3fixes BakeSale.cs: bakesaleseller (default off), docs/225",
+    "fix": "ts3fixes BakeSale.cs: bakesaleseller (default on), docs/225",
     "save": "Baseline-BP",
     "note": "UNVERIFIED in this form (the same fix ran live as a core patch, 2 sessions). The check builds the bug state on a test NPC table out of the world (tableBakeSale, EP2) with a new Sim as seller, deleted as remove_sims does. No household Sim is touched. \"rearm\" runs the load-time part directly (OnStartup only runs at load).",
     "expect": "off: HasSeller True with the deleted seller, the clean-up handler throws NullReferenceException and the table stays, no re-arm, counters 0. on: HasSeller False and GetSeller null (bakesaleseller_reads > 0), rearm gives the table an alarm (bakesaleseller_rearmed 1), the handler returns and destroys the table.",
@@ -46831,7 +46981,7 @@
   {
     "id": "outfit-wait-replace-check",
     "bug": "issue #115, second cause (docs/224 §5, I-414-5): a SwitchOutfitHelper wait whose delayed swap is replaced by another delayed swap of the same Sim (SimBuilderTask.FinishModelLoad, BuffTransformation, Sim.SwitchToOutfitWithHiding, occult outfit changes) without an Abort; if the game keeps one ready callback per Sim, the helper's never runs and its wait never ends",
-    "fix": "diagnostic only: ts3fixes OutfitWait.cs, outfitwaitpoll (default off) classes each stale wait (counters 2003-2005), docs/224 §5",
+    "fix": "diagnostic only: ts3fixes OutfitWait.cs, outfitwaitpoll (default on) classes each stale wait (counters 2003-2005), docs/224 §5",
     "save": "Baseline-BP",
     "note": "UNVERIFIED (static only, 2026-11-01). Neither swap is completed: \"stop\" aborts the helper, which cancels the Sim's pending swap, so the Sim keeps its outfit. The control part shows an untouched swap calls back. 2026-11-01 run 1: waitS runs after a step, so the control state was read at once; fixed. Clear part added (docs/224 §5).",
     "expect": "control: the wait returns within 10 s. replace: either (a) second swap ready True, helper ready False, the wait stale after 60 sim-minutes with cause replaced (the game keeps one callback per Sim: cause verified), or (b) the wait returns (both callbacks run: not the cause). clear: the wait returns (refutes the cleared cause for instant switches) or goes stale with cause cleared (verifies it).",
@@ -46999,7 +47149,7 @@
   {
     "id": "outfit-wait-view-log",
     "bug": "issue #115, natural stale outfit waits (docs/224 §5): the swap keeps its callback but is not reported ready; does it need the Sim in view?",
-    "fix": "diagnostic only: ts3fixes OutfitWait.cs, outfitwaitpoll (default off) logs on screen / far from the camera / on the active lot at the stale point and the end, counters 2012-2013",
+    "fix": "diagnostic only: ts3fixes OutfitWait.cs, outfitwaitpoll (default on) logs on screen / far from the camera / on the active lot at the stale point and the end, counters 2012-2013",
     "save": "BigSave-LR",
     "note": "Natural play with the switch on all run; the counters and the first stale and end lines are read at about 5 and 11 min (the job's profile files keep no fixes counters without --ab, 2026-11-01).",
     "expect": "If the native swap needs the Sim in view: few stale waits on screen when they go stale, and most that end are on screen (or near the camera) when they end. If not: the end lines show Sims off screen and far from the camera.",
@@ -47201,7 +47351,7 @@
   {
     "id": "photo-session-check",
     "bug": "docs/508: a greeting-card photo session (festival booth, City Hall) ends only when SimDoneWithPhoto empties its list of expected Sims; a listed Sim whose TakePhoto never got queued, or one that left while the others were ready, stays on it for good and the booth stays in use, after a reload too.",
-    "fix": "ts3fixes PhotoSession.cs: photosession (default off), docs/508",
+    "fix": "ts3fixes PhotoSession.cs: photosession (default on), docs/508",
     "save": "Baseline-BP",
     "note": "Needs no festival: the check builds sessions on the first greeting-card rabbit hole without a session (City Hall, the science lab and others) with two Sims that have no interaction on it, in three cases (waiting for Sims, ready for the photo, a stale session at world load).",
     "expect": "off: case 1 false with 1 listed, case 2 false with 2 listed, case 3 kept; on: cases 1 and 2 true with the list cleared, case 3 ended, counters +3/+2/+1",
@@ -47278,7 +47428,7 @@
   {
     "id": "egg-spot-check",
     "bug": "docs/508: EggHuntController.IsValidEggPosition accepts any outdoor routable point, so eggs land off the hunt lot; picking one up there throws and the hunt never ends.",
-    "fix": "ts3fixes EggSpot.cs: eggspot (default off), docs/508",
+    "fix": "ts3fixes EggSpot.cs: eggspot (default on), docs/508",
     "save": "Baseline-BP",
     "note": "Needs no egg hunt: a controller object gets a hunt lot, EA's check runs on an outdoor Sim's position with the Sim's own lot and with another lot.",
     "expect": "off: the point off the hunt lot is accepted; on: refused, the on-lot point still accepted, eggspot_refused +1",
@@ -47355,7 +47505,7 @@
   {
     "id": "graduation-table-check",
     "bug": "docs/508: School.GraduateInCityHall / AttendGraduation WaitingLoopDel read School.sGraduatingSims without a null check; with no graduation scheduled a Sim still in the waiting stage throws NullReferenceException.",
-    "fix": "ts3fixes GraduationTable.cs: graduationtable (default off), docs/508",
+    "fix": "ts3fixes GraduationTable.cs: graduationtable (default on), docs/508",
     "save": "Baseline-BP",
     "note": "Needs no graduation (the table must be null, the check throws otherwise): both interaction types get a Sim as actor and their WaitingLoopDel is called.",
     "expect": "off: both calls throw NullReferenceException; on: both return, the actor gets StageComplete (removed again), graduationtable_no_table +2",
@@ -51857,6 +52007,44 @@
     "expect": "save: result 0 each; no .sims3.bad in Saves"
   },
   {
+    "id": "ip-lotgridmiss-save",
+    "bug": "PR #212 / docs/67 s31.8: a lot with no world grid point never finishes its routing build, so every save of that world returns result 12",
+    "fix": "[EaCrashFixes] LotGridMiss (ini only, no runtime switch: one job per arm; off gave 12, on 0,0,0, docs/67 s31.9)",
+    "save": "Baseline-IP",
+    "steps": [
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "IP-LotGrid-Scratch"
+        },
+        "waitS": 60,
+        "note": "scratch name, never Baseline"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "IP-LotGrid-Scratch"
+        },
+        "waitS": 60,
+        "note": "scratch name, never Baseline"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "IP-LotGrid-Scratch"
+        },
+        "waitS": 60,
+        "note": "scratch name, never Baseline"
+      }
+    ],
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 1
+    },
+    "expect": "on: save result 0 each and ea fix: LotGridMiss lines; off: result 12 on a save with such a lot; needs a save with such a lot (Dalexlol: his local Baseline-IP)"
+  },
+  {
     "id": "saveslim-save-m0",
     "bug": "#122: lived-in saves grow (ExportDB outfit copies and dead bytes)",
     "fix": "ts3native [SaveSlim] (saveslim.cpp), off by default",
@@ -52253,6 +52441,1012 @@
       },
       {
         "cmd": "time"
+      }
+    ]
+  },
+  {
+    "id": "ip-idlecheckc-crowd-loop",
+    "bug": "idle check site C waits (key 0x755990): IC_RouteManager_IsOkToIdleAtCurrentLocation 0x7556B0 calls RoutingWorld_ObstacleQuery 0x82EDB0 at 0x75598B, which takes +0x918 and waits for the running async route job (docs/195 §7)",
+    "fix": "[IdleCheckRO] SiteC, SiteCLoop (C2), SiteCLoopJump (C2b) (native_set idlecheckc, idlecheckc2, idlecheckc2b arm together; ini [IdleCheckRO] Enabled=1 SiteC=1 SiteCMode=1), docs/195 §7-8",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED as a repro (2026-11-04): the loop of ip-idlecheck-crowd-loop with idlecheckro on in both arms and idlecheckc armed per firing. Needs the job ini [IdleCheckRO] Enabled=1 SiteC=1 (the call site is patched at install). Measured in plain play (docs/195 §7): only 0.46% of the answers are empty, so the on arms take few calls; the repro checks it stays correct under 30+ idle Sims beside running jobs.",
+    "expect": "no crash; on arms: icTaken > 0, icShadowMismatch 0, icFb small; off arms: icTaken flat; key 0x755990 read by arm",
+    "steps": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "idlecheckro": 1
+        },
+        "waitS": 1,
+        "note": "preconditions (the parent fix on in both arms)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "idlecheckc": "$on",
+            "idlecheckc2": "$on",
+            "idlecheckc2b": "$on"
+          },
+          "waitS": 1,
+          "note": "arm"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far",
+            "household": true
+          },
+          "waitS": 2,
+          "note": "start: 30+ Go Here plans (async jobs)"
+        },
+        {
+          "cmd": "set_speed",
+          "setup": false,
+          "args": {
+            "speed": "ultra"
+          },
+          "waitS": 30,
+          "waitUntil": {
+            "quiet": 4000
+          },
+          "minS": 15,
+          "maxS": 45,
+          "note": "fire: arrivals idle while the late jobs run"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "target": "home",
+            "household": true
+          },
+          "waitS": 40,
+          "note": "home (fixed)"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 4
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "idlecheckc": 0,
+          "idlecheckc2": 0,
+          "idlecheckc2b": 0,
+          "idlecheckro": 0
+        }
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 20
+      }
+    ]
+  },
+  {
+    "id": "ip-footstep-crowd-loop",
+    "bug": "gate-12 F-F waits (key 0x62FB74): the footstep surface lookup asks the lot table under gate 12 while a route job runs; up to 13 ms/s on an old save (docs/195 §6)",
+    "fix": "[FootstepRO] (native_set footstepro arms; ini [FootstepRO] Enabled=1), docs/195 §6",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED as a repro (2026-11-04): the loop of ip-idlecheck-crowd-loop with footstepro armed per firing: 30+ Sims walk to the farthest community lot and home, every step a footstep surface lookup while the other plans' jobs run. Needs the job ini [FootstepRO] Enabled=1 (MissNear=1 MissLast=0 as in the measured setup).",
+    "expect": "no crash; on arms: fsHit rises (fsMiss = the lookups left to the game); key 0x62FB74 lower in the on windows",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "footstepro": "$on"
+          },
+          "waitS": 1,
+          "note": "arm"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far",
+            "household": true
+          },
+          "waitS": 2,
+          "note": "start: 30+ Go Here plans (async jobs)"
+        },
+        {
+          "cmd": "set_speed",
+          "setup": false,
+          "args": {
+            "speed": "ultra"
+          },
+          "waitS": 30,
+          "waitUntil": {
+            "quiet": 4000
+          },
+          "minS": 15,
+          "maxS": 45,
+          "note": "fire: arrivals idle while the late jobs run"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "target": "home",
+            "household": true
+          },
+          "waitS": 40,
+          "note": "home (fixed)"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 4
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "footstepro": 0
+        }
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 20
+      }
+    ]
+  },
+  {
+    "id": "ip-rtotail-steer-loop",
+    "bug": "IP natural play 2026-10-22 (asi.0332): 750 sim iterations >= 50 ms whose longest route-job wait is the steering obstacle query 0x85FE10 (57 of 255 iterations >= 200 ms, 6 of 7 'locomotion' freezes >= 300 ms); S2/AvoidRO/Gate0RO/DeferFootprint(2)/RouteToObjRO were all off in that set (docs/175)",
+    "fix": "[RouteToObjRO] Tail (native_set routetoobjtail arms; ini [RouteToObjRO] Enabled=1 Tail=1 and [SlotEnabledRO] for SH), docs/140 §13",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED as a repro (2026-11-04): the loop of ip-steer-pass-loop with its lock-free pass (steerro, avoidro, gate0ro, deferfootprint, deferfootprint2, routetoobjro) on in both arms and routetoobjtail armed per firing: route-to-object checks reach BlockerCheck2d's physics tail while the other plans' jobs run.",
+    "expect": "no crash; on arms: rtoTailRuns and rtoTailHits > 0, rtoShadowMismatch 0; key 0x83156D lower in the on windows (the wait may move to the next taker)",
+    "steps": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "steerro": 1,
+          "avoidro": 1,
+          "gate0ro": 1,
+          "deferfootprint": 1,
+          "deferfootprint2": 1,
+          "routetoobjro": 1
+        },
+        "waitS": 1,
+        "note": "preconditions (the parent fix on in both arms)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "routetoobjtail": "$on"
+          },
+          "waitS": 1,
+          "note": "arm"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far",
+            "household": true
+          },
+          "waitS": 45,
+          "note": "fire: 30+ Sims walk to one lot while their jobs run"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "target": "home",
+            "household": true
+          },
+          "waitS": 40,
+          "note": "back (fixed)"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 4
+      },
+      "maxMinutes": 16
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "routetoobjtail": 0,
+          "steerro": 0,
+          "avoidro": 0,
+          "gate0ro": 0,
+          "deferfootprint": 0,
+          "deferfootprint2": 0,
+          "routetoobjro": 0
+        }
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 20
+      }
+    ]
+  },
+  {
+    "id": "object-churn-dx-loop",
+    "bug": "rt-s2b-sweep ran once per job (plain, minutes)",
+    "fix": "[Discourage] DestroyParkDx (native_set destroyparkdx arms; ini [Discourage] DestroyPark=1 DestroyParkDx=1 DeferFootprint=1), docs/88 §10",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED as a repro (2026-11-04): the loop of object-churn-loop with destroypark and deferfootprint on in both arms and destroyparkdx armed per firing: objects destroyed while route jobs run, some with footprint records still queued (the DX case).",
+    "expect": "no crash; on arms: dxParked > 0, p5cCountLow 0, discIdMismatch 0; destroy #4 waits lower in the on windows",
+    "steps": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "destroypark": 1,
+          "deferfootprint": 1
+        },
+        "waitS": 1,
+        "note": "preconditions (the parent fix on in both arms)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 30
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 5
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "destroyparkdx": "$on"
+          },
+          "waitS": 1,
+          "note": "arm"
+        },
+        {
+          "cmd": "place_objects",
+          "setup": true,
+          "args": {
+            "filter": "ea",
+            "count": 20
+          },
+          "waitS": 30,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 5,
+          "maxS": 30,
+          "count": {
+            "result": "tracked"
+          }
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "to": "far"
+          },
+          "waitS": 2,
+          "note": "route jobs running for the destroys"
+        },
+        {
+          "cmd": "remove_objects",
+          "setup": false,
+          "args": {},
+          "waitS": 20,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 2,
+          "maxS": 20,
+          "note": "fire: destroys while jobs run"
+        },
+        {
+          "cmd": "build_mode",
+          "setup": true,
+          "args": {
+            "on": true
+          },
+          "waitS": 4
+        },
+        {
+          "cmd": "build_mode",
+          "setup": false,
+          "args": {
+            "on": false
+          },
+          "waitS": 10,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 3,
+          "maxS": 10
+        },
+        {
+          "cmd": "set_speed",
+          "setup": true,
+          "args": {
+            "speed": "ultra"
+          },
+          "waitS": 1
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "target": "home"
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 30
+      },
+      "maxMinutes": 10
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "destroyparkdx": 0,
+          "destroypark": 0,
+          "deferfootprint": 0
+        }
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 20
+      }
+    ]
+  },
+  {
+    "id": "dating-profile-check",
+    "bug": "OnlineDatingManager.GetRecordForSim adds an empty record for any Sim it is asked about, and DidSimsMeetOnline asks about both Sims (CelebrityManager.CanSocialize: every social with a celebrity who is not a friend, autonomy included; InviteToLotSituation.MeetUp.Init). SimHasProfile only checks that a record exists, so such a Sim has a profile it never made: Browse, Check Messages and Remove show up, Edit builds a blank profile, Remove lasts until the next lookup (issue #175, docs/528)",
+    "fix": "ts3fixes DatingProfile.cs + AutShadow.cs MetPeek: datingprofile (default on), docs/528",
+    "save": "Baseline-BP",
+    "note": "The agent check (DatingProfileCheck) picks two Sims with no dating record outside the active household and calls DidSimsMeetOnline on them once, then SimHasProfile on each. Off arm: both records made, both read as a profile. On arm: the off arm's empty records read as no profile, two more Sims get no record when AutShadow's H4 hook is in place (else records that read as no profile); then every empty record the check made is removed.",
+    "expect": "off: records added 2, SimHasProfile True/True. on: SimHasProfile False/False, off arm's empty records read as a profile 0; with AutShadow on, records added 0 and datingprofile_no_record >= 1; datingprofile_no_profile >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "datingprofile": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DatingProfileCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: both records made, both read as a profile"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "datingprofile": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DatingProfileCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: no profile for the empty records; no record made where H4 is in place; the check's empty records removed"
+      }
+    ]
+  },
+  {
+    "id": "leavejob-dispose-check",
+    "bug": "Career.LeaveJob only notes the leave (mLeaveJobOnExit) while the Sim is in WorkInRabbitHole; WorkInRabbitHole.Cleanup does LeaveJobNow later only while Actor.CareerManager is not null. SimDescription.Dispose calls LeaveAllJobs, then sets CareerManager to null, then destroys the Sim, so a Sim deleted at work never leaves its job: its description stays in CareerLocation.Workers and in the co-workers' Coworkers lists, and other Sims keep it as Boss (docs/529 §2)",
+    "fix": "ts3fixes LeaveJobDispose.cs: leavejobdispose (default on), docs/529",
+    "save": "Baseline-BP",
+    "note": "The agent check (LeaveJobDisposeCheck) waits for 2 Sims at work in a rabbit hole, not of the active household (seed sends up to 3 townies whose career should be at work now, as go_to_work), then per arm deletes one of them as EA's household deletion does (Household.Remove, Dispose) and reads the work place's Workers list and its workers' Coworkers and Boss for the deleted description. The load starts at about 11:50, a work hour.",
+    "expect": "off: in Workers True, leaves done 0. on: in Workers False, co-worker lists 0, boss of 0, leaves done 1; leavejobdispose_leaves >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "leavejobdispose": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LeaveJobDisposeCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "2 Sims at work (townies sent if needed)",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.LeaveJobDisposeCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "ready",
+              "equals": true
+            }
+          ],
+          "maxS": 240,
+          "everyS": 5
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LeaveJobDisposeCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: the deleted Sim stays in the work place's Workers"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "leavejobdispose": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LeaveJobDisposeCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: the deleted Sim left its job: in no Workers, Coworkers or Boss"
+      }
+    ]
+  },
+  {
+    "id": "ilpatch-touch-bp",
+    "bug": "docs/526 [IlPatch]: the docs/506 fixes are applied at the first IL transform of their method; most of the methods (interactions' Run, loops, scorers, the toddler put-down) may never run in a 5-minute session, so their application would go unseen",
+    "fix": "ts3native ilpatch.cpp (next version, [IlPatch] Enabled=1 + one switch per fix, 21 fixes)",
+    "save": "Baseline-BP-Spring",
+    "note": "After the load (b89's SimDescription.Fixup is already transformed: 'applied' line at the load), method_touch invokes each overload of the other 20 methods once on the sim thread (uninitialized receiver, default arguments, exceptions caught: Mono transforms before the first instruction, so the body throws at once and the transform has happened; GetFunctionPointer crashed the game, 2026-11-02 08:52); the ts3native.log then has 21 'il patch: ... applied' lines (queue logRequire). Fixup is touched too: a repeat transform must reuse the body (ilpReused), never re-apply. The core in play must have bodies a spec knows: on this machine the player's core already carries the fixes (Fixup 1501 bytes), so the smoke runs with the pure UPDATE242 package swapped in.",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 30,
+        "note": "the load's own transforms are done"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Actors.Sim.DoOneRoundOfRemoteChat"
+        },
+        "note": "b80"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Opportunities.ScavengerOpportunity.OnAdded"
+        },
+        "note": "b87"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.CAS.SimDescription.Fixup"
+        },
+        "note": "b89, already applied at the load: a reuse, not a second apply"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Autonomy.Autonomy.ScoreInteractionsForLocalAutonomy"
+        },
+        "note": "b15 (batch 2)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.EasterEgg.PickUpEgg.Run"
+        },
+        "note": "b72 (batch 2; nested type, FindType's Outer.Inner fallback)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.HobbiesSkills.WhackASupernatural.Watch.Run"
+        },
+        "note": "b76 (batch 2)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Actors.Sim.GhostReaction.Run"
+        },
+        "note": "b81 (batch 2)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.SnowWaterFightArena.DoScoring"
+        },
+        "note": "b17-snowarena-horseshoe-1 (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt.WaitToThrow.WaitLoop"
+        },
+        "note": "b17-snowarena-horseshoe-2 (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.HobbiesSkills.HorseshoeCourt.TakeTurn.Run"
+        },
+        "note": "b17-snowarena-horseshoe-3 (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Abstracts.Door.PrankDoorbellDitch.Run"
+        },
+        "note": "b64-doorbell-prank-nobody-home (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.Miscellaneous.AppleBobbingContestTank.ParticipateInContest.Loop"
+        },
+        "note": "b68-apple-bobbing-late-joiner (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Pools.Pool.AddSkinnyDipper"
+        },
+        "note": "b68-skinny-dip-broadcaster-1 (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.Plumbing.HotTubBase.StartSkinnyDipBroadcastersAndSendWishEvents"
+        },
+        "note": "b68-skinny-dip-broadcaster-2 (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Pools.Pool.ReactToSkinnyDippers"
+        },
+        "note": "b69-skinny-dipper-gone (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.Gardening.SeedSpawnerRarity.SpawnObject"
+        },
+        "note": "b70-seed-spawner-roll-first (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.ActorSystems.LifeEventManager.GetActiveNode"
+        },
+        "note": "b75-life-event-lists-only-when-used-1 (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.ActorSystems.LifeEventManager.ProcessLifeEvent"
+        },
+        "note": "b75-life-event-lists-only-when-used-2 (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.ActorSystems.Children.BeingCarriedPosture.PushPutDownOnParent.Run"
+        },
+        "note": "b77-put-down-parent-gone (batch 3)"
+      },
+      {
+        "cmd": "method_touch",
+        "args": {
+          "path": "Sims3.Gameplay.ActorSystems.InteractionQueue.PutDownCarriedObjects"
+        },
+        "note": "b90-duel-wand-put-away (batch 3)"
+      },
+      {
+        "cmd": "time",
+        "waitS": 30
+      }
+    ],
+    "cleanup": []
+  },
+  {
+    "id": "ageup-swap-check",
+    "bug": "docs/503 (I-503-1): SimBuilderTask.FinishModelLoad ignores a refused Sim.SwitchToOutfitDelayed and waits forever for its callback, so the age-up never sets Done and the aging queue stops behind it",
+    "fix": "ts3fixes AgeUpSwap.cs, ageupswap (default off): a refused age-up swap goes to Everyday, else the callback runs now (counters 2006-2007), docs/503 §3",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static + self-test only, 2026-11-01). Needs 4 toddlers, children or teens in the world; 'pick' says so when none is left (that part is then not run, not failed). Each age-up is real for the session; the harness does not save. Run 1 (2026-11-01) inconclusive: the four age-ups skipped FinishModelLoad (EA rebuilds the model only when the Sim visibly wears Naked[0] as the task starts); since run 2 the watcher keeps the Sim in Naked[0] until the task is seen and sets each part's post-swap category. Run 2 inconclusive too: the Sims had left Naked by the time EA compared (after the outfit rebuild); since run 3 the watcher keeps the old Naked[0] outfit on until the model has loaded.",
+    "expect": "off special: Done False after 120 s with model loaded True and outfit loaded False (bug confirmed), then Done after unstick. on special: Done, 2006 or 2007 up by one. control: Done, counters unchanged. outerwear: Done either way. 'no age-up task seen' in a part = EA did not start a builder task for that Sim (inconclusive, not a pass). Each part's state must show model loaded True, or the part did not reach FinishModelLoad (inconclusive).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ageupswap": false
+        },
+        "waitS": 1,
+        "note": "part 1: switch off"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "pick special"
+          ]
+        },
+        "note": "off special: names the Sim, its age and outfit, the switch value"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "age"
+          ]
+        },
+        "note": "off special: EA's age transition called; a watcher records the age-up task",
+        "waitS": 120
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "expect stuck"
+          ]
+        },
+        "note": "off special: the bug: task seen, model loaded True, outfit loaded False, Done False, no 'Done after' in the log (the step throws otherwise)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "unstick"
+          ]
+        },
+        "note": "off special: sets the missing flag",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off special: 'Done after' in the log now (the queue goes on)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "off special: done"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ageupswap": true
+        },
+        "waitS": 1,
+        "note": "parts 2-4: switch on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "pick special"
+          ]
+        },
+        "note": "on special: names the Sim, its age and outfit, the switch value"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "age"
+          ]
+        },
+        "note": "on special: EA's age transition called; a watcher records the age-up task",
+        "waitS": 120
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "expect released"
+          ]
+        },
+        "note": "on special: Done True, 'Done after' in the log, moved to Everyday + released up by one (the step throws otherwise)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "on special: done"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "pick everyday"
+          ]
+        },
+        "note": "on everyday (control): names the Sim, its age and outfit, the switch value"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "age"
+          ]
+        },
+        "note": "on everyday (control): EA's age transition called; a watcher records the age-up task",
+        "waitS": 120
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "expect control"
+          ]
+        },
+        "note": "on everyday (control): Done True, counters unchanged from the special part (the step throws otherwise)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "control: done"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "pick outerwear"
+          ]
+        },
+        "note": "on outerwear (case 3): names the Sim, its age and outfit, the switch value"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "age"
+          ]
+        },
+        "note": "on outerwear (case 3): EA's age transition called; a watcher records the age-up task",
+        "waitS": 120
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "expect done"
+          ]
+        },
+        "note": "on outerwear (case 3): Done True; counters unchanged = EA accepted the swap, up by one = the hook moved or released it (the step throws otherwise)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "outerwear: done"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "unstick"
+          ]
+        },
+        "note": "a stuck task finishes, so the age-up queue goes on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AgeUpSwapCheck",
+          "args": [
+            "stop"
+          ]
+        }
       }
     ]
   }

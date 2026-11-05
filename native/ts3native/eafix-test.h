@@ -1,4 +1,4 @@
-// TestEaCrashFixes ([EaCrashFixes] ConformActor + ThumbPose + GeomBoneIndex + MintDivGuard, eafix.cpp, docs/67 §26.4 / §27.5 /
+// TestEaCrashFixes ([EaCrashFixes] ConformActor + ThumbPose + ThumbPoseBones + GeomBoneIndex + MintDivGuard, eafix.cpp, docs/67 §26.4 / §27.5 /
 // §28, docs/213 §8). Included by selftest.cpp.
 // Fake AnimationComponents, controllers and refcounted owners; the patched ask sequence and the after-evaluation stub run
 // for real on copies of the game's bytes.
@@ -46,6 +46,69 @@ static void EaRunTpStub() {
         mov g_eaStubOut[12], edi
         mov g_eaStubOut[16], eax
         add esp, 0x100
+        pop edi
+        pop esi
+        pop ebx
+    }
+}
+
+// ThumbPoseBones: the stubs run on a fake render frame (call sites b / a; site c is jumped to and jumps to TbtBackC)
+static u8* g_tbtHolder;
+static u8* g_tbtRig;
+static DWORD g_tbtOut[6];  // stored pose (c: eax), ecx, esi, eax, ebx, edi
+static __declspec(naked) void TbtBackC() { __asm { ret } }  // [esp] = the return address of the call to TbtEnterC
+static __declspec(naked) void TbtEnterC() { __asm { jmp TbStubC } }
+static void EaRunTbStub(int which) {  // 0 = a, 1 = b
+    void* stub = which ? (void*)&TbStubB : (void*)&TbStubA;
+    __asm {
+        push ebx
+        push esi
+        push edi
+        mov edx, stub
+        sub esp, 0x500
+        mov eax, g_tbtRig
+        mov [esp + 0x7C], eax
+        mov dword ptr [esp + 0xA8], 0x5A5A5A5A
+        mov dword ptr [esp + 0x45C], 0x77777777
+        mov eax, g_tbtHolder
+        mov [esp + 0x28], eax
+        mov ebx, 0x11111111
+        mov esi, 0x22222222
+        mov edi, 0x33333333
+        call edx
+        mov g_tbtOut[4], ecx
+        mov g_tbtOut[8], esi
+        mov g_tbtOut[12], eax
+        mov g_tbtOut[16], ebx
+        mov g_tbtOut[20], edi
+        mov eax, [esp + 0x45C]
+        mov g_tbtOut[0], eax
+        add esp, 0x500
+        pop edi
+        pop esi
+        pop ebx
+    }
+}
+static void EaRunTbStubC() {
+    __asm {
+        push ebx
+        push esi
+        push edi
+        sub esp, 0x500
+        mov eax, g_tbtRig
+        mov [esp + 0x78], eax  // the stub's [esp+0x7C]: it runs below our return address
+        mov eax, g_tbtHolder
+        mov ebx, 0x11111111
+        mov esi, 0x22222222
+        mov edi, 0x33333333
+        mov ecx, 0x44444444
+        call TbtEnterC
+        mov g_tbtOut[0], eax
+        mov g_tbtOut[4], ecx
+        mov g_tbtOut[8], esi
+        mov g_tbtOut[16], ebx
+        mov g_tbtOut[20], edi
+        add esp, 0x500
         pop edi
         pop esi
         pop ebx
@@ -142,10 +205,10 @@ static void TestEaCrashFixes() {
     static_assert(offsetof(Ts3nCounters, caOn) == 0x5480 && offsetof(Ts3nCounters, caSkip) == 0x5484 &&
                       offsetof(Ts3nCounters, caOther) == 0x5490 && offsetof(Ts3nCounters, caOverflow) == 0x549C &&
                       offsetof(Ts3nCounters, tpOn) == 0x54A0 && offsetof(Ts3nCounters, tpNoSlot) == 0x54AC &&
-                      sizeof(Ts3nCounters) == 5836 * 4,
+                      sizeof(Ts3nCounters) == 5901 * 4,
                   "counters v141 layout after v140 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
-    assert(k.version == 163);
+    assert(k.version == 907);
 
     // ---- ConformActor ----
     const DWORD rd0 = g_ecaRdLo, rd1 = g_ecaRdHi, tx0 = g_ecaTxLo, tx1 = g_ecaTxHi;
@@ -279,6 +342,49 @@ static void TestEaCrashFixes() {
     g_tpRelease = rel0;
     k.tpHeld = k.tpLastRef = k.tpNoSlot = 0;
 
+    // ---- ThumbPoseBones ----
+    alignas(4) static u8 tbRig[0x40], tbHolder[0x14], tbOther[0x14];
+    static u8 tbPose[16];
+    const DWORD tbBack0 = g_tbBackC;
+    g_tbBackC = (DWORD)(uintptr_t)&TbtBackC;
+    *(DWORD*)(tbRig + 0x2C) = 0x1000, *(DWORD*)(tbRig + 0x30) = 0x1000 + 225 * 112;
+    *(DWORD*)tbHolder = TB_HOLDER_VT, *(DWORD*)(tbHolder + 8) = 42, *(u8**)(tbHolder + 0xC) = tbPose;
+    memcpy(tbOther, tbHolder, sizeof(tbOther)), *(DWORD*)tbOther = 0x00FC3310;
+    assert(TbPose(tbHolder, tbRig, 0) == NULL && g_tbDropped == 1 && g_tbSeen == 1);  // the dump's case: 42 bones, rig 225
+    *(DWORD*)(tbHolder + 8) = 225;
+    assert(TbPose(tbHolder, tbRig, 0) == tbPose);
+    *(DWORD*)(tbHolder + 8) = 300;
+    assert(TbPose(tbHolder, tbRig, 0) == tbPose);  // more bones than the rig: every index in range
+    assert(TbPose(tbOther, tbRig, 0) == tbPose && g_tbSeen == 3 && g_tbDropped == 1);  // another holder type: the game's value
+    assert(TbPose(tbHolder, NULL, 0) == tbPose);
+    assert(TbPose((const u8*)(uintptr_t)0x10, tbRig, 0) == NULL);  // unreadable holder
+    for (int m = 0; m < 2; m++) {  // the stubs on a real stack: a short holder, then a matching one
+        *(DWORD*)(tbHolder + 8) = m ? 225 : 42;
+        const DWORD want = m ? (DWORD)(uintptr_t)tbPose : 0, h = (DWORD)(uintptr_t)tbHolder;
+        g_tbtHolder = tbHolder, g_tbtRig = tbRig;
+        EaRunTbStub(1);  // b: ecx = the pose, esi = [esp+0A8h], eax = the holder
+        assert(g_tbtOut[0] == want && g_tbtOut[1] == want && g_tbtOut[2] == 0x5A5A5A5A && g_tbtOut[3] == h &&
+               g_tbtOut[4] == 0x11111111 && g_tbtOut[5] == 0x33333333);
+        EaRunTbStub(0);  // a: eax = the holder from [esp+28h], esi unchanged
+        assert(g_tbtOut[0] == want && g_tbtOut[1] == want && g_tbtOut[2] == 0x22222222 && g_tbtOut[3] == h &&
+               g_tbtOut[4] == 0x11111111 && g_tbtOut[5] == 0x33333333);
+        EaRunTbStubC();  // c: eax = the pose, the rest unchanged
+        assert(g_tbtOut[0] == want && g_tbtOut[1] == 0x44444444 && g_tbtOut[2] == 0x22222222 && g_tbtOut[4] == 0x11111111 &&
+               g_tbtOut[5] == 0x33333333);
+    }
+    assert(g_tbDropped == 4);
+    alignas(4) static u8 tsb[24], tsa[24], tsc[8];  // patch on dummies laid out like the three sites
+    memcpy(tsb, kTbB, sizeof(kTbB)), memcpy(tsa, kTbA, sizeof(kTbA)), memcpy(tsc, kTbC, sizeof(kTbC));
+    tsc[2] = 0x10;  // foreign bytes at one site: nothing written anywhere
+    assert(!TbPatch(tsb, tsa, tsc) && tsb[0] == 0x8B && tsa[0] == 0x8B && tsc[0] == 0x8B);
+    tsc[2] = 0x0C;
+    assert(TbPatch(tsb, tsa, tsc));
+    assert(tsb[0] == 0xE8 && (uintptr_t)tsb + 5 + *(LONG*)(tsb + 1) == (uintptr_t)&TbStubB && tsb[5] == 0x90 && tsb[16] == 0x90);
+    assert(tsa[0] == 0xE8 && (uintptr_t)tsa + 5 + *(LONG*)(tsa + 1) == (uintptr_t)&TbStubA && tsa[5] == 0x90 && tsa[13] == 0x90);
+    assert(tsc[0] == 0xE9 && (uintptr_t)tsc + 5 + *(LONG*)(tsc + 1) == (uintptr_t)&TbStubC);
+    assert(!TbPatch(tsb, tsa, tsc));  // ours now
+    g_tbBackC = tbBack0, g_tbSeen = g_tbDropped = 0;
+
     // ---- GeomBoneIndex ----
     static DWORD bones[3] = {0x816E191A, 0x11111111, 0x22222222};
     alignas(4) static u8 geom[0x60];
@@ -391,6 +497,7 @@ static void TestEaCrashFixes() {
     k.mdDivOverflow = k.mdRemMinus1 = 0, g_mdLogged = 0;
     printf("EaCrashFixes: ConformActor live call unchanged, destroyed / null / freed / clobbered actors skipped, other types "
            "called, patched sequence run; ThumbPose reference kept across the evaluation and released by the stub; "
+           "ThumbPoseBones short holders dropped at all three stubs, matching / longer / other holders unchanged, sites patched once; "
            "GeomBoneIndex in-range bones unchanged, past-the-list indices answered 0, key printed, vtable slot patched once; "
            "GeomNoMaterial meshes with a material unchanged, no material skipped, other types and null meshes unchanged, "
            "site patched once; "

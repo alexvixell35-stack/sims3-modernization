@@ -90,6 +90,7 @@ namespace Ts3Fixes
             Patch(typeof(Sim), "SwitchToOutfitWithoutSpin", new Type[] { typeof(OutfitCategories), typeof(SimOutfit), typeof(int) }, typeof(OutfitClearHook), "InstantHook", "InstantOrig");
             Patch(typeof(Sim), "DoOutfitDelayedSwap", typeof(OutfitClearHook), "DoneHook", "DoneOrig");
             Patch(typeof(CASUtils), "RegisterCallback", typeof(SwapCbHook), "RegisterHook", "RegisterOrig");
+            Patch(typeof(Sim), "SwitchToOutfitDelayed", new Type[] { typeof(OutfitCategories), typeof(CASUtils.SwapReadyCallback) }, typeof(AgeUpSwapHook), "SwapHook", "SwapOrig");
             Patch(typeof(BakeSaleTable), "get_GetSeller", typeof(BakeSaleHook), "GetSellerHook", "GetSellerOrig");
             Patch(typeof(BakeSaleTable), "get_HasSeller", typeof(BakeSaleHook), "HasSellerHook", "HasSellerOrig");
             Patch(typeof(BakeSaleTable), "OnStartup", typeof(BakeSaleHook), "StartupHook", "StartupOrig");
@@ -111,6 +112,8 @@ namespace Ts3Fixes
             Patch(typeof(Sims3.Gameplay.Objects.Book), "StopUsingBook", typeof(BookCarryHook), "StopHook", "StopOrig");
             Patch(typeof(AgingState), "PreInstantiateSim", new Type[] { typeof(ResourceKey).MakeByRefType() }, typeof(AgeUpAbortHook), "PreHook", "PreOrig");
             Patch(typeof(GameObject), "SetRewardGiver", typeof(RewardGiverHook), "GiverHook", "GiverOrig");  // RewardGiver.cs, docs/525
+            Patch(typeof(OnlineDatingManager), "SimHasProfile", typeof(DatingProfileHook), "HasHook", "HasOrig");  // DatingProfile.cs, docs/528
+            Patch(typeof(Sims3.Gameplay.Careers.Career), "LeaveJob", new Type[] { typeof(bool), typeof(Sims3.Gameplay.Careers.Career.LeaveJobReason) }, typeof(LeaveJobDisposeHook), "LeaveHook", "LeaveOrig");  // LeaveJobDispose.cs, docs/529
         }
 
         // ---- ageupkeepoutfits (#100) ----

@@ -111,6 +111,8 @@ The bar is EA's behaviour, bit for bit, including EA's bugs, unless a separate s
 
 ## 7. Build plan
 
+In-game integration with what rounds 8 to 10 built and the #200 transform hook: docs/527 (round 10 C6) supersedes rows S1 and S3 below.
+
 Hours = wall clock with agents (docs: an agent build ~10-60 min, a live job ~8-15 min). Every step has its own switch, off by default; counters and ini keys reserved with `tools/registry.ts` when built.
 
 | Step | What | Hours | Offline gate (monohost) | In game | Switch | Contributor? |

@@ -1,0 +1,99 @@
+{
+  "id": "b70-seed-spawner-roll-first",
+  "switch": "ilp_seedspawnerrollfirst",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.Objects.Gardening.SeedSpawnerRarity::SpawnObject()",
+  "ilHashG6": "c9500f458946fd15",
+  "builds": {
+    "ea-1.67": {
+      "size": 253,
+      "sha256": "f81ea116ec34706213a290e0078a8ff6d79d8d93d3d9dc95a0ab62e1733286f8",
+      "tokens": {
+        "float32 Sims3.Gameplay.Abstracts.MinorPet::kChanceForeignSeedSpawnerSpawnsPet": "0x04007098",
+        "bool Sims3.Gameplay.Core.RandomUtil::RandomChance01(float32)": "0x0600aa24",
+        "bool Sims3.Gameplay.Abstracts.MinorPet::CanSpawnMoreMinorPetsInWorld()": "0x0600b833",
+        "float32 Sims3.Gameplay.Objects.Wildflower::kChanceSeedSpawnerSpawnsWildflower": "0x040053ec",
+        "bool Sims3.Gameplay.Objects.Wildflower::CanSpawnWildflowers()": "0x06008624"
+      },
+      "patchedSha256": "71ed3c158d339ae897053894dd48cdb89520a03572e1c1f3da3dee474743ba84"
+    },
+    "simler90-242": {
+      "size": 253,
+      "sha256": "16174243e6b21fde99cfb85c11eb563ba72b94cba0a69a1ecbeb6e158fca1c23",
+      "tokens": {
+        "float32 Sims3.Gameplay.Abstracts.MinorPet::kChanceForeignSeedSpawnerSpawnsPet": "0x040038d9",
+        "bool Sims3.Gameplay.Core.RandomUtil::RandomChance01(float32)": "0x060024e1",
+        "bool Sims3.Gameplay.Abstracts.MinorPet::CanSpawnMoreMinorPetsInWorld()": "0x06003095",
+        "float32 Sims3.Gameplay.Objects.Wildflower::kChanceSeedSpawnerSpawnsWildflower": "0x04008dff",
+        "bool Sims3.Gameplay.Objects.Wildflower::CanSpawnWildflowers()": "0x0600ac63"
+      },
+      "patchedSha256": "7cf8894dc3448ea4a941ee7e873bc7d1905fd037d9daf06118aef5e17263aa94"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x14",
+      "mode": "replace",
+      "entry": "incoming",
+      "expect": [
+        "call"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldsfld float32 Sims3.Gameplay.Abstracts.MinorPet::kChanceForeignSeedSpawnerSpawnsPet"
+      ]
+    },
+    {
+      "at": "0x19",
+      "mode": "replace",
+      "entry": "incoming",
+      "expect": [
+        "brfalse.s",
+        "ldsfld",
+        "call"
+      ],
+      "maxStack": 0,
+      "il": [
+        "call bool Sims3.Gameplay.Core.RandomUtil::RandomChance01(float32)",
+        "brfalse @0x7B",
+        "call bool Sims3.Gameplay.Abstracts.MinorPet::CanSpawnMoreMinorPetsInWorld()"
+      ]
+    },
+    {
+      "at": "0x7B",
+      "mode": "replace",
+      "entry": "incoming",
+      "expect": [
+        "call"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldsfld float32 Sims3.Gameplay.Objects.Wildflower::kChanceSeedSpawnerSpawnsWildflower"
+      ]
+    },
+    {
+      "at": "0x80",
+      "mode": "replace",
+      "entry": "incoming",
+      "expect": [
+        "brfalse.s",
+        "ldsfld",
+        "call"
+      ],
+      "maxStack": 0,
+      "il": [
+        "call bool Sims3.Gameplay.Core.RandomUtil::RandomChance01(float32)",
+        "brfalse @0xA8",
+        "call bool Sims3.Gameplay.Objects.Wildflower::CanSpawnWildflowers()"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zzzzzzzzzzzzzzzzzzzzzzzzzz_b70_seed_spawner_roll_first.ps1",
+    "entries": [
+      "b70-seed-spawner-pet-roll-before-world-scan",
+      "b70-seed-spawner-wildflower-roll-before-world-scan"
+    ]
+  }
+}

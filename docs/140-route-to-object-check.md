@@ -86,6 +86,8 @@ S2's job-path gates (docs/84 §3.6): owner thread, a job running (`A_RUNNING`), 
 
 ### 5.3 The clone of `0x830340`
 
+**No Sim (fix 2026-11-04):** `0x830340` answers code 0 at `0x830352` when its Sim argument is NULL, before any read [verified disassembly]. The skip path does the same: code 0, no clone, no game call, no lock. A shadow call (lock held) goes to the game. Before the fix the clone read `sim + 0x2C0` and faulted (AV reading `0x2C0`, 29 min into a soak with `[RouteToObjRO] Enabled=1`).
+
 **Phase S (slot, only when step 4 applies):** the target's slot component and transform through the game's calls (sim-owned reads), then the game's `0x76F0A0` through SH's `SlCall` (its own QL-shared hold and gate-pass rules, docs/90 §3). SH drop or SH off: give up. Running the slot helper before the obstacle query changes nothing observable: it writes only its out point and stack, and its portal refcounts are an interlocked pair with net 0 over the call [docs/90 §2, verified there]. It is wasted work when step 2 or 3 would have returned early.
 
 **Phase R (QL shared, try only, one hold):**
@@ -229,3 +231,13 @@ As §5 with these choices: R-acq is a naked stub (`RtoAcqStub`) that passes thro
 | Not done from §9 | steerro-test sections M/N (game's `0x830340` vs the clone on random worlds), the emu segment spec, depth-3 StoreScan of the slot functions: the shadow job is the differential check instead |
 
 Next: `node tools/harness/queue.ts tools/harness/queues/routetoobjro.json --only bp-routetoobjro-verify` by day (5 min BP, Shadow=1: `rtoShadowMismatch` = `rtoShadowQueryMismatch` = 0, `rtoTaken` > 0, no crash), then the night pairs (alone on the SlotEnabledRO base, and inside the docs/152 B0 list). Ledger §NEW-I.
+
+## 13. Phase P built: `[RouteToObjRO] Tail` (2026-11-04, counters v902)
+
+Until now the clone answered `RTO_WHY_TAIL` (the game's call, the wait) whenever BlockerCheck2d `0x82E340` reached its physics tail (`0x82EB49..0x82ED0D`: no footprint hit, `b34 == 0`, option 4). `Tail=1` runs that tail as §5.3 phase P says, after QL is released: physics world `0x686A90` -> scene `[+8]`; five samples `i * ((goal.x, start.y, goal.z, goal.x) - start) * 0.25 + start`; per sample the range query `0x682590` (radius 0.15, flags `0x10060`, a vector named `"Physics/RangeResult"`); per id `0x82A780` decides "blocker", skipping the target's id (`+8/+0xC`) and the ignore id (`a8, a9`); the first blocker answers code 1 with its id; every vector freed with `0x4E3F70` [verified disassembly]. The second check (`b34`) gives only code 0 or 4 and `0x829250` merges the code with id 0, so running the tail after it gives the same result. The physics calls need no `+0x918` (§3). Runtime switch `--ab routetoobjtail` (`rtoTailMode` +0x5B78); `rtoTailRuns`, `rtoTailHits`. Selftest `TestRouteToObjTail` (stub physics: sample points, radius, flags, skip rules, first hit, result 1 only, frees, no scene) and a tail case in `TestRouteToObjRO` (Mode 1 and shadow).
+
+**Runs [measured, combo-local 2026-11-04, save "1111 kit5", main b1d6b3c + footstep + this build, in-load A/B, 10 min, the eleven pieces and `[FootstepRO]` on in both arms].**
+- `combo-rtotail-shadow` (`Shadow=1`): 13,062 shadow compares, `rtoShadowMismatch` = `rtoShadowQueryMismatch` = 0, 127 tail hits. PASS.
+- `combo-rtotail` (clean, ran as `-r2`, harness PR #252): `0x83156D` 0.2 ms/s on vs 10.2 off. All keyed sim waits 39.7 vs 38.9: the wait moves to the next `+0x918` takers (destroy closure #4, `0x755990`, `0x82F4AB`), as §8.2 expected. Arm sum -2.8 ms/s (-3%), inside the +-10% single-run noise of that round.
+
+So the tail closes the clone's last fallback, but alone it does not shorten the sim's tick: the sim meets the same job at the next taker. It pays only together with the takers after it (docs/195 §4 site C for `0x755990`) or with shorter jobs.

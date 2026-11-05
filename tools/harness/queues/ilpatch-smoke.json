@@ -1,0 +1,78 @@
+{
+  "note": "docs/526 [IlPatch] smoke (Baseline-BP-Spring, ~8 min): the 21 docs/506 §5 / docs/526 §7 fixes armed on a world load + 5 min of play. SimDescription.Fixup runs for every Sim at the load (GameStates world fixup), so b89 must apply there with the patched body's sha256 as the converter's; b80 and b87 are transformed by the repro's method_touch steps (the compiled entry asked for by reflection), so all three must apply. Pass: the OK line, b89 applied, no refused / mismatch / fault line, no crash. Local copy: asi = the CI build of the branch.",
+  "jobs": [
+    {
+      "id": "bp-ilpatch-smoke",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "IlPatch.Enabled": 1,
+        "IlPatch.ilp_fixupnoinventory": 1,
+        "IlPatch.ilp_remotechatnoeverydayoutfit": 1,
+        "IlPatch.ilp_scavengersleep": 1,
+        "IlPatch.ilp_autonomyinventory": 1,
+        "IlPatch.ilp_eggpickupnohuntcontroller": 1,
+        "IlPatch.ilp_whackwatchownergone": 1,
+        "IlPatch.ilp_ghostreactionnoscaredbuff": 1,
+        "IlPatch.ilp_snowarenahorseshoe1": 1,
+        "IlPatch.ilp_snowarenahorseshoe2": 1,
+        "IlPatch.ilp_snowarenahorseshoe3": 1,
+        "IlPatch.ilp_doorbellpranknobodyhome": 1,
+        "IlPatch.ilp_applebobbinglatejoiner": 1,
+        "IlPatch.ilp_skinnydipbroadcaster1": 1,
+        "IlPatch.ilp_skinnydipbroadcaster2": 1,
+        "IlPatch.ilp_skinnydippergone": 1,
+        "IlPatch.ilp_seedspawnerrollfirst": 1,
+        "IlPatch.ilp_eggsplacedonthehuntlot": 1,
+        "IlPatch.ilp_lifeeventlistsonlywhenused1": 1,
+        "IlPatch.ilp_lifeeventlistsonlywhenused2": 1,
+        "IlPatch.ilp_putdownparentgone": 1,
+        "IlPatch.ilp_duelwandputaway": 1
+      },
+      "logRequire": {
+        "^OK   il patch \\(docs/506": 1,
+        "^il patch: .* armed ": 21,
+        "^il patch: b89-fixup-no-inventory applied to Sims3\\.Gameplay\\.CAS\\.SimDescription::Fixup\\(\\) \\((ea-1\\.67|simler90-242), 1445 -> ": 1,
+        "^il patch: b80-remote-chat-no-everyday-outfit applied to Sims3\\.Gameplay\\.Actors\\.Sim::DoOneRoundOfRemoteChat": 1,
+        "^il patch: b87-scavenger-sleep applied to Sims3\\.Gameplay\\.Opportunities\\.ScavengerOpportunity::OnAdded": 1,
+        "^il patch: b15-autonomy-inventory applied to Sims3\\.Gameplay\\.Autonomy\\.Autonomy::ScoreInteractionsForLocalAutonomy": 1,
+        "^il patch: b72-egg-pickup-no-hunt-controller applied to Sims3\\.Gameplay\\.Objects\\.EasterEgg\\+PickUpEgg::Run": 1,
+        "^il patch: b76-whack-watch-owner-gone applied to Sims3\\.Gameplay\\.Objects\\.HobbiesSkills\\.WhackASupernatural\\+Watch::Run": 1,
+        "^il patch: b81-ghost-reaction-no-scared-buff applied to Sims3\\.Gameplay\\.Actors\\.Sim\\+GhostReaction::Run": 1,
+        "^il patch: b17-snowarena-horseshoe-1 applied to Sims3\\.Gameplay\\.Objects\\.SnowWaterFightArena::DoScoring": 1,
+        "^il patch: b17-snowarena-horseshoe-2 applied to Sims3\\.Gameplay\\.Objects\\.HobbiesSkills\\.HorseshoeCourt\\+WaitToThrow::WaitLoop": 1,
+        "^il patch: b17-snowarena-horseshoe-3 applied to Sims3\\.Gameplay\\.Objects\\.HobbiesSkills\\.HorseshoeCourt\\+TakeTurn::Run": 1,
+        "^il patch: b64-doorbell-prank-nobody-home applied to Sims3\\.Gameplay\\.Abstracts\\.Door\\+PrankDoorbellDitch::Run": 1,
+        "^il patch: b68-apple-bobbing-late-joiner applied to Sims3\\.Gameplay\\.Objects\\.Miscellaneous\\.AppleBobbingContestTank\\+ParticipateInContest::Loop": 1,
+        "^il patch: b68-skinny-dip-broadcaster-1 applied to Sims3\\.Gameplay\\.Pools\\.Pool::AddSkinnyDipper": 1,
+        "^il patch: b68-skinny-dip-broadcaster-2 applied to Sims3\\.Gameplay\\.Objects\\.Plumbing\\.HotTubBase::StartSkinnyDipBroadcastersAndSendWishEvents": 1,
+        "^il patch: b69-skinny-dipper-gone applied to Sims3\\.Gameplay\\.Pools\\.Pool::ReactToSkinnyDippers": 1,
+        "^il patch: b70-seed-spawner-roll-first applied to Sims3\\.Gameplay\\.Objects\\.Gardening\\.SeedSpawnerRarity::SpawnObject": 1,
+        "^il patch: b75-life-event-lists-only-when-used-1 applied to Sims3\\.Gameplay\\.ActorSystems\\.LifeEventManager::GetActiveNode": 1,
+        "^il patch: b75-life-event-lists-only-when-used-2 applied to Sims3\\.Gameplay\\.ActorSystems\\.LifeEventManager::ProcessLifeEvent": 1,
+        "^il patch: b77-put-down-parent-gone applied to Sims3\\.Gameplay\\.ActorSystems\\.Children\\.BeingCarriedPosture\\+PushPutDownOnParent::Run": 1,
+        "^il patch: b90-duel-wand-put-away applied to Sims3\\.Gameplay\\.ActorSystems\\.InteractionQueue::PutDownCarriedObjects": 1
+      },
+      "logForbid": {
+        "^FAIL\b": 0,
+        "^il patch: .*(refused|not the converter's|fault)": 0,
+        "^il patch: .*not a build this fix knows, left alone": 1,
+        "^SKIP il patch": 0,
+        "[\\/]Users[\\/][^<]": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ilpatch-touch-bp"
+        }
+      },
+      "timeoutMin": 20,
+      "note": "Load (b89 applies at the world fixup) + method_touch of the other 20 methods (repro ilpatch-touch-bp: one call each on the sim thread with an uninitialized receiver, which transforms the method). Needs a core whose bodies a spec knows (EA 1.67 or UPDATE242 without patches): a core that already carries the fixes is left alone + 5 min of play. Pass: 'OK   il patch', three 'applied' lines (one per fix), three 'armed' lines, nothing refused / mismatched / faulted, no crash."
+    }
+  ]
+}

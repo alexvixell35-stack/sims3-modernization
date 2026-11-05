@@ -21,7 +21,7 @@ namespace Ts3Fixes
     // logs; this file acts. Both off unless [Compaction] Enabled=1 (opt-in: compact after a low save) or 2 (offered: ask).
     //   1. Save: OptionsModel.SaveGameTask (Save, Save As, async autosaves; synchronous saves are always followed by EA's own
     //      quit, travel or move) runs as usual; after it, if the state allows it (live mode, no travel / vacation / university
-    //      / other town, no dialog, no emergency), native op 7 gives the verdict (its own walk, save result 1 required).
+    //      / other town, no dialog, no emergency), native op 7 gives the verdict (its own walk, save result 0 required).
     //   2. Record (memory only, never in the save: the process survives the reload): game speed, open HUD panel, selected Sim,
     //      camera, and the queues of the Sims the player can see or would notice (CompactionCore.InScope), max 8 entries each,
     //      only entries whose definition is a static Singleton field (read again at the restore: a mod may replace it at load)
@@ -107,17 +107,28 @@ namespace Ts3Fixes
             public void StartupOrig() { } // MainMenuState.Startup
         }
 
-        // EA refuses Quit to Main Menu in the same states; a travel, vacation or university world reloads differently
-        static bool CpStateOk()
+        // EA refuses Quit to Main Menu in the same states; a travel, vacation or university world reloads differently.
+        // Not GameStates.HasTravelData: it is a persisted static that stays set in a home-world save after a trip (both
+        // harness baselines have it, every save of theirs was refused on 2026-11-02); IsOnVacation / university / future
+        // cover the worlds that reload differently, IsTravelling the transition itself.
+        // The first gate that refuses, for the native log (the 2026-11-02 harness saves were refused without a trace), or null.
+        static string CpStateWhy()
         {
-            if (!GameStates.IsInWorld() || !GameStates.IsLiveState || GameStates.IsTravelling || GameStates.HasTravelData || GameStates.IsOnVacation
-                || GameStates.IsEditingOtherTown || GameStates.MovingWorldName != null || Sims3.SimIFace.GameUtils.IsUniversityWorld()
-                || Sims3.SimIFace.GameUtils.IsFutureWorld())
-                return false;
-            if (UIManager.GetModalWindow() != null) return false;
+            if (!GameStates.IsInWorld()) return "not in a world";
+            if (!GameStates.IsLiveState) return "not in live mode";
+            if (GameStates.IsTravelling) return "travelling";
+            if (GameStates.IsOnVacation) return "on vacation";
+            if (GameStates.IsEditingOtherTown) return "editing another town";
+            if (GameStates.MovingWorldName != null) return "moving to " + GameStates.MovingWorldName;
+            if (Sims3.SimIFace.GameUtils.IsUniversityWorld()) return "a university world";
+            if (Sims3.SimIFace.GameUtils.IsFutureWorld()) return "a future world";
+            WindowBase modal = UIManager.GetModalWindow();
+            if (modal != null) return "a modal window (" + modal.GetType().Name + ")";
             string emergency = null;
-            return !Sims3.Gameplay.UI.Responder.Instance.HudModel.CheckForEmergency(ref emergency);
+            if (Sims3.Gameplay.UI.Responder.Instance.HudModel.CheckForEmergency(ref emergency)) return "an emergency (" + emergency + ")";
+            return null;
         }
+        static bool CpStateOk() { return CpStateWhy() == null; }
 
         static void CpNotify(string text)
         {
@@ -131,11 +142,30 @@ namespace Ts3Fixes
             if (why != kCpWhyLoad) CpNotify(CompactionCore.kSkippedText);
         }
 
+        // One check at a time. A save made while the game is paused leaves its SaveGameTask asleep in the modal-window wait below;
+        // on 2026-11-04 (#208 save matrix) twelve of them woke together after save #12 and each asked for a verdict. With the
+        // threshold reached that would be twelve prompts or compactions. The check that waits reads the newest save anyway.
+        static bool sCpChecking;
+
         static void CompactAfterSave()
+        {
+            if (sCpChecking) { DiagLine("compaction: a check from an earlier save is still waiting; this save adds none"); return; }
+            sCpChecking = true;
+            try { CompactAfterSaveCheck(); } finally { sCpChecking = false; }
+        }
+
+        static void CompactAfterSaveCheck()
         {
             int[] c = PatchCounters();
             c[427]++;
-            if (!CpStateOk()) { c[432]++; return; }  // the verdict is not asked: the arm stays for the next save
+            string why = CpStateWhy();
+            // EA's SaveGameTask leaves its own progress window (a plain Dialog) modal for a few ticks after it returns, so the
+            // state check saw "a modal window (Dialog)" after every save and the opt-in path never ran (2026-11-02). This task is
+            // a simulator task: sleep until that window is gone (a player's real dialog stays and still refuses below).
+            int waited = 0;
+            while (why != null && why.StartsWith("a modal window") && waited < 40) { Simulator.Sleep(5u); waited++; why = CpStateWhy(); }
+            if (waited > 0) DiagLine("compaction: save #" + c[427] + ": waited " + waited + " x 5 ticks for the save's modal window" + (why == null ? "" : "; still refused: " + why));
+            if (why != null) { c[432]++; DiagLine("compaction: save #" + c[427] + " not considered: " + why); return; }  // the verdict is not asked: the arm stays for the next save
             if (!CpAsk(0))
             {
                 if (CpAsk(1)) CpNotify(CompactionCore.kStillLowText);
@@ -151,7 +181,8 @@ namespace Ts3Fixes
                     return;
                 }
                 c[430]++;
-                if (!CpStateOk()) { CpFail(kCpWhyState); return; }
+                string why2 = CpStateWhy();
+                if (why2 != null) { DiagLine("compaction: state changed during the prompt: " + why2); CpFail(kCpWhyState); return; }
             }
             CompactGo();
         }

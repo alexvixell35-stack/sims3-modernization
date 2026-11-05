@@ -1,0 +1,45 @@
+{
+  "id": "b17-snowarena-horseshoe-1",
+  "switch": "ilp_snowarenahorseshoe1",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.Objects.SnowWaterFightArena::DoScoring(Sims3.Gameplay.Actors.Sim)",
+  "ilHashG6": "057fe350eb52f817",
+  "builds": {
+    "ea-1.67": {
+      "size": 545,
+      "sha256": "e3c622214d4e296af9f0d8c82b8aafcf39d9eb5278e69ccdc745d0e8bdec94d2",
+      "tokens": {},
+      "patchedSha256": "3df50906bac88f4e8838d33bcea604374fba19761f1c41dc350bda62a45ec927"
+    },
+    "simler90-242": {
+      "size": 545,
+      "sha256": "6b421354cec97569afe45e713322c42bc237fe4e13be97ec442d60857cb0b30b",
+      "tokens": {},
+      "patchedSha256": "ddece2461c33753aae9b6f1bb79787e718f2ca566540234e8266ccbf25f6e2e1"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x8",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldc.i4.1"
+      ],
+      "maxStack": 2,
+      "il": [
+        "ldloc.0",
+        "ldc.i4.0",
+        "bge @0x8",
+        "ret"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zz6_b17_snowarena_horseshoe.ps1",
+    "entries": [
+      "b17-snowarena-doscoring-slot-guard"
+    ]
+  }
+}

@@ -113,7 +113,7 @@ gone. Our sweeps never run at load. On top of that every pass stands down when:
 
 **`deadrefsweep`** (changes save data):
 
-- A spread pass once per sim hour (NeverPersisted alarm), run as one script task. Each phase gathers its items in one
+- A spread pass once per sim hour (NeverPersisted alarm), run as one script task (phases 10-12 only when due, §2.3a). Each phase gathers its items in one
   tick, then works through them in slices of at most ~2 ms (`EaSpreadCore.kSliceUs`, `StopWatch`), `Simulator.Sleep(0)`
   between slices. Each item is tested again at its turn. The safety checks of §2.2 run between every two slices.
 - Phases: 1 relationship keys (gone key: removed from both sides; live key: entries naming a gone description dropped),
@@ -125,12 +125,51 @@ gone. Our sweeps never run at load. On top of that every pass stands down when:
 - A cheap final pass before each save (`DisposeSaveHook`): only phases 1-3, gone entries only. That is one walk over three
   dictionaries with a field read per entry; the hourly pass has already done the rest. Its time is counter [409].
 
+### 2.3a Phases 10-12: one walk, after a Sim leaves or daily (2026-11-03, built and run)
+
+- **Why:** phases 10-12 each gathered every `GameObject` (`Queries.GetObjects<GameObject>`) and walked it, every sim
+  hour. On the player's old save (1111 kit5, job `old-gone-on`, 20 min) the whole pass cost ~91 ms (206 passes, 18.8 s)
+  and these three phases found 0 [measured]. Their share of the 91 ms was not measured before this change.
+- **Now:**
+  - The three phases share one gathered list per pass. `SlicedPass` copies it, so each phase still walks its own copy
+    and re-tests each item at its turn.
+  - They run only when a Sim object was destroyed or a description disposed since the last walk, or once per 24 sim hours
+    (`kDeadRefObjHours`). EA's `Sim.Destroy` sends `EventTypeId.kSimDestroyed` and `SimDescription.Dispose` sends
+    `kSimDescriptionDisposed` [verified: decompiled game code]. Two `EventTracker` listeners set one flag, so many events
+    in an hour cost one walk. The flag starts set at each world load.
+  - What starts each phase's work: phases 10 and 11 clean entries naming a destroyed Sim object (a townie leaving, a
+    reset), so `kSimDestroyed`. Phase 12 cleans handlers of relationships whose description was disposed
+    (`kSimDescriptionDisposed`) or that decayed (`RemoveRelationship`). Decay sends no event, so such a handler can now
+    stay up to 24 sim hours instead of 1.
+  - Phases 1-9 and 13 stay hourly. A pass stopped inside phases 10-12 (an unsafe state, §2.2) asks for the walk again.
+- **Gain:** it depends on how often Sims leave the world. When a Sim object is destroyed every sim hour, the walk still
+  runs hourly, with one gather instead of three. Counters [2055] walks, [2056] ms in finished walks (the gather is in the
+  first slice), [2057] walks an event asked for (the first walk after a load counts as asked); daily walks = [2055] -
+  [2057].
+- **Result (2026-11-03, player's old save 1111 kit5, release v0.2.4 asi, 20 min, seed 12345, `deadrefsweep` +
+  `rewardgiver` on; results file `docs/data/results/2026-11-03-alexvixell35-stack-deadref-obj-daily.md`):**
+
+  | | before (`old-gone-on`, 3 walks every pass) | after (`old-gone-objdaily`) |
+  |---|---|---|
+  | passes [405] | 206 | 215 |
+  | sweep time [408] | 18,778 ms (~91 ms per pass) | 4,913 ms (~23 ms per pass), -74% |
+  | GameObject walks | 618 (3 per pass) | 40 [2055], all asked by an event [2057] |
+  | ms in phases 10-12 [2056] | - | 2,779 (~69 ms per walk) |
+  | slices [406] / longest [407] | 10,456 / 5.9 ms | 3,711 / 4.4 ms |
+
+  - The rest of the pass costs ~10 ms ((4,913 - 2,779) / 215), so phases 10-12 were ~81 of the ~91 ms per pass. The
+    shared gather makes a walk ~15% cheaper (~69 vs ~81 ms); skipping walks does the rest.
+  - A Sim object was destroyed or a description disposed often enough for a walk every ~5 passes (sim hours), so the daily
+    rule never fired here.
+  - Cleanup: phases 10-12 found 0 in both runs; the other phases found similar counts (react times 129 vs 81, Sim fields
+    36 vs 38, passengers 12 vs 2, topics 1 vs 1, celebrity 4 vs 5). Stuck Sims at the end 11 vs 21, no exception.
+
 ### 2.4 Counters
 
 [393] Get refusals, [394] aging states refused, [395] relationship keys removed, [396] relationship entries removed,
 [397] aging states removed, [398] alarm owners cleared, [399] react-time entries, [400] coworker / former boss / chess
 entries, [401] topics, [402] fishers, [403] Sim fields (pusher, talking partner, vehicle, pregnancy dad), [404] passenger
-and horseshoe entries, [2045] dartboard entries (docs/516), [2046] use-list entries (docs/517), [2047] owner entries (docs/519), [2048] disposed handlers (docs/522), [2049] celebrity reactors (docs/523), [405] passes finished, [406] slices, [407] longest slice us, [408] total pass ms, [409] longest
+and horseshoe entries, [2045] dartboard entries (docs/516), [2046] use-list entries (docs/517), [2047] owner entries (docs/519), [2048] disposed handlers (docs/522), [2049] celebrity reactors (docs/523), [2055] object walks of phases 10-12, [2056] ms in them, [2057] walks asked by an event (§2.3a), [405] passes finished, [406] slices, [407] longest slice us, [408] total pass ms, [409] longest
 save pass us, [410] passes refused or stopped, and items that threw. Agent names `deadrefguards_*`, `deadrefsweep_*`.
 
 ## 3. Switches

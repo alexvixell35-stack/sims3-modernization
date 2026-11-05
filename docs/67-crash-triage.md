@@ -900,6 +900,24 @@ Design: the release call at `0xD5B77A` is retargeted to `TpDefer` (same register
 | Repro | `tools/harness/repros.json` `ea-thumb-pose-pack-loop`: household thumbnails while 8 spawned Sims are removed, three rounds (the contributor's cross-world thumbnail during pack-up has no agent action). `tpHeld > 0` shows branch (a) ran |
 | Conflicts | none with S3SS / S3PP / Apex at `0xD5B77A` / `0xD5B874` (docs/68) |
 
+### 27.6 First dump: an out-of-bounds read, and `[EaCrashFixes] ThumbPoseBones` (on since 2026-11-05)
+
+Dump: Apex Radiance's `ApexRadiance_Crash.dmp` of a contributor's old-save base run (2026-11-04, no fixes, 18.8 min; registers, stacks and pointed-to memory, no memory map). Same fault and `ebx 0x1AB760` as §27.1.
+
+| | |
+|---|---|
+| Branch | (a) [verified]: RefPtr local `[0x1AB378]` = `0xC3853C90`; its `+0xC` = `0xC412F140` = `ecx` = context `+0x4C` |
+| Owner alive | [verified] vtable `0xFC2D30`, refcount `+4` = 1, `+8` = 42 after the release, so ThumbPose (§27.5) would not change this crash |
+| Holder | [verified disassembly] ctor `0x574750`: `+8` bone count, `+0xC` a `count x 48`-byte pose (`0x4E3F90`). `0x5E0FD0` builds it once per model (`+0x214`) from the model's rig and returns it only when the counts still match (`0x5E1080`) |
+| Read | [verified dump + disassembly] the modifier `0x54E630` looks up `rootWorld`, `L_footWorld`, `R_footWorld` (`0xFC1230` / `0xFC1224` / `0xFC1218`) in the destination rig `[ctx+0x40]` (indices 222, 223, 224 at `[esp+0x40]`) and reads the source pose at those indices; the only size check is `[ctx+0x4C] != 0` (`0x54E754`). 222 x 48 = `0x29A0`, past a 42-bone pose (2016 bytes); it faults only when the read crosses into an unmapped page |
+| Fix | `ThumbPoseBones`: at the three stores of the source pose (`0xD5B708` b, `0xD5B76C` a via `0xD5B768`, `0xD5B7A1` c) a `0xFC2D30` holder with fewer bones than the destination rig (`([rig+0x30] - [rig+0x2C]) / 112`, as `0x575650`) stores 0. A holder with as many or more bones, another holder type and an unknown rig keep the game's value. The modifier reads `[ctx+0x4C]` only at `0x54E78D` [verified: whole function], and branch (c) already stores 0 |
+| Log | `ea fix: ThumbPoseBones: branch <a|b|c>: source pose <n> bones, destination rig <m>: not used (<dropped> of <seen>)` for the first 8 and every 1024th |
+| Tests (offline) | selftest `TestEaCrashFixes`: 42 vs 225 dropped, 225 / 300 / another type / no rig unchanged, unreadable holder 0; the three naked stubs on a real stack (stored value, `ecx` / `esi` / `eax` contract, other registers kept); patch all-or-none, once |
+| Game run | [measured, contributor] 2026-11-05, the same old save (DXVK + S3SS + S3PP + Apex Radiance), release defaults + `ThumbPoseBones=1`: 4 autopilot runs PASS, 25.5 + 35.5 + 35.4 + 35.6 min; installed (`OK   ea fix: ThumbPoseBones`); every run reached the 8-line log cap, source pose 42 bones vs destination rig 257, the 8th at 29-35 renders seen (each one an out-of-bounds read without the fix). Two more runs failed in the harness before play (an age-job argument bug, a stuck "Saving..." dialog), not crashes. PR #271; no result file, the runs are in the PR text |
+| Review | [verified disassembly] 2026-11-05, import of #271: site bytes match; `[esp+0x7C]` is written at `0xD5B0F6` and copied to `[ctx+0x40]` at `0xD5B7BC`, no jump lands inside a patched range, flags are dead after all three sites, `[ctx+0x4C]` starts 0 (`0x83B124`) and stays 0 on the `0xD5B798` path, so a null source pose is a normal value. `([rig+0x30] - [rig+0x2C]) / 112` matches `0x575650`. No overlap with ThumbPose (`0xD5B77A`, `0xD5B874`); those runs had ThumbPose off, the pair is not run together in game |
+| Unverified | that it prevents crash W (2 crash W in ~12 old-save runs on 11-04; needs more runs); which model has a 42-bone rig |
+| Conflicts | none with S3SS / S3PP / Apex in `0xD59C10`-`0xD5B8FF` (docs/68) |
+
 ## 28. Crash X (2026-10-30, a contributor's 35-minute test session on v0.2.4 release defaults with Apex Radiance): the Sim builder reads a CAS mesh's bone list past its end
 
 Static only (2026-10-30): the EA crash report and capstone on the Steam exe copy. There is no dump.
@@ -1074,3 +1092,283 @@ Live (run 173, `WorldAStarRefs=1` on Baseline-IP, 12 minutes, no crash) plus the
   - BigSave-IP saved normally with `WorldAStarRefs=1`.
   - Baseline-IP without the fix crashes before its first save, so it cannot be compared directly.
   - `PortalFlagRefs` did not change it (run 178), so it is not those flag writes [inferred].
+
+## 31. Isla Paradiso Error 12 (2026-10-31 to 11-02, 13 of 13 saves of Baseline-IP and Baseline-IP-Spring): not memory, not Apex; the world file is written whole, minus the CAS SimService state and 7 lot records
+
+Live (2026-11-02, two local queues `ip-error12-local` and `al35-one-local`, both on `fix/compaction-save-result` at 62f81b7
+with the 2026-11-02 asi) and offline (the DBPF index of every `.sims3.bad` folder the harness left since 10-31, read with a
+40-line index parser). §30 left the end-of-session Error 12 as "this save's, not the fix's"; this section says what the
+failed save is missing.
+
+### 31.1 Arms (all `save normal` at once after the load unless noted; the save returns 12)
+
+| Job | What differs | Memory at save start: free / largest free / commit MB | Result |
+|---|---|---|---|
+| `ip-e12-wa1-play0` | `WorldAStarRefs=1` (§30) | 1454 / 1379 / 2269 | 12 |
+| `ip-e12-wa1-pf1-play0` | `WorldAStarRefs=1`, `PortalFlagRefs=1` | 1485 / 1447 / 2283 | 12 |
+| `ip-e12-nofix-play0` | no EA crash fix (the save goes in at ready, before the §30 crash) | 1481 / 1441 / 2284 | 12 |
+| `ip-e12-wa1-play10` | 10 min of play first | 1188 / 1074 / 2473 | 12 |
+| `ip-e12-apexoff-play0` | `ApexRadiance.asi` moved out of `Bin` | 1540 / 1485 / 2220 | 12 |
+| `ip-e12-apexlots-play0` | Apex on, `LotLodStreaming`, `LotObjectThrottle`, `LotVisibilityOverride`, `LotLightingMotion` off | 1446 / 1406 / 2316 | 12 |
+| `ip-e12-apexrefpack-play0` | Apex on, `FastCacheCompression` off | 1475 / 1423 / 2291 | 12 |
+| `ip-e12-plain-wa1-play0` | the non-Spring Baseline-IP | (the save step hit an agent RPC error; rerun pending) | - |
+
+Bridgeport saves in the same hours, same asi, returned 0 with largest free 730 to 1081 MB (`bp-compaction-*`,
+`bp-save-reload`, `old-deadrefs-*`). The save's own need was 55 MB (`bigNeedMB`). **Error 12 here is not address space
+and not Apex [verified].**
+
+### 31.2 What EA's save does (ts3native `save:` phases, `UserDiag`)
+
+- `prepare` 0 ms, `info` 0 ms, `write (package)` 0 ms, then `write: world save (lots, script state)` 5.6 to 7.6 s, then
+  `result 12`. The game renames the folder `<name>.sims3.bad`. No `ScriptError_*.xml` is written at any of the 8 save
+  times [verified].
+- **The `.bad` world file (`IslaParadiso_0x0c50c382.nhd`) is a complete DBPF 2.0: header, every resource, and the index at
+  the end** (20.0 to 21.3 MB, 7378 to 7392 entries). The source save has 7816 entries in 26.2 MB [verified, 10 of 10 `.bad`
+  folders].
+- Missing from every one of them, against the source's index:
+  - **all 15 resources of type `0x342779A7`**, the native CAS SimService state (`docs/14` §1: outfit compositor and
+    material cache of every built Sim, rewritten whole on each save by `FUN_005ed3e0` / `FUN_005ef7f0` / `FUN_005efb50` /
+    `FUN_005efd60`): instances `0x10001` (1.75 MB), `0x20001` (2.42 MB) and `0x30001` to `0x3000D` (13 chunks of 0.83
+    to 0.89 MB), 15.4 MB uncompressed, 3.9 MB on disk.
+  - **the complete resource set of 7 lots**: 119 lot records (`0x0563919E`) in the source, 112 written, and the same 7
+    instance ids absent from each of the 35 per-lot types (243 entries in all). The ids: `08F30053536284C0` (17 KB
+    record), `08F30053536284F0`, `08F300536B484BF0`, `08F300536F64EAC0`, `08F300546D514280`, `08F30054B95E63B0` (28-byte
+    records, lots with nothing in them) and `08F300546D514270` (36 KB). They are not the last lots in the file's order
+    (the first of them is lot 61 of 119 by offset, lot 119 is present), so the writer skipped them and went on rather than
+    stopping [verified].
+  - 6 entries are new in the failed file (`0x0580A2CC`, `0x0580A2CD`, four more `0x00B2D882`): the save's own bookkeeping.
+- Every other type has the same count and within 3% the same bytes; the script state (`0x06B981ED`, 6.9 MB) is written
+  in full [verified].
+- The saves that work on the same world carry the same things: `BigSave-IP` (10-30, 29.7 MB, returned 0 on 10-31 with
+  `WorldAStarRefs=1`, §30 run 176) and the player's own `Isla Paradiso test 1` (10-30) have the SimService state (14 entries,
+  12 chunks) and 6 of the 7 lot ids; the non-Spring `Baseline-IP` (10-12) has 15 entries and all 7 ids, and its only arm
+  did not reach the save [verified].
+
+### 31.3 Reading
+
+- Error 12 is the world save's return after one of its writers failed; the file was still finalized with an index. What
+  failed is in the native part: the SimService state writer, or the lot writer for one of the 7 lots, or one failure that
+  made both skip (the SimService chunks are the last things written in a good save, the 7 lots are spread through the
+  middle) [inferred]. The script state and the other 7,370 resources went through.
+- The 13-chunk SimService state is not by itself the limit: Baseline-BP-Spring saves with 14 chunks [verified].
+- Five of the 7 lots are 28-byte records, lots with no content; in Isla Paradiso those are the kind the houseboat ports
+  and the empty beach lots leave. Whether the 7 are the port lots and what the 17 KB and 36 KB ones are is not known yet;
+  the agent has no lot-by-id command.
+
+### 31.4 Next
+
+1. **ts3native, one IP arm:** log the return of the four SimService functions and of the lot writer per lot id during a
+   save (`SaveWrite` already wraps the save; the functions are in `game-copy/analysis/functions.csv`). That names the failing
+   writer and, if it is a lot, which one. About 1 h with the build, one live job.
+2. **Name the 7 lots:** a `lots` agent command (id, name, lot type, household, houseboat / port flags) run once on
+   Baseline-IP-Spring, then the same on `BigSave-IP` for the 6 shared ids.
+3. **The non-Spring Baseline-IP arm** again (`ip-e12-plain-wa1-play0` with its save step after the agent is idle): it has the
+   same 15 SimService entries and all 7 lots, so it separates the Spring conversion from the save's own state.
+4. If the SimService writer is the one failing: compare its 15 inputs with BigSave-IP's 14 (the `0x3000D` chunk is the
+   extra one) before anything else; a `SaveCleanup`-style trim is not possible for it (`docs/14` §1).
+
+### 31.5 Four more arms: the save's own state, not our builds, not the caches, not the Spring conversion (2026-11-02 night)
+
+Live, on `fix/compaction-save-result` (the compaction verify worktree), one job per arm, save at once after the load.
+Each failed file was read with the same index diff as §31.2 [verified for every row]:
+
+| Arm | Save | Setup | Result | Missing from the written world file |
+|---|---|---|---|---|
+| plain (§31.4 item 3) | `Baseline-IP` | 2026-11-02 asi (WorldAStarRefs on), the branch's ts3fixes | 12 | all 15 SimService entries, the same 7 lots |
+| release pair | `Baseline-IP` | the player's own pair: ts3native v0.2.4 (0.36.105) and their ts3fixes | 12, then the §30 A\* crash at `0x6742B5` 15 s later (v0.2.4 has no WorldAStarRefs) | the same |
+| fresh world caches | `Baseline-IP` | as plain, with `IslaParadiso_sims.package` (1,071,414,891 B, at the 1 GiB cap) and `_objects` moved aside | 12 | the same |
+| control | `BigSave-IP` | as plain | **0**, and the in-session reload save 0 | nothing |
+
+- **Not the Spring conversion, not our builds, not the world caches.** The non-Spring save fails the same way, and so
+  does the player's release setup. Fresh caches do not change it. (The original caches went back after the arm.)
+- **The world itself saves.** `BigSave-IP` (the same world, the same mods, the same asi) saves today. So it is
+  `Baseline-IP`'s own state, which `Baseline-IP-Spring` inherits.
+- **The 7 lots, named** (`list_lots` on `Baseline-IP-Spring`): 33 Surf Circle, Shimmering Sands, Ocean View (Isla
+  Romantica) and 2 Sharks Bay (4 empty residential lots), Island Jewel Park (`kSmallPark`), Ichtaca Community Garden
+  (`kMisc_NoVisitors`) and Sparkling Sands Beach (`kBeach`). None is a port or a houseboat lot (the world has 18
+  `kEP10_Port` lots).
+- **Their records are not the cause by themselves.** Each of the 5 small records is byte-identical to the other 29
+  empty-lot records of the file (`05000000 10000000 ... 02000000 04000000`). The two larger ones are the same size in
+  `BigSave-IP`, which writes them.
+- **One lot-level difference:** `Baseline-IP` has 119 lot records, `BigSave-IP` 118. The extra one is 33 Surf Circle
+  (`08F30053536284F0`), one of the seven. Whether it starts the failure or is only skipped with the others is not known.
+- **An attempt without the player's mods was inconclusive.** All of `Mods/Packages` and `Mods/Overrides` were moved
+  aside except the harness's three packages; they were moved back after the job and counted. The world loaded in 9 s
+  but never reached live mode within 60 s, so there was no save. ts3fixes still listed 16 script assemblies, NRaas ones
+  among them, with 3 packages installed; where they loaded from is open.
+
+Next, in this order:
+
+1. Find why `Baseline-IP` has 33 Surf Circle and `BigSave-IP` does not (how each save was made). The game cannot
+   take the lot out to test it: Edit Town bulldozes a lot's contents but does not delete the plot, and this one is
+   already empty.
+2. Native writer logging (§31.4 item 1): which writer returns the failure, the lot writer or the SimService writer.
+3. The no-mods arm again, once the 16 assemblies' source is known.
+
+### 31.6 The extra lot was made in play, and the save wrote fine before 2026-10-18 (2026-11-03)
+
+(Correction, §31.8: the extra lot is a world-builder lot, `43_vacant`, from the version of the world this save was
+started on; it was not made in play.)
+
+- **33 Surf Circle is not in the shipped world.** `IslaParadiso.world` has no resource under `0x08F30053536284F0`.
+  The five other empty lots checked have 68 to 76 each. The player's working `Isla Paradiso test 1` has no such lot, and
+  `BigSave-IP` has none either. In the game (`LotManager.GetLot` and `lot_layout` on `Baseline-IP-Spring`), it is a
+  residential plot with no name, aligned with the street like its neighbours. It is not a houseboat lot
+  (`mbIsEP10HouseboatLot` false), and it is empty except for the mailbox and trash can the game puts on a new lot.
+  So it was made while `Baseline-IP` was played. The Edit Town lot tool is the likely way; the agent has no command
+  that makes a lot.
+- **The lot alone does not cause Error 12.** `Baseline-IP` was written on 2026-10-12 with the lot. `Baseline-IP-Spring`
+  was loaded from it and written twice on 2026-10-17 (13:17 and 19:15). All of those saves returned 0 [verified: file
+  times; the lot is in both, by the index diff and by `list_lots`]. The same saves fail today on every setup tried. So Error 12 needs this
+  save's state plus something on this machine that changed after 2026-10-17.
+- **What changed since then, outside the save** (2026-10-18 and 10-19): the core mod in `Mods/Packages`; the 21
+  `Default.ini` files (the four CAS compositor cache sizes raised to 1 GiB); the nine stuff-pack FullBuilds (each merged
+  with its delta, SP1 to SP3 also without 396 empty entries) and the nine stuff-pack deltas retired; and a 2-byte
+  `TS3W.exe` patch (the interpreter stack chunk's GC descriptor moved from `+0x7FC` to `+0xFF8`). The originals of all of
+  them are kept. §31.7 undoes each one.
+- **The arms that would test it do not run.** Three arms stop at the `cycle.ts` world-state wait, so the save step
+  never runs: the player's mods moved aside (twice), and only the core mod moved aside. In each, `game_state` never
+  reports a `...State` sub-state within 60 s. Also, with `Mods` moved aside, ts3fixes still listed NRaas and other script
+  assemblies (16) while ts3native counted 3 packages. Where those load from is not known. (§31.7: why, and those arms run now.)
+
+Next: §31.7.
+
+### 31.7 None of the post-10-17 changes is the cause (2026-11-03)
+
+One job per arm, `Baseline-IP`, `save normal` at once after the load, the plain job of §31.5 (the player's mods in)
+unless noted. Every file an arm changed went back after it and was hash-checked [verified for each arm]:
+
+| Arm | Put back or moved aside | Native save | Result |
+|---|---|---:|---|
+| core out | the core mod and Tiny UI Fix moved aside: EA's own gameplay DLLs | 5,500 ms | 12 |
+| no mods | all 100 entries of `Mods/Packages` and `Mods/Overrides`, and Tiny UI Fix, moved aside (left: ts3agent, ts3fixes, ts3-nointro) | 4,984 ms | 12 |
+| bare native | every ts3native section that is on in the release ini switched off (`GC`, `RouteAsync`, `RouteGate`, `Decompress`, `WaterJps`, `Discourage`, `LotRemoveGuard`, `OptsInit`, `UnseenFallback`), `SaveWrite` at Mode 0 (time only); `UserDiag`, `MemDiag` and `WorldAStarRefs` kept | 5,329 ms | 12 |
+| old `Default.ini` | the 21 files from before 2026-10-19 (EA's cache sizes) | 5,172 ms | 12 |
+| old stuff packs | the nine FullBuilds from before the merge and the nine deltas, copied back | 5,312 ms | 12 |
+| original exe | `TS3W.exe` without the chunk patch | 5,032 ms | 12 |
+
+- **No change found outside the save is the cause.** Each one undone on its own still gives 12, with the same save time
+  as §31.1. So the §31.6 reading ("this save's state plus something that changed after 10-17") does not hold for any
+  change found. Not tested: the DCCache, the thumbnail caches, the GPU driver and Windows updates.
+- **Why the earlier arms stopped at the world-state wait** (§31.6): the stash kept the Tiny UI Fix folder in place. Its
+  core bridge is built against the core mod; without the core, the world never reports a sub-state. With Tiny UI Fix moved
+  aside too, the world loads.
+- **The 16 assemblies** of the earlier no-mods arms came from what those stashes left in `Mods`. With everything moved
+  aside, ts3fixes lists 3 (ts3agent, its plugin and ts3fixes) and ts3native counts 3 packages.
+- The first no-mods try did not reach a result: after the save request ApexRadiance faulted on the main thread, and no
+  save phase ran in 900 s (the known Apex save hang). The rerun went through.
+
+Next: native writer logging (§31.4 item 1) is now the main lead: which writer returns 12, the SimService state writer or
+the lot writer for one of the 7 lots.
+
+### 31.8 Cause: two lots whose routing build never finishes; fix `[EaCrashFixes] LotGridMiss` (2026-11-03)
+
+Frida scripts attached to `Baseline-IP` (bare native, as §31.7), one step per run. The writers were followed from
+`World_Save` 0xC6D460 down to the failing one, then the failing branch, then why it fails.
+
+- **Where the save fails [verified].**
+  - `World_SaveLots` 0xC62860 saves each lot entry through the entry's `+0x1C` call.
+  - In two entries, the save context's ok flag (`ctx+0x14`) drops to 0 right after `BeginResource 0x046A7235:<lot>`
+    (the lot's routing levels). The lots are `08F30053536284C0` and `08F30053536284F0`.
+  - The flag is cleared in `LotRouting_SaveLevels` 0x63C690, through 0x63C620 and then 0x7D77C0 (`flag &= arg`).
+  - From then on that entry's `BeginResource` 0x7D8290 calls return false, so the rest of the entry is not written:
+    the 7 lots of §31.2. `World_Save` returns false (Error 12), and the SimService state of §31.2 is missing too.
+- **Why 0x63C690 fails [verified].**
+  - The lot's routing record has a "build in progress" byte at `+0x8E`. The level build 0x63CB90 sets it (0x63CC17),
+    and 0x631A60 reads it.
+  - For both lots the byte is set at save time.
+  - 0x63C690 then forces a rebuild (0x82B810), which returns true. The byte is still set (0x63C781), so the function
+    takes its failure branch at 0x63C8C1.
+- **Why the byte stays set [verified].**
+  - Its only clear is 0x631A30, called at 0x82B802 at the end of the lot routing finalize 0x82B590 (one argument, the
+    lot).
+  - The finalize leaves early, without the clear, at 0x82B608 when both of these hold:
+    - `lot+0x4BC == 0`;
+    - 0x651DA0 finds no world grid point within 1 m of the lot's centre. The grid has 32 m cells, with points stored
+      at 1/8 m.
+  - For both lots, every call: `+0x4BC` is 0 and the lookup fails. So the lot is never marked built.
+  - The finalize then runs again about once a second: 26 calls in the 45 s before the save, and 16 during the 5 s
+    save.
+  - Every other lot finalized in the run cleared the byte: 8 found their grid point, 5 had `+0x4BC` 1.
+- **The two lots.**
+  - `08F30053536284F0` is 33 Surf Circle. It is not in the installed world file (a world-builder lot from another version
+    of the world, see below; not made in play as §31.6 inferred).
+  - `08F30053536284C0` is a world lot: 71 resources in `IslaParadiso.world`, corners (856.4, 832.8) / (910.3, 784.3).
+    There is still no grid point at its centre.
+  - The player's `IslaParadiso.world` is a community-fixed version, decompressed (2026-03-14, 295,686,993 bytes, no
+    compressed entries). It was in place for the saves that wrote fine on 10-12 and 10-17. Whether EA's original
+    world has a grid point there was not tested: the player keeps this world.
+- **Why the two lots miss their grid points: the save's layout is from another version of the world [verified, files].**
+  - `08F30053536284C0` is Sparkling Sands Beach (world-builder name `78_BeachBigIsland`, `kBeach`).
+  - `Baseline-IP` and `Baseline-IP-Spring` put it at (856.42, 20.38, 832.8) in its lot record (`0xD063545B`).
+  - The installed world file, and every other IP save on this machine, put it at (861.08, 21.06, 820.44), with the same
+    rotation (1.22). The saves checked: `1.sims3` from 10-04, `Isla Paradiso2`, `Isla Paradiso`, both test saves,
+    `BigSave-IP` and the compaction saves.
+  - `08F30053536284F0` ("33 Surf Circle") is not a lot made in play, as §31.6 inferred. Its record carries the
+    world-builder name `43_vacant` (`EP10_World/Empty/LotAddress:Lot17`). Only the Baseline-IP saves have it; the
+    installed world file does not.
+  - So Baseline-IP was started from a version of `IslaParadiso.world` that has `43_vacant` and the beach at the other
+    spot. The installed file has been in place since 2026-03-14 (the folder's write time), so that start was earlier.
+    The installed one is a community-fixed version; which version Baseline-IP started from is not known.
+  - The world graph's lot node for the beach (chunk 1563, waypoint 0, type 0x1) is at (887.875, 796.125). That fits the
+    installed layout, not the save's. The save has no waypoint graph of its own (no `0x05CD4BB3` in the `.nhd`).
+  - The shipped waypoint counts of chunks 1563 and 1626 are 18 and 6: the counts that §30's stale lot portal ids,
+    (1563, 18-23) and (1626, 6-7), point past. So the §30 crash and this failure have one cause.
+  - Not a houseboat move (the player asked). EA's scripts parent only houseboat lots to a boat
+    (`Houseboat.DEBUG_SetHouseboatLot`, `Houseboat.PostLoadWorldBuilderDataFixup`, `Lot.PostWorldLoad`). In the save,
+    all 10 houseboats are docked at ports.
+- **The place-lots prompt [verified].** Every Baseline-IP load shows EA's "new lots available" prompt
+  (`InWorldSubState.PlaceLotWizardCheck`) for the four Ambitions venues. Their lots (`Lot01` to `Lot04`) are empty plots
+  here, while `1.sims3` has the venues placed. The agent's dialog rule accepts it ("Accept" scores as accept), which
+  opens Edit Town's place-lots wizard. In `1.sims3` the prompt does not appear.
+- **What builds these lots at load [verified, Frida, 2026-11-03].** The routing update builds their levels on the main
+  thread about 137 s after start: `0x836172` -> `0x63D86A` -> `0x63D7B0`, then the finalize from `0x83617A`. Four lots
+  get levels built at load; these two are among them. The rebuild `0x82B810` runs only at save, for the 7 lots.
+- **Not explained.** Why the 10-12 and 10-17 saves wrote fine with the same layout and the same world file.
+  - The 10-17 machine had neither ts3native nor Sims3Performance.
+  - Without both on this machine (a do-nothing DLL in place of ts3native, Sims3Performance moved aside), the two lots are
+    still built at load the same way. That run then crashed at `0x67664F` (§30's A\* crash, no fix loaded) before its
+    save.
+- **Live fix test (Frida, in the game's memory only).**
+  - The patch: the `je` at 0x82B608 jumps to 0x82B7F4. That is the game's own exit for a lot with nothing to connect
+    (0x82B659 `jbe`), which clears the byte and returns.
+  - Each lot was finalized once, with the byte cleared, and the once-a-second rerun stopped.
+  - `World_Save` returned true, and the log read `save: end #1 result 0`: the first good IP save since 10-17.
+  - The written world file has all 7 lots, with 33 to 35 resource types each: 119 lot records against 112 in the failed
+    save. The SimService state is back too: 13 entries of `0x342779A7` against 0.
+  - The `.nhd` is 24.06 MB against 19.96 MB. `Meta.data` and `1a5tf1l3.dat` were written too; the failed save leaves
+    them at their 10-12 versions.
+
+**Fix: `[EaCrashFixes] LotGridMiss`** (`wastar.cpp`, next version, off by default).
+- The `je` at 0x82B608 keeps its condition, but its target becomes `LgStub`.
+- `LgStub` logs the lot ("ea fix: LotGridMiss: lot 0x...", first 8), then goes on at 0x82B7F4.
+- The connection pass is skipped as before. Only the byte now gets cleared.
+- Install checks: the 6 bytes at 0x82B608 (`0F 84 F9 01 00 00`) and at 0x82B7F4 (`8B 4B 4C 8B 53 48`) are the game's.
+- Selftest (`TestWorldAStarRefs`): a mismatched byte refuses the patch; the patch keeps the opcode and points at
+  `LgStub`; a second patch is refused; each hit counts.
+
+Result: §31.9.
+
+### 31.9 Result: `LotGridMiss` on saves Isla Paradiso through save, quit, reload and save (2026-11-03)
+
+Local build `07b9659` (this branch), `Baseline-IP`, release defaults plus `[UserDiag]`, `[MemDiag]` and
+`WorldAStarRefs=1` as §31.7. `save-reload.ts --world IP --play 0 --after 2 --no-visits`: a normal save, then a save,
+Quit to Main Menu and a reload of that file, 2 min of play, then a save, EA's in-game Load (direct route) and 2 min of
+play. Local queue (the save is the player's).
+
+| Arm | Saves (native result) | `LotGridMiss` lines | Job |
+|---|---|---|---|
+| `LotGridMiss=0` | normal: 12 (5,281 ms); the tool stops there | none | FAIL as expected, 3.4 min |
+| `LotGridMiss=1` | normal: 0 (5,968 ms), reload save: 0 (5,078 ms), after the menu reload: 0 (6,281 ms) | `OK` at start; both lots after the first load, again before the first save, after the menu reload, after the direct reload (8 lines, the cap) | PASS, 8.7 min |
+
+- The menu reload and the direct reload both loaded the file that the fixed save wrote, and played 2 min each.
+- **Soak** (same build, `--play 15 --after 3` with the Buy and CAS visits, 25.7 min, PASS): after 15 min of autopilot
+  play, the three saves gave 0, 0, 0 (6,422 / 5,610 / 6,672 ms). Both reloads played 3 min. 8 hit lines, the cap. The
+  main-thread access violations at `0x69F235` in that log are also in the IP runs from before the fix (11-02
+  `ip-e12-wa1-play10`, 11-03 `ip-lot33`), so they do not come from it.
+- An earlier Frida run (the same patch in memory, then save, Quit to Main Menu, reload, 2 min of play, save) also gave
+  `result 0` twice.
+- With the fix, the two lots are rebuilt now and then in play, and each rebuild is marked done at once. Without it the
+  finalize ran about once a second for good.
+- The first hit lines come right after the load, so the load starts these lots' rebuild. Why the
+  10-12 and 10-17 saves wrote fine is still not known.

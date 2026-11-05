@@ -64,6 +64,30 @@ The report prints, per world:
 
 The faster route that still closes as much becomes the Compaction route (expected: direct, unless the menu route's statics clear is the difference).
 
+### 2.1 Results (2026-11-02, `save-reload-memory` play + control pairs; largest free block in MB, probe `/memory`) [measured]
+
+| Save | `sr-pre` (before the save) | `sr-save` | `sr-reload` (menu route) | `sr-reload10` | `sr-direct` | `sr-direct10` | `sr-ctl` (fresh start + load) | `sr-ctl10` | restart - reload at load / +10 min | restart time |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Baseline-BP-Spring (SaveReload-BP) | 832.8 | 800.8 | 776.8 | 684.7 | - | - | 1412.7 | 1050.1 | **636** / 365 | 178 s |
+| Baseline-LR-Spring (SaveReload-LR) | 853.2 | 821.2 | 793.2 | 650.7 | 601.0 | 572.4 | 1401.8 | 1030.7 | **609** / 380 (direct 801 / 458) | 186 s |
+| the old save (SaveReload-OLD, 2026-11-01) | 694.0 | - | (the reload step failed) | - | - | - | 1373.7 | 993.6 | - | 185 s |
+| Baseline-BP-CC (SaveReload-BPCC) | 771.9 | 723.9 | 678.1 | 625.6 | - | - | (no control run yet) | - | - | - |
+
+- **closes is negative on every save:** the in-process reload leaves *less* largest free than before the save (BP -56, LR -60, BPCC -94 MB
+  at the reload mark; -148 to -202 MB ten minutes later), while a fresh start + load of the same file has 580 to 680 MB more than the
+  pre-save mark and still 300 to 380 MB more ten minutes later. The direct route (LR) is worse than the menu route (601 vs 793).
+  So the unload keeps what matters (the §1 owners: the high-water allocator, the resource cache's address range, mapped files)
+  and the reload only adds; **as a memory tool the hidden reload gives nothing back** (the §2 "Stop" case). What it still
+  gives is the ~600 MB gap itself as a number: that is what a player gains by restarting before loading again, and it is the
+  budget any in-process release step (Apex-area items) would have to reach.
+- The Isla Paradiso pair gave no number: every harness save of Baseline-IP(-Spring) since 2026-10-31 ends in EA's result 12 with
+  about 1.1 GB free (docs/67 §31, under investigation: the failed world file lacks the same 7 lots every time; Apex Radiance 2.18.3
+  streams lots and replaced the save's RefPack writer and is the first suspect, arms queued).
+- The Compaction's own opt-in flow (§11) never ran in the verify queue: since the state gate gained the modal-window check,
+  `CpStateWhy()` answered "a modal window (Dialog)" after every save, because EA's `SaveGameTask` leaves its progress window
+  modal for a few ticks after it returns (found with the "not considered: <why>" line). `CompactAfterSave` now waits for that
+  window (5 ticks at a time, at most 40 times); the 13-job verify rerun follows.
+
 ## 3. Trigger and threshold
 
 ### 3.1 Signal
@@ -229,7 +253,8 @@ so numbers (largest free at the verdict, the gain) are read bit by bit. Deviatio
 - the verdict reads the largest free block **after** the save (one VirtualQuery walk on the sim thread, ~0.5-30 ms, once per
   save), not at save start. Apex releases its reserve before the save and takes it back only once 640 MB are free, so the
   reserve counts as free either way, and no phase hook is needed [inferred from Apex's source, docs/204 §1];
-- the save must be this task's (the save count moved since the task began), end with native result 1, within the last minute;
+- the save must be this task's (the save count moved since the task began), end with native result 0 (the game's success code: every good save in the logs ends `save: end #N result 0`; the first
+  draft and 0.36.128 required 1, so the verdict was never asked), within the last minute;
 - a declined offer uses the arm up (§7 option 2: at most once per arm);
 - the "restart the game" notice comes only after a compaction that did not help (§3.4), never after a failure;
 - the "+N min" line is written at the first periodic memory sample at least `AfterMinutes` after the reload (5 or 10 min period).
@@ -260,20 +285,30 @@ transition, the way EA's travel start does it (`EnableSceneDraw(false)`, screen,
 household-name line of a fresh `SaveGameMetadata` ("Compacting... (your game is saved)") [inferred: the screen survives the
 world unload as it does on travel; the verify queue checks it].
 
-Refused states (no verdict asked, the arm stays): not in live mode (Build/Buy/CAS/Edit Town), travelling, travel data
-(vacation, university, future), another town, a move, a modal dialog, an emergency (`HudModel.CheckForEmergency`).
+Refused states (no verdict asked, the arm stays): not in live mode (Build/Buy/CAS/Edit Town), travelling, a vacation,
+university or future world, another town, a move, a modal dialog, an emergency (`HudModel.CheckForEmergency`). Not
+`GameStates.HasTravelData`: that persisted static stays set in a home-world save after any trip (both harness baselines
+have it; EA passes it as the second flag of the native save, the `traveling` word of the `save: start` line), so with it
+in the gate every save of such a save was `compaction_refused_state` and nothing ever compacted (first live runs,
+2026-11-02, 13 of 13 jobs; removed the same day).
 
 **Counters** (ts3fixes, `docs/registry.md` `fixes-427`, `fixes-439`): 427 saves seen, 428 started, 429 offered, 430 accepted,
 431 declined, 432 refused by state, 433 skipped / failed, 434 queue entries recorded, 435 re-pushed, 436 not pushed (Test
 failed, target or Sim gone, queue refused), 437 not restorable, 438 pushes that threw, 439 restores finished (agent names
 `compaction_*`).
 
-**Tests** (none run): native selftest `TestCompaction` (verdict rules, Apex threshold, rearm, 60 min, did-it-help, notice,
+**Tests** (the native selftest and `run.ts` pass; the queue ran twice on 2026-11-02, results in `docs/data/results/2026-11-02-queue-compaction-verify-local.md`: the first runs found the `HasTravelData` gate above, the rerun after the fix is pending): native selftest `TestCompaction` (verdict rules, Apex threshold, rearm, 60 min, did-it-help, notice,
 bit answers); `node tools/selftest/compaction/run.ts`; repros `compaction-optin-bp|ip`, `compaction-offer-accept-bp|ip`,
-`compaction-offer-decline-bp|ip`, `compaction-refused-build-bp|ip`, `compaction-abort-bp|ip`, `compaction-menu-bp`; queue
-`tools/harness/queues/compaction-verify.json` (those 11 + the save matrix on BP (with travel) and IP with the hooks on but never
+`compaction-offer-decline-bp|ip`, `compaction-abort-bp|ip`, `compaction-menu-bp`; queue
+`tools/harness/queues/compaction-verify.json` (those 9 + the save matrix on BP (with travel) and IP with the hooks on but never
 firing, `ThresholdMB=1`). Run: `node tools/harness/queue.ts tools/harness/queues/compaction-verify.json --no-smoke` with
 `game-copy/ts3native.asi.compact1` and this branch's ts3fixes / ts3agent.
+
+The `compaction-refused-build-bp|ip` repros (a save made in Build mode must be refused by the state gate) are gone
+[measured 2026-11-02 21:02]: EA refuses the save first. `OptionsModel.CanSaveGame()` is false in Build mode, the agent's
+`save_game` answers "the game cannot save right now", and no `save: end` line exists for the gate to see. The gate's
+"not in live mode" branch stays as the defence for saves that reach the native hook from another state (Edit Town's own
+save, a mod's save call); it has no live job and no selftest, the `CpStateWhy` order is the code's own statement.
 
 **Risks** [inferred, the verify queue decides]: the loading screen may not survive the unload (then the player sees EA's
 normal unload, as on an in-game Load); queue re-push can push an interaction the game would not have chosen at that moment

@@ -316,6 +316,9 @@ namespace Ts3Agent
             // Career choice event (2026-11-03 bp-gug-t-ab: "...company is losing people due to low morale..." buttons 'Workshops' / 'Raises'):
             // no safe word, the game sat paused 60 s and the fail-fast guard ended the job. Either answer is normal play; take raises.
             new[] { new[] { "low morale" }, new[] { "raises", "workshops" } },
+            // Military career event (2026-11-04 al203b: "...romantically approached by one of the journalists..." buttons 'Brush Off' / 'Break Rank'):
+            // same 60 s pause stop. Brush off keeps the career and relationships as they were.
+            new[] { new[] { "romantically approached" }, new[] { "brush off" } },
             new[] { new[] { "mod scripts found" }, new[] { "accept", "ok", "continue" } },
         };
 
@@ -457,7 +460,8 @@ namespace Ts3Agent
                     foreach (KeyValuePair<WindowBase, object> kv in live)
                     {
                         string words = Words(kv.Key);
-                        if (words == w || words.StartsWith(w + " ") || (w.Length > 2 && words.IndexOf(w) >= 0)) { best = kv; how = "safe default"; break; }
+                        // "w," too: a mod's neighbour cleaning offer (2026-11-04 al203) had 'no, thank you' / 'yes, please' and stopped the run
+                        if (words == w || words.StartsWith(w + " ") || words.StartsWith(w + ",") || (w.Length > 2 && words.IndexOf(w) >= 0)) { best = kv; how = "safe default"; break; }
                     }
                 }
                 if (best == null) throw new McpException("no safe button, nothing clicked: '" + (r["title"] ?? "") + "' buttons: " + string.Join(", ", seen.ConvertAll(o => (string)o).ToArray()));

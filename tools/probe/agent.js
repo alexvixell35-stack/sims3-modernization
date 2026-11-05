@@ -1664,6 +1664,22 @@ rpc.exports = {
       if (c.readS32() >= 161) f.push('gwMode', 'gwReady', 'gwExpands', 'gwFails', 'gwKB', 'gwMaxAskKB', 'gwUnseenKB', 'gwLines', 'gwXmlCalls', 'gwXmlMaxKB');
       if (c.readS32() >= 162) f.push('gcCapKB', 'gcBlackOk', 'gcBlackOkMaxKB', 'gcExpandStreak', 'gcExpandStreakMax', 'gcStrictN');
       if (c.readS32() >= 163) f.push('gcLenientN', 'gcSwitchSec');
+      // v901 contributor block (issue #156, fsro.cpp): [FootstepRO] footstep surface cache, after v163
+      if (c.readS32() >= 901) f.push('fsReady', 'fsMode', 'fsCalls', 'fsJob', 'fsHit', 'fsMiss', 'fsLast', 'fsStored', 'fsStale', 'fsJobGameUs', 'fsJobGameMaxUs', 'fsChk', 'fsChkDiff', 'fsLastChk', 'fsLastDiff', 'fsNear', 'fsNearChk', 'fsNearDiff');
+      // v902 contributor block (docs/140 §5.3 phase P, rtoro.cpp): [RouteToObjRO] Tail, after v901
+      if (c.readS32() >= 902) f.push('rtoTailMode', 'rtoTailRuns', 'rtoTailHits');
+      // v903 contributor block (docs/195 §4 C1, idlero.cpp): [IdleCheckRO] SiteC; icFb_<r> as gvFb_<r>
+      if (c.readS32() >= 903) f.push('icReady', 'icMode', 'icShadow', 'icCalls', 'icTaken', 'icNoLot', 'icUs', 'icMaxUs', ...n('icFb', 7),
+        'icShadowRuns', 'icShadowEmpty', 'icShadowMismatch');
+      // v904 contributor block (docs/88 §10, p5c.cpp): [Discourage] DestroyParkDx
+      if (c.readS32() >= 904) f.push('dxMode', 'dxParked', 'dxLeft');
+      // v905 contributor block (docs/195 §8, idlero.cpp): [IdleCheckRO] SiteCLoop
+      if (c.readS32() >= 905) f.push('icLoopMode', 'icLoopRuns', 'icLoopTaken', 'icLoopDoubt', ...n('icLoopCode', 4), 'icLoopShadowRuns',
+        'icLoopShadowZero', 'icLoopShadowMismatch', 'icLoopShadowCodeDiff', 'icLoopUs');
+      // v906 contributor block (docs/195 §8, idlero.cpp): [IdleCheckRO] SiteCLoopJump
+      if (c.readS32() >= 906) f.push('icJumpMode', 'icJumped');
+      // v907 [IlPatch] (docs/506 §2, docs/526, ilpatch.cpp): contributor block
+      if (c.readS32() >= 907) f.push('ilpOn', 'ilpArmed', 'ilpApplied', 'ilpReused', 'ilpSkipHash', 'ilpSkipCheck', 'ilpSkipMismatch', 'ilpFaults');
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key

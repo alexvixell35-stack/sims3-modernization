@@ -1497,9 +1497,14 @@ SATB_COLD_HOOK(4)
 static int SatbInstallCold() {
     static void (*const hooks[5])() = {SatbCold0, SatbCold1, SatbCold2, SatbCold3, SatbCold4};
     int n = 0;
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 5; i++) {
+        if (i == 0 && g_ilpNext) {  // docs/526: [IlPatch] owns the transform entry; its detour calls SatbColdEnter(0, rm) first, as SatbCold0 did
+            if (!g_ilpColdEnter) g_ilpColdEnter = SatbColdEnter, n++;
+            continue;
+        }
         if (!g_satbColdNext[i] && (g_satbColdNext[i] = InstallDetour("satb cold path", kSatbCold[i].at, kSatbCold[i].bytes, kSatbCold[i].len,
                                                                      (void*)hooks[i], &g_satbColdNext[i])) != NULL) n++;
+    }
     return n;
 }
 

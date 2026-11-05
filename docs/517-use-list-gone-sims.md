@@ -22,7 +22,7 @@ checked in game.
 
 ## 2. The clean-up
 
-Phase 10 of the hourly spread pass (`DeadRefs.cs` `UseListHolders`), for every `GameObject`: each gone entry (null or
+Phase 10 of the spread pass (hourly; since 2026-11-03 only after a Sim leaves or daily, docs/205 §2.3a) (`DeadRefs.cs` `UseListHolders`), for every `GameObject`: each gone entry (null or
 `HasBeenDestroyed`) leaves through EA's own Remove method, one call per occurrence, so the science component and the
 `SimLine` queue see the removal too. Counter [2046] counts entries (`deadrefsweep_uselists`). The phase walks every
 object, so it is the longest of the pass; it runs in the same ~2 ms slices as the others. The pass before a save is

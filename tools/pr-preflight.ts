@@ -206,9 +206,18 @@ function report(head: string, x: Input | null, f: Finding[], all: boolean) {
   console.log(`needs review: ${probs.length ? `${probs.length} item${probs.length > 1 ? 's' : ''} (${kinds.join(', ')})` : 'none'}`);
 }
 
+// the remote named by --base; a base like refs/public/main names none, so fall back to GitHub's URL (a checkout can have no remotes)
+function fetchSource(base: string, remotes: string[], repo = 'rodneypantonial/sims3-modernization') {
+  const remote = base.includes('/') ? base.split('/')[0] : 'origin';
+  return remotes.includes(remote) ? remote : `https://github.com/${repo}.git`;
+}
+
 async function selfCheck() {
   let n = 0;
   const t = (c: unknown, m: string) => { console.assert(c, m); if (!c) process.exitCode = 1; n++; };
+  t(fetchSource('origin/main', ['origin']) === 'origin', 'remote named by the base');
+  t(fetchSource('main', ['origin']) === 'origin', 'bare base uses origin');
+  t(fetchSource('refs/public/main', [''], 'o/r') === 'https://github.com/o/r.git', 'no such remote: fetch from the repo URL');
   // a throwaway repo: base and branch both start at mb
   const dir = mkdtempSync(join(tmpdir(), 'pr-preflight-'));
   const g = (...a: string[]) => run('git', a, dir);
@@ -288,8 +297,8 @@ if (process.argv[1]?.endsWith('pr-preflight.ts')) {
     let headRef = 'HEAD', label = run('git', ['rev-parse', '--abbrev-ref', 'HEAD'], cwd).trim();
     const self = v.pr ? +v.pr : undefined;
     if (v.pr) {  // the PR head from the base's remote (works for forks: GitHub serves pull/<n>/head there)
-      const remote = v.base!.includes('/') ? v.base!.split('/')[0] : 'origin';
-      run('git', ['fetch', '-q', remote, `pull/${v.pr}/head`], cwd);
+      const source = fetchSource(v.base!, run('git', ['remote'], cwd).split(/s+/), v.repo);
+      run('git', ['fetch', '-q', source, `pull/${v.pr}/head`], cwd);
       headRef = run('git', ['rev-parse', 'FETCH_HEAD'], cwd).trim();
       label = `PR #${v.pr}`;
     }

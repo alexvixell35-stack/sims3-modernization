@@ -1,0 +1,26 @@
+{
+  "note": "docs/503 ageupswap: forced repro of the age-up swap hang, off and on, one load. Built 2026-11-01.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-ageup-swap",
+      "note": "Correctness (14 min): repro ageup-swap-check. Pass: off special part hangs (Done False) and finishes after unstick; on special finishes with 2006 or 2007 up by one; control finishes with counters unchanged. Read the state lines in the agent log.",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 14,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ageup-swap-check"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}

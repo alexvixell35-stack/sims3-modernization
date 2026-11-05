@@ -1,0 +1,51 @@
+{
+  "id": "b76-whack-watch-owner-gone",
+  "switch": "ilp_whackwatchownergone",
+  "counter": null,
+  "assembly": "Sims3GameplayObjects",
+  "method": "Sims3.Gameplay.Objects.HobbiesSkills.WhackASupernatural+Watch::Run()",
+  "ilHashG6": "d40e948479ac46d3",
+  "builds": {
+    "ea-1.67": {
+      "size": 1094,
+      "sha256": "e2f34ac7db328a0694fe79c6fd4ab1fd98ceac6678130853be49959d6a309515",
+      "tokens": {
+        "!1 class [Sims3GameplaySystems]Sims3.Gameplay.Interactions.InteractionInstance`2<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim,class Sims3.Gameplay.Objects.HobbiesSkills.WhackASupernatural>::Target": "0x0a003950",
+        "instance class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim Sims3.Gameplay.Objects.HobbiesSkills.WhackASupernatural::get_OwnerSim()": "0x0600b518"
+      },
+      "patchedSha256": "aa575de1a638b79f9f388987fe3ed3ed7865128955c484a7634ad427bbdc5b01"
+    },
+    "simler90-242": {
+      "size": 1094,
+      "sha256": "9bfd338741bbe20d7b8b6a4a6695e45a59058c3d1c14b70190b11116768cf063",
+      "tokens": {
+        "!1 class [Sims3GameplaySystems]Sims3.Gameplay.Interactions.InteractionInstance`2<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim,class Sims3.Gameplay.Objects.HobbiesSkills.WhackASupernatural>::Target": "0x0a00331c",
+        "instance class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim Sims3.Gameplay.Objects.HobbiesSkills.WhackASupernatural::get_OwnerSim()": "0x06002ae3"
+      },
+      "patchedSha256": "991be7e6a6fde0140c44239f60ebe72a9240673ce274df578ec8d8c425ac7749"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x7C",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "callvirt"
+      ],
+      "maxStack": 0,
+      "il": [
+        "brfalse @0x443",
+        "ldarg.0",
+        "ldfld !1 class [Sims3GameplaySystems]Sims3.Gameplay.Interactions.InteractionInstance`2<class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim,class Sims3.Gameplay.Objects.HobbiesSkills.WhackASupernatural>::Target",
+        "callvirt instance class [Sims3GameplaySystems]Sims3.Gameplay.Actors.Sim Sims3.Gameplay.Objects.HobbiesSkills.WhackASupernatural::get_OwnerSim()"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_b76_whack_watch_owner_gone.ps1",
+    "entries": [
+      "b76-whack-watch-owner-gone-ends-the-loop"
+    ]
+  }
+}

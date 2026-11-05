@@ -327,7 +327,7 @@ export function check(r: Pe, o: Pe, exp: Expect[]): Res[] {
 }
 
 export function sourceTexts(): [string, string][] {
-    return readdirSync(SRC).filter((f) => /\.(cpp|h)$/.test(f) && !/test/.test(f)).sort().map((f) => [f, readFileSync(join(SRC, f), "utf8")]);
+    return readdirSync(SRC).filter((f) => /\.(cpp|h)$/.test(f) && !/test|ilpatch-specs/.test(f)).sort().map((f) => [f, readFileSync(join(SRC, f), "utf8")]);
 }
 
 function report(res: Res[], unresolved: string[], unchecked: number[], patched: number, out: string, all: boolean, what: string) {

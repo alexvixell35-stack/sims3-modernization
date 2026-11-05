@@ -1039,6 +1039,8 @@ struct McCtr { LONG mcSwitch, mcReady, mcCall, mcCallvirt, mcRet, mcBailCall, mc
 static McCtr g_mcCtr;
 #define MC_CTR g_mcCtr
 #include "../ts3native/mintcall.cpp"
+static void* g_ilpNext;  // [IlPatch] (ilpatch.cpp) is not in the host: satb.cpp keeps its own cold site 0
+static void (*g_ilpColdEnter)(int site, DWORD arg0);
 #include "../ts3native/autshadow.cpp"
 static int AsTierOf(AsU64) { return 1; }  // unseen.cpp's tier rule (TierMs is 0 in the host: never asked)
 #pragma warning(pop)
@@ -1474,6 +1476,7 @@ static int AsG2() {
     return 0;
 }
 
+static void JitCorpusWorkerPass();  // monohost-jit.cpp (round 10 C4), while the worker is idle
 static int M5() {
     // M1.5 hooked [0x11949CC]; hand it back so ApplyMonoThread finds the game's push and chains it
     *(void**)(uintptr_t)0x11949CC = (void*)g_pushOtherOrig;
@@ -1619,6 +1622,8 @@ static int M5() {
         const int rc = AsG2();
         if (rc) return rc;
     }
+
+    JitCorpusWorkerPass();
 
     void* ah[3] = {&h, &gn, &gs};
     int hb = I32(T("CheckGraph", 3, ah));

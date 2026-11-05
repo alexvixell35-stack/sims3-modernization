@@ -222,6 +222,8 @@ designing once phase 1 has shipped a few fixes.
 
 ## 7. Open claims and their checks
 
+State 2026-11-02 (docs/526): I-506-1 verified by disassembly (the transform reads size `+0`, code `+4`, max stack `+8` and the clause records of the header `mono_method_get_header 0xE85390` caches at MonoMethod+0x20, nothing else of the body); I-506-3 verified (no region check in the transform's branch handling; the patcher refuses such edits); I-506-4 verified by the converter (every token found in both builds); I-506-2 still [inferred] until the smoke of docs/526 §5 runs. The build plan of §8 is done except the per-fix repros (B80, B87) and the live smoke.
+
 | ID | Claim | Check | Confirms | Refutes |
 |---|---|---|---|---|
 | I-506-1 | The transform reads the IL body, size, max stack and clauses from the method's cached header, so changing those fields for the call changes what it transforms | monohost: disassemble the transform's header reads, then transform one spec'd method offline with the swap | mint for the patched body (our branch in the mint) | mint unchanged |
@@ -229,7 +231,7 @@ designing once phase 1 has shipped a few fixes.
 | I-506-3 | Mono's transform does not check that a plain branch stays in its exception region, so the patcher must | read the transform's branch handling; the patcher rejects such edits anyway | — | — |
 | I-506-4 | Every member the three examples call already has a token in EA 1.67's Sims3GameplaySystems | converter step 3 | tokens found | a missing token |
 
-## 8. Build plan (after review)
+## 8. Build plan (after review; built 2026-11-02, docs/521 + docs/526)
 
 | Step | Estimate |
 |---|---|

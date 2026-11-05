@@ -1,0 +1,63 @@
+{
+  "id": "b68-skinny-dip-broadcaster-1",
+  "switch": "ilp_skinnydipbroadcaster1",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.Pools.Pool::AddSkinnyDipper(Sims3.Gameplay.Actors.Sim)",
+  "ilHashG6": "63afec1239a5bbac",
+  "builds": {
+    "ea-1.67": {
+      "size": 296,
+      "sha256": "1128c384ebedffbbd9cd319d008f44a308e4a8412a1f91afc182c0697a2c471b",
+      "tokens": {
+        "class Sims3.Gameplay.Autonomy.ReactionBroadcaster Sims3.Gameplay.Pools.Pool::mSkinnyDipBroadcaster": "0x0400304e",
+        "instance class Sims3.Gameplay.Interfaces.IGameObject Sims3.Gameplay.Autonomy.ReactionBroadcaster::get_BroadcastingObject()": "0x06005821"
+      },
+      "patchedSha256": "0bdd10280becb1dc4fe07a1558106d357e778465952f3cacba55dc83886ed74d"
+    },
+    "simler90-242": {
+      "size": 296,
+      "sha256": "2e4f5b23f121e224100499fa78552a739efb52659c4a54e665ece8295c9ca1f6",
+      "tokens": {
+        "class Sims3.Gameplay.Autonomy.ReactionBroadcaster Sims3.Gameplay.Pools.Pool::mSkinnyDipBroadcaster": "0x040034af",
+        "instance class Sims3.Gameplay.Interfaces.IGameObject Sims3.Gameplay.Autonomy.ReactionBroadcaster::get_BroadcastingObject()": "0x06002e69"
+      },
+      "patchedSha256": "9e7fe678e62d9d664099b16269d7f209f759231e37ca05e34ee1cfdb48a1ce9f"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x96",
+      "mode": "replace",
+      "entry": "incoming",
+      "expect": [
+        "brtrue.s"
+      ],
+      "maxStack": 0,
+      "il": [
+        "brfalse @0x98"
+      ]
+    },
+    {
+      "at": "0x98",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldarg.0"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldarg.0",
+        "ldfld class Sims3.Gameplay.Autonomy.ReactionBroadcaster Sims3.Gameplay.Pools.Pool::mSkinnyDipBroadcaster",
+        "callvirt instance class Sims3.Gameplay.Interfaces.IGameObject Sims3.Gameplay.Autonomy.ReactionBroadcaster::get_BroadcastingObject()",
+        "brtrue @0xB7"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zzzzzzzzzzzzzzzzzzzzzzz_b68_skinny_dip_broadcaster.ps1",
+    "entries": [
+      "b68-pool-skinny-dip-broadcaster-disposed"
+    ]
+  }
+}

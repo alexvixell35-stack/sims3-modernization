@@ -4,7 +4,7 @@
 //   node tools/harness/queue.ts --restore-content     put CC/Store packages back from the stash manifest of an unfinished run
 // Queue file: a JSON list of jobs (or { "jobs": [...] }):
 //   { id, note?, asi: "tested" | "<path from repo root>", ini?: { "Section.Key": value }, fixes?: { install?: [ids], uninstall?: [ids] },
-//     save?: "<name>[.sims3]" | "menu", content?: "as-is" | "no-cc" | "no-store", run: {repro: id} | {matrix: [args]} | {saveReload: [save-reload.ts args]} | {script: ["<tools/harness script>.ts", args...]} | {soak: {minutes, speed?}} | {menuMemory: {waitS?, draws?}}
+//     save?: "<name>[.sims3]" | "menu", content?: "as-is" | "no-cc" | "no-store" | "no-randomizer", run: {repro: id} | {matrix: [args]} | {saveReload: [save-reload.ts args]} | {script: ["<tools/harness script>.ts", args...]} | {soak: {minutes, speed?}} | {menuMemory: {waitS?, draws?}}
 //     | {profile: {minutes, seed?, repro?, mainstack?}} | {routelock: {minutes, speed?}} | {age: {days, checkpoint, keepAlive?, save?}}, gameArgs?: ["-disablestoryprogression"], defaultIni?: { "Config.SimulatorRandomSeed": n },
 //     s3ppIni?: { "Patches.MonoTypeEHashProbe": 0 }, s3ssToml?: { "patches.LotStreamingOptimizations.enabled": false }, minCounters?: 20, timeoutMin?,
 //     pin?: false | { cpus?: "4-15", priority?: "High", others?: boolean | [names] } }   (also queue-level beside "jobs"; pin.ts)
@@ -515,12 +515,16 @@ export function wiHeader(text: string) {
 }
 
 // content variants: fixes.json sets moved out of Mods (offload-phase0.ts: nocc-* = neither set, cc-* = no Store repacks)
-const CONTENT: Record<string, string[]> = { 'as-is': [], 'no-cc': ['user-cc', 'store-repacks-test'], 'no-store': ['store-repacks-test'] };
+const CONTENT: Record<string, string[]> = { 'as-is': [], 'no-cc': ['user-cc', 'store-repacks-test'], 'no-store': ['store-repacks-test'],
+  'no-randomizer': ['randomizer'] };
 const NEVER_MOVE = /(^|\/)(ts3agent|ts3fixes|ts3-nointro)\.package$/i;
-type ContentSet = { include: string[]; exclude: string[] };
+// match: only files whose Mods-relative path contains it
+type ContentSet = { include: string[]; exclude: string[]; match?: string };
+// harness-only sets (no install-fixes entry): Lyralei's TheRandomizer pops event dialogs the autopilot can't answer (2026-11-04)
+const LOCAL_SETS: Record<string, ContentSet> = { randomizer: { include: ['Packages'], exclude: [], match: 'TheRandomizer' } };
 const contentSets = (variant: string): ContentSet[] => {
   const fixes = JSON.parse(readFileSync(join(ROOT, 'tools', 'setup', 'fixes.json'), 'utf8')) as { id: string; config?: ContentSet }[];
-  return CONTENT[variant].map(id => fixes.find(f => f.id === id)!.config!);
+  return CONTENT[variant].map(id => LOCAL_SETS[id] ?? fixes.find(f => f.id === id)!.config!);
 };
 // files other fixes installed (absolute paths in install-fixes state.json): never moved
 const fixFiles = (statePath: string): Set<string> => {
@@ -537,6 +541,7 @@ export function contentFiles(mods: string, sets: ContentSet[], keep: Set<string>
     for (const n of readdirSync(join(mods, inc), { recursive: true }).map(String)) {
       const rel = `${inc}/${n.replace(/\\/g, '/')}`;
       if (!rel.toLowerCase().endsWith('.package') || c.exclude.some(x => rel.startsWith(x)) || NEVER_MOVE.test(rel)) continue;
+      if (c.match && !rel.includes(c.match)) continue;
       if (!keep.has(normalize(join(mods, rel)).toLowerCase())) out.add(rel);
     }
   }
@@ -1460,6 +1465,8 @@ if (values['self-check']) {
   const files = contentFiles(mods, sets, new Set([normalize(join(mods, 'Packages/CC/fix.package')).toLowerCase()]));
   assert.deepEqual(files, moved);
   assert.deepEqual(contentFiles(mods, []), []);
+  assert.deepEqual(contentFiles(mods, [{ include: ['Packages'], exclude: [], match: 'root' }]), ['Packages/root.package']);
+  assert.equal(contentSets('no-randomizer')[0].match, 'TheRandomizer');
   stashContent(mods, stash, files, { job: 't' });
   assert.ok(moved.every(r => !existsSync(join(mods, r)) && existsSync(join(stash, r))), 'moved to the stash');
   assert.ok(all.filter(r => !moved.includes(r)).every(r => existsSync(join(mods, r))), 'the rest stays');

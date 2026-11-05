@@ -4,10 +4,10 @@ static void TestMovedWaits() {
     static_assert(offsetof(Ts3nCounters, mwReady) == 0x486C && offsetof(Ts3nCounters, mwSkips) == 0x4870 &&
                       offsetof(Ts3nCounters, mwAvoidUs) == 0x4948 && offsetof(Ts3nCounters, mwKey) == 0x4990 &&
                       offsetof(Ts3nCounters, mwKeyOther) == 0x4A20 && offsetof(Ts3nCounters, ntKey) == 0x4A24 &&
-                      offsetof(Ts3nCounters, ntIk) == 0x4B14 && sizeof(Ts3nCounters) == 5836 * 4,
+                      offsetof(Ts3nCounters, ntIk) == 0x4B14 && sizeof(Ts3nCounters) == 5901 * 4,
                   "counters v120 layout after v119 (docs/registry.md)");
     static_assert(MW_N == 9, "mw arrays are [9]");
-    assert(k.version == 163);
+    assert(k.version == 907);
     const size_t blk = offsetof(Ts3nCounters, ntIk) + sizeof(k.ntIk) - offsetof(Ts3nCounters, mwReady);
     static u8 save[0x400];
     memcpy(save, &k.mwReady, blk);

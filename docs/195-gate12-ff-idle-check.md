@@ -71,3 +71,85 @@ Shadow: with no job, the game's call, then the clone, compared (`al`, footprint 
 - Caller split on current builds and in the ladder (P1b was off): I-195-1.
 - C1 empty share in a crowd: I-195-3; if small, only C2 helps.
 - Whether the moved wait lands on destroy / gate 0 (I-195-4); if so, this belongs with DestroyPark and G1 (docs/152) in one bundle, not alone.
+
+## 6. Footsteps: `[FootstepRO]` (2026-11-03/04, issue #156, `fsro.cpp`, counters v901)
+
+**Caller [measured].** With the eleven read-only pieces on (old save, P1b), the `0x62FB74` wait from `0x834201` was 14.2 ms/s (0.9 with them off): `RoutingWorld_SurfaceAtPoint 0x834B80` -> `EnsureTerrainFootprints 0x8341D0` -> `LotTable_GetIfPresent 0x62FB60`. A Frida drill (840 s) put 7,166 of 7,232 `SurfaceAtPoint` calls inside the pose pass `0x571B90`, all from footstep sounds: `FootstepAudio_Surface 0x8693E0` asks `World_SurfaceTypeAtPoint 0xAB9580` at `0x869713` [verified disassembly]. Only the sound reads the answer (`0x869130` maps it to the sound name).
+
+**Design.** Call-site retarget at `0x869713`. On the sim thread the stub keeps the game's last answer per (0.5 m cell, level, flags) in a 4096-slot table. While a job is `A_RUNNING`, a fresh entry (`MaxAgeMs`, default 60 s) answers without the game's call. On a miss: `MissNear=1` takes a fresh entry of one of the 8 neighbouring cells, then `MissLast=1` the last surface the game gave, else the game is called (today's wait). With no job every call goes to the game, and the counters check what each answer would have been (`fsChk*`, `fsNearChk*`, `fsLastChk*`). A wrong answer plays another surface's step sound once; nothing else reads it.
+
+**A/B [measured, `combo-local-2026-11-04-combo-fs-near`, save "1111 kit5", main b1d6b3c + this build, in-load `--ab footstepro`, 2-min slices, 10 min, `MissNear=1 MissLast=1`, the eleven pieces on in both arms].**
+
+| | on | off |
+|---|---|---|
+| `0x62FB74` gate 12 (F-F) wait, ms/s | 1.0 | 13.1 |
+| all keyed sim waits, ms/s | 36.4 | 42.6 |
+| arm sum (`arm-ms.ts`: script + route + animPose + locomotion), ms/s | 78.9 | 101.5 (on - off -22.5, -22%; animPose -16.7) |
+
+Job calls 973: 590 cell hits, 210 neighbours, 173 last surface, 0 to the game. Checks with no job (how often each answer differs from the game's): cell 46 of 2,749 (1.7%), neighbour 203 of 2,923 (6.9%), last surface 1,263 of 4,368 (28.9%). So in that run about 50 of the 973 job steps played another surface's sound, most from `MissLast`. One run; the same round's FailMemo job, whose switch did nothing (`fmRep` 0), differed by -9.2 ms/s (-11%) between its arms, so single-run arm sums carry about +-10% noise; the gate-12 key drop is the direct effect.
+
+**`MissLast=0` run (2026-11-04, stack-local `stack-fs-nolast`, `--ab footstepro`, `MissNear=1`, Tail and DestroyPark on both arms).** Gate 12 F-F `0x62FB74` 16.0 to 2.6 ms/s; all keyed sim waits 45.4 to 34.8 ms/s; arm sum 106.2 to 73.5 ms/s (-31%, one run). Job calls 1,308: 831 cell hits, 342 neighbours, 135 to the game (10%). Checks with no job: cell 36 of 3,206 (1.1%), neighbour 197 of 3,809 (5.2%), last surface 1,480 of 4,900 (30.2%, measured, not used). So `MissLast=1` saves about 1.6 ms/s of F-F wait and costs a wrong surface sound on about 5% of job steps; `MissLast=0` gives about 2% wrong.
+
+**Recommendation.** `MissLast=0` (the safe side when the gain is this small). Defaults stay `Enabled=0` until the PR review.
+
+## 7. Site C1 built: `[IdleCheckRO] SiteC` (2026-11-04, counters v903, `idlero.cpp`)
+
+**Call site [verified disassembly 2026-11-04].** `0x75598B` `call 0x82EDB0`, thiscall world = `[esp+0x34]`. Arguments: pt = the point `0x6508F0` builds (xyz +0, level +0x24, the layout GvRun reads); r = `[ebp+0x14]`; vec = a fresh empty FootprintRefVec (begin = end = cap = 0, tag `"Routing/Host"`); mode 0 (`0x755960`); opt = `[ebp+0x18]`. After the call the IC reads only the vector: begin == end jumps to `0x755A5B` (frees the empty range, returns 0); `al` is not read. So C1 is §4 step 1 as designed: the shape of `[GoalValidRO]`'s call site.
+
+**Build.** `IcStub` at `0x75598B` runs `GvRun` (gvro.cpp) under QL shared while a job runs. An empty answer (no footprint, or no lot) returns without the game's call. Footprints found (`icFb[6]`) or any doubt (`icFb[0..5]`, GoalValidRO's reasons) call the game's `0x82EDB0`, which is today's wait. Shadow with no job: the game's answer, then `GvRun`, compared (`icShadowMismatch`); `icShadowEmpty` is the share Mode 1 would take (I-195-3). Ini `[IdleCheckRO] SiteC=0` (needs `Enabled=1`), `SiteCMode`, `SiteCShadow`; runtime switches `--ab idlecheckc` (+0x5B88) and `--ab idlecheckcshadow` (+0x5B8C). Selftest `TestIdleCheckC` (on GoalValidRO's fakes). C2 (non-empty answers) is not built.
+
+**Runs (2026-11-04, stack-local, one save, 10 min each, in-load A/B).**
+
+- Shadow (`SiteCShadow=1`, mode 0): 1,747 compares, 0 mismatches. Only 8 were empty (0.46%): the IC almost always finds footprints near the point.
+- `--ab idlecheckc` (Tail on both arms): `icCalls` 2,080, `icTaken` 3 (all no-lot answers). Arm sum -6%, inside the noise: the shadow job, which cannot help, also read -6%.
+- Tail and site C together vs neither: `0x83156D` 11.5 to 0.1 ms/s; all keyed waits 32.2 to 34.6 ms/s. The wait moves on.
+
+**Verdict.** C1 does not pay and stays off. Only C2 (non-empty answers under QL shared) can make site C pay; it needs the footprint refs the IC's loop reads (§4 step 2).
+
+**Harness bug found by these runs.** With SiteC installed, the IC's wait was keyed by `IcStub`'s own return address in ts3native.asi, not by `0x755990`. That address changes every run and differs per call instruction. The 32 P0 key slots fill first-come, so the off arm's key got no slot: its wait went to the untimed `blockOther` (262 vs 143 per min), and the off arm's keyed total read low by about 11 ms/s. Fix: `t_stubKey` (`StubKey` in `GvStub` and `IcStub`) keys the outermost ObstacleQuery wait by the game site (`0x755990`, `0x75A64C`), as AvSite does with `0x846D21`; both keys are seeded. The asi-range key in older runs (for example `0x6696A870`, 3 to 5 ms/s) was `GvStub`'s wait: the dx-local round (fixed keys) shows `0x75A64C` at 5-9 ms/s and no asi-range key.
+
+## 8. Site C2: the IC's own loop on the clone (`[IdleCheckRO] SiteCLoop`, 2026-11-04, counters v905)
+
+**Why.** After the footstep cache, the route-to-object tail and DestroyParkDx, idle check site C (`0x755990`) is the biggest sim wait left (about 19 ms/s on, docs/88 §11). C1 answers only empty results (0.46%). The other 99.5% find footprints near the point.
+
+**Why not hand refs back.** The vector holds footprint interface pointers (object + 4). `FootprintRefVec_ReleaseRange` (`0xAAC090`) does a plain `-1` on `[el+4]` and deletes at zero. The sim thread cannot add refs while a job may change the same counts on the worker [verified disassembly 2026-11-04].
+
+**What the loop does** (`0x7559A0..0x755A4C`) [verified disassembly 2026-11-04]. Per element, in vector order; the first footprint that decides ends the IC:
+
+- Interface slot `+0xC` is the kind. All 11 targets are `sub ecx, 4` then a constant getter: `0x6262F0` 1, `0x74BB10` 2, `0x624EC0` 3, `0x624E10` 4, `0x624E60` 5, `0x6250A0` 6, `0x620E00` 7, `0x624E50` 8, `0x624E00` 9, `0x620E50` 10, `0x624EB0` 11.
+- Kind 5:
+  - With no ids in the frame (`[f+0x1C]` 0), the answer is 0x20.
+  - Otherwise the id is read (slot `+4` = `0x620E60` -> `0x806FE0`: object `+0x14`/`+0x18`) and looked up in the frame's id list (`0x788EA0` is a plain find). Found means the next element.
+  - Not found: `ObjectService_FindById` (`0x939560`, no lock, no AddRef). No object gives 0x20; an object's `+0x2C & [0x11E90FC]` gives 4, else 0x20.
+- Other kinds:
+  - Slot `+0x1C` is `0x620D20`: the primary class slot `+8` with `(0, 0)`, true for classes 2..12. The class functions are the six the S2 clone already calls under QL shared. The member footprint's slot `+0x1C` (`0x624F70`) is false.
+  - When true, slot `+8` is the type byte `+0x35` (`0x624ED0`) or 10 (`0x620E50`). Type 1 gives 0x10, types 12 and 23 give 8; any other type means the next element.
+- No footprint decides: the answer is 0 (`0x755A5B`).
+
+**Frame** (the IC's esp at `0x755990`, after the call's `ret 0x14`): `+0x18` ids, `+0x1C` count, `+0x34` ids end (`0x755949`), `+0x38` the vector, `+0x4C` the object service (`0x7556CF`). `IcStub` takes it from its return slot and checks three things: the return address `0x755990`, `vec == f + 0x38`, and `end == ids + count * 8`.
+
+**Build (C2a).**
+
+- While a job runs, `GvRun` runs the loop on the clone's footprints inside its QL hold (a visitor), with only reads.
+- Answer 0 (no footprint decides): the vector stays empty, and the IC returns 0 at `0x755A5B`, as after the game's call. The answer does not depend on list order.
+- Any other answer, or a doubt (an unlisted slot target or class function, a frame that fails the checks, a truncated clone list): the game's call.
+- Shadow (`SiteCShadow=1`, no job): the loop on the game's vector and on the clone, compared. `icLoopShadowZero` is the share C2a would take; `icLoopShadowMismatch` (one list answered 0, the other did not) must stay 0. `icLoopShadowCodeDiff` (both non-zero, different) can come from list order.
+- Ini `SiteCLoop=0` (needs `SiteC=1`, `SiteCMode=1`); runtime switch `--ab idlecheckc2` (+0x5BD8). Selftest: the loop cases, the frame check, the job path and the shadow compare, in `TestIdleCheckC`.
+
+**C2b: `[IdleCheckRO] SiteCLoopJump` (counters v906 `icJumpMode`, `icJumped`; `--ab idlecheckc2b`, off by default, needs `SiteCLoop=1`).** After C2 the calls a footprint decides (about 20%, mostly 0x10) still call the game. With C2b, IcStub writes the IC's exit for that answer into its own return slot instead of `0x755990`: 4 `0x755A12`, 8 `0x755A82`, 0x10 `0x755A97`, 0x20 `0x755A6D`. Each exit is `lea ecx, [esp+0x38]; call 0x652470` (the vector's release: `ReleaseRange` on its range, then free when allocated; empty here), `mov eax, answer`, the pops and `ret`. No exit reads a register the loop set [verified disassembly]. The return slot is the one IcFrameOf checked (`0x755990`); the stack after IcStub's `ret 0x14` is the one the IC's own path has. Install checks each exit's first 9 bytes (lea + call to `0x652470`) and the `mov eax, answer` after it, or leaves C2b off. The answer is the one the shadow compares (code diffs 0 of 223 non-zero answers in round 2). A doubt still calls the game.
+Measured (2026-11-04, two A/B runs with C2 on in both arms, plus a 35-min soak): site C `0x755990` 3.9 and 18.5 ms/s off,
+0.0 on, and the keyed sim waits fall 19% and 54%. In the soak, 2,050 jumps and 0 doubts
+(docs/data/results/2026-11-04-alexvixell35-stack-idle-check-c2.md).
+
+**Round 1 (2026-11-04, c2-local, final setup on both arms).**
+
+- Shadow: 598 loop compares, 0 mismatches, 0 code diffs; 426 (71%) answered 0. But 1,132 evaluations were doubts.
+- A/B `--ab idlecheckc2` twice: of 1,021 and 1,112 runs, 222 and 245 taken (22%), 669 and 715 doubts. Site C `0x755990` 13.8 vs 17.5 and 21.7 vs 16.5 ms/s: noise at that share.
+- Doubt log (doubt reason codes added, the first 24 logged with their slot targets): all 24 were the kind getter `0x624E00` (interface `0xFEBA74`, kind 9), which the first table missed. Added.
+
+**Round 2 (kind 9 added, c2e-local).**
+
+- Shadow: 1,737 loop compares, 0 mismatches, 0 code diffs, 0 doubts; 1,514 (87%) answered 0.
+- A/B `c2e-ab`: 1,268 runs, 1,028 taken (81%), 240 decided by a footprint (229 of them 0x10), 0 doubts. Site C `0x755990` 4.7 vs 13.7 ms/s; all keyed sim waits 23.9 vs 30.7 (-22%). Arm sum +7% (inside the noise). Stuck Sims 5. 10 ms of clone and loop time over 1,028 taken calls.
+- A/B `c2e-ab-b` died after about 8 min: crash W (docs/67 §27), the main thread's Sim thumbnail render reading a released pose at `0x54E79A` (an EA bug, also vanilla). The stack holds only TS3W addresses; C2 answers only what the game would. The first crash W in our runs. The next runs turn on `[EaCrashFixes] ThumbPose` (docs/67 §27.5) on both arms.
+- A/B with ThumbPose on both arms, twice: taken 82% and 80%; site C 3.8 vs 15.5 and 6.0 vs 18.8 ms/s; all keyed sim waits -26% and -38%; arm sums -17% and -15%; no crash. Results: `docs/data/results/2026-11-04-alexvixell35-stack-idle-check-c2.md`.

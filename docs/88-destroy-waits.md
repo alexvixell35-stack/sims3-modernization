@@ -208,3 +208,40 @@ Destroy key `0x2000003`: 8.7-8.8 ms/s BP and 3.1-4.3 ms/s IP before RouteSnap (�
 Queue `tools/harness/queues/destroy-park-ab.json` (not run; clean night only): `bp-wr-destroypark` (off-first ABBA), `bp-wr-destroypark-onfirst` (`abOnFirst`: on, off, off, on; pairs against the slot-1 bias of docs/136 §2), `ip-wr-destroypark`; base = `snap-p5c-ab.json` settings + `Discourage.DestroyPark=1`, 10 min, 2-min slices, `--ab destroypark`. asi: the build's `out/ts3native.asi` copied to `game-copy/ts3native.asi.destroypark`. Pass: no crash, `dpParked` > 0, T-G1 `p5cCountLow` 0, T-G3 `p5cAgeMaxUs` < 100 ms, `vfRtDestroyOffSim` 0; a crash in `0x939xxx`, `0x935xxx` or `0x64xxxx` stops the queue. Not built: probe P-G's caller / kind split and `dgJobMissParked` (§7).
 
 **Effort:** this build ~1 h (code 15 min, tests 30 min, docs and queue 15 min); the queue ~40 min of game time plus reading.
+
+## 11. The kept D-X waits: `[Discourage] DestroyParkDx` (2026-11-04, counters v904, run)
+
+**What is left [measured, `combo-local-2026-11-04-combo-rtotail-r2`, save "1111 kit5", 10 min, DestroyPark on, the eleven read-only pieces + `[FootstepRO]` + `[RouteToObjRO] Tail`].** The destroy key `0x2000003` is still 8-11 ms/s on this base, one of the three largest sim waits. `dpParked` 10,627, `dpKeptWait` 881. Of the kept ones, 863 are `p5cKeptWait[0]` (a queued discourage record for the id, §10.1 "D-X order kept") and 18 are `[3]` (id not in the hash). So about 7.5% of the destroys during jobs pay the whole wait, ~6 ms each. In the same run D-X 1 applied `usfDestroyApplied` 300 design-U records and `discDestroyApplied` 2 Remove records at destroys; the gone-object sweep ran 3 times (`discDeadSweep`).
+
+**Change (opt-in).** With `DestroyParkDx=1` (needs `DestroyPark=1`; runtime switch `dxMode` +0x5BCC, `--ab destroyparkdx`) a queued record no longer keeps the wait:
+1. `P5cPark` parks the reference as for any other destroy and notes the record count (`dxParked`, `dxLeft`).
+2. `RtEnter` `RT_DESTROY` skips `DiscOnDestroy` for that destroy, because D-X 1 takes `+0x918` (the job wait).
+3. The records stay queued in their order. At the next drain the id is gone, so `DiscApplyOne`'s gone-object rules apply: Remove, usf disable and pf removes are swept by id (`0x635700` on all lots, then `world+0x994 = 0`); Add, usf enable and fp2 records are dropped; a reused id is dropped and counted (`discIdMismatch`).
+4. Order of release: the drain runs before any flush of the parked reference. `DiscPoll` comes before `P5cFlush` at the START / READY polls, and save and closing drain first. So the object stays allocated until its records are handled, though nothing dereferences `r.obj` (pointer compare only).
+
+**What changes against §10.1 [design].** "D-X order kept" no longer holds for these destroys. The difference from D-X 1:
+- A Remove is swept by id instead of run by the original `0x834860` while the object is still in the hash. The lock-key map entry of the dead id stays (`discDeadKeyMap`, the existing `shortcut: not erased`).
+- A design-U enable or an fp2 update of a destroyed object is dropped instead of applied just before the destroy. Destroy does not remove routing footprints (§D-X), so the swept Remove (or the game's own leak, when no Remove came) decides what stays, as for the destroys DestroyPark parks today.
+- The footprints of the destroyed object stay in the lot quadtrees until the next drain, instead of going at the destroy. The running job already saw them (the records were deferred); the next job starts after the START poll's drain.
+
+**Pass rules for the A/B.** No crash. `discIdMismatch` 0. `discDeadKeyMap`, `usfGoneEnable0/1`, `pfSwept` and `fp2Dropped` per arm, read beside `dxLeft`. Stuck Sims and route failures not above the off arm. Key `0x2000003` on vs off.
+
+**Tests.** selftest `TestDestroyPark` case 8: with `dxMode 0` a queued record keeps the wait; with `dxMode 1` the destroy parks through `RtEnter(7)` without a wait, skips D-X 1, leaves the record queued, and a destroy without a record parks as before; the flush releases both.
+
+**Runs (2026-11-04, dx-local, save "1111 kit5", 10 min each, in-load A/B `--ab destroyparkdx`; the eleven pieces, footstep cache, DestroyPark, Tail and SiteC on both arms).** Per arm, on vs off, about 240 s each:
+
+| | dx-a | dx-b |
+|---|---|---|
+| destroy #4 `0x2000003`, ms/s | 0.4 vs 13.9 | 0.9 vs 11.7 |
+| idle check site C `0x755990`, ms/s | 18.2 vs 14.3 | 17.7 vs 14.1 |
+| goal validation `0x75A64C`, ms/s | 8.7 vs 6.7 | 7.9 vs 5.4 |
+| all keyed sim waits, ms/s | 41.7 vs 45.3 | 33.5 vs 35.6 |
+| D-X drain wait (`discDrainWaitUs`), ms/s | 3.5 vs 2.1 | 2.3 vs 1.1 |
+| arm sum (`arm-ms.ts`), ms/s | 80.2 vs 88.8 (-10%) | 75.9 vs 74.4 (+2%) |
+| parked with records (`dxParked`) / kept waits (`p5cKeptWait[0]`) | 802 / 0 vs 0 / 374 | 925 / 0 vs 0 / 318 |
+| dead-id sweeps / sweeps that removed a footprint | 236 / 105 vs 0 / 0 | 182 / 62 vs 0 / 0 |
+| fp2 updates dropped (gone object), slots 0 / 1 | 135 / 826 vs 1 / 15 | 78 / 933 vs 0 / 20 |
+
+Pass rules: no crash; `discIdMismatch` 0, `discDeadKeyMap` 0, `p5cCountLow` 0; stuck Sims 2 and 2 (both arms pooled), inside the base rounds' 1-15. The destroy wait goes, but most of it moves to the next takers (site C, goal validation) and the drain: the keyed total falls only 2-4 ms/s, and the arm sums are inside the noise. With the footstep cache and the route-to-object tail (job new3, all three on vs all off): all keyed sim waits 31.3 vs 47.0 ms/s (-33%), arm sum 78.5 vs 91.8 (-15%), stuck Sims 5. The biggest wait left is site C (`0x755990`, 19.5 ms/s on): docs/195 §4 C2.
+
+**Tripwire T-D5 with DestroyParkDx on.** A usf disable of a gone object is swept too, so T-D5 becomes `discDeadSweep = discDropRemove + usfGoneEnable0`. A private footprint remove of a gone object bumps `pfSwept`, never `discDeadSweep`, so it stays out of the formula. It held in every arm (236 = 72 + 164, 182 = 86 + 96, 213 = 59 + 154). The `pet-guard-cancel` repro checks the plain form; it runs with DestroyParkDx off.

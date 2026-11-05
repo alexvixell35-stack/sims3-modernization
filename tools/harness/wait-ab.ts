@@ -14,6 +14,7 @@ const LABEL: Record<number, string> = {
   0x2000003: 'destroy (closure #4)', 0x62EF7A: 'gate 0 transform', 0x62F782: 'gate 12 Contains', 0x62FB74: 'gate 12 (F-F)',
   0x631814: 'gate 12 front door (F-C)', 0x631F40: 'gate 12 (F-G)', 0x760BFF: 'gate 10 goal step', 0x833593: 'UpdateSimFootprint',
   0x85FFC7: 'plan tail', 0x85FE10: 'steering S2 site', 0x846D21: 'avoidance steering', 0x83156D: 'route-to-object check',
+  0x755990: 'idle check site C', 0x75A64C: 'goal validation site',
 };
 const TOTALS = ['asyncPumpUs', 'asyncUs', 'blockOther'];
 

@@ -24,7 +24,7 @@
 //   3. Pointer check: the record keeps the object pointer (no reference, never dereferenced); FindById returning another
 //      object means the id was reused: dropped and counted (discIdMismatch), not swept (the sweep would strip the new
 //      object's footprints).
-//   Tripwire T-D5: discDropRemove = discDeadSweep while discSweepMode is on.
+//   Tripwire T-D5: discDropRemove = discDeadSweep while discSweepMode is on (DestroyParkDx=1: discDeadSweep = discDropRemove + usfGoneEnable0; the pf branch bumps pfSwept only, docs/88 §11).
 //
 // Design U (docs/89 §5.1, §10; counters v74, [Discourage] DeferFootprint=1, default 0; runtime switch usfMode, --ab
 // deferfootprint): RoutingWorld_UpdateSimFootprint 0x833560 thiscall(world; obj, enable, force, arg), ret 0x10, void, is a
@@ -659,6 +659,8 @@ static void InstallDiscourage(const wchar_t* ini) {
         ts3native_counters.dpMode = 1;
         ts3native_counters.dpReady = 1;
         Log("OK   destroy park (design G): a destroy during an async route job parks one reference and runs without the wait");
+        ts3native_counters.dxMode = Clamp(GetPrivateProfileIntW(L"Discourage", L"DestroyParkDx", 0, ini), 0, 1);
+        if (ts3native_counters.dxMode) Log("OK   destroy park DestroyParkDx=1: queued discourage records of the id no longer keep the wait");
     }
     // default off until the 0.12.4 alignment fix has run in game (0.12.2 crashed on an 8-byte aligned points copy)
     if (!GetPrivateProfileIntW(L"Discourage", L"Enabled", 0, ini)) { Log("discourage deferral off (Enabled=0)"); return; }

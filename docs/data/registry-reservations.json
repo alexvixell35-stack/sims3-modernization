@@ -2380,6 +2380,27 @@
       "what": "Steam GC_black_list_spacing and the [GC] BlackListCapKB window (docs/232 Run 8q)",
       "at": "2026-11-03T08:59:28.826Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a788a176bffe5762b"
+    },
+    {
+      "id": "ledger-426",
+      "kind": "ledger",
+      "from": 426,
+      "to": 426,
+      "by": "dalexlol-import",
+      "what": "Isla Paradiso Error 12: LotGridMiss (PR #212)",
+      "at": "2026-11-05T08:04:14.741Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v907",
+      "kind": "native",
+      "version": 907,
+      "from": 23572,
+      "to": 23603,
+      "by": "dalexlol-import",
+      "what": "[IlPatch] ilp* counters (PR #200, docs/526, ilpatch.cpp)",
+      "at": "2026-11-05T08:05:52.449Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
     }
   ]
 }

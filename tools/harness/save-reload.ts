@@ -31,7 +31,7 @@ export const OUT = join(ROOT, 'probe-out', 'save-reload');
 
 // ---------------------------------------------------------------- pure parts (covered by --self-check)
 
-// [UserDiag] "save: end #N result R after X ms" lines in a log slice (the native save time; result 1 = ok)
+// [UserDiag] "save: end #N result R after X ms" lines in a log slice (the native save time; result 0 = the game saved, every good save in the logs)
 export function saveEnds(text: string): { n: number; result: number; ms: number }[] {
   return [...text.matchAll(/^save: end #(\d+) result (\d+) after (\d+) ms/gm)].map(m => ({ n: +m[1], result: +m[2], ms: +m[3] }));
 }
@@ -163,12 +163,12 @@ async function sampler() {
   return async () => { on = false; await loop; return peakOf(before, rows); };
 }
 
-// one save, timed: wall ms from save_game to save_in_progress false (seen true first, or the async_log line), native ms from the log
+// one save, timed: wall ms from save_game to the native "save: end" line (or save_in_progress seen true, then false), native ms from the log
 async function save(label: string) {
   await ag('autopilot', { enabled: false }); // it would unpause during the save
   await ag('set_speed', { speed: 'pause' });
   for (let i = 0; i < 5 && (await ag('auto_dialog')).result?.open; i++) await sleep(1500);
-  const off = logSize(), done0 = ((await ag('async_log')).result ?? []).filter((l: string) => l.startsWith(`save ${NAME} -> `)).length;
+  const off = logSize();
   const stop = await sampler();
   const t0 = Date.now(), r = await ag('save_game', { name: NAME }); // always by name: after a load SaveName can be empty (EA then opens the Save As dialog); the same name overwrites, as EA's AutoSave does
   if (!r.ok) throw new Error(`save ${label}: ${r.error}`);
@@ -176,8 +176,11 @@ async function save(label: string) {
   const wallMs = await until(`save ${label}`, 900, async () => {
     const st = await ag('game_state');
     if (st.ok && st.result.save_in_progress) seen = true;
-    const done = ((await ag('async_log')).result ?? []).filter((l: string) => l.startsWith(`save ${NAME} -> `)).length > done0;
-    return done || (seen && st.ok && !st.result.save_in_progress);
+    // the sim thread answers nothing while it saves, so a poll rarely lands with save_in_progress true: the native
+    // "save: end" line in the log slice is the sure sign (bp-save-reload 2026-11-02 05:24 waited 900 s on a 7 s save).
+    // The agent's async_log line is not: its task can finish before the game's save state runs (08:41: wall 49 ms on a
+    // 9.7 s save, then the mem_mark hit the busy sim thread), so it is not read here.
+    return saveEnds(logFrom(off)).length > 0 || (seen && st.ok && !st.result.save_in_progress);
   });
   await sleep(2000); // the save: end line follows the script side by a moment
   const peak = await stop();
@@ -262,3 +265,4 @@ for (const tag of Object.keys(out.marks)) out.marks[tag].diag = markFields(text,
 out.ended = new Date().toISOString();
 flush();
 log(`${process.exitCode ? 'FAIL' : 'PASS'}: ${file}`);
+process.exit(process.exitCode ?? 0); // a save that threw leaves its sampler running; node would sit until the queue gives up (bp-save-reload 2026-11-02 sat 33 min)

@@ -1,0 +1,63 @@
+{
+  "id": "b68-skinny-dip-broadcaster-2",
+  "switch": "ilp_skinnydipbroadcaster2",
+  "counter": null,
+  "assembly": "Sims3GameplayObjects",
+  "method": "Sims3.Gameplay.Objects.Plumbing.HotTubBase::StartSkinnyDipBroadcastersAndSendWishEvents(Sims3.Gameplay.Actors.Sim)",
+  "ilHashG6": "3f23bd1c9a41bb62",
+  "builds": {
+    "ea-1.67": {
+      "size": 261,
+      "sha256": "1706b87b67dfb305fcd6f49d624f0bc31ca22c2bfcd5ecb00824348222aa6ae5",
+      "tokens": {
+        "class [Sims3GameplaySystems]Sims3.Gameplay.Autonomy.ReactionBroadcaster Sims3.Gameplay.Objects.Plumbing.HotTubBase::mSkinnyDipBroadcaster": "0x04001fe3",
+        "instance class [Sims3GameplaySystems]Sims3.Gameplay.Interfaces.IGameObject [Sims3GameplaySystems]Sims3.Gameplay.Autonomy.ReactionBroadcaster::get_BroadcastingObject()": "0x0a0002b0"
+      },
+      "patchedSha256": "6bb14e20f0dfaf283df2e2e7f193e952bb3b07af38adbcb46c67a6cc0b3cfca4"
+    },
+    "simler90-242": {
+      "size": 261,
+      "sha256": "be7ce1f524bd5d92baad49994eb9b4810b384e735473b98f6498f200d53e4729",
+      "tokens": {
+        "class [Sims3GameplaySystems]Sims3.Gameplay.Autonomy.ReactionBroadcaster Sims3.Gameplay.Objects.Plumbing.HotTubBase::mSkinnyDipBroadcaster": "0x04001d7d",
+        "instance class [Sims3GameplaySystems]Sims3.Gameplay.Interfaces.IGameObject [Sims3GameplaySystems]Sims3.Gameplay.Autonomy.ReactionBroadcaster::get_BroadcastingObject()": "0x0a000754"
+      },
+      "patchedSha256": "1988bd7e2d5e0fd2064ece0d2247e496fcc8b830b8b756ce1be4505ba459cb94"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x73",
+      "mode": "replace",
+      "entry": "incoming",
+      "expect": [
+        "brtrue.s"
+      ],
+      "maxStack": 0,
+      "il": [
+        "brfalse @0x75"
+      ]
+    },
+    {
+      "at": "0x75",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldarg.0"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldarg.0",
+        "ldfld class [Sims3GameplaySystems]Sims3.Gameplay.Autonomy.ReactionBroadcaster Sims3.Gameplay.Objects.Plumbing.HotTubBase::mSkinnyDipBroadcaster",
+        "callvirt instance class [Sims3GameplaySystems]Sims3.Gameplay.Interfaces.IGameObject [Sims3GameplaySystems]Sims3.Gameplay.Autonomy.ReactionBroadcaster::get_BroadcastingObject()",
+        "brtrue @0x94"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zzzzzzzzzzzzzzzzzzzzzzz_b68_skinny_dip_broadcaster.ps1",
+    "entries": [
+      "b68-hottub-skinny-dip-broadcaster-disposed"
+    ]
+  }
+}

@@ -10,7 +10,8 @@
 //   node tools/jit-corpus.ts --report <monohost.exe.log> [--dump <jit-dump.txt>]   summary, mismatches by case name, superop coverage
 //   node tools/jit-corpus.ts --self-check
 // Run (docs/207 §10): MONOHOST_JIT=verify MONOHOST_MINTCALL=fast MONOHOST_JITCORPUS=1 MONOHOST_DIVGUARD=1 MONOHOST_JITLIST=<--env>
-//   [MONOHOST_JITCORPUS_FROM=<first case> MONOHOST_JITCORPUS_TO=<last case>]
+//   [MONOHOST_JITCORPUS_FROM=<first case> MONOHOST_JITCORPUS_TO=<last case>] [MONOHOST_JITCORPUS_TRAIL=1: every case's interpreted exception trail]
+//   node tools/jit-corpus.ts --index <name prefix>   first case index with that name prefix (the accessor fixtures: --index "Acc ")
 //   monohost.exe <repo>\game-copy\monohost\TS3W.exe <repo>\game-copy\assemblies selftest <repo>\game-copy\monohost\hostdata.txt
 // Yields are out of scope: P0 compiles only never-yielding methods, and monohost runs no task scheduler (P1 adds them).
 // Round 8 B6 (docs/207 §9.1): the ACCESSOR cases call the Sims3Gameplay* accessor fixtures of native/monohost/JitAccessors.cs
@@ -91,6 +92,31 @@ const KS = `
         public static float StoreR4(float a, float b) { float t = a * b; s_f = t + a; float u = s_f; return u * b; }
         public static double StoreR8(double a, double b) { double t = a * b; s_d = t + a; return s_d - b; }
         public static int StaticI4(int a, int b) { s_i = a; s_i += b; s_l = (long)s_i * a; return s_i ^ (int)(s_l >> 7); }
+        // round 10 C2: static fields of every width (ldsfld / stsfld typed by the field), references, the array stores, stobj,
+        // the string intrinsics, field addresses and float fields
+        static object s_o; static byte s_b; static short s_s; static char s_c; static bool s_bool;
+        public static int StaticMix(int a, int b)
+        {
+            s_b = (byte)a; s_s = (short)b; s_c = (char)(a ^ b); s_bool = a < b; s_o = a == 0 ? null : (object)a;
+            s_l = ((long)a << 32) | (uint)b; s_d = a * 0.5; s_f = b * 0.25f;
+            return s_b + s_s + s_c + (s_bool ? 1 : 0) + (s_o == null ? 0 : ((int)s_o & 0xFF)) + (int)(s_l >> 31) + (int)s_d + (int)s_f;
+        }
+        public static int StaticRef(object a) { s_o = a; object t = s_o; return t == null ? 0 : t is int ? (int)t : 7; }
+        public static int StelemI1(sbyte[] a, int i, int v) { a[i] = (sbyte)v; return a[i]; }
+        public static int StelemI2(short[] a, int i, int v) { a[i] = (short)v; return a[i]; }
+        public static long StelemI8(long[] a, int i, long v) { a[i] = v; return a[i]; }
+        public static float StelemR4(float[] a, int i, double v) { a[i] = (float)v; return a[i]; }
+        public static double StelemR8(double[] a, int i, double v) { a[i] = v; return a[i]; }
+        public static int StelemRefK(JitKO[] a, int i, JitKO v) { a[i] = v; return a[i] == null ? 0 : a[i].v + 1; }
+        static int StobjT<T>(ref T r, T v) { r = v; return 1; }
+        public static int StobjUse(int a, object o)
+        {
+            int x = 0; StobjT(ref x, a); object y = null; StobjT(ref y, o); long l = 0; StobjT(ref l, (long)a << 20); double d = 0; StobjT(ref d, a * 0.5);
+            return x + (y == null ? 0 : 1) + (int)(l >> 20) + (int)d;
+        }
+        public static int StrLenChr(string s, int i) { return s.Length * 1000 + s[i]; }
+        public static int FldAddr(JitKO o, int d) { return RefAdd(ref o.v, d); }
+        public static double FldR(JitKF o, float a, double b) { o.f = a; o.d = b; return o.f + o.d; }
         public static int Sw(int a)
         {
             switch (a) { case 0: return 10; case 1: return 11; case 2: return 12; case 3: return 13; case 7: return 17; case 16: return 26; default: return -a; }
@@ -166,7 +192,97 @@ const KO = `
         public int Walk() { int s = 0; JitKO p = this; for (int i = 0; i < 64 && p != null; i++) { s += p.v + (p.arr != null ? p.arr.Length : 0); p = p.next; } return s; }
     }
     public class JitKO2 : JitKO { public int w; }
+    public class JitKF { public float f; public double d; }
     public struct JitPt { public int X, Y; public int Sum(object o) { return X + Y + (o == null ? 0 : 1); } }
+`;
+// round 10 C4 (docs/207 §14): exceptions and stack walks through compiled frames. Thrower throws InvalidOperationException
+// at 0 and DivideByZeroException at 1; Mid / MidCatch / EnvMid / DeepT are lazy middle frames (each has a branch so mint
+// does not inline it). Names hashes the method name of every stack-trace line ("... in Ns.Class:Method (params) (addr)")
+// down to the last JitKX frame.
+const KX = `
+    public class JitKX
+    {
+        public static int s_log;
+        static int Thrower(int a) { if (a == 0) throw new InvalidOperationException("x"); return 100 / (a - 1); }
+        static int Mid(int a) { try { return Thrower(a) + 1; } finally { s_log = s_log * 10 + 1; } }
+        static int MidCatch(int a) { try { return Thrower(a); } catch (DivideByZeroException) { return 7; } }
+        static int Names(string s)
+        {
+            int h = 17;
+            if (s == null) return h;
+            foreach (string line in s.Split('\\n'))
+            {
+                int at = line.IndexOf(" in "), ps = at < 0 ? -1 : line.IndexOf(" (", at + 4);
+                if (at < 0) continue;
+                string name = ps < 0 ? line.Substring(at + 4) : line.Substring(at + 4, ps - at - 4);
+                if (name.IndexOf("JitKX") < 0) break;  // the frames above ours differ by caller (the corpus driver, the worker job)
+                h = h * 31 + name.GetHashCode();
+            }
+            return h;
+        }
+        public static int FinallyMid(int a) { s_log = 0; try { return Mid(a) + 2; } catch (InvalidOperationException) { return -1000 - s_log; } catch (DivideByZeroException) { return -2000 - s_log; } }
+        public static int CatchMid(int a) { return MidCatch(a) * 3 + a; }
+        public static int Rethrow(int a) { s_log = 0; try { try { return Thrower(a); } catch (InvalidOperationException) { s_log++; throw; } } catch (InvalidOperationException e) { return -3 - s_log - e.Message.Length; } }
+        public static int ThrowInFinally(int a) { try { try { return Thrower(a); } finally { if (a == 0) throw new ArgumentException("f"); } } catch (ArgumentException) { return -4; } }
+        public static int TraceNames(int a) { s_log = 0; try { return Mid(a); } catch (Exception e) { return Names(e.StackTrace); } }
+        static int EnvMid(int a)
+        {
+            if (a > 1000) return a;
+            int h = 17; System.Diagnostics.StackFrame[] fs = new System.Diagnostics.StackTrace().GetFrames();
+            if (fs != null) foreach (System.Diagnostics.StackFrame f in fs) { if (f.GetMethod() == null || f.GetMethod().DeclaringType != typeof(JitKX)) break; h = h * 31 + f.GetMethod().Name.GetHashCode(); }
+            return h + a;
+        }
+        public static int EnvTrace(int a) { return EnvMid(a) + 1; }
+        public static int Escape(int a) { return Thrower(a) + 1; }
+        static int DeepT(int n) { if (n <= 0) return Thrower(0); return DeepT(n - 1) + 1; }
+        public static int DeepCatch(int n) { try { return DeepT(n); } catch (InvalidOperationException e) { return n + Names(e.StackTrace); } }
+    }
+`;
+// round 10 C1 (docs/207 §15): the value-type moves. JitTPt is 12 bytes: Take runs stinarg.vt, ldarg.vt, stloc.vt and
+// starg.vt; Locals ldloc.vt / stloc.vt and a struct call (con.call with a pointer this); Result the vtresult after a
+// struct-returning call and a call on the temp; Dup the dup.vt of a chained assignment; Big a 20-byte struct (two
+// cursor steps of 8 each side of the copy). JitKTF (C1 leftovers): the value-type field loads ldfld.vt / ldsfld.vt
+// (Fields, Statics; S has a .cctor, so the first call takes the class-init exit) and the null-receiver exit (Null).
+// JitKCV: con.callvirt on a reference type (a constrained call in a generic method instantiated with a class): Eq through
+// IEquatable (guarded, one class), Hash through Object.GetHashCode with the class flipping every call (the guard refills),
+// Null a null reference behind the pointer (the site exits, EA throws).
+const KT = `
+    public struct JitTPt { public int X, Y, Z; public JitTPt(int x, int y, int z) { X = x; Y = y; Z = z; } public int Sum() { return X + Y + Z; } }
+    public struct JitTBig { public int A, B, C, D, E; public int Sum() { return A + B * 3 + C + D + E; } }
+    public class JitKT
+    {
+        static JitTPt Mk(int a) { return new JitTPt(a, a * 2, a - 1); }
+        static int Take(JitTPt p, int k) { JitTPt q = p; q.X += k; p.Y = q.X; return p.Sum() * 3 + q.Z; }
+        public static int Locals(int n) { int s = 0; for (int i = 0; i < n; i++) { JitTPt p = Mk(i); JitTPt q = p; q.Y = -q.Y; s += Take(q, i) + p.Sum(); } return s; }
+        public static int Result(int n) { int s = 0; for (int i = 0; i < n; i++) s += Mk(i).Sum() + Mk(i + 1).X; return s; }
+        public static int Dup(int n) { int s = 0; for (int i = 0; i < n; i++) { JitTPt a, b; a = b = Mk(i); b.Z = 9; s += a.X + a.Z + b.Z; } return s; }
+        static JitTBig MkBig(int a) { JitTBig b; b.A = a; b.B = a + 1; b.C = a + 2; b.D = a + 3; b.E = a + 4; return b; }
+        static int TakeBig(JitTBig b, int k) { JitTBig c = b; c.E = k; b.A = c.E; return b.Sum() + c.Sum(); }
+        public static int Big(int n) { int s = 0; for (int i = 0; i < n; i++) { JitTBig b = MkBig(i); s += TakeBig(b, i) + MkBig(i).Sum(); } return s; }
+    }
+    public class JitKTF
+    {
+        public JitTPt F; public JitTBig G; public static JitTPt S = new JitTPt(7, 8, 9); public static JitTBig SB;
+        static int Sum3(JitTBig b) { return b.Sum(); }
+        public static int Fields(JitKTF o, int n) { int s = 0; for (int i = 0; i < n; i++) { JitTPt p = o.F; p.X += i; o.F = p; s += p.Sum() + Sum3(o.G); } return s; }
+        public static int Statics(int n) { int s = 0; for (int i = 0; i < n; i++) { JitTPt p = S; s += p.Y + Sum3(SB) + i; } return s; }
+        public static int Null(JitKTF o) { try { JitTPt p = o.F; return p.X; } catch (NullReferenceException) { return -7; } }
+    }
+    public class JitRKey : IEquatable<JitRKey>
+    {
+        public int V; public JitRKey(int v) { V = v; }
+        public bool Equals(JitRKey o) { if (o == null) return false; return o.V == V; }
+        public override int GetHashCode() { if (V < 0) return 1; return V * 31 + 1; }
+    }
+    public class JitRKey2 : JitRKey { public JitRKey2(int v) : base(v) { } public override int GetHashCode() { if (V < 0) return 2; return V * 7 - 2; } }
+    public class JitKCV
+    {
+        static int EqR<T>(T a, T b) where T : IEquatable<T> { if (a.Equals(b)) return 1; return 0; }
+        static int HashR<T>(T a) { int h = a.GetHashCode(); if (h < 0) return -h; return h; }
+        public static int Eq(int n) { int s = 0; JitRKey k = new JitRKey(2); for (int i = 0; i < n; i++) s += EqR(new JitRKey(i & 3), k); return s; }
+        public static int Hash(int n) { int s = 0; for (int i = 0; i < n; i++) s += HashR((i & 1) == 0 ? new JitRKey(i) : new JitRKey2(i)); return s; }
+        public static int Null(int n) { try { JitRKey k = null; return HashR(k) + n; } catch (NullReferenceException) { return -9; } }
+    }
 `;
 // B3 lazy frames (docs/207 §12): compiled callers calling compiled static leaves (every position native, ret / ret.void).
 // Each leaf has a branch so mint's transform does not inline it; Arr / Set / Deref fault inside the leaf (frame written at
@@ -277,6 +393,31 @@ const STMT_CASES: Case[] = [
                 int i = ix[k];
                 ${T('JitK.StelemRef(st, i, "v")')} ${T('JitK.StelemRef(st, i, (object)5)')}
             }` },
+  { name: 'JitK.StaticMix / StaticRef (static field widths, references)', body: `for (int i = 0; i < I4.Length; i++) for (int j = 0; j < I4.Length; j++) ${T('JitK.StaticMix(I4[i], I4[j])')}
+            object[] os2 = new object[] { null, 5, "s", new JitKO() };
+            for (int k = 0; k < os2.Length; k++) ${T('JitK.StaticRef(os2[k])')}` },
+  { name: 'JitK.StelemI1 / I2 / I8 / R4 / R8 (bounds, widths, rounding)', body: `int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            sbyte[] sb = new sbyte[3]; short[] ss = new short[3]; long[] ls = new long[3]; float[] fs = new float[3]; double[] ds = new double[3];
+            for (int k = 0; k < ix.Length; k++)
+            {
+                int i = ix[k], v = I4[k % I4.Length];
+                ${T('JitK.StelemI1(sb, i, v)')} ${T('JitK.StelemI2(ss, i, v)')} ${T('JitK.StelemI8(ls, i, (long)v << 33)')}
+            }
+            for (int r = 0; r < R8.Length; r++) { ${T('JitK.StelemR4(fs, 1, R8[r])')} ${T('JitK.StelemR8(ds, 2, R8[r])')} }
+            ${T('JitK.StelemR4(null, 0, 1.0)')} ${T('JitK.StelemR8(ds, 3, 1.0)')}` },
+  { name: 'JitK.StelemRefK (exact class, a derived value, a covariant mismatch)', body: `int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            JitKO[] ka = new JitKO[3]; JitKO[] kb = new JitKO2[3]; JitKO k1 = new JitKO(); JitKO k2 = new JitKO2(); k1.v = 3; k2.v = 5;
+            for (int k = 0; k < ix.Length; k++)
+            {
+                int i = ix[k];
+                ${T('JitK.StelemRefK(ka, i, null)')} ${T('JitK.StelemRefK(ka, i, k1)')} ${T('JitK.StelemRefK(ka, i, k2)')} ${T('JitK.StelemRefK(kb, i, k2)')} ${T('JitK.StelemRefK(kb, i, k1)')} ${T('JitK.StelemRefK(null, i, k1)')}
+            }` },
+  { name: 'JitK.StobjUse / StrLenChr / FldAddr / FldR (stobj, string intrinsics, field address, float fields)', body: `int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
+            object[] os3 = new object[] { null, "x" }; string[] strs = new string[] { null, "", "abc", "\\u00e9\\ud83d" }; JitKF kf = new JitKF();
+            for (int i = 0; i < I4.Length; i++) ${T('JitK.StobjUse(I4[i], os3[i & 1])')}
+            for (int s = 0; s < strs.Length; s++) for (int k = 0; k < ix.Length; k++) ${T('JitK.StrLenChr(strs[s], ix[k])')}
+            ${T('JitK.FldAddr(null, 1)')} ${T('JitK.FldAddr(new JitKO(), 5)')} ${T('JitK.FldR(null, 1f, 2.0)')}
+            for (int i = 0; i < R4.Length; i++) for (int j = 0; j < R8.Length; j++) ${T('JitK.FldR(kf, R4[i], R8[j])')}` },
   { name: 'JitK.LdelemI1 on null', body: `int[] ix = new int[] { -1, 0, 1, 2, 3, 4, int.MaxValue, int.MinValue };
             sbyte[] sb = new sbyte[] { -128, -1, 127 }; ushort[] us = new ushort[] { 0, 0x8000, 0xFFFF }; long[] ls = new long[] { long.MinValue, -1, long.MaxValue };
             double[] ds = new double[] { D(0x7FF0000000000001UL), -0.0, 1e308 }; float[] fs = new float[] { F(0x7F800001U), F(0x80000000U), F(0x00000001U) };
@@ -426,6 +567,19 @@ const LAZY_CASES: Case[] = [
   { name: 'JitKV.CallVirtThrow (DivideByZeroException in a class-guarded lazy callee)', body: T('JitKV.CallVirt(new JitKV3(), 6)') },
   { name: 'JitKV.CallVirtChain (a guarded lazy callee makes a guarded lazy call; null inner receiver)', body: `${T('JitKV.CallVirtChain(new JitKV2(), new JitKV(), 40)')} ${T('JitKV.CallVirtChain(new JitKV(), null, 3)')}` },
   { name: 'JitKL.CallCon (con.call: a constrained call on a value type in a generic method)', body: T('JitKL.CallCon(40)') },
+  { name: 'JitKT.Locals (ldloc.vt / stloc.vt / ldarg.vt / starg.vt / stinarg.vt on a 12-byte struct)', body: T('JitKT.Locals(40)') },
+  { name: 'JitKT.Result (vtresult after a struct-returning call, a call on the temp)', body: T('JitKT.Result(40)') },
+  { name: 'JitKT.Dup / Big (dup.vt of a chained assignment; a 20-byte struct through the same moves)', body: `${T('JitKT.Dup(40)')} ${T('JitKT.Big(40)')}` },
+  { name: 'JitKTF.Fields / Statics / Null (ldfld.vt and ldsfld.vt into the vt stack; stfld.vt exits; a null receiver exits to the interpreter, which throws)', body: `JitKTF o = new JitKTF(); o.F = new JitTPt(1, 2, 3); o.G.E = 5; ${T('JitKTF.Fields(o, 40)')} ${T('JitKTF.Statics(40)')} ${T('JitKTF.Null(o)')} ${T('JitKTF.Null(null)')}` },
+  // round 10 C4: exceptions and stack walks through compiled frames (docs/207 §14)
+  { name: 'JitKX.FinallyMid (a finally in a lazy middle frame runs during the unwind; the compiled caller catches)', body: `${T('JitKX.FinallyMid(0)')} ${T('JitKX.FinallyMid(1)')} ${T('JitKX.FinallyMid(3)')}` },
+  { name: 'JitKX.CatchMid (a catch in a lazy middle frame, then a return into the compiled caller; the other exception passes through)', body: `${T('JitKX.CatchMid(0)')} ${T('JitKX.CatchMid(1)')} ${T('JitKX.CatchMid(5)')}` },
+  { name: 'JitKX.Rethrow / ThrowInFinally (rethrow out of a catch; a throw inside a finally replaces the exception)', body: `${T('JitKX.Rethrow(0)')} ${T('JitKX.Rethrow(2)')} ${T('JitKX.ThrowInFinally(0)')} ${T('JitKX.ThrowInFinally(1)')} ${T('JitKX.ThrowInFinally(4)')}` },
+  { name: 'JitKX.TraceNames / DeepCatch (the method name of every stack-trace frame through lazy frames, depth 1 and 25)', body: `${T('JitKX.TraceNames(0)')} ${T('JitKX.TraceNames(1)')} ${T('JitKX.DeepCatch(25)')}` },
+  { name: 'JitKX.EnvTrace (a StackTrace walk from a lazy callee: the method name of every frame)', body: T('JitKX.EnvTrace(3)') },
+  { name: 'JitKX.Escape (an exception from a lazy callee reaches the driver through the compiled caller)', body: `${T('JitKX.Escape(0)')} ${T('JitKX.Escape(1)')} ${T('JitKX.Escape(2)')}` },
+  // round 10 C1 leftovers: con.callvirt on a reference type
+  { name: 'JitKCV.Eq / Hash / Null (con.callvirt on a class: this = *ptr, then the guarded callvirt; a class flip refills the guard; a null behind the pointer exits, EA throws)', body: `${T('JitKCV.Eq(40)')} ${T('JitKCV.Hash(40)')} ${T('JitKCV.Null(1)')}` },
 ];
 // docs/207 §9 accessors (round 8 B6): [corpus name, JitAcc method, inputs, the method the compiler must list]
 export const ACCESSORS: [string, string, number, string][] = [
@@ -469,6 +623,8 @@ ${KS.replace(/^\n|\n$/g, '')}
     }
 ${KO.replace(/^\n|\n$/g, '')}
 ${KL.replace(/^\n|\n$/g, '')}
+${KX.replace(/^\n|\n$/g, '')}
+${KT.replace(/^\n|\n$/g, '')}
     public struct JitKey : IEquatable<JitKey>
     {
         public int K;
@@ -560,7 +716,7 @@ ${cs.map((k, i) => `                case ${i}: // ${k.name}
 export function jitList(src: string): string {
   const m = /kJitList\[\] = \{([\s\S]*?)\};/.exec(src);
   if (!m) throw new Error('kJitList not found in monohost-jit.cpp');
-  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', ...ACCESSORS.map(a => a[3])).join(',');
+  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', 'JitKX.*', 'JitKT.*', 'JitKTF.*', 'JitKCV.*', 'JitRKey.*', 'JitRKey2.*', 'JitTPt.*', 'JitTBig.*', ...ACCESSORS.map(a => a[3])).join(',');
 }
 
 // ---- report ----
@@ -628,7 +784,7 @@ function selfCheck() {
   try { disk = readFileSync(OUT, 'utf8'); } catch { /* missing = stale */ }
   ok(disk.replace(/\r\n/g, '\n') === g.replace(/\r\n/g, '\n'), 'native/monohost/JitCorpus.cs is up to date (node tools/jit-corpus.ts --write)');
   const src = 'static const char* const kJitList[] = {\n    // c\n    "A.B", "C`2.D",\n    "E.F",\n};';
-  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,' + ACCESSORS.map(a => a[3]).join(','), 'kJitList parse');
+  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,JitKX.*,JitKT.*,JitKTF.*,JitKCV.*,JitRKey.*,JitRKey2.*,JitTPt.*,JitTBig.*,' + ACCESSORS.map(a => a[3]).join(','), 'kJitList parse');
   ok(new Set(ACCESSORS.map(a => a[1])).size === ACCESSORS.length && ACCESSORS.every(a => /^\w+Case$/.test(a[1]) && a[2] > 0), 'accessor table');
   const log = 'jit corpus MISMATCH case 1: compiled 0000002A interpreted 0000002B\njit corpus trail case 1 compiled: DivideByZeroException at X | \njit corpus UNSTABLE case 2: interpreted 1 then 2\n'
     + 'jit corpus: 3 cases, 1 differ, 1 unstable; per-call verify during the corpus: ok 5, MISMATCH 0, abandoned (exception) 2\n';
@@ -648,6 +804,7 @@ if (import.meta.main) {
   if (process.argv.includes('--self-check')) selfCheck();
   else if (process.argv.includes('--write')) { const g = generate(); writeFileSync(OUT, g); console.log(`wrote ${OUT}: ${cases().length} cases, ${K.length} arithmetic kernels`); }
   else if (process.argv.includes('--env')) console.log(jitList(readFileSync(resolve(ROOT, 'native/monohost/monohost-jit.cpp'), 'utf8')));
+  else if (arg('--index')) console.log(cases().findIndex(c => c.name.startsWith(arg('--index')!)));
   else if (arg('--report')) {
     const d = arg('--dump'), r = report(readFileSync(arg('--report')!, 'utf8'), d ? readFileSync(d, 'utf8') : undefined, cases().map(c => c.name));
     if (!r.cases) { console.log('jit-corpus: no "jit corpus:" summary line (MONOHOST_JITCORPUS=1 set? MonoHostTest.dll built with JitCorpus.cs?)'); process.exitCode = 1; }
@@ -656,5 +813,5 @@ if (import.meta.main) {
     if (d) console.log(`superops in the compiled methods: ${r.superops.length} of 22${r.missingSuper.length ? ` (missing ${r.missingSuper.join(' ')})` : ''}`);
     const review = r.lines.length - 3 * r.traceOnly + (r.cases ? 0 : 1);  // a trace-only mismatch and its two trail lines
     console.log(`needs review: ${review ? `${review} item(s) above` : 'none'}`);
-  } else console.log('usage: --write | --env | --report <monohost.exe.log> [--dump <jit-dump.txt>] | --self-check');
+  } else console.log('usage: --write | --env | --index <name prefix> | --report <monohost.exe.log> [--dump <jit-dump.txt>] | --self-check');
 }

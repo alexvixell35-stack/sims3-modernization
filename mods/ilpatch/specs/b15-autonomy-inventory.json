@@ -1,0 +1,51 @@
+{
+  "id": "b15-autonomy-inventory",
+  "switch": "ilp_autonomyinventory",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.Autonomy.Autonomy::ScoreInteractionsForLocalAutonomy(Sims3.Gameplay.Autonomy.CommodityKind)",
+  "ilHashG6": "6595bff97d3d425b",
+  "builds": {
+    "ea-1.67": {
+      "size": 248,
+      "sha256": "8b470210325491d5735b9778ed12f129851b909ae4d591037d67c5161e44a1fe",
+      "tokens": {
+        "class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.Autonomy.Autonomy::mActor": "0x0400c24e",
+        "instance class Sims3.Gameplay.Inventory Sims3.Gameplay.Abstracts.GameObject::get_Inventory()": "0x060003d0"
+      },
+      "patchedSha256": "581a35303ef2a508ccf4399dab78e4db4e1e5af03a5850bae4b1a214c780ede7"
+    },
+    "simler90-242": {
+      "size": 248,
+      "sha256": "a2788d778594c9461cf0a6c39a040e90ba2a8018bfe695e97d7b3c42674a3705",
+      "tokens": {
+        "class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.Autonomy.Autonomy::mActor": "0x04000632",
+        "instance class Sims3.Gameplay.Inventory Sims3.Gameplay.Abstracts.GameObject::get_Inventory()": "0x06000872"
+      },
+      "patchedSha256": "b61458f4feb9dd2558724ce5c31e60860f9db0111302babfcc1610505c413695"
+    }
+  },
+  "edits": [
+    {
+      "at": "0xBD",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldarg.0"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldarg.0",
+        "ldfld class Sims3.Gameplay.Actors.Sim Sims3.Gameplay.Autonomy.Autonomy::mActor",
+        "callvirt instance class Sims3.Gameplay.Inventory Sims3.Gameplay.Abstracts.GameObject::get_Inventory()",
+        "brfalse @0xD4"
+      ]
+    }
+  ],
+  "source": {
+    "file": "99_zz4_b15_autonomy_inventory.ps1",
+    "entries": [
+      "b15-local-autonomy-skips-a-null-inventory"
+    ]
+  }
+}

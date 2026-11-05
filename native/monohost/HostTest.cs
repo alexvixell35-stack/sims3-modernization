@@ -305,6 +305,14 @@ namespace MonoHostTest
         public static int GetLastWorker() { return LastWorker; }
         public static string LastError = "";  // the worker entry drops managed exceptions; the jobs record theirs here
         public static string GetLastError() { return LastError; }
+        // round 10 C4: a corpus case as a worker job (the compiled words stay patched: every entry takes JitEnter's other-thread path)
+        public static int JitCorpusWorker(int c)
+        {
+            LastError = "";
+            try { LastWorker = JitCorpus.Run(c); }
+            catch (Exception e) { LastError = e.GetType().FullName + ": " + e.Message + " @ " + e.StackTrace; LastWorker = -1000000; }
+            return LastWorker;
+        }
 
         // A graph referenced only from this frame, i.e. the worker's stack, while both threads allocate and collect.
         public static int WorkerGraph(int rounds)
