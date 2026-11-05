@@ -50,7 +50,11 @@ firework, a watcher and a forced failure (`kChanceOfLaunchFailure` = 1); the har
 
 Result, first run (2026-11-05, pure UPDATE242 core): the check never reached the hook: `CreateObjectOutOfWorld("FireworksBigBooms")`
 made nothing (`FireworksBigBooms` is the class and state machine name, not an instance name). The check now takes the
-names from `FireworkBundles`; rerun pending.
+names from `FireworkBundles`. The second run failed in the check too: its reflection call of the swapped `LoopDel` threw
+`TargetException` in both arms (the swapped header names the hook's class). The check now runs the hook's own steps
+(`FizzleFinish`, else the `LoopOrig` stub, which still names Watch). Third run (2026-11-05, same core): **PASS** in 11.2
+min. Off: EA's path reached the state request (`NullReferenceException` on the missing state machine), no exit reason.
+On: no exception, `ExitReason.Finished` added, lastState `ActiveFailure` (`fireworksfizzle_finished` 1).
 
 ## 4. What is left
 
