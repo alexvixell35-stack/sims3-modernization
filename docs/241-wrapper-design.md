@@ -2,6 +2,8 @@
 
 Status (2026-11-03): initial design, not sent. Planned owner: Dalexlol (whole wrapper, not only the restart part), target v0.2.6. Rodney: "we don't go halfway with it".
 
+Owner's design (2026-11-04): docs/530 (window ownership, input and focus, trigger, restart steps and failure paths, launch, plan, the decisions before the build).
+
 ## Why
 
 Error 12 is the 32-bit address space running out, mostly through fragmentation. Dalexlol's #208 measurement (docs/204 §2.1) shows an in-process reload gives nothing back (largest free block -56 to -94 MB at the reload mark), while a fresh start + load of the same file has ~600 MB more largest free at load (BP 636, LR 609 MB) and 365-380 MB more ten minutes later [verified, contributor measurement]. A restart is the only measured lever of that size short of a 64-bit rebuild.

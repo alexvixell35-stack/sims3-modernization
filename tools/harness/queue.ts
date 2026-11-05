@@ -877,6 +877,8 @@ export const jobFixesCfg = (p: any) => {
 };
 // ts3native.log copies to merge into the call-site DB: each repro slice (own game start after a reload) and the row's copy;
 // mergeLog is idempotent per run, so slices of one start add only their growth
+// the log copies the job's log rules read: phase copies (save matrix before its reload restarts), then the final copy
+export const ruleLogs = (row: any): string[] => [...(row.phaseLogs ?? []), row.nativeLog].filter((f: string) => f && existsSync(f));
 export const callsiteLogs = (row: any): string[] => [...new Set<string>([...(row.repros ?? []).map((r: any) => r.nativeLog), row.nativeLog].filter(Boolean))];
 // profile.fixesOn: profile-world.ts prints `fixes on: <names> (verified)` after reading the switches back; '' when it did
 export const fixesOnFail = (fixesOn: string | undefined, out: string) => !fixesOn || out.includes(`fixes on: ${fixesOn} (verified)`) ? ''
@@ -1226,6 +1228,7 @@ if (values['self-check']) {
   assert.deepEqual(jobFixesCfg({ fixesOn: 'a', fixesOff: 'c', repros: [{ id: 'r1', fixesOn: 'b' }, 'r2'] }), { fixesOn: 'a,b', fixesOff: 'c', report: 'a,b' });
   assert.deepEqual(jobFixesCfg({ fixesOn: 'autlive', fixesReport: 'g8_', ab: 'autunseen' }), { fixesOn: 'autlive', fixesOff: undefined, report: 'g8_,autlive,autunseen' });
   assert.deepEqual(callsiteLogs({ nativeLog: 'm', repros: [{ nativeLog: 'a' }, {}, { nativeLog: 'm' }] }), ['a', 'm']);
+  assert.deepEqual(ruleLogs({ nativeLog: import.meta.filename, phaseLogs: ['no-such-file', import.meta.filename] }), [import.meta.filename, import.meta.filename]);
   assert.deepEqual(featureIdle(fIni.replace('DeferFootprint=1', 'DeferFootprint=0').replace('Mode=1', 'Mode=0'), {}, { rgEntries: 3, usfDeferred: 0, rcDeferred: 0, rcWould: 0 }), []);
   assert.equal(featureIdle(fIni, null, null).length, 3); assert.match(featureIdle(fIni, null, null)[0], /missing from \/native \(no answer\)/);
   assert.match(asyncIdle(raOn, {}, null), /^UNKNOWN: \[RouteAsync\] on but \/native did not answer/); assert.match(asyncIdle(raOn, {}, { invokeHook: 1 }), /has no asyncStarted/);
@@ -2030,6 +2033,11 @@ async function closeGame(probePid?: number) {
   if (gameRunning()) log(`closeGame: ${GAME_EXE} still running after 60 s`);
   else { const left = killLeftovers(); if (left.length) log(`closeGame: leftovers killed: ${left.join('; ')}`); } // EA helpers of a hung launch (docs/236 round 4)
 }
+// an EA crash report (xcpt*.txt) written since the job started
+const freshCrashReport = (since: string) => {
+  try { return readdirSync(USER).some(n => /^xcpt .*\.txt$/i.test(n) && statSync(join(USER, n)).mtime >= new Date(since)); }
+  catch { return false; }
+};
 const triage = (since: string) => {
   try { return execFileSync(process.execPath, [H('crash-ledger.ts'), 'triage', '--since', since, ...(seenPids.size ? ['--pids', [...seenPids].join(',')] : [])]).toString().trim().split(/\n\s*\n/).at(-1) ?? ''; }
   catch (e) { return `crash-ledger triage failed: ${String(e).split('\n')[0]}`; }
@@ -2519,7 +2527,7 @@ for (const [n, j] of jobs.entries()) {
       // release mode: the matrix's reload case runs here (two restarts, as its printed commands), not by hand
       if (j.saveMatrix?.fixes === 'shipped' && !lost && !r.timedOut && !stall && /\breload: PENDING/.test(r.out)) {
         afterRun = { mem: await get('memory'), native: await get('native') }; // the matrix load's numbers, not the reload loads'
-        if (existsSync(LOG)) copyFileSync(LOG, join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-matrix-ts3native.log`));
+        if (existsSync(LOG)) { const f = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-matrix-ts3native.log`); copyFileSync(LOG, f); row.phaseLogs = [...(row.phaseLogs ?? []), f]; }
         const pend = JSON.parse(readFileSync(join(ROOT, 'probe-out', 'save-matrix', 'reload-pending.json'), 'utf8'));
         for (const side of ['on', 'off'] as const) {
           const name = String(pend[side]?.save ?? '');
@@ -2627,7 +2635,10 @@ for (const [n, j] of jobs.entries()) {
   if (stopLoad) { stopLoad(); const ml = loadSummary(machineFile); Object.assign(row, { machine: ml.line, noise: ml.noise, noiseNote: ml.short, machineLog: machineFile }); log(`${j.id}: ${ml.line}`); }
   if (stall && !row.error?.includes(stall)) row.error = [row.error, stall].filter(Boolean).join('; ');
   stall = '';
-  row.crashed = launched && !closedByUs && !guardClosed && !gameRunning() || row.verdict.some((v: string) => /game died/.test(v));
+  // a fresh EA crash report also counts (2026-11-04: the game died while a read-back FAIL closed it, so closedByUs was set
+  // and the job showed as FAIL; the queue's two-crashes stop then missed it)
+  row.crashed = launched && !closedByUs && !guardClosed && !gameRunning() || row.verdict.some((v: string) => /game died/.test(v)) ||
+    launched && freshCrashReport(t0);
   guardClosed = false;
   if (row.crashed) { row.crash = triage(t0); log(`${j.id}: game crashed\n${row.crash}`); await logUntrackedGame(s => log(`${j.id}: ${s}`)); } // EA only: names game processes this run never saw (docs/236 #20)
   try { row.hangCapture = hangCaptureLine(readFileSync(logFile).subarray(logOff).toString()); } catch { /* no job log */ }
@@ -2645,15 +2656,18 @@ for (const [n, j] of jobs.entries()) {
   if (launched && Number(rowIni(j)['ProbeSnap.CallSites'])) for (const f of callsiteLogs(row)) try { log(`${j.id}: ${mergeCallsites(f, j.id)}`); } catch (e) { log(`${j.id}: callsites merge ${f}: ${e}`); }
   // repro event checks (docs/169): the job passes only when the repro fired what it is for (native counter deltas, log lines)
   const logGone = (j.logRequire || j.logForbid) && !(row.nativeLog && existsSync(row.nativeLog));
+  // log rules read every copy of the job: a save matrix restarts the game for its reloads, and the final copy only has the last
+  // load (2026-11-04: the matrix phase's verdict lines were in the -matrix- copy and the rule saw 0)
+  const ruleLog = (j.logRequire || j.logForbid) ? ruleLogs(row).map(f => readFileSync(f, 'utf8')).join('\n') : '';
   if (logGone) { row.verdict.push('FAIL: UNKNOWN: no ts3native.log copy, log rules not checked'); row.pass = false; } // docs/236: absent log is not "no lines"
   if (j.nativeRequire || j.logRequire) {
     const fails = [...(j.nativeRequire ? checkRequire(j.nativeRequire, row.nativeDelta) : []),
-      ...(j.logRequire ? logFails(row.nativeLog && existsSync(row.nativeLog) ? readFileSync(row.nativeLog, 'utf8') : '', j.logRequire) : [])];
+      ...(j.logRequire ? logFails(ruleLog, j.logRequire) : [])];
     row.verdict.push(fails.length ? `FAIL: events not fired: ${fails.join('; ')}` : 'PASS: repro events fired');
     if (fails.length) row.pass = false;
   }
   if (j.logForbid) {  // correctness lines that must not appear (a replay audit MISMATCH, a clone-run fault)
-    const bad = logForbidFails(row.nativeLog && existsSync(row.nativeLog) ? readFileSync(row.nativeLog, 'utf8') : '', j.logForbid);
+    const bad = logForbidFails(ruleLog, j.logForbid);
     if (!logGone) row.verdict.push(bad.length ? `FAIL: forbidden log lines: ${bad.join('; ')}` : 'PASS: no forbidden log lines');
     if (bad.length) row.pass = false;
   }

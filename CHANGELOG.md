@@ -2,11 +2,19 @@
 
 Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub release notes for that tag (`.github/workflows/build.yml`).
 
-## v0.2.5 (unreleased)
+## v0.2.5 (2026-11-05)
+
+The speed changes in this release are not timed as a set. What was checked on the release build: a back-to-back run on Bridgeport against v0.2.4 showed no regression (+1.9% iterations per second, inside the 4.4% spread between repeat runs; the machine was not quiet enough for this to count as formal timing evidence), and short smoke runs on Sunset Valley and Isla Paradiso passed.
+
+### Download
+
+- `ts3fixes.package`: put it in `DocumentsElectronic ArtsThe Sims 3ModsPackages` and replace the old one.
+- `ts3native-v0.2.5.zip` (Steam) or `ts3native-ea169-v0.2.5.zip` (EA app): `ts3native.asi` and `ts3native.ini`; replace both.
 
 ### Faster
 
 - **Sims you can't see cost less to animate.** For a Sim the camera cannot see, the game now updates its body pose every few frames instead of every frame, with the skipped time added in, so nothing is lost. Sims you can see, Sims near them and Sims near your household always update every frame. On by default (`[UnseenAnim] Enabled=1`, `CapPasses=4`; objects stay as before).
+- **Cheaper held-action check** (PR #245, by Dalexlol): the check for held actions walked every object in the world every few ticks; it now walks only the list of Sims, which the reporter measured at about 5% of the main thread on a 14,500-object save (issue #156; their number, not ours). On by default.
 - **One "can the player see it?" answer per object per frame.** Several of our speed-ups ask whether you can see a Sim or object; they now share one answer per frame instead of each asking the game again. On by default (`[UnseenTable] Enabled=1`). The speed-up above builds on it.
 
 ### Fixed
@@ -21,7 +29,7 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ### Test features (off, opt-in)
 
-- **Walking Sims re-check (test feature, off).** The game re-checks every animated object several times per frame for walking Sims; with `Enabled=1` under `[UnseenRootMotion]` in `ts3native.ini` (`Mode=1`, `Shortlist=1` are preset) it re-checks only the ones that are actually walking, same calls in the same order. Off in this release: in our same-session speed test the v0.2.5 build was slower than v0.2.4 with it on, so it stays off until we have a clean measurement.
+- **Walking Sims re-check (test feature, off).** The game re-checks every animated object several times per frame for walking Sims; with `Enabled=1` under `[UnseenRootMotion]` in `ts3native.ini` (`Mode=1`, `Shortlist=1` are preset) it re-checks only the ones that are actually walking, same calls in the same order. Off in this release until we have a clean measurement.
 - **Smaller save files (SaveSlim, test feature, keep backups).** Every time a Sim leaves a lot, the game stores a new copy of that Sim's outfits in your save and never throws the old copy away, so long-played saves keep growing. With `Enabled=1` under `[SaveSlim]` in `ts3native.ini` (needs `[SaveWrite] Enabled=1`), after each normal save a background job rewrites the save's outfit store without the wasted space and, in `Mode=2` (the default), without outfit copies that nothing in the save uses any more. It checks the new file byte for byte before it replaces the old one; if anything goes wrong, your save stays exactly as the game wrote it. The file from before each rewrite is kept in `Documents\Electronic Arts\The Sims 3\SaveSlimBackup\<save name>.preslim\` (only the newest one), so an outfit that was dropped by mistake can be restored. `Mode=0` only measures and writes nothing. Tested: 12 of 12 runs passed over 4 saves (Bridgeport, Bridgeport with lots of custom content, a 2+ year NRaas save, Moonlight Falls), in Mode 0, Mode 2 and save-then-reload runs. By Dalexlol (PR #122). It changes your save files: copy your saves before you try it.
 
 ### Known issues

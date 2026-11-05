@@ -133,10 +133,13 @@ class Probe:
         env = dict(os.environ, **dict(e.split('=', 1) for e in self.args.env))
         if self.args.env:
             print(f'[ts3probe] game environment: {self.args.env}', flush=True)
-        subprocess.Popen(cmd, cwd=None if ea else GAME_BIN, env=env)
+        self.proc = subprocess.Popen(cmd, cwd=None if ea else GAME_BIN, env=env)
         for _ in range(120):  # the exe may hand over to another instance; wait for the process by name
             try:
-                return frida.attach(GAME_EXE)
+                session = frida.attach(GAME_EXE)
+                try: self.game_pid = frida.get_local_device().get_process(GAME_EXE).pid
+                except Exception: self.game_pid = None
+                return session
             except frida.ProcessNotFoundError:
                 time.sleep(0.5)
         raise SystemExit(f'{GAME_EXE} did not start within 60 s')
@@ -178,6 +181,12 @@ class Probe:
         info = {'kind': 'detached', 'reason': reason, 'time': time.strftime('%Y-%m-%dT%H:%M:%S')}
         if crash is not None:
             info['crash'] = {'summary': crash.summary, 'report': crash.report}
+        proc = getattr(self, 'proc', None)
+        if reason == 'process-terminated' and proc is not None and proc.pid == getattr(self, 'game_pid', None):
+            # the game's own exit status: a stack overflow or fast fail ends TS3W with no xcpt report (crash-ledger triage reads it)
+            info['pid'] = proc.pid
+            try: info['exitCode'] = '0x%08X' % (proc.wait(timeout=10) & 0xFFFFFFFF)
+            except subprocess.TimeoutExpired: pass
         self.log(info)
         self.alive = False
 

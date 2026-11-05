@@ -6,7 +6,7 @@ Target: The Sims 3 **Steam** edition, patch 1.67, all expansion and stuff packs,
 
 **Just want to play with the fixes?** Download the latest [release](https://github.com/rodneypantonial/sims3-modernization/releases) and follow [docs/PLAYERS.md](docs/PLAYERS.md): what's switched on, and how to install it in a few steps.
 
-**Status:** research project. Latest release: **v0.1.5** (2026-10-24): fewer freezes in specific situations (Sims getting off boats, crowds, the 3 AM stuck-Sim check, NRaas Overwatch's nightly clean-up, NRaas ErrorTrap's after-load check) and a crash fix near water, on top of v0.1.4's background route planning and the earlier save and stutter fixes. Results are measured on one laptop (i7-11800H, 32 GB, RTX 3070 Laptop GPU). They are not yet confirmed on other machines; that is one of the things contributors can help with.
+**Status:** research project. Latest release: **v0.2.5** (2026-11-05): cheaper animation for Sims you cannot see, a cheaper held-action check, a fix for a rare memory runaway at game start, crash fixes for custom-content meshes without a material and for Isla Paradiso routing, fixes for paired socials, rabbit hole doors and saves with a removed service, and EA app 1.69.47 support. Results are measured on one laptop (i7-11800H, 32 GB, RTX 3070 Laptop GPU). They are not yet confirmed on other machines; that is one of the things contributors can help with.
 
 `PLAN.md` is the source of truth for what is done, what is open and what comes next.
 

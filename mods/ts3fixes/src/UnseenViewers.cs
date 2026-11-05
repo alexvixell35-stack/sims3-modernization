@@ -70,11 +70,10 @@ namespace Ts3Fixes
         static void HoldSim(Sim s) { if (s != null && sHeld.Count < kHeldMax && !sHeld.Contains(s.ObjectId.Value)) sHeld.Add(s.ObjectId.Value); }
         static void PushHeld()
         {
-            // BEGIN first: ts3native refuses it unless [UnseenThrottle] is installed, and then the Sim scan below
-            // (Queries.GetObjects<Sim>, ~50 ms/s every 5 ticks on BP) is wasted (v025-slow-diag 2026-11-04)
-            if (!ViewerSend(12, 0)) return;
             sHeld.Clear();
-            foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+            // LotManager.Actors: EA's list of Sims in the world (added on a lot, removed when destroyed). Queries.GetObjects<Sim>()
+            // walked every world object every 5 ticks: ~5% of the sim thread on a 14,500-object save (issue #156 sampler).
+            foreach (Sim s in Sims3.Gameplay.Core.LotManager.Actors)
             {
                 if (s == null || s.HasBeenDestroyed) continue;
                 Sims3.Gameplay.ActorSystems.BeingRiddenPosture ridden = s.Posture as Sims3.Gameplay.ActorSystems.BeingRiddenPosture;
@@ -82,6 +81,7 @@ namespace Ts3Fixes
                 Sims3.Gameplay.Interactions.InteractionInstance i = s.CurrentInteraction;
                 if (i is Sim.Mount || i is Sim.Dismount || i is Sim.BeingDismounted) { HoldSim(s); HoldSim(i.Target as Sim); }
             }
+            if (!ViewerSend(12, 0)) return;
             foreach (ulong id in sHeld)
                 if (!ViewerSend(13, (uint)id) || !ViewerSend(14, (uint)(id >> 32))) return;  // refused: the old table goes stale
             ViewerSend(15, (uint)sHeld.Count);

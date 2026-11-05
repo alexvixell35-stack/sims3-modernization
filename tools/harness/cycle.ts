@@ -69,6 +69,9 @@ if (values.restart) {
   execFileSync(process.execPath, [join(ROOT, 'tools', 'harness', 'build-agent.ts')], { stdio: 'ignore' });
   // the player mod with the fixes (mods/ts3fixes); the agent only reads and switches it
   execFileSync(process.execPath, [join(ROOT, 'tools', 'setup', 'build-fixes.ts')], { stdio: 'ignore' });
+  // the intro skip is built by nointro.ts, which no other step runs: a fresh worktree had none and every job failed at the
+  // copy below (ENOENT, 2026-11-04)
+  if (!existsSync(join(ROOT, 'build', 'ts3-nointro.package'))) execFileSync(process.execPath, [join(ROOT, 'tools', 'harness', 'nointro.ts')], { stdio: 'ignore' });
   // the game does not notice changed script mods, but rebuilding the cache costs startup time: clear it only when the
   // agent source or the Mods folder changed (the old csc builds differ byte-wise every time, so hash the inputs)
   const stampFile = join(ROOT, 'probe-out', 'scriptcache.stamp');
