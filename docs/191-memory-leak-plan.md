@@ -83,6 +83,61 @@ Always-on numbers for player logs and the CC soak (docs/188 §7 has the player-f
 - **Cost:** walk ~27-30 ms on the memory worker per sample (0.36.74 runs, ~4,500 regions; now every 5 min), memsus read 0.23-0.45 ms on the sim thread (same runs) [verified, logs]; the alive read (512 weak targets + a type count) and the once-per-load `GetObjects<GameObject>` census print their own `ms=`, first numbers from `bp-memlite-check` [inferred: alive < 1 ms, census ~5-20 ms once per load]. Destroy hook: a bool and an increment per destroy, a weak target set every 32nd.
 - **Not built (design note):** native per-call-site allocation tracking behind an ini switch (off): an `[Alloc]`-style detour of EA `Malloc 0x4E69D0` / `Free` recording the caller return address per block in a side table (sampled 1 in N blocks, by size class), dumped as top sites by live bytes at each `diag: mem` sample; its cost and the S3SS mimalloc / Apex allocator overlap (docs/187) decide whether it stays a correctness-run tool. Also not built: a Mono class census beyond `GameObject` types (step 6).
 
+### ResourceCache census (built 2026-11-05, run on the old save the same day)
+
+In a 60-min old-save run `rcN` grew 100k -> 348k entries while `rc` stayed ~500-600 MB
+(docs/data/results/2026-11-05-alexvixell35-stack-memory-fixes-long-runs.md). Every erase path ends in the node erase
+`0x732130`, so the entries that stay are referenced or never made cold. `[MemDiag] RcCensus=1` (off) answers which.
+
+- **What:** at each `diag: mem` line except exit, the memory worker takes the cache's own lock (`CRITICAL_SECTION` at
+  cache `+0x58`), walks the map and logs one total line and the top 10 types by entry count plus up to 5 more by growth:
+  `n`, `MB` (the resources' size `+0x20`), `cold`, `ref1` / `ref2` / `ref3+` (refs = `[+4] >> 8`; the cache holds one),
+  `ref1held` (only the cache holds it but it is not cold, so a trim never drops it), each with the change since the last census.
+- **Layout [verified disassembly]:** Add `0x732A00`, find `0xAD3F40` (hash = key dword 3 xor dword 0), AddRef `0x731DB0`,
+  cold test `0x731E30`, lock wrapper `0x4E16F0` (enabled byte `+0x7C`, else no lock). Code: `memdiag.cpp` `RcCensus`.
+- **Holders:** `RcCensusHolders=N` (off): once, at the Nth census, 64 entries of the type that grew most are sampled under
+  the lock; after it the memory worker scans every committed readable region for dwords within 0x40 bytes of a sample and
+  names each holder by the nearest TS3W.exe vtable at or below it (no RTTI in the exe: the vtable is an address to read in
+  a disassembly). Lines: `diag: rc holders #n vt 0x... +off delta d n= covers k of 64`. Not a proof: stale dwords can match.
+- **Builders, graph:** `RcCensusBuilders=1` counts the live CAS SimBuilders and the compositors their part maps hold;
+  `RcCensusGraph=1` maps compositor-to-compositor references (child vector `+0x28`). Both off.
+- **Cost:** the game waits for the lock while the walk runs (the line gives `walk` ms). Test runs only.
+- **Selftest:** a 4-bucket fake map (types by count, the refs / cold split, a bad key, changes), a lock owned by another
+  thread (skipped), a cycle (stopped, lock released), nothing at exit.
+
+### Who holds the part compositors (`RcRefCallers`, built 2026-11-05, ledger §941)
+
+The census runs found ~90% of the `rcN` growth in two in-memory TXTC types, `0x033A1435` and `0x0341ACC9`: the part
+compositors that `CAS/SimBuilder/SetPartCompositor` (`0x5E2C10`) makes, each at 2 references (the cache's + one holder)
+and never cold. The live SimBuilders hold only 0-40 of them, so the holder is something else. `[MemDiag] RcRefCallers=1`
+(off; its own switch, not under `RcCensus`) counts who takes and drops the references.
+
+- **Hooks [verified disassembly]:** AddRef / Release are slots 0 / 1 of the two types' vtables `0xFE68D8` / `0xFE68F4`
+  (`0x723130` -> `0x731D00`, `0x5B07A0` -> `0x731D40`); only these two types reach the replacements, so no type filter
+  runs per call. The cache's Find (vtable `0xFFDD94` slot 6, `0x7324E0`) AddRefs what it returns through a direct call to
+  `0x731DB0`, so a find that returns a compositor counts as an AddRef by the find's caller. The only other direct calls to
+  the three are the cache's Find and Add (`0x732542`, `0x732AC5`) [verified: every `E8` / `E9` to them]: the cache's own
+  reference (Add) is the one AddRef not counted.
+- **Per caller:** each `diag: mem` line (but exit) logs `diag: rc ref callers` totals (AddRef, finds, Release, net, since
+  the start and since the last line) and the top 20 callers by net (return address, AddRef, finds, Release, net, net since
+  the last line) plus the 5 most negative (who drops them). `diag: rc find sites` gives the finds' caller chains.
+- **Per object (`RcRefCallersSample=32`):** 1 in 32 new compositors (an AddRef at 0 references) keeps its first 16 events.
+  At each line the live ones are grouped by event list, and those at net +1 in the counted events (with the cache's
+  reference that makes 2) by their last AddRef or find: the reference not dropped since.
+- **Registry:** the CAS texture compositor service (`[0x11CE6A0]`) keeps every new compositor in a hash map at `+0x104`
+  (insert `0x5EECD0`; the node copy `0x5ED870` AddRefs at `0x5ED8B8`; erases: the clear-all `0x5EEA90` and the per-key
+  `0x5EE640`). `diag: rc registry` gives its size and change and how many sampled compositors it holds, so a net +1 group
+  can be checked against it. Node `{ResourceKey, compositor +0x10, next +0x18}` (next: the bucket free loop `0x5ED83F`).
+  Read without the service's lock.
+- **Cost:** the install times our part of a hooked call on a fake key before the hooks go in (selftest: 6 ns; with the
+  sampling path) and a find chain (56 ns); each line reports the estimated ms since the last line and its share of the
+  interval, to subtract from the run's timing. The tables are static (1.4 MB), not growth.
+- **Counters v908:** `rrcOn` (1 hooks, 2 and sampling), `rrcAddRefs`, `rrcReleases`, `rrcFinds`, `rrcCallers`,
+  `rrcSampled`, `rrcRegistry`, `rrcHookNs`; the totals are updated at each line.
+- **Selftest:** a wrong vtable slot refuses; 3 + 1 AddRef, 1 Release and 2 finds by caller, sorted by net; a sampled
+  object at net +1 in a 2-bucket fake registry (next `+0x18`), one freed, one at net +3.
+- **Result:** pending (one 35-min old-save run, census setup).
+
 ## Step 7 experiment: ResourceCache trim and Boehm heap return (2026-10-26, docs/198)
 
 Static check of giving the Boehm heap back (docs/198 §2-§3: no unmap code; decommit feasible for RAM only, release rejected) and the `[ResourceCache] TrimAfterCleanup` experiment (docs/198 §4, ts3native 0.36.80, off, stands down with Apex; queue `tools/harness/queues/rctrim-exp.json`, not run). Apex's area: nothing is proposed to Apex until a run shows a proven gain (Rodney, 2026-10-26).

@@ -87,7 +87,7 @@ static bool MdGc(DWORD* out) {
 // ResourceCache (priority 0) and AnimationCache (priority 1000), both vtable 0xFFDD94, from the manager's cache array
 // +0xA0/+0xA4 of {cache*, priority} (as verify.cpp VfPollOnce). Plain aligned dword reads, no lock (docs/190 §5.4).
 // out: held, cold, budget, entries, anim held; anim = ~0 when not found.
-static bool MdRc(DWORD* out) {
+static bool MdRc(DWORD* out, const u8** cache = NULL) {  // cache: the priority-0 ResourceCache (RcCensus)
     __try {
         const u8* m = *g_mdRcMgrSlot;
         if (!m || (*(const DWORD*)m != 0xFFE250 && *(const DWORD*)m != 0xFB2DA0)) return false;
@@ -102,10 +102,762 @@ static bool MdRc(DWORD* out) {
                 out[0] = *(const volatile DWORD*)(c + 0x94), out[1] = *(const volatile DWORD*)(c + 0x98);
                 out[2] = *(const volatile DWORD*)(c + 0x8C), out[3] = *(const volatile DWORD*)(c + 0x28);
                 rc = true;
+                if (cache) *cache = c;
             } else if (b[2 * i + 1] == 1000 && out[4] == ~0u) out[4] = *(const volatile DWORD*)(c + 0x94);
         }
         return rc;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+
+// [MemDiag] RcCensus=1 (2026-11-05, docs/191 "ResourceCache census"): which entries make rcN grow. Off by default.
+// rcN grew 100k -> 348k in a 60-min old-save run while rc stayed ~500-600 MB, and every erase path ends in the node erase
+// 0x732130 [verified disassembly], so the entries that stay are referenced or not evictable. At each diag: mem line (not
+// exit) this takes the cache's own lock, walks the map and logs the types with the most entries and the most growth since
+// the last census. The game waits for the lock during the walk: one hitch per sample (the line gives walk ms).
+// Layout [verified disassembly: Add 0x732A00, find 0xAD3F40, AddRef 0x731DB0, cold test 0x731E30, lock 0x4E16F0]: lock =
+// CRITICAL_SECTION at cache +0x58 (its wrapper's enabled byte +0x7C); map at +0x1C: buckets +0x20 (one more slot, a
+// sentinel), bucket count +0x24, entries +0x28; node: key 16 B (instance 8, type 4, group 4), resource +0x10, next +0x18;
+// resource: key +8, refs = [+4] >> 8 (the cache holds one), cold-list links +0x18 / +0x1C (either set = cold), size +0x20.
+static bool g_rcCensusOn;
+static DWORD g_rcLockWaitMs = 500;  // selftest: shorter
+struct RcType { DWORD type, n, cold, ref1, ref2, ref3, ref1Held, g0, g0n; u64 bytes, inst0; LONG dn; double dmb; };  // g0 / inst0: the first entry's group and instance
+struct RcTotals { DWORD walked, mapN, types, other, keyBad; };
+static const int RC_SLOTS = 256, RC_MAXTYPES = 200, RC_TOP = 10, RC_GROW = 5;
+static RcType g_rcPrev[RC_SLOTS];
+static int g_rcPrevN;
+static volatile LONG g_rcBusy;
+// RcCensusGraph (below): the walk lists the part compositors here
+static bool g_rgOn;
+static DWORD g_rgVt[2] = {0x00FE68D8, 0x00FE68F4};  // TXTC 0x033A1435, 0x0341ACC9; selftest: its own values
+static const DWORD RG_CAP = 1u << 19;
+static DWORD *g_rgObj, g_rgN, g_rgOver;
+// under the lock, no C++ objects (SEH). false = map not readable, or longer than its count (a changing or wrong map)
+static bool RcWalk(const u8* c, RcType* t, RcTotals& z) {
+    __try {
+        const DWORD* bk = *(const DWORD* const*)(c + 0x20);
+        const DWORD nb = *(const DWORD*)(c + 0x24);
+        z.mapN = *(const DWORD*)(c + 0x28);
+        if (!bk || !nb || nb > (1u << 24)) return false;
+        const DWORD limit = z.mapN + z.mapN / 8 + 64;
+        for (DWORD i = 0; i < nb; i++)
+            for (const u8* nd = (const u8*)(uintptr_t)bk[i]; nd; nd = (const u8*)(uintptr_t) * (const DWORD*)(nd + 0x18)) {
+                if (++z.walked > limit) return false;
+                const DWORD type = *(const DWORD*)(nd + 8);
+                DWORD h = (type * 2654435761u) >> 24;
+                while (t[h].n && t[h].type != type) h = (h + 1) & (RC_SLOTS - 1);
+                if (!t[h].n) {
+                    if (z.types == RC_MAXTYPES) { z.other++; continue; }
+                    t[h].type = type, z.types++;
+                }
+                RcType& e = t[h];
+                if (!e.n++) e.g0 = *(const DWORD*)(nd + 12), e.inst0 = *(const u64*)nd;
+                e.g0n += *(const DWORD*)(nd + 12) == e.g0;
+                const u8* r = (const u8*)(uintptr_t) * (const DWORD*)(nd + 0x10);
+                if (!r) continue;
+                if (g_rgObj && (*(const DWORD*)r == g_rgVt[0] || *(const DWORD*)r == g_rgVt[1])) {
+                    if (g_rgN < RG_CAP) g_rgObj[g_rgN++] = (DWORD)(uintptr_t)r;
+                    else g_rgOver++;
+                }
+                if (memcmp(r + 8, nd, 16)) z.keyBad++;
+                const LONG refs = *(const LONG*)(r + 4) >> 8;
+                const bool cold = *(const DWORD*)(r + 0x18) || *(const DWORD*)(r + 0x1C);
+                e.bytes += *(const DWORD*)(r + 0x20), e.cold += cold;
+                if (refs <= 1) e.ref1++, e.ref1Held += !cold;
+                else if (refs == 2) e.ref2++;
+                else e.ref3++;
+            }
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+static int RcByN(const void* a, const void* b) { const DWORD x = ((const RcType*)a)->n, y = ((const RcType*)b)->n; return x < y ? 1 : x > y ? -1 : 0; }
+static int RcByDn(const void* a, const void* b) { const LONG x = ((const RcType*)a)->dn, y = ((const RcType*)b)->dn; return x < y ? 1 : x > y ? -1 : 0; }
+static bool RcLockOn(const u8*& c) {  // the wrapper's enabled byte; c = NULL when not readable
+    __try { return *(const volatile u8*)(c + 0x7C) != 0; } __except (EXCEPTION_EXECUTE_HANDLER) { c = NULL; return false; }
+}
+static bool RcEnter(CRITICAL_SECTION* cs, DWORD* wait) {  // false = busy for g_rcLockWaitMs
+    const DWORD t0 = GetTickCount();
+    bool in;
+    while (!(in = TryEnterCriticalSection(cs) != 0) && GetTickCount() - t0 < g_rcLockWaitMs) Sleep(1);
+    *wait = GetTickCount() - t0;
+    return in;
+}
+
+// [MemDiag] RcCensusHolders=K (2026-11-05, with RcCensus): once, at the K-th census, who else points at the entries of the
+// type that grew most since the census before. Under the lock it samples up to 64 of that type's resources spread over the
+// map; after unlocking it scans every committed readable region for dwords within 0x40 bytes of a sample (a holder may
+// keep another interface of the object) and names each one's holder by the nearest TS3W.exe vtable at or below it (an
+// .rdata dword whose first slot is in .text, up to 0x200 bytes back, same region). The cache's own nodes, the samples'
+// own bytes and our tables do not count. Counts by (vtable, offset, delta) and how many samples each covers. Reads only;
+// once, ~1-3 s on the memory worker. Not a proof: a stale or unrelated dword can match.
+static DWORD g_rcHoldersAt, g_rcCensusN;
+static const int RH_N = 64, RH_KEYS = 64;
+static const u8* g_rhRes[RH_N];
+static const u8* g_rhNode[RH_N];
+static DWORD g_rhSorted[RH_N], g_rhBits[1 << 15];  // samples by address; one bit per 4 KB page that a sample range touches
+struct RhKey { DWORD vt, off; LONG delta; DWORD n; u64 mask; };
+struct RhStats { DWORD hits, own, novt, keysFull, img, priv, map; u64 bytes; DWORD novtAt[3], novtBase[3]; };
+static RhKey g_rhKeys[RH_KEYS];
+static int g_rhKeyN;
+static DWORD g_rhTxLo, g_rhTxHi, g_rhRdLo, g_rhRdHi;
+static bool RhRanges() {  // this process's exe .text / .rdata (the selftest's own in the host test)
+    if (g_rhTxHi) return g_rhRdHi != 0;
+    const u8* b = (const u8*)GetModuleHandleW(NULL);
+    const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(b + ((const IMAGE_DOS_HEADER*)b)->e_lfanew);
+    const IMAGE_SECTION_HEADER* s = IMAGE_FIRST_SECTION(nt);
+    for (int i = 0; i < nt->FileHeader.NumberOfSections; i++, s++) {
+        const DWORD lo = (DWORD)(uintptr_t)(b + s->VirtualAddress), hi = lo + s->Misc.VirtualSize;
+        if (!memcmp(s->Name, ".text", 6)) g_rhTxLo = lo, g_rhTxHi = hi;
+        if (!memcmp(s->Name, ".rdata", 7)) g_rhRdLo = lo, g_rhRdHi = hi;
+    }
+    return g_rhTxHi && g_rhRdHi;
+}
+static int RhSample(const u8* c, DWORD type, DWORD every) {  // under the lock
+    int k = 0;
+    DWORD w = 0, seen = 0;
+    __try {
+        const DWORD* bk = *(const DWORD* const*)(c + 0x20);
+        const DWORD nb = *(const DWORD*)(c + 0x24), cnt = *(const DWORD*)(c + 0x28), limit = cnt + cnt / 8 + 64;
+        for (DWORD i = 0; bk && i < nb && i < (1u << 24) && k < RH_N; i++)
+            for (const u8* nd = (const u8*)(uintptr_t)bk[i]; nd && k < RH_N; nd = (const u8*)(uintptr_t) * (const DWORD*)(nd + 0x18)) {
+                if (++w > limit) return k;
+                if (*(const DWORD*)(nd + 8) != type || seen++ % every) continue;
+                const u8* r = (const u8*)(uintptr_t) * (const DWORD*)(nd + 0x10);
+                if (r) g_rhNode[k] = nd, g_rhRes[k++] = r;
+            }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    return k;
+}
+static int RhFind(DWORD v, int k) {  // the sample nearest to v within 0x40 bytes (heap objects can sit closer), or -1
+    int lo = 0, hi = k, best = -1;
+    while (lo < hi) { const int m = (lo + hi) / 2; if (g_rhSorted[m] + 0x40 < v) lo = m + 1; else hi = m; }
+    for (DWORD bd = 0x41; lo < k && g_rhSorted[lo] - 0x40 <= v; lo++) {
+        const DWORD d = v > g_rhSorted[lo] ? v - g_rhSorted[lo] : g_rhSorted[lo] - v;
+        if (d < bd) bd = d, best = lo;
+    }
+    return best;
+}
+static void RhHit(DWORD p, DWORD v, int j, int k, const MEMORY_BASIC_INFORMATION& m, RhStats& st) {
+    const DWORD base = g_rhSorted[j];
+    int si = 0;
+    while (si < k && (DWORD)(uintptr_t)g_rhRes[si] != base) si++;
+    if (si == k || p - base + 0x40 < 0xC0) return;  // inside the sample object itself
+    if (p == (DWORD)(uintptr_t)g_rhNode[si] + 0x10) { st.own++; return; }
+    if ((p >= (DWORD)(uintptr_t)g_rhRes && p < (DWORD)(uintptr_t)(g_rhRes + RH_N)) || (p >= (DWORD)(uintptr_t)g_rhSorted && p < (DWORD)(uintptr_t)(g_rhSorted + RH_N))) return;
+    st.hits++;
+    if (m.Type == MEM_IMAGE) st.img++; else if (m.Type == MEM_MAPPED) st.map++; else st.priv++;
+    const DWORD rb = (DWORD)(uintptr_t)m.BaseAddress;
+    DWORD vt = 0, q = p & ~3u;
+    for (; q >= rb && p - q <= 0x200; q -= 4) {
+        const DWORD x = *(const DWORD*)(uintptr_t)q;
+        if (x >= g_rhRdLo && x + 4 <= g_rhRdHi && !(x & 3)) {
+            const DWORD f = *(const DWORD*)(uintptr_t)x;
+            if (f >= g_rhTxLo && f < g_rhTxHi) { vt = x; break; }
+        }
+        if (q < 4) break;
+    }
+    if (!vt) {
+        if (st.novt < 3) st.novtAt[st.novt] = p, st.novtBase[st.novt] = (DWORD)(uintptr_t)m.AllocationBase;
+        st.novt++;
+        return;
+    }
+    const DWORD off = p - q;
+    const LONG delta = (LONG)(v - base);
+    int i = 0;
+    while (i < g_rhKeyN && !(g_rhKeys[i].vt == vt && g_rhKeys[i].off == off && g_rhKeys[i].delta == delta)) i++;
+    if (i == g_rhKeyN) {
+        if (g_rhKeyN == RH_KEYS) { st.keysFull++; return; }
+        g_rhKeys[g_rhKeyN++] = RhKey{vt, off, delta, 0, 0};
+    }
+    g_rhKeys[i].n++, g_rhKeys[i].mask |= 1ull << si;
+}
+static bool RhRegion(const MEMORY_BASIC_INFORMATION& m, int k, RhStats& st) {  // false = faulted (region changed)
+    const DWORD* p = (const DWORD*)m.BaseAddress;
+    const DWORD* e = (const DWORD*)((const u8*)m.BaseAddress + m.RegionSize);
+    __try {
+        for (; p < e; p++) {
+            const DWORD v = *p;
+            if (!(g_rhBits[v >> 17] & (1u << ((v >> 12) & 31)))) continue;
+            const int j = RhFind(v, k);
+            if (j >= 0) RhHit((DWORD)(uintptr_t)p, v, j, k, m, st);
+        }
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+static int RhByN(const void* a, const void* b) { const DWORD x = ((const RhKey*)a)->n, y = ((const RhKey*)b)->n; return x < y ? 1 : x > y ? -1 : 0; }
+// committed, readable, not uncached / write-combined (very slow reads), not our own stack
+static bool RhScannable(const MEMORY_BASIC_INFORMATION& m, const MEMORY_BASIC_INFORMATION& own) {
+    return m.State == MEM_COMMIT && !(m.Protect & (PAGE_GUARD | PAGE_NOACCESS | PAGE_NOCACHE | PAGE_WRITECOMBINE)) && (m.Protect & 0xEE) &&
+           m.AllocationBase != own.AllocationBase;
+}
+
+// [MemDiag] RcCensusBuilders=1 (2026-11-05, with RcCensus): at each census, the live CAS SimBuilders and what their parts
+// hold. The census showed the growing TXTC 0x033A1435 / 0x0341ACC9 entries are made in memory with random instances
+// (0x5DFDB0) by SetPartCompositor / SetPartPreset (0x5E2C10, allocation tag "CAS/SimBuilder/SetPartCompositor") and
+// kept as RefPtrs in a hash map per part [verified disassembly]. SimBuilder: vtable 0xFE46A0 (ctor 0x5E4150); part list
+// at +0x1E0 (doubly linked, node next +0, prev +4, list name pointer +0x1E8 = 0xFE4668 "CAS/SimBuilder/PartList");
+// part node 0x98 B (0x5E4100) with its compositor map at +0x78 (EASTL hash map: buckets +4, bucket count +8, count +0xC;
+// node key dword +0, RefPtr +4, next +8: 0x5E2B30). Counts objects whose vtable and list name match and whose list links
+// are consistent. Answers: more SimBuilders over time (not freed) or more compositors in the same ones.
+static bool g_rbOn;
+static DWORD g_rbVt = 0x00FE46A0, g_rbName = 0x00FE4668;  // selftest: its own values
+struct RbTop { DWORD at, parts, comps; };
+struct RbStats { DWORD n, bad, parts, comps; RbTop top[5]; u64 bytes; };
+static void RbObject(const u8* o, RbStats& st) {  // its own __try: a bad candidate's links must not end the region scan
+    DWORD parts = 0, comps = 0;
+    __try {
+        if (*(const DWORD*)(o + 0x1E8) != g_rbName) return;
+        const u8* head = o + 0x1E0;
+        const u8* prev = head;
+        for (const u8* nd = *(const u8* const*)head; nd != head; prev = nd, nd = *(const u8* const*)nd) {
+            if (!nd || *(const u8* const*)(nd + 4) != prev || ++parts > 4096 || *(const DWORD*)(nd + 0x84) > 1000000) { st.bad++; return; }
+            comps += *(const DWORD*)(nd + 0x84);
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { st.bad++; return; }
+    st.n++, st.parts += parts, st.comps += comps;
+    int i = 4;
+    if (comps <= st.top[4].comps) return;
+    while (i > 0 && comps > st.top[i - 1].comps) st.top[i] = st.top[i - 1], i--;
+    st.top[i] = RbTop{(DWORD)(uintptr_t)o, parts, comps};
+}
+static bool RbRegion(const MEMORY_BASIC_INFORMATION& m, RbStats& st) {  // false = faulted (region changed)
+    const DWORD* p = (const DWORD*)m.BaseAddress;
+    const DWORD* e = (const DWORD*)((const u8*)m.BaseAddress + m.RegionSize - 0x200);  // the object's fields stay in the region
+    __try {
+        for (; p < e; p++)
+            if (*p == g_rbVt) RbObject((const u8*)p, st);
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+// [MemDiag] RcCensusGraph=1 (2026-11-05, with RcCensus): do the part compositors hold each other? A TXTC resource keeps
+// RefPtrs to the compositors its stream names in an EASTL vector at +0x28 (begin, end +0x2C), filled by its reader 0x607070
+// through the cache find (slot 6) and kept until it dies; the TXTF class (vtable 0xFE68F4) shares the reader (slot 5
+// 0x607970) and the 0x68-byte layout [verified disassembly; ctor 0x6004C0]. al218 (2026-11-05): 25-30k such finds per
+// 5 min, and the census sees every compositor at 2+ references with ref1held 0. The census walk lists the entries with
+// either vtable; after unlocking, this counts the edges between them, the references each has beyond the cache's and its
+// compositor parents', the roots (no compositor parent) by reference count, and what a Kahn peel from the roots leaves:
+// nodes on or only below a cycle, which nothing but the world's teardown frees. Reads only; a vector that changes during
+// the pass can miscount. 6.5 MB once; tens of ms on the memory worker, without the cache lock.
+static const DWORD RG_SIZE = 0x68, RG_KIDS = 256;
+static DWORD *g_rgDeg, *g_rgQ;
+static u8* g_rgMore;
+struct RgStats { DWORD n, kids, edges, edgesC, self, other, nulls, badVec, more, moreSum, fewer, roots, root1, root2, root3, left, leftMore; };
+static int RgCmp(const void* a, const void* b) { const DWORD x = *(const DWORD*)a, y = *(const DWORD*)b; return x < y ? -1 : x > y; }
+static int RgFind(const DWORD* o, DWORD n, DWORD p) {  // the listed object that contains p (another interface of it too), or -1
+    DWORD lo = 0, hi = n;
+    while (lo < hi) { const DWORD m = (lo + hi) / 2; if (o[m] <= p) lo = m + 1; else hi = m; }
+    return lo && p - o[lo - 1] < RG_SIZE ? (int)lo - 1 : -1;
+}
+static int RgVec(DWORD obj, const DWORD*& b) {  // child count; -1 = not readable or not a plausible vector
+    __try {
+        b = *(const DWORD* const*)(uintptr_t)(obj + 0x28);
+        const DWORD* e = *(const DWORD* const*)(uintptr_t)(obj + 0x2C);
+        if (!b && !e) return 0;
+        if (!b || e < b || (DWORD)(e - b) > RG_KIDS) return -1;
+        if (e > b) (void)*(const volatile DWORD*)(e - 1);
+        return (int)(e - b);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; }
+}
+static LONG RgRefs(DWORD obj) {
+    __try { return *(const LONG*)(uintptr_t)(obj + 4) >> 8; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+static DWORD RgKid(const DWORD* b, int j) {  // 0 = null or gone
+    __try { return b[j]; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+// o: n listed objects (sorted here); deg / q: n DWORDs each, more: n bytes
+static void RgAnalyze(DWORD* o, DWORD n, DWORD* deg, DWORD* q, u8* more, RgStats& st) {
+    qsort(o, n, sizeof(DWORD), RgCmp);
+    memset(deg, 0, n * sizeof(DWORD)), memset(more, 0, n);
+    st.n = n;
+    for (DWORD i = 0; i < n; i++) {
+        const DWORD* b;
+        const int k = RgVec(o[i], b);
+        if (k < 0) { st.badVec++; continue; }
+        st.kids += k > 0;
+        for (int j = 0; j < k; j++) {
+            const DWORD p = RgKid(b, j);
+            const int t = p ? RgFind(o, n, p) : -1;
+            st.edges++;
+            if (!p) st.nulls++;
+            else if (t < 0) st.other++;
+            else st.edgesC++, deg[t]++, st.self += (DWORD)t == i;
+        }
+    }
+    DWORD qn = 0;
+    for (DWORD i = 0; i < n; i++) {
+        const LONG r = RgRefs(o[i]), x = r - 1 - (LONG)deg[i];  // beyond the cache's own and the compositor parents'
+        if (x > 0) st.more++, st.moreSum += x, more[i] = 1;
+        else if (x < 0) st.fewer++;
+        if (deg[i]) continue;
+        st.roots++, q[qn++] = i;
+        if (r <= 1) st.root1++; else if (r == 2) st.root2++; else st.root3++;
+    }
+    for (DWORD h = 0; h < qn; h++) {  // Kahn: what the roots alone account for
+        const DWORD* b;
+        const int k = RgVec(o[q[h]], b);
+        for (int j = 0; j < k; j++) {
+            const DWORD p = RgKid(b, j);
+            const int t = p ? RgFind(o, n, p) : -1;
+            if (t >= 0 && deg[t] && !--deg[t]) q[qn++] = (DWORD)t;
+        }
+    }
+    st.left = n - qn;
+    for (DWORD i = 0; i < n; i++) st.leftMore += deg[i] && more[i];
+}
+static void RcGraph(LONG n) {
+    LARGE_INTEGER f, a, b;
+    QueryPerformanceFrequency(&f), QueryPerformanceCounter(&a);
+    RgStats st = {};
+    RgAnalyze(g_rgObj, g_rgN, g_rgDeg, g_rgQ, g_rgMore, st);
+    QueryPerformanceCounter(&b);
+    Log("diag: rc graph #%ld: %lu part compositors%s, %lu with children; %lu child refs: %lu to listed compositors (%lu self), %lu to others, "
+        "%lu null; %lu vectors not readable; beyond the cache and compositor parents: %lu held more (+%lu), %lu fewer; %lu roots (refs 1: %lu, "
+        "2: %lu, 3+: %lu); the peel from the roots leaves %lu on or below a cycle (%lu of them held more); %.1f ms",
+        n, st.n, g_rgOver ? " (more not listed: table full)" : "", st.kids, st.edges, st.edgesC, st.self, st.other, st.nulls, st.badVec,
+        st.more, st.moreSum, st.fewer, st.roots, st.root1, st.root2, st.root3, st.left, st.leftMore,
+        (b.QuadPart - a.QuadPart) * 1000.0 / f.QuadPart);
+}
+static bool RgAlloc() {
+    if (g_rgObj) return true;
+    u8* m = (u8*)VirtualAlloc(NULL, RG_CAP * 13, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    if (!m) return false;
+    g_rgDeg = (DWORD*)(m + RG_CAP * 4), g_rgQ = (DWORD*)(m + RG_CAP * 8), g_rgMore = m + RG_CAP * 12;
+    g_rgObj = (DWORD*)m;
+    return true;
+}
+
+// [MemDiag] RcRefCallers=1 (2026-11-05, docs/191 "Who holds the part compositors"; diagnostic, test runs only; independent
+// of RcCensus): who takes and drops references on the generated part compositors. The census showed them at 2+ references
+// and never cold, while the CAS SimBuilder part maps that make them (0x5E2C10) hold only 0-40 and release them on part
+// removal (0x5E2ED0 -> 0x515510) [verified]. Replaces AddRef / Release (slots 0 / 1: 0x723130 -> 0x731D00, 0x5B07A0 ->
+// 0x731D40) in the TXTC 0x033A1435 vtable 0xFE68D8 and the 0x0341ACC9 vtable 0xFE68F4 with counters keyed by return
+// address (only these two types reach the hooks), and the cache's Find (below). Each diag: mem line logs every caller's
+// AddRef / Release / net since the start, the top 20 by net; the stack chains of the births (an AddRef at 0 references)
+// and of the finds; the sampled objects alive at 2+ references by their last AddRef (RcRefHistory); the compositor
+// service registry's size. Direct (non-virtual) calls are not seen. Counters v908 (rrc*).
+static bool g_rsOn;
+static const int RS_SLOTS = 1024;
+static volatile LONG g_rsAt[RS_SLOTS], g_rsN[3][RS_SLOTS], g_rsFull;  // key = return address; [0] AddRef, [1] Release, [2] Find
+static LONG g_rsPrev[3][RS_SLOTS], g_rsPrevNet[RS_SLOTS];
+static DWORD g_rsPrevMs;
+static double g_rsNs, g_rsChainNs;  // our work per counted call and per find chain, measured at install (RsCalibrate)
+typedef LONG(__fastcall* RsFn)(void* self, void* edx);
+static RsFn g_rsAdd = (RsFn)(uintptr_t)0x00731D00, g_rsRel = (RsFn)(uintptr_t)0x00731D40;
+static void RsCount(int kind, DWORD key) {
+    volatile LONG* at = g_rsAt;
+    for (DWORD i = (key * 2654435761u) >> 22, k = 0; k < 64; i = (i + 1) & (RS_SLOTS - 1), k++) {
+        const LONG a = at[i];
+        if (a == (LONG)key || (!a && (InterlockedCompareExchange(&at[i], (LONG)key, 0) == 0 || at[i] == (LONG)key))) {
+            InterlockedIncrement(&g_rsN[kind][i]);
+            return;
+        }
+    }
+    InterlockedIncrement(&g_rsFull);
+}
+// [MemDiag] RcRefCallersSample=N (with RcRefCallers; 0 = off): who keeps the one reference, per object. al221: no compositor cycles; nearly every compositor is a root at 2+ references (the cache's + one outside
+// holder), the 2-reference group growing 34k -> 123k in 30 min; and only the cache's Find (0x732542) and Add (0x732AC5)
+// AddRef directly [verified: every E8/E9 to 0x731DB0 / 0x731D00 / 0x731D40], so the outside holder's AddRef is a counted
+// virtual one. This samples 1 in g_ryEvery new compositors (an AddRef at 0 references) and records the first RY_EV
+// AddRef / Release / Find events on each with the caller (the return address); at each census the ones that lived through
+// a census and still have 2+ references are grouped by their event lists, and by their last AddRef (the reference taken
+// last and not dropped since: in the pattern seen so far that is the holder's). shortcut: a freed sample's slot is not
+// reused (a new object at its address is not sampled): 16384 slots hold one 35-min run at 1 in 32.
+static bool g_ryOn;
+static DWORD g_ryEvery = 32;  // selftest: 1
+static const int RY_SLOTS = 16384, RY_EV = 16;
+struct RyObj { volatile LONG obj, born, n, dead, reg; DWORD ev[RY_EV]; };  // ev: caller | kind << 30 (0 AddRef, 1 Release, 2 Find); reg: last line its pointer was in the registry
+static RyObj g_ry[RY_SLOTS];
+static volatile LONG g_ryNew, g_ryTaken, g_ryFull, g_ryCensus;
+static LONG RyRefs(DWORD o) {
+    __try { return *(const LONG*)(uintptr_t)(o + 4) >> 8; } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; }
+}
+static DWORD RyVt(DWORD o) {
+    __try { return *(const DWORD*)(uintptr_t)o; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+static RyObj* RySlot(DWORD o, bool claim) {
+    for (DWORD i = (o * 2654435761u) >> 20, k = 0; k < 32; i = (i + 1) & (RY_SLOTS - 1), k++) {
+        const LONG a = g_ry[i].obj;
+        if (a == (LONG)o) return &g_ry[i];
+        if (a) continue;
+        if (!claim) return NULL;
+        if (InterlockedCompareExchange(&g_ry[i].obj, (LONG)o, 0) == 0) {
+            g_ry[i].born = g_ryCensus;
+            InterlockedIncrement(&g_ryTaken);
+            return &g_ry[i];
+        }
+        if (g_ry[i].obj == (LONG)o) return &g_ry[i];
+    }
+    if (claim) InterlockedIncrement(&g_ryFull);
+    return NULL;
+}
+static void RyNote(DWORD o, DWORD at, int kind) {  // before the original runs: refs is the count before this event
+    RyObj* r = RySlot(o, false);
+    if (!r) {
+        if (kind || RyRefs(o) != 0 || (DWORD)InterlockedIncrement(&g_ryNew) % g_ryEvery) return;
+        if (!(r = RySlot(o, true))) return;
+    }
+    if (r->dead) return;
+    const LONG k = InterlockedIncrement(&r->n) - 1;
+    if (k < RY_EV) r->ev[k] = (at & 0x3FFFFFFF) | (DWORD)kind << 30;
+    if (kind == 1 && RyRefs(o) <= 1) r->dead = 1;  // this Release frees it
+}
+static LONG __fastcall RsAddRef(void* self, void* edx) {
+    const DWORD at = (DWORD)(uintptr_t)_ReturnAddress();
+    RsCount(0, at);
+    if (g_ryOn && self) RyNote((DWORD)(uintptr_t)self, at, 0);
+    return g_rsAdd(self, edx);
+}
+static LONG __fastcall RsRelease(void* self, void* edx) {
+    const DWORD at = (DWORD)(uintptr_t)_ReturnAddress();
+    RsCount(1, at);
+    if (g_ryOn && self) RyNote((DWORD)(uintptr_t)self, at, 1);
+    return g_rsRel(self, edx);
+}
+static DWORD g_rsVt[2] = {0x00FE68D8, 0x00FE68F4}, g_rsOrig[2] = {0x00723130, 0x005B07A0};  // selftest: its own
+// The run of 2026-11-05 showed the counted AddRef / Release balance (+868 net while 28k compositors appeared), so both
+// lasting references are taken directly: the cache's own (Add 0x732A00 -> 0x731DB0) and a lookup by key (cache vtable
+// 0xFFDD94 slot 6 Find 0x7324E0, which AddRefs through 0x731DB0 [verified]). So Find is wrapped too: a find that returns
+// a part compositor records its caller chain (the return address + the next 3 exe .text values up the stack).
+typedef bool(__fastcall* RfFn)(void* self, void* edx, const void* key, void** out);
+static RfFn g_rfFind = (RfFn)(uintptr_t)0x007324E0;
+static DWORD g_rfVt = 0x00FFDD94, g_rfOrig = 0x007324E0;  // selftest: its own
+static const int RF_SLOTS = 512;
+struct RfRow { volatile LONG h, n; DWORD c[4]; };
+static RfRow g_rsFs[RF_SLOTS];
+static LONG g_rfPrev[RF_SLOTS], g_rfPrevHits;
+static volatile LONG g_rfHits, g_rfFull;
+static void RsFindChain(const DWORD* sp) {  // shortcut: a stack scan, so stale values can show; good enough to rank callers
+    InterlockedIncrement(&g_rfHits);
+    DWORD c[4] = {sp[0], 0, 0, 0};
+    __try {
+        for (int i = 1, m = 1; i < 80 && m < 4; i++)
+            if (sp[i] >= g_rhTxLo && sp[i] < g_rhTxHi) c[m++] = sp[i];
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    DWORD h = 2166136261u;
+    for (DWORD x : c) h = (h ^ x) * 16777619u;
+    if (!h) h = 1;
+    for (DWORD i = h & (RF_SLOTS - 1), k = 0; k < 64; i = (i + 1) & (RF_SLOTS - 1), k++) {
+        if (g_rsFs[i].h == (LONG)h) { InterlockedIncrement(&g_rsFs[i].n); return; }
+        if (!g_rsFs[i].h && InterlockedCompareExchange(&g_rsFs[i].h, (LONG)h, 0) == 0) {
+            memcpy(g_rsFs[i].c, c, sizeof(c));
+            InterlockedIncrement(&g_rsFs[i].n);
+            return;
+        }
+        if (g_rsFs[i].h == (LONG)h) { InterlockedIncrement(&g_rsFs[i].n); return; }
+    }
+    InterlockedIncrement(&g_rfFull);
+}
+static bool __fastcall RsFind(void* self, void* edx, const void* key, void** out) {
+    const bool r = g_rfFind(self, edx, key, out);
+    if (r && out) {
+        DWORD vt = 0;
+        __try { vt = *out ? **(const DWORD* const*)out : 0; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        if (vt && (vt == g_rsVt[0] || vt == g_rsVt[1])) {
+            RsCount(2, (DWORD)(uintptr_t)_ReturnAddress());  // Find AddRefs what it returns (direct 0x731DB0)
+            RsFindChain((const DWORD*)_AddressOfReturnAddress());
+            if (g_ryOn && RySlot((DWORD)(uintptr_t)*out, false)) RyNote((DWORD)(uintptr_t)*out, (DWORD)(uintptr_t)_ReturnAddress(), 2);
+        }
+    }
+    return r;
+}
+static void RsCalibrate() {  // before the hooks go in: time our part of a hooked call (fake key, an unsampled object), then clear
+    static DWORD fake[2] = {0, 1 << 8};  // refs 1: RyNote's common path
+    LARGE_INTEGER f, a, b;
+    QueryPerformanceFrequency(&f), QueryPerformanceCounter(&a);
+    for (volatile int i = 0; i < 20000; i++) {
+        RsCount(0, 1);
+        if (g_ryOn) RyNote((DWORD)(uintptr_t)fake, 1, 0);
+    }
+    QueryPerformanceCounter(&b);
+    g_rsNs = (b.QuadPart - a.QuadPart) * 1e9 / f.QuadPart / 20000;
+    QueryPerformanceCounter(&a);
+    for (volatile int i = 0; i < 2000; i++) RsFindChain((const DWORD*)_AddressOfReturnAddress());
+    QueryPerformanceCounter(&b);
+    g_rsChainNs = (b.QuadPart - a.QuadPart) * 1e9 / f.QuadPart / 2000;
+    memset((void*)g_rsAt, 0, sizeof(g_rsAt)), memset((void*)g_rsN, 0, sizeof(g_rsN)), memset(g_rsFs, 0, sizeof(g_rsFs));
+    g_rsFull = g_rfFull = g_rfHits = 0;
+}
+static bool RsInstall() {
+    for (DWORD vt : g_rsVt) {
+        const DWORD* s = (const DWORD*)(uintptr_t)vt;
+        if (!Readable(s, 8) || s[0] != g_rsOrig[0] || s[1] != g_rsOrig[1]) {
+            Log("FAIL mem diag: rc ref callers: vtable 0x%08lX slots are not 0x%08lX / 0x%08lX, not installed", vt, g_rsOrig[0], g_rsOrig[1]);
+            return false;
+        }
+    }
+    DWORD* fs = (DWORD*)(uintptr_t)g_rfVt + 6;
+    if (!Readable(fs, 4) || *fs != g_rfOrig || !RhRanges()) {
+        Log("FAIL mem diag: rc ref callers: cache vtable 0x%08lX slot 6 is not 0x%08lX (or no exe .text), not installed", g_rfVt, g_rfOrig);
+        return false;
+    }
+    RsCalibrate();
+    const DWORD fn[2] = {(DWORD)(uintptr_t)&RsAddRef, (DWORD)(uintptr_t)&RsRelease}, ff = (DWORD)(uintptr_t)&RsFind;
+    for (DWORD vt : g_rsVt)
+        if (!Write((void*)(uintptr_t)vt, fn, sizeof(fn))) { Log("FAIL mem diag: rc ref callers: VirtualProtect at 0x%08lX", vt); return false; }
+    if (!Write(fs, &ff, 4)) { Log("FAIL mem diag: rc ref callers: VirtualProtect at 0x%08lX", g_rfVt); return false; }
+    return true;
+}
+static int RsByDn(const void* a, const void* b) { const LONG x = ((const LONG*)a)[1], y = ((const LONG*)b)[1]; return x < y ? 1 : x > y ? -1 : 0; }
+struct RyPat { char s[RY_EV * 10 + 1]; DWORD c; LONG refs; };
+static int RyByC(const void* a, const void* b) { const DWORD x = ((const RyPat*)a)->c, y = ((const RyPat*)b)->c; return x < y ? 1 : x > y ? -1 : 0; }
+// The CAS texture compositor service ([0x11CE6A0], made in 0x5F16F0) registers each new compositor in a hash map at
+// +0x104 (insert 0x5EECD0, from the compositor builder 0x5C1B30's callers; the node copy 0x5ED870 AddRefs at 0x5ED8B8).
+// Erases: the clear-all 0x5EEA90 (the service's ctor and its vtable slot 5) and the per-key 0x5EE640 [verified code, TS3W
+// 1.67]. eastl layout read here: buckets +0x108, bucket count +0x10C, entries +0x110; node = {ResourceKey 16 bytes,
+// compositor +0x10, next +0x18} (next: the bucket free loop 0x5ED83F [verified]; +0x14 before 2026-11-05 stopped the walk).
+// Read only, without the service's lock: a node freed during the walk can stop it (logged) or miscount one line.
+static DWORD g_rrSvc = 0x011CE6A0, g_rrPrev;  // selftest: its own
+static void RcRegistry(LONG n) {
+    DWORD cnt = 0, nb = 0, seen = 0, comp = 0, r1 = 0, r2 = 0, r3 = 0, bad = 0, sampled = 0;
+    __try {
+        const u8* m = *(const u8* const*)(uintptr_t)g_rrSvc;
+        if (!m) { Log("diag: rc registry #%ld: no compositor service", n); return; }
+        const DWORD* b = *(const DWORD* const*)(m + 0x108);
+        nb = *(const DWORD*)(m + 0x10C), cnt = *(const DWORD*)(m + 0x110);
+        for (DWORD i = 0; b && i < nb && i < (1u << 22) && seen <= cnt + 64; i++)
+            for (const u8* e = (const u8*)(uintptr_t)b[i]; e && seen <= cnt + 64; e = *(const u8* const*)(e + 0x18)) {
+                seen++;
+                const DWORD o = *(const DWORD*)(e + 0x10), vt = RyVt(o);
+                if (vt != g_rsVt[0] && vt != g_rsVt[1]) continue;
+                comp++;
+                const LONG r = RyRefs(o);
+                if (r <= 1) r1++; else if (r == 2) r2++; else r3++;
+                if (g_ryOn)
+                    if (RyObj* y = RySlot(o, false)) y->reg = n, sampled++;
+            }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { bad = 1; }
+    Log("diag: rc registry #%ld: %lu entries (%+ld since the last line, %lu buckets), walked %lu%s: %lu part compositors: refs 1: %lu, "
+        "2: %lu, 3+: %lu; %lu sampled ones",
+        n, cnt, (LONG)(cnt - g_rrPrev), nb, seen, bad ? " (stopped: unreadable)" : "", comp, r1, r2, r3, sampled);
+    g_rrPrev = cnt, ts3native_counters.rrcRegistry = (LONG)cnt;
+}
+
+struct RyLast { DWORD ev, c, reg; };
+static int RyLastByC(const void* a, const void* b) { const DWORD x = ((const RyLast*)a)->c, y = ((const RyLast*)b)->c; return x < y ? 1 : x > y ? -1 : 0; }
+static void RcRefHistory(LONG n) {
+    static RyPat pat[48];
+    static RyLast last[32];
+    int np = 0, nl = 0;
+    DWORD dead = 0, young = 0, other = 0, alive = 0, r1 = 0, r2 = 0, r3 = 0, longer = 0, patFull = 0, net1 = 0, net1Reg = 0, lastFull = 0;
+    for (int i = 0; i < RY_SLOTS; i++) {
+        RyObj& y = g_ry[i];
+        if (!y.obj) continue;
+        if (y.dead) { dead++; continue; }
+        if (y.born >= n) { young++; continue; }
+        const DWORD vt = RyVt((DWORD)y.obj);
+        if (vt != g_rsVt[0] && vt != g_rsVt[1]) { other++; continue; }
+        alive++;
+        const LONG refs = RyRefs((DWORD)y.obj), m = y.n < RY_EV ? y.n : RY_EV;
+        longer += y.n > RY_EV;
+        // net +1 in the counted events (the cache's own reference is a direct AddRef, not counted): grouped by the last
+        // AddRef or find, the reference not dropped since
+        if (y.n <= RY_EV) {
+            LONG net = 0;
+            DWORD lastEv = 0;
+            for (LONG k = 0; k < m; k++)
+                if (y.ev[k] >> 30 == 1) net--; else net++, lastEv = y.ev[k];
+            if (net == 1) {
+                const bool reg = y.reg == n;
+                net1++, net1Reg += reg;
+                int j = 0;
+                while (j < nl && last[j].ev != lastEv) j++;
+                if (j < nl) last[j].c++, last[j].reg += reg;
+                else if (nl < 32) last[nl].ev = lastEv, last[nl].c = 1, last[nl].reg = reg, nl++;
+                else lastFull++;
+            }
+        }
+        if (refs <= 1) { r1++; continue; }
+        refs == 2 ? r2++ : r3++;
+        char s[sizeof(pat[0].s)];
+        int at = 0;
+        for (LONG k = 0; k < m; k++)
+            at += _snprintf_s(s + at, sizeof(s) - at, _TRUNCATE, "%s%c%lX", k ? " " : "", "ARF?"[y.ev[k] >> 30], y.ev[k] & 0x3FFFFFFF);
+        int j = 0;
+        while (j < np && (pat[j].refs != refs || strcmp(pat[j].s, s))) j++;
+        if (j < np) pat[j].c++;
+        else if (np < 48) strcpy_s(pat[np].s, s), pat[np].c = 1, pat[np].refs = refs, np++;
+        else patFull++;
+    }
+    g_ryCensus = n;
+    ts3native_counters.rrcSampled = g_ryTaken;
+    Log("diag: rc ref history #%ld: %ld sampled (1 in %lu new, %ld not: table full), %lu freed, %lu too young, %lu not a compositor now; "
+        "%lu alive: refs 1: %lu, 2: %lu, 3+: %lu; %lu with more than %d events, %lu in no listed group",
+        n, g_ryTaken, g_ryEvery, g_ryFull, dead, young, other, alive, r1, r2, r3, longer, RY_EV, patFull);
+    qsort(pat, np, sizeof(RyPat), RyByC);
+    for (int j = 0; j < np && j < 12; j++) Log("diag: rc ref history #%ld x%lu refs %ld: %s", n, pat[j].c, pat[j].refs, pat[j].s);
+    Log("diag: rc ref history #%ld: %lu alive at net +1 (counted AddRef + finds - Release; the cache's own reference is not counted), "
+        "%lu of them in the compositor registry; %lu in no listed group; by the last AddRef or find:", n, net1, net1Reg, lastFull);
+    qsort(last, nl, sizeof(RyLast), RyLastByC);
+    for (int j = 0; j < nl && j < 12; j++)
+        Log("diag: rc ref history #%ld net+1 x%lu last %c%lX, in the registry %lu", n, last[j].c, "ARF?"[last[j].ev >> 30],
+            last[j].ev & 0x3FFFFFFF, last[j].reg);
+}
+static void RcRefCallers(LONG n) {
+    static LONG rows[RS_SLOTS][6];  // caller, net, net since the last line, AddRef, Release, finds
+    int k = 0;
+    LONG tot[3] = {}, d[3] = {};
+    for (int i = 0; i < RS_SLOTS; i++) {
+        const LONG key = g_rsAt[i];
+        if (!key) continue;
+        LONG c[3];
+        for (int j = 0; j < 3; j++) c[j] = g_rsN[j][i], tot[j] += c[j], d[j] += c[j] - g_rsPrev[j][i], g_rsPrev[j][i] = c[j];
+        const LONG net = c[0] + c[2] - c[1];
+        rows[k][0] = key, rows[k][1] = net, rows[k][2] = net - g_rsPrevNet[i], rows[k][3] = c[0], rows[k][4] = c[1], rows[k][5] = c[2], k++;
+        g_rsPrevNet[i] = net;
+    }
+    const DWORD now = GetTickCount(), ms = g_rsPrevMs ? now - g_rsPrevMs : 0;
+    g_rsPrevMs = now;
+    const double costMs = ((double)d[0] + d[1]) * g_rsNs / 1e6 + (double)d[2] * g_rsChainNs / 1e6;
+    Ts3nCounters& z = ts3native_counters;
+    z.rrcAddRefs = tot[0], z.rrcReleases = tot[1], z.rrcFinds = tot[2], z.rrcCallers = k;
+    Log("diag: rc ref callers #%ld: since the start AddRef %ld, finds %ld, Release %ld, net %+ld; since the last line AddRef +%ld, finds +%ld, "
+        "Release +%ld, net %+ld; %d callers%s; our hook work ~%.1f ms since the last line (%.0f ns a call, %.0f ns a find chain; %.3f%% of %.0f s)",
+        n, tot[0], tot[2], tot[1], tot[0] + tot[2] - tot[1], d[0], d[2], d[1], d[0] + d[2] - d[1], k, g_rsFull ? " (table full)" : "", costMs,
+        g_rsNs, g_rsChainNs, ms ? costMs / ms * 100 : 0.0, ms / 1000.0);
+    qsort(rows, k, sizeof(rows[0]), RsByDn);
+    for (int i = 0; i < k && i < 20 && rows[i][1] > 0; i++)
+        Log("diag: rc ref callers #%ld 0x%08lX net %+ld (%+ld): AddRef %ld, finds %ld, Release %ld", n, rows[i][0], rows[i][1], rows[i][2],
+            rows[i][3], rows[i][5], rows[i][4]);
+    for (int i = k - 1, m = 0; i >= 0 && m < 5 && rows[i][1] < 0; i--, m++)  // the most negative: who drops the references
+        Log("diag: rc ref callers #%ld 0x%08lX net %+ld (%+ld): AddRef %ld, finds %ld, Release %ld", n, rows[i][0], rows[i][1], rows[i][2],
+            rows[i][3], rows[i][5], rows[i][4]);
+    k = 0;
+    for (int i = 0; i < RF_SLOTS; i++) {
+        const LONG t = g_rsFs[i].n;
+        if (!g_rsFs[i].h || !g_rsFs[i].c[0]) continue;
+        rows[k][0] = i, rows[k][1] = t - g_rfPrev[i], rows[k][2] = t, k++;
+        g_rfPrev[i] = t;
+    }
+    qsort(rows, k, sizeof(rows[0]), RsByDn);
+    const LONG hits = g_rfHits;
+    Log("diag: rc find sites #%ld: +%ld finds by key returned a part compositor since the last line; %d chains%s", n, hits - g_rfPrevHits, k,
+        g_rfFull ? " (table full)" : "");
+    g_rfPrevHits = hits;
+    for (int i = 0; i < k && i < 12 && rows[i][1]; i++) {
+        const RfRow& f = g_rsFs[rows[i][0]];
+        Log("diag: rc find sites #%ld +%ld (total %ld) from 0x%08lX < 0x%08lX < 0x%08lX < 0x%08lX", n, rows[i][1], rows[i][2], f.c[0], f.c[1],
+            f.c[2], f.c[3]);
+    }
+}
+// At each diag: mem line but exit (the service may be gone): no-op unless [MemDiag] RcRefCallers=1.
+static void RcRefCallersLine(LONG n, const char* tag) {
+    if (!g_rsOn || !strcmp(tag, "exit")) return;
+    RcRefCallers(n);
+    RcRegistry(n);  // marks the sampled compositors it holds, before the history reads them
+    if (g_ryOn) RcRefHistory(n);
+}
+
+static void RcBuilders(LONG n) {
+    RbStats st = {};
+    const DWORD t0 = GetTickCount();
+    MEMORY_BASIC_INFORMATION m, own = {};
+    VirtualQuery(&st, &own, sizeof(own));
+    for (const u8* a = (const u8*)0x10000; VirtualQuery(a, &m, sizeof(m)) == sizeof(m); a = (const u8*)m.BaseAddress + m.RegionSize) {
+        if ((const u8*)m.BaseAddress + m.RegionSize <= a) break;  // wrapped
+        if (m.RegionSize > 0x200 && RhScannable(m, own) && RbRegion(m, st)) st.bytes += m.RegionSize;
+    }
+    char top[200] = "";
+    for (int i = 0, at = 0; i < 5 && st.top[i].comps && at < (int)sizeof(top) - 40; i++)
+        at += _snprintf_s(top + at, sizeof(top) - at, _TRUNCATE, "%s%lu in %lu parts", i ? ", " : "; most: ", st.top[i].comps, st.top[i].parts);
+    Log("diag: rc builders #%ld: %lu SimBuilders, %lu parts, %lu compositors%s; %lu not valid; scanned %.0f MB in %lu ms", n, st.n,
+        st.parts, st.comps, top, st.bad, st.bytes / 1048576.0, GetTickCount() - t0);
+}
+static void RcHolders(LONG n, const u8* c, CRITICAL_SECTION* cs, DWORD type, DWORD typeN) {
+    if (!RhRanges()) return (void)Log("diag: rc holders #%ld: exe sections not found", n);
+    DWORD wait = 0;
+    if (cs && !RcEnter(cs, &wait)) return (void)Log("diag: rc holders #%ld: skipped, cache lock busy for %lu ms", n, wait);
+    const DWORD every = typeN > RH_N ? typeN / RH_N : 1;
+    const int k = RhSample(c, type, every);
+    if (cs) LeaveCriticalSection(cs);
+    memset(g_rhBits, 0, sizeof(g_rhBits)), g_rhKeyN = 0;
+    for (int i = 0; i < k; i++) {
+        const DWORD b = (DWORD)(uintptr_t)g_rhRes[i];
+        g_rhSorted[i] = b;
+        for (DWORD pg = (b - 0x40) >> 12; pg <= (b + 0x40) >> 12; pg++) g_rhBits[pg >> 5] |= 1u << (pg & 31);
+    }
+    qsort(g_rhSorted, k, sizeof(DWORD), [](const void* a, const void* b) { const DWORD x = *(const DWORD*)a, y = *(const DWORD*)b; return x < y ? -1 : x > y ? 1 : 0; });
+    RhStats st = {};
+    const DWORD t0 = GetTickCount();
+    MEMORY_BASIC_INFORMATION m, own = {};
+    VirtualQuery(&st, &own, sizeof(own));  // our own stack: copies of the samples in locals
+    for (const u8* a = (const u8*)0x10000; k && VirtualQuery(a, &m, sizeof(m)) == sizeof(m); a = (const u8*)m.BaseAddress + m.RegionSize) {
+        if ((const u8*)m.BaseAddress + m.RegionSize <= a) break;  // wrapped
+        if (RhScannable(m, own) && RhRegion(m, k, st)) st.bytes += m.RegionSize;
+    }
+    Log("diag: rc holders #%ld type 0x%08lX: %d sampled (1 in %lu of %lu), scanned %.0f MB in %lu ms; pointers %lu (image %lu, "
+        "private %lu, mapped %lu) + %lu cache nodes; no vtable %lu%s",
+        n, type, k, every, typeN, st.bytes / 1048576.0, GetTickCount() - t0, st.hits, st.img, st.priv, st.map, st.own, st.novt,
+        st.keysFull ? " (key table full)" : "");
+    qsort(g_rhKeys, g_rhKeyN, sizeof(RhKey), RhByN);
+    for (int i = 0; i < g_rhKeyN && i < 12; i++) {
+        int cov = 0;
+        for (u64 x = g_rhKeys[i].mask; x; x &= x - 1) cov++;
+        Log("diag: rc holders #%ld vt 0x%08lX +0x%lX delta %+ld n=%lu covers %d of %d", n, g_rhKeys[i].vt, g_rhKeys[i].off,
+            g_rhKeys[i].delta, g_rhKeys[i].n, cov, k);
+    }
+    for (DWORD i = 0; i < st.novt && i < 3; i++) Log("diag: rc holders #%ld no vtable at 0x%08lX (allocation 0x%08lX)", n, st.novtAt[i], st.novtBase[i]);
+}
+static void RcCensus(LONG n, const char* tag) {
+    if (!g_rcCensusOn || !strcmp(tag, "exit")) return;  // exit: the other threads are gone and one may own the lock
+    if (InterlockedExchange(&g_rcBusy, 1)) return;      // a mark sample on another thread
+    DWORD r[5];
+    const u8* c = NULL;
+    static RcType t[RC_SLOTS];
+    memset(t, 0, sizeof(t));
+    RcTotals z = {};
+    bool locked = false, ok = false;
+    DWORD wait = 0;
+    double ms = 0;
+    const bool lockOn = MdRc(r, &c) && RcLockOn(c);
+    CRITICAL_SECTION* cs = c ? (CRITICAL_SECTION*)(c + 0x58) : NULL;
+    g_rgN = g_rgOver = 0;
+    if (cs && lockOn) locked = RcEnter(cs, &wait);
+    if (c && (locked || !lockOn)) {
+        LARGE_INTEGER f, a, b;
+        QueryPerformanceFrequency(&f), QueryPerformanceCounter(&a);
+        ok = RcWalk(c, t, z);
+        QueryPerformanceCounter(&b);
+        if (locked) LeaveCriticalSection(cs);
+        ms = (b.QuadPart - a.QuadPart) * 1000.0 / f.QuadPart;
+    }
+    if (!c) Log("diag: rc census #%ld %s: no ResourceCache", n, tag);
+    else if (lockOn && !locked) Log("diag: rc census #%ld %s: skipped, cache lock busy for %lu ms", n, tag, wait);
+    else if (!ok) Log("diag: rc census #%ld %s: map not readable (stopped after %lu of %lu entries, %.1f ms)", n, tag, z.walked, z.mapN, ms);
+    else {
+        static RcType top[RC_SLOTS];
+        int k = 0;
+        DWORD cold = 0, held1 = 0;
+        u64 bytes = 0;
+        for (int i = 0; i < RC_SLOTS; i++) {
+            if (!t[i].n) continue;
+            RcType& e = top[k++] = t[i];
+            cold += e.cold, held1 += e.ref1Held, bytes += e.bytes;
+            e.dn = (LONG)e.n, e.dmb = e.bytes / 1048576.0;
+            for (int j = 0; j < g_rcPrevN; j++)
+                if (g_rcPrev[j].type == e.type) { e.dn -= (LONG)g_rcPrev[j].n, e.dmb -= g_rcPrev[j].bytes / 1048576.0; break; }
+        }
+        Log("diag: rc census #%ld %s entries=%lu (map %lu) types=%lu%s MB=%.1f cold=%lu ref1held=%lu keyBad=%lu walk=%.1f ms wait=%lu ms%s%s",
+            n, tag, z.walked, z.mapN, z.types, z.other ? " +other" : "", bytes / 1048576.0, cold, held1, z.keyBad, ms, wait,
+            lockOn ? "" : " (lock off)", g_rcPrevN ? "" : "; first census, changes are since 0");
+        qsort(top, k, sizeof(RcType), RcByN);
+        if (k > RC_TOP) qsort(top + RC_TOP, k - RC_TOP, sizeof(RcType), RcByDn);
+        for (int i = 0; i < k && i < RC_TOP + RC_GROW; i++) {
+            const RcType& e = top[i];
+            if (i >= RC_TOP && e.dn <= 0) break;
+            Log("diag: rc census #%ld %s 0x%08lX n=%lu (%+ld) MB=%.1f (%+.1f) avgKB=%.1f cold=%lu ref1=%lu ref2=%lu ref3+=%lu ref1held=%lu "
+                "g=0x%08lX x%lu e.g. 0x%016llX",
+                n, i < RC_TOP ? "type" : "grow", e.type, e.n, e.dn, e.bytes / 1048576.0, e.dmb, e.bytes / 1024.0 / e.n, e.cold,
+                e.ref1, e.ref2, e.ref3, e.ref1Held, e.g0, e.g0n, e.inst0);
+        }
+        if (g_rcHoldersAt && ++g_rcCensusN == g_rcHoldersAt && k) {
+            int g = 0;
+            for (int i = 1; i < k; i++) if (top[i].dn > top[g].dn) g = i;
+            RcHolders(n, c, lockOn ? cs : NULL, top[g].type, top[g].n);
+        }
+        if (g_rbOn) RcBuilders(n);
+        if (g_rgOn) RcGraph(n);
+        memcpy(g_rcPrev, top, k * sizeof(RcType)), g_rcPrevN = k;
+    }
+    InterlockedExchange(&g_rcBusy, 0);
 }
 
 static void MdValues(const UdMemStat& s, u64 privUsage, MdVals& x) {
@@ -250,6 +1002,8 @@ static void MdAfterSample(const char* what, const char* ev, const UdMemStat& s, 
     Log("%s", line);
     MsWant(n, MdTag(what), ev);  // the suspect counters for this sample (ts3fixes answers on the sim thread)
     AsAfterSample(n, MdTag(what), ev);  // no-op unless [MemDiag] AllocSites=1
+    RcCensus(n, MdTag(what));           // no-op unless [MemDiag] RcCensus=1
+    RcRefCallersLine(n, MdTag(what));   // no-op unless [MemDiag] RcRefCallers=1
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -506,4 +1260,24 @@ static void ApplyMemDiag(const wchar_t* ini) {
     if (g_mdOn) g_udMemPeriodMs = 5 * 60 * 1000;  // set before the memory worker starts (userdiag.cpp)
     if (g_mdOn) Log("mem diag %s (docs/191): diag: mem + memsus lines at each memory at line, every 5 min of play%s", g_mdLight ? "light" : "on",
                     g_mdSelfTest ? "; self-test 30 s after the first world load (correctness runs only: leaks 8 MB on purpose)" : "");
+    g_rcCensusOn = g_mdOn && GetPrivateProfileIntW(L"MemDiag", L"RcCensus", 0, ini) > 0;
+    g_rcHoldersAt = g_rcCensusOn ? GetPrivateProfileIntW(L"MemDiag", L"RcCensusHolders", 0, ini) : 0;
+    g_rbOn = g_rcCensusOn && GetPrivateProfileIntW(L"MemDiag", L"RcCensusBuilders", 0, ini) > 0;
+    // RcRefCallers: its own switch (not under RcCensus), at the same diag: mem lines; the sampling is set first so the
+    // install's cost measure includes it
+    const bool rrc = g_mdOn && GetPrivateProfileIntW(L"MemDiag", L"RcRefCallers", 0, ini) > 0;
+    const int every = GetPrivateProfileIntW(L"MemDiag", L"RcRefCallersSample", 32, ini);
+    g_ryEvery = every > 0 ? (DWORD)every : 32;
+    g_ryOn = rrc && every > 0;
+    g_rsOn = rrc && RsInstall();
+    g_ryOn = g_ryOn && g_rsOn;
+    ts3native_counters.rrcOn = g_rsOn ? 1 + g_ryOn : 0, ts3native_counters.rrcHookNs = (LONG)(g_rsNs + 0.5);
+    if (g_ryOn) Log("mem diag: rc ref history on: 1 in %lu new part compositors, first %d events each", g_ryEvery, RY_EV);
+    g_rgOn = g_rcCensusOn && GetPrivateProfileIntW(L"MemDiag", L"RcCensusGraph", 0, ini) > 0 && RgAlloc();
+    if (g_rgOn) Log("mem diag: rc graph on: part compositor child references (vtables 0x%08lX, 0x%08lX, vector +0x28) at each census", g_rgVt[0], g_rgVt[1]);
+    if (g_rsOn) Log("mem diag: rc ref callers on (docs/191): part compositor AddRef / Release counted by caller (vtables 0x%08lX, 0x%08lX), "
+                    "cache finds that return one by caller and caller chain (0x%08lX slot 6); our work %.0f ns a call, %.0f ns a find chain",
+                    g_rsVt[0], g_rsVt[1], g_rfVt, g_rsNs, g_rsChainNs);
+    if (g_rcCensusOn) Log("mem diag: rc census on (docs/191): ResourceCache entries by type at each diag: mem line, under the cache lock%s",
+                          g_rcHoldersAt ? "; holder scan once at the census set by RcCensusHolders" : "");
 }

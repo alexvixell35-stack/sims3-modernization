@@ -1,6 +1,20 @@
 // TestMemDiag ([MemDiag], memdiag.cpp, docs/190 phase 1, docs/191 module 1). Included by selftest.cpp after userdiag-test.h
 // (uses its UdtLog). Classifier on synthetic regions, event tags, the reads of the game structures on fakes (offsets), the
 // line format and marks, and the self-test itself on this process (every 'H' field must move by the injected size).
+struct MdtHold { CRITICAL_SECTION* cs; HANDLE in, out; };
+struct MdtHolder { virtual ~MdtHolder() {} const void* res; };  // RcCensusHolders test: an object with a vtable
+static MdtHolder g_mdtHolders[2];
+static LONG g_mdtRefs;  // RcCensusRefSites test: the "original" AddRef / Release behind the counters
+static LONG __fastcall MdtAddRef(void*, void*) { return ++g_mdtRefs; }
+static LONG __fastcall MdtRelease(void*, void*) { return --g_mdtRefs; }
+static bool __fastcall MdtFind(void*, void*, const void* key, void** out) { *out = (void*)key; return key != NULL; }  // "found" = the key
+static DWORD WINAPI MdtHoldLock(LPVOID p) {  // RcCensus test: own the fake cache lock until "out" is set
+    MdtHold* h = (MdtHold*)p;
+    EnterCriticalSection(h->cs), SetEvent(h->in);
+    WaitForSingleObject(h->out, INFINITE);
+    LeaveCriticalSection(h->cs);
+    return 0;
+}
 static void TestMemDiag() {
     // allocation grouping: 64 MiB private reserve (16 committed) = arena; a private allocation with a guard page = stack;
     // a 64 MiB mapped view = neither; a free region ends a group
@@ -198,6 +212,212 @@ static void TestMemDiag() {
     assert(strstr(buf, " selftest ev=selftest-leak-before ") && strstr(buf, " selftest ev=selftest-leak-after "));
     assert(strstr(buf, "diag: mem selftest leak 8 x 1 MB wPriv +8.") && strstr(buf, "diag: mem selftest cross-check: OS private "));
     assert(g_mdPass & (1 << MD_STKRES) && !g_mdFail);
+
+    // [MemDiag] RcCensus on a 4-bucket map on the fake ResourceCache: types by count, the refs / cold split, a bad key, the
+    // change since the last census; nothing at exit; lock owned by another thread (skipped); a map longer than its count
+    // (stopped, lock released)
+    {
+        static u8 nd[9][0x1C], rs[9][0x28];
+        static DWORD bk[5];
+        const DWORD ty[9] = {0x00B2D882, 0x00B2D882, 0x00B2D882, 0x015A1849, 0x015A1849, 0x8EAF13DE, 0x8EAF13DE, 0x8EAF13DE, 0x8EAF13DE};
+        const LONG refs[9] = {1, 1, 2, 1, 5, 1, 2, 2, 2};
+        auto add = [&](int i) {
+            *(DWORD*)nd[i] = 100 + i, *(DWORD*)(nd[i] + 8) = ty[i];
+            *(DWORD*)(nd[i] + 0x10) = (DWORD)(uintptr_t)rs[i], memcpy(rs[i] + 8, nd[i], 16);
+            *(LONG*)(rs[i] + 4) = refs[i] << 8 | 3;     // the low byte is not the count
+            *(DWORD*)(rs[i] + 0x1C) = i == 0 || i == 3;  // cold
+            *(DWORD*)(rs[i] + 0x20) = (DWORD)(i + 1) << 20;
+            *(DWORD*)(nd[i] + 0x18) = bk[i % 4], bk[i % 4] = (DWORD)(uintptr_t)nd[i];
+        };
+        for (int i = 0; i < 6; i++) add(i);
+        bk[4] = ~0u;  // the end sentinel past the bucket count
+        CRITICAL_SECTION* cs = (CRITICAL_SECTION*)(rcC + 0x58);
+        InitializeCriticalSection(cs);
+        rcC[0x7C] = 1;
+        *(DWORD*)(rcC + 0x20) = (DWORD)(uintptr_t)bk, *(DWORD*)(rcC + 0x24) = 4, *(DWORD*)(rcC + 0x28) = 6;
+        g_rcCensusOn = true, g_rcPrevN = 0, g_mdRcMgrSlot = &mgrP;  // the self-test above unset it
+        g_rcHoldersAt = 2, g_rcCensusN = 0;  // holder scan at the second census: the type that grew is 0x8EAF13DE
+        RcCensus(11, "load");
+        for (int i = 6; i < 9; i++) add(i);
+        *(DWORD*)(rs[8] + 8) = 1;  // resource key differs from its node's
+        *(DWORD*)(rcC + 0x28) = 9;
+        g_mdtHolders[0].res = rs[6], g_mdtHolders[1].res = rs[7];  // two objects with a vtable hold two of its four
+        RcCensus(12, "periodic");
+        g_mdtHolders[0].res = g_mdtHolders[1].res = NULL;
+        RcCensus(13, "exit");
+        MdtHold hold = {cs, CreateEventW(NULL, TRUE, FALSE, NULL), CreateEventW(NULL, TRUE, FALSE, NULL)};
+        HANDLE th = CreateThread(NULL, 0, MdtHoldLock, &hold, 0, NULL);
+        const DWORD held = th ? WaitForSingleObject(hold.in, 5000) : WAIT_FAILED;
+        assert(held == WAIT_OBJECT_0);
+        g_rcLockWaitMs = 20;
+        RcCensus(14, "periodic");
+        SetEvent(hold.out), WaitForSingleObject(th, INFINITE);
+        CloseHandle(th), CloseHandle(hold.in), CloseHandle(hold.out);
+        *(DWORD*)(nd[2] + 0x18) = (DWORD)(uintptr_t)nd[2];  // a cycle in bucket 2
+        RcCensus(15, "periodic");
+        assert(!cs->OwningThread && !cs->RecursionCount);
+        UdtLog(buf, sizeof(buf), h);
+        const char* a = strstr(buf, "diag: rc census #11 load entries=6 (map 6) types=3 MB=21.0 cold=2 ref1held=2 keyBad=0 walk=");
+        // the first entry walked per type: bucket 0 holds nodes 4, 0 (then 8, 4, 0), bucket 1 holds 5, 1
+        const char* a1 = strstr(buf, "diag: rc census #11 type 0x00B2D882 n=3 (+3) MB=6.0 (+6.0) avgKB=2048.0 cold=1 ref1=2 ref2=1 ref3+=0 ref1held=1 g=0x00000000 x3 e.g. 0x0000000000000064\r");
+        const char* a2 = strstr(buf, "diag: rc census #11 type 0x015A1849 n=2 (+2) MB=9.0 (+9.0) avgKB=4608.0 cold=1 ref1=1 ref2=0 ref3+=1 ref1held=0 g=0x00000000 x2 e.g. 0x0000000000000068\r");
+        const char* a3 = strstr(buf, "diag: rc census #11 type 0x8EAF13DE n=1 (+1) MB=6.0 (+6.0) avgKB=6144.0 cold=0 ref1=1 ref2=0 ref3+=0 ref1held=1 g=0x00000000 x1 e.g. 0x0000000000000069\r");
+        assert(a && strstr(a, "; first census, changes are since 0\r") && a < a1 && a1 < a2 && a2 < a3);
+        const char* b = strstr(buf, "diag: rc census #12 periodic entries=9 (map 9) types=3 MB=45.0 cold=2 ref1held=2 keyBad=1 walk=");
+        const char* b1 = strstr(buf, "diag: rc census #12 type 0x8EAF13DE n=4 (+3) MB=30.0 (+24.0) avgKB=7680.0 cold=0 ref1=1 ref2=3 ref3+=0 ref1held=1 g=0x00000000 x4 e.g. 0x000000000000006C\r");
+        const char* b2 = strstr(buf, "diag: rc census #12 type 0x00B2D882 n=3 (+0) MB=6.0 (+0.0) ");
+        assert(b && b < b1 && b1 < b2 && strstr(b, " ms\r") == strchr(b, '\r') - 3);
+        const char* hh = strstr(buf, "diag: rc holders #12 type 0x8EAF13DE: 4 sampled (1 in 1 of 4), scanned ");
+        char want[96];
+        sprintf_s(want, "diag: rc holders #12 vt 0x%08lX +0x4 delta +0 n=2 covers 2 of 4\r", *(const DWORD*)&g_mdtHolders[0]);
+        assert(hh && b2 < hh && strstr(hh, want) && strstr(hh, " + 4 cache nodes; no vtable ") && !strstr(buf, "rc holders #11") && !strstr(buf, "rc holders #15"));
+        assert(!strstr(buf, "rc census #13") && !strstr(buf, "census #11 grow") && strstr(buf, "diag: rc census #14 periodic: skipped, cache lock busy for "));
+        assert(strstr(buf, "diag: rc census #15 periodic: map not readable (stopped after 75 of 9 entries, "));
+        // RcCensusBuilders: one fake SimBuilder with 2 parts holding 3 + 5 compositors, one with a broken list (not valid)
+        static u8 fb[2][0x400], pn[3][0x98];
+        const DWORD savedVt = g_rbVt, savedName = g_rbName;
+        g_rbVt = 0x7EB0B17D, g_rbName = 0x7EB0B17E;
+        for (int i = 0; i < 2; i++) *(DWORD*)fb[i] = g_rbVt, *(DWORD*)(fb[i] + 0x1E8) = g_rbName;
+        u8* hd = fb[0] + 0x1E0;
+        *(u8**)hd = pn[0], *(u8**)(hd + 4) = pn[1];
+        *(u8**)pn[0] = pn[1], *(u8**)(pn[0] + 4) = hd, *(DWORD*)(pn[0] + 0x84) = 3;
+        *(u8**)pn[1] = hd, *(u8**)(pn[1] + 4) = pn[0], *(DWORD*)(pn[1] + 0x84) = 5;
+        *(u8**)(fb[1] + 0x1E0) = pn[2], *(u8**)(pn[2] + 4) = pn[0];  // prev does not point back
+        RcBuilders(16);
+        UdtLog(buf, sizeof(buf), h);
+        const char* rb = strstr(buf, "diag: rc builders #16: 1 SimBuilders, 2 parts, 8 compositors; most: 8 in 2 parts; ");
+        assert(rb && strstr(rb, " not valid; scanned ") && strtoul(strstr(rb, "parts; ") + 7, NULL, 10) >= 1);
+        g_rbVt = savedVt, g_rbName = savedName;
+        // RcCensusGraph: A <-> B (B keeps another interface of A), D (held by someone else too) -> E + a null + a foreign
+        // pointer, C alone, F with a broken vector; listed out of order
+        {
+            static DWORD go[6][RG_SIZE / 4], kA[1], kB[1], kD[3], gl[6], gd[6], gq[6];
+            static u8 gm[6];
+            enum { A, B, C, D, E, F };
+            const LONG gr[6] = {2, 2, 1, 3, 2, 1};
+            for (int i = 0; i < 6; i++) go[i][1] = (DWORD)gr[i] << 8;
+            const DWORD at[6] = {(DWORD)(uintptr_t)go[A], (DWORD)(uintptr_t)go[B], 0, 0, (DWORD)(uintptr_t)go[E], 0};
+            kA[0] = at[B], kB[0] = at[A] + 0x10, kD[0] = at[E], kD[1] = 0, kD[2] = 0x10;
+            go[A][10] = (DWORD)(uintptr_t)kA, go[A][11] = (DWORD)(uintptr_t)(kA + 1);
+            go[B][10] = (DWORD)(uintptr_t)kB, go[B][11] = (DWORD)(uintptr_t)(kB + 1);
+            go[D][10] = (DWORD)(uintptr_t)kD, go[D][11] = (DWORD)(uintptr_t)(kD + 3);
+            go[F][10] = (DWORD)(uintptr_t)(kA + 1), go[F][11] = (DWORD)(uintptr_t)kA;
+            const int order[6] = {D, A, F, E, C, B};
+            for (int i = 0; i < 6; i++) gl[i] = (DWORD)(uintptr_t)go[order[i]];
+            DWORD* const sv[4] = {g_rgObj, g_rgDeg, g_rgQ, (DWORD*)g_rgMore};
+            const DWORD svN = g_rgN, svOver = g_rgOver;
+            g_rgObj = gl, g_rgDeg = gd, g_rgQ = gq, g_rgMore = gm, g_rgN = 6, g_rgOver = 0;
+            RcGraph(19);
+            g_rgObj = sv[0], g_rgDeg = sv[1], g_rgQ = sv[2], g_rgMore = (u8*)sv[3], g_rgN = svN, g_rgOver = svOver;
+            UdtLog(buf, sizeof(buf), h);
+            assert(strstr(buf, "diag: rc graph #19: 6 part compositors, 3 with children; 5 child refs: 3 to listed compositors (0 self), "
+                               "1 to others, 1 null; 1 vectors not readable; beyond the cache and compositor parents: 1 held more (+2), "
+                               "0 fewer; 3 roots (refs 1: 2, 2: 0, 3+: 1); the peel from the roots leaves 2 on or below a cycle "
+                               "(0 of them held more); "));
+        }
+        // RcRefCallers: two fake vtables; a wrong slot refuses; 3 AddRef from one site + 1 from another, 1 Release, 2 finds
+        static DWORD fv[2][2] = {{(DWORD)(uintptr_t)&MdtAddRef, (DWORD)(uintptr_t)&MdtRelease}, {(DWORD)(uintptr_t)&MdtAddRef, 0}};
+        const DWORD rsVt[2] = {g_rsVt[0], g_rsVt[1]}, rsOrig[2] = {g_rsOrig[0], g_rsOrig[1]};
+        const RsFn rsAdd = g_rsAdd, rsRel = g_rsRel;
+        const RfFn fsFind = g_rfFind;
+        const DWORD fsVt = g_rfVt, fsOrig = g_rfOrig;
+        static DWORD fc[8];  // a fake cache vtable: slot 6 = Find
+        fc[6] = (DWORD)(uintptr_t)&MdtFind;
+        g_rfVt = (DWORD)(uintptr_t)fc, g_rfOrig = fc[6], g_rfFind = &MdtFind;
+        g_rsVt[0] = (DWORD)(uintptr_t)fv[0], g_rsVt[1] = (DWORD)(uintptr_t)fv[1];
+        g_rsOrig[0] = fv[0][0], g_rsOrig[1] = fv[0][1];
+        assert(!RsInstall() && fv[0][0] == (DWORD)(uintptr_t)&MdtAddRef);  // fv[1][1] is not the expected Release
+        UdtLog(buf, sizeof(buf), h);
+        assert(strstr(buf, "FAIL mem diag: rc ref callers: vtable 0x"));
+        fv[1][1] = fv[0][1];
+        g_rsAdd = (RsFn)&MdtAddRef, g_rsRel = (RsFn)&MdtRelease;
+        g_ryOn = true, g_ryEvery = 1;  // the cost measure includes the sampling path
+        assert(RsInstall() && fv[0][0] == (DWORD)(uintptr_t)&RsAddRef && fv[1][1] == (DWORD)(uintptr_t)&RsRelease &&
+               fc[6] == (DWORD)(uintptr_t)&RsFind);
+        g_ryOn = false;
+        assert(g_rsNs > 0 && g_rsNs < 2000 && g_rsChainNs > 0 && !g_rsAt[0] && !g_rsFs[0].h && !g_rfHits);  // measured, tables cleared
+        printf("rc ref callers: our work %.1f ns a hooked call, %.0f ns a find chain\n", g_rsNs, g_rsChainNs);
+        RcRefCallers(17);  // baseline: nothing counted yet
+        for (volatile int i = 0; i < 3; i++) ((RsFn)(uintptr_t)fv[0][0])(NULL, NULL);  // volatile: one call site, not unrolled
+        ((RsFn)(uintptr_t)fv[1][0])(NULL, NULL);
+        assert(((RsFn)(uintptr_t)fv[1][1])(NULL, NULL) == 3 && g_mdtRefs == 3);
+        // finds: 2 return a compositor (an object whose vtable is fv[0]), 1 another object, 1 nothing
+        const DWORD objA = g_rsVt[0], objB = 0x12345678;
+        void* out = NULL;
+        for (volatile int i = 0; i < 2; i++) assert(((RfFn)(uintptr_t)fc[6])(NULL, NULL, &objA, &out) && out == &objA);
+        assert(((RfFn)(uintptr_t)fc[6])(NULL, NULL, &objB, &out) && out == &objB);
+        assert(!((RfFn)(uintptr_t)fc[6])(NULL, NULL, NULL, &out));
+        RcRefCallers(18);
+        UdtLog(buf, sizeof(buf), h);
+        assert(strstr(buf, "diag: rc ref callers #17: since the start AddRef 0, finds 0, Release 0, net +0; since the last line AddRef +0, "
+                           "finds +0, Release +0, net +0; 0 callers; our hook work ~0.0 ms"));
+        assert(strstr(buf, "diag: rc find sites #17: +0 finds by key returned a part compositor since the last line; 0 chains"));
+        const char* rsLine = strstr(buf, "diag: rc ref callers #18: since the start AddRef 4, finds 2, Release 1, net +5; since the last line "
+                                         "AddRef +4, finds +2, Release +1, net +5; 4 callers; ");
+        assert(rsLine);
+        const char* r1 = strstr(rsLine, " net +3 (+3): AddRef 3, finds 0, Release 0");
+        const char* r2 = strstr(rsLine, " net +2 (+2): AddRef 0, finds 2, Release 0");
+        const char* r3 = strstr(rsLine, " net +1 (+1): AddRef 1, finds 0, Release 0");
+        const char* r4 = strstr(rsLine, " net -1 (-1): AddRef 0, finds 0, Release 1");
+        assert(r1 && r2 && r3 && r4 && r1 < r2 && r2 < r3 && r3 < r4);  // by net, then the most negative
+        const char* fsLine = strstr(buf, "diag: rc find sites #18: +2 finds by key returned a part compositor since the last line; ");
+        assert(fsLine && strstr(fsLine, "diag: rc find sites #18 +") && strstr(fsLine, ") from 0x"));
+        assert(ts3native_counters.rrcAddRefs == 4 && ts3native_counters.rrcReleases == 1 && ts3native_counters.rrcFinds == 2 &&
+               ts3native_counters.rrcCallers == 4);
+        // RcRefCallersSample: every new compositor sampled; o1 lives at 2 refs (3 AddRef, 1 Release, 1 Find), o2 is freed,
+        // o3 is net +1 (2 AddRef, 1 Release; refs 2 with the uncounted cache reference) and in the fake registry
+        {
+            static DWORD o1[4], o2[4], o3[4];
+            o1[0] = o2[0] = o3[0] = g_rsVt[0];
+            g_ryOn = true, g_ryEvery = 1;
+            const RsFn ryAdd = (RsFn)(uintptr_t)fv[0][0], ryRel = (RsFn)(uintptr_t)fv[0][1];
+            ryAdd(o1, NULL), o1[1] = 1 << 8;
+            ryAdd(o1, NULL), o1[1] = 2 << 8;
+            ryAdd(o1, NULL), o1[1] = 3 << 8;
+            ryRel(o1, NULL), o1[1] = 2 << 8;
+            void* ro = NULL;
+            assert(((RfFn)(uintptr_t)fc[6])(NULL, NULL, o1, &ro) && ro == o1);
+            ryAdd(o2, NULL), o2[1] = 1 << 8;
+            ryRel(o2, NULL);
+            ryAdd(o3, NULL), o3[1] = 1 << 8;
+            ryAdd(o3, NULL), o3[1] = 2 << 8;
+            ryRel(o3, NULL), o3[1] = 2 << 8;  // the cache's direct AddRef in between, not seen
+            // the registry: 2 buckets, one chain of o3 + a node that is not a compositor (next at +0x18)
+            static u8 svc[0x114], node[2][0x1C];
+            static DWORD bkt[2], svcSlot;
+            *(DWORD*)(node[0] + 0x10) = (DWORD)(uintptr_t)o3, *(DWORD*)(node[0] + 0x18) = (DWORD)(uintptr_t)node[1];
+            *(DWORD*)(node[1] + 0x10) = (DWORD)(uintptr_t)&objB;
+            bkt[0] = (DWORD)(uintptr_t)node[0];
+            *(DWORD*)(svc + 0x108) = (DWORD)(uintptr_t)bkt, *(DWORD*)(svc + 0x10C) = 2, *(DWORD*)(svc + 0x110) = 2;
+            svcSlot = (DWORD)(uintptr_t)svc;
+            const DWORD rrSvc = g_rrSvc;
+            g_rrSvc = (DWORD)(uintptr_t)&svcSlot;
+            g_rsOn = true;
+            RcRefCallersLine(19, "selftest");
+            g_rsOn = false, g_rrSvc = rrSvc, g_rrPrev = 0;
+            UdtLog(buf, sizeof(buf), h);
+            assert(strstr(buf, "diag: rc registry #19: 2 entries (+2 since the last line, 2 buckets), walked 2: 1 part compositors: refs 1: 0, "
+                               "2: 1, 3+: 0; 1 sampled ones"));
+            const char* ry = strstr(buf, "diag: rc ref history #19: 3 sampled (1 in 1 new, 0 not: table full), 1 freed, 0 too young, 0 not a "
+                                         "compositor now; 2 alive: refs 1: 0, 2: 2, 3+: 0; 0 with more than 16 events, 0 in no listed group");
+            const char* ryp = strstr(buf, "diag: rc ref history #19 x1 refs 2: A");
+            assert(ry && ryp && strstr(ryp, " R") && strstr(ryp, " F") && strchr(ryp, '\r') - ryp > 40);
+            const char* ryn = strstr(buf, "diag: rc ref history #19: 1 alive at net +1 (counted AddRef + finds - Release; the cache's own "
+                                          "reference is not counted), 1 of them in the compositor registry; 0 in no listed group");
+            assert(ryn && strstr(ryn, "diag: rc ref history #19 net+1 x1 last A") && strstr(ryn, ", in the registry 1"));
+            assert(ts3native_counters.rrcRegistry == 2 && ts3native_counters.rrcSampled == 3);
+            memset(g_ry, 0, sizeof(g_ry)), g_ryNew = g_ryTaken = g_ryFull = g_ryCensus = 0, g_ryOn = false, g_ryEvery = 32;
+        }
+        memset((void*)g_rsAt, 0, sizeof(g_rsAt)), memset((void*)g_rsN, 0, sizeof(g_rsN)), memset(g_rsPrev, 0, sizeof(g_rsPrev));
+        memset(g_rsPrevNet, 0, sizeof(g_rsPrevNet)), g_rsPrevMs = 0;
+        memset(g_rsFs, 0, sizeof(g_rsFs)), memset(g_rfPrev, 0, sizeof(g_rfPrev)), g_rfHits = g_rfPrevHits = 0;
+        g_rsVt[0] = rsVt[0], g_rsVt[1] = rsVt[1], g_rsOrig[0] = rsOrig[0], g_rsOrig[1] = rsOrig[1], g_rsAdd = rsAdd, g_rsRel = rsRel;
+        g_rfVt = fsVt, g_rfOrig = fsOrig, g_rfFind = fsFind;
+        memset(&ts3native_counters.rrcOn, 0, 8 * sizeof(LONG));
+        DeleteCriticalSection(cs);
+        *(DWORD*)(rcC + 0x20) = *(DWORD*)(rcC + 0x24) = 0, *(DWORD*)(rcC + 0x28) = 41000, rcC[0x7C] = 0;
+        g_rcCensusOn = false, g_rcPrevN = 0, g_rcLockWaitMs = 500, g_rcHoldersAt = g_rcCensusN = 0;
+    }
 
     g_mdOn = wasOn, g_mdLegend = 0, g_mdPass = g_mdFail = 0;
     g_mdEaHeapSlot = savedEa, g_mdRcMgrSlot = savedRc;
