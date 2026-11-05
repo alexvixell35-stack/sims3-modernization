@@ -121,6 +121,7 @@ namespace Ts3Fixes
             if (sFwWatch != null) Patch(sFwWatch, "LoopDel", typeof(FireworksFizzleHook), "LoopHook", "LoopOrig");  // FireworksFizzle.cs, docs/533
             Patch(typeof(Sims3.Gameplay.PetSystems.PetPool), "RandomRemovePet", typeof(PetPoolOrphanHook), "RandomHook", "RandomOrig");  // PetPoolOrphan.cs, docs/534
             Patch(typeof(Sims3.Gameplay.PetSystems.PetPool), "ClearAllPets", typeof(PetPoolOrphanHook), "ClearHook", "ClearOrig");  // PetPoolOrphan.cs, docs/534
+            Patch(typeof(Sims3.Gameplay.Socializing.Relationship), "GetInternal", new Type[] { typeof(SimDescription), typeof(SimDescription), typeof(bool), typeof(bool) }, typeof(RelTablesApartHook), "GetHook", "GetOrig");  // RelTablesApart.cs, docs/535
         }
 
         // ---- ageupkeepoutfits (#100) ----

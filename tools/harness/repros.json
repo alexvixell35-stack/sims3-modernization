@@ -53633,5 +53633,51 @@
         "note": "on: the dropped cat is disposed"
       }
     ]
+  },
+  {
+    "id": "rel-tables-apart-check",
+    "bug": "When x's relationship table has no entry for y but y's table holds one for x, EA's Relationship.GetInternal(createIfNone) makes a new Relationship, adds it to x's table and throws ArgumentException (same key) on y's: seen from NRaas MasterController's Reset All through Career.CheckBoss (issue #166 build 14, docs/535)",
+    "fix": "ts3fixes RelTablesApart.cs: reltablesapart (default off), docs/535",
+    "save": "Baseline-BP",
+    "note": "The agent check (RelTablesApartCheck) takes the first pair whose tables share one Relationship, removes it from x's table, and calls Relationship.Get(x, y, true) once; x's table gets it back in a finally. Off arm: EA's ArgumentException. On arm: the shared relationship returned and in both tables; reltablesapart_rejoined +1. Needs simler90's UPDATE242 core without the player's patches (the player's core carries build 14).",
+    "expect": "off: expect broken sees ArgumentException. on: expect fixed sees the shared relationship; reltablesapart_rejoined >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "reltablesapart": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RelTablesApartCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: EA's same-key ArgumentException"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reltablesapart": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RelTablesApartCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: the shared relationship, in both tables"
+      }
+    ]
   }
 ]

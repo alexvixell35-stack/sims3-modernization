@@ -5711,6 +5711,13 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 | I-938-2 | 534 §2 | With `petpoolorphan` on, such a pet is disposed right after the drop | the hooks | `bp-pet-pool-orphan-check` on arm | `expect fixed` passes; `petpoolorphan_disposed` 1 | the pet still valid | open until the job runs |
 | I-938-3 | 534 §4 | The next load removes that many fewer descriptions | — | not built (save + load after a real pool refresh) | — | — | open |
 
+## 939. Two Sims' relationship tables come apart (2026-11-05, docs/535; `reltablesapart`)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-939-1 | 535 §1 | With `x`'s table missing `y` and `y`'s table holding `x`, EA's `Relationship.GetInternal(createIfNone)` throws `ArgumentException` after putting a second relationship into `x`'s table | decompiled `GetInternal` (two `Add` calls at the end); the player's 2026-10-22 ErrorTrap report from MasterController's Reset All | `bp-rel-tables-apart-check` off arm, pure UPDATE242 core | `expect broken`: ArgumentException | no exception | open until the job runs |
+| I-939-2 | 535 §2 | With `reltablesapart` on, the other side's relationship is put into `x`'s table and returned | the hook | `bp-rel-tables-apart-check` on arm | `expect fixed` passes; `reltablesapart_rejoined` 1 | an exception, or a new relationship | open until the job runs |
+
 ## 423. Mode 2 SACS bound-actor classes (2026-11-03, docs/228 §11.8, ts3native 0.36.166, counters v159)
 
 | ID | Doc | Claim | Basis | Probe or repro | Expect | Refuted if | Tag |

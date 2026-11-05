@@ -286,13 +286,14 @@ namespace Ts3Fixes
         // [2059-2060] metricskillmissing (MetricSkillMissing.cs, issue #166 build 94, docs/532): skill metric titles / descriptions given an empty skill name, values answered Map0 (neutral), for a skill with no static skill.
         // [2061] fireworksfizzle (FireworksFizzle.cs, issue #166 build 23, docs/533): fireworks watchers finished on a fizzle without EA's LaunchFailure state request.
         // [2062-2064] petpoolorphan (PetPoolOrphan.cs, issue #166 build 52, docs/534): pets dropped from a pool with no household and no family links disposed / left (a Sim in the world) / Dispose threw.
+        // [2065] reltablesapart (RelTablesApart.cs, issue #166 build 14, docs/535): relationship pairs whose two tables had come apart, rejoined with the other side's relationship.
         // [758-759] asyncjigsync (AsyncJigSync.cs, RouteBackoff.cs AsyncEligible, docs/240): own plans kept sync while the Sim's interaction holds an unplaced SocialJig / of those with the jig only in the linked interaction.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2065]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2066]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -443,6 +444,7 @@ namespace Ts3Fixes
                 case "metricskillmissing": return Instantiator.kMetricSkillMissing;
                 case "fireworksfizzle": return Instantiator.kFireworksFizzle;
                 case "petpoolorphan": return Instantiator.kPetPoolOrphan;
+                case "reltablesapart": return Instantiator.kRelTablesApart;
                 case "ageupswap": return Instantiator.kAgeUpSwap;
                 case "asyncjigsync": return Instantiator.kAsyncJigSync;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;

@@ -1,0 +1,36 @@
+{
+  "note": "docs/535: repro of the reltablesapart fix (Relationship.GetInternal's same-key ArgumentException when the two Sims' tables came apart), off then on in one load, on simler90's UPDATE242 core without the player's patches (the player's core carries issue #166 build 14).",
+  "jobs": [
+    {
+      "id": "bp-rel-tables-apart-check",
+      "note": "Correctness (6 min): repro rel-tables-apart-check. Pass: the repro's steps pass (expect broken: off, EA's ArgumentException; expect fixed: on, the shared relationship in both tables) and reltablesapart_rejoined >= 1.",
+      "asi": "game-copy/asi-v0.2.5/ts3native.asi",
+      "pinReason": "the player release v0.2.5 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "rel-tables-apart-check",
+          "fixesRequire": "reltablesapart_rejoined>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14,
+      "earlyGates": [
+        {
+          "afterSec": 180,
+          "counter": "fixes:reltablesapart_rejoined",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm rejoined nothing 3 min in: hook missing or the check failed"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": true
+}
