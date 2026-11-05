@@ -88,7 +88,9 @@ export function verifyZip(z: Buffer, nativeVersion: string, testedIni: Buffer): 
   if (!asi || !ini) throw new Error(`zip holds ${[...files.keys()].join(', ')}, want ts3native.asi + ts3native.ini`);
   const versions = new Set([...asi.toString('latin1').matchAll(/ts3native (\d+\.\d+\.\d+[a-z]?)\b/g)].map(m => m[1]));
   if (versions.size !== 1 || !versions.has(nativeVersion)) throw new Error(`asi version ${[...versions].join(', ') || 'none'}, want ts3native ${nativeVersion}`);
-  if (sha256(ini) !== sha256(testedIni)) throw new Error(`zip ini sha256 ${sha256(ini)} != tested ini ${sha256(testedIni)}`);
+  // CI zips a CRLF ini, the tested one is LF; the game reads it via GetPrivateProfile, so compare without CRs
+  const noCr = (b: Buffer) => Buffer.from(b.toString('latin1').replace(/\r/g, ''), 'latin1');
+  if (sha256(noCr(ini)) !== sha256(noCr(testedIni))) throw new Error(`zip ini sha256 ${sha256(noCr(ini))} != tested ini ${sha256(noCr(testedIni))} (CRs stripped)`);
   return enabledSections(ini.toString('latin1'));
 }
 
@@ -305,6 +307,7 @@ function selfCheck(): void {
   assert.deepEqual(verifyZip(z('0.36.37a'), '0.36.37a', ini), ['[GC]', '[RouteAsync]'], 'hotfix letter suffix ok');
   assert.throws(() => verifyZip(z('0.36.37a'), '0.36.37', ini), /asi version 0.36.37a/, 'hotfix asi is not the base release');
   assert.throws(() => verifyZip(z('0.36.40', Buffer.from('[GC]\nEnabled=0\n')), '0.36.40', ini), /ini sha256/, 'other ini refused');
+  assert.deepEqual(verifyZip(z('0.36.40', Buffer.from(ini.toString('latin1').replace(/\r?\n/g, '\r\n'), 'latin1')), '0.36.40', ini), ['[GC]', '[RouteAsync]'], 'CRLF ini accepted');
 
   const tunables = Object.values(FEATURES).flatMap(f => f.tuning ?? []);
   const repoIni = readFileSync(join(ROOT, 'native/ts3native/ts3native.ini'), 'latin1'), repoTun = readFileSync(join(ROOT, 'tools/setup/build-fixes.ts'), 'latin1');
