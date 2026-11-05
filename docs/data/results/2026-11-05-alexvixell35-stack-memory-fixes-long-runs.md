@@ -47,8 +47,23 @@ Fixes (all optional, off by default): `cache-overflow-budget` (GraphicsRules.sgr
   An ApexRadiance.toml switch bisect (20 min each) could not separate switches; FastMemory off crashed once at 7.1 min
   (null read `0x68EEF0`, after access violations inside ApexRadiance.asi).
 - `eaRes` follows `rcN`, with or without Apex [measured, the same 4 runs]: `rcN` 120k -> 231k in all four; from 15 to 35 min
-  +62k entries and `eaRes` +51 to +79 MB, about 1 KB per entry, while `rc` (the entries' own sizes) stays flat. Next: a
-  census of the cache by type and refcount (`[MemDiag] RcCensus`, built, not in this PR).
+  +62k entries and `eaRes` +51 to +79 MB, about 1 KB per entry, while `rc` (the entries' own sizes) stays flat.
+- What the growing entries are [measured, 3 x 35 min, same save, a census of the cache by type and refcount under the
+  cache lock at each 5-min mem line, 7-15 ms per walk; `[MemDiag] RcCensus`, not in this PR]: about 90% of the growth is
+  two types, TXTC `0x033A1435` and `0x0341ACC9`. In one run they went 39k -> 94k and 34k -> 89k in 35 min. Each is
+  ~0.1 KB, in group 0, with a random-looking instance. None is cold. Most have exactly 2 references (the cache + one
+  holder): 18.7k -> 50.5k and 15.5k -> 66.2k. No other type grows by more than 100.
+- They are made in memory [verified]: the 351 installed packages hold 76k TXTC and 48k `0x0341ACC9` keys, and the save's
+  ExportDB holds 6k / 5.7k. The sampled keys are in neither.
+- Who makes them [verified disassembly]: the CAS SimBuilder part compositor `0x5E2C10`, allocation tag
+  `CAS/SimBuilder/SetPartCompositor`.
+  - It gives each one a random 64-bit instance (`0x5DFDB0`).
+  - It keeps it in a hash map per part (the part list at SimBuilder `+0x1E0`, tag `CAS/SimBuilder/PartList`).
+  - It registers it in the ResourceCache (`0x4B00C0`).
+  - Removing a part releases that map (`0x5E2ED0` -> `0x515510`, which calls Release on each).
+- The SimBuilders are not the holder [measured, one 35-min run, an address-space scan for SimBuilder objects at each
+  census]: 4-10 live SimBuilders, holding 0-40 compositors in their parts. So the second reference is held somewhere
+  else [inferred]. Next: count AddRef / Release on these two types by caller.
 
 ## Crash W dump (docs/67 §27): an out-of-bounds read, not a released pose
 
