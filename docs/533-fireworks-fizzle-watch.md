@@ -36,7 +36,8 @@ Counter [2061] `fireworksfizzle_finished`.
 
 Repro `fireworks-fizzle-check`, queue `tools/harness/queues/fireworks-fizzle.json`, save Baseline-BP, **simler90's
 UPDATE242 core without the player's patches** (the player's core carries build 23). The agent check
-`Ts3Fixes.Fixes.FireworksFizzleCheck` makes a `FireworksBigBooms` out of world and a `Watch` instance on it for the
+`Ts3Fixes.Fixes.FireworksFizzleCheck` makes a firework out of world (the first `FireworksBase` among the instance names of
+the Shopping XML's `FireworkBundles` table, EA's own list of what it sells) and a `Watch` instance on it for the
 active Sim (made through `Watch.Singleton`, never run), sets the firework to `ActiveFailure` and the watch's `lastState`
 to `Lit`, and calls `LoopDel` once. Off arm (`expect broken`): EA's path reaches `AnimateSim("LaunchFailure")` and
 throws; the instance never entered a state machine, so here the throw is a `NullReferenceException`, not the timeout,
@@ -47,7 +48,9 @@ firework. Early gate: the counter at 3 min.
 Shortcut: the off arm shows that EA's path makes the state request, not the timeout itself. A real fizzle needs a lit
 firework, a watcher and a forced failure (`kChanceOfLaunchFailure` = 1); the harness has no step for it.
 
-Result: pending (the job runs next).
+Result, first run (2026-11-05, pure UPDATE242 core): the check never reached the hook: `CreateObjectOutOfWorld("FireworksBigBooms")`
+made nothing (`FireworksBigBooms` is the class and state machine name, not an instance name). The check now takes the
+names from `FireworkBundles`; rerun pending.
 
 ## 4. What is left
 
