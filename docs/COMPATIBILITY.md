@@ -26,35 +26,39 @@ An overlap means both the mod and one of our features reach the same game code. 
 - A player's Mods folder of 110 files (credit: Dalexlol, GitHub `alexvixell35-stack`, issue #165).
 - Our own test install (NRaas ErrorTrap and Overwatch, the Store packages, simler90 and other fixes).
 
-## The 25 overlap rows, by status
+## The 25 overlap rows: initial results (2026-11-05)
 
-"Same code" means a mod and one of our features reach the same game code. It is not a problem report: nobody has found a fault in any of these pairs. `status` is the CSV column for this. The first group is the only label based on game runs; the other two come from the static scan alone. Feature names are our `ts3fixes` features; switch names are in the CSV `overlap` column. We do not call any pair "works" or "compatible": the game tests ran with these mods installed, but nobody checked each feature pair.
+"Same code" means a mod and one of our features reach the same game code. Nobody has found a fault in any of these pairs. We do not call any pair "works" or "compatible". These are initial results: this list updates when the game tests finish.
 
-### In our test setup (5 rows)
+### Harmless overlap (read the code, not tested in game)
 
-The exact file is in our test install's `Mods\Packages` folder, so our game tests ran with it loaded.
+"Harmless" means we read the code and found that our hooks and the mod do not get in each other's way. It is not an in-game test.
 
-- **NRaas ErrorTrap**: replaces `ScriptCore` (patched `ReferenceHashtable` members and `Persist::GetPersistedTypeCode`). Overlaps with OverwatchNotice, OverwatchSpread, ErrorTrapSpread, OverwatchStuck, CachedReflection, RefTable, RouteBackoff.
-- **NRaas Overwatch**: our features look up its types by name. Overlaps with OverwatchNotice, OverwatchSpread, OverwatchProbe, ErrorTrapSpread, OverwatchStuck.
-- **simler90 Gameplay Core Mod** (UPDATE242, Steam): replaces game modules (`Sims3GameplaySystems`, with patched `Sim` methods such as `FindRoutablePointInsideNearFrontDoor`). Overlaps with EaSpread, CandidateLoops, DisposeSpread, DoorMirror, FewerPlans, Fixes, MemSuspects, NameCache, PlayTrace, PortalAdaptorLeak, ReplanDefer, RouteFixes, RouteSources, ScriptHotSpots, SeasonMarkerCache, UnseenFallbackFinish, UnseenThrottle. Our off-by-default Mono offload needs a guard for this mod (`docs/128`).
-- **Sims 3 Store Updates 021-040 and 041-051 (v1.4)**, 2 rows: store objects override `ScriptObject::Destroy` or derive from patched `GameObject`/`ScriptObject` members. Overlaps with MemSuspects.
+- **XCAS (cmar)**, 4 files: replaces the UI module, but none of its changed methods is one of the 8 UI methods we patch.
+- **Tiny UI Fix**: the hooks overlap harmlessly for our shipped features. Known limit: one speed-up of ours (AutShadow) may turn itself off with this mod. We did not fully trace the mod's generic hooks.
+- **Seasons Expanded**, **Library_15** (Turnstile), **Library 5, 10, 14, 16**, **Sims 3 Store Updates** (2 rows), **icarusallsorts EatOutsideRestaurant**: the game methods they touch are no longer patched by us, or our hook only reads after the original runs.
+- **NRaas MasterController**, **NRaas Register**: our features only look up NRaas types in the Overwatch and ErrorTrap files.
 
-### Same code, not tested together (19 rows)
+### Real overlap, tested in every run of ours
 
-Not in our test install, so no game test of ours had them loaded.
+The file is in our test install, so every game test of ours ran with it loaded.
 
-- **simler90 Gameplay Core Mod**, 2 rows: the MTS 659969 download and the player's copy with fixes. Same overlaps as above; the player's copy adds Compaction, DeadRefs, EaFixes, EaVacation, PosturePop, VenueMemo, WakePark.
-- **NRaas MasterController**, **NRaas Register**, **Library_7** (NRaas common code in the player's folder): our features look up `NRaas.Common` types by name. Overlaps with OverwatchNotice, OverwatchSpread, ErrorTrapSpread, OverwatchStuck (Library_7 also OverwatchProbe).
-- **Library_5, Library_10, Library_14, Library_16, icarusallsorts EatOutsideRestaurant (fixed)**: objects override `ScriptObject::Destroy` or derive from patched `GameObject`/`ScriptObject` members. Overlaps with MemSuspects (Library_14 also derives from `RabbitHole`, patched door animation).
-- **Library_15**: same MemSuspects overlap, plus `Turnstile` overrides `CommonDoor::ImportContent`, overlapping DoorMirror.
-- **Moar Interactions (Buzz)**, 2 rows (MTS 437344 download, the player's copy): overrides `VisitCommunityLot::Run` and `VisitLot::Run`. Overlaps with Fixes.
-- **Overrides.package** (the player's folder): overrides `VisitCommunityLot::Run` and derives from patched `GameObject`/`ScriptObject` members. Overlaps with Fixes.
-- **Seasons Expanded (wexxamsims)**: its Gardener service overrides `Service::FindSimForAssignment` and derives from `Service` (patched `RemovePreferredSim`). Overlaps with EaFixes (preferredservice, socialworkeronlot).
-- **XCAS (cmar)**, 4 files (basics and full, Steam 1.67 and 1.69.43; MTS 434270): replaces the `UI` module (CAS grids, `UIManager`, hud motive and buff panels). Overlaps with CasGrid, PlayTrace, ScriptHotSpots, UiCaches.
+- **simler90 Gameplay Core Mod** (UPDATE242, Steam): replaces game modules and overlaps many features (see the CSV row). Our off-by-default Mono offload needs a guard for this mod (`docs/128`).
+- **NRaas ErrorTrap**, **NRaas Overwatch**: our features overlap with them and ship with repros.
+- **Library_7**: carries the same Overwatch build as our test install.
 
-### Known limit (1 row)
+### Real overlap, game test pending
 
-- **Tiny UI Fix**: replaces `Sims3GameplayObjects` and `Sims3GameplaySystems`. Overlaps with 29 features (see the CSV row). One speed-up of ours (AutShadow) may turn itself off with this mod.
+- **Moar Interactions (Buzz)**, 2 rows: its visit interactions override the `Run` methods we patch, so our visit hooks skip them.
+- **Overrides.package** (Lyn): overrides `VisitCommunityLot::Run`, which our hook wraps.
+
+### Real overlap, can't test here
+
+- **simler90 + fixes** (a player's own build): we have no copy.
+
+### Not scanned yet
+
+- **GoHere** and **Story Progression**: they build on trip types we patch.
 
 ## Check your own Mods folder
 
