@@ -18,6 +18,20 @@
 // "would miss" (in Mode 1 that find would have failed). Mode 1 (trim; the --ab castrim on arm): old ones are erased with EA's own 0x5EE640, at
 // most MaxErase per insert; their keys are remembered, and a failed find of a remembered key counts as "missed".
 // The finds are seen through a detour on the cache's Find 0x7324E0 (vtable 0xFFDD94 slot 6; no direct callers).
+// Who finds a part compositor by key, and what each does on a miss [verified disassembly, TS3W 1.67, 2026-11-05]:
+// - a parent compositor's texture rebuild (0x605CE0 "handle or rebuild" from the texture code 0x6CBF20 / 0x6CCA90 /
+//   0x6CCC50 -> 0x605C70 -> 0x6057F0, strings CAS/TextureCompositorResource/FabricOpKeyList, GetTextureBuilder): each op
+//   of type 0x34210A5 in the parent's list (+0x5C, count byte +0x60) names a child by key (parameter 0xDCFF6D7B, key from
+//   0x600850); the child comes through the manager's get 0x7366B0. A failed get makes the rebuild return handle -1: the
+//   texture is not built. Parent and child are both part compositors (ctor 0x600560 sets vtable 0xFE68F4), so a child at
+//   2 references can still be named by a live parent, after any time (al244: re-found after 30-60 min unused 2,591 times).
+// - the get 0x7366B0 (return 0x736718), the async loader 0x729E10 (0x729E80) and the blit 0x5FA670 (0x5FA6D4, then a
+//   request by key 0x5F8170): on a cache miss they load the key from a database (manager +0x44 finds which one; the get
+//   then creates it through the type's factory and registers it again);
+// - the parent's Load 0x607070 (0x60733E): a miss rebuilds the child from the parent's own data (new 0x68, ctor 0x600560,
+//   Load again, register 0x7D9100).
+// So with NeedDb=1 (the default) a compositor is marked old only if a database holds its key (asked once, again after
+// AgeSec): every way back then exists. Without a database, nothing could build it again.
 // Safety rule: no erase of anything with a third reference; the would-miss / missed counters and their first 20 events
 // (caller, age) are the evidence that nothing a live Sim renders from goes. Inserts from a second thread are counted and
 // never trimmed from. A fault inside the walk turns the mode off for the session.
@@ -33,9 +47,10 @@ static CtEraseFn g_ctErase = (CtEraseFn)(uintptr_t)CT_ERASE;  // selftest: a fak
 static DWORD g_ctVt[2] = {0x00FE68D8, 0x00FE68F4};             // selftest: its own
 static DWORD g_ctAgeMs = 1800 * 1000, g_ctLogMs = 5 * 60000, g_ctTid, g_ctLogAt, g_ctCursor;
 static int g_ctBuckets = 16, g_ctMaxErase = 8;
-struct CtEnt { volatile LONG obj; DWORD seen, used, cand; };  // ticks: inserted / first walked, last found, marked old
+struct CtEnt { volatile LONG obj; DWORD seen, used, cand, dbNo; };  // ticks: inserted / first walked, last found, marked old, last
+                                                                   // "no database has the key" (NeedDb)
 static const DWORD CT_SLOTS = 1 << 18, CT_GONE = 1 << 16;
-static CtEnt* g_ct;            // 4 MB, allocated when installed. shortcut: never shrinks; a full probe run skips the
+static CtEnt* g_ct;            // 5 MB, allocated when installed. shortcut: never shrinks; a full probe run skips the
 static volatile LONG* g_ctGone;  // compositor (never erased): fine while the live set is far below 262k
 static volatile LONG g_ctAge[4], g_ctEvents;  // would-miss + missed by time since the mark: < 1 min, < 10, < 60, more
 // finds by key of a known part compositor by how long it had been unused (no insert, no find): < 1 min, 1-5, 5-10, 10-30,
@@ -54,7 +69,7 @@ static CtEnt* CtSlot(DWORD o, bool claim) {
         if (a) continue;
         if (!claim) return NULL;
         if (InterlockedCompareExchange(&g_ct[i].obj, (LONG)o, 0) == 0) {
-            g_ct[i].seen = g_ct[i].used = g_ct[i].cand = 0;
+            g_ct[i].seen = g_ct[i].used = g_ct[i].cand = g_ct[i].dbNo = 0;
             return &g_ct[i];
         }
         if (g_ct[i].obj == (LONG)o) return &g_ct[i];
@@ -63,16 +78,18 @@ static CtEnt* CtSlot(DWORD o, bool claim) {
 }
 // A would-miss asks the resource manager ([0x11C78D8], vtable 0xFFE250) its own "database for this key" (+0x44 = 0x4AFDA0),
 // the lookup the get 0x7366B0 makes right after a cache miss: a database = the game would load it again, none = a trim
-// would lose it (the get returns false). Read only; asked only at these rare events.
+// would lose it (the get returns false). Read only. EA calls it on every get (0x7D80E0, under the get's lock); it takes
+// the manager's own list lock (+0x48) and drops it while it asks each database (0x4AFFC0), so the walk's thread may ask too.
+static bool g_ctNeedDb = true;
+static volatile LONG g_ctMarkDb[2], g_ctReload;  // marks (NeedDb): no database (not marked) / a database; trimmed, then loaded again
+static LONGLONG g_ctDbQpc;                       // time in those mark checks (the walk's thread only)
 typedef void*(__fastcall* CtDbFn)(void* rm, void* edx, const void* key);
 static DWORD g_ctRmAt = 0x011C78D8, g_ctRmVt = 0x00FFE250;  // selftest: its own
-static volatile LONG g_ctDbYes, g_ctDbNo;
+static volatile LONG g_ctDbYes, g_ctDbNo;  // would-miss keys
 static int CtInDb(const void* key) {  // 1 a database has it, 0 none, -1 not asked
     void* rm = *(void* const*)(uintptr_t)g_ctRmAt;
     if (!rm || *(const DWORD*)rm != g_ctRmVt) return -1;
-    const int r = (*(CtDbFn const*)(uintptr_t)(g_ctRmVt + 0x44))(rm, NULL, key) ? 1 : 0;
-    InterlockedIncrement(r ? &g_ctDbYes : &g_ctDbNo);
-    return r;
+    return (*(CtDbFn const*)(uintptr_t)(g_ctRmVt + 0x44))(rm, NULL, key) ? 1 : 0;
 }
 static void CtEvent(const char* what, DWORD o, DWORD at, DWORD sinceMark, DWORD age, const DWORD* sp, int db = -1) {
     const DWORD m = sinceMark / 60000;
@@ -107,7 +124,19 @@ static void CtStep(u8* svc, DWORD now) {
                 if (!t->seen) t->seen = t->used = now;
                 const DWORD a1 = now - t->seen, a2 = now - t->used, age = a1 < a2 ? a1 : a2;
                 if (*(const LONG*)(uintptr_t)(o + 4) >> 8 != 2 || age < g_ctAgeMs) { t->cand = 0; continue; }
-                if (!t->cand) t->cand = now, z.ctCand++;
+                if (!t->cand) {
+                    if (g_ctNeedDb) {
+                        if (t->dbNo && now - t->dbNo < g_ctAgeMs) continue;
+                        LARGE_INTEGER q0, q1;
+                        QueryPerformanceCounter(&q0);
+                        const int db = CtInDb(e);  // the node starts with the key
+                        QueryPerformanceCounter(&q1);
+                        g_ctDbQpc += q1.QuadPart - q0.QuadPart;
+                        InterlockedIncrement(&g_ctMarkDb[db > 0]);
+                        if (db <= 0) { t->dbNo = now | 1; continue; }
+                    }
+                    t->cand = now, z.ctCand++;
+                }
                 if (mode != 1 || erased >= g_ctMaxErase) continue;
                 u8 key[16];
                 memcpy(key, e, 16);
@@ -133,6 +162,10 @@ static void CtLog(const u8* svc) {
         z.ctFull, z.ctOtherThread);
     Log("cas trim: re-found after unused for: < 1 min %ld, 1-5 min %ld, 5-10 %ld, 10-30 %ld, 30-60 %ld, 60+ %ld; would-miss keys in a "
         "database %ld, in none %ld", g_ctGap[0], g_ctGap[1], g_ctGap[2], g_ctGap[3], g_ctGap[4], g_ctGap[5], g_ctDbYes, g_ctDbNo);
+    LARGE_INTEGER f;
+    QueryPerformanceFrequency(&f);
+    Log("cas trim: NeedDb %d: old ones with a database %ld (marked), without %ld (kept), %lu ms asking; trimmed then loaded again %ld",
+        g_ctNeedDb, g_ctMarkDb[1], g_ctMarkDb[0], f.QuadPart ? (DWORD)(g_ctDbQpc * 1000 / f.QuadPart) : 0, g_ctReload);
 }
 static int __fastcall CtInsertHook(u8* svc, void* edx, u8* comp) {
     const int r = g_ctInsert(svc, edx, comp);
@@ -155,6 +188,7 @@ static int __fastcall CtInsertHook(u8* svc, void* edx, u8* comp) {
 // manager vtable +0x5C) asks each cache with Find(key, NULL) and returns here. Its failed finds are not a Sim wanting a
 // texture: EA's erase unregisters through it, and so does the compositor's own release later (al237 / al240: all the
 // MISSED events came from here).
+static const DWORD CT_LOAD_RET = 0x0060733E;  // the parent's Load: a miss rebuilds the child from the parent's data
 static const DWORD CT_SCAN_RET = 0x004B009E;  // shortcut: with [MemDiag] RcRefCallers on, its slot hook is the caller and this test misses: run them apart
 static void CtFound(bool r, const void* key, void** out, DWORD at, const DWORD* sp) {
     Ts3nCounters& z = ts3native_counters;
@@ -169,15 +203,18 @@ static void CtFound(bool r, const void* key, void** out, DWORD at, const DWORD* 
                     if (t->cand) {
                         InterlockedIncrement(&z.ctWouldMiss);
                         const DWORD a1 = t->cand - t->seen, a2 = t->cand - t->used;
-                        CtEvent("would miss", o, at, now - t->cand, a1 < a2 ? a1 : a2, sp, key ? CtInDb(key) : -1);
+                        const int db = key ? CtInDb(key) : -1;
+                        if (db >= 0) InterlockedIncrement(db ? &g_ctDbYes : &g_ctDbNo);
+                        CtEvent("would miss", o, at, now - t->cand, a1 < a2 ? a1 : a2, sp, db);
                     }
                     t->used = now, t->cand = 0;
                 }
         } else if (!r && key && mode == 1 && at != CT_SCAN_RET) {
             const DWORD h = CtKeyHash(key);
             if (g_ctGone[h & (CT_GONE - 1)] == (LONG)h) {
-                InterlockedIncrement(&z.ctMissed);
-                CtEvent("MISSED after a trim", 0, at, 0, 0, sp);
+                const int db = at == CT_LOAD_RET ? 1 : CtInDb(key);
+                if (db > 0) InterlockedIncrement(&g_ctReload);  // the caller builds it again (a database, or the parent's data)
+                else InterlockedIncrement(&z.ctMissed), CtEvent("MISSED after a trim", 0, at, 0, 0, sp, db);  // lost
             }
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
@@ -199,11 +236,12 @@ static void ApplyCasTrim(const wchar_t* ini) {
     const int age = GetPrivateProfileIntW(L"CasTrim", L"AgeSec", 1800, ini);
     const int buckets = GetPrivateProfileIntW(L"CasTrim", L"Buckets", 16, ini);
     const int maxErase = GetPrivateProfileIntW(L"CasTrim", L"MaxErase", 8, ini);
+    g_ctNeedDb = GetPrivateProfileIntW(L"CasTrim", L"NeedDb", 1, ini) != 0;
     g_ctAgeMs = (DWORD)(age < 10 ? 10 : age > 36000 ? 36000 : age) * 1000;
     g_ctBuckets = buckets < 1 ? 1 : buckets > 256 ? 256 : buckets;
     g_ctMaxErase = maxErase < 1 ? 1 : maxErase > 64 ? 64 : maxErase;
     if (mode <= 0 && GetPrivateProfileIntW(L"CasTrim", L"Install", 0, ini) <= 0) return;
-    if (!CtAlloc()) return (void)Log("FAIL cas trim: no memory for the tables (4.3 MB): not installed");
+    if (!CtAlloc()) return (void)Log("FAIL cas trim: no memory for the tables (5.5 MB): not installed");
     RhRanges();  // the exe .text range for the event chains
     if (!g_ctFind)
         g_ctFind = (CtFindFn)InstallDetour("ResourceCache_Find", CT_FIND, kCtFindPro, sizeof(kCtFindPro), (void*)CtFindHook, &g_ctFind);
@@ -214,6 +252,6 @@ static void ApplyCasTrim(const wchar_t* ini) {
     Ts3nCounters& z = ts3native_counters;
     z.ctOn = 1, z.ctMode = mode < 0 ? 0 : mode > 2 ? 2 : mode;
     Log("cas trim: on (docs/191 step 2), mode %ld (%s): part compositors at 2 references, not inserted or found for %lu s; %d buckets a "
-        "step, at most %d erases a step", z.ctMode, z.ctMode == 1 ? "trim with EA's erase 0x5EE640" : z.ctMode == 2 ? "count only" : "armed, off",
-        g_ctAgeMs / 1000, g_ctBuckets, g_ctMaxErase);
+        "step, at most %d erases a step; %s", z.ctMode, z.ctMode == 1 ? "trim with EA's erase 0x5EE640" : z.ctMode == 2 ? "count only" : "armed, off",
+        g_ctAgeMs / 1000, g_ctBuckets, g_ctMaxErase, g_ctNeedDb ? "only ones a database holds (NeedDb 1)" : "with or without a database (NeedDb 0)");
 }

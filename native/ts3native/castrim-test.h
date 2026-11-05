@@ -20,7 +20,8 @@ static bool __fastcall CtsErase(u8* svc, void*, const void* key) {  // as 0x5EE6
 }
 static int __fastcall CtsInsert(u8*, void*, u8*) { g_ctsInserted++; return 1; }
 static const void* g_ctsFound;  // what the fake Find returns (NULL = not found)
-static void* __fastcall CtsDb(void*, void*, const void*) { return NULL; }  // the fake manager's "database for this key": none
+static DWORD g_ctsDbKey;  // the first dword of the one key the fake manager's database holds (0: none)
+static void* __fastcall CtsDb(void*, void*, const void* k) { return g_ctsDbKey && *(const DWORD*)k == g_ctsDbKey ? (void*)1 : NULL; }
 static DWORD g_ctsRmVt[0x50 / 4], g_ctsRm[1];
 static void* g_ctsRmPtr;
 static bool __fastcall CtsFind(void*, void*, const void*, void** out) { *out = (void*)g_ctsFound; return g_ctsFound != NULL; }
@@ -60,13 +61,20 @@ static void TestCasTrim() {
     z.ctMode = 2;
     CtStep(g_ctsSvc, t0);
     assert(z.ctScanned == 4 && !z.ctCand && !z.ctFull);
-    // C is found at t0 + 50 s; the walk at t0 + 61 s marks only A (B has 3 references, C was used 11 s ago)
+    // C is found at t0 + 50 s; at t0 + 61 s only A is old (B has 3 references, C was used 11 s ago), but no database holds
+    // its key (NeedDb): kept. At t0 + 122 s a database has it: marked; C is old by then, with no database: kept
+    assert(g_ctNeedDb);
     g_ctsFound = g_ctsComp[2];
     void* out = NULL;
     assert(CtFindHook(NULL, NULL, "key", &out) && out == g_ctsComp[2] && !z.ctWouldMiss);  // (GetTickCount: C's used is "now")
     CtSlot((DWORD)(uintptr_t)g_ctsComp[2], false)->used = t0 + 50000;
     CtStep(g_ctsSvc, t0 + 61000);
-    assert(z.ctCand == 1 && CtSlot((DWORD)(uintptr_t)g_ctsComp[0], false)->cand == t0 + 61000);
+    assert(!z.ctCand && g_ctMarkDb[0] == 1 && CtSlot((DWORD)(uintptr_t)g_ctsComp[0], false)->dbNo);
+    g_ctsDbKey = 0xA0;
+    CtStep(g_ctsSvc, t0 + 100000);
+    assert(!z.ctCand && g_ctMarkDb[0] == 1 && !g_ctMarkDb[1]);  // not asked again before AgeSec
+    CtStep(g_ctsSvc, t0 + 122000);
+    assert(z.ctCand == 1 && CtSlot((DWORD)(uintptr_t)g_ctsComp[0], false)->cand == t0 + 122000 && g_ctMarkDb[1] == 1 && g_ctMarkDb[0] == 2);
     assert(!CtSlot((DWORD)(uintptr_t)g_ctsComp[1], false)->cand && !CtSlot((DWORD)(uintptr_t)g_ctsComp[2], false)->cand);
     assert(!g_ctsErased && *(DWORD*)(g_ctsSvc + 0x110) == 4);  // count only
     // a find of the marked A: one "would miss", the mark is dropped and A counts as used
@@ -80,14 +88,17 @@ static void TestCasTrim() {
     CtStep(g_ctsSvc, t0 + 230000);
     assert(g_ctsErased == 1 && z.ctErased == 1 && *(DWORD*)(g_ctsSvc + 0x110) == 3 && g_ctsBkt[0] == (DWORD)(uintptr_t)g_ctsNode[1]);
     assert(!z.ctMissed);  // the erase's own failed cache scan
-    // a failed find of A's key counts as missed; another key does not
+    // a failed find of A's key while a database holds it: loaded again, not missed; once no database has it: missed
     g_ctsFound = NULL;
     u8 keyA[16] = {}, keyX[16] = {};
     *(DWORD*)keyA = 0xA0, *(DWORD*)(keyA + 8) = 0x033A1435, *(DWORD*)keyX = 0xEE;
-    assert(!CtFindHook(NULL, NULL, keyA, &out) && z.ctMissed == 1);
-    assert(!CtFindHook(NULL, NULL, keyX, &out) && z.ctMissed == 1);
+    assert(!CtFindHook(NULL, NULL, keyA, &out) && !z.ctMissed && g_ctReload == 1);
+    g_ctsDbKey = 0;
+    assert(!CtFindHook(NULL, NULL, keyA, &out) && z.ctMissed == 1 && g_ctReload == 1);
+    assert(!CtFindHook(NULL, NULL, keyX, &out) && z.ctMissed == 1);  // a key never trimmed
     CtFound(false, keyA, NULL, CT_SCAN_RET, NULL);  // the register / unregister scan's failed find of A's key: not a miss
-    assert(z.ctMissed == 1);
+    CtFound(false, keyA, NULL, CT_LOAD_RET, NULL);  // the parent's Load builds it again from its own data
+    assert(z.ctMissed == 1 && g_ctReload == 2);
     assert(g_ctGap[0] + g_ctGap[1] + g_ctGap[2] + g_ctGap[3] + g_ctGap[4] + g_ctGap[5] >= 2);  // C's and A's finds above
     // 4. the insert hook (count mode): counts, walks on its first thread only
     g_ctTid = 0, z.ctMode = 2;
@@ -101,11 +112,12 @@ static void TestCasTrim() {
     CtStep(g_ctsSvc, t0 + 300000);
     assert(z.ctMode == 0);
     CtLog(g_ctsSvc);
-    printf("cas trim: selftest ok (walk, marks, would-miss, EA-erase stand-in, missed, other thread, fault)\n");
+    printf("cas trim: selftest ok (walk, marks, NeedDb, would-miss, EA-erase stand-in, missed / loaded again, other thread, fault)\n");
 
     memset((void*)&z.ctMode, 0, 10 * sizeof(LONG));
     memset(g_ct, 0, CT_SLOTS * sizeof(CtEnt)), memset((void*)g_ctGone, 0, CT_GONE * 4);
     memset((void*)g_ctAge, 0, sizeof(g_ctAge)), memset((void*)g_ctGap, 0, sizeof(g_ctGap)), g_ctEvents = 0, g_ctTid = 0, g_ctCursor = 0;
     g_ctErase = erase0, g_ctInsert = NULL, g_ctFind = NULL, g_ctVt[0] = vt0[0], g_ctVt[1] = vt0[1], g_ctAgeMs = age0;
-    g_ctBuckets = 16, g_ctRmAt = rmAt0, g_ctRmVt = rmVt0, g_ctDbYes = g_ctDbNo = 0;
+    g_ctBuckets = 16, g_ctRmAt = rmAt0, g_ctRmVt = rmVt0, g_ctDbYes = g_ctDbNo = 0, g_ctsDbKey = 0;
+    g_ctMarkDb[0] = g_ctMarkDb[1] = g_ctReload = 0, g_ctDbQpc = 0;
 }

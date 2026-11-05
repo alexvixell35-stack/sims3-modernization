@@ -152,16 +152,38 @@ compositor is reached through the ResourceCache by key, which the insert registe
   with EA's own `0x5EE640` (find, unregister with flag 0, free the node and its reference), at most `MaxErase` (8) per
   insert; mode 2 only marks them. Off by default; `--ab castrim` runs mode 1 against off.
 - **The safety evidence:** a detour on the cache's Find `0x7324E0` (vtable `0xFFDD94` slot 6, no direct callers) counts
-  a find of a marked compositor as `ctWouldMiss` (mode 2) and a failed find of an erased key as `ctMissed` (mode 1, must
-  stay 0), the first 20 events with caller and age. A find that misses means a Sim wanted that texture back.
+  a find of a marked compositor as `ctWouldMiss` (mode 2) and a failed find of an erased key that nothing can build
+  again as `ctMissed` (mode 1, must stay 0), the first 20 events with caller, three more exe frames, age and whether a
+  database holds the key. A find that misses means a Sim wanted that texture back.
+- **Age alone is not safe (al243 / al244, old save, count mode, 2026-11-05):** at `AgeSec=600` compositors were found
+  by key again after any time unused: re-found after 10-30 min 4,627 times and after 30-60 min 2,591 (the 60 min run's
+  limit), 6,293 would-miss in all. Who asks, and what each does on a miss [verified disassembly]:
+  - a parent compositor's texture rebuild: the texture code (`0x6CBF20` / `0x6CCA90` / `0x6CCC50`) calls `0x605CE0`
+    ("handle, or rebuild it" when the handle is -1) -> `0x605C70` -> `0x6057F0` (strings
+    `CAS/TextureCompositorResource/FabricOpKeyList`, `GetTextureBuilder`). Each op of type `0x34210A5` in the parent's
+    list (`+0x5C`, count byte `+0x60`) names a child by key (parameter `0xDCFF6D7B`, key from `0x600850`), fetched
+    through the manager's get `0x7366B0` (all logged would-miss: `0x736718` < `0x605A75`). A failed get returns handle
+    -1: the texture is not built. Parent and child are both part compositors (ctor `0x600560` sets `0xFE68F4`), so a
+    child at 2 references is still named by a live parent;
+  - the get (`0x736718`), the async loader `0x729E10` (`0x729E80`, `ResourceLoad/AsyncLoader`) and the blit `0x5FA670`
+    (`0x5FA6D4`, then a request by key `0x5F8170`): on a cache miss they load the key from a database (manager `+0x44`
+    = `0x4AFDA0` -> `0x4AFFC0` finds which one; the get then creates it through the type's factory and registers it);
+  - the parent's Load `0x607070` (`0x60733E`): a miss rebuilds the child from the parent's own data (new `0x68`, ctor
+    `0x600560`, Load again, register `0x7D9100`).
+- **`NeedDb` (default 1, 2026-11-05):** a compositor is old only if a database holds its key (manager `+0x44`, the
+  lookup EA itself makes at the start of every get, `0x7D80E0`; asked once per compositor, again after `AgeSec`). Every
+  way back then exists: a trimmed one asked for again is loaded from that database (counted, not missed). Without a
+  database, nothing could build it again, so it stays. Whether enough of the growth has a database to flatten `rcN` is
+  the next count run.
 - **Not covered:** the export paths read the registry itself (`Contains`): a lot or Sim exported to the library after its
   compositors were trimmed would miss those textures in the export [inferred]. Mode 2 on an export would show it as no
   counter; the export check is a manual step of the step 3 checks.
 - **Counters v909:** `ctMode` (switch), `ctOn`, `ctInserts`, `ctScanned`, `ctCand`, `ctErased`, `ctWouldMiss`,
-  `ctMissed`, `ctFull`, `ctOtherThread`. Tables: 4.3 MB, allocated only when installed.
+  `ctMissed`, `ctFull`, `ctOtherThread`. Tables: 5.5 MB, allocated only when installed.
 - **Selftest:** a fake map (two buckets, four nodes), fake EA erase / insert / Find: an old compositor marked (count) then
-  erased (trim), one at 3 references and one found 11 s before left alone, a would-miss, a missed find of the erased
-  key, the second-thread insert, a walk fault (mode off).
+  erased (trim), one at 3 references and one found 11 s before left alone, one without a database kept (`NeedDb`, not
+  asked again before `AgeSec`), a would-miss, a failed find of the erased key loaded again while a fake database holds
+  it and missed once none does, the parent-Load find, the second-thread insert, a walk fault (mode off).
 - **Checks before any default (Rodney's step 3):** count mode first on the old save (would-miss near 0 over 60 min with a
   travel and a save + reload); then off vs on, same seed: `rcN` / `eaRes` flat after minute 15, the largest free block
   at the end, no missing or wrong textures in CAS, live mode, after a travel and after a save and reload, no new
