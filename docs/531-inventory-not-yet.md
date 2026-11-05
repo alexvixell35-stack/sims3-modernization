@@ -48,7 +48,8 @@ inventory does not come back. Early gate: the counter at 3 min.
 Result, first run (2026-11-05, pure UPDATE242 core): the off arm passed (EA's `NullReferenceException`). The on arm's hook
 ran (no exception, false, `invnotyet_refused` 1), but the check then read `HasBeenDestroyed` in the same call, which is
 still false right after `Destroy`, and failed. The check now counts the hook's `Destroy` and looks for the object a step
-later; rerun pending.
+later. Rerun (2026-11-05, same core): **PASS** in 11.4 min. Off: `NullReferenceException`, false, the object left. On: no
+exception, false, the hook's `Destroy` ran (`invnotyet_refused` 1). `expect gone` 2 s later: the object is gone.
 
 ## 4. What is left
 
