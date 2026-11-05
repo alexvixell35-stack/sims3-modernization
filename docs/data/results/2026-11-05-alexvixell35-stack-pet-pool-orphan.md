@@ -1,6 +1,6 @@
 # petpoolorphan: a pet dropped from an adoption pool with no family links (2026-11-05)
 
-- Change: `fix/pet-pool-orphan` 4f6ee6a (docs/534, issue #166 build 52), ts3fixes built from that branch; native: release v0.2.4 asi (no native change).
+- Change: `fix/pet-pool-orphan` 4f6ee6a (docs/534, issue #166 build 52), ts3fixes built from that branch; native: release v0.2.5 asi (no native change).
 - Core: **simler90's UPDATE242 core without my patches** (my core carries build 52, so its off arm would not show the bug); the harness swapped it in for this job only.
 - Save: Baseline-BP. Profile: 6 min, seed 12345, repro `pet-pool-orphan-check`, queue `tools/harness/queues/pet-pool-orphan.json`.
 - Machine load ok; crashes: none.
