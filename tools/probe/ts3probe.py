@@ -299,6 +299,38 @@ class Probe:
         acted = w[4] != minimize and bool(ctypes.windll.user32.ShowWindowAsync(wintypes.HWND(w[1]), 7 if minimize else 4))
         return {'ok': True, 'result': {'cmd': cmd, 'was_iconic': w[4], 'acted': acted}}
 
+    def screenshot(self, args):
+        """screenshot {name?}: the game's own screenshot key C, posted to the game window (WM_KEYDOWN / WM_KEYUP: never focus,
+        never move; works with the game behind other windows, not minimized). The game writes Screenshots/Screenshot-N.jpg in
+        the user folder; the new file is moved to probe-out/shots/<time>-<name>.jpg (for the texture checks, docs/191 step 3)."""
+        import ctypes, shutil
+        from ctypes import wintypes
+        w = self.game_window()
+        if w is None:
+            return {'ok': False, 'error': 'no visible game window (minimized?)'}
+        d = USER_DIR / 'Screenshots'
+        old = set(d.glob('*.jpg')) if d.exists() else set()
+        u = ctypes.windll.user32
+        u.PostMessageW(wintypes.HWND(w[1]), 0x0100, 0x43, 0x002E0001)
+        time.sleep(0.08)
+        u.PostMessageW(wintypes.HWND(w[1]), 0x0101, 0x43, 0xC02E0001)
+        new, size, t0 = None, -1, time.time()
+        while time.time() - t0 < 15:  # the game writes a ~3 MB jpg; wait until its size holds
+            time.sleep(0.5)
+            got = [f for f in d.glob('*.jpg') if f not in old] if d.exists() else []
+            if got:
+                n = got[0].stat().st_size
+                if new == got[0] and n == size and n > 0:
+                    break
+                new, size = got[0], n
+        if new is None:
+            return {'ok': False, 'error': f'no new screenshot in {d} after 15 s'}
+        name = re.sub(r'[^A-Za-z0-9_-]', '_', str((args or {}).get('name', 'shot')))[:40]
+        out = ROOT / 'probe-out' / 'shots' / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}.jpg"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(new), str(out))
+        return {'ok': True, 'result': {'file': str(out.relative_to(ROOT)).replace('\\', '/'), 'kb': size // 1024}}
+
     def keep_window_place(self):
         """Records where Rodney puts the game window (probe-out/window.json) whenever he moves it, and moves a newly started
         game window there once, without focusing it (Rodney 2026-10-16 evening: runs go unattended; still never focus).
@@ -446,6 +478,8 @@ class Probe:
             return rpc.agent_status()
         if path == 'agent' and q['cmd'] in ('window_minimize', 'window_restore'):  # probe-side: the game's Mono has no user32
             return self.window_show(q['cmd'])
+        if path == 'agent' and q['cmd'] == 'screenshot':  # probe-side, as above
+            return self.screenshot(json.loads(q['args']) if 'args' in q else None)
         if path == 'agent':  # in-game ts3agent command, e.g. agent?cmd=list_sims&args={"household":"active"}
             args = json.loads(q['args']) if 'args' in q else None
             if STATE_CMD.match(q['cmd']):

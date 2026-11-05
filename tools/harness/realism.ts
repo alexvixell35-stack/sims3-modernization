@@ -17,7 +17,7 @@ export type Label = typeof LABELS[number];
 export type Row = { command: string; states: string[]; realism: string; player_action: string; preconditions: string; gate: string };
 const RANK: Record<string, number> = { harness: 0, natural: 0, cas: 0, cheat: 1, stress: 2 };
 // repro steps the harness runs itself (probe and window calls, not agent commands): no game action
-const PROBE = new Set(['native_set', 'native_mark', 'native_check', 'window_restore', 'window_minimize']);
+const PROBE = new Set(['native_set', 'native_mark', 'native_check', 'window_restore', 'window_minimize', 'screenshot']);
 
 // minimal CSV: quoted fields may hold commas
 export function parseCsv(text: string): Record<string, string>[] {

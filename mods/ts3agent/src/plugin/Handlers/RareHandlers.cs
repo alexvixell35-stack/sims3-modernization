@@ -656,12 +656,14 @@ namespace Ts3Agent
         // focus_sim {pick?: "far" | "near", index?: 0}: the portrait click's path (HudModel.MoveCameraToSim -> Camera.FocusOnSim
         // -> CameraController.RequestLerpToTarget, plus FollowSim for a routing Sim) onto a spawn_sims Sim; pick far (default)
         // = the index-th farthest from the camera target (an unseen Sim, so Mode 2's camera-IC hold is what keeps it exact),
-        // near = nearest. found false: no spawn_sims Sim in the world.
+        // near = nearest; active = the selected Sim (outfit_change changes the active household first). found false: no such
+        // Sim in the world.
         static object FocusSim(Args a)
         {
             RequireLive();
             Dictionary<string, object> r = Util.Obj();
-            List<Sim> sims = SpawnedInWorld();
+            Sim act = PlumbBob.SelectedActor;
+            List<Sim> sims = a.Str("pick", "far") != "active" ? SpawnedInWorld() : act != null && act.InWorld ? new List<Sim> { act } : new List<Sim>();
             Vector3 t = CameraController.GetTarget();
             bool near = a.Str("pick", "far") == "near";
             sims.Sort(delegate (Sim x, Sim y) { int c = (x.Position - t).Length().CompareTo((y.Position - t).Length()); return near ? c : -c; });

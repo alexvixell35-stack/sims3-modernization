@@ -53455,9 +53455,27 @@
     "bug": "docs/191 step 2: the CAS compositor registry (service [0x11CE6A0] +0x104) never trims in play: every outfit build adds part compositors with random instances that stay registered in the ResourceCache (rcN / eaRes growth on long saves)",
     "fix": "ts3native [CasTrim] (castrim.cpp, counters v909 ct*, native_set / --ab castrim: 1 trim, 2 count only); job ini [CasTrim] Install=1 AgeSec=60",
     "save": "Baseline-BP",
-    "note": "UNVERIFIED (built 2026-11-05, never run). Outfit churn: six Sims change to athletic, wait past AgeSec so their everyday compositors age (2 references, unused), then change back. Changing back is the case that matters: if the game finds the old everyday compositors by key, the trim arm logs MISSED (ctMissed) and the Sims would show missing textures. Pass: ctErased >= 1, ctMissed 0, the six Sims change back (outfit_change), no stuck.",
+    "note": "UNVERIFIED (built 2026-11-05, never run). Outfit churn: six Sims change to athletic, wait past AgeSec so their everyday compositors age (2 references, unused), then change back. Changing back is the case that matters: if the game finds the old everyday compositors by key, the trim arm logs MISSED (ctMissed) and the Sims would show missing textures. Pass: ctErased >= 1, ctMissed 0, the six Sims change back (outfit_change), no stuck. Shots (probe-out/shots/*-castrim-start.jpg, *-castrim-end.jpg): the selected Sim in everyday before any trim and after the last change back; compare by eye.",
     "expect": "on arm: ctInserts > 0, ctCand > 0, ctErased > 0, ctMissed 0, ctOtherThread 0; off arm: ct counters unchanged",
     "steps": [
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (start)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-start"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check: start"
+      },
       {
         "cmd": "native_set",
         "args": {
@@ -53513,6 +53531,24 @@
           "category": "everyday"
         },
         "waitS": 60
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (end)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-end"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check: end"
       }
     ],
     "watch": {
