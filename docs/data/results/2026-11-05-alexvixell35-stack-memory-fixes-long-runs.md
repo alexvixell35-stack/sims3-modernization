@@ -40,14 +40,15 @@ Fixes (all optional, off by default): `cache-overflow-budget` (GraphicsRules.sgr
 - Free space stays mostly one block (largest 224 of 344 MB at 60 min), so the loss is growth, not scattered holes.
 - Hitches do not grow: per third of the 60 min, 2225 / 2647 / 2280 hitches; AutonomyManager is ~45% of hitch time all along.
 - `rcN` is not a missing erase [verified disassembly]: trim `0x732E90`, the predicate sweep `0x732B60` and remove (`0x732A00`
-  with flag 0) all erase the map node (`0x732130`). The growing entries are still referenced. Next: a census of the map by
-  resource type and refcount.
-- `rest` and Apex Radiance: open, not shown [measured, 5-20 min window, MB per 10 min]. The 3 Apex-off runs (11-04
-  old-prof-10, 10 min each) gave +1 / +27 / +46; 23 Apex-on runs gave +17 to +246 (most +56 to +160). An ApexRadiance.toml
-  bisect (2026-11-05, 20 min each, no fixes) could not separate switches: its as-is control gave only +17, lookup caches off
-  +31, compression off +77. FastMemory off crashed at 7.1 min (null read `0x68EEF0`, after access violations inside
-  ApexRadiance.asi; 1 run). Short windows are too noisy for this; it needs longer Apex-off runs. `rcN` and `eaRes` grow
-  at the same rate with and without Apex.
+  with flag 0) all erase the map node (`0x732130`). So the growing entries are still referenced or never made cold [inferred].
+- `rest` and Apex Radiance [measured, 2026-11-05, 4 x 30 min, same save, no fixes, no Randomizer, order off / on / on /
+  off; MB per 10 min]: 5-35 min: off +19 / +26, on +53 / +62; 15-35 min: off +9 / +20, on +14 / +15. So Apex adds about
+  90 MB once, in minutes 5-15, and no steady growth after. Free address space at the end: off 1001 / 948 MB, on 735 / 729.
+  An ApexRadiance.toml switch bisect (20 min each) could not separate switches; FastMemory off crashed once at 7.1 min
+  (null read `0x68EEF0`, after access violations inside ApexRadiance.asi).
+- `eaRes` follows `rcN`, with or without Apex [measured, the same 4 runs]: `rcN` 120k -> 231k in all four; from 15 to 35 min
+  +62k entries and `eaRes` +51 to +79 MB, about 1 KB per entry, while `rc` (the entries' own sizes) stays flat. Next: a
+  census of the cache by type and refcount (`[MemDiag] RcCensus`, built, not in this PR).
 
 ## Crash W dump (docs/67 §27): an out-of-bounds read, not a released pose
 
