@@ -40,7 +40,7 @@ namespace Ts3Fixes
         static ListenerAction VsOnThrew(Sims3.Gameplay.EventSystem.Event e) { sVsThrew++; return ListenerAction.Keep; }
 
         // "expect fixed": the old-way pair shows the bug (a derived receiver runs the hooked base, 11), the KeepVirtual pair
-        // dispatches (derived 2, base 11), ScriptObject.Destroy (hooked by memalive at startup) still reads as virtual, and
+        // dispatches (derived 2, base 11), ScriptObject.Destroy (hooked by memalive before v0.2.6) still reads as virtual, and
         // Destroy() on a new bowl with a second bowl in its stacking slot runs PreparedFood.Destroy for both
         // (kCleanedOrThrewAwayObject twice; once when the stack could not be built out of the world).
         public static object VirtualSwapCheck(string what)

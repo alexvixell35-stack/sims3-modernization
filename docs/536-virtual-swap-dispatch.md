@@ -36,7 +36,7 @@ our reading, not yet checked in game.
 | rabbit-hole door (`EaFixes.cs`, `RabbitHoleDoorHook`) | `RabbitHole.AnimateDoorOpen` / `AnimateDoorClose` | 9 / 8 rabbit holes (`FutureTheatre`, `PirateDiner`, `CityHallEP11`, `Hideout`, ...) | v0.2.5 |
 | vacation listeners (`EaVacation.cs`, `VacListenerHook`) | `EventListener.RestoreState` | `CountListener`, `CountListenerDistinct`, `CountListenerExclusive`, `TotaledListener` (their own hooks were never reached either) | v0.2.5 |
 
-All four are applied at startup whatever their switch says, so the switch did not matter. The audit only reads
+All four are applied at startup whatever their switch says, so the switch did not matter. The audit only reads The v0.2.6 hotfix (main 32032d0, docs/67 §33) stops patching all four; with `KeepVirtual` they can be patched again.
 literal `typeof` targets. Targets built at run time (the `AutonomyT` hooks, `ApplyTripSubclasses`) were not
 checked, but they go through the same `SwapMethod` and get the same fix.
 
@@ -82,7 +82,8 @@ not call base is no longer tracked.
   through a base-typed callvirt site that is compiled after the swap.
   - Expected for the old way: the derived receiver gives 11. This is the bug.
   - Expected for `KeepVirtual`: derived 2, base 11.
-- **The real target:** `ScriptObject.Destroy`, which memalive hooked at startup, must still read as virtual.
+- **The real target:** `ScriptObject.Destroy` must still read as virtual. On main since the v0.2.6 hotfix nothing hooks it, so
+  this part and the bowl part pass with or without `KeepVirtual`; only the test pairs test the fix there.
 - **A real destroy:** a new bowl with a second bowl in its stacking slot is destroyed. Both bowls must send
   `kCleanedOrThrewAwayObject`. If the stack cannot be built out of the world, the one bowl must send it.
 
@@ -92,7 +93,9 @@ not call base is no longer tracked.
 release v0.2.5 asi, Baseline-BP. The check returned: old way: derived 11, base 11; KeepVirtual: derived 2, base 11;
 `ScriptObject.Destroy` virtual True; bowl stack built True, `kCleanedOrThrewAwayObject` x2. No new script errors. The
 one ErrorTrap report is its load-time correction log (43 destroyed objects in the save), the same as a load without the
-fix 14 minutes earlier. Results: `docs/data/results/2026-11-05-alexvixell35-stack-virtual-swap.md`.
+fix 14 minutes earlier. This branch is on main after the v0.2.6 hotfix, which no longer
+hooks `ScriptObject.Destroy`: the Destroy and bowl parts therefore show EA dispatch, not the fix on a hooked Destroy (a run
+with memalive's hook and `KeepVirtual`, on the old save, is next). Results: `docs/data/results/2026-11-05-alexvixell35-stack-virtual-swap.md`.
 
 Not tested:
 - a long run with the fix: the Destroy overrides that now run again may surface their own bugs, which the base-only

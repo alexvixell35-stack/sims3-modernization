@@ -9,6 +9,8 @@
 |---|---|---|---|---|---|
 | `bp-virtual-swap-check` | PASS in 11.2 min | 11 / 11 (the derived override skipped) | 2 / 11 | True | stack built; `kCleanedOrThrewAwayObject` x2 |
 
-Before the fix (run al231, old save, no check): a washed 3-bowl stack sent no `kCleanedOrThrewAwayObject` and left its middle bowl unparented at 0,0,0.
+This base (main after the v0.2.6 hotfix) no longer hooks `ScriptObject.Destroy`, so the last two columns show EA dispatch with or without the fix; the test pairs are what tests `KeepVirtual` here.
+
+Before the fix (run al231, old save, memalive's hook in place, no check): a washed 3-bowl stack sent no `kCleanedOrThrewAwayObject` and left its middle bowl unparented at 0,0,0.
 
 Not tested: a long run with the fix (Destroy overrides that run again), the old save's dish stacks after a wash, the reaper / door / listener effects.
