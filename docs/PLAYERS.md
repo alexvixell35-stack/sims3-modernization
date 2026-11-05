@@ -67,6 +67,8 @@ You need two downloads from the release page: **`ts3fixes.package`** and the `ts
 
 ### EA app version (1.69.47)
 
+**Not available yet:** there is no EA app download right now, only the Steam one. These notes are kept for when it ships.
+
 The steps above are the same, with these differences:
 
 - **Take the EA zip:** `ts3native-ea169-<version>.zip`. Its files have the same names as the Steam ones, `ts3native.asi` and `ts3native.ini`, but they are built for the EA game. `ts3fixes.package` is the same file for both editions.
@@ -128,7 +130,7 @@ Tested together with DXVK, Sims 3 Settings Setter, NRaas (ErrorTrap, Overwatch),
 
 ## Help port to the EA app version
 
-The fixes are built for Steam 1.67 and EA app 1.69.47. If you own another version (**Origin**, disc, or an EA app patch other than 1.69.47), you can help port them without sending any game files:
+The fixes are built for Steam 1.67; the EA app 1.69.47 port is in progress. If you own another version (**Origin**, disc, or an EA app patch other than 1.69.47), you can help port them without sending any game files:
 
 1. Download `Sims3PortProbe.ps1`, `port-sigs.txt` and `Run-PortProbe.cmd` from `tools/port-probe/` (or the release zip) into one folder.
 2. Start the game and wait for the **main menu**. Then double-click `Run-PortProbe.cmd` (no admin needed). It reads the running game's code in memory, read only, and after about a minute writes `Sims3PortReport-xxxxxxxx.zip` to your Desktop. Close the game afterwards as usual.
