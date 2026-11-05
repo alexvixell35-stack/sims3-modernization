@@ -30,20 +30,26 @@ namespace Ts3Fixes
         {
             public void LoopHook(StateMachineClient smc, InteractionInstance.LoopData loopData)
             {
-                Interaction<Sim, FireworksBase> w = (Interaction<Sim, FireworksBase>)(object)this;
-                if (!ShortcutOn("fireworksfizzle") || sFwLastState == null || sFwState == null || w.Target == null
-                    || (FireworksBase.FireworkState)sFwState.GetValue(w.Target) != FireworksBase.FireworkState.ActiveFailure
-                    || (FireworksBase.FireworkState)sFwLastState.GetValue(w) == FireworksBase.FireworkState.ActiveFailure) { LoopOrig(smc, loopData); return; }
-                sFwLastState.SetValue(w, FireworksBase.FireworkState.ActiveFailure);
-                w.Actor.AddExitReason(ExitReason.Finished);
-                PatchCounters()[2061]++;
+                if (!FizzleFinish((Interaction<Sim, FireworksBase>)(object)this)) LoopOrig(smc, loopData);
             }
             public void LoopOrig(StateMachineClient smc, InteractionInstance.LoopData loopData) { } // receives FireworksBase.Watch.LoopDel's original body
         }
 
+        // True when it finished the watch instead of letting EA's LoopDel request the LaunchFailure state.
+        static bool FizzleFinish(Interaction<Sim, FireworksBase> w)
+        {
+            if (!ShortcutOn("fireworksfizzle") || sFwLastState == null || sFwState == null || w.Target == null
+                || (FireworksBase.FireworkState)sFwState.GetValue(w.Target) != FireworksBase.FireworkState.ActiveFailure
+                || (FireworksBase.FireworkState)sFwLastState.GetValue(w) == FireworksBase.FireworkState.ActiveFailure) return false;
+            sFwLastState.SetValue(w, FireworksBase.FireworkState.ActiveFailure);
+            w.Actor.AddExitReason(ExitReason.Finished);
+            PatchCounters()[2061]++;
+            return true;
+        }
+
         // Harness check (repro fireworks-fizzle-check): a FireworksBigBooms made out of world, a Watch instance on it for
         // the active Sim (made, never run, so it has no state machine), the firework set to ActiveFailure and the watch's
-        // lastState to Lit, then LoopDel called once. "expect broken" (switch off) wants EA's path to reach its state
+        // lastState to Lit, then the hook's steps run once (FizzleFinish, else the original LoopDel body). "expect broken" (switch off) wants EA's path to reach its state
         // request: AnimateSim("LaunchFailure") throws (here NullReferenceException on the missing state machine; in play
         // the SacsTimeoutException), and no exit reason is added. "expect fixed" (switch on) wants no exception, lastState
         // ActiveFailure and ExitReason.Finished on the Sim. The exit reason the check added is removed again and the
@@ -91,7 +97,9 @@ namespace Ts3Fixes
                 if (w == null || w.GetType() != sFwWatch) throw new InvalidOperationException("fireworksfizzle check: Watch.Singleton.CreateInstance made no Watch");
                 sFwState.SetValue(fw, FireworksBase.FireworkState.ActiveFailure);
                 sFwLastState.SetValue(w, FireworksBase.FireworkState.Lit);
-                try { sFwWatch.GetMethod("LoopDel", kInstAll).Invoke(w, new object[] { null, new InteractionInstance.LoopData() }); }
+                // the hook's own steps: reflection cannot invoke the swapped LoopDel on a Watch (its header names the hook's
+                // class: TargetException), but the stub that received LoopDel's original header still names Watch
+                try { if (!FizzleFinish((Interaction<Sim, FireworksBase>)w)) typeof(FireworksFizzleHook).GetMethod("LoopOrig").Invoke(w, new object[] { null, new InteractionInstance.LoopData() }); }
                 catch (Exception e) { threw = (e.InnerException ?? e).GetType().Name; }
                 finished = sim.HasExitReason(ExitReason.Finished);
                 failState = (FireworksBase.FireworkState)sFwLastState.GetValue(w) == FireworksBase.FireworkState.ActiveFailure;
