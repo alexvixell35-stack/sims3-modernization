@@ -1,0 +1,36 @@
+{
+  "note": "docs/533: repro of the fireworksfizzle fix (a fireworks watcher's LaunchFailure state request on a fizzle), off then on in one load, on simler90's UPDATE242 core without the player's patches (the player's core carries issue #166 build 23).",
+  "jobs": [
+    {
+      "id": "bp-fireworks-fizzle-check",
+      "note": "Correctness (6 min): repro fireworks-fizzle-check. Pass: the repro's steps pass (expect broken: off, EA's LaunchFailure request throws, no exit reason; expect fixed: on, no exception and ExitReason.Finished) and fireworksfizzle_finished >= 1.",
+      "asi": "game-copy/asi-v0.2.5/ts3native.asi",
+      "pinReason": "the player release v0.2.5 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "fireworks-fizzle-check",
+          "fixesRequire": "fireworksfizzle_finished>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14,
+      "earlyGates": [
+        {
+          "afterSec": 180,
+          "counter": "fixes:fireworksfizzle_finished",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm finished nothing 3 min in: hook missing or the check failed"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": true
+}

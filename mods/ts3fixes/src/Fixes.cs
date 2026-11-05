@@ -284,13 +284,14 @@ namespace Ts3Fixes
         // walks, walks asked by kSimDestroyed / kSimDescriptionDisposed (the rest are the daily walk).
         // [2058] invnotyet (InvNotYet.cs, issue #166 build 13, docs/531): objects TryAddObjectToInventory destroyed and refused for a Sim with no inventory yet.
         // [2059-2060] metricskillmissing (MetricSkillMissing.cs, issue #166 build 94, docs/532): skill metric titles / descriptions given an empty skill name, values answered Map0 (neutral), for a skill with no static skill.
+        // [2061] fireworksfizzle (FireworksFizzle.cs, issue #166 build 23, docs/533): fireworks watchers finished on a fizzle without EA's LaunchFailure state request.
         // [758-759] asyncjigsync (AsyncJigSync.cs, RouteBackoff.cs AsyncEligible, docs/240): own plans kept sync while the Sim's interaction holds an unplaced SocialJig / of those with the jig only in the linked interaction.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2061]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2062]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -439,6 +440,7 @@ namespace Ts3Fixes
                 case "leavejobdispose": return Instantiator.kLeaveJobDispose;
                 case "invnotyet": return Instantiator.kInvNotYet;
                 case "metricskillmissing": return Instantiator.kMetricSkillMissing;
+                case "fireworksfizzle": return Instantiator.kFireworksFizzle;
                 case "ageupswap": return Instantiator.kAgeUpSwap;
                 case "asyncjigsync": return Instantiator.kAsyncJigSync;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;

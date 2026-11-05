@@ -143,6 +143,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kAgeUpAbort = false;          // opt-in until verified: a Sim whose deferred age-up build is aborted while it is instantiated is still created (AgeUpAbort.cs, docs/512)
         [Tunable] public static bool kRewardGiver = false;        // opt-in until verified: opportunity reward objects sent by a named Sim get their owner component instead of EA's NullReferenceException (RewardGiver.cs, docs/525)
         [Tunable] public static bool kDatingProfile = true;      // on by default (repro docs/528): only a Sim who made an online dating profile has one; the sim thread's DidSimsMeetOnline makes no empty record (DatingProfile.cs, docs/528)
+        [Tunable] public static bool kFireworksFizzle = false;    // opt-in until verified: a fireworks watcher finishes on a fizzle instead of EA's SacsTimeoutException and reset (FireworksFizzle.cs, docs/533)
         [Tunable] public static bool kMetricSkillMissing = false; // opt-in until verified: a career skill metric whose skill is not registered gives an empty name and a neutral value instead of EA's NullReferenceException (MetricSkillMissing.cs, docs/532)
         [Tunable] public static bool kInvNotYet = false;         // opt-in until verified: a Sim with no inventory yet (mid-creation) refuses the object instead of EA's NullReferenceException (InvNotYet.cs, docs/531)
         [Tunable] public static bool kLeaveJobDispose = true;    // on by default (repro docs/529): a Sim deleted at work leaves its job at once (LeaveJobDispose.cs, docs/529)

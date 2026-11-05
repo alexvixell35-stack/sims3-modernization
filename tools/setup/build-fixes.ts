@@ -157,6 +157,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kLeaveJobDispose value="True" />
     <kInvNotYet value="False" />
     <kMetricSkillMissing value="False" />
+    <kFireworksFizzle value="False" />
     <kAsyncJigSync value="True" />
     <kDeadRefSweep value="False" />
     <kVacExport value="False" />

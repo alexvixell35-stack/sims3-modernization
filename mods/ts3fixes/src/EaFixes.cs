@@ -118,6 +118,7 @@ namespace Ts3Fixes
             Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "FindMetricValue", typeof(MetricSkillMissingHook), "ValueHook", "ValueOrig");  // MetricSkillMissing.cs, docs/532
             Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "MetricTitle", typeof(MetricSkillMissingHook), "TitleHook", "TitleOrig");  // MetricSkillMissing.cs, docs/532
             Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "MetricDescription", typeof(MetricSkillMissingHook), "DescHook", "DescOrig");  // MetricSkillMissing.cs, docs/532
+            if (sFwWatch != null) Patch(sFwWatch, "LoopDel", typeof(FireworksFizzleHook), "LoopHook", "LoopOrig");  // FireworksFizzle.cs, docs/533
         }
 
         // ---- ageupkeepoutfits (#100) ----

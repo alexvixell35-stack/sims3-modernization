@@ -53541,5 +53541,51 @@
         "note": "on: text twice, the value Map0"
       }
     ]
+  },
+  {
+    "id": "fireworks-fizzle-check",
+    "bug": "When a firework fizzles, EA's FireworksBase.Watch.LoopDel asks every watcher's FireworksBigBooms state machine for a LaunchFailure state the watcher's actor does not have: the request times out (SacsTimeoutException) and the watcher is reset (issue #166 build 23, docs/533)",
+    "fix": "ts3fixes FireworksFizzle.cs: fireworksfizzle (default off), docs/533",
+    "save": "Baseline-BP",
+    "note": "The agent check (FireworksFizzleCheck) makes a FireworksBigBooms out of world and a Watch instance on it for the active Sim (never run, no state machine), sets the firework to ActiveFailure and calls LoopDel once. Off arm: EA's path reaches AnimateSim(\"LaunchFailure\") and throws (NullReferenceException on the missing state machine; in play the SACS timeout). On arm: no exception, ExitReason.Finished on the Sim (removed again afterwards); fireworksfizzle_finished +1. Needs simler90's UPDATE242 core without the player's patches (the player's core carries build 23).",
+    "expect": "off: expect broken sees an exception and no exit reason. on: expect fixed sees no exception and ExitReason.Finished; fireworksfizzle_finished >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fireworksfizzle": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireworksFizzleCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: EA's LaunchFailure request throws"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fireworksfizzle": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireworksFizzleCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: no exception, ExitReason.Finished"
+      }
+    ]
   }
 ]

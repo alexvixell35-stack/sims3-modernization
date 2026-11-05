@@ -5696,6 +5696,13 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 | I-936-2 | 532 §1 | EA scores such a metric below neutral on levels with `Map0` above 0 | `FindMetricValue` answers 0 for a skill the Sim does not have; `CalcMetric` returns 0 only at `mMap0`, negative below | — | — | — | verified (code) |
 | I-936-3 | 532 §2 | With `metricskillmissing` on, the title and description return EA's strings with an empty name and the value is `Map0` | the hooks | `bp-metric-skill-missing-check` on arm | `expect fixed` passes; `metricskillmissing_names` 2 | an exception, null text, or a value other than Map0 | open until the job runs |
 
+## 937. A firework that fizzles resets every Sim watching it (2026-11-05, docs/533; `fireworksfizzle`)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-937-1 | 533 §1 | On a fizzle EA's `FireworksBase.Watch.LoopDel` requests a `LaunchFailure` state the watcher's actor does not have; the request times out and the watcher is reset | decompiled `LoopDel` / `Run`; ErrorTrap 2026-10-25 (four `SacsTimeoutException` "actor = 'x', state = 'LaunchFailure'") | `bp-fireworks-fizzle-check` off arm, pure UPDATE242 core | `expect broken`: the call throws, no exit reason | no exception | open until the job runs (the check shows the request, not the timeout) |
+| I-937-2 | 533 §2 | With `fireworksfizzle` on, the watcher gets `ExitReason.Finished` with no state request | the hook | `bp-fireworks-fizzle-check` on arm | `expect fixed` passes; `fireworksfizzle_finished` 1 | an exception or no exit reason | open until the job runs |
+
 ## 423. Mode 2 SACS bound-actor classes (2026-11-03, docs/228 §11.8, ts3native 0.36.166, counters v159)
 
 | ID | Doc | Claim | Basis | Probe or repro | Expect | Refuted if | Tag |

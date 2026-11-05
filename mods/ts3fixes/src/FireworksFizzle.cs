@@ -1,0 +1,87 @@
+using System;
+using System.Reflection;
+using Sims3.Gameplay;
+using Sims3.Gameplay.Actors;
+using Sims3.Gameplay.Core;
+using Sims3.Gameplay.Interactions;
+using Sims3.Gameplay.Objects.Miscellaneous;
+using Sims3.SimIFace;
+
+namespace Ts3Fixes
+{
+    // fireworksfizzle (docs/533): when a firework fizzles (FireworksBase.Tuning kChanceOfLaunchFailure), EA's
+    // FireworksBase.Watch.LoopDel asks every watcher's "FireworksBigBooms" state machine for a "LaunchFailure" state and
+    // then adds ExitReason.Finished. The watcher's actor ("x", entered with Enter / LoopAnticipate / LoopWatch / Exit) has
+    // no such state, so the request waits for the engine's timeout and throws SacsTimeoutException, and the watcher is
+    // reset [verified in the decompiled game code; seen live 2026-10-25, Bridgeport Acres Summer Fest, issue #166 build
+    // 23]. The launcher's own fizzle animation is another interaction. Fix: on the fizzle the hook does the rest of EA's
+    // case (lastState, ExitReason.Finished) without the state request, so the watcher finishes as after a normal show.
+    // Counter [2061] fizzles finished (registry fixes-2061). Default off.
+    public static partial class Fixes
+    {
+        // Watch is a private nested class, and lastState / mCurrentState are not public in the game's assemblies
+        static readonly Type sFwWatch = typeof(FireworksBase).GetNestedType("Watch", BindingFlags.Public | BindingFlags.NonPublic);
+        static readonly FieldInfo sFwLastState = sFwWatch == null ? null : sFwWatch.GetField("lastState", kInstAll);
+        static readonly FieldInfo sFwState = typeof(FireworksBase).GetField("mCurrentState", kInstAll);
+
+        public class FireworksFizzleHook
+        {
+            public void LoopHook(StateMachineClient smc, InteractionInstance.LoopData loopData)
+            {
+                Interaction<Sim, FireworksBase> w = (Interaction<Sim, FireworksBase>)(object)this;
+                if (!ShortcutOn("fireworksfizzle") || sFwLastState == null || sFwState == null || w.Target == null
+                    || (FireworksBase.FireworkState)sFwState.GetValue(w.Target) != FireworksBase.FireworkState.ActiveFailure
+                    || (FireworksBase.FireworkState)sFwLastState.GetValue(w) == FireworksBase.FireworkState.ActiveFailure) { LoopOrig(smc, loopData); return; }
+                sFwLastState.SetValue(w, FireworksBase.FireworkState.ActiveFailure);
+                w.Actor.AddExitReason(ExitReason.Finished);
+                PatchCounters()[2061]++;
+            }
+            public void LoopOrig(StateMachineClient smc, InteractionInstance.LoopData loopData) { } // receives FireworksBase.Watch.LoopDel's original body
+        }
+
+        // Harness check (repro fireworks-fizzle-check): a FireworksBigBooms made out of world, a Watch instance on it for
+        // the active Sim (made, never run, so it has no state machine), the firework set to ActiveFailure and the watch's
+        // lastState to Lit, then LoopDel called once. "expect broken" (switch off) wants EA's path to reach its state
+        // request: AnimateSim("LaunchFailure") throws (here NullReferenceException on the missing state machine; in play
+        // the SacsTimeoutException), and no exit reason is added. "expect fixed" (switch on) wants no exception, lastState
+        // ActiveFailure and ExitReason.Finished on the Sim. The exit reason the check added is removed again and the
+        // firework destroyed.
+        public static object FireworksFizzleCheck(string what)
+        {
+            if (what != "expect broken" && what != "expect fixed") return "fireworksfizzle <expect broken|expect fixed>";
+            Sim sim = Sim.ActiveActor;
+            if (sim == null) throw new InvalidOperationException("fireworksfizzle check: no active Sim");
+            FireworksBase fw = null;
+            foreach (ProductVersion v in new ProductVersion[] { ProductVersion.BaseGame, ProductVersion.EP8, ProductVersion.EP2 })
+                if (fw == null) fw = GlobalFunctions.CreateObjectOutOfWorld("FireworksBigBooms", v) as FireworksBase;
+            if (fw == null) throw new InvalidOperationException("fireworksfizzle check: CreateObjectOutOfWorld(\"FireworksBigBooms\") made nothing");
+            bool hadFinished = sim.HasExitReason(ExitReason.Finished);
+            string threw = "nothing";
+            bool finished, failState;
+            try
+            {
+                if (sFwWatch == null || sFwLastState == null || sFwState == null) throw new InvalidOperationException("fireworksfizzle check: Watch, lastState or mCurrentState not found");
+                InteractionDefinition def = sFwWatch.GetField("Singleton", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic).GetValue(null) as InteractionDefinition;
+                InteractionInstance w = def == null ? null : def.CreateInstance(fw, sim, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
+                if (w == null || w.GetType() != sFwWatch) throw new InvalidOperationException("fireworksfizzle check: Watch.Singleton.CreateInstance made no Watch");
+                sFwState.SetValue(fw, FireworksBase.FireworkState.ActiveFailure);
+                sFwLastState.SetValue(w, FireworksBase.FireworkState.Lit);
+                try { sFwWatch.GetMethod("LoopDel", kInstAll).Invoke(w, new object[] { null, new InteractionInstance.LoopData() }); }
+                catch (Exception e) { threw = (e.InnerException ?? e).GetType().Name; }
+                finished = sim.HasExitReason(ExitReason.Finished);
+                failState = (FireworksBase.FireworkState)sFwLastState.GetValue(w) == FireworksBase.FireworkState.ActiveFailure;
+            }
+            finally
+            {
+                if (!hadFinished) sim.RemoveExitReason(ExitReason.Finished);
+                fw.Destroy();
+            }
+            bool on = ShortcutOn("fireworksfizzle");
+            string line = "threw " + threw + ", Finished exit reason " + (hadFinished ? "already there" : finished ? "added" : "not added") + ", lastState ActiveFailure " + failState + " (switch " + on + ")";
+            bool ok = what == "expect broken" ? !on && threw != "nothing" && (hadFinished || !finished)
+                                              : on && threw == "nothing" && finished && failState;
+            if (!ok) throw new InvalidOperationException("fireworksfizzle " + what + ": wrong outcome; " + line);
+            return "as expected; " + line;
+        }
+    }
+}
