@@ -138,6 +138,35 @@ and never cold. The live SimBuilders hold only 0-40 of them, so the holder is so
   object at net +1 in a 2-bucket fake registry (next `+0x18`), one freed, one at net +3.
 - **Result:** pending (one 35-min old-save run, census setup).
 
+### Step 2: trim the compositor registry (`[CasTrim]`, built 2026-11-05, not run in game, ledger §942)
+
+If step 1 names the registry (I-941-2), the leak is a list that never trims: the registry's only erase, `0x5EE640`, runs
+from the service's clear-all, i.e. on a service reset [verified]. Its map is read only by the export code (`Contains`
+`0x5EDAB0` from ExportLot, ExportWorld, Sim outfit export, thumbnails) [verified: callers and their strings]; in play a
+compositor is reached through the ResourceCache by key, which the insert registered (manager vtable `+0x5C`, flag 1).
+
+- **What:** a detour on the insert `0x5EECD0` walks `Buckets` (16) more buckets after each insert, on the inserting
+  thread (the map has no lock; inserts from a second thread are counted, never walked from). A part compositor (vtables
+  `0xFE68D8` / `0xFE68F4`) is old at exactly 2 references (the cache's and the registry's: a SimBuilder part, a find in
+  progress or any other holder makes 3+) and no insert or find by key for `AgeSec` (1800 s). Mode 1 erases old ones
+  with EA's own `0x5EE640` (find, unregister with flag 0, free the node and its reference), at most `MaxErase` (8) per
+  insert; mode 2 only marks them. Off by default; `--ab castrim` runs mode 1 against off.
+- **The safety evidence:** a detour on the cache's Find `0x7324E0` (vtable `0xFFDD94` slot 6, no direct callers) counts
+  a find of a marked compositor as `ctWouldMiss` (mode 2) and a failed find of an erased key as `ctMissed` (mode 1, must
+  stay 0), the first 20 events with caller and age. A find that misses means a Sim wanted that texture back.
+- **Not covered:** the export paths read the registry itself (`Contains`): a lot or Sim exported to the library after its
+  compositors were trimmed would miss those textures in the export [inferred]. Mode 2 on an export would show it as no
+  counter; the export check is a manual step of the step 3 checks.
+- **Counters v909:** `ctMode` (switch), `ctOn`, `ctInserts`, `ctScanned`, `ctCand`, `ctErased`, `ctWouldMiss`,
+  `ctMissed`, `ctFull`, `ctOtherThread`. Tables: 4.3 MB, allocated only when installed.
+- **Selftest:** a fake map (two buckets, four nodes), fake EA erase / insert / Find: an old compositor marked (count) then
+  erased (trim), one at 3 references and one found 11 s before left alone, a would-miss, a missed find of the erased
+  key, the second-thread insert, a walk fault (mode off).
+- **Checks before any default (Rodney's step 3):** count mode first on the old save (would-miss near 0 over 60 min with a
+  travel and a save + reload); then off vs on, same seed: `rcN` / `eaRes` flat after minute 15, the largest free block
+  at the end, no missing or wrong textures in CAS, live mode, after a travel and after a save and reload, no new
+  exceptions, stuck Sims or crashes, hitches not worse. Repro `castrim-outfits`, queue `tools/harness/queues/castrim.json`.
+
 ## Step 7 experiment: ResourceCache trim and Boehm heap return (2026-10-26, docs/198)
 
 Static check of giving the Boehm heap back (docs/198 §2-§3: no unmap code; decommit feasible for RAM only, release rejected) and the `[ResourceCache] TrimAfterCleanup` experiment (docs/198 §4, ts3native 0.36.80, off, stands down with Apex; queue `tools/harness/queues/rctrim-exp.json`, not run). Apex's area: nothing is proposed to Apex until a run shows a proven gain (Rodney, 2026-10-26).

@@ -1682,6 +1682,8 @@ rpc.exports = {
       if (c.readS32() >= 907) f.push('ilpOn', 'ilpArmed', 'ilpApplied', 'ilpReused', 'ilpSkipHash', 'ilpSkipCheck', 'ilpSkipMismatch', 'ilpFaults');
       // v908 [MemDiag] RcRefCallers (docs/191, memdiag.cpp): contributor block
       if (c.readS32() >= 908) f.push('rrcOn', 'rrcAddRefs', 'rrcReleases', 'rrcFinds', 'rrcCallers', 'rrcSampled', 'rrcRegistry', 'rrcHookNs');
+      // v909 [CasTrim] (docs/191 step 2, castrim.cpp): contributor block
+      if (c.readS32() >= 909) f.push('ctMode', 'ctOn', 'ctInserts', 'ctScanned', 'ctCand', 'ctErased', 'ctWouldMiss', 'ctMissed', 'ctFull', 'ctOtherThread');
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key
