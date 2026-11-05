@@ -5680,6 +5680,14 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 | I-934-2 | 205 §2.3a | Phases 10-12 are most of the pass time on the old save | the three phases walk every GameObject; the others walk Sims, descriptions or one object type | `old-gone-objdaily` | [2056] / [2055] per walk >= half of the ~91 ms per pass of `old-gone-on` | less than half | verified (~69 ms per shared walk; the rest of the pass ~10 ms, so ~81 of ~91 ms before) |
 | I-934-3 | 205 §2.3a | No cleanup is delayed except phase 12's decayed relationships: phases 10-11 test for destroyed Sim objects, phase 12 for disposed descriptions or relationships off the description's list | the phases' gone tests (`SimGone`, `OwnerHolders`, `RelGone`) | none | - | an entry of phase 10 or 11 that goes stale without a `Sim.Destroy` | inferred |
 
+## 935. A Sim being created gets an object before it has an inventory (2026-11-05, docs/531; `invnotyet`)
+
+| ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
+|----|-----|-------|----------|-----------|----------|---------|---------|
+| I-935-1 | 531 §1 | `Sim.TryAddObjectToInventory(IGameObject)` throws `NullReferenceException` for a Sim whose `InventoryComponent` has no inventory yet (mid `Sim.OnCreation`) | decompiled EA body: `base.Inventory.TryToAdd(obj)` with no null check; `Inventory` is `InventoryComp?.Inventory`; ErrorTrap reports 2026-10-19 (IL_0007, `BandSkill.OnSkillAddition` from `AssignSchool`) | `bp-inv-not-yet-check` off arm, pure UPDATE242 core | `expect broken`: NullReferenceException | no exception | open until the job runs |
+| I-935-2 | 531 §2 | With `invnotyet` on, the call returns false and destroys the object, as the method's own refusal path does | the hook: no inventory -> `obj.Destroy()`, false | `bp-inv-not-yet-check` on arm | `expect fixed` passes; `invnotyet_refused` 1 | an exception, true, or the object left | open until the job runs |
+| I-935-3 | 531 §2 | Every caller handles false | the method already returns false when the inventory refuses an object | — | — | a caller that dereferences the object after false | inferred |
+
 ## 423. Mode 2 SACS bound-actor classes (2026-11-03, docs/228 §11.8, ts3native 0.36.166, counters v159)
 
 | ID | Doc | Claim | Basis | Probe or repro | Expect | Refuted if | Tag |

@@ -282,13 +282,14 @@ namespace Ts3Fixes
         // [2051-2052] datingprofile (DatingProfile.cs, AutShadow.cs MetPeek, docs/528): SimHasProfile answers turned false (a record with no profile) / DidSimsMeetOnline calls answered without making a record.
         // [2055-2057] deadrefsweep object walks (DeadRefs.cs, docs/205 §2.3a): GameObject walks shared by phases 10-12, ms in finished
         // walks, walks asked by kSimDestroyed / kSimDescriptionDisposed (the rest are the daily walk).
+        // [2058] invnotyet (InvNotYet.cs, issue #166 build 13, docs/531): objects TryAddObjectToInventory destroyed and refused for a Sim with no inventory yet.
         // [758-759] asyncjigsync (AsyncJigSync.cs, RouteBackoff.cs AsyncEligible, docs/240): own plans kept sync while the Sim's interaction holds an unplaced SocialJig / of those with the jig only in the linked interaction.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2058]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2059]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -435,6 +436,7 @@ namespace Ts3Fixes
                 case "rewardgiver": return Instantiator.kRewardGiver;
                 case "datingprofile": return Instantiator.kDatingProfile;
                 case "leavejobdispose": return Instantiator.kLeaveJobDispose;
+                case "invnotyet": return Instantiator.kInvNotYet;
                 case "ageupswap": return Instantiator.kAgeUpSwap;
                 case "asyncjigsync": return Instantiator.kAsyncJigSync;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;

@@ -114,6 +114,7 @@ namespace Ts3Fixes
             Patch(typeof(GameObject), "SetRewardGiver", typeof(RewardGiverHook), "GiverHook", "GiverOrig");  // RewardGiver.cs, docs/525
             Patch(typeof(OnlineDatingManager), "SimHasProfile", typeof(DatingProfileHook), "HasHook", "HasOrig");  // DatingProfile.cs, docs/528
             Patch(typeof(Sims3.Gameplay.Careers.Career), "LeaveJob", new Type[] { typeof(bool), typeof(Sims3.Gameplay.Careers.Career.LeaveJobReason) }, typeof(LeaveJobDisposeHook), "LeaveHook", "LeaveOrig");  // LeaveJobDispose.cs, docs/529
+            Patch(typeof(Sim), "TryAddObjectToInventory", new Type[] { typeof(IGameObject) }, typeof(InvNotYetHook), "AddHook", "AddOrig");  // InvNotYet.cs, docs/531
         }
 
         // ---- ageupkeepoutfits (#100) ----

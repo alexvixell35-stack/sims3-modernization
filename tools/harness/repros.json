@@ -53449,5 +53449,51 @@
         }
       }
     ]
+  },
+  {
+    "id": "inv-not-yet-check",
+    "bug": "Sim.TryAddObjectToInventory(IGameObject) calls base.Inventory.TryToAdd(obj) with no null check; Inventory is still null while a Sim is created (Sim.OnCreation), so a mod's school skill (BandSkill.OnSkillAddition hands a pupil a free instrument) throws NullReferenceException, stops the creation half way and leaves the Sim at 0,0,0 with no lot (issue #166 build 13, docs/531)",
+    "fix": "ts3fixes InvNotYet.cs: invnotyet (default off), docs/531",
+    "save": "Baseline-BP",
+    "note": "The agent check (InvNotYetCheck) hides the active Sim's InventoryComponent.Inventory for one synchronous call (restored in a finally) and passes a SocialJigTwoPerson made out of world. Off arm: EA's NullReferenceException. On arm: false, the object destroyed; invnotyet_refused +1. Needs simler90's UPDATE242 core without the player's patches (the player's core carries build 13).",
+    "expect": "off: expect broken sees NullReferenceException. on: expect fixed sees false and the object destroyed; invnotyet_refused >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "invnotyet": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InvNotYetCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: EA's NullReferenceException"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "invnotyet": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InvNotYetCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: false, the object destroyed; invnotyet_refused +1"
+      }
+    ]
   }
 ]

@@ -1,0 +1,36 @@
+{
+  "note": "docs/531: repro of the invnotyet fix (Sim.TryAddObjectToInventory's NullReferenceException with no inventory yet), off then on in one load, on simler90's UPDATE242 core without the player's patches (the player's core carries issue #166 build 13).",
+  "jobs": [
+    {
+      "id": "bp-inv-not-yet-check",
+      "note": "Correctness (6 min): repro inv-not-yet-check. Pass: the repro's steps pass (expect broken: off, EA's NullReferenceException; expect fixed: on, false and the object destroyed) and invnotyet_refused >= 1.",
+      "asi": "game-copy/asi-v0.2.5/ts3native.asi",
+      "pinReason": "the player release v0.2.5 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "inv-not-yet-check",
+          "fixesRequire": "invnotyet_refused>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14,
+      "earlyGates": [
+        {
+          "afterSec": 180,
+          "counter": "fixes:invnotyet_refused",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm refused nothing 3 min in: hook missing or the check failed"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": true
+}

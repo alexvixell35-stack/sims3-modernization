@@ -155,6 +155,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kRewardGiver value="False" />
     <kDatingProfile value="True" />
     <kLeaveJobDispose value="True" />
+    <kInvNotYet value="False" />
     <kAsyncJigSync value="True" />
     <kDeadRefSweep value="False" />
     <kVacExport value="False" />
