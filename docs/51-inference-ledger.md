@@ -5715,8 +5715,8 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 
 | ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
 |----|-----|-------|----------|-----------|----------|---------|---------|
-| I-939-1 | 535 §1 | With `x`'s table missing `y` and `y`'s table holding `x`, EA's `Relationship.GetInternal(createIfNone)` throws `ArgumentException` after putting a second relationship into `x`'s table | decompiled `GetInternal` (two `Add` calls at the end); the player's 2026-10-22 ErrorTrap report from MasterController's Reset All | `bp-rel-tables-apart-check` off arm, pure UPDATE242 core | `expect broken`: ArgumentException | no exception | open until the job runs |
-| I-939-2 | 535 §2 | With `reltablesapart` on, the other side's relationship is put into `x`'s table and returned | the hook | `bp-rel-tables-apart-check` on arm | `expect fixed` passes; `reltablesapart_rejoined` 1 | an exception, or a new relationship | open until the job runs |
+| I-939-1 | 535 §1 | With `x`'s table missing `y` and `y`'s table holding `x`, EA's `Relationship.GetInternal(createIfNone)` throws `ArgumentException` after putting a second relationship into `x`'s table | decompiled `GetInternal` (two `Add` calls at the end); the player's 2026-10-22 ErrorTrap report from MasterController's Reset All | `bp-rel-tables-apart-check` off arm, pure UPDATE242 core | `expect broken`: ArgumentException | no exception | confirmed 2026-11-05 (bp-rel-tables-apart-check off arm: ArgumentException) |
+| I-939-2 | 535 §2 | With `reltablesapart` on, the other side's relationship is put into `x`'s table and returned | the hook | `bp-rel-tables-apart-check` on arm | `expect fixed` passes; `reltablesapart_rejoined` 1 | an exception, or a new relationship | confirmed 2026-11-05 (on arm: shared relationship, both tables, counter 1) |
 
 ## 423. Mode 2 SACS bound-actor classes (2026-11-03, docs/228 §11.8, ts3native 0.36.166, counters v159)
 

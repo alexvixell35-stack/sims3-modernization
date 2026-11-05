@@ -43,7 +43,8 @@ relationship `r`, removes `r` from `x`'s table and calls `Relationship.Get(x, y,
 a `finally` either way. Off arm (`expect broken`): EA's `ArgumentException`. On arm (`expect fixed`): `r` is returned and
 is in both tables; `reltablesapart_rejoined` reaches 1. Early gate: that counter at 3 min.
 
-Result: pending (the job runs next).
+Result (2026-11-05, pure UPDATE242 core, `docs/data/results/2026-11-05-alexvixell35-stack-rel-tables-apart.md`): PASS.
+Off arm: EA's `ArgumentException`. On arm: the shared relationship returned and in both tables; `reltablesapart_rejoined` 1.
 
 ## 4. What is left
 
