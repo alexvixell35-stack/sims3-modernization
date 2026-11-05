@@ -90,9 +90,10 @@ static void CtStep(u8* svc, DWORD now) {
                 u8 key[16];
                 memcpy(key, e, 16);
                 const DWORD h = CtKeyHash(key);
-                g_ctGone[h & (CT_GONE - 1)] = (LONG)h;
                 t->seen = t->cand = 0;  // the address may come back as a new compositor (its insert sets it again)
-                if (g_ctErase(svc, NULL, key)) erased++, z.ctErased++;  // (mode 1)
+                // remembered only after the erase: EA's erase unregisters through 0x4B00C0, whose cache scan 0x4B0070 calls
+                // each cache's Find(key, NULL), and those failed finds are not misses (al237, 2026-11-05: 20 false MISSED)
+                if (g_ctErase(svc, NULL, key)) erased++, z.ctErased++, g_ctGone[h & (CT_GONE - 1)] = (LONG)h;  // (mode 1)
             }
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) {

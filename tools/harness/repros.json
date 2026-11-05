@@ -53455,7 +53455,7 @@
     "bug": "docs/191 step 2: the CAS compositor registry (service [0x11CE6A0] +0x104) never trims in play: every outfit build adds part compositors with random instances that stay registered in the ResourceCache (rcN / eaRes growth on long saves)",
     "fix": "ts3native [CasTrim] (castrim.cpp, counters v909 ct*, native_set / --ab castrim: 1 trim, 2 count only); job ini [CasTrim] Install=1 AgeSec=60",
     "save": "Baseline-BP",
-    "note": "UNVERIFIED (built 2026-11-05, never run). Outfit churn: six Sims change to athletic, wait past AgeSec so their everyday compositors age (2 references, unused), then change back. Changing back is the case that matters: if the game finds the old everyday compositors by key, the trim arm logs MISSED (ctMissed) and the Sims would show missing textures. Pass: ctErased >= 1, ctMissed 0, the six Sims change back (outfit_change), no stuck. Shots (probe-out/shots/*-castrim-start.jpg, *-castrim-end.jpg): the selected Sim in everyday before any trim and after the last change back; compare by eye.",
+    "note": "UNVERIFIED (built 2026-11-05, never run). Outfit churn: six Sims change to athletic, wait past AgeSec so their everyday compositors age (2 references, unused), then change back. Changing back is the case that matters: if the game finds the old everyday compositors by key, the trim arm logs MISSED (ctMissed) and the Sims would show missing textures. Pass: ctErased >= 1, ctMissed 0, the six Sims change back (outfit_change), no stuck. Shots (probe-out/shots/*-castrim-{start,end}.jpg live, *-castrim-cas-{start,end}.jpg in CAS): the active Sim in everyday before any trim and after the last change back; compare by eye (a live shot can miss her when her floor is cut away).",
     "expect": "on arm: ctInserts > 0, ctCand > 0, ctErased > 0, ctMissed 0, ctOtherThread 0; off arm: ct counters unchanged",
     "steps": [
       {
@@ -53475,6 +53475,47 @@
         "waitS": 1,
         "optional": true,
         "note": "texture check: start"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (start)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-cas-start"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: start"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
       },
       {
         "cmd": "native_set",
@@ -53549,6 +53590,47 @@
         "waitS": 1,
         "optional": true,
         "note": "texture check: end"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (end)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-cas-end"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: end"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
       }
     ],
     "watch": {

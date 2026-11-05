@@ -7,6 +7,8 @@ static u8 g_ctsNode[4][0x1C];
 static DWORD g_ctsBkt[2], g_ctsComp[4][4], g_ctsErased, g_ctsInserted;
 static DWORD g_ctsVt[2][2];
 static bool __fastcall CtsErase(u8* svc, void*, const void* key) {  // as 0x5EE640: find the key's node, unlink it
+    void* o = NULL;
+    CtFindHook(NULL, NULL, key, &o);  // as EA's unregister: 0x4B0070 asks each cache for the key (a failed find, not a miss)
     DWORD* b = *(DWORD**)(svc + 0x108);
     for (DWORD i = 0; i < *(DWORD*)(svc + 0x10C); i++)
         for (DWORD* p = &b[i]; *p; p = (DWORD*)(uintptr_t)(*p + 0x18))
@@ -65,11 +67,12 @@ static void TestCasTrim() {
     g_ctsFound = g_ctsComp[0];
     assert(CtFindHook(NULL, NULL, "key", &out) && z.ctWouldMiss == 1 && !CtSlot((DWORD)(uintptr_t)g_ctsComp[0], false)->cand);
     // 3. mode 1 (trim): A unused again for > 60 s is erased with the (fake) EA erase; B, C, D stay
-    z.ctMode = 1;
+    z.ctMode = 1, g_ctsFound = NULL;
     CtSlot((DWORD)(uintptr_t)g_ctsComp[0], false)->used = t0;
     CtSlot((DWORD)(uintptr_t)g_ctsComp[2], false)->used = t0 + 200000;
     CtStep(g_ctsSvc, t0 + 230000);
     assert(g_ctsErased == 1 && z.ctErased == 1 && *(DWORD*)(g_ctsSvc + 0x110) == 3 && g_ctsBkt[0] == (DWORD)(uintptr_t)g_ctsNode[1]);
+    assert(!z.ctMissed);  // the erase's own failed cache scan
     // a failed find of A's key counts as missed; another key does not
     g_ctsFound = NULL;
     u8 keyA[16] = {}, keyX[16] = {};

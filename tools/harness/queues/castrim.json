@@ -3,7 +3,7 @@
   "jobs": [
     {
       "id": "bp-castrim-outfits",
-      "note": "Correctness (12 min): repro castrim-outfits with the trim on (native_set castrim 1). Pass: the repro's steps pass, ctErased >= 1 by 6 min, ctMissed 0 throughout, ctOtherThread 0",
+      "note": "Correctness (16 min): repro castrim-outfits with the trim on (native_set castrim 1). Pass: the repro's steps pass, ctErased >= 1 by 6 min, ctMissed 0 throughout, ctOtherThread 0",
       "asi": "game-copy/asi-castrim/ts3native.asi",
       "pinReason": "a build of fix/cas-registry-trim (native change)",
       "save": "Baseline-BP",
@@ -14,7 +14,7 @@
       },
       "run": {
         "profile": {
-          "minutes": 12,
+          "minutes": 16,
           "seed": 12345,
           "noSamplers": true,
           "repro": "castrim-outfits"
@@ -23,7 +23,7 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 26,
+      "timeoutMin": 32,
       "earlyGates": [
         {
           "afterSec": 360,
