@@ -5707,8 +5707,8 @@ mono-cost11 (BP run + rerun, IP run + rerun, all exact, `listMissed` 0): I-393-1
 
 | ID | Doc | Claim | Evidence | Check job | Confirms | Refutes | Verdict |
 |----|-----|-------|----------|-----------|----------|---------|---------|
-| I-938-1 | 534 §1 | A pet `RandomRemovePet` / `ClearAllPets` drop with no family links stays valid with no household (EA disposes none; simler90 only those with family links) | the game's decompiled `PetPool`; the core patch's base IL; the player's run 44 (37 of 42 load removals were dropped pool pets) | `bp-pet-pool-orphan-check` off arm, pure UPDATE242 core | `expect broken`: valid, no household | the pet disposed or rehomed | open until the job runs |
-| I-938-2 | 534 §2 | With `petpoolorphan` on, such a pet is disposed right after the drop | the hooks | `bp-pet-pool-orphan-check` on arm | `expect fixed` passes; `petpoolorphan_disposed` 1 | the pet still valid | open until the job runs |
+| I-938-1 | 534 §1 | A pet `RandomRemovePet` / `ClearAllPets` drop with no family links stays valid with no household (EA disposes none; simler90 only those with family links) | the game's decompiled `PetPool`; the core patch's base IL; the player's run 44 (37 of 42 load removals were dropped pool pets) | `bp-pet-pool-orphan-check` off arm, pure UPDATE242 core | `expect broken`: valid, no household | the pet disposed or rehomed | confirmed 2026-11-05 (bp-pet-pool-orphan-check off arm: valid, no household) |
+| I-938-2 | 534 §2 | With `petpoolorphan` on, such a pet is disposed right after the drop | the hooks | `bp-pet-pool-orphan-check` on arm | `expect fixed` passes; `petpoolorphan_disposed` 1 | the pet still valid | confirmed 2026-11-05 (on arm: disposed, counter 1) |
 | I-938-3 | 534 §4 | The next load removes that many fewer descriptions | — | not built (save + load after a real pool refresh) | — | — | open |
 
 ## 423. Mode 2 SACS bound-actor classes (2026-11-03, docs/228 §11.8, ts3native 0.36.166, counters v159)

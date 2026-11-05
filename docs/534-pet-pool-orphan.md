@@ -48,7 +48,8 @@ with `AddPet` and calls `RandomRemovePet`. Off arm (`expect broken`): the cat is
 household; the check disposes it. On arm (`expect fixed`): removed and disposed; `petpoolorphan_disposed` reaches 1.
 Early gate: that counter at 3 min.
 
-Result: pending (the job runs next).
+Result (2026-11-05, pure UPDATE242 core, `docs/data/results/2026-11-05-alexvixell35-stack-pet-pool-orphan.md`): PASS.
+Off arm: removed, still valid, no household. On arm: removed and disposed; `petpoolorphan_disposed` 1.
 
 ## 4. What is left
 
