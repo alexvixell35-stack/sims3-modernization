@@ -5,6 +5,7 @@ using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Interfaces;
 using Sims3.Gameplay.ObjectComponents;
+using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
@@ -35,11 +36,21 @@ namespace Ts3Fixes
         // Harness check (repro inv-not-yet-check): for one synchronous call the active Sim's InventoryComponent.Inventory
         // is null (the state OnCreation is in), restored in a finally before anything else runs. A SocialJigTwoPerson made
         // out of world goes through TryAddObjectToInventory. "expect broken" (switch off) wants EA's
-        // NullReferenceException; "expect fixed" (switch on) wants false and the object destroyed. The object is destroyed
-        // either way, and the Sim's inventory is checked to be back.
+        // NullReferenceException; "expect fixed" (switch on) wants false and the hook's Destroy (counter [2058] +1). Destroy
+        // only drops the object's proxy later (HasBeenDestroyed is Simulator.GetProxy(ObjectId) == null), so "expect gone",
+        // a step later, wants that object gone. The check destroys the object itself only when the hook did not, and checks
+        // that the Sim's inventory is back.
+        static ulong sInvNotYetLast;
         public static object InvNotYetCheck(string what)
         {
-            if (what != "expect broken" && what != "expect fixed") return "invnotyet <expect broken|expect fixed>";
+            if (what == "expect gone")
+            {
+                GameObject g = sInvNotYetLast == 0 ? null : GameObject.GetObject(new ObjectGuid(sInvNotYetLast));
+                if (sInvNotYetLast == 0) throw new InvalidOperationException("invnotyet expect gone: no earlier expect fixed");
+                if (g != null && !g.HasBeenDestroyed) throw new InvalidOperationException("invnotyet expect gone: the object the hook destroyed is still there");
+                return "as expected; the object the hook destroyed is gone";
+            }
+            if (what != "expect broken" && what != "expect fixed") return "invnotyet <expect broken|expect fixed|expect gone>";
             Sim sim = Sim.ActiveActor;
             if (sim == null) throw new InvalidOperationException("invnotyet check: no active Sim");
             InventoryComponent ic = sim.InventoryComp;
@@ -49,15 +60,17 @@ namespace Ts3Fixes
             Inventory inv = ic.Inventory;
             string threw = "nothing";
             bool added = false;
+            int before = PatchCounters()[2058];
             ic.Inventory = null;
             try { added = sim.TryAddObjectToInventory(o); }
             catch (Exception e) { threw = e.GetType().Name; }
             finally { ic.Inventory = inv; }
-            bool destroyed = o.HasBeenDestroyed;
+            bool destroyed = PatchCounters()[2058] == before + 1;
+            sInvNotYetLast = o.ObjectId.Value;
             if (!destroyed) o.Destroy();
             if (sim.Inventory != inv) throw new InvalidOperationException("invnotyet check: the Sim's inventory did not come back");
             bool on = ShortcutOn("invnotyet");
-            string line = "threw " + threw + ", returned " + added + ", object " + (destroyed ? "destroyed by the call" : "left") + " (switch " + on + ")";
+            string line = "threw " + threw + ", returned " + added + ", object " + (destroyed ? "destroyed by the hook" : "left") + " (switch " + on + ")";
             bool ok = what == "expect broken" ? !on && threw == "NullReferenceException" : on && threw == "nothing" && !added && destroyed;
             if (!ok) throw new InvalidOperationException("invnotyet " + what + ": wrong outcome; " + line);
             return "as expected; " + line;

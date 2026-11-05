@@ -42,10 +42,13 @@ without the player's patches** (the player's core carries build 13, so its off a
 `Ts3Fixes.Fixes.InvNotYetCheck` sets the active Sim's `InventoryComponent.Inventory` to null for one synchronous call,
 the state `OnCreation` is in, and restores it in a `finally` before anything else runs. A `SocialJigTwoPerson` made out
 of world goes through `TryAddObjectToInventory`. Off arm (`expect broken`): EA's `NullReferenceException`. On arm
-(`expect fixed`): false, the object destroyed by the call; `invnotyet_refused` reaches 1. The check fails if the Sim's
+(`expect fixed`): false and the hook's `Destroy` (`invnotyet_refused` reaches 1); `expect gone`, a step later, finds the object gone. `Destroy` only drops the object's proxy after the call (`HasBeenDestroyed` is `Simulator.GetProxy(ObjectId) == null`), so the on arm cannot see it at once. The check fails if the Sim's
 inventory does not come back. Early gate: the counter at 3 min.
 
-Result: pending (the job runs next).
+Result, first run (2026-11-05, pure UPDATE242 core): the off arm passed (EA's `NullReferenceException`). The on arm's hook
+ran (no exception, false, `invnotyet_refused` 1), but the check then read `HasBeenDestroyed` in the same call, which is
+still false right after `Destroy`, and failed. The check now counts the hook's `Destroy` and looks for the object a step
+later; rerun pending.
 
 ## 4. What is left
 
