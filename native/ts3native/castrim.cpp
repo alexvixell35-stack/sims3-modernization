@@ -61,7 +61,20 @@ static CtEnt* CtSlot(DWORD o, bool claim) {
     }
     return NULL;
 }
-static void CtEvent(const char* what, DWORD o, DWORD at, DWORD sinceMark, DWORD age, const DWORD* sp) {
+// A would-miss asks the resource manager ([0x11C78D8], vtable 0xFFE250) its own "database for this key" (+0x44 = 0x4AFDA0),
+// the lookup the get 0x7366B0 makes right after a cache miss: a database = the game would load it again, none = a trim
+// would lose it (the get returns false). Read only; asked only at these rare events.
+typedef void*(__fastcall* CtDbFn)(void* rm, void* edx, const void* key);
+static DWORD g_ctRmAt = 0x011C78D8, g_ctRmVt = 0x00FFE250;  // selftest: its own
+static volatile LONG g_ctDbYes, g_ctDbNo;
+static int CtInDb(const void* key) {  // 1 a database has it, 0 none, -1 not asked
+    void* rm = *(void* const*)(uintptr_t)g_ctRmAt;
+    if (!rm || *(const DWORD*)rm != g_ctRmVt) return -1;
+    const int r = (*(CtDbFn const*)(uintptr_t)(g_ctRmVt + 0x44))(rm, NULL, key) ? 1 : 0;
+    InterlockedIncrement(r ? &g_ctDbYes : &g_ctDbNo);
+    return r;
+}
+static void CtEvent(const char* what, DWORD o, DWORD at, DWORD sinceMark, DWORD age, const DWORD* sp, int db = -1) {
     const DWORD m = sinceMark / 60000;
     InterlockedIncrement(&g_ctAge[m < 1 ? 0 : m < 10 ? 1 : m < 60 ? 2 : 3]);
     if (InterlockedIncrement(&g_ctEvents) > 20) return;
@@ -71,7 +84,8 @@ static void CtEvent(const char* what, DWORD o, DWORD at, DWORD sinceMark, DWORD 
                 if (sp[i] >= g_rhTxLo && sp[i] < g_rhTxHi) c[k++] = sp[i];
         } __except (EXCEPTION_EXECUTE_HANDLER) {}
     Log("cas trim: %s: compositor 0x%08lX found by key from 0x%08lX < 0x%08lX < 0x%08lX < 0x%08lX, %lu s after it was marked old "
-        "(unused %lu s then)", what, o, at, c[0], c[1], c[2], sinceMark / 1000, age / 1000);
+        "(unused %lu s then); a database has the key: %s", what, o, at, c[0], c[1], c[2], sinceMark / 1000, age / 1000,
+        db > 0 ? "yes (would load again)" : db == 0 ? "NO (a trim would lose it)" : "not asked");
 }
 
 // One step of the walk (the inserting thread, after EA's insert returned).
@@ -117,8 +131,8 @@ static void CtLog(const u8* svc) {
         "the mark: < 1 min %ld, < 10 %ld, < 60 %ld, more %ld); registry %lu entries; table full %ld, other-thread inserts %ld",
         z.ctMode, z.ctInserts, z.ctScanned, z.ctCand, z.ctErased, z.ctWouldMiss, z.ctMissed, g_ctAge[0], g_ctAge[1], g_ctAge[2], g_ctAge[3], n,
         z.ctFull, z.ctOtherThread);
-    Log("cas trim: re-found after unused for: < 1 min %ld, 1-5 min %ld, 5-10 %ld, 10-30 %ld, 30-60 %ld, 60+ %ld", g_ctGap[0], g_ctGap[1],
-        g_ctGap[2], g_ctGap[3], g_ctGap[4], g_ctGap[5]);
+    Log("cas trim: re-found after unused for: < 1 min %ld, 1-5 min %ld, 5-10 %ld, 10-30 %ld, 30-60 %ld, 60+ %ld; would-miss keys in a "
+        "database %ld, in none %ld", g_ctGap[0], g_ctGap[1], g_ctGap[2], g_ctGap[3], g_ctGap[4], g_ctGap[5], g_ctDbYes, g_ctDbNo);
 }
 static int __fastcall CtInsertHook(u8* svc, void* edx, u8* comp) {
     const int r = g_ctInsert(svc, edx, comp);
@@ -155,7 +169,7 @@ static void CtFound(bool r, const void* key, void** out, DWORD at, const DWORD* 
                     if (t->cand) {
                         InterlockedIncrement(&z.ctWouldMiss);
                         const DWORD a1 = t->cand - t->seen, a2 = t->cand - t->used;
-                        CtEvent("would miss", o, at, now - t->cand, a1 < a2 ? a1 : a2, sp);
+                        CtEvent("would miss", o, at, now - t->cand, a1 < a2 ? a1 : a2, sp, key ? CtInDb(key) : -1);
                     }
                     t->used = now, t->cand = 0;
                 }

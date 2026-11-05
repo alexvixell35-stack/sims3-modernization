@@ -20,6 +20,9 @@ static bool __fastcall CtsErase(u8* svc, void*, const void* key) {  // as 0x5EE6
 }
 static int __fastcall CtsInsert(u8*, void*, u8*) { g_ctsInserted++; return 1; }
 static const void* g_ctsFound;  // what the fake Find returns (NULL = not found)
+static void* __fastcall CtsDb(void*, void*, const void*) { return NULL; }  // the fake manager's "database for this key": none
+static DWORD g_ctsRmVt[0x50 / 4], g_ctsRm[1];
+static void* g_ctsRmPtr;
 static bool __fastcall CtsFind(void*, void*, const void*, void** out) { *out = (void*)g_ctsFound; return g_ctsFound != NULL; }
 
 static void TestCasTrim() {
@@ -30,6 +33,9 @@ static void TestCasTrim() {
     const CtEraseFn erase0 = g_ctErase;
     const DWORD vt0[2] = {g_ctVt[0], g_ctVt[1]}, age0 = g_ctAgeMs;
     assert(CtAlloc());
+    const DWORD rmAt0 = g_ctRmAt, rmVt0 = g_ctRmVt;
+    g_ctsRmVt[0x44 / 4] = (DWORD)(uintptr_t)&CtsDb, g_ctsRm[0] = (DWORD)(uintptr_t)g_ctsRmVt, g_ctsRmPtr = g_ctsRm;
+    g_ctRmAt = (DWORD)(uintptr_t)&g_ctsRmPtr, g_ctRmVt = (DWORD)(uintptr_t)g_ctsRmVt;
     g_ctErase = &CtsErase, g_ctInsert = &CtsInsert, g_ctFind = &CtsFind;
     g_ctVt[0] = (DWORD)(uintptr_t)g_ctsVt[0], g_ctVt[1] = (DWORD)(uintptr_t)g_ctsVt[1];
     g_ctAgeMs = 60000, g_ctBuckets = 2, g_ctMaxErase = 8, g_ctCursor = 0;
@@ -66,6 +72,7 @@ static void TestCasTrim() {
     // a find of the marked A: one "would miss", the mark is dropped and A counts as used
     g_ctsFound = g_ctsComp[0];
     assert(CtFindHook(NULL, NULL, "key", &out) && z.ctWouldMiss == 1 && !CtSlot((DWORD)(uintptr_t)g_ctsComp[0], false)->cand);
+    assert(g_ctDbNo == 1 && !g_ctDbYes);  // the would-miss asked the (fake) manager: no database has the key
     // 3. mode 1 (trim): A unused again for > 60 s is erased with the (fake) EA erase; B, C, D stay
     z.ctMode = 1, g_ctsFound = NULL;
     CtSlot((DWORD)(uintptr_t)g_ctsComp[0], false)->used = t0;
@@ -100,5 +107,5 @@ static void TestCasTrim() {
     memset(g_ct, 0, CT_SLOTS * sizeof(CtEnt)), memset((void*)g_ctGone, 0, CT_GONE * 4);
     memset((void*)g_ctAge, 0, sizeof(g_ctAge)), memset((void*)g_ctGap, 0, sizeof(g_ctGap)), g_ctEvents = 0, g_ctTid = 0, g_ctCursor = 0;
     g_ctErase = erase0, g_ctInsert = NULL, g_ctFind = NULL, g_ctVt[0] = vt0[0], g_ctVt[1] = vt0[1], g_ctAgeMs = age0;
-    g_ctBuckets = 16;
+    g_ctBuckets = 16, g_ctRmAt = rmAt0, g_ctRmVt = rmVt0, g_ctDbYes = g_ctDbNo = 0;
 }
