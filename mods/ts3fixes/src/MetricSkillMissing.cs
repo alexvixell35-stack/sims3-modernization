@@ -49,9 +49,10 @@ namespace Ts3Fixes
         // Harness check (repro metric-skill-missing-check): the first MetricSkillX of any career's levels gets, for one
         // synchronous call each, the skill id the player's career XML gave (0xC7DB6873, no static skill), restored in a
         // finally. "expect broken" (switch off) wants EA's NullReferenceException from MetricTitle and MetricDescription;
-        // "expect fixed" (switch on) wants both to return text and FindMetricValue to return Map0. The prototype career has
-        // no owner, so EA's FindMetricValue is not called in the off arm (it would throw on the missing owner, not the bug).
-        static readonly System.Reflection.MethodInfo sFindMetricValue = typeof(MetricSkillX).GetMethod("FindMetricValue", kInstAll); // protected
+        // "expect fixed" (switch on) wants both to return text and GetCurrentCalcMetric (public, it calls the protected
+        // FindMetricValue; reflection Invoke on the swapped body threw TargetException in the first run) to score 0 with the
+        // value hook run once. The prototype career has no owner, so EA's FindMetricValue is not called in the off arm (it
+        // would throw on the missing owner, not the bug).
         public static object MetricSkillMissingCheck(string what)
         {
             if (what != "expect broken" && what != "expect fixed") return "metricskillmissing <expect broken|expect fixed>";
@@ -84,7 +85,7 @@ namespace Ts3Fixes
                 try { string d = m.MetricDescription(career); descOk = on && d != null; } catch (Exception e) { desc = "threw " + e.GetType().Name; descOk = !on && e is NullReferenceException; }
                 if (on)
                 {
-                    try { float v = (float)sFindMetricValue.Invoke(m, new object[] { career }); value = "returned " + v + " (Map0 " + m.Map0 + ")"; valueOk = v == m.Map0; }
+                    try { int before = PatchCounters()[2060]; int score = m.GetCurrentCalcMetric(career); bool ran = PatchCounters()[2060] == before + 1; value = "score " + score + ", value hook " + (ran ? "ran" : "not run"); valueOk = ran && score == 0; }
                     catch (Exception e) { value = "threw " + (e.InnerException ?? e).GetType().Name; valueOk = false; }
                 }
             }

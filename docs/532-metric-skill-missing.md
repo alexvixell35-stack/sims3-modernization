@@ -43,9 +43,12 @@ UPDATE242 core without the player's patches** (the player's core carries build 9
 for the calls, restored in a `finally`. It refuses to run if that id is a registered skill. Off arm (`expect broken`):
 EA's `NullReferenceException` from `MetricTitle` and from `MetricDescription` (EA's `FindMetricValue` is not called: the
 prototype career has no owner, which would throw for another reason). On arm (`expect fixed`): both return text and
-`FindMetricValue` returns `Map0`; `metricskillmissing_names` reaches 2. Early gate: that counter at 3 min.
+`GetCurrentCalcMetric` (public; it calls the protected `FindMetricValue`) scores 0 with the value hook run once; `metricskillmissing_names` reaches 2. Early gate: that counter at 3 min.
 
-Result: pending (the job runs next).
+Result, first run (2026-11-05, pure UPDATE242 core, Art Appraiser's first `MetricSkillX`): the off arm passed (EA's
+`NullReferenceException` from `MetricTitle` and `MetricDescription`). On the on arm both returned text, but the check's
+reflection call of `FindMetricValue` threw `TargetException` (the call, not the hook). The check now goes through the public
+`GetCurrentCalcMetric`; rerun pending.
 
 ## 4. What is left
 
