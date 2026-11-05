@@ -1,0 +1,229 @@
+{
+  "note": "Player report: Sims stop doing anything with our mod, normal after removal. 6 jobs (BP then SV: v0.2.4 ref, v0.2.7, v0.2.7 RouteAsync off), ~15 min watch each. Run: node tools/harness/queue.ts tools/harness/queues/autonomy-idle.json --no-smoke",
+  "jobs": [
+    {
+      "id": "bp-idle-v024",
+      "note": "Idle watch (player report: Sims stop doing anything with the mod, fine after removal), Baseline-BP, v0.2.4 release pair (asi, ini, ts3fixes.package from ts3native-v0.2.4.zip / release): the reference arm. 15 min at normal speed in live mode, household free will on (checked, FAIL if off), no keep_alive, no player orders, autopilot answers dialogs only. idle-watch.ts logs per minute the household Sims' interaction, no-interaction seconds and interaction changes vs the other Sims, needs at start and end, ScriptError count and ts3native.log lines. Reference: PASS/WARN only.",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "iniBase": "game-copy/asi-v024/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v024/ts3fixes.package",
+      "pinReason": "published release pair for a player-report comparison; the arm is the build under test",
+      "callSites": false,
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "run": {
+        "script": [
+          "idle-watch.ts",
+          "--role",
+          "ref",
+          "--minutes",
+          "15",
+          "--threshold",
+          "120",
+          "--seed",
+          "12345",
+          "--save",
+          "Baseline-BP",
+          "--tag",
+          "bp-v024",
+          "--out",
+          "probe-out/idle-watch/bp-v024.json"
+        ]
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "timeoutMin": 40
+    },
+    {
+      "id": "bp-idle-v027",
+      "note": "Idle watch (player report: Sims stop doing anything with the mod, fine after removal), Baseline-BP, v0.2.7 Steam release as shipped (ts3native.asi + ini from ts3native-v0.2.7.zip, ts3fixes.package v0.2.6). 15 min at normal speed in live mode, household free will on (checked, FAIL if off), no keep_alive, no player orders, autopilot answers dialogs only. idle-watch.ts logs per minute the household Sims' interaction, no-interaction seconds and interaction changes vs the other Sims, needs at start and end, ScriptError count and ts3native.log lines. FAIL when a household Sim has no interaction for over 120 s while the v0.2.4 arm of this save stayed under it.",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "published release pair for a player-report comparison; the arm is the build under test",
+      "callSites": false,
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "run": {
+        "script": [
+          "idle-watch.ts",
+          "--role",
+          "test",
+          "--minutes",
+          "15",
+          "--threshold",
+          "120",
+          "--seed",
+          "12345",
+          "--save",
+          "Baseline-BP",
+          "--tag",
+          "bp-v027",
+          "--out",
+          "probe-out/idle-watch/bp-v027.json",
+          "--ref",
+          "probe-out/idle-watch/bp-v024.json"
+        ]
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "timeoutMin": 40
+    },
+    {
+      "id": "bp-idle-v027-noasync",
+      "note": "Idle watch (player report: Sims stop doing anything with the mod, fine after removal), Baseline-BP, v0.2.7 pair with [RouteAsync] Enabled=0, the first suspect. 15 min at normal speed in live mode, household free will on (checked, FAIL if off), no keep_alive, no player orders, autopilot answers dialogs only. idle-watch.ts logs per minute the household Sims' interaction, no-interaction seconds and interaction changes vs the other Sims, needs at start and end, ScriptError count and ts3native.log lines. FAIL when a household Sim has no interaction for over 120 s while the v0.2.4 arm of this save stayed under it.",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "published release pair for a player-report comparison; the arm is the build under test",
+      "ini": {
+        "RouteAsync.Enabled": 0
+      },
+      "callSites": false,
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "run": {
+        "script": [
+          "idle-watch.ts",
+          "--role",
+          "test",
+          "--minutes",
+          "15",
+          "--threshold",
+          "120",
+          "--seed",
+          "12345",
+          "--save",
+          "Baseline-BP",
+          "--tag",
+          "bp-v027-noasync",
+          "--out",
+          "probe-out/idle-watch/bp-v027-noasync.json",
+          "--ref",
+          "probe-out/idle-watch/bp-v024.json"
+        ]
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "timeoutMin": 40
+    },
+    {
+      "id": "sv-idle-v024",
+      "note": "Idle watch (player report: Sims stop doing anything with the mod, fine after removal), Baseline-SV, v0.2.4 release pair (asi, ini, ts3fixes.package from ts3native-v0.2.4.zip / release): the reference arm. 15 min at normal speed in live mode, household free will on (checked, FAIL if off), no keep_alive, no player orders, autopilot answers dialogs only. idle-watch.ts logs per minute the household Sims' interaction, no-interaction seconds and interaction changes vs the other Sims, needs at start and end, ScriptError count and ts3native.log lines. Reference: PASS/WARN only.",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "iniBase": "game-copy/asi-v024/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v024/ts3fixes.package",
+      "pinReason": "published release pair for a player-report comparison; the arm is the build under test",
+      "callSites": false,
+      "releaseDefaults": true,
+      "save": "Baseline-SV",
+      "run": {
+        "script": [
+          "idle-watch.ts",
+          "--role",
+          "ref",
+          "--minutes",
+          "15",
+          "--threshold",
+          "120",
+          "--seed",
+          "12345",
+          "--save",
+          "Baseline-SV",
+          "--tag",
+          "sv-v024",
+          "--out",
+          "probe-out/idle-watch/sv-v024.json"
+        ]
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "timeoutMin": 40
+    },
+    {
+      "id": "sv-idle-v027",
+      "note": "Idle watch (player report: Sims stop doing anything with the mod, fine after removal), Baseline-SV, v0.2.7 Steam release as shipped (ts3native.asi + ini from ts3native-v0.2.7.zip, ts3fixes.package v0.2.6). 15 min at normal speed in live mode, household free will on (checked, FAIL if off), no keep_alive, no player orders, autopilot answers dialogs only. idle-watch.ts logs per minute the household Sims' interaction, no-interaction seconds and interaction changes vs the other Sims, needs at start and end, ScriptError count and ts3native.log lines. FAIL when a household Sim has no interaction for over 120 s while the v0.2.4 arm of this save stayed under it.",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "published release pair for a player-report comparison; the arm is the build under test",
+      "callSites": false,
+      "releaseDefaults": true,
+      "save": "Baseline-SV",
+      "run": {
+        "script": [
+          "idle-watch.ts",
+          "--role",
+          "test",
+          "--minutes",
+          "15",
+          "--threshold",
+          "120",
+          "--seed",
+          "12345",
+          "--save",
+          "Baseline-SV",
+          "--tag",
+          "sv-v027",
+          "--out",
+          "probe-out/idle-watch/sv-v027.json",
+          "--ref",
+          "probe-out/idle-watch/sv-v024.json"
+        ]
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "timeoutMin": 40
+    },
+    {
+      "id": "sv-idle-v027-noasync",
+      "note": "Idle watch (player report: Sims stop doing anything with the mod, fine after removal), Baseline-SV, v0.2.7 pair with [RouteAsync] Enabled=0, the first suspect. 15 min at normal speed in live mode, household free will on (checked, FAIL if off), no keep_alive, no player orders, autopilot answers dialogs only. idle-watch.ts logs per minute the household Sims' interaction, no-interaction seconds and interaction changes vs the other Sims, needs at start and end, ScriptError count and ts3native.log lines. FAIL when a household Sim has no interaction for over 120 s while the v0.2.4 arm of this save stayed under it.",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "published release pair for a player-report comparison; the arm is the build under test",
+      "ini": {
+        "RouteAsync.Enabled": 0
+      },
+      "callSites": false,
+      "releaseDefaults": true,
+      "save": "Baseline-SV",
+      "run": {
+        "script": [
+          "idle-watch.ts",
+          "--role",
+          "test",
+          "--minutes",
+          "15",
+          "--threshold",
+          "120",
+          "--seed",
+          "12345",
+          "--save",
+          "Baseline-SV",
+          "--tag",
+          "sv-v027-noasync",
+          "--out",
+          "probe-out/idle-watch/sv-v027-noasync.json",
+          "--ref",
+          "probe-out/idle-watch/sv-v024.json"
+        ]
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "timeoutMin": 40
+    }
+  ]
+}

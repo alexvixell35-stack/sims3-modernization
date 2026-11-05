@@ -1,0 +1,105 @@
+{
+  "note": "d3d9on12-ab (2026-11-05, Rodney): one-off measurement, not a player feature. Microsoft D3D9On12 (DX9 straight to DX12, tools/d3d9on12-test proxy d3d9.dll with Enable9On12=TRUE) vs the DXVK d3d9.dll in Bin, same game (TS3W.exe 32-bit), same build pair (v0.2.7 Steam release in game-copy/asi-v027: asi, ini, fixes package), same world and save (Baseline-BP, Bridgeport), seed 12345, 10 min window, heavy tools off. Order A,B,B,A (ABBA) cancels drift; A = DXVK (nothing replaced), B = proxy. Build the proxy first: node tools/d3d9on12-test/build.ts. Per job read from the row: memory largestFreeMB / commitMB / privateMB, frame time p99 / p99.9, max hitch, it/s (hitch-ab / frame-times in the profile row), crash state. S3SS/DXVK-dependent features do NOT apply to arm B: dxvk.conf and the DXVK TS3W profile are ignored, any S3SS patch or feature that needs DXVK may behave differently or not at all, so a B difference is DX12-path plus lost DXVK tuning, not D3D9On12 alone. Restore: queue.ts d3d9Dll saves the DXVK dll as Bin/d3d9.dll.dxvk-bak, puts it back and reads it back after every job (success or failure), and restores a leftover .dxvk-bak at the next queue start; a restore failure stops the queue. Each B job FAILs when Bin/d3d9on12-proxy.log lacks path=9On12 or says FELL BACK. d3d9on12-smoke (3 min, arm B, not a timing job) proves the proxy loads and the game reaches the lot; stopQueueOnFail stops before the long jobs if it fails.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "d3d9on12-smoke",
+      "note": "Smoke, arm B, 3 min: the proxy loads, takes the 9On12 path (proxy log), the game reaches the Bridgeport lot and the window runs. Not a timing job (noiseCheck false).",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+
+      "pinReason": "published release pair; the DXVK vs D3D9On12 arm is what differs",
+
+      "releaseDefaults": true,
+      "d3d9Dll": "tools/d3d9on12-test/out/d3d9.dll",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": ["-disablestoryprogression"],      "callSites": false,
+      "run": { "profile": { "minutes": 3, "seed": 12345, "noSamplers": true } },
+      "timeoutMin": 15,
+      "earlyGates": [
+        { "afterSec": 150, "counter": "fixes:asyncjigsync_kept_sync", "op": ">=", "value": 0, "why": "ts3fixes counters not readable 2.5 min in: agent or fixes not loaded (D3D9On12 proxy may have broken the start)" }
+      ]
+    },
+    {
+      "id": "d3d9on12-a1",
+      "note": "Arm A (DXVK d3d9.dll as installed), ABBA run 1 of 4.",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+
+      "pinReason": "published release pair; the DXVK vs D3D9On12 arm is what differs",
+
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "gameArgs": ["-disablestoryprogression"],      "callSites": false,
+      "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true } },
+      "timeoutMin": 25,
+      "earlyGates": [
+        { "afterSec": 150, "counter": "fixes:asyncjigsync_kept_sync", "op": ">=", "value": 0, "why": "ts3fixes counters not readable 2.5 min in: agent or fixes not loaded" }
+      ]
+    },
+    {
+      "id": "d3d9on12-b1",
+      "note": "Arm B (D3D9On12 proxy replaces Bin/d3d9.dll, DXVK put back after), ABBA run 2 of 4. DXVK-dependent features do not apply.",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+
+      "pinReason": "published release pair; the DXVK vs D3D9On12 arm is what differs",
+
+      "releaseDefaults": true,
+      "d3d9Dll": "tools/d3d9on12-test/out/d3d9.dll",
+      "save": "Baseline-BP",
+      "gameArgs": ["-disablestoryprogression"],      "callSites": false,
+      "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true } },
+      "timeoutMin": 25,
+      "earlyGates": [
+        { "afterSec": 150, "counter": "fixes:asyncjigsync_kept_sync", "op": ">=", "value": 0, "why": "ts3fixes counters not readable 2.5 min in: agent or fixes not loaded" }
+      ]
+    },
+    {
+      "id": "d3d9on12-b2",
+      "note": "Arm B (D3D9On12 proxy), ABBA run 3 of 4.",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+
+      "pinReason": "published release pair; the DXVK vs D3D9On12 arm is what differs",
+
+      "releaseDefaults": true,
+      "d3d9Dll": "tools/d3d9on12-test/out/d3d9.dll",
+      "save": "Baseline-BP",
+      "gameArgs": ["-disablestoryprogression"],      "callSites": false,
+      "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true } },
+      "timeoutMin": 25,
+      "earlyGates": [
+        { "afterSec": 150, "counter": "fixes:asyncjigsync_kept_sync", "op": ">=", "value": 0, "why": "ts3fixes counters not readable 2.5 min in: agent or fixes not loaded" }
+      ]
+    },
+    {
+      "id": "d3d9on12-a2",
+      "note": "Arm A (DXVK), ABBA run 4 of 4.",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+
+      "pinReason": "published release pair; the DXVK vs D3D9On12 arm is what differs",
+
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "gameArgs": ["-disablestoryprogression"],      "callSites": false,
+      "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true } },
+      "timeoutMin": 25,
+      "earlyGates": [
+        { "afterSec": 150, "counter": "fixes:asyncjigsync_kept_sync", "op": ">=", "value": 0, "why": "ts3fixes counters not readable 2.5 min in: agent or fixes not loaded" }
+      ]
+    }
+  ]
+}

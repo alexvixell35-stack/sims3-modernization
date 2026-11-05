@@ -260,7 +260,7 @@ namespace Ts3Fixes
         static void ApplyMemAlive()
         {
             for (int i = 0; i < kAliveSlots; i++) sAliveGc[i] = -1;
-            sAliveHook = Patch(typeof(ScriptObject), "Destroy", Type.EmptyTypes, typeof(AliveDestroyHook), "DestroyHook", "DestroyOrig");
+            // v0.2.6: not patched. The swap drops the virtual flag, so a callvirt naming ScriptObject.Destroy skips every override (docs/67 §33).
         }
 
         static void AliveTrack(ScriptObject o)

@@ -65,7 +65,7 @@ namespace Ts3Fixes
             else AppliedLog().Add("ParentsAreBack: nested type not found");
             Patch(typeof(ParentsLeavingTownSituation), "OnParticipantDeleted", typeof(VacTripHook), "DeletedHook", "DeletedOrig");
             Patch(typeof(ParentsLeavingTownSituation), "CleanUp", typeof(VacTripHook), "CleanUpHook", "CleanUpOrig");
-            Patch(typeof(EventListener), "RestoreState", typeof(VacListenerHook), "BaseHook", "BaseOrig");
+            // v0.2.6: not patched. The swap drops the virtual flag, so a callvirt naming EventListener.RestoreState skips every override (docs/67 §33).
             Patch(typeof(CountListener), "RestoreState", typeof(VacListenerHook), "CountHook", "CountOrig");
             Patch(typeof(CountListenerDistinct), "RestoreState", typeof(VacListenerHook), "DistinctHook", "DistinctOrig");
             Patch(typeof(CountListenerExclusive), "RestoreState", typeof(VacListenerHook), "ExclusiveHook", "ExclusiveOrig");

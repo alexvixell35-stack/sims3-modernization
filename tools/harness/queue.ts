@@ -79,6 +79,9 @@
 // gameArgs go to TS3W.exe (ts3probe.py serve --launch -- <args>); defaultIni is merged into Bin/Default.ini for the job, then put back;
 // s3ppIni the same for Bin/Sims3Performance.ini (S3PP switches, e.g. its Mono caches on/off); s3ssToml the same for
 // <user>/S3SS/S3SS.toml ("<table>.<key>", e.g. patches.LotStreamingOptimizations.enabled; S3SS reads it at game start);
+// d3d9Dll: repo-relative path of a dll that replaces Bin/d3d9.dll for the job (one-off renderer tests, tools/d3d9on12-test); the
+// DXVK d3d9.dll is saved as Bin/d3d9.dll.dxvk-bak first, put back and read back after the job (success or failure), and a leftover .dxvk-bak
+// from a killed queue is restored at the next queue start; a job whose Bin/d3d9on12-proxy.log lacks 'path=9On12' or says 'FELL BACK' FAILs.
 // dxvkConf the same for Bin/dxvk.conf (plain "key = value" lines, e.g. "d3d9.textureMemory": 64; DXVK reads it at start).
 // profile.repro: profile-world.ts --repro <id> runs that repros.json entry's steps at the window start (no stack samplers).
 // profile.untilCompares: N -> profile-world.ts --until-compares (end the window early once N shadow compares exist; 2N if N comes before 5 min; minutes is the cap).
@@ -217,11 +220,11 @@ function machineCols(tag: string) { return tag ? { head: ' machine |', sep: '---
 function machineField(tag: string): { machineTag?: string } { return tag ? { machineTag: tag } : {}; }
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; run: { repro?: string; saveReload?: string[]; script?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
-    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; scriptErrorsMax?: number; timeoutMin?: number; pin?: false | PinOpts;
-  saveMatrix?: { fixes?: 'all' | 'shipped' }; fixesBuild?: string; fixesPackage?: string; pinReason?: string; rerunOf?: string; shadowCheck?: boolean };
+    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; scriptErrorsMax?: number; timeoutMin?: number; pin?: false | PinOpts;
+  saveMatrix?: { fixes?: 'all' | 'shipped' }; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; shadowCheck?: boolean };
 
 // every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
-const JOB_KEYS = new Set(['id', 'note', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'stopQueueOnFail', 'reuseSession', 'releaseDefaults']);
+const JOB_KEYS = new Set(['id', 'note', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'stopQueueOnFail', 'reuseSession', 'releaseDefaults']);
 // ---- vanilla mode (docs/236): what a job may not ask for without ts3native/ts3fixes, and the checks the row names as N/A
 export const VANILLA_NA = ['asi build check', 'ts3fixes build check', 'ts3native.log version gate', 'ts3native.ini features', 'hook FAIL lines and route hook state', 'counter gate and /native counters', 'ts3fixes activity'];
 export function vanillaRefusals(j: Job): string[] {
@@ -266,6 +269,7 @@ export function parseQueue(json: unknown): Job[] {
     for (const k of Object.keys(j.defaultIni ?? {})) if (!/^\w+\.\w+$/.test(k)) throw new Error(`${at}: defaultIni key "${k}" must be Section.Key`);
     for (const k of Object.keys(j.s3ppIni ?? {})) if (!/^\w+\.\w+$/.test(k)) throw new Error(`${at}: s3ppIni key "${k}" must be Section.Key`);
     for (const k of Object.keys(j.s3ssToml ?? {})) if (!/^\w+(\.\w+)+$/.test(k)) throw new Error(`${at}: s3ssToml key "${k}" must be table.key (e.g. patches.LotStreamingOptimizations.enabled)`);
+    if (j.d3d9Dll !== undefined && !(typeof j.d3d9Dll === 'string' && /^[\w.\/-]+\.dll$/.test(j.d3d9Dll) && !j.d3d9Dll.includes('..'))) throw new Error(`${at}: d3d9Dll must be a repo-relative .dll path`);
     for (const k of Object.keys(j.dxvkConf ?? {})) if (!/^\w+\.\w+$/.test(k)) throw new Error(`${at}: dxvkConf key "${k}" must be component.option (e.g. d3d9.textureMemory)`);
     if (j.gameArgs && !(Array.isArray(j.gameArgs) && j.gameArgs.every((x: unknown) => typeof x === 'string' && x.startsWith('-')))) throw new Error(`${at}: gameArgs must be a list of -switches`);
     for (const k of ['install', 'uninstall']) if (j.fixes?.[k] && !Array.isArray(j.fixes[k])) throw new Error(`${at}: fixes.${k} must be a list of ids`);
@@ -339,8 +343,9 @@ export function parseQueue(json: unknown): Job[] {
     if (j.callSites !== undefined && typeof j.callSites !== 'boolean') throw new Error(`${at}: callSites must be true or false`);
     if (j.releaseDefaults !== undefined && typeof j.releaseDefaults !== 'boolean') throw new Error(`${at}: releaseDefaults must be true or false`);
     // fixesPackage: a shipped ts3fixes.package (path from the repo root) installed over cycle.ts's build/ copy before each start (repro jobs: the start-path controls, release-validate *-v016)
-    if (j.fixesPackage !== undefined && (typeof j.fixesPackage !== 'string' || !j.fixesPackage || j.fixesBuild !== undefined || !(j.run?.profile || j.run?.soak || j.run?.repro)))
-      throw new Error(`${at}: fixesPackage must be a path, only on profile/soak/repro jobs, not with fixesBuild`);
+    if (j.fixesPackage !== undefined && (typeof j.fixesPackage !== 'string' || !j.fixesPackage || j.fixesBuild !== undefined || !(j.run?.profile || j.run?.soak || j.run?.repro || j.run?.script)))
+      throw new Error(`${at}: fixesPackage must be a path, only on profile/soak/repro/script jobs, not with fixesBuild`);
+    if (j.iniBase !== undefined && (typeof j.iniBase !== 'string' || !j.iniBase)) throw new Error(`${at}: iniBase must be a path from the repo root`);
     if (j.pinReason !== undefined && (typeof j.pinReason !== 'string' || !j.pinReason.trim())) throw new Error(`${at}: pinReason must be a non-empty text (why this job pins its asi/package)`);
     if (fridaAttach(j) && (j.callSites || Number(j.ini?.['ProbeSnap.CallSites']))) throw new Error(`${at}: ProbeSnap.CallSites with a second Frida agent (${fridaAttach(j)}): int3 traps + agent attach crashed the game (docs/67 §7); set run.profile.noProf (and drop the side probe) or callSites false`);
     if (j.timeoutMin !== undefined && !(j.timeoutMin > 0)) throw new Error(`${at}: timeoutMin must be > 0`);
@@ -1114,6 +1119,8 @@ if (values['self-check']) {
   assert.equal(mergeConf('d3d9.samplerAnisotropy = 16\r\n', { 'd3d9.textureMemory': 64 }), 'd3d9.samplerAnisotropy = 16\r\nd3d9.textureMemory = 64\r\n');
   assert.equal(mergeConf('d3d9.textureMemory=100\n# x\n', { 'd3d9.textureMemory': 64 }), 'd3d9.textureMemory = 64\n# x\n');
   assert.throws(() => parseQueue([{ id: 'a', asi: 'tested', save: 'menu', dxvkConf: { textureMemory: 64 }, run: { menuMemory: {} } }]), /dxvkConf/);
+  assert.throws(() => parseQueue([{ id: 'a', asi: 'tested', save: 'menu', d3d9Dll: '../evil.dll', run: { menuMemory: {} } }]), /d3d9Dll/);
+  assert.doesNotThrow(() => parseQueue([{ id: 'a', asi: 'tested', save: 'menu', d3d9Dll: 'tools/d3d9on12-test/out/d3d9.dll', run: { menuMemory: {} } }]));
   // S3SS.toml: dotted tables, true/false values
   const toml = '[patches.Mimalloc]\nenabled = true\n\n[patches.LotStreamingOptimizations]\nenabled = true\n';
   assert.equal(mergeIni(toml, tomlSet({ 'patches.LotStreamingOptimizations.enabled': false })), '[patches.Mimalloc]\nenabled = true\n\n[patches.LotStreamingOptimizations]\nenabled=false\n');
@@ -1539,6 +1546,7 @@ if (values['self-check']) {
   // fixesPackage (docs/196 §4 step 1: a shipped ts3fixes.package on profile/soak jobs)
   assert.equal(parseQueue([{ id: 'f4', asi: 'x', save: 'S', fixesPackage: 'game-copy/p', run: { profile: { minutes: 1 } } }])[0].fixesPackage, 'game-copy/p');
   assert.throws(() => parseQueue([{ id: 'f5', asi: 'x', save: 'S', fixesPackage: 'p', fixesBuild: 'b', run: { soak: { minutes: 1 } } }]), /fixesPackage/);
+  assert.equal(parseQueue([{ id: 'ib', asi: 'x', save: 'S', iniBase: 'game-copy/asi-v027/ts3native.ini', fixesPackage: 'game-copy/p', run: { script: ['idle-watch.ts'] } }])[0].iniBase, 'game-copy/asi-v027/ts3native.ini'); // idle-watch queue
   assert.throws(() => parseQueue([{ id: 'f6', asi: 'x', save: 'S', fixesPackage: 'p', run: { matrix: [] } }]), /fixesPackage/);
   assert.equal(parseQueue([{ id: 'f7', asi: 'x', save: 'menu', fixesPackage: 'game-copy/p', run: { repro: 'r' } }])[0].fixesPackage, 'game-copy/p'); // start-path controls
   const bdb = loadDb();
@@ -1740,12 +1748,12 @@ const installFixesPackage = (j: Job) => {
 const LOG = join(BIN, 'ts3native.log');
 // saves an age job would overwrite: <name>.sims3 and <name>-day*.sims3
 const ageClash = (j: Job) => { const n = ageName(j).toLowerCase(); return existsSync(SAVES) ? readdirSync(SAVES).filter(f => f.toLowerCase() === `${n}.sims3` || f.toLowerCase().startsWith(`${n}-day`)) : []; };
-const DEFAULT_INI = join(BIN, 'Default.ini'), S3PP_INI = join(BIN, 'Sims3Performance.ini'), S3SS_TOML = join(USER, 'S3SS', 'S3SS.toml'), DXVK_CONF = join(BIN, 'dxvk.conf');
+const DEFAULT_INI = join(BIN, 'Default.ini'), S3PP_INI = join(BIN, 'Sims3Performance.ini'), S3SS_TOML = join(USER, 'S3SS', 'S3SS.toml'), DXVK_CONF = join(BIN, 'dxvk.conf'), D3D9_DLL = join(BIN, 'd3d9.dll'), D3D9_BAK = join(BIN, 'd3d9.dll.dxvk-bak'), D3D9_PROXY_LOG = join(BIN, 'd3d9on12-proxy.log');
 const sha = (p: string) => (existsSync(p) ? createHash('sha256').update(readFileSync(p)).digest('hex').slice(0, 12) : 'missing');
 // docs/170: jobs with the same key need the same game start (what is written before the launch); reuseOf null = reuse off
 const reuseOf = (j: Job): ReuseOpts | null => parseReuse(j.reuseSession);
 const keyOf = (j: Job) => stableKey({ asi: asiPath(j), sha: sha(asiPath(j)), ini: jobIni(j) ?? {}, fixes: j.fixes ?? null, fixesPackage: j.fixesPackage ?? null, save: saveFile(saveOf(j) ?? ''), content: j.content ?? 'as-is', ccSet: j.ccSet ?? null, ccLots: j.ccLots ?? null,
-  gameArgs: j.gameArgs ?? [], defaultIni: j.defaultIni ?? null, s3ppIni: j.s3ppIni ?? null, s3ssToml: j.s3ssToml ?? null, dxvkConf: j.dxvkConf ?? null, pin: pinConfig(j.pin) ?? null });
+  gameArgs: j.gameArgs ?? [], defaultIni: j.defaultIni ?? null, s3ppIni: j.s3ppIni ?? null, s3ssToml: j.s3ssToml ?? null, dxvkConf: j.dxvkConf ?? null, d3d9Dll: j.d3d9Dll ?? null, pin: pinConfig(j.pin) ?? null });
 const itemsOf = (j: Job): ReproItem[] | null => (j.run.profile?.repros ? reproItems(j.run.profile.repros) : null);
 // the next job may take over the running game: reuse on for it, same key, a profile run that can share a load
 const canTakeOver = (key: string, next?: Job) => !!next && !!reuseOf(next) && !reuseBlock(next) && keyOf(next) === key;
@@ -1842,10 +1850,11 @@ if (values['dry-run']) {
     console.log(`  2 save guard: ${Object.entries(hashSaves(SAVES, guardedSaves(s))).map(([k, v]) => `${k} ${v}`).join(', ')} hashed before and after; a change FAILs the job and stops the queue`);
     const ji = jobIni(j);
     if (callSitesOffNote(j)) console.log(`  3 ${callSitesOffNote(j)}`);
-    if (!VANILLA) console.log(`  3 Bin/ts3native.ini = repo ini${Object.keys(ji ?? {}).length ? ` + ${Object.entries(ji!).map(([k, v]) => `${k}=${v}`).join(', ')}` : ' (unchanged)'}`);
+    if (!VANILLA) console.log(`  3 Bin/ts3native.ini = ${j.iniBase ? `iniBase ${j.iniBase}` : 'repo ini'}${Object.keys(ji ?? {}).length ? ` + ${Object.entries(ji!).map(([k, v]) => `${k}=${v}`).join(', ')}` : ' (unchanged)'}`);
     if (j.run.worldimage && !existsSync(String(ji!['WorldImage.Helper']))) console.log(`  3 ** helper MISSING: build native\\worldimage\\build.cmd; the job refuses before touching the game **`);
     if (j.defaultIni) console.log(`  3 Bin/Default.ini + ${Object.entries(j.defaultIni).map(([k, v]) => `${k}=${v}`).join(', ')}   (put back after the job)`);
     if (j.s3ppIni) console.log(`  3 Bin/Sims3Performance.ini + ${Object.entries(j.s3ppIni).map(([k, v]) => `${k}=${v}`).join(', ')}   (put back after the job)`);
+    if (j.d3d9Dll) console.log(`  3 Bin/d3d9.dll replaced by ${j.d3d9Dll}${existsSync(join(ROOT, j.d3d9Dll)) ? '' : '  ** MISSING **'}   (DXVK dll saved as d3d9.dll.dxvk-bak, put back and read back after the job)`);
     if (j.dxvkConf) console.log(`  3 Bin/dxvk.conf + ${Object.entries(j.dxvkConf).map(([k, v]) => `${k} = ${v}`).join(', ')}${existsSync(DXVK_CONF) ? '' : '  ** MISSING **'}   (put back after the job)`);
     if (j.s3ssToml) console.log(`  3 S3SS/S3SS.toml + ${Object.entries(j.s3ssToml).map(([k, v]) => `${k}=${v}`).join(', ')}${existsSync(S3SS_TOML) ? '' : '  ** MISSING **'}   (put back after the job)`);
     if (j.routingFailFast) console.log(`  5 ${describeFailFast(j.routingFailFast)}`);
@@ -2133,6 +2142,13 @@ if (pinStatePending()) log(`pin: leftover from an earlier run: ${restorePins()}`
 process.on('exit', () => { if (pinStatePending()) restorePins(); clearJob(); });
 for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(sig, () => process.exit(130));
 mkdirSync(BEFORE, { recursive: true });
+// a d3d9Dll job of a killed queue left the proxy in Bin: the DXVK dll is in d3d9.dll.dxvk-bak, put it back before anything starts
+if (!values['dry-run'] && existsSync(D3D9_BAK)) {
+  const bak = readFileSync(D3D9_BAK); writeFileSync(D3D9_DLL, bak);
+  const bad = readBack(D3D9_DLL, bak);
+  if (bad) { console.error(`could not restore the DXVK Bin/d3d9.dll from d3d9.dll.dxvk-bak (${bad})`); process.exit(4); }
+  rmSync(D3D9_BAK); log('restored the DXVK Bin/d3d9.dll from a leftover d3d9.dll.dxvk-bak (an earlier d3d9Dll run was killed)');
+}
 for (const f of ['ts3native.asi', 'ts3native.ini', 'Default.ini', 'Sims3Performance.ini', 'dxvk.conf']) if (existsSync(join(BIN, f))) copyFileSync(join(BIN, f), join(BEFORE, f));
 // vanilla: vanilla.ts moves the pair out and back (manifest + sha read-back); the pair is never copied into Bin here
 let vanillaHere = false;
@@ -2149,11 +2165,14 @@ if (VANILLA && !values['dry-run']) {
 }
 if (existsSync(S3SS_TOML)) copyFileSync(S3SS_TOML, join(BEFORE, 'S3SS.toml'));
 const repoIni = readFileSync(REPO_INI, 'utf8');
+// iniBase: a job's own base ini (path from the repo root, e.g. a release zip's ts3native.ini) instead of the repo one; job.ini still merges over it
+const baseIni = (j: Job) => (j.iniBase ? readFileSync(resolve(ROOT, j.iniBase), 'utf8') : repoIni);
 const memLine = (m: any) => (m ? `${m.commitMB}/${m.privateMB}/${m.largestFreeMB}` : '?');
 
 let prevCrashed = !!earlier.at(-1)?.crashed, stopWhy = '', exitCode = 0;
 const ledgerBlocks: string[] = [];  // mono ledger probe (docs/51, mono-ledger-report.ts): printed under the result table at the end
 // the running game and what its start changed; kept across jobs only when reuseSession lets the next job take it over (docs/170 §2)
+let d3d9Orig: Buffer | null = null; // DXVK d3d9.dll while a d3d9Dll job has the Bin swapped; not reset per job (a failed put-back must survive)
 let stopPin = () => {}, probe: ReturnType<typeof spawn> | undefined, applied = { install: [] as string[], uninstall: [] as string[] }, launched = false, defaultIniOrig: string | null = null, s3ppIniOrig: string | null = null, s3ssTomlOrig: string | null = null, dxvkConfOrig: string | null = null, stashed = false, ccInstalled = false, lotsInstalled = false;
 type Sess = { key: string; reuse: ReuseOpts | null; load: number; windows: number; logOff: number; base: WorldSnap | null; frames: string; carry?: string };
 let sess: Sess | null = null, loads = 0;
@@ -2223,7 +2242,7 @@ async function reloadGame(j: Job, logFile: string, deadline: number, why: string
   const rr = await node([H('cycle.ts'), '--restart'], logFile, noGameDeadline(deadline));
   if (rr.code !== 0) throw new Error(`reload: cycle.ts --restart exit ${rr.code}`);
   copyFileSync(asiPath(j), join(BIN, 'ts3native.asi')); // --restart installs the source build
-  writeFileSync(join(BIN, 'ts3native.ini'), mergeIni(repoIni, jobIni(j)));
+  writeFileSync(join(BIN, 'ts3native.ini'), mergeIni(baseIni(j), jobIni(j)));
   installFixesPackage(j);
   startProbe(j); stopPin = startPinner(pinConfig(j.pin));
   const ls = await node([H('cycle.ts'), '--save', saveFile(saveOf(j)!)], logFile, deadline);
@@ -2252,6 +2271,12 @@ async function restoreStart(id: string, logFile: string): Promise<string[]> {
     if (why) { stopWhy ||= why; errs.push(why); log(`${id}: ${why}`); }
   }
   defaultIniOrig = s3ppIniOrig = s3ssTomlOrig = dxvkConfOrig = null;
+  if (d3d9Orig !== null) { // the DXVK dll must never stay out of Bin: retry, read back, then drop the backup copy
+    let why = 'not tried';
+    for (let t = 0; t < 5 && why; t++) { try { writeFileSync(D3D9_DLL, d3d9Orig); why = readBack(D3D9_DLL, d3d9Orig); } catch (e) { why = String(e); } if (why) await new Promise(r => setTimeout(r, 2000)); }
+    if (why) { stopWhy ||= `could not put back the DXVK Bin/d3d9.dll (${why}); copy at Bin/d3d9.dll.dxvk-bak`; errs.push(stopWhy); log(`${id}: ${stopWhy}`); }
+    else { try { rmSync(D3D9_BAK); } catch { /* backup already gone */ } d3d9Orig = null; log(`${id}: DXVK d3d9.dll put back (read back ok)`); }
+  }
   // undo installer changes (game closed, so files are not locked); state unknown when this fails, so stop
   for (const [k, undo] of [['install', 'uninstall'], ['uninstall', 'install']] as const) {
     if (!applied[k].length) continue;
@@ -2371,7 +2396,7 @@ for (const [n, j] of jobs.entries()) {
     } else {
     installFixesPackage(j);
     copyFileSync(asiPath(j), join(BIN, 'ts3native.asi'));
-    writeFileSync(join(BIN, 'ts3native.ini'), mergeIni(repoIni, jobIni(j)));
+    writeFileSync(join(BIN, 'ts3native.ini'), mergeIni(baseIni(j), jobIni(j)));
     // ts3native appends Bin/autshadow.jsonl across loads ([AutShadow] live-drop, dry-diff, dry-sim-mis): fresh per job
     try { writeFileSync(join(BIN, 'autshadow.jsonl'), ''); } catch (e) { log(`${j.id}: truncate autshadow.jsonl: ${e}`); }
     }
@@ -2384,6 +2409,18 @@ for (const [n, j] of jobs.entries()) {
     if (j.s3ssToml) {
       if (!existsSync(S3SS_TOML)) throw new Error('s3ssToml: S3SS/S3SS.toml missing (s3ss-config not installed)');
       s3ssTomlOrig = readFileSync(S3SS_TOML, 'utf8'); writeFileSync(S3SS_TOML, mergeIni(s3ssTomlOrig, tomlSet(j.s3ssToml)));
+    }
+    if (j.d3d9Dll) {
+      const src = join(ROOT, j.d3d9Dll);
+      if (!existsSync(src)) throw new Error(`d3d9Dll missing: ${j.d3d9Dll} (build it: node tools/d3d9on12-test/build.ts)`);
+      if (d3d9Orig === null) { // first swap: backup on disk first, so a killed queue is recoverable at the next start
+        const orig = readFileSync(D3D9_DLL); writeFileSync(D3D9_BAK, orig);
+        const bad = readBack(D3D9_BAK, orig); if (bad) throw new Error(`d3d9Dll: backup of the DXVK dll failed (${bad}); Bin untouched`);
+        d3d9Orig = orig;
+      }
+      try { rmSync(D3D9_PROXY_LOG); } catch { /* none yet */ }
+      writeFileSync(D3D9_DLL, readFileSync(src));
+      log(`${j.id}: Bin/d3d9.dll = ${j.d3d9Dll} (sha ${sha(D3D9_DLL)}); DXVK dll backed up to d3d9.dll.dxvk-bak`);
     }
     if (j.dxvkConf) {
       if (!existsSync(DXVK_CONF)) throw new Error('dxvkConf: Bin/dxvk.conf missing (dxvk-conf not installed)');
@@ -2544,7 +2581,7 @@ for (const [n, j] of jobs.entries()) {
           const rr = await node([H('cycle.ts'), '--restart'], logFile, noGameDeadline(deadline));
           if (rr.code !== 0) throw new Error(`reload ${side}: cycle.ts --restart exit ${rr.code}`);
           copyFileSync(asiPath(j), join(BIN, 'ts3native.asi')); // --restart installs the source build; the job's asi and ini again
-          writeFileSync(join(BIN, 'ts3native.ini'), mergeIni(repoIni, jobIni(j)));
+          writeFileSync(join(BIN, 'ts3native.ini'), mergeIni(baseIni(j), jobIni(j)));
           startProbe(j); // shortcut: the pinner watched the first TS3W.exe only; the reload loads run unpinned (no timing measured there)
           const ls = await node([H('cycle.ts'), '--save', saveFile(name)], logFile, deadline);
           if (ls.code !== 0) throw new Error(`reload ${side}: cycle.ts --save exit ${ls.code}${ls.timedOut ? ' (timeout)' : ''}`);
@@ -2636,6 +2673,12 @@ for (const [n, j] of jobs.entries()) {
     if (c0 || c1) try { writeFileSync(row.nativeFile = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-native.json`), JSON.stringify({ before: c0, after: c1 })); }
     catch (e) { log(`${j.id}: native counter file not written: ${e}`); }
     row.counters.delta = delta(row.counters.before, row.counters.after);
+    if (j.d3d9Dll) { // proxy log: the arm is only valid when the game really went through D3D9On12
+      let pl = ''; try { pl = readFileSync(D3D9_PROXY_LOG, 'utf8'); } catch { /* none */ }
+      row.d3d9on12 = pl.trim().split(/\r?\n/).join(' | ') || 'no proxy log';
+      if (/FELL BACK/.test(pl) || !/path=9On12/.test(pl)) { const f = `d3d9on12 proxy did not take the 9On12 path (${row.d3d9on12})`; row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f; }
+      else row.verdict.push(`PASS: d3d9on12 proxy: ${row.d3d9on12}`);
+    }
     for (const f of counterGaps(j.ini ?? {}, row.counters.after)) { row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f; }
   } catch (e) { row.error = String((e as Error).message ?? e); log(`${j.id}: ${row.error}`); }
   noiseGuard = null; routeGuard = null; gateGuard = null; // modeGuard stays for the next job of a shared load

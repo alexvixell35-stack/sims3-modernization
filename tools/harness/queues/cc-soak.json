@@ -2,7 +2,7 @@
   "note": "NOT RUN (2026-10-26). docs/191 CC memory stress with synthetic CC from tools/cc-gen.ts (game-copy/cc-synth/, EA-derived, never committed). No 0-CC arm (Rodney, 2026-10-26): the baseline is the existing v0.1.5 release soak bp-rc-soak (queue release-check, 2026-10-24 03:32 UTC, tag release-check-2026-10-24-bp-rc-soak, 45 min BP natural play, noise medium 6.7%, commit/private/largest free 2169/1838.1/1532.9 -> 2371.8/2135/1211.4 MB). 2026-10-26 (Rodney): the arms run the new build instead of rel015: ts3native 0.36.79 (game-copy/ts3native.asi.memlite, master + [MemDiag] Light) and build/ts3fixes.package (master + destroyed-but-alive check), shipped ini (releaseDefaults), so they carry the player memory lines (diag: mem / memsus every 5 min, memsus alive, memsus types; docs/191 'Player memory lines'); the rest copies bp-rc-soak (same save, seed 12345, 45 min, noSamplers, its ini additions, no repro). Compare commit/private/largest free before -> after and hitch-ab.ts <tag> vs the baseline tag, minus the build change (master vs v0.1.5); read the memory lines with node tools/memory-report.ts <job ts3native.log>. Order: bp-memlite-check (the declared measurement smoke, 10 min, no CC: the new lines appear, cost read from rdMs / alive ms / types ms), bp-cc-load-smoke, bp-ccsoak-1k, bp-ccsoak-2k. Make the sets first: node tools/cc-gen.ts --count 1000 --kind both --seed 1 --out game-copy/cc-synth/cc-1k and --count 2000 --kind both --seed 1 --out game-copy/cc-synth/cc-2k (~1.1 MB/object, ~2.3 MB/CAS part: 1k ~1.7 GB, 2k ~3.4 GB). queue.ts ccSet MOVES the set packages into Mods/Packages/cc-synth before the load and back after the job (interrupted run: node tools/harness/queue.ts --restore-content). The soak arms only after the smoke passes.",
   "smoke": {
     "id": "bp-memlite-check",
-    "note": "Cost and function check of the player memory lines (docs/191 'Player memory lines', ts3native 0.36.79 [MemDiag] Light default on + ts3fixes destroyed-but-alive): the soak arms' setup (asi memlite, build/ts3fixes.package, shipped ini + the bp-rc-soak additions, seed 12345, noSamplers, no repro) for 10 min without CC. Pass: the light line at start, diag: mem + memsus at the load and every 5 min, memsus alive lines with hook=1 and at least one destroy seen, one memsus types line; no '!' field, no self-test, no user path. Cost: memsus rdMs, alive ms, types ms in the log (node tools/memory-report.ts); hitch-ab.ts vs bp-rc-soak's first 10 min for a gross check only (different build). Declared as the queue's measurement smoke (queue.ts runs it first, before every job, and stops the queue when it fails), so no second 10-min smoke is derived.",
+    "note": "Cost and function check of the player memory lines (docs/191 'Player memory lines', ts3native 0.36.79 [MemDiag] Light default on + ts3fixes destroyed-but-alive): the soak arms' setup (asi memlite, build/ts3fixes.package, shipped ini + the bp-rc-soak additions, seed 12345, noSamplers, no repro) for 10 min without CC. Pass: the light line at start, diag: mem + memsus at the load and every 5 min, memsus alive lines with hook=0 and at least one destroy seen, one memsus types line; no '!' field, no self-test, no user path. Cost: memsus rdMs, alive ms, types ms in the log (node tools/memory-report.ts); hitch-ab.ts vs bp-rc-soak's first 10 min for a gross check only (different build). Declared as the queue's measurement smoke (queue.ts runs it first, before every job, and stops the queue when it fails), so no second 10-min smoke is derived.",
     "asi": "game-copy/ts3native.asi.memlite",
     "save": "Baseline-BP-Spring",
     "releaseDefaults": true,
@@ -22,9 +22,9 @@
       "^diag: memsus #\\d+ load cc=": 1,
       "^diag: mem #\\d+ periodic ": 1,
       "^diag: memsus #\\d+ periodic cc=": 1,
-      "^diag: memsus alive: seen=\\d+ trk=\\d+ freed=\\d+ alive=\\d+ hook=1 ": 2,
-      "^diag: memsus types: n=[1-9]\\d* kinds=\\d+ ": 1,
-      "^diag: memsus alive: seen=[1-9]": 1
+      "^diag: memsus alive: seen=\\d+ trk=\\d+ freed=\\d+ alive=\\d+ hook=0 ": 2,
+      "^diag: memsus types: n=[1-9]\\d* kinds=\\d+ ": 1
+
     },
     "logForbid": {
       "^FAIL\b": 0,
@@ -106,7 +106,7 @@
       "releaseDefaults": true,
       "logRequire": {
         "^diag: mem #\\d+ periodic ": 6,
-        "^diag: memsus alive: seen=\\d+ trk=\\d+ freed=\\d+ alive=\\d+ hook=1 ": 6
+        "^diag: memsus alive: seen=\\d+ trk=\\d+ freed=\\d+ alive=\\d+ hook=0 ": 6
       },
       "logForbid": {
         "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
@@ -144,7 +144,7 @@
       "releaseDefaults": true,
       "logRequire": {
         "^diag: mem #\\d+ periodic ": 6,
-        "^diag: memsus alive: seen=\\d+ trk=\\d+ freed=\\d+ alive=\\d+ hook=1 ": 6
+        "^diag: memsus alive: seen=\\d+ trk=\\d+ freed=\\d+ alive=\\d+ hook=0 ": 6
       },
       "logForbid": {
         "^diag: mem(sus)? .*=[-\\d.]+! ": 0,

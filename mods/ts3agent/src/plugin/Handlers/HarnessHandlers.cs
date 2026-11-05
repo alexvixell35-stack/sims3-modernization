@@ -210,6 +210,7 @@ namespace Ts3Agent
                 o["routing"] = routing;
                 o["in_transit"] = InTransit(s);  // docs/202 §3.7: ts3fixes unseenfbpre walk-time hold (stuck-rule.ts: never stuck)
                 o["active_household"] = s.Household != null && s.Household == Household.ActiveHousehold;
+                if (a.Bool("motives", false) && (bool)o["active_household"]) o["motives"] = MotiveValues(s); // idle-watch.ts: needs at start and end
                 list.Add(o);
                 if (list.Count >= 400) break;
             }
