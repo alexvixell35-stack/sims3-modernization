@@ -75,6 +75,8 @@ jobs:
       - name: Run Claude
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Org-scoped keys must name a workspace. The ID is not a secret.
+          ANTHROPIC_CUSTOM_HEADERS: 'anthropic-workspace-id: wrkspc_01WcCaiMwbudHSxSPnWGPkVH'
         run: |
           npm install -g @anthropic-ai/claude-code@2.1.318
           claude -p --model claude-sonnet-5-5 --max-turns 25 \

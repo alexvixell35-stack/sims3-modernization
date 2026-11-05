@@ -4,7 +4,7 @@ This part is added to every release. It lists **everything that is switched on**
 
 **You don't need to change any settings.** Both files come set up. The setting names at the end of this page are only for testers and developers.
 
-**Works with:** The Sims 3 from **Steam** (patch 1.67) or from the **EA app** (patch 1.69.47), Windows 10 or 11. Any mix of expansion and stuff packs. Each edition has its own `ts3native` download (see [EA app version](#ea-app-version-16947)); `ts3fixes.package` is the same for both. Other versions (Origin, disc, other patches) are **not** supported: the plugin checks the game file and switches itself off, so nothing breaks, it just does nothing.
+**Works with:** The Sims 3 from **Steam** (patch 1.67), Windows 10 or 11; the EA app edition (patch 1.69.47) is coming later and has no download yet. Any mix of expansion and stuff packs. `ts3fixes.package` is the same for both. Other versions (Origin, disc, other patches) are **not** supported: the plugin checks the game file and switches itself off, so nothing breaks, it just does nothing.
 
 ## What's switched on
 
@@ -43,7 +43,7 @@ Everything else in `ts3native.ini` is **off**: experiments still being tested. L
 
 ## How to install
 
-You need two downloads from the release page: **`ts3fixes.package`** and the `ts3native` zip for your edition: **`ts3native-<version>.zip`** for Steam, **`ts3native-ea169-<version>.zip`** for the EA app. You can install just one of them if you like; they work on their own. EA app players: read [EA app version](#ea-app-version-16947) too.
+You need two downloads from the release page: **`ts3fixes.package`** and the `ts3native` zip **`ts3native-<version>.zip`** (Steam only for now; the EA app version is coming later). You can install just one of them if you like; they work on their own.
 
 1. **Close the game.**
 2. **Back up your saves.** Copy the folder `Documents\Electronic Arts\The Sims 3\` somewhere safe (it holds your saves and mods).
