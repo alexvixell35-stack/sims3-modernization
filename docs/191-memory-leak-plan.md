@@ -136,7 +136,11 @@ and never cold. The live SimBuilders hold only 0-40 of them, so the holder is so
   `rrcSampled`, `rrcRegistry`, `rrcHookNs`; the totals are updated at each line.
 - **Selftest:** a wrong vtable slot refuses; 3 + 1 AddRef, 1 Release and 2 finds by caller, sorted by net; a sampled
   object at net +1 in a 2-bucket fake registry (next `+0x18`), one freed, one at net +3.
-- **Result:** pending (one 35-min old-save run, census setup).
+- **Result (2026-11-05, `old-rrc-35`, docs/data/results/2026-11-05-alexvixell35-stack-rc-ref-callers.md):** the holder is
+  the registry. t = 300 s to 2400 s: `rcN` +100,641, the registry +96,456 (96%), 0 erases; at the end 105,262 of its
+  135,261 entries (78%) have exactly 2 references (the cache's and the registry's). A second, smaller holder outside the
+  registry: 292 of the 1,031 sampled net +1 compositors were last AddRef'd in `0xAD4250` (`Lot/CompositorManager`).
+  Hook cost 0.001% of play.
 
 ## Step 7 experiment: ResourceCache trim and Boehm heap return (2026-10-26, docs/198)
 
