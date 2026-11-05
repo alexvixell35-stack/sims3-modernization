@@ -97,8 +97,20 @@ fix 14 minutes earlier. This branch is on main after the v0.2.6 hotfix, which no
 hooks `ScriptObject.Destroy`: the Destroy and bowl parts therefore show EA dispatch, not the fix on a hooked Destroy (a run
 with memalive's hook and `KeepVirtual`, on the old save, is next). Results: `docs/data/results/2026-11-05-alexvixell35-stack-virtual-swap.md`.
 
+**The old save with memalive's hook and `KeepVirtual` (2026-11-05, run al235, 30.6 min, PASS):** ts3fixes at main 056fd22
+(v0.2.5 + #272, still hooking `ScriptObject.Destroy`) plus `KeepVirtual`, the player's mods, the same 3-bowl washes with
+zoeoe's `CustomWashDishes` as al231 (§1.2).
+- Two washes of a 3-bowl stack: all three bowls gone each time; `kCleanedOrThrewAwayObject` fired three times per wash
+  (bottom, middle, top), so `PreparedFood.Destroy` ran and `GameObject.Destroy` destroyed the bowls it contained.
+  Nothing was left at 0,0,0. In al231, without the fix, the bottom bowl sent no event and the middle one was left.
+- No exceptions: the 7 ScriptError files are status logs (WishVariety, LagScope) and ErrorTrap correction logs.
+- **New:** 7 min in, ErrorTrap's reference scan found 15 destroyed objects still referenced (`Bowl` 8, `BowlLarge` 2,
+  `CarPickup2door` 4, `MotorcycleChopper` 1) and dropped the references. No old-save run without the fix logged one.
+  [inferred] The destroys that now run (contained bowls, vehicles' overrides) leave a reference in some list, as in the
+  unmodded game; ErrorTrap clears them. Which list is not known.
+- Stuck Sims 35 (the two earlier runs of the job: 40, 28), `stuckcheck_reset` 3 (2, 2).
+
 Not tested:
 - a long run with the fix: the Destroy overrides that now run again may surface their own bugs, which the base-only
   destroy had hidden;
-- the old save's dish stacks after a wash with the fix;
 - the reaper, door and listener effects in play.
