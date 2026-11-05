@@ -264,6 +264,31 @@ function generated(f: Fix, rec: Installed): boolean {
       place(f, rec, p, () => writeFileSync(p, text.replace(re, `$1${mb * 1024 * 1024}`), 'latin1'));
       return true;
     }
+    case 'cache-overflow-budget': {
+      // the ResourceCache cold list (released resources kept for reuse, docs/190 M7 rcCold) is capped by
+      // `setProp $ResourceGroup CacheOverflowBudget`, which EA's file never sets (cold list ~10 MB); added after the CacheBudget line
+      const p = join(BIN, 'GraphicsRules.sgr');
+      const mb = Number(c.mb);
+      // shortcut: only 64 was measured (2026-11-04 A/B); 256 is a guessed ceiling for the 32-bit address space
+      if (!Number.isInteger(mb) || mb < 1 || mb > 256) throw new Error('cache-overflow-budget: config.mb must be 1..256');
+      const text = readFileSync(p, 'latin1');
+      const line = `setProp $ResourceGroup CacheOverflowBudget ${mb * 1024 * 1024}`;
+      const own = /^setProp \$ResourceGroup CacheOverflowBudget \S+/m, anchor = /^setProp \$ResourceGroup CacheBudget \S+(\r?\n)/m;
+      if (!own.test(text) && !anchor.test(text)) throw new Error('cache-overflow-budget: CacheBudget setProp not found in GraphicsRules.sgr');
+      const next = own.test(text) ? text.replace(own, () => line) : text.replace(anchor, (m, nl) => m + line + nl);
+      place(f, rec, p, () => writeFileSync(p, next, 'latin1'));
+      return true;
+    }
+    case 'dxvk-texture-memory': {
+      // virtual memory DXVK keeps mapped for locked D3D9 textures (default 100); 0 = no limit, so not allowed here
+      const p = join(BIN, 'dxvk.conf');
+      const mb = Number(c.mb);
+      // shortcut: only 64 was measured (2026-11-04 old-save runs); 16 is a guessed floor
+      if (!Number.isInteger(mb) || mb < 16 || mb > 100) throw new Error('dxvk-texture-memory: config.mb must be 16..100');
+      const next = setIni(existsSync(p) ? readFileSync(p, 'latin1') : '', { 'd3d9.textureMemory': mb });
+      place(f, rec, p, () => writeFileSync(p, next, 'latin1'));
+      return true;
+    }
     case 'user-cc':
     case 'store-repacks-test': {
       // Rodney's CC from the backup, relative paths kept (they fit Resource.cfg's folder depth); exclusions in fixes.json
