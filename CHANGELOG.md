@@ -8,7 +8,7 @@ The speed changes in this release are not timed as a set. What was checked on th
 
 ### Download
 
-- `ts3fixes.package`: put it in `DocumentsElectronic ArtsThe Sims 3ModsPackages` and replace the old one.
+- `ts3fixes.package`: put it in `Documents\Electronic Arts\The Sims 3\Mods\Packages\` and replace the old one.
 - `ts3native-v0.2.5.zip` (Steam) or `ts3native-ea169-v0.2.5.zip` (EA app): `ts3native.asi` and `ts3native.ini`; replace both.
 
 ### Faster
