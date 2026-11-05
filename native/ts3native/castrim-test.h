@@ -79,6 +79,8 @@ static void TestCasTrim() {
     *(DWORD*)keyA = 0xA0, *(DWORD*)(keyA + 8) = 0x033A1435, *(DWORD*)keyX = 0xEE;
     assert(!CtFindHook(NULL, NULL, keyA, &out) && z.ctMissed == 1);
     assert(!CtFindHook(NULL, NULL, keyX, &out) && z.ctMissed == 1);
+    CtFound(false, keyA, NULL, CT_SCAN_RET);  // the register / unregister scan's failed find of A's key: not a miss
+    assert(z.ctMissed == 1);
     // 4. the insert hook (count mode): counts, walks on its first thread only
     g_ctTid = 0, z.ctMode = 2;
     const LONG scanned = z.ctScanned;

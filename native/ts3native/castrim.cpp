@@ -127,12 +127,14 @@ static int __fastcall CtInsertHook(u8* svc, void* edx, u8* comp) {
     if (now - g_ctLogAt >= g_ctLogMs) g_ctLogAt = now, CtLog(svc);
     return r;
 }
-static bool __fastcall CtFindHook(void* cache, void* edx, const void* key, void** out) {
-    const bool r = g_ctFind(cache, edx, key, out);
+// The resource manager's "which cache holds this key" scan 0x4B0070 (only caller: the register / unregister slot 0x4B00C0,
+// manager vtable +0x5C) asks each cache with Find(key, NULL) and returns here. Its failed finds are not a Sim wanting a
+// texture: EA's erase unregisters through it, and so does the compositor's own release later (al237 / al240: all the
+// MISSED events came from here).
+static const DWORD CT_SCAN_RET = 0x004B009E;  // shortcut: with [MemDiag] RcRefCallers on, its slot hook is the caller and this test misses: run them apart
+static void CtFound(bool r, const void* key, void** out, DWORD at) {
     Ts3nCounters& z = ts3native_counters;
     const LONG mode = z.ctMode;
-    if (!mode) return r;
-    const DWORD at = (DWORD)(uintptr_t)_ReturnAddress();
     __try {
         if (r && out && *out) {
             const DWORD o = (DWORD)(uintptr_t)*out, vt = *(const DWORD*)(uintptr_t)o;
@@ -146,7 +148,7 @@ static bool __fastcall CtFindHook(void* cache, void* edx, const void* key, void*
                     }
                     t->used = now, t->cand = 0;
                 }
-        } else if (!r && key && mode == 1) {
+        } else if (!r && key && mode == 1 && at != CT_SCAN_RET) {
             const DWORD h = CtKeyHash(key);
             if (g_ctGone[h & (CT_GONE - 1)] == (LONG)h) {
                 InterlockedIncrement(&z.ctMissed);
@@ -154,6 +156,10 @@ static bool __fastcall CtFindHook(void* cache, void* edx, const void* key, void*
             }
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
+}
+static bool __fastcall CtFindHook(void* cache, void* edx, const void* key, void** out) {
+    const bool r = g_ctFind(cache, edx, key, out);
+    if (ts3native_counters.ctMode) CtFound(r, key, out, (DWORD)(uintptr_t)_ReturnAddress());
     return r;
 }
 static bool CtAlloc() {
