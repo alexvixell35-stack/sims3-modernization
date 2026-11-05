@@ -79,8 +79,9 @@ static void TestCasTrim() {
     *(DWORD*)keyA = 0xA0, *(DWORD*)(keyA + 8) = 0x033A1435, *(DWORD*)keyX = 0xEE;
     assert(!CtFindHook(NULL, NULL, keyA, &out) && z.ctMissed == 1);
     assert(!CtFindHook(NULL, NULL, keyX, &out) && z.ctMissed == 1);
-    CtFound(false, keyA, NULL, CT_SCAN_RET);  // the register / unregister scan's failed find of A's key: not a miss
+    CtFound(false, keyA, NULL, CT_SCAN_RET, NULL);  // the register / unregister scan's failed find of A's key: not a miss
     assert(z.ctMissed == 1);
+    assert(g_ctGap[0] + g_ctGap[1] + g_ctGap[2] + g_ctGap[3] + g_ctGap[4] + g_ctGap[5] >= 2);  // C's and A's finds above
     // 4. the insert hook (count mode): counts, walks on its first thread only
     g_ctTid = 0, z.ctMode = 2;
     const LONG scanned = z.ctScanned;
@@ -97,7 +98,7 @@ static void TestCasTrim() {
 
     memset((void*)&z.ctMode, 0, 10 * sizeof(LONG));
     memset(g_ct, 0, CT_SLOTS * sizeof(CtEnt)), memset((void*)g_ctGone, 0, CT_GONE * 4);
-    memset((void*)g_ctAge, 0, sizeof(g_ctAge)), g_ctEvents = 0, g_ctTid = 0, g_ctCursor = 0;
+    memset((void*)g_ctAge, 0, sizeof(g_ctAge)), memset((void*)g_ctGap, 0, sizeof(g_ctGap)), g_ctEvents = 0, g_ctTid = 0, g_ctCursor = 0;
     g_ctErase = erase0, g_ctInsert = NULL, g_ctFind = NULL, g_ctVt[0] = vt0[0], g_ctVt[1] = vt0[1], g_ctAgeMs = age0;
     g_ctBuckets = 16;
 }

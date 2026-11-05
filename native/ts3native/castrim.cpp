@@ -38,6 +38,9 @@ static const DWORD CT_SLOTS = 1 << 18, CT_GONE = 1 << 16;
 static CtEnt* g_ct;            // 4 MB, allocated when installed. shortcut: never shrinks; a full probe run skips the
 static volatile LONG* g_ctGone;  // compositor (never erased): fine while the live set is far below 262k
 static volatile LONG g_ctAge[4], g_ctEvents;  // would-miss + missed by time since the mark: < 1 min, < 10, < 60, more
+// finds by key of a known part compositor by how long it had been unused (no insert, no find): < 1 min, 1-5, 5-10, 10-30,
+// 30-60, 60+ (al243: the old save finds some again after 10+ min, so this picks a safe AgeSec, or shows there is none)
+static volatile LONG g_ctGap[6];
 
 static DWORD CtKeyHash(const void* k) {
     DWORD h = 2166136261u;
@@ -58,12 +61,17 @@ static CtEnt* CtSlot(DWORD o, bool claim) {
     }
     return NULL;
 }
-static void CtEvent(const char* what, DWORD o, DWORD at, DWORD sinceMark, DWORD age) {
+static void CtEvent(const char* what, DWORD o, DWORD at, DWORD sinceMark, DWORD age, const DWORD* sp) {
     const DWORD m = sinceMark / 60000;
     InterlockedIncrement(&g_ctAge[m < 1 ? 0 : m < 10 ? 1 : m < 60 ? 2 : 3]);
-    if (InterlockedIncrement(&g_ctEvents) <= 20)
-        Log("cas trim: %s: compositor 0x%08lX found by key from 0x%08lX, %lu s after it was marked old (unused %lu s then)", what, o, at,
-            sinceMark / 1000, age / 1000);
+    if (InterlockedIncrement(&g_ctEvents) > 20) return;
+    DWORD c[3] = {};  // the next exe .text values up the stack (as RsFindChain: a scan, stale values can show)
+    if (sp && g_rhTxHi) __try {
+            for (int i = 1, k = 0; i < 80 && k < 3; i++)
+                if (sp[i] >= g_rhTxLo && sp[i] < g_rhTxHi) c[k++] = sp[i];
+        } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    Log("cas trim: %s: compositor 0x%08lX found by key from 0x%08lX < 0x%08lX < 0x%08lX < 0x%08lX, %lu s after it was marked old "
+        "(unused %lu s then)", what, o, at, c[0], c[1], c[2], sinceMark / 1000, age / 1000);
 }
 
 // One step of the walk (the inserting thread, after EA's insert returned).
@@ -109,6 +117,8 @@ static void CtLog(const u8* svc) {
         "the mark: < 1 min %ld, < 10 %ld, < 60 %ld, more %ld); registry %lu entries; table full %ld, other-thread inserts %ld",
         z.ctMode, z.ctInserts, z.ctScanned, z.ctCand, z.ctErased, z.ctWouldMiss, z.ctMissed, g_ctAge[0], g_ctAge[1], g_ctAge[2], g_ctAge[3], n,
         z.ctFull, z.ctOtherThread);
+    Log("cas trim: re-found after unused for: < 1 min %ld, 1-5 min %ld, 5-10 %ld, 10-30 %ld, 30-60 %ld, 60+ %ld", g_ctGap[0], g_ctGap[1],
+        g_ctGap[2], g_ctGap[3], g_ctGap[4], g_ctGap[5]);
 }
 static int __fastcall CtInsertHook(u8* svc, void* edx, u8* comp) {
     const int r = g_ctInsert(svc, edx, comp);
@@ -132,7 +142,7 @@ static int __fastcall CtInsertHook(u8* svc, void* edx, u8* comp) {
 // texture: EA's erase unregisters through it, and so does the compositor's own release later (al237 / al240: all the
 // MISSED events came from here).
 static const DWORD CT_SCAN_RET = 0x004B009E;  // shortcut: with [MemDiag] RcRefCallers on, its slot hook is the caller and this test misses: run them apart
-static void CtFound(bool r, const void* key, void** out, DWORD at) {
+static void CtFound(bool r, const void* key, void** out, DWORD at, const DWORD* sp) {
     Ts3nCounters& z = ts3native_counters;
     const LONG mode = z.ctMode;
     __try {
@@ -140,11 +150,12 @@ static void CtFound(bool r, const void* key, void** out, DWORD at) {
             const DWORD o = (DWORD)(uintptr_t)*out, vt = *(const DWORD*)(uintptr_t)o;
             if (vt == g_ctVt[0] || vt == g_ctVt[1])
                 if (CtEnt* t = CtSlot(o, false)) {
-                    const DWORD now = GetTickCount();
+                    const DWORD now = GetTickCount(), last = now - t->seen < now - t->used ? t->seen : t->used, g = (now - last) / 60000;
+                    if (t->seen) InterlockedIncrement(&g_ctGap[g < 1 ? 0 : g < 5 ? 1 : g < 10 ? 2 : g < 30 ? 3 : g < 60 ? 4 : 5]);
                     if (t->cand) {
                         InterlockedIncrement(&z.ctWouldMiss);
                         const DWORD a1 = t->cand - t->seen, a2 = t->cand - t->used;
-                        CtEvent("would miss", o, at, now - t->cand, a1 < a2 ? a1 : a2);
+                        CtEvent("would miss", o, at, now - t->cand, a1 < a2 ? a1 : a2, sp);
                     }
                     t->used = now, t->cand = 0;
                 }
@@ -152,14 +163,14 @@ static void CtFound(bool r, const void* key, void** out, DWORD at) {
             const DWORD h = CtKeyHash(key);
             if (g_ctGone[h & (CT_GONE - 1)] == (LONG)h) {
                 InterlockedIncrement(&z.ctMissed);
-                CtEvent("MISSED after a trim", 0, at, 0, 0);
+                CtEvent("MISSED after a trim", 0, at, 0, 0, sp);
             }
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
 }
 static bool __fastcall CtFindHook(void* cache, void* edx, const void* key, void** out) {
     const bool r = g_ctFind(cache, edx, key, out);
-    if (ts3native_counters.ctMode) CtFound(r, key, out, (DWORD)(uintptr_t)_ReturnAddress());
+    if (ts3native_counters.ctMode) CtFound(r, key, out, (DWORD)(uintptr_t)_ReturnAddress(), (const DWORD*)_AddressOfReturnAddress());
     return r;
 }
 static bool CtAlloc() {
@@ -179,6 +190,7 @@ static void ApplyCasTrim(const wchar_t* ini) {
     g_ctMaxErase = maxErase < 1 ? 1 : maxErase > 64 ? 64 : maxErase;
     if (mode <= 0 && GetPrivateProfileIntW(L"CasTrim", L"Install", 0, ini) <= 0) return;
     if (!CtAlloc()) return (void)Log("FAIL cas trim: no memory for the tables (4.3 MB): not installed");
+    RhRanges();  // the exe .text range for the event chains
     if (!g_ctFind)
         g_ctFind = (CtFindFn)InstallDetour("ResourceCache_Find", CT_FIND, kCtFindPro, sizeof(kCtFindPro), (void*)CtFindHook, &g_ctFind);
     if (!g_ctFind) return (void)Log("FAIL cas trim: cache Find 0x%08lX not detoured: not installed", CT_FIND);
