@@ -53495,5 +53495,51 @@
         "note": "on: false, the object destroyed; invnotyet_refused +1"
       }
     ]
+  },
+  {
+    "id": "metric-skill-missing-check",
+    "bug": "MetricSkillX (a career level's skill metric) takes its skill from the career XML by name only, so a hex id or an unregistered skill leaves SkillGuid with no static skill; MetricTitle / MetricDescription then throw NullReferenceException each time the career panel fills, and FindMetricValue answers 0, below Map0, so the job loses performance to a skill nobody can learn (issue #166 build 94, docs/532)",
+    "fix": "ts3fixes MetricSkillMissing.cs: metricskillmissing (default off), docs/532",
+    "save": "Baseline-BP",
+    "note": "The agent check (MetricSkillMissingCheck) gives the first MetricSkillX of any career level the player's unregistered skill id 0xC7DB6873 for the calls (restored in a finally). Off arm: EA's NullReferenceException from MetricTitle and MetricDescription. On arm: both return text and FindMetricValue returns Map0; metricskillmissing_names +2, _values +1. Needs simler90's UPDATE242 core without the player's patches (the player's core carries build 94).",
+    "expect": "off: expect broken sees NullReferenceException twice. on: expect fixed sees text twice and Map0; metricskillmissing_names >= 2.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "metricskillmissing": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MetricSkillMissingCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: EA's NullReferenceException from the title and the description"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "metricskillmissing": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MetricSkillMissingCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: text twice, the value Map0"
+      }
+    ]
   }
 ]

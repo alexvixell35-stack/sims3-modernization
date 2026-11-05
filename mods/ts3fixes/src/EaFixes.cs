@@ -115,6 +115,9 @@ namespace Ts3Fixes
             Patch(typeof(OnlineDatingManager), "SimHasProfile", typeof(DatingProfileHook), "HasHook", "HasOrig");  // DatingProfile.cs, docs/528
             Patch(typeof(Sims3.Gameplay.Careers.Career), "LeaveJob", new Type[] { typeof(bool), typeof(Sims3.Gameplay.Careers.Career.LeaveJobReason) }, typeof(LeaveJobDisposeHook), "LeaveHook", "LeaveOrig");  // LeaveJobDispose.cs, docs/529
             Patch(typeof(Sim), "TryAddObjectToInventory", new Type[] { typeof(IGameObject) }, typeof(InvNotYetHook), "AddHook", "AddOrig");  // InvNotYet.cs, docs/531
+            Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "FindMetricValue", typeof(MetricSkillMissingHook), "ValueHook", "ValueOrig");  // MetricSkillMissing.cs, docs/532
+            Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "MetricTitle", typeof(MetricSkillMissingHook), "TitleHook", "TitleOrig");  // MetricSkillMissing.cs, docs/532
+            Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "MetricDescription", typeof(MetricSkillMissingHook), "DescHook", "DescOrig");  // MetricSkillMissing.cs, docs/532
         }
 
         // ---- ageupkeepoutfits (#100) ----
