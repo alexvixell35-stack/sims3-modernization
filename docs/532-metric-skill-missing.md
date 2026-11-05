@@ -48,7 +48,8 @@ prototype career has no owner, which would throw for another reason). On arm (`e
 Result, first run (2026-11-05, pure UPDATE242 core, Art Appraiser's first `MetricSkillX`): the off arm passed (EA's
 `NullReferenceException` from `MetricTitle` and `MetricDescription`). On the on arm both returned text, but the check's
 reflection call of `FindMetricValue` threw `TargetException` (the call, not the hook). The check now goes through the public
-`GetCurrentCalcMetric`; rerun pending.
+`GetCurrentCalcMetric`. Rerun (2026-11-05, same core): **PASS** in 10.5 min. Off: title and description threw
+`NullReferenceException`. On: both returned text, the value hook ran and the score was 0 (`metricskillmissing_names` 2).
 
 ## 4. What is left
 
