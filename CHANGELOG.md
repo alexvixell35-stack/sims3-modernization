@@ -2,6 +2,22 @@
 
 Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub release notes for that tag (`.github/workflows/build.yml`).
 
+## v0.2.7 (2026-11-05)
+
+The **EA app 1.69.47** version is now available. The Steam files are unchanged from v0.2.6.
+
+### Download
+
+- `ts3fixes.package`: unchanged from v0.2.6.
+- `ts3native-v0.2.7.zip` (Steam): `ts3native.asi` and `ts3native.ini`, unchanged from v0.2.6.
+- `ts3native-ea169-v0.2.7.zip` (EA app 1.69.47): `ts3native.asi` and `ts3native.ini`; replace both. Install steps: docs/PLAYERS.md, section "EA app version (1.69.47)".
+
+### EA app build
+
+- Made from the ea169-port branch at 703cd87, tested 11-03 on one machine, not retested with the v0.2.6 `ts3fixes.package`.
+- Tested: 18 of 18 runs passed on the EA app 1.69.47 (8 start-up checks + 10 full play-test jobs), plus a 10-job vanilla harness baseline.
+- Known issues (EA): MemDiag self-test fails (Light off); FootprintIndex 4 unmatched (off); WorldImage off (unmapped); benign handled AV in EA launcher memory (+0x67CC2); tested on one machine (Intel Xe iGPU, slim Mods), heavy CC only on Steam; ImageGuard off.
+
 ## v0.2.5 (2026-11-05)
 
 The speed changes in this release are not timed as a set. What was checked on the release build: a back-to-back run on Bridgeport against v0.2.4 showed no regression (+1.9% iterations per second, inside the 4.4% spread between repeat runs; the machine was not quiet enough for this to count as formal timing evidence), and short smoke runs on Sunset Valley and Isla Paradiso passed.
@@ -9,7 +25,7 @@ The speed changes in this release are not timed as a set. What was checked on th
 ### Download
 
 - `ts3fixes.package`: put it in `Documents\Electronic Arts\The Sims 3\Mods\Packages\` and replace the old one.
-- `ts3native-v0.2.5.zip` (Steam only; the EA app version is coming later): `ts3native.asi` and `ts3native.ini`; replace both.
+- `ts3native-v0.2.5.zip` (Steam) or `ts3native-ea169-v0.2.5.zip` (EA app): `ts3native.asi` and `ts3native.ini`; replace both.
 
 ### Faster
 

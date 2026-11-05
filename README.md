@@ -2,11 +2,11 @@
 
 Make The Sims 3 run well on modern PCs: less in-game stutter, fewer Error 12 (out of address space) crashes, and room for heavy store content and custom content (CC). First we collect and measure what the community fixes already do, then we reverse engineer the game and build our own fixes where those fall short: a C# script mod, a native ASI plugin, and the test tools to prove each change.
 
-Target: The Sims 3 **Steam** edition, patch 1.67, all expansion and stuff packs, Windows 10/11. The current release is Steam only; the **EA app** edition (patch 1.69.47) is coming later and has no download yet. Origin, disc and other patches are not supported.
+Target: The Sims 3 **Steam** edition, patch 1.67, all expansion and stuff packs, Windows 10/11. Since v0.2.5 also the **EA app** edition, patch 1.69.47: take `ts3native-ea169-<version>.zip` instead of the Steam zip, put it in `C:\Program Files\EA Games\The Sims 3\Game\Bin` and start the game from the EA app ([EA app install](docs/PLAYERS.md#ea-app-version-16947)). Origin, disc and other patches are not supported.
 
 **Just want to play with the fixes?** Download the latest [release](https://github.com/rodneypantonial/sims3-modernization/releases) and follow [docs/PLAYERS.md](docs/PLAYERS.md): what's switched on, and how to install it in a few steps.
 
-**Status:** research project. Latest release: **v0.2.5** (2026-11-05): cheaper animation for Sims you cannot see, a cheaper held-action check, a fix for a rare memory runaway at game start, crash fixes for custom-content meshes without a material and for Isla Paradiso routing, fixes for paired socials, rabbit hole doors and saves with a removed service. Results are measured on one laptop (i7-11800H, 32 GB, RTX 3070 Laptop GPU). They are not yet confirmed on other machines; that is one of the things contributors can help with.
+**Status:** research project. Latest release: **v0.2.7** (2026-11-05): EA app 1.69.47 version, Steam files unchanged. Before it, **v0.2.6** (2026-11-05): hotfix for the freeze and crash on the fifth Power Cell and for skipped object cleanup, not run in the game yet. Before it, **v0.2.5** (2026-11-05): cheaper animation for Sims you cannot see, a cheaper held-action check, a fix for a rare memory runaway at game start, crash fixes for custom-content meshes without a material and for Isla Paradiso routing, fixes for paired socials, rabbit hole doors and saves with a removed service, and EA app 1.69.47 support. Results are measured on one laptop (i7-11800H, 32 GB, RTX 3070 Laptop GPU). They are not yet confirmed on other machines; that is one of the things contributors can help with.
 
 `PLAN.md` is the source of truth for what is done, what is open and what comes next.
 

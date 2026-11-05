@@ -4,7 +4,7 @@ This part is added to every release. It lists **everything that is switched on**
 
 **You don't need to change any settings.** Both files come set up. The setting names at the end of this page are only for testers and developers.
 
-**Works with:** The Sims 3 from **Steam** (patch 1.67), Windows 10 or 11; the EA app edition (patch 1.69.47) is coming later and has no download yet. Any mix of expansion and stuff packs. `ts3fixes.package` is the same for both. Other versions (Origin, disc, other patches) are **not** supported: the plugin checks the game file and switches itself off, so nothing breaks, it just does nothing.
+**Works with:** The Sims 3 from **Steam** (patch 1.67) or from the **EA app** (patch 1.69.47), Windows 10 or 11. Any mix of expansion and stuff packs. Each edition has its own `ts3native` download (see [EA app version](#ea-app-version-16947)); `ts3fixes.package` is the same for both. Other versions (Origin, disc, other patches) are **not** supported: the plugin checks the game file and switches itself off, so nothing breaks, it just does nothing.
 
 ## What's switched on
 
@@ -48,7 +48,7 @@ Everything else in `ts3native.ini` is **off**: experiments still being tested. L
 
 ## How to install
 
-You need two downloads from the release page: **`ts3fixes.package`** and the `ts3native` zip **`ts3native-<version>.zip`** (Steam only for now; the EA app version is coming later). You can install just one of them if you like; they work on their own.
+You need two downloads from the release page: **`ts3fixes.package`** and the `ts3native` zip for your edition: **`ts3native-<version>.zip`** for Steam, **`ts3native-ea169-<version>.zip`** for the EA app. You can install just one of them if you like; they work on their own. EA app players: read [EA app version](#ea-app-version-16947) too.
 
 1. **Close the game.**
 2. **Back up your saves.** Copy the folder `Documents\Electronic Arts\The Sims 3\` somewhere safe (it holds your saves and mods).
@@ -71,8 +71,6 @@ You need two downloads from the release page: **`ts3fixes.package`** and the `ts
 6. **Check it works:** after starting the game, `Game\Bin` has a new file `ts3native.log`. For the script mod, the game's "Mod Scripts Found" message at start is a good sign.
 
 ### EA app version (1.69.47)
-
-**Not available yet:** there is no EA app download right now, only the Steam one. These notes are kept for when it ships.
 
 The steps above are the same, with these differences:
 
@@ -135,7 +133,7 @@ Tested together with DXVK, Sims 3 Settings Setter, NRaas (ErrorTrap, Overwatch),
 
 ## Help port to the EA app version
 
-The fixes are built for Steam 1.67; the EA app 1.69.47 port is in progress. If you own another version (**Origin**, disc, or an EA app patch other than 1.69.47), you can help port them without sending any game files:
+The fixes are built for Steam 1.67 and EA app 1.69.47. If you own another version (**Origin**, disc, or an EA app patch other than 1.69.47), you can help port them without sending any game files:
 
 1. Download `Sims3PortProbe.ps1`, `port-sigs.txt` and `Run-PortProbe.cmd` from `tools/port-probe/` (or the release zip) into one folder.
 2. Start the game and wait for the **main menu**. Then double-click `Run-PortProbe.cmd` (no admin needed). It reads the running game's code in memory, read only, and after about a minute writes `Sims3PortReport-xxxxxxxx.zip` to your Desktop. Close the game afterwards as usual.
