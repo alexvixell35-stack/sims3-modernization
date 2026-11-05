@@ -147,6 +147,8 @@ All numbers come from one machine and one set of saves. Treat percentages as "th
 
 Just want our fixes? Download them from the [releases](https://github.com/rodneypantonial/sims3-modernization/releases) page and follow **[docs/PLAYERS.md](docs/PLAYERS.md)** (copy the script mod into `Mods\Packages`, the native plugin into `Game\Bin`; about five minutes). Every release lists everything that is switched on.
 
+Using other mods? See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for the static compatibility scan of 49 popular mods.
+
 ## Quick start: full test install
 
 The steps below set up the full test install (community fixes layer plus `ts3fixes`), the one contributors and testers use.

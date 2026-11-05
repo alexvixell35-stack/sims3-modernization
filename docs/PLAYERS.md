@@ -125,6 +125,8 @@ This is a **test feature**: it is off in the release and still being tested. Not
 
 ### Other mods
 
+Which mods overlap with ours (static code scan, not in-game tests): [COMPATIBILITY.md](COMPATIBILITY.md).
+
 If you use NRaas Overwatch and notice a half-second freeze about once per game day, turn off City Hall > NRaas > Overwatch > Settings > Clean up Inventory. That nightly job looks up the name of every inventory item; with it off, broken or orphaned inventory items are no longer removed. The setting is saved per save game.
 
 Tiny UI Fix is not supported yet in this release: with it installed, the Mono speed-up (AutShadow) may switch itself off. The game still works; you just don't get that speed-up.

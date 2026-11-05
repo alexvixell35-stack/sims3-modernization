@@ -256,3 +256,59 @@ All GitHub facts come from the GitHub REST API and raw READMEs/docs read on 2026
 
 ## Added 2026-11-05 (D3D9On12 test, queue d3d9on12-ab)
 - **ForceD3D9On12 (narzoul)**: https://github.com/narzoul/ForceD3D9On12, licence 0BSD, has x86 and x64 builds. DLL wrappers for DirectX 1-9 that disable the GPU vendor user-mode D3D9 driver so the runtime falls back to Microsoft D3D9On12. Not used: no log of the path taken and it changes the adapter query, not the API call. No Windows registry or system setting that forces D3D9On12 was found (web search 2026-11-05, standard mode, so unverified beyond that). Our own explicit proxy: tools/d3d9on12-test (Direct3DCreate9On12 with Enable9On12=TRUE; the x86 system d3d9.dll on this Windows build exports Direct3DCreate9On12 and Direct3DCreate9On12Ex, checked). Related: Microsoft D3D9On12 mirrors https://github.com/microsoft/D3D9On12 (custom builds need WinPixEventRuntime.dll and dxbcsigner.dll). docs/03 line 238 says no TS3 reports exist.
+
+## Added 2026-11-05 (compat matrix: MTS top-100 Game Mods, issue #165 scans)
+- **Verdicts in `docs/data/compat-matrix.csv` are static code overlap (compat-scan), not in-game tests.** Rows tagged `dalexlol-#165 scan 2026-11-02` come from Dalexlol's scans in issue #165 (his Mods folder, run with his compat-scan; reported, not re-run by us). Rows tagged `static scan 2026-11-05, MTS <id>` are ours.
+- Source: https://modthesims.info/downloads/ts3/414/page/1/?csort=7 (Most Downloaded, pages 1-5), fetched through the MTS helper in Rodney's own Chrome. Files kept under `game-copy/compat-mods/` (ignored), analysed statically only. License: none stated on the listing; MTS uploads default to creator terms, so reference and static analysis only, no redistribution (reported, not verified per page). Version = the title or the listing date shown below.
+
+| rank | MTS id | URL | title / version | creator | listed date |
+|---|---|---|---|---|---|
+| 1 | 579548 | https://modthesims.info/d/579548/no-stretch-children-can-series.html | 'No Stretch' Children can Series | kapaer | 6th Jul 2016 at 8:01am |
+| 2 | 438706 | https://modthesims.info/d/438706/pose-player-updated-8-22-13.html | Pose Player Updated 8-22-13 | cmomoney | updated 15th Jan 2015 at 3:05am |
+| 3 | 444692 | https://modthesims.info/d/444692/no-mosaic-patch-1-22-to-1-67-edited-01-16-2014.html | No Mosaic Patch 1.22 to 1.67 edited 01/16/2014 | velocitygrass | updated 18th Oct 2013 at 6:48am |
+| 4 | 402950 | https://modthesims.info/d/402950/weapons-system.html | Weapons System | desecrate | updated 11th Sep 2010 at 3:59am |
+| 5 | 434270 | https://modthesims.info/d/434270/xcas-core-mod-more-tattoo-locations-edit-naked-outfit-slider-hack-body-hair-more-update-5-23-16-steam-version-added.html | XCAS core mod: more tattoo locations, edit naked outfit, slider hack, body hair, more - update 5/23/16 Steam version added. | CmarNYC | updated 23rd May 2016 at 11:42pm |
+| 6 | 485285 | https://modthesims.info/d/485285/pregnancy-progress-controller-new-version-10-31-2013.html | Pregnancy Progress Controller - new version 10/31/2013 | CmarNYC | updated 31st Oct 2013 at 11:56pm |
+| 7 | 480744 | https://modthesims.info/d/480744/cigarette-smoking-mod.html | Cigarette/Smoking Mod | cmomoney | 8th Jul 2012 at 4:20am |
+| 8 | 342922 | https://modthesims.info/d/342922/no-intro.html | No Intro | Rick | 3rd Jun 2009 at 8:16am |
+| 9 | 383662 | https://modthesims.info/d/383662/book-of-talent-for-ts3-compatible-with-1-67.html | Book of Talent for TS3 *Compatible with 1.67* | treeag | 26th Dec 2009 at 7:54pm |
+| 10 | 343951 | https://modthesims.info/d/343951/no-mosaic.html | No Mosaic | Rick | 6th Jun 2009 at 7:37pm |
+| 11 | 379117 | https://modthesims.info/d/379117/no-mosaic-updated-for-1-17-2-12-3-8-4-5-5-2-6-0.html | No Mosaic updated for 1.17/2.12/3.8/4.5/5.2/6.0 | Rothchild | updated 27th Oct 2010 at 7:59pm |
+| 12 | 492102 | https://modthesims.info/d/492102/retuned-attraction-system-1-67-compatible.html | Retuned Attraction System (1.67 compatible) | Fentonparkninja | updated 17th Oct 2013 at 3:56pm |
+| 13 | 437344 | https://modthesims.info/d/437344/moar-interactions.html | Moar Interactions | Buzzler | updated 26th Jan 2015 at 12:18am |
+| 14 | 659969 | https://modthesims.info/d/659969/simler90-s-gameplay-core-mod.html | simler90's Gameplay Core Mod | simler90 | updated 20th Sep 2026 at 8:32pm |
+| 15 | 441682 | https://modthesims.info/d/441682/animation-player.html | Animation Player | cmomoney | 4th May 2011 at 5:12am |
+| 16 | 526207 | https://modthesims.info/d/526207/more-traits-for-all-ages.html | More Traits for All Ages | mikey | 4th Jun 2014 at 1:26pm |
+| 17 | 486247 | https://modthesims.info/d/486247/faster-slower-and-or-hidden-skills-updated-for-into-the-future-1-67-update-19-7-14.html | Faster/Slower and/or Hidden Skills! (Updated for Into The Future/1.67) - UPDATE: 19/7/14 | gesimz | updated 24th Jun 2013 at 9:57pm |
+| 18 | 343046 | https://modthesims.info/d/343046/hidden-traits-unlocked-updated-10-25-2013.html | Hidden Traits Unlocked *UPDATED 10/25/2013* | treeag | updated 15th Mar 2010 at 11:04am |
+| 19 | 523924 | https://modthesims.info/d/523924/the-sims-3-violence-and-aggression.html | The Sims 3 Violence And Aggression | Dramatic-Gamer | 20th Apr 2014 at 8:21pm |
+| 20 | 671632 | https://modthesims.info/d/671632/more-baby-interactions.html | More Baby Interactions | TheSweetSimmer | updated 21st Mar 2026 at 5:50am |
+| 21 | 524468 | https://modthesims.info/d/524468/the-sims-3-passion-and-romance.html | The Sims 3 Passion And Romance | Dramatic-Gamer | 3rd May 2014 at 1:28pm |
+| 22 | 372599 | https://modthesims.info/d/372599/dexter-the-bear-updated-for-patch-1-50-1-55-1-63-1-67.html | Dexter the bear - updated for patch 1.50 / 1.55 / 1.63 /1.67 | ani_ | updated 24th Feb 2013 at 3:58pm |
+| 23 | 497903 | https://modthesims.info/d/497903/no-intro-with-maxis-logo.html | No Intro with Maxis logo | ellacharmed | 7th Mar 2013 at 12:17am |
+| 24 | 471164 | https://modthesims.info/d/471164/add-any-lot-size-edited-01-16-2014.html | Add Any Lot Size (edited 01/16/2014) | velocitygrass | updated 7th Jul 2013 at 3:18pm |
+| 25 | 616566 | https://modthesims.info/d/616566/children-can-care-for-their-lil-siblings.html | Children can care for their lil' siblings | TheSweetSimmer | 19th Aug 2018 at 9:20pm |
+| 26 | 608185 | https://modthesims.info/d/608185/enhanced-witches-update-16-11-23.html | Enhanced Witches (Update 16/11/23) | PuddingFace | updated 16th Nov 2023 at 4:42pm |
+| 27 | 677256 | https://modthesims.info/d/677256/more-toddler-interactions-v3.html | More Toddler Interactions V3 | TheSweetSimmer | updated 15th Mar 2024 at 6:15am |
+| 28 | 427297 | https://modthesims.info/d/427297/05-12-jenesis-all-buyable-fish-books-fruits-mods-compatible-with-patch-1-63-1-67.html | [05/12] Jenesis' All Buyable Fish/Books/Fruits Mods (Compatible with Patch 1.63-1.67) | anak_ponti | updated 20th Oct 2011 at 3:40am |
+| 29 | 455990 | https://modthesims.info/d/455990/sims-3-online-pharmacy-control-script-pills-and-cabinets.html | Sims 3 online pharmacy control script, pills, and cabinets | lenglel | updated 24th Feb 2013 at 3:54pm |
+| 30 | 681572 | https://modthesims.info/d/681572/more-pregnancy-interactions-v2.html | More Pregnancy Interactions V2 | TheSweetSimmer | updated 9th Apr 2024 at 6:54am |
+| 31 | 482543 | https://modthesims.info/d/482543/realistically-slower-cars-taxis-and-bikes.html | Realistically Slower Cars, Taxis, and Bikes | JSimmer | 6th Aug 2012 at 2:40am |
+| 32 | 353351 | https://modthesims.info/d/353351/cooking-and-ingredients-overhaul-plants-only-version-13-12-11-updated.html | Cooking And Ingredients Overhaul!!! + Plants Only Version [13/12/11 - Updated] | BlackCat007 | updated 4th Dec 2010 at 8:40pm |
+| 33 | 383093 | https://modthesims.info/d/383093/treasure-box-compatible-with-1-67.html | Treasure Box *Compatible with 1.67* | treeag | 24th Dec 2009 at 11:54pm |
+| 34 | 529758 | https://modthesims.info/d/529758/taxi-charge-mod-updated-oct-16.html | Taxi Charge Mod (Updated Oct 16) | Sleepy-Genius | updated 16th Oct 2015 at 10:27pm |
+| 35 | 670722 | https://modthesims.info/d/670722/random-sim-fixes-2-0.html | Random Sim Fixes 2.0 | LazyDuchess | updated 23rd Apr 2023 at 4:14am |
+| 36 | 351416 | https://modthesims.info/d/351416/writing-painting-gardening-tinkering-more-fun.html | Writing, Painting, Gardening, Tinkering More Fun | joshiejack | updated 2nd Jul 2009 at 4:28am |
+| 37 | 634199 | https://modthesims.info/d/634199/snow-but-better-snow-replacement-mod.html | Snow but better! - Snow replacement mod | Lyralei | 21st Oct 2019 at 12:42am |
+| 38 | 594851 | https://modthesims.info/d/594851/baker-s-basket-plants-ingredients-and-recipes.html | Baker's Basket Plants, Ingredients and Recipes | icemunmun | 23rd May 2017 at 12:01am |
+| 39 | 691427 | https://modthesims.info/d/691427/more-romantic-interactions-v2.html | More Romantic Interactions V2 | TheSweetSimmer | updated 23rd Oct 2025 at 10:46am |
+| 40 | 548787 | https://modthesims.info/d/548787/cooking-and-ingredients-overhaul-more-nectar-ingredients.html | Cooking and Ingredients Overhaul + More Nectar Ingredients | Cinderellimouse | updated 15th Jul 2015 at 9:19pm |
+| 41 | 470223 | https://modthesims.info/d/470223/new-update-yoga-rug.html | [New UPDATE] Yoga Rug | Kitabalibar | updated 1st Mar 2012 at 7:05pm |
+| 42 | 490587 | https://modthesims.info/d/490587/now-compatible-1-67-minimum-wage-more-realistic-earnings-higher-tuition-higher-boarding-school-costs-higher-grant-money.html | [Now Compatible 1.67] Minimum Wage/More Realistic Earnings, Higher Tuition, Higher Boarding School Costs, Higher Grant Money | Madam Doofie | updated 24th Sep 2014 at 1:33pm |
+| 43 | 490536 | https://modthesims.info/d/490536/grow.html | Grow | Consort | updated 17th Sep 2013 at 10:05am |
+| 44 | 450059 | https://modthesims.info/d/450059/builder-stuff.html | Builder Stuff | Buzzler | updated 26th Jun 2016 at 3:25am |
+| 45 | 500862 | https://modthesims.info/d/500862/longer-or-shorter-pregnancies-puddles-and-more-1-67.html | Longer or Shorter Pregnancies, Puddles and More! 1.67 | AgentTexas | updated 20th Sep 2013 at 12:22pm |
+| 46 | 486695 | https://modthesims.info/d/486695/no-more-zombies-generated-at-full-moon-2-flavors.html | No More Zombies Generated At Full Moon - 2 Flavors | Personcalledjoy | 16th Sep 2012 at 5:43pm |
+| 47 | 630525 | https://modthesims.info/d/630525/deep-conversations.html | Deep Conversations | QuackGames | 25th Jul 2019 at 7:08am |
+| 48 | 459967 | https://modthesims.info/d/459967/gardener-service-v2-3-4th-may-2014.html | Gardener Service - v2.3 (4th May 2014) | douglasveiga | updated 5th May 2014 at 7:07am |
+| 86 | 529671 | https://modthesims.info/d/529671/interaction-on-sloped-terrain-enabler.html | Interaction on sloped terrain enabler | nikel23 | 29th Jul 2014 at 10:47pm |
