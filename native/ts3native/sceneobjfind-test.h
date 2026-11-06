@@ -18,8 +18,8 @@ static DWORD WINAPI SfOffMainThread(LPVOID p) {
 }
 
 static void TestSceneObjFind() {
-    static_assert(offsetof(Ts3nCounters, sfKCalls) == 0x5C34 && offsetof(Ts3nCounters, sfOffMain) == 0x5C40 && sizeof(Ts3nCounters) == 5905 * 4,
-                  "counters v908 layout after v907 (docs/registry.md)");
+    static_assert(offsetof(Ts3nCounters, sfKCalls) == 0x5CB4 && offsetof(Ts3nCounters, sfOffMain) == 0x5CC0 && sizeof(Ts3nCounters) == 5937 * 4,
+                  "counters v911 layout after the v908-v910 pad (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     static DWORD table[SF_BUCKETS + 1];
     table[SF_BUCKETS] = 0xFFFFFFFF;  // end bucket sentinel (+0x1024)

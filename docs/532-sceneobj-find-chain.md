@@ -28,14 +28,14 @@ setup it used.
 
 ## 2. Switch and counters
 
-`[SceneObjFind] Enabled=1` (default 0). Counters v908 (contributor block, `docs/registry.md`), read by `tools/probe/agent.js`:
+`[SceneObjFind] Enabled=1` (default 0). Counters v911 (contributor block, `docs/registry.md`; after a pad at 0x5C34-0x5CB3 for the v908-v910 branches), read by `tools/probe/agent.js`:
 
 | Field | Offset | Meaning |
 | --- | --- | --- |
-| `sfKCalls` | +0x5C34 | main-thread finds, in units of 1024 |
-| `sfKNodes` | +0x5C38 | nodes those finds compared, in units of 1024 |
-| `sfMaxNodes` | +0x5C3C | most nodes one find compared |
-| `sfOffMain` | +0x5C40 | finds from other threads (not walked) |
+| `sfKCalls` | +0x5CB4 | main-thread finds, in units of 1024 |
+| `sfKNodes` | +0x5CB8 | nodes those finds compared, in units of 1024 |
+| `sfMaxNodes` | +0x5CBC | most nodes one find compared |
+| `sfOffMain` | +0x5CC0 | finds from other threads (not walked) |
 
 The totals are kept in 64 bits and published in 1024 units, because a BP pan does thousands of finds per frame and a 32-bit
 node count would wrap within an hour.

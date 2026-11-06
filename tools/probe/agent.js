@@ -1680,8 +1680,9 @@ rpc.exports = {
       if (c.readS32() >= 906) f.push('icJumpMode', 'icJumped');
       // v907 [IlPatch] (docs/506 §2, docs/526, ilpatch.cpp): contributor block
       if (c.readS32() >= 907) f.push('ilpOn', 'ilpArmed', 'ilpApplied', 'ilpReused', 'ilpSkipHash', 'ilpSkipCheck', 'ilpSkipMismatch', 'ilpFaults');
-      // v908 [SceneObjFind] (docs/532, sceneobjfind.cpp): contributor block
-      if (c.readS32() >= 908) f.push('sfKCalls', 'sfKNodes', 'sfMaxNodes', 'sfOffMain');
+      // v911 [SceneObjFind] (docs/532, sceneobjfind.cpp): contributor block after the v908-v910 pad (other branches; drop the
+      // pad names when their fields land)
+      if (c.readS32() >= 911) f.push(...n('sfPadV908', 32), 'sfKCalls', 'sfKNodes', 'sfMaxNodes', 'sfOffMain');
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key

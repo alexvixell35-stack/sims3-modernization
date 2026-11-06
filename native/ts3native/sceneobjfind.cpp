@@ -1,4 +1,4 @@
-// [SceneObjFind] (docs/532), counters v908 (contributor block), observe only: how long are the chains that the scene-object
+// [SceneObjFind] (docs/532), counters v911 (contributor block), observe only: how long are the chains that the scene-object
 // hash find SceneObjMgr_FindObject 0x6FDFB0 walks? It runs per object per frame (FrameDb delta records inside the FrameDb
 // +0x48 lock, render sets, rig pose) and is the top non-idle self function in the docs/71 sampler (2.1%).
 // Find: thiscall, ecx = table, args out {node, bucket*} and key {lo, hi}, ret 8, eax = out. Fixed 0x409 buckets inline at
