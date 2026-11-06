@@ -320,13 +320,10 @@ under the first root whose stacks pass through it. What they are:
 Bug candidates from this pass. None is fixed or tested:
 
 - `GC_write 0xE4DD50`: once the log file failed to open (handle -1), a later call returns -1 without leaving the
-  critical section `0x1222580`, which `GC_stop_world` also takes. That leak cannot happen in practice: the failed open
-  goes to the abort sink `0xD707E0` (docs/118 D2), which faults on a write to address 0. **The reachable part is that
-  crash.** The log is `gc.log` in the current folder (string at `0x108DB78`). The default GC warning hook `0xE4DFA0`
-  writes through `GC_write`, so a GC warning ("Repeated allocation of very large block", "Out of Memory! Trying to
-  continue") in a folder the game cannot write ends the game at `0xD707E0`. `Game\Bin` gives Users read and execute
-  only, and the asInvoker manifest gets no VirtualStore redirect. Not checked: the game's current folder at run time,
-  and whether any run has logged a GC warning. A crash EIP in `0xD707E0`-`0xD707FF` would be this.
+  critical section `0x1222580`, which `GC_stop_world` also takes. Not reachable in a normal run: a failed open goes
+  to the abort sink `0xD707E0` (docs/118 D2) first, and GC warnings never get here, because `mono_gc_base_init`
+  sets the warn proc to `mono_gc_warning 0xE69550` at `0xE695AC` (docs/120), which logs through `mono_trace`. What
+  is left on `GC_write` is `GC_PRINT_STATS` output and paths that abort anyway.
 - `ThumbSceneObjMap_InsertUnique 0x7007B0`: after a null-tested allocation, two stores still run, so a failed
   `EA_AllocTagged` would fault. Only under address-space exhaustion. (The first read also flagged
   `ThumbSceneObj_FindAndDestroy 0x7033A0`; a second read found the node is the link inside a live object and
