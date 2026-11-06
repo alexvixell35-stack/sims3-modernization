@@ -100,5 +100,24 @@ static void TestMonoJit() {
         assert(((BlkFn)x)(0xA0, 0xA4, 0xA8, 0xAC, 0xB0, 0xB4, 0xB8, 0xBC, 0x80001234 /* B_CIP */, 3 /* B_LVL */, 0xC8) == 3);
         VirtualFree(x, 0, MEM_RELEASE);
     }
-    printf("monojit: post-pass order, unpatch after a mismatch, free-block test, install gates, long method names, lazy level push ok\n");
+    {  // a method with an EA native body (+0x24, bound in EA's transform before the post-pass) is not compiled, and a
+       // direct call site to one is not a lazy site (EA's call goes through the dispatcher's exception frame)
+        DWORD c[0x48 / 4] = {}, caller[0x18 / 4] = {}, mm[8] = {};
+        DWORD items[2] = {0, (DWORD)(uintptr_t)c};
+        caller[0x14 / 4] = (DWORD)(uintptr_t)items;
+        c[8 / 4] = (DWORD)(uintptr_t)mm, c[0x44 / 4] = 0x100;  // transformed, static
+        const unsigned short site[3] = {0xEA, 1, 0};           // call, item 1
+        const u8* got = NULL; bool guard = true;
+        assert(JitLazySite(site, 0xEA, (const u8*)caller, &got, &guard) && got == (const u8*)c && !guard);
+        c[0x24 / 4] = 0xDAE970;
+        assert(!JitLazySite(site, 0xEA, (const u8*)caller, &got, &guard));
+        JitEnt* const tab0 = g_jitTab;
+        const u8* const siteRm0 = g_jitSiteRm;
+        const int methN0 = g_jitMethN;
+        g_jitTab = (JitEnt*)items, g_jitSiteRm = NULL;  // non-NULL table: past the first gate; nothing may be read or written
+        JitCompiled((u8*)c);
+        assert(g_jitSiteRm == NULL && g_jitMethN == methN0);
+        g_jitTab = tab0, g_jitSiteRm = siteRm0;
+    }
+    printf("monojit: post-pass order, unpatch after a mismatch, free-block test, install gates, long method names, lazy level push, native-body gates ok\n");
 }

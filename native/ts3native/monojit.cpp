@@ -577,6 +577,7 @@ static bool JitLazySite(const unsigned short* ip, DWORD op, const u8* callerRm, 
         guard = (*(const unsigned short*)mm & 0x40) != 0;
     }
     if (!guard && !(fl & 0x100)) return false;  // not transformed: its frame sizes are still 0
+    if (!guard && *(const DWORD*)(c + 0x24)) return false;  // EA native body: EA's call (dispatcher 0xE525C0, its exception frame); guards: JitGuardFill
     *cOut = c, *guardOut = guard;
     return true;
 }
@@ -741,6 +742,8 @@ static unsigned short JitWord(unsigned short orig) { return orig == 0x9C ? orig 
 // compile one method: returns false (and leaves the code alone) if anything does not fit
 static void JitCompiled(u8* rm) {
     if (!g_jitTab || g_jitMethN >= JIT_METH_N) return;
+    // docs/223 §1: EA bound a native body in this transform (0xE645FF, before our post-pass): its calls take the body, not mint
+    if (*(const DWORD*)(rm + 0x24)) { JitLog("jit: has an EA native body (+0x24): not compiled"); return; }
     g_jitSiteRm = rm;
     unsigned short* code = *(unsigned short**)rm;
     int words = *(unsigned short*)(rm + 0x3A);
