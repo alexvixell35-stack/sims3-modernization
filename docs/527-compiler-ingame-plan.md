@@ -1,6 +1,6 @@
 # 527. The method compiler in the game: integration plan with the IL patcher hook (round 10 C6)
 
-Status: step 1 built, step 2 passed in game (`Direct=0` and `Direct=1`), 2026-11-06 (§8, §9; `[MonoJit]`, off by default). The rest is the
+Status: steps 1-3 done in game, 2026-11-06 (step 2 verify passed, step 3 A/B: no gain measurable) (§8, §9; `[MonoJit]`, off by default). The rest is the
 plan of 2026-11-02; every claim is tagged. Round 10, task C6: "in-game integration plan with
 #200: ts3native switch (off by default), in-game verify mode with a mismatch counter, A/B judged by script ms/s per arm
 (`arm-ms.ts`)". It supersedes rows S1 and S3 of docs/223 §7 with what rounds 8 to 10 built in monohost (docs/207 §10 to
@@ -197,3 +197,34 @@ Local queue `jit-verify-local` (not committed), `Mode=2 VerifyEvery=16`, 10 min 
 | SV | 2,560 | 1,400,284 | 0 | 3,604,108 | 6,166 | 0 |
 
   `Direct=1` uses 3.2x the code (the lazy bodies). That is 6.3 MB of the 16 MB pool.
+
+## 10. First A/B (2026-11-06, al258 / al259)
+
+Local queue `jit-ab-local` (not committed): `Install=1 Mode=1 Direct=1 HashGuard=1`, build a8881117fbfa. `--ab monojit`
+with 2-min slices, off-first and on-first per save, 10 min, quiet machine (other CPU 1.3-1.9 %), `[AutShadow]` off.
+Every log has the `monojit: switch 1: N methods patched` / `switch 0` lines, so the on arm ran compiled code
+[verified]. Arm means come from each run's seconds.csv. "threaded - route" is the Sims' script time without the
+route plans they make inside it.
+
+| Run | script (arm-ms) on - off | threaded - route on - off |
+|---|---:|---:|
+| BP off-first | -0.3 | -4.8 |
+| BP on-first | -0.1 | +11.2 |
+| IP off-first | +0.4 | -71.9 |
+| IP on-first (rerun) | -0.0 | -27.3 |
+| SV off-first | -0.2 | +6.0 |
+| SV on-first | +1.2 | +0.7 |
+
+- **No gain measurable** [measured]. The median of the right column is about -2 ms/s; one run swings ±40 ms/s, so
+  this design cannot see a change under about 20 ms/s.
+- **The script column is the wrong number for this lane** [verified: seconds.csv header]. arm-ms's `script` is a
+  ~10 ms/s column. The Mono time the compiler touches is in `threaded` (~520 ms/s without route), so §5's "script is
+  the number" should read "threaded - route".
+- **What to expect** [inferred]. docs/207 §8.3 measured these methods 5-50 % faster offline. On the list's 41 ms/s
+  of sampler self time (monojit.cpp `kMjList`), that is about 4-8 ms/s in game: under this A/B's noise floor and
+  under docs/207 §8.5's 5 ms/s bar. The bar needs the next templates in docs/207 §16.3: `call` holds 36.2 ms/s,
+  `ldfld.vt` 12.9 and `callvirt` 7.3.
+- **One hang** in the first IP on-first run [measured: hang capture]. The sim thread stayed in route post pass 16
+  (`0x64C7C0`, samples at `0x64CF22`-`0x64CF55`) through TailUnlock's `TuS16`, from Route_PlanFromPoint on the
+  houseboat gangway path. No compiled code was on the sim stack (pool `0x06100000`-`0x07100000`). The rerun with the
+  same seed passed. Cause not known; it is not attributed to `[MonoJit]` and not ruled out.
