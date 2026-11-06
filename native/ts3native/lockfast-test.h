@@ -102,9 +102,9 @@ static const HoRec& HoContended(LONG mode, DWORD* htidOut) {
 }
 static void TestLockHolders() {
     static_assert(offsetof(Ts3nCounters, hoReady) == 0x4214 && offsetof(Ts3nCounters, hoByRole) == 0x422C &&
-                  offsetof(Ts3nCounters, hoNoSite) == 0x4240 && sizeof(Ts3nCounters) == 5901 * 4, "counters v98 layout (docs/registry.md)");
+                  offsetof(Ts3nCounters, hoNoSite) == 0x4240 && sizeof(Ts3nCounters) == 5946 * 4, "counters v98 layout (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
-    assert(k.version == 907);
+    assert(k.version == 913);
     HoRing& g = ts3native_lockholders;
     const DWORD savedMain = g_mainTid, savedWorker = g_workerTid, me = GetCurrentThreadId(), inf = 0xFFFFFFFF;
     const LONG head0 = g.head, w0 = k.hoWaits[1], role0 = k.hoByRole[HO_WORKER], sim0 = k.hoWaits[0];

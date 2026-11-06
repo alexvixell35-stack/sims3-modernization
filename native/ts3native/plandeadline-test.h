@@ -92,10 +92,10 @@ static void TestPlanDeadline() {
     static_assert(offsetof(Ts3nCounters, pdMode) == 0x4244 && offsetof(Ts3nCounters, pdSessions) == 0x4254 &&
                       offsetof(Ts3nCounters, pdLines) == 0x427C && offsetof(Ts3nCounters, fmMode) == 0x4280 &&
                       offsetof(Ts3nCounters, fmInval) == 0x4298 && offsetof(Ts3nCounters, fmServedUs) == 0x42C4 &&
-                      sizeof(Ts3nCounters) == 5901 * 4,
+                      sizeof(Ts3nCounters) == 5946 * 4,
                   "counters v99 layout after v98 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
-    assert(k.version == 907);
+    assert(k.version == 913);
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     memset(&k.pdMode, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, pdMode));
     u8* code = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
@@ -217,7 +217,7 @@ static void TestPlanDeadline() {
     //     exempt even as NoStart, once; nested in an open session it cannot be: a cut there counts pdCutSc
     {
         static_assert(offsetof(Ts3nCounters, pdExemptSc) == 0x52C0 && offsetof(Ts3nCounters, pdCutSc) == 0x52C4 &&
-                          offsetof(Ts3nCounters, pdSpare) == 0x52C8 && sizeof(Ts3nCounters) == 5901 * 4,
+                          offsetof(Ts3nCounters, pdSpare) == 0x52C8 && sizeof(Ts3nCounters) == 5946 * 4,
                       "counters v135 layout after v134 (docs/registry.md)");
         g_icPlanOrig = [](u8* o, DWORD) -> u8* {
             assert(t_pdNoCut && !PdPlanBegin() && !t_pd.open && !g_pdTid);

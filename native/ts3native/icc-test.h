@@ -31,9 +31,9 @@ static void TestIdleCheckC() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, icReady) == 0x5B84 && offsetof(Ts3nCounters, icMode) == 0x5B88 &&
                       offsetof(Ts3nCounters, icShadow) == 0x5B8C && offsetof(Ts3nCounters, icFb) == 0x5BA4 &&
-                      offsetof(Ts3nCounters, icShadowMismatch) == 0x5BC8 && sizeof(Ts3nCounters) == 5901 * 4,
+                      offsetof(Ts3nCounters, icShadowMismatch) == 0x5BC8 && sizeof(Ts3nCounters) == 5946 * 4,
                   "counters v903 layout after v902 (docs/registry.md)");
-    assert(k.version == 907);
+    assert(k.version == 913);
     assert(kIcSite.site == 0x0075598B && kIcSite.target == 0x0082EDB0);
     memset(&k.icReady, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, icReady));
     const LONG gvTaken0 = k.gvTaken, gvCalls0 = k.gvCalls, gvShadow0 = k.gvShadowRuns;  // GoalValidRO's own, untouched here

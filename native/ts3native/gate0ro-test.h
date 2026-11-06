@@ -62,7 +62,7 @@ static void TestGate0Ro() {
     static_assert(offsetof(Ts3nCounters, g0Mode) == 0x3998 && offsetof(Ts3nCounters, g0Shadow) == 0x399C &&
                   offsetof(Ts3nCounters, g0Calls) == 0x39A4 && offsetof(Ts3nCounters, g0Fb) == 0x39AC &&
                   offsetof(Ts3nCounters, g0Checks) == 0x39BC && offsetof(Ts3nCounters, g0Other) == 0x39C4 &&
-                  sizeof(Ts3nCounters) == 5901 * 4, "counters v91 layout after v90 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 5946 * 4, "counters v91 layout after v90 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.g0Mode, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, g0Mode));
     const DWORD me = GetCurrentThreadId();

@@ -6,10 +6,10 @@ static void TestP6Waits() {
                       offsetof(Ts3nCounters, p6wSpanUs) == 0x4DC8 && offsetof(Ts3nCounters, p6wGateUs) == 0x4DF0 &&
                       offsetof(Ts3nCounters, p6wLost) == 0x4E70 && offsetof(Ts3nCounters, p6wServeUs) == 0x4E78 &&
                       offsetof(Ts3nCounters, p6wArmSet) == 0x51BC &&
-                      sizeof(Ts3nCounters) == 5901 * 4,
+                      sizeof(Ts3nCounters) == 5946 * 4,
                   "counters v123 layout after v122 (docs/registry.md)");
     static_assert(P6O_N * P6W_N == 30 && P6O_NONE == 5, "p6wN / p6wUs are [2 * 6 * 5], p6wJobN [2 * 5]");
-    assert(k.version == 907);
+    assert(k.version == 913);
     const size_t blk = offsetof(Ts3nCounters, p6wServeUs) + sizeof(k.p6wServeUs) - offsetof(Ts3nCounters, p6wReady);
     static u8 save[0x400];
     memcpy(save, &k.p6wReady, blk);
