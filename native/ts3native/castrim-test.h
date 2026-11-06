@@ -32,7 +32,7 @@ static void CtsKids(DWORD o) {  // B and the new one name C (its node's key) as 
 
 static void TestCasTrim() {
     static_assert(offsetof(Ts3nCounters, ctMode) == 0x5C54 && offsetof(Ts3nCounters, ctOtherThread) == 0x5C78 &&
-                      sizeof(Ts3nCounters) == 5919 * 4,
+                      sizeof(Ts3nCounters) == 5933 * 4,
                   "counters v909 layout after v908 (docs/registry.md)");
     Ts3nCounters& z = ts3native_counters;
     const CtEraseFn erase0 = g_ctErase;

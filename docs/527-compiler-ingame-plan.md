@@ -1,6 +1,7 @@
 # 527. The method compiler in the game: integration plan with the IL patcher hook (round 10 C6)
 
-Status: plan, 2026-11-02. Nothing here is built; every claim is tagged. Round 10, task C6: "in-game integration plan with
+Status: step 1 built, 2026-11-06 (§8; `[MonoJit]`, off by default; not run in game yet when written). The rest is the
+plan of 2026-11-02; every claim is tagged. Round 10, task C6: "in-game integration plan with
 #200: ts3native switch (off by default), in-game verify mode with a mismatch counter, A/B judged by script ms/s per arm
 (`arm-ms.ts`)". It supersedes rows S1 and S3 of docs/223 §7 with what rounds 8 to 10 built in monohost (docs/207 §10 to
 §16) and with the transform hook #200 / #204 put into ts3native (docs/506 §2, docs/526). Ledger: docs/51 §931.
@@ -129,3 +130,28 @@ Step 1 needs #200 / #204 merged (the detour it extends). Steps 2 to 4 are the us
 - Methods with clauses and the `throw`-out-of-callee path stay the verify blind spots named in §3.
 - A ts3fixes-side list or hash source (docs/223 §9 point 4): not needed; ts3native hashes the IL it reads at the hook.
 - UPDATE242 / simler90 cores: the hash guard covers them per method (their IL differs per method, the exe is the same).
+
+## 8. Step 1 as built (2026-11-06)
+
+- **Code**: the compiler core moved from `native/monohost/monohost-jit.cpp` to `native/ts3native/monojit.cpp`, shared by
+  both builds (monohost includes it with `MJ_MT mt::`). Same code generation [verified: the monohost selftest under
+  `MONOHOST_JIT=verify MONOHOST_MINTCALL=fast` before and after the move: 290 methods, 6,253 native ops, 1,142 exits,
+  205,680 bytes both; 2.40 M and 2.45 M verified calls, 0 mismatches both; the same 39 / 40, the one FAIL is `GM4-sweep`
+  "3 overriding types", in both builds and in the round 10 log, not the compiler].
+- **Changes to the core**, each a no-op in monohost: `JitEnter`'s fast path runs compiled code on `g_jitMainTid` only
+  (other threads: EA's handler of the original word, `jitOtherTid`); verify sampling (`VerifyEvery`, one fresh call in N
+  per method; `jitSampled`); a mismatch unpatches that method for the session (`JitUnpatchMeth`, also unpublishes its lazy
+  body); the code pool is `PAGE_EXECUTE_READ` and `PAGE_READWRITE` only inside `JitCompiled`; `JitSetup` shared.
+- **In game** (`MJ_GAME` part of monojit.cpp): a post-pass client `g_ilpPost` of ilpatch.cpp's transform detour
+  (`IlpInstallDetour`: whichever of `[IlPatch]` / `[MonoJit]` installs first); a listed method compiles on the sim thread
+  (the thread of the `SimLoopAdd` callback); one transformed elsewhere or before the first iteration is queued and
+  compiled at the end of the next iteration. The switch flips in the same callback.
+- **Gates at install**: the jump-table entry of `0x1A9` is EA's default handler `0xE596C2`; `0xE563B2` unpatched (no
+  TailWatch); in verify mode `GC_malloc_atomic 0xE4BDC0` unpatched (MonoThread P3 patches it too); the transform prologue;
+  the Simulate loop hook. Per method: ForceJIT off (`0xE5637D` = `0x75`), not compiled before, and with `HashGuard=1` an
+  IL hash in `kMjHash`.
+- **Differences from §2, §4**: counters v910, not v901 (`jitCalls` / `jitExits` dropped: the fast path counts nothing;
+  `jitHashMiss`, `jitSampled` added); the `--ab` switch is `monojit`; `kMjHash` is empty until the first run logs the
+  hashes (`HashGuard=0`), so `Enabled=1` with the default `HashGuard=1` compiles nothing yet; a fault inside the pool is
+  not named by the crash report: each "monojit: compiled" log line gives the method's code range instead.
+- **Tests**: `TestMonoJit` in selftest.exe (post-pass order, unpatch after a mismatch, install gates without the game).

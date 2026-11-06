@@ -1684,6 +1684,8 @@ rpc.exports = {
       if (c.readS32() >= 908) f.push('rrcOn', 'rrcAddRefs', 'rrcReleases', 'rrcFinds', 'rrcCallers', 'rrcSampled', 'rrcRegistry', 'rrcHookNs');
       // v909 [CasTrim] (docs/191 step 2, castrim.cpp): contributor block
       if (c.readS32() >= 909) f.push('ctMode', 'ctOn', 'ctInserts', 'ctScanned', 'ctCand', 'ctErased', 'ctWouldMiss', 'ctMissed', 'ctFull', 'ctOtherThread');
+      // v910 [MonoJit] (docs/527 step 1, monojit.cpp): contributor block
+      if (c.readS32() >= 910) f.push('jitSwitch', 'jitOn', 'jitMethods', 'jitRefused', 'jitHashMiss', 'jitVerified', 'jitMismatch', 'jitFirstBad', 'jitAbandoned', 'jitLarge', 'jitOtherTid', 'jitFaults', 'jitCodeKB', 'jitSampled');
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key

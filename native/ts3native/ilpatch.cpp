@@ -36,6 +36,7 @@ typedef BYTE*(__cdecl* IlpHeaderFn)(BYTE* mm);
 static IlpXformFn g_ilpNext;                      // EA's transform (the detour's trampoline); non-NULL = this file owns 0xE643B0
 static IlpHeaderFn g_ilpHeader = (IlpHeaderFn)(uintptr_t)IL_HEADER;
 static void (*g_ilpColdEnter)(int site, DWORD arg0);  // satb's cold-site client (SatbColdEnter), called first as its own detour did
+static void (__cdecl* g_ilpPost)(BYTE* rm, void* ctx);  // monojit.cpp's post-pass ([MonoJit]): after a transform that returned no exception
 static bool g_ilpArmed[kIlpSpecN];
 static volatile LONG g_ilpLogged[kIlpSpecN];      // the once-per-spec lines
 struct IlpPatched {  // the patched body of one spec, built at the first transform of its method
@@ -339,8 +340,7 @@ static void* IlpTransformPatched(int si, BYTE* rm, void* ctx, BYTE* hdr, bool fi
     } else InterlockedIncrement(&ts3native_counters.ilpReused);
     return r;
 }
-static void* __cdecl IlpXform(BYTE* rm, void* ctx) {
-    if (g_ilpColdEnter) g_ilpColdEnter(0, (DWORD)(uintptr_t)rm);
+static void* IlpXformFixes(BYTE* rm, void* ctx) {
     const int si = rm ? IlpMatch(rm) : -1;
     if (si < 0) return g_ilpNext(rm, ctx);
     IlpPatched& P = g_ilpPatched[si];
@@ -365,6 +365,17 @@ static void* __cdecl IlpXform(BYTE* rm, void* ctx) {
     if (!ok) return g_ilpNext(rm, ctx);
     return IlpTransformPatched(si, rm, ctx, hdr, first);
 }
+static void* __cdecl IlpXform(BYTE* rm, void* ctx) {
+    if (g_ilpColdEnter) g_ilpColdEnter(0, (DWORD)(uintptr_t)rm);
+    void* const exc = IlpXformFixes(rm, ctx);
+    if (!exc && g_ilpPost) g_ilpPost(rm, ctx);
+    return exc;
+}
+// the transform-entry detour, shared by [IlPatch] and [MonoJit] (whichever installs first); true = installed
+static bool IlpInstallDetour() {
+    if (!g_ilpNext) g_ilpNext = (IlpXformFn)InstallDetour("il patch transform 0xE643B0", IL_XFORM, kIlpXformPro, sizeof(kIlpXformPro), (void*)IlpXform, &g_ilpNext);
+    return g_ilpNext != NULL;
+}
 
 static bool ApplyIlPatch(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"IlPatch", L"Enabled", 0, ini)) return false;
@@ -375,8 +386,7 @@ static bool ApplyIlPatch(const wchar_t* ini) {
     }
     if (!armed) { Log("il patch: Enabled=1 but no fix switch is set ([IlPatch] <switch>=1 per fix): nothing to do"); return false; }
     if (!IlpShaInit()) { Log("SKIP il patch: SHA-256 (bcrypt.dll) unavailable: no fix applied"); return false; }
-    g_ilpNext = (IlpXformFn)InstallDetour("il patch transform 0xE643B0", IL_XFORM, kIlpXformPro, sizeof(kIlpXformPro), (void*)IlpXform, &g_ilpNext);
-    if (!g_ilpNext) { Log("SKIP il patch: the transform prologue differs (another mod or probe owns 0xE643B0): no fix applied"); return false; }
+    if (!IlpInstallDetour()) { Log("SKIP il patch: the transform prologue differs (another mod or probe owns 0xE643B0): no fix applied"); return false; }
     ts3native_counters.ilpOn = 1;
     ts3native_counters.ilpArmed = armed;
     Log("OK   il patch (docs/506 §2, docs/526): %d of %d fixes armed; each is applied at the first transform of its method, on an exact body hash only", armed, kIlpSpecN);
