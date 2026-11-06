@@ -35,7 +35,11 @@ static const char* JitMethodName(const u8* rm, char* buf, int n) {  // "ns.Class
     const char* ns = k ? *(const char* const*)(k + 0x38) : NULL;
     const char* cn = k ? *(const char* const*)(k + 0x34) : NULL;
     const char* mn = mm ? *(const char* const*)(mm + 0x18) : NULL;
-    sprintf_s(buf, n, "%s%s%s.%s", ns && *ns ? ns : "", ns && *ns ? "." : "", cn ? cn : "?", mn ? mn : "?");
+    // _TRUNCATE: sprintf_s on a name longer than buf (MjPost names every transformed method, explicit interface methods
+    // carry the whole generic interface name) calls the CRT's invalid-parameter handler, which ends the process with
+    // __fastfail 0xC0000409 past every filter. A cut name ends in "..." and so never matches a JitListed entry.
+    if (_snprintf_s(buf, n, _TRUNCATE, "%s%s%s.%s", ns && *ns ? ns : "", ns && *ns ? "." : "", cn ? cn : "?", mn ? mn : "?") < 0 && n > 3)
+        memcpy(buf + n - 4, "...", 4);
     return buf;
 }
 static bool JitListed(const char* full) {
@@ -579,6 +583,10 @@ static bool JitLazySite(const unsigned short* ip, DWORD op, const u8* callerRm, 
 // lazy call site. Every test EA's call path (and docs/139 McCall) makes runs before any write; any of them, or no lazy
 // body yet, takes the normal exit. In a lazy body (a chain) the depth test adds the frames pending below this one, the
 // block's level is one higher, and the return-slot word is this body's own vt cursor (its frame is not written).
+// push dword [esp + 4 + off + pushed]: word `off` of this lazy body's own block once `pushed` bytes of a new block are on the
+// stack (push [esp+d] reads at the current esp). Was 4 + B_LVL after B_VT's push: a chained site took its block's B_CIP
+// (an ip) as the level, so a third-level site's depth check compared garbage and, with ip >= 0x80000000, passed.
+static void PushOwnBlk(Em& e, int pushed, int off) { e.b(0xFF); e.b(0xB4); e.b(0x24); e.d((DWORD)(4 + off + pushed)); }
 static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* callerRm) {
     const u8* c; bool guard;
     if (!JitLazySite(ip, op, callerRm, &c, &guard)) return false;
@@ -644,7 +652,7 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
     if (guard) { e.rr(0x8B, EAX, EDX); e.b(0x03); e.b(0x15); e.d((DWORD)(uintptr_t)&gs->wVt); } else e.op(0x8D, EDX, EAX, w3E + w34);
     e.b(0x50 + EDX);                                              // B_VT = the callee's vt area start
     if (g_jitCountOn) { e.incAbs(&g_jitLazyCalls); if (lazy) e.incAbs(&g_jitLazyChain); if (guard) e.incAbs(&g_jitLazyGuard); }
-    if (lazy) { e.b(0xFF); e.b(0xB4); e.b(0x24); e.d(4 + B_LVL); e.b(0xFF); e.b(0x04); e.b(0x24); }  // B_LVL = own level + 1
+    if (lazy) { PushOwnBlk(e, 4, B_LVL); e.b(0xFF); e.b(0x04); e.b(0x24); }  // B_LVL = own level + 1 (B_VT is pushed already)
     else { e.b(0x6A); e.b(1); }                                                                      // B_LVL = 1
     e.b(0x68); e.d((DWORD)(uintptr_t)ip);                         // B_CIP
     e.b(0x50 + EDI); e.b(0x50 + EBX);                             // B_EDI, B_EBX
@@ -1879,6 +1887,8 @@ static void __cdecl MjPost(BYTE* rm, void* ctx) {
     if (!rm || !*(void**)rm) return;
     char name[256];
     __try { JitMethodName(rm, name, sizeof(name)); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    static int cutLogged;  // a cut name: the al260 0xC0000409 candidate (sprintf_s before), so the next run can confirm it
+    if (cutLogged < 5 && strlen(name) == sizeof(name) - 1 && !strcmp(name + sizeof(name) - 4, "...")) cutLogged++, Log("monojit: method name over %u chars cut: %s", (unsigned)sizeof(name) - 4, name);
     if (!JitListed(name)) return;
     EnterCriticalSection(&g_jitCs);
     if (!JitMethOf(rm) && MjHashOk(rm, name)) {

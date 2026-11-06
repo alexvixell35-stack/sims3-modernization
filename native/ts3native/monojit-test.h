@@ -67,5 +67,38 @@ static void TestMonoJit() {
         assert(!ApplyMonoJit(ini) && g_ilpPost == NULL && g_ilpNext == next0 && ts3native_counters.jitOn == 0);
         DeleteFileW(ini);
     }
-    printf("monojit: post-pass order, unpatch after a mismatch, free-block test, install gates ok\n");
+    {  // a method name longer than the buffer (MjPost names every transformed method): cut with "...", never listed, no
+       // CRT invalid-parameter __fastfail (0xC0000409, the al260 BP exit candidate), the fitting name unchanged
+        static char ns[200], cn[200], mn[] = "List`1.Add";  // an explicit interface method's name can be that long
+        memset(ns, 'N', sizeof(ns) - 1), memset(cn, 'C', sizeof(cn) - 1);
+        const char* kls[16] = {};
+        const char* meth[8] = {};
+        kls[0x34 / 4] = cn, kls[0x38 / 4] = ns, meth[2] = (const char*)kls, meth[0x18 / 4] = mn;
+        const char* rmN[4] = {};
+        rmN[2] = (const char*)meth;
+        const char* const name0 = g_jitNames[0];
+        const int nameN0 = g_jitNameN;
+        g_jitNames[0] = "List`1.Add", g_jitNameN = 1;
+        char b256[256], b96[96];
+        assert(JitMethodName((const u8*)rmN, b256, sizeof(b256)) == b256 && strlen(b256) == 255 && !strcmp(b256 + 252, "..."));
+        assert(!JitListed(b256));
+        assert(JitMethodName((const u8*)rmN, b96, sizeof(b96)) == b96 && strlen(b96) == 95 && !JitListed(b96));
+        ns[0] = 0, cn[0] = 'L', cn[1] = 0;
+        assert(!strcmp(JitMethodName((const u8*)rmN, b96, sizeof(b96)), "L.List`1.Add") && JitListed(b96));
+        g_jitNames[0] = name0, g_jitNameN = nameN0;
+    }
+    {  // a chained lazy call site copies its own block's B_LVL after B_VT's push: run the emitted push on a fake block
+       // (cdecl arguments = the block above the return address, as a lazy body's entry sees it)
+        u8* x = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+        assert(x);
+        Em e = {x};
+        e.b(0x50);                // push eax (B_VT)
+        PushOwnBlk(e, 4, B_LVL);  // push the own block's B_LVL
+        e.b(0x58); e.b(0x59); e.b(0xC3);  // pop eax; pop ecx; ret
+        typedef DWORD(__cdecl * BlkFn)(DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);
+        static_assert(B_LVL == 36 && B_CIP == 32 && B_SIZE == 44, "block layout of the call below");
+        assert(((BlkFn)x)(0xA0, 0xA4, 0xA8, 0xAC, 0xB0, 0xB4, 0xB8, 0xBC, 0x80001234 /* B_CIP */, 3 /* B_LVL */, 0xC8) == 3);
+        VirtualFree(x, 0, MEM_RELEASE);
+    }
+    printf("monojit: post-pass order, unpatch after a mismatch, free-block test, install gates, long method names, lazy level push ok\n");
 }
