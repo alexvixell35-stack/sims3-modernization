@@ -111,7 +111,11 @@ static bool TdPatch(u8* const at[3]) {
     TdRel(clear, 0xE9, at[2], &TdClearStub);
     clear[5] = 0x66, clear[6] = 0x90;
     TdRel(call, 0xE8, at[0], &TdBeginStub);
-    return Write(at[2], clear, 7) && Write(at[1], back, 13) && Write(at[0], call, 5);
+    // a failed write puts back the sites already written, so a partial patch never stays live
+    if (!Write(at[2], clear, 7)) return false;
+    if (!Write(at[1], back, 13)) { Write(at[2], kTdClear, 7); return false; }
+    if (!Write(at[0], call, 5)) { Write(at[1], kTdBack, 13); Write(at[2], kTdClear, 7); return false; }
+    return true;
 }
 
 static bool ApplyThumbDrainCap(const wchar_t* ini) {

@@ -18,6 +18,9 @@ static int TdFakeDrain(DWORD* q, DWORD& n, DWORD* out, int& nout) {
 }
 
 static void TestThumbDrainCap() {
+    // the stubs' jump targets agree with the bytes the patch matches: call rel32 -> drain, jne rel32 -> loop top, the sites' ends -> the exits
+    assert(TD_CALL + 5 + *(const LONG*)(kTdCall + 1) == TD_FN && TD_BACK + 13 + *(const LONG*)(kTdBack + 9) == TD_LOOP);
+    assert(TD_BACK + 13 == TD_EXIT && TD_CLEAR + 7 == TD_CLEAR_BACK);
     Ts3nCounters& k = ts3native_counters;
     const LONG cap0 = g_tdCap;
     const LONGLONG budget0 = g_tdBudget;
