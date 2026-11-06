@@ -52,10 +52,10 @@ static void __fastcall CfbHook(void* self, void* edx, DWORD a, DWORD b) {
     }
     LARGE_INTEGER t0, t1, f;
     QueryPerformanceCounter(&t0);
-    g_cfbTramp(self, edx, a, b);
+    __try { g_cfbTramp(self, edx, a, b); }
+    __finally { CfbDisarm((u8*)self, ms, old); }  // an exception out of the step must not leave the budget armed
     QueryPerformanceCounter(&t1);
     QueryPerformanceFrequency(&f);
-    CfbDisarm((u8*)self, ms, old);
     InterlockedIncrement(&k.cfbCalls);
     if ((t1.QuadPart - t0.QuadPart) * 1000 >= (LONGLONG)ms * f.QuadPart) InterlockedIncrement(&k.cfbHits);
 }
