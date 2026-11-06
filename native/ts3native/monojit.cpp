@@ -245,22 +245,30 @@ static void Fix(u8* rel, const u8* target) { *(int*)rel = (int)(target - (rel + 
 
 // ---- compiled method table: ip -> native (open addressing, 16-byte entries) ----
 struct JitEnt { DWORD ip; u8* native; DWORD orig; u8* rm; };
-static const DWORD JIT_TAB_N = 1 << 16;
+static const DWORD JIT_TAB_N = 1 << 18;  // JitEnter masks with 0x3FFFF
 static JitEnt* g_jitTab;  // JIT_TAB_N entries + a 4096-entry overflow tail (no wrap in the probe loop)
 static int g_jitEntN;
 static u8* g_jitCode;     // native code pool (PAGE_EXECUTE_READWRITE in the host; the game would flip RW -> RX)
 static u8* g_jitCodeEnd;
 static size_t g_jitCodeUsed;
 static bool g_jitProtect;  // game: the pool is RX except while JitCompiled writes it (compiled code runs on that thread only)
-static void JitProt(bool rw) {
-    DWORD old;
-    if (g_jitProtect) VirtualProtect(g_jitCode, (size_t)(g_jitCodeEnd - g_jitCode), rw ? PAGE_READWRITE : PAGE_EXECUTE_READ, &old);
-}
-struct JitProtScope { JitProtScope() { JitProt(true); } ~JitProtScope() { JitProt(false); } };
+struct JitProtScope {  // the pages one compile may write: twice the pool-full bound, capped at the pool end
+    u8* at;
+    size_t n;
+    JitProtScope(u8* a, size_t k) : at(a), n(k) {
+        if (at + n > g_jitCodeEnd) n = (size_t)(g_jitCodeEnd - at);
+        DWORD old;
+        if (g_jitProtect) VirtualProtect(at, n, PAGE_READWRITE, &old);
+    }
+    ~JitProtScope() { DWORD old; if (g_jitProtect) VirtualProtect(at, n, PAGE_EXECUTE_READ, &old); }
+};
 struct JitMeth { u8* rm; unsigned short* code; int words; int pos0, posN; char name[96]; int nativeOps, exitOps, bytes; bool verifyOk;
                  volatile LONG verified, mismatches, skipped, inner, seen; bool dead; };
-static JitMeth g_jitMeth[4096];
+static const int JIT_METH_N = 16384;  // the game compiles every instantiation of a listed generic (al253: 1,793 in 5 min)
+static JitMeth g_jitMeth[JIT_METH_N];
 static int g_jitMethN;
+static const int JIT_POS_N = 1 << 20;
+static const DWORD JIT_CODE_BYTES = 16 << 20;
 static unsigned short* g_jitPos;  // positions of all compiled methods (word pointers), [pos0, posN) per method
 static unsigned short* g_jitOrigW;
 static int g_jitPosN;
@@ -724,7 +732,7 @@ static void JitPreTransform(u8* rm, void* ctx) {
 static unsigned short JitWord(unsigned short orig) { return orig == 0x9C ? orig : (unsigned short)JIT_OP; }
 // compile one method: returns false (and leaves the code alone) if anything does not fit
 static void JitCompiled(u8* rm) {
-    if (!g_jitTab || g_jitMethN >= 4096) return;
+    if (!g_jitTab || g_jitMethN >= JIT_METH_N) return;
     g_jitSiteRm = rm;
     unsigned short* code = *(unsigned short**)rm;
     int words = *(unsigned short*)(rm + 0x3A);
@@ -767,7 +775,7 @@ static void JitCompiled(u8* rm) {
         if (t.kind == K_EXIT || (t.kind == K_RET && posOp[k] != 0x06 && posOp[k] != 0x07)) lazyOk = false;
     }
     if (g_jitCodeEnd - (g_jitCode + g_jitCodeUsed) < (lazyOk ? 512 : 256) * n + 512) { JitLog("jit: code pool full"); return; }
-    JitProtScope prot;
+    JitProtScope prot(g_jitCode + g_jitCodeUsed, 2 * ((size_t)(lazyOk ? 512 : 256) * n + 512));
     static u8* label[4096];
     static struct { u8* rel; int targetW; bool abs; } fix[4096];  // abs: a switch table slot takes the label itself
     static int wordToPos[65536];
@@ -1077,7 +1085,11 @@ static void JitCompiled(u8* rm) {
     g_jitLazyPass = false;
     // 3. publish: table entries for every position, then patch the opcode words (positions of EA instruction starts and
     // superop inner positions alike; inner words are never read by the superop handlers)
-    if (g_jitPosN + n > 400000 || g_jitEntN + n > (int)(JIT_TAB_N * 3 / 4)) { JitLog("jit: tables full"); return; }
+    if (g_jitPosN + n > JIT_POS_N || g_jitEntN + n > (int)(JIT_TAB_N * 3 / 4)) {
+        static bool logged;
+        if (!logged) logged = true, JitLog("jit: tables full (%d methods, %d positions, %d entries)", g_jitMethN, g_jitPosN, g_jitEntN);
+        return;
+    }
     JitMeth& M = g_jitMeth[g_jitMethN];
     M.rm = rm, M.code = code, M.words = words, M.pos0 = g_jitPosN, M.nativeOps = nat, M.exitOps = ex;
     M.bytes = (int)(e.p - (g_jitCode + g_jitCodeUsed));
@@ -1137,7 +1149,7 @@ static __declspec(naked) void JitEnter() {
     __asm {
         mov eax, edi
         shr eax, 1
-        and eax, 0xFFFF            // JIT_TAB_N - 1
+        and eax, 0x3FFFF           // JIT_TAB_N - 1
         shl eax, 4
         add eax, g_jitTab
     probe:
@@ -1222,7 +1234,7 @@ struct JitSnap {
     }
     void Restore() const { for (int i = 0; i < n; i++) memcpy(r[i].at, buf + r[i].off, r[i].n); }
 };
-struct JitV { bool active; int phase; u8* rm; JitMeth* meth; DWORD sp0, ebp, fr[6]; JitSnap *s0, *s1, *s2; u8 r1[64], r2[64]; int rn, calleeRegion; bool retried; struct JitNewSet* nw; };
+struct JitV { bool active; int phase; u8* rm; JitMeth* meth; DWORD sp0, ebp, fr[6], gc0; JitSnap *s0, *s1, *s2; u8 r1[64], r2[64]; int rn, calleeRegion; bool retried; struct JitNewSet* nw; };
 static const DWORD JIT_VD = 32;  // verified depths (snapshot buffers per depth)
 static JitV* g_jitV;           // [JIT_VD], main thread only (worker threads run compiled code unverified)
 static volatile LONG g_jvRetried, g_jvRetryOk, g_jvInner, g_jvNested, g_jvCalls, g_jvOk, g_jvMismatch, g_jvAbandoned, g_jvAllocEq, g_jvUnverified, g_jvLarge, g_jvSampled;
@@ -1232,7 +1244,7 @@ static int g_jitFirstBad;         // method index + 1 of the first mismatch
 static void JitUnpatchMeth(JitMeth* m);
 static int g_jvLogged;
 static bool g_jvQuiet;  // first attempt of a verified call: mismatches are logged only if the retry repeats them
-static char g_jvWhat[256];
+static char g_jvWhat[640];
 typedef u8* (__cdecl* GcBaseFn)(const void*);
 static const GcBaseFn GcBase = (GcBaseFn)(uintptr_t)0xE4DC30;
 static DWORD GcSize(const u8* base) {  // Boehm block size: HDR(base)->hb_sz in words (same lookup as GC_base 0xE4DC30)
@@ -1243,6 +1255,34 @@ static DWORD GcSize(const u8* base) {  // Boehm block size: HDR(base)->hb_sz in 
     DWORD words = *(const DWORD*)(uintptr_t)hdr;
     return words * 4 > 0x40000 ? 0x40000 : words * 4;
 }
+// A free Boehm block: word 0 links the next free block of the same size, or is 0 at the end of a free list (a live
+// object's word 0 is its MonoVTable, never a GC block; non-object GC memory with word 0 = 0 is treated as free too).
+// Such a block reached through a stale word is not state: snapshotted, the free-list links pulled the whole free list
+// in, a new object of the compiled pass then counted as old, and the restore wrote a link into it (al253: 2 mismatches
+// in List`1.Add / GrowIfNeeded, compiled _items = the old free-list head, interpreted = the next block)
+static volatile LONG g_jvFreeSkip, g_jvDeadSkip, g_jvGcSkip;
+static bool JitLooksFree(const u8* b, DWORD sz) {
+    const DWORD w0 = *(const DWORD*)b;
+    return !w0 || (!(w0 & 3) && w0 >= 0x10000 && GcBase((void*)(uintptr_t)w0) == (u8*)(uintptr_t)w0 && GcSize((const u8*)(uintptr_t)w0) == sz);
+}
+// EA's collector may reclaim the object during the pass, so a restore would write into memory it owns: EA defers the
+// reclaim past the mark (0xE49DA0 bumps GC_gc_no, 0xE49F10 reclaims on a later allocation) and skips blocks stamped this
+// cycle (docs/67 §22.5-22.6, gcroots.cpp GrObj / GrStamp). Header of b's page: +0x10 map (GC_invalid_map 0x11F30D8 = a
+// free block), +0x14 kind (2 / 3 uncollectable), +0x18 stamp (GC_gc_no at the last allocation), +0x1C mark bits, +0x9C
+// free bits (GC_free). Unsafe: free, or unmarked in a block not stamped this cycle (dead at the last mark, reached through
+// a stale word). Host al253 rerun: AV write 0x9C at 0xE4C223 in GC_malloc_atomic after such a restore [inferred].
+static DWORD JitGcNo() { return *(const volatile DWORD*)(uintptr_t)0x011F2F90; }
+static bool JitGcUnsafe(const u8* b) {
+    const DWORD p = (DWORD)(uintptr_t)b;
+    const DWORD* bot = *(const DWORD* const*)(uintptr_t)(0x1233318 + (p >> 22) * 4);
+    const u8* h = bot ? (const u8*)(uintptr_t)bot[(p >> 12) & 0x3FF] : NULL;
+    if ((uintptr_t)h < 0x1000 || *(const DWORD*)(h + 0x10) == *(const DWORD*)(uintptr_t)0x011F30D8) return true;
+    if (h[0x14] == 2 || h[0x14] == 3) return false;
+    const DWORD w = (p & 0xFFF) >> 2, bit = 1u << (w & 31), off = (w >> 5) * 4;
+    if (*(const DWORD*)(h + 0x9C + off) & bit) return true;
+    if (*(const DWORD*)(h + 0x1C + off) & bit) return false;
+    return *(const DWORD*)(h + 0x18) != JitGcNo();
+}
 static const u8* g_jvInv;  // the MonoInvocation being snapshotted (byref targets must lie in one of its frames' arenas)
 // add the object (or byref target) a word points at; returns the region index or -1
 static int JitSnapRef(JitSnap& s, DWORD w) {
@@ -1250,6 +1290,8 @@ static int JitSnapRef(JitSnap& s, DWORD w) {
     u8* b = GcBase((void*)(uintptr_t)w);
     if (b) {
         DWORD sz = GcSize(b);
+        if (sz && JitLooksFree(b, sz)) { g_jvFreeSkip++; return -1; }
+        if (sz && JitGcUnsafe(b)) { g_jvDeadSkip++; return -1; }
         return sz && s.Add(b, sz) ? s.n - 1 : -1;
     }
     // byref into a caller frame: only inside the arena of a frame of this activation (MonoInvocation parents); arbitrary
@@ -1281,6 +1323,8 @@ struct JitNew { DWORD p, n, off; };
 static const int JIT_NEW_N = 2048;
 struct JitNewSet { JitNew o[JIT_NEW_N]; int n; DWORD used; u8* buf; int hs[2 * JIT_NEW_N]; DWORD hg[2 * JIT_NEW_N], gen; };  // per depth
 static JitNewSet* g_jn;  // the set JitAllocEqual reads (the depth being compared)
+static const JitSnap* g_jnS0;  // its entry snapshot and collection number (mismatch line only)
+static DWORD g_jnGc0;
 static int JitNewFind(const JitNewSet& s, DWORD w) {  // index or -1 (slot live if hg == gen)
     for (DWORD i = (w >> 3) & (2 * JIT_NEW_N - 1); s.hg[i] == s.gen; i = (i + 1) & (2 * JIT_NEW_N - 1))
         if (s.o[s.hs[i]].p == w) return s.hs[i];
@@ -1353,6 +1397,28 @@ static bool JitSameBytes(const u8* x, const u8* y, DWORD n, DWORD* at) {
                       "first differing word %lu: %08lX / %08lX", a, b,
                       k, k >= 0 ? g_jn->o[k].n : 0, yb ? GcSize((const u8*)yb) : 0, xa ? xa[0] : 0, xa ? xa[1] : 0, xa ? xa[2] : 0, xa ? xa[3] : 0,
                       yb ? yb[0] : 0, yb ? yb[1] : 0, yb ? yb[2] : 0, yb ? yb[3] : 0, fk, xa && yb ? xa[fk] : 0, xa && yb ? yb[fk] : 0);
+            if (k < 0) {  // why the compiled object was not kept: its GC state, and whether the entry snapshot held it
+                const u8* ab = GcBase((void*)(uintptr_t)a);
+                int ri = -1;
+                for (int j = 0; g_jnS0 && j < g_jnS0->n && ri < 0; j++) if ((DWORD)(uintptr_t)g_jnS0->r[j].at == a) ri = j;
+                const DWORD* ew = ri >= 0 ? (const DWORD*)(g_jnS0->buf + g_jnS0->r[ri].off) : NULL;
+                int kind = -1, mark = -1, fr = -1;
+                DWORD stamp = 0;
+                __try {
+                    const DWORD* bot = *(const DWORD* const*)(uintptr_t)(0x1233318 + (a >> 22) * 4);
+                    const u8* h = bot ? (const u8*)(uintptr_t)bot[(a >> 12) & 0x3FF] : NULL;
+                    if ((uintptr_t)h >= 0x1000) {
+                        const DWORD w = (a & 0xFFF) >> 2, bit = 1u << (w & 31), off = (w >> 5) * 4;
+                        kind = h[0x14], stamp = *(const DWORD*)(h + 0x18);
+                        mark = (*(const DWORD*)(h + 0x1C + off) & bit) != 0, fr = (*(const DWORD*)(h + 0x9C + off) & bit) != 0;
+                    }
+                } __except (EXCEPTION_EXECUTE_HANDLER) {}
+                const size_t L = strlen(g_jvWhat);
+                sprintf_s(g_jvWhat + L, sizeof(g_jvWhat) - L, "; compiled object: base %08lX size %lu, entry region %d (entry words %08lX %08lX %08lX), "
+                          "gc kind %d mark %d free %d stamp %lu gc %lu now %lu; new set %d / %lu bytes",
+                          (DWORD)(uintptr_t)ab, ab ? GcSize(ab) : 0, ri, ew ? ew[0] : 0, ew ? ew[1] : 0, ew ? ew[2] : 0, kind, mark, fr, stamp,
+                          g_jnGc0, JitGcNo(), g_jn ? g_jn->n : -1, g_jn ? g_jn->used : 0);
+            }
         }
         return false;
     }
@@ -1476,6 +1542,7 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
     for (DWORD k = 0; k < depth; k++) if (g_jitV[k].active && g_jitV[k].ebp == r->ebp) outer = g_jitV[k].phase;
     if (fromExit) {  // a compiled ret
         if (!mine || v.phase != 1) return JitOrig(r, r->edi, e->orig);
+        if (JitGcNo() != v.gc0) { v.active = false, g_jvAbandoned++, g_jvGcSkip++; return JitOrig(r, r->edi, e->orig); }
         v.rn = JitRetBytes(r, e->orig, (const unsigned short*)(uintptr_t)r->edi, v.r1);
         v.s0->Take(*v.s1);
         v.nw->n = 0, v.nw->used = 0, v.nw->gen++;  // keep copies of what the compiled pass allocated (changed words that are new objects)
@@ -1518,6 +1585,7 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
         int np = rm[0x40];
         if (sargs && np) v.s0->Add(sargs, 8 * np);
         g_jvInv = inv;
+        v.gc0 = JitGcNo();
         const int walk = v.s0->n;
         JitSnapRef(*v.s0, *(const DWORD*)(inv + 0xC));  // this: object, or a byref for value-type methods
         for (int i = 0; i < np && sargs; i++) JitSnapRef(*v.s0, *(const DWORD*)(sargs + 8 * i));
@@ -1532,7 +1600,7 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
             int rn = JitRetBytes(r, e->orig, (const unsigned short*)(uintptr_t)r->edi, rb);
             v.s0->Take(*v.s2);
             g_jvQuiet = !v.retried;
-            g_jn = v.nw;
+            g_jn = v.nw, g_jnS0 = v.s0, g_jnGc0 = v.gc0;
             bool ok = true;
             DWORD at = 0;
             if (rn != v.rn || !JitSameBytes(v.r1, rb, rn, &at)) ok = false, JitVLog(v, "return value", at);
@@ -1557,6 +1625,7 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
                     sprintf_s(what, "region %d (%lu bytes, class %.60s)", i, v.s0->r[i].n, cls ? cls : "?");
                     JitVLog(v, what, at);
                 }
+            if (!ok && JitGcNo() != v.gc0) { v.active = false, g_jvAbandoned++, g_jvGcSkip++; return JitOrig(r, r->edi, e->orig); }
             if (!ok && !v.retried) {
                 // second chance from the same entry state: a one-time effect of the first compiled pass that the restore
                 // cannot undo (class init, a transform, a lazily filled cache outside the graph) is then in place for both
@@ -1650,9 +1719,9 @@ static bool JitSetup(unsigned groups, bool verify) {
             if (!strcmp(names[op], t.name)) { g_opInfo[op] = {t.kind, t.width, t.x}; break; }
     }
     g_jitTab = (JitEnt*)VirtualAlloc(NULL, sizeof(JitEnt) * (JIT_TAB_N + 4096), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    g_jitCode = (u8*)VirtualAlloc(NULL, 4 << 20, MEM_COMMIT | MEM_RESERVE, g_jitProtect ? PAGE_EXECUTE_READ : PAGE_EXECUTE_READWRITE);
-    g_jitCodeEnd = g_jitCode ? g_jitCode + (4 << 20) : NULL;
-    g_jitPos = (unsigned short*)malloc(400000 * 2), g_jitOrigW = (unsigned short*)malloc(400000 * 2);
+    g_jitCode = (u8*)VirtualAlloc(NULL, JIT_CODE_BYTES, MEM_COMMIT | MEM_RESERVE, g_jitProtect ? PAGE_EXECUTE_READ : PAGE_EXECUTE_READWRITE);
+    g_jitCodeEnd = g_jitCode ? g_jitCode + JIT_CODE_BYTES : NULL;
+    g_jitPos = (unsigned short*)malloc(JIT_POS_N * 2), g_jitOrigW = (unsigned short*)malloc(JIT_POS_N * 2);
     g_jitV = (JitV*)calloc(JIT_VD, sizeof(JitV));
     if (!g_jitTab || !g_jitCode || !g_jitPos || !g_jitOrigW || !g_jitV) return false;
     for (DWORD d = 0; d < JIT_VD && verify; d++) {
@@ -1691,13 +1760,32 @@ static const char* const kMjList[] = {
     "CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags", "List`1.Add", "List`1.get_Item", "List`1.GrowIfNeeded",
     "ObjectGuid.op_Inequality", "Slots.GetParentId", "Vector3..ctor",
 };
-// HashGuard=1: compile only a body whose IL (first 8 bytes of its SHA-256, and its size) is listed here. shortcut: empty
-// until the first logging run (HashGuard=0 logs every listed method's hash); fill from that log, then default HashGuard=1.
+// HashGuard=1: compile only a body whose IL (its size and the first 8 bytes of its SHA-256) is listed here. From al253's
+// "monojit: <name>: IL" lines (Steam 1.67 with EA's assemblies; every instantiation of a generic shares its body).
+// Another body (a core mod's, another build) runs interpreted and is logged once.
 struct MjHash { const char* name; DWORD size; BYTE sha8[8]; };
-static const MjHash kMjHash[] = {{"", 0, {0}}};
+static const MjHash kMjHash[] = {
+    {"System.RuntimeTypeHandle.get_Value", 7, {0x5f, 0x41, 0x62, 0xbe, 0x25, 0x20, 0x05, 0xf8}},
+    {"System.Collections.Generic.Dictionary`2.GetPrev", 106, {0xf8, 0xc6, 0xd0, 0x5d, 0xf8, 0xad, 0x06, 0xc3}},
+    {"System.Collections.Generic.Dictionary`2.GetSlot", 29, {0x32, 0x85, 0x37, 0xba, 0x3d, 0x18, 0x74, 0x08}},
+    {"System.Array.Copy", 501, {0x20, 0x73, 0x14, 0x55, 0x73, 0x3c, 0x4b, 0xb1}},
+    {"System.Array.Copy", 51, {0xab, 0xfe, 0x33, 0x79, 0x48, 0x1b, 0xd5, 0x86}},
+    {"Sims3.SimIFace.CAS.CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags", 977, {0x48, 0x54, 0xbf, 0x41, 0x33, 0x56, 0xe6, 0x22}},
+    {"System.Collections.Generic.List`1.Add", 51, {0x81, 0xf7, 0xe9, 0xdb, 0xba, 0xc1, 0xd4, 0x20}},
+    {"System.Collections.Generic.List`1.get_Item", 33, {0xa2, 0xc8, 0xcb, 0x7a, 0xc3, 0x59, 0x2c, 0x27}},
+    {"System.Collections.Generic.List`1.GrowIfNeeded", 47, {0xe3, 0x17, 0x4f, 0xcc, 0x41, 0xfa, 0x9f, 0xe1}},
+    {"Sims3.SimIFace.ObjectGuid.op_Inequality", 20, {0x48, 0xae, 0xc0, 0x6e, 0x96, 0x40, 0x1e, 0xf9}},
+    {"Sims3.SimIFace.Slots.GetParentId", 12, {0x9b, 0xdb, 0x3e, 0x2c, 0xe2, 0x8c, 0x56, 0x43}},
+    {"ScriptCore.Slots.GetParentId", 18, {0xd1, 0x5d, 0x10, 0x05, 0x82, 0x04, 0x8d, 0xe0}},
+    {"Sims3.SimIFace.Vector3..ctor", 22, {0x95, 0xae, 0xef, 0x4b, 0xaf, 0x9e, 0xf9, 0xe1}},
+    {"Sims3.SimIFace.Vector3..ctor", 40, {0xed, 0x5c, 0x0a, 0xf5, 0xf4, 0x81, 0x85, 0x70}},
+    {"Sims3.SimIFace.Vector3..ctor", 40, {0xfb, 0x55, 0xfb, 0xed, 0xa4, 0x0f, 0x02, 0x2f}},
+};
+static struct { DWORD size; BYTE sha8[8]; } g_mjHashLogged[64];  // bodies already logged (one line per body, not per instantiation)
+static int g_mjHashLoggedN, g_mjRefusedLogged;
 static bool g_mjHashGuard;
 static char g_mjListBuf[2048];
-static u8* g_mjDefer[256];
+static u8* g_mjDefer[4096];
 static int g_mjDeferN;
 static volatile LONG g_mjRefused, g_mjHashMiss, g_mjFaults;
 static const DWORD MJ_DEFAULT_HANDLER = 0x00E596C2;  // EA's table entry for the unused opcodes 0x1A9 / 0x1AA [verified: Steam 1.67 .text]
@@ -1727,8 +1815,11 @@ static bool MjHashOk(u8* rm, const char* name) {
     if (!got) { Log("monojit: %s: no readable IL body: not compiled", name); return false; }
     bool known = false;
     for (const MjHash& h : kMjHash) known |= h.size == size && !strcmp(h.name, name) && !memcmp(h.sha8, sha, 8);
-    if (!known) {
-        InterlockedIncrement(&g_mjHashMiss);
+    bool seen = false;
+    for (int i = 0; i < g_mjHashLoggedN && !seen; i++) seen = g_mjHashLogged[i].size == size && !memcmp(g_mjHashLogged[i].sha8, sha, 8);
+    if (!known) InterlockedIncrement(&g_mjHashMiss);
+    if (!known && !seen) {
+        if (g_mjHashLoggedN < 64) g_mjHashLogged[g_mjHashLoggedN].size = size, memcpy(g_mjHashLogged[g_mjHashLoggedN++].sha8, sha, 8);
         Log("monojit: %s: IL %lu bytes, sha256 %s: %s", name, size, IlpHex(sha, 8, hex), g_mjHashGuard ? "not a known body, not compiled (HashGuard=1)" : "not in kMjHash (HashGuard=0: compiled)");
     }
     return known || !g_mjHashGuard;
@@ -1750,7 +1841,11 @@ static void MjCompile(u8* rm, void* ctx, const char* name) {
         g_ilpPost = NULL;
         return;
     }
-    if (g_jitMethN == n0) { InterlockedIncrement(&g_mjRefused); Log("monojit: %s: refused by the compiler (see the jit: line above, if any)", name); return; }
+    if (g_jitMethN == n0) {
+        InterlockedIncrement(&g_mjRefused);
+        if (g_mjRefusedLogged++ < 20) Log("monojit: %s: refused by the compiler (see the jit: line above, if any; first 20 logged)", name);
+        return;
+    }
     const JitMeth& M = g_jitMeth[n0];
     Log("monojit: compiled %s: %d native, %d exits, code 0x%08X-0x%08X (%d bytes)%s", M.name, M.nativeOps, M.exitOps, (DWORD)(uintptr_t)at,
         (DWORD)(uintptr_t)(at + M.bytes), M.bytes, M.verifyOk ? "" : " (not verifiable: clauses or a branch to word 0)");
@@ -1767,7 +1862,7 @@ static void __cdecl MjPost(BYTE* rm, void* ctx) {
         else {
             bool queued = false;
             for (int i = 0; i < g_mjDeferN; i++) queued |= g_mjDefer[i] == rm;
-            if (!queued && g_mjDeferN < 256) g_mjDefer[g_mjDeferN++] = rm;
+            if (!queued && g_mjDeferN < 4096) g_mjDefer[g_mjDeferN++] = rm;
             else if (!queued) InterlockedIncrement(&g_mjRefused);
         }
     }

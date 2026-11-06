@@ -319,8 +319,9 @@ static void JitBenchRun() {
     if (g_jitMode == 3) {
         Log("jit verify: calls %ld, verified ok %ld, MISMATCH %ld, unverified (clauses / branch to 0) %ld, abandoned (exception) %ld, "
             "alloc-equal words %ld, nested activations unverified %ld, graph too large (compiled only) %ld, calls inside a verified "
-            "caller %ld; retried after a first-attempt difference %ld (then equal %ld)\n", g_jvCalls, g_jvOk, g_jvMismatch, g_jvUnverified,
-            g_jvAbandoned, g_jvAllocEq, g_jvNested, g_jvLarge, g_jvInner, g_jvRetried, g_jvRetryOk);
+            "caller %ld; retried after a first-attempt difference %ld (then equal %ld); snapshot skipped free blocks %ld, dead objects %ld; "
+            "a collection during the pass %ld (no restore)\n", g_jvCalls, g_jvOk, g_jvMismatch, g_jvUnverified,
+            g_jvAbandoned, g_jvAllocEq, g_jvNested, g_jvLarge, g_jvInner, g_jvRetried, g_jvRetryOk, g_jvFreeSkip, g_jvDeadSkip, g_jvGcSkip);
         for (int m = 0; m < g_jitMethN; m++)
             if (g_jitMeth[m].verified || g_jitMeth[m].mismatches || g_jitMeth[m].skipped || g_jitMeth[m].inner)
                 Log("jit verify   %-70s ok %ld mismatch %ld unverified %ld, inside a verified caller %ld\n", g_jitMeth[m].name,

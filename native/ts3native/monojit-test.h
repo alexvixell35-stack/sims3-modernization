@@ -47,6 +47,15 @@ static void TestMonoJit() {
         g_jitPos = pos0, g_jitOrigW = orig0, g_jitMethN = methN0, g_jitLazyCellN = cellN0, g_jitGuardN = guardN0;
         g_jitPatched = patched0;
     }
+    {  // free-block test of the verify snapshot (al253): word 0 = 0 is a free-list tail; a vtable-like word 0 below the GC
+       // heap is a live object (the link test calls GC_base only for a word >= 0x10000, not reached here)
+        DWORD blk[12] = {0};
+        assert(JitLooksFree((const u8*)blk, sizeof(blk)));
+        blk[0] = 0x1234, blk[3] = 7;
+        assert(!JitLooksFree((const u8*)blk, sizeof(blk)));
+        blk[0] = 0x1236;
+        assert(!JitLooksFree((const u8*)blk, sizeof(blk)));
+    }
     {  // install gates: off by default; on in a process without EA's jump table nothing is installed
         wchar_t tmp[MAX_PATH], ini[MAX_PATH];
         GetTempPathW(MAX_PATH, tmp);
@@ -58,5 +67,5 @@ static void TestMonoJit() {
         assert(!ApplyMonoJit(ini) && g_ilpPost == NULL && g_ilpNext == next0 && ts3native_counters.jitOn == 0);
         DeleteFileW(ini);
     }
-    printf("monojit: post-pass order, unpatch after a mismatch, install gates ok\n");
+    printf("monojit: post-pass order, unpatch after a mismatch, free-block test, install gates ok\n");
 }
