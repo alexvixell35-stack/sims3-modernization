@@ -1850,10 +1850,12 @@ static bool MjHashOk(u8* rm, const char* name) {
 static void MjCompile(u8* rm, void* ctx, const char* name) {
     if (JitMethOf(rm)) return;
     if (*(const u8*)(uintptr_t)0x00E5637D != 0x75) { InterlockedIncrement(&g_mjRefused); return; }  // ForceJIT: every call re-transforms
-    u8* const at = g_jitCode + g_jitCodeUsed;
-    const int n0 = g_jitMethN;
+    u8* at = NULL;
     __try {
+        // Direct=1: the pre-transform compiles listed callees first (their own MjPost); the start is taken after it
         if (ctx && g_jitLazy) JitPreTransform(rm, ctx);
+        if (JitMethOf(rm)) return;
+        at = g_jitCode + g_jitCodeUsed;
         JitCompiled(rm);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         InterlockedIncrement(&g_mjFaults);
@@ -1863,14 +1865,14 @@ static void MjCompile(u8* rm, void* ctx, const char* name) {
         g_ilpPost = NULL;
         return;
     }
-    if (g_jitMethN == n0) {
+    const JitMeth* M = JitMethOf(rm);
+    if (!M) {
         InterlockedIncrement(&g_mjRefused);
         if (g_mjRefusedLogged++ < 20) Log("monojit: %s: refused by the compiler (see the jit: line above, if any; first 20 logged)", name);
         return;
     }
-    const JitMeth& M = g_jitMeth[n0];
-    Log("monojit: compiled %s: %d native, %d exits, code 0x%08X-0x%08X (%d bytes)%s", M.name, M.nativeOps, M.exitOps, (DWORD)(uintptr_t)at,
-        (DWORD)(uintptr_t)(at + M.bytes), M.bytes, M.verifyOk ? "" : " (not verifiable: clauses or a branch to word 0)");
+    Log("monojit: compiled %s: %d native, %d exits, code 0x%08X-0x%08X (%d bytes)%s", M->name, M->nativeOps, M->exitOps, (DWORD)(uintptr_t)at,
+        (DWORD)(uintptr_t)(at + M->bytes), M->bytes, M->verifyOk ? "" : " (not verifiable: clauses or a branch to word 0)");
 }
 static void __cdecl MjPost(BYTE* rm, void* ctx) {
     JitNoteDomain(ctx);
