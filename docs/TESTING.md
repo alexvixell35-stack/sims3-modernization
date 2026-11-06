@@ -178,6 +178,8 @@ Not changed, already bounded or covered: `cycle.ts` game closed (60 s), settle (
 - New native code: test it on a dummy process that hits the same path before injecting into the game, and keep exception handlers opt-in.
 - Never enter credentials for the game or EA services during tests.
 
+**Compat evidence.** A mod's status in `docs/data/compat-matrix.csv` moves to `in our test setup` only after an in-game PASS of a job in `queues/compat-top.json`, whose repro shows the mod's overlapping behaviour working next to ours and has a negative check or a proof the mod's code ran (`compat_visit`: instance type, queue head, picked Sim arrived). Jobs only for REAL overlaps: the mod overrides or replaces a method we patch or a shipped-on feature needs. HARMLESS rows (lookups by name, off-by-default features, targets no longer patched) get no job; the `note` column says which and why.
+
 ### EA app edition
 
 The harness defaults to the Steam edition. For the EA app edition set these before `queue.ts`, `cycle.ts` or `ts3probe.py` (all optional):

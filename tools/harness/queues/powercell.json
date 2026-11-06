@@ -1,0 +1,33 @@
+{
+  "note": "Crash at 0xD7461E (docs/67 section 32): fifth Power Cell of EP11_HelpingTheTimeTraveler01. One short correctness job. Needs the agent patch that adds @portal, @powercell and power_cells (repro note). Set asi to the [AsWatch] test build (branch bugfix/crash-d7461e) before running; an asi without AsWatch runs but logs no destroy ring.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-powercell-fifth",
+      "note": "Correctness (8 min): repro powercell-fifth, fail-fast until on every step. Triggered = freeze, then destroy ring with one id or crash at 0x00D7461E. Not triggered = N/A (not our player's mods or save), with the cells gone and the portal repaired by the opportunity.",
+      "asi": "game-copy/ts3native.asi.imp1105",
+      "pinReason": "set to the AsWatch test build before running",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "ProbeSnap.Enabled": 1,
+        "MemDiag.Enabled": 1,
+        "MemDiag.AllocSites": 1,
+        "UserDiag.Enabled": 1,
+        "AsWatch.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "powercell-fifth"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 15
+    }
+  ]
+}

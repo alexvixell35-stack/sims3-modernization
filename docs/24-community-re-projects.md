@@ -261,6 +261,8 @@ All GitHub facts come from the GitHub REST API and raw READMEs/docs read on 2026
 - **Verdicts in `docs/data/compat-matrix.csv` are static code overlap (compat-scan), not in-game tests.** Rows tagged `dalexlol-#165 scan 2026-11-02` come from Dalexlol's scans in issue #165 (his Mods folder, run with his compat-scan; reported, not re-run by us). Rows tagged `static scan 2026-11-05, MTS <id>` are ours.
 - Source: https://modthesims.info/downloads/ts3/414/page/1/?csort=7 (Most Downloaded, pages 1-5), fetched through the MTS helper in Rodney's own Chrome. Files kept under `game-copy/compat-mods/` (ignored), analysed statically only. License: none stated on the listing; MTS uploads default to creator terms, so reference and static analysis only, no redistribution (reported, not verified per page). Version = the title or the listing date shown below.
 
+- Compat job `queues/compat-top.json` uses Moar Interactions (row 13, MTS 437344, Buzzler, updated 2015-01-26, no license stated: behaviour read only, `Buzz_MoarInteractions.zip` sha256 e8d26cfc..., copied from `game-copy/compat-mods/` to the manual downloads folder). No new downloads for that job [verified 2026-11-05].
+
 | rank | MTS id | URL | title / version | creator | listed date |
 |---|---|---|---|---|---|
 | 1 | 579548 | https://modthesims.info/d/579548/no-stretch-children-can-series.html | 'No Stretch' Children can Series | kapaer | 6th Jul 2016 at 8:01am |

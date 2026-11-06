@@ -1,0 +1,227 @@
+{
+  "note": "Rodney 2026-11-06: clean numbers, nothing else running. Per town ABBA (Baseline, v0.2.7, v0.2.7, Baseline). Specs copied from v027-baseline-true (Baseline) and v027-release-numbers *-v025-rel (v0.2.7, asi-v027 pair); noiseCheck on, so a noisy job reruns once.",
+  "jobs": [
+    {
+      "id": "bp-baseline-clean-1",
+      "note": "Clean numbers, BP Baseline run 1",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "bp-v027-clean-1",
+      "note": "Clean numbers, BP v0.2.7 run 1",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini"
+    },
+    {
+      "id": "bp-v027-clean-2",
+      "note": "Clean numbers, BP v0.2.7 run 2",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini"
+    },
+    {
+      "id": "bp-baseline-clean-2",
+      "note": "Clean numbers, BP Baseline run 2",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "ip-baseline-clean-1",
+      "note": "Clean numbers, IP Baseline run 1",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "ip-v027-clean-1",
+      "note": "Clean numbers, IP v0.2.7 run 1",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini"
+    },
+    {
+      "id": "ip-v027-clean-2",
+      "note": "Clean numbers, IP v0.2.7 run 2",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini"
+    },
+    {
+      "id": "ip-baseline-clean-2",
+      "note": "Clean numbers, IP Baseline run 2",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "sv-baseline-clean-1",
+      "note": "Clean numbers, SV Baseline run 1",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-SV-Spring",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "sv-v027-clean-1",
+      "note": "Clean numbers, SV v0.2.7 run 1",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini"
+    },
+    {
+      "id": "sv-v027-clean-2",
+      "note": "Clean numbers, SV v0.2.7 run 2",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini"
+    },
+    {
+      "id": "sv-baseline-clean-2",
+      "note": "Clean numbers, SV Baseline run 2",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-SV-Spring",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22
+    }
+  ],
+  "smoke": {
+    "note": "declared smoke: v0.2.7 BP, 10 min; the auto smoke copies the first (Baseline) job and queue.ts refuses reuseSession with ourMods false",
+    "asi": "game-copy/asi-v027/ts3native.asi",
+    "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+    "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+    "minCounters": 163,
+    "releaseDefaults": true,
+    "save": "Baseline-BP",
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "noSamplers": true,
+        "minutes": 10
+      }
+    },
+    "timeoutMin": 22,
+    "iniBase": "game-copy/asi-v027/ts3native.ini"
+  }
+}

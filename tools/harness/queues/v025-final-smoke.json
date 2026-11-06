@@ -1,0 +1,32 @@
+{
+  "note": "Rodney 2026-11-05: correctness/stability smoke of the v0.2.5 final set, no timing. asi rel025d (95f85108e6e2, 0.36.168) + ts3fixes rel025e (master 4060ef35, PushHeld #245) + repo ini as committed (0d9ef38c: MonoFast CallPath=0, root motion off), no ini override. Pass: no crash, no FAIL/STOP, new errors triaged; read back CallPath=0 and [UnseenRootMotion] Enabled=0 from the deployed ini.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "sv-v025-final-smoke",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025e",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": ["-disablestoryprogression"],
+      "minCounters": 163,
+      "save": "Baseline-SV-Spring",
+      "logRequire": { "ts3native 0.36.168": 1 },
+      "run": { "profile": { "minutes": 5, "seed": 12345, "noSamplers": true } },
+      "timeoutMin": 20
+    },
+    {
+      "id": "ip-v025-final-smoke",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025e",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": ["-disablestoryprogression"],
+      "minCounters": 163,
+      "save": "Baseline-IP-Spring",
+      "logRequire": { "ts3native 0.36.168": 1 },
+      "run": { "profile": { "minutes": 5, "seed": 12345, "noSamplers": true } },
+      "timeoutMin": 20
+    }
+  ]
+}

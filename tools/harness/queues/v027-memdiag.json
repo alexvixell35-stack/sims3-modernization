@@ -1,0 +1,30 @@
+{
+  "note": "Rodney 2026-11-06: owner split of the ~215-250 MB extra address space on v0.2.7. One job, BP Baseline-BP, 10 min, seed 12345, shipped v0.2.7 pair + [MemDiag] Enabled=1 Light=1 (numbers only, no self-test).",
+  "jobs": [
+    {
+      "id": "bp-v027-memdiag",
+      "note": "BP v0.2.7 with [MemDiag] Light on, owner split at 10 min",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "v0.2.7 pair as shipped",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "save": "Baseline-BP",
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1,
+        "MemDiag.Light": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22
+    }
+  ]
+}

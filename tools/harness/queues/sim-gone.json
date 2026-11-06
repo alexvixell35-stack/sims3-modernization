@@ -1,0 +1,241 @@
+{
+  "note": "sim-gone (2026-11-06): who destroys and re-creates a follower Sim mid-visit (Lala Angelista, Baseline-BP-Spring, ~14 s after the visit starts, 2 of 4 compat-top runs, with and without Moar). EA's definition only (repro compat-visit-control). 4 runs per arm, arms interleaved; each job fails at once when the Sim object is gone (failOn in the repro). Answer = sim_gone_watch records in the job log (lines 'cleanup sim_gone_watch' on FAIL, 'step sim_gone_watch' on PASS): the managed stack names the destroyer. Correctness only, no timing. Run: node tools/harness/queue.ts tools/harness/queues/sim-gone.json --no-smoke",
+  "jobs": [
+    {
+      "id": "sg-pair-1",
+      "note": "v0.2.7 pair, full test install",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as compat-top where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg-noours-1",
+      "note": "ourMods false: no ts3native, no ts3fixes",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg-nooverwatch-1",
+      "note": "v0.2.7 pair, NRaas Overwatch removed for the job",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as compat-top where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "fixes": {
+        "uninstall": [
+          "nraas-overwatch"
+        ]
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg-pair-2",
+      "note": "v0.2.7 pair, full test install",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as compat-top where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg-noours-2",
+      "note": "ourMods false: no ts3native, no ts3fixes",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg-nooverwatch-2",
+      "note": "v0.2.7 pair, NRaas Overwatch removed for the job",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as compat-top where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "fixes": {
+        "uninstall": [
+          "nraas-overwatch"
+        ]
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg-pair-3",
+      "note": "v0.2.7 pair, full test install",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as compat-top where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg-noours-3",
+      "note": "ourMods false: no ts3native, no ts3fixes",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg-nooverwatch-3",
+      "note": "v0.2.7 pair, NRaas Overwatch removed for the job",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as compat-top where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "fixes": {
+        "uninstall": [
+          "nraas-overwatch"
+        ]
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg-pair-4",
+      "note": "v0.2.7 pair, full test install",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as compat-top where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg-noours-4",
+      "note": "ourMods false: no ts3native, no ts3fixes",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg-nooverwatch-4",
+      "note": "v0.2.7 pair, NRaas Overwatch removed for the job",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as compat-top where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "fixes": {
+        "uninstall": [
+          "nraas-overwatch"
+        ]
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    }
+  ]
+}

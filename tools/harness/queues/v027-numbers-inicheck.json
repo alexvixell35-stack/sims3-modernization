@@ -1,0 +1,25 @@
+{
+  "note": "ini deploy check before v027-numbers-final",
+  "jobs": [
+    {
+      "id": "bp-v027-inicheck",
+      "note": "3 min deploy check: release ini loaded (no [RouteToObjRO]); not a timing run",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 3
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "noiseCheck": false
+    }
+  ]
+}

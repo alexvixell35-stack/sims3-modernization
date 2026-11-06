@@ -6,21 +6,25 @@
 //   node tools/harness/vanilla.ts saves-backup|saves-restore   robocopy /MIR of Saves to "<stash> saves\Saves" (incremental after the first run)
 //   node tools/harness/vanilla.ts rm-save <name>     remove a scratch save (a .sims3 DIRECTORY: rm -f does not remove it)
 //   node tools/harness/vanilla.ts --self-check       no game
+// Per-job form: a queue.ts job with "ourMods": false uses the same install/restore on ourModsSpec(): only ts3native and ts3fixes
+// leave, the community stack in Bin stays and must stay, the agent stays as cycle.ts installed it; own stash, so it never meets a vanilla one.
 // Windows paths by nature (Program Files Bin, Documents), same as cycle.ts.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { BIN } from './game-exe.ts';
 
 export const vanilla = () => process.env.TS3_VANILLA === '1';
 const ROOT = resolve(import.meta.dirname, '..', '..');
-export interface Spec { bin: string; user: string; stash: string; agent?: string }
+export interface Spec { bin: string; user: string; stash: string; agent?: string; ourModsOnly?: boolean }
 const USER = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3');
 export const defaultSpec = (): Spec => ({ bin: BIN, user: USER, stash: process.env.TS3_VANILLA_STASH ?? `${USER} vanilla-stash`, agent: process.env.TS3_AGENT_PACKAGE });
+export const ourModsSpec = (): Spec => ({ bin: BIN, user: USER, stash: process.env.TS3_OURMODS_STASH ?? `${USER} ourmods-stash`, ourModsOnly: true });
+export const COMMUNITY = ['wininet.dll', 'd3d9.dll', 'MonoPatcher.asi', 'Sims3SettingsSetter.asi', 'Sims3Performance.asi']; // ASI loader, DXVK, the community asis: an "ourMods": false baseline needs them all
 const sha = (p: string) => createHash('sha256').update(readFileSync(p)).digest('hex');
-const mfile = (s: Spec) => join(s.stash, 'manifest.json');
+export const mfile = (s: Spec) => join(s.stash, 'manifest.json');
 interface Entry { rel: string; from: string; to: string; size: number; sha: string }
 interface Manifest { entries: Entry[]; agentOld?: Entry; agentNew?: string; wininet?: string; d3d9?: string; time: string }
 
@@ -37,9 +41,10 @@ export function problems(s: Spec): string[] {
   const out: string[] = [];
   if (!existsSync(join(s.bin, 'Sims3Launcher.exe')) && !existsSync(join(s.bin, 'TS3W.exe'))) return [`Bin ${s.bin} is not a game Bin (set TS3_BIN)`];
   const asis = (d: string): string[] => existsSync(d) ? readdirSync(d, { recursive: true }).map(String).filter(n => /\.asi$/i.test(n)) : [];
-  for (const a of asis(s.bin)) out.push(`Bin has ${a}`);
+  for (const a of asis(s.bin)) if (!s.ourModsOnly || /^ts3native\.asi$/i.test(basename(a))) out.push(`Bin has ${a}`);
   for (const f of ['ts3native.ini', 'ts3native.log', 'autshadow.jsonl']) if (existsSync(join(s.bin, f))) out.push(`Bin has ${f}`);
-  for (const d of ['scripts', 'plugins']) if (existsSync(join(s.bin, d))) out.push(`Bin has ${d}\\`);
+  for (const d of ['scripts', 'plugins']) if (!s.ourModsOnly && existsSync(join(s.bin, d))) out.push(`Bin has ${d}\\`);
+  if (s.ourModsOnly) for (const f of COMMUNITY) if (!existsSync(join(s.bin, f))) out.push(`community file ${f} missing from Bin`);
   for (const f of readdirSync(join(s.user, 'Mods', 'Packages'))) if (/^ts3fixes/i.test(f)) out.push(`Mods has ${f}`);
   if (!existsSync(mfile(s))) { out.push('no stash manifest (install not run)'); return out; }
   const m: Manifest = JSON.parse(readFileSync(mfile(s), 'utf8'));
@@ -54,7 +59,7 @@ export function install(s: Spec) {
   const pre = problems({ ...s, stash: join(s.stash, 'none') }).filter(p => /not a game Bin/.test(p));
   if (pre.length) throw new Error(pre[0]);
   if (existsSync(mfile(s))) throw new Error(`stash manifest exists (${mfile(s)}): restore first`);
-  if (existsSync(join(ROOT, 'probe-out', 'queue', 'job-running'))) throw new Error('probe-out/queue/job-running exists');
+  if (!s.ourModsOnly && existsSync(join(ROOT, 'probe-out', 'queue', 'job-running'))) throw new Error('probe-out/queue/job-running exists'); // ourModsOnly: the running job is the caller
   const list = items(s), entries: Entry[] = [];
   const manifest: Manifest = { entries, time: new Date().toISOString() };
   for (const i of list) entries.push({ rel: i.rel, from: i.from, to: join(s.stash, i.rel), size: statSync(i.from).size, sha: sha(i.from) });
@@ -87,7 +92,8 @@ export function restore(s: Spec) {
   const all = [...m.entries, ...(m.agentOld ? [m.agentOld] : [])];
   for (const e of all) if (!existsSync(e.to) && !existsSync(e.from)) throw new Error(`lost: ${e.rel} is in neither place; stash kept`);
   if (m.agentOld && existsSync(m.agentOld.to)) rmSync(ag, { force: true }); // the vanilla-run agent build goes, the old one returns
-  rmSync(join(s.user, 'scriptCache.package'), { force: true }); // the game's cache of the vanilla set; the stashed one returns
+  const sc = all.find(e => e.rel === 'scriptCache.package');
+  if (!sc || existsSync(sc.to)) rmSync(join(s.user, 'scriptCache.package'), { force: true }); // the game's cache of the vanilla set; the stashed one returns (a repeated restore keeps it)
   for (const e of all) if (existsSync(e.to)) move(e.to, e.from);
   const bad = all.filter(e => !existsSync(e.from) || sha(e.from) !== e.sha).map(e => e.rel);
   if (bad.length) throw new Error(`restore read-back failed: ${bad.join(', ')}; stash kept`);
@@ -146,6 +152,32 @@ function selfCheck() {
     const rd = (f: string) => readFileSync(f, 'utf8');
     must(rd(join(s.bin, 'ts3native.asi')) === 'asi' && rd(pk('ts3agent.package')) === 'old-agent' && rd(join(s.user, 'scriptCache.package')) === 'cache' && existsSync(pk('ts3fixes.package')), 'restore incomplete');
     must(!existsSync(s.stash), 'stash not removed');
+    // ourModsOnly (queue.ts "ourMods": false): only ts3native + ts3fixes leave, every outcome brings them back byte equal
+    const o: Spec = { bin: s.bin, user: s.user, stash: join(t, 'U ourmods-stash'), ourModsOnly: true };
+    mk(join(s.bin, 'ts3native.log'), 'log'); mk(join(s.bin, 'autshadow.jsonl'), 'as');
+    for (const c of COMMUNITY) mk(join(s.bin, c), c);
+    const agentBefore = rd(pk('ts3agent.package'));
+    install(o);
+    must(['ts3native.asi', 'ts3native.ini', 'ts3native.log', 'autshadow.jsonl'].every(f => !existsSync(join(s.bin, f))) && !existsSync(pk('ts3fixes.package')) && !existsSync(join(s.user, 'scriptCache.package')), 'ourMods: something stayed');
+    must(COMMUNITY.every(c => rd(join(s.bin, c)) === c) && rd(pk('ts3agent.package')) === agentBefore && existsSync(pk('ts3-nointro.package')), 'ourMods: community stack or agent touched');
+    must(problems(o).length === 0, `ourMods state should be clean: ${problems(o)}`);
+    mk(join(s.bin, 'ts3native.log'), 'loaded after all');
+    must(problems(o).some(p => /ts3native\.log/.test(p)), 'ourMods: a new ts3native.log must be flagged');
+    rmSync(join(s.bin, 'ts3native.log'));
+    rmSync(join(s.bin, 'Sims3Performance.asi'));
+    must(problems(o).some(p => /Sims3Performance\.asi missing/.test(p)), 'ourMods: a missing community asi must be flagged');
+    mk(join(s.bin, 'Sims3Performance.asi'), 'Sims3Performance.asi');
+    try { install(o); must(false, 'ourMods: second install must refuse'); } catch (e: any) { must(/manifest exists/.test(e.message), e.message); }
+    mk(join(s.user, 'scriptCache.package'), 'cache without ts3fixes');
+    renameSync(join(o.stash, 'Bin', 'ts3native.asi'), join(t, 'hide')); // in neither place
+    try { restore(o); must(false, 'ourMods: lost file must fail'); } catch (e: any) { must(/lost/.test(e.message), e.message); }
+    must(existsSync(mfile(o)) && rd(join(s.user, 'scriptCache.package')) === 'cache without ts3fixes', 'ourMods: a refused restore must change nothing');
+    renameSync(join(t, 'hide'), join(s.bin, 'ts3native.asi')); // partial state: one file back already, the rest in the stash
+    must(restore(o) === 6, 'ourMods: restore from a partial state');
+    must(rd(join(s.bin, 'ts3native.asi')) === 'asi' && rd(join(s.bin, 'ts3native.ini')) === 'ini' && rd(join(s.bin, 'ts3native.log')) === 'log' && rd(pk('ts3fixes.package')) === 'fx' && rd(join(s.user, 'scriptCache.package')) === 'cache', 'ourMods: restore not byte equal');
+    must(!existsSync(o.stash), 'ourMods: stash not removed');
+    install(o); renameSync(join(o.stash, 'scriptCache.package'), join(s.user, 'scriptCache.package')); // restore stopped after the cache went back, repeated
+    must(restore(o) === 6 && rd(join(s.user, 'scriptCache.package')) === 'cache', 'ourMods: a repeated restore must keep the stashed cache');
     // scratch save = directory
     const saves = join(t, 'Saves'); mk(join(saves, 'ea7k-scratch.sims3', 'Meta.data'), 'm'); mk(join(saves, 'ea7k-scratch.sims3.backup', 'Meta.data'), 'm'); mk(join(saves, 'Baseline-SV-Spring.sims3', 'Meta.data'), 'b');
     rmSave(saves, 'ea7k-scratch.sims3');

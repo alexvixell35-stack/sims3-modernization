@@ -53449,5 +53449,231 @@
         }
       }
     ]
+  },
+  {
+    "id": "compat-moar-community",
+    "bug": "compat: Moar Interactions VisitCommunityLotWith.Run replaces VisitCommunityLot.Run (no base call), so VisitCommunityLotHook never runs for it and ApplyTripSubclasses wraps it in VclSubHook",
+    "fix": "none: compat evidence (docs/TESTING.md), the mod's behaviour next to ours",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED: first run 2026-11-05 was a test artifact (Baseline-BP is winter, Tiara froze solid, the freeze cancelled the visit; a subway stop as target); spring save and a normal venue now, not run yet. Fail-fast: failOn failed (visit dropped or nobody moved for 60 s). maxS 420 fits ~480 m at the slowest walk even at normal speed (docs/202: ~1.5 m/s x 1.3 detour); the job runs at ultra; dist is in the step log. Player flow: lot pie menu, Moar's Visit With entry, one Sim picked in its picker. Proof: the instance is Moar's class, it reached the queue head, and the picked Sim arrived too (EA's visit picks followers at random). Negative: compat-moar-absent.",
+    "steps": [
+      {
+        "cmd": "compat_visit",
+        "args": {
+          "def": "Transit.VisitCommunityLotWith",
+          "kind": "community",
+          "followers": true,
+          "expectType": "TwoBTech.Mods.MoarInteractions",
+          "noSubway": true
+        }
+      },
+      {
+        "cmd": "compat_visit_status",
+        "until": {
+          "cmd": "compat_visit_status",
+          "all": [
+            {
+              "path": "ran",
+              "equals": true
+            },
+            {
+              "path": "arrived",
+              "equals": true
+            }
+          ],
+          "failOn": "failed",
+          "everyS": 1,
+          "maxS": 420
+        }
+      }
+    ],
+    "expect": "Moar's Run runs; active Sim and the picked Sim arrive on the lot; no new script error"
+  },
+  {
+    "id": "compat-visit-control",
+    "bug": "compat control: EA VisitCommunityLotWith with a follower on a community lot, no Moar installed; separates a Moar fault from Sim object loss seen in compat-moar-community (Lala replaced mid-visit, destroyer unidentified)",
+    "fix": "none: compat evidence (docs/TESTING.md), the mod's behaviour next to ours",
+    "save": "Baseline-BP-Spring",
+    "note": "Run without Moar installed: same save and args as compat-moar-community but EA definition and type. If a Sim object is lost, compat_visit_status returns failed with Sim index, elapsed, createdSim identity and watchdog counters. sim_gone_watch logs the managed stack of every destroyed or new active-household Sim (queues/sim-gone.json) and every script exception ErrorTrap catches, with Sim and route state (sim_gone_errors, queues/sim-gone2.json).",
+    "cleanup": [
+      {
+        "cmd": "sim_gone_watch",
+        "max": 30000
+      }
+    ],
+    "steps": [
+      {
+        "cmd": "sim_gone_watch",
+        "args": {
+          "on": true
+        }
+      },
+      {
+        "cmd": "compat_visit",
+        "args": {
+          "def": "Core.VisitCommunityLotWith",
+          "kind": "community",
+          "followers": true,
+          "expectType": "Sims3.Gameplay.Core",
+          "noSubway": true
+        }
+      },
+      {
+        "cmd": "compat_visit_status",
+        "until": {
+          "cmd": "compat_visit_status",
+          "all": [
+            {
+              "path": "ran",
+              "equals": true
+            },
+            {
+              "path": "arrived",
+              "equals": true
+            }
+          ],
+          "failOn": "failed",
+          "everyS": 1,
+          "maxS": 420
+        }
+      },
+      {
+        "cmd": "sim_gone_watch",
+        "show": "sim_gone",
+        "max": 30000
+      }
+    ],
+    "expect": "EA's Run runs; active Sim and the picked Sim arrive on the lot; no Sim object lost; no new script error"
+  },
+  {
+    "id": "compat-moar-home",
+    "bug": "compat: Moar Interactions VisitLotWith.Run replaces VisitLot.Run (no base call), so the shipped-on visitlot shortcut hook never runs for it",
+    "fix": "none: compat evidence (docs/TESTING.md), the mod's behaviour next to ours",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED: first run 2026-11-05 failed before any visit: Moar's entry was greyed on the 8 nearest homes (no Moar break: its Test is EA's VisitLot gate, visiting needs a resident on the lot or a callbox). Now scans every home and waits with the clock running, like a player, until one has its entry enabled; no cheats. The first check step logs the game's grey reasons. Same proof as compat-moar-community on a home lot. Negative: compat-moar-absent.",
+    "steps": [
+      {
+        "cmd": "compat_visit",
+        "args": {
+          "def": "Transit.VisitLotWith",
+          "kind": "home",
+          "followers": true,
+          "expectType": "TwoBTech.Mods.MoarInteractions",
+          "maxLots": 100,
+          "check": true
+        },
+        "until": {
+          "cmd": "compat_visit",
+          "args": {
+            "def": "Transit.VisitLotWith",
+            "kind": "home",
+            "followers": true,
+            "expectType": "TwoBTech.Mods.MoarInteractions",
+            "maxLots": 100,
+            "check": true
+          },
+          "all": [
+            {
+              "path": "lot"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 300
+        }
+      },
+      {
+        "cmd": "compat_visit",
+        "args": {
+          "def": "Transit.VisitLotWith",
+          "kind": "home",
+          "followers": true,
+          "expectType": "TwoBTech.Mods.MoarInteractions",
+          "maxLots": 100
+        }
+      },
+      {
+        "cmd": "compat_visit_status",
+        "until": {
+          "cmd": "compat_visit_status",
+          "all": [
+            {
+              "path": "ran",
+              "equals": true
+            },
+            {
+              "path": "arrived",
+              "equals": true
+            }
+          ],
+          "failOn": "failed",
+          "everyS": 1,
+          "maxS": 420
+        }
+      }
+    ],
+    "expect": "Moar's Run runs; active Sim and the picked Sim arrive on the lot; no new script error"
+  },
+  {
+    "id": "compat-moar-absent",
+    "bug": "compat negative: without the mod the Moar repro action must fail, or a PASS of compat-moar-* proves nothing",
+    "fix": "none: negative check of compat_visit",
+    "save": "Baseline-BP-Spring",
+    "note": "PASS 2026-11-05 on Baseline-BP; same save and args as compat-moar-home now. Run without Moar installed. A greyed entry throws another text, so this only passes when the entry is really absent.",
+    "steps": [
+      {
+        "cmd": "compat_visit",
+        "args": {
+          "def": "Transit.VisitLotWith",
+          "kind": "home",
+          "followers": true,
+          "expectType": "TwoBTech.Mods.MoarInteractions",
+          "maxLots": 100
+        },
+        "expectError": "no enabled menu entry"
+      }
+    ],
+    "expect": "compat_visit refuses: no such menu entry"
+  },
+  {
+    "id": "compat-lyn-visit",
+    "bug": "compat: LynMods University More Shell Entries VisitCommunityLotLabLecture.Run replaces VisitCommunityLot.Run and the visit singletons; ApplyTripSubclasses wraps it in VclSubHook (Overrides.package in issue #165 carries the same StudentUnionLibrary, MVID 32d6d64c)",
+    "fix": "none: compat evidence (docs/TESTING.md), the mod's behaviour next to ours",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static + compile only, 2026-11-05): never run. The mod is in the test install, no fix to install. Proof: the instance is the mod's class, it reached the queue head, the Sim arrived, and unseenfbtrip_runs rose (the wrapper ran in front of the mod's Run; unseenfbtrip is off, so it only counts).",
+    "steps": [
+      {
+        "cmd": "compat_visit",
+        "args": {
+          "def": "LynMods.StudentUnionLibrary",
+          "kind": "community",
+          "expectType": "VisitCommunityLotLabLecture"
+        }
+      },
+      {
+        "cmd": "compat_visit_status",
+        "until": {
+          "cmd": "compat_visit_status",
+          "all": [
+            {
+              "path": "ran",
+              "equals": true
+            },
+            {
+              "path": "arrived",
+              "equals": true
+            }
+          ],
+          "everyS": 1,
+          "maxS": 420
+        }
+      }
+    ],
+    "expect": "the mod's Run runs behind our wrapper; the Sim arrives; no new script error",
+    "watch": {
+      "kind": "counter",
+      "counter": "unseenfbtrip_runs",
+      "min": 1,
+      "minutes": 1
+    }
   }
 ]

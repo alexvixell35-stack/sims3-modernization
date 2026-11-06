@@ -1,0 +1,155 @@
+{
+  "note": "Rodney 2026-11-05: v0.2.7 release numbers, Baseline (no ts3native/ts3fixes effect, as overnight-1023 rvb-vanilla) vs v0.2.7 shipped. Rodney 2026-11-04: v0.2.5 release numbers with the final build after the slowdown fixes (v025-e-ab), same-day v0.2.4 prev per town (interleaved order). Vanilla: reuse overnight-1023-2026-10-23-{bp,ip,sv}-rvb-vanilla (vanilla mode has no profile run). Repo ini = rel025d-ini3 when this runs.",
+  "jobs": [
+    {
+      "id": "bp-baseline-rel",
+      "note": "Baseline arm (README line 15: community fixes layer without our mods), same job spec as overnight-1023 bp-rvb-vanilla. README comparison, side 1 of 3 (BP), \"vanilla\": queue.ts always installs an asi, so vanilla = asi.rel0360 with every section it enables set Enabled=0 and every default-on ts3fixes switch off (release-vs-baseline.json base side; kWalkStyleComparer stays, install-time). Community stack (DXVK, S3SS, S3PP) unchanged. 10 min seeded (12345). 1 load per side: a README number, not a significance test. Read: node tools/release-vs-baseline-report.ts --date <date> (or hitch-ab.ts per tag).",
+      "asi": "game-copy/ts3native.asi.rel0360",
+      "ini": {
+        "GC.Enabled": 0,
+        "RouteAsync.Enabled": 0,
+        "SaveWrite.Enabled": 0,
+        "Decompress.Enabled": 0,
+        "WaterJps.Enabled": 0,
+        "RouteGate.Enabled": 0,
+        "Discourage.Enabled": 0,
+        "LotRemoveGuard.Enabled": 0,
+        "OptsInit.Enabled": 0
+      },
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOff": "gohome,rabbithole,visit,visitlot,gotolot,gotocommunity,broadcast,virtualhome,failreplan,watchdog,watchdogidle,backoff,stations,portaladaptorleak,fastreftable,motivebar,buffgrid,namecache,overwatchstuck"
+        }
+      },
+      "minCounters": 72,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "README Baseline arm: how overnight-1023 did it (rel0360 asi, every section Enabled=0, fixesOff list); community stack unchanged"
+    },
+    {
+      "id": "bp-v025-rel",
+      "note": "10 min to match the README Baseline window. v0.2.5 release numbers (final build: rel025d-asi + release ini rel025d-ini3 (CallPath=0, root motion off) + rel025e-fixes (master 4060ef35, PushHeld #245)), 15 min natural play, seed 12345, light tools only, no measurement overrides",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini"
+    },
+    {
+      "id": "ip-v025-rel",
+      "note": "10 min to match the README Baseline window. v0.2.5 release numbers (final build: rel025d-asi + release ini rel025d-ini3 (CallPath=0, root motion off) + rel025e-fixes (master 4060ef35, PushHeld #245)), 15 min natural play, seed 12345, light tools only, no measurement overrides",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini"
+    },
+    {
+      "id": "ip-baseline-rel",
+      "note": "Baseline arm (README line 15: community fixes layer without our mods), same job spec as overnight-1023 ip-rvb-vanilla. README comparison, side 1 of 3 (IP), \"vanilla\": queue.ts always installs an asi, so vanilla = asi.rel0360 with every section it enables set Enabled=0 and every default-on ts3fixes switch off (release-vs-baseline.json base side; kWalkStyleComparer stays, install-time). Community stack (DXVK, S3SS, S3PP) unchanged. 10 min seeded (12345). 1 load per side: a README number, not a significance test. Read: node tools/release-vs-baseline-report.ts --date <date> (or hitch-ab.ts per tag).",
+      "asi": "game-copy/ts3native.asi.rel0360",
+      "ini": {
+        "GC.Enabled": 0,
+        "RouteAsync.Enabled": 0,
+        "SaveWrite.Enabled": 0,
+        "Decompress.Enabled": 0,
+        "WaterJps.Enabled": 0,
+        "RouteGate.Enabled": 0,
+        "Discourage.Enabled": 0,
+        "LotRemoveGuard.Enabled": 0,
+        "OptsInit.Enabled": 0
+      },
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOff": "gohome,rabbithole,visit,visitlot,gotolot,gotocommunity,broadcast,virtualhome,failreplan,watchdog,watchdogidle,backoff,stations,portaladaptorleak,fastreftable,motivebar,buffgrid,namecache,overwatchstuck"
+        }
+      },
+      "minCounters": 72,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "README Baseline arm: how overnight-1023 did it (rel0360 asi, every section Enabled=0, fixesOff list); community stack unchanged"
+    },
+    {
+      "id": "sv-baseline-rel",
+      "note": "Baseline arm (README line 15: community fixes layer without our mods), same job spec as overnight-1023 sv-rvb-vanilla. README comparison, side 1 of 3 (SV), \"vanilla\": queue.ts always installs an asi, so vanilla = asi.rel0360 with every section it enables set Enabled=0 and every default-on ts3fixes switch off (release-vs-baseline.json base side; kWalkStyleComparer stays, install-time). Community stack (DXVK, S3SS, S3PP) unchanged. 10 min seeded (12345). 1 load per side: a README number, not a significance test. Read: node tools/release-vs-baseline-report.ts --date <date> (or hitch-ab.ts per tag).",
+      "asi": "game-copy/ts3native.asi.rel0360",
+      "ini": {
+        "GC.Enabled": 0,
+        "RouteAsync.Enabled": 0,
+        "SaveWrite.Enabled": 0,
+        "Decompress.Enabled": 0,
+        "WaterJps.Enabled": 0,
+        "RouteGate.Enabled": 0,
+        "Discourage.Enabled": 0,
+        "LotRemoveGuard.Enabled": 0,
+        "OptsInit.Enabled": 0
+      },
+      "save": "Baseline-SV-Spring",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOff": "gohome,rabbithole,visit,visitlot,gotolot,gotocommunity,broadcast,virtualhome,failreplan,watchdog,watchdogidle,backoff,stations,portaladaptorleak,fastreftable,motivebar,buffgrid,namecache,overwatchstuck"
+        }
+      },
+      "minCounters": 72,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "README Baseline arm: how overnight-1023 did it (rel0360 asi, every section Enabled=0, fixesOff list); community stack unchanged"
+    },
+    {
+      "id": "sv-v025-rel",
+      "note": "10 min to match the README Baseline window. v0.2.5 release numbers (final build: rel025d-asi + release ini rel025d-ini3 (CallPath=0, root motion off) + rel025e-fixes (master 4060ef35, PushHeld #245)), 15 min natural play, seed 12345, light tools only, no measurement overrides",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini"
+    }
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "note": "Rodney 2026-11-04: v0.2.5 release numbers with the final build after the slowdown fixes (v025-e-ab), same-day v0.2.4 prev per town (interleaved order). Vanilla: reuse overnight-1023-2026-10-23-{bp,ip,sv}-rvb-vanilla (vanilla mode has no profile run). Repo ini = rel025d-ini3 when this runs.",
+  "jobs": [
+    {
+      "id": "bp-v024-rel",
+      "note": "v0.2.5 release numbers (same-day prev: published v0.2.4 asi + ini + ts3fixes), 15 min natural play, seed 12345, light tools only, no measurement overrides",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "v0.2.4 player release: asi + ini + ts3fixes.package from the published GitHub release v0.2.4 (asi sha 076fd2d4 = builds.json ts3native.asi.rel024; ts3fixes = rel024b sha 448abaf9). The repo ini differs from the v0.2.4 ini only by sections the 0.36.105 asi does not read",
+      "fixesPackage": "game-copy/asi-v024/ts3fixes.package",
+      "minCounters": 90,
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 32
+    },
+    {
+      "id": "bp-v025-rel",
+      "note": "v0.2.5 release numbers (final build: rel025d-asi + release ini rel025d-ini3 (CallPath=0, root motion off) + rel025e-fixes (master 4060ef35, PushHeld #245)), 15 min natural play, seed 12345, light tools only, no measurement overrides",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025e",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 32
+    },
+    {
+      "id": "ip-v025-rel",
+      "note": "v0.2.5 release numbers (final build: rel025d-asi + release ini rel025d-ini3 (CallPath=0, root motion off) + rel025e-fixes (master 4060ef35, PushHeld #245)), 15 min natural play, seed 12345, light tools only, no measurement overrides",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025e",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 32
+    },
+    {
+      "id": "ip-v024-rel",
+      "note": "v0.2.5 release numbers (same-day prev: published v0.2.4 asi + ini + ts3fixes), 15 min natural play, seed 12345, light tools only, no measurement overrides",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "v0.2.4 player release: asi + ini + ts3fixes.package from the published GitHub release v0.2.4 (asi sha 076fd2d4 = builds.json ts3native.asi.rel024; ts3fixes = rel024b sha 448abaf9). The repo ini differs from the v0.2.4 ini only by sections the 0.36.105 asi does not read",
+      "fixesPackage": "game-copy/asi-v024/ts3fixes.package",
+      "minCounters": 90,
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 32
+    },
+    {
+      "id": "sv-v024-rel",
+      "note": "v0.2.5 release numbers (same-day prev: published v0.2.4 asi + ini + ts3fixes), 15 min natural play, seed 12345, light tools only, no measurement overrides",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "v0.2.4 player release: asi + ini + ts3fixes.package from the published GitHub release v0.2.4 (asi sha 076fd2d4 = builds.json ts3native.asi.rel024; ts3fixes = rel024b sha 448abaf9). The repo ini differs from the v0.2.4 ini only by sections the 0.36.105 asi does not read",
+      "fixesPackage": "game-copy/asi-v024/ts3fixes.package",
+      "minCounters": 90,
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 32
+    },
+    {
+      "id": "sv-v025-rel",
+      "note": "v0.2.5 release numbers (final build: rel025d-asi + release ini rel025d-ini3 (CallPath=0, root motion off) + rel025e-fixes (master 4060ef35, PushHeld #245)), 15 min natural play, seed 12345, light tools only, no measurement overrides",
+      "asi": "game-copy/ts3native.asi.rel025d",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/ts3fixes.package.rel025e",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 32
+    }
+  ]
+}

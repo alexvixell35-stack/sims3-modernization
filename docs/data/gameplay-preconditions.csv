@@ -87,6 +87,9 @@ fresh_world,FreshWorld,MainMenu;Live,New Game with a premade household,natural,n
 crowd_do,RareHandlers,Live,none: one pie-menu click per Sim; 30-50 Sims queue one interaction on one object in one tick,stress,spawn_sims Sims (and the household),handler + R-VOL-1,live
 crowd_go,RareHandlers,Live,none: one Go Here per click; 30-50 Sims to one point in one tick,stress,spawn_sims Sims (and the household),handler + R-VOL-1,live
 crowd_visit_lot,RareHandlers,Live,none: one Visit Lot per Sim; 30-50 townies start the same lot trip in one tick,stress,spawn_sims Sims,handler + R-VOL-1,live
+compat_visit,ReproHandlers,Live,lot pie menu: Visit or a mod's Visit With (picker: one Sim along),natural,active Sim; mod installed,handler + docs/TESTING.md compat evidence,live
+compat_visit_status,ReproHandlers,Live,none (read only),harness,compat_visit first,handler,none
+sim_gone_watch,ReproHandlers,Live,none (harness listener and read),harness,on:true inside the world,handler,none
 kill_sim,RareHandlers,Live,none (no vanilla kill command; MasterController-style),cheat,template death role (docs/171 §12),handler + R-LIFE-6,live
 zombies,RareHandlers,Live,none: full-moon zombies come from the game's 20% roll per night (Supernatural),stress,EP Supernatural,handler + R-EP-2,live
 spawn_traffic,RareHandlers,Live,none (more cars than the game spawns),stress,,handler,live

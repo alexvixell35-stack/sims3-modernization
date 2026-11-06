@@ -25,6 +25,9 @@ namespace Ts3Agent
             Dispatcher.Register("strand_many", StrandMany); // HitchReproHandlers.cs
             Dispatcher.Register("posture_chain_check", PostureChainCheck); // HitchReproHandlers.cs, issue #89
             Dispatcher.Register("sim_visit_lot", SimVisitLot);
+            Dispatcher.Register("compat_visit", CompatVisit);
+            Dispatcher.Register("compat_visit_status", CompatVisitStatus);
+            Dispatcher.Register("sim_gone_watch", SimGoneWatch);
             Dispatcher.Register("sim_route_to", SimRouteTo);
             Dispatcher.Register("route_replan", RouteReplan);
             Dispatcher.Register("sim_portal_trip", SimPortalTrip);
@@ -668,6 +671,356 @@ namespace Ts3Agent
             r["x"] = Math.Round(pos.x, 1); r["z"] = Math.Round(pos.z, 1);
             r["queued"] = s.InteractionQueue.Add(ii);
             return r;
+        }
+
+        // compat_visit {def, kind?: "community" | "home", followers?: false, expectType?, maxLots?: 8, noSubway?: false, check?: false}
+        // (docs/TESTING.md, compat evidence): the active Sim visits the nearest lot of that kind through the lot's own pie menu (the
+        // player flow), entry chosen by the type name of its definition (labels depend on the mod's string package). followers: one Sim
+        // from the entry's own picker goes along. noSubway skips subway stops. check: only name the lot, nothing queued (poll it: a home
+        // needs someone home). Throws "no enabled menu entry" when the menu has no such entry (mod missing), "greyed" with the game's
+        // reasons when it has one the player cannot click, and also when the instance is not expectType.
+        static Lot sCvLot;
+        static List<Sim> sCvSims;
+        static string sCvType;
+        static bool sCvRan;
+        static InteractionInstance sCvInst;
+        static List<Vector3> sCvPos;
+        static int sCvMovedAt, sCvStartedAt;
+        static object CompatVisit(Args a)
+        {
+            RequireLive();
+            Sim me = Util.ActiveSim();
+            string want = a.Str("def");
+            bool home = a.Str("kind", "community") == "home";
+            List<Lot> lots = new List<Lot>();
+            foreach (Lot l in LotManager.AllLots)
+            {
+                if (l == me.LotCurrent || l == me.LotHome || l.IsWorldLot) continue;
+                if (a.Bool("noSubway", false) && l.GetObjects<Sims3.Gameplay.Objects.RabbitHoles.Subway>().Length > 0) continue;
+                if (home ? (l.IsResidentialLot && l.Household != null) : l.IsCommunityLot) lots.Add(l);
+            }
+            lots.Sort(delegate(Lot x, Lot y) { return (x.Position - me.Position).LengthSqr().CompareTo((y.Position - me.Position).LengthSqr()); });
+            int cap = Math.Min(lots.Count, (int)a.Double("maxLots", 8));
+            List<string> seen = new List<string>(), greyed = new List<string>();
+            for (int i = 0; i < cap; i++)
+                foreach (MenuEntry e in BuildMenu(me, lots[i], HitFor(lots[i], a)))
+                {
+                    string t = e.Iop.InteractionDefinition.GetType().FullName;
+                    if (!seen.Contains(t)) seen.Add(t);
+                    if (t.IndexOf(want) < 0) continue;
+                    if (!e.Enabled) { if (!greyed.Contains(e.Reason)) greyed.Add(e.Reason); continue; }
+                    if (!a.Bool("check", false)) return CompatVisitStart(a, me, lots[i], e);
+                    Dictionary<string, object> c = Util.Obj();
+                    c["lot"] = lots[i].Name;
+                    c["dist"] = Math.Round(Math.Sqrt((lots[i].Position - me.Position).LengthSqr()));
+                    return c;
+                }
+            if (greyed.Count > 0) throw new McpException("menu entry of definition '" + want + "' greyed on all " + cap + " lots: " + string.Join("; ", greyed.ToArray()));
+            throw new McpException("no enabled menu entry of definition '" + want + "' on " + cap + " lots; menu definitions: " + string.Join(", ", seen.ToArray()));
+        }
+
+        static object CompatVisitStart(Args a, Sim me, Lot lot, MenuEntry e)
+        {
+            List<Sim> sims = new List<Sim>();
+            sims.Add(me);
+            List<object> picked = null;
+            if (a.Bool("followers", false))
+            {
+                foreach (KeyValuePair<string, object> row in PickerRows(e))
+                {
+                    SimDescription d = row.Value as SimDescription;
+                    Sim f = d != null ? d.CreatedSim : row.Value as Sim;
+                    if (f == null || f == me || f.LotCurrent == lot) continue;
+                    picked = new List<object>();
+                    picked.Add(row.Value);
+                    sims.Add(f);
+                    break;
+                }
+                if (picked == null) throw new McpException("'" + e.Label + "': its picker offers no Sim to take along");
+            }
+            InteractionInstanceParameters p = new InteractionInstanceParameters(e.Iop, me,
+                new InteractionPriority(InteractionPriorityLevel.UserDirected), AutonomySearchType.None,
+                InteractionFlags.UserDirected, HitFor(lot, a), picked, false);
+            InteractionInstance inst = e.Iop.InteractionDefinition.CreateInstanceFromParameters(ref p);
+            if (inst == null) throw new McpException("the game could not create '" + e.Label + "'");
+            string type = inst.GetType().FullName, expect = a.Str("expectType", "");
+            if (type.IndexOf(expect) < 0) throw new McpException("'" + e.Label + "' made " + type + ", not " + expect);
+            if (!me.InteractionQueue.Add(inst)) throw new McpException("the game refused to queue '" + e.Label + "'");
+            sCvLot = lot; sCvSims = sims; sCvType = type; sCvRan = false; sCvInst = inst;
+            sCvPos = new List<Vector3>();
+            foreach (Sim s in sims) sCvPos.Add(s.Position);
+            sCvMovedAt = sCvStartedAt = System.Environment.TickCount;
+            Dictionary<string, object> r = Util.Obj();
+            r["lot"] = lot.Name;
+            r["dist"] = Math.Round(Math.Sqrt((lot.Position - me.Position).LengthSqr()));
+            r["instance"] = type;
+            List<object> names = new List<object>();
+            foreach (Sim s in sims) names.Add(s.FullName);
+            r["sims"] = names;
+            return r;
+        }
+
+        // The Sim object of the visit was destroyed or replaced: report instead of throwing, so the run keeps the evidence
+        // (which Sim, when, is the world's current object for that Sim a new one, what the others do, watchdog counters).
+        static object CompatVisitGone(int i)
+        {
+            Sim s = sCvSims[i];
+            Dictionary<string, object> r = Util.Obj();
+            r["failed"] = "compat_visit Sim " + i + " object gone";
+            r["simIndex"] = i;
+            r["elapsedMs"] = System.Environment.TickCount - sCvStartedAt;
+            r["destroyed"] = s == null || s.HasBeenDestroyed;
+            SimDescription d = s != null ? s.SimDescription : null;
+            Sim cur = d != null ? d.CreatedSim : null;
+            r["name"] = d != null ? d.FullName : null;
+            r["createdSimIsNewObject"] = cur != null && !object.ReferenceEquals(cur, s);
+            r["createdSimEqualsCurrent"] = cur != null && cur == d.CreatedSim;
+            r["currentAtLot"] = cur != null && cur.LotCurrent != null ? cur.LotCurrent.Name : null;
+            r["atHome"] = cur != null && cur.LotCurrent != null && cur.LotCurrent == cur.LotHome;
+            List<object> others = new List<object>();
+            for (int j = 0; j < sCvSims.Count; j++)
+            {
+                if (j == i) continue;
+                Sim o = sCvSims[j];
+                InteractionInstance ci = o != null && !o.HasBeenDestroyed ? o.CurrentInteraction : null;
+                others.Add(j + ": " + (ci != null ? ci.GetType().FullName : "none"));
+            }
+            r["otherSimsInteraction"] = others;
+            int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
+            if (c != null && c.Length > 292)
+            {
+                r["watchdog_shortcuts"] = c[31]; r["watchdog_second"] = c[36];
+                r["owstuck_runs"] = c[258]; r["owstuck_sims"] = c[256]; r["owstucknotice_named"] = c[292];
+            }
+            r["leftGroupReason"] = "not available: no game API names it; compare the counters and the script log";
+            return r;
+        }
+
+        // compat_visit_status: arrived = every Sim of the last compat_visit stands on its lot; ran = that instance type was seen at the
+        // head of the active Sim's queue at a poll (the mod's own Run started, not just queued). Poll faster than the walk.
+        // failed (fail-fast on real progress, not arrived): the active Sim is off the lot and the visit left its queue (a freeze cancels
+        // it), or no Sim moved 1 m for 60 s real time; for until "failOn".
+        static object CompatVisitStatus(Args a)
+        {
+            if (sCvLot == null) throw new McpException("no compat_visit yet");
+            if (sCvSims[0] == null || sCvSims[0].HasBeenDestroyed) throw new McpException("the compat_visit Sim is gone");
+            InteractionInstance head = sCvSims[0].CurrentInteraction;
+            if (head != null && head.GetType().FullName == sCvType) sCvRan = true;
+            bool arrived = true;
+            List<object> where = new List<object>();
+            for (int i = 0; i < sCvSims.Count; i++)
+            {
+                Sim s = sCvSims[i];
+                if (s == null || s.HasBeenDestroyed) return CompatVisitGone(i);
+                if (s.LotCurrent != sCvLot) arrived = false;
+                if ((s.Position - sCvPos[i]).LengthSqr() >= 1f) { sCvPos[i] = s.Position; sCvMovedAt = System.Environment.TickCount; }
+                where.Add(s.FullName + " at " + (s.LotCurrent != null ? s.LotCurrent.Name : "street") + (s.IsRouting ? " routing" : ""));
+            }
+            Dictionary<string, object> r = Util.Obj();
+            r["arrived"] = arrived;
+            r["ran"] = sCvRan;
+            r["lot"] = sCvLot.Name;
+            r["where"] = where;
+            if (!arrived && sCvSims[0].LotCurrent != sCvLot && !sCvSims[0].InteractionQueue.HasInteraction(sCvInst))
+                r["failed"] = "the visit left the queue before the active Sim arrived";
+            else if (!arrived && System.Environment.TickCount - sCvMovedAt > 60000)
+                r["failed"] = "no Sim moved for 60 s";
+            return r;
+        }
+
+        // sim_gone_watch {on?}: who destroys or re-creates a Sim (queues/sim-gone.json, Lala lost mid-visit). Harness only, off until
+        // on:true: two EventTracker listeners, no patch. Both events are sent synchronously (Sim.Destroy, SimDescription.Instantiate),
+        // so the stack is the real caller. Active-household Sims get a full record (first kSgMax), other Sims only a count, so the
+        // cost stays at a few stacks per run. Without "on" it only reads. Turn on inside the world the run uses.
+        // Who schedules ResetSimTask (queues/sim-gone2.json): a task hides the caller, and NRaas ErrorTrap.OnScriptError is the only
+        // caller in reach (the other one waits 30 sim-minutes). In live mode ErrorTrap writes no ScriptError file, so sim_gone_errors
+        // is the one place the exception shows: a second subscriber on ScriptCore.ExceptionTrap.OnScriptError (ErrorTrap's ScriptCore
+        // only, hence reflection), no patch. It runs after ErrorTrap on the failing task, before the reset. With sim_gone_trap
+        // "hooked" and no error for a lost Sim, the reset did not come through OnScriptError.
+        static Sims3.Gameplay.EventSystem.EventListener sSgGone, sSgMade;
+        static readonly List<object> sSgLog = new List<object>();
+        static int sSgOther, sSgDropped;
+        const int kSgMax = 12, kSgFrames = 30, kSgErrorChars = 2500;
+        static readonly List<object> sSgErrors = new List<object>();
+        static int sSgErrorsOther;
+        static FieldInfo sSgTrapField;
+        static Delegate sSgTrapHook;
+        static string sSgTrap = "off";
+        static object SimGoneWatch(Args a)
+        {
+            bool on = a.Bool("on", sSgGone != null);
+            if (on && sSgGone == null)
+            {
+                lock (sSgLog) { sSgLog.Clear(); sSgErrors.Clear(); sSgOther = sSgDropped = sSgErrorsOther = 0; }
+                sSgGone = Sims3.Gameplay.EventSystem.EventTracker.AddListener(Sims3.Gameplay.EventSystem.EventTypeId.kSimDestroyed, OnSimGone);
+                sSgMade = Sims3.Gameplay.EventSystem.EventTracker.AddListener(Sims3.Gameplay.EventSystem.EventTypeId.kSimInstantiated, OnSimGone);
+                SgTrapOn();
+            }
+            else if (!on && sSgGone != null)
+            {
+                Sims3.Gameplay.EventSystem.EventTracker.RemoveListener(sSgGone);
+                Sims3.Gameplay.EventSystem.EventTracker.RemoveListener(sSgMade);
+                sSgGone = sSgMade = null;
+                SgTrapOff();
+            }
+            Dictionary<string, object> r = Util.Obj();
+            r["sim_gone_on"] = on;
+            lock (sSgLog)
+            {
+                r["sim_gone_other_sims"] = sSgOther;
+                r["sim_gone_dropped"] = sSgDropped;
+                r["sim_gone_trap"] = sSgTrap;
+                r["sim_gone_errors_other"] = sSgErrorsOther;
+                r["sim_gone_errors"] = new List<object>(sSgErrors); // before the events: the log line is cut at the step's "max"
+                r["sim_gone_events"] = new List<object>(sSgLog);
+            }
+            return r;
+        }
+
+        // never throws: EA removes a listener that does
+        static Sims3.Gameplay.EventSystem.ListenerAction OnSimGone(Sims3.Gameplay.EventSystem.Event e)
+        {
+            try
+            {
+                Sim s = e.TargetObject as Sim;
+                SimDescription d = s != null ? s.SimDescription : null;
+                Household h = d != null ? d.Household : null;
+                if (s == null || (h != null && h != Household.ActiveHousehold)) { lock (sSgLog) sSgOther++; return Sims3.Gameplay.EventSystem.ListenerAction.Keep; }
+                lock (sSgLog) { if (sSgLog.Count >= kSgMax) { sSgDropped++; return Sims3.Gameplay.EventSystem.ListenerAction.Keep; } }
+                Dictionary<string, object> r = Util.Obj();
+                r["event"] = e.Id == Sims3.Gameplay.EventSystem.EventTypeId.kSimDestroyed ? "destroyed" : "instantiated";
+                r["sim"] = d != null ? d.FullName : "(no description)";
+                r["id"] = s.ObjectId.Value.ToString("X");
+                r["msSinceVisit"] = sCvStartedAt != 0 ? System.Environment.TickCount - sCvStartedAt : -1;
+                r["clock"] = Sims3.Gameplay.Utilities.SimClock.CurrentTime().ToString();
+                r["lot"] = s.LotCurrent != null ? s.LotCurrent.Name : null;
+                r["task"] = SgTask();
+                InteractionInstance ci = s.InteractionQueue != null ? s.CurrentInteraction : null;
+                r["interaction"] = ci != null ? ci.GetType().FullName : null;
+                r["route"] = SgRoute(s);
+                r["stack"] = SgStack();
+                lock (sSgLog) sSgLog.Add(r);
+            }
+            catch (Exception x) { lock (sSgLog) { sSgDropped++; if (sSgLog.Count < kSgMax) sSgLog.Add("record failed: " + x.GetType().Name + " " + x.Message); } }
+            return Sims3.Gameplay.EventSystem.ListenerAction.Keep;
+        }
+
+        static void SgTrapOn()
+        {
+            try
+            {
+                Type t = Type.GetType("ScriptCore.ExceptionTrap, ScriptCore");
+                sSgTrapField = t != null ? t.GetField("OnScriptError", BindingFlags.Public | BindingFlags.Static) : null;
+                if (sSgTrapField == null) { sSgTrap = "no ExceptionTrap: EA's ScriptCore, ErrorTrap not installed"; return; }
+                sSgTrapHook = Delegate.CreateDelegate(sSgTrapField.FieldType, typeof(Handlers).GetMethod("OnSgScriptError", BindingFlags.Public | BindingFlags.Static));
+                sSgTrapField.SetValue(null, Delegate.Combine((Delegate)sSgTrapField.GetValue(null), sSgTrapHook));
+                sSgTrap = "hooked";
+            }
+            catch (Exception x) { sSgTrapHook = null; sSgTrap = "hook failed: " + x.GetType().Name + " " + x.Message; }
+        }
+
+        static void SgTrapOff()
+        {
+            if (sSgTrapHook == null) return;
+            try { sSgTrapField.SetValue(null, Delegate.Remove((Delegate)sSgTrapField.GetValue(null), sSgTrapHook)); }
+            catch (Exception x) { sSgTrap = "unhook failed: " + x.GetType().Name; return; }
+            sSgTrapHook = null;
+            sSgTrap = "off";
+        }
+
+        // never throws: it runs inside the game's error path. Active-household Sims get all kSgMax slots, anything else the first half.
+        public static void OnSgScriptError(ScriptCore.ScriptProxy proxy, Exception e)
+        {
+            try
+            {
+                object target = proxy != null ? proxy.Target : null;
+                Sim s = target as Sim;
+                if (s == null && target is SimUpdate)
+                {
+                    FieldInfo f = typeof(SimUpdate).GetField("mSim", BindingFlags.NonPublic | BindingFlags.Instance);
+                    s = f != null ? f.GetValue(target) as Sim : null;
+                }
+                SimDescription d = s != null ? s.SimDescription : null;
+                bool mine = d != null && d.Household == Household.ActiveHousehold;
+                lock (sSgLog) { if (sSgErrors.Count >= (mine ? kSgMax : kSgMax / 2)) { sSgErrorsOther++; return; } }
+                Dictionary<string, object> r = Util.Obj();
+                r["exception"] = e != null ? e.GetType().FullName : null;
+                r["target"] = target != null ? target.GetType().FullName : null;
+                r["sim"] = d != null ? d.FullName : null;
+                r["id"] = s != null ? s.ObjectId.Value.ToString("X") : null;
+                r["msSinceVisit"] = sCvStartedAt != 0 ? System.Environment.TickCount - sCvStartedAt : -1;
+                r["task"] = SgTask();
+                if (s != null)
+                {
+                    InteractionInstance ci = s.InteractionQueue != null ? s.CurrentInteraction : null;
+                    r["interaction"] = ci != null ? ci.GetType().FullName : null;
+                    r["queued"] = s.InteractionQueue != null ? s.InteractionQueue.Count : -1;
+                    r["posture"] = s.Posture != null ? s.Posture.GetType().FullName : null;
+                    r["lot"] = s.LotCurrent != null ? s.LotCurrent.Name : null;
+                    r["route"] = SgRoute(s);
+                }
+                string text = e != null ? e.ToString() : "";
+                r["text"] = text.Length > kSgErrorChars ? text.Substring(0, kSgErrorChars) : text;
+                lock (sSgLog) sSgErrors.Add(r);
+            }
+            catch (Exception x) { lock (sSgLog) { sSgErrorsOther++; if (sSgErrors.Count < kSgMax) sSgErrors.Add("record failed: " + x.GetType().Name + " " + x.Message); } }
+        }
+
+        // Our route plan for this Sim at this moment: routeFails = failed plans since its last good one (ts3fixes NotePlanResult,
+        // -1 without ts3fixes), async* = ts3fixes [56] waits begun, [57] polls, [58] cap hits, whole game.
+        static Dictionary<string, object> SgRoute(Sim s)
+        {
+            Dictionary<string, object> r = Util.Obj();
+            try
+            {
+                r["routing"] = s.IsRouting;
+                r["routeFails"] = SgRouteFails(s.ObjectId.Value);
+                int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
+                if (c != null && c.Length > 58) { r["asyncWaits"] = c[56]; r["asyncPolls"] = c[57]; r["asyncCapHits"] = c[58]; }
+            }
+            catch (Exception x) { r["unreadable"] = x.GetType().Name; }
+            return r;
+        }
+
+        static int SgRouteFails(ulong id)
+        {
+            foreach (Assembly a in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type t = a.GetType("Ts3Fixes.Fixes", false);
+                FieldInfo f = t != null ? t.GetField("sRouteFails", BindingFlags.NonPublic | BindingFlags.Static) : null;
+                System.Collections.IDictionary fails = f != null ? f.GetValue(null) as System.Collections.IDictionary : null;
+                if (fails == null) continue;
+                object v = fails[id];
+                return v != null ? (int)v.GetType().GetField("Count").GetValue(v) : 0;
+            }
+            return -1;
+        }
+
+        static string SgTask()
+        {
+            try
+            {
+                IScriptProxy p = Simulator.GetProxy(Simulator.CurrentTask);
+                return p != null && p.Target != null ? p.Target.GetType().FullName : null;
+            }
+            catch (Exception x) { return "unreadable: " + x.GetType().Name; }
+        }
+
+        // same walk as ts3fixes PlayTrace.Callers: names only, no file info
+        static List<object> SgStack()
+        {
+            List<object> o = new List<object>();
+            try
+            {
+                System.Diagnostics.StackTrace st = new System.Diagnostics.StackTrace(1, false);
+                for (int i = 0; i < st.FrameCount && o.Count < kSgFrames; i++)
+                {
+                    MethodBase m = st.GetFrame(i).GetMethod();
+                    if (m != null) o.Add((m.DeclaringType != null ? m.DeclaringType.FullName : "?") + "." + m.Name);
+                }
+            }
+            catch (Exception x) { o.Add("stack unreadable: " + x.GetType().Name); }
+            return o;
         }
     }
 }
