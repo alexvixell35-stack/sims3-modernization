@@ -53638,5 +53638,455 @@
       "sims": [],
       "minutes": 1
     }
+  },
+  {
+    "id": "castrim-checks",
+    "bug": "docs/191 step 3 checks: the CAS compositor registry trim ([CasTrim] Mode 1, Named + Async) must not lose a texture a Sim renders from",
+    "fix": "ts3native [CasTrim] (castrim.cpp, counters v909 ct*, native_set / --ab castrim: 1 trim, 2 count only); job ini [CasTrim] Install=1 AgeSec=60 Named=1 Async=1",
+    "save": "1111 kit5",
+    "note": "UNVERIFIED (built 2026-11-06, never run). Rodney's step 3 texture checks in one load: live and CAS shots before any trim (start), then trim on, outfit churn (six Sims, 100 s apart, past AgeSec), 5 min of walk; shots again (mid), after a save to a scratch file and its reload (reload), and after a vacation round trip (travel). Pass: ctErased >= 1, ctMissed 0, no stuck; probe-out/shots/*-castrim-chk-{live,cas}-{start,mid,reload,travel}.jpg match start by eye (a live shot can miss the Sim when her floor is cut away). Writes the scratch save CasTrim-Check-Scratch.",
+    "expect": "ctInserts > 0, ctCand > 0, ctErased > 0, ctMissed 0, ctOtherThread 0; shots equal to the start ones",
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 1
+    },
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 45,
+        "note": "lead-in after the load"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (start, before any trim)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-live-start"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check, live: start, before any trim"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (start, before any trim)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-cas-start"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: start, before any trim"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "castrim": 1
+        },
+        "waitS": 1,
+        "note": "trim on (the job ini installs the detours: Install=1, AgeSec=60, Named=1, Async=1)"
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "athletic"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "everyday"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "formal"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "everyday"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "athletic"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "everyday"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "time",
+        "waitS": 300,
+        "note": "walk cycles: old compositors erased (ctErased)"
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (after the trims, same session)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-live-mid"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check, live: after the trims, same session"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (after the trims, same session)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-cas-mid"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: after the trims, same session"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "CasTrim-Check-Scratch"
+        },
+        "waitS": 5,
+        "note": "a scratch save: the loaded save is never written",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            }
+          ],
+          "everyS": 3,
+          "maxS": 900
+        }
+      },
+      {
+        "cmd": "load_save",
+        "args": {
+          "file": "CasTrim-Check-Scratch.sims3",
+          "reload": true
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            },
+            {
+              "path": "load_file",
+              "equals": "CasTrim-Check-Scratch.sims3"
+            },
+            {
+              "path": "sub_state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 900
+        }
+      },
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "after the reload"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (after a save and reload)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-live-reload"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check, live: after a save and reload"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (after a save and reload)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-cas-reload"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: after a save and reload"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household"
+        },
+        "waitS": 2,
+        "note": "needs at max (a tired Sim drops the queued trip)"
+      },
+      {
+        "cmd": "travel_vacation",
+        "args": {
+          "world": "france",
+          "days": 2
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "travel_state",
+          "all": [
+            {
+              "path": "on_vacation",
+              "equals": true
+            },
+            {
+              "path": "in_travel",
+              "equals": false
+            },
+            {
+              "path": "household"
+            }
+          ],
+          "everyS": 10,
+          "maxS": 900
+        }
+      },
+      {
+        "cmd": "travel_home",
+        "waitS": 5,
+        "until": {
+          "cmd": "travel_state",
+          "all": [
+            {
+              "path": "on_vacation",
+              "equals": false
+            },
+            {
+              "path": "in_travel",
+              "equals": false
+            },
+            {
+              "path": "household"
+            }
+          ],
+          "everyS": 10,
+          "maxS": 900
+        }
+      },
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "after the trip home"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (after a travel round trip)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-live-travel"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check, live: after a travel round trip"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (after a travel round trip)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-cas-travel"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: after a travel round trip"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      }
+    ]
   }
 ]
