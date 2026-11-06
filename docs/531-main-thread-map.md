@@ -26,7 +26,7 @@ main thread runs ready jobs itself while it waits (§4.3).
   decompiled per root. 8,731 functions were decompiled in the first pass. A second pass decompiled the 1,132 functions
   found by sampling (§6.4): 1,131 bodies, and Ghidra finds no function at `0x615F6E`.
 - **Names, in priority order:**
-  1. Read from the decompile (1,935 functions, 1,272 verified and 663 inferred: depth 0-2 of each root, depth 3 below
+  1. Read from the decompile (1,935 functions, 1,264 verified and 671 inferred: depth 0-2 of each root, depth 3 below
      `MainLoop` and `RenderSystem`, and
      every function found by sampling except `0x615F6E`, where Ghidra finds no function).
   2. The project CSV and docs names (440).
@@ -35,7 +35,7 @@ main thread runs ready jobs itself while it waits (§4.3).
   5. A body pattern (75): getter, constant return, thunk.
   6. A placeholder `<parent>__hN` (6,474): the Nth callee of the first parent that names it.
 
-  The CSV comment says which: `[verified: read from the decompile; ...]` (1,272), `[unverified: inferred ...]` (663), or
+  The CSV comment says which: `[verified: read from the decompile; ...]` (1,264), `[unverified: inferred ...]` (671), or
   `[unverified: <source>]`.
 - **Import:** `-postScript ImportSymbols.java tools/ghidra/symbols/ts3w-1.67.mainthread.csv keep` after the project CSV.
   With `keep`, names you set yourself stay.
@@ -181,7 +181,8 @@ In `ServiceList_Update` order of the vtable table in docs/167 §7.1 (the run ord
 
 1. It frees the finished node list (`+0x70`) under a global lock (`0x4E16F0`).
 2. On the first frame only, it registers with the service host (`0xAAB640`).
-3. Budget: unlimited when byte `+0x139` is 0, else the float at `+0x2C`, on a QPC deadline.
+3. Budget: unlimited when byte `+0x139` is 0 (`or esi,-1`, read unsigned), else the unsigned integer at `+0x2C`, on a
+   QPC deadline.
 4. `CasSim_BuildSortedRequestList 0x5F0820` ages request priorities by class (+0.25 to 1.0) and builds the static
    sort list.
 5. The main request list (`+0x58`): when the active slot is idle, it ranks requests by camera distance and view angle
@@ -296,7 +297,9 @@ section.
 3. It calls the effect manager (vtable `+0x48` of `+0x1C`, with `0x11CDDAC` and dt), then vtable `+0x1C` of `+0x48`.
 
 The per-effect work, `SwarmManager_UpdateFrame 0x9160B0`, is reached only through that virtual call. It runs a timer,
-clears the stats, updates each effect group (`0x91A600`, `0x91BA10`) and applies quality changes (`0x91BAB0`).
+clears the stats and updates each effect group (`0x91A600`, `0x91BA10`, and `SwarmManager_UpdateEffectGroup 0x91BAB0`:
+settings copy, re-apply on changed quality bits, then per effect a camera-distance LOD band and the effect's own
+update, with no frustum test). The first pass named `0x91BAB0` `ApplyQualityChanges` after only its first part.
 
 ### 6.4 Found by sampling: the runtime libraries
 
@@ -310,7 +313,7 @@ under the first root whose stacks pass through it. What they are:
 | `0xE64BD0`-`0xEBBDE0` and around | The embedded Mono runtime: assembly, image, class and method loaders, metadata tables, custom attributes, reflection, the marshalling IL emitters for wrapper methods, mempool. |
 | `0xE48E80`-`0xE513D0`, `0xD70900` | The Boehm GC: heap sections, mark state machine, sweep and reclaim, typed malloc, thread registry, stop and start world. |
 | `0xE450C0`-`0xE48AB0` | A glib subset: hash table, list, string, path, UTF-8 to UTF-16, an XML parser, log handlers. |
-| `0xDAE970`-`0xDFE170` | Bodies that null-check, raise NullReferenceException and call through method pointers: they look like managed code compiled ahead of time (inferred, not checked). Some are 7-bit varint stream readers. |
+| `0xD9D2D0`-`0xE3A530` | EA's binder native bodies (docs/220, `docs/data/binder-bodies.csv`): managed methods (mscorlib, ScriptCore persistence) with a native body that the interpreter enters through `RuntimeMethod+0x24`. Not Mono AOT: the exe has no AOT code. The 43 on the main thread are named `Body_<Class>_<Method>` from that CSV. |
 | mostly `0x44DB50`-`0x465B50` | EAText layout and shaping: bidi, line breaking, Thai, Hebrew and Arabic clusters, OpenType GSUB. |
 | smaller groups | zlib and libpng write code, eastl vector helpers, `Lot` wall and placement tests, the thumbnail scene objects and renderer (`ThumbSceneObj_*`, `ThumbRenderer_*`), and a speech-style audio decoder at `0xF09C50`-`0xF14080` (12-tap LPC, 0x1B0-sample frames; codec not identified). |
 
