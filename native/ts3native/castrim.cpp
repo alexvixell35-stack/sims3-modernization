@@ -56,7 +56,7 @@ static DWORD g_ctAgeMs = 1800 * 1000, g_ctLogMs = 5 * 60000, g_ctTid, g_ctLogAt,
 static int g_ctBuckets = 16, g_ctMaxErase = 8;
 struct CtEnt { volatile LONG obj; DWORD seen, used, cand, dbNo; volatile LONG from; };  // ticks: inserted / first walked, last
                      // found, marked old, last "no database has the key" (NeedDb); from: a bit (CtFromBit) per caller that found it
-static const DWORD CT_SLOTS = 1 << 18, CT_GONE = 1 << 16;
+static const DWORD CT_SLOTS = 1 << 18, CT_GONE = 1 << 18;  // gone: al251 erased 120k keys an hour; 2^16 forgot most after ~30 min
 static CtEnt* g_ct;            // 6 MB, allocated when installed. shortcut: never shrinks; a full probe run skips the
 static volatile LONG* g_ctGone;  // compositor (never erased): fine while the live set is far below 262k
 static volatile LONG g_ctAge[4], g_ctEvents;  // would-miss + missed by time since the mark: < 1 min, < 10, < 60, more
@@ -340,7 +340,7 @@ static void ApplyCasTrim(const wchar_t* ini) {
     g_ctBuckets = buckets < 1 ? 1 : buckets > 256 ? 256 : buckets;
     g_ctMaxErase = maxErase < 1 ? 1 : maxErase > 64 ? 64 : maxErase;
     if (mode <= 0 && GetPrivateProfileIntW(L"CasTrim", L"Install", 0, ini) <= 0) return;
-    if (!CtAlloc()) return (void)Log("FAIL cas trim: no memory for the tables (10.3 MB): not installed");
+    if (!CtAlloc()) return (void)Log("FAIL cas trim: no memory for the tables (11 MB): not installed");
     RhRanges();  // the exe .text range for the event chains
     if (!g_ctFind)
         g_ctFind = (CtFindFn)InstallDetour("ResourceCache_Find", CT_FIND, kCtFindPro, sizeof(kCtFindPro), (void*)CtFindHook, &g_ctFind);
