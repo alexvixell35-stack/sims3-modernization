@@ -2,7 +2,7 @@
 
 Status (2026-11-06): static call graph plus sampled stacks, every graph function named, the top layers read from a
 Ghidra decompile. **9,820 functions** reachable from the main thread's 27 entry points. They are named in
-`tools/ghidra/symbols/ts3w-1.67.mainthread.csv`, and **813** of them have a name and behavior read from the decompile. This
+`tools/ghidra/symbols/ts3w-1.67.mainthread.csv`, and **1,935** of them have a name and behavior read from the decompile. This
 document gives the behavior: the startup, the frame, the window procedure and what each of the 24 engine services does
 each frame. Names, addresses and behavior only. No decompiled code is in the repository. Related: docs/41 (frame
 loop), docs/71 (main-thread profile), docs/167 §7 (services stage timers).
@@ -23,16 +23,18 @@ main thread runs ready jobs itself while it waits (§4.3).
   edge can skip frames (FPO), so it shows "reached from", not always "called directly".
 - **Each function is listed under the root that reaches it first** (BFS). The per-root counts in §8 are exclusive.
 - **Decompile.** Ghidra 12.2 headless, no auto-analysis: the graph's functions are created and named first, then
-  decompiled per root. 8,731 functions were decompiled. The 1,132 functions found by sampling are named from the graph only.
+  decompiled per root. 8,731 functions were decompiled in the first pass. A second pass decompiled the 1,132 functions
+  found by sampling (§6.4).
 - **Names, in priority order:**
-  1. Read from the decompile (813 functions at depth 0-2 of each root, depth 3 below `MainLoop` and `RenderSystem`).
-  2. The project CSV and docs names (603).
-  3. An EA heap or config tag in the body (744).
-  4. A string the body uses (389).
-  5. A body pattern (83): getter, constant return, thunk.
-  6. A placeholder `<parent>__hN` (7,188): the Nth callee of the first parent that names it.
+  1. Read from the decompile (1,935 functions: depth 0-2 of each root, depth 3 below `MainLoop` and `RenderSystem`, and
+     every function found by sampling except `0x615F6E`, where Ghidra finds no function).
+  2. The project CSV and docs names (440).
+  3. An EA heap or config tag in the body (735).
+  4. A string the body uses (161).
+  5. A body pattern (75): getter, constant return, thunk.
+  6. A placeholder `<parent>__hN` (6,474): the Nth callee of the first parent that names it.
 
-  The CSV comment says which: `[verified: read from the decompile; ...]` (481), `[unverified: inferred ...]` (332), or
+  The CSV comment says which: `[verified: read from the decompile; ...]` (1,272), `[unverified: inferred ...]` (663), or
   `[unverified: <source>]`.
 - **Import:** `-postScript ImportSymbols.java tools/ghidra/symbols/ts3w-1.67.mainthread.csv keep` after the project CSV.
   With `keep`, names you set yourself stay.
@@ -295,6 +297,31 @@ section.
 The per-effect work, `SwarmManager_UpdateFrame 0x9160B0`, is reached only through that virtual call. It runs a timer,
 clears the stats, updates each effect group (`0x91A600`, `0x91BA10`) and applies quality changes (`0x91BAB0`).
 
+### 6.4 Found by sampling: the runtime libraries
+
+The second pass read the 1,132 functions that only the sampled stacks reach. 1,011 of them are listed under
+VideoManager, but almost none is video code. A sampled edge can skip frames, and code that script calls reach is listed
+under the first root whose stacks pass through it. What they are:
+
+| Range or group | What it is |
+|---|---|
+| `0xE64BD0`-`0xEBBDE0` and around | The embedded Mono runtime: assembly, image, class and method loaders, metadata tables, custom attributes, reflection, the marshalling IL emitters for wrapper methods, mempool. |
+| `0xE48E80`-`0xE513D0`, `0xD70900` | The Boehm GC: heap sections, mark state machine, sweep and reclaim, typed malloc, thread registry, stop and start world. |
+| `0xE450C0`-`0xE48AB0` | A glib subset: hash table, list, string, path, UTF-8 to UTF-16, an XML parser, log handlers. |
+| `0xDAE970`-`0xDFE170` | Bodies that null-check, raise NullReferenceException and call through method pointers: they look like managed code compiled ahead of time (inferred, not checked). Some are 7-bit varint stream readers. |
+| `Texture_CreateD3D__hN` placeholders in b5a | EAText layout and shaping: bidi, line breaking, Thai, Hebrew and Arabic clusters, OpenType GSUB. |
+| smaller groups | zlib and libpng write code, eastl vector helpers, `Lot` wall and placement tests, the thumbnail scene objects and renderer (`ThumbSceneObj_*`, `ThumbRenderer_*`), and a speech-style audio decoder at `0xF09C50`-`0xF14080` (12-tap LPC, 0x1B0-sample frames; codec not identified). |
+
+Bug candidates from this pass. None is fixed or tested:
+
+- `GC_write 0xE4DD50` (read twice): it enters the critical section `0x1222580` first. Once the log file failed to open
+  (handle -1), every later call returns -1 without leaving it. The owning thread can reenter. Another thread that writes
+  a GC log line would block for good. This only matters if that log file cannot be created.
+- `ThumbSceneObj_FindAndDestroy 0x7033A0`: the found node can be null and is then called through. Its sibling
+  `0x702A20` checks for null.
+- The rest are stock Mono or Boehm patterns: a fatal-error print that returns into a full table (`0xE49B10`,
+  `0xE51070`), an assert that falls through (`0xE8A520`, `0xE9BE70`), allocations used without a null check.
+
 ## 7. Project names changed
 
 Four project-CSV names did not match the code read here. The new CSV uses the new names and keeps the old one in its
@@ -309,24 +336,38 @@ comment. `ts3w-1.67.symbols.csv` is not changed.
 
 Docs-only names written as `svc.X` or `A::B` are renamed to `XService_Update` and `A_B`.
 
+The second pass kept the project name at all 112 project-named addresses it read. At 49 the reader proposed another
+name, kept in the CSV comment as `Suggested name:`. Most only restyle a Mono or Boehm name (`mono_class_init` as
+`Mono_ClassInitLocked`). These would change the meaning and need a second look before the project CSV takes them:
+
+| Address | Project CSV name | Suggested | Why |
+|---|---|---|---|
+| `0xD78760` | `ScriptHost_LoadImage` | `ScriptHost_IsImageLoaded` | Calls a ResourceMan slot and returns 0 either way. |
+| `0xE49B10` | `GC_heap_section_limit_a` | `GC_AddHeapSection` | Appends to the 768-entry heap section tables. |
+| `0xE4EEF0` | `GC_heap_section_limit_b` | `GC_win32_get_mem_recorded` | Gets memory and records the section. |
+| `0xE4B8D0` | `GC_hot_2` | `GC_next_used_block` | Walks to the next block in use. |
+| `0xE4D270` | `GC_per_frame_path_a` | `GC_mark_some` | One step of the mark state machine (states 0-5), 1 when marking is done. |
+| `0xE4D460` | `GC_per_frame_path_b` | `GC_mark_some_protected` | The same step under an exception guard. |
+| `0xEBBDE0` | `g_hash_table_lookup` | `MonoGLib_HashTableLookupExtended` | Returns 1 with key and value out pointers, like `g_hash_table_lookup_extended`. |
+
 ## 8. Coverage
 
 | Root | Functions | Read from the decompile |
 |---|---:|---:|
 | World/Service | 3,094 | 63 |
-| VideoManager | 1,279 | 41 |
-| CAS/SimService | 1,098 | 118 |
-| `MainLoop` | 984 | 230 |
+| VideoManager (mostly runtime libraries, §6.4) | 1,279 | 1,052 |
+| CAS/SimService | 1,098 | 142 |
+| `MainLoop` | 984 | 277 |
 | `App_Run` | 974 | 15 |
-| UI/ThumbnailManager | 933 | 64 |
+| UI/ThumbnailManager | 933 | 92 |
 | ObjectDesigner | 576 | 86 |
-| SwarmSystem | 349 | 10 |
+| SwarmSystem | 349 | 19 |
 | ShaderSystem | 138 | 5 |
-| RenderSystem | 112 | 54 |
+| RenderSystem | 112 | 55 |
 | CAS/TextureCompositor | 92 | 15 |
 | `Canvas_WndProc` | 34 | 32 |
-| 15 other services | 157 | 80 |
-| **all** | **9,820** | **813** |
+| 15 other services | 157 | 82 |
+| **all** | **9,820** | **1,935** |
 
 Deeper functions carry a summary built from the graph: callees, strings, imports and virtual call slots.
 
@@ -334,8 +375,8 @@ Deeper functions carry a summary built from the graph: callees, strings, imports
 
 - The role of `0x11D1530` (the gate for `Frame_RenderAndPresent`) and of the frame-job flags `Renderer+0x28E`,
   `+0x28F`, `+0x294` and `+0x29C` is inferred.
-- The not-decompiled functions have names only from their callees and parent. They include `0x6772E0`, `0x6FA550`,
-  `0x749850`, `0x7498E0`, `0x74A050`, `0x948620`, `0x959000` and `JobManager_RunJobs 0x59A430`.
+- The second pass cut each body at 60 lines, so 237 of the 1,132 were read in part. Rows built mostly from callees are
+  marked inferred. The bug search did not cover the cut parts.
 - Several large functions were read only in part (the extract stops at 70 lines; the agents read the full body for
   `MainLoop`, `SimService_Update` and `WorldManager_Update`): `App_StartupFlags`, `VideoCapture_RenderFrame`,
   `0x9160B0`, `0x91BAB0`, `0xB2D650`, `0xD4CC00`. Their behavior lines say so where it matters.
