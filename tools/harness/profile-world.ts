@@ -88,7 +88,7 @@ import { clockStep, watchGame } from './game-alive.ts';
 import { startMachineLoad, summarize } from './machine-load.ts';
 import { BIN, GAME_EXE } from './game-exe.ts';
 
-const { values } = parseArgs({ options: { tag: { type: 'string' }, minutes: { type: 'string', default: '10' }, ab: { type: 'string' }, 'ab-on-first': { type: 'boolean' }, 'fixes-off': { type: 'string' }, 'fixes-on': { type: 'string' }, 'until-compares': { type: 'string' }, slice: { type: 'string', default: '2' }, taskstall: { type: 'string' }, seed: { type: 'string' }, repro: { type: 'string' }, mainstack: { type: 'string' }, inroom: { type: 'boolean' }, watchstalk: { type: 'boolean' }, 'watchstalk-worker': { type: 'boolean' }, livereads2: { type: 'boolean' }, f4b: { type: 'boolean' }, vres: { type: 'boolean' }, 'vres-dry': { type: 'string' }, 'no-samplers': { type: 'boolean' }, 'no-env': { type: 'boolean' }, 'no-env-guard': { type: 'boolean' }, 'no-prof': { type: 'boolean' }, 'no-frames': { type: 'boolean' }, 'camera-pan': { type: 'boolean' }, 'prof-opts': { type: 'string' }, travel: { type: 'string' }, 'fixes-require': { type: 'string' }, 'frame-lead': { type: 'string' }, 'hitch-tasks': { type: 'string' }, 'since-load': { type: 'string' }, 'frames-shared': { type: 'string' }, 'loop-rule': { type: 'string' }, story: { type: 'string' } } });
+const { values } = parseArgs({ options: { tag: { type: 'string' }, minutes: { type: 'string', default: '10' }, ab: { type: 'string' }, 'ab-on-first': { type: 'boolean' }, 'fixes-off': { type: 'string' }, 'fixes-on': { type: 'string' }, 'until-compares': { type: 'string' }, slice: { type: 'string', default: '2' }, taskstall: { type: 'string' }, seed: { type: 'string' }, repro: { type: 'string' }, mainstack: { type: 'string' }, inroom: { type: 'boolean' }, watchstalk: { type: 'boolean' }, 'watchstalk-worker': { type: 'boolean' }, livereads2: { type: 'boolean' }, f4b: { type: 'boolean' }, vres: { type: 'boolean' }, 'vres-dry': { type: 'string' }, 'no-samplers': { type: 'boolean' }, 'no-env': { type: 'boolean' }, 'quit-jobs': { type: 'boolean' }, 'no-env-guard': { type: 'boolean' }, 'no-prof': { type: 'boolean' }, 'no-frames': { type: 'boolean' }, 'camera-pan': { type: 'boolean' }, 'prof-opts': { type: 'string' }, travel: { type: 'string' }, 'fixes-require': { type: 'string' }, 'frame-lead': { type: 'string' }, 'hitch-tasks': { type: 'string' }, 'since-load': { type: 'string' }, 'frames-shared': { type: 'string' }, 'loop-rule': { type: 'string' }, story: { type: 'string' } } });
 if (!values.tag) throw new Error('--tag required');
 const profOpts = values['prof-opts'] ? JSON.parse(values['prof-opts']) : {}; // fail before the game is touched on bad JSON
 if (values['vres-dry'] !== undefined && !/^[1-9]\d*$/.test(values['vres-dry'])) throw new Error('--vres-dry must be a positive integer');
@@ -159,6 +159,17 @@ if (!paused.ok) throw new Error(`pause before setup failed: ${paused.error}`);
 const env = values['no-env'] ? null : await ag('test_env', {});
 if (env && !env.ok) throw new Error(`test_env failed: ${env.error}`); // an agent without test_env would silently test another season
 if (env) console.log(`${stamp()} test_env: ${JSON.stringify(env.result)}`);
+// --quit-jobs (queue profile.quitJobs): every active-household Sim with a job quits it (agent career quit), so career events
+// (film Actor / Director, the cheese rumour, 2026-11-06 al261 / al263) cannot pause a long run. In the running game only.
+if (values['quit-jobs']) {
+  const sims = (await ag('list_sims', {})).result ?? [];
+  const out: string[] = [];
+  for (const s of sims) {
+    const r = await ag('career', { sim: String(s.id), action: 'quit' });
+    if (r.ok || !/has no job/.test(r.error ?? '')) out.push(`${s.name}: ${r.ok ? 'quit' : r.error}`);
+  }
+  console.log(`${stamp()} quit_jobs: ${out.length ? out.join('; ') : 'nobody had a job'} (${sims.length} in the household)`);
+}
 // --fixes-off / --fixes-on: patches switches (same agent command as --ab) off / on for the whole run; read back, restored in restoreFixes
 if (values['fixes-require']) parseRequire(values['fixes-require']); // a bad rule fails before the run
 if (reproEntry.stepsRequire) parseRequire(reproEntry.stepsRequire);
