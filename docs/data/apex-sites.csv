@@ -34,7 +34,7 @@ address,apex_name,apex_source,class,verdict
 0x59ED20,,features/frame_profiler.cpp,,
 0x59ED70,,features/frame_profiler.cpp,,
 0x5D1960,CasTriSort,framework/game_addresses.cpp+patches/performance_patches.cpp,,
-0x5F0E50,,features/frame_profiler.cpp,,
+0x5F0E50,,features/frame_profiler.cpp,C0,Apex profiler only (developer mode); ours [CasFrameBudget] entry detour (off; docs/534)
 0x5FBCE0,CompReadback,framework/game_addresses.cpp,,
 0x5FD420,CompTileRead,framework/game_addresses.cpp,,
 0x5FDBF0,CompTileFetch,framework/game_addresses.cpp,,

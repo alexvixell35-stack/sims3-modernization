@@ -1680,6 +1680,11 @@ rpc.exports = {
       if (c.readS32() >= 906) f.push('icJumpMode', 'icJumped');
       // v907 [IlPatch] (docs/506 §2, docs/526, ilpatch.cpp): contributor block
       if (c.readS32() >= 907) f.push('ilpOn', 'ilpArmed', 'ilpApplied', 'ilpReused', 'ilpSkipHash', 'ilpSkipCheck', 'ilpSkipMismatch', 'ilpFaults');
+      // v910 [CasFrameBudget] (docs/534, casbudget.cpp): contributor block after the v908-v909 gap (9 int32)
+      if (c.readS32() >= 910) {
+        for (let i = 0; i < 9; i++) f.push('v908v909Reserved' + i);
+        f.push('cfbMs', 'cfbCalls', 'cfbHits', 'cfbForeign');
+      }
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key
