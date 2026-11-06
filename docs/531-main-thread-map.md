@@ -24,9 +24,10 @@ main thread runs ready jobs itself while it waits (§4.3).
 - **Each function is listed under the root that reaches it first** (BFS). The per-root counts in §8 are exclusive.
 - **Decompile.** Ghidra 12.2 headless, no auto-analysis: the graph's functions are created and named first, then
   decompiled per root. 8,731 functions were decompiled in the first pass. A second pass decompiled the 1,132 functions
-  found by sampling (§6.4).
+  found by sampling (§6.4): 1,131 bodies, and Ghidra finds no function at `0x615F6E`.
 - **Names, in priority order:**
-  1. Read from the decompile (1,935 functions: depth 0-2 of each root, depth 3 below `MainLoop` and `RenderSystem`, and
+  1. Read from the decompile (1,935 functions, 1,272 verified and 663 inferred: depth 0-2 of each root, depth 3 below
+     `MainLoop` and `RenderSystem`, and
      every function found by sampling except `0x615F6E`, where Ghidra finds no function).
   2. The project CSV and docs names (440).
   3. An EA heap or config tag in the body (735).
@@ -299,7 +300,8 @@ clears the stats, updates each effect group (`0x91A600`, `0x91BA10`) and applies
 
 ### 6.4 Found by sampling: the runtime libraries
 
-The second pass read the 1,132 functions that only the sampled stacks reach. 1,011 of them are listed under
+The second pass read 1,131 of the 1,132 functions that only the sampled stacks reach (1,122 not read before). 1,011 of
+the 1,132 are listed under
 VideoManager, but almost none is video code. A sampled edge can skip frames, and code that script calls reach is listed
 under the first root whose stacks pass through it. What they are:
 
@@ -309,16 +311,23 @@ under the first root whose stacks pass through it. What they are:
 | `0xE48E80`-`0xE513D0`, `0xD70900` | The Boehm GC: heap sections, mark state machine, sweep and reclaim, typed malloc, thread registry, stop and start world. |
 | `0xE450C0`-`0xE48AB0` | A glib subset: hash table, list, string, path, UTF-8 to UTF-16, an XML parser, log handlers. |
 | `0xDAE970`-`0xDFE170` | Bodies that null-check, raise NullReferenceException and call through method pointers: they look like managed code compiled ahead of time (inferred, not checked). Some are 7-bit varint stream readers. |
-| `Texture_CreateD3D__hN` placeholders in b5a | EAText layout and shaping: bidi, line breaking, Thai, Hebrew and Arabic clusters, OpenType GSUB. |
+| mostly `0x44DB50`-`0x465B50` | EAText layout and shaping: bidi, line breaking, Thai, Hebrew and Arabic clusters, OpenType GSUB. |
 | smaller groups | zlib and libpng write code, eastl vector helpers, `Lot` wall and placement tests, the thumbnail scene objects and renderer (`ThumbSceneObj_*`, `ThumbRenderer_*`), and a speech-style audio decoder at `0xF09C50`-`0xF14080` (12-tap LPC, 0x1B0-sample frames; codec not identified). |
 
 Bug candidates from this pass. None is fixed or tested:
 
-- `GC_write 0xE4DD50` (read twice): it enters the critical section `0x1222580` first. Once the log file failed to open
-  (handle -1), every later call returns -1 without leaving it. The owning thread can reenter. Another thread that writes
-  a GC log line would block for good. This only matters if that log file cannot be created.
-- `ThumbSceneObj_FindAndDestroy 0x7033A0`: the found node can be null and is then called through. Its sibling
-  `0x702A20` checks for null.
+- `GC_write 0xE4DD50`: once the log file failed to open (handle -1), a later call returns -1 without leaving the
+  critical section `0x1222580`, which `GC_stop_world` also takes. That leak cannot happen in practice: the failed open
+  goes to the abort sink `0xD707E0` (docs/118 D2), which faults on a write to address 0. **The reachable part is that
+  crash.** The log is `gc.log` in the current folder (string at `0x108DB78`). The default GC warning hook `0xE4DFA0`
+  writes through `GC_write`, so a GC warning ("Repeated allocation of very large block", "Out of Memory! Trying to
+  continue") in a folder the game cannot write ends the game at `0xD707E0`. `Game\Bin` gives Users read and execute
+  only, and the asInvoker manifest gets no VirtualStore redirect. Not checked: the game's current folder at run time,
+  and whether any run has logged a GC warning. A crash EIP in `0xD707E0`-`0xD707FF` would be this.
+- `ThumbSceneObjMap_InsertUnique 0x7007B0`: after a null-tested allocation, two stores still run, so a failed
+  `EA_AllocTagged` would fault. Only under address-space exhaustion. (The first read also flagged
+  `ThumbSceneObj_FindAndDestroy 0x7033A0`; a second read found the node is the link inside a live object and
+  cannot be null there.)
 - The rest are stock Mono or Boehm patterns: a fatal-error print that returns into a full table (`0xE49B10`,
   `0xE51070`), an assert that falls through (`0xE8A520`, `0xE9BE70`), allocations used without a null check.
 
