@@ -35,6 +35,10 @@
 // Named=1 (the default): a compositor is marked old only if no other part compositor in the map, itself not marked old,
 // names its key as a child in its op list (read as 0x6057F0 reads it). The names are collected per full walk of the map
 // (a cycle); a mark needs this cycle and the last full one, and a new compositor's names count from its insert.
+// Async=1 (the default): a compositor the async loader 0x729E10 has found by key (return 0x729E80) is never marked old.
+// al249 (Named, old save, 60 min): its 6 would-misses all came from there, from an outfit's load (CAS/SimOutfitResource/Load
+// 0x5E9AA0 -> 0x5E55B0 -> 0x5E53E0: an async request by key, callback 0xD4B150): the outfit names its part compositors
+// by key, and neither a compositor nor a database does.
 // Safety rule: no erase of anything with a third reference; the would-miss / missed counters and their first 20 events
 // (caller, age) are the evidence that nothing a live Sim renders from goes. Inserts from a second thread are counted and
 // never trimmed from. A fault inside the walk turns the mode off for the session.
@@ -50,10 +54,10 @@ static CtEraseFn g_ctErase = (CtEraseFn)(uintptr_t)CT_ERASE;  // selftest: a fak
 static DWORD g_ctVt[2] = {0x00FE68D8, 0x00FE68F4};             // selftest: its own
 static DWORD g_ctAgeMs = 1800 * 1000, g_ctLogMs = 5 * 60000, g_ctTid, g_ctLogAt, g_ctCursor;
 static int g_ctBuckets = 16, g_ctMaxErase = 8;
-struct CtEnt { volatile LONG obj; DWORD seen, used, cand, dbNo; };  // ticks: inserted / first walked, last found, marked old, last
-                                                                   // "no database has the key" (NeedDb)
+struct CtEnt { volatile LONG obj; DWORD seen, used, cand, dbNo; volatile LONG from; };  // ticks: inserted / first walked, last
+                     // found, marked old, last "no database has the key" (NeedDb); from: a bit (CtFromBit) per caller that found it
 static const DWORD CT_SLOTS = 1 << 18, CT_GONE = 1 << 16;
-static CtEnt* g_ct;            // 5 MB, allocated when installed. shortcut: never shrinks; a full probe run skips the
+static CtEnt* g_ct;            // 6 MB, allocated when installed. shortcut: never shrinks; a full probe run skips the
 static volatile LONG* g_ctGone;  // compositor (never erased): fine while the live set is far below 262k
 static volatile LONG g_ctAge[4], g_ctEvents;  // would-miss + missed by time since the mark: < 1 min, < 10, < 60, more
 // finds by key of a known part compositor by how long it had been unused (no insert, no find): < 1 min, 1-5, 5-10, 10-30,
@@ -72,7 +76,7 @@ static CtEnt* CtSlot(DWORD o, bool claim) {
         if (a) continue;
         if (!claim) return NULL;
         if (InterlockedCompareExchange(&g_ct[i].obj, (LONG)o, 0) == 0) {
-            g_ct[i].seen = g_ct[i].used = g_ct[i].cand = g_ct[i].dbNo = 0;
+            g_ct[i].seen = g_ct[i].used = g_ct[i].cand = g_ct[i].dbNo = 0, g_ct[i].from = 0;
             return &g_ct[i];
         }
         if (g_ct[i].obj == (LONG)o) return &g_ct[i];
@@ -98,6 +102,8 @@ static int CtInDb(const void* key) {  // 1 a database has it, 0 none, -1 not ask
 // one. FNV hashes, open addressing, the walk's thread only; a hash collision keeps a compositor (the safe side).
 // shortcut: 512k slots each (2 MB); a full table keeps everything until it has cycled out (logged): grow it if that shows.
 static bool g_ctNamed = true;
+static bool g_ctAsync = true;
+static volatile LONG g_ctFromN[5], g_ctKeptAs;  // finds of known compositors per CtFromBit; old ones Async kept (walk visits)
 static const DWORD CT_NAMED = 1 << 19;
 static LONG* g_ctNm[2];
 static bool g_ctNmFull[2];
@@ -159,7 +165,7 @@ static void CtKidsEa(DWORD o) {
     }
 }
 static void (*g_ctKidsFn)(DWORD o) = CtKidsEa;  // selftest: a fake
-static void CtEvent(const char* what, DWORD o, DWORD at, DWORD sinceMark, DWORD age, const DWORD* sp, int db = -1) {
+static void CtEvent(const char* what, DWORD o, DWORD at, DWORD sinceMark, DWORD age, const DWORD* sp, int db = -1, LONG from = 0) {
     const DWORD m = sinceMark / 60000;
     InterlockedIncrement(&g_ctAge[m < 1 ? 0 : m < 10 ? 1 : m < 60 ? 2 : 3]);
     if (InterlockedIncrement(&g_ctEvents) > 20) return;
@@ -169,8 +175,9 @@ static void CtEvent(const char* what, DWORD o, DWORD at, DWORD sinceMark, DWORD 
                 if (sp[i] >= g_rhTxLo && sp[i] < g_rhTxHi) c[k++] = sp[i];
         } __except (EXCEPTION_EXECUTE_HANDLER) {}
     Log("cas trim: %s: compositor 0x%08lX found by key from 0x%08lX < 0x%08lX < 0x%08lX < 0x%08lX, %lu s after it was marked old "
-        "(unused %lu s then); a database has the key: %s", what, o, at, c[0], c[1], c[2], sinceMark / 1000, age / 1000,
-        db > 0 ? "yes (would load again)" : db == 0 ? "NO (a trim would lose it)" : "not asked");
+        "(unused %lu s then); a database has the key: %s; found before by 0x%lX (1 async loader, 2 get, 4 blit, 8 parent Load, "
+        "16 other)", what, o, at, c[0], c[1], c[2], sinceMark / 1000, age / 1000,
+        db > 0 ? "yes (would load again)" : db == 0 ? "NO (a trim would lose it)" : "not asked", from);
 }
 
 // One step of the walk (the inserting thread, after EA's insert returned).
@@ -195,6 +202,7 @@ static void CtStep(u8* svc, DWORD now) {
                 const DWORD a1 = now - t->seen, a2 = now - t->used, age = a1 < a2 ? a1 : a2;
                 if (*(const LONG*)(uintptr_t)(o + 4) >> 8 != 2 || age < g_ctAgeMs) { t->cand = 0; continue; }
                 if (g_ctNamed && CtNamedKey(e)) { g_ctKept++, t->cand = 0; continue; }  // the node starts with the key
+                if (g_ctAsync && (t->from & 1)) { g_ctKeptAs++, t->cand = 0; continue; }  // an outfit names it (Async)
                 if (!t->cand) {
                     if (g_ctNeedDb) {
                         if (t->dbNo && now - t->dbNo < g_ctAgeMs) continue;
@@ -241,6 +249,9 @@ static void CtLog(const u8* svc) {
     Log("cas trim: Named %d: walk cycles %ld (the last %lu s), child keys read %ld, old ones kept because a compositor names "
         "them %ld (walk visits); name table full: this cycle %d, the last %d", g_ctNamed, g_ctCycles, g_ctCyMs / 1000, g_ctKids,
         g_ctKept, g_ctNmFull[0], g_ctNmFull[1]);
+    Log("cas trim: Async %d: old ones kept because the async loader found them %ld (walk visits); finds of known compositors "
+        "by caller: async loader %ld, get %ld, blit %ld, parent Load %ld, other %ld", g_ctAsync, g_ctKeptAs, g_ctFromN[0],
+        g_ctFromN[1], g_ctFromN[2], g_ctFromN[3], g_ctFromN[4]);
 }
 static int __fastcall CtInsertHook(u8* svc, void* edx, u8* comp) {
     const int r = g_ctInsert(svc, edx, comp);
@@ -269,6 +280,8 @@ static int __fastcall CtInsertHook(u8* svc, void* edx, u8* comp) {
 // texture: EA's erase unregisters through it, and so does the compositor's own release later (al237 / al240: all the
 // MISSED events came from here).
 static const DWORD CT_LOAD_RET = 0x0060733E;  // the parent's Load: a miss rebuilds the child from the parent's data
+static const DWORD CT_ASYNC_RET = 0x00729E80, CT_GET_RET = 0x00736718, CT_BLIT_RET = 0x005FA6D4;  // (see the header)
+static int CtFromBit(DWORD at) { return at == CT_ASYNC_RET ? 0 : at == CT_GET_RET ? 1 : at == CT_BLIT_RET ? 2 : at == CT_LOAD_RET ? 3 : 4; }
 static const DWORD CT_SCAN_RET = 0x004B009E;  // shortcut: with [MemDiag] RcRefCallers on, its slot hook is the caller and this test misses: run them apart
 static void CtFound(bool r, const void* key, void** out, DWORD at, const DWORD* sp) {
     Ts3nCounters& z = ts3native_counters;
@@ -280,14 +293,17 @@ static void CtFound(bool r, const void* key, void** out, DWORD at, const DWORD* 
                 if (CtEnt* t = CtSlot(o, false)) {
                     const DWORD now = GetTickCount(), last = now - t->seen < now - t->used ? t->seen : t->used, g = (now - last) / 60000;
                     if (t->seen) InterlockedIncrement(&g_ctGap[g < 1 ? 0 : g < 5 ? 1 : g < 10 ? 2 : g < 30 ? 3 : g < 60 ? 4 : 5]);
+                    const int fb = CtFromBit(at);
+                    InterlockedIncrement(&g_ctFromN[fb]);
                     if (t->cand) {
                         InterlockedIncrement(&z.ctWouldMiss);
                         const DWORD a1 = t->cand - t->seen, a2 = t->cand - t->used;
                         const int db = key ? CtInDb(key) : -1;
                         if (db >= 0) InterlockedIncrement(db ? &g_ctDbYes : &g_ctDbNo);
-                        CtEvent("would miss", o, at, now - t->cand, a1 < a2 ? a1 : a2, sp, db);
+                        CtEvent("would miss", o, at, now - t->cand, a1 < a2 ? a1 : a2, sp, db, t->from);
                     }
                     t->used = now, t->cand = 0;
+                    InterlockedOr(&t->from, 1 << fb);
                 }
         } else if (!r && key && mode == 1 && at != CT_SCAN_RET) {
             const DWORD h = CtKeyHash(key);
@@ -319,11 +335,12 @@ static void ApplyCasTrim(const wchar_t* ini) {
     const int maxErase = GetPrivateProfileIntW(L"CasTrim", L"MaxErase", 8, ini);
     g_ctNeedDb = GetPrivateProfileIntW(L"CasTrim", L"NeedDb", 0, ini) != 0;
     g_ctNamed = GetPrivateProfileIntW(L"CasTrim", L"Named", 1, ini) != 0;
+    g_ctAsync = GetPrivateProfileIntW(L"CasTrim", L"Async", 1, ini) != 0;
     g_ctAgeMs = (DWORD)(age < 10 ? 10 : age > 36000 ? 36000 : age) * 1000;
     g_ctBuckets = buckets < 1 ? 1 : buckets > 256 ? 256 : buckets;
     g_ctMaxErase = maxErase < 1 ? 1 : maxErase > 64 ? 64 : maxErase;
     if (mode <= 0 && GetPrivateProfileIntW(L"CasTrim", L"Install", 0, ini) <= 0) return;
-    if (!CtAlloc()) return (void)Log("FAIL cas trim: no memory for the tables (9.5 MB): not installed");
+    if (!CtAlloc()) return (void)Log("FAIL cas trim: no memory for the tables (10.3 MB): not installed");
     RhRanges();  // the exe .text range for the event chains
     if (!g_ctFind)
         g_ctFind = (CtFindFn)InstallDetour("ResourceCache_Find", CT_FIND, kCtFindPro, sizeof(kCtFindPro), (void*)CtFindHook, &g_ctFind);
@@ -334,7 +351,8 @@ static void ApplyCasTrim(const wchar_t* ini) {
     Ts3nCounters& z = ts3native_counters;
     z.ctOn = 1, z.ctMode = mode < 0 ? 0 : mode > 2 ? 2 : mode;
     Log("cas trim: on (docs/191 step 2), mode %ld (%s): part compositors at 2 references, not inserted or found for %lu s; %d buckets a "
-        "step, at most %d erases a step; %s; %s", z.ctMode, z.ctMode == 1 ? "trim with EA's erase 0x5EE640" : z.ctMode == 2 ? "count only" : "armed, off",
+        "step, at most %d erases a step; %s; %s; %s", z.ctMode, z.ctMode == 1 ? "trim with EA's erase 0x5EE640" : z.ctMode == 2 ? "count only" : "armed, off",
         g_ctAgeMs / 1000, g_ctBuckets, g_ctMaxErase, g_ctNamed ? "only ones no other compositor names (Named 1)" : "named or not (Named 0)",
-        g_ctNeedDb ? "only ones a database holds (NeedDb 1)" : "with or without a database (NeedDb 0)");
+        g_ctNeedDb ? "only ones a database holds (NeedDb 1)" : "with or without a database (NeedDb 0)",
+        g_ctAsync ? "never ones the async loader found (Async 1)" : "found by the async loader or not (Async 0)");
 }

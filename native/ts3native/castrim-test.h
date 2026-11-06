@@ -37,8 +37,8 @@ static void TestCasTrim() {
     Ts3nCounters& z = ts3native_counters;
     const CtEraseFn erase0 = g_ctErase;
     const DWORD vt0[2] = {g_ctVt[0], g_ctVt[1]}, age0 = g_ctAgeMs;
-    const bool named0 = g_ctNamed, needDb0 = g_ctNeedDb;
-    g_ctNamed = false, g_ctNeedDb = true;  // steps 2-3: NeedDb alone
+    const bool named0 = g_ctNamed, needDb0 = g_ctNeedDb, async0 = g_ctAsync;
+    g_ctNamed = false, g_ctNeedDb = true, g_ctAsync = false;  // steps 2-3: NeedDb alone
     assert(CtAlloc());
     const DWORD rmAt0 = g_ctRmAt, rmVt0 = g_ctRmVt;
     g_ctsRmVt[0x44 / 4] = (DWORD)(uintptr_t)&CtsDb, g_ctsRm[0] = (DWORD)(uintptr_t)g_ctsRmVt, g_ctsRmPtr = g_ctsRm;
@@ -134,6 +134,21 @@ static void TestCasTrim() {
     CtStep(g_ctsSvc, t1 + 250000);
     assert(!tc->cand);
     z.ctInserts = 0, g_ctsComp[1][1] = 3 << 8 | 1;
+    // 3c. Async: old A, once the async loader has found it (an outfit's part), stays unmarked; with Async off it is marked
+    g_ctAsync = true;
+    memset(g_ct, 0, CT_SLOTS * sizeof(CtEnt));
+    const DWORD t2 = t1 + 300000;
+    CtStep(g_ctsSvc, t2);
+    ta = CtSlot((DWORD)(uintptr_t)g_ctsComp[0], false);
+    void* pa = g_ctsComp[0];
+    CtFound(true, keyA, &pa, CT_ASYNC_RET, NULL);
+    assert(ta->from == 1 && g_ctFromN[0] == 1);
+    ta->used = t2;
+    CtStep(g_ctsSvc, t2 + 61000);
+    assert(!ta->cand && g_ctKeptAs >= 1);
+    g_ctAsync = false;
+    CtStep(g_ctsSvc, t2 + 122000);
+    assert(ta->cand);
     // 4. the insert hook (count mode): counts, walks on its first thread only
     g_ctTid = 0, z.ctMode = 2;
     const LONG scanned = z.ctScanned;
@@ -146,7 +161,7 @@ static void TestCasTrim() {
     CtStep(g_ctsSvc, t0 + 300000);
     assert(z.ctMode == 0);
     CtLog(g_ctsSvc);
-    printf("cas trim: selftest ok (walk, marks, NeedDb, Named + its cycles + insert, would-miss, EA-erase stand-in, missed / loaded again, other thread, fault)\n");
+    printf("cas trim: selftest ok (walk, marks, NeedDb, Named + its cycles + insert, Async, would-miss, EA-erase stand-in, missed / loaded again, other thread, fault)\n");
 
     memset((void*)&z.ctMode, 0, 10 * sizeof(LONG));
     memset(g_ct, 0, CT_SLOTS * sizeof(CtEnt)), memset((void*)g_ctGone, 0, CT_GONE * 4);
@@ -154,6 +169,7 @@ static void TestCasTrim() {
     g_ctErase = erase0, g_ctInsert = NULL, g_ctFind = NULL, g_ctVt[0] = vt0[0], g_ctVt[1] = vt0[1], g_ctAgeMs = age0;
     g_ctBuckets = 16, g_ctRmAt = rmAt0, g_ctRmVt = rmVt0, g_ctDbYes = g_ctDbNo = 0, g_ctsDbKey = 0;
     g_ctMarkDb[0] = g_ctMarkDb[1] = g_ctReload = 0, g_ctDbQpc = 0;
-    memset(g_ctNm[0], 0, 2 * CT_NAMED * 4), g_ctNmFull[0] = g_ctNmFull[1] = false, g_ctKidsFn = CtKidsEa;
+    memset(g_ctNm[0], 0, CT_NAMED * 4), memset(g_ctNm[1], 0, CT_NAMED * 4), g_ctNmFull[0] = g_ctNmFull[1] = false, g_ctKidsFn = CtKidsEa;
     g_ctCycles = g_ctKids = g_ctKept = 0, g_ctCyB = g_ctCyNb = g_ctCyAt = g_ctCyMs = 0, g_ctNamed = named0, g_ctNeedDb = needDb0;
+    g_ctAsync = async0, g_ctKeptAs = 0, memset((void*)g_ctFromN, 0, sizeof(g_ctFromN));
 }

@@ -183,17 +183,27 @@ compositor is reached through the ResourceCache by key, which the insert registe
   its insert. A parent marked old stops naming, so a dead outfit's tree is marked top down, one level per two cycles.
   Only type `0x0341ACC9` (vtable `0xFE68F4`) answers the child cast `0x3420F34` that `0x6057F0` makes. The count run
   shows whether every would-miss was named.
+  - al249 (count, `Named` on, old save, 60 min, PASS; al248 with the same build crashed at 7.6 min in the render path,
+    the al208 family): would-miss 6 (age alone: 6,293), none from a parent's rebuild. All 6 came from the async loader
+    `0x729E10` (return `0x729E80`), from an outfit's load: `CAS/SimOutfitResource/Load` `0x5E9AA0` -> `0x5E55B0` ->
+    `0x5E53E0` (an async request by key through `[0x11D3C84]` +0x34, callback `0xD4B150`). Each was unused ~50 min and no
+    database has its key [verified disassembly of the chain; the outfit's own key source not traced].
+- **`Async` (default 1, 2026-11-06):** a compositor the async loader has found by key is never marked old. Every find of a
+  known compositor sets a bit for its caller (async loader, get `0x736718`, blit `0x5FA6D4`, parent Load `0x60733E`,
+  other); the would-miss events print the bits from before. If an outfit's parts are found there when the outfit first
+  loads, this keeps them; one built in play and loaded again later without an earlier async find is not covered. The
+  count run shows which.
 - **Not covered:** the export paths read the registry itself (`Contains`): a lot or Sim exported to the library after its
   compositors were trimmed would miss those textures in the export [inferred]. Mode 2 on an export would show it as no
   counter; the export check is a manual step of the step 3 checks.
 - **Counters v909:** `ctMode` (switch), `ctOn`, `ctInserts`, `ctScanned`, `ctCand`, `ctErased`, `ctWouldMiss`,
-  `ctMissed`, `ctFull`, `ctOtherThread`. Tables: 9.5 MB, allocated only when installed.
+  `ctMissed`, `ctFull`, `ctOtherThread`. Tables: 10.3 MB, allocated only when installed.
 - **Selftest:** a fake map (two buckets, four nodes), fake EA erase / insert / Find: an old compositor marked (count) then
   erased (trim), one at 3 references and one found 11 s before left alone, one without a database kept (`NeedDb`, not
   asked again before `AgeSec`), a would-miss, a failed find of the erased key loaded again while a fake database holds
   it and missed once none does, the parent-Load find, `Named` (a child kept while a live compositor names it, marked
-  two cycles after its parent is marked, kept again by a new compositor's insert), the second-thread insert, a walk
-  fault (mode off).
+  two cycles after its parent is marked, kept again by a new compositor's insert), `Async` (a compositor the async
+  loader found stays unmarked, and is marked with `Async` off), the second-thread insert, a walk fault (mode off).
 - **Checks before any default (Rodney's step 3):** count mode first on the old save (would-miss near 0 over 60 min with a
   travel and a save + reload); then off vs on, same seed: `rcN` / `eaRes` flat after minute 15, the largest free block
   at the end, no missing or wrong textures in CAS, live mode, after a travel and after a save and reload, no new
