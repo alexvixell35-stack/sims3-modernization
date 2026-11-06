@@ -1,6 +1,6 @@
 # 527. The method compiler in the game: integration plan with the IL patcher hook (round 10 C6)
 
-Status: step 1 built, 2026-11-06 (§8; `[MonoJit]`, off by default; not run in game yet when written). The rest is the
+Status: step 1 built, step 2 passed in game (`Direct=0` and `Direct=1`), 2026-11-06 (§8, §9; `[MonoJit]`, off by default). The rest is the
 plan of 2026-11-02; every claim is tagged. Round 10, task C6: "in-game integration plan with
 #200: ts3native switch (off by default), in-game verify mode with a mismatch counter, A/B judged by script ms/s per arm
 (`arm-ms.ts`)". It supersedes rows S1 and S3 of docs/223 §7 with what rounds 8 to 10 built in monohost (docs/207 §10 to
@@ -155,3 +155,45 @@ Step 1 needs #200 / #204 merged (the detour it extends). Steps 2 to 4 are the us
   hashes (`HashGuard=0`), so `Enabled=1` with the default `HashGuard=1` compiles nothing yet; a fault inside the pool is
   not named by the crash report: each "monojit: compiled" log line gives the method's code range instead.
 - **Tests**: `TestMonoJit` in selftest.exe (post-pass order, unpatch after a mismatch, install gates without the game).
+
+## 9. First in-game verify runs (2026-11-06)
+
+Local queue `jit-verify-local` (not committed), `Mode=2 VerifyEvery=16`, 10 min per save, the build of each run named.
+
+- **al253** (BP, `HashGuard=0`) [verified: run log]: 1,793 compiles in 5 min, then "tables full" and 541 refusals.
+  The game compiles each instantiation of a listed generic as its own runtime method; all of them share one IL hash.
+  Tables x4: ip table 2^18, methods 16,384, positions 2^20, code pool 16 MB. The run also had 2 mismatches, in
+  `List`1.Add` and `List`1.GrowIfNeeded`: region 3 (the list) at +4 (`_items`), the compiled pass's new array 0x30 or
+  more bytes above the interpreter's.
+- **Verifier fixes**, each found by the run before it. The mismatches were the verifier, not the compiled code:
+  1. Free Boehm blocks reached through stale words went into the entry snapshot. Their free-list links pulled the
+     free list in, so the compiled pass's new array counted as old (fix1, `JitLooksFree`).
+  2. Restoring memory that EA's lazy reclaim may free during the pass: the snapshot now skips objects with the free bit,
+     and unmarked objects in a block not stamped this cycle. It also abandons the call when `GC_gc_no` (`0x011F2F90`)
+     changed during the pass. Before: host verify crashed in 1 of 2 runs, AV writing `0x9C` at `0xE4C223` in
+     `GC_malloc_atomic`, after such a restore [inferred]. After: 3 of 3 clean.
+  3. al255's mismatch line showed the new array unkept: the new-object set was full (2,048 objects, 160 KB) of old
+     objects that dead frame words point at. The set now keeps only objects the pass can have allocated (unmarked, not
+     free, block stamped this cycle), read from the compared words only. A difference while the set is full is
+     abandoned, not counted [verified: al256 below, host 2.52-2.57 M verified calls, 0 mismatches, set full 0].
+- **al256** (`Direct=0`, `HashGuard=1`) [verified: native.json of each job]: PASS on BP, IP and SV.
+
+| Save | Methods compiled | Calls verified | Mismatches | Too large (compiled only) | Code KB | Other thread |
+|---|---|---|---|---|---|---|
+| BP | 2,625 | 1,267,846 | 0 | 3,796,915 | 1,939 | 0 |
+| IP | 2,629 | 1,179,245 | 0 | 3,733,848 | 1,942 | 0 |
+| SV | 2,533 | 1,419,724 | 0 | 3,932,645 | 1,879 | 0 |
+
+- **Coverage gap**: about 3 in 4 sampled calls reach more state than the snapshot holds. They run compiled, unchecked
+  (`jitLarge`). So 0 mismatches covers the quarter that fits.
+- IP and SV load a fourth `Array.Copy` body (45 bytes, sha256 `a395357028e6bcd9`), absent from al253's BP log. It is in
+  `kMjHash` from the al257 build on.
+- **al257** (`Direct=1`, build a8881117fbfa) [verified: native.json of each job]: PASS on BP, IP and SV.
+
+| Save | Methods compiled | Calls verified | Mismatches | Too large (compiled only) | Code KB | Other thread |
+|---|---|---|---|---|---|---|
+| BP | 2,607 | 1,297,292 | 0 | 3,571,435 | 6,274 | 0 |
+| IP | 2,606 | 1,140,309 | 0 | 3,373,724 | 6,261 | 0 |
+| SV | 2,560 | 1,400,284 | 0 | 3,604,108 | 6,166 | 0 |
+
+  `Direct=1` uses 3.2x the code (the lazy bodies). That is 6.3 MB of the 16 MB pool.
