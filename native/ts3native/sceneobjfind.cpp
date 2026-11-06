@@ -13,12 +13,14 @@ typedef DWORD* (__thiscall* SfFindFn)(const DWORD* table, DWORD* out, const DWOR
 static SfFindFn g_sfOrig;
 static unsigned long long g_sfCalls, g_sfNodes;  // main thread only; published in units of 1024 (32-bit fields would wrap)
 
-// nodes compared before EA's loop stops: the hit's depth + 1, or the whole chain on a miss
+// nodes compared before EA's loop stops: the hit's depth + 1, or the whole chain on a miss. Capped at SF_WALK_CAP: a
+// corrupt or cyclic chain must not spin the main thread (EA's own loop would, but that is EA's bug, not this counter's).
+static const LONG SF_WALK_CAP = 4096;
 static LONG SfWalk(const DWORD* table, const DWORD* key) {
     LONG n = 0;
     for (const DWORD* node = (const DWORD*)(uintptr_t)table[key[0] % SF_BUCKETS]; node; node = (const DWORD*)(uintptr_t)node[0]) {
         n++;
-        if (node[2] == key[0] && node[3] == key[1]) break;
+        if ((node[2] == key[0] && node[3] == key[1]) || n >= SF_WALK_CAP) break;
     }
     return n;
 }

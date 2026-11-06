@@ -33,6 +33,9 @@ static void TestSceneObjFind() {
     assert(SfWalk(table, kFirst) == 1 && SfWalk(table, kThird) == 3);
     assert(SfWalk(table, kMissHi) == 3);  // same lo, other hi: a miss walks the whole chain
     assert(SfWalk(table, kEmpty) == 0);
+    n3[0] = (DWORD)(uintptr_t)n1;  // a cyclic chain: the walk stops at the cap instead of spinning
+    assert(SfWalk(table, kMissHi) == SF_WALK_CAP);
+    n3[0] = 0;
 
     const DWORD mainTid = g_mainTid;
     g_mainTid = GetCurrentThreadId();
