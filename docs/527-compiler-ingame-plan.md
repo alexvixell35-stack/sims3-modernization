@@ -1,6 +1,6 @@
 # 527. The method compiler in the game: integration plan with the IL patcher hook (round 10 C6)
 
-Status: steps 1-3 done in game, 2026-11-06 (step 2 verify passed, step 3 A/B: no gain measurable) (§8, §9; `[MonoJit]`, off by default). The rest is the
+Status: steps 1-4 run in game, 2026-11-06 (step 2 verify passed; step 3 A/B, short and long: no gain measurable; step 4 soak: one crash, cause open, §11) (§8, §9; `[MonoJit]`, off by default). The rest is the
 plan of 2026-11-02; every claim is tagged. Round 10, task C6: "in-game integration plan with
 #200: ts3native switch (off by default), in-game verify mode with a mismatch counter, A/B judged by script ms/s per arm
 (`arm-ms.ts`)". It supersedes rows S1 and S3 of docs/223 §7 with what rounds 8 to 10 built in monohost (docs/207 §10 to
@@ -228,3 +228,46 @@ route plans they make inside it.
   (`0x64C7C0`, samples at `0x64CF22`-`0x64CF55`) through TailUnlock's `TuS16`, from Route_PlanFromPoint on the
   houseboat gangway path. No compiled code was on the sim stack (pool `0x06100000`-`0x07100000`). The rerun with the
   same seed passed. Cause not known; it is not attributed to `[MonoJit]` and not ruled out.
+
+## 11. Long A/B and soak (2026-11-06, al260 / al261)
+
+Build b91e56a23772 (74e7132), `Mode=1 Direct=1 HashGuard=1`, quiet machine (other CPU 1.5 %, TS3W pinned every
+sample). Numbers are the Mono script time of hitch-ab.ts:517 (`taskObjects + threaded + oneShot + script - route -
+rtLock - rtOtherLock - rtJob`), per 1-min slice, on minus off.
+
+**Long A/B** (`--ab monojit`, 1-min slices, 60 min planned per save):
+
+| Save | Minutes (off / on slices) | Mono ms/s off | on | on - off | se | sim iterations/s on - off |
+|---|---|---:|---:|---:|---:|---:|
+| BP | 16 (8 / 9) | 532.8 | 581.8 | +49.0 | 68.7 | -30.9 (se 48.4) |
+| IP | 51 (26 / 26) | 746.9 | 681.3 | -65.6 | 79.7 | -0.0 (se 9.6) |
+| SV | 48 (24 / 25) | 538.9 | 544.6 | +5.7 | 25.6 | -4.3 (se 15.5) |
+
+- **No gain measurable** [measured]. The inverse-variance mean of the three saves is +4.6 ms/s (se 23), so the 95 %
+  range is about -41 to +50 ms/s. §10's 4-8 ms/s gain is inside it and so is no change; even 60 min per save cannot
+  resolve it, because the spread between 1-min slices (sd) is about 90-290 ms/s. The IP harness arm column gives -67.3 (paired slices
+  -69.8, se 73.2), the same as the table.
+- BP and SV stopped early on a career dialog the autopilot has no safe button for (BP: "The president of the studio
+  ...", Actor / Director; SV: "One of your coworkers just started a rumour ..."). The game paused and the fail-fast
+  guard stopped the job. Both are harness gaps, not `[MonoJit]`: the compiler was off in both slices. Their seconds.csv
+  has no arm column (the job ended before the tagging), so the arm of slice s is the `jitSwitch` of ab-native record
+  s+1; that rule gives the harness's number on IP.
+
+**Soak** (60 min compiled per save, `Enabled=1`, no switching):
+
+| Save | Result | jitMethods | code | jitFaults |
+|---|---|---:|---:|---:|
+| BP | **crash at 16 min**: exit `0xC0000409` | 2,784 | 6.7 MB | 0 |
+| IP | PASS, 63.6 min | 2,802 | 6.7 MB | 0 |
+| SV | PASS, 63.6 min | 2,718 | 6.5 MB | 0 |
+
+- **The BP crash** [measured: probe detach `process-terminated`, exit `0xC0000409`]: fail-fast (a /GS cookie check or
+  `abort`). No ts3native crash report and no Windows error event, since a fail-fast skips both. The harness logged it as
+  "unrequested mode exit: household Angelista -> none", one second before the process ended. It is the first
+  `0xC0000409` in every run the probe recorded. Cause not known. `[MonoJit]` is the first suspect, not proven: compiled
+  code writes the interpreter's frame on the native stack, and a write past it would trip exactly this check.
+- The many first-chance access violations in ApexRadiance.asi in these logs also occur in runs without `[MonoJit]`.
+
+**What this means** [inferred]. With the 11-method list the compiler is not worth shipping: its gain is under the
+in-game noise floor, and one soak crash is not explained. Next, if the lane goes on: a crash dump of a compiled soak
+(full dump on fail-fast), then the templates of docs/207 §16.3 to reach a measurable gain.
