@@ -1680,9 +1680,9 @@ rpc.exports = {
       if (c.readS32() >= 906) f.push('icJumpMode', 'icJumped');
       // v907 [IlPatch] (docs/506 §2, docs/526, ilpatch.cpp): contributor block
       if (c.readS32() >= 907) f.push('ilpOn', 'ilpArmed', 'ilpApplied', 'ilpReused', 'ilpSkipHash', 'ilpSkipCheck', 'ilpSkipMismatch', 'ilpFaults');
-      // v910 [CasFrameBudget] (docs/534, casbudget.cpp): contributor block after the v908-v909 gap (9 int32)
-      if (c.readS32() >= 910) {
-        for (let i = 0; i < 9; i++) f.push('v908v909Reserved' + i);
+      // v912 [CasFrameBudget] (docs/534, casbudget.cpp): contributor block after the v908-v911 gap (36 int32)
+      if (c.readS32() >= 912) {
+        for (let i = 0; i < 36; i++) f.push('v908v911Reserved' + i);
         f.push('cfbMs', 'cfbCalls', 'cfbHits', 'cfbForeign');
       }
     }

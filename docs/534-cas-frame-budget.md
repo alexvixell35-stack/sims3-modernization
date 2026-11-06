@@ -32,19 +32,19 @@ Enabled=0     ; 1 = install the entry detour on SimService_Update 0x5F0E50
 BudgetMs=8    ; start value of cfbMs (0..1000); 0 = EA's unlimited step
 ```
 
-`cfbMs` (`+0x5C58`) is read on every call, so a test tool can flip it in one load (0 = off) for an A/B.
+`cfbMs` (`+0x5CC4`) is read on every call, so a test tool can flip it in one load (0 = off) for an A/B.
 
-## 4. Counters (v910, contributor block, docs/registry.md)
+## 4. Counters (v912, contributor block, docs/registry.md)
 
 | Offset | Name | Meaning |
 |---|---|---|
-| `+0x5C34` | `v908v909Reserved[9]` | gap: v908-v909 are reserved by other branches |
-| `+0x5C58` | `cfbMs` | switch: budget in mode-4 units (ms), 0 = EA's step |
-| `+0x5C5C` | `cfbCalls` | `SimService_Update` calls that ran with the budget set |
-| `+0x5C60` | `cfbHits` | of those, calls that took the budget or longer (budget-hit frames) |
-| `+0x5C64` | `cfbForeign` | restores that found `+0x139` or `+0x2C` changed during the call (kept as found; must stay 0) |
+| `+0x5C34` | `v908v911Reserved[36]` | gap: v908-v911 are taken by other branches |
+| `+0x5CC4` | `cfbMs` | switch: budget in mode-4 units (ms), 0 = EA's step |
+| `+0x5CC8` | `cfbCalls` | `SimService_Update` calls that ran with the budget set |
+| `+0x5CCC` | `cfbHits` | of those, calls that took the budget or longer (budget-hit frames) |
+| `+0x5CD0` | `cfbForeign` | restores that found `+0x139` or `+0x2C` changed during the call (kept as found; must stay 0) |
 
-`tools/probe/agent.js` reads them when the counters version is 910 or higher.
+`tools/probe/agent.js` reads them when the counters version is 912 or higher.
 
 ## 5. Risk
 

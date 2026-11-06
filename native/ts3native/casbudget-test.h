@@ -17,11 +17,11 @@ static void __fastcall Orig(void* self, void*, DWORD a, DWORD b) {
 static void TestCasFrameBudget() {
     using namespace cfbt;
     Ts3nCounters& k = ts3native_counters;
-    static_assert(offsetof(Ts3nCounters, cfbMs) == 0x5C58 && offsetof(Ts3nCounters, cfbCalls) == 0x5C5C &&
-                      offsetof(Ts3nCounters, cfbHits) == 0x5C60 && offsetof(Ts3nCounters, cfbForeign) == 0x5C64 &&
-                      sizeof(Ts3nCounters) == 5914 * 4,
-                  "counters v910 layout after the v908-v909 gap (docs/registry.md)");
-    assert(k.version == 910);
+    static_assert(offsetof(Ts3nCounters, cfbMs) == 0x5CC4 && offsetof(Ts3nCounters, cfbCalls) == 0x5CC8 &&
+                      offsetof(Ts3nCounters, cfbHits) == 0x5CCC && offsetof(Ts3nCounters, cfbForeign) == 0x5CD0 &&
+                      sizeof(Ts3nCounters) == 5941 * 4,
+                  "counters v912 layout after the v908-v911 gap (docs/registry.md)");
+    assert(k.version == 912);
     // the live prologue (capstone on the Steam 1.67 TS3W.exe): push ebp; mov ebp,esp; and esp,-16; sub esp,0x94
     static const u8 live[12] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0, 0x81, 0xEC, 0x94, 0x00, 0x00, 0x00};
     assert(kCfbAt == 0x005F0E50 && Matches(live, kCfbPro, sizeof(kCfbPro)));
