@@ -2006,10 +2006,11 @@ const killTree = (pid?: number) => { if (pid) try { execFileSync('taskkill', ['/
 
 // set while a job's game runs: '' when the game and the probe server are up, else why not; stall = the guard's verdict
 let jobGuard: (() => string) | null = null, stall = '';
-// a fail-fast stop of a healthy game (noise, routing, early gate) takes the game down first: killing the child alone tore
+// a fail-fast stop of a healthy game (noise, routing, early gate, mode exit) takes the game down first: killing the child alone tore
 // down its Frida sessions (stutter profiler, frame-times CModule hook) inside the running game, which crashed it
 // (2026-11-03: AV in frida-agent.dll writing a code page, twice in a row, which stopped the queue). With the game gone the
-// sessions just detach. Not a crash: the job's row reads guardClosed.
+// sessions just detach. Not a crash: the job's row reads guardClosed. (2026-11-06 al260: the mode guard killed the child alone
+// after "household -> none", and the paused game ended 4 s later with 0xC0000409.)
 let guardClosed = false;
 const stopGameFirst = () => { if (gameRunning()) { guardClosed = true; try { execFileSync('taskkill', ['/F', '/IM', GAME_EXE], { stdio: 'ignore' }); } catch { /* gone */ } } };
 // set while a timing (profile) job's child runs: '' = fine or not judged yet, else the early noise verdict (stops the child at once)
@@ -2110,7 +2111,7 @@ function run(cmd: string, args: string[], logFile: string, deadline: number, onL
       const eg = gateGuard?.() ?? '';
       if (eg) { gateGuard = null; stall ||= eg; on(Buffer.from(`FAIL: ${eg}; child stopped\n`)); stopGameFirst(); killTree(p.pid); return; }
       const mx = modeGuard?.() ?? '';
-      if (mx) { modeGuard = null; stall ||= mx; on(Buffer.from(`FAIL: ${mx}; child stopped\n`)); killTree(p.pid); return; }
+      if (mx) { modeGuard = null; stall ||= mx; on(Buffer.from(`FAIL: ${mx}; child stopped\n`)); stopGameFirst(); killTree(p.pid); return; }
       const why = jobGuard!();
       misses = why ? misses + 1 : 0;
       if (misses >= 2) { stall ||= `${why} for ~${2 * GUARD_MS / 1000} s (fail-fast guard)`; on(Buffer.from(`FAIL: ${stall}; child stopped\n${dumpHungGame('fail-fast guard')}\n`)); killTree(p.pid); }
