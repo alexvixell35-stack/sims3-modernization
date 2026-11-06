@@ -1098,6 +1098,7 @@ if (values['self-check']) {
     [[{ id: 'a', asi: 'tested', save: 'S', run: { profile: { minutes: 3, vres: 1 } } }], /profile.vres/],
     [[{ id: 'a', asi: 'tested', save: 'S', run: { profile: { minutes: 3, vresDry: 0 } } }], /profile.vresDry/],
     [[{ id: 'a', asi: 'tested', save: 'S', run: { profile: { minutes: 3, noSamplers: 1 } } }], /profile.noSamplers/],
+    [[{ id: 'a', asi: 'tested', save: 'S', run: { profile: { minutes: 3, quitJobs: 'yes' } } }], /run.profile.quitJobs must be true or false/],
     [[{ id: 'a', asi: 'tested', save: 'menu', run: { menuMemory: { draws: 0 } } }], /draws/],
   ];
   assert.equal(parseQueue([{ id: 'a', asi: 'tested', save: 'menu', content: 'no-cc', run: { menuMemory: {} } }])[0].content, 'no-cc');
@@ -1175,6 +1176,7 @@ if (values['self-check']) {
   assert.throws(() => parseQueue([{ id: 's', asi: 'x', save: 'S', run: { profile: { minutes: 6, story: '{"seed":1}' } } }]), /profile.story/);
   assert.deepEqual(parseQueue([{ id: 's', asi: 'x', save: 'S', run: { profile: { minutes: 10, story: { seed: 1 } } } }])[0].run.profile!.story, { seed: 1 });
   assert.throws(() => parseQueue([{ id: 's', asi: 'x', save: 'S', run: { profile: { minutes: 6, envGuard: 'off' } } }]), /envGuard/);
+  assert.equal(parseQueue([{ id: 'q', asi: 'x', save: 'S', run: { profile: { minutes: 6, quitJobs: true } } }])[0].run.profile!.quitJobs, true);
   assert.equal(parseQueue(JSON.parse(readFileSync(join(import.meta.dirname, 'queues', 'story-days.json'), 'utf8')).jobs)[0].run.profile!.envGuard, false, 'story-days: seasons pass (docs/171 §16)');
   // story jobs load a Story-* copy, never the named save; other jobs and existing Story-* saves load as named
   const sj = (story?: object) => parseQueue([{ id: 's', asi: 'x', save: 'Baseline-BP-Spring', run: { profile: { minutes: 10, seed: 9, ...(story && { story }) } } }])[0];
