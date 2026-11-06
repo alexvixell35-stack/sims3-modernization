@@ -1321,7 +1321,7 @@ static void JitSnapGraph(JitSnap& s, int from) {
 // objects the compiled pass allocated, copied before the restore (the GC may reuse their memory during pass 2)
 struct JitNew { DWORD p, n, off; };
 static const int JIT_NEW_N = 2048;
-struct JitNewSet { JitNew o[JIT_NEW_N]; int n; DWORD used; u8* buf; int hs[2 * JIT_NEW_N]; DWORD hg[2 * JIT_NEW_N], gen; };  // per depth
+struct JitNewSet { JitNew o[JIT_NEW_N]; int n; DWORD used; u8* buf; int hs[2 * JIT_NEW_N]; DWORD hg[2 * JIT_NEW_N], gen; bool full; };  // per depth
 static JitNewSet* g_jn;  // the set JitAllocEqual reads (the depth being compared)
 static const JitSnap* g_jnS0;  // its entry snapshot and collection number (mismatch line only)
 static DWORD g_jnGc0;
@@ -1332,11 +1332,24 @@ static int JitNewFind(const JitNewSet& s, DWORD w) {  // index or -1 (slot live 
 }
 // keep a copy of a word's object if it is not part of the entry snapshot (= allocated during the compiled pass), and of
 // the new objects it points at
+// could the compiled pass have allocated the object at w (a GC_base)? Not when it was marked at the last collection, its
+// block was not allocated from this cycle, or it is free (the header bits of JitGcUnsafe); uncollectable kinds: maybe
+static bool JitMaybeNew(DWORD w) {
+    const DWORD* bot = *(const DWORD* const*)(uintptr_t)(0x1233318 + (w >> 22) * 4);
+    const u8* h = bot ? (const u8*)(uintptr_t)bot[(w >> 12) & 0x3FF] : NULL;
+    if ((uintptr_t)h < 0x1000 || *(const DWORD*)(h + 0x10) == *(const DWORD*)(uintptr_t)0x011F30D8) return false;
+    if (h[0x14] == 2 || h[0x14] == 3) return true;
+    const DWORD i = (w & 0xFFF) >> 2, bit = 1u << (i & 31), off = (i >> 5) * 4;
+    return !(*(const DWORD*)(h + 0x1C + off) & bit) && !(*(const DWORD*)(h + 0x9C + off) & bit) && *(const DWORD*)(h + 0x18) == JitGcNo();
+}
+static volatile LONG g_jvNewFull;  // verifications abandoned because the new-object set filled
 static void JitKeepNew(JitNewSet& s, const JitSnap& s0, DWORD w, int depth = 0) {
-    if (w < 0x10000 || (w & 3) || s.n >= JIT_NEW_N || GcBase((void*)(uintptr_t)w) != (u8*)(uintptr_t)w || JitNewFind(s, w) >= 0) return;
-    if (s0.Contains(w)) return;  // an object of the entry snapshot, not a new one
+    if (w < 0x10000 || (w & 3) || GcBase((void*)(uintptr_t)w) != (u8*)(uintptr_t)w || JitNewFind(s, w) >= 0) return;
+    if (s0.Contains(w) || !JitMaybeNew(w)) return;  // an object of the entry snapshot, or one older than the pass
+    if (s.n >= JIT_NEW_N) { s.full = true; return; }
     DWORD n = GcSize((u8*)(uintptr_t)w);
-    if (!n || s.used + n > (1u << 20)) return;
+    if (!n) return;
+    if (s.used + n > (1u << 20)) { s.full = true; return; }
     const DWORD off = s.used;
     memcpy(s.buf + off, (void*)(uintptr_t)w, n);
     DWORD i = (w >> 3) & (2 * JIT_NEW_N - 1);
@@ -1545,9 +1558,12 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
         if (JitGcNo() != v.gc0) { v.active = false, g_jvAbandoned++, g_jvGcSkip++; return JitOrig(r, r->edi, e->orig); }
         v.rn = JitRetBytes(r, e->orig, (const unsigned short*)(uintptr_t)r->edi, v.r1);
         v.s0->Take(*v.s1);
-        v.nw->n = 0, v.nw->used = 0, v.nw->gen++;  // keep copies of what the compiled pass allocated (changed words that are new objects)
+        v.nw->n = 0, v.nw->used = 0, v.nw->gen++, v.nw->full = false;  // keep copies of what the compiled pass allocated (changed words that are new objects)
+        DWORD kLo = r->esi - (DWORD)(uintptr_t)v.s0->r[0].at, kHi = (DWORD)*(const unsigned short*)(rm + 0x3E) + *(const unsigned short*)(rm + 0x34);
+        if (kLo > kHi) kLo = kHi;  // region 0 [kLo, kHi): dead eval-stack slots, not compared (as below)
         for (int i = 0; i < v.s0->n; i++)
             for (DWORD o = 0; o + 4 <= v.s0->r[i].n; o += 4) {
+                if (i == v.calleeRegion || (i == 0 && o >= kLo && o < kHi)) continue;
                 DWORD a = *(const DWORD*)(v.s1->buf + v.s0->r[i].off + o);
                 if (a != *(const DWORD*)(v.s0->buf + v.s0->r[i].off + o)) JitKeepNew(*v.nw, *v.s0, a);
             }
@@ -1626,6 +1642,11 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
                     JitVLog(v, what, at);
                 }
             if (!ok && JitGcNo() != v.gc0) { v.active = false, g_jvAbandoned++, g_jvGcSkip++; return JitOrig(r, r->edi, e->orig); }
+            if (!ok && v.nw->full) {
+                if (!g_jvNewFull++) JitLog("jit verify: %s: a difference with the new-object set full (2048 objects / 1 MB): abandoned, not a mismatch", v.meth->name);
+                v.active = false, g_jvAbandoned++;
+                return JitOrig(r, r->edi, e->orig);
+            }
             if (!ok && !v.retried) {
                 // second chance from the same entry state: a one-time effect of the first compiled pass that the restore
                 // cannot undo (class init, a transform, a lazily filled cache outside the graph) is then in place for both
