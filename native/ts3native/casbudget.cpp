@@ -19,6 +19,7 @@ static const DWORD kCfbAt = 0x005F0E50;
 static const u8 kCfbPro[6] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};  // push ebp; mov ebp,esp; and esp,-16
 static const volatile DWORD* g_cfbPause = (const volatile DWORD*)(uintptr_t)(0x011CDD48 + 0x40);  // selftest: a fake clock
 static LONG g_cfbScaleLogged;
+static LONG g_cfbEnterLogged, g_cfbPausedLogged, g_cfbArmedLogged;  // one log line each: why a call ran unbudgeted (al267: cfbCalls 0)
 
 // Set the budget on SimService `ss` when it applies; `old` gets what to put back. True when set.
 static bool CfbArm(u8* ss, DWORD pauseBits, LONG ms, DWORD old[2]) {
@@ -41,7 +42,15 @@ static void __fastcall CfbHook(void* self, void* edx, DWORD a, DWORD b) {
     Ts3nCounters& k = ts3native_counters;
     const LONG ms = k.cfbMs;
     DWORD old[2];
-    if (!self || !CfbArm((u8*)self, *g_cfbPause, ms, old)) { g_cfbTramp(self, edx, a, b); return; }
+    const DWORD pause = *g_cfbPause;
+    if (!InterlockedExchange(&g_cfbEnterLogged, 1)) Log("cas frame budget: first call, pause bits 0x%lX, +0x139 = %u", pause, self ? ((u8*)self)[0x139] : 0xFFu);
+    if (!self || !CfbArm((u8*)self, pause, ms, old)) {
+        if (self && ms > 0 && !(pause & 1) && ((u8*)self)[0x139] && !InterlockedExchange(&g_cfbArmedLogged, 1))
+            Log("cas frame budget: not paused but +0x139 = %u already (someone else budgets), +0x2C = %lu", ((u8*)self)[0x139], *(DWORD*)((u8*)self + 0x2C));
+        if (self && ms > 0 && (pause & 1) && !InterlockedExchange(&g_cfbPausedLogged, 1)) Log("cas frame budget: first paused call (pause bits 0x%lX): unbudgeted", pause);
+        g_cfbTramp(self, edx, a, b);
+        return;
+    }
     // once: the budget in ms from EA's mode-4 scale (Stopwatch_SetClockMode 0x4F30E0 reads it from 0x11CB8FC [verified];
     // SetDeadline adds budget / scale QPC ticks), so the log confirms the unit
     if (!InterlockedExchange(&g_cfbScaleLogged, 1) && Readable((const void*)(uintptr_t)0x011CB8FC, 4)) {
