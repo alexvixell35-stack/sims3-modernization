@@ -97,11 +97,11 @@ const mem = async (what: string) => {
   } catch (e) { console.log(`${stamp()}   allocations ${what}: ? (${e})`); }
 };
 await mem('before');
-// "cleanup": [{cmd, args?}] runs before a FAIL exit, e.g. window_restore so a failed clock-minimize-pause never leaves the
+// "cleanup": [{cmd, args?, max?}] (max: reply chars logged, default 160) runs before a FAIL exit, e.g. window_restore so a failed clock-minimize-pause never leaves the
 // game minimized (and paused) for the next job
 const fail = async (msg: string) => {
   console.log(msg);
-  for (const c of r.cleanup ?? []) { const res = await ag(c.cmd, c.args); console.log(`${stamp()} cleanup ${c.cmd}: ${res.ok ? JSON.stringify(res.result).slice(0, 160) : 'ERROR ' + res.error}`); }
+  for (const c of r.cleanup ?? []) { const res = await ag(c.cmd, c.args); console.log(`${stamp()} cleanup ${c.cmd}: ${res.ok ? JSON.stringify(res.result).slice(0, c.max ?? 160) : 'ERROR ' + res.error}`); }
   process.exit(1);
 };
 let prev: any = null;
@@ -109,17 +109,20 @@ for (const s of r.steps ?? []) {
   // "keysFromPrev": true fills args.keys with the keys of the previous step's items (e.g. cas_parts -> wear_parts)
   const args = s.keysFromPrev && prev?.items ? { ...s.args, keys: prev.items.map((x: any) => x.key) } : s.args;
   const res = await ag(s.cmd, args);
-  // "show": "<prefix>" prints only the result keys with that prefix (the 160-char cut hid the compaction_* counters, 2026-11-02)
+  // "show": "<prefix>" prints only the result keys with that prefix (the 160-char cut hid the compaction_* counters, 2026-11-02); "max": chars logged
   const show = (v: any, prefix?: string) => prefix && v && typeof v === 'object' && !Array.isArray(v)
     ? Object.fromEntries(Object.entries(v).filter(([k]) => k.startsWith(prefix))) : v;
-  console.log(`${stamp()} step ${s.cmd} ${JSON.stringify(args ?? {}).slice(0, 200)}: ${res.ok ? JSON.stringify(show(res.result, s.show)).slice(0, s.show ? 1200 : 160) : 'ERROR ' + res.error}`);
+  console.log(`${stamp()} step ${s.cmd} ${JSON.stringify(args ?? {}).slice(0, 200)}: ${res.ok ? JSON.stringify(show(res.result, s.show)).slice(0, s.max ?? (s.show ? 1200 : 160)) : 'ERROR ' + res.error}`);
   // a step with "until" lets the poll decide: its own command may get no reply when the game is between worlds (the
   // compaction's direct route after a save or an answered offer, 2026-11-02 20:23 / 20:36); the poll tolerates a silent agent
+  // "expectError": "<text>": the step must fail with that text (negative check: the arm without the mod proves the action can fail)
+  if (s.expectError) { if (res.ok || !String(res.error).includes(s.expectError)) await fail(`FAIL: step should fail with '${s.expectError}'`); continue; }
   if (!res.ok && !s.optional && !s.until) await fail('FAIL: step failed');
   if (res.ok) prev = res.result;
   if (s.waitS) await sleep(s.waitS * 1000);
   // "until": poll an agent command until every condition holds (fail-fast: give up after maxS with a FAIL), e.g. the
-  // warm-up waits for temperature instead of a fixed time and the save step for save_in_progress false (2026-10-17)
+  // warm-up waits for temperature instead of a fixed time and the save step for save_in_progress false (2026-10-17);
+  // "failOn": "<path>": a truthy value there is a FAIL at once (the wrong outcome is already known, e.g. compat_visit_status failed)
   if (s.until) {
     const u = s.until, t0 = Date.now(), get = (o: any, path: string) => path.split('.').reduce((x, k) => x?.[k], o);
     const ok = (res: any) => res?.ok && u.all.every((c: any) => { const v = get(res.result, c.path);
@@ -129,6 +132,7 @@ for (const s of r.steps ?? []) {
     while (!ok(last = await ag(u.cmd, u.args ?? {}))) {
       const why = await guard();
       if (why) await fail(`${stamp()} FAIL: ${why}`);
+      if (u.failOn && get(last?.result, u.failOn)) await fail(`${stamp()} FAIL: ${s.cmd} ${u.failOn}: ${JSON.stringify(last.result).slice(0, 400)}`);
       if (Date.now() - t0 > (u.maxS ?? 300) * 1000) await fail(`${stamp()} FAIL: ${s.cmd} until ${JSON.stringify(u.all)} not met in ${u.maxS ?? 300} s: ${JSON.stringify(show(last?.result, u.show) ?? last?.error).slice(0, u.show ? 1200 : 200)}`);
       await sleep((u.everyS ?? 5) * 1000);
     }

@@ -188,6 +188,42 @@ const evidenceText = (u: Unit) => {
 };
 const kindText = (u: Unit) => [...u.kind].sort().join('+') || (u.unknown ? 'archive' : 'empty');
 
+/** CSV text -> rows of fields; quotes as this tool writes them (\") or as spreadsheets do (""). */
+export function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [], cell = '', q = false, was = false;
+  const end = () => { row.push(cell); cell = ''; was = false; };
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '\\' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (c === '\\' && text[i + 1] === '\\') { cell += '\\'; i++; }
+      else if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (c === '"') q = false;
+      else cell += c;
+    } else if (c === '"') { q = true; was = true; }
+    else if (c === ',') end();
+    else if (c === '\n') { end(); rows.push(row); row = []; }
+    else if (c !== '\r') cell += c;
+  }
+  if (cell || was || row.length) { end(); rows.push(row); }
+  return rows;
+}
+
+const MATRIX_COLS = ['mod', 'file', 'kind', 'overlap', 'verdict', 'evidence', 'status', 'note'];
+/** The matrix after a scan: scanned rows keep the status and note of their old row (key: file); old rows of files this scan did
+ *  not see stay as they are (other scans, e.g. a player's Mods folder).
+ *  shortcut: a mod file deleted for good stays in the matrix, drop its row by hand when that matters. */
+export function matrixCsv(rows: { mod: string; file: string; kind: string; overlap: string; verdict: string; evidence: string }[], old: string): string {
+  const [head, ...oldRows] = parseCsv(old);
+  const at = (r: string[], c: string) => r[head.indexOf(c)] ?? '';
+  const scanned = new Set(rows.map((r) => r.file)), byFile = new Map(oldRows.map((r) => [at(r, 'file'), r]));
+  const line = (r: string[]) => r.map((v) => JSON.stringify(v)).join(',');
+  const fresh = rows.map((r) => { const o = byFile.get(r.file); return line([r.mod, r.file, r.kind, r.overlap, r.verdict, r.evidence, o ? at(o, 'status') : '', o ? at(o, 'note') : '']); });
+  const kept = oldRows.filter((r) => !scanned.has(at(r, 'file'))).map((r) => line(MATRIX_COLS.map((c) => at(r, c))));
+  return `${MATRIX_COLS.join(',')}\n${[...fresh, ...kept].join('\n')}\n`;
+}
+
 function walk(dir: string): string[] {
   if (!existsSync(dir)) return [];
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]);
@@ -306,8 +342,7 @@ function run() {
     }
     const matrix = opt('--matrix', '');
     // CC-only packages without overlap stay out of the matrix: nothing to check, and a player's CC list is personal
-    if (matrix) writeFileSync(matrix, 'mod,file,kind,overlap,verdict,evidence\n' +
-      rows.filter((r) => r.kind !== 'cc' || r.verdict !== 'no overlap').map((r) => [r.mod, r.file, r.kind, r.overlap, r.verdict, r.evidence].map((v) => JSON.stringify(v)).join(',')).join('\n') + '\n');
+    if (matrix) writeFileSync(matrix, matrixCsv(rows.filter((r) => r.kind !== 'cc' || r.verdict !== 'no overlap'), existsSync(matrix) ? readFileSync(matrix, 'utf8') : ''));
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 
@@ -347,6 +382,12 @@ function selfCheck() {
   assert(typeFindings([{ asm: 'N', full: 'NRaas.Overwatch', chain: [], virtuals: [] }], [], [], nm)[0]?.kind === 'named', 'named finding');
   assert(f.filter((x) => x.kind === 'overrides').length === 1 && f.filter((x) => x.kind === 'derives').length === 1 && f.filter((x) => x.kind === 'replaces').length === 3, `findings ${f.map((x) => x.kind)}`);
   assert(verdict({ findings: [] }) === 'no overlap' && verdict({ findings: f.filter((x) => x.kind === 'derives') }) === 'no overlap' && verdict({ findings: f }) === 'overlap' && verdict({ findings: [], unknown: 'x' }) === 'unknown', 'verdicts');
+  const oldCsv = 'mod,file,kind,overlap,verdict,evidence,status,note\n"A","a.package","script","","overlap","say \\"hi\\", ok","in our test setup","limit, known"\n"P","player/p.package","script","","no overlap","e","",""\n';
+  const out = parseCsv(matrixCsv([{ mod: 'A', file: 'a.package', kind: 'script', overlap: 'X', verdict: 'overlap', evidence: 'new "x"' }, { mod: 'N', file: 'n.package', kind: 'script', overlap: '', verdict: 'no overlap', evidence: '' }], oldCsv));
+  assert(out[0].length === 8 && out.length === 4, `matrix shape ${JSON.stringify(out)}`);
+  assert(out[1].join('|') === 'A|a.package|script|X|overlap|new "x"|in our test setup|limit, known', `matrix keeps status and note ${out[1]}`);
+  assert(out[2][1] === 'n.package' && out[2][6] === '' && out[3][1] === 'player/p.package', 'matrix new row, rows of other scans kept');
+  assert(parseCsv('a,"b ""c"""\n')[0][1] === 'b "c"' && parseCsv(matrixCsv([], ''))[0].length === 8, 'matrix csv quotes / empty old file');
   // package index from disk and from a zip, stored and deflated
   const pkg = writePackage([{ type: 0x0333406c, group: 0, instance: 7n, data: Buffer.from('<x/>') }, { type: TYPE_S3SA, group: 0, instance: fnv64('A'), data: Buffer.from('not an assembly') }]);
   const tmp = mkdtempSync(join(tmpdir(), 'compat-sc-'));

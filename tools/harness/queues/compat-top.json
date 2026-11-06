@@ -1,0 +1,114 @@
+{
+  "note": "compat-top (2026-11-05, Rodney): in-game evidence for the REAL overlaps only, correctness, v0.2.7 Steam pair. Classification of every overlap row: note column of docs/data/compat-matrix.csv. Harmless overlaps and mods without overlap get no job. Mods/ comes back through install-fixes uninstall after each job, also after a crash (restoreStart). Run: node tools/harness/queue.ts tools/harness/queues/compat-top.json --no-smoke",
+  "jobs": [
+    {
+      "id": "compat-moar-absent",
+      "note": "Negative check first: without Moar the action refuses.",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; compat evidence for that release",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "run": {
+        "repro": "compat-moar-absent"
+      }
+    },
+    {
+      "id": "compat-moar-community",
+      "note": "Moar Visit With on a community lot, one Sim picked.",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; compat evidence for that release",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "run": {
+        "repro": "compat-moar-community"
+      },
+      "fixes": {
+        "install": [
+          "buzz-moarinteractions",
+          "cache-clear"
+        ]
+      },
+      "skipIfMissing": true
+    },
+    {
+      "id": "compat-visit-control",
+      "note": "Control: EA Visit With on a community lot, one Sim picked, no Moar.",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; compat evidence for that release",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "compat-moar-home",
+      "note": "Moar Visit With on a home lot, one Sim picked.",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; compat evidence for that release",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "run": {
+        "repro": "compat-moar-home"
+      },
+      "fixes": {
+        "install": [
+          "buzz-moarinteractions",
+          "cache-clear"
+        ]
+      },
+      "skipIfMissing": true
+    },
+    {
+      "id": "compat-lyn-visit",
+      "note": "LynMods lab lecture visit behind our wrapper (mod in the test install).",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; compat evidence for that release",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "run": {
+        "repro": "compat-lyn-visit"
+      }
+    }
+  ]
+}

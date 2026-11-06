@@ -1,0 +1,53 @@
+{
+  "note": "Rodney 2026-11-06: true Baseline (README line 15: community fixes layer without our mods). The v027-release-numbers *-baseline-rel arms ran asi.rel0360 with sections and ts3fixes switches off and still showed ts3fixes activity. Same save, seed, minutes, game args and timeout as those jobs; ourMods false moves ts3native and ts3fixes out for the job (queue.ts header), so ini, fixesOff, minCounters and pinReason have nothing left to do.",
+  "jobs": [
+    {
+      "id": "bp-baseline-true",
+      "note": "True Baseline, Bridgeport",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22,
+      "noiseCheck": false
+    },
+    {
+      "id": "ip-baseline-true",
+      "note": "True Baseline, Isla Paradiso",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22,
+      "noiseCheck": false
+    },
+    {
+      "id": "sv-baseline-true",
+      "note": "True Baseline, Sunset Valley",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-SV-Spring",
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22,
+      "noiseCheck": false
+    }
+  ]
+}

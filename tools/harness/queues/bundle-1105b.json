@@ -1,0 +1,190 @@
+{
+  "note": "bundle-1105b (2026-11-05 night rerun on imp1105b = imp1105 + v0.2.6 hotfix). Kept: bp-imp1105-off-fixes (FAIL book-carry-check; rabbit-hole-door-check dropped, fix removed), bp-imp1105-matrix (never ran, queue stopped), bp-imp1105-allon (general all-on check). Dropped: ip-imp1105-lotgridmiss-save (needs a save we lack). Other jobs were PASS (VOID for timing only, not a timing queue). bundle-1105 (2026-11-05, Rodney): correctness on the 2026-11-05 imports. Not timing: no A/B numbers, every job noiseCheck false, so queue.ts never smokes. Identify the build by counters v907, the version string equals v0.2.5. Rules: contributor correctness and A/B results are trusted; a repro that does not trigger here counts as N/A (not FAIL), judge side effects only: new exceptions, stuck Sims, crashes. queue.ts cannot mark that N/A itself, so a fixesRequire miss or a repro expect throw with no crash or exception side effect reads as N/A in the morning read. Fail-fast: early gates on profile jobs; repro bundles gate only on a native liveness counter so one non-trigger cannot stop the other windows; the matrix job has the save-matrix.ts guards (TESTING.md fail-fast table). routingFailFast on the play jobs. Off arms in forced repros are the one in-load off/on of each repro.",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-imp1105b-allon",
+      "note": "[natural play, no cheats] First run of the RO stack + ThreadStack + all newly ON fixes together: repo ini + package defaults, 10 min, heavy tools off (noSamplers, callSites false); only MemDiag + UserDiag added (queue.ts adds CrashForensics Light). Pass: no crash or hang, no FAIL line, every logRequire / logForbid rule. The rules read back the RO stack, ThreadStack, ThumbPose, ThumbPoseBones, GeomBoneIndex, LotGridMiss: queue-digest.ts lists each one, so a miss names the section that did not arm (the keys were set assuming 1 = on; the code agrees, this proves it live). Read after: hitches, diag: mem lines per world.",
+      "asi": "game-copy/ts3native.asi.imp1105b",
+      "fixesPackage": "game-copy/ts3fixes.package.imp1105b",
+      "pinReason": "imp1105b is the build under test (builds.json imp1105b-asi / imp1105b-fixes from master e5561139: imp1105 + v0.2.6 hotfix)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 907,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1
+      },
+      "callSites": false,
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "logRequire": {
+        "ts3native 0.36.168": 1,
+        "^OK   slot position RO: .*Mode=1 Shadow=0": 1,
+        "^OK   steer RO: .*Mode=1 Shadow=0": 1,
+        "^OK   avoid RO: .*Mode=1 Shadow=0": 1,
+        "^OK   gate0 RO: .*Mode=1": 1,
+        "^OK   route-to-object RO: .*Mode=1 Shadow=0 Tail=1": 1,
+        "^OK   placement RO: .*Mode=1 Shadow=0": 1,
+        "^OK   idle check RO: .*Mode=1 Shadow=0": 1,
+        "^OK   idle check RO site C: .*SiteCMode=1 SiteCShadow=0 SiteCLoop=1 SiteCLoopJump=1": 1,
+        "^OK   lot front door RO: .*Mode=1 Shadow=0": 1,
+        "^OK   goal validation RO: .*Mode=1 Shadow=0": 1,
+        "^OK   obstructed RO: .*Mode=1 Shadow=0": 1,
+        "^OK   footstep surface cache: .*Mode=1 MissNear=1 MissLast=0": 1,
+        "^OK   footprint deferral phase 2 .*mode 1": 1,
+        "^OK   destroy park [(]design G[)]": 1,
+        "^OK   destroy park DestroyParkDx=1": 1,
+        "^OK   loco window: .*Mode=1": 1,
+        "^OK   tail unlock": 1,
+        "^OK   replan dedupe: .*rdMode 1": 1,
+        "^thread stack: cap ReserveKB=512 .*IAT CreateThread hooked": 1,
+        "^OK   ea fix: ThumbPose [(]": 1,
+        "^OK   ea fix: ThumbPoseBones [(]": 1,
+        "^OK   ea fix: GeomBoneIndex [(]": 1,
+        "^OK   ea fix: LotGridMiss [(]": 1,
+        "diag: mem #": 2
+      },
+      "logForbid": {
+        "^(SKIP|FAIL|PART) (slot position RO|steer RO|avoid RO|gate0 RO|route-to-object RO|placement RO|idle check RO|lot front door RO|goal validation RO|obstructed RO|footstep surface cache|footprint deferral|loco window|tail unlock|replan dedupe|S2 writer set|thread stack|ea fix)": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 25,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched at 2.5 min: the load or the native start-up did not finish"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:asyncjigsync_kept_sync",
+          "op": ">=",
+          "value": 0,
+          "why": "ts3fixes counters not readable 2.5 min in: agent or fixes not loaded"
+        }
+      ]
+    },
+    {
+      "id": "bp-imp1105b-off-fixes",
+      "note": "[forced repros: each builds the bug state with agent checks, then off then on in one load] The nine fixes still off, no result file on our machine; each repro switches its own fix at runtime, the package default stays off. Order: off arms that leave damage last (uniform leaves a Sim with a bad Career outfit, buff can leave motives frozen); conversation before book (both use Tiara, book restarts her idles). jazz, buff, car, npc, ageup need EA's method: they expect the original core mod, a core with the player's builds never throws, which reads as N/A. age-up-abort-check turns ageupkeepoutfits on itself. RewardGiver has no shipped use: the repro calls SetRewardGiver directly. The stuck-Sim carry-over may reload between windows: expected. Non-trigger = N/A.",
+      "asi": "game-copy/ts3native.asi.imp1105b",
+      "fixesPackage": "game-copy/ts3fixes.package.imp1105b",
+      "pinReason": "imp1105b is the build under test (builds.json imp1105b-asi / imp1105b-fixes from master e5561139: imp1105 + v0.2.6 hotfix)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 907,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1
+      },
+      "reuseSession": {
+        "maxJobs": 14
+      },
+      "logRequire": {
+        "ts3native 0.36.168": 1,
+        "diag: mem #": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 3,
+          "seed": 12345,
+          "noSamplers": true,
+          "repros": [
+            {
+              "id": "reward-giver-check",
+              "minutes": 3,
+              "fixesRequire": "rewardgiver_added>=1"
+            },
+            {
+              "id": "jazz-param-check",
+              "minutes": 3,
+              "fixesRequire": "jazzparam_caught>=1"
+            },
+            {
+              "id": "car-no-route-check",
+              "minutes": 3,
+              "fixesRequire": "carnoroute_false>=1"
+            },
+            {
+              "id": "npc-driver-pool-check",
+              "minutes": 3,
+              "fixesRequire": "npcdriverpool_dropped>=1"
+            },
+            {
+              "id": "age-up-abort-check",
+              "minutes": 3,
+              "fixesRequire": "ageupabort_caught>=1"
+            },
+            {
+              "id": "conversation-turn-check",
+              "minutes": 3,
+              "fixesRequire": "convturn_taken>=1"
+            },
+            {
+              "id": "book-carry-check",
+              "minutes": 12,
+              "fixesRequire": "bookcarry_ended>=1"
+            },
+            {
+              "id": "career-uniform-backup-check",
+              "minutes": 3,
+              "fixesRequire": "uniformbackup_cleared>=1"
+            },
+            {
+              "id": "buff-update-check",
+              "minutes": 4,
+              "fixesRequire": "buffupdate_caught>=1"
+            }
+          ]
+        }
+      },
+      "timeoutMin": 60,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched at 2.5 min: the load or the native start-up did not finish"
+        }
+      ]
+    },
+    {
+      "id": "bp-imp1105b-matrix",
+      "note": "[save matrix, no cheats] DatingProfile, LeaveJobDispose and DeadRefSweep-adjacent code changed. Short pass: the shipped-mode case set on one world (release-validate.json bp-rel-matrix, ~11 min incl. the two reload restarts). The full matrix (three worlds + six travels, release-validate.json, ~58 min) stays a release gate for the next build, not tonight. No early gates: save-matrix.ts has its own 30 s guards.",
+      "asi": "game-copy/ts3native.asi.imp1105b",
+      "fixesBuild": "imp1105b-fixes",
+      "pinReason": "imp1105b is the build under test (builds.json imp1105b-asi / imp1105b-fixes from master e5561139: imp1105 + v0.2.6 hotfix)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 907,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1
+      },
+      "run": {
+        "matrix": []
+      },
+      "saveMatrix": {
+        "fixes": "shipped"
+      },
+      "timeoutMin": 40
+    }
+  ]
+}

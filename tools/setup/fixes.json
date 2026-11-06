@@ -1892,5 +1892,29 @@
     ],
     "default": false,
     "notes": "Same file as apex-radiance under another name so the ASI loader (file-name order) loads it after ts3native.asi: the other half of the both-order test in docs/148 §7. Inferred: Apex does not check its own file name (only S3SSApex.asi of the old builds)."
+  },
+  {
+    "id": "buzz-moarinteractions",
+    "name": "Moar Interactions (compat test)",
+    "author": "Buzzler",
+    "category": "script",
+    "version": "2015-01-26",
+    "source": {
+      "kind": "manual",
+      "url": null,
+      "asset": "Buzz_MoarInteractions.zip",
+      "page": "https://modthesims.info/d/437344/moar-interactions.html"
+    },
+    "sha256": "e8d26cfc0b2dbb4bc022891d591592586cd3ae35e0667adbef3f5e6b429f5223",
+    "install": {
+      "target": "mods",
+      "files": [
+        "Buzz_MoarInteractions.package"
+      ]
+    },
+    "conflictsWith": [],
+    "requires": [],
+    "default": false,
+    "notes": "Test only (queues/compat-top.json): its VisitLotWith / VisitCommunityLotWith override the Run methods we patch. No license stated: never redistributed, read for behaviour only. Manual download (MTS login, Chrome)."
   }
 ]

@@ -1,0 +1,137 @@
+{
+  "note": "Rodney 2026-11-06: v0.2.7 arms with iniBase game-copy/asi-v027/ts3native.ini (the earlier clean arms ran master ini = master-ini + v0.2.7 asi, not v0.2.7). Baseline rows from v027-numbers-clean(+rerun) are reused; order is chosen after they finish.",
+  "smoke": {
+    "note": "declared smoke: v0.2.7 BP, 10 min; the auto smoke copies the first (Baseline) job and queue.ts refuses reuseSession with ourMods false",
+    "asi": "game-copy/asi-v027/ts3native.asi",
+    "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+    "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+    "minCounters": 163,
+    "releaseDefaults": true,
+    "save": "Baseline-BP",
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "noSamplers": true,
+        "minutes": 10
+      }
+    },
+    "timeoutMin": 22,
+    "iniBase": "game-copy/asi-v027/ts3native.ini"
+  },
+  "jobs": [
+    {
+      "id": "bp-v027-final-1",
+      "note": "Final numbers, BP v0.2.7 (release ini) run 1",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini"
+    },
+    {
+      "id": "bp-v027-final-2",
+      "note": "Final numbers, BP v0.2.7 (release ini) run 2",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini"
+    },
+    {
+      "id": "ip-v027-final-1",
+      "note": "Final numbers, IP v0.2.7 (release ini) run 1",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini"
+    },
+    {
+      "id": "ip-v027-final-2",
+      "note": "Final numbers, IP v0.2.7 (release ini) run 2",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini"
+    },
+    {
+      "id": "sv-v027-final-1",
+      "note": "Final numbers, SV v0.2.7 (release ini) run 1",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini"
+    },
+    {
+      "id": "sv-v027-final-2",
+      "note": "Final numbers, SV v0.2.7 (release ini) run 2",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "pinReason": "rel025e candidate: rel025d-asi + rel025d-ini3 (repo ini rel025d-ini2 + MonoFast.CallPath=0) + rel025e-fixes (builds.json)",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22,
+      "iniBase": "game-copy/asi-v027/ts3native.ini"
+    }
+  ]
+}

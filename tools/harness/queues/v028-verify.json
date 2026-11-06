@@ -1,0 +1,123 @@
+{
+  "note": "v0.2.8 hotfix verify, correctness only, no timing. Pair game-copy/asi-v028: ts3native 0.36.169 (v0.2.7 + LotGridMiss #212 + ThumbPoseBones #271), its own ini, ts3fixes 302c33cf. Pass: no crash, no FAIL/STOP, both fixes log OK at start-up, new errors triaged.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-v028-smoke",
+      "note": "Bridgeport 5 min",
+      "asi": "game-copy/asi-v028/ts3native.asi",
+      "iniBase": "game-copy/asi-v028/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v028/ts3fixes.package",
+      "pinReason": "v0.2.8 hotfix pair: ts3native 0.36.169 from hotfix/v0.2.8, ts3fixes 302c33cf as v0.2.6",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 163,
+      "save": "Baseline-BP-Spring",
+      "logRequire": {
+        "ts3native 0.36.169": 1,
+        "^OK   ea fix: LotGridMiss [(]": 1,
+        "^OK   ea fix: ThumbPoseBones [(]": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 20
+    },
+    {
+      "id": "ip-v028-smoke",
+      "note": "Isla Paradiso 5 min",
+      "asi": "game-copy/asi-v028/ts3native.asi",
+      "iniBase": "game-copy/asi-v028/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v028/ts3fixes.package",
+      "pinReason": "v0.2.8 hotfix pair: ts3native 0.36.169 from hotfix/v0.2.8, ts3fixes 302c33cf as v0.2.6",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 163,
+      "save": "Baseline-IP-Spring",
+      "logRequire": {
+        "ts3native 0.36.169": 1,
+        "^OK   ea fix: LotGridMiss [(]": 1,
+        "^OK   ea fix: ThumbPoseBones [(]": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 20
+    },
+    {
+      "id": "sv-v028-smoke",
+      "note": "Sunset Valley 5 min",
+      "asi": "game-copy/asi-v028/ts3native.asi",
+      "iniBase": "game-copy/asi-v028/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v028/ts3fixes.package",
+      "pinReason": "v0.2.8 hotfix pair: ts3native 0.36.169 from hotfix/v0.2.8, ts3fixes 302c33cf as v0.2.6",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 163,
+      "save": "Baseline-SV-Spring",
+      "logRequire": {
+        "ts3native 0.36.169": 1,
+        "^OK   ea fix: LotGridMiss [(]": 1,
+        "^OK   ea fix: ThumbPoseBones [(]": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 20
+    },
+    {
+      "id": "ip-v028-lotgridmiss-save",
+      "note": "[forced saves, scratch name IP-LotGrid-Scratch, no cheats] #212, on arm only (no runtime switch). Pass: three saves, result 0 each. An \"ea fix: LotGridMiss: lot\" line = the fix fired here. None = our Baseline-IP has no such lot (as in bundle-1105): N/A, side effects only. A save result other than 0 is a real FAIL.",
+      "asi": "game-copy/asi-v028/ts3native.asi",
+      "iniBase": "game-copy/asi-v028/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v028/ts3fixes.package",
+      "pinReason": "v0.2.8 hotfix pair: ts3native 0.36.169 from hotfix/v0.2.8, ts3fixes 302c33cf as v0.2.6",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 163,
+      "save": "Baseline-IP",
+      "logRequire": {
+        "ts3native 0.36.169": 1,
+        "^OK   ea fix: LotGridMiss [(]": 1,
+        "^OK   ea fix: ThumbPoseBones [(]": 1,
+        "^save: result 0 ": 3
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ip-lotgridmiss-save"
+        }
+      },
+      "timeoutMin": 20,
+      "logForbid": {
+        "^save: result [1-9]": 0
+      }
+    }
+  ]
+}

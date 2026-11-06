@@ -1,0 +1,113 @@
+{
+  "note": "sim-gone2 (2026-11-06): why NRaas ResetSimTask resets a follower mid-visit. sim-gone stack: Sim.Destroy < ResetSimTask.OnPerform. Source: only ErrorTrap.OnScriptError schedules that task within seconds, and in live mode ErrorTrap writes no ScriptError file, so '0 new script errors' says nothing here. Answer = sim_gone_errors in the job log (lines 'cleanup sim_gone_watch' on FAIL, 'step sim_gone_watch' on PASS): exception text, Sim and route state; sim_gone_trap must read 'hooked'. Pair 4 + noours 4, interleaved; with sim-gone noours reaches 8 runs. No switch arm: static reading did not name one suspect. Correctness only, no timing. Run: node tools/harness/queue.ts tools/harness/queues/sim-gone2.json --no-smoke",
+  "jobs": [
+    {
+      "id": "sg2-pair-1",
+      "note": "v0.2.7 pair, full test install, sim_gone_errors on",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": ["-disablestoryprogression"],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": { "repro": "compat-visit-control" }
+    },
+    {
+      "id": "sg2-noours-1",
+      "note": "ourMods false: no ts3native, no ts3fixes; more runs for the count",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": ["-disablestoryprogression"],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": { "repro": "compat-visit-control" }
+    },
+    {
+      "id": "sg2-pair-2",
+      "note": "v0.2.7 pair, full test install, sim_gone_errors on",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": ["-disablestoryprogression"],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": { "repro": "compat-visit-control" }
+    },
+    {
+      "id": "sg2-noours-2",
+      "note": "ourMods false: no ts3native, no ts3fixes; more runs for the count",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": ["-disablestoryprogression"],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": { "repro": "compat-visit-control" }
+    },
+    {
+      "id": "sg2-pair-3",
+      "note": "v0.2.7 pair, full test install, sim_gone_errors on",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": ["-disablestoryprogression"],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": { "repro": "compat-visit-control" }
+    },
+    {
+      "id": "sg2-noours-3",
+      "note": "ourMods false: no ts3native, no ts3fixes; more runs for the count",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": ["-disablestoryprogression"],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": { "repro": "compat-visit-control" }
+    },
+    {
+      "id": "sg2-pair-4",
+      "note": "v0.2.7 pair, full test install, sim_gone_errors on",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": ["-disablestoryprogression"],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": { "repro": "compat-visit-control" }
+    },
+    {
+      "id": "sg2-noours-4",
+      "note": "ourMods false: no ts3native, no ts3fixes; more runs for the count",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": ["-disablestoryprogression"],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": { "repro": "compat-visit-control" }
+    }
+  ]
+}

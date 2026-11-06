@@ -320,6 +320,9 @@ namespace Ts3Agent
             // Military career event (2026-11-04 al203b: "...romantically approached by one of the journalists..." buttons 'Brush Off' / 'Break Rank'):
             // same 60 s pause stop. Brush off keeps the career and relationships as they were.
             new[] { new[] { "romantically approached" }, new[] { "brush off" } },
+            // Career event (2026-11-05 v027-numbers-clean bp: "Lala now has a higher ranking position ... asked to think about whether or not that
+            // employee should keep their job", buttons 'fire fire' / 'k...' / one more): no safe word, 60 s pause stop. Keep the employee.
+            new[] { new[] { "tough decision" }, new[] { "keep", "retain", "don't fire" } },
             new[] { new[] { "mod scripts found" }, new[] { "accept", "ok", "continue" } },
         };
 

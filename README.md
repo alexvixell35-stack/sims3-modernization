@@ -14,85 +14,28 @@ Target: The Sims 3 **Steam** edition, patch 1.67, all expansion and stuff packs,
 
 Measured with the harness (`tools/harness/profile-world.ts`), 10 minutes of play at speed 3, on aged 14-day test saves. **Baseline** = the community fixes layer (DXVK, S3SS, NRaas, Smooth Patch, routing fixes, ...; see `tools/setup/fixes.json`) without our mods. The unmodified game cannot reliably load a save on this machine at all: it runs out of address space while loading (docs/05).
 
-**Release v0.2.x vs v0.1.5 vs no fixes of ours, freezes in normal play (2026-10-28):** a freeze is a sim step of 300 ms or longer. v0.2.0 is the mean of 3 seeded 15-minute loads per town on the exact release build; v0.1.5 and no-fixes are one 10-minute load each, so small differences are within noise. v0.2.1-v0.2.3 change only nightly simler90 jobs, a family-start hang and logging, not these paths.
+**Baseline vs v0.2.7 (Steam), 10 minutes of play, 2 runs per side.** Cells: Baseline -> **v0.2.7**.
 
-| | Bridgeport | Sunset Valley | Isla Paradiso |
+| | Bridgeport | Isla Paradiso | Sunset Valley |
 |---|---|---|---|
-| freezes of 300 ms or longer, per 10 minutes | 4.8 -> 5.0 -> **0.3** | 13.7 -> 4.3 -> **3.7** | 93.9 -> 20.0 -> **13.2** |
-| p99 sim step (99% of steps are shorter) | 79 -> 79 -> **91 ms** | 59 -> 67 -> **55 ms** | 168 -> 105 -> **107 ms** |
+| Sim steps per second | 48.4 -> **51.2** | 63.9 -> **70.0** | 91.3 -> **89.5** |
+| p99 sim step (99% of steps are shorter), ms | 100.9 -> **79.5** | 201.2 -> **110.7** | 58.1 -> **~51** |
+| p99.9 sim step, ms | 201.4 -> **139.2** | 351.2 -> **245.0** | 141.6 -> **116.2** |
+| Worst sim step, ms | 789 -> **739** | 1954 -> **420** | 1226 -> **506** |
+| Freezes of 300 ms or longer, per run | 8.5 -> **2** | 72.5 -> **15** | 10.5 -> **3** |
+| Freezes of 1 s or longer, per run | 0 -> **0** | 1 -> **0** | 1 -> **0** |
+| Largest free address space after 10 minutes, MB | 1600 -> **1351** | 1827 -> **1575** | 1685 -> **1471** |
 
-**Long play (45 minutes, same save and seed):** Sunset Valley on v0.1.5 had 4 freezes of 1 s or longer, the worst 3.7 s; on v0.2.0 none, the worst 0.7 s. Isla Paradiso on v0.2.0: one freeze over 1 s (1.2 s) in 35 minutes, 8.3 freezes of 300 ms or longer per 10 minutes.
-
-**Under investigation:** Bridgeport ran at 44 sim steps per second on v0.2.0 against 57-59 before (Sunset Valley 86 and Isla Paradiso 69 are at or above their earlier values). We are checking it with an on/off pair; the numbers above are freezes, which went down in all three towns.
-
-**Release check for v0.2.0:** 46 tests: the save matrix and reload, travel (France, University), every new fix forced on, rare cases and three play soaks passed. One crash in a France trip was in the game's own Sim-outfit code (no code of ours on that path) and did not happen on the rerun; one test failed only because its setup could not create a stroller.
-
-**Release v0.1.5 vs v0.1.4 vs no fixes of ours, freezes in normal play:** a freeze here is a sim step of 300 ms (about a third of a second) or longer, the hitches you notice. Each cell is one 10-minute seeded run per town (one load each), so small differences are within noise. Cells: no fixes -> v0.1.4 -> **v0.1.5**.
-
-| | Bridgeport | Sunset Valley | Isla Paradiso |
-|---|---|---|---|
-| freezes of 300 ms or longer, per 10 minutes | 4.8 -> 5.8 -> **5.0** | 13.7 -> 4.8 -> **4.3** | 93.9 -> 23.1 -> **20.0** |
-| worst freeze | 441 -> 308 -> **324 ms** | 437 -> 323 -> **520 ms** | 895 -> 405 -> **573 ms** |
-| p99 sim step (99% of steps are shorter) | 79 -> 76 -> **79 ms** | 59 -> n/a -> **67 ms** | 168 -> 78 -> **105 ms** |
-
-The Sunset Valley v0.1.4 value comes from one run with other programs using the machine, and has no p99.
-
-Read it as: in normal play v0.1.5 is about the same as v0.1.4, and both are far smoother than no fixes of ours in Isla Paradiso (about 94 freezes per 10 minutes without, 20-23 with). v0.1.5's gains are in specific situations, measured in forced test scenarios (the same situation set up on purpose, fix off vs on):
-
-- Sims getting off a boat in Isla Paradiso: one 8.3 s freeze -> none.
-- Crowds: fewer freezes of 300 ms or longer (7 -> 2 in one test, 6 -> 5 in the release test: small, within noise).
-- 3 AM stuck-Sim check: worst freeze 1.2 s -> 0.14 s.
-- NRaas Overwatch nightly clean-up: worst freeze 0.3 s -> 0.1 s.
-- NRaas ErrorTrap check after loading a save: worst freeze 0.28 s -> 0.06 s.
-- Plus a crash fix: the game could crash when a Sim looked for a spot on the shore while routes were being planned in the background.
-
-**Long play (45 minutes on v0.1.5):** Bridgeport had no freeze longer than 0.5 s. Sunset Valley had 4 freezes of 1 s or longer, the worst 3.6 s; they come from route plans the game still runs on its main thread when one Sim plans for another. v0.1.4 has the same kind on the same save and seed (3 of 1 s or longer, worst 1.7 s). This is the main target for the next release.
-
-**Release check for v0.1.5:** 22 of 22 tests passed, 0 crashes: smoke play in all three towns, the save matrix plus reload in Bridgeport, a trip to France, each new fix forced on, the whole fix set off vs on in forced scenarios, two water scenarios, and a 45-minute Bridgeport soak.
-
-**Release v0.1.4 (`ts3native` 0.36.0 + `ts3fixes`, as shipped) vs no fixes of ours, 2026-10-20/21:** same machine and saves, seeded (12345), ABBA order, 4 runs per side on Bridgeport and Sunset Valley, 2 on Isla Paradiso. "No fixes" = the same `ts3native.asi` with every section we ship switched off and every `ts3fixes` switch off (only the walk-style comparer stays, it has no switch). Queues `release-vs-baseline*.json`, report `node tools/release-vs-baseline-report.ts`.
-
-| | Bridgeport | Sunset Valley | Isla Paradiso |
-|---|---|---|---|
-| stutters per minute (sim iterations >= 50 ms) | 177 -> **152** (-14%) | 76 -> **70** (-7%) | 146 -> **117** (-20%) |
-| p99 iteration | 93 -> **84 ms** (-10%) | 56 -> 57 ms (+2%) | 194 -> **107 ms** (-45%) |
-| worst iteration | 1,482 -> 1,985 ms (+34%) | 1,062 -> 2,518 ms (+137%) | 7,258 -> **636 ms** (-91%) |
-| route planning on the sim thread | 129 -> **53 ms/s** (-59%) | 79 -> **24 ms/s** (-70%) | 282 -> **92 ms/s** (-67%) |
-| game time per real second | 10.2 -> 10.2 min (0%) | 13.1 -> 13.1 min (0%) | 11.0 -> **12.4 min** (+13%) |
-
-Read it as: smoother everywhere, faster only where the game was falling behind. Bridgeport and Sunset Valley already run at the speed-3 cap without our fixes, so game time per second cannot rise there; Isla Paradiso was lagging and gains 13%. The worse worst frames on Bridgeport and Sunset Valley are single route plans of about 1 s that the background planner refuses and runs on the main thread (`NoStart`). v0.1.5 does not change them yet; they are the next release's main target. Several runs had other programs at 10-18% of the game's CPU cores, so treat differences under ~5% as noise.
-
-**Earlier result, `ts3fixes` only (2026-10-12, build 62c39f6, docs/04 F13), 3 runs per world:**
-
-| | Bridgeport | Sunset Valley | Isla Paradiso |
-|---|---|---|---|
-| sim iterations/s | 31.2 -> **50.1** (+61%) | 63.3 -> **116.8** (+85%) | 31.7 -> **73.8** (+133%) |
-| hitches/s (sim iterations >= 50 ms) | 4.03 -> **2.46** (-39%) | 1.90 -> **1.00** (-47%) | 3.49 -> **1.70** (-51%) |
-| worst iteration | 1,014 -> 468 ms | 2,210 -> 2,885 ms | 1,170 -> 676 ms |
-| route search ms/s | 94.9 -> 107.8 | 82.2 -> 77.3 | 246.4 -> 183.5 |
-
-Repeat Bridgeport runs on later builds land at 37.8-41 iterations/s (+25-30%) and 2.6-2.8 hitches/s (-30%); the single 50.1 run is treated as an outlier (docs/04 F16). Best Bridgeport so far: 38.8 it/s, 2.68 hitches/s (2026-10-13). Sunset Valley and Isla Paradiso have not been re-measured since F13; a milestone run is planned.
-
-**Single fixes and experiments (Bridgeport, in-load A/B: the fix switches on and off every 2 minutes in one 10-minute load):**
-
-| Change | Result | Date / source |
-|---|---|---|
-| Route fixes for unseen townies (ts3fixes) | 40.8 vs 34.9 it/s, hitches 2.57 vs 3.36/s, worst iteration 402 vs 857 ms | 2026-10-12, docs/04 F16 |
-| Bigger GC heap 40 -> 352 MB (ts3native `[GC]`) | forced collections 128 -> 1 in 6 min, forced GC 13.9 -> 0.1 ms/s, hitches -14% | 2026-10-12, docs/04 F15 (3 x 6 min, not in-load) |
-| Allocator cache (ts3native `[Alloc]`, experimental) | 30.7 vs 25.7 it/s (**+19%**), hitches -28%; repeat 32.5 vs 29.7 (+9%), hitches -10%, but worst iteration and route fails higher in both; one unexplained crash in a session with it on | 2026-10-13/14, PLAN.md |
-| Lot object query cache (ts3fixes `kSpatialCache`) | 34.8 vs 33.0 it/s (+5%), hitches -7%; repeat 25.7 vs 27.4 (-6%), hitches +17% | 2026-10-13/14, PLAN.md |
-| Fewer route plans (`kRoutableCache` + `kStuckCheckBusy`) | no measurable change (38.8 vs 38.2 it/s); repeat 38.0 vs 44.3 (-14%), 0 busy Sims skipped | 2026-10-13/14, PLAN.md |
+Spring baseline saves as used, same machine, the Baselines ran hours earlier, the harness tooling was loaded on both sides, speed varies by town. v0.2.7 uses about 215-250 MB more address space; cause not confirmed: at 10 minutes the v0.2.7 memory log shows EA heaps about 730 MB and the Mono heap 360 MB, and Baseline has no owner log to compare with (inferred).
 
 **Other results:**
 
 - **Address space (Error 12):** DXVK alone frees about 1.75 GB on a fresh save (vanilla: 176 MB largest free block after load and an out-of-memory crash; DXVK: 1,853 MB) [measured, docs/05]. The Sims 3 Performance Patch (S3PP 2.1) frees another ~70 MB with heavy store content (committed -71 MB, largest free block +64 MB); its string cache broke no labels in our check [measured, docs/17 §8-9].
-- **Frame rate (test B, Bridgeport, current build, 2 runs, 2026-10-13):** 56.6 / 59.0 FPS, p99 frame 39.2 / 33.1 ms, p99.9 98.4 / 42.1 ms; 21 of 23 long frames overlapped a sim-thread hitch. No baseline FPS yet.
 - **Stuck Sims:** treated as solved (2026-10-13): many 10-minute runs with 0 real stuck Sims. New cases are only logged (`docs/data/stuck-log.md`).
 - **Save cleanup (opt-in):** on a Bridgeport test save, -266 weak townie relationships and -9 stray other-world Sims, households and Sims unchanged, a second run removes nothing, the save reloads clean (docs/14).
 - **Heavy store content:** CC + store repacks add ~29 s to a cold load and ~100 MB address space; load time is the main cost, not stutter (docs/17 §6).
 - **Online features:** with our settings the game makes no network calls while playing (docs/16).
-- **Faster saving (v0.1.2/v0.1.3):** Bridgeport 12.7 -> 10.3 s (-19%), Sunset Valley -17% to -24%, Isla Paradiso -14% to -23%; same save file; 27 of 28 save tests PASS, 1 test-tool fail (fixed) ([CHANGELOG.md](CHANGELOG.md)).
-- **Routing off the sim thread (on by default since v0.1.4):** route planning on a worker thread halves the sim thread's own routing time (about 116 -> 57 ms per second in Bridgeport). Measured results per release are under Results so far ([docs/84](docs/84-async-wait-sites.md), `PLAN.md`).
+- **Routing off the sim thread (on by default since v0.1.4):** route planning on a worker thread; details in [docs/84](docs/84-async-wait-sites.md) and `PLAN.md`.
 
 All numbers come from one machine and one set of saves. Treat percentages as "this is what we saw", not as a promise.
 
