@@ -2,6 +2,46 @@
 
 Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub release notes for that tag (`.github/workflows/build.yml`).
 
+## v0.2.8 (2026-11-06)
+
+One release for Steam and the EA app 1.69.47: same source, same fixes, same switches. It is bigger than a hotfix: besides the crash fixes it turns on newer routing changes on both versions. They were tested for stability, not for speed. Thanks to Dalexlol (GitHub `alexvixell35-stack`) for PRs #212 and #271 and the other fixes imported in #272.
+
+### Download
+
+- `ts3fixes.package`: unchanged from v0.2.6, the same file for Steam and the EA app (sha256 starts `302c33cf`).
+- `ts3native-v0.2.8.zip` (Steam): `ts3native.asi` and `ts3native.ini`; replace both.
+- `ts3native-ea169-v0.2.8.zip` (EA app 1.69.47): `ts3native.asi` and `ts3native.ini`; replace both.
+- Both logs show `ts3native 0.36.168b`; the EA log also shows `release: v0.2.8 EA`.
+
+### Fixed
+
+- **Error 12 on every save of an Isla Paradiso world.** A lot with no world grid point at its centre (a lot made in Edit Town, or a save started on another version of the world) never finished its routing setup, and that made every save of the world fail. Such a lot now finishes its setup the way the game does for a lot with nothing to connect. Thanks to Dalexlol.
+- **Sim thumbnail render reading past the end of a pose.** When a Sim's thumbnail was drawn with a pose that had fewer bones than the Sim, the game read memory past the pose. That pose is now skipped, as the game already does for a model with no pose. This is aimed at one crash seen in old saves; that it stops that crash is not proven yet. Thanks to Dalexlol.
+- **Sim thumbnail render reading a released pose, and custom-content meshes that name a bone that doesn't exist.** Two more fixes for crashes in the game's own code. Thanks to Dalexlol.
+- **Crash when a Sim's texture can't be created.** The game used a texture that was never made. That Sim's combined texture is now skipped instead of crashing.
+
+### Changed
+
+- **Newer routing changes are on.** Many of the game's checks, such as steering, footsteps, doors and placing objects, now read a safe copy of the routing data instead of waiting on route work.
+- **Threads the game starts itself reserve less address space.**
+
+### Tested
+
+- Steam: tested 11-06 on one machine: 10 minute runs on Isla Paradiso (twice), Bridgeport and Sunset Valley, and three saves on Isla Paradiso. No crash, no hang.
+- EA app: tested 11-06 on the EA app 1.69.47, on one machine with an Intel integrated GPU and a small mod set: the texture crash repro with the fix off and on, a 10 minute run with a save and a clean quit, and 10 minutes with a patched Apex Radiance 2.17.1.
+
+### Known
+
+- This release was checked for crashes, not timed. Hitches were not measured.
+- The texture crash fix was run against its crash repro on the EA app only.
+- When a Sim's texture can't be created, how that Sim looks hasn't been checked.
+- Script fixes that came after v0.2.6 are not in this release, because `ts3fixes.package` is unchanged.
+- EA: tested on one machine with a small mod set, not a big custom content folder. Not tested with the public Apex Radiance 2.18.x.
+- EA: each session may log one harmless handled error in EA launcher memory (+0x67CC2).
+- EA: with Apex Radiance the log shows handled errors inside Apex. Apex confirmed one and plans a fix.
+- EA: the log can show two handled errors at exit. The game quits normally.
+- EA: one change for Sims you can't see, cheaper walking steps, stays off until it has been run on the EA version.
+
 ## v0.2.7 (2026-11-05)
 
 The **EA app 1.69.47** version is now available. The Steam files are unchanged from v0.2.6.
