@@ -1,4 +1,4 @@
-// Round 7 task 3 b: which mint opcodes the P0 compiler (native/monohost/monohost-jit.cpp kJitTmpl) does not template yet,
+// Round 7 task 3 b: which mint opcodes the P0 compiler (native/ts3native/monojit.cpp kJitTmpl, shared by monohost) does not template yet,
 // weighted by the interpreter time behind its exits (docs/data/jit-exit-census.csv est_ms_s_behind, from
 // compile-candidates.csv ms/s), and which of them could be generated from EA's handler bytes (docs/213 spec).
 // Writes docs/data/jit-opcode-table.csv: opcode, name, class, reason, ms_s_behind, methods, test_cases.
@@ -28,9 +28,9 @@ const csv = (p: string): Record<string, string>[] => {
 };
 const field = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
 
-const src = readFileSync('native/monohost/monohost-jit.cpp', 'utf8');
+const src = readFileSync('native/ts3native/monojit.cpp', 'utf8');  // the compiler core moved here (docs/527 step 1)
 const t0 = src.indexOf('kJitTmpl[] = {');
-if (t0 < 0) throw new Error('kJitTmpl not found in monohost-jit.cpp');
+if (t0 < 0) throw new Error('kJitTmpl not found in monojit.cpp');
 const tmpl = new Set([...src.slice(t0, src.indexOf('};', t0)).matchAll(/\{"([^"]+)",/g)].map((m) => m[1]));
 const spec = csv('docs/data/mint-opcode-spec.csv');
 const byName = new Map(spec.map((r) => [r.name, r]));
