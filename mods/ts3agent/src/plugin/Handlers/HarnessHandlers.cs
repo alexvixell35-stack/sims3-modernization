@@ -323,6 +323,16 @@ namespace Ts3Agent
             // Career event (2026-11-05 v027-numbers-clean bp: "Lala now has a higher ranking position ... asked to think about whether or not that
             // employee should keep their job", buttons 'fire fire' / 'k...' / one more): no safe word, 60 s pause stop. Keep the employee.
             new[] { new[] { "tough decision" }, new[] { "keep", "retain", "don't fire" } },
+            // A Sim asks the active Sim for advice (#241, 2026-11-03 old-play-sample: "...I'm absolutely in love with 3 different people... What do I do?"
+            // buttons '"have a casual date with all 3..."' / '"i'm not a dating hotline..."'): both answers are quoted speech, no safe word,
+            // AutoDialog threw and the run stopped. The declining answer starts no date and changes no relationship.
+            new[] { new[] { "in love with 3 different people" }, new[] { "not a dating" } },
+            // Film career event (2026-11-06 bp-jit-ab-long: "The president of the studio has been watching Tiara Angelista's progress... would do
+            // well behind the camera" buttons 'Actor' / 'Director'): no safe word, the run stopped. Actor keeps the Sim on the branch it is on.
+            new[] { new[] { "president of the studio" }, new[] { "actor" } },
+            // Career event (2026-11-06 sv-jit-ab-long: "One of your coworkers just started a rumour that you love cheese a bit too much" buttons
+            // 'Start a rumour as...' / 'Tell Them it's No...' / 'Accept the Rumour...'): no safe word. Accepting involves no other Sim.
+            new[] { new[] { "started a rumour", "started a rumor" }, new[] { "accept the rumour", "accept the rumor" } },
             new[] { new[] { "mod scripts found" }, new[] { "accept", "ok", "continue" } },
         };
 
