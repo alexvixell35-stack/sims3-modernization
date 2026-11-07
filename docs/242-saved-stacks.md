@@ -57,7 +57,7 @@ Both were logging only, on a path that yields:
 
 | Can yield | Swaps | Action |
 |---|---|---|
-| yes (path in the table) | 106 | keep, stub remap |
+| yes (path in the table) | 107 | keep, stub remap |
 | no direct path | 64 | keep |
 | mod target (NRaas) | 8 | keep, stub remap |
 | not in the call graph index | 1 | keep, stub remap |

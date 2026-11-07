@@ -199,6 +199,7 @@ namespace Ts3Agent
             if (c.Length > 2032) { r["convturn_seen"] = c[2031]; r["convturn_taken"] = c[2032]; } // ConvTurn.cs, docs/509
             if (c.Length > 2042) { r["npcdriverpool_seen"] = c[2041]; r["npcdriverpool_dropped"] = c[2042]; } // NpcDriverPool.cs, docs/514
             if (c.Length > 835) { r["alarmtime_timed"] = c[826]; r["alarmtime_lines"] = c[827]; r["alarmtime_passes"] = c[828]; r["boatreplan_lines"] = c[829]; r["boatreplan_could"] = c[830]; r["boatreplan_unseen"] = c[831]; r["owreset_lines"] = c[832]; r["hitchcause_capped"] = c[833]; r["boatreplan_seen_ms"] = c[834]; r["boatreplan_unseen_ms"] = c[835]; } // HitchCause.cs, docs/247 §9
+            if (c.Length > 866) r["routefaillog_household_plans"] = c[866]; // RouteFailLog.cs RflPlan
             if (c.Length > 689) { r["routefaillog_routefail"] = c[687]; r["routefaillog_showoff"] = c[688]; r["routefaillog_capped"] = c[689]; } // RouteFailLog.cs, docs/226
             if (c.Length > 2044) { r["bookcarry_dropped"] = c[2043]; r["bookcarry_ended"] = c[2044]; } // BookCarry.cs, docs/515
             if (c.Length > 2038) { r["ageupabort_seen"] = c[2037]; r["ageupabort_caught"] = c[2038]; } // AgeUpAbort.cs, docs/512

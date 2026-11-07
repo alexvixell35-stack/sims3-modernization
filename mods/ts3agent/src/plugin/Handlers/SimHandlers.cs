@@ -634,10 +634,22 @@ namespace Ts3Agent
             return CareerInfo(job);
         }
 
+        // age_up {pick: "townie"} (repro compositor-churn): an instantiated human teen to adult outside the active household
+        static Sim PickTownie()
+        {
+            Household active = Household.ActiveHousehold;
+            foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+            {
+                SimDescription d = s.SimDescription;
+                if (d != null && d.IsHuman && (d.Teen || d.YoungAdult || d.Adult) && !s.IsSelectable && s.Household != null && s.Household != active) return s;
+            }
+            throw new McpException("no townie in the world to age");
+        }
+
         static object AgeUp(Args a)
         {
             RequireLive();
-            Sim s = Util.FindSim(a, "sim");
+            Sim s = a.Str("pick", "") == "townie" ? PickTownie() : Util.FindSim(a, "sim");
             if (s.SimDescription.Elder && !a.Bool("confirm_elder_death", false))
                 throw new McpException(s.FullName + " is an Elder: aging up means dying of old age. Pass confirm_elder_death=true if that is really wanted.");
             AgingManager.Singleton.AgeTransitionWithoutCake(s);

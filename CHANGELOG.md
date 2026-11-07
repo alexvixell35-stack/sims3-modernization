@@ -2,6 +2,32 @@
 
 Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub release notes for that tag (`.github/workflows/build.yml`).
 
+## v0.2.10 (2026-11-07)
+
+Hotfix on top of v0.2.9, Steam only. The stove and fridge bug below was ours, and this fix is Blastorix's (Discord): he reported it and his test logs found the cause.
+
+**EA app:** there is no EA app build of this release yet. The EA app builds of v0.2.8 and v0.2.9 use the same routing settings, so expect the same problem there until an EA app build follows. We have not reproduced it on the EA app. Stay on v0.2.9 for now.
+
+### Download
+
+- `ts3native-v0.2.10.zip` (Steam): `ts3native.asi` and `ts3native.ini`; replace both.
+- `ts3fixes.package`: the same file as v0.2.9. If you have that one, keep it.
+- The log shows `ts3native 0.36.168e`.
+
+### Fixed
+
+- **Stoves and fridges that can no longer be used.** Since v0.2.8, an object removed or moved while a background route was running could leave an invisible blocker behind where it stood. Your Sims, and every other Sim, could then keep failing to reach the stove, oven or fridge next to it. Blockers no longer stay behind. Report and fix: Blastorix (Discord).
+- **Sims walking off right after a step at the stove.** Right after finishing a step at the stove, a Sim could fail one route and walk off somewhere else, even outside, then come back. Routes now wait until the game has finished removing what that step left behind. Reported by Blastorix (Discord).
+- **Kitchens that are already blocked.** Blockers left by v0.2.8 or v0.2.9 clear when you reload your save. If a stove or fridge is still blocked after a reload, please report it with your `ts3native.log`.
+
+### Tested
+
+- The stove, oven, fridge repro ran on the development build with the same fix: with the fix off, 29 of 40 tries left a blocker and the route failed; with it on, 0 of 40.
+- The walk-off repro ran on a test build with the same fix: with the fix off, 14 of 14 tries failed; with it on, 0 of 16.
+- Smoke test of this exact build: Bridgeport world, 5 minutes, no crash, no hang.
+- Repeat test on this build: 50 stove cycles in a row, 47 reached the oven, no crash, no blocker left behind.
+- `selftest-all`: 191 passed, 5 skipped (they need game files).
+
 ## v0.2.9 (2026-11-07)
 
 Hotfix on top of v0.2.8, Steam and the EA app 1.69.47: same fixes, same switches.

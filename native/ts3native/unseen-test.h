@@ -37,7 +37,7 @@ static void TestUnseen() {
                   offsetof(Ts3nCounters, unEaOff) == 0x33C0 &&
                   offsetof(Ts3nCounters, utMode) == 0x33C8 && offsetof(Ts3nCounters, utWhy) == 0x33E0 &&
                   offsetof(Ts3nCounters, utPathUs) == 0x3414 && offsetof(Ts3nCounters, utViewerBad) == 0x3420 &&
-                  sizeof(Ts3nCounters) == 5984 * 4, "counters v79 layout after v78 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6030 * 4, "counters v79 layout after v78 (docs/registry.md)");
     assert(k.version == 912);
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     // swap every game pointer for a fake
@@ -365,7 +365,7 @@ static void TestUnseenThrottle2() {
                   offsetof(Ts3nCounters, utRateCalls) == 0x34D0 && offsetof(Ts3nCounters, utRateWhy) == 0x34D8 &&
                   offsetof(Ts3nCounters, utRateCatchUp) == 0x3520 && offsetof(Ts3nCounters, utRateDropped) == 0x3528 &&
                   offsetof(Ts3nCounters, utSnap) == 0x352C && offsetof(Ts3nCounters, utSnapMaxMs) == 0x353C &&
-                  sizeof(Ts3nCounters) == 5984 * 4 && UTW_N2 <= 18 && UTF_N <= 12, "counters v80 layout after v79 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6030 * 4 && UTW_N2 <= 18 && UTF_N <= 12, "counters v80 layout after v79 (docs/registry.md)");
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     // fakes as TestUnseen and TestUnseenThrottle
     const UnAgentFn agentSave = g_unAgentOrig;
@@ -696,7 +696,7 @@ static void TestUnseenDiag() {
                   offsetof(Ts3nCounters, utListNotices) == 0x3578 && offsetof(Ts3nCounters, utRpN) == 0x357C &&
                   offsetof(Ts3nCounters, utRpUs) == 0x3594 && offsetof(Ts3nCounters, utRpLong) == 0x35AC &&
                   offsetof(Ts3nCounters, utRpPart) == 0x35C4 && offsetof(Ts3nCounters, utRpPartMs) == 0x35E4 &&
-                  sizeof(Ts3nCounters) == 5984 * 4, "counters v83 layout after v81 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6030 * 4, "counters v83 layout after v81 (docs/registry.md)");
     const UnCompFn compSave = g_unComp;
     const UnPosFn posSave = g_unPos;
     const UnFrustumFn frSave = g_unFrustum;

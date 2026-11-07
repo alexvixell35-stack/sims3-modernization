@@ -223,7 +223,7 @@ Built in `native/ts3native/discourage.cpp` on 0.36.23 (TS3NATIVE_VERSION not bum
 
 Callers (direct `E8` scan of `.text`): `0x8334A0` from `0x94713D` (event `0x0E` handler path `0x9470B0`) and `0xB585A1` (build tool); `0x82D280` from `0x9462C9` and `0x946F99`; none reads `eax` after the call [verified]. `0x82A0C0` from the IC `0x754610` (`0x75465E`; `al` becomes the IC's result) and from `LockedLotUpdate` (`0x82B551`, under `+0x918`).
 
-What they do [verified disassembly]: `0x8334A0` = early out `0x82A720(obj)`, lock, `+0x974`, lock-key map lookup (a parked object: nothing), else `P+0x10D` set, `UpdateObjectFootprintCore 0x8321F0 (obj, 1, lot, 1, 0)` (5th argument 1: the core runs `0x82A720` again and on yes the remove `0x82CBF0`; then `0x829A60(obj, 1, 0)` and the insert), `P+0x10D` restored, world `+0x994 = 0`. So it is not `0x833560` with enable 1: the core's 5th and 6th arguments differ and there is no remove before the core. `0x82D280` = lock, `+0x974`, `obj`, `0x82C120 (world; id, lot of obj)` (re-home into the current lot), unlock.
+What they do [verified disassembly]: `0x8334A0` = early out `0x82A720(obj)`, lock, `+0x974`, lock-key map lookup (a parked object: nothing), else `P+0x10D` set, `UpdateObjectFootprintCore 0x8321F0 (obj, 1, lot, 1, 0)` (5th argument 1: the core runs `0x82A720` again and on yes the remove `0x82CBF0`; then `0x829A60(obj, 1, 0)` and the insert), `P+0x10D` restored, world `+0x994 = 0`. So it is not `0x833560` with enable 1: the core's 5th and 6th arguments differ and there is no remove before the core. `0x82D280` = lock, `+0x974`, `obj`, `0x82C120 (world; id, lot of obj)`, unlock. It only removes (§16 corrects "re-home"; the insert is `0x833680`).
 
 The `+0x978` bracket: `0x9470B0` sets world `+0x978 = 1` around the call when `C+0x40` bit 1, `+0x97E` and `0x945E40` hold, then clears `C+0x40` bit 1; `0xB58557..0xB58574` brackets the build tool call the same way. Readers of `+0x978` on that path: only `0x82A720` (`0x82A738`) and `0x829A60` (`0x829A80`), and only when `+0x97E` and `+0x976` are both set (the world's batch mode); each then clears `+0x97F`. The other readers (`0x835B46`, `0x8359B3`, `0x83609D`) and writers (`0x82FBB2`, `0x8359B9`, `0x8360AD`) are not within 8 direct hops of `0x8334A0` or `0x82D280` (BFS over direct calls; indirect sites not followed) [verified direct].
 
@@ -238,7 +238,7 @@ Same skeleton as §10.1; differences only:
 5. **Queue full:** as U (drain unless an Add is queued, then the call: `fp2Forced`; with an Add queued the call runs now, out of order: `fp2FullPass`, expected 0).
 6. **Record:** `{fp2 = 1 FromTool / 2 lot, id, pointer, world, tick, high = world +0x978 at the call}` (`fp2Deferred[kind]`).
 
-**Apply** (D's drain points, D-X destroy): find by id + pointer check; FromTool: world `+0x978` set to the recorded byte, the original (it runs its own early out again: a call made now with the caller's bracket), `+0x978` restored; lot: the original (re-homes into the object's lot at apply time). Gone or reused id: dropped (`fp2Dropped`). No drain-time collapse for phase 2 records, and a U record followed by a phase 2 record of the same object is not collapsed (the U collapse only looks at U records). Tripwire `fp2ApplyInJob` = 0; age `fp2AgeMaxMs`.
+**Apply** (D's drain points, D-X destroy): find by id + pointer check; FromTool: world `+0x978` set to the recorded byte, the original (it runs its own early out again: a call made now with the caller's bracket), `+0x978` restored; lot: the original, reading the lot at apply time. Gone or reused id: dropped (`fp2Dropped`). **Both rules lost removals: §16.** No drain-time collapse for phase 2 records, and a U record followed by a phase 2 record of the same object is not collapsed (the U collapse only looks at U records). Tripwire `fp2ApplyInJob` = 0; age `fp2AgeMaxMs`.
 
 ### 12.3 Readers that need the fresh state
 
@@ -400,3 +400,70 @@ So §14.3 is wrong on two points: the owner is the **only** Sim that sees its pr
 3. **Owner's next sync plan** in the window would miss the turn helper (the animal may turn on the spot); async plans would see it (START drain).
 
 **If `pfAddFlush` shows up** (I-89-14-5, read from `sv-private-fp-loop`): the cheap option is an order-only Add (queue it only when the object already has a queued record, so the flush stops waiting for the job), accepting point 2 for the owner's own cost map. About 1-2 h + 1 game run. Not built. Ledger docs/51 §320.
+
+## 16. LostRemovalFix: a queued UpdateObjectLot always reaches the lot map (2026-11-07, offline; no game run)
+
+Player report 2026-11-07 (v0.2.8): oven and fridge plans fail with result 16, candidates 1/1/0, for household Sims too, forever. The earlier view that the object was lost to EA is wrong; the deferral lost EA's removal.
+
+**Vanilla's chain [verified disassembly].** An object leaving a lot or the world fires object event `0xA`: owner vtable `+0x3C` (`0xACE060` lot at `0xACE07A`, `0xAA8FF0` world at `0xAA8FFC`) before `0xC70150` clears the owner, and `0xB6E19C` on a lot change. The handler registered at `0x94908F` is `0x946F70`; it calls `RoutingWorld_UpdateObjectLot 0x82D280` at `0x946F99`. `0x82D280` reads the lot with `0x8297C0` and calls `0x82C120`, then `0x82B450`, then `LotRouting_RemoveObjectFootprints 0x635700`, all under `+0x918`. It only removes: §12's "re-home" is wrong, the tail of `0x82C120` is portals (`0x6399E0`). Event 9 re-inserts through `0x946160`: `0x82D280` at `0x9462C9`, then `0x833680` at `0x9462D4`, or `0x833680` alone at `0x94630A`.
+
+**Paths [verified disassembly, a also from logs].**
+
+| Path | What happens | Evidence |
+|---|---|---|
+| a. Object gone | A job runs, `0x798D40` queues event `0xA`, kind 2 record queued; `DestroyById` parks under DestroyParkDx; the drain finds no object and drops the record | `b02e08a4` log: "drop: 16 ms ago, UpdateObjectLot, id B60B00F51D00F4C0, object gone" |
+| b. Lot move during a job | `0x833680` is not deferred: it inserts on the new lot when the job ends, then the queued record reads the new lot and removes that fresh insert. The old lot keeps its copy. The same-lot sequence loses a live object's fresh footprint | static; `0xAB466E`, the other event 9 firer, not read |
+| c. DestroyPark, no records | `DestroyById` fires owner `+0x3C` at `0x93947E` itself, after `P5cPark`, independent of DestroyParkDx; the record meets a gone object at the erase `0x9394A4` | static |
+| d. DestroyParkDx=1 | Enabler of a: with `dxMode` 0 a queued record keeps the wait and D-X applies it while the object is in the hash (the owner is cleared: lot 0, all lots, removal works) | static, default on since `056fd225` |
+
+DeadSweep covers Remove, usf disable and pf removes only, not kind 2 records [verified in code].
+
+**Any object.** Paths a and c hit every object destroyed with a job running, not only a region's DynamicSlot. `stove-wall-repeat` on the diag2 build caught a `SocialJigOnePerson` in play: `Fridge_CleanOutBadFood` result 16, 1/1/0, blocker object `0x38B400F51D68B5A0` with no object, footprint #0, type 1, bounds on the fridge slot [measured]. Jigs are made and destroyed often. The fix sits in the shared kind 2 path, so it covers them; the repro has a `jig` target.
+
+**Fix, `[Discourage] LostRemovalFix=1` (default on, 0 = the old rules; counters v172, switch `fp2lrMode` +0x5DE8, `--ab lostremoval`).**
+
+1. `Fp2Hook` records the lot of the call (`0x8297C0`), as `0x82D280` would read it.
+2. `DiscApplyOne` calls `0x82C120` with id and that lot, object alive or gone. That is vanilla's body: lock-key map branch, world lot to 0, portals, `world+0x994`. It takes no object. Only the private key removal at `0x82B551` needs one (`0x82A0C0` skips NULL at `0x82A0D8`), so a gone object's hit sweeps that key as the pf branch does. A reused id stays dropped.
+3. `0x833680`'s two call sites go through `UofSite`: an object with such a record gets its records applied first, under the same job wait and `+0x918` the insert takes next. Nothing new waits.
+
+**Limits.** Inside a job callback or with `+0x918` held the flush cannot run (`fp2lrOrderMiss`, expected 0): the late remove then takes the insert. A queued Add of the object stays queued past the flush, since an Add may fire `World_FireEvent 0x11` (also `fp2lrOrderMiss`).
+
+**Counters.** `fp2lrApplied`, `fp2lrGone`, `fp2lrGoneHit` (footprints that would have stayed), `fp2lrMoved`, `fp2lrFlush`, `fp2lrFlushUs`, `fp2lrOrderMiss`, and `fp2lrLost`, fix off only: a dropped gone record with a map entry, or an apply on another lot than the call's. `diag: mem` lines carry `fpLost`, `fpLoad` and `fpSaved`, no walk, so a player's old save A/B shows them over time (queue `footprint-ghost-oldsave.json`).
+
+**Offline.** Selftest `TestFp2LostRemoval`: paths a, b, c and the gate, each against a small lot-map model of vanilla's order, off arm reproduces the bug; order misses; the flush keeps other objects' records.
+
+**Repro `footprint-ghost`** (built, not run): the worker holds a job at its start (`[Discourage] GhostTest=1`, ops 20-29 on the 0x87 channel, never in the shipped ini), the region's Cleanup falls inside it, then a plan to the slot. Stove, oven (same region, from 1 m), fridge, a jig on the fridge slot; arms by op 27 in one load, N = 10. Why a job is needed: `routediag-result16` fails on the v0.2.9 pair because its diag probes keep a job live at Cleanup, and passes on the master run that had none. Same code, same ini on this path [verified diff, log parks]; the hold makes both pairs fail alike.
+
+## 17. GhostSweep: dead object footprints at world load (2026-11-07, offline; no game run)
+
+A ghost is saved in the `.nhd` (`LotLevel_SaveFootprints` writes every entry, docs/25), re-added on load, and removed by EA's pass `0x639B40` at world-load end, which drops entries with no object, on a normal load. It survives only if a lot's routing load fails partway [verified disassembly; lot failure rate unmeasured]. `footprint-ghost-save`: the made ghost was gone after save and reload, and the census counted 0 ghost ids on all 4 loads, so GhostSweep has work only after such a failed lot load. `[Discourage] GhostSweep`: 0 off, 1 count only (code default when the key is missing), 2 remove (v0.2.10 ini).
+
+**One pass, inside the load screen.** From the ts3fixes `world:` line (`OnWorldLoadFinished`, all lots loaded, docs/38), sim thread, no job, under `+0x918`. Never in play. A live census would need a per-tick node budget, a walk by bucket index, and the recheck at removal `FpgRemove` already has. Time logged (`fpgUs`).
+
+**"No object" is not a ghost test.** A clean Baseline has 86,954 of 126,787 entries without an object [measured, diag2], mostly non-object ids such as `0000000002E31605` (class `0xFEBA98`) and `00001179038B0C05` (class `0xFEBF90`). The signature, all of it:
+
+- Object-shaped key: low nibble 0 [observed on every object id so far, fails safe], high part set. `0x7CFA30` keys have bit 0 set [verified].
+- Class `0xFEB848`, built by `0x80C780` in `UpdateObjectFootprintCore 0x8321F0`, which `AddDiscourageFootprint` reaches at `0x834810` [verified]; footprint id equals the key; type byte `+0x35` = 1 (the caught jig ghost: type 1 [measured]).
+- FME Q set, id not parked, no object.
+
+Whether this is tight is a measurement, not yet made: the class a made ghost has is [inferred] (`0x8321F0` also builds `0xFEBBC0`). The census logs each object-shaped key without an object that fails the signature, by class. Bar for mode 2 as first set: a made ghost is found, a clean Baseline counts ~0 or each hit is explained. v0.2.10 ships mode 2 by Rodney's call, ahead of that bar: no made ghost reached the census, so the removal has run only in selftest. If the two cannot be separated, the ini goes back to 1. A failed read keeps the entry. No save format change, no mod data in saves.
+
+**Repros.** `footprint-ghost-save`: ghost with the fix off, save, reload count only, reload remove, save, reload. `footprint-ghost-census`: three clean Baselines. Queue `footprint-ghost.json`.
+
+## 18. RemovalFirst: a route does not plan past a queued removal (2026-11-07)
+
+Player report on v0.2.10 (0.36.168d, LostRemovalFix=1, census 0 ghosts): baking, household Sim Wayne at the stove; `BakingDish_CookInOven` plan from the stand spot failed once (result 16, 1/1/0, job 0 ms, 200 ms from START), EA's retry (60 candidates) walked him 22.9 m outside, the next click worked.
+
+**The window [verified code].** Records are applied only by the owner thread, at START / READY / CANCEL polls (`DiscPoll`), when no job runs or the oldest record is 250 ms old. The worker takes the next queued job at once, with no drain and no poll in between. So a removal queued behind job A, followed by a START of job B before age 250 ms, gives B the old lot map. PlanDrain covers sync plans only and is off. Longest window with the sim ticking: 250 ms plus the rest of the running job; ageMax 21 s in that log matches its longest job, sim waits max 61 ms, so that one was not a ticking sim [inferred].
+
+**Why it hits the Sim's own route [verified C#, inferred for the run].** `BakingDish_Prepare.Cleanup` -> `ImpassableRegion.Cleanup` -> `DynamicSlot.Destroy`, then `BakingDish_CookInOven.Run` plans to the same stove. During a job: `DestroyById` parks and a kind 2 record is queued (§16 path a). A dead region on the slot gives exactly this result (`footprint-ghost` arm 0: result 16, 1/1/0, for stove and oven) [measured]. No run logged the queue at the failed plan: the inferred step is that the record was queued there. Vanilla and the old wait at destroy have no such window.
+
+**Fix, `[Discourage] RemovalFirst=1` (default on, 0 = off).** `AsyncStart`: a route not known unseen (`kdScope != 2`, not marked: household, seen NPC, unknown) with a removal queued (kind 2, plain Remove, pf; not usf, Add or kind 1, which refill every tick) parks as `J_PEND`; `FbRetry` holds it while the removal is queued, up to `kFbRetryTicks`, then queues the job on the normal path. This works with M1Retry off. The sim thread does not wait: the plan waits in its task as for any job, and the first no-job poll or the existing 250 ms drain ends it. Known unseen Sims keep today's behaviour. Log line `footprint removal first: mode, parked, capped, max ticks`; capped expected 0. No counter fields: the hotfix keeps its layout.
+
+**Limit.** A refused START's sync plan (57 refused, 2206 started in that log) can still plan past a removal; `PlanDrain=1` would cover it (§13, no live verify yet).
+
+**Offline.** Selftest in the M1Retry block: park, tick wait, job queued, record kinds, switch, tick cap, CANCEL, world closing, Plan without READY, scope 1 parks and scope 2 queues. **Live:** `footprint-window` on v0210d: fix off, 14 window fails in 14 held tries; fix on, 0 in 16; parked 42, capped 0.
+
+**Repro `footprint-window`** (queue `footprint-window.json`, build v0210d). `footprint-ghost` cannot show this: it sleeps 30 ticks after Cleanup, so its plan comes after the drain. Here `Route.Plan` follows Cleanup with no sleep, on a route that already has its destination, and op 31 ends the hold once that START is queued or parked. Ops 30-34 exist only with `/DTS3N_RFTEST`: the release build has no extra op, and its hold loop calls a stub. N = 10 per arm, stove and oven.
+
+**J_PEND audit [verified code, selftest].** M1Retry is off in the shipped ini, so RemovalFirst is what makes this path live. Household (scope 1) and unknown (scope 0) park, known unseen (scope 2) and marked routes do not. CANCEL: `DropJob` frees the slot. Plan without READY: the C# poll cap is 1000 ticks against 30 here, and the IC branch plans sync. World closing: READY gives up with M1Closing, sync plan. No READY at all (task gone, unload): the worker never sees `J_PEND`, `AsyncBusy` and waits ignore it, the slot stays until a START needs it (5 s old), a repeat of the handle is dropped or planned sync. A parked job holds no lock or reference. Scope after a give-up: the sync plan counts as unknown, so as household.

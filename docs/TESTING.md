@@ -32,6 +32,8 @@ Every fix and every bug gets a repro: a saved situation plus agent steps that tr
 - No waiting for a problem to happen: add a trigger action to the agent instead.
 - Player map repro: queue `stove-wall-layout` builds the map with `build_layout`, then a Go Here click and a Cook order per arm (`stove-wall: arm N result` lines).
 - Oven path repro: queue `stove-oven-layout`: corner stove, a baked recipe through `BakingDish_CookInOven`, take-out orders from 1 m and past the wall, region-live plans from outside, per arm (`stove-oven:` lines). It fails if CookInOven never appears.
+- Leftover repro: queue `stove-oven-cancel`: cuts the bake and fridge snacks short per stage and action, then counts regions, users and the fridge line per cell and per arm (`stove-cancel:` lines, `verdict`, `pass end`). About 2 h.
+- Repeat repro: queue `stove-wall-repeat`: 50 full bakes with real orders on a long kitchen run, then 50 mix orders, stops at the first failure and keeps the world. Split: `stove-wall-repeat-off`, only after a failure. A job PASS only says it ran.
 - Layout repro: step `build_layout` builds a text map on the home lot with the real tools (optional `house: true`: room, floor, door, ceiling lights, auto roof), verifies walls by `WallExistsBetween` and objects by lot census, walks the Sim to `X` with Go Here, fails on any miss. Thin walls take no tile: wall lines collapse (`mods/ts3agent/src/plugin/LayoutMap.cs`). Parser offline: `node tools/harness/layout-map.ts --self-check`. Skill `ts3-layout-repro`, queue `layout-repro-smoke.json`.
 
 Quick checks of a trip shortcut: `node tools/harness/verify-shortcut.ts --name rabbithole,visit [--tries 20] [--minutes 5]`.

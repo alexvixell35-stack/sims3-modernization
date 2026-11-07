@@ -1,0 +1,39 @@
+{
+  "note": "v0.2.10 release candidate smoke (2026-11-07): one 5 min Bridgeport job on the exact v0210e pair (RemovalFirst=1), correctness only. Pass = no crash, no hang, version, LostRemovalFix, GhostSweep=2 and removal first mode 1 read back in the log.",
+  "jobs": [
+    {
+      "id": "bp-v0210e-smoke",
+      "note": "[natural play, no cheats] v0.2.10 release candidate smoke, Baseline-BP-Spring: asi v0210e (0.36.168e) with its ini, the v0.2.9 ts3fixes package; LostRemovalFix, GhostSweep=2 and RemovalFirst=1 read back in the log.",
+      "asi": "game-copy/ts3native.asi.v0210e",
+      "pinReason": "v0.2.10 release candidate: asi v0210e (0.36.168e, RemovalFirst=1), ini game-copy/ts3native.ini.v0210e, ts3fixes = v0.2.9 package",
+      "fixesPackage": "game-copy/asi-v029/ts3fixes.package",
+      "iniBase": "game-copy/ts3native.ini.v0210e",
+      "ini": {
+        "Discourage.LostRemovalFix": 1,
+        "Discourage.GhostSweep": 2,
+        "Discourage.RemovalFirst": 1
+      },
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "ts3native 0.36.168e": 1,
+        "^OK   lost removal fix": 1,
+        "ghost census at world load: GhostSweep=2": 1,
+        "removal first: mode 1": 1
+      },
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 5
+        }
+      },
+      "timeoutMin": 15
+    }
+  ]
+}

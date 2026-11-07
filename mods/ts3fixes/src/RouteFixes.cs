@@ -118,7 +118,15 @@ namespace Ts3Fixes
         // checks (SpotVerdict, the Overwatch hook) are not counted. A successful plan clears the Sim's count.
         struct RouteFails { public Vector3 Pos; public long First; public int Count; }
         static readonly Dictionary<ulong, RouteFails> sRouteFails = new Dictionary<ulong, RouteFails>();
-        static bool sInOwnCheck;
+        // per task (the shape of PR #306's flag): this check's plan can sleep on its route job, and another Sim's result must still reach
+        // NotePlanResult. shortcut: one slot, a second check sleeping beside it ends the first's cover early; a list if that ever shows up
+        static bool sOwnCheckOn;
+        static ulong sOwnCheckTask;
+        static bool sInOwnCheck
+        {
+            get { return sOwnCheckOn && sOwnCheckTask == Simulator.CurrentTask.Value; }
+            set { sOwnCheckOn = value; sOwnCheckTask = value ? Simulator.CurrentTask.Value : 0; }
+        }
 
         // D5 (docs/151 §6): last successful plan per Sim from its spot (goal >= 1 m away, so a turn in place does not count),
         // recorded with routesrc (V7) or idlememo on.

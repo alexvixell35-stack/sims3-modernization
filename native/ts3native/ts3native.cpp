@@ -13,7 +13,11 @@
 #include <intrin.h>  // _ReturnAddress (vfG11CloseBy)
 #include <psapi.h>  // K32GetMappedFileNameW (XcptOtherModule)
 
-#define TS3NATIVE_VERSION "0.36.186"
+#ifdef TS3N_RFTEST
+#define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
+#else
+#define TS3NATIVE_VERSION "0.36.189"
+#endif
 
 typedef unsigned char u8;
 
@@ -336,7 +340,7 @@ static void ApplyGc(const wchar_t* ini) {
 }
 
 // --- Phase 2: negative cache for failed route plans (docs/11 Q5, docs/15 phase 2) ---
-// Counters for test tools: Frida `Module.findExportByName('ts3native.asi', 'ts3native_counters')`, read 5984 int32 (v169 [UnseenAnim] held table kdAaHeld* at 0x5D68 after the gap held for v167-v168, v165 [RouteAsync] KdExemptSeen kd* at 0x5D18, version field stays 912; v912 [CasTrim] ct* at 0x5CF0, v164 [MintFuse] Sub mf* at 0x5C98 in the block held for it, version field stays 912; v911 [MonoJit] Inline, Wide jitInlined at 0x5CE0, v910 [MonoJit] jit* at 0x5CA8, v909 [MonoJit] jitDirect at 0x5C6C, contributor block, docs/527, docs/537; v908 [MemDiag] RcRefCallers rrc* at 0x5C34 after v907, contributor block; v907 [IlPatch] ilp* at 0x5C14 after v906, contributor block; v906 [IdleCheckRO] SiteCLoopJump icJumpMode / icJumped at 0x5C0C after v905, contributor block; v905 [IdleCheckRO] SiteCLoop icLoop* at 0x5BD8 after v904, contributor block; v904 [Discourage] DestroyParkDx dx* at 0x5BCC after v903, contributor block; v903 [IdleCheckRO] SiteC ic* at 0x5B84 after v902, contributor block; v902 [RouteToObjRO] Tail rtoTail* at 0x5B78 after v901, contributor block; v901 [FootstepRO] fs* at 0x5B30 after v163, contributor block; v163 [GC] BlackListCapKB window gcLenientN / gcSwitchSec at 0x5B28 after v162, version field 163; v162 [GC] BlackListCapKB gc* at 0x5B10 after v161, version field 162; v161 [GcGrowLog] gw* at 0x5AE8 after v160, version field 161; v160 [SaveSlim] slimFails after v159, version field 160; v159 [UnseenRootMotion] Mode 2 SacsHold=3 bound-actor classes rm2SacsCls after v158, version field 159; v158 [UnseenRootMotion] Mode 1 walk-1 rescan rmSlW1Late after v157, version field 158; v157 [UnseenRootMotion] Mode 2 SacsHold + SACS driver / actor histograms after v156, version field 157; v156 [UnseenAnim] aaSlotReset / aaStale + [UnseenRootMotion] rmSlMissHold after v155, version field 156; v155 [UnseenRootMotion] Mode 2 script camera IC hooks after v154, version field 155; v154 [UnseenRootMotion] Mode 2 coarse unseen Sims after v153, version field 154; v153 [UnseenRootMotion] Mode 1 late starts after v152, version field 153; v152 [UnseenTable] lazy rows after v151, version field 152; v151 [UnseenRootMotion] after v150, version field 151; v147 [UnseenAnim] after v146, version field 147; v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs after v145, version field 146; v145 [UnseenGhost] after v144; v144 [EaCrashFixes] MintDivGuard after v143, version field 144; v143 [MonoFast] CallPath after v142, version field 143; v142 [RouteAsync] WorkerWait after v141; v141 [EaCrashFixes] after v140, version field 141; v140 [UnseenFallback] FinishWalk holds after v139, version field 140; v139 [UnseenFallback] C1-C4 site fallbacks after v138, version field 139; v138 [UnseenFallback] after v137, version field 138; v137 [MemDiag] TypeGrowth + [GC] SqrtHeapLimit after v136 [ResourceCache] trim, version field 137; v135 PlanDeadlineMs sync-path exemptions after v134, version field 135; v134 [RouteAsync] KindDeadlines after v133; v133 [RouteSnap] LotUseReadout after v132; v132 [RouteSnap] PoolChunkMB / EpochHeap after v131; v129 [RouteSnap] StaleLotFp after reserved v126-v128, version field 129; v125 [RouteSnap] StaleLot after reserved v123 / v124, version field 125; v119 [IdleCheckRO] after v118, version field 119; v118 [GoalValidRO] slots kept, other branch; v117 CrashForensics ObjResLog after v116, version field 117; v116 CrashForensics EffectLog after v115, version field 116; v115 CrashForensics DrawGuards / OurEvents after v114, version field 115; v114 CrashForensics after v113, version field 114; v113 DeferPrivateFp after v112, version field 113; v112 P6 take kinds + Mode=2 cut sharing + per-job phase split after v111, version field 112; v111 watchpoint constructor-pair count + follow + replay audit rebase hold after v110, version field 111; v110 [Watchpoint] lot arm + child z / parent +0x30 writer probes after v109, version field 110; v109 job yield + sim job waits by site after v108, version field 109; v108 gate site 16 after v107; v107 PlanDrain after v106; v106 P5 steps 2-4 after v105 (layout of merge eaef8a1b; zeros without it); v105 RecsUnlocked after v104, version field 105; v104 refcount guard after v103; v103 job deadline + own waits + goal-step split after v102; v102 goal split + GoalGen D1 + H2 IC window after v101, version field 102; v101 foreign kinds after v100; v100 placement RO after v99; v99 plan deadline + fail memo after v98; v98 lock holders after v97; v97 sync plan phases after v96; v96 host-call split + DoorMemo after v93; v93 route-to-object RO appended after v95 at the 2026-10-22 0325 merge, version field stays 95; v95 F-G held-out count after v94, v94 design U phase 2 after v92, v92 route allocator sites after v91, v91 [Gate0RO] after v90, v90 replan dedupe after v88, all at the 2026-10-22 integration merge; version field 95; v88 cell memo probe appended after v89; v89 tail unlock; v87 route job phases; v86; v77 AvoidRO before v78, v79 unseen probe + throttle after v78, v80 unseen throttle phase 2, v81 foreign job cap, v83 unseen diagnostics, v84 foreign job split, v85 H2 counters, v86 acting early-out, no v52, v58 or v82 fields in this build).
+// Counters for test tools: Frida `Module.findExportByName('ts3native.asi', 'ts3native_counters')`, read 6030 int32 (v172 [Discourage] LostRemovalFix and GhostSweep at 0x5DE8, v171 [CasTrim] Mode 3 / 4 and docs/539 probes at 0x5D80, v169 [UnseenAnim] held table kdAaHeld* at 0x5D68 after the gap held for v167-v168, v165 [RouteAsync] KdExemptSeen kd* at 0x5D18, version field stays 912; v912 [CasTrim] ct* at 0x5CF0, v164 [MintFuse] Sub mf* at 0x5C98 in the block held for it, version field stays 912; v911 [MonoJit] Inline, Wide jitInlined at 0x5CE0, v910 [MonoJit] jit* at 0x5CA8, v909 [MonoJit] jitDirect at 0x5C6C, contributor block, docs/527, docs/537; v908 [MemDiag] RcRefCallers rrc* at 0x5C34 after v907, contributor block; v907 [IlPatch] ilp* at 0x5C14 after v906, contributor block; v906 [IdleCheckRO] SiteCLoopJump icJumpMode / icJumped at 0x5C0C after v905, contributor block; v905 [IdleCheckRO] SiteCLoop icLoop* at 0x5BD8 after v904, contributor block; v904 [Discourage] DestroyParkDx dx* at 0x5BCC after v903, contributor block; v903 [IdleCheckRO] SiteC ic* at 0x5B84 after v902, contributor block; v902 [RouteToObjRO] Tail rtoTail* at 0x5B78 after v901, contributor block; v901 [FootstepRO] fs* at 0x5B30 after v163, contributor block; v163 [GC] BlackListCapKB window gcLenientN / gcSwitchSec at 0x5B28 after v162, version field 163; v162 [GC] BlackListCapKB gc* at 0x5B10 after v161, version field 162; v161 [GcGrowLog] gw* at 0x5AE8 after v160, version field 161; v160 [SaveSlim] slimFails after v159, version field 160; v159 [UnseenRootMotion] Mode 2 SacsHold=3 bound-actor classes rm2SacsCls after v158, version field 159; v158 [UnseenRootMotion] Mode 1 walk-1 rescan rmSlW1Late after v157, version field 158; v157 [UnseenRootMotion] Mode 2 SacsHold + SACS driver / actor histograms after v156, version field 157; v156 [UnseenAnim] aaSlotReset / aaStale + [UnseenRootMotion] rmSlMissHold after v155, version field 156; v155 [UnseenRootMotion] Mode 2 script camera IC hooks after v154, version field 155; v154 [UnseenRootMotion] Mode 2 coarse unseen Sims after v153, version field 154; v153 [UnseenRootMotion] Mode 1 late starts after v152, version field 153; v152 [UnseenTable] lazy rows after v151, version field 152; v151 [UnseenRootMotion] after v150, version field 151; v147 [UnseenAnim] after v146, version field 147; v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs after v145, version field 146; v145 [UnseenGhost] after v144; v144 [EaCrashFixes] MintDivGuard after v143, version field 144; v143 [MonoFast] CallPath after v142, version field 143; v142 [RouteAsync] WorkerWait after v141; v141 [EaCrashFixes] after v140, version field 141; v140 [UnseenFallback] FinishWalk holds after v139, version field 140; v139 [UnseenFallback] C1-C4 site fallbacks after v138, version field 139; v138 [UnseenFallback] after v137, version field 138; v137 [MemDiag] TypeGrowth + [GC] SqrtHeapLimit after v136 [ResourceCache] trim, version field 137; v135 PlanDeadlineMs sync-path exemptions after v134, version field 135; v134 [RouteAsync] KindDeadlines after v133; v133 [RouteSnap] LotUseReadout after v132; v132 [RouteSnap] PoolChunkMB / EpochHeap after v131; v129 [RouteSnap] StaleLotFp after reserved v126-v128, version field 129; v125 [RouteSnap] StaleLot after reserved v123 / v124, version field 125; v119 [IdleCheckRO] after v118, version field 119; v118 [GoalValidRO] slots kept, other branch; v117 CrashForensics ObjResLog after v116, version field 117; v116 CrashForensics EffectLog after v115, version field 116; v115 CrashForensics DrawGuards / OurEvents after v114, version field 115; v114 CrashForensics after v113, version field 114; v113 DeferPrivateFp after v112, version field 113; v112 P6 take kinds + Mode=2 cut sharing + per-job phase split after v111, version field 112; v111 watchpoint constructor-pair count + follow + replay audit rebase hold after v110, version field 111; v110 [Watchpoint] lot arm + child z / parent +0x30 writer probes after v109, version field 110; v109 job yield + sim job waits by site after v108, version field 109; v108 gate site 16 after v107; v107 PlanDrain after v106; v106 P5 steps 2-4 after v105 (layout of merge eaef8a1b; zeros without it); v105 RecsUnlocked after v104, version field 105; v104 refcount guard after v103; v103 job deadline + own waits + goal-step split after v102; v102 goal split + GoalGen D1 + H2 IC window after v101, version field 102; v101 foreign kinds after v100; v100 placement RO after v99; v99 plan deadline + fail memo after v98; v98 lock holders after v97; v97 sync plan phases after v96; v96 host-call split + DoorMemo after v93; v93 route-to-object RO appended after v95 at the 2026-10-22 0325 merge, version field stays 95; v95 F-G held-out count after v94, v94 design U phase 2 after v92, v92 route allocator sites after v91, v91 [Gate0RO] after v90, v90 replan dedupe after v88, all at the 2026-10-22 integration merge; version field 95; v88 cell memo probe appended after v89; v89 tail unlock; v87 route job phases; v86; v77 AvoidRO before v78, v79 unseen probe + throttle after v78, v80 unseen throttle phase 2, v81 foreign job cap, v83 unseen diagnostics, v84 foreign job split, v85 H2 counters, v86 acting early-out, no v52, v58 or v82 fields in this build).
 struct Ts3nCounters {
     LONG version;      // layout version, 4
     LONG enabled;      // 1 when the Route_PlanLocked detour is installed
@@ -2662,7 +2666,7 @@ struct Ts3nCounters {
     LONG jitWide;                          // +0x5CE8, S5 sites compiled
     LONG jitWideNo;                        // +0x5CEC, S5 sites left as exits
     // v912 (contributor block; #285 built it as v909, moved at import), docs/registry.md; docs/191 "Who holds the part compositors" step 2, castrim.cpp): [CasTrim]
-    volatile LONG ctMode;                  // +0x5CF0, switch (--ab castrim, start value [CasTrim] Mode): 0 off, 1 trim, 2 count only
+    volatile LONG ctMode;                  // +0x5CF0, switch (--ab castrim, start value [CasTrim] Mode): 0 off, 1 trim, 2 count only, 3 save sweep, 4 its count only
     LONG ctOn;                             // +0x5CF4, the insert + Find detours are in
     LONG ctInserts;                        // +0x5CF8, compositor registry inserts seen with the mode on
     LONG ctScanned;                        // +0x5CFC, registry nodes walked
@@ -2702,6 +2706,54 @@ struct Ts3nCounters {
     LONG kdAaHeldPush;                     // +0x5D74, held tables accepted from ts3fixes (codes 12-15); 0 = the table never arrived
     LONG kdAaHeldRows;                     // +0x5D78, rows in the last held table
     LONG kdAaHeldSeen;                     // +0x5D7C, moved here from 0x5D48 (v167 starts there): [UnseenAnim] pose calls of a held Sim classed visible (c 0)
+    // v171 (0.36.187, docs/539 §6, §7, castrim.cpp): [CasTrim] Mode 3 / 4 and the probes
+    LONG ctSaves;                          // +0x5D80, native saves 0x5EFD60 seen in modes 3 and 4
+    LONG ctLive;                           // +0x5D84, EA's live set at the last save
+    LONG ctDoomed;                         // +0x5D88, entries every keep rule let go, over all saves
+    LONG ctSwept;                          // +0x5D8C, of them erased (mode 3)
+    LONG ctKeptHousehold;                  // +0x5D90, otherwise doomed, kept by the keep list
+    LONG ctKeptNamed;                      // +0x5D94, otherwise doomed, named by a survivor
+    LONG ctKeptAsync;                      // +0x5D98, otherwise doomed, found by the async loader once
+    LONG ctKeptYoung;                      // +0x5D9C, otherwise doomed, used inside MinAgeSec
+    LONG ctRefused;                        // +0x5DA0, saves mode 3 refused (mode 4: would refuse)
+    volatile LONG ctMarks;                 // +0x5DA4, script marks 0x5EE090 (P5)
+    LONG ctMarksFence;                     // +0x5DA8, marks after the keep list and before the last swept native save
+    LONG ctRegistry;                       // +0x5DAC, registry entries (P3, last sample or save)
+    LONG ctOutfits;                        // +0x5DB0, outfit map +0xE0 (P3)
+    LONG ctOutfit0;                        // +0x5DB4, of them with count 0 (P3)
+    volatile LONG ctDoomedAsync;           // +0x5DB8, doomed keys found later through the async loader 0x729E80 (P4)
+    LONG ctKeepKeys;                       // +0x5DBC, outfit keys in the last keep list
+    LONG ctKeepMissed;                     // +0x5DC0, closure keys EA's live set does not have
+    volatile LONG ctFromBuilder;           // +0x5DC4, inserts from CacheOutfit's walk (P2, return 0x5E299E)
+    volatile LONG ctFromCtor;              // +0x5DC8, from ConstructBuilder (0x5E8AB1)
+    volatile LONG ctFromParse;             // +0x5DCC, from Parse (0x5EA943)
+    volatile LONG ctFromDownload;          // +0x5DD0, from download content (0x99C299)
+    volatile LONG ctFbFlag;                // +0x5DD4, Parse branch 0x5EA84A with a failed part load (P6)
+    volatile LONG ctFbRebuilt;             // +0x5DD8, of them rebuilt from the preset (0x5EA8EE)
+    volatile LONG ctCacheOutfit;           // +0x5DDC, CacheOutfit calls (P1)
+    volatile LONG ctGeoKB;                 // +0x5DE0, KB allocated at 0x5C7901 (CAS/GeometryResource)
+    volatile LONG ctBlendKB;               // +0x5DE4, KB allocated at 0x5A2FFA (CAS/BlendGeometryResource)
+    // v172 (docs/89 §16, ledger §447): [Discourage] LostRemovalFix, GhostSweep
+    volatile LONG fp2lrMode;               // +0x5DE8, switch [Discourage] LostRemovalFix: 1 = an UpdateObjectLot record keeps the lot of the call and always reaches the lot map (docs/89 §16)
+    volatile LONG fp2lrReady;              // +0x5DEC, installed (the 0x833680 order sites are patched)
+    volatile LONG fp2lrApplied;            // +0x5DF0, records applied through 0x82C120 with the object alive
+    volatile LONG fp2lrGone;               // +0x5DF4, records applied through 0x82C120 with the object gone (the removal old builds lost)
+    volatile LONG fp2lrGoneHit;            // +0x5DF8, of them 0x82C120 removed something: footprints that would have stayed as ghosts
+    volatile LONG fp2lrMoved;              // +0x5DFC, applied with the object alive on another lot than at the call
+    volatile LONG fp2lrFlush;              // +0x5E00, 0x833680 of an object with such a record: applied first
+    volatile LONG fp2lrFlushUs;            // +0x5E04, job wait of those flushes, us (the call waits anyway at its +0x918)
+    volatile LONG fp2lrOrderMiss;          // +0x5E08, no flush possible (job callback, +0x918 held): the insert runs first; expected 0
+    volatile LONG fpgMode;                  // +0x5E0C, [Discourage] GhostSweep: 0 off, 1 census count only, 2 remove (load screen only)
+    volatile LONG fpgCensus;                // +0x5E10, census passes
+    volatile LONG fpgEntries;               // +0x5E14, last pass: map entries read
+    volatile LONG fpgObjFp;                 // +0x5E18, last pass: entries with an object-shaped key
+    volatile LONG fpgGhosts;                // +0x5E1C, last pass: ghost ids (the whole signature, docs/89 §17)
+    volatile LONG fpgRemoved;               // +0x5E20, ids removed, all passes
+    volatile LONG fp2lrLost;               // +0x5E24, LostRemovalFix off: removals lost now, one ghost or stale copy each (fpLost on diag: mem lines)
+    volatile LONG fpgKeptRead;              // +0x5E28, entries kept because a read failed, all passes
+    volatile LONG fpgOther;                 // +0x5E2C, last pass: object-shaped keys without an object outside the signature, kept
+    volatile LONG fpgUs;                    // +0x5E30, last pass, us
+    volatile LONG fpgHeld;                  // +0x5E34, [Discourage] GhostTest: jobs held by the repro
 };
 extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {912,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -2796,6 +2848,7 @@ static void GrLogCounters();   // gcroots.cpp: [GcRootCheck] (docs/67 §22.4)
 static void AtLogCounters();   // arenatail.cpp: [ArenaGuard] TailPad, [GcRootCheck] TailWatch (docs/67 §22.7)
 static void UfcLogCounters();  // unseenfbc.cpp (docs/202 §3.4)
 
+static void DiscRfLog();  // discourage.cpp (docs/89 §18)
 static void MaybeLogCounters(ULONGLONG now) {
     LONG64 next = g_nextLog;
     if ((LONG64)now < next || InterlockedCompareExchange64(&g_nextLog, (LONG64)now + 60000, next) != next) return;
@@ -2821,6 +2874,7 @@ static void MaybeLogCounters(ULONGLONG now) {
         Log("footprint defer 2: mode %ld deferred %ld/%ld applied %ld/%ld dropped %ld/%ld dup %ld pass %ld forced %ld fullPass %ld ageMax %ld ms applyInJob %ld",
             c.fp2Mode, c.fp2Deferred[0], c.fp2Deferred[1], c.fp2Applied[0], c.fp2Applied[1], c.fp2Dropped[0], c.fp2Dropped[1],
             c.fp2Dup, c.fp2Pass, c.fp2Forced, c.fp2FullPass, c.fp2AgeMaxMs, c.fp2ApplyInJob);
+    DiscRfLog();  // docs/89 §18
     if (c.pfReady)  // docs/89 §14 private footprint remove
         Log("private footprint defer: mode %ld calls %ld inJob %ld deferred %ld applied %ld swept %ld dropped %ld dup %ld pass %ld addFlush %ld fullPass %ld applyInJob %ld",
             c.pfMode, c.pfCalls, c.pfInJob, c.pfDeferred, c.pfApplied, c.pfSwept, c.pfDropped, c.pfDup, c.pfPass, c.pfAddFlush,
@@ -3189,6 +3243,7 @@ struct AsyncJob {
     LONG p6Borrow;     // P6 (docs/94 §24): 1 = the Mode=2 cut was borrowed from an earlier START (ShareCuts)
     LONGLONG p6T0, p6CutQpc;  // P6 phase split (§24.7): QPC at an armed Route.Plan START and at its cut (0 = none)
     LONG pend;        // docs/134 §2.6: READY ticks this J_PEND slot has waited
+    LONG rf;          // docs/89 §18: parked by RemovalFirst, not by M1 (FbRetry)
     LONG probe;       // docs/163 §10: 1 = a stuck-check probe (PROBE mark on this route right before its own START)
     LONG sc;          // docs/163 §10.1: stuck-check tag of an own START (ScTagText), 0 = no mark
     u64 kdId;         // docs/197: the route's follower (route +0x40/+0x44) read at START with KindDeadlines on, 0 = unknown
@@ -3348,6 +3403,7 @@ static void TuTrip(int where);
 static void P4LiveBegin(AsyncJob* j);  // p4.cpp: the worker captures this job's Route_PlanLocked
 static void P4LiveEnd(AsyncJob* j);    // copies what the shadow needs before J_DONE
 static void P4Shadow();                // after J_DONE: the clone run, compare, record
+static void FpgHoldPoint();              // discourage.cpp: [Discourage] GhostTest: the worker waits at a job's start
 static void P4ShadowIdle();            // nothing queued: a parked shadow (p4.cpp, 0.34.1)
 static void P4OnStart(AsyncJob* j);    // sim, START: sampling and the clone cut
 static void P5PreLock(const AsyncJob* j);  // p5.cpp: worker, before a Mode=2 job takes +0x918
@@ -3765,6 +3821,7 @@ static void ServeAsync() {
             continue;
         }
         G0wStarted(h, inPass);
+        FpgHoldPoint();  // discourage.cpp: [Discourage] GhostTest only (footprint-ghost repro)
         CeRec(CE_JOB_START, j->handle, (DWORD)j->kind, (DWORD)(uintptr_t)j->lock);
         const unsigned short cw = GetX87();
         const unsigned int csr = _mm_getcsr();
@@ -4095,6 +4152,8 @@ static LockAcquireFn g_lockOrig;
 static bool RtM1Allows(void** lock, int* why = NULL);  // rtsites.cpp; *why = the refusal's asyncRefusedM1 index
 static int RtM1Why();                                  // rtsites.cpp; the same test, no counter: refusal index or -1
 static void DiscPoll();               // discourage.cpp
+static bool DiscRfStart();            // discourage.cpp (docs/89 §18 RemovalFirst)
+static bool DiscRfWait(LONG ticks, LONG cap);
 static DWORD g_collect;  // handle whose READY said "done": the owner's next IC_Route_Plan for it takes the stored result
 
 // docs/183: one sim-thread wait for a job, by site (always counted; a wait that found no job is not one). yieldable = the wait
@@ -4554,6 +4613,9 @@ static u8 AsyncStart(DWORD handle, int kind = 0, const float* pt = NULL, bool fo
     j->kdScope = KdScopeTake(handle);
     j->uf = UfTake(handle) ? 1 : 0;  // docs/202: the MARK is used up by the job it marks (a refused START leaves it to the sync IC)
     j->ufCut = 0;
+    // docs/89 §18: a route not known unseen (household, unknown scope) does not plan past a queued removal; READY queues it
+    j->rf = !park && j->kdScope != 2 && !j->uf && DiscRfStart();
+    if (j->rf) park = true;
     if (park) {  // the slot is this route's; READY (FbRetry) queues it once the pending updates are applied
         g_async.owner = GetCurrentThreadId();
         j->handle = handle;
@@ -4616,7 +4678,12 @@ static bool FbRetry(AsyncJob* j) {
     int m1 = 0, why = -1;
     Max(&k.fbRetryTicksMax, ++j->pend);
     j->doneTick = GetTickCount();
-    if (k.fbMode != 1 || k.fbRetryMode != 1) why = RFB_M1 + 3;  // switched off while parked
+    const bool rf = j->rf != 0;
+    if (rf) {
+        if (DiscRfWait(j->pend, kFbRetryTicks)) return true;
+        j->rf = 0;
+    }
+    if (!rf && (k.fbMode != 1 || k.fbRetryMode != 1)) why = RFB_M1 + 3;  // switched off while parked
     else if (AsyncLosRoute(h)) why = RFB_LOS;
     else if (!RtM1Allows(&lock, &m1)) {
         if (m1 != 3) why = RFB_M1 + m1;
@@ -5075,12 +5142,12 @@ static_assert(offsetof(Ts3nCounters, aoReady) == 0x56D0 && offsetof(Ts3nCounters
 static_assert(offsetof(Ts3nCounters, rmReady) == 0x5830 && offsetof(Ts3nCounters, rmK) == 0x5840 && offsetof(Ts3nCounters, rmTailN) == 0x5890 &&
               offsetof(Ts3nCounters, rmZoneN) == 0x58C0 && offsetof(Ts3nCounters, rmDeltaN) == 0x5900 &&
               offsetof(Ts3nCounters, rmSlFallback) == 0x5928 && offsetof(Ts3nCounters, rmSpare) == 0x5944 &&
-              sizeof(Ts3nCounters) == 5984 * 4, "v151 layout (docs/registry.md)");
+              sizeof(Ts3nCounters) == 6030 * 4, "v151 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, utbRowCalc) == 0x5950 && offsetof(Ts3nCounters, utbForced) == 0x5960, "v152 layout (docs/registry.md)");
-static_assert(offsetof(Ts3nCounters, rmSlIns) == 0x5964 && offsetof(Ts3nCounters, rmSlCandFull) == 0x5980 && sizeof(Ts3nCounters) == 5984 * 4,
+static_assert(offsetof(Ts3nCounters, rmSlIns) == 0x5964 && offsetof(Ts3nCounters, rmSlCandFull) == 0x5980 && sizeof(Ts3nCounters) == 6030 * 4,
               "v153 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, gwMode) == 0x5AE8 && offsetof(Ts3nCounters, gwXmlMaxKB) == 0x5B0C && offsetof(Ts3nCounters, gcCapKB) == 0x5B10 &&
-                  offsetof(Ts3nCounters, gcExpandStreakMax) == 0x5B20 && offsetof(Ts3nCounters, gcSwitchSec) == 0x5B2C && sizeof(Ts3nCounters) == 5984 * 4,
+                  offsetof(Ts3nCounters, gcExpandStreakMax) == 0x5B20 && offsetof(Ts3nCounters, gcSwitchSec) == 0x5B2C && sizeof(Ts3nCounters) == 6030 * 4,
               "v161 + v162 + v163 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, fsReady) == 0x5B30 && offsetof(Ts3nCounters, fsMode) == 0x5B34 && offsetof(Ts3nCounters, fsNearDiff) == 0x5B74,
               "v901 [FootstepRO] layout");

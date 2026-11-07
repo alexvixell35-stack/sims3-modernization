@@ -39,16 +39,17 @@ namespace Ts3Fixes
         // job) are named in ts3native.log with the scope verdict, so long routing hitches can be split into seen Sims (accepted),
         // marked-but-not-cut and never-asked (why -1: no Sim follower, stuck-check probe, own check, pet, D leg, switches off)
         const int kUfSlowPlanMs = 150, kUfSlowPlanLogMax = 200;
-        static int sUfLastWhy, sUfSlowLogged;
-        static bool sUfLastMarked, sUfLastCut;
-        static Sim sUfLastSim;
+        static int sUfSlowLogged;
+        // per plan, not static (PR #306, Dalexlol): async plans of two Sims overlap (each task sleeps on its route job), and shared fields printed one
+        // plan's time with another plan's verdict and Sim (e.g. "why 3 cut" on a household Sim: a cut needs a mark, a mark why 0)
+        struct UfLast { public int Why; public bool Marked, Cut, ViewerOnly; public Sim Sim; }
         // Scope-gap counters (counters only, no behaviour change). [854-857, 861] plans whose follower is not a Sim (who == null) that
         // reach UfPlanBody: Vehicle and IOwnableVehicle / Vehicle not ownable / Vehicle with a household or selectable Sim in
         // Occupants / not a Vehicle (or no proxy), and the total. [858-860] Sim plans whose why is kNearViewers only through the
         // viewer bit (not on screen, not reach; household Sims never get here): plans, plans >= 250 ms, total ms. Map view and Sims
         // without a table row do not count.
         const int kUfViewerSlowMs = 250, kUfDriverlessLogMax = 50;
-        static bool sUfWhyViewerOnly, sUfLastViewerOnly;
+        static bool sUfWhyViewerOnly;
         static int sUfDriverlessLogged;
         const int kUfGoalLogMax = 100;  // docs/197 §7 goalhh lines per load
         static int sUfGoalLogged;
@@ -90,9 +91,9 @@ namespace Ts3Fixes
             }
             catch (Exception) { return UnseenFallbackCore.kHousehold; }
         }
-        static void UfSlowPlanLog(int kind, int ms)
+        static void UfSlowPlanLog(int kind, int ms, UfLast l)
         {
-            if (sUfLastViewerOnly)
+            if (l.ViewerOnly)
             {
                 int[] vc = PatchCounters();
                 vc[858]++;
@@ -101,10 +102,9 @@ namespace Ts3Fixes
             }
             if (ms < kUfSlowPlanMs || sUfSlowLogged >= kUfSlowPlanLogMax) return;
             sUfSlowLogged++;
-            Sim s = sUfLastSim;
-            DiagLine("ufplan: kind " + kind + " " + ms + " ms why " + sUfLastWhy + (sUfLastMarked ? " marked" : "") + (sUfLastCut ? " cut" : "")
+            Sim s = l.Sim;
+            DiagLine("ufplan: kind " + kind + " " + ms + " ms why " + l.Why + (l.Marked ? " marked" : "") + (l.Cut ? " cut" : "")
                 + (s != null ? " " + s.FullName + (Simulator.CurrentTask == s.ObjectId ? " own task" : " other task") : ""));
-            sUfLastSim = null;
         }
 
         // docs/202 §2; 0 = unseen. GameStates.IsLiveState = in-world substate id 0 (LiveModeState): Build, Buy, CAS and Edit
@@ -765,7 +765,7 @@ namespace Ts3Fixes
             {
                 switch (kind)
                 {
-                    case 0: return PlanBackoff();
+                    case 0: return PlanBackoff(true);  // only UfPlanBody's marked plan comes here
                     case 1: return ReplanAsync();
                     case 2: return PlanFromPointAsync(p);
                     default: return ReplanFromPointAsync(p);
@@ -779,13 +779,14 @@ namespace Ts3Fixes
             RoutePlanResult UfPlan(int kind, Vector3 p)
             {
                 int t0 = System.Environment.TickCount;
-                sUfLastWhy = -1; sUfLastMarked = sUfLastCut = sUfLastViewerOnly = false; sUfLastSim = null;
+                UfLast last = new UfLast();
+                last.Why = -1;
                 RoutePlanResult r;
                 ulong task = Simulator.CurrentTask.Value;
                 sUfPlanDepth.Enter(task);  // §3.9.6: > 1 in this task = a plan inside another plan's callback (PostPlan / AboutToPlan)
                 try
                 {
-                    if (!UfPlanBody(kind, p, out r))
+                    if (!UfPlanBody(kind, p, ref last, out r))
                         switch (kind)  // UfInner, inlined
                         {
                             case 0: r = PlanBackoff(); break;
@@ -800,9 +801,9 @@ namespace Ts3Fixes
                 {
                     sUrLearn.Remove(this);
                     if (r.mType == RoutePlanResultType.Succeeded) sUrC.Set(ln.G, ln.S, true);
-                    else if (r.mType == RoutePlanResultType.FailedBecauseNoPathToDestination && !sUfLastCut) sUrC.Set(ln.G, ln.S, false);
+                    else if (r.mType == RoutePlanResultType.FailedBecauseNoPathToDestination && !last.Cut) sUrC.Set(ln.G, ln.S, false);
                 }
-                UfSlowPlanLog(kind, unchecked(System.Environment.TickCount - t0));
+                UfSlowPlanLog(kind, unchecked(System.Environment.TickCount - t0), last);
                 UfLoopNote(Follower, r);  // docs/202 §5.7 E (unseenfbloopdet)
                 if (sUfFill.Route != null && ReferenceEquals(sUfFill.Route, this))
                 {
@@ -813,7 +814,7 @@ namespace Ts3Fixes
             }
 
             // false = not ours: the caller (UfPlan) runs the plan; true = r is the plan's result
-            bool UfPlanBody(int kind, Vector3 p, out RoutePlanResult r)
+            bool UfPlanBody(int kind, Vector3 p, ref UfLast last, out RoutePlanResult r)
             {
                 r = default(RoutePlanResult);
                 bool pre = kind == 0 && (ShortcutOn("unseenfbpre") || ShortcutOn("unseenfbarrive") || ShortcutOn("unseenroute"));
@@ -827,14 +828,14 @@ namespace Ts3Fixes
                 if (who == null && !ownCheck) { UfDriverless(proxy); driverlessWhy = UfDriverlessWhy(proxy); }  // scope-gap counters; the household rule for a route without a driver
                 int why = who != null ? SafeUfWhy(who) : driverlessWhy;
                 if (why == 0 && who != null && !ownCheck && ShortcutOn("goalhhexempt")) why = UfGoalWhy(who, kind);  // docs/197 §7
-                if (sim != null && !ownCheck && sim.SimDescription != null && !sim.SimDescription.IsPet) sUfLastViewerOnly = sUfWhyViewerOnly;  // scope-gap counters: viewer-only 80 m
+                if (sim != null && !ownCheck && sim.SimDescription != null && !sim.SimDescription.IsPet) last.ViewerOnly = sUfWhyViewerOnly;  // scope-gap counters: viewer-only 80 m
                 DiagSend(why == 0 ? 11 : UnseenFallbackCore.SeenNpc(why) ? 13 : 10, Handle);  // docs/197 §7 [RouteAsync] KdExemptSeen: this route's scope for its START or sync plan (13 = seen NPC, KdSeenNpcCeilMs); first thing in every plan, these switches or not
                 if (!pre && !leave && !ShortcutOn("unseenfbplan")) return false;
                 // never: stuck-check probes (phase B), our own route checks, IsPointInLotSafelyRoutable, non-Sims, pets, D-leave's own leg
                 if (sim == null || ownCheck || sim.SimDescription == null || sim.SimDescription.IsPet)
                     return false;
                 int[] c = PatchCounters();
-                sUfLastWhy = why; sUfLastSim = sim;
+                last.Why = why; last.Sim = sim;
                 if (why != 0 && why != UnseenFallbackCore.kGoalHousehold && sUrPlaced.Count > 0 && sUrPlaced.ContainsKey(sim.ObjectId.Value) && UrRepairSim(sim)) sUrPlaced.Remove(sim.ObjectId.Value);  // §3.9.7 (D)
                 if (why != 0)
                 {
@@ -859,7 +860,7 @@ namespace Ts3Fixes
                 if (!ShortcutOn("unseenfbplan")) return false;
                 if (!UfSend(1)) { c[311]++; return false; }
                 c[305]++;
-                sUfLastMarked = true;
+                last.Marked = true;
                 bool cut = false;
                 // docs/202 §3.7: Overwatch's Stuck Check V2 (OnPostPlan, inside the original plan) must not count a cut plan as the
                 // Sim's route failure: the same (Sim, task) hide owprobeplans uses for EA's stuck-check probes (OverwatchProbe.cs)
@@ -871,12 +872,20 @@ namespace Ts3Fixes
                 if (ms > c[312]) c[312] = ms;
                 if (!cut || r.mType == RoutePlanResultType.Succeeded) return true;
                 c[306]++;
-                sUfLastCut = true;
+                last.Cut = true;
                 UfGuardNote(id, "cut (kind " + kind + ")");
                 UfNotAFailure(id, dest);
                 if (kind != 0) sUfNotFail = false;  // only Route.Plan (PlanHook) reads it
                 RoutePlanResult tr;
-                if (kind == 0 && ShortcutOn("unseenfbteleport") && Simulator.CurrentTask == sim.ObjectId && UfTeleport(sim, dest, out tr)) { r = tr; return true; }
+                if (kind == 0 && ShortcutOn("unseenfbteleport") && Simulator.CurrentTask == sim.ObjectId)
+                {
+                    // the teleport's plan sleeps this task on its route job: a set flag would go to the first other Sim's PlanHook
+                    // that returns meanwhile (household too), whose result the watchdog then never sees, and this cut would count
+                    sUfNotFail = false;
+                    bool placed = UfTeleport(sim, dest, out tr);
+                    sUfNotFail = true;
+                    if (placed) { r = tr; return true; }
+                }
                 sUf.Cut(id, x, y, z, System.Environment.TickCount, r);
                 return true;
             }
@@ -1281,7 +1290,7 @@ namespace Ts3Fixes
                 c[307]++;
                 ShortcutLog(sim.FullName + " => route goal (unseenfb, cut plan)");
                 bool marked = UfSend(1);
-                try { r = PlanBackoff(); }
+                try { r = PlanBackoff(marked); }
                 finally { if (marked) UfSend(2); }
                 UfGuardNote(sim.ObjectId.Value, "teleport, next plan " + r.mType);  // §5.7: the post-teleport plan result
                 return true;

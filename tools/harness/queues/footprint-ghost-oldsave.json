@@ -1,0 +1,33 @@
+{
+  "note": "Old-save A/B for a contributor: LostRemovalFix off/on by runtime switch in one load, on your own save. Read fpLost / fpLoad / fpSaved on the diag: mem lines next to household routefail per slice: fix off, fpLost should climb with the failures; fix on, it stays 0 and fpSaved climbs. GhostSweep stays count only, so fpLoad says how many ghosts the save already carries. Set \"save\" to your save and \"asi\" to the pair you got.",
+  "jobs": [
+    {
+      "id": "footprint-ghost-oldsave",
+      "asi": "game-copy/ts3native.asi.fp2lr",
+      "save": "YOUR-OLD-SAVE",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "ghost census: world load #1": 1
+      },
+      "ini": {
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DeferFootprint2": 1,
+        "Discourage.DestroyPark": 1,
+        "Discourage.DestroyParkDx": 1,
+        "Discourage.GhostSweep": 1,
+        "Discourage.LostRemovalFix": 1,
+        "MemDiag.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 60,
+          "ab": "lostremoval",
+          "slice": 5
+        }
+      },
+      "timeoutMin": 75
+    }
+  ]
+}

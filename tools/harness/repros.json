@@ -57316,5 +57316,1671 @@
   {"id":"stove-wall-player-view","bug":"Player report 2026-11-07 (v0.2.8): a household Sim inside the house cannot reach a stove behind a wall when the player orders it","fix":"none yet: player-view repro with GIFs, no fix until a cause is verified","save":"Baseline-SV-Spring","note":"UNVERIFIED (never run): the selected household Sim stands on its spot behind the wall, the camera is on it and the stove at daytime, speed x1 for the recorded part; case 1 the player Go Here click to the stove, case 2 the user-directed cook order; one GIF per case and arm (frame a second), labelled with the plain action and the result sentence.","expect":"Read the GIFs and the stove-wall: lines. Both cases reach the stove in both arms: not reproduced, N/A.","steps":[{"cmd":"set_speed","setup":true,"args":{"speed":"ultra"},"waitS":1,"note":"quick setup"},{"cmd":"stove_wall_setup","setup":true,"args":{"existing":true},"waitS":2},{"cmd":"clock_hour","setup":true,"args":{"hour":11},"waitS":1,"note":"daylight for the GIFs"}],"loop":{"steps":[{"cmd":"native_set","setup":true,"args":{"kinddeadlines":"$on","unseenfb":"$on","plandeadline":"$on","fbjobdeadline":"$on","replandedupe":"$on","discourage":"$on","deferfootprint":"$on","deferfootprint2":"$on","destroypark":"$on","destroyparkdx":"$on","goalvalidro":"$on","routetoobjro":"$on","placementro":"$on","avoidro":"$on","steerro":"$on","obstructedro":"$on","lotfdro":"$on"},"waitS":1,"note":"arm: 1 = the player switches, 0 = vanilla-like"},{"cmd":"stove_wall_place","setup":true,"args":{},"waitS":2,"note":"selected Sim to its spot behind the wall"},{"cmd":"stove_wall_camera","setup":true,"args":{},"waitS":3,"note":"camera on the Sim and the stove"},{"cmd":"set_speed","setup":true,"args":{"speed":"normal"},"waitS":1,"note":"speed x1 for the recorded part"},{"cmd":"stove_wall_goto","setup":false,"args":{},"waitS":25,"note":"fire: Go Here click to the stove"},{"cmd":"set_speed","setup":true,"args":{"speed":"ultra"},"waitS":1,"note":"skip to the next case"},{"cmd":"stove_wall_end","setup":true,"args":{},"waitS":1,"note":"cancel what is left"},{"cmd":"stove_wall_place","setup":true,"args":{},"waitS":2,"note":"selected Sim back to its spot"},{"cmd":"stove_wall_camera","setup":true,"args":{},"waitS":3,"note":"camera on the Sim and the stove"},{"cmd":"set_speed","setup":true,"args":{"speed":"normal"},"waitS":1,"note":"speed x1 for the recorded part"},{"cmd":"stove_wall_cook","setup":false,"args":{},"waitS":28,"note":"fire: cook order"},{"cmd":"set_speed","setup":true,"args":{"speed":"ultra"},"waitS":1,"note":"skip to the next arm"},{"cmd":"stove_wall_end","setup":true,"args":{},"waitS":1,"note":"cancel what is left"}],"arms":["off","on"],"until":{"perArm":1},"maxMinutes":12}},
   {"id":"layout-repro-smoke","bug":"none (harness): any player sketch becomes a repro in minutes; docs/TESTING.md build_layout","fix":"none: harness check of build_layout, walls by WallExistsBetween, objects by lot census","save":"Baseline-BP-Spring","expect":"stove-wall: layout passed in ts3native.log; the report lines show edges_missing [], objects_missing [], calib per mode and slot, wall_sim_to_slot true on the stove, plan and path_m per object. Any miss fails the step with its reason.","note":"Empty-lot move-in (2 Sims, R-HH-1), then the example map inside a small house. origin [6,6]: mid lot on the 16 x 16 tiles or more that empty_lot picks, away from the street-side mailbox.","steps":[{"cmd":"make_household","args":{"name":"Layout","empty_lot":true,"sims":[{"key":"a","first":"Lee","last":"Layout","age":"YoungAdult","gender":"Female","traits":["Artistic","Virtuoso"]},{"key":"b","first":"Sam","last":"Layout","age":"YoungAdult","gender":"Male","traits":["Artistic","Virtuoso"]}]},"waitS":5,"note":"Edit Town: new household on a vacant empty lot"},{"cmd":"switch_household","args":{"household":"Layout"},"waitS":30,"note":"Edit Town: Change Active Household"},{"cmd":"clock_hour","setup":true,"args":{"hour":11},"waitS":1,"note":"daylight: a new room has no light of its own yet"},{"cmd":"build_layout","args":{"map":["W w w w","E X w s","E E w e","E e w e","E b w e"],"house":true,"origin":[6,6]},"waitS":3,"until":{"cmd":"build_layout","args":{"result":true},"all":[{"path":"passed","equals":true}],"failOn":"error","everyS":3,"maxS":300},"note":"the house, the map, the Sim on X"}]},
   {"id":"stove-wall-layout","bug":"Player report 2026-11-07 (v0.2.8): a household Sim inside the house cannot reach a stove behind a wall when the player orders it","fix":"none yet: the player's own map, no fix until a cause is verified","save":"Baseline-BP-Spring","note":"UNVERIFIED (never run): the player's map built with the real tools on an empty lot (build_layout), daylight, autonomy off, the selected Sim on X. Per arm a Go Here click and a Cook order, speed x1, GIF from a fixed camera on the whole room. Between orders the Sim is put back on X.","expect":"Per arm and case a line \"stove-wall: arm N result reached .. after .. s, cook started .., steps ..\", and for the cook \"cook menu\", \"cook order\", one \"route\" line per plan and one \"interaction\" line per step (all with the savecleanup: prefix). Both reach the stove in both arms: not reproduced, N/A.","steps":[{"cmd":"make_household","args":{"name":"Layout","empty_lot":true,"sims":[{"key":"a","first":"Lee","last":"Layout","age":"YoungAdult","gender":"Female","traits":["Artistic","Virtuoso"]},{"key":"b","first":"Sam","last":"Layout","age":"YoungAdult","gender":"Male","traits":["Artistic","Virtuoso"]}]},"waitS":5,"note":"Edit Town: one-Sim household on a vacant empty lot"},{"cmd":"switch_household","args":{"household":"Layout"},"waitS":30,"note":"Edit Town: Change Active Household"},{"cmd":"clock_hour","setup":true,"args":{"hour":11},"waitS":1,"note":"daylight: a new room has no light of its own yet"},{"cmd":"autonomy","setup":true,"args":{"sim":"household","enabled":false},"waitS":1,"note":"nothing but the player orders moves the Sim"},{"cmd":"build_layout","args":{"map":["W w w w","E X w s","E E w e","E e w e","E b w e"],"house":true,"origin":[6,6],"margin_top":0,"roof":false,"lights":0,"legend":{"b":{"name":"trash","prefer":"munici-pale"}}},"waitS":3,"until":{"cmd":"build_layout","args":{"result":true},"all":[{"path":"passed","equals":true}],"failOn":"error","everyS":3,"maxS":300},"note":"the player's map; the top row is the room's top wall, so the only way round the 4-long wall is its free bottom end, past the bin"},{"cmd":"stove_wall_setup","setup":true,"args":{"layout":true,"fridge_tile":[5,6],"counter_tile":[5,7],"face":[6,6]},"waitS":2,"note":"fridge and counter on the Sim's side of the wall, out of the way (west margin tiles): Cook needs them, the map has none"}],"loop":{"steps":[{"cmd":"native_set","setup":true,"args":{"kinddeadlines":"$on","unseenfb":"$on","plandeadline":"$on","fbjobdeadline":"$on","replandedupe":"$on","discourage":"$on","deferfootprint":"$on","deferfootprint2":"$on","destroypark":"$on","destroyparkdx":"$on","goalvalidro":"$on","routetoobjro":"$on","placementro":"$on","avoidro":"$on","steerro":"$on","obstructedro":"$on","lotfdro":"$on"},"waitS":1,"note":"arm: 1 = the player switches, 0 = vanilla-like"},{"cmd":"stove_wall_place","setup":true,"args":{},"waitS":2,"note":"selected Sim to its spot behind the wall"},{"cmd":"stove_wall_camera","setup":true,"args":{},"waitS":3,"note":"fixed camera on the whole room, near wall cut away"},{"cmd":"set_speed","setup":true,"args":{"speed":"normal"},"waitS":1,"note":"speed x1 for the recorded part"},{"cmd":"stove_wall_goto","setup":false,"args":{"arm":"$on:1:0"},"waitS":25,"note":"fire: Go Here click to the stove"},{"cmd":"set_speed","setup":true,"args":{"speed":"ultra"},"waitS":1,"note":"skip to the next case"},{"cmd":"stove_wall_end","setup":true,"args":{"arm":"$on:1:0"},"waitS":1,"note":"cancel what is left"},{"cmd":"stove_wall_place","setup":true,"args":{},"waitS":2,"note":"selected Sim back to its spot"},{"cmd":"stove_wall_camera","setup":true,"args":{},"waitS":3,"note":"fixed camera on the whole room, near wall cut away"},{"cmd":"set_speed","setup":true,"args":{"speed":"normal"},"waitS":1,"note":"speed x1 for the recorded part"},{"cmd":"stove_wall_cook","setup":false,"args":{"arm":"$on:1:0"},"waitS":100,"note":"fire: the stove's own menu entry, a baked recipe if the meal time has one"},{"cmd":"set_speed","setup":true,"args":{"speed":"ultra"},"waitS":1,"note":"skip to the next arm"},{"cmd":"stove_wall_end","setup":true,"args":{"arm":"$on:1:0"},"waitS":1,"note":"cancel what is left"}],"arms":["off","on"],"until":{"perArm":1},"maxMinutes":14}},
-  {"id":"stove-oven-layout","bug":"Player report 2026-11-07 (v0.2.8): oven path only: BakingDish_Prepare then BakingDish_CookInOven fail with FailedBecauseNoPathToDestination to the stove slot from about 1 m, candidates 1/1/0","fix":"none yet: no fix until a cause is verified","save":"Baseline-BP-Spring","note":"UNVERIFIED (never run): stove in a corner of a room built with the real tools, wall at its -x side and +z back, slot at -z, fridge 1 m to +x. The active Sim learns every baked recipe and orders one through the stove menu at dinner. With the dish in the oven she is placed 1 m out (cheat), then past the wall, and CookInOven is ordered again. Arm 0 fails too = vanilla bug; arm 1 only = ours.","expect":"Per arm \"stove-oven: arm N CookInOven seen\", probes put-in-oven, in-oven, cook-in-oven, takeout near, takeout past (to-slot, to-slot-point, own-spot, near lists), one \"route\" line per plan, region-live outside lines. All reach the slot: not reproduced, N/A.","steps":[{"cmd":"make_household","args":{"name":"Layout","empty_lot":true,"sims":[{"key":"a","first":"Lee","last":"Layout","age":"YoungAdult","gender":"Female","traits":["Artistic","Virtuoso"]},{"key":"b","first":"Sam","last":"Layout","age":"YoungAdult","gender":"Male","traits":["Artistic","Virtuoso"]}]},"waitS":5,"note":"Edit Town: one-Sim household on a vacant empty lot"},{"cmd":"switch_household","args":{"household":"Layout"},"waitS":30,"note":"Edit Town: Change Active Household"},{"cmd":"clock_hour","setup":true,"args":{"hour":11},"waitS":1,"note":"daylight: a new room has no light of its own yet"},{"cmd":"autonomy","setup":true,"args":{"sim":"household","enabled":false},"waitS":1,"note":"nothing but the player orders moves the Sim"},{"cmd":"build_layout","args":{"map":["E E E E E E E E E","E E w E E E E E E","E X w E E E E E E","E b w s E E E E E"],"house":true,"origin":[6,6],"margin":0,"roof":false,"lights":0,"legend":{"b":{"name":"trash","prefer":"munici-pale"},"s":{"name":"stove","facing":"N"}}},"waitS":3,"until":{"cmd":"build_layout","args":{"result":true},"all":[{"path":"passed","equals":true}],"failOn":"error","everyS":3,"maxS":300},"note":"room 8x4: wall column with a gap in the top row; stove at lot tile 8,9 in the corner of that wall and the south wall, facing -z"},{"cmd":"stove_wall_setup","setup":true,"args":{"layout":true,"fridge_tile":[9,9],"counter_tile":[11,9],"face":[9,8]},"waitS":2,"note":"fridge beside the stove (1 m, +x), counter past the door (door tries tiles 9-11 on the south wall, middle 10)"},{"cmd":"clock_hour","setup":true,"args":{"hour":18},"waitS":1,"note":"dinner: the meal time with baked recipes, still daylight"},{"cmd":"stove_oven_setup","setup":true,"args":{"others_tile":[6,7]},"waitS":2,"note":"the active Sim knows the baked recipes (cheat); Sam out of the way in the west room"}],"loop":{"steps":[{"cmd":"native_set","setup":true,"args":{"kinddeadlines":"$on","unseenfb":"$on","plandeadline":"$on","fbjobdeadline":"$on","replandedupe":"$on","discourage":"$on","deferfootprint":"$on","deferfootprint2":"$on","destroypark":"$on","destroyparkdx":"$on","goalvalidro":"$on","routetoobjro":"$on","placementro":"$on","avoidro":"$on","steerro":"$on","obstructedro":"$on","lotfdro":"$on"},"waitS":1,"note":"arm: 1 = the player switches, 0 = vanilla-like"},{"cmd":"stove_wall_place","setup":true,"args":{},"waitS":2,"note":"selected Sim to her spot past the wall"},{"cmd":"stove_wall_camera","setup":true,"args":{},"waitS":3,"note":"fixed camera on the whole room, near wall cut away"},{"cmd":"set_speed","setup":true,"args":{"speed":"normal"},"waitS":1,"note":"speed x1 for the recorded part"},{"cmd":"stove_wall_cook","setup":false,"args":{"arm":"$on:1:0","oven":true},"waitS":1,"until":{"cmd":"stove_oven_status","args":{},"all":[{"path":"done","equals":true}],"everyS":2,"maxS":240},"note":"fire: the stove menu, a baked recipe, up to CookInOven"},{"cmd":"stove_oven_takeout","setup":false,"args":{"arm":"$on:1:0","at":"near"},"waitS":8,"note":"dish in the oven: 1 m out, CookInOven again"},{"cmd":"stove_wall_status","setup":true,"args":{},"waitS":0},{"cmd":"stove_oven_takeout","setup":false,"args":{"arm":"$on:1:0","at":"past"},"waitS":12,"note":"dish in the oven: past the wall, CookInOven again"},{"cmd":"set_speed","setup":true,"args":{"speed":"ultra"},"waitS":1,"note":"skip to the probes"},{"cmd":"stove_oven_clear","setup":true,"args":{"arm":"$on:1:0"},"waitS":1,"note":"dish and food gone, the next arm can cook"},{"cmd":"stove_wall_probe","setup":false,"args":{"arm":"$on:1:0","label":"after","region":true},"waitS":1,"note":"plans, region live from outside the region too"},{"cmd":"stove_wall_end","setup":true,"args":{"arm":"$on:1:0"},"waitS":1,"note":"cancel what is left"}],"arms":["off","on"],"until":{"perArm":1},"maxMinutes":14}}
+  {"id":"stove-oven-layout","bug":"Player report 2026-11-07 (v0.2.8): oven path only: BakingDish_Prepare then BakingDish_CookInOven fail with FailedBecauseNoPathToDestination to the stove slot from about 1 m, candidates 1/1/0","fix":"none yet: no fix until a cause is verified","save":"Baseline-BP-Spring","note":"UNVERIFIED (never run): stove in a corner of a room built with the real tools, wall at its -x side and +z back, slot at -z, fridge 1 m to +x. The active Sim learns every baked recipe and orders one through the stove menu at dinner. With the dish in the oven she is placed 1 m out (cheat), then past the wall, and CookInOven is ordered again. Arm 0 fails too = vanilla bug; arm 1 only = ours.","expect":"Per arm \"stove-oven: arm N CookInOven seen\", probes put-in-oven, in-oven, cook-in-oven, takeout near, takeout past (to-slot, to-slot-point, own-spot, near lists), one \"route\" line per plan, region-live outside lines. All reach the slot: not reproduced, N/A.","steps":[{"cmd":"make_household","args":{"name":"Layout","empty_lot":true,"sims":[{"key":"a","first":"Lee","last":"Layout","age":"YoungAdult","gender":"Female","traits":["Artistic","Virtuoso"]},{"key":"b","first":"Sam","last":"Layout","age":"YoungAdult","gender":"Male","traits":["Artistic","Virtuoso"]}]},"waitS":5,"note":"Edit Town: one-Sim household on a vacant empty lot"},{"cmd":"switch_household","args":{"household":"Layout"},"waitS":30,"note":"Edit Town: Change Active Household"},{"cmd":"clock_hour","setup":true,"args":{"hour":11},"waitS":1,"note":"daylight: a new room has no light of its own yet"},{"cmd":"autonomy","setup":true,"args":{"sim":"household","enabled":false},"waitS":1,"note":"nothing but the player orders moves the Sim"},{"cmd":"build_layout","args":{"map":["E E E E E E E E E","E E w E E E E E E","E X w E E E E E E","E b w s E E E E E"],"house":true,"origin":[6,6],"margin":0,"roof":false,"lights":0,"legend":{"b":{"name":"trash","prefer":"munici-pale"},"s":{"name":"stove","facing":"N"}}},"waitS":3,"until":{"cmd":"build_layout","args":{"result":true},"all":[{"path":"passed","equals":true}],"failOn":"error","everyS":3,"maxS":300},"note":"room 8x4: wall column with a gap in the top row; stove at lot tile 8,9 in the corner of that wall and the south wall, facing -z"},{"cmd":"stove_wall_setup","setup":true,"args":{"layout":true,"fridge_tile":[9,9],"counter_tile":[11,9],"face":[9,8]},"waitS":2,"note":"fridge beside the stove (1 m, +x), counter past the door (door tries tiles 9-11 on the south wall, middle 10)"},{"cmd":"clock_hour","setup":true,"args":{"hour":18},"waitS":1,"note":"dinner: the meal time with baked recipes, still daylight"},{"cmd":"stove_oven_setup","setup":true,"args":{"others_tile":[6,7]},"waitS":2,"note":"the active Sim knows the baked recipes (cheat); Sam out of the way in the west room"}],"loop":{"steps":[{"cmd":"native_set","setup":true,"args":{"kinddeadlines":"$on","unseenfb":"$on","plandeadline":"$on","fbjobdeadline":"$on","replandedupe":"$on","discourage":"$on","deferfootprint":"$on","deferfootprint2":"$on","destroypark":"$on","destroyparkdx":"$on","goalvalidro":"$on","routetoobjro":"$on","placementro":"$on","avoidro":"$on","steerro":"$on","obstructedro":"$on","lotfdro":"$on"},"waitS":1,"note":"arm: 1 = the player switches, 0 = vanilla-like"},{"cmd":"stove_wall_place","setup":true,"args":{},"waitS":2,"note":"selected Sim to her spot past the wall"},{"cmd":"stove_wall_camera","setup":true,"args":{},"waitS":3,"note":"fixed camera on the whole room, near wall cut away"},{"cmd":"set_speed","setup":true,"args":{"speed":"normal"},"waitS":1,"note":"speed x1 for the recorded part"},{"cmd":"stove_wall_cook","setup":false,"args":{"arm":"$on:1:0","oven":true},"waitS":1,"until":{"cmd":"stove_oven_status","args":{},"all":[{"path":"done","equals":true}],"everyS":2,"maxS":240},"note":"fire: the stove menu, a baked recipe, up to CookInOven"},{"cmd":"stove_oven_takeout","setup":false,"args":{"arm":"$on:1:0","at":"near"},"waitS":8,"note":"dish in the oven: 1 m out, CookInOven again"},{"cmd":"stove_wall_status","setup":true,"args":{},"waitS":0},{"cmd":"stove_oven_takeout","setup":false,"args":{"arm":"$on:1:0","at":"past"},"waitS":12,"note":"dish in the oven: past the wall, CookInOven again"},{"cmd":"set_speed","setup":true,"args":{"speed":"ultra"},"waitS":1,"note":"skip to the probes"},{"cmd":"stove_oven_clear","setup":true,"args":{"arm":"$on:1:0"},"waitS":1,"note":"dish and food gone, the next arm can cook"},{"cmd":"stove_wall_probe","setup":false,"args":{"arm":"$on:1:0","label":"after","region":true},"waitS":1,"note":"plans, region live from outside the region too"},{"cmd":"stove_wall_end","setup":true,"args":{"arm":"$on:1:0"},"waitS":1,"note":"cancel what is left"}],"arms":["off","on"],"until":{"perArm":1},"maxMinutes":14}},
+  {
+    "id": "kd-household-crowd",
+    "bug": "issue #304 (Dalexlol, old save, public main fc425bd): household route fails +18% with KindDeadlines on (9 pooled pairs, 5-min slices). Local answer wanted: is it real, and does KdExemptSeen remove it",
+    "fix": "measurement only: --ab kinddeadlines, tools/harness/kd-household-ab.ts splits the routefail lines per slice",
+    "save": "Baseline-BP-Spring",
+    "note": "STRESS, not natural play (labelled): crowd-steady extended to 65 min. World-neutral. 30 spawned Sims in the 5-min warm-up slice, then a fixed 300 s cycle (home lot 150 s, far lot 150 s) with the household in the crowd, so the home lot is busy and every 5-min slice sees the same wave phase. Steps past the window end are not run. Watch commitMB (docs/66).",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far",
+          "household": true
+        },
+        "waitS": 150
+      }
+    ],
+    "expect": "no crash; both arms have household routefail lines and household plans; kdCut_0 grows in on slices only"
+  },
+  {
+    "id": "compositor-churn",
+    "bug": "docs/539: the CAS compositor registry (+0x104) has no release path in play: outfit builds add entries that stay at 2 references for good (rcN, eaRes growth over long sessions)",
+    "fix": "ts3native [CasTrim] Mode 3 (save sweep), Mode 4 (count only, with Probe=1 the docs/539 probes), counters v171; ts3fixes CasTrimKeep.cs (keep list, pump). Job ini [CasTrim] Install=1 Mode=3|4 Probe=1",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (built 2026-11-07, never run). Stress repro, realism stress (outfit_change for up to 8 Sims at once, spawn_sims, forced age_up), memory rule: cycles with mem marks, not a soak. Extends castrim-checks: 3 cycles of outfit churn, new NPC, aged townie and a scratch save, then the texture checks after a sweep, after a reload and after a vacation round trip. Mode 4: P1-P7 and the P5 order. Mode 3: rcN and registry flat across cycles from the second one, ctSwept > 0, ctMissed 0, shots match start by eye (probe-out/shots/*-compositor-{live,cas}-{start,sweep,reload,travel}.jpg). Writes the scratch save Compositor-Churn-Scratch.",
+    "expect": "ctSaves >= 3, ctMarksFence > 0, ctLive > 0, ctDoomed > 0, ctRefused 0 in both modes (a refusal names its reason); Mode 3: ctSwept > 0, ctMissed 0, ctOtherThread 0",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 45,
+        "note": "lead-in after the load"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "cc-start"
+        },
+        "waitS": 2,
+        "note": "baseline for the cycles"
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (start)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "compositor-live-start"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check, live: start"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (start)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "compositor-cas-start"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: start"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 8,
+          "category": "athletic"
+        },
+        "waitS": 70,
+        "note": "cycle 1: two household Sims and six others change (stands in for a uniform on: the agent has no uniform command); past MinAgeSec"
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 8,
+          "category": "everyday"
+        },
+        "waitS": 70,
+        "note": "cycle 1: back (uniform off)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 1
+        },
+        "waitS": 10,
+        "note": "cycle 1: a new NPC builds its outfits"
+      },
+      {
+        "cmd": "age_up",
+        "args": {
+          "pick": "townie"
+        },
+        "waitS": 30,
+        "optional": true,
+        "note": "cycle 1: a townie ages (outfit rebuilds); optional: no townie in the world"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Compositor-Churn-Scratch"
+        },
+        "waitS": 60,
+        "note": "cycle 1: the scratch save: sweep or count, then the pump's batches"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "cc-cycle"
+        },
+        "waitS": 2,
+        "note": "cycle 1: one mark tag per cycle: AllocSites 'cyc' rows give growth per cycle (P7); rcN, RcCensus, diag: castrim, eaRes, big, priv"
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 8,
+          "category": "formal"
+        },
+        "waitS": 70,
+        "note": "cycle 2: two household Sims and six others change (stands in for a uniform on: the agent has no uniform command); past MinAgeSec"
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 8,
+          "category": "everyday"
+        },
+        "waitS": 70,
+        "note": "cycle 2: back (uniform off)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 1
+        },
+        "waitS": 10,
+        "note": "cycle 2: a new NPC builds its outfits"
+      },
+      {
+        "cmd": "age_up",
+        "args": {
+          "pick": "townie"
+        },
+        "waitS": 30,
+        "optional": true,
+        "note": "cycle 2: a townie ages (outfit rebuilds); optional: no townie in the world"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Compositor-Churn-Scratch"
+        },
+        "waitS": 60,
+        "note": "cycle 2: the scratch save: sweep or count, then the pump's batches"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "cc-cycle"
+        },
+        "waitS": 2,
+        "note": "cycle 2: one mark tag per cycle: AllocSites 'cyc' rows give growth per cycle (P7); rcN, RcCensus, diag: castrim, eaRes, big, priv"
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 8,
+          "category": "athletic"
+        },
+        "waitS": 70,
+        "note": "cycle 3: two household Sims and six others change (stands in for a uniform on: the agent has no uniform command); past MinAgeSec"
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 8,
+          "category": "everyday"
+        },
+        "waitS": 70,
+        "note": "cycle 3: back (uniform off)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 1
+        },
+        "waitS": 10,
+        "note": "cycle 3: a new NPC builds its outfits"
+      },
+      {
+        "cmd": "age_up",
+        "args": {
+          "pick": "townie"
+        },
+        "waitS": 30,
+        "optional": true,
+        "note": "cycle 3: a townie ages (outfit rebuilds); optional: no townie in the world"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Compositor-Churn-Scratch"
+        },
+        "waitS": 60,
+        "note": "cycle 3: the scratch save: sweep or count, then the pump's batches"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "cc-cycle"
+        },
+        "waitS": 2,
+        "note": "cycle 3: one mark tag per cycle: AllocSites 'cyc' rows give growth per cycle (P7); rcN, RcCensus, diag: castrim, eaRes, big, priv"
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (sweep)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "compositor-live-sweep"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check, live: sweep"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (sweep)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "compositor-cas-sweep"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: sweep"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "load_save",
+        "args": {
+          "file": "Compositor-Churn-Scratch.sims3",
+          "reload": true
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            },
+            {
+              "path": "load_file",
+              "equals": "Compositor-Churn-Scratch.sims3"
+            },
+            {
+              "path": "sub_state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "everyS": 30,
+          "maxS": 180
+        },
+        "note": "what the save kept is what EA wrote: nothing the sweep dropped may be wanted now; waits for the load to finish (a check every 30 s, fail at 180 s) instead of asking for the time while it loads"
+      },
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (reload)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "compositor-live-reload"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check, live: reload"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (reload)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "compositor-cas-reload"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: reload"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "travel_vacation",
+        "args": {
+          "world": "france",
+          "days": 2
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "travel_home",
+        "waitS": 5
+      },
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (travel)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "compositor-live-travel"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check, live: travel"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (travel)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "compositor-cas-travel"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: travel"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "cc-end"
+        },
+        "waitS": 2
+      }
+    ]
+  },
+  {
+    "id": "compositor-oldsave",
+    "bug": "docs/539: the CAS compositor registry (+0x104) has no release path in play: outfit builds add entries that stay at 2 references for good (rcN, eaRes growth over long sessions)",
+    "fix": "ts3native [CasTrim] Mode 3 (save sweep), Mode 4 (count only, with Probe=1 the docs/539 probes), counters v171; ts3fixes CasTrimKeep.cs (keep list, pump). Job ini [CasTrim] Install=1 Mode=3|4 Probe=1",
+    "save": "1111 kit5",
+    "note": "UNVERIFIED (built 2026-11-07, never run). The old long-history save, no forced churn: natural play with a scratch save and one mem mark every 12 min, so Mode 4 counts live, registry and doomed at 5 saves, and a doomed key found later (above all through the async loader) shows in the next 12 min. Realism natural apart from the probes. Contributor run (Dalexlol): his save stays his, the scratch save is Compositor-Churn-Scratch.",
+    "expect": "ctSaves >= 5, ctDoomed > 0, ctRefused 0; report ctDoomedAsync, ctWouldMiss, the diag: castrim and allocsites cyc rows",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 45,
+        "note": "lead-in after the load"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "cc-start"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "time",
+        "waitS": 660,
+        "note": "natural play, block 1"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Compositor-Churn-Scratch"
+        },
+        "waitS": 60,
+        "note": "save 1: Mode 4 counts here"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "cc-cycle"
+        },
+        "waitS": 2,
+        "note": "block 1: one mark tag: AllocSites 'cyc' rows (P7)"
+      },
+      {
+        "cmd": "time",
+        "waitS": 660,
+        "note": "natural play, block 2"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Compositor-Churn-Scratch"
+        },
+        "waitS": 60,
+        "note": "save 2: Mode 4 counts here"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "cc-cycle"
+        },
+        "waitS": 2,
+        "note": "block 2: one mark tag: AllocSites 'cyc' rows (P7)"
+      },
+      {
+        "cmd": "time",
+        "waitS": 660,
+        "note": "natural play, block 3"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Compositor-Churn-Scratch"
+        },
+        "waitS": 60,
+        "note": "save 3: Mode 4 counts here"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "cc-cycle"
+        },
+        "waitS": 2,
+        "note": "block 3: one mark tag: AllocSites 'cyc' rows (P7)"
+      },
+      {
+        "cmd": "time",
+        "waitS": 660,
+        "note": "natural play, block 4"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Compositor-Churn-Scratch"
+        },
+        "waitS": 60,
+        "note": "save 4: Mode 4 counts here"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "cc-cycle"
+        },
+        "waitS": 2,
+        "note": "block 4: one mark tag: AllocSites 'cyc' rows (P7)"
+      },
+      {
+        "cmd": "time",
+        "waitS": 660,
+        "note": "natural play, block 5"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Compositor-Churn-Scratch"
+        },
+        "waitS": 60,
+        "note": "save 5: Mode 4 counts here"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "cc-cycle"
+        },
+        "waitS": 2,
+        "note": "block 5: one mark tag: AllocSites 'cyc' rows (P7)"
+      }
+    ]
+  },
+  {"id":"routediag-result16","bug":"none (harness): diag1 smoke needs a household plan that really ends in FailedBecauseNoPathToDestination, with an object goal, so a [RouteDiag] dump runs through its verdict line","fix":"none: exercises logging only","save":"Baseline-BP-Spring","note":"Steps 0-5 of stove-oven-layout, then stove_wall_probe with region: EA's ImpassableRegion (active Sim + stove) makes the plans to the stove's RoutingSlot_0 fail with result 16 (seen 3 of 3 in the stove-oven-layout run of 2026-11-07, blocker region footprint). The last step's wait lets the +5 and +30 s probes run. bp-route-fail-active gives result 10 (stranded start), no dump.","expect":"[RouteDiag] fail with dest and RoutingSlot_0 lines, regions at failure wrap on with one region owner gone near, verdict #, verdict e, probes, recovered at region-gone.","steps":[{"cmd":"make_household","args":{"name":"Layout","empty_lot":true,"sims":[{"key":"a","first":"Lee","last":"Layout","age":"YoungAdult","gender":"Female","traits":["Artistic","Virtuoso"]},{"key":"b","first":"Sam","last":"Layout","age":"YoungAdult","gender":"Male","traits":["Artistic","Virtuoso"]}]},"waitS":5,"note":"Edit Town: one-Sim household on a vacant empty lot"},{"cmd":"switch_household","args":{"household":"Layout"},"waitS":30,"note":"Edit Town: Change Active Household"},{"cmd":"clock_hour","setup":true,"args":{"hour":11},"waitS":1,"note":"daylight: a new room has no light of its own yet"},{"cmd":"autonomy","setup":true,"args":{"sim":"household","enabled":false},"waitS":1,"note":"nothing but the player orders moves the Sim"},{"cmd":"build_layout","args":{"map":["E E E E E E E E E","E E w E E E E E E","E X w E E E E E E","E b w s E E E E E"],"house":true,"origin":[6,6],"margin":0,"roof":false,"lights":0,"legend":{"b":{"name":"trash","prefer":"munici-pale"},"s":{"name":"stove","facing":"N"}}},"waitS":3,"until":{"cmd":"build_layout","args":{"result":true},"all":[{"path":"passed","equals":true}],"failOn":"error","everyS":3,"maxS":300},"note":"room 8x4: wall column with a gap in the top row; stove at lot tile 8,9 in the corner of that wall and the south wall, facing -z"},{"cmd":"stove_wall_setup","setup":true,"args":{"layout":true,"fridge_tile":[9,9],"counter_tile":[11,9],"face":[9,8]},"waitS":2,"note":"fridge beside the stove (1 m, +x), counter past the door (door tries tiles 9-11 on the south wall, middle 10)"},{"cmd":"stove_wall_probe","args":{"arm":1,"label":"routediag","region":true},"waitS":330,"note":"plans only; the wait is for the +5 and +30 s probes"}]},
+  {
+    "id": "stove-oven-cancel",
+    "bug": "Player reports 2026-11-07 (v0.2.8, v0.2.9): household Sims fail the stove and the fridge slot, FailedBecauseNoPathToDestination, candidates 1/1/0, blocker None, \"eventually\", after forced orders",
+    "fix": "none yet: no fix until a cause is verified",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (never run): the stove-oven-layout room, the fridge between the stove and the door with one approach. One pass per arm, three each: CookInOven plans at fixed offsets; stage x action matrix (cancel, Go Here, new cook order, second Sim, save, need, reset); snacks by the active Sim, the second Sim and an NPC (plain, cancel, reset) while the others cross. After each cell with nobody using anything: census of regions, stove and fridge users, fridge line, plans to both slots from here, 1 m and past the wall. Arm 0 grows = EA bug; arm 1 only = ours.",
+    "expect": "Per cell \"stove-cancel: arm N rep R <cell> verdict clear\". LEAK or PLANS FAIL names what stayed; \"pass end\" gives the arm growth totals.",
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Layout",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Lee",
+              "last": "Layout",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Sam",
+              "last": "Layout",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "waitS": 5,
+        "note": "Edit Town: one-Sim household on a vacant empty lot"
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Layout"
+        },
+        "waitS": 30,
+        "note": "Edit Town: Change Active Household"
+      },
+      {
+        "cmd": "clock_hour",
+        "setup": true,
+        "args": {
+          "hour": 11
+        },
+        "waitS": 1,
+        "note": "daylight: a new room has no light of its own yet"
+      },
+      {
+        "cmd": "autonomy",
+        "setup": true,
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "waitS": 1,
+        "note": "nothing but the player orders moves the Sim"
+      },
+      {
+        "cmd": "build_layout",
+        "args": {
+          "map": [
+            "E E E E E E E E E",
+            "E E w E E E E E E",
+            "E X w E E E E E E",
+            "E b w s E E E E E"
+          ],
+          "house": true,
+          "origin": [
+            6,
+            6
+          ],
+          "margin": 0,
+          "roof": false,
+          "lights": 0,
+          "legend": {
+            "b": {
+              "name": "trash",
+              "prefer": "munici-pale"
+            },
+            "s": {
+              "name": "stove",
+              "facing": "N"
+            }
+          }
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "build_layout",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "passed",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 3,
+          "maxS": 300
+        },
+        "note": "room 8x4: wall column with a gap in the top row; stove at lot tile 8,9 in the corner of that wall and the south wall, facing -z"
+      },
+      {
+        "cmd": "stove_wall_setup",
+        "setup": true,
+        "args": {
+          "layout": true,
+          "fridge_tile": [
+            9,
+            9
+          ],
+          "counter_tile": [
+            11,
+            9
+          ],
+          "face": [
+            9,
+            8
+          ]
+        },
+        "waitS": 2,
+        "note": "fridge beside the stove (1 m, +x), counter past the door (door tries tiles 9-11 on the south wall, middle 10)"
+      },
+      {
+        "cmd": "clock_hour",
+        "setup": true,
+        "args": {
+          "hour": 18
+        },
+        "waitS": 1,
+        "note": "dinner: the meal time with baked recipes, still daylight"
+      },
+      {
+        "cmd": "stove_oven_setup",
+        "setup": true,
+        "args": {
+          "others_tile": [
+            6,
+            7
+          ]
+        },
+        "waitS": 2,
+        "note": "the active Sim knows the baked recipes (cheat); Sam out of the way in the west room"
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "kinddeadlines": "$on",
+            "unseenfb": "$on",
+            "plandeadline": "$on",
+            "fbjobdeadline": "$on",
+            "replandedupe": "$on",
+            "discourage": "$on",
+            "deferfootprint": "$on",
+            "deferfootprint2": "$on",
+            "destroypark": "$on",
+            "destroyparkdx": "$on",
+            "goalvalidro": "$on",
+            "routetoobjro": "$on",
+            "placementro": "$on",
+            "avoidro": "$on",
+            "steerro": "$on",
+            "obstructedro": "$on",
+            "lotfdro": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 1 = the player switches, 0 = vanilla-like"
+        },
+        {
+          "cmd": "stove_wall_place",
+          "setup": true,
+          "args": {},
+          "waitS": 2,
+          "note": "selected Sim to her spot past the wall"
+        },
+        {
+          "cmd": "set_speed",
+          "setup": true,
+          "args": {
+            "speed": "ultra"
+          },
+          "waitS": 1,
+          "note": "x3: no GIF here, the cells are order-driven"
+        },
+        {
+          "cmd": "stove_cancel_run",
+          "setup": false,
+          "args": {
+            "arm": "$on:1:0",
+            "cycles": 2
+          },
+          "waitS": 2,
+          "until": {
+            "cmd": "stove_cancel_status",
+            "args": {},
+            "all": [
+              {
+                "path": "done",
+                "equals": true
+              }
+            ],
+            "everyS": 5,
+            "maxS": 2400
+          },
+          "note": "one pass: offsets, matrix, snacks"
+        },
+        {
+          "cmd": "stove_wall_end",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0"
+          },
+          "waitS": 1,
+          "note": "cancel what is left"
+        }
+      ],
+      "arms": [
+        "off",
+        "on"
+      ],
+      "until": {
+        "perArm": 3
+      },
+      "maxMinutes": 140
+    }
+  },
+  {"id":"stove-wall-repeat","bug":"Player reports 2026-11-07 (v0.2.8, v0.2.9): the stove fails \"eventually\"; log b02e08a4: third bake of a session, Sim on the slot, BakingDish_CookInOven plan, result 16, 1/1/0, then the slot fails from anywhere","fix":"none yet: no fix until a cause is verified","save":"Baseline-BP-Spring","note":"UNVERIFIED (never run): a long kitchen run along a straight wall, real orders only. 50 full bakes through the stove's menu (Fridge_Have, FoodTray_Prepare, CuttingBoard_Prepare, BakingDish_Prepare, BakingDish_CookInOven, eat, clean up, dishwasher), every 4th from X past the wall by Go Here, then 50 mix orders (cancels at start and at use, snacks, fridge meals). Two NPCs walk the west room with a long plan each second, so a route job is often running when a bake region goes (RE verdict, DeferFootprint2 + DestroyParkDx). Nothing cleaned by the agent. Cheats: needs and clock between orders, recipes and skill, objects, first spot and the NPCs at setup. Differs from the player: no NRaas, no S3DBG, no other mods, a new empty lot, no diploma on the wall. Job PASS = it ran, not that the bug is absent: read the end line.","expect":"Per cycle \"stove-repeat: cycle N ...\" plan, steps and state lines. Either \"stove-repeat: FIRST FAILURE ..\" with plans at +5, +30, +120 s, or \"stove-repeat: end, no failure in N orders, full bakes M (not proof)\": not reproduced, N/A.","steps":[{"cmd":"make_household","args":{"name":"Layout","empty_lot":true,"sims":[{"key":"a","first":"Lee","last":"Layout","age":"YoungAdult","gender":"Female","traits":["Artistic","Virtuoso"]},{"key":"b","first":"Sam","last":"Layout","age":"YoungAdult","gender":"Male","traits":["Artistic","Virtuoso"]}]},"waitS":5,"note":"Edit Town: one-Sim household on a vacant empty lot"},{"cmd":"switch_household","args":{"household":"Layout"},"waitS":30,"note":"Edit Town: Change Active Household"},{"cmd":"clock_hour","setup":true,"args":{"hour":11},"waitS":1,"note":"daylight: a new room has no light of its own yet"},{"cmd":"autonomy","setup":true,"args":{"sim":"household","enabled":false},"waitS":1,"note":"off while the room is built"},{"cmd":"build_layout","args":{"map":["W w w w w w w","E E w e e e e","E E w e e e e","E E w e e e e","E X w s e e e","E E w e e e e","E E w e e e e","E b w e e e e","E E E e e e e"],"house":true,"origin":[4,4],"margin_top":0,"roof":false,"lights":0,"legend":{"b":{"name":"trash","prefer":"munici-pale"},"s":{"name":"stove","facing":"E"}}},"waitS":3,"until":{"cmd":"build_layout","args":{"result":true},"all":[{"path":"passed","equals":true}],"failOn":"error","everyS":3,"maxS":300},"note":"a straight wall 7 long with X behind it, the kitchen on the far side, stove in the middle; the only way round is the free bottom end"},{"cmd":"stove_wall_setup","setup":true,"args":{"layout":true},"waitS":2,"note":"stove, bin and X only; the run comes from stove_repeat_setup"},{"cmd":"clock_hour","setup":true,"args":{"hour":18},"waitS":1,"note":"dinner: the meal time with baked recipes"},{"cmd":"stove_oven_setup","setup":true,"args":{"others_tile":[4,5]},"waitS":2,"note":"the active Sim knows the baked recipes (cheat); Sam starts in the west room"},{"cmd":"stove_wall_place","setup":true,"args":{},"waitS":2,"note":"selected Sim on X past the wall (cheat, setup only)"},{"cmd":"stove_repeat_setup","setup":true,"args":{},"waitS":2,"note":"the run along the wall from the stove, lane 2 tiles wide, sink across it, food processor; every slot planned from X, a failure stops the job: layout blocks the slot"},{"cmd":"autonomy","setup":true,"args":{"sim":"household","enabled":true},"waitS":1,"note":"free will on as in the player's game: the Sims clear up after themselves, the agent cleans nothing"},{"cmd":"set_speed","setup":true,"args":{"speed":"ultra"},"waitS":1,"note":"x3: short cycles"}],"loop":{"steps":[{"cmd":"stove_repeat_run","setup":false,"args":{"cycles":50,"mix":50},"waitS":2,"until":{"cmd":"stove_repeat_status","args":{},"all":[{"path":"done","equals":true}],"everyS":5,"maxS":7800},"note":"real orders only; ends at the first failure, with plans at +5, +30, +120 s"}],"arms":["on"],"until":{"events":1},"maxMinutes":140}},
+  {"id":"stove-wall-repeat-off","bug":"Player reports 2026-11-07 (v0.2.8, v0.2.9): the stove fails \"eventually\"; log b02e08a4: third bake of a session, Sim on the slot, BakingDish_CookInOven plan, result 16, 1/1/0, then the slot fails from anywhere; the ours/EA split, run only if stove-wall-repeat fails","fix":"none yet: no fix until a cause is verified","save":"Baseline-BP-Spring","note":"UNVERIFIED (never run): stove-wall-repeat with every routing switch off, same pair, same save: ours or EA, no bisect. a long kitchen run along a straight wall, real orders only. 50 full bakes through the stove's menu (Fridge_Have, FoodTray_Prepare, CuttingBoard_Prepare, BakingDish_Prepare, BakingDish_CookInOven, eat, clean up, dishwasher), every 4th from X past the wall by Go Here, then 50 mix orders (cancels at start and at use, snacks, fridge meals). Two NPCs walk the west room with a long plan each second, so a route job is often running when a bake region goes (RE verdict, DeferFootprint2 + DestroyParkDx). Nothing cleaned by the agent. Cheats: needs and clock between orders, recipes and skill, objects, first spot and the NPCs at setup. Differs from the player: no NRaas, no S3DBG, no other mods, a new empty lot, no diploma on the wall. Job PASS = it ran, not that the bug is absent: read the end line.","expect":"Per cycle \"stove-repeat: cycle N ...\" plan, steps and state lines. Either \"stove-repeat: FIRST FAILURE ..\" with plans at +5, +30, +120 s, or \"stove-repeat: end, no failure in N orders, full bakes M (not proof)\": not reproduced, N/A.","steps":[{"cmd":"make_household","args":{"name":"Layout","empty_lot":true,"sims":[{"key":"a","first":"Lee","last":"Layout","age":"YoungAdult","gender":"Female","traits":["Artistic","Virtuoso"]},{"key":"b","first":"Sam","last":"Layout","age":"YoungAdult","gender":"Male","traits":["Artistic","Virtuoso"]}]},"waitS":5,"note":"Edit Town: one-Sim household on a vacant empty lot"},{"cmd":"switch_household","args":{"household":"Layout"},"waitS":30,"note":"Edit Town: Change Active Household"},{"cmd":"clock_hour","setup":true,"args":{"hour":11},"waitS":1,"note":"daylight: a new room has no light of its own yet"},{"cmd":"autonomy","setup":true,"args":{"sim":"household","enabled":false},"waitS":1,"note":"off while the room is built"},{"cmd":"build_layout","args":{"map":["W w w w w w w","E E w e e e e","E E w e e e e","E E w e e e e","E X w s e e e","E E w e e e e","E E w e e e e","E b w e e e e","E E E e e e e"],"house":true,"origin":[4,4],"margin_top":0,"roof":false,"lights":0,"legend":{"b":{"name":"trash","prefer":"munici-pale"},"s":{"name":"stove","facing":"E"}}},"waitS":3,"until":{"cmd":"build_layout","args":{"result":true},"all":[{"path":"passed","equals":true}],"failOn":"error","everyS":3,"maxS":300},"note":"a straight wall 7 long with X behind it, the kitchen on the far side, stove in the middle; the only way round is the free bottom end"},{"cmd":"stove_wall_setup","setup":true,"args":{"layout":true},"waitS":2,"note":"stove, bin and X only; the run comes from stove_repeat_setup"},{"cmd":"clock_hour","setup":true,"args":{"hour":18},"waitS":1,"note":"dinner: the meal time with baked recipes"},{"cmd":"stove_oven_setup","setup":true,"args":{"others_tile":[4,5]},"waitS":2,"note":"the active Sim knows the baked recipes (cheat); Sam starts in the west room"},{"cmd":"stove_wall_place","setup":true,"args":{},"waitS":2,"note":"selected Sim on X past the wall (cheat, setup only)"},{"cmd":"stove_repeat_setup","setup":true,"args":{},"waitS":2,"note":"the run along the wall from the stove, lane 2 tiles wide, sink across it, food processor; every slot planned from X, a failure stops the job: layout blocks the slot"},{"cmd":"autonomy","setup":true,"args":{"sim":"household","enabled":true},"waitS":1,"note":"free will on as in the player's game: the Sims clear up after themselves, the agent cleans nothing"},{"cmd":"set_speed","setup":true,"args":{"speed":"ultra"},"waitS":1,"note":"x3: short cycles"}],"loop":{"steps":[{"cmd":"native_set","setup":true,"args":{"kinddeadlines":"$on","unseenfb":"$on","plandeadline":"$on","fbjobdeadline":"$on","replandedupe":"$on","discourage":"$on","deferfootprint":"$on","deferfootprint2":"$on","destroypark":"$on","destroyparkdx":"$on","goalvalidro":"$on","routetoobjro":"$on","placementro":"$on","avoidro":"$on","steerro":"$on","obstructedro":"$on","lotfdro":"$on"},"waitS":1,"note":"all routing switches off, the player's pair stays"},{"cmd":"stove_repeat_run","setup":false,"args":{"cycles":50,"mix":50},"waitS":2,"until":{"cmd":"stove_repeat_status","args":{},"all":[{"path":"done","equals":true}],"everyS":5,"maxS":7800},"note":"real orders only; ends at the first failure, with plans at +5, +30, +120 s"}],"arms":["off"],"until":{"events":1},"maxMinutes":140}},
+  {
+    "id": "footprint-ghost",
+    "switches": [
+      "lostremoval"
+    ],
+    "bug": "Our deferral lost EA's footprint removal: a region's DynamicSlot object destroyed during a route job (DestroyById parks, event 0xA queues UpdateObjectLot, object gone at the apply: record dropped). The entry stays in the lot map under a dead id, plan 1/1/0 result 16 forever, household Sims too (player report 2026-11-07, b02e08a4).",
+    "fix": "LostRemovalFix (docs/89 §16), switch by op 27 so the same entry drives a master and a v0.2.9 pair",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (never run). Deterministic: the worker holds the job at its start ([Discourage] GhostTest=1, op 20), the region is cleaned up inside the hold. In the off arm every other deferral stays on: only op 27 changes. Between reps op 26 removes the ghost.",
+    "expect": "footprint-ghost: verdict arm 0 with held = reps, ghosts = reps, plans failed > 0; arm 1 with held = reps, ghosts 0, plans failed 0. held < reps: no job was running, the rep proves nothing.",
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Layout",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Lee",
+              "last": "Layout",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Sam",
+              "last": "Layout",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "waitS": 5,
+        "note": "Edit Town: one-Sim household on a vacant empty lot"
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Layout"
+        },
+        "waitS": 30,
+        "note": "Edit Town: Change Active Household"
+      },
+      {
+        "cmd": "clock_hour",
+        "setup": true,
+        "args": {
+          "hour": 11
+        },
+        "waitS": 1,
+        "note": "daylight: a new room has no light of its own yet"
+      },
+      {
+        "cmd": "autonomy",
+        "setup": true,
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "waitS": 1,
+        "note": "nothing but the player orders moves the Sim"
+      },
+      {
+        "cmd": "build_layout",
+        "args": {
+          "map": [
+            "E E E E E E E E E",
+            "E E w E E E E E E",
+            "E X w E E E E E E",
+            "E b w s E E E E E"
+          ],
+          "house": true,
+          "origin": [
+            6,
+            6
+          ],
+          "margin": 0,
+          "roof": false,
+          "lights": 0,
+          "legend": {
+            "b": {
+              "name": "trash",
+              "prefer": "munici-pale"
+            },
+            "s": {
+              "name": "stove",
+              "facing": "N"
+            }
+          }
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "build_layout",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "passed",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 3,
+          "maxS": 300
+        },
+        "note": "room 8x4: wall column with a gap in the top row; stove at lot tile 8,9 in the corner of that wall and the south wall, facing -z"
+      },
+      {
+        "cmd": "stove_wall_setup",
+        "setup": true,
+        "args": {
+          "layout": true,
+          "fridge_tile": [
+            9,
+            9
+          ],
+          "counter_tile": [
+            11,
+            9
+          ],
+          "face": [
+            9,
+            8
+          ]
+        },
+        "waitS": 2,
+        "note": "fridge beside the stove (1 m, +x), counter past the door (door tries tiles 9-11 on the south wall, middle 10)"
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "footprint_ghost_run",
+          "timeoutS": 60,
+          "setup": false,
+          "args": {
+            "arm": "$on:1:0",
+            "target": "stove"
+          },
+          "waitS": 1,
+          "note": "stove + Sim region, Cleanup in a held job, plan from past the wall"
+        },
+        {
+          "cmd": "footprint_ghost_run",
+          "timeoutS": 60,
+          "setup": false,
+          "args": {
+            "arm": "$on:1:0",
+            "target": "oven"
+          },
+          "waitS": 1,
+          "note": "the same region, plan from 1 m (the player report)"
+        },
+        {
+          "cmd": "footprint_ghost_run",
+          "timeoutS": 60,
+          "setup": false,
+          "args": {
+            "arm": "$on:1:0",
+            "target": "fridge"
+          },
+          "waitS": 1,
+          "note": "fridge + Sim region, plan to the fridge slot"
+        },
+        {
+          "cmd": "footprint_ghost_run",
+          "timeoutS": 60,
+          "setup": false,
+          "args": {
+            "arm": "$on:1:0",
+            "target": "jig"
+          },
+          "waitS": 1,
+          "note": "a SocialJigOnePerson on the fridge slot, destroyed in the hold (stove-wall-repeat 2026-11-07 caught this in play)"
+        }
+      ],
+      "arms": [
+        "off",
+        "on"
+      ],
+      "until": {
+        "perArm": 10
+      },
+      "maxMinutes": 14
+    }
+  },
+  {"id":"footprint-window","bug":"A removal queued behind a running job stays queued while the worker starts the next job, so a plan started right after a region's Cleanup meets the dead footprint: one result 16, 1/1/0, EA's retry walks the Sim off (player report 2026-11-07 on v0.2.10, eb9cd48b, BakingDish_CookInOven).","fix":"RemovalFirst (docs/89 §18), arms by op 30 in one load; needs a /DTS3N_RFTEST build (v0210d)","save":"Baseline-BP-Spring","note":"UNVERIFIED (never run). Deterministic: the job is held at its start, the region is cleaned up inside the hold, Route.Plan runs with no sleep in between, op 31 ends the hold once that START is queued or parked. LostRemovalFix on in both arms. Only op 30 changes.","expect":"footprint-window: last verdict pair: arm 0 held = reps, window fails = held, later fails 0, map entries 0; arm 1 held = reps, window fails 0, later fails 0, map entries 0. \"footprint removal first: mode 1 parked\" > 0, capped 0. held < reps: no job was running, the rep proves nothing. Arm 0 window fails 0 with held = reps: the window did not open (a setup call waited), no proof of the fix.","steps":[{"cmd":"make_household","args":{"name":"Layout","empty_lot":true,"sims":[{"key":"a","first":"Lee","last":"Layout","age":"YoungAdult","gender":"Female","traits":["Artistic","Virtuoso"]},{"key":"b","first":"Sam","last":"Layout","age":"YoungAdult","gender":"Male","traits":["Artistic","Virtuoso"]}]},"waitS":5,"note":"Edit Town: one-Sim household on a vacant empty lot"},{"cmd":"switch_household","args":{"household":"Layout"},"waitS":30,"note":"Edit Town: Change Active Household"},{"cmd":"clock_hour","setup":true,"args":{"hour":11},"waitS":1,"note":"daylight: a new room has no light of its own yet"},{"cmd":"autonomy","setup":true,"args":{"sim":"household","enabled":false},"waitS":1,"note":"nothing but the player orders moves the Sim"},{"cmd":"build_layout","args":{"map":["E E E E E E E E E","E E w E E E E E E","E X w E E E E E E","E b w s E E E E E"],"house":true,"origin":[6,6],"margin":0,"roof":false,"lights":0,"legend":{"b":{"name":"trash","prefer":"munici-pale"},"s":{"name":"stove","facing":"N"}}},"waitS":3,"until":{"cmd":"build_layout","args":{"result":true},"all":[{"path":"passed","equals":true}],"failOn":"error","everyS":3,"maxS":300},"note":"room 8x4: wall column with a gap in the top row; stove at lot tile 8,9 in the corner of that wall and the south wall, facing -z"},{"cmd":"stove_wall_setup","setup":true,"args":{"layout":true,"fridge_tile":[9,9],"counter_tile":[11,9],"face":[9,8]},"waitS":2,"note":"fridge beside the stove (1 m, +x), counter past the door (door tries tiles 9-11 on the south wall, middle 10)"}],"loop":{"steps":[{"cmd":"footprint_window_run","timeoutS":60,"setup":false,"args":{"arm":"$on:1:0","target":"stove"},"waitS":1,"note":"stove + Sim region, Cleanup in a held job, plan at once from past the wall"},{"cmd":"footprint_window_run","timeoutS":60,"setup":false,"args":{"arm":"$on:1:0","target":"oven"},"waitS":1,"note":"the same region, plan at once from 1 m (the player report)"}],"arms":["off","on"],"until":{"perArm":10},"maxMinutes":14}},
+  {
+    "id": "footprint-ghost-save",
+    "bug": "Do ghosts persist in saves, and does the load census find and remove them?",
+    "fix": "GhostSweep (docs/89 §17)",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (never run). One ghost made with the fix off, saved, reloaded count only, reloaded with removal, saved, reloaded. All in one load order; the id stays in ts3native across reloads. Writes FootprintGhost-*.sims3 test saves only.",
+    "expect": "check count-only: map entry 1, plan failed, native \"ghost census: id\" line with the id from \"footprint-ghost: arm 0 stove id\". check removed: map entry 0, plan ok, the same id \"removed\". check clean: map entry 0, plan ok, census 0 ghost ids. Map entry 0 at count-only = ghosts do not persist: the sweep has nothing to do.",
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Layout",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Lee",
+              "last": "Layout",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Sam",
+              "last": "Layout",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "waitS": 5,
+        "note": "Edit Town: one-Sim household on a vacant empty lot"
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Layout"
+        },
+        "waitS": 30,
+        "note": "Edit Town: Change Active Household"
+      },
+      {
+        "cmd": "clock_hour",
+        "setup": true,
+        "args": {
+          "hour": 11
+        },
+        "waitS": 1,
+        "note": "daylight: a new room has no light of its own yet"
+      },
+      {
+        "cmd": "autonomy",
+        "setup": true,
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "waitS": 1,
+        "note": "nothing but the player orders moves the Sim"
+      },
+      {
+        "cmd": "build_layout",
+        "args": {
+          "map": [
+            "E E E E E E E E E",
+            "E E w E E E E E E",
+            "E X w E E E E E E",
+            "E b w s E E E E E"
+          ],
+          "house": true,
+          "origin": [
+            6,
+            6
+          ],
+          "margin": 0,
+          "roof": false,
+          "lights": 0,
+          "legend": {
+            "b": {
+              "name": "trash",
+              "prefer": "munici-pale"
+            },
+            "s": {
+              "name": "stove",
+              "facing": "N"
+            }
+          }
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "build_layout",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "passed",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 3,
+          "maxS": 300
+        },
+        "note": "room 8x4: wall column with a gap in the top row; stove at lot tile 8,9 in the corner of that wall and the south wall, facing -z"
+      },
+      {
+        "cmd": "stove_wall_setup",
+        "setup": true,
+        "args": {
+          "layout": true,
+          "fridge_tile": [
+            9,
+            9
+          ],
+          "counter_tile": [
+            11,
+            9
+          ],
+          "face": [
+            9,
+            8
+          ]
+        },
+        "waitS": 2,
+        "note": "fridge beside the stove (1 m, +x), counter past the door (door tries tiles 9-11 on the south wall, middle 10)"
+      },
+      {
+        "cmd": "footprint_ghost_run",
+        "timeoutS": 60,
+        "setup": false,
+        "args": {
+          "arm": 0,
+          "target": "stove",
+          "keep": true
+        },
+        "waitS": 1,
+        "note": "the ghost, fix off"
+      },
+      {
+        "cmd": "footprint_ghost_op",
+        "setup": true,
+        "args": {
+          "op": 29,
+          "value": 1
+        },
+        "waitS": 0,
+        "note": "count only for the next load"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "FootprintGhost-A"
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            }
+          ],
+          "everyS": 2,
+          "maxS": 180
+        },
+        "note": "until the save is written"
+      },
+      {
+        "cmd": "load_save",
+        "args": {
+          "file": "FootprintGhost-A.sims3",
+          "reload": true
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            },
+            {
+              "path": "load_file",
+              "equals": "FootprintGhost-A.sims3"
+            },
+            {
+              "path": "sub_state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 300
+        },
+        "note": "EA in-game load path; the census runs on its load screen"
+      },
+      {
+        "cmd": "footprint_ghost_check",
+        "setup": false,
+        "args": {
+          "label": "count-only"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "footprint_ghost_op",
+        "setup": true,
+        "args": {
+          "op": 29,
+          "value": 2
+        },
+        "waitS": 0,
+        "note": "remove at the next load"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "FootprintGhost-B"
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            }
+          ],
+          "everyS": 2,
+          "maxS": 180
+        },
+        "note": "until the save is written"
+      },
+      {
+        "cmd": "load_save",
+        "args": {
+          "file": "FootprintGhost-B.sims3",
+          "reload": true
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            },
+            {
+              "path": "load_file",
+              "equals": "FootprintGhost-B.sims3"
+            },
+            {
+              "path": "sub_state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 300
+        },
+        "note": "EA in-game load path; the census runs on its load screen"
+      },
+      {
+        "cmd": "footprint_ghost_check",
+        "setup": false,
+        "args": {
+          "label": "removed"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "FootprintGhost-C"
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            }
+          ],
+          "everyS": 2,
+          "maxS": 180
+        },
+        "note": "until the save is written"
+      },
+      {
+        "cmd": "load_save",
+        "args": {
+          "file": "FootprintGhost-C.sims3",
+          "reload": true
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            },
+            {
+              "path": "load_file",
+              "equals": "FootprintGhost-C.sims3"
+            },
+            {
+              "path": "sub_state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 300
+        },
+        "note": "EA in-game load path; the census runs on its load screen"
+      },
+      {
+        "cmd": "footprint_ghost_check",
+        "setup": false,
+        "args": {
+          "label": "clean"
+        },
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "footprint-ghost-census",
+    "bug": "Is the census signature tight? A clean save has 86954 of 126787 entries without an object (diag2): a ghost test must not read those.",
+    "fix": "GhostSweep=1 count only (docs/89 §17)",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (never run). Load, read the census lines, leave. The queue picks the save per job.",
+    "expect": "\"ghost census: world load #1\": ghost ids 0 on a clean save, or each id explained; the \"outside the signature\" lines show which classes hold object-shaped keys; its ms on a big world.",
+    "steps": [
+      {
+        "cmd": "time",
+        "args": {},
+        "waitS": 5
+      }
+    ]
+  }
 ]

@@ -202,7 +202,7 @@ compositor is reached through the ResourceCache by key, which the insert registe
   compositors were trimmed would miss those textures in the export [inferred]. Mode 2 on an export would show it as no
   counter; the export check is a manual step of the step 3 checks.
 - **Counters v912 (0x5CF0, built as v909 in #285):** `ctMode` (switch), `ctOn`, `ctInserts`, `ctScanned`, `ctCand`, `ctErased`, `ctWouldMiss`,
-  `ctMissed`, `ctFull`, `ctOtherThread`. Tables: 11 MB, allocated only when installed.
+  `ctMissed`, `ctFull`, `ctOtherThread`. Tables: 11 MB, allocated only when installed (14 MB with the pending table; `ctMode` 3 and 4: docs/539 §6).
 - **Selftest:** a fake map (two buckets, four nodes), fake EA erase / insert / Find: an old compositor marked (count) then
   erased (trim), one at 3 references and one found 11 s before left alone, one without a database kept (`NeedDb`, not
   asked again before `AgeSec`), a would-miss, a failed find of the erased key loaded again while a fake database holds

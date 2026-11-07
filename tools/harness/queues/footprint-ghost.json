@@ -1,0 +1,167 @@
+{
+  "note": "footprint-ghost: lost removal repro (arms off/on in one load, N=10 per arm, stove, oven, fridge), then a made ghost through save and reload, then the census on clean Baselines (count ~0 or each hit explained, time on a big world). Correctness only. Set asi per pair: game-copy/ts3native.asi.fp2lr (master) or game-copy/ts3native.asi.v0210c (v0.2.9 base).",
+  "jobs": [
+    {
+      "id": "footprint-ghost",
+      "asi": "game-copy/ts3native.asi.fp2lr",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "footprint-ghost: verdict arm 0": 1,
+        "footprint-ghost: verdict arm 1": 1,
+        "stove-wall: layout passed": 1
+      },
+      "ini": {
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DeferFootprint2": 1,
+        "Discourage.DestroyPark": 1,
+        "Discourage.DestroyParkDx": 1,
+        "Discourage.GhostTest": 1,
+        "Discourage.GhostSweep": 1,
+        "Discourage.LostRemovalFix": 1,
+        "UserDiag.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "repro": "footprint-ghost",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 24
+    },
+    {
+      "id": "footprint-ghost-save",
+      "asi": "game-copy/ts3native.asi.fp2lr",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "footprint-ghost: check count-only": 1,
+        "footprint-ghost: check removed": 1,
+        "footprint-ghost: check clean": 1,
+        "stove-wall: layout passed": 1
+      },
+      "ini": {
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DeferFootprint2": 1,
+        "Discourage.DestroyPark": 1,
+        "Discourage.DestroyParkDx": 1,
+        "Discourage.GhostTest": 1,
+        "Discourage.GhostSweep": 1,
+        "Discourage.LostRemovalFix": 1,
+        "UserDiag.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "repro": "footprint-ghost-save",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 24
+    },
+    {
+      "id": "ghost-census-bp",
+      "asi": "game-copy/ts3native.asi.fp2lr",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "ghost census: world load #1": 1
+      },
+      "ini": {
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DeferFootprint2": 1,
+        "Discourage.DestroyPark": 1,
+        "Discourage.DestroyParkDx": 1,
+        "Discourage.GhostSweep": 1,
+        "Discourage.LostRemovalFix": 1,
+        "UserDiag.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 3,
+          "repro": "footprint-ghost-census",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 15
+    },
+    {
+      "id": "ghost-census-sv",
+      "asi": "game-copy/ts3native.asi.fp2lr",
+      "save": "Baseline-SV",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "ghost census: world load #1": 1
+      },
+      "ini": {
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DeferFootprint2": 1,
+        "Discourage.DestroyPark": 1,
+        "Discourage.DestroyParkDx": 1,
+        "Discourage.GhostSweep": 1,
+        "Discourage.LostRemovalFix": 1,
+        "UserDiag.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 3,
+          "repro": "footprint-ghost-census",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 15
+    },
+    {
+      "id": "ghost-census-ip",
+      "asi": "game-copy/ts3native.asi.fp2lr",
+      "save": "Baseline-IP",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "ghost census: world load #1": 1
+      },
+      "ini": {
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DeferFootprint2": 1,
+        "Discourage.DestroyPark": 1,
+        "Discourage.DestroyParkDx": 1,
+        "Discourage.GhostSweep": 1,
+        "Discourage.LostRemovalFix": 1,
+        "UserDiag.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 3,
+          "repro": "footprint-ghost-census",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 15
+    }
+  ]
+}

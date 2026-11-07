@@ -1,0 +1,38 @@
+{
+  "note": "stove-oven-cancel: is something left at the stove or the fridge after an owner is cut short, and does it add up. CookInOven offsets, stage x action matrix, snacks with Sims crossing, census and plans after each cell, three passes per arm in one load. Correctness only, no timing. Run with --no-smoke. NOT RUN YET.",
+  "jobs": [
+    {
+      "id": "stove-oven-cancel",
+      "asi": "game-copy/ts3native.asi.household3",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "stove-wall: layout passed": 1,
+        "stove-cancel: arm 0 rep 3 pass end": 1,
+        "stove-cancel: arm 1 rep 3 pass end": 1
+      },
+      "ini": {
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DeferFootprint2": 1,
+        "Discourage.DestroyPark": 1,
+        "Discourage.DestroyParkDx": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.KdExemptSeen": 1,
+        "UnseenFallback.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 150,
+          "repro": "stove-oven-cancel",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 170
+    }
+  ]
+}

@@ -153,3 +153,6 @@ stove-wall-player-view,cheat,place_sim
 layout-repro-smoke,natural,
 stove-wall-layout,cheat,place_sim
 stove-oven-layout,cheat,place_sim
+stove-oven-cancel,cheat,place_sim
+stove-wall-repeat,cheat,place_sim
+stove-wall-repeat-off,cheat,place_sim

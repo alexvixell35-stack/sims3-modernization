@@ -7,8 +7,8 @@
 // The only erase, 0x5EE640 (find the key, unregister with flag 0, free the node and its reference), runs from the
 // service's clear-all 0x5EEA90, i.e. only on a service reset [verified disassembly, TS3W 1.67]. Every outfit build makes
 // new compositors with random instances, so the map and the cache grow for the whole session (docs/191: ~90% of rcN).
-// The only reads of the map itself are Contains 0x5EDAB0 from the export code (ExportLot, ExportWorld, Sim outfit
-// export, thumbnails) [verified: its 3 callers and their strings]; in play a compositor is reached through the cache.
+// Contains 0x5EDAB0 (export code: ExportLot, ExportWorld, Sim outfit export, thumbnails), the SimService save 0x5EFD60 and
+// the service teardown 0x5F0BA0 read the map itself [verified, docs/539 §2.3]; in play a compositor is reached through the cache.
 //
 // What this does, on the thread that inserts (no lock: the map has none; insert and erase both run where EA runs them):
 // after each insert it walks Buckets more buckets of the map (a cursor) and looks at each part compositor (vtables
@@ -42,6 +42,7 @@
 // Safety rule: no erase of anything with a third reference; the would-miss / missed counters and their first 20 events
 // (caller, age) are the evidence that nothing a live Sim renders from goes. Inserts from a second thread are counted and
 // never trimmed from. A fault inside the walk turns the mode off for the session.
+// Mode 3 (save sweep) and Mode 4 (its count-only form, probe P4): see "Mode 3" below; docs/539 §6, §7.
 static const DWORD CT_INSERT = 0x005EECD0, CT_FIND = 0x007324E0, CT_ERASE = 0x005EE640;
 static const u8 kCtInsertPro[] = {0x83, 0xEC, 0x24, 0x53, 0x56, 0x57, 0x8B, 0xD9};  // sub esp,0x24; push ebx/esi/edi; mov ebx,ecx
 static const u8 kCtFindPro[] = {0x83, 0xEC, 0x08, 0x53, 0x56, 0x57, 0x8B, 0xF9};    // sub esp,8; push ebx/esi/edi; mov edi,ecx
@@ -109,14 +110,16 @@ static LONG* g_ctNm[2];
 static bool g_ctNmFull[2];
 static DWORD g_ctCyB, g_ctCyNb, g_ctCyAt, g_ctCyMs;  // buckets walked this cycle, the bucket count it counts to, start, last length
 static LONG g_ctCycles, g_ctKids, g_ctKept;  // full cycles; child keys read; walk visits of an old one kept because one names it
-static void CtNmAdd(const void* key) {
-    const DWORD h = CtKeyHash(key);
-    g_ctKids++;
+static bool CtSetAdd(LONG* t, DWORD h) {  // false: full
     for (DWORD i = (h * 2654435761u) >> 13, k = 0; k < 64; i = (i + 1) & (CT_NAMED - 1), k++) {
-        if (g_ctNm[0][i] == (LONG)h) return;
-        if (!g_ctNm[0][i]) { g_ctNm[0][i] = (LONG)h; return; }
+        if (t[i] == (LONG)h) return true;
+        if (!t[i]) { t[i] = (LONG)h; return true; }
     }
-    g_ctNmFull[0] = true;
+    return false;
+}
+static void CtNmAdd(const void* key) {
+    g_ctKids++;
+    if (!CtSetAdd(g_ctNm[0], CtKeyHash(key))) g_ctNmFull[0] = true;
 }
 static bool CtNmHas(const LONG* t, DWORD h) {
     for (DWORD i = (h * 2654435761u) >> 13, k = 0; k < 64; i = (i + 1) & (CT_NAMED - 1), k++) {
@@ -249,6 +252,9 @@ static void CtLog(const u8* svc) {
     Log("cas trim: Named %d: walk cycles %ld (the last %lu s), child keys read %ld, old ones kept because a compositor names "
         "them %ld (walk visits); name table full: this cycle %d, the last %d", g_ctNamed, g_ctCycles, g_ctCyMs / 1000, g_ctKids,
         g_ctKept, g_ctNmFull[0], g_ctNmFull[1]);
+    if (z.ctSaves) Log("cas trim: saves %ld, refused %ld; live %ld, registry %ld, doomed %ld, swept %ld, kept: household %ld, Named %ld, "
+        "Async %ld, young %ld; doomed then found through the async loader %ld", z.ctSaves, z.ctRefused, z.ctLive, z.ctRegistry, z.ctDoomed,
+        z.ctSwept, z.ctKeptHousehold, z.ctKeptNamed, z.ctKeptAsync, z.ctKeptYoung, z.ctDoomedAsync);
     Log("cas trim: Async %d: old ones kept because the async loader found them %ld (walk visits); finds of known compositors "
         "by caller: async loader %ld, get %ld, blit %ld, parent Load %ld, other %ld", g_ctAsync, g_ctKeptAs, g_ctFromN[0],
         g_ctFromN[1], g_ctFromN[2], g_ctFromN[3], g_ctFromN[4]);
@@ -259,6 +265,11 @@ static int __fastcall CtInsertHook(u8* svc, void* edx, u8* comp) {
     if (!z.ctMode || !svc) return r;
     const DWORD now = GetTickCount(), tid = GetCurrentThreadId();
     InterlockedIncrement(&z.ctInserts);
+    const DWORD ra = (DWORD)(uintptr_t)_ReturnAddress();  // docs/539 P2
+    if (ra == 0x005E299E) InterlockedIncrement(&z.ctFromBuilder);
+    else if (ra == 0x005E8AB1) InterlockedIncrement(&z.ctFromCtor);
+    else if (ra == 0x005EA943) InterlockedIncrement(&z.ctFromParse);
+    else if (ra == 0x0099C299) InterlockedIncrement(&z.ctFromDownload);
     if (!g_ctTid) {
         g_ctTid = tid, g_ctLogAt = g_ctCyAt = now;
         Log("cas trim: first insert on thread %lu (the thread that loaded us: %lu); the walk runs on that one", tid, g_mainTid);
@@ -266,12 +277,12 @@ static int __fastcall CtInsertHook(u8* svc, void* edx, u8* comp) {
     if (tid != g_ctTid) { InterlockedIncrement(&z.ctOtherThread); return r; }
     if (comp) {
         if (CtEnt* t = CtSlot((DWORD)(uintptr_t)comp, true)) t->seen = t->used = now, t->cand = 0;
-        if (g_ctNamed) __try {  // its names count now
+        if (g_ctNamed && z.ctMode < 3) __try {  // its names count now (modes 3 and 4 read them at the save)
             const DWORD vt = *(const DWORD*)comp;
             if (vt == g_ctVt[0] || vt == g_ctVt[1]) g_ctKidsFn((DWORD)(uintptr_t)comp);
         } __except (EXCEPTION_EXECUTE_HANDLER) {}
     }
-    CtStep(svc, now);
+    if (z.ctMode < 3) CtStep(svc, now);
     if (now - g_ctLogAt >= g_ctLogMs) g_ctLogAt = now, CtLog(svc);
     return r;
 }
@@ -302,10 +313,11 @@ static void CtFound(bool r, const void* key, void** out, DWORD at, const DWORD* 
                         if (db >= 0) InterlockedIncrement(db ? &g_ctDbYes : &g_ctDbNo);
                         CtEvent("would miss", o, at, now - t->cand, a1 < a2 ? a1 : a2, sp, db, t->from);
                     }
+                    if (t->cand && fb == 0 && mode >= 3) InterlockedIncrement(&z.ctDoomedAsync);  // docs/539 P4: an outfit load wants it
                     t->used = now, t->cand = 0;
                     InterlockedOr(&t->from, 1 << fb);
                 }
-        } else if (!r && key && mode == 1 && at != CT_SCAN_RET) {
+        } else if (!r && key && (mode == 1 || mode == 3) && at != CT_SCAN_RET) {
             const DWORD h = CtKeyHash(key);
             if (g_ctGone[h & (CT_GONE - 1)] == (LONG)h) {
                 const int db = at == CT_LOAD_RET ? 1 : CtInDb(key);
@@ -320,12 +332,361 @@ static bool __fastcall CtFindHook(void* cache, void* edx, const void* key, void*
     if (ts3native_counters.ctMode) CtFound(r, key, out, (DWORD)(uintptr_t)_ReturnAddress(), (const DWORD*)_AddressOfReturnAddress());
     return r;
 }
+// Mode 3 (docs/539 §6, ledger §446): the save sweep. EA's own save 0x5EFD60 builds the set of live compositors (outfit
+// inventory closed over children, cross-referenced with the registry) and hands it to its writer 0x5ED3E0 as the fourth
+// argument; a registry entry outside that set is not in the save. After that writer returns, one walk of the registry
+// (Mode 4 stops here: count only) lists what may go. A compositor goes only when ALL of these hold; each rule's survivors
+// keep their children (a kept child can name grandchildren, so rule 4 repeats to a fixed point):
+//   1 refs == 2, 2 part compositor vtable, 3 not in EA's live set, 4 not named by any survivor, 5 key not in the keep list's
+//   closure, 6 last insert or find older than MinAgeSec, 7 never found by the async loader (Async, al249: outfit loads find
+//   their parts by key, ~50 min later).
+// The live set's nodes hold a reference, so a live entry shows 3+ refs here; rule 3 stays as a check of its own.
+// Keep list: before a save ts3fixes (CasTrimKeep.cs, text channel ops 14-16) pushes the outfit keys of the active household,
+// the selected Sim, Sims of unknown scope, their CurrentOutfit and maternity maps; here they are closed over 0x5E7690.
+// Order, P5: ts3fixes' op 14 is a fence. Mode 3 refuses (logs, sweeps nothing) unless script's AddRef pass 0x5EE090 ran
+// after the fence and before the native save, the list is complete, CAS / Edit Town are closed, and the save runs on the
+// insert thread. Erases run after the save returned, from ts3fixes' pump (op 18) on that same thread, MaxErase a tick,
+// each one re-checked; the pump stops in CAS, Edit Town and during a save. No save data changes: only what EA did not write goes.
+static const DWORD CT_SAVE = 0x005EFD60, CT_WRITE = 0x005ED3E0, CT_MARK = 0x005EE090, CT_CACHE_IC = 0x005A5D40, CT_FB_BRANCH = 0x005EA84A;
+static const u8 kCtSavePro[] = {0x81, 0xEC, 0x40, 0x01, 0x00, 0x00};              // sub esp,0x140
+static const u8 kCtWritePro[] = {0x83, 0xEC, 0x18, 0x33, 0xC0};                   // sub esp,0x18; xor eax,eax
+static const u8 kCtMarkPro[] = {0x8B, 0x44, 0x24, 0x04, 0x83, 0xEC, 0x08};        // mov eax,[esp+4]; sub esp,8
+static const u8 kCtCachePro[] = {0x33, 0xC0, 0x83, 0xEC, 0x10};                   // xor eax,eax; sub esp,0x10
+static const u8 kCtFbPro[] = {0x80, 0x7C, 0x24, 0x13, 0x00};                      // cmp byte ptr [esp+0x13],0
+typedef bool(__fastcall* CtSaveFn)(u8* svc, void* edx, void* stream);
+typedef bool(__fastcall* CtWriteFn)(u8* svc, void* edx, void* a, void* b, void* c, const u8* live);
+typedef void(__fastcall* CtMarkFn)(u8* svc, void* edx, const void* key);
+typedef void*(__cdecl* CtCacheFn)(void* out, DWORD handle, const wchar_t* name, DWORD uLo, DWORD uHi, DWORD save);
+struct CtCand { u8 key[16]; DWORD o; };
+static const DWORD CT_PEND = 1 << 17;  // shortcut: 2.6 MB, one save's doomed entries; more wait for the next save (ctFull)
+static CtCand* g_ctPend;
+static CtSaveFn g_ctSave;
+static CtWriteFn g_ctWrite;
+static CtMarkFn g_ctMark;
+static CtCacheFn g_ctCache;
+static void* g_ctFbOrig;
+static DWORD g_ctMinAgeMs = 60000, g_ctSvcAt = 0x011CE6A0;  // selftest: its own
+static bool g_ctProbe;
+static const DWORD CT_FENCE_MS = 10 * 60000;  // a list older than this belongs to a save that never ran (a save takes minutes at most)
+static const int CT_KEEP_MAX = 8192;
+static u8 g_ctKeep[CT_KEEP_MAX][16];
+static int g_ctKeepN, g_ctKeepW;
+static DWORD g_ctKeepWord[4], g_ctFenceAt, g_ctMarkAt;
+static bool g_ctKeepOk, g_ctKeepOver, g_ctStand, g_ctPendGo, g_ctAfterSave;
+static volatile LONG g_ctMarksF, g_ctMarksS, g_ctMarksLate;  // after the fence; since the last save; after the native save returned
+static LONG g_ctPendN, g_ctLate;
+static u8* g_ctSvc;
+static LONG g_ctRefLog, g_ctMissLog;
+
+// EA's hash maps here (registry +0x104, outfit map +0xD4, the save's sets): buckets +4, count +8, bucket = (key[0] ^ key[3]) %
+// count (0xAD3F40), node {key, value +0x10, next +0x18}, a chain ends at 0.
+static const u8* CtMapFind(const DWORD* b, DWORD n, const void* key) {
+    if (!b || !n) return NULL;
+    const DWORD* k = (const DWORD*)key;
+    for (const u8* e = (const u8*)(uintptr_t)b[(k[0] ^ k[3]) % n]; e; e = *(const u8* const*)(e + 0x18))
+        if (!memcmp(e, k, 16)) return e;
+    return NULL;
+}
+static bool CtLiveHas(const u8* live, const void* key) { return CtMapFind(*(const DWORD* const*)(live + 4), *(const DWORD*)(live + 8), key) != NULL; }
+static void CtKeepAdd(const void* key, const u8* live) {  // a compositor of the closure; one EA's set misses is logged (docs/539 §6)
+    if (!CtSetAdd(g_ctNm[1], CtKeyHash(key))) g_ctNmFull[1] = true;
+    if (CtLiveHas(live, key)) return;
+    ts3native_counters.ctKeepMissed++;
+    if (g_ctMissLog++ < 10) Log("cas trim: keep list key %08lX %08lX %08lX %08lX is not in EA's live set", ((const DWORD*)key)[0], ((const DWORD*)key)[1],
+                                ((const DWORD*)key)[2], ((const DWORD*)key)[3]);
+}
+// The keep list closed over EA's 0x5E7690(set, children = 1) [verified: thiscall, ret 8, the same call the save's inventory
+// makes], into a set built as 0x5EFD81-0x5EFDC6 builds its own, then freed as 0x5EFFFC-0x5F0023 frees it.
+struct CtEaSet { DWORD pad, b, n, count, f0, f1, next, alloc; };
+typedef void(__fastcall* CtCloseFn)(const void* outfit, void* edx, void* set, DWORD children);
+typedef void(__fastcall* CtSetFreeFn)(void* set, void* edx, DWORD b, DWORD n);
+typedef void(__cdecl* CtFreeFn)(DWORD p);
+static void CtKeepEa(u8* svc, const u8* live) {
+    CtEaSet s = {0, 0x0114C900, 1, 0, *(const DWORD*)(uintptr_t)0x0107A538, *(const DWORD*)(uintptr_t)0x00F98A58, 0, 0x00FE50CC};
+    for (int i = 0; i < g_ctKeepN; i++) {
+        const u8* e = CtMapFind(*(const DWORD* const*)(svc + 0xD8), *(const DWORD*)(svc + 0xDC), g_ctKeep[i]);
+        if (e) ((CtCloseFn)(uintptr_t)0x005E7690)(*(const void* const*)(e + 0x10), NULL, &s, 1);
+    }
+    for (DWORD i = 0; i < s.n; i++)
+        for (const u8* e = (const u8*)(uintptr_t)((const DWORD*)(uintptr_t)s.b)[i]; e; e = *(const u8* const*)(e + 0x18)) CtKeepAdd(e, live);
+    ((CtSetFreeFn)(uintptr_t)0x005ED820)(&s, NULL, s.b, s.n);
+    if (s.n > 1) ((CtFreeFn)(uintptr_t)0x004E3F70)(s.b);
+}
+static void (*g_ctKeepFn)(u8* svc, const u8* live) = CtKeepEa;  // selftest: a fake
+
+static const char* CtRefuse(DWORD now, DWORD tid, const u8* live) {
+    if (!g_ctTid) return "no insert seen yet";
+    if (tid != g_ctTid) return "the save is not on the insert thread";
+    if (!g_ctFenceAt || (LONG)(now - g_ctFenceAt) > (LONG)CT_FENCE_MS) return "no keep list for this save";  // signed: the fence is tick | 1
+    if (g_ctStand) return "CAS or Edit Town is open";
+    if (!g_ctKeepOk) return "the keep list is incomplete";
+    if (!g_ctMarksF) return "P5: no script mark between the keep list and the native save";
+    if (!*(const DWORD*)(live + 0xC)) return "EA's live set is empty";
+    return NULL;
+}
+struct CtScanN { LONG reg, other, refs, live, household, young, async, overflow, noSlot, named, rounds; };
+// The walk of rules 1-7. The thread that runs the save; the caller's __try ends it on a fault.
+static void CtScan(u8* svc, const u8* live, DWORD now, bool act, CtScanN& c) {
+    memset(g_ctNm[0], 0, CT_NAMED * 4), memset(g_ctNm[1], 0, CT_NAMED * 4);
+    g_ctNmFull[0] = g_ctNmFull[1] = false, g_ctCycles = 0, g_ctCyB = 0;  // Mode 1 or 2 after this starts its cycle again
+    if (g_ctFenceAt) g_ctKeepFn(svc, live);
+    const DWORD* b = *(const DWORD* const*)(svc + 0x108);
+    const DWORD nb = *(const DWORD*)(svc + 0x10C);
+    LONG n = 0;
+    for (DWORD i = 0; b && i < nb; i++)
+        for (const u8* e = (const u8*)(uintptr_t)b[i]; e; e = *(const u8* const*)(e + 0x18)) {
+            c.reg++;
+            const DWORD o = *(const DWORD*)(e + 0x10), vt = o ? *(const DWORD*)(uintptr_t)o : 0;
+            if (vt != g_ctVt[0] && vt != g_ctVt[1]) { c.other++; continue; }
+            CtEnt* t = CtSlot(o, true);
+            if (t && !t->seen) t->seen = t->used = now;
+            const DWORD a1 = t ? now - t->seen : 0, a2 = t ? now - t->used : 0, age = a1 < a2 ? a1 : a2;
+            LONG* kept = !t ? &c.noSlot : *(const LONG*)(uintptr_t)(o + 4) >> 8 != 2 ? &c.refs : CtLiveHas(live, e) ? &c.live
+                         : CtNmHas(g_ctNm[1], CtKeyHash(e)) ? &c.household : age < g_ctMinAgeMs ? &c.young
+                         : g_ctAsync && (t->from & 1) ? &c.async : n >= (LONG)CT_PEND ? &c.overflow : NULL;
+            if (t) t->cand = 0;
+            if (kept) { ++*kept; if (g_ctNamed) g_ctKidsFn(o); continue; }  // a survivor names its children
+            memcpy(g_ctPend[n].key, e, 16), g_ctPend[n++].o = o;
+        }
+    bool moved = g_ctNamed;
+    while (moved && c.rounds < 64) {  // rule 4 to a fixed point
+        moved = false, c.rounds++;
+        for (LONG i = n - 1; i >= 0; i--) {
+            const DWORD h = CtKeyHash(g_ctPend[i].key);
+            if (!CtNmHas(g_ctNm[0], h)) continue;
+            g_ctKidsFn(g_ctPend[i].o);
+            g_ctPend[i] = g_ctPend[--n], c.named++, moved = true;
+        }
+    }
+    if (moved || g_ctNmFull[0] || g_ctNmFull[1]) c.overflow += n, n = 0;  // no fixed point, or a full table: keep everything
+    for (LONG i = 0; i < n; i++)
+        if (CtEnt* t = CtSlot(g_ctPend[i].o, false)) t->cand = now;
+    ts3native_counters.ctDoomed += n;
+    g_ctPendN = act ? n : 0;
+}
+// After EA's writer 0x5ED3E0 returned: live set known, the rest of the save still to run.
+static void CtSweepSave(u8* svc, const u8* live) {
+    Ts3nCounters& z = ts3native_counters;
+    const LONG mode = z.ctMode;
+    if (mode < 3 || !live) return;
+    const DWORD now = GetTickCount(), tid = GetCurrentThreadId();
+    const char* no = CtRefuse(now, tid, live);
+    if (no) {
+        z.ctRefused++;
+        if (g_ctRefLog++ < 40) Log("cas trim: save #%ld: %s %s", z.ctSaves, mode == 3 ? "no sweep:" : "would refuse:", no);
+        if (mode == 3) return;
+    }
+    z.ctLive = *(const LONG*)(live + 0xC);
+    z.ctMarksFence = g_ctMarksF;
+    g_ctSvc = svc;
+    CtScanN c = {};
+    LARGE_INTEGER q0, q1, f;
+    QueryPerformanceCounter(&q0);
+    __try {
+        CtScan(svc, live, now, mode == 3, c);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        z.ctMode = 0, g_ctPendN = 0;
+        Log("FAIL cas trim: fault in the save sweep: off for the session");
+        return;
+    }
+    QueryPerformanceCounter(&q1), QueryPerformanceFrequency(&f);
+    z.ctRegistry = c.reg, z.ctKeptHousehold += c.household, z.ctKeptNamed += c.named, z.ctKeptAsync += c.async, z.ctKeptYoung += c.young;
+    z.ctFull += c.noSlot + c.overflow;
+    Log("cas trim: save #%ld mode %ld: registry %ld, live %ld, keep keys %d; kept: not a part %ld, refs %ld, live %ld, household %ld, young %ld, "
+        "Async %ld, Named %ld (%ld rounds), table or fixed-point limit %ld, no slot %ld; doomed %ld (total), %lu ms", z.ctSaves, mode, c.reg, z.ctLive,
+        g_ctKeepN, c.other, c.refs, c.live, c.household, c.young, c.async, c.named, c.rounds, c.overflow, c.noSlot, z.ctDoomed,
+        (DWORD)((q1.QuadPart - q0.QuadPart) * 1000 / f.QuadPart));
+}
+// Op 18: one batch of erases, on the insert thread, after the save returned. Each entry is checked again: still in the
+// registry as the same object, 2 references, not found since it was doomed.
+static u8 CtSweepStep() {
+    Ts3nCounters& z = ts3native_counters;
+    if (z.ctMode != 3 || g_ctPendN <= 0 || !g_ctPendGo) return 0;
+    if (GetCurrentThreadId() != g_ctTid) {
+        g_ctPendN = 0;
+        Log("cas trim: sweep dropped: the pump is not on the insert thread");
+        return 0;
+    }
+    __try {
+        for (int n = 0; g_ctPendN > 0 && n < g_ctMaxErase;) {
+            const CtCand c = g_ctPend[--g_ctPendN];
+            const u8* e = CtMapFind(*(const DWORD* const*)(g_ctSvc + 0x108), *(const DWORD*)(g_ctSvc + 0x10C), c.key);
+            CtEnt* t = CtSlot(c.o, false);
+            if (!e || *(const DWORD*)(e + 0x10) != c.o || !t || !t->cand || *(const LONG*)(uintptr_t)(c.o + 4) >> 8 != 2) { g_ctLate++; continue; }
+            const DWORD h = CtKeyHash(c.key);
+            t->seen = t->cand = 0;  // the address may come back as a new compositor
+            n++;
+            if (g_ctErase(g_ctSvc, NULL, c.key)) z.ctSwept++, g_ctGone[h & (CT_GONE - 1)] = (LONG)h;  // remembered after the erase: see CtStep
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        z.ctMode = 0, g_ctPendN = 0;
+        Log("FAIL cas trim: fault in a sweep erase: off for the session");
+        return 0;
+    }
+    if (g_ctPendN > 0) return 1;
+    Log("cas trim: sweep done: swept %ld in total, %ld changed since the save (kept)", z.ctSwept, g_ctLate);
+    return 0;
+}
+// Text channel ops 14-19 (userdiag.cpp; ts3fixes CasTrimKeep.cs). Sim thread. An old build answers 0: ts3fixes then sends nothing.
+static u8 CtOp(int op, DWORD lo) {
+    Ts3nCounters& z = ts3native_counters;
+    if (op == 19) return g_ctWrite != NULL;
+    if (z.ctMode < 3) return 0;
+    switch (op) {
+        case 14:  // a save starts: lo & 1 = CAS or Edit Town open
+            g_ctKeepN = g_ctKeepW = 0, g_ctKeepOk = g_ctKeepOver = false, g_ctPendN = 0, g_ctPendGo = false, g_ctMarksF = 0;
+            g_ctStand = (lo & 1) != 0, g_ctFenceAt = GetTickCount() | 1, g_ctAfterSave = false;
+            return 1;
+        case 15:  // one word of an outfit key
+            g_ctKeepWord[g_ctKeepW++] = lo;
+            if (g_ctKeepW < 4) return 1;
+            g_ctKeepW = 0;
+            if (g_ctKeepN < CT_KEEP_MAX) memcpy(g_ctKeep[g_ctKeepN++], g_ctKeepWord, 16);
+            else g_ctKeepOver = true;
+            return 1;
+        case 16:  // the list ended: lo = complete (a script fault or an unknown state sends 0)
+            g_ctKeepOk = lo && !g_ctKeepOver && !g_ctKeepW, z.ctKeepKeys = g_ctKeepN;
+            return 1;
+        case 17:  // the save returned: lo = it saved; 1 = there is something to sweep (start the pump)
+            g_ctFenceAt = 0;
+            if (g_ctMarksLate) Log("cas trim: P5: %ld script marks after the native save #%ld returned", g_ctMarksLate, z.ctSaves);
+            if (!lo) g_ctPendN = 0;
+            g_ctPendGo = g_ctPendN > 0;
+            return g_ctPendGo;
+        case 18: return CtSweepStep();
+    }
+    return 0;
+}
+// docs/539 P5: the save's entry, order and thread. Mode 3's "during a save" ends with this hook.
+static bool __fastcall CtSaveHook(u8* svc, void* edx, void* stream) {
+    Ts3nCounters& z = ts3native_counters;
+    if (z.ctMode < 3) return g_ctSave(svc, edx, stream);
+    const DWORD t0 = GetTickCount(), at = (DWORD)(uintptr_t)_ReturnAddress();
+    z.ctSaves++, g_ctPendN = 0, g_ctPendGo = false, g_ctMarksLate = 0, g_ctAfterSave = false;
+    int flag = -1;
+    __try { flag = *(const u8*)(uintptr_t)(*(const DWORD*)(uintptr_t)0x011ECBC4 + 0x45); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    const LONG marks = g_ctMarksF, sinceSave = g_ctMarksS;
+    g_ctMarksS = 0;
+    const bool r = g_ctSave(svc, edx, stream);
+    if (!r) g_ctPendN = 0;
+    g_ctAfterSave = true;
+    Log("cas trim: P5 save #%ld from 0x%08lX, thread %lu (insert thread %lu, loader %lu), [0x11ECBC4]+0x45 = %d: keep list %ld ms before, marks after "
+        "it %ld, since the last save %ld, last mark %ld ms before; ran %lu ms, result %d", z.ctSaves, at, GetCurrentThreadId(), g_ctTid, g_mainTid, flag,
+        g_ctFenceAt ? (LONG)(t0 - g_ctFenceAt) : -1L, marks, sinceSave, g_ctMarkAt ? (LONG)(t0 - g_ctMarkAt) : -1L, GetTickCount() - t0, r);
+    return r;
+}
+static bool __fastcall CtWriteHook(u8* svc, void* edx, void* a, void* b, void* c, const u8* live) {
+    const bool r = g_ctWrite(svc, edx, a, b, c, live);
+    if (r) CtSweepSave(svc, live);
+    return r;
+}
+static void __fastcall CtMarkHook(u8* svc, void* edx, const void* key) {
+    Ts3nCounters& z = ts3native_counters;
+    if (z.ctMode >= 3) {
+        InterlockedIncrement(&z.ctMarks), InterlockedIncrement(&g_ctMarksF), InterlockedIncrement(&g_ctMarksS);
+        g_ctMarkAt = GetTickCount();
+        if (g_ctAfterSave) InterlockedIncrement(&g_ctMarksLate);  // P5: the order the other way round
+    }
+    g_ctMark(svc, edx, key);
+}
+// docs/539 P1: CacheOutfit calls by name, up to the first digit (an LPWStr: the extern is a DllImport). Sim thread.
+struct CtName { char s[28]; volatile LONG n; };
+static CtName g_ctNames[48];
+static volatile LONG g_ctNameOther;
+static void CtCountName(const wchar_t* w) {
+    Ts3nCounters& z = ts3native_counters;
+    InterlockedIncrement(&z.ctCacheOutfit);
+    char b[28] = "?";
+    __try {
+        for (int i = 0; w && i < 27 && w[i] && !(w[i] >= L'0' && w[i] <= L'9'); i++) b[i] = w[i] >= 0x20 && w[i] < 0x7F ? (char)w[i] : '?';
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    for (CtName& e : g_ctNames) {
+        if (!e.s[0]) memcpy(e.s, b, sizeof(b));
+        if (!strcmp(e.s, b)) { e.n++; return; }
+    }
+    g_ctNameOther++;
+}
+static void* __cdecl CtCacheHook(void* out, DWORD h, const wchar_t* name, DWORD uLo, DWORD uHi, DWORD save) {
+    CtCountName(name);
+    return g_ctCache(out, h, name, uLo, uHi, save);
+}
+// docs/539 P6: 0x5EA84A tests the "a part's stored compositor failed to load" flag; its 5-byte cmp runs in the trampoline right
+// after this, so the flags need no saving. The frame is EA's: [esp+0x13] is that flag.
+__declspec(naked) static void CtFbStub() {
+    __asm {
+        cmp byte ptr [esp + 0x13], 0
+        je go
+        lock inc dword ptr [ts3native_counters.ctFbFlag]
+    go:
+        jmp dword ptr [g_ctFbOrig]
+    }
+}
+typedef bool(__fastcall* CtRebuildFn)(void* preset, void* edx, void* list, DWORD a, DWORD b);
+static bool __fastcall CtRebuildParse(void* preset, void* edx, void* list, DWORD a, DWORD b) {  // 0x5EA8EE: the miss rebuilds from the preset
+    InterlockedIncrement(&ts3native_counters.ctFbRebuilt);
+    return ((CtRebuildFn)(uintptr_t)0x005BFAB0)(preset, edx, list, a, b);
+}
+// docs/539 §9.4, issue #40 item 6: the two steadiest eaRes growers of al239, by owner (allocated KB, not live: RcCensus has the live side).
+typedef void*(__fastcall* CtAllocFn)(void* heap, void* edx, DWORD size, DWORD flag);
+static void* __fastcall CtGeoAlloc(void* heap, void* edx, DWORD size, DWORD flag) {  // 0x5C7901, CAS/GeometryResource load 0x5C75E0, buffer +0x80
+    InterlockedExchangeAdd(&ts3native_counters.ctGeoKB, (LONG)(size + 512) >> 10);
+    return ((CtAllocFn)(uintptr_t)0x004E69D0)(heap, edx, size, flag);
+}
+static void* __fastcall CtBlendAlloc(void* heap, void* edx, DWORD size, DWORD flag) {  // 0x5A2FFA, CAS/BlendGeometryResource load 0x5A2D70, buffer +0x30
+    InterlockedExchangeAdd(&ts3native_counters.ctBlendKB, (LONG)(size + 512) >> 10);
+    return ((CtAllocFn)(uintptr_t)0x004E69D0)(heap, edx, size, flag);
+}
+// docs/539 P3 + the counters of this block, one line per [MemDiag] sample (the memory worker: EA's maps are read without a lock
+// as RcCensus reads them, under a guard; a rehash mid-walk costs one sample).
+static void CtMemLine(LONG n, const char* tag) {
+    if (!g_ctProbe) return;
+    Ts3nCounters& z = ts3native_counters;
+    __try {
+        const u8* svc = *(const u8* const*)(uintptr_t)g_ctSvcAt;
+        if (svc) {
+            const DWORD* b = *(const DWORD* const*)(svc + 0xD8);
+            const DWORD nb = *(const DWORD*)(svc + 0xDC);
+            LONG zero = 0;
+            for (DWORD i = 0, k = 0; b && i < nb && k < 4000000; i++)
+                for (const u8* e = (const u8*)(uintptr_t)b[i]; e && k < 4000000; e = *(const u8* const*)(e + 0x18), k++)
+                    if (!*(const DWORD*)(e + 0x14)) zero++;
+            z.ctRegistry = *(const LONG*)(svc + 0x110), z.ctOutfits = *(const LONG*)(svc + 0xE0), z.ctOutfit0 = zero;
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    const LONG other = z.ctInserts - z.ctFromBuilder - z.ctFromCtor - z.ctFromParse - z.ctFromDownload;
+    Log("diag: castrim #%ld %s reg=%ld outfits=%ld outfit0=%ld inserts=%ld builder=%ld ctor=%ld parse=%ld download=%ld other=%ld cacheOutfit=%ld "
+        "fbFlag=%ld fbRebuilt=%ld geoKB=%ld blendKB=%ld saves=%ld live=%ld doomed=%ld swept=%ld wouldMiss=%ld missed=%ld doomedAsync=%ld", n, tag, z.ctRegistry,
+        z.ctOutfits, z.ctOutfit0, z.ctInserts, z.ctFromBuilder, z.ctFromCtor, z.ctFromParse, z.ctFromDownload, other, z.ctCacheOutfit, z.ctFbFlag, z.ctFbRebuilt,
+        z.ctGeoKB, z.ctBlendKB, z.ctSaves, z.ctLive, z.ctDoomed, z.ctSwept, z.ctWouldMiss, z.ctMissed, z.ctDoomedAsync);
+    char line[400];
+    int w = 0;
+    for (const CtName& e : g_ctNames) {
+        if (!e.s[0]) break;
+        w += sprintf_s(line + w, sizeof(line) - w, " %s=%ld", e.s, e.n);
+        if (w > 330) Log("diag: castrim names #%ld%s", n, line), w = 0;
+    }
+    if (w || g_ctNameOther) Log("diag: castrim names #%ld%s other=%ld", n, w ? line : "", g_ctNameOther);
+}
+static bool CtInstallSweep() {
+    if (!g_ctSave) g_ctSave = (CtSaveFn)InstallDetour("SimService_Save", CT_SAVE, kCtSavePro, sizeof(kCtSavePro), (void*)CtSaveHook, &g_ctSave);
+    if (!g_ctMark) g_ctMark = (CtMarkFn)InstallDetour("SimOutfit_AddRef", CT_MARK, kCtMarkPro, sizeof(kCtMarkPro), (void*)CtMarkHook, &g_ctMark);
+    if (g_ctSave && g_ctMark && !g_ctWrite)
+        g_ctWrite = (CtWriteFn)InstallDetour("Compositors_Write", CT_WRITE, kCtWritePro, sizeof(kCtWritePro), (void*)CtWriteHook, &g_ctWrite);
+    return g_ctWrite != NULL;  // the last in: without it no sweep runs, and the other two only pass through
+}
+static void CtInstallProbes() {
+    if (!g_ctCache) g_ctCache = (CtCacheFn)InstallDetour("IC_SimBuilderCacheOutfit", CT_CACHE_IC, kCtCachePro, sizeof(kCtCachePro), (void*)CtCacheHook, &g_ctCache);
+    if (!g_ctFbOrig) g_ctFbOrig = InstallDetour("Parse_FallbackBranch", CT_FB_BRANCH, kCtFbPro, sizeof(kCtFbPro), (void*)CtFbStub, &g_ctFbOrig);
+    static const CallSite sites[] = {{0x005EA8EE, 0x005BFAB0, (void*)CtRebuildParse}, {0x005C7901, 0x004E69D0, (void*)CtGeoAlloc}, {0x005A2FFA, 0x004E69D0, (void*)CtBlendAlloc}};
+    PatchCalls("cas trim probe sites", sites, 3);
+}
 static bool CtAlloc() {
     if (g_ct) return true;
-    u8* m = (u8*)VirtualAlloc(NULL, CT_SLOTS * sizeof(CtEnt) + CT_GONE * 4 + 2 * CT_NAMED * 4, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    u8* m = (u8*)VirtualAlloc(NULL, CT_SLOTS * sizeof(CtEnt) + CT_GONE * 4 + 2 * CT_NAMED * 4 + CT_PEND * sizeof(CtCand), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (!m) return false;
     g_ct = (CtEnt*)m, g_ctGone = (volatile LONG*)(m + CT_SLOTS * sizeof(CtEnt));
     g_ctNm[0] = (LONG*)(m + CT_SLOTS * sizeof(CtEnt) + CT_GONE * 4), g_ctNm[1] = g_ctNm[0] + CT_NAMED;
+    g_ctPend = (CtCand*)(g_ctNm[1] + CT_NAMED);
     return true;
 }
 static void ApplyCasTrim(const wchar_t* ini) {
@@ -339,8 +700,11 @@ static void ApplyCasTrim(const wchar_t* ini) {
     g_ctAgeMs = (DWORD)(age < 10 ? 10 : age > 36000 ? 36000 : age) * 1000;
     g_ctBuckets = buckets < 1 ? 1 : buckets > 256 ? 256 : buckets;
     g_ctMaxErase = maxErase < 1 ? 1 : maxErase > 64 ? 64 : maxErase;
-    if (mode <= 0 && GetPrivateProfileIntW(L"CasTrim", L"Install", 0, ini) <= 0) return;
-    if (!CtAlloc()) return (void)Log("FAIL cas trim: no memory for the tables (11 MB): not installed");
+    const int minAge = GetPrivateProfileIntW(L"CasTrim", L"MinAgeSec", 60, ini);
+    g_ctMinAgeMs = (DWORD)(minAge < 0 ? 0 : minAge > 36000 ? 36000 : minAge) * 1000;
+    g_ctProbe = GetPrivateProfileIntW(L"CasTrim", L"Probe", 0, ini) > 0;
+    if (mode <= 0 && !g_ctProbe && GetPrivateProfileIntW(L"CasTrim", L"Install", 0, ini) <= 0) return;
+    if (!CtAlloc()) return (void)Log("FAIL cas trim: no memory for the tables (14 MB): not installed");
     RhRanges();  // the exe .text range for the event chains
     if (!g_ctFind)
         g_ctFind = (CtFindFn)InstallDetour("ResourceCache_Find", CT_FIND, kCtFindPro, sizeof(kCtFindPro), (void*)CtFindHook, &g_ctFind);
@@ -348,8 +712,13 @@ static void ApplyCasTrim(const wchar_t* ini) {
     if (!g_ctInsert)
         g_ctInsert = (CtInsertFn)InstallDetour("CasCompositorRegister", CT_INSERT, kCtInsertPro, sizeof(kCtInsertPro), (void*)CtInsertHook, &g_ctInsert);
     if (!g_ctInsert) return (void)Log("FAIL cas trim: compositor insert 0x%08lX not detoured: not installed (the Find detour passes through)", CT_INSERT);
+    const bool sweep = CtInstallSweep();
+    if (g_ctProbe) CtInstallProbes();
     Ts3nCounters& z = ts3native_counters;
-    z.ctOn = 1, z.ctMode = mode < 0 ? 0 : mode > 2 ? 2 : mode;
+    z.ctOn = 1, z.ctMode = mode < 0 ? 0 : mode > 4 ? 4 : mode;
+    if (z.ctMode >= 3 && !sweep) z.ctMode = 0, Log("FAIL cas trim: the save hooks are not in: modes 3 and 4 off");
+    if (z.ctMode >= 3) Log("cas trim: mode %ld (%s): at each save, part compositors outside EA's live set; MinAgeSec %lu, Probe %d", z.ctMode,
+                           z.ctMode == 3 ? "sweep" : "count only", g_ctMinAgeMs / 1000, g_ctProbe);
     Log("cas trim: on (docs/191 step 2), mode %ld (%s): part compositors at 2 references, not inserted or found for %lu s; %d buckets a "
         "step, at most %d erases a step; %s; %s; %s", z.ctMode, z.ctMode == 1 ? "trim with EA's erase 0x5EE640" : z.ctMode == 2 ? "count only" : "armed, off",
         g_ctAgeMs / 1000, g_ctBuckets, g_ctMaxErase, g_ctNamed ? "only ones no other compositor names (Named 1)" : "named or not (Named 0)",

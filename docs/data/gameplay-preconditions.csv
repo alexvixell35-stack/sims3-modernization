@@ -158,7 +158,7 @@ lifetime_happiness,SimHandlers,Live,none (cheat-style points),cheat,,handler,liv
 relationships,SimHandlers,Any,none (read),harness,,handler,none
 modify_relationship,SimHandlers,Live,none (testingcheats / MasterController relationship),cheat,romance and engagement need the age rules of R-LIFE-2,handler + R-CHEAT-1,live
 career,SimHandlers,Live,join: newspaper / computer / rabbit hole Join; promote / quit: quit is natural; promote is a cheat,natural,Teen part-time / YA+ full-time (R-DAY-1); promote = cheat,handler + R-DAY-1,live
-age_up,SimHandlers,Live,birthday cake (Blow Out Candles) when the age bar is full; forced = debug Trigger Age Transition,cheat,never with a cake in the same story (double age-up); Elder only with confirm_elder_death,handler + R-LIFE-1,live
+age_up,SimHandlers,Live,birthday cake (Blow Out Candles) when the age bar is full; forced = debug Trigger Age Transition,cheat,pick=townie: a stress step (a player cannot age a townie); never with a cake in the same story (double age-up); Elder only with confirm_elder_death,handler + R-LIFE-1,live
 aut_interrupt,SimHandlers,Live,none: a Generic commodity search for every Sim whose manager search is parked (trait reactions and mods such as NRaas StoryProgression start these from their own tasks; the timing is forced),cheat,go-live repro aut-live-interrupt (docs/124 §8.2); answers dropped,handler,live
 venue_hours,SimHandlers,Any,none (read),harness,,handler,none
 make_occult,StoryHandlers,Live,a new Sim: CAS (Vampire LN/SN; Werewolf/Witch/Fairy/Ghost SN; Genie SH; Mermaid IP; Plumbot ITF); an existing Sim: bite / curse / potion / death (no instant transform),cheat,new Sim with a CAS occult = natural (CAS-equivalent); existing Sim or Mummy/Zombie/PlantSim/ImaginaryFriend/SimBot = cheat,handler + R-OCC-1,live
@@ -217,5 +217,16 @@ stove_oven_setup,StoveOvenHandlers,Live,a Sim with the recipes (cooking skill an
 stove_oven_status,StoveOvenHandlers,Live,none (reads how far the oven order got),harness,after stove_wall_cook,handler,live
 stove_oven_takeout,StoveOvenHandlers,Live,the Sim walks off and the player clicks the dish in the oven (Sim placed by cheat),cheat,dish in the oven; user-directed household Sim,handler + R-HH-4,live
 stove_oven_clear,StoveOvenHandlers,Live,the Sim serves or the player deletes the dish and the food (removed by cheat),cheat,after stove_wall_cook,handler,live
+stove_cancel_run,StoveCancelHandlers,Live,"the player cuts a bake or a fridge snack short: cancel, Go Here, a new order, a second Sim, save; Sims placed, reset and exit reason by cheat",cheat,after stove_oven_setup,handler,live
+stove_cancel_status,StoveCancelHandlers,Any,none (reads how far the pass got),harness,after stove_cancel_run,handler,none
+stove_repeat_setup,StoveRepeatHandlers,Live,"Buy Mode: fridge, counters, a dishwasher, a sink, a food processor (placed by the agent)",cheat,after stove_wall_place,handler,live
+stove_repeat_run,StoveRepeatHandlers,Live,"the player orders meals from the stove and fridge menus, clicks the plate, cancels, Go Here; needs and clock set between orders; two NPCs placed and ordered to walk",cheat,after stove_repeat_setup; selected household Sim; user-directed,handler,live
+stove_repeat_status,StoveRepeatHandlers,Any,none (reads how far the run got),harness,after stove_repeat_run,handler,none
 clock_hour,StoveWallHandlers,Live,none (the sim clock is advanced to an hour for a daylight GIF),cheat,live mode,handler,live
 build_layout,LayoutHandlers,Live;Build;Buy,"a player building: walls, floor, door and roof in Build mode, objects in Buy mode, Go Here for the Sim",natural,"starts in live mode on the active home lot; polled with result; enough funds; sells objects only inside the area",handler,none
+footprint_ghost_run,FootprintGhostHandlers,Live,none (the Sim is put on the slot; EA's region sequence with a route job held by a test op),cheat,after stove_wall_setup,handler,live
+footprint_ghost_check,FootprintGhostHandlers,Live,none (one plan; nothing walks),harness,after a load,handler,live
+footprint_ghost_op,FootprintGhostHandlers,Any,none (a [Discourage] GhostTest op),harness,any,handler,none
+footprint_ghost_verdict,FootprintGhostHandlers,Any,none (reads the tally),harness,after footprint_ghost_run,handler,none
+footprint_window_run,FootprintWindowHandlers,Live,none (the Sim is put on the slot; EA region sequence with a route job held by a test op; RemovalFirst off and on),cheat,after stove_wall_setup,handler,live
+footprint_window_verdict,FootprintWindowHandlers,Any,none (reads the tally),harness,after footprint_window_run,handler,none

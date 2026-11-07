@@ -286,6 +286,7 @@ namespace Ts3Fixes
                 IScriptProxy f = r.Follower;
                 Sim sim = f != null ? f.Target as Sim : null;
                 if (sim == null) return;
+                if (sim.IsInActiveHousehold) PatchCounters()[866]++;  // fails per plan: same four hooks as the routefail lines (issue #304, kd-household-ab.ts)
                 bool show = InShowOff(sim);
                 if (show && sim == sSoChild) { sSoSeen = true; sSoPlans++; if (!ok) sSoPlanFails++; if (async) sSoAsync++; }
                 if (show && sim == sSoAdult && !ok && sSoAdultRoute == -1) sSoAdultPlanFails++; // asyncjigsync repro: the partner's plans before its DoRoute (RouteToJigB to an unplaced jig); later plans (e.g. a locked-portal PlanFromPoint after the social) do not count
@@ -305,7 +306,9 @@ namespace Ts3Fixes
         {
             if (id == 0) return "";
             GameObject o = GameObject.GetObject(new ObjectGuid(id));
-            return " 0x" + id.ToString("X") + " " + (o != null ? o.GetType().Name : "no object");
+            if (o == null) return " 0x" + id.ToString("X") + " no object";
+            // a region's footprint is a "DynamicSlot" with script class Null, Model hidden (DynamicRegionBase.UpdateFootprint); other Nulls are props
+            return " 0x" + id.ToString("X") + " " + (o is Null && (o.GetHiddenFlags() & HiddenFlags.Model) != 0 ? "region footprint (Null, DynamicSlot)" : o.GetType().Name) + " at " + V(o.Position);
         }
 
         static void RflLine(bool show, Sim sim, string what, Vector3 goal, uint t0, uint route, RflCmd cmd)

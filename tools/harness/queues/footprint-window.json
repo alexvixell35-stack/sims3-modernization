@@ -1,0 +1,52 @@
+{
+  "note": "footprint-window: RemovalFirst deterministic off/on (arms in one load, N=10 per arm, stove and oven). Correctness only, no timing. v0210d = fix + ops 30-34 (/DTS3N_RFTEST), never a release. Read the last verdict pair and \"footprint removal first\". NOT RUN YET.",
+  "jobs": [
+    {
+      "id": "footprint-window",
+      "asi": "game-copy/ts3native.asi.v0210d",
+      "pinReason": "hotfix layout: asi v0210d (0.36.168e-rftest1, bugfix/v0210-rf-repro), ts3fixes and ini = v0.2.9 as the v0210c smoke (the branch has no ts3fixes change); agent package from this checkout",
+      "fixesPackage": "game-copy/asi-v029/ts3fixes.package",
+      "iniBase": "game-copy/asi-v029/ts3native.ini",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "ts3native 0\\.36\\.168e-rftest": 1,
+        "stove-wall: layout passed": 1,
+        "footprint-window: verdict arm 0": 1,
+        "footprint-window: verdict arm 1": 1,
+        "footprint-window: transient arm 0 stove": 1,
+        "footprint-window: transient arm 0 oven": 1,
+        "footprint-window: parked arm 1": 1,
+        "footprint removal first: mode 1 parked [1-9]": 1
+      },
+      "logForbid": {
+        "footprint-window: FAIL": 0,
+        "footprint removal first: mode \\d parked \\d+ capped [1-9]": 0
+      },
+      "ini": {
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DeferFootprint2": 1,
+        "Discourage.DestroyPark": 1,
+        "Discourage.DestroyParkDx": 1,
+        "Discourage.GhostTest": 1,
+        "Discourage.GhostSweep": 2,
+        "Discourage.LostRemovalFix": 1,
+        "Discourage.RemovalFirst": 1,
+        "UserDiag.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "repro": "footprint-window",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 24
+    }
+  ]
+}

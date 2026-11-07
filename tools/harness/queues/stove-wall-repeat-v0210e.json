@@ -1,0 +1,31 @@
+{
+  "note": "stove-wall-repeat on the v0.2.10 release candidate v0210e (2026-11-07): 50 full bakes on a long kitchen run, then 50 mix orders, stop at a permanent failure. Correctness only. A job PASS only says it ran: read the end line.",
+  "jobs": [
+    {
+      "id": "stove-wall-repeat-v0210e",
+      "asi": "game-copy/ts3native.asi.v0210e",
+      "fixesPackage": "game-copy/asi-v029/ts3fixes.package",
+      "iniBase": "game-copy/ts3native.ini.v0210e",
+      "pinReason": "v0.2.10 release candidate: asi v0210e (0.36.168e, RemovalFirst=1), ini game-copy/ts3native.ini.v0210e, ts3fixes = v0.2.9 package; agent package from master by cycle.ts",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "stove-repeat: layout ok": 1,
+        "stove-repeat: end": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 150,
+          "repro": "stove-wall-repeat",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 170
+    }
+  ]
+}

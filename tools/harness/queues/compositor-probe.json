@@ -1,0 +1,166 @@
+{
+  "note": "docs/539 §7, ledger §446: Steam, correctness only (no timing, no clean night; --no-smoke). Needs game-copy/asi-castrim3/ts3native.asi from feature/castrim-mode3 and the ts3fixes + ts3agent of that branch. Mode 4 first: the sweep job only means something once P5 passed.",
+  "jobs": [
+    {
+      "id": "bp-compositor-probe",
+      "note": "Correctness (24 min), Mode 4, probes P1-P7: repro compositor-churn. Pass: the repro passes, the logRequire lines, ctRefused 0, ctMarksFence > 0 at each save (P5), then read: CacheOutfit names (P1), inserts by caller (P2), reg / outfits / outfit0 (P3), doomed, wouldMiss, doomedAsync (P4), fbFlag / fbRebuilt (P6), allocsites cyc rows (P7), geoKB / blendKB.",
+      "asi": "game-copy/asi-castrim3/ts3native.asi",
+      "pinReason": "a build of feature/castrim-mode3 (native + ts3fixes change)",
+      "fixesPackage": "game-copy/asi-castrim3/ts3fixes.package",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "CasTrim.Install": 1,
+        "CasTrim.Probe": 1,
+        "CasTrim.MinAgeSec": 60,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "MemDiag.RcCensus": 1,
+        "MemDiag.AllocSites": 1,
+        "MemDiag.AllocSitesSample": 64,
+        "MemDiag.AllocSitesTop": 32,
+        "CasTrim.Mode": 4
+      },
+      "logRequire": {
+        "^OK   detour SimService_Save at ": 1,
+        "^OK   detour SimOutfit_AddRef at ": 1,
+        "^OK   detour Compositors_Write at ": 1,
+        "^OK   detour IC_SimBuilderCacheOutfit at ": 1,
+        "^OK   detour Parse_FallbackBranch at ": 1,
+        "^OK   cas trim probe sites: 3 call sites": 1,
+        "^cas trim: P5 save #\\d+ ": 3,
+        "^cas trim: save #\\d+ mode \\d: registry ": 3,
+        "^diag: castrim #\\d+ mark ": 3,
+        "^allocsites: #\\d+ mark ev=cc-cycle ": 3
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 24,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "compositor-churn"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 50,
+      "earlyGates": [
+        {
+          "afterSec": 30,
+          "counter": "ctMissed",
+          "op": "<=",
+          "value": 0,
+          "why": "a find of an erased key failed: a Sim wanted a swept texture back"
+        },
+        {
+          "afterSec": 30,
+          "counter": "ctOtherThread",
+          "op": "<=",
+          "value": 0,
+          "why": "registry inserts from a second thread (I-942-4)"
+        },
+        {
+          "afterSec": 600,
+          "counter": "ctSaves",
+          "op": ">=",
+          "value": 1,
+          "why": "no native save seen 10 min in: the save detour is not in, or the repro did not save"
+        },
+        {
+          "afterSec": 600,
+          "counter": "ctRefused",
+          "op": "<=",
+          "value": 0,
+          "why": "mode 4 refused a save: read the \"cas trim: save #N\" line (P5 order, keep list, thread)"
+        }
+      ]
+    },
+    {
+      "id": "bp-compositor-sweep",
+      "note": "Correctness (24 min), Mode 3: repro compositor-churn. Run only after bp-compositor-probe passed P5. Pass: ctSwept > 0, ctMissed 0, rcN and registry flat from the second cycle, shots match start, no new exception or stuck Sim.",
+      "asi": "game-copy/asi-castrim3/ts3native.asi",
+      "pinReason": "a build of feature/castrim-mode3 (native + ts3fixes change)",
+      "fixesPackage": "game-copy/asi-castrim3/ts3fixes.package",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "CasTrim.Install": 1,
+        "CasTrim.Probe": 1,
+        "CasTrim.MinAgeSec": 60,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "MemDiag.RcCensus": 1,
+        "MemDiag.AllocSites": 1,
+        "MemDiag.AllocSitesSample": 64,
+        "MemDiag.AllocSitesTop": 32,
+        "CasTrim.Mode": 3
+      },
+      "logRequire": {
+        "^OK   detour SimService_Save at ": 1,
+        "^OK   detour SimOutfit_AddRef at ": 1,
+        "^OK   detour Compositors_Write at ": 1,
+        "^OK   detour IC_SimBuilderCacheOutfit at ": 1,
+        "^OK   detour Parse_FallbackBranch at ": 1,
+        "^OK   cas trim probe sites: 3 call sites": 1,
+        "^cas trim: P5 save #\\d+ ": 3,
+        "^cas trim: save #\\d+ mode \\d: registry ": 3,
+        "^diag: castrim #\\d+ mark ": 3,
+        "^allocsites: #\\d+ mark ev=cc-cycle ": 3
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 24,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "compositor-churn"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 50,
+      "earlyGates": [
+        {
+          "afterSec": 30,
+          "counter": "ctMissed",
+          "op": "<=",
+          "value": 0,
+          "why": "a find of an erased key failed: a Sim wanted a swept texture back"
+        },
+        {
+          "afterSec": 30,
+          "counter": "ctOtherThread",
+          "op": "<=",
+          "value": 0,
+          "why": "registry inserts from a second thread (I-942-4)"
+        },
+        {
+          "afterSec": 600,
+          "counter": "ctSaves",
+          "op": ">=",
+          "value": 1,
+          "why": "no native save seen 10 min in: the save detour is not in, or the repro did not save"
+        },
+        {
+          "afterSec": 600,
+          "counter": "ctRefused",
+          "op": "<=",
+          "value": 0,
+          "why": "mode 3 refused a save: read the \"cas trim: save #N\" line (P5 order, keep list, thread)"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": true
+}

@@ -1,16 +1,16 @@
 # 539. ResourceCache compositor growth: holder, liveness, in-process fix (2026-11-07)
 
-Static RE on Steam TS3W.exe 1.67 (Capstone disassembly of `game-copy/bin/TS3W.exe`, decompiled scripts, `native/ts3native/castrim.cpp`); no game run. Measured numbers come from Dalexlol's runs on his old save (PR #284, #285, `docs/data/results/2026-11-05-alexvixell35-stack-*`), treated as data and not re-measured here. Goal (Rodney, 2026-11-07): keep it in process, stop the growth, reuse and release what is unused, household Sims untouched.
+Static RE on Steam TS3W.exe 1.67 (Capstone disassembly of `game-copy/bin/TS3W.exe`, decompiled scripts, `native/ts3native/castrim.cpp`); no game run. Measured numbers come from Dalexlol's runs on his old save (PR #284, #285, `docs/data/results/2026-11-05-alexvixell35-stack-*`), treated as data and not re-measured here. The probes and Mode 3 of §6 and §7 are built (§7, ledger §446), selftest only, never run in the game. Goal (Rodney, 2026-11-07): keep it in process, stop the growth, reuse and release what is unused, household Sims untouched.
 
-Tags: [verified] = read in the disassembly or scripts, or logged in a run; [measured] = a run's numbers; [community]; [inferred] = reasoning, needs a probe. Ledger: docs/51 §445.
+Tags: [verified] = read in the disassembly or scripts, or logged in a run; [measured] = a run's numbers; [community]; [inferred] = reasoning, needs a probe. Ledger: docs/51 §445, §446.
 
 ## 0. Short answer
 
 - **Holder:** the CAS compositor service registry, a hash map at SimService `+0x104` (buckets `+0x108`, count `+0x10C`, size `+0x110`), node copy AddRef `0x5ED8B8` [verified code; measured: 78% of its entries sit at exactly 2 references]. The brief's "second reference is elsewhere" is already answered by PR #284.
 - **Leak or cache:** a leak with a working cache behind it. The registry has no release path in play. When an outfit is dropped (`Uncache` `0x5EE5A0`) its compositors stay in the registry for good, so the ResourceCache never sees them go cold.
 - **New in this doc:** EA already computes which compositors are live, at every save (`0x5EFD60`, §2.3). Anything in the registry outside that set would not survive a save and reload in the unmodified game. That gives a sharper "unused" test than CasTrim's age and op-list rules, and it corrects ledger I-942-2 (the registry is read at save, not only by export code).
-- **Size, read this first:** these entries are small. CasTrim erased 120k of them and `priv` fell 19 MB, `eaRes` 8 MB, largest free block no better (662 vs 675 MB, noise) [measured, al247 vs al251]. The "~1 KB per entry" in the brief was a correlation; about 170-270 bytes each is what the code and the on/off run support (§2.4). **For Error 12 this is a long-session fix, not a 60-minute one:** about 40-50 MB per hour on that save [inferred], so it should show from about hour 3 on, and in `rcN` straight away.
-- **Recommended:** `[CasTrim] Mode=3`, a save sweep on top of the existing module (§6, option 1), after the probes in §7. Also read the outfit map's size (§6, option 3): it may hold more bytes than the registry.
+- **Size, read this first:** these entries are small. CasTrim erased 120k of them and `priv` fell 19 MB, `eaRes` 8 MB, largest free block no better (662 vs 675 MB, noise) [measured, al247 vs al251]. The "~1 KB per entry" in the brief was a correlation. Two bounds stand: 170-270 B each from the code and `priv` (§2.4), 75-170 B each from Dalexlol's reading of the same run pair (issue #40). **P7 decides.** **For Error 12 this is a long-session fix, not a 60-minute one:** 14-52 MB per hour on that save across both bounds [inferred], so it should show from hour 3 or later, and in `rcN` straight away.
+- **Recommended:** `[CasTrim] Mode=3`, a save sweep on top of the existing module (§6, option 1), after the probes in §7 (both built, off by default, not run). Also read the outfit map's size (§6, option 3): it may hold more bytes than the registry.
 
 ## 1. Lifecycle of one compositor
 
@@ -64,6 +64,8 @@ Release `0x731D40`: at the last reference, vtable `+0x14` = `0x607970`. On the m
 | Sim outfit records | the third reference for live outfits (29,999 of 135,261 at 3+) [measured] |
 | Scene or model | via the outfit; not separately traced |
 | Managed handle | no: the script `SimOutfit` wrapper holds a key and an outfit handle, not a compositor reference [verified script]; a finalizer cannot be the holder of 2-reference entries, since the registry accounts for them [measured] |
+| CAS geometry `0x5C7906` | allocated in `CAS/GeometryResource` load `0x5C75E0`, buffer at `+0x80`, size `[+0x7C]` x `[+0x78]` [verified]. Who keeps the object alive is not traced; `ctGeoKB` counts bytes allocated, RcCensus the live ones |
+| CAS blend data `0x5A2FFF` | allocated in `CAS/BlendGeometryResource/BlendRegionData` load `0x5A2D70` (from `0x5A3320`), buffer at `+0x30` [verified]. Holder not traced; `ctBlendKB` as above |
 | `Lot/CompositorManager` | second holder: 292 of 1,031 sampled, none in the registry; counted per lot object, intended data [verified counted add and remove exist; release not read in full] |
 
 ## 2. Leak, retained cache or intended data
@@ -94,15 +96,17 @@ The count comes from script: `OutfitCategoryMap`'s persist writer calls `sSimOut
 
 Consequence: registry entries outside the cross-referenced set are not in the save. After a reload the unmodified game does not have them. That is also why the old save starts at 29k and grows from there [inferred].
 
-Correction: I-942-2 and `castrim.cpp`'s comment say the map is read only by export code. `0x5EFD60` and the service teardown `0x5F0BA0` read it too.
+Correction: I-942-2 said the map is read only by export code (`castrim.cpp`'s comment is fixed). `0x5EFD60` and the service teardown `0x5F0BA0` read it too.
 
 ### 2.4 What an entry costs
 
 - Fixed: `0x68` + registry node `0x1C` + cache node + heap headers, about 170-200 B; the cache's own figure is `0x68 + 4 x ops` (`0x607970`). Child vector data on top [inferred, not sized].
 - al247 vs al251: 111k fewer entries, `priv` -19 MB = 170 B each. If the off arm did not install CasTrim's 11 MB tables (`VirtualAlloc`, committed) the real figure is about 30 MB = 270 B [inferred; not stated in the run].
+- Dalexlol's reading of the same pair (issue #40, 2026-11-07): `eaRes` -8 MB and `priv` -19 MB over 111k fewer entries = **75-170 B each**, so 170-270 B starts at his upper bound. With al247's off arm (`rcN` +142k in 45 min, about 190k/h) that is **14-32 MB/h**, not 33-52.
+- **P7 is the decider** between the two; every size figure in this doc stays a bound until it has run.
 - `eaRes` -8 MB is a low bound: freed heap slots stay in the core.
 - The "1 KB" in the brief is `eaRes` over `rcN` in the same window, which does not hold up: with the trim on, `eaRes` still grew +96 MB against +108 MB.
-- Rate: off arm 3.2k entries per minute after minute 15. At 170-270 B that is 33-52 MB/h, linear, plus bucket arrays (two tables at 300k entries are about 1-2 MB each and move on rehash; `eaDirN` +54 off vs +9 on) [inferred].
+- Rate: off arm 3.2k entries per minute after minute 15. At 170-270 B that is 33-52 MB/h (at 75-170 B, 14-32 MB/h), linear, plus bucket arrays (two tables at 300k entries are about 1-2 MB each and move on rehash; `eaDirN` +54 off vs +9 on) [inferred].
 
 ## 3. What creates them
 
@@ -172,7 +176,7 @@ A plain cap (evict oldest past N) can hit a live outfit. It is what age-based Ca
 
 | # | Option | Hook | Effect | Risk | Effort |
 |---|---|---|---|---|---|
-| 1 | **`[CasTrim] Mode=3`, save sweep** | detour `0x5ED3E0` (one caller), fourth argument = live set; snapshot registry entries at exactly 2 refs, part vtable, not live, not `Named`, not on the keep list; erase on the insert thread as today | registry = live set after each save; `rcN` flat across saves; ~33-52 MB/h kept on the old save; replaces the age rule and needs no 11 MB tables | a session with no save trims nothing; relies on script AddRef running before the native save (P5) | agent build ~45 min; game below |
+| 1 | **`[CasTrim] Mode=3`, save sweep** | detour `0x5ED3E0` (one caller), fourth argument = live set; snapshot registry entries at exactly 2 refs, part vtable, not live, not `Named`, not on the keep list; erase on the insert thread as today | registry = live set after each save; `rcN` flat across saves; ~14-52 MB/h kept on the old save (§2.4); replaces the age rule and needs no 11 MB tables | a session with no save trims nothing; relies on script AddRef running before the native save (P5) | agent build ~45 min; game below |
 | 2 | Uncache release | detour `0x5EE5A0`: gather `0x5E7690` closure first, after EA's call erase those at 2 refs and not `Named` | immediate, O(parts), no save needed; covers only outfits that get `Uncache`d | children shared by key with a live parent: `Named` needed | ~45 min, after P1 shows its share |
 | 3 | Outfit map reaper (research first) | read `+0xE0` and the count-0 share; if it grows, reap count-0 outfits nobody uses | unknown; each is 0x2D0 + records, and may pin CAS geometry (`0x5C7906` +16.6 MB in 20 min, al239) | an outfit in use by a script field; needs a third-reference test | probe ~30 min; design after |
 | 4 | Keep Mode 1 (age + `Named` + `Async`) | exists | 79% less `rcN` growth, 0 misses in 120k [measured] | 5 would-miss in count mode, no gain in `big` | none; baseline arm |
@@ -182,8 +186,10 @@ A plain cap (evict oldest past N) can hit a live outfit. It is what age-based Ca
 
 **Mode 3 design notes:**
 
-- Keep rule, in order: erase only when refs == 2, vtable is a part compositor, not in EA's live set, not named by a compositor at 3+ refs (existing `Named`), key not on the keep list, last insert or find older than `MinAgeSec` (60 s, for builds in flight).
-- **Household and selected Sim:** ts3fixes pushes the outfit keys of the active household, the selected Sim, their `CurrentOutfit` and maternity maps before a save; the native side closes them over `0x5E7690`. A Sim of unknown scope counts as household. They are in EA's set already, so this is a belt on top, and a key on the list that EA's set misses is logged.
+- Keep rule, as built: erase only when (1) refs == 2, (2) vtable is a part compositor, (3) not in EA's live set, (4) not named by any survivor (`Named`), (5) key not on the keep list, (6) last insert or find older than `MinAgeSec` (60 s, for builds in flight), (7) never found through the async loader `0x729E10` (`Async`: al249's 6 would-miss all came that way, from an outfit load `0x5E9AA0` -> `0x5E55B0` -> `0x5E53E0`, and al251's 0 misses depended on it; Dalexlol, issue #40). All must hold, so the order only decides which counter a kept entry lands in.
+- `Named` runs last and to a fixed point (up to 64 rounds): every survivor of any kind names its children, a named candidate survives and names its own. A full table or no fixed point keeps everything.
+- Refusals, logged, nothing swept: no keep list, list incomplete or stale (10 min), no script mark between the keep list and the native save (the P5 order), CAS or Edit Town, a save off the insert thread, an empty live set. Mode 4 logs the same reason as "would refuse".
+- **Household and selected Sim:** ts3fixes (`CasTrimKeep.cs`, detour of `OptionsModel.SaveGameSynchronous`) pushes the outfit keys of the active household, the selected Sim, their `CurrentOutfit` and maternity maps before a save; the native side closes them over `0x5E7690`. A Sim of unknown scope counts as household. They are in EA's set already, so this is a belt on top, and a key on the list that EA's set misses is logged.
 - **Stand-down:** no sweep while CAS or Edit Town is open (conservative: exports read the registry there) and none during a save; erase batches run after the save returns.
 - **Export:** `Contains` `0x5EDAB0` (Sim, lot and world export). Live outfits are kept, so a live Sim exports as today; a manual check stays in the matrix, as for CasTrim.
 - **Save data:** no change to what is written, since the sweep only removes what EA did not write. No mod data in saves.
@@ -192,28 +198,29 @@ A plain cap (evict oldest past N) can hit a live outfit. It is what age-based Ca
 
 ## 7. Test plan
 
-Switch `[CasTrim] Mode=3` (runtime `ctMode`, `--ab castrim`), off by default, `Mode=4` = count only. Counters: new `ct*` slots (`node tools/registry.ts reserve native`), `ctSaves`, `ctLive`, `ctDoomed`, `ctSwept`, `ctKeptHousehold`, plus the existing `ctWouldMiss`, `ctMissed`, `ctOtherThread`.
+Built 2026-11-07, ts3native 0.36.187, branch `feature/castrim-mode3`, selftest only (ledger §446). Switch `[CasTrim] Mode=3` (runtime `ctMode`, `--ab castrim`), off by default, `Mode=4` = count only, `Probe=1` = P1-P3, P6. Counters v171 (docs/registry.md): `ctSaves`, `ctLive`, `ctDoomed`, `ctSwept`, `ctKeptHousehold` and the rest of the block, plus the existing `ctWouldMiss`, `ctMissed`, `ctOtherThread`. Script channel: text ops 14-19 (0x87), answered false below Mode 3. Tables grow from 11 to 14 MB when installed. Queues: `tools/harness/queues/compositor-probe.json` (Baseline-BP, Mode 4, then Mode 3), `compositor-probe-oldsave.json` (Dalexlol, `1111 kit5`, 65 min, Mode 4, all probes).
 
-**Stress repro `compositor-churn`** (extends `castrim-checks`; memory work uses stress cycles, not soaks): six unseen NPCs and two household Sims, each cycle uniform on, uniform off, new NPC, age a townie, save to a scratch file; a mem mark per cycle: `rcN`, RcCensus per type, registry size, outfit map size, `eaRes`, `big`, `priv`. Pass: `rcN` and registry flat across cycles, `ctMissed` 0, no missing texture in live and CAS shots at start, after a sweep, after reload, after travel. Then one old-save pair on Dalexlol's setup (contributor harness rule).
+**Stress repro `compositor-churn`** (in `repros.json`, extends `castrim-checks`; memory work uses stress cycles, not soaks; `outfit_change` stands in for a uniform, the agent has no uniform command): six NPCs and two household Sims, each cycle uniform on, uniform off, new NPC, age a townie (`age_up` `pick: townie`), save to a scratch file; a mem mark per cycle: `rcN`, RcCensus per type, registry size, outfit map size, `eaRes`, `big`, `priv`. Pass: `rcN` and registry flat across cycles, `ctMissed` 0, no missing texture in live and CAS shots at start, after a sweep, after reload, after travel. Then the old-save run on Dalexlol's setup (repro `compositor-oldsave`; contributor harness rule).
 
 **Probes for what static work cannot prove:**
 
 | # | Probe | Hook | Answers |
 |---|---|---|---|
-| P1 | count per `CacheOutfit` name prefix | `0x5A5D40` | which event drives the growth, seen vs unseen |
+| P1 | count per `CacheOutfit` name prefix | `0x5A5D40` | which event drives the growth (names only: seen vs unseen does not show natively) |
 | P2 | count per caller of `0x5EECD0` | returns `0x5E299E`, `0x5E8AB1`, `0x5EA943`, `0x99C299` | builder vs fallback paths |
 | P3 | sizes each mem line | read `+0x110`, `+0xE0`, count-0 share | option 3 |
-| P4 | Mode 4 at each save | `0x5ED3E0` | live vs registry; doomed count; later finds of doomed keys |
+| P4 | Mode 4 at each save | `0x5ED3E0` | live vs registry; doomed count; later finds of doomed keys, `ctDoomedAsync` for those through `0x729E80` (a key found there is one Mode 3 must not lose); MISSED uses the same 2^18 erased-key table as Mode 1 |
 | P5 | order and timing | `0x5EE090` vs `0x5EFD60` | script marks before the native save; what `[0x11ECBC4]+0x45` means; which thread saves |
 | P6 | fallback branch count | `0x5EA84A` | how often a miss rebuilds, or fails |
-| P7 | bytes per entry | AllocSites on one tag | replaces §2.4's estimate |
+| P7 | bytes per entry, **decides §2.4** | AllocSites on one tag: every cycle marks `cc-cycle`, so its `cyc` rows give growth per cycle | replaces both bounds of §2.4 |
+| P8 | `+0xE0` outfit map size, CAS geometry and blend bytes | P3's line; call sites `0x5C7901`, `0x5A2FFA` | option 3; lead 4 of §9 (`ctGeoKB`, `ctBlendKB`: bytes allocated, not live) |
 
 **Effort** (agent build ~10-60 min, live job ~8-15 min):
 
 | Step | Agent | Game |
 |---|---|---|
-| P1-P6 in one MemDiag round | ~45 min | 1 job, ~15 min; old save ~65 min (Dalexlol) |
-| Mode 3 + selftest (fake registry, fake live set, keep list) | ~45-60 min | `compositor-churn` ~15 min + repro entry ~20 min |
+| P1-P6 in one MemDiag round | done | 1 job, ~24 min; old save ~65 min (Dalexlol) |
+| Mode 3 + selftest (fake registry, fake live set, keep list) | done | `compositor-churn` ~24 min |
 | Texture checks | | `castrim-checks` ~64 min |
 | Option 2, if P1 supports it | ~45 min | 1 job ~15 min |
 
@@ -233,9 +240,9 @@ No clean night needed: this is correctness plus marks, not timing.
 ## 9. Still unproven
 
 1. Which event drives 46 inserts/s (P1). §3 is a list, not a ranking.
-2. That script's AddRef pass runs before the native save in every save type: autosave, travel, quit (P5).
-3. Bytes per entry: §2.4 is a bound from one run pair (P7). Whether al247 had the tables installed.
-4. Why `eaRes` stops at ~873 MB in one run but grows in others; what the remaining +96 MB is. Lead: `0x5C7906` CAS geometry; the outfit map (P3).
+2. That script's AddRef pass runs before the native save in every save type: autosave, travel, quit (P5). A save that does not pass `SaveGameSynchronous` has no keep list and refuses, so it sweeps nothing.
+3. Bytes per entry: §2.4 holds two bounds from one run pair (P7 decides). Whether al247 had the tables installed.
+4. Why `eaRes` stops at ~873 MB in one run but grows in others; what the remaining +96 MB is. Lead: `0x5C7906` CAS geometry and `0x5A2FFF` blend data (owners in §1.6, holders not traced); the outfit map (P3).
 5. On-screen effect of handle -1 and of the uniform-masked no-rebuild branch. Marked no crash [inferred], and both are kept away by the keep rules.
 6. Whether outfits outside the map name compositors (the 5 would-miss of al250: an outfit reloaded by key, no database has the key). Their key source is not traced; Mode 4 shows whether doomed keys are found later. The fallback (§5.3) should cover them.
 7. Part record `+0x64` (Parse `0x5EA6B7`, set after a lookup-table hit `0x5DF2E0`): how many outfits rebuild compositors at every parse (P2). If many, that is a second, separate growth path.

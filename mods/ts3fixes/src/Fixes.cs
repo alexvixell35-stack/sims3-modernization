@@ -100,6 +100,7 @@ namespace Ts3Fixes
             ApplyDeadRefs();
             ApplyEaVacation();
             ApplyCompaction();  // docs/204: hooks only with ts3native [Compaction] Enabled=1 or 2
+            ApplyCasTrimKeep();  // docs/539: hooks only with [CasTrim] save hooks in native
         }
 
         // Patches that go in only when a tuning is on (docs/124 §17.8): Apply cannot read tunings (C# defaults there), so these

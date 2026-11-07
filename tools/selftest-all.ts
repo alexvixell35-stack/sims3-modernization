@@ -50,6 +50,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/harness/machine-load.ts': { why: 'Windows PowerShell counters' },
   'tools/harness/night-run.ts': { why: 'Windows session lock query' },
   'tools/harness/layout-map.ts': CSC,
+  'tools/harness/stove-repeat-core.ts': CSC,
   'tools/binder-bodies.ts': { why: 'game script assemblies', needs: 'game-copy/assemblies/mscorlib.dll' },
   'tools/offload-override-scan.ts': { why: 'game script assemblies', needs: 'game-copy/assemblies/ScriptCore.dll' },
   'tools/mod-method-diff.ts': { why: 'game script assemblies', needs: 'game-copy/assemblies/ScriptCore.dll' },

@@ -1,0 +1,31 @@
+{
+  "note": "stove-wall-repeat on the v0.2.10 hotfix candidate (2026-11-07): 50 full bakes on a long kitchen run, then 50 mix orders, stop at the first failure. Correctness only. v0210c has no diag lines: read candidates and plan lines. A job PASS only says it ran.",
+  "jobs": [
+    {
+      "id": "stove-wall-repeat-v0210c",
+      "asi": "game-copy/ts3native.asi.v0210c",
+      "fixesPackage": "game-copy/asi-v029/ts3fixes.package",
+      "iniBase": "game-copy/ts3native.ini.v0210c",
+      "pinReason": "v0.2.10 hotfix candidate: asi v0210c 43a719dabe02 (0.36.168d), ini game-copy/ts3native.ini.v0210c, ts3fixes = v0.2.9 package; no diag lines; agent package from master by cycle.ts",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "stove-repeat: layout ok": 1,
+        "stove-repeat: end": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 150,
+          "repro": "stove-wall-repeat",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 170
+    }
+  ]
+}

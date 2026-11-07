@@ -1,0 +1,81 @@
+{
+  "note": "docs/539 §7, Dalexlol (issue #40): the same probes on his old save, Mode 4 only: counts, no change to anything. Steam. His Apex Radiance stays as he runs it: ApexStandDown=0 lets AllocSites run next to it (his al239 setup), and every eaRes number stays Apex-in-the-path, as in al239. Needs a build of feature/castrim-mode3, ts3fixes included.",
+  "jobs": [
+    {
+      "id": "oldsave-compositor-probe",
+      "note": "Correctness (65 min), Mode 4, probes P1-P7: repro compositor-oldsave. Pass: 5 \"cas trim: save\" lines with ctRefused 0. Decides: size per entry (P7, docs/539 §2.4), what drives the growth (P1, P2), live vs registry and whether doomed keys are wanted later (P4, above all doomedAsync), outfit map size and count-0 share (P3), geoKB / blendKB against eaRes.",
+      "asi": "game-copy/asi-castrim3/ts3native.asi",
+      "pinReason": "a build of feature/castrim-mode3 (native + ts3fixes change)",
+      "fixesPackage": "game-copy/asi-castrim3/ts3fixes.package",
+      "save": "1111 kit5",
+      "noiseCheck": false,
+      "ini": {
+        "CasTrim.Install": 1,
+        "CasTrim.Probe": 1,
+        "CasTrim.MinAgeSec": 60,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "MemDiag.RcCensus": 1,
+        "MemDiag.AllocSites": 1,
+        "MemDiag.AllocSitesSample": 64,
+        "MemDiag.AllocSitesTop": 32,
+        "CasTrim.Mode": 4,
+        "Compat.ApexStandDown": 0
+      },
+      "logRequire": {
+        "^cas trim: P5 save #\\d+ ": 5,
+        "^cas trim: save #\\d+ mode 4: registry ": 5,
+        "^diag: castrim #\\d+ mark ": 5,
+        "^allocsites: #\\d+ mark ev=cc-cycle ": 5
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 65,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "compositor-oldsave"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 90,
+      "earlyGates": [
+        {
+          "afterSec": 30,
+          "counter": "ctMissed",
+          "op": "<=",
+          "value": 0,
+          "why": "a find of an erased key failed: a Sim wanted a swept texture back"
+        },
+        {
+          "afterSec": 30,
+          "counter": "ctOtherThread",
+          "op": "<=",
+          "value": 0,
+          "why": "registry inserts from a second thread (I-942-4)"
+        },
+        {
+          "afterSec": 600,
+          "counter": "ctSaves",
+          "op": ">=",
+          "value": 1,
+          "why": "no native save seen 10 min in: the save detour is not in, or the repro did not save"
+        },
+        {
+          "afterSec": 600,
+          "counter": "ctRefused",
+          "op": "<=",
+          "value": 0,
+          "why": "mode 4 refused a save: read the \"cas trim: save #N\" line (P5 order, keep list, thread)"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": true
+}

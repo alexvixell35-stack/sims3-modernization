@@ -73,7 +73,7 @@ namespace Ts3Fixes
             }
 
             // PlanBackoff, before the plan. Returns with the Sim moved, or as it was: the plan below is right either way
-            void UbTrip(Sim sim)
+            void UbTrip(Sim sim, bool marked)
             {
                 if (sStuckIn || sInOwnCheck || sInRoutableCheck || sUfInLeg || Simulator.CurrentTask != sim.ObjectId) return;  // UfPlanBody's rule
                 if (!GetOption2(Sims3.SimIFace.Route.RouteOption2.EnablePlanningAsBoat) || UfCarOrBoat(true)) return;
@@ -104,7 +104,6 @@ namespace Ts3Fixes
                     if (why != null) { UbSample(sim, UbCore.LeaveReason(leave, why), goal, dest, start, colours, caller); return; }
                 }
                 catch (Exception e) { c[841]++; UbSample(sim, UbCore.LeaveReason(leave, "threw " + e.GetType().Name), goal, dest, start, colours, caller); return; }  // a gate failure costs nothing but the exact plan
-                bool marked = sUfLastMarked;
                 if (marked) UfSend(2);  // unseenfbplan's cut mark is for the plan, not for a wait
                 try { UbGo(sim, trip, goal, dest, start, place, c, colours, caller, leave); }
                 finally { if (marked) UfSend(1); }

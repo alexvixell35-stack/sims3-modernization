@@ -32,7 +32,7 @@ static void CtsKids(DWORD o) {  // B and the new one name C (its node's key) as 
 
 static void TestCasTrim() {
     static_assert(offsetof(Ts3nCounters, ctMode) == 0x5CF0 && offsetof(Ts3nCounters, ctOtherThread) == 0x5D14 &&
-                      sizeof(Ts3nCounters) == 5984 * 4,
+                      sizeof(Ts3nCounters) == 6030 * 4,
                   "counters v912 layout after v908 and the held block (docs/registry.md)");
     Ts3nCounters& z = ts3native_counters;
     const CtEraseFn erase0 = g_ctErase;
@@ -172,4 +172,273 @@ static void TestCasTrim() {
     memset(g_ctNm[0], 0, CT_NAMED * 4), memset(g_ctNm[1], 0, CT_NAMED * 4), g_ctNmFull[0] = g_ctNmFull[1] = false, g_ctKidsFn = CtKidsEa;
     g_ctCycles = g_ctKids = g_ctKept = 0, g_ctCyB = g_ctCyNb = g_ctCyAt = g_ctCyMs = 0, g_ctNamed = named0, g_ctNeedDb = needDb0;
     g_ctAsync = async0, g_ctKeptAs = 0, memset((void*)g_ctFromN, 0, sizeof(g_ctFromN));
+}
+
+// TestCasTrimSweep: [CasTrim] Mode 3 / 4 (docs/539 §6, ledger §446) through the real hooks, in EA's order: ts3fixes' ops, the script
+// marks, the save hook, the writer hook, ops 17 and 18. Fake registry, live set, outfit closure, children; no game code runs.
+enum { CSW_A, CSW_LIVE, CSW_KID, CSW_GRAND, CSW_YOUNG, CSW_YKID, CSW_HH, CSW_ASYNC, CSW_REF3, CSW_OTHER, CSW_LOOSE, CSW_N };
+static u8 g_cswSvc[0x114], g_cswNode[CSW_N][0x1C], g_cswLiveNode[0x1C], g_cswLive[0x20];
+static DWORD g_cswBkt[4], g_cswLiveBkt[1], g_cswComp[CSW_N][4], g_cswErased;
+static bool g_cswFault;
+static const u8* cswKey(int i) { return g_cswNode[i]; }
+static DWORD cswO(int i) { return (DWORD)(uintptr_t)g_cswComp[i]; }
+static void CswKids(DWORD o) {  // LIVE names KID, KID names GRAND (a chain through 2-reference survivors), YOUNG names YKID, A names LOOSE
+    if (g_cswFault) *(volatile DWORD*)16 = 0;
+    if (o == cswO(CSW_LIVE)) CtNmAdd(cswKey(CSW_KID));
+    if (o == cswO(CSW_KID)) CtNmAdd(cswKey(CSW_GRAND));
+    if (o == cswO(CSW_YOUNG)) CtNmAdd(cswKey(CSW_YKID));
+    if (o == cswO(CSW_A)) CtNmAdd(cswKey(CSW_LOOSE));
+}
+static void CswKeep(u8*, const u8* live) { if (g_ctKeepN) CtKeepAdd(cswKey(CSW_HH), live); }  // the closure of the pushed outfit: one compositor
+static bool __fastcall CswErase(u8* svc, void*, const void* key) {
+    void* o = NULL;
+    CtFindHook(NULL, NULL, key, &o);
+    DWORD* b = *(DWORD**)(svc + 0x108);
+    const DWORD* k = (const DWORD*)key;
+    for (DWORD* p = &b[(k[0] ^ k[3]) % *(DWORD*)(svc + 0x10C)]; *p; p = (DWORD*)(uintptr_t)(*p + 0x18))
+        if (!memcmp((const void*)(uintptr_t)*p, key, 16)) {
+            *p = *(DWORD*)(uintptr_t)(*p + 0x18), (*(DWORD*)(svc + 0x110))--, g_cswErased++;
+            return true;
+        }
+    return false;
+}
+static bool g_cswSaveOk = true, g_cswWriteOk = true;
+static const u8* g_cswLiveArg;
+static bool __fastcall CswWrite(u8*, void*, void*, void*, void*, const u8*) { return g_cswWriteOk; }
+static bool __fastcall CswSave(u8* svc, void*, void*) { CtWriteHook(svc, NULL, NULL, NULL, NULL, g_cswLiveArg); return g_cswSaveOk; }
+static void __fastcall CswMark(u8*, void*, const void*) {}
+static void CswReset() {  // the fixture as a save finds it: everything idle for 2 min
+    Ts3nCounters& z = ts3native_counters;
+    const LONG refs[CSW_N] = {2, 3, 2, 2, 2, 2, 2, 2, 3, 2, 2};  // LIVE: 3, its reference from the live set included
+    memset(g_ct, 0, CT_SLOTS * sizeof(CtEnt)), memset(g_cswBkt, 0, sizeof(g_cswBkt));
+    const DWORD now = GetTickCount();
+    for (int i = 0; i < CSW_N; i++) {
+        g_cswComp[i][0] = i == CSW_OTHER ? 0x12345678 : (DWORD)(uintptr_t)g_ctsVt[i & 1], g_cswComp[i][1] = (DWORD)refs[i] << 8 | 1;
+        memset(g_cswNode[i], 0, 0x1C);
+        *(DWORD*)g_cswNode[i] = 0xC00 + i, *(DWORD*)(g_cswNode[i] + 8) = 0x033A1435, *(DWORD*)(g_cswNode[i] + 12) = 0x77;
+        *(DWORD*)(g_cswNode[i] + 0x10) = cswO(i);
+        DWORD* slot = &g_cswBkt[(*(DWORD*)g_cswNode[i] ^ 0x77) % 4];
+        *(DWORD*)(g_cswNode[i] + 0x18) = *slot, *slot = (DWORD)(uintptr_t)g_cswNode[i];
+        if (i != CSW_OTHER) { CtEnt* t = CtSlot(cswO(i), true); t->seen = t->used = now - 120000; }
+    }
+    CtSlot(cswO(CSW_YOUNG), false)->used = now - 5000;
+    InterlockedOr(&CtSlot(cswO(CSW_ASYNC), false)->from, 1);
+    *(DWORD*)(g_cswSvc + 0x108) = (DWORD)(uintptr_t)g_cswBkt, *(DWORD*)(g_cswSvc + 0x10C) = 4, *(DWORD*)(g_cswSvc + 0x110) = CSW_N;
+    memcpy(g_cswLiveNode, g_cswNode[CSW_LIVE], 0x18), *(DWORD*)(g_cswLiveNode + 0x18) = 0;
+    g_cswLiveBkt[0] = (DWORD)(uintptr_t)g_cswLiveNode;
+    memset(g_cswLive, 0, sizeof(g_cswLive));
+    *(DWORD*)(g_cswLive + 4) = (DWORD)(uintptr_t)g_cswLiveBkt, *(DWORD*)(g_cswLive + 8) = 1, *(DWORD*)(g_cswLive + 12) = 1;
+    g_cswLiveArg = g_cswLive, g_cswErased = 0, g_cswSaveOk = g_cswWriteOk = true, g_cswFault = false, g_ctLate = 0;
+    memset((void*)&z.ctSaves, 0, 26 * sizeof(LONG)), z.ctWouldMiss = z.ctMissed = z.ctInserts = 0;
+    memset((void*)g_ctGone, 0, CT_GONE * 4), g_ctFenceAt = 0, g_ctKeepN = 0, g_ctKeepOk = false, g_ctMarksF = 0, g_ctPendN = 0, g_ctPendGo = false, g_ctAfterSave = false;
+}
+static void CswBegin(DWORD stand, bool push, DWORD done) {  // ts3fixes before a save
+    assert(CtOp(14, stand) == 1);
+    if (push) for (int i = 0; i < 4; i++) assert(CtOp(15, ((const DWORD*)cswKey(CSW_HH))[i]) == 1);
+    assert(CtOp(16, done) == 1);
+}
+
+__declspec(naked) static void __fastcall CswFbEnter(DWORD) {  // a frame with the flag at [esp+0x13], a jmp in, the "trampoline" = back
+    __asm {
+        lea eax, back
+        mov g_ctFbOrig, eax
+        sub esp, 0x20
+        mov byte ptr [esp + 0x13], cl
+        jmp CtFbStub
+    back:
+        add esp, 0x20
+        ret
+    }
+}
+
+static void TestCasTrimSweep() {
+    static_assert(offsetof(Ts3nCounters, ctSaves) == 0x5D80 && offsetof(Ts3nCounters, ctBlendKB) == 0x5DE4 && sizeof(Ts3nCounters) == 6030 * 4,
+                  "counters v171 layout (docs/registry.md)");
+    Ts3nCounters& z = ts3native_counters;
+    const CtEraseFn erase0 = g_ctErase;
+    const DWORD vt0[2] = {g_ctVt[0], g_ctVt[1]}, minAge0 = g_ctMinAgeMs, svcAt0 = g_ctSvcAt;
+    const bool named0 = g_ctNamed, async0 = g_ctAsync, probe0 = g_ctProbe;
+    assert(CtAlloc());
+    g_ctErase = &CswErase, g_ctFind = &CtsFind, g_ctInsert = &CtsInsert, g_ctSave = &CswSave, g_ctWrite = &CswWrite, g_ctMark = &CswMark;
+    g_ctVt[0] = (DWORD)(uintptr_t)g_ctsVt[0], g_ctVt[1] = (DWORD)(uintptr_t)g_ctsVt[1];
+    g_ctMinAgeMs = 60000, g_ctNamed = g_ctAsync = true, g_ctKidsFn = &CswKids, g_ctKeepFn = &CswKeep, g_ctMaxErase = 8, g_ctsFound = NULL;
+    g_ctTid = GetCurrentThreadId();
+    const DWORD rmAt0 = g_ctRmAt;
+    g_ctsRmPtr = NULL, g_ctRmAt = (DWORD)(uintptr_t)&g_ctsRmPtr;  // no manager: "not asked"
+
+    // modes 0-2: the ops answer 0, the save hooks only pass through; op 19 says the hooks are in
+    CswReset();
+    z.ctMode = 2;
+    assert(CtOp(19, 0) == 1 && CtOp(14, 0) == 0 && CtOp(18, 0) == 0);
+    assert(CtSaveHook(g_cswSvc, NULL, NULL) && !z.ctSaves && !z.ctDoomed);
+
+    // Mode 4 full flow: the rules decide; nothing is erased, nothing pending. A, LOOSE and nobody else are doomed
+    CswReset();
+    z.ctMode = 4;
+    CswBegin(0, true, 1);
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    assert(CtSaveHook(g_cswSvc, NULL, NULL));
+    assert(z.ctSaves == 1 && z.ctLive == 1 && z.ctRegistry == CSW_N && z.ctMarks == 1 && z.ctMarksFence == 1 && !z.ctRefused);
+    assert(z.ctDoomed == 2 && CtSlot(cswO(CSW_A), false)->cand && CtSlot(cswO(CSW_LOOSE), false)->cand);
+    for (int i : {CSW_LIVE, CSW_KID, CSW_GRAND, CSW_YOUNG, CSW_YKID, CSW_HH, CSW_ASYNC, CSW_REF3}) assert(!CtSlot(cswO(i), false)->cand);
+    assert(z.ctKeptHousehold == 1 && z.ctKeptYoung == 1 && z.ctKeptAsync == 1 && z.ctKeptNamed == 3);  // KID, GRAND (fixed point), YKID
+    assert(z.ctKeepMissed == 1);  // HH is on the list but not in EA's set: logged, still kept (the belt)
+    assert(CtOp(17, 1) == 0 && CtOp(18, 0) == 0 && !g_cswErased && !z.ctSwept);
+    // P4: a doomed key found later: would miss; through the async loader it also counts as an outfit load's
+    void* pa = g_cswComp[CSW_A];
+    CtFound(true, cswKey(CSW_A), &pa, CT_ASYNC_RET, NULL);
+    assert(z.ctWouldMiss == 1 && z.ctDoomedAsync == 1 && !CtSlot(cswO(CSW_A), false)->cand);
+    void* pl = g_cswComp[CSW_LOOSE];
+    CtFound(true, cswKey(CSW_LOOSE), &pl, CT_GET_RET, NULL);
+    assert(z.ctWouldMiss == 2 && z.ctDoomedAsync == 1);
+    // P5 in mode 4: a pass after the native save is counted; no list and no marks: "would refuse", counted, still scanned
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    assert(g_ctMarksLate == 1);
+    CtOp(17, 1);
+    assert(CtSaveHook(g_cswSvc, NULL, NULL) && z.ctRefused == 1 && z.ctSaves == 2);
+
+    // Mode 3, order or state not met: every one refuses, nothing doomed, nothing to pump. The bad order is the P5 case
+    z.ctMode = 3;
+    const auto refused = [&](const char* why) {
+        assert(CtSaveHook(g_cswSvc, NULL, NULL) && z.ctRefused == 1 && !z.ctDoomed && !g_ctPendN);
+        assert(CtOp(17, 1) == 0 && CtOp(18, 0) == 0 && !g_cswErased);
+        printf("cas trim: refused as it must: %s\n", why);
+    };
+    CswReset(), z.ctMode = 3;  // no keep list at all (a save ts3fixes did not see, or an old package)
+    refused("no keep list");
+    CswReset(), z.ctMode = 3;
+    CswBegin(0, true, 1);  // the marks ran before the fence, or after the native save: none in between
+    refused("P5 order: no mark before the native save");
+    CswReset(), z.ctMode = 3;
+    CswBegin(0, true, 0);  // a script fault or an unknown state during the push
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    refused("keep list incomplete");
+    CswReset(), z.ctMode = 3;
+    CswBegin(1, false, 1);  // CAS or Edit Town open
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    refused("CAS or Edit Town");
+    CswReset(), z.ctMode = 3;
+    CswBegin(0, true, 1);
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    g_ctTid = GetCurrentThreadId() + 1;  // the save is not on the insert thread
+    refused("save off the insert thread");
+    g_ctTid = GetCurrentThreadId();
+    CswReset(), z.ctMode = 3;
+    CswBegin(0, true, 1);
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    g_ctFenceAt = GetTickCount() - CT_FENCE_MS - 1000;  // the list of a save that never ran
+    refused("stale keep list");
+    CswReset(), z.ctMode = 3;
+    CswBegin(0, true, 1);
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    *(DWORD*)(g_cswLive + 12) = 0;
+    refused("empty live set");
+
+    // a failed writer or a failed save sweeps nothing
+    CswReset(), z.ctMode = 3;
+    CswBegin(0, true, 1);
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    g_cswWriteOk = false;
+    assert(!CtSaveHook(g_cswSvc, NULL, NULL) || !z.ctDoomed);
+    assert(CtOp(17, 1) == 0);
+    CswReset(), z.ctMode = 3;
+    CswBegin(0, true, 1);
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    g_cswSaveOk = false;
+    assert(!CtSaveHook(g_cswSvc, NULL, NULL) && z.ctDoomed == 2 && CtOp(17, 0) == 0 && !g_cswErased);
+
+    // Mode 3 sweep: nothing during the save; after it, in batches. LOOSE was found after the save (spared, a would-miss), so only A goes
+    CswReset(), z.ctMode = 3;
+    CswBegin(0, true, 1);
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    assert(CtSaveHook(g_cswSvc, NULL, NULL) && z.ctDoomed == 2 && g_ctPendN == 2 && !g_cswErased);
+    assert(CtOp(18, 0) == 0 && !g_cswErased);  // the pump before the save returned does nothing
+    void* pl2 = g_cswComp[CSW_LOOSE];
+    CtFound(true, cswKey(CSW_LOOSE), &pl2, CT_GET_RET, NULL);
+    assert(z.ctWouldMiss == 1 && CtOp(17, 1) == 1);
+    g_ctMaxErase = 1;
+    while (CtOp(18, 0)) {}
+    assert(z.ctSwept == 1 && g_cswErased == 1 && g_ctLate == 1 && !CtMapFind(g_cswBkt, 4, cswKey(CSW_A)) && CtMapFind(g_cswBkt, 4, cswKey(CSW_LOOSE)));
+    assert(*(DWORD*)(g_cswSvc + 0x110) == CSW_N - 1);
+    // MISSED works on the 2^18 erased-key table: a failed find of A's key by anyone but EA's own scan
+    assert(CtFindHook(NULL, NULL, cswKey(CSW_A), &pa) == false);
+    CtFound(false, cswKey(CSW_A), NULL, CT_SCAN_RET, NULL);
+    assert(z.ctMissed == 1);
+
+    // re-checks at erase time: a compositor that picked up a third reference, or left the registry, stays out
+    CswReset(), z.ctMode = 3, g_ctMaxErase = 8;
+    CswBegin(0, true, 1);
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    assert(CtSaveHook(g_cswSvc, NULL, NULL));
+    g_cswComp[CSW_A][1] = 3 << 8 | 1;
+    assert(CtOp(17, 1) == 1 && CtOp(18, 0) == 0 && z.ctSwept == 1 && CtMapFind(g_cswBkt, 4, cswKey(CSW_A)));
+    // a new save clears what the last one left
+    CswReset(), z.ctMode = 3;
+    CswBegin(0, true, 1);
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    assert(CtSaveHook(g_cswSvc, NULL, NULL) && g_ctPendN == 2);
+    CswBegin(0, true, 1);
+    assert(!g_ctPendN && CtOp(18, 0) == 0);
+    // the pump off the insert thread drops the batch
+    CswReset(), z.ctMode = 3;
+    CswBegin(0, true, 1);
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    assert(CtSaveHook(g_cswSvc, NULL, NULL) && CtOp(17, 1) == 1);
+    g_ctTid = GetCurrentThreadId() + 1;
+    assert(CtOp(18, 0) == 0 && !g_cswErased && !g_ctPendN);
+    g_ctTid = GetCurrentThreadId();
+    // a full keep table sweeps nothing
+    CswReset(), z.ctMode = 3;
+    CswBegin(0, true, 1);
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    g_ctKeepFn = [](u8*, const u8*) { g_ctNmFull[1] = true; };
+    assert(CtSaveHook(g_cswSvc, NULL, NULL) && !z.ctDoomed && !g_ctPendN);
+    g_ctKeepFn = &CswKeep;
+    // a fault in the sweep turns the mode off
+    CswReset(), z.ctMode = 3;
+    CswBegin(0, true, 1);
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    g_cswFault = true;
+    assert(CtSaveHook(g_cswSvc, NULL, NULL) && !z.ctMode && !g_ctPendN);
+    g_cswFault = false;
+
+    // the inserts' sources (P2) and no walk in modes 3 and 4
+    CswReset(), z.ctMode = 4;
+    assert(CtInsertHook(g_cswSvc, NULL, (u8*)g_cswComp[CSW_KID]) == 1 && z.ctInserts == 1 && !z.ctScanned);
+    // P1: names up to the first digit, other past the table; a bad pointer costs nothing
+    memset(g_ctNames, 0, sizeof(g_ctNames)), g_ctNameOther = 0;
+    CtCountName(L"MakeSim123"), CtCountName(L"MakeSim456"), CtCountName(L"Shower");
+    CtCountName((const wchar_t*)16);
+    assert(z.ctCacheOutfit == 4 && g_ctNames[0].n == 2 && !strcmp(g_ctNames[0].s, "MakeSim") && g_ctNames[1].n == 1);
+    wchar_t nm[4] = L"xA";
+    for (int i = 0; i < 60; i++) nm[1] = (wchar_t)(L'A' + i), CtCountName(nm);
+    assert(g_ctNameOther == 60 - 46);
+    // P3: the sizes, read from a fake service, with a count-0 share
+    static u8 outf[2][0x1C];
+    static DWORD outB[2], slot;
+    memset(outf, 0, sizeof(outf));
+    *(DWORD*)(outf[0] + 0x14) = 3, outB[0] = (DWORD)(uintptr_t)outf[0], outB[1] = (DWORD)(uintptr_t)outf[1];
+    *(DWORD*)(g_cswSvc + 0xD8) = (DWORD)(uintptr_t)outB, *(DWORD*)(g_cswSvc + 0xDC) = 2, *(DWORD*)(g_cswSvc + 0xE0) = 2;
+    slot = (DWORD)(uintptr_t)g_cswSvc, g_ctSvcAt = (DWORD)(uintptr_t)&slot, g_ctProbe = true;
+    CtMemLine(1, "test");
+    assert(z.ctOutfits == 2 && z.ctOutfit0 == 1 && z.ctRegistry == CSW_N);
+    // P6: the stub, entered by a jmp in EA's frame as the detour enters it: the flag at [esp+0x13] is counted, and it goes on to the trampoline
+    for (int flag = 0; flag < 2; flag++) {
+        const LONG before = z.ctFbFlag;
+        void* const orig = g_ctFbOrig;
+        CswFbEnter((DWORD)flag);
+        g_ctFbOrig = orig;
+        assert(z.ctFbFlag == before + flag);
+    }
+    printf("cas trim: sweep selftest ok (modes 3 and 4 through the hooks: keep rules 1-7, Named fixed point, refusals incl. P5 order, batches after the save, re-checks, missed; probes P1-P6)\n");
+
+    memset((void*)&z.ctSaves, 0, 26 * sizeof(LONG)), z.ctWouldMiss = z.ctMissed = z.ctInserts = 0;
+    z.ctMode = z.ctInserts = z.ctWouldMiss = z.ctMissed = z.ctFull = 0;
+    memset(g_ct, 0, CT_SLOTS * sizeof(CtEnt)), memset((void*)g_ctGone, 0, CT_GONE * 4), memset(g_ctNames, 0, sizeof(g_ctNames));
+    memset(g_ctNm[0], 0, CT_NAMED * 4), memset(g_ctNm[1], 0, CT_NAMED * 4), g_ctNmFull[0] = g_ctNmFull[1] = false;
+    memset((void*)g_ctAge, 0, sizeof(g_ctAge)), memset((void*)g_ctGap, 0, sizeof(g_ctGap)), g_ctEvents = 0, g_ctTid = 0, memset((void*)g_ctFromN, 0, sizeof(g_ctFromN));
+    g_ctErase = erase0, g_ctInsert = NULL, g_ctFind = NULL, g_ctSave = NULL, g_ctWrite = NULL, g_ctMark = NULL, g_ctVt[0] = vt0[0], g_ctVt[1] = vt0[1];
+    g_ctRmAt = rmAt0, g_ctMinAgeMs = minAge0, g_ctSvcAt = svcAt0, g_ctNamed = named0, g_ctAsync = async0, g_ctProbe = probe0, g_ctKidsFn = CtKidsEa, g_ctKeepFn = CtKeepEa;
+    g_ctNameOther = 0, g_ctMaxErase = 8, g_ctFenceAt = 0, g_ctKeepN = 0, g_ctKeepOk = false, g_ctMarksF = g_ctMarksS = g_ctMarksLate = 0, g_ctPendN = 0;
+    g_ctPendGo = g_ctAfterSave = false, g_ctRefLog = g_ctMissLog = 0, g_ctLate = 0, g_ctsFound = NULL, g_ctsInserted = 0;
 }

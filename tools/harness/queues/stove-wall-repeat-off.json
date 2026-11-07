@@ -1,0 +1,31 @@
+{
+  "note": "The ours/EA split of stove-wall-repeat: same pair, same save, every routing switch off by native_set. Only after stove-wall-repeat failed. No bisect. Run with --no-smoke. NOT RUN YET.",
+  "jobs": [
+    {
+      "id": "stove-wall-repeat-off",
+      "asi": "game-copy/ts3native.asi.diag1",
+      "fixesPackage": "game-copy/ts3fixes.package.diag1",
+      "iniBase": "game-copy/asi-v029/ts3native.ini",
+      "pinReason": "the player's diag1 pair, so the [RouteDiag] dumps fire; agent package from master by cycle.ts",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "stove-repeat: layout ok": 1,
+        "stove-repeat: end": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 150,
+          "repro": "stove-wall-repeat-off",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 170
+    }
+  ]
+}

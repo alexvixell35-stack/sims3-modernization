@@ -157,7 +157,7 @@ static void TestRouteToObjRO() {
     static_assert(offsetof(Ts3nCounters, rtoReady) == 0x3FF0 && offsetof(Ts3nCounters, rtoMode) == 0x3FF4 &&
                       offsetof(Ts3nCounters, rtoFb) == 0x4010 && offsetof(Ts3nCounters, rtoCode) == 0x4048 &&
                       offsetof(Ts3nCounters, rtoShadowRuns) == 0x406C && offsetof(Ts3nCounters, rtoNested) == 0x4084 &&
-                      sizeof(Ts3nCounters) == 5984 * 4,
+                      sizeof(Ts3nCounters) == 6030 * 4,
                   "counters v93 layout after v95 (docs/registry.md)");
     assert(k.version == 912);
     assert(kRtoSites[0].site == 0x008316FF && kRtoSites[0].target == 0x004E17B0 && kRtoSites[1].site == 0x00831633 &&

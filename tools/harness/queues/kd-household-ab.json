@@ -1,0 +1,89 @@
+{
+  "note": "Issue #304: does KindDeadlines raise household route fails? Local, correctness counts only, no timing claim (noiseCheck false: the machine may be in use). ts3native and ts3fixes + ts3agent from bugfix/uf-notfail-306 or later (routefaillog_household_plans, slot 866, is new; an older package gives fails but no fails per plan). Steam. STRESS repro, not natural play. Run the smoke alone first and read it: node tools/harness/kd-household-ab.ts <tag> <job ts3native.log> --smoke. ABBA off-first: 65 min = warm-up + 12 counted slices = 6 pairs. Read each main job with the same tool without --smoke; the slice is the unit, no Poisson test.",
+  "jobs": [
+    {
+      "id": "bp-kdhh-smoke",
+      "note": "Arm-split smoke, 10 min: 2-min slices (warm-up, off, on, on, off), KdExemptSeen=0 so household cuts show. Pass: kd-household-ab.ts --smoke PASS.",
+      "asi": "tested",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "ini": {
+        "RouteAsync.KindDeadlines": 1,
+        "RouteAsync.KdExemptSeen": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "repro": "kd-household-crowd",
+          "ab": "kinddeadlines",
+          "slice": 2,
+          "noSamplers": true,
+          "noProf": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20
+    },
+    {
+      "id": "bp-kdhh-noexempt",
+      "note": "Is the +18% real here: KindDeadlines on vs off with KdExemptSeen=0, the v0.2.8 / fc425bd behaviour (household Sims cut). 6 pairs of 5 min. Read: fails, distinct, fails/plan per pair; fails with cut per on slice.",
+      "asi": "tested",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "ini": {
+        "RouteAsync.KindDeadlines": 1,
+        "RouteAsync.KdExemptSeen": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 65,
+          "seed": 12345,
+          "repro": "kd-household-crowd",
+          "ab": "kinddeadlines",
+          "slice": 5,
+          "noSamplers": true,
+          "noProf": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 85
+    },
+    {
+      "id": "bp-kdhh-exempt",
+      "note": "Does master fix it: the same with KdExemptSeen=1 (default). Expected if the household cuts were the cause: no household fail with a cut on its line, kdCutSeen 0, on - off near 0.",
+      "asi": "tested",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0,kdCutSeen<=0",
+      "ini": {
+        "RouteAsync.KindDeadlines": 1,
+        "RouteAsync.KdExemptSeen": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 65,
+          "seed": 12345,
+          "repro": "kd-household-crowd",
+          "ab": "kinddeadlines",
+          "slice": 5,
+          "noSamplers": true,
+          "noProf": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 85
+    }
+  ]
+}

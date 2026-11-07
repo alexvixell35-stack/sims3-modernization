@@ -644,6 +644,7 @@ static void UdWorldLoad() {  // sim thread, from the ts3fixes "world:" line
     sprintf_s(ev, "world load #%ld", n);
     GcCapWindow(true, ev);  // gcgrow.cpp: [GC] BlackListCapKB strict while the world plays
     InterlockedIncrement(&g_utbWorlds);  // unseentable.cpp: a new [UnseenTable] generation at the next ask
+    FpgCensus((int)n);  // discourage.cpp: one pass inside the load screen (docs/89 §17)
 }
 
 // ts3fixes text channel (UserDiag.cs): Route.GetOption2 with optHi = 0x87000000 | op << 16, 4 ASCII bytes in optLo.
@@ -661,6 +662,7 @@ static LONG g_udTxtLines;
 static void MdMark(const char* tag);  // memdiag.cpp
 static void MsLine(const char* line);  // memdiag.cpp: [MemDiag] suspect counters from ts3fixes
 static u8 MsOp(int op);                // memdiag.cpp: ops 3-5 (on / sample wanted / self-test wanted)
+static u8 CtOp(int op, DWORD lo);      // castrim.cpp: ops 14-19, the save sweep's keep list and pump (docs/539 §6)
 static u8 UdTextMsg(DWORD lo, DWORD hi) {
     if (!g_udOn) return 0;
     switch ((hi >> 16) & 0xFF) {
@@ -671,6 +673,12 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
         case 10: case 11: KdScopeSet(lo, ((hi >> 16) & 0xFF) == 10 ? 1 : 2); return 1;  // docs/197 §7: UfWhy of route lo, before its START or sync plan
         case 12: KdScopeClear(lo); return 1;  // docs/197 §7: route lo's plan is over
         case 13: KdScopeSet(lo, 3); return 1;  // docs/197 §7: a seen NPC (KdSeenNpcCeilMs); an old package never sends it
+        case 14: case 15: case 16: case 17: case 18: case 19: return CtOp((hi >> 16) & 0xFF, lo);
+        case 20: case 21: case 22: case 23: case 24: case 25: case 26: case 27: case 28: case 29:
+#ifdef TS3N_RFTEST
+        case 30: case 31: case 32: case 33: case 34:  // docs/89 §18 repro footprint-window
+#endif
+            return FpgOp((hi >> 16) & 0xFF, lo);  // discourage.cpp, [Discourage] GhostTest
         case 0: g_udTxtN = 0; return 1;
         case 1:
             for (int i = 0; i < 4; i++) {

@@ -42,13 +42,14 @@ namespace Ts3Fixes
                 return r;
             }
 
-            RoutePlanResult PlanBackoff()
+            // marked: this plan carries unseenfbplan's cut mark (an argument, not a static: UfPre's holds sleep before they plan)
+            RoutePlanResult PlanBackoff(bool marked = false)
             {
                 int[] c = PatchCounters();
                 c[24]++;
                 IScriptProxy proxy = Follower;
                 Sims3.Gameplay.Actors.Sim sim = proxy != null ? proxy.Target as Sims3.Gameplay.Actors.Sim : null;
-                if (sim != null && ShortcutOn("unseenboat")) UbTrip(sim);  // docs/248: the plan below runs from where it leaves the Sim
+                if (sim != null && ShortcutOn("unseenboat")) UbTrip(sim, marked);  // docs/248: the plan below runs from where it leaves the Sim
                 if (ShortcutOn("failrepeat") && sim != null) return PlanFailRepeat(sim);
                 return PlanBackoffBody(sim);
             }

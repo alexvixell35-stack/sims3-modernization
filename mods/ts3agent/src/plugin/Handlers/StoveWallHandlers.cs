@@ -52,6 +52,10 @@ namespace Ts3Agent
             Dispatcher.Register("stove_wall_status", StoveWallStatus);
             Dispatcher.Register("clock_hour", ClockHour);
             RegisterStoveOven();
+            RegisterStoveCancel();
+            RegisterStoveRepeat();
+            RegisterFootprintGhost();
+            RegisterFootprintWindow();
         }
 
         static Stove sSwStove;
@@ -141,9 +145,12 @@ namespace Ts3Agent
                 foreach (Stove st in lot.GetObjects<Stove>()) { sSwStove = st; break; }
                 foreach (Trashcan t in lot.GetObjects<Trashcan>()) { sSwBin = t; break; }
                 if (sSwStove == null || sSwBin == null) throw new McpException("build_layout's stove and bin are not on the home lot");
-                Vector3 pos = SwTile(lot, a.List("fridge_tile"), level), front = SwTile(lot, a.List("face"), level) - pos;
-                sSwFridge = SwCreate("fridge", typeof(Fridge), pos, front.Normalize(), r, "fridge") as Fridge;
-                SwCreate("counter", typeof(GameCounter), SwTile(lot, a.List("counter_tile"), level), front.Normalize(), r, "counter", kSwCounterObjd);  // by class: a name match gave a counter sink, no Counter
+                if (a.Has("fridge_tile"))  // else stove_repeat_setup builds the run from the stove
+                {
+                    Vector3 pos = SwTile(lot, a.List("fridge_tile"), level), front = SwTile(lot, a.List("face"), level) - pos;
+                    sSwFridge = SwCreate("fridge", typeof(Fridge), pos, front.Normalize(), r, "fridge") as Fridge;
+                    SwCreate("counter", typeof(GameCounter), SwTile(lot, a.List("counter_tile"), level), front.Normalize(), r, "counter", kSwCounterObjd);  // by class: a name match gave a counter sink, no Counter
+                }
                 sSwSpot = s.Position;
                 sSwBinOn = sSwBinOff = sSwBin.Position;
                 r["bin"] = Util.ObjectName(sSwBin);
@@ -204,14 +211,15 @@ namespace Ts3Agent
             s.SetPosition(sSwSpot);
         }
 
-        // one plan, nothing walks. kind 0 = the stove's routing slot (BakingDish_CookInOven's plan), 1 = point
+        // one plan, nothing walks. kind 0 = the stove's routing slot (BakingDish_CookInOven's plan), 1 = point, 2 = the fridge's routing slot (Fridge.RouteToOpen's plan)
         static string SwPlan(Sim s, string arm, string label, bool bin, int kind, Vector3 to)
         {
             Route route = s.CreateRoute();
             uint t0 = (uint)System.Environment.TickCount;
-            if (kind == 0) route.PlanToSlot(sSwStove, Slot.RoutingSlot_0); else route.PlanToPoint(to);
+            if (kind == 0) route.PlanToSlot(sSwStove, Slot.RoutingSlot_0); else if (kind == 2) route.PlanToSlot(sSwFridge, Slot.RoutingSlot_0); else route.PlanToPoint(to);
             uint ms = (uint)System.Environment.TickCount - t0;
             RoutePlanResult p = route.PlanResult;
+            if (sScQuiet && p.mBlockerType == RouteBlockerType.Object && !sScSeen.Contains(p.mBlockerObjectId) && GameObject.GetObject(new ObjectGuid(p.mBlockerObjectId)) is Null) sScSeen.Add(p.mBlockerObjectId);
             string line = "stove-wall: arm " + arm + " " + label + " bin " + (bin ? 1 : 0) + ", " + p.mType + ", blocker " + p.mBlockerType + " 0x" + p.mBlockerObjectId.ToString("X") + SwWho(p.mBlockerObjectId)
                 + (p.mBlockerType != RouteBlockerType.None ? " at " + V3(p.mBlockerLocation) : "")
                 + ", path " + p.mDistanceTotal.ToString("0.0", CultureInfo.InvariantCulture) + " m, candidates " + p.mNumCandidatePointsGenerated + "/" + p.mNumAcceptedPoints + "/" + p.mNumRejectedPoints
@@ -358,6 +366,7 @@ namespace Ts3Agent
             sSwOven = oven;
             sSwAtOven = sSwInOven = sSwOvenSeen = false;
             sSwOvenFailed = null;
+            sSwIdlePolls = 0;
             sSwDish = null;
             SwWatch(s, arm, "cook");
             GameObjectHit hit = HitFor(sSwStove, a);
@@ -376,8 +385,7 @@ namespace Ts3Agent
                 Recipe rc = def.GetField("ChosenRecipe").GetValue(e.Iop.InteractionDefinition) as Recipe;
                 if (rc == null || rc.CookingProcessData == null) continue;
                 int k = rc.CookingProcessData.UsesAStove ? 1 : 0;
-                foreach (CookingStepsAndTargetPair pair in rc.CookingProcessData.OrderOfStepsList)
-                    if (pair.Steps.Contains(CookingStep.PutInBakingTray) && pair.Steps.Contains(CookingStep.CookInOven)) k = 2;
+                if (SwIsOven(rc)) k = 2;
                 if (k > rank) { rank = k; pick = e; chosen = rc; }
             }
             Lot lot = sSwStove.LotCurrent;
