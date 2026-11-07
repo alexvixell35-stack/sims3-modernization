@@ -8,7 +8,7 @@
 static void* g_jrK;
 struct JrObj { int type, len; DWORD n, full; u8* data; u8* addr; bool blob, gone; };
 struct JrFix { int obj; DWORD off; int to; };  // to -1: null
-struct JrRow { char name[96]; int inputs, ran, differ, unstable, skipped, cuts; };
+struct JrRow { char name[96]; int inputs, ran, differ, unstable, skipped, cuts, faulted; };
 struct JrWhy { int meth; char why[80]; int n; };
 static const int JR_OBJS = 8192, JR_FIX = 200000, JR_MAX_METH = 1024, JR_WHY = 512, JR_HASH = 1 << 14;
 static const DWORD JR_POOL = 32u << 20;
@@ -24,7 +24,7 @@ static int* g_jrHv;
 static u8* g_jrSnap;   // whole blocks of the rebuilt objects, for the restore before each arm
 static DWORD* g_jrSnapOff;
 
-static int g_jrThrew, g_jrFaulted;
+static int g_jrThrew, g_jrFaulted, g_jrFrom;
 static void* JrCall(const char* name, int n, void** a, DWORD* code = NULL) {
     void* m = Meth(g_jrK, name, n), *exc = NULL;
     DWORD c = 0;
@@ -250,9 +250,11 @@ static void JrRun(JrInput& in, int* tot) {
     const bool ok2 = JrArm(&warm) && JrArm(&ref) && JrArm(&ref2);  // warm: the first run's class inits and transforms are not state to compare
     JitSetPatched(true), g_jitVerifyOn = g_jitMode == 3 ? 1 : 0;
     if (!ok2 || !JrArm(&got)) {
-        Log("jit replay FAULT input %d %s: %s arm faulted; replay stopped\n", in.id, row.name, ok2 ? "compiled" : "interpreted");
+        // an interpreter fault leaves old Mono's frame state unusable (every later call fails with C0000005, measured), so the replay stops here and
+        // tools/jit-replay.ts starts a fresh host process after this input (MONOHOST_JITREPLAY_FROM); the fault is counted on its method
+        Log("jit replay FAULT input %d %s: %s arm faulted; replay stops, the tool restarts after it\n", in.id, row.name, ok2 ? "compiled" : "interpreted");
         g_jitVerifyOn = vOn;
-        tot[5] = 1;
+        row.faulted++, tot[6]++, tot[5] = 1;
         return;
     }
     row.ran++;
@@ -285,7 +287,8 @@ static void JitReplayRun() {
     const LONG mm0 = g_jvMismatch, ab0 = g_jvAbandoned, ok0 = g_jvOk;
     static char line[1 << 22];
     static JrInput in;
-    int metaN = 0, tot[6] = {};  // inputs, ran, unstable, differ, skipped, stop
+    { char fb[32] = ""; if (GetEnvironmentVariableA("MONOHOST_JITREPLAY_FROM", fb, sizeof(fb))) g_jrFrom = atoi(fb); }  // inputs below this id were run by an earlier process
+    int metaN = 0, tot[7] = {};  // inputs, ran, unstable, differ, skipped, stop, faulted
     while (!tot[5] && fgets(line, sizeof(line), f)) {
         char* p = line;
         char tag[16] = "";
@@ -343,7 +346,7 @@ static void JitReplayRun() {
             auto& s = in.st[in.nStatic++];
             s.i = -1;
             sscanf_s(p, "%d %lx %lx %c %d", &s.k, &s.lo, &s.hi, &s.kind, 1, &s.i);
-        } else if (!strcmp(tag, "end") && in.meth < JR_MAX_METH) {
+        } else if (!strcmp(tag, "end") && in.meth < JR_MAX_METH && in.id >= g_jrFrom) {
             __try { JrRun(in, tot); }
             __except (Log("jit replay: input %d: host fault %08lX while rebuilding\n", in.id, GetExceptionCode()), EXCEPTION_EXECUTE_HANDLER) { g_jrRow[in.meth].skipped++, tot[4]++, tot[5] = 1; }
         }
@@ -352,9 +355,9 @@ static void JitReplayRun() {
     JitSetPatched(true);
     for (int m = 0; m < metaN; m++) {
         const JrRow& r = g_jrRow[m];
-        if (r.inputs) Log("jit replay method %s: inputs %d, ran %d, differ %d, unstable %d, skipped %d, objects not rebuilt %d\n", r.name, r.inputs, r.ran, r.differ, r.unstable, r.skipped, r.cuts);
+        Log("jit replay method %s: inputs %d, ran %d, differ %d, unstable %d, skipped %d, faulted %d, objects not rebuilt %d\n", r.name, r.inputs, r.ran, r.differ, r.unstable, r.skipped, r.faulted, r.cuts);
     }
     for (int i = 0; i < g_jrWhyN; i++) Log("jit replay reason %s: %s x%d\n", g_jrRow[g_jrWhy[i].meth].name, g_jrWhy[i].why, g_jrWhy[i].n);
-    Log("jit replay: %d inputs, %d ran, %d differ, %d unstable, %d skipped%s; per-call verify: ok %ld, MISMATCH %ld, abandoned (exception) %ld\n",
-        tot[0], tot[1], tot[3], tot[2], tot[4], tot[5] ? ", STOPPED on a fault" : "", g_jvOk - ok0, g_jvMismatch - mm0, g_jvAbandoned - ab0);
+    Log("jit replay: %d inputs, %d ran, %d differ, %d unstable, %d skipped, %d faulted%s; per-call verify: ok %ld, MISMATCH %ld, abandoned (exception) %ld\n",
+        tot[0], tot[1], tot[3], tot[2], tot[4], tot[6], tot[5] ? ", STOPPED on a fault" : "", g_jvOk - ok0, g_jvMismatch - mm0, g_jvAbandoned - ab0);
 }

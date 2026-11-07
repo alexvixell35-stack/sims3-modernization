@@ -4,9 +4,9 @@
     {
       "id": "bp-x4-smoke",
       "note": "Same-arm check: --ab fwnull flips no switch, so every slice runs identical code; slices alternate off,on,on,off after the warm-up slice and the fixed managed loop (agent fixed_work, ~20 ms) runs 8 times per slice. Pass: the two off slices agree within 1% and so do the two on slices (fixedwork-report.ts line \"fixed-work: ... noise floor <= 1%\", no PROBLEMS), checksum constant, clock step <= 1 ms, tool cost small (the line prints it: ~8 x 20 ms per 120 s slice = ~0.13% expected [inferred], read the printed figure). Fail: X4 is dropped and F1 falls back to Threaded ms/iter.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
-      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df with X4, docs/222 §11.8 counters, monojit-all and mintfuse-sub, ts3agent with fixed_work and focus_watch; kAutLive True in the package",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "pinReason": "g2pair1107 pair (asi + package, builds.json): master 000589df with X4, docs/222 §11.8 counters, monojit-all and mintfuse-sub, ts3agent with fixed_work and focus_watch; kAutLive True in the package",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "minCounters": 163,
       "releaseDefaults": true,
       "save": "Baseline-BP",

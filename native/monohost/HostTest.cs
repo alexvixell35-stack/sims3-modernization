@@ -252,7 +252,8 @@ namespace MonoHostTest
         {
             System.Collections.Generic.List<System.Reflection.Assembly> game = new System.Collections.Generic.List<System.Reflection.Assembly>(), other = new System.Collections.Generic.List<System.Reflection.Assembly>();
             foreach (System.Reflection.Assembly a in AppDomain.CurrentDomain.GetAssemblies())
-                (Array.IndexOf(kGame, a.GetName().Name) >= 0 ? game : other).Add(a);
+                if (a.GetName().Name == "MonoHostTest") continue;  // the host's own fixtures (FxCompA/B override ObjectComponent.get_BaseType) are not a foreign mod: G-M5 counted them and failed in every run
+                else (Array.IndexOf(kGame, a.GetName().Name) >= 0 ? game : other).Add(a);
             SweepAsms = game.Count;
             System.Collections.Generic.Dictionary<string, System.Reflection.MethodBase> got = Ts3Fixes.AutShadowCore.Resolve(game.ToArray(), Ts3Fixes.AutShadowLists.Methods);
             int foreign = 0;

@@ -213,5 +213,9 @@ stove_wall_place,StoveWallHandlers,Live,none (the selected Sim is put on its spo
 stove_wall_goto,StoveWallHandlers,Live,Go Here click on the floor in front of the stove,natural,selected household Sim; user-directed,handler + R-HH-4,live
 stove_wall_camera,StoveWallHandlers,Live,moving the camera onto the Sim and the stove,natural,after stove_wall_setup,handler + R-MODE-6,live
 stove_wall_status,StoveWallHandlers,Live,none (reads the Sim distance to the stove),harness,after stove_wall_setup,handler,live
+stove_oven_setup,StoveOvenHandlers,Live,a Sim with the recipes (cooking skill and books; here written to the known list); the other Sims stand aside,cheat,after stove_wall_setup,handler,live
+stove_oven_status,StoveOvenHandlers,Live,none (reads how far the oven order got),harness,after stove_wall_cook,handler,live
+stove_oven_takeout,StoveOvenHandlers,Live,the Sim walks off and the player clicks the dish in the oven (Sim placed by cheat),cheat,dish in the oven; user-directed household Sim,handler + R-HH-4,live
+stove_oven_clear,StoveOvenHandlers,Live,the Sim serves or the player deletes the dish and the food (removed by cheat),cheat,after stove_wall_cook,handler,live
 clock_hour,StoveWallHandlers,Live,none (the sim clock is advanced to an hour for a daylight GIF),cheat,live mode,handler,live
 build_layout,LayoutHandlers,Live;Build;Buy,"a player building: walls, floor, door and roof in Build mode, objects in Buy mode, Go Here for the Sim",natural,"starts in live mode on the active home lot; polled with result; enough funds; sells objects only inside the area",handler,none

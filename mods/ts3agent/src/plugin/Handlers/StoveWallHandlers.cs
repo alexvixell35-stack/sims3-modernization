@@ -37,6 +37,7 @@ namespace Ts3Agent
     //   stove_wall_cook {arm, bin}: Sim to its spot, the stove's own menu entry (Stove_Have, which pushes Fridge_Have), a baked recipe if the
     //     menu has one. The menu decides what fits the meal time: a recipe picked by hand was refused 29 times of 29 (Waffles, breakfast only).
     //   stove_wall_end {arm}: where the bake got to.
+    //   oven: true on stove_wall_cook: a baked recipe or no order (StoveOvenHandlers.cs).
     public static partial class Handlers
     {
         static void RegisterStoveWall()
@@ -50,6 +51,7 @@ namespace Ts3Agent
             Dispatcher.Register("stove_wall_camera", StoveWallCamera);
             Dispatcher.Register("stove_wall_status", StoveWallStatus);
             Dispatcher.Register("clock_hour", ClockHour);
+            RegisterStoveOven();
         }
 
         static Stove sSwStove;
@@ -210,7 +212,7 @@ namespace Ts3Agent
             if (kind == 0) route.PlanToSlot(sSwStove, Slot.RoutingSlot_0); else route.PlanToPoint(to);
             uint ms = (uint)System.Environment.TickCount - t0;
             RoutePlanResult p = route.PlanResult;
-            string line = "stove-wall: arm " + arm + " " + label + " bin " + (bin ? 1 : 0) + ", " + p.mType + ", blocker " + p.mBlockerType + " 0x" + p.mBlockerObjectId.ToString("X")
+            string line = "stove-wall: arm " + arm + " " + label + " bin " + (bin ? 1 : 0) + ", " + p.mType + ", blocker " + p.mBlockerType + " 0x" + p.mBlockerObjectId.ToString("X") + SwWho(p.mBlockerObjectId)
                 + (p.mBlockerType != RouteBlockerType.None ? " at " + V3(p.mBlockerLocation) : "")
                 + ", path " + p.mDistanceTotal.ToString("0.0", CultureInfo.InvariantCulture) + " m, candidates " + p.mNumCandidatePointsGenerated + "/" + p.mNumAcceptedPoints + "/" + p.mNumRejectedPoints
                 + ", plan " + ms + " ms, from " + V3(s.Position) + " room " + World.GetRoomId(s.Position);
@@ -230,12 +232,12 @@ namespace Ts3Agent
         {
             try
             {
-                if (r.Follower == null || r.Follower.Target != sSwSim || sSwRouteLines++ > 400) return;
+                if (sSwProbing || r.Follower == null || r.Follower.Target != sSwSim || sSwRouteLines++ > 400) return;
                 RoutePlanResult p = r.PlanResult;
                 InteractionInstance cur = sSwSim.CurrentInteraction;
                 GameObject to = r.DestObj as GameObject;
                 SwLine("stove-wall: arm " + sSwArm + " route " + routeType + " for " + (cur != null ? cur.GetType().Name : "none") + ", posture " + (sSwSim.Posture != null ? sSwSim.Posture.GetType().Name : "none")
-                    + ", to " + (to != null ? Util.ObjectName(to) : "a point") + " at " + V3(r.GetDestPoint()) + ", from " + V3(sSwSim.Position) + ", " + result + " " + p.mType + ", blocker " + p.mBlockerType
+                    + ", to " + (to != null ? Util.ObjectName(to) : "a point") + " at " + V3(r.GetDestPoint()) + ", from " + V3(sSwSim.Position) + ", " + result + " " + p.mType + ", blocker " + p.mBlockerType + " 0x" + p.mBlockerObjectId.ToString("X") + SwWho(p.mBlockerObjectId)
                     + ", path " + p.mDistanceTotal.ToString("0.0", CultureInfo.InvariantCulture) + " m, candidates " + p.mNumCandidatePointsGenerated + "/" + p.mNumAcceptedPoints + "/" + p.mNumRejectedPoints);
             }
             catch (Exception) { }
@@ -261,7 +263,7 @@ namespace Ts3Agent
             int watch = ++sSwWatch;
             RunAsync("stove wall watch", delegate
             {
-                while (watch == sSwWatch && System.Environment.TickCount - sSwT0 < 180000)
+                while (watch == sSwWatch && System.Environment.TickCount - sSwT0 < 300000)
                 {
                     double t = Math.Round((System.Environment.TickCount - sSwT0) / 1000.0, 1);
                     if (sSwReachS < 0 && SwReached(s)) sSwReachS = t;
@@ -274,6 +276,11 @@ namespace Ts3Agent
                             sSwSteps.Add(n);
                             GameObject target = cur.Target as GameObject;
                             SwLine("stove-wall: arm " + arm + " interaction " + n + " at " + t + " s, target " + (target != null ? Util.ObjectName(target) : "none") + ", posture " + (s.Posture != null ? s.Posture.GetType().Name : "none") + ", from " + V3(s.Position));
+                        }
+                        if (sSwOven)
+                        {
+                            try { SwOvenWatch(s, arm, cur, t); }
+                            catch (Exception e) { SwLine("stove-oven: arm " + arm + " watch " + e.GetType().Name + " " + e.Message); }
                         }
                         if (sSwCookS < 0 && (cur.Target == sSwStove || n.IndexOf("Oven", StringComparison.Ordinal) >= 0 || n.IndexOf("Stove_", StringComparison.Ordinal) < 0 && n.IndexOf("Stove", StringComparison.Ordinal) >= 0)) sSwCookS = t;
                     }
@@ -306,6 +313,23 @@ namespace Ts3Agent
                 region.UpdateFootprint();
                 Simulator.Sleep(30);
                 lines.Add(SwPlan(s, arm, label + " region-live at-slot", bin, 0, slot));
+                // from outside the region: the region's own Sim 1 m out (the footprint stays where UpdateFootprint put it), then a Sim that is no member
+                Vector3 outside = slot + sSwStove.ForwardVector * 1f;
+                s.SetPosition(outside);
+                Simulator.Sleep(10);
+                lines.Add(SwPlan(s, arm, label + " region-live outside member to-slot", bin, 0, slot));
+                s.SetPosition(slot);
+                Simulator.Sleep(10);
+                foreach (Sim other in s.Household.Sims)
+                {
+                    if (other == s) continue;
+                    Vector3 was = other.Position;
+                    other.SetPosition(outside);
+                    Simulator.Sleep(10);
+                    lines.Add(SwPlan(other, arm, label + " region-live outside other to-slot", bin, 0, slot));
+                    other.SetPosition(was);
+                    break;
+                }
                 region.Cleanup();
                 Simulator.Sleep(30);
                 lines.Add(SwPlan(s, arm, label + " region-gone at-slot", bin, 0, slot));
@@ -328,9 +352,13 @@ namespace Ts3Agent
             RequireLive();
             Sim s = Util.ActiveSim();
             string arm = a.Long("arm", -1).ToString();
-            bool bin = a.Bool("bin", false);
+            bool bin = a.Bool("bin", false), oven = a.Bool("oven", false);
             SwPlace(s, bin);
             s.Motives.MaxEverything();
+            sSwOven = oven;
+            sSwAtOven = sSwInOven = sSwOvenSeen = false;
+            sSwOvenFailed = null;
+            sSwDish = null;
             SwWatch(s, arm, "cook");
             GameObjectHit hit = HitFor(sSwStove, a);
             List<MenuEntry> menu = BuildMenu(s, sSwStove, hit);
@@ -358,7 +386,7 @@ namespace Ts3Agent
             Dictionary<string, object> r = Util.Obj();
             r["stove_have"] = have;
             r["enabled"] = enabled;
-            if (pick == null) { r["queued"] = false; return r; }
+            if (pick == null || oven && rank < 2) { r["queued"] = false; sSwOvenFailed = pick == null ? "no menu entry" : "no baked recipe, best " + chosen.GenericName; SwLine("stove-oven: arm " + arm + " " + sSwOvenFailed); return r; }
             InteractionInstanceParameters p = new InteractionInstanceParameters(pick.Iop, s, new InteractionPriority(InteractionPriorityLevel.UserDirected), AutonomySearchType.None, InteractionFlags.UserDirected, hit, null, false);
             InteractionInstance ii = pick.Iop.InteractionDefinition.CreateInstanceFromParameters(ref p);
             if (ii == null) throw new McpException("the game could not create '" + pick.Label + "'");
@@ -368,6 +396,7 @@ namespace Ts3Agent
             r["recipe"] = chosen.GenericName;
             r["test"] = test;
             r["queued"] = q;
+            if (!q) sSwOvenFailed = "order refused";
             return r;
         }
 

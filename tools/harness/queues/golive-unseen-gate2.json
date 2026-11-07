@@ -1,10 +1,10 @@
 {
-  "note": "golive-unseen-gate2 (docs/222 §11, Rodney 2026-11-06 R1 + R3): default-ON gate for unseen-direct go-live. Old cadence / pushes / GoHome bars do not gate. Runs at pace 78. Read V6 (gate2-report.ts) after the 4 *-gu2-t-ab* jobs: V6 FAIL does not stop the queue, so stop it by hand, the later jobs would be at a pace about to change, and run golive-unseen-gate2-pace.json. Build first: ts3native.asi.mono1106c from master; ts3fixes.package.mono1106c (kAutLive True by default since O6) at the chosen pace; ts3fixes.package.mono1106c-rel as the release builds it; ts3agent with focus_watch. Read: node tools/harness/gate2-report.ts golive-unseen-gate2-<date>. Trimmed 2026-11-06 (Rodney, §11.9): 31 to 27 jobs, the 4 *-gu2-fastspeed-ab and *-gu2-speed1-ab jobs are gone (read only by naming them, no bar, R1-R4 log rows); the *-gu2-x-* jobs carry the X4 bench (--ab fwnull --fixedwork 8), so run x4-smoke.json first. Audit=50 cost: no arm, gate2-report.ts reads ts3native cutAuditUs per arm (bar 0.5 ms/s, my judgement).",
+  "note": "golive-unseen-gate2 (docs/222 §11, Rodney 2026-11-06 R1 + R3): default-ON gate for unseen-direct go-live. Old cadence / pushes / GoHome bars do not gate. Runs at pace 78. Read V6 (gate2-report.ts) after the 4 *-gu2-t-ab* jobs: V6 FAIL does not stop the queue, so stop it by hand, the later jobs would be at a pace about to change, and run golive-unseen-gate2-pace.json. Build first: ts3native.asi.g2pair1107 from master; ts3fixes.package.g2pair1107 (kAutLive True by default since O6) at the chosen pace; ts3fixes.package.g2pair1107-rel as the release builds it; ts3agent with focus_watch. Read: node tools/harness/gate2-report.ts golive-unseen-gate2-<date>. Trimmed 2026-11-06 (Rodney, §11.9): 31 to 27 jobs, the 4 *-gu2-fastspeed-ab and *-gu2-speed1-ab jobs are gone (read only by naming them, no bar, R1-R4 log rows); the *-gu2-x-* jobs carry the X4 bench (--ab fwnull --fixedwork 8), so run x4-smoke.json first. Audit=50 cost: no arm, gate2-report.ts reads ts3native cutAuditUs per arm (bar 0.5 ms/s, my judgement).",
   "stopQueueOnFail": true,
   "smoke": {
     "id": "bp-gu2-smoke",
     "note": "Smoke (5 min BP, --ab autunseen slice 1): arm split, switch read-back, go-live log lines.",
-    "asi": "game-copy/ts3native.asi.mono1106c",
+    "asi": "game-copy/ts3native.asi.g2pair1107",
     "releaseDefaults": true,
     "minCounters": 159,
     "ini": {
@@ -98,8 +98,8 @@
     "gameArgs": [
       "-disablestoryprogression"
     ],
-    "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-    "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+    "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+    "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
     "save": "Baseline-BP-Spring",
     "noiseCheck": false,
     "run": {
@@ -120,7 +120,7 @@
     {
       "id": "bp-gu2-focus",
       "note": "docs/222 §11.2 V1-V4, hard: focused Sim plausible, needs not starving, not stuck, exact within 3 s, no pop. FAIL = thrown focus_result.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -214,8 +214,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
@@ -234,7 +234,7 @@
     {
       "id": "ip-gu2-focus",
       "note": "docs/222 §11.2 V1-V4, hard: focused Sim plausible, needs not starving, not stuck, exact within 3 s, no pop. FAIL = thrown focus_result.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -328,8 +328,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-IP-Spring",
       "noiseCheck": false,
       "run": {
@@ -348,7 +348,7 @@
     {
       "id": "bp-gu2-arrive",
       "note": "docs/222 §11.2 V5, hard: Sims arriving on the active lot in view. STRESS labelled.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -442,8 +442,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
@@ -462,7 +462,7 @@
     {
       "id": "ip-gu2-arrive",
       "note": "docs/222 §11.2 V5, hard: Sims arriving on the active lot in view. STRESS labelled.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -556,8 +556,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-IP-Spring",
       "noiseCheck": false,
       "run": {
@@ -576,7 +576,7 @@
     {
       "id": "bp-gu2-t-ab",
       "note": "docs/222 §11.5 bar G1, G2: 18 min ABBA. Read gate2-report.ts. Machine quiet, IDE closed. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1-R6 are bars for default ON, with the hitch-ab rule.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -670,8 +670,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-BP-Spring",
       "run": {
         "profile": {
@@ -694,7 +694,7 @@
     {
       "id": "bp-gu2-t-ab-onfirst",
       "note": "docs/222 §11.5 bar G1, G2: 18 min ABBA. Read gate2-report.ts. Machine quiet, IDE closed. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1-R6 are bars for default ON, with the hitch-ab rule.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -788,8 +788,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-BP-Spring",
       "run": {
         "profile": {
@@ -813,7 +813,7 @@
     {
       "id": "ip-gu2-t-ab",
       "note": "docs/222 §11.5 bar G1, G2: 18 min ABBA. Read gate2-report.ts. Machine quiet, IDE closed.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -907,8 +907,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-IP-Spring",
       "run": {
         "profile": {
@@ -927,7 +927,7 @@
     {
       "id": "ip-gu2-t-ab-onfirst",
       "note": "docs/222 §11.5 bar G1, G2: 18 min ABBA. Read gate2-report.ts. Machine quiet, IDE closed.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1021,8 +1021,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-IP-Spring",
       "run": {
         "profile": {
@@ -1042,14 +1042,14 @@
     {
       "id": "bp-gu2-x-a1-rel",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, release state (no kAutLive hook, no worker). In-load --ab cannot see what the stack costs just by being installed (audit §1.3).",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-rel",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107-rel",
       "save": "Baseline-BP-Spring",
       "run": {
         "profile": {
@@ -1066,7 +1066,7 @@
     {
       "id": "bp-gu2-x-b1-stack",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, the full default-ON stack.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1160,8 +1160,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-BP-Spring",
       "run": {
         "profile": {
@@ -1181,7 +1181,7 @@
     {
       "id": "bp-gu2-x-b2-stack",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, the full default-ON stack.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1275,8 +1275,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-BP-Spring",
       "run": {
         "profile": {
@@ -1296,14 +1296,14 @@
     {
       "id": "bp-gu2-x-a2-rel",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, release state (no kAutLive hook, no worker). In-load --ab cannot see what the stack costs just by being installed (audit §1.3).",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-rel",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107-rel",
       "save": "Baseline-BP-Spring",
       "run": {
         "profile": {
@@ -1320,14 +1320,14 @@
     {
       "id": "ip-gu2-x-a1-rel",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, release state (no kAutLive hook, no worker). In-load --ab cannot see what the stack costs just by being installed (audit §1.3).",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-rel",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107-rel",
       "save": "Baseline-IP-Spring",
       "run": {
         "profile": {
@@ -1344,7 +1344,7 @@
     {
       "id": "ip-gu2-x-b1-stack",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, the full default-ON stack.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1438,8 +1438,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-IP-Spring",
       "run": {
         "profile": {
@@ -1459,7 +1459,7 @@
     {
       "id": "ip-gu2-x-b2-stack",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, the full default-ON stack.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1553,8 +1553,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-IP-Spring",
       "run": {
         "profile": {
@@ -1574,14 +1574,14 @@
     {
       "id": "ip-gu2-x-a2-rel",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, release state (no kAutLive hook, no worker). In-load --ab cannot see what the stack costs just by being installed (audit §1.3).",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-rel",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107-rel",
       "save": "Baseline-IP-Spring",
       "run": {
         "profile": {
@@ -1598,7 +1598,7 @@
     {
       "id": "bp-gu2-out-off",
       "note": "docs/222 §11.3: 30 min whole-arm run (~14 sim days), same seed. Long-run outcomes a player can notice, read by gate2-report.ts. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1, R2, R4 whole-run, same seed (vs -out-on).",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1671,8 +1671,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
@@ -1694,7 +1694,7 @@
     {
       "id": "bp-gu2-out-on",
       "note": "docs/222 §11.3: 30 min whole-arm run (~14 sim days), same seed. Long-run outcomes a player can notice, read by gate2-report.ts. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1, R2, R4 whole-run, same seed (vs -out-off).",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1788,8 +1788,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
@@ -1811,7 +1811,7 @@
     {
       "id": "ip-gu2-out-off",
       "note": "docs/222 §11.3: 30 min whole-arm run (~14 sim days), same seed. Long-run outcomes a player can notice, read by gate2-report.ts.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1884,8 +1884,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-IP-Spring",
       "noiseCheck": false,
       "run": {
@@ -1903,7 +1903,7 @@
     {
       "id": "ip-gu2-out-on",
       "note": "docs/222 §11.3: 30 min whole-arm run (~14 sim days), same seed. Long-run outcomes a player can notice, read by gate2-report.ts.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1997,8 +1997,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-IP-Spring",
       "noiseCheck": false,
       "run": {
@@ -2016,7 +2016,7 @@
     {
       "id": "bp-gu2-crowd",
       "note": "docs/222 §11.2 V6 (offload-goal: crowd in view): visible crowd unchanged, 0 crash, exception, stuck. STRESS labelled.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -2110,8 +2110,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
@@ -2130,7 +2130,7 @@
     {
       "id": "sv-gu2-save-1",
       "note": "docs/222 §11.1 hard: save correctness, G9b with autunseen acting (audit O5: once, last). Save completes, reloaded save reaches live mode, 0 crash in 6 runs.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -2224,8 +2224,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-SV-Spring",
       "noiseCheck": false,
       "run": {
@@ -2244,7 +2244,7 @@
     {
       "id": "sv-gu2-save-2",
       "note": "docs/222 §11.1 hard: save correctness, G9b with autunseen acting (audit O5: once, last). Save completes, reloaded save reaches live mode, 0 crash in 6 runs.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -2338,8 +2338,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-SV-Spring",
       "noiseCheck": false,
       "run": {
@@ -2358,7 +2358,7 @@
     {
       "id": "bp-gu2-save-1",
       "note": "docs/222 §11.1 hard: save correctness, G9b with autunseen acting (audit O5: once, last). Save completes, reloaded save reaches live mode, 0 crash in 6 runs.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -2452,8 +2452,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
@@ -2472,7 +2472,7 @@
     {
       "id": "bp-gu2-save-2",
       "note": "docs/222 §11.1 hard: save correctness, G9b with autunseen acting (audit O5: once, last). Save completes, reloaded save reaches live mode, 0 crash in 6 runs.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -2566,8 +2566,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
@@ -2586,7 +2586,7 @@
     {
       "id": "ip-gu2-save-1",
       "note": "docs/222 §11.1 hard: save correctness, G9b with autunseen acting (audit O5: once, last). Save completes, reloaded save reaches live mode, 0 crash in 6 runs.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -2680,8 +2680,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-IP-Spring",
       "noiseCheck": false,
       "run": {
@@ -2700,7 +2700,7 @@
     {
       "id": "ip-gu2-save-2",
       "note": "docs/222 §11.1 hard: save correctness, G9b with autunseen acting (audit O5: once, last). Save completes, reloaded save reaches live mode, 0 crash in 6 runs.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -2794,8 +2794,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
       "save": "Baseline-IP-Spring",
       "noiseCheck": false,
       "run": {

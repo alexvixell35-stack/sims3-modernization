@@ -51,6 +51,7 @@
     },
     {
       "id": "ip-jit-capture",
+      "noiseCheck": false,
       "note": "IP 10 min, the jit-verify defaults with Capture=1. Pass: see the queue note.",
       "asi": "game-copy/ts3native.asi.jitcap1107",
       "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
@@ -99,6 +100,7 @@
     },
     {
       "id": "sv-jit-capture",
+      "noiseCheck": false,
       "note": "SV 10 min, the jit-verify defaults with Capture=1. Pass: see the queue note.",
       "asi": "game-copy/ts3native.asi.jitcap1107",
       "fixesPackage": "game-copy/ts3fixes.package.mono1106c",

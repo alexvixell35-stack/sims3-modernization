@@ -199,10 +199,10 @@ export function fixtureCapture(inputs: FixInput[]): Capture {
 
 // ---- run and report ----
 export function report(log: string) {
-  const r = { inputs: 0, ran: 0, differ: 0, unstable: 0, skipped: 0, stopped: false, verify: '', lines: [] as string[], methods: [] as string[], reasons: [] as string[] };
+  const r = { inputs: 0, ran: 0, differ: 0, unstable: 0, skipped: 0, faulted: 0, stopped: false, verify: '', lines: [] as string[], methods: [] as string[], reasons: [] as string[] };
   for (const l of log.split(/\r?\n/)) {
-    let m = /^jit replay: (\d+) inputs, (\d+) ran, (\d+) differ, (\d+) unstable, (\d+) skipped(, STOPPED on a fault)?; per-call verify: (.*)$/.exec(l);
-    if (m) { r.inputs = +m[1]; r.ran = +m[2]; r.differ = +m[3]; r.unstable = +m[4]; r.skipped = +m[5]; r.stopped = !!m[6]; r.verify = m[7]; continue; }
+    let m = /^jit replay: (\d+) inputs, (\d+) ran, (\d+) differ, (\d+) unstable, (\d+) skipped(?:, (\d+) faulted)?(, STOPPED on a fault)?; per-call verify: (.*)$/.exec(l);
+    if (m) { r.inputs = +m[1]; r.ran = +m[2]; r.differ = +m[3]; r.unstable = +m[4]; r.skipped = +m[5]; r.faulted = +(m[6] ?? 0); r.stopped = !!m[7]; r.verify = m[8]; continue; }
     if (/^jit replay (MISMATCH|UNSTABLE|FAULT) /.test(l)) r.lines.push(l);
     else if (l.startsWith('jit replay method ')) r.methods.push(l.slice(18));
     else if (l.startsWith('jit replay reason ')) r.reasons.push(l.slice(18));
@@ -236,7 +236,7 @@ async function runHost(replay: string | undefined, env: Record<string, string>, 
   }
 }
 function printReport(r: ReturnType<typeof report>) {
-  console.log(`jit-replay: ${r.inputs} inputs, ${r.ran} ran, ${r.differ} differ, ${r.unstable} unstable, ${r.skipped} skipped${r.stopped ? ', STOPPED on a fault' : ''}; per-call verify: ${r.verify}`);
+  console.log(`jit-replay: ${r.inputs} inputs, ${r.ran} ran, ${r.differ} differ, ${r.unstable} unstable, ${r.skipped} skipped, ${r.faulted} faulted${r.stopped ? ', STOPPED on a fault' : ''}; per-call verify: ${r.verify}`);
   for (const l of [...r.lines.slice(0, 40), ...r.methods, ...r.reasons.map(x => `  skip reason: ${x}`)]) console.log(l);
   if (r.differ || r.stopped) process.exitCode = 1;
 }
@@ -307,9 +307,30 @@ if (import.meta.main) {
     const env: Record<string, string> = { MONOHOST_JIT: mode, MONOHOST_MINTCALL: 'fast', MONOHOST_DIVGUARD: '1', ...(argv.includes('--lazy') ? { MONOHOST_JITLAZY: '1' } : {}) };
     const list = opt('--list') ?? [...new Set(readFileSync(replay, 'utf8').split('\n').filter(l => l.startsWith('meth ')).map(l => l.split(' ').slice(4).join(' ')))].join(',');
     env.MONOHOST_JITLIST = list === 'corpus' ? jitList(readFileSync(resolve(ROOT, 'native/monohost/monohost-jit.cpp'), 'utf8')) : list;
-    const { log, path } = await runHost(replay, env, /^jit replay: \d+ inputs/m, 1800000);
-    console.log(`log: ${path}`);
-    printReport(report(log));
+    // an interpreter fault leaves old Mono's frame state unusable (every later call fails), so after a FAULT line a fresh host process
+    // continues with the next input (MONOHOST_JITREPLAY_FROM); the rows add up by index, the fault is counted on its method
+    let from = 0, total: ReturnType<typeof report> | null = null;
+    const rowRe = /^(.*): inputs (\d+), ran (\d+), differ (\d+), unstable (\d+), skipped (\d+), faulted (\d+), objects not rebuilt (\d+)$/;
+    for (let round = 0; round < 600; round++) {
+      const { log, path } = await runHost(replay, { ...env, MONOHOST_JITREPLAY_FROM: String(from) }, /^jit replay: \d+ inputs/m, 1800000);
+      console.log(`log: ${path}`);
+      const r = report(log);
+      if (!total) total = r;
+      else {
+        total.inputs += r.inputs; total.ran += r.ran; total.differ += r.differ; total.unstable += r.unstable; total.skipped += r.skipped; total.faulted += r.faulted;
+        total.lines.push(...r.lines); total.stopped = r.stopped; total.verify = r.verify;
+        total.methods = total.methods.map((a, i) => {
+          const x = rowRe.exec(a), y = rowRe.exec(r.methods[i] ?? '');
+          if (!x || !y) return a;
+          return `${x[1]}: inputs ${+x[2] + +y[2]}, ran ${+x[3] + +y[3]}, differ ${+x[4] + +y[4]}, unstable ${+x[5] + +y[5]}, skipped ${+x[6] + +y[6]}, faulted ${+x[7] + +y[7]}, objects not rebuilt ${+x[8] + +y[8]}`;
+        });
+      }
+      const f = [...r.lines].reverse().map(l => /^jit replay FAULT input (\d+) /.exec(l)).find(Boolean);
+      if (!r.stopped || !f) break;
+      from = +f[1] + 1;
+      console.log(`jit-replay: fault at input ${f[1]}, continuing in a fresh process from ${from}`);
+    }
+    printReport(total!);
   } else {
     console.log('see the header of tools/jit-replay.ts');
     process.exitCode = 1;

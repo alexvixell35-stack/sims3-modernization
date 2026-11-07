@@ -144,7 +144,7 @@ namespace Ts3Agent
             foreach (LayoutItem it in l.plan.Items)
             {
                 if (!l.prods.ContainsKey(it.Ch))
-                    l.prods[it.Ch] = LayProduct(names[it.Ch], it.Ch == 's' && !IsLegend(legend, 's') ? typeof(Stove) : it.Ch == 'b' && names[it.Ch] == "trash" ? typeof(Trashcan) : typeof(GameObject), prefer.ContainsKey(it.Ch) ? prefer[it.Ch] : null);
+                    l.prods[it.Ch] = LayProduct(names[it.Ch], it.Ch == 's' && (!IsLegend(legend, 's') || names[it.Ch] == "stove") ? typeof(Stove) : it.Ch == 'b' && names[it.Ch] == "trash" ? typeof(Trashcan) : typeof(GameObject), prefer.ContainsKey(it.Ch) ? prefer[it.Ch] : null);
                 cost += (int)l.prods[it.Ch].Price;
             }
             Household hh = Household.ActiveHousehold;

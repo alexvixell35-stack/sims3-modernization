@@ -146,7 +146,8 @@ and never cold. The live SimBuilders hold only 0-40 of them, so the holder is so
 
 If step 1 names the registry (I-941-2), the leak is a list that never trims: the registry's only erase, `0x5EE640`, runs
 from the service's clear-all, i.e. on a service reset [verified]. Its map is read only by the export code (`Contains`
-`0x5EDAB0` from ExportLot, ExportWorld, Sim outfit export, thumbnails) [verified: callers and their strings]; in play a
+`0x5EDAB0` from ExportLot, ExportWorld, Sim outfit export, thumbnails) [verified: callers and their strings; corrected
+2026-11-07: the save `0x5EFD60` and teardown `0x5F0BA0` walk it too, docs/539 §2.3]; in play a
 compositor is reached through the ResourceCache by key, which the insert registered (manager vtable `+0x5C`, flag 1).
 
 - **What:** a detour on the insert `0x5EECD0` walks `Buckets` (16) more buckets after each insert, on the inserting

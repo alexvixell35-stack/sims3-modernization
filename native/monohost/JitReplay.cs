@@ -39,7 +39,7 @@ namespace MonoHostTest
             Type t = null;
             try { t = Parse(name); } catch (Exception e) { Why = "type: " + e.GetType().Name; }
             s_types.Add(t);
-            s_typeWhy.Add(t == null ? (Why ?? "type not in game-copy") : Refuse(t));
+            s_typeWhy.Add(t == null ? (Why ?? ("no type " + (name.Length > 70 ? name.Substring(name.Length - 70) : name))) : Refuse(t));
         }
         // what cannot be rebuilt from bytes: a native pointer means nothing in another process, a delegate holds one, a Type is a runtime handle
         static string Refuse(Type t)
@@ -81,14 +81,30 @@ namespace MonoHostTest
             }
             return open.MakeGenericType(args.ToArray());
         }
-        static Type Find(string name)
+        static readonly string[] s_game = { "Sims3GameplaySystems", "Sims3GameplayObjects", "Sims3StoreObjects", "Sims3Metadata", "UI", "SimIFace", "ScriptCore", "System", "System.Xml" };
+        static bool s_loaded;
+        static Type FindIn(string name)
         {
             foreach (Assembly a in AppDomain.CurrentDomain.GetAssemblies())
             {
                 Type t = a.GetType(name, false);
                 if (t != null) return t;
             }
+            int plus = name.LastIndexOf('+');  // a private nested type: the outer's nested lookup, with non-public members
+            if (plus > 0)
+            {
+                Type outer = FindIn(name.Substring(0, plus));
+                if (outer != null) return outer.GetNestedType(name.Substring(plus + 1), BindingFlags.Public | BindingFlags.NonPublic);
+            }
             return null;
+        }
+        static Type Find(string name)
+        {
+            Type t = FindIn(name);
+            if (t != null || s_loaded) return t;
+            s_loaded = true;  // an argument can live in an assembly nothing has touched yet
+            foreach (string n in s_game) { try { Assembly.Load(n); } catch (Exception) { } }
+            return FindIn(name);
         }
         // token 0: the fixture's hand-made rows, by name
         public static void AddMeth(int type, int token, int n)
@@ -223,7 +239,11 @@ namespace MonoHostTest
             for (int i = 0; i < ps.Length; i++)
             {
                 Type t = ps[i].ParameterType;
+                bool byref = t.IsByRef;
                 if (t.IsByRef) t = t.GetElementType();
+                // measured 2026-11-07: every Dictionary TryGetValue input whose value type is a class (out V) faulted the interpreter (write to 0, 50 of 261 in the first 1923
+                // inputs), none with a value type did; the out slot of a reference type is not rebuilt right, so these are refused until it is
+                if (byref && !t.IsValueType) { Why = "byref to a reference type"; return false; }
                 string w = t.IsValueType ? Refuse(t) : null;
                 if (w != null) { Why = w + " in a parameter"; return false; }
                 if (t.IsValueType && s_argsIn[i] == null) { Why = "value argument not in the capture"; return false; }

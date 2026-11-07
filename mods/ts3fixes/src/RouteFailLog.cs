@@ -296,9 +296,16 @@ namespace Ts3Fixes
                 if (!ShortcutOn("routefaillog")) return;
                 if (!ok) RflCount(sim);
                 if (!show && !sim.IsInActiveHousehold) return;
-                RflLine(show, sim, what + " blocker " + res.mBlockerType, r.GetApproximateOriginalDestination(), t0, r.Handle, cmd);
+                RflLine(show, sim, what + " blocker " + res.mBlockerType + RflBlocker(res.mBlockerObjectId), r.GetApproximateOriginalDestination(), t0, r.Handle, cmd);
             }
             catch (Exception) { }
+        }
+
+        static string RflBlocker(ulong id)
+        {
+            if (id == 0) return "";
+            GameObject o = GameObject.GetObject(new ObjectGuid(id));
+            return " 0x" + id.ToString("X") + " " + (o != null ? o.GetType().Name : "no object");
         }
 
         static void RflLine(bool show, Sim sim, string what, Vector3 goal, uint t0, uint route, RflCmd cmd)

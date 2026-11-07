@@ -62,10 +62,10 @@
           "--tries",
           "15",
           "--minutes",
-          "15"
+          "40"
         ]
       },
-      "timeoutMin": 30
+      "timeoutMin": 50
     },
     {
       "asi": "game-copy/ts3native.asi.gcstreak1107",
