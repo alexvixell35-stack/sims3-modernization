@@ -325,6 +325,17 @@ Run: `node tools/harness/queue.ts tools/harness/queues/jit-capture.json --no-smo
 
 Skips by reason, rows of methods: reflection object 17, delegate 10, generic method with an unknown argument 9, native pointer field 9, type not in `game-copy` 9, argument not rebuilt 7, value blob shorter than the type 3 (a warning, the input still runs), static not rebuilt 1. Two harness bugs came out of this run and are fixed: a refused value type passed its native word as an object, and so did a `T` of an open generic method; both are skips now.
 
+**Game capture replayed (2026-11-07, master e1ef04b3, ts3native 0.36.189, host only).** The three files of queue `jit-capture` (`docs/data/results/2026-11-07-queue-jit-capture.md`, BP, IP, SV, `Mode=1 Direct=0 Inline=0`), `--mode verify`:
+
+| Capture | Inputs | Ran | Differ | Unstable | Skipped | Faulted | Per-call verify |
+|---|---:|---:|---:|---:|---:|---:|---|
+| BP | 4410 | 3799 | 0 | 0 | 611 | 0 | ok 1137668, abandoned 41, MISMATCH 0 |
+| IP | 4409 | 3843 | 0 | 0 | 566 | 0 | ok 1164053, abandoned 40, MISMATCH 0 |
+| SV | 4451 | 3849 | 0 | 0 | 602 | 0 | ok 1198866, abandoned 46, MISMATCH 0 |
+| Merged, 23 method names, 455 rows | 5468 | 4789 | 0 | 0 | 679 | 0 | ok 1413277, abandoned 51, MISMATCH 0 |
+
+[measured, host] No divergence between interpreter and compiled on real game inputs. Coverage has holes: of the 679 skipped, 511 are `Dictionary.TryGetValue` (32 of 543 ran: reflection objects, byrefs to reference types), and `Array.IndexOf` (16) and `RuntimeTypeHandle.get_Value` (15, null `this`) never ran. The merged capture cut 603423 references past the bounds, so many inputs are shallow. `Direct` and `Inline` calls are not in these samples. `--lazy` and `--mode on` were not repeated on game captures.
+
 Limits: [inferred] a sample is the state at entry, so an object the method reaches past Depth arrives as null and may send the replay down a path the game did not take. It can make a false difference, never a false pass of that path; read cuts next to the result. Sampling at entry does not see Direct or Inline calls. A static the method writes is not compared unless an object it reaches is rebuilt. The game-side cost and the fault count are unproven until the queue runs.
 ## 18. Host gates: per-method proof offline, one game batch (2026-11-07, Rodney's decision)
 

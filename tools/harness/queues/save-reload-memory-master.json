@@ -1,0 +1,193 @@
+{
+  "note": "MASTER 0.36.189 PIN (2026-11-07, Rodney: Compaction for release): NOT RUN (built 2026-10-30). docs/204 §2: does a quiet save-reload (save, unload, load the same save in the SAME process) give back the address space a full restart gives back, and what does it cost in time? Correctness queue (noiseCheck false, phase timers only, no profiler, run with --no-smoke). Per world: a play job (Baseline-*-Spring loaded and only read; 25 min realistic autopilot x3 with a CAS + Buy visit at 1/3 and 2/3; mark sr-pre; (a) normal save to the scratch SaveReload-<world> = new file; mark sr-save; (b) menu route: save, agent main_menu (EA's Quit to Main Menu without the dialog = GameStates.TransitionToLeaveInWorld), load_save from the menu, mark sr-reload, 10 min play, mark sr-reload10; (b2) direct route: save, load_save reload:true (EA ReloadWorld, no menu), mark sr-direct, 10 min, mark sr-direct10), then a control job (fresh game start + load of SaveReload-<world> = the file the direct route reloaded; marks sr-ctl and sr-ctl10, restart ms = now - TS3W.exe start, upper bound). bp-cc-save-reload repeats the BP play job on the cc-2k-v2 heavy-CC set (no direct route, no control). Every save and each unload + load also logs its address-space need (largest free before vs lowest during, commit peak; probe /memory read back to back) for the docs/204 §3 Compaction threshold. Needs the ts3agent with main_menu (feature/save-reload-memory). Read: node tools/harness/save-reload-report.ts (latest play + control per world: save time vs reload cycle time vs restart; largest free / free / commit / private / mapped / rc / gcHeap / pools at each mark; share of the restart's gain the in-process reload gets back) and node tools/mem-report.ts report --log <job ts3native.log> for every other field. ~60 + ~15 min per world, 4 game starts.",
+  "jobs": [
+    {
+      "id": "bp-save-reload",
+      "note": "Play + save + menu reload + direct reload on Bridgeport (spring, no winter skew). Pass: exit 0 (every save native result 0, both reloads back in live mode), all 6 marks in ts3native.log, no crash.",
+      "asi": "game-copy/ts3native.asi.master0189",
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^diag: mem #\\d+ mark ev=sr-pre ": 1,
+        "^diag: mem #\\d+ mark ev=sr-save ": 1,
+        "^diag: mem #\\d+ mark ev=sr-reload ": 1,
+        "^diag: mem #\\d+ mark ev=sr-reload10 ": 1,
+        "^diag: mem #\\d+ mark ev=sr-direct ": 1,
+        "^diag: mem #\\d+ mark ev=sr-direct10 ": 1,
+        "^save: end #\\d+ result 1 ": 3
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "saveReload": [
+          "--world",
+          "BP",
+          "--play",
+          "25",
+          "--after",
+          "10"
+        ]
+      },
+      "timeoutMin": 100,
+      "iniBase": "game-copy/ts3native.ini.master0189",
+      "pinReason": "master head 0.36.189: asi master0189 e6b48f5aa4e9, ini of that head; the ts3fixes package is the master build in build/ (a saveReload job takes no fixesPackage)"
+    },
+    {
+      "id": "bp-save-reload-control",
+      "note": "Full-restart reference: fresh game start + load of SaveReload-BP (written by bp-save-reload's last save). Pass: exit 0, marks sr-ctl and sr-ctl10.",
+      "asi": "game-copy/ts3native.asi.master0189",
+      "save": "SaveReload-BP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^diag: mem #\\d+ mark ev=sr-ctl ": 1,
+        "^diag: mem #\\d+ mark ev=sr-ctl10 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "saveReload": [
+          "--control",
+          "--world",
+          "BP",
+          "--after",
+          "10"
+        ]
+      },
+      "timeoutMin": 30,
+      "iniBase": "game-copy/ts3native.ini.master0189",
+      "pinReason": "master head 0.36.189: asi master0189 e6b48f5aa4e9, ini of that head; the ts3fixes package is the master build in build/ (a saveReload job takes no fixesPackage)"
+    },
+    {
+      "id": "ip-save-reload",
+      "note": "bp-save-reload on Isla Paradiso (the heaviest world we test: houseboats, the IP hitch world).",
+      "asi": "game-copy/ts3native.asi.master0189",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^diag: mem #\\d+ mark ev=sr-pre ": 1,
+        "^diag: mem #\\d+ mark ev=sr-save ": 1,
+        "^diag: mem #\\d+ mark ev=sr-reload ": 1,
+        "^diag: mem #\\d+ mark ev=sr-reload10 ": 1,
+        "^diag: mem #\\d+ mark ev=sr-direct ": 1,
+        "^diag: mem #\\d+ mark ev=sr-direct10 ": 1,
+        "^save: end #\\d+ result 1 ": 3
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "saveReload": [
+          "--world",
+          "IP",
+          "--play",
+          "25",
+          "--after",
+          "10"
+        ]
+      },
+      "timeoutMin": 110,
+      "iniBase": "game-copy/ts3native.ini.master0189",
+      "pinReason": "master head 0.36.189: asi master0189 e6b48f5aa4e9, ini of that head; the ts3fixes package is the master build in build/ (a saveReload job takes no fixesPackage)"
+    },
+    {
+      "id": "ip-save-reload-control",
+      "note": "Full-restart reference for ip-save-reload (SaveReload-IP).",
+      "asi": "game-copy/ts3native.asi.master0189",
+      "save": "SaveReload-IP",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^diag: mem #\\d+ mark ev=sr-ctl ": 1,
+        "^diag: mem #\\d+ mark ev=sr-ctl10 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "saveReload": [
+          "--control",
+          "--world",
+          "IP",
+          "--after",
+          "10"
+        ]
+      },
+      "timeoutMin": 35,
+      "iniBase": "game-copy/ts3native.ini.master0189",
+      "pinReason": "master head 0.36.189: asi master0189 e6b48f5aa4e9, ini of that head; the ts3fixes package is the master build in build/ (a saveReload job takes no fixesPackage)"
+    },
+    {
+      "id": "bp-cc-save-reload",
+      "note": "Heavy-CC point for the docs/204 §3 threshold: bp-save-reload with the synthetic cc-2k-v2 set (2000+ CC parts, docs/200) and no direct route: the save peak and the reload cycle where CC fills the catalogues and caches. Scratch save SaveReload-BPCC. Pass as bp-save-reload without the sr-direct marks.",
+      "asi": "game-copy/ts3native.asi.master0189",
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "callSites": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^diag: mem #\\d+ mark ev=sr-pre ": 1,
+        "^diag: mem #\\d+ mark ev=sr-save ": 1,
+        "^diag: mem #\\d+ mark ev=sr-reload ": 1,
+        "^diag: mem #\\d+ mark ev=sr-reload10 ": 1,
+        "^save: end #\\d+ result 1 ": 2
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "saveReload": [
+          "--world",
+          "BPCC",
+          "--play",
+          "15",
+          "--after",
+          "10",
+          "--no-direct"
+        ]
+      },
+      "timeoutMin": 80,
+      "ccSet": "game-copy/cc-synth/cc-2k-v2",
+      "iniBase": "game-copy/ts3native.ini.master0189",
+      "pinReason": "master head 0.36.189: asi master0189 e6b48f5aa4e9, ini of that head; the ts3fixes package is the master build in build/ (a saveReload job takes no fixesPackage)"
+    }
+  ]
+}

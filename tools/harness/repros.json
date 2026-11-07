@@ -58982,5 +58982,222 @@
         "waitS": 5
       }
     ]
+  },
+  {
+    "id": "stove-wall-repeat-mix",
+    "bug": "Player reports 2026-11-07 (v0.2.8, v0.2.9): the stove fails \"eventually\"; log b02e08a4: third bake of a session, Sim on the slot, BakingDish_CookInOven plan, result 16, 1/1/0, then the slot fails from anywhere",
+    "fix": "none yet: no fix until a cause is verified",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (never run): a long kitchen run along a straight wall, real orders only. 50 full bakes through the stove's menu (Fridge_Have, FoodTray_Prepare, CuttingBoard_Prepare, BakingDish_Prepare, BakingDish_CookInOven, eat, clean up, dishwasher), every 4th from X past the wall by Go Here, then 50 mix orders (cancels at start and at use, snacks, fridge meals). Two NPCs walk the west room with a long plan each second, so a route job is often running when a bake region goes (RE verdict, DeferFootprint2 + DestroyParkDx). Nothing cleaned by the agent. Cheats: needs and clock between orders, recipes and skill, objects, first spot and the NPCs at setup. Differs from the player: no NRaas, no S3DBG, no other mods, a new empty lot, no diploma on the wall. Job PASS = it ran, not that the bug is absent: read the end line. | mix orders only (2026-11-07, Rodney: the release gate dropped them): the setup of stove-wall-repeat, then 50 mix orders and no bakes.",
+    "expect": "Per cycle \"stove-repeat: cycle N ...\" plan, steps and state lines. Either \"stove-repeat: FIRST FAILURE ..\" with plans at +5, +30, +120 s, or \"stove-repeat: end, no failure in N orders, full bakes M (not proof)\": not reproduced, N/A.",
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Layout",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Lee",
+              "last": "Layout",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Sam",
+              "last": "Layout",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "waitS": 5,
+        "note": "Edit Town: one-Sim household on a vacant empty lot"
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Layout"
+        },
+        "waitS": 30,
+        "note": "Edit Town: Change Active Household"
+      },
+      {
+        "cmd": "clock_hour",
+        "setup": true,
+        "args": {
+          "hour": 11
+        },
+        "waitS": 1,
+        "note": "daylight: a new room has no light of its own yet"
+      },
+      {
+        "cmd": "autonomy",
+        "setup": true,
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "waitS": 1,
+        "note": "off while the room is built"
+      },
+      {
+        "cmd": "build_layout",
+        "args": {
+          "map": [
+            "W w w w w w w",
+            "E E w e e e e",
+            "E E w e e e e",
+            "E E w e e e e",
+            "E X w s e e e",
+            "E E w e e e e",
+            "E E w e e e e",
+            "E b w e e e e",
+            "E E E e e e e"
+          ],
+          "house": true,
+          "origin": [
+            4,
+            4
+          ],
+          "margin_top": 0,
+          "roof": false,
+          "lights": 0,
+          "legend": {
+            "b": {
+              "name": "trash",
+              "prefer": "munici-pale"
+            },
+            "s": {
+              "name": "stove",
+              "facing": "E"
+            }
+          }
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "build_layout",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "passed",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 3,
+          "maxS": 300
+        },
+        "note": "a straight wall 7 long with X behind it, the kitchen on the far side, stove in the middle; the only way round is the free bottom end"
+      },
+      {
+        "cmd": "stove_wall_setup",
+        "setup": true,
+        "args": {
+          "layout": true
+        },
+        "waitS": 2,
+        "note": "stove, bin and X only; the run comes from stove_repeat_setup"
+      },
+      {
+        "cmd": "clock_hour",
+        "setup": true,
+        "args": {
+          "hour": 18
+        },
+        "waitS": 1,
+        "note": "dinner: the meal time with baked recipes"
+      },
+      {
+        "cmd": "stove_oven_setup",
+        "setup": true,
+        "args": {
+          "others_tile": [
+            4,
+            5
+          ]
+        },
+        "waitS": 2,
+        "note": "the active Sim knows the baked recipes (cheat); Sam starts in the west room"
+      },
+      {
+        "cmd": "stove_wall_place",
+        "setup": true,
+        "args": {},
+        "waitS": 2,
+        "note": "selected Sim on X past the wall (cheat, setup only)"
+      },
+      {
+        "cmd": "stove_repeat_setup",
+        "setup": true,
+        "args": {},
+        "waitS": 2,
+        "note": "the run along the wall from the stove, lane 2 tiles wide, sink across it, food processor; every slot planned from X, a failure stops the job: layout blocks the slot"
+      },
+      {
+        "cmd": "autonomy",
+        "setup": true,
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "waitS": 1,
+        "note": "free will on as in the player's game: the Sims clear up after themselves, the agent cleans nothing"
+      },
+      {
+        "cmd": "set_speed",
+        "setup": true,
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1,
+        "note": "x3: short cycles"
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "stove_repeat_run",
+          "setup": false,
+          "args": {
+            "cycles": 0,
+            "mix": 50
+          },
+          "waitS": 2,
+          "until": {
+            "cmd": "stove_repeat_status",
+            "args": {},
+            "all": [
+              {
+                "path": "done",
+                "equals": true
+              }
+            ],
+            "everyS": 5,
+            "maxS": 7800
+          },
+          "note": "real orders only; ends at the first failure, with plans at +5, +30, +120 s"
+        }
+      ],
+      "arms": [
+        "on"
+      ],
+      "until": {
+        "events": 1
+      },
+      "maxMinutes": 140
+    }
   }
 ]

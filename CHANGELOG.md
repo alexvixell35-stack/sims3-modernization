@@ -4,9 +4,9 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ## v0.2.10 (2026-11-07)
 
-Hotfix on top of v0.2.9, Steam only. The stove and fridge bug below was ours, and this fix is Blastorix's (Discord): he reported it and his test logs found the cause.
+Hotfix on top of v0.2.9, Steam and the EA app 1.69.47. The stove and fridge bug below was ours, and this fix is Blastorix's (Discord): he reported it and his test logs found the cause.
 
-**EA app:** there is no EA app build of this release yet. The EA app builds of v0.2.8 and v0.2.9 use the same routing settings, so expect the same problem there until an EA app build follows. We have not reproduced it on the EA app. Stay on v0.2.9 for now.
+**EA app:** `ts3native-ea169-v0.2.10.zip` (EA app 1.69.47): `ts3native.asi` and `ts3native.ini`; replace both. It has the same stove and fridge fix as the Steam build. Kitchens already blocked by v0.2.8 or v0.2.9 clear when you reload your save.
 
 ### Download
 

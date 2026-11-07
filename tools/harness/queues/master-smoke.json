@@ -1,0 +1,34 @@
+{
+  "note": "master head smoke (2026-11-07, Rodney): one 5 min Bridgeport job on master 0.36.189 (asi master0189, the source ini, the master-built ts3fixes package), correctness only. Pass = no crash, no hang, version, LostRemovalFix, GhostSweep=2 and removal first mode 1 read back in the log.",
+  "jobs": [
+    {
+      "id": "bp-master0189-smoke",
+      "note": "[natural play, no cheats] master head 0.36.189 smoke, Baseline-BP-Spring: LostRemovalFix, GhostSweep=2 and RemovalFirst=1 read back in the log.",
+      "asi": "game-copy/ts3native.asi.master0189",
+      "pinReason": "master head 0.36.189: asi master0189, ini = native/ts3native/ts3native.ini of that head, ts3fixes built from the same head (default build)",
+      "fixesPackage": "game-copy/ts3fixes.package.master0189",
+      "iniBase": "game-copy/ts3native.ini.master0189",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "ts3native 0.36.189": 1,
+        "^OK   lost removal fix": 1,
+        "ghost census at world load: GhostSweep=2": 1,
+        "removal first: mode 1": 1
+      },
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 5
+        }
+      },
+      "timeoutMin": 15
+    }
+  ]
+}
