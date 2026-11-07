@@ -34,7 +34,7 @@ namespace Ts3Agent
         //   food?, music?, color?, zodiac?, voice?: A|B|C}], relations?: [{a, b, type: spouse|partner|parent|sibling|roommate}],
         //   lot?: lot id (else the most expensive vacant residential lot the funds buy that CanSupportPopulation), dry?: true,
         //   funds?: simoleons (the familyfunds cheat's effect: Household.SetFamilyFunds after creation, before the lot pick;
-        //   realism cheat, docs/181 §3.1)}
+        //   realism cheat, docs/181 §3.1), empty_lot?: true (a vacant empty lot, nothing to furnish: a player who builds)}
         // CAS steps: SimUtils.SimCreationSpec.Instantiate (Genetics.MakeDescendant for a child of a man and a woman), the CAS
         // trait slots (TraitManager.RemoveAllElements + AddElement, age / visible / conflict / count checked like CAS), the CAS
         // favourites, zodiac and voice setters, SimDescription.LifetimeWish (DreamsAndPromisesManager.GetMajorDream must know it),
@@ -156,7 +156,22 @@ namespace Ts3Agent
                 Need need = new Need(members.Count, couples, toddlers);
                 if (sEssentials != null && sEssentials.Count < 7) sEssentials = null;
                 MoveInPlan plan;
-                if (a.Has("lot"))
+                if (a.Bool("empty_lot", false))
+                {
+                    // build_layout's house: the cheapest vacant empty residential lot at least 16 x 16 tiles the funds buy; nothing to furnish
+                    plan = null;
+                    foreach (object o in LotManager.AllLots)
+                    {
+                        Lot l = o as Lot;
+                        if (l == null || l.IsWorldLot || !l.IsResidentialLot || l.IsApartmentLot || l.IsDormitoryLot || l.Household != null || !World.LotIsEmpty(l.LotId)) continue;
+                        Corners k = l.Corners;
+                        Vector2 o0 = k.GetVector2Corner(Corner.Origin);
+                        if (l.Cost > funds || (k.GetVector2Corner(Corner.XAxis) - o0).Length() < 15.5f || (k.GetVector2Corner(Corner.YAxis) - o0).Length() < 15.5f) continue;
+                        if (plan == null || l.Cost < plan.Price) { plan = new MoveInPlan(); plan.Lot = l; plan.Furnished = true; plan.Price = l.Cost; }
+                    }
+                    if (plan == null) throw new McpException("no vacant empty residential lot of 16 x 16 tiles or more for " + funds);
+                }
+                else if (a.Has("lot"))
                 {
                     Lot given = LotManager.GetLot(a.ULong("lot"));
                     if (given == null || !Vacant(given)) throw new McpException("lot " + (given != null ? given.Name : a.Str("lot")) + " is not a vacant residential lot with a house");

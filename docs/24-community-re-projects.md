@@ -314,3 +314,21 @@ All GitHub facts come from the GitHub REST API and raw READMEs/docs read on 2026
 | 47 | 630525 | https://modthesims.info/d/630525/deep-conversations.html | Deep Conversations | QuackGames | 25th Jul 2019 at 7:08am |
 | 48 | 459967 | https://modthesims.info/d/459967/gardener-service-v2-3-4th-may-2014.html | Gardener Service - v2.3 (4th May 2014) | douglasveiga | updated 5th May 2014 at 7:07am |
 | 86 | 529671 | https://modthesims.info/d/529671/interaction-on-sloped-terrain-enabler.html | Interaction on sloped terrain enabler | nikel23 | 29th Jul 2014 at 10:47pm |
+
+## Saved stacks through swapped methods (2026-11-06, docs/242)
+
+Web search and the NRaas source found no mod that keeps a saved frame across a method swap: nothing online on the task-stack checksum; `game-copy/nraas-src` touches `TaskStateCollection` only in its compiler stub project. EA forum threads describe the symptom only (a Sim rebuilt by ResetSim, e.g. https://forums.ea.com/discussions/the-sims-3-technical-issues-en/sims-interaction-seemingly-disabled/8324681).
+
+## Boat replan hitch on Isla Paradiso (2026-11-06, docs/248)
+
+Looked for a fix of the sync replan after a get-in; none found. Workarounds only, nothing reused, no code taken:
+- Houseboat NPC mod, https://modthesims.info/d/665907 (license: site terms): removes NPC houseboats, not the replan.
+- Forum reports of the lag and port lot workarounds: https://forums.ea.com/discussions/the-sims-3-technical-issues-en/removing-ip-lag/2055350 , https://forums.thesims.com/en_us/discussion/692071/island-paradise-lag-issue-solution-no-mods-required (forum posts, read only).
+- NRaas GoHere `mAllowBoatRouting` turns boat routing off for everybody; ours keeps boats for seen Sims.
+
+## Sims leaving a houseboat (2026-11-07, docs/248 §10)
+
+Looked for a fix or teleport of townies leaving a houseboat; none found, nothing reused, no code taken:
+- https://modthesims.info/d/665907 (license: site terms): stops NPCs moving houseboats, another cause.
+- https://forums.ea.com/discussions/the-sims-3-technical-issues-en/removing-ip-lag/2055350 , https://forums.ea.com/discussions/the-sims-3-en/isla-paradiso-fixes/187443 (forum posts, read only): remove the Scott household or the boats; ports with bad boat access.
+- NRaas GoHere, StoryProgression (source read for behaviour): no teleport off a houseboat.

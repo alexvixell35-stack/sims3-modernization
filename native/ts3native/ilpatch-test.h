@@ -11,9 +11,12 @@ static void* __cdecl IlpTestXform(BYTE* rm, void* ctx) {
     return rm;
 }
 static BYTE* __cdecl IlpTestHeader(BYTE*) { return (BYTE*)g_ilpTestHdr; }
+static void* __cdecl IlpTestXformOk(BYTE*, void*) { g_ilpTestSeen.calls++; return NULL; }
+static int g_ilpTestPost; static DWORD g_ilpTestPostAfter;
+static void __cdecl IlpTestPost(BYTE*, void*) { g_ilpTestPost++; g_ilpTestPostAfter = g_ilpTestSeen.calls; }
 
 static void TestIlPatch() {
-    static_assert(offsetof(Ts3nCounters, ilpOn) == 0x5C14 && offsetof(Ts3nCounters, ilpFaults) == 0x5C30 && sizeof(Ts3nCounters) == 5901 * 4,
+    static_assert(offsetof(Ts3nCounters, ilpOn) == 0x5C14 && offsetof(Ts3nCounters, ilpFaults) == 0x5C30 && sizeof(Ts3nCounters) == 5984 * 4,
                   "counters v907 layout after v906 (docs/registry.md)");
     assert(IlpShaInit());
     BYTE sha[32];
@@ -168,6 +171,15 @@ static void TestIlPatch() {
         *(const char**)(mm + 0x18) = "Other";
         ret = IlpXform(rm, NULL);
         assert(ret == rm && g_ilpTestSeen.calls == 2 && ts3native_counters.ilpSkipHash == skip0 + 1);  // not a listed method: straight through
+        // one owner, two clients (docs/527 §1): pre-pass, EA's transform, post-pass; no post-pass after a transform that threw
+        g_ilpTestPost = 0;
+        g_ilpPost = IlpTestPost;
+        ret = IlpXform(rm, NULL);
+        assert(ret == rm && g_ilpTestPost == 0 && g_ilpTestSeen.calls == 3);  // the fake transform "throws" rm: not compiled
+        g_ilpNext = IlpTestXformOk;
+        ret = IlpXform(rm, NULL);
+        assert(ret == NULL && g_ilpTestPost == 1 && g_ilpTestSeen.calls == 4 && g_ilpTestPostAfter == 4);
+        g_ilpPost = NULL;
         g_ilpArmed[2] = armed0; g_ilpLogged[2] = logged0;
         P = P0;
         g_ilpNext = next0; g_ilpHeader = header0;

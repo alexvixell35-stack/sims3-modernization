@@ -1,0 +1,35 @@
+{
+  "note": "docs/197 §7 [RouteAsync] KdCutCamRecheck (ts3native 0.36.186; build this branch, park as game-copy/ts3native.asi.kdcam, ts3fixes and ts3agent from this branch). DRAFT, NOT RUN. One correctness job, switch off vs on in one load, no timing claim.",
+  "jobs": [
+    {
+      "id": "sv-kd-cut-camera-recheck",
+      "note": "Correctness, forced ABBA on kd-cut-camera-recheck: camera jump onto a townie during its slow job, the loop flips kdCamMode. Pass: no crash, 0 watchdog lines, kdCamWould >= 1, kdCamHeld >= 1, then node tools/harness/kd-arm-cuts.ts <ts3native.log> --cam --expect-on-zero. kdCamChecks 0 = the job never reached its cut: N/A, pick another Sim.",
+      "asi": "game-copy/ts3native.asi.kdcam",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "kdReady>=1,kdScopeN>=1,kdCamChecks>=1,kdCamWould>=1,kdCamHeld>=1,watchdogs<=0",
+      "logRequire": {
+        "ts3native 0.36.186": 1,
+        "kd cam recheck: ": 1
+      },
+      "ini": {
+        "RouteAsync.KindDeadlines": 1,
+        "RouteAsync.KdExemptSeen": 1,
+        "RouteAsync.KdForeignPlanMs": 100,
+        "RouteAsync.KdCutCamRecheck": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "repro": "kd-cut-camera-recheck",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+# Queue sim-gone9 2026-11-06
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/sim-gone9-2026-11-06.jsonl`.
+
+## 2026-11-06T02:13 UTC, build e14122a0, jobs sg9-save-1, sg9-pair-1, sg9-noours-1
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| sg9-save-1 | 02:13 (10:13) | 2.2 | PASS | sim-gone-savemid: PASS: steps done (no watch) (expected: the save is written)<br>PASS: 0 new script errors (max 0) | 0 | 2183.9/1841.8/1484.9 -> 2218.1/1838.5/1500.9 | - | timing: invalid (noise medium); build: asi 92b1341024f7 not in DB ts3native 0.36.168 (log ok); ts3fixes tuning 10b027b92d63 rel025d-fixes/rel025d-ph-fixes/rel025e-fixes/ts3fixes.0.2.6 (expected game-copy/asi-v027/ts3fixes.package); noise: medium (other apps 22.9% of game CPUs); others on game CPUs 22.9%; clock avg/min 4159/4103 MHz; v0.2.7 pair: starts the visit, saves mid-route as SgMidRoute |
+| sg9-pair-1 | 02:15 (10:15) | 2.4 | PASS | sim-gone-reload: PASS: steps done (no watch) (expected: the 60 s window ends)<br>PASS: 0 new script errors (max 0) | 0 | 2212.8/1862.1/1548.6 -> 2122.2/1865.2/1570.8 | - | timing: invalid (noise medium); build: asi 92b1341024f7 not in DB ts3native 0.36.168 (log ok); ts3fixes tuning 10b027b92d63 rel025d-fixes/rel025d-ph-fixes/rel025e-fixes/ts3fixes.0.2.6 (expected game-copy/asi-v027/ts3fixes.package); noise: medium (other apps 16.1% of game CPUs); others on game CPUs 16.1%; clock avg/min 4180/4139 MHz; v0.2.7 pair loads SgMidRoute, sim_gone_load armed |
+| sg9-noours-1 | 02:18 (10:18) | 2.5 | PASS | sim-gone-reload: PASS: steps done (no watch) (expected: the 60 s window ends)<br>PASS: clean baseline: clean: no Bin/ts3native.log, /native null, ts3fixes.applied null, no counter above 0<br>N/A (ourMods false): asi build check, ts3fixes build check, ts3native.log version gate, ts3native.ini features, hook FAIL lines and route hook state, counter gate and /native counters<br>PASS: 0 new script err | 0 | 1959.4/1619.1/1796.9 -> 1917.1/1627.8/1796.9 | - | timing: invalid (noise medium); noise: medium (other apps 14.4% of game CPUs); others on game CPUs 14.4%; clock avg/min 4205/4154 MHz; no ts3native, no ts3fixes: loads SgMidRoute, sim_gone_load armed |

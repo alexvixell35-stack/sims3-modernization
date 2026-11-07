@@ -118,16 +118,20 @@ static int RtWorldState(const void* lock) {
 static bool RtQuietWorld(const void* lock) { return RtWorldState(lock) == 0; }  // worker, before each queued job
 
 // H6 M1 (docs/60 §2.4), on the sim thread from AsyncStart: true = this START may go async, *lock = the job's lock.
-static bool RtM1Allows(void** lock, int* whyOut) {
+static int RtM1Why() {
     Ts3nCounters& k = ts3native_counters;
-    int why = -1;
     const RgThread& t = t_rg;
     const int ws = RtWorldState(g_rgLock);
-    if (!k.rgEnforce || ws == 1) why = 0;
-    else if (k.rtBusy > 0) why = 1;
-    else if (k.rtClosing) why = 2;
-    else if (ws) why = ws;
-    else if (t.n > t.readers || k.rgOwnerTid == (LONG)GetCurrentThreadId()) why = 5;
+    if (!k.rgEnforce || ws == 1) return 0;
+    if (k.rtBusy > 0) return 1;
+    if (k.rtClosing) return 2;
+    if (ws) return ws;
+    if (t.n > t.readers || k.rgOwnerTid == (LONG)GetCurrentThreadId()) return 5;
+    return -1;
+}
+static bool RtM1Allows(void** lock, int* whyOut) {
+    Ts3nCounters& k = ts3native_counters;
+    const int why = RtM1Why();
     if (why >= 0) {
         InterlockedIncrement(&k.asyncRefusedM1[why]);
         if (whyOut) *whyOut = why;

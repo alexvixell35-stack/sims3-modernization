@@ -8,7 +8,7 @@ Sources: capstone over the Steam 1.67 `TS3W.exe` (copy under `game-copy/`), docs
 
 | Rank | Option | Expected gain in game | Hours (Claude + agents) | Game runs | State |
 |---|---|---|---|---|---|
-| 1 | **Sub-run fusion** of the existing 22 superops (§4): fuse a descriptor wherever it occurs inside a run, not only when the whole run equals it | **~2-8 ms/s** [inferred]; offline: -0.7% to -11.8% dispatches, **-7.1%** time on the bench | 1-2 h to port to ts3native (switch, default off) | 2 loads (transform-time: no in-load A/B), clean night | **built in monohost**, 37/37 selftest and same checksum in 59 of 60 runs (54 in a row); one unexplained failure (§4.4) |
+| 1 | **Sub-run fusion** of the existing 22 superops (§4): fuse a descriptor wherever it occurs inside a run, not only when the whole run equals it | **~2-8 ms/s** [inferred], overlapping compiled bodies after S1 [inferred, §4.5]; offline: -0.7% to -11.8% dispatches, **-7.1%** time on the bench | done | `mintfuse-verify` queue (1 load); 2 loads + clean night only for a gain number (transform-time: no in-load A/B) | **built** (ts3native `[MintFuse] Sub`, next version, counters v164, off, §4.6), not run in game; the one host failure is a timing bound in the test, not fusion (§4.4) |
 | 2 | **Call/return fast path** (§5, §8): own handlers for `call`/`callvirt`/`ret*` through the jump table, falling back to EA's handler before any state change | design said ~15-30 ms/s; **as built ~5-10 ms/s** [inferred from host benches, §8.5]: a bit-exact frame keeps nearly all of EA's stores (209-233 -> 191-201 instructions) | done | verify queue + A/B **in one load** (`--ab mintcall`) | **built** (ts3native 0.36.127 `[MonoFast] CallPath`, off), host-verified 0 mismatches over 19-21 M calls, not run in game |
 | 3 | New superinstructions for frequent pairs (§3) on top of rank 1 | ~1-4 ms/s [inferred] | 4-8 h, after G-I1 picks the pairs | 2 loads | design only |
 | 4 | Threaded (replicated) dispatch, G-I10 (§2) | **≤ ~2-3 ms/s** of a 16 ms/s ceiling; offline -1.7%, at the noise floor | done offline; port 1 h | not worth one | **built in monohost**, not recommended |
@@ -100,16 +100,46 @@ Why it is safe [verified rules from docs/130 §9.1, applied to a new position]: 
 
 Bench time -7.1% (table in §2). `callvirt` and miss counts are unchanged (bench identical; the other phases within ±0.03%, which is the M5 worker's run-to-run variation), as expected since calls end runs. Same checksum in every run.
 
-### 4.4 Correctness record and the open failure
+### 4.4 Correctness record and the old failure
 
-- 37/37 selftest checks and the same bench checksum in **59 of 60** sub-run-fusion runs (4 unpinned with bench, 1 with counters, 5 pinned with bench, 6 + 14 without bench, 30 pinned with bench); **54 clean in a row** after the one failure. 0 failures in ~50 runs without it (stock, threaded, nocheck, count) in the same period.
-- **One run failed one check** (`SELFTEST FAILED: 36 passed, 1 failed`, pinned bench, first run of its batch). The log was overwritten before the check id was read, and it never came back (the later loops kept any failing log). The 50-clean-runs bar is met, but the cause is unknown; the selftest has timing-dependent checks on two interpreting threads (M5), which is a candidate, not a cause [inferred]. Keep the switch off by default and keep the failing-log capture in any further host loop.
+- Record to 2026-10-21: 37/37 checks and the same bench checksum in **59 of 60** sub-run-fusion runs, 54 clean in a row after one failure (`SELFTEST FAILED: 36 passed, 1 failed`, pinned bench, first run of its batch, 2026-10-20 23:07 UTC); 0 failures in ~50 runs without fusion. The bench checksum of the failed run was the right one, -466393015 [verified: agent transcript]. Its log was overwritten; no transcript or kept log holds the check id. 1 of 60 against 0 of 50 was never evidence against fusion by itself.
+- **Cause (2026-11-06): the selftest check `AS-G-A2` has a timing bound at its median**, and fusion plays no part in it [measured offline]. The check demands `mainPasses >= rounds` and `gcs >= rounds` (200). The main thread only makes a pass while the worker's job is out, so a job that ends before the loop starts adds none: the median is exactly 200, one short round fails it. The check existed with the same bound on 2026-10-20 [verified: `git show 79c11b75`], so it is the likely check behind the old failure [inferred: the id is gone, this cannot be confirmed].
+- In a failing run every correctness field is clean (A0 10000 of 10000, A1-A3 0, main passes wrong 0, rng and other aborts 0), and only the pass and collection counts miss (182-199 of 200).
+
+| Loop (`tools/monohost-stress.ts`, arms interleaved, same exe per arm, game job running on the machine) | stock | sub-run fusion | Other checks | Bench checksum |
+|---|---|---|---|---|
+| 3 workers in parallel, 60 runs per arm, fusion as first built | **15 of 60** fail `AS-G-A2` | **13 of 60** fail `AS-G-A2` | 0 | -466393015 in all 120 |
+| 1 worker, 30 runs per arm, shared `mintfuse.cpp` | 0 of 30 | 2 of 30 fail `AS-G-A2` | 0 | -466393015 in all 60 |
+| 3 workers, 20 runs per arm, bound fixed | **0 of 20** | **0 of 20** | 0 | -466393015 in all 40 |
+
+Failure rate with the old bound: 25% under load on both arms, so load drives it. At light load fusion fails 2 of 30 and stock 0 of 30; with the 2026-10-20 record that is 3 of 90 against 0 of 80, too few to separate, but the direction fits the mechanism: fused code runs the worker's job faster, so it ends before the main loop starts a little more often [inferred]. That is a test artefact either way: every failure is this one check with clean correctness fields. `GM4-sweep` fails in every run on current master with or without fusion (3 overriding types where the check wants 0; also in main's own 2026-11-05 host log), so the loops ignore it; it is a separate open item, not looked into here.
+
+The fix is in the test: both bounds are now `rounds / 2`. The check's purpose (the main thread really ran during the windows) stands, and its exactness gates are unchanged.
+
+**With the compiler (S1 overlap, open):** `MONOHOST_JIT=verify`, bench 300, 2-3 parallel runs. Without fusion: 4 runs, 3 with 0 mismatches, 1 with 2. With fusion: all 4 runs had 1-4 mismatches (9 in all, in ~4.9 M verified calls in the one full run). The compiled code is the same size with and without fusion (291 methods, 205,989 bytes), and in the two full runs 0 of 29 case checksums differ from the interpreter. 10 of the 11 mismatches have one shape: `set_Item` or `Array.Resize` in a word pointing at an object the compiled pass allocated, `kept -1` (the verifier holds no copy of it), the two pointers one allocation apart. That reads as the verifier losing track of a new object, not as a wrong value [inferred], and the shape also occurs without fusion, so fusion does not cause it. Whether fusion raises the rate is open (4 of 4 runs against 1 of 4, too few to say). The eleventh, with fusion only, is a float word in a `Single[]` under `GetTypeFromHandle` (compiled 292.0, interpreted 0), and is not explained. Master has no compiler in ts3native, so this does not touch `[MintFuse] Sub` on its own; triage it before running both together.
+
+Ruled out by reading the code [verified, capstone unless marked]:
+
+- Shim stack offset: frame 0x5C + 4 pushes + return address puts pass argument 1 at `[esp+0x70]`, `[esp+0x80]` at shim entry; the code base `[ctx+0x38]` is the one the pass reads.
+- Matcher return value: the caller stores `eax` at `0xE5C8DD` only when the pass's second argument is set; the one caller `0xE63C2C` pushes 0, so returning 0 instead of EA's hash changes nothing.
+- Run start: `edi` is reset after every flush and moves past a leading `nop` (`0xE5C84A`); a branch-target flush re-reads the target as the new run's first instruction, so no run holds a target past its start.
+- Exception handler entries are not branch targets, so a run can run on across an unconditional `br` into one. No descriptor holds an unconditional branch, so no fused sequence crosses that point; the conditional branches in 12 descriptors cannot end a try block, because IL forbids falling out of one [inferred].
+- Readers of mint code: `monohost-jit.cpp` and the probe's `vcWalker` (`agent.js`, docs/133) take superop lengths from the descriptors at any position, `satb.cpp` keys on the opcode, ts3native has no other reader (grep).
+- One real but unrelated hazard: `pos[]` stayed unset when a run held enough `nop`s to exhaust the walk's guard (a write through an unset pointer). It needs dozens of `nop`s in one run and the host saw none (I-194-9), so it did not cause the failure. Fixed (the run is left alone) with a selftest case.
+
+Not ruled out: a rarer effect that 120+ runs would not show, and anything only the game's script mix reaches. Keep the failing-log capture in any further host loop (the stress tool does).
 
 ### 4.5 Expected gain in game
 
 The offline phases bracket the dispatch reduction from 0.7% (init code, many calls) to 11.8% (field-heavy code). The sim's hot interpreted code is field and call heavy (§3), so **~2-6% fewer dispatches** is the working guess [inferred]. With interpreter self 25.5% of sim-thread samples and ~60% of an average instruction saved per removed dispatch: 25.5% x (2-6%) x 0.6 x ~1.0-1.7 (the field superops also drop eval-stack traffic) = **~0.3-0.8% of samples, ~2-8 ms/s** [inferred]. Confirming it needs either G-I1 (hot methods; then count inner sites per hot method offline) or a two-load A/B: the change acts at transform time, so methods transformed before a switch flip keep their form, and an in-load A/B would be biased.
 
-Port to ts3native: the same 5-byte call patch at `0xE5C8CA` (check the bytes `E8` -> `0xD89930` first), installed at DLL load before `MonoScriptHost_Init` (`0xD7E560`) transforms anything; switch `[MintFuse] Sub=1`, default off; counters (runs, whole, inner) in a new counter version (reserve in `docs/registry.md`). No S3SS/S3PP hook site is listed near `0xE5C660`, `0xD89930` or the interpreter handlers (docs/68 table, grep).
+**Overlap:** the gain above is on interpreted code. Compiled bodies do not dispatch at all, so once S1 compiles the hot methods, fusion only helps what stays interpreted: the two gains do not add up [inferred]. In the ~2-8 ms/s estimate this is not subtracted.
+
+### 4.6 Port (built 2026-11-06, not run in game)
+
+`native/ts3native/mintfuse.cpp`, shared with monohost (`MONOHOST_MINTFUSE=sub` runs this code), selftest `mintfuse-test.h`. The same 5-byte call patch at `0xE5C8CA`: `E8` -> `0xD89930` is checked first, any other bytes refuse (`SKIP mintfuse`, `mfReady` -1). `ApplyMintFuse` runs at DLL load, before `MonoScriptHost_Init` (`0xD7E560`) transforms anything; `ts3native.ini` `[MintFuse] Sub=1`, default off, no runtime switch (a method keeps the form it was transformed in). Counters v164 `mfReady`, `mfRuns`, `mfWhole`, `mfInner` (`docs/registry.md`, `agent.js`). No S3SS/S3PP hook site near `0xE5C660`, `0xD89930` or the handlers (docs/68 row).
+
+EA: master keeps bare literals and refuses on 1.69 at the byte check. `TS3A()` lives on `ea169-port` only; the row it needs is in docs/68. In-game check: `tools/harness/queues/mintfuse-verify.json` (`node tools/harness/queue.ts tools/harness/queues/mintfuse-verify.json --no-smoke`).
 
 ## 5. Call/return fast path (design)
 
@@ -134,7 +164,7 @@ Complementary, not a replacement: G-I2's transform-time inliner removes trivial 
 
 ## 7. Next
 
-1. Sub-run fusion: port to ts3native as `[MintFuse] Sub=1` (default off) and a two-load BP A/B on a clean night.
+1. Sub-run fusion: **ported** (§4.6). Next `mintfuse-verify` in game; a two-load BP A/B on a clean night only if a gain number is wanted, measured with S1 on if S1 is on by then (§4.5).
 2. G-I1 managed sampler (1 BP job) to weight pairs and calls by hot methods; then decide §5 vs G-I2 inliner order.
 3. §5 call/return fast path with a host differential harness: **built, §8**.
 

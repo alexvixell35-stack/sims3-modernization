@@ -6,6 +6,7 @@ using Sims3.Gameplay.Academics;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.ActorSystems;
 using Sims3.Gameplay.Autonomy;
+using Sims3.Gameplay.CAS;
 using Sims3.Gameplay.Careers;
 using Sims3.Gameplay.Controllers;
 using Sims3.Gameplay.Core;
@@ -15,6 +16,7 @@ using Sims3.Gameplay.Interfaces;
 using Sims3.Gameplay.ObjectComponents;
 using Sims3.Gameplay.Objects;
 using Sims3.Gameplay.Objects.Elevator;
+using Sims3.Gameplay.Objects.Island;
 using Sims3.Gameplay.Objects.Vehicles;
 using Sims3.Gameplay.PetSystems;
 using Sims3.Gameplay.Pools;
@@ -43,8 +45,11 @@ namespace Ts3Fixes
     // autoffenvapply / autoffbcastapply (the sim uses the answer at the game's own call: docs/208 §8.2, §8.3), autoffnoref
     // (no reference at the cut: answers kept unchecked; timing runs), autoffdry (the live driver at the game's own call
     // against the answer: staleness, and for env what the game or the apply wrote).
-    // Counters 448-465, 481-490 (docs/registry.md); abort reasons by native reason index in AppDomain
-    // ts3fixes.autoffload.reasons (int[48]: env 0-23, bcast 24-47; 23 = a mod type on the worker's path).
+    // docs/208 §9 (audit O7, O13), Mode R only, test switches, off: autofft2 reads the four docs/219 shared tier-2 rows for the
+    // actor and up to kT2Max objects of its lot ([AutShadow] Tier2Rows=1); autofflot picks Camera.GetClosestVisibleLot's lot
+    // on the worker from the request's inputs (autoffdry: against the game's own pick). No apply.
+    // Counters 448-465, 481-490, 763-776 (docs/registry.md); abort reasons by native reason index in AppDomain
+    // ts3fixes.autoffload.reasons (int[96]: env 0-23, bcast 24-47, t2 48-71, lot 72-95; 23 = a mod type on the worker's path).
     public static partial class Fixes
     {
         const int kEnvMax = 8, kBcMax = 16, kBcSims = 64, kOffRing = 32, kReasonModType = 23, kEnvSeq = 256, kEnvReady = 16;
@@ -55,7 +60,9 @@ namespace Ts3Fixes
         const float kBcObjMoveMax = 0.5f;
         const long kDryTicks = 240;      // a worker answer older than this (Simulator ticks since the request) is not dry-checked or applied
         const long kBcApplyTicks = 15;   // bcast apply: kBcMargin covers about this many ticks of walking [inferred, I-404-4]
-        const int cEnv = 448, cBc = 457, cEnvAp = 481, cBcAp = 486, cTick = 534;
+        const int cEnv = 448, cBc = 457, cEnvAp = 481, cBcAp = 486, cTick = 534, cT2 = 763, cLot = 769;
+        const int kT2Max = 16, kLotSims = 32;
+        const long kLotDryTicks = 15;    // autoffdry: a pick older than this is not compared with the game's call
 
         // docs/206 §15 (autofftick): one Mode R item that reads the sim clock (SimClock.CurrentTicks = Simulator / SimClock
         // sSimTickCnt + start + advanced, Hours24, the day) at the cut. With [AutShadow] Satb=2 the worker runs while the sim
@@ -69,6 +76,26 @@ namespace Ts3Fixes
             r.Ticks = SimClock.CurrentTicks; r.Hours = SimClock.Hours24; r.Day = (int)SimClock.CurrentDayOfWeek;
             r.Done = true;
         }
+
+        // docs/219 §2: one object's answers of the four shared rows
+        sealed class T2Res { public bool Done, Exc, Roof; public int Abort = -1, Height; public Vector3 Fwd; public ulong Pool; }
+        static readonly T2Res[] sT2Ref = NewT2(), sT2Work = NewT2();
+        static readonly GameObject[] sT2Objs = new GameObject[kT2Max];
+        static int sT2N, sT2At;
+        static T2Res[] NewT2() { T2Res[] a = new T2Res[kT2Max]; for (int i = 0; i < a.Length; i++) a[i] = new T2Res(); return a; }
+
+        // docs/208 §9.2: what Camera.GetClosestVisibleLot reads that is not a plain lot field, taken on the sim thread at the
+        // request (a Sim's IsOutside is a position-keyed row that misses for a walking Sim), so both sides score the same input
+        sealed class LotReq
+        {
+            public Vector3 Target; public float Hours; public Lot Active, World; public int N;
+            public readonly List<Lot> Base = new List<Lot>();
+            public readonly Lot[] SimLot = new Lot[kLotSims]; public readonly bool[] Inside = new bool[kLotSims], Upper = new bool[kLotSims];
+        }
+        sealed class LotRes { public bool Done, Exc, Used; public int Abort = -1, Best; public Lot Pick, Focus; public long Tick; }
+        static readonly LotReq sLotReq = new LotReq();
+        static readonly LotRes sLotRef = new LotRes(), sLotWork = new LotRes(), sLotReady = new LotRes();
+        static bool sLotPosted, sLotHookOk;
 
         sealed class EnvRes
         {
@@ -100,7 +127,7 @@ namespace Ts3Fixes
         static bool sOffPosted, sOffRefRan;
         static long sOffTick;
         static readonly ReactionBroadcaster[] sBcRing = new ReactionBroadcaster[kOffRing];
-        static readonly int[] sOffReasons = new int[48];
+        static readonly int[] sOffReasons = new int[96];
         static readonly Dictionary<Type, bool> sOffTypes = new Dictionary<Type, bool>();  // filled on the sim thread only
         static FieldInfo fUpdSim, fBcReacting, fEnvTime;
         static MethodInfo mDoSimEnv, mSendObjEnv;
@@ -140,6 +167,7 @@ namespace Ts3Fixes
             List<string> failed = new List<string>();
             sOffHooksOk = Hook(failed, typeof(SimUpdate), "CalculateSimEnvironmentScore", null, typeof(AutEnvHook), "EnvHook", "EnvOrig")
                 & Hook(failed, typeof(ReactionBroadcaster), "GetInRadiusSims", new Type[] { typeof(float) }, typeof(AutBcastHook), "RadiusHook", "RadiusOrig");
+            sLotHookOk = Hook(failed, typeof(Camera), "GetClosestVisibleLot", new Type[] { typeof(Lot), typeof(Vector3).MakeByRefType() }, typeof(AutLotHook), "LotHook", "LotOrig");
             if (failed.Count > 0) AppliedLog().Add("AutOffload: not patched: " + string.Join(", ", failed.ToArray()));
             AppDomain.CurrentDomain.SetData("ts3fixes.autoffload.reasons", sOffReasons);
         }
@@ -151,6 +179,7 @@ namespace Ts3Fixes
             sOffPosted = false; sOffRefRan = false; sEnvN = sBcN = 0;
             sTickPosted = ShortcutOn("autofftick");
             if (sTickPosted) { PatchCounters()[cTick]++; sOffPosted = true; sOffTick = Simulator.TicksElapsed(); }
+            RankRequest();
             if (!sOffHooksOk) return;
             bool env = ShortcutOn("autoffenv"), bc = ShortcutOn("autoffbcast");
             if (!env && !bc) return;
@@ -176,8 +205,81 @@ namespace Ts3Fixes
             }
             catch (Exception e) { c[cEnv + 5]++; AutNote("offload request: " + e.Message); }
             c[cEnv] += sEnvN; c[cBc] += sBcN;
-            sOffPosted = sEnvN + sBcN > 0 || sTickPosted;
+            sOffPosted = sEnvN + sBcN + sT2N > 0 || sTickPosted || sLotPosted;
             sOffTick = Simulator.TicksElapsed();
+        }
+
+        // docs/208 §9: the autofft2 / autofflot items of this batch. Done is cleared here: OffScore can stop before their loops.
+        static void RankRequest()
+        {
+            sT2N = 0; sLotPosted = false;
+            sLotRef.Done = sLotWork.Done = false;
+            for (int i = 0; i < kT2Max; i++) sT2Ref[i].Done = sT2Work[i].Done = false;
+            int[] c = PatchCounters();
+            try
+            {
+                if (ShortcutOn("autofft2")) T2Pick(sReqs[0].Actor);
+                if (ShortcutOn("autofflot")) sLotPosted = LotRequest(sLotReq);
+            }
+            catch (Exception e) { c[cT2 + 5]++; AutNote("offload rank request: " + e.Message); }
+            c[cT2] += sT2N;
+            if (sLotPosted) c[cLot]++;
+            if (sT2N > 0 || sLotPosted) { sOffPosted = true; sOffTick = Simulator.TicksElapsed(); }
+        }
+
+        // the actor (three rows; its pool row is keyed by a moving position, so it is not asked) and kT2Max - 1 objects of its
+        // lot, a different run of them each batch, so the rows cover the lot over a load
+        static void T2Pick(Sim actor)
+        {
+            Lot lot = actor != null ? actor.LotCurrent : null;
+            if (lot == null) return;
+            sT2Objs[sT2N++] = actor;
+            GameObject[] all = lot.GetObjects<GameObject>();
+            for (int i = 0; i < all.Length && sT2N < kT2Max; i++)
+            {
+                GameObject o = all[(sT2At + i) % all.Length];
+                if (o == null || o is Sim || o.HasBeenDestroyed || !o.InWorld || !OffTypeOk(o.GetType(), false)) continue;
+                sT2Objs[sT2N++] = o;
+                AutShadowNative.AddRow(o.ObjectId.Value, 0);
+            }
+            sT2At += kT2Max;
+        }
+
+        // Filled in the order Camera.GetClosestVisibleLot reads them. False: no household selected (the game's method then
+        // only handles the focus change) or more Sims than the arrays hold.
+        static bool LotRequest(LotReq q)
+        {
+            if (!sLotHookOk) return false;
+            IActor sel = PlumbBob.SelectedActor;
+            Household h = sel != null ? sel.Household : null;
+            if (h == null) return false;
+            Sim active = Sim.ActiveActor;
+            Lot home = active != null ? active.LotHome : null;
+            q.Base.Clear();
+            q.Base.AddRange(h.GreetedLots);
+            if (h.RealEstateManager != null) q.Base.AddRange(h.RealEstateManager.GetPrivateLotMoveToLots());
+            Windows.LookInWindow peep = sel.CurrentInteraction as Windows.LookInWindow;
+            if (peep != null && peep.IsPeeping) q.Base.Add(sel.LotCurrent);
+            if (home != null && !q.Base.Contains(home)) q.Base.Add(home);
+            q.N = 0;
+            foreach (Sim s in h.AllActors) if (!LotAddSim(q, s)) return false;
+            Sims3.Gameplay.Passport.Passport pp = Sims3.Gameplay.Passport.Passport.Instance;
+            Sim hosted = pp != null ? pp.GetHostedSim() : null;
+            if (hosted != null && !LotAddSim(q, hosted)) return false;
+            q.Target = CameraController.GetLODInterestPosition();
+            q.Hours = SimClock.HoursPassedOfDay;
+            q.Active = LotManager.ActiveLot;
+            q.World = LotManager.GetWorldLot();
+            GameUtils.GetCurrentWorldType();  // pre-warm: the lookup's first UserCreated answer adds to a static dictionary (Lot.IsOwned path)
+            return true;
+        }
+
+        static bool LotAddSim(LotReq q, Sim s)
+        {
+            if (q.N >= kLotSims) return false;
+            q.SimLot[q.N] = s.LotCurrent; q.Inside[q.N] = !s.IsOutside; q.Upper[q.N] = s.Level != 0;
+            q.N++;
+            return true;
         }
 
         // docs/208 §8.1: the kEnvMax Sims with the largest share of their own update period passed (>= kEnvDueMin), so
@@ -273,6 +375,28 @@ namespace Ts3Fixes
                 r.Done = !(worker && AutShadowNative.Stopped());
                 if (!r.Done) return;
             }
+            T2Res[] tr = worker ? sT2Work : sT2Ref;
+            for (int k = 0; k < sT2N; k++)
+            {
+                T2Res r = tr[k];
+                r.Exc = false; r.Abort = -1;
+                if (worker && AutShadowNative.Stopped()) return;
+                try { T2Read(sT2Objs[k], r); }
+                catch (Exception) { r.Exc = true; }
+                Settle(ref r.Abort);
+                r.Done = !(worker && AutShadowNative.Stopped());
+                if (!r.Done) return;
+            }
+            if (sLotPosted)
+            {
+                LotRes r = worker ? sLotWork : sLotRef;
+                r.Exc = false; r.Abort = -1;
+                if (worker && AutShadowNative.Stopped()) return;
+                try { LotPick(sLotReq, r); }
+                catch (Exception) { r.Exc = true; }
+                Settle(ref r.Abort);
+                r.Done = !(worker && AutShadowNative.Stopped());
+            }
         }
 
         static void Settle(ref int abort)
@@ -324,6 +448,31 @@ namespace Ts3Fixes
                 }
                 KeepBc(sBcReq[j].B, w);
                 c[cBcAp]++;
+            }
+            for (int k = 0; k < sT2N; k++)
+            {
+                T2Res w = sT2Work[k], r = sT2Ref[k];
+                if (!cmp || !w.Done || !r.Done) { c[cT2 + 4]++; continue; }
+                if (w.Exc || r.Exc) { c[cT2 + 5]++; continue; }
+                if (w.Abort >= 0 || r.Abort >= 0) { c[cT2 + 3]++; Reason(48, w.Abort >= 0 ? w.Abort : r.Abort); continue; }
+                bool eq = w.Roof == r.Roof && w.Height == r.Height && w.Pool == r.Pool && AutShadowCore.Bits(w.Fwd.x) == AutShadowCore.Bits(r.Fwd.x)
+                    && AutShadowCore.Bits(w.Fwd.y) == AutShadowCore.Bits(r.Fwd.y) && AutShadowCore.Bits(w.Fwd.z) == AutShadowCore.Bits(r.Fwd.z);
+                c[eq ? cT2 + 1 : cT2 + 2]++;
+                if (!eq) OffLog("t2", sT2Objs[k], w.Fwd.x, r.Fwd.x, w.Fwd.z, r.Fwd.z, w.Roof ? 1 : 0, r.Roof ? 1 : 0);
+            }
+            if (sLotPosted)
+            {
+                LotRes w = sLotWork, r = sLotRef;
+                if (!(cmp || noref) || !w.Done || (cmp && !r.Done)) c[cLot + 4]++;
+                else if (w.Exc || (cmp && r.Exc)) c[cLot + 5]++;
+                else if (w.Abort >= 0 || (cmp && r.Abort >= 0)) { c[cLot + 3]++; Reason(72, w.Abort >= 0 ? w.Abort : r.Abort); }
+                else
+                {
+                    bool eq = !cmp || (w.Pick == r.Pick && w.Focus == r.Focus && w.Best == r.Best);
+                    if (cmp) c[eq ? cLot + 1 : cLot + 2]++;
+                    if (eq) { sLotReady.Pick = w.Pick; sLotReady.Tick = sOffTick; sLotReady.Used = false; sLotReady.Done = true; }
+                    else OffLog("lot", w.Pick, 0f, 0f, 0f, 0f, r.Pick != null ? (int)r.Pick.LotId : 0, 0);
+                }
             }
         }
 
@@ -515,6 +664,79 @@ namespace Ts3Fixes
                 r.Near[r.N++] = b.GetDistanceToObject(sim) <= q.R;
             }
         }
+
+        // docs/219 §2: the four shared rows, through the game's own getters (the paths there end in these calls)
+        static void T2Read(GameObject o, T2Res r)
+        {
+            r.Roof = o.IsOnRoof;
+            r.Height = AutShadowCore.Bits(o.HeightAboveFloor);
+            r.Fwd = o.ForwardVector;
+            r.Pool = o is Sim ? 0UL : Sims3.SimIFace.World.GetPoolObjectIdForPoolBelowPosition(o.Position).Value;
+        }
+
+        // The read part of Camera.GetClosestVisibleLot from the request's inputs, in the game's order: the candidate lots, then
+        // the closest one. Not done: the sCurrentFocusedGreetedLot write and LotFocusChanged, which stay on the sim thread.
+        // No List.Contains here: its EqualityComparer<T>.Default is a lazy static fill.
+        static void LotPick(LotReq q, LotRes r)
+        {
+            List<Lot> list = new List<Lot>(q.Base);
+            foreach (Lot a in LotManager.AllLots)
+            {
+                if (a.IsCommunityLot)
+                {
+                    if (!a.IsOpenVenue(q.Hours) && a.CommercialLotSubType != CommercialLotSubType.kEP6_BigShow) { if (LotHasSim(q, a, false)) list.Add(a); }
+                    else if (a.BuildableShells.Length == 0 || LotHasSim(q, a, true)) list.Add(a);
+                }
+                else if (a.HasVirtualResidentialSlots) { if (LotHasSim(q, a, true)) list.Add(a); }
+                else if (a.IsOwned) list.Add(a);
+            }
+            float best = float.MaxValue;
+            Lot pick = null, focus = q.World;
+            for (int i = 0; i < list.Count; i++)
+            {
+                Lot l = list[i];
+                if (l == null) continue;
+                float d;
+                int cell = LotCellOf(l, q.Target, out d);
+                int step = AutOffloadCore.LotPickStep(cell, d, l.IsHouseboatLot(), ref best);
+                if (step != 0) pick = l;
+                if (step == 2) focus = l;
+            }
+            r.Pick = pick; r.Focus = focus; r.Best = AutShadowCore.Bits(best);
+        }
+
+        static bool LotHasSim(LotReq q, Lot a, bool loose)
+        {
+            for (int i = 0; i < q.N; i++)
+                if (q.SimLot[i] == a && (q.Inside[i] || (loose && (q.Upper[i] || q.Active == a)))) return true;
+            return false;
+        }
+
+        // the game's quadrant and distance of a camera target to a lot (AutOffloadCore has the game-free part). -1: no corners.
+        static int LotCellOf(Lot l, Vector3 t, out float dist)
+        {
+            dist = 0f;
+            Corners c = l.Corners;
+            if (c == null) return -1;
+            float pad = 0f;
+            Vector3 boat;
+            if (l.IsHouseboatLot() && Sims3.SimIFace.World.GetHouseboatDisplayToWorldPosition(l.LotId, t, out boat))
+            {
+                t = boat;
+                pad = 10f;
+                Houseboat h = l.GetHouseboat();
+                if (h != null && h.LotCurrent.IsDivingLot) pad = 0f;
+            }
+            Matrix44 m = l.WorldToLotTransform;
+            Vector3 o = c[Corner.Origin], e = c[Corner.Extent];
+            Vector3 lo = m * new Vector3(o.x, 0f, o.z), hi = m * new Vector3(e.x, 0f, e.z), lt = m * new Vector3(t.x, 0f, t.z);
+            int cell = AutOffloadCore.LotCell(lt.x, lt.z, lo.x, lo.z, hi.x, hi.z, pad);
+            dist = AutOffloadCore.LotCellDist(cell, Math.Abs(lt.x - lo.x), Math.Abs(lt.z - lo.z), Math.Abs(lt.x - hi.x), Math.Abs(lt.z - hi.z),
+                LotCornerSq(t, c[Corner.YAxis]), LotCornerSq(t, c[Corner.Extent]), LotCornerSq(t, c[Corner.Origin]), LotCornerSq(t, c[Corner.XAxis]));
+            return cell;
+        }
+
+        static float LotCornerSq(Vector3 t, Vector3 corner) { return (new Vector2(corner.x, corner.z) - new Vector2(t.x, t.z)).LengthSqr(); }
 
         // no generic Array.IndexOf on the worker: its EqualityComparer<T>.Default is a lazy static fill
         static bool HasSpecies(CASAgeGenderFlags[] a, CASAgeGenderFlags x)
@@ -949,6 +1171,27 @@ namespace Ts3Fixes
                 return apply && mine != null ? mine : d;
             }
             public Dictionary<ObjectGuid, Sim> RadiusOrig(float pulseRadius) { return null; } // receives ReactionBroadcaster.GetInRadiusSims's original header
+        }
+
+        // docs/208 §9.2 dry check: the worker's pick against the game's next own pick. No apply: the game's result is returned.
+        public class AutLotHook
+        {
+            public Lot LotHook(Lot homeLot, ref Vector3 cameraTargetAsVec3)
+            {
+                Lot g = LotOrig(homeLot, ref cameraTargetAsVec3);
+                if (!sLotReady.Done || sLotReady.Used || !ShortcutOn("autofflot") || !ShortcutOn("autoffdry")) return g;
+                int[] c = PatchCounters();
+                try
+                {
+                    sLotReady.Used = true;
+                    if (Simulator.TicksElapsed() - sLotReady.Tick > kLotDryTicks) return g;
+                    c[cLot + 6]++;
+                    if (sLotReady.Pick == g) c[cLot + 7]++;
+                }
+                catch (Exception) { c[cLot + 5]++; }
+                return g;
+            }
+            public Lot LotOrig(Lot homeLot, ref Vector3 cameraTargetAsVec3) { return null; } // receives Camera.GetClosestVisibleLot's original header
         }
 
         // the broadcaster has not moved off its cut position (a broadcaster on a walking Sim moves with it)

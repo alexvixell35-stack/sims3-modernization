@@ -76,6 +76,8 @@
 // (chain scripts grep it); a noisy timing job whose -rerun was queued does not stop it.
 // scriptErrorsMax: N = at most N new ScriptError_*.xml in the user folder since the job start (known EA errors, known-script-errors.json,
 // not counted); more turns the row FAIL (docs/191 bp-cc-load-smoke: synthetic CC loads, places and wears without script errors).
+// scriptErrorsAllow: [regex, ...] = a new ScriptError_*.xml that is a correction-only NRaas ErrorTrap report (no stack frames) and whose every
+// content line before 'Loaded Assemblies:' (section headers '-- x --' and blanks aside) matches one of the regexes is not counted, like a known EA error.
 // profile: profile-world.ts --tag <queue>-<date>-<job> (--seed: seed_rng at the window start, docs/27); rng-compare.ts reads the rows.
 // routelock: autopilot (default ultra) + the probe's /routelock watch for `minutes` (watchdog.ts runs alongside), then stop;
 // the summary (G11 movable ms/s, unlocked gate entries, lock hold/wait) goes in the row as `routelock`, the full report with
@@ -104,6 +106,8 @@
 // profile.hitchTasks: ["<regex>[@ms]>=N" | "<regex>[@ms]<N"] -> profile-world.ts --hitch-tasks (hitch lines naming the expected script task, docs/169; FAIL verdict when one fails).
 // profile.fixesOn: "name,name" -> profile-world.ts --fixes-on (those switches on for the whole run; e.g. autshadow, whose tuning is off).
 // profile.ab: "name,name" -> profile-world.ts --ab (runtime switches alternate on/off in one load), profile.slice: minutes per side.
+// profile.fixedwork: N (true = 8) -> --fixedwork N (X4, docs/244: N fixed_work calls per slice, time per arm in <tag>-ab-fixedwork.jsonl, report line in the log;
+// needs profile.ab; --ab fwnull = no switch, the same-arm noise check). Off unless the job names it.
 // profile.abOnFirst: true -> --ab-on-first (counted slices on,off,off,on instead of off,on,on,off).
 // profile.mainstack: main | all | <thread id> -> profile-world.ts --mainstack (main-thread stacks beside the sim sampler, docs/20 §7).
 // profile.taskstall: MS -> profile-world.ts --taskstall (stage stalls over MS ms with their managed stack; S3PP SimulatorStageProfiler must be off).
@@ -117,6 +121,7 @@
 // profile.noSamplers: true -> profile-world.ts --no-samplers (no stack samplers; profile.noProf: true -> --no-prof (no stutter
 // profiler session) also without [ProbeSnap]). Both make a bisect job match bp-vres apart from the one probe under test.
 // profile.noFrames: true -> --no-frames (no frame-times.js session); profile.cameraPan: true -> --camera-pan (docs/162 §4).
+// profile.svcSplit: true -> --svcsplit (frames.csv svcTop,svcTopMs, docs/247 §9).
 // profile.loopRule: {until?, maxMinutes?} -> --loop-rule: a loop repro's stop rule for this job only (A/B queues: minFirings, docs/168 §7).
 // profile.profOpts: {stages?: false, tasks?: false} -> --prof-opts (stutter-profile.js -P fields; docs/168 §4 profiler cost control).
 // profile.noEnv: true -> profile-world.ts --no-env (no test_env guard: the repro sets winter, weather or a full moon itself, docs/117).
@@ -184,6 +189,17 @@ import { CSV_HEADER, csvLine, summarize, type AgeRow } from './age-report.ts';
 import { ledgerReport } from './mono-ledger-report.ts';
 import { saveStats } from './save-stats.ts';
 import { matchKnown } from './known-script-errors.ts';
+// correction-only report: every content line (headers, blanks and the Loaded Assemblies tail aside) matches an allow regex; a stack frame never does
+export function allowedCorrection(xml: string, allow: string[]): boolean {
+  if (!allow.length) return false;
+  if (/^\s*#\d+:\s*0x[0-9a-f]+/im.test(xml)) return false; // a stack frame is a real error
+  // a "-- Dereferencing --" section only says what still held the destroyed object: left out, its header may also be the first line
+  const body = xml.match(/<Content>([\s\S]*?)(?:Loaded Assemblies:|<\/Content>)/)?.[1]?.split(/--\s*Dereferencing\s*--/)[0];
+  if (body === undefined) return false;
+  const lines = body.split(/\r?\n/).map(l => l.trim()).filter(l => l && !/^--.*--$/.test(l));
+  const res = allow.map(s => new RegExp(s));
+  return lines.length > 0 && lines.every(l => res.some(r => r.test(l)));
+}
 import { clickLines, dumpHungGame, GUARD_MS, logTail, type ModeSnap, modeExit, modeSnap, noSafeButton } from './game-alive.ts';
 import { BIN, EA_LAUNCHER, EA_URI, GAME_EXE, gameRunning, isSteamGame, killLeftovers, LAUNCH, logUntrackedGame, MACHINE, machineTag, seenPids } from './game-exe.ts';
 import { checkCfg as checkFailFast, describe as describeFailFast, routingGuard, type FailFast } from './routing-failfast.ts';
@@ -232,11 +248,11 @@ function machineCols(tag: string) { return tag ? { head: ' machine |', sep: '---
 function machineField(tag: string): { machineTag?: string } { return tag ? { machineTag: tag } : {}; }
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; run: { repro?: string; saveReload?: string[]; script?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
-    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; scriptErrorsMax?: number; timeoutMin?: number; pin?: false | PinOpts;
+    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; timeoutMin?: number; pin?: false | PinOpts;
   saveMatrix?: { fixes?: 'all' | 'shipped' }; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; shadowCheck?: boolean; skipIfMissing?: boolean; ourMods?: false };
 
 // every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
-const JOB_KEYS = new Set(['id', 'note', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'stopQueueOnFail', 'reuseSession', 'releaseDefaults', 'skipIfMissing', 'ourMods']);
+const JOB_KEYS = new Set(['id', 'note', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'stopQueueOnFail', 'reuseSession', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
 // ---- vanilla mode (docs/236): what a job may not ask for without ts3native/ts3fixes, and the checks the row names as N/A
 export const VANILLA_NA = ['asi build check', 'ts3fixes build check', 'ts3native.log version gate', 'ts3native.ini features', 'hook FAIL lines and route hook state', 'counter gate and /native counters', 'ts3fixes activity'];
 // "ourMods": false: a plain profile window or one repro (queue repros run --no-load, so no restart; its steps must not need ts3fixes); anything
@@ -330,6 +346,8 @@ export function parseQueue(json: unknown): Job[] {
       if (j.ini['WorldImage.OutDir'] !== undefined && !underGameCopy(String(j.ini['WorldImage.OutDir']))) throw new Error(`${at}: WorldImage.OutDir must be under game-copy/ (images hold personal data)`);
       if (Number(j.ini['WorldImage.MaxCaptures'] ?? 5) < w.captures) throw new Error(`${at}: WorldImage.MaxCaptures is below run.worldimage.captures`);
     }
+    // argument captures hold game state: only under the repo's ignored probe-out/ (docs/537 §17)
+    if (j.ini?.['MonoJit.CaptureFile'] !== undefined && !/^probe-out[\\/][^:]*$/.test(String(j.ini['MonoJit.CaptureFile']))) throw new Error(`${at}: MonoJit.CaptureFile must be a relative path under probe-out/`);
     if (j.run.age) {
       const a = j.run.age;
       if (!(Number.isInteger(a.days) && a.days > 0)) throw new Error(`${at}: run.age.days must be a positive integer`);
@@ -360,6 +378,7 @@ export function parseQueue(json: unknown): Job[] {
     { const sp = (v: unknown) => (v === undefined ? [] : String(v).split(',')), p = j.run.profile ?? {};
       const twice = abFixesClash(sp(p.ab), sp(p.fixesOn), sp(p.fixesOff));
       if (twice.length) throw new Error(`${at}: run.profile ab / fixesOn / fixesOff name the switch ${twice.join(',')} twice`); }
+    if (j.run.profile?.fixedwork !== undefined && (!j.run.profile.ab || !(j.run.profile.fixedwork === true || (Number.isInteger(j.run.profile.fixedwork) && (j.run.profile.fixedwork as number) >= 1 && (j.run.profile.fixedwork as number) <= 60)))) throw new Error(`${at}: run.profile.fixedwork must be true or 1..60 calls per slice, and needs run.profile.ab`);
     if (j.run.profile?.abOnFirst !== undefined && (typeof j.run.profile.abOnFirst !== 'boolean' || !j.run.profile.ab)) throw new Error(`${at}: run.profile.abOnFirst must be true/false and needs run.profile.ab`);
     if (j.run.profile?.slice !== undefined && !(Number(j.run.profile.slice) > 0)) throw new Error(`${at}: run.profile.slice must be > 0 minutes`);
     if (j.run.profile?.inroom !== undefined && typeof j.run.profile.inroom !== 'boolean') throw new Error(`${at}: run.profile.inroom must be true or false`);
@@ -368,7 +387,7 @@ export function parseQueue(json: unknown): Job[] {
     if (j.run.profile?.f4b !== undefined && typeof j.run.profile.f4b !== 'boolean') throw new Error(`${at}: run.profile.f4b must be true or false`);
     if (j.run.profile?.vres !== undefined && typeof j.run.profile.vres !== 'boolean') throw new Error(`${at}: run.profile.vres must be true or false`);
     if (j.run.profile?.vresDry !== undefined && !(Number.isInteger(j.run.profile.vresDry) && j.run.profile.vresDry > 0)) throw new Error(`${at}: run.profile.vresDry must be a positive integer`);
-    for (const k of ['noSamplers', 'noProf', 'noFrames', 'cameraPan']) if (j.run.profile?.[k] !== undefined && typeof j.run.profile[k] !== 'boolean') throw new Error(`${at}: run.profile.${k} must be true or false`);
+    for (const k of ['noSamplers', 'noProf', 'noFrames', 'cameraPan', 'svcSplit']) if (j.run.profile?.[k] !== undefined && typeof j.run.profile[k] !== 'boolean') throw new Error(`${at}: run.profile.${k} must be true or false`);
     if (j.run.profile?.loopRule !== undefined && (typeof j.run.profile.loopRule !== 'object' || !j.run.profile.repro)) throw new Error(`${at}: run.profile.loopRule must be {until?, maxMinutes?} with run.profile.repro`);
     if (j.run.profile?.noEnv !== undefined && typeof j.run.profile.noEnv !== 'boolean') throw new Error(`${at}: run.profile.noEnv must be true or false`);
     if (j.run.profile?.quitJobs !== undefined && typeof j.run.profile.quitJobs !== 'boolean') throw new Error(`${at}: run.profile.quitJobs must be true or false`);
@@ -402,6 +421,7 @@ export function parseQueue(json: unknown): Job[] {
       if (!j.run.profile) throw new Error(`${at}: routingFailFast needs run.profile (it starts at the profile start)`);
       if (j.routingFailFast.scope === 'all' && (j.run.profile.ab || (j.run.profile as any).loopRule)) throw new Error(`${at}: routingFailFast scope "all" on an --ab / loop job: the off arm's plans and hitches would trip it; use scope "unseen"`);
     }
+    if (j.scriptErrorsAllow !== undefined) { if (!Array.isArray(j.scriptErrorsAllow) || !j.scriptErrorsAllow.every((s: unknown) => typeof s === 'string')) throw new Error(`${at}: scriptErrorsAllow must be a list of regex strings`); for (const s of j.scriptErrorsAllow) { try { new RegExp(s); } catch { throw new Error(`${at}: scriptErrorsAllow: bad regex ${s}`); } } }
     if (j.scriptErrorsMax !== undefined && !(Number.isInteger(j.scriptErrorsMax) && j.scriptErrorsMax >= 0)) throw new Error(`${at}: scriptErrorsMax must be an integer >= 0`);
     if (j.stopQueueOnFail === undefined && !Array.isArray(json) && (json as any).stopQueueOnFail !== undefined) j.stopQueueOnFail = (json as any).stopQueueOnFail; // queue-level default
     if (j.stopQueueOnFail !== undefined && typeof j.stopQueueOnFail !== 'boolean') throw new Error(`${at}: stopQueueOnFail must be true or false`);
@@ -545,7 +565,8 @@ export const releaseDefaults = (j: Job) => !!j.releaseDefaults || /ts3native\.as
 export const lightIni = (j: Job): Record<string, number> => j.run.worldimage || releaseDefaults(j) ? {} : { 'CrashForensics.Light': 1 };
 // the ini overrides a row records (job ini + the coverage key + Light; worldimage's filled-in paths stay out of the row)
 export const rowIni = (j: Job) => (j.ourMods === false ? {} : { ...callSitesIni(j), ...lightIni(j), ...j.ini }); // no ts3native: no ini tools
-export const jobIni = (j: Job): Record<string, string | number | boolean> | undefined => !j.run.worldimage ? (Object.keys(rowIni(j)).length ? rowIni(j) : j.ini)
+const captureAbs = (ini: Job['ini']) => ini?.['MonoJit.CaptureFile'] ? { ...ini, 'MonoJit.CaptureFile': resolve(ROOT, String(ini['MonoJit.CaptureFile'])) } : ini;  // the game's cwd is Bin
+export const jobIni = (j: Job): Record<string, string | number | boolean> | undefined => !j.run.worldimage ? captureAbs(Object.keys(rowIni(j)).length ? rowIni(j) : j.ini)
   : { 'WorldImage.OutDir': join(GAME_COPY, 'worldimage'), 'WorldImage.Helper': join(ROOT, 'native', 'worldimage', 'out', 'worldimage.exe'), ...j.ini,
     ...(j.ini?.['WorldImage.OutDir'] ? { 'WorldImage.OutDir': resolve(ROOT, String(j.ini['WorldImage.OutDir'])) } : {}) };
 // header.txt (native/worldimage/wimage.h): done once the last record `loose` is there
@@ -819,6 +840,8 @@ export function smokeProblems(x: { row: any; wins: SmokeWin[]; log: string; p6: 
     if (!w.wait || !(w.wait.on > 0 && w.wait.off > 0)) out.push(`${w.tag}: wait-ab per-arm split missing (${w.wait ? `on ${w.wait.on} s / off ${w.wait.off} s` : 'no output'})`);
   }
   if (x.p6) for (const a of [0, 1]) if (!x.nativeLog.includes(`p6 waits arm ${a} `)) out.push(`[P6Waits] no 'p6 waits arm ${a}' line in ts3native.log`);
+  const fw = /fixed-work: [^\n]*PROBLEMS: [^\n]*/.exec(x.log); // X4 report line (fixedwork-report.ts): same-arm slices must agree, else X4 is dropped (docs/244)
+  if (fw) out.push(`fixed-work bench: ${fw[0].slice(fw[0].indexOf('PROBLEMS'), fw[0].indexOf('PROBLEMS') + 200)}`);
   const rb = /native_set: [^\n]*(did not stick|not an integer|unknown ts3native switch)[^\n]*/.exec(x.log);
   if (rb) out.push(`switch read-back: ${rb[0].slice(0, 200)}`);
   return out;
@@ -1069,7 +1092,7 @@ if (values['self-check']) {
   assert.deepEqual(rq[0].reuseSession, { maxJobs: 3 }); assert.equal(rq[1].reuseSession, false);
   for (const [j, re] of [[{ reuseSession: { maxJobs: 0 }, run: { profile: { minutes: 5 } } }, /maxJobs/], [{ run: { profile: { minutes: 5, repros: [] } } }, /non-empty/],
     [{ run: { profile: { minutes: 5, repros: ['a', 'a'] } } }, /twice/], [{ run: { profile: { minutes: 5, repro: 'x', repros: ['a'] } } }, /takes no profile.repro/],
-    [{ run: { profile: { minutes: 5, ab: 'gohome', repros: ['a'] } } }, /takes no profile.ab/], [{ run: { profile: { minutes: 5, repros: [{ id: 'a', fixesRequire: 'x=>1' }] } } }, /./]] as [any, RegExp][])
+    [{ run: { profile: { minutes: 5, ab: 'gohome', repros: ['a'] } } }, /takes no profile.ab/], [{ run: { profile: { minutes: 5, fixedwork: 8 } } }, /fixedwork must be/], [{ run: { profile: { minutes: 5, ab: 'fwnull', fixedwork: 0 } } }, /fixedwork must be/], [{ run: { profile: { minutes: 5, repros: [{ id: 'a', fixesRequire: 'x=>1' }] } } }, /./]] as [any, RegExp][])
     assert.throws(() => parseQueue([{ id: 'x', asi: 'tested', save: 'S', ...j }]), re);
   const bad: [unknown, RegExp][] = [
     [[], /non-empty/], [[{ id: 'a b', asi: 'tested', run: { repro: 'x' } }], /id must/], [[{ id: 'a', asi: 'tested', run: { repro: 'x' } }, { id: 'a', asi: 'tested', run: { repro: 'x' } }], /duplicate/],
@@ -1294,6 +1317,20 @@ if (values['self-check']) {
   assert.match(asyncIdle(raOn, {}, null), /^UNKNOWN: \[RouteAsync\] on but \/native did not answer/); assert.match(asyncIdle(raOn, {}, { invokeHook: 1 }), /has no asyncStarted/);
   assert.equal(fixesOnFail(undefined, ''), ''); assert.equal(fixesOnFail('a,b', '12:00:00 fixes on: a,b (verified)\n'), '');
   assert.match(fixesOnFail('a,b', '12:00:00 fixes on: a (verified)\n'), /fixesOn a,b without/);
+  { // scriptErrorsAllow: correction-only reports pass, anything else (a Wildflower line, a stack) still FAILs
+    const al = ['^Destroyed Object Found: .*NewspaperShreds$', '^Out of World Object Found 2: .*SocialJigOnePerson$', '^Destroyed: .*SocialJigOnePerson.*$'];
+    const rep = (c: string) => `<NRaas.ErrorTrap>\n<Content>\n  -- Correction Logs --\n${c}\n\n Loaded Assemblies: A B\n</Content>\n</NRaas.ErrorTrap>`;
+    const shreds = ' Destroyed Object Found: Sims3.Gameplay.Objects.Miscellaneous.NewspaperShreds';
+    assert.equal(allowedCorrection(rep(shreds), al), true);
+    assert.equal(allowedCorrection(rep(' Out of World Object Found 2: Sims3.Gameplay.Core.SocialJigOnePerson\n Destroyed: Sims3.Gameplay.Core.SocialJigOnePerson (ID=0x0000000000000000)'), al), true);
+    assert.equal(allowedCorrection(rep(`${shreds}\n Destroyed Object Found: Ts3Fixes.Wildflower`), al), false, 'a Wildflower line still fails');
+    assert.equal(allowedCorrection(rep(`${shreds}\n #0: 0x0003b callvirt   in Sims3.Gameplay.X:Y () ()`), al), false, 'a stack frame still fails');
+    assert.equal(allowedCorrection(rep(shreds), []), false, 'no allow list');
+    const jig = ' Out of World Object Found 2: Sims3.Gameplay.Core.SocialJigOnePerson\n Destroyed: Sims3.Gameplay.Core.SocialJigOnePerson (ID=0x0)\n\n -- Dereferencing --\n Potential Object Found: Sims3.Gameplay.Core.SocialJigOnePerson\n Reference Continue: Sims3.Gameplay.Roles.RolePaparazzi+FollowCelebrity mJig';
+    assert.equal(allowedCorrection(rep(jig), al), true, 'Dereferencing lines after the correction lines do not count');
+    assert.equal(allowedCorrection(rep(`${jig}\n #0: 0x0003b callvirt   in Sims3.Gameplay.X:Y () ()`), al), false, 'Dereferencing with a stack frame still counts');
+    assert.throws(() => parseQueue([{ id: 'x', asi: 'tested', save: 'S', scriptErrorsMax: 0, scriptErrorsAllow: ['('], run: { script: ['idle-watch.ts'] } }]), /bad regex/);
+  }
   // pair check: same id stem, profiler tools differ -> one warning line (the 2026-10-24 sv-soak case); other jobs left alone
   const pj = (id: string, p: object = {}) => ({ id, asi: 'tested', save: 'S', run: { profile: { minutes: 45, ...p } } });
   assert.deepEqual(pairWarnings(parseQueue([pj('sv-soak-v014', { profOpts: { tasks: false } }), pj('sv-soak-cand'), pj('bp-soak-cand', { noSamplers: true }), pj('solo')])),
@@ -1415,6 +1452,9 @@ if (values['self-check']) {
     assert.match(String(wi['WorldImage.Helper']), /worldimage[\\/]out[\\/]worldimage\.exe$/);
     assert.equal(jobIni(wj({ 'WorldImage.Enabled': 1, 'WorldImage.OutDir': 'game-copy/wi2' }))!['WorldImage.OutDir'], join(ROOT, 'game-copy', 'wi2'));
     assert.throws(() => wj({ 'WorldImage.Enabled': 1, 'WorldImage.OutDir': 'probe-out/wi' }), /under game-copy/);
+    const capJob = (f: string) => [{ id: 'c', asi: 'x', save: 'S', ini: { 'MonoJit.CaptureFile': f }, run: { soak: { minutes: 1 } } }];
+    assert.equal(jobIni(parseQueue(capJob('probe-out/a.jitcap'))[0])!['MonoJit.CaptureFile'], join(ROOT, 'probe-out', 'a.jitcap'));
+    assert.throws(() => parseQueue(capJob('C:\\temp\\a.jitcap')), /under probe-out/);
     assert.throws(() => wj({ 'WorldImage.Enabled': 1, 'WorldImage.OutDir': 'C:\\temp\\wi' }), /under game-copy/);
     assert.throws(() => wj({}), /WorldImage.Enabled=1/);
     assert.throws(() => wj({ 'WorldImage.Enabled': 1, 'WorldImage.MaxCaptures': 1 }), /MaxCaptures/);
@@ -1653,7 +1693,9 @@ if (values['self-check']) {
   assert.equal(smokeProblems({ row: null, wins: [], log: '', p6: false, nativeLog: '' }).length, 1);
   const bad = smokeProblems({ row: { pass: false, verdict: ['FAIL: x'] }, wins: [{ ...win, iters: { on: 2, off: 0 }, wait: null }], log: 'repro step native_set failed: native_set: p6warm=2 did not stick (reads 1)', p6: true, nativeLog: 'p6 waits arm 1 taken' });
   assert.deepEqual(bad.map(b => b.split(':')[0]), ['smoke job failed', 't', 't', '[P6Waits] no \'p6 waits arm 0\' line in ts3native.log', 'switch read-back']);
-  assert.deepEqual(smokeProblems({ row: okRow, wins: [{ ...win, arms: false, iters: null, wait: null }], log: '', p6: false, nativeLog: '' }), [], 'no arms: no split needed'); }
+  assert.deepEqual(smokeProblems({ row: okRow, wins: [{ ...win, arms: false, iters: null, wait: null }], log: '', p6: false, nativeLog: '' }), [], 'no arms: no split needed');
+  assert.deepEqual(smokeProblems({ row: okRow, wins: [win], log: 'fixed-work: off 1 us/100 rounds; PROBLEMS: same-arm spread 3.20% > 1%', p6: false, nativeLog: '' }).map(b => b.split(':')[0]), ['fixed-work bench']);
+  assert.deepEqual(smokeProblems({ row: okRow, wins: [win], log: 'fixed-work: off 1 us/100 rounds; noise floor 0.30%', p6: false, nativeLog: '' }), [], 'a clean report line is no problem'); }
   assert.throws(() => parseQueue([{ id: 'k', asi: 'x', save: 'S', fixesOff: 'a', run: { profile: { minutes: 5 } } }]), /job 1 .k.: unknown job key "fixesOff".*run[.]profile/); // job-level profile key
   assert.throws(() => parseQueue([{ id: 'k', asi: 'x', save: 'S', bogus: 1, run: { profile: { minutes: 5 } } }]), /unknown job key "bogus"/);
   { // ourMods false: refusals at parse time, the clean-baseline proof, the queue file itself (stash round trip: vanilla.ts --self-check)
@@ -1811,8 +1853,8 @@ const profileTag = (j: Job) => tagOf.get(j) ?? (tagOf.set(j, freeTag(`${queueNam
 // p: the job's profile, or for one repro of profile.repros that merged with the item (docs/170 §1); extra: session flags
 const profileArgs = (j: Job, p: any = j.run.profile!, tag = profileTag(j), extra: string[] = []): string[] => [H('profile-world.ts'), '--tag', tag, '--minutes', String(p.minutes), ...(p.seed !== undefined ? ['--seed', String(p.seed)] : []),
       ...(p.repro ? ['--repro', p.repro] : []), ...(p.loopRule ? ['--loop-rule', JSON.stringify(p.loopRule)] : []),...(p.mainstack ? ['--mainstack', String(p.mainstack)] : []),
-      ...(p.ab ? ['--ab', p.ab, '--slice', String(p.slice ?? 2), ...(p.abOnFirst ? ['--ab-on-first'] : [])] : []), ...(p.untilCompares ? ['--until-compares', String(p.untilCompares)] : []), ...(p.fixesOff ? ['--fixes-off', p.fixesOff] : []), ...(p.fixesOn ? ['--fixes-on', p.fixesOn] : []), ...(p.taskstall ? ['--taskstall', String(p.taskstall)] : []),
-      ...(p.inroom ? ['--inroom'] : []), ...(p.watchstalk ? ['--watchstalk'] : []), ...(p.watchstalk === 'worker' ? ['--watchstalk-worker'] : []), ...(p.livereads2 ? ['--livereads2'] : []), ...(p.f4b ? ['--f4b'] : []), ...(p.vres ? ['--vres'] : []), ...(p.vresDry ? ['--vres-dry', String(p.vresDry)] : []), ...(p.noSamplers ? ['--no-samplers'] : []), ...(p.noFrames ? ['--no-frames'] : []), ...(p.cameraPan ? ['--camera-pan'] : []), ...(p.profOpts ? ['--prof-opts', JSON.stringify(p.profOpts)] : []), ...(p.quitJobs ? ['--quit-jobs'] : []), ...(p.noEnv ? ['--no-env'] : []), ...(p.envGuard === false ? ['--no-env-guard'] : []), ...(p.story ? ['--story', JSON.stringify(p.story)] : []), ...(Number(j.ini?.['ProbeSnap.Enabled']) || p.noProf ? ['--no-prof'] : []), ...(p.travel ? ['--travel', p.travel] : []), ...(p.fixesRequire ? ['--fixes-require', p.fixesRequire] : []), ...(p.frameLead ? ['--frame-lead', JSON.stringify(p.frameLead)] : []), ...(p.hitchTasks ? ['--hitch-tasks', JSON.stringify(p.hitchTasks)] : []), ...extra];
+      ...(p.ab ? ['--ab', p.ab, '--slice', String(p.slice ?? 2), ...(p.abOnFirst ? ['--ab-on-first'] : []), ...(p.fixedwork ? ['--fixedwork', String(p.fixedwork === true ? 8 : p.fixedwork)] : [])] : []), ...(p.untilCompares ? ['--until-compares', String(p.untilCompares)] : []), ...(p.fixesOff ? ['--fixes-off', p.fixesOff] : []), ...(p.fixesOn ? ['--fixes-on', p.fixesOn] : []), ...(p.taskstall ? ['--taskstall', String(p.taskstall)] : []),
+      ...(p.inroom ? ['--inroom'] : []), ...(p.watchstalk ? ['--watchstalk'] : []), ...(p.watchstalk === 'worker' ? ['--watchstalk-worker'] : []), ...(p.livereads2 ? ['--livereads2'] : []), ...(p.f4b ? ['--f4b'] : []), ...(p.vres ? ['--vres'] : []), ...(p.vresDry ? ['--vres-dry', String(p.vresDry)] : []), ...(p.noSamplers ? ['--no-samplers'] : []), ...(p.noFrames ? ['--no-frames'] : []), ...(p.svcSplit ? ['--svcsplit'] : []), ...(p.cameraPan ? ['--camera-pan'] : []), ...(p.profOpts ? ['--prof-opts', JSON.stringify(p.profOpts)] : []), ...(p.quitJobs ? ['--quit-jobs'] : []), ...(p.noEnv ? ['--no-env'] : []), ...(p.envGuard === false ? ['--no-env-guard'] : []), ...(p.story ? ['--story', JSON.stringify(p.story)] : []), ...(Number(j.ini?.['ProbeSnap.Enabled']) || p.noProf ? ['--no-prof'] : []), ...(p.travel ? ['--travel', p.travel] : []), ...(p.fixesRequire ? ['--fixes-require', p.fixesRequire] : []), ...(p.frameLead ? ['--frame-lead', JSON.stringify(p.frameLead)] : []), ...(p.hitchTasks ? ['--hitch-tasks', JSON.stringify(p.hitchTasks)] : []), ...extra];
 const runArgs = (j: Job): string[] | null =>
   j.run.script ? [H(j.run.script[0]), ...j.run.script.slice(1)] : j.run.repro ? [H('repro.ts'), 'run', j.run.repro, '--no-load'] : j.run.saveReload ? [H('save-reload.ts'), ...j.run.saveReload, '--port', values.port!] : j.run.matrix ? [H('save-matrix.ts'), ...j.run.matrix, ...(j.saveMatrix?.fixes ? ['--fixes', j.saveMatrix.fixes] : [])]
     : j.run.profile ? profileArgs(j)
@@ -2436,6 +2478,7 @@ for (const [n, j] of jobs.entries()) {
   let closedByUs = false;
   const closeLost = () => { closedByUs = gameRunning(); return closeGame(probe?.pid); };
   const logFile = join(OUT, `${queueName}-${date}-${j.id}.log`), logOff = existsSync(logFile) ? statSync(logFile).size : 0;
+  process.env.TS3_AGENT_ARM = (j as any).agentArm ?? ''; // agentArm: agent command cycle.ts sends with {arm:true} before load_save
   process.env.TS3_HANG_DIR = join(OUT, `${profileTag(j)}-hang`); // children capture a hung game here before the kill (game-alive.ts captureHang)
   const sections = [...new Set(Object.keys(j.ini ?? {}).map(k => k.split('.')[0]))];
   const s = saveOf(j)!;
@@ -2793,6 +2836,7 @@ for (const [n, j] of jobs.entries()) {
       // shadowCheck false: a vanilla arm that keeps the autshadow switch for its counters but never posts (golive-unseen g8-off)
       if (j.shadowCheck !== false) for (const f of shadowFails(rowIni(j), j.run.profile?.fixesOn, c0, c1, row.fixesApplied, row.fixActivity?.counters)) { row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f; }
     }
+    row.fixesApplied ??= fixesApplied(fx0?.p?.applied);  // bp-hitch-cause 2026-11-06: tuned and refused-patch lines live only in AppDomain data, a job stopped early left no trace
     row.counters ={ before: pickCounters(c0, sections), after: pickCounters(c1, sections) };
     // every counter, before and after, beside the row: the row keeps only the sections of the job's ini (COUNTERS), so a
     // module without an entry there lost its counters on a run without an A/B (2026-11-03)
@@ -2850,7 +2894,7 @@ for (const [n, j] of jobs.entries()) {
   }
   if (j.scriptErrorsMax !== undefined) {
     const since = Date.parse(t0), news = readdirSync(USER).filter(f => /^ScriptError_.*\.xml$/i.test(f) && statSync(join(USER, f)).mtimeMs >= since);
-    const unknown = news.filter(f => { try { return !matchKnown(readFileSync(join(USER, f), 'utf8')); } catch { return true; } });
+    const unknown = news.filter(f => { try { const x = readFileSync(join(USER, f), 'utf8'); return !matchKnown(x) && !allowedCorrection(x, j.scriptErrorsAllow ?? []); } catch { return true; } });
     row.scriptErrors = unknown;
     const bad = unknown.length > j.scriptErrorsMax;
     row.verdict.push(`${bad ? 'FAIL' : 'PASS'}: ${unknown.length} new script errors (max ${j.scriptErrorsMax}${news.length > unknown.length ? `, ${news.length - unknown.length} known EA ignored` : ''})${unknown.length ? `: ${unknown.slice(0, 3).join(', ')}` : ''}`);

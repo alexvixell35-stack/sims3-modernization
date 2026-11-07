@@ -3,7 +3,7 @@
 // 0x11F43A8 is Mono's global loader_mutex: mono_loader_init 0xE84880 does InitializeCriticalSection on it plus TlsAlloc,
 // and its users are loader.c functions (asserts name loader.c) [verified]. 0xE85020/0xE85030 are mono_loader_lock/unlock
 // (push 0x11F43A8; call [Enter/LeaveCriticalSection]; ret). Sampled stacks put ~1.4% of sim-thread time (~14 ms/s) in
-// them under 0xDA5970's callback [0x11EE6CC], mostly inside ntdll, unlock 5x more than lock [measured]. That is either a
+// them under 0xDA5971's callback [0x11EE6CC], mostly inside ntdll, unlock 5x more than lock [measured]. That is either a
 // very high call rate or contention; this check tells which.
 // We replace both wrappers (the original pair is three instructions, so nothing of the game's code runs in between):
 // lock = TryEnterCriticalSection first, and only when that fails a timed EnterCriticalSection (contended). All counters are

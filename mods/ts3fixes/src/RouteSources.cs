@@ -79,6 +79,7 @@ namespace Ts3Fixes
         {
             RouteSrcCall call = default(RouteSrcCall);
             call.Bucket = -1;
+            if (kind == 3) HcBoatBegin(r, fromPt); // boatreplanlog (HitchCause.cs)
             if (!ShortcutOn("routesrc")) return call;
             try
             {

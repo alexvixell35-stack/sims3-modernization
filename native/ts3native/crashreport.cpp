@@ -371,6 +371,8 @@ static void CrReport(const EXCEPTION_POINTERS* e) {
               (DWORD)r->ExceptionInformation[1]);
     CrPut("\r\n");
     const DWORD tid = GetCurrentThreadId();
+    char jm[160];
+    if (JitFaultName(fault, jm, sizeof(jm))) CrPut("compiled method: %s\r\n", jm);  // [MonoJit]: the eip is in the code region
     CrPut("fault: %s\r\nthread: %lu%s\r\n", fr, tid,
           tid == g_mainTid ? " (main)" : Readable(g_rtSimTidSlot, 4) && *g_rtSimTidSlot == tid ? " (sim)" : "");
     CrPut("registers: eax=%08lX ebx=%08lX ecx=%08lX edx=%08lX esi=%08lX edi=%08lX ebp=%08lX esp=%08lX eip=%08lX efl=%08lX\r\n", c->Eax, c->Ebx,

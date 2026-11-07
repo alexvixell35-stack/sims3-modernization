@@ -20,13 +20,11 @@ const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
 
 const DIAG = 'diagnostic switch (verify / probe / fake upstream): a test aid, not a fix';
 const SHADOW = 'diagnostic: shadow mode of a read-only fix (runs both answers and compares); the fix itself has repros';
-const OFFLOAD = 'sim-thread offload on the [AutShadow] worker (docs/208): checked by Mode R A0-A5 and the dry checks in offload3-moder.json / offload3-act.json, not a hitch repro';
+const OFFLOAD = 'sim-thread offload on the [AutShadow] worker (docs/208): checked by Mode R A0-A5 and the dry checks in offload3-moder.json / offload3-act.json / offload-ranks.json, not a hitch repro';
 const MONO ='Mono offload, parked: no Mono game runs allowed now (memory mono-parked, docs/118)';
 // Switches with no repro on purpose. Dead ends: "dead end: <evidence>"; diagnostics; parked work.
 export const EXEMPT: Record<string, string> = {
   unseenfbteleport: 'trip-shortcut type: verified by verify-shortcut.ts --name unseenfbteleport and the unseen-fallback.json sv-ufb-teleport-verify job (fixesRequire), not by an A/B repro (shortcut-verification rule, docs/202 §6)',
-  autunseenpace: 'tuning default on, not a separate A/B arm: pacing is on in every golive-unseen.json g8 -on job together with autunseen (docs/222 §8); compared by the G8 cadence lines, not a hitch repro',
-  autunseenrh: 'tuning default on, not a separate A/B arm: on in every golive-unseen.json job with autunseen from unseen4 (docs/222 §10); judged by ip-gu-dry-defcmp-u4 (rabbit-hole pairs not compared, counted) and ip-gu-g8-ab-u4',
   unseenanim: 'native [UnseenAnim] (UnseenAnim.Mode=1 ini or --ab unseenanim), not a fixesOn name: correctness by the unseen-anim-ab.json bp-ua-snapback job (repro unseen-snapback, ini on) and the stuck pair, gain by its in-load A/Bs (docs/144 §3.4)',
   unseenrm: 'native [UnseenRootMotion] Shortlist=1 Mode=1 (--ab unseenrm, rmMode), not a fixesOn name: correctness by unseen-root-motion.json bp-urm-snapback (repro unseen-snapback) and bp-urm-stuck-on, gain by its in-load A/Bs on rmWalkUs / aaPassUs (docs/228)',
   unseenobj: 'native [UnseenAnim] Objects=1 (--ab unseenobj, aoMode), not a fixesOn name: correctness by unseen-anim-objects.json bp-uao-snapback (repro unseen-snapback, objects in use keep animating) and bp-uao-stuck-on, gain by its in-load A/Bs on aoKindUs/aaUs_2 (docs/144 §3.6)',
@@ -34,8 +32,9 @@ export const EXEMPT: Record<string, string> = {
   unseentablettl: 'native [UnseenTable] RefreshTicks arm (--ab unseentablettl, utbTtlMode), a cost knob of the shared classifier: correctness by unseen-table.json bp-utb-ttl-check (Check=1, unseen-snapback repro), cost by bp-utb-ttl-ab (docs/227 §8)',
   unseentablecopy: 'ts3fixes UnseenTable.cs copy path (docs/227 §9), the A/B baseline of the zero-copy Bits(id) reads, default off: correctness by unseen-table.json bp-utb2-check (zero-copy default, repro unseen-snapback; the copy path is the §6 path bp-utb-check tested), cost by bp-utb2-copy-ab (--ab unseentablecopy)',
   unseenghost: 'native [UnseenGhost] ini section (UnseenGhost.Enabled=1), not an ab/fixesOn name: turned on in every unseen-route-relaxed.json / unseen-route-long-ab.json job (docs/202 §3.9.5); acts only for unseenroute holds, which have repros',
-  autshadowverify: DIAG, autunseencmp: DIAG, ownjobwait: DIAG, gcgrowlog: DIAG, autledger: MONO,
-  autoffenv: OFFLOAD, autoffbcast: OFFLOAD, autoffdry: OFFLOAD, autoffenvapply: OFFLOAD, autoffbcastapply: OFFLOAD, autoffnoref: OFFLOAD, autofftick: OFFLOAD,
+  autshadowverify: DIAG, autunseencmp: DIAG, autseengame: DIAG, autunseenpacecredit: DIAG, ownjobwait: DIAG, gcgrowlog: DIAG, autledger: MONO,
+  autofftick: OFFLOAD,
+  jit: 'Mono speed, not a hitch fix: no repro makes script calls more frequent than plain play; correctness by jit-verify.json (Mode=2) and the selftest TestMonoJit, timing by jit-ab.json once jit-verify passed (docs/527 §5)',
   mintcall: 'Mono speed, not a hitch fix: no repro makes script calls more frequent than plain play; correctness by mintcall-verify.json (CallPath=2) and the monohost selftests, timing by the plain-play pairs in mintcall-ab.json (docs/139 §8)',
   workerwait: 'worker CPU, not a hitch fix: no repro makes the job-start wait more likely than plain play; measured by the off/on plain-play pairs in route-worker-wait.json, correctness by the selftest TestRouteWorkerWait (docs/203 §6)',
   steershadow: SHADOW, lotfdshadow: SHADOW, obstructedshadow: SHADOW, slotenabledshadow: SHADOW, avoidshadow: SHADOW,

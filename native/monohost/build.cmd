@@ -20,5 +20,5 @@ set "ASM=%~1"
 if not defined ASM set "ASM=%~dp0..\..\game-copy\assemblies"
 if not exist "%ASM%\SimIFace.dll" (echo no %ASM%\SimIFace.dll: MonoHostTest.dll not built & exit /b 0)
 if not exist "%ASM%\Sims3GameplaySystems.dll" (echo no %ASM%\Sims3GameplaySystems.dll: MonoHostTest.dll not built & exit /b 0)
-"%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe" -nologo -nostdlib -noconfig -target:library -optimize -out:out\MonoHostTest.dll "-r:%ASM%\mscorlib.dll" "-r:%ASM%\SimIFace.dll" "-r:%ASM%\ScriptCore.dll" "-r:%ASM%\Sims3GameplaySystems.dll" "-r:%ASM%\UI.dll" HostTest.cs JitCorpus.cs JitAccessors.cs ..\..\mods\ts3fixes\src\AutShadowCore.cs ..\..\mods\ts3fixes\src\AutShadowLists.cs || exit /b 1
+"%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe" -nologo -nostdlib -noconfig -target:library -optimize -out:out\MonoHostTest.dll "-r:%ASM%\mscorlib.dll" "-r:%ASM%\SimIFace.dll" "-r:%ASM%\ScriptCore.dll" "-r:%ASM%\Sims3GameplaySystems.dll" "-r:%ASM%\UI.dll" "-r:%ASM%\System.dll" "-r:%ASM%\System.Xml.dll" HostTest.cs JitCorpus.cs JitCorpusGates.cs JitAccessors.cs JitReplay.cs ..\..\mods\ts3fixes\src\AutShadowCore.cs ..\..\mods\ts3fixes\src\AutShadowLists.cs || exit /b 1
 echo built out\MonoHostTest.dll

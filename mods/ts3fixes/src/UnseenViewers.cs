@@ -63,7 +63,7 @@ namespace Ts3Fixes
             return true;
         }
 
-        // Ridden horses and their riders, and both sides of a Mount / Dismount / BeingDismounted, held at full rate by
+        // The active household, ridden horses and their riders, and both sides of a Mount / Dismount / BeingDismounted, held at full rate by
         // ts3native's throttle (docs/143 §8.10): codes 12 BEGIN, 13 id low, 14 id high (appends), 15 END with the count.
         const int kHeldMax = 32;  // ts3native's table size
         static readonly System.Collections.Generic.List<ulong> sHeld = new System.Collections.Generic.List<ulong>();
@@ -71,6 +71,8 @@ namespace Ts3Fixes
         static void PushHeld()
         {
             sHeld.Clear();
+            Household h = Household.ActiveHousehold;  // docs/249: first, the table holds 32
+            if (h != null) foreach (Sim s in h.AllActors) HoldSim(s);
             // LotManager.Actors: EA's list of Sims in the world (added on a lot, removed when destroyed). Queries.GetObjects<Sim>()
             // walked every world object every 5 ticks: ~5% of the sim thread on a 14,500-object save (issue #156 sampler).
             foreach (Sim s in Sims3.Gameplay.Core.LotManager.Actors)

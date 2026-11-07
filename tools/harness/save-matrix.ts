@@ -178,11 +178,27 @@ export type ReloadSide = { save: string; households: string[]; files: string[]; 
 // NRaas ErrorTrap also writes its cleanup report ("-- Correction Logs --": out-of-world or destroyed objects it fixed) as a
 // ScriptError file. What it lists changes from load to load, so one side having it is no new error (2026-11-04 #208 matrix:
 // a CarHatchback out of world after the ON load, compaction not run)
-const CORRECTION_LOG = /--\s*Correction Logs\s*--/;
+// The same report can open with "-- Dereferencing --" (what still holds a destroyed object): also a cleanup report, but only
+// without stack frames (2026-11-06 ip-wf-matrix: a Paparazzi SocialJigOnePerson report on the ON load only, EA chance).
+const CORRECTION_LOG = /--\s*(?:Correction Logs|Dereferencing)\s*--/;
+export const isCorrectionReport = (x: string): boolean => CORRECTION_LOG.test(x) && !/^\s*#\d+:\s*0x[0-9a-f]+/im.test(x);
 export function reloadErrors(xmls: string[]): { sigs: string[]; known: string[] } {
   const sigs: string[] = [], known: string[] = [];
-  for (const x of xmls) { const k = CORRECTION_LOG.test(x) ? { id: 'nraas-errortrap-correction-log' } : matchKnown(x); if (k) known.push(k.id); else sigs.push(errSig(x)); }
+  for (const x of xmls) { const k = isCorrectionReport(x) ? { id: 'nraas-errortrap-correction-log' } : matchKnown(x); if (k) known.push(k.id); else sigs.push(errSig(x)); }
   return { sigs, known };
+}
+// ErrorTrap writes a report some ms to seconds after the row it belongs to (2026-11-06 ip-wf-matrix: the OFF report landed 250 ms after
+// the listing): poll the list until two polls in a row agree (at least minMs, at most maxMs), then use the last list
+export async function settledList(list: () => string[], sleepFn: (ms: number) => Promise<void> = ms => new Promise(r => setTimeout(r, ms)), stepMs = 1000, minMs = 3000, maxMs = 10000): Promise<string[]> {
+  let prev = list(), waited = 0, same = 0;
+  while (waited < maxMs) {
+    await sleepFn(stepMs); waited += stepMs;
+    const cur = list();
+    same = cur.join('|') === prev.join('|') ? same + 1 : 0;
+    prev = cur;
+    if (waited >= minMs && same >= 2) break;
+  }
+  return prev;
 }
 const countIds = (ids: string[]) => [...new Set(ids)].map(id => `${id} x${ids.filter(x => x === id).length}`).join(', ');
 export function compareReload(on: ReloadSide, off: ReloadSide): Check[] {
@@ -244,6 +260,17 @@ if (values['self-check']) {
   assert.deepEqual(corr, { sigs: [], known: ['nraas-errortrap-correction-log'] }, 'ErrorTrap correction report: known, not new');
   assert.ok(sameWorld('NewDowntownWorld', 'newdowntownworld')); assert.ok(!sameWorld('NewDowntownWorld', 'University'));
   assert.ok(!sameWorld(undefined, undefined)); assert.ok(!sameWorld('NewDowntownWorld', undefined));
+  { // Dereferencing report without stack frames is a cleanup report, with a stack frame it still counts; a late report is seen
+    const deref = '-- Dereferencing --\nPotential Object Found: Sims3.Gameplay.Core.SocialJigOnePerson (ID=0x38b400f517b0bac0, W=False, I=False)\nReference Continue: Sims3.Gameplay.Roles.RolePaparazzi+FollowCelebrity mJig';
+    assert.deepEqual(reloadErrors([xe(deref)]), { sigs: [], known: ['nraas-errortrap-correction-log'] }, 'Dereferencing without a stack frame: known');
+    assert.equal(reloadErrors([xe(`${deref}\n#0: 0x00031 callvirt   in Ts3Fixes.Ts3Fixes.X:Y () ()`)]).sigs.length, 1, 'Dereferencing with a stack frame still counts');
+    let calls = 0; const slept: number[] = [];
+    const late = await settledList(() => (++calls >= 3 ? ['a.xml', 'late.xml'] : ['a.xml']), async ms => { slept.push(ms); }, 1000, 3000, 10000);
+    assert.deepEqual(late, ['a.xml', 'late.xml'], 'a report landing after the first poll is seen');
+    assert.ok(slept.length >= 3 && slept.length <= 10, 'bounded wait');
+    assert.deepEqual(await settledList(() => ['x.xml'], async () => {}, 1000, 3000, 10000), ['x.xml']);
+    let n = 0; await settledList(() => [`f${n++}`], async () => {}, 1000, 3000, 10000); assert.ok(n <= 12, 'never waits past maxMs on a list that keeps changing');
+  }
   const ts = (o: object) => ({ loaded: true, inTravel: true, saving: false, world: 'NewDowntownWorld', household: 'H', ...o });
   assert.match(tripStall(ts({}), 'NewDowntownWorld'), /still in/); // future 2026-10-16
   assert.equal(tripStall(ts({ saving: true }), 'NewDowntownWorld'), ''); // the travel save runs here
@@ -980,7 +1007,7 @@ if (values['reload-check']) {
   await ag('autopilot', { enabled: false }); await pause();
   checks.push({ name: 'sim clock runs', status: t?.minutes_total ? 'pass' : 'fail', why: t ? `day ${t.day_number} ${t.clock}` : 'time: no answer' });
   // files since the save, minus those the other load already counted (both loads come after the save)
-  const errs = readdirSync(USER_DIR).filter(f => /^ScriptError_.*\.xml$/i.test(f) && statSync(join(USER_DIR, f)).mtimeMs > p.t && !(p[other]?.files ?? []).includes(f));
+  const errs = await settledList(() => readdirSync(USER_DIR).filter(f => /^ScriptError_.*\.xml$/i.test(f) && statSync(join(USER_DIR, f)).mtimeMs > p.t && !(p[other]?.files ?? []).includes(f)).sort());
   checks.push({ name: `ScriptError files (${side.toUpperCase()})`, status: 'info', why: errs.length ? errs.join(', ') : `none since the save at ${new Date(p.t).toISOString().slice(11, 19)}` });
   await alive.check();
   checks.push({ name: 'game alive', status: (await ag('game_state')).ok ? 'pass' : 'fail', why: 'agent answers' });

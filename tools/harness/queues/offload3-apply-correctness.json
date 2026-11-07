@@ -1,0 +1,281 @@
+{
+  "note": "offload3-apply-correctness (audit task O3, docs/208 §8 and §6): offload3 apply (env score, broadcaster candidate sets) on [AutShadow] Satb=2, Mode R + autoffdry on in every job, so this is a correctness queue (noiseCheck false), not timing. Repointed from offload3-act.json (satb8, 0.36.144) to the pair from feature/mono-offthread, pinned with iniBase; the pair is a PLACEHOLDER until that build lands in game-copy/asi-mono-offthread/. Gates (already passed on satb8): satb-act PASS twice. Order: smoke first, then env BP/IP, bcast BP/IP, about 55 min of jobs, 1.1 h with loads. Stop at any crash, A2 or autoff_*_exc. The apply shares read here feed O4's gain model (docs/208 §8.4). Run: node tools/harness/queue.ts tools/harness/queues/offload3-apply-correctness.json.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-off3x-smoke",
+      "note": "Smoke (4 min BP, env + bcast apply, Satb=2). PASS = 0 crashes, satbMode 2, autoff_env_ready > 0 and autoff_bcast_ready > 0, applied counters > 0 (autoff_env_applied + autoff_bcast_applied), autoff_*_exc == 0, switches autoffenv / autoffbcast / autoffenvapply / autoffbcastapply / autoffdry read back on. A FAIL stops the queue.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df with X4, docs/222 §11.8 counters, monojit-all and mintfuse-sub, ts3agent with fixed_work and focus_watch; kAutLive True in the package",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 4,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffenvapply,autoffbcastapply,autoffdry"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-off3x-env",
+      "note": "docs/208 §8.2 env apply, BP. PASS = 0 crashes, no freeze, satb-act checks (A1-A3 0, satbMode 2), env A2 == 0, autoff_env_exc == 0, dry equivalence autoff_env_apply_dry_eq / autoff_env_applied reads 100% (needs >= 99% per I-404-1). Report the apply share applied / (applied + apply_none + apply_stale) for O4.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df with X4, docs/222 §11.8 counters, monojit-all and mintfuse-sub, ts3agent with fixed_work and focus_watch; kAutLive True in the package",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffenvapply,autoffdry"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-off3x-env",
+      "note": "Same as bp-off3x-env on Isla Paradiso.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df with X4, docs/222 §11.8 counters, monojit-all and mintfuse-sub, ts3agent with fixed_work and focus_watch; kAutLive True in the package",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffenvapply,autoffdry"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-off3x-bcast",
+      "note": "docs/208 §8.3 broadcaster apply, BP. PASS = 0 crashes, no freeze, bcast A1 = A2 = 0, autoff_bcast_exc == 0, dry_eq = same Sims; dry_order (counter 490) is read, not gated (the order is the actor list's, I-402-5). Report the apply share for O4.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df with X4, docs/222 §11.8 counters, monojit-all and mintfuse-sub, ts3agent with fixed_work and focus_watch; kAutLive True in the package",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffbcast,autoffbcastapply,autoffdry"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-off3x-bcast",
+      "note": "Same as bp-off3x-bcast on Isla Paradiso.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df with X4, docs/222 §11.8 counters, monojit-all and mintfuse-sub, ts3agent with fixed_work and focus_watch; kAutLive True in the package",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffbcast,autoffbcastapply,autoffdry"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}

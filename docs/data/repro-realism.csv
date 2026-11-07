@@ -60,6 +60,7 @@ lot-front-door-burst,stress,spawn_sims
 wildflower-probe,natural,
 wildflower-drain,natural,
 wildflower-save-abort,natural,
+wildflower-save-check,natural,
 bp-build-levels,natural,
 bp-upstairs-route,cheat,reflect_call
 bp-door-lock,cheat,reflect_call
@@ -147,3 +148,7 @@ ip-placement-crowd-loop,stress,spawn_sims crowd_go place_objects remove_objects
 ip-foreign-replan-loop,stress,route_replan
 ip-locktaker-loop,stress,route_replan spawn_sims crowd_go place_objects remove_objects
 ip-goal-ring-loop,stress,spawn_sims crowd_go
+routefail-gohere-sv,natural,
+stove-wall-player-view,cheat,place_sim
+layout-repro-smoke,natural,
+stove-wall-layout,cheat,place_sim

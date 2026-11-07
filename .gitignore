@@ -56,6 +56,8 @@ desktop.ini
 
 # Live probe output (events, profiles)
 probe-out/
+# argument captures hold game state (docs/537 §17)
+*.jitcap
 # story census cache (docs/171 §7): Sim names from the player's saves
 tools/harness/stories/census/
 .claude/worktrees/

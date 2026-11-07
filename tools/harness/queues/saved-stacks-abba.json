@@ -1,0 +1,173 @@
+{
+  "note": "Per-switch only if final-bundle regresses (Rodney 2026-11-06, timing trim, docs/222 §11.9): not in the chain. final-bundle has the fix in both arms, so this is the only before / after. Before any run rebuild the before package from the same master: swapfix/ts3fixes-before.package is older than the Mono merge (~23 KB smaller than mono1106c). saved-stacks-abba (2026-11-06, docs/242): quiet-machine ABBA, DoRoute and jig hooks gone and ErrorTrap's inventory check in its own task, master package vs fix package, same asi and ini. noiseCheck on. Not run. Run: node tools/harness/queue.ts tools/harness/queues/saved-stacks-abba.json ; ms/s per arm: node tools/harness/arm-ms.ts saved-stacks-abba",
+  "jobs": [
+    {
+      "id": "bp-before-1",
+      "note": "ABBA bp before",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-before.package",
+      "pinReason": "saved-stacks test: after = mono1106c pair at master 000589df, before = swapfix/ts3fixes-before.package (no fix), same asi and ini (ts3native unchanged by the fix)",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "bp-after-1",
+      "note": "ABBA bp after",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "saved-stacks test: after = mono1106c pair at master 000589df, before = swapfix/ts3fixes-before.package (no fix), same asi and ini (ts3native unchanged by the fix)",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "bp-after-2",
+      "note": "ABBA bp after",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "saved-stacks test: after = mono1106c pair at master 000589df, before = swapfix/ts3fixes-before.package (no fix), same asi and ini (ts3native unchanged by the fix)",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "bp-before-2",
+      "note": "ABBA bp before",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-before.package",
+      "pinReason": "saved-stacks test: after = mono1106c pair at master 000589df, before = swapfix/ts3fixes-before.package (no fix), same asi and ini (ts3native unchanged by the fix)",
+      "save": "Baseline-BP",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "ip-before-1",
+      "note": "ABBA ip before",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-before.package",
+      "pinReason": "saved-stacks test: after = mono1106c pair at master 000589df, before = swapfix/ts3fixes-before.package (no fix), same asi and ini (ts3native unchanged by the fix)",
+      "save": "Baseline-IP",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "ip-after-1",
+      "note": "ABBA ip after",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "saved-stacks test: after = mono1106c pair at master 000589df, before = swapfix/ts3fixes-before.package (no fix), same asi and ini (ts3native unchanged by the fix)",
+      "save": "Baseline-IP",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "ip-after-2",
+      "note": "ABBA ip after",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "saved-stacks test: after = mono1106c pair at master 000589df, before = swapfix/ts3fixes-before.package (no fix), same asi and ini (ts3native unchanged by the fix)",
+      "save": "Baseline-IP",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "ip-before-2",
+      "note": "ABBA ip before",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-before.package",
+      "pinReason": "saved-stacks test: after = mono1106c pair at master 000589df, before = swapfix/ts3fixes-before.package (no fix), same asi and ini (ts3native unchanged by the fix)",
+      "save": "Baseline-IP",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 22
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "note": "gc-streak-guard (2026-11-07, docs/67 §35, ts3native 0.36.181, branch bugfix/gc-streak-repro): the GwExpand streak guard forced in one load, because natural runs show streak 0-1 and prove nothing. Correctness only, one A/B job, ~3 min in game.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-gc-streak-ab",
+      "note": "Repro gc-streak-guard, off then on in one load (native_set gcstreakat). Pass: the native_check steps (off: gwExpands >= 24, new max streak; on: gwExpands <= 8, no new max, punts >= 2) and the log lines below. Read the heap_kb rows in the -repro.jsonl: off grows, on stops after 3 expansions a round. An off arm with 0 growth means the forced state did not take (see the repro note), not a pass.",
+      "asi": "game-copy/ts3native.asi.gcstreak1107",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 912,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": ["-disablestoryprogression"],
+      "ini": { "GC.BlackListCapKB": 1024, "UserDiag.Enabled": 1 },
+      "logRequire": {
+        "^ts3native 0\\.36\\.181": 1,
+        "^gc expand streak test stop: ": 2,
+        "^gc expand streak guard: ": 2
+      },
+      "run": { "profile": { "seed": 12345, "minutes": 3, "noSamplers": true, "repro": "gc-streak-guard" } },
+      "timeoutMin": 12
+    }
+  ]
+}

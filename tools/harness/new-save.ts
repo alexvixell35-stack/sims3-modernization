@@ -42,12 +42,12 @@ async function until(what: string, limitS: number, check: () => Promise<boolean>
 
 const s0 = await agent('game_state');
 if (s0.result?.in_world) throw new Error('already in a world; restart to the main menu first (cycle.ts --restart)');
-// "Mod Scripts Found" opens at the menu up to ~90 s after start; a load requested under it is lost (see cycle.ts).
+// "Mod Scripts Found" opens at the menu up to ~150+ s after start ([MonoJit] Mode=2); a load requested under it is lost (see cycle.ts).
 {
   const t0 = Date.now();
   let saw = false, quietSince = Date.now();
   const guard = stallGuard('main menu', { port: Number(values.port) });
-  while (Date.now() - t0 < 150000 && (!saw ? Date.now() - t0 < 120000 : Date.now() - quietSince < 5000)) {
+  while (Date.now() - t0 < 330000 && (!saw ? Date.now() - t0 < 300000 : Date.now() - quietSince < 5000)) {
     const why = await guard();
     if (why) throw new Error(why);
     const d = await agent('auto_dialog').catch(() => null);

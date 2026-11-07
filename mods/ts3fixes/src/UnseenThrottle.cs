@@ -3,6 +3,8 @@ using System.Reflection;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.Autonomy;
 using Sims3.Gameplay.CAS;
+using Sims3.Gameplay.Core;
+using Sims3.Gameplay.EventSystem;
 using Sims3.Gameplay.Objects.Vehicles;
 using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
@@ -18,6 +20,9 @@ namespace Ts3Fixes
     //   unseenmotives : Autonomy.Update (motives, buffs, mood, skills, careers, relationships, all integrators of the
     //                   sim-minutes since the last update) waits until N sim-minutes have passed, then integrates the
     //                   whole gap in one call. Only the SimUpdate (high-LOD) call; RunAutonomy's refresh always runs.
+    //   unseenpark    : an idle unseen low-LOD Sim stays out of AutonomyManager's queue until kUnseenParkMinutes sim-minutes
+    //                   after its last search (docs/243 D1, §9). Autonomy.mLastTime is that clock: on the low-LOD path only
+    //                   RunAutonomy's refresh moves it, so nothing new is kept and a search not run is not owed later.
     //   unseenprobe   : classify and count only (no skips), for the A/B and the share measurement.
     // Unseen = not selectable, not in the active household, out of the camera's reach and 80 m from every
     // active-household Sim (FarFromViewers, as the trip shortcuts), and not on screen. A seen Sim always runs.
@@ -25,13 +30,20 @@ namespace Ts3Fixes
     // skipped, [154] unseen motive updates run that left a Sim at <= -95 hunger, energy, bladder or hygiene,
     // [155] gate tables restarted (full), [225] most unseen motive catch-ups in one sim tick (cap UnseenMath.kCatchUpsPerTick),
     // [226] catch-ups held a tick by the cap, [227] longest catch-up call (us). [152-153] belong to the broadcaster rule in BroadcasterPulseHook (Fixes.cs).
+    // [778-784] low-LOD refreshes of unseen Sims (docs/245), filled by unseenprobe or unseenpark: [778] run, [779] us in those
+    // runs, [780-784] gap since the last refresh in sim-minutes: < 1, 1-5, 5-15, 15-30, >= 30. With unseenprobe alone the
+    // buckets under 30 are the searches unseenpark would hold at the default N; with unseenpark on they should empty.
+    // [818-823] unseenpark: [818] queue entries held (one per idle poll, not per search), [819] let through inside the window
+    // because the Sim is seen (snap-back), [820] let through inside the window as exempt, low-LOD searches queued outside
+    // the window [821] unseen, [822] seen, [823] non-household Sims walking onto a seen lot (both arms: the visitor bar),
+    // [824] most snap releases in one tick, [825] polls of a seen held Sim deferred to its stagger slot (kUnseenParkStaggerTicks).
     public static partial class Fixes
     {
         static readonly EveryN sEnvGate = new EveryN(), sBroadcastGate = new EveryN(), sCarGate = new EveryN();
         static FieldInfo sSimUpdateSim, sAutonomyLastTime;
         const float kMotiveCapMin = 30f; // well under Motive.kMaxUpdateHoursBeforeAutoSatisfy (60 sim-minutes)
         static readonly TickCap sCatchUps = new TickCap();
-        static StopWatch sCatchUpWatch;
+        static StopWatch sCatchUpWatch, sRefreshWatch;
 
         static void ApplyUnseenThrottle()
         {
@@ -43,6 +55,8 @@ namespace Ts3Fixes
             if (sAutonomyLastTime != null) Patch(typeof(Autonomy), "Update", typeof(AutonomyUpdateHook), "UpdateHook", "UpdateOrig");
             else AppliedLog().Add("Autonomy.Update: no mLastTime field");
             Patch(typeof(StreetParking), "GetParkingSpotForCar", typeof(ParkingSpotHook), "SpotHook", "SpotOrig");
+            if (sAutonomyLastTime != null) Patch(typeof(AutonomyManager), "Add", typeof(UnseenParkHook), "AddHook", "AddOrig");
+            World.OnWorldLoadFinishedEventHandler += delegate { StartParkArrivals(); };
         }
 
         static int UnseenEvery() { return Math.Max(1, Instantiator.kUnseenThrottleEvery); }
@@ -138,17 +152,83 @@ namespace Ts3Fixes
             }
         }
 
+        // unseenpark (docs/243 D1, §9). AutonomyManager.Add's only callers are the two idle-path sites in Sim.DoInteraction, each
+        // followed by the Sim's own Simulator.Sleep. Add and this hook never yield, so neither sits on a saved stack; a held Sim
+        // just loops EA's idle path and asks again. Pushes never come here: a queued interaction runs before the idle path.
+        // Any doubt lets the search through: seen, gone, not live, classifier error, no clock, a clock ahead of the game.
+        public static class UnseenParkHook
+        {
+            static long sParkBurstTick = -1; // tick of the latest snap release and how many went in it: [824] keeps the max
+            static int sParkBurstN;
+            public static void AddHook(Autonomy a)
+            {
+                // IsRunningLocalAutonomy picks the high-LOD queue in Enqueue; DoInteraction has just refreshed it
+                if (a.IsRunningLocalAutonomy || !ShortcutOn("unseenpark")) { AddOrig(a); return; }
+                Sim s = a.Actor;
+                int[] c = PatchCounters();
+                int why = SafeUfWhy(s);
+                float last = (float)sAutonomyLastTime.GetValue(a);
+                bool hold = UnseenMath.ParkHold(last, SimClock.ElapsedTime(TimeUnit.Minutes), Instantiator.kUnseenParkMinutes);
+                switch (UnseenMath.ParkVerdict(why == 0, hold, why == 0 && hold && ParkExempt(a, s)))
+                {
+                    case UnseenMath.kParkHold: c[818]++; return;
+                    case UnseenMath.kParkSnap:
+                        // seen while held: wait for this Sim's slot so a camera jump does not release them all together
+                        long tick = SimClock.CurrentTicks;
+                        if (!UnseenMath.ParkStaggerPass(tick, s.SimDescription.SimDescriptionId, Instantiator.kUnseenParkStaggerTicks)) { c[825]++; return; }
+                        c[819]++;
+                        if (tick == sParkBurstTick) sParkBurstN++; else { sParkBurstTick = tick; sParkBurstN = 1; }
+                        if (sParkBurstN > c[824]) c[824] = sParkBurstN;
+                        break;
+                    case UnseenMath.kParkExempt: c[820]++; break;
+                    case UnseenMath.kParkUnseen: c[821]++; break;
+                    default: c[822]++; break;
+                }
+                AddOrig(a);
+            }
+            public static void AddOrig(Autonomy a) { } // receives AutonomyManager.Add's original header
+
+            // Service Sims and role Sims skip EA's own idle delay, so they stay on it. A situation (party, visit, date, group,
+            // wedding) drives its Sims partly by autonomy. Pregnancy is alarm-driven; exempt so no pregnant Sim idles for us.
+            static bool ParkExempt(Autonomy a, Sim s)
+            {
+                SimDescription d = s.SimDescription;
+                return s.Service != null || d.HasActiveRole || d.IsPregnant || a.SituationComponent == null || a.SituationComponent.Situations.Count > 0;
+            }
+        }
+
+        // Fewer searches can mean fewer visitors (docs/243 §5): counted on both arms, with no effect on the game.
+        static EventListener sParkArrive;
+        static void StartParkArrivals()
+        {
+            if (sParkArrive != null) EventTracker.RemoveListener(sParkArrive);
+            sParkArrive = EventTracker.AddListener(EventTypeId.kEventSimMovedToLot, OnParkArrive);
+        }
+        static ListenerAction OnParkArrive(Event e)
+        {
+            try
+            {
+                Sim s = e.Actor as Sim;
+                Lot lot = e.TargetObject as Lot;
+                if (s != null && lot != null && !lot.IsWorldLot && s.Household != Household.ActiveHousehold && UfLotSeen(lot)) PatchCounters()[823]++;
+            }
+            catch (Exception) { }
+            return ListenerAction.Keep;
+        }
+
         // Autonomy has no parameterless constructor either.
         public class AutonomyUpdateHook
         {
             public void UpdateHook()
             {
-                bool on = ShortcutOn("unseenmotives");
-                if (!on && !ShortcutOn("unseenprobe")) { UpdateOrig(); return; }
+                bool on = ShortcutOn("unseenmotives"), park = ShortcutOn("unseenpark"), probe = ShortcutOn("unseenprobe");
+                if (!on && !park && !probe) { UpdateOrig(); return; }
                 Autonomy a = (Autonomy)(object)this;
                 Sim s = a.Actor;
-                // RunAutonomy calls Update only for low-LOD Sims, to refresh motives before it scores: never skipped
-                if (s == null || !a.GetCachedHighLODValue) { UpdateOrig(); return; }
+                if (s == null) { UpdateOrig(); return; }
+                // RunAutonomy calls Update only for low-LOD Sims, to refresh motives before it scores: counted, never skipped
+                if (!a.GetCachedHighLODValue) { LowLodRefresh(a, s); return; }
+                if (!on && !probe) { UpdateOrig(); return; }
                 int[] c = PatchCounters();
                 c[149]++;
                 if (!SimUnseen(s)) { UpdateOrig(); return; }
@@ -186,6 +266,21 @@ namespace Ts3Fixes
                 if (!s.HasBeenDestroyed && Critical(s)) c[154]++;
             }
             public void UpdateOrig() { } // receives Autonomy.Update's original header
+
+            void LowLodRefresh(Autonomy a, Sim s)
+            {
+                if (!SimUnseen(s)) { UpdateOrig(); return; }
+                float last = (float)sAutonomyLastTime.GetValue(a);
+                float gap = last == 0f ? 0f : SimClock.ElapsedTime(TimeUnit.Minutes) - last;
+                int[] c = PatchCounters();
+                c[780 + UnseenMath.RefreshBucket(gap)]++;
+                if (gap < UnseenMath.kRefreshFloorMin) { UpdateOrig(); return; } // EA's own no-op: not a refresh to time
+                if (sRefreshWatch == null) sRefreshWatch = StopWatch.Create(StopWatch.TickStyles.Microseconds);
+                sRefreshWatch.Restart();
+                UpdateOrig();
+                c[778]++;
+                c[779] += (int)sRefreshWatch.GetElapsedTime();
+            }
 
             static bool Critical(Sim s)
             {

@@ -113,6 +113,14 @@ namespace Ts3Fixes
             Patch(typeof(GameObject), "SetRewardGiver", typeof(RewardGiverHook), "GiverHook", "GiverOrig");  // RewardGiver.cs, docs/525
             Patch(typeof(OnlineDatingManager), "SimHasProfile", typeof(DatingProfileHook), "HasHook", "HasOrig");  // DatingProfile.cs, docs/528
             Patch(typeof(Sims3.Gameplay.Careers.Career), "LeaveJob", new Type[] { typeof(bool), typeof(Sims3.Gameplay.Careers.Career.LeaveJobReason) }, typeof(LeaveJobDisposeHook), "LeaveHook", "LeaveOrig");  // LeaveJobDispose.cs, docs/529
+            Patch(typeof(Sim), "TryAddObjectToInventory", new Type[] { typeof(IGameObject) }, typeof(InvNotYetHook), "AddHook", "AddOrig");  // InvNotYet.cs, docs/531
+            Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "FindMetricValue", typeof(MetricSkillMissingHook), "ValueHook", "ValueOrig");  // MetricSkillMissing.cs, docs/532
+            Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "MetricTitle", typeof(MetricSkillMissingHook), "TitleHook", "TitleOrig");  // MetricSkillMissing.cs, docs/532
+            Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "MetricDescription", typeof(MetricSkillMissingHook), "DescHook", "DescOrig");  // MetricSkillMissing.cs, docs/532
+            if (sFwWatch != null) Patch(sFwWatch, "LoopDel", typeof(FireworksFizzleHook), "LoopHook", "LoopOrig");  // FireworksFizzle.cs, docs/533
+            Patch(typeof(Sims3.Gameplay.PetSystems.PetPool), "RandomRemovePet", typeof(PetPoolOrphanHook), "RandomHook", "RandomOrig");  // PetPoolOrphan.cs, docs/534
+            Patch(typeof(Sims3.Gameplay.PetSystems.PetPool), "ClearAllPets", typeof(PetPoolOrphanHook), "ClearHook", "ClearOrig");  // PetPoolOrphan.cs, docs/534
+            Patch(typeof(Sims3.Gameplay.Socializing.Relationship), "GetInternal", new Type[] { typeof(SimDescription), typeof(SimDescription), typeof(bool), typeof(bool) }, typeof(RelTablesApartHook), "GetHook", "GetOrig");  // RelTablesApart.cs, docs/535
         }
 
         // ---- ageupkeepoutfits (#100) ----

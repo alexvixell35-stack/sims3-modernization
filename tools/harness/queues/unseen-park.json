@@ -1,0 +1,778 @@
+{
+  "note": "unseenpark (docs/243 D1, §9), NOT RUN. Pair: mono1106c from master 000589df (builds.json): game-copy/ts3fixes.package.mono1106c-upark = kAutLive=False (--on kAutLive no longer builds: True is the default), game-copy/ts3fixes.package.mono1106c-upark-live = default tuning; ts3agent from master. After the four A/Bs read arm-ms: continue only at >= 5 ms/s on BP and IP in both orders; under that, hold the queue (one fix round, then park). Stop now if searches fall under ~15% or a routing bar FAILs (R1-R6 of docs/246 §6 in gate2-report.ts, thresholds are judgement; the `routes` column is sim-thread calls only and is not a stop signal). BP A/B jobs carry routingFailFast scope unseen; IP does not (its off arm has marked plans >= 300 ms), R5 covers IP. Held Sims that become seen release in 4-tick slots over kUnseenParkStaggerTicks (16): read unseen_park_burst_max and unseen_park_stagger_defer. bp-upark-check runs with EA story progression on. Focus and arrive jobs are the gate2 repros on the gate2 stack (they need a direct pick, so go-live must act).",
+  "stopQueueOnFail": true,
+  "smoke": {
+    "id": "bp-upark-smoke",
+    "note": "Smoke (4 min BP, --ab unseenpark slice 1): arm split, switch read-back, held > 0, AutonomyManager.Add ok in the applied list.",
+    "asi": "game-copy/ts3native.asi.mono1106c",
+    "fixesPackage": "game-copy/ts3fixes.package.mono1106c-upark",
+    "releaseDefaults": true,
+    "minCounters": 159,
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "pinReason": "docs/243 §9: mono1106c pair from master 000589df: asi = master native, packages hold the switch (2026-11-06)",
+    "save": "Baseline-BP-Spring",
+    "earlyGates": [
+      {
+        "afterSec": 200,
+        "counter": "fixes:unseen_refresh_gap_ge30",
+        "op": ">",
+        "value": 0,
+        "why": "no unseen low-LOD refresh classified: unseenprobe, hook or camera query not working"
+      },
+      {
+        "afterSec": 200,
+        "counter": "fixes:unseen_park_held",
+        "op": ">",
+        "value": 0,
+        "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+      }
+    ],
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "noSamplers": true,
+        "fixesOn": "unseenprobe",
+        "fixesReport": "unseen_park_,unseen_refresh_,gohome_",
+        "ab": "unseenpark",
+        "minutes": 4,
+        "slice": 1
+      }
+    },
+    "timeoutMin": 25,
+    "noiseCheck": false
+  },
+  "jobs": [
+    {
+      "id": "bp-upark-ab",
+      "note": "docs/243 §7: 10 min in-load A/B at autunseen's release setting (off), off first. Read: total ms/s per arm (arm-ms.ts). Bar: >= 5 ms/s in both orders on BP and IP, hitches not worse. Machine quiet, IDE closed. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1-R6 replace the routes/s stop line; add a pair with autunseen on.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-upark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/243 §9: mono1106c pair from master 000589df: asi = master native, packages hold the switch (2026-11-06)",
+      "save": "Baseline-BP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_refresh_gap_ge30",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen low-LOD refresh classified: unseenprobe, hook or camera query not working"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "unseenprobe",
+          "fixesReport": "unseen_park_,unseen_refresh_,gohome_",
+          "ab": "unseenpark",
+          "minutes": 10,
+          "slice": 2
+        }
+      },
+      "timeoutMin": 30,
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      }
+    },
+    {
+      "id": "bp-upark-ab-onfirst",
+      "note": "docs/243 §7: 10 min in-load A/B at autunseen's release setting (off), on first. Read: total ms/s per arm (arm-ms.ts). Bar: >= 5 ms/s in both orders on BP and IP, hitches not worse. Machine quiet, IDE closed. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1-R6 replace the routes/s stop line; add a pair with autunseen on.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-upark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/243 §9: mono1106c pair from master 000589df: asi = master native, packages hold the switch (2026-11-06)",
+      "save": "Baseline-BP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_refresh_gap_ge30",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen low-LOD refresh classified: unseenprobe, hook or camera query not working"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "unseenprobe",
+          "fixesReport": "unseen_park_,unseen_refresh_,gohome_",
+          "ab": "unseenpark",
+          "minutes": 10,
+          "slice": 2,
+          "abOnFirst": true
+        }
+      },
+      "timeoutMin": 30,
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      }
+    },
+    {
+      "id": "ip-upark-ab",
+      "note": "docs/243 §7: 10 min in-load A/B at autunseen's release setting (off), off first. Read: total ms/s per arm (arm-ms.ts). Bar: >= 5 ms/s in both orders on BP and IP, hitches not worse. Machine quiet, IDE closed. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1-R6 (R5 on ufLong, no routingFailFast on IP).",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-upark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/243 §9: mono1106c pair from master 000589df: asi = master native, packages hold the switch (2026-11-06)",
+      "save": "Baseline-IP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_refresh_gap_ge30",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen low-LOD refresh classified: unseenprobe, hook or camera query not working"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "unseenprobe",
+          "fixesReport": "unseen_park_,unseen_refresh_,gohome_",
+          "ab": "unseenpark",
+          "minutes": 10,
+          "slice": 2
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-upark-ab-onfirst",
+      "note": "docs/243 §7: 10 min in-load A/B at autunseen's release setting (off), on first. Read: total ms/s per arm (arm-ms.ts). Bar: >= 5 ms/s in both orders on BP and IP, hitches not worse. Machine quiet, IDE closed. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1-R6 (R5 on ufLong, no routingFailFast on IP).",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-upark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/243 §9: mono1106c pair from master 000589df: asi = master native, packages hold the switch (2026-11-06)",
+      "save": "Baseline-IP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_refresh_gap_ge30",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen low-LOD refresh classified: unseenprobe, hook or camera query not working"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "unseenprobe",
+          "fixesReport": "unseen_park_,unseen_refresh_,gohome_",
+          "ab": "unseenpark",
+          "minutes": 10,
+          "slice": 2,
+          "abOnFirst": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-upark-check",
+      "note": "docs/243 §7 correctness, 15 min, unseenpark on, EA story progression on: unseen_park_arrivals (compare the A/B arms), Overwatch resets, work attendance, GoHome, exempt and snap-back counts; I-243-4.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-upark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "gameArgs": [],
+      "pinReason": "docs/243 §9: mono1106c pair from master 000589df: asi = master native, packages hold the switch (2026-11-06)",
+      "save": "Baseline-BP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_refresh_gap_ge30",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen low-LOD refresh classified: unseenprobe, hook or camera query not working"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "unseenprobe,unseenpark",
+          "fixesReport": "unseen_park_,unseen_refresh_,gohome_",
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 35,
+      "noiseCheck": false
+    },
+    {
+      "id": "bp-upark-loop",
+      "note": "Correctness, repro unseen-park-loop (STRESS): snap-back on camera jumps, pause, scratch save, off half.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-upark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/243 §9: mono1106c pair from master 000589df: asi = master native, packages hold the switch (2026-11-06)",
+      "save": "Baseline-BP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "unseenprobe",
+          "fixesReport": "unseen_park_,unseen_refresh_,gohome_",
+          "repro": "unseen-park-loop",
+          "minutes": 12
+        }
+      },
+      "timeoutMin": 25,
+      "noiseCheck": false
+    },
+    {
+      "id": "bp-upark-focus",
+      "note": "Visible behaviour with unseenpark on, on the gate2 stack: docs/222 §11.2 V1-V4, hard: focused Sim plausible, needs not starving, not stuck, exact within 3 s, no pop. FAIL = thrown focus_result.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:autunseen_posted",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autunseen_exc",
+          "op": "==",
+          "value": 0,
+          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+        },
+        {
+          "afterSec": 240,
+          "counter": "fixes:autunseen_rh_game",
+          "op": ">",
+          "value": 0,
+          "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
+        },
+        {
+          "afterSec": 240,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/243 §9: mono1106c pair from master 000589df: asi = master native, packages hold the switch (2026-11-06)",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-upark-live",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,unseenprobe,unseenpark",
+          "fixesOff": "autunseencmp",
+          "fixesReport": "g8_,autunseen_,gohome_,unseen_park_,unseen_refresh_,gohome_",
+          "minutes": 12,
+          "repro": "aut-unseen-focus"
+        }
+      },
+      "timeoutMin": 32
+    },
+    {
+      "id": "ip-upark-focus",
+      "note": "Visible behaviour with unseenpark on, on the gate2 stack: docs/222 §11.2 V1-V4, hard: focused Sim plausible, needs not starving, not stuck, exact within 3 s, no pop. FAIL = thrown focus_result.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:autunseen_posted",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autunseen_exc",
+          "op": "==",
+          "value": 0,
+          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+        },
+        {
+          "afterSec": 240,
+          "counter": "fixes:autunseen_rh_game",
+          "op": ">",
+          "value": 0,
+          "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
+        },
+        {
+          "afterSec": 240,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/243 §9: mono1106c pair from master 000589df: asi = master native, packages hold the switch (2026-11-06)",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-upark-live",
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,unseenprobe,unseenpark",
+          "fixesOff": "autunseencmp",
+          "fixesReport": "g8_,autunseen_,gohome_,unseen_park_,unseen_refresh_,gohome_",
+          "minutes": 12,
+          "repro": "aut-unseen-focus"
+        }
+      },
+      "timeoutMin": 32
+    },
+    {
+      "id": "bp-upark-arrive",
+      "note": "Visible behaviour with unseenpark on, on the gate2 stack: docs/222 §11.2 V5, hard: Sims arriving on the active lot in view. STRESS labelled.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:autunseen_posted",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autunseen_exc",
+          "op": "==",
+          "value": 0,
+          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+        },
+        {
+          "afterSec": 240,
+          "counter": "fixes:autunseen_rh_game",
+          "op": ">",
+          "value": 0,
+          "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
+        },
+        {
+          "afterSec": 240,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/243 §9: mono1106c pair from master 000589df: asi = master native, packages hold the switch (2026-11-06)",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-upark-live",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,unseenprobe,unseenpark",
+          "fixesOff": "autunseencmp",
+          "fixesReport": "g8_,autunseen_,gohome_,unseen_park_,unseen_refresh_,gohome_",
+          "minutes": 12,
+          "repro": "aut-unseen-arrive"
+        }
+      },
+      "timeoutMin": 32
+    },
+    {
+      "id": "ip-upark-arrive",
+      "note": "Visible behaviour with unseenpark on, on the gate2 stack: docs/222 §11.2 V5, hard: Sims arriving on the active lot in view. STRESS labelled.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:autunseen_posted",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autunseen_exc",
+          "op": "==",
+          "value": 0,
+          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+        },
+        {
+          "afterSec": 240,
+          "counter": "fixes:autunseen_rh_game",
+          "op": ">",
+          "value": 0,
+          "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
+        },
+        {
+          "afterSec": 240,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/243 §9: mono1106c pair from master 000589df: asi = master native, packages hold the switch (2026-11-06)",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-upark-live",
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,unseenprobe,unseenpark",
+          "fixesOff": "autunseencmp",
+          "fixesReport": "g8_,autunseen_,gohome_,unseen_park_,unseen_refresh_,gohome_",
+          "minutes": 12,
+          "repro": "aut-unseen-arrive"
+        }
+      },
+      "timeoutMin": 32
+    }
+  ]
+}

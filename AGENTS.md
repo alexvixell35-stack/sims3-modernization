@@ -9,6 +9,7 @@ For AI coding agents (Claude Code, Codex, Copilot and others) working on this re
 3. The doc for the area you touch (`docs/04-re-findings.md` for findings, `docs/15-native-patches.md` for ts3native, `mods/ts3fixes/README.md` for the player mod, `docs/TESTING.md` before any game run, `docs/BUILD.md` before building).
 
 ## Rules
+- **Household Sims stay untouched.** Changes may only affect Sims the player does not control; household Sims never count as unseen, even off screen. Every deadline, cap, skip, throttle, teleport, fake or relaxed path needs an explicit household and selected-Sim exemption in code; a Sim of unknown scope counts as household. Results for controlled Sims must equal vanilla: proven-exact speedups and EA bug fixes stay, and crash guards keep a long hard ceiling.
 
 - **No EA files in git, ever:** no game binaries or packages, no extracted DLLs, no decompiled C# or native decompiles, no saves, dumps, traces or captures. Keep them in `game-copy/` or `probe-out/` (git-ignored). Quote at most an address, a method name or a few instructions needed to explain a finding, in your own words.
 - **No personal data:** no user names in paths (`C:\Users\<name>`), machine names or emails in commits, docs or logs. Use placeholders: `<SteamLibrary>`, `<Documents>`, `<repo>`.

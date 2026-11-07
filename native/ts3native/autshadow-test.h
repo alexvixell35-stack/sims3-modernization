@@ -379,6 +379,19 @@ static void AfT5Request(int id) {
     AsIcPost(id);
     assert(g_asReqId && g_asBatchN == 1);  // a second Begin would join this cut (docs/122 §14.18)
 }
+// docs/219 §2: the four shared rows sit last in kAsDesc, so [AutShadow] Tier2Rows=0 (the default) cuts exactly them from the
+// guard lookup, and their layouts follow the managed externs (ledger §428)
+static void TestAutShadowTier2Rows() {
+    assert(!g_asTier2Rows);
+    const AsDesc* d = kAsDesc + AS_NDESC - AS_NT2;
+    assert(!strcmp(d[0].name, "ScriptCore.World::World_IsOnRoofImpl") && d[0].owner == AO_OBJ && d[0].kind == AK_INT && d[0].nArg == 2 && d[0].sz == 1);
+    assert(!strcmp(d[1].name, "ScriptCore.Objects::Objects_GetHeightAboveFloor") && d[1].owner == AO_OBJ && d[1].kind == AK_FP && d[1].nArg == 2 && d[1].sz == 4);
+    assert(!strcmp(d[2].name, "ScriptCore.Objects::Objects_GetForward") && d[2].owner == AO_OBJ && d[2].kind == AK_STRUCT && d[2].nArg == 2 && d[2].sz == 12);
+    assert(!strcmp(d[3].name, "ScriptCore.World::World_GetPoolObjectIdForPoolBelowPositionImpl") && d[3].owner == AO_WORLD && d[3].kind == AK_INT && d[3].nArg == 3 && d[3].sz == 8);
+    // the float and struct returns need their kind entries (autshadow-kinds.h), the two integer ones must have none
+    assert(AsKindOfName(d[1].name) == 'f' && AsKindOfName(d[2].name) == 's' && AsKindOfName(d[0].name) == 0 && AsKindOfName(d[3].name) == 0);
+}
+
 static void TestAutShadowRun() {
     Ts3nAutShadow& k = ts3native_autshadow;
     Ts3nMtProbe& m = ts3native_mtprobe;
@@ -2914,6 +2927,7 @@ static void TestAutShadow() {
     assert(k.learnDropped > dropped);
     printf("autshadow: %ld IC slots, %ld cuts (max %ld us), %ld entries, %ld audits, %ld aborts\n", k.guardSlots, k.cuts,
            k.cutMaxUs, k.entries, k.auditN, k.abortTotal);
+    TestAutShadowTier2Rows();
     TestAutShadowRun();
     TestAutLedger();
     TestAutShadowFull();

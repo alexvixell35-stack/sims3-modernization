@@ -31,13 +31,13 @@ static __declspec(naked) void FakeSetP30() { __asm movss xmm0, dword ptr [esp + 
 typedef void(__fastcall* WrSetFn)(void* self, void* edx, float v);
 static void TestWatchpointLot() {
     static_assert(offsetof(Ts3nCounters, wpArms) == 0x4628 && offsetof(Ts3nCounters, wpHits) == 0x462C && offsetof(Ts3nCounters, wrZ) == 0x4630 &&
-                      offsetof(Ts3nCounters, wrP30) == 0x463C && sizeof(Ts3nCounters) == 5901 * 4,
+                      offsetof(Ts3nCounters, wrP30) == 0x463C && sizeof(Ts3nCounters) == 5984 * 4,
                   "counters v110 layout after v109 (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, wpCtor) == 0x4648 && offsetof(Ts3nCounters, wpFollow) == 0x464C && offsetof(Ts3nCounters, rpHold) == 0x4654 &&
-                      sizeof(Ts3nCounters) == 5901 * 4,
+                      sizeof(Ts3nCounters) == 5984 * 4,
                   "counters v111 layout after v110 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
-    assert(k.version == 907);
+    assert(k.version == 912);
     const DWORD wt0 = g_workerTid, ct0 = g_callerTid;
     WpInstall();
     DWORD child[16] = {kWpChildVt}, child2[16] = {kWpChildVt}, parent[16] = {0xFEBA98}, other[16] = {kWpChildVt};

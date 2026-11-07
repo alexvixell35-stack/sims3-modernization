@@ -1,0 +1,38 @@
+{
+  "note": "stove-wall-layout: the player's map built by build_layout, Go Here click and Cook order per arm, x1, one GIF per case and arm (probe-out/profile), fixed camera on the room. Correctness only, no timing. Run with --no-smoke. NOT RUN YET.",
+  "jobs": [
+    {
+      "id": "stove-wall-layout",
+      "asi": "game-copy/ts3native.asi.household3",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "stove-wall: layout passed": 1,
+        "stove-wall: arm 0 result": 2,
+        "stove-wall: arm 1 result": 2
+      },
+      "ini": {
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DeferFootprint2": 1,
+        "Discourage.DestroyPark": 1,
+        "Discourage.DestroyParkDx": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.KdExemptSeen": 1,
+        "UnseenFallback.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 18,
+          "repro": "stove-wall-layout",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}

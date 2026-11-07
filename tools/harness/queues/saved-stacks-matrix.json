@@ -1,0 +1,527 @@
+{
+  "note": "saved-stacks-matrix (2026-11-06, docs/242): refused stacks per save type, master vs fix, BP and IP. Correctness only. Delete saves SgMidRoute and SgIdle after. Run: node tools/harness/queue.ts tools/harness/queues/saved-stacks-matrix.json --no-smoke",
+  "jobs": [
+    {
+      "id": "ss-bp-a-noours",
+      "note": "type a: baseline save, no mods of ours",
+      "asi": "none",
+      "ourMods": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "repro": "sim-gone-reload"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-bp-a-before",
+      "note": "type a: baseline save, master",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-before.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "repro": "sim-gone-reload"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-bp-a-after",
+      "note": "type a: baseline save, fix",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "repro": "sim-gone-reload-count"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-bp-c-before-save",
+      "note": "type c: master saves mid-route",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-before.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "repro": "sim-gone-savemid"
+      }
+    },
+    {
+      "id": "ss-bp-c-before",
+      "note": "type c: master loads its own",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-before.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgMidRoute",
+      "run": {
+        "repro": "sim-gone-reload"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-bp-c-upgrade",
+      "note": "type c: the fix loads master's save (player update path)",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgMidRoute",
+      "run": {
+        "repro": "sim-gone-reload-count"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-bp-c-after-save",
+      "note": "type c: fix saves mid-route",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "repro": "sim-gone-savemid"
+      }
+    },
+    {
+      "id": "ss-bp-c-after",
+      "note": "type c: fix loads its own",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgMidRoute",
+      "run": {
+        "repro": "sim-gone-reload-count"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-bp-c-removed",
+      "note": "type c: mod removed, the fix's save loads without ts3fixes",
+      "asi": "none",
+      "ourMods": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgMidRoute",
+      "run": {
+        "repro": "sim-gone-reload"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-bp-b-before-save",
+      "note": "type b: master saves, no visit",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-before.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "repro": "sim-gone-saveidle"
+      }
+    },
+    {
+      "id": "ss-bp-b-before",
+      "note": "type b: master loads its own",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-before.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgIdle",
+      "run": {
+        "repro": "sim-gone-reload"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-bp-b-after-save",
+      "note": "type b: fix saves, no visit",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "repro": "sim-gone-saveidle"
+      }
+    },
+    {
+      "id": "ss-bp-b-after",
+      "note": "type b: fix loads its own",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgIdle",
+      "run": {
+        "repro": "sim-gone-reload-count"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-ip-a-noours",
+      "note": "type a: baseline save, no mods of ours",
+      "asi": "none",
+      "ourMods": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "repro": "sim-gone-reload"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-ip-a-before",
+      "note": "type a: baseline save, master",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-before.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "repro": "sim-gone-reload"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-ip-a-after",
+      "note": "type a: baseline save, fix",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "repro": "sim-gone-reload-count"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-ip-c-before-save",
+      "note": "type c: master saves mid-route",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-before.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "repro": "sim-gone-savemid"
+      }
+    },
+    {
+      "id": "ss-ip-c-before",
+      "note": "type c: master loads its own",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-before.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgMidRoute",
+      "run": {
+        "repro": "sim-gone-reload"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-ip-c-upgrade",
+      "note": "type c: the fix loads master's save (player update path)",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgMidRoute",
+      "run": {
+        "repro": "sim-gone-reload-count"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-ip-c-after-save",
+      "note": "type c: fix saves mid-route",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "repro": "sim-gone-savemid"
+      }
+    },
+    {
+      "id": "ss-ip-c-after",
+      "note": "type c: fix loads its own",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgMidRoute",
+      "run": {
+        "repro": "sim-gone-reload-count"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-ip-c-removed",
+      "note": "type c: mod removed, the fix's save loads without ts3fixes",
+      "asi": "none",
+      "ourMods": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgMidRoute",
+      "run": {
+        "repro": "sim-gone-reload"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-ip-b-before-save",
+      "note": "type b: master saves, no visit",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-before.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "repro": "sim-gone-saveidle"
+      }
+    },
+    {
+      "id": "ss-ip-b-before",
+      "note": "type b: master loads its own",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-before.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgIdle",
+      "run": {
+        "repro": "sim-gone-reload"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-ip-b-after-save",
+      "note": "type b: fix saves, no visit",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "repro": "sim-gone-saveidle"
+      }
+    },
+    {
+      "id": "ss-ip-b-after",
+      "note": "type b: fix loads its own",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgIdle",
+      "run": {
+        "repro": "sim-gone-reload-count"
+      },
+      "agentArm": "sim_gone_load"
+    }
+  ]
+}

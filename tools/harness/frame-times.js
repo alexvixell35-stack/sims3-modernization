@@ -69,7 +69,24 @@ const SERVICES = {
 const MAXSV = 64;
 const TOP = ['load', 'idle', 'svc', 'capture', 'begin', 'draw', 'present', 'post', 'end']; // not nested in another stage
 const STAGE_COLS = 'loadMs,idleMs,svcMs,consumeMs,captureMs,rcbMs,beginMs,drawMs,presentMs,postMs,endMs,otherMs,consumes,tryFail,notReady,drains,msgs,' +
-  'svc1,svc1Ms,svc2,svc2Ms,svc3,svc3Ms';
+  'svc1,svc1Ms,svc2,svc2Ms,svc3,svc3Ms,svcTop,svcTopMs'; // new columns go last: readers use the header
+// svcsplit (parameters.svcsplit, docs/247 §7 + §9): functions timed inside SimService_Update on the main thread, inclusive, so
+// nested ones count in both; per frame the one with the most time goes to svcTop,svcTopMs (`na` with the option off).
+const SVC_ROOT = [0x5f0e50, '55 8b ec 83 e4 f0 81 ec'];
+const SVC_SPLIT = [
+  // direct calls of SimService_Update 0x5F0E50 at 0x5F1140-0x5F135C [verified, E8 scan]; 0x5FE1A0 and the semaphore wait are nested
+  ['s5EEFB0', 0x5eefb0, '83 ec 10 53 56 8b 74 24'],
+  ['s5EC550', 0x5ec550, '83 ec 20 56 8b 74 24 28'],
+  ['s5EBAE0', 0x5ebae0, '56 8b 74 24 08 8b 86 78'],
+  ['s5EC6D0', 0x5ec6d0, '53 8b 5c 24 08 8b 8b 88'],
+  ['s5DE400', 0x5de400, '53 56 8b f1 57 33 c0 8d'],
+  ['s5D2750', 0x5d2750, '55 56 57 8b f9 8b b7 34'],
+  ['s5F06B0', 0x5f06b0, '53 55 56 8b 74 24 10 8b'],
+  ['s5DC800', 0x5dc800, '55 8b ec 83 e4 f0 81 ec'],
+  ['s5EBC50', 0x5ebc50, '83 ec 60 53 55 56 57 8b'],
+  ['s5FE1A0', 0x5fe1a0, '81 ec cc 00 00 00 56 8b'],
+  ['EASemaphore_Wait', 0x4e2760, '56 8b 74 24 08 8b 06 83'],
+];
 const REC = 96; // sizeof(Rec)
 
 const k32 = Process.getModuleByName('kernel32.dll');
@@ -93,6 +110,7 @@ const C = `
 #define N ${N}
 #define NS ${NS}
 #define MAXSV ${MAXSV}
+#define SSN ${SVC_SPLIT.length}
 enum { S_LOAD, S_IDLE, S_SVC, S_CONS, S_CAP, S_RCB, S_BEGIN, S_DRAW, S_PRES, S_POST, S_END, X_READPAIR, X_DRAIN };
 typedef struct { gint64 start, end; guint32 st[NS]; guint32 msgs, cnt, tv[3], tt[3], pad; } Rec; /* 96 bytes; tv/tt = top-3 service vtables, ticks */
 /* main thread only after main_tid is set; JS reads the first 4 words and writes ret[] */
@@ -109,6 +127,8 @@ typedef struct {
   gint64 sstart[4];
   guint32 sv_vt[MAXSV], sv_acc[MAXSV];
   guint32 top_vt[3], top_t[3];
+  /* svcsplit (docs/247 §9): inside SimService_Update on the main thread, ticks per timed function since the last frame start */
+  guint32 ss_in, ss_top, ss_acc[SSN];
 } G;
 extern int __attribute__((stdcall)) QueryPerformanceCounter (gint64 * t);
 /* in JS-allocated memory: CModule's own data is not writable on Windows (dummy run, 2026-10-13) */
@@ -138,6 +158,8 @@ void onEnter (GumInvocationContext * ic) {
     for (k = 2; k > 0 && t > g.top_t[k - 1]; k--) { g.top_t[k] = g.top_t[k - 1]; g.top_vt[k] = g.top_vt[k - 1]; }
     g.top_t[k] = t; g.top_vt[k] = v;
   }
+  g.ss_top = 0;
+  { guint32 m = 0; for (i = 0; i < SSN; i++) { if (g.ss_acc[i] > m) { m = g.ss_acc[i]; g.ss_top = (guint32) (i + 1) << 24 | (m < 0xffffff ? m : 0xffffff); } g.ss_acc[i] = 0; } }
   g.frame_t = *s; g.pres_in = 0; g.pres_out = 0;
 }
 
@@ -155,6 +177,7 @@ void onLeave (GumInvocationContext * ic) {
   recs[h].msgs = g.snap_msgs;
   recs[h].cnt = g.snap_cnt;
   for (i = 0; i < 3; i++) { recs[h].tv[i] = g.top_vt[i]; recs[h].tt[i] = g.top_t[i]; }
+  recs[h].pad = g.ss_top; /* id + 1 in the top byte, ticks below */
   g.head++; /* x86 keeps store order: the record is written before head moves */
   /* this call's draw / Present / after-Present parts belong to the next frame interval */
   if (g.pres_out > *s && g.pres_in >= *s) {
@@ -195,6 +218,24 @@ void stage_leave (GumInvocationContext * ic) {
   }
 }
 
+void ss_root_enter (GumInvocationContext * ic) {
+  gint64 * s = GUM_IC_GET_INVOCATION_DATA (ic, gint64);
+  *s = gum_invocation_context_get_thread_id (ic) == g.main_tid;
+  if (*s) g.ss_in++;
+}
+void ss_root_leave (GumInvocationContext * ic) { if (*GUM_IC_GET_INVOCATION_DATA (ic, gint64)) g.ss_in--; }
+void ss_enter (GumInvocationContext * ic) {
+  gint64 * s = GUM_IC_GET_INVOCATION_DATA (ic, gint64);
+  *s = 0;
+  if (g.ss_in && gum_invocation_context_get_thread_id (ic) == g.main_tid) QueryPerformanceCounter (s);
+}
+void ss_leave (GumInvocationContext * ic) {
+  gint64 * s = GUM_IC_GET_INVOCATION_DATA (ic, gint64), end;
+  if (*s == 0) return;
+  QueryPerformanceCounter (&end);
+  g.ss_acc[GPOINTER_TO_UINT (gum_invocation_context_get_listener_function_data (ic))] += (guint32) (end - *s);
+}
+
 /* probe at the list walk's call setup: esi = node, [esi+8] = the service the game calls next through its vtable +0x1C */
 void svc_start (GumInvocationContext * ic) {
   guint32 d, node;
@@ -233,6 +274,12 @@ const svcName = vt => svcNames[vt] ?? `vt_${vt.toString(16)}`;
 const r2 = x => Math.round(x * 100) / 100;
 const hexAt = (p, n) => Array.from(new Uint8Array(p.readByteArray(n))).map(b => b.toString(16).padStart(2, '0')).join(' ');
 
+function splitCols(rec) {
+  if (!hooked.has('svcsplit')) return ['na', 'na'];
+  const w = rec.add(92).readU32(), i = w >>> 24;
+  return i ? [SVC_SPLIT[i - 1][0], r2((w & 0xffffff) / ticksPerMs)] : ['', ''];
+}
+
 function stageCols(rec, frameMs) {
   const v = STAGES.slice(0, NS).map(([name], i) => {
     if (name === 'draw' ? false : name === 'post' ? !hooked.has('present') : !hooked.has(name)) return NaN;
@@ -248,7 +295,7 @@ function stageCols(rec, frameMs) {
   });
   return [...v.map(x => Number.isNaN(x) ? 'na' : r2(x)), r2(Math.max(0, frameMs - top)),
     cons ? cnt & 0xff : 'na', cons && hooked.has('readpair') ? (cnt >>> 8) & 0xff : 'na', cons && hooked.has('readpair') && hooked.has('drain') ? (cnt >>> 16) & 0xff : 'na',
-    hooked.has('drain') ? cnt >>> 24 : 'na', hooked.has('drain') ? rec.add(60).readU32() : 'na', ...svc].join(',');
+    hooked.has('drain') ? cnt >>> 24 : 'na', hooked.has('drain') ? rec.add(60).readU32() : 'na', ...svc, ...splitCols(rec)].join(',');
 }
 
 function drain() {
@@ -267,7 +314,7 @@ function drain() {
 }
 
 // addrs (dummy test only, never for the game): { frame: [addr, bytes], <stage>: [addr, bytes, ret] } replaces the table
-function install(out, addrs) {
+function install(out, addrs, svcsplit) {
   if (!addrs && !Process.getModuleByName('TS3W.exe').base.equals(ptr(0x400000))) throw new Error('TS3W.exe not at 0x400000');
   const frame = addrs?.frame ?? FRAME;
   const p = ptr(frame[0]);
@@ -307,6 +354,15 @@ function install(out, addrs) {
       } catch (e) { console.log(`[frames] service list not readable: ${e.message}`); }
     }
   }
+  if (svcsplit) {
+    const bad = [SVC_ROOT, ...SVC_SPLIT.map(x => x.slice(1))].filter(([a, b]) => !hexAt(ptr(a), 8).startsWith(b));
+    if (bad.length) refused.push(`svcsplit @ ${bad.map(([a]) => ptr(a)).join(', ')}: bytes changed`);
+    else {
+      SVC_SPLIT.forEach(([, a], i) => stageListeners.push(Interceptor.attach(ptr(a), { onEnter: cm.ss_enter, onLeave: cm.ss_leave }, ptr(i))));
+      stageListeners.push(Interceptor.attach(ptr(SVC_ROOT[0]), { onEnter: cm.ss_root_enter, onLeave: cm.ss_root_leave }));
+      hooked.add('svcsplit');
+    }
+  }
   listener = Interceptor.attach(p, cm);
   timer = setInterval(drain, 250);
   console.log(`[frames] hooked ${p} (CModule) -> ${out}; window ${fg ? 'focused' : 'NOT focused'}; stages ${[...hooked].join(' ')}`);
@@ -318,7 +374,7 @@ function install(out, addrs) {
 }
 
 rpc.exports = {
-  init(stage, parameters) { install(parameters.out, parameters.addrs); }, // throws on a frame prologue mismatch: nothing gets hooked
+  init(stage, parameters) { install(parameters.out, parameters.addrs, parameters.svcsplit); }, // throws on a frame prologue mismatch: nothing gets hooked
   dispose() {
     if (!listener) return;
     clearInterval(timer);

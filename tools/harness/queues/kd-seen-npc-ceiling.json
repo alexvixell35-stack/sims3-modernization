@@ -1,0 +1,33 @@
+{
+  "note": "docs/197 §7 [RouteAsync] KdSeenNpcCeilMs (ts3native 0.36.185; build this branch, park as game-copy/ts3native.asi.kdnpc, ts3fixes from this branch). DRAFT, NOT RUN. One correctness job, no timing claim. TEST-LOWERED ceiling (100 ms, repro kd-seen-npc-ceiling).",
+  "jobs": [
+    {
+      "id": "sv-kd-seen-npc-ceiling",
+      "note": "Correctness, forced ABBA on kd-seen-npc-ceiling with the NPC ceiling test-lowered to 100 ms. Pass: no crash, 0 watchdog lines, kdCeilNpc >= 1, then node tools/harness/kd-arm-cuts.ts <ts3native.log> --expect-on-zero. No job over 100 ms: N/A, pick another Sim.",
+      "asi": "game-copy/ts3native.asi.kdnpc",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "kdReady>=1,kdScopeN>=1,kdCeilNpc>=1,watchdogs<=0",
+      "logRequire": {
+        "ts3native 0.36.185": 1,
+        "KD NPC CEILING CUT": 1
+      },
+      "ini": {
+        "RouteAsync.KindDeadlines": 1,
+        "RouteAsync.KdExemptSeen": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "repro": "kd-seen-npc-ceiling",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25
+    }
+  ]
+}

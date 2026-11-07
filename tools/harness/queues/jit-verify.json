@@ -1,0 +1,355 @@
+{
+  "note": "jit-verify: [MonoJit] (docs/527 §3, ts3native 0.36.173, counters v911, asi game-copy/ts3native.asi.mono1106e, list of 27 methods / 58 bodies, docs/537 §8) correctness in game: every listed method runs compiled, one call in 16 per method runs a second time in EA's interpreter from the restored state, and every live word must match. Correctness only, no timing. Direct=0: compiled-to-compiled frames do not exist in this build. [MonoFast] CallPath stays at the ini's 0, so these jobs use EA's call path. Pass per job: no crash, 0 watchdog lines, ScriptError count as the job's baseline, jitOn 2, jitMethods >= the compilable count of the list (read the 'jit: ... refused' lines: a generic body refused for its hash is a finding, not a pass), jitVerified > 100000, jitMismatch 0 (any mismatch: the method is off for the session and named in 'jit verify MISMATCH' lines, which logForbid fails on every job with no allow entry: a load-time mismatch lands before the /native before snapshot, so a jitMismatch delta rule misses it; triage before anything else), jitFaults 0. On a mismatch in a C5 row rerun with [MonoJit] Groups=255 (bit 256 holds initobj, isinst, shr.un.i8, the float moves and the direct internal calls). Read jitLarge, jitAbandoned, jitOtherTid as coverage. The log says when GC_malloc_atomic was left alone ([MonoThread] GcLock). The last job runs the same verify under [AutShadow] Mode R (docs/527 §4.4). Run: node tools/harness/queue.ts tools/harness/queues/jit-verify.json --no-smoke Direct rounds (docs/537, ts3native 0.36.173, counters v911, asi game-copy/ts3native.asi.mono1106e): the *-jit-lazy-chain jobs add [MonoJit] Direct=1 DirectLeaf=0 (chains, guarded callvirt; DirectLeaf=1 has one listed edge in docs/data/jit-call-edges.csv, docs/537 §8), still Mode=2: pass 1 takes the lazy calls, pass 2 is EA interpreter only, so a mismatch is a lazy-frame bug. Run them after jit-reader-trap.json; a job here also needs jitLazyMats > 0 (frames were written) and jitLazyFrames >= jitLazyMats.",
+  "jobs": [
+    {
+      "id": "bp-jit-verify",
+      "note": "BP Spring 10 min, seed 12345, the queue defaults of mintcall-verify + [MonoJit] Mode=2. Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.mono1106e",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 911,
+      "logForbid": { "jit verify MISMATCH": 0 },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-jit-verify",
+      "note": "IP Spring 10 min, as bp-jit-verify. Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.mono1106e",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 911,
+      "logForbid": { "jit verify MISMATCH": 0 },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "sv-jit-verify",
+      "note": "SV Spring 10 min, as bp-jit-verify. Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.mono1106e",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 911,
+      "logForbid": { "jit verify MISMATCH": 0 },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-jit-autshadow-r",
+      "note": "[MonoJit] Mode=2 under [AutShadow] Mode R: mono-cost13's bp-autshadow-r keys with the ts3fixes package mono1106c. Pass: the queue note and mono-cost13's gates (A1-A3 = 0); jitOtherTid > 0 shows the worker reached compiled words and took EA's.",
+      "asi": "game-copy/ts3native.asi.mono1107a",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 911,
+      "logForbid": { "jit verify MISMATCH": 0 },
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-jit-lazy-chain",
+      "note": "BP Spring 10 min, as bp-jit-verify + Direct=1, DirectLeaf=0. Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.mono1106e",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 911,
+      "logForbid": { "jit verify MISMATCH": 0 },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+    },
+    {
+      "id": "ip-jit-lazy-chain",
+      "note": "IP Spring 10 min, as ip-jit-verify + Direct=1, DirectLeaf=0. Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.mono1106e",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 911,
+      "logForbid": { "jit verify MISMATCH": 0 },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+    },
+    {
+      "id": "bp-jit-all",
+      "note": "BP 10 min: everything on under Mode=2: Direct=1 DirectLeaf=0, Inline=2, Wide=1 (docs/537 §9, §10). Pass as above, jitInlined > 0, jitWide > 0. Methods with clauses are not verified per call: read a mismatch-free run as cover for the rest only.",
+      "asi": "game-copy/ts3native.asi.mono1106e",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 911,
+      "logForbid": { "jit verify MISMATCH": 0 },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+    },
+    {
+      "id": "ip-jit-all",
+      "note": "IP 10 min: everything on under Mode=2: Direct=1 DirectLeaf=0, Inline=2, Wide=1 (docs/537 §9, §10). Pass as above, jitInlined > 0, jitWide > 0. Methods with clauses are not verified per call: read a mismatch-free run as cover for the rest only.",
+      "asi": "game-copy/ts3native.asi.mono1106e",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 911,
+      "logForbid": { "jit verify MISMATCH": 0 },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+    }
+  ]
+}

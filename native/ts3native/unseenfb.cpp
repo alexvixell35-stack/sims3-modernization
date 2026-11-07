@@ -182,7 +182,6 @@ static void UfLogCounters() {
 // = everything seen. The game and older builds answer 0 (seen): nothing acts. EA's per-agent byte (agent+0xC8, 0x954240 ->
 // 0x980E00, 3x model bounds) uses the same camera frustum; for a point the caller passes the radius (3 m for a Sim-sized goal,
 // the bounding circle for a lot).
-static const float kUfWideReachM = 240.0f;
 static float g_ufQ[4];
 static DWORD g_ufQSet;
 static void UfCamFresh() {

@@ -78,8 +78,33 @@ static void TestUserDiag() {
         assert(UdTextMsg(v, kUdTextHi | 1 << 16) == 1);
     }
     assert(UdTextMsg(0, kUdTextHi | 2 << 16) == 1 && UdTextMsg(0, kUdTextHi | 9 << 16) == 0);
+    assert(UdTextMsg(0, kUdTextHi | 8 << 16) == 0);  // [AutShadow] Unseen off
+    g_asLiveUnseen = 1;
+    assert(UdTextMsg(0, kUdTextHi | 8 << 16) == 1);
+    g_asLiveUnseen = 0;
     UdtLog(buf, sizeof(buf), h);
     assert(strstr(buf, "ts3fixes: switches on: a?b\r\n"));
+    // hitch-cause lines survive the shared cap (docs/247 §11.1), other lines stop there
+    {
+        const auto send = [](const char* s) {
+            UdTextMsg(0, kUdTextHi | 0 << 16);
+            for (size_t i = 0; i < strlen(s); i += 4) {
+                DWORD v = 0;
+                for (size_t k = 0; k < 4 && i + k < strlen(s); k++) v |= (DWORD)(u8)s[i + k] << (8 * k);
+                UdTextMsg(v, kUdTextHi | 1 << 16);
+            }
+            UdTextMsg(0, kUdTextHi | 2 << 16);
+        };
+        assert(UdHitchLine("boatreplan: 9 ms") && UdHitchLine("owreset: x") && UdHitchLine("alarmtime: x") && UdHitchLine("lotpass: x") && !UdHitchLine("ufplan: x") && !UdHitchLine("play: x"));
+        const LONG lines = g_udTxtLines;
+        g_udTxtLines = 400;
+        send("ufplan: past the cap");
+        send("boatreplan: 91 ms");
+        send("owreset: Perform");
+        g_udTxtLines = lines;
+        UdtLog(buf, sizeof(buf), h);
+        assert(!strstr(buf, "past the cap") && strstr(buf, "ts3fixes: boatreplan: 91 ms\r\n") && strstr(buf, "ts3fixes: owreset: Perform\r\n"));
+    }
     // the GetOption hook routes 0x87 to the channel
     assert(GetOptionHook(0, 0, kUdTextHi, 1) == 1);
 

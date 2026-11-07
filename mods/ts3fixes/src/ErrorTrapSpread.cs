@@ -15,12 +15,14 @@ namespace Ts3Fixes
     // quarters in its inventory check, which looks up the localized name of every world object for its log text before
     // finding that most objects have no inventory.
     // Switch "errortrapspread" (tuning kErrorTrapSpread, default off) takes over that inventory check (ErrorTrap's own copy
-    // of the NRaas helper Inventories.CheckInventories): one tick break before it (the role/recovery/outfit/lot checks
-    // stay in their tick), then ErrorTrap's own per-inventory check for every object that has an inventory and for each
-    // household's family and fridge inventory, in ErrorTrap's order, with the same names in its log; objects without an
-    // inventory are skipped without the name lookup (their check returns at once for them); at most kSliceUs of work per
-    // tick; one tick break after it, so the dereference controllers start in a fresh tick. Nothing else of ErrorTrap
-    // changes and its settings are never written.
+    // of the NRaas helper Inventories.CheckInventories): it runs in a task of its own, one tick break before it (the
+    // role/recovery/outfit/lot checks stay in their tick), then ErrorTrap's own per-inventory check for every object that
+    // has an inventory and for each household's family and fridge inventory, in ErrorTrap's order, with the same names in
+    // its log; objects without an inventory are skipped without the name lookup (their check returns at once for them); at
+    // most kSliceUs of work per tick. ErrorTrap's task waits one tick only, so the dereference controllers start in a fresh
+    // tick at their usual moment: run inline, the spread held their PreProcess back ~15 sim-minutes, and a Sim whose saved
+    // route had ended by then was queued for ErrorTrap's reset (docs/242). Nothing else of ErrorTrap changes and its settings
+    // are never written.
     // ErrorTrap builds that spread the scan themselves carry ErrorTrapSpreadCore.MarkerField: then we patch nothing and
     // log "upstream spreading found". No ErrorTrap, or a check we do not recognise: logged, nothing patched.
     // Test switches: errortrapspreadverify (count the corrections either path logs), errortrapspreadfakeupstream (behave
@@ -129,7 +131,7 @@ namespace Ts3Fixes
             return Math.Max(1, n);
         }
 
-        // Our inventory check, sliced over sim ticks; runs in ErrorTrap's own load-up task.
+        // Our inventory check, sliced over sim ticks; runs in its own task.
         static void EtPass(object log, object debugLog, bool checkDestroyed)
         {
             int[] c = PatchCounters();
@@ -173,7 +175,6 @@ namespace Ts3Fixes
             if (last > maxUs) maxUs = last;
             if (sliceItems > mostItems) mostItems = sliceItems;
             if (mostItems > c[212]) c[212] = mostItems;
-            EtSleep(); // the dereference controllers start in a fresh tick
             c[167]++;
             c[169] += ticks;
             c[171] += noInv;
@@ -230,7 +231,10 @@ namespace Ts3Fixes
             // Inventories.CheckInventories(Logger, Logger, bool) in ErrorTrap's assembly; its Logger delegates as object.
             public static void CheckHook(object log, object debugLog, bool checkDestroyed)
             {
-                EtRun(log, debugLog, checkDestroyed, EtMode());
+                OverwatchSpreadCore.Mode mode = EtMode();
+                if (mode != OverwatchSpreadCore.Mode.Ours) { EtRun(log, debugLog, checkDestroyed, mode); return; }
+                Simulator.AddObject(new LoopTask(delegate { EtRun(log, debugLog, checkDestroyed, mode); }));
+                EtSleep(); // the dereference controllers start in a fresh tick
             }
             public static void CheckOrig(object log, object debugLog, bool checkDestroyed) { } // receives CheckInventories' original header
         }

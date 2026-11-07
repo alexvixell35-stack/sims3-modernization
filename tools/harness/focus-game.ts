@@ -12,7 +12,9 @@ const FG = "Add-Type 'using System; using System.Runtime.InteropServices; public
   " [DllImport(\"user32.dll\")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint p);" +
   " [DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr h);" +
   " [DllImport(\"user32.dll\")] public static extern bool IsWindow(IntPtr h);" +
-  " [DllImport(\"user32.dll\")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra); }'";
+  " [DllImport(\"user32.dll\")] public static extern bool AllowSetForegroundWindow(int pid);" +
+  " [DllImport(\"user32.dll\")] public static extern bool AttachThreadInput(uint a, uint b, bool attach);" +
+  " [DllImport(\"kernel32.dll\")] public static extern uint GetCurrentThreadId(); }'";
 const ps = (script: string): string => {
   try { return execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], { timeout: 15000 }).toString().trim(); } catch { return ''; }
 };
@@ -32,18 +34,26 @@ export function saveForeground(): void {
   writeFileSync(STATE, JSON.stringify({ hwnd: Number(hwnd), name }));
 }
 
-// If the game is in front, put the saved window back (Alt tap first: Windows only lets a background process change the
-// foreground after an input event). Returns what happened, for the run log.
+// If the game is in front, put the saved window back. No synthetic keys (an Alt tap or space could reach the user's app,
+// e.g. pause a video): AllowSetForegroundWindow + AttachThreadInput to the foreground thread, then SetForegroundWindow.
+// One try per call; callers never loop. Returns what happened, for the run log.
+export const returnFocusPs = (hwnd: number): string => FG + `; $h = [IntPtr]${hwnd}; if ([Fg]::IsWindow($h)) { $id = 0; $t = [Fg]::GetWindowThreadProcessId([Fg]::GetForegroundWindow(), [ref]$id); $me = [Fg]::GetCurrentThreadId(); [void][Fg]::AllowSetForegroundWindow(-1); [void][Fg]::AttachThreadInput($me, $t, $true); [void][Fg]::SetForegroundWindow($h); [void][Fg]::AttachThreadInput($me, $t, $false) }`;
 export function giveFocusBack(): string {
   if (!focusGame()) return 'game not in front';
   if (!existsSync(STATE)) return 'game in front; no saved window to return to';
   const { hwnd, name } = JSON.parse(readFileSync(STATE, 'utf8'));
-  ps(FG + `; $h = [IntPtr]${hwnd}; if ([Fg]::IsWindow($h)) { [Fg]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero); [Fg]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero); [void][Fg]::SetForegroundWindow($h) }`);
+  ps(returnFocusPs(hwnd));
   return focusGame() ? `game still in front (could not return to ${name})` : `focus returned to ${name}`;
 }
 
 if (import.meta.main) {
   const a = process.argv[2];
+  if (a === '--self-check') {
+    const s = returnFocusPs(1);
+    console.assert(!/keybd_event|SendKeys|SendInput/.test(s), 'focus return must not synthesize keys');
+    console.assert(s.includes('AttachThreadInput') && s.includes('[IntPtr]1;'), 'attach method + hwnd');
+    console.log('focus-game self-check ok'); process.exit(0);
+  }
   if (a === 'save') { saveForeground(); console.log('saved', existsSync(STATE) ? readFileSync(STATE, 'utf8') : '(game was in front, nothing saved)'); }
   else if (a === 'back') console.log(giveFocusBack());
   else console.log(focusGame() ? 'in front' : 'not in front');

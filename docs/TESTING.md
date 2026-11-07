@@ -30,6 +30,8 @@ Every fix and every bug gets a repro: a saved situation plus agent steps that tr
 - `node tools/harness/stuck-scan.ts` runs alongside and drafts a repro entry for every other stuck Sim it sees (`probe-out/repro-candidates.json`).
 - A run that ends with stuck Sims saves `Repro-<tag>-<HHMM>` (`repro-save.ts`). Saves keep positions, not interactions, so problems tied to a place come back on load.
 - No waiting for a problem to happen: add a trigger action to the agent instead.
+- Player map repro: queue `stove-wall-layout` builds the map with `build_layout`, then a Go Here click and a Cook order per arm (`stove-wall: arm N result` lines).
+- Layout repro: step `build_layout` builds a text map on the home lot with the real tools (optional `house: true`: room, floor, door, ceiling lights, auto roof), verifies walls by `WallExistsBetween` and objects by lot census, walks the Sim to `X` with Go Here, fails on any miss. Thin walls take no tile: wall lines collapse (`mods/ts3agent/src/plugin/LayoutMap.cs`). Parser offline: `node tools/harness/layout-map.ts --self-check`. Skill `ts3-layout-repro`, queue `layout-repro-smoke.json`.
 
 Quick checks of a trip shortcut: `node tools/harness/verify-shortcut.ts --name rabbithole,visit [--tries 20] [--minutes 5]`.
 
@@ -81,6 +83,10 @@ Per-job `"content"`: `as-is` (default), `no-cc` (moves the `user-cc` + `store-re
 **Save growth, overnight (PLAN.md lane G 10, task 8):** `node tools/harness/queue.ts tools/harness/queues/overnight-age.json` (~1-1.5 h: Baseline-BP aged 14 sim days at speed 3, checkpoint every 2). Run kind `{age: {days, checkpoint, keepAlive?, save?}}` runs `age-save.ts` on the loaded save under a new name (`save`, default `<job id>-<date>`; refused when it starts with `Baseline-` or a save of that name or `<name>-dayN` exists). For the loaded save and each checkpoint it records folder MB, bytes/count per resource type (`save-stats.ts`), the `save: result ... total N ms` line of `ts3native.log`, `/memory` and the sim day in `row.checkpoints` and `probe-out/queue/<queue>-<date>-<job>-age.csv`. The md row and `node tools/harness/age-report.ts <csv>` give growth MB/day, save s/day, largest-free trend and the top growing types. `--self-check` without the game.
 
 Other tools: `travel-trip.ts` (travel legs), `save-stats.ts` / `save-sources.ts` (save growth by resource type and by script class), `offload-phase0.ts` (load memory with and without CC), `tools/probe/gc-read.mjs` (GC counters), `tools/probe/managed-sample.mjs` (C# sampler on its own).
+
+### The method compiler: host first, one game batch
+
+Rule since 2026-11-07 (docs/537 §17): per-method correctness and gain of `[MonoJit]` are judged in the host. Per method, offline: `node tools/jit-coverage.ts --run` (100% of the IL branch edges of the compile list, or a line with a reason in `docs/data/jit-coverage-reasons.csv`; `--self-check` holds that bar in selftest), the differential corpus (`docs/207` §10, 0 differ), and `node tools/jit-bench.ts --run` (old vs new ns per call, modelled ms/s; not for CI). In the game: one `tools/harness/queues/jit-batch.json` (BP, IP, SV, ~15 min each, full mode set under `Mode=2`) before each release. No per-method game runs. The host cannot show real GC, game objects, threads or load order, which is why the batch stays.
 
 ## 4. Safety nets
 

@@ -1,0 +1,34 @@
+{
+  "note": "docs/197 §7 ts3fixes goalhhexempt (ts3fixes and ts3agent from this branch, any ts3native with op 13: 0.36.185+). DRAFT, NOT RUN. One correctness job, switch off vs on in one load, no timing claim. TEST-LOWERED deadline (KdForeignPlanMs 50).",
+  "jobs": [
+    {
+      "id": "sv-goal-household-exempt",
+      "note": "Correctness, forced ABBA on goal-household-exempt: unseen townie routed to the household lot, the loop flips goalhhexempt. Pass: no crash, 0 watchdog lines, kdCutUnseen >= 1 (off arms), kdExempt >= 1 and goalhh_lot >= 1 (on arms), per-arm native_check deltas say no cut in on arms. goalhh_lot 0 = every picked townie was seen: N/A, rerun.",
+      "asi": "tested",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "kdReady>=1,kdScopeN>=1,kdCutUnseen>=1,kdExempt>=1,watchdogs<=0",
+      "logRequire": {
+        "goalhh: ": 1
+      },
+      "ini": {
+        "RouteAsync.KindDeadlines": 1,
+        "RouteAsync.KdExemptSeen": 1,
+        "RouteAsync.KdForeignPlanMs": 50
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "repro": "goal-household-exempt",
+          "noSamplers": true,
+          "fixesRequire": "goalhh_lot>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28
+    }
+  ]
+}

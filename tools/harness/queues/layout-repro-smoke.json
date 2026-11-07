@@ -1,0 +1,25 @@
+{
+  "note": "build_layout smoke: 2-Sim household moved onto an empty lot, a small house round the example map, built with the player's tools. Correctness only, no timing. Needs the ts3agent of feature/build-layout. Run with --no-smoke. NOT RUN YET.",
+  "jobs": [
+    {
+      "id": "layout-repro-smoke",
+      "asi": "game-copy/ts3native.asi.household3",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": { "stove-wall: layout passed": 1 },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 8,
+          "repro": "layout-repro-smoke",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 18
+    }
+  ]
+}

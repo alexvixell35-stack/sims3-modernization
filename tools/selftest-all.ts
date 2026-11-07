@@ -49,6 +49,7 @@ const CSC = { why: 'Windows .NET Framework csc' };
 const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/harness/machine-load.ts': { why: 'Windows PowerShell counters' },
   'tools/harness/night-run.ts': { why: 'Windows session lock query' },
+  'tools/harness/layout-map.ts': CSC,
   'tools/binder-bodies.ts': { why: 'game script assemblies', needs: 'game-copy/assemblies/mscorlib.dll' },
   'tools/offload-override-scan.ts': { why: 'game script assemblies', needs: 'game-copy/assemblies/ScriptCore.dll' },
   'tools/mod-method-diff.ts': { why: 'game script assemblies', needs: 'game-copy/assemblies/ScriptCore.dll' },
@@ -60,6 +61,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/easpread/run.ts': CSC,
   'tools/selftest/errortrapspread/run.ts': CSC,
   'tools/selftest/farthestpick/run.ts': CSC,
+  'tools/selftest/focusrules/run.ts': CSC,
   'tools/selftest/hotspots/run.ts': CSC,
   'tools/selftest/nostart/run.ts': CSC,
   'tools/selftest/overwatchnotice/run.ts': CSC,
@@ -128,7 +130,6 @@ const NO_SELF_CHECK: Record<string, string> = {
   'tools/harness/age-save.ts': LIVE,
   'tools/harness/build-agent.ts': 'builder: Windows csc against the game DLLs',
   'tools/harness/cycle.ts': LIVE,
-  'tools/harness/focus-game.ts': 'Windows window state of the live game',
   'tools/harness/frame-times.js': FRIDA,
   'tools/harness/new-save.ts': LIVE,
   'tools/harness/offload-phase0.ts': LIVE,

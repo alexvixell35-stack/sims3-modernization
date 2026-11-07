@@ -94,11 +94,13 @@ function interpFrames(tid, max) {
     idx = ptr('0x11f4160').readU32();
     if (SuspendThread(h) === 0xffffffff) throw new Error('SuspendThread failed');
     try {
-      const slot = idx < 64 ? teb.add(0xe10 + idx * 4) : safeRead(teb.add(0xf94))?.add((idx - 64) * 4);
-      ctx = slot ? safeRead(slot) : null;
-      let f = ctx && !ctx.isNull() ? safeRead(ctx.add(8)) : null;
+      const word = a => rawRead(a, 4) ? ptr(RAW_WORDS[0]) : null;
+      const slot = idx < 64 ? teb.add(0xe10 + idx * 4) : word(teb.add(0xf94))?.add((idx - 64) * 4);
+      ctx = slot ? word(slot) : null;
+      let f = ctx && !ctx.isNull() ? word(ctx.add(8)) : null;
       for (let i = 0; i < (max || 32) && f && !f.isNull(); i++) {
-        let words; try { words = Array.from(new Uint32Array(f.readByteArray(0x30))); } catch (e) { break; }
+        if (!rawRead(f, 0x30)) break;
+        const words = Array.from(RAW_WORDS.subarray(0, 12));
         frames.push({ at: f.toString(), words });
         f = ptr(words[0]);
       }
@@ -142,9 +144,16 @@ function frames(context, max) {
 // One thread's registers without enumerating (and suspending) every thread in the game.
 const k32t = Process.getModuleByName('kernel32.dll');
 const OpenThread = new NativeFunction(k32t.getExportByName('OpenThread'), 'pointer', ['uint', 'int', 'uint']);
-const SuspendThread = new NativeFunction(k32t.getExportByName('SuspendThread'), 'uint', ['pointer']);
-const ResumeThread = new NativeFunction(k32t.getExportByName('ResumeThread'), 'uint', ['pointer']);
-const GetThreadContext = new NativeFunction(k32t.getExportByName('GetThreadContext'), 'int', ['pointer', 'pointer']);
+// While the sim thread is suspended it may hold Gum's exceptor lock (taken on every raised exception, and [MonoJit] Trap=1 raises
+// thousands per second). A Gum memory access or a default NativeFunction waits on that lock (kill dump 2026-11-06, docs/537 §14), so
+// nothing between SuspendThread and ResumeThread may use one: these calls skip Gum's exception scope, reads go through rawRead.
+const NO_GUM = { exceptions: 'propagate', scheduling: 'exclusive' };
+const SuspendThread = new NativeFunction(k32t.getExportByName('SuspendThread'), 'uint', ['pointer'], NO_GUM);
+const ResumeThread = new NativeFunction(k32t.getExportByName('ResumeThread'), 'uint', ['pointer'], NO_GUM);
+const GetThreadContext = new NativeFunction(k32t.getExportByName('GetThreadContext'), 'int', ['pointer', 'pointer'], NO_GUM);
+const ReadProcessMemory = new NativeFunction(k32t.getExportByName('ReadProcessMemory'), 'int', ['pointer', 'pointer', 'pointer', 'uint', 'pointer'], NO_GUM);
+const RAW = Memory.alloc(0x40), RAW_WORDS = new Uint32Array(ArrayBuffer.wrap(RAW, 0x40));
+const rawRead = (at, n) => ReadProcessMemory(ptr('0xffffffff'), at, RAW, n, NULL) !== 0; // current process; a bad address returns 0
 const CloseHandle = new NativeFunction(k32t.getExportByName('CloseHandle'), 'int', ['pointer']);
 const CTX = Memory.alloc(1024); // x86 CONTEXT is 716 bytes
 function threadStack(tid, max) {
@@ -153,14 +162,16 @@ function threadStack(tid, max) {
   if (h.isNull()) throw new Error(`OpenThread ${tid} failed`);
   let pc, sp, fp;
   try {
+    CTX.writeU32(0x10003); // CONTEXT_CONTROL | CONTEXT_INTEGER
     if (SuspendThread(h) === 0xffffffff) throw new Error('SuspendThread failed');
+    let got;
     try {
-      CTX.writeU32(0x10003); // CONTEXT_CONTROL | CONTEXT_INTEGER
-      if (!GetThreadContext(h, CTX)) throw new Error('GetThreadContext failed');
-      fp = CTX.add(0xb4).readPointer(); pc = CTX.add(0xb8).readPointer(); sp = CTX.add(0xc4).readPointer();
+      got = GetThreadContext(h, CTX);
     } finally {
       ResumeThread(h); // resume before walking: the walk only reads memory
     }
+    if (!got) throw new Error('GetThreadContext failed');
+    fp = CTX.add(0xb4).readPointer(); pc = CTX.add(0xb8).readPointer(); sp = CTX.add(0xc4).readPointer();
   } finally {
     CloseHandle(h);
   }
@@ -306,7 +317,11 @@ function findMailbox() {
     if (r.size < MBX.capacity) continue; // the buffer is one 1 MB array
     lastScan.ranges++; lastScan.bytes += r.size;
     let hits = [];
-    try { hits = Memory.scanSync(r.base, r.size, pattern); } catch { continue; } // range freed or reprotected while scanning
+    try { hits = Memory.scanSync(r.base, r.size, pattern); } catch (e) { // range freed or reprotected while scanning, or a debug register (docs/537 §12)
+      lastScan.failed = (lastScan.failed || 0) + 1;
+      lastScan.error = `${r.base} +${r.size}: ${e.message}`;
+      continue;
+    }
     for (const m of hits) {
       if (mailboxValid(m.address)) { mailbox = m.address; lastScan.ms = Date.now() - t0; return mailbox; }
     }
@@ -1680,6 +1695,12 @@ rpc.exports = {
       if (c.readS32() >= 906) f.push('icJumpMode', 'icJumped');
       // v907 [IlPatch] (docs/506 §2, docs/526, ilpatch.cpp): contributor block
       if (c.readS32() >= 907) f.push('ilpOn', 'ilpArmed', 'ilpApplied', 'ilpReused', 'ilpSkipHash', 'ilpSkipCheck', 'ilpSkipMismatch', 'ilpFaults');
+      // v908 [MemDiag] RcRefCallers (docs/191, memdiag.cpp): contributor block
+      if (c.readS32() >= 908) f.push('rrcOn', 'rrcAddRefs', 'rrcReleases', 'rrcFinds', 'rrcCallers', 'rrcSampled', 'rrcRegistry', 'rrcHookNs');
+      // 0x5C54-0x5D17, version field 912: v909, v164, v910, v911 [MonoJit] / [MintFuse] (docs/537, docs/139 §4), v912 [CasTrim] (docs/191 step 2); older 912 builds read zeros in the held slots
+      if (c.readS32() >= 912) f.push(...n('resv5C54', 6), 'jitDirect', 'jitLazyBodies', 'jitLazySites', 'jitGuardSites', 'jitLazyCalls', 'jitLazyMats', 'jitLazyFrames', 'jitTrapOn', 'jitTrapWindows', 'jitTrapHits', 'jitTrapUnknown',
+        'mfReady', 'mfRuns', 'mfWhole', 'mfInner', 'jitOn', 'jitSwitch', 'jitMethods', 'jitRefused', 'jitCalls', 'jitExits', 'jitVerified', 'jitMismatch', 'jitFirstBad', 'jitAbandoned', 'jitLarge', 'jitOtherTid', 'jitFaults', 'jitCodeKB',
+        'jitInlined', 'jitInlineNo', 'jitWide', 'jitWideNo', 'ctMode', 'ctOn', 'ctInserts', 'ctScanned', 'ctCand', 'ctErased', 'ctWouldMiss', 'ctMissed', 'ctFull', 'ctOtherThread', 'kdExMode', 'kdExempt', 'kdWouldCut', 'kdExemptMaxUs', 'kdCeilUs', 'kdCeilCut', 'kdScopeN', 'kdRdHeld', 'kdAaHeld', 'kdCutUnk', 'kdCutSeen', 'kdCutUnseen', 'kdNpcCeilUs', 'kdCeilNpc', 'kdCutNpc', 'kdCamMode', 'kdCamChecks', 'kdCamHeld', 'kdCamStale', 'kdCamWould', 'kdAaHeldIn', 'kdAaHeldPar', 'kdAaHeldNoClass', 'kdAaHeldPush', 'kdAaHeldRows', 'kdAaHeldSeen');
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key
@@ -1719,6 +1740,9 @@ rpc.exports = {
       c.add(f.indexOf('waterJpsMode') * 4).writeS32(waterJps);
       r.waterJpsMode = c.add(f.indexOf('waterJpsMode') * 4).readS32();
     }
+    // longest single wait per blockKey slot (docs/247 §10.2): separate export, null in older builds
+    const bm = m.findExportByName('ts3native_blockmax');
+    if (bm !== null) for (let i = 0; i < 32; i++) r[`blockMaxUs_${i}`] = bm.add(i * 4).readS32();
     // second Mono thread (M5 build, docs/30 §14): separate export ts3native_mtprobe (docs/registry.md), null when the asi has none
     const mp = m.findExportByName('ts3native_mtprobe');
     if (mp !== null) {
@@ -1870,7 +1894,7 @@ rpc.exports = {
 
   agentStatus() {
     const p = findMailbox();
-    return p ? { address: p.toString(), heartbeat: p.add(MBX.offHeartbeat).readU32(), worldLoaded: p.add(MBX.offState).readU32() === 1 }
+    return p ? { address: p.toString(), heartbeat: p.add(MBX.offHeartbeat).readU32(), worldLoaded: p.add(MBX.offState).readU32() === 1, lastScan }
              : { address: null, lastScan };
   },
 

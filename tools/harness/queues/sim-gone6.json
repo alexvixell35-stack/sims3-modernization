@@ -1,0 +1,153 @@
+{
+  "note": "sim-gone6 (2026-11-06): why Lala's saved route is out of her chain at load in the pair. sim_gone_load armed before the load: refused saved task stacks (ObjectStackLoadFailed, method table), per-tick household interaction and chain changes, exit-reason stacks, route ends for 60 s after the load. Suspect #1: our method swaps change the IL checksum of frames on the saved stack, the game resets that Sim at load. Correctness only, no timing. Run: node tools/harness/queue.ts tools/harness/queues/sim-gone6.json --no-smoke ; verdict: node tools/harness/sim-gone-diff.ts sim-gone6",
+  "jobs": [
+    {
+      "id": "sg6-pair-1",
+      "note": "v0.2.7 pair, full test install, sim_gone_load armed",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "sim-gone-load"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "sg6-noours-1",
+      "note": "ourMods false: no ts3native, no ts3fixes; sim_gone_load armed",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "sim-gone-load"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "sg6-pair-2",
+      "note": "v0.2.7 pair, full test install, sim_gone_load armed",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "sim-gone-load"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "sg6-noours-2",
+      "note": "ourMods false: no ts3native, no ts3fixes; sim_gone_load armed",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "sim-gone-load"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "sg6-pair-3",
+      "note": "v0.2.7 pair, full test install, sim_gone_load armed",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "sim-gone-load"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "sg6-noours-3",
+      "note": "ourMods false: no ts3native, no ts3fixes; sim_gone_load armed",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "sim-gone-load"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "sg6-pair-4",
+      "note": "v0.2.7 pair, full test install, sim_gone_load armed",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "sim-gone-load"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "sg6-noours-4",
+      "note": "ourMods false: no ts3native, no ts3fixes; sim_gone_load armed",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "sim-gone-load"
+      },
+      "agentArm": "sim_gone_load"
+    }
+  ]
+}

@@ -213,6 +213,10 @@ namespace Ts3Fixes
             fBestScores = typeof(AutonomyT).GetField("mBestScores", inst);
             FieldInfo fTimer = typeof(AutonomyT).GetField("sUpdateTimer", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
             sMetaTimer = fTimer != null ? fTimer.GetValue(null) as StopWatch : null;
+            Type mt = typeof(Sims3.Gameplay.Autonomy.AutonomyManager);
+            fMgrInstance = mt.GetField("sInstance", BindingFlags.Static | BindingFlags.NonPublic);
+            fMgrHigh = mt.GetField("mAutonomyQueueHighLOD", inst); fMgrLow = mt.GetField("mAutonomyQueueLowLOD", inst);
+            if (fMgrHigh == null || fMgrLow == null) fMgrInstance = null;
             if (fInterrupted == null || fInspection == null || fBestScores == null)
             {
                 AppliedLog().Add("AutShadow: go-live off: a private Autonomy field was not found");
@@ -382,6 +386,8 @@ namespace Ts3Fixes
             bool unseenOn = sChooseOk && ShortcutOn("autunseen");
             int why0 = unseenOn ? SafeUfWhy(a.Actor) : -1;
             bool direct = AutLiveCore.Unseen.AtPost(unseenOn, sLiveDry, why0);
+            // docs/222 §11.8 V6 test: a seen actor runs the game's own search, no post and no worker wait in the shared manager
+            if (unseenOn && !direct && !sLiveDry && ShortcutOn("autseengame")) { uk[kCSeenGameRun]++; return h.MetaOrig(c); }
             if (unseenOn && !direct && !sLiveDry) uk[kCUnSeenPost]++;
             if (!GuardAllow(direct)) return h.MetaOrig(c);
             LiveSearch L = null;
@@ -407,9 +413,10 @@ namespace Ts3Fixes
                 if ((bool)fInterrupted.GetValue(a)) { fInterrupted.SetValue(a, false); LiveAbandon(L); LiveStat(kSInterrupted); return 1; }
                 if (a.Actor == null || a.Actor.HasBeenDestroyed) { LiveAbandon(L); LiveStat(kSDestroyed); return 2; }
                 if (L.Ready) break;
-                if (waited >= sLiveMaxWait) { GuardAdd(L, 0); if (L.Direct) uk[kCUnDropped]++; LiveAbandon(L); LiveDrop(L, kSDropWait); AutShadowNative.LiveStat(kSWaitTicks, waited); return h.MetaOrig(c); }
+                if (waited >= sLiveMaxWait) { GuardAdd(L, 0); if (L.Direct) uk[kCUnDropped]++; LiveAbandon(L); LiveDrop(L, kSDropWait); AutShadowNative.LiveStat(kSWaitTicks, waited); WorkerWait(a.Actor, waited); return h.MetaOrig(c); }
             }
             AutShadowNative.LiveStat(kSWaitTicks, waited);
+            WorkerWait(a.Actor, waited);
             uint us = 0;
             sLiveSw.Restart();
             int why;
@@ -419,7 +426,12 @@ namespace Ts3Fixes
             if (why != 0) { if (L.Direct) uk[kCUnDropped]++; GuardAdd(L, us); LiveDrop(L, why); LiveRelease(L); AutShadowNative.LiveStat(kSApplyUs, (int)us); return h.MetaOrig(c); }
             // snap-back at the resume: seen now = this search runs the exact path
             if (L.Direct && !AutLiveCore.Unseen.Stay(SafeUfWhy(a.Actor))) { L.Direct = false; uk[kCUnSnapResume]++; }
-            if (L.Direct) { sDirectPairs.Clear(); sDirectSeen.Clear(); sDirectInst = null; sDirectAut = null; L.Pace.Slice(); }
+            if (L.Direct)
+            {
+                sDirectPairs.Clear(); sDirectSeen.Clear(); sDirectInst = null; sDirectAut = null; L.Pace.Slice();
+                // docs/222 §11.8: each tick spent waiting for the worker already held the manager like one vanilla slice (>= 1 ms)
+                L.Pace.CreditMs = ShortcutOn("autunseenpacecredit") ? waited : 0;
+            }
             BestScores bs = (BestScores)fBestScores.GetValue(a);
             AutLiveCore.Heap before = L.Dry ? Snapshot(L, bs) : null;
             L.ResumeFrame = L.SliceFrame = L.CmpSlice = AutShadowNative.Config(19);
@@ -443,7 +455,7 @@ namespace Ts3Fixes
                     {
                         if (L.Dry) { DryCompare(L, bs, before); compared = true; }
                         else if (L.Direct) { sDirectAut = sDirectPairs.Count > 0 ? a : null; uk[kCUnDirect]++; }  // no bands: D2 tests the pick live
-                        else LiveBands(L, a, bs);
+                        else { LiveBands(L, a, bs); sExactAut = a; }
                     }
                     catch (Exception e) { PatchCounters()[121]++; exc = e.GetType().Name + ": " + e.Message; AutNote("go-live bands: " + e.Message); }
                     us += sLiveSw.GetElapsedTime();
@@ -949,6 +961,48 @@ namespace Ts3Fixes
         static readonly Dictionary<string, int> sPicks = new Dictionary<string, int>();
         static float sG8Hours = -1f;
         static int sPushN;
+        // docs/222 §11.8 (fixes-785): why seen cadence falls. Queue wait = AutonomyManager.Add to the search's start (B13 entry; a
+        // search with no meta phase starts at its push, the local phase never yields, docs/59 §1.3): n, tick sum, bins (QueueBin) for
+        // seen 785-791, unseen 792-798. Manager queues at each search end: high sum, low sum, samples, samples with both empty
+        // (799-802). Seen searches by path + their no-picks: exact 803-804, game (guard skip, drop, autseengame) 805-806. Household
+        // searches, pushes, Sim-hours x100 807-809. Worker wait: seen n, ticks 810-811, unseen 812-813. Search length start to end,
+        // ticks: seen 814, unseen 815. autseengame searches 816, pacing credit used us 817.
+        const int kCQSeen = 785, kCQUnseen = 792, kCQHigh = 799, kCQLow = 800, kCQDepthN = 801, kCQEmpty = 802, kCSeenExact = 803, kCSeenGame = 805,
+            kCHousehold = 807, kCHouseholdHours100 = 809, kCWorkSeen = 810, kCWorkUnseen = 812, kCLenSeen = 814, kCLenUnseen = 815, kCSeenGameRun = 816, kCUnPaceCredit = 817;
+        static readonly Dictionary<object, int> sEnq = new Dictionary<object, int>();  // autonomy -> tick of its AutonomyManager.Add
+        static FieldInfo fMgrInstance, fMgrHigh, fMgrLow;
+        static AutonomyT sExactAut;  // the autonomy whose last search the exact consumer finished
+
+        static void WorkerWait(Sim s, int waited)
+        {
+            int[] k = PatchCounters();
+            int b = SafeUfWhy(s) == 0 ? kCWorkUnseen : kCWorkSeen;
+            k[b]++; k[b + 1] += waited;
+        }
+
+        static void QueueNote(AutonomyT a, bool timed, int f0, bool seen, bool noPick)
+        {
+            int[] k = PatchCounters();
+            int now = AutShadowNative.Config(19), start = timed ? f0 : now, enq;
+            k[seen ? kCLenSeen : kCLenUnseen] += now - start;
+            if (sEnq.TryGetValue(a, out enq))
+            {
+                sEnq.Remove(a);
+                int w = Math.Max(0, start - enq), b = seen ? kCQSeen : kCQUnseen;
+                k[b]++; k[b + 1] += w; k[b + 2 + AutLiveCore.QueueBin(w)]++;
+            }
+            if (seen)
+            {
+                int p = ReferenceEquals(sExactAut, a) ? kCSeenExact : kCSeenGame;
+                k[p]++; if (noPick) k[p + 1]++;
+            }
+            if (ReferenceEquals(sExactAut, a)) sExactAut = null;
+            object mgr = fMgrInstance != null ? fMgrInstance.GetValue(null) : null;
+            if (mgr == null) return;
+            int hi = ((ICollection<AutonomyT>)fMgrHigh.GetValue(mgr)).Count, lo = ((ICollection<AutonomyT>)fMgrLow.GetValue(mgr)).Count;
+            k[kCQHigh] += hi; k[kCQLow] += lo; k[kCQDepthN]++;
+            if (hi + lo == 0) k[kCQEmpty]++;
+        }
 
         static void MetaStart(AutonomyT a)
         {
@@ -964,9 +1018,10 @@ namespace Ts3Fixes
             if (sG8Hours < 0f || h < sG8Hours) sG8Hours = h;
             else if (h - sG8Hours >= 1f)
             {
-                int n = 0, nu = 0;
-                foreach (Sim s in LotManager.Actors) if (s != null) { n++; if (SafeUfWhy(s) == 0) nu++; }
+                int n = 0, nu = 0, nh = 0;
+                foreach (Sim s in LotManager.Actors) if (s != null) { n++; int w = SafeUfWhy(s); if (w == 0) nu++; else if (w == UnseenFallbackCore.kHousehold) nh++; }
                 k[kCSimHours100] += (int)(n * (h - sG8Hours) * 100f);
+                k[kCHouseholdHours100] += (int)(nh * (h - sG8Hours) * 100f);
                 k[kCG8UnseenHours100] += (int)(nu * (h - sG8Hours) * 100f);
                 sG8Hours = h;
             }
@@ -974,8 +1029,10 @@ namespace Ts3Fixes
             bool timed = sMetaStart.TryGetValue(a, out f0);
             if (timed) sMetaStart.Remove(a);
             Sim actor = a.Actor;
-            int cls = SafeUfWhy(actor) == 0 ? kCG8Unseen : kCG8Seen;
+            int wc = SafeUfWhy(actor), cls = wc == 0 ? kCG8Unseen : kCG8Seen;
             k[cls]++;
+            if (wc == UnseenFallbackCore.kHousehold) { k[kCHousehold]++; if (pushed) k[kCHousehold + 1]++; }
+            QueueNote(a, timed, f0, wc != 0, best == null);
             if (best == null)
             {
                 k[kCNullPicks]++; k[cls + 2]++;
@@ -1010,12 +1067,32 @@ namespace Ts3Fixes
             AutShadowNative.Log(b.Append("]}").ToString());
         }
 
+        // docs/222 §11.8 AutonomyManager.Add (public static; the Sim task's enqueue, docs/59 §1.1). Passes through; Mode 3 only.
+        public class AutQueueHook
+        {
+            public static void AddHook(AutonomyT a)
+            {
+                try
+                {
+                    if (sLiveMode && a != null)
+                    {
+                        if (sEnq.Count > 256) sEnq.Clear();  // Sims destroyed in the queue keep no autonomy alive
+                        sEnq[a] = AutShadowNative.Config(19);
+                    }
+                }
+                catch (Exception) { PatchCounters()[121]++; }
+                AddOrig(a);
+            }
+            public static void AddOrig(AutonomyT a) { } // receives AutonomyManager.Add's original header
+        }
+
         public class AutPushHook
         {
             public bool PushHook(InteractionInstance best)
             {
                 bool r = PushOrig(best);
-                try { G8Note((AutonomyT)(object)this, best, r); } catch (Exception) { PatchCounters()[121]++; }
+                // Mode 3 only: the hook is in every package since O6, and G8Note walks every Sim each sim-hour
+                try { if (sLiveMode) G8Note((AutonomyT)(object)this, best, r); } catch (Exception) { PatchCounters()[121]++; }
                 if (best != null && ReferenceEquals(best, sDirectInst))
                 {
                     sDirectInst = null;
@@ -1088,7 +1165,9 @@ namespace Ts3Fixes
             bool run = t.IsRunning();
             if (run) t.Stop();
             float ms = t.GetElapsedTimeFloat();
+            double credit = L.Pace.CreditMs;
             double add = L.Pace.Charge(sB14Rate.PerPair * Instantiator.kAutUnseenPacePct / 100.0, ads, ms, 1.0);  // docs/222 §10: 100% overshot
+            PatchCounters()[kCUnPaceCredit] += (int)((credit - L.Pace.CreditMs) * 1000.0);
             if (add > 0) { t.SetElapsedTimeFloat(ms + (float)add); PatchCounters()[kCUnPaceUs] += (int)(add * 1000.0); }
             if (run) t.Start();
         }

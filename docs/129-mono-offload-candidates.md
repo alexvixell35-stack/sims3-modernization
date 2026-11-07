@@ -75,6 +75,8 @@ Tags: **[measured]** = counted from existing managed samples; **[verified]** = t
 
 **Closure [verified].** 256 methods; 3 yields and 4 b ICs, all on the dance time-out branch; 4 a, 6 d. **P1:** per-lot zombie counts and stereo presence precomputed; the time-out branch stays on the sim thread. A per-lot stereo memo invalidated on object add/remove costs about the same and needs no worker, so this is a tie [inferred]. **Movable** ~3.5 ms/s average (IP ~6). **Hours** 4-6. Claim I-129-5.
 
+**Update 2026-11-06 (docs/208 §9):** rank 4 is built in Mode R (`autofflot`, no apply). Rank 5 is not built: the reads are not pure and I-129-5 is refuted (docs/208 §9.3).
+
 ### 2.6 Possible, poor value
 
 | Candidate | ms/s BP / IP | Closure (depth 8) | Pattern | Movable | Hours | Why low |

@@ -28,6 +28,7 @@ namespace Ts3Agent
             Dispatcher.Register("compat_visit", CompatVisit);
             Dispatcher.Register("compat_visit_status", CompatVisitStatus);
             Dispatcher.Register("sim_gone_watch", SimGoneWatch);
+            Dispatcher.Register("sim_gone_load", SimGoneLoad); // SimGoneLoad.cs
             Dispatcher.Register("sim_route_to", SimRouteTo);
             Dispatcher.Register("route_replan", RouteReplan);
             Dispatcher.Register("sim_portal_trip", SimPortalTrip);
@@ -35,6 +36,7 @@ namespace Ts3Agent
             Dispatcher.Register("outfit_change", OutfitChange);
             Dispatcher.Register("pet_guard", PetGuard);
             Dispatcher.Register("wildflower_drain", WildflowerDrain);
+            Dispatcher.Register("gc_streak_force", GcStreakForce);
             // Reflect roots for the docs/109 §6 repros (reflect_call "@door.SetLockType", go_here {target: "@upstairs"}).
             AddRoot("route", LastLiveRoute);
             AddRoot("door", NearestHomeDoor);
@@ -114,7 +116,10 @@ namespace Ts3Agent
         // game's hourly alarm does; with ts3fixes loaded that is the wildflower hook). The game's own alarm, if live, drains
         // the same list. clear: before each fire destroy uncollected wildflowers lying in the world, else the game's
         // 20-flower cap stops the drain after 20 placed. Our alarm ends itself when the list is empty; stop removes it.
-        // Returns the list size before and after, whether the game's alarm is live, can_spawn and the uncollected count.
+        // save_pending "name": docs/247 §12, hits the kWildflowerTask save guard on purpose: a task waits for a flower out of
+        // world on two ticks running (a try failed, the fire sleeps between tries), then saves as a new save of that name.
+        // Returns the list size before and after, whether the game's alarm is live, can_spawn, the uncollected count and
+        // out_of_world (uncollected flowers neither in the world nor in an inventory).
         static object WildflowerDrain(Args a)
         {
             RequireLive();
@@ -122,7 +127,8 @@ namespace Ts3Agent
             Type wt = typeof(Sims3.Gameplay.Objects.Wildflower);
             FieldInfo lotsF = wt.GetField("sLotsToGetWildflowers", st), alarmF = wt.GetField("sGrowWildflowerInSpringAlarm", st);
             FieldInfo collected = wt.GetField("mCollected", BindingFlags.Instance | BindingFlags.NonPublic);
-            MethodInfo grow = wt.GetMethod("OnGrowWildflowersOnLot", st);
+            // Public too: Patch swaps the hook's method header in, flags included, and GrowHook is public (docs/247 §12)
+            MethodInfo grow = wt.GetMethod("OnGrowWildflowersOnLot", st | BindingFlags.Public);
             if (lotsF == null || alarmF == null || collected == null || grow == null) throw new McpException("Wildflower drain members not found:" + (lotsF == null ? " sLotsToGetWildflowers" : "") + (alarmF == null ? " sGrowWildflowerInSpringAlarm" : "") + (collected == null ? " mCollected" : "") + (grow == null ? " OnGrowWildflowersOnLot" : ""));
             Sims3.Gameplay.Utilities.AlarmManager.Global.RemoveAlarm(sWfDrainAlarm);
             sWfDrainAlarm = Sims3.Gameplay.Utilities.AlarmHandle.kInvalidHandle;
@@ -160,6 +166,22 @@ namespace Ts3Agent
                     grow.Invoke(null, null);
                 }, every, Sims3.Gameplay.Utilities.TimeUnit.Minutes, "ts3agent wildflower drain", Sims3.Gameplay.Utilities.AlarmType.NeverPersisted, null);
             }
+            string saveName = a.Bool("stop", false) ? null : a.Str("save_pending", null);
+            sWfSaveName = saveName;
+            if (saveName != null) RunAsync("wildflower save_pending " + saveName, delegate
+            {
+                Sims3.UI.IOptionsModel om = Sims3.Gameplay.UI.Responder.Instance.OptionsModel;
+                for (int seen = 0; sWfSaveName == saveName; Simulator.Sleep(0))
+                {
+                    seen = WfOutOfWorld(collected) > 0 ? seen + 1 : 0;
+                    if (seen < 2 || !om.CanSaveGame()) continue;
+                    sWfSaveName = null;
+                    om.SaveName = saveName;
+                    sAgentSavePending = true; // save_game's marks: save_watch labels this save "agent"
+                    sAgentSaveAt = System.Environment.TickCount;
+                    om.SaveGame(false, true, false);
+                }
+            });
             List<ulong> after = lotsF.GetValue(null) as List<ulong>;
             r["list_after"] = after == null ? -1 : after.Count;
             r["game_alarm_live"] = !((Sims3.Gameplay.Utilities.AlarmHandle)alarmF.GetValue(null)).Equals(Sims3.Gameplay.Utilities.AlarmHandle.kInvalidHandle);
@@ -169,7 +191,18 @@ namespace Ts3Agent
             foreach (Sims3.Gameplay.Objects.Wildflower w in Sims3.Gameplay.Queries.GetObjects<Sims3.Gameplay.Objects.Wildflower>())
                 if (!(bool)collected.GetValue(w)) un++;
             r["uncollected"] = un;
+            r["out_of_world"] = WfOutOfWorld(collected);
             return r;
+        }
+
+        static string sWfSaveName; // wildflower_drain save_pending: the save still to make; stop clears it
+
+        static int WfOutOfWorld(FieldInfo collected)
+        {
+            int n = 0;
+            foreach (Sims3.Gameplay.Objects.Wildflower w in Sims3.Gameplay.Queries.GetObjects<Sims3.Gameplay.Objects.Wildflower>())
+                if (!w.InWorld && !w.InInventory && !(bool)collected.GetValue(w)) n++;
+            return n;
         }
 
         // pet_guard {action: "start" | "state" | "cancel", target?}: docs/84 §7.2 fix D-X repro (repros.json pet-guard-cancel).
@@ -463,6 +496,12 @@ namespace Ts3Agent
                 if (far == null) throw new McpException("no community lot in this world");
                 return far;
             }
+            if (string.Equals(name, "island", StringComparison.OrdinalIgnoreCase))  // docs/248: the land community lot behind the most sea
+            {
+                Lot isl = IslandLot(Util.ActiveSim(), true);
+                if (isl == null) throw new McpException("no community lot over the sea in this world");
+                return isl;
+            }
             if (string.Equals(name, "far2", StringComparison.OrdinalIgnoreCase))  // docs/202 §3.5 D repros: the community lot farthest from both the active Sim and "far"
             {
                 Sim me = Util.ActiveSim();
@@ -568,7 +607,7 @@ namespace Ts3Agent
                 GameObject t = FindTarget(a, "target");
                 route.PlanToPointRadius(t, t.Position, (float)a.Double("radius", 1.0));
             }
-            else if (a.Has("to")) route.PlanToPoint(RequireRarePoint(s, a.Str("to")));  // "pond", "ocean", "far"
+            else if (a.Has("to")) route.PlanToPoint(WalkableClick(s, RequireRarePoint(s, a.Str("to"))));  // "pond", "ocean", "far"; a lot centre can be a pond or a building (WalkableClick, ControlHandlers)
             else
             {
                 Vector3 p = new Vector3((float)a.Double("x"), 0f, (float)a.Double("z"));
@@ -803,6 +842,7 @@ namespace Ts3Agent
         static object CompatVisitStatus(Args a)
         {
             if (sCvLot == null) throw new McpException("no compat_visit yet");
+            SgPoll();
             if (sCvSims[0] == null || sCvSims[0].HasBeenDestroyed) throw new McpException("the compat_visit Sim is gone");
             InteractionInstance head = sCvSims[0].CurrentInteraction;
             if (head != null && head.GetType().FullName == sCvType) sCvRan = true;
@@ -837,6 +877,9 @@ namespace Ts3Agent
         // is the one place the exception shows: a second subscriber on ScriptCore.ExceptionTrap.OnScriptError (ErrorTrap's ScriptCore
         // only, hence reflection), no patch. It runs after ErrorTrap on the failing task, before the reset. With sim_gone_trap
         // "hooked" and no error for a lost Sim, the reset did not come through OnScriptError.
+        // sim_gone_tasks (sim-gone3): the other caller, ErrorTrap DereferenceFollowRouteAction.DelayedResetTask, is 30 sim-minutes, so an
+        // ultra-speed run does reach it. No hook needed: every pending NRaas alarm task sits in Common.AlarmTask.sTasks (one per
+        // assembly, hence the walk), read at each sim_gone_watch and compat_visit_status poll. The task class names the scheduler.
         static Sims3.Gameplay.EventSystem.EventListener sSgGone, sSgMade;
         static readonly List<object> sSgLog = new List<object>();
         static int sSgOther, sSgDropped;
@@ -846,12 +889,18 @@ namespace Ts3Agent
         static FieldInfo sSgTrapField;
         static Delegate sSgTrapHook;
         static string sSgTrap = "off";
+        static readonly List<object> sSgTaskSeen = new List<object>(), sSgTasks = new List<object>(), sSgTrail = new List<object>();
+        static Sim sSgTrailSim;
+        static string sSgTrailLast;
+        const int kSgTrail = 60;
+        static List<object> sSgHolders, sSgDeref;
         static object SimGoneWatch(Args a)
         {
             bool on = a.Bool("on", sSgGone != null);
             if (on && sSgGone == null)
             {
                 lock (sSgLog) { sSgLog.Clear(); sSgErrors.Clear(); sSgOther = sSgDropped = sSgErrorsOther = 0; }
+                sSgTaskSeen.Clear(); sSgTasks.Clear(); sSgTrail.Clear(); sSgTrailSim = null; sSgTrailLast = null; sSgHolders = null; sSgDeref = null;
                 sSgGone = Sims3.Gameplay.EventSystem.EventTracker.AddListener(Sims3.Gameplay.EventSystem.EventTypeId.kSimDestroyed, OnSimGone);
                 sSgMade = Sims3.Gameplay.EventSystem.EventTracker.AddListener(Sims3.Gameplay.EventSystem.EventTypeId.kSimInstantiated, OnSimGone);
                 SgTrapOn();
@@ -863,8 +912,14 @@ namespace Ts3Agent
                 sSgGone = sSgMade = null;
                 SgTrapOff();
             }
+            if (on) SgPoll();
             Dictionary<string, object> r = Util.Obj();
             r["sim_gone_on"] = on;
+            r["sim_gone_clock"] = Sims3.Gameplay.Utilities.SimClock.CurrentTime().ToString();
+            r["sim_gone_tasks"] = new List<object>(sSgTasks);
+            r["sim_gone_trail"] = new List<object>(sSgTrail);
+            r["sim_gone_holders"] = sSgHolders;
+            r["sim_gone_deref"] = sSgDeref;
             lock (sSgLog)
             {
                 r["sim_gone_other_sims"] = sSgOther;
@@ -875,6 +930,122 @@ namespace Ts3Agent
                 r["sim_gone_events"] = new List<object>(sSgLog);
             }
             return r;
+        }
+
+        // never throws: runs inside status polls
+        static void SgPoll()
+        {
+            try
+            {
+                const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+                foreach (Assembly asm in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    SgDeref(asm);
+                    Type at = asm.GetType("NRaas.Common+AlarmTask", false);
+                    FieldInfo lf = at != null ? at.GetField("sTasks", BindingFlags.Static | BindingFlags.NonPublic) : null;
+                    System.Collections.IEnumerable tasks = lf != null ? lf.GetValue(null) as System.Collections.IEnumerable : null;
+                    if (tasks == null) continue;
+                    foreach (object t in tasks)
+                    {
+                        Type tt = t.GetType();
+                        if (!tt.Name.EndsWith("ResetTask") && tt.Name != "ResetSimTask") continue;
+                        if (sSgTaskSeen.Contains(t) || sSgTasks.Count >= kSgMax) continue;
+                        sSgTaskSeen.Add(t);
+                        FieldInfo sf = tt.GetField("mSim", inst), xf = tt.GetField("mInstance", inst), hf = at.GetField("mHandle", inst);
+                        Sim s = sf != null ? sf.GetValue(t) as Sim : null;
+                        object saved = xf != null ? xf.GetValue(t) : null;
+                        InteractionInstance ci = s != null && s.InteractionQueue != null ? s.CurrentInteraction : null;
+                        Dictionary<string, object> r = Util.Obj();
+                        r["assembly"] = asm.GetName().Name;
+                        r["task"] = tt.FullName;
+                        r["sim"] = s != null ? s.FullName : null;
+                        r["msSinceVisit"] = sCvStartedAt != 0 ? System.Environment.TickCount - sCvStartedAt : -1;
+                        r["clock"] = Sims3.Gameplay.Utilities.SimClock.CurrentTime().ToString();
+                        r["minutesLeft"] = Sims3.Gameplay.Utilities.AlarmManager.Global.GetTimeLeft((Sims3.Gameplay.Utilities.AlarmHandle)hf.GetValue(t), Sims3.Gameplay.Utilities.TimeUnit.Minutes);
+                        r["instance"] = saved != null ? saved.GetType().FullName : "null";
+                        r["current"] = ci != null ? ci.GetType().FullName : "null";
+                        r["sameNow"] = ReferenceEquals(saved, ci);
+                        r["routeNow"] = s != null ? SgActions(s) : null;
+                        sSgTasks.Add(r);
+                    }
+                    if (sSgHolders == null) SgHolders(asm);
+                }
+                // the follower at every poll: DelayedResetTask is only made while its route has distance left at ErrorTrap's scan
+                if (sCvSims != null && sCvSims.Count > 1 && sCvSims[sCvSims.Count - 1] != null) sSgTrailSim = sCvSims[sCvSims.Count - 1];
+                if (sSgTrailSim != null && sSgTrail.Count < kSgTrail)
+                {
+                    bool gone = sSgTrailSim.HasBeenDestroyed;
+                    InteractionInstance c = gone || sSgTrailSim.InteractionQueue == null ? null : sSgTrailSim.CurrentInteraction;
+                    Sims3.Gameplay.ObjectComponents.RoutingComponent rc = gone ? null : sSgTrailSim.SimRoutingComponent;
+                    string now = gone ? "destroyed" : (c != null ? c.GetType().Name + "#" + System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(c).ToString("X") : "null")
+                        + (sSgTrailSim.IsRouting ? " routing" : "") + " left=" + (rc != null ? rc.GetDistanceRemainingOnRoute().ToString("F1") : "?") + " " + SgActions(sSgTrailSim);
+                    if (now != sSgTrailLast)
+                    {
+                        sSgTrailLast = now;
+                        sSgTrail.Add((sCvStartedAt != 0 ? System.Environment.TickCount - sCvStartedAt : -1) + "ms " + Sims3.Gameplay.Utilities.SimClock.CurrentTime().ToString() + " " + now);
+                    }
+                }
+            }
+            catch (Exception x) { if (sSgTasks.Count < kSgMax) sSgTasks.Add("poll failed: " + x.GetType().Name + " " + x.Message); }
+        }
+
+        // ErrorTrap's candidates (its PreProcess), first poll they exist: the scan runs ~12 s later and DelayedResetTask keeps the interaction seen here
+        static void SgDeref(Assembly asm)
+        {
+            if (sSgDeref != null) return;
+            Type dt = asm.GetType("NRaas.ErrorTrapSpace.Dereferences.Controllers.DereferenceFollowRouteAction", false);
+            FieldInfo f = dt != null ? dt.GetField("sSims", BindingFlags.Static | BindingFlags.NonPublic) : null;
+            System.Collections.IDictionary d = f != null ? f.GetValue(null) as System.Collections.IDictionary : null;
+            if (d == null || d.Count == 0) return;
+            sSgDeref = new List<object>();
+            sSgDeref.Add((sCvStartedAt != 0 ? System.Environment.TickCount - sCvStartedAt : -1) + "ms " + Sims3.Gameplay.Utilities.SimClock.CurrentTime().ToString() + " candidates " + d.Count);
+            foreach (System.Collections.DictionaryEntry e in d)
+            {
+                Sim s = e.Key as Sim;
+                if (s != null && sSgDeref.Count < 16) sSgDeref.Add(s.FullName + ": " + (e.Value != null ? e.Value.GetType().Name : "null") + ", " + SgActions(s));
+            }
+        }
+
+        // ErrorTrap's own reference list from the load, until its scan clears it: who holds each Sim's FollowRouteAction outside the
+        // Sim's mRouteActions, the actions its scan acts on. One snapshot, first time the list has entries.
+        static void SgHolders(Assembly asm)
+        {
+            Type ol = asm.GetType("NRaas.ErrorTrapSpace.ObjectLookup", false);
+            PropertyInfo lp = ol != null ? ol.GetProperty("List", BindingFlags.Static | BindingFlags.Public) : null;
+            System.Collections.IDictionary byType = lp != null ? lp.GetValue(null, null) as System.Collections.IDictionary : null;
+            if (byType == null || byType.Count == 0) return;
+            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            sSgHolders = new List<object>();
+            FieldInfo idf = typeof(Sims3.Gameplay.Routing.FollowRouteAction).GetField("mRoutingObjectId", inst);
+            foreach (System.Collections.DictionaryEntry e in byType)
+            {
+                if (!typeof(Sims3.Gameplay.Routing.FollowRouteAction).IsAssignableFrom((Type)e.Key)) continue;
+                foreach (object item in (System.Collections.IEnumerable)e.Value)
+                {
+                    if (sSgHolders.Count >= 40) return;
+                    Type it = item.GetType();
+                    object child = it.GetField("mChild", inst).GetValue(item), parent = it.GetField("mParent", inst).GetValue(item);
+                    FieldInfo pf = it.GetField("mField", inst).GetValue(item) as FieldInfo;
+                    IScriptProxy p = Simulator.GetProxy((ObjectGuid)idf.GetValue(child));
+                    Sim s = p != null ? p.Target as Sim : null;
+                    if (s == null || s.Household != Household.ActiveHousehold) continue; // the step log line is cut, keep it short
+                    Sims3.Gameplay.ObjectComponents.RoutingComponent rc = s.SimRoutingComponent;
+                    sSgHolders.Add(s.FullName + " " + child.GetType().Name + " in " + (parent != null ? parent.GetType().Name : "null") + "." + (pf != null ? pf.Name : "?")
+                        + " inChain=" + (rc != null && rc.ContainsRouteAction((Sims3.Gameplay.Routing.RouteAction)child)));
+                }
+            }
+        }
+
+        // running chain and the popped action (the one ErrorTrap's "not in mRouteActions" test can trip on)
+        static string SgActions(Sim s)
+        {
+            Sims3.Gameplay.ObjectComponents.RoutingComponent rc = s.SimRoutingComponent;
+            if (rc == null) return "no routing component";
+            string o = "";
+            Sims3.Gameplay.Routing.RouteAction ra = rc.GetCurrentRouteAction();
+            for (int i = 0; ra != null && i < 16; i++, ra = rc.GetRouteActionAfter(ra)) o += ra.GetType().Name + " ";
+            ra = rc.GetPreviousRouteAction();
+            return o + "prev=" + (ra != null ? ra.GetType().Name : "null");
         }
 
         // never throws: EA removes a listener that does
@@ -990,7 +1161,7 @@ namespace Ts3Agent
                 FieldInfo f = t != null ? t.GetField("sRouteFails", BindingFlags.NonPublic | BindingFlags.Static) : null;
                 System.Collections.IDictionary fails = f != null ? f.GetValue(null) as System.Collections.IDictionary : null;
                 if (fails == null) continue;
-                object v = fails[id];
+                object v = fails.Contains(id) ? fails[id] : null; // a missing key throws on this mscorlib
                 return v != null ? (int)v.GetType().GetField("Count").GetValue(v) : 0;
             }
             return -1;

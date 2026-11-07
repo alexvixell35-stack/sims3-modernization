@@ -40,7 +40,7 @@ static DWORD __cdecl GwFakeXml(DWORD lo, DWORD hi, DWORD group, DWORD type) {
 
 static void TestGcGrowLog() {
     static_assert(offsetof(Ts3nCounters, gcBlackOk) == 0x5B14 && offsetof(Ts3nCounters, gwMode) == 0x5AE8 && offsetof(Ts3nCounters, gwUnseenKB) == 0x5B00 &&
-                      offsetof(Ts3nCounters, gwXmlMaxKB) == 0x5B0C && sizeof(Ts3nCounters) == 5901 * 4,
+                      offsetof(Ts3nCounters, gwXmlMaxKB) == 0x5B0C && sizeof(Ts3nCounters) == 5984 * 4,
                   "counters v161-v163 layout (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const MxAddrs saved = g_mx;
@@ -105,7 +105,27 @@ static void TestGcGrowLog() {
     assert(!g_gcStrict && k.gcStrictN == 0 && k.gcLenientN == 0 && k.gcSwitchSec == 0);
     GcCapWindow(false, "test");  // already lenient: no-op
     assert(!g_gcStrict && k.gcLenientN == 0);
-    g_gcCapBytes = 0;
+    // streak guard: the 3rd expansion with no collection lets the punt take the request, a collection arms it again
+    gcNo++, bl = 1u << 20;
+    assert(GwRunSite(0x2000, 206) == 1 && GwRunSite(0x2000, 206) == 1 && k.gcExpandStreak == 2 && bl == 1u << 20);
+    assert(GwRunSite(0x2000, 206) == 1 && k.gcExpandStreak == 3 && bl == 0x3000);
+    gcNo++, bl = 1u << 20;
+    assert(GwRunSite(0x2000, 206) == 1 && k.gcExpandStreak == 1 && bl == 1u << 20);
+    // gcstreakat: another streak moves it (guard off, test stop), 0 turns it off
+    gcNo++;
+    ts3native_gc_streak_at = 5;
+    for (int i = 0; i < 4; i++) GwRunSite(0x2000, 206);
+    assert(k.gcExpandStreak == 4 && bl == 1u << 20);
+    assert(GwRunSite(0x2000, 206) == 1 && k.gcExpandStreak == 5 && bl == 0x3000);
+    gcNo++, bl = 1u << 20;
+    ts3native_gc_streak_at = 0;
+    for (int i = 0; i < 6; i++) GwRunSite(0x2000, 206);
+    assert(k.gcExpandStreak == 6 && bl == 1u << 20);
+    ts3native_gc_streak_at = GW_STREAK_PUNT;
+    g_gcCapBytes = 0;  // no cap, no guard
+    gcNo++;
+    for (int i = 0; i < 3; i++) GwRunSite(0x2000, 206);
+    assert(k.gcExpandStreak == 3 && bl == 1u << 20);
     g_mx = saved, g_gwb = savedB, g_gwLargeFree = GW_LARGE_FREE, g_gwExpand = (GwExpandFn)(uintptr_t)GW_EXPAND, g_gwLastHeap = 0;
     g_gwXmlOrig = NULL, g_gwRingN = 0, g_gwCrossed = false, g_gwXmlLines = 0, g_gwStreakGc = 0xFFFFFFFF;
     memset(&k.gwMode, 0, sizeof(LONG) * 18);

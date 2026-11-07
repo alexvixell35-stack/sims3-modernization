@@ -205,7 +205,7 @@ namespace Ts3Fixes
         // the first hit; placed = add to world and fade in, else destroy). wildflowerprobe: the loop runs in the alarm as
         // before, timed per try. wildflowertask: the loop runs in our own one-shot task, one try per sim tick (the game's
         // Yield rule); a fire while the previous task still runs takes the in-alarm path, so fires never overlap and keep
-        // their lot order. A save while a try is pending destroys the out-of-world flower and ends the fire as failed.
+        // their lot order. A save or world change while a try is pending destroys the out-of-world flower and ends the fire as failed.
         // One log line per fire (ts3fixes.wildflower). Counters: [93] fires that took a lot, [94] tries, [95] placed,
         // [96] failed (flower destroyed), [97] longest fire (in alarm) or longest try slice (task), ms, [98] save aborts.
         static bool sWildflowerReady;
@@ -293,12 +293,11 @@ namespace Ts3Fixes
             {
                 if (f.Tries > 0)
                 {
-                    // checked before and after the yield (shortcut: a save that starts and ends inside one yield still stores
-                    // the out-of-world flower, which then counts toward the 20 cap until its lifespan alarm removes it,
-                    // docs/110 7.3; upgrade if the save-abort repro ever shows one)
-                    if (SaveInProgress()) { WfFinish(flower, lot, f, start, false, "save"); return; }
+                    // checked before and after the yield. A save cannot start and end inside one yield: WildflowerFire.MustStop.
+                    // Stored anyway, the flower would count toward the 20 cap until its lifespan alarm removes it (docs/110 7.3)
+                    if (WildflowerFire.MustStop(SaveInProgress(), GameStates.IsTravelling)) { WfFinish(flower, lot, f, start, false, "save"); return; }
                     Simulator.Sleep(0);
-                    if (SaveInProgress()) { WfFinish(flower, lot, f, start, false, "save"); return; }
+                    if (WildflowerFire.MustStop(SaveInProgress(), GameStates.IsTravelling)) { WfFinish(flower, lot, f, start, false, "save"); return; }
                     if (flower.HasBeenDestroyed || lot.HasBeenDestroyed || GameStates.IsWorldShuttingDown || !GameStates.IsInWorld())
                     { WfFinish(flower, lot, f, start, false, "world gone"); return; }
                 }

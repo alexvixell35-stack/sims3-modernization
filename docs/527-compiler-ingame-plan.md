@@ -1,6 +1,6 @@
 # 527. The method compiler in the game: integration plan with the IL patcher hook (round 10 C6)
 
-Status: plan, 2026-11-02. Nothing here is built; every claim is tagged. Round 10, task C6: "in-game integration plan with
+Status: plan, 2026-11-02; step 1 built 2026-11-06 (§8, ts3native 0.36.169, C5 templates and list 0.36.170, off by default, no game run yet). Every claim is tagged. Round 10, task C6: "in-game integration plan with
 #200: ts3native switch (off by default), in-game verify mode with a mismatch counter, A/B judged by script ms/s per arm
 (`arm-ms.ts`)". It supersedes rows S1 and S3 of docs/223 §7 with what rounds 8 to 10 built in monohost (docs/207 §10 to
 §16) and with the transform hook #200 / #204 put into ts3native (docs/506 §2, docs/526). Ledger: docs/51 §931.
@@ -15,11 +15,13 @@ Status: plan, 2026-11-02. Nothing here is built; every claim is tagged. Round 10
   `Groups` (template mask), `List` (test override of the built-in list). A runtime byte in the counter block for `--ab`.
 - **Verify in game** = the host's per-call verify (docs/207 §7.2, §11) sampled by `VerifyEvery`, sim thread only, with a
   mismatch counter; the first mismatch of a method unpatches that method and logs it. Pass rule as `mintcall-verify`'s.
-- **A/B** = `jit-ab.json` shaped as `mintcall-ab.json`, judged by `tools/harness/arm-ms.ts` summed sim-thread ms/s per arm
-  (script is the column the compiler moves), hitches as a no-regression guard only.
+- **A/B** = `jit-ab.json` shaped as `mintcall-ab.json`, read with `tools/harness/arm-ms.ts` summed sim-thread ms/s per arm
+  (script is the column the compiler moves), hitches as a no-regression guard only. No ms/s bar (below).
 - **Expectation:** with today's templates the list that passes docs/207 §16's rule is 10 methods, 26 ms/s of self time;
   the in-game number will be small until §16.3's template order (`call`, `ldfld.vt`, `callvirt`) is worked through. The
-  A/B is still the first real number and the gate for the rest of the lane (docs/207 §8.5).
+  A/B is the first real number, not a gate.
+- **Measure (Rodney R2, 2026-11-06):** the compiler is measured statically: coverage (methods and IL compiled, exits,
+  instructions per opcode, coverage weighted by call counts) plus correctness gates. Gains add up; no ms/s stop rules.
 
 ## 1. One hook, two clients [verified: ilpatch.cpp, monohost-jit.cpp:132-154]
 
@@ -104,12 +106,12 @@ verdict `compile`): today `RuntimeTypeHandle.get_Value`, `Dictionary.GetSlot`, `
 list is regenerated. The game has no call counter: the threshold is a cut on the sampler ranking, not a counter at the
 hook.
 
-Queue `tools/harness/queues/jit-ab.json`, after `jit-verify` passed: BP, IP, SV off-first and on-first, 10 min, `--ab
+**Parked 2026-11-06 (Rodney): not run, the compiler is judged statically; the file stays.** Queue `tools/harness/queues/jit-ab.json`, after `jit-verify` passed: BP, IP, SV off-first and on-first, 10 min, `--ab
 jit` with 2-min slices, a declared 4-min smoke job first, quiet machine, `[AutShadow]` arm stated per job (docs/223 §4
 point 4). Read with `node tools/harness/arm-ms.ts jit-ab`: mean sim-thread ms/s per arm of script, route, animPose,
-locomotion and their sum, then on minus off; script is the number. `hitch-ab.ts` as the no-regression guard. Gate
-(docs/207 §8.5 scaled to the list above): the first A/B is a measurement, not a go / stop; the lane's go / stop stays
-docs/207 §8.5 point 2's bar (≥ 5 ms/s script on BP and IP) applied once the `call` and `ldfld.vt` rows of §16.3 compile.
+locomotion and their sum, then on minus off; script is the number. `hitch-ab.ts` as the no-regression guard. Every A/B
+is a measurement, not a go / stop: the ≥ 5 ms/s script bar that stood here was removed 2026-11-06 (Rodney R2, docs/207
+§8.5). The lane stops only on a failed correctness gate.
 
 ## 6. Steps and gates
 
@@ -117,7 +119,7 @@ docs/207 §8.5 point 2's bar (≥ 5 ms/s script on BP and IP) applied once the `
 |---|---|---|---|---|
 | 1 | Port the host compiler core to ts3native behind `[MonoJit]`: templates and exits, the method table, `JitEnter` with the thread check, the per-call verify, the post-pass on the shared `0xE643B0` detour of `ilpatch.cpp`, counters v901, the exe and hash gates, the code region | ts3native selftest cases (the `ilpatch-test.h` pattern) for the hook order, the word patch / unpatch round trip and the runtime byte; monohost unchanged (corpus 197, 0 differ) | none | 10-16 |
 | 2 | `jit-verify` (§3), `Direct=0` then `Direct=1` | - | 3 + 3 jobs, 10 min each, pass rule §3 | 1.5 h game time per round |
-| 3 | `jit-ab` (§5) | - | 7 jobs, ~85 min; `arm-ms.ts` | 1.5 h game time |
+| 3 | `jit-ab` (§5), parked 2026-11-06, skip | - | not run | - |
 | 4 | One clean night, `Enabled=1 Mode=1 Direct=1` on the user's play save, crash and ScriptError check; then the PR leaves draft with the default off | - | night run | - |
 
 Step 1 needs #200 / #204 merged (the detour it extends). Steps 2 to 4 are the user's machine (the CI has no game).
@@ -129,3 +131,35 @@ Step 1 needs #200 / #204 merged (the detour it extends). Steps 2 to 4 are the us
 - Methods with clauses and the `throw`-out-of-callee path stay the verify blind spots named in §3.
 - A ts3fixes-side list or hash source (docs/223 §9 point 4): not needed; ts3native hashes the IL it reads at the hook.
 - UPDATE242 / simler90 cores: the hash guard covers them per method (their IL differs per method, the exe is the same).
+
+## 8. Step 1 as built [verified: source, CI selftest; nothing ran in the game]
+
+`native/ts3native/monojit.cpp` is `native/monohost/monohost-jit.cpp` without lazy frames, the inliner, count mode and the dump; monohost itself is unchanged. #200 and #204 landed through sync #272 (their own PRs are closed, unmerged), so the detour this step extends is on main. Differences from the plan above:
+
+- **Counters are v910, 0x5CA8-0x5CDF, not v901** (`[FootstepRO]` took v901; moved from v908 at the merge, docs/registry.md). Same 14 fields as §2. `jitCalls` counts `JitEnter` entries on the sim thread: calls and every return into a compiled method. The harness switch is `--ab jit` (0x5CAC).
+- **`Direct=1` was not built in step 1; it is now (docs/537, ts3native 0.36.170, counters v909, not run).** docs/223 §8 risk 1, added after this plan, gates S2 and S3 on a correctness run with all frame readers active. The key exists and only logs a line, so step 2 has one round (`Direct=0`), not two.
+- **The list is 11 rows and 17 bodies** (`native/ts3native/monojit-list.h`, `tools/jit-hot.ts --emit-native`): `Dictionary.GetPrev` joined the compile rows after docs/207 §15.6, so self time is 38.9 ms/s of the 177.3 sampled, not 26. Each row hashes every overload. The list is read from `docs/data/jit-hot.csv`; the tool's hashes match a spec's `sha256` on b15 (`ScoreInteractionsForLocalAutonomy`).
+- **A body with exception clauses is refused**, as `jitRefused`. In the list that is one `Array.Copy` overload (501 bytes of IL); §3 already had clauses outside the compare.
+- **ForceJIT is tested at the post-pass, not per call.** `mintcall.cpp` tests per call because its handlers run for every method. Compiled code is entered only through words in mint code; ForceJIT makes EA build new mint code on each call, which the post-pass refuses, so old patched words are not reached. A method compiled before MonoPatcher flips the byte is the one case left: its code is no longer dispatched once the re-transform has replaced it.
+- **Thread rule:** `JitEnter` compares against the thread the first Simulate iteration ran on; before that iteration every entry takes the original opcode's handler, so a method can compile during load and nothing compiled runs until the sim loop runs. `SimLoopAdd` is the tick (end of each iteration, not the top of `MonoScriptHost_Simulate`): there is no `[MonoThread]` dependency.
+- **Verify additions to the host's code:** the snapshot's region buffer is a GC root (an object only the snapshot still names must survive a collection inside the compiled pass; the host had no such case in its corpus runs, the game has other threads that can start one). `GC_malloc_atomic` is redirected only in Mode=2, and left alone under `[MonoThread] GcLock=1`, where a new array's slack can then read as a mismatch (the log says so).
+- **W^X:** the region is one RW allocation; each method's range goes RW for the emit and RX after. Compiled code never runs during a compile: compiles run on the sim thread between exits, or before the first iteration.
+
+**CallPath and step 1.** The 2026-11-04 A/B (`docs/data/results/2026-11-04-queue-v025-mintcall-ab.md`) gave no number: job void, other apps on 22% of the game CPUs. The only figures are the noisy 2026-10-31 pairs (BP ~7.7, IP ~17.7 ms/s). `CallPath` stays 0 as shipped. Step 1 does not depend on it: every exit reads the live table entry, so a call or ret from compiled code takes whichever handler is installed, and `CallPath=2` is refused at install because it owns entry `0x1A9`. With `CallPath=0` each compiled method pays EA's call and ret (209-233 instructions for a call, docs/139), which is what docs/223 §2.5 calls working but slower. docs/223's `MintBench` gate was stated with the fast path, so `jit-ab` must state `CallPath` per job.
+
+**Static numbers** [verified unless tagged; the data is the offline sampler and host corpus, not this build]. The table is the list at f41e85edc; C5 replaced it with 14 methods / 17 bodies / 1,505 bytes, 55.3 of 177.3 ms/s (docs/207 §16.5, with exits for lazy frames on and off):
+
+| What | Value | Source |
+|---|---|---|
+| Methods / bodies / IL | 11 / 17 / 2,177 bytes, 16 bodies compile, 1 refused for clauses | `docs/data/jit-hot.csv`, method headers |
+| Sampled self time | 38.9 of 177.3 ms/s (22%), ±20-40% per row | sampler (docs/207 §3) |
+| Calls, weighted | 7 of the 11 rows have host counts: 409,202 of 23.4 M counted executions (1.7%) | `jit-hot.csv` host run; the game has no call counter |
+| Exits other than `ret` | 3,632 in those 409,202 executions (0.009 each); worst `List.GrowIfNeeded` 0.051 (`call`), `List.Add` 0.018 (`stelem.ref`), `Dictionary.GetSlot` 0.016 (`call`) | same |
+| Not counted | `RuntimeTypeHandle.get_Value`, `Array.Copy`, `Slots.GetParentId`, `Vector3..ctor`: not in the host's list, so no exit count (they are 12.7 of the 38.9 ms/s) | same |
+| Selftest | Templates run in CI on a fake table: constants, arithmetic, locals, branches, switch, fields, r4, arrays, value-type move, exits | `monojit-test.h` |
+
+Per opcode, read from the emitter: `ldloc`, `ldarg`, `stloc`, `add` are 3 x86 instructions and no dispatch; `ldfld` 5 with its null check; a conditional branch 3. An exit is 6 and then EA's handler. `JitEnter` is about 14 on a hit, the hash the host measured at ~10 plus the thread check and the counter. EA's side per opcode cannot be counted on this machine (no exe, no disassembler); docs/207 §7 has the measured ratios: 3.4x on a call-free loop, 1.4-1.7x on small bodies, `MintBench` +18%. `docs/data/jit-lift-census.csv` has EA's handler sizes for 132 opcodes. **A method whose time is mostly call and return gets little from this step**, and with `CallPath=0` it can lose: entry and exit add ~20 instructions to a call of 209-233.
+
+**Not proven:** mismatch-free behaviour in the game; anything about `monojit.cpp` from the monohost corpus, which runs the host copy only; that `g_ilpHeader` returns the generic definition's IL for an inflated method [inferred: mono's header path]; the snapshot root under real collections; Satb under compiled stores with a span on (the barrier code is the host's, the selftest runs it with the span off); the four uncounted rows' templates on real mint code (the host corpus does not list them); verify's cost in play.
+
+**Alienware for `jit-verify`:** `ts3native.asi` from this branch (the `ts3native` artifact of its CI run, or `native/ts3native/build.cmd`) as `game-copy/ts3native.asi.jit5`; `game-copy/ts3fixes.package.mc13` for the last job. Then `node tools/harness/queue.ts tools/harness/queues/jit-verify.json --no-smoke`. Before it, the monohost corpus has not changed, since monohost has no diff. The first thing to read is the `jit:` log lines: how many bodies compiled, and any `refused` with the hash line.

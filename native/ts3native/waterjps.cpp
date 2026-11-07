@@ -146,7 +146,9 @@ static void WjPublish(DWORD cells) {
 }
 
 // Replaces the call at 0x6207FB (the search's only outside call of the jump; the jump's own recursion stays in the original).
+static DWORD g_wjLastW, g_wjLastH;  // docs/247 §9: grid of the latest water search, for the sync plan line; shortcut: a worker job can overwrite it, the line is a hint
 static DWORD __cdecl WaterJumpHook(const u8* const* g1, const u8* const* g2, DWORD w, DWORD h, DWORD goal, DWORD cell, DWORD dir, DWORD flag, void* cb) {
+    g_wjLastW = w, g_wjLastH = h;
     Ts3nCounters& k = ts3native_counters;
     // outside what the loop handles: dir byte > 7 (0x61FA10 treats 0xFF specially), w = 1 (a diagonal step is +0 there: the
     // game recurses until its stack overflows), a grid whose index step could wrap

@@ -127,6 +127,7 @@ typedef u8* (*RdInner)(int kind, u8* out, DWORD handle, const float* pt);
 // and entry table, its own switch fmMode and counters fm* (v99); the start is the follower position as for Replan [inferred:
 // Route_PlanCommon plans Plan from the follower like Replan, docs/93 §4; fmWouldSame / fmWouldDiff in observe mode check it],
 // and no +0x1F4 bump (only the two replan ICs write it, docs/101 §5)
+static bool KdKnownUnseen(DWORD handle);  // plandeadline.cpp
 static u8* RdRun(int kind, u8* out, DWORD handle, const float* pt, RdInner inner) {
     Ts3nCounters& k = ts3native_counters;
     const bool fm = kind == 0;
@@ -165,6 +166,8 @@ static u8* RdRun(int kind, u8* out, DWORD handle, const float* pt, RdInner inner
         else elig = ver0 == prev.ver ? 0 : 1;
         if (fm) InterlockedIncrement(&k.fmRep);
     }
+    // docs/249: elig 0 = nothing changed; elig 1 = object footprints moved, the old failure may not be the plan's answer: known unseen only
+    if (elig == 1 && !KdKnownUnseen(handle)) elig = -1, InterlockedIncrement(&ts3native_counters.kdRdHeld);
     if (elig >= 0 && (fm ? k.fmMode : k.rdMode) == 1) {
         if (!fm) __try { *(DWORD*)(key.route + 0x1F4) += 1; } __except (EXCEPTION_EXECUTE_HANDLER) {}  // the IC's own replan count
         memcpy(out, prev.res, sizeof(prev.res));

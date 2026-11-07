@@ -153,8 +153,80 @@ static class UnseenTest
         Check(UnseenMath.kHardGapMin < 60f && UnseenMath.kHardGapMin > 30f, "hard gap between the 30-minute cap and the 60-minute auto-satisfy switch");
     }
 
+    // docs/243 D1: an idle Sim asks every 5 sim-minutes (EA's kAutonomyDelayNormal), held for 30 after each search. mLastTime
+    // moves only when a search runs, so the search rate is the gate's and a held Sim is never held past N plus one ask.
+    static void ParkGate()
+    {
+        Check(!UnseenMath.ParkHold(0f, 100f, 30f), "no clock yet never holds");
+        Check(!UnseenMath.ParkHold(200f, 100f, 30f), "a clock ahead of the game never holds");
+        Check(UnseenMath.ParkHold(100f, 100f, 30f) && UnseenMath.ParkHold(100f, 129.9f, 30f), "inside the window holds, also under 1 sim-minute");
+        Check(!UnseenMath.ParkHold(100f, 130f, 30f), "at N it lets go");
+        Check(!UnseenMath.ParkHold(100f, 100f + UnseenMath.kParkCapMin, 500f), "a big tunable stays under the cap");
+        Check(UnseenMath.kParkCapMin <= 240f, "cap inside I-243-4");
+        Check(!UnseenMath.ParkHold(100f, 105f, 0f) && !UnseenMath.ParkHold(100f, 105f, -1f), "0 or less turns it off");
+        Check(UnseenMath.ParkVerdict(true, true, false) == UnseenMath.kParkHold, "unseen in the window: held");
+        Check(UnseenMath.ParkVerdict(false, true, false) == UnseenMath.kParkSnap, "seen in the window: snaps back");
+        Check(UnseenMath.ParkVerdict(false, true, true) == UnseenMath.kParkSnap, "seen wins over exempt");
+        Check(UnseenMath.ParkVerdict(true, true, true) == UnseenMath.kParkExempt, "exempt in the window: goes");
+        Check(UnseenMath.ParkVerdict(true, false, false) == UnseenMath.kParkUnseen && UnseenMath.ParkVerdict(false, false, false) == UnseenMath.kParkSeen, "outside the window: goes");
+        float[] edges = { -1f, 0.99f, 1f, 4.99f, 5f, 14.99f, 15f, 29.99f, 30f, 500f };
+        int[] slots = { 0, 0, 1, 1, 2, 2, 3, 3, 4, 4 };
+        for (int i = 0; i < edges.Length; i++) Check(UnseenMath.RefreshBucket(edges[i]) == slots[i], "bucket of " + edges[i]);
+        float last = 5f, worst = 0f;
+        int runs = 0, held = 0;
+        for (float now = 10f; now <= 1440f; now += 5f)
+        {
+            if (UnseenMath.ParkHold(last, now, 30f)) { held++; continue; }
+            if (now - last > worst) worst = now - last;
+            last = now;
+            runs++;
+        }
+        Check(runs == 47 && held > 200, "one search per 30 sim-minutes, got " + runs + ", held " + held);
+        Check(worst <= 35f, "never held past N plus one ask, got " + worst);
+    }
+
+    // Stagger of snap-back: 30 Sims seen in one tick release spread over the 16 ticks, each within 16, for every poll phase and gap.
+    static void ParkStagger()
+    {
+        Check(UnseenMath.ParkStaggerPass(5, 7UL, 1) && UnseenMath.ParkStaggerPass(5, 7UL, 0) && UnseenMath.ParkStaggerPass(5, 7UL, 7), "stagger 1 (or under two slots) = old behaviour, always passes");
+        Check(UnseenMath.ParkStaggerPass(9, 12345UL, 16) == UnseenMath.ParkStaggerPass(9, 12345UL, 16), "deterministic");
+        foreach (int gap in new[] { 2, 3, 4 })     // 2 is the real poll; 3 and 4 stand for a late wake
+            for (int phase = 0; phase < 4; phase++)  // poll phase against the slot grid, even and odd
+            {
+                int[] perTick = new int[64];
+                int worst = 0;
+                for (ulong id = 1; id <= 30; id++)
+                {
+                    long t = 1000 + phase;
+                    int jitter = (int)(id % 3);        // some Sims wake a tick late now and then, never past the slot width
+                    int n = 0;
+                    while (!UnseenMath.ParkStaggerPass(t, 0x1000000UL + id * 977UL, 16) && n++ < 64) t += Math.Min(gap + (n % 2 == 0 ? jitter : 0), UnseenMath.kParkSlotTicks);
+                    Check(n < 64, "gap " + gap + " phase " + phase + ": Sim " + id + " starved");
+                    int delay = (int)(t - 1000 - phase);
+                    if (delay > worst) worst = delay;
+                    if (delay < 64) perTick[delay]++;
+                }
+                int max = 0;
+                foreach (int p in perTick) if (p > max) max = p;
+                Check(worst <= 16 + UnseenMath.kParkSlotTicks, "gap " + gap + " phase " + phase + ": release within the stagger, got " + worst);
+                Check(max <= 12, "gap " + gap + " phase " + phase + ": max per tick well below 30, got " + max);
+            }
+        // no starvation for any id, any phase, polls at the real 2-tick gap: bounded by the stagger
+        int bad = 0;
+        for (ulong id = 1; id <= 2000; id++)
+            for (int phase = 0; phase < 2; phase++)
+            {
+                long t = 777 + phase; int n = 0;
+                while (!UnseenMath.ParkStaggerPass(t, id * 0x10001UL, 16) && n < 100) { t += 2; n++; }
+                if (t - 777 - phase > 16) bad++;
+            }
+        Check(bad == 0, "every Sim releases within 16 ticks at 2-tick polls, late: " + bad);
+    }
+
     static int Main()
     {
+        ParkStagger();
+        ParkGate();
         CatchUpCap();
         GateCadence();
         TimeGate();

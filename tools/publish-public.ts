@@ -1,7 +1,7 @@
 // Public sync + release (docs/RELEASE.md "Publishing"): automates the manual steps of the v0.1.5 release.
 //   node tools/publish-public.ts sync --message-file <f> [--yes]
-//        clone the public repo into a temp dir, new branch, replace the tree with `git archive <ref>` of this repo, scrub
-//        personal names, check-docs-code, secret scan of the staged diff, commit; with --yes: push, PR, watch checks,
+//        clone the public repo into a temp dir, new branch, replace the tree with `git archive <ref>` of this repo, apply
+//        tools/public-strip.json (held-back files and hooks), scrub personal names, check-docs-code, secret scan of the staged diff, commit; with --yes: push, PR, watch checks,
 //        squash-merge with --admin
 //   node tools/publish-public.ts release v0.1.6 --native-version 0.36.40 --message-file <f> [--yes]
 //        sync, then (with --yes) tag the merge commit, watch the tag's build.yml run, download the draft's ts3native zip and
@@ -69,6 +69,29 @@ export function secretScan(diff: string): string[] {
     for (const [kind, re] of SECRETS) if (re.test(l)) hits.push(`${file}: ${kind}`);
   }
   return hits;
+}
+
+// tools/public-strip.json (private: it lists itself in remove): what stays off the public repo even though master has it.
+// { remove: [paths], edits: [{ file, replace: [[regex (gm), to]] }], banned: regex }. A rule that matches nothing or a banned
+// hit afterwards throws, so a hook that moved on master stops the sync instead of going public. Returns the edited files.
+export function publicStrip(clone: string): string[] {
+  const p = join(clone, 'tools/public-strip.json');
+  if (!existsSync(p)) return [];
+  const s = JSON.parse(readFileSync(p, 'utf8')) as { remove: string[]; banned: string; edits: { file: string; replace: [string, string][] }[] };
+  for (const e of s.edits) {
+    const f = join(clone, e.file);
+    let t = readFileSync(f, 'latin1');
+    for (const [re, to] of e.replace) {
+      const n = t.replace(new RegExp(re, 'gm'), to);
+      if (n === t) throw new Error(`public-strip: ${e.file}: /${re}/ matched nothing`);
+      t = n;
+    }
+    writeFileSync(f, t, 'latin1');
+  }
+  for (const r of s.remove) rmSync(join(clone, r), { recursive: true, force: true });
+  const banned = new RegExp(s.banned), left = walk(clone).filter(f => banned.test(readFileSync(f, 'latin1'))).map(f => relative(clone, f));
+  if (left.length) throw new Error(`public-strip: banned text left in:\n${left.join('\n')}`);
+  return s.edits.map(e => e.file);
 }
 
 export function enabledSections(ini: string): string[] {
@@ -173,6 +196,10 @@ export function publish(o: Opts): { clone: string; commit: string } {
   run('tar', ['-xf', '../src.tar'], clone);  // relative: GNU tar reads "C:" as a remote host
   rmSync(join(tmp, 'src.tar'));
 
+  step('public-strip.json: held-back files and hooks');
+  const stripped = publicStrip(clone);
+  log(`   ${stripped.length} files edited`);
+
   step('scrub personal names');
   let changed = 0; const left: string[] = [];
   for (const f of walk(clone)) {
@@ -185,6 +212,10 @@ export function publish(o: Opts): { clone: string; commit: string } {
 
   step('node tools/check-docs-code.ts');
   run(process.execPath, ['tools/check-docs-code.ts'], clone);
+  if (stripped.length) {
+    step('selftest-all --ci of tools/harness in the stripped tree');
+    run(process.execPath, ['tools/selftest-all.ts', '--ci', '--only', 'tools/harness/*.ts'], clone);
+  }
 
   step('stage + secret scan of the staged diff');
   git(clone, 'add', '-A');
@@ -290,6 +321,22 @@ function selfCheck(): void {
     assert.equal(pickTagRun([old, rerunOld], 'bbb', push), undefined, 'run of the same SHA before the push not picked');
     assert.equal(pickTagRun([old, rerunOld, cur], 'bbb', push), 3, 'current run picked');
     assert.equal(pickTagRun([cur, old], 'bbb', push + 30_000), 3, 'clock skew tolerated');
+  }
+  { // public-strip.json: edit, remove (itself too), a stale rule and a banned hit stop the sync, no list = nothing to do
+    const d = mkdtempSync(join(tmpdir(), 'ts3-strip-check-'));
+    try {
+      const put = (cfg: object) => { writeFileSync(join(d, 'a.ts'), 'keep\nhook();\n'); writeFileSync(join(d, 'b.ts'), 'x'); mkdirSync(join(d, 'tools'), { recursive: true }); writeFileSync(join(d, 'tools/public-strip.json'), JSON.stringify(cfg)); };
+      const cfg = { remove: ['b.ts', 'tools/public-strip.json'], banned: 'hook', edits: [{ file: 'a.ts', replace: [['^hook.*\n', '']] }] };
+      assert.deepEqual(publicStrip(d), [], 'no list');
+      put(cfg);
+      assert.deepEqual(publicStrip(d), ['a.ts'], 'edited files');
+      assert.equal(readFileSync(join(d, 'a.ts'), 'utf8'), 'keep\n', 'hook line gone');
+      assert.ok(!existsSync(join(d, 'b.ts')) && !existsSync(join(d, 'tools/public-strip.json')), 'files removed');
+      put({ ...cfg, edits: [{ file: 'a.ts', replace: [['^gone', '']] }] });
+      assert.throws(() => publicStrip(d), /matched nothing/, 'stale rule refused');
+      put({ ...cfg, edits: [] });
+      assert.throws(() => publicStrip(d), /banned text left in:\s+a\.ts/, 'banned hit refused');
+    } finally { rmSync(d, { recursive: true, force: true }); }
   }
   assert.equal(leftovers(`${pc}`).length, 1, 'leftover found');
   assert.ok(!isText(Buffer.from([65, 0, 66])) && isText(Buffer.from('abc')), 'binary detection');

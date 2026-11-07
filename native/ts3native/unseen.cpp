@@ -79,7 +79,20 @@ static bool UtHeldObj(const void* obj) {
 }
 static DWORD g_unSimTid;                // the thread that runs Locomotion_Update (learned at the first agent)
 static struct { float pos[3], tgt[3], reach; bool ok; LARGE_INTEGER at; } g_unCam;  // sim thread only
+static const float kUfWideReachM = 240.0f, kUfSimRadiusM = 3.0f;  // wide camera = all seen (unseenfb.cpp); a Sim's sphere, as ts3fixes' kUfSimRadiusM
 static void* g_unLast[512];  // last class per agent (hash slot): agent pointer, class in bit 0
+// docs/197 §7 [RouteAsync] KdCutCamRecheck: the sim's camera for the route worker, which may not call the game. Seqlock, odd = being
+// written; a second writer skips (the next refresh publishes). No EA work here: it rides on the refreshes the passes already do.
+struct KdCamSnap { float pos[3], tgt[3], reach; LONGLONG at; };
+static volatile LONG g_kdCamSeq;
+static KdCamSnap g_kdCam;
+static void KdCamPublish(const float* pos, const float* tgt, float reach, LONGLONG at) {
+    const LONG s = g_kdCamSeq;
+    if ((s & 1) || InterlockedCompareExchange(&g_kdCamSeq, s + 1, s) != s) return;
+    memcpy(g_kdCam.pos, pos, 12), memcpy(g_kdCam.tgt, tgt, 12);
+    g_kdCam.reach = reach, g_kdCam.at = at;
+    InterlockedExchange(&g_kdCamSeq, s + 2);
+}
 enum { UN_STEER, UN_AVOID, UN_FOOT, UN_OTHER };
 
 // visible (0) or unseen (1) for a world position, given the on-screen answer; no camera = visible (never "unseen" by error)
@@ -108,6 +121,7 @@ static void UnRefreshCameraBody() {
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
     if (!g_unCam.ok) InterlockedIncrement(&ts3native_counters.unCamFail);
     QueryPerformanceCounter(&g_unCam.at);
+    if (g_unCam.ok) KdCamPublish(g_unCam.pos, g_unCam.tgt, g_unCam.reach, g_unCam.at.QuadPart);
 }
 static void UnRefreshCamera() {
     if (!g_ucOn) { UnRefreshCameraBody(); return; }
@@ -353,7 +367,9 @@ static u8 UtViewerMsg(DWORD lo, DWORD hi) {
     Ts3nCounters& k = ts3native_counters;
     const DWORD code = (hi >> 16) & 0xFF;
     if (code == 25 || code == 26) return UtbReadyMsg(code);  // docs/227 §6 [UnseenTable]: ts3fixes may call UnseenTableNative (unseentable.cpp)
-    if (!g_utOn && !((g_asTierMs > 0 || g_aaOn || g_utbOn) && code <= 5)) return 0;  // the viewer table also feeds [AutShadow] TierMs, [UnseenAnim], [UnseenTable]
+    // the viewer table also feeds [AutShadow] TierMs, [UnseenAnim], [UnseenTable]; [UnseenAnim] reads the held table too (docs/249: refused
+    // here without [UnseenThrottle], so the shipped set, UnseenThrottle off, had an empty table and no household exemption)
+    if (!g_utOn && !((g_asTierMs > 0 || g_aaOn || g_utbOn) && code <= 5) && !(g_aaOn && code >= 12 && code <= 15)) return 0;
     if (code == 1) { g_utInOpen = true, g_utIn.n = 0, g_utInHave = 0; return 1; }
     // snap-back watch (unseen_snapback): 6 arm with the object id's low half (record cleared), 7 its high half (armed);
     // 8 bit `lo` of the record (0 armed, 1 flipped, 2 ran that same pass, 3 avoidance called, 4 avoidance ran,
@@ -372,6 +388,7 @@ static u8 UtViewerMsg(DWORD lo, DWORD hi) {
         if ((DWORD)g_utHeldIn.n != lo) { k.utViewerBad++; return 0; }
         g_utHeld = g_utHeldIn;
         g_utHeld.at = GetTickCount() ? GetTickCount() : 1;
+        k.kdAaHeldPush++, k.kdAaHeldRows = g_utHeld.n;
         return 1;
     }
     if ((code >= 6 && code <= 11) || (code >= 16 && code <= 18) || code == 24) {

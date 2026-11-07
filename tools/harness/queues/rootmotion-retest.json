@@ -1,0 +1,418 @@
+{
+  "note": "Per-switch only if final-bundle regresses (Rodney 2026-11-06, timing trim, docs/222 §11.9): not in the chain. rootmotion-retest: Rodney's R5 decision (docs/246): [UnseenRootMotion] Mode 1 again after Mono, off in the release ini since v0.2.5 (v025-speed-ab: -13% it/s), on the mono1106c pair (ts3native 0.36.173, master 000589df). Modelled on unseen-root-motion.json's *-urm-ab jobs (same ini, world saves, 10 min, 2-min slices) and v025-speed-ab-rmoff.json's question. rmMode flips at runtime (--ab unseenrm, +0x5834) once Enabled=1 Shortlist=1 install the jump, so this is in-load A/B, BP and IP, both orders, not cross-run. Job ini only: the repo ini stays [UnseenRootMotion] Enabled=0 for every other queue. Mode 1 is EA-identical (docs/246 null control): a route bar failing is a finding. Read per job and pooled: node tools/harness/arm-ms.ts rootmotion-retest (per-arm ms/s: locomotion, animPose, route, script, ms/iter), node tools/harness/hitch-ab.ts rootmotion-retest (hitches, it/s), node tools/harness/gate2-report.ts rootmotion-retest (R1-R6 only for --ab unseenrm, docs/246 §6, thresholds are judgement). Not a default-ON decision by itself. queue.ts runs the measurement smoke first. Run: node tools/harness/queue.ts tools/harness/queues/rootmotion-retest.json",
+  "smoke": {
+    "id": "smoke",
+    "note": "Measurement smoke: BP Spring 4 min, --ab unseenrm 1-min slices, Shortlist=1, Mode=0 start. Pass: per-arm split, rmMode read back per slice (0 / 1), rmReady 3, rmPasses and rmSampled > 0, rmK_* sum = rmPasses (k histogram filled), rmCallsAll > 0, rmSlPasses grows only in on slices, rmSlFallback_3 0, rmFaults ~0, heavy tools off, no crash. 6 min: rmSlMiss must stay 0 over >= 60 audits (rmSlAudit). g8_simhours_x100 > 0 (docs/246: R1, R2 read it, it needs kAutLive).",
+    "asi": "game-copy/ts3native.asi.mono1106c",
+    "save": "Baseline-BP-Spring",
+    "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+    "ini": {
+      "SlotEnabledRO.Enabled": 1,
+      "SlotEnabledRO.Mode": 1,
+      "SlotEnabledRO.Shadow": 0,
+      "UnseenThrottle.Enabled": 1,
+      "UnseenThrottle.List": 1,
+      "RouteAsync.FallbackAsync": 1,
+      "RouteAsync.M1Retry": 1,
+      "RouteAsync.SyncCapMs": 1000,
+      "RouteAsync.FbJobCapMs": 300,
+      "RouteAsync.LogFallbackMs": 20,
+      "RouteAsync.LogFallbackStack": 16,
+      "RouteAsync.TailUnlock": 1,
+      "RouteAsync.ReplanDedupe": 1,
+      "RouteAsync.H2": 1,
+      "RouteEarlyOut.Enabled": 1,
+      "RouteEarlyOut.Mode": 2,
+      "RouteEarlyOut.Act": 1,
+      "RouteEarlyOut.LogMs": 200,
+      "HitchAttr.Enabled": 1,
+      "UnseenAnim.Enabled": 1,
+      "UnseenAnim.Mode": 0,
+      "UnseenAnim.CapPasses": 4,
+      "UnseenAnim.HardCapMs": 1500,
+      "UnseenAnim.Objects": 0,
+      "UnseenAnim.ObjStats": 0,
+      "UnseenAnim.ObjMode": 0,
+      "UnseenRootMotion.Enabled": 1,
+      "UnseenRootMotion.Mode": 0,
+      "UnseenRootMotion.Shortlist": 1
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 6,
+        "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+        "ab": "unseenrm",
+        "slice": 1,
+        "fixesReport": "g8_,gohome_"
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 15,
+    "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df, kAutLive True in the package for the g8 Sim-hours of docs/246 R1, R2",
+    "earlyGates": [
+      {
+        "afterSec": 150,
+        "counter": "aaReady",
+        "op": "==",
+        "value": 3,
+        "why": "[UnseenAnim] call sites not both patched (the pass hook [UnseenRootMotion] needs)"
+      },
+      {
+        "afterSec": 150,
+        "counter": "rmReady",
+        "op": "==",
+        "value": 3,
+        "why": "[UnseenRootMotion] probe sites + shortlist jump not both in (rmReady != 3)"
+      },
+      {
+        "afterSec": 150,
+        "counter": "rmSampled",
+        "op": ">",
+        "value": 0,
+        "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
+      },
+      {
+        "afterSec": 200,
+        "counter": "rmCallsAll",
+        "op": ">",
+        "value": 0,
+        "why": "no root-motion pose call seen at 0x571D20 / 0x571DDC"
+      },
+      {
+        "afterSec": 60,
+        "counter": "rmSlMiss",
+        "op": "<=",
+        "value": 0,
+        "why": "Mode 1 shortlist audit found a root-motion actor the shortlist would skip (rmSlMiss > 0; 0.36.164 fix: last pass root-motion set; 0.36.165 fix: walk-1 rescan)"
+      },
+      {
+        "afterSec": 240,
+        "counter": "fixes:g8_simhours_x100",
+        "op": ">",
+        "value": 0,
+        "why": "no Sim-hours: docs/246 R1 and R2 would read no data"
+      }
+    ],
+    "minCounters": 159,
+    "nativeRequire": "rmSlAudit>=60,rmSlMiss<=0,rmSlW1Late>=1"
+  },
+  "jobs": [
+    {
+      "id": "bp-rmr-ab",
+      "note": "[UnseenRootMotion] Mode 1 in-load A/B on BP, 10 min, --ab unseenrm 2-min slices, off first; Shortlist=1, probe counters in both arms; release ini + HitchAttr. Read as the queue note.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500,
+        "UnseenAnim.Objects": 0,
+        "UnseenAnim.ObjStats": 0,
+        "UnseenAnim.ObjMode": 0,
+        "UnseenRootMotion.Enabled": 1,
+        "UnseenRootMotion.Mode": 0,
+        "UnseenRootMotion.Shortlist": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "unseenrm",
+          "slice": 2,
+          "noSamplers": true,
+          "fixesReport": "g8_,gohome_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df, kAutLive True in the package for the g8 Sim-hours of docs/246 R1, R2",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (the pass hook [UnseenRootMotion] needs)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + shortlist jump not both in (rmReady != 3)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmSampled",
+          "op": ">",
+          "value": 0,
+          "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
+        }
+      ],
+      "minCounters": 159
+    },
+    {
+      "id": "bp-rmr-ab-onfirst",
+      "note": "[UnseenRootMotion] Mode 1 in-load A/B on BP, 10 min, --ab unseenrm 2-min slices, on first; Shortlist=1, probe counters in both arms; release ini + HitchAttr. Read as the queue note.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500,
+        "UnseenAnim.Objects": 0,
+        "UnseenAnim.ObjStats": 0,
+        "UnseenAnim.ObjMode": 0,
+        "UnseenRootMotion.Enabled": 1,
+        "UnseenRootMotion.Mode": 0,
+        "UnseenRootMotion.Shortlist": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "unseenrm",
+          "slice": 2,
+          "abOnFirst": true,
+          "noSamplers": true,
+          "fixesReport": "g8_,gohome_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df, kAutLive True in the package for the g8 Sim-hours of docs/246 R1, R2",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (the pass hook [UnseenRootMotion] needs)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + shortlist jump not both in (rmReady != 3)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmSampled",
+          "op": ">",
+          "value": 0,
+          "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
+        }
+      ],
+      "minCounters": 159
+    },
+    {
+      "id": "ip-rmr-ab",
+      "note": "[UnseenRootMotion] Mode 1 in-load A/B on IP, 10 min, --ab unseenrm 2-min slices, off first; Shortlist=1, probe counters in both arms; release ini + HitchAttr. Read as the queue note.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500,
+        "UnseenAnim.Objects": 0,
+        "UnseenAnim.ObjStats": 0,
+        "UnseenAnim.ObjMode": 0,
+        "UnseenRootMotion.Enabled": 1,
+        "UnseenRootMotion.Mode": 0,
+        "UnseenRootMotion.Shortlist": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "unseenrm",
+          "slice": 2,
+          "noSamplers": true,
+          "fixesReport": "g8_,gohome_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df, kAutLive True in the package for the g8 Sim-hours of docs/246 R1, R2",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (the pass hook [UnseenRootMotion] needs)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + shortlist jump not both in (rmReady != 3)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmSampled",
+          "op": ">",
+          "value": 0,
+          "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
+        }
+      ],
+      "minCounters": 159
+    },
+    {
+      "id": "ip-rmr-ab-onfirst",
+      "note": "[UnseenRootMotion] Mode 1 in-load A/B on IP, 10 min, --ab unseenrm 2-min slices, on first; Shortlist=1, probe counters in both arms; release ini + HitchAttr. Read as the queue note.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "UnseenAnim.Enabled": 1,
+        "UnseenAnim.Mode": 0,
+        "UnseenAnim.CapPasses": 4,
+        "UnseenAnim.HardCapMs": 1500,
+        "UnseenAnim.Objects": 0,
+        "UnseenAnim.ObjStats": 0,
+        "UnseenAnim.ObjMode": 0,
+        "UnseenRootMotion.Enabled": 1,
+        "UnseenRootMotion.Mode": 0,
+        "UnseenRootMotion.Shortlist": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "unseenrm",
+          "slice": 2,
+          "abOnFirst": true,
+          "noSamplers": true,
+          "fixesReport": "g8_,gohome_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df, kAutLive True in the package for the g8 Sim-hours of docs/246 R1, R2",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (the pass hook [UnseenRootMotion] needs)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + shortlist jump not both in (rmReady != 3)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmSampled",
+          "op": ">",
+          "value": 0,
+          "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
+        }
+      ],
+      "minCounters": 159
+    }
+  ]
+}

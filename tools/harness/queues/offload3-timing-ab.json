@@ -1,0 +1,357 @@
+{
+  "note": "Per-switch only if final-bundle regresses (Rodney 2026-11-06, timing trim, docs/222 §11.9): not in the chain. Before any run: iniBase game-copy/asi-mono-offthread/ts3native.ini does not exist (checked 2026-11-06), queue.ts stops on it. offload3-timing-ab (audit task O4, docs/208 §8.4): ms/s per arm of the offload3 apply (env score + broadcaster candidates), in-load A/B of autoffenvapply + autoffbcastapply together, both orders on BP and IP, plus one crowd-in-view job. Timing run: autoffnoref on (answers kept unchecked, no sim-side copy at the cut), autoffdry off, Mode R reference off, Audit 0, no samplers, so the off arm still pays the worker and the on arm adds only the apply; the gain is the sim-thread time the apply saves. Per-switch split is not measurable in one load: read the env and bcast shares from the counters (481-490) and, if needed, rerun one switch alone. Model to check against: env ~7-8 ms/s, bcast ~9-10 ms/s x apply share [inferred, docs/208 §8.4]. Rules: queue.ts runs the other-CPU rule for these timing jobs (noise check, others on game CPUs >= 10% = noisy, the job reruns once as <id>-rerun and does not count) and the measurement smoke (queue-level smoke job below: per-arm split in hitch-ab.ts, heavy tools off, switch read-back) before the long run. Run only after offload3-apply-correctness passes. Decision bar: stable offload accepted at <= ~2% loss; ON by default if the gain is clear (3-5 ms/s order-consistent). The pair is a PLACEHOLDER until feature/mono-offthread's build lands in game-copy/asi-mono-offthread/. Quiet machine, close java/IDE (11-04 noise was java 9.5%).",
+  "stopQueueOnFail": true,
+  "smoke": {
+    "id": "bp-off3t-smoke",
+    "note": "Measurement smoke (5 min BP, 1-min slices): per-arm split present, apply counters rise in on slices, switch values read back.",
+    "asi": "game-copy/ts3native.asi.mono1106c",
+    "iniBase": "game-copy/asi-mono-offthread/ts3native.ini",
+    "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+    "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df with X4, docs/222 §11.8 counters, monojit-all and mintfuse-sub, ts3agent with fixed_work and focus_watch; kAutLive True in the package",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 90,
+    "ini": {
+      "HitchAttr.Enabled": 1,
+      "RouteSnap.Enabled": 1,
+      "RouteSnap.Count": 1,
+      "RouteSnap.AuditEvery": 0,
+      "MonoThread.Enabled": 1,
+      "MonoThread.Mode": 1,
+      "MonoThread.GcLock": 1,
+      "MonoThread.FrameTls": 1,
+      "MonoThread.ArenaFix": 1,
+      "MonoThread.N2mPrivate": 1,
+      "MonoThread.LazyGate": 1,
+      "AutShadow.Enabled": 1,
+      "AutShadow.Mode": 1,
+      "AutShadow.Sample": 4,
+      "AutShadow.Audit": 0,
+      "AutShadow.DumpOnMismatch": 0,
+      "AutShadow.WindowWaitUs": 0,
+      "AutShadow.ColdIc": 1,
+      "AutShadow.CutLean": 2,
+      "AutShadow.TierMs": 1500,
+      "AutShadow.ListAudit": 0,
+      "AutShadow.TierClassMs": 1000,
+      "AutShadow.RowHot": 200,
+      "AutShadow.RunSkip": 1,
+      "AutShadow.FreshEvery": 8,
+      "AutShadow.KeepPartial": 1,
+      "AutShadow.Satb": 2,
+      "MonoThread.LazyEarly": 1
+    },
+    "logRequire": {
+      "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+      "OK   mono thread P4": 1
+    },
+    "run": {
+      "profile": {
+        "minutes": 5,
+        "seed": 12345,
+        "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref",
+        "ab": "autoffenvapply,autoffbcastapply",
+        "slice": 1,
+        "noSamplers": true
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 25
+  },
+  "jobs": [
+    {
+      "id": "bp-off3t-ab",
+      "note": "BP, apply off/on/on/off (2-min slices, warm-up out). Judge: sim busy ms/s per arm (node tools/harness/sim-budget-report.ts per arm) and the env / bcast apply shares from the counters; hitches with hitch-ab.ts.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "iniBase": "game-copy/asi-mono-offthread/ts3native.ini",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df with X4, docs/222 §11.8 counters, monojit-all and mintfuse-sub, ts3agent with fixed_work and focus_watch; kAutLive True in the package",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 0,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref",
+          "ab": "autoffenvapply,autoffbcastapply",
+          "slice": 2,
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-off3t-ab-onfirst",
+      "note": "BP, the on-first half of the pair (on/off/off/on). Pool both orders.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "iniBase": "game-copy/asi-mono-offthread/ts3native.ini",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df with X4, docs/222 §11.8 counters, monojit-all and mintfuse-sub, ts3agent with fixed_work and focus_watch; kAutLive True in the package",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 0,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref",
+          "ab": "autoffenvapply,autoffbcastapply",
+          "slice": 2,
+          "noSamplers": true,
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-off3t-ab",
+      "note": "IP, off first.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "iniBase": "game-copy/asi-mono-offthread/ts3native.ini",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df with X4, docs/222 §11.8 counters, monojit-all and mintfuse-sub, ts3agent with fixed_work and focus_watch; kAutLive True in the package",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 0,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref",
+          "ab": "autoffenvapply,autoffbcastapply",
+          "slice": 2,
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-off3t-ab-onfirst",
+      "note": "IP, on first. Pool both orders.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "iniBase": "game-copy/asi-mono-offthread/ts3native.ini",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df with X4, docs/222 §11.8 counters, monojit-all and mintfuse-sub, ts3agent with fixed_work and focus_watch; kAutLive True in the package",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 0,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref",
+          "ab": "autoffenvapply,autoffbcastapply",
+          "slice": 2,
+          "noSamplers": true,
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-off3t-ab-crowd",
+      "note": "BP crowd in view (repro aut-live-crowd-view: 30 Sims, waves every 150 s), 5-min slices, off first. Offload is judged mainly on crowded visible scenes (memory offload-goal 2026-10-30).",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "iniBase": "game-copy/asi-mono-offthread/ts3native.ini",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df with X4, docs/222 §11.8 counters, monojit-all and mintfuse-sub, ts3agent with fixed_work and focus_watch; kAutLive True in the package",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 0,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 25,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref",
+          "ab": "autoffenvapply,autoffbcastapply",
+          "slice": 5,
+          "noSamplers": true,
+          "repro": "aut-live-crowd-view"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "note": "stove-wall-player: the player-view repro: selected household Sim behind a wall, Go Here click and cook order, GIFs a frame a second at x1. Correctness only, no timing. Run with --no-smoke.",
+  "jobs": [
+    {
+      "id": "stove-wall-player",
+      "asi": "game-copy/ts3native.asi.household3",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "ini": {
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DeferFootprint2": 1,
+        "Discourage.DestroyPark": 1,
+        "Discourage.DestroyParkDx": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.KdExemptSeen": 1,
+        "UnseenFallback.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "repro": "stove-wall-player-view",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25
+    }
+  ]
+}

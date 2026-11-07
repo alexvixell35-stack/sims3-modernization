@@ -58,6 +58,8 @@ struct PdSess {
     bool scLast;                   // a stuck-check last round's IC ran nested in this session (could not be exempted)
     char ent[48];
     DWORD handle;
+    bool ceil;                     // docs/197 §7: runs under KdSeenCeilMs instead of the caps below
+    LONG wouldUs;                  // that plan's old cap (us), <= 0 = none
 };
 static __declspec(thread) PdSess t_pd;
 static DWORD g_pdMinute, g_pdLinesMin;
@@ -85,14 +87,127 @@ static const char* const kKdName[KD_N] = {"own Plan", "own Replan", "own PlanFro
 static int g_kdIni;
 static const DWORD kKdWinMs = 10000, kKdStuckMs = 30000;
 static const int kKdRows = 64;
-struct KdRow { u64 id; DWORD cutTick; LONG level, pending; };  // level = cuts in a row (1 doubled, 2 uncut); pending = a cut not yet followed
+struct KdRow { u64 id; DWORD cutTick; LONG level, pending; DWORD cutH; u64 cutGoal; };  // level = cuts in a row (1 doubled, 2 uncut); pending = a cut not yet followed; cutH / cutGoal = that job (routefail retry)
 static KdRow g_kdTab[kKdRows];
 static SRWLOCK g_kdLock = SRWLOCK_INIT;
 static __declspec(thread) bool t_kdUncut;  // this job runs uncut because of its follower's backoff
+// docs/197 §7 [RouteAsync] KdExemptSeen: a job of a Sim the player can see never gets a KindDeadlines cut (player report 2026-11-07:
+// 6 of 12 active-Sim no-paths followed a cut). Scope = UfWhy: ts3fixes sends the answer per route right before START (UserDiag ops
+// 10 seen, 11 unseen or not a Sim or ts3fixes' own check, 12 plan over, lo = route handle). Unknown (no answer) = household (docs/249),
+// every kind; only a route known unseen or marked keeps its cuts. Exempt jobs and sync plans get KdSeenCeilMs instead (a
+// job with no deadline holds +0x918 as long as it runs, a sync plan freezes the sim thread). Op 13 = a seen NPC (scope 3): exempt
+// the same, but its ceiling is KdSeenNpcCeilMs. Household, unknown and no-answer scopes stay at KdSeenCeilMs.
+static __declspec(thread) LONG t_kdExemptUs;  // this job is exempt: the deadline it would have had
+static __declspec(thread) LONG t_kdJobScope;  // worker: the running job's scope, 2 = unseen
+static bool KdExempt(const AsyncJob* j) {
+    return ts3native_counters.kdExMode == 1 && ts3native_counters.kdScopeN && !j->uf && j->kdScope != 2;  // docs/249: cut only a route known unseen; no answer ever = old package: as v0.2.8
+}
+static LONG KdCeilUs(LONG scope) { return scope == 3 ? ts3native_counters.kdNpcCeilUs : ts3native_counters.kdCeilUs; }
+static DWORD g_kdScopeH;
+static LONG g_kdScope;
+// sim thread (UdTextMsg): this route's scope, good for its next START only
+static void KdScopeSet(DWORD handle, LONG scope) { g_kdScopeH = handle, g_kdScope = scope, ts3native_counters.kdScopeN++; }
+static LONG KdScopeTake(DWORD handle) {
+    const LONG s = handle && g_kdScopeH == handle ? g_kdScope : 0;
+    g_kdScopeH = 0;
+    return s;
+}
+static void KdScopeClear(DWORD handle) { if (g_kdScopeH == handle) g_kdScopeH = 0; }  // the plan is over: not an answer for a later plan
+static __declspec(thread) bool t_kdSeen, t_kdNpc;  // this sync plan's scope was known (log only); it is a seen NPC's
+// docs/197 §7 [RouteAsync] KdCutCamRecheck: a cut of a route known unseen tests its start and goals against the camera of the last sim
+// pass, because the scope was read once, at START. The worker may not call the frustum query, so this is the reach rule only, in xz:
+// never farther than the 3D distance of UfSphereUnseen, so it can only hold more than that rule. In view or no fresh snapshot = no cut:
+// the job or plan runs on to the NPC ceiling (scope 2 is never household). One test per job or plan, at its first cut; a hold is not retested.
+// Stale: 1 s, above every kind deadline (backoff doubled = 500 ms), because the sim stops publishing while it waits on the job's +0x918.
+static const LONG kKdCamStaleMs = 1000;
+static void UfCamFresh();
+static bool KdCamRead(KdCamSnap* out) {
+    for (int i = 0; i < 8; i++) {
+        const LONG s = g_kdCamSeq;
+        if (!s || (s & 1)) { YieldProcessor(); continue; }
+        _ReadWriteBarrier();
+        *out = g_kdCam;
+        _ReadWriteBarrier();
+        if (g_kdCamSeq == s) return true;
+    }
+    return false;
+}
+static bool KdCamInView(const KdCamSnap& c, const float (*p)[2], LONG n) {
+    if (c.reach >= kUfWideReachM) return true;
+    const float r = c.reach + kUfSimRadiusM;
+    for (LONG i = 0; i < n; i++)
+        for (int k = 0; k < 2; k++) {
+            const float* q = k ? c.tgt : c.pos;
+            const float dx = p[i][0] - q[0], dz = p[i][1] - q[2];
+            if (dx * dx + dz * dz < r * r) return true;
+        }
+    return false;
+}
+// shortcut: the first KD_CAM_PTS - 1 goals; a plan with more tests those only. Records: 64 bytes, x +0, z +8 (P4TieN, docs/99 §4.1)
+static void KdCamPlanArgs(const int* starts, const int* goals) {
+    LONG n = 0;
+    const u8* s = (const u8*)(uintptr_t)starts[0];
+    const u8* e = (const u8*)(uintptr_t)starts[1];
+    if (s && e >= s + 64) t_kdCamP[n][0] = *(const float*)s, t_kdCamP[n][1] = *(const float*)(s + 8), n++;
+    s = (const u8*)(uintptr_t)goals[0], e = (const u8*)(uintptr_t)goals[1];
+    for (; s && s + 64 <= e && n < KD_CAM_PTS; s += 64) t_kdCamP[n][0] = *(const float*)s, t_kdCamP[n][1] = *(const float*)(s + 8), n++;
+    t_kdCamN = n;
+}
+static void KdCamJobArm() { t_kdCam = t_fbDeadline && t_kdJobScope == 2 ? 1 : 0, t_kdCamN = 0, t_kdCamNote = 0; }
+// past a deadline (BudgetStep, PdWorkerSkip, PdSkip): false = cut as ever; true = no cut, *dl = the deadline now in force
+static bool KdCamHold(LONGLONG now, LONGLONG* dl) {
+    if (!t_kdCam) return false;
+    if (t_kdCam == 2) return *dl = t_kdCamDl, now < t_kdCamDl;
+    Ts3nCounters& k = ts3native_counters;
+    const bool act = k.kdCamMode == 1;
+    const LONGLONG t0 = t_pd.open ? t_pd.t0 : t_jobT0, ceil = t0 + (LONGLONG)k.kdNpcCeilUs * g_qpf.QuadPart / 1000000;
+    if (!t_kdCamN) {  // before the IC's first plan: no points yet, the next cut point asks again; the ceiling still holds
+        if (act && now < ceil) return true;
+        t_kdCam = 0;
+        return false;
+    }
+    t_kdCam = 0;
+    InterlockedIncrement(&k.kdCamChecks);
+    if (act && t_pd.open) UfCamFresh();  // a sync plan: the sim publishes nothing while it plans, and this is the sim
+    KdCamSnap c;
+    const bool fresh = KdCamRead(&c) && (now - c.at) * 1000 < kKdCamStaleMs * g_qpf.QuadPart;
+    if (fresh && !KdCamInView(c, t_kdCamP, t_kdCamN)) return false;
+    if (!fresh) InterlockedIncrement(&k.kdCamStale);
+    t_kdCamNote = fresh ? (act ? 1 : 3) : (act ? 2 : 4);
+    if (!act) { if (fresh) InterlockedIncrement(&k.kdCamWould); return false; }
+    if (fresh) InterlockedIncrement(&k.kdCamHeld);
+    if (now >= ceil) return false;
+    const LONG wouldUs = (LONG)((*dl - t0) * 1000000 / g_qpf.QuadPart);
+    t_kdCam = 2, t_kdCamDl = *dl = t_fbDeadline = ceil;
+    if (t_pd.open) {  // from here on it reads as an exempt plan or job: ceiling lines and would-cut records
+        t_pd.wouldUs = wouldUs, t_pd.dl = ceil, t_pd.ceil = true, t_kdNpc = true;
+    } else {
+        t_kdExemptUs = t_fbCapUs, t_fbCapUs = k.kdNpcCeilUs;
+    }
+    return true;
+}
+// sim thread: the ceiling of this sync plan, 0 = its usual caps. handle 0 = non-IC plan: the plan ts3fixes is running. Unknown = exempt
+static LONG KdSyncCeilUs(DWORD handle) {
+    const Ts3nCounters& k = ts3native_counters;
+    if (k.kdExMode != 1 || !ts3native_counters.kdScopeN || k.pdMode != 1 || t_pd.open) return 0;
+    const LONG s = g_kdScopeH && (!handle || g_kdScopeH == handle) ? g_kdScope : 0;
+    if (s == 2) return 0;
+    t_kdSeen = s != 0, t_kdNpc = s == 3;
+    return KdCeilUs(s);
+}
+// ReplanDedupe's repeat after footprint writes (docs/249): not proven exact, so only for a route known unseen
+static bool KdKnownUnseen(DWORD handle) {
+    if (ts3native_counters.kdExMode != 1 || !ts3native_counters.kdScopeN) return true;
+    return t_kdJobScope ? t_kdJobScope == 2 : g_kdScopeH == handle && g_kdScope == 2;
+}
 
 static void ReadKindDeadlines(const wchar_t* ini) {
     Ts3nCounters& k = ts3native_counters;
     g_kdIni = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KindDeadlines", 0, ini), 0, 1);
+    k.kdExMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdExemptSeen", 1, ini), 0, 1);
+    k.kdCeilUs = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdSeenCeilMs", 10000, ini), 1000, 60000) * 1000;
+    k.kdNpcCeilUs = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdSeenNpcCeilMs", 2000, ini), 1000, 60000) * 1000;
+    k.kdCamMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdCutCamRecheck", 0, ini), 0, 1);
     for (int i = 0; i < KD_N; i++) {
         const int ms = GetPrivateProfileIntW(L"RouteAsync", kKdIniKey[i], kKdDefMs[i], ini);
         k.kdUs[i] = ms > 0 ? Clamp(ms, 50, 60000) * 1000 : 0;
@@ -101,6 +216,7 @@ static void ReadKindDeadlines(const wchar_t* ini) {
         Log("route async: KindDeadlines=1 own Plan %ld Replan %ld PlanFromPoint %ld ReplanFromPosition %ld, A10 foreign %ld, foreign "
             "Plan %ld, probe %ld ms", k.kdUs[0] / 1000, k.kdUs[1] / 1000, k.kdUs[2] / 1000, k.kdUs[3] / 1000, k.kdUs[4] / 1000,
             k.kdUs[5] / 1000, k.kdUs[6] / 1000);
+    Log("route async: KdExemptSeen=%ld KdSeenCeilMs=%ld KdSeenNpcCeilMs=%ld KdCutCamRecheck=%ld", k.kdExMode, k.kdCeilUs / 1000, k.kdNpcCeilUs / 1000, k.kdCamMode);
 }
 static void KdInstalled() {  // after PdInstallAt: world A* through the cost stubs, cell A* and water through the entry stubs
     Ts3nCounters& k = ts3native_counters;
@@ -139,8 +255,20 @@ static KdRow* KdFind(u64 id, bool add) {
 // worker, before the job's IC: its deadline in us (0 = uncut), -1 = KindDeadlines off (the old rules apply)
 static LONG KdJobBegin(const AsyncJob* j) {
     Ts3nCounters& k = ts3native_counters;
-    t_kdKind = 0, t_kdUncut = false;
-    if (k.kdMode != 1 || !k.kdReady) return -1;
+    t_kdKind = 0, t_kdUncut = false, t_kdExemptUs = 0, t_kdJobScope = j->uf ? 2 : j->kdScope;
+    static LONG noScope;
+    static LONG lastExMode = -1;  // the KdExemptSeen switch flipped (native_set / --ab): one line, so a log reads by arm
+    if (InterlockedExchange(&lastExMode, k.kdExMode) != k.kdExMode) Log("route async: KdExemptSeen switch now %ld (cuts so far unknown %ld seen %ld unseen %ld, exempt %ld)", k.kdExMode, k.kdCutUnk, k.kdCutSeen, k.kdCutUnseen, k.kdExempt);
+    static LONG lastCamMode = -1;  // the same for KdCutCamRecheck
+    if (InterlockedExchange(&lastCamMode, k.kdCamMode) != k.kdCamMode) Log("route async: KdCutCamRecheck switch now %ld (checks %ld held %ld stale %ld would hold %ld)", k.kdCamMode, k.kdCamChecks, k.kdCamHeld, k.kdCamStale, k.kdCamWould);
+    if (ts3native_counters.kdExMode == 1 && !ts3native_counters.kdScopeN && !InterlockedExchange(&noScope, 1)) Log("route seen exempt: no scope answer from ts3fixes (old package?), every route cut as in v0.2.8");
+    if (k.kdMode != 1 || !k.kdReady) {  // docs/249: FbJobCapMs and the probe's PlanDeadlineMs (KindDeadlines off): the same rule
+        const LONG old = j->fb && k.fbjcMode == 1 ? k.fbjcCapUs : j->probe && !j->fb ? k.pdUs : 0;
+        if (!old || !KdExempt(j)) return -1;
+        InterlockedIncrement(&ts3native_counters.kdExempt);
+        t_kdExemptUs = old;
+        return KdCeilUs(j->kdScope);
+    }
     const int kind = KdKind(j);
     t_kdKind = kind + 1;
     if (kind != KD_PROBE && j->sc) {  // a stuck-check round without the probe mark: the last one, the only one that resets
@@ -149,6 +277,11 @@ static LONG KdJobBegin(const AsyncJob* j) {
     }
     LONG us = k.kdUs[kind];
     if (!us) return 0;
+    if (KdExempt(j)) {
+        InterlockedIncrement(&k.kdExempt);
+        t_kdExemptUs = us;
+        return KdCeilUs(j->kdScope);
+    }
     LONG level = 0;
     if (kind != KD_PROBE && j->kdId) {
         AcquireSRWLockShared(&g_kdLock);
@@ -168,6 +301,8 @@ static LONG KdJobBegin(const AsyncJob* j) {
     InterlockedIncrement(&k.kdJobs[kind]);
     return us;
 }
+struct RfRetry { bool on, same; DWORD cutH, agoMs; LONG level; };
+static __declspec(thread) RfRetry t_rfRetry;  // set under g_kdLock in KdJobEnd, logged after the job's lock is released (RfJobNote)
 // worker, after the job's IC (j->result filled): counters, the follower's backoff row and the outcome of an earlier cut
 static void KdJobEnd(const AsyncJob* j, bool capped, LONG us, LONGLONG end, LONGLONG dl) {
     Ts3nCounters& k = ts3native_counters;
@@ -177,6 +312,7 @@ static void KdJobEnd(const AsyncJob* j, bool capped, LONG us, LONGLONG end, LONG
     if (us >= 300000) InterlockedIncrement(&k.kdLong[kind]);
     if (capped) {
         InterlockedIncrement(&k.kdCut[kind]);
+        InterlockedIncrement(t_kdJobScope == 2 ? &k.kdCutUnseen : t_kdJobScope == 1 ? &k.kdCutSeen : t_kdJobScope == 3 ? &k.kdCutNpc : &k.kdCutUnk);  // per-arm proof of the scope rule (docs/249)
         if (ok) InterlockedIncrement(&k.kdCutOk);
         const LONGLONG late = dl && end > dl ? (end - dl) * 1000000 / g_qpf.QuadPart : 0;
         Max(&k.kdLateMaxUs, late > 0x7FFFFFFF ? 0x7FFFFFFF : (LONG)late);
@@ -190,11 +326,14 @@ static void KdJobEnd(const AsyncJob* j, bool capped, LONG us, LONGLONG end, LONG
         if (r->pending && fresh) {
             InterlockedIncrement(ok ? &k.kdAfterOk : &k.kdAfterFail);
             if (ok && t_kdUncut) InterlockedIncrement(&k.kdUncutOk);
+            t_rfRetry.on = true, t_rfRetry.cutH = r->cutH, t_rfRetry.level = r->level, t_rfRetry.agoMs = now - r->cutTick;
+            t_rfRetry.same = r->cutGoal == j->rfGoal;
         }
         if (capped) {
             r->level = fresh && r->level ? (r->level >= 2 ? 2 : r->level + 1) : 1;
             r->cutTick = now;
             r->pending = 1;
+            r->cutH = j->handle, r->cutGoal = j->rfGoal;
         } else {
             r->pending = 0;
             if (ok) r->level = 0;  // a success ends the backoff
@@ -202,6 +341,124 @@ static void KdJobEnd(const AsyncJob* j, bool capped, LONG us, LONGLONG end, LONG
     }
     ReleaseSRWLockExclusive(&g_kdLock);
 }
+// docs/197 §7 routefail logging: the destinations hash of a route (ReplanDedupe's walk, replandedupe.cpp), 0 = no route or none set
+static u64 RfGoal(DWORD handle) {
+    __try {
+        const u8* rm = *g_orRmSlot;
+        const u8* route = rm && handle ? g_orRoute(rm, NULL, handle) : NULL;
+        const u8* ds = route ? *(const u8* const*)(route + 0x144) : NULL;
+        if (!ds) return 0;
+        u64 g = 0xCBF29CE484222325ull;
+        const u8* head = ds + 0x18;
+        const u8* n = *(const u8* const*)head;
+        for (int i = 0; n && n != head && i < 16; i++, n = *(const u8* const*)n)
+            for (int w = 0; w < 16; w++) g = Fnv(g, ((const DWORD*)(n - 4))[w]);
+        return g;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
+
+// One record per finished job, read back by the route id when a ts3fixes "routefail:" / "gohere" line names it, so the line carries
+// the job's fields itself. "routefail job:" lines cover the Sims ts3fixes does not log (no active household): failed or cut jobs.
+// Not marked unseen = never dropped; unseen 30 a minute. Worker writes under g_rfLock, sim thread reads; off the job's +0x918.
+struct RfRec {
+    DWORD h, seq;
+    LONG us, planUs, hostUs, capAtUs, tailUs, capUs, wouldUs, nodes, plans, res, kdKind, uf, scope, cutMask;
+    const char* why;  // the cut's owner, NULL = uncut
+    u64 follower;
+};
+static const int kRfN = 64;
+static RfRec g_rfJobs[kRfN];
+static LONG g_rfNext;
+static SRWLOCK g_rfLock = SRWLOCK_INIT;
+static void RfText(const RfRec& r, char* b, size_t n) {
+    char dl[48];
+    if (r.why) sprintf_s(dl, "cut (%s, mask %ld)", r.why, r.cutMask);
+    else if (r.wouldUs) sprintf_s(dl, "uncut (exempt)");
+    else sprintf_s(dl, "uncut");
+    _snprintf_s(b, n, _TRUNCATE, ", job seq %lu %ld ms result %ld, %s, kind %s deadline %ld ms, follower %016I64X, plan %ld host %ld other %ld ms, "
+                "capAt %ld tail %ld ms, nodes %ld in %ld plans, %s", r.seq, r.us / 1000, r.res, dl, r.kdKind ? kKdName[r.kdKind - 1] : "off",
+                (r.capUs ? r.capUs : r.wouldUs) / 1000, r.follower, r.planUs / 1000, r.hostUs / 1000, (r.us - r.planUs - r.hostUs) / 1000,
+                r.capAtUs < 0 ? -1 : r.capAtUs / 1000, r.tailUs < 0 ? -1 : r.tailUs / 1000, r.nodes, r.plans,
+                r.uf || r.scope == 2 ? "unseen" : r.scope == 3 ? "seen npc" : r.scope == 1 ? "seen" : "scope unknown");
+}
+// "KD NPC CEILING CUT" lines, 30 a minute; a lost race between the worker and the sim costs a line at most
+static bool KdNpcLineOk() {
+    static DWORD minute;
+    static LONG lines;
+    const DWORD now = GetTickCount();
+    if (now - minute >= 60000) minute = now, lines = 0;
+    return lines++ < 30;
+}
+// after the job or plan, off the cut path (the cut holds +0x918): how the recheck answered
+static void KdCamNoteLog(DWORD h, const char* t) {
+    static const char* const kWhy[] = {"", "held, in view", "held, stale snapshot", "would hold, in view (switch off)", "would hold, stale snapshot (switch off)"};
+    const LONG w = t_kdCamNote;
+    t_kdCamNote = 0;
+    if (KdNpcLineOk()) Log("kd cam recheck: route %08lX %s%s", h, kWhy[w], t);
+}
+static bool RfLineOk(bool unseen) {  // worker only
+    static LONG total;
+    if (total >= 50000) return false;  // disk guard only
+    if (unseen) {
+        static DWORD minute;
+        static LONG lines;
+        const DWORD now = GetTickCount();
+        if (now - minute >= 60000) minute = now, lines = 0;
+        if (lines++ >= 30) return false;
+    }
+    total++;
+    return true;
+}
+// worker, after the job's lock is released, before J_DONE
+static void RfJobNote(const AsyncJob* j, bool capped, LONG us, const JobSplit& s, LONG capUs, int cutMask) {
+    RfRec r = {};
+    r.h = j->handle, r.seq = j->seq, r.us = us, r.planUs = s.planUs, r.hostUs = s.hostUs, r.capAtUs = s.capAtUs, r.tailUs = s.tailUs;
+    r.capUs = capUs, r.wouldUs = t_kdExemptUs, r.nodes = t_jobNodes, r.plans = t_jobPlans, r.res = *(const LONG*)j->result;
+    r.kdKind = t_kdKind, r.uf = j->uf, r.scope = j->kdScope, r.cutMask = cutMask, r.follower = j->kdId;
+    r.why = !capped ? NULL : t_kdExemptUs ? "KdSeenCeilMs" : j->uf ? "UnseenFallback" : t_kdKind ? "KindDeadlines" : j->probe ? "PlanDeadlineMs" : "FbJobCapMs";
+    AcquireSRWLockExclusive(&g_rfLock);
+    g_rfJobs[g_rfNext++ % kRfN] = r;
+    ReleaseSRWLockExclusive(&g_rfLock);
+    const bool unseen = r.uf || r.scope == 2;
+    char t[320];
+    RfText(r, t, sizeof(t));
+    if (t_kdExemptUs) Max(&ts3native_counters.kdExemptMaxUs, us);
+    if (t_kdExemptUs && us >= t_kdExemptUs) {
+        InterlockedIncrement(&ts3native_counters.kdWouldCut);
+        Log("kd exempt: would cut route %08lX%s", r.h, t);  // the job's length is the hitch cost
+    }
+    if (t_kdExemptUs && capped) {
+        InterlockedIncrement(&ts3native_counters.kdCeilCut);
+        if (r.scope >= 2 || r.uf) {  // scope 2 / uf: held by KdCutCamRecheck
+            InterlockedIncrement(&ts3native_counters.kdCeilNpc);
+            if (KdNpcLineOk()) Log("KD NPC CEILING CUT: route %08lX sim %016I64X kind %s, %ld ms%s", r.h, r.follower, r.kdKind ? kKdName[r.kdKind - 1] : "off", us / 1000, t);
+        } else Log("KD CEILING CUT: route %08lX%s", r.h, t);
+    }
+    if ((r.res != 1 || capped) && RfLineOk(unseen)) Log("routefail job: route %08lX%s", r.h, t);
+    if (t_rfRetry.on) {
+        t_rfRetry.on = false;
+        if (RfLineOk(unseen)) Log("routefail retry: route %08lX after cut route %08lX %lu ms ago, request %s, backoff level %ld, %s%s", r.h, t_rfRetry.cutH,
+                                  t_rfRetry.agoMs, t_rfRetry.same ? "same" : "changed", t_rfRetry.level, r.res == 1 ? "succeeded" : "failed", t);
+    }
+    if (t_kdCamNote) KdCamNoteLog(r.h, t);
+    t_kdExemptUs = 0;
+}
+// sim thread: the fields of the newest job of the route a ts3fixes line names (", route XXXXXXXX"); nothing for a sync plan
+static void RfAppend(const char* line, char* out, size_t n) {
+    out[0] = 0;
+    const char* p = strstr(line, ", route ");
+    if (!p || strstr(line, " sync ")) return;
+    const DWORD h = strtoul(p + 8, NULL, 16);
+    RfRec r = {};
+    AcquireSRWLockShared(&g_rfLock);
+    for (LONG i = g_rfNext - 1; i >= 0 && i >= g_rfNext - kRfN; i--)
+        if (g_rfJobs[i % kRfN].h == h) { r = g_rfJobs[i % kRfN]; break; }
+    ReleaseSRWLockShared(&g_rfLock);
+    if (r.h) RfText(r, out, n);
+}
+
 // sim thread, every stuck-check mark (ScProbeMark): its follower had a job cut within 30 s
 static void KdStuckMark(DWORD handle) {
     if (ts3native_counters.kdMode != 1) return;
@@ -224,9 +481,9 @@ static void KdLogCounters() {
         n += w;
     }
     Log("route kind deadlines: mode %ld; jobs/cut/>=300 ms by kind: %s; late max %ld ms, cut ok %ld; backoff doubled %ld uncut %ld; "
-        "after a cut ok %ld fail %ld (uncut ok %ld), stuck checks %ld; stuck-check last round exempt %ld",
+        "after a cut ok %ld fail %ld (uncut ok %ld), stuck checks %ld; stuck-check last round exempt %ld; seen exempt mode %ld plans %ld would cut %ld max %ld ms ceiling cuts %ld, scope answers %ld, repeats planned %ld, anim held %ld (pose calls in %ld seen %ld parented %ld no class %ld, tables %ld rows %ld); cuts by scope unknown %ld seen %ld unseen %ld npc %ld; npc ceiling %ld ms cuts %ld; camera recheck mode %ld checks %ld held %ld stale %ld would hold %ld",
         c.kdMode, b, c.kdLateMaxUs / 1000, c.kdCutOk, c.kdBackoff[0], c.kdBackoff[1], c.kdAfterOk, c.kdAfterFail, c.kdUncutOk,
-        c.kdAfterStuckCheck, c.kdExemptSc);
+        c.kdAfterStuckCheck, c.kdExemptSc, c.kdExMode, c.kdExempt, c.kdWouldCut, c.kdExemptMaxUs / 1000, c.kdCeilCut, c.kdScopeN, c.kdRdHeld, c.kdAaHeld, c.kdAaHeldIn, c.kdAaHeldSeen, c.kdAaHeldPar, c.kdAaHeldNoClass, c.kdAaHeldPush, c.kdAaHeldRows, c.kdCutUnk, c.kdCutSeen, c.kdCutUnseen, c.kdCutNpc, c.kdNpcCeilUs / 1000, c.kdCeilNpc, c.kdCamMode, c.kdCamChecks, c.kdCamHeld, c.kdCamStale, c.kdCamWould);
 }
 
 static void ReadPlanDeadline(const wchar_t* ini) {
@@ -249,6 +506,11 @@ static void ReadPlanDeadline(const wchar_t* ini) {
 
 static LONGLONG PdNow() { LARGE_INTEGER q; QueryPerformanceCounter(&q); return q.QuadPart; }
 
+// sim thread, a session just opened: a known unseen plan's first cut asks the camera. handle 0 = non-IC plan: the plan ts3fixes runs
+static void KdCamSyncArm(DWORD handle) {
+    t_kdCam = !t_pd.ceil && (t_ufSess || (g_kdScopeH && (!handle || g_kdScopeH == handle) && g_kdScope == 2)) ? 1 : 0, t_kdCamN = 0, t_kdCamNote = 0;
+}
+
 static void PdOpen(int entry, LONG us) {
     PdSess& s = t_pd;
     memset(&s, 0, sizeof(s));
@@ -263,6 +525,29 @@ static void PdOpen(int entry, LONG us) {
     InterlockedIncrement(&ts3native_counters.pdSessions[entry]);
 }
 
+// docs/197 §7, a sync plan under the ceiling ended: what its old cap would have done, and the loud line at the ceiling
+static void KdCeilClose(const PdSess& s, LONGLONG now, bool ok) {
+    Ts3nCounters& k = ts3native_counters;
+    const LONG us = (LONG)((now - s.t0) * 1000000 / g_qpf.QuadPart);
+    InterlockedIncrement(&k.kdExempt);
+    Max(&k.kdExemptMaxUs, us);
+    const char* res = ok ? "succeeded" : "failed";
+    const char* scope = t_kdSeen ? "seen" : "scope unknown";
+    if (s.wouldUs > 0 && us >= s.wouldUs) {
+        InterlockedIncrement(&k.kdWouldCut);
+        Log("kd exempt: would cut sync route %08lX, %ld ms %s, cap %ld ms, entry %s, %s", s.handle, us / 1000, res, s.wouldUs / 1000, s.ent, scope);
+    }
+    if (now < s.dl) return;
+    InterlockedIncrement(&k.kdCeilCut);
+    if (t_kdNpc) {
+        InterlockedIncrement(&k.kdCeilNpc);
+        if (KdNpcLineOk()) Log("KD NPC CEILING CUT: sync route %08lX sim %016I64X kind sync, %ld ms %s, entry %s", s.handle, KdFollower(s.handle), us / 1000, res, s.ent);
+        return;
+    }
+    Log("KD CEILING CUT: sync route %08lX follower %016I64X, %ld ms %s, ceiling %ld ms, entry %s, %s; world A* capped %ld, cell skipped %ld, water skipped %ld", s.handle,
+        KdFollower(s.handle), us / 1000, res, k.kdCeilUs / 1000, s.ent, scope, s.capped, s.skip[0], s.skip[1]);
+}
+
 // ok = the plan's own result: succeeded
 static void PdClose(bool ok) {
     Ts3nCounters& k = ts3native_counters;
@@ -271,6 +556,9 @@ static void PdClose(bool ok) {
     t_fbDeadline = s.savedDl;
     InterlockedExchange((volatile LONG*)&g_pdTid, 0);
     s.open = false;
+    t_kdCam = 0;
+    if (t_kdCamNote) KdCamNoteLog(s.handle, "");
+    if (s.ceil) KdCeilClose(s, now, ok);
     if (s.scLast && (s.capped || s.skip[0] || s.skip[1])) InterlockedIncrement(&k.pdCutSc);
     t_pdHitLast = now >= s.dl;  // docs/202 (UfSyncEnd)
     if (now < s.dl) return;
@@ -313,13 +601,18 @@ static void PdIcBegin(LONG us, int kind, int why, const char* entry, DWORD handl
     PdOpen(0, us);
     sprintf_s(t_pd.ent, "IC %s/%s/%s", kArIcName[kind & 3], kRfbName[why], entry);
     t_pd.handle = handle;
+    t_pd.ceil = t_kdCeil != 0, t_pd.wouldUs = t_kdCeil;
+    KdCamSyncArm(handle);
 }
 static void PdIcEnd(const u8* out) { if (t_pd.open && t_pd.entry == 0) PdClose(*(const DWORD*)out == 1); }  // type 1 = succeeded
 
 static bool PdPlanBegin() {
     const Ts3nCounters& k = ts3native_counters;
     if (k.pdMode != 1 || !k.pdUs || t_pd.open || t_pdNoCut || !RgIsSim(GetCurrentThreadId())) return false;
-    PdOpen(1, k.pdUs);
+    const LONG ceil = KdSyncCeilUs(0);
+    PdOpen(1, ceil ? ceil : k.pdUs);
+    if (ceil) t_pd.ceil = true, t_pd.wouldUs = k.pdUs, t_pd.handle = g_kdScopeH;
+    else KdCamSyncArm(0);
     return true;
 }
 static void PdPlanEnd(u8 r) { if (t_pd.open && t_pd.entry == 1) PdClose(r != 0); }
@@ -338,7 +631,7 @@ static int PdWorkerSkip(int which) {
     Ts3nCounters& k = ts3native_counters;
     if ((k.fbjdMode != 1 && !t_scProbe && !t_kdKind && !t_ufJob) || !t_fbDeadline || GetCurrentThreadId() != g_pdWkTid || !(g_pdSkipMask >> which & 1)) return 0;
     const LONGLONG now = PdNow();
-    if (now < t_fbDeadline) return 0;
+    if (now < t_fbDeadline || KdCamHold(now, &t_fbDeadline)) return 0;
     if (t_jobT0 && !t_jobCapAt) t_jobCapAt = now;
     t_fbjdCut[1 + which]++;
     if (!t_scProbe && !t_kdKind && !t_ufJob) InterlockedIncrement(&k.fbjdSkip[which]);  // docs/163 §10: probe cuts show in the job's long-job line only
@@ -348,7 +641,9 @@ static int PdWorkerSkip(int which) {
 static int __cdecl PdSkip(int which) {
     PdSess& s = t_pd;
     if (!s.open) return PdWorkerSkip(which);
-    if ((ts3native_counters.pdMode != 1 && !t_ufSess) || !(g_pdSkipMask >> which & 1) || PdNow() < s.dl) return 0;  // docs/202: t_ufSess
+    if ((ts3native_counters.pdMode != 1 && !t_ufSess) || !(g_pdSkipMask >> which & 1)) return 0;  // docs/202: t_ufSess
+    const LONGLONG now = PdNow();
+    if (now < s.dl || KdCamHold(now, &s.dl)) return 0;
     s.skip[which]++;
     InterlockedIncrement(which ? &ts3native_counters.pdSkipWater : &ts3native_counters.pdSkipCell);
     return 1;

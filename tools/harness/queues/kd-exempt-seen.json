@@ -1,0 +1,65 @@
+{
+  "note": "docs/197 §7 [RouteAsync] KdExemptSeen (ts3native 0.36.183, counters v165 kdEx*; build this branch, park as game-copy/ts3native.asi.kdexempt, ts3fixes from this branch). DRAFT, NOT RUN. One correctness job, exempt on vs off in one load, no timing claim.",
+  "jobs": [
+    {
+      "id": "sv-kdexempt-loop",
+      "note": "Correctness, forced ABBA on kd-exempt-seen-gohere: selected Sim Go Here far, KdOwnPlanMs=50 forces cuts, the loop flips kdExMode. Pass: no crash, 0 watchdog lines, kdCut_0 >= 1 (off arms), kdExempt and kdWouldCut >= 1 (on arms). A job that never crosses 50 ms proves nothing: N/A, pick a longer route.",
+      "asi": "game-copy/ts3native.asi.kdexempt2",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "kdReady>=1,kdCut_0>=1,kdExempt>=1,kdWouldCut>=1,watchdogs<=0",
+      "logRequire": {
+        "ts3native 0.36.183": 1,
+        "kd exempt: would cut": 1
+      },
+      "ini": {
+        "RouteAsync.KindDeadlines": 1,
+        "RouteAsync.KdOwnPlanMs": 50,
+        "RouteAsync.KdExemptSeen": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "repro": "kd-exempt-seen-gohere",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25
+    },
+    {
+      "id": "sv-kdexempt-sync-loop",
+      "note": "Correctness, forced ABBA on kd-exempt-seen-sync: PlanDeadlineMs=50 and FallbackAsync=0 keep the plan sync and cut it; the loop flips kdExMode, kdceilus 100 ms in the arm. Pass: no crash, 0 watchdog lines, pdHit >= 1 (off arms), kdExempt, kdWouldCut, kdCeilCut >= 1 (on arms). No plan past 50 ms: N/A, pick a longer route.",
+      "asi": "game-copy/ts3native.asi.kdexempt2",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "kdReady>=1,pdHit>=1,kdExempt>=1,kdWouldCut>=1,kdCeilCut>=1,watchdogs<=0",
+      "logRequire": {
+        "ts3native 0.36.183": 1,
+        "kd exempt: would cut sync route": 1,
+        "KD CEILING CUT": 1
+      },
+      "ini": {
+        "RouteAsync.KindDeadlines": 1,
+        "RouteAsync.PlanDeadlineMs": 50,
+        "RouteAsync.FallbackAsync": 0,
+        "RouteAsync.KdExemptSeen": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "repro": "kd-exempt-seen-sync",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25
+    }
+  ]
+}

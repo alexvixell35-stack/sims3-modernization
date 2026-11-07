@@ -393,19 +393,29 @@ namespace Ts3Agent
         // turns seen while that pick is still queued. No tag yet or the Sim is gone: camera unchanged, found false.
         // key: another AppDomain tag, e.g. "ts3fixes.unseenroute.tagged" (docs/202 §3.9: the Sim of the last relaxed hold) or a
         // point tag (float[3] x, y, z), e.g. "ts3fixes.unseenroute.goal" (that hold's goal: the goal turns seen, the Sim does not).
+        // sim: this Sim instead of a tag (docs/197 §7: a seen NPC on demand). delayMs: the step returns at once and the camera jumps
+        // later, so the next step can start a slow route job and the jump lands inside it.
         static object CameraToTagged(Args a)
         {
             RequireLive();
             Dictionary<string, object> r = Util.Obj();
             object d = AppDomain.CurrentDomain.GetData(a.Has("key") ? a.Str("key") : "ts3fixes.autunseen.tagged");
             ulong id = d is ulong ? (ulong)d : 0UL;
-            Sim s = id != 0UL ? GameObject.GetObject(new ObjectGuid(id)) as Sim : null;
+            Sim s = a.Has("sim") ? Util.FindSim(a, "sim") : id != 0UL ? GameObject.GetObject(new ObjectGuid(id)) as Sim : null;
             float[] pt = d as float[];
             r["found"] = (s != null && !s.HasBeenDestroyed) || (pt != null && pt.Length == 3);
             if (!(bool)r["found"]) return r;
             float h = (float)a.Double("height", 12), back = (float)a.Double("back", 12);
             Vector3 t = s != null ? s.Position : new Vector3(pt[0], pt[1], pt[2]);
-            CameraController.SetPositionAndTarget(new Vector3(t.x, t.y + h, t.z - back), t);
+            int delayMs = (int)a.Double("delayMs", 0);
+            if (delayMs > 0)
+                Simulator.AddObject(new Sims3.Gameplay.OneShotFunctionTask(delegate
+                {
+                    int t0 = System.Environment.TickCount;
+                    while (System.Environment.TickCount - t0 < delayMs) Simulator.Sleep(0);
+                    CameraController.SetPositionAndTarget(new Vector3(t.x, t.y + h, t.z - back), t);
+                }));
+            else CameraController.SetPositionAndTarget(new Vector3(t.x, t.y + h, t.z - back), t);
             if (s != null) r["sim"] = s.FullName;
             r["target"] = Pos(t);
             return r;

@@ -1,0 +1,288 @@
+{
+  "note": "hitch-fix-verify: pair hitchfix1 (docs/247 §11.9 ranks 1, 2, 4 and the logging fix). Correctness and attribution, no timing bars, no quiet window. Install game-copy/ts3agent.package.hitchfix1 first (unseenboat_ms). kUnseenBoat stays off in the package: only ip-uboat-verify turns the switch on. ForeignKinds stays off in the shipped ini: only ip-foreign-natural-correct sets it.",
+  "jobs": [
+    {
+      "id": "ip-uboat-verify",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "fixesPackage": "game-copy/ts3fixes.package.hitchfix1",
+      "releaseDefaults": true,
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "hitchfix1 pair (asi + fixes + agent, builds.json): bugfix/hitch-fixes-1106 on master cc1459c8, ts3native 0.36.177, kHitchCauseHooks True in the package, kWildflowerTask True, kUnseenBoat False",
+      "save": "Baseline-IP-Spring",
+      "ini": {
+        "UnseenGhost.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "RouteAsync.LogFallbackMs": 20
+      },
+      "note": "Natural IP 20 min, unseenboat on, boatreplanlog on for unseenboat_ms: UbCore.Follows through *Orig, swim test, VisitLot. Pass: no crash, unseenboat_shortcuts>=5; then verify-shortcut.ts --name unseenboat. Read rj_route (was 544 of 572), unseenboat_ms, boatreplan: class unseen share. No timing read.",
+      "noiseCheck": false,
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseenboat_candidates",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen trip classified as crossing or houseboat: PlanBackoff call, EnablePlanningAsBoat or the flood colours not as read"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesReport": "unseenboat,boatreplan_,hitchcause_",
+          "minutes": 20,
+          "fixesOn": "unseenboat,boatreplanlog",
+          "fixesRequire": "unseenboat_shortcuts>=5"
+        }
+      },
+      "timeoutMin": 40
+    },
+    {
+      "id": "bp-wildflower-verify",
+      "note": "BP spring 12 min, natural, kWildflowerTask on by default in the package (docs/247 §11.2). Read: wildflower_fires, _placed, _failed, _maxms, _saveaborts, wildflower_log, alarmtime: Wildflower ms against 923, worst hitch against 937 wall. No timing bar: attribution only.",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.hitchfix1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "wildflower_,alarmtime_,hitchcause_",
+          "fixesRequire": "wildflower_fires>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "pinReason": "hitchfix1 pair (asi + fixes + agent, builds.json): bugfix/hitch-fixes-1106 on master cc1459c8, ts3native 0.36.177, kHitchCauseHooks True in the package, kWildflowerTask True, kUnseenBoat False",
+      "earlyGates": [
+        {
+          "afterSec": 120,
+          "counter": "fixes:alarmtime_timed",
+          "op": ">",
+          "value": 0,
+          "why": "no alarm timed: HcTimerHook not on the path, or alarmtime off"
+        }
+      ],
+      "minCounters": 912,
+      "noiseCheck": false
+    },
+    {
+      "id": "ip-foreign-natural-correct",
+      "note": "IP natural 5 min, correctness, no timing read. docs/247 §11.6: KdA10ForeignMs=1000 (= SyncCapMs) on this job only: at 200 a natural 848 m boat replan failed NoPath. ForeignKindsMode=1 all run. Read with hitch-cause-report.ts: async and failed boatreplan: lines, capped (KindDeadlines) lines, stuck Sims in boats. Any failed route with the Sim in the boat stops the 4 timing jobs.",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.hitchfix1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1,
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 1000
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_,a10foreign_",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 15,
+      "pinReason": "hitchfix1 pair (asi + fixes + agent, builds.json): bugfix/hitch-fixes-1106 on master cc1459c8, ts3native 0.36.177, kHitchCauseHooks True in the package, kWildflowerTask True, kUnseenBoat False",
+      "earlyGates": [
+        {
+          "afterSec": 120,
+          "counter": "fixes:alarmtime_timed",
+          "op": ">",
+          "value": 0,
+          "why": "no alarm timed: HcTimerHook not on the path, or alarmtime off"
+        },
+        {
+          "afterSec": 240,
+          "counter": "fixes:boatreplan_lines",
+          "op": ">",
+          "value": 0,
+          "why": "no boatreplan line on IP in 4 min: HcBoatBegin or HcBoatEnd not reached, or boatreplanlog off"
+        }
+      ],
+      "minCounters": 912,
+      "noiseCheck": false
+    },
+    {
+      "id": "sv-hitchfix-smoke",
+      "note": "SV smoke 10 min: pair loads and plays on the third world, no crash, cause lines reach the log past the shared 400 (owreset:, alarmtime:).",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "save": "Baseline-SV-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.hitchfix1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "hitchfix1 pair (asi + fixes + agent, builds.json): bugfix/hitch-fixes-1106 on master cc1459c8, ts3native 0.36.177, kHitchCauseHooks True in the package, kWildflowerTask True, kUnseenBoat False",
+      "earlyGates": [
+        {
+          "afterSec": 120,
+          "counter": "fixes:alarmtime_timed",
+          "op": ">",
+          "value": 0,
+          "why": "no alarm timed: HcTimerHook not on the path, or alarmtime off"
+        }
+      ],
+      "minCounters": 912,
+      "noiseCheck": false
+    },
+    {
+      "id": "bp-wildflower-save-abort",
+      "note": "docs/110 §7.3 repro, never run: a save during drain fires with kWildflowerTask on. Backs the static read that no save stores the pending flower (docs/247 §11.2). Read wildflower_saveaborts, wildflower_log, no out-of-world flower after the save. Added beyond the brief: drop if not wanted.",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.hitchfix1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true,
+          "repro": "wildflower-save-abort",
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "wildflower_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 15,
+      "pinReason": "hitchfix1 pair (asi + fixes + agent, builds.json): bugfix/hitch-fixes-1106 on master cc1459c8, ts3native 0.36.177, kHitchCauseHooks True in the package, kWildflowerTask True, kUnseenBoat False",
+      "earlyGates": [
+        {
+          "afterSec": 120,
+          "counter": "fixes:alarmtime_timed",
+          "op": ">",
+          "value": 0,
+          "why": "no alarm timed: HcTimerHook not on the path, or alarmtime off"
+        }
+      ],
+      "minCounters": 912,
+      "noiseCheck": false
+    }
+  ]
+}

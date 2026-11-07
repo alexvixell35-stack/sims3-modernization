@@ -24,6 +24,7 @@ A child of the active household cannot do the scouting social "Show Off Badges" 
 Lines go to `ts3native.log` through the [UserDiag] channel; 30 a minute, 400 a session at most.
 
 - `routefail: <Sim> 0x<desc id> <age> active, <interaction type>, <Plan|Replan|PlanFromPoint|ReplanFromPoint> <async|sync> <result> blocker <type>, goal x,y,z, at x,y,z, lot 0x.. room N, N ms`: every failed plan of an active-household Sim. `DoRoute false plan <result> blocker <type> [exit <reason>]` for a failed DoRoute (the balloon).
+- Since docs/242 the DoRoute and jig placement hooks are gone (logging only, they refused saved Sims): `routefail:` has plan lines only, `showoff:` has plan lines and `route end ok|false` for the repro's two Sims.
 - `showoff: ...` the same fields for every plan, jig placement (`jig placed|NOT placed at x,y,z (d m from <adult> <age> room N), route-to-B plan <result>`) and DoRoute of a Sim inside `DoShowOffMove`, also on success, so one attempt reads as: Plan (PlanToPoint) -> jig -> Plan (RouteToJigA) -> DoRoute.
 - `async` = the plan waited on a ts3native job (AsyncWait ran); `sync` = no START or START refused. An async failed plan of about 250 ms or more next to a native `capped (KindDeadlines)` line = suspect 2.
 

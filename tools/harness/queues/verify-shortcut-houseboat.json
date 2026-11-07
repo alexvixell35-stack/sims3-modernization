@@ -1,0 +1,101 @@
+{
+  "note": "Houseboat starts (docs/248 §10), verify rule: short, enough tries, no A/B, correctness only, --no-smoke. Install game-copy/ts3agent.package.hbstart1 first. Job 1 natural Baseline-IP-Spring (rj_unknown ran 270 in 20 min, so 15 tries in 15 min leaves room for refusals). Job 2 the other IP save if job 1 falls short: only IP has houseboats, so another world means another IP save [inferred from the saves in repros.json]. Job 3 the forced repro. Pass: shortcuts >= 15 natural or >= 3 forced, left_dirty 0, 0 stuck among moved Sims, houseboats moved none, no crash. Read unseenboat_log rows 'houseboat start: ...' for the refusal split and the 'placed' rows for docked, at sea, no gangway.",
+  "jobs": [
+    {
+      "asi": "game-copy/ts3native.asi.gcstreak1107",
+      "fixesPackage": "game-copy/ts3fixes.package.hbstart1",
+      "releaseDefaults": true,
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "hbstart1 pair (gcstreak1107 asi + fixes + agent, builds.json): feature/unseenboat-houseboat-start on master 41cfcd23, no native change, ts3native 0.36.181, kHitchCauseHooks True in the package, kUnseenBoat and kUnseenBoatStart False, the switches go on at runtime",
+      "ini": {
+        "UnseenGhost.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "RouteAsync.LogFallbackMs": 20
+      },
+      "noiseCheck": false,
+      "id": "ip-ubstart-verify",
+      "save": "Baseline-IP-Spring",
+      "note": "Natural IP, verify-shortcut.ts, tries 15, 15 min",
+      "run": {
+        "script": [
+          "verify-shortcut.ts",
+          "--name",
+          "unseenboatstart",
+          "--on",
+          "unseenboat,unseenboatstart,boatreplanlog",
+          "--tries",
+          "15",
+          "--minutes",
+          "15"
+        ]
+      },
+      "timeoutMin": 30
+    },
+    {
+      "asi": "game-copy/ts3native.asi.gcstreak1107",
+      "fixesPackage": "game-copy/ts3fixes.package.hbstart1",
+      "releaseDefaults": true,
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "hbstart1 pair (gcstreak1107 asi + fixes + agent, builds.json): feature/unseenboat-houseboat-start on master 41cfcd23, no native change, ts3native 0.36.181, kHitchCauseHooks True in the package, kUnseenBoat and kUnseenBoatStart False, the switches go on at runtime",
+      "ini": {
+        "UnseenGhost.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "RouteAsync.LogFallbackMs": 20
+      },
+      "noiseCheck": false,
+      "id": "ip-ubstart-verify-b",
+      "save": "Baseline-IP",
+      "note": "Same on the other IP save, in case job 1 falls short of tries (skip with --from ip-ubstart-repro when it passed)",
+      "run": {
+        "script": [
+          "verify-shortcut.ts",
+          "--name",
+          "unseenboatstart",
+          "--on",
+          "unseenboat,unseenboatstart,boatreplanlog",
+          "--tries",
+          "15",
+          "--minutes",
+          "15"
+        ]
+      },
+      "timeoutMin": 30
+    },
+    {
+      "asi": "game-copy/ts3native.asi.gcstreak1107",
+      "fixesPackage": "game-copy/ts3fixes.package.hbstart1",
+      "releaseDefaults": true,
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "hbstart1 pair (gcstreak1107 asi + fixes + agent, builds.json): feature/unseenboat-houseboat-start on master 41cfcd23, no native change, ts3native 0.36.181, kHitchCauseHooks True in the package, kUnseenBoat and kUnseenBoatStart False, the switches go on at runtime",
+      "ini": {
+        "UnseenGhost.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "RouteAsync.LogFallbackMs": 20
+      },
+      "noiseCheck": false,
+      "id": "ip-ubstart-repro",
+      "save": "Baseline-IP-Spring",
+      "note": "Forced repro ip-houseboat-leave-loop: residents go home, then leave. Counters in the row, houseboats.json moved none, stuck.json",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesReport": "unseenboat,boatreplan_",
+          "minutes": 12,
+          "fixesRequire": "unseenboatstart_shortcuts>=3,unseenboatstart_left_dirty<=0",
+          "repro": "ip-houseboat-leave-loop"
+        }
+      },
+      "timeoutMin": 25
+    }
+  ]
+}

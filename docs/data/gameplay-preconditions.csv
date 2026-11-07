@@ -87,9 +87,11 @@ fresh_world,FreshWorld,MainMenu;Live,New Game with a premade household,natural,n
 crowd_do,RareHandlers,Live,none: one pie-menu click per Sim; 30-50 Sims queue one interaction on one object in one tick,stress,spawn_sims Sims (and the household),handler + R-VOL-1,live
 crowd_go,RareHandlers,Live,none: one Go Here per click; 30-50 Sims to one point in one tick,stress,spawn_sims Sims (and the household),handler + R-VOL-1,live
 crowd_visit_lot,RareHandlers,Live,none: one Visit Lot per Sim; 30-50 townies start the same lot trip in one tick,stress,spawn_sims Sims,handler + R-VOL-1,live
+houseboat_leave,RareHandlers,Live,none: one Visit Lot per townie on a houseboat; all start the same lot trip in one tick,stress,townies on a houseboat lot,handler + R-VOL-1,live
 compat_visit,ReproHandlers,Live,lot pie menu: Visit or a mod's Visit With (picker: one Sim along),natural,active Sim; mod installed,handler + docs/TESTING.md compat evidence,live
 compat_visit_status,ReproHandlers,Live,none (read only),harness,compat_visit first,handler,none
 sim_gone_watch,ReproHandlers,Live,none (harness listener and read),harness,on:true inside the world,handler,none
+sim_gone_load,SimGoneLoad,Any,none (harness listener and read),harness,arm:true at the main menu before the load,handler,none
 kill_sim,RareHandlers,Live,none (no vanilla kill command; MasterController-style),cheat,template death role (docs/171 §12),handler + R-LIFE-6,live
 zombies,RareHandlers,Live,none: full-moon zombies come from the game's 20% roll per night (Supernatural),stress,EP Supernatural,handler + R-EP-2,live
 spawn_traffic,RareHandlers,Live,none (more cars than the game spawns),stress,,handler,live
@@ -135,6 +137,7 @@ thumbnails,ReproHandlers,Any,none (thumbnail cache churn),stress,,handler,none
 outfit_change,ReproHandlers,Live,Change Into... (one Sim at a time),stress,up to 6 Sims at once without the spin,handler + R-VOL-1,live
 pet_guard,ReproHandlers,Any,none (harness guard),harness,,handler,live
 wildflower_drain,ReproHandlers,Live,none (probe),harness,,handler,live
+gc_streak_force,GcStreakHandlers,Live,none (probe),harness,,handler,live
 strand_crowd,RouteFreezeHandlers,Live,none,stress,,handler,live
 stuck_check_fire,RouteFreezeHandlers,Live,none (fires the stuck check now),stress,,handler,live
 crowd_unreachable,RouteFreezeHandlers,Live,none,stress,,handler,live
@@ -197,3 +200,18 @@ et_move_lot,StartPathHandlers,Live;EditTown,Edit Town: Move lot tool > pick a lo
 posture_chain_check,HitchReproHandlers,Any,none (read: Sims whose posture chain loops; issue #89),harness,,handler,none
 camera_to_tagged,ContentHandlers,Live,none (test setup: camera onto a tagged Sim or point; a player moves the camera by hand),stress,,handler,live
 fenced_place,RouteFreezeHandlers,Live,none (test setup: places Sims on a fenced spot),stress,,handler,live
+focus_watch,FocusHandlers,Live,moving the camera onto a Sim and following it (map view click or pan),natural,,handler + R-MODE-6,live
+focus_result,FocusHandlers,Any,none (read),harness,,handler,none
+focus_summary,FocusHandlers,Any,none (read),harness,,handler,none
+fixed_work,FixedWorkHandlers,Any,none (harness: fixed managed loop timed for --ab; no game state),harness,,handler,none
+stove_wall_setup,StoveWallHandlers,Live,Build Mode: a stove and fridge and counter and a trash can on the home lot (or the lot own stove),cheat,home lot; no wall between Sim spot and slot is an error,handler,live
+stove_wall_probe,StoveWallHandlers,Live,none (the Sim is put on its spot; plans only; nothing walks),cheat,after stove_wall_setup,handler,live
+stove_wall_cook,StoveWallHandlers,Live,the stove Have/Bake menu entry for a user-directed Sim (Sim put on its spot first),cheat,after stove_wall_setup,handler,live
+stove_wall_end,StoveWallHandlers,Live,none (reads where the bake got to),harness,after stove_wall_cook,handler,live
+footprint_nudge,ControlHandlers,Live,none (an object of the lot moves 2 cm and back; a world write for repros),cheat,active Sim on a lot with objects,handler,live
+stove_wall_place,StoveWallHandlers,Live,none (the selected Sim is put on its spot),cheat,after stove_wall_setup,handler,live
+stove_wall_goto,StoveWallHandlers,Live,Go Here click on the floor in front of the stove,natural,selected household Sim; user-directed,handler + R-HH-4,live
+stove_wall_camera,StoveWallHandlers,Live,moving the camera onto the Sim and the stove,natural,after stove_wall_setup,handler + R-MODE-6,live
+stove_wall_status,StoveWallHandlers,Live,none (reads the Sim distance to the stove),harness,after stove_wall_setup,handler,live
+clock_hour,StoveWallHandlers,Live,none (the sim clock is advanced to an hour for a daylight GIF),cheat,live mode,handler,live
+build_layout,LayoutHandlers,Live;Build;Buy,"a player building: walls, floor, door and roof in Build mode, objects in Buy mode, Go Here for the Sim",natural,"starts in live mode on the active home lot; polled with result; enough funds; sells objects only inside the area",handler,none

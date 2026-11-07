@@ -214,6 +214,17 @@ static class UnseenFbTest
         Check(!UnseenFallbackCore.SeenButMovable(UnseenFallbackCore.kHousehold) && !UnseenFallbackCore.SeenButMovable(UnseenFallbackCore.kHeld)
             && !UnseenFallbackCore.SeenButMovable(UnseenFallbackCore.kNotLive) && !UnseenFallbackCore.SeenButMovable(UnseenFallbackCore.kSocialSeen)
             && !UnseenFallbackCore.SeenButMovable(0), "household, held, social, not live, unseen: never a D-leave");
+        Check(UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kActiveLot) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kOnScreen) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kNearViewers)
+            && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kHeld) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kSocialSeen), "seen NPC ceiling: the five proving reasons");
+        Check(!UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kHousehold) && !UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kNotLive) && !UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kGone)
+            && !UnseenFallbackCore.SeenNpc(-1) && !UnseenFallbackCore.SeenNpc(0) && !UnseenFallbackCore.SeenNpc(10), "household, not live, gone, failed check, unseen, unknown values: never the NPC ceiling");
+        // docs/197 §7 goalhhexempt: seen NPC ceiling, no D-leave, a failed check exempts, the first reason wins
+        Check(UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kGoalHousehold) && !UnseenFallbackCore.SeenButMovable(UnseenFallbackCore.kGoalHousehold), "goal household: seen NPC scope, never a D-leave");
+        Check(UnseenFallbackCore.GoalReason(true, false, false, false) == UnseenFallbackCore.kGoalNone, "nothing household: stays unseen");
+        Check(UnseenFallbackCore.GoalReason(true, true, true, true) == UnseenFallbackCore.kGoalLot && UnseenFallbackCore.GoalReason(true, false, true, true) == UnseenFallbackCore.kGoalTarget
+            && UnseenFallbackCore.GoalReason(true, false, false, true) == UnseenFallbackCore.kGoalWanted, "lot, then target, then wanted");
+        Check(UnseenFallbackCore.GoalReason(false, false, false, false) == UnseenFallbackCore.kGoalFailed && UnseenFallbackCore.GoalReason(false, true, false, false) == UnseenFallbackCore.kGoalFailed, "failed check exempts");
+        Check(UnseenFallbackCore.kGoalCounter + UnseenFallbackCore.kGoalLot == 862 && UnseenFallbackCore.kGoalCounter + UnseenFallbackCore.kGoalFailed == 865, "counter slots fixes-862");
         Check(UfPreCore.HandOffSteps(15f) == 0 && UfPreCore.HandOffSteps(20f) == 1 && UfPreCore.HandOffSteps(40f) == 3, "hand-off step count");
         int n = UfPreCore.HandOffSteps(100f);
         Check(UfPreCore.HandOffAt(0) == UfPreCore.kHandOffGapM && UfPreCore.HandOffAt(n - 1) <= 100f - UfPreCore.kHandOffGapM
@@ -227,6 +238,46 @@ static class UnseenFbTest
         Check(UfPreCore.TripScanAssembly("StudentUnionLibrary", "ts3fixes") && !UfPreCore.TripScanAssembly("ts3fixes", "ts3fixes")
             && !UfPreCore.TripScanAssembly("Sims3GameplaySystems", "ts3fixes") && !UfPreCore.TripScanAssembly("mscorlib", "ts3fixes")
             && !UfPreCore.TripScanAssembly(null, "ts3fixes"), "scan mod assemblies only");
+
+        // docs/248 unseen boat trips (UbCore)
+        Check(UbCore.Unseen(UnseenFallbackCore.kHeld) && UbCore.Unseen(UnseenFallbackCore.kSeen) && !UbCore.Unseen(UnseenFallbackCore.kOnScreen) && !UbCore.Unseen(UnseenFallbackCore.kNearViewers), "boat: no reason or held = unseen, a camera reason = seen");
+        Check(UbCore.Trip(false, -1, false) == UbCore.kTransport, "boat: another land component is a crossing");
+        Check(UbCore.Trip(false, 0, false) == UbCore.kExact && UbCore.Trip(false, 1, false) == UbCore.kExact, "boat: unknown or same land stays exact");
+        Check(UbCore.Trip(true, 0, false) == UbCore.kHouseboat, "boat: a houseboat goal needs no colour");
+        Check(UbCore.Trip(true, -1, true) == UbCore.kExact && UbCore.Trip(false, -1, true) == UbCore.kExact, "boat: same lot stays exact");
+        Check(UbCore.Trip(false, 1, false, true) == UbCore.kTransport && UbCore.Trip(true, 1, false, true) == UbCore.kHouseboat && UbCore.Trip(false, 1, true, true) == UbCore.kExact && UbCore.Trip(false, 0, false, false) == UbCore.kExact, "boat: leaving a houseboat needs no colour, its own lot stays exact, switch off stays exact");
+        Check(UbCore.LeaveWhy(true, false, false, false) == null && UbCore.LeaveWhy(false, false, false, false) == "no houseboat" && UbCore.LeaveWhy(true, true, false, false) == "boat moving"
+            && UbCore.LeaveWhy(true, false, true, false) == "driver" && UbCore.LeaveWhy(true, false, false, true) == "start:household lot", "boat: leaving: a moving boat, its driver and the player's boat are refused by name");
+        Check(UbCore.LeaveReason(true, "seen") == "houseboat start: seen" && UbCore.LeaveReason(false, "seen") == "seen", "boat: houseboat starts have their own reason rows");
+        Check(UbCore.FarEnough(UbCore.kMinTripM) && !UbCore.FarEnough(UbCore.kMinTripM - 1f), "boat: short trips stay exact");
+        Check(UbCore.Denied("Sims3.Gameplay.Objects.Vehicles.WindSurfboard+Sail") && UbCore.Denied("X.GoFishing") && UbCore.Denied("X.BoatTour") && !UbCore.Denied("Sims3.Gameplay.Autonomy.VisitCommunityLot"), "boat: interactions about the water stay exact");
+        const string ubRun = "Ts3Fixes.Fixes+VclSubHook0.Run", ubLot = "Sims3.Gameplay.Core.Lot.";
+        Check(UbCore.Follows(new[] { ubRun, "x" }) && UbCore.Follows(new[] { ubLot + "PlanToLotEx", "Sims3.Gameplay.Core.GoToCommunityLot.Run" })
+            && UbCore.Follows(new[] { "Sims3.Gameplay.Abstracts.RabbitHole.RouteOutside" }), "boat: lot trips and rabbit holes follow their route");
+        Check(UbCore.Follows(new[] { ubLot + "RouteToDoor", ubLot + "RouteToDoor", ubLot + "RouteToFrontDoor", ubRun }) && UbCore.Follows(new[] { ubLot + "PlanRouteIntoLot", "Ts3Fixes.Fixes+GoHomeHook.Run" }), "boat: a trip through the Lot helpers");
+        // docs/247 §11.3 live stack shapes: a hooked Run has its stub between the Lot helper and the hook
+        Check(UbCore.Follows(new[] { ubLot + "PlanRouteIntoLot", "Sims3.Gameplay.Core.GoHome.RunOrig", "Ts3Fixes.Fixes+GoHomeHook.Run" }), "boat: Go Home through the hook's stub");
+        Check(UbCore.Follows(new[] { "Sims3.Gameplay.Objects.LynMods.StudentUnionLibrary.VisitCommunityLotLabLecture.RunOrig", "Ts3Fixes.Fixes+VclSubHook0.Run" })
+            && UbCore.Follows(new[] { ubLot + "PlanToLotEx", "Sims3.Gameplay.Core.GoToLot.RunOrig", "Ts3Fixes.Fixes+GoToLotHook.Run" })
+            && UbCore.Follows(new[] { ubLot + "PlanToLotEx", "Sims3.Gameplay.Core.GoToCommunityLot.RunOrig", "Ts3Fixes.Fixes+GoToCommunityLotHook.Run" })
+            && UbCore.Follows(new[] { ubLot + "PlanToLotEx", "Sims3.Gameplay.Core.VisitCommunityLot.RunOrig", "Ts3Fixes.Fixes+VisitCommunityLotHook.Run" }), "boat: lot visits through their stubs");
+        Check(UbCore.Follows(new[] { ubLot + "PlanToMailbox", ubLot + "RouteToMailbox", "Sims3.Gameplay.Core.VisitLot.RunOrig", "Ts3Fixes.Fixes+VisitLotHook.Run" })
+            && UbCore.Follows(new[] { ubLot + "PlanToLotEx", "Sims3.Gameplay.Core.VisitLot.Run" }), "boat: VisitLot follows its route");
+        Check(!UbCore.Follows(new[] { ubLot + "RouteToDoor" }) && !UbCore.Follows(new[] { ubLot + "RouteToDoor", "Sims3.Gameplay.Objects.Mailbox.RunOrig", "Ts3Fixes.Fixes+MailboxHook.Run" })
+            && !UbCore.Follows(new[] { "Sims3.Gameplay.Core.GoHome.RunOrig" }) && !UbCore.Follows(new[] { "Sims3.Gameplay.Core.Terrain+GoHere.RunOrig", "Ts3Fixes.Fixes+GoHereHook.Run" })
+            && !UbCore.Follows(new[] { "Sims3.Gameplay.Core.Terrain+GoHereWithHoldingInteraction.RunOrig", "Ts3Fixes.Fixes+GoHereHook.Run" }), "boat: the frame above decides, Go Here and Meet Up stay exact");
+        Check(UbCore.Follows(new[] { "Sims3.Gameplay.ObjectComponents.RoutingComponent.RouteToPoint", "x" }) && UbCore.Follows(new[] { ubLot + "PlanToLot", "Sims3.Gameplay.ObjectComponents.RoutingComponent.RouteToLot" }), "boat: D's helpers still follow");
+        Check(!UbCore.Follows(new[] { ubLot + "RouteToDoor", "Sims3.Gameplay.Objects.Mailbox.Run" }) && !UbCore.Follows(new[] { ubLot + "PlanToLotEx" }) && !UbCore.Follows(new string[0])
+            && !UbCore.Follows(new[] { "Sims3.Gameplay.Actors.Sim.IsPointInLotSafelyRoutable", ubRun }) && !UbCore.Follows(new[] { "Sims3.Gameplay.Core.Terrain+GoHere.RouteActorToDestination" }), "boat: plan-only callers refused");
+        Check(UbCore.ReplanUnseen(UnseenFallbackCore.kHeld, true) && UbCore.ReplanUnseen(UnseenFallbackCore.kSeen, true) && !UbCore.ReplanUnseen(UnseenFallbackCore.kHeld, false)
+            && !UbCore.ReplanUnseen(UnseenFallbackCore.kOnScreen, true) && !UbCore.ReplanUnseen(-1, true), "boat: a held Sim out of view is an unseen replan");
+        Check(UbCore.WaterPosture("SwimmingInPool") && UbCore.WaterPosture("ScubaDiving") && UbCore.WaterPosture("PondAndOceanRoutingPosture") && !UbCore.WaterPosture("Standing") && !UbCore.WaterPosture(null), "boat: start test is the posture");
+        UbReasonMs ubMs = new UbReasonMs();
+        ubMs.Add("caller a", 100); ubMs.Add(null, 5); ubMs.Add("caller a", 50);
+        Check(ubMs.Lines().Count == 2 && (string)ubMs.Lines()[0] == "caller a | 2 replans, 150 ms" && (string)ubMs.Lines()[1] == UbReasonMs.kNoTrip + " | 1 replans, 5 ms", "boat: ms sum per reason, most first");
+        for (int i = 0; i < 200; i++) ubMs.Add("caller " + i, 1);
+        Check(ubMs.Lines().Count == UbReasonMs.kMaxRows, "boat: reason rows capped, the rest under one row");
+        Check(UbCore.HoldMinutes(1000f) >= UbCore.HoldMinutes(200f) && UbCore.HoldMinutes(1e6f) <= UfPreCore.kMaxHoldMin, "boat: wait grows with the trip, capped");
 
         // docs/202 §3.4.2 finish the walk (UfFinishCore)
         Check(UfFinishCore.HoldMinutes(0f) == 0f && UfFinishCore.HoldMinutes(-3f) == 0f && UfFinishCore.HoldMinutes(float.NaN) == 0f, "finish: no length = finish at once");

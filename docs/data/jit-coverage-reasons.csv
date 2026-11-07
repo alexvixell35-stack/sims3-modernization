@@ -1,0 +1,8 @@
+method,sha8,il_offset,side,reason
+"Enumerator.MoveNext","72432ed9","IL_0019","fall","Dead: SortedList`2+Enumerator.invalid is only written in Clone, from another enumerator's field, so it is never true [verified: every stfld of the field in System.dll]."
+"Enumerator.MoveNext","c53c2efe","IL_0019","fall","Dead: SortedList+Enumerator.invalid is only written in Clone, from another enumerator's field, so it is never true [verified: every stfld of the field in mscorlib.dll]."
+"CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags","4854bf41","IL_00a4","fall","Dead: the value is flags & 0xCF00 (multiples of 0x100) and the range tests before this beq leave only 0x500 [verified: IL]."
+"CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags","4854bf41","IL_00ca","fall","Dead: same binary search, the range tests leave only 0x700 [verified: IL]."
+"CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags","4854bf41","IL_00f3","fall","Dead: same binary search, the range tests leave only 0xA00 [verified: IL]."
+"CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags","4854bf41","IL_0122","fall","Dead: same binary search, the range tests leave only 0xC00 [verified: IL]."
+"CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags","4854bf41","IL_014b","fall","Dead: same binary search, the range tests leave only 0xF00 [verified: IL]."

@@ -7,7 +7,7 @@ namespace Ts3Fixes
     {
         // docs/202 §2: the first failing test of the scope rule, 0 = unseen (act). Order = the doc's table, so counters and
         // logs name the cheapest reason first.
-        public const int kSeen = 0, kNotLive = 1, kGone = 2, kHousehold = 3, kActiveLot = 4, kOnScreen = 5, kNearViewers = 6, kHeld = 7, kSocialSeen = 8;
+        public const int kSeen = 0, kNotLive = 1, kGone = 2, kHousehold = 3, kActiveLot = 4, kOnScreen = 5, kNearViewers = 6, kHeld = 7, kSocialSeen = 8, kGoalHousehold = 9;  // 9: from UfGoalWhy only, never Why or UfWhy
         public static int Why(bool live, bool exists, bool household, bool activeLot, bool onScreen, bool far, bool held, bool targetSeen)
         {
             if (!live) return kNotLive;
@@ -23,6 +23,18 @@ namespace Ts3Fixes
         // D-leave (docs/202 §3.6): a Sim the player sees only through the camera (on the camera's / household's lot, on screen,
         // near a viewer) may start a split route; the household, held Sims, Sims with a seen social partner and out-of-live never
         public static bool SeenButMovable(int why) { return why == kActiveLot || why == kOnScreen || why == kNearViewers; }
+
+        // docs/197 §7 KdSeenNpcCeilMs: the reasons that prove a known NPC the player sees. Household, not live, gone, -1 (a failed
+        // check) and anything else stay on the household ceiling.
+        public static bool SeenNpc(int why) { return why >= kActiveLot && why <= kGoalHousehold; }
+
+        // docs/197 §7 goalhhexempt: why an unseen NPC's route works for the household. A check that did not finish exempts (ok false).
+        // Each reason counts in ts3fixes slot kGoalCounter + reason.
+        public const int kGoalNone = 0, kGoalLot = 1, kGoalTarget = 2, kGoalWanted = 3, kGoalFailed = 4, kGoalCounter = 861;
+        public static int GoalReason(bool ok, bool onLot, bool targetHousehold, bool wantedByHousehold)
+        {
+            return !ok ? kGoalFailed : onLot ? kGoalLot : targetHousehold ? kGoalTarget : wantedByHousehold ? kGoalWanted : kGoalNone;
+        }
 
         // Issue #89: a Sim's posture chain (PreviousPosture) is a few postures deep; one that does not end within kPostureChainCap
         // steps is a loop (EA's set_Posture on a pop) or otherwise broken. ChainStepOk(n) for the n-th posture walked (1-based).
@@ -366,6 +378,115 @@ namespace Ts3Fixes
         {
             if (!nativeHeld || !sameAction || !stillOk) return kGiveUp;
             return now >= until ? kFinish : kKeep;
+        }
+    }
+
+    // docs/248 unseen boat shortcut (UnseenBoat.cs, switch unseenboat): pure rules, offline-tested
+    // docs/248 unseen boat trips: what a trip is, from the route and its goal
+    public static class UbCore
+    {
+        public const float kMinTripM = 40f;
+        public const int kExact = 0, kTransport = 1, kHouseboat = 2;
+        // UfWhy answer of a Sim in a boat: 0, or kHeld (the boat is a Vehicle), which UfWhyBody returns only after every camera test passed
+        public static bool Unseen(int why) { return why == UnseenFallbackCore.kSeen || why == UnseenFallbackCore.kHeld; }
+        // a boat replan's class: UbCountReplan and the boatreplan: line (docs/247 §11.1: the line used to test why == 0, so every Sim in a boat logged seen)
+        public static bool ReplanUnseen(int simWhy, bool boatUnseen) { return Unseen(simWhy) && boatUnseen; }
+        // real water at the start (docs/247 §11.3): the start height refused dry raised spots of room 0. Names, so the offline test needs no game types
+        static readonly string[] kWaterPostures = { "SwimmingInPool", "ScubaDiving", "PondAndOceanRoutingPosture" };
+        public static bool WaterPosture(string postureType) { return System.Array.IndexOf(kWaterPostures, postureType) >= 0; }
+        public static bool FarEnough(float distM) { return distM >= kMinTripM; }
+
+        // colours: UfSameComponent, -1 = another land component, the only proof that the water must be crossed. Unknown stays exact
+        public static int Trip(bool houseboatGoal, int colours, bool sameLot) { return Trip(houseboatGoal, colours, sameLot, false); }
+        // leaving a houseboat (unseenboatstart): its lot has no land colour, and every way off it is a crossing or a gangway the Sim skips
+        public static int Trip(bool houseboatGoal, int colours, bool sameLot, bool leavingHouseboat)
+        {
+            if (sameLot) return kExact;
+            if (houseboatGoal) return kHouseboat;
+            return leavingHouseboat || colours < 0 ? kTransport : kExact;
+        }
+
+        // why a Sim may not leave this houseboat now; null = it may. Docked or at sea both pass, with or without a gangway: the placement needs no route off.
+        // Under way the Sim would keep its seasickness alarm [verified, decompiled], a driver ends the boat's route
+        public static string LeaveWhy(bool hasBoat, bool moving, bool driver, bool activeHome)
+        {
+            if (!hasBoat) return "no houseboat";
+            if (moving) return "boat moving";
+            if (driver) return "driver";
+            return activeHome ? "start:household lot" : null;
+        }
+        // the unseenboat_log and unseenboat_ms row of a Sim starting on a houseboat
+        public static string LeaveReason(bool leaving, string why) { return leaving ? "houseboat start: " + why : why; }
+
+        // the finish deny list, plus interactions whose point is the water itself
+        static readonly string[] kDenyWater = { "Boat", "Waterski", "Surf", "Sail", "Fish", "Scuba" };
+        public static bool Denied(string fullTypeName)
+        {
+            if (UfFinishCore.Denied(fullTypeName)) return true;
+            foreach (string k in kDenyWater) if (fullTypeName.Contains(k)) return true;
+            return false;
+        }
+
+        public static float HoldMinutes(float distM) { return UfPreCore.TravelMinutes(distM, true); }
+
+        // The plan's caller follows the route. D's helpers (UfPreCore.FollowsRoute) are not how a Sim crosses the water: lot trips and
+        // rabbit holes plan in their own bodies, so D's rule refused the crossings (2026-11-06 run: rj_route = candidates). Bodies read
+        // [verified, decompiled]: they plan, then DoRoute(WithFollowers) that route. Hook frames are how those bodies show on the stack
+        // when patched; VclSubHook* is a mod's override of VisitCommunityLot.Run, a copy of it [inferred, no source here].
+        // GoHere is left out: UfPreCore.Denied refuses it in UfPreSim. VisitLot.Run plans with doRoute false, then DoRouteWithFollowers
+        // that route [verified, decompiled]; UbAlone reads its private followers, the goal verdict stays in UbGate.
+        static readonly string[] kFollowers = { "Sims3.Gameplay.Core.GoHome.Run", "Sims3.Gameplay.Core.GoToLot.Run", "Sims3.Gameplay.Core.GoToCommunityLot.Run",
+            "Sims3.Gameplay.Core.VisitCommunityLot.Run", "Sims3.Gameplay.Core.VisitLot.Run", "Sims3.Gameplay.Abstracts.RabbitHole.RouteOutside", "Ts3Fixes.Fixes+GoHomeHook.Run", "Ts3Fixes.Fixes+GoToLotHook.Run",
+            "Ts3Fixes.Fixes+GoToCommunityLotHook.Run", "Ts3Fixes.Fixes+VisitCommunityLotHook.Run", "Ts3Fixes.Fixes+VisitLotHook.Run", "Ts3Fixes.Fixes+VclSubHook0.Run", "Ts3Fixes.Fixes+VclSubHook1.Run", "Ts3Fixes.Fixes+VclSubHook2.Run" };
+        // Lot helpers between a trip's Run and the plan; each plans once [verified, decompiled]. No proof alone: RouteToDoor with doRoute
+        // false only hands the route back, so the frame above them decides
+        static readonly string[] kLotHelpers = { "PlanToLot", "PlanToLotEx", "PlanRouteIntoLot", "RouteToDoor", "RouteToFrontDoor", "RouteToFrontDoorOrMailbox", "RouteToMailbox", "PlanToMailbox" };
+        const string kLot = "Sims3.Gameplay.Core.Lot.";
+        static bool LotHelper(string frame)
+        {
+            if (frame == null || !frame.StartsWith(kLot)) return false;
+            return System.Array.IndexOf(kLotHelpers, frame.Substring(kLot.Length)) >= 0;
+        }
+        // a hook's stub shows as "GameType.RunOrig" between a Lot helper and the hook's own frame (docs/247 §11.3): the frame above decides
+        static bool OrigStub(string frame) { return frame != null && frame.EndsWith("Orig", System.StringComparison.Ordinal); }
+        // frames: "FullType.Method" from the plan's caller up
+        public static bool Follows(IList<string> frames)
+        {
+            int i = 0;
+            while (i < frames.Count && (LotHelper(frames[i]) || OrigStub(frames[i]))) i++;
+            if (i >= frames.Count) return false;
+            return System.Array.IndexOf(kFollowers, frames[i]) >= 0 || UfPreCore.FollowsRoute(frames[i], i + 1 < frames.Count ? frames[i + 1] : null);
+        }
+    }
+
+    // docs/247 §11.3: boat replan ms per refusal reason of the Sim's last trip. Reasons hold caller names, so the row count is capped
+    public sealed class UbReasonMs
+    {
+        public const int kMaxRows = 64;
+        public const string kNoTrip = "no refusal", kOther = "other reasons";
+        readonly Dictionary<string, long[]> mRows = new Dictionary<string, long[]>();
+
+        public void Add(string why, uint ms)
+        {
+            string k = why ?? kNoTrip;
+            long[] r;
+            if (!mRows.TryGetValue(k, out r))
+            {
+                if (mRows.Count >= kMaxRows - 1) k = kOther;
+                if (!mRows.TryGetValue(k, out r)) mRows[k] = r = new long[2];
+            }
+            r[0]++;
+            r[1] += ms;
+        }
+
+        // most ms first; object rows, as the agent's other lists
+        public List<object> Lines()
+        {
+            List<KeyValuePair<string, long[]>> rows = new List<KeyValuePair<string, long[]>>(mRows);
+            rows.Sort(delegate(KeyValuePair<string, long[]> a, KeyValuePair<string, long[]> b) { return b.Value[1].CompareTo(a.Value[1]); });
+            List<object> o = new List<object>(rows.Count);
+            foreach (KeyValuePair<string, long[]> r in rows) o.Add(r.Key + " | " + r.Value[0] + " replans, " + r.Value[1] + " ms");
+            return o;
         }
     }
 

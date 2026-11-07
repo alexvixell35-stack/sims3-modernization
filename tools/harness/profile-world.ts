@@ -44,6 +44,7 @@
 // (its terrain call runs on the sim thread).
 // --vres: callvirt inline-cache snapshots through the probe agent's /vcache every 60 s, union in <tag>-vres.json (docs/133,
 // tools/virtual-resolution-report.ts); the stack samplers are skipped. --vres-dry N: the same with N methods per snapshot.
+// --svcsplit: frame-times.js times the states inside SimService_Update, frames.csv svcTop,svcTopMs (docs/247 §9).
 // --no-samplers: skip the stack samplers without any other probe (docs/133 §5: the int3-only bisect job matches bp-vres).
 // --no-prof: no stutter profiler session (no <tag>-<secs>-* files). queue.ts sets it for [ProbeSnap] jobs: a second Frida
 // agent injecting while the int3 sampler storms the sim thread with breakpoints crashed the game in that agent's exception
@@ -67,7 +68,7 @@
 // and back) for the whole window; no window focus, no input. Off by default: the camera decides which Sims are seen (EA LOD,
 // unseen throttles), so pan runs only compare with pan runs.
 // Output: probe-out/profile/<tag>-{600-seconds.csv,600-hitches.jsonl,600.log,upkeep.log,managed.*,simstack.jsonl,mainstack.jsonl,stuck.json,houseboats.json,
-// rng.json (seed reply, sim minutes at window start and end), activity.jsonl (every Sim's interaction per 30 s check; rng-compare.ts)}.
+// rng.json (seed reply, sim minutes at window start and end), activity.jsonl (every Sim's interaction per 30 s check; rng-compare.ts, then lot, at home, community lot, lowest need, routing; gate2-report.ts)}.
 import { spawn } from 'node:child_process';
 import { appendFileSync, closeSync, createWriteStream, existsSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -78,7 +79,8 @@ import { checkHitchTasks, parseHitchTasks } from './hitch-tasks.ts';
 import { checkTag, parseRule } from './frame-lead.ts';
 import { isSetup, runLoop, runStep, stopLine, untilUnlocked, withRule } from './repro-loop.ts';
 import { loadStory } from './story-fuzzer.ts';
-import { abFixesClash, counterSwitches, nativeModeFields, nativeNames, nativeValues } from './native-switches.ts';
+import { parseRows, summarize as fixedWorkSummary } from './fixedwork-report.ts';
+import { abFixesClash, counterSwitches, nativeExports, nativeModeFields, nativeNames, nativeValues } from './native-switches.ts';
 import { addArmColumns } from './arm-ms.ts';
 import { leadInCut, sliceFrames } from './session-reuse.ts';
 import { reproSave } from './repro-save.ts';
@@ -88,7 +90,7 @@ import { clockStep, watchGame } from './game-alive.ts';
 import { startMachineLoad, summarize } from './machine-load.ts';
 import { BIN, GAME_EXE } from './game-exe.ts';
 
-const { values } = parseArgs({ options: { tag: { type: 'string' }, minutes: { type: 'string', default: '10' }, ab: { type: 'string' }, 'ab-on-first': { type: 'boolean' }, 'fixes-off': { type: 'string' }, 'fixes-on': { type: 'string' }, 'until-compares': { type: 'string' }, slice: { type: 'string', default: '2' }, taskstall: { type: 'string' }, seed: { type: 'string' }, repro: { type: 'string' }, mainstack: { type: 'string' }, inroom: { type: 'boolean' }, watchstalk: { type: 'boolean' }, 'watchstalk-worker': { type: 'boolean' }, livereads2: { type: 'boolean' }, f4b: { type: 'boolean' }, vres: { type: 'boolean' }, 'vres-dry': { type: 'string' }, 'no-samplers': { type: 'boolean' }, 'no-env': { type: 'boolean' }, 'quit-jobs': { type: 'boolean' }, 'no-env-guard': { type: 'boolean' }, 'no-prof': { type: 'boolean' }, 'no-frames': { type: 'boolean' }, 'camera-pan': { type: 'boolean' }, 'prof-opts': { type: 'string' }, travel: { type: 'string' }, 'fixes-require': { type: 'string' }, 'frame-lead': { type: 'string' }, 'hitch-tasks': { type: 'string' }, 'since-load': { type: 'string' }, 'frames-shared': { type: 'string' }, 'loop-rule': { type: 'string' }, story: { type: 'string' } } });
+const { values } = parseArgs({ options: { svcsplit: { type: 'boolean' }, tag: { type: 'string' }, minutes: { type: 'string', default: '10' }, ab: { type: 'string' }, fixedwork: { type: 'string' }, 'ab-on-first': { type: 'boolean' }, 'fixes-off': { type: 'string' }, 'fixes-on': { type: 'string' }, 'until-compares': { type: 'string' }, slice: { type: 'string', default: '2' }, taskstall: { type: 'string' }, seed: { type: 'string' }, repro: { type: 'string' }, mainstack: { type: 'string' }, inroom: { type: 'boolean' }, watchstalk: { type: 'boolean' }, 'watchstalk-worker': { type: 'boolean' }, livereads2: { type: 'boolean' }, f4b: { type: 'boolean' }, vres: { type: 'boolean' }, 'vres-dry': { type: 'string' }, 'no-samplers': { type: 'boolean' }, 'no-env': { type: 'boolean' }, 'quit-jobs': { type: 'boolean' }, 'no-env-guard': { type: 'boolean' }, 'no-prof': { type: 'boolean' }, 'no-frames': { type: 'boolean' }, 'camera-pan': { type: 'boolean' }, 'prof-opts': { type: 'string' }, travel: { type: 'string' }, 'fixes-require': { type: 'string' }, 'frame-lead': { type: 'string' }, 'hitch-tasks': { type: 'string' }, 'since-load': { type: 'string' }, 'frames-shared': { type: 'string' }, 'loop-rule': { type: 'string' }, story: { type: 'string' } } });
 if (!values.tag) throw new Error('--tag required');
 const profOpts = values['prof-opts'] ? JSON.parse(values['prof-opts']) : {}; // fail before the game is touched on bad JSON
 if (values['vres-dry'] !== undefined && !/^[1-9]\d*$/.test(values['vres-dry'])) throw new Error('--vres-dry must be a positive integer');
@@ -173,6 +175,8 @@ if (values['quit-jobs']) {
 // --fixes-off / --fixes-on: patches switches (same agent command as --ab) off / on for the whole run; read back, restored in restoreFixes
 if (values['fixes-require']) parseRequire(values['fixes-require']); // a bad rule fails before the run
 if (reproEntry.stepsRequire) parseRequire(reproEntry.stepsRequire);
+const fixesRequire = [values['fixes-require'], reproEntry.fixesRequire].filter(Boolean).join(','); // the repro's own pass line (repros.json fixesRequire) on top of the job's
+if (reproEntry.fixesRequire) parseRequire(reproEntry.fixesRequire);
 const stepAnswers: { cmd: string; r: any }[] = []; // repro step answers, for the repro's stepsRequire
 const hitchTasks: string[] = values['hitch-tasks'] ? JSON.parse(values['hitch-tasks']) : [];
 parseHitchTasks(hitchTasks);
@@ -339,7 +343,7 @@ const framesOn = !values['no-frames'] && !values['no-prof'] && !values.watchstal
 // the load starts it, later ones find it running (a second session would refuse the hooked prologue) and every window copies
 // its own span into <tag>-<secs>-frames.csv at the end (sliceFrames), so readers see one file per run as before
 const framesShared = values['frames-shared'];
-const framesDone = side(framesOn && !(framesShared && existsSync(framesShared)), join('..', 'harness', 'frame-times.js'), 'frames', { out: (framesShared ?? `${pre}-${secs}-frames.csv`).replace(/\\/g, '/') }, true);
+const framesDone = side(framesOn && !(framesShared && existsSync(framesShared)), join('..', 'harness', 'frame-times.js'), 'frames', { out: (framesShared ?? `${pre}-${secs}-frames.csv`).replace(/\\/g, '/'), svcsplit: !!values.svcsplit }, true);
 // --camera-pan: the agent moves the camera from a sim-thread task (camera_pan), so the scripted pan stops while the sim is frozen;
 // a player's camera keeps moving then (docs/162 §4)
 if (values['camera-pan']) {
@@ -420,9 +424,9 @@ async function nativeSet(args: Record<string, unknown>): Promise<{ ok: boolean; 
     const val = Number(v === true ? 1 : v === false ? 0 : v);
     if (!Number.isInteger(val)) return { ok: false, error: `native_set: ${n} value ${v} is not an integer` };
     if (nativeNames.includes(n)) await get(`native?${n}=${val}`);
-    else if (n in counterSwitches || n in nativeValues) {
+    else if (n in counterSwitches || n in nativeValues || n in nativeExports) {
       // read back: a probe that writes 0/1 only (before 2026-10-25) left HoldKeyed=2 / p6warm=2 unset without an error
-      const w = await get(`nativeexport?name=ts3native_counters&offset=${counterSwitches[n] ?? nativeValues[n]}&value=${val}`);
+      const w = await get(`nativeexport?name=${nativeExports[n] ?? `ts3native_counters&offset=${counterSwitches[n] ?? nativeValues[n]}`}&value=${val}`);
       if (w?.value !== val) return { ok: false, error: `native_set: ${n}=${val} did not stick (reads ${w?.value})` };
     }
     else return { ok: false, error: `native_set: unknown ts3native switch ${n}` };
@@ -441,7 +445,7 @@ const toggler = (async () => {
     await get('native').then(c => appendFileSync(`${pre}-ab-native.jsonl`, JSON.stringify({ i, s: (Date.now() - t0) / 1000, c }) + '\n')).catch(() => {});
     // ts3fixes counters too (2026-10-22: the spreads pair had no proof the nightly passes ran inside counted slices)
     await ag('patches').then(r => appendFileSync(`${pre}-ab-fixes.jsonl`, JSON.stringify({ i, s: (Date.now() - t0) / 1000, c: numericFields(r.result) }) + '\n')).catch(() => {});
-    const patchNames = abNames.filter(n => !nativeNames.includes(n) && !(n in counterSwitches));
+    const patchNames = abNames.filter(n => !nativeNames.includes(n) && !(n in counterSwitches) && n !== 'fwnull');
     // per-slice read-back (2026-11-02: early gates must not test an --ab switch, it alternates per slice): a switch that did not
     // take stops the run with FAIL (the 'native_set: ... did not stick' text is what queue.ts smokeProblems looks for)
     const bad: string[] = [], want = on ? 1 : 0;
@@ -463,6 +467,31 @@ const toggler = (async () => {
     }
     slices.push({ from: (Date.now() - t0) / 1000, on, ...(i === 0 && { warmup: true }) });
     console.log(`${stamp()} ${abNames.join(',')} ${on ? 'on' : 'off'} (read back)`);
+  }
+})();
+// X4 fixed-work bench (docs/244, --fixedwork <calls per slice>): every slice sends the agent's fixed_work (one fixed managed loop on
+// the sim thread, ~20 ms) <calls> times, evenly spread, and logs the time with the slice's arm to <tag>-ab-fixedwork.jsonl;
+// fixedwork-report.ts reads it (the report line is printed at the end of the run). Off unless the job asks; needs --ab. --ab fwnull
+// = no switch at all (every slice runs the same code: the same-arm noise check of the measurement smoke).
+const fwCalls = values.fixedwork ? Math.max(1, Number(values.fixedwork) || 0) : 0;
+const fwFile = `${pre}-ab-fixedwork.jsonl`;
+if (fwCalls) { if (!abNames.length) throw new Error('--fixedwork needs --ab (it times per arm)'); writeFileSync(fwFile, ''); }
+const fwLoop = (async () => {
+  if (!fwCalls) return;
+  const sliceS = Number(values.slice) * 60;
+  let fails = 0;
+  for (let i = 0; i * sliceS < secs; i++) for (let k = 0; k < fwCalls; k++) {
+    await sleep(Math.max(0, at(i * sliceS + (k + 0.5) * sliceS / fwCalls) - Date.now()));
+    if (Date.now() >= at(secs)) return;
+    const sl = slices[i]; // the toggler pushed slice i at its start (read back); none = it has not switched yet, skip
+    if (!sl) continue;
+    const r = await ag('fixed_work');
+    if (!r.ok || typeof r.result?.usPer100 !== 'number') {
+      if (++fails >= 2) { console.log(`${stamp()} FAIL: fixed_work failed twice in a row: ${String(r.error).split('\n')[0].slice(0, 200)} (agent package without the command?)`); await restoreFixes(); process.exit(1); }
+      continue;
+    }
+    fails = 0;
+    appendFileSync(fwFile, JSON.stringify({ i, s: (Date.now() - t0) / 1000, on: sl.on, ...(i === 0 && { warmup: true }), us: r.result.usPer100, sum: r.result.sum, resUs: r.result.resUs, warm: r.result.warm, totalUs: r.result.totalUs }) + '\n');
   }
 })();
 const reproFail = async (why: string) => {
@@ -517,7 +546,7 @@ const stuck: any[] = [];
 async function checkStuck() {
   const r = await ag('sims_activity');
   if (!r.ok) return;
-  appendFileSync(`${pre}-activity.jsonl`, JSON.stringify({ t: Date.now() - t0, sims: r.result.map((s: any) => [s.name, s.interaction]) }) + '\n');
+  appendFileSync(`${pre}-activity.jsonl`, JSON.stringify({ t: Date.now() - t0, sims: r.result.map((s: any) => [s.name, s.interaction, s.lot, s.at_home, s.community, s.min_need, s.routing]) }) + '\n');
   const moved: Record<string, string> = (await ag('patches')).result?.moved ?? {}; // every Sim a shortcut moved
   for (const sim of r.result) {
     const key = `${sim.x},${sim.z},${sim.interaction},${sim.routing}`;
@@ -595,7 +624,7 @@ for (const end = Date.now() + window * 1000; !stopped && Date.now() < end;) {
   await sleep(Math.max(0, 200 - (Date.now() - t)));
 }
 if (window) { samplerSpan('native', nativeT0); console.log(`${stamp()} native sampler done: ${simLost} sim samples lost`); }
-await Promise.all([upkeep, profDone, toggler, reproRun, mainOnlyRun, inroomDone, watchDone, lr2Done, f4bDone, vresDone, framesDone, nlogDone]);
+await Promise.all([upkeep, profDone, toggler, fwLoop, reproRun, mainOnlyRun, inroomDone, watchDone, lr2Done, f4bDone, vresDone, framesDone, nlogDone]);
 if (framesOn && framesShared) { await sleep(1000); console.log(`${stamp()} frames: ${sliceFrames(framesShared, `${pre}-${secs}-frames.csv`, t0, Date.now())} rows of the load's frame log copied`); } // drained every 250 ms
 if (values['camera-pan']) await ag('camera_pan', { stop: true });
 stopLoad();
@@ -608,9 +637,9 @@ if (values.taskstall) { try { const r = await get('taskstall?stop=1&n=0'); conso
 if (abNames.length) await get('native').then(c => appendFileSync(`${pre}-ab-native.jsonl`, JSON.stringify({ i: slices.length, s: (Date.now() - t0) / 1000, c }) + '\n')).catch(() => {});
 if (abNames.length) await ag('patches').then(r => appendFileSync(`${pre}-ab-fixes.jsonl`, JSON.stringify({ i: slices.length, s: (Date.now() - t0) / 1000, c: numericFields(r.result),
   logs: Object.fromEntries(Object.entries(r.result ?? {}).filter(([k]) => /_log$/.test(k))) }) + '\n')).catch(() => {});
-if (values['fixes-require']) {
-  const fails = checkRequire(values['fixes-require'], (await ag('patches')).result);
-  console.log(`${stamp()} ${fails.length ? `FAIL: fixes counters: ${fails.join('; ')}` : `PASS: fixes counters ${values['fixes-require']}`}`);
+if (fixesRequire) {
+  const fails = checkRequire(fixesRequire, (await ag('patches')).result);
+  console.log(`${stamp()} ${fails.length ? `FAIL: fixes counters: ${fails.join('; ')}` : `PASS: fixes counters ${fixesRequire}`}`);
   if (fails.length) process.exitCode = 1;
 }
 if (reproEntry.stepsRequire) { // repro step answers (fixes-require.ts stepTally): the repro's case fired, not only a counter moved
@@ -630,7 +659,8 @@ if (hitchTasks.length) {
   console.log(`${stamp()} ${fails.length ? `FAIL: hitch tasks: ${fails.join('; ')}` : `PASS: hitch tasks ${hitchTasks.map((r, i) => `${r} (${counts[i]})`).join(', ')}`}`);
   if (fails.length) process.exitCode = 1;
 }
-if (abNames.length) { writeFileSync(`${pre}-ab.json`,JSON.stringify({ names: abNames, t0, slices }, null, 1)); /* t0: profile start (epoch ms), to join <tag>-machine.jsonl */ await ag('patches', Object.fromEntries(abNames.map(n => [n, true]))); }
+if (abNames.length) { writeFileSync(`${pre}-ab.json`,JSON.stringify({ names: abNames, t0, slices }, null, 1)); /* t0: profile start (epoch ms), to join <tag>-machine.jsonl */ await ag('patches', Object.fromEntries(abNames.filter(n => n !== 'fwnull').map(n => [n, true]))); }
+if (fwCalls) { const fw = fixedWorkSummary(parseRows(readFileSync(fwFile, 'utf8')), 1, secs); console.log(`${stamp()} ${fw.line}`); }
 // per-arm ms/s (arm-ms.ts): slice + arm columns on the seconds rows (arm 1 on, 0 off, -1 not counted)
 if (slices.length && (abNames.length || reproLoop)) {
   const sf = `${pre}-${secs}-seconds.csv`;

@@ -148,6 +148,7 @@ static class HotSpotsTest
             fires++; tries += gameTries; if (gamePlaced) placed++; else failed++;
             Check(c[93] == fires && c[94] == tries && c[95] == placed && c[96] == failed, "wildflower counters, fire " + fire);
         }
+        Check(WildflowerFire.MustStop(true, false) && WildflowerFire.MustStop(false, true) && !WildflowerFire.MustStop(false, false), "wildflower: a save or travel ends the fire between tries");
         WildflowerFire g = new WildflowerFire(20);
         g.Try(false, 30000); g.Try(false, 45000); g.Try(true, 5000);
         int[] d = new int[99];

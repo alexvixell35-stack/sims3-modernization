@@ -479,7 +479,7 @@ namespace Ts3Fixes
         static bool sReqLotRows;
 
         // docs/124 §17: B14, the go-live consumer (passes through unless a Mode 3 search of that autonomy is in its game B13).
-        // Only in kAutLive packages: the pass-through costs one interpreter frame under every meta B14 (docs/130 §11 budget).
+        // kAutLive packages only (default True since O6): the pass-through costs one interpreter frame under every meta B14 (docs/130 §11 budget).
         // Patched by Fixes.ApplyTuned (app startup or the first world load), not in Fixes.Apply: Apply runs in Instantiator's
         // static constructor, which the tuning loader triggers before it sets the [Tunable] fields, so a tuning read there is
         // always the C# default (golive-g7 2026-10-30: "B14 hook missing" with the kAutLive package). No meta search has run
@@ -496,6 +496,9 @@ namespace Ts3Fixes
             bool push = Patch(typeof(AutonomyT), "ConsiderPerformingAutonomousAction", new Type[] { typeof(InteractionInstance) },
                 typeof(AutPushHook), "PushHook", "PushOrig");
             TunedLog("kAutLive", push, "G8 push counter hook");
+            // docs/222 §11.8 enqueue tick for the queue-wait counters
+            bool enq = Patch(typeof(Sims3.Gameplay.Autonomy.AutonomyManager), "Add", new Type[] { typeof(AutonomyT) }, typeof(AutQueueHook), "AddHook", "AddOrig");
+            TunedLog("kAutLive", enq, "G8 queue wait hook");
             // docs/222 unseen-direct: D2 hook (pass-through unless the autonomy's meta search was direct; switch autunseen)
             sChooseOk = sB14Ok && Patch(typeof(AutonomyT), "AssignProbabilitiesAndChooseInteraction", Type.EmptyTypes,
                 typeof(AutChooseHook), "ChooseHook", "ChooseOrig");

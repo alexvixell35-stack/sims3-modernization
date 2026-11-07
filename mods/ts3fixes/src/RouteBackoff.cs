@@ -48,6 +48,7 @@ namespace Ts3Fixes
                 c[24]++;
                 IScriptProxy proxy = Follower;
                 Sims3.Gameplay.Actors.Sim sim = proxy != null ? proxy.Target as Sims3.Gameplay.Actors.Sim : null;
+                if (sim != null && ShortcutOn("unseenboat")) UbTrip(sim);  // docs/248: the plan below runs from where it leaves the Sim
                 if (ShortcutOn("failrepeat") && sim != null) return PlanFailRepeat(sim);
                 return PlanBackoffBody(sim);
             }
@@ -232,7 +233,7 @@ namespace Ts3Fixes
 
             // any running script task that may yield here; ts3native still refuses a nested native->managed call (NoYield) and a
             // route being followed (Active)
-            static bool ForeignEligible()
+            internal static bool ForeignEligible()
             {
                 if (!(ShortcutOn("asyncroute") && GameStates.IsLiveState && !GameStates.IsTravelling && !GameStates.IsWorldShuttingDown
                     && Simulator.CheckYieldingContext(false))) return false;
@@ -367,6 +368,7 @@ namespace Ts3Fixes
             }
             RoutePlanResult ReplanFromPointAsync(Vector3 fromPt)
             {
+                UbCountReplan();  // docs/248
                 DoorMirror.SyncRoute(this, fromPt);
                 bool pre = false;
                 if (!AsyncKindStart(3, fromPt, ref pre)) return ReplanFromPointOrig(fromPt);

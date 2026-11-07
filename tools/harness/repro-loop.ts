@@ -53,7 +53,7 @@ export type LoopStep = {
   cmd: string; args?: unknown; waitS?: number; note?: string; optional?: boolean; count?: { counter: string } | { result: string }; tally?: string;
   waitUntil?: WaitUntil; minS?: number; maxS?: number; between?: 'normal' | 'fast'; setup?: boolean; until?: Until1;
 };
-export type Until1 = { cmd: string; args?: unknown; all: { path: string; equals?: unknown; atLeast?: number; atMost?: number }[]; everyS?: number; maxS?: number };
+export type Until1 = { cmd: string; args?: unknown; all: { path: string; equals?: unknown; atLeast?: number; atMost?: number }[]; everyS?: number; maxS?: number; failOn?: string };
 // one `until` (see top): resolves with the last answer once met, null when the window ended first; throws when not met in maxS
 export async function untilMet(u: Until1, io: Pick<StepIO, 'ag' | 'sleep' | 'now' | 'halted'>): Promise<any> {
   const t0 = io.now(), get = (o: any, path: string) => path.split('.').reduce((x, k) => x?.[k], o);
@@ -63,6 +63,7 @@ export async function untilMet(u: Until1, io: Pick<StepIO, 'ag' | 'sleep' | 'now
     const last = await io.ag(u.cmd, u.args ?? {}).catch((e: Error) => ({ ok: false, error: e.message }));
     if (ok(last)) return last;
     if (io.halted()) return null;
+    if (u.failOn && get((last as any)?.result, u.failOn)) throw new Error(`${u.cmd} ${u.failOn}: ${JSON.stringify((last as any).result).slice(0, 400)}`);
     if (io.now() - t0 > (u.maxS ?? 300) * 1000) throw new Error(`${u.cmd} until ${JSON.stringify(u.all)} not met in ${u.maxS ?? 300} s: ${JSON.stringify(last?.result ?? last?.error).slice(0, 200)}`);
     await io.sleep((u.everyS ?? 5) * 1000);
   }

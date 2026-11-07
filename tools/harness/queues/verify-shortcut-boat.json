@@ -1,0 +1,190 @@
+{
+  "note": "Unseen boat trips (docs/248 §8), boattp3 NOT RUN (boattp2: 0 shortcuts). Pair: game-copy/ts3fixes.package.boattp3 (branch bugfix/unseenboat-route) on game-copy/ts3native.asi.mono1106 (no native change), game-copy/ts3agent.package.boattp3 installed (unseenboat_log, crowd_visit_lot island). Verify rule (memory shortcut-verification): a short correctness run with enough tries, no timing A/B; the two --ab jobs exist only for the docs/246 route bars. Pass: no crash, unseenboat_shortcuts >= 5, 0 stranded or stuck Sims among the moved ones (verify-shortcut.ts --name unseenboat), 0 watchdog lines, unseenboat_seen / _unseen show the real share of boat replans, on both arms (docs/247 held 89-99% of locomotion updates, not of these). IP only: boats are an IP load, and the save has no Sims on a boat at start. routingFailFast stays off here: the off arm has marked plans >= 300 ms on IP, R5 covers it.",
+  "smoke": {
+    "id": "ip-uboat-smoke",
+    "asi": "game-copy/ts3native.asi.mono1106",
+    "fixesPackage": "game-copy/ts3fixes.package.boattp3",
+    "releaseDefaults": true,
+    "minCounters": 159,
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "pinReason": "docs/248: boattp3 package on the mono1106 asi: no native change (2026-11-06)",
+    "save": "Baseline-IP-Spring",
+    "ini": {
+      "UnseenGhost.Enabled": 1,
+      "HitchAttr.Enabled": 1,
+      "RouteAsync.LogFallbackMs": 20
+    },
+    "note": "Smoke (5 min IP, --ab unseenboat slice 1): arm split, switch read-back, gate reached, heavy tools off.",
+    "earlyGates": [
+      {
+        "afterSec": 240,
+        "counter": "fixes:unseenboat_candidates",
+        "op": ">",
+        "value": 0,
+        "why": "no unseen trip classified as crossing or houseboat: PlanBackoff call, EnablePlanningAsBoat or the flood colours not as read"
+      }
+    ],
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "noSamplers": true,
+        "fixesReport": "unseenboat",
+        "ab": "unseenboat",
+        "minutes": 5,
+        "slice": 1
+      }
+    },
+    "timeoutMin": 25,
+    "noiseCheck": false
+  },
+  "jobs": [
+    {
+      "id": "ip-uboat-verify",
+      "asi": "game-copy/ts3native.asi.mono1106",
+      "fixesPackage": "game-copy/ts3fixes.package.boattp3",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/248: boattp3 package on the mono1106 asi: no native change (2026-11-06)",
+      "save": "Baseline-IP-Spring",
+      "ini": {
+        "UnseenGhost.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "RouteAsync.LogFallbackMs": 20
+      },
+      "note": "Natural IP 20 min with the switch on for the whole run: correctness, then verify-shortcut.ts --name unseenboat. If it does not fire, run the repro job; no A/B.",
+      "noiseCheck": false,
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseenboat_candidates",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen trip classified as crossing or houseboat: PlanBackoff call, EnablePlanningAsBoat or the flood colours not as read"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesReport": "unseenboat",
+          "minutes": 20,
+          "fixesOn": "unseenboat",
+          "fixesRequire": "unseenboat_shortcuts>=5"
+        }
+      },
+      "timeoutMin": 40
+    },
+    {
+      "id": "ip-uboat-ab",
+      "asi": "game-copy/ts3native.asi.mono1106",
+      "fixesPackage": "game-copy/ts3fixes.package.boattp3",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/248: boattp3 package on the mono1106 asi: no native change (2026-11-06)",
+      "save": "Baseline-IP-Spring",
+      "ini": {
+        "UnseenGhost.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "RouteAsync.LogFallbackMs": 20
+      },
+      "note": "docs/248 route bars (docs/246 §6, off first): gate2-report.ts <queue prefix> reads R1-R6 only for --ab unseenboat. R1 counts against the hop plans, so plans should not rise; no routingFailFast on IP, its off arm has marked plans >= 300 ms, R5 covers it.",
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseenboat_candidates",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen trip classified as crossing or houseboat: PlanBackoff call, EnablePlanningAsBoat or the flood colours not as read"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesReport": "unseenboat",
+          "ab": "unseenboat",
+          "minutes": 10,
+          "slice": 2
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-uboat-ab-onfirst",
+      "asi": "game-copy/ts3native.asi.mono1106",
+      "fixesPackage": "game-copy/ts3fixes.package.boattp3",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/248: boattp3 package on the mono1106 asi: no native change (2026-11-06)",
+      "save": "Baseline-IP-Spring",
+      "ini": {
+        "UnseenGhost.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "RouteAsync.LogFallbackMs": 20
+      },
+      "note": "docs/248 route bars (docs/246 §6, on first): gate2-report.ts <queue prefix> reads R1-R6 only for --ab unseenboat. R1 counts against the hop plans, so plans should not rise; no routingFailFast on IP, its off arm has marked plans >= 300 ms, R5 covers it.",
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseenboat_candidates",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen trip classified as crossing or houseboat: PlanBackoff call, EnablePlanningAsBoat or the flood colours not as read"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesReport": "unseenboat",
+          "ab": "unseenboat",
+          "minutes": 10,
+          "slice": 2,
+          "abOnFirst": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-uboat-repro",
+      "asi": "game-copy/ts3native.asi.mono1106",
+      "fixesPackage": "game-copy/ts3fixes.package.boattp3",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/248: boattp3 package on the mono1106 asi: no native change (2026-11-06)",
+      "save": "Baseline-IP-Spring",
+      "ini": {
+        "UnseenGhost.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "RouteAsync.LogFallbackMs": 20
+      },
+      "note": "Forced repro ip-unseen-boat-loop: spawned townies cross the sea, none stranded, unseenboat_shortcuts >= 1 (a repro that only reaches the gate must fail). Read unseenboat_* and unseenboat_log from the row.",
+      "noiseCheck": false,
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesReport": "unseenboat",
+          "minutes": 12,
+          "fixesRequire": "unseenboat_shortcuts>=1",
+          "repro": "ip-unseen-boat-loop"
+        }
+      }
+    }
+  ]
+}

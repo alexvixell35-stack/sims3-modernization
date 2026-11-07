@@ -1,0 +1,27 @@
+[
+  { "method": "JitReplayFix.Walk", "cls": "MonoHostTest.JitReplayFix", "args": ["@a", 5], "expect": -1967289998,
+    "objs": [
+      { "label": "@a", "cls": "MonoHostTest.JitReplayNode", "words": ["@b", 0, "@s", "@arr", 0, 3] },
+      { "label": "@b", "cls": "MonoHostTest.JitReplayNode", "words": ["@c", 0, 0, 0, 0, 5] },
+      { "label": "@c", "cls": "MonoHostTest.JitReplayNode", "words": ["@a", 0, "@s2", 0, 0, 7] },
+      { "label": "@s", "str": "hi" },
+      { "label": "@s2", "str": "x" },
+      { "label": "@arr", "ints": [1, 2, 9] }
+    ] },
+  { "method": "JitReplayFix.Self", "cls": "MonoHostTest.JitReplayFix", "args": ["@n"], "expect": 1,
+    "objs": [ { "label": "@n", "cls": "MonoHostTest.JitReplayNode", "words": [0, "@n", 0, 0, 0, 1] } ] },
+  { "method": "JitReplayFix.Sum", "cls": "MonoHostTest.JitReplayFix", "args": ["@p", 5], "expect": 309,
+    "objs": [ { "label": "@p", "words": [3, 4] } ] },
+  { "method": "JitReplayFix.Stat", "cls": "MonoHostTest.JitReplayFix", "args": [2], "expect": 42,
+    "statics": [ { "cls": "MonoHostTest.JitReplayFix", "field": "s_static", "value": 40 } ], "objs": [] },
+  { "method": "JitReplayFix.Thrower", "cls": "MonoHostTest.JitReplayFix", "args": ["@n"],
+    "cuts": [ { "obj": "@n", "off": 4 } ],
+    "objs": [ { "label": "@n", "cls": "MonoHostTest.JitReplayNode", "words": [305419896, 0, 0, 0, 0, 1] } ] },
+  { "method": "JitReplayFix.Cb", "cls": "MonoHostTest.JitReplayFix", "args": ["@h"], "expect": 7,
+    "objs": [
+      { "label": "@h", "cls": "MonoHostTest.JitReplayHolder", "words": ["@d", 1] },
+      { "label": "@d", "cls": "MonoHostTest.JitReplayCb", "words": [0, 0, 0, 0] }
+    ] },
+  { "method": "JitReplayFix.Missing", "cls": "MonoHostTest.JitReplayFix", "args": ["@x"],
+    "objs": [ { "label": "@x", "cls": "No.Such.Type", "words": [1] } ] }
+]

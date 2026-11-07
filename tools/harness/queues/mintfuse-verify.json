@@ -1,0 +1,45 @@
+{
+  "note": "mintfuse-verify: [MintFuse] Sub=1 (docs/139 §4, mintfuse.cpp, counters v164) correctness in game; first time this code runs in the real game. Pair: mono1106c (asi + ts3fixes, builds.json) from master 000589df. Correctness only, no timing claim: daytime OK. Pass per job: no crash, no new script errors against the run's baseline, 0 watchdog lines, log line 'OK   mintfuse', mfReady 1, mfRuns > 20000 (host: ~21,600 over 10 assemblies; the game transforms more), mfInner > mfWhole (host ratio ~8:1), Sims route and act normally (the job's own checks). mfReady -1 or 'SKIP mintfuse': stop, another hook owns 0xE5C8CA (docs/68). Any crash: our bug until proven (static analysis first, crash-cause-before-fix). No in-load A/B: fusion acts at transform time, a method keeps the form it was transformed in; a gain claim needs a two-load pair on a clean night, not queued here (docs/139 §7). Run: node tools/harness/queue.ts tools/harness/queues/mintfuse-verify.json --no-smoke",
+  "jobs": [
+    {
+      "id": "bp-mfuse-verify",
+      "note": "BP Spring 10 min, seed 12345, release ini defaults of the sim-budget queue + [MintFuse] Sub=1. Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 908,
+      "logRequire": {
+        "^OK   mintfuse: ": 1
+      },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MintFuse.Sub": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}

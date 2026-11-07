@@ -83,6 +83,136 @@ Always-on numbers for player logs and the CC soak (docs/188 §7 has the player-f
 - **Cost:** walk ~27-30 ms on the memory worker per sample (0.36.74 runs, ~4,500 regions; now every 5 min), memsus read 0.23-0.45 ms on the sim thread (same runs) [verified, logs]; the alive read (512 weak targets + a type count) and the once-per-load `GetObjects<GameObject>` census print their own `ms=`, first numbers from `bp-memlite-check` [inferred: alive < 1 ms, census ~5-20 ms once per load]. Destroy hook: a bool and an increment per destroy, a weak target set every 32nd.
 - **Not built (design note):** native per-call-site allocation tracking behind an ini switch (off): an `[Alloc]`-style detour of EA `Malloc 0x4E69D0` / `Free` recording the caller return address per block in a side table (sampled 1 in N blocks, by size class), dumped as top sites by live bytes at each `diag: mem` sample; its cost and the S3SS mimalloc / Apex allocator overlap (docs/187) decide whether it stays a correctness-run tool. Also not built: a Mono class census beyond `GameObject` types (step 6).
 
+### ResourceCache census (built 2026-11-05, run on the old save the same day)
+
+In a 60-min old-save run `rcN` grew 100k -> 348k entries while `rc` stayed ~500-600 MB
+(docs/data/results/2026-11-05-alexvixell35-stack-memory-fixes-long-runs.md). Every erase path ends in the node erase
+`0x732130`, so the entries that stay are referenced or never made cold. `[MemDiag] RcCensus=1` (off) answers which.
+
+- **What:** at each `diag: mem` line except exit, the memory worker takes the cache's own lock (`CRITICAL_SECTION` at
+  cache `+0x58`), walks the map and logs one total line and the top 10 types by entry count plus up to 5 more by growth:
+  `n`, `MB` (the resources' size `+0x20`), `cold`, `ref1` / `ref2` / `ref3+` (refs = `[+4] >> 8`; the cache holds one),
+  `ref1held` (only the cache holds it but it is not cold, so a trim never drops it), each with the change since the last census.
+- **Layout [verified disassembly]:** Add `0x732A00`, find `0xAD3F40` (hash = key dword 3 xor dword 0), AddRef `0x731DB0`,
+  cold test `0x731E30`, lock wrapper `0x4E16F0` (enabled byte `+0x7C`, else no lock). Code: `memdiag.cpp` `RcCensus`.
+- **Holders:** `RcCensusHolders=N` (off): once, at the Nth census, 64 entries of the type that grew most are sampled under
+  the lock; after it the memory worker scans every committed readable region for dwords within 0x40 bytes of a sample and
+  names each holder by the nearest TS3W.exe vtable at or below it (no RTTI in the exe: the vtable is an address to read in
+  a disassembly). Lines: `diag: rc holders #n vt 0x... +off delta d n= covers k of 64`. Not a proof: stale dwords can match.
+- **Builders, graph:** `RcCensusBuilders=1` counts the live CAS SimBuilders and the compositors their part maps hold;
+  `RcCensusGraph=1` maps compositor-to-compositor references (child vector `+0x28`). Both off.
+- **Cost:** the game waits for the lock while the walk runs (the line gives `walk` ms). Test runs only.
+- **Selftest:** a 4-bucket fake map (types by count, the refs / cold split, a bad key, changes), a lock owned by another
+  thread (skipped), a cycle (stopped, lock released), nothing at exit.
+
+### Who holds the part compositors (`RcRefCallers`, built 2026-11-05, ledger §941)
+
+The census runs found ~90% of the `rcN` growth in two in-memory TXTC types, `0x033A1435` and `0x0341ACC9`: the part
+compositors that `CAS/SimBuilder/SetPartCompositor` (`0x5E2C10`) makes, each at 2 references (the cache's + one holder)
+and never cold. The live SimBuilders hold only 0-40 of them, so the holder is something else. `[MemDiag] RcRefCallers=1`
+(off; its own switch, not under `RcCensus`) counts who takes and drops the references.
+
+- **Hooks [verified disassembly]:** AddRef / Release are slots 0 / 1 of the two types' vtables `0xFE68D8` / `0xFE68F4`
+  (`0x723130` -> `0x731D00`, `0x5B07A0` -> `0x731D40`); only these two types reach the replacements, so no type filter
+  runs per call. The cache's Find (vtable `0xFFDD94` slot 6, `0x7324E0`) AddRefs what it returns through a direct call to
+  `0x731DB0`, so a find that returns a compositor counts as an AddRef by the find's caller. The only other direct calls to
+  the three are the cache's Find and Add (`0x732542`, `0x732AC5`) [verified: every `E8` / `E9` to them]: the cache's own
+  reference (Add) is the one AddRef not counted.
+- **Per caller:** each `diag: mem` line (but exit) logs `diag: rc ref callers` totals (AddRef, finds, Release, net, since
+  the start and since the last line) and the top 20 callers by net (return address, AddRef, finds, Release, net, net since
+  the last line) plus the 5 most negative (who drops them). `diag: rc find sites` gives the finds' caller chains.
+- **Per object (`RcRefCallersSample=32`):** 1 in 32 new compositors (an AddRef at 0 references) keeps its first 16 events.
+  At each line the live ones are grouped by event list, and those at net +1 in the counted events (with the cache's
+  reference that makes 2) by their last AddRef or find: the reference not dropped since.
+- **Registry:** the CAS texture compositor service (`[0x11CE6A0]`) keeps every new compositor in a hash map at `+0x104`
+  (insert `0x5EECD0`; the node copy `0x5ED870` AddRefs at `0x5ED8B8`; erases: the clear-all `0x5EEA90` and the per-key
+  `0x5EE640`). `diag: rc registry` gives its size and change and how many sampled compositors it holds, so a net +1 group
+  can be checked against it. Node `{ResourceKey, compositor +0x10, next +0x18}` (next: the bucket free loop `0x5ED83F`).
+  Read without the service's lock.
+- **Cost:** the install times our part of a hooked call on a fake key before the hooks go in (selftest: 6 ns; with the
+  sampling path) and a find chain (56 ns); each line reports the estimated ms since the last line and its share of the
+  interval, to subtract from the run's timing. The tables are static (1.4 MB), not growth.
+- **Counters v908:** `rrcOn` (1 hooks, 2 and sampling), `rrcAddRefs`, `rrcReleases`, `rrcFinds`, `rrcCallers`,
+  `rrcSampled`, `rrcRegistry`, `rrcHookNs`; the totals are updated at each line.
+- **Selftest:** a wrong vtable slot refuses; 3 + 1 AddRef, 1 Release and 2 finds by caller, sorted by net; a sampled
+  object at net +1 in a 2-bucket fake registry (next `+0x18`), one freed, one at net +3.
+- **Result (2026-11-05, `old-rrc-35`, docs/data/results/2026-11-05-alexvixell35-stack-rc-ref-callers.md):** the holder is
+  the registry. t = 300 s to 2400 s: `rcN` +100,641, the registry +96,456 (96%), 0 erases; at the end 105,262 of its
+  135,261 entries (78%) have exactly 2 references (the cache's and the registry's). A second, smaller holder outside the
+  registry: 292 of the 1,031 sampled net +1 compositors were last AddRef'd in `0xAD4250` (`Lot/CompositorManager`).
+  Hook cost 0.001% of play.
+
+### Step 2: trim the compositor registry (`[CasTrim]`, built 2026-11-05, not run in game, ledger §942)
+
+If step 1 names the registry (I-941-2), the leak is a list that never trims: the registry's only erase, `0x5EE640`, runs
+from the service's clear-all, i.e. on a service reset [verified]. Its map is read only by the export code (`Contains`
+`0x5EDAB0` from ExportLot, ExportWorld, Sim outfit export, thumbnails) [verified: callers and their strings]; in play a
+compositor is reached through the ResourceCache by key, which the insert registered (manager vtable `+0x5C`, flag 1).
+
+- **What:** a detour on the insert `0x5EECD0` walks `Buckets` (16) more buckets after each insert, on the inserting
+  thread (the map has no lock; inserts from a second thread are counted, never walked from). A part compositor (vtables
+  `0xFE68D8` / `0xFE68F4`) is old at exactly 2 references (the cache's and the registry's: a SimBuilder part, a find in
+  progress or any other holder makes 3+) and no insert or find by key for `AgeSec` (1800 s). Mode 1 erases old ones
+  with EA's own `0x5EE640` (find, unregister with flag 0, free the node and its reference), at most `MaxErase` (8) per
+  insert; mode 2 only marks them. Off by default; `--ab castrim` runs mode 1 against off.
+- **The safety evidence:** a detour on the cache's Find `0x7324E0` (vtable `0xFFDD94` slot 6, no direct callers) counts
+  a find of a marked compositor as `ctWouldMiss` (mode 2) and a failed find of an erased key that nothing can build
+  again as `ctMissed` (mode 1, must stay 0), the first 20 events with caller, three more exe frames, age and whether a
+  database holds the key. A find that misses means a Sim wanted that texture back.
+- **Age alone is not safe (al243 / al244, old save, count mode, 2026-11-05):** at `AgeSec=600` compositors were found
+  by key again after any time unused: re-found after 10-30 min 4,627 times and after 30-60 min 2,591 (the 60 min run's
+  limit), 6,293 would-miss in all. Who asks, and what each does on a miss [verified disassembly]:
+  - a parent compositor's texture rebuild: the texture code (`0x6CBF20` / `0x6CCA90` / `0x6CCC50`) calls `0x605CE0`
+    ("handle, or rebuild it" when the handle is -1) -> `0x605C70` -> `0x6057F0` (strings
+    `CAS/TextureCompositorResource/FabricOpKeyList`, `GetTextureBuilder`). Each op of type `0x34210A5` in the parent's
+    list (`+0x5C`, count byte `+0x60`) names a child by key (parameter `0xDCFF6D7B`, key from `0x600850`), fetched
+    through the manager's get `0x7366B0` (all logged would-miss: `0x736718` < `0x605A75`). A failed get returns handle
+    -1: the texture is not built. Parent and child are both part compositors (ctor `0x600560` sets `0xFE68F4`), so a
+    child at 2 references is still named by a live parent;
+  - the get (`0x736718`), the async loader `0x729E10` (`0x729E80`, `ResourceLoad/AsyncLoader`) and the blit `0x5FA670`
+    (`0x5FA6D4`, then a request by key `0x5F8170`): on a cache miss they load the key from a database (manager `+0x44`
+    = `0x4AFDA0` -> `0x4AFFC0` finds which one; the get then creates it through the type's factory and registers it);
+  - the parent's Load `0x607070` (`0x60733E`): a miss rebuilds the child from the parent's own data (new `0x68`, ctor
+    `0x600560`, Load again, register `0x7D9100`).
+- **`NeedDb` (default 0):** a compositor is old only if a database holds its key (manager `+0x44`, the lookup EA itself
+  makes at the start of every get, `0x7D80E0`; asked once per compositor, again after `AgeSec`). Every way back then
+  exists. al246 (old save, count mode, 60 min): 0 of the old ones has a database (384,058 asks, 11.3 s), so it trims
+  nothing. EA's disk caches (`compositorCache.package`, `simCompositorCache.package`) hold finished textures, not the
+  compositors [inferred: strings and handle flow].
+- **`Named` (default 1, 2026-11-05):** a compositor is old only if no other part compositor in the registry, itself not
+  marked old, names its key as a child. The children are read as `0x6057F0` reads them: parameter block `0x602380`,
+  the `0xDCFF6D7B` parameter (name table `[0x1157EB8]`, lower bound `0x600280`), key `0x600850`; both take EA's
+  recursive critical section `0x11CEB38`. The names are collected per full walk of the map (a cycle, restarted when the
+  bucket array changes); a mark needs the last full cycle and the current one, and a new compositor's names count from
+  its insert. A parent marked old stops naming, so a dead outfit's tree is marked top down, one level per two cycles.
+  Only type `0x0341ACC9` (vtable `0xFE68F4`) answers the child cast `0x3420F34` that `0x6057F0` makes. The count run
+  shows whether every would-miss was named.
+  - al249 (count, `Named` on, old save, 60 min, PASS; al248 with the same build crashed at 7.6 min in the render path,
+    the al208 family): would-miss 6 (age alone: 6,293), none from a parent's rebuild. All 6 came from the async loader
+    `0x729E10` (return `0x729E80`), from an outfit's load: `CAS/SimOutfitResource/Load` `0x5E9AA0` -> `0x5E55B0` ->
+    `0x5E53E0` (an async request by key through `[0x11D3C84]` +0x34, callback `0xD4B150`). Each was unused ~50 min and no
+    database has its key [verified disassembly of the chain; the outfit's own key source not traced].
+- **`Async` (default 1, 2026-11-06):** a compositor the async loader has found by key is never marked old. Every find of a
+  known compositor sets a bit for its caller (async loader, get `0x736718`, blit `0x5FA6D4`, parent Load `0x60733E`,
+  other); the would-miss events print the bits from before. If an outfit's parts are found there when the outfit first
+  loads, this keeps them; one built in play and loaded again later without an earlier async find is not covered. The
+  count run shows which.
+- **Not covered:** the export paths read the registry itself (`Contains`): a lot or Sim exported to the library after its
+  compositors were trimmed would miss those textures in the export [inferred]. Mode 2 on an export would show it as no
+  counter; the export check is a manual step of the step 3 checks.
+- **Counters v912 (0x5CF0, built as v909 in #285):** `ctMode` (switch), `ctOn`, `ctInserts`, `ctScanned`, `ctCand`, `ctErased`, `ctWouldMiss`,
+  `ctMissed`, `ctFull`, `ctOtherThread`. Tables: 11 MB, allocated only when installed.
+- **Selftest:** a fake map (two buckets, four nodes), fake EA erase / insert / Find: an old compositor marked (count) then
+  erased (trim), one at 3 references and one found 11 s before left alone, one without a database kept (`NeedDb`, not
+  asked again before `AgeSec`), a would-miss, a failed find of the erased key loaded again while a fake database holds
+  it and missed once none does, the parent-Load find, `Named` (a child kept while a live compositor names it, marked
+  two cycles after its parent is marked, kept again by a new compositor's insert), `Async` (a compositor the async
+  loader found stays unmarked, and is marked with `Async` off), the second-thread insert, a walk fault (mode off).
+- **Checks before any default (Rodney's step 3):** count mode first on the old save (would-miss near 0 over 60 min with a
+  travel and a save + reload); then off vs on, same seed: `rcN` / `eaRes` flat after minute 15, the largest free block
+  at the end, no missing or wrong textures in CAS, live mode, after a travel and after a save and reload, no new
+  exceptions, stuck Sims or crashes, hitches not worse. Repro `castrim-outfits`, queue `tools/harness/queues/castrim.json`.
+
 ## Step 7 experiment: ResourceCache trim and Boehm heap return (2026-10-26, docs/198)
 
 Static check of giving the Boehm heap back (docs/198 §2-§3: no unmap code; decommit feasible for RAM only, release rejected) and the `[ResourceCache] TrimAfterCleanup` experiment (docs/198 §4, ts3native 0.36.80, off, stands down with Apex; queue `tools/harness/queues/rctrim-exp.json`, not run). Apex's area: nothing is proposed to Apex until a run shows a proven gain (Rodney, 2026-10-26).

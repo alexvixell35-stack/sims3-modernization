@@ -40,7 +40,11 @@ static __declspec(thread) bool t_sypIcIn;
 static bool g_sypOn;
 static DWORD g_sypMinute, g_sypLinesMin;
 
-static bool SypConfig(const wchar_t* ini) { return GetPrivateProfileIntW(L"RouteJobPhases", L"SyncPlans", 0, ini) != 0; }
+static DWORD g_sypLinesCap = 20;
+static bool SypConfig(const wchar_t* ini) {
+    g_sypLinesCap = Clamp(GetPrivateProfileIntW(L"RouteJobPhases", L"SyncLinesPerMin", 20, ini), 1, 1000);  // docs/247 §9: IP boats alone reach ~28 a minute
+    return GetPrivateProfileIntW(L"RouteJobPhases", L"SyncPlans", 0, ini) != 0;
+}
 
 static void SypArm() {
     if (!g_rjpJmp[RJS_PLAN]) { Log("FAIL route phases SyncPlans: Route_PlanLocked site not timed, sync plans stay untimed"); return; }
@@ -85,6 +89,7 @@ static int SypLine(char* d, int room, const SypPlan& p, LONG ms, int res) {
                       p.loopN[2], p.loopUs[2] / 1000, p.loopN[3], p.loopUs[3] / 1000);
     for (int i = 0; i < RJP_N && n > 0 && n < room - 24; i++)
         if (i != RJP_HOST) n += sprintf_s(d + n, room - n, " %s=%ld", kSypPhase[i], p.us[i] / 1000);
+    if (p.us[RJP_WATER] && g_wjLastH && n > 0 && n < room - 24) n += sprintf_s(d + n, room - n, " grid=%lux%lu", g_wjLastW, g_wjLastH);  // needs [WaterJps]
     return n;
 }
 
@@ -115,7 +120,7 @@ static void SypEnd() {
     Add(k.sypLongLoopUs, p.loopUs, SYP_LOOPS);
     const DWORD tick = GetTickCount();
     if (tick - g_sypMinute >= 60000) { g_sypMinute = tick; g_sypLinesMin = 0; }
-    if (g_sypLinesMin >= 20) { InterlockedIncrement(&k.sypLinesDropped); return; }
+    if (g_sypLinesMin >= g_sypLinesCap) { InterlockedIncrement(&k.sypLinesDropped); return; }
     g_sypLinesMin++;
     char line[480];
     SypLine(line, sizeof(line), p, ms, res);

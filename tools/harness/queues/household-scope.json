@@ -1,0 +1,115 @@
+{
+  "note": "docs/249 household scope (ts3native 0.36.184, build bugfix/household-scope, park as game-copy/ts3native.asi.household, ts3fixes from the branch). DRAFT, NOT RUN. Correctness only.",
+  "jobs": [
+    {
+      "id": "household-scope-foreign",
+      "note": "docs/249 rows 2, 3: a household Sim's foreign, stuck-check or vehicle plan is cut by time",
+      "asi": "game-copy/ts3native.asi.household2",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "kdScopeN>=1,kdExempt>=1,watchdogs<=0",
+      "logRequire": {
+        "ts3native 0.36.184": 1
+      },
+      "ini": {
+        "RouteAsync.KindDeadlines": 1,
+        "RouteAsync.KdExemptSeen": 1,
+        "RouteAsync.KdForeignPlanMs": 50,
+        "RouteAsync.KdA10ForeignMs": 50
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "repro": "household-scope-foreign",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25
+    },
+    {
+      "id": "household-watchdog-noreset",
+      "note": "docs/249 row 4: watchdog case 49 resets a household Sim after 10 failed plans over 30 sim-minutes",
+      "asi": "game-copy/ts3native.asi.household2",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "kdScopeN>=1,watchdogs<=0",
+      "logRequire": {
+        "ts3native 0.36.184": 1
+      },
+      "ini": {
+        "RouteAsync.KindDeadlines": 1,
+        "RouteAsync.KdExemptSeen": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "repro": "household-watchdog-noreset",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25
+    },
+    {
+      "id": "household-unseenanim-hold",
+      "note": "docs/249 row 7: [UnseenAnim] can sum pose passes for a household Sim over 80 m from every viewer table entry",
+      "asi": "game-copy/ts3native.asi.household3",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "kdAaHeldPush>=1,kdAaHeldIn>=1,kdAaHeld>=1,watchdogs<=0",
+      "logRequire": {
+        "ts3native 0.36.184": 1
+      },
+      "ini": {
+        "RouteAsync.KindDeadlines": 1,
+        "RouteAsync.KdExemptSeen": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "repro": "household-unseenanim-hold",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25
+    },
+    {
+      "id": "household-replandedupe-scope",
+      "note": "docs/249 row 9: ReplanDedupe answers a repeat with the old failure after object footprint writes, not proven exact",
+      "asi": "game-copy/ts3native.asi.household2",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "kdScopeN>=1,watchdogs<=0",
+      "logRequire": {
+        "ts3native 0.36.184": 1
+      },
+      "ini": {
+        "RouteAsync.KindDeadlines": 1,
+        "RouteAsync.KdExemptSeen": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "repro": "household-replandedupe-scope",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25
+    }
+  ]
+}

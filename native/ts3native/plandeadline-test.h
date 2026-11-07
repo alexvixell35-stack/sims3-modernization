@@ -41,6 +41,169 @@ static u8* __cdecl PdtIc(u8* out, DWORD) {
     return out;
 }
 
+// docs/197 §7 KdCutCamRecheck: a writer publishing all-equal snapshots while the reader looks for a torn one
+static volatile LONG g_kdCamStop;
+static DWORD WINAPI KdCamWriter(void*) {
+    for (float v = 1; !g_kdCamStop; v += 1) {
+        const float p[3] = {v, v, v};
+        KdCamPublish(p, p, v, (LONGLONG)v);
+    }
+    return 0;
+}
+static void KdCamTest() {
+    Ts3nCounters& k = ts3native_counters;
+    const LONG scan0 = g_kdCamSeq, mode0 = k.kdCamMode, ceil0 = k.kdNpcCeilUs;
+    const KdCamSnap save0 = g_kdCam;
+    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+    // reach math: reach + 3 m from either camera point, xz only, wide = all seen
+    const float cam[3] = {100, 50, 100}, tgt[3] = {200, 0, 200};
+    KdCamSnap c = {};
+    memcpy(c.pos, cam, 12), memcpy(c.tgt, tgt, 12), c.reach = 100;
+    float p[2][2] = {{100 + 102, 100}, {1000, 1000}};
+    assert(KdCamInView(c, p, 1) && !KdCamInView(c, p + 1, 1) && KdCamInView(c, p, 2));
+    p[0][0] = 100 + 104, p[0][1] = 100 - 104;  // 147 m from the camera, 300 m from the target
+    assert(!KdCamInView(c, p, 1));
+    p[0][0] = 200 + 102, p[0][1] = 200;  // the target's reach counts too
+    assert(KdCamInView(c, p, 1));
+    p[0][0] = 1000, p[1][0] = 1000;
+    p[0][1] = 1000;
+    assert(!KdCamInView(c, p, 2));
+    c.reach = 240;
+    assert(KdCamInView(c, p, 2));
+    // nothing published, a writer inside: no read
+    g_kdCamSeq = 0;
+    KdCamSnap r;
+    assert(!KdCamRead(&r));
+    g_kdCamSeq = 7;
+    assert(!KdCamRead(&r));
+    KdCamPublish(cam, tgt, 80, 5);  // a busy writer's publish is dropped
+    assert(g_kdCamSeq == 7);
+    // torn reads: every accepted snapshot is whole
+    g_kdCamSeq = 0, g_kdCamStop = 0;
+    HANDLE w = CreateThread(NULL, 0, KdCamWriter, NULL, 0, NULL);
+    assert(w);
+    LONG ok = 0;
+    for (int i = 0; i < 2000000; i++)
+        if (KdCamRead(&r)) {
+            ok++;
+            assert(r.pos[0] == r.pos[1] && r.pos[0] == r.tgt[2] && r.pos[0] == r.reach && (LONGLONG)r.reach == r.at);
+        }
+    g_kdCamStop = 1;
+    WaitForSingleObject(w, INFINITE);
+    CloseHandle(w);
+    assert(ok > 0);
+    // arming: only scope 2 with a deadline; household, unknown, seen NPC never
+    const LONGLONG fb0 = t_fbDeadline, t00 = t_jobT0;
+    const LONG cap0 = t_fbCapUs, sc0 = t_kdJobScope, ex0 = t_kdExemptUs;
+    LARGE_INTEGER q;
+    QueryPerformanceCounter(&q);
+    t_fbDeadline = q.QuadPart, t_jobT0 = q.QuadPart - g_qpf.QuadPart / 4, t_fbCapUs = 250000;
+    for (LONG s = 0; s < 4; s++) {
+        t_kdJobScope = s;
+        KdCamJobArm();
+        assert(t_kdCam == (s == 2 ? 1 : 0));
+        assert(s == 2 || !KdCamHold(q.QuadPart, &t_fbDeadline));  // not armed: the cut stands
+    }
+    t_kdJobScope = 2;
+    const int noStarts[2] = {0, 0};
+    u8 rec[2][64] = {};
+    *(float*)rec[0] = 100, *(float*)(rec[0] + 8) = 100;
+    *(float*)rec[1] = 5000, *(float*)(rec[1] + 8) = 5000;
+    int startV[2] = {(int)(uintptr_t)rec[1], (int)(uintptr_t)(rec[1] + 64)};  // start far
+    int goalV[2] = {(int)(uintptr_t)rec[0], (int)(uintptr_t)(rec[0] + 64)};   // goal in view
+    const auto reset = [&](LONG mode) {
+        k.kdCamMode = mode, k.kdCamChecks = k.kdCamHeld = k.kdCamStale = k.kdCamWould = 0, k.kdNpcCeilUs = 2000000;
+        t_fbDeadline = q.QuadPart, t_fbCapUs = 250000, t_kdExemptUs = 0;
+        KdCamJobArm();
+    };
+    g_kdCamSeq = 0;
+    KdCamPublish(cam, tgt, 80, q.QuadPart);
+    // no plan yet: the switch holds without a verdict, off cuts as ever
+    reset(1);
+    LONGLONG dl = q.QuadPart;
+    assert(KdCamHold(q.QuadPart, &dl) && t_kdCam == 1 && !k.kdCamChecks);
+    reset(0);
+    assert(!KdCamHold(q.QuadPart, &dl) && !t_kdCam && !k.kdCamChecks);
+    // switch off, in view: the cut stands, counted
+    reset(0);
+    KdCamPlanArgs(startV, goalV);
+    assert(t_kdCamN == 2 && !KdCamHold(q.QuadPart, &dl) && k.kdCamChecks == 1 && k.kdCamWould == 1 && !k.kdCamHeld && t_fbDeadline == q.QuadPart && t_kdCamNote == 3);
+    // on, in view: held to the NPC ceiling from the job's start, every deadline moved, no second test
+    reset(1);
+    KdCamPlanArgs(startV, goalV);
+    dl = q.QuadPart;
+    assert(KdCamHold(q.QuadPart, &dl) && k.kdCamHeld == 1 && t_kdCam == 2 && t_kdExemptUs == 250000 && t_fbCapUs == 2000000);
+    const LONGLONG want = t_jobT0 + 2 * g_qpf.QuadPart;
+    assert(dl == want && t_fbDeadline == want && t_kdCamDl == want);
+    LONGLONG outer = q.QuadPart;  // an outer plan's Budget still has the old deadline
+    assert(KdCamHold(q.QuadPart, &outer) && outer == want && k.kdCamChecks == 1);
+    assert(!KdCamHold(want, &outer) && t_kdCam == 2);  // past the ceiling: cut
+    // BudgetStep goes through it: a held plan is not capped
+    reset(1);
+    KdCamPlanArgs(startV, goalV);
+    const Budget b0 = t_budget;
+    const Budget bd = {1, 0, {}, 0, 0, 0, q.QuadPart, 0};
+    t_budget = bd;
+    assert(BudgetStep(1) == 0 && !t_budget.capped && t_budget.dl == want);
+    t_budget = b0;
+    // on, out of view: cut exactly as before, nothing moved
+    reset(1);
+    goalV[0] = (int)(uintptr_t)rec[1], goalV[1] = (int)(uintptr_t)(rec[1] + 64);
+    KdCamPlanArgs(startV, goalV);
+    dl = q.QuadPart;
+    assert(!KdCamHold(q.QuadPart, &dl) && dl == q.QuadPart && t_fbDeadline == q.QuadPart && !t_kdExemptUs && t_fbCapUs == 250000 && !t_kdCam && !t_kdCamNote && k.kdCamChecks == 1 && !k.kdCamHeld);
+    // the start in view is enough
+    reset(1);
+    KdCamPlanArgs(goalV, noStarts);
+    t_kdCamP[0][0] = 100, t_kdCamP[0][1] = 100;
+    assert(t_kdCamN == 1 && KdCamHold(q.QuadPart, &dl) && k.kdCamHeld == 1);
+    // a stale snapshot, or none: in view on, cut off
+    KdCamPublish(cam, tgt, 80, q.QuadPart - 2 * g_qpf.QuadPart);
+    reset(1);
+    KdCamPlanArgs(startV, goalV);
+    assert(KdCamHold(q.QuadPart, &dl) && k.kdCamStale == 1 && !k.kdCamHeld && t_kdCamNote == 2);
+    reset(0);
+    KdCamPlanArgs(startV, goalV);
+    assert(!KdCamHold(q.QuadPart, &dl) && k.kdCamStale == 1 && !k.kdCamWould);
+    g_kdCamSeq = 0;
+    reset(1);
+    KdCamPlanArgs(startV, goalV);
+    assert(KdCamHold(q.QuadPart, &dl) && k.kdCamStale == 1);
+    // a sync session: armed for scope 2 only, PdSkip holds it, its session reads as a ceiling plan
+    {
+        const LONG pm0 = k.pdMode, ps0 = k.pdSessions[0], ex1 = k.kdExempt;
+        k.pdMode = 1, k.kdCamMode = 1, k.kdNpcCeilUs = 2000000, t_fbDeadline = 0;
+        g_unCam.ok = true;
+        QueryPerformanceCounter(&g_unCam.at);
+        KdCamPublish(cam, tgt, 80, g_unCam.at.QuadPart);
+        goalV[0] = (int)(uintptr_t)rec[0], goalV[1] = (int)(uintptr_t)(rec[0] + 64);
+        KdScopeSet(0x1234, 1);
+        PdOpen(0, 50);
+        KdCamSyncArm(0x1234);
+        assert(!t_kdCam);  // household side: never armed
+        PdClose(true);
+        KdScopeSet(0x1234, 2);
+        PdOpen(0, 50);
+        KdCamSyncArm(0x1235);
+        assert(!t_kdCam);  // another route's answer
+        t_pd.handle = 0x1234;
+        KdCamSyncArm(0x1234);
+        assert(t_kdCam == 1);
+        KdCamPlanArgs(startV, goalV);
+        const LONGLONG t0 = t_pd.t0;
+        Sleep(1);
+        assert(!PdSkip(0) && t_kdCam == 2 && t_pd.ceil && t_pd.dl == t0 + 2 * g_qpf.QuadPart && t_fbDeadline == t_pd.dl && k.kdCamHeld >= 1 && t_pd.wouldUs == 50);
+        PdClose(true);
+        assert(!t_kdCam && !t_pd.open && !t_kdCamNote);
+        KdScopeClear(0x1234);
+        k.pdMode = pm0, k.pdSessions[0] = ps0, k.kdExempt = ex1, t_kdNpc = false, g_unCam.ok = false, g_unCam.at.QuadPart = 0;
+    }
+    t_kdCam = t_kdCamN = t_kdCamNote = 0;
+    t_fbDeadline = fb0, t_jobT0 = t00, t_fbCapUs = cap0, t_kdJobScope = sc0, t_kdExemptUs = ex0;
+    k.kdCamMode = mode0, k.kdNpcCeilUs = ceil0, k.kdCamChecks = k.kdCamHeld = k.kdCamStale = k.kdCamWould = 0;
+    g_kdCamSeq = scan0, g_kdCam = save0;
+}
+
 // docs/178 T1: one cell and one water call on a fresh thread acting as the route worker inside a foreign job (g_pdWkTid = its
 // id, its own t_fbDeadline = dl, t_jobT0 set); what came back and what the job's thread-locals say afterwards
 struct PdtWk {
@@ -92,10 +255,10 @@ static void TestPlanDeadline() {
     static_assert(offsetof(Ts3nCounters, pdMode) == 0x4244 && offsetof(Ts3nCounters, pdSessions) == 0x4254 &&
                       offsetof(Ts3nCounters, pdLines) == 0x427C && offsetof(Ts3nCounters, fmMode) == 0x4280 &&
                       offsetof(Ts3nCounters, fmInval) == 0x4298 && offsetof(Ts3nCounters, fmServedUs) == 0x42C4 &&
-                      sizeof(Ts3nCounters) == 5901 * 4,
+                      sizeof(Ts3nCounters) == 5984 * 4,
                   "counters v99 layout after v98 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
-    assert(k.version == 907);
+    assert(k.version == 912);
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     memset(&k.pdMode, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, pdMode));
     u8* code = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
@@ -217,7 +380,7 @@ static void TestPlanDeadline() {
     //     exempt even as NoStart, once; nested in an open session it cannot be: a cut there counts pdCutSc
     {
         static_assert(offsetof(Ts3nCounters, pdExemptSc) == 0x52C0 && offsetof(Ts3nCounters, pdCutSc) == 0x52C4 &&
-                          offsetof(Ts3nCounters, pdSpare) == 0x52C8 && sizeof(Ts3nCounters) == 5901 * 4,
+                          offsetof(Ts3nCounters, pdSpare) == 0x52C8 && sizeof(Ts3nCounters) == 5984 * 4,
                       "counters v135 layout after v134 (docs/registry.md)");
         g_icPlanOrig = [](u8* o, DWORD) -> u8* {
             assert(t_pdNoCut && !PdPlanBegin() && !t_pd.open && !g_pdTid);
@@ -242,6 +405,62 @@ static void TestPlanDeadline() {
         PdPlanEnd(0);
         assert(k.pdCutSc == 1 && !t_pd.open);
         k.pdCutSc = 0, k.pdExemptSc = 0;
+    }
+    // 9c. docs/197 §7: a seen or unknown Sim's sync plan runs under the ceiling (no pd cap, no SyncCapMs, also where pd exempts it); unseen keeps both
+    {
+        static int mode;
+        g_icPlanOrig = [](u8* o, DWORD) -> u8* {
+            *(DWORD*)o = 1;
+            if (mode == 2) {
+                assert(!t_kdCeil && t_fbCapUs == 900000 && t_pd.open && !t_pd.ceil);
+                return o;
+            }
+            assert(t_pd.open && t_pd.ceil && !t_fbCapUs && t_pd.wouldUs == 2000);
+            if (mode == 1) Sleep(5);
+            if (mode == 3) t_pd.dl = 1, *(DWORD*)o = 16;
+            return o;
+        };
+        const LONG s0 = k.pdSessions[0], s1 = k.pdSessions[1], h0 = k.pdHit, hu0 = k.pdHitUs, l0 = k.pdLines, m0 = k.pdLateMaxUs, am = k.asyncMode, cap0 = k.fbCapUs, ex0 = k.kdExempt;
+        k.kdExMode = 1, k.kdCeilUs = 8000000, k.asyncMode = 1, k.fbCapUs = 900000;
+        mode = 0;
+        KdScopeSet(0x1234, 1);
+        assert(SyncIc(0, out, 0x1234, NULL, RFB_NOSTART, "nojob", NULL) == out && !t_kdCeil && !t_pd.open && t_kdSeen && !k.kdCeilCut);
+        KdScopeClear(0x1234);  // no answer: unknown = exempt
+        assert(SyncIc(0, out, 0x1234, NULL, RFB_NOSTART, "nojob", NULL) == out && !t_kdSeen && k.kdExempt == ex0 + 2);
+        mode = 1;
+        const LONG w0 = k.kdWouldCut;
+        KdScopeSet(0x1234, 1);
+        k.pdUs = 2000;
+        assert(SyncIc(0, out, 0x1234, NULL, RFB_FOREIGN, "nojob", NULL) == out && k.kdWouldCut == w0 + 1 && k.kdExemptMaxUs >= 2000);
+        mode = 3;  // the ceiling still cuts, loudly
+        assert(SyncIc(0, out, 0x1234, NULL, RFB_NOSTART, "nojob", NULL) == out && k.kdCeilCut == 1);
+        // a seen NPC: its own ceiling and counter, not the loud household line
+        const LONG cn0 = k.kdCeilNpc;
+        k.kdNpcCeilUs = 2000000;
+        KdScopeSet(0x1234, 3);
+        assert(KdSyncCeilUs(0x1234) == 2000000 && t_kdNpc && t_kdSeen);
+        assert(SyncIc(0, out, 0x1234, NULL, RFB_NOSTART, "nojob", NULL) == out && k.kdCeilCut == 2 && k.kdCeilNpc == cn0 + 1);
+        KdScopeSet(0x1234, 1);
+        assert(KdSyncCeilUs(0x1234) == 8000000 && !t_kdNpc);
+        k.kdCeilCut = 1, k.kdCeilNpc = cn0;
+        mode = 2;
+        KdScopeSet(0x1234, 2);
+        assert(SyncIc(0, out, 0x1234, NULL, RFB_NOSTART, "nojob", NULL) == out);
+        KdScopeSet(0x1235, 2);  // the plan ts3fixes runs, for a non-IC plan; another route's IC does not read it
+        assert(!KdSyncCeilUs(0) && KdSyncCeilUs(0x1234) == 8000000);
+        KdScopeClear(0x1234);  // not the pending route: stays
+        assert(!KdSyncCeilUs(0));
+        KdScopeSet(0x1235, 1);
+        assert(PdPlanBegin() && t_pd.ceil && t_pd.wouldUs == 2000 && t_pd.handle == 0x1235 && t_pd.dl - t_pd.t0 > g_qpf.QuadPart);
+        PdPlanEnd(1);
+        KdScopeClear(0x1235);
+        assert(!g_kdScopeH);
+        // a job the ceiling cuts: exempt jobs get it as their deadline; the loud record path is RfJobNote's
+        k.kdExMode = 0, k.kdCeilUs = 0, k.kdCeilCut = 0, k.kdWouldCut = 0, k.kdExemptMaxUs = 0, k.kdExempt = ex0;
+        k.asyncMode = am, k.fbCapUs = cap0;
+        k.pdSessions[0] = s0, k.pdSessions[1] = s1, k.pdHit = h0, k.pdHitUs = hu0, k.pdLines = l0, k.pdLateMaxUs = m0;
+        t_kdSeen = false;
+        g_icPlanOrig = PdtIc;
     }
     // 10. FailMemo on the sync Plan IC (ReplanDedupe's fakes): observe, then serve a failed repeat; a worker-side CallIc (no
     //     t_fmSync) never goes through it
@@ -376,6 +595,102 @@ static void TestPlanDeadline() {
         memset(g_kdTab, 0, sizeof(g_kdTab));
         for (int i = 0; i < kKdRows; i++) KdFind(100 + i, true)->cutTick = 1000 + i;
         assert(KdFind(200, true) == &g_kdTab[0] && KdFind(101, false) && !KdFind(100, false));
+        // docs/197 §7 KdExemptSeen: own unknown or seen = exempt, own unseen or marked keeps its deadline; foreign only when known seen; probe never
+        k.kdExMode = 1;
+        AsyncJob s = {};
+        assert(KdJobBegin(&s) == 0 && t_kdExemptUs == 250000);
+        s.kdScope = 1;
+        assert(KdJobBegin(&s) == 0);
+        k.kdCeilUs = 10000000;
+        assert(KdJobBegin(&s) == 10000000 && t_kdExemptUs == 250000);  // the ceiling is the exempt job's deadline
+        k.kdNpcCeilUs = 2000000;
+        s.kdScope = 3;  // a seen NPC: exempt the same, its own ceiling; every other scope keeps the household one
+        assert(KdJobBegin(&s) == 2000000 && t_kdExemptUs == 250000 && t_kdJobScope == 3);
+        s.kdScope = 0;
+        assert(KdJobBegin(&s) == 10000000);
+        s.kdScope = 1;
+        k.kdCeilUs = 0;
+        s.kdScope = 2;
+        assert(KdJobBegin(&s) == 250000 && !t_kdExemptUs);
+        s.kdScope = 0, s.uf = 1;
+        assert(KdJobBegin(&s) == 250000);
+        assert(KdJobBegin(&f) == 0 && KdJobBegin(&a) == 0);  // docs/249: unknown = household, whatever the kind
+        f.kdScope = a.kdScope = 1, p.kdScope = 1;
+        assert(KdJobBegin(&f) == 0 && KdJobBegin(&a) == 0 && KdJobBegin(&p) == 0);
+        f.kdScope = a.kdScope = 2, p.kdScope = 2;
+        assert(KdJobBegin(&f) == 200000 && KdJobBegin(&a) == 200000 && KdJobBegin(&p) == 180000);
+        f.kdScope = a.kdScope = p.kdScope = 0;
+        {
+            const LONG n0 = ts3native_counters.kdScopeN;
+            ts3native_counters.kdScopeN = 0;  // old package: no answer ever, every cut as v0.2.8
+            assert(KdJobBegin(&f) == 200000 && !t_kdExemptUs && !KdSyncCeilUs(0x1234));
+            ts3native_counters.kdScopeN = n0;
+        }
+        // KindDeadlines off: FbJobCapMs and the probe's PlanDeadlineMs keep to the same rule; an own job stays as it was
+        {
+            const LONG md0 = k.kdMode, fm0 = k.fbjcMode, fc0 = k.fbjcCapUs, pu0 = k.pdUs;
+            k.kdMode = 0, k.fbjcMode = 1, k.fbjcCapUs = 300000, k.pdUs = 300000, ts3native_counters.kdCeilUs = 10000000;
+            AsyncJob pj = {};
+            pj.probe = 1;
+            assert(KdJobBegin(&f) == 10000000 && t_kdExemptUs == 300000 && KdJobBegin(&pj) == 10000000);
+            f.kdScope = 3, k.kdNpcCeilUs = 2000000;
+            assert(KdJobBegin(&f) == 2000000);
+            f.kdScope = pj.kdScope = 2;
+            assert(KdJobBegin(&f) == -1 && KdJobBegin(&pj) == -1);
+            f.kdScope = 0;
+            AsyncJob own = {};
+            assert(KdJobBegin(&own) == -1);
+            k.kdMode = md0, k.fbjcMode = fm0, k.fbjcCapUs = fc0, k.pdUs = pu0, ts3native_counters.kdCeilUs = 0;
+        }
+        // ReplanDedupe's scope
+        KdScopeSet(0x25000009, 2);
+        t_kdJobScope = 0;
+        assert(KdKnownUnseen(0x25000009) && !KdKnownUnseen(0x25000008));
+        KdScopeSet(0x25000009, 1);
+        assert(!KdKnownUnseen(0x25000009));
+        t_kdJobScope = 2;
+        assert(KdKnownUnseen(0x25000008));
+        t_kdJobScope = 0;
+        KdScopeClear(0x25000009);
+        KdScopeSet(0x25000009, 1);
+        assert(KdScopeTake(0x25000008) == 0 && KdScopeTake(0x25000009) == 0);  // another route's START used it up
+        KdScopeSet(0x25000009, 2);
+        assert(KdScopeTake(0x25000009) == 2);
+        // the job record behind a ts3fixes line: by route id, not for a sync plan
+        AsyncJob e = {};
+        e.handle = 0x25ABCDEF, e.seq = 9;
+        *(LONG*)e.result = 16;
+        const JobSplit sp = {-1, -1, 100000, 2000};
+        t_kdKind = 1, t_kdExemptUs = 250000;
+        RfJobNote(&e, false, 300000, sp, 0, 0);
+        assert(!t_kdExemptUs);
+        char rf[320];
+        RfAppend("routefail: x, Plan async No, route 25ABCDEF", rf, sizeof(rf));
+        assert(strstr(rf, "uncut (exempt)") && strstr(rf, "300 ms result 16") && strstr(rf, "deadline 250 ms") && strstr(rf, "scope unknown"));
+        RfAppend("gohere plan: Plan sync No, route 25ABCDEF", rf, sizeof(rf));
+        assert(!rf[0]);
+        RfAppend("routefail: x, route 25ABCDE0", rf, sizeof(rf));
+        assert(!rf[0]);
+        t_kdKind = 1, t_kdExemptUs = 250000;
+        RfJobNote(&e, true, 12000000, sp, 10000000, 1);
+        assert(k.kdCeilCut == 1);
+        RfAppend("routefail: x, Plan async No, route 25ABCDEF", rf, sizeof(rf));
+        assert(strstr(rf, "cut (KdSeenCeilMs"));
+        e.kdScope = 3, e.kdId = 0x1122334455667788ull;  // the NPC side: its own counters, the job line says "seen npc"
+        const LONG cu0 = k.kdCutUnk, cs0 = k.kdCutSeen, cn1 = k.kdCutNpc, ce0 = k.kdCeilNpc;
+        t_kdKind = 1, t_kdExemptUs = 250000, t_kdJobScope = 3;
+        KdJobEnd(&e, true, 2100000, 0, 0);
+        assert(k.kdCutNpc == cn1 + 1 && k.kdCutUnk == cu0 && k.kdCutSeen == cs0);
+        RfJobNote(&e, true, 2100000, sp, 2000000, 1);
+        assert(k.kdCeilCut == 2 && k.kdCeilNpc == ce0 + 1);
+        RfAppend("routefail: x, Plan async No, route 25ABCDEF", rf, sizeof(rf));
+        assert(strstr(rf, "cut (KdSeenCeilMs") && strstr(rf, "deadline 2000 ms") && strstr(rf, "seen npc"));
+        { int n = 0; for (int i = 0; i < 40; i++) n += KdNpcLineOk(); assert(n <= 30); }
+        t_kdJobScope = 0, k.kdCutNpc = cn1, k.kdCeilNpc = ce0, k.kdNpcCeilUs = 0;
+        KdCamTest();
+        k.kdCeilCut = 0, k.kdWouldCut = 1, k.kdExemptMaxUs = 300000;
+        assert(k.kdWouldCut == 1 && k.kdExemptMaxUs == 300000 && k.kdExempt >= 4);
+        k.kdExMode = 0;
         t_kdKind = 0, k.kdMode = 0, k.kdReady = 0;
         memset(g_kdTab, 0, sizeof(g_kdTab));
         printf("KindDeadlines (docs/197): counters v134; kinds, last-round exemption, follower backoff doubled / uncut / reset, "

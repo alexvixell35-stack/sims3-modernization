@@ -122,6 +122,10 @@ namespace Ts3Fixes
             return Placed || Tries >= MaxTries;
         }
 
+        // Between tries the flower is out of world, and the save or travel must not store it. Every save path sets its flag and then
+        // sleeps at least once before the snapshot (OptionsModel.SaveGameSynchronous, GameStates' SaveTravel calls), so a task on Sleep(0) wakes first.
+        public static bool MustStop(bool saving, bool travelling) { return saving || travelling; }
+
         // [93] fires, [94] tries, [95] placed, [96] failed, [97] longest ms: the whole fire when it ran in the alarm,
         // else the longest single try (one slice of the task).
         public void Count(int[] c, bool wholeFire)

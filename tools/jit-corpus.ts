@@ -83,6 +83,7 @@ const K: [string, Kind, string, string][] = [
   ['ConvR4U8', 'u8', 'float', '(float)a'],
   ['AddR4', 'r4r4', 'float', 'a + b'], ['MulR4', 'r4r4', 'float', 'a * b'], ['DivR4', 'r4r4', 'float', 'a / b'], ['RemR4', 'r4r4', 'float', 'a % b'],
   ['MulMulR4', 'r4r4', 'float', 'a * b * b'], ['MulAddR4', 'r4r4', 'float', 'a * b + a'], ['MixR4R8', 'r4r4', 'double', 'a * (double)b + a'],
+  ['CmpR8V', 'r8r8', 'int', '((a == b) == (a > b) ? 1 : 0) | ((a < b) == (!(a <= b)) ? 2 : 0) | ((!(a >= b)) == (a < b) ? 4 : 0)'],
   ['CmpR4', 'r4r4', 'int', '(a == b ? 1 : 0) | (a < b ? 2 : 0) | (!(a <= b) ? 8 : 0) | (!(a >= b) ? 16 : 0)'],
   ['ConvR8R4', 'r4', 'double', '(double)a'], ['ConvI4R4', 'r4', 'int', '(int)a'], ['ConvU8R4', 'r4', 'ulong', '(ulong)a'],
 ];
@@ -108,6 +109,9 @@ const KS = `
         public static float StelemR4(float[] a, int i, double v) { a[i] = (float)v; return a[i]; }
         public static double StelemR8(double[] a, int i, double v) { a[i] = v; return a[i]; }
         public static int StelemRefK(JitKO[] a, int i, JitKO v) { a[i] = v; return a[i] == null ? 0 : a[i].v + 1; }
+        // docs/537 §16: a local names a large graph the entry snapshot does not hold, and the heap gets a new array
+        public static object[] FloodA, FloodB;
+        public static int KeepFlood(JitKO b, int i) { object[] g = i % 2 == 0 ? FloodA : FloodB; object[] n = new object[3]; n[0] = b.next; b.objs = n; return g.Length + n.Length; }
         static int StobjT<T>(ref T r, T v) { r = v; return 1; }
         public static int StobjUse(int a, object o)
         {
@@ -284,10 +288,209 @@ const KT = `
         public static int Null(int n) { try { JitRKey k = null; return HashR(k) + n; } catch (NullReferenceException) { return -9; } }
     }
 `;
+// round 10 C5 (docs/207 §16.3): initobj (a local, a heap field through ldflda, an array element, every size path: inline dwords
+// and the memset of a size not a multiple of 4; generic default(T) with T = int, long, a class, a struct), isinst (null, classes
+// at each depth, interfaces hit and missed, arrays and remoting classes left to EA's handler, a generic T, inside EA's
+// 0x1B9 / 0x1C0 superops through Equals), shr.un.i8 past the width, and the two direct internal calls (typeof, Enum).
+const KC5 = `
+    public interface JitIA { int A(); }
+    public interface JitIB { int B(); }
+    public class JitC5A : JitIA { public int V; public virtual int A() { return 1; } public override bool Equals(object o) { JitC5A x = o as JitC5A; if (x == null) return false; return x.V == V; } public override int GetHashCode() { return V; } }
+    public class JitC5B : JitC5A, JitIB { public int B() { return 2; } }
+    public class JitC5C : JitC5B { public override int A() { return 3; } }
+    public sealed class JitC5S { }
+    public class JitC5M : MarshalByRefObject { }
+    public enum JitEnI { A, B = 7 }
+    public enum JitEnB : byte { A, B = 200 }
+    public enum JitEnL : long { A, B = 0x100000001L }
+    public struct JitOdd { public int A, B, C, D, E; public byte F; }
+    public struct JitQ { public int A, B, C, D; }
+    public class JitKI
+    {
+        public JitTPt P; public JitOdd O; public object R; public JitQ Q;
+        static T Def<T>() { T t = default(T); return t; }
+        static bool IsG<T>(object o) { return o is T; }
+        static object[] Objs() { return new object[] { null, "s", 1, 1L, 2.5, new JitC5A(), new JitC5B(), new JitC5C(), new JitC5S(), new JitC5M(), new int[2], new string[1], new object[1], new JitRKey[1], JitEnI.B, JitEnB.B, new List<int>(), new JitTPt(1, 2, 3), new object() }; }
+        public static int Init(int n)
+        {
+            int s = 0; JitKI o = new JitKI(); JitOdd[] a = new JitOdd[3]; JitQ[] b = new JitQ[2];
+            for (int i = 0; i < n; i++)
+            {
+                JitTPt p = new JitTPt(i, 2, 3); s += p.Sum(); p = new JitTPt(); s += p.Sum();
+                o.P = new JitTPt(i, i, i); s += o.P.Sum(); o.P = new JitTPt(); s += o.P.Sum();
+                a[i & 1].A = i; a[i & 1].F = 9; s += a[i & 1].F; a[i & 1] = new JitOdd(); s += a[i & 1].A + a[i & 1].F + a[2].F;
+                o.O.E = i; o.O.F = 3; o.O = new JitOdd(); s += o.O.E + o.O.F;
+                b[1].D = i; b[1] = new JitQ(); s += b[1].D; o.Q.A = i; o.Q = new JitQ(); s += o.Q.A;
+                JitOdd l; l.A = i; l.B = 2; l.C = 3; l.D = 4; l.E = 5; l.F = 6; s += l.A; l = new JitOdd(); s += l.B + l.F;
+            }
+            return s;
+        }
+        public static long Gen(int n)
+        {
+            long s = 0;
+            for (int i = 0; i < n; i++)
+            {
+                s += Def<int>() + Def<long>() + (long)Def<double>() + Def<JitTPt>().Sum() + Def<JitOdd>().F + (long)Def<byte>() + Def<JitQ>().B;
+                if (Def<string>() != null) s += 9;
+                if (Def<JitC5A>() != null) s += 11;
+                if (Def<long?>().HasValue) s += 13;
+            }
+            return s;
+        }
+        // docs/537 §10, S5: float arithmetic, ldind and stind r4 and r8 through refs, ldstr, ldtoken, castclass
+        static double RD(ref double a, ref float b, double c) { a = a * c + b; b = (float)(a / 3.0); return -a; }
+        static string Str(int i) { return (i & 1) == 0 ? "even" : "odd"; }
+        public static string CastS(object o) { return (string)o; }
+        public static JitIA CastI(object o) { return (JitIA)o; }
+        public static long Wide(int n)
+        {
+            double d = 1.5; float f = 0.25f; long s = 0;
+            for (int i = 0; i < n; i++)
+            {
+                s += (long)RD(ref d, ref f, i + 0.5) + Str(i).Length + (int)(d / 7.0) + (short)(int)f + (long)(uint)(d - 1.0) + typeof(JitKI).Name.Length + (long)(float)i;
+                if (d > 1e6 || d < -1e6) d = 1.5;
+            }
+            return s;
+        }
+        public static int NullField(JitKI o) { try { o.P = new JitTPt(); return 1; } catch (NullReferenceException) { return -3; } }
+        public static int Is(int k)
+        {
+            int s = 0; object[] v = Objs();
+            for (int i = 0; i < v.Length; i++)
+            {
+                object x = v[i]; int b = 0;
+                if ((x as JitC5A) != null) b |= 1; if ((x as JitC5B) != null) b |= 2; if ((x as JitC5C) != null) b |= 4;
+                if (x is JitIA) b |= 8; if (x is JitIB) b |= 16; if (x is JitC5S) b |= 32; if (x is string) b |= 64; if (x is int) b |= 128;
+                if (x is JitEnI) b |= 256; if (x is Enum) b |= 512; if (x is ValueType) b |= 1024; if (x is object) b |= 2048;
+                if (x is System.Collections.IEnumerable) b |= 4096; if (x is IList<int>) b |= 8192; if (x is IComparable) b |= 16384;
+                if (x is MarshalByRefObject) b |= 32768; if (x is int[]) b |= 65536; if (x is object[]) b |= 131072; if (x is Array) b |= 262144;
+                if (x is JitRKey[]) b |= 524288; if (x is IEquatable<int>) b |= 1048576; if (x is List<int>) b |= 2097152;
+                s = s * 31 + b + k;
+            }
+            return s;
+        }
+        public static int IsGen(int k)
+        {
+            int s = 0; object[] v = Objs();
+            for (int i = 0; i < v.Length; i++)
+            {
+                object x = v[i]; int b = 0;
+                if (IsG<JitC5B>(x)) b |= 1; if (IsG<JitIB>(x)) b |= 2; if (IsG<int>(x)) b |= 4; if (IsG<List<int>>(x)) b |= 8; if (IsG<string[]>(x)) b |= 16; if (IsG<JitEnB>(x)) b |= 32;
+                s = s * 31 + b + k;
+            }
+            return s;
+        }
+        public static int Eq(int n) { int s = 0; JitC5A a = new JitC5A(), b = new JitC5B(); object[] v = Objs(); for (int i = 0; i < n; i++) { a.V = i & 1; if (a.Equals(b)) s++; if (a.Equals(v[i % v.Length])) s += 3; } return s; }
+        // docs/537 §8: a lazy body with a cold exit: the list changes under the enumerator, VerifyState's throw block runs from a lazy MoveNext
+        public static int Cold(int n)
+        {
+            int s = 0;
+            for (int i = 0; i < n; i++)
+            {
+                List<int> l = new List<int>(); l.Add(i); l.Add(2); Dictionary<int, int> d = new Dictionary<int, int>(); d[i] = 1; d[i + 1] = 2;
+                try { foreach (int x in l) { s += x; if (i % 3 == 0) l.Add(1); } } catch (InvalidOperationException) { s += 1000; }
+                try { foreach (KeyValuePair<int, int> p in d) { s += p.Value; if (i % 3 == 1) d[i + 5] = 3; } } catch (InvalidOperationException) { s += 2000; }
+            }
+            return s;
+        }
+        public static long Shr(int n)
+        {
+            long s = 0; ulong x = 0x8000000180000001UL;
+            for (int i = 0; i < n; i++) { int k = i * 7 - 40; s = s * 3 + (long)(x >> k) + (long)((ulong)(long)(i - 7) >> 32) + (long)x.GetHashCode(); x = x * 5 + 3; }
+            return s;
+        }
+        public static int Types(int n)
+        {
+            int s = 0; object[] v = Objs();
+            for (int i = 0; i < n; i++)
+            {
+                if (typeof(int) == typeof(long)) s++; if (typeof(List<int>).Name.Length > 1) s += 2; if (typeof(JitTPt).IsValueType) s += 3; if (typeof(int[]).IsArray) s += 5; if (typeof(JitIA).IsInterface) s += 7;
+                object o = v[(i % (v.Length - 1)) + 1]; if (o.GetType() == typeof(string)) s += 11;
+                if (typeof(int).TypeHandle.Value != IntPtr.Zero) s += 13;
+            }
+            return s;
+        }
+        public static int Enums(int n)
+        {
+            int s = 0; object a = JitEnI.B, b = JitEnB.B, c = JitEnL.B, d = JitEnI.A;
+            for (int i = 0; i < n; i++) { s = s * 3 + a.GetHashCode() + b.GetHashCode() + c.GetHashCode() + d.GetHashCode(); if (a.Equals(d)) s++; if (a.Equals(JitEnI.B)) s += 2; if (a.Equals(b)) s += 3; if (a.Equals(null)) s += 5; if (c.Equals(JitEnL.B)) s += 7; }
+            return s;
+        }
+        public static float Vec(int n)
+        {
+            float s = 0f;
+            for (int i = 0; i < n; i++) { Sims3.SimIFace.Vector3 p = new Sims3.SimIFace.Vector3(i, 2f, 0.5f); Sims3.SimIFace.Vector3 q = new Sims3.SimIFace.Vector3(p); Sims3.SimIFace.Vector2 w = new Sims3.SimIFace.Vector2(1f, i); Sims3.SimIFace.Vector3 r = new Sims3.SimIFace.Vector3(w); s += q.x + r.y; }
+            return s;
+        }
+    }
+`;
 // B3 lazy frames (docs/207 §12): compiled callers calling compiled static leaves (every position native, ret / ret.void).
 // Each leaf has a branch so mint's transform does not inline it; Arr / Set / Deref fault inside the leaf (frame written at
 // the exit, then EA's handler throws).
 const KL = `
+    public class JitIN
+    {
+        public int v; public byte b; public short h; public float f; public long w; public double d; public JitIN next; public int[] a; public string t;
+        public int V() { return v; }
+        public int VB() { return b; }
+        public int VH() { return h; }
+        public float F() { return f; }
+        public long W() { return w; }
+        public double D() { return d; }
+        public JitIN Next() { return next; }
+        public int NextV() { return next.v; }
+        public int Next2V() { return next.next.v; }
+        public int ALen() { return a.Length; }
+        public int Add3(int x) { return v + x + 3; }
+        public bool Eq(int x) { return v == x; }
+        public int Not() { return ~v; }
+        public void Nop() { }
+    }
+    public struct JitINS
+    {
+        public int X; public byte B; public JitIN R;
+        public int GetX() { return X; }
+        public int GetB() { return B; }
+        public int RV() { return R.v; }
+        public int XP(int k) { return X + k; }
+    }
+    public class JitIND : JitIN { public int o; public new int V() { return o; } }
+    public static class JitKIN
+    {
+        public static long Run(int n)
+        {
+            JitIN a = new JitIN(), b = new JitIN(), c = new JitIN(), nul = null;
+            a.v = 3; a.b = 200; a.h = -5; a.f = 1.5f; a.w = 0x1122334455667788L; a.d = -2.5; a.next = b; a.a = new int[7]; b.v = 11; b.next = c; c.v = 13;
+            JitIND dd = new JitIND(); dd.v = 1; dd.o = 2; dd.next = a;
+            JitINS st = new JitINS(); st.X = 9; st.B = 250; st.R = b;
+            JitINS sn = new JitINS(); sn.X = -1;
+            long r = 0;
+            for (int i = 0; i < n; i++)
+            {
+                r += Hot((i & 1) == 0 ? a : dd, a, b, dd, ref st, i);
+                try { r += N1(nul); } catch (NullReferenceException) { r += 1; }
+                try { N2(nul); r += 100; } catch (NullReferenceException) { r += 2; }
+                try { r += N3(b); } catch (NullReferenceException) { r += 3; }
+                try { r += N4(c); } catch (NullReferenceException) { r += 5; }
+                try { r += N5(b); } catch (NullReferenceException) { r += 7; }
+                try { r += N6(ref sn); } catch (NullReferenceException) { r += 11; }
+            }
+            return r;
+        }
+        static long Hot(JitIN p, JitIN a, JitIN b, JitIND dd, ref JitINS st, int i)
+        {
+            long r = p.V() + p.VB() + p.VH() + (long)p.F() + p.W() + (long)p.D() + p.NextV() + p.Add3(i) + (p.Eq(i) ? 1 : 0) + p.Not() + dd.V();
+            p.Nop();
+            r += a.Next2V() + a.ALen() + (p.Next() == b ? 1 : 0);
+            return r + st.GetX() + st.GetB() + st.RV() + st.XP(i);
+        }
+        static int N1(JitIN p) { return p.V() + 1; }
+        static void N2(JitIN p) { p.Nop(); }
+        static int N3(JitIN p) { return p.Next2V() + 1; }
+        static int N4(JitIN p) { return p.NextV() + 1; }
+        static int N5(JitIN p) { return p.ALen() + 1; }
+        static int N6(ref JitINS p) { return p.RV() + 1; }
+    }
     public class JitKL
     {
         public int v; public long w; public JitKL next;
@@ -496,6 +699,15 @@ function bclCases(): Case[] {
                 foreach (int x in l) h = M(h, x);
                 ${T('ModifyList(l)')}
             }` },
+    { name: 'List growth: size, version, capacity, elements (int, ulong, ObjectGuid, string, object)', body: `h = ListGrowth(h, new int[] { 1, -2, 3 });
+            h = ListGrowth(h, new ulong[] { 1UL, 0x100000001UL, ulong.MaxValue });
+            h = ListGrowth(h, new ObjectGuid[] { new ObjectGuid(5UL), new ObjectGuid(0x700000005UL), ObjectGuid.InvalidObjectGuid });
+            h = ListGrowth(h, new string[] { "a", null, "bc" });
+            h = ListGrowth(h, new object[] { null, "s", 5 });` },
+    { name: 'List growth into dead cells', body: `for (int r = 0; r < 40; r++) h = ListGrowDead(h, r);` },
+    { name: 'Kept set flood (old graph in a local, new array in the heap)', body: `if (JitK.FloodA == null) { JitK.FloodA = new object[3000]; JitK.FloodB = new object[3000]; for (int i = 0; i < 3000; i++) { JitK.FloodA[i] = new object[2]; JitK.FloodB[i] = new object[2]; } }
+            JitKO k = new JitKO(); k.next = k;
+            for (int i = 0; i < 64; i++) { h = M(h, JitK.KeepFlood(k, i)); h = M(h, k.objs.Length); h = M(h, k.objs[0] == k ? 1 : 0); }` },
     { name: 'Array.Resize / Array.IndexOf (null, negative size, missing, null elements)', body: `int[] sz = new int[] { -1, 0, 1, 2, 5, 64, 65 };
             for (int s = 0; s < sz.Length; s++)
             {
@@ -580,6 +792,16 @@ const LAZY_CASES: Case[] = [
   { name: 'JitKX.Escape (an exception from a lazy callee reaches the driver through the compiled caller)', body: `${T('JitKX.Escape(0)')} ${T('JitKX.Escape(1)')} ${T('JitKX.Escape(2)')}` },
   // round 10 C1 leftovers: con.callvirt on a reference type
   { name: 'JitKCV.Eq / Hash / Null (con.callvirt on a class: this = *ptr, then the guarded callvirt; a class flip refills the guard; a null behind the pointer exits, EA throws)', body: `${T('JitKCV.Eq(40)')} ${T('JitKCV.Hash(40)')} ${T('JitKCV.Null(1)')}` },
+  // round 10 C5: the §16.3 templates
+  { name: 'JitKI.Init / Gen / NullField (initobj: locals, ldflda and ldelema targets, inline and memset sizes, default(T); a null receiver exits)', body: `${T('JitKI.Init(40)')} ${T('JitKI.Gen(40)')} ${T('JitKI.NullField(new JitKI())')} ${T('JitKI.NullField(null)')}` },
+  { name: 'JitKI.Is / IsGen / Eq (isinst: null, class depths, interfaces, arrays, remoting, generic T, the isinst superops of Equals)', body: `${T('JitKI.Is(1)')} ${T('JitKI.Is(2)')} ${T('JitKI.IsGen(1)')} ${T('JitKI.Eq(60)')}` },
+  { name: 'JitKI.Shr (shr.un.i8 at shifts past the width, negative shifts, UInt64.GetHashCode)', body: T('JitKI.Shr(40)') },
+  { name: 'JitKI.Types / Enums (direct internal_from_handle and Enum.get_value, boxed enums of three widths)', body: `${T('JitKI.Types(40)')} ${T('JitKI.Enums(40)')}` },
+  { name: 'JitKIN.Run (docs/537 §9: tiny getters inlined, a null at each base, a value-type this, a hiding method, r4 and r8 forms refused)', body: T('JitKIN.Run(40)') },
+  { name: 'JitKI.Wide (docs/537 §10: float arithmetic, ldind and stind through refs, ldstr, ldtoken)', body: T('JitKI.Wide(64)') },
+  { name: 'JitKI.CastS, CastI (castclass: null, match, mismatch throws)', body: `${T('JitKI.CastS(null)')} ${T('JitKI.CastS("a")')} ${T('JitKI.CastS(1)')} ${T('JitKI.CastI(null)')} ${T('JitKI.CastI("a")')}` },
+  { name: 'JitKI.Cold (docs/537 §8: VerifyState\'s cold throw block through a lazy MoveNext, the frame written at the exit)', body: T('JitKI.Cold(24)') },
+  { name: 'JitKI.Vec (Vector3 constructors from three floats, a Vector3, a Vector2)', body: T('JitKI.Vec(40)') },
 ];
 // docs/207 §9 accessors (round 8 B6): [corpus name, JitAcc method, inputs, the method the compiler must list]
 export const ACCESSORS: [string, string, number, string][] = [
@@ -625,6 +847,7 @@ ${KO.replace(/^\n|\n$/g, '')}
 ${KL.replace(/^\n|\n$/g, '')}
 ${KX.replace(/^\n|\n$/g, '')}
 ${KT.replace(/^\n|\n$/g, '')}
+${KC5.replace(/^\n|\n$/g, '')}
     public struct JitKey : IEquatable<JitKey>
     {
         public int K;
@@ -691,6 +914,61 @@ ${KT.replace(/^\n|\n$/g, '')}
         static int ModifyWhileEnumerating<T>(Dictionary<T, int> d) { foreach (KeyValuePair<T, int> kv in d) d[kv.Key] = 0; if (d.Count > 0) foreach (T k in d.Keys) d.Remove(k); return d.Count; }
         static int NullKey(Dictionary<string, int> d) { d[null] = 1; return d.Count; }
         static int ModifyList(List<int> l) { foreach (int x in l) if (x > 3) l.Add(x); return l.Count; }
+        // List state that a growth must keep: size, version, capacity, elements (the array object itself is not compared)
+        static int ListState<T>(int h, List<T> l)
+        {
+            h = M(h, l.Count); h = M(h, l.Capacity);
+            h = M(h, (int)typeof(List<T>).GetField("_version", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(l));
+            foreach (T x in l) h = M(h, x == null ? 7 : x.GetHashCode());
+            return h;
+        }
+        // docs/537 §15: a word in the list's graph names the dead, not yet swept arrays of the size the growth asks for. The verifier
+        // takes them for objects, and the growth's allocation sweeps them and gets one. Addresses stay xored over the collection (under
+        // verify an int[] is scanned, a plain address would keep them alive), and every earlier call's cells stay listed: which block
+        // the sweep takes first is not known.
+        static int[] s_dead = new int[600];
+        static int s_deadN;
+        static int ArrayBase(int[] a)
+        {
+            System.Runtime.InteropServices.GCHandle g = System.Runtime.InteropServices.GCHandle.Alloc(a, System.Runtime.InteropServices.GCHandleType.Pinned);
+            int p = (int)g.AddrOfPinnedObject() - 0x10; g.Free();
+            return p;
+        }
+        static int ListGrowDead(int h, int fill)
+        {
+            const int N = 60, X = 0x55555554;
+            int[][] keep = new int[N][];  // a live cell in every block: Boehm frees an all-dead block at once, only a mixed block waits for the sweep
+            for (int i = 0; i < N; i++)
+            {
+                keep[i] = new int[N * 2];
+                s_dead[s_deadN++ % s_dead.Length] = ArrayBase(new int[N * 2]) ^ X;
+            }
+            GC.Collect();
+            int[] idx = new int[s_dead.Length];
+            for (int i = 0; i < idx.Length; i++) idx[i] = s_dead[i] ^ X;
+            for (int i = 0; i < fill; i++) s_dead[s_deadN++ % s_dead.Length] = ArrayBase(new int[N * 2]) ^ X;  // drain the swept cells: the growth must be the allocation that sweeps
+            List<int> l = new List<int>(N);
+            l.Add(ArrayBase(idx));
+            for (int i = 1; i < N; i++) l.Add(i);
+            l.Add(-1);
+            s_dead[s_deadN++ % s_dead.Length] = ArrayBase((int[])typeof(List<int>).GetField("_items", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(l)) ^ X;
+            h = M(h, l.Count); h = M(h, l.Capacity); h = M(h, l[N - 1]); h = M(h, l[N]); h = M(h, keep[N - 1].Length);
+            return h;
+        }
+        // every way into GrowIfNeeded: new list (EmptyArray -> 4), doubling, a capacity argument, AddRange past double, Insert
+        static int ListGrowth<T>(int h, T[] v)
+        {
+            for (int c = 0; c < 3; c++)
+            {
+                List<T> l = c == 0 ? new List<T>() : new List<T>(c * 3 - 2); h = ListState(h, l);
+                for (int i = 0; i < 70; i++) { l.Add(v[i % v.Length]); h = M(h, l.Capacity); }
+                h = ListState(h, l);
+                l.AddRange(new List<T>(v)); l.AddRange(l.ToArray()); h = ListState(h, l);
+                l.Insert(1, v[0]); h = ListState(h, l);
+                l.Capacity = l.Count; l.Add(v[1]); h = ListState(h, l);
+            }
+            return h;
+        }
         static int ResizeI(ref int[] a, int n) { Array.Resize(ref a, n); return a.Length; }
         static int ResizeS(ref string[] a, int n) { Array.Resize(ref a, n); return a.Length; }
 
@@ -716,7 +994,7 @@ ${cs.map((k, i) => `                case ${i}: // ${k.name}
 export function jitList(src: string): string {
   const m = /kJitList\[\] = \{([\s\S]*?)\};/.exec(src);
   if (!m) throw new Error('kJitList not found in monohost-jit.cpp');
-  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', 'JitKX.*', 'JitKT.*', 'JitKTF.*', 'JitKCV.*', 'JitRKey.*', 'JitRKey2.*', 'JitTPt.*', 'JitTBig.*', ...ACCESSORS.map(a => a[3])).join(',');
+  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', 'JitKX.*', 'JitKT.*', 'JitKTF.*', 'JitKCV.*', 'JitKI.*', 'JitKIN.*', 'JitIN.*', 'JitINS.*', 'JitIND.*', 'JitC5A.*', 'JitRKey.*', 'JitRKey2.*', 'JitTPt.*', 'JitTBig.*', ...ACCESSORS.map(a => a[3])).join(',');
 }
 
 // ---- report ----
@@ -784,7 +1062,7 @@ function selfCheck() {
   try { disk = readFileSync(OUT, 'utf8'); } catch { /* missing = stale */ }
   ok(disk.replace(/\r\n/g, '\n') === g.replace(/\r\n/g, '\n'), 'native/monohost/JitCorpus.cs is up to date (node tools/jit-corpus.ts --write)');
   const src = 'static const char* const kJitList[] = {\n    // c\n    "A.B", "C`2.D",\n    "E.F",\n};';
-  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,JitKX.*,JitKT.*,JitKTF.*,JitKCV.*,JitRKey.*,JitRKey2.*,JitTPt.*,JitTBig.*,' + ACCESSORS.map(a => a[3]).join(','), 'kJitList parse');
+  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,JitKX.*,JitKT.*,JitKTF.*,JitKCV.*,JitKI.*,JitKIN.*,JitIN.*,JitINS.*,JitIND.*,JitC5A.*,JitRKey.*,JitRKey2.*,JitTPt.*,JitTBig.*,' + ACCESSORS.map(a => a[3]).join(','), 'kJitList parse');
   ok(new Set(ACCESSORS.map(a => a[1])).size === ACCESSORS.length && ACCESSORS.every(a => /^\w+Case$/.test(a[1]) && a[2] > 0), 'accessor table');
   const log = 'jit corpus MISMATCH case 1: compiled 0000002A interpreted 0000002B\njit corpus trail case 1 compiled: DivideByZeroException at X | \njit corpus UNSTABLE case 2: interpreted 1 then 2\n'
     + 'jit corpus: 3 cases, 1 differ, 1 unstable; per-call verify during the corpus: ok 5, MISMATCH 0, abandoned (exception) 2\n';

@@ -44,6 +44,16 @@ USER_DIR = Path(os.environ.get('TS3_USER', Path.home() / 'Documents' / 'Electron
 FUNCTIONS_CSV = ROOT / 'game-copy' / 'analysis' / 'functions.csv'
 
 
+WINDOW_BACK_TICK, WINDOW_BACK_GRACE, WINDOW_BACK_TOTAL = 0.025, 20, 180  # poll s; s after launch the game may be foreground; s the watch lasts
+SHELL_BOTTOM = ('Progman', 'WorkerW')  # desktop windows that legitimately sit below a window sent to the bottom
+
+
+def window_back_wanted(elapsed, at_bottom, foreground):
+    """Send a game window to the bottom? Within the launch grace even a foreground window (the game raises itself at start-up);
+    after it only a background one, so a window Rodney opens on purpose is left alone; never after the watch ends."""
+    return elapsed <= WINDOW_BACK_TOTAL and not at_bottom and (elapsed <= WINDOW_BACK_GRACE or not foreground)
+
+
 def next_misses(misses, present):
     """Progress check of a long wait (docs/236 #18): a miss counts up, a hit resets; two in a row end the wait."""
     return 0 if present else misses + 1
@@ -110,6 +120,56 @@ class Probe:
         if event.get('kind') != 'note':
             print(f"[ts3probe] {event.get('kind')}: {event.get('type') or event.get('file') or event.get('reason', '')}", flush=True)
 
+    def watch_window_back(self, t0):
+        """From just before the launch, polled every 25 ms and independent of the Frida attach: every visible, unowned, not
+        minimized top-level window of the game (and the EA/Steam launcher) goes to the bottom of the z-order with
+        SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE (about one tick after it exists), again whenever the game raises itself, for
+        WINDOW_BACK_TOTAL s. Never activates, never SetForegroundWindow, never minimizes (a minimized window pauses the sim).
+        Rodney 2026-11-07: the new window sat in front of his other windows for seconds."""
+        if os.name != 'nt':
+            return
+        import ctypes
+        from ctypes import wintypes
+        u, k = ctypes.windll.user32, ctypes.windll.kernel32
+        k.OpenProcess.restype = wintypes.HANDLE
+        u.GetWindow.restype = wintypes.HWND
+        u.GetForegroundWindow.restype = wintypes.HWND
+        names = {n.lower() for n in (GAME_EXE, 'Sims3Launcher.exe', 'TS3.exe')}
+        owner = {}
+        def is_game(pid):
+            if pid not in owner:
+                h, buf, n = k.OpenProcess(0x1000, False, pid), ctypes.create_unicode_buffer(520), wintypes.DWORD(520)
+                owner[pid] = bool(h) and bool(k.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(n))) and Path(buf.value).name.lower() in names
+                if h: k.CloseHandle(h)
+            return owner[pid]
+        def cls(h):
+            b = ctypes.create_unicode_buffer(64)
+            u.GetClassNameW(h, b, 64)
+            return b.value
+        def at_bottom(h):
+            n = u.GetWindow(h, 2)  # GW_HWNDNEXT: every window below this one
+            while n:
+                if u.IsWindowVisible(n) and cls(n) not in SHELL_BOTTOM:
+                    return False
+                n = u.GetWindow(n, 2)
+            return True
+        sent = set()
+        def cb(h, _):
+            p = wintypes.DWORD()
+            u.GetWindowThreadProcessId(h, ctypes.byref(p))
+            if u.IsWindowVisible(h) and not u.IsIconic(h) and not u.GetWindow(h, 4) and is_game(p.value):  # GW_OWNER = 4
+                if window_back_wanted(time.time() - t0, at_bottom(h), u.GetForegroundWindow() == h):
+                    # HWND_BOTTOM = 1; SWP_NOSIZE 1 | NOMOVE 2 | NOACTIVATE 0x10
+                    ok = u.SetWindowPos(h, wintypes.HWND(1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010)
+                    if h not in sent:
+                        sent.add(h)
+                        print(f'[ts3probe] game window {h:#x} sent to the bottom after {time.time() - t0:.3f}s (ok={bool(ok)})', flush=True)
+            return True
+        proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(cb)
+        while time.time() - t0 <= WINDOW_BACK_TOTAL:
+            u.EnumWindows(proc, 0)
+            time.sleep(WINDOW_BACK_TICK)
+
     def launch(self):
         ea = os.environ.get('TS3_LAUNCH', 'direct') == 'ea'
         line, why = check_session()
@@ -133,6 +193,7 @@ class Probe:
         env = dict(os.environ, **dict(e.split('=', 1) for e in self.args.env))
         if self.args.env:
             print(f'[ts3probe] game environment: {self.args.env}', flush=True)
+        threading.Thread(target=self.watch_window_back, args=(time.time(),), daemon=True).start()  # before the launch, not after the attach
         self.proc = subprocess.Popen(cmd, cwd=None if ea else GAME_BIN, env=env)
         for _ in range(120):  # the exe may hand over to another instance; wait for the process by name
             try:
@@ -299,6 +360,87 @@ class Probe:
         acted = w[4] != minimize and bool(ctypes.windll.user32.ShowWindowAsync(wintypes.HWND(w[1]), 7 if minimize else 4))
         return {'ok': True, 'result': {'cmd': cmd, 'was_iconic': w[4], 'acted': acted}}
 
+    def game_hwnds(self):
+        """All visible top-level windows of the game process (launcher, splash, main)."""
+        import ctypes
+        from ctypes import wintypes
+        u = ctypes.windll.user32
+        if not hasattr(self, 'pid'):
+            self.pid = frida.get_local_device().get_process(GAME_EXE).pid
+        found = []
+        def cb(h, _):
+            p = wintypes.DWORD()
+            u.GetWindowThreadProcessId(h, ctypes.byref(p))
+            if p.value == self.pid and u.IsWindowVisible(h):
+                found.append(h)
+            return True
+        u.EnumWindows(ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(cb), 0)
+        return found
+
+    def stay_behind(self, h):
+        """A new game window goes to the bottom of the z-order (SWP_NOMOVE|NOSIZE|NOACTIVATE, never activated). If the game
+        still holds the foreground, focus goes back to the window recorded before launch (probe-out/foreground.json, written
+        by queue.ts): AllowSetForegroundWindow + AttachThreadInput to the foreground thread + SetForegroundWindow, no
+        synthetic keys. One try per window; if Windows refuses it is logged, never retried. Nothing happens when the user
+        has already focused something else."""
+        import ctypes
+        from ctypes import wintypes
+        u, k = ctypes.windll.user32, ctypes.windll.kernel32
+        u.SetWindowPos(wintypes.HWND(h), wintypes.HWND(1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010)  # HWND_BOTTOM
+        u.GetForegroundWindow.restype = wintypes.HWND
+        fg, p = u.GetForegroundWindow(), wintypes.DWORD()
+        tid = u.GetWindowThreadProcessId(wintypes.HWND(fg), ctypes.byref(p))
+        if p.value != self.pid:
+            return  # the user's own window is in front: leave it alone
+        try:
+            target = json.loads((ROOT / 'probe-out' / 'foreground.json').read_text())['hwnd']
+        except Exception:
+            print('[ts3probe] game window took focus; no recorded foreground window to return to', flush=True)
+            return
+        tp = wintypes.DWORD()
+        if not u.IsWindow(wintypes.HWND(target)) or (u.GetWindowThreadProcessId(wintypes.HWND(target), ctypes.byref(tp)) and tp.value == self.pid):
+            return
+        me = k.GetCurrentThreadId()
+        u.AllowSetForegroundWindow(-1)
+        u.AttachThreadInput(me, tid, True)
+        u.SetForegroundWindow(wintypes.HWND(target))
+        u.AttachThreadInput(me, tid, False)
+        fg2 = u.GetForegroundWindow()
+        u.GetWindowThreadProcessId(wintypes.HWND(fg2), ctypes.byref(p))
+        print('[ts3probe] game window behind; focus ' + ('returned' if p.value != self.pid else 'NOT returned (Windows refused)'), flush=True)
+
+    def screenshot(self, args):
+        """screenshot {name?}: the game's own screenshot key C, posted to the game window (WM_KEYDOWN / WM_KEYUP: never focus,
+        never move; works with the game behind other windows, not minimized). The game writes Screenshots/Screenshot-N.jpg in
+        the user folder; the new file is moved to probe-out/shots/<time>-<name>.jpg (for the texture checks, docs/191 step 3)."""
+        import ctypes, shutil
+        from ctypes import wintypes
+        w = self.game_window()
+        if w is None:
+            return {'ok': False, 'error': 'no visible game window (minimized?)'}
+        d = USER_DIR / 'Screenshots'
+        old = set(d.glob('*.jpg')) if d.exists() else set()
+        u = ctypes.windll.user32
+        u.PostMessageW(wintypes.HWND(w[1]), 0x0100, 0x43, 0x002E0001)
+        time.sleep(0.08)
+        u.PostMessageW(wintypes.HWND(w[1]), 0x0101, 0x43, 0xC02E0001)
+        new, size, t0 = None, -1, time.time()
+        while time.time() - t0 < 15:  # the game writes a ~3 MB jpg; wait until its size holds
+            time.sleep(0.5)
+            got = [f for f in d.glob('*.jpg') if f not in old] if d.exists() else []
+            if got:
+                n = got[0].stat().st_size
+                if new == got[0] and n == size and n > 0:
+                    break
+                new, size = got[0], n
+        if new is None:
+            return {'ok': False, 'error': f'no new screenshot in {d} after 15 s'}
+        name = re.sub(r'[^A-Za-z0-9_-]', '_', str((args or {}).get('name', 'shot')))[:40]
+        out = ROOT / 'probe-out' / 'shots' / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}.jpg"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(new), str(out))
+        return {'ok': True, 'result': {'file': str(out.relative_to(ROOT)).replace('\\', '/'), 'kb': size // 1024}}
+
     def keep_window_place(self):
         """Records where Rodney puts the game window (probe-out/window.json) whenever he moves it, and moves a newly started
         game window there once, without focusing it (Rodney 2026-10-16 evening: runs go unattended; still never focus).
@@ -310,7 +452,13 @@ class Probe:
         game_window = self.game_window
 
         first, t0, iconic = None, None, None
+        t_start, behind = time.time(), set()
         while self.alive:
+            if time.time() - t_start < 300:  # first minutes: every new top-level game window goes behind, bounded to one try each
+                for h in self.game_hwnds():
+                    if h not in behind and len(behind) < 8:
+                        behind.add(h)
+                        self.stay_behind(h)
             any_w = game_window(iconic_ok=True)
             now_iconic = any_w[4] if any_w else None
             if now_iconic is not None and iconic is not None and now_iconic != iconic:
@@ -335,7 +483,7 @@ class Probe:
                     place.parent.mkdir(exist_ok=True)
                     place.write_text(json.dumps(saved))
                     print(f'[ts3probe] remembered game window place {saved}', flush=True)
-            time.sleep(2)
+            time.sleep(0.5 if time.time() - t_start < 300 else 2)
 
     def watch_script_errors(self):
         """The game writes one ScriptError_*.xml per script exception, with the managed stack trace inside."""
@@ -446,6 +594,8 @@ class Probe:
             return rpc.agent_status()
         if path == 'agent' and q['cmd'] in ('window_minimize', 'window_restore'):  # probe-side: the game's Mono has no user32
             return self.window_show(q['cmd'])
+        if path == 'agent' and q['cmd'] == 'screenshot':  # probe-side, as above
+            return self.screenshot(json.loads(q['args']) if 'args' in q else None)
         if path == 'agent':  # in-game ts3agent command, e.g. agent?cmd=list_sims&args={"household":"active"}
             args = json.loads(q['args']) if 'args' in q else None
             if STATE_CMD.match(q['cmd']):
@@ -687,6 +837,7 @@ def main():
         assert not any(STATE_CMD.match(c) for c in ('auto_dialog', 'autopilot', 'time', 'game_state', 'pending_dialogs', 'do_interaction'))
         assert [console_holder(*a) for a in ((2, 2), (2, 1), (2, 0xFFFFFFFF))] == ['our session', 'another user', 'nobody']
         assert [session_verdict(*a) for a in ((2, 1, 'Disconnected'), (1, 1, 'Active'), (1, 1, 'Active'), (2, 1, 'Active'), (2, 1, 'Idle'))] == [NO_DISPLAY, None, None, None, NO_DISPLAY]
+        assert [window_back_wanted(*a) for a in ((0.1, False, True), (30, False, True), (30, False, False), (30, True, False), (181, False, False), (20, False, True))] == [True, False, True, False, False, True]
         assert check_session()[0].startswith('console session state:')
         print('self-check ok')
         return

@@ -1,0 +1,32 @@
+address,sites,handles,reader,when,evidence
+0xB2E280,1,host +0xBC8,not a frame reader: the same offset of a stack local,never,verified
+0xBE13D0,1,host +0xBC8 W,not a frame reader: the same offset of a stack local,never,verified
+0xD6CC30,1,host +0xBC8,"not a frame reader: address of another object's field, no load",never,inferred
+0xD70E90,1,host +0xBC8 R,script host: frame state around a script tick,"sim thread between script calls, never inside compiled code",verified
+0xD70F6A,1,host +0xBC8 R,script host: frame state around a script tick,"sim thread between script calls, never inside compiled code",verified
+0xD72620,1,host +0xB84 R,script host: frame state around a script tick,"sim thread between script calls, never inside compiled code",verified
+0xD747C0,1,host +0xB84 R,script host: frame state around a script tick,"sim thread between script calls, never inside compiled code",verified
+0xD74800,1,host +0xBC8 W,script host: frame state around a script tick,"sim thread between script calls, never inside compiled code",verified
+0xD761EB,1,host +0xBC8 R,script host: frame state around a script tick,"sim thread between script calls, never inside compiled code",verified
+0xD76200,1,host +0xBC8 W,script host: frame state around a script tick,"sim thread between script calls, never inside compiled code",verified
+0xD7621F,1,host +0xBC8 W,script host: frame state around a script tick,"sim thread between script calls, never inside compiled code",verified
+0xD7D2F0,3,host +0xBC8 R; host +0xBC8 W,script host: frame state around a script tick,"sim thread between script calls, never inside compiled code",verified
+0xD7E010,2,host +0xB84 W; host +0xBC8 W,script host: frame state around a script tick,"sim thread between script calls, never inside compiled code",verified
+0xD7F000,2,host +0xB84 R; host +0xBC8 W,script host: frame state around a script tick,"sim thread between script calls, never inside compiled code",verified
+0xD7F8B0,2,host +0xB84 R; host +0xBC8 W,script host: frame state around a script tick,"sim thread between script calls, never inside compiled code",verified
+0xD7FC60,1,host +0xBC8 W,script host: frame state around a script tick,"sim thread between script calls, never inside compiled code",verified
+0xD7FE80,3,host +0xB84 R; host +0xBC8 W,script host: frame state around a script tick,"sim thread between script calls, never inside compiled code",verified
+0xD80BC0,1,host +0xB84 R,script host: frame state around a script tick,"sim thread between script calls, never inside compiled code",verified
+0xE52540,1,abs 0x11F4160,"stack walk hook, walks ThreadContext+8",an EA or mod call: only after a frame write,verified
+0xE52B60,1,abs 0x11F4160,"transform helper, reads the domain of ThreadContext","EA transform, not reachable from a lazy body",verified
+0xE52B90,3,abs 0x11F4160,temporary ThreadContext for a call into Mono,"native-to-managed entry, not reachable from a lazy body",verified
+0xE53130,1,abs 0x11F4160,interruption raise helper,"tests a flag only, no frame read",verified
+0xE53170,1,abs 0x11F4160,interruption raise helper,"tests a flag only, no frame read",verified
+0xE531A0,1,abs 0x11F4160,interruption raise helper,"tests a flag only, no frame read",verified
+0xE531D0,1,abs 0x11F4160,"frame count, walks ThreadContext+8",an EA or mod call: only after a frame write,verified
+0xE534E0,2,abs 0x11F416C; abs 0x11F4170,records by depth (vtable caller 0xD71CC0 reads rec[depth-k]),"script host, sim tick; depth and records are EA's between calls",verified
+0xE53741,1,abs 0x11F4160,native raise,an EA handler: only after a frame write,verified
+0xE53EB0,19,abs 0x11F416C; abs 0x11F4170; record -19564 R; record -19568 R; record -19572; record -19572 R,ves_exec: the owner of the records,"EA handlers: only after a frame write, or the exit that writes it",verified
+0xE59FD0,6,abs 0x11F4160,"task entry, sets up its own ThreadContext",start of a script task,verified
+0xE5A680,1,abs 0x11F4160,runtime init of the TLS key,startup,verified
+0xF72080,1,host +0xB84,"not a frame reader: address of another object's field, no load",never,inferred

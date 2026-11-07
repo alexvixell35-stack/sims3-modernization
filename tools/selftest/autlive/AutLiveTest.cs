@@ -294,6 +294,15 @@ static class AutLiveTest
         Check("pace: a new slice clears", pc.ChargedMs == 0 && !pc.Forced);
         pc.Charge(30, 5, 1.5, 1);
         Check("pace: real time already over the limit = not forced", !pc.Forced);
+        // docs/222 §11.8 credit: ticks waited for the worker paid first, across slices
+        AutLiveCore.Pace pw = new AutLiveCore.Pace();
+        pw.CreditMs = 2;
+        Check("pace credit: charge inside the credit = nothing added", pw.Charge(30, 50, 0.2, 1) == 0 && Math.Abs(pw.CreditMs - 0.5) < 1e-9 && !pw.Forced);
+        pw.Slice();
+        Check("pace credit: a new slice keeps it", Math.Abs(pw.CreditMs - 0.5) < 1e-9);
+        Check("pace credit: the rest of the charge is added", Math.Abs(pw.Charge(30, 50, 0.2, 1) - 1.0) < 1e-9 && pw.CreditMs == 0 && pw.Forced);
+        Check("queue bins", AutLiveCore.QueueBin(0) == 0 && AutLiveCore.QueueBin(1) == 0 && AutLiveCore.QueueBin(2) == 1 && AutLiveCore.QueueBin(9) == 1
+            && AutLiveCore.QueueBin(10) == 2 && AutLiveCore.QueueBin(49) == 2 && AutLiveCore.QueueBin(50) == 3 && AutLiveCore.QueueBin(199) == 3 && AutLiveCore.QueueBin(200) == 4);
         pc.Slice(); pc.Charge(30, 10, 0.3, 1); pc.Charge(30, 1, 0.9, 1);
         Check("pace: forced only when this charge crosses (0.9 + 0.03 stays under)", !pc.Forced);
         // docs/222 §9 per-definition compare: mismatch directions, both-pass ratios, age bins

@@ -1,0 +1,933 @@
+{
+ "note": "golive-unseen-gate (Mono off-thread, gate 2): unseen-direct default-on gate on the monoot1 pair. Bars since Rodney 2026-11-06 (R1): visible outcome + snap-back correctness, not cadence or push rates; timing decides default ON (R3). State under test: [AutShadow] Mode=3 Satb=2 + MonoThread P4, ts3fixes autshadow, autlive, autunseen, autunseenpace, autunseenrh on, autunseencmp off, pace 78%. Off arm of every --ab autunseen job = exact go-live. Dropped from the 2026-11-03 version: ip-gug-dry-rhoff, rh and pace pairs: they ran 2026-11-03 (docs/data/results/2026-11-03-queue-golive-unseen-gate.md) and only served the old cadence bars.",
+ "stopQueueOnFail": false,
+ "smoke": {
+  "id": "bp-gug-smoke",
+  "note": "Smoke (5 min BP, --ab autunseen slice 1): proves the per-arm split (on/off slices in <tag>-ab.json, g8_ counters per arm), the switch read-back (fixes on/off verified lines) and the go-live log lines on the rel025c base. FAIL: stop.",
+  "asi": "game-copy/ts3native.asi.monoot1",
+  "releaseDefaults": true,
+  "minCounters": 159,
+  "ini": {
+   "HitchAttr.Enabled": 1,
+   "RouteSnap.Enabled": 1,
+   "RouteSnap.Count": 1,
+   "RouteSnap.AuditEvery": 0,
+   "MonoThread.Enabled": 1,
+   "MonoThread.Mode": 1,
+   "MonoThread.GcLock": 1,
+   "MonoThread.FrameTls": 1,
+   "MonoThread.ArenaFix": 1,
+   "MonoThread.N2mPrivate": 1,
+   "MonoThread.LazyGate": 1,
+   "MonoThread.LazyEarly": 1,
+   "AutShadow.Enabled": 1,
+   "AutShadow.Mode": 3,
+   "AutShadow.Sample": 1,
+   "AutShadow.Audit": 50,
+   "AutShadow.DumpOnMismatch": 1,
+   "AutShadow.ColdIc": 1,
+   "AutShadow.CutLean": 2,
+   "AutShadow.TierMs": 1500,
+   "AutShadow.ListAudit": 1,
+   "AutShadow.TierClassMs": 1000,
+   "AutShadow.RowHot": 200,
+   "AutShadow.RunSkip": 1,
+   "AutShadow.FreshEvery": 0,
+   "AutShadow.KeepPartial": 1,
+   "AutShadow.TopN": 10,
+   "AutShadow.Bands": 3,
+   "AutShadow.Margin": 0,
+   "AutShadow.MaxWait": 3,
+   "AutShadow.VerifyEvery": 50,
+   "AutShadow.Dry": 0,
+   "AutShadow.Satb": 2,
+   "AutShadow.WindowWaitUs": 0,
+   "AutShadow.PreLearn": 0,
+   "AutShadow.TierReqLots": 1
+  },
+  "earlyGates": [
+   {
+    "afterSec": 150,
+    "counter": "fixes:autshadow_gm6_faults",
+    "op": "==",
+    "value": 0,
+    "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+   },
+   {
+    "afterSec": 150,
+    "counter": "fixes:autshadow_gm6_mismatch",
+    "op": "==",
+    "value": 0,
+    "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+   },
+   {
+    "afterSec": 150,
+    "counter": "autshadow.req",
+    "op": ">",
+    "value": 0,
+    "why": "worker never posted (no [AutShadow] request)"
+   },
+   {
+    "afterSec": 200,
+    "counter": "fixes:autunseen_posted",
+    "op": ">",
+    "value": 0,
+    "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+   },
+   {
+    "afterSec": 150,
+    "counter": "fixes:autunseen_exc",
+    "op": "==",
+    "value": 0,
+    "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+   },
+   {
+    "afterSec": 240,
+    "counter": "fixes:autunseen_rh_game",
+    "op": ">",
+    "value": 0,
+    "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
+   }
+  ],
+  "logRequire": {
+   "ts3native 0.36.169": 1,
+   "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+   "OK   mono thread P4": 1,
+   "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+   "autshadow satb: Satb=2 -> mode 2 ": 1
+  },
+  "gameArgs": [
+   "-disablestoryprogression"
+  ],
+  "pinReason": "feature/mono-offthread pair: asi monoot1 (ts3native 0.36.169) + package monoot1, master 14eff031 plus the Mono stack",
+  "fixesPackage": "game-copy/ts3fixes.package.monoot1",
+  "save": "Baseline-BP-Spring",
+  "run": {
+   "profile": {
+    "seed": 12345,
+    "noSamplers": true,
+    "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh",
+    "fixesOff": "autunseencmp",
+    "fixesReport": "g8_,autunseen_",
+    "minutes": 5,
+    "ab": "autunseen",
+    "slice": 1
+   }
+  },
+  "timeoutMin": 30
+ },
+ "jobs": [
+  {
+   "id": "bp-gug-t-ab",
+   "note": "docs/222 §11 (d): timing pair, --ab autunseen off-first (ABBA with its sibling), quiet machine, valid noise per run-verdict.ts. Read: per-arm sim ms/s, hitch p99/p99.9, max, counts >= 100/300/1000 ms (hitch-ab.ts), guard net ms/s (mono-cost-report.ts).",
+   "asi": "game-copy/ts3native.asi.monoot1",
+   "releaseDefaults": true,
+   "minCounters": 159,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "RouteSnap.Enabled": 1,
+    "RouteSnap.Count": 1,
+    "RouteSnap.AuditEvery": 0,
+    "MonoThread.Enabled": 1,
+    "MonoThread.Mode": 1,
+    "MonoThread.GcLock": 1,
+    "MonoThread.FrameTls": 1,
+    "MonoThread.ArenaFix": 1,
+    "MonoThread.N2mPrivate": 1,
+    "MonoThread.LazyGate": 1,
+    "MonoThread.LazyEarly": 1,
+    "AutShadow.Enabled": 1,
+    "AutShadow.Mode": 3,
+    "AutShadow.Sample": 1,
+    "AutShadow.Audit": 50,
+    "AutShadow.DumpOnMismatch": 1,
+    "AutShadow.ColdIc": 1,
+    "AutShadow.CutLean": 2,
+    "AutShadow.TierMs": 1500,
+    "AutShadow.ListAudit": 1,
+    "AutShadow.TierClassMs": 1000,
+    "AutShadow.RowHot": 200,
+    "AutShadow.RunSkip": 1,
+    "AutShadow.FreshEvery": 0,
+    "AutShadow.KeepPartial": 1,
+    "AutShadow.TopN": 10,
+    "AutShadow.Bands": 3,
+    "AutShadow.Margin": 0,
+    "AutShadow.MaxWait": 3,
+    "AutShadow.VerifyEvery": 50,
+    "AutShadow.Dry": 0,
+    "AutShadow.Satb": 2,
+    "AutShadow.WindowWaitUs": 0,
+    "AutShadow.PreLearn": 0,
+    "AutShadow.TierReqLots": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 150,
+     "counter": "fixes:autshadow_gm6_faults",
+     "op": "==",
+     "value": 0,
+     "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+    },
+    {
+     "afterSec": 150,
+     "counter": "fixes:autshadow_gm6_mismatch",
+     "op": "==",
+     "value": 0,
+     "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+    },
+    {
+     "afterSec": 150,
+     "counter": "autshadow.req",
+     "op": ">",
+     "value": 0,
+     "why": "worker never posted (no [AutShadow] request)"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autunseen_posted",
+     "op": ">",
+     "value": 0,
+     "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+    },
+    {
+     "afterSec": 150,
+     "counter": "fixes:autunseen_exc",
+     "op": "==",
+     "value": 0,
+     "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+    },
+    {
+     "afterSec": 240,
+     "counter": "fixes:autunseen_rh_game",
+     "op": ">",
+     "value": 0,
+     "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
+    }
+   ],
+   "logRequire": {
+    "ts3native 0.36.169": 1,
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1,
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+    "autshadow satb: Satb=2 -> mode 2 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "pinReason": "feature/mono-offthread pair: asi monoot1 (ts3native 0.36.169) + package monoot1, master 14eff031 plus the Mono stack",
+   "fixesPackage": "game-copy/ts3fixes.package.monoot1",
+   "save": "Baseline-BP-Spring",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh",
+     "fixesOff": "autunseencmp",
+     "fixesReport": "g8_,autunseen_",
+     "minutes": 10,
+     "ab": "autunseen",
+     "slice": 2
+    }
+   },
+   "timeoutMin": 35
+  },
+  {
+   "id": "bp-gug-t-ab-onfirst",
+   "note": "docs/222 §11 (d): timing pair, --ab autunseen on-first (ABBA with its sibling), quiet machine, valid noise per run-verdict.ts. Read: per-arm sim ms/s, hitch p99/p99.9, max, counts >= 100/300/1000 ms (hitch-ab.ts), guard net ms/s (mono-cost-report.ts).",
+   "asi": "game-copy/ts3native.asi.monoot1",
+   "releaseDefaults": true,
+   "minCounters": 159,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "RouteSnap.Enabled": 1,
+    "RouteSnap.Count": 1,
+    "RouteSnap.AuditEvery": 0,
+    "MonoThread.Enabled": 1,
+    "MonoThread.Mode": 1,
+    "MonoThread.GcLock": 1,
+    "MonoThread.FrameTls": 1,
+    "MonoThread.ArenaFix": 1,
+    "MonoThread.N2mPrivate": 1,
+    "MonoThread.LazyGate": 1,
+    "MonoThread.LazyEarly": 1,
+    "AutShadow.Enabled": 1,
+    "AutShadow.Mode": 3,
+    "AutShadow.Sample": 1,
+    "AutShadow.Audit": 50,
+    "AutShadow.DumpOnMismatch": 1,
+    "AutShadow.ColdIc": 1,
+    "AutShadow.CutLean": 2,
+    "AutShadow.TierMs": 1500,
+    "AutShadow.ListAudit": 1,
+    "AutShadow.TierClassMs": 1000,
+    "AutShadow.RowHot": 200,
+    "AutShadow.RunSkip": 1,
+    "AutShadow.FreshEvery": 0,
+    "AutShadow.KeepPartial": 1,
+    "AutShadow.TopN": 10,
+    "AutShadow.Bands": 3,
+    "AutShadow.Margin": 0,
+    "AutShadow.MaxWait": 3,
+    "AutShadow.VerifyEvery": 50,
+    "AutShadow.Dry": 0,
+    "AutShadow.Satb": 2,
+    "AutShadow.WindowWaitUs": 0,
+    "AutShadow.PreLearn": 0,
+    "AutShadow.TierReqLots": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 150,
+     "counter": "fixes:autshadow_gm6_faults",
+     "op": "==",
+     "value": 0,
+     "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+    },
+    {
+     "afterSec": 150,
+     "counter": "fixes:autshadow_gm6_mismatch",
+     "op": "==",
+     "value": 0,
+     "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+    },
+    {
+     "afterSec": 150,
+     "counter": "autshadow.req",
+     "op": ">",
+     "value": 0,
+     "why": "worker never posted (no [AutShadow] request)"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autunseen_posted",
+     "op": ">",
+     "value": 0,
+     "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+    },
+    {
+     "afterSec": 150,
+     "counter": "fixes:autunseen_exc",
+     "op": "==",
+     "value": 0,
+     "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+    },
+    {
+     "afterSec": 240,
+     "counter": "fixes:autunseen_rh_game",
+     "op": ">",
+     "value": 0,
+     "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
+    }
+   ],
+   "logRequire": {
+    "ts3native 0.36.169": 1,
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1,
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+    "autshadow satb: Satb=2 -> mode 2 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "pinReason": "feature/mono-offthread pair: asi monoot1 (ts3native 0.36.169) + package monoot1, master 14eff031 plus the Mono stack",
+   "fixesPackage": "game-copy/ts3fixes.package.monoot1",
+   "save": "Baseline-BP-Spring",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh",
+     "fixesOff": "autunseencmp",
+     "fixesReport": "g8_,autunseen_",
+     "minutes": 10,
+     "ab": "autunseen",
+     "slice": 2,
+     "abOnFirst": true
+    }
+   },
+   "timeoutMin": 35
+  },
+  {
+   "id": "ip-gug-t-ab",
+   "note": "docs/222 §11 (d): timing pair, --ab autunseen off-first (ABBA with its sibling), quiet machine, valid noise per run-verdict.ts. Read: per-arm sim ms/s, hitch p99/p99.9, max, counts >= 100/300/1000 ms (hitch-ab.ts), guard net ms/s (mono-cost-report.ts).",
+   "asi": "game-copy/ts3native.asi.monoot1",
+   "releaseDefaults": true,
+   "minCounters": 159,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "RouteSnap.Enabled": 1,
+    "RouteSnap.Count": 1,
+    "RouteSnap.AuditEvery": 0,
+    "MonoThread.Enabled": 1,
+    "MonoThread.Mode": 1,
+    "MonoThread.GcLock": 1,
+    "MonoThread.FrameTls": 1,
+    "MonoThread.ArenaFix": 1,
+    "MonoThread.N2mPrivate": 1,
+    "MonoThread.LazyGate": 1,
+    "MonoThread.LazyEarly": 1,
+    "AutShadow.Enabled": 1,
+    "AutShadow.Mode": 3,
+    "AutShadow.Sample": 1,
+    "AutShadow.Audit": 50,
+    "AutShadow.DumpOnMismatch": 1,
+    "AutShadow.ColdIc": 1,
+    "AutShadow.CutLean": 2,
+    "AutShadow.TierMs": 1500,
+    "AutShadow.ListAudit": 1,
+    "AutShadow.TierClassMs": 1000,
+    "AutShadow.RowHot": 200,
+    "AutShadow.RunSkip": 1,
+    "AutShadow.FreshEvery": 0,
+    "AutShadow.KeepPartial": 1,
+    "AutShadow.TopN": 10,
+    "AutShadow.Bands": 3,
+    "AutShadow.Margin": 0,
+    "AutShadow.MaxWait": 3,
+    "AutShadow.VerifyEvery": 50,
+    "AutShadow.Dry": 0,
+    "AutShadow.Satb": 2,
+    "AutShadow.WindowWaitUs": 0,
+    "AutShadow.PreLearn": 0,
+    "AutShadow.TierReqLots": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 150,
+     "counter": "fixes:autshadow_gm6_faults",
+     "op": "==",
+     "value": 0,
+     "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+    },
+    {
+     "afterSec": 150,
+     "counter": "fixes:autshadow_gm6_mismatch",
+     "op": "==",
+     "value": 0,
+     "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+    },
+    {
+     "afterSec": 150,
+     "counter": "autshadow.req",
+     "op": ">",
+     "value": 0,
+     "why": "worker never posted (no [AutShadow] request)"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autunseen_posted",
+     "op": ">",
+     "value": 0,
+     "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+    },
+    {
+     "afterSec": 150,
+     "counter": "fixes:autunseen_exc",
+     "op": "==",
+     "value": 0,
+     "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+    },
+    {
+     "afterSec": 240,
+     "counter": "fixes:autunseen_rh_game",
+     "op": ">",
+     "value": 0,
+     "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
+    }
+   ],
+   "logRequire": {
+    "ts3native 0.36.169": 1,
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1,
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+    "autshadow satb: Satb=2 -> mode 2 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "pinReason": "feature/mono-offthread pair: asi monoot1 (ts3native 0.36.169) + package monoot1, master 14eff031 plus the Mono stack",
+   "fixesPackage": "game-copy/ts3fixes.package.monoot1",
+   "save": "Baseline-IP-Spring",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh",
+     "fixesOff": "autunseencmp",
+     "fixesReport": "g8_,autunseen_",
+     "minutes": 10,
+     "ab": "autunseen",
+     "slice": 2
+    }
+   },
+   "timeoutMin": 35
+  },
+  {
+   "id": "ip-gug-t-ab-onfirst",
+   "note": "docs/222 §11 (d): timing pair, --ab autunseen on-first (ABBA with its sibling), quiet machine, valid noise per run-verdict.ts. Read: per-arm sim ms/s, hitch p99/p99.9, max, counts >= 100/300/1000 ms (hitch-ab.ts), guard net ms/s (mono-cost-report.ts).",
+   "asi": "game-copy/ts3native.asi.monoot1",
+   "releaseDefaults": true,
+   "minCounters": 159,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "RouteSnap.Enabled": 1,
+    "RouteSnap.Count": 1,
+    "RouteSnap.AuditEvery": 0,
+    "MonoThread.Enabled": 1,
+    "MonoThread.Mode": 1,
+    "MonoThread.GcLock": 1,
+    "MonoThread.FrameTls": 1,
+    "MonoThread.ArenaFix": 1,
+    "MonoThread.N2mPrivate": 1,
+    "MonoThread.LazyGate": 1,
+    "MonoThread.LazyEarly": 1,
+    "AutShadow.Enabled": 1,
+    "AutShadow.Mode": 3,
+    "AutShadow.Sample": 1,
+    "AutShadow.Audit": 50,
+    "AutShadow.DumpOnMismatch": 1,
+    "AutShadow.ColdIc": 1,
+    "AutShadow.CutLean": 2,
+    "AutShadow.TierMs": 1500,
+    "AutShadow.ListAudit": 1,
+    "AutShadow.TierClassMs": 1000,
+    "AutShadow.RowHot": 200,
+    "AutShadow.RunSkip": 1,
+    "AutShadow.FreshEvery": 0,
+    "AutShadow.KeepPartial": 1,
+    "AutShadow.TopN": 10,
+    "AutShadow.Bands": 3,
+    "AutShadow.Margin": 0,
+    "AutShadow.MaxWait": 3,
+    "AutShadow.VerifyEvery": 50,
+    "AutShadow.Dry": 0,
+    "AutShadow.Satb": 2,
+    "AutShadow.WindowWaitUs": 0,
+    "AutShadow.PreLearn": 0,
+    "AutShadow.TierReqLots": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 150,
+     "counter": "fixes:autshadow_gm6_faults",
+     "op": "==",
+     "value": 0,
+     "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+    },
+    {
+     "afterSec": 150,
+     "counter": "fixes:autshadow_gm6_mismatch",
+     "op": "==",
+     "value": 0,
+     "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+    },
+    {
+     "afterSec": 150,
+     "counter": "autshadow.req",
+     "op": ">",
+     "value": 0,
+     "why": "worker never posted (no [AutShadow] request)"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autunseen_posted",
+     "op": ">",
+     "value": 0,
+     "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+    },
+    {
+     "afterSec": 150,
+     "counter": "fixes:autunseen_exc",
+     "op": "==",
+     "value": 0,
+     "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+    },
+    {
+     "afterSec": 240,
+     "counter": "fixes:autunseen_rh_game",
+     "op": ">",
+     "value": 0,
+     "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
+    }
+   ],
+   "logRequire": {
+    "ts3native 0.36.169": 1,
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1,
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+    "autshadow satb: Satb=2 -> mode 2 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "pinReason": "feature/mono-offthread pair: asi monoot1 (ts3native 0.36.169) + package monoot1, master 14eff031 plus the Mono stack",
+   "fixesPackage": "game-copy/ts3fixes.package.monoot1",
+   "save": "Baseline-IP-Spring",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh",
+     "fixesOff": "autunseencmp",
+     "fixesReport": "g8_,autunseen_",
+     "minutes": 10,
+     "ab": "autunseen",
+     "slice": 2,
+     "abOnFirst": true
+    }
+   },
+   "timeoutMin": 35
+  },
+  {
+   "asi": "game-copy/ts3native.asi.monoot1",
+   "releaseDefaults": true,
+   "minCounters": 159,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "RouteSnap.Enabled": 1,
+    "RouteSnap.Count": 1,
+    "RouteSnap.AuditEvery": 0,
+    "MonoThread.Enabled": 1,
+    "MonoThread.Mode": 1,
+    "MonoThread.GcLock": 1,
+    "MonoThread.FrameTls": 1,
+    "MonoThread.ArenaFix": 1,
+    "MonoThread.N2mPrivate": 1,
+    "MonoThread.LazyGate": 1,
+    "MonoThread.LazyEarly": 1,
+    "AutShadow.Enabled": 1,
+    "AutShadow.Mode": 3,
+    "AutShadow.Sample": 1,
+    "AutShadow.Audit": 50,
+    "AutShadow.DumpOnMismatch": 1,
+    "AutShadow.ColdIc": 1,
+    "AutShadow.CutLean": 2,
+    "AutShadow.TierMs": 1500,
+    "AutShadow.ListAudit": 1,
+    "AutShadow.TierClassMs": 1000,
+    "AutShadow.RowHot": 200,
+    "AutShadow.RunSkip": 1,
+    "AutShadow.FreshEvery": 0,
+    "AutShadow.KeepPartial": 1,
+    "AutShadow.TopN": 10,
+    "AutShadow.Bands": 3,
+    "AutShadow.Margin": 0,
+    "AutShadow.MaxWait": 3,
+    "AutShadow.VerifyEvery": 50,
+    "AutShadow.Dry": 0,
+    "AutShadow.Satb": 2,
+    "AutShadow.WindowWaitUs": 0,
+    "AutShadow.PreLearn": 0,
+    "AutShadow.TierReqLots": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 150,
+     "counter": "fixes:autshadow_gm6_faults",
+     "op": "==",
+     "value": 0,
+     "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+    },
+    {
+     "afterSec": 150,
+     "counter": "fixes:autshadow_gm6_mismatch",
+     "op": "==",
+     "value": 0,
+     "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+    },
+    {
+     "afterSec": 150,
+     "counter": "autshadow.req",
+     "op": ">",
+     "value": 0,
+     "why": "worker never posted (no [AutShadow] request)"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autunseen_posted",
+     "op": ">",
+     "value": 0,
+     "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+    },
+    {
+     "afterSec": 150,
+     "counter": "fixes:autunseen_exc",
+     "op": "==",
+     "value": 0,
+     "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+    },
+    {
+     "afterSec": 240,
+     "counter": "fixes:autunseen_rh_game",
+     "op": ">",
+     "value": 0,
+     "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
+    },
+    {
+     "afterSec": 400,
+     "counter": "fixes:autunseen_tagged",
+     "op": ">",
+     "value": 0,
+     "why": "no direct pick was pushed: nothing to snap back"
+    }
+   ],
+   "logRequire": {
+    "ts3native 0.36.169": 1,
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1,
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+    "autshadow satb: Satb=2 -> mode 2 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "pinReason": "feature/mono-offthread pair: asi monoot1 (ts3native 0.36.169) + package monoot1, master 14eff031 plus the Mono stack",
+   "id": "bp-gug-snapback",
+   "note": "docs/222 §11 (e): aut-unseen-snapback repro on the release base, go-live on. PASS: 0 crashes, autunseen_exc 0, autunseen_flip_kept + flip_cancel > 0, snap_resume or snap_slice > 0, no AutLive script error.",
+   "fixesPackage": "game-copy/ts3fixes.package.monoot1",
+   "save": "Baseline-BP-Spring",
+   "noiseCheck": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 12,
+     "noSamplers": true,
+     "repro": "aut-unseen-snapback",
+     "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+     "fixesOff": "autunseencmp",
+     "fixesReport": "g8_,autunseen_"
+    }
+   },
+   "timeoutMin": 35
+  },
+  {
+   "asi": "game-copy/ts3native.asi.monoot1",
+   "releaseDefaults": true,
+   "minCounters": 159,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "RouteSnap.Enabled": 1,
+    "RouteSnap.Count": 1,
+    "RouteSnap.AuditEvery": 0,
+    "MonoThread.Enabled": 1,
+    "MonoThread.Mode": 1,
+    "MonoThread.GcLock": 1,
+    "MonoThread.FrameTls": 1,
+    "MonoThread.ArenaFix": 1,
+    "MonoThread.N2mPrivate": 1,
+    "MonoThread.LazyGate": 1,
+    "MonoThread.LazyEarly": 1,
+    "AutShadow.Enabled": 1,
+    "AutShadow.Mode": 3,
+    "AutShadow.Sample": 1,
+    "AutShadow.Audit": 50,
+    "AutShadow.DumpOnMismatch": 1,
+    "AutShadow.ColdIc": 1,
+    "AutShadow.CutLean": 2,
+    "AutShadow.TierMs": 1500,
+    "AutShadow.ListAudit": 1,
+    "AutShadow.TierClassMs": 1000,
+    "AutShadow.RowHot": 200,
+    "AutShadow.RunSkip": 1,
+    "AutShadow.FreshEvery": 0,
+    "AutShadow.KeepPartial": 1,
+    "AutShadow.TopN": 10,
+    "AutShadow.Bands": 3,
+    "AutShadow.Margin": 0,
+    "AutShadow.MaxWait": 3,
+    "AutShadow.VerifyEvery": 50,
+    "AutShadow.Dry": 0,
+    "AutShadow.Satb": 2,
+    "AutShadow.WindowWaitUs": 0,
+    "AutShadow.PreLearn": 0,
+    "AutShadow.TierReqLots": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 150,
+     "counter": "fixes:autshadow_gm6_faults",
+     "op": "==",
+     "value": 0,
+     "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+    },
+    {
+     "afterSec": 150,
+     "counter": "fixes:autshadow_gm6_mismatch",
+     "op": "==",
+     "value": 0,
+     "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+    },
+    {
+     "afterSec": 150,
+     "counter": "autshadow.req",
+     "op": ">",
+     "value": 0,
+     "why": "worker never posted (no [AutShadow] request)"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autunseen_posted",
+     "op": ">",
+     "value": 0,
+     "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+    },
+    {
+     "afterSec": 150,
+     "counter": "fixes:autunseen_exc",
+     "op": "==",
+     "value": 0,
+     "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+    },
+    {
+     "afterSec": 240,
+     "counter": "fixes:autunseen_rh_game",
+     "op": ">",
+     "value": 0,
+     "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
+    }
+   ],
+   "logRequire": {
+    "ts3native 0.36.169": 1,
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1,
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+    "autshadow satb: Satb=2 -> mode 2 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "pinReason": "feature/mono-offthread pair: asi monoot1 (ts3native 0.36.169) + package monoot1, master 14eff031 plus the Mono stack",
+   "id": "bp-gug-stuck",
+   "note": "docs/222 §11 (e): BP natural 15 min with go-live on (unseen-direct acting all run): 0 stuck Sims (stuck watchdog / stuckcheck), autunseen_exc 0, 0 crashes; pushes per unseen Sim-hour for the record.",
+   "fixesPackage": "game-copy/ts3fixes.package.monoot1",
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 15,
+     "noSamplers": true,
+     "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+     "fixesOff": "autunseencmp",
+     "fixesReport": "g8_,autunseen_"
+    }
+   },
+   "timeoutMin": 40
+  },
+  {
+   "asi": "game-copy/ts3native.asi.monoot1",
+   "releaseDefaults": true,
+   "minCounters": 159,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "RouteSnap.Enabled": 1,
+    "RouteSnap.Count": 1,
+    "RouteSnap.AuditEvery": 0,
+    "MonoThread.Enabled": 1,
+    "MonoThread.Mode": 1,
+    "MonoThread.GcLock": 1,
+    "MonoThread.FrameTls": 1,
+    "MonoThread.ArenaFix": 1,
+    "MonoThread.N2mPrivate": 1,
+    "MonoThread.LazyGate": 1,
+    "MonoThread.LazyEarly": 1,
+    "AutShadow.Enabled": 1,
+    "AutShadow.Mode": 3,
+    "AutShadow.Sample": 1,
+    "AutShadow.Audit": 50,
+    "AutShadow.DumpOnMismatch": 1,
+    "AutShadow.ColdIc": 1,
+    "AutShadow.CutLean": 2,
+    "AutShadow.TierMs": 1500,
+    "AutShadow.ListAudit": 1,
+    "AutShadow.TierClassMs": 1000,
+    "AutShadow.RowHot": 200,
+    "AutShadow.RunSkip": 1,
+    "AutShadow.FreshEvery": 0,
+    "AutShadow.KeepPartial": 1,
+    "AutShadow.TopN": 10,
+    "AutShadow.Bands": 3,
+    "AutShadow.Margin": 0,
+    "AutShadow.MaxWait": 3,
+    "AutShadow.VerifyEvery": 50,
+    "AutShadow.Dry": 0,
+    "AutShadow.Satb": 2,
+    "AutShadow.WindowWaitUs": 0,
+    "AutShadow.PreLearn": 0,
+    "AutShadow.TierReqLots": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 150,
+     "counter": "fixes:autshadow_gm6_faults",
+     "op": "==",
+     "value": 0,
+     "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+    },
+    {
+     "afterSec": 150,
+     "counter": "fixes:autshadow_gm6_mismatch",
+     "op": "==",
+     "value": 0,
+     "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+    },
+    {
+     "afterSec": 150,
+     "counter": "autshadow.req",
+     "op": ">",
+     "value": 0,
+     "why": "worker never posted (no [AutShadow] request)"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autunseen_posted",
+     "op": ">",
+     "value": 0,
+     "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+    },
+    {
+     "afterSec": 150,
+     "counter": "fixes:autunseen_exc",
+     "op": "==",
+     "value": 0,
+     "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+    },
+    {
+     "afterSec": 240,
+     "counter": "fixes:autunseen_rh_game",
+     "op": ">",
+     "value": 0,
+     "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
+    }
+   ],
+   "logRequire": {
+    "ts3native 0.36.169": 1,
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1,
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+    "autshadow satb: Satb=2 -> mode 2 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "pinReason": "feature/mono-offthread pair: asi monoot1 (ts3native 0.36.169) + package monoot1, master 14eff031 plus the Mono stack",
+   "id": "ip-gug-stuck",
+   "note": "docs/222 §11 (e): IP natural 15 min with go-live on (unseen-direct acting all run): 0 stuck Sims (stuck watchdog / stuckcheck), autunseen_exc 0, 0 crashes; pushes per unseen Sim-hour for the record.",
+   "fixesPackage": "game-copy/ts3fixes.package.monoot1",
+   "save": "Baseline-IP",
+   "noiseCheck": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 15,
+     "noSamplers": true,
+     "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+     "fixesOff": "autunseencmp",
+     "fixesReport": "g8_,autunseen_"
+    }
+   },
+   "timeoutMin": 40
+  }
+ ]
+}

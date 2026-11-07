@@ -112,10 +112,19 @@ namespace Ts3Agent
             Household active = Household.ActiveHousehold;
             Util.Picked.Clear();
             List<object> names = new List<object>();
+            Util.PickFilter = delegate (SimDescription sd)
+            {
+                if (sd == null || sd.IsPet) return false;
+                if (ages.Count > 0 && !ages.Contains(sd.Age.ToString().ToLowerInvariant())) return false;
+                if (townies && active != null && sd.Household == active) return false;
+                if (school && (sd.CareerManager == null || sd.CareerManager.School == null)) return false;
+                if (noPets && sd.Household != null && sd.Household.Pets.Count > 0) return false;
+                return true;
+            };
             foreach (SimDescription sd in SimDescription.GetSimDescriptionsInWorld())
             {
                 if (Util.Picked.Count >= count) break;
-                if (sd == null || sd.CreatedSim == null || sd.IsPet) continue;
+                if (!Util.InWorldNow(sd) || sd.IsPet) continue;
                 if (ages.Count > 0 && !ages.Contains(sd.Age.ToString().ToLowerInvariant())) continue;
                 if (townies && active != null && sd.Household == active) continue;
                 if (school && (sd.CareerManager == null || sd.CareerManager.School == null)) continue;

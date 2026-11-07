@@ -1,4 +1,4 @@
-# 531. The main thread, function by function (Steam 1.67)
+# 538. The main thread, function by function (Steam 1.67)
 
 Status (2026-11-06): static call graph plus sampled stacks, every graph function named, the top layers read from a
 Ghidra decompile. **9,820 functions** reachable from the main thread's 27 entry points. They are named in

@@ -38,6 +38,7 @@ static double g_asUsPerTick;
 static int g_asSatbTicks;  // Satb act: ends of frame the job has been in flight
 // Mode 3 go-live (docs/124 §17): ts3fixes reads these through Config 13-18; VerifyEvery runs the reference at every Nth cut
 static int g_asLiveTopN = 10, g_asLiveBands = 3, g_asLiveMarginPm, g_asLiveMaxWait = 3, g_asLiveVerify = 50, g_asLiveDry;
+static int g_asLiveUnseen;  // ini Unseen=1 with Mode=3 and the slot stub: ts3fixes turns autshadow, autlive, autunseen on (UserDiag op 8)
 static LONG g_asCutFrame;   // the frame count at the last cut (frames are counted at their end, AsSimLeave)
 static int g_asLiveRefRan;  // the last cut ran the reference (Mode 3: VerifyEvery)
 static HANDLE g_asJsonl = INVALID_HANDLE_VALUE;
@@ -862,6 +863,8 @@ static void AsInstallRun(const wchar_t* ini, bool slotStub) {
         g_asLiveVerify = g_asLiveVerify < 0 ? 0 : g_asLiveVerify > 100000 ? 100000 : g_asLiveVerify;
         Log("autshadow go-live: Mode=3 TopN=%d Bands=%d Margin=%d/1000 MaxWait=%d VerifyEvery=%d Dry=%d (docs/124 §17)", g_asLiveTopN,
             g_asLiveBands, g_asLiveMarginPm, g_asLiveMaxWait, g_asLiveVerify, g_asLiveDry);
+        g_asLiveUnseen = slotStub && GetPrivateProfileIntW(L"AutShadow", L"Unseen", 0, ini) ? 1 : 0;
+        if (g_asLiveUnseen) Log("autshadow go-live: Unseen=1, ts3fixes switches autshadow, autlive, autunseen on by ini (docs/222)");
     }
     k.alOn = g_asMode == 3 ? 1 | g_asLiveDry << 1 : 0;
     // docs/206 §7: Satb=1 probe (S0 store counts in one job length of the next tick, no concurrency), 2 act (the worker runs

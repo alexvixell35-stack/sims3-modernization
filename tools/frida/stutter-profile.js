@@ -201,17 +201,19 @@ const TASK_HOOKS = {
 };
 const FIELD_FROM_NAME = 0xe6f720; // mono_class_get_field_from_name(klass, name), cdecl; walks the parents (docs/123 §8.6)
 const TASK_STAGES = [null, 'script', 'taskObjects', 'oneShot', 'threaded']; // stage ids the seam hooks write
+const NTOP = 8; // docs/247 §9: 8 slowest runs per iteration (was 5); a slot only costs its memory
 const TASK_C = `
 #include <gum/guminterceptor.h>
-#define NTOP 5
-typedef struct { gint64 ticks; guint32 stage, kind; void * obj, * klass, * method; void * from[3], * to[3]; } Slot;
-typedef struct { gint64 t0; guint32 on, stage; void * obj, * klass, * method, * state; void * from[3]; } Inv;
+#define NTOP ${NTOP}
+/* from[3..5], to[3..5] = frames 4-6 (docs/247 §9): fromMore / toMore in the hitch line; from / to stay 3 deep for the readers */
+typedef struct { gint64 ticks; guint32 stage, kind; void * obj, * klass, * method; void * from[3], * to[3], * fromMore[3], * toMore[3]; } Slot;
+typedef struct { gint64 t0; guint32 on, stage; void * obj, * klass, * method, * state; void * from[6]; } Inv;
 extern int __attribute__((stdcall)) QueryPerformanceCounter (gint64 * t);
 /* in JS-allocated memory (CModule data is not writable on Windows, frame-times.js) */
 extern volatile guint32 st[16]; /* simTid, stage, open, nTop, dropped, yieldSeen, slotSize, -, runs[5] at 8.. */
 extern volatile gint64 minTicks;
 extern Slot top[NTOP];
-extern void * yieldTo[3];
+extern void * yieldTo[6];
 #define SIM st[0]
 #define STAGE st[1]
 #define OPEN st[2]
@@ -219,8 +221,8 @@ extern void * yieldTo[3];
 
 static void frames (char * state, void ** out) {
   int d = *(int *) (state + 0x140), i;
-  for (i = 0; i < 3; i++) out[i] = NULL;
-  for (i = 0; i < 3 && d - i >= 0 && d - i < 63; i++) {
+  for (i = 0; i < 6; i++) out[i] = NULL;
+  for (i = 0; i < 6 && d - i >= 0 && d - i < 63; i++) {
     char * cell = *(char **) (state + 0x3c + 4 * (d - i));
     if (cell == NULL) break;
     out[i] = *(void **) (cell + 4);
@@ -230,7 +232,7 @@ static int begin (GumInvocationContext * ic, Inv * v) {
   v->on = 0;
   if (OPEN || STAGE == 0 || SIM == 0 || gum_invocation_context_get_thread_id (ic) != SIM) return 0;
   OPEN = 1; v->on = 1; v->stage = STAGE; st[5] = 0;
-  v->obj = v->klass = v->method = v->state = NULL; v->from[0] = v->from[1] = v->from[2] = NULL;
+  v->obj = v->klass = v->method = v->state = NULL; v->from[0] = v->from[1] = v->from[2] = v->from[3] = v->from[4] = v->from[5] = NULL;
   return 1;
 }
 static void end (Inv * v, guint32 kind) {
@@ -249,7 +251,7 @@ static void end (Inv * v, guint32 kind) {
     s = &top[m];
   }
   s->ticks = t1; s->stage = v->stage; s->kind = kind; s->obj = v->obj; s->klass = v->klass; s->method = v->method;
-  for (i = 0; i < 3; i++) { s->from[i] = v->from[i]; s->to[i] = st[5] ? yieldTo[i] : NULL; }
+  for (i = 0; i < 3; i++) { s->from[i] = v->from[i]; s->to[i] = st[5] ? yieldTo[i] : NULL; s->fromMore[i] = v->from[3 + i]; s->toMore[i] = st[5] ? yieldTo[3 + i] : NULL; }
 }
 void onEnterRun (GumInvocationContext * ic) {
   Inv * v = GUM_IC_GET_INVOCATION_DATA (ic, Inv);
@@ -352,7 +354,7 @@ function objName(obj, klass) {
 const chain = ps => ps.map(p => p.isNull() ? null : methodName(p) ?? '?').filter(x => x).join(' < ');
 // at the iteration boundary on the sim thread: the kept runs as [{stage, name, ms, from, to}], slowest first, and runs per stage
 function readTasks() {
-  const T = tasks, n = Math.min(5, T.st.add(12).readU32()), size = T.st.add(24).readU32(), out = [];
+  const T = tasks, n = Math.min(NTOP, T.st.add(12).readU32()), size = T.st.add(24).readU32(), out = [];
   for (let i = 0; i < n; i++) {
     const s = T.top.add(i * size), ms = Number(s.readS64()) / ticksPerMs, kind = s.add(12).readU32();
     const obj = s.add(16).readPointer(), method = s.add(24).readPointer();
@@ -370,6 +372,11 @@ function readTasks() {
     const from = chain([0, 1, 2].map(j => s.add(28 + 4 * j).readPointer())), to = chain([0, 1, 2].map(j => s.add(40 + 4 * j).readPointer()));
     if (from) r.from = from;
     if (to) r.to = to;
+    const fromMore = chain([0, 1, 2].map(j => s.add(52 + 4 * j).readPointer())), toMore = chain([0, 1, 2].map(j => s.add(64 + 4 * j).readPointer()));
+    if (fromMore) r.fromMore = fromMore;
+    if (toMore) r.toMore = toMore;
+    // a fresh task that ended in one run has no saved frames: its entry method names it (docs/247 rank 5)
+    if (kind === 1 && !from && !to && !method.isNull()) r.entry = methodName(method) ?? undefined;
     out.push(r);
   }
   out.sort((a, b) => b.ms - a.ms);
@@ -384,7 +391,7 @@ function installTasks() {
   if (!cfg.tasks) { console.log('[ts3prof] task attribution off (tasks: false)'); return; }
   try {
     const at = Object.fromEntries(Object.keys(TASK_HOOKS).map(name => { HOOKS[name] = HOOKS[name] ?? TASK_HOOKS[name]; return [name, addr(name)]; }));
-    const st = Memory.alloc(64), minTicks = Memory.alloc(8), top = Memory.alloc(5 * 64), yieldTo = Memory.alloc(16);
+    const st = Memory.alloc(64), minTicks = Memory.alloc(8), top = Memory.alloc(NTOP * 96), yieldTo = Memory.alloc(32);
     minTicks.writeS64(Math.round(cfg.taskMinMs * ticksPerMs));
     const cm = new CModule(TASK_C, { QueryPerformanceCounter: k32.getExportByName('QueryPerformanceCounter'), st, minTicks, top, yieldTo });
     st.add(24).writeU32(new NativeFunction(cm.slotSize, 'int', [])());

@@ -1,0 +1,36 @@
+{
+  "note": "docs/532: repro of the metricskillmissing fix (MetricSkillX's NullReferenceException for an unregistered skill), off then on in one load, on simler90's UPDATE242 core without the player's patches (the player's core carries issue #166 build 94).",
+  "jobs": [
+    {
+      "id": "bp-metric-skill-missing-check",
+      "note": "Correctness (6 min): repro metric-skill-missing-check. Pass: the repro's steps pass (expect broken: off, EA's NullReferenceException from the title and the description; expect fixed: on, text twice and the value Map0) and metricskillmissing_names >= 2.",
+      "asi": "game-copy/asi-v0.2.5/ts3native.asi",
+      "pinReason": "the player release v0.2.5 asi: a ts3fixes-only correctness test, no native change",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "metric-skill-missing-check",
+          "fixesRequire": "metricskillmissing_names>=2"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14,
+      "earlyGates": [
+        {
+          "afterSec": 180,
+          "counter": "fixes:metricskillmissing_names",
+          "op": ">=",
+          "value": 2,
+          "why": "the on arm answered nothing 3 min in: hook missing or the check failed"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": true
+}

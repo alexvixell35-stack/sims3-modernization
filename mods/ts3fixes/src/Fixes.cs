@@ -18,17 +18,29 @@ namespace Ts3Fixes
     //   ts3fixes.recent (last shortcuts), ts3fixes.moved (every Sim a shortcut moved).
     public static partial class Fixes
     {
-        const int kMethodHeader = 40, kNameOffset = 0x18;
+        const int kMethodHeader = 40, kNameOffset = 0x18, kSlotOffset = 0x1C;
 
-        static byte[] SwapMethod(MethodBase original, MethodBase replacement)
+        static byte[] SwapMethod(MethodBase original, MethodBase replacement, bool keepVirtual = true)  // false: VirtualSwapCheck's old-way pair only
         {
             IntPtr o = original.MethodHandle.Value, r = replacement.MethodHandle.Value;
             byte[] saved = new byte[kMethodHeader], repl = new byte[kMethodHeader];
             Marshal.Copy(o, saved, 0, kMethodHeader);
             Marshal.Copy(r, repl, 0, kMethodHeader);
+            if (keepVirtual) KeepVirtual(saved, repl);
             Marshal.Copy(repl, 0, o, kNameOffset);
             Marshal.Copy(repl, kNameOffset + 4, new IntPtr(o.ToInt32() + kNameOffset + 4), kMethodHeader - kNameOffset - 4);
             return saved;
+        }
+
+        // docs/536: a virtual original keeps its flags word (+0) and vtable slot (+0x1C bits 12-31). The callvirt resolver
+        // (0xE51FC0) reads both from the method a call site names; with the hook's (no VIRTUAL flag) every receiver ran this
+        // body and no override did, e.g. every x.Destroy() ran only ScriptObject.Destroy.
+        static void KeepVirtual(byte[] saved, byte[] repl)
+        {
+            if ((BitConverter.ToUInt16(saved, 0) & (ushort)MethodAttributes.Virtual) == 0) return;
+            repl[0] = saved[0]; repl[1] = saved[1];
+            int slot = (BitConverter.ToInt32(repl, kSlotOffset) & 0xFFF) | (BitConverter.ToInt32(saved, kSlotOffset) & ~0xFFF);
+            Array.Copy(BitConverter.GetBytes(slot), 0, repl, kSlotOffset, 4);
         }
 
 
@@ -81,6 +93,7 @@ namespace Ts3Fixes
             ApplyDisposeSpread();
             ApplyMemAlive();
             ApplyUfFinish();
+            ApplySavedStacks();  // docs/242
             ApplyPosturePop();
             ApplySeasonImposter();
             ApplyEaFixes();
@@ -102,6 +115,7 @@ namespace Ts3Fixes
             ApplyVenueScore();
             ApplyWakePark();
             ApplyAutLiveB14();
+            ApplyHitchCause();
         }
 
         static void TunedLog(string tuning, bool ok, string what)
@@ -262,11 +276,17 @@ namespace Ts3Fixes
         // [2029] eggspot (EggSpot.cs, docs/508): egg positions refused because they are off the hunt lot.
         // [2030] graduationtable (GraduationTable.cs, docs/508): graduation waiting-loop ticks that found no table.
         // [2035-2036] jazzparam (JazzParam.cs, issue #166 build 21, docs/511): UpdateJazzParameter NullReferenceExceptions with no posture, caught.
+        // [778-784] unseenprobe/unseenpark (UnseenThrottle.cs, docs/245): low-LOD refreshes run, us in those runs, gap histogram.
+        // [818-823] unseenpark (UnseenThrottle.cs, docs/243 §9): held, snap-back, exempt, searches unseen / seen, arrivals; [824] most snap releases in one tick (the stagger working), [825] polls of a seen held Sim deferred to its slot.
+        // [836-849] unseenboat (UnseenBoat.cs, docs/248): get-in replans seen by UbCountReplan (switch on or off), of those seen, unseen; shortcuts, no spot, refused route, refused Sim, houseboat teleports, owned boat, candidates (transport or houseboat trips), seen or ended during the gate or wait, refused goal, longest wait (sim-minutes), colours unknown.
+        // [854-861] scopegap (UnseenFallback.cs UfDriverless, UfSlowPlanLog; counters only): driverless routes (who == null) by Vehicle+IOwnableVehicle / Vehicle not ownable / household or selectable Sim in Occupants / not a Vehicle; plans of Sims in 80 m viewer range only (viewer bit, no on-screen, no reach), of those >= 250 ms, their total ms; driverless total.
+        // [850-853] unseenboatstart (docs/248 §10): Sims leaving a houseboat: candidates, shortcuts, no spot, left dirty (must stay 0). Subsets of [845], [839], [840].
         // [2033-2034] buffupdate (BuffUpdate.cs, issue #166 build 20, docs/510): out-of-sync exceptions from UpdateBuffs, caught.
         // [2039-2040] carnoroute (CarNoRoute.cs, issue #166 build 33, docs/513): car drives with no car routing component, returned false.
         // [2031-2032] convturn (ConvTurn.cs, issue #166 build 19, docs/509): stuck conversation turns seen by a scoring call, turns taken.
         // [2041-2042] npcdriverpool (NpcDriverPool.cs, issue #166 build 37, docs/514): bad pooled driver descriptions EA would hand out, dropped.
         // [687-689] routefaillog (RouteFailLog.cs, docs/226): routefail lines, showoff lines, lines dropped by the cap.
+        // [760-762] savedstacks (SavedStacks.cs, docs/242): saved methods remapped to stubs, left dropped, stubs with no checksum.
         // [690-743] unseencost (UnseenCost.cs, docs/227): unseen-check calls / top-level / timed / us per site, interop calls,
         // Sim asks vs distinct Sims per tick, the probe's own calibrated cost. [750-757] unseencost sites utfetch + utlookup (docs/227 §9).
         // [2043-2044] bookcarry (BookCarry.cs, docs/515): carry state machines Book.StopUsingBook dropped without an exit, ended.
@@ -282,14 +302,34 @@ namespace Ts3Fixes
         // [2051-2052] datingprofile (DatingProfile.cs, AutShadow.cs MetPeek, docs/528): SimHasProfile answers turned false (a record with no profile) / DidSimsMeetOnline calls answered without making a record.
         // [2055-2057] deadrefsweep object walks (DeadRefs.cs, docs/205 §2.3a): GameObject walks shared by phases 10-12, ms in finished
         // walks, walks asked by kSimDestroyed / kSimDescriptionDisposed (the rest are the daily walk).
+        // [2058] invnotyet (InvNotYet.cs, issue #166 build 13, docs/531): objects TryAddObjectToInventory destroyed and refused for a Sim with no inventory yet.
+        // [2059-2060] metricskillmissing (MetricSkillMissing.cs, issue #166 build 94, docs/532): skill metric titles / descriptions given an empty skill name, values answered Map0 (neutral), for a skill with no static skill.
+        // [2061] fireworksfizzle (FireworksFizzle.cs, issue #166 build 23, docs/533): fireworks watchers finished on a fizzle without EA's LaunchFailure state request.
+        // [2062-2064] petpoolorphan (PetPoolOrphan.cs, issue #166 build 52, docs/534): pets dropped from a pool with no household and no family links disposed / left (a Sim in the world) / Dispose threw.
+        // [2065] reltablesapart (RelTablesApart.cs, issue #166 build 14, docs/535): relationship pairs whose two tables had come apart, rejoined with the other side's relationship.
         // [758-759] asyncjigsync (AsyncJigSync.cs, RouteBackoff.cs AsyncEligible, docs/240): own plans kept sync while the Sim's interaction holds an unplaced SocialJig / of those with the jig only in the linked interaction.
+        // [763-768] autofft2 (AutOffload.cs, docs/208 §9.1): items, A0, A2, A4, A5, exceptions
+        // [769-776] autofflot (AutOffload.cs, docs/208 §9.2): items, A0, A2, A4, A5, exceptions, dry checks, dry equal
+        // [785-817] G8 search queue wait, manager depth, seen path, household, worker wait, search length (AutLive.cs QueueNote, docs/222 §11.8)
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2058]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2067]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
+        }
+
+        // [AutShadow] Unseen=1 (UserDiag op 8, no icall: with [AutShadow] off ts3native registers none). Asked once.
+        static int sIniUnseen = -1;
+        static bool IniUnseen()
+        {
+            if (sIniUnseen < 0)
+            {
+                try { sIniUnseen = DiagSend(8, 0) ? 1 : 0; }
+                catch (Exception) { sIniUnseen = 0; }
+            }
+            return sIniUnseen == 1;
         }
 
         // A fix is on when the test switch says so, else per the tuning (Instantiator).
@@ -341,18 +381,20 @@ namespace Ts3Fixes
                 case "wildflowerprobe": return Instantiator.kWildflowerProbe;
                 case "wildflowertask": return Instantiator.kWildflowerTask;
                 case "doormirror": return Instantiator.kDoorMirror;
-                case "autshadow": return Instantiator.kAutShadow;
+                case "autshadow": return Instantiator.kAutShadow || IniUnseen();
                 case "autoffenv": case "autoffbcast": case "autoffdry": return false; // docs/208 offload Mode R (AutOffload.cs): test runs only
                 // docs/208 §8 apply switches: unset read true here (default branch) while the agent showed them off
                 case "autoffenvapply": case "autoffbcastapply": case "autoffnoref": return false;
                 case "autofftick": return false; // docs/206 §15 Mode R tick item: test runs only
-                case "autlive": return false; // docs/124 §17 go-live consume ([AutShadow] Mode=3): test runs only
+                case "autofft2": case "autofflot": return false; // docs/208 §9 Mode R items (tier-2 rows, closest lot): test runs only
+                case "autlive": return IniUnseen(); // docs/124 §17 go-live consume ([AutShadow] Mode=3): test runs, or ini Unseen=1
                 case "autlivelate": return Instantiator.kAutLiveLate; // docs/217 L1 late consume (only acts with autlive)
                 case "autliveguard": return Instantiator.kAutLiveGuard; // docs/124 §17.10 go-live cost guard (only acts with autlive)
                 case "autunseenpace": return Instantiator.kAutUnseenPace; // docs/222 §8 unseen-direct pacing (only acts with autunseen)
                 case "autunseenrh": return Instantiator.kAutUnseenRabbitHoleGame; // docs/222 §10 rabbit-hole pairs to the game's C1 (only acts with autunseen)
+                case "autseengame": case "autunseenpacecredit": return false; // docs/222 §11.8 V6 tests (only act with autunseen): test runs only
                 case "autunseencmp": return Instantiator.kAutUnseenCmp; // docs/222 §9 Dry per-definition compare (only with Dry + autunseen)
-                case "autunseen": return false; // docs/222 unseen-direct go-live (only acts with autlive, acting): test runs only
+                case "autunseen": return IniUnseen(); // docs/222 unseen-direct go-live (only acts with autlive, acting): test runs, or ini Unseen=1
                 case "replandefer": return Instantiator.kReplanDefer;
                 case "replanspread": return Instantiator.kReplanSpread;
                 case "autshadowverify": return false; // verify switch: test runs only
@@ -364,6 +406,7 @@ namespace Ts3Fixes
                 case "autledger": return false; // ledger probe switch (docs/51 mono ledger): test runs only
                 case "unseenenv": return Instantiator.kUnseenEnvThrottle;
                 case "unseenmotives": return Instantiator.kUnseenMotiveThrottle;
+                case "unseenpark": return Instantiator.kUnseenPark;
                 case "unseenbroadcast": return Instantiator.kUnseenBroadcastThrottle;
                 case "unseenprobe": return false; // probe switch: test runs only
                 case "wakeprobe": return false; // probe switch: test runs only (WakePark.cs, docs/211)
@@ -378,6 +421,7 @@ namespace Ts3Fixes
                 case "easpreadlotsverify": case "easpreaddecayverify": return false; // verify switches: test runs only
                 case "unseencars": return Instantiator.kUnseenCarThrottle;
                 case "routesrc": return Instantiator.kRouteSources;
+                case "alarmtime": case "boatreplanlog": case "owresettime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
                 case "legreplanskip": return Instantiator.kLegReplanSkip;
                 case "bouncerskip": return Instantiator.kBouncerSlotSkip;
                 case "idlememo": return Instantiator.kIdlePlanMemo;
@@ -404,9 +448,12 @@ namespace Ts3Fixes
                 case "unseenfbtrip": return Instantiator.kUnseenFallbackTrip;
                 case "unseenfbtriphold": return Instantiator.kUnseenFallbackTripHold;
                 case "unseenfbloopdet": return Instantiator.kUnseenFallbackLoopDetect;
+                case "goalhhexempt": return Instantiator.kGoalHouseholdExempt;
                 case "unseenfbloopbreak": return Instantiator.kUnseenFallbackLoopBreak;
                 case "unseenfbfinish": return Instantiator.kUnseenFallbackFinish;
                 case "unseenroute": return Instantiator.kUnseenRouteRelaxed;
+                case "unseenboat": return Instantiator.kUnseenBoat;
+                case "unseenboatstart": return Instantiator.kUnseenBoatStart;
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
                 case "seasonimpostercold": return Instantiator.kSeasonImposterCold;
@@ -435,6 +482,11 @@ namespace Ts3Fixes
                 case "rewardgiver": return Instantiator.kRewardGiver;
                 case "datingprofile": return Instantiator.kDatingProfile;
                 case "leavejobdispose": return Instantiator.kLeaveJobDispose;
+                case "invnotyet": return Instantiator.kInvNotYet;
+                case "metricskillmissing": return Instantiator.kMetricSkillMissing;
+                case "fireworksfizzle": return Instantiator.kFireworksFizzle;
+                case "petpoolorphan": return Instantiator.kPetPoolOrphan;
+                case "reltablesapart": return Instantiator.kRelTablesApart;
                 case "ageupswap": return Instantiator.kAgeUpSwap;
                 case "asyncjigsync": return Instantiator.kAsyncJigSync;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;
@@ -468,8 +520,9 @@ namespace Ts3Fixes
                 if (Compiled(t)) throw new InvalidOperationException("already compiled");
                 string swName = AutShadowCore.MemberName(t);  // G-M6: callers' IL hashes name t as before the swap
                 if (swName != null) AutShadowCore.SwapNames[t.MethodHandle.Value] = swName;
-                if (stub != null) SwapMethod(hook.GetMethod(stub, all), t);
+                if (stub != null) { MethodInfo s = hook.GetMethod(stub, all); SwapMethod(s, t); StubDirect(s); }
                 SwapMethod(t, r);
+                sStubs.Add(t);  // docs/242: a frame in the hook's body saves as the hook's class, which often cannot find it again
                 sPatched[t.MethodHandle.Value] = hook;  // docs/128 G-M4: our own swap, accepted by the closure sweep (by MonoMethod: GetMethods hands out other MethodInfo objects)
                 AppliedLog().Add(target.Name + "." + method + ": ok");
                 return true;

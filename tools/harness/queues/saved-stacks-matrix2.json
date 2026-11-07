@@ -1,0 +1,191 @@
+{
+  "note": "saved-stacks-matrix2 (2026-11-06, docs/242): BP arms of the fix again on the final package, plus the floor: saves made and loaded with none of our mods. Run: node tools/harness/queue.ts tools/harness/queues/saved-stacks-matrix2.json --no-smoke",
+  "jobs": [
+    {
+      "id": "ss-bp-a-after-r2",
+      "note": "type a: baseline save, fix",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "repro": "sim-gone-reload-count"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-bp-c-before-save-r2",
+      "note": "type c: master saves mid-route",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-before.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "repro": "sim-gone-savemid"
+      }
+    },
+    {
+      "id": "ss-bp-c-upgrade-r2",
+      "note": "type c: the fix loads master's save (player update path)",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgMidRoute",
+      "run": {
+        "repro": "sim-gone-reload-count"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-bp-c-after-save-r2",
+      "note": "type c: fix saves mid-route",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "repro": "sim-gone-savemid"
+      }
+    },
+    {
+      "id": "ss-bp-c-after-r2",
+      "note": "type c: fix loads its own",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgMidRoute",
+      "run": {
+        "repro": "sim-gone-reload-count"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-bp-c-removed-r2",
+      "note": "type c: mod removed, the fix's save loads without ts3fixes",
+      "asi": "none",
+      "ourMods": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgMidRoute",
+      "run": {
+        "repro": "sim-gone-reload"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-bp-c-vanilla-save",
+      "note": "type c: no mods of ours saves mid-route",
+      "asi": "none",
+      "ourMods": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "repro": "sim-gone-savemid"
+      }
+    },
+    {
+      "id": "ss-bp-c-vanilla",
+      "note": "type c: no mods of ours loads its own: the floor for refused stacks",
+      "asi": "none",
+      "ourMods": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgMidRoute",
+      "run": {
+        "repro": "sim-gone-reload"
+      },
+      "agentArm": "sim_gone_load"
+    },
+    {
+      "id": "ss-ip-c-vanilla-save",
+      "note": "type c: no mods of ours saves mid-route",
+      "asi": "none",
+      "ourMods": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "repro": "sim-gone-savemid"
+      }
+    },
+    {
+      "id": "ss-ip-c-vanilla",
+      "note": "type c: no mods of ours loads its own: the floor for refused stacks",
+      "asi": "none",
+      "ourMods": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "save": "SgMidRoute",
+      "run": {
+        "repro": "sim-gone-reload"
+      },
+      "agentArm": "sim_gone_load"
+    }
+  ]
+}

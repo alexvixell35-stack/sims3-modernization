@@ -63,7 +63,9 @@ namespace Ts3Fixes
                 AppliedLog().Add("overwatchstucknotice: StuckCheck.ResetTask or Common.sNotices differs from V123, off");
                 return;
             }
-            sOwNoticeReady = Patch(reset, "OnPerform", Type.EmptyTypes, typeof(OwResetHook), "PerformHook", "PerformOrig");
+            sOwNoticeReady = Instantiator.kHitchCauseHooks
+                ? Patch(reset, "OnPerform", Type.EmptyTypes, typeof(HcOnPerformHook), "PerformHook", "PerformOrig")
+                : Patch(reset, "OnPerform", Type.EmptyTypes, typeof(OwResetHook), "PerformHook", "PerformOrig");
             if (sOwNoticeReady) World.OnWorldQuitEventHandler += delegate { sOwNotice.Clear(); }; // flushed unshown
         }
 
@@ -106,6 +108,7 @@ namespace Ts3Fixes
         // Puts Overwatch's notice list back and sorts what OnPerform queued: its stuck notice held, the rest sent on.
         static void OwNoticeSort(IList ours, IList prev, Sim sim, string suffix, ulong id, string name)
         {
+            uint hcT0 = SrcNowUs(); // owresettime (HitchCause.cs)
             IList now = prev;
             try
             {
@@ -128,6 +131,7 @@ namespace Ts3Fixes
                 try { if (now != null) now.Add(notice); else sOwnNotify.Invoke(null, new object[] { notice }); }
                 catch (Exception e) { OwNoticeFailed(e); }
             }
+            if (ShortcutOn("owresettime")) HcLine("owreset: notice sort " + name + ", " + (unchecked(SrcNowUs() - hcT0) / 1000) + " ms");
         }
 
         static void OwNoticeHold(ulong id, string name)

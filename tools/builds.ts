@@ -36,7 +36,8 @@ export function loadDb(path = DB_PATH): Build[] { return existsSync(path) ? JSON
 export function saveDb(db: Build[], path = DB_PATH) { writeFileSync(path, `{ "builds": [\n${db.map(b => `  ${JSON.stringify(b)}`).join(',\n')}\n] }\n`); }
 
 // the DLL holds the log line format "ts3native <version> %04d..." (queue.ts staleAsi reads the same string)
-export const asiVersion = (b: Buffer) => /ts3native (\d+\.\d+\.\d+[a-z]?) %04d/.exec(b.toString('latin1'))?.[1];
+// player test builds (0.36.168c-test1) carry the version as 'ts3native X-testN)' in the signature text, not as the log's 'X %04d' template
+export const asiVersion = (b: Buffer) => { const s = b.toString('latin1'); return /ts3native (\d+\.\d+\.\d+[a-z]?) %04d/.exec(s)?.[1] ?? /ts3native (\d+\.\d+\.\d+[a-z]?-test\d+)\)/.exec(s)?.[1]; };
 // first line of Bin/ts3native.log: "ts3native 0.36.40 2026-10-24 16:41:59"
 export const logVersion = (log: string) => /^ts3native (\S+) /.exec(log)?.[1];
 
@@ -118,7 +119,7 @@ if (process.argv[1]?.endsWith('builds.ts')) {
     assert.throws(() => packageTuning(writePackage([])), /no Ts3Fixes/);
     // asi: version string, Bin vs job, parked-name drift, DB version
     const asi = Buffer.from('xx ts3native 0.36.37 %04d-%02d yy'), other = Buffer.from('ts3native 0.36.40 %04d');
-    assert.equal(asiVersion(asi), '0.36.37'); assert.equal(asiVersion(Buffer.from('nothing')), undefined);
+    assert.equal(asiVersion(asi), '0.36.37'); assert.equal(asiVersion(Buffer.from('nothing')), undefined); assert.equal(asiVersion(Buffer.from('ts3native 0.36.168c-test1)\r\nsignature id')), '0.36.168c-test1');
     const fdb: Build[] = [{ name: 'ts3native.asi.t1', kind: 'asi', sha256: sha256(asi), version: '0.36.37', created: '' },
       { name: 'fx', kind: 'ts3fixes', sha256: sha256(p1), tuningDigest: t1.digest, created: '', tuning: t1.tuning }];
     assert.deepEqual(asiCheck(fdb, asi, 'game-copy/ts3native.asi.t1', asi), { fails: [], sha: sha256(asi), names: ['ts3native.asi.t1'], version: '0.36.37' });

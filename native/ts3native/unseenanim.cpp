@@ -318,6 +318,11 @@ static void __fastcall AaPoseThunk(void* actor, void* edx, float dt) {
     float pos[3] = {};
     bool parented = false;
     const int c = UnObjClass(owner, &kind, pos, &parented);
+    if (UtHeldObj(owner)) {  // docs/249: a household Sim always animates (PushHeld); kdAaHeldIn = the four class counters' sum
+        InterlockedIncrement(&k.kdAaHeldIn);
+        InterlockedIncrement(c == 0 ? &k.kdAaHeldSeen : c < 0 ? &k.kdAaHeldNoClass : parented ? &k.kdAaHeldPar : &k.kdAaHeld);
+        parented = true;
+    }
     AaSlot* s = AaSlotOf(actor, (DWORD)g_aaEvery);
     if (s->actor == actor && (s->lo != lo || s->hi != hi)) s->actor = NULL, s->owed = 0;  // address reused by another Sim
     const bool mine = s->actor == actor;

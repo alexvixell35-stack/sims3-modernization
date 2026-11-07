@@ -649,7 +649,12 @@ static void UdWorldLoad() {  // sim thread, from the ts3fixes "world:" line
 // ts3fixes text channel (UserDiag.cs): Route.GetOption2 with optHi = 0x87000000 | op << 16, 4 ASCII bytes in optLo.
 // op 0 = begin a line, 1 = append (NUL pads), 2 = end: log it as "ts3fixes: <line>". Answer 1 = accepted; with [UserDiag]
 // off 0, so ts3fixes stops at the first message. Without ts3native the game answers false (no RouteOption2 name there).
-// Ops 3-5 memdiag.cpp; op 6 and "played: " lines played.cpp (docs/14 section 8.6); op 7 compaction.cpp (docs/204).
+// Ops 3-5 memdiag.cpp; op 6 and "played: " lines played.cpp (docs/14 section 8.6); op 7 compaction.cpp (docs/204); op 8 [AutShadow] Unseen.
+// docs/247 §11.1: test-only hitch-cause lines (HitchCause.cs, 120 a minute at most) lost to the shared 400: ufplan: and play: use those up.
+static const LONG kUdHitchLines = 6000;
+static bool UdHitchLine(const char* s) {
+    return !strncmp(s, "boatreplan:", 11) || !strncmp(s, "owreset:", 8) || !strncmp(s, "alarmtime:", 10) || !strncmp(s, "lotpass:", 8);
+}
 static const DWORD kUdTextHi = 0x87000000;  // 0x86000000 exact = the stuck-check PROBE mark (docs/163 §10)
 static int g_udTxtN;
 static LONG g_udTxtLines;
@@ -662,6 +667,10 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
         case 3: case 4: case 5: return MsOp((hi >> 16) & 0xFF);
         case 6: return PlAnswer();  // played.cpp: store ready / household played (docs/14 section 8.6)
         case 7: return CpOp(lo);    // compaction.cpp: [Compaction] verdict and steps (docs/204)
+        case 8: return (u8)g_asLiveUnseen;  // autshadow-run.cpp: [AutShadow] Unseen=1 (docs/222); no icalls when [AutShadow] is off
+        case 10: case 11: KdScopeSet(lo, ((hi >> 16) & 0xFF) == 10 ? 1 : 2); return 1;  // docs/197 §7: UfWhy of route lo, before its START or sync plan
+        case 12: KdScopeClear(lo); return 1;  // docs/197 §7: route lo's plan is over
+        case 13: KdScopeSet(lo, 3); return 1;  // docs/197 §7: a seen NPC (KdSeenNpcCeilMs); an old package never sends it
         case 0: g_udTxtN = 0; return 1;
         case 1:
             for (int i = 0; i < 4; i++) {
@@ -677,6 +686,27 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
             if (!strncmp(g_udTxt, "savecleanup: ", 13)) {  // per-action save cleanup lines (docs/14 section 8.6): own, larger cap
                 static LONG s_scLines;
                 if (s_scLines++ < 50000) Log("ts3fixes: %s", g_udTxt);
+                g_udTxtN = 0;
+                return 1;
+            }
+            if (!strncmp(g_udTxt, "stove-wall:", 11)) {  // the stove repro's per-arm lines: own cap (the shared one cut the log after 40 lines, 2026-11-07)
+                static LONG s_swLines;
+                if (s_swLines++ < 5000) Log("ts3fixes: %s", g_udTxt);
+                g_udTxtN = 0;
+                return 1;
+            }
+            if (!strncmp(g_udTxt, "routefail", 9) || !strncmp(g_udTxt, "gohere", 6)) {  // docs/197 §7: own cap (disk guard only), the job's fields appended
+                static LONG s_rfLines;
+                char job[320];
+                RfAppend(g_udTxt, job, sizeof(job));
+                if (s_rfLines++ < 50000) Log("ts3fixes: %s%s", g_udTxt, job);
+                g_udTxtN = 0;
+                return 1;
+            }
+            if (UdHitchLine(g_udTxt)) {  // own, larger cap
+                static LONG s_hcLines;
+                if (s_hcLines++ < kUdHitchLines) Log("ts3fixes: %s", g_udTxt);
+                else if (s_hcLines == kUdHitchLines + 1) Log("ts3fixes: hitch-cause lines capped at %ld", kUdHitchLines);
                 g_udTxtN = 0;
                 return 1;
             }

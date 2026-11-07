@@ -60,6 +60,7 @@ export const FEATURES: Record<string, Feature> = {
   errortrapspread: { tuning: ['kErrorTrapSpread'], doc: 'docs/146' },
   unseenenv: { tuning: ['kUnseenEnvThrottle'], doc: 'docs/144' },
   unseenmotives: { tuning: ['kUnseenMotiveThrottle'], doc: 'docs/144' },
+  unseenpark: { tuning: ['kUnseenPark'], doc: 'docs/243' },
   unseenbroadcast: { tuning: ['kUnseenBroadcastThrottle'], doc: 'docs/144' },
   // v0.2.0 routing set, as the v020-natural on arms ran it (2026-10-26/27/28)
   arenaguard: { ini: { 'ArenaGuard.InitobjFix': ['1', '0'], 'ArenaGuard.TailPad': ['1', '0'] }, doc: 'docs/67 §22.9 (crash S)' },

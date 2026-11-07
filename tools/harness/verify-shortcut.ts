@@ -1,5 +1,5 @@
 // Quick check of a trip shortcut on a loaded world (much shorter than a profile run):
-//   node tools/harness/verify-shortcut.ts --name rabbithole[,visit,...] [--tries 20] [--minutes 5]
+//   node tools/harness/verify-shortcut.ts --name rabbithole[,visit,...] [--tries 20] [--minutes 5] [--on a,b]
 // Runs at x3 with popups cleared and checks every 30 s: shortcut counters (patches command: <name>_shortcuts,
 // <name>_no_spot) and stuck Sims as watchdog.ts judges them, marking Sims a shortcut recently placed. Passes once each
 // named shortcut has fired --tries times with no stuck teleported Sim and at least 2 min elapsed; fails on a stuck teleported
@@ -9,7 +9,7 @@ import { reproSave } from './repro-save.ts';
 import { mayBeStuck } from './stuck-rule.ts';
 import { watchGame } from './game-alive.ts';
 
-const { values } = parseArgs({ options: { name: { type: 'string' }, tries: { type: 'string', default: '20' }, minutes: { type: 'string', default: '5' }, 'max-stuck': { type: 'string', default: '5' }, off: { type: 'string' } } });
+const { values } = parseArgs({ options: { name: { type: 'string' }, tries: { type: 'string', default: '20' }, minutes: { type: 'string', default: '5' }, 'max-stuck': { type: 'string', default: '5' }, off: { type: 'string' }, on: { type: 'string' } } });
 if (!values.name) throw new Error('--name required (gohome, rabbithole, ...)');
 const maxStuck = Number(values['max-stuck']);
 const names = values.name.split(','), tries = Number(values.tries), limit = Number(values.minutes) * 60000;
@@ -25,6 +25,7 @@ const alive = watchGame();
 await ag('autopilot', { enabled: true, speed: 'ultra', dialogs: true });
 // --off a,b: switch those shortcuts off for this run (a baseline for the stuck count)
 if (values.off) await ag('patches', Object.fromEntries(values.off.split(',').map(n => [n, false])));
+if (values.on) await ag('patches', Object.fromEntries(values.on.split(',').map(n => [n, true]))); // --on a,b: opt-in switches of the shortcut under test
 const start = (await ag('patches')).result ?? {};
 const base = Object.fromEntries(names.map(n => [n, { shortcuts: start[`${n}_shortcuts`] ?? 0, noSpot: start[`${n}_no_spot`] ?? 0 }]));
 const seen = new Map<string, { key: string; checks: number; reported: boolean }>();

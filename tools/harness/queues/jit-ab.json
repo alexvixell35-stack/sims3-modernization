@@ -1,0 +1,721 @@
+{
+  "note": "PARKED 2026-11-06 (Rodney, timing trim): not run. The compiler is judged statically (docs/207 §8.5), every A/B here is a measurement, no go or stop, and no Direct=1 go/no-go needs it: Direct=1 is gated by jit-reader-trap, jit-verify and the clean night (docs/537 §6). Kept on file for a later look. jit-ab: [MonoJit] timing in one load per job (docs/527 §5, audit row C4; ts3native 0.36.173, counters v911, asi game-copy/ts3native.asi.mono1106c from master 000589df), BP / IP / SV, off-first and on-first, 10 min, --ab jit 2-min slices flipping jitSwitch (0 = EA's opcode words, 1 = the compiled entry). First number: Mode=1, Direct=0, Inline=0, Wide=0 (S1 with the list of docs/537 §8). Second arm set, *-jit-d1-ab*: Mode=1, Direct=1, DirectLeaf=0, Inline=0, Wide=0, same worlds, same reads. Direct is read once at install ([MonoJit] ini, monojit.cpp), --ab jit flips only jitSwitch, so Direct=1 vs off is in-load A/B and Direct=1 vs Direct=0 is cross-run ABBA per world (jobs run A B B A; IP adds A B): compare each *-jit-d1-ab* on arm with its world's *-jit-ab* on arm, X3 ms/s and X4 us per 100 rounds, each job's own off arm as the drift anchor. No in-load Direct flip and no reader for the cross-run line: read the two arm-ms / fixedwork lines side by side. The d1 jobs also need jit-verify's *-jit-lazy-chain jobs passed and jit-reader-trap at jitTrapUnknown 0 (Direct=1 cannot ship with an unknown reader). A later round sets Inline 2, Wide 1 in each job's ini. [AutShadow] is off in every job (arm stated, docs/223 §4 point 4). Run only after jit-reader-trap and jit-verify passed. Quiet machine, IDE and java closed; the jobs need a ts3agent package with fixed_work in game Bin (docs/244). queue.ts runs the measurement smoke first. A measurement, not a go or stop: no ms/s bar (docs/527 §5, docs/207 §8.5); the lane stops only on a failed correctness gate. Read per job: node tools/harness/arm-ms.ts jit-ab (X3: per-arm ms/s columns, taskObjects, threaded, ms/iter), node tools/harness/fixedwork-report.ts <tag>-ab-fixedwork.jsonl (X4: us per 100 rounds per arm), node tools/harness/hitch-ab.ts jit-ab as the no-regression guard. Run: node tools/harness/queue.ts tools/harness/queues/jit-ab.json",
+  "smoke": {
+    "note": "Measurement smoke (AGENTS.md): BP 4 min, --ab jit 1-min slices. Pass: both arms in the per-arm split, jitSwitch read back 0 / 1 per slice, heavy tools off (HitchAttr only), jitOn 1, jitMethods > 0, jitFaults 0, no crash. A FAIL stops the queue.",
+    "asi": "game-copy/ts3native.asi.mono1106c",
+    "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 911,
+    "ini": {
+      "SlotEnabledRO.Enabled": 1,
+      "SlotEnabledRO.Mode": 1,
+      "SlotEnabledRO.Shadow": 0,
+      "UnseenThrottle.Enabled": 1,
+      "UnseenThrottle.List": 1,
+      "RouteAsync.FallbackAsync": 1,
+      "RouteAsync.M1Retry": 1,
+      "RouteAsync.SyncCapMs": 1000,
+      "RouteAsync.FbJobCapMs": 300,
+      "RouteAsync.LogFallbackMs": 20,
+      "RouteAsync.LogFallbackStack": 16,
+      "RouteAsync.TailUnlock": 1,
+      "RouteAsync.ReplanDedupe": 1,
+      "RouteAsync.H2": 1,
+      "RouteEarlyOut.Enabled": 1,
+      "RouteEarlyOut.Mode": 2,
+      "RouteEarlyOut.Act": 1,
+      "RouteEarlyOut.LogMs": 200,
+      "HitchAttr.Enabled": 1,
+      "MonoJit.Enabled": 1,
+      "MonoJit.Mode": 1,
+      "MonoJit.Direct": 0,
+      "AutShadow.Enabled": 0
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 4,
+        "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+        "ab": "jit",
+        "slice": 1
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 15
+  },
+  "jobs": [
+    {
+      "id": "bp-jit-ab",
+      "note": "BP 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoJit] Mode=1, flipped per 2-min slice by --ab jit (jitSwitch), fixed_work 8 calls per slice, [AutShadow] off. Pass: no crash, 0 watchdog lines, jitFaults 0, jitOn 1, jitSwitch per slice as the arm. Read: arm-ms.ts, fixedwork-report.ts.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 0,
+        "AutShadow.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "jit",
+          "slice": 2,
+          "fixedwork": 8
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-jit-d1-ab",
+      "note": "BP 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoJit] Mode=1 Direct=1 DirectLeaf=0 (second arm set; Inline=0, Wide=0), flipped per 2-min slice by --ab jit (jitSwitch), fixed_work 8 calls per slice, [AutShadow] off. Pass: no crash, 0 watchdog lines, jitFaults 0, jitOn 1, jitSwitch per slice as the arm. Read: arm-ms.ts, fixedwork-report.ts. Also: jitDirect 2, jitLazyCalls > 0, jitLazyMats > 0, jitLazyFrames >= jitLazyMats.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "AutShadow.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "jit",
+          "slice": 2,
+          "fixedwork": 8
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-jit-d1-ab-onfirst",
+      "note": "BP 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoJit] Mode=1 Direct=1 DirectLeaf=0 (second arm set; Inline=0, Wide=0), flipped per 2-min slice by --ab jit (jitSwitch), fixed_work 8 calls per slice, [AutShadow] off. Pass: no crash, 0 watchdog lines, jitFaults 0, jitOn 1, jitSwitch per slice as the arm. Read: arm-ms.ts, fixedwork-report.ts. Also: jitDirect 2, jitLazyCalls > 0, jitLazyMats > 0, jitLazyFrames >= jitLazyMats.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "AutShadow.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "jit",
+          "slice": 2,
+          "abOnFirst": true,
+          "fixedwork": 8
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-jit-ab-onfirst",
+      "note": "BP 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoJit] Mode=1, flipped per 2-min slice by --ab jit (jitSwitch), fixed_work 8 calls per slice, [AutShadow] off. Pass: no crash, 0 watchdog lines, jitFaults 0, jitOn 1, jitSwitch per slice as the arm. Read: arm-ms.ts, fixedwork-report.ts.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 0,
+        "AutShadow.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "jit",
+          "slice": 2,
+          "abOnFirst": true,
+          "fixedwork": 8
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-jit-ab",
+      "note": "IP 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoJit] Mode=1, flipped per 2-min slice by --ab jit (jitSwitch), fixed_work 8 calls per slice, [AutShadow] off. Pass: no crash, 0 watchdog lines, jitFaults 0, jitOn 1, jitSwitch per slice as the arm. Read: arm-ms.ts, fixedwork-report.ts.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 0,
+        "AutShadow.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "jit",
+          "slice": 2,
+          "fixedwork": 8
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-jit-d1-ab",
+      "note": "IP 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoJit] Mode=1 Direct=1 DirectLeaf=0 (second arm set; Inline=0, Wide=0), flipped per 2-min slice by --ab jit (jitSwitch), fixed_work 8 calls per slice, [AutShadow] off. Pass: no crash, 0 watchdog lines, jitFaults 0, jitOn 1, jitSwitch per slice as the arm. Read: arm-ms.ts, fixedwork-report.ts. Also: jitDirect 2, jitLazyCalls > 0, jitLazyMats > 0, jitLazyFrames >= jitLazyMats.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "AutShadow.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "jit",
+          "slice": 2,
+          "fixedwork": 8
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-jit-d1-ab-onfirst",
+      "note": "IP 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoJit] Mode=1 Direct=1 DirectLeaf=0 (second arm set; Inline=0, Wide=0), flipped per 2-min slice by --ab jit (jitSwitch), fixed_work 8 calls per slice, [AutShadow] off. Pass: no crash, 0 watchdog lines, jitFaults 0, jitOn 1, jitSwitch per slice as the arm. Read: arm-ms.ts, fixedwork-report.ts. Also: jitDirect 2, jitLazyCalls > 0, jitLazyMats > 0, jitLazyFrames >= jitLazyMats.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "AutShadow.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "jit",
+          "slice": 2,
+          "abOnFirst": true,
+          "fixedwork": 8
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-jit-ab-onfirst",
+      "note": "IP 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoJit] Mode=1, flipped per 2-min slice by --ab jit (jitSwitch), fixed_work 8 calls per slice, [AutShadow] off. Pass: no crash, 0 watchdog lines, jitFaults 0, jitOn 1, jitSwitch per slice as the arm. Read: arm-ms.ts, fixedwork-report.ts.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 0,
+        "AutShadow.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "jit",
+          "slice": 2,
+          "abOnFirst": true,
+          "fixedwork": 8
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-jit-ab-2",
+      "note": "IP 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoJit] Mode=1, flipped per 2-min slice by --ab jit (jitSwitch), fixed_work 8 calls per slice, [AutShadow] off. Pass: no crash, 0 watchdog lines, jitFaults 0, jitOn 1, jitSwitch per slice as the arm. Read: arm-ms.ts, fixedwork-report.ts.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 0,
+        "AutShadow.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "jit",
+          "slice": 2,
+          "fixedwork": 8
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-jit-d1-ab-2",
+      "note": "IP 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoJit] Mode=1 Direct=1 DirectLeaf=0 (second arm set; Inline=0, Wide=0), flipped per 2-min slice by --ab jit (jitSwitch), fixed_work 8 calls per slice, [AutShadow] off. Pass: no crash, 0 watchdog lines, jitFaults 0, jitOn 1, jitSwitch per slice as the arm. Read: arm-ms.ts, fixedwork-report.ts. Also: jitDirect 2, jitLazyCalls > 0, jitLazyMats > 0, jitLazyFrames >= jitLazyMats.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "AutShadow.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "jit",
+          "slice": 2,
+          "fixedwork": 8
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "sv-jit-ab",
+      "note": "SV 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoJit] Mode=1, flipped per 2-min slice by --ab jit (jitSwitch), fixed_work 8 calls per slice, [AutShadow] off. Pass: no crash, 0 watchdog lines, jitFaults 0, jitOn 1, jitSwitch per slice as the arm. Read: arm-ms.ts, fixedwork-report.ts.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 0,
+        "AutShadow.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "jit",
+          "slice": 2,
+          "fixedwork": 8
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "sv-jit-d1-ab",
+      "note": "SV 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoJit] Mode=1 Direct=1 DirectLeaf=0 (second arm set; Inline=0, Wide=0), flipped per 2-min slice by --ab jit (jitSwitch), fixed_work 8 calls per slice, [AutShadow] off. Pass: no crash, 0 watchdog lines, jitFaults 0, jitOn 1, jitSwitch per slice as the arm. Read: arm-ms.ts, fixedwork-report.ts. Also: jitDirect 2, jitLazyCalls > 0, jitLazyMats > 0, jitLazyFrames >= jitLazyMats.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "AutShadow.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "jit",
+          "slice": 2,
+          "fixedwork": 8
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "sv-jit-d1-ab-onfirst",
+      "note": "SV 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoJit] Mode=1 Direct=1 DirectLeaf=0 (second arm set; Inline=0, Wide=0), flipped per 2-min slice by --ab jit (jitSwitch), fixed_work 8 calls per slice, [AutShadow] off. Pass: no crash, 0 watchdog lines, jitFaults 0, jitOn 1, jitSwitch per slice as the arm. Read: arm-ms.ts, fixedwork-report.ts. Also: jitDirect 2, jitLazyCalls > 0, jitLazyMats > 0, jitLazyFrames >= jitLazyMats.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "AutShadow.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "jit",
+          "slice": 2,
+          "abOnFirst": true,
+          "fixedwork": 8
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "sv-jit-ab-onfirst",
+      "note": "SV 10 min, seed 12345, sim-budget release ini + HitchAttr + [MonoJit] Mode=1, flipped per 2-min slice by --ab jit (jitSwitch), fixed_work 8 calls per slice, [AutShadow] off. Pass: no crash, 0 watchdog lines, jitFaults 0, jitOn 1, jitSwitch per slice as the arm. Read: arm-ms.ts, fixedwork-report.ts.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 0,
+        "AutShadow.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "jit",
+          "slice": 2,
+          "abOnFirst": true,
+          "fixedwork": 8
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}

@@ -208,7 +208,7 @@ namespace Ts3Fixes
             //  [47] Hidden room: same stillness rule, in a room the lot marks hidden (Lot.IsRoomHidden): no route check.
             //  [48] Stationary: any non-selectable Sim in the same spot and interaction for a whole sim-day (Overwatch's
             //       "Stationary"; Sims in a rabbit hole, in a bed, vehicle or other parent are skipped).
-            //  [49] Route plans failing: any Sim, the active household included (as Overwatch's callback), whose route plans
+            //  [49] Route plans failing: any Sim but the active household (docs/249; [2066] counts those left alone), whose route plans
             //       failed at least 10 times over more than 30 sim-minutes while it stayed within 1 m (RouteBackoff's plan
             //       hook counts them via NotePlanResult; a successful plan clears the count; our own routability checks do
             //       not count). [51] Sims tracked this way.
@@ -235,13 +235,15 @@ namespace Ts3Fixes
                     if (UfInTransit(s)) continue;  // docs/202 §3.7: a D walk-time hold (unseenfbpre) stands still by design
                     ulong id = s.ObjectId.Value;
                     RouteFails f;
+                    bool household = s.IsSelectable || s.Household == Household.ActiveHousehold;
                     if (sRouteFails.TryGetValue(id, out f) && f.Count >= kRouteFailPlans && now - f.First > failSpan && f.First <= now
                         && (s.Position - f.Pos).Length() <= 1f)
                     {
                         sRouteFails.Remove(id);
+                        if (household) { c[2066]++; DiagLine("watchdog: household Sim " + s.FullName + " route plans failing " + f.Count + ", no reset"); continue; }
                         if (Act(s, now, 49, "reset (route plans failing)")) continue;
                     }
-                    if (s.IsSelectable || s.Household == Household.ActiveHousehold || s.Parent != null || s.SimInRabbitHolePosture) continue;
+                    if (household || s.Parent != null || s.SimInRabbitHolePosture) continue;
                     InteractionInstance cur = s.CurrentInteraction;
                     Still st;
                     if (!mStill.TryGetValue(id, out st) || (s.Position - st.Pos).Length() > 1f || st.Cur != cur || st.Since > now)

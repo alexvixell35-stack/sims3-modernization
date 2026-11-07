@@ -1,0 +1,181 @@
+{
+  "note": "v0.2.8 release smoke (2026-11-06, Rodney): Steam up to EA, one source. Correctness only, no timing A/B.",
+  "jobs": [
+    {
+      "id": "ip-v028b-smoke-1",
+      "note": "[natural play, no cheats] v0.2.8 Steam-up-to-EA smoke, Baseline-IP-Spring: pass = no crash, no hang, no game death, switches read back in the log. Not a timing run.",
+      "asi": "game-copy/asi-v028b/ts3native.asi",
+      "pinReason": "v0.2.8 release candidate, Steam up to EA: CI asi of deb96b67 (0.36.168b, sha 6764979b, native run 42207089614), ini = release/v0.2.8 with SimNoTexture=1, ts3fixes = v0.2.6 package (sha 302c33cf)",
+      "fixesPackage": "game-copy/asi-v028b/ts3fixes.package",
+      "iniBase": "game-copy/asi-v028b/ts3native.ini",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "ts3native 0.36.168b": 1,
+        "^OK   steer RO: .*Mode=1 Shadow=0": 1,
+        "^OK   route-to-object RO: ": 1,
+        "^OK   ea fix: SimNoTexture ": 1,
+        "^OK   ea fix: LotGridMiss ": 1,
+        "^OK   ea fix: ThumbPoseBones ": 1
+      },
+      "save": "Baseline-IP-Spring",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "ip-v028b-smoke-2",
+      "note": "[natural play, no cheats] v0.2.8 Steam-up-to-EA smoke, Baseline-IP-Spring, second run: pass = no crash, no hang, no game death, switches read back in the log. Not a timing run.",
+      "asi": "game-copy/asi-v028b/ts3native.asi",
+      "pinReason": "v0.2.8 release candidate, Steam up to EA: CI asi of deb96b67 (0.36.168b, sha 6764979b, native run 42207089614), ini = release/v0.2.8 with SimNoTexture=1, ts3fixes = v0.2.6 package (sha 302c33cf)",
+      "fixesPackage": "game-copy/asi-v028b/ts3fixes.package",
+      "iniBase": "game-copy/asi-v028b/ts3native.ini",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "ts3native 0.36.168b": 1,
+        "^OK   steer RO: .*Mode=1 Shadow=0": 1,
+        "^OK   route-to-object RO: ": 1,
+        "^OK   ea fix: SimNoTexture ": 1,
+        "^OK   ea fix: LotGridMiss ": 1,
+        "^OK   ea fix: ThumbPoseBones ": 1
+      },
+      "save": "Baseline-IP-Spring",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "bp-v028b-smoke",
+      "note": "[natural play, no cheats] v0.2.8 Steam-up-to-EA smoke, Baseline-BP-Spring: pass = no crash, no hang, no game death, switches read back in the log. Not a timing run.",
+      "asi": "game-copy/asi-v028b/ts3native.asi",
+      "pinReason": "v0.2.8 release candidate, Steam up to EA: CI asi of deb96b67 (0.36.168b, sha 6764979b, native run 42207089614), ini = release/v0.2.8 with SimNoTexture=1, ts3fixes = v0.2.6 package (sha 302c33cf)",
+      "fixesPackage": "game-copy/asi-v028b/ts3fixes.package",
+      "iniBase": "game-copy/asi-v028b/ts3native.ini",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "ts3native 0.36.168b": 1,
+        "^OK   steer RO: .*Mode=1 Shadow=0": 1,
+        "^OK   route-to-object RO: ": 1,
+        "^OK   ea fix: SimNoTexture ": 1,
+        "^OK   ea fix: LotGridMiss ": 1,
+        "^OK   ea fix: ThumbPoseBones ": 1
+      },
+      "save": "Baseline-BP-Spring",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "sv-v028b-smoke",
+      "note": "[natural play, no cheats] v0.2.8 Steam-up-to-EA smoke, Baseline-SV: pass = no crash, no hang, no game death, switches read back in the log. Not a timing run.",
+      "asi": "game-copy/asi-v028b/ts3native.asi",
+      "pinReason": "v0.2.8 release candidate, Steam up to EA: CI asi of deb96b67 (0.36.168b, sha 6764979b, native run 42207089614), ini = release/v0.2.8 with SimNoTexture=1, ts3fixes = v0.2.6 package (sha 302c33cf)",
+      "fixesPackage": "game-copy/asi-v028b/ts3fixes.package",
+      "iniBase": "game-copy/asi-v028b/ts3native.ini",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "ts3native 0.36.168b": 1,
+        "^OK   steer RO: .*Mode=1 Shadow=0": 1,
+        "^OK   route-to-object RO: ": 1,
+        "^OK   ea fix: SimNoTexture ": 1,
+        "^OK   ea fix: LotGridMiss ": 1,
+        "^OK   ea fix: ThumbPoseBones ": 1
+      },
+      "save": "Baseline-SV-Spring",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "ip-v028b-save",
+      "note": "[forced saves, scratch name IP-LotGrid-Scratch, no cheats] v0.2.8 Steam-up-to-EA smoke: saves on IP. The game's Repoman dialog cancels save 3 of 3 (harness auto-cancels), so 2 saves at result 0 pass.",
+      "asi": "game-copy/asi-v028b/ts3native.asi",
+      "pinReason": "v0.2.8 release candidate, Steam up to EA: CI asi of deb96b67 (0.36.168b, sha 6764979b, native run 42207089614), ini = release/v0.2.8 with SimNoTexture=1, ts3fixes = v0.2.6 package (sha 302c33cf)",
+      "fixesPackage": "game-copy/asi-v028b/ts3fixes.package",
+      "iniBase": "game-copy/asi-v028b/ts3native.ini",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "ts3native 0.36.168b": 1,
+        "^OK   steer RO: .*Mode=1 Shadow=0": 1,
+        "^OK   route-to-object RO: ": 1,
+        "^OK   ea fix: SimNoTexture ": 1,
+        "^OK   ea fix: LotGridMiss ": 1,
+        "^OK   ea fix: ThumbPoseBones ": 1,
+        "^save: result 0 ": 2
+      },
+      "save": "Baseline-IP",
+      "logForbid": {
+        "^save: result [1-9]": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 5,
+          "repro": "ip-lotgridmiss-save"
+        }
+      },
+      "timeoutMin": 20
+    }
+  ]
+}

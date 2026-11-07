@@ -37,10 +37,10 @@ static void TestReplanDedupe() {
                       offsetof(Ts3nCounters, rdInval) == 0x3968 && offsetof(Ts3nCounters, rdWould) == 0x3978 &&
                       offsetof(Ts3nCounters, rdWouldSame) == 0x3980 && offsetof(Ts3nCounters, rdWouldDiff) == 0x3988 &&
                       offsetof(Ts3nCounters, rdServed) == 0x3990 && offsetof(Ts3nCounters, rdServedUs) == 0x3994 &&
-                      sizeof(Ts3nCounters) == 5901 * 4,
+                      sizeof(Ts3nCounters) == 5984 * 4,
                   "counters v90 layout after v88 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
-    assert(k.version == 907);
+    assert(k.version == 912);
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     // fakes and a quiet world
     u8* const* rmSlot = g_orRmSlot;
@@ -179,6 +179,26 @@ static void TestReplanDedupe() {
     for (DWORD f = 100; f < 100 + 3 * RD_N; f++) {
         *(DWORD*)(g_rdtRoute + 0x40) = f;
         run(3, pt);
+    }
+    // 15. docs/249: footprint writes only with KdExemptSeen on and scope answers: a route not known unseen is planned (kdRdHeld),
+    // a route known unseen is served as before
+    {
+        const LONG em0 = k.kdExMode, sn0 = k.kdScopeN, held0 = k.kdRdHeld;
+        *(DWORD*)(g_rdtRoute + 0x40) = 7;
+        k.snReady = 5, g_rdtType = 16, k.rdMode = 1, k.kdExMode = 1, k.kdScopeN = 1;
+        fresh();
+        const DWORD p0 = g_rdtPlans;
+        run(3, pt);  // the failure is planned and remembered
+        assert(g_rdtPlans == p0 + 1);
+        k.snLeaf[SL_W1][0]++;  // footprint writes only
+        run(3, pt);
+        assert(g_rdtPlans == p0 + 2 && k.kdRdHeld == held0 + 1);  // not known unseen: planned, held
+        k.snLeaf[SL_W1][0]++;
+        KdScopeSet(0x25000001, 2);  // known unseen
+        run(3, pt);
+        assert(g_rdtPlans == p0 + 2 && k.kdRdHeld == held0 + 1);  // served as before, no hold
+        KdScopeClear(0x25000001);
+        k.kdExMode = em0, k.kdScopeN = sn0;
     }
     printf("ReplanDedupe: v90 counters; repeats by band and class, observe check (would/same/diff), served bytes and +0x1F4, "
            "refusals (state, static writes, footprints with BlockedByPeople, 18, not quiet, P4, age, start, goal, success, no key, "

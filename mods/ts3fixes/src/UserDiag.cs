@@ -65,11 +65,12 @@ namespace Ts3Fixes
 
         // Called from Instantiator's world-quit handler (menu, travel, another save, exit): ts3native [GC] BlackListCapKB
         // puts the lenient black-list cap back for the load screen (gcgrow.cpp; "world:" below makes it strict again).
-        public static void DiagWorldQuit() { DiagLine("world quit"); }
+        public static void DiagWorldQuit() { RflSummary("world quit"); sRflCmds.Clear(); DiagLine("world quit"); }
 
         // Called from Instantiator's world-load handler.
         public static void DiagWorldLoad()
         {
+            RflWorldLoad();  // docs/197 §7
             // settings in effect: every tunable of Instantiator (the player's tuning), then any runtime test switch
             List<string> on = new List<string>(), off = new List<string>();
             foreach (FieldInfo f in typeof(Instantiator).GetFields(BindingFlags.Public | BindingFlags.Static))

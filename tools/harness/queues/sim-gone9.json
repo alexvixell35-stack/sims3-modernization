@@ -1,0 +1,62 @@
+{
+  "note": "sim-gone9 (2026-11-06): does a save the pair wrote with Sims mid-route load back, with the pair and without it. Job save-1 writes SgMidRoute; delete it after the queue. Run: node tools/harness/queue.ts tools/harness/queues/sim-gone9.json --no-smoke ; verdict: node tools/harness/sim-gone-diff.ts sim-gone9",
+  "jobs": [
+    {
+      "id": "sg9-save-1",
+      "note": "v0.2.7 pair: starts the visit, saves mid-route as SgMidRoute",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "sim-gone-savemid"
+      }
+    },
+    {
+      "id": "sg9-pair-1",
+      "note": "v0.2.7 pair loads SgMidRoute, sim_gone_load armed",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "sim-gone-reload"
+      },
+      "agentArm": "sim_gone_load",
+      "save": "SgMidRoute"
+    },
+    {
+      "id": "sg9-noours-1",
+      "note": "no ts3native, no ts3fixes: loads SgMidRoute, sim_gone_load armed",
+      "asi": "none",
+      "ourMods": false,
+      "save": "SgMidRoute",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "sim-gone-reload"
+      },
+      "agentArm": "sim_gone_load"
+    }
+  ]
+}

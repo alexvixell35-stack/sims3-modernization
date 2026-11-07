@@ -1,0 +1,24 @@
+{
+  "note": "saved-stacks-raw (2026-11-06, docs/242): negative control, EXPECTED CRASH inside GetMethods on the old stub form, KeepVirtual as shipped. Run alone: node tools/harness/queue.ts tools/harness/queues/saved-stacks-raw.json --no-smoke",
+  "jobs": [
+    {
+      "id": "ssr-raw",
+      "note": "expected to abort",
+      "asi": "game-copy/swapfix/ts3native.asi",
+      "iniBase": "game-copy/swapfix/ts3native.ini",
+      "fixesPackage": "game-copy/swapfix/ts3fixes-after.package",
+      "pinReason": "saved-stacks test: the pair built from this branch against the same pair at master (ts3native unchanged by the fix)",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 7,
+      "run": {
+        "repro": "stub-slot-raw"
+      }
+    }
+  ]
+}

@@ -112,6 +112,8 @@ Nine of the ten are store objects; `Soil` is base-game gardening, so a soil targ
 
 Steps 1-3 together: ~11% of scoring on top of what is ready now (5.0 + 2.6 + 3.2; `SitInteractionModifier` still needs `Query_CountObjectsInRange`) [inferred: shares add, aborts not counted]. Each row and hook is checked in Mode R before its definitions join the allow-list (docs/122 §4.3).
 
+**Built 2026-11-06 (step 1, rows only, docs/208 §9.1, not run):** the four rows behind `[AutShadow] Tier2Rows`, checked by the `autofft2` Mode R item. No definition joined the allow-list: most of the 76 are local-phase, and the worker scores meta objects only. `World_IsOnRoofImpl` is keyed by object id, not by position as §2 says.
+
 ## 5. Limits
 
 - **Shares of row-5 and meta definitions are count splits,** not measured per type (docs/75 §6, I-126-2). The 147 row-5 definitions in the csv carry 0.035% each.

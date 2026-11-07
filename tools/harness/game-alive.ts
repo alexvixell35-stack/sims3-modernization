@@ -480,6 +480,11 @@ if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-
     assert.match(src('repro.ts'), /const guard = stallGuard\([^\n]*\n\s*while \(!ok\(last = await ag[^\n]*\n\s*const why = await guard\(\);/, 'repro.ts: the until loop needs a stallGuard');
     assert.deepEqual([...src('cycle.ts').matchAll(/await until\('([^']+)'[^\n]*, null\)/g)].map(m => m[1]), ['game closed'], 'cycle.ts: only the game-closed wait may opt out');
   }
+  { // 2026-11-06 ip-jit-verify: slow menu under [MonoJit] Mode=2; the dialog wait must outlast it, and a load must survive an unanswered poll
+    const src = readFileSync(join(import.meta.dirname, 'cycle.ts'), 'utf8');
+    assert.ok(src.includes('!sawWarning ? Date.now() - t0 < 300000'), 'cycle.ts: menu wait below 300 s');
+    assert.ok(src.includes("/no reply|still pending/.test"), 'cycle.ts: load_save must retry on a pending poll');
+  }
   { // docs/236 round 4: launcher-stage hang = flat committed MB under LAUNCH_HANG_MB in two samples in a row after the first
     const st = { last: null as number | null, misses: 0 }, up = (mb: number | null) => launchStep(st, { running: true, commitMB: mb });
     assert.equal(up(80), ''); assert.equal(up(80.5), ''); assert.match(up(81), /^hung at launcher stage: .* 81 MB/);

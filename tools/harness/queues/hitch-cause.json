@@ -1,0 +1,591 @@
+{
+  "note": "hitch-cause: default-off cause logging of docs/247 §9 on the hitchlog3 pair for jobs 1-4 (alarmtime stamp fixed, docs/247 §9.1), hitchfix1 with KdA10ForeignMs=1000 for ip-foreign-natural-* (docs/247 §11.6; ip-foreign-natural-correct first). Jobs 1-4 correctness and attribution only, no quiet window. The ip-foreign-natural-* jobs are timing: run them in a quiet window. The 8 ip-steerro-* and sv-steerro-* jobs were dropped 2026-11-06 (Rodney, timing trim): [SteerRO] is on in master and v0.2.8 and the v028-smoke proved waits 10-20. cycle.ts installs build/ts3agent.package of the checkout that runs the queue: copy game-copy/ts3agent.package.hitchlog3 there first, an older agent does not know the new switches and counters (early gates FAIL). Run: node tools/harness/queue.ts tools/harness/queues/hitch-cause.json",
+  "jobs": [
+    {
+      "id": "bp-hitch-cause",
+      "note": "BP natural, samplers on. Wanted: the WorldLot alarm pass (956 ms in docs/247 §4) named in alarmtime:/lotpass:, ResetSimTask ms in owreset:. Read: node tools/harness/hitch-cause-report.ts <ts3native.log>",
+      "asi": "game-copy/ts3native.asi.hitchlog3",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.hitchlog3",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_,a10foreign_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "hitchlog3 pair (asi + fixes + agent, builds.json): bugfix/alarmtime-hook on master 8fb5886d, ts3native 0.36.176, kHitchCauseHooks True in the package",
+      "earlyGates": [
+        {
+          "afterSec": 120,
+          "counter": "fixes:alarmtime_timed",
+          "op": ">",
+          "value": 0,
+          "why": "no alarm timed: HcTimerHook not on the path, or alarmtime off"
+        }
+      ],
+      "minCounters": 912,
+      "noiseCheck": false
+    },
+    {
+      "id": "ip-hitch-cause",
+      "note": "IP natural, no samplers (boats are the target). Wanted: boatreplan: lines, seen vs unseen ms, why the job refused. Read: node tools/harness/hitch-cause-report.ts <ts3native.log>",
+      "asi": "game-copy/ts3native.asi.hitchlog3",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.hitchlog3",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_,a10foreign_",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "hitchlog3 pair (asi + fixes + agent, builds.json): bugfix/alarmtime-hook on master 8fb5886d, ts3native 0.36.176, kHitchCauseHooks True in the package",
+      "earlyGates": [
+        {
+          "afterSec": 120,
+          "counter": "fixes:alarmtime_timed",
+          "op": ">",
+          "value": 0,
+          "why": "no alarm timed: HcTimerHook not on the path, or alarmtime off"
+        },
+        {
+          "afterSec": 420,
+          "counter": "fixes:boatreplan_lines",
+          "op": ">",
+          "value": 0,
+          "why": "no boatreplan line on IP (run with 552 runs from GetInBoatRouteAction in docs/247 §3): HcBoatBegin or HcBoatEnd not reached, or boatreplanlog off"
+        }
+      ],
+      "minCounters": 912,
+      "noiseCheck": false
+    },
+    {
+      "id": "sv-hitch-cause",
+      "note": "SV natural, --no-samplers --mainstack main --svcsplit. Wanted: CAS/SimService 182-185 ms frames by state in frames.csv svcTop. Read: node tools/harness/hitch-cause-report.ts <ts3native.log> --frames <frames.csv>",
+      "asi": "game-copy/ts3native.asi.hitchlog3",
+      "save": "Baseline-SV-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.hitchlog3",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_,a10foreign_",
+          "noSamplers": true,
+          "mainstack": "main",
+          "svcSplit": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "hitchlog3 pair (asi + fixes + agent, builds.json): bugfix/alarmtime-hook on master 8fb5886d, ts3native 0.36.176, kHitchCauseHooks True in the package",
+      "earlyGates": [
+        {
+          "afterSec": 120,
+          "counter": "fixes:alarmtime_timed",
+          "op": ">",
+          "value": 0,
+          "why": "no alarm timed: HcTimerHook not on the path, or alarmtime off"
+        }
+      ],
+      "minCounters": 912,
+      "noiseCheck": false
+    },
+    {
+      "id": "ip-foreign-replan-verify",
+      "note": "From foreign-replan.json on the hitchlog3 pair: repro ip-foreign-replan-loop, 2 firings per arm. Pass: no crash, 0 watchdog lines, ForeignKinds=4 in the A10 log line, a10foreign_sent > 0. Correctness only.",
+      "asi": "game-copy/ts3native.asi.hitchlog3",
+      "save": "Baseline-IP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.hitchlog3",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1,
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 6,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_,a10foreign_",
+          "noSamplers": true,
+          "repro": "ip-foreign-replan-loop",
+          "loopRule": {
+            "until": {
+              "perArm": 2,
+              "minFirings": 4
+            },
+            "maxMinutes": 4
+          }
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14,
+      "pinReason": "hitchlog3 pair (asi + fixes + agent, builds.json): bugfix/alarmtime-hook on master 8fb5886d, ts3native 0.36.176, kHitchCauseHooks True in the package",
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:a10foreign_sent",
+          "op": ">",
+          "value": 0,
+          "why": "no foreign START sent: hook or switch not live"
+        }
+      ],
+      "minCounters": 912,
+      "noiseCheck": false
+    },
+    {
+      "id": "ip-foreign-natural-correct",
+      "note": "IP natural 5 min, correctness, no timing read. docs/247 §11.6: KdA10ForeignMs=1000 (= SyncCapMs) on this job only: at 200 a natural 848 m boat replan failed NoPath. ForeignKindsMode=1 all run. Read with hitch-cause-report.ts: async and failed boatreplan: lines, capped (KindDeadlines) lines, stuck Sims in boats. Any failed route with the Sim in the boat stops the 4 timing jobs.",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.hitchfix1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1,
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 1000
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_,a10foreign_",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 15,
+      "pinReason": "hitchfix1 pair (asi + fixes + agent, builds.json): bugfix/hitch-fixes-1106 on master cc1459c8, ts3native 0.36.177, kHitchCauseHooks True in the package, kWildflowerTask True, kUnseenBoat False",
+      "earlyGates": [
+        {
+          "afterSec": 120,
+          "counter": "fixes:alarmtime_timed",
+          "op": ">",
+          "value": 0,
+          "why": "no alarm timed: HcTimerHook not on the path, or alarmtime off"
+        },
+        {
+          "afterSec": 240,
+          "counter": "fixes:boatreplan_lines",
+          "op": ">",
+          "value": 0,
+          "why": "no boatreplan line on IP in 4 min: HcBoatBegin or HcBoatEnd not reached, or boatreplanlog off"
+        }
+      ],
+      "minCounters": 912,
+      "noiseCheck": false
+    },
+    {
+      "id": "ip-foreign-natural-off-1",
+      "note": "IP natural play, 10 min, first of pair 1 of ABBA. Timing job (noiseCheck on): hook installed in both arms, only ForeignKindsMode differs, so the job's cost is the difference. Read with node tools/harness/hitch-ab.ts ip-foreign-natural and hitch-cause-report.ts for why=afActive refusals. boatreplanlog stays on in both arms.",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.hitchfix1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1,
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 0,
+        "RouteAsync.KdA10ForeignMs": 1000
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_,a10foreign_",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "hitchfix1 pair (asi + fixes + agent, builds.json): bugfix/hitch-fixes-1106 on master cc1459c8, ts3native 0.36.177, kHitchCauseHooks True in the package, kWildflowerTask True, kUnseenBoat False",
+      "earlyGates": [
+        {
+          "afterSec": 120,
+          "counter": "fixes:alarmtime_timed",
+          "op": ">",
+          "value": 0,
+          "why": "no alarm timed: HcTimerHook not on the path, or alarmtime off"
+        },
+        {
+          "afterSec": 420,
+          "counter": "fixes:boatreplan_lines",
+          "op": ">",
+          "value": 0,
+          "why": "no boatreplan line on IP (run with 552 runs from GetInBoatRouteAction in docs/247 §3): HcBoatBegin or HcBoatEnd not reached, or boatreplanlog off"
+        }
+      ],
+      "minCounters": 912
+    },
+    {
+      "id": "ip-foreign-natural-on-1",
+      "note": "IP natural play, 10 min, second of pair 1 of ABBA. Timing job (noiseCheck on): hook installed in both arms, only ForeignKindsMode differs, so the job's cost is the difference. Read with node tools/harness/hitch-ab.ts ip-foreign-natural and hitch-cause-report.ts for why=afActive refusals. boatreplanlog stays on in both arms.",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.hitchfix1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1,
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 1000
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_,a10foreign_",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "hitchfix1 pair (asi + fixes + agent, builds.json): bugfix/hitch-fixes-1106 on master cc1459c8, ts3native 0.36.177, kHitchCauseHooks True in the package, kWildflowerTask True, kUnseenBoat False",
+      "earlyGates": [
+        {
+          "afterSec": 120,
+          "counter": "fixes:alarmtime_timed",
+          "op": ">",
+          "value": 0,
+          "why": "no alarm timed: HcTimerHook not on the path, or alarmtime off"
+        },
+        {
+          "afterSec": 420,
+          "counter": "fixes:boatreplan_lines",
+          "op": ">",
+          "value": 0,
+          "why": "no boatreplan line on IP (run with 552 runs from GetInBoatRouteAction in docs/247 §3): HcBoatBegin or HcBoatEnd not reached, or boatreplanlog off"
+        }
+      ],
+      "minCounters": 912
+    },
+    {
+      "id": "ip-foreign-natural-on-2",
+      "note": "IP natural play, 10 min, first of pair 2 (reversed order) of ABBA. Timing job (noiseCheck on): hook installed in both arms, only ForeignKindsMode differs, so the job's cost is the difference. Read with node tools/harness/hitch-ab.ts ip-foreign-natural and hitch-cause-report.ts for why=afActive refusals. boatreplanlog stays on in both arms.",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.hitchfix1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1,
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 1000
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_,a10foreign_",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "hitchfix1 pair (asi + fixes + agent, builds.json): bugfix/hitch-fixes-1106 on master cc1459c8, ts3native 0.36.177, kHitchCauseHooks True in the package, kWildflowerTask True, kUnseenBoat False",
+      "earlyGates": [
+        {
+          "afterSec": 120,
+          "counter": "fixes:alarmtime_timed",
+          "op": ">",
+          "value": 0,
+          "why": "no alarm timed: HcTimerHook not on the path, or alarmtime off"
+        },
+        {
+          "afterSec": 420,
+          "counter": "fixes:boatreplan_lines",
+          "op": ">",
+          "value": 0,
+          "why": "no boatreplan line on IP (run with 552 runs from GetInBoatRouteAction in docs/247 §3): HcBoatBegin or HcBoatEnd not reached, or boatreplanlog off"
+        }
+      ],
+      "minCounters": 912
+    },
+    {
+      "id": "ip-foreign-natural-off-2",
+      "note": "IP natural play, 10 min, second of pair 2 of ABBA. Timing job (noiseCheck on): hook installed in both arms, only ForeignKindsMode differs, so the job's cost is the difference. Read with node tools/harness/hitch-ab.ts ip-foreign-natural and hitch-cause-report.ts for why=afActive refusals. boatreplanlog stays on in both arms.",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.hitchfix1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1,
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 0,
+        "RouteAsync.KdA10ForeignMs": 1000
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_,a10foreign_",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "hitchfix1 pair (asi + fixes + agent, builds.json): bugfix/hitch-fixes-1106 on master cc1459c8, ts3native 0.36.177, kHitchCauseHooks True in the package, kWildflowerTask True, kUnseenBoat False",
+      "earlyGates": [
+        {
+          "afterSec": 120,
+          "counter": "fixes:alarmtime_timed",
+          "op": ">",
+          "value": 0,
+          "why": "no alarm timed: HcTimerHook not on the path, or alarmtime off"
+        },
+        {
+          "afterSec": 420,
+          "counter": "fixes:boatreplan_lines",
+          "op": ">",
+          "value": 0,
+          "why": "no boatreplan line on IP (run with 552 runs from GetInBoatRouteAction in docs/247 §3): HcBoatBegin or HcBoatEnd not reached, or boatreplanlog off"
+        }
+      ],
+      "minCounters": 912
+    }
+  ]
+}

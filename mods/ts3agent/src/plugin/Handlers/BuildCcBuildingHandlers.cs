@@ -90,6 +90,12 @@ namespace Ts3Agent
             Drag(Px(p0, plane), Px(p1, plane), b.dwell, mods);
         }
 
+        // HasSolidFloor is no floor test on the ground: EA's own callers add this terrain check for level 0 (Sprinkler), and
+        // layout-repro-smoke 2026-11-07 found no free tile on an empty lot [inferred from that: true on bare ground]
+        static bool GroundFloorAt(Vector3 p) { return World.GetTerrainType(p.x, p.z, 0) == (int)TerrainType.LotFloor; }
+
+        static string sFootprintCensus;
+
         // first free w x d tile rectangle (1-tile margin) nearest the lot centre: on the lot, no floor, no wall edge, no object
         // tile (object positions only: a large object's other tiles count as free [inferred harmless: the wall tool refuses]),
         // not in avoid (the phase-1 room). null when none fits.
@@ -98,22 +104,29 @@ namespace Ts3Agent
             const int N = 64;  // largest TS3 lot side in tiles
             Vector3 c00 = TileCorner(lot, 0, 0), ex = Minus(TileCorner(lot, 1, 0), c00), ez = Minus(TileCorner(lot, 0, 1), c00);
             bool[,] busy = new bool[N, N];
+            int onLot = 0, floors = 0, walls = 0, objects = 0;
             for (int x = 0; x < N; x++)
                 for (int z = 0; z < N; z++)
                 {
                     LotLocation back = new LotLocation(), here = new LotLocation(x, z, 0, 0);
                     bool on = World.GetLotLocation(Plus(Plus(c00, ex, x + 0.5f), ez, z + 0.5f), ref back) == lot.LotId && back.mX == x && back.mZ == z;
-                    busy[x, z] = !on || World.HasSolidFloor(lot.LotId, here)
-                        || World.WallExistsBetween(lot.LotId, here, new LotLocation(x + 1, z, 0, 0))
+                    if (!on) { busy[x, z] = true; continue; }
+                    onLot++;
+                    bool floor = GroundFloorAt(Plus(Plus(c00, ex, x + 0.5f), ez, z + 0.5f));
+                    bool wall = World.WallExistsBetween(lot.LotId, here, new LotLocation(x + 1, z, 0, 0))
                         || World.WallExistsBetween(lot.LotId, here, new LotLocation(x - 1, z, 0, 0))
                         || World.WallExistsBetween(lot.LotId, here, new LotLocation(x, z + 1, 0, 0))
                         || World.WallExistsBetween(lot.LotId, here, new LotLocation(x, z - 1, 0, 0));
+                    busy[x, z] = floor || wall;
+                    if (floor) floors++;
+                    if (wall) walls++;
                 }
             foreach (GameObject o in lot.GetObjects<GameObject>())
             {
                 LotLocation l = new LotLocation();
-                if (World.GetLotLocation(o.Position, ref l) == lot.LotId && l.mX >= 0 && l.mX < N && l.mZ >= 0 && l.mZ < N) busy[l.mX, l.mZ] = true;
+                if (World.GetLotLocation(o.Position, ref l) == lot.LotId && l.mX >= 0 && l.mX < N && l.mZ >= 0 && l.mZ < N) { busy[l.mX, l.mZ] = true; objects++; }
             }
+            sFootprintCensus = onLot + " tiles on the lot, " + floors + " with a floor, " + walls + " at a wall, " + objects + " objects";
             if (avoid != null)
                 for (int x = avoid[0]; x < avoid[0] + avoid[2]; x++)
                     for (int z = avoid[1]; z < avoid[1] + avoid[3]; z++)

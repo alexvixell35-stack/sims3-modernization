@@ -110,11 +110,13 @@ if (values.save) {
     await get('detach', 10000).catch(() => {});
     return `${h}; killed: ${killLeftovers().join('; ') || 'nothing left running'}`;
   });
-  // "Mod Scripts Found" (native, script mods present) opens at the menu up to ~90 s after the agent answers.
+  // "Mod Scripts Found" (native, script mods present) opens at the menu seconds after the agent answers, but 110-150+ s
+  // after it under [MonoJit] Mode=2 (2026-11-06: 1M verified calls before the menu). A load sent before the menu is lost: the
+  // queued main-menu transition quits the fresh world. The menu guard fails a real stall; this cap only ends a menu without the dialog.
   // Accepting it during a load leaves the game stuck on the loading screen, so clear it first and wait for quiet.
   let quietSince = Date.now(), sawWarning = false;
   const t0 = Date.now(), menuGuard = stallGuard('main menu', { port: Number(values.port) });
-  while (Date.now() - t0 < 150000 && (!sawWarning ? Date.now() - t0 < 120000 : Date.now() - quietSince < 5000)) {
+  while (Date.now() - t0 < 330000 && (!sawWarning ? Date.now() - t0 < 300000 : Date.now() - quietSince < 5000)) {
     const why = await menuGuard();
     if (why) throw new Error(why);
     const d = await agent('auto_dialog');
@@ -125,14 +127,21 @@ if (values.save) {
     }
     await sleep(2000);
   }
-  if (!sawWarning) log('no "Mod Scripts Found" warning within 120 s; loading anyway');
+  if (!sawWarning) log('no "Mod Scripts Found" warning within 300 s; loading anyway');
   // in-game autopilot clears popups within a frame once in a world (load, Edit Town, live); speed left alone
   await agent('autopilot', { enabled: true, speed: 'none', dialogs: true });
   // On a slow first start (script cache just rebuilt) the reply can time out although the load started
   // (2026-10-16 bp-university-travel): check load_file before sending it again, so a load never starts twice.
+  // queue job key agentArm: an agent watcher that must be on before the load (sim_gone_load)
+  if (process.env.TS3_AGENT_ARM) {
+    const a = await agent(process.env.TS3_AGENT_ARM, { arm: true });
+    if (!a.ok) throw new Error(`agentArm ${process.env.TS3_AGENT_ARM}: ${a.error}`);
+    log(`armed ${process.env.TS3_AGENT_ARM}`);
+  }
   let r = await agent('load_save', { file: values.save });
   const loadGuard = stallGuard('world load', { port: Number(values.port) }); // the agent is silent while loading: heartbeat, flag, commit, log
-  for (let i = 0; !r.ok && /no reply/.test(r.error ?? '') && i < 24; i++) {
+  // still pending: the last menu poll has no answer yet (sim busy), so this load_save was not sent
+  for (let i = 0; !r.ok && /no reply|still pending/.test(r.error ?? '') && i < 24; i++) {
     await sleep(5000);
     const why = await loadGuard();
     if (why) throw new Error(why);

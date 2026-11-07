@@ -5537,6 +5537,7 @@
     "bug": "docs/110 §7.3: with wildflowertask a save can come while a wildflower is out of world between tries",
     "fix": "ts3fixes WildflowerTaskHook save guard: a save in progress before or after a yield destroys the flower and ends the fire as failed (wildflower_saveaborts)",
     "save": "Baseline-BP-Spring",
+    "note": "Forced, not by chance (docs/247 §12): 3 of 12 natural fires on BP fail all 20 tries, the rest place on the first, so a timed save mostly misses. save_pending starts the save once a flower has been out of world for 2 ticks. Writes Wildflower-Scratch for wildflower-save-check; delete that save after the queue.",
     "steps": [
       {
         "cmd": "patches",
@@ -5551,22 +5552,65 @@
         "args": {
           "lots": 40,
           "every_min": 10,
-          "clear": true
+          "clear": true,
+          "save_pending": "Wildflower-Scratch"
         },
-        "waitS": 20,
-        "note": "a fire every 10 sim-minutes so a task is often between tries"
+        "waitS": 1,
+        "until": {
+          "cmd": "patches",
+          "show": "wildflower_",
+          "all": [
+            {
+              "path": "wildflower_saveaborts",
+              "atLeast": 1
+            }
+          ],
+          "everyS": 2,
+          "maxS": 240
+        },
+        "note": "a fire every 10 sim-minutes; never reaching 1 = the guard did not run: FAIL, not inconclusive"
       },
       {
-        "cmd": "save_game",
-        "args": {
-          "name": "Wildflower-Scratch"
+        "cmd": "game_state",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            }
+          ],
+          "everyS": 2,
+          "maxS": 180
         },
-        "waitS": 60,
-        "note": "a scratch save name: never the loaded Baseline save"
+        "note": "until the save is written"
+      },
+      {
+        "cmd": "wildflower_drain",
+        "args": {
+          "stop": true
+        },
+        "until": {
+          "cmd": "wildflower_drain",
+          "args": {
+            "stop": true
+          },
+          "all": [
+            {
+              "path": "out_of_world",
+              "equals": 0
+            }
+          ],
+          "everyS": 2,
+          "maxS": 30
+        },
+        "note": "no flower left out of world in the live game after the save"
       },
       {
         "cmd": "patches",
-        "waitS": 1
+        "show": "wildflower_log",
+        "waitS": 1,
+        "note": "the (save) line"
       }
     ],
     "cleanup": [
@@ -5577,13 +5621,62 @@
         }
       }
     ],
-    "watch": {
-      "kind": "counter",
-      "counter": "wildflower_fires",
-      "min": 1,
-      "minutes": 3
-    },
-    "expect": "save succeeds; a task pending at the save shows a '(save)' line in wildflower_log and wildflower_saveaborts +1 (none pending = inconclusive, rerun; it only hits when fires fail tries); reload Wildflower-Scratch: no uncollected wildflower lying out of world (list_objects), no script errors"
+    "expect": "wildflower_saveaborts >= 1 with a '(save)' line in wildflower_log, the save written, out_of_world 0, no script errors. The next jobs load the save (wildflower-save-check)"
+  },
+  {
+    "id": "wildflower-save-check",
+    "bug": "docs/110 §7.3: the save wildflower-save-abort wrote during a pending fire must hold no out-of-world flower and must load",
+    "fix": "none: reads the save of wildflower-save-abort, with our mods and without them (queue wildflower-save.json)",
+    "save": "Wildflower-Scratch",
+    "steps": [
+      {
+        "cmd": "wildflower_drain",
+        "args": {
+          "stop": true
+        },
+        "until": {
+          "cmd": "wildflower_drain",
+          "args": {
+            "stop": true
+          },
+          "all": [
+            {
+              "path": "out_of_world",
+              "equals": 0
+            }
+          ],
+          "everyS": 2,
+          "maxS": 30
+        },
+        "note": "a flower stored by the save comes back here: created, not in the world, not collected"
+      },
+      {
+        "cmd": "game_state",
+        "waitS": 120,
+        "note": "2 min of play on the loaded save"
+      },
+      {
+        "cmd": "wildflower_drain",
+        "args": {
+          "stop": true
+        },
+        "until": {
+          "cmd": "wildflower_drain",
+          "args": {
+            "stop": true
+          },
+          "all": [
+            {
+              "path": "out_of_world",
+              "equals": 0
+            }
+          ],
+          "everyS": 2,
+          "maxS": 30
+        }
+      }
+    ],
+    "expect": "world loads, out_of_world 0 at load and after 2 min, no script errors"
   },
   {
     "id": "bp-build-levels",
@@ -26583,6 +26676,615 @@
       }
     ],
     "expect": "3 trips out and back; diag: mem marks base, gc-before / gc-after x4, away x3, home x3, each with a diag: memsus answer; mem-report repeated marks lists gc-after #2..#4"
+  },
+  {
+    "id": "kd-exempt-seen-sync",
+    "bug": "player report 2026-11-07 (docs/197 §7): PlanDeadlineMs cuts a seen Sim's sync plan at 300 ms whatever the Sim",
+    "fix": "ts3native [RouteAsync] KdExemptSeen (kdexemptseen) on sync plans, KdSeenCeilMs (kdceilus) as the one cut, KD CEILING CUT line",
+    "save": "Baseline-SV-Spring",
+    "note": "UNVERIFIED (selftest only, 2026-11-07): never run. sim_route_to plans in the agent's task, so it is a plan that is not the Sim's own; the job sets FallbackAsync=0 so no foreign job takes it and it stays on the sim thread. PlanDeadlineMs=50 forces the cut; kdceilus 100000 makes the ceiling fire on a long plan in on arms.",
+    "steps": [],
+    "expect": "no crash, 0 watchdog lines; off arms: pdHit grows, route deadline lines with IC Plan/NoStart or Foreign; on arms: kdExempt, kdWouldCut, kd exempt: would cut sync route lines, and KD CEILING CUT with the route and follower where a plan passes 100 ms",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "kdexemptseen": "$on",
+            "kdceilus": 100000
+          },
+          "waitS": 1,
+          "note": "arm, ceiling forced low"
+        },
+        {
+          "cmd": "native_mark",
+          "setup": true,
+          "args": {
+            "name": "arm"
+          },
+          "waitS": 0,
+          "note": "per-arm snapshot start (the /native delta of this firing)"
+        },
+        {
+          "cmd": "sim_route_to",
+          "setup": false,
+          "args": {
+            "sim": "active",
+            "to": "far"
+          },
+          "waitS": 4,
+          "note": "fire: plan only, from the agent task"
+        },
+        {
+          "cmd": "native_check",
+          "setup": true,
+          "args": {
+            "name": "arm",
+            "require": "kdExempt>=0,kdWouldCut>=0,kdCut_0>=0,kdJobs_0>=0,kdExemptMaxUs>=0,kdCeilCut>=0,kdLong_0>=0"
+          },
+          "waitS": 0,
+          "note": "per-arm snapshot: kd counter deltas of this firing (kdExemptMaxUs: a rise = a new maximum)"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 10
+      },
+      "maxMinutes": 8
+    }
+  },
+  {
+    "id": "kd-cut-camera-recheck",
+    "bug": "docs/197 §7: scope is read once, at route START, so when the camera jumps during a slow job of an NPC known unseen, that NPC is cut in view",
+    "fix": "ts3native [RouteAsync] KdCutCamRecheck (kdcutcamrecheck): the first cut of a route known unseen tests start and goals against the last sim pass's camera, reach rule; in view or stale = runs on to KdSeenNpcCeilMs",
+    "save": "Baseline-SV-Spring",
+    "note": "UNVERIFIED (selftest only, 2026-11-07): never run. Camera on the active Sim, a townie far from it, the camera jumps to the townie 30 ms into its far route job; KdForeignPlanMs=100 in the queue puts the cut after the jump. sim_route_to plans from the agent task, so the job is foreign. A townie inside 80 m of the household is seen at START and proves nothing: kdCamChecks stays flat, N/A for that firing.",
+    "steps": [],
+    "expect": "no crash, 0 watchdog lines; off arms: cut as before, kdCamWould grows, \"kd cam recheck: ... would hold\" lines; on arms: kdCamHeld grows, \"held, in view\" lines, the job runs past 100 ms; kd-arm-cuts --cam passes, kdCamStale ~0",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "kdcutcamrecheck": "$on"
+          },
+          "waitS": 1,
+          "note": "arm"
+        },
+        {
+          "cmd": "pick_sims",
+          "setup": true,
+          "args": {
+            "count": 1,
+            "townies": true,
+            "noPets": true
+          },
+          "waitS": 0,
+          "note": "a townie"
+        },
+        {
+          "cmd": "camera_to_tagged",
+          "setup": true,
+          "args": {
+            "sim": "active",
+            "height": 12,
+            "back": 12
+          },
+          "waitS": 2,
+          "note": "camera away from the townie: unseen at START"
+        },
+        {
+          "cmd": "native_mark",
+          "setup": true,
+          "args": {
+            "name": "arm"
+          },
+          "waitS": 0,
+          "note": "per-arm snapshot start (the /native delta of this firing)"
+        },
+        {
+          "cmd": "camera_to_tagged",
+          "setup": false,
+          "args": {
+            "sim": "picked:1",
+            "height": 12,
+            "back": 12,
+            "delayMs": 30
+          },
+          "waitS": 0,
+          "note": "the jump, 30 ms from now"
+        },
+        {
+          "cmd": "sim_route_to",
+          "setup": false,
+          "args": {
+            "sim": "picked:1",
+            "to": "far"
+          },
+          "waitS": 4,
+          "note": "fire: the slow job the jump lands in"
+        },
+        {
+          "cmd": "native_check",
+          "setup": true,
+          "args": {
+            "name": "arm",
+            "require": "kdCamChecks>=0,kdCamHeld>=0,kdCamWould>=0,kdCamStale>=0,kdCutUnseen>=0,kdCeilNpc>=0"
+          },
+          "waitS": 0,
+          "note": "per-arm snapshot: recheck counter deltas of this firing"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 10
+      },
+      "maxMinutes": 10
+    }
+  },
+  {
+    "id": "kd-seen-npc-ceiling",
+    "bug": "docs/197 §7: a seen NPC runs to the 10 s household ceiling, so a runaway plan of a townie the player does not control freezes routing for 10 s",
+    "fix": "ts3fixes op 13 = seen NPC, ts3native [RouteAsync] KdSeenNpcCeilMs (kdnpcceilus): that scope is cut at 2 s; household, unknown and no answer stay at KdSeenCeilMs",
+    "save": "Baseline-SV-Spring",
+    "note": "UNVERIFIED (selftest only, 2026-11-07): never run. TEST-LOWERED ceiling: kdnpcceilus 100000 (100 ms) instead of 2 s, so a normal far route of a seen townie crosses it; the 2 s value itself is not exercised. The camera goes to the picked townie so UfWhy = kOnScreen or kNearViewers. A job under 100 ms proves nothing: N/A, pick another Sim. Off arms (kdexemptseen 0) cut at KdForeignPlanMs as before.",
+    "steps": [],
+    "expect": "no crash, 0 watchdog lines; on arms: kdCeilNpc grows, \"KD NPC CEILING CUT\" lines with sim id, kind and ms, kd-arm-cuts --expect-on-zero passes (a seen npc line at deadline 100 ms is allowed, no household cut below the ceiling); kdCutSeen and the household kdCeilCut share stay 0",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "kdexemptseen": "$on",
+            "kdnpcceilus": 100000
+          },
+          "waitS": 1,
+          "note": "arm, NPC ceiling test-lowered to 100 ms"
+        },
+        {
+          "cmd": "pick_sims",
+          "setup": true,
+          "args": {
+            "count": 1,
+            "townies": true,
+            "noPets": true
+          },
+          "waitS": 0,
+          "note": "a townie to watch"
+        },
+        {
+          "cmd": "camera_to_tagged",
+          "setup": true,
+          "args": {
+            "sim": "picked:1",
+            "height": 12,
+            "back": 12
+          },
+          "waitS": 1,
+          "note": "the townie is seen"
+        },
+        {
+          "cmd": "native_mark",
+          "setup": true,
+          "args": {
+            "name": "arm"
+          },
+          "waitS": 0,
+          "note": "per-arm snapshot start (the /native delta of this firing)"
+        },
+        {
+          "cmd": "sim_route_to",
+          "setup": false,
+          "args": {
+            "sim": "picked:1",
+            "to": "far"
+          },
+          "waitS": 4,
+          "note": "fire: a far plan of a seen NPC"
+        },
+        {
+          "cmd": "native_check",
+          "setup": true,
+          "args": {
+            "name": "arm",
+            "require": "kdExempt>=0,kdWouldCut>=0,kdCeilCut>=0,kdCeilNpc>=0,kdCutNpc>=0,kdCutSeen>=0,kdExemptMaxUs>=0"
+          },
+          "waitS": 0,
+          "note": "per-arm snapshot: kd counter deltas of this firing"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 10
+      },
+      "maxMinutes": 8
+    }
+  },
+  {
+    "id": "goal-household-exempt",
+    "bug": "docs/197 §7: an unseen NPC heading to the household lot (guest, date, babysitter, service Sim) is cut for time or takes unseen shortcuts, and a controlled Sim waits on it",
+    "fix": "ts3fixes goalhhexempt: UfGoalWhy gives such a route why 9 (kGoalHousehold), no unseen feature takes it, native gets the seen NPC scope (op 13, KdSeenNpcCeilMs)",
+    "save": "Baseline-SV-Spring",
+    "note": "UNVERIFIED (selftest only, 2026-11-07): never run. Foreign job (sim_route_to plans from the agent task), TEST-LOWERED deadline KdForeignPlanMs=50 in the queue. Camera on the active Sim; a townie inside 80 m of the household is seen at START and proves nothing: goalhh_lot stays flat, N/A for that firing. A job under 50 ms is not cut in either arm. Only the lot reason fires here; the queue head and household Sim's target reasons have no repro step.",
+    "steps": [],
+    "expect": "no crash, 0 watchdog lines; off arms: kdCutUnseen grows, goalhh_lot flat; on arms: goalhh_lot grows, \"goalhh: ... household lot\" lines, kdCutUnseen flat for those routes, kdExempt grows (would-cut lines); no route to the home lot cut below KdSeenNpcCeilMs",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "patches",
+          "setup": true,
+          "args": {
+            "goalhhexempt": "$on"
+          },
+          "waitS": 1,
+          "note": "arm"
+        },
+        {
+          "cmd": "pick_sims",
+          "setup": true,
+          "args": {
+            "count": 1,
+            "townies": true,
+            "noPets": true
+          },
+          "waitS": 0,
+          "note": "a townie"
+        },
+        {
+          "cmd": "camera_to_tagged",
+          "setup": true,
+          "args": {
+            "sim": "active",
+            "height": 12,
+            "back": 12
+          },
+          "waitS": 2,
+          "note": "camera on the active Sim: the townie is unseen at START"
+        },
+        {
+          "cmd": "native_mark",
+          "setup": true,
+          "args": {
+            "name": "arm"
+          },
+          "waitS": 0,
+          "note": "per-arm snapshot start"
+        },
+        {
+          "cmd": "sim_route_to",
+          "setup": false,
+          "args": {
+            "sim": "picked:1",
+            "to": "home"
+          },
+          "waitS": 4,
+          "note": "fire: a far plan to the household lot"
+        },
+        {
+          "cmd": "native_check",
+          "setup": true,
+          "args": {
+            "name": "arm",
+            "require": "kdExempt>=0,kdWouldCut>=0,kdCutUnseen>=0,kdCutNpc>=0,kdCeilNpc>=0"
+          },
+          "waitS": 0,
+          "note": "per-arm snapshot: kd counter deltas of this firing"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 10
+      },
+      "maxMinutes": 10
+    }
+  },
+  {
+    "id": "household-scope-foreign",
+    "bug": "docs/249 rows 2, 3: a household Sim's foreign, stuck-check or vehicle plan is cut by time",
+    "fix": "cut only a route known unseen (kdexemptseen), ts3fixes sends the scope first thing in UfPlanBody for every follower",
+    "save": "Baseline-SV-Spring",
+    "note": "UNVERIFIED (selftest only, 2026-11-07): never run. route_replan is a foreign ReplanFromPosition of the active Sim; KdForeignPlanMs and KdA10ForeignMs forced to 50 in the job.",
+    "steps": [],
+    "expect": "no crash, 0 watchdog lines; kdScopeN grows; off arms: foreign cuts; on arms: no cut, kd exempt: would cut lines",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "kdexemptseen": "$on"
+          },
+          "waitS": 1,
+          "note": "arm"
+        },
+        {
+          "cmd": "sim_route_to",
+          "setup": true,
+          "args": {
+            "sim": "active",
+            "to": "far"
+          },
+          "waitS": 3,
+          "note": "route"
+        },
+        {
+          "cmd": "route_replan",
+          "setup": false,
+          "args": {
+            "count": 3
+          },
+          "waitS": 4,
+          "note": "fire: foreign replans"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 8
+      },
+      "maxMinutes": 8
+    }
+  },
+  {
+    "id": "household-watchdog-noreset",
+    "bug": "docs/249 row 4: watchdog case 49 resets a household Sim after 10 failed plans over 30 sim-minutes",
+    "fix": "ts3fixes watchdogidle: the household test now comes first, [2066] counts those left alone",
+    "save": "Baseline-SV-Spring",
+    "note": "UNVERIFIED (selftest only, 2026-11-07): never run. Plans to the ocean fail; the Sim must stay within 1 m.",
+    "steps": [],
+    "expect": "no crash; fixes counter 2066 >= 1, watchdog: household Sim lines; no reset (route plans failing) line for the active Sim",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "sim_route_to",
+          "setup": false,
+          "args": {
+            "sim": "active",
+            "x": 1671.4,
+            "y": 123.7,
+            "z": 1607
+          },
+          "waitS": 12,
+          "note": "fire: a failing plan, plan only; the Sunset Valley pond-lot centre (SV has no ocean: to=ocean raised 'no ocean point in this world', 2026-11-07)"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 20
+      },
+      "maxMinutes": 10
+    }
+  },
+  {
+    "id": "household-unseenanim-hold",
+    "bug": "docs/249 row 7: [UnseenAnim] can sum pose passes for a household Sim over 80 m from every viewer table entry",
+    "fix": "ts3fixes PushHeld sends the household first, unseenanim.cpp holds a held Sim",
+    "save": "Baseline-SV-Spring",
+    "note": "First run 2026-11-07: kdAaHeld stayed 0 with the camera at home (the household Sims at home were in view; the class is frustum + 80 m camera reach, unseen.cpp UnClassify). Now the camera goes to the far lot first (agent camera step, no window focus), so the household Sims at home are over 600 m from it and their idle pose passes class unseen. Second run: kdAaHeld and kdAaHeldSeen both 0 because the held table was empty (viewer codes 12-15 refused without [UnseenThrottle]), fixed in the build; kdAaHeldPush shows the table arrived, kdAaHeldIn = pose calls of held Sims.",
+    "steps": [],
+    "expect": "no crash; kdAaHeld >= 1",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "camera",
+          "setup": true,
+          "args": {
+            "pos": {
+              "x": 1639.7,
+              "y": 190,
+              "z": 1600
+            },
+            "target": {
+              "x": 1639.7,
+              "y": 127.2,
+              "z": 1618.6
+            }
+          },
+          "waitS": 3,
+          "note": "camera to the far lot, away from the household at home"
+        },
+        {
+          "cmd": "go_here",
+          "setup": false,
+          "args": {
+            "to": "far"
+          },
+          "waitS": 20,
+          "note": "fire"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "target": "home",
+            "household": true
+          },
+          "waitS": 12,
+          "note": "return"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 3
+      },
+      "maxMinutes": 6
+    }
+  },
+  {
+    "id": "household-replandedupe-scope",
+    "bug": "docs/249 row 9: ReplanDedupe answers a repeat with the old failure after object footprint writes, not proven exact",
+    "fix": "with kdexemptseen a repeat after footprint writes is served only for a route known unseen; a repeat with nothing changed stays",
+    "save": "Baseline-SV-Spring",
+    "note": "UNVERIFIED (selftest only, 2026-11-07): never run. Needs a world write between two failed replans: the crowd in SV moves footprints.",
+    "steps": [],
+    "expect": "no crash; off arms: rdServed; on arms: kdRdHeld grows for the active Sim",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "kdexemptseen": "$on"
+          },
+          "waitS": 1,
+          "note": "arm"
+        },
+        {
+          "cmd": "sim_route_to",
+          "setup": true,
+          "args": {
+            "sim": "active",
+            "x": 1671.4,
+            "y": 123.7,
+            "z": 1607
+          },
+          "waitS": 2,
+          "note": "failing route (the Sunset Valley pond-lot centre: SV has no ocean, to=ocean raised 'no ocean point in this world' 2026-11-07)"
+        },
+        {
+          "cmd": "route_replan",
+          "setup": false,
+          "args": {
+            "count": 1
+          },
+          "waitS": 0.1,
+          "note": "fire: first replan"
+        },
+        {
+          "cmd": "footprint_nudge",
+          "setup": true,
+          "args": {},
+          "waitS": 0,
+          "note": "world write (an object footprint rewritten) inside ReplanDedupe's 500 ms window"
+        },
+        {
+          "cmd": "route_replan",
+          "setup": false,
+          "args": {
+            "count": 2
+          },
+          "waitS": 4,
+          "note": "fire: repeats after the write"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 8
+      },
+      "maxMinutes": 8
+    }
+  },
+  {
+    "id": "kd-exempt-seen-gohere",
+    "bug": "player report 2026-11-07 (docs/197 §7): KindDeadlines cuts a seen Sim's own job, so the selected Sim's Go Here fails as no path on a reachable spot (6 of 12 active no-paths followed a cut, inferred)",
+    "fix": "ts3native [RouteAsync] KdExemptSeen (native switch kdexemptseen): no KindDeadlines cut for a Sim with UfWhy != 0; \"kd exempt: would cut\" logs each exempt job past its deadline",
+    "save": "Baseline-SV-Spring",
+    "note": "UNVERIFIED (selftest only, 2026-11-07): never run. Go Here by the selected Sim to a far point; the job forces KdOwnPlanMs=50 (the ini floor), so a normal long route crosses the deadline. Arms flip kdExMode in one load. Backoff: a cut Sim doubles to 100 ms, then one uncut job, so off arms still end some routes; read cuts, not arrival.",
+    "steps": [],
+    "expect": "no crash, 0 watchdog lines; off arms: kdCut_0 grows, long-job lines say capped (KindDeadlines); on arms: kdExempt and kdWouldCut grow, \"kd exempt: would cut\" lines, kdExemptMaxUs = the uncut length, no capped (KindDeadlines) line for the route of a gohere cmd",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "kdexemptseen": "$on"
+          },
+          "waitS": 1,
+          "note": "arm"
+        },
+        {
+          "cmd": "native_mark",
+          "setup": true,
+          "args": {
+            "name": "arm"
+          },
+          "waitS": 0,
+          "note": "per-arm snapshot start (the /native delta of this firing)"
+        },
+        {
+          "cmd": "go_here",
+          "setup": false,
+          "args": {
+            "to": "far"
+          },
+          "waitS": 12,
+          "note": "fire: selected Sim Go Here"
+        },
+        {
+          "cmd": "native_check",
+          "setup": true,
+          "args": {
+            "name": "arm",
+            "require": "kdExempt>=0,kdWouldCut>=0,kdCut_0>=0,kdJobs_0>=0,kdExemptMaxUs>=0,kdCeilCut>=0,kdLong_0>=0"
+          },
+          "waitS": 0,
+          "note": "per-arm snapshot: kd counter deltas of this firing (kdExemptMaxUs: a rise = a new maximum)"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "target": "home",
+            "household": true
+          },
+          "waitS": 12,
+          "note": "return"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 10
+      },
+      "maxMinutes": 10
+    }
   },
   {
     "id": "route-kinddeadline-loop",
@@ -53490,6 +54192,156 @@
     "expect": "Moar's Run runs; active Sim and the picked Sim arrive on the lot; no new script error"
   },
   {
+    "id": "sim-gone-load",
+    "bug": "Lala saved mid-route: out of her route chain at load with our pair, in chain without (queues/sim-gone6.json)",
+    "fix": "none: evidence run, reads sim_gone_load (needs job key agentArm so it is on before the load)",
+    "save": "Baseline-BP-Spring",
+    "note": "compat-visit-control plus sim_gone_load: first step fails at once when the watcher was not armed before the load, last steps wait for the 60 s window. Verdict: tools/harness/sim-gone-diff.ts.",
+    "cleanup": [
+      {
+        "cmd": "sim_gone_watch",
+        "max": 30000
+      },
+      {
+        "cmd": "sim_gone_load",
+        "max": 120000
+      }
+    ],
+    "steps": [
+      {
+        "cmd": "sim_gone_load",
+        "until": {
+          "cmd": "sim_gone_load",
+          "all": [
+            {
+              "path": "sim_gone_load_armed",
+              "equals": true
+            }
+          ],
+          "everyS": 1,
+          "maxS": 3
+        }
+      },
+      {
+        "cmd": "sim_gone_watch",
+        "args": {
+          "on": true
+        }
+      },
+      {
+        "cmd": "compat_visit",
+        "args": {
+          "def": "Core.VisitCommunityLotWith",
+          "kind": "community",
+          "followers": true,
+          "expectType": "Sims3.Gameplay.Core",
+          "noSubway": true
+        }
+      },
+      {
+        "cmd": "compat_visit_status",
+        "until": {
+          "cmd": "compat_visit_status",
+          "all": [
+            {
+              "path": "ran",
+              "equals": true
+            },
+            {
+              "path": "arrived",
+              "equals": true
+            }
+          ],
+          "failOn": "failed",
+          "everyS": 1,
+          "maxS": 420
+        }
+      },
+      {
+        "cmd": "sim_gone_watch",
+        "show": "sim_gone",
+        "max": 30000
+      },
+      {
+        "cmd": "sim_gone_load",
+        "until": {
+          "cmd": "sim_gone_load",
+          "all": [
+            {
+              "path": "sim_gone_load_done",
+              "equals": true
+            }
+          ],
+          "everyS": 2,
+          "maxS": 90
+        }
+      },
+      {
+        "cmd": "sim_gone_load",
+        "show": "sim_gone_load",
+        "max": 120000
+      }
+    ],
+    "expect": "EA's Run runs; active Sim and the picked Sim arrive on the lot; no Sim object lost; no new script error"
+  },
+  {
+    "id": "sim-gone-savemid",
+    "bug": "a Sim saved mid-route by the pair: does that save's stack load back (queues/sim-gone9.json)",
+    "fix": "none: evidence run, makes the save sim-gone-reload reads",
+    "save": "Baseline-BP-Spring",
+    "note": "Starts the visit, saves as SgMidRoute while the household walks. Delete the save after the queue.",
+    "steps": [
+      {
+        "cmd": "compat_visit",
+        "args": {
+          "def": "Core.VisitCommunityLotWith",
+          "kind": "community",
+          "followers": true,
+          "expectType": "Sims3.Gameplay.Core",
+          "noSubway": true
+        },
+        "waitS": 6
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SgMidRoute"
+        },
+        "waitS": 30
+      }
+    ],
+    "expect": "the save is written"
+  },
+  {
+    "id": "sim-gone-reload",
+    "bug": "loads SgMidRoute: which household stacks are refused, with the pair and without it (queues/sim-gone9.json)",
+    "fix": "none: evidence run, reads sim_gone_load (needs job key agentArm so it is on before the load)",
+    "save": "SgMidRoute",
+    "note": "No visit: only the load and 60 s after it. Verdict: tools/harness/sim-gone-diff.ts sim-gone9.",
+    "steps": [
+      {
+        "cmd": "sim_gone_load",
+        "until": {
+          "cmd": "sim_gone_load",
+          "all": [
+            {
+              "path": "sim_gone_load_done",
+              "equals": true
+            }
+          ],
+          "everyS": 2,
+          "maxS": 90
+        }
+      },
+      {
+        "cmd": "sim_gone_load",
+        "show": "sim_gone_load",
+        "max": 120000
+      }
+    ],
+    "expect": "the 60 s window ends"
+  },
+  {
     "id": "compat-visit-control",
     "bug": "compat control: EA VisitCommunityLotWith with a follower on a community lot, no Moar installed; separates a Moar fault from Sim object loss seen in compat-moar-community (Lala replaced mid-visit, destroyer unidentified)",
     "fix": "none: compat evidence (docs/TESTING.md), the mod's behaviour next to ours",
@@ -53675,5 +54527,2793 @@
       "min": 1,
       "minutes": 1
     }
-  }
+  },
+  {
+    "id": "powercell-fifth",
+    "bug": "Player crash 0xD7461E: collecting the 5th Power Cell of EP11_HelpingTheTimeTraveler01 freezes the sim, Simulator.DestroyObject repeats on one id (42.5M calls), the EA heap fills and the game crashes (docs/67 section 32)",
+    "fix": "none yet: root cause open",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED, never run. Needs the agent patch (roots @portal and @powercell, command power_cells; RegisterPowerCell in RegisterRepro). kPortalIntroStartTime 0 lets TrySpawnTimePortal run before 14:00. Setting OpportunityPortal directly stands in for SummonTimeTraveler.Run, which needs the traveler situation; the opportunity add stands in for the traveler social. Cells and pickups are real. A clean finish here on the clean Baseline save is N/A (not triggered), not a pass: the player has 40 script packages and a long-lived save, and his burst came ~25 s after loading that save.",
+    "expect": "triggered: sim freezes on the 5th cell, AsWatch destroy ring shows one id, crash at 0x00D7461E. Not triggered: left falls to 0 within 120 s",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "cell-start"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_set",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.Miscellaneous.TimePortal.kPortalIntroStartTime",
+          "value": 0
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.Miscellaneous.TimePortal.TrySpawnTimePortal",
+          "args": []
+        },
+        "waitS": 5,
+        "note": "home lot of the active household, skipped when a portal exists"
+      },
+      {
+        "cmd": "reflect_set",
+        "args": {
+          "path": "Sims3.Gameplay.TimeTravel.CauseEffectService.OpportunityPortal",
+          "value": "@portal"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "@sim.OpportunityManager.AddOpportunityNow",
+          "args": [
+            "EP11_HelpingTheTimeTraveler01",
+            false,
+            false
+          ]
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "power_cells",
+          "all": [
+            {
+              "path": "loose",
+              "atLeast": 5
+            }
+          ],
+          "everyS": 2,
+          "maxS": 30
+        },
+        "note": "OnAdded drops 10 cells on the portal lot; none = cancelled, fail here"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "cells-spawned"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@powercell",
+          "interaction": "power cell"
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "power_cells",
+          "all": [
+            {
+              "path": "collected",
+              "atLeast": 1
+            }
+          ],
+          "everyS": 3,
+          "maxS": 90
+        },
+        "note": "cell 1 of 5 through the real CollectPowerCell interaction (pie label match)"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@powercell",
+          "interaction": "power cell"
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "power_cells",
+          "all": [
+            {
+              "path": "collected",
+              "atLeast": 2
+            }
+          ],
+          "everyS": 3,
+          "maxS": 90
+        },
+        "note": "cell 2 of 5 through the real CollectPowerCell interaction (pie label match)"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@powercell",
+          "interaction": "power cell"
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "power_cells",
+          "all": [
+            {
+              "path": "collected",
+              "atLeast": 3
+            }
+          ],
+          "everyS": 3,
+          "maxS": 90
+        },
+        "note": "cell 3 of 5 through the real CollectPowerCell interaction (pie label match)"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@powercell",
+          "interaction": "power cell"
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "power_cells",
+          "all": [
+            {
+              "path": "collected",
+              "atLeast": 4
+            }
+          ],
+          "everyS": 3,
+          "maxS": 90
+        },
+        "note": "cell 4 of 5 through the real CollectPowerCell interaction (pie label match)"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "before-fifth"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@powercell",
+          "interaction": "power cell"
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "power_cells",
+          "all": [
+            {
+              "path": "collected",
+              "atLeast": 5
+            }
+          ],
+          "everyS": 3,
+          "maxS": 90
+        },
+        "note": "cell 5 of 5 through the real CollectPowerCell interaction (pie label match)"
+      },
+      {
+        "cmd": "power_cells",
+        "waitS": 1,
+        "until": {
+          "cmd": "power_cells",
+          "all": [
+            {
+              "path": "left",
+              "atMost": 0
+            }
+          ],
+          "everyS": 3,
+          "maxS": 120
+        },
+        "note": "cleanup destroyed all cells; a freeze fails here or the crash ends the job"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "after-fifth"
+        },
+        "waitS": 2
+      }
+    ]
+  },
+  {
+    "id": "virtual-swap-check",
+    "bug": "ts3fixes' SwapMethod copied the hook's MonoMethod flags and slot over a virtual original, so every callvirt site naming that method ran the hook for every receiver and skipped all overrides: since v0.2.3 (memalive's ScriptObject.Destroy hook) every x.Destroy() ran only ScriptObject.Destroy (no GameObject.Destroy: contained objects left at the world origin, no PreparedFood event), and Service.FindSimForAssignment, RabbitHole.AnimateDoorOpen/Close and EventListener.RestoreState lost their overrides (docs/536)",
+    "fix": "ts3fixes Fixes.cs SwapMethod: KeepVirtual keeps a virtual original's flags word and slot (no switch), docs/536",
+    "save": "Baseline-BP",
+    "note": "The agent check (VirtualSwapCheck) hooks two fresh base/derived test pairs at check time, one the old way and one with KeepVirtual, then calls each through a base-typed callvirt site compiled after the swap. Old way: the derived receiver runs the hooked base (11). KeepVirtual: derived 2, base 11. It also reads ScriptObject.Destroy (hooked by memalive at startup) as virtual and destroys a new bowl with a second bowl in its stacking slot: kCleanedOrThrewAwayObject twice (PreparedFood.Destroy for both; once if the stack could not be built out of the world).",
+    "expect": "expect fixed: old way 11/11, KeepVirtual 2/11, ScriptObject.Destroy virtual, kCleanedOrThrewAwayObject x2 (x1 without a stack).",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VirtualSwapCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "old-way pair broken, KeepVirtual pair and the real Destroy dispatch"
+      }
+    ]
+  },
+  {
+    "id": "stub-slot-check",
+    "bug": "A hook's stub takes the target's flags and vtable slot; Type.GetMethods on a hook class with a smaller vtable aborts in Mono (sim-gone6/7, SwAbuseHook)",
+    "fix": "ts3fixes SavedStacks.cs StubDirect (no switch), docs/242",
+    "save": "Baseline-BP",
+    "note": "SavedStackCheck: GetMethods on a dummy stub whose slot is past its class's vtable, then on every shipped hook class. Negative: stub-slot-raw.",
+    "expect": "dummy ok: stub runs the original (7); GetMethods ok on every hook class",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SavedStackCheck",
+          "args": [
+            "dummy"
+          ]
+        },
+        "note": "dummy stub after StubDirect"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SavedStackCheck",
+          "args": [
+            "hooks"
+          ]
+        },
+        "note": "every shipped hook class"
+      }
+    ]
+  },
+  {
+    "id": "stub-slot-raw",
+    "bug": "negative control for stub-slot-check: the same dummy without StubDirect, KeepVirtual as shipped",
+    "fix": "none: evidence run, confirms the assert behind sim-gone6/7 (docs/242, I-429-2)",
+    "save": "Baseline-BP",
+    "note": "EXPECTED TO KILL THE GAME: job of its own, read the abort as the pass.",
+    "expect": "the game aborts inside GetMethods; 'raw GetMethods survived' refutes the inferred assert",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SavedStackCheck",
+          "args": [
+            "raw"
+          ]
+        },
+        "note": "old stub form"
+      }
+    ]
+  },
+  {
+    "id": "sim-gone-reload-count",
+    "bug": "sim-gone-reload plus SavedStackCheck hooks: how many saved methods the load remapped to stubs (docs/242)",
+    "fix": "none: evidence run, reads sim_gone_load (needs job key agentArm so it is on before the load)",
+    "save": "SgMidRoute",
+    "note": "No visit: only the load and 60 s after it. Verdict: tools/harness/sim-gone-diff.ts sim-gone9.",
+    "steps": [
+      {
+        "cmd": "sim_gone_load",
+        "until": {
+          "cmd": "sim_gone_load",
+          "all": [
+            {
+              "path": "sim_gone_load_done",
+              "equals": true
+            }
+          ],
+          "everyS": 2,
+          "maxS": 90
+        }
+      },
+      {
+        "cmd": "sim_gone_load",
+        "show": "sim_gone_load",
+        "max": 120000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SavedStackCheck",
+          "args": [
+            "hooks"
+          ]
+        },
+        "note": "remapped / left dropped"
+      }
+    ],
+    "expect": "the 60 s window ends"
+  },
+  {
+    "id": "sim-gone-saveidle",
+    "bug": "a save made with Sims doing whatever they do after 20 s, no visit: type (b) of docs/242",
+    "fix": "none: evidence run, makes the save sim-gone-reload reads",
+    "save": "Baseline-BP-Spring",
+    "note": "Saves as SgIdle. Delete the save after the queue.",
+    "steps": [
+      {
+        "cmd": "game_state",
+        "waitS": 20
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SgIdle"
+        },
+        "waitS": 30
+      }
+    ],
+    "expect": "the save is written"
+  },
+  {
+    "id": "inv-not-yet-check",
+    "bug": "Sim.TryAddObjectToInventory(IGameObject) calls base.Inventory.TryToAdd(obj) with no null check; Inventory is still null while a Sim is created (Sim.OnCreation), so a mod's school skill (BandSkill.OnSkillAddition hands a pupil a free instrument) throws NullReferenceException, stops the creation half way and leaves the Sim at 0,0,0 with no lot (issue #166 build 13, docs/531)",
+    "fix": "ts3fixes InvNotYet.cs: invnotyet (default off), docs/531",
+    "save": "Baseline-BP",
+    "note": "The agent check (InvNotYetCheck) hides the active Sim's InventoryComponent.Inventory for one synchronous call (restored in a finally) and passes a SocialJigTwoPerson made out of world. Off arm: EA's NullReferenceException. On arm: false and the hook's Destroy (invnotyet_refused +1); a step later the object is gone. Needs simler90's UPDATE242 core without the player's patches (the player's core carries build 13).",
+    "expect": "off: expect broken sees NullReferenceException. on: expect fixed sees false and the object destroyed; invnotyet_refused >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "invnotyet": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InvNotYetCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: EA's NullReferenceException"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "invnotyet": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InvNotYetCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: false, the hook destroyed the object; invnotyet_refused +1",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InvNotYetCheck",
+          "args": [
+            "expect gone"
+          ]
+        },
+        "note": "a step later: the object the hook destroyed is gone (Destroy drops its proxy after the call)"
+      }
+    ]
+  },
+  {
+    "id": "metric-skill-missing-check",
+    "bug": "MetricSkillX (a career level's skill metric) takes its skill from the career XML by name only, so a hex id or an unregistered skill leaves SkillGuid with no static skill; MetricTitle / MetricDescription then throw NullReferenceException each time the career panel fills, and FindMetricValue answers 0, below Map0, so the job loses performance to a skill nobody can learn (issue #166 build 94, docs/532)",
+    "fix": "ts3fixes MetricSkillMissing.cs: metricskillmissing (default off), docs/532",
+    "save": "Baseline-BP",
+    "note": "The agent check (MetricSkillMissingCheck) gives the first MetricSkillX of any career level the player's unregistered skill id 0xC7DB6873 for the calls (restored in a finally). Off arm: EA's NullReferenceException from MetricTitle and MetricDescription. On arm: both return text and FindMetricValue returns Map0; metricskillmissing_names +2, _values +1. Needs simler90's UPDATE242 core without the player's patches (the player's core carries build 94).",
+    "expect": "off: expect broken sees NullReferenceException twice. on: expect fixed sees text twice and Map0; metricskillmissing_names >= 2.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "metricskillmissing": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MetricSkillMissingCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: EA's NullReferenceException from the title and the description"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "metricskillmissing": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MetricSkillMissingCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: text twice, the value Map0"
+      }
+    ]
+  },
+  {
+    "id": "offload-ranks-camera",
+    "bug": "none (docs/208 §9 Mode R gate)",
+    "fix": "ts3fixes autofft2 + autofflot: worker reads of the four docs/219 rows and the closest visible lot pick, compared at the cut",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (2026-11-06, never run). Camera moves make Camera.Simulate evaluate the closest lot at the game's own call, so autoffdry gets fresh picks to compare; autonomy batches carry the items. Coordinates are a far corner and back, as aut-unseen-snapback.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "far corner: closest lot changes"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 60,
+            "y": 40,
+            "z": 60
+          },
+          "target": {
+            "x": 90,
+            "y": 0,
+            "z": 90
+          }
+        },
+        "waitS": 60,
+        "note": "another corner: the pick changes again"
+      }
+    ],
+    "expect": "autoff_t2_a0 and autoff_lot_a0 > 0, A2 == 0 for both; autoff_lot_dry > 0; dry_eq / dry read, not gated (a moved camera is the staleness the apply would see)",
+    "switches": [
+      "autofft2",
+      "autofflot",
+      "autoffdry"
+    ]
+  },
+  {
+    "id": "aut-unseen-focus",
+    "bug": "none (docs/222 §11, gate2): what a player sees when the camera lands on an unseen Sim",
+    "fix": "ts3fixes autunseen snap-back (AutLive.cs FlipCheck, docs/222 §3)",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (2026-11-06, never run). Natural play: camera away, then onto one Sim and following it at normal speed, as a map view click. World-neutral: gate2 runs it on BP and IP. The far corner coordinates are aut-unseen-snapback's guess. A wrong outcome is a thrown focus_result, reason in the step error. Reads state before / after into -repro.jsonl. idleSimMin 240 is fixed (Rodney 2026-11-06, docs/222 §11).",
+    "steps": [
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "camera away: townies unseen, their searches take the direct path"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "normal",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1,
+        "note": "player speed: a focused Sim is watched at normal speed"
+      },
+      {
+        "cmd": "focus_watch",
+        "args": {
+          "seconds": 30
+        },
+        "waitS": 33,
+        "note": "camera onto the Sim of the last direct pick, follows it"
+      },
+      {
+        "cmd": "focus_result",
+        "args": {},
+        "note": "throws on no snap-back in 3 s, a pop, stuck, idle or starving"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "camera away: townies unseen, their searches take the direct path"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "normal",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1,
+        "note": "player speed: a focused Sim is watched at normal speed"
+      },
+      {
+        "cmd": "focus_watch",
+        "args": {
+          "seconds": 30
+        },
+        "waitS": 33,
+        "note": "camera onto the Sim of the last direct pick, follows it"
+      },
+      {
+        "cmd": "focus_result",
+        "args": {},
+        "note": "throws on no snap-back in 3 s, a pop, stuck, idle or starving"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "camera away: townies unseen, their searches take the direct path"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "normal",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1,
+        "note": "player speed: a focused Sim is watched at normal speed"
+      },
+      {
+        "cmd": "focus_watch",
+        "args": {
+          "seconds": 30
+        },
+        "waitS": 33,
+        "note": "camera onto the Sim of the last direct pick, follows it"
+      },
+      {
+        "cmd": "focus_result",
+        "args": {},
+        "note": "throws on no snap-back in 3 s, a pop, stuck, idle or starving"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "camera away: townies unseen, their searches take the direct path"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "normal",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1,
+        "note": "player speed: a focused Sim is watched at normal speed"
+      },
+      {
+        "cmd": "focus_watch",
+        "args": {
+          "seconds": 30
+        },
+        "waitS": 33,
+        "note": "camera onto the Sim of the last direct pick, follows it"
+      },
+      {
+        "cmd": "focus_result",
+        "args": {},
+        "note": "throws on no snap-back in 3 s, a pop, stuck, idle or starving"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "camera away: townies unseen, their searches take the direct path"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "normal",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1,
+        "note": "player speed: a focused Sim is watched at normal speed"
+      },
+      {
+        "cmd": "focus_watch",
+        "args": {
+          "seconds": 30
+        },
+        "waitS": 33,
+        "note": "camera onto the Sim of the last direct pick, follows it"
+      },
+      {
+        "cmd": "focus_result",
+        "args": {},
+        "note": "throws on no snap-back in 3 s, a pop, stuck, idle or starving"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "camera away: townies unseen, their searches take the direct path"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "normal",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1,
+        "note": "player speed: a focused Sim is watched at normal speed"
+      },
+      {
+        "cmd": "focus_watch",
+        "args": {
+          "seconds": 30
+        },
+        "waitS": 33,
+        "note": "camera onto the Sim of the last direct pick, follows it"
+      },
+      {
+        "cmd": "focus_result",
+        "args": {},
+        "note": "throws on no snap-back in 3 s, a pop, stuck, idle or starving"
+      },
+      {
+        "cmd": "focus_summary",
+        "args": {
+          "min": 4
+        },
+        "note": "at least 4 Sims judged"
+      }
+    ],
+    "expect": "every focused Sim: on screen, exact within 3 s, no pop, not stuck, not idle over the limit, needs not starving"
+  },
+  {
+    "id": "aut-unseen-arrive",
+    "bug": "none (docs/222 §11, gate2): Sims arriving on the active lot, in view",
+    "fix": "ts3fixes autunseen: Sims turn seen on the way in and leave the direct path",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (2026-11-06, never run). STRESS (labelled): 8 spawned Sims sent back onto the active lot three times stand in for guests arriving; the camera stays on the active lot. World-neutral.",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 8
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 60,
+        "note": "the crowd wanders off the lot"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "normal",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 2,
+        "note": "visitors come back onto the active lot, in view"
+      },
+      {
+        "cmd": "focus_watch",
+        "args": {
+          "scope": "screen",
+          "seconds": 90
+        },
+        "waitS": 93,
+        "note": "every on-screen Sim outside the household watched"
+      },
+      {
+        "cmd": "focus_result",
+        "args": {}
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 60,
+        "note": "the crowd wanders off the lot"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "normal",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 2,
+        "note": "visitors come back onto the active lot, in view"
+      },
+      {
+        "cmd": "focus_watch",
+        "args": {
+          "scope": "screen",
+          "seconds": 90
+        },
+        "waitS": 93,
+        "note": "every on-screen Sim outside the household watched"
+      },
+      {
+        "cmd": "focus_result",
+        "args": {}
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 60,
+        "note": "the crowd wanders off the lot"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "normal",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 2,
+        "note": "visitors come back onto the active lot, in view"
+      },
+      {
+        "cmd": "focus_watch",
+        "args": {
+          "scope": "screen",
+          "seconds": 90
+        },
+        "waitS": 93,
+        "note": "every on-screen Sim outside the household watched"
+      },
+      {
+        "cmd": "focus_result",
+        "args": {}
+      },
+      {
+        "cmd": "focus_summary",
+        "args": {
+          "min": 3,
+          "arrivalsMin": 3
+        }
+      }
+    ],
+    "expect": "every arriving or on-lot Sim: no pop, not stuck, not idle over the limit"
+  },
+  {
+    "id": "aut-unseen-player-speed",
+    "bug": "none (docs/222 §11.4, gate2): every earlier behaviour number was taken at ultra (~11 sim minutes per second)",
+    "fix": "none: measurement, for a --ab autunseen job at fast speed",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (2026-11-06, never run). Natural play at speed 2: holds the autopilot at fast so the search queue is judged at a speed players use.",
+    "steps": [
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "fast",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "fast"
+        },
+        "waitS": 1
+      }
+    ],
+    "expect": "cadence by class per arm in -ab-fixes.jsonl"
+  },
+  {
+    "id": "aut-unseen-normal-speed",
+    "bug": "none (docs/222 §11.8, gate2): every behaviour number so far was at ultra or speed 2",
+    "fix": "none: measurement, for a --ab job at normal speed",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (2026-11-06, never run). Natural play at speed 1: holds the autopilot at normal, so the shared search manager is judged at the speed most players use.",
+    "steps": [
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "normal",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1
+      }
+    ],
+    "expect": "cadence by class per arm in -ab-fixes.jsonl"
+  },
+  {
+    "id": "tinyui-autshadow-state",
+    "bug": "Tiny UI Fix (mod 681624) ships patched copies of the game script modules; docs/218 §8 arm a showed AutShadow stays on in Mode 0, CHANGELOG still lists 'may switch itself off' as a known issue (found by Dalexlol)",
+    "fix": "PR #169 content guard (accept list by module bytes, G-M6 per-definition check) keeps [AutShadow] on; with it switched off the game must not be affected either",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (2026-11-06, never run). Needs Tiny UI Fix installed in the Mods folder by hand (the harness has no installer for it; no package is kept in game-copy). Two queue arms in tools/harness/queues/tiny-ui-fix-autshadow.json: 'off' asserts [AutShadow] off (fixesOff autshadow read back, no go-live line in ts3native.log, no AutShadow counters moved) and that the game is unaffected (no crash, no freeze, 0 script errors); 'on' asserts the content guard let it stay on. The repro only plays 2 minutes of normal sim at two speeds so the assertions are the queue's.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 60,
+        "note": "normal speed, the UI of Tiny UI Fix is on screen"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 60,
+        "note": "ultra speed: the sim keeps ticking with or without [AutShadow]"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 5
+      }
+    ],
+    "expect": "off arm: [AutShadow] off (fixes off: autshadow (verified), autshadow counters 0) and the game unaffected; on arm: autshadow_content_modules >= 1 and [AutShadow] still on at the end"
+  },
+  {
+    "id": "unseen-park-loop",
+    "bug": "An idle unseen low-LOD Sim re-enters AutonomyManager's queue as soon as EA's 5-minute idle delay has passed, so most of its searches end with no pick (68-83%, docs/245 §3) and start the GoHome / route chain again",
+    "fix": "ts3fixes UnseenThrottle.cs UnseenParkHook (docs/243 D1, §9): unseenpark holds such a Sim out of the queue until kUnseenParkMinutes (30) sim-minutes after its last search; seen Sims, Sims on a seen lot and exempt Sims go at once",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (static + selftest only, 2026-11-06): never run. Forces unseen low-LOD idle Sims (30 spawned walkers sent to the farthest lot while camera and household stay home), then the safety cases: camera jumps (a held Sim on a jumped-to lot snaps back), pause, save to a scratch name, off half. Labelled STRESS: spawned Sims stand in for townies. Never the Baseline save.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenprobe": true,
+          "unseenpark": true
+        },
+        "waitS": 1,
+        "note": "applied list: AutonomyManager.Add ok"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 20,
+        "note": "walkers leave the view: unseen low-LOD Sims, idle once they arrive"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 120,
+        "note": "unseen_park_held rises; unseen_refresh_gap_lt5/lt15/lt30 stay near flat"
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      },
+      {
+        "cmd": "camera_jumps",
+        "args": {
+          "order": "far",
+          "lots": 6,
+          "dwellS": 8
+        },
+        "waitS": 60,
+        "note": "held Sims on the jumped-to lots are seen: unseen_park_snap rises"
+      },
+      {
+        "cmd": "camera_jumps",
+        "args": {
+          "stop": true
+        },
+        "optional": true
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "waitS": 20,
+        "note": "no clock, a held Sim stays held, no hang"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "UnseenPark-Scratch"
+        },
+        "waitS": 90,
+        "note": "nothing of ours in the save: no field, no table; AutonomyManager.Add is not on a saved stack"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 60
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenpark": false
+        },
+        "waitS": 30,
+        "note": "off half: unseen_park_held flat, refresh gaps under 30 rise again"
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10
+      }
+    ],
+    "watch": {
+      "kind": "counter",
+      "counter": "unseen_park_held",
+      "min": 1,
+      "minutes": 3
+    },
+    "expect": "no crash or hang; save succeeds; on half: unseen_park_held > 0, unseen_park_snap > 0 after the camera jumps; off half: unseen_park_held flat; no new script errors; no Sim at <= -95 need that was not there in the off half; stuck Sims logged only",
+    "switches": [
+      "unseenprobe",
+      "unseenpark"
+    ]
+  },
+  {
+    "id": "fireworks-fizzle-check",
+    "bug": "When a firework fizzles, EA's FireworksBase.Watch.LoopDel asks every watcher's FireworksBigBooms state machine for a LaunchFailure state the watcher's actor does not have: the request times out (SacsTimeoutException) and the watcher is reset (issue #166 build 23, docs/533)",
+    "fix": "ts3fixes FireworksFizzle.cs: fireworksfizzle (default off), docs/533",
+    "save": "Baseline-BP",
+    "note": "The agent check (FireworksFizzleCheck) makes a FireworksBigBooms out of world and a Watch instance on it for the active Sim (never run, no state machine), sets the firework to ActiveFailure and calls LoopDel once. Off arm: EA's path reaches AnimateSim(\"LaunchFailure\") and throws (NullReferenceException on the missing state machine; in play the SACS timeout). On arm: no exception, ExitReason.Finished on the Sim (removed again afterwards); fireworksfizzle_finished +1. Needs simler90's UPDATE242 core without the player's patches (the player's core carries build 23).",
+    "expect": "off: expect broken sees an exception and no exit reason. on: expect fixed sees no exception and ExitReason.Finished; fireworksfizzle_finished >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fireworksfizzle": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireworksFizzleCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: EA's LaunchFailure request throws"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fireworksfizzle": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireworksFizzleCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: no exception, ExitReason.Finished"
+      }
+    ]
+  },
+  {
+    "id": "pet-pool-orphan-check",
+    "bug": "PetPool.RandomRemovePet / ClearAllPets take a pet out of the pool and the pet household; EA disposes none, simler90's core only those with family links, so a dropped pet without family links stays valid with no household, goes into the save and is dropped at the next load (issue #166 build 52, docs/534)",
+    "fix": "ts3fixes PetPoolOrphan.cs: petpoolorphan (default off), docs/534",
+    "save": "Baseline-BP",
+    "note": "The agent check (PetPoolOrphanCheck) makes a new adoption cat with EA's creator, puts it alone in a new AdoptCat pool and calls RandomRemovePet. Off arm: removed, still valid, no household (the check disposes it). On arm: removed and disposed; petpoolorphan_disposed +1. Needs simler90's UPDATE242 core without the player's patches (the player's core carries build 52).",
+    "expect": "off: expect broken sees a valid pet with no household. on: expect fixed sees it disposed; petpoolorphan_disposed >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petpoolorphan": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetPoolOrphanCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: the dropped cat stays valid with no household"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petpoolorphan": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetPoolOrphanCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: the dropped cat is disposed"
+      }
+    ]
+  },
+  {
+    "id": "rel-tables-apart-check",
+    "bug": "When x's relationship table has no entry for y but y's table holds one for x, EA's Relationship.GetInternal(createIfNone) makes a new Relationship, adds it to x's table and throws ArgumentException (same key) on y's: seen from NRaas MasterController's Reset All through Career.CheckBoss (issue #166 build 14, docs/535)",
+    "fix": "ts3fixes RelTablesApart.cs: reltablesapart (default off), docs/535",
+    "save": "Baseline-BP",
+    "note": "The agent check (RelTablesApartCheck) takes the first pair whose tables share one Relationship, removes it from x's table, and calls Relationship.Get(x, y, true) once; x's table gets it back in a finally. Off arm: EA's ArgumentException. On arm: the shared relationship returned and in both tables; reltablesapart_rejoined +1. Needs simler90's UPDATE242 core without the player's patches (the player's core carries build 14).",
+    "expect": "off: expect broken sees ArgumentException. on: expect fixed sees the shared relationship; reltablesapart_rejoined >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "reltablesapart": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RelTablesApartCheck",
+          "args": [
+            "expect broken"
+          ]
+        },
+        "note": "off: EA's same-key ArgumentException"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reltablesapart": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RelTablesApartCheck",
+          "args": [
+            "expect fixed"
+          ]
+        },
+        "note": "on: the shared relationship, in both tables"
+      }
+    ]
+  },
+  {
+    "id": "castrim-outfits",
+    "bug": "docs/191 step 2: the CAS compositor registry (service [0x11CE6A0] +0x104) never trims in play: every outfit build adds part compositors with random instances that stay registered in the ResourceCache (rcN / eaRes growth on long saves)",
+    "fix": "ts3native [CasTrim] (castrim.cpp, counters v912 ct*, native_set / --ab castrim: 1 trim, 2 count only); job ini [CasTrim] Install=1 AgeSec=60",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (built 2026-11-05, never run). Outfit churn: six Sims change to athletic, wait past AgeSec so their everyday compositors age (2 references, unused), then change back. Changing back is the case that matters: if the game finds the old everyday compositors by key, the trim arm logs MISSED (ctMissed) and the Sims would show missing textures. Pass: ctErased >= 1, ctMissed 0, the six Sims change back (outfit_change), no stuck. Shots (probe-out/shots/*-castrim-{start,end}.jpg live, *-castrim-cas-{start,end}.jpg in CAS): the active Sim in everyday before any trim and after the last change back; compare by eye (a live shot can miss her when her floor is cut away).",
+    "expect": "on arm: ctInserts > 0, ctCand > 0, ctErased > 0, ctMissed 0, ctOtherThread 0; off arm: ct counters unchanged",
+    "steps": [
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (start)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-start"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check: start"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (start)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-cas-start"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: start"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "castrim": 1
+        },
+        "waitS": 1,
+        "note": "trim on (the job ini installs the detours; AgeSec=60)"
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "athletic"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "everyday"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "formal"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "everyday"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "athletic"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "everyday"
+        },
+        "waitS": 60
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (end)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-end"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check: end"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (end)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-cas-end"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: end"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      }
+    ],
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 1
+    }
+  },
+  {
+    "id": "castrim-checks",
+    "bug": "docs/191 step 3 checks: the CAS compositor registry trim ([CasTrim] Mode 1, Named + Async) must not lose a texture a Sim renders from",
+    "fix": "ts3native [CasTrim] (castrim.cpp, counters v912 ct*, native_set / --ab castrim: 1 trim, 2 count only); job ini [CasTrim] Install=1 AgeSec=60 Named=1 Async=1",
+    "save": "1111 kit5",
+    "note": "UNVERIFIED (built 2026-11-06, never run). Rodney's step 3 texture checks in one load: live and CAS shots before any trim (start), then trim on, outfit churn (six Sims, 100 s apart, past AgeSec), 5 min of walk; shots again (mid), after a save to a scratch file and its reload (reload), and after a vacation round trip (travel). Pass: ctErased >= 1, ctMissed 0, no stuck; probe-out/shots/*-castrim-chk-{live,cas}-{start,mid,reload,travel}.jpg match start by eye (a live shot can miss the Sim when her floor is cut away). Writes the scratch save CasTrim-Check-Scratch.",
+    "expect": "ctInserts > 0, ctCand > 0, ctErased > 0, ctMissed 0, ctOtherThread 0; shots equal to the start ones",
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 1
+    },
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 45,
+        "note": "lead-in after the load"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (start, before any trim)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-live-start"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check, live: start, before any trim"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (start, before any trim)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-cas-start"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: start, before any trim"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "castrim": 1
+        },
+        "waitS": 1,
+        "note": "trim on (the job ini installs the detours: Install=1, AgeSec=60, Named=1, Async=1)"
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "athletic"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "everyday"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "formal"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "everyday"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "athletic"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 6,
+          "category": "everyday"
+        },
+        "waitS": 100
+      },
+      {
+        "cmd": "time",
+        "waitS": 300,
+        "note": "walk cycles: old compositors erased (ctErased)"
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (after the trims, same session)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-live-mid"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check, live: after the trims, same session"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (after the trims, same session)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-cas-mid"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: after the trims, same session"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "CasTrim-Check-Scratch"
+        },
+        "waitS": 5,
+        "note": "a scratch save: the loaded save is never written",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            }
+          ],
+          "everyS": 3,
+          "maxS": 900
+        }
+      },
+      {
+        "cmd": "load_save",
+        "args": {
+          "file": "CasTrim-Check-Scratch.sims3",
+          "reload": true
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            },
+            {
+              "path": "load_file",
+              "equals": "CasTrim-Check-Scratch.sims3"
+            },
+            {
+              "path": "sub_state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 900
+        }
+      },
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "after the reload"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (after a save and reload)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-live-reload"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check, live: after a save and reload"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (after a save and reload)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-cas-reload"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: after a save and reload"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household"
+        },
+        "waitS": 2,
+        "note": "needs at max (a tired Sim drops the queued trip)"
+      },
+      {
+        "cmd": "travel_vacation",
+        "args": {
+          "world": "france",
+          "days": 2
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "travel_state",
+          "all": [
+            {
+              "path": "on_vacation",
+              "equals": true
+            },
+            {
+              "path": "in_travel",
+              "equals": false
+            },
+            {
+              "path": "household"
+            }
+          ],
+          "everyS": 10,
+          "maxS": 900
+        }
+      },
+      {
+        "cmd": "travel_home",
+        "waitS": 5,
+        "until": {
+          "cmd": "travel_state",
+          "all": [
+            {
+              "path": "on_vacation",
+              "equals": false
+            },
+            {
+              "path": "in_travel",
+              "equals": false
+            },
+            {
+              "path": "household"
+            }
+          ],
+          "everyS": 10,
+          "maxS": 900
+        }
+      },
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "after the trip home"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "focus_sim",
+        "args": {
+          "pick": "active"
+        },
+        "waitS": 4,
+        "optional": true,
+        "note": "camera on the selected Sim (after a travel round trip)"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-live-travel"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "texture check, live: after a travel round trip"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday (after a travel round trip)",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "castrim-chk-cas-travel"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "texture check in CAS: after a travel round trip"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      }
+    ]
+  },
+  {
+    "id": "jit-reader-trap",
+    "bug": "docs/223 §8 risk 1: a frame reader the census missed sees a lazy chain",
+    "fix": "measuring only: [MonoJit] Trap (docs/537 §3), the gate of Direct=1",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (static + selftest only, 2026-11-06): never run. Player flow: live mode, normal play at speed, two saves with Sims mid-interaction (frame save, yield paths), speed changes. Needs the job ini MonoJit.Direct=1, MonoJit.Trap=1 (jit-reader-trap.json). Proof: jitTrapWindows rises, jitTrapUnknown stays 0, no \"jit trap: UNKNOWN\" line.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 90,
+        "note": "lead-in: script load opens windows"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Jit-Trap-Test-1"
+        },
+        "waitS": 30
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 60
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 90
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Jit-Trap-Test-2"
+        },
+        "waitS": 30
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 60
+      }
+    ],
+    "watch": [
+      "jitTrapWindows",
+      "jitTrapHits",
+      "jitTrapUnknown",
+      "jitLazyCalls",
+      "jitLazyMats"
+    ],
+    "expect": "jitTrapWindows > 0, jitTrapUnknown 0",
+    "area": "mono"
+  },
+  {"id":"ip-unseen-boat-loop","bug":"docs/247: after GetInBoatRouteAction fades the Sim in, DoRoute replans the whole remaining route with the boat as follower, synchronously on the sim thread (245 runs >= 100 ms, 37.4 s on IP in one run, worst 341 ms; same on Baseline)","fix":"ts3fixes unseenboat (UnseenBoat.cs, docs/248): lone unseen townie: boat as transport = no boat, placed at the goal after the travel time; houseboat goal = PlaceSimAtEntrance after the travel time; else the exact path","save":"Baseline-IP-Spring","note":"First run 2026-11-06 (boattp2): candidates 419, all rj_route, shortcuts 0, and it still passed; fixesRequire now fails such a run. crowd_go is Go Here, refused by UfPreSim, so its legs stay exact and give the boats unseen_water_watch counts; leg 1 is the lot trip. Linda Scott and Mylee Arias live on the houseboat (ip-houseboat-gohome): sent home unseen they are the houseboat case.","fixesRequire":"unseenboat_shortcuts>=1","steps":[{"cmd":"spawn_sims","args":{"count":10},"waitS":20},{"cmd":"unseen_water_watch","args":{"start":true},"note":"samples every 15 ticks: unseen Sims in a vehicle / boat, in water, stranded"},{"cmd":"patches","args":{"unseenboat":true},"waitS":1},{"cmd":"set_speed","args":{"speed":"ultra"},"waitS":2},{"cmd":"crowd_visit_lot","args":{"lot":"island"},"waitS":150,"note":"leg 1: a real lot trip across the sea, the fix's case, from the spawn spots away from the camera (Go Here is refused by UfPreSim and stays exact)"},{"cmd":"crowd_go","args":{"target":"home"},"waitS":150,"note":"leg 2: back across the water to the active lot"},{"cmd":"crowd_go","args":{"to":"island"},"waitS":150},{"cmd":"crowd_go","args":{"target":"home"},"waitS":150},{"cmd":"sim_visit_lot","args":{"sim":"Linda Scott","lot":"far"},"waitS":90,"note":"houseboat case: out"},{"cmd":"sim_go_home","args":{"sim":"Linda Scott"},"waitS":90,"note":"home to the houseboat, unseenboat_houseboat grows"},{"cmd":"unseen_water_watch","args":{"result":true,"require":true,"min_engaged":3,"stop":true},"note":"FAILS unless >= 3 Sims were at once in a vehicle or in water while unseen and none was stranded"},{"cmd":"remove_sims","args":{},"waitS":5}],"expect":"no crash; unseenboat_shortcuts > 0, unseenboat_houseboat > 0, no stranded Sim, no Sim in the water or left in a boat, every moved Sim goes on with its interaction","cleanup":[{"cmd":"patches","args":{"unseenboat":false}}]},
+  {"id":"ip-houseboat-leave-loop","bug":"docs/247 §11.3: Sims starting a route on a houseboat stayed exact: no land colour at the hidden houseboat lot, so rj_unknown, then a boat get-in and a sync boat replan per trip","fix":"ts3fixes unseenboatstart (UnseenBoat.cs, docs/248 §10): unseen townie on a houseboat, docked or at sea, deck or cabin: no boat, wait the boat's real distance, placed at the goal or the goal lot's street side; a moving boat, its driver, the player's boat, an owned boat, a seen Sim, boat or goal stay exact","save":"Baseline-IP-Spring","note":"Residents are sent home first (optional, unseenboat_houseboat may place them), then every townie on a houseboat lot takes the game's own lot trip, all in one tick (stress label). fixesRequire fails a run that only reaches the gate, left_dirty and houseboat_leave {check} fail a boat that kept a Sim. Houseboats moved: read the row's houseboats line.","fixesRequire":"unseenboatstart_shortcuts>=3,unseenboatstart_left_dirty<=0","steps":[{"cmd":"patches","args":{"unseenboat":true,"unseenboatstart":true},"waitS":1},{"cmd":"set_speed","args":{"speed":"ultra"},"waitS":2},{"cmd":"sim_go_home","args":{"sim":"Linda Scott"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Mylee Arias"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Ruben Arias"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Tariq Scott"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Gabrielle Arias"},"optional":true,"waitS":120},{"cmd":"houseboat_leave","args":{"lot":"island"},"waitS":150,"note":"leg 1: off the boats across the sea"},{"cmd":"sim_go_home","args":{"sim":"Linda Scott"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Mylee Arias"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Ruben Arias"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Tariq Scott"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Gabrielle Arias"},"optional":true,"waitS":120},{"cmd":"houseboat_leave","args":{"lot":"far"},"waitS":150,"note":"leg 2: another goal, a land trip from a docked boat counts too"},{"cmd":"houseboat_leave","args":{"check":true},"note":"FAILS when a houseboat lot still lists a Sim that stands off it"}],"expect":"no crash, 0 stuck; unseenboatstart_shortcuts >= 3, unseenboatstart_left_dirty 0; houseboats moved none; every moved Sim goes on with its interaction","cleanup":[{"cmd":"patches","args":{"unseenboat":false,"unseenboatstart":false}}]},
+  {"id":"gc-streak-guard","bug":"docs/67 §35: GC_alloc_large expands without a collection while a request at or below GC_black_list_spacing finds only black-listed pages; bp-jit-autshadow-r: streak 587 for an 824 KB string, heap 352 -> 2388 MB, g_malloc NULL at 0x00E48B55","fix":"ts3native gcgrow.cpp GwExpand streak guard (0.36.180): at streak 3 the spacing drops to 12 KB and the next try punts; only with [GC] BlackListCapKB. native_set gcstreakat is its switch","save":"Baseline-BP-Spring","area":"memory","note":"UNVERIFIED (selftest only, 2026-11-07): never run. STRESS, not a player flow: gc_streak_force writes the spacing and the black list, because the natural state came in 1 of 233 runs. Steam 1.67 addresses. Assumes new string() takes the GC_alloc_large path of the crash's mono_string_new, without IGNORE_OFF_PAGE [inferred]: if not, the off arm shows no growth. The off arm stops at streak 12 (at most 2 x 12 expansions, about 480 MB at the 32 MB step); gcstreakat 0 would be the real runaway. The state is forced, so a pass shows the guard ends this loop, not that spacing at the cap caused the crash (I-442-1).","steps":[{"cmd":"native_mark","args":{"name":"off"}},{"cmd":"native_set","args":{"gcstreakat":12},"waitS":1,"note":"off arm: guard off, test stop at streak 12"},{"cmd":"gc_streak_force","args":{"rounds":2},"waitS":2},{"cmd":"native_check","args":{"name":"off","require":"gwExpands>=24,gcExpandStreakMax>=10,gcBlackOk>=2"},"waitS":0,"note":"off: the streak climbs and the heap grows"},{"cmd":"native_mark","args":{"name":"on"}},{"cmd":"native_set","args":{"gcstreakat":3},"waitS":1,"note":"on arm: the guard"},{"cmd":"gc_streak_force","args":{"rounds":2},"waitS":2},{"cmd":"native_check","args":{"name":"on","require":"gwExpands>=6,gwExpands<=8,gcExpandStreakMax<=0,gcBlackOk>=2"},"waitS":0,"note":"on: 3 expansions a round, then the punt; the off arm's max stays"}],"watch":["gwExpands","gwKB","gcExpandStreak","gcExpandStreakMax","gcBlackOk"],"expect":"off: gc expand streak test stop x2, heap grows by 24 expansions; on: gc expand streak guard x2, 6 expansions; no crash","cleanup":[{"cmd":"native_set","args":{"gcstreakat":3}}]},
+  {"id":"routefail-gohere-sv","bug":"Player report (test build 0.36.168c-test1): Sims cannot reach the spot, routing seems broken. Smoke of the test build, not a bug repro","fix":"KdExemptSeen: a Sim you can see is not cut off for a long route search; the test build logs every ordered route (gohere:) and kd exempt: lines","save":"Baseline-SV-Spring","note":"UNVERIFIED (static only, 2026-11-07): never run. Selected (active) Sim runs two Go Here orders; far = farthest community lot, pond = the rare-point pond. Correctness smoke only","steps":[{"cmd":"go_here","args":{"to":"far"},"waitS":45,"note":"Go Here to the farthest community lot"},{"cmd":"go_here","args":{"to":"pond"},"waitS":45,"optional":true,"note":"Go Here to the pond (may not exist on this world)"}]},
+  {
+    "id": "stove-wall-built",
+    "save": "Baseline-BP-Spring",
+    "bug": "player report 2026-11-07, v0.2.8 + test1: household Sim cannot reach a stove behind a wall (FailedBecauseNoPathToDestination in 0 ms, uncut, candidates 1/1/0, blocker Object or None), Go Here next to the stove and a plan to the Sim's own spot fail too; a wide path exists. Cause open: static lead = the ImpassableRegion footprint BakingDish_Prepare/CookInOven leave (DynamicRegionBase.Cleanup never calls Remove, docs/84 §7.2)",
+    "fix": "none yet: repro only, no fix until a cause is verified",
+    "expect": "Read the stove-wall: lines of ts3native.log per arm. Both arms ok on every line: not reproduced, N/A. Failed in arm 1 only: ours (see which switch). Failed in arm 0 too: vanilla. region-live may fail, region-gone or after-cook lines failing while before lines are ok = the leaked footprint. bin 1 failing with bin 0 ok = the bin matters. 0 watchdog lines.",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "kinddeadlines": "$on",
+            "unseenfb": "$on",
+            "plandeadline": "$on",
+            "fbjobdeadline": "$on",
+            "replandedupe": "$on",
+            "discourage": "$on",
+            "deferfootprint": "$on",
+            "deferfootprint2": "$on",
+            "destroypark": "$on",
+            "destroyparkdx": "$on",
+            "goalvalidro": "$on",
+            "routetoobjro": "$on",
+            "placementro": "$on",
+            "avoidro": "$on",
+            "steerro": "$on",
+            "obstructedro": "$on",
+            "lotfdro": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 1 = the player's switches, 0 = vanilla-like (no footprint deferral, no destroy park, no read-only copies, no cuts, no dedupe). Route jobs stay async in both; KdExemptSeen stays on."
+        },
+        {
+          "cmd": "build_mode",
+          "setup": true,
+          "args": {
+            "on": true
+          },
+          "waitS": 10,
+          "note": "clean start: build mode and back, the game rebuilds the lot's routing; clears a leaked footprint [inferred, the next 'before' or cook shows it]"
+        },
+        {
+          "cmd": "build_mode",
+          "setup": true,
+          "args": {
+            "on": false
+          },
+          "waitS": 12,
+          "note": "live again"
+        },
+        {
+          "cmd": "focus_sim",
+          "setup": true,
+          "args": {
+            "pick": "active"
+          },
+          "waitS": 2,
+          "note": "camera onto the selected Sim and the stove before the step (the GIF follows the action)"
+        },
+        {
+          "cmd": "stove_wall_probe",
+          "setup": false,
+          "args": {
+            "arm": "$on:1:0",
+            "label": "before",
+            "bin": false
+          },
+          "waitS": 1,
+          "note": "fire: plans only, no bin"
+        },
+        {
+          "cmd": "focus_sim",
+          "setup": true,
+          "args": {
+            "pick": "active"
+          },
+          "waitS": 2,
+          "note": "camera onto the selected Sim and the stove before the step (the GIF follows the action)"
+        },
+        {
+          "cmd": "stove_wall_probe",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0",
+            "label": "before",
+            "bin": true
+          },
+          "waitS": 1,
+          "note": "same with the bin at the wall end"
+        },
+        {
+          "cmd": "focus_sim",
+          "setup": true,
+          "args": {
+            "pick": "active"
+          },
+          "waitS": 2,
+          "note": "camera onto the selected Sim and the stove before the step (the GIF follows the action)"
+        },
+        {
+          "cmd": "stove_wall_probe",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0",
+            "label": "region",
+            "bin": false,
+            "region": true
+          },
+          "waitS": 1,
+          "note": "EA ImpassableRegion Actor + stove, then Cleanup: does a footprint survive it"
+        },
+        {
+          "cmd": "build_mode",
+          "setup": true,
+          "args": {
+            "on": true
+          },
+          "waitS": 10,
+          "note": "after region: build mode and back, the game rebuilds the lot's routing; clears a leaked footprint [inferred, the next 'before' or cook shows it]"
+        },
+        {
+          "cmd": "build_mode",
+          "setup": true,
+          "args": {
+            "on": false
+          },
+          "waitS": 12,
+          "note": "live again"
+        },
+        {
+          "cmd": "focus_sim",
+          "setup": true,
+          "args": {
+            "pick": "active"
+          },
+          "waitS": 2,
+          "note": "camera onto the selected Sim and the stove before the step (the GIF follows the action)"
+        },
+        {
+          "cmd": "stove_wall_cook",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0",
+            "bin": false
+          },
+          "waitS": 100,
+          "note": "real user-directed bake from the far side, no bin; routefail/gohere lines carry the plans"
+        },
+        {
+          "cmd": "stove_wall_end",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0"
+          },
+          "waitS": 1
+        },
+        {
+          "cmd": "focus_sim",
+          "setup": true,
+          "args": {
+            "pick": "active"
+          },
+          "waitS": 2,
+          "note": "camera onto the selected Sim and the stove before the step (the GIF follows the action)"
+        },
+        {
+          "cmd": "stove_wall_probe",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0",
+            "label": "after-cook",
+            "bin": false
+          },
+          "waitS": 1,
+          "note": "plans after the real regions of the bake"
+        },
+        {
+          "cmd": "build_mode",
+          "setup": true,
+          "args": {
+            "on": true
+          },
+          "waitS": 10,
+          "note": "after bake: build mode and back, the game rebuilds the lot's routing; clears a leaked footprint [inferred, the next 'before' or cook shows it]"
+        },
+        {
+          "cmd": "build_mode",
+          "setup": true,
+          "args": {
+            "on": false
+          },
+          "waitS": 12,
+          "note": "live again"
+        },
+        {
+          "cmd": "focus_sim",
+          "setup": true,
+          "args": {
+            "pick": "active"
+          },
+          "waitS": 2,
+          "note": "camera onto the selected Sim and the stove before the step (the GIF follows the action)"
+        },
+        {
+          "cmd": "stove_wall_cook",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0",
+            "bin": true
+          },
+          "waitS": 100,
+          "note": "real bake, bin at the wall end"
+        },
+        {
+          "cmd": "stove_wall_end",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0"
+          },
+          "waitS": 1
+        },
+        {
+          "cmd": "focus_sim",
+          "setup": true,
+          "args": {
+            "pick": "active"
+          },
+          "waitS": 2,
+          "note": "camera onto the selected Sim and the stove before the step (the GIF follows the action)"
+        },
+        {
+          "cmd": "stove_wall_probe",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0",
+            "label": "after-cook",
+            "bin": true
+          },
+          "waitS": 1
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 26
+    },
+    "note": "UNVERIFIED, never run. Open layout on the home lot: 4-tile wall tiles [1,1]-[5,1] (the bp-build-levels spot), stove back to the wall, Sim on the other side, bin near the wall end with open ground past it.",
+    "steps": [
+        {
+          "cmd": "focus_sim",
+          "setup": true,
+          "args": {
+            "pick": "active"
+          },
+          "waitS": 5,
+          "note": "camera onto the selected Sim (the portrait click): tool_drag's floor picks need the lot in view (2026-11-07: 0 of 0 floor picks hit the plane)"
+        },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": true
+        },
+        "waitS": 15,
+        "note": "build mode on the home lot"
+      },
+      {
+        "cmd": "build_level",
+        "args": {
+          "level": 0,
+          "aim": [
+            3,
+            3
+          ]
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "tool_select",
+        "args": {
+          "tool": 0,
+          "product": "first"
+        },
+        "waitS": 2,
+        "note": "wall tool"
+      },
+      {
+        "cmd": "tool_drag",
+        "args": {
+          "tiles": true,
+          "points": [
+            [
+              1,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        },
+        "waitS": 5,
+        "note": "the 4-tile wall"
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "stove_wall_setup",
+        "args": {
+          "stove_tile": [
+            3,
+            1
+          ],
+          "face": [
+            3,
+            2
+          ],
+          "fridge_tile": [
+            1,
+            2
+          ],
+          "counter_tile": [
+            2,
+            1
+          ],
+          "sim_tile": [
+            3,
+            0
+          ],
+          "bin_tile": [
+            5,
+            0
+          ],
+          "bin_park_tile": [
+            1,
+            4
+          ]
+        },
+        "waitS": 2,
+        "note": "errors out when the wall did not land between Sim and slot"
+      }
+    ]
+  },
+  {
+    "id": "stove-wall-kitchen",
+    "save": "Baseline-SV-Spring",
+    "bug": "player report 2026-11-07, v0.2.8 + test1: household Sim cannot reach a stove behind a wall (FailedBecauseNoPathToDestination in 0 ms, uncut, candidates 1/1/0, blocker Object or None), Go Here next to the stove and a plan to the Sim's own spot fail too; a wide path exists. Cause open: static lead = the ImpassableRegion footprint BakingDish_Prepare/CookInOven leave (DynamicRegionBase.Cleanup never calls Remove, docs/84 §7.2)",
+    "fix": "none yet: repro only, no fix until a cause is verified",
+    "expect": "Read the stove-wall: lines of ts3native.log per arm. Both arms ok on every line: not reproduced, N/A. Failed in arm 1 only: ours (see which switch). Failed in arm 0 too: vanilla. region-live may fail, region-gone or after-cook lines failing while before lines are ok = the leaked footprint. bin 1 failing with bin 0 ok = the bin matters. 0 watchdog lines.",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "kinddeadlines": "$on",
+            "unseenfb": "$on",
+            "plandeadline": "$on",
+            "fbjobdeadline": "$on",
+            "replandedupe": "$on",
+            "discourage": "$on",
+            "deferfootprint": "$on",
+            "deferfootprint2": "$on",
+            "destroypark": "$on",
+            "destroyparkdx": "$on",
+            "goalvalidro": "$on",
+            "routetoobjro": "$on",
+            "placementro": "$on",
+            "avoidro": "$on",
+            "steerro": "$on",
+            "obstructedro": "$on",
+            "lotfdro": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 1 = the player's switches, 0 = vanilla-like (no footprint deferral, no destroy park, no read-only copies, no cuts, no dedupe). Route jobs stay async in both; KdExemptSeen stays on."
+        },
+        {
+          "cmd": "build_mode",
+          "setup": true,
+          "args": {
+            "on": true
+          },
+          "waitS": 10,
+          "note": "clean start: build mode and back, the game rebuilds the lot's routing; clears a leaked footprint [inferred, the next 'before' or cook shows it]"
+        },
+        {
+          "cmd": "build_mode",
+          "setup": true,
+          "args": {
+            "on": false
+          },
+          "waitS": 12,
+          "note": "live again"
+        },
+        {
+          "cmd": "focus_sim",
+          "setup": true,
+          "args": {
+            "pick": "active"
+          },
+          "waitS": 2,
+          "note": "camera onto the selected Sim and the stove before the step (the GIF follows the action)"
+        },
+        {
+          "cmd": "stove_wall_probe",
+          "setup": false,
+          "args": {
+            "arm": "$on:1:0",
+            "label": "before",
+            "bin": false
+          },
+          "waitS": 1,
+          "note": "fire: plans only, no bin"
+        },
+        {
+          "cmd": "focus_sim",
+          "setup": true,
+          "args": {
+            "pick": "active"
+          },
+          "waitS": 2,
+          "note": "camera onto the selected Sim and the stove before the step (the GIF follows the action)"
+        },
+        {
+          "cmd": "stove_wall_probe",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0",
+            "label": "before",
+            "bin": true
+          },
+          "waitS": 1,
+          "note": "same with the bin at the wall end"
+        },
+        {
+          "cmd": "focus_sim",
+          "setup": true,
+          "args": {
+            "pick": "active"
+          },
+          "waitS": 2,
+          "note": "camera onto the selected Sim and the stove before the step (the GIF follows the action)"
+        },
+        {
+          "cmd": "stove_wall_probe",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0",
+            "label": "region",
+            "bin": false,
+            "region": true
+          },
+          "waitS": 1,
+          "note": "EA ImpassableRegion Actor + stove, then Cleanup: does a footprint survive it"
+        },
+        {
+          "cmd": "build_mode",
+          "setup": true,
+          "args": {
+            "on": true
+          },
+          "waitS": 10,
+          "note": "after region: build mode and back, the game rebuilds the lot's routing; clears a leaked footprint [inferred, the next 'before' or cook shows it]"
+        },
+        {
+          "cmd": "build_mode",
+          "setup": true,
+          "args": {
+            "on": false
+          },
+          "waitS": 12,
+          "note": "live again"
+        },
+        {
+          "cmd": "focus_sim",
+          "setup": true,
+          "args": {
+            "pick": "active"
+          },
+          "waitS": 2,
+          "note": "camera onto the selected Sim and the stove before the step (the GIF follows the action)"
+        },
+        {
+          "cmd": "stove_wall_cook",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0",
+            "bin": false
+          },
+          "waitS": 100,
+          "note": "real user-directed bake from the far side, no bin; routefail/gohere lines carry the plans"
+        },
+        {
+          "cmd": "stove_wall_end",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0"
+          },
+          "waitS": 1
+        },
+        {
+          "cmd": "focus_sim",
+          "setup": true,
+          "args": {
+            "pick": "active"
+          },
+          "waitS": 2,
+          "note": "camera onto the selected Sim and the stove before the step (the GIF follows the action)"
+        },
+        {
+          "cmd": "stove_wall_probe",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0",
+            "label": "after-cook",
+            "bin": false
+          },
+          "waitS": 1,
+          "note": "plans after the real regions of the bake"
+        },
+        {
+          "cmd": "build_mode",
+          "setup": true,
+          "args": {
+            "on": true
+          },
+          "waitS": 10,
+          "note": "after bake: build mode and back, the game rebuilds the lot's routing; clears a leaked footprint [inferred, the next 'before' or cook shows it]"
+        },
+        {
+          "cmd": "build_mode",
+          "setup": true,
+          "args": {
+            "on": false
+          },
+          "waitS": 12,
+          "note": "live again"
+        },
+        {
+          "cmd": "focus_sim",
+          "setup": true,
+          "args": {
+            "pick": "active"
+          },
+          "waitS": 2,
+          "note": "camera onto the selected Sim and the stove before the step (the GIF follows the action)"
+        },
+        {
+          "cmd": "stove_wall_cook",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0",
+            "bin": true
+          },
+          "waitS": 100,
+          "note": "real bake, bin at the wall end"
+        },
+        {
+          "cmd": "stove_wall_end",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0"
+          },
+          "waitS": 1
+        },
+        {
+          "cmd": "focus_sim",
+          "setup": true,
+          "args": {
+            "pick": "active"
+          },
+          "waitS": 2,
+          "note": "camera onto the selected Sim and the stove before the step (the GIF follows the action)"
+        },
+        {
+          "cmd": "stove_wall_probe",
+          "setup": true,
+          "args": {
+            "arm": "$on:1:0",
+            "label": "after-cook",
+            "bin": true
+          },
+          "waitS": 1
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 26
+    },
+    "note": "UNVERIFIED, never run. The home lot's real kitchen, doors and rooms: the Sim spot is the nearest routable point behind a wall from the stove slot, so the way round goes through the real doorway as in the player's video. Errors out when the home lot has no stove and fridge: pick another save with a kitchen.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "stove_wall_setup",
+        "args": {
+          "existing": true
+        },
+        "waitS": 2
+      }
+    ]
+  },
+  {"id":"stove-wall-player-view","bug":"Player report 2026-11-07 (v0.2.8): a household Sim inside the house cannot reach a stove behind a wall when the player orders it","fix":"none yet: player-view repro with GIFs, no fix until a cause is verified","save":"Baseline-SV-Spring","note":"UNVERIFIED (never run): the selected household Sim stands on its spot behind the wall, the camera is on it and the stove at daytime, speed x1 for the recorded part; case 1 the player Go Here click to the stove, case 2 the user-directed cook order; one GIF per case and arm (frame a second), labelled with the plain action and the result sentence.","expect":"Read the GIFs and the stove-wall: lines. Both cases reach the stove in both arms: not reproduced, N/A.","steps":[{"cmd":"set_speed","setup":true,"args":{"speed":"ultra"},"waitS":1,"note":"quick setup"},{"cmd":"stove_wall_setup","setup":true,"args":{"existing":true},"waitS":2},{"cmd":"clock_hour","setup":true,"args":{"hour":11},"waitS":1,"note":"daylight for the GIFs"}],"loop":{"steps":[{"cmd":"native_set","setup":true,"args":{"kinddeadlines":"$on","unseenfb":"$on","plandeadline":"$on","fbjobdeadline":"$on","replandedupe":"$on","discourage":"$on","deferfootprint":"$on","deferfootprint2":"$on","destroypark":"$on","destroyparkdx":"$on","goalvalidro":"$on","routetoobjro":"$on","placementro":"$on","avoidro":"$on","steerro":"$on","obstructedro":"$on","lotfdro":"$on"},"waitS":1,"note":"arm: 1 = the player switches, 0 = vanilla-like"},{"cmd":"stove_wall_place","setup":true,"args":{},"waitS":2,"note":"selected Sim to its spot behind the wall"},{"cmd":"stove_wall_camera","setup":true,"args":{},"waitS":3,"note":"camera on the Sim and the stove"},{"cmd":"set_speed","setup":true,"args":{"speed":"normal"},"waitS":1,"note":"speed x1 for the recorded part"},{"cmd":"stove_wall_goto","setup":false,"args":{},"waitS":25,"note":"fire: Go Here click to the stove"},{"cmd":"set_speed","setup":true,"args":{"speed":"ultra"},"waitS":1,"note":"skip to the next case"},{"cmd":"stove_wall_end","setup":true,"args":{},"waitS":1,"note":"cancel what is left"},{"cmd":"stove_wall_place","setup":true,"args":{},"waitS":2,"note":"selected Sim back to its spot"},{"cmd":"stove_wall_camera","setup":true,"args":{},"waitS":3,"note":"camera on the Sim and the stove"},{"cmd":"set_speed","setup":true,"args":{"speed":"normal"},"waitS":1,"note":"speed x1 for the recorded part"},{"cmd":"stove_wall_cook","setup":false,"args":{},"waitS":28,"note":"fire: cook order"},{"cmd":"set_speed","setup":true,"args":{"speed":"ultra"},"waitS":1,"note":"skip to the next arm"},{"cmd":"stove_wall_end","setup":true,"args":{},"waitS":1,"note":"cancel what is left"}],"arms":["off","on"],"until":{"perArm":1},"maxMinutes":12}},
+  {"id":"layout-repro-smoke","bug":"none (harness): any player sketch becomes a repro in minutes; docs/TESTING.md build_layout","fix":"none: harness check of build_layout, walls by WallExistsBetween, objects by lot census","save":"Baseline-BP-Spring","expect":"stove-wall: layout passed in ts3native.log; the report lines show edges_missing [], objects_missing [], calib per mode and slot, wall_sim_to_slot true on the stove, plan and path_m per object. Any miss fails the step with its reason.","note":"Empty-lot move-in (2 Sims, R-HH-1), then the example map inside a small house. origin [6,6]: mid lot on the 16 x 16 tiles or more that empty_lot picks, away from the street-side mailbox.","steps":[{"cmd":"make_household","args":{"name":"Layout","empty_lot":true,"sims":[{"key":"a","first":"Lee","last":"Layout","age":"YoungAdult","gender":"Female","traits":["Artistic","Virtuoso"]},{"key":"b","first":"Sam","last":"Layout","age":"YoungAdult","gender":"Male","traits":["Artistic","Virtuoso"]}]},"waitS":5,"note":"Edit Town: new household on a vacant empty lot"},{"cmd":"switch_household","args":{"household":"Layout"},"waitS":30,"note":"Edit Town: Change Active Household"},{"cmd":"clock_hour","setup":true,"args":{"hour":11},"waitS":1,"note":"daylight: a new room has no light of its own yet"},{"cmd":"build_layout","args":{"map":["W w w w","E X w s","E E w e","E e w e","E b w e"],"house":true,"origin":[6,6]},"waitS":3,"until":{"cmd":"build_layout","args":{"result":true},"all":[{"path":"passed","equals":true}],"failOn":"error","everyS":3,"maxS":300},"note":"the house, the map, the Sim on X"}]},
+  {"id":"stove-wall-layout","bug":"Player report 2026-11-07 (v0.2.8): a household Sim inside the house cannot reach a stove behind a wall when the player orders it","fix":"none yet: the player's own map, no fix until a cause is verified","save":"Baseline-BP-Spring","note":"UNVERIFIED (never run): the player's map built with the real tools on an empty lot (build_layout), daylight, autonomy off, the selected Sim on X. Per arm a Go Here click and a Cook order, speed x1, GIF from a fixed camera on the whole room. Between orders the Sim is put back on X.","expect":"Per arm and case a line \"stove-wall: arm N result reached .. after .. s, cook started .., steps ..\", and for the cook \"cook menu\", \"cook order\", one \"route\" line per plan and one \"interaction\" line per step (all with the savecleanup: prefix). Both reach the stove in both arms: not reproduced, N/A.","steps":[{"cmd":"make_household","args":{"name":"Layout","empty_lot":true,"sims":[{"key":"a","first":"Lee","last":"Layout","age":"YoungAdult","gender":"Female","traits":["Artistic","Virtuoso"]},{"key":"b","first":"Sam","last":"Layout","age":"YoungAdult","gender":"Male","traits":["Artistic","Virtuoso"]}]},"waitS":5,"note":"Edit Town: one-Sim household on a vacant empty lot"},{"cmd":"switch_household","args":{"household":"Layout"},"waitS":30,"note":"Edit Town: Change Active Household"},{"cmd":"clock_hour","setup":true,"args":{"hour":11},"waitS":1,"note":"daylight: a new room has no light of its own yet"},{"cmd":"autonomy","setup":true,"args":{"sim":"household","enabled":false},"waitS":1,"note":"nothing but the player orders moves the Sim"},{"cmd":"build_layout","args":{"map":["W w w w","E X w s","E E w e","E e w e","E b w e"],"house":true,"origin":[6,6],"margin_top":0,"roof":false,"lights":0,"legend":{"b":{"name":"trash","prefer":"munici-pale"}}},"waitS":3,"until":{"cmd":"build_layout","args":{"result":true},"all":[{"path":"passed","equals":true}],"failOn":"error","everyS":3,"maxS":300},"note":"the player's map; the top row is the room's top wall, so the only way round the 4-long wall is its free bottom end, past the bin"},{"cmd":"stove_wall_setup","setup":true,"args":{"layout":true,"fridge_tile":[5,6],"counter_tile":[5,7],"face":[6,6]},"waitS":2,"note":"fridge and counter on the Sim's side of the wall, out of the way (west margin tiles): Cook needs them, the map has none"}],"loop":{"steps":[{"cmd":"native_set","setup":true,"args":{"kinddeadlines":"$on","unseenfb":"$on","plandeadline":"$on","fbjobdeadline":"$on","replandedupe":"$on","discourage":"$on","deferfootprint":"$on","deferfootprint2":"$on","destroypark":"$on","destroyparkdx":"$on","goalvalidro":"$on","routetoobjro":"$on","placementro":"$on","avoidro":"$on","steerro":"$on","obstructedro":"$on","lotfdro":"$on"},"waitS":1,"note":"arm: 1 = the player switches, 0 = vanilla-like"},{"cmd":"stove_wall_place","setup":true,"args":{},"waitS":2,"note":"selected Sim to its spot behind the wall"},{"cmd":"stove_wall_camera","setup":true,"args":{},"waitS":3,"note":"fixed camera on the whole room, near wall cut away"},{"cmd":"set_speed","setup":true,"args":{"speed":"normal"},"waitS":1,"note":"speed x1 for the recorded part"},{"cmd":"stove_wall_goto","setup":false,"args":{"arm":"$on:1:0"},"waitS":25,"note":"fire: Go Here click to the stove"},{"cmd":"set_speed","setup":true,"args":{"speed":"ultra"},"waitS":1,"note":"skip to the next case"},{"cmd":"stove_wall_end","setup":true,"args":{"arm":"$on:1:0"},"waitS":1,"note":"cancel what is left"},{"cmd":"stove_wall_place","setup":true,"args":{},"waitS":2,"note":"selected Sim back to its spot"},{"cmd":"stove_wall_camera","setup":true,"args":{},"waitS":3,"note":"fixed camera on the whole room, near wall cut away"},{"cmd":"set_speed","setup":true,"args":{"speed":"normal"},"waitS":1,"note":"speed x1 for the recorded part"},{"cmd":"stove_wall_cook","setup":false,"args":{"arm":"$on:1:0"},"waitS":100,"note":"fire: the stove's own menu entry, a baked recipe if the meal time has one"},{"cmd":"set_speed","setup":true,"args":{"speed":"ultra"},"waitS":1,"note":"skip to the next arm"},{"cmd":"stove_wall_end","setup":true,"args":{"arm":"$on:1:0"},"waitS":1,"note":"cancel what is left"}],"arms":["off","on"],"until":{"perArm":1},"maxMinutes":14}}
 ]

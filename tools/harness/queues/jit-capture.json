@@ -1,0 +1,149 @@
+{
+  "note": "jit-capture: [MonoJit] Capture=1 (docs/537 §17, ts3native 0.36.182, asi game-copy/ts3native.asi.jitcap1107): real arguments of the listed methods for the host's replay (tools/jit-replay.ts). Mode=1, Direct=0, Inline=0: a lazy or inlined call does not pass JitEnter, so those stay off. No timing. Writes probe-out/jit-capture-<world>.jitcap (game state, ignored by git, 64 MB cap). Pass per job: no crash, ScriptError count as baseline, 'OK   mono jit capture' in the log, 0 'jit capture: fault' lines, and the last 'jit capture:' line shows samples > 0 and a worst cost near CaptureBudgetUs. Afterwards: node tools/jit-replay.ts --capture probe-out/jit-capture-bp.jitcap --out probe-out/jit-capture-bp.txt --summary; then --run probe-out/jit-capture-bp.txt --mode verify. Run: node tools/harness/queue.ts tools/harness/queues/jit-capture.json --no-smoke",
+  "jobs": [
+    {
+      "id": "bp-jit-capture",
+      "note": "BP 10 min, the jit-verify defaults with Capture=1. Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.jitcap1107",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 911,
+      "logForbid": {
+        "jit capture: fault": 0
+      },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 0,
+        "MonoJit.Inline": 0,
+        "MonoJit.Capture": 1,
+        "MonoJit.CaptureFile": "probe-out/jit-capture-bp.jitcap"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "logRequire": {
+        "OK   mono jit capture": 1
+      }
+    },
+    {
+      "id": "ip-jit-capture",
+      "note": "IP 10 min, the jit-verify defaults with Capture=1. Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.jitcap1107",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 911,
+      "logForbid": {
+        "jit capture: fault": 0
+      },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 0,
+        "MonoJit.Inline": 0,
+        "MonoJit.Capture": 1,
+        "MonoJit.CaptureFile": "probe-out/jit-capture-ip.jitcap"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "logRequire": {
+        "OK   mono jit capture": 1
+      }
+    },
+    {
+      "id": "sv-jit-capture",
+      "note": "SV 10 min, the jit-verify defaults with Capture=1. Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.jitcap1107",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 911,
+      "logForbid": {
+        "jit capture: fault": 0
+      },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 0,
+        "MonoJit.Inline": 0,
+        "MonoJit.Capture": 1,
+        "MonoJit.CaptureFile": "probe-out/jit-capture-sv.jitcap"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "logRequire": {
+        "OK   mono jit capture": 1
+      }
+    }
+  ]
+}

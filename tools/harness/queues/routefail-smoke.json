@@ -1,0 +1,18 @@
+{
+  "note": "routefail-smoke: load smoke of the player test build 0.36.168c-test1 (probe-out/player-builds/routefail-2026-11-07/routefail-test1.zip, v0.2.8 plus KdExemptSeen and route-order logging). The zip's asi, ini and ts3fixes.package exactly (pair routefail1, no ini overrides). One SV job ~5 min, correctness only, no timing. Pass: loads, no crash, ts3native.log first line ts3native 0.36.168c-test1, KdExemptSeen logged, gohere: and kd exempt: lines. Run: node tools/harness/queue.ts tools/harness/queues/routefail-smoke.json --no-smoke",
+  "jobs": [
+    {
+      "id": "sv-routefail-smoke",
+      "note": "SV 5 min: the active Sim runs two Go Here orders (repro routefail-gohere-sv).",
+      "asi": "game-copy/ts3native.asi.routefail1",
+      "iniBase": "game-copy/asi-routefail1/ts3native.ini",
+      "fixesPackage": "game-copy/ts3fixes.package.routefail1",
+      "save": "Baseline-SV-Spring",
+      "run": { "profile": { "seed": 12345, "minutes": 5, "noSamplers": true, "repro": "routefail-gohere-sv" } },
+      "gameArgs": ["-disablestoryprogression"],
+      "pinReason": "routefail1 pair = the player zip routefail-test1.zip, ts3native 0.36.168c-test1",
+      "timeoutMin": 14,
+      "noiseCheck": false
+    }
+  ]
+}

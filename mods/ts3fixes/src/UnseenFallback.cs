@@ -42,8 +42,63 @@ namespace Ts3Fixes
         static int sUfLastWhy, sUfSlowLogged;
         static bool sUfLastMarked, sUfLastCut;
         static Sim sUfLastSim;
+        // Scope-gap counters (counters only, no behaviour change). [854-857, 861] plans whose follower is not a Sim (who == null) that
+        // reach UfPlanBody: Vehicle and IOwnableVehicle / Vehicle not ownable / Vehicle with a household or selectable Sim in
+        // Occupants / not a Vehicle (or no proxy), and the total. [858-860] Sim plans whose why is kNearViewers only through the
+        // viewer bit (not on screen, not reach; household Sims never get here): plans, plans >= 250 ms, total ms. Map view and Sims
+        // without a table row do not count.
+        const int kUfViewerSlowMs = 250, kUfDriverlessLogMax = 50;
+        static bool sUfWhyViewerOnly, sUfLastViewerOnly;
+        static int sUfDriverlessLogged;
+        const int kUfGoalLogMax = 100;  // docs/197 §7 goalhh lines per load
+        static int sUfGoalLogged;
+        static void UfDriverless(IScriptProxy proxy)
+        {
+            int[] c = PatchCounters();
+            c[861]++;
+            Vehicle v = proxy != null ? proxy.Target as Vehicle : null;
+            if (v == null) { c[857]++; return; }
+            bool own = v is IOwnableVehicle;
+            c[own ? 854 : 855]++;
+            bool hh = false;
+            Sim[] occ = v.Occupants;
+            if (occ != null)
+                for (int i = 0; i < occ.Length; i++)
+                    if (occ[i] != null && (occ[i].IsSelectable || occ[i].Household == Household.ActiveHousehold)) { hh = true; break; }
+            if (hh) c[856]++;
+            if (sUfDriverlessLogged < kUfDriverlessLogMax)
+            {
+                sUfDriverlessLogged++;
+                Lot ol = v.GetOwnerLot();
+                DiagLine("ufdriverless: " + v.GetType().Name + (own ? " ownable" : " not ownable") + (hh ? " household occupant" : "") + (ol != null ? " ownerlot " + ol.LotId : ""));
+            }
+        }
+        // docs/249 household rule, driverless routes (Rodney 2026-11-07): unseen (0) only for a Vehicle that is not an IOwnableVehicle and has no household
+        // occupant (ambient traffic, NPC boats); anything else without a Sim (an ownable vehicle, a vehicle with a household occupant, no vehicle at all)
+        // is household (UnseenFallbackCore.kHousehold) and keeps its cuts off
+        static int UfDriverlessWhy(IScriptProxy proxy)
+        {
+            try
+            {
+                Vehicle v = proxy != null ? proxy.Target as Vehicle : null;
+                if (v == null || v is IOwnableVehicle) return UnseenFallbackCore.kHousehold;
+                Sim[] occ = v.Occupants;
+                if (occ != null)
+                    for (int i = 0; i < occ.Length; i++)
+                        if (occ[i] != null && (occ[i].IsSelectable || occ[i].Household == Household.ActiveHousehold)) return UnseenFallbackCore.kHousehold;
+                return 0;
+            }
+            catch (Exception) { return UnseenFallbackCore.kHousehold; }
+        }
         static void UfSlowPlanLog(int kind, int ms)
         {
+            if (sUfLastViewerOnly)
+            {
+                int[] vc = PatchCounters();
+                vc[858]++;
+                if (ms >= kUfViewerSlowMs) vc[859]++;
+                if (ms > 0) vc[860] += ms;
+            }
             if (ms < kUfSlowPlanMs || sUfSlowLogged >= kUfSlowPlanLogMax) return;
             sUfSlowLogged++;
             Sim s = sUfLastSim;
@@ -66,6 +121,7 @@ namespace Ts3Fixes
         }
         static int UfWhyBody(Sim s)
         {
+            sUfWhyViewerOnly = false;
             if (!GameStates.IsLiveState || GameStates.IsTravelling || GameStates.IsWorldShuttingDown) return UnseenFallbackCore.kNotLive;
             if (s == null || s.HasBeenDestroyed || s.SimDescription == null) return UnseenFallbackCore.kGone;
             if (s.IsSelectable || s.Household == Household.ActiveHousehold) return UnseenFallbackCore.kHousehold;
@@ -77,6 +133,7 @@ namespace Ts3Fixes
             {
                 int w = (b & kUtbOnScreen) != 0 ? UnseenFallbackCore.kOnScreen : (b & (kUtbReach | kUtbViewer)) != 0 ? UnseenFallbackCore.kNearViewers : -1;
                 if (sUtbCheck) UtbCompare(w < 0, !UcOnScreen(s) && UfPosUnseen(s.Position, kUfSimRadiusM));
+                sUfWhyViewerOnly = w == UnseenFallbackCore.kNearViewers && (b & (kUtbOnScreen | kUtbReach)) == 0;
                 if (w >= 0) return w;
             }
             else
@@ -722,7 +779,7 @@ namespace Ts3Fixes
             RoutePlanResult UfPlan(int kind, Vector3 p)
             {
                 int t0 = System.Environment.TickCount;
-                sUfLastWhy = -1; sUfLastMarked = sUfLastCut = false; sUfLastSim = null;
+                sUfLastWhy = -1; sUfLastMarked = sUfLastCut = sUfLastViewerOnly = false; sUfLastSim = null;
                 RoutePlanResult r;
                 ulong task = Simulator.CurrentTask.Value;
                 sUfPlanDepth.Enter(task);  // §3.9.6: > 1 in this task = a plan inside another plan's callback (PostPlan / AboutToPlan)
@@ -737,7 +794,7 @@ namespace Ts3Fixes
                             default: r = ReplanFromPointAsync(p); break;
                         }
                 }
-                finally { sUfPlanDepth.Exit(task); }
+                finally { sUfPlanDepth.Exit(task); DiagSend(12, Handle); }  // docs/197 §7: this plan's scope ends here
                 UrLearn ln;
                 if (sUrLearn.Count > 0 && sUrLearn.TryGetValue(this, out ln))  // §3.9.7 (C): this plan's result is the lesson
                 {
@@ -761,16 +818,24 @@ namespace Ts3Fixes
                 r = default(RoutePlanResult);
                 bool pre = kind == 0 && (ShortcutOn("unseenfbpre") || ShortcutOn("unseenfbarrive") || ShortcutOn("unseenroute"));
                 bool leave = kind == 0 && ShortcutOn("unseenfbleave");
-                if (!pre && !leave && !ShortcutOn("unseenfbplan")) return false;
                 IScriptProxy proxy = Follower;
                 Sim sim = proxy != null ? proxy.Target as Sim : null;
+                bool ownCheck = sStuckIn || sInOwnCheck || sInRoutableCheck || sUfInLeg;
+                Sim who = sim;  // docs/249: a vehicle by its driver, no driver = unseen (traffic, NPC boats); a pet or a stuck check by its Sim
+                if (who == null) { Vehicle v = proxy != null ? proxy.Target as Vehicle : null; who = v != null ? v.Driver : null; }
+                int driverlessWhy = 0;
+                if (who == null && !ownCheck) { UfDriverless(proxy); driverlessWhy = UfDriverlessWhy(proxy); }  // scope-gap counters; the household rule for a route without a driver
+                int why = who != null ? SafeUfWhy(who) : driverlessWhy;
+                if (why == 0 && who != null && !ownCheck && ShortcutOn("goalhhexempt")) why = UfGoalWhy(who, kind);  // docs/197 §7
+                if (sim != null && !ownCheck && sim.SimDescription != null && !sim.SimDescription.IsPet) sUfLastViewerOnly = sUfWhyViewerOnly;  // scope-gap counters: viewer-only 80 m
+                DiagSend(why == 0 ? 11 : UnseenFallbackCore.SeenNpc(why) ? 13 : 10, Handle);  // docs/197 §7 [RouteAsync] KdExemptSeen: this route's scope for its START or sync plan (13 = seen NPC, KdSeenNpcCeilMs); first thing in every plan, these switches or not
+                if (!pre && !leave && !ShortcutOn("unseenfbplan")) return false;
                 // never: stuck-check probes (phase B), our own route checks, IsPointInLotSafelyRoutable, non-Sims, pets, D-leave's own leg
-                if (sim == null || sStuckIn || sInOwnCheck || sInRoutableCheck || sUfInLeg || sim.SimDescription == null || sim.SimDescription.IsPet)
+                if (sim == null || ownCheck || sim.SimDescription == null || sim.SimDescription.IsPet)
                     return false;
                 int[] c = PatchCounters();
-                int why = UfWhy(sim);
                 sUfLastWhy = why; sUfLastSim = sim;
-                if (why != 0 && sUrPlaced.Count > 0 && sUrPlaced.ContainsKey(sim.ObjectId.Value) && UrRepairSim(sim)) sUrPlaced.Remove(sim.ObjectId.Value);  // §3.9.7 (D)
+                if (why != 0 && why != UnseenFallbackCore.kGoalHousehold && sUrPlaced.Count > 0 && sUrPlaced.ContainsKey(sim.ObjectId.Value) && UrRepairSim(sim)) sUrPlaced.Remove(sim.ObjectId.Value);  // §3.9.7 (D)
                 if (why != 0)
                 {
                     if (leave && UnseenFallbackCore.SeenButMovable(why) && UfLeave(sim, GetApproximateOriginalDestination(), out r)) return true;
@@ -814,6 +879,55 @@ namespace Ts3Fixes
                 if (kind == 0 && ShortcutOn("unseenfbteleport") && Simulator.CurrentTask == sim.ObjectId && UfTeleport(sim, dest, out tr)) { r = tr; return true; }
                 sUf.Cut(id, x, y, z, System.Environment.TickCount, r);
                 return true;
+            }
+
+            // docs/197 §7 goalhhexempt: an unseen NPC whose route works for the household (the household lot as goal, a household
+            // Sim as the target at its queue head, or a household Sim's current target) is not unseen for this plan: kGoalHousehold,
+            // so no unseen feature takes the route and native gets the seen NPC scope. Only why 0 reaches here, so a household
+            // target of the current interaction never does (UfWhy: kSocialSeen). A check that throws exempts.
+            int UfGoalWhy(Sim who, int kind)
+            {
+                bool ok = false, lot = false, target = false, wanted = false;
+                try
+                {
+                    Household h = Household.ActiveHousehold;
+                    Lot home = Household.ActiveHouseholdLot;
+                    Vector3 dest = GetApproximateOriginalDestination();
+                    lot = home != null && dest != Vector3.Origin && dest != Vector3.Invalid && LotManager.GetLotAtPoint(dest) == home;
+                    target = !lot && h != null && UfHeadHousehold(who, h);
+                    wanted = !lot && !target && h != null && UfHouseholdWants(who, h);
+                    ok = true;
+                }
+                catch (Exception) { }
+                int reason = UnseenFallbackCore.GoalReason(ok, lot, target, wanted);
+                if (reason == UnseenFallbackCore.kGoalNone) return 0;
+                PatchCounters()[UnseenFallbackCore.kGoalCounter + reason]++;
+                if (sUfGoalLogged < kUfGoalLogMax)
+                {
+                    sUfGoalLogged++;
+                    DiagLine("goalhh: " + who.FullName + " kind " + kind + " exempt, " + (reason == UnseenFallbackCore.kGoalLot ? "household lot" : reason == UnseenFallbackCore.kGoalTarget ? "household target" : reason == UnseenFallbackCore.kGoalWanted ? "household Sim's target" : "check failed"));
+                }
+                return UnseenFallbackCore.kGoalHousehold;
+            }
+
+            // shortcut: the head only, not the rest of the queue (InteractionList is a boxed enumerator); walk it if a missed case shows up
+            static bool UfHeadHousehold(Sim s, Household h)
+            {
+                var q = s.InteractionQueue;
+                var i = q != null ? q.GetHeadInteraction() : null;
+                Sim t = i != null ? i.Target as Sim : null;
+                return t != null && t != s && (t.IsSelectable || t.Household == h);
+            }
+
+            // only the household's Sims, not the town; AllActors builds a new list, paid only by plans of Sims already why 0
+            static bool UfHouseholdWants(Sim s, Household h)
+            {
+                foreach (Sim m in h.AllActors)
+                {
+                    var i = m != null ? m.CurrentInteraction : null;
+                    if (i != null && ReferenceEquals(i.Target, s)) return true;
+                }
+                return false;
             }
 
             // docs/202 §3.5 D (switch unseenfbpre): an unseen townie's own Route.Plan, made by a RoutingComponent helper that follows

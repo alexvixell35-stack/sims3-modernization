@@ -1,0 +1,53 @@
+{
+  "note": "docs/191 step 2: [CasTrim] forced repro on Baseline-BP (outfit churn, AgeSec 60 s). Native change: needs a build of this branch at game-copy/asi-castrim/ts3native.asi.",
+  "jobs": [
+    {
+      "id": "bp-castrim-outfits",
+      "note": "Correctness (16 min): repro castrim-outfits with the trim on (native_set castrim 1). Pass: the repro's steps pass, ctErased >= 1 by 6 min, ctMissed 0 throughout, ctOtherThread 0",
+      "asi": "game-copy/asi-castrim/ts3native.asi",
+      "pinReason": "a build of fix/cas-registry-trim (native change)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "CasTrim.Install": 1,
+        "CasTrim.AgeSec": 60
+      },
+      "run": {
+        "profile": {
+          "minutes": 16,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "castrim-outfits"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 32,
+      "earlyGates": [
+        {
+          "afterSec": 360,
+          "counter": "ctErased",
+          "op": ">=",
+          "value": 1,
+          "why": "nothing erased 6 min in: detours not in, no outfit builds, or no compositor at 2 references unused for 60 s"
+        },
+        {
+          "afterSec": 30,
+          "counter": "ctMissed",
+          "op": "<=",
+          "value": 0,
+          "why": "a find of an erased key failed: a Sim wanted a trimmed texture back"
+        },
+        {
+          "afterSec": 30,
+          "counter": "ctOtherThread",
+          "op": "<=",
+          "value": 0,
+          "why": "registry inserts from a second thread: the walk does not run there (I-942-4)"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": true
+}

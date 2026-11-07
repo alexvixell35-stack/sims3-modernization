@@ -106,7 +106,7 @@ namespace Ts3Agent
                 throw new McpException("only " + pts.Count + " of " + picks.Count + " floor picks hit"
                     + (double.IsNaN(plane) ? "" : " the plane at y=" + Math.Round(plane, 2))
                     + (picks.Count > 0 ? " (pick heights " + Math.Round(ymin, 2) + ".." + Math.Round(ymax, 2) + ")" : "")
-                    + "; point the camera at the lot");
+                    + "; 285 points tried on the " + w + "x" + h + " window, " + (285 - picks.Count) + " found no floor tile (bare ground is no floor): point the camera at a floored lot");
             double[] H = ScreenFit.FitHomography(pts);
             Dictionary<string, object> r = Util.Obj();
             r["samples"] = pts.Count;

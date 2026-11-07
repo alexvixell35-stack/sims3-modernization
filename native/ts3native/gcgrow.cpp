@@ -42,15 +42,16 @@ static const DWORD GW_TEXT_LO = 0x00401000, GW_TEXT_HI = 0x00F95000;
 static const DWORD GW_XML = 0x0076D290;  // IC_Simulator_LoadXmlAsString(ulong instance, uint group, uint type) -> string
 static const DWORD* const GW_LARGE_FREE = (const DWORD*)(uintptr_t)0x012225B4;  // GC_large_free_bytes
 struct GwBoehm {  // GC_allochblk_nth inputs; the selftest points them at fakes
-    const DWORD *useEntire, *dontGc, *requested, *collectAt, *largeAllocd, *maxLargeAllocd, *freeBytes, *finFreedW, *blSpacing,
-        *warnSupp, *warnIval;
+    const DWORD *useEntire, *dontGc, *requested, *collectAt, *largeAllocd, *maxLargeAllocd, *freeBytes, *finFreedW;
+    DWORD* blSpacing;  // written by the streak guard (GwExpand)
+    const DWORD *warnSupp, *warnIval;
     GwFn0 shouldCollect, adj, min;
 };
 static GwBoehm g_gwb = {(const DWORD*)(uintptr_t)0x011F2D98, (const DWORD*)(uintptr_t)0x011F30A8,
                         (const DWORD*)(uintptr_t)0x012225A8, (const DWORD*)(uintptr_t)0x01194818,
                         (const DWORD*)(uintptr_t)0x012225B8, (const DWORD*)(uintptr_t)0x012225BC,
                         (const DWORD*)(uintptr_t)0x011F2E98, (const DWORD*)(uintptr_t)0x012225D8,
-                        (const DWORD*)(uintptr_t)0x0119482C, (const DWORD*)(uintptr_t)0x011F30C4,
+                        (DWORD*)(uintptr_t)0x0119482C, (const DWORD*)(uintptr_t)0x011F30C4,
                         (const DWORD*)(uintptr_t)0x011949B8, (GwFn0)(uintptr_t)0x00E49950,
                         (GwFn0)(uintptr_t)0x00E49900, (GwFn0)(uintptr_t)0x00E498B0};
 // push ecx; mov ecx,[esp+14h]; mov edx,[esp+10h]
@@ -66,6 +67,11 @@ static GwLines g_gwRing[20];  // the last 20 expansions, formatted
 static int g_gwRingN;
 static bool g_gwCrossed;
 static DWORD g_gwStreakGc = 0xFFFFFFFF;  // GC_gc_no of the current expand streak
+static DWORD g_gcCapBytes;               // [GC] BlackListCapKB in bytes (0 = off)
+static const LONG GW_STREAK_PUNT = 3;    // 232 of 233 runs never reach streak 2 (2026-11-03..07 logs)
+// Runtime switch (native_set gcstreakat, repro gc-streak-guard): the streak at which the spacing drops. Another value = guard off
+// with a stop at that streak ("gc expand streak test stop:"); 0 = no guard and no stop, the address space runs out (docs/67 §35).
+extern "C" __declspec(dllexport) volatile LONG ts3native_gc_streak_at = GW_STREAK_PUNT;
 
 static DWORD GwRead(const DWORD* p) {
     __try { return *p; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
@@ -112,6 +118,17 @@ static int __cdecl GwExpand(DWORD blocks, DWORD needed, const DWORD* sp) {
     if (gcNo != g_gwStreakGc) k.gcExpandStreak = 0, g_gwStreakGc = gcNo;
     if (++k.gcExpandStreak > k.gcExpandStreakMax && (k.gcExpandStreakMax = k.gcExpandStreak) >= 2)
         Log("gc expand streak %ld: %lu blocks needed, no collection since gc_no %lu", k.gcExpandStreak, needed, gcNo);
+    // docs/67 §35: a request at or below the spacing is never punted, new sections hold black-listed pages too and only a
+    // collection refreshes the lists, so the heap took the whole address space (824 KB string, cap 1024 KB). The next GC_promote_black_lists rewrites this.
+    const LONG streakAt = ts3native_gc_streak_at;
+    if (g_gcCapBytes && streakAt && k.gcExpandStreak == streakAt) {
+        char w[700];
+        GwWhy(needed, after, GwRead(g_gwLargeFree), w, sizeof(w));
+        Log("gc expand streak %s: %lu blocks needed, spacing %lu KB -> 12 KB (stack black-listed blocks %lu, gc_no %lu); %s",
+            streakAt == GW_STREAK_PUNT ? "guard" : "test stop", needed, GwRead(g_gwb.blSpacing) >> 10,
+            GwRead((const DWORD*)(uintptr_t)0x0123435C), gcNo, w);
+        *g_gwb.blSpacing = 0x3000;
+    }
     if (!r) k.gwFails++;
     k.gwKB += (LONG)((after - before) >> 10);
     const LONG askKB = (LONG)(blocks << 2);
@@ -193,7 +210,7 @@ static const Site kBlPunt[] = {{0x00E49540, {0xFF, 0x15, 0xC0, 0x49, 0x19, 0x01}
 typedef void(__cdecl* GwWarnFn)(const char* fmt, DWORD arg);
 static void* const* g_gwWarnProc = (void* const*)(uintptr_t)0x011949C0;  // GC_current_warn_proc (Mono sets it after GC_init)
 static LONG g_gwWarnEvery = 5;  // GC_large_alloc_warn_interval before we set it to 1
-static DWORD g_gcCapBytes, g_gcT0;  // cap in bytes (0 = off), GetTickCount at init
+static DWORD g_gcT0;                // GetTickCount at init
 static bool g_gcStrict;             // the 8 MB clamp is back (a world is loaded and playing)
 
 static void __cdecl GcBlackOk(const char* fmt, DWORD bytes) {

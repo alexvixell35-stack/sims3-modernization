@@ -436,8 +436,18 @@ static const AsDesc kAsDesc[] = {
     // only, never by the worker. (ulong obj, Vector3, float) -> uint tree count.
     AS_D("ScriptCore.World::World_GetInformationAboutRoomImpl", AO_CUT, AK_STRUCT, 4, 24, 0, AS_AB_OTHER),
     AS_D("ScriptCore.World::World_TreesWithinRadialRangeImpl", AO_CUT, AK_INT, 6, 4, 0, AS_AB_OTHER),
+    // docs/219 §2 four shared tier-2 rows, last so [AutShadow] Tier2Rows=0 leaves them out of the guard lookup (the worker
+    // then aborts `ic` as before). (ulong obj) -> bool (the extern takes the object id, not a position as docs/219 said),
+    // float, Vector3; (Vector3 pos) -> ulong pool id, build-time data keyed like IsPositionOutside. Filled on the sim thread
+    // only; layouts [inferred, I-428-1], Audit=50 and the autofft2 Mode R item compare them (ledger §428).
+    AS_D("ScriptCore.World::World_IsOnRoofImpl", AO_OBJ, AK_INT, 2, 1, 0, AS_AB_ROW),
+    AS_D("ScriptCore.Objects::Objects_GetHeightAboveFloor", AO_OBJ, AK_FP, 2, 4, 0, AS_AB_ROW),
+    AS_D("ScriptCore.Objects::Objects_GetForward", AO_OBJ, AK_STRUCT, 2, 12, 0, AS_AB_ROW),
+    AS_D("ScriptCore.World::World_GetPoolObjectIdForPoolBelowPositionImpl", AO_WORLD, AK_INT, 3, 8, 0, AS_AB_POS),
 };
 static const int AS_NDESC = sizeof(kAsDesc) / sizeof(kAsDesc[0]);
+static const int AS_NT2 = 4;  // the docs/219 rows at the end of kAsDesc
+static bool g_asTier2Rows;    // [AutShadow] Tier2Rows
 
 // guard state
 static const int AS_MAXIC = 2048;
@@ -2979,7 +2989,7 @@ static int AsInstallGuards(DWORD* lo, DWORD* hi, DWORD imgLo, DWORD imgHi, DWORD
         if (!chained && (fn < textLo || fn >= textHi)) continue;
         const char* s = (const char*)(uintptr_t)name;
         const AsDesc* d = NULL;
-        for (int i = 0; i < AS_NDESC && !d; i++) if (!strcmp(s, kAsDesc[i].name)) d = &kAsDesc[i];
+        for (int i = 0; i < (g_asTier2Rows ? AS_NDESC : AS_NDESC - AS_NT2) && !d; i++) if (!strcmp(s, kAsDesc[i].name)) d = &kAsDesc[i];
         const bool route = !strncmp(s, "ScriptCore.Route::", 18);  // H12: guarded with Guard=closure too
         if ((!all && !d && !route) || g_asIcN >= AS_MAXIC) { k.guardSkipped++; continue; }
         const int idx = g_asIcN;
@@ -3020,6 +3030,8 @@ static bool ApplyAutShadow(const wchar_t* ini) {
     GetPrivateProfileStringW(L"AutShadow", L"Guard", L"all", guard, 16, ini);
     g_asAudit = GetPrivateProfileIntW(L"AutShadow", L"Audit", 50, ini);
     if (GetPrivateProfileIntW(L"AutShadow", L"Ledger", 0, ini)) g_asLedger = true, ts3native_autshadow.lgOn |= 1;
+    g_asTier2Rows = GetPrivateProfileIntW(L"AutShadow", L"Tier2Rows", 0, ini) != 0;
+    Log("autonomy shadow: Tier2Rows=%d (docs/219 four shared rows)", g_asTier2Rows ? 1 : 0);
     const u8* base = (const u8*)GetModuleHandleW(NULL);
     const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
     const IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);

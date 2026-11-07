@@ -106,6 +106,8 @@ Worker: per motive, run `UpdateMotiveWithDecay` through a closed delegate on a *
 
 Verdict: not built. Revisit after env and bcast go live and the docs/206 window exists; first step would be a Mode R with clones to measure blocker 1 and 2 hit rates.
 
+**Redesign 2026-11-06 (docs/245):** dropped. Unseen Sims are 1.7-3.5% of this path and decay is ~4.8 ms/s, so no off-thread design pays.
+
 ### 4.3 Riders from docs/209 #93 (static, 2026-10-30)
 
 **`Motive.EarlyOutMotiveUpdate` (~2.3 ms/s [inferred: 12 of the 132 pooled `Motive.Update` samples, docs/129 §2.3]).** The first call in `Motive.Update`; it decides whether the motive skips its update this pass. Checks in order: lifetime-reward and trait maxima (Steel Bladder for bladder, Maintenance Master for a bot's maintenance), the static-needs cheat for selectable Sims, `AutonomyRestrictions.IsMotiveDecayEnabled` (static mood-contributor flag, the description's `MotivesDontDecay`, the autonomy level), and for fatigue the Athletic skill's "prevent fatigue" test (current interaction's definition type vs body builder / fitness nut). [verified, decompile]
@@ -195,3 +197,44 @@ With Mode R on, the reference at the cut repeats the worker's work on the sim th
 | Counters 486-490 | bcast: ready, applied, apply_none, apply_stale, dry_order (same Sims and order as the game) |
 | Changed meaning | 465 `autoff_bcast_dry_eq` = same Sims (any order); 455-456 read the ready store |
 | Queue | `tools/harness/queues/offload3-act.json` (smoke + env BP/IP + bcast BP/IP, Satb=2, Mode R + apply + dry; gated on `satb-act.json` and `offload3-moder.json` passing; not run) |
+
+## 9. Tier-2 rows and closest visible lot in Mode R; zombies not built (2026-11-06, audit O7, O13, ledger §428, not run)
+
+Two more items on the batch's cut, Mode R only, behind test switches that are off. No apply, so no sim-thread time moves yet. Queue `tools/harness/queues/offload-ranks.json` (smoke + BP and IP verify, repro `offload-ranks-camera`), pinned to the `feature/mono-offthread` pair as `game-copy/ts3native.asi.mono-offthread` and `game-copy/ts3fixes.package.mono-offthread`; both must be parked with these switches merged before it runs.
+
+### 9.1 The four shared tier-2 rows (docs/219 §2, switch `autofft2`, ini `[AutShadow] Tier2Rows`)
+
+- **Native:** four rows at the end of `kAsDesc`. `World_IsOnRoofImpl`, `Objects_GetHeightAboveFloor` and `Objects_GetForward` are object rows, `World_GetPoolObjectIdForPoolBelowPositionImpl` a position row keyed like `World_IsPositionOutsideImpl`. Filled by the game's body on the sim thread, never called by the worker. `Tier2Rows=0` (default) cuts exactly these four from the guard lookup, so the worker aborts `ic` as before. The extern of `World_IsOnRoofImpl` takes the object id, not a position as docs/219 §2 says [verified, decompiled extern]; layouts otherwise from the externs, the bodies were not read in the disassembly [inferred, I-428-1].
+- **Item:** each batch the actor (no pool row: its position key moves) and up to 15 objects of its lot, a different run each batch. The driver reads `IsOnRoof`, `HeightAboveFloor`, `ForwardVector` and the pool id on both sides at the cut. A0 = all bits equal.
+- **What this does not do:** no definition joins the allow-list. `kDefNames` is still the 12 meta definitions of v0 and `ScoreMeta` scores only meta objects [verified, `AutShadow.cs`], while the 76 definitions of docs/219 are mostly local-phase ones. They need the local-phase driver (docs/124 rank 1b, 14-22 h [inferred]) plus their guard lists. The rows are the Mode R step docs/219 §4 asks for before that, and gain nothing on their own.
+
+### 9.2 Closest visible lot (docs/129 rank 4, switch `autofflot`)
+
+- **Closure** (`tools/offload3-closure.ts`, candidates `lot`, `lot-whole`, rows in `docs/data/offload3-closure.csv`) [verified: tool output]: read part 381 methods, 11 ICs (7 a*, 2 c*, 2 a), 0 yield, 0 event, 0 static write. `lot-whole`'s only static write is `sCurrentFocusedGreetedLot`; the driver leaves it and `LotFocusChanged` to the sim thread. `Lot.Corners` and `WorldToLotTransform` are plain fields, so the pick has no row of its own. The two a ICs are `Query_GetGlobalObjects` (a row since 0.36.10) and `World_GetHouseboatDisplayToWorldPositionImpl` (no row: a houseboat lot aborts `ic`).
+- **Static collections:** `Situation.sAllSituations` is only walked. `GameUtils.WorldNameToType` gets an `Add` on the first `UserCreated` lookup, so the request calls `GetCurrentWorldType` on the sim thread first.
+- **Request** (sim thread): selected household's base lot list, each household Sim's lot, inside flag and level flag, the camera target, the hour, the active and world lots. A Sim's `IsOutside` is a position-keyed row that misses for a walking Sim, so it is read here. At most 32 Sims, else no item.
+- **Driver `LotPick`:** the candidate list, then the closest lot, in the game's order. `ComputeQuadrantAndDistanceFromLot` returns a private enum, so the rule is restated from behaviour in `AutOffloadCore` (`LotCell`, `LotCellDist`, `LotPickStep`, selftest `tools/selftest/autoffload`). A0 = same pick, same focus lot, same distance bits. Both sides run this driver, so A0 alone does not prove it equals the game.
+- **Dry check** (`autoffdry`): a hook on `Camera.GetClosestVisibleLot` compares the kept pick, at most 15 ticks old and once per pick, with the game's result, which it always returns. This is the check against the game's code (I-428-4) and the staleness an apply would see.
+- **Mod check:** NRaas does not touch this method (`NRaasTraveler` only reads `LotManager.FocusLot`); a web search found no fix for it.
+
+### 9.3 Zombies on lot (docs/129 rank 5): not built, fails static safety
+
+Closure candidates `zomb`, `zomb-whole` [verified: tool output, decompiled class]. I-129-5 ("the per-lot counts are pure reads") is refuted:
+
+- `ZombieDanceTimeOut.Instance()` writes the static `mObject` when empty. `HasStereoOnTheLot`, the `get_HasZombieDanceStereo` read, writes `ZombieDanceInfo.mStereoId` when the stereo is gone. `GetTimeOutOnTheLot` adds to `mZombieDanceTimeOutOnLots` on a miss. That is persisted data in a shared dictionary, so the game's getters cannot run on the worker.
+- The yields and class-b ICs are not on the time-out branch as docs/129 §2.5 says: `zomb-whole` (4,564 methods, 8 yields, 79 w ICs) reaches them through `AddZombieDanceStereo`.
+- The largest cost cannot move: `UpdateTimeOutOnTheLots` (11 of 24 samples [measured, docs/129]) writes `mTimeOut` every update. `mSearchForZombieInterval` is a lot field written every update too. `NumZombiesOnLot` runs only every 3 sim-minutes (`kSearchForZombieInterval`), so only the stereo read's 8 of 24 samples could move, about a third of the cost rather than the ~3.5 ms/s of docs/129 [inferred].
+- What the two per-tick calls do is mostly a failed dictionary lookup per lot. A skip on the sim thread while that dictionary has no entry would be exact and needs no worker [inferred, not built, not measured]; docs/129 §2.5 already called the in-place memo a tie.
+
+### 9.4 Counters, switches, gates
+
+| What | Where |
+|---|---|
+| Switches (default off, need `autshadow`) | `autofft2`, `autofflot` (`autoffdry` for the dry check) |
+| Ini | `[AutShadow] Tier2Rows=0`; the log line `autonomy shadow: Tier2Rows=` reads it back |
+| Counters 763-768 | `autoff_t2_items`, `_a0`, `_a2`, `_a4`, `_a5`, `_exc` |
+| Counters 769-776 | `autoff_lot_items`, `_a0`, `_a2`, `_a4`, `_a5`, `_exc`, `_dry`, `_dry_eq` |
+| Abort reasons | `autoff_reasons` is now int[96]: t2 48-71, lot 72-95 |
+| Records | `off-t2`, `off-lot` in `autshadow.jsonl` |
+
+Gates: A0 > 0, A2 = 0, exceptions 0, autonomy A1-A3 still 0. Apply for the lot pick only if `dry_eq / dry` is high with the camera moving, and the docs/129 ~2.7 ms/s needs `kHoursMemo` on (off by default).

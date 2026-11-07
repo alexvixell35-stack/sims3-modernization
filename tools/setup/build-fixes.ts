@@ -1,6 +1,6 @@
 // Compiles mods/ts3fixes (the player mod with the stutter fixes, docs/04 F8-F12) against the game's own DLLs and packs
 // it into build/ts3fixes.package. Windows-only by nature: it needs the .NET Framework C# compiler (csc.exe, C# 5).
-//   node tools/setup/build-fixes.ts [--on kTuningA,kTuningB]   (--on: also a package with those tunings True)
+//   node tools/setup/build-fixes.ts [--on kTuningA,kTuningB=value]   (--on: also a package with those tunings True, or =value)
 // Also builds the TEST-ONLY mod mods/portalplan-test (MonoPatcher [TypePatch] on Lot.OnPortalPathPlan, docs/94 §20 job 17)
 // into build/ts3-portalplan-test.package when MonoPatcher's package is in the installer cache; skipped otherwise.
 import { execFileSync } from 'node:child_process';
@@ -56,7 +56,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kDetailPriorityCache value="False" />
     <kHoursMemo value="False" />
     <kVenueMemo value="False" />
-    <kAutLive value="False" />
+    <kAutLive value="True" />
     <kAutLiveGuard value="True" />
     <kAutLiveGuardOffPm value="1000" />
     <kAutLiveGuardOnPm value="800" />
@@ -71,7 +71,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kAutUnseenPacePct value="78" />
     <kSafeSpotReuse value="False" />
     <kWildflowerProbe value="False" />
-    <kWildflowerTask value="False" />
+    <kWildflowerTask value="True" />
     <kCaneEarlyOut value="False" />
     <kTooltipThrottle value="False" />
     <kDoorMirror value="False" />
@@ -81,9 +81,13 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenEnvThrottle value="False" />
     <kUnseenMotiveThrottle value="False" />
     <kUnseenBroadcastThrottle value="False" />
+    <kUnseenPark value="False" />
+    <kUnseenParkMinutes value="30" />
+    <kUnseenParkStaggerTicks value="16" />
     <kUnseenThrottleEvery value="4" />
     <kUnseenBroadcastEvery value="16" />
     <kUnseenCarThrottle value="False" />
+    <kHitchCauseHooks value="False" />
     <kWakeHooks value="False" />
     <kWakePark value="False" />
     <kWakePoll value="False" />
@@ -121,10 +125,13 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenFallbackLeave value="True" />
     <kUnseenFallbackTrip value="False" />
     <kUnseenFallbackTripHold value="False" />
+    <kGoalHouseholdExempt value="True" />
     <kUnseenFallbackLoopDetect value="True" />
     <kUnseenFallbackLoopBreak value="False" />
     <kUnseenFallbackFinish value="False" />
     <kUnseenRouteRelaxed value="False" />
+    <kUnseenBoat value="False" />
+    <kUnseenBoatStart value="False" />
     <kPosturePopCycle value="False" />
     <kOverwatchIgnoreStuckProbes value="True" />
     <kSeasonImposter value="False" />
@@ -155,6 +162,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kRewardGiver value="False" />
     <kDatingProfile value="True" />
     <kLeaveJobDispose value="True" />
+    <kInvNotYet value="False" />
+    <kMetricSkillMissing value="False" />
+    <kFireworksFizzle value="False" />
+    <kPetPoolOrphan value="False" />
+    <kRelTablesApart value="False" />
     <kAsyncJigSync value="True" />
     <kDeadRefSweep value="False" />
     <kVacExport value="False" />
@@ -198,6 +210,13 @@ if (onArg > 0) {
   const names = (process.argv[onArg + 1] ?? '').split(',').filter(Boolean);
   let xml = TUNING_XML;
   for (const n of names) {
+    const [key, value] = n.split('=');
+    if (value !== undefined) { // any tuning, e.g. kAutUnseenPacePct=50 or kAutLive=False
+      const line = new RegExp(`<${key} value="[^"]*" />`);
+      if (!line.test(xml)) { console.error(`--on: ${key} is not in TUNING_XML`); process.exit(1); }
+      xml = xml.replace(line, `<${key} value="${value}" />`);
+      continue;
+    }
     const off = `<${n} value="False" />`;
     if (!xml.includes(off)) { console.error(`--on: ${n} is not a False tuning in TUNING_XML`); process.exit(1); }
     xml = xml.replace(off, `<${n} value="True" />`);
@@ -208,7 +227,7 @@ if (onArg > 0) {
   ]);
   const vOut = join(outDir, `ts3fixes-on-${names.join('-')}.package`);
   writeFileSync(vOut, variant);
-  console.log(`built ${vOut} (${variant.length} bytes, ${names.join(', ')} on)`);
+  console.log(`built ${vOut} (${variant.length} bytes, ${names.join(', ')})`);
 }
 
 // Test-only mod. MonoPatcher has no license, so its DLL never goes in the repo: take it from install-fixes.ts's unpacked download.

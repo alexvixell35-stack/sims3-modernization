@@ -285,11 +285,13 @@ The realistic range straddles the ~30 ms/s rule. It rests on the same offline-to
 
 ### 8.5 Go / stop for the full compiler (P1-P3)
 
-**Conditional GO for P1**, gated in this order:
+**Changed 2026-11-06 (Rodney R2):** the compiler is measured statically: coverage plus correctness gates. Gains are small per step and add up, so no ms/s bar stops the lane. The ms/s stop rules here (the ~30 ms/s rule, "under ~3 ms/s: stop" in point 2) are removed; §7.6's verdict is kept as history.
+
+**GO for P1** (was conditional), in this order:
 
 1. Quiet-machine rerun of the four arms: **done** (§8.3): stock -> fast + compiler -15.9%, with inlining -18.0%: at the bar, not above it. The offline case alone does not carry P1.
-2. `mintcall-verify` passes (0 mismatches in game, BP / IP / SV), then `mintcall-ab` shows the fast path saving **at least ~5 ms/s** Mono time on BP and IP. **Under ~3 ms/s: STOP** the compiler too, since its projection uses the same scaling.
-3. P1 scope then: lazily built frames for compiled-to-compiled calls (records and `MonoInvocation` written only when an exception, a yield or a native transition needs them: the real "direct call"), Sims3Gameplay accessor coverage measured on a world image (docs/123 M3, so the game's accessors can run offline), inlining tier 2 (null-checked `ldfld` on any base with an exit before any write, value-type `this` through `call`). P2 / P3 (register allocation, wider templates) only after P1's in-game number.
+2. `mintcall-verify` passes (0 mismatches in game, BP / IP / SV). Report static numbers per step: methods and IL compiled, exits, instructions per opcode against the interpreter, coverage weighted by call counts. Correctness gates stay: verify mode, IL-hash guard, corpus, crash runs.
+3. P1 scope then: lazily built frames for compiled-to-compiled calls (records and `MonoInvocation` written only when an exception, a yield or a native transition needs them: the real "direct call"), Sims3Gameplay accessor coverage measured on a world image (docs/123 M3, so the game's accessors can run offline), inlining tier 2 (null-checked `ldfld` on any base with an exit before any write, value-type `this` through `call`). P2 / P3 (register allocation, wider templates) only after P1's correctness gates pass.
 
 Commands (monohost, `native/monohost/out`): stock `MONOHOST_JIT=on`; fast path `MONOHOST_MINTCALL=fast MONOHOST_JIT=on`; inlining adds `MONOHOST_JITINLINE=1`; verify replaces `on` with `verify`; `MONOHOST_JITREPS=9`; each run: `monohost.exe <repo>\game-copy\monohost\TS3W.exe <repo>\game-copy\assemblies selftest <repo>\game-copy\monohost\hostdata.txt`.
 
@@ -1009,3 +1011,42 @@ pass the rule itself; `Enumerator.MoveNext` / `get_Current` (11.2 ms/s) are the 
 - The threshold is a cut on the ranking, applied once per release when the list is built, not a counter in the game: the
   game has no call counts, and a per-call counter at the transform hook would cost on every call (C6's plan keeps the list
   static). Ledger §930.
+
+### 16.5 C5 as built: the templates of §16.3, list regenerated (2026-11-06)
+
+Base: `feature/200-monojit-s1` (PR #291, head f41e85edc). `ldfld.vt` and `con.callvirt` were already done (#220, #229). Dalexlol's open PRs do not touch `[MonoJit]`, so nothing here repeats his work. Group bit 256 holds everything below (`[MonoJit] Groups`, `MONOHOST_JITC2`). `Single.IsNaN` and `Math.Min` left the host list and `tools/jit-hot.ts` keeps them out (`dropped`).
+
+**Templates, each as EA's handler does it** [verified: disassembly, monohost corpus]:
+
+- `initobj` (0xE589F7): a null exits so the fault stays EA's; a size of 16 or less that is a multiple of 4 is inline, the rest calls EA's memset thunk 0xF7E8B8. The SATB barrier takes the 32-bit size.
+- `isinst` (0xE56502): a class whose kind is settled compiles to the supertype table at its depth or, for an interface, the max-iid test plus `Class_GetInterfaceOffset` 0xD70870. A class not yet inited, a remoting class or an array class leaves the site as an exit, and EA's superops stay as they were.
+- `shr.un.i8` (0xE55DE6) through the CRT's `_aullshr` 0xF7EEE0.
+- The float moves: `ldc.r4/r8`, `ldarg.r4/r8`, `ldloc.r4/r8`, `stloc.r4/r8`, `stinarg.r4/r8`, through x87 where EA goes through x87; `ldc.r8` copies the two words.
+- Direct internal calls: `Type.internal_from_handle` 0xE7AB60 and `Enum.get_value` 0xE7D520, the only two the hot rows reach that cannot raise and read no frame. EA's frame push and setjmp go; the `managed_code` byte at ThreadContext+0x15 stays; EA's interruption checkpoint waits for the next EA call. A lazy body never gets one. `Array.GetLowerBound` and `Array.FastCopy` can raise, so they stay EA calls.
+
+**The verify compare changed.** A region holding the frame's arena is the GC block of the arena chunk, reached through a byref argument. Region 0 already compares the frame, and past it lies callee memory that a direct call leaves alone and EA's frame push writes. `JitLiveBytes` ends the compare at the arena, in both copies. Without it `Type.GetTypeFromHandle` gave 88 false mismatches [verified: host run].
+
+**Static coverage** (`docs/data/jit-hot.csv`, `native/ts3native/monojit-list.h`; offline sampler plus one host count run, not this build in the game):
+
+| | Before (f41e85edc) | After |
+|---|---|---|
+| Methods / bodies | 11 / 17 | 14 / 17 |
+| IL bytes | 2,177 | 1,505 |
+| Sampled self time on the list, of 177.3 ms/s | 38.9 | 55.3 |
+| Held back at the 1.0 threshold | 66.2 ms/s | 48.7 ms/s |
+| Non-ret exits, lazy frames on (the PR #291 figure) | 3,632 in 409,202 = 0.009, 7 of 11 rows counted | 9,813 in 1,335,287 = 0.007, 13 of 14 rows counted |
+| Non-ret exits, lazy frames off (ts3native today) | 5,125,195 in 463,458 = 11.1, 10 of 11 rows counted | 5,821,696 in 1,335,426 = 4.4, 13 of 14 rows counted |
+
+Entered the list: `Enum.Equals` 9.8, `TryGetValue` 4.6, `Type.GetTypeFromHandle` 2.8, `IEquatableOfTEqualityComparer.GetHashCode` 2.0, `UInt64.GetHashCode` 1.5. Left it on real counts: `Array.Copy` (`call`, 2.0 exits per execution; it was never counted before, and the IL drop is its four overloads) and `Slots.GetParentId` (`callvirt`, 2.0).
+
+The list rule reads the lazy-on row, as PR #291 did, but `Direct=0` in the game means every `call` and `callvirt` is an EA exit until C7. `Dictionary.GetPrev` alone is 3.6 exits per execution there. The lazy-off row is what `jit-verify` will run, and it is why no ms/s gain is claimed here.
+
+**Where it stopped.** Held back at 1.0 ms/s: `call` 23.5 ms/s in 7 methods, `callvirt` 15.4 in 7, `newarr` 4.8, `box` 2.8, `newobj` 2.3. No further template moves these:
+
+- `Enumerator.MoveNext` / `get_Current` (11.2 ms/s) wait on `Enumerator.VerifyState` having a lazy body. Cold `newobj`, `throw` and `ldstr` exits block it at the `lazyOk` gate, which is frame code (C6/C7). Allowing `newobj` and `throw` alone in a scratch run kept 0 differ and 0 mismatch and raised lazy bodies from 414 to 464, but moved no row, because `ldstr` also exits. Reverted.
+- `GetComponent` 4.5, `GetObject` 3.0, `ElapsedTimeInMinutes` 2.7, `get_LotCurrent`, `GetActorsOfType`, `get_Parent`: their callees have no lazy body. Frame code again.
+- `Array.Resize`: allocation plus real copy work. `DefaultComparer.Equals`: `box`. `List.GetEnumerator`: `newobj` of a value type. All allocate, so all are EA's.
+- `Enum.GetHashCode`: `callvirt` on a boxed value-type receiver, so the `get_value` call is not reached from it on today's list. `Array.IndexOf`: `GetLowerBound` can raise.
+- `castclass`: not built. No hot row is held back by it. (0xE5661B is `unbox`, not `castclass`.)
+
+**Checks** [verified, host only]: corpus 204 cases, 0 differ, 0 unstable, lazy frames on and off; per-call verify in the corpus ok 29,648 and 29,649, mismatch 0, abandoned 1,545 and 1,546 (the exception cases). `monojit-test.h` runs every new template but the direct call on the fake table; the two call targets are tested by name only. Ledger §434.

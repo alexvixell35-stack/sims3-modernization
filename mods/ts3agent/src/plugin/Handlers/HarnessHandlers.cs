@@ -31,13 +31,17 @@ namespace Ts3Agent
             RegisterRareVehicles();
             RegisterCas();
             RegisterContent();
+            RegisterFocus();
             RegisterMainThreadRepro();
             RegisterLabels();
             RegisterTravel();
             RegisterRouteFreeze();
+            RegisterStoveWall();
+            RegisterLayout();
             RegisterStory();
             RegisterHouseholds();
             RegisterStartPaths();
+            RegisterFixedWork();
             Dispatcher.Register("patch_test", PatchTest);
             Dispatcher.Register("method_handle", MethodHandle);
             Dispatcher.Register("patch_test_cold", PatchTestCold);
@@ -199,6 +203,9 @@ namespace Ts3Agent
                 o["x"] = Math.Round(p.x, 1);
                 o["z"] = Math.Round(p.z, 1);
                 o["lot"] = s.LotCurrent != null ? s.LotCurrent.Name : null;
+                o["at_home"] = s.LotCurrent != null && s.LotCurrent == s.LotHome;  // docs/222 §11.3 outcomes
+                o["community"] = s.LotCurrent != null && s.LotCurrent.IsCommunityLot;
+                o["min_need"] = Math.Round(FocusMinMotive(s));
                 InteractionInstance cur = null;
                 try { cur = s.CurrentInteraction; } catch (Exception) { }
                 string curName = null;
@@ -317,6 +324,12 @@ namespace Ts3Agent
             // Career choice event (2026-11-03 bp-gug-t-ab: "...company is losing people due to low morale..." buttons 'Workshops' / 'Raises'):
             // no safe word, the game sat paused 60 s and the fail-fast guard ended the job. Either answer is normal play; take raises.
             new[] { new[] { "low morale" }, new[] { "raises", "workshops" } },
+            // Athletic career event (2026-11-06 sv-x1-moder: "Marty was talked into running an obstacle course at practice..." buttons 'Compete' / 'Watch'):
+            // same 60 s pause stop. Either answer is normal play; take watch.
+            new[] { new[] { "obstacle course" }, new[] { "watch", "compete" } },
+            // Career event (2026-11-07 stove-wall-kitchen: "...the paparazzi nearby got the entire conversation on film! Should Marty blow the whole thing off or try and do some damage control?" buttons 'Blow it off' / 'Apologize'):
+            // same 60 s pause stop. Either answer is normal play; take blow it off.
+            new[] { new[] { "paparazzi nearby" }, new[] { "blow it off", "apologize" } },
             // Military career event (2026-11-04 al203b: "...romantically approached by one of the journalists..." buttons 'Brush Off' / 'Break Rank'):
             // same 60 s pause stop. Brush off keeps the career and relationships as they were.
             new[] { new[] { "romantically approached" }, new[] { "brush off" } },

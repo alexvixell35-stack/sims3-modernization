@@ -1,0 +1,134 @@
+{
+  "note": "v0.2.8 release smoke (2026-11-06, Rodney): [SteerRO] Enabled=1 on the v0.2.8 build, correctness only, no timing A/B. Not committed-run evidence of speed.",
+  "jobs": [
+    {
+      "id": "ip-v028-smoke",
+      "note": "[natural play, no cheats] v0.2.8 smoke, Baseline-IP-Spring: [SteerRO] Enabled=1 must run without crash. Pass: no crash/death/timeout, steer counters on, 0x85FE10 waits under v0.2.7 (BP 1007-1172, IP 1031-1111, SV 1372-1589 per 10 min).",
+      "asi": "game-copy/asi-v028/ts3native.asi",
+      "pinReason": "v0.2.8 release candidate: asi 0.36.169 from 6fcfccfe (sha 9ea87fe9), ini = hotfix/v0.2.8 bcaf103c ([SteerRO] Enabled=1), ts3fixes = v0.2.6 package (sha 302c33cf, builds.json ts3fixes.0.2.6)",
+      "fixesPackage": "game-copy/asi-v028/ts3fixes.package",
+      "iniBase": "game-copy/asi-v028/ts3native.bcaf103c.ini",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "ts3native 0.36.169": 1,
+        "^OK   steer RO: .*Mode=1 Shadow=0": 1,
+        "^route-to-object RO off [(]Enabled=0[)]": 1
+      },
+      "save": "Baseline-IP-Spring",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "bp-v028-smoke",
+      "note": "[natural play, no cheats] v0.2.8 smoke, Baseline-BP-Spring: [SteerRO] Enabled=1 must run without crash. Pass: no crash/death/timeout, steer counters on, 0x85FE10 waits under v0.2.7 (BP 1007-1172, IP 1031-1111, SV 1372-1589 per 10 min).",
+      "asi": "game-copy/asi-v028/ts3native.asi",
+      "pinReason": "v0.2.8 release candidate: asi 0.36.169 from 6fcfccfe (sha 9ea87fe9), ini = hotfix/v0.2.8 bcaf103c ([SteerRO] Enabled=1), ts3fixes = v0.2.6 package (sha 302c33cf, builds.json ts3fixes.0.2.6)",
+      "fixesPackage": "game-copy/asi-v028/ts3fixes.package",
+      "iniBase": "game-copy/asi-v028/ts3native.bcaf103c.ini",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "ts3native 0.36.169": 1,
+        "^OK   steer RO: .*Mode=1 Shadow=0": 1,
+        "^route-to-object RO off [(]Enabled=0[)]": 1
+      },
+      "save": "Baseline-BP-Spring",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "sv-v028-smoke",
+      "note": "[natural play, no cheats] v0.2.8 smoke, Baseline-SV-Spring: [SteerRO] Enabled=1 must run without crash. Pass: no crash/death/timeout, steer counters on, 0x85FE10 waits under v0.2.7 (BP 1007-1172, IP 1031-1111, SV 1372-1589 per 10 min).",
+      "asi": "game-copy/asi-v028/ts3native.asi",
+      "pinReason": "v0.2.8 release candidate: asi 0.36.169 from 6fcfccfe (sha 9ea87fe9), ini = hotfix/v0.2.8 bcaf103c ([SteerRO] Enabled=1), ts3fixes = v0.2.6 package (sha 302c33cf, builds.json ts3fixes.0.2.6)",
+      "fixesPackage": "game-copy/asi-v028/ts3fixes.package",
+      "iniBase": "game-copy/asi-v028/ts3native.bcaf103c.ini",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "ts3native 0.36.169": 1,
+        "^OK   steer RO: .*Mode=1 Shadow=0": 1,
+        "^route-to-object RO off [(]Enabled=0[)]": 1
+      },
+      "save": "Baseline-SV-Spring",
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 22
+    },
+    {
+      "id": "ip-v028-save",
+      "note": "[forced saves, scratch name IP-LotGrid-Scratch, no cheats] v0.2.8 smoke: saves with [SteerRO] on, LotGridMiss on IP; three saves, result 0 each (repro ip-lotgridmiss-save).",
+      "asi": "game-copy/asi-v028/ts3native.asi",
+      "pinReason": "v0.2.8 release candidate: asi 0.36.169 from 6fcfccfe (sha 9ea87fe9), ini = hotfix/v0.2.8 bcaf103c ([SteerRO] Enabled=1), ts3fixes = v0.2.6 package (sha 302c33cf, builds.json ts3fixes.0.2.6)",
+      "fixesPackage": "game-copy/asi-v028/ts3fixes.package",
+      "iniBase": "game-copy/asi-v028/ts3native.bcaf103c.ini",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "ts3native 0.36.169": 1,
+        "^OK   steer RO: .*Mode=1 Shadow=0": 1,
+        "^route-to-object RO off [(]Enabled=0[)]": 1,
+        "^save: result 0 ": 3
+      },
+      "save": "Baseline-IP",
+      "logForbid": {
+        "^save: result [1-9]": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 5,
+          "repro": "ip-lotgridmiss-save"
+        }
+      },
+      "timeoutMin": 20
+    }
+  ]
+}

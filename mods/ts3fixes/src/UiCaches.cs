@@ -69,7 +69,9 @@ namespace Ts3Fixes
             {
                 MethodInfo t = target.GetMethod(method, all);
                 if (Marshal.ReadInt32(new IntPtr(t.MethodHandle.Value.ToInt32() + 0x14)) != 0) throw new InvalidOperationException("already compiled");
-                SwapMethod(hook.GetMethod(stub, all), t);
+                MethodInfo s = hook.GetMethod(stub, all);
+                SwapMethod(s, t);
+                StubDirect(s);
                 return true;
             }
             catch (Exception e) { AppliedLog().Add(target.Name + "." + method + " stub: " + e.Message); return false; }

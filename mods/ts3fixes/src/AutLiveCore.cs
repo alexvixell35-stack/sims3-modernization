@@ -307,16 +307,22 @@ namespace Ts3Fixes
         // vanilla B14 us per ad to the timer. Per slice: ChargedMs since the slice start; Forced = at the last charge the real
         // time (timer minus charges) was still within the limit and the charge took it over (a yield the charge brought forward;
         // approximate: game-scored work after the last charge is not seen).
+        // docs/222 §11.8 enqueue-to-start wait bins in ticks: <= 1, 2-9, 10-49, 50-199, 200+
+        public static int QueueBin(int ticks) { return ticks <= 1 ? 0 : ticks < 10 ? 1 : ticks < 50 ? 2 : ticks < 200 ? 3 : 4; }
+
         public sealed class Pace
         {
             public double ChargedMs;
             public bool Forced;
+            public double CreditMs;  // docs/222 §11.8: yield budget already paid by waiting for the worker; spent first, across slices
             public void Slice() { ChargedMs = 0; Forced = false; }
             // timerMs = the timer before this charge; returns the ms to add (0 = no rate yet or nothing skipped)
             public double Charge(double usPerAd, int ads, double timerMs, double limitMs)
             {
                 if (usPerAd <= 0 || ads <= 0) return 0;
-                double add = usPerAd * ads / 1000.0;
+                double add = usPerAd * ads / 1000.0, used = Math.Min(add, CreditMs);
+                CreditMs -= used; add -= used;
+                if (add <= 0) return 0;
                 Forced = timerMs - ChargedMs <= limitMs && timerMs + add > limitMs;
                 ChargedMs += add;
                 return add;

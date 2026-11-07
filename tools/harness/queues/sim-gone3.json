@@ -1,0 +1,113 @@
+{
+  "note": "sim-gone3 (2026-11-06): who schedules ResetSimTask. sim-gone2 saw no script error, so the suspect is ErrorTrap DereferenceFollowRouteAction.DelayedResetTask (30 sim-minutes, in reach at ultra). Answer = sim_gone_tasks and sim_gone_trail in the job log. Correctness only, no timing. Run: node tools/harness/queue.ts tools/harness/queues/sim-gone3.json --no-smoke",
+  "jobs": [
+    {
+      "id": "sg3-pair-1",
+      "note": "v0.2.7 pair, full test install, sim_gone_tasks poll",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg3-pair-2",
+      "note": "v0.2.7 pair, full test install, sim_gone_tasks poll",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg3-noours-1",
+      "note": "ourMods false: no ts3native, no ts3fixes; more runs for the count",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg3-pair-3",
+      "note": "v0.2.7 pair, full test install, sim_gone_tasks poll",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg3-noours-2",
+      "note": "ourMods false: no ts3native, no ts3fixes; more runs for the count",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    },
+    {
+      "id": "sg3-pair-4",
+      "note": "v0.2.7 pair, full test install, sim_gone_tasks poll",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      }
+    }
+  ]
+}

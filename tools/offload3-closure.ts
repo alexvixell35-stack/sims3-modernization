@@ -39,6 +39,21 @@ const DRIVERS: Record<string, Root[]> = {
   // the line-of-sight test stays on the sim thread (docs/129 §2.2); listed apart to show what it would add
   'bcast-los': [[G + 'Actors.Sim::CanSeeObject', '']],
   motive: [[G + 'Autonomy.Motive::UpdateMotiveWithDecay', '']],
+  // docs/129 ranks 4-5 (audit O13): the read part of Camera.GetClosestVisibleLot, without the sCurrentFocusedGreetedLot write
+  // and its LotFocusChanged event (the sim keeps those); the game method itself is listed as lot-whole
+  lot: [
+    [G + 'Core.Camera::ComputeQuadrantAndDistanceFromLot', ''], [G + 'Core.Lot::IsOpenVenue', ''], [G + 'Core.Lot::get_IsCommunityLot', ''],
+    [G + 'Core.Lot::get_CommercialLotSubType', ''], [G + 'Core.Lot::get_HasVirtualResidentialSlots', ''],
+    [G + 'Core.Lot::get_IsOwned', ''], [G + 'Core.Lot::IsHouseboatLot', ''], [G + 'Core.LotManager::get_AllLots', ''], [G + 'Core.LotManager::get_ActiveLot', ''],
+    [G + 'CAS.Household::get_GreetedLots', ''], [G + 'CAS.Household::get_RealEstateManager', ''], [G + 'RealEstate.RealEstateManager::GetPrivateLotMoveToLots', ''],
+    [G + 'CAS.Household::get_AllActors', ''], [G + 'Actors.Sim::get_IsOutside', ''], [G + 'Abstracts.GameObject::get_LotCurrent', ''], [G + 'Abstracts.GameObject::get_Level', ''],
+    [G + 'Passport.Passport::GetHostedSim', ''], [G + 'Passport.Passport::get_Instance', ''], [G + 'Actors.Sim::get_CurrentInteraction', ''],
+  ],
+  'lot-whole': [[G + 'Core.Camera::GetClosestVisibleLot', '']],
+  // rank 5, the three reads the docs/129 P1 pattern wants: HasZombieDanceStereo, NumZombiesOnLot, the time-out read. zomb-whole
+  // adds the rest of Lot.UpdateNumZombiesOnLot (stereo creation, time-out decrement)
+  zomb: [[G + 'Core.Lot::get_HasZombieDanceStereo', ''], [G + 'Core.Lot::NumZombiesOnLot', ''], [G + 'Core.ZombieDanceTimeOut::GetTimeOutOnTheLot', '']],
+  'zomb-whole': [[G + 'Core.Lot::UpdateNumZombiesOnLot', '']],
 };
 const rootsOf = (rs: Root[]) => rs.flatMap(([p, f]) => starts(p).filter((i) => !f || ix.methods[i].k.includes(f)));
 

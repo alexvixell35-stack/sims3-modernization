@@ -1,0 +1,78 @@
+{
+  "note": "tiny-ui-fix-autshadow (audit task O10): one load each with Tiny UI Fix installed (by hand, Mods folder; the harness has no installer, set up like docs/218 §8 arm a). Not a timing queue (noiseCheck false; the 'other CPU >= 10%' rule matters for timing jobs only, none here). Arm 'off' asserts [AutShadow] is off and the game unaffected; arm 'on' asks the real question, whether the content guard keeps it on (CHANGELOG known issue stays if not). Repro tinyui-autshadow-state (tools/harness/repros.json). The pair is a PLACEHOLDER until feature/mono-offthread's build lands in game-copy/asi-mono-offthread/. About 2 x 8 min with loads. Run each arm with --only after checking Tiny UI Fix is in Mods: node tools/harness/queue.ts tools/harness/queues/tiny-ui-fix-autshadow.json --only bp-tinyui-off.",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-tinyui-off",
+      "note": "Tiny UI Fix installed, [AutShadow] off. PASS = 0 crashes, no freeze, 0 script errors, 'fixes off: autshadow (verified)', no 'autshadow go-live' line and no [AutShadow] section in the ts3native.log ini diag, autshadow_skips and autshadow_gm4_methods stay 0: the game is unaffected without the Mono speed-up.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df with X4, docs/222 §11.8 counters, monojit-all and mintfuse-sub, ts3agent with fixed_work and focus_watch; kAutLive True in the package",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 90,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 25,
+      "ini": {
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "AutShadow.Enabled": 0
+      },
+      "logForbid": {
+        "^autshadow go-live": 0,
+        "diag: ini .*\\[AutShadow\\]": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 3,
+          "seed": 12345,
+          "repro": "tinyui-autshadow-state",
+          "fixesOff": "autshadow",
+          "fixesRequire": "autshadow_skips<=0,autshadow_gm4_methods<=0",
+          "noSamplers": true
+        }
+      }
+    },
+    {
+      "id": "bp-tinyui-on",
+      "note": "Tiny UI Fix installed, [AutShadow] on (Mode 1, cut and worker). PASS = 0 crashes, 0 script errors, modules hashed (autshadow_content_modules >= 1, not -1 = MVID gate), autshadow_gm6_faults 0, requests served (autshadow_skips >= 1): the content guard keeps it on. FAIL on the counters = [AutShadow] went off for the session: keep the CHANGELOG known issue, no code change.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "pinReason": "mono1106c pair (asi + package, builds.json): master 000589df with X4, docs/222 §11.8 counters, monojit-all and mintfuse-sub, ts3agent with fixed_work and focus_watch; kAutLive True in the package",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 90,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 25,
+      "ini": {
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 0,
+        "AutShadow.CutLean": 2
+      },
+      "run": {
+        "profile": {
+          "minutes": 3,
+          "seed": 12345,
+          "repro": "tinyui-autshadow-state",
+          "fixesOn": "autshadow",
+          "fixesRequire": "autshadow_content_modules>=1,autshadow_gm6_faults<=0,autshadow_skips>=1",
+          "noSamplers": true
+        }
+      }
+    }
+  ]
+}

@@ -125,7 +125,9 @@ Hours = wall clock with agents (docs: an agent build ~10-60 min, a live job ~8-1
 | **S4** | Inlining tier 2 (null-checked `ldfld` on any base, exit before any write; value-type `this`) + B5 accessor fixtures | 6-10 | verify, corpus rows for the 19 accessors | `jit-ab` (~85 min) | `[MonoJit] Inline=0/1/2` | fixtures: **yes** |
 | **S5** | Frame-free exit templates (B1 list: statics behind the init test, primitive `box`, `ldstr`) and methods with clauses | 6-10 | verify + corpus | `jit-ab` | `[MonoJit] Wide=0/1` | no |
 
-Total ~43-71 h plus ~4 verify/ab rounds (~2 h of game time each) and 1-2 clean nights. B1 and B4 can run now in parallel with S1; S2 needs B1. **P2 / P3** (register allocation, wider templates, compiled code on the worker) only after S3's in-game number.
+Total ~43-71 h plus ~4 verify/ab rounds (~2 h of game time each) and 1-2 clean nights. B1 and B4 can run now in parallel with S1; S2 needs B1. **P2 / P3** (register allocation, wider templates, compiled code on the worker) only after S3's correctness gates pass.
+
+**As built:** S2/S3 docs/537, S4 docs/537 §9. All off by default, not run in game.
 
 ## 8. Gain per step [inferred] and risks
 
@@ -139,18 +141,19 @@ Base numbers: Mono bucket BP 334 / IP 336 / SV 358 ms/s (docs/160); N self time 
 | S5 wider templates | ~3-8 | ~5-10 | fewer exits = fewer materializations, longer lazy windows |
 | **P1 total** | **~26-61, realistic ~30-45 ms/s** | upper ~45-80 | on top of the fast path's 7.7-17.7 |
 
-Stop rules: S1 under ~5 ms/s in game: stop before S2 (the body compiler then does not carry the lazy frames' risk). S3 under ~8 ms/s on top of S1: keep S1, drop S2/S3.
+No ms/s stop rules (removed 2026-11-06, Rodney R2; they were "S1 under ~5 ms/s: stop before S2" and "S3 under ~8 ms/s: drop S2/S3"). The compiler is measured statically: coverage plus correctness gates, and gains add up. The projections above stay as estimates, not bars. `jit-ab` rows are a no-regression check, not a go / stop.
 
 **Risks, top 3:**
 
 1. **A frame reader we did not find** (EA host code, a mod's icall, our own tools) sees a lazy chain: wrong stack traces at best, a crash in EA's search or yield save at worst. Mitigation: B1 census, "every exit materializes unless proven frame-free", materialize-check mode in game, `Direct` switch separate from the body compiler. Added 2026-11-03 (Rodney), in order:
    - **Reader trap (gate for S2/S3):** a verify build poisons the unwritten fields of lazy entries and traps reads of the chain fields (guard page or hardware breakpoint on `ThreadContext+8` / the `MonoInvocation` words); each hit logs caller + stack. Plus a static Ghidra xref list of every access to those fields. No S2/S3 build until a correctness run with all frame readers active shows 0 unknown readers.
+     Built 2026-11-06 (docs/537): census 0 unknown readers, `[MonoJit] Trap`, queue `jit-reader-trap`; the correctness run is still open, so `Direct=1` cannot ship yet. Debug registers only: the frames are on the sim stack.
    - **Valid chain head as fallback:** lazy entries still keep the chain head and method pointer valid, so a reader we missed sees a correct chain with missing contents instead of garbage.
    - **Narrow scope first:** start with hot leaf methods from the exit census that cannot yield, throw out or call back into script; widen the allowlist step by step, one verify run per step.
    - **Recovery:** per-method kill switch; SEH catch around compiled code that marks the method bad, falls back to the interpreter and counts it; IL-hash guard; shadow mode in monohost (both paths, compare results) before game runs.
    - **Reader-heavy correctness runs:** sampler, NRaas ErrorTrap, ScriptError dumps and saves during Sim waits on, crash logging, long soaks, save matrix.
 2. **Exactness drift in the real script mix** that the offline verify does not reach: statics outside the graph, x87 control word on a thread D3D changed, the `_ftol2` CRT flag, mod overrides behind a known hash. Effect: behaviour change or desync of seeded runs. Mitigation: verify mode in game, `rng-compare.ts` on/off, IL-hash + MVID guards, corpus rows per template.
-3. **Gain below projection**: the in-game ratio is noisy (BP 1.0x vs IP 2.4x), the call protocol is store-bound and the receiver stall stays; the compiled sim thread also lowers [AutShadow]'s measured offload gain. Mitigation: per-step `jit-ab` with stop rules; A/Bs state the [AutShadow] setting.
+3. **Gain below projection**: the in-game ratio is noisy (BP 1.0x vs IP 2.4x), the call protocol is store-bound and the receiver stall stays; the compiled sim thread also lowers [AutShadow]'s measured offload gain. Mitigation: static coverage per step; Rodney accepts small steps that add up (2026-11-06, R2); A/Bs state the [AutShadow] setting.
 
 ## 9. Open questions
 

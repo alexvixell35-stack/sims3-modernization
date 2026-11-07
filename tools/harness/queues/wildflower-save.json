@@ -1,0 +1,168 @@
+{
+  "note": "wildflower-save (docs/247 §12): kWildflowerTask default ON has no live save proof. Correctness only, no timing. 1-3 force a save during a pending fire and read the save back with and without our mods, 4-7 are the save matrix (shipped mode, 9 cases + reload, BP/IP/SV, one travel) with the switch on. Fail on 1-3 with no (save) line: set kWildflowerTask default off. Delete save Wildflower-Scratch after. Run: node tools/harness/queue.ts tools/harness/queues/wildflower-save.json --no-smoke",
+  "jobs": [
+    {
+      "id": "bp-wf-save-pending",
+      "note": "save during a pending fire, writes Wildflower-Scratch; wildflower_saveaborts >= 1",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "pinReason": "hitchfix1 asi (ts3native 0.36.177) with ts3fixes from source: kWildflowerTask is default True there, kHitchCauseHooks stays off as shipped",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "UserDiag.Enabled": 1
+      },
+      "minCounters": 912,
+      "logRequire": {
+        "settings on:.*kWildflowerTask": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 12,
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "repro": "wildflower-save-abort"
+      }
+    },
+    {
+      "id": "bp-wf-save-reload",
+      "note": "that save loads with our mods, no out-of-world flower",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "pinReason": "hitchfix1 asi (ts3native 0.36.177) with ts3fixes from source: kWildflowerTask is default True there, kHitchCauseHooks stays off as shipped",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "UserDiag.Enabled": 1
+      },
+      "minCounters": 912,
+      "logRequire": {
+        "settings on:.*kWildflowerTask": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsAllow": ["^Destroyed Object Found: .*NewspaperShreds$", "^Out of World Object Found 2: .*SocialJigOnePerson$", "^Destroyed: .*SocialJigOnePerson.*$"],
+      "timeoutMin": 10,
+      "save": "Wildflower-Scratch",
+      "run": {
+        "repro": "wildflower-save-check"
+      }
+    },
+    {
+      "id": "bp-wf-save-removed",
+      "note": "mod removed: that save loads without ts3fixes (no mod data in saves)",
+      "asi": "none",
+      "ourMods": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsAllow": ["^Destroyed Object Found: .*NewspaperShreds$", "^Out of World Object Found 2: .*SocialJigOnePerson$", "^Destroyed: .*SocialJigOnePerson.*$"],
+      "timeoutMin": 10,
+      "save": "Wildflower-Scratch",
+      "run": {
+        "repro": "wildflower-save-check"
+      }
+    },
+    {
+      "id": "bp-wf-matrix",
+      "note": "save matrix, shipped mode, kWildflowerTask on; the spring saves carry a live drain (BP 12 fires in 12 min)",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "pinReason": "hitchfix1 asi (ts3native 0.36.177) with ts3fixes from source: kWildflowerTask is default True there, kHitchCauseHooks stays off as shipped",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "UserDiag.Enabled": 1
+      },
+      "minCounters": 912,
+      "logRequire": {
+        "settings on:.*kWildflowerTask": 1
+      },
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "matrix": []
+      },
+      "saveMatrix": {
+        "fixes": "shipped"
+      },
+      "timeoutMin": 40
+    },
+    {
+      "id": "ip-wf-matrix",
+      "note": "as bp-wf-matrix, Isla Paradiso",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "pinReason": "hitchfix1 asi (ts3native 0.36.177) with ts3fixes from source: kWildflowerTask is default True there, kHitchCauseHooks stays off as shipped",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "UserDiag.Enabled": 1
+      },
+      "minCounters": 912,
+      "logRequire": {
+        "settings on:.*kWildflowerTask": 1
+      },
+      "save": "Baseline-IP-Spring",
+      "run": {
+        "matrix": []
+      },
+      "saveMatrix": {
+        "fixes": "shipped"
+      },
+      "timeoutMin": 40
+    },
+    {
+      "id": "sv-wf-matrix",
+      "note": "as bp-wf-matrix, Sunset Valley",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "pinReason": "hitchfix1 asi (ts3native 0.36.177) with ts3fixes from source: kWildflowerTask is default True there, kHitchCauseHooks stays off as shipped",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "UserDiag.Enabled": 1
+      },
+      "minCounters": 912,
+      "logRequire": {
+        "settings on:.*kWildflowerTask": 1
+      },
+      "save": "Baseline-SV-Spring",
+      "run": {
+        "matrix": []
+      },
+      "saveMatrix": {
+        "fixes": "shipped"
+      },
+      "timeoutMin": 40
+    },
+    {
+      "id": "bp-wf-travel-france",
+      "note": "travel save: the guard also reads GameStates.IsTravelling. One trip: the same flag on every trip, the other five stay in release-validate.json",
+      "asi": "game-copy/ts3native.asi.hitchfix1",
+      "pinReason": "hitchfix1 asi (ts3native 0.36.177) with ts3fixes from source: kWildflowerTask is default True there, kHitchCauseHooks stays off as shipped",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "UserDiag.Enabled": 1
+      },
+      "minCounters": 912,
+      "logRequire": {
+        "settings on:.*kWildflowerTask": 1
+      },
+      "timeoutMin": 45,
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france"
+        ]
+      }
+    }
+  ]
+}

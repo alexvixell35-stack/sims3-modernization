@@ -1,0 +1,101 @@
+{
+  "note": "sim-gone3b (2026-11-06): same pair and repro as sim-gone3 without NRaas ErrorTrap. Question: does a player without ErrorTrap get a working follower, or a broken one. Correctness only. Run: node tools/harness/queue.ts tools/harness/queues/sim-gone3b.json --no-smoke",
+  "jobs": [
+    {
+      "id": "sg3b-noet-1",
+      "note": "v0.2.7 pair, ErrorTrap uninstalled: does the follower arrive or break",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      },
+      "fixes": {
+        "uninstall": [
+          "nraas-errortrap"
+        ]
+      }
+    },
+    {
+      "id": "sg3b-noet-2",
+      "note": "v0.2.7 pair, ErrorTrap uninstalled: does the follower arrive or break",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      },
+      "fixes": {
+        "uninstall": [
+          "nraas-errortrap"
+        ]
+      }
+    },
+    {
+      "id": "sg3b-noet-3",
+      "note": "v0.2.7 pair, ErrorTrap uninstalled: does the follower arrive or break",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      },
+      "fixes": {
+        "uninstall": [
+          "nraas-errortrap"
+        ]
+      }
+    },
+    {
+      "id": "sg3b-noet-4",
+      "note": "v0.2.7 pair, ErrorTrap uninstalled: does the follower arrive or break",
+      "asi": "game-copy/asi-v027/ts3native.asi",
+      "iniBase": "game-copy/asi-v027/ts3native.ini",
+      "fixesPackage": "game-copy/asi-v027/ts3fixes.package",
+      "pinReason": "current Steam release pair; same pair as sim-gone, where Lala was lost",
+      "callSites": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 6,
+      "run": {
+        "repro": "compat-visit-control"
+      },
+      "fixes": {
+        "uninstall": [
+          "nraas-errortrap"
+        ]
+      }
+    }
+  ]
+}

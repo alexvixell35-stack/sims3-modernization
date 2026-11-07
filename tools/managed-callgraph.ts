@@ -124,7 +124,7 @@ function loadAsm(path: string, name: string): Asm {
   asm.mvid = buf.subarray(asm.guidOff + (mod[2] - 1) * 16, asm.guidOff + mod[2] * 16).toString('hex');
   return asm;
 }
-function rva(asm: Asm, r: number): number {
+export function rva(asm: Asm, r: number): number {
   for (const s of asm.sections) if (r >= s.va && r < s.va + s.size) return r - s.va + s.raw;
   throw new Error(`${asm.name}: rva 0x${r.toString(16)} outside sections`);
 }
@@ -459,7 +459,7 @@ export function ilShapeBody(a: Asm, b: Buffer, p0: number): string {
 // type) at a branch target in between (stack merge), on any other opcode, or on a generic parameter type.
 const STATIC_M = 0x10;
 export type FullIns = { op: number; at: number; next: number; v: number; tok: number };
-function decodeAll(b: Buffer, start: number, len: number): { ins: FullIns[]; targets: Set<number> } {
+export function decodeAll(b: Buffer, start: number, len: number): { ins: FullIns[]; targets: Set<number> } {
   const ins: FullIns[] = []; const targets = new Set<number>(); let p = start; const end = start + len;
   while (p < end) {
     const at = p; let op = b[p++]; let sz: number | string | undefined; let v = 0, tok = 0;

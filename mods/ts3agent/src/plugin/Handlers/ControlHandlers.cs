@@ -46,6 +46,7 @@ namespace Ts3Agent
             Dispatcher.Register("buy_object", BuyObject);
             Dispatcher.Register("sell_object", SellObject);
             Dispatcher.Register("move_object", MoveObject);
+            Dispatcher.Register("footprint_nudge", FootprintNudge);
             Dispatcher.Register("place_object", PlaceObject);
             Dispatcher.Register("replace_object", ReplaceObject);
             Dispatcher.Register("set_transform", SetTransform);
@@ -649,12 +650,43 @@ namespace Ts3Agent
             }
             else if (a.Has("to")) pos = RequireRarePoint(s, a.Str("to"));  // "pond", "ocean", "far" (RareHandlers)
             else pos = new Vector3((float)a.Double("x"), (float)a.Double("y", 0), (float)a.Double("z"));
+            pos = WalkableClick(s, pos);
             InteractionInstance ii = Terrain.GoHere.GetSingleton(s, pos).CreateInstance(Terrain.Singleton, s,
                 new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
             Terrain.GoHere gh = ii as Terrain.GoHere;
             if (gh != null) gh.SetDestination(pos, false);
+            SetClickHit(ii, pos);  // a player's click: InteractionGameObjectHit.Hit holds the clicked terrain point (2026-11-07: without it the plan said FailedBecauseNoDestinationSpecified)
             if (!s.InteractionQueue.Add(ii)) throw new McpException("could not queue Go Here");
             return QueueList(s);
+        }
+
+        // A lot's centre can be a pond or a building: take a point the game's own routability test accepts, like a player clicking on the ground
+        static Vector3 WalkableClick(Sim s, Vector3 pos)
+        {
+            try
+            {
+                Lot lot = LotManager.GetLotAtPoint(pos);
+                if (lot == null || lot.IsWorldLot) return pos;
+                if (s.IsPointInLotSafelyRoutable(lot, pos)) return pos;
+                for (int i = 0; i < 60; i++)
+                {
+                    Vector3 p = lot.GetRandomPosition(true, true, TerrainType.LotTerrain | TerrainType.LotFloor);
+                    if (p != Vector3.Invalid && s.IsPointInLotSafelyRoutable(lot, p)) return p;
+                }
+            }
+            catch (Exception) { }
+            return pos;
+        }
+
+        static void SetClickHit(InteractionInstance ii, Vector3 pos)
+        {
+            FieldInfo f = ii.GetType().GetField("Hit", BindingFlags.Public | BindingFlags.Instance);
+            if (f == null || f.FieldType != typeof(GameObjectHit)) return;
+            Lot at = LotManager.GetLotAtPoint(pos);
+            GameObjectHit hit = new GameObjectHit(at != null && !at.IsWorldLot ? GameObjectHitType.LotTerrain : GameObjectHitType.Terrain);
+            hit.mPoint = pos;
+            hit.mId = at != null ? at.LotId : 0;
+            f.SetValue(ii, hit);
         }
 
         // ------------------------------------------------------------ cheats & saving
@@ -1030,6 +1062,50 @@ namespace Ts3Agent
             r["value"] = value;
             if (hh != null) r["funds"] = hh.FamilyFunds;
             return r;
+        }
+
+        // footprint_nudge {}: a world write for repros (docs/249 row 9: ReplanDedupe's repeat after footprint writes). The first other Sim of the active Sim lot (else the first plain object; not a Sim, door, window, fence or stairs) moves 2 cm and back; the original text: first plain object of the active
+        // Sim's lot (not a Sim, door, window, fence or stairs) moves 2 cm and back: two SetPosition calls, so its footprint is rewritten. found false: no object.
+        static object FootprintNudge(Args a)
+        {
+            RequireLive();
+            Dictionary<string, object> r = Util.Obj();
+            Sim s = Util.ActiveSim();
+            Lot lot = s.LotCurrent;
+            r["found"] = false;
+            if (lot == null) return r;
+            // a Sim first: a Sim's footprint is a dynamic one (ReplanDedupe's per-object version), while a placed object's write bumped the static
+            // version and invalidated the repeat before the held path (2026-11-07 run: rdInval_2 18, kdRdHeld 0)
+            foreach (Sim o in lot.GetObjects<Sim>())
+            {
+                if (o == null || o.HasBeenDestroyed || !o.InWorld || o == s) continue;
+                Vector3 p = o.Position;
+                o.SetPosition(new Vector3(p.x + 0.02f, p.y, p.z));
+                o.SetPosition(p);
+                r["found"] = true;
+                r["object"] = Util.ObjectName(o);
+                r["position"] = Pos(p);
+                return r;
+            }
+            foreach (GameObject o in lot.GetObjects<GameObject>())
+            {
+                if (o == null || o.HasBeenDestroyed || !o.InWorld || o is Sim || o is Lot || IsStructural(o.GetType().Name)) continue;
+                Vector3 p = o.Position;
+                o.SetPosition(new Vector3(p.x + 0.02f, p.y, p.z));
+                o.SetPosition(p);
+                r["found"] = true;
+                r["object"] = Util.ObjectName(o);
+                r["position"] = Pos(p);
+                break;
+            }
+            return r;
+        }
+
+        static bool IsStructural(string type)
+        {
+            foreach (string k in new[] { "Door", "Window", "Fence", "Stair", "Gate", "Wall" })
+                if (type.IndexOf(k, StringComparison.Ordinal) >= 0) return true;
+            return false;
         }
 
         static object MoveObject(Args a)

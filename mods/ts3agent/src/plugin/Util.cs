@@ -28,6 +28,11 @@ namespace Ts3Agent
 
         // Sims chosen by the last pick_sims (SimDescriptionIds, in pick order): "picked:N" (1-based) in any Sim arg.
         public static readonly List<ulong> Picked = new List<ulong>();
+        // the last pick_sims filter: a picked Sim that left the world before a later step is replaced by another Sim that matches it
+        // (2026-11-07: three jobs failed on 'not currently in the world (not instantiated)' a few seconds after pick_sims)
+        public delegate bool SimFilter(SimDescription sd);  // the game's mscorlib 2.0 has no Func
+        public static SimFilter PickFilter;
+        public static bool InWorldNow(SimDescription sd) { return sd != null && sd.CreatedSim != null && !sd.CreatedSim.HasBeenDestroyed && sd.CreatedSim.InWorld; }
 
         // Resolve a sim from args[key]: SimDescriptionId (number or numeric string),
         // full name, unique first name, or "picked:N" (pick_sims). Missing => the selected sim.
@@ -42,6 +47,9 @@ namespace Ts3Agent
                 if (!int.TryParse(q.Substring(7), NumberStyles.Integer, CultureInfo.InvariantCulture, out n) || n < 1 || n > Picked.Count)
                     throw new McpException("no Sim " + q + " (" + Picked.Count + " picked; run pick_sims first)");
                 SimDescription p = SimDescription.Find(Picked[n - 1]);
+                if (!InWorldNow(p) && PickFilter != null)
+                    foreach (SimDescription c in SimDescription.GetSimDescriptionsInWorld())
+                        if (InWorldNow(c) && !Picked.Contains(c.SimDescriptionId) && PickFilter(c)) { Picked[n - 1] = c.SimDescriptionId; p = c; break; }
                 if (p == null) throw new McpException(q + " is no longer in the world");
                 return p;
             }

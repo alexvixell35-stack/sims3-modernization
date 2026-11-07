@@ -1,0 +1,148 @@
+{
+  "note": "jit-reader-trap: the dynamic half of the C6 gate (docs/537 §3, docs/223 §8 risk 1). Correctness only, no timing. [MonoJit] Direct=1 Trap=1 TrapEvery=64: one lazy call in 64 opens a window with poison in the dead record slots and debug registers on the chain head, the depth, the next slot and the current-state global; the other threads watch the same addresses, re-armed every 5 s. Pass per job: no crash, 0 watchdog lines, ScriptError count as the job's baseline, jitTrapWindows > 100 (else the window never opened: a job proves nothing), jitTrapUnknown 0, no \"jit trap: UNKNOWN\" line. A hit is not a pass by luck: name the reader with node tools/frame-readers.ts --log <job ts3native.log>, add it to the census or fix the path; Direct=1 cannot ship with an unknown reader. Start with bp-jit-trap-chain. Pair: mono1106c (asi + ts3fixes, builds.json). The probe's own threads stay unarmed (docs/537 §12).",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-jit-trap-chain",
+      "note": "BP Spring 10 min, repro jit-reader-trap, DirectLeaf=0, no stack samplers. Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.Trap": 1,
+        "MonoJit.TrapEvery": 64,
+        "MonoJit.DirectLeaf": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "repro": "jit-reader-trap",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "nativeRequire": "jitTrapWindows>=100,jitTrapUnknown<=0,jitFaults<=0",
+      "logForbid": {
+        "jit trap: UNKNOWN": 0
+      }
+    },
+    {
+      "id": "ip-jit-trap-chain",
+      "note": "IP Spring 10 min, repro jit-reader-trap, DirectLeaf=0, no stack samplers. Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.Trap": 1,
+        "MonoJit.TrapEvery": 64,
+        "MonoJit.DirectLeaf": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "repro": "jit-reader-trap",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "nativeRequire": "jitTrapWindows>=100,jitTrapUnknown<=0,jitFaults<=0",
+      "logForbid": {
+        "jit trap: UNKNOWN": 0
+      }
+    },
+    {
+      "id": "ip-jit-trap-samplers",
+      "note": "IP Spring 10 min, DirectLeaf=0, the stack samplers ON: our own off-thread readers. Read: node tools/frame-readers.ts --log <job ts3native.log> --allow-frida. Frida threads are not armed: a hit is a read on a game or ts3native thread, or Frida hook code on one, and must be frida-agent or in the census; a sampled stack is shorter across a lazy call, not wrong.",
+      "asi": "game-copy/ts3native.asi.mono1106c",
+      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 911,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.Trap": 1,
+        "MonoJit.TrapEvery": 64,
+        "MonoJit.DirectLeaf": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "nativeRequire": "jitTrapWindows>=100,jitFaults<=0"
+    }
+  ]
+}

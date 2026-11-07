@@ -233,6 +233,33 @@ static void TestUnseenAnim() {
     AaPoseThunk(aFar, NULL, dt);
     assert(g_aaFakeN == 0 ? s->owed > dt - 1e-5f && s->owed < dt + 1e-5f : g_aaFakeDt[0] == dt);
     assert(k.aaPasses > 0 && k.aaN[0] > 0 && k.aaN[1] > 0 && k.aaN[2] > 0);
+    {  // docs/249: a held Sim through the real channel, UnseenThrottle off: never skipped, each class counted; both id halves must match
+        DWORD hlo, hhi;
+        const bool onSave = g_utOn, aaSave = g_aaOn;
+        const auto heldSave = g_utHeld;
+        g_utOn = false, g_aaOn = true;
+        memcpy(&hlo, &farSim.pos[2], 4), memcpy(&hhi, &farSim.pos[3], 4);
+        const LONG push0 = k.kdAaHeldPush;
+        assert(UtMsg(12, 0) && UtMsg(13, hlo) && UtMsg(14, hhi + 1) && UtMsg(15, 1) && k.kdAaHeldPush == push0 + 1);  // same low half only
+        LONG sk = k.aaSkipped, in0 = k.kdAaHeldIn;
+        for (int i = 0; i < 8; i++) pass(aFar);
+        assert(k.aaSkipped > sk && k.kdAaHeldIn == in0);
+        assert(UtMsg(12, 0) && UtMsg(13, hlo) && UtMsg(14, hhi) && UtMsg(15, 1) && k.kdAaHeldRows == 1);
+        sk = k.aaSkipped;
+        const LONG held0 = k.kdAaHeld, seen0 = k.kdAaHeldSeen, par0 = k.kdAaHeldPar;
+        for (int i = 0; i < 8; i++) assert(pass(aFar) == 1);
+        assert(k.aaSkipped == sk && k.kdAaHeld == held0 + 8 && k.kdAaHeldIn == in0 + 8);
+        farSim.pos[0] = 5;  // on screen
+        assert(pass(aFar) == 1 && k.kdAaHeldSeen == seen0 + 1 && k.kdAaHeldIn == in0 + 9);
+        farSim.pos[0] = 500, farSim.parent = parent;
+        assert(pass(aFar) == 1 && k.kdAaHeldPar == par0 + 1 && k.kdAaHeldIn == in0 + 10);
+        farSim.parent = NULL;
+        g_utHeld.at = GetTickCount() - 10000;  // stale: the table no longer speaks (ts3fixes stopped), the viewer table's own stale hold covers it
+        sk = k.aaSkipped;
+        for (int i = 0; i < 8; i++) pass(aFar);
+        assert(k.aaSkipped > sk && k.kdAaHeldIn == in0 + 10);
+        g_utHeld = heldSave, g_utOn = onSave, g_aaOn = aaSave;
+    }
     TestUnseenAnimObjects();
 
     memset(g_aaSlot, 0, sizeof g_aaSlot);

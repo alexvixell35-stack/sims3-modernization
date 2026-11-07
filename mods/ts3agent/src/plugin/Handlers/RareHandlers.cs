@@ -20,6 +20,7 @@ namespace Ts3Agent
             Dispatcher.Register("crowd_go", CrowdGo);
             Dispatcher.Register("crowd_do", CrowdDo);
             Dispatcher.Register("crowd_visit_lot", CrowdVisitLot);
+            Dispatcher.Register("houseboat_leave", HouseboatLeave);
             Dispatcher.Register("kill_sim", KillSim);
             Dispatcher.Register("zombies", Zombies);
             Dispatcher.Register("spawn_traffic", SpawnTraffic);
@@ -565,16 +566,21 @@ namespace Ts3Agent
             if (to == "far2") return FindLotByName("far2").GetCenterPosition();  // docs/202 §3.4.2: a second unseen lot, never the household's
             if (to == "island")
             {
-                Lot isl = IslandLot(s);
+                Lot isl = IslandLot(s, false);
                 return isl != null ? isl.GetCenterPosition() : pos;
             }
-            throw new McpException("to must be pond, ocean, far, far2 or island");
+            if (to == "home")  // the active household's lot (docs/197 §7 goalhhexempt repro)
+            {
+                Lot home = Household.ActiveHouseholdLot;
+                return home != null ? home.GetCenterPosition() : pos;
+            }
+            throw new McpException("to must be pond, ocean, far, far2, island or home");
         }
 
         // "island": the community lot whose straight line from the Sim crosses the most sea (samples every 10 m, at least
         // 100 m of sea), so a walk there needs a boat, a water taxi or a swim (the unseen-boats repro, docs/143 §8.10);
-        // null when no lot is that far over water (a world without sea or islands).
-        static Lot IslandLot(Sim s)
+        // null when no lot is that far over water (a world without sea or islands). land: no dive lot or resort (crowd_visit_lot "island").
+        static Lot IslandLot(Sim s, bool land)
         {
             Lot best = null;
             float bestSea = 99f;
@@ -582,6 +588,7 @@ namespace Ts3Agent
             foreach (Lot l in LotManager.AllLots)
             {
                 if (l == null || !l.IsCommunityLot || l.IsWorldLot) continue;
+                if (land && (l.CommercialLotSubType == CommercialLotSubType.kEP10_Diving || l.CommercialLotSubType == CommercialLotSubType.kEP10_Resort)) continue;
                 Vector3 b = l.GetCenterPosition(), d = b - a;
                 float len = d.Length(), sea = 0f;
                 for (float t = 0f; t < len; t += 10f)
@@ -656,12 +663,14 @@ namespace Ts3Agent
         // focus_sim {pick?: "far" | "near", index?: 0}: the portrait click's path (HudModel.MoveCameraToSim -> Camera.FocusOnSim
         // -> CameraController.RequestLerpToTarget, plus FollowSim for a routing Sim) onto a spawn_sims Sim; pick far (default)
         // = the index-th farthest from the camera target (an unseen Sim, so Mode 2's camera-IC hold is what keeps it exact),
-        // near = nearest. found false: no spawn_sims Sim in the world.
+        // near = nearest; active = the selected Sim (outfit_change changes the active household first). found false: no such
+        // Sim in the world.
         static object FocusSim(Args a)
         {
             RequireLive();
             Dictionary<string, object> r = Util.Obj();
-            List<Sim> sims = SpawnedInWorld();
+            Sim act = PlumbBob.SelectedActor;
+            List<Sim> sims = a.Str("pick", "far") != "active" ? SpawnedInWorld() : act != null && act.InWorld ? new List<Sim> { act } : new List<Sim>();
             Vector3 t = CameraController.GetTarget();
             bool near = a.Str("pick", "far") == "near";
             sims.Sort(delegate (Sim x, Sim y) { int c = (x.Position - t).Length().CompareTo((y.Position - t).Length()); return near ? c : -c; });
@@ -753,6 +762,37 @@ namespace Ts3Agent
             r["queued"] = queued;
             r["lot"] = lot.Name;
             r["interaction"] = def.GetType().DeclaringType != null ? def.GetType().DeclaringType.FullName : def.GetType().FullName;
+            return r;
+        }
+
+        // houseboat_leave {lot, max?: 20} (docs/248 §10): every townie standing on a houseboat lot queues the game's own lot trip to `lot`, so unseenboatstart gets
+        // its case at once; {check: true}: a Sim a houseboat lot still lists that stands off that lot is an error (the boat kept a Sim that left it).
+        static object HouseboatLeave(Args a)
+        {
+            RequireLive();
+            Dictionary<string, object> r = Util.Obj();
+            List<object> sent = new List<object>(), stale = new List<object>();
+            bool check = a.Bool("check", false);
+            Lot lot = check ? null : FindLotByName(a.Str("lot"));
+            InteractionDefinition def = check ? null : lot.IsCommunityLot ? VisitCommunityLot.Singleton : VisitLot.Singleton;
+            int max = (int)a.Long("max", 20), boats = 0;
+            InteractionPriority pri = new InteractionPriority(InteractionPriorityLevel.UserDirected);
+            foreach (Lot l in LotManager.AllLots)
+            {
+                if (l == null || !l.IsHouseboatLot()) continue;
+                boats++;
+                foreach (Sim s in new List<Sim>(l.GetSims()))
+                {
+                    if (check) { if (LotManager.GetLotAtPoint(s.Position) != l) stale.Add(s.FullName + " on " + l.Name); continue; }
+                    if (sent.Count >= max || s.Household == Household.ActiveHousehold || s.IsPet) continue;
+                    try { sent.Add(s.InteractionQueue.Add(def.CreateInstance(lot, s, pri, false, true)) ? s.FullName : s.FullName + ": not queued"); }
+                    catch (Exception e) { sent.Add(s.FullName + ": " + e.Message); }
+                }
+            }
+            if (stale.Count > 0) throw new McpException("houseboat lots still list Sims that left: " + string.Join(", ", stale.ConvertAll(o => (string)o).ToArray()));
+            r["houseboats"] = boats;
+            r["sent"] = sent;
+            if (lot != null) r["lot"] = lot.Name;
             return r;
         }
 

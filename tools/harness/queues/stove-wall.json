@@ -1,0 +1,85 @@
+{
+  "note": "Player report stove behind a wall (no-path in 0 ms, uncut). Correctness only, no timing, one load per layout, arm 1 player switches, arm 0 vanilla-like. Needs the ts3agent of branch bugfix/stove-wall-repro. DRAFT, NOT RUN. Run with --no-smoke.",
+  "jobs": [
+    {
+      "id": "stove-wall-kitchen",
+      "note": "Real kitchen with real door. Read first.",
+      "asi": "game-copy/ts3native.asi.household3",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "stove-wall: setup": 1,
+        "stove-wall: arm 0 before to-slot bin 0": 1,
+        "stove-wall: arm 1 before to-slot bin 0": 1,
+        "stove-wall: arm 0 before to-slot bin 1": 1,
+        "stove-wall: arm 1 before to-slot bin 1": 1,
+        "stove-wall: arm 0 region region-gone to-slot": 1,
+        "stove-wall: arm 1 region region-gone to-slot": 1,
+        "stove-wall: arm 0 cook end": 1,
+        "stove-wall: arm 1 cook end": 1
+      },
+      "ini": {
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DeferFootprint2": 1,
+        "Discourage.DestroyPark": 1,
+        "Discourage.DestroyParkDx": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.KdExemptSeen": 1,
+        "UnseenFallback.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 26,
+          "repro": "stove-wall-kitchen",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40
+    },
+    {
+      "id": "stove-wall-built",
+      "note": "Open layout with the drawn 4-tile wall.",
+      "asi": "game-copy/ts3native.asi.household3",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "stove-wall: setup": 1,
+        "stove-wall: arm 0 before to-slot bin 0": 1,
+        "stove-wall: arm 1 before to-slot bin 0": 1,
+        "stove-wall: arm 0 before to-slot bin 1": 1,
+        "stove-wall: arm 1 before to-slot bin 1": 1,
+        "stove-wall: arm 0 region region-gone to-slot": 1,
+        "stove-wall: arm 1 region region-gone to-slot": 1,
+        "stove-wall: arm 0 cook end": 1,
+        "stove-wall: arm 1 cook end": 1
+      },
+      "ini": {
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DeferFootprint2": 1,
+        "Discourage.DestroyPark": 1,
+        "Discourage.DestroyParkDx": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.KdExemptSeen": 1,
+        "UnseenFallback.Enabled": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 26,
+          "repro": "stove-wall-built",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40
+    }
+  ]
+}

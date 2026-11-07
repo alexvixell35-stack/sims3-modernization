@@ -145,3 +145,188 @@ Build `game-copy/ts3fixes.package.unseen4` (`--on kAutLive`, = unseen3 + this se
 - Mono gain on arm: saved 11.9 - cost 1.8 = **net 10.1 ms/s** (guard counters over 427 s on-arm time; the saved side uses the guard's vanilla-rate model) [inferred from measured counters]. Whole-load go-live estimate: net 13.4 ms/s, worker adds 3.2 ms/s to the sim.
 - Hitches off / on (timing invalid, no verdict): >=300 ms 11.5 / 25.3 per 10 min, >=1000 ms 0 / 0, max 683 / 613 ms, p99 113 / 126 ms, 54.3 / 51.2 it/s. On-arm causes: locomotion, steering obstacle query, ScriptProxy WorldLot/Sim, sync Route_PlanFromPoint, gate 12. None is named as autonomy [measured].
 - Monday: ship opt-in as planned with `autunseenrh` on (the tested state) [measured: push gap closed, 0 exc/crash]. The cadence and GoHome bars are open known issues for an opt-in feature, not a blocker [inferred]. Before the default-on decision: a corrected rhoff Dry run, a pace-100 + rh-on G8 pair, and a valid-noise timing pair.
+- **rh Dry reading (2026-11-06, `golive-unseen-gate-2026-11-03-ip-gug-dry-rhoff`, IP 10 min, `autunseenrh` off verified in the job log, ts3native build c5a27832) [measured]:** 99,924 pairs compared; counter 686 (worker pass, game fail, worker score 0) = 7,175. The last per-definition `defcmp` rows (99,047 pairs) sum worker-pass/game-fail to 7,135, so counter 673 is about 7,2xx at the end (not logged as a counter row; rescaled, 7,198): 686 is within 1% of 673. By definition the rabbit-hole pairs are 6,926 of the 7,135 (restaurant 2,228, city hall 1,573, hospital 1,555, shop 1,565, show 5), `wfgp` 0 on every definition. **Reading 1 (compare artefact): the worker's score is 0 on the pairs the game fails, `BestScores` drops both.** Timing for the job is void (noise high, others 19%) but the compare does not depend on timing. Consequence per "How to settle": `autunseenrh` is not needed for correctness; the IP `ShopInRabbitHole` push drop sits elsewhere (cadence, §8). Rodney 2026-11-06: `kAutUnseenRabbitHoleGame` stays on unless off shows a real benefit or gain (rh on vs off cadence was -1.8% pooled in the gate, so keeping it costs nothing measurable).
+
+## 11. Gate 2: default-ON gate by what a player can see (Rodney 2026-11-06, R1 + R3; queues built, not run)
+
+**Decisions.** R1: behaviour bars for unseen Sims are relaxed: a change is fine if it does not show when the player focuses on that Sim (snap-back) or is not visible at all. The §5 bars (pushes and cadence ±5%, GoHome ±10%) no longer gate. R3: `autunseen` goes default ON if it shows better performance and this gate passes. Replaces the 11-03 verdict (`docs/data/results/2026-11-03-queue-golive-unseen-gate.md`: FAIL on those bars). The "docs/222 §11 (a)-(e)" notes in the old `golive-unseen-gate.json` (unmerged, `feature/golive-unseen-default-on`) named a section that was never written; this is not it.
+
+**Rodney's answers 2026-11-06.** These override anything below that reads softer:
+
+- **G1:** modelled gains count (the saved side of `autunseen`'s net may be the guard's model). G2 and G3 must still agree.
+- **V6 is hard:** visible Sims' behaviour stays the same; only invisible Sims may change. ±10% is the measurement band, not permission to change what a visible Sim does.
+- **V1:** the idle limit is fixed at 240 sim minutes.
+- **`Audit=50` stays on for players,** but its cost must be measured and shown light. Not measured yet: the gate queues run it on in both arms, so they cannot show it (needs its own arm, a gate 2 addition).
+- **`autunseenrh` stays on** unless off shows a real benefit or gain. The Dry reading in §10.1 shows no benefit, so it stays on.
+- **`autunseen` goes default ON if gate 2 passes.**
+
+Files: `tools/harness/queues/golive-unseen-gate2-pace.json` (only if V6 fails, §11.9), `tools/harness/queues/golive-unseen-gate2.json`, `tools/harness/gate2-report.ts` (bars from run data, `--self-check`), ts3agent `focus_watch` / `focus_result` / `focus_summary` (`FocusHandlers.cs`, rules in `FocusRules.cs`, selftest `tools/selftest/focusrules`), repros `aut-unseen-focus`, `aut-unseen-arrive`, `aut-unseen-player-speed`. All UNVERIFIED: compiled and self-tested, never run in game.
+
+### 11.1 Stays hard (any miss = FAIL, no trade against gain)
+
+| Check | How |
+|---|---|
+| 0 crash, 0 `autunseen_exc`, 0 script error from the go-live path, 0 new stuck Sim | every job; `earlyGates`, queue verdict, stuck log |
+| Snap-back accuracy | §11.2 V2 + V3 thrown by `focus_result`; `autunseen_flip_*` and `autunseen_snap_*` move |
+| Save correctness | G9b with `autunseen` acting, SV / BP / IP x 2 (`*-gu2-save-*`): save completes, reload reaches live mode, 0 crash in 6 runs. No mod data in saves (unchanged) |
+| Safety guards | unchanged and on: one live `Test` on every direct pick (§2.1), `ObjStale` / `LiveCheck`, G-M1..G-M6 mod guards (`autshadow_gm6_faults`, `_mismatch` 0), L3 `LiveGuard`, cost guard, Mode R audit A1-A3 0, exe and hash gates |
+
+### 11.2 What a player can see
+
+| # | Player sees | Check | Throws when |
+|---|---|---|---|
+| V1 | Focused or followed Sim does something plausible | `aut-unseen-focus` BP + IP: camera away 60 s, `focus_watch` puts the camera on the Sim of the last direct pick and follows it for 30 s at normal speed (a player's map click and pan), 6 firings; state before / after in `-repro.jsonl`; `focus_summary` needs >= 4 Sims judged | no action, not routing, for > 240 sim minutes (fixed, Rodney 2026-11-06); needs: hunger or energy <= -95; routing or held without moving for 60 s |
+| V2 | Snap-back in time | same | 3 s after first on screen: still in a relaxed hold, or a queued autonomous pick fails a live `Test` (FlipCheck must have cancelled it; it runs ~every 0.1 s, §3) |
+| V3 | No teleport or pop | same, position every tick | one on-screen step > 12 m, not hidden and not parented (cars, rabbit holes, boats do not count) |
+| V4 | Camera really got there | same | never on screen: nothing checked |
+| V5 | Sims arriving on the active lot behave | `aut-unseen-arrive` BP + IP: 8 spawned Sims sent back onto the active lot x 3, every on-screen non-household Sim watched for 90 s (STRESS labelled, stands in for guests); `arrivalsMin` 3 | V1-V3 for each |
+| V6 | Visible Sims unchanged (hard: only invisible Sims may change; ±10% is the measurement band, not permission) | `gate2-report.ts`: **pushes** per **seen** Sim-hour, on vs off, within ±10% pooled per world (Rodney 11-06: a push shows on screen, a no-pick retry does not; searches stay a log row, not a bar); `bp-gu2-crowd` (crowd in view, `offload-goal.md`) 0 crash / exception / stuck | **Fails on 11-03 data as a searches bar (§11.4); as a pushes bar it passes the static read (§11.8: BP -3.8%, IP +1.4% pooled)** |
+
+`focus_watch` samples in a game task and only moves the game camera; the window is never touched. `Test` runs twice a second, so these jobs are correctness only, never timing.
+
+### 11.3 Long-run outcomes: visible or not
+
+`*-gu2-out-off` / `-on`: 30 min whole-arm run per world, same seed, ~14 sim days at ultra (10 min ran 6,701 sim minutes [measured]). `sims_activity` now also gives at-home, community-lot and lowest-need per Sim; `activity.jsonl` keeps them every 30 s.
+
+| Outcome | Visible? | Decision |
+|---|---|---|
+| Sims stranded at places | **Yes**: the player walks onto the lot and sees them standing there | Bar: same foreign lot, no action, >= 8 samples (~45 sim hours at ultra): on <= off + 1 |
+| Needs starving | **Yes** on focus (V1); a starved Sim can die, which the player reads as a mod bug | Bar: Sims ever at <= -95: on <= off |
+| Sim never at home | Barely: only by visiting that home; a home empty for 14 days is odd | Bar: Sims never at home in the run: on <= off + 2 |
+| Venues empty | **Yes**: the world feels dead. GoHome falling does not empty venues, fewer trips would | Bar: mean Sims on community lots: on >= 0.75 x off |
+| At-home share, GoHome count, pushes, cadence | No, not by themselves | Logged only (R1) |
+| Missing work | No for townies, and the household is always exact. Work starts on career alarms, not autonomy [inferred] | Logged only (`Work Until End of Shift` in activity) |
+| Relationships | Unseen with unseen: no panel shows it. With the household: socials happen on screen, exact | Not measured |
+
+The limits (+1, +2, 0.75) are my judgement, not measured: adjust after the first pair, before reading the verdict on later runs.
+
+### 11.4 What the -39% GoHome is, and what it hid (11-03 `gug-t-ab`, both orders; `-pace*-ab` where named)
+
+- **The counter is not trips home [verified].** `g8_*_gohome` (`AutLive.cs` `G8Note`) counts no-pick searches meeting the fallback's condition, whether or not the Sim is already home. So it follows cadence: fallback per no-pick stayed flat or rose (BP 0.56 -> 0.58, IP 0.45 -> 0.51) [measured].
+- **Real GoHome runs fell far less** (`gohome_runs`, all Sims): BP 545 -> 446, -18%, and the orders disagree (-38%, +4%); IP 346 -> 339, -2% [measured]. BP pace78 18 min: -28% [measured]. So -38.5 / -14.7 overstates it.
+- **Sims are not visibly stuck out, as far as the data goes.** Samples with "Go Home" running: BP 7.5 -> 5.9%, IP 4.4 -> 5.0%. Trips (Visit, Eat Out, Meet Up): BP 10.5 -> 8.8%, IP 10.2 -> 7.5%. No interaction: BP 47.6 -> 52.8%, IP 68.9 -> 68.5% [measured, 16 samples per arm per world]. Both directions fall together: on BP the world moves a bit less. Stuck Sims 0.
+- **"Staying out" is not proven either way:** 11-03 recorded no location per Sim. The gap between an unseen Sim's searches grows from 1.35 to 2.09 sim hours on BP and 1.15 to 1.50 on IP, so a Sim done at a venue leaves ~0.4-0.7 sim hours later [inferred]. Unlikely to be noticed [inferred]; §11.3 measures it.
+- **Finding: seen Sims lost cadence too [measured].** Searches per seen Sim-hour, on vs off: t-ab BP -10%, IP -18%; 18 min pairs BP -38% (pace 78), -33% (pace 100); IP -28%, -20%. Seen Sims stay on the exact path (on arm only: the off arm is mostly guard-skipped game searches, §11.8), so §1's scope does not explain it. Unseen cadence falls with pacing (BP -23 / -40%, IP -11 / -22%); seen cadence does not clearly. Cause not known. Suspects [inferred]: searches share one manager, one search per iteration (docs/59 §1), so paced or waiting direct searches hold visible Sims back; or the classifier (`UfWhy` at the end of the search). This is the one 11-03 result R1 does not cover: on-lot Sims may react later.
+- **All behaviour numbers so far are at ultra** (~11 sim minutes per real second). If the manager is the limit, cadence per Sim-hour is an ultra artefact and players at speed 1-2 never see it [inferred]. The main queue no longer reads that (§11.9); `*-gu2p-speed1-ab` in the pace queue does, if V6 fails.
+
+`golive-unseen-gate2-pace.json` (audit O1 rescoped) is conditional since 2026-11-06 (Rodney): run it only if gate 2's V6 fails at pace 78, as the static read says it should pass (§11.8). Pace 50 and 35, BP + IP, judged on seen pushes per Sim-hour (V6, 11-06), not unseen. The pace that brings seen within ±10% goes into `ts3fixes.package.gate2`. Neither does: triage the cause before the main queue [one round, `throttles-park-rule.md`].
+
+### 11.5 Performance bar (`clear-gain-on-by-default.md`, `throttles-judged-by-ms.md`)
+
+The measure stays ms/s per arm, not hitches or it/s; hitches are a no-regression guard.
+
+| Bar | Pass when | 11-03 |
+|---|---|---|
+| G1 net | `autunseen` saved - cost >= 3 ms/s in **every** run, both orders, BP and IP (`*-gu2-t-ab`, `-onfirst`, 18 min) | BP 6.0 / 5.5, IP 10.3 / 10.2 [measured counters; saved side is the guard's model, which counts (Rodney 2026-11-06)] |
+| G2 no contradiction | pooled Threaded ms/iter not up > 2% per world; with X3, TaskObjects and script read beside it | BP -7.0%, IP -5.5% |
+| G3 whole stack | full stack beats the release state by >= 3 ms/s, both worlds (`*-gu2-x-*`, cross-run ABBA). Read by hand with X3 + X4 | Never measured |
+| Hitches | not worse (`hitch-ab.ts`, AGENTS.md clear-regression rule) | IP pass, BP borderline |
+
+**Why not the summed stage columns.** The +2.2 / +14.8 figures are `arm-ms.ts` sums. Per order they are BP +10.4 / -14.6 and IP -31.3 / +1.4 ms/s (on - off), so **IP disagrees between orders too**, not only BP as the verdict said. The swing is route and locomotion, which `autunseen` does not touch: workload mix [inferred]. TaskObjects, where searches run, went +5.4, +4.8, +10.4, -17.2 [measured].
+
+**Fixed-work note (audit §1.5).** Threaded stage is ~590 ms/s in every run, the sim runs flat out, so a saving shows as more iterations, not fewer ms/s. 5 ms/s is ~0.1 ms/iter against a slice sd of ~3 ms/iter: no stage A/B of practical length resolves a 3-5 ms/s bar. So G1 uses the counters, G2 only checks they are not contradicted, and G3 needs X4 (fixed managed workload per arm) and X3 (TaskObjects, threaded columns). Without X4: G3 = G1's net minus measured stack cost.
+
+**The off arm already carries the stack.** `--ab autunseen` compares against exact go-live, which holds the `kAutLive` hook, guard thunks (1.5-2.1 ms/s, §Summary) and the worker's 3.2-4.9 ms/s on the sim thread (§10.1, audit §3). Exact go-live nets ~0 against release. From G1's net: BP ~0-2, IP ~3-5 ms/s against release [inferred]. **BP may miss the 3 ms/s bar on G3**, IP likely passes. Part of any gain is also the on arm doing less; under R1 that is allowed.
+
+Default ON needs every row of §11.1, V1-V6, the §11.3 bars, G1, G2, G3. Off-thread lanes normally take a stable move at <= ~2% loss (`offload-goal.md`), but R3 says "better performance", so this bar is a gain, not "no loss".
+
+### 11.6 What must ship with it, and the release change list
+
+`autunseen` does nothing alone: it acts only with `autlive` acting, `[AutShadow] Mode=3`, `[MonoThread]` worker, the `kAutLive` hooks, and `[RouteSnap]` (cut tracking). All of it is default OFF today [verified]. The gate ini (from the 11-03 smoke job) is the state to ship; **any value changed below must be retested**.
+
+| Where | Today | Default-ON release |
+|---|---|---|
+| `tools/setup/build-fixes.ts` | `kAutLive` True (O6, merged 2026-11-06), `kAutShadow` False | True, True. `kAutLive` adds one interpreter frame under every meta B14 (docs/130 §11): counted by G3 |
+| `tools/setup/build-fixes.ts:71` | `kAutUnseenPacePct` 78 | the pace chosen in §11.4 |
+| `mods/ts3fixes/src/Fixes.cs` `ShortcutOn` | `autlive`, `autunseen` on only by `[AutShadow] Unseen=1` (O6) or a test run | read tunables; add `kAutUnseen` to `Instantiator.cs` and build-fixes; every new switch default stays off in source |
+| `mods/ts3fixes/src/Instantiator.cs` | `kAutLive` comment "test packages only" | correct the comment |
+| `native/ts3native/ts3native.ini` `[RouteSnap]` | Enabled=0 Count=0 AuditEvery=20 | Enabled=1 Count=1 AuditEvery=0 |
+| `[MonoThread]` | Enabled=0 Mode=0 GcLock=0 FrameTls=0 | Enabled=1 Mode=1 GcLock=1 FrameTls=1 ArenaFix=1 N2mPrivate=1 LazyGate=1 LazyEarly=1 |
+| `[AutShadow]` | Enabled=0 Mode=0 Sample=4 | Enabled=1 Mode=3 Sample=1 Satb=2 ColdIc=1 CutLean=2 TierMs=1500 RowHot=200 RunSkip=1 KeepPartial=1 TierReqLots=1 FreshEvery=0 PreLearn=0 WindowWaitUs=0, TopN=10 Bands=3 Margin=0 MaxWait=3 VerifyEvery=50 Dry=0 |
+| `[AutShadow]` test values | gate runs Audit=50 DumpOnMismatch=1 | Rodney: Audit=50 stays on for players, its cost measured and shown light; DumpOnMismatch=0 for players (dump only, verify with a load) |
+| `.github/workflows/build.yml:64` | refuses Enabled=1 outside its list | add `[RouteSnap]`, `[MonoThread]`, `[AutShadow]`, else the release build fails |
+| `docs/PLAYERS.md:132, :153`, `CHANGELOG.md` | "stay off", Tiny UI line | how to turn it off, what it changes, known issues |
+| EA 1.69 | Mono addresses are Steam 1.67 | exe gate must leave all of it off (`steam-only.md`); check once on the laptop |
+| Gate ini only, do not ship | `HitchAttr.Enabled`, `RouteSnap.Count` audit runs | `HitchAttr` stays as release |
+
+Guards ship on: `kAutLiveGuard`, `kAutUnseenRabbitHoleGame` (already True; stays on unless off shows a real benefit or gain), `kAutUnseenPace`, G-M1..G-M6 and exe gates (always on with the stack). `[UnseenRoute]` / `unseenroute` is not part of this gate.
+
+Open risk for default ON, not covered here: mods with `[AutShadow]`, issue #155 (heavily modded old save), O10 Tiny UI, O12 big save (last by rule). Default ON reaches every player; Dalexlol's save (`big-saves-first.md`) should run the release candidate first.
+
+### 11.7 Order and time
+
+Before any run: pair built 2026-11-06 (§11.8), `gate2` holds pace 78 until the pace queue picks one; ts3agent from `feature/gate2-additions` merged; X3 + X4 for G3. ~1 agent build round, ~30 min.
+
+Game (2026-11-06, §11.9): main queue smoke + 27 jobs ~8.0 h: focus + arrive 4 (~0.9 h), timing 4 (~1.3 h, quiet machine), cross-run 8 (~1.6 h, quiet), outcomes 4 (~2.1 h), crowd 1, save 6 (~1.6 h, audit O5: last, once). Pace queue 10 jobs ~3.8 h, only if V6 fails. `stopQueueOnFail`: the cheap hard checks run first, so a failure ends it early. Read: `node tools/harness/gate2-report.ts golive-unseen-gate2-<date>`.
+
+### 11.8 V6 cause, queue counters, Audit cost, speed 1 (2026-11-06, static, no game run)
+
+**Pooled 11-03 data, 8 `--ab autunseen` jobs, rh pairs out, per seen Sim-hour, off -> on [measured]:**
+
+| World | Searches | Pushes | No-pick searches |
+|---|---|---|---|
+| BP | 0.671 -> 0.486 (-27.6%) | 0.310 -> 0.298 (-3.8%) | 0.359 -> 0.186 (-48.2%) |
+| IP | 0.827 -> 0.640 (-22.6%) | 0.356 -> 0.361 (+1.4%) | 0.471 -> 0.279 (-40.8%) |
+
+**So what fell is no-pick searches, not actions.** Seen Sims do the same number of things per hour; they re-ask less often after finding nothing. The old V6 bar counted searches, so it read a retry rate. **Decided by Rodney 2026-11-06:** V6 judges pushes per seen Sim-hour (±10% pooled per world); no-pick retries do not show on screen, a push does. `gate2-report.ts` prints searches and no-pick beside it as log rows, not bars; a build without the push counters gives "no data", not a pass. Per job the push change scatters (BP -12..+20%, IP -3..+12%), so pushes are flat pooled, not per run.
+
+**Disproof attempts on "shared manager throughput":**
+
+| Suspect | Result | Tag |
+|---|---|---|
+| Static `sUpdateTimer` couples searches | Refuted. `Restart()` at each meta phase start, one search in the meta phase at a time (one manager, docs/59 §1.1), so an unseen search's charge cannot reach the next search | verified, `Autonomy.cs` |
+| Worker busy with direct searches, seen posts refused | Refuted. `autshadow_busy` 0 in all 8 jobs | measured |
+| Classifier or denominator moved | Refuted as the main cause. Seen Sim-hours differ by -15..+17% per job with no sign; pushes per seen Sim-hour stay flat on the same denominator | measured |
+| A seen search's own worker wait | Refuted as a direct cause. +2-3 ticks is ~0.06 s against a ~7 s gap between searches | inferred from measured rates |
+| Manager throughput | **Survives, not proven.** Total searches per second fall in every job: BP 10.9 -> 6.6, 11.0 -> 8.1, 10.6 -> 7.4, 9.4 -> 6.4; IP 10.9 -> 8.5, 11.8 -> 10.3, 10.2 -> 8.3, 11.6 -> 8.3 [measured]. No-pick per Sim-hour falls about the same in both classes (BP pace 100: seen -55%, unseen -45%) [measured]. `AutonomyManager` is the only shared piece left [verified]. But ticks per search (3.3 -> 4.2-6.2) is just it/s over searches/s, so it cannot show the queue is full: there was no independent search length in the 11-03 data | inferred |
+| **New: the arms differ for seen Sims** | The exact cost guard skips ~85-90% of searches in the off arm (BP pace 100: 4,517 skipped, 448 requests), so off-arm seen Sims mostly run the game's search. On arm: 515 of 539 seen searches post and wait. §11.4's "seen Sims stay on the exact path" holds only for the on arm. Seen no-pick share is 45-63% where the guard skips and 33-46% on the on arm; `gug-rh-ab`, both arms acting, 35-39%. Either retries thinning, or the exact path picks more often than the game | measured; which of the two is open |
+
+**Why searches run longer [inferred from measured counters + code]:** a direct search pays the worker wait (`LiveMeta` loop, Satb=2, up to `MaxWait` 3 ticks) and is then paced to vanilla's schedule, so it costs vanilla's slices plus the wait. Pacing was tuned against that total by percent. Forced yields per direct search 3.6-3.8 at pace 100, 1.5-2.3 at pace 78 [measured].
+
+**Added (ts3fixes counters 785-817, `AutonomyManager.Add` hook under `kAutLive`, all counters Mode 3 only):**
+
+- Enqueue-to-start wait by class in ticks: count, sum, bins <= 1 / 2-9 / 10-49 / 50-199 / 200+. Start = B13 entry, or the push for a search with no meta phase.
+- Search length by class, so `(lengths + searches) / iters` is the manager's busy share: the independent number the 11-03 data lacked. Queue depth (high + low) at each search end and the share with both queues empty.
+- Worker wait by class, seen searches by path with their no-picks, household searches / pushes / Sim-hours.
+
+`gate2-report.ts` prints all of it as `log` rows. Read: busy share near 100% and queues rarely empty on both arms = manager saturated, the hypothesis holds. Busy share well under 100% = refuted, look at the seen path.
+
+**Candidate fixes, switches off, test runs only, no tunable:**
+
+- `autseengame`: with `autunseen` on, a seen actor runs the game's own search: no post, no worker wait. Most literal reading of V6; exact go-live nets ~0 (§11.5), so it gives up little [inferred].
+- `autunseenpacecredit`: ticks a direct search waited count as vanilla slices (1 ms each, >= 1 ms by Y2) and pay the pacing charge first, so waited + paced equals vanilla's schedule without a tuned percent. Built for pace 100 (`gate2-gu100`). Logic in `AutLiveCore.Pace` (selftest `tools/selftest/autlive`).
+
+Pace queue additions, read each by naming it (`gate2-report.ts <tag>-bp-gu2p-seengame`): `*-gu2p-seengame-ab` (`--ab autseengame`, `autunseen` on in both arms: exact vs game for seen Sims, nothing else changes) and `*-gu2p-credit-ab` (`--ab autunseen` with both switches). Prediction if the hypothesis holds: total searches per second and seen no-pick come back in the credit pair; `seengame` alone moves little. The pace 50 / 35 jobs are also a test of it: seen cadence must follow unseen's.
+
+**Speed 1:** repro `aut-unseen-normal-speed`, `*-gu2p-speed1-ab` (pace queue), 30 min, slice 3 min; the main queue's speed pairs were cut, §11.9. All earlier data is ultra. At normal speed the same Sim-hours take ~11x longer, so few seen searches per arm: pool per world, expect wide bands [inferred].
+
+**`Audit=50` cost [measured, 11-03]:** no arm needed. ts3native already times the audit slice of the cut (`cutAuditUs`, sim thread): **0.04-0.07 ms/s** on the on arm over all 8 jobs (0.004-0.024 on the off arm, where cuts are rarer). Bounded by design at 1,024 rows every 50th cut. `gate2-report.ts` now has a bar, <= 0.5 ms/s (my judgement) per world. Not covered: cache effects of the refreshes, too small to resolve in any A/B [inferred]. `ListAudit` and `VerifyEvery` are separate knobs, not part of this number.
+
+**Pair (`feature/gate2-additions` e87c9498, ts3native 0.36.169):** `ts3native.asi.gate2`; packages `gate2` (default tuning, pace 78 until the pace queue picks), `gate2-gu50`, `gate2-gu35`, `gate2-gu100`, `gate2-rel`; `game-copy/ts3agent.package.gate2`. `gate2-rel` is **`kAutLive=False`**: since O6 the default package carries the hooks, and the G3 jobs' note says release state = no hook, no worker. The next release built from master would carry them unless the default changes. Before any run: cycle.ts builds ts3agent and ts3fixes from the checkout it runs in, so merge this branch first: without it the agent has no `fixed_work` and no 785-817 names [inferred from the queue.ts header, cycle.ts not read].
+
+### 11.9 Timing trim: what each job feeds (Rodney 2026-11-06)
+
+`golive-unseen-gate2.json` 31 jobs ~9.8 h -> 27 jobs ~8.0 h. The ~6 h target is not reachable without weakening a bar; ~8.0 h is the floor. Times use 1.9 min per job over its run minutes, the overhead that gives the 9.7 h estimate.
+
+| Jobs | Feeds | Decision |
+|---|---|---|
+| `*-gu2-focus` x2 | V1-V4 (BP + IP), §11.1 snap-back. V1 limit 240 sim minutes is in the repro | keep |
+| `*-gu2-arrive` x2 | V5 (BP + IP) | keep |
+| `*-gu2-t-ab`, `-onfirst` x4 | G1 (every run, both orders), G2, V6 (the only pool), R1-R6 (both orders), `Audit=50` bar (`cutAuditUs` per arm), hitches | keep, 18 min: V6 is ±10% pooled from jobs that scatter -12..+20% |
+| `*-gu2-x-*` x8 | G3, cross-run ABBA, both worlds. `kAutLive` cost: `-rel` has no hook, so G3 carries it | keep; gain the X4 bench below |
+| `*-gu2-out-off`, `-on` x4 | §11.3 outcome bars per world over ~14 sim days. docs/246's R1, R2, R4 whole-run rows are not read: `gate2-report.ts` reads routing from `--ab` runs only, so t-ab feeds them | keep, 30 min: a shorter run moves never-home and stranded in both arms |
+| `bp-gu2-crowd` | V6 crowd in view: 0 crash, exception, stuck | keep |
+| `*-gu2-save-*` x6 | §11.1 save correctness, "0 crash in 6 runs" | keep: fewer weakens the bar |
+| `*-gu2-fastspeed-ab` x2, `*-gu2-speed1-ab` x2 | No bar. `gate2-report.ts` reads them only by naming them, never pools them, R1-R4 are log rows | **cut, ~1.8 h** |
+
+What the cut loses: the routing log at player speed (docs/246 §6). If V6 fails the pace queue's `*-gu2p-speed1-ab` still reads speed 1; speed 2 has no job left.
+
+**X4 added to the `-x-` jobs.** §11.5 says G3 needs X4, but they had no bench. They now run `--ab fwnull --fixedwork 8 --slice 2`, as `f1-callpath` did; `fwnull` flips nothing and `gate2-report.ts` skips those runs. No added minutes. Run `x4-smoke.json` first.
+
+**`kAutLive` alone is not split out.** G3 counts the hook inside the stack, which is enough for this gate. A hook-only arm would add 4 jobs (~0.8 h) and could not resolve it: one frame under B14 is far below the ~3 ms/iter slice sd of §11.5 [inferred], and X4's loop does not go through B14. It matters only if gate 2 fails and master still ships `kAutLive` True.
+
+**V6 is not an automatic stop.** A failed bar in `gate2-report.ts` does not fail a job. Read it after the 4 t-ab jobs and stop by hand: the later jobs would be at a pace about to change.
+
+To reach ~6 h a bar has to give: saves x1 (-0.8 h, 0 crash in 3 runs), outcomes 20 min (-0.7 h, ~9 sim days), or one cross-run pair per world (-0.8 h, G3 loses order consistency). Not taken; Rodney's call.
+
+**Also on 2026-11-06:** `final-bundle.json` replaces `rootmotion-retest`, `offload3-timing-ab` and `saved-stacks-abba` in the chain (all-on vs all-off cross-run ABBA, 12 jobs, ~2.5 h). Root motion and the offload3 apply share arms, under the offload worker's ini. **Saved stacks cannot:** the hook removal and ErrorTrap's task have no switch, and `savedstacks` is read at load, before the profile sets switches. A clean off arm needs a no-fix package from the same master; `swapfix/ts3fixes-before.package` predates the Mono merge. The fix is in both arms, so the bundle does not measure it.
