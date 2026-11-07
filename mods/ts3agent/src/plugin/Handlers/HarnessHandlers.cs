@@ -333,6 +333,9 @@ namespace Ts3Agent
             // Career event (2026-11-06 sv-jit-ab-long: "One of your coworkers just started a rumour that you love cheese a bit too much" buttons
             // 'Start a rumour as...' / 'Tell Them it's No...' / 'Accept the Rumour...'): no safe word. Accepting involves no other Sim.
             new[] { new[] { "started a rumour", "started a rumor" }, new[] { "accept the rumour", "accept the rumor" } },
+            // A household Sim leaves a young Sim alone (2026-11-07 al269 old save: "UWU cannot be left home alone. She needs a babysitter."
+            // buttons 'Call Babysitter' / 'Stay Here'): no safe word, 60 s pause stop. Staying brings in no NPC and costs nothing.
+            new[] { new[] { "cannot be left home alone", "needs a babysitter" }, new[] { "stay here" } },
             new[] { new[] { "mod scripts found" }, new[] { "accept", "ok", "continue" } },
         };
 
