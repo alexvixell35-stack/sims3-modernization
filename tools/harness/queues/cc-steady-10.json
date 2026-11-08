@@ -12,7 +12,9 @@
       "ini": {
         "MemDiag.AllocSites": 1,
         "MemDiag.AllocSitesSample": 64,
-        "MemDiag.AllocSitesTop": 12
+        "MemDiag.AllocSitesTop": 12,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "logRequire": {
         "^alloc sites on \\(TEST-RUN TOOL, docs/201\\): EA heap hooks 4/4, ntdll hooks [457]": 1,

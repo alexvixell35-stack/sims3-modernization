@@ -294,6 +294,89 @@ static void TestMonoJitWide() {
     JitTemplates(511);
 }
 
+// [MonoJit] VtOps (docs/537 §20 B1): group 1024 stays out of Groups and Wide; the five ops copy as EA's handlers, a null or an
+// index past the length leaves at the opcode with the stack and the vt cursor as they were, ldobj of a class with no layout or an
+// enum compiles as an exit
+static void TestMonoJitVtOps() {
+    enum { OP_STFLDVT = 0x1A0, OP_LDELEMVT, OP_STELEMVT, OP_LDOBJ, OP_STOBJVT };
+    const char* const nm[5] = {"stfld.vt", "ldelem.any.vt", "stelem.any.vt", "ldobj", "stobj.vt"};
+    for (int i = 0; i < 5; i++) g_jtNames[OP_STFLDVT + i] = nm[i], g_jtLen[OP_STFLDVT + i] = i < 3 ? 4 : 2;
+    const bool lazy0 = g_jitLazy;
+    g_jitLazy = false, g_jitMode = 1, g_jitVerifyOn = 0;
+    memset(g_opInfo, 0, sizeof(g_opInfo));
+    assert(JitTemplates(1023) == 38 && g_opInfo[OP_STFLDVT].kind == K_EXIT && g_opInfo[OP_LDOBJ].kind == K_EXIT);
+    memset(g_opInfo, 0, sizeof(g_opInfo));
+    assert(JitTemplates(2047) == 43 && g_opInfo[OP_STFLDVT].kind == K_STFLDVT && g_opInfo[OP_STOBJVT].kind == K_STOBJVT);
+    const DWORD vt = (DWORD)(uintptr_t)g_jtVt;
+    static DWORD obj[8], arr[12], dst[4];
+    static const DWORD src3[3] = {0x11, 0x22, 0x33};
+    // stfld.vt: obj [esi-16], src [esi-8] at the cursor's last slot; 12 bytes at obj + 4, cursor back by 16
+    static unsigned short a[] = {OP_STFLDVT, 4, 12, 0, JT_RET};
+    static JtMeth ma;
+    JtMake(ma, a, 5, 0);
+    JtFrame(); memset(obj, 0, sizeof(obj)); memcpy(g_jtVt, src3, 12);
+    g_jtArena[0] = (DWORD)(uintptr_t)obj, g_jtArena[2] = vt, g_jtEbp[-3] = vt + 16;
+    JtGo(a, 4);
+    assert(g_jtEax == JT_RET && !obj[0] && obj[1] == 0x11 && obj[3] == 0x33 && !obj[4] && g_jtEbp[-3] == vt && g_jtEsi == (DWORD)(uintptr_t)g_jtArena);
+    JtFrame(); g_jtArena[2] = vt, g_jtEbp[-3] = vt + 16;
+    JtGo(a, 4);
+    assert(g_jtEax == OP_STFLDVT && g_jtEdi == (DWORD)(uintptr_t)a && g_jtEbp[-3] == vt + 16 && g_jtEsi == (DWORD)(uintptr_t)(g_jtArena + 4));
+    // ldelem.any.vt / stelem.any.vt: 8-byte elements, length 3 at +8, data at +0x10; index 3 and -1 leave
+    static unsigned short b[] = {OP_LDELEMVT, 0, 8, 0, JT_RET}, c[] = {OP_STELEMVT, 0, 8, 0, JT_RET};
+    static JtMeth mb, mc;
+    JtMake(mb, b, 5, 0), JtMake(mc, c, 5, 0);
+    memset(arr, 0, sizeof(arr)); arr[2] = 3; arr[6] = 0xA1, arr[7] = 0xA2;
+    JtFrame(); g_jtArena[0] = (DWORD)(uintptr_t)arr, g_jtArena[2] = 1;
+    JtGo(b, 4);
+    assert(g_jtEax == JT_RET && g_jtArena[0] == vt && g_jtVt[0] == 0xA1 && g_jtVt[1] == 0xA2 && g_jtEbp[-3] == vt + 8 && g_jtEsi == (DWORD)(uintptr_t)(g_jtArena + 2));
+    for (DWORD bad : {3u, 0xFFFFFFFFu}) {
+        JtFrame(); g_jtArena[0] = (DWORD)(uintptr_t)arr, g_jtArena[2] = bad;
+        JtGo(b, 4);
+        assert(g_jtEax == OP_LDELEMVT && g_jtArena[0] == (DWORD)(uintptr_t)arr && g_jtEbp[-3] == vt);
+        JtFrame(); g_jtArena[0] = (DWORD)(uintptr_t)arr, g_jtArena[2] = bad, g_jtArena[4] = vt, g_jtEbp[-3] = vt + 8;
+        JtGo(c, 6);
+        assert(g_jtEax == OP_STELEMVT && g_jtEbp[-3] == vt + 8 && !arr[10]);
+    }
+    JtFrame(); g_jtArena[0] = 0;
+    JtGo(b, 4);
+    assert(g_jtEax == OP_LDELEMVT && g_jtEdi == (DWORD)(uintptr_t)b);
+    JtFrame(); g_jtVt[0] = 0xB1, g_jtVt[1] = 0xB2;
+    g_jtArena[0] = (DWORD)(uintptr_t)arr, g_jtArena[2] = 2, g_jtArena[4] = vt, g_jtEbp[-3] = vt + 8;
+    JtGo(c, 6);
+    assert(g_jtEax == JT_RET && arr[8] == 0xB1 && arr[9] == 0xB2 && arr[6] == 0xA1 && g_jtEbp[-3] == vt && g_jtEsi == (DWORD)(uintptr_t)g_jtArena);
+    // ldobj / stobj.vt: a 12-byte value type (size = [class+0x54] - 4, layout flag 4); an enum or a class with no layout exits
+    static BYTE cls[0xB0], en[0xB0], nolay[0xB0];
+    cls[0xA6] = en[0xA6] = nolay[0xA6] = 0x11, cls[0x14] = 4, en[0x14] = 4 | 0x10;
+    *(DWORD*)(cls + 0x54) = *(DWORD*)(en + 0x54) = *(DWORD*)(nolay + 0x54) = 16;
+    static DWORD items[3];
+    items[0] = (DWORD)(uintptr_t)cls, items[1] = (DWORD)(uintptr_t)en, items[2] = (DWORD)(uintptr_t)nolay;
+    static unsigned short d[] = {OP_LDOBJ, 0, JT_RET}, f[] = {OP_STOBJVT, 0, JT_RET}, g[] = {OP_LDOBJ, 1, JT_RET}, h[] = {OP_LDOBJ, 2, JT_RET};
+    static JtMeth md, mf, mg, mh;
+    JtMake(md, d, 3, 0, items), JtMake(mf, f, 3, 0, items), JtMake(mg, g, 3, 0, items), JtMake(mh, h, 3, 0, items);
+    for (unsigned short* x : {g, h}) {  // enum, no layout: the site is an exit, nothing changes
+        JtFrame(); g_jtArena[0] = (DWORD)(uintptr_t)src3;
+        JtGo(x, 2);
+        assert(g_jtEax == OP_LDOBJ && g_jtEdi == (DWORD)(uintptr_t)x && g_jtArena[0] == (DWORD)(uintptr_t)src3 && g_jtEbp[-3] == vt);
+    }
+    JtFrame(); g_jtArena[0] = (DWORD)(uintptr_t)src3;
+    JtGo(d, 2);
+    assert(g_jtEax == JT_RET && g_jtArena[0] == vt && g_jtVt[0] == 0x11 && g_jtVt[2] == 0x33 && g_jtEbp[-3] == vt + 16);
+    JtFrame();
+    JtGo(d, 2);
+    assert(g_jtEax == OP_LDOBJ && g_jtEdi == (DWORD)(uintptr_t)d && g_jtEbp[-3] == vt);
+    JtFrame(); memset(dst, 0, sizeof(dst)); memcpy(g_jtVt, src3, 12);
+    g_jtArena[0] = (DWORD)(uintptr_t)dst, g_jtArena[2] = vt, g_jtEbp[-3] = vt + 16;
+    JtGo(f, 4);
+    assert(g_jtEax == JT_RET && dst[0] == 0x11 && dst[2] == 0x33 && !dst[3] && g_jtEbp[-3] == vt && g_jtEsi == (DWORD)(uintptr_t)g_jtArena);
+    JtFrame(); g_jtArena[2] = vt, g_jtEbp[-3] = vt + 16;
+    JtGo(f, 4);
+    assert(g_jtEax == OP_STOBJVT && g_jtEbp[-3] == vt + 16);
+    for (int i = 0; i < 5; i++) g_jtNames[OP_STFLDVT + i] = NULL, g_jtLen[OP_STFLDVT + i] = 1;
+    g_jitLazy = lazy0;
+    memset(g_opInfo, 0, sizeof(g_opInfo));
+    JitTemplates(511);
+}
+
 static void TestMonoJitDirect() {
     Ts3nCounters& C = ts3native_counters;
     g_jitMode = 1, g_jitVerifyOn = 0, g_jitLazy = true, g_jitLeafOnly = true;
@@ -495,6 +578,213 @@ static void TestMonoJitDirect() {
     g_curState = jtCurSave;
     g_jitTrapVeh = NULL, g_jitTrap = false, g_jitTrapOther[0] = g_jitTrapOther[1] = 0, g_jitTrapLog = 0, g_jitTrapTick = 0;
     g_jitLazy = false, g_jitLeafOnly = true, g_jitLazyCellN = 0, g_jitGuardN = 0;
+    g_jitForceJit = (const BYTE*)(uintptr_t)TS3A(0x00E5637D), g_jitProxyClassP = (const void* const*)(uintptr_t)TS3A(0x01220EC0);
+}
+
+// [MonoJit] CallExit (docs/537 §20 A): the pure Array icalls run inline and a null this or a bad dimension leaves at the call with
+// nothing changed; CallExit=0 leaves them EA calls; a callee with a hot exit keeps a lazy body (the exit writes the frame); a guarded
+// callvirt takes a boxed value-type receiver as box + 4 when the target takes a value-type this, as the box otherwise; a null
+// receiver leaves at the callvirt with nothing changed
+static void TestMonoJitCallExit() {
+    Ts3nCounters& C = ts3native_counters;
+    g_jitMode = 1, g_jitVerifyOn = 0, g_jitLazy = false, g_jitCallExit = true, g_jitPureIcalls = true;
+    g_jtLen[0xEA] = 2, g_jtLen[0xEC] = 4;
+    // arrays: [0] vtable -> klass (rank at +0x10), [1] bounds (NULL for a szarray), [2] max_length; bounds = {length, lower_bound} per dim
+    static BYTE k1[0x20], k2[0x20];
+    k1[0x10] = 1, k2[0x10] = 2;
+    static DWORD vt1[1], vt2[1], arr1[3], arr2[3], bounds2[4] = {3, 1, 7, 2};
+    vt1[0] = (DWORD)(uintptr_t)k1, vt2[0] = (DWORD)(uintptr_t)k2;
+    arr1[0] = (DWORD)(uintptr_t)vt1, arr1[1] = 0, arr1[2] = 5;
+    arr2[0] = (DWORD)(uintptr_t)vt2, arr2[1] = (DWORD)(uintptr_t)bounds2, arr2[2] = 21;
+    static unsigned short nop[] = {JT_RET};
+    static JtMeth mLen, mLow, mRank;
+    const char* const pn[3] = {"GetLength", "GetLowerBound", "GetRank"};
+    JtMeth* const pm[3] = {&mLen, &mLow, &mRank};
+    static DWORD pItems[3];
+    for (int i = 0; i < 3; i++) {
+        JtInit(*pm[i], nop, 1, pn[i]);
+        *(const char**)(pm[i]->klass + 0x34) = "Array", *(const char**)(pm[i]->klass + 0x38) = "System";
+        *(WORD*)(pm[i]->mm + 2) = 0x1000;  // internal call
+        pItems[i] = (DWORD)(uintptr_t)pm[i]->rm;
+    }
+    static unsigned short cLen[] = {0xEA, 0, JT_RET}, cLow[] = {0xEA, 1, JT_RET}, cRank[] = {0xEA, 2, JT_RET}, cRankV[] = {0xEC, 0, 0, 2, JT_RET};
+    static JtMeth mcLen, mcLow, mcRank, mcRankV;
+    JtMake(mcLen, cLen, 3, 0, pItems), JtMake(mcLow, cLow, 3, 0, pItems), JtMake(mcRank, cRank, 3, 0, pItems), JtMake(mcRankV, cRankV, 5, 0, pItems);
+    const DWORD a1 = (DWORD)(uintptr_t)arr1, a2 = (DWORD)(uintptr_t)arr2;
+    struct { unsigned short* c; DWORD arr, dim, want; } ok[] = {{cLen, a1, 0, 5}, {cLen, a2, 0, 3}, {cLen, a2, 1, 7}, {cLow, a1, 0, 0}, {cLow, a2, 0, 1}, {cLow, a2, 1, 2}};
+    for (const auto& t : ok) {  // this, dim on the stack; the result in this's slot, its high dword = the word above the arguments
+        JtFrame(); g_jtArena[0] = t.arr, g_jtArena[1] = 0x5A, g_jtArena[2] = t.dim, g_jtArena[5] = 0xC0DE;
+        JtGo(t.c, 4);
+        assert(g_jtEax == JT_RET && g_jtArena[0] == t.want && g_jtArena[1] == 0xC0DE && g_jtEsi == (DWORD)(uintptr_t)(g_jtArena + 2));
+    }
+    struct { unsigned short* c; DWORD arr, dim; } bad[] = {{cLen, a1, 1}, {cLen, a2, 2}, {cLen, a1, 0xFFFFFFFF}, {cLow, a2, 0xFFFFFFFF}, {cLen, 0, 0}, {cLow, 0, 0}};
+    for (const auto& t : bad) {  // exit at the call, nothing changed
+        JtFrame(); g_jtArena[0] = t.arr, g_jtArena[1] = 0x5A, g_jtArena[2] = t.dim, g_jtArena[5] = 0xC0DE;
+        JtGo(t.c, 4);
+        assert(g_jtEax == 0xEA && g_jtEdi == (DWORD)(uintptr_t)t.c && g_jtEsi == (DWORD)(uintptr_t)(g_jtArena + 4) && g_jtArena[0] == t.arr && g_jtArena[1] == 0x5A && g_jtArena[2] == t.dim);
+    }
+    for (unsigned short* c : {cRank, cRankV}) {
+        JtFrame(); g_jtArena[0] = a2, g_jtArena[1] = 0x5A, g_jtArena[3] = 0xC0DE;
+        JtGo(c, 2);
+        assert(g_jtEax == JT_RET && g_jtArena[0] == 2 && g_jtArena[1] == 0xC0DE && g_jtEsi == (DWORD)(uintptr_t)(g_jtArena + 2));
+        JtFrame(); g_jtArena[1] = 0x5A;
+        JtGo(c, 2);
+        assert(g_jtEax == (c == cRank ? 0xEAu : 0xECu) && g_jtEdi == (DWORD)(uintptr_t)c && g_jtEsi == (DWORD)(uintptr_t)(g_jtArena + 2) && !g_jtArena[0] && g_jtArena[1] == 0x5A);
+    }
+    g_jitCallExit = g_jitPureIcalls = false;  // CallExit=0: EA's call, before any change
+    static unsigned short cLen0[] = {0xEA, 0, JT_RET};
+    static JtMeth mcLen0;
+    JtMake(mcLen0, cLen0, 3, 0, pItems);
+    JtFrame(); g_jtArena[0] = a1, g_jtArena[2] = 0;
+    JtGo(cLen0, 4);
+    assert(g_jtEax == 0xEA && g_jtEdi == (DWORD)(uintptr_t)cLen0 && g_jtArena[0] == a1);
+
+    // lazy: a callee with a hot exit gets a lazy body only with CallExit; called lazily, the exit writes the frame
+    g_jitLazy = true, g_jitLeafOnly = true;
+    g_jitForceJit = &g_jtForceByte, g_jitProxyClassP = (const void* const*)&g_jtProxy;
+    static unsigned short h0[] = {JT_MYSTERY, JT_RET}, h1[] = {JT_MYSTERY, JT_RET};
+    static JtMeth mH0, mH1;
+    LONG bodies0 = C.jitLazyBodies;
+    JtMake(mH0, h0, 2, 0);
+    assert(C.jitLazyBodies == bodies0);
+    g_jitCallExit = true;
+    JtMake(mH1, h1, 2, 0);
+    assert(C.jitLazyBodies == bodies0 + 1);
+    static DWORD hItems[1];
+    hItems[0] = (DWORD)(uintptr_t)mH1.rm;
+    static unsigned short fh[] = {JT_LDC2, 0xEA, 0, JT_ADD, JT_RET};
+    static JtMeth mFh;
+    JtMake(mFh, fh, 5, 0, hItems);
+    assert(C.jitLazyBodies == bodies0 + 1);  // DirectLeaf: a caller still gets no lazy body of its own
+    const LONG mats0 = C.jitLazyMats, calls0 = C.jitLazyCalls;
+    JtLazyFrame();
+    JtLazyGo(fh);
+    assert(g_jtEax == JT_MYSTERY && g_jtEdi == (DWORD)(uintptr_t)h1 && g_jtL[-1] == g_jtEdi && C.jitLazyMats == mats0 + 1 && C.jitLazyCalls == calls0 + 1);
+
+    // guarded callvirt, boxed value-type receiver: box = {vtable, 77}; the class has the value-type bit
+    g_jitLeafOnly = false;
+    static BYTE kb[0x20];
+    kb[0x14] = 8;
+    static DWORD vtb[1], box[2];
+    vtb[0] = (DWORD)(uintptr_t)kb, box[0] = (DWORD)(uintptr_t)vtb, box[1] = 77;
+    static unsigned short tv[] = {JT_LDTHIS, JT_LDIND, JT_RET}, ti[] = {JT_LDTHIS, JT_LDIND, JT_RET}, td[] = {JT_RET};
+    static JtMeth mTv, mTi, mDv;
+    JtMake(mTv, tv, 3, 0x600);  // instance, value-type this: the override (box + 4)
+    JtMake(mTi, ti, 3, 0x200);  // instance, reference this: an inherited ValueType method (the box)
+    JtInit(mDv, td, 1);
+    *(DWORD*)(mDv.rm + 0x44) = 0x300;
+    *(unsigned short*)mDv.mm = 0x40;  // the declared method: virtual
+    static DWORD vItems[3], iItems[3];
+    vItems[0] = iItems[0] = (DWORD)(uintptr_t)kb, vItems[1] = (DWORD)(uintptr_t)mTv.rm, iItems[1] = (DWORD)(uintptr_t)mTi.rm;
+    vItems[2] = iItems[2] = (DWORD)(uintptr_t)mDv.rm;
+    static unsigned short kv[] = {JT_LDLOC, 0, 0xEC, 0, 0, 2, JT_RET}, ki[] = {JT_LDLOC, 0, 0xEC, 0, 0, 2, JT_RET}, kv0[] = {JT_LDLOC, 0, 0xEC, 0, 0, 2, JT_RET};
+    static JtMeth mKv, mKi, mKv0;
+    JtMake(mKv, kv, 7, 0, vItems);
+    JitGuardSite* const gv = &g_jitGuard[g_jitGuardN - 1];  // the normal body's site (the lazy body's comes first)
+    JtMake(mKi, ki, 7, 0, iItems);
+    JitGuardSite* const gi = &g_jitGuard[g_jitGuardN - 1];
+    const LONG calls1 = C.jitLazyCalls;
+    JtLazyFrame(); g_jtLocals[0] = (DWORD)(uintptr_t)box;
+    JtLazyGo(kv);
+    assert(g_jtEax == JT_RET && g_jtArena[0] == 77 && C.jitLazyCalls == calls1 + 1 && gv->rm == mTv.rm && gv->unbox == 4);
+    JtLazyFrame(); g_jtLocals[0] = (DWORD)(uintptr_t)box;
+    JtLazyGo(ki);
+    assert(g_jtEax == JT_RET && g_jtArena[0] == (DWORD)(uintptr_t)vtb && C.jitLazyCalls == calls1 + 2 && gi->rm == mTi.rm && !gi->unbox);
+    JtLazyFrame(); g_jtLocals[0] = 0;  // null receiver: EA's callvirt, nothing changed
+    JtLazyGo(kv);
+    assert(g_jtEax == 0xEC && g_jtEdi == (DWORD)(uintptr_t)(kv + 2) && g_jtEsi == (DWORD)(uintptr_t)(g_jtArena + 2) && !g_jtArena[0] && C.jitLazyCalls == calls1 + 2);
+    g_jitCallExit = false;  // CallExit=0: a boxed receiver takes EA's callvirt
+    JtMake(mKv0, kv0, 7, 0, vItems);
+    JtLazyFrame(); g_jtLocals[0] = (DWORD)(uintptr_t)box;
+    JtLazyGo(kv0);
+    assert(g_jtEax == 0xEC && g_jtEdi == (DWORD)(uintptr_t)(kv0 + 2) && g_jtArena[0] == (DWORD)(uintptr_t)box && C.jitLazyCalls == calls1 + 2);
+
+    g_jitLazy = false, g_jitLeafOnly = true, g_jitLazyCellN = 0, g_jitGuardN = 0;
+    g_jitForceJit = (const BYTE*)(uintptr_t)TS3A(0x00E5637D), g_jitProxyClassP = (const void* const*)(uintptr_t)TS3A(0x01220EC0);
+}
+
+// [MonoJit] NewVt (docs/537 §20 B2b): newobj (0xF4) of a value-type class calls the ctor's lazy body with this = the vt cursor; the
+// post leaves [args start] = cursor, high dword = the caller record's +0x24, cursor unchanged; every bail and a ctor exit stay EA's
+static void TestMonoJitNewVt() {
+    Ts3nCounters& C = ts3native_counters;
+    g_jitMode = 1, g_jitVerifyOn = 0, g_jitLazy = true, g_jitLeafOnly = true, g_jitCallExit = false, g_jitNewVt = true;
+    g_jitForceJit = &g_jtForceByte, g_jitProxyClassP = (const void* const*)&g_jtProxy;
+    static DWORD arrCtor = 0xA77A;
+    g_jitArrCtorP = &arrCtor;
+    g_jtLen[0xF4] = 2;
+    // classes: a value type with layout, an enum, the array-ctor class; all with the valuetype flag 8
+    static BYTE kv[0xB0], ke[0xB0], ka[0xB0];
+    for (BYTE* k : {kv, ke, ka}) k[0xA6] = 0x11, k[0x14] = 8 | 4, *(const char**)(k + 0x34) = "S", *(const char**)(k + 0x38) = "Ns";
+    ke[0x14] |= 0x10, *(DWORD*)(ka + 0x24) = arrCtor;
+    auto ctor = [](JtMeth& m, unsigned short* code, int words, BYTE* k, int params) {  // JtMake with the ctor's class and flags
+        JtInit(m, code, words);
+        *(BYTE**)(m.mm + 8) = k;
+        *(DWORD*)(m.rm + 0x44) = 0x701;  // transformed, instance, value-type this, void
+        m.rm[0x40] = (BYTE)params;
+        *(WORD*)(m.rm + 0x38) = 256, *(WORD*)(m.rm + 0x34) = 64, *(WORD*)(m.rm + 0x36) = 8, *(WORD*)(m.rm + 0x3E) = 32;
+        { const char* why = JitCompile(m.rm); if (why) printf("newvt ctor: %s\n", why); assert(!why); }
+    };
+    static unsigned short cb[4][5] = {{JT_LDTHIS, JT_LDC3, JT_STFLD, 4, JT_RET}};  // this->[4] = 3; one copy per method (a compile patches word 0)
+    for (int i = 1; i < 4; i++) memcpy(cb[i], cb[0], sizeof(cb[0]));
+    static JtMeth mC0, mC1, mCe, mCa;
+    const LONG bodies0 = C.jitLazyBodies;
+    ctor(mC0, cb[0], 5, kv, 0), ctor(mC1, cb[1], 5, kv, 1), ctor(mCe, cb[2], 5, ke, 0), ctor(mCa, cb[3], 5, ka, 0);
+    assert(C.jitLazyBodies == bodies0 + 4);
+    static DWORD items[4];
+    items[0] = (DWORD)(uintptr_t)mC0.rm, items[1] = (DWORD)(uintptr_t)mC1.rm, items[2] = (DWORD)(uintptr_t)mCe.rm, items[3] = (DWORD)(uintptr_t)mCa.rm;
+    static unsigned short n0[] = {0xF4, 0, JT_RET}, n1[] = {JT_LDC2, 0xF4, 1, JT_RET}, ne[] = {0xF4, 2, JT_RET}, na[] = {0xF4, 3, JT_RET};
+    static JtMeth mN0, mN1, mNe, mNa;
+    const LONG sites0 = C.jitLazySites;
+    JtMake(mN0, n0, 3, 0, items), JtMake(mN1, n1, 4, 0, items), JtMake(mNe, ne, 3, 0, items), JtMake(mNa, na, 3, 0, items);
+    assert(C.jitLazySites == sites0 + 2);  // the enum and the array-ctor class stay EA's newobj
+    const DWORD vt = (DWORD)(uintptr_t)g_jtVt;
+    auto stale = []() { *(DWORD*)(const_cast<u8*>(JtRec(0)) + 0x24) = 0xC0DE; };
+    // no params: B_ARGS 0, the result at the old top; one param: it is consumed, the result in its slot
+    const LONG calls0 = C.jitLazyCalls, mats0 = C.jitLazyMats;
+    JtLazyFrame(); stale();
+    JtLazyGo(n0);
+    assert(g_jtEax == JT_RET && g_jtArena[0] == vt && g_jtArena[1] == 0xC0DE && g_jtVt[1] == 3 && g_jtL[-3] == vt && g_jtEsi == (DWORD)(uintptr_t)(g_jtArena + 2));
+    assert(C.jitLazyCalls == calls0 + 1 && C.jitLazyMats == mats0 && g_jtChunk[0] == (DWORD)(uintptr_t)g_jtChunkWords && *(DWORD*)(g_jtState + 0x140) == 0);
+    JtLazyFrame(); stale();
+    JtLazyGo(n1);
+    assert(g_jtEax == JT_RET && g_jtArena[0] == vt && g_jtArena[1] == 0xC0DE && g_jtVt[1] == 3 && g_jtEsi == (DWORD)(uintptr_t)(g_jtArena + 2) && C.jitLazyCalls == calls0 + 2);
+    for (unsigned short* x : {ne, na}) {  // EA's newobj, nothing changed
+        JtLazyFrame();
+        JtLazyGo(x);
+        assert(g_jtEax == 0xF4 && g_jtEdi == (DWORD)(uintptr_t)x && g_jtEsi == (DWORD)(uintptr_t)g_jtArena && !g_jtVt[1] && C.jitLazyCalls == calls0 + 2);
+    }
+    JtLazyFrame();
+    g_jtL[-0x30 / 4] = 1;  // no MonoInvocation in the next slot: EA's newobj before any write
+    JtLazyGo(n0);
+    assert(g_jtEax == 0xF4 && g_jtEdi == (DWORD)(uintptr_t)n0 && !g_jtArena[0] && !g_jtVt[1] && g_jtL[-3] == vt && C.jitLazyCalls == calls0 + 2);
+    // a ctor that exits (CallExit keeps its lazy body): the mat writes EA's newobj state, so EA's frame return runs the newobj post
+    g_jitCallExit = true;
+    static unsigned short cx[] = {JT_MYSTERY, JT_RET};
+    static JtMeth mCx, mNx;
+    ctor(mCx, cx, 2, kv, 0);
+    static DWORD xItems[1];
+    xItems[0] = (DWORD)(uintptr_t)mCx.rm;
+    static unsigned short nx[] = {0xF4, 0, JT_RET};
+    JtMake(mNx, nx, 3, 0, xItems);
+    const LONG mats1 = C.jitLazyMats;
+    JtLazyFrame();
+    JtLazyGo(nx);
+    assert(g_jtEax == JT_MYSTERY && g_jtEdi == (DWORD)(uintptr_t)cx && C.jitLazyMats == mats1 + 1 && *(DWORD*)(g_jtState + 0x140) == 1);
+    const DWORD* r0 = (const DWORD*)JtRec(0);
+    assert(r0[0x18 / 4] == (DWORD)(uintptr_t)kv && r0[0x20 / 4] == vt && *(const DWORD*)(JtRec(1) + 0x14) == 1 && r0[1] == (DWORD)(uintptr_t)(nx + 2));
+    assert(*(DWORD*)(g_jtInvs[1] + 0xC) == vt && !*(DWORD*)(g_jtInvs[1] + 0x14));  // this = the cursor, args 0
+    // NewVt=0: the site is EA's newobj
+    g_jitNewVt = false;
+    static unsigned short noff[] = {0xF4, 0, JT_RET};
+    static JtMeth mNoff;
+    JtMake(mNoff, noff, 3, 0, items);
+    JtLazyFrame();
+    JtLazyGo(noff);
+    assert(g_jtEax == 0xF4 && g_jtEdi == (DWORD)(uintptr_t)noff && !g_jtArena[0]);
+
+    g_jtLen[0xF4] = 1;
+    g_jitLazy = false, g_jitLeafOnly = true, g_jitCallExit = false, g_jitLazyCellN = 0, g_jitGuardN = 0;
+    g_jitArrCtorP = (const DWORD*)(uintptr_t)TS3A(0x01220E8C);
     g_jitForceJit = (const BYTE*)(uintptr_t)TS3A(0x00E5637D), g_jitProxyClassP = (const void* const*)(uintptr_t)TS3A(0x01220EC0);
 }
 
@@ -898,8 +1188,11 @@ static void TestMonoJit() {
 
     TestMonoJitInline();
     TestMonoJitWide();
+    TestMonoJitVtOps();
     TestMonoJitDirect();
     TestMonoJitCapture();
+    TestMonoJitCallExit();
+    TestMonoJitNewVt();
 
     // the region: code pages are not writable once a method is done
     MEMORY_BASIC_INFORMATION mbi;

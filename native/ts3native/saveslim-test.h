@@ -141,7 +141,7 @@ static void TestSaveSlim() {
     memset(meta, 0x11, sizeof(meta));
     memcpy(meta + 11, &H, 8);  // H: only Meta.data's body names it
 
-    static_assert(offsetof(Ts3nCounters, slimFails) == 0x5AE4 && sizeof(Ts3nCounters) == 0x5E4C, "counters v160 layout (docs/registry.md)");
+    static_assert(offsetof(Ts3nCounters, slimFails) == 0x5AE4 && sizeof(Ts3nCounters) == 0x5EC8, "counters v160 layout (docs/registry.md)");
     wchar_t root[MAX_PATH], dir[MAX_PATH], tmp[MAX_PATH], bak[MAX_PATH], pbak[MAX_PATH], pdb[MAX_PATH], pnhd[MAX_PATH], p[MAX_PATH];
     GetTempPathW(MAX_PATH, root);
     swprintf_s(root + wcslen(root), MAX_PATH - wcslen(root), L"ts3n-slim-%lu", GetCurrentProcessId());

@@ -67,6 +67,8 @@ namespace Ts3Fixes
 
         static Book BhBook(Sim sim) { return sim.GetObjectInRightHand() as Book; }
 
+        static bool BhBusy(Sim sim) { return sim.CurrentInteraction != null || sim.InteractionQueue.TransitionInteraction != null || sim.IsRouting; }
+
         static bool BhStuck(Sim sim)
         {
             Book b = BhBook(sim);
@@ -157,7 +159,8 @@ namespace Ts3Fixes
                 sBhSim = sim; sBhMode = null; sBhStops = sBhInterrupts = sBhProbes = sBhStuckProbes = sBhCured = 0; sBhSeen0 = c[876]; sBhFixed0 = c[877];
                 return sim.FullName + ": armed, switch bookhand " + ShortcutOn("bookhand") + ", seen " + sBhSeen0 + ", fixed " + sBhFixed0;
             }
-            if (sBhSim != sim) throw new InvalidOperationException("bookhand " + what + ": no check armed on " + sim.FullName + " (begin first)");
+            if (sBhSim != sim) throw new InvalidOperationException("bookhand " + what + ": no check armed on " + sim.FullName + " (begin first); armed: "
+                + (sBhSim == null ? "nobody" : sBhSim.FullName + ", destroyed " + sBhSim.HasBeenDestroyed + ", same id " + (sBhSim.ObjectId == sim.ObjectId)));
             if (what == "read")
             {
                 Book book = null;
@@ -196,9 +199,19 @@ namespace Ts3Fixes
                 bool stuck = BhStuck(sim);
                 if (stuck) { b.PutBookInInventoryHandler(null, null); sBhCured++; }
                 sim.InteractionQueue.CancelAllInteractions();
-                AnimationUtil.StopAllAnimation(sim);
-                sim.StartDefaultPose();
-                return sim.FullName + ": " + (stuck ? "stuck book put away (test cleanup), " : "") + "idles restarted";
+                // StopAllAnimation while the cancelled interaction is still routing (an autonomous walk to bed) throws SacsErrorException
+                // in the route and resets the Sim (2026-11-08 on arm: a new Sim object, the check lost): restart the idles once it ended.
+                // CurrentInteraction is null during the posture transition (EnterSleeping routing to the bed: mIsHeadInteractionActive
+                // is false), so also wait for the transition and the route; still busy after 3 s = skip the restart, never stop clips mid-route
+                Simulator.AddObject(new LoopTask(delegate
+                {
+                    int t0 = System.Environment.TickCount;
+                    while (!sim.HasBeenDestroyed && BhBusy(sim) && System.Environment.TickCount - t0 < 3000) Simulator.Sleep(10);
+                    if (sim.HasBeenDestroyed || BhBusy(sim)) return;
+                    AnimationUtil.StopAllAnimation(sim);
+                    sim.StartDefaultPose();
+                }));
+                return sim.FullName + ": " + (stuck ? "stuck book put away (test cleanup), " : "") + "idles restart once the cancel ended";
             }
             bool on = ShortcutOn("bookhand");
             int seen = c[876] - sBhSeen0, fixedN = c[877] - sBhFixed0;

@@ -75,6 +75,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/jazzparam/run.ts': CSC,
   'tools/selftest/buffupdate/run.ts': CSC,
   'tools/selftest/carnoroute/run.ts': CSC,
+  'tools/selftest/dancefloorlistdiag/run.ts': CSC,
   'tools/selftest/npcdriverpool/run.ts': CSC,
   'tools/selftest/bookcarry/run.ts': CSC,
   'tools/selftest/bookhand/run.ts': CSC,
@@ -114,7 +115,6 @@ const INTERNAL = ['tools/mts-helper/'];
 const NO_SELF_CHECK: Record<string, string> = {
   'tools/probe/ep-gate-probe.js': 'Frida script injected into the game; no self-check possible',
   'tools/ai-usage.ts': 'appends the local Claude usage file to docs/ai-usage.md; no logic to test',
-  'tools/autonomy-tier2.ts': ONE_OFF,
   'tools/autonomy-virtual-closure.ts': ONE_OFF,
   'tools/autshadow-cha-lists.ts': ONE_OFF,
   'tools/autshadow-guard-lists.ts': ONE_OFF,
@@ -170,7 +170,6 @@ const NO_SELF_CHECK: Record<string, string> = {
   'tools/setup/build-overwatch-tuning.ts': 'builder of one tuning package; no logic to test',
   'tools/setup/check-conflicts.ts': 'reads the installed Mods folder; DBPF index covered by the tools/dbpf.ts self-test',
   'tools/setup/install-fixes.ts': 'installer: downloads into the game folder; its content health part is content-health.ts --self-test',
-  'tools/tier2-blockers.ts': ONE_OFF,
 };
 
 const TIMEOUT_S: Record<string, number> = {};

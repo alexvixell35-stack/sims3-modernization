@@ -177,6 +177,37 @@ Order: allow-list v1 first (meta only, no new code paths: +2.8% of scoring), the
 - Not split: the other unresolved local buckets (31 samples, 3.0%) and the `.ctor` base frame (9 samples); each row is under 0.6%.
 - Ledger: docs/51 §167, §170 (§4.1).
 
+## 8. Built rows (2026-11-08, branch `feature/tier2-ic-rows`, not run in game)
+
+Inventory of the 26 §4.1 ICs against what was built after §4.1 [verified: `kAsDesc` in `native/ts3native/autshadow.cpp`]:
+
+- **Already built, skipped (3):** #12 `GetPoolObjectIdForPoolBelowPosition` and #22 `Objects_GetForward` (docs/219 §2 four shared rows, `[AutShadow] Tier2Rows`, `autofft2`, docs/208 §9.1); #18 `GetInformationAboutRoom` (docs/208 env driver, `AO_CUT`). #18 is filled at every cut **without** the §4.1 level-bit gate, so it can run the `+0x918` footprint update at the cut; it stays class `a-cut` in the tool (not counted as proven) until that gate exists.
+- **New rows (15), behind a new key `[AutShadow] Tier2IcRows=0` (needs `Tier2Rows=1`), last in `kAsDesc` (`AS_NT2IC`):** filled by the game's body on the sim thread at the cut, never called by the worker (§4.1 copy-never-call). Owner per row: `AO_WORLD` (build-time data keyed by position, like v0 `IsPositionOutside`; refreshed at a full rebuild only) or `AO_CUT` (live-mode state, re-asked at every cut [inferred, ledger §457]).
+
+| Group | # | IC | Owner | Stack dwords / return |
+|---|---|---|---|---|
+| G1 terrain, floor | 1 | `World_GetTerrainHeightImpl` | world | 3 / float |
+| | 3 | `World_GetTerrainTypeImpl` | world | 3 / int |
+| | 5 | `World_HasFloorFeaturesImpl` | cut | 7 / bool |
+| | 6 | `World_HasFloorFeaturesWorldPosImpl` | cut | 5 / bool |
+| | 8 | `World_IsCameraRoutableImpl` | world | 2 / bool |
+| | 9 | `World_IsOnPlatformImpl` | world | 3 / bool |
+| G2 pools | 10 | `World_IsInPoolImpl` | world | 3 / bool |
+| | 11 | `World_HasPoolImpl` | world | 5 / bool |
+| | 13 | `World_GetPondAtPoint` | world | 5 / uint |
+| G3 lot, room | 17 | `World_GetRoomIdImpl` | world | 6 / short |
+| | 19 | `World_LotIsEntranceFromTargetPointImpl` | cut | 2 / bool (gate sites 13/0 at the cut, no insert) |
+| G4 objects, session | 23 | `Objects_GetBoundingBox` | object | result + 2 / 24 B |
+| | 24 | `Objects_IsValid` | cut | 2 / bool |
+| | 25 | `World_LightGetDimmerImpl` | cut | 2 / float (refcount on the sim thread only) |
+| | 26 | `World_GetWorldFileName` | world | 0 / string |
+
+- **Refused (8):** #2 `GetTerrainSurfaceType`, #4 `GetFloorSurfaceType` (`a-cut`: the level-bit gate `LotTable_GetIfPresent` + entry `+0x168` of §4.1 is not built, and without it the cut fill can wait on `+0x918` for a whole plan); #7 `GetTilesWithFloorFeatures` (`ulong[]`: the `AK_ARRAY` payload copies 4 B per element); #14 `GetPondInfo`, #15 `FindPondRepresentativePositions`, #16 `GetLotLocationAtFloor`, #21 `GetWorldToHouseboatDisplayPosition` (partial or conditional outs: the row writes the whole out on every answer, the game leaves bytes untouched; needs the §6 write mask); #20 `LotGetDisplayLevelInfo` (no-lot answer keeps the caller's dwords 4-5; needs a masked struct answer). Next step for most of them: one write-mask field in `AsDesc` (#14-#16, #20, #21), then the level-bit gate (#2, #4, and #18 retro).
+- **Race set (docs/131):** no new row is called off the sim thread; #19's gate-site lookups and #25's refcount happen in the game's own call at the cut, as §4.1 requires. No row writes `+0x918` or footprints except through #2/#4/#18, which are refused or unchanged. Household Sims: rows only answer worker calls (Mode R, unseen use); no household path calls them differently.
+- **Checks:** native selftest `TestAutShadowTier2IcGate` (key gating) and one function per group (`TestAutShadowTier2IcG1`..`G4`): descriptor = §4.1 layout, kind table entry, and a dummy cdecl body called the way `AsRefresh` calls the game's (never a game address). Managed Mode R item `autofft2ic` (`AutOffload.cs` `IcRead`, `IcG1`..`IcG4`, counters 878-883, agent `autoff_t2ic_*`) reads the rows through the game's wrappers for the `autofft2` objects and compares the worker's answers with the game's. Queue `tools/harness/queues/tier2-ic-rows.json` (smoke + BP/IP 10 min, gate 0 mismatches, 0 exceptions), repro `tier2-ic-rows-dry`; not run.
+- **Status by group:** all 15 rows built (G1 terrain/floor, G2 pools, G3 lot/room, G4 object fields/session, 2026-11-08): each has its descriptor (gated off), a host selftest with a dummy body in the §4.1 layout, and a managed read in `autofft2ic` (slots 0-14, `IcG1`-`IcG4`). Mode R dry compare (`tier2-ic-rows.json`, pair `tier2rows1108`) not run yet [inferred until it passes]. `tools/autonomy-tier2.ts` `TIER2_BUILT` (class `row`) holds #12, #22 and the 15: 33 definitions moved from `new-rows` to `ready` (206 / 27 / 16 / 2 ready / new-rows / blocked / hooked).
+- **E rows (2026-11-08, branch `feature/tier2-enablers`, pair `tier2mask1108`, not run in game; docs/data/tier2-enablers-handoff.md, ledger §460):** two shared-path pieces open four refused rows plus the docs/208 §9.2 houseboat row. E1 write mask: `AsDesc.of` = `AS_OF_TRUE` (the hit writes outs only when the stored bool is set), `outMask` (static byte mask of the out bytes the game may write), `AS_OF_DIFF` (the cut fills twice, out bytes 00 then FF, and keeps the bytes that came out equal: written on this input) and `AS_OF_ARR` (an out that is a ref to a fresh managed array: copied to the pool at the cut, re-made per hit). E2: `AK_ARRAY` element size = `AsDesc.sz` (4 or 8 B) in the pool copy and in `AsNewArrayGc`. Rows, each behind `Tier2IcRows=1` and its own bit (`[AutShadow] Tier2IcNew` bits 0-3, `Tier2HouseboatRow`; all 0 by default): **#7** `GetTilesWithFloorFeatures` (`ulong[]`, `AO_CUT`), **#15** `FindPondRepresentativePositions` (`AS_OF_TRUE | AS_OF_ARR`, `AO_WORLD`), **#16** `GetLotLocationAtFloor` (`AS_OF_DIFF`, mask `0xDFF`: bytes 0-8 always, 10-11 only with room data, `AO_WORLD`), **#21** `GetWorldToHouseboatDisplayPosition` and the houseboat row `GetHouseboatDisplayToWorldPosition` `0x788A20` (`AS_OF_TRUE`, 12 B out, `AO_CUT`). Household rule: the lot pick aborts on the worker before it reaches a houseboat lot of the active household, and `autofft2ic` slot 15-19 reads (`IcG5`) skip household-owned lots. Still refused: **#14** (124 B out over the 24 B out slot; lot path not read, I-460-6), **#20** (struct mask), **#2, #4** (E3 level-bit gate). Checks: native selftest `TestAutShadowTier2IcE` (descriptors, per-row gate, false answer leaves the out, masked and unwritten bytes keep the caller's values, arrays re-made, `ulong[]` payload 2 dwords per element), queue jobs `bp-t2e-dry` and `ip-t2e-houseboat-dry` in `tier2-ic-rows.json` (gate 0 mismatches). `TIER2_BUILT` adds the five: 220 / 13 / 16 / 2 ready / new-rows / blocked / hooked.
+
 ## Reproduce
 
 ```sh

@@ -94,6 +94,29 @@ namespace Ts3Fixes
             return (w == rain || w == hail) && !p.TargetIsSim() && p.TargetOutside();
         }
 
+        // ---- tier-2 P1 (docs/219 §3.1, docs/data/tier2-rows35-handoff.md): get_InUse overrides that can destroy their prop,
+        // the leaf-pile fire check (placement IC) and the drag-model pre-warm. The six overrides in counter-slot order
+        // (fixes 884-889); 890 fire aborts, 891 drag pre-warm fills.
+        public static readonly string[] kT2InUseTypes = {
+            "Sims3.Gameplay.Objects.Gardening.Soil", "Sims3.Store.Objects.BBallHoop+BBallHoopBall",
+            "Sims3.Store.Objects.BBallArcade+BBallArcadeBall", "Sims3.Store.Objects.ChocolateFountain+ChocolateFountainSkewer",
+            "Sims3.Store.Objects.IceCreamMaker+IceCreamCone", "Sims3.Store.Objects.GardenStation+GardenStationProp" };
+        public const int kT2Fire = 6, kT2N = 7;
+        // Household scope of the request's actor, read on the sim thread at the request: null, destroyed, no description,
+        // selectable (household or selected) or in the active household = household. Unknown scope counts as household.
+        public static bool T2Household(bool actorNull, bool destroyed, bool descNull, bool selectable, bool activeHousehold)
+        {
+            return actorNull || destroyed || descNull || selectable || activeHousehold;
+        }
+        // A P1 hook site: 0 run the game's method (sim thread, reference, or switch off), 1 abort and count, 2 abort
+        // (household-scope actor: never answered on the worker, not counted by class). Every worker branch with the switch on
+        // aborts, so the unit goes back to the sim thread and its answer stays exact.
+        public static int T2Site(bool onWorker, bool switchOn, bool household)
+        {
+            if (!onWorker || !switchOn) return 0;
+            return household ? 2 : 1;
+        }
+
         // H11 shelter answer (docs/127 §4.1): instead of aborting, the worker answers the branch from a bit taken on the sim
         // thread at the cut. The branch asks IsShelteredFromPrecipitation(target, instance), which uses the instance only
         // for ICanCountAsBeingIndoors targets [verified, decompiled SeasonsManager]; for every other target it is the

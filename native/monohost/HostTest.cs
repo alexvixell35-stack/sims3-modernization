@@ -103,6 +103,10 @@ namespace MonoHostTest
         public static int JitLzChainPlain(LzBox o, int n) { int acc = 0; for (int i = 0; i < n; i++) acc += LzMid(o, i); return acc; }
         public static int JitLzVirt(LzShape o, int n) { int acc = 0; for (int i = 0; i < n; i++) acc += o.Area(i - 32); return acc; }
         public static int JitLzVirtPlain(LzShape o, int n) { int acc = 0; for (int i = 0; i < n; i++) acc += o.Area(i - 32); return acc; }
+        // docs/537 §20 A1: a lazy callee that exits at its first instruction on every call (newobj): CallExit writes its frame there
+        public static int LzAlloc(int k) { LzBox b = new LzBox(); if (k > 1000) return 0; return b.V + k; }
+        public static int JitLzAlloc(int n) { int acc = 0; for (int i = 0; i < n; i++) acc += LzAlloc(i); return acc; }
+        public static int JitLzAllocPlain(int n) { int acc = 0; for (int i = 0; i < n; i++) acc += LzAlloc(i); return acc; }
 
         static System.Collections.Generic.Dictionary<int, Shape> s_map;
         static System.Collections.Generic.Dictionary<ulong, int> s_mapU;
@@ -177,6 +181,8 @@ namespace MonoHostTest
                 case 26: for (int r = 0; r < n; r += 64) acc += JitLzChainPlain(s_lz, 64); break;
                 case 27: for (int r = 0; r < n; r += 64) acc += JitLzVirt(s_sq, 64); break;
                 case 28: for (int r = 0; r < n; r += 64) acc += JitLzVirtPlain(s_sq, 64); break;
+                case 29: for (int r = 0; r < n; r += 64) acc += JitLzAlloc(64); break;
+                case 30: for (int r = 0; r < n; r += 64) acc += JitLzAllocPlain(64); break;
                 default: return -1;
             }
             return acc;

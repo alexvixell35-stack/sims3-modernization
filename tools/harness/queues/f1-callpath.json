@@ -34,7 +34,9 @@
       "releaseDefaults": true,
       "save": "Baseline-IP",
       "ini": {
-        "MonoFast.CallPath": 1
+        "MonoFast.CallPath": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "run": {
         "profile": {
@@ -58,7 +60,9 @@
       "releaseDefaults": true,
       "save": "Baseline-IP",
       "ini": {
-        "MonoFast.CallPath": 1
+        "MonoFast.CallPath": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "run": {
         "profile": {

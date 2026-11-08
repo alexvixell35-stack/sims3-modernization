@@ -1,0 +1,351 @@
+{
+  "note": "Rodney's small-fix rule 2026-11-08: really small localized EA-bug guards need self-check + compile + ONE repro run where the bug triggers and the fix handles it (no timing, no A/B, no second run; N/A once = report). One job per fix, fix ON through the repro, latest master pair. Table and verdicts: docs/540-small-fix-rule-candidates.md. Not run yet.",
+  "jobs": [
+    {
+      "id": "sf1108-jazz-param-check",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (jazzparam, docs/511). Repro jazz-param-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, jazzparam_caught>=1 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.castrimrel1108",
+      "pinReason": "latest master pair: ts3native 0.36.196 (castrimrel1108, repo ini incl. CasTrim as shipped) + newest ts3fixes build (bookhand1108c = castrimrel1108 + BookHand cure fix); ts3fixes-only correctness test",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "jazz-param-check",
+          "fixesRequire": "jazzparam_caught>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20
+    },
+    {
+      "id": "sf1108-buff-update-check",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (buffupdate, docs/510). Repro buff-update-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, buffupdate_caught>=1 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.castrimrel1108",
+      "pinReason": "latest master pair: ts3native 0.36.196 (castrimrel1108, repo ini incl. CasTrim as shipped) + newest ts3fixes build (bookhand1108c = castrimrel1108 + BookHand cure fix); ts3fixes-only correctness test",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "buff-update-check",
+          "fixesRequire": "buffupdate_caught>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20
+    },
+    {
+      "id": "sf1108-car-no-route-check",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (carnoroute, docs/513). Repro car-no-route-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, carnoroute_false>=1 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.castrimrel1108",
+      "pinReason": "latest master pair: ts3native 0.36.196 (castrimrel1108, repo ini incl. CasTrim as shipped) + newest ts3fixes build (bookhand1108c = castrimrel1108 + BookHand cure fix); ts3fixes-only correctness test",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "car-no-route-check",
+          "fixesRequire": "carnoroute_false>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20
+    },
+    {
+      "id": "sf1108-npc-driver-pool-check",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (npcdriverpool, docs/514). Repro npc-driver-pool-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, npcdriverpool_dropped>=1 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.castrimrel1108",
+      "pinReason": "latest master pair: ts3native 0.36.196 (castrimrel1108, repo ini incl. CasTrim as shipped) + newest ts3fixes build (bookhand1108c = castrimrel1108 + BookHand cure fix); ts3fixes-only correctness test",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "npc-driver-pool-check",
+          "fixesRequire": "npcdriverpool_dropped>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20
+    },
+    {
+      "id": "sf1108-book-carry-check",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (bookcarry, docs/515). Repro book-carry-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, bookcarry_ended>=1 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.castrimrel1108",
+      "pinReason": "latest master pair: ts3native 0.36.196 (castrimrel1108, repo ini incl. CasTrim as shipped) + newest ts3fixes build (bookhand1108c = castrimrel1108 + BookHand cure fix); ts3fixes-only correctness test",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-carry-check",
+          "fixesRequire": "bookcarry_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20
+    },
+    {
+      "id": "sf1108-age-up-abort-check",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (ageupabort, docs/512). Repro age-up-abort-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, ageupabort_caught>=1 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.castrimrel1108",
+      "pinReason": "latest master pair: ts3native 0.36.196 (castrimrel1108, repo ini incl. CasTrim as shipped) + newest ts3fixes build (bookhand1108c = castrimrel1108 + BookHand cure fix); ts3fixes-only correctness test",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "age-up-abort-check",
+          "fixesRequire": "ageupabort_caught>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20
+    },
+    {
+      "id": "sf1108-reward-giver-check",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (rewardgiver, docs/525). Repro reward-giver-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, rewardgiver_added>=1 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.castrimrel1108",
+      "pinReason": "latest master pair: ts3native 0.36.196 (castrimrel1108, repo ini incl. CasTrim as shipped) + newest ts3fixes build (bookhand1108c = castrimrel1108 + BookHand cure fix); ts3fixes-only correctness test",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "reward-giver-check",
+          "fixesRequire": "rewardgiver_added>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14
+    },
+    {
+      "id": "sf1108-career-uniform-check",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (uniformbackup, docs/502). Repro career-uniform-backup-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, uniformbackup_cleared>=1 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.castrimrel1108",
+      "pinReason": "latest master pair: ts3native 0.36.196 (castrimrel1108, repo ini incl. CasTrim as shipped) + newest ts3fixes build (bookhand1108c = castrimrel1108 + BookHand cure fix); ts3fixes-only correctness test",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "career-uniform-backup-check",
+          "fixesRequire": "uniformbackup_cleared>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20
+    },
+    {
+      "id": "sf1108-inv-not-yet-check",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (invnotyet, docs/531). Repro inv-not-yet-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, invnotyet_refused>=1 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.castrimrel1108",
+      "pinReason": "latest master pair: ts3native 0.36.196 (castrimrel1108, repo ini incl. CasTrim as shipped) + newest ts3fixes build (bookhand1108c = castrimrel1108 + BookHand cure fix); ts3fixes-only correctness test",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "inv-not-yet-check",
+          "fixesRequire": "invnotyet_refused>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14
+    },
+    {
+      "id": "sf1108-metric-skill-missing-check",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (metricskillmissing, docs/532). Repro metric-skill-missing-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, metricskillmissing_names>=2 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.castrimrel1108",
+      "pinReason": "latest master pair: ts3native 0.36.196 (castrimrel1108, repo ini incl. CasTrim as shipped) + newest ts3fixes build (bookhand1108c = castrimrel1108 + BookHand cure fix); ts3fixes-only correctness test",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "metric-skill-missing-check",
+          "fixesRequire": "metricskillmissing_names>=2"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14
+    },
+    {
+      "id": "sf1108-fireworks-fizzle-check",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (fireworksfizzle, docs/533). Repro fireworks-fizzle-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, fireworksfizzle_finished>=1 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.castrimrel1108",
+      "pinReason": "latest master pair: ts3native 0.36.196 (castrimrel1108, repo ini incl. CasTrim as shipped) + newest ts3fixes build (bookhand1108c = castrimrel1108 + BookHand cure fix); ts3fixes-only correctness test",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "fireworks-fizzle-check",
+          "fixesRequire": "fireworksfizzle_finished>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14
+    },
+    {
+      "id": "sf1108-pet-pool-orphan-check",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (petpoolorphan, docs/534). Repro pet-pool-orphan-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, petpoolorphan_disposed>=1 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.castrimrel1108",
+      "pinReason": "latest master pair: ts3native 0.36.196 (castrimrel1108, repo ini incl. CasTrim as shipped) + newest ts3fixes build (bookhand1108c = castrimrel1108 + BookHand cure fix); ts3fixes-only correctness test",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "pet-pool-orphan-check",
+          "fixesRequire": "petpoolorphan_disposed>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14
+    },
+    {
+      "id": "sf1108-rel-tables-apart-check",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (reltablesapart, docs/535). Repro rel-tables-apart-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, reltablesapart_rejoined>=1 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.castrimrel1108",
+      "pinReason": "latest master pair: ts3native 0.36.196 (castrimrel1108, repo ini incl. CasTrim as shipped) + newest ts3fixes build (bookhand1108c = castrimrel1108 + BookHand cure fix); ts3fixes-only correctness test",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "rel-tables-apart-check",
+          "fixesRequire": "reltablesapart_rejoined>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 14
+    },
+    {
+      "id": "sf1108-ageup-outfits-check",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (ageupkeepoutfits, docs/205). Repro bp-ageup-outfits-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, ageupkeepoutfits_kept>=1 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.castrimrel1108",
+      "pinReason": "latest master pair: ts3native 0.36.196 (castrimrel1108, repo ini incl. CasTrim as shipped) + newest ts3fixes build (bookhand1108c = castrimrel1108 + BookHand cure fix); ts3fixes-only correctness test",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "bp-ageup-outfits-check",
+          "fixesRequire": "ageupkeepoutfits_kept>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 15
+    },
+    {
+      "id": "sf1108-book-hand-repro",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (bookhand, docs/251 §7). Repro book-hand-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, bookhand_seen>=1,bookhand_fixed>=1 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.castrimrel1108",
+      "pinReason": "latest master pair: ts3native 0.36.196 (castrimrel1108, repo ini incl. CasTrim as shipped) + newest ts3fixes build (bookhand1108c = castrimrel1108 + BookHand cure fix); ts3fixes-only correctness test",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-hand-check",
+          "fixesRequire": "bookhand_seen>=1,bookhand_fixed>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 16
+    }
+  ],
+  "stopQueueOnFail": false
+}

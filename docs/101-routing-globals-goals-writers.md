@@ -46,7 +46,7 @@ No `fs:` (TLS) store anywhere in D+V [verified]. 1,168 register-indirect sites r
 | 5 | `0x1165B80`, `0x1165B8C` | `0x807400` | P | D | footprint helper pool and its growth size, lock `0x11D8F90` | none |
 | 6 | `0x1165D48` | `0x80EDC0`, `0x80F2F0` | P | D | footprint polygon-cache pool, lock `0x11D9068` (footprint registry) | none |
 | 7 | `0x114C908` | `0x4E1270` | L | D, P | TLS index for the job system's current-thread handle (`TlsAlloc` once) | none |
-| 8 | `0x11CB920` | `0x4F3CC0` | L | D, P | cached function pointer, filled on first call | none |
+| 8 | `0x11CB920` | `0x4F3CC0` | L | D, P | cached `GetACP()` code page, filled on first call (docs/51 §461) | none |
 | 9 | `0x11E96C0`, `0x11E96C1` | `0x9B0530` | L | D, P | cached app startup flag (value, valid) | none |
 | 10 | `0x11ECEEE`, `0x11ECEEF` | `0xC88DB0` | L | D | cached config bit from `0x11CDDE0` | none |
 | 11 | `0x1157D28` | `0x5ECB30` (footprint slot `+0xF4 0x80E200`) | L | D+V | "reload pending" flag cleared after a one-time resource load `0x5EC820` | none; warm-up (I-101-2) |

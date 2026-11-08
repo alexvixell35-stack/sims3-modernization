@@ -353,3 +353,130 @@ Rerun, after the logging build:
 Pass: both Mode 3 runs finish the trip round trip (I-455-4) with no `inventory bad slot` line and no crash. If the off arm shows a bad slot or the crash, the cause is not the sweep. If a bad slot names an address CasTrim erased, the sweep is the cause and the fix goes into rule 1 / the erase re-check.
 
 Ship ON this week: not yet. It needs the 2 clean Mode 3 runs above, including the trip, which also closes I-455-4.
+
+## 13. `bp-castrim-release-smoke` 05:54 UTC: AV at `0xD4B156` in an outfit's destructor after the travel load (2026-11-08, ledger §458; static, no game run)
+
+Job: queue `castrim-live.json`, pair castrimrel1108 (ts3native 0.36.196, ts3fixes bookhand1108), release ini `[CasTrim] Mode=3 Detect=1 Probe=0`, repro `compositor-churn`. Saves #1-#3 swept (doomed totals 1163, 1660, 2353), `load_save` 06:10:32 (world load #2), CAS, `travel_vacation` 06:13:24. The travel save #4 passed (`save: result 0 travel 1/1`, `no sweep: no keep list for this save`, inventory check `bad 0` over 1774 outfits), world load #3 (France) logged, then at 06:14:19 `ACCESS_VIOLATION reading 0x00000004` at `0x00D4B156`, thread 12968. EA report `xcpt <machine> 26-11-08 14.14.19.txt`, no minidump. Log: `probe-out/queue/castrim-live-2026-11-08-bp-castrim-release-smoke-0554-ts3native.log` (forensics from line 7883).
+
+### 13.1 The fault: EA's release of a finished async request in a SimOutfit destructor [verified: disassembly TS3W 1.67, EA report stack data, ts3native log]
+
+- `0xD4B150` is EA's async-request callback (`mov ecx,[esp+4]; mov eax,[ecx]; mov edx,[eax+4]; jmp edx`): a virtual Release (vtable slot 1) on the request's result. The argument is `0x40A00000` (`ebx` = `ecx` = `[esp+4]`), its first dword (the vtable) is 0, so `[0+4]` faults. Nothing EA checks is null; the result pointer points at memory that holds no object.
+- Thread 12968 is the main thread (the decompress table names it `main`; it is the thread that loaded ts3native). CasTrim inserts and sweeps on thread 39896.
+- The chain, from the EA stack and the return addresses in the stack data (esp `0x001AFCBC`):
+
+| Return | Function | What it does there |
+|---|---|---|
+| `0x59ED59` | `ServiceList_Update` | main-thread service slot +0x1C |
+| `0x5F0E86` | `SimService_Update 0x5F0E50` | under the SimService lock (`+0x80`) it calls `0x5ED140` on the list at `+0x70` |
+| `0x5ED162` | `0x5ED140` | for each node: Release `[node+8]` (vtable slot 1), free the node: SimService's deferred releases |
+| `0x731DA3` | refcounted Release (`0x731D82` path) | count to 0: vtable +8 with 1 (deleting destructor) |
+| `0x5E7A08` | `0x5E7A00` | SimOutfit deleting destructor |
+| `0x5E75CC` | `0x5E75A0` | SimOutfit destructor (vtable `0xFE4A10`), calls the clear `0x5E6E20` |
+| `0x5E6E65` | `0x5E6E20` | releases the job at `+0xB8`, then `0x5AF640` over the array `[outfit+0xBC, +0xC0)`, then the 0x68-byte part records (`0x5E5AF0`) |
+| `0x5AF66D` | `0x5AF640` | per non-null entry: the async loader `[0x11D3C84]` vtable +0x3C (entry address, callback `0xD4B150`) |
+| `0x728DD4` | the loader's +0x3C | calls `0x728760` |
+| `0x7287EC` | `0x728760` | entry tagged (bit 0): a pending request, unlinked and recycled; untagged: a finished result, `callback(result)` |
+| fault | `0xD4B156` | `[result]` = 0 |
+
+- The frame values: outfit `0x7B781A80`, array `0x409E07A0` to `0x409E095C` (111 entries), entry 63 at `0x409E089C` = `0x40A00000`. Entries 0-62 went through the same loop without a fault.
+- What the array holds: the outfit's Load step `0x5E55B0` passes `&[outfit+0xBC][i]` as the result cell of `0x5E53E0`, an async request by key (`[0x11D3C84]` +0x34, callback `0xD4B150`) [verified disassembly]. The al249 count run traced compositor finds from this request (castrim.cpp header, docs/191), so the cells hold part compositors once finished [inferred from that trace; the request's type argument `0xEB54B802` is not the TXTC type `0x033A1435`, so the result type is not proven].
+- The second exception (`eip 0`, refs `004D7001 004D7140 0058D945`) is EA's crash-report path, as in §12.1 [inferred, same pattern].
+
+### 13.2 Our code on the path, and CasTrim's erases [verified: log, source, grep]
+
+- No hook of ours is on this chain. `native/` names none of `0x5AF640`, `0x5E6E20`, `0x5E75A0`, `0x5E7A00`, `0x728760`, `0x5ED140`, `0x5F0E50`, `0xD4B150`, `0x5E53E0` except in comments; docs/68 lists none of them. CasTrim's code sites are the insert `0x5EECD0`, the cache find `0x7324E0`, the save hook, the inventory call site `0x5EFE11` and the probe call sites (Probe=0 here).
+- No CasTrim erase in the window. Mode 3 erases only in the sweep after a save that is not refused. The last sweep ended after save #3 (`sweep done: swept 2353 in total`, line 6748, after the 06:08:31 save [time inferred from the job log]). Then `load_save` reloaded the world (06:10:32-06:11:20), save #4 refused (`no sweep: no keep list for this save`, line 7822), and the Mode 1 step is off (`walked 0, marked old 0, erased 0`). The fault came ~5.5 min after the last erase, across a full reload and a world switch.
+- Is `0x40A00000` an erased compositor? Not answered for this site: the erase ring lookup (§12.5 item 2) runs only for faults at `0x5E76DA` / `0x5E772C` and for the inventory detector, and the detector reads the record arrays `[rec+0x14]` / `[rec+0x38]`, not `[outfit+0xBC]`. Against it: an erased compositor would leave its own heap address in the cell; the same value `0x40A00000` in two runs with different builds and heap layouts does not fit that [inferred].
+- The other CasTrim parts ran no code here: no save, no sweep and no probe in the travel load. P5 state at the fault: route job idle, P4 not armed, heap check 0 bad frees; the P5c released ring's newest release is 57 s old [verified log].
+
+### 13.3 Seen before? [verified: search]
+
+- `D4B156`: only this run's files (`docs/data`, all `probe-out/queue` logs, the 10 EA reports in Documents).
+- The value `0x40A00000` (float 5.0) as an object pointer in a CAS slot, three times:
+
+| When | Build | Site | Slot | `[0x40A00000]` | CasTrim |
+|---|---|---|---|---|---|
+| 2026-10-15 (docs/67 §3) | 365b9c27d8ba | `0x5CEB9A`, ModelBuilder part record ref list, released from `SimService_Update` on main | record `+0x44` inline vector | 8 | did not exist (`castrim.cpp` added 2026-11-06) |
+| 2026-11-08 01:46 (§12) | 0.36.190 | `0x5E772C`, outfit inventory in the travel save, sim thread | `[rec+0x38]` slot 1 | 1 | Mode 3, no erase in the window |
+| 2026-11-08 06:14 (this) | 0.36.196 | `0xD4B156`, SimOutfit destructor from SimService's deferred releases, main | `[outfit+0xBC]` entry 63 | 0 | Mode 3, no erase in the window |
+
+- The other `40A00000` hits in `probe-out/queue` are float fields (footprint `+0x10` in the 10-24 watchpoint logs, two jsonl rows), not pointers.
+- So: a CAS object's pointer cell overwritten with float 5.0 is an older crash family that predates CasTrim. Three different cells and owners, the same value, and the address mapped each time with different contents. The 10-15 crash rules out CasTrim as its only cause [verified]. That CasTrim makes it more frequent is not ruled out [inferred: only 2 off-arm runs exist].
+
+### 13.4 Facts for the ON decision (no decision here)
+
+- Mode 3 runs of this repro today, all reaching the trip: 00:49 (no crash; travel_home stalled, §11), 01:26 (crash §12), 03:22 and 03:48 (clean, castrimdiag1108), 05:54 (crash, this). 2 crashes in 5 Mode 3 runs, both in the travel, both with `0x40A00000` in an outfit's cell. Off arm (`Mode=0`): 2 runs (04:14, 04:55), 0 crashes. If the crashes were independent of the mode, both falling in Mode 3 runs would have chance 10/21 = 0.48: the sample cannot separate the arms [verified count from `castrim-live-2026-11-08.jsonl`].
+- Neither crash has a CasTrim erase between the reload and the fault, and no CasTrim code is on either stack except `CtSaveHook` passing through in §12 [verified].
+- The inventory detector at the travel save found no bad record slot in 1774 outfits (§12.5 coverage only) [verified].
+- Not known: who writes 5.0 into the cells, and whether a Mode 3 sweep before the reload frees memory that a float writer reuses later.
+
+### 13.5 Logging to name it (all earlier detectors stay)
+
+Crash-triage build window (`castrim.cpp`, `crashfx.cpp`):
+
+1. `CtInvCheck` also walks `[outfit+0xBC, +0xC0)`: untagged non-null entries must start with a part compositor vtable (or, until the result type is proven, log the first 20 vtables seen per save, grouped). Bad entries go through `CtInvBad` (erase ring, CasTrim slot, first dwords), with the entry index and 8 neighbours.
+2. A value watch: any cell in the record arrays or `+0xBC` equal to `0x40A00000`, or any value whose first dword is below `0x10000`, logs `cas trim: float-5 cell` with the outfit key and the record bytes, in every mode (also Mode 0), so the off arm can show it.
+3. A call-site detour at `0x5E6E60` (the clear's `call 0x5AF640`) and `0x5E7633` (the destructor's): the same check on the destructor path, main thread, before EA runs; a detector only, EA runs unchanged.
+4. `crashfx.cpp`: on a fault at `0xD4B156` or `0x5AF67E` (the same release inlined in `0x5AF640`) decode the `0x5AF640` frame (slot `[esp+0x2C]`, begin, end, outfit from the saved registers), the value's first 4 dwords, `CtGoneText` / `CtSlotText` on it, and ±8 cells.
+5. Cell history (round 2, only if 1-4 catch a bad cell before the fault): a DR write watch on the bad cell's neighbours at the next save, with the writer's stack (the watchpoint code from the 10-24 P5 drift runs).
+
+Kept: inventory detector and erase ring (§12.5), P5c rings, draw and scene guards, heap check, allocsites.
+
+### 13.6 Rerun
+
+Not deterministic (2 of 5 Mode 3 runs, two different sites). After the logging build:
+- `bp-castrim-release-smoke` twice (release ini, Mode 3).
+- `bp-castrim-live-off` twice more (4 off arms in total).
+
+Pass: both Mode 3 runs finish the trip round trip with no crash and no bad-cell or float-5 line. A float-5 cell in an off arm means CasTrim is not the cause. A bad cell that `CtGoneText` names as erased by CasTrim makes the sweep the cause. A fix, once there is a cause, needs 2 clean runs of the same job.
+
+### 13.7 Built: castrimdiag1108b, items 1-4 and CellGuard (2026-11-08)
+
+Pair castrimdiag1108b: ts3native.asi.castrimdiag1108b bd9923e30a34 = 0.36.198 from a489d620 (master = castrimrel1108 0.36.196 + bookhand + 13 small fixes ON, plus this) and ts3fixes = master (`bookhand1108d` file, mods/ts3fixes unchanged since 99f5ae36). Selftest only, not run in game. Item 5 not built (round 2).
+
+As built [verified disassembly, TS3W 1.67]:
+- `0x5AF640` is thiscall `(&outfit[+0xBC], begin, end)`, `ret 8`, called from `0x5E6E60` (in the clear `0x5E6E20`, return `0x5E6E65`) and `0x5E7633` (in the destructor `0x5E75A0`, return `0x5E7638`, after the clear, so usually on an empty range). For each non-null cell it calls the loader's `+0x3C` (`0x728DB0` -> `0x728760`: tagged = pending, unlinked; untagged = `0xD4B150(result)`), then releases an untagged cell inline (`0x5AF67A`). The 11-08 crash went destructor `0x5E75CC` -> clear -> `0x5AF640` from `0x5E6E65` (the EA report's frame, decoded below).
+- The clear frees the part records after `0x5AF640` (`0x5E5AF0` over `[outfit+0x98, +0x9C)`, then end = begin). `0x5E5AF0` releases `[rec+0x14, +0x18)` and `[rec+0x38, +0x3C)` as begin / end ranges; the save's `0x5E7690` reads 5 fixed slots of the same arrays.
+- Frames for the decoders: `0xD4B156` from `0x5AF640`: `[esp]` `0x7287EC`, `+4` the value, `+0x14` `0x728DD4`, `+0x18` / `+0x2C` the cell, `+0x28` `0x5AF66D`, `+0x34` saved edi (= outfit + 0xBC), `+0x38` saved esi (= outfit), `+0x3C` return, `+0x40` begin, `+0x44` end. `0x5AF67E`: esi = cell, ecx = value, `[esp+4]` outfit, `+8` return, `+0xC` begin, `+0x10` end. The 11-08 report decodes to cell `0x409E089C`, entry 63 of 111, outfit `0x7B781A80`, return `0x5E6E65` (`crash-ledger.ts` self-check and the real report).
+
+What it does (`castrim.cpp`):
+1. Item 1: the save inventory (`CtInvHook`, `0x5EFE11`) also walks `[outfit+0xBC, +0xC0)`: an untagged non-null cell must be readable with a first dword inside TS3W `.rdata` (the result type is not proven; the vtables seen are counted, 24 per save). Bad: `cas trim: outfit cell bad` (first 20; erase-ring and CasTrim slot lookup, first 4 dwords, cells -8..+8). Per save: `cas trim: inventory cells save #N: cells, bad, float-5 ...; result vtables: ...`.
+2. Item 2: `cas trim: float-5 cell` (first 20) for a record slot or cell equal to `0x40A00000` or with a first dword below `0x10000`, on every path, in every mode where the sites are in (Detect=1; off arm jobs set it).
+3. Item 3: `CtRelHook` on both release call sites: with Detect the part records (as `0x5E5AF0` reads them: begin / end; a record slot of another type with a TS3W vtable is counted, not bad) and always the cells, before EA. Per save: `cas trim: outfit release check ... calls, cells, bad, ... max us a call; result vtables`.
+4. Item 4: `crash forensics: cas trim outfit release fault` (first 2) at `0xD4B156` / `0x5AF67E`: frame, value + 4 dwords, ring and slot lookups, cells -8..+8, the outfit's last inventory-check save, release counters, mode, save / travel phase. `crash-ledger.ts triage` decodes the same from an EA report.
+5. CellGuard (Rodney 2026-11-08, scope change): `[CasTrim] CellGuard=1` (code default 1, repo and release ini 1) installs the two release sites in every Mode, also Mode 0 with nothing else installed. A cell that is `0x40A00000`, unreadable, first dword below `0x10000`, or a first dword outside TS3W `.rdata` is set to 0 before EA runs: EA neither asks the loader nor releases it, that entry leaks, the other cells go as before. `cas trim: cell guard skipped` (first 40): outfit, entry / count, value, cells -8..+8 (before the write), ring lookup of the value and the outfit, the save # of the last inventory check that saw the outfit, 6 exe return addresses up the stack, CasTrim mode, in-a-save, save # / travel flags / world load. Counters v176 `ctCellSeen`, `ctCellSkip`. This is a guard for a cause still unknown (who writes 5.0), not its fix.
+
+Earlier detectors kept: §12.5 inventory slot check, erase ring, `0x5E772C` / `0x5E76DA` decoder, P5c rings, draw / scene guards, heap check, allocsites.
+
+Probe safety (native selftest `TestCasTrimCells`): a dummy call site laid out as `0x5E6E5C` (push end, push begin, `mov ecx`, `call`), patched with `PatchCalls` to `CtRelHook`, run for real: guard off = EA's fake sees all 7 cells unchanged (5 checked, 3 bad, 2 float-5); guard on = the zero-vtable, `0x40A00000` and non-.rdata cells are 0, the good and tagged ones unchanged, 3 skips; a clean outfit is released exactly as before (0 skips); bad ranges and no cells log and still call EA; the save path counts and does not write; both fault decoders on fake frames, another caller, unreadable memory.
+
+Cost: selftest 2.3 us per 111-cell outfit through `CtRelHook` (warm cache, 20000 calls); in game a save adds about outfits x that (~1780 outfits: ~4 ms plus cache misses) on top of §12.5's 0.7-3.9 ms, and each outfit release a few us on the main thread. The log lines carry the real ms per save and the max us per release call: the queue result must report them.
+
+Rerun queued (not run, `tools/harness/queues/castrim-live.json`, stopQueueOnFail false): `bp-castrim-release-smoke-b1` / `-b2` (release ini: Mode 3, Detect 1, Probe 0, CellGuard 1) and `bp-castrim-live-off-b1` / `-b2` (Mode=0 Install=1 Detect=1). Gates: no crash; install lines (inventory site, release sites, `CellGuard 1`); inventory check and inventory cells lines >= 3; 0 `inventory bad slot`, `outfit cell bad`, `float-5 cell`, `cell guard skipped` and both crash-forensics lines. A guard skip fails the job on purpose: it is the bad cell this round is meant to catch, and its line is the evidence.
+
+Repro: none. Writing 5.0 into a cell needs a native write op that maps a non-household Sim to one of its outfits' `+0xBC` cells; there is no such mapping in the agent today. The selftest covers the guard path.
+
+### 13.8 `bp-castrim-live-off-b2` 08:37 UTC: main-menu hang is EA's package-lock ABBA deadlock, not CasTrim (2026-11-08; static, no game run)
+
+Job: queue `castrim-live`, pair castrimdiag1108b (ts3native 0.36.198, map timestamp `6af01d96` = the dump's module), ini `[CasTrim] Mode=0 Install=1 Detect=1 CellGuard=1`. "Mod Scripts Found" accepted 08:36:13, fail-fast `world load: nothing moved ... for 60 s` at 08:37:45, kill dump `probe-out/dumps/ts3w-22140-20261108T083745.dmp`. Not a world load: managed top `UIManager_GetSaveGameMetadataImpl` <- `MainMenuModel.GetSaveFileDetails` <- `Ts3Agent.Handlers.LoadSave` (the agent's save-list read at the menu); `ts3native.log` has no world load line. The same pair passed 3 other jobs today, off-b1 with the identical ini.
+
+Lock owners from the dump [verified: scratchpad minidump reader, `CRITICAL_SECTION` at the waiter's `edi`, `OwningThread` / `RecursionCount`; stacks by return-address scan, each preceded by a call]:
+
+| Thread | Holds | Waits for | Stack (innermost first) |
+|---|---|---|---|
+| main 44904 | CS `0x0DD8FDA0` (object `0x0DD8FCE0` + 0xC0, recursion 2) | CS `0x0DD8FD28` (same object + 0x48) via `Lock_Acquire 0x4E16F0` | `EnterCriticalSection` < `0x4E170D` (Lock_Acquire body) < ts3native `LockAcquireHook+0xB7` < `0x735358` < `0x735358` < `0x735633` / `0x7355F2` < `0x73767D` < `0x7377FC` < `0x59ED59` < `0x588E1D` < `0xECAA55` < `0xECBD71` < `0xECBE4C` < `0xF7F201` < `0xF7F827` (WinMain): the resource-system update |
+| worker 44468 (MSVCR80 pool thread) | `0x0DD8FD28` and `0x0DC73F48` (both recursion 1) | `0x0DD8FDA0`, direct `EnterCriticalSection` at `0x734725` | `0x734725` < `0x734591` < `0x8BA7D5` < `0x8AA846` < `0x8AE5D4` < `0x8BCB78` < ... < `0x4E2EDE` (EA thread start): the package open path |
+| sim 44740 | - | `0x0DC73F48` (owner 44468) via `Lock_Acquire`, `GetPackageSource 0x4AFFC0` (key `0x4AFFD6`, `0x00FB2CD0` pushed) | `LockAcquireHook+0xB7` < `0x4AFFD6` < `0x4AFDB1` < `0x7D8126` < `0x7366DD` < `0xAAB96C` ... (Mono interpreter): blocked behind the cycle |
+
+Main holds +0xC0 and wants +0x48; the worker holds +0x48 and wants +0xC0. A lock-order (ABBA) deadlock between two EA paths on one package-database object, the same as docs/67 §23.
+
+Our code on the stacks [verified: dump code bytes, `out/ts3native.map` of 0.36.198, `wt-ctdiag2` source]:
+- `Lock_Acquire 0x4E16F0` starts with `e9` to ts3native `+0x52B30` = `LockAcquireHook` (route-gate detour, `routegate.cpp:430`, installed in every job since 0.36.x). Its return `+0x52BE7` (`+0xB7`) is on the main and sim stacks above `0x4E170D`. For a lock other than `+0x918` from a thread that is not the job owner or a sync plan session (the case at the menu), `LockAcquirePlain` calls `g_lockOrig` with no lock, wait or pump of its own: a pass-through. The waits are inside EA's own `EnterCriticalSection`.
+- The worker's wait at `0x734725` is a direct `EnterCriticalSection`, no ts3native frame on its whole stack.
+- CasTrim: the release sites are patched (`0x5E6E60` and `0x5E7633` hold `e8` calls to ts3native, `CtRelHook`), but no `CtRelHook`, `CtInvHook` or castrim frame is on any of the 150 stacks. The log has only the install line (§13.7 item 5). Other ts3native frames in the dump: `WorkerMain+0x2F` (route worker, idle kernel wait), `UdMemMain+0xB0` (idle), two EA job threads in a kernel wait with stale `LockAcquireHook` / `SppHook` values; the sim stack's `AsFreeHook+0x4E` value lies inside ntdll's wait frame (stale).
+
+Seen before [verified: same reader on the earlier kill dumps]: the identical cycle, same addresses and same caller chains (main `0x735358` < `0x735633` < `0x7377FC`, worker `0x734725` < `0x8AA846` < `0x8AE5D4` < `0xAD3F6E` < `0x8BCBA4`, sim `0x4AFFD6`), in `ts3w-16664-20261026T182520.dmp` (`unseen-fallback-c` 10-26, 0.36.100/103, docs/67 §23), `ts3w-41676-20261031T041930.dmp` (`mintcall-verify` 10-31, 0.36.127) and `ts3w-4012-20261107T104249.dmp` (`stove-wall-repeat` 11-07, 0.36.168). All four at the menu save-list read after "Mod Scripts Found", across unrelated builds and switch sets (unseen fallback, mint calls, stove fix, now CasTrim Mode 0); CasTrim did not exist on 10-26. `probe-out/queue/*.log`: 8 logs with `world load: nothing moved` out of ~2100 `cycle.ts --save` loads; the 4 others (`chain5`, `chain58`, `clean-night-2` 10-18 on 0.22.2, `snap-p4` 10-19 on 0.32.8) had no hang capture, cause unknown. No vanilla (no ts3native) run on record with this signature, but vanilla runs are few, so vanilla is not shown clean either [verified: grep; vanilla rate unknown].
+
+Verdict: **EA** [verified for the lock cycle; "not caused by our detour" inferred from the pass-through path and four builds]. Not CasTrim, not CellGuard: no CasTrim code runs at the menu and none is on any stack. Rate in our harness ~4 captured in ~2100 loads. The agent's `LoadSave` reads save metadata seconds after the dialog, while the main thread still updates resources; a player opening the Load screen at once may hit the same race.
+
+Action: no fix in our code. Rerun the job (counts as N/A, not a CasTrim result). docs/67's "known rare hang" rule stays: rerun once, a second hang in a row stops the chain. Optional, not built: (1) the hang capture (`game-alive.ts`) names each `Lock_Acquire` / `EnterCriticalSection` waiter's CS owner from `edi` and prints the cycle, so the next one is triaged from the summary line without a dump; (2) `cycle.ts` waits for a quiet resource update before `LoadSave` or retries the load once on this exact signature. An EA-side fix (lock order in `0x734710` vs `0x735358`) needs a static study of that object first; not worth it at this rate unless players report menu freezes.

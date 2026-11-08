@@ -1,0 +1,570 @@
+{
+  "note": "jit-exits: correctness gate for pair monojit1108c (docs/537 §20: VtOps B1, CallExit A5b, NewVt B5, game list C2/C2b) as one bundle (Rodney 2026-11-08: compiler gains are not measured per piece). No timing. Order: (1) bp-jit-exits-smoke (all on, stops the queue on FAIL); (2) bp/ip/sv-jit-exits-capture (15 min each, Mode=1 Capture=1, all switches on); (3) host replay between the jobs, queue.ts has no host step: node tools/jit-replay.ts --capture probe-out/jit-capture-<w>-cint.jitcap --out probe-out/jit-capture-<w>-cint.txt --summary, then with MONOHOST_JITINLINE=2 MONOHOST_JITWIDE=1 MONOHOST_JITVTOPS=1 MONOHOST_JITCALLEXIT=1 MONOHOST_JITNEWVT=1: node tools/jit-replay.ts --run probe-out/jit-capture-<w>-cint.txt --mode verify --lazy; gate 0 differ, 0 faulted, MISMATCH 0 (one rerun on the known host rebuild flake), else stop before (4); (4) bundle on vs off per world (bp/ip/sv-jit-exits-bundle-on/off, Mode=2 verify, jit set as jit-batch.json). Pass per bundle job: no crash, 0 'jit verify MISMATCH' (logForbid), scriptErrorsMax 0, >= 1 'jit: compiled' and the OK line reading back VtOps, CallExit and NewVt (logRequire), jitLazyCalls >= 1000, jitMismatch 0, jitFaults 0 (nativeRequire). No C0 count arm: the game build has no count mode (no jitbail / jitmat / jitnew lines; host only). Run: node tools/harness/queue.ts tools/harness/queues/jit-exits.json --no-smoke --only bp-jit-exits-smoke,bp-jit-exits-capture,ip-jit-exits-capture,sv-jit-exits-capture; replay (3); then --from bp-jit-exits-bundle-on --no-smoke.",
+  "jobs": [
+    {
+      "id": "bp-jit-exits-smoke",
+      "note": "BP 5 min smoke, the whole bundle on (VtOps=1 CallExit=1 NewVt=1): the pair loads, the OK line reads every switch back, methods compile, no MISMATCH. Stops the queue on FAIL.",
+      "asi": "game-copy/ts3native.asi.monojit1108c",
+      "fixesPackage": "game-copy/ts3fixes.package.monojit1108c",
+      "pinReason": "monojit1108c pair (builds.json): feature/monojit-c-int f1290c28, ts3native 0.36.204 = monojit1108b (0.36.201: VtOps, CallExit) + [MonoJit] NewVt + game list C2/C2b rows (126 bodies); ts3fixes = monojit1108b (same file); counters version field 912",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 20,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0",
+      "stopQueueOnFail": true
+    },
+    {
+      "id": "bp-jit-exits-capture",
+      "noiseCheck": false,
+      "note": "BP 15 min capture (jit-capture.json setup: Mode=1, Capture=1) with the bundle compile list and every new switch on, so lazy / newobj.vt paths are sampled. Writes probe-out/jit-capture-bp-cint.jitcap. Pass: no crash, 'OK   mono jit capture', 0 'jit capture: fault', OK line reads the switches back.",
+      "asi": "game-copy/ts3native.asi.monojit1108c",
+      "fixesPackage": "game-copy/ts3fixes.package.monojit1108c",
+      "pinReason": "monojit1108c pair (builds.json): feature/monojit-c-int f1290c28, ts3native 0.36.204 = monojit1108b (0.36.201: VtOps, CallExit) + [MonoJit] NewVt + game list C2/C2b rows (126 bodies); ts3fixes = monojit1108b (same file); counters version field 912",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "logForbid": {
+        "jit capture: fault": 0
+      },
+      "logRequire": {
+        "OK   mono jit capture": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1": 1
+      },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.Capture": 1,
+        "MonoJit.CaptureFile": "probe-out/jit-capture-bp-cint.jitcap"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35
+    },
+    {
+      "id": "ip-jit-exits-capture",
+      "noiseCheck": false,
+      "note": "IP 15 min capture (jit-capture.json setup: Mode=1, Capture=1) with the bundle compile list and every new switch on, so lazy / newobj.vt paths are sampled. Writes probe-out/jit-capture-ip-cint.jitcap. Pass: no crash, 'OK   mono jit capture', 0 'jit capture: fault', OK line reads the switches back.",
+      "asi": "game-copy/ts3native.asi.monojit1108c",
+      "fixesPackage": "game-copy/ts3fixes.package.monojit1108c",
+      "pinReason": "monojit1108c pair (builds.json): feature/monojit-c-int f1290c28, ts3native 0.36.204 = monojit1108b (0.36.201: VtOps, CallExit) + [MonoJit] NewVt + game list C2/C2b rows (126 bodies); ts3fixes = monojit1108b (same file); counters version field 912",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "logForbid": {
+        "jit capture: fault": 0
+      },
+      "logRequire": {
+        "OK   mono jit capture": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1": 1
+      },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.Capture": 1,
+        "MonoJit.CaptureFile": "probe-out/jit-capture-ip-cint.jitcap"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35
+    },
+    {
+      "id": "sv-jit-exits-capture",
+      "noiseCheck": false,
+      "note": "SV 15 min capture (jit-capture.json setup: Mode=1, Capture=1) with the bundle compile list and every new switch on, so lazy / newobj.vt paths are sampled. Writes probe-out/jit-capture-sv-cint.jitcap. Pass: no crash, 'OK   mono jit capture', 0 'jit capture: fault', OK line reads the switches back.",
+      "asi": "game-copy/ts3native.asi.monojit1108c",
+      "fixesPackage": "game-copy/ts3fixes.package.monojit1108c",
+      "pinReason": "monojit1108c pair (builds.json): feature/monojit-c-int f1290c28, ts3native 0.36.204 = monojit1108b (0.36.201: VtOps, CallExit) + [MonoJit] NewVt + game list C2/C2b rows (126 bodies); ts3fixes = monojit1108b (same file); counters version field 912",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-SV-Spring",
+      "logForbid": {
+        "jit capture: fault": 0
+      },
+      "logRequire": {
+        "OK   mono jit capture": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1": 1
+      },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.Capture": 1,
+        "MonoJit.CaptureFile": "probe-out/jit-capture-sv-cint.jitcap"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35
+    },
+    {
+      "id": "bp-jit-exits-bundle-on",
+      "note": "BP 15 min, bundle on (VtOps=1 CallExit=1 NewVt=1). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.monojit1108c",
+      "fixesPackage": "game-copy/ts3fixes.package.monojit1108c",
+      "pinReason": "monojit1108c pair (builds.json): feature/monojit-c-int f1290c28, ts3native 0.36.204 = monojit1108b (0.36.201: VtOps, CallExit) + [MonoJit] NewVt + game list C2/C2b rows (126 bodies); ts3fixes = monojit1108b (same file); counters version field 912",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+    },
+    {
+      "id": "bp-jit-exits-bundle-off",
+      "note": "BP 15 min, bundle off (all three 0, same pair and list). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.monojit1108c",
+      "fixesPackage": "game-copy/ts3fixes.package.monojit1108c",
+      "pinReason": "monojit1108c pair (builds.json): feature/monojit-c-int f1290c28, ts3native 0.36.204 = monojit1108b (0.36.201: VtOps, CallExit) + [MonoJit] NewVt + game list C2/C2b rows (126 bodies); ts3fixes = monojit1108b (same file); counters version field 912",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 0,
+        "MonoJit.CallExit": 0,
+        "MonoJit.NewVt": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+    },
+    {
+      "id": "ip-jit-exits-bundle-on",
+      "noiseCheck": false,
+      "note": "IP 15 min, bundle on (VtOps=1 CallExit=1 NewVt=1). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.monojit1108c",
+      "fixesPackage": "game-copy/ts3fixes.package.monojit1108c",
+      "pinReason": "monojit1108c pair (builds.json): feature/monojit-c-int f1290c28, ts3native 0.36.204 = monojit1108b (0.36.201: VtOps, CallExit) + [MonoJit] NewVt + game list C2/C2b rows (126 bodies); ts3fixes = monojit1108b (same file); counters version field 912",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+    },
+    {
+      "id": "ip-jit-exits-bundle-off",
+      "noiseCheck": false,
+      "note": "IP 15 min, bundle off (all three 0, same pair and list). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.monojit1108c",
+      "fixesPackage": "game-copy/ts3fixes.package.monojit1108c",
+      "pinReason": "monojit1108c pair (builds.json): feature/monojit-c-int f1290c28, ts3native 0.36.204 = monojit1108b (0.36.201: VtOps, CallExit) + [MonoJit] NewVt + game list C2/C2b rows (126 bodies); ts3fixes = monojit1108b (same file); counters version field 912",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 0,
+        "MonoJit.CallExit": 0,
+        "MonoJit.NewVt": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+    },
+    {
+      "id": "sv-jit-exits-bundle-on",
+      "noiseCheck": false,
+      "note": "SV 15 min, bundle on (VtOps=1 CallExit=1 NewVt=1). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.monojit1108c",
+      "fixesPackage": "game-copy/ts3fixes.package.monojit1108c",
+      "pinReason": "monojit1108c pair (builds.json): feature/monojit-c-int f1290c28, ts3native 0.36.204 = monojit1108b (0.36.201: VtOps, CallExit) + [MonoJit] NewVt + game list C2/C2b rows (126 bodies); ts3fixes = monojit1108b (same file); counters version field 912",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-SV-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+    },
+    {
+      "id": "sv-jit-exits-bundle-off",
+      "noiseCheck": false,
+      "note": "SV 15 min, bundle off (all three 0, same pair and list). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.monojit1108c",
+      "fixesPackage": "game-copy/ts3fixes.package.monojit1108c",
+      "pinReason": "monojit1108c pair (builds.json): feature/monojit-c-int f1290c28, ts3native 0.36.204 = monojit1108b (0.36.201: VtOps, CallExit) + [MonoJit] NewVt + game list C2/C2b rows (126 bodies); ts3fixes = monojit1108b (same file); counters version field 912",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-SV-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 0,
+        "MonoJit.CallExit": 0,
+        "MonoJit.NewVt": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+    }
+  ]
+}

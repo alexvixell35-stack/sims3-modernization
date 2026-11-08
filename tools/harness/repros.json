@@ -55564,6 +55564,118 @@
     ]
   },
   {
+    "id": "tier2-ic-rows-dry",
+    "bug": "none (docs/126 §8 Mode R gate)",
+    "fix": "ts3fixes autofft2ic: worker reads of the docs/126 §8 class-a IC rows (terrain, floor, pools, lot/room, object fields) for the actor and its lot objects, compared with the game's own answers at the cut",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (2026-11-08, never run). Autonomy batches carry the items; ultra speed for many batches; a camera move to the far corner and back changes lots, so new lot objects and positions are asked (position rows are learned keys).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 120
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "far corner"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 60,
+            "y": 40,
+            "z": 60
+          },
+          "target": {
+            "x": 90,
+            "y": 0,
+            "z": 90
+          }
+        },
+        "waitS": 60,
+        "note": "another corner"
+      }
+    ],
+    "expect": "autoff_t2ic_eq > 0; autoff_t2ic_mis == 0 and autoff_t2ic_exc == 0; aborts read, not gated",
+    "switches": [
+      "autofft2",
+      "autofft2ic"
+    ]
+  },
+  {
+    "id": "tier2-p1-dry",
+    "bug": "none (docs/219 §3.1 tier-2 P1 Mode R gate)",
+    "fix": "ts3fixes AutInUseHook (six destroying get_InUse overrides abort on the worker), AutFireHook (HasOnlyLeafPileFires aborts while the lot has fires), LiveDragHelperModel pre-warm at the request",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (2026-11-08, never run). Ultra speed for many meta batches and two camera moves (new lots). The worker scores meta pairs only, so the inuse/fire hooks may not be reached here (docs/219 §3.1): the gate is no regression (A1-A3, exceptions), the counts are read.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 180
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "far corner"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 60,
+            "y": 40,
+            "z": 60
+          },
+          "target": {
+            "x": 90,
+            "y": 0,
+            "z": 90
+          }
+        },
+        "waitS": 60,
+        "note": "another corner"
+      }
+    ],
+    "expect": "autshadow_a1..a3 == 0, autshadow_exceptions == 0; aut_t2_* read, not gated",
+    "switches": [
+      "autshadow",
+      "autt2inuse",
+      "autt2fire",
+      "autt2dragwarm"
+    ]
+  },
+  {
     "id": "aut-unseen-focus",
     "bug": "none (docs/222 §11, gate2): what a player sees when the camera lands on an unseen Sim",
     "fix": "ts3fixes autunseen snap-back (AutLive.cs FlipCheck, docs/222 §3)",
@@ -63249,6 +63361,1477 @@
           ],
           "everyS": 3,
           "maxS": 60
+        }
+      }
+    ]
+  },
+  {
+    "id": "dance-together-floor",
+    "bug": "docs/253: DanceFloor.FindAndRouteOntoADanceFloorWithFollower threw InvalidOperationException \"Collection was modified\" from List`1+Enumerator.MoveNext on a list only its own frame holds (2 hits, BP Waylon's Haunt, NPCs, builds 0.36.168 and 0.36.198); in managed terms impossible, so a memory-level change is suspected [inferred]",
+    "fix": "diagnostics only: ts3fixes DanceFloorDiag.cs dancefloorlistdiag (default off), docs/253 §7",
+    "save": "Baseline-BP",
+    "switches": [
+      "dancefloorlistdiag"
+    ],
+    "note": "Player flow with test shortcuts (labelled): two NPCs of the save, sent to Waylon's Haunt with EA's own VisitCommunityLot; DanceTogetherA is pushed (not chosen by autonomy), the short-term context set Friendly when not one EA accepts, and every even try forces one collection while the pair routes (STRESS). 24 tries; each waits until the route returned (ts3fixes counters 893/894) or the dance ended, then cancels it. Waits are fail-fast: the until polls every 5-10 s, the action reports stalled when nothing about the pair moved for 60 s (two 30 s checks), and the harness stall guard runs as well. Never a household, selectable or unknown-scope Sim (the action re-checks at every op and throws).",
+    "expect": "steps pass; dancefloordiag_calls >= 20; one \"dancefloor list: call #\" line per call (first 40); any \"dancefloor list: MISMATCH\" / \"THROW\" line is the finding, not a failure",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "dancefloorlistdiag": true
+        },
+        "waitS": 1,
+        "note": "diagnostics on (DanceFloorDiag.cs); applied log lists DanceFloor.FindAndRouteOntoADanceFloorWithFollower: ok"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "setup",
+          "lot": "Waylon"
+        },
+        "waitS": 5,
+        "note": "two NPCs (never the active household, a selectable Sim or a Sim with no household) and the lot's dance object; NPCs not on the lot yet go there with EA's VisitCommunityLot",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "on_lot",
+              "equals": true
+            }
+          ],
+          "everyS": 10,
+          "maxS": 900,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 2,
+        "note": "try 1: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 1: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 1: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 3,
+        "note": "try 2: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 1
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "try 2: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 2: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 2: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 2,
+        "note": "try 3: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 3: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 3: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 3,
+        "note": "try 4: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 1
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "try 4: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 4: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 4: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 2,
+        "note": "try 5: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 5: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 5: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 3,
+        "note": "try 6: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 1
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "try 6: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 6: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 6: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 2,
+        "note": "try 7: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 7: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 7: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 3,
+        "note": "try 8: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 1
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "try 8: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 8: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 8: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 2,
+        "note": "try 9: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 9: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 9: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 3,
+        "note": "try 10: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 1
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "try 10: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 10: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 10: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 2,
+        "note": "try 11: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 11: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 11: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 3,
+        "note": "try 12: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 1
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "try 12: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 12: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 12: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 2,
+        "note": "try 13: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 13: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 13: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 3,
+        "note": "try 14: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 1
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "try 14: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 14: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 14: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 2,
+        "note": "try 15: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 15: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 15: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 3,
+        "note": "try 16: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 1
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "try 16: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 16: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 16: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 2,
+        "note": "try 17: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 17: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 17: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 3,
+        "note": "try 18: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 1
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "try 18: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 18: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 18: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 2,
+        "note": "try 19: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 19: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 19: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 3,
+        "note": "try 20: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 1
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "try 20: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 20: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 20: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 2,
+        "note": "try 21: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 21: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 21: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 3,
+        "note": "try 22: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 1
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "try 22: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 22: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 22: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 2,
+        "note": "try 23: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 23: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 23: pause"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "fire"
+        },
+        "waitS": 3,
+        "note": "try 24: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 1
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "try 24: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "settled",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
+        },
+        "waitS": 2,
+        "note": "try 24: the dance cancelled after its route (NPCs only)",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state"
+          },
+          "all": [
+            {
+              "path": "busy",
+              "equals": false
+            }
+          ],
+          "everyS": 5,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "state"
+        },
+        "waitS": 8,
+        "note": "try 24: pause"
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "waitS": 1,
+        "show": "dancefloordiag_",
+        "note": "counters at the end"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "cancel"
         }
       }
     ]

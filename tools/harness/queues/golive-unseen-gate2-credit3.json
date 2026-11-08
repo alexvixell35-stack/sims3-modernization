@@ -44,7 +44,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -164,7 +166,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -280,7 +284,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -399,7 +405,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -514,7 +522,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -633,7 +643,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -748,7 +760,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -868,7 +882,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {

@@ -59,14 +59,15 @@ export function pairName(dir: string, db: Build[]): { line: string; release: boo
     release: names.some(n => /^ts3native\.asi\.rel/.test(n)) };
 }
 
-// newest release asi whose native/ts3native/out-<rel>/ pair is on disk with the DB hash
+// newest release asi whose pair is on disk with the DB hash: native/ts3native/out-<rel>/ or game-copy/ts3native.{asi,ini}.<rel>
 export function releasePair(db: Build[], roots: string[]): { asi: string; ini: string; name: string } {
-  const rels = db.filter(b => b.kind === 'asi' && /^ts3native\.asi\.rel/.test(b.name)).sort((x, y) => y.created.localeCompare(x.created));
+  const rels = db.filter(b => b.kind === 'asi' && /^ts3native.asi.rel/.test(b.name)).sort((x, y) => y.created.localeCompare(x.created));
   for (const b of rels) for (const r of roots) {
-    const d = join(r, 'native', 'ts3native', `out-${b.name.slice('ts3native.asi.'.length)}`);
+    const rel = b.name.slice('ts3native.asi.'.length), d = join(r, 'native', 'ts3native', `out-${rel}`), g = join(r, 'game-copy');
     if (sha(join(d, 'ts3native.asi')) === b.sha256 && existsSync(join(d, 'ts3native.ini'))) return { asi: join(d, 'ts3native.asi'), ini: join(d, 'ts3native.ini'), name: b.name };
+    if (sha(join(g, b.name)) === b.sha256 && existsSync(join(g, `ts3native.ini.${rel}`))) return { asi: join(g, b.name), ini: join(g, `ts3native.ini.${rel}`), name: b.name };
   }
-  throw new Error(`no release pair on disk: ${rels.map(b => `native/ts3native/out-${b.name.slice(14)}`).join(', ') || 'no ts3native.asi.rel* in builds.json'} (under ${roots.join(', ')})`);
+  throw new Error(`no release pair on disk: ${rels.map(b => `native/ts3native/out-${b.name.slice(14)} or game-copy/${b.name}`).join(', ') || 'no ts3native.asi.rel* in builds.json'} (under ${roots.join(', ')})`);
 }
 
 // copies the start pair back (absent at the start = removed), checks the hashes, deletes the marker; false = marker kept
@@ -248,6 +249,11 @@ function selfCheck() {
       { name: 'ts3native.asi.rel099', kind: 'asi', sha256: 'f'.repeat(64), version: '0.99.0', created: '2026-10-30' }];
     assert.equal(releasePair(db, [join(d, 'x'), join(d, 'repo')]).name, 'ts3native.asi.rel015');
     assert.throws(() => releasePair(db.slice(1), [join(d, 'repo')]), /no release pair on disk/);
+    // a newer release that only lives in game-copy (v0.2.10: no out dir) wins over an older out dir
+    const gc = join(d, 'repo', 'game-copy'); mkdirSync(gc);
+    writeFileSync(join(gc, 'ts3native.asi.rel0210'), 'rel0210 asi'); writeFileSync(join(gc, 'ts3native.ini.rel0210'), '[y]');
+    db.push({ name: 'ts3native.asi.rel0210', kind: 'asi', sha256: sha(join(gc, 'ts3native.asi.rel0210'))!, version: '0.36.168e', created: '2026-11-07' });
+    assert.equal(releasePair(db, [join(d, 'repo')]).name, 'ts3native.asi.rel0210');
     // restore: Bin changed by an 'alone' load (asi removed) and a test ini; a killed run left the marker
     const bin = join(d, 'bin'), before = join(d, 'before'); mkdirSync(bin); mkdirSync(before);
     copyFileSync(join(rd, 'ts3native.asi'), join(before, 'ts3native.asi')); copyFileSync(join(rd, 'ts3native.ini'), join(before, 'ts3native.ini'));

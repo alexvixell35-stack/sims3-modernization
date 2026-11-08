@@ -373,11 +373,19 @@ static const char* const kAsAbortName[AS_AB_N] = {"row", "pos", "memo", "rng", "
 // bytes or struct size; at = the key dword where the owner id (u64) starts; strMask = input dwords that are MonoString*
 // (keyed by content); outs = (argument dword, bytes) of the out parameters. Signatures: managed externs (methods.csv);
 // the cdecl layout (hidden struct pointer first) is verified in the disassembly for rows 0-24 and the 7 memo rows
-// (docs/122 §14.8, §14.9); stub and abort rows never call the body.
+// (docs/122 §14.8, §14.9); stub and abort rows never call the body. AK_ARRAY: sz = element bytes (4 or 8, docs/126 #7).
+// of/outMask (docs/data/tier2-enablers-handoff.md E1): how the worker's hit writes the outs, so the caller's bytes the game
+// would leave survive. AS_OF_TRUE: outs only when the stored bool (low byte of r[0]) is set; outMask: bit i = byte i of
+// e.out the game may write (0 = all), from the disassembly; AS_OF_DIFF: the cut fills twice (out bytes 00, then FF) and
+// the entry keeps the bytes that came out equal (written on this input; the body must not read the out); AS_OF_ARR: out 0
+// is a ref the game sets to a fresh managed array of 4-byte elements, kept as a pool payload and re-made on each hit.
+enum { AS_OF_TRUE = 1, AS_OF_DIFF = 2, AS_OF_ARR = 4 };
 struct AsDesc {
     const char* name;
     u8 owner, kind, nArg, sz, at, reason, strMask, lotClear, nOut;
     u8 outIdx[5], outSz[5];
+    u8 of;
+    DWORD outMask;
 };
 #define AS_D(n, o, k, a, s, at, r) {n, o, k, a, s, at, r, 0, 0, 0, {0}, {0}}
 static const AsDesc kAsDesc[] = {
@@ -444,10 +452,59 @@ static const AsDesc kAsDesc[] = {
     AS_D("ScriptCore.Objects::Objects_GetHeightAboveFloor", AO_OBJ, AK_FP, 2, 4, 0, AS_AB_ROW),
     AS_D("ScriptCore.Objects::Objects_GetForward", AO_OBJ, AK_STRUCT, 2, 12, 0, AS_AB_ROW),
     AS_D("ScriptCore.World::World_GetPoolObjectIdForPoolBelowPositionImpl", AO_WORLD, AK_INT, 3, 8, 0, AS_AB_POS),
+    // docs/126 §8: the class-a IC rows of docs/126 §4.1 that fit the row pattern (15 of the 23 not built before), last so
+    // [AutShadow] Tier2IcRows=0 (default; needs Tier2Rows=1) cuts exactly them. Stack layouts from §4.1 [verified]. Filled by
+    // the game's body on the sim thread at the cut, never called by the worker (copy-never-call, §4.1). AO_WORLD = build-time
+    // data keyed by position like IsPositionOutside; AO_CUT = state that changes in live mode (puddles, planner flag, dimmer,
+    // object set), re-asked at every cut. Groups (docs/data/tier2-rows-handoff.md): G1 terrain/floor, G2 pools, G3 lot/room,
+    // G4 object fields + session. Not here, refused in docs/126 §8: #2, #4 (a-cut, level-bit gate not built), #7 (ulong[]),
+    // #14, #15, #16, #21 (partial outs need a write mask), #20 (no-lot answer keeps caller bytes).
+    // G1: (x, z, considerBridges) -> float; (x, z, level) -> int flag; (lot, LotLocation, flags, mask) -> bool;
+    // (Vector3, flags, mask) -> bool; (x, z) -> bool; (Vector3) -> bool
+    AS_D("ScriptCore.World::World_GetTerrainHeightImpl", AO_WORLD, AK_FP, 3, 4, 0, AS_AB_POS),
+    AS_D("ScriptCore.World::World_GetTerrainTypeImpl", AO_WORLD, AK_INT, 3, 4, 0, AS_AB_POS),
+    AS_D("ScriptCore.World::World_HasFloorFeaturesImpl", AO_CUT, AK_INT, 7, 1, 0, AS_AB_POS),
+    AS_D("ScriptCore.World::World_HasFloorFeaturesWorldPosImpl", AO_CUT, AK_INT, 5, 1, 0, AS_AB_POS),
+    AS_D("ScriptCore.World::World_IsCameraRoutableImpl", AO_WORLD, AK_INT, 2, 1, 0, AS_AB_POS),
+    AS_D("ScriptCore.World::World_IsOnPlatformImpl", AO_WORLD, AK_INT, 3, 1, 0, AS_AB_POS),
+    // G2: (Vector3) -> bool; (lot, LotLocation) -> bool; (lot, Vector3) -> uint pond
+    AS_D("ScriptCore.World::World_IsInPoolImpl", AO_WORLD, AK_INT, 3, 1, 0, AS_AB_POS),
+    AS_D("ScriptCore.World::World_HasPoolImpl", AO_WORLD, AK_INT, 5, 1, 0, AS_AB_POS),
+    AS_D("ScriptCore.World::World_GetPondAtPoint", AO_WORLD, AK_INT, 5, 4, 0, AS_AB_POS),
+    // G3: (lot, LotLocation, roomDef) -> short; (lot) -> bool (gate sites 13/0 at the cut, no insert)
+    AS_D("ScriptCore.World::World_GetRoomIdImpl", AO_WORLD, AK_INT, 6, 2, 0, AS_AB_POS),
+    AS_D("ScriptCore.World::World_LotIsEntranceFromTargetPointImpl", AO_CUT, AK_INT, 2, 1, 0, AS_AB_OTHER),
+    // G4: (obj) -> BoundingBox 24 B; (obj) -> bool; (obj) -> float (refcount on the sim thread only); () -> string
+    AS_D("ScriptCore.Objects::Objects_GetBoundingBox", AO_OBJ, AK_STRUCT, 2, 24, 0, AS_AB_ROW),
+    AS_D("ScriptCore.Objects::Objects_IsValid", AO_CUT, AK_INT, 2, 1, 0, AS_AB_ROW),
+    AS_D("ScriptCore.World::World_LightGetDimmerImpl", AO_CUT, AK_FP, 2, 4, 0, AS_AB_ROW),
+    AS_D("ScriptCore.World::World_GetWorldFileName", AO_WORLD, AK_REF, 0, 4, 0, AS_AB_OTHER),
+    // E rows (docs/data/tier2-enablers-handoff.md, ledger §460): the refused rows the write mask and the 8-byte array copy
+    // open, each also behind its own bit (AsDescOn): [AutShadow] Tier2IcNew bits 0-3 = these four, Tier2HouseboatRow = the
+    // last. Layouts [verified] in the disassembly. #7 (lot, roomDef, flags, mask) -> ulong[] (puddle bit: AO_CUT as #6);
+    // #15 (lot, ref float[]) -> bool, ref set only on true; #16 (Vector3, ref LotLocation, roomDef) -> ulong lot id, out x/z/
+    // level always, room short only with room data (diff mask; byte 9 never); #21 and the houseboat row (lot, Vector3, out
+    // Vector3) -> bool, out only on true, the boat's transform moves while it sails (AO_CUT, ledger §459 I-459-4).
+    AS_D("ScriptCore.World::World_GetTilesWithFloorFeaturesImpl", AO_CUT, AK_ARRAY, 5, 8, 0, AS_AB_POS),
+    {"ScriptCore.World::World_FindPondRepresentativePositions", AO_WORLD, AK_INT, 3, 1, 0, AS_AB_POS, 0, 0, 1, {2}, {4},
+     AS_OF_TRUE | AS_OF_ARR, 0},
+    {"ScriptCore.World::World_GetLotLocationAtFloorImpl", AO_WORLD, AK_INT, 5, 8, 0, AS_AB_POS, 0, 0, 1, {3}, {12},
+     AS_OF_DIFF, 0xDFF},  // bytes 0-8 and 10-11
+    {"ScriptCore.World::World_GetWorldToHouseboatDisplayPositionImpl", AO_CUT, AK_INT, 6, 1, 0, AS_AB_POS, 0, 0, 1, {5}, {12},
+     AS_OF_TRUE, 0},
+    {"ScriptCore.World::World_GetHouseboatDisplayToWorldPositionImpl", AO_CUT, AK_INT, 6, 1, 0, AS_AB_POS, 0, 0, 1, {5}, {12},
+     AS_OF_TRUE, 0},
 };
 static const int AS_NDESC = sizeof(kAsDesc) / sizeof(kAsDesc[0]);
-static const int AS_NT2 = 4;  // the docs/219 rows at the end of kAsDesc
-static bool g_asTier2Rows;    // [AutShadow] Tier2Rows
+static const int AS_NT2 = 4;     // the docs/219 rows, just before the docs/126 §8 rows
+static const int AS_NT2IC = 20;  // the docs/126 §8 rows at the end of kAsDesc (the last AS_NT2E also need their bit)
+static const int AS_NT2E = 5;    // the E rows: Tier2IcNew bits 0-3, bit 4 = Tier2HouseboatRow
+static bool g_asTier2Rows;       // [AutShadow] Tier2Rows
+static bool g_asTier2IcRows;     // [AutShadow] Tier2IcRows (only with Tier2Rows)
+static DWORD g_asT2eBits;        // per E row, default 0 (all off)
+// descriptors the guard lookup sees: the docs/219 rows only with Tier2Rows, the docs/126 §8 rows only with both keys
+static int AsNDescOn() { return !g_asTier2Rows ? AS_NDESC - AS_NT2IC - AS_NT2 : !g_asTier2IcRows ? AS_NDESC - AS_NT2IC : AS_NDESC; }
+static bool AsDescOn(int i) { const int e = i - (AS_NDESC - AS_NT2E); return i < AsNDescOn() && (e < 0 || ((g_asT2eBits >> e) & 1)); }
 
 // guard state
 static const int AS_MAXIC = 2048;
@@ -464,7 +521,7 @@ static volatile LONG g_asStop;             // set by the sim when the window clo
 static volatile LONG g_asAbortReason = -1; // first abort of the current meta object wins (docs/122 §3.3)
 static bool g_asRefsRooted;                // part 2: managed answers are in a rooted column, safe to hand out
 static void* g_asEmptyStr;                 // part 2: the rooted empty string of the a-stub ICs
-typedef void*(__cdecl* AsNewArrayFn)(DWORD vtable, DWORD n);  // part 2: mono_array_new_specific under the P3 lock
+typedef void*(__cdecl* AsNewArrayFn)(DWORD vtable, DWORD n, DWORD elemBytes);  // part 2: array new under the P3 lock
 static AsNewArrayFn g_asNewArray;
 static int g_asAudit;                      // [AutShadow] Audit=N (0 = off)
 static bool g_asTracked;                   // routesnap's World_FireEvent detour feeds the epoch and object events
@@ -578,6 +635,7 @@ struct AsEnt {
     union {
         AsU64 lp;       // list rows (CutLean=1): the lot input print at the refresh (AsLotPrint)
         LONG lastRead;  // object rows (RowHot, docs/122 §14.19): cut of the last worker read of this row (not request adds)
+        DWORD om;       // AS_OF_DIFF rows (never object or list rows: selftest): bit i = out byte i written on this input
     };
 };
 // docs/208: World_GetInformationAboutRoomImpl's 24-byte RoomInfo is written through e.st and runs on into e.out
@@ -769,8 +827,33 @@ static void AsRefresh(int idx, AsEnt& e, DWORD* pool, LONG* poolN) {
         a[n++] = j < d.nOut ? (DWORD)(uintptr_t)(e.out + AsOutOff(d, j)) : e.key[k++];
     }
     AsRet r = {0, 0, 0};
+    if (d.of) memset(e.out, 0, sizeof(e.out));  // E1: bytes the game leaves are not a stale answer's
     AsCallRaw(g_asOrig[idx], a, n, &r, d.kind == AK_FP);
+    if (d.of & AS_OF_DIFF) {  // second fill over FF: a byte the body wrote comes out the same both times
+        u8 o0[sizeof(e.out)];
+        memcpy(o0, e.out, sizeof(o0));
+        memset(e.out, 0xFF, sizeof(e.out));
+        AsCallRaw(g_asOrig[idx], a, n, &r, d.kind == AK_FP);
+        DWORD om = 0;
+        for (int b = 0; b < (int)sizeof(o0); b++) if (o0[b] == e.out[b]) om |= 1u << b;
+        AsStoreAnswer(d, e, r, pool, poolN);
+        e.om = om & (d.outMask ? d.outMask : ~0u);
+        return;
+    }
     AsStoreAnswer(d, e, r, pool, poolN);
+}
+// MonoArray {vtable, sync, max_length, bounds, data at +16} [verified in monohost, docs/122 §14.4] into the pool as
+// (vtable, length, elements); ew = element dwords (1, or 2 for ulong[], docs/126 #7)
+static bool AsPoolArray(const AsDesc& d, AsEnt& e, DWORD at, int ew, DWORD* pool, LONG* poolN) {
+    const DWORD* arr = (const DWORD*)(uintptr_t)at;
+    const LONG len = (LONG)arr[2];
+    if (d.reason == AS_AB_QUERY && len > AS_QUERY_MAX) { e.flags |= AE_NOPAY; return false; }  // world-wide type: abort query
+    if (len < 0 || len > AS_POOL || *poolN + 2 + len * ew > AS_POOL) { e.flags |= AE_NOPAY; ts3native_autshadow.full++; return false; }
+    e.pay = *poolN, e.payN = 2 + len * ew;
+    pool[*poolN] = arr[0], pool[*poolN + 1] = (DWORD)len;
+    memcpy(pool + *poolN + 2, arr + 4, len * ew * 4);
+    *poolN += 2 + len * ew;
+    return true;
 }
 // the body's (or the shared list walk's, docs/122 §14.26) result r into entry e
 static void AsStoreAnswer(const AsDesc& d, AsEnt& e, const AsRet& r, DWORD* pool, LONG* poolN) {
@@ -780,17 +863,34 @@ static void AsStoreAnswer(const AsDesc& d, AsEnt& e, const AsRet& r, DWORD* pool
     e.flags &= ~(AE_FRESH | AE_NOPAY | AE_DISTRUST);
     e.gen = g_asListGen;
     e.pay = e.payN = 0;
-    if (d.kind == AK_ARRAY && r.lo) {  // MonoArray {vtable, sync, max_length, bounds, data at +16} [verified in monohost, docs/122 §14.4]
-        const DWORD* arr = (const DWORD*)(uintptr_t)r.lo;
-        const LONG len = (LONG)arr[2];
-        if (d.reason == AS_AB_QUERY && len > AS_QUERY_MAX) { e.flags |= AE_NOPAY; return; }  // world-wide type: abort query
-        if (len < 0 || *poolN + 2 + len > AS_POOL) { e.flags |= AE_NOPAY; ts3native_autshadow.full++; return; }
-        e.pay = *poolN, e.payN = 2 + len;
-        pool[*poolN] = arr[0], pool[*poolN + 1] = (DWORD)len;
-        memcpy(pool + *poolN + 2, arr + 4, len * 4);
-        *poolN += 2 + len;
+    if (d.kind == AK_ARRAY && r.lo && !AsPoolArray(d, e, r.lo, d.sz / 4, pool, poolN)) return;
+    if (d.of & AS_OF_ARR) {  // the ref the game set (fresh, not rooted): copied out now, the pointer itself never kept
+        DWORD at;
+        memcpy(&at, e.out, 4);
+        memset(e.out, 0, sizeof(e.out));
+        if ((e.r[0] & 0xFF) && at && !AsPoolArray(d, e, at, 1, pool, poolN)) return;
     }
     ts3native_autshadow.refreshed++;
+}
+// a hit's outs into the caller's (a = the managed arguments), as the game's own call would leave them (E1). False: the
+// array of an AS_OF_ARR out could not be made (nothing written; the caller aborts `ref`).
+static bool AsOutWrite(const AsDesc& d, const AsEnt& e, const DWORD* pool, const DWORD* a) {
+    if ((d.of & AS_OF_TRUE) && !(e.r[0] & 0xFF)) return true;  // false answer: the game writes no out
+    if (d.of & AS_OF_ARR) {
+        if (!e.payN || !g_asNewArray) return false;
+        DWORD* arr = (DWORD*)g_asNewArray(pool[e.pay], pool[e.pay + 1], 4);
+        if (!arr) return false;
+        memcpy(arr + 4, pool + e.pay + 2, (e.payN - 2) * 4);
+        *(DWORD*)(uintptr_t)a[d.outIdx[0]] = (DWORD)(uintptr_t)arr;
+        return true;
+    }
+    const DWORD m = (d.of & AS_OF_DIFF ? e.om : ~0u) & (d.outMask ? d.outMask : ~0u);
+    for (int j = 0, o = 0; j < d.nOut; o += d.outSz[j++]) {
+        u8* dst = (u8*)(uintptr_t)a[d.outIdx[j]];
+        if (!(d.of & AS_OF_DIFF) && !d.outMask) { memcpy(dst, e.out + o, d.outSz[j]); continue; }
+        for (int b = 0; b < d.outSz[j]; b++) if ((m >> (o + b)) & 1) dst[b] = e.out[o + b];
+    }
+    return true;
 }
 
 // LRU eviction (docs/122 §14.14): drops the eighth of the rows least recently used by the sim or the worker (memo rows
@@ -1262,9 +1362,8 @@ static int AsWorkerAnswer(DWORD idx, DWORD* args, AsRet* r) {
         AsAbort(AS_AB_SIMSTALE, idx);
         return fp;
     }
-    if ((d->kind == AK_REF || d->kind == AK_ARRAY) && !g_asRefsRooted) { AsAbort(AS_AB_REF, idx); return fp; }
-    const DWORD* a = args + (d->kind == AK_STRUCT);
-    for (int j = 0; j < d->nOut; j++) memcpy((void*)(uintptr_t)a[d->outIdx[j]], e.out + AsOutOff(*d, j), d->outSz[j]);
+    if ((d->kind == AK_REF || d->kind == AK_ARRAY || (d->of & AS_OF_ARR)) && !g_asRefsRooted) { AsAbort(AS_AB_REF, idx); return fp; }
+    if (!AsOutWrite(*d, e, t.pool, args + (d->kind == AK_STRUCT))) { AsAbort(AS_AB_REF, idx); return fp; }
     InterlockedIncrement(&k.workerHits);
     switch (d->kind) {
         case AK_FP: r->f = e.f; return 1;
@@ -1273,7 +1372,7 @@ static int AsWorkerAnswer(DWORD idx, DWORD* args, AsRet* r) {
             if (!e.payN) return 0;
             if (!g_asNewArray) { AsAbort(AS_AB_REF, idx); return 0; }
             {
-                DWORD* arr = (DWORD*)g_asNewArray(t.pool[e.pay], t.pool[e.pay + 1]);
+                DWORD* arr = (DWORD*)g_asNewArray(t.pool[e.pay], t.pool[e.pay + 1], d->sz);
                 if (!arr) { AsAbort(AS_AB_REF, idx); return 0; }
                 memcpy(arr + 4, t.pool + e.pay + 2, (e.payN - 2) * 4);
                 r->lo = (DWORD)(uintptr_t)arr;
@@ -1437,10 +1536,11 @@ static void AsFoldUsed(AsTab& t, bool clear) {
 // arrays are fresh objects per call: compared by contents, not identity
 static bool AsSame(const AsDesc& d, const AsEnt& a, const DWORD* poolA, const AsEnt& b, const DWORD* poolB) {
     if (memcmp(&a.f, &b.f, 8) || memcmp(a.st, b.st, sizeof(a.st)) || memcmp(a.out, b.out, sizeof(a.out)) ||
-        ((a.flags ^ b.flags) & AE_NOPAY))
+        ((a.flags ^ b.flags) & AE_NOPAY) || ((d.of & AS_OF_DIFF) && a.om != b.om))
         return false;
-    if (d.kind != AK_ARRAY) return a.r[0] == b.r[0] && a.r[1] == b.r[1];
-    return !a.r[0] == !b.r[0] && a.payN == b.payN && !memcmp(poolA + a.pay, poolB + b.pay, a.payN * 4);
+    const bool same = d.kind == AK_ARRAY ? !a.r[0] == !b.r[0] : a.r[0] == b.r[0] && a.r[1] == b.r[1];
+    if (d.kind != AK_ARRAY && !(d.of & AS_OF_ARR)) return same;
+    return same && a.payN == b.payN && !memcmp(poolA + a.pay, poolB + b.pay, a.payN * 4);
 }
 
 static int g_asIcRng = -1;     // guard index of Random_NextDoubleImpl (the reference's draws, docs/125 §2)
@@ -2989,7 +3089,7 @@ static int AsInstallGuards(DWORD* lo, DWORD* hi, DWORD imgLo, DWORD imgHi, DWORD
         if (!chained && (fn < textLo || fn >= textHi)) continue;
         const char* s = (const char*)(uintptr_t)name;
         const AsDesc* d = NULL;
-        for (int i = 0; i < (g_asTier2Rows ? AS_NDESC : AS_NDESC - AS_NT2) && !d; i++) if (!strcmp(s, kAsDesc[i].name)) d = &kAsDesc[i];
+        for (int i = 0; i < AsNDescOn() && !d; i++) if (AsDescOn(i) && !strcmp(s, kAsDesc[i].name)) d = &kAsDesc[i];
         const bool route = !strncmp(s, "ScriptCore.Route::", 18);  // H12: guarded with Guard=closure too
         if ((!all && !d && !route) || g_asIcN >= AS_MAXIC) { k.guardSkipped++; continue; }
         const int idx = g_asIcN;
@@ -3032,6 +3132,12 @@ static bool ApplyAutShadow(const wchar_t* ini) {
     if (GetPrivateProfileIntW(L"AutShadow", L"Ledger", 0, ini)) g_asLedger = true, ts3native_autshadow.lgOn |= 1;
     g_asTier2Rows = GetPrivateProfileIntW(L"AutShadow", L"Tier2Rows", 0, ini) != 0;
     Log("autonomy shadow: Tier2Rows=%d (docs/219 four shared rows)", g_asTier2Rows ? 1 : 0);
+    g_asTier2IcRows = g_asTier2Rows && GetPrivateProfileIntW(L"AutShadow", L"Tier2IcRows", 0, ini) != 0;
+    Log("autonomy shadow: Tier2IcRows=%d (docs/126 IC rows, needs Tier2Rows)", g_asTier2IcRows ? 1 : 0);
+    g_asT2eBits = (GetPrivateProfileIntW(L"AutShadow", L"Tier2IcNew", 0, ini) & 15) |
+                  (GetPrivateProfileIntW(L"AutShadow", L"Tier2HouseboatRow", 0, ini) ? 16u : 0u);
+    Log("autonomy shadow: Tier2IcNew=%lu Tier2HouseboatRow=%d (E rows #7 #15 #16 #21, houseboat; need Tier2IcRows)", g_asT2eBits & 15,
+        (g_asT2eBits >> 4) & 1);
     const u8* base = (const u8*)GetModuleHandleW(NULL);
     const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
     const IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);

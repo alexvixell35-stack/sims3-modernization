@@ -24,7 +24,7 @@ static DWORD WINAPI RwtProducer(LPVOID arg) {
 static void TestRouteWorkerWait() {
     static_assert(offsetof(Ts3nCounters, caOn) == 0x5480 && offsetof(Ts3nCounters, tpNoSlot) == 0x54AC &&
                       offsetof(Ts3nCounters, rwMode) == 0x54B0 && offsetof(Ts3nCounters, rwMaxBlockUs) == 0x54D4 &&
-                      offsetof(Ts3nCounters, rwWorkerCpuMs) == 0x54D8 && offsetof(Ts3nCounters, rwSpare) == 0x54DC && sizeof(Ts3nCounters) == 6035 * 4,
+                      offsetof(Ts3nCounters, rwWorkerCpuMs) == 0x54D8 && offsetof(Ts3nCounters, rwSpare) == 0x54DC && sizeof(Ts3nCounters) == 6066 * 4,
                   "counters v142 layout after v141 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912 && g_rgOffSimOpen == 0 && g_g0Win == 0);

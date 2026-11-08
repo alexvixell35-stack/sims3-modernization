@@ -101,6 +101,8 @@ namespace Ts3Fixes
     {
         const int kMaxObjs = 1024, kMaxPairs = 8192, kMaxLogPerLoad = 200;
         const int kCRainWhy = 607;  // 607-610: `rain` aborts by path (Result.RainWhy)
+        const int kCT2Ab = 884, kCT2Drag = 891;  // 884-890 tier-2 P1 aborts by class (Result.T2Ab), 891 drag pre-warm fills
+        const int kReasonOther = 19;  // native AS_AB_OTHER: P1 aborts (`inuse`, `fire` by class only in 884-890, no native reason)
         const int kReasonExc = 12, kReasonStop = 13, kReasonDesire = 15, kReasonRain = 20, kReasonPosture = 21;
 
         public sealed class Request
@@ -128,6 +130,9 @@ namespace Ts3Fixes
             public readonly float[] GameScore = new float[kMaxPairs];
             public readonly bool[] GameHas = new bool[kMaxPairs];
             public LiveSearch Live;  // Mode 3: the go-live search this request serves (AutLive.cs), else null
+            // tier-2 P1 (T2P1Fill, sim thread at the request): the actor's household scope and the hook switches, so the
+            // worker reads only these fields. T2Hh defaults to household until filled.
+            public bool T2Hh = true, T2InUse, T2Fire;
         }
 
         public sealed class Result
@@ -142,6 +147,9 @@ namespace Ts3Fixes
             // 0 arm refused, RainArm 0 (no Satb act span / no site) or not called; 1 arm refused, RainArm -1 (not the worker
             // by ts3native's thread id); 2 hook abort (branch reached unarmed, no bit, or a real instance); 3 done rule
             public readonly int[] RainWhy = new int[4];
+            // tier-2 P1 aborts by class (worker-written, summed into counters 884-890 at the finish): 0-5 get_InUse overrides
+            // (AutShadowCore.kT2InUseTypes), 6 fire
+            public readonly int[] T2Ab = new int[AutShadowCore.kT2N];
         }
 
         // Rooted requests and results (docs/122 §4.2), allocated at startup on the sim thread and reused. A shared cut (docs/122
@@ -319,6 +327,7 @@ namespace Ts3Fixes
             // H11 shelter answer (docs/127 §4.1): optional; without it rain pairs abort `rain` as before
             sShelterHooked = Hook(failed, typeof(Sims3.Gameplay.Seasons.SeasonsManager), "IsShelteredFromPrecipitation",
                 new Type[] { typeof(IGameObject), typeof(InteractionInstance) }, typeof(AutShelterHook), "ShelterHook", "ShelterOrig");
+            T2P1Hooks(failed);
             MethodInfo site = typeof(InteractionDefinition).GetMethod("CreateInstance",
                 new Type[] { typeof(IGameObject), typeof(IActor), typeof(InteractionPriority), typeof(bool), typeof(bool) });
             sCreateSite = site != null ? site.MethodHandle.Value : IntPtr.Zero;
@@ -915,6 +924,7 @@ namespace Ts3Fixes
             }
             catch (Exception e) { cnt[121]++; AutNote("request: " + e.Message); }
             PreWarm(actor);
+            T2P1Fill(q, actor);
             ClassifyListTypes();
             ClassifyObjects();
             q.Start[q.Objs] = q.Pairs;
@@ -1106,6 +1116,7 @@ namespace Ts3Fixes
                 sReq = sReqs[k]; sRef = sRefs[k]; sWork = sWorks[k];
                 c[121] += (sRef.Id == sReq.Id ? sRef.Exceptions : 0) + (sWork.Id == sReq.Id ? sWork.Exceptions : 0);
                 if (sWork.Id == sReq.Id) for (int w = 0; w < 4; w++) c[kCRainWhy + w] += sWork.RainWhy[w];  // fixes-607
+                if (sWork.Id == sReq.Id) for (int w = 0; w < AutShadowCore.kT2N; w++) c[kCT2Ab + w] += sWork.T2Ab[w];  // fixes-884
                 // KeepPartial (docs/122 §14.21): an overrun (LastRun 1) whose worker result says Done kept the objects it
                 // finished before the stop; those are compared, the rest are A4 `stop`. An epoch drop (2) stays dropped.
                 bool partial = lr == 1 && sKeepPartial && sWork.Done && sWork.Partial && sWork.Id == sReq.Id;
@@ -1329,6 +1340,7 @@ namespace Ts3Fixes
         {
             r.Id = q.Id; r.Exceptions = 0; r.DesireDriver = 0; r.RainUsed = 0; r.Done = false; r.Partial = false;
             Array.Clear(r.RainWhy, 0, r.RainWhy.Length);
+            Array.Clear(r.T2Ab, 0, r.T2Ab.Length);
             sCurRes = r;
             for (int o = 0; o < q.Objs; o++)
             {
@@ -1790,6 +1802,108 @@ namespace Ts3Fixes
                 return sim.Punishment;
             }
             public static Punishment PunishOrig(Sim sim) { return null; } // receives Punishment.GetPunishmentManagerFromSim's original header
+        }
+
+        // ---- tier-2 P1 (docs/219 §3.1, docs/data/tier2-rows35-handoff.md) ----
+        // Worker guards for the CalculateScoreForObjectInteraction base path. The six get_InUse overrides that can destroy
+        // their prop abort (`inuse`, switch autt2inuse); FireManager.HasOnlyLeafPileFires with fires on the lot aborts
+        // (`fire`, switch autt2fire: its leaf-pile test reaches the placement IC); the drag model singleton is created on
+        // the sim thread at the request (switch autt2dragwarm). All three default off; off = the game's methods unchanged.
+        // Native reason `other`; by class in counters 884-890.
+        // Household Sims: no worker branch here answers anything a household Sim could get; every one aborts, so the unit
+        // goes back to the sim thread. A household, selected or unknown-scope actor (Request.T2Hh) takes its own abort
+        // branch first (AutShadowCore.T2Site 2), also where the fire hook would otherwise answer from the empty fire list.
+        static bool sT2InUseHooked, sT2FireHooked;
+        static FieldInfo fFires, fDragSingleton;
+
+        static void T2P1Hooks(List<string> failed)
+        {
+            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            Type[] tt = new Type[AutShadowCore.kT2InUseTypes.Length];
+            int present = 0;
+            for (int i = 0; i < tt.Length; i++)
+            {
+                foreach (string n in kGameModules) { Assembly a = GameAssembly(n); if (a != null && (tt[i] = a.GetType(AutShadowCore.kT2InUseTypes[i], false)) != null) break; }
+                if (tt[i] != null) present++;  // null: its pack is not installed, no such prop exists
+            }
+            // one call per type, literal names (tools/swap-stack-audit.ts reads them; docs/242)
+            Type soil = tt[0], hoop = tt[1], arcade = tt[2], skewer = tt[3], cone = tt[4], prop = tt[5];
+            bool allIn = (soil == null || Hook(failed, soil, "get_InUse", null, typeof(AutInUseHook), "SoilHook", "SoilOrig"))
+                & (hoop == null || Hook(failed, hoop, "get_InUse", null, typeof(AutInUseHook), "HoopHook", "HoopOrig"))
+                & (arcade == null || Hook(failed, arcade, "get_InUse", null, typeof(AutInUseHook), "ArcadeHook", "ArcadeOrig"))
+                & (skewer == null || Hook(failed, skewer, "get_InUse", null, typeof(AutInUseHook), "SkewerHook", "SkewerOrig"))
+                & (cone == null || Hook(failed, cone, "get_InUse", null, typeof(AutInUseHook), "ConeHook", "ConeOrig"))
+                & (prop == null || Hook(failed, prop, "get_InUse", null, typeof(AutInUseHook), "PropHook", "PropOrig"));
+            sT2InUseHooked = allIn && present > 0;  // one unpatched present override = the switch stays off
+            fFires = typeof(Sims3.Gameplay.Controllers.FireManager).GetField("mFires", all);
+            if (fFires == null) failed.Add("FireManager.mFires");
+            else sT2FireHooked = Hook(failed, typeof(Sims3.Gameplay.Controllers.FireManager), "HasOnlyLeafPileFires", null, typeof(AutFireHook), "FireHook", "FireOrig");
+            fDragSingleton = typeof(Sims3.Gameplay.UI.LiveDragHelperModel).GetField("gSingleton", all);
+            if (fDragSingleton == null) failed.Add("LiveDragHelperModel.gSingleton");
+        }
+
+        // Sim thread at the request (after PreWarm): latch the actor's scope and the switches into the request.
+        static void T2P1Fill(Request q, Sim actor)
+        {
+            q.T2Hh = true; q.T2InUse = q.T2Fire = false;
+            try
+            {
+                Sims3.Gameplay.CAS.SimDescription d = actor != null ? actor.SimDescription : null;
+                Sims3.Gameplay.CAS.Household h = d != null ? d.Household : null;
+                q.T2Hh = AutShadowCore.T2Household(actor == null, actor != null && actor.HasBeenDestroyed, d == null,
+                    actor != null && actor.IsSelectable, h != null && h == Sims3.Gameplay.CAS.Household.ActiveHousehold);
+                q.T2InUse = sT2InUseHooked && ShortcutOn("autt2inuse");
+                q.T2Fire = sT2FireHooked && ShortcutOn("autt2fire");
+                // a UI model with no Sim state (docs/126 §3 pre-warm): made for any actor's request, as the game's first read would
+                if (fDragSingleton != null && ShortcutOn("autt2dragwarm") && fDragSingleton.GetValue(null) == null
+                    && Sims3.Gameplay.UI.LiveDragHelperModel.Singleton != null) PatchCounters()[kCT2Drag]++;
+            }
+            catch (Exception e) { PatchCounters()[121]++; AutNote("t2 p1 fill: " + e.Message); }
+        }
+
+        // Worker: true = aborted (the hook returns its abort answer), false = run the game's method.
+        static bool T2Cut(int slot, bool on, bool household)
+        {
+            int s = AutShadowCore.T2Site(true, on, household);
+            if (s == 0) return false;
+            if (s == 1 && sCurRes != null) sCurRes.T2Ab[slot]++;
+            AutShadowNative.Abort(kReasonOther);
+            return true;
+        }
+
+        // The six get_InUse overrides (AutShadowCore.kT2InUseTypes order): abort answer `in use`.
+        public class AutInUseHook
+        {
+            static bool Cut(int slot) { return OnWorker() && T2Cut(slot, sReq.T2InUse, sReq.T2Hh); }
+            public bool SoilHook() { return Cut(0) || SoilOrig(); }
+            public bool SoilOrig() { return false; } // receives Soil.get_InUse's original header
+            public bool HoopHook() { return Cut(1) || HoopOrig(); }
+            public bool HoopOrig() { return false; } // BBallHoop+BBallHoopBall.get_InUse
+            public bool ArcadeHook() { return Cut(2) || ArcadeOrig(); }
+            public bool ArcadeOrig() { return false; } // BBallArcade+BBallArcadeBall.get_InUse
+            public bool SkewerHook() { return Cut(3) || SkewerOrig(); }
+            public bool SkewerOrig() { return false; } // ChocolateFountain+ChocolateFountainSkewer.get_InUse
+            public bool ConeHook() { return Cut(4) || ConeOrig(); }
+            public bool ConeOrig() { return false; } // IceCreamMaker+IceCreamCone.get_InUse
+            public bool PropHook() { return Cut(5) || PropOrig(); }
+            public bool PropOrig() { return false; } // GardenStation+GardenStationProp.get_InUse
+        }
+
+        // FireManager.HasOnlyLeafPileFires: with no fire list or an empty one the game's answer needs no leaf-pile test
+        // (false / true, the game's own early outs); a fire aborts `fire` with the answer `not only leaf piles`.
+        public class AutFireHook
+        {
+            public bool FireHook()
+            {
+                if (!OnWorker() || !sReq.T2Fire) return FireOrig();
+                if (sReq.T2Hh) { T2Cut(AutShadowCore.kT2Fire, true, true); return false; }  // household: abort, uncounted
+                ICollection f = fFires.GetValue(this) as ICollection;
+                if (f == null) return false;
+                if (f.Count == 0) return true;
+                T2Cut(AutShadowCore.kT2Fire, true, false);
+                return false;
+            }
+            public bool FireOrig() { return false; } // receives FireManager.HasOnlyLeafPileFires' original header
         }
     }
 }

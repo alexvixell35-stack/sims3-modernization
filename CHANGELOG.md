@@ -4,7 +4,16 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ## Unreleased
 
+### Changed
+
+- **Less memory held by old outfit textures (`[CasTrim] Mode=3`, on).** The game keeps every outfit texture it ever built for a Sim until you quit, even for townies long gone from town. Now, right after each save, the textures the game's own save left out are let go: only ones no Sim in your household, no selected Sim and no other kept texture still needs, and none used in the last minute. Your saves do not change. In our tests: two long runs with saves, a reload and a vacation trip, no crash, no texture missing.
+- **Crash detector for saves and travel (`[CasTrim] Detect=1`, on).** One crash during a travel save was seen once in four test runs and its cause is not known yet. At each save the plugin now checks the game's outfit list before the game reads it and writes what it finds to `ts3native.log`; it only logs and changes nothing. **If the game crashes during a save or while travelling, please send your `ts3native.log`** (see "Reporting a problem" in the player guide).
+
 ### Fixed
+
+- **Fixed a rare crash when the game frees a Sim's outfit (EA bug).** Seen once in a test run right after a vacation trip; an outfit kept a broken entry that the game then tried to free. The plugin now skips such an entry (a few bytes stay in memory) and writes a line to `ts3native.log`. If you see a `cell guard skipped` line there, please send us the log.
+
+- **Small fixes for rare game errors (on).** A failed or cancelled age-up keeps the Sim's outfits. A career uniform backup no longer uncaches a new work outfit. Music buffs, buff updates, cars with no route, deferred age-ups, opportunity rewards and taxi, limo, bus and fire-truck drivers no longer throw game errors. Five of these are by Dalexlol (GitHub alexvixell35-stack): a Sim with no inventory yet refuses an object instead of erroring, a career skill that is not registered shows an empty name, a firework that fizzles ends cleanly, pets dropped from the adoption pools with no family are removed, and two Sims' relationship tables that came apart are joined again.
 
 - **Routing fallback could mix up two Sims' plans** (PR #306, by Dalexlol): while one Sim's plan was paused, its result could be applied to another Sim's plan. Each plan now keeps its own result. Not tested in game yet.
 

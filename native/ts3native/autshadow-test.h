@@ -132,11 +132,12 @@ static void* AfSlot(int i) { return g_asFakeTab[i * 2]; }
 
 static DWORD g_afNewArena[1 << 14];
 static DWORD g_afNewAt;
-static void* __cdecl AfNewArray(DWORD vtable, DWORD n) {  // stands for part 2's allocator
-    if (g_afNewAt + 4 + n > (1 << 14)) g_afNewAt = 0;
+static void* __cdecl AfNewArray(DWORD vtable, DWORD n, DWORD elemBytes) {  // stands for part 2's allocator
+    const DWORD w = 4 + n * (elemBytes / 4);
+    if (g_afNewAt + w > (1 << 14)) g_afNewAt = 0;
     DWORD* a = g_afNewArena + g_afNewAt;
     a[0] = vtable, a[2] = n;
-    g_afNewAt += 4 + n;
+    g_afNewAt += w;
     return a;
 }
 
@@ -383,13 +384,293 @@ static void AfT5Request(int id) {
 // guard lookup, and their layouts follow the managed externs (ledger §428)
 static void TestAutShadowTier2Rows() {
     assert(!g_asTier2Rows);
-    const AsDesc* d = kAsDesc + AS_NDESC - AS_NT2;
+    const AsDesc* d = kAsDesc + AS_NDESC - AS_NT2IC - AS_NT2;
     assert(!strcmp(d[0].name, "ScriptCore.World::World_IsOnRoofImpl") && d[0].owner == AO_OBJ && d[0].kind == AK_INT && d[0].nArg == 2 && d[0].sz == 1);
     assert(!strcmp(d[1].name, "ScriptCore.Objects::Objects_GetHeightAboveFloor") && d[1].owner == AO_OBJ && d[1].kind == AK_FP && d[1].nArg == 2 && d[1].sz == 4);
     assert(!strcmp(d[2].name, "ScriptCore.Objects::Objects_GetForward") && d[2].owner == AO_OBJ && d[2].kind == AK_STRUCT && d[2].nArg == 2 && d[2].sz == 12);
     assert(!strcmp(d[3].name, "ScriptCore.World::World_GetPoolObjectIdForPoolBelowPositionImpl") && d[3].owner == AO_WORLD && d[3].kind == AK_INT && d[3].nArg == 3 && d[3].sz == 8);
     // the float and struct returns need their kind entries (autshadow-kinds.h), the two integer ones must have none
     assert(AsKindOfName(d[1].name) == 'f' && AsKindOfName(d[2].name) == 's' && AsKindOfName(d[0].name) == 0 && AsKindOfName(d[3].name) == 0);
+}
+
+// docs/126 §8 IC rows (docs/data/tier2-rows-handoff.md). Shared: the gate and the per-row check. Each group's rows get one
+// test function below (G1 here; G2-G4 lanes fill their own). Per row: the descriptor matches the §4.1 stack layout, the kind
+// table agrees (float/struct returns need an entry, the rest none), and a dummy cdecl body with that layout, called the way
+// AsRefresh calls the game's body (AsCallRaw with dummy inputs, never a game address), gives the answer the row would store.
+static const AsDesc* AsT2Ic(int i) { return kAsDesc + AS_NDESC - AS_NT2IC + i; }
+static void AsT2IcRow(int i, const char* name, int owner, int kind, int nArg, int sz, int reason) {
+    const AsDesc& d = *AsT2Ic(i);
+    assert(!strcmp(d.name, name) && d.owner == owner && d.kind == kind && d.nArg == nArg && d.sz == sz && d.reason == reason);
+    assert(!d.nOut && !d.strMask && !d.lotClear && d.nArg <= AS_KEY);
+    assert(AsKindOfName(d.name) == (kind == AK_FP ? 'f' : kind == AK_STRUCT ? 's' : 0));
+}
+// one AsRefresh-style call of a dummy body: args are the stack dwords (hidden result pointer first for struct rows)
+static AsRet AsT2IcCall(int i, void* body, const DWORD* args) {
+    const AsDesc& d = *AsT2Ic(i);
+    AsRet r = {0xEEEEEEEE, 0xEEEEEEEE, 0};
+    AsCallRaw(body, args, d.nArg + (d.kind == AK_STRUCT), &r, d.kind == AK_FP);
+    AsMaskRet(d, &r.lo);
+    return r;
+}
+static void TestAutShadowTier2IcGate() {
+    assert(!g_asTier2Rows && !g_asTier2IcRows && AS_NDESC > AS_NT2 + AS_NT2IC);
+    assert(AsNDescOn() == AS_NDESC - AS_NT2 - AS_NT2IC);
+    g_asTier2IcRows = true;  // IcRows alone (the ini read refuses it) still leaves both sets out
+    assert(AsNDescOn() == AS_NDESC - AS_NT2 - AS_NT2IC);
+    g_asTier2Rows = true;
+    assert(AsNDescOn() == AS_NDESC);
+    g_asTier2IcRows = false;
+    assert(AsNDescOn() == AS_NDESC - AS_NT2IC);
+    g_asTier2Rows = false;
+    for (int i = 0; i < AS_NT2IC; i++)  // no row twice, none of them a v0 / docs/208 / docs/219 row
+        for (int j = 0; j < AS_NDESC; j++) assert(AsT2Ic(i) == kAsDesc + j || strcmp(AsT2Ic(i)->name, kAsDesc[j].name));
+}
+// G1 terrain and floor (rows 0-5): dummy bodies with the §4.1 layouts; junk in the high bytes of bool returns is masked
+static float __cdecl AsT2FakeHeight(float x, float z, DWORD bridges) { return x * 2 + z + (bridges & 0xFF); }
+static DWORD __cdecl AsT2FakeType(float, float, DWORD level) { return level == 1 ? 0x10 : 2; }
+static DWORD __cdecl AsT2FakeFloorFeat(DWORD lotLo, DWORD lotHi, DWORD x, DWORD z, DWORD lvl, DWORD flags, DWORD mask) {
+    return 0xABCD00 | ((lotLo ^ lotHi ^ x ^ z ^ lvl) & flags & mask & 1);
+}
+static DWORD __cdecl AsT2FakePuddle(float, float, float, DWORD flags, DWORD) { return 0x7700u | (flags == 4 ? 1u : 0u); }  // §4.1 #6: mask unread
+static DWORD __cdecl AsT2FakeCamera(float x, float) { return 0x5500u | (x > 0 ? 1u : 0u); }
+static DWORD __cdecl AsT2FakePlatform(float, float y, float) { return 0x3300u | (y > 1 ? 1u : 0u); }
+static void TestAutShadowTier2IcG1() {
+    AsT2IcRow(0, "ScriptCore.World::World_GetTerrainHeightImpl", AO_WORLD, AK_FP, 3, 4, AS_AB_POS);
+    AsT2IcRow(1, "ScriptCore.World::World_GetTerrainTypeImpl", AO_WORLD, AK_INT, 3, 4, AS_AB_POS);
+    AsT2IcRow(2, "ScriptCore.World::World_HasFloorFeaturesImpl", AO_CUT, AK_INT, 7, 1, AS_AB_POS);
+    AsT2IcRow(3, "ScriptCore.World::World_HasFloorFeaturesWorldPosImpl", AO_CUT, AK_INT, 5, 1, AS_AB_POS);
+    AsT2IcRow(4, "ScriptCore.World::World_IsCameraRoutableImpl", AO_WORLD, AK_INT, 2, 1, AS_AB_POS);
+    AsT2IcRow(5, "ScriptCore.World::World_IsOnPlatformImpl", AO_WORLD, AK_INT, 3, 1, AS_AB_POS);
+    auto fl = [](float v) { DWORD w; memcpy(&w, &v, 4); return w; };
+    {
+        const DWORD a[3] = {fl(3.0f), fl(4.0f), 0x12345601};  // bridges: only the low byte is the bool
+        const AsRet r = AsT2IcCall(0, (void*)AsT2FakeHeight, a);
+        assert(r.f == 11.0 && r.hi == 0);
+    }
+    {
+        const DWORD a[3] = {fl(1.0f), fl(2.0f), 1};
+        assert(AsT2IcCall(1, (void*)AsT2FakeType, a).lo == 0x10 && AsT2IcCall(1, (void*)AsT2FakeType, a).hi == 0);
+    }
+    {
+        const DWORD a[7] = {7, 0, 2, 3, 1, 4, 0xFFFFFFFF};  // lot 7, tile (2, 3, level 1), flags 4, mask all
+        assert(AsT2IcCall(2, (void*)AsT2FakeFloorFeat, a).lo == 0);  // 7^2^3^1 = 7, & 4 & 1 = 0, high bytes masked
+        const DWORD b[7] = {7, 0, 2, 3, 1, 5, 0xFFFFFFFF};
+        const AsRet r = AsT2IcCall(2, (void*)AsT2FakeFloorFeat, b);
+        assert(r.lo == 1 && r.hi == 0);
+    }
+    {
+        const DWORD a[5] = {fl(1.0f), fl(0.0f), fl(2.0f), 4, 0};
+        assert(AsT2IcCall(3, (void*)AsT2FakePuddle, a).lo == 1);
+        const DWORD b[5] = {fl(1.0f), fl(0.0f), fl(2.0f), 2, 0};
+        assert(AsT2IcCall(3, (void*)AsT2FakePuddle, b).lo == 0);
+    }
+    {
+        const DWORD a[2] = {fl(5.0f), fl(-1.0f)};
+        assert(AsT2IcCall(4, (void*)AsT2FakeCamera, a).lo == 1);
+        const DWORD b[3] = {fl(0.0f), fl(2.5f), fl(0.0f)};
+        assert(AsT2IcCall(5, (void*)AsT2FakePlatform, b).lo == 1);
+    }
+}
+// G2 pools (rows 6-8): bool returns with junk high bytes, a uint pond index
+static DWORD __cdecl AsT2FakeInPool(float x, float, float z) { return 0x9900u | (x + z > 3 ? 1u : 0u); }
+static DWORD __cdecl AsT2FakeHasPool(DWORD lotLo, DWORD, DWORD x, DWORD z, DWORD lvl) { return 0x4400u | ((lotLo + x + z + (lvl & 0xFF)) == 10 ? 1u : 0u); }
+static DWORD __cdecl AsT2FakePond(DWORD lotLo, DWORD lotHi, float x, float, float) { return lotLo ? 5u + (DWORD)x : lotHi; }
+static void TestAutShadowTier2IcG2() {
+    AsT2IcRow(6, "ScriptCore.World::World_IsInPoolImpl", AO_WORLD, AK_INT, 3, 1, AS_AB_POS);
+    AsT2IcRow(7, "ScriptCore.World::World_HasPoolImpl", AO_WORLD, AK_INT, 5, 1, AS_AB_POS);
+    AsT2IcRow(8, "ScriptCore.World::World_GetPondAtPoint", AO_WORLD, AK_INT, 5, 4, AS_AB_POS);
+    auto fl = [](float v) { DWORD w; memcpy(&w, &v, 4); return w; };
+    const DWORD a[3] = {fl(2.0f), fl(0.0f), fl(2.0f)};
+    const AsRet r = AsT2IcCall(6, (void*)AsT2FakeInPool, a);
+    assert(r.lo == 1 && r.hi == 0);
+    const DWORD b[3] = {fl(0.0f), fl(0.0f), fl(2.0f)};
+    assert(AsT2IcCall(6, (void*)AsT2FakeInPool, b).lo == 0);
+    const DWORD c[5] = {4, 0, 3, 2, 0x11223301};  // level is an sbyte: only the low byte counts
+    assert(AsT2IcCall(7, (void*)AsT2FakeHasPool, c).lo == 1);  // 4+3+2+1 = 10, high bytes masked
+    const DWORD c2[5] = {4, 0, 3, 2, 2};
+    assert(AsT2IcCall(7, (void*)AsT2FakeHasPool, c2).lo == 0);
+    const DWORD d[5] = {1, 0, fl(3.0f), fl(0.0f), fl(0.0f)};
+    assert(AsT2IcCall(8, (void*)AsT2FakePond, d).lo == 8);
+    const DWORD d0[5] = {0, 6, fl(3.0f), fl(0.0f), fl(0.0f)};  // lot 0: the world pond table
+    assert(AsT2IcCall(8, (void*)AsT2FakePond, d0).lo == 6);
+}
+// G3 lot and room (rows 9-10): short return (masked to 2 bytes, 0xFFFF = no room), bool
+static DWORD __cdecl AsT2FakeRoom(DWORD lotLo, DWORD lotHi, DWORD x, DWORD z, DWORD lvl, DWORD def) {
+    return 0xABCD0000u | (lotLo || lotHi ? ((x + z + lvl + def) & 0xFFFF) : 0xFFFFu);
+}
+static DWORD __cdecl AsT2FakeEntrance(DWORD lotLo, DWORD) { return 0x6600u | (lotLo == 9 ? 1u : 0u); }
+static void TestAutShadowTier2IcG3() {
+    AsT2IcRow(9, "ScriptCore.World::World_GetRoomIdImpl", AO_WORLD, AK_INT, 6, 2, AS_AB_POS);
+    AsT2IcRow(10, "ScriptCore.World::World_LotIsEntranceFromTargetPointImpl", AO_CUT, AK_INT, 2, 1, AS_AB_OTHER);
+    const DWORD a[6] = {1, 0, 2, 3, 1, 2};
+    const AsRet r = AsT2IcCall(9, (void*)AsT2FakeRoom, a);
+    assert(r.lo == 8 && r.hi == 0);  // high half masked off the short
+    const DWORD b[6] = {0, 0, 2, 3, 1, 2};
+    assert(AsT2IcCall(9, (void*)AsT2FakeRoom, b).lo == 0xFFFF);
+    const DWORD c[2] = {9, 0};
+    assert(AsT2IcCall(10, (void*)AsT2FakeEntrance, c).lo == 1);
+    const DWORD c2[2] = {8, 0};
+    assert(AsT2IcCall(10, (void*)AsT2FakeEntrance, c2).lo == 0);
+}
+// G4 object fields and session (rows 11-14): struct return through the hidden result pointer (first argument, returned in eax),
+// bool, float, and a string pointer (AK_REF is stored as the 4-byte value, never answered by the worker)
+static DWORD* __cdecl AsT2FakeBBox(DWORD* out, DWORD idLo, DWORD idHi) {
+    for (int i = 0; i < 6; i++) out[i] = idLo * 10 + idHi + i;
+    return out;
+}
+static DWORD __cdecl AsT2FakeValid(DWORD idLo, DWORD) { return 0x1100u | (idLo != 0 ? 1u : 0u); }
+static float __cdecl AsT2FakeDimmer(DWORD idLo, DWORD) { return idLo == 3 ? 0.75f : 0.0f; }
+static const char* __cdecl AsT2FakeWorldName() { return "world"; }
+static void TestAutShadowTier2IcG4() {
+    AsT2IcRow(11, "ScriptCore.Objects::Objects_GetBoundingBox", AO_OBJ, AK_STRUCT, 2, 24, AS_AB_ROW);
+    AsT2IcRow(12, "ScriptCore.Objects::Objects_IsValid", AO_CUT, AK_INT, 2, 1, AS_AB_ROW);
+    AsT2IcRow(13, "ScriptCore.World::World_LightGetDimmerImpl", AO_CUT, AK_FP, 2, 4, AS_AB_ROW);
+    AsT2IcRow(14, "ScriptCore.World::World_GetWorldFileName", AO_WORLD, AK_REF, 0, 4, AS_AB_OTHER);
+    DWORD box[6] = {0};
+    const DWORD a[3] = {(DWORD)(uintptr_t)box, 2, 1};  // nArg + 1 dwords: the result pointer first
+    const AsRet r = AsT2IcCall(11, (void*)AsT2FakeBBox, a);
+    assert(r.lo == 0 && r.hi == 0 && box[0] == 21 && box[5] == 26);  // the result pointer in eax is masked off
+    const DWORD b[2] = {5, 0};
+    assert(AsT2IcCall(12, (void*)AsT2FakeValid, b).lo == 1);
+    const DWORD b0[2] = {0, 0};
+    assert(AsT2IcCall(12, (void*)AsT2FakeValid, b0).lo == 0);
+    const DWORD c[2] = {3, 0};
+    assert(AsT2IcCall(13, (void*)AsT2FakeDimmer, c).f == 0.75);
+    assert(AsT2IcCall(13, (void*)AsT2FakeDimmer, b).f == 0.0);
+    const AsRet n = AsT2IcCall(14, (void*)AsT2FakeWorldName, nullptr);
+    assert(!strcmp((const char*)(uintptr_t)n.lo, "world"));
+}
+
+// E rows (docs/data/tier2-enablers-handoff.md, E1 write mask + E2 ulong[]): rows 15-19 of the docs/126 §8 block. Dummy
+// bodies with the verified layouts go through AsRefresh (a spare guard slot) and the hit's AsOutWrite: a false answer
+// leaves the caller's out as it was, masked or unwritten bytes keep the caller's values, arrays are re-made per hit.
+static DWORD __cdecl AsT2FakeBoat(DWORD lotLo, DWORD, float x, float y, float z, float* out) {
+    if (lotLo != 1) return 0x7700;  // not a houseboat: out untouched, junk in the high bytes
+    out[0] = x + 1, out[1] = y, out[2] = z + 2;
+    return 0x7701;
+}
+static unsigned long long __cdecl AsT2FakeLotLocAt(float, float, float, u8* out, DWORD roomDef) {
+    for (int b = 0; b < 9; b++) out[b] = (u8)(0x40 + b);  // x, z, level always (#16)
+    if (roomDef == 1) out[10] = 0x5A, out[11] = 0x00;    // room short only with room data; byte 9 never
+    return 0x100000002ull;
+}
+static DWORD g_asT2FakeArr[16];
+static DWORD __cdecl AsT2FakePondPos(DWORD lotLo, DWORD, DWORD* ref) {
+    if (lotLo != 3) return 0x6600;  // no pond vertices: ref untouched
+    g_asT2FakeArr[0] = 0xF10A7, g_asT2FakeArr[2] = 2, g_asT2FakeArr[4] = 0x3F800000, g_asT2FakeArr[5] = 0x40000000;
+    *ref = (DWORD)(uintptr_t)g_asT2FakeArr;
+    return 0x6601;
+}
+static DWORD __cdecl AsT2FakeTiles(DWORD lotLo, DWORD, DWORD, DWORD, DWORD) {
+    if (!lotLo) return 0;
+    g_asT2FakeArr[0] = 0xE10A7, g_asT2FakeArr[2] = 2;  // two ulong tiles at +16: 8 bytes each
+    g_asT2FakeArr[4] = 0x11111111, g_asT2FakeArr[5] = 0x22222222, g_asT2FakeArr[6] = 0x33333333, g_asT2FakeArr[7] = 0x44444444;
+    return (DWORD)(uintptr_t)g_asT2FakeArr;
+}
+static void AsT2eRefresh(int i, void* body, const DWORD* key, int nKey, AsEnt& e, DWORD* pool, LONG* poolN) {
+    const int slot = AS_MAXIC - 1;
+    const AsDesc* d0 = g_asDescOf[slot];
+    void* o0 = g_asOrig[slot];
+    g_asDescOf[slot] = AsT2Ic(i), g_asOrig[slot] = body;
+    memset(&e, 0x5C, sizeof(e));  // stale bytes everywhere: the refresh must not let them through
+    memcpy(e.key, key, nKey * 4);
+    AsRefresh(slot, e, pool, poolN);
+    g_asDescOf[slot] = d0, g_asOrig[slot] = o0;
+}
+static void TestAutShadowTier2IcE() {
+    assert(AS_NT2E == 5 && AS_NT2IC == 15 + AS_NT2E);
+    const char* nm[5] = {"ScriptCore.World::World_GetTilesWithFloorFeaturesImpl", "ScriptCore.World::World_FindPondRepresentativePositions",
+                         "ScriptCore.World::World_GetLotLocationAtFloorImpl", "ScriptCore.World::World_GetWorldToHouseboatDisplayPositionImpl",
+                         "ScriptCore.World::World_GetHouseboatDisplayToWorldPositionImpl"};
+    for (int i = 0; i < 5; i++) {
+        const AsDesc& d = *AsT2Ic(15 + i);
+        assert(!strcmp(d.name, nm[i]) && d.reason == AS_AB_POS && AsKindOfName(d.name) == 0 && d.nArg <= AS_KEY);
+        assert(d.owner != AO_OBJ && d.owner != AO_LIST && d.owner != AO_MEMO);  // e.om shares the union with lp / lastRead
+    }
+    assert(AsT2Ic(15)->kind == AK_ARRAY && AsT2Ic(15)->sz == 8 && AsT2Ic(15)->nArg == 5 && !AsT2Ic(15)->nOut && AsT2Ic(15)->owner == AO_CUT);
+    assert(AsT2Ic(16)->nArg == 3 && AsT2Ic(16)->nOut == 1 && AsT2Ic(16)->outIdx[0] == 2 && AsT2Ic(16)->of == (AS_OF_TRUE | AS_OF_ARR));
+    assert(AsT2Ic(17)->nArg == 5 && AsT2Ic(17)->sz == 8 && AsT2Ic(17)->outIdx[0] == 3 && AsT2Ic(17)->outSz[0] == 12 &&
+           AsT2Ic(17)->of == AS_OF_DIFF && AsT2Ic(17)->outMask == 0xDFF);
+    for (int i = 18; i < 20; i++)
+        assert(AsT2Ic(i)->nArg == 6 && AsT2Ic(i)->sz == 1 && AsT2Ic(i)->outIdx[0] == 5 && AsT2Ic(i)->outSz[0] == 12 &&
+               AsT2Ic(i)->of == AS_OF_TRUE && AsT2Ic(i)->owner == AO_CUT);
+    // gate: every E row needs Tier2Rows, Tier2IcRows and its own bit; the 15 older IC rows ignore the bits
+    const int e0 = AS_NDESC - AS_NT2E;
+    g_asTier2Rows = g_asTier2IcRows = true, g_asT2eBits = 0;
+    for (int i = 0; i < AS_NT2E; i++) assert(!AsDescOn(e0 + i));
+    assert(AsDescOn(e0 - 1));
+    g_asT2eBits = 16;  // Tier2HouseboatRow alone
+    assert(AsDescOn(AS_NDESC - 1) && !AsDescOn(e0));
+    g_asTier2IcRows = false;
+    assert(!AsDescOn(AS_NDESC - 1));
+    g_asTier2Rows = false, g_asT2eBits = 0;
+
+    static DWORD pool[256];
+    LONG poolN = 0;
+    AsEnt e;
+    auto fl = [](float v) { DWORD w; memcpy(&w, &v, 4); return w; };
+    // houseboat (row 19) and #21 (row 18): true -> 12 B out; false -> caller's out untouched (ledger §459 I-459-3)
+    for (int i = 18; i < 20; i++) {
+        const DWORD kT[5] = {1, 0, fl(1.0f), fl(2.0f), fl(3.0f)};
+        AsT2eRefresh(i, (void*)AsT2FakeBoat, kT, 5, e, pool, &poolN);
+        assert(e.r[0] == 1 && e.r[1] == 0);
+        float out[4] = {9, 9, 9, 9};
+        DWORD a[6] = {1, 0, kT[2], kT[3], kT[4], (DWORD)(uintptr_t)out};
+        assert(AsOutWrite(*AsT2Ic(i), e, pool, a) && out[0] == 2 && out[1] == 2 && out[2] == 5 && out[3] == 9);
+        const DWORD kF[5] = {2, 0, fl(1.0f), fl(2.0f), fl(3.0f)};
+        AsT2eRefresh(i, (void*)AsT2FakeBoat, kF, 5, e, pool, &poolN);
+        assert(e.r[0] == 0);
+        float keep[3] = {7, 8, 9};
+        a[5] = (DWORD)(uintptr_t)keep;
+        assert(AsOutWrite(*AsT2Ic(i), e, pool, a) && keep[0] == 7 && keep[1] == 8 && keep[2] == 9);
+    }
+    // #16 (row 17): bytes outside the static mask (9) and bytes this input did not write (10-11 without room data) keep
+    // the caller's values; the lot id comes back whole
+    {
+        const DWORD kR[4] = {fl(1.0f), fl(0.0f), fl(1.0f), 1};  // Vector3, roomDef 1: room short written
+        AsT2eRefresh(17, (void*)AsT2FakeLotLocAt, kR, 4, e, pool, &poolN);
+        assert(e.r[0] == 2 && e.r[1] == 1 && e.om == 0xDFF);
+        u8 out[12];
+        memset(out, 0xCC, sizeof(out));
+        DWORD a[5] = {kR[0], kR[1], kR[2], (DWORD)(uintptr_t)out, 1};
+        assert(AsOutWrite(*AsT2Ic(17), e, pool, a));
+        assert(out[0] == 0x40 && out[8] == 0x48 && out[9] == 0xCC && out[10] == 0x5A && out[11] == 0);
+        const DWORD kN[4] = {fl(1.0f), fl(0.0f), fl(1.0f), 0};  // no room data: room short untouched
+        AsT2eRefresh(17, (void*)AsT2FakeLotLocAt, kN, 4, e, pool, &poolN);
+        assert(e.om == 0x1FF);
+        memset(out, 0xCC, sizeof(out));
+        assert(AsOutWrite(*AsT2Ic(17), e, pool, a) && out[8] == 0x48 && out[9] == 0xCC && out[10] == 0xCC && out[11] == 0xCC);
+    }
+    // #15 (row 16): the game's array is copied to the pool at the cut (pointer not kept); a hit makes a fresh one
+    {
+        const AsGcMallocFn g0 = g_asGcMalloc;
+        AsNewArrayFn n0 = g_asNewArray;
+        g_asGcMalloc = AfT5Malloc, g_asNewArray = AsNewArrayGc;
+        const DWORD kP[2] = {3, 0};
+        AsT2eRefresh(16, (void*)AsT2FakePondPos, kP, 2, e, pool, &poolN);
+        assert(e.r[0] == 1 && e.payN == 4 && pool[e.pay] == 0xF10A7 && pool[e.pay + 1] == 2 && pool[e.pay + 3] == 0x40000000);
+        DWORD* got = NULL;
+        DWORD a[3] = {3, 0, (DWORD)(uintptr_t)&got};
+        assert(AsOutWrite(*AsT2Ic(16), e, pool, a) && got && got != g_asT2FakeArr && got[0] == 0xF10A7 && got[2] == 2 && got[5] == 0x40000000);
+        free(got);
+        const DWORD kQ[2] = {4, 0};
+        AsT2eRefresh(16, (void*)AsT2FakePondPos, kQ, 2, e, pool, &poolN);
+        DWORD* keep = (DWORD*)(uintptr_t)0x1234;
+        a[2] = (DWORD)(uintptr_t)&keep;
+        assert(e.r[0] == 0 && !e.payN && AsOutWrite(*AsT2Ic(16), e, pool, a) && keep == (DWORD*)(uintptr_t)0x1234);
+        // #7 (row 15): ulong[] payload = 2 dwords per element; the hit's 8-byte allocation holds them all
+        const DWORD kA[5] = {9, 0, 0, 4, 0xFFFFFFFF};
+        AsT2eRefresh(15, (void*)AsT2FakeTiles, kA, 5, e, pool, &poolN);
+        assert(e.payN == 2 + 2 * 2 && pool[e.pay] == 0xE10A7 && pool[e.pay + 1] == 2 && pool[e.pay + 5] == 0x44444444);
+        DWORD* arr = (DWORD*)g_asNewArray(pool[e.pay], pool[e.pay + 1], AsT2Ic(15)->sz);
+        memcpy(arr + 4, pool + e.pay + 2, (e.payN - 2) * 4);  // as the AK_ARRAY hit
+        assert(arr[2] == 2 && arr[4] == 0x11111111 && arr[7] == 0x44444444);
+        free(arr);
+        const DWORD kZ[5] = {0, 0, 0, 4, 0xFFFFFFFF};
+        AsT2eRefresh(15, (void*)AsT2FakeTiles, kZ, 5, e, pool, &poolN);
+        assert(e.r[0] == 0 && !e.payN);
+        g_asGcMalloc = g0, g_asNewArray = n0;
+    }
 }
 
 static void TestAutShadowRun() {
@@ -626,8 +907,11 @@ static void TestAutShadowRun() {
     DeleteFileW(g_asJsonlPath);
     assert(got == 16 && !strcmp(buf, "{\"a\":1}\n{\"a\":1}\n") && k.logLines == 2);
     // the GC_malloc array allocator: MonoArray header (vtable, max_length), zeroed elements
-    DWORD* arr = (DWORD*)AsNewArrayGc(0xA0001, 3);
+    DWORD* arr = (DWORD*)AsNewArrayGc(0xA0001, 3, 4);
     assert(arr && arr[0] == 0xA0001 && arr[2] == 3 && arr[4] == 0 && arr[6] == 0);
+    free(arr);
+    arr = (DWORD*)AsNewArrayGc(0xA0002, 3, 8);  // ulong[] (docs/126 #7): 16 + 3 * 8 bytes, all zero
+    assert(arr && arr[0] == 0xA0002 && arr[2] == 3 && arr[4] == 0 && arr[9] == 0 && !AsNewArrayGc(0xA0002, 3, 2));
     free(arr);
     g_mtOnEnter = NULL, g_mtOnLeave = NULL, g_mtJobHook = NULL, g_asMode = -1, g_asWorkerTid = 0, g_afRandMt = 0;
     printf("autshadow run: %ld requests, %ld cuts for them, %ld reference runs (%ld RNG restores), %ld worker runs, %ld overrun, %ld epoch drop\n",
@@ -2928,6 +3212,12 @@ static void TestAutShadow() {
     printf("autshadow: %ld IC slots, %ld cuts (max %ld us), %ld entries, %ld audits, %ld aborts\n", k.guardSlots, k.cuts,
            k.cutMaxUs, k.entries, k.auditN, k.abortTotal);
     TestAutShadowTier2Rows();
+    TestAutShadowTier2IcGate();
+    TestAutShadowTier2IcG1();
+    TestAutShadowTier2IcG2();
+    TestAutShadowTier2IcG3();
+    TestAutShadowTier2IcG4();
+    TestAutShadowTier2IcE();
     TestAutShadowRun();
     TestAutLedger();
     TestAutShadowFull();

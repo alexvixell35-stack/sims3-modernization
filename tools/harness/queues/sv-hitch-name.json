@@ -33,7 +33,9 @@
         "RouteJobPhases.SyncPlans": 1,
         "RouteJobPhases.SyncLinesPerMin": 200,
         "WaterJps.Enabled": 1,
-        "HitchAttr.JobNameMs": 100
+        "HitchAttr.JobNameMs": 100,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "run": {
         "profile": {

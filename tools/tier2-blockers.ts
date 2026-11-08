@@ -11,6 +11,19 @@ import { ix, closure, classify, CUT } from './autonomy-tier2.ts';
 import { virtualTargets } from './managed-callgraph.ts';
 
 const arg = (n: string, d: string) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : d; };
+// --self-check: the committed csv is well formed and carries the docs/219 P4 changes (no wide-dispatch / family-root rows, the
+// Phone base split into subclasses, GotoBakeSaleTable typed). Needs no game files.
+if (process.argv.includes('--self-check')) {
+  const rows = readFileSync(arg('--csv', 'docs/data/tier2-blockers.csv'), 'utf8').trim().split('\n');
+  const KINDS = ['snapshot-rows', 'managed-write', 'own-field-write', 'static-write', 'static-coll', 'sim-thread-ic', 'writing-ic', 'unclear-ic', 'yield'];
+  const fail = (m: string) => { throw new Error('tier2-blockers self-check: ' + m); };
+  if (!rows[0].startsWith('definition,blocker_kind,blocker_detail,effort,est_share,notes')) fail('header');
+  const bad = rows.slice(1).filter((r) => !KINDS.includes(r.replace(/^("[^"]*"|[^,]*),/, '').split(',')[0]));
+  if (bad.length) fail(`${bad.length} rows with a blocker_kind outside the documented set: ${bad[0].slice(0, 80)}`);
+  if (rows.some((r) => r.startsWith('Sims3.Gameplay.Objects.Electronics.Phone+Call+CallDefinition`1,'))) fail('the abstract Phone base is still a row');
+  if (rows.some((r) => /^Sims3\.Gameplay\.Objects\.Miscellaneous\.BakeSaleTable\+GotoBakeSaleTable\+Definition,wide/.test(r))) fail('GotoBakeSaleTable still wide-dispatch');
+  console.log(`tier2-blockers self-check ok: ${rows.length - 1} rows, kinds in the documented set`); process.exit(0);
+}
 CUT.push(...arg('--what-if', '').split(',').filter(Boolean));
 type Full = { group: string; name: string; rank: string; samples: string; share: string; verdict: string; ics: { ic: string; cls: string; d: number; path: string }[]; blockers: { what: string; path: string }[] };
 const full: { whatIf: string; cands: Full[] } = JSON.parse(readFileSync(arg('--full', ''), 'utf8'));
@@ -50,7 +63,6 @@ const HAND: [RegExp, string, string, 'small' | 'medium' | 'hard', string][] = [
   [/Sim\+FreakOutAtObject\+Definition$/, 'sim-thread-ic', 'UserToolUtils_CheckObjectPlacementImpl in the own Test', 'hard', 'stays on the sim thread'],
   [/Sim\+CallPet\+Definition$/, 'own-field-write', 'Test fills mSimPickerList on the shared definition object', 'medium', 'docs/75 §3 stage A per-tick cache, or a worker copy with its own list [inferred]'],
   [/SitHereForEating\.EatHereScoringFunction$/, 'sim-thread-ic', 'chair CanScootBack (ChairBarStool, ChairDining via EatingSurfaceImpl.GetClosestFreeSlotPair): World_TestObjectPlacementPQ, and DisableFootprint (World_ObjectEnableFootprint) around it', 'hard', 'a real footprint toggle + placement test per chair: a per-chair bit at the cut would cost one placement test per chair per cut'],
-  [/Phone\+Call\+CallDefinition`1$/, 'family-root', 'the generic phone-call base: its Test reaches every subclass Test (PerformanceCareer.GetSteadyGigProprietors 45 blockers, LogicSkill chess challenger 16, MovingWorldDialog world search 3)', 'medium', 'split per concrete subclass and allow-list the clean ones; the entry-list row is per base'],
   [/Socializing\.SocialInteractionA\+Definition$/, 'static-coll', 'Relationship.GetMiniRelationships adds to Relationship.sAllRelationships; CauseEffectService persistable data lazy fill', 'medium', 'the OWN_FIELD_WRITE hits are the .ctor of a new Definition in GetYouShouldTargets (a fresh object, not the shared one) [inferred: rule false positive]; pre-warm CauseEffectService'],
   [/Sim_ReadToSleep_Autonomous\+Definition$/, 'static-coll', 'Relationship.GetMiniRelationships adds to Relationship.sAllRelationships; CauseEffectService persistable data lazy fill', 'medium', 'pre-warm CauseEffectService; abort when the Sim has no relationship entry yet'],
   [/Door\+ChangeDoorbellSound\+Definition$/, 'writing-ic', 'Lot.GetFrontDoor lazy lookup: SetFrontDoor (World_SetLotFrontDoorImpl), UpdateStreetParking (World_FindPlacesOnRoad)', 'medium', 'pre-warm the front door per lot (load and lot change)'],
@@ -68,7 +80,6 @@ const HAND: [RegExp, string, string, 'small' | 'medium' | 'hard', string][] = [
   [/MagicCauldronRegency\+TeleportPotion\+Definition$/, 'writing-ic', 'Test creates an object out of world and plans a route (Route.PlanToPoint)', 'hard', ''],
   [/OccultUnicorn\+UnicornTeleport\+Definition$/, 'writing-ic', 'Test calls Destroy on an object (TimePortal, EventLotMarker, Newspaper ... through a wide Destroy dispatch)', 'hard', ''],
   [/Jetpack\+FlyHere\+Definition$/, 'yield', 'Sim.GetActiveJetpack pops the posture: OnExitPosture -> Simulator.Sleep', 'hard', 'docs/127 §7.2'],
-  [/(RockBand\+GetBandMemberToLot|BakeSaleTable\+GotoBakeSaleTable)\+Definition$/, 'wide-dispatch', 'a Test call on a definition the closure cannot type (InteractionUtil.Test(InteractionDefinition, ...) parameter; generic base Test): 200+ blockers from every Test override', 'medium', 'verdict unknown until the definition argument is typed per call site; first real blocker is World_TestObjectPlacementP'],
 ];
 
 const notReady = full.cands.filter((c) => !/^v0/.test(c.group) && (c.verdict === 'new-rows' || c.verdict === 'blocked'));
@@ -92,7 +103,11 @@ for (const c of notReady.sort((a, b) => samplesOf(b)[0] - samplesOf(a)[0] || a.n
     effort = extra.some((m) => !KEY[m]) || extra.length > 3 ? 'medium' : extra.some((m) => /a-cut|\+0x918/.test(KEY[m])) ? 'medium' : 'small';
     notes = `${basis}; ${miss.length} rows in all`;
   } else {
-    const h = HAND.find(([re]) => re.test(c.name));
+    // docs/219 P4: a lone blocker whose path runs through FireManager.HasOnlyLeafPileFires is the P1 `fire` guard (same as the HAND row for
+    // CallIntelligenceAgency); found in the closure, not read by hand per definition [verified: blocker count and path in the --full JSON].
+    const fireOnly: [RegExp, string, string, 'small', string] | undefined = c.blockers.length === 1 && /HasOnlyLeafPileFires/.test(c.blockers[0].path)
+      ? [/./, 'sim-thread-ic', 'Lot.IsFireOnLot -> FireManager.HasOnlyLeafPileFires -> Fire.GetObjectsOnFloor -> CheckObjectPlacement (the only blocker)', 'small', 'abort `fire` while the lot has a fire (P1 guard); typed closure, single blocker'] : undefined;
+    const h = HAND.find(([re]) => re.test(c.name)) ?? fireOnly;
     const first = c.blockers[0]?.what ?? '';
     [kind, detail, effort, notes] = h ? [h[1], h[2], h[3], h[4]]
       : [first.startsWith('ic-b') ? 'sim-thread-ic' : first.startsWith('ic-w') ? 'writing-ic' : first.startsWith('ic-d') ? 'unclear-ic' : /^STATIC/.test(first) ? 'static-write' : first.startsWith('OWN') ? 'own-field-write' : 'yield', first, c.blockers.length > 5 ? 'hard' : 'medium', 'not read by hand'];

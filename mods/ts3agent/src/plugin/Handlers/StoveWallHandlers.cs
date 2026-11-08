@@ -56,6 +56,7 @@ namespace Ts3Agent
             RegisterStoveRepeat();
             RegisterFootprintGhost();
             RegisterFootprintWindow();
+            RegisterDanceFloor();
         }
 
         static Stove sSwStove;

@@ -6,7 +6,7 @@
       "note": "Correctness (8 min), off arm: repro book-hand-check-off. Records whether the stuck state occurs (expect off returns the tally: stuck probes, put-downs seen) and which try gets there; 'bookhand: still in hand' / 'bookhand: seen (switch off)' lines in ts3native.log name the Sim, posture and what was queued at the stop. ScriptError_*.xml from InteractionQueue.PutDownCarriedObjects or CarrySystem.PutDownOnSurface are expected when it does, so no script error gate. Pass: the repro's steps pass (a read ended through StopUsingBook) and the counters are there.",
       "asi": "game-copy/ts3native.asi.castrimdiag1108",
       "pinReason": "pair bookhand1108: master ts3native 0.36.194 (castrimdiag1108) with the bookhand ts3fixes build; a ts3fixes-only correctness test",
-      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108d",
       "save": "Baseline-BP",
       "noiseCheck": false,
       "run": {
@@ -28,7 +28,7 @@
       "note": "Correctness (8 min), on arm: repro book-hand-check. Pass: expect on passes (no probe finds a stuck book; bookhand_fixed = bookhand_seen, so bookhand_fixed >= 1 whenever the stuck state occurred; 'N/A (not triggered)' when it never came up, then judge only side effects), 0 new script errors (none from this stack), no FAIL line.",
       "asi": "game-copy/ts3native.asi.castrimdiag1108",
       "pinReason": "pair bookhand1108: master ts3native 0.36.194 (castrimdiag1108) with the bookhand ts3fixes build; a ts3fixes-only correctness test",
-      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108",
+      "fixesPackage": "game-copy/ts3fixes.package.bookhand1108d",
       "save": "Baseline-BP",
       "noiseCheck": false,
       "scriptErrorsMax": 0,

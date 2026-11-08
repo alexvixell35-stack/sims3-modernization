@@ -32,7 +32,7 @@ static void CtsKids(DWORD o) {  // B and the new one name C (its node's key) as 
 
 static void TestCasTrim() {
     static_assert(offsetof(Ts3nCounters, ctMode) == 0x5CF0 && offsetof(Ts3nCounters, ctOtherThread) == 0x5D14 &&
-                      sizeof(Ts3nCounters) == 6035 * 4,
+                      sizeof(Ts3nCounters) == 6066 * 4,
                   "counters v912 layout after v908 and the held block (docs/registry.md)");
     Ts3nCounters& z = ts3native_counters;
     const CtEraseFn erase0 = g_ctErase;
@@ -252,7 +252,7 @@ __declspec(naked) static void __fastcall CswFbEnter(DWORD) {  // a frame with th
 }
 
 static void TestCasTrimSweep() {
-    static_assert(offsetof(Ts3nCounters, ctSaves) == 0x5D80 && offsetof(Ts3nCounters, ctBlendKB) == 0x5DE4 && sizeof(Ts3nCounters) == 6035 * 4,
+    static_assert(offsetof(Ts3nCounters, ctSaves) == 0x5D80 && offsetof(Ts3nCounters, ctBlendKB) == 0x5DE4 && sizeof(Ts3nCounters) == 6066 * 4,
                   "counters v171 layout (docs/registry.md)");
     Ts3nCounters& z = ts3native_counters;
     const CtEraseFn erase0 = g_ctErase;
@@ -469,7 +469,7 @@ static void TestCasTrimInv() {
     const DWORD vt0[2] = {g_ctVt[0], g_ctVt[1]};
     assert(CtAlloc());
     static DWORD vt[2][2], good[4], bad[4] = {1}, a0[5], a1[5];
-    static u8 recs[2][0x68], outfit[0xA0], node[0x1C], outfit2[0xA0];
+    static u8 recs[2][0x68], outfit[0xC8], node[0x1C], outfit2[0xC8];  // +0xBC / +0xC0: no cells
     g_ctVt[0] = (DWORD)(uintptr_t)vt[0], g_ctVt[1] = (DWORD)(uintptr_t)vt[1];
     good[0] = g_ctVt[1];
     a0[0] = (DWORD)(uintptr_t)good, a1[1] = (DWORD)(uintptr_t)bad;  // the crash: [rec+0x38] slot 1, first dword 1
@@ -477,11 +477,12 @@ static void TestCasTrimInv() {
     *(DWORD*)(recs[1] + 0x38) = (DWORD)(uintptr_t)a1;
     *(DWORD*)(outfit + 0x98) = (DWORD)(uintptr_t)recs[0], *(DWORD*)(outfit + 0x9C) = (DWORD)(uintptr_t)recs[2];
     memset(node, 0x11, 16), *(DWORD*)(node + 0x10) = (DWORD)(uintptr_t)outfit;
-    g_ctInvEa = &CtsInvEa, g_ctInvBad = g_ctInvLogs = g_ctInvGone = 0, g_ctInvCalls = g_ctInvRecs = g_ctInvSlots = g_ctInvBadSave = 0, g_ctInvQpc = 0;
+    g_ctInvEa = &CtsInvEa, g_ctInvBad = g_ctInvLogs = g_ctInvGone = 0, g_ctInvCalls = g_ctInvRecs = g_ctInvSlots = g_ctInvBadSave = 0, g_ctInvQpc = 0, g_ctF5 = g_ctF5Logs = 0, g_ctF5Save = 0;
     // one good outfit's worth: 4 slots read, 1 bad, EA called once with (outfit, set, 1), esi kept
     CtsInvCall(node, outfit);
     assert(g_ctsInvN == 1 && g_ctsInvSet == (void*)0x1234 && g_ctsInvKids == 1 && g_ctsInvOutfit == (DWORD)(uintptr_t)outfit && g_ctInvNode == node);
     assert(g_ctInvCalls == 1 && g_ctInvRecs == 2 && g_ctInvSlots == 4 && g_ctInvBad == 1 && g_ctInvBadSave == 1 && !g_ctInvGone);
+    assert(g_ctF5 == 1 && g_ctF5Save == 1);  // docs/539 §13.5 item 2: that slot's first dword is 1 (< 0x10000)
     // the ring: an erase of the object that holds the value makes the next bad slot "erased by CasTrim"
     char t[160];
     assert(!CtGoneText((DWORD)(uintptr_t)bad, t, sizeof(t)) && strstr(t, "never erased"));
@@ -520,9 +521,121 @@ static void TestCasTrimInv() {
     CtInvFault(&c);
     CtInvFault(&c);  // past the cap of 2: nothing
     assert(g_ctInvFaults == 3);
-    printf("cas trim: inventory detector selftest ok (call-site entry, bad / unreadable / null / range cases, erase ring, fault decoder)\n");
+    // [CasTrim] Detect: default on with Mode >= 1 or Probe, off with Mode 0; an explicit value wins
+    wchar_t tmp[MAX_PATH], ini[MAX_PATH];
+    GetTempPathW(MAX_PATH, tmp);
+    swprintf_s(ini, L"%sts3n-selftest-castrim-%lu.ini", tmp, GetCurrentProcessId());
+    DeleteFileW(ini);
+    assert(!CtDetectOn(ini, 0, false) && CtDetectOn(ini, 3, false) && CtDetectOn(ini, 1, false) && CtDetectOn(ini, 0, true));
+    WritePrivateProfileStringW(L"CasTrim", L"Detect", L"0", ini);
+    assert(!CtDetectOn(ini, 3, false) && !CtDetectOn(ini, 0, true));
+    WritePrivateProfileStringW(L"CasTrim", L"Detect", L"1", ini);
+    assert(CtDetectOn(ini, 0, false));
+    DeleteFileW(ini);
+    printf("cas trim: inventory detector selftest ok (call-site entry, bad / unreadable / null / range cases, erase ring, fault decoder, Detect key)\n");
 
     g_ctInvEa = ea0, g_ctVt[0] = vt0[0], g_ctVt[1] = vt0[1], g_ctInvNode = NULL, g_ctInvFaults = 0, g_ctGSeq = 0, memset(g_ctGRing, 0, sizeof(g_ctGRing));
     g_ctInvBad = g_ctInvLogs = g_ctInvGone = 0, g_ctInvCalls = g_ctInvRecs = g_ctInvSlots = g_ctInvBadSave = 0, g_ctInvQpc = 0, g_ctInvSave = 0;
     g_ctsInvN = 0;
+}
+
+// docs/539 §13.5 items 1-4 + CellGuard: the release call sites through a real patched dummy call site, the cells check,
+// the guard (bad cells set to 0, the rest released as before), the float-5 watch, the 0xD4B156 / 0x5AF67E fault decoders.
+static const DWORD kCtsCellVt[2] = {0x11, 0x22};  // .rdata: a "TS3W vtable" in the selftest's own image
+static DWORD g_ctsRelSeen[16], g_ctsRelN, g_ctsRelCalls;
+static DWORD* g_ctsRelVec;
+static void __fastcall CtsRelEa(DWORD* vec, void*, DWORD* b, DWORD* e) {  // EA's 0x5AF640: what it would release
+    g_ctsRelCalls++, g_ctsRelVec = vec, g_ctsRelN = (DWORD)(e - b);
+    for (DWORD i = 0; i < g_ctsRelN && i < 16; i++) g_ctsRelSeen[i] = b[i];
+}
+static void TestCasTrimCells() {
+    static_assert(offsetof(Ts3nCounters, ctCellSeen) == 0x5EC0 && offsetof(Ts3nCounters, ctCellSkip) == 0x5EC4 && sizeof(Ts3nCounters) == 6066 * 4,
+                  "counters v176 layout after the gap held for v174-v175 (docs/registry.md)");
+    assert(RhRanges());
+    Ts3nCounters& z = ts3native_counters;
+    const CtRelFn ea0 = g_ctRelEa;
+    const bool guard0 = g_ctCellGuard;
+    g_ctRelEa = &CtsRelEa;
+    static DWORD good[4], data[4] = {0x12345678}, zero[4], junk[4];
+    good[0] = (DWORD)(uintptr_t)&kCtsCellVt[0];
+    static u8 outfit[0xC8];
+    static DWORD cells[8];
+    const DWORD init[7] = {0, (DWORD)(uintptr_t)good, (DWORD)(uintptr_t)junk | 1, (DWORD)(uintptr_t)zero, CT_F5, (DWORD)(uintptr_t)data, (DWORD)(uintptr_t)good};
+    memcpy(cells, init, sizeof(init));
+    *(DWORD**)(outfit + 0xBC) = cells, *(DWORD**)(outfit + 0xC0) = cells + 7;
+    // a dummy call site laid out as EA's 0x5E6E5C: push end; push begin; mov ecx,&outfit[+0xBC]; call 0x5AF640; then ret
+    u8* code = (u8*)VirtualAlloc(NULL, 64, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    assert(code);
+    const DWORD vec = (DWORD)(uintptr_t)(outfit + 0xBC), rel = (DWORD)(uintptr_t)&CtsRelEa - (DWORD)(uintptr_t)(code + 20);
+    code[0] = 0x68, *(DWORD*)(code + 1) = (DWORD)(uintptr_t)(cells + 7), code[5] = 0x68, *(DWORD*)(code + 6) = (DWORD)(uintptr_t)cells;
+    code[10] = 0xB9, *(DWORD*)(code + 11) = vec, code[15] = 0xE8, *(DWORD*)(code + 16) = rel, code[20] = 0xC3;
+    const CallSite site[] = {{(DWORD)(uintptr_t)(code + 15), (DWORD)(uintptr_t)&CtsRelEa, (void*)CtRelHook}};
+    assert(PatchCalls("selftest cas trim release site", site, 1));
+    void (*run)() = (void (*)())code;
+    // guard off: log only, EA sees every cell as it was
+    g_ctCellGuard = false, g_ctRelDetect = true;
+    const LONG seen0 = z.ctCellSeen, skip0 = z.ctCellSkip, f50 = g_ctF5, bad0 = g_ctCellBad, rb0 = g_ctRelBad;
+    run();
+    assert(g_ctsRelCalls == 1 && g_ctsRelVec == (DWORD*)(uintptr_t)vec && g_ctsRelN == 7 && !memcmp(g_ctsRelSeen, init, sizeof(init)));
+    assert(z.ctCellSeen - seen0 == 5 && z.ctCellSkip == skip0 && g_ctF5 - f50 == 2 && g_ctCellBad - bad0 == 3 && g_ctRelBad - rb0 == 3);
+    // guard on: the zero-vtable cell, 0x40A00000 and the non-.rdata one are set to 0; the good and tagged ones go to EA unchanged
+    g_ctCellGuard = true;
+    run();
+    const DWORD want[7] = {0, init[1], init[2], 0, 0, 0, init[6]};
+    assert(g_ctsRelCalls == 2 && !memcmp(g_ctsRelSeen, want, sizeof(want)) && z.ctCellSkip - skip0 == 3 && z.ctCellSeen - seen0 == 10);
+    // a clean outfit: released exactly as before, nothing skipped
+    memcpy(cells, init, sizeof(init)), cells[3] = cells[4] = cells[5] = (DWORD)(uintptr_t)good;
+    DWORD before[7];
+    memcpy(before, cells, sizeof(before));
+    run();
+    assert(g_ctsRelCalls == 3 && !memcmp(g_ctsRelSeen, before, sizeof(before)) && z.ctCellSkip - skip0 == 3);
+    // an unreadable range or begin past end: logged, EA still called; no cells: nothing
+    *(DWORD**)(outfit + 0xC0) = cells;
+    CtRelHook((DWORD*)(uintptr_t)vec, NULL, cells + 7, cells);
+    CtRelHook((DWORD*)(uintptr_t)vec, NULL, NULL, NULL);
+    assert(g_ctsRelCalls == 5);
+    assert(CtRelPath(0x005E7638) == 2 && CtRelPath(0x005E6E65) == 1);
+    // the save path walks the cells too (no guard there), and remembers the outfit's save
+    memcpy(cells, init, sizeof(init)), *(DWORD**)(outfit + 0xC0) = cells + 7;
+    g_ctInvSave = 7, g_ctInvCells = g_ctInvCellBad = g_ctF5Save = 0;
+    CtOutfitCells(0, NULL, outfit);
+    assert(g_ctInvCells == 5 && g_ctInvCellBad == 3 && g_ctF5Save == 2 && !memcmp(cells, init, sizeof(init)) && CtSeenSave(outfit) == 7 && CtSeenSave(outfit + 4) == -1);
+    // the fault decoders: 0xD4B156 with the 0x5AF640 frame (values laid out as the 11-08 EA report), 0x5AF67E, another caller
+    static DWORD fr[18];
+    fr[0] = 0x007287EC, fr[1] = CT_F5, fr[5] = 0x00728DD4, fr[10] = 0x005AF66D, fr[11] = (DWORD)(uintptr_t)(cells + 4);
+    fr[14] = (DWORD)(uintptr_t)outfit, fr[15] = 0x005E7638, fr[16] = (DWORD)(uintptr_t)cells, fr[17] = (DWORD)(uintptr_t)(cells + 7);
+    CONTEXT c = {};
+    c.Eip = 0x00D4B156, c.Esp = (DWORD)(uintptr_t)fr;
+    char t[1400];
+    assert(CtRelFaultText(&c, t, sizeof(t)) && strstr(t, "entry 4 of 7") && strstr(t, "destructor 0x5E75A0") && strstr(t, "(float 5.0)") && strstr(t, "save #7") &&
+           strstr(t, "[40A00000]"));
+    static DWORD f2[18];
+    f2[1] = (DWORD)(uintptr_t)outfit, f2[2] = 0x005E6E65, f2[3] = (DWORD)(uintptr_t)cells, f2[4] = (DWORD)(uintptr_t)(cells + 7);
+    c.Eip = 0x005AF67E, c.Esp = (DWORD)(uintptr_t)f2, c.Esi = (DWORD)(uintptr_t)(cells + 3), c.Ecx = (DWORD)(uintptr_t)zero;
+    assert(CtRelFaultText(&c, t, sizeof(t)) && strstr(t, "entry 3 of 7") && strstr(t, "clear 0x5E6E20"));
+    fr[5] = 0;
+    c.Eip = 0x00D4B156, c.Esp = (DWORD)(uintptr_t)fr;
+    assert(!CtRelFaultText(&c, t, sizeof(t)) && strstr(t, "value only"));
+    c.Esp = 0x10;  // nothing readable: no fault
+    assert(!CtRelFaultText(&c, t, sizeof(t)));
+    g_ctRelFaults = 0;
+    CtRelFault(&c), CtRelFault(&c), CtRelFault(&c);
+    assert(g_ctRelFaults == 3);
+    {  // cost: a 111-cell outfit (the 11-08 crash's size) of valid objects, warm cache (the game's misses add to this)
+        static DWORD big[111];
+        for (DWORD& x : big) x = (DWORD)(uintptr_t)good;
+        LARGE_INTEGER q0, q1, f;
+        QueryPerformanceFrequency(&f), QueryPerformanceCounter(&q0);
+        for (int k = 0; k < 20000; k++) CtRelHook((DWORD*)(uintptr_t)vec, NULL, big, big + 111);
+        QueryPerformanceCounter(&q1);
+        printf("cas trim: release check cost: %.2f us a 111-cell outfit (warm cache, 20000 calls)\n", (double)(q1.QuadPart - q0.QuadPart) * 1e6 / (double)f.QuadPart / 20000.0);
+    }
+    printf("cas trim: outfit cells, CellGuard and release fault decoder selftest ok (patched dummy call site, guard off / on / clean outfit, "
+           "float-5, save path, 0xD4B156 / 0x5AF67E frames)\n");
+    VirtualFree(code, 0, MEM_RELEASE);
+    g_ctRelEa = ea0, g_ctCellGuard = guard0, g_ctRelDetect = true, g_ctRelFaults = 0, g_ctInvSave = 0, g_ctInvCells = g_ctInvCellBad = g_ctF5Save = 0;
+    g_ctRelCalls = g_ctRelCells = g_ctRelBad = g_ctRelOther = g_ctCellBad = g_ctCellLogs = g_ctCellGone = g_ctF5 = g_ctF5Logs = g_ctGuardLogs = 0, g_ctRelQpc = g_ctRelMaxQpc = 0;
+    z.ctCellSeen = z.ctCellSkip = 0;
+    memset(g_ctCellVt, 0, sizeof(g_ctCellVt)), memset(g_ctInvSeen, 0, sizeof(g_ctInvSeen));
+    g_ctsRelCalls = 0;
 }

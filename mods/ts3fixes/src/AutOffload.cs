@@ -60,7 +60,7 @@ namespace Ts3Fixes
         const float kBcObjMoveMax = 0.5f;
         const long kDryTicks = 240;      // a worker answer older than this (Simulator ticks since the request) is not dry-checked or applied
         const long kBcApplyTicks = 15;   // bcast apply: kBcMargin covers about this many ticks of walking [inferred, I-404-4]
-        const int cEnv = 448, cBc = 457, cEnvAp = 481, cBcAp = 486, cTick = 534, cT2 = 763, cLot = 769;
+        const int cEnv = 448, cBc = 457, cEnvAp = 481, cBcAp = 486, cTick = 534, cT2 = 763, cLot = 769, cIc = 878;
         const int kT2Max = 16, kLotSims = 32;
         const long kLotDryTicks = 15;    // autoffdry: a pick older than this is not compared with the game's call
 
@@ -82,13 +82,23 @@ namespace Ts3Fixes
         static readonly T2Res[] sT2Ref = NewT2(), sT2Work = NewT2();
         static readonly GameObject[] sT2Objs = new GameObject[kT2Max];
         static int sT2N, sT2At;
+        // docs/126 §8 (autofft2ic, with autofft2 and [AutShadow] Tier2IcRows=1): the class-a IC rows for the same objects. Each
+        // group writes its own slots of V (G1 0-5, G2 6-8, G3 9-10, G4 11-14, docs/data/tier2-rows-handoff.md); equal = all slots
+        const int kIcV = 20;  // slots 0-14: IcG1-IcG4; 15-19: IcG5 (E rows)
+        sealed class IcRes { public bool Done, Exc; public int Abort = -1; public readonly long[] V = new long[kIcV]; }
+        static readonly IcRes[] sIcRef = NewIc(), sIcWork = NewIc();
+        static int sIcN;
+        static Household sIcHh;  // the active household at the post (sim thread), for IcG5's household rule
+        // World.gWorld is not public; read once on the sim thread (RankRequest), never filled on the worker
+        static IWorld sIcWorld;
+        static IcRes[] NewIc() { IcRes[] a = new IcRes[kT2Max]; for (int i = 0; i < a.Length; i++) a[i] = new IcRes(); return a; }
         static T2Res[] NewT2() { T2Res[] a = new T2Res[kT2Max]; for (int i = 0; i < a.Length; i++) a[i] = new T2Res(); return a; }
 
         // docs/208 §9.2: what Camera.GetClosestVisibleLot reads that is not a plain lot field, taken on the sim thread at the
         // request (a Sim's IsOutside is a position-keyed row that misses for a walking Sim), so both sides score the same input
         sealed class LotReq
         {
-            public Vector3 Target; public float Hours; public Lot Active, World; public int N;
+            public Vector3 Target; public float Hours; public Lot Active, World; public int N; public Household H;
             public readonly List<Lot> Base = new List<Lot>();
             public readonly Lot[] SimLot = new Lot[kLotSims]; public readonly bool[] Inside = new bool[kLotSims], Upper = new bool[kLotSims];
         }
@@ -212,17 +222,17 @@ namespace Ts3Fixes
         // docs/208 §9: the autofft2 / autofflot items of this batch. Done is cleared here: OffScore can stop before their loops.
         static void RankRequest()
         {
-            sT2N = 0; sLotPosted = false;
+            sT2N = 0; sIcN = 0; sLotPosted = false;
             sLotRef.Done = sLotWork.Done = false;
-            for (int i = 0; i < kT2Max; i++) sT2Ref[i].Done = sT2Work[i].Done = false;
+            for (int i = 0; i < kT2Max; i++) sT2Ref[i].Done = sT2Work[i].Done = sIcRef[i].Done = sIcWork[i].Done = false;
             int[] c = PatchCounters();
             try
             {
-                if (ShortcutOn("autofft2")) T2Pick(sReqs[0].Actor);
+                if (ShortcutOn("autofft2")) { T2Pick(sReqs[0].Actor); if (ShortcutOn("autofft2ic") && IcWorld()) { sIcN = sT2N; sIcHh = Household.ActiveHousehold; } }
                 if (ShortcutOn("autofflot")) sLotPosted = LotRequest(sLotReq);
             }
             catch (Exception e) { c[cT2 + 5]++; AutNote("offload rank request: " + e.Message); }
-            c[cT2] += sT2N;
+            c[cT2] += sT2N; c[cIc] += sIcN;
             if (sLotPosted) c[cLot]++;
             if (sT2N > 0 || sLotPosted) { sOffPosted = true; sOffTick = Simulator.TicksElapsed(); }
         }
@@ -253,6 +263,7 @@ namespace Ts3Fixes
             IActor sel = PlumbBob.SelectedActor;
             Household h = sel != null ? sel.Household : null;
             if (h == null) return false;
+            q.H = h;  // houseboat row: the household's own lots stay refused (docs/208 §9.2)
             Sim active = Sim.ActiveActor;
             Lot home = active != null ? active.LotHome : null;
             q.Base.Clear();
@@ -387,6 +398,18 @@ namespace Ts3Fixes
                 r.Done = !(worker && AutShadowNative.Stopped());
                 if (!r.Done) return;
             }
+            IcRes[] ir = worker ? sIcWork : sIcRef;
+            for (int k = 0; k < sIcN; k++)
+            {
+                IcRes r = ir[k];
+                r.Exc = false; r.Abort = -1;
+                if (worker && AutShadowNative.Stopped()) return;
+                try { IcRead(sT2Objs[k], r.V); }
+                catch (Exception) { r.Exc = true; }
+                Settle(ref r.Abort);
+                r.Done = !(worker && AutShadowNative.Stopped());
+                if (!r.Done) return;
+            }
             if (sLotPosted)
             {
                 LotRes r = worker ? sLotWork : sLotRef;
@@ -459,6 +482,17 @@ namespace Ts3Fixes
                     && AutShadowCore.Bits(w.Fwd.y) == AutShadowCore.Bits(r.Fwd.y) && AutShadowCore.Bits(w.Fwd.z) == AutShadowCore.Bits(r.Fwd.z);
                 c[eq ? cT2 + 1 : cT2 + 2]++;
                 if (!eq) OffLog("t2", sT2Objs[k], w.Fwd.x, r.Fwd.x, w.Fwd.z, r.Fwd.z, w.Roof ? 1 : 0, r.Roof ? 1 : 0);
+            }
+            for (int k = 0; k < sIcN; k++)
+            {
+                IcRes w = sIcWork[k], r = sIcRef[k];
+                if (!cmp || !w.Done || !r.Done) { c[cIc + 4]++; continue; }
+                if (w.Exc || r.Exc) { c[cIc + 5]++; continue; }
+                if (w.Abort >= 0 || r.Abort >= 0) { c[cIc + 3]++; Reason(48, w.Abort >= 0 ? w.Abort : r.Abort); continue; }
+                int d = 0;
+                while (d < kIcV && w.V[d] == r.V[d]) d++;
+                c[d == kIcV ? cIc + 1 : cIc + 2]++;
+                if (d < kIcV) OffLog("t2ic", sT2Objs[k], d, 0, 0, 0, (int)w.V[d], (int)r.V[d]);
             }
             if (sLotPosted)
             {
@@ -674,6 +708,116 @@ namespace Ts3Fixes
             r.Pool = o is Sim ? 0UL : Sims3.SimIFace.World.GetPoolObjectIdForPoolBelowPosition(o.Position).Value;
         }
 
+        // docs/126 §8: the IC rows through the game's own wrappers, one function per group (each lane edits only its own)
+        static bool IcWorld()
+        {
+            if (sIcWorld == null)
+            {
+                FieldInfo f = typeof(Sims3.SimIFace.World).GetField("gWorld", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                sIcWorld = f != null ? f.GetValue(null) as IWorld : null;
+            }
+            return sIcWorld != null;
+        }
+
+        static void IcRead(GameObject o, long[] v)
+        {
+            Array.Clear(v, 0, v.Length);
+            IcG1(o, v); IcG2(o, v); IcG3(o, v); IcG4(o, v); IcG5(o, v);
+        }
+
+        // G1 terrain and floor, slots 0-5 (rows: TerrainHeight, TerrainType, HasFloorFeatures, HasFloorFeaturesWorldPos,
+        // IsCameraRoutable, IsOnPlatform). Flags 4 = RainPuddle (docs/126 §4.1 #6: the only flag WorldPos answers), mask all.
+        static void IcG1(GameObject o, long[] v)
+        {
+            Vector3 p = o.Position;
+            v[0] = AutShadowCore.Bits(Sims3.SimIFace.World.GetTerrainHeight(p.x, p.z, true));
+            v[1] = (long)Sims3.SimIFace.World.GetTerrainType(p.x, p.z, 0);
+            Lot lot = o.LotCurrent;
+            if (lot != null)
+            {
+                LotLocation loc = new LotLocation();
+                Sims3.SimIFace.World.GetLotLocation(p, ref loc);
+                v[2] = sIcWorld.HasFloorFeatures(lot.LotId, loc, (FloorFeatureFlags)4, 0xFFFF) ? 1 : 2;
+            }
+            v[3] = sIcWorld.HasFloorFeaturesWorldPos(p, (FloorFeatureFlags)4, 0xFFFF) ? 1 : 2;
+            v[4] = Sims3.SimIFace.World.IsCameraRoutable(p.x, p.z) ? 1 : 2;
+            v[5] = Sims3.SimIFace.World.IsOnPlatform(p) ? 1 : 2;
+        }
+
+        // G2 pools, slots 6-8 (IsInPool, HasPool, GetPondAtPoint): the lot rows need a lot, the pond row asks the world (lot 0) too.
+        static void IcG2(GameObject o, long[] v)
+        {
+            Vector3 p = o.Position;
+            Lot lot = o.LotCurrent;
+            if (lot != null)
+            {
+                LotLocation loc = new LotLocation();
+                Sims3.SimIFace.World.GetLotLocation(p, ref loc);
+                v[7] = Sims3.SimIFace.World.HasPool(lot.LotId, loc) ? 1 : 2;
+                v[8] = (long)Sims3.SimIFace.World.GetPondAtPoint(lot.LotId, p) + 1;
+            }
+            v[6] = Sims3.SimIFace.World.IsInPool(p) ? 1 : 2;
+        }
+
+        // G3 lot and room, slots 9-10 (GetRoomId, LotIsEntranceFromTargetPoint); the room id is +1 so 0 stays "not asked"
+        static void IcG3(GameObject o, long[] v)
+        {
+            Lot lot = o.LotCurrent;
+            if (lot == null) return;
+            LotLocation loc = new LotLocation();
+            Sims3.SimIFace.World.GetLotLocation(o.Position, ref loc);
+            v[9] = (long)Sims3.SimIFace.World.GetRoomId(lot.LotId, loc, eRoomDefinition.Default) + 0x10001;
+            v[10] = Sims3.SimIFace.World.LotIsEntranceFromTargetPoint(lot.LotId) ? 1 : 2;
+        }
+
+        // G4 object fields and session, slots 11-14 (GetBoundingBox as a hash of the 6 float bits, IsValid, LightGetDimmer bits,
+        // GetWorldFileName length + hash)
+        static void IcG4(GameObject o, long[] v)
+        {
+            BoundingBox b = Sims3.SimIFace.Objects.GetBoundingBox(o.ObjectId);
+            long h = 17;
+            h = h * 31 + AutShadowCore.Bits(b.min.x); h = h * 31 + AutShadowCore.Bits(b.min.y); h = h * 31 + AutShadowCore.Bits(b.min.z);
+            h = h * 31 + AutShadowCore.Bits(b.max.x); h = h * 31 + AutShadowCore.Bits(b.max.y); h = h * 31 + AutShadowCore.Bits(b.max.z);
+            v[11] = h;
+            v[12] = Sims3.SimIFace.Objects.IsValid(o.ObjectId) ? 1 : 2;
+            v[13] = AutShadowCore.Bits(Sims3.SimIFace.World.LightGetDimmer(o.ObjectId));
+            string n = Sims3.SimIFace.World.GetWorldFileName();
+            long w = 7;
+            if (n != null) for (int i = 0; i < n.Length; i++) w = w * 31 + n[i];
+            v[14] = w + (n != null ? n.Length : 0) + 1;
+        }
+
+        // G5 E rows (docs/data/tier2-enablers-handoff.md), slots 15-19: GetTilesWithFloorFeatures (puddles, hash of the tiles),
+        // FindPondRepresentativePositions (hash of the floats, 2 = false), GetLotLocationAtFloor (lot id and the out over a
+        // fixed in-value, so a byte the game leaves must come back as that in-value), WorldToHouseboat and HouseboatToWorld
+        // (out over a fixed in-value; 2 = false). A household-owned lot is not asked (household rule, docs/208 §9.2).
+        static void IcG5(GameObject o, long[] v)
+        {
+            Lot lot = o.LotCurrent;
+            if (lot == null) return;
+            if (lot.Household != null && lot.Household == sIcHh) return;
+            Vector3 p = o.Position;
+            LotLocation[] tiles = sIcWorld.GetTilesWithFloorFeatures(lot.LotId, eRoomDefinition.PlacementBlocking, FloorFeatureFlags.Puddle, 0xFFFF);
+            long h = 19 + (tiles != null ? tiles.Length : -1);
+            if (tiles != null) foreach (LotLocation t in tiles) h = ((h * 31 + t.mX) * 31 + t.mZ) * 31 + t.mLevel * 65536 + t.mRoom;
+            v[15] = h;
+            float[] pond = null;
+            if (sIcWorld.FindPondRepresentativePositions(lot.LotId, ref pond))
+            {
+                h = 23 + (pond != null ? pond.Length : -1);
+                if (pond != null) for (int i = 0; i < pond.Length; i++) h = h * 31 + AutShadowCore.Bits(pond[i]);
+                v[16] = h;
+            }
+            else v[16] = pond == null ? 2 : 3;
+            LotLocation loc = new LotLocation(0x5A5A, 0x6B6B, 0x7C, 0x1D1D);
+            ulong id = sIcWorld.GetLotLocationAtFloor(p, ref loc, eRoomDefinition.Default);
+            v[17] = (long)id * 31 + (((long)loc.mX * 31 + loc.mZ) * 31 + loc.mLevel) * 65536 + loc.mRoom;
+            Vector3 q = new Vector3(-7f, -8f, -9f);
+            v[18] = Sims3.SimIFace.World.GetWorldToHouseboatDisplayPosition(lot.LotId, p, out q) ? AutShadowCore.Bits(q.x) * 31 + AutShadowCore.Bits(q.z) : 2;
+            q = new Vector3(-7f, -8f, -9f);
+            v[19] = Sims3.SimIFace.World.GetHouseboatDisplayToWorldPosition(lot.LotId, p, out q) ? AutShadowCore.Bits(q.x) * 31 + AutShadowCore.Bits(q.z) : 2;
+        }
+
         // The read part of Camera.GetClosestVisibleLot from the request's inputs, in the game's order: the candidate lots, then
         // the closest one. Not done: the sCurrentFocusedGreetedLot write and LotFocusChanged, which stay on the sim thread.
         // No List.Contains here: its EqualityComparer<T>.Default is a lazy static fill.
@@ -696,6 +840,8 @@ namespace Ts3Fixes
             {
                 Lot l = list[i];
                 if (l == null) continue;
+                // household-owned houseboat: the worker never asks the houseboat row for it (household rule, docs/208 §9.2)
+                if (l.Household != null && l.Household == q.H && l.IsHouseboatLot() && OnWorker()) { AutShadowNative.Abort(kReasonModType); return; }
                 float d;
                 int cell = LotCellOf(l, q.Target, out d);
                 int step = AutOffloadCore.LotPickStep(cell, d, l.IsHouseboatLot(), ref best);

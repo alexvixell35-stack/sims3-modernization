@@ -43,7 +43,9 @@
       "AutShadow.Satb": 2,
       "AutShadow.WindowWaitUs": 0,
       "AutShadow.PreLearn": 0,
-      "AutShadow.TierReqLots": 1
+      "AutShadow.TierReqLots": 1,
+      "CasTrim.Mode": 0,
+      "CasTrim.Detect": 0
     },
     "earlyGates": [
       {
@@ -139,7 +141,11 @@
           "slice": 2
         }
       },
-      "timeoutMin": 30
+      "timeoutMin": 30,
+      "ini": {
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
+      }
     },
     {
       "id": "bp-gu2-x-b1-stack",
@@ -183,7 +189,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -298,7 +306,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -393,7 +403,11 @@
           "slice": 2
         }
       },
-      "timeoutMin": 30
+      "timeoutMin": 30,
+      "ini": {
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
+      }
     },
     {
       "id": "ip-gu2-x-a1-rel",
@@ -417,7 +431,11 @@
           "slice": 2
         }
       },
-      "timeoutMin": 30
+      "timeoutMin": 30,
+      "ini": {
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
+      }
     },
     {
       "id": "ip-gu2-x-b1-stack",
@@ -461,7 +479,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -576,7 +596,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -671,7 +693,11 @@
           "slice": 2
         }
       },
-      "timeoutMin": 30
+      "timeoutMin": 30,
+      "ini": {
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
+      }
     },
     {
       "id": "bp-gu2-out-off",
@@ -715,7 +741,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -811,7 +839,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -928,7 +958,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -1020,7 +1052,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -1133,7 +1167,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -1247,7 +1283,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -1361,7 +1399,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -1475,7 +1515,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -1589,7 +1631,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -1703,7 +1747,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -1817,7 +1863,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {
@@ -1931,7 +1979,9 @@
         "AutShadow.Satb": 2,
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
+        "AutShadow.TierReqLots": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "earlyGates": [
         {

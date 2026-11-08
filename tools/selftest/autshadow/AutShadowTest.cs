@@ -249,6 +249,17 @@ static class AutShadowTest
             Console.WriteLine("ilhash " + key + " " + AutShadowCore.MethodIlHash(key, mb, cache).ToString("x16"));
         }
 
+        // tier-2 P1 (docs/219 §3.1): switch off or sim thread = the game's method; worker + switch = abort; household scope
+        // (incl. unknown) aborts uncounted; six override types, slots 884-889, fire 890
+        Check(AutShadowCore.T2Site(false, true, false) == 0 && AutShadowCore.T2Site(true, false, false) == 0
+            && AutShadowCore.T2Site(true, false, true) == 0, "T2Site: sim thread or switch off runs the game's method");
+        Check(AutShadowCore.T2Site(true, true, false) == 1 && AutShadowCore.T2Site(true, true, true) == 2, "T2Site: worker with the switch aborts (household: uncounted)");
+        Check(!AutShadowCore.T2Household(false, false, false, false, false), "T2Household: a non-selectable NPC outside the active household is not household");
+        Check(AutShadowCore.T2Household(true, false, false, false, false) && AutShadowCore.T2Household(false, true, false, false, false)
+            && AutShadowCore.T2Household(false, false, true, false, false) && AutShadowCore.T2Household(false, false, false, true, false)
+            && AutShadowCore.T2Household(false, false, false, false, true), "T2Household: null, destroyed, no description, selectable, active household = household");
+        Check(AutShadowCore.kT2InUseTypes.Length == AutShadowCore.kT2Fire && AutShadowCore.kT2N == 7, "T2: six get_InUse types before the fire slot");
+
         Console.WriteLine(sFails == 0 ? "autshadow selftest: PASS" : "autshadow selftest: " + sFails + " FAIL");
         return sFails == 0 ? 0 : 1;
     }

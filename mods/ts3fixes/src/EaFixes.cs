@@ -123,6 +123,7 @@ namespace Ts3Fixes
             Patch(typeof(Sims3.Gameplay.PetSystems.PetPool), "RandomRemovePet", typeof(PetPoolOrphanHook), "RandomHook", "RandomOrig");  // PetPoolOrphan.cs, docs/534
             Patch(typeof(Sims3.Gameplay.PetSystems.PetPool), "ClearAllPets", typeof(PetPoolOrphanHook), "ClearHook", "ClearOrig");  // PetPoolOrphan.cs, docs/534
             Patch(typeof(Sims3.Gameplay.Socializing.Relationship), "GetInternal", new Type[] { typeof(SimDescription), typeof(SimDescription), typeof(bool), typeof(bool) }, typeof(RelTablesApartHook), "GetHook", "GetOrig");  // RelTablesApart.cs, docs/535
+            Patch(typeof(Sims3.Gameplay.Objects.Decorations.DanceFloor), "FindAndRouteOntoADanceFloorWithFollower", typeof(DanceFloorDiagHook), "FindHook", "FindOrig");  // DanceFloorDiag.cs, docs/253
         }
 
         // ---- ageupkeepoutfits (#100) ----

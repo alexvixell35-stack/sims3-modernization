@@ -4,11 +4,12 @@
 // (docs/data/autonomy-proxy-ics.csv), new managed writes against the pilot union, verdict ready / new-rows / blocked.
 // Usage: node tools/autonomy-tier2.ts --asm <repo>/game-copy/assemblies [--index game-copy/analysis/callgraph/index.json] > docs/data/autonomy-tier2.csv
 //        (summary to stderr). Static only: reads the call-graph index, the assemblies' metadata and docs/data CSVs.
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { defRoots, ownTags, icVerdicts, subtypes, virtualTargets, familyTargets, onChain, receiverTypes, type Recv } from './managed-callgraph.ts';
 
 const arg = (n: string, d: string) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : d; };
 type Rec = { k: string; a: number; ic?: string; c: number[]; fw: number[] };
+if (process.argv.includes('--self-check') && !existsSync(arg('--index', 'game-copy/analysis/callgraph/index.json'))) { console.log('autonomy-tier2 self-check: no call-graph index (game-copy), skipped'); process.exit(0); }
 export const ix: { asms: { name: string }[]; kinds: string[]; methods: Rec[]; fields: string[] } =
   JSON.parse(readFileSync(arg('--index', 'game-copy/analysis/callgraph/index.json'), 'utf8'));
 const DEPTH = 12;
@@ -35,8 +36,17 @@ export const CUT = ['Sims3.Gameplay.Seasons.SeasonsManager::LazyAllocateManager(
 if (!process.argv.includes('--no-tier2-hooks')) CUT.push('Sims3.Gameplay.UI.LiveDragHelperModel::get_CachedTopDraggedObject(',
   'Sims3.Gameplay.UI.LiveDragHelperModel::get_TopDraggedObject(', 'Sims3.Gameplay.Autonomy.Autonomy::UpdateCacheIfNeeded(',
   'Sims3.Gameplay.Autonomy.InteractionObjectPair::AddTuning(', 'Sims3.Gameplay.Autonomy.Autonomy::get_IsSufficientlyOnScreenForHighLODSimulation(');
+// docs/219 §3.1 tier-2 P1 (built 2026-11-08, ts3fixes AutInUseHook / AutFireHook, switches autt2inuse / autt2fire, not run):
+// the six get_InUse overrides that can destroy their prop and the leaf-pile fire check abort on the worker.
+// --no-tier2-p1 gives the counts before them.
+if (!process.argv.includes('--no-tier2-hooks') && !process.argv.includes('--no-tier2-p1')) CUT.push(
+  ...['Sims3.Gameplay.Objects.Gardening.Soil', 'Sims3.Store.Objects.BBallHoop+BBallHoopBall', 'Sims3.Store.Objects.BBallArcade+BBallArcadeBall',
+    'Sims3.Store.Objects.ChocolateFountain+ChocolateFountainSkewer', 'Sims3.Store.Objects.IceCreamMaker+IceCreamCone',
+    'Sims3.Store.Objects.GardenStation+GardenStationProp'].map((t) => `${t}::get_InUse(`),
+  'Sims3.Gameplay.Controllers.FireManager::HasOnlyLeafPileFires(');
 // Lazy fills of a fixed value (docs/126 §3 pre-warm list, read in the decompiled source): one sim-thread call per load, then reads.
-export const PREWARM = /::(sRoommateManager|sMaxHunger|mCachedCuriousDewRecipe|cjk\w+|utf8EncodingWithoutMarkers|cache)$/;
+// LiveDragHelperModel::gSingleton: tier-2 P1 drag pre-warm (switch autt2dragwarm).
+export const PREWARM = /::(sRoommateManager|sMaxHunger|mCachedCuriousDewRecipe|cjk\w+|utf8EncodingWithoutMarkers|cache)$|LiveDragHelperModel::gSingleton$/;
 const ics = icVerdicts();
 const icRow = new Map(csv('docs/data/ic-safety.csv').map((r) => [r.ic, r]));
 export const snap = new Map(csv('docs/data/autonomy-proxy-ics.csv').map((r) => [r.ic.slice(r.ic.indexOf('::')), r.class]));
@@ -114,9 +124,22 @@ const TIER2_ROW = new Set(['World_GetTerrainHeightImpl', 'World_GetTerrainSurfac
 // docs/126 §4.1 + docs/131 §9 [verified: direct calls to 0x831710 at hop 5]: rows whose fill runs the lazy terrain
 // footprint update under the steering lock +0x918 when the lot level bit +0x168 is clear: fill at the cut only when the bit is set.
 const TIER2_CUT = new Set(['World_GetTerrainSurfaceTypeImpl', 'World_GetFloorSurfaceTypeImpl', 'World_GetInformationAboutRoomImpl']);
+// docs/126 §8 / docs/219 §2 [verified: host selftest per row; Mode R dry compare pending]: rows built behind [AutShadow]
+// Tier2Rows (+ Tier2IcRows): class `row`, no longer a new row. Each lane adds its group here once its selftest passes.
+export const TIER2_BUILT = new Set(['World_GetPoolObjectIdForPoolBelowPositionImpl', 'Objects_GetForward',
+  // G1 terrain and floor (docs/data/tier2-rows-handoff.md)
+  'World_GetTerrainHeightImpl', 'World_GetTerrainTypeImpl', 'World_HasFloorFeaturesImpl', 'World_HasFloorFeaturesWorldPosImpl',
+  'World_IsCameraRoutableImpl', 'World_IsOnPlatformImpl',
+  // G2 pools, G3 lot and room, G4 object fields and session
+  'World_IsInPoolImpl', 'World_HasPoolImpl', 'World_GetPondAtPoint', 'World_GetRoomIdImpl', 'World_LotIsEntranceFromTargetPointImpl',
+  'Objects_GetBoundingBox', 'Objects_IsValid', 'World_LightGetDimmerImpl', 'World_GetWorldFileName',
+  // E rows: write mask (E1) and ulong[] copy (E2), docs/data/tier2-enablers-handoff.md
+  'World_GetTilesWithFloorFeaturesImpl', 'World_FindPondRepresentativePositions', 'World_GetLotLocationAtFloorImpl',
+  'World_GetWorldToHouseboatDisplayPositionImpl', 'World_GetHouseboatDisplayToWorldPositionImpl']);
 export function icClass(name: string): string {
   const meth = name.slice(name.indexOf('::'));
   if (snap.has(meth)) return snap.get(meth)!;
+  if (TIER2_BUILT.has(meth.slice(2))) return 'row';
   if (TIER2_CUT.has(meth.slice(2))) return 'a-cut';
   if (TIER2_ROW.has(meth.slice(2))) return 'a-row';
   if (/::Random_/.test(name)) return 'b';
@@ -181,7 +204,13 @@ for (const e of entries) {
   if (e.kind === 'base') { const b = d.replace(/^base path: /, ''); if (!PILOT_BASE.includes(b) && BASE[b]) cands.push({ group: 'base-local', rank: e.rank, samples: e.samples, share: e.share_of_scoring, ctx: e.context, name: d, asm: '', roots: starts(BASE[b]) }); continue; }
   if (e.kind === 'scoring-function') { const m = d.match(/^scoring function (\w+)\.(\w+)$/)!; cands.push({ group: 'scoring-function', rank: e.rank, samples: e.samples, share: e.share_of_scoring, ctx: e.context, name: d, asm: '', roots: ix.methods.flatMap((x, i) => (x.k.includes(`.${m[1]}::${m[2]}(`) ? [i] : [])) }); continue; }
   if (/unresolved|MetaInteractionScoredByVenue/.test(d)) continue;
-  for (const t of d.split(' | ')) if (!inV0.has(t) && !metaSet.has(t) && !cands.some((c) => c.name === t)) defCand('local-sampled', e, t, e.assembly);
+  for (const t of d.split(' | ')) if (!inV0.has(t) && !metaSet.has(t) && !cands.some((c) => c.name === t)) {
+    // docs/219 P4: a sampled abstract base (Phone+Call+CallDefinition`1, 63 subclasses) stands for its concrete subclasses; one candidate per
+    // subclass, so its roots get the subclass family and only that subclass's Test is reached (the base row's samples split evenly [inferred]).
+    const all = subtypes(t) ?? [], conc = all.filter((x) => !x.abstract);
+    if (all.some((x) => x.full === t && x.abstract) && conc.length) { for (const x of conc) if (!inV0.has(x.full) && !metaSet.has(x.full) && !cands.some((c) => c.name === x.full)) defCand('local-sampled', e, x.full, x.asm); }
+    else defCand('local-sampled', e, t, e.assembly);
+  }
 }
 // Row 5: definitions named "Definition" outside meta whose own Test calls a generic base Test (docs/75 §2 resolution rule).
 const row5 = entries.find((e) => /unresolved: \d+ candidates; callee base Test; commodity/.test(e.definition_type))!;
@@ -205,10 +234,21 @@ export function classify(c: Cand, r: Clo) {
   for (const f of r.own) { keys.push(f); blockers.push(`OWN_FIELD_WRITE ${f.replace(/^.*::/, '')}`); }
   const hooked = c.roots.every((i) => CUT.some((x) => ix.methods[i].k.startsWith(x)));
   const verdict = hooked ? 'hooked' : blockers.length ? 'blocked' : newIcs.some(([, cl]) => /^a/.test(cl)) ? 'new-rows' : 'ready';
-  const reason = hooked ? 'root is a worker hook site (docs/126 §3): the worker answers there' : blockers[0] ?? (verdict === 'new-rows' ? `new IC ${newIcs.find(([, cl]) => /^a/.test(cl))![0].replace(/^.*::/, '')}` : 'no IC or managed write outside the pilot');
+  const reason = hooked ? 'root is a worker hook site (docs/126 §3): the worker answers there' : blockers[0] ?? (verdict === 'new-rows' ? `new IC ${newIcs.find(([, cl]) => /^a/.test(cl))![0].replace(/^.*::/, '')}` : newIcs.some(([, cl]) => cl === 'row') ? `built rows only (docs/126 §8, Mode R dry compare pending): ${newIcs.filter(([, cl]) => cl === 'row').map(([n]) => n.replace(/^.*::/, '')).join(' ')}` : 'no IC or managed write outside the pilot');
   return { newIcs, abortB, blockers, keys, warm, verdict, reason };
 }
 
+if (/autonomy-tier2\.ts$/.test(process.argv[1] ?? '') && process.argv.includes('--self-check')) {
+  // docs/219 P4: the sampled abstract Phone base is split into its concrete subclasses, each with its own roots; no candidate is an abstract base.
+  const fail = (m: string) => { throw new Error('autonomy-tier2 self-check: ' + m); };
+  const base = 'Sims3.Gameplay.Objects.Electronics.Phone+Call+CallDefinition`1';
+  const phone = cands.filter((c) => c.group === 'local-sampled' && c.name.startsWith('Sims3.Gameplay.Objects.Electronics.Phone+'));
+  if (cands.some((c) => c.name === base)) fail('the abstract CallDefinition base is still a candidate');
+  if (phone.length < 50 || phone.some((c) => !c.roots.length)) fail(`Phone subclasses: ${phone.length} candidates, ${phone.filter((c) => !c.roots.length).length} without roots`);
+  if (!phone.some((c) => c.name.endsWith('Phone+CallBandToLocation+Definition'))) fail('CallBandToLocation is not a candidate');
+  if (new Set(cands.map((c) => c.name)).size !== cands.length) fail('duplicate candidate names');
+  console.log(`autonomy-tier2 self-check ok: ${cands.length} candidates, ${phone.length} Phone subclasses split from the base row`); process.exit(0);
+}
 if (/autonomy-tier2\.ts$/.test(process.argv[1] ?? '')) {
 const out = ['group,entry_rank,definition_type,assembly,row_samples,row_share,context,closure_methods,ea_ics,new_ics,abort_branch_ics,blockers,prewarm,verdict,first_reason,first_blocker_path'];
 const esc = (s: string) => (/[",]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);

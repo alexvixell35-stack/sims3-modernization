@@ -520,6 +520,239 @@ namespace MonoHostTest
             return s;
         }
     }
+    public interface IJitKAF { int F(int k); int Bump(); }
+    public struct JitKAS : IJitKAF
+    {
+        public int X;
+        public int F(int k) { if (k > 0) return X + k; return X - k; }
+        public int Bump() { X = X + 1; return X; }
+        public override int GetHashCode() { if (X > 0) return X * 3; return 7; }
+    }
+    public struct JitKAN : IJitKAF
+    {
+        public int X; public long W;
+        public int F(int k) { if (k > 2) return X * k; return k - X; }
+        public int Bump() { X = X + 2; return X; }
+    }
+    public class JitKAC : IJitKAF
+    {
+        public int X;
+        public int F(int k) { if (k > 0) return X ^ k; return X; }
+        public int Bump() { X = X + 3; return X; }
+    }
+    public static class JitKA
+    {
+        static int Len(Array a, int d) { if (d < -100) return 0; return a.GetLength(d); }
+        static int Low(Array a, int d) { if (d < -100) return 0; return a.GetLowerBound(d); }
+        static int Rank(Array a, int k) { if (k > 100000) return 0; return a.Rank; }
+        // the arrays come from the case body: verify mode pairs a compiled pass's fresh objects with the interpreter's only for plain allocations
+        public static int Pure(Array a1, Array a2, Array a3, Array lb, int n)
+        {
+            int s = 0;
+            for (int i = 0; i < n; i++)
+            {
+                int d = i % 3;
+                s += Len(a1, 0) + Len(a2, d & 1) + Len(a3, d) + Low(lb, d & 1) + Len(lb, d & 1) + Low(a2, d & 1) + Rank(a1, i) + Rank(a3, i) + Rank(lb, i);
+            }
+            return s;
+        }
+        public static int PureBad(Array a, int d) { return Len(a, d) * 10 + Low(a, d); }
+        public static int Boxed(int n)
+        {
+            JitKAS s = new JitKAS(); s.X = 4; JitKAN t = new JitKAN(); t.X = 5; t.W = 9;
+            object os = s, ot = t; IJitKAF fs = s;
+            int r = 0;
+            for (int i = -n; i < n; i++) r += os.GetHashCode() + ot.GetHashCode() + fs.F(i) + ((i & 7) == 0 ? fs.Bump() : 0);
+            return r + ((JitKAS)fs).X * 1000 + ((JitKAS)os).X;
+        }
+        public static int BoxedPoly(int n)
+        {
+            IJitKAF[] a = new IJitKAF[3]; JitKAS s = new JitKAS(); s.X = 1; JitKAN t = new JitKAN(); t.X = 2; a[0] = s; a[1] = t; a[2] = new JitKAC();
+            int r = 0;
+            for (int i = 0; i < n; i++) { IJitKAF f = a[i % 3]; r += f.F(i) + f.Bump(); }
+            for (int i = 0; i < n; i++) { IJitKAF f = a[(i / 8) % 3]; r += f.F(i - 20); }
+            return r + ((JitKAS)a[0]).X * 1000 + ((JitKAN)a[1]).X * 100 + ((JitKAC)a[2]).X;
+        }
+        public static int BoxedNull(IJitKAF f, int k) { return f.F(k) + 1; }
+        static JitKAC Mk(int k) { if (k > 100000) return null; JitKAC c = new JitKAC(); c.X = k; return c; }
+        static int MkX(int k) { JitKAC c = Mk(k); if (c == null) return -1; return c.X + 1; }
+        static int L5(int k) { if (k > 100000) return 0; return 100 / (k & 3) + Mk(k).X; }
+        static int L4(int k) { int t = L5(k); if (t > 100000) return t; return t + 1; }
+        static int L3(int k) { int t = L4(k); if (t > 100000) return t; return t + 2; }
+        static int L2(int k) { int t = L3(k); if (t > 100000) return t; return t + 3; }
+        static int L1(int k) { int t = L2(k); if (t > 100000) return t; return t + 4; }
+        static int Thr(int k) { JitKAC c = Mk(k); return c.X / (k & 1); }
+        public static int Callee(int n) { int s = 0; for (int i = 0; i < n; i++) s += Mk(i).X + MkX(i); return s; }
+        public static int Chain5(int n) { int s = 0; for (int i = 1; i < n; i += 4) s += L1(i); return s; }
+        public static int Chain5Throw(int k) { return L1(k) + 1; }
+        public static int CatchChain5(int k) { try { return L1(k); } catch (DivideByZeroException) { return -7; } }
+        public static int ThrowAfterMat(int k) { return Thr(k) + 1; }
+        public static int Always(int n) { int s = 0; for (int i = 0; i < n; i++) s += MkX(i & 15); return s; }
+    }
+    public struct JitB1 { public byte V; }
+    public struct JitBOdd { public int A; public short B; public byte C; }
+    public struct JitBRef { public string S; public int N; public object O; }
+    public class JitKB
+    {
+        public JitTPt P; public JitB1 B; public JitBOdd D; public JitBRef R; public JitTBig G;
+        static int H(int s, JitTPt p) { return s * 31 + p.Sum(); }
+        static int H(int s, JitBOdd d) { return ((s * 31 + d.A) * 31 + d.B) * 31 + d.C; }
+        static int H(int s, JitBRef r) { return ((s * 31 + r.N) * 31 + (r.S == null ? 1 : r.S.Length)) * 31 + (r.O == null ? 3 : 5); }
+        public static int StFld(JitKB o, int n)
+        {
+            int s = 0;
+            for (int i = 0; i < n; i++)
+            {
+                JitTPt p = new JitTPt(i, -i, 3); o.P = p;
+                JitB1 b; b.V = (byte)(i * 7); o.B = b;
+                JitBOdd d; d.A = i; d.B = (short)(-i * 3); d.C = (byte)(i + 200); o.D = d;
+                JitBRef r; r.S = (i & 1) == 0 ? "ab" : null; r.N = i; r.O = (i & 2) == 0 ? (object)o : null; o.R = r;
+                JitTBig g; g.A = i; g.B = 1; g.C = 2; g.D = 3; g.E = -i; o.G = g;
+                s = H(s, o.P) + o.B.V; s = H(s, o.D); s = H(s, o.R) + o.G.Sum();
+            }
+            return s;
+        }
+        public static int StFldNull(JitKB o, int k) { JitBOdd d; d.A = k; d.B = 1; d.C = 2; o.D = d; return k; }
+        public static int Elem(int n)
+        {
+            JitTPt[] a = new JitTPt[5]; JitB1[] b = new JitB1[3]; JitBOdd[] d = new JitBOdd[4]; JitBRef[] r = new JitBRef[2]; JitTBig[] g = new JitTBig[2];
+            int s = 0;
+            for (int i = 0; i < n; i++)
+            {
+                JitTPt p = new JitTPt(i, i + 1, -i); a[i % 5] = p; JitTPt q = a[(i * 3) % 5]; s = H(s, q);
+                JitB1 x; x.V = (byte)i; b[i % 3] = x; x = b[(i + 1) % 3]; s += x.V;
+                JitBOdd y; y.A = -i; y.B = (short)i; y.C = (byte)(i * 5); d[i & 3] = y; y = d[(i + 2) & 3]; s = H(s, y);
+                JitBRef z; z.S = i % 3 == 0 ? null : "xyz"; z.N = i; z.O = a; r[i & 1] = z; z = r[(i + 1) & 1]; s = H(s, z);
+                JitTBig w; w.A = i; w.B = i; w.C = i; w.D = i; w.E = 1; g[i & 1] = w; w = g[0]; s += w.Sum();
+                a[0] = a[4]; d[1] = d[3];
+            }
+            return s;
+        }
+        public static int ElemLd(JitTPt[] a, int k) { JitTPt p = a[k]; return p.X; }
+        public static int ElemSt(JitBOdd[] a, int k) { JitBOdd d; d.A = k; d.B = 2; d.C = 3; a[k] = d; return a.Length; }
+        static void Swap(ref JitTPt x, ref JitTPt y) { JitTPt t = x; x = y; y = t; }
+        static void SwapOdd(ref JitBOdd x, ref JitBOdd y) { JitBOdd t = x; x = y; y = t; }
+        static void SwapRef(ref JitBRef x, ref JitBRef y) { JitBRef t = x; x = y; y = t; }
+        static T Get<T>(ref T x) { return x; }
+        static void Set<T>(ref T x, T v) { x = v; }
+        public static int Refs(int n)
+        {
+            JitTPt a = new JitTPt(1, 2, 3), b = new JitTPt(4, 5, 6); JitBOdd c, d; c.A = 1; c.B = 2; c.C = 3; d.A = 4; d.B = 5; d.C = 6;
+            JitTPt[] arr = new JitTPt[] { a, b }; JitKB o = new JitKB(), o2 = new JitKB(); o2.P = b;
+            JitBRef e, f; e.S = "e"; e.N = 1; e.O = null; f.S = null; f.N = 2; f.O = o;
+            int s = 0, iv = 0; string sv = null; JitEnI en = JitEnI.A; JitB1 b1; b1.V = 1;
+            for (int i = 0; i < n; i++)
+            {
+                Swap(ref a, ref b); SwapOdd(ref c, ref d); SwapRef(ref e, ref f); Swap(ref arr[0], ref arr[1]); Swap(ref o.P, ref o2.P);
+                s = H(s, a); s = H(s, c); s = H(s, e); s = H(s, arr[0]); s = H(s, o.P);
+                Set(ref a, new JitTPt(i, 0, 1)); Set(ref b1, b1); b1.V++; Set(ref iv, i); Set(ref sv, (i & 1) == 0 ? "s" : null); Set(ref en, (JitEnI)(i & 7));
+                s = H(s, Get(ref a)) + Get(ref b1).V + Get(ref iv) + (Get(ref sv) == null ? 1 : 2) + (int)Get(ref en); s = H(s, Get(ref c));
+            }
+            return s;
+        }
+        static T At<T>(T[] a, int i) { return a[i]; }
+        static void Put<T>(T[] a, int i, T v) { a[i] = v; }
+        public static int Gen(int n)
+        {
+            JitTPt[] a = new JitTPt[3]; int[] b = new int[3]; string[] c = new string[3]; JitEnB[] d = new JitEnB[3]; JitBOdd[] e = new JitBOdd[3];
+            int s = 0;
+            for (int i = 0; i < n; i++)
+            {
+                Put(a, i % 3, new JitTPt(i, 1, 2)); Put(b, i % 3, i); Put(c, i % 3, (i & 1) == 0 ? "c" : null); Put(d, i % 3, (JitEnB)i);
+                JitBOdd y; y.A = i; y.B = 3; y.C = 4; Put(e, i % 3, y);
+                s = H(s, At(a, (i + 1) % 3)) + At(b, (i + 2) % 3) + (At(c, i % 3) == null ? 1 : 2) + (int)At(d, (i + 1) % 3); s = H(s, At(e, i % 3));
+            }
+            return s;
+        }
+        public static int GenBad(JitTPt[] a, int k) { Put(a, k, new JitTPt(k, k, k)); return At(a, k).X; }
+        public static int Coll(int n)
+        {
+            List<JitTPt> l = new List<JitTPt>(); Dictionary<JitKey, JitTPt> d = new Dictionary<JitKey, JitTPt>(); Dictionary<int, JitBOdd> e = new Dictionary<int, JitBOdd>();
+            int s = 0;
+            for (int i = 0; i < n; i++)
+            {
+                l.Add(new JitTPt(i, 2, 3)); if (l.Count > 7) l.RemoveAt(0); l[l.Count - 1] = new JitTPt(-i, i, 0);
+                s = H(s, l[i % l.Count]); s += l.IndexOf(new JitTPt(-i, i, 0)) + l.IndexOf(new JitTPt(99, 0, 0));
+                d[new JitKey(i % 11)] = new JitTPt(i, i, i); JitTPt v; if (d.TryGetValue(new JitKey((i * 7) % 13), out v)) s = H(s, v); else s += 5;
+                if ((i & 3) == 0) d.Remove(new JitKey(i % 5));
+                JitBOdd y; y.A = i; y.B = (short)i; y.C = 1; e[i % 6] = y; s = H(s, e[(i + 3) % 6 <= i ? (i + 3) % 6 : 0]);
+            }
+            foreach (KeyValuePair<JitKey, JitTPt> kv in d) s = H(s, kv.Value) + kv.Key.K;
+            foreach (JitTPt p in l) s = H(s, p);
+            return s;
+        }
+    }
+    public struct JitN1 { public byte V; public JitN1(int v) { V = (byte)(v * 3); } }
+    public struct JitN7 { public int A; public short B; public byte C; public JitN7(int a, int b) { A = a; B = (short)b; C = (byte)(a ^ b); } }
+    public struct JitN20 { public int A, B, C, D, E; public JitN20(int a) { A = a; B = a + 1; C = -a; D = a * a; E = 7; } public int Sum() { return A + B * 3 + C + D * 5 + E; } }
+    public struct JitNRef { public string S; public int N; public object O; public JitNRef(string s, int n, object o) { S = s; N = n; O = o; } }
+    public struct JitNPart { public int A, B; public long C; public JitNPart(int a) : this() { A = a; } }
+    public struct JitNThr { public int V; public JitNThr(int k) { if (k < 0) throw new ArgumentException("k"); V = 100 / k; } }
+    public struct JitNMid { public JitN7 In; public int K; public JitNMid(int k) { In = new JitN7(k, -k); K = new JitN1(k).V; } }
+    public struct JitNOut { public JitNMid M; public JitTPt P; public JitNOut(int k) { M = new JitNMid(k); P = new JitTPt(k, M.K, M.In.A); } }
+    public struct JitNDeep { public JitNOut O; public JitNThr T; public JitNDeep(int k) { O = new JitNOut(k); T = new JitNThr(k & 7); } }
+    public struct JitNGuid { public ulong V; public JitNGuid(ulong v) { V = v; } }
+    public class JitKN
+    {
+        public JitN7 F; public JitNRef R;
+        static int H(int s, JitN7 d) { return ((s * 31 + d.A) * 31 + d.B) * 31 + d.C; }
+        static int H(int s, JitNRef r) { return ((s * 31 + r.N) * 31 + (r.S == null ? 1 : r.S.Length)) * 31 + (r.O == null ? 3 : 5); }
+        static int H(int s, JitNPart p) { return ((s * 31 + p.A) * 31 + p.B) * 31 + (int)p.C; }
+        static int H(int s, JitNOut o) { return (H(s, o.M.In) + o.M.K) * 31 + o.P.X * 7 + o.P.Sum(); }
+        static JitN7 Ret7(int k) { return new JitN7(k, k + 1); }
+        static JitN20 Ret20(int k) { if (k > 100000) return new JitN20(0); return new JitN20(k); }
+        static int Take(JitN7 d, JitN20 w) { return d.A + d.B + d.C + w.Sum(); }
+        public static int Sizes(JitKN o, int n)
+        {
+            int s = 0; JitN7[] a = new JitN7[3]; JitNRef[] r = new JitNRef[2]; object box = null;
+            for (int i = 0; i < n; i++)
+            {
+                JitN1 b = new JitN1(i); JitN7 d = new JitN7(i, -i); JitTPt p = new JitTPt(i, 2, -3); JitN20 w = new JitN20(i);
+                s = H(s, d) + b.V + p.Sum() + w.Sum();
+                o.F = new JitN7(i * 3, 9); a[i % 3] = new JitN7(-i, i); r[i & 1] = new JitNRef((i & 1) == 0 ? "ab" : null, i, (i & 2) == 0 ? (object)o : null);
+                o.R = new JitNRef("x", -i, a); box = new JitN7(i, 1);
+                s = H(s, o.F) + H(s, a[(i + 1) % 3]) + H(s, r[(i + 1) & 1]) + H(s, o.R) + ((JitN7)box).A;
+                s += Take(new JitN7(i, 4), new JitN20(-i)) + Take(Ret7(i), Ret20(i)) + new JitN20(i + 1).Sum() + new JitN1(i + 2).V;
+                JitNPart q = new JitNPart(i); s = H(s, q);
+            }
+            return s;
+        }
+        public static int Thr(int k) { JitNThr t = new JitNThr(k); return t.V + 1; }
+        public static int CatchThr(int k) { try { return new JitNThr(k).V; } catch (DivideByZeroException) { return -1; } catch (ArgumentException) { return -2; } }
+        static int D3(int k) { JitNDeep d = new JitNDeep(k); return H(0, d.O) + d.T.V; }
+        static int D2(int k) { int t = D3(k); if (t > 1000000) return t; return t + new JitN7(k, 1).C; }
+        static int D1(int k) { int t = D2(k); if (t > 1000000) return t; return t + new JitN1(k).V; }
+        public static int Chain(int n) { int s = 0; for (int i = 1; i < n; i++) s = s * 31 + D1(i); return s; }
+        public static int ChainThrow(int k) { return D1(k) + 1; }
+        public static int Guid(ObjectGuid[] a, int n)
+        {
+            int s = 0;
+            for (int i = 0; i < n; i++)
+            {
+                ObjectGuid g = new ObjectGuid((ulong)(i * 0x100000001L)); JitNGuid h = new JitNGuid((ulong)i << 33);
+                a[i % a.Length] = g; s = s * 31 + g.GetHashCode() + (int)(h.V >> 33) + (g == new ObjectGuid((ulong)(i * 0x100000001L)) ? 1 : 0);
+                if (a[(i / 2) % a.Length].Equals(new ObjectGuid((ulong)((i / 2) * 0x100000001L)))) s += i;
+            }
+            return s;
+        }
+        public static int Coll(int n)
+        {
+            List<JitN7> l = new List<JitN7>(); Dictionary<int, JitN7> d = new Dictionary<int, JitN7>(); Dictionary<JitKey, string> e = new Dictionary<JitKey, string>();
+            List<KeyValuePair<int, string>> kl = new List<KeyValuePair<int, string>>();
+            int s = 0;
+            for (int i = 0; i < n; i++)
+            {
+                l.Add(new JitN7(i, 2)); if (l.Count > 6) l.RemoveAt(0); d[i % 9] = new JitN7(-i, i); e[new JitKey(i % 7)] = (i & 1) == 0 ? "e" : null;
+                kl.Add(new KeyValuePair<int, string>(i, (i & 1) == 0 ? "k" : null)); if (kl.Count > 5) kl.RemoveAt(0);
+                foreach (JitN7 x in l) s = H(s, x);
+                foreach (KeyValuePair<int, JitN7> kv in d) s = H(s + kv.Key, kv.Value);
+                foreach (KeyValuePair<JitKey, string> kv in e) s = s * 31 + kv.Key.K + (kv.Value == null ? 1 : 2);
+                foreach (KeyValuePair<int, string> kv in kl) s = s * 31 + kv.Key + (kv.Value == null ? 3 : 4);
+                KeyValuePair<JitKey, JitTPt> p = new KeyValuePair<JitKey, JitTPt>(new JitKey(i), new JitTPt(i, 1, 2)); s += p.Key.K + p.Value.Sum();
+            }
+            return s;
+        }
+    }
     public struct JitKey : IEquatable<JitKey>
     {
         public int K;
@@ -534,7 +767,7 @@ namespace MonoHostTest
 
     public static class JitCorpus
     {
-        public const int Count = 212;
+        public const int Count = 230;
         static readonly int[] I4 = { 0, 1, -1, 2, -2, 3, 7, -7, 16, 31, 32, 33, 0x7FFF, 0x8000, 0xFFFF, 0x10000, 0x3FFFFFFF, 0x40000000, int.MaxValue, int.MinValue, int.MinValue + 1, int.MaxValue - 1 };
         static readonly long[] I8 = { 0L, 1L, -1L, 2L, -2L, 7L, 0x7FFFFFFFL, 0x80000000L, -0x80000000L, 0xFFFFFFFFL, 0x100000000L, long.MaxValue, long.MinValue, long.MinValue + 1, -3037000500L, 3037000500L };
         static readonly int[] SH = { 0, 1, 7, 15, 16, 31, 32, 33, 63, 64, 65, -1, int.MinValue };
@@ -2059,6 +2292,98 @@ namespace MonoHostTest
                 case 211: // Acc Household.EveryHumanSimDescription
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.EveryHumanCase(i)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 212: // JitKA.Pure (pure Array icalls: szarray, rank 2 and 3, non-zero lower bounds, Rank)
+                {
+            int[] a1 = new int[5]; int[,] a2 = new int[3, 4]; int[,,] a3 = new int[2, 3, 4]; Array lb = Array.CreateInstance(typeof(int), new int[] { 3, 2 }, new int[] { -2, 5 });
+            try { h = M(h, JitKA.Pure(a1, a2, a3, lb, 40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 213: // JitKA.PureBad (GetLength / GetLowerBound: dim past the rank, negative dim, null this; EA throws)
+                {
+            int[] a1 = new int[2]; int[,] a2 = new int[2, 3];
+            try { h = M(h, JitKA.PureBad(a1, 0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.PureBad(a1, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.PureBad(a1, -1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.PureBad(a2, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.PureBad(a2, 2)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.PureBad(null, 0)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 214: // JitKA.Boxed (boxed struct receivers: an override (box + 4), ValueType.GetHashCode (the box), an interface call that mutates the box)
+                {
+            try { h = M(h, JitKA.Boxed(40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 215: // JitKA.BoxedPoly / BoxedNull (two boxed structs and a class at one interface site, then runs of one class; a null receiver)
+                {
+            try { h = M(h, JitKA.BoxedPoly(48)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.BoxedNull(null, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.BoxedNull(new JitKAC(), 2)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 216: // JitKA.Callee / Always (a newobj exit in a lazy callee, at the entry of every call)
+                {
+            try { h = M(h, JitKA.Callee(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.Always(40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 217: // JitKA.Chain5 (a lazy chain five deep, newobj exit at level 5)
+                {
+            try { h = M(h, JitKA.Chain5(40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 218: // JitKA.Chain5Throw / CatchChain5 (DivideByZeroException at level 5 after a frame write; caught in the compiled caller)
+                {
+            try { h = M(h, JitKA.Chain5Throw(4)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.Chain5Throw(5)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.CatchChain5(8)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.CatchChain5(9)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 219: // JitKA.ThrowAfterMat (the frame is written at the newobj exit, then the callee divides by zero)
+                {
+            try { h = M(h, JitKA.ThrowAfterMat(3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.ThrowAfterMat(4)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 220: // JitKB.StFld / StFldNull (B1 stfld.vt of 1-, 7-, 12-, 20-byte structs and one with references; a null receiver exits, EA throws)
+                {
+            JitKB o = new JitKB(); try { h = M(h, JitKB.StFld(o, 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.StFldNull(o, 3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.StFldNull(null, 4)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 221: // JitKB.Elem / ElemLd / ElemSt (B1 ldelem.any.vt / stelem.any.vt; null, -1 and the length exit, EA throws)
+                {
+            JitTPt[] a = new JitTPt[3]; JitBOdd[] d = new JitBOdd[2]; try { h = M(h, JitKB.Elem(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemLd(a, 2)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemLd(a, 3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemLd(a, -1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemLd(null, 0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemSt(d, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemSt(d, 2)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemSt(d, -1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemSt(null, 0)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 222: // JitKB.Refs (B1 ldobj / stobj.vt through ref locals, array elements, heap fields; generic ref T of int, string, enum stay EA's)
+                {
+            try { h = M(h, JitKB.Refs(40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 223: // JitKB.Gen / GenBad (B1 generic T[] loads and stores of a struct, int, string, enum; bounds and null exits)
+                {
+            JitTPt[] a = new JitTPt[2]; try { h = M(h, JitKB.Gen(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.GenBad(a, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.GenBad(a, 2)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.GenBad(null, 0)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 224: // JitKB.Coll (B1 List of a struct, Dictionary with colliding struct keys and struct values, Dictionary<int, 7-byte struct>, enumerators)
+                {
+            try { h = M(h, JitKB.Coll(60)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 225: // JitKN.Sizes (B2b newobj of 1-, 7-, 12-, 20-byte structs and one with references; stored, passed, returned, boxed, in arrays and fields; a ctor with : this())
+                {
+            JitKN o = new JitKN(); try { h = M(h, JitKN.Sizes(o, 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.Sizes(null, 2)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 226: // JitKN.Thr / CatchThr (B2b a ctor that throws ArgumentException or DivideByZeroException; caught outside and in the compiled caller)
+                {
+            try { h = M(h, JitKN.Thr(5)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.Thr(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.Thr(-1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.CatchThr(4)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.CatchThr(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.CatchThr(-3)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 227: // JitKN.Chain / ChainThrow (B2b newobj inside ctors four deep under a lazy chain three deep; the innermost ctor divides by zero)
+                {
+            try { h = M(h, JitKN.Chain(24)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.ChainThrow(8)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.ChainThrow(9)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 228: // JitKN.Guid (B2b ObjectGuid and an ObjectGuid-like struct via newobj, compared and stored in an array; a Dictionary<ObjectGuid, int> made here gave one verify MISMATCH with NewVt on and off, fresh-object pairing)
+                {
+            ObjectGuid[] a = new ObjectGuid[5]; try { h = M(h, JitKN.Guid(a, 40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 229: // JitKN.Coll (B2b foreach over List / Dictionary: Enumerator and KeyValuePair newobj; KeyValuePair of struct key and value)
+                {
+            try { h = M(h, JitKN.Coll(30)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
             }

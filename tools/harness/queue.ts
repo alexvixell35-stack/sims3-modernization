@@ -79,6 +79,8 @@
 // Any ScriptError xml whose only section is 'Correction Logs' with no exception/stack/Ts3Fixes line is never counted (correctionOnly, all queues).
 // scriptErrorsAllow: [regex, ...] = a new ScriptError_*.xml that is a correction-only NRaas ErrorTrap report (no stack frames) and whose every
 // content line before 'Loaded Assemblies:' (section headers '-- x --' and blanks aside) matches one of the regexes is not counted, like a known EA error.
+// scriptErrorsReport: [regex, ...] = a new ScriptError_*.xml whose text matches one of the regexes is the case under study: listed and counted
+// as "REPORT: N script errors matching" (never a FAIL) and not counted toward scriptErrorsMax (docs/253 dancefloor-diag: the throw itself).
 // profile: profile-world.ts --tag <queue>-<date>-<job> (--seed: seed_rng at the window start, docs/27); rng-compare.ts reads the rows.
 // routelock: autopilot (default ultra) + the probe's /routelock watch for `minutes` (watchdog.ts runs alongside), then stop;
 // the summary (G11 movable ms/s, unlocked gate entries, lock hold/wait) goes in the row as `routelock`, the full report with
@@ -201,6 +203,9 @@ export function correctionOnly(xml: string): boolean {
   return heads.length === 1 && /^-- Correction Logs --$/i.test(heads[0]) && lines.length > 1 &&
     !lines.some(l => /exception|stack ?trace|^#\d+:|^at\s|Ts3Fixes|Wildflower/i.test(l));
 }
+// scriptErrorsReport: the error under study (any regex matches the xml text)
+export function reportedError(xml: string, res: string[]): boolean { return res.some(r => new RegExp(r).test(xml)); }
+
 export function allowedCorrection(xml: string, allow: string[]): boolean {
   if (correctionOnly(xml)) return true;
   if (!allow.length) return false;
@@ -260,11 +265,11 @@ function machineCols(tag: string) { return tag ? { head: ' machine |', sep: '---
 function machineField(tag: string): { machineTag?: string } { return tag ? { machineTag: tag } : {}; }
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; run: { repro?: string; saveReload?: string[]; script?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
-    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; timeoutMin?: number; pin?: false | PinOpts;
+    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
   saveMatrix?: { fixes?: 'all' | 'shipped' }; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; shadowCheck?: boolean; skipIfMissing?: boolean; ourMods?: false };
 
 // every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
-const JOB_KEYS = new Set(['id', 'note', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'stopQueueOnFail', 'reuseSession', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
+const JOB_KEYS = new Set(['id', 'note', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'reuseSession', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
 // ---- vanilla mode (docs/236): what a job may not ask for without ts3native/ts3fixes, and the checks the row names as N/A
 export const VANILLA_NA = ['asi build check', 'ts3fixes build check', 'ts3native.log version gate', 'ts3native.ini features', 'hook FAIL lines and route hook state', 'counter gate and /native counters', 'ts3fixes activity'];
 // "ourMods": false: a plain profile window or one repro (queue repros run --no-load, so no restart; its steps must not need ts3fixes); anything
@@ -434,6 +439,7 @@ export function parseQueue(json: unknown): Job[] {
       if (j.routingFailFast.scope === 'all' && (j.run.profile.ab || (j.run.profile as any).loopRule)) throw new Error(`${at}: routingFailFast scope "all" on an --ab / loop job: the off arm's plans and hitches would trip it; use scope "unseen"`);
     }
     if (j.scriptErrorsAllow !== undefined) { if (!Array.isArray(j.scriptErrorsAllow) || !j.scriptErrorsAllow.every((s: unknown) => typeof s === 'string')) throw new Error(`${at}: scriptErrorsAllow must be a list of regex strings`); for (const s of j.scriptErrorsAllow) { try { new RegExp(s); } catch { throw new Error(`${at}: scriptErrorsAllow: bad regex ${s}`); } } }
+    if (j.scriptErrorsReport !== undefined) { if (!Array.isArray(j.scriptErrorsReport) || !j.scriptErrorsReport.every((s: unknown) => typeof s === 'string')) throw new Error(`${at}: scriptErrorsReport must be a list of regex strings`); for (const s of j.scriptErrorsReport) { try { new RegExp(s); } catch { throw new Error(`${at}: scriptErrorsReport: bad regex ${s}`); } } }
     if (j.scriptErrorsMax !== undefined && !(Number.isInteger(j.scriptErrorsMax) && j.scriptErrorsMax >= 0)) throw new Error(`${at}: scriptErrorsMax must be an integer >= 0`);
     if (j.stopQueueOnFail === undefined && !Array.isArray(json) && (json as any).stopQueueOnFail !== undefined) j.stopQueueOnFail = (json as any).stopQueueOnFail; // queue-level default
     if (j.stopQueueOnFail !== undefined && typeof j.stopQueueOnFail !== 'boolean') throw new Error(`${at}: stopQueueOnFail must be true or false`);
@@ -1404,6 +1410,11 @@ if (values['self-check']) {
     assert.equal(allowedCorrection(rep(jig), al), true, 'Dereferencing lines after the correction lines do not count');
     assert.equal(allowedCorrection(rep(`${jig}\n #0: 0x0003b callvirt   in Sims3.Gameplay.X:Y () ()`), al), false, 'Dereferencing with a stack frame still counts');
     assert.throws(() => parseQueue([{ id: 'x', asi: 'tested', save: 'S', scriptErrorsMax: 0, scriptErrorsAllow: ['('], run: { script: ['idle-watch.ts'] } }]), /bad regex/);
+    assert.throws(() => parseQueue([{ id: 'x', asi: 'tested', save: 'S', scriptErrorsMax: 0, scriptErrorsReport: ['('], run: { script: ['idle-watch.ts'] } }]), /scriptErrorsReport: bad regex/);
+    const df = ['Collection was modified[\\s\\S]*FindAndRouteOntoADanceFloorWithFollower'];
+    assert.equal(reportedError(' System.InvalidOperationException: Collection was modified;enumeration operation may not execute.\n #0: in Sims3.Gameplay.Objects.Decorations.DanceFloor:FindAndRouteOntoADanceFloorWithFollower', df), true, 'the dance floor throw is reported');
+    assert.equal(reportedError(' System.InvalidOperationException: Collection was modified\n #0: in Sims3.Gameplay.X:Y', df), false, 'another collection throw still counts');
+    assert.equal(reportedError('anything', []), false);
   }
   // pair check: same id stem, profiler tools differ -> one warning line (the 2026-10-24 sv-soak case); other jobs left alone
   const pj = (id: string, p: object = {}) => ({ id, asi: 'tested', save: 'S', run: { profile: { minutes: 45, ...p } } });
@@ -2968,7 +2979,9 @@ for (const [n, j] of jobs.entries()) {
   }
   if (j.scriptErrorsMax !== undefined) {
     const since = Date.parse(t0), news = readdirSync(USER).filter(f => /^ScriptError_.*\.xml$/i.test(f) && statSync(join(USER, f)).mtimeMs >= since);
-    const unknown = news.filter(f => { try { const x = readFileSync(join(USER, f), 'utf8'); return !matchKnown(x) && !allowedCorrection(x, j.scriptErrorsAllow ?? []); } catch { return true; } });
+    const studied = news.filter(f => { try { return reportedError(readFileSync(join(USER, f), 'utf8'), j.scriptErrorsReport ?? []); } catch { return false; } });
+    if (j.scriptErrorsReport) row.verdict.push(`REPORT: ${studied.length} script errors matching ${j.scriptErrorsReport.join(' | ')}${studied.length ? `: ${studied.slice(0, 3).join(', ')}` : ''}`);
+    const unknown = news.filter(f => { try { const x = readFileSync(join(USER, f), 'utf8'); return !studied.includes(f) && !matchKnown(x) && !allowedCorrection(x, j.scriptErrorsAllow ?? []); } catch { return true; } });
     row.scriptErrors = unknown;
     const bad = unknown.length > j.scriptErrorsMax;
     row.verdict.push(`${bad ? 'FAIL' : 'PASS'}: ${unknown.length} new script errors (max ${j.scriptErrorsMax}${news.length > unknown.length ? `, ${news.length - unknown.length} known EA ignored` : ''})${unknown.length ? `: ${unknown.slice(0, 3).join(', ')}` : ''}`);
@@ -3070,7 +3083,7 @@ if (VANILLA) {
   if (rb.length) { log(`RESTORE FAILED: ${rb.join('; ')} (copies in ${BEFORE})`); exitCode = 1; }
   else if (asiOk && iniOk) {
     const sha = existsSync(join(BIN, 'ts3native.asi')) ? createHash('sha256').update(readFileSync(join(BIN, 'ts3native.asi'))).digest('hex') : '';
-    const b = loadDb().find(x => x.sha256 === sha);
+    const bs = loadDb().filter(x => x.sha256 === sha), b = bs.find(x => /^ts3native.asi.rel/.test(x.name)) ?? bs[0];
     log(`restored: Bin/ts3native.asi + ini from the start (asi ${b ? b.name : `unknown build ${sha.slice(0, 12)}`})`);
     if (!b || !/^ts3native\.asi\.rel/.test(b.name)) log('WARN: Bin/ts3native.asi is not a release build: install the release asi + ini before playing or before another harness (Apex runner) uses Bin');
   }

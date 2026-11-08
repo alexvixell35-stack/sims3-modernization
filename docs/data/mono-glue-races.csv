@@ -1,349 +1,349 @@
-global,kind,groups,root_rate,mitigation,worker_functions,worker_writers,exe_writers,exe_accessors,example_worker_fn,example_root,min_hop,score
-0x11D4BC8,"worker reads, sim writes",abc,per alloc/call,,7,0,1,14,0xD70A60 ,IC_EAText_GetMoneyString,0,7000
-0x11CB864,"worker reads, sim writes",abc,per alloc/call,,4,0,1,344,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,4000
-0x11EE528,worker writes,bc,per alloc/call,,1,1,1,2,0xD70810 ,0xD70810,0,2000
-0x11ECBC4,"worker reads, sim writes",a,per search/exception,,46,0,4,545,0xEC1030 IC_GameUtils_GetWorldName,IC_GameUtils_GetWorldName,0,460
-0x11E9158,"worker reads, sim writes",a,per search/exception,,16,0,1,222,0x78AC00 IC_World_GetObjectTombRoomIdImpl,IC_World_GetObjectTombRoomIdImpl,0,160
-0x11ED034,"worker reads, sim writes",a,per search/exception,,13,0,3,423,0x7981F0 IC_World_GetDoorRoomsImpl,IC_World_GetDoorRoomsImpl,0,130
-0x11EE514,"worker reads, sim writes",bc,per invoke,,1,0,2,4,0xD70820 ScriptHost_Sleep,ScriptHost_Sleep,0,100
-0x11E9114,"worker reads, sim writes",a,per search/exception,,9,0,1,75,0x76F990 IC_Slots_GetContainmentSlotNamesImpl,IC_Slots_GetContainmentSlotNamesImpl,0,90
-0x114CA0C,"worker reads, sim writes",a,per search/exception,,6,0,1,22,0x4F5800 ,IC_EAText_GetMoneyString,1,60
-0x11ECF08,"worker reads, sim writes",a,per search/exception,,5,0,1,204,0x78AC00 IC_World_GetObjectTombRoomIdImpl,IC_World_GetObjectTombRoomIdImpl,0,50
-0x11C7E54,worker writes,a,per search/exception,,2,2,16,18,0x4F4F40 ,IC_OnlineFeaturesHost_GetPersonaName,4,40
-0x11E8FA8,"worker reads, sim writes",a,per search/exception,,3,0,1,69,0x78D400 IC_World_ObjectGetHiddenFlags,IC_World_ObjectGetHiddenFlags,0,30
-0x11AF670,"worker reads, sim writes",a,per search/exception,,2,0,1,28,0x959060 ,IC_Objects_GetForward,1,20
-0x11C7984,worker writes,a,per search/exception,,1,1,1,1,0x4D9AD0 ,IC_GameUtils_IsWorldInstalled,2,20
-0x11CB920,worker writes,ab,per search/exception,,1,1,3,3,0x4F3CC0 ,IC_DeviceConfig_GetOption,2,20
-0x11D4068,"worker reads, sim writes",a,per search/exception,,2,0,2,151,0x747D90 IC_OnlineFeaturesHost_GetPersonaName,IC_OnlineFeaturesHost_GetPersonaName,0,20
-0x11D7508,worker writes,a,per search/exception,,1,1,1,1,0x7935B0 ,IC_EAText_GetMoneyString,3,20
-0x11D750C,worker writes,a,per search/exception,,1,1,1,1,0x7935B0 ,IC_EAText_GetMoneyString,3,20
-0x11D7510,worker writes,a,per search/exception,,1,1,1,1,0x7935B0 ,IC_EAText_GetMoneyString,3,20
-0x11D7514,worker writes,a,per search/exception,,1,1,1,1,0x7935B0 ,IC_EAText_GetMoneyString,3,20
-0x11D7518,worker writes,a,per search/exception,,1,1,1,1,0x7935B0 ,IC_EAText_GetMoneyString,3,20
-0x11D8888,"worker reads, sim writes",a,per search/exception,,2,0,2,11,0x7C6770 ,IC_OnlineFeaturesHost_GetPersonaName,3,20
-0x11DA048,worker writes,a,per search/exception,,1,1,1,1,0x8A79B0 ,IC_EAText_GetMoneyString,3,20
-0x11DA04C,worker writes,a,per search/exception,,1,1,1,1,0x8A79B0 ,IC_EAText_GetMoneyString,3,20
-0x11DA050,worker writes,a,per search/exception,,1,1,1,1,0x8A79B0 ,IC_EAText_GetMoneyString,3,20
-0x11DA054,worker writes,a,per search/exception,,1,1,1,1,0x8A79B0 ,IC_EAText_GetMoneyString,3,20
-0x11DA058,worker writes,a,per search/exception,,1,1,1,1,0x8A79B0 ,IC_EAText_GetMoneyString,3,20
-0x11DC168,worker writes,a,per search/exception,,1,1,1,1,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,20
-0x11DC16C,worker writes,a,per search/exception,,1,1,1,1,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,20
-0x11DC170,worker writes,a,per search/exception,,1,1,1,1,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,20
-0x11DC174,worker writes,a,per search/exception,,1,1,1,1,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,20
-0x11DC178,worker writes,a,per search/exception,,1,1,1,1,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,20
-0x11DC180,worker writes,a,per search/exception,,1,1,1,1,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,20
-0x11DC184,worker writes,a,per search/exception,,1,1,1,1,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,20
-0x11E8FC4,"worker reads, sim writes",a,per search/exception,,2,0,1,70,0x744CB0 IC_Objects_GetBoundingBox,IC_Objects_GetBoundingBox,0,20
-0x11E90FC,"worker reads, sim writes",a,per search/exception,,2,0,1,58,0x5A9430 IC_CASUtils_GetOutfitInGameObjectImpl,IC_CASUtils_GetOutfitInGameObjectImpl,0,20
-0x11E96C0,worker writes,a,per search/exception,,1,1,1,1,0x9B0530 ,IC_OnlineFeaturesHost_GetPersonaName,2,20
-0x11E96C1,worker writes,a,per search/exception,,1,1,1,1,0x9B0530 ,IC_OnlineFeaturesHost_GetPersonaName,2,20
-0x11ECEEC,worker writes,a,per search/exception,,1,1,1,1,0xC88D80 ,IC_World_HasFloorFeaturesWorldPosImpl,2,20
-0x11ECEED,worker writes,a,per search/exception,,1,1,1,1,0xC88D80 ,IC_World_HasFloorFeaturesWorldPosImpl,2,20
-0x11EE54C,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x11EE550,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x11EE554,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x11EE558,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x11EE55C,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x11EE560,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x11EE564,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x11EE568,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x11EE56C,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x11EE570,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x11EE574,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x11EE578,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x11EE57C,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x11EE580,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x11EE584,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x11EE588,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20
-0x123437C,worker writes,a,per search/exception,,1,1,1,1,0xF7E8FC ,IC_EAText_GetMoneyString,5,20
-0x1234380,worker writes,a,per search/exception,,1,1,1,1,0xF7E8FC ,IC_EAText_GetMoneyString,5,20
-0x114CA08,"worker reads, sim writes",a,per search/exception,,1,0,1,2,0x4F5800 ,IC_EAText_GetMoneyString,1,10
-0x11C78D8,"worker reads, sim writes",ab,per search/exception,,1,0,1,2,0x4AFD20 ResourceMan_GetManager,IC_World_GetTerrainSurfaceTypeImpl,1,10
-0x11CB928,"worker reads, sim writes",a,per search/exception,,1,0,2,3,0x4F9750 ,IC_EAText_GetMoneyString,2,10
-0x11CDD00,"worker reads, sim writes",a,per search/exception,,1,0,1,2,0x58B880 ,IC_GameUtils_IsWorldInstalled,4,10
-0x11CDD10,"worker reads, sim writes",a,per search/exception,,1,0,2,3,0x58E3F0 ,IC_DeviceConfig_GetProcessorLevel,1,10
-0x11CE2D0,"worker reads, sim writes",a,per search/exception,,1,0,2,8,0x59ADA0 LocStrSvc_Get,IC_LocalizedStringService_GetLocalizedStringByString,1,10
-0x11CF490,"worker reads, sim writes",a,per search/exception,,1,0,2,3,0x686A90 PhysicsWorld_Get,IC_Query_GetObjectsInRange,1,10
-0x11D3E28,"worker reads, sim writes",a,per search/exception,,1,0,1,2,0x72F1C0 ResourceSystem_Get,IC_UserToolUtils_ProductGenericImpl,4,10
-0x11D4BBC,"worker reads, sim writes",abc,per search/exception,,1,0,2,3,0x7692B0 ScriptHost_GetWorld,IC_DeviceConfig_GetOption,1,10
-0x11D4BC0,"worker reads, sim writes",a,per search/exception,,1,0,1,2,0x7692C0 ScriptMessageServer_Get,IC_UserToolUtils_ProductGenericImpl,2,10
-0x11D6A78,"worker reads, sim writes",a,per search/exception,,1,0,1,2,0x78F2B0 World_FireEvent,IC_Slots_CanAttachToSlotImpl,4,10
-0x11D9128,"worker reads, sim writes",a,per search/exception,,1,0,2,4,0x836200 RoutingWorld_GetImpl,IC_Slots_GetPositionOfSlotImpl,2,10
-0x11D9848,"worker reads, sim writes",a,per search/exception,,1,0,2,4,0x9F6520 ,IC_OnlineFeaturesHost_GetPersonaName,4,10
-0x11DC350,"worker reads, sim writes",a,per search/exception,,1,0,2,4,0x938B50 ObjectService_Get,IC_CASUtils_GetOutfitInGameObjectImpl,1,10
-0x11E8FC0,"worker reads, sim writes",a,per search/exception,,1,0,1,9,0x78A600 IC_World_LightGetDimmerImpl,IC_World_LightGetDimmerImpl,0,10
-0x11E90F8,"worker reads, sim writes",a,per search/exception,,1,0,1,35,0xCCDD80 ,IC_Slots_CanAttachToSlotImpl,2,10
-0x11E9290,"worker reads, sim writes",a,per search/exception,,1,0,1,28,0xB02BB0 ,IC_Slots_CanAttachToSlotImpl,5,10
-0x11E92A8,"worker reads, sim writes",a,per search/exception,,1,0,1,73,0x78D400 IC_World_ObjectGetHiddenFlags,IC_World_ObjectGetHiddenFlags,0,10
-0x11E94F8,"worker reads, sim writes",a,per search/exception,,1,0,2,3,0x984550 ,IC_OnlineFeaturesHost_GetPersonaName,4,10
-0x11EB490,"worker reads, sim writes",a,per search/exception,,1,0,2,4,0xAAB380 ,IC_GameUtils_IsWorldInstalled,1,10
-0x11EBAE0,"worker reads, sim writes",a,per search/exception,,1,0,1,3,0xB319C0 ,IC_UserToolUtils_ProductGenericImpl,1,10
-0x11ED780,"worker reads, sim writes",a,per search/exception,,1,0,2,4,0xCEF760 ,IC_UserToolUtils_ProductGenericImpl,1,10
-0x11EE140,"worker reads, sim writes",a,per search/exception,,1,0,1,3,0xD6DEF0 ,IC_World_HasFloorFeaturesWorldPosImpl,1,10
-0x11DC18C,"worker reads, sim writes",b,warm-up/rare,,4,0,1,14,0xD70900 GC_win32_get_mem,GC_win32_get_mem,0,4
-0x11EE520,worker writes,b,warm-up/rare,,2,2,2,2,0xD70900 GC_win32_get_mem,GC_win32_get_mem,0,4
-0x114C908,worker writes,b,warm-up/rare,,1,1,2,2,0x4E1270 ,GC_win32_get_mem,2,2
-0x11CC964,"worker reads, sim writes",b,warm-up/rare,,1,0,1,2,0x502B00 ,GC_win32_get_mem,3,1
-0x11949B4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",18,1,1,26,0xE4BF90 GC_malloc_uncollectable,0xD714B0,1,36000
-0x1233318,"worker reads, sim writes",abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",26,0,1,45,0xE4BF90 GC_malloc_uncollectable,0xD714B0,1,26000
-0x1220E40,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",24,0,1,61,0xEA3370 mono_runtime_class_init,0xE52B60,0,24000
-0x1220E44,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",22,0,1,37,0xE6EC90 ,IC_EAText_GetMoneyString,1,22000
-0x1220E68,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",18,0,1,27,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,18000
-0x12225C4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",9,7,8,12,0xE50DE0 GC_malloc_explicitly_typed,IC_EAText_GetMoneyString,1,18000
-0x11F2F90,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",7,2,2,11,0xE4C1E0 GC_ea_alloc_unmark,IC_EAText_GetMoneyString,2,14000
-0x12246F8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",7,1,1,7,0xE50DE0 GC_malloc_explicitly_typed,IC_EAText_GetMoneyString,1,14000
-0x11F2F9C,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",6,1,2,7,0xE49F10 GC_collect_a_little_mark,0xD70800,2,12000
-0x11F30B4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",6,1,1,9,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,12000
-0x1220E84,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",11,0,1,23,0xE6E600 ,IC_EAText_GetMoneyString,1,11000
-0x11F30A8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",5,1,3,8,0xE49F10 GC_collect_a_little_mark,0xD70800,2,10000
-0x11F30D8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",5,1,1,6,0xE49730 ,0xD70800,2,10000
-0x1234354,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",5,2,2,6,0xE4A7C0 ,0xD70800,3,10000
-0x11EE508,worker writes,bc,per alloc/call,frame arena: P3 lock + ArenaFix (docs/120 §9.1-9.2),4,1,2,5,0xD71900 ScriptHost_FrameArena_Alloc,ScriptHost_FrameArena_Alloc,0,8000
-0x11F30D0,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",4,1,1,8,0xE4DC30 GC_base,IC_EAText_GetMoneyString,3,8000
-0x11F47EC,worker writes,ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,3,4,5,0xEBC330 ,IC_EAText_GetMoneyString,3,8000
-0x1220F40,worker writes,ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,4,4,4,0xEA2690 ,IC_EAText_GetMoneyString,1,8000
-0x1220F68,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,4,4,4,0xE6E600 ,IC_EAText_GetMoneyString,1,8000
-0x12225B4,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",4,2,2,7,0xE49730 ,0xD70800,2,8000
-0x1234358,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",4,2,2,5,0xE4A7C0 ,0xD70800,3,8000
-[0x11EE508]->+0x4,worker writes,bc,per alloc/call,frame arena: P3 lock + ArenaFix (docs/120 §9.1-9.2),4,1,2,5,0xD71900 ScriptHost_FrameArena_Alloc,ScriptHost_FrameArena_Alloc,0,8000
-0x1195B60,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",7,0,1,12,0xEA1400 mono_runtime_delegate_invoke,mono_runtime_delegate_invoke,0,7000
-0x12225A0,"worker reads, sim writes",abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",7,0,1,11,0xE4A7C0 ,0xD70800,3,7000
-0x1194824,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,1,2,10,0xE4CE90 ,ScriptHost_GC_push_other_roots,2,6000
-0x119482C,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,1,1,3,0xE4A7C0 ,0xD70800,3,6000
-0x1195B64,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",6,0,1,9,0xEA1E30 mono_class_create_runtime_vtable,IC_EAText_GetMoneyString,1,6000
-0x11F2DA0,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,3,5,0xE49030 ,thunk_GC_free,3,6000
-0x11F2E98,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,3,5,0xE49030 ,thunk_GC_free,3,6000
-0x11F2F8C,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,2,4,0xE4BF90 GC_malloc_uncollectable,0xD714B0,1,6000
-0x11F2F94,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,3,3,3,0xE49F10 GC_collect_a_little_mark,0xD70800,2,6000
-0x11F2FB8,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,3,3,3,0xE49FB0 GC_collect_a_little_step,0xD70800,2,6000
-0x11F2FC4,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,1,2,10,0xE4CE90 ,ScriptHost_GC_push_other_roots,2,6000
-0x11F2FCC,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,3,3,3,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,6000
-0x11F303C,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,2,5,0xE4B480 GC_notify_or_invoke_finalizers,IC_EAText_GetMoneyString,3,6000
-0x11F3040,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,2,4,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,6000
-0x1220E60,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",6,0,1,11,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,6000
-0x1220F38,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",6,0,1,9,0xE848C0 ,IC_EAText_GetMoneyString,1,6000
-0x1220F6C,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,3,4,4,0xE6B7D0 ,IC_Query_GetObjects,3,6000
-0x1220F70,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,3,3,3,0xE9E640 ,IC_Query_GetObjects,2,6000
-0x1220F74,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,3,3,3,0xE9E640 ,IC_Query_GetObjects,2,6000
-0x1222520,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,1,1,5,0xE49C80 ,0xD714B0,5,6000
-0x12225C8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,3,3,4,0xE49A50 ,0xD70800,3,6000
-0x12225D4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,2,4,0xE4BEB0 GC_free,IC_EAText_GetMoneyString,1,6000
-0x12225D8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,2,4,0xE49A50 ,0xD70800,3,6000
-0x123434C,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,2,5,0xE4A7C0 ,0xD70800,3,6000
-0x1234350,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,2,5,0xE4A7C0 ,0xD70800,3,6000
-0x11949C0,"worker reads, sim writes",abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",5,0,1,7,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,5000
-0x1195B7C,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",5,0,1,14,0xEB9F40 ,IC_EAText_GetMoneyString,2,5000
-0x1220E48,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",5,0,1,22,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,5000
-0x1220E8C,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",5,0,1,6,0xE53EB0 ves_exec_method_with_context,interp_mono_invoke_with_state,1,5000
-0x11947E4,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,2,2,2,0xE49F10 GC_collect_a_little_mark,0xD70800,2,4000
-0x1194814,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE498B0 GC_min_bytes_allocd,0xD70800,4,4000
-0x1194818,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE49950 ,0xD714B0,5,4000
-0x11949B8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE4E160 GC_init,IC_EAText_GetMoneyString,4,4000
-0x11959BC,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,3,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,4000
-0x11959C0,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,2,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,4000
-0x1195F74,worker writes,ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,2,0xEBC330 ,IC_EAText_GetMoneyString,3,4000
-0x1195F78,worker writes,ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,2,0xEBC330 ,IC_EAText_GetMoneyString,3,4000
-0x11EE504,worker writes,bc,per alloc/call,frame arena: P3 lock + ArenaFix (docs/120 §9.1-9.2),2,1,2,3,0xD71900 ScriptHost_FrameArena_Alloc,ScriptHost_FrameArena_Alloc,0,4000
-0x11F2FC8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,4000
-0x11F3060,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,2,3,3,0xE4B7D0 ,thunk_GC_free,3,4000
-0x11F30C0,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,3,0xE4E160 GC_init,IC_EAText_GetMoneyString,4,4000
-0x11F40E4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,5,0xE4E160 GC_init,IC_EAText_GetMoneyString,4,4000
-0x11F40F0,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,4,0xE4C2A0 ,0xD70800,4,4000
-0x11F4118,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE511A0 GC_stop_world,0xD70800,4,4000
-0x11F4230,worker writes,c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,3,0xE67DA0 ,0xE76F00,4,4000
-0x11F4264,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,3,0xE6A1E0 mono_class_setup_interface_id,IC_EAText_GetMoneyString,1,4000
-0x11F426C,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,2,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,4000
-0x11F4270,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,2,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,4000
-0x11F4274,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,2,3,0xE6A4A0 ,IC_EAText_GetMoneyString,1,4000
-0x11F4278,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,2,3,0xE6A4A0 ,IC_EAText_GetMoneyString,1,4000
-0x11F4378,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,7,0xE84280 ,IC_EAText_GetMoneyString,3,4000
-0x11F44DC,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,6,0xE9E640 ,IC_Query_GetObjects,2,4000
-0x1220E50,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,11,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,4000
-0x1220E58,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,7,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,4000
-0x1220E64,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,6,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,4000
-0x1220E70,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,6,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,4000
-0x1220E74,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,6,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,4000
-0x1220E80,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,9,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,4000
-0x1220F28,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,8,0xE6DB40 mono_class_setup_parent,IC_Query_GetObjects,2,4000
-0x1222404,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE50DE0 GC_malloc_explicitly_typed,IC_EAText_GetMoneyString,1,4000
-0x1222408,worker writes,c,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,3,0xE50F90 GC_make_descriptor,0xE52B60,3,4000
-0x1222464,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE50DE0 GC_malloc_explicitly_typed,IC_EAText_GetMoneyString,1,4000
-0x12225A4,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE49C70 ,0xD714B0,5,4000
-0x12225B8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,2,4,0xE4BA90 GC_alloc_large,IC_EAText_GetMoneyString,3,4000
-0x12225BC,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE4BA90 GC_alloc_large,IC_EAText_GetMoneyString,3,4000
-0x12225CC,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,3,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,4000
-0x1233314,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,4,0xE4B980 ,thunk_GC_free,4,4000
-0x1234348,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,7,0xE4B5C0 ,0xD714B0,5,4000
-[0x11EE504]->+0x4,worker writes,bc,per alloc/call,frame arena: P3 lock + ArenaFix (docs/120 §9.1-9.2),2,1,2,3,0xD71900 ScriptHost_FrameArena_Alloc,ScriptHost_FrameArena_Alloc,0,4000
-[0x11F303C]->+0x4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,3,0xE4AE60 GC_finalize,0xD70800,4,4000
-0x11944DC,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,5,0xE46B60 ,IC_EAText_GetMoneyString,1,3000
-0x11F4280,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,4,0xE6B6D0 ,0xE52B60,1,3000
-0x11F439C,"worker reads, sim writes",bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,5,0xE84080 ,0xD6FCB0,4,3000
-0x11F44E0,"worker reads, sim writes",bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,7,0xE9E9C0 ,0xD790A0,4,3000
-0x1220E4C,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,12,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,3000
-0x1220E54,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,6,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,3000
-0x1220E5C,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,6,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,3000
-0x1220E78,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,5,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,3000
-0x1194884,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4E160 GC_init,IC_EAText_GetMoneyString,4,2000
-0x11949BC,"worker reads, sim writes",abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,0,1,4,0xE4BCE0 GC_generic_malloc,IC_EAText_GetMoneyString,2,2000
-0x11959DC,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE75260 mono_domain_get,IC_EAText_GetMoneyString,1,2000
-0x11F2D9C,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49320 ,0xD714B0,5,2000
-0x11F2FD0,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,2000
-0x11F2FD4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,2000
-0x11F302C,worker writes,c,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,2,0xE4AC60 GC_register_finalizer_inner,0xEA3140,4,2000
-0x11F3048,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4B480 GC_notify_or_invoke_finalizers,IC_EAText_GetMoneyString,3,2000
-0x11F305C,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4B520 ,0xD714B0,4,2000
-0x11F306C,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4C050 ,IC_EAText_GetMoneyString,4,2000
-0x11F3090,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,3,0xE4D7E0 ,0xD714B0,5,2000
-0x11F30A4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4E160 GC_init,IC_EAText_GetMoneyString,4,2000
-0x11F30B8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4E160 GC_init,IC_EAText_GetMoneyString,4,2000
-0x11F30BC,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4E160 GC_init,IC_EAText_GetMoneyString,4,2000
-0x11F30C4,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49320 ,0xD714B0,5,2000
-0x11F30CC,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DBE0 GC_clear_stack,IC_EAText_GetMoneyString,2,2000
-0x11F40EC,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,4,0xE4EEF0 GC_heap_section_limit_b,thunk_GC_free,5,2000
-0x11F4100,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,2,0xE4F2E0 ,IC_EAText_GetMoneyString,3,2000
-0x11F4108,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4F2E0 ,IC_EAText_GetMoneyString,3,2000
-0x11F411C,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE513D0 GC_thr_init,0xD714B0,5,2000
-0x11F4214,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE68150 ,0xE76F00,4,2000
-0x11F4218,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE68150 ,0xE76F00,4,2000
-0x11F421C,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,3,8,0xE68BF0 ,0xE76F00,4,2000
-0x11F4224,"worker reads, sim writes",ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE68EC0 ,IC_EAText_GetMoneyString,3,2000
-0x11F4228,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE68BF0 ,0xE76F00,4,2000
-0x11F424C,"worker reads, sim writes",bc,per alloc/call,frame arena: P3 lock + ArenaFix (docs/120 §9.1-9.2),2,0,1,4,0xD71900 ScriptHost_FrameArena_Alloc,ScriptHost_FrameArena_Alloc,0,2000
-0x11F427C,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE6AEB0 ,IC_Query_GetObjects,2,2000
-0x11F4370,worker writes,c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,2,0xE82C70 mono_register_jit_icall,0xE52B60,3,2000
-0x11F4374,worker writes,c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,2,0xE82C70 mono_register_jit_icall,0xE52B60,3,2000
-0x11F437C,"worker reads, sim writes",bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE84080 ,0xD6FCB0,4,2000
-0x11F4398,"worker reads, sim writes",bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE84080 ,0xD6FCB0,4,2000
-0x11F44E4,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE9B890 ,interp_mono_invoke_with_state,5,2000
-0x11F44E8,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE9B7D0 ,0xD790A0,3,2000
-0x11F45D4,worker writes,ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEA3F00 ,IC_EAText_GetMoneyString,1,2000
-0x11F46F0,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,5,12,0xEAA6B0 ,0xE52B60,3,2000
-0x11F471C,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000
-0x11F4720,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000
-0x11F4724,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000
-0x11F4728,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000
-0x11F472C,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000
-0x11F4730,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000
-0x11F4734,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000
-0x11F4738,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000
-0x11F473C,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000
-0x11F4740,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000
-0x11F4744,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000
-0x11F4748,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000
-0x1220E7C,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,5,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,2000
-0x1220EFC,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,3,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,2000
-0x1220F20,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,3,0xE6E050 mono_generic_class_get_class,IC_Query_GetObjects,2,2000
-0x1220F44,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,2000
-0x1220F48,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE6EBA0 Class_EnsureVtable,IC_EAText_GetMoneyString,1,2000
-0x1220F60,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,2000
-0x1220F64,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE6BAE0 ,IC_EAText_GetMoneyString,1,2000
-0x1222470,worker writes,c,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,2,0xE50460 GC_add_ext_descriptor,mono_class_vtable,4,2000
-0x1222480,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,2,0xE4F2E0 ,IC_EAText_GetMoneyString,3,2000
-0x12225AC,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49C80 ,0xD714B0,5,2000
-0x12225B0,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49C80 ,0xD714B0,5,2000
-0x12225DC,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4B520 ,0xD714B0,4,2000
-0x12225E0,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4B520 ,0xD714B0,4,2000
-0x12225E4,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,3,0xE4B520 ,0xD714B0,4,2000
-0x12226E8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4BE30 GC_malloc,IC_EAText_GetMoneyString,1,2000
-0x1222EEC,worker writes,ac,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4BDC0 GC_malloc_atomic,IC_EAText_GetMoneyString,2,2000
-0x12246FC,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DA10 ,0xD714B0,5,2000
-0x1224700,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DA10 ,0xD714B0,5,2000
-0x1224704,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DA10 ,0xD714B0,5,2000
-0x1224708,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DA10 ,0xD714B0,5,2000
-0x122470C,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DA10 ,0xD714B0,5,2000
-0x122477C,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DA10 ,0xD714B0,5,2000
-0x12247FC,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DA10 ,0xD714B0,5,2000
-0x122EF14,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,4,0xE4EEF0 GC_heap_section_limit_b,thunk_GC_free,5,2000
-0x1232B14,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4D7E0 ,0xD714B0,5,2000
-0x1232B18,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,3,0xE4D7E0 ,0xD714B0,5,2000
-[0x11F303C]->+0xC,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4B3F0 GC_invoke_finalizers,IC_EAText_GetMoneyString,4,2000
-0x1194848,"worker reads, sim writes",abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,0,1,3,0xE4B3F0 GC_invoke_finalizers,IC_EAText_GetMoneyString,4,1000
-0x11F3028,"worker reads, sim writes",abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,0,2,3,0xE4B480 GC_notify_or_invoke_finalizers,IC_EAText_GetMoneyString,3,1000
-0x11F3058,"worker reads, sim writes",bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,0,1,2,0xE4B980 ,thunk_GC_free,4,1000
-0x11F4104,"worker reads, sim writes",abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,0,1,3,0xE4BCE0 GC_generic_malloc,IC_EAText_GetMoneyString,2,1000
-0x11F4238,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,4,6,0xE67190 ,0xE76F00,4,1000
-0x11F423C,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE67350 ,0xE76F00,4,1000
-0x11F4240,"worker reads, sim writes",ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE68EC0 ,IC_EAText_GetMoneyString,3,1000
-0x11F4248,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,2,3,0xE69720 ,0xE52B60,3,1000
-0x11F42B4,"worker reads, sim writes",ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,2,4,0xE75250 ,IC_EAText_GetMoneyString,2,1000
-0x11F42B8,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE75B40 ,0xE52B60,2,1000
-0x11F43A0,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE83740 ,0xE76F00,4,1000
-0x11F44D8,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE9DF20 mono_metadata_lookup_generic_inst,IC_Query_GetObjects,2,1000
-0x11F4590,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,4,0xEA3370 mono_runtime_class_init,0xE52B60,0,1000
-0x11F4598,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xEA3370 mono_runtime_class_init,0xE52B60,0,1000
-0x1220E6C,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,1000
-0x1220EB0,"worker reads, sim writes",ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,8,0xEA8A00 ,IC_EAText_GetMoneyString,2,1000
-0x1220ED0,"worker reads, sim writes",bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xEA82D0 ,0xD790A0,3,1000
-0x1220F1C,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE706A0 mono_bounded_array_class_get,IC_EAText_GetMoneyString,2,1000
-0x1220FCC,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE69720 ,0xE52B60,3,1000
-0x1220FD0,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE697A0 ,0xE52B60,3,1000
-0x1220E94,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",6,0,1,9,0xE643B0 ,0xE52B60,1,600
-0x1220F30,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,5,0xE95100 ,0xE52B60,3,400
-0x11F4418,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,6,0xE8A410 ,0xE520E0,2,300
-0x1220EDC,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,6,0xE934F0 ,interp_mono_invoke_with_state,4,300
-0x11F4128,worker writes,c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE51400 tramp_create_thunk,0xE52B60,2,200
-0x11F4160,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE52B60 ,0xE52B60,0,200
-0x11F416C,worker writes,c,per invoke,P4 per-thread frame globals (docs/30 §4),1,1,1,2,0xE53EB0 ves_exec_method_with_context,interp_mono_invoke_with_state,1,200
-0x11F4170,worker writes,c,per invoke,P4 per-thread frame globals (docs/30 §4),1,1,1,2,0xE53EB0 ves_exec_method_with_context,interp_mono_invoke_with_state,1,200
-0x11F43C4,"worker reads, sim writes",bc,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,5,0xE8E170 ,0xD70AC0,2,200
-0x11F45D8,worker writes,c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEA45A0 ,interp_mono_invoke_with_state,2,200
-0x11F45E0,worker writes,c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEA47D0 ,interp_mono_invoke_with_state,2,200
-0x11F4714,worker writes,ac,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEAE270 ,IC_Query_GetObjects,4,200
-0x11F4718,worker writes,ac,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEAE270 ,IC_Query_GetObjects,4,200
-0x1220EEC,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,5,0xE91CB0 ,interp_mono_invoke_with_state,4,200
-0x1220F24,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,3,0xE91CB0 ,interp_mono_invoke_with_state,4,200
-0x1220F5C,worker writes,bc,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE9E9C0 ,0xD790A0,4,200
-0x1195B34,"worker reads, sim writes",bc,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,4,0xE84F90 ,0xD70AC0,3,100
-0x11F4148,"worker reads, sim writes",bc,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE52630 ,0xD70AC0,1,100
-0x11F414C,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE53EB0 ves_exec_method_with_context,interp_mono_invoke_with_state,1,100
-0x11F4164,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,2,3,0xE51FC0 Interp_GetVirtualMethod,0xE520E0,1,100
-0x11F436C,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,4,0xE82680 mono_lookup_internal_call,0xE52B60,0,100
-0x1220E88,"worker reads, sim writes",ac,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE6FD00 ,IC_Query_GetObjects,3,100
-0x1220E90,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE9D1A0 ,interp_mono_invoke_with_state,5,100
-0x1220EA0,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE6FF80 ,0xE52B60,3,100
-0x1220EA4,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE6FF80 ,0xE52B60,3,100
-0x1220EA8,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE6FF80 ,0xE52B60,3,100
-0x1220F04,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xEA0D50 ,interp_mono_invoke_with_state,5,100
-0x1220F08,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE8D290 ,0xE520E0,2,100
-0x1220F34,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,2,3,0xE5CA90 mono_interp_GenerateCode,0xE52B60,2,100
-0x11F4234,"worker reads, sim writes",c,per search/exception,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE67110 ,0xE76F00,5,20
-0x11F3078,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",8,6,6,8,0xE4C060 ,0xD70800,2,16
-0x1234340,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",7,6,9,11,0xE4CAA0 ,ScriptHost_GC_push_other_roots,2,14
-0x11F451C,"worker reads, sim writes",c,per search/exception,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,2,4,0xEA0390 ,0xE76F00,5,10
-0x11F46B0,"worker reads, sim writes",c,per search/exception,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,4,0xEA4F80 ,0xE76F00,5,10
-0x11F46B4,"worker reads, sim writes",c,per search/exception,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xEA4F80 ,0xE76F00,5,10
-0x1220F18,"worker reads, sim writes",c,per search/exception,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE68290 ,0xE76F00,5,10
-0x11F3070,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",4,4,4,4,0xE4C270 ,0xD70800,3,8
-0x11F3080,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,3,4,4,0xE4C270 ,0xD70800,3,6
-[0x1234340]->+0x4,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,3,3,3,0xE4CAA0 ,ScriptHost_GC_push_other_roots,2,6
-0x1234338,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",5,0,1,7,0xE4C370 ,0xD70800,3,5
-0x1194864,worker writes,bc,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,3,0xE50380 GC_reclaim_all,0xD70800,3,4
-0x11F2FB4,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,2,2,2,0xE49A50 ,0xD70800,3,4
-0x11F307C,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,2,3,3,0xE4C390 ,0xD70800,4,4
-0x11F4120,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,2,2,3,0xE51290 GC_start_world,0xD70800,4,4
-0x122100C,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,3,0xE511A0 GC_stop_world,0xD70800,4,4
-0x1221010,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,2,2,2,0xE511A0 GC_stop_world,0xD70800,4,4
-0x12225E8,worker writes,bc,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE4C3E0 GC_mark_hot,0xD70800,5,4
-0x11F3074,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,0,1,5,0xE4AE60 GC_finalize,0xD70800,4,3
-0x1234344,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,0,1,7,0xE4CAA0 ,ScriptHost_GC_push_other_roots,2,3
-0x11F2F98,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,2,0xE49DA0 GC_collect_a_little_inner,0xD70800,3,2
-0x11F2FA4,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49A50 ,0xD70800,3,2
-0x11F2FA8,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49980 GC_stopped_mark,0xD70800,3,2
-0x11F2FAC,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49A50 ,0xD70800,3,2
-0x11F2FBC,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49980 GC_stopped_mark,0xD70800,3,2
-0x11F2FC0,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,0,1,5,0xE4A6A0 ,0xD70800,4,2
-0x11F3034,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,3,4,0xE4AE60 GC_finalize,0xD70800,4,2
-0x11F40F4,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4EFB0 GC_gww_dirty_init,0xD70800,5,2
-0x11F40F8,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4EFB0 GC_gww_dirty_init,0xD70800,5,2
-0x11F4124,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,0,1,4,0xE51290 GC_start_world,0xD70800,4,2
-0x12225C0,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49A50 ,0xD70800,3,2
-0x12225D0,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,2,0xE49A50 ,0xD70800,3,2
-0x122D714,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,0,1,4,0xE4A6A0 ,0xD70800,4,2
-0x122D718,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,0,1,4,0xE4A6A0 ,0xD70800,4,2
-0x123433C,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,2,0xE4C2A0 ,0xD70800,4,2
-0x123435C,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4A7C0 ,0xD70800,3,2
-0x1234360,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,0,1,3,0xE49A50 ,0xD70800,3,2
-[0x1234340]->+0x0,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4CAA0 ,ScriptHost_GC_push_other_roots,2,2
-0x11F3088,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,0,2,5,0xE498B0 GC_min_bytes_allocd,0xD70800,4,1
-0x11F42CC,"worker reads, sim writes",b,warm-up/rare,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE76930 ,0xD70AC0,5,1
+global,kind,groups,root_rate,mitigation,worker_functions,worker_writers,exe_writers,exe_accessors,example_worker_fn,example_root,min_hop,score,r2a_class,r2a_when,r2a_writers,r2a_confidence,r2a_note
+0x11D4BC8,"worker reads, sim writes",abc,per alloc/call,,7,0,1,14,0xD70A60 ,IC_EAText_GetMoneyString,0,7000,load,MonoScriptHost vtable slot 1 (0xD77600) stores its argument at script-host init,D77600,inferred,slot only; init order of the script host vs. world not read
+0x11CB864,"worker reads, sim writes",abc,per alloc/call,,4,0,1,344,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,4000,load,process start: CRT init range call (0xF7FFB9) sets the default heap pointer once,4E4070,verified,single direct caller in CRT start-up code
+0x11EE528,worker writes,bc,per alloc/call,,1,1,1,2,0xD70810 ,0xD70810,0,2000,,,,,
+0x11ECBC4,"worker reads, sim writes",a,per search/exception,,46,0,4,545,0xEC1030 IC_GameUtils_GetWorldName,IC_GameUtils_GetWorldName,0,460,load,"world event: WorldManager_Init, WorldManager_LoadWorld (also reached from the IC_LoadSaveManager_LoadGame_Impl chain, so a Load or travel), shutdown 0xC6B500, WorldService Init 0xC7E270 clears",C671E0 C6CF80 C6B500 C7E270,verified,3 of 4 by direct chains; 0xC7E270 by vtable slot 4. Pointer is replaced at every load; worker must not span it (R2c)
+0x11E9158,"worker reads, sim writes",a,per search/exception,,16,0,1,222,0x78AC00 IC_World_GetObjectTombRoomIdImpl,IC_World_GetObjectTombRoomIdImpl,0,160,load,ComponentsService_RegisterAll (Init slot 4); never cleared,933FB0,inferred,"one writer, Init slot only"
+0x11ED034,"worker reads, sim writes",a,per search/exception,,13,0,3,423,0x7981F0 IC_World_GetDoorRoomsImpl,IC_World_GetDoorRoomsImpl,0,130,load,"WorldService Init sets (0xC93000 via 0xC7E270), WorldService Shutdown clears (0xC8E730 via 0xC7E2C0 slot 6), dtor 0xC8F7F0 clears",C93000 C8E730 C8F7F0,inferred,vtable slots only; tied to the WorldService lifetime
+0x11EE514,"worker reads, sim writes",bc,per invoke,,1,0,2,4,0xD70820 ScriptHost_Sleep,ScriptHost_Sleep,0,100,,,,,
+0x11E9114,"worker reads, sim writes",a,per search/exception,,9,0,1,75,0x76F990 IC_Slots_GetContainmentSlotNamesImpl,IC_Slots_GetContainmentSlotNamesImpl,0,90,load,ComponentsService_RegisterAll (Init slot 4); never cleared,933FB0,inferred,"one writer, Init slot only"
+0x114CA0C,"worker reads, sim writes",a,per search/exception,,6,0,1,22,0x4F5800 ,IC_EAText_GetMoneyString,1,60,runtime-lazy,"first call of any EAText wrapper (0x4F9950/70/90) runs 0x4F98E0, guarded by done byte [0x11CC928]; writes handler pointers once, then read only",4F98E0,verified,"guard byte and 3 stubs read in disassembly; first-use time not fixed, may fall after load: pre-warm candidate"
+0x11ECF08,"worker reads, sim writes",a,per search/exception,,5,0,1,204,0x78AC00 IC_World_GetObjectTombRoomIdImpl,IC_World_GetObjectTombRoomIdImpl,0,50,load,"service Init (vtable 0x10F54E0 slot 4), registered via 0x938A10; never cleared",C8B350,inferred,"one writer, Init slot only"
+0x11C7E54,worker writes,a,per search/exception,,2,2,16,18,0x4F4F40 ,IC_OnlineFeaturesHost_GetPersonaName,4,40,,,,,
+0x11E8FA8,"worker reads, sim writes",a,per search/exception,,3,0,1,69,0x78D400 IC_World_ObjectGetHiddenFlags,IC_World_ObjectGetHiddenFlags,0,30,load,ComponentsService_RegisterAll (Init slot 4); never cleared,933FB0,inferred,"one writer, Init slot only"
+0x11AF670,"worker reads, sim writes",a,per search/exception,,2,0,1,28,0x959060 ,IC_Objects_GetForward,1,20,load,"CRT static initializer (constant vector -1,-1,-1,0), table entry in CRT range",F7FBB0,verified,"constant store, no other writer"
+0x11C7984,worker writes,a,per search/exception,,1,1,1,1,0x4D9AD0 ,IC_GameUtils_IsWorldInstalled,2,20,,,,,
+0x11CB920,worker writes,ab,per search/exception,,1,1,3,3,0x4F3CC0 ,IC_DeviceConfig_GetOption,2,20,,,,,
+0x11D4068,"worker reads, sim writes",a,per search/exception,,2,0,2,151,0x747D90 IC_OnlineFeaturesHost_GetPersonaName,IC_OnlineFeaturesHost_GetPersonaName,0,20,load,service ctor 0x888B80 sets and dtor 0x888F50 clears; created from vtable 0x102CCE0 slot 4 (0x88AA10),888B80 888F50,inferred,"same service family as 0x11D9848 and 0x11D8888; created at load, who destroys it not traced"
+0x11D7508,worker writes,a,per search/exception,,1,1,1,1,0x7935B0 ,IC_EAText_GetMoneyString,3,20,,,,,
+0x11D750C,worker writes,a,per search/exception,,1,1,1,1,0x7935B0 ,IC_EAText_GetMoneyString,3,20,,,,,
+0x11D7510,worker writes,a,per search/exception,,1,1,1,1,0x7935B0 ,IC_EAText_GetMoneyString,3,20,,,,,
+0x11D7514,worker writes,a,per search/exception,,1,1,1,1,0x7935B0 ,IC_EAText_GetMoneyString,3,20,,,,,
+0x11D7518,worker writes,a,per search/exception,,1,1,1,1,0x7935B0 ,IC_EAText_GetMoneyString,3,20,,,,,
+0x11D8888,"worker reads, sim writes",a,per search/exception,,2,0,2,11,0x7C6770 ,IC_OnlineFeaturesHost_GetPersonaName,3,20,load,"same family: 0x7C4FB0 sets (from 0x888B80), 0x7C4780 clears (from 0x888F50 and vtable 0x1016EE0 slot 2)",7C4FB0 7C4780,inferred,tied to the 0x11D4068 object lifetime
+0x11DA048,worker writes,a,per search/exception,,1,1,1,1,0x8A79B0 ,IC_EAText_GetMoneyString,3,20,,,,,
+0x11DA04C,worker writes,a,per search/exception,,1,1,1,1,0x8A79B0 ,IC_EAText_GetMoneyString,3,20,,,,,
+0x11DA050,worker writes,a,per search/exception,,1,1,1,1,0x8A79B0 ,IC_EAText_GetMoneyString,3,20,,,,,
+0x11DA054,worker writes,a,per search/exception,,1,1,1,1,0x8A79B0 ,IC_EAText_GetMoneyString,3,20,,,,,
+0x11DA058,worker writes,a,per search/exception,,1,1,1,1,0x8A79B0 ,IC_EAText_GetMoneyString,3,20,,,,,
+0x11DC168,worker writes,a,per search/exception,,1,1,1,1,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,20,,,,,
+0x11DC16C,worker writes,a,per search/exception,,1,1,1,1,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,20,,,,,
+0x11DC170,worker writes,a,per search/exception,,1,1,1,1,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,20,,,,,
+0x11DC174,worker writes,a,per search/exception,,1,1,1,1,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,20,,,,,
+0x11DC178,worker writes,a,per search/exception,,1,1,1,1,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,20,,,,,
+0x11DC180,worker writes,a,per search/exception,,1,1,1,1,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,20,,,,,
+0x11DC184,worker writes,a,per search/exception,,1,1,1,1,0x931020 DefaultAllocator,IC_UserToolUtils_ProductGenericImpl,1,20,,,,,
+0x11E8FC4,"worker reads, sim writes",a,per search/exception,,2,0,1,70,0x744CB0 IC_Objects_GetBoundingBox,IC_Objects_GetBoundingBox,0,20,load,ComponentsService_RegisterAll (Init slot 4); never cleared,933FB0,inferred,"one writer, Init slot only"
+0x11E90FC,"worker reads, sim writes",a,per search/exception,,2,0,1,58,0x5A9430 IC_CASUtils_GetOutfitInGameObjectImpl,IC_CASUtils_GetOutfitInGameObjectImpl,0,20,load,ComponentsService_RegisterAll (Init slot 4); never cleared,933FB0,inferred,"one writer, Init slot only"
+0x11E96C0,worker writes,a,per search/exception,,1,1,1,1,0x9B0530 ,IC_OnlineFeaturesHost_GetPersonaName,2,20,,,,,
+0x11E96C1,worker writes,a,per search/exception,,1,1,1,1,0x9B0530 ,IC_OnlineFeaturesHost_GetPersonaName,2,20,,,,,
+0x11ECEEC,worker writes,a,per search/exception,,1,1,1,1,0xC88D80 ,IC_World_HasFloorFeaturesWorldPosImpl,2,20,,,,,
+0x11ECEED,worker writes,a,per search/exception,,1,1,1,1,0xC88D80 ,IC_World_HasFloorFeaturesWorldPosImpl,2,20,,,,,
+0x11EE54C,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x11EE550,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x11EE554,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x11EE558,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x11EE55C,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x11EE560,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x11EE564,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x11EE568,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x11EE56C,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x11EE570,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x11EE574,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x11EE578,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x11EE57C,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x11EE580,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x11EE584,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x11EE588,worker writes,a,per search/exception,,1,1,1,1,0xD7BD40 ,IC_EAText_GetMoneyString,1,20,,,,,
+0x123437C,worker writes,a,per search/exception,,1,1,1,1,0xF7E8FC ,IC_EAText_GetMoneyString,5,20,,,,,
+0x1234380,worker writes,a,per search/exception,,1,1,1,1,0xF7E8FC ,IC_EAText_GetMoneyString,5,20,,,,,
+0x114CA08,"worker reads, sim writes",a,per search/exception,,1,0,1,2,0x4F5800 ,IC_EAText_GetMoneyString,1,10,runtime-lazy,same lazy fill as 0x114CA0C (0x4F98E0),4F98E0,verified,as 0x114CA0C
+0x11C78D8,"worker reads, sim writes",ab,per search/exception,,1,0,1,2,0x4AFD20 ResourceMan_GetManager,IC_World_GetTerrainSurfaceTypeImpl,1,10,load,"ResourceSystem swap-setter 0x4AFD30 (from 0x737170 and ResourceSystem_Init 0x738670, vtable 0xFFE250 slots 1, 2)",4AFD30,inferred,slots only; resource system lifetime (process or world) not read
+0x11CB928,"worker reads, sim writes",a,per search/exception,,1,0,2,3,0x4F9750 ,IC_EAText_GetMoneyString,2,10,runtime-lazy,"first-use table fill by 0x4F98E0 (rep stosd of 0x400 entries, done byte [0x11CC928]); entry setter 0x4F9870 is reached only by stub 0x4F9970, which has no caller or data reference",4F98E0 4F9870,verified,raw scan of all call/jmp/absolute references in the exe found no reference to 0x4F9970 or 0x4F9870
+0x11CDD00,"worker reads, sim writes",a,per search/exception,,1,0,1,2,0x58B880 ,IC_GameUtils_IsWorldInstalled,4,10,load,"process start/shutdown: swap-setter 0x58B890 from 0x58B310 and 0x58B440, both under App_Run (App_StartupFlags, App_RunLoop)",58B890,verified,direct call chain up to App_Run and CRT start
+0x11CDD10,"worker reads, sim writes",a,per search/exception,,1,0,2,3,0x58E3F0 ,IC_DeviceConfig_GetProcessorLevel,1,10,load,process start (0x591010 from App_ParseGraphicsCmdLine) and shutdown (0x58E400 from 0xEC9B40) under App_Run,591010 58E400,verified,direct call chains to App_Run
+0x11CE2D0,"worker reads, sim writes",a,per search/exception,,1,0,2,8,0x59ADA0 LocStrSvc_Get,IC_LocalizedStringService_GetLocalizedStringByString,1,10,load,"LocStrSvc_ctor via LocStrSvc_Create (0x589080, App_StartupFlags: start-up); dtor 0x59AEB0 via vtable 0xFD9A6C slot 2 clears",59AFC0 59AEB0,verified,ctor by direct chain to App_Run; dtor by vtable slot
+0x11CF490,"worker reads, sim writes",a,per search/exception,,1,0,2,3,0x686A90 PhysicsWorld_Get,IC_Query_GetObjectsInRange,1,10,load,"PhysicsService Init/Shutdown (vtable 0xFEFE0C slots 4, 6; registered by PhysicsService_Register 0x686DE0)",687310 686D90,inferred,slots only
+0x11D3E28,"worker reads, sim writes",a,per search/exception,,1,0,1,2,0x72F1C0 ResourceSystem_Get,IC_UserToolUtils_ProductGenericImpl,4,10,unknown,"swap-setter 0x72F1D0 from 0x733F40 and 0x733FD0 (vtable 0xFFEB0C slots 5, 7); owner service and its lifetime not identified",72F1D0,inferred,slots 5/7 are not the Init/Shutdown pair of the other services: owner unknown
+0x11D4BBC,"worker reads, sim writes",abc,per search/exception,,1,0,2,3,0x7692B0 ScriptHost_GetWorld,IC_DeviceConfig_GetOption,1,10,load,"ScriptThreadService_Init (0xD7F2B0, vtable 0x1007BE4 slot 6) sets from [0x11EE514]; 0xD71580 (via 0x76B320 slot 8 and 0xD7F2B0) clears",D7F2B0 D71580,inferred,service slots only
+0x11D4BC0,"worker reads, sim writes",a,per search/exception,,1,0,1,2,0x7692C0 ScriptMessageServer_Get,IC_UserToolUtils_ProductGenericImpl,2,10,load,"ScriptMessageServer_Set from ScriptMessageServerService_Init and _Shutdown (vtable 0x1007B74 slots 4, 6)",7692D0,inferred,service slots only
+0x11D6A78,"worker reads, sim writes",a,per search/exception,,1,0,1,2,0x78F2B0 World_FireEvent,IC_Slots_CanAttachToSlotImpl,4,10,runtime,"IC_World_RegisterCallbackDelegateImpl: a managed script call stores a delegate in the event table (index <= 0x4B, stride 36 bytes); data-only reference (IC table 0x1162230), so the time is when scripts register callbacks",7861A0,verified,writer is an IC (writing IC stays on the sim thread); call time not fixed by static analysis: script registration may happen during or after load
+0x11D9128,"worker reads, sim writes",a,per search/exception,,1,0,2,4,0x836200 RoutingWorld_GetImpl,IC_Slots_GetPositionOfSlotImpl,2,10,load,"RoutingWorld service Init (0x836210 sets) / Shutdown (0x836260 clears), vtable 0x1022C2C slots 4, 6",836210 836260,inferred,slots only; pointer changes at each routing world init (R2c)
+0x11D9848,"worker reads, sim writes",a,per search/exception,,1,0,2,4,0x9F6520 ,IC_OnlineFeaturesHost_GetPersonaName,4,10,load,"family of 0x11D4068: 0x889460 sets, 0x882840 clears (vtable 0x102CAF4 slot 0), created from 0x88AA10 slot 4",889460 882840,inferred,same object lifetime as 0x11D4068
+0x11DC350,"worker reads, sim writes",a,per search/exception,,1,0,2,4,0x938B50 ObjectService_Get,IC_CASUtils_GetOutfitInGameObjectImpl,1,10,load,"ObjectService_Init sets, ObjectService_Release clears (vtable 0x1042EBC slots 4, 6)",9388D0 938900,inferred,slots only
+0x11E8FC0,"worker reads, sim writes",a,per search/exception,,1,0,1,9,0x78A600 IC_World_LightGetDimmerImpl,IC_World_LightGetDimmerImpl,0,10,load,ComponentsService_RegisterAll (Init slot 4); never cleared,933FB0,inferred,"one writer, Init slot only"
+0x11E90F8,"worker reads, sim writes",a,per search/exception,,1,0,1,35,0xCCDD80 ,IC_Slots_CanAttachToSlotImpl,2,10,load,ComponentsService_RegisterAll (Init slot 4); never cleared,933FB0,inferred,"one writer, Init slot only"
+0x11E9290,"worker reads, sim writes",a,per search/exception,,1,0,1,28,0xB02BB0 ,IC_Slots_CanAttachToSlotImpl,5,10,load,ComponentsService_RegisterAll (Init slot 4); never cleared,933FB0,inferred,"one writer, Init slot only"
+0x11E92A8,"worker reads, sim writes",a,per search/exception,,1,0,1,73,0x78D400 IC_World_ObjectGetHiddenFlags,IC_World_ObjectGetHiddenFlags,0,10,load,ComponentsService_RegisterAll (Init slot 4); never cleared,933FB0,inferred,"one writer, Init slot only"
+0x11E94F8,"worker reads, sim writes",a,per search/exception,,1,0,2,3,0x984550 ,IC_OnlineFeaturesHost_GetPersonaName,4,10,load,"start-up (0x9861C0 from 0x9862C0, under App_StartupFlags via 0x589080); dtor 0x986240 (vtable 0x1046C6C slot 2) clears",9861C0 986240,verified,set by direct chain to App_Run; clear by vtable slot
+0x11EB490,"worker reads, sim writes",a,per search/exception,,1,0,2,4,0xAAB380 ,IC_GameUtils_IsWorldInstalled,1,10,load,"start-up (0xAAE5A0 from 0xAAE7E0, under App_StartupFlags via 0x589080); 0xAACA30 (vtable 0x10646EC slot 7) clears",AAE5A0 AACA30,inferred,"set by direct chain; clear by vtable slot, owner not read"
+0x11EBAE0,"worker reads, sim writes",a,per search/exception,,1,0,1,3,0xB319C0 ,IC_UserToolUtils_ProductGenericImpl,1,10,load,ObjectDesignerService_Create under App_StartupFlags (0x589080): start-up; never cleared,B3A1D0,verified,"single writer, direct chain to App_Run"
+0x11ED780,"worker reads, sim writes",a,per search/exception,,1,0,2,4,0xCEF760 ,IC_UserToolUtils_ProductGenericImpl,1,10,runtime,"IC_UserToolUtils_InitUserToolManagerImpl (0xCF1800, managed script call, data-only reference 0x1188DC8) sets; dtor 0xCF19D0 (vtable 0x10827C0 slot 2) clears",CF1800 CF19D0,verified,"writer is an IC (stays on the sim thread); call time is script-driven, not fixed statically"
+0x11EE140,"worker reads, sim writes",a,per search/exception,,1,0,1,3,0xD6DEF0 ,IC_World_HasFloorFeaturesWorldPosImpl,1,10,runtime,per-tick scratch: 0xD69A30 rewrites components of a static 16-byte SSE vector on every call; chain WorldService_Update 0xC7E3C0 -> WorldManager_Update 0xC6D570 -> 0xD6E350,D69A30,verified,"real shared write: the worker reads it in 0xD6DEF0 and 0xD699E0 (IC_World_HasFloorFeaturesWorldPosImpl path); same class as the R5 scratch vector; needs keep-on-sim-thread or a fill at the cut, not a witness"
+0x11DC18C,"worker reads, sim writes",b,warm-up/rare,,4,0,1,14,0xD70900 GC_win32_get_mem,GC_win32_get_mem,0,4,,,,,
+0x11EE520,worker writes,b,warm-up/rare,,2,2,2,2,0xD70900 GC_win32_get_mem,GC_win32_get_mem,0,4,,,,,
+0x114C908,worker writes,b,warm-up/rare,,1,1,2,2,0x4E1270 ,GC_win32_get_mem,2,2,,,,,
+0x11CC964,"worker reads, sim writes",b,warm-up/rare,,1,0,1,2,0x502B00 ,GC_win32_get_mem,3,1,,,,,
+0x11949B4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",18,1,1,26,0xE4BF90 GC_malloc_uncollectable,0xD714B0,1,36000,,,,,
+0x1233318,"worker reads, sim writes",abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",26,0,1,45,0xE4BF90 GC_malloc_uncollectable,0xD714B0,1,26000,,,,,
+0x1220E40,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",24,0,1,61,0xEA3370 mono_runtime_class_init,0xE52B60,0,24000,,,,,
+0x1220E44,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",22,0,1,37,0xE6EC90 ,IC_EAText_GetMoneyString,1,22000,,,,,
+0x1220E68,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",18,0,1,27,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,18000,,,,,
+0x12225C4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",9,7,8,12,0xE50DE0 GC_malloc_explicitly_typed,IC_EAText_GetMoneyString,1,18000,,,,,
+0x11F2F90,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",7,2,2,11,0xE4C1E0 GC_ea_alloc_unmark,IC_EAText_GetMoneyString,2,14000,,,,,
+0x12246F8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",7,1,1,7,0xE50DE0 GC_malloc_explicitly_typed,IC_EAText_GetMoneyString,1,14000,,,,,
+0x11F2F9C,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",6,1,2,7,0xE49F10 GC_collect_a_little_mark,0xD70800,2,12000,,,,,
+0x11F30B4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",6,1,1,9,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,12000,,,,,
+0x1220E84,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",11,0,1,23,0xE6E600 ,IC_EAText_GetMoneyString,1,11000,,,,,
+0x11F30A8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",5,1,3,8,0xE49F10 GC_collect_a_little_mark,0xD70800,2,10000,,,,,
+0x11F30D8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",5,1,1,6,0xE49730 ,0xD70800,2,10000,,,,,
+0x1234354,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",5,2,2,6,0xE4A7C0 ,0xD70800,3,10000,,,,,
+0x11EE508,worker writes,bc,per alloc/call,frame arena: P3 lock + ArenaFix (docs/120 §9.1-9.2),4,1,2,5,0xD71900 ScriptHost_FrameArena_Alloc,ScriptHost_FrameArena_Alloc,0,8000,,,,,
+0x11F30D0,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",4,1,1,8,0xE4DC30 GC_base,IC_EAText_GetMoneyString,3,8000,,,,,
+0x11F47EC,worker writes,ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,3,4,5,0xEBC330 ,IC_EAText_GetMoneyString,3,8000,,,,,
+0x1220F40,worker writes,ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,4,4,4,0xEA2690 ,IC_EAText_GetMoneyString,1,8000,,,,,
+0x1220F68,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,4,4,4,0xE6E600 ,IC_EAText_GetMoneyString,1,8000,,,,,
+0x12225B4,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",4,2,2,7,0xE49730 ,0xD70800,2,8000,,,,,
+0x1234358,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",4,2,2,5,0xE4A7C0 ,0xD70800,3,8000,,,,,
+[0x11EE508]->+0x4,worker writes,bc,per alloc/call,frame arena: P3 lock + ArenaFix (docs/120 §9.1-9.2),4,1,2,5,0xD71900 ScriptHost_FrameArena_Alloc,ScriptHost_FrameArena_Alloc,0,8000,,,,,
+0x1195B60,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",7,0,1,12,0xEA1400 mono_runtime_delegate_invoke,mono_runtime_delegate_invoke,0,7000,,,,,
+0x12225A0,"worker reads, sim writes",abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",7,0,1,11,0xE4A7C0 ,0xD70800,3,7000,,,,,
+0x1194824,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,1,2,10,0xE4CE90 ,ScriptHost_GC_push_other_roots,2,6000,,,,,
+0x119482C,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,1,1,3,0xE4A7C0 ,0xD70800,3,6000,,,,,
+0x1195B64,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",6,0,1,9,0xEA1E30 mono_class_create_runtime_vtable,IC_EAText_GetMoneyString,1,6000,,,,,
+0x11F2DA0,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,3,5,0xE49030 ,thunk_GC_free,3,6000,,,,,
+0x11F2E98,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,3,5,0xE49030 ,thunk_GC_free,3,6000,,,,,
+0x11F2F8C,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,2,4,0xE4BF90 GC_malloc_uncollectable,0xD714B0,1,6000,,,,,
+0x11F2F94,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,3,3,3,0xE49F10 GC_collect_a_little_mark,0xD70800,2,6000,,,,,
+0x11F2FB8,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,3,3,3,0xE49FB0 GC_collect_a_little_step,0xD70800,2,6000,,,,,
+0x11F2FC4,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,1,2,10,0xE4CE90 ,ScriptHost_GC_push_other_roots,2,6000,,,,,
+0x11F2FCC,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,3,3,3,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,6000,,,,,
+0x11F303C,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,2,5,0xE4B480 GC_notify_or_invoke_finalizers,IC_EAText_GetMoneyString,3,6000,,,,,
+0x11F3040,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,2,4,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,6000,,,,,
+0x1220E60,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",6,0,1,11,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,6000,,,,,
+0x1220F38,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",6,0,1,9,0xE848C0 ,IC_EAText_GetMoneyString,1,6000,,,,,
+0x1220F6C,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,3,4,4,0xE6B7D0 ,IC_Query_GetObjects,3,6000,,,,,
+0x1220F70,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,3,3,3,0xE9E640 ,IC_Query_GetObjects,2,6000,,,,,
+0x1220F74,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,3,3,3,0xE9E640 ,IC_Query_GetObjects,2,6000,,,,,
+0x1222520,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,1,1,5,0xE49C80 ,0xD714B0,5,6000,,,,,
+0x12225C8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,3,3,4,0xE49A50 ,0xD70800,3,6000,,,,,
+0x12225D4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,2,4,0xE4BEB0 GC_free,IC_EAText_GetMoneyString,1,6000,,,,,
+0x12225D8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,2,4,0xE49A50 ,0xD70800,3,6000,,,,,
+0x123434C,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,2,5,0xE4A7C0 ,0xD70800,3,6000,,,,,
+0x1234350,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,2,2,5,0xE4A7C0 ,0xD70800,3,6000,,,,,
+0x11949C0,"worker reads, sim writes",abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",5,0,1,7,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,5000,,,,,
+0x1195B7C,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",5,0,1,14,0xEB9F40 ,IC_EAText_GetMoneyString,2,5000,,,,,
+0x1220E48,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",5,0,1,22,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,5000,,,,,
+0x1220E8C,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",5,0,1,6,0xE53EB0 ves_exec_method_with_context,interp_mono_invoke_with_state,1,5000,,,,,
+0x11947E4,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,2,2,2,0xE49F10 GC_collect_a_little_mark,0xD70800,2,4000,,,,,
+0x1194814,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE498B0 GC_min_bytes_allocd,0xD70800,4,4000,,,,,
+0x1194818,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE49950 ,0xD714B0,5,4000,,,,,
+0x11949B8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE4E160 GC_init,IC_EAText_GetMoneyString,4,4000,,,,,
+0x11959BC,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,3,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,4000,,,,,
+0x11959C0,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,2,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,4000,,,,,
+0x1195F74,worker writes,ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,2,0xEBC330 ,IC_EAText_GetMoneyString,3,4000,,,,,
+0x1195F78,worker writes,ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,2,0xEBC330 ,IC_EAText_GetMoneyString,3,4000,,,,,
+0x11EE504,worker writes,bc,per alloc/call,frame arena: P3 lock + ArenaFix (docs/120 §9.1-9.2),2,1,2,3,0xD71900 ScriptHost_FrameArena_Alloc,ScriptHost_FrameArena_Alloc,0,4000,,,,,
+0x11F2FC8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,4000,,,,,
+0x11F3060,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,2,3,3,0xE4B7D0 ,thunk_GC_free,3,4000,,,,,
+0x11F30C0,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,3,0xE4E160 GC_init,IC_EAText_GetMoneyString,4,4000,,,,,
+0x11F40E4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,5,0xE4E160 GC_init,IC_EAText_GetMoneyString,4,4000,,,,,
+0x11F40F0,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,4,0xE4C2A0 ,0xD70800,4,4000,,,,,
+0x11F4118,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE511A0 GC_stop_world,0xD70800,4,4000,,,,,
+0x11F4230,worker writes,c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,3,0xE67DA0 ,0xE76F00,4,4000,,,,,
+0x11F4264,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,3,0xE6A1E0 mono_class_setup_interface_id,IC_EAText_GetMoneyString,1,4000,,,,,
+0x11F426C,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,2,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,4000,,,,,
+0x11F4270,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,1,2,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,4000,,,,,
+0x11F4274,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,2,3,0xE6A4A0 ,IC_EAText_GetMoneyString,1,4000,,,,,
+0x11F4278,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,1,2,3,0xE6A4A0 ,IC_EAText_GetMoneyString,1,4000,,,,,
+0x11F4378,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,7,0xE84280 ,IC_EAText_GetMoneyString,3,4000,,,,,
+0x11F44DC,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,6,0xE9E640 ,IC_Query_GetObjects,2,4000,,,,,
+0x1220E50,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,11,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,4000,,,,,
+0x1220E58,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,7,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,4000,,,,,
+0x1220E64,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,6,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,4000,,,,,
+0x1220E70,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,6,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,4000,,,,,
+0x1220E74,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,6,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,4000,,,,,
+0x1220E80,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,9,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,4000,,,,,
+0x1220F28,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,8,0xE6DB40 mono_class_setup_parent,IC_Query_GetObjects,2,4000,,,,,
+0x1222404,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE50DE0 GC_malloc_explicitly_typed,IC_EAText_GetMoneyString,1,4000,,,,,
+0x1222408,worker writes,c,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,3,0xE50F90 GC_make_descriptor,0xE52B60,3,4000,,,,,
+0x1222464,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE50DE0 GC_malloc_explicitly_typed,IC_EAText_GetMoneyString,1,4000,,,,,
+0x12225A4,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE49C70 ,0xD714B0,5,4000,,,,,
+0x12225B8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,2,4,0xE4BA90 GC_alloc_large,IC_EAText_GetMoneyString,3,4000,,,,,
+0x12225BC,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE4BA90 GC_alloc_large,IC_EAText_GetMoneyString,3,4000,,,,,
+0x12225CC,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,3,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,4000,,,,,
+0x1233314,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,4,0xE4B980 ,thunk_GC_free,4,4000,,,,,
+0x1234348,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,7,0xE4B5C0 ,0xD714B0,5,4000,,,,,
+[0x11EE504]->+0x4,worker writes,bc,per alloc/call,frame arena: P3 lock + ArenaFix (docs/120 §9.1-9.2),2,1,2,3,0xD71900 ScriptHost_FrameArena_Alloc,ScriptHost_FrameArena_Alloc,0,4000,,,,,
+[0x11F303C]->+0x4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,3,0xE4AE60 GC_finalize,0xD70800,4,4000,,,,,
+0x11944DC,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,5,0xE46B60 ,IC_EAText_GetMoneyString,1,3000,,,,,
+0x11F4280,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,4,0xE6B6D0 ,0xE52B60,1,3000,,,,,
+0x11F439C,"worker reads, sim writes",bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,5,0xE84080 ,0xD6FCB0,4,3000,,,,,
+0x11F44E0,"worker reads, sim writes",bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,7,0xE9E9C0 ,0xD790A0,4,3000,,,,,
+0x1220E4C,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,12,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,3000,,,,,
+0x1220E54,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,6,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,3000,,,,,
+0x1220E5C,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,6,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,3000,,,,,
+0x1220E78,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,5,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,3000,,,,,
+0x1194884,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4E160 GC_init,IC_EAText_GetMoneyString,4,2000,,,,,
+0x11949BC,"worker reads, sim writes",abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,0,1,4,0xE4BCE0 GC_generic_malloc,IC_EAText_GetMoneyString,2,2000,,,,,
+0x11959DC,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE75260 mono_domain_get,IC_EAText_GetMoneyString,1,2000,,,,,
+0x11F2D9C,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49320 ,0xD714B0,5,2000,,,,,
+0x11F2FD0,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,2000,,,,,
+0x11F2FD4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4A120 GC_collect_or_expand,IC_EAText_GetMoneyString,4,2000,,,,,
+0x11F302C,worker writes,c,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,2,0xE4AC60 GC_register_finalizer_inner,0xEA3140,4,2000,,,,,
+0x11F3048,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4B480 GC_notify_or_invoke_finalizers,IC_EAText_GetMoneyString,3,2000,,,,,
+0x11F305C,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4B520 ,0xD714B0,4,2000,,,,,
+0x11F306C,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4C050 ,IC_EAText_GetMoneyString,4,2000,,,,,
+0x11F3090,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,3,0xE4D7E0 ,0xD714B0,5,2000,,,,,
+0x11F30A4,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4E160 GC_init,IC_EAText_GetMoneyString,4,2000,,,,,
+0x11F30B8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4E160 GC_init,IC_EAText_GetMoneyString,4,2000,,,,,
+0x11F30BC,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4E160 GC_init,IC_EAText_GetMoneyString,4,2000,,,,,
+0x11F30C4,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49320 ,0xD714B0,5,2000,,,,,
+0x11F30CC,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DBE0 GC_clear_stack,IC_EAText_GetMoneyString,2,2000,,,,,
+0x11F40EC,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,4,0xE4EEF0 GC_heap_section_limit_b,thunk_GC_free,5,2000,,,,,
+0x11F4100,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,2,0xE4F2E0 ,IC_EAText_GetMoneyString,3,2000,,,,,
+0x11F4108,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4F2E0 ,IC_EAText_GetMoneyString,3,2000,,,,,
+0x11F411C,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE513D0 GC_thr_init,0xD714B0,5,2000,,,,,
+0x11F4214,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE68150 ,0xE76F00,4,2000,,,,,
+0x11F4218,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE68150 ,0xE76F00,4,2000,,,,,
+0x11F421C,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,3,8,0xE68BF0 ,0xE76F00,4,2000,,,,,
+0x11F4224,"worker reads, sim writes",ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE68EC0 ,IC_EAText_GetMoneyString,3,2000,,,,,
+0x11F4228,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE68BF0 ,0xE76F00,4,2000,,,,,
+0x11F424C,"worker reads, sim writes",bc,per alloc/call,frame arena: P3 lock + ArenaFix (docs/120 §9.1-9.2),2,0,1,4,0xD71900 ScriptHost_FrameArena_Alloc,ScriptHost_FrameArena_Alloc,0,2000,,,,,
+0x11F427C,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE6AEB0 ,IC_Query_GetObjects,2,2000,,,,,
+0x11F4370,worker writes,c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,2,0xE82C70 mono_register_jit_icall,0xE52B60,3,2000,,,,,
+0x11F4374,worker writes,c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,2,0xE82C70 mono_register_jit_icall,0xE52B60,3,2000,,,,,
+0x11F437C,"worker reads, sim writes",bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE84080 ,0xD6FCB0,4,2000,,,,,
+0x11F4398,"worker reads, sim writes",bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE84080 ,0xD6FCB0,4,2000,,,,,
+0x11F44E4,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE9B890 ,interp_mono_invoke_with_state,5,2000,,,,,
+0x11F44E8,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE9B7D0 ,0xD790A0,3,2000,,,,,
+0x11F45D4,worker writes,ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEA3F00 ,IC_EAText_GetMoneyString,1,2000,,,,,
+0x11F46F0,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,5,12,0xEAA6B0 ,0xE52B60,3,2000,,,,,
+0x11F471C,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000,,,,,
+0x11F4720,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000,,,,,
+0x11F4724,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000,,,,,
+0x11F4728,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000,,,,,
+0x11F472C,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000,,,,,
+0x11F4730,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000,,,,,
+0x11F4734,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000,,,,,
+0x11F4738,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000,,,,,
+0x11F473C,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000,,,,,
+0x11F4740,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000,,,,,
+0x11F4744,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000,,,,,
+0x11F4748,worker writes,bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEB5D50 ,0xD790A0,3,2000,,,,,
+0x1220E7C,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,5,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,2000,,,,,
+0x1220EFC,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,3,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,2000,,,,,
+0x1220F20,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,3,0xE6E050 mono_generic_class_get_class,IC_Query_GetObjects,2,2000,,,,,
+0x1220F44,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,2000,,,,,
+0x1220F48,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE6EBA0 Class_EnsureVtable,IC_EAText_GetMoneyString,1,2000,,,,,
+0x1220F60,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE6EE20 mono_class_init,IC_EAText_GetMoneyString,0,2000,,,,,
+0x1220F64,worker writes,abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE6BAE0 ,IC_EAText_GetMoneyString,1,2000,,,,,
+0x1222470,worker writes,c,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,2,0xE50460 GC_add_ext_descriptor,mono_class_vtable,4,2000,,,,,
+0x1222480,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,2,0xE4F2E0 ,IC_EAText_GetMoneyString,3,2000,,,,,
+0x12225AC,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49C80 ,0xD714B0,5,2000,,,,,
+0x12225B0,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49C80 ,0xD714B0,5,2000,,,,,
+0x12225DC,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4B520 ,0xD714B0,4,2000,,,,,
+0x12225E0,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4B520 ,0xD714B0,4,2000,,,,,
+0x12225E4,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,3,0xE4B520 ,0xD714B0,4,2000,,,,,
+0x12226E8,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4BE30 GC_malloc,IC_EAText_GetMoneyString,1,2000,,,,,
+0x1222EEC,worker writes,ac,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4BDC0 GC_malloc_atomic,IC_EAText_GetMoneyString,2,2000,,,,,
+0x12246FC,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DA10 ,0xD714B0,5,2000,,,,,
+0x1224700,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DA10 ,0xD714B0,5,2000,,,,,
+0x1224704,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DA10 ,0xD714B0,5,2000,,,,,
+0x1224708,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DA10 ,0xD714B0,5,2000,,,,,
+0x122470C,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DA10 ,0xD714B0,5,2000,,,,,
+0x122477C,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DA10 ,0xD714B0,5,2000,,,,,
+0x12247FC,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4DA10 ,0xD714B0,5,2000,,,,,
+0x122EF14,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,4,0xE4EEF0 GC_heap_section_limit_b,thunk_GC_free,5,2000,,,,,
+0x1232B14,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4D7E0 ,0xD714B0,5,2000,,,,,
+0x1232B18,worker writes,bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,3,0xE4D7E0 ,0xD714B0,5,2000,,,,,
+[0x11F303C]->+0xC,worker writes,abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4B3F0 GC_invoke_finalizers,IC_EAText_GetMoneyString,4,2000,,,,,
+0x1194848,"worker reads, sim writes",abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,0,1,3,0xE4B3F0 GC_invoke_finalizers,IC_EAText_GetMoneyString,4,1000,,,,,
+0x11F3028,"worker reads, sim writes",abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,0,2,3,0xE4B480 GC_notify_or_invoke_finalizers,IC_EAText_GetMoneyString,3,1000,,,,,
+0x11F3058,"worker reads, sim writes",bc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,0,1,2,0xE4B980 ,thunk_GC_free,4,1000,,,,,
+0x11F4104,"worker reads, sim writes",abc,per alloc/call,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,0,1,3,0xE4BCE0 GC_generic_malloc,IC_EAText_GetMoneyString,2,1000,,,,,
+0x11F4238,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,4,6,0xE67190 ,0xE76F00,4,1000,,,,,
+0x11F423C,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE67350 ,0xE76F00,4,1000,,,,,
+0x11F4240,"worker reads, sim writes",ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE68EC0 ,IC_EAText_GetMoneyString,3,1000,,,,,
+0x11F4248,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,2,3,0xE69720 ,0xE52B60,3,1000,,,,,
+0x11F42B4,"worker reads, sim writes",ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,2,4,0xE75250 ,IC_EAText_GetMoneyString,2,1000,,,,,
+0x11F42B8,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE75B40 ,0xE52B60,2,1000,,,,,
+0x11F43A0,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE83740 ,0xE76F00,4,1000,,,,,
+0x11F44D8,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE9DF20 mono_metadata_lookup_generic_inst,IC_Query_GetObjects,2,1000,,,,,
+0x11F4590,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,4,0xEA3370 mono_runtime_class_init,0xE52B60,0,1000,,,,,
+0x11F4598,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xEA3370 mono_runtime_class_init,0xE52B60,0,1000,,,,,
+0x1220E6C,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE70D50 mono_class_from_mono_type,IC_EAText_GetMoneyString,1,1000,,,,,
+0x1220EB0,"worker reads, sim writes",ac,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,8,0xEA8A00 ,IC_EAText_GetMoneyString,2,1000,,,,,
+0x1220ED0,"worker reads, sim writes",bc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xEA82D0 ,0xD790A0,3,1000,,,,,
+0x1220F1C,"worker reads, sim writes",abc,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE706A0 mono_bounded_array_class_get,IC_EAText_GetMoneyString,2,1000,,,,,
+0x1220FCC,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE69720 ,0xE52B60,3,1000,,,,,
+0x1220FD0,"worker reads, sim writes",c,per alloc/call,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE697A0 ,0xE52B60,3,1000,,,,,
+0x1220E94,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",6,0,1,9,0xE643B0 ,0xE52B60,1,600,,,,,
+0x1220F30,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",4,0,1,5,0xE95100 ,0xE52B60,3,400,,,,,
+0x11F4418,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,6,0xE8A410 ,0xE520E0,2,300,,,,,
+0x1220EDC,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",3,0,1,6,0xE934F0 ,interp_mono_invoke_with_state,4,300,,,,,
+0x11F4128,worker writes,c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE51400 tramp_create_thunk,0xE52B60,2,200,,,,,
+0x11F4160,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE52B60 ,0xE52B60,0,200,,,,,
+0x11F416C,worker writes,c,per invoke,P4 per-thread frame globals (docs/30 §4),1,1,1,2,0xE53EB0 ves_exec_method_with_context,interp_mono_invoke_with_state,1,200,,,,,
+0x11F4170,worker writes,c,per invoke,P4 per-thread frame globals (docs/30 §4),1,1,1,2,0xE53EB0 ves_exec_method_with_context,interp_mono_invoke_with_state,1,200,,,,,
+0x11F43C4,"worker reads, sim writes",bc,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,5,0xE8E170 ,0xD70AC0,2,200,,,,,
+0x11F45D8,worker writes,c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEA45A0 ,interp_mono_invoke_with_state,2,200,,,,,
+0x11F45E0,worker writes,c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEA47D0 ,interp_mono_invoke_with_state,2,200,,,,,
+0x11F4714,worker writes,ac,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEAE270 ,IC_Query_GetObjects,4,200,,,,,
+0x11F4718,worker writes,ac,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xEAE270 ,IC_Query_GetObjects,4,200,,,,,
+0x1220EEC,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,5,0xE91CB0 ,interp_mono_invoke_with_state,4,200,,,,,
+0x1220F24,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,3,0xE91CB0 ,interp_mono_invoke_with_state,4,200,,,,,
+0x1220F5C,worker writes,bc,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,1,1,1,0xE9E9C0 ,0xD790A0,4,200,,,,,
+0x1195B34,"worker reads, sim writes",bc,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,4,0xE84F90 ,0xD70AC0,3,100,,,,,
+0x11F4148,"worker reads, sim writes",bc,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE52630 ,0xD70AC0,1,100,,,,,
+0x11F414C,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE53EB0 ves_exec_method_with_context,interp_mono_invoke_with_state,1,100,,,,,
+0x11F4164,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,2,3,0xE51FC0 Interp_GetVirtualMethod,0xE520E0,1,100,,,,,
+0x11F436C,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,4,0xE82680 mono_lookup_internal_call,0xE52B60,0,100,,,,,
+0x1220E88,"worker reads, sim writes",ac,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE6FD00 ,IC_Query_GetObjects,3,100,,,,,
+0x1220E90,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE9D1A0 ,interp_mono_invoke_with_state,5,100,,,,,
+0x1220EA0,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE6FF80 ,0xE52B60,3,100,,,,,
+0x1220EA4,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE6FF80 ,0xE52B60,3,100,,,,,
+0x1220EA8,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE6FF80 ,0xE52B60,3,100,,,,,
+0x1220F04,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xEA0D50 ,interp_mono_invoke_with_state,5,100,,,,,
+0x1220F08,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE8D290 ,0xE520E0,2,100,,,,,
+0x1220F34,"worker reads, sim writes",c,per invoke,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,2,3,0xE5CA90 mono_interp_GenerateCode,0xE52B60,2,100,,,,,
+0x11F4234,"worker reads, sim writes",c,per search/exception,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",2,0,1,4,0xE67110 ,0xE76F00,5,20,,,,,
+0x11F3078,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",8,6,6,8,0xE4C060 ,0xD70800,2,16,,,,,
+0x1234340,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",7,6,9,11,0xE4CAA0 ,ScriptHost_GC_push_other_roots,2,14,,,,,
+0x11F451C,"worker reads, sim writes",c,per search/exception,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,2,4,0xEA0390 ,0xE76F00,5,10,,,,,
+0x11F46B0,"worker reads, sim writes",c,per search/exception,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,4,0xEA4F80 ,0xE76F00,5,10,,,,,
+0x11F46B4,"worker reads, sim writes",c,per search/exception,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xEA4F80 ,0xE76F00,5,10,,,,,
+0x1220F18,"worker reads, sim writes",c,per search/exception,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,3,0xE68290 ,0xE76F00,5,10,,,,,
+0x11F3070,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",4,4,4,4,0xE4C270 ,0xD70800,3,8,,,,,
+0x11F3080,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,3,4,4,0xE4C270 ,0xD70800,3,6,,,,,
+[0x1234340]->+0x4,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,3,3,3,0xE4CAA0 ,ScriptHost_GC_push_other_roots,2,6,,,,,
+0x1234338,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",5,0,1,7,0xE4C370 ,0xD70800,3,5,,,,,
+0x1194864,worker writes,bc,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,3,0xE50380 GC_reclaim_all,0xD70800,3,4,,,,,
+0x11F2FB4,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,2,2,2,0xE49A50 ,0xD70800,3,4,,,,,
+0x11F307C,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,2,3,3,0xE4C390 ,0xD70800,4,4,,,,,
+0x11F4120,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,2,2,3,0xE51290 GC_start_world,0xD70800,4,4,,,,,
+0x122100C,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,3,0xE511A0 GC_stop_world,0xD70800,4,4,,,,,
+0x1221010,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,2,2,2,0xE511A0 GC_stop_world,0xD70800,4,4,,,,,
+0x12225E8,worker writes,bc,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,1,1,2,0xE4C3E0 GC_mark_hot,0xD70800,5,4,,,,,
+0x11F3074,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,0,1,5,0xE4AE60 GC_finalize,0xD70800,4,3,,,,,
+0x1234344,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",3,0,1,7,0xE4CAA0 ,ScriptHost_GC_push_other_roots,2,3,,,,,
+0x11F2F98,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,2,0xE49DA0 GC_collect_a_little_inner,0xD70800,3,2,,,,,
+0x11F2FA4,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49A50 ,0xD70800,3,2,,,,,
+0x11F2FA8,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49980 GC_stopped_mark,0xD70800,3,2,,,,,
+0x11F2FAC,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49A50 ,0xD70800,3,2,,,,,
+0x11F2FBC,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49980 GC_stopped_mark,0xD70800,3,2,,,,,
+0x11F2FC0,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,0,1,5,0xE4A6A0 ,0xD70800,4,2,,,,,
+0x11F3034,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,3,4,0xE4AE60 GC_finalize,0xD70800,4,2,,,,,
+0x11F40F4,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4EFB0 GC_gww_dirty_init,0xD70800,5,2,,,,,
+0x11F40F8,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4EFB0 GC_gww_dirty_init,0xD70800,5,2,,,,,
+0x11F4124,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,0,1,4,0xE51290 GC_start_world,0xD70800,4,2,,,,,
+0x12225C0,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE49A50 ,0xD70800,3,2,,,,,
+0x12225D0,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,2,0xE49A50 ,0xD70800,3,2,,,,,
+0x122D714,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,0,1,4,0xE4A6A0 ,0xD70800,4,2,,,,,
+0x122D718,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,0,1,4,0xE4A6A0 ,0xD70800,4,2,,,,,
+0x123433C,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,2,2,0xE4C2A0 ,0xD70800,4,2,,,,,
+0x123435C,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4A7C0 ,0xD70800,3,2,,,,,
+0x1234360,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",2,0,1,3,0xE49A50 ,0xD70800,3,2,,,,,
+[0x1234340]->+0x0,worker writes,b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,1,1,1,0xE4CAA0 ,ScriptHost_GC_push_other_roots,2,2,,,,,
+0x11F3088,"worker reads, sim writes",b,warm-up/rare,"Boehm: M5 P3 GC lock (docs/30 §3, docs/120)",1,0,2,5,0xE498B0 GC_min_bytes_allocd,0xD70800,4,1,,,,,
+0x11F42CC,"worker reads, sim writes",b,warm-up/rare,"Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)",1,0,1,2,0xE76930 ,0xD70AC0,5,1,,,,,

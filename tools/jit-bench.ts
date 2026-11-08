@@ -65,7 +65,7 @@ export function model(t: BodyTime[], selfMs: Map<string, number>): Model[] {
 }
 export const selfTimes = (csv: string) => new Map(csv.split(/\r?\n/).slice(1).filter(l => l.trim()).map(csvFields).map(f => [f[1], +f[6]] as [string, number]));
 // the host's fixed bench cases (HostTest.JitBench) with lazy frames off and on: what a direct compiled call saves over EA's call path
-export const CALL_CASES = ['JitLz 64', 'JitLzChain 64', 'JitLzVirt 64'];
+export const CALL_CASES = ['JitLz 64', 'JitLzChain 64', 'JitLzVirt 64', 'JitLzAlloc 64'];
 export function callRows(offLog: string, onLog: string) {
   const row = (log: string, name: string) => log.match(new RegExp(`jitbench case\\s+\\d+ ${name}.*?interp\\s+([\\d.]+) ns\\s+compiled\\s+([\\d.]+) ns`));
   return CALL_CASES.flatMap(c => {

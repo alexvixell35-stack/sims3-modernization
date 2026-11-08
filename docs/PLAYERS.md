@@ -27,6 +27,7 @@ Less stutter, mostly by skipping work nobody can see:
 - **A Sim deleted at work leaves the job.** A Sim removed while at work used to stay on the work place's list and as a co-worker or boss of the others; now the Sim leaves the job at once.
 - **Small event fixes.** Sims waiting for an outfit stop checking every tick after an hour, a bake sale table with a deleted seller gets cleaned up, a greeting-card photo session no longer blocks the booth for missing Sims, egg hunts place eggs only on the hunt lot, and a graduation with no table ends instead of raising an error.
 - **NRaas ErrorTrap: no hitch right after loading.** If you use ErrorTrap, the check it runs a moment after every load is spread out. A newer ErrorTrap that does this itself switches ours off on its own.
+- **Small fixes for rare game errors (all on).** Each stops one rare game error and leaves everything else as it was: a failed or cancelled age-up keeps the Sim's outfits; the career uniform backup no longer uncaches a new work outfit; a Sim with no inventory yet refuses an object instead of erroring; a career skill that is not registered shows an empty name; a firework that fizzles ends cleanly; pets dropped from the adoption pools with no family are removed; two Sims' relationship tables that came apart are joined again; music buffs, buff updates, taxi, limo, bus and fire-truck drivers, cars with no route, deferred age-ups and opportunity rewards no longer throw errors. Settings: `invnotyet`, `metricskillmissing`, `fireworksfizzle`, `petpoolorphan`, `reltablesapart`, `jazzparam`, `carnoroute`, `ageupabort`, `rewardgiver`, `buffupdate`, `npcdriverpool`, `uniformbackup`, `ageupkeepoutfits`.
 
 ### `ts3native` (native plugin: `ts3native.asi` + `ts3native.ini`)
 
@@ -41,6 +42,8 @@ Less stutter, mostly by skipping work nobody can see:
 - **Cheaper Sims you can't see.** Sims the camera cannot see update their body pose every few frames (with the skipped time added in), walking Sims re-check only the objects that actually walk, and our speed-ups share one "can the player see it?" answer per object per frame. Sims you can see move exactly as before.
 - **Sims wait less for background route plans.** While a route is planned in the background, the common questions (can I step here, is this spot free, what surface is under this foot, can I idle here, who is in the way) are answered from a read-only copy, and removing objects no longer waits for the plan. In the tests this cut the time the game stands still waiting for route plans by about a third.
 - **More free address space.** Threads the game starts itself reserve 512 KB of stack instead of 1 MB, which gave back about 45 MB in old-save runs.
+- **Less memory held by old outfit textures (`[CasTrim] Mode=3`).** Right after each save, outfit textures the game's own save left out are let go, never ones your household or selected Sim needs. Your saves do not change.
+- **Crash detector for saves and travel (`[CasTrim] Detect=1`).** Checks the game's outfit list at each save and only writes to `ts3native.log`. If the game crashes during a save or while travelling, please send `ts3native.log`.
 
 Everything else in `ts3native.ini` is **off**: experiments still being tested. Leave them off unless you want to help test, and keep backups.
 

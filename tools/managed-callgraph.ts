@@ -477,7 +477,7 @@ export function decodeAll(b: Buffer, start: number, len: number): { ins: FullIns
 }
 // Split a rendered type list at top-level commas (generic arguments and fnptr params stay together).
 const splitTop = (s: string): string[] => { if (!s) return []; const o: string[] = []; let d = 0, st = 0; for (let i = 0; i <= s.length; i++) { const ch = s[i]; if (ch === '<' || ch === '(' || ch === '[') d++; else if (ch === '>' || ch === ')' || ch === ']') d--; else if ((ch === ',' && !d) || i === s.length) { o.push(s.slice(st, i)); st = i + 1; } } return o; };
-export type Recv = { type?: string; isThis: boolean; via?: string }; // via: producing method or field id
+export type Recv = { type?: string; isThis: boolean; via?: string; arg?: number }; // via: producing method or field id; arg: declared-parameter index when the value is a plain ldarg (not this)
 const recvCache = new Map<number, Map<number, Recv>>();
 // Per caller method: declared target -> receiver static type (undefined if any site of that target is unknown).
 export function receiverTypes(caller: number): Map<number, Recv> {
@@ -485,15 +485,86 @@ export function receiverTypes(caller: number): Map<number, Recv> {
   let out = recvCache.get(caller); if (out) return out;
   out = new Map(); recvCache.set(caller, out);
   for (const { target: tm, recv: r0 } of methodIl(caller)?.sites ?? []) {
-    const exact = r0.via && !r0.via.includes('(') ? exactStaticFieldType(r0.via) : undefined;
-    const res = exact ? { ...r0, type: exact } : r0;
+    // Narrower than the static type, in order: the one object a singleton field holds, the one object a getter returns,
+    // the one type every caller passes for a parameter (docs/219 P4). Each only replaces a type it is a subclass of.
+    let exact = r0.via ? (r0.via.includes('(') ? exactReturnType(r0.via) : exactStaticFieldType(r0.via)) : undefined;
+    if (!exact && r0.arg !== undefined) exact = paramType(caller, r0.arg);
+    const res = exact && (!r0.type || r0.via || assignable(exact, r0.type)) ? { ...r0, type: exact } : r0;
     // ifaceN edges point at the implementations, so key those too.
     for (const g of [tm.gi, ...(isIface(tm.type) ? ifaceImpls(tm)?.map((x) => x.gi) ?? [] : [])]) {
       const prev = out.get(g);
-      out.set(g, prev && (prev.type !== res.type || prev.isThis !== res.isThis || prev.via !== res.via) ? { isThis: false } : res); // sites disagree: unknown
+      out.set(g, prev && (prev.type !== res.type || prev.isThis !== res.isThis || prev.via !== res.via || prev.arg !== res.arg) ? { isThis: false } : res); // sites disagree: unknown
     }
   }
   return out;
+}
+const assignable = (t: string, base: string): boolean => { if (isA(t, base)) return true; const b = typeByFull.get(base), c = typeByFull.get(t); return !!b && !!c && isIface(b) && implementsI(c, b); };
+// Type of the argument each call site of `caller` passes, per callee id: undefined entries = unknown (docs/219 P4).
+const callArgCache = new Map<number, Map<number, (Recv | undefined)[] | null>>();
+export function callArgs(caller: number): Map<number, (Recv | undefined)[] | null> {
+  let out = callArgCache.get(caller); if (out) return out;
+  out = new Map(); callArgCache.set(caller, out);
+  const il = methodIl(caller); if (!il) return out;
+  for (let j = 0; j < il.ins.length; j++) {
+    const x = il.ins[j]; if (x.op !== 0x28 && x.op !== 0x6f) continue;
+    const tm = resolveMethodToken(il.asm, x.tok).m; if (!tm) continue;
+    const np = splitTop(tm.params).length;
+    const args = Array.from({ length: np }, (_, a) => { const [r, src] = il.valAt(np - 1 - a, j); return src < 0 || !r.type ? undefined : r; });
+    const prev = out.get(tm.gi);
+    // two sites in one caller: keep an argument only if both give the same type
+    out.set(tm.gi, prev ? args.map((r, a) => (prev[a] && r && prev[a]!.type === r.type && prev[a]!.via === r.via ? r : undefined)) : args);
+  }
+  return out;
+}
+// Reverse call edges (call/cv/cons) and delegate creations from the index, built on first use.
+let builtIndex: Index | undefined;
+let revCalls: Map<number, number[]> | undefined; let dlgTargets: Set<number> | undefined;
+function callersOf(g: number): number[] | undefined {
+  if (!revCalls) {
+    revCalls = new Map(); dlgTargets = new Set();
+    const ix = builtIndex ?? loadIndex(); // the index build() just made (self-check), else the file
+    ix.methods.forEach((r, i) => {
+      for (let k = 0; k < r.c.length; k += 2) {
+        const kd = ix.kinds[r.c[k + 1]];
+        if (kd === 'call' || kd === 'cv' || kd === 'cons') { const l = revCalls!.get(r.c[k]); if (l) l.push(i); else revCalls!.set(r.c[k], [i]); }
+        else if (kd === 'dlg') dlgTargets!.add(r.c[k]);
+      }
+    });
+  }
+  return dlgTargets!.has(g) ? undefined : revCalls.get(g) ?? [];
+}
+// The one class every caller passes for declared parameter `a` of a static or non-virtual method (callers found in the whole
+// index, at most 16, no delegate creation of it); undefined if any caller is unknown or they differ. Callers' own parameters
+// are followed one level. Sound for the closure: a callee reached from anywhere gets one of these arguments.
+const paramCache = new Map<string, string | undefined>();
+export function paramType(g: number, a: number, depth = 0): string | undefined {
+  if (!asms.length) loadAll(ASM_DIR);
+  const key = `${g}|${a}`; if (paramCache.has(key)) return paramCache.get(key);
+  paramCache.set(key, undefined);
+  const m = methods[g]; let res: string | undefined;
+  if (m && !(m.flags & VIRT) && !isIface(m.type) && !(m.flags & ABSTRACT)) {
+    const cs = callersOf(g);
+    if (cs && cs.length > 0 && cs.length <= 16) {
+      const ts = cs.map((c) => { const r = callArgs(c).get(g)?.[a]; if (!r) return undefined; return r.via ? (r.via.includes('(') ? exactReturnType(r.via) : exactStaticFieldType(r.via)) ?? r.type : r.arg !== undefined && depth < 1 ? paramType(c, r.arg, depth + 1) ?? r.type : r.type; });
+      if (ts.every((t) => t && t === ts[0])) res = ts[0];
+    }
+  }
+  paramCache.set(key, res); return res;
+}
+// The one class a getter returns: every implementation (the method, its overrides, or an interface's implementations) is
+// `ldsfld F; ret` with F a singleton field of one exact type (exactStaticFieldType).
+const idToGi = new Map<string, number>();
+export function exactReturnType(id: string): string | undefined {
+  if (!asms.length) loadAll(ASM_DIR);
+  if (!idToGi.size) methods.forEach((x) => idToGi.set(x.id, x.gi));
+  const g = idToGi.get(id), m = g === undefined ? undefined : methods[g]; if (!m) return undefined;
+  let impls: Method[] | undefined = isIface(m.type) ? ifaceImpls(m) : [m, ...overridesOf(m)];
+  impls = impls?.filter((x) => !(x.flags & ABSTRACT)); if (!impls?.length) return undefined;
+  const ts = impls.map((x) => {
+    const il = methodIl(x.gi)?.ins; if (!il || il.length !== 2 || il[0].op !== 0x7e || il[1].op !== 0x2a) return undefined;
+    return exactStaticFieldType(resolveFieldToken(x.asm, il[0].tok).id);
+  });
+  return ts.every((t) => t && t === ts[0]) ? ts[0] : undefined;
 }
 // Static fields whose every store is `newobj T; stsfld` (EA's `Singleton = new Definition()`) and whose address is never
 // taken (no ldsflda) hold an exact T or null, so a receiver loaded from one has type T, not the field's declared type
@@ -519,7 +590,7 @@ export function exactStaticFieldType(id: string): string | undefined {
 // receiver: j = index of the call in ins, src = index of the instruction that pushed the receiver (-1 = unknown).
 // docs/192 (script-leak-scan.ts) matches collection mutators to the static or instance field they run on.
 export type CallSite = { j: number; target: Method; recv: Recv; src: number };
-export function methodIl(caller: number): { ins: FullIns[]; sites: CallSite[]; asm: Asm; targets: Set<number> } | undefined {
+export function methodIl(caller: number): { ins: FullIns[]; sites: CallSite[]; asm: Asm; targets: Set<number>; valAt: (k: number, j: number) => [Recv, number] } | undefined {
   if (!asms.length) loadAll(ASM_DIR);
   const m = methods[caller];
   if (!m || !m.rva || m.impl & IC_FLAG || m.flags & (ABSTRACT | PINVOKE)) return undefined;
@@ -536,12 +607,26 @@ export function methodIl(caller: number): { ins: FullIns[]; sites: CallSite[]; a
   const inst = !(m.flags & STATIC_M);
   const argType = (i: number): [string | undefined, boolean] => inst ? (i === 0 ? [m.type.full, true] : [params[i - 1], false]) : [params[i], false];
   const nParams = (t: Method) => splitTop(t.params).length;
+  // Local written exactly once (never address-taken) from a typed producer (a call result or a static field load): the
+  // producer's id is the local's via, so the receiver typing sees through `T x = Getter(); x.Test(...)` (docs/219 P4).
+  let lv: Map<number, string> | undefined;
+  const localVia = (): Map<number, string> => {
+    if (lv) return lv;
+    lv = new Map(); const stores = new Map<number, number[]>(); const bad = new Set<number>();
+    dec.ins.forEach((y, i) => {
+      if (y.op >= 0x0a && y.op <= 0x0d) stores.set(y.op - 0x0a, [...(stores.get(y.op - 0x0a) ?? []), i]);
+      else if (y.op === 0x13 || y.op === 0xfe0e) stores.set(y.v, [...(stores.get(y.v) ?? []), i]);
+      else if (y.op === 0x12 || y.op === 0xfe0d) bad.add(y.v);
+    });
+    for (const [l, ss] of stores) if (ss.length === 1 && !bad.has(l)) { const via = valAt(0, ss[0])[0].via; if (via) lv.set(l, via); }
+    return lv;
+  };
   const effect = (x: FullIns): [number, number, string | undefined, boolean, string?] | undefined => { // [pop, push, pushed type, is this, via]
     const op = x.op;
     if (op >= 0x02 && op <= 0x05) return [0, 1, ...argType(op - 0x02)];
     if (op === 0x0e || op === 0xfe09) return [0, 1, ...argType(x.v)];
-    if (op >= 0x06 && op <= 0x09) return [0, 1, locals[op - 0x06], false];
-    if (op === 0x11 || op === 0xfe0c) return [0, 1, locals[x.v], false];
+    if (op >= 0x06 && op <= 0x09) return [0, 1, locals[op - 0x06], false, localVia().get(op - 0x06)];
+    if (op === 0x11 || op === 0xfe0c) return [0, 1, locals[x.v], false, localVia().get(x.v)];
     if ((op >= 0x14 && op <= 0x23) || op === 0x72 || op === 0xd0 || op === 0x0f || op === 0x12 || op === 0xfe0a || op === 0xfe0d || op === 0xfe06) return [0, 1, undefined, false];
     if (op === 0x7e || op === 0x7f) { const f = resolveFieldToken(a, x.tok); return [0, 1, op === 0x7e ? f.type : undefined, false, f.id]; }
     if (op === 0x7b || op === 0x7c) { const f = resolveFieldToken(a, x.tok); return [1, 1, op === 0x7b ? f.type : undefined, false, f.id]; }
@@ -556,22 +641,35 @@ export function methodIl(caller: number): { ins: FullIns[]; sites: CallSite[]; a
     }
     return undefined;
   };
-  const sites: CallSite[] = [];
-  for (let j = 0; j < dec.ins.length; j++) {
-    const x = dec.ins[j]; if (x.op !== 0x6f && x.op !== 0x28) continue;
-    const tm = resolveMethodToken(a, x.tok).m; if (!tm || tm.flags & STATIC_M) continue;
-    let res: Recv = { isThis: false }, src = -1;
-    let k = nParams(tm); // values above the receiver still to skip
+  // The value k places below the top of the stack just before instruction j (k = 0: the top): its static type, and the
+  // index of the pushing instruction (-1 = unknown).
+  const valAt = (k0: number, j: number): [Recv, number] => {
+    let res: Recv = { isThis: false }, src = -1, k = k0;
     for (let i = j - 1; i >= 0; i--) {
       if (dec.targets.has(dec.ins[i + 1].at)) break; // something jumps into the sequence: stack merge
       const e = effect(dec.ins[i]); if (!e) break;
       const [po, pu, ty, isThis, via] = e;
-      if (k < pu) { if (pu === 1 && k === 0) { src = i; if (ty && !/^!|&$/.test(ty)) res = { type: ty.replace(/<.*$/s, ''), isThis, via }; } break; }
+      if (k < pu) {
+        if (pu === 1 && k === 0) {
+          src = i; const o = dec.ins[i].op;
+          if (ty && !/^!|&$/.test(ty)) res = { type: ty.replace(/<.*$/s, ''), isThis, via };
+          // a plain ldarg of a declared parameter (not this): receiverTypes narrows it from the callers (paramType)
+          if (((o >= 0x02 && o <= 0x05) || o === 0x0e || o === 0xfe09) && !isThis) res = { ...res, arg: (o <= 0x05 ? o - 0x02 : dec.ins[i].v) - (inst ? 1 : 0) };
+        }
+        break;
+      }
       k = k - pu + po;
     }
+    return [res, src];
+  };
+  const sites: CallSite[] = [];
+  for (let j = 0; j < dec.ins.length; j++) {
+    const x = dec.ins[j]; if (x.op !== 0x6f && x.op !== 0x28) continue;
+    const tm = resolveMethodToken(a, x.tok).m; if (!tm || tm.flags & STATIC_M) continue;
+    const [res, src] = valAt(nParams(tm), j); // the receiver sits above the call's parameters
     sites.push({ j, target: tm, recv: res, src });
   }
-  return { ins: dec.ins, sites, asm: a, targets: dec.targets };
+  return { ins: dec.ins, sites, asm: a, targets: dec.targets, valAt };
 }
 
 // ---------- build ----------
@@ -632,7 +730,7 @@ function build(): Index {
     if (collMut && collFields.length) r.sc = [...new Set(collFields)].map(fx);
   }
   st.stubs = stubs.size; st.fields = fields.length;
-  return { version: 1, asms: asms.map((a) => ({ name: a.name, mvid: a.mvid })), kinds: [...KINDS], methods: recs, fields, stats: st };
+  return (builtIndex = { version: 1, asms: asms.map((a) => ({ name: a.name, mvid: a.mvid })), kinds: [...KINDS], methods: recs, fields, stats: st });
 }
 
 // ---------- 12b leaf rules + query ----------
@@ -1120,6 +1218,16 @@ function selfCheck(): void {
   const rug = lookup(ix, 'Sims3.Gameplay.Objects.Decorations.PlayOnRug+Definition::Test(Sims3.Gameplay.Interactions.InteractionInstanceParameters&,Sims3.SimIFace.GreyedOutTooltipCallback&)'), idt = lookup(ix, 'Sims3.Gameplay.Interactions.InteractionDefinition::Test(Sims3.Gameplay.Interactions.InteractionInstanceParameters&,Sims3.SimIFace.GreyedOutTooltipCallback&)');
   const r3 = rug.length && idt.length ? receiverTypes(rug[0]).get(idt[0]) : undefined;
   if (r3?.type !== 'Sims3.Gameplay.Core.Terrain+PlayOnCarpetInternal+Definition') fail(`receiver of the PlayOnCarpetInternal.Singleton Test call: ${JSON.stringify(r3)}`);
+  // docs/219 P4, argument typing: InteractionUtil.Test(definition, ...) is called only by BakeSaleTable+GotoBakeSaleTable with its
+  // PurchaseAutonomously.Singleton, so its parameter is that class, not "any definition"; and a Test receiver that is a local
+  // written once from IPhone.GetCallBandToLocation() (Phone returns its CallBandToLocation singleton) takes that class.
+  const iut = lookup(ix, 'Sims3.Gameplay.Interactions.InteractionUtil::Test(Sims3.Gameplay.Interactions.InteractionDefinition,Sims3.Gameplay.Interactions.InteractionInstanceParameters&,Sims3.SimIFace.GreyedOutTooltipCallback&)');
+  const r4 = iut.length && idt.length ? receiverTypes(iut[0]).get(idt[0]) : undefined;
+  if (r4?.type !== 'Sims3.Gameplay.Objects.Miscellaneous.BakeSaleTable+PurchaseAutonomously+Definition' || r4.arg !== 0) fail(`receiver of the InteractionUtil.Test definition parameter: ${JSON.stringify(r4)}`);
+  const bml = lookup(ix, 'Sims3.Gameplay.Skills.RockBand+GetBandMemberToLot+Definition::Test(Sims3.Gameplay.Interactions.InteractionInstanceParameters&,Sims3.SimIFace.GreyedOutTooltipCallback&)');
+  const r5 = bml.length && idt.length ? receiverTypes(bml[0]).get(idt[0]) : undefined;
+  if (r5?.type !== 'Sims3.Gameplay.Objects.Electronics.Phone+CallBandToLocation+Definition') fail(`receiver of the GetBandMemberToLot Test call: ${JSON.stringify(r5)}`);
+  if (paramType(iut[0], 0) !== r4.type || paramType(iut[0], 1) !== undefined) fail('paramType of InteractionUtil.Test: definition typed, ref parameters not');
   const lotOv = familyTargets(inUse[0], 'Sims3.Gameplay.Core.Lot') ?? [];
   if (lotOv.length >= virtualTargets(inUse[0]).ea.length) fail('Lot family not narrower than all get_InUse overrides');
   console.log(`  docs/127: Sim.OnPortalPathPlan + overrides reaches Turnstile.IsAllowedThrough; BCL targets not expanded; this rule: generic Test -> ${self.length} VisitLot+Definition family Tests (of ${virtualTargets(gt[0]).ea.length}); receiver types: this.InUse, IGameObject local`);

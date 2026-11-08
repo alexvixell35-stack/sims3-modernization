@@ -34,7 +34,9 @@
         "WaterJps.Enabled": 1,
         "RouteAsync.ForeignKinds": 4,
         "RouteAsync.ForeignKindsMode": 1,
-        "RouteAsync.KdA10ForeignMs": 1000
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "run": {
         "profile": {
@@ -90,7 +92,9 @@
         "WaterJps.Enabled": 1,
         "RouteAsync.ForeignKinds": 4,
         "RouteAsync.ForeignKindsMode": 0,
-        "RouteAsync.KdA10ForeignMs": 1000
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "run": {
         "profile": {
@@ -141,7 +145,9 @@
         "WaterJps.Enabled": 1,
         "RouteAsync.ForeignKinds": 4,
         "RouteAsync.ForeignKindsMode": 1,
-        "RouteAsync.KdA10ForeignMs": 1000
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "run": {
         "profile": {
@@ -192,7 +198,9 @@
         "WaterJps.Enabled": 1,
         "RouteAsync.ForeignKinds": 4,
         "RouteAsync.ForeignKindsMode": 1,
-        "RouteAsync.KdA10ForeignMs": 1000
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "run": {
         "profile": {
@@ -243,7 +251,9 @@
         "WaterJps.Enabled": 1,
         "RouteAsync.ForeignKinds": 4,
         "RouteAsync.ForeignKindsMode": 0,
-        "RouteAsync.KdA10ForeignMs": 1000
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
       },
       "run": {
         "profile": {

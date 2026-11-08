@@ -231,3 +231,4 @@ footprint_ghost_op,FootprintGhostHandlers,Any,none (a [Discourage] GhostTest op)
 footprint_ghost_verdict,FootprintGhostHandlers,Any,none (reads the tally),harness,after footprint_ghost_run,handler,none
 footprint_window_run,FootprintWindowHandlers,Live,none (the Sim is put on the slot; EA region sequence with a route job held by a test op; RemovalFirst off and on),cheat,after stove_wall_setup,handler,live
 footprint_window_verdict,FootprintWindowHandlers,Any,none (reads the tally),harness,after footprint_window_run,handler,none
+dance_together_floor,DanceFloorHandlers,Live,"none: two NPCs sent to a club with Visit Community Lot, then Dance Together pushed on them (an NPC chooses it by autonomy in play); short-term context set Friendly when EA would refuse",cheat,"a lot with a dance floor and a dance object (Waylon's Haunt, BP); NPCs only: never the active household, a selectable Sim or a Sim with no household",handler,live

@@ -123,10 +123,10 @@ static void AsMax(LONG& m, LONG v) { if (v > m) m = v; }
 
 // Arrays answered to the worker (docs/122 §3.2 a-lists, a-lot): a MonoArray {vtable, sync, max_length, bounds, data at +16}
 // [verified in monohost: length at +8, as AsRefresh reads it] from GC_malloc (scanned, zeroed; P3 lock while the worker runs).
-// Every array answer in the descriptor table has 4-byte elements (object references, int[], uint[]).
-static void* __cdecl AsNewArrayGc(DWORD vtable, DWORD n) {
-    if (n > (1u << 20)) return NULL;
-    DWORD* a = (DWORD*)g_asGcMalloc(16 + n * 4);
+// Elements are 4 bytes (object references, int[], uint[], float[]) or 8 (ulong[], docs/126 #7; data at +16 is 8-aligned).
+static void* __cdecl AsNewArrayGc(DWORD vtable, DWORD n, DWORD elemBytes) {
+    if (n > (1u << 20) || (elemBytes != 4 && elemBytes != 8)) return NULL;
+    DWORD* a = (DWORD*)g_asGcMalloc(16 + n * elemBytes);
     if (a) a[0] = vtable, a[2] = n;
     return a;
 }

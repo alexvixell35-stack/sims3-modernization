@@ -4,7 +4,7 @@
 //   node tools/harness/crash-ledger.ts triage [--since <iso>] [--pids 1,2]   list every crash report (written at or after --since) with its change set;
 //        --pids: only reports whose minidump (xcpt*.mdmp beside the .txt) names one of these game PIDs (an old report or an EA app
 //        `-test` relaunch's crash is not this run's); a report without a dump is kept and marked "PID not checked"
-//   node tools/harness/crash-ledger.ts --self-check              minidump PID/start-time reader, the PID filter, the 0x5E772C frame decoder (fixtures)
+//   node tools/harness/crash-ledger.ts --self-check              minidump PID/start-time reader, the PID filter, the 0x5E772C and 0xD4B156 / 0x5AF67E frame decoders (fixtures)
 // cycle.ts --save calls snapshot, so every harness run is covered.
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -133,6 +133,8 @@ function triage(since?: string, pids?: number[]) {
     console.log(`\n${n}\n  ${when.toISOString()}  ${type}  at ${mod}  stack: ${stackMods.join(', ') || '-'}`);
     const inv = inventoryFault(t);
     if (inv) console.log(`  ${inv}`);
+    const rel = releaseFault(t);
+    if (rel) console.log(`  ${rel}`);
     console.log(proc ? `  pid ${proc.pid}${proc.started ? `, process started ${proc.started.toISOString()}` : ''}${/^Commandline: .*\s-test\b/m.test(t) ? ', -test' : ''}` : '  no minidump: PID not checked');
     if (i < 0) { console.log('  change set: none recorded before this crash'); continue; }
     console.log(`  change set ${ledger[i].key} (recorded ${ledger[i].at}${ledger[i].note ? `, ${ledger[i].note}` : ''})`);
@@ -160,6 +162,35 @@ export function inventoryFault(t: string): string | null {
     `its first dword edx ${hex(reg('edx'))}; record ${hex(rec)} (${left ?? '?'} records to the end ${hex(end)}), outfit ${hex(outfit)}, return ${hex(ret)}` +
     `${ret === 0x5efe16 ? ' (SimService save 0x5EFD60)' : ''}, set ${hex(set)}, children ${kids ?? '?'}; docs/539 §12: match the ts3native log's ` +
     '"cas trim: inventory bad slot" / "crash forensics: cas trim inventory fault" lines (castrimdiag builds)';
+}
+
+// docs/539 §13.5 item 4: EA's release of an outfit's [outfit+0xBC] result cell (the 2026-11-08 release-smoke crash): 0xD4B156 in the
+// callback 0xD4B150 (frame [esp] 0x7287EC, value +4, 0x728DD4 +0x14, 0x5AF66D +0x28, cell +0x2C, outfit +0x38, return +0x3C, begin +0x40,
+// end +0x44) or 0x5AF67E, the same release inlined in 0x5AF640 (esi = cell, ecx = value; outfit [esp+4], return +8, begin +0xC, end +0x10).
+export function releaseFault(t: string): string | null {
+  const { reg, dw, hex } = reportFrame(t);
+  const eip = reg('eip');
+  if (eip !== 0xd4b156 && eip !== 0x5af67e) return null;
+  const esp = reg('esp') ?? 0, d = (o: number) => dw(esp + o);
+  const inl = eip === 0x5af67e;
+  const frame = inl || (d(0) === 0x7287ec && d(0x14) === 0x728dd4 && d(0x28) === 0x5af66d);
+  const [v, cell, outfit, ret, b, e] = inl ? [reg('ecx'), reg('esi'), d(4), d(8), d(0xc), d(0x10)]
+    : [reg('ebx') ?? d(4), frame ? d(0x2c) : null, frame ? d(0x38) : null, frame ? d(0x3c) : null, frame ? d(0x40) : null, frame ? d(0x44) : null];
+  const idx = cell !== null && b !== null && cell >= b ? (cell - b) / 4 : null, n = b !== null && e !== null && e >= b ? (e - b) / 4 : null;
+  const who = ret === 0x5e6e65 ? ' (clear 0x5E6E20)' : ret === 0x5e7638 ? ' (SimOutfit destructor 0x5E75A0)' : '';
+  return `EA outfit cell release at ${hex(eip)} (${frame ? '0x5AF640 frame' : 'value only: another caller of 0xD4B150'}): value ${hex(v)}${v === 0x40a00000 ? ' (float 5.0)' : ''}, ` +
+    `cell ${hex(cell)} (entry ${idx ?? '?'} of ${n ?? '?'}, ${hex(b)}-${hex(e)}), outfit ${hex(outfit)}, return ${hex(ret)}${who}; docs/539 §13: match the ts3native log's ` +
+    '"crash forensics: cas trim outfit release fault" / "cas trim: cell guard skipped" lines (castrimdiag1108b+)';
+}
+// an EA xcpt report's [Registers] and [Stack data] (16 bytes a line, <> around the esp byte)
+function reportFrame(t: string) {
+  const reg = (r: string) => { const m = t.match(new RegExp(`^${r}: ([0-9a-f]{8})`, 'im')); return m ? parseInt(m[1], 16) : null; };
+  const bytes = new Map<number, number>();
+  for (const m of (t.split('[Stack data]')[1]?.split(/\r?\n\[/)[0] ?? '').matchAll(/^([0-9a-f]{8}) \|([^|]*)\|/gim))
+    m[2].replace(/[<>]/g, ' ').trim().split(/\s+/).forEach((h, i) => bytes.set(parseInt(m[1], 16) + i, parseInt(h, 16)));
+  const dw = (a: number) => { const b = [0, 1, 2, 3].map(i => bytes.get(a + i)); return b.some(x => x === undefined) ? null : (b[0]! | (b[1]! << 8) | (b[2]! << 16) | (b[3]! << 24)) >>> 0; };
+  const hex = (v: number | null) => (v === null ? '?' : `0x${v.toString(16).padStart(8, '0').toUpperCase()}`);
+  return { reg, dw, hex };
 }
 
 // minidump fixture: header, one directory entry (stream 15), MISC_INFO with flags PROCESS_ID|PROCESS_TIMES
@@ -203,6 +234,18 @@ if (import.meta.main) {
       assert.match(inv, /\[rec\+0x38\] slot 1\): value esi 0x40A00000, its first dword edx 0x00000001; record 0x334789A0 \(8 records to the end 0x33478CE0\), outfit 0x35F8D460, return 0x005EFE16 \(SimService save 0x5EFD60\), set 0x44B575D4, children 1;/);
       assert.equal(inventoryFault(rep.replace('eip: 005e772c', 'eip: 0058d9b6')), null, 'another fault site');
       assert.match(inventoryFault(rep.replace(/^44b575b0 .*$/m, ''))!, /outfit \?, return \?/, 'missing stack lines: ? not a wrong value');
+      // the release-smoke report (2026-11-08 06:14 UTC), its own stack data lines
+      const rel = ['[Stack data]', '001afcb0 | c0 dd f1 0c c5 17 4e 00 c0 dd f1 0c<ec>87 72 00 | ......N.......r. |',
+        '001afcc0 | 00 00 a0 40 c0 dd f1 0c 00 00 00 00 d0 72 e6 0c | ...@.........r.. |', '001afcd0 | d4 8d 72 00 9c 08 9e 40 50 b1 d4 00 5c 09 9e 40 | ..r....@P...\..@ |',
+        '001afce0 | 9c 08 9e 40 6d f6 5a 00 9c 08 9e 40 50 b1 d4 00 | ...@m.Z....@P... |', '001afcf0 | 3c 1b 78 7b 80 1a 78 7b 65 6e 5e 00 a0 07 9e 40 | <.x{..x{en^....@ |',
+        '001afd00 | 5c 09 9e 40 84 1a 78 7b d0 72 e6 0c 80 1a 78 7b | \..@..x{.r....x{ |', '',
+        '[Registers]', 'eip: 00d4b156', 'eax: 00000000', 'ebx: 40a00000', 'ecx: 40a00000', 'esi: 0cf1dd80', 'esp: 001afcbc', ''].join('\r\n');
+      assert.match(releaseFault(rel)!, /0x5AF640 frame\): value 0x40A00000 \(float 5\.0\), cell 0x409E089C \(entry 63 of 111, 0x409E07A0-0x409E095C\), outfit 0x7B781A80, return 0x005E6E65 \(clear 0x5E6E20\);/);
+      assert.equal(releaseFault(rep), null, 'the inventory site is not a release fault');
+      assert.match(releaseFault(rel.replace('001afcd0 | d4 8d', '001afcd0 | 00 00'))!, /value only/, 'another caller of the callback');
+      const inl = ['[Stack data]', '0012fff0 | 00 00 00 00 00 00 00 00 00 00 00 00<3c>1b 78 7b | ................ |',
+        '00130000 | 80 1a 78 7b 38 76 5e 00 a0 07 9e 40 5c 09 9e 40 | ................ |', '', '[Registers]', 'eip: 005af67e', 'ecx: 40a00000', 'esi: 409e089c', 'esp: 0012fffc', ''].join('\r\n');
+      assert.match(releaseFault(inl)!, /cell 0x409E089C \(entry 63 of 111, .*outfit 0x7B781A80, return 0x005E7638 \(SimOutfit destructor 0x5E75A0\)/);
     } finally { rmSync(d, { recursive: true, force: true }); }
     console.log('self-check ok');
   } else if (positionals[0] === 'snapshot') snapshot(values.note);

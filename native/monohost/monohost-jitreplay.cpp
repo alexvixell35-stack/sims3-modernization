@@ -25,6 +25,8 @@ static u8* g_jrSnap;   // whole blocks of the rebuilt objects, for the restore b
 static DWORD* g_jrSnapOff;
 
 static int g_jrThrew, g_jrFaulted, g_jrFrom;
+static const char* g_jrStage = "";  // where JrRun is, with the object index, for a host fault's log line
+static int g_jrStageI;
 static void* JrCall(const char* name, int n, void** a, DWORD* code = NULL) {
     void* m = Meth(g_jrK, name, n), *exc = NULL;
     DWORD c = 0;
@@ -76,11 +78,32 @@ static unsigned JrHashWords(unsigned h, const u8* p, DWORD n, int depth, int* bu
     }
     return h;
 }
+static volatile LONG g_jrNotObj;  // GC cells a word reached whose word 0 is no vtable (counted, logged with the totals)
+// a word is followed when it equals a GC cell start, but a data word (an int, a float, a stale local) can equal the start of a cell
+// that holds no object: a non-object GC allocation or a reused cell. Its word 0 is then no vtable, and reading the class through it
+// faulted the host 4x on 11-08 (inputs 1703, 3406: EIP in this walk, class read +0x34 of 0x81 / 0x9E1, vtable read of 0xF0B9F01F).
+// An object's vtable is the one its class's runtime_info names for the vtable's domain (layout: native/worldimage/wimage.h):
+// the round trip, under SEH because every read before it may hit unmapped memory. NULL = no object
+static const u8* JrClassOf(const u8* b) {
+    __try {
+        const DWORD vt = *(const DWORD*)b;
+        if (vt < 0x10000 || (vt & 3) || GcBase((void*)(uintptr_t)vt)) return NULL;
+        const DWORD* v = (const DWORD*)(uintptr_t)vt;  // MonoVTable: klass +0, domain +8
+        const u8* kl = (const u8*)(uintptr_t)v[0], *dom = (const u8*)(uintptr_t)v[2];
+        const u8* ri = *(const u8* const*)(kl + 0xB8);  // runtime_info: u16 max_domain, MonoVTable* per domain id from +4
+        const int id = *(const int*)(dom + 0x58);
+        if (!ri || id < 0 || id > *(const unsigned short*)ri || *(const DWORD*)(ri + 4 + 4 * id) != vt) return NULL;
+        const char* nm = *(const char* const*)(kl + 0x34), *ns = *(const char* const*)(kl + 0x38);
+        volatile char touch = (char)(nm[0] | ns[0]);  // the walk reads both names
+        (void)touch;
+        return kl;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return NULL; }
+}
 static unsigned JrHashNew(unsigned h, DWORD w, int depth, int* budget) {
     const u8* b = (const u8*)(uintptr_t)w;
     const DWORD block = GcSize(b), vt = *(const DWORD*)b;
-    if (!block || !vt || GcBase((void*)(uintptr_t)vt)) return JrMix(h, 0x20000000u);
-    const u8* kl = *(const u8* const*)(uintptr_t)vt;
+    const u8* kl = block ? JrClassOf(b) : NULL;
+    if (!kl) { if (block && vt && !GcBase((void*)(uintptr_t)vt)) InterlockedIncrement(&g_jrNotObj); return JrMix(h, 0x20000000u); }
     const char* nm = *(const char* const*)(kl + 0x34), *ns = *(const char* const*)(kl + 0x38);
     const size_t nl = strlen(nm);
     DWORD used = block;
@@ -91,11 +114,13 @@ static unsigned JrHashNew(unsigned h, DWORD w, int depth, int* budget) {
     return JrHashWords(JrMix(h, vt), b, used, depth, budget);
 }
 static void JrRestore() {
+    g_jrStage = "restore";
     for (int i = 0; i < g_jrObjN; i++) if (g_jrObj[i].addr) memcpy(g_jrObj[i].addr, g_jrSnap + g_jrSnapOff[i], GcSize(g_jrObj[i].addr));
 }
 // one arm: false on a CPU fault
 static bool JrArm(unsigned* out) {
     JrRestore();
+    g_jrStage = "run";
     void* run = Meth(g_jrK, "Run", 0), *exc = NULL;
     DWORD code = 0;
     void* r = SafeInvoke(run, NULL, NULL, &exc, &code);
@@ -110,9 +135,11 @@ static bool JrArm(unsigned* out) {
     for (int i = 0; i < g_jrObjN; i++) {
         const JrObj& o = g_jrObj[i];
         if (!o.addr) continue;
+        g_jrStage = "hash", g_jrStageI = i;
         const DWORD block = GcSize(o.addr);
         h = JrHashWords(JrMix(h, (DWORD)i), o.addr, !o.blob && o.n < block ? o.n : block, 0, &budget);
     }
+    g_jrStage = "hash result", g_jrStageI = -1;
     void* keep = JrCall("KeepNow", 0, NULL), *args = JrCall("ArgsNow", 0, NULL);
     if (keep) h = JrHashNew(h, (DWORD)(uintptr_t)keep, 0, &budget);
     if (args) h = JrHashNew(h, (DWORD)(uintptr_t)args, 0, &budget);
@@ -180,19 +207,23 @@ static void JrRun(JrInput& in, int* tot) {
     for (int i = 0; i < g_jrObjN; i++) {  // the objects first: everything else refers to them
         JrObj& o = g_jrObj[i];
         if (o.type < 0) continue;
+        g_jrStage = "new", g_jrStageI = i;
         void* a[2] = {&o.type, &o.len};
         o.addr = (u8*)JrCall("New", 2, a);
         if (!o.addr) { JrWhyNow(m, why, sizeof(why)); o.gone = true; row.cuts++; }
     }
+    g_jrStage = "fixup", g_jrStageI = -1;
     JrFixUp();
     for (int i = 0; i < g_jrObjN; i++) {
         JrObj& o = g_jrObj[i];
         if (!o.addr) continue;
+        g_jrStage = "copy", g_jrStageI = i;
         const DWORD block = GcSize(o.addr), n = o.n < block ? o.n : block;
         if (n > 4) memcpy(o.addr + 4, o.data + 4, n - 4);  // not word 0: the vtable is this process's
     }
     bool ok = true;
     void* box = NULL;
+    g_jrStage = "arguments", g_jrStageI = -1;
     if (in.selfKind == 'b') {
         int k = -1;
         void* a[2] = {&m, &k};
@@ -240,6 +271,7 @@ static void JrRun(JrInput& in, int* tot) {
     DWORD snapN = 0;
     for (int i = 0; i < g_jrObjN; i++) {
         JrObj& o = g_jrObj[i];
+        g_jrStage = "snapshot", g_jrStageI = i;
         JrIndex(o.addr, i);
         g_jrSnapOff[i] = snapN;
         if (!o.addr) continue;
@@ -271,6 +303,15 @@ static void JrRun(JrInput& in, int* tot) {
     else if (got != ref) row.differ++, tot[3]++, Log("jit replay MISMATCH input %d %s: compiled %08X interpreted %08X\n", in.id, row.name, got, ref);
     g_jitVerifyOn = vOn;
 }
+static int JrFaultLog(const EXCEPTION_POINTERS* e, int id) {
+    const EXCEPTION_RECORD* r = e->ExceptionRecord;
+    const int i = g_jrStageI;
+    const JrObj* o = i >= 0 && i < g_jrObjN ? &g_jrObj[i] : NULL;
+    Log("jit replay: input %d: host fault %08lX while rebuilding, stage %s, object %d (type %d len %d bytes %lu at %p), eip %p, %s %08lX\n", id, r->ExceptionCode,
+        g_jrStage, i, o ? o->type : -1, o ? o->len : 0, o ? o->n : 0, o ? (void*)o->addr : NULL, r->ExceptionAddress,
+        r->NumberParameters > 1 && r->ExceptionInformation[0] ? "write" : "read", r->NumberParameters > 1 ? (DWORD)r->ExceptionInformation[1] : 0);
+    return EXCEPTION_EXECUTE_HANDLER;
+}
 static void JitReplayRun() {
     char path[MAX_PATH] = "";
     if (!GetEnvironmentVariableA("MONOHOST_JITREPLAY", path, sizeof(path))) return;
@@ -286,7 +327,12 @@ static void JitReplayRun() {
     g_jrHk = (DWORD*)calloc(JR_HASH, 4), g_jrHv = (int*)calloc(JR_HASH, 4), g_jrSnapOff = (DWORD*)calloc(JR_OBJS, 4);
     g_jrPool = (u8*)VirtualAlloc(NULL, JR_POOL, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     g_jrSnap = (u8*)VirtualAlloc(NULL, JR_POOL, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    u8* nameBuf = (u8*)JrCall("BufNow", 0, NULL) + 0x10;
+    void* bufObj = JrCall("BufNow", 0, NULL);
+    {   // self-check of JrClassOf: a real object passes; the word-0 shapes of the 11-08 faults (a pointer to 0x81, an unaligned word) do not
+        DWORD bad81[1] = {0x81}, viaBad[1] = {(DWORD)(uintptr_t)bad81}, odd[1] = {0xF0B9F01Fu};
+        if (!JrClassOf((const u8*)bufObj) || JrClassOf((const u8*)viaBad) || JrClassOf((const u8*)odd)) { Log("jit replay: JrClassOf self-check failed, replay not run\n"); fclose(f); return; }
+    }
+    u8* nameBuf = (u8*)bufObj + 0x10;
     const auto toBuf = [nameBuf](const char* s) { int n = (int)strcspn(s, "\r\n"); if (n > 4095) n = 4095; memcpy(nameBuf, s, n); return n; };
     const LONG mm0 = g_jvMismatch, ab0 = g_jvAbandoned, ok0 = g_jvOk;
     static char line[1 << 22];
@@ -352,7 +398,7 @@ static void JitReplayRun() {
             sscanf_s(p, "%d %lx %lx %c %d", &s.k, &s.lo, &s.hi, &s.kind, 1, &s.i);
         } else if (!strcmp(tag, "end") && in.meth < JR_MAX_METH && in.id >= g_jrFrom) {
             __try { JrRun(in, tot); }
-            __except (Log("jit replay: input %d: host fault %08lX while rebuilding\n", in.id, GetExceptionCode()), EXCEPTION_EXECUTE_HANDLER) { g_jrRow[in.meth].skipped++, tot[4]++, tot[5] = 1; }
+            __except (JrFaultLog(GetExceptionInformation(), in.id)) { g_jrRow[in.meth].skipped++, tot[4]++, tot[5] = 1; }
         }
     }
     fclose(f);
@@ -362,6 +408,7 @@ static void JitReplayRun() {
         Log("jit replay method %s: inputs %d, ran %d, differ %d, unstable %d, skipped %d, faulted %d, objects not rebuilt %d\n", r.name, r.inputs, r.ran, r.differ, r.unstable, r.skipped, r.faulted, r.cuts);
     }
     for (int i = 0; i < g_jrWhyN; i++) Log("jit replay reason %s: %s x%d\n", g_jrRow[g_jrWhy[i].meth].name, g_jrWhy[i].why, g_jrWhy[i].n);
+    Log("jit replay: the hash walk reached %ld GC cells with no vtable (not followed)\n", g_jrNotObj);
     Log("jit replay: %d inputs, %d ran, %d differ, %d unstable, %d skipped, %d faulted%s; per-call verify: ok %ld, MISMATCH %ld, abandoned (exception) %ld\n",
         tot[0], tot[1], tot[3], tot[2], tot[4], tot[6], tot[5] ? ", STOPPED on a fault" : "", g_jvOk - ok0, g_jvMismatch - mm0, g_jvAbandoned - ab0);
 }
