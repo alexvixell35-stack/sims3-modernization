@@ -35,7 +35,7 @@ static DWORD WINAPI AuWorker(void*) {
 static void TestAskLent() {
     static_assert(offsetof(Ts3nCounters, auMode) == 0x4FFC && offsetof(Ts3nCounters, auStaleAfter) == 0x500C &&
                       offsetof(Ts3nCounters, dmxMode) == 0x5014 && offsetof(Ts3nCounters, dmxMismatch) == 0x5028 &&
-                      offsetof(Ts3nCounters, auSpare) == 0x5030 && sizeof(Ts3nCounters) == 6030 * 4,
+                      offsetof(Ts3nCounters, auSpare) == 0x5030 && sizeof(Ts3nCounters) == 6035 * 4,
                   "counters v126 layout (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);

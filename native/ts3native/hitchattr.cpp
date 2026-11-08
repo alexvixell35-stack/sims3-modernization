@@ -150,7 +150,41 @@ static __declspec(noinline) LONG HoAcquire(void* lock, void* edx, const DWORD* d
     return r;
 }
 
+// --- [HitchAttr] JobNameMs (0.36.191, docs/247 §12.4, counters v173 rjn*): names the route job behind a long rtJob wait ---
+// Log only, changes nothing. A sim-thread wait for the running job (RtWaitJob, the discourage drain) of >= rjnMinUs writes
+// "rtjob wait:" with the wait key and the job the worker just ended (g_rjnLast): route handle, own / foreign, IC kind, the Sim
+// scope at START (ts3fixes UfWhy; household-or-seen and unknown are household, never cut), job ms split into plan / host / other,
+// plans and world A* nodes (0 nodes when the job had no budget), its deadline, arm and wall stamp. 20 lines a minute, rest counted.
+// shortcut: the record is the last job the worker ended, not looked up by handle; "last job" in the line says when they differ.
+static void RjnText(char* b, size_t n, DWORD key, LONG us, DWORD handle, const RjnSum& s, const char* arm, DWORD now) {
+    static const char* const who[] = {"own", "foreign", "A10 foreign"};
+    char hd[40] = "";
+    if (s.handle != handle) _snprintf_s(hd, sizeof(hd), _TRUNCATE, " (waited for %08lX)", handle);
+    _snprintf_s(b, n, _TRUNCATE, "rtjob wait: %ld ms key %08lX, %sjob route %08lX%s seq %lu %s, IC kind %ld, scope %s, job %ld ms plan %ld host %ld "
+        "other %ld, plans %ld nodes %ld, deadline %ld ms%s, arm %s, at %lu ms", us / 1000, key, s.handle == handle ? "" : "last ", s.handle, hd,
+        s.seq, who[s.who >= 0 && s.who <= 2 ? s.who : 0], s.kind, KdScopeTag(s.scope), s.us / 1000, s.planUs / 1000, s.hostUs / 1000,
+        (s.us - s.planUs - s.hostUs) / 1000, s.plans, s.nodes, s.dlUs / 1000, s.capped ? ", capped" : "", arm, now);
+}
+static void RjnWait(DWORD key, LONG us, DWORD handle) {
+    Ts3nCounters& k = ts3native_counters;
+    const LONG min = k.rjnMinUs;
+    if (min <= 0 || us < min) return;
+    static DWORD minute, lines;  // the sim thread only (both callers check the job owner)
+    const DWORD now = GetTickCount();
+    if (now - minute >= 60000) minute = now, lines = 0;
+    if (lines >= 20) { InterlockedIncrement(&k.rjnDropped); return; }
+    lines++;
+    const RjnSum s = g_rjnLast;
+    char b[512];
+    RjnText(b, sizeof(b), key, us, handle, s, AbArmTag(), now);
+    Log("%s", b);
+    InterlockedIncrement(&k.rjnLines);
+}
+
 static bool ApplyHitchAttr(const wchar_t* ini) {
+    const int rjnMs = Clamp(GetPrivateProfileIntW(L"HitchAttr", L"JobNameMs", 0, ini), 0, 60000);
+    ts3native_counters.rjnMinUs = rjnMs * 1000;
+    if (rjnMs) Log("OK   HitchAttr JobNameMs=%d: \"rtjob wait:\" lines for sim waits on the running route job", rjnMs);
     if (GetPrivateProfileIntW(L"HitchAttr", L"Holders", 0, ini)) {
         ts3native_lockholders.minUs = Clamp(GetPrivateProfileIntW(L"HitchAttr", L"HoldersMinMs", 20, ini), 1, 10000) * 1000;
         ts3native_lockholders.enabled = 1;

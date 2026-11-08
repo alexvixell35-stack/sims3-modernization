@@ -1,10 +1,10 @@
 {
-  "note": "CONDITIONAL since 2026-11-06 (Rodney, timing trim): run only if golive-unseen-gate2.json fails V6 at pace 78. gate2 step 1 (docs/222 §11.4, audit O1 rescoped): 11-03 seen Sims lost search cadence too (cause unknown; suspect: shared search manager, docs/222 §11.4; V6 bar is pushes per seen Sim-hour since 11-06, searches are a log row). In-load --ab autunseen at pace 50 and 35; pick the pace that brings seen pushes per Sim-hour back within +-10% (V6, gate2-report.ts), point golive-unseen-gate2.json at that package (game-copy/ts3fixes.package.mono1106c-guNN), then rerun golive-unseen-gate2.json. Behaviour only, no timing verdict. Added 2026-11-06 (§11.8): speed 1 pair, autseengame pair, pace-credit pair; read each by naming it: gate2-report.ts <tag>-<world>-gu2p-speed1, -seengame, -credit.",
+  "note": "CONDITIONAL since 2026-11-06 (Rodney, timing trim): run only if golive-unseen-gate2.json fails V6 at pace 78. gate2 step 1 (docs/222 §11.4, audit O1 rescoped): 11-03 seen Sims lost search cadence too (cause unknown; suspect: shared search manager, docs/222 §11.4; V6 bar is pushes per seen Sim-hour since 11-06, searches are a log row). In-load --ab autunseen at pace 50 and 35; pick the pace that brings seen pushes per Sim-hour back within +-10% (V6, gate2-report.ts), point golive-unseen-gate2.json at that package (game-copy/ts3fixes.package.g2pair1107b-guNN), then rerun golive-unseen-gate2.json. Behaviour only, no timing verdict. Added 2026-11-06 (§11.8): speed 1 pair, autseengame pair, pace-credit pair; read each by naming it: gate2-report.ts <tag>-<world>-gu2p-speed1, -seengame, -credit.",
   "stopQueueOnFail": false,
   "smoke": {
     "id": "bp-gu2p-smoke",
     "note": "Smoke (5 min BP, --ab autunseen slice 1): arm split, switch read-back.",
-    "asi": "game-copy/ts3native.asi.mono1106c",
+    "asi": "game-copy/ts3native.asi.g2pair1107b",
     "releaseDefaults": true,
     "minCounters": 159,
     "ini": {
@@ -98,8 +98,8 @@
     "gameArgs": [
       "-disablestoryprogression"
     ],
-    "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-    "fixesPackage": "game-copy/ts3fixes.package.mono1106c-gu50",
+    "pinReason": "docs/222 §11.8: g2pair1107b pair (master 0.36.189) (X4 + the 785-817 counters): asi g2pair1107b + the named package, kAutLive True by default; builds.json",
+    "fixesPackage": "game-copy/ts3fixes.package.g2pair1107b-gu50",
     "save": "Baseline-BP-Spring",
     "noiseCheck": false,
     "run": {
@@ -120,7 +120,7 @@
     {
       "id": "bp-gu2p-pace50-ab",
       "note": "docs/222 §11.4: pace 50%, 18 min ABBA. Read seen and unseen cadence per arm. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1 and R4 as log, single order.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -214,8 +214,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-gu50",
+      "pinReason": "docs/222 §11.8: g2pair1107b pair (master 0.36.189) (X4 + the 785-817 counters): asi g2pair1107b + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107b-gu50",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
@@ -239,7 +239,7 @@
     {
       "id": "ip-gu2p-pace50-ab",
       "note": "docs/222 §11.4: pace 50%, 18 min ABBA. Read seen and unseen cadence per arm.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -333,8 +333,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-gu50",
+      "pinReason": "docs/222 §11.8: g2pair1107b pair (master 0.36.189) (X4 + the 785-817 counters): asi g2pair1107b + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107b-gu50",
       "save": "Baseline-IP-Spring",
       "noiseCheck": false,
       "run": {
@@ -354,7 +354,7 @@
     {
       "id": "bp-gu2p-pace35-ab",
       "note": "docs/222 §11.4: pace 35%, 18 min ABBA. Read seen and unseen cadence per arm. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1 and R4 as log, single order.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -448,8 +448,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-gu35",
+      "pinReason": "docs/222 §11.8: g2pair1107b pair (master 0.36.189) (X4 + the 785-817 counters): asi g2pair1107b + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107b-gu35",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
@@ -473,7 +473,7 @@
     {
       "id": "ip-gu2p-pace35-ab",
       "note": "docs/222 §11.4: pace 35%, 18 min ABBA. Read seen and unseen cadence per arm.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -567,8 +567,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-gu35",
+      "pinReason": "docs/222 §11.8: g2pair1107b pair (master 0.36.189) (X4 + the 785-817 counters): asi g2pair1107b + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107b-gu35",
       "save": "Baseline-IP-Spring",
       "noiseCheck": false,
       "run": {
@@ -588,7 +588,7 @@
     {
       "id": "bp-gu2p-speed1-ab",
       "note": "docs/222 §11.8: speed 1 (normal), pace 50%, 30 min. All earlier behaviour data is ultra: reads whether the seen push loss happens at the speed players use. Few searches at this speed: read per-world pooled, behaviour only. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1 and R4 as log, single order.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -682,8 +682,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-gu50",
+      "pinReason": "docs/222 §11.8: g2pair1107b pair (master 0.36.189) (X4 + the 785-817 counters): asi g2pair1107b + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107b-gu50",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
@@ -708,7 +708,7 @@
     {
       "id": "bp-gu2p-seengame-ab",
       "note": "docs/222 §11.8 V6 test: --ab autseengame with autunseen on in both arms. Seen actors exact vs the game's own search: separates the seen path from manager throughput. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1 and R4 as log, single order.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -802,8 +802,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-gu50",
+      "pinReason": "docs/222 §11.8: g2pair1107b pair (master 0.36.189) (X4 + the 785-817 counters): asi g2pair1107b + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107b-gu50",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
@@ -827,7 +827,7 @@
     {
       "id": "bp-gu2p-credit-ab",
       "note": "docs/222 §11.8 V6 fix candidate: --ab autunseen, pace 100% with the worker wait credited (autunseenpacecredit) and seen actors on the game's search (autseengame). Pass = seen pushes per Sim-hour within +-10% of the off arm (V6); total searches per second and seen searches are reference rows. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1 and R4 as log, single order.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -921,8 +921,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-gu100",
+      "pinReason": "docs/222 §11.8: g2pair1107b pair (master 0.36.189) (X4 + the 785-817 counters): asi g2pair1107b + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107b-gu100",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
@@ -946,7 +946,7 @@
     {
       "id": "ip-gu2p-speed1-ab",
       "note": "docs/222 §11.8: speed 1 (normal), pace 50%, 30 min. All earlier behaviour data is ultra: reads whether the seen push loss happens at the speed players use. Few searches at this speed: read per-world pooled, behaviour only.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1040,8 +1040,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-gu50",
+      "pinReason": "docs/222 §11.8: g2pair1107b pair (master 0.36.189) (X4 + the 785-817 counters): asi g2pair1107b + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107b-gu50",
       "save": "Baseline-IP-Spring",
       "noiseCheck": false,
       "run": {
@@ -1062,7 +1062,7 @@
     {
       "id": "ip-gu2p-seengame-ab",
       "note": "docs/222 §11.8 V6 test: --ab autseengame with autunseen on in both arms. Seen actors exact vs the game's own search: separates the seen path from manager throughput.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1156,8 +1156,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-gu50",
+      "pinReason": "docs/222 §11.8: g2pair1107b pair (master 0.36.189) (X4 + the 785-817 counters): asi g2pair1107b + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107b-gu50",
       "save": "Baseline-IP-Spring",
       "noiseCheck": false,
       "run": {
@@ -1177,7 +1177,7 @@
     {
       "id": "ip-gu2p-credit-ab",
       "note": "docs/222 §11.8 V6 fix candidate: --ab autunseen, pace 100% with the worker wait credited (autunseenpacecredit) and seen actors on the game's search (autseengame). Pass = seen pushes per Sim-hour within +-10% of the off arm (V6); total searches per second and seen searches are reference rows.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1107b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1271,8 +1271,8 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: mono1106c pair from master 000589df (X4 + the 785-817 counters): asi mono1106c + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c-gu100",
+      "pinReason": "docs/222 §11.8: g2pair1107b pair (master 0.36.189) (X4 + the 785-817 counters): asi g2pair1107b + the named package, kAutLive True by default; builds.json",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107b-gu100",
       "save": "Baseline-IP-Spring",
       "noiseCheck": false,
       "run": {

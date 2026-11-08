@@ -55411,11 +55411,152 @@
     "expect": "every focused Sim: on screen, exact within 3 s, no pop, not stuck, not idle over the limit, needs not starving"
   },
   {
+    "id": "aut-unseen-focus-loop",
+    "bug": "none (docs/222 §11, gate2): what a player sees when the camera lands on an unseen Sim; ip-gu2-focus 2026-11-07 judged 2 watches (4 x no tag, the same Sim twice) and BP 6 watches of 4 Sims, in a fixed 6-firing script whatever the job length",
+    "fix": "ts3fixes autunseen snap-back (AutLive.cs FlipCheck, docs/222 §3); harness: ts3agent focus_watch/focus_result distinct (FocusHandlers.cs), a loop that fires until 6 distinct Sims are judged or the job ends",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (2026-11-08, never run). Same watch as aut-unseen-focus, as a loop: one firing = 60 s camera away at ultra (townies unseen, their searches go direct), then the camera onto the newest tagged Sim not judged yet, followed 30 s at normal speed. distinct: a collector keeps the last 16 tags, judged and household Sims are skipped, focus_result clears the tag. Rule: 6 distinct Sims judged (events = focus_result judged), capped by the job minutes; stepsRequire: >= 4 distinct (focus_result.new_sim). The loop tags ts3native_ab_arm 'on' for every firing (one arm, not an A/B). World-neutral: BP and IP.",
+    "steps": [
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "focus_reset",
+        "args": {},
+        "note": "a reused game load keeps no judged Sims or tags from an earlier job"
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "autopilot",
+          "setup": true,
+          "args": {
+            "enabled": true,
+            "speed": "ultra",
+            "dialogs": true
+          }
+        },
+        {
+          "cmd": "set_speed",
+          "setup": true,
+          "args": {
+            "speed": "ultra"
+          },
+          "waitS": 1
+        },
+        {
+          "cmd": "camera",
+          "setup": true,
+          "args": {
+            "pos": {
+              "x": 120,
+              "y": 90,
+              "z": 120
+            },
+            "target": {
+              "x": 180,
+              "y": 0,
+              "z": 180
+            }
+          },
+          "waitS": 60,
+          "note": "camera away: townies unseen, their searches take the direct path"
+        },
+        {
+          "cmd": "autopilot",
+          "setup": true,
+          "args": {
+            "enabled": true,
+            "speed": "normal",
+            "dialogs": true
+          }
+        },
+        {
+          "cmd": "set_speed",
+          "setup": true,
+          "args": {
+            "speed": "normal"
+          },
+          "waitS": 1,
+          "note": "player speed: a focused Sim is watched at normal speed"
+        },
+        {
+          "cmd": "focus_watch",
+          "setup": false,
+          "args": {
+            "seconds": 30,
+            "distinct": true
+          },
+          "waitS": 33,
+          "note": "fire: camera onto the newest tagged Sim not judged yet, follows it"
+        },
+        {
+          "cmd": "focus_result",
+          "setup": false,
+          "args": {
+            "distinct": true
+          },
+          "count": {
+            "result": "judged"
+          },
+          "note": "throws on no snap-back in 3 s, a pop, stuck, idle or starving; clears the tag"
+        }
+      ],
+      "arms": [
+        "on"
+      ],
+      "until": {
+        "events": 6
+      }
+    },
+    "stepsRequire": "focus_result.new_sim>=4",
+    "expect": "every focused Sim: on screen, exact within 3 s, no pop, not stuck, not idle > 240 sim minutes, hunger and energy > -95; >= 4 distinct Sims judged (6 ends the loop)"
+  },
+  {
+    "id": "sv-hitch-name",
+    "bug": "docs/247 §12.4: SV 791 ms hitch (rtJob 775, 5 waits, longest 333, key 0x06000000, a Sim plan through Lot.PlanToLotEx) not named; Overwatch reset tail 456 ms after InstantiateAtHome not split",
+    "fix": "none (logging only): ts3native [HitchAttr] JobNameMs 'rtjob wait:' lines (route job, own/foreign, IC kind, Sim scope, plan/host/other ms, plans, nodes, deadline); ts3fixes owresettime tail split (select, skills, role, ui, rest) on 'owreset: Perform' lines",
+    "save": "Baseline-SV-Spring",
+    "note": "UNVERIFIED (2026-11-08, never run). Natural SV play at ultra, as sv-hitchfix-smoke: the hitch came from natural play and has no known trigger yet, so this repro only arms the logging. Needs a package with kHitchCauseHooks True for the owreset: hooks (g2pair1108b-hc) and JobNameMs > 0 in the ini. Read: grep 'rtjob wait:' and 'owreset: Perform' in the job's ts3native.log against hitches.jsonl rtJob >= 200.",
+    "steps": [
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1,
+        "note": "natural play; the hitch has no trigger yet"
+      }
+    ],
+    "expect": "no crash; every sim wait on the running job >= JobNameMs has an 'rtjob wait:' line (rjnLines + rjnDropped = such waits); 'owreset: Perform' lines carry 'selected' and the tail split; no behaviour change"
+  },
+  {
     "id": "aut-unseen-arrive",
     "bug": "none (docs/222 §11, gate2): Sims arriving on the active lot, in view",
     "fix": "ts3fixes autunseen: Sims turn seen on the way in and leave the direct path",
     "save": "Baseline-BP-Spring",
-    "note": "UNVERIFIED (2026-11-06, never run). STRESS (labelled): 8 spawned Sims sent back onto the active lot three times stand in for guests arriving; the camera stays on the active lot. World-neutral.",
+    "note": "STRESS (labelled): 8 spawned Sims sent back onto the active lot three times stand in for guests arriving. World-neutral. Camera set onto the home lot first: gate2 11-07 left it where the save had it, ~920 m from the BP goal, so no crowd Sim was watched. Each round also queues the game's lot visit: on BP 11-07 no spawned Sim ever showed Go Here in activity.jsonl and none reached the lot (cause not found), IP walked. Watch 180 s: IP crowd came into view 35-81 s into 90. Starving rule off (starveMotive -101): Sims kept on a foreign lot run high LOD with real decay and no bed of their own, each Go Here pulls them back; docs/222 V5 is V1-V3, min_need and activity.jsonl show the needs. Queue gu2-arrive-rerun compares autunseen on and off.",
     "steps": [
       {
         "cmd": "spawn_sims",
@@ -55425,64 +55566,12 @@
         "waitS": 20
       },
       {
-        "cmd": "autopilot",
+        "cmd": "camera",
         "args": {
-          "enabled": true,
-          "speed": "ultra",
-          "dialogs": true
-        }
-      },
-      {
-        "cmd": "set_speed",
-        "args": {
-          "speed": "ultra"
+          "lot": "home"
         },
-        "waitS": 1
-      },
-      {
-        "cmd": "set_speed",
-        "args": {
-          "speed": "ultra"
-        },
-        "waitS": 60,
-        "note": "the crowd wanders off the lot"
-      },
-      {
-        "cmd": "autopilot",
-        "args": {
-          "enabled": true,
-          "speed": "normal",
-          "dialogs": true
-        }
-      },
-      {
-        "cmd": "set_speed",
-        "args": {
-          "speed": "normal"
-        },
-        "waitS": 1
-      },
-      {
-        "cmd": "crowd_go",
-        "args": {
-          "target": "home",
-          "household": true
-        },
-        "waitS": 2,
-        "note": "visitors come back onto the active lot, in view"
-      },
-      {
-        "cmd": "focus_watch",
-        "args": {
-          "scope": "screen",
-          "seconds": 90
-        },
-        "waitS": 93,
-        "note": "every on-screen Sim outside the household watched"
-      },
-      {
-        "cmd": "focus_result",
-        "args": {}
+        "waitS": 1,
+        "note": "camera on the crowd_go target; set again before each round"
       },
       {
         "cmd": "autopilot",
@@ -55523,6 +55612,14 @@
         "waitS": 1
       },
       {
+        "cmd": "camera",
+        "args": {
+          "lot": "home"
+        },
+        "waitS": 1,
+        "note": "camera back on the home lot each round (docs/222 §11.10: round 2 had camera_lot null, 34 m off)"
+      },
+      {
         "cmd": "crowd_go",
         "args": {
           "target": "home",
@@ -55532,17 +55629,27 @@
         "note": "visitors come back onto the active lot, in view"
       },
       {
+        "cmd": "crowd_visit_lot",
+        "args": {
+          "lot": "home"
+        },
+        "waitS": 1,
+        "note": "the game's own visit behind the Go Here, as a guest arrives"
+      },
+      {
         "cmd": "focus_watch",
         "args": {
           "scope": "screen",
-          "seconds": 90
+          "seconds": 180
         },
-        "waitS": 93,
+        "waitS": 183,
         "note": "every on-screen Sim outside the household watched"
       },
       {
         "cmd": "focus_result",
-        "args": {}
+        "args": {
+          "starveMotive": -101
+        }
       },
       {
         "cmd": "autopilot",
@@ -55583,6 +55690,14 @@
         "waitS": 1
       },
       {
+        "cmd": "camera",
+        "args": {
+          "lot": "home"
+        },
+        "waitS": 1,
+        "note": "camera back on the home lot each round (docs/222 §11.10: round 2 had camera_lot null, 34 m off)"
+      },
+      {
         "cmd": "crowd_go",
         "args": {
           "target": "home",
@@ -55592,17 +55707,105 @@
         "note": "visitors come back onto the active lot, in view"
       },
       {
+        "cmd": "crowd_visit_lot",
+        "args": {
+          "lot": "home"
+        },
+        "waitS": 1,
+        "note": "the game's own visit behind the Go Here, as a guest arrives"
+      },
+      {
         "cmd": "focus_watch",
         "args": {
           "scope": "screen",
-          "seconds": 90
+          "seconds": 180
         },
-        "waitS": 93,
+        "waitS": 183,
         "note": "every on-screen Sim outside the household watched"
       },
       {
         "cmd": "focus_result",
-        "args": {}
+        "args": {
+          "starveMotive": -101
+        }
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 60,
+        "note": "the crowd wanders off the lot"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "normal",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "lot": "home"
+        },
+        "waitS": 1,
+        "note": "camera back on the home lot each round (docs/222 §11.10: round 2 had camera_lot null, 34 m off)"
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": true
+        },
+        "waitS": 2,
+        "note": "visitors come back onto the active lot, in view"
+      },
+      {
+        "cmd": "crowd_visit_lot",
+        "args": {
+          "lot": "home"
+        },
+        "waitS": 1,
+        "note": "the game's own visit behind the Go Here, as a guest arrives"
+      },
+      {
+        "cmd": "focus_watch",
+        "args": {
+          "scope": "screen",
+          "seconds": 180
+        },
+        "waitS": 183,
+        "note": "every on-screen Sim outside the household watched"
+      },
+      {
+        "cmd": "focus_result",
+        "args": {
+          "starveMotive": -101
+        }
       },
       {
         "cmd": "focus_summary",
@@ -57568,8 +57771,8 @@
     "bug": "docs/539: the CAS compositor registry (+0x104) has no release path in play: outfit builds add entries that stay at 2 references for good (rcN, eaRes growth over long sessions)",
     "fix": "ts3native [CasTrim] Mode 3 (save sweep), Mode 4 (count only, with Probe=1 the docs/539 probes), counters v171; ts3fixes CasTrimKeep.cs (keep list, pump). Job ini [CasTrim] Install=1 Mode=3|4 Probe=1",
     "save": "Baseline-BP",
-    "note": "UNVERIFIED (built 2026-11-07, never run). Stress repro, realism stress (outfit_change for up to 8 Sims at once, spawn_sims, forced age_up), memory rule: cycles with mem marks, not a soak. Extends castrim-checks: 3 cycles of outfit churn, new NPC, aged townie and a scratch save, then the texture checks after a sweep, after a reload and after a vacation round trip. Mode 4: P1-P7 and the P5 order. Mode 3: rcN and registry flat across cycles from the second one, ctSwept > 0, ctMissed 0, shots match start by eye (probe-out/shots/*-compositor-{live,cas}-{start,sweep,reload,travel}.jpg). Writes the scratch save Compositor-Churn-Scratch.",
-    "expect": "ctSaves >= 3, ctMarksFence > 0, ctLive > 0, ctDoomed > 0, ctRefused 0 in both modes (a refusal names its reason); Mode 3: ctSwept > 0, ctMissed 0, ctOtherThread 0",
+    "note": "UNVERIFIED (built 2026-11-07, never run). Stress repro, realism stress (outfit_change for up to 8 Sims at once, spawn_sims, forced age_up), memory rule: cycles with mem marks, not a soak. Extends castrim-checks: 3 cycles of outfit churn, new NPC, aged townie and a scratch save, then the texture checks after a sweep, after a reload and after a vacation round trip. Mode 4: P1-P7 and the P5 order. Mode 3: doomed swept at each save, registry minus doomed minus live bounded (not flat: live grows with the outfits the repro adds, docs/539 §11), ctSwept > 0, ctMissed 0, shots match start by eye (probe-out/shots/*-compositor-{live,cas}-{start,sweep,reload,travel}.jpg). Writes the scratch save Compositor-Churn-Scratch.",
+    "expect": "ctSaves >= 3, ctMarksFence > 0, ctLive > 0, ctDoomed > 0, ctRefused only for the travel saves ('no keep list for this save', by design; any other reason is a bug, docs/539 §11); Mode 3: ctSwept > 0, ctMissed 0, ctOtherThread 0",
     "steps": [
       {
         "cmd": "time",
@@ -57973,11 +58176,48 @@
           "world": "france",
           "days": 2
         },
-        "waitS": 5
+        "waitS": 5,
+        "note": "docs/539 §11: wait for arrival; without it travel_home landed in the travel save/load (no reply)",
+        "until": {
+          "cmd": "travel_state",
+          "all": [
+            {
+              "path": "on_vacation",
+              "equals": true
+            },
+            {
+              "path": "in_travel",
+              "equals": false
+            },
+            {
+              "path": "household"
+            }
+          ],
+          "everyS": 10,
+          "maxS": 900
+        }
       },
       {
         "cmd": "travel_home",
-        "waitS": 5
+        "waitS": 5,
+        "until": {
+          "cmd": "travel_state",
+          "all": [
+            {
+              "path": "on_vacation",
+              "equals": false
+            },
+            {
+              "path": "in_travel",
+              "equals": false
+            },
+            {
+              "path": "household"
+            }
+          ],
+          "everyS": 10,
+          "maxS": 900
+        }
       },
       {
         "cmd": "time",
@@ -59199,5 +59439,3163 @@
       },
       "maxMinutes": 140
     }
+  },
+  {
+    "id": "live-cc-steady-fresh-10",
+    "bug": "docs/200 §11 steady-state leak test: do full and empty marks repeat cycle over cycle once caches have filled?",
+    "fix": "measuring only (docs/200 §11, docs/201 §13.8)",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (static only, 2026-11-08): never run. Same as live-cc-steady-fresh but 10 cycles (~40 min) to confirm the CAS/GeometryResource plateau (pass: live <= ~40 MB at every mark, rcCold flat; docs/201 §13.8 on branch docs/casgeom-verdict). STRESS (labelled, not a player flow), cc-2k-v2. Cycles 1-6 are identical to live-cc-steady-fresh (distinct items: objects skip c*150, CAS nth c*25, inventory nth c*25); the pools hold 1000 objects, 1000 CAS parts (nth + 24 < 150 is known distinct) and 200 inventory items, so from cycle 7 the offsets wrap: objects skip ((c-1)*150) mod 900, CAS nth ((c-1)*25) mod 150, inventory nth ((c-1)*25) mod 200 (cycles 7-10 reuse the items of 1-4, 1-4, 1-2 respectively). Marks lsf-full / lsf-empty / lsf-inv-full / lsf-inv-empty, mem_gc after every mark. Read: node tools/memory-report.ts <log> --steady lsf (and --steady lsf-inv).",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 45,
+        "note": "lead-in: the [MemDiag] self-test runs 30 s after the first world load"
+      },
+      {
+        "cmd": "cas_pool",
+        "args": {
+          "clear": true,
+          "add": [
+            "34aeecb:0:82bd3ece90e2bde",
+            "34aeecb:0:bb72979c76c32a7d",
+            "34aeecb:0:54deeedc2f20e539",
+            "34aeecb:0:e6ba3b29c57fa411",
+            "34aeecb:0:5a58c7bab5f81f3c",
+            "34aeecb:0:d58e305f496c91c9",
+            "34aeecb:0:dae282ad1f8dae97",
+            "34aeecb:0:4f01a1dd5261ba9c",
+            "34aeecb:0:3ad6e8a6dfd14ddc",
+            "34aeecb:0:358dedc5f7d1cf08",
+            "34aeecb:0:5331d765dc6656fc",
+            "34aeecb:0:c525ba7432eba6f6",
+            "34aeecb:0:eca0f2353990d562",
+            "34aeecb:0:f7fc124605a3f391",
+            "34aeecb:0:105d16ec01626f05",
+            "34aeecb:0:a8a87fc0d37d64f6",
+            "34aeecb:0:8c367b2be1bc4721",
+            "34aeecb:0:ceb65f9920cda4e7",
+            "34aeecb:0:66e34eeea76f3a39",
+            "34aeecb:0:68b266b7c74d2a86",
+            "34aeecb:0:33d01b960ca56d93",
+            "34aeecb:0:46eb007853479a07",
+            "34aeecb:0:c4f71ae1625539b2",
+            "34aeecb:0:fdd914f196183098",
+            "34aeecb:0:7e2ad0853ef0d020",
+            "34aeecb:0:e46a5ebcd1e218c4",
+            "34aeecb:0:2fa6a8a2d1dbea74",
+            "34aeecb:0:17adc673586fd458",
+            "34aeecb:0:e9da9172ec0ecbd3",
+            "34aeecb:0:aeb699795c3d42fd",
+            "34aeecb:0:adbe5f56d0700d7a",
+            "34aeecb:0:8aab6bbea2465219",
+            "34aeecb:0:8c08fef0b31bba45",
+            "34aeecb:0:b10405a961f5a1ed",
+            "34aeecb:0:4c408dd5da498d8",
+            "34aeecb:0:14a32dd63f16f0f7",
+            "34aeecb:0:bc35c360614a9ee9",
+            "34aeecb:0:ddd7d031347c23be",
+            "34aeecb:0:629fb90569a49b52",
+            "34aeecb:0:132cfb1e06adb0aa",
+            "34aeecb:0:64a8ef24698fe12",
+            "34aeecb:0:11acaae8e50a8978",
+            "34aeecb:0:55f6909645af1048",
+            "34aeecb:0:e26a9cb9cf843cb7",
+            "34aeecb:0:642729e899f287d7",
+            "34aeecb:0:68ef56fa4dd2a6b8",
+            "34aeecb:0:fc517a304d73bab3",
+            "34aeecb:0:156996dfb209ffe5",
+            "34aeecb:0:f2f7be0b0170f6ab",
+            "34aeecb:0:abb34eeec17436e0",
+            "34aeecb:0:1d1ae58167ab0b1e",
+            "34aeecb:0:e14aa1ecd0bab92",
+            "34aeecb:0:2032b11d88bb7ee1",
+            "34aeecb:0:fbaa47239883e72b",
+            "34aeecb:0:5b19a4810a148a81",
+            "34aeecb:0:f7435ae32e2bf0ad",
+            "34aeecb:0:a04a58680dc8ca35",
+            "34aeecb:0:ca9ce23aa41f9dc1",
+            "34aeecb:0:360bca56cacf6610",
+            "34aeecb:0:2311aeba1d15f866",
+            "34aeecb:0:ae813e84eaa80d13",
+            "34aeecb:0:40d1629e099dce9c",
+            "34aeecb:0:f5968e3593e764e8",
+            "34aeecb:0:5bb579526a7f3be0",
+            "34aeecb:0:122ad80ecfbc369f",
+            "34aeecb:0:702b6b77fe476fd8",
+            "34aeecb:0:606f4eac2af64e2c",
+            "34aeecb:0:29bfa8291033fb17",
+            "34aeecb:0:65955aecb469c053",
+            "34aeecb:0:509174195f44dd4b",
+            "34aeecb:0:e661880472bf2049",
+            "34aeecb:0:df90e05363f6fe3",
+            "34aeecb:0:b32c098164870d31",
+            "34aeecb:0:dfc8118f3ba6680a",
+            "34aeecb:0:3ddff860f9679812",
+            "34aeecb:0:3e02b0b65f847179",
+            "34aeecb:0:a210ccd8d009eb98",
+            "34aeecb:0:e53e41eb8e01a2f6",
+            "34aeecb:0:891870e6fe999b06",
+            "34aeecb:0:110d7496c1a90dd9",
+            "34aeecb:0:150c3692ada424b8",
+            "34aeecb:0:b07e22fa7526c770",
+            "34aeecb:0:808a3a17ab461917",
+            "34aeecb:0:cecf20f0b7533efd",
+            "34aeecb:0:d81346a416a9300f",
+            "34aeecb:0:70e0906c567b6a1f",
+            "34aeecb:0:d627b92bdcb99e6b",
+            "34aeecb:0:7a3e483635f07a8b",
+            "34aeecb:0:e30eb492b62868fa",
+            "34aeecb:0:c2d918a9f3ed340c",
+            "34aeecb:0:ea3c21a33ce4bf91",
+            "34aeecb:0:8048c39dc82bb2ea",
+            "34aeecb:0:ecbfdf666976ba7a",
+            "34aeecb:0:4e8ec9f4f48e260e",
+            "34aeecb:0:42567b1731417205",
+            "34aeecb:0:6e45ac009252b056",
+            "34aeecb:0:4f04c1388160c9e6",
+            "34aeecb:0:15f80be8d6cc4171",
+            "34aeecb:0:2d6aee0f5e9be021",
+            "34aeecb:0:245100abf7f9950d",
+            "34aeecb:0:b50208772a54d652",
+            "34aeecb:0:4d888eb042559c38",
+            "34aeecb:0:34ecc3eba5d27c08",
+            "34aeecb:0:724dddb334843f7",
+            "34aeecb:0:c474dffce1aa5b17",
+            "34aeecb:0:8c0851e86fd897f8",
+            "34aeecb:0:ab08f3b5312f92f3",
+            "34aeecb:0:5bc4484aea2cbaa5",
+            "34aeecb:0:92c84ef0148bcb6b",
+            "34aeecb:0:6f5a9f19df268420",
+            "34aeecb:0:48680dea447310e5",
+            "34aeecb:0:cbeba593913f398d",
+            "34aeecb:0:6c764f275d7f4b20",
+            "34aeecb:0:bc2fc5acadf1fda2",
+            "34aeecb:0:f69f66201aa66e66",
+            "34aeecb:0:fcf3460274bacdf6",
+            "34aeecb:0:945a844e02bc5efa",
+            "34aeecb:0:cb1a44c9c8bdadca",
+            "34aeecb:0:f330949a1bcd521d",
+            "34aeecb:0:e7cf182e0ddda15b",
+            "34aeecb:0:5d4d52e2ab279780",
+            "34aeecb:0:570e53205725bff",
+            "34aeecb:0:fd918f90ea744057",
+            "34aeecb:0:a1eac4471e5e0b6b",
+            "34aeecb:0:64647285c27faae",
+            "34aeecb:0:c172c6d8a4ac70dd",
+            "34aeecb:0:41b0a406d823eba3",
+            "34aeecb:0:451db49711f5ef60",
+            "34aeecb:0:5f52869a049b5998",
+            "34aeecb:0:eb64ef139f5f33bc",
+            "34aeecb:0:17e3c5a816632668",
+            "34aeecb:0:34471fb5d8bed17a",
+            "34aeecb:0:ba16648f59c6f916",
+            "34aeecb:0:686242f0cf612105",
+            "34aeecb:0:32a6e6f866c2df69",
+            "34aeecb:0:7e02681201778a9a",
+            "34aeecb:0:80e49a8fe9d2080d",
+            "34aeecb:0:98e7df7d60d3f213",
+            "34aeecb:0:469372ce62ebc88d",
+            "34aeecb:0:a4e9efd46aa85de2",
+            "34aeecb:0:c7cf764bebd1eba7",
+            "34aeecb:0:3ee758181882b3bb",
+            "34aeecb:0:8280da5c231dd446",
+            "34aeecb:0:b5794856e4ab9294",
+            "34aeecb:0:1f66fddd05e6b9fc",
+            "34aeecb:0:4e1bd1f8ab92ebb0",
+            "34aeecb:0:b7e97e066d39f728",
+            "34aeecb:0:365d1376d0eac324",
+            "34aeecb:0:3a3001178b839727",
+            "34aeecb:0:561338e9ff5e7051",
+            "34aeecb:0:ed7b2ffe672cd427",
+            "34aeecb:0:1c8d2b25a8428ba0",
+            "34aeecb:0:c393f25c2261c08c",
+            "34aeecb:0:9baf74adc2e83b54",
+            "34aeecb:0:13f46bbbebd05173",
+            "34aeecb:0:d0427d63dc5d7f44",
+            "34aeecb:0:ba610a301edb6640",
+            "34aeecb:0:61ec349949595633",
+            "34aeecb:0:71a76c08aac66297",
+            "34aeecb:0:6be154a65cdfb527",
+            "34aeecb:0:39387c29117c4769",
+            "34aeecb:0:9a2530201c739a03",
+            "34aeecb:0:84942043aee66cd1",
+            "34aeecb:0:a394e823cf06bfaa",
+            "34aeecb:0:ae37c4ea091870b2",
+            "34aeecb:0:4a7dd1aa3df43299",
+            "34aeecb:0:abfd3a9413178438",
+            "34aeecb:0:8173b07ea1212c96",
+            "34aeecb:0:aa371d68a659de26",
+            "34aeecb:0:8f7f0bd174d66f79",
+            "34aeecb:0:954561c10ec896fc",
+            "34aeecb:0:c471c9129a511884",
+            "34aeecb:0:8cda91df6b81ec8b",
+            "34aeecb:0:782aeb62aa1fbde9",
+            "34aeecb:0:7474253aa2535d3b",
+            "34aeecb:0:88190fb1bae8edcb",
+            "34aeecb:0:8d935b0e267531f",
+            "34aeecb:0:38c7f1cb013eb9e7",
+            "34aeecb:0:6049aa2d7a014bae",
+            "34aeecb:0:41694dadbfc69490",
+            "34aeecb:0:ac8c9dc937738499",
+            "34aeecb:0:d709294dea27c542",
+            "34aeecb:0:d4dd0c59125e8fa2",
+            "34aeecb:0:7c96b2f100de2456",
+            "34aeecb:0:78df1a146ec3a46d",
+            "34aeecb:0:b90a4d4701d0e9be",
+            "34aeecb:0:1418333b63c33bce",
+            "34aeecb:0:2a3b6b315f358569",
+            "34aeecb:0:6e3490b32b8ab3c9",
+            "34aeecb:0:c05129583f15f645",
+            "34aeecb:0:52b1501217b1f683",
+            "34aeecb:0:150e9165759f53f1",
+            "34aeecb:0:7a20bff4d8302d7b",
+            "34aeecb:0:ebe47491fddb65d4",
+            "34aeecb:0:42fdb74f7f2ec948",
+            "34aeecb:0:2884eae6b0c0e157",
+            "34aeecb:0:67f11953d7b7df7e",
+            "34aeecb:0:e19bfd41800f4828",
+            "34aeecb:0:1521535b619a851c",
+            "34aeecb:0:e59fe1f021f49f6f",
+            "34aeecb:0:5f27f86f04646251",
+            "34aeecb:0:c83f06610d2c2dc9",
+            "34aeecb:0:1745363ef141f6c",
+            "34aeecb:0:2cc45556227c7646",
+            "34aeecb:0:329cbd3bc097a6a",
+            "34aeecb:0:c8ca45399e672dda",
+            "34aeecb:0:bade1230f0214486",
+            "34aeecb:0:715cfc41468b7f7e",
+            "34aeecb:0:26f042077fec42b9",
+            "34aeecb:0:37fd1a58e992ee87",
+            "34aeecb:0:ef75acbd0b3b21a0",
+            "34aeecb:0:f05babe36b89a79f",
+            "34aeecb:0:31c493a280b9c377",
+            "34aeecb:0:f9b963ad4afeb80b",
+            "34aeecb:0:89d17936897eadce",
+            "34aeecb:0:7b3c4c497e85bf7d",
+            "34aeecb:0:4bb0cf535ef54c3",
+            "34aeecb:0:b6a0b666238fc880",
+            "34aeecb:0:94875209c2b26238",
+            "34aeecb:0:e150621944a0565c",
+            "34aeecb:0:3989fee05647b484",
+            "34aeecb:0:8eeb395e4b34cee",
+            "34aeecb:0:bb190936c45bb43a",
+            "34aeecb:0:9088900dd6b74b59",
+            "34aeecb:0:36abc4de64770a4d",
+            "34aeecb:0:971d08ea6e5662ae",
+            "34aeecb:0:92ceb35d39f1a0c9",
+            "34aeecb:0:ee0bd8b7d68b541f",
+            "34aeecb:0:32a724f879954ab1",
+            "34aeecb:0:30f787dd2c0a18fe",
+            "34aeecb:0:bc7f3d0811ed567f",
+            "34aeecb:0:75f956f9a505d113",
+            "34aeecb:0:c5aad646b13268e",
+            "34aeecb:0:1281e7dfbf4104cc",
+            "34aeecb:0:7b485a3b1eb642c4",
+            "34aeecb:0:f8cea0238d0399b8",
+            "34aeecb:0:230d9bc52291fde0",
+            "34aeecb:0:6bb18e73cdf3551c",
+            "34aeecb:0:a46bdafd89b8484f",
+            "34aeecb:0:c121e6c4edddc9d9",
+            "34aeecb:0:c67f8789f17fed5a",
+            "34aeecb:0:b80eccaf838ff379",
+            "34aeecb:0:fe16ffcea7295425",
+            "34aeecb:0:bee69d7fe25832cd",
+            "34aeecb:0:51c5f3e71852d038",
+            "34aeecb:0:277df89a3ab02957",
+            "34aeecb:0:9fc3a140914cf649",
+            "34aeecb:0:f7a81911771e951e",
+            "34aeecb:0:d6c785c817d1f4b2",
+            "34aeecb:0:21ec30045e7e6a0a"
+          ]
+        },
+        "waitS": 1,
+        "note": "cc-2k-v2 CAS part keys 0-249 (all 1000: af Hair 166, af Top 334, ef Hair 166, ef Body 167, tf Body 167)"
+      },
+      {
+        "cmd": "cas_pool",
+        "args": {
+          "add": [
+            "34aeecb:0:4df5ea7854a572a1",
+            "34aeecb:0:deea87babf79e96b",
+            "34aeecb:0:877ee0d7e0c8a0b9",
+            "34aeecb:0:768e5619730d2862",
+            "34aeecb:0:f7421ad68a32ba4a",
+            "34aeecb:0:6ba187089a06c881",
+            "34aeecb:0:6922fb5b60fcc8d0",
+            "34aeecb:0:9ab6b7ccd53bd0de",
+            "34aeecb:0:8ed9c4f1e6a5ad6e",
+            "34aeecb:0:aa829cc09b091e81",
+            "34aeecb:0:5343307052103c20",
+            "34aeecb:0:3849585c91c93ad8",
+            "34aeecb:0:171d634bf8c6318f",
+            "34aeecb:0:39731bbc3c003985",
+            "34aeecb:0:9b493c4983c2f087",
+            "34aeecb:0:c932282f3ae084d7",
+            "34aeecb:0:546bad7f45fed413",
+            "34aeecb:0:4b90e0c7e5dd5a53",
+            "34aeecb:0:86b68a2dd53e6532",
+            "34aeecb:0:54d6ca944ef771a4",
+            "34aeecb:0:89e575a98c31dd01",
+            "34aeecb:0:e02ec50abeb3467a",
+            "34aeecb:0:3737996c7abaf80a",
+            "34aeecb:0:74e17df0c7e59e1e",
+            "34aeecb:0:2ae25b29e7d566b5",
+            "34aeecb:0:c4b8968f34e927e6",
+            "34aeecb:0:3b9bf6160cc38ad6",
+            "34aeecb:0:cb7d1aa513555a41",
+            "34aeecb:0:1817f4a03f61a171",
+            "34aeecb:0:4ce66d2d9efe341d",
+            "34aeecb:0:b3d1bfe3e78f661f",
+            "34aeecb:0:1c3164014a81cd35",
+            "34aeecb:0:ba93363d4ff0395f",
+            "34aeecb:0:70d74aad30b4f2e8",
+            "34aeecb:0:5b727a90192ab45c",
+            "34aeecb:0:367e6109675183fb",
+            "34aeecb:0:1d5cdf03181b294a",
+            "34aeecb:0:9d25df1bbcc37d54",
+            "34aeecb:0:3227fe388a87ea70",
+            "34aeecb:0:77f839f35a41e15b",
+            "34aeecb:0:d5c13447180bb2aa",
+            "34aeecb:0:3634922669b3ffbe",
+            "34aeecb:0:13e18fe3c49f9f6d",
+            "34aeecb:0:f89c7dfa0cc5bef",
+            "34aeecb:0:8d219983057261c5",
+            "34aeecb:0:4b4823af21d3a3e1",
+            "34aeecb:0:8ea3fc97a7265491",
+            "34aeecb:0:98319fe7bade8f45",
+            "34aeecb:0:7425dbb25e2208ac",
+            "34aeecb:0:e027a09128e46f52",
+            "34aeecb:0:402f0a792de68fe8",
+            "34aeecb:0:243b696d10a5ff57",
+            "34aeecb:0:5141ec9164d7403f",
+            "34aeecb:0:a69a2205bba2d4d3",
+            "34aeecb:0:e6064eecf3fcabb6",
+            "34aeecb:0:afa777ce7a8f6105",
+            "34aeecb:0:4afebc77a58c4cb",
+            "34aeecb:0:c51b4ef67fb2d678",
+            "34aeecb:0:ae4c71ae27d5b6a0",
+            "34aeecb:0:8893f2d967d6bdb4",
+            "34aeecb:0:ecde3f3cd90ecc00",
+            "34aeecb:0:2de1483637cb2282",
+            "34aeecb:0:1594f1206af827de",
+            "34aeecb:0:c8dbb4cff8ad267d",
+            "34aeecb:0:fc3333d0a0eb3d81",
+            "34aeecb:0:f8e4b3a729dc4422",
+            "34aeecb:0:a205673f5cfb6ae5",
+            "34aeecb:0:abf1583837297fbb",
+            "34aeecb:0:f448b3524f0f4195",
+            "34aeecb:0:d91451876f91074a",
+            "34aeecb:0:cf30cbd444270a67",
+            "34aeecb:0:9187a2473d16fe7b",
+            "34aeecb:0:669348c2696e006",
+            "34aeecb:0:135a3b2dfb52a4d4",
+            "34aeecb:0:5279d09ca6a8673c",
+            "34aeecb:0:b524be9adb55e70",
+            "34aeecb:0:7f6ba09bebca31e8",
+            "34aeecb:0:ecb9503f809940e4",
+            "34aeecb:0:be185b478efca2e7",
+            "34aeecb:0:77e312811b40db91",
+            "34aeecb:0:12ed834d567c6806",
+            "34aeecb:0:fd01dcda688d5c15",
+            "34aeecb:0:2cb2514ea65b2041",
+            "34aeecb:0:c7d7c31cb7673e79",
+            "34aeecb:0:a4f8176ee5778b04",
+            "34aeecb:0:551ee3ccfe0910eb",
+            "34aeecb:0:f4dec057e048fbe5",
+            "34aeecb:0:d197975748d2a2e2",
+            "34aeecb:0:d0964663dd3f615e",
+            "34aeecb:0:b2b2142c2467aade",
+            "34aeecb:0:ab5dd8412c537d6",
+            "34aeecb:0:7cafa8bca38fffc4",
+            "34aeecb:0:348fc50626eb9d24",
+            "34aeecb:0:e16750105e6793b3",
+            "34aeecb:0:668f4706442b5133",
+            "34aeecb:0:1b2a9024d7f678d4",
+            "34aeecb:0:aca4bbaa17c3c4b7",
+            "34aeecb:0:c67fd8722a5cddb9",
+            "34aeecb:0:6cf64b757c3b11a7",
+            "34aeecb:0:6050899daf4bda64",
+            "34aeecb:0:ad314df9a340f64c",
+            "34aeecb:0:95e31d7668f04b14",
+            "34aeecb:0:9e77147d25352d3b",
+            "34aeecb:0:ac36182dd98ac279",
+            "34aeecb:0:686080e79d2c092b",
+            "34aeecb:0:825230e29d1670db",
+            "34aeecb:0:5e7a3a9d34d94def",
+            "34aeecb:0:64934f1d34b28bf7",
+            "34aeecb:0:dba5911188a3e81e",
+            "34aeecb:0:ac49b3dc6513eb60",
+            "34aeecb:0:8c83b9374be0e989",
+            "34aeecb:0:aea991bb9d603312",
+            "34aeecb:0:309788f9dc73672",
+            "34aeecb:0:8db15cfcfd3b39a6",
+            "34aeecb:0:fdc2f475ee41401d",
+            "34aeecb:0:b0b1c92fc9ed35ce",
+            "34aeecb:0:18c5f67df014c5fe",
+            "34aeecb:0:dc760185cbb01e39",
+            "34aeecb:0:d1e239bf3ca705d9",
+            "34aeecb:0:5bcfeb770d4e59d5",
+            "34aeecb:0:c09534a2d430f22b",
+            "34aeecb:0:d170a18c6fb589",
+            "34aeecb:0:77a50e4ddec70cd3",
+            "34aeecb:0:98224f41a34c0cdc",
+            "34aeecb:0:298de72e7b7f46d0",
+            "34aeecb:0:ce8b4ced83a38c0f",
+            "34aeecb:0:8d133a37f591c246",
+            "34aeecb:0:a74504bf9e78c920",
+            "34aeecb:0:bb371a8be514e754",
+            "34aeecb:0:662a809310011207",
+            "34aeecb:0:19c11c5cd0749ca",
+            "34aeecb:0:6202c9dd9176bfde",
+            "34aeecb:0:8b76fa6bbc45f60d",
+            "34aeecb:0:fd237658cdc1a28f",
+            "34aeecb:0:a42f76094d5810e5",
+            "34aeecb:0:b4dc93afddddae01",
+            "34aeecb:0:acdaa429924b8b31",
+            "34aeecb:0:40725fda920b2e5",
+            "34aeecb:0:47c118826b1da24c",
+            "34aeecb:0:809f65e7be837872",
+            "34aeecb:0:a33ff6632470afbb",
+            "34aeecb:0:38db6a4654b51494",
+            "34aeecb:0:6994dd0f61838eb0",
+            "34aeecb:0:19065d9652152f28",
+            "34aeecb:0:69d3d11c3d667107",
+            "34aeecb:0:cd86c58e2df54880",
+            "34aeecb:0:c48fdd564f322634",
+            "34aeecb:0:97b33e44030e822f",
+            "34aeecb:0:c0e3364bf274ba3b",
+            "34aeecb:0:3e04ddec923a28a3",
+            "34aeecb:0:9127886d5a32fbe4",
+            "34aeecb:0:e87b6c199bdba4ce",
+            "34aeecb:0:8f30cc9c9532959a",
+            "34aeecb:0:4e12d10d19da7339",
+            "34aeecb:0:9c476201f7d8dc2d",
+            "34aeecb:0:43c49b982737798e",
+            "34aeecb:0:901fd2ba19a96d29",
+            "34aeecb:0:d8c72048ef3da7f",
+            "34aeecb:0:df71f3466f8e1311",
+            "34aeecb:0:e4311d6a256a69de",
+            "34aeecb:0:ba9860d0c97232df",
+            "34aeecb:0:c1127c8bfbcb6af3",
+            "34aeecb:0:bc84f8684c71e06e",
+            "34aeecb:0:64cdcc2c92b91eac",
+            "34aeecb:0:557d4a3ee2250724",
+            "34aeecb:0:6027d7e24306a98",
+            "34aeecb:0:d81fed6a9492bcc0",
+            "34aeecb:0:ba0fba1ff6ae137c",
+            "34aeecb:0:d56e9bab4b7cb9af",
+            "34aeecb:0:f38337d84cebfbb9",
+            "34aeecb:0:dfe389b06bce2372",
+            "34aeecb:0:267963372c080301",
+            "34aeecb:0:16b66e5224a3883d",
+            "34aeecb:0:75a3f584f74b07e5",
+            "34aeecb:0:c5ab6d3c21b0e50",
+            "34aeecb:0:34ed19429fb0118f",
+            "34aeecb:0:69cc6e77f58f6c41",
+            "34aeecb:0:544bf1791a57586",
+            "34aeecb:0:7338e14d1b319eca",
+            "34aeecb:0:d99da7a5290961d2",
+            "34aeecb:0:b53108bc53c19016",
+            "34aeecb:0:9f756210eece1c84",
+            "34aeecb:0:4f181f021f8d9ee4",
+            "34aeecb:0:dc21606f909ee2f3",
+            "34aeecb:0:b1231abb1d164473",
+            "34aeecb:0:77fecfdb71aa014",
+            "34aeecb:0:5c72de8c2301d8f7",
+            "34aeecb:0:e3ffbb17ab793179",
+            "34aeecb:0:f1d403060fd32667",
+            "34aeecb:0:b2bf1b43c60be3a4",
+            "34aeecb:0:ec5bf9a0729a5e0d",
+            "34aeecb:0:625a572f7d576b5",
+            "34aeecb:0:69bb33a231ac09d8",
+            "34aeecb:0:8f5899d6c16c69ca",
+            "34aeecb:0:36827659263191de",
+            "34aeecb:0:c1e18542512b012e",
+            "34aeecb:0:f62c71591949d382",
+            "34aeecb:0:34a7bc1ffb4ff12",
+            "34aeecb:0:dd022ba3e5bb19b5",
+            "34aeecb:0:426c0b55225f16d3",
+            "34aeecb:0:cf36e8f0479a1361",
+            "34aeecb:0:3a6714c0ec9182da",
+            "34aeecb:0:e195c0299241726a",
+            "34aeecb:0:e2f9cbc894b5d47e",
+            "34aeecb:0:3a41a98252069815",
+            "34aeecb:0:648df83ff46ae546",
+            "34aeecb:0:39c83314508540b6",
+            "34aeecb:0:8513bb64933c74a1",
+            "34aeecb:0:d0c4c7f6528eb751",
+            "34aeecb:0:45db0ded130d887d",
+            "34aeecb:0:91f0b4c72f6c117f",
+            "34aeecb:0:50df7243c67ddf15",
+            "34aeecb:0:7d49e966c7c605bf",
+            "34aeecb:0:766f15bdb0de60c8",
+            "34aeecb:0:ea5069e69d0dbbc",
+            "34aeecb:0:ae5c500e0e9880db",
+            "34aeecb:0:ca4460cb1bd47aaa",
+            "34aeecb:0:2f874339e9381d34",
+            "34aeecb:0:81ce70f47d2fb650",
+            "34aeecb:0:845ece7a30bbd7bb",
+            "34aeecb:0:6f099cbe6f4268a2",
+            "34aeecb:0:16c343565dc1fd56",
+            "34aeecb:0:bd0c6cfe3ab58e55",
+            "34aeecb:0:d709e7099237b547",
+            "34aeecb:0:d35a5147373d96ed",
+            "34aeecb:0:c467fb96bc195e69",
+            "34aeecb:0:8612118886e8cc9",
+            "34aeecb:0:c1656f9c523f2ebd",
+            "34aeecb:0:3140ff8989c25c74",
+            "34aeecb:0:18c5d79b41cab2da",
+            "34aeecb:0:e292b3206c55c06f",
+            "34aeecb:0:ce4560c65545fcd8",
+            "34aeecb:0:3b74fd77b70f1754",
+            "34aeecb:0:e850d180a5d1f7bc",
+            "34aeecb:0:cb7a73e347c44b3b",
+            "34aeecb:0:b177ed2214f50e6c",
+            "34aeecb:0:ec4cd8ab9ca38cc8",
+            "34aeecb:0:2245a01717ccc6cb",
+            "34aeecb:0:a305c6163f4b2c1f",
+            "34aeecb:0:764ce111d59dfc3f",
+            "34aeecb:0:1cc7391215f536c5",
+            "34aeecb:0:5f479b840c9e9857",
+            "34aeecb:0:6101de26bbd87df5",
+            "34aeecb:0:6944e898c548ea1e",
+            "34aeecb:0:173d54a4da74f596",
+            "34aeecb:0:30836d07308287cd",
+            "34aeecb:0:17d18e19292dde24",
+            "34aeecb:0:e987dedccba40862",
+            "34aeecb:0:381c57113faa425a",
+            "34aeecb:0:e33196eafcea89b5"
+          ]
+        },
+        "waitS": 1,
+        "note": "cc-2k-v2 CAS part keys 250-499 (all 1000: af Hair 166, af Top 334, ef Hair 166, ef Body 167, tf Body 167)"
+      },
+      {
+        "cmd": "cas_pool",
+        "args": {
+          "add": [
+            "34aeecb:0:58a1c49ec4e889fe",
+            "34aeecb:0:e1bc40c37e2ac6f2",
+            "34aeecb:0:239d687f22f83e41",
+            "34aeecb:0:39a6eb45cde23d8b",
+            "34aeecb:0:72e87283872f0de1",
+            "34aeecb:0:26467e45feacf58d",
+            "34aeecb:0:2931087370901d95",
+            "34aeecb:0:8bad41588c9a8721",
+            "34aeecb:0:ea473778a1c4e570",
+            "34aeecb:0:20353d74fe908cc6",
+            "34aeecb:0:981c9d8b27707673",
+            "34aeecb:0:ba6fd2171d69547c",
+            "34aeecb:0:80dbd1481ba79cc8",
+            "34aeecb:0:f8e14dd128d8a2c0",
+            "34aeecb:0:4d97f9fc3991b8ff",
+            "34aeecb:0:40c59327417e4fb8",
+            "34aeecb:0:dd00a763ff75760c",
+            "34aeecb:0:a7c249db79500277",
+            "34aeecb:0:da7f0b83ac08cab3",
+            "34aeecb:0:1e14531f9e700bab",
+            "34aeecb:0:4100d46b746fc3a9",
+            "34aeecb:0:fc52676ec99977c3",
+            "34aeecb:0:3274328b1c322291",
+            "34aeecb:0:c880d485a77915ea",
+            "34aeecb:0:c7a8875b98959af2",
+            "34aeecb:0:554288c77ecc0ad9",
+            "34aeecb:0:b9198a80404e6f78",
+            "34aeecb:0:72ed660102d1e956",
+            "34aeecb:0:973cd22060ae2ce6",
+            "34aeecb:0:a1151051c67e82b9",
+            "34aeecb:0:ffeff29a4aa31818",
+            "34aeecb:0:849b1873fda314d0",
+            "34aeecb:0:d53e03d7dc82f77",
+            "34aeecb:0:b4afcb4fa3d5245d",
+            "34aeecb:0:86443cb3abeabaef",
+            "34aeecb:0:a60e51324b7a1a7f",
+            "34aeecb:0:af29743bae4935cb",
+            "34aeecb:0:428830476465c9eb",
+            "34aeecb:0:16a986f2203c345a",
+            "34aeecb:0:6d1f32571f1ab5ec",
+            "34aeecb:0:8d804bc016f49b71",
+            "34aeecb:0:999579ae9aeeaaca",
+            "34aeecb:0:c90c34c99436ceda",
+            "34aeecb:0:36cc8e5f8568b0ee",
+            "34aeecb:0:1b2021ce0d183d65",
+            "34aeecb:0:23fa715287678936",
+            "34aeecb:0:8de2ddc772385846",
+            "34aeecb:0:dee98bab71e5d51",
+            "34aeecb:0:bcb45bf7cc48e101",
+            "34aeecb:0:ed2a00f79c72266d",
+            "34aeecb:0:52193898bcaaf80c",
+            "34aeecb:0:b7f59b063411db66",
+            "34aeecb:0:a09afce2487a05b2",
+            "34aeecb:0:6c1a86a5595d18c1",
+            "34aeecb:0:6fb39590d5eddb35",
+            "34aeecb:0:23f4d20e006e68a6",
+            "34aeecb:0:58816ea0ad4f73f1",
+            "34aeecb:0:e770741d02204d97",
+            "34aeecb:0:22c72e484f141889",
+            "34aeecb:0:6f351847c32756f6",
+            "34aeecb:0:36b6b2423016e417",
+            "34aeecb:0:efb8b964a6d4d62b",
+            "34aeecb:0:87be85e8d35ec3d6",
+            "34aeecb:0:f9b8512164298bc4",
+            "34aeecb:0:aea50da907da408c",
+            "34aeecb:0:e19c715f2d930d20",
+            "34aeecb:0:ac6d70d5b94fed58",
+            "34aeecb:0:60bebae74838bcd4",
+            "34aeecb:0:29ad640ed85d50b7",
+            "34aeecb:0:9777a34747dbf301",
+            "34aeecb:0:943d02167e7aaf4a",
+            "34aeecb:0:ae689de143b8489",
+            "34aeecb:0:a3974e2fce01e175",
+            "34aeecb:0:843b056abd53cdd",
+            "34aeecb:0:aa45116c58cff168",
+            "34aeecb:0:83b2d35c92df83e7",
+            "34aeecb:0:281c4cd826d05f39",
+            "34aeecb:0:249572e856592dee",
+            "34aeecb:0:fabfbbdd59336642",
+            "34aeecb:0:f0443a574fe4139a",
+            "34aeecb:0:63747cf9f89cc51e",
+            "34aeecb:0:11a7845bd4fd4c7c",
+            "34aeecb:0:980dfb5f16eaab3c",
+            "34aeecb:0:1895a5f3a0499fdb",
+            "34aeecb:0:49ece32c868d681b",
+            "34aeecb:0:21c0f8790882e34c",
+            "34aeecb:0:a70ec45ae6b8199f",
+            "34aeecb:0:f4ebbae5dbda6791",
+            "34aeecb:0:5b30a23d95f7f7df",
+            "34aeecb:0:103a9fc6d1c2df9c",
+            "34aeecb:0:6b33bf295829aed5",
+            "34aeecb:0:ec4825707aabd73d",
+            "34aeecb:0:fd4e2d4030f085b0",
+            "34aeecb:0:6e9afe7f5ad480d2",
+            "34aeecb:0:b4c9bda6ce5a22f6",
+            "34aeecb:0:eaaf7d08a9fcae6",
+            "34aeecb:0:c2f003f121939b2a",
+            "34aeecb:0:8763d9e44bba80fa",
+            "34aeecb:0:a254edd1f68fb0ed",
+            "34aeecb:0:afd2b231f7f2cf4b",
+            "34aeecb:0:8c95f2985cbb9a07",
+            "34aeecb:0:573e226669978700",
+            "34aeecb:0:1abbb59f8f6e3cec",
+            "34aeecb:0:1ed767ea6b09ecb4",
+            "34aeecb:0:a99d48ba0d7ffbd3",
+            "34aeecb:0:52da128efd7f7624",
+            "34aeecb:0:901318bd5142e020",
+            "34aeecb:0:bb37f8ff6fc10f93",
+            "34aeecb:0:d261ffa2c6c181f7",
+            "34aeecb:0:58d348b06599aa07",
+            "34aeecb:0:860bb7d4391a5449",
+            "34aeecb:0:ada33dd4fc9aa3e3",
+            "34aeecb:0:d34490f8bf9d0931",
+            "34aeecb:0:ffe0990696bc640a",
+            "34aeecb:0:5df87fd8547d9412",
+            "34aeecb:0:5e1b382dba9a6d79",
+            "34aeecb:0:41bafca896651f98",
+            "34aeecb:0:84e871bb545cd6f6",
+            "34aeecb:0:a930f85e59af9706",
+            "34aeecb:0:3125fc0e1cbf09d9",
+            "34aeecb:0:4cbf30def2235ddc",
+            "34aeecb:0:82fcc55083cc6fe4",
+            "34aeecb:0:c70d12893f70a8eb",
+            "34aeecb:0:9550e7a66addc1c9",
+            "34aeecb:0:626ac5bb5df8b71b",
+            "34aeecb:0:2abdd9a30003e4ab",
+            "34aeecb:0:5d1ca90857f514ff",
+            "34aeecb:0:ebd36c000285b0c7",
+            "34aeecb:0:ff97b1db6a3bda0e",
+            "34aeecb:0:5c4f818b3da29670",
+            "34aeecb:0:28abc26864575e79",
+            "34aeecb:0:9217f6eb193666a2",
+            "34aeecb:0:210f272d41b67c02",
+            "34aeecb:0:85a46e287c5bc3b6",
+            "34aeecb:0:9b40665bf2ed7acd",
+            "34aeecb:0:cb6b4387f61f3a9e",
+            "34aeecb:0:c5b248edcf400a2e",
+            "34aeecb:0:d84e4901482fdf49",
+            "34aeecb:0:7aa5ac0a23235429",
+            "34aeecb:0:1c2c0dbd1876e6a5",
+            "34aeecb:0:c722123419e9c0e3",
+            "34aeecb:0:e452b33054631ed1",
+            "34aeecb:0:d26cbe0a2ecb9a5b",
+            "34aeecb:0:8ab1ea7a77d0beb4",
+            "34aeecb:0:306760962f0a4ea8",
+            "34aeecb:0:6c24b97f46fd3cb7",
+            "34aeecb:0:dcca774e29a1e2de",
+            "34aeecb:0:3251bbf814a71908",
+            "34aeecb:0:97e4e06cc7b7117c",
+            "34aeecb:0:9e5dd3652ebc234f",
+            "34aeecb:0:3a52d5969eee67bf",
+            "34aeecb:0:8fab0b0af5b9fc53",
+            "34aeecb:0:142305a6ce06a2ce",
+            "34aeecb:0:f997d072ffa7a98c",
+            "34aeecb:0:bf8b9f707dc67e84",
+            "34aeecb:0:ae2c37fbb9c9fdf8",
+            "34aeecb:0:975d5ab361ecde20",
+            "34aeecb:0:d4bb420dc18c0d5c",
+            "34aeecb:0:ac35333fecad778f",
+            "34aeecb:0:66d2be6e693c5899",
+            "34aeecb:0:fea5da25a50f4f5e",
+            "34aeecb:0:b1ec9dd532c44dfd",
+            "34aeecb:0:4b58f514eb2208b9",
+            "34aeecb:0:dd3441628180c791",
+            "34aeecb:0:2cd4da222be771bc",
+            "34aeecb:0:3a7a1fbc6aa8e423",
+            "34aeecb:0:ecc9d34c0510f17d",
+            "34aeecb:0:c2253a8ca9a82eca",
+            "34aeecb:0:1296318d294e7a36",
+            "34aeecb:0:10f33c5252c80306",
+            "34aeecb:0:910614545d6b8e76",
+            "34aeecb:0:415eff017479f864",
+            "34aeecb:0:b9267433bb2f1644",
+            "34aeecb:0:e3c88270d9747353",
+            "34aeecb:0:22ee905c65f0d153",
+            "34aeecb:0:83aabb5d9b969774",
+            "34aeecb:0:48ba3b10355c74d7",
+            "34aeecb:0:5a5b8836cf2d2c59",
+            "34aeecb:0:6f626e3dc2ce6347",
+            "34aeecb:0:674b3f74efd47d84",
+            "34aeecb:0:d2be26dab702f691",
+            "34aeecb:0:9e713b5310d47709",
+            "34aeecb:0:93daba652094eac",
+            "34aeecb:0:1e590b8d3dbac306",
+            "34aeecb:0:476d11091b19b62a",
+            "34aeecb:0:e87d3aa66623a51a",
+            "34aeecb:0:13747712cca706c6",
+            "34aeecb:0:7a4ebc697990a1be",
+            "34aeecb:0:42b217a742ce6af9",
+            "34aeecb:0:2991d09004d13b47",
+            "34aeecb:0:b1bead0058ba0eb4",
+            "34aeecb:0:67d95d9600a8eba3",
+            "34aeecb:0:ae1205f5fbfca2bb",
+            "34aeecb:0:aad13b3622365cef",
+            "34aeecb:0:1c71a84d2d5d29a2",
+            "34aeecb:0:a8453125f3e2fee9",
+            "34aeecb:0:dc0223f3bf608437",
+            "34aeecb:0:d3c7d77f9536d3c",
+            "34aeecb:0:b14002939a6dd1fc",
+            "34aeecb:0:6352d405b9d17a8",
+            "34aeecb:0:56b49983b925a101",
+            "34aeecb:0:c13d67bb694954cb",
+            "34aeecb:0:193688ea5609aa99",
+            "34aeecb:0:43b3146f08bdeb42",
+            "34aeecb:0:6a8aa8d8bad93faa",
+            "34aeecb:0:2778ef3171cbd2e1",
+            "34aeecb:0:eb8e2c9a2470b30",
+            "34aeecb:0:f3ead68dfaf37bbe",
+            "34aeecb:0:80c21e5c825961ce",
+            "34aeecb:0:e0119840c4a130e1",
+            "34aeecb:0:7ff3e054d5e59100",
+            "34aeecb:0:d1c2f9cb66797038",
+            "34aeecb:0:a56d5103dc81c6ef",
+            "34aeecb:0:dbd0c02c95726465",
+            "34aeecb:0:73a213733e948867",
+            "34aeecb:0:4b3e3f8ae82b0637",
+            "34aeecb:0:32f12b284bd7a673",
+            "34aeecb:0:2241e1f6ae663633",
+            "34aeecb:0:ccb1b83f2a016292",
+            "34aeecb:0:f1fd4b976167a284",
+            "34aeecb:0:a1b443ac094c6061",
+            "34aeecb:0:ce46f7cae43cfda",
+            "34aeecb:0:b4131ae553f3bf6a",
+            "34aeecb:0:b57726845668217e",
+            "34aeecb:0:978fd68c73ff6f15",
+            "34aeecb:0:c1dc254a1663bc46",
+            "34aeecb:0:c458dd012378db6",
+            "34aeecb:0:5791162054eec1a1",
+            "34aeecb:0:a34222b214410451",
+            "34aeecb:0:185868a8d4bfd57d",
+            "34aeecb:0:ef3ee1d15164e87f",
+            "34aeecb:0:ae2d9f4de876b615",
+            "34aeecb:0:4fc74422897852bf",
+            "34aeecb:0:48ec70797290adc8",
+            "34aeecb:0:e122615a2b8328bc",
+            "34aeecb:0:80d9aac9d04acddb",
+            "34aeecb:0:27928dd53dcd51aa",
+            "34aeecb:0:8cd570440b30f434",
+            "34aeecb:0:544bcbb03ee20350",
+            "34aeecb:0:56dc2935f26e24bb",
+            "34aeecb:0:7f6faa545a085b0a",
+            "34aeecb:0:bd198ed8a733011e",
+            "34aeecb:0:a1e4d861b4e4af4d",
+            "34aeecb:0:729d8e5ea6935e4f",
+            "34aeecb:0:7e1d5daa117239a5",
+            "34aeecb:0:13b52b8cf2a2bd41",
+            "34aeecb:0:605005881eaf0471",
+            "34aeecb:0:731768561ecba025",
+            "34aeecb:0:6383ee222e017d8c",
+            "34aeecb:0:66bedebee2a8af32"
+          ]
+        },
+        "waitS": 1,
+        "note": "cc-2k-v2 CAS part keys 500-749 (all 1000: af Hair 166, af Top 334, ef Hair 166, ef Body 167, tf Body 167)"
+      },
+      {
+        "cmd": "cas_pool",
+        "args": {
+          "add": [
+            "34aeecb:0:b260e46c2d807072",
+            "34aeecb:0:f8f6bdf2edba5001",
+            "34aeecb:0:e933c90de655d53d",
+            "34aeecb:0:48215040b8fd54e5",
+            "34aeecb:0:69a8e3dde413e550",
+            "34aeecb:0:923b464cc1a8e88f",
+            "34aeecb:0:3c49c933b741b941",
+            "34aeecb:0:d7c219d35357c286",
+            "34aeecb:0:45b63c08dce3ebca",
+            "34aeecb:0:ac1b0260eabbaed2",
+            "34aeecb:0:127f35c675ba6716",
+            "34aeecb:0:fcc38f1b10c6f384",
+            "34aeecb:0:219579bde13febe4",
+            "34aeecb:0:ae9ebb2b52512ff3",
+            "34aeecb:0:83a07576dec89173",
+            "34aeecb:0:d9fd47b978cced14",
+            "34aeecb:0:b9c10b9644faaff7",
+            "34aeecb:0:414de821cd720879",
+            "34aeecb:0:c4515dc1d1857367",
+            "34aeecb:0:853c75ff87be30a4",
+            "34aeecb:0:688095619f890ce5",
+            "34aeecb:0:ec042d0aec55358d",
+            "34aeecb:0:c207ef723da7f20",
+            "34aeecb:0:5bd9f57c744d31a2",
+            "34aeecb:0:16b7ed9775bc6a66",
+            "34aeecb:0:1d0bcd79cfd0c9f6",
+            "34aeecb:0:b4730bc55dd25afa",
+            "34aeecb:0:eb32cc4123d3a9ca",
+            "34aeecb:0:92dac469e228861d",
+            "34aeecb:0:877947fdd438d55b",
+            "34aeecb:0:5c7bc2db1483b38c",
+            "34aeecb:0:666cc305e4bc3a8b",
+            "34aeecb:0:59fa26fac1170833",
+            "34aeecb:0:dec75011eed9a9a7",
+            "34aeecb:0:36f960c533563d9a",
+            "34aeecb:0:a4c08752cbca5c01",
+            "34aeecb:0:4b4b25d7d09aabaf",
+            "34aeecb:0:53bb69922c379164",
+            "34aeecb:0:3dd4b6fa09d6bb14",
+            "34aeecb:0:2687d5e29caa9f10",
+            "34aeecb:0:f9fb8f2906476a40",
+            "34aeecb:0:1d3c6e47904b4442",
+            "34aeecb:0:ef82d8c12f12509e",
+            "34aeecb:0:9b4c16dffd4ca1bd",
+            "34aeecb:0:6a906b4742d3f3c1",
+            "34aeecb:0:6b5af5ffa26a5a62",
+            "34aeecb:0:a9cdbf81bfeee725",
+            "34aeecb:0:54bc9765ba0d527b",
+            "34aeecb:0:a228c599bc5af855",
+            "34aeecb:0:a77b3dee3002088a",
+            "34aeecb:0:5ade1138284ec6ac",
+            "34aeecb:0:5fa91891e6cff174",
+            "34aeecb:0:bff7fd6807cb009b",
+            "34aeecb:0:64ede812a1a11a59",
+            "34aeecb:0:c35a06c43d11dd0b",
+            "34aeecb:0:e22b3c1baab693bb",
+            "34aeecb:0:c443d36f88aeb14f",
+            "34aeecb:0:207de8ed879f7657",
+            "34aeecb:0:a29dbef2f3ef0e7e",
+            "34aeecb:0:6dcac29abbb29540",
+            "34aeecb:0:fce9dcc0f5ba0169",
+            "34aeecb:0:1f0d5044e341272",
+            "34aeecb:0:a353d265fe13fdd2",
+            "34aeecb:0:ecf199869e015d06",
+            "34aeecb:0:e694483732dca97d",
+            "34aeecb:0:ffc1d1ff082218ae",
+            "34aeecb:0:daa43759f048a95e",
+            "34aeecb:0:cb5f851f36b5b499",
+            "34aeecb:0:27575249365b62b9",
+            "34aeecb:0:aa476673c1ec8e35",
+            "34aeecb:0:c787377e87b91b8b",
+            "34aeecb:0:b2d79101c656ece9",
+            "34aeecb:0:cacb3ec523636b3",
+            "34aeecb:0:e93adaac448cc73c",
+            "34aeecb:0:32c209edb644d130",
+            "34aeecb:0:86cf986a6d6fb6ef",
+            "34aeecb:0:314b80fe28ab6e26",
+            "34aeecb:0:668c835832594800",
+            "34aeecb:0:8dbd0a34a3f368b4",
+            "34aeecb:0:d776c8f4d586b467",
+            "34aeecb:0:f5d9bbbe7321aeaa",
+            "34aeecb:0:564d199dc4c9fbbe",
+            "34aeecb:0:b38bbfb38afad36d",
+            "34aeecb:0:af33f7af67278fef",
+            "34aeecb:0:ad3a20fa60885dc5",
+            "34aeecb:0:6b60ab267ce99fe1",
+            "34aeecb:0:aebc840f023c5091",
+            "34aeecb:0:b84a275f15f48b45",
+            "34aeecb:0:13d00b82247d3cac",
+            "34aeecb:0:7fd1d060ef3fa352",
+            "34aeecb:0:913696e3e016099b",
+            "34aeecb:0:80a96a7bba7e9d74",
+            "34aeecb:0:75048c29a9e67410",
+            "34aeecb:0:764207268c413188",
+            "34aeecb:0:e78e2f0516c8af67",
+            "34aeecb:0:e085cb1d9c3f48e0",
+            "34aeecb:0:40f6a362ce278314",
+            "34aeecb:0:41d9c9149d97270f",
+            "34aeecb:0:c967fea39b9ba59b",
+            "34aeecb:0:e830b7a04a86f783",
+            "34aeecb:0:a5bc93504597cbae",
+            "34aeecb:0:19587a080961d36c",
+            "34aeecb:0:e164aa840a33074c",
+            "34aeecb:0:d0c1580724b86dcb",
+            "34aeecb:0:b9f3a2987b9fe24b",
+            "34aeecb:0:96cc8970b2bd9ebc",
+            "34aeecb:0:afffb0dfaef5b4ef",
+            "34aeecb:0:4c4c8f9a6e7d9ec1",
+            "34aeecb:0:910e6b107941676f",
+            "34aeecb:0:29c71cecd1fb414c",
+            "34aeecb:0:676fbd564662119",
+            "34aeecb:0:ecff2ff384a2ee71",
+            "34aeecb:0:7fb21aff1d9aa324",
+            "34aeecb:0:acd8df42b79f708e",
+            "34aeecb:0:bcf200b5ccc8c402",
+            "34aeecb:0:590edb56a90a8e52",
+            "34aeecb:0:ebfeee22757ab2ce",
+            "34aeecb:0:c4c67f2c5e30d4e6",
+            "34aeecb:0:f1b3c08a086af131",
+            "34aeecb:0:7e937f853763de3f",
+            "34aeecb:0:23f72230468454f4",
+            "34aeecb:0:29194d3046f9d863",
+            "34aeecb:0:b3ecaf6df96ca7b",
+            "34aeecb:0:a29288e896ecf0af",
+            "34aeecb:0:a05a027d30d63562",
+            "34aeecb:0:4e074c4586c4c329",
+            "34aeecb:0:e5b6630d365e677",
+            "34aeecb:0:c53a0073eac000fc",
+            "34aeecb:0:bd20be8e76bc82bc",
+            "34aeecb:0:677afd2315dc9f68",
+            "34aeecb:0:874c2ff91612935c",
+            "34aeecb:0:1f26adb1ed1906d6",
+            "34aeecb:0:6c199b74eaa43f42",
+            "34aeecb:0:68fa4b2d837050f1",
+            "34aeecb:0:f3cfa84757d17be5",
+            "34aeecb:0:c53efb466aada456",
+            "34aeecb:0:6146f95f8b998f01",
+            "34aeecb:0:3eea73ef86a47a47",
+            "34aeecb:0:f534e61ea1430499",
+            "34aeecb:0:9243f9ec6f1ec966",
+            "34aeecb:0:75bb5c1a4cddd7eb",
+            "34aeecb:0:a596a56836aecddf",
+            "34aeecb:0:2f260fbb43b61d7a",
+            "34aeecb:0:b69dde89b14963b0",
+            "34aeecb:0:55ed9b014627fc68",
+            "34aeecb:0:a528950b0561bf6c",
+            "34aeecb:0:9a36d116a47c7a6c",
+            "34aeecb:0:5011c5e8e54b00f0",
+            "34aeecb:0:3ea1ef6603138d5b",
+            "34aeecb:0:e3e38f0fb1babe85",
+            "34aeecb:0:2edbb4b17adfedc1",
+            "34aeecb:0:f6f7e73807d217ba",
+            "34aeecb:0:38482786a082204a",
+            "34aeecb:0:98aedf9e64f1965e",
+            "34aeecb:0:7506b631ef2b3ff5",
+            "34aeecb:0:ee0f8133602499a6",
+            "34aeecb:0:ccc0d784787b2996",
+            "34aeecb:0:eb88a970b1588481",
+            "34aeecb:0:e386b9ea65c661b1",
+            "34aeecb:0:a8ac51067c1ce45d",
+            "34aeecb:0:34b1295b92a615f",
+            "34aeecb:0:cece87d7b70006f5",
+            "34aeecb:0:5f8875453e9c961f",
+            "34aeecb:0:d0087be91bc0b528",
+            "34aeecb:0:18246f44e133649c",
+            "34aeecb:0:5191cb0d3736e43b",
+            "34aeecb:0:7627bfbeb51df28a",
+            "34aeecb:0:214b1eda10d9fc14",
+            "34aeecb:0:2da33d3b91374f30",
+            "34aeecb:0:8029f57c3121d39b",
+            "34aeecb:0:bb3bb7929e9a5502",
+            "34aeecb:0:1fd0fe8dd93f9cb6",
+            "34aeecb:0:677ff616d872635",
+            "34aeecb:0:7649192ef0b99127",
+            "34aeecb:0:3fc0ed6fc8ce6bcd",
+            "34aeecb:0:727ad966a513b849",
+            "34aeecb:0:14d23c6f80072d29",
+            "34aeecb:0:d85fb3e1d4dab69d",
+            "34aeecb:0:78d4c6b08905b8d4",
+            "34aeecb:0:48a63034e71e18ba",
+            "34aeecb:0:d7e32c2dde43064f",
+            "34aeecb:0:33989c892fef3138",
+            "34aeecb:0:5152c8a630fc7834",
+            "34aeecb:0:a67b8ad970deec9c",
+            "34aeecb:0:ecfb5cce2a5a1e9b",
+            "34aeecb:0:e35148939593734c",
+            "34aeecb:0:764aaaa9c3d8b428",
+            "34aeecb:0:c4ea6a085ce7bdab",
+            "34aeecb:0:f749396db4d8edff",
+            "34aeecb:0:e63abd02c4ee6f1f",
+            "34aeecb:0:75f5663525c21ca5",
+            "34aeecb:0:9698f62100db4237",
+            "34aeecb:0:94bab1177ff92cd5",
+            "34aeecb:0:6bc18442cef5b07e",
+            "34aeecb:0:20d89e6a46847676",
+            "34aeecb:0:336c0a29fa7fedad",
+            "34aeecb:0:a595f942c9a2304",
+            "34aeecb:0:e96414faf61e79c2",
+            "34aeecb:0:f5e3059c67474bba",
+            "34aeecb:0:2d71e250c8a46415",
+            "34aeecb:0:3e59e7d895b571c5",
+            "34aeecb:0:6354ee91448f596d",
+            "34aeecb:0:4e1db5e432c94780",
+            "34aeecb:0:8f20bedd91859e02",
+            "34aeecb:0:40dcb611a558b46",
+            "34aeecb:0:3ecc54993ace30d6",
+            "34aeecb:0:3f3722633c5401da",
+            "34aeecb:0:c57de405e947682a",
+            "34aeecb:0:1e5deb2104cb187d",
+            "34aeecb:0:d30cedf90e3fb3b",
+            "34aeecb:0:710f4b91abbc2b6c",
+            "34aeecb:0:3fd69ed9bd093d6b",
+            "34aeecb:0:e621047def3f2513",
+            "34aeecb:0:f93be96035e15187",
+            "34aeecb:0:5c296f2166453b7a",
+            "34aeecb:0:c5f5eed21e5cffe1",
+            "34aeecb:0:98946ecb4206d38f",
+            "34aeecb:0:96bb47a4b47bd044",
+            "34aeecb:0:e1f7918ab475a1f4",
+            "34aeecb:0:70ff4b21a0846af0",
+            "34aeecb:0:19855dad0d5af948",
+            "34aeecb:0:ada9c3e758c695da",
+            "34aeecb:0:595044fb6e128b76",
+            "34aeecb:0:d067b52f121707e5",
+            "34aeecb:0:d7ca5e4150939dc9",
+            "34aeecb:0:2bea6138eb72e97a",
+            "34aeecb:0:eb55629d5ce9426d",
+            "34aeecb:0:c0c30b4471e2773",
+            "34aeecb:0:a2c38e6fff62a7ed",
+            "34aeecb:0:409ef6dc0f30af42",
+            "34aeecb:0:256b966eb008fe2b",
+            "34aeecb:0:36ea075157df5a1f",
+            "34aeecb:0:d9a13af384b275ba",
+            "34aeecb:0:44a8214bc42ba270",
+            "34aeecb:0:c6f9f4f856c99f28",
+            "34aeecb:0:df0847da84a1a6ac",
+            "34aeecb:0:cc7ae0bf76791bac",
+            "34aeecb:0:f1dda47aa9f98030",
+            "34aeecb:0:f7c1a051d9b96f9b",
+            "34aeecb:0:fc2a7ac022213345",
+            "34aeecb:0:13cceaf6cb62c826",
+            "34aeecb:0:b29ad413c50f9ab5",
+            "34aeecb:0:1d069a917832a4e1",
+            "34aeecb:0:b4139f3862fd1c99",
+            "34aeecb:0:acb57a654029c124",
+            "34aeecb:0:21cba75e777fe68b",
+            "34aeecb:0:82c622d9870fa985",
+            "34aeecb:0:c3e682076e2d3f82",
+            "34aeecb:0:ceccb2386d05bcfe",
+            "34aeecb:0:fcd642f57c6801fe"
+          ]
+        },
+        "waitS": 1,
+        "note": "cc-2k-v2 CAS part keys 750-999 (all 1000: af Hair 166, af Top 334, ef Hair 166, ef Body 167, tf Body 167)"
+      },
+      {
+        "cmd": "inv_pool",
+        "args": {
+          "clear": true,
+          "add": [
+            "319e4f1d:0:c655bb552dbb70de",
+            "319e4f1d:0:45a22d4c5860727a",
+            "319e4f1d:0:3e413455983750e",
+            "319e4f1d:0:9775303d2060b41c",
+            "319e4f1d:0:772f34761184deed",
+            "319e4f1d:0:3585976f12b95ff3",
+            "319e4f1d:0:c9393966d9b4676f",
+            "319e4f1d:0:3265135d668cb179",
+            "319e4f1d:0:67a1b41368b33416",
+            "319e4f1d:0:d13ae509f5e8e3d0",
+            "319e4f1d:0:3ec1b94ac0338cef",
+            "319e4f1d:0:d5954b54335a472a",
+            "319e4f1d:0:41abb95c6c31cbf2",
+            "319e4f1d:0:c277336541a13a5e",
+            "319e4f1d:0:4136b6c406183b8",
+            "319e4f1d:0:708bfc74798c0d99",
+            "319e4f1d:0:73a8d7dec93aa1f",
+            "319e4f1d:0:7338f38625568e97",
+            "319e4f1d:0:f4bf9d0997c0ccf7",
+            "319e4f1d:0:60c17011d086a009",
+            "319e4f1d:0:bcc8c7b4dbc80a23",
+            "319e4f1d:0:50c06aaca2fce071",
+            "319e4f1d:0:bfb354c687c73805",
+            "319e4f1d:0:53aa6ebe4efb25f3",
+            "319e4f1d:0:6dc4d7d5bfaf5f30",
+            "319e4f1d:0:1bc3ccd86e3cb9a",
+            "319e4f1d:0:853b96e80823b300",
+            "319e4f1d:0:ee66fcde94fb384d",
+            "319e4f1d:0:319a26f73e9a5b09",
+            "319e4f1d:0:f13614f040e2d795",
+            "319e4f1d:0:36ce0b8a19c25ece",
+            "319e4f1d:0:a2cca49252859a4b",
+            "319e4f1d:0:8a17497ae300ec39",
+            "319e4f1d:0:f4dd2b831aba6b59",
+            "319e4f1d:0:7149ad6899699d09",
+            "319e4f1d:0:f3c130717044915b",
+            "319e4f1d:0:c4cca45962d92a26",
+            "319e4f1d:0:530516060900188",
+            "319e4f1d:0:c1fdb747b6f1d338",
+            "319e4f1d:0:58d1cd512a196e7e",
+            "319e4f1d:0:b22bac1f5036163a",
+            "319e4f1d:0:70153d18510e1334",
+            "319e4f1d:0:ef72cf0f7bc1bdee",
+            "319e4f1d:0:836a7d0742f6a6e3",
+            "319e4f1d:0:eca3befdcfda2bc7",
+            "319e4f1d:0:809b64f5970f06db",
+            "319e4f1d:0:402a3cee994cd3b5",
+            "319e4f1d:0:d42ba3e660899828",
+            "319e4f1d:0:52a89b62ee22a1e2",
+            "319e4f1d:0:e69ca55ab5543e66",
+            "319e4f1d:0:2d66f0e9c7ef8543",
+            "319e4f1d:0:c3c793f33ab51e8d",
+            "319e4f1d:0:446d8ffc10049b70",
+            "319e4f1d:0:b0e2ed04492c974a",
+            "319e4f1d:0:7c67eac8e4060b02",
+            "319e4f1d:0:12cf10d256d0ef14",
+            "319e4f1d:0:7f51efda900452ab",
+            "319e4f1d:0:c0fc5ee18ed1368d",
+            "319e4f1d:0:e22f2d2e0219cdf3",
+            "319e4f1d:0:24463f350142e5de",
+            "319e4f1d:0:d4461b5fe380d9ad",
+            "319e4f1d:0:6983c957abca8579",
+            "319e4f1d:0:823c856f1b520e07",
+            "319e4f1d:0:162ff466e282a2c6",
+            "319e4f1d:0:e4a9773d29638c48",
+            "319e4f1d:0:a43545362b9f120c",
+            "319e4f1d:0:d326534e39076df8",
+            "319e4f1d:0:50aed045622c79b6",
+            "319e4f1d:0:20c05c1baa683f6f",
+            "319e4f1d:0:b4b76f13719c20c5",
+            "319e4f1d:0:2503cb29212036cc",
+            "319e4f1d:0:a5ced131f68ee05a",
+            "319e4f1d:0:76d74819e9214869",
+            "319e4f1d:0:e34c0322224830c3",
+            "319e4f1d:0:14eb094bdb7cc20d",
+            "319e4f1d:0:56942352da476280",
+            "319e4f1d:0:11c9e93a2f4f0ac8",
+            "319e4f1d:0:a89e7b43a277787c",
+            "319e4f1d:0:b0a006e6beabbeaa",
+            "319e4f1d:0:46fcd7f0316dbd8f",
+            "319e4f1d:0:d4930cf63003e6",
+            "319e4f1d:0:94e3c504bd78abd2",
+            "319e4f1d:0:fdfb0afb4a3f5126",
+            "319e4f1d:0:91f937f311797d04",
+            "319e4f1d:0:c6712c2e769dbba5",
+            "319e4f1d:0:2f9d1f250376307b",
+            "319e4f1d:0:aefaa11c2e29bfd7",
+            "319e4f1d:0:42f1bb13f55dac81",
+            "319e4f1d:0:61641c4ebccc042e",
+            "319e4f1d:0:dee55d45e5ea8b88",
+            "319e4f1d:0:90ad4cd80a6d7dd7",
+            "319e4f1d:0:d2575edf0939c462",
+            "319e4f1d:0:3ed9cce7426c674a",
+            "319e4f1d:0:d54166f0b5381036",
+            "319e4f1d:0:3ff59ef8ece1fbb0",
+            "319e4f1d:0:81a30fffebb118e1",
+            "319e4f1d:0:3fc2108c2724d67",
+            "319e4f1d:0:6eb40710fa1f966f",
+            "319e4f1d:0:514911a6ce5053f",
+            "319e4f1d:0:71837422a607c621"
+          ]
+        },
+        "note": "cc-2k-v2 inventoriable object keys 0-99 (game-copy/cc-synth/cc-2k-v2/manifest.json items inventoriable: true, cc-gen seed 1 --kind inv)"
+      },
+      {
+        "cmd": "inv_pool",
+        "args": {
+          "add": [
+            "319e4f1d:0:fe97dad265ecefa4",
+            "319e4f1d:0:94fef7dbd8b7c436",
+            "319e4f1d:0:506acdc32ded16a2",
+            "319e4f1d:0:9214f3ca2cb97eb4",
+            "319e4f1d:0:c3b2faf3e5ec5e8f",
+            "319e4f1d:0:2e7519fc1da25cf1",
+            "319e4f1d:0:ffb3ffe4106310cb",
+            "319e4f1d:0:415d51eb0f2e10a6",
+            "319e4f1d:0:72fc1814c8623522",
+            "319e4f1d:0:f3c6d21d9dd05dce",
+            "319e4f1d:0:6eb8b00751aa49e1",
+            "319e4f1d:0:2ba1eff18e71bcc",
+            "319e4f1d:0:86358e199a233e5a",
+            "319e4f1d:0:ef5df81026f8942e",
+            "319e4f1d:0:bdb8e5e66dbf8366",
+            "319e4f1d:0:51b712de34f9af44",
+            "319e4f1d:0:c0a6eef819c1b9e9",
+            "319e4f1d:0:549e11efe0f5b637",
+            "319e4f1d:0:223dfc4b8ac220bf",
+            "319e4f1d:0:b77b9643530baa49",
+            "319e4f1d:0:506bb9dd25b870d",
+            "319e4f1d:0:717be6a60b832e17",
+            "319e4f1d:0:82774af7e888ffd",
+            "319e4f1d:0:742fceb7b753b4d0",
+            "319e4f1d:0:3fb4dc7c522d4474",
+            "319e4f1d:0:d6896e85c555b1e8",
+            "319e4f1d:0:429fe28dfe2d4032",
+            "319e4f1d:0:c3609396d39304a7",
+            "319e4f1d:0:a4f1c05c0c27d4b1",
+            "319e4f1d:0:10fda26444f61601",
+            "319e4f1d:0:781fd2a7a37d3124",
+            "319e4f1d:0:367cafa0a4b6ec9a",
+            "319e4f1d:0:ca2cd3986baee8b7",
+            "319e4f1d:0:3358b68ef88741bd",
+            "319e4f1d:0:c75d5886bfc6a01d",
+            "319e4f1d:0:4692527dea57f68b",
+            "319e4f1d:0:4dab376eb8036d4",
+            "319e4f1d:0:9865786eb25874fe",
+            "319e4f1d:0:20bfa653f9938b0",
+            "319e4f1d:0:9749a05d07e2d65d",
+            "319e4f1d:0:ff604335e33d18e",
+            "319e4f1d:0:a6c99e3cd15a999a",
+            "319e4f1d:0:234a3e22501aa800",
+            "319e4f1d:0:8f56cf2a88ea1351",
+            "319e4f1d:0:7524801318217473",
+            "319e4f1d:0:e13e4e1b50fbd1e3",
+            "319e4f1d:0:725200016c36ed97",
+            "319e4f1d:0:de53d309a4fcc1a9",
+            "319e4f1d:0:84c68775c104ad58",
+            "319e4f1d:0:f0cf547df9d095a2",
+            "319e4f1d:0:8082f8684a4c7fdb",
+            "319e4f1d:0:140d9260112474ed",
+            "319e4f1d:0:97c31b7a92923b5e",
+            "319e4f1d:0:16f83c71bd23d418",
+            "319e4f1d:0:45d44689ca79cc46",
+            "319e4f1d:0:3be3482cb5267eb",
+            "319e4f1d:0:46d56e9b74d92b23",
+            "319e4f1d:0:b06dd492020d8277",
+            "319e4f1d:0:345de427200930e5",
+            "319e4f1d:0:9e006b1dad461478",
+            "319e4f1d:0:42c8c3f53f10fdfd",
+            "319e4f1d:0:aeb98dfd77c84f45",
+            "319e4f1d:0:ef314804758fe671",
+            "319e4f1d:0:5b331b0cae55b993",
+            "319e4f1d:0:f1fd371621750a6a",
+            "319e4f1d:0:5e05a41e5a404ff4",
+            "319e4f1d:0:dea822272f8cbf98",
+            "319e4f1d:0:20beb82e2eb5055e",
+            "319e4f1d:0:8cb997366774cef9",
+            "319e4f1d:0:238d723fda9c0573",
+            "319e4f1d:0:b599a5ff0ff4982c",
+            "319e4f1d:0:1f330bf59d2aa189",
+            "319e4f1d:0:b2af9ded63f64ba1",
+            "319e4f1d:0:71058be6652a05cd",
+            "319e4f1d:0:4f10001f54df8f9f",
+            "319e4f1d:0:e44acf171d273d0e",
+            "319e4f1d:0:61f1e20e466645e4",
+            "319e4f1d:0:2052380747a30560",
+            "319e4f1d:0:145ede40d50b9b28",
+            "319e4f1d:0:939a5b37ffa23c66",
+            "319e4f1d:0:169c7478fb253cc",
+            "319e4f1d:0:8234d4506521090e",
+            "319e4f1d:0:fe7f4a35e3b340ba",
+            "319e4f1d:0:9553703f56daf6ac",
+            "319e4f1d:0:c6f1f769100eb007",
+            "319e4f1d:0:32fa067148d95589",
+            "319e4f1d:0:c3d0cc5763e0e5c3",
+            "319e4f1d:0:30461e5f9d08cf4e",
+            "319e4f1d:0:60f3a403f1cb8e1a",
+            "319e4f1d:0:ccfbfe0c2a96b306",
+            "319e4f1d:0:88f6b851fd33fc49",
+            "319e4f1d:0:f22ce7488a152b44",
+            "319e4f1d:0:36f41661350b3b12",
+            "319e4f1d:0:f546e05a363c8276",
+            "319e4f1d:0:c3a1ee307d03a74e",
+            "319e4f1d:0:57330b2843e0e65c",
+            "319e4f1d:0:86279740514c4d51",
+            "319e4f1d:0:55c8a377bdd978f",
+            "319e4f1d:0:d3be140dc2a9fb07",
+            "319e4f1d:0:92146e06c3de6cb1"
+          ]
+        },
+        "note": "cc-2k-v2 inventoriable object keys 100-199 (game-copy/cc-synth/cc-2k-v2/manifest.json items inventoriable: true, cc-gen seed 1 --kind inv)"
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 100,
+          "skip": 0
+        },
+        "waitS": 20,
+        "timeoutS": 120,
+        "note": "STRESS (labelled, not a player flow): cycle 1: synthetic objects 0-99 over occupied residential + community lots"
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 50,
+          "skip": 100
+        },
+        "waitS": 15,
+        "timeoutS": 120,
+        "note": "cycle 1: synthetic objects 100-149"
+      },
+      {
+        "cmd": "wear_parts",
+        "args": {
+          "sim": "town",
+          "filter": "pool",
+          "body_types": [
+            "Hair",
+            "FullBody",
+            "UpperBody"
+          ],
+          "max_sims": 25,
+          "nth": 0,
+          "remember": "lsf"
+        },
+        "waitS": 15,
+        "timeoutS": 180,
+        "note": "cycle 1: the 25 Sims picked in cycle 1 (remember), Sim i wears part #0 + i per body type (distinct for cycles 1-6, wraps from cycle 7)"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 1: every tracked object destroyed"
+      },
+      {
+        "cmd": "restore_outfit",
+        "args": {
+          "sim": "all"
+        },
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 1: agent outfits off"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "pool": true,
+          "nth": 0,
+          "free": true,
+          "sim_inventory": true,
+          "n": 25
+        },
+        "waitS": 3,
+        "note": "STRESS: cycle 1: inventoriable synthetic objects (inv pool #0-24) into the active Sim's inventory"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 5,
+        "timeoutS": 60,
+        "note": "cycle 1: inventory objects out and destroyed"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 100,
+          "skip": 150
+        },
+        "waitS": 20,
+        "timeoutS": 120,
+        "note": "STRESS (labelled, not a player flow): cycle 2: synthetic objects 150-249 over occupied residential + community lots"
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 50,
+          "skip": 250
+        },
+        "waitS": 15,
+        "timeoutS": 120,
+        "note": "cycle 2: synthetic objects 250-299"
+      },
+      {
+        "cmd": "wear_parts",
+        "args": {
+          "sim": "town",
+          "filter": "pool",
+          "body_types": [
+            "Hair",
+            "FullBody",
+            "UpperBody"
+          ],
+          "max_sims": 25,
+          "nth": 25,
+          "remember": "lsf"
+        },
+        "waitS": 15,
+        "timeoutS": 180,
+        "note": "cycle 2: the 25 Sims picked in cycle 1 (remember), Sim i wears part #25 + i per body type (distinct for cycles 1-6, wraps from cycle 7)"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 2: every tracked object destroyed"
+      },
+      {
+        "cmd": "restore_outfit",
+        "args": {
+          "sim": "all"
+        },
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 2: agent outfits off"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "pool": true,
+          "nth": 25,
+          "free": true,
+          "sim_inventory": true,
+          "n": 25
+        },
+        "waitS": 3,
+        "note": "STRESS: cycle 2: inventoriable synthetic objects (inv pool #25-49) into the active Sim's inventory"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 5,
+        "timeoutS": 60,
+        "note": "cycle 2: inventory objects out and destroyed"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 100,
+          "skip": 300
+        },
+        "waitS": 20,
+        "timeoutS": 120,
+        "note": "STRESS (labelled, not a player flow): cycle 3: synthetic objects 300-399 over occupied residential + community lots"
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 50,
+          "skip": 400
+        },
+        "waitS": 15,
+        "timeoutS": 120,
+        "note": "cycle 3: synthetic objects 400-449"
+      },
+      {
+        "cmd": "wear_parts",
+        "args": {
+          "sim": "town",
+          "filter": "pool",
+          "body_types": [
+            "Hair",
+            "FullBody",
+            "UpperBody"
+          ],
+          "max_sims": 25,
+          "nth": 50,
+          "remember": "lsf"
+        },
+        "waitS": 15,
+        "timeoutS": 180,
+        "note": "cycle 3: the 25 Sims picked in cycle 1 (remember), Sim i wears part #50 + i per body type (distinct for cycles 1-6, wraps from cycle 7)"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 3: every tracked object destroyed"
+      },
+      {
+        "cmd": "restore_outfit",
+        "args": {
+          "sim": "all"
+        },
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 3: agent outfits off"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "pool": true,
+          "nth": 50,
+          "free": true,
+          "sim_inventory": true,
+          "n": 25
+        },
+        "waitS": 3,
+        "note": "STRESS: cycle 3: inventoriable synthetic objects (inv pool #50-74) into the active Sim's inventory"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 5,
+        "timeoutS": 60,
+        "note": "cycle 3: inventory objects out and destroyed"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 100,
+          "skip": 450
+        },
+        "waitS": 20,
+        "timeoutS": 120,
+        "note": "STRESS (labelled, not a player flow): cycle 4: synthetic objects 450-549 over occupied residential + community lots"
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 50,
+          "skip": 550
+        },
+        "waitS": 15,
+        "timeoutS": 120,
+        "note": "cycle 4: synthetic objects 550-599"
+      },
+      {
+        "cmd": "wear_parts",
+        "args": {
+          "sim": "town",
+          "filter": "pool",
+          "body_types": [
+            "Hair",
+            "FullBody",
+            "UpperBody"
+          ],
+          "max_sims": 25,
+          "nth": 75,
+          "remember": "lsf"
+        },
+        "waitS": 15,
+        "timeoutS": 180,
+        "note": "cycle 4: the 25 Sims picked in cycle 1 (remember), Sim i wears part #75 + i per body type (distinct for cycles 1-6, wraps from cycle 7)"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 4: every tracked object destroyed"
+      },
+      {
+        "cmd": "restore_outfit",
+        "args": {
+          "sim": "all"
+        },
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 4: agent outfits off"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "pool": true,
+          "nth": 75,
+          "free": true,
+          "sim_inventory": true,
+          "n": 25
+        },
+        "waitS": 3,
+        "note": "STRESS: cycle 4: inventoriable synthetic objects (inv pool #75-99) into the active Sim's inventory"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 5,
+        "timeoutS": 60,
+        "note": "cycle 4: inventory objects out and destroyed"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 100,
+          "skip": 600
+        },
+        "waitS": 20,
+        "timeoutS": 120,
+        "note": "STRESS (labelled, not a player flow): cycle 5: synthetic objects 600-699 over occupied residential + community lots"
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 50,
+          "skip": 700
+        },
+        "waitS": 15,
+        "timeoutS": 120,
+        "note": "cycle 5: synthetic objects 700-749"
+      },
+      {
+        "cmd": "wear_parts",
+        "args": {
+          "sim": "town",
+          "filter": "pool",
+          "body_types": [
+            "Hair",
+            "FullBody",
+            "UpperBody"
+          ],
+          "max_sims": 25,
+          "nth": 100,
+          "remember": "lsf"
+        },
+        "waitS": 15,
+        "timeoutS": 180,
+        "note": "cycle 5: the 25 Sims picked in cycle 1 (remember), Sim i wears part #100 + i per body type (distinct for cycles 1-6, wraps from cycle 7)"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 5: every tracked object destroyed"
+      },
+      {
+        "cmd": "restore_outfit",
+        "args": {
+          "sim": "all"
+        },
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 5: agent outfits off"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "pool": true,
+          "nth": 100,
+          "free": true,
+          "sim_inventory": true,
+          "n": 25
+        },
+        "waitS": 3,
+        "note": "STRESS: cycle 5: inventoriable synthetic objects (inv pool #100-124) into the active Sim's inventory"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 5,
+        "timeoutS": 60,
+        "note": "cycle 5: inventory objects out and destroyed"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 100,
+          "skip": 750
+        },
+        "waitS": 20,
+        "timeoutS": 120,
+        "note": "STRESS (labelled, not a player flow): cycle 6: synthetic objects 750-849 over occupied residential + community lots"
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 50,
+          "skip": 850
+        },
+        "waitS": 15,
+        "timeoutS": 120,
+        "note": "cycle 6: synthetic objects 850-899"
+      },
+      {
+        "cmd": "wear_parts",
+        "args": {
+          "sim": "town",
+          "filter": "pool",
+          "body_types": [
+            "Hair",
+            "FullBody",
+            "UpperBody"
+          ],
+          "max_sims": 25,
+          "nth": 125,
+          "remember": "lsf"
+        },
+        "waitS": 15,
+        "timeoutS": 180,
+        "note": "cycle 6: the 25 Sims picked in cycle 1 (remember), Sim i wears part #125 + i per body type (distinct for cycles 1-6, wraps from cycle 7)"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 6: every tracked object destroyed"
+      },
+      {
+        "cmd": "restore_outfit",
+        "args": {
+          "sim": "all"
+        },
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 6: agent outfits off"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "pool": true,
+          "nth": 125,
+          "free": true,
+          "sim_inventory": true,
+          "n": 25
+        },
+        "waitS": 3,
+        "note": "STRESS: cycle 6: inventoriable synthetic objects (inv pool #125-149) into the active Sim's inventory"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 5,
+        "timeoutS": 60,
+        "note": "cycle 6: inventory objects out and destroyed"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 100,
+          "skip": 0
+        },
+        "waitS": 20,
+        "timeoutS": 120,
+        "note": "STRESS (labelled, not a player flow): cycle 7: synthetic objects 0-99 over occupied residential + community lots"
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 50,
+          "skip": 100
+        },
+        "waitS": 15,
+        "timeoutS": 120,
+        "note": "cycle 7: synthetic objects 100-149"
+      },
+      {
+        "cmd": "wear_parts",
+        "args": {
+          "sim": "town",
+          "filter": "pool",
+          "body_types": [
+            "Hair",
+            "FullBody",
+            "UpperBody"
+          ],
+          "max_sims": 25,
+          "nth": 0,
+          "remember": "lsf"
+        },
+        "waitS": 15,
+        "timeoutS": 180,
+        "note": "cycle 7: the 25 Sims picked in cycle 1 (remember), Sim i wears part #0 + i per body type (distinct for cycles 1-6, wraps from cycle 7)"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 7: every tracked object destroyed"
+      },
+      {
+        "cmd": "restore_outfit",
+        "args": {
+          "sim": "all"
+        },
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 7: agent outfits off"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "pool": true,
+          "nth": 150,
+          "free": true,
+          "sim_inventory": true,
+          "n": 25
+        },
+        "waitS": 3,
+        "note": "STRESS: cycle 7: inventoriable synthetic objects (inv pool #150-174) into the active Sim's inventory"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 5,
+        "timeoutS": 60,
+        "note": "cycle 7: inventory objects out and destroyed"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 100,
+          "skip": 150
+        },
+        "waitS": 20,
+        "timeoutS": 120,
+        "note": "STRESS (labelled, not a player flow): cycle 8: synthetic objects 150-249 over occupied residential + community lots"
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 50,
+          "skip": 250
+        },
+        "waitS": 15,
+        "timeoutS": 120,
+        "note": "cycle 8: synthetic objects 250-299"
+      },
+      {
+        "cmd": "wear_parts",
+        "args": {
+          "sim": "town",
+          "filter": "pool",
+          "body_types": [
+            "Hair",
+            "FullBody",
+            "UpperBody"
+          ],
+          "max_sims": 25,
+          "nth": 25,
+          "remember": "lsf"
+        },
+        "waitS": 15,
+        "timeoutS": 180,
+        "note": "cycle 8: the 25 Sims picked in cycle 1 (remember), Sim i wears part #25 + i per body type (distinct for cycles 1-6, wraps from cycle 7)"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 8: every tracked object destroyed"
+      },
+      {
+        "cmd": "restore_outfit",
+        "args": {
+          "sim": "all"
+        },
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 8: agent outfits off"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "pool": true,
+          "nth": 175,
+          "free": true,
+          "sim_inventory": true,
+          "n": 25
+        },
+        "waitS": 3,
+        "note": "STRESS: cycle 8: inventoriable synthetic objects (inv pool #175-199) into the active Sim's inventory"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 5,
+        "timeoutS": 60,
+        "note": "cycle 8: inventory objects out and destroyed"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 100,
+          "skip": 300
+        },
+        "waitS": 20,
+        "timeoutS": 120,
+        "note": "STRESS (labelled, not a player flow): cycle 9: synthetic objects 300-399 over occupied residential + community lots"
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 50,
+          "skip": 400
+        },
+        "waitS": 15,
+        "timeoutS": 120,
+        "note": "cycle 9: synthetic objects 400-449"
+      },
+      {
+        "cmd": "wear_parts",
+        "args": {
+          "sim": "town",
+          "filter": "pool",
+          "body_types": [
+            "Hair",
+            "FullBody",
+            "UpperBody"
+          ],
+          "max_sims": 25,
+          "nth": 50,
+          "remember": "lsf"
+        },
+        "waitS": 15,
+        "timeoutS": 180,
+        "note": "cycle 9: the 25 Sims picked in cycle 1 (remember), Sim i wears part #50 + i per body type (distinct for cycles 1-6, wraps from cycle 7)"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 9: every tracked object destroyed"
+      },
+      {
+        "cmd": "restore_outfit",
+        "args": {
+          "sim": "all"
+        },
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 9: agent outfits off"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "pool": true,
+          "nth": 0,
+          "free": true,
+          "sim_inventory": true,
+          "n": 25
+        },
+        "waitS": 3,
+        "note": "STRESS: cycle 9: inventoriable synthetic objects (inv pool #0-24) into the active Sim's inventory"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 5,
+        "timeoutS": 60,
+        "note": "cycle 9: inventory objects out and destroyed"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 100,
+          "skip": 450
+        },
+        "waitS": 20,
+        "timeoutS": 120,
+        "note": "STRESS (labelled, not a player flow): cycle 10: synthetic objects 450-549 over occupied residential + community lots"
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "cc",
+          "name": "CCGen",
+          "lot": "town",
+          "count": 50,
+          "skip": 550
+        },
+        "waitS": 15,
+        "timeoutS": 120,
+        "note": "cycle 10: synthetic objects 550-599"
+      },
+      {
+        "cmd": "wear_parts",
+        "args": {
+          "sim": "town",
+          "filter": "pool",
+          "body_types": [
+            "Hair",
+            "FullBody",
+            "UpperBody"
+          ],
+          "max_sims": 25,
+          "nth": 75,
+          "remember": "lsf"
+        },
+        "waitS": 15,
+        "timeoutS": 180,
+        "note": "cycle 10: the 25 Sims picked in cycle 1 (remember), Sim i wears part #75 + i per body type (distinct for cycles 1-6, wraps from cycle 7)"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 10: every tracked object destroyed"
+      },
+      {
+        "cmd": "restore_outfit",
+        "args": {
+          "sim": "all"
+        },
+        "waitS": 10,
+        "timeoutS": 120,
+        "note": "cycle 10: agent outfits off"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "pool": true,
+          "nth": 25,
+          "free": true,
+          "sim_inventory": true,
+          "n": 25
+        },
+        "waitS": 3,
+        "note": "STRESS: cycle 10: inventoriable synthetic objects (inv pool #25-49) into the active Sim's inventory"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-full"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "remove_objects",
+        "waitS": 5,
+        "timeoutS": 60,
+        "note": "cycle 10: inventory objects out and destroyed"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lsf-inv-empty"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "mem_gc",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        }
+      }
+    ]
   }
 ]

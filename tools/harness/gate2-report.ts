@@ -20,11 +20,11 @@ type Slice = { from: number; on: boolean; warmup?: boolean };
 type Row = { i: number; s: number; c: Record<string, number> };
 type NativeRow = { i: number; s: number; c: { autshadow?: Record<string, number>; asyncUs?: number; asyncStarted?: number; ufLong?: number } };
 export type Arm = { secs: number; saved: number; cost: number; seen: number; seenH: number; unseen: number; unseenH: number; gohome: number; stage: number; threaded: number; iters: number; n: number;
-  seenPush: number; seenNoPick: number; hh: number; hhPush: number; hhH: number; qSeenN: number; qSeenT: number; qUnseenN: number; qUnseenT: number; depth: number; depthN: number; empty: number;
+  seenPush: number; seenNoPick: number; hh: number; hhPush: number; hhH: number; hhQN: number; hhQT: number; hhWN: number; hhWT: number; qSeenN: number; qSeenT: number; qUnseenN: number; qUnseenT: number; depth: number; depthN: number; empty: number;
   lenSeen: number; lenUnseen: number; exact: number; exactNp: number; game: number; gameNp: number; auditUs: number; nativeSecs: number;
   plans: number; fails: number; asyncUs: number; asyncN: number; ufLong: number; rps: number[] };
 const zero = (): Arm => ({ secs: 0, saved: 0, cost: 0, seen: 0, seenH: 0, unseen: 0, unseenH: 0, gohome: 0, stage: 0, threaded: 0, iters: 0, n: 0,
-  seenPush: 0, seenNoPick: 0, hh: 0, hhPush: 0, hhH: 0, qSeenN: 0, qSeenT: 0, qUnseenN: 0, qUnseenT: 0, depth: 0, depthN: 0, empty: 0,
+  seenPush: 0, seenNoPick: 0, hh: 0, hhPush: 0, hhH: 0, hhQN: 0, hhQT: 0, hhWN: 0, hhWT: 0, qSeenN: 0, qSeenT: 0, qUnseenN: 0, qUnseenT: 0, depth: 0, depthN: 0, empty: 0,
   lenSeen: 0, lenUnseen: 0, exact: 0, exactNp: 0, game: 0, gameNp: 0, auditUs: 0, nativeSecs: 0,
   plans: 0, fails: 0, asyncUs: 0, asyncN: 0, ufLong: 0, rps: [] });
 
@@ -37,6 +37,7 @@ export function armsOf(slices: Slice[], rows: Row[], csv: string, native: Native
     t.secs += rows[x + 1].s - rows[x].s; t.saved += d('autunseen_saved_us'); t.cost += d('autunseen_cost_us');
     t.seen += d('g8_seen_searches'); t.seenH += hours - uh; t.unseen += d('g8_unseen_searches'); t.unseenH += uh; t.gohome += d('gohome_runs');
     t.seenPush += d('g8_seen_pushes'); t.seenNoPick += d('g8_seen_null_picks'); t.hh += d('g8_hh_searches'); t.hhPush += d('g8_hh_pushes'); t.hhH += d('g8_hh_simhours_x100') / 100;
+    t.hhQN += d('g8_hh_q_n'); t.hhQT += d('g8_hh_q_ticks'); t.hhWN += d('g8_hh_w_n'); t.hhWT += d('g8_hh_w_ticks');
     t.qSeenN += d('g8_q_seen_n'); t.qSeenT += d('g8_q_seen_ticks'); t.qUnseenN += d('g8_q_unseen_n'); t.qUnseenT += d('g8_q_unseen_ticks');
     t.depth += d('g8_q_high_sum') + d('g8_q_low_sum'); t.depthN += d('g8_q_samples'); t.empty += d('g8_q_empty');
     t.lenSeen += d('g8_len_seen_ticks'); t.lenUnseen += d('g8_len_unseen_ticks');
@@ -67,7 +68,7 @@ export const seenCadencePct = (on: Arm, off: Arm) => pct(on.seenPush / on.seenH,
 const pushNoData = (on: Arm, off: Arm) => !on.seenPush || !off.seenPush || !on.seenH || !off.seenH; // build without the 785-817 counters
 const auditMs = (a: Arm) => a.nativeSecs ? a.auditUs / 1000 / a.nativeSecs : 0;
 const per = (n: number, d: number, dp = 2) => d ? (n / d).toFixed(dp) : 'n/a';
-// the §11.8 splits; a build without the 785-817 counters prints n/a
+// the §11.8 splits; a build without the 785-817 counters prints n/a, without 867-870 the household waits do
 function v6Log(w: string, on: Arm, off: Arm) {
   const L = [{ name: `log ${w} seen pushes per seen Sim-hour`, ok: null, text: `${per(off.seenPush, off.seenH, 3)} -> ${per(on.seenPush, on.seenH, 3)} (${pct(on.seenPush / on.seenH, off.seenPush / off.seenH).toFixed(0)}%)` },
     { name: `log ${w} seen no-pick searches per seen Sim-hour`, ok: null, text: `${per(off.seenNoPick, off.seenH, 3)} -> ${per(on.seenNoPick, on.seenH, 3)} (${pct(on.seenNoPick / on.seenH, off.seenNoPick / off.seenH).toFixed(0)}%)` }];
@@ -76,8 +77,18 @@ function v6Log(w: string, on: Arm, off: Arm) {
   const np = (a: Arm) => `exact ${a.exact} (no-pick ${per(100 * a.exactNp, a.exact, 0)}%), game ${a.game} (no-pick ${per(100 * a.gameNp, a.game, 0)}%)`;
   L.push({ name: `log ${w} manager off`, ok: null, text: q(off) }, { name: `log ${w} manager on`, ok: null, text: q(on) },
     { name: `log ${w} seen path`, ok: null, text: `off ${np(off)}; on ${np(on)}` },
-    { name: `log ${w} household`, ok: null, text: `searches/h ${per(off.hh, off.hhH, 3)} -> ${per(on.hh, on.hhH, 3)}, pushes/h ${per(off.hhPush, off.hhH, 3)} -> ${per(on.hhPush, on.hhH, 3)}` });
+    { name: `log ${w} household`, ok: null, text: `searches/h ${per(off.hh, off.hhH, 3)} -> ${per(on.hh, on.hhH, 3)}, pushes/h ${per(off.hhPush, off.hhH, 3)} -> ${per(on.hhPush, on.hhH, 3)}, queue wait ticks ${per(off.hhQT, off.hhQN, 1)} -> ${per(on.hhQT, on.hhQN, 1)}, worker wait ticks ${per(off.hhWT, off.hhWN, 1)} -> ${per(on.hhWT, on.hhWN, 1)}` });
   return L;
+}
+
+// noise view: per run G1 net, G2 ms/iter change and V6 seen-push change, as mean (min..max, SD) per order and over all runs; any number of runs per order
+const stat = (v: number[], dp: number) => { const m = v.reduce((s, x) => s + x, 0) / v.length, sd = v.length > 1 ? Math.sqrt(v.reduce((s, x) => s + (x - m) ** 2, 0) / (v.length - 1)) : 0;
+  return `${m.toFixed(dp)} (${Math.min(...v).toFixed(dp)}..${Math.max(...v).toFixed(dp)}, SD ${sd.toFixed(dp)}, n=${v.length})`; };
+export function spreadLog(w: string, rs: { order: string; a: { on: Arm; off: Arm } }[]) {
+  if (rs.length < 2) return [];
+  const m: [string, (a: { on: Arm; off: Arm }) => number, number][] = [['G1 net ms/s', a => netMs(a.on), 1], ['G2 ms/iter %', a => pct(a.on.threaded / a.on.iters, a.off.threaded / a.off.iters), 1], ['V6 seen pushes %', a => seenCadencePct(a.on, a.off), 0]];
+  const orders = [...new Set(rs.map(r => r.order))];
+  return m.map(([n, f, dp]) => ({ name: `log ${w} spread ${n} per run`, ok: null as boolean | null, text: [...orders.map(o => `${o} ${stat(rs.filter(r => r.order === o).map(r => f(r.a)), dp)}`), `all ${stat(rs.map(r => f(r.a)), dp)}`].join('; ') }));
 }
 
 type Sample = { t: number; sims: [string, string | null, string?, boolean?, boolean?, number?, boolean?][] };
@@ -137,7 +148,7 @@ export function bars(runs: { world: string; order: string; a: { on: Arm; off: Ar
     L.push({ name: `G2 ${w} ms/iter not up > ${BAR.iterPct}% (fixed-work stand-in)`, ok: it <= BAR.iterPct, text: `${(off.threaded / off.iters).toFixed(2)} -> ${(on.threaded / on.iters).toFixed(2)} ms/iter (${it.toFixed(1)}%), stage ${(off.stage / off.n).toFixed(1)} -> ${(on.stage / on.n).toFixed(1)} ms/s` });
     L.push({ name: `V6 ${w} seen pushes per seen Sim-hour within +-${BAR.seenPct}%`, ok: pushNoData(on, off) ? null : Math.abs(sc) <= BAR.seenPct, text: pushNoData(on, off) ? 'no data (no push counters)' : `${(off.seenPush / off.seenH).toFixed(3)} -> ${(on.seenPush / on.seenH).toFixed(3)} (${sc.toFixed(0)}%)` });
     L.push({ name: `log ${w} seen searches per seen Sim-hour (reference, not a bar)`, ok: null, text: `${per(off.seen, off.seenH, 3)} -> ${per(on.seen, on.seenH, 3)} (${pct(on.seen / on.seenH, off.seen / off.seenH).toFixed(0)}%)` });
-    L.push(...v6Log(w, on, off));
+    L.push(...v6Log(w, on, off), ...spreadLog(w, runs.filter(r => r.world === w)));
     if (on.nativeSecs) L.push({ name: `A ${w} Audit=50 cost <= ${BAR.auditMs} ms/s`, ok: auditMs(on) <= BAR.auditMs, text: `${auditMs(on).toFixed(3)} ms/s on the sim thread (on arm; off arm ${auditMs(off).toFixed(3)})` });
     L.push(...routingBars(w, runs.filter(r => r.world === w)));
     L.push({ name: `log ${w} unseen cadence, GoHome runs`, ok: null, text: `${pct(on.unseen / on.unseenH, off.unseen / off.unseenH).toFixed(0)}%, ${pct(on.gohome / on.secs, off.gohome / off.secs).toFixed(0)}% (R1: not a bar)` });
@@ -172,10 +183,14 @@ function selfCheck() {
   assert.equal(na.on.seenPush, 20);
   const heavy = bars(runs.map(r => ({ ...r, a: { ...na, on: { ...na.on, auditUs: 6000 } } })), {});
   assert.equal(heavy.find(b => b.name.startsWith('A bp'))!.ok, false, 'audit over the bar fails');
-  const qr: Row[] = rows.map((r, i) => ({ ...r, c: { ...r.c, g8_q_seen_n: i * 2, g8_q_seen_ticks: i * 60, g8_q_samples: i * 2, g8_q_high_sum: i * 8, g8_q_empty: 0, g8_seen_pushes: i } }));
+  const qr: Row[] = rows.map((r, i) => ({ ...r, c: { ...r.c, g8_q_seen_n: i * 2, g8_q_seen_ticks: i * 60, g8_q_samples: i * 2, g8_q_high_sum: i * 8, g8_q_empty: 0, g8_seen_pushes: i, g8_hh_q_n: i, g8_hh_q_ticks: i * 20, g8_hh_w_n: i, g8_hh_w_ticks: i * 3 } }));
   const qa = armsOf(sl, qr, csv);
   assert.match(v6Log('bp', qa.on, qa.off).find(l => l.name.endsWith('manager on'))!.text, /wait ticks seen 30\.0 .*queue 4\.0, queues empty at 0%/);
+  assert.match(v6Log('bp', qa.on, qa.off).find(l => l.name.endsWith('household'))!.text, /queue wait ticks 20\.0 -> 20\.0, worker wait ticks 3\.0 -> 3\.0/);
   assert.equal(bars(runs.slice(0, 1), {})[0].ok, null, 'one order: no verdict');
+  const many = bars([...runs, ...runs, ...runs], {}), spread = many.find(b => b.name === 'log bp spread G1 net ms/s per run')!;
+  assert.match(spread.text, /off-first 3\.0 \(3\.0\.\.3\.0, SD 0\.0, n=3\); on-first 3\.0 .*n=3\); all 3\.0 .*n=6\)/, 'three runs per order pool, spread shown');
+  assert.equal(stat([1, 3], 1), '2.0 (1.0..3.0, SD 1.4, n=2)');
   const low = { ...a, on: { ...a.on, cost: a.on.saved } };
   assert.equal(bars(runs.map(r => ({ ...r, a: low })), {})[0].ok, false);
   const seenDown = { ...a, on: { ...a.on, seenPush: a.on.seenPush * 0.6 } };

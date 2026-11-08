@@ -2,8 +2,9 @@
 // replay. Not for players, default off, not in a release ini. Included by monojit.cpp and native/monohost/monohost-jit.cpp, so the host
 // runs this same code on its corpus: that is the dummy that hits the path before the game does (docs probe safety).
 //
-// One call: at word 0 of a compiled method (JitEnter, interpreter dispatch; a lazy or inlined call does not come here, so a capture job
-// runs Direct=0 Inline=0). First N calls per method, then a reservoir of R slots: a later sample in a slot replaces the earlier one
+// One call: at word 0 of a compiled method (JitEnter, interpreter dispatch), at the entry of a lazy body (Direct=1: JcLazyStub, emitted
+// only while capture is on) and at an inlined call site (Inline=1|2: JcInlineStub, after the site's tests). First N calls per method,
+// counted over all three paths, then a reservoir of R slots: a later sample in a slot replaces the earlier one
 // when the reader reads the file. What a sample holds: this and the raw argument slots, then a breadth-first walk to Depth levels of
 // the objects those words name, as raw bytes with the class of each, plus the static fields the method's mint code loads (ldsfld*).
 // Reference fields are not typed here: as in the verifier (JitSnapGraph) a word that is the start of a GC object is a reference.
@@ -17,22 +18,24 @@
 //   1 class:  id, vtable, instance size, element size, flags (1 scan for references, 2 string, 4 array), name
 //   2 method: id, token, parameters, class name, name
 //   3 static: id, class name, field name
-//   4 sample: method, slot, calls seen, parameters, this, objects, cuts, cuts lost, statics, 8 bytes per parameter,
+//   4 sample: method, slot, path (version 2: 0 JitEnter, 1 lazy body, 2 inlined), calls seen, parameters, this, objects, cuts, cuts lost,
+//             statics, 8 bytes per parameter,
 //             (static id, object index) per static, (address, class id or 0 for a blob, bytes here, full bytes) per object,
 //             (object index, offset, class id or 0) per cut, then the bytes of the objects, 4-aligned
 // Strings: u32 length, bytes, padded to 4. A write ends on a record, so a killed game leaves a readable file.
-#if !defined(JC_LOG_NL) || !defined(JC_OPNAME) || !defined(JC_ON_SIM) || !defined(JC_NEXT) || !defined(JC_METH) || !defined(JC_RM)
-#error define JC_LOG_NL ("" game, "\n" host), JC_OPNAME(op), JC_ON_SIM, JC_NEXT(r, e), JC_METH(e) and JC_RM(e) before including monojit-capture.h
+#if !defined(JC_LOG_NL) || !defined(JC_OPNAME) || !defined(JC_ON_SIM) || !defined(JC_NEXT) || !defined(JC_METH) || !defined(JC_RM) || !defined(JC_METH_RM)
+#error define JC_LOG_NL ("" game, "\n" host), JC_OPNAME(op), JC_ON_SIM, JC_NEXT(r, e), JC_METH(e), JC_RM(e) and JC_METH_RM(rm) before including monojit-capture.h
 #endif
 
-static const DWORD JC_VERSION = 1;
+static const DWORD JC_VERSION = 2;
+enum { JC_VIA_ENTER = 0, JC_VIA_LAZY = 1, JC_VIA_INLINE = 2 };
 static const int JC_CLASSES = 4096, JC_METHS = 4096, JC_STATICS = 8, JC_CUTS = 512, JC_NAME = 512;
 static const DWORD JC_BUF = 8u << 20, JC_BLOB = 64;
 enum { JC_F_SCAN = 1, JC_F_STRING = 2, JC_F_ARRAY = 4 };
 struct JcClassRow { DWORD vt; int id; u8 flags; DWORD es, is; };  // id 0: an empty row; -1: refused, not a class
 struct JcMethRow { DWORD seen, taken, rng; bool named; int nStatic; const u8* field[JC_STATICS]; int sid[JC_STATICS]; };
 struct JcCut { DWORD obj, off; int cls; };
-struct JcStats { DWORD samples, first, reservoir, budget, room, faults, fileFull, objects, cuts, cutsLost, noClass, freeCell, outside, trunc, statics, staticSkip, bytes, maxUs; ULONGLONG costUs; };
+struct JcStats { DWORD samples, first, reservoir, viaLazy, viaInline, budget, room, faults, fileFull, objects, cuts, cutsLost, noClass, freeCell, outside, trunc, statics, staticSkip, bytes, maxUs; ULONGLONG costUs; };
 struct JcState {
     HANDLE file;
     u8* buf; DWORD n, written, maxFile;
@@ -193,7 +196,9 @@ static void JcAddBlob(const u8* p, DWORD n) {
 }
 // a this or argument word: an object, a value in a frame's arena, or a pointer into a GC object. Frames first: a chunk of arena is one
 // GC block, so GC_base says "object" for a byref into it. Value types travel as a pointer, so a slot pointing into a frame is one.
-static void JcRoot(DWORD w, const u8* inv) {
+// vtThis: the value size of a value-type this. EA's native invoke passes such a this as a pointer to C-stack memory, in no frame and
+// no GC block (RuntimeTypeHandle.get_Value: every sample read "null this", docs/537 §19); its bytes become a blob.
+static void JcRoot(DWORD w, const u8* inv, DWORD vtThis = 0) {
     if (w < 0x10000) return;
     for (const u8* f = inv; f; f = *(const u8* const*)f) {
         const u8* frm = *(const u8* const*)(f + 4);
@@ -206,6 +211,8 @@ static void JcRoot(DWORD w, const u8* inv) {
         }
     }
     const u8* b = GcBase((void*)(uintptr_t)w);
+    const DWORD vn = vtThis < JC_BLOB ? vtThis : JC_BLOB;
+    if (!b && vn && JcReadable((const void*)(uintptr_t)w, vn)) { JcAddBlob((const u8*)(uintptr_t)w, vn); return; }
     if (!b) { g_jc->st.outside++; return; }
     if (JcAddObj((DWORD)(uintptr_t)b) || b == (const u8*)(uintptr_t)w) return;  // the reader turns a pointer into a kept object into a blob
     const DWORD block = GcSize(b), off = (DWORD)((const u8*)(uintptr_t)w - b), n = block > off ? block - off : 0;  // the rest of an arena block
@@ -297,13 +304,13 @@ static int JcAddStatic(const u8* f) {
     return g.s->n > before ? before : -1;
 }
 
-static void JcSampleBody(JitRegs* r, JcMethRow& mr, const JitMeth& m, DWORD slot) {
+// self and sargs (8 bytes per parameter) come from the path: the MonoInvocation (JitEnter), the call site's block (lazy body), the
+// caller's eval stack (inlined). inv is the innermost written frame in all three; a lazy chain's pending frames are arena blocks.
+static void JcSampleBody(JitRegs* r, JcMethRow& mr, const JitMeth& m, DWORD slot, DWORD via, DWORD self, const u8* sargs) {
     JcState& g = *g_jc;
     JitSnap& s = *g.s;
     const u8* rm = m.rm;
     const u8* inv = (const u8*)(uintptr_t)*(const DWORD*)(uintptr_t)(r->ebp - 8);
-    const DWORD self = *(const DWORD*)(inv + 0xC);
-    const u8* sargs = *(const u8* const*)(inv + 0x14);
     const DWORD np = sargs ? rm[0x40] : 0;
     int stIdx[JC_STATICS];
     s.Clear(), g.nCut = 0, g.cutLost = 0;
@@ -319,7 +326,12 @@ static void JcSampleBody(JitRegs* r, JcMethRow& mr, const JitMeth& m, DWORD slot
         JcScanStatics(mr, m);
         mr.named = true;
     }
-    JcRoot(self, inv);
+    DWORD vtThis = 0;
+    if (*(const DWORD*)(rm + 0x44) & 0x400) {  // a value-type this (the rm flag EmitLazyCall reads as vtm): the class's size less the header
+        const u8* k = *(const u8* const*)(*(const u8* const*)(rm + 8) + 8);
+        vtThis = k && JcReadable(k, 0x58) && *(const DWORD*)(k + 0x54) > 4 ? *(const DWORD*)(k + 0x54) - 4 : 0;
+    }
+    JcRoot(self, inv, vtThis);
     for (DWORD i = 0; i < np; i++) JcRoot(*(const DWORD*)(sargs + 8 * i), inv);
     for (int i = 0; i < mr.nStatic; i++) stIdx[i] = JcAddStatic(mr.field[i]);
     JcWalk();
@@ -333,7 +345,7 @@ static void JcSampleBody(JitRegs* r, JcMethRow& mr, const JitMeth& m, DWORD slot
     for (int i = 0; i < s.n; i++) body += 16;
     if (!JcRoom(body + 12 * g.nCut + 8 * (JC_STATICS + np) + 64)) { g.st.room++; return; }
     const DWORD rec = JcBegin(4);
-    JcW32((DWORD)(&m - g_jitMeth)); JcW32(slot); JcW32(mr.seen); JcW32(np); JcW32(self);
+    JcW32((DWORD)(&m - g_jitMeth)); JcW32(slot); JcW32(via); JcW32(mr.seen); JcW32(np); JcW32(self);
     JcW32((DWORD)s.n); JcW32((DWORD)g.nCut); JcW32((DWORD)g.cutLost);
     int nst = 0;
     for (int i = 0; i < mr.nStatic; i++) nst += stIdx[i] >= 0;
@@ -356,6 +368,7 @@ static void JcSampleBody(JitRegs* r, JcMethRow& mr, const JitMeth& m, DWORD slot
     }
     JcEnd(rec);
     g.st.samples++, g.st.objects += s.n, g.st.statics += nst, g.st.bytes += s.used;
+    g.st.viaLazy += via == JC_VIA_LAZY, g.st.viaInline += via == JC_VIA_INLINE;
 }
 static LONG g_jcFaultLog;
 static int JcFault(const EXCEPTION_POINTERS* x, const JitMeth& m) {
@@ -366,9 +379,8 @@ static int JcFault(const EXCEPTION_POINTERS* x, const JitMeth& m) {
     }
     return EXCEPTION_EXECUTE_HANDLER;
 }
-static void JcSample(JitRegs* r, JitEnt* e) {
+static void JcSampleAt(JitRegs* r, JitMeth* mp, DWORD via, DWORD self, const u8* sargs) {
     JcState& g = *g_jc;
-    JitMeth* mp = JC_METH(e);
     if (!mp) return;
     JitMeth& m = *mp;
     const int id = (int)(&m - g_jitMeth);
@@ -390,7 +402,7 @@ static void JcSample(JitRegs* r, JitEnt* e) {
     if (g.usedUs >= g.budgetUs) { g.st.budget++; return; }
     const DWORD start = g.n;
     __try {
-        JcSampleBody(r, mr, m, slot);
+        JcSampleBody(r, mr, m, slot, via, self, sargs);
         if (mr.taken < (DWORD)g.first) mr.taken++, g.st.first++;
         else g.st.reservoir++;
     } __except (JcFault(GetExceptionInformation(), m)) {
@@ -401,6 +413,15 @@ static void JcSample(JitRegs* r, JitEnt* e) {
     const DWORD us = (DWORD)((t1.QuadPart - t0.QuadPart) * 1000000 / g.qpf);
     g.usedUs += us, g.st.costUs += us;
     if (us > g.st.maxUs) g.st.maxUs = us;
+}
+// JitEnter: the callee's frame is written, this and the arguments are in its MonoInvocation. A frame that cannot be read is a fault.
+static void JcSample(JitRegs* r, JitEnt* e) {
+    volatile DWORD self = 0, sargs = 0;  // volatile: the reads stay inside the __try
+    __try {
+        const u8* inv = (const u8*)(uintptr_t)*(const volatile DWORD*)(uintptr_t)(r->ebp - 8);
+        self = *(const volatile DWORD*)(inv + 0xC), sargs = *(const volatile DWORD*)(inv + 0x14);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { g_jc->st.faults++; return; }
+    JcSampleAt(r, JC_METH(e), JC_VIA_ENTER, self, (const u8*)(uintptr_t)sargs);
 }
 static void* __cdecl JcSlow(JitRegs* r, JitEnt* e) {
     if (*(const DWORD*)JC_RM(e) == r->edi && JC_ON_SIM) JcSample(r, e);
@@ -420,10 +441,50 @@ static __declspec(naked) void JcEnterStub() {  // eax = table entry, edi = ip
         ret
     }
 }
+// Direct=1: the first instruction of a lazy body while capture is on (JitCompile emits the call only then). The call site's block
+// holds rm, this and the argument pointer (EmitLazyCall: B_RM, B_THIS, B_ARGS); nothing of the callee's frame is written yet.
+static void __cdecl JcLazySlow(JitRegs* r, const u8* block) {
+    if (!g_jc || !JC_ON_SIM) return;
+    const u8* rm = *(const u8* const*)(block + B_RM);
+    JcSampleAt(r, JC_METH_RM(rm), JC_VIA_LAZY, *(const DWORD*)(block + B_THIS), *(const u8* const*)(block + B_ARGS));
+}
+static __declspec(naked) void JcLazyStub() {  // [esp] into the lazy body, [esp+4] into the call site, [esp+8] the block; every register kept
+    __asm {
+        pushad
+        mov ecx, esp
+        lea eax, [esp + 40]
+        push eax
+        push ecx
+        call JcLazySlow
+        add esp, 8
+        popad
+        ret
+    }
+}
+// Inline=1|2: at an inlined call site, after its tests (null this, ForceJIT, room in the chunk), before the body. Receiver and
+// arguments are still on the caller's eval stack: this at esi - (n + 1) * 8, the arguments from esi - n * 8 (JitTryInline's thisOff).
+static void __cdecl JcInlineSlow(JitRegs* r, const u8* rm) {
+    if (!g_jc || !JC_ON_SIM) return;
+    const int n = rm[0x40];
+    const u8* args = (const u8*)(uintptr_t)(r->esi - 8 * n);
+    JcSampleAt(r, JC_METH_RM(rm), JC_VIA_INLINE, *(const DWORD*)(args - 8), n ? args : NULL);
+}
+static __declspec(naked) void JcInlineStub() {  // [esp] the return, [esp+4] the callee's rm (the site pushes it); every register kept
+    __asm {
+        pushad
+        mov ecx, esp
+        push dword ptr [esp + 36]
+        push ecx
+        call JcInlineSlow
+        add esp, 8
+        popad
+        ret 4
+    }
+}
 static void JcLog() {
     const JcStats& t = g_jc->st;
-    Log("jit capture: %lu samples (%lu first, %lu reservoir), %lu objects, %lu KB; skipped budget %lu, no buffer room %lu, file full %lu, faults %lu; cuts %lu (%lu not listed), truncated %lu; no class %lu, free cell %lu, outside the frames %lu; statics %lu, skipped %lu; cost %llu us, worst %lu us" JC_LOG_NL,
-        t.samples, t.first, t.reservoir, t.objects, t.bytes >> 10, t.budget, t.room, t.fileFull, t.faults, t.cuts, t.cutsLost, t.trunc, t.noClass, t.freeCell, t.outside, t.statics, t.staticSkip, t.costUs, t.maxUs);
+    Log("jit capture: %lu samples (%lu first, %lu reservoir; %lu in lazy bodies, %lu inlined), %lu objects, %lu KB; skipped budget %lu, no buffer room %lu, file full %lu, faults %lu; cuts %lu (%lu not listed), truncated %lu; no class %lu, free cell %lu, outside the frames %lu; statics %lu, skipped %lu; cost %llu us, worst %lu us" JC_LOG_NL,
+        t.samples, t.first, t.reservoir, t.viaLazy, t.viaInline, t.objects, t.bytes >> 10, t.budget, t.room, t.fileFull, t.faults, t.cuts, t.cutsLost, t.trunc, t.noClass, t.freeCell, t.outside, t.statics, t.staticSkip, t.costUs, t.maxUs);
 }
 static void JcFlush() {
     JcState& g = *g_jc;

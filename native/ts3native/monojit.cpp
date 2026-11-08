@@ -62,6 +62,11 @@ static CRITICAL_SECTION g_jitCs;
 static void* g_jitDomain;            // the transform context's domain, per compile (rm is per domain)
 static void* g_jitObjectClass;       // an object[] takes any reference without the class check
 static bool g_jitLazy, g_jitLazyPass;  // [MonoJit] Direct=1 (docs/207 §12); the lazy body is being emitted
+// [MonoJit] Capture=1 (monojit-capture.h): on before any compile, so the compiler emits the lazy-body and inline-site sample calls only then
+static volatile int g_jcOn;
+static void JcLazyStub();
+static void JcInlineStub();
+static void* g_jcInlineStubP = (void*)JcInlineStub;  // an inlined site calls through this cell: its code is built in a scratch buffer
 static bool g_jitLeafOnly = true;    // [MonoJit] DirectLeaf: docs/223 §8 "narrow scope first": no chains, no guarded callvirt
 static bool g_jitTrap;               // [MonoJit] Trap=1 (docs/537 §3): call sites open the reader-trap window
 
@@ -704,6 +709,7 @@ static bool JitTryInline(Em& e, const unsigned short* ip, DWORD op, const u8* ca
         b.op(0x8B, EDX, ECX, 0); b.b(0x81); b.b(0xC2); b.d(w38);         // edx = top + frame size
         b.op(0x3B, EDX, ECX, 4); slow[ns++] = b.jcc(0x87);             // > end: another chunk
     }
+    if (g_jcOn) { b.b(0x68); b.d((DWORD)(uintptr_t)c); b.b(0xFF); b.b(0x15); b.d((DWORD)(uintptr_t)&g_jcInlineStubP); }  // capture: push rm; call [stub], every register kept
     int sp = 0;              // compile-time stack depth; entries: ECX, EDX
     bool isThis[3] = {};     // entry holds `this`
     const int regs[2] = {ECX, EDX};
@@ -894,7 +900,10 @@ static const char* JitCompile(u8* rm) {
     for (int pass = lazyOk ? 0 : 1; pass < 2 && !why; pass++) {
     g_jitLazyPass = pass == 0;
     nf = 0, nat = 0, ex = 0;
-    if (g_jitLazyPass) lazyEntry = e.p;
+    if (g_jitLazyPass) {
+        lazyEntry = e.p;
+        if (g_jcOn) { e.b(0xE8); e.d((DWORD)(uintptr_t)JcLazyStub - ((DWORD)(uintptr_t)e.p + 4)); }  // capture: sample the lazy call, every register kept
+    }
     for (int k = 0; k < n; k++) {
         label[k] = e.p;
         const unsigned short* ip = code + posW[k];
@@ -1302,7 +1311,6 @@ static void JitKill(JitMeth& m, DWORD ip) {
 // ---- JitEnter: the jump-table entry of JIT_OP (eax = edx = JIT_OP, edi = ip); jitCalls counts entries: calls and returns into a method ----
 static void JitVerifyEnterStub();
 static void JcEnterStub();
-static volatile int g_jcOn;           // [MonoJit] Capture=1 (monojit-capture.h)
 static __declspec(naked) void JitEnter() {
     __asm {
         mov eax, edi
@@ -1997,6 +2005,8 @@ static __declspec(naked) void JitVerifyExitStub() {  // edi = ip of a compiled r
 #define JC_LOG_NL ""
 #define JC_METH(e) ((e)->m)
 #define JC_RM(e) ((e)->m->rm)
+static JitMeth* JcMethOfRm(const u8* rm) { const JitEnt* en = JitFind(*(const DWORD*)rm); return en ? en->m : NULL; }  // word 0 of a compiled method has its entry
+#define JC_METH_RM(rm) JcMethOfRm(rm)
 #define JC_OPNAME(op) g_jitOpNames[op]
 #define JC_ON_SIM true  // JitEnter already sent every other thread away
 #define JC_NEXT(r, e) (g_jitVerifyOn ? JitVerifySlow(r, e, 0) : JitNative(r, e))
@@ -2148,7 +2158,7 @@ static void JitCaptureOn(const wchar_t* ini) {
         Log("SKIP mono jit capture: no CaptureFile, or it cannot be opened (err %lu)", GetLastError());
         return;
     }
-    Log("OK   mono jit capture (docs/537 §17)%s", g_jitLazy || g_jitInline ? ": Direct or Inline on, their calls do not reach JitEnter and are not sampled" : "");
+    Log("OK   mono jit capture (docs/537 §17, §19): sampled at JitEnter%s%s", g_jitLazy ? ", lazy bodies" : "", g_jitInline ? ", inlined sites" : "");
 }
 
 // ts3native.ini [MonoJit] Enabled=1, Mode=1 compiled | 2 verify, VerifyEvery=<n>, Groups=<mask>, List=<names>, Direct=1 lazy frames,

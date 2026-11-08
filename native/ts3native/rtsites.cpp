@@ -91,7 +91,7 @@ static bool RtWaitJob(volatile LONG* us, DWORD key) {
     UdWait(NULL);
     const LONG waited = UsSince(t0);
     InterlockedExchangeAdd(us, waited);
-    if (tid == g_async.owner) WaitNote(key, waited, mwTok), HaNote(key, waited, HA_JOB), FbjcSimWait(waited, fb), OwSimWait(waited, own, handle), P6wWait(mwTok, P6W_RTWAIT, 0, waited);
+    if (tid == g_async.owner) WaitNote(key, waited, mwTok), HaNote(key, waited, HA_JOB), FbjcSimWait(waited, fb), OwSimWait(waited, own, handle), P6wWait(mwTok, P6W_RTWAIT, 0, waited), RjnWait(key, waited, handle);
     return true;
 }
 

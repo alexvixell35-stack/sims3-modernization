@@ -24,6 +24,9 @@ namespace Ts3Fixes
         // near a viewer) may start a split route; the household, held Sims, Sims with a seen social partner and out-of-live never
         public static bool SeenButMovable(int why) { return why == kActiveLot || why == kOnScreen || why == kNearViewers; }
 
+        // Household or scope unknown (Why stopped before the household test, or -1: a failed check): counted as household.
+        public static bool HouseholdScope(int why) { return why != kSeen && why <= kHousehold; }
+
         // docs/197 §7 KdSeenNpcCeilMs: the reasons that prove a known NPC the player sees. Household, not live, gone, -1 (a failed
         // check) and anything else stay on the household ceiling.
         public static bool SeenNpc(int why) { return why >= kActiveLot && why <= kGoalHousehold; }

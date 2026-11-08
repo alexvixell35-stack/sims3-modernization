@@ -2,6 +2,12 @@
 
 Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub release notes for that tag (`.github/workflows/build.yml`).
 
+## Unreleased
+
+### Fixed
+
+- **Routing fallback could mix up two Sims' plans** (PR #306, by Dalexlol): while one Sim's plan was paused, its result could be applied to another Sim's plan. Each plan now keeps its own result. Not tested in game yet.
+
 ## v0.2.10 (2026-11-07)
 
 Hotfix on top of v0.2.9, Steam and the EA app 1.69.47. The stove and fridge bug below was ours, and this fix is Blastorix's (Discord): he reported it and his test logs found the cause.

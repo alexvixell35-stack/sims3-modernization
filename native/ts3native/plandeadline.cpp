@@ -179,6 +179,7 @@ static bool KdCamHold(LONGLONG now, LONGLONG* dl) {
     if (now >= ceil) return false;
     const LONG wouldUs = (LONG)((*dl - t0) * 1000000 / g_qpf.QuadPart);
     t_kdCam = 2, t_kdCamDl = *dl = t_fbDeadline = ceil;
+    t_ufHostLateQ = 0;  // docs/202 §3.1.1: waits so far lie before the new deadline
     if (t_pd.open) {  // from here on it reads as an exempt plan or job: ceiling lines and would-cut records
         t_pd.wouldUs = wouldUs, t_pd.dl = ceil, t_pd.ceil = true, t_kdNpc = true;
     } else {

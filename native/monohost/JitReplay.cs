@@ -20,7 +20,10 @@ namespace MonoHostTest
         public static string Why;            // the last refusal, read by the native side
         static MethodBase s_m;
         static object s_self;
-        static object[] s_args, s_argsIn;
+        static object[] s_args, s_argsIn, s_raw;
+        static int[] s_lo, s_hi;
+        static Delegate s_outD;              // a byref-to-reference input runs through this closed delegate (OutVia)
+        static MethodInfo s_outVia;
         static FieldInfo[] s_sf;
         static object[] s_sv;
         static int s_sn;
@@ -172,6 +175,15 @@ namespace MonoHostTest
         public static object ArgBlob(int m, int k)
         {
             MethodBase b = s_meth[m];
+            // RuntimeTypeHandle.get_Value reads its own word and does not follow it, so the game's MonoType* may ride along (Refuse says
+            // "native pointer field"). shortcut: only this getter, the one handle member in monojit-list.h; GetTypeFromHandle would fault the host
+            if (k < 0 && b.DeclaringType == typeof(RuntimeTypeHandle) && b.Name == "get_Value")
+            {
+                Why = null;
+                object h = FormatterServices.GetUninitializedObject(b.DeclaringType);
+                s_live.Add(h);
+                return h;
+            }
             if (k < 0) return b.DeclaringType.IsValueType ? NewBlob(b.DeclaringType) : null;
             Type p = b.GetParameters()[k].ParameterType;
             // T of an open generic method: the slot may hold a value, and the native side has no box for it
@@ -186,7 +198,9 @@ namespace MonoHostTest
         public static void Begin(int m, object self, int nargs)
         {
             s_m = s_meth[m]; s_self = self; s_argsIn = new object[nargs]; s_args = new object[nargs];
+            s_raw = new object[nargs]; s_lo = new int[nargs]; s_hi = new int[nargs];
             s_sf = new FieldInfo[8]; s_sv = new object[8]; s_sn = 0;
+            s_outD = null; s_outVia = null;
         }
         static object Decode(Type p, int lo, int hi, object o)
         {
@@ -211,13 +225,8 @@ namespace MonoHostTest
             }
             return null;
         }
-        public static void Arg(int k, int lo, int hi, object o)
-        {
-            Type p = s_m.GetParameters()[k].ParameterType;
-            object v = Decode(p, lo, hi, o);
-            if (p.IsEnum) v = Enum.ToObject(p, v);
-            s_argsIn[k] = v;
-        }
+        // raw until Ready: a generic method is closed there, and only the closed parameter types say how to decode the words
+        public static void Arg(int k, int lo, int hi, object o) { s_lo[k] = lo; s_hi[k] = hi; s_raw[k] = o; }
         public static void StaticSet(int sid, int lo, int hi, object o)
         {
             FieldInfo f = s_static[sid];
@@ -231,7 +240,7 @@ namespace MonoHostTest
             Why = null;
             if (s_m.IsGenericMethodDefinition)
             {
-                s_m = Closed(s_m, s_argsIn.Length > 0 ? s_argsIn[0] : null);
+                s_m = Closed(s_m, s_raw.Length > 0 ? s_raw[0] : null);
                 if (s_m == null) { Why = "generic method: argument unknown"; return false; }
             }
             if (!s_m.IsStatic && s_self == null) { Why = "null this"; return false; }
@@ -239,17 +248,39 @@ namespace MonoHostTest
             for (int i = 0; i < ps.Length; i++)
             {
                 Type t = ps[i].ParameterType;
+                // decoded against the closed method: the open T of Array.IndexOf<T> is no value type, so its int word was dropped (docs/537 §19)
+                object v = Decode(t, s_lo[i], s_hi[i], s_raw[i]);
+                if (t.IsEnum) v = Enum.ToObject(t, v);
+                s_argsIn[i] = v;
                 bool byref = t.IsByRef;
                 if (t.IsByRef) t = t.GetElementType();
-                // measured 2026-11-07: every Dictionary TryGetValue input whose value type is a class (out V) faulted the interpreter (write to 0, 50 of 261 in the first 1923
-                // inputs), none with a value type did; the out slot of a reference type is not rebuilt right, so these are refused until it is
-                if (byref && !t.IsValueType) { Why = "byref to a reference type"; return false; }
+                // EA's reflection invoke passes a byref to a generic-instance class (out List<T>) as the value, not the slot's address: the store
+                // to the out slot wrote to 0 (docs/537 §19). Such inputs run through a closed delegate (a normal call: the slot is a real local)
+                if (byref && !t.IsValueType && !OutVia(ps, i)) { Why = Why ?? "byref to a reference type"; return false; }
                 string w = t.IsValueType ? Refuse(t) : null;
                 if (w != null) { Why = w + " in a parameter"; return false; }
                 if (t.IsValueType && s_argsIn[i] == null) { Why = "value argument not in the capture"; return false; }
             }
             return true;
         }
+        // shortcut: one shape, an instance method whose last of at most two parameters is the byref (Dictionary.TryGetValue); widen when another shows up
+        static bool OutVia(ParameterInfo[] ps, int i)
+        {
+            MethodInfo mi = s_m as MethodInfo;
+            if (mi == null || mi.IsStatic || i != ps.Length - 1 || ps.Length > 2 || mi.ReturnType == typeof(void) || (ps.Length == 2 && ps[0].ParameterType.IsByRef)) return false;
+            Type v = ps[i].ParameterType.GetElementType(), r = mi.ReturnType;
+            try
+            {
+                Type d = ps.Length == 1 ? typeof(JrOut1<,>).MakeGenericType(v, r) : typeof(JrOut2<,,>).MakeGenericType(ps[0].ParameterType, v, r);
+                MethodInfo via = typeof(JitReplay).GetMethod(ps.Length == 1 ? "Out1" : "Out2", BindingFlags.NonPublic | BindingFlags.Static);
+                s_outVia = ps.Length == 1 ? via.MakeGenericMethod(v, r) : via.MakeGenericMethod(ps[0].ParameterType, v, r);
+                s_outD = Delegate.CreateDelegate(d, s_self, mi);
+            }
+            catch (Exception e) { s_outVia = null; s_outD = null; Why = "byref to a reference type, no delegate: " + e.GetType().Name; return false; }
+            return true;
+        }
+        static object Out1<V, R>(Delegate d, object[] a) { V v = a[0] is V ? (V)a[0] : default(V); R r = ((JrOut1<V, R>)d)(out v); a[0] = v; return r; }
+        static object Out2<A, V, R>(Delegate d, object[] a) { V v = a[1] is V ? (V)a[1] : default(V); R r = ((JrOut2<A, V, R>)d)((A)a[0], out v); a[1] = v; return r; }
         static int M(int h, int v) { return unchecked(h * 31 + v); }
         static int Str(int h, string s) { for (int i = 0; s != null && i < s.Length; i++) h = M(h, s[i]); return h; }
         // result: returned object for the native walk (Keep) and the exception as in JitCorpus.X: type and the throwing frame's method.
@@ -261,7 +292,7 @@ namespace MonoHostTest
             for (int i = 0; i < s_sn; i++) { old[i] = s_sf[i].GetValue(null); s_sf[i].SetValue(null, s_sv[i]); }
             int h = 17;
             object r = null;
-            try { r = s_m.Invoke(s_self, s_args); Keep = r; }
+            try { r = s_outVia != null ? s_outVia.Invoke(null, new object[] { s_outD, s_args }) : s_m.Invoke(s_self, s_args); Keep = r; }
             catch (TargetInvocationException e) { Keep = null; h = X(h, e.InnerException ?? e); }
             catch (Exception e) { Keep = null; h = X(h, e); }
             for (int i = 0; i < s_sn; i++) s_sf[i].SetValue(null, old[i]);  // the next input starts from the host's statics
@@ -281,8 +312,16 @@ namespace MonoHostTest
 
     // ---- fixture (native/monohost/jit-replay-fixture.json): field order is the layout the fixture's hand-made bytes use ----
     public class JitReplayNode { public JitReplayNode next; public JitReplayNode other; public string s; public int[] a; public object nul; public int v; }
-    public struct JitReplayPt { public int X; public int Y; }
+    public struct JitReplayPt { public int X; public int Y; public int Dot() { return X * 10 + Y; } }
     public delegate void JitReplayCb();
+    public delegate R JrOut1<V, R>(out V v);
+    public delegate R JrOut2<A, V, R>(A a, out V v);
+    public class JitReplayBag
+    {
+        public int k;
+        public int TryGet(int key, out List<int> v) { v = key == k ? new List<int>(3) : null; return v == null ? 0 : 5 + v.Capacity; }
+        public int TryNode(int key, out JitReplayNode v) { v = key == k ? new JitReplayNode() : null; return v == null ? 0 : 9; }
+    }
     public class JitReplayHolder { public JitReplayCb cb; public int v; }
     public static class JitReplayFix
     {
@@ -309,5 +348,6 @@ namespace MonoHostTest
         public static int Thrower(JitReplayNode n) { return n.next.v; }  // n.next is null: NullReferenceException in both arms
         public static int Cb(JitReplayHolder h) { return h.cb == null ? 7 : 8; }
         public static int Missing(object o) { return o == null ? 1 : 2; }
+        public static int Find<T>(T[] a, T v) { return Array.IndexOf(a, v); }  // a generic method with a value-type T, as Array.IndexOf<T>
     }
 }

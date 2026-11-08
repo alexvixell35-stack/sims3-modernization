@@ -76,6 +76,7 @@
 // (chain scripts grep it); a noisy timing job whose -rerun was queued does not stop it.
 // scriptErrorsMax: N = at most N new ScriptError_*.xml in the user folder since the job start (known EA errors, known-script-errors.json,
 // not counted); more turns the row FAIL (docs/191 bp-cc-load-smoke: synthetic CC loads, places and wears without script errors).
+// Any ScriptError xml whose only section is 'Correction Logs' with no exception/stack/Ts3Fixes line is never counted (correctionOnly, all queues).
 // scriptErrorsAllow: [regex, ...] = a new ScriptError_*.xml that is a correction-only NRaas ErrorTrap report (no stack frames) and whose every
 // content line before 'Loaded Assemblies:' (section headers '-- x --' and blanks aside) matches one of the regexes is not counted, like a known EA error.
 // profile: profile-world.ts --tag <queue>-<date>-<job> (--seed: seed_rng at the window start, docs/27); rng-compare.ts reads the rows.
@@ -190,7 +191,18 @@ import { ledgerReport } from './mono-ledger-report.ts';
 import { saveStats } from './save-stats.ts';
 import { matchKnown } from './known-script-errors.ts';
 // correction-only report: every content line (headers, blanks and the Loaded Assemblies tail aside) matches an allow regex; a stack frame never does
+// generic rule (all queues): the only section is 'Correction Logs' and no line looks like an exception, a stack frame or our own Ts3Fixes/Wildflower code;
+// the per-job allow regexes stay as an extra (a line the generic rule rejects can still be allowed by name)
+export function correctionOnly(xml: string): boolean {
+  const body = xml.match(/<Content>([\s\S]*?)(?:Loaded Assemblies:|<\/Content>)/)?.[1];
+  if (body === undefined) return false;
+  const lines = body.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const heads = lines.filter(l => /^--.*--$/.test(l));
+  return heads.length === 1 && /^-- Correction Logs --$/i.test(heads[0]) && lines.length > 1 &&
+    !lines.some(l => /exception|stack ?trace|^#\d+:|^at\s|Ts3Fixes|Wildflower/i.test(l));
+}
 export function allowedCorrection(xml: string, allow: string[]): boolean {
+  if (correctionOnly(xml)) return true;
   if (!allow.length) return false;
   if (/^\s*#\d+:\s*0x[0-9a-f]+/im.test(xml)) return false; // a stack frame is a real error
   // a "-- Dereferencing --" section only says what still held the destroyed object: left out, its header may also be the first line
@@ -948,9 +960,11 @@ export function fixActivity(p0: any, p1: any, t0: any, t1: any, cfg: { fixesOn?:
 // fixActivity's cfg: the job profile's fixesOn plus every repro item's own fixesOn (on in some window), the job's fixesOff;
 // report = fixesReport + those fixesOn names + the profile.ab switches (2026-11-01: without them an --ab job's row lost the
 // A/B switch's own counters, so mono-cost-report printed no lines for it)
+// autoff* switch on: the agent's autoff_* counters (slots 763-776 autoff_t2_*/autoff_lot_*) and the autoff_reasons list (72-95 lot) are recorded too
+// (2026-11-08: ip-offranks-verify triage could not split A4/A5 because they were not saved)
 export const jobFixesCfg = (p: any) => {
   const fixesOn = [p?.fixesOn, ...(p?.repros ?? []).map((r: any) => r?.fixesOn)].filter(Boolean).join(',') || undefined;
-  return { fixesOn, fixesOff: p?.fixesOff, report: [p?.fixesReport, fixesOn, p?.ab].filter(Boolean).join(',') || undefined };
+  return { fixesOn, fixesOff: p?.fixesOff, report: [p?.fixesReport, fixesOn, p?.ab, /autoff/.test(`${fixesOn} ${p?.ab}`) ? 'autoff_' : ''].filter(Boolean).join(',') || undefined };
 };
 // ts3native.log copies to merge into the call-site DB: each repro slice (own game start after a reload) and the row's copy;
 // mergeLog is idempotent per run, so slices of one start add only their growth
@@ -1310,6 +1324,9 @@ if (values['self-check']) {
   assert.equal(jobFixesCfg({ repros: [{ fixesOn: 'unseenfbarrive' }] }).report, 'unseenfbarrive');
   assert.deepEqual(jobFixesCfg({ fixesOn: 'a', fixesOff: 'c', repros: [{ id: 'r1', fixesOn: 'b' }, 'r2'] }), { fixesOn: 'a,b', fixesOff: 'c', report: 'a,b' });
   assert.deepEqual(jobFixesCfg({ fixesOn: 'autlive', fixesReport: 'g8_', ab: 'autunseen' }), { fixesOn: 'autlive', fixesOff: undefined, report: 'g8_,autlive,autunseen' });
+  assert.equal(jobFixesCfg({ fixesOn: 'autofflot' }).report, 'autofflot,autoff_');
+  const afR = fixActivity(null, { autoff_lot_a4: 7, autoff_reasons: [0, 3] }, night[0], night[1], jobFixesCfg({ fixesOn: 'autofflot' }));
+  assert.deepEqual([afR.counters, afR.lists], [{ autoff_lot_a4: { before: null, after: 7 } }, { autoff_reasons: [0, 3] }]);
   assert.deepEqual(callsiteLogs({ nativeLog: 'm', repros: [{ nativeLog: 'a' }, {}, { nativeLog: 'm' }] }), ['a', 'm']);
   assert.deepEqual(ruleLogs({ nativeLog: import.meta.filename, phaseLogs: ['no-such-file', import.meta.filename] }), [import.meta.filename, import.meta.filename]);
   assert.deepEqual(featureIdle(fIni.replace('DeferFootprint=1', 'DeferFootprint=0').replace('Mode=1', 'Mode=0'), {}, { rgEntries: 3, usfDeferred: 0, rcDeferred: 0, rcWould: 0 }), []);
@@ -1325,7 +1342,11 @@ if (values['self-check']) {
     assert.equal(allowedCorrection(rep(' Out of World Object Found 2: Sims3.Gameplay.Core.SocialJigOnePerson\n Destroyed: Sims3.Gameplay.Core.SocialJigOnePerson (ID=0x0000000000000000)'), al), true);
     assert.equal(allowedCorrection(rep(`${shreds}\n Destroyed Object Found: Ts3Fixes.Wildflower`), al), false, 'a Wildflower line still fails');
     assert.equal(allowedCorrection(rep(`${shreds}\n #0: 0x0003b callvirt   in Sims3.Gameplay.X:Y () ()`), al), false, 'a stack frame still fails');
-    assert.equal(allowedCorrection(rep(shreds), []), false, 'no allow list');
+    assert.equal(allowedCorrection(rep(shreds), []), true, 'correction-only passes without an allow list');
+    assert.equal(allowedCorrection(rep(' SimDescription Removed: Farah Horse'), []), true);
+    assert.equal(allowedCorrection(rep(' Destroyed Object Found: Ts3Fixes.Wildflower'), []), false, 'Wildflower line counts');
+    assert.equal(allowedCorrection(rep(' System.NullReferenceException: x\n at Sims3.Gameplay.X.Y()'), []), false, 'exception counts');
+    assert.equal(allowedCorrection('<NRaas.ErrorTrap>\n<Content>\n-- Correction Logs --\n Destroyed Object Found: A\n-- Exception --\n boom\n Loaded Assemblies: A\n</Content>', []), false, 'second section counts');
     const jig = ' Out of World Object Found 2: Sims3.Gameplay.Core.SocialJigOnePerson\n Destroyed: Sims3.Gameplay.Core.SocialJigOnePerson (ID=0x0)\n\n -- Dereferencing --\n Potential Object Found: Sims3.Gameplay.Core.SocialJigOnePerson\n Reference Continue: Sims3.Gameplay.Roles.RolePaparazzi+FollowCelebrity mJig';
     assert.equal(allowedCorrection(rep(jig), al), true, 'Dereferencing lines after the correction lines do not count');
     assert.equal(allowedCorrection(rep(`${jig}\n #0: 0x0003b callvirt   in Sims3.Gameplay.X:Y () ()`), al), false, 'Dereferencing with a stack frame still counts');

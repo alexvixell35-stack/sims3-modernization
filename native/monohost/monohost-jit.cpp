@@ -100,6 +100,11 @@ static const BYTE* const g_jitSse2 = (const BYTE*)(uintptr_t)0x01234374;  // EA'
 static bool g_jitSse3;  // MONOHOST_JITWIDE=1: group 512 and methods with clauses are unchanged here (docs/537 §10)
 static bool g_jitC5 = true;  // MONOHOST_JITC2 bit 256: the direct internal calls (the templates of the group go by table)
 static bool g_jitLazy, g_jitLazyPass;  // MONOHOST_JITLAZY (docs/207 §12); the lazy body is being emitted
+// [MonoJit] Capture=1 (monojit-capture.h): on before any compile, so the compiler emits the lazy-body and inline-site sample calls only then
+static volatile int g_jcOn;
+static void JcLazyStub();
+static void JcInlineStub();
+static void* g_jcInlineStubP = (void*)JcInlineStub;  // an inlined site calls through this cell: its code is built in a scratch buffer
 static void JitCompiled(u8* rm);  // compiler (below)
 static void JitPreTransform(u8* rm, void* ctx);  // inliner (below)
 static u8* g_xformTramp;
@@ -615,6 +620,7 @@ static bool JitTryInline(Em& e, const unsigned short* ip, DWORD op, const u8* ca
         b.op(0x8B, EDX, ECX, 0); b.b(0x81); b.b(0xC2); b.d(w38);         // edx = top + frame size
         b.op(0x3B, EDX, ECX, 4); slow[ns++] = b.jcc(0x87);             // > end: another chunk
     }
+    if (g_jcOn) { b.b(0x68); b.d((DWORD)(uintptr_t)c); b.b(0xFF); b.b(0x15); b.d((DWORD)(uintptr_t)&g_jcInlineStubP); }  // capture: push rm; call [stub], every register kept
     int sp = 0;              // compile-time stack depth; entries: ECX, EDX
     bool isThis[3] = {};     // entry holds `this`
     const int regs[2] = {ECX, EDX};
@@ -964,6 +970,7 @@ static void JitCompiled(u8* rm) {
         if (g_jitLazyPass) {
             lazyEntry = e.p;
             if (g_jitCountOn && g_jitMethN < 4096) e.incAbs(&g_jitCalls[g_jitMethN]);  // lazy entries skip JitEnter's count
+            if (g_jcOn) { e.b(0xE8); e.d((DWORD)(uintptr_t)JcLazyStub - ((DWORD)(uintptr_t)e.p + 4)); }  // capture: sample the lazy call, every register kept
         }
         for (int k = 0; k < n; k++) {
             label[k] = e.p;
@@ -1375,7 +1382,6 @@ static void JitSetPatched(bool on) {
 // ---- JitEnter: the jump-table entry of JIT_OP (eax = edx = JIT_OP, edi = ip) ----
 static int g_jitVerifyOn;
 static void JcEnterStub();
-static volatile int g_jcOn;  // MONOHOST_JITCAPTURE=<file>: the game's [MonoJit] Capture=1 on the host, ts3native/monojit-capture.h
 static __declspec(naked) void JitEnter() {
     __asm {
         mov eax, edi
@@ -1895,6 +1901,7 @@ static __declspec(naked) void JitVerifyExitStub() {  // edi = ip of a compiled r
 #define JC_LOG_NL "\n"
 #define JC_METH(e) JitMethOf((e)->rm)
 #define JC_RM(e) ((e)->rm)
+#define JC_METH_RM(rm) JitMethOf(rm)
 #define JC_OPNAME(op) (((const char* const*)(uintptr_t)0x11949E0)[op])
 #define JC_ON_SIM (GetCurrentThreadId() == g_jitMainTid)
 #define JC_NEXT(r, e) (g_jitVerifyOn ? JitVerifySlow(r, e, 0) : JitNative(r, e))

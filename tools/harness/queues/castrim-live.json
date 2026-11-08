@@ -1,0 +1,260 @@
+{
+  "note": "docs/539 §7 live Mode 3 test, separate from compositor-probe.json (queued in a chain). Correctness only, no timing, --no-smoke. 2026-11-08: the §12.5 crash-logging rerun on castrimdiag1108 (2 Mode 3 runs + 1 Mode 0 off arm); HELD: built and queued, not started (the chain agent runs it). stopQueueOnFail false: a crash in one run must not cancel the others, the verdict needs all three.",
+  "jobs": [
+    {
+      "id": "bp-castrim-live-mode3",
+      "note": "Correctness (~24 min), Mode 3 live, docs/539 §7, rerun 1 of 2 of §12.5 after the 2026-11-08 travel-save crash at 0x5E772C: repro compositor-churn (3 cycles of outfit churn, new NPC, aged townie, scratch save per cycle = 3+ saves, then shots after sweep, reload and vacation round trip). Build castrimdiag1108 = ts3native 0.36.194 (master + inventory detector) with ts3fixes = g2pair1108b. Pass (§12.5): the trip round trip finishes (I-455-4), no crash, no \"cas trim: inventory bad slot\" line, an inventory check line at every save (cost < 5 ms each, read the ms); plus the earlier Mode 3 gates: ctSwept > 0; ctMissed 0, ctOtherThread 0, ctFull 0; ctRefused only travel/SaveWorld saves (\"no keep list for this save\", docs/539 §10.6 b, §11), the 3 scratch saves each sweep; no FAIL line; scriptErrorsMax 0; shots match start by eye. A bad slot line names the value, the record and whether CasTrim erased it: triage it, never retry blind. 2 clean runs needed (the fault came in 1 of 2).",
+      "asi": "game-copy/ts3native.asi.castrimdiag1108",
+      "pinReason": "castrimdiag1108 (ts3native 0.36.194): master + the docs/539 §12.5 inventory detector, erase ring and 0x5E772C fault decoder",
+      "fixesPackage": "game-copy/ts3fixes.package.castrimdiag1108",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "CasTrim.Install": 1,
+        "CasTrim.Probe": 1,
+        "CasTrim.MinAgeSec": 60,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "MemDiag.RcCensus": 1,
+        "MemDiag.AllocSites": 1,
+        "MemDiag.AllocSitesSample": 64,
+        "MemDiag.AllocSitesTop": 32,
+        "CasTrim.Mode": 3
+      },
+      "logRequire": {
+        "^OK   detour SimService_Save at ": 1,
+        "^OK   detour SimOutfit_AddRef at ": 1,
+        "^OK   detour Compositors_Write at ": 1,
+        "^OK   detour IC_SimBuilderCacheOutfit at ": 1,
+        "^OK   detour Parse_FallbackBranch at ": 1,
+        "^OK   cas trim probe sites: 3 call sites": 1,
+        "^cas trim: P5 save #\\d+ ": 3,
+        "^cas trim: save #\\d+ mode \\d: registry ": 3,
+        "^diag: castrim #\\d+ mark ": 3,
+        "^allocsites: #\\d+ mark ev=cc-cycle ": 3,
+        "^cas trim: save #\\d+ mode 3: registry ": 3,
+        "^OK   cas trim inventory check site: 1 call sites": 1,
+        "^cas trim: inventory check save #d+: ": 3
+      },
+      "logForbid": {
+        "^cas trim: save #\\d+: no sweep: (?!no keep list for this save)": 0,
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^cas trim: inventory bad slot": 0,
+        "^crash forensics: cas trim inventory fault": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 24,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "compositor-churn"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 50,
+      "earlyGates": [
+        {
+          "afterSec": 30,
+          "counter": "ctMissed",
+          "op": "<=",
+          "value": 0,
+          "why": "a find of an erased key failed: a Sim wanted a swept texture back"
+        },
+        {
+          "afterSec": 30,
+          "counter": "ctOtherThread",
+          "op": "<=",
+          "value": 0,
+          "why": "registry inserts from a second thread (I-942-4)"
+        },
+        {
+          "afterSec": 600,
+          "counter": "ctSaves",
+          "op": ">=",
+          "value": 1,
+          "why": "no native save seen 10 min in: the save detour is not in, or the repro did not save"
+        },
+        {
+          "afterSec": 600,
+          "counter": "ctSwept",
+          "op": ">=",
+          "value": 1,
+          "why": "no sweep in 10 min: mode 3 not acting, or no save reached the sweep"
+        },
+        {
+          "afterSec": 30,
+          "counter": "ctFull",
+          "op": "<=",
+          "value": 0,
+          "why": "sweep table full: doomed keys left for the next save, read the save line"
+        }
+      ],
+      "scriptErrorsMax": 0
+    },
+    {
+      "id": "bp-castrim-live-mode3-r2",
+      "note": "Correctness (~24 min), Mode 3 live, docs/539 §7, rerun 2 of 2 of §12.5 after the 2026-11-08 travel-save crash at 0x5E772C: repro compositor-churn (3 cycles of outfit churn, new NPC, aged townie, scratch save per cycle = 3+ saves, then shots after sweep, reload and vacation round trip). Build castrimdiag1108 = ts3native 0.36.194 (master + inventory detector) with ts3fixes = g2pair1108b. Pass (§12.5): the trip round trip finishes (I-455-4), no crash, no \"cas trim: inventory bad slot\" line, an inventory check line at every save (cost < 5 ms each, read the ms); plus the earlier Mode 3 gates: ctSwept > 0; ctMissed 0, ctOtherThread 0, ctFull 0; ctRefused only travel/SaveWorld saves (\"no keep list for this save\", docs/539 §10.6 b, §11), the 3 scratch saves each sweep; no FAIL line; scriptErrorsMax 0; shots match start by eye. A bad slot line names the value, the record and whether CasTrim erased it: triage it, never retry blind. 2 clean runs needed (the fault came in 1 of 2).",
+      "asi": "game-copy/ts3native.asi.castrimdiag1108",
+      "pinReason": "castrimdiag1108 (ts3native 0.36.194): master + the docs/539 §12.5 inventory detector, erase ring and 0x5E772C fault decoder",
+      "fixesPackage": "game-copy/ts3fixes.package.castrimdiag1108",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "CasTrim.Install": 1,
+        "CasTrim.Probe": 1,
+        "CasTrim.MinAgeSec": 60,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "MemDiag.RcCensus": 1,
+        "MemDiag.AllocSites": 1,
+        "MemDiag.AllocSitesSample": 64,
+        "MemDiag.AllocSitesTop": 32,
+        "CasTrim.Mode": 3
+      },
+      "logRequire": {
+        "^OK   detour SimService_Save at ": 1,
+        "^OK   detour SimOutfit_AddRef at ": 1,
+        "^OK   detour Compositors_Write at ": 1,
+        "^OK   detour IC_SimBuilderCacheOutfit at ": 1,
+        "^OK   detour Parse_FallbackBranch at ": 1,
+        "^OK   cas trim probe sites: 3 call sites": 1,
+        "^cas trim: P5 save #\\d+ ": 3,
+        "^cas trim: save #\\d+ mode \\d: registry ": 3,
+        "^diag: castrim #\\d+ mark ": 3,
+        "^allocsites: #\\d+ mark ev=cc-cycle ": 3,
+        "^cas trim: save #\\d+ mode 3: registry ": 3,
+        "^OK   cas trim inventory check site: 1 call sites": 1,
+        "^cas trim: inventory check save #d+: ": 3
+      },
+      "logForbid": {
+        "^cas trim: save #\\d+: no sweep: (?!no keep list for this save)": 0,
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^cas trim: inventory bad slot": 0,
+        "^crash forensics: cas trim inventory fault": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 24,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "compositor-churn"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 50,
+      "earlyGates": [
+        {
+          "afterSec": 30,
+          "counter": "ctMissed",
+          "op": "<=",
+          "value": 0,
+          "why": "a find of an erased key failed: a Sim wanted a swept texture back"
+        },
+        {
+          "afterSec": 30,
+          "counter": "ctOtherThread",
+          "op": "<=",
+          "value": 0,
+          "why": "registry inserts from a second thread (I-942-4)"
+        },
+        {
+          "afterSec": 600,
+          "counter": "ctSaves",
+          "op": ">=",
+          "value": 1,
+          "why": "no native save seen 10 min in: the save detour is not in, or the repro did not save"
+        },
+        {
+          "afterSec": 600,
+          "counter": "ctSwept",
+          "op": ">=",
+          "value": 1,
+          "why": "no sweep in 10 min: mode 3 not acting, or no save reached the sweep"
+        },
+        {
+          "afterSec": 30,
+          "counter": "ctFull",
+          "op": "<=",
+          "value": 0,
+          "why": "sweep table full: doomed keys left for the next save, read the save line"
+        }
+      ],
+      "scriptErrorsMax": 0
+    },
+    {
+      "id": "bp-castrim-live-off",
+      "note": "Off arm of §12.5 (docs/539): the same repro compositor-churn with [CasTrim] Mode=0 Install=1 Probe=1, so the hooks, probes and the inventory detector are in but nothing is swept. Same build castrimdiag1108. Pass: no crash and no \"cas trim: inventory bad slot\" line; an inventory check line at every save. A bad slot or the 0x5E772C crash here means the cause is not the sweep (§12.5).",
+      "asi": "game-copy/ts3native.asi.castrimdiag1108",
+      "pinReason": "castrimdiag1108 (ts3native 0.36.194): master + the docs/539 §12.5 inventory detector, erase ring and 0x5E772C fault decoder",
+      "fixesPackage": "game-copy/ts3fixes.package.castrimdiag1108",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "CasTrim.Install": 1,
+        "CasTrim.Probe": 1,
+        "CasTrim.MinAgeSec": 60,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "MemDiag.RcCensus": 1,
+        "MemDiag.AllocSites": 1,
+        "MemDiag.AllocSitesSample": 64,
+        "MemDiag.AllocSitesTop": 32,
+        "CasTrim.Mode": 0
+      },
+      "logRequire": {
+        "^OK   detour SimService_Save at ": 1,
+        "^OK   detour SimOutfit_AddRef at ": 1,
+        "^OK   detour Compositors_Write at ": 1,
+        "^OK   detour IC_SimBuilderCacheOutfit at ": 1,
+        "^OK   detour Parse_FallbackBranch at ": 1,
+        "^OK   cas trim probe sites: 3 call sites": 1,
+        "^cas trim: P5 save #\\d+ ": 3,
+        "^cas trim: save #\\d+ mode \\d: registry ": 3,
+        "^diag: castrim #\\d+ mark ": 3,
+        "^allocsites: #\\d+ mark ev=cc-cycle ": 3,
+        "^cas trim: save #\\d+ mode 3: registry ": 3,
+        "^OK   cas trim inventory check site: 1 call sites": 1,
+        "^cas trim: inventory check save #d+: ": 3
+      },
+      "logForbid": {
+        "^cas trim: save #\\d+: no sweep: (?!no keep list for this save)": 0,
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^cas trim: inventory bad slot": 0,
+        "^crash forensics: cas trim inventory fault": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 24,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "compositor-churn"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 50,
+      "earlyGates": [
+        {
+          "afterSec": 30,
+          "counter": "ctMissed",
+          "op": "<=",
+          "value": 0,
+          "why": "a find of an erased key failed: a Sim wanted a swept texture back"
+        }
+      ],
+      "scriptErrorsMax": 0
+    }
+  ],
+  "stopQueueOnFail": false
+}

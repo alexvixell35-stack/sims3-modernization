@@ -1,0 +1,50 @@
+{
+  "note": "NOT RUN (2026-11-08). Single job: the 10-cycle fresh-items CC steady run on the g2pair1107b master pair, to confirm the CAS/GeometryResource plateau (pass: live <= ~40 MB at every mark, rcCold flat; docs/201 §13.8 on branch docs/casgeom-verdict). Copy of bp-cc-steady-fresh in steady-state.json with 10 cycles (repro live-cc-steady-fresh-10), profile 40 min, timeoutMin 75. ~40 min play + load. Run: node tools/harness/queue.ts tools/harness/queues/cc-steady-10.json --no-smoke",
+  "jobs": [
+    {
+      "id": "bp-cc-steady-fresh-10",
+      "note": "live-cc-steady-fresh-10 ~40 min (docs/200 §11, 10 cycles; cycles 1-6 as bp-cc-steady-fresh with distinct items, from cycle 7 the item offsets wrap, see the repro note; 150 objects + 25 remembered Sims dressed -> lsf-full, removed -> lsf-empty; 25 inventory objects -> lsf-inv-full / lsf-inv-empty; mem_gc after every mark) with [MemDiag] AllocSites=1 as alloc-sites.json, to confirm the CAS/GeometryResource plateau. Pass: the alloc sites on line, 10 x each of the four marks in diag: mem lines and 10 x full / empty allocsites sum lines, no crash; and CAS/GeometryResource live <= ~40 MB at every mark with rcCold flat (docs/201 §13.8 on branch docs/casgeom-verdict). Read: node tools/memory-report.ts <job ts3native.log> --steady lsf and --steady lsf-inv. Needs ccSet cc-2k-v2 (leftover stash: node tools/harness/queue.ts --restore-content first) and ts3agent with wear_parts remember. TEST-RUN TOOL, correctness only, no timing arms: --no-smoke.",
+      "asi": "game-copy/ts3native.asi.g2pair1107b",
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "ccSet": "game-copy/cc-synth/cc-2k-v2",
+      "ini": {
+        "MemDiag.AllocSites": 1,
+        "MemDiag.AllocSitesSample": 64,
+        "MemDiag.AllocSitesTop": 12
+      },
+      "logRequire": {
+        "^alloc sites on \\(TEST-RUN TOOL, docs/201\\): EA heap hooks 4/4, ntdll hooks [457]": 1,
+        "^OK   alloc sites NtAllocateVirtualMemory detour": 1,
+        "^OK   alloc sites NtMapViewOfSection detour": 1,
+        "^diag: mem #\\d+ mark ev=lsf-full ": 10,
+        "^diag: mem #\\d+ mark ev=lsf-empty ": 10,
+        "^diag: mem #\\d+ mark ev=lsf-inv-full ": 10,
+        "^diag: mem #\\d+ mark ev=lsf-inv-empty ": 10,
+        "^allocsites: #\\d+ mark ev=lsf-full sum heapMB=": 10,
+        "^allocsites: #\\d+ mark ev=lsf-empty sum heapMB=": 10
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^SKIP alloc sites": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 40,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "live-cc-steady-fresh-10"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 75,
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107b",
+      "pinReason": "current master pair (docs/222 §11.8: g2pair1107b, asi 0.36.189 with the alloc sites tool + the named package); the newest registered pair in docs/data/builds.json"
+    }
+  ]
+}

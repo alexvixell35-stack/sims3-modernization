@@ -62,6 +62,9 @@ namespace Ts3Fixes
             ok &= Patch(typeof(Lot), "UpdateDoorPrivacy", Type.EmptyTypes, typeof(HcLotHook), "DoorHook", "DoorOrig");
             ok &= Patch(typeof(Lot), "UpdateDetailPriority", Type.EmptyTypes, typeof(HcLotHook), "DetailHook", "DetailOrig");
             // here, before the first world load compiles it
+            // docs/247 §12.4: the reset tail's selection step; at startup, before the first world load compiles it. Stamps only inside a
+            // reset task's record (HcRstNow), so any other selection runs straight through. DoSelectActor does not sleep [inferred, decompile]
+            ok &= Patch(typeof(PlumbBob), "DoSelectActor", new Type[] { typeof(Sim), typeof(bool) }, typeof(HcTailHook), "SelHook", "SelOrig");
             ok &= Patch(typeof(Sims3.Gameplay.GlobalFunctions), "CreateObjectWithOverrides", new Type[] { typeof(string), typeof(ProductVersion), typeof(Vector3), typeof(int), typeof(Vector3), typeof(System.Collections.Hashtable), typeof(Simulator.ObjectInitParameters) }, typeof(HcInstHook), "CowHook", "CowOrig");
             TunedLog("kHitchCauseHooks", ok, "alarm and lot pass stamps");
             HcApplyOverwatch();
@@ -84,6 +87,10 @@ namespace Ts3Fixes
                 && Patch(inst, "Perform", new Type[] { typeof(SimDescription), typeof(bool) }, typeof(HcInstHook), "RetryHook", "RetryOrig")
                 && Patch(place, "AttemptToPutInSafeLocation", new Type[] { typeof(Sim), typeof(Vector3), typeof(bool) }, typeof(HcInstHook), "SafeHook", "SafeOrig")
                 && Patch(cp, "Dispose", new Type[] { typeof(bool), typeof(bool) }, typeof(HcProtectHook), "DisposeHook", "DisposeOrig");
+            // docs/247 §12.4 the 456 ms tail after InstantiateAtHome: NRaas' own steps (static, run only in a reset); each on its own
+            ok &= Patch(simReset, "ResetSkillModifiers", new Type[] { typeof(SimDescription) }, typeof(HcTailHook), "SkillHook", "SkillOrig");
+            ok &= Patch(simReset, "ResetRole", new Type[] { typeof(Sim) }, typeof(HcTailHook), "RoleHook", "RoleOrig");
+            ok &= Patch(simReset, "UpdateInterface", new Type[] { typeof(Sim) }, typeof(HcTailHook), "UiHook", "UiOrig");
             TunedLog("kHitchCauseHooks", ok, "Overwatch reset timing");
         }
 
@@ -322,7 +329,8 @@ namespace Ts3Fixes
                 Vector3 dest = r.GetApproximateOriginalDestination();
                 HcLine("boatreplan: " + ms + " ms, " + (async ? "async" : "sync") + " " + res.mType + ", caller " + b.Caller + ", prev " + b.Prev + ", sim " + b.Sim + " uf=" + b.SimWhy
                     + ", " + b.Boat + ", class " + (b.Unseen ? "unseen" : "seen") + ", job " + (b.Take ? "could" : "no") + " why " + b.Why + ", ufskip " + b.Uf + ", dist " + (dest - b.From).Length().ToString("0.0")
-                    + ", route " + r.GetRouteLength().ToString("0.0") + " paths " + r.GetNumPaths() + ", lot " + b.Lot + ", " + V(b.From) + " to " + V(dest));
+                    + ", route " + r.GetRouteLength().ToString("0.0") + " paths " + r.GetNumPaths() + ", lot " + b.Lot + ", " + V(b.From) + " to " + V(dest)
+                    + ", cleared " + UbClearedText(b.SimId));  // docs/247 §12.9: the UbTrip exit behind a "no refusal" replan
             }
             catch (Exception) { }
         }
@@ -334,6 +342,8 @@ namespace Ts3Fixes
             public bool OnPerform, Performed;
             public uint PerfEnd, InstEnd, CowUs, SafeUs, RetryUs, DisposeUs;
             public int CowN, CowNull, SafeN, SafeNo, RetryN;
+            public uint SelUs, SkillUs, RoleUs, UiUs;  // docs/247 §12.4 tail steps (sleeps inside them count)
+            public int SelN;
         }
         static readonly Dictionary<ulong, HcRst> sHcRst = new Dictionary<ulong, HcRst>();
 
@@ -393,16 +403,17 @@ namespace Ts3Fixes
                 uint t0 = SrcNowUs();
                 string name = sim != null ? sim.FullName : "null";
                 bool home = sim != null && sim.LotHome != null;
+                bool sel = sim != null && Sim.ActiveActor == sim;  // NRaas' "active": the tail then runs DoSelectActor
                 HcRstNow(true);
                 Sim r = null;
                 try { r = PerformOrig(sim, fadeOut); }
-                finally { HcResetDone(name, home, fadeOut, r != null, t0); }
+                finally { HcResetDone(name, home, fadeOut, r != null, t0, sel); }
                 return r;
             }
             public static Sim PerformOrig(Sim sim, bool fadeOut) { return null; }
         }
 
-        static void HcResetDone(string name, bool home, bool fade, bool made, uint t0)
+        static void HcResetDone(string name, bool home, bool fade, bool made, uint t0, bool sel)
         {
             try
             {
@@ -412,7 +423,14 @@ namespace Ts3Fixes
                 r.PerfEnd = now;
                 if (!r.OnPerform) sHcRst.Remove(Simulator.CurrentTask.Value);
                 PatchCounters()[832]++;
-                HcLine("owreset: Perform " + name + ", " + (unchecked(now - t0) / 1000) + " ms with sleeps, tail " + (r.InstEnd != 0 ? (unchecked(now - r.InstEnd) / 1000).ToString() : "-") + " ms, home " + home + " fade " + fade
+                string tail = "-";
+                if (r.InstEnd != 0)
+                {
+                    uint t = unchecked(now - r.InstEnd), parts = r.SelUs + r.SkillUs + r.RoleUs + r.UiUs;
+                    tail = (t / 1000) + " ms (select " + r.SelN + " " + (r.SelUs / 1000) + ", skills " + (r.SkillUs / 1000) + ", role " + (r.RoleUs / 1000) + ", ui " + (r.UiUs / 1000)
+                        + ", rest " + ((t > parts ? t - parts : 0) / 1000) + ")";
+                }
+                HcLine("owreset: Perform " + name + ", " + (unchecked(now - t0) / 1000) + " ms with sleeps, selected " + sel + ", tail " + tail + ", home " + home + " fade " + fade
                     + " result " + made + ", create " + r.CowN + " " + (r.CowUs / 1000) + " ms null " + r.CowNull + ", retry " + r.RetryN + " " + (r.RetryUs / 1000) + " ms, safe " + r.SafeN + " " + (r.SafeUs / 1000) + " ms, restore " + (r.DisposeUs / 1000) + " ms, " + HcSimTime());
             }
             catch (Exception) { }
@@ -479,6 +497,49 @@ namespace Ts3Fixes
                 return r;
             }
             public static IGameObject CowOrig(string instanceName, ProductVersion version, Vector3 initPos, int level, Vector3 initFwd, System.Collections.Hashtable overrides, Simulator.ObjectInitParameters initData) { return null; }
+        }
+
+        // docs/247 §12.4: the reset tail's steps, stamped into the reset task's record; outside a reset they run straight through
+        public class HcTailHook
+        {
+            public static bool SelHook(Sim actor, bool force)
+            {
+                HcRst st = ShortcutOn("owresettime") ? HcRstNow(false) : null;
+                if (st == null) return SelOrig(actor, force);
+                uint t0 = SrcNowUs();
+                bool r = SelOrig(actor, force);
+                st.SelN++;
+                st.SelUs += unchecked(SrcNowUs() - t0);
+                return r;
+            }
+            public static bool SelOrig(Sim actor, bool force) { return false; }
+
+            public static void SkillHook(SimDescription sim)
+            {
+                HcRst st = ShortcutOn("owresettime") ? HcRstNow(false) : null;
+                uint t0 = SrcNowUs();
+                SkillOrig(sim);
+                if (st != null) st.SkillUs += unchecked(SrcNowUs() - t0);
+            }
+            public static void SkillOrig(SimDescription sim) { }
+
+            public static void RoleHook(Sim sim)
+            {
+                HcRst st = ShortcutOn("owresettime") ? HcRstNow(false) : null;
+                uint t0 = SrcNowUs();
+                RoleOrig(sim);
+                if (st != null) st.RoleUs += unchecked(SrcNowUs() - t0);
+            }
+            public static void RoleOrig(Sim sim) { }
+
+            public static void UiHook(Sim sim)
+            {
+                HcRst st = ShortcutOn("owresettime") ? HcRstNow(false) : null;
+                uint t0 = SrcNowUs();
+                UiOrig(sim);
+                if (st != null) st.UiUs += unchecked(SrcNowUs() - t0);
+            }
+            public static void UiOrig(Sim sim) { }
         }
 
         // ResetSimTask.CreationProtection, the restore at the end of the reset; runs with the protection as this

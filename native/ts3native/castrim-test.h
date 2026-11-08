@@ -32,7 +32,7 @@ static void CtsKids(DWORD o) {  // B and the new one name C (its node's key) as 
 
 static void TestCasTrim() {
     static_assert(offsetof(Ts3nCounters, ctMode) == 0x5CF0 && offsetof(Ts3nCounters, ctOtherThread) == 0x5D14 &&
-                      sizeof(Ts3nCounters) == 6030 * 4,
+                      sizeof(Ts3nCounters) == 6035 * 4,
                   "counters v912 layout after v908 and the held block (docs/registry.md)");
     Ts3nCounters& z = ts3native_counters;
     const CtEraseFn erase0 = g_ctErase;
@@ -252,7 +252,7 @@ __declspec(naked) static void __fastcall CswFbEnter(DWORD) {  // a frame with th
 }
 
 static void TestCasTrimSweep() {
-    static_assert(offsetof(Ts3nCounters, ctSaves) == 0x5D80 && offsetof(Ts3nCounters, ctBlendKB) == 0x5DE4 && sizeof(Ts3nCounters) == 6030 * 4,
+    static_assert(offsetof(Ts3nCounters, ctSaves) == 0x5D80 && offsetof(Ts3nCounters, ctBlendKB) == 0x5DE4 && sizeof(Ts3nCounters) == 6035 * 4,
                   "counters v171 layout (docs/registry.md)");
     Ts3nCounters& z = ts3native_counters;
     const CtEraseFn erase0 = g_ctErase;
@@ -441,4 +441,88 @@ static void TestCasTrimSweep() {
     g_ctRmAt = rmAt0, g_ctMinAgeMs = minAge0, g_ctSvcAt = svcAt0, g_ctNamed = named0, g_ctAsync = async0, g_ctProbe = probe0, g_ctKidsFn = CtKidsEa, g_ctKeepFn = CtKeepEa;
     g_ctNameOther = 0, g_ctMaxErase = 8, g_ctFenceAt = 0, g_ctKeepN = 0, g_ctKeepOk = false, g_ctMarksF = g_ctMarksS = g_ctMarksLate = 0, g_ctPendN = 0;
     g_ctPendGo = g_ctAfterSave = false, g_ctRefLog = g_ctMissLog = 0, g_ctLate = 0, g_ctsFound = NULL, g_ctsInserted = 0;
+}
+
+// docs/539 §12.5: the inventory detector on a fake outfit, entered as EA's call site 0x5EFE07-0x5EFE11 enters it (esi = the
+// outfit map node, push 1, push set, ecx = outfit, call): bad slots are counted, the fake EA gets the same arguments and
+// the stack is balanced (ret 8); the erase ring and the fault decoder on a fake frame. No game code runs.
+static void* g_ctsInvSet;
+static DWORD g_ctsInvKids, g_ctsInvOutfit;
+static int g_ctsInvN;
+static void __fastcall CtsInvEa(void* outfit, void*, void* set, DWORD children) {
+    g_ctsInvN++, g_ctsInvSet = set, g_ctsInvKids = children, g_ctsInvOutfit = (DWORD)(uintptr_t)outfit;
+}
+__declspec(naked) static void __fastcall CtsInvCall(const u8* /*node*/, const u8* /*outfit*/) {
+    __asm {
+        push esi
+        mov esi, ecx
+        mov ecx, edx
+        push 1
+        push 0x1234
+        call CtInvStub
+        pop esi
+        ret
+    }
+}
+static void TestCasTrimInv() {
+    const CtInvFn ea0 = g_ctInvEa;
+    const DWORD vt0[2] = {g_ctVt[0], g_ctVt[1]};
+    assert(CtAlloc());
+    static DWORD vt[2][2], good[4], bad[4] = {1}, a0[5], a1[5];
+    static u8 recs[2][0x68], outfit[0xA0], node[0x1C], outfit2[0xA0];
+    g_ctVt[0] = (DWORD)(uintptr_t)vt[0], g_ctVt[1] = (DWORD)(uintptr_t)vt[1];
+    good[0] = g_ctVt[1];
+    a0[0] = (DWORD)(uintptr_t)good, a1[1] = (DWORD)(uintptr_t)bad;  // the crash: [rec+0x38] slot 1, first dword 1
+    *(DWORD*)(recs[0] + 0x14) = *(DWORD*)(recs[0] + 0x38) = *(DWORD*)(recs[1] + 0x14) = (DWORD)(uintptr_t)a0;
+    *(DWORD*)(recs[1] + 0x38) = (DWORD)(uintptr_t)a1;
+    *(DWORD*)(outfit + 0x98) = (DWORD)(uintptr_t)recs[0], *(DWORD*)(outfit + 0x9C) = (DWORD)(uintptr_t)recs[2];
+    memset(node, 0x11, 16), *(DWORD*)(node + 0x10) = (DWORD)(uintptr_t)outfit;
+    g_ctInvEa = &CtsInvEa, g_ctInvBad = g_ctInvLogs = g_ctInvGone = 0, g_ctInvCalls = g_ctInvRecs = g_ctInvSlots = g_ctInvBadSave = 0, g_ctInvQpc = 0;
+    // one good outfit's worth: 4 slots read, 1 bad, EA called once with (outfit, set, 1), esi kept
+    CtsInvCall(node, outfit);
+    assert(g_ctsInvN == 1 && g_ctsInvSet == (void*)0x1234 && g_ctsInvKids == 1 && g_ctsInvOutfit == (DWORD)(uintptr_t)outfit && g_ctInvNode == node);
+    assert(g_ctInvCalls == 1 && g_ctInvRecs == 2 && g_ctInvSlots == 4 && g_ctInvBad == 1 && g_ctInvBadSave == 1 && !g_ctInvGone);
+    // the ring: an erase of the object that holds the value makes the next bad slot "erased by CasTrim"
+    char t[160];
+    assert(!CtGoneText((DWORD)(uintptr_t)bad, t, sizeof(t)) && strstr(t, "never erased"));
+    CtGoneRec((DWORD)(uintptr_t)bad - 8, 0xABCD);
+    assert(CtGoneText((DWORD)(uintptr_t)bad, t, sizeof(t)) && strstr(t, "ERASED by CasTrim") && strstr(t, "+0x8"));
+    CtsInvCall(node, outfit);
+    assert(g_ctInvBad == 2 && g_ctInvGone == 1 && g_ctsInvN == 2);
+    for (DWORD i = 0; i < CT_GRING; i++) CtGoneRec(0x100, 1);  // pushed out of the ring
+    assert(!CtGoneText((DWORD)(uintptr_t)bad, t, sizeof(t)));
+    // an unreadable value, a null array pointer, a bad record range, a null outfit: logged, never a fault; EA still runs
+    a1[1] = 0x10;
+    CtsInvCall(node, outfit);
+    assert(g_ctInvBad == 3);
+    a1[1] = 0, *(DWORD*)(recs[1] + 0x38) = 0;
+    CtsInvCall(node, outfit);
+    assert(g_ctInvBad == 4);
+    *(DWORD*)(outfit2 + 0x98) = (DWORD)(uintptr_t)recs[1], *(DWORD*)(outfit2 + 0x9C) = (DWORD)(uintptr_t)recs[0];
+    CtsInvCall(node, outfit2);
+    CtsInvCall(node, NULL);
+    assert(g_ctInvBad == 6 && g_ctsInvN == 6);
+    *(DWORD*)(recs[1] + 0x38) = (DWORD)(uintptr_t)a0;
+    CtsInvCall(node, outfit);
+    assert(g_ctInvBad == 6 && g_ctInvSlots > 0);
+    // the per-save line resets the save's numbers; the session total stays
+    CtInvSaveLog();
+    assert(!g_ctInvCalls && !g_ctInvSlots && !g_ctInvBadSave && g_ctInvBad == 6);
+    // the fault decoder: EA's frame at 0x5E772C (record +0x10, outfit +0x14, end +0x18, return +0x1C, set +0x20, children +0x24)
+    static DWORD frame[12];
+    frame[4] = (DWORD)(uintptr_t)recs[1], frame[5] = (DWORD)(uintptr_t)outfit, frame[6] = (DWORD)(uintptr_t)recs[2], frame[7] = 0x005EFE16;
+    frame[8] = 0x1234, frame[9] = 1;
+    CONTEXT c = {};
+    c.Eip = 0x005E772C, c.Esp = (DWORD)(uintptr_t)frame, c.Esi = (DWORD)(uintptr_t)bad, c.Ebx = 4;
+    g_ctInvFaults = 0;
+    CtInvFault(&c);
+    c.Esp = 0x10, c.Esi = 0x10;  // nothing readable: still no fault
+    CtInvFault(&c);
+    CtInvFault(&c);  // past the cap of 2: nothing
+    assert(g_ctInvFaults == 3);
+    printf("cas trim: inventory detector selftest ok (call-site entry, bad / unreadable / null / range cases, erase ring, fault decoder)\n");
+
+    g_ctInvEa = ea0, g_ctVt[0] = vt0[0], g_ctVt[1] = vt0[1], g_ctInvNode = NULL, g_ctInvFaults = 0, g_ctGSeq = 0, memset(g_ctGRing, 0, sizeof(g_ctGRing));
+    g_ctInvBad = g_ctInvLogs = g_ctInvGone = 0, g_ctInvCalls = g_ctInvRecs = g_ctInvSlots = g_ctInvBadSave = 0, g_ctInvQpc = 0, g_ctInvSave = 0;
+    g_ctsInvN = 0;
 }

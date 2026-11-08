@@ -143,7 +143,11 @@ static void* JrValue(char kind, int i, int meth, void* box, bool* ok) {
         o.addr = (u8*)box, o.blob = true;
         return box;
     }
-    return *(void**)o.data;  // a reference held in the slot (ref T, out T): refs are already fixed up
+    // a reference held in the slot (ref T, out T): refs are already fixed up. Any other word is the game's (a stale local, a cut
+    // object): null, never a pointer the hash walk or the call would follow (input 1703 of the merged capture faulted the host, docs/537 §19)
+    void* w = *(void**)o.data;
+    for (int k = 0; w && k < g_jrObjN; k++) if (g_jrObj[k].addr == (u8*)w) return w;
+    return NULL;
 }
 static void JrFixUp() {
     for (int f = 0; f < g_jrFixN; f++) {

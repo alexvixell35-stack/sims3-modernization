@@ -312,6 +312,8 @@ namespace Ts3Fixes
         // [763-768] autofft2 (AutOffload.cs, docs/208 §9.1): items, A0, A2, A4, A5, exceptions
         // [769-776] autofflot (AutOffload.cs, docs/208 §9.2): items, A0, A2, A4, A5, exceptions, dry checks, dry equal
         // [785-817] G8 search queue wait, manager depth, seen path, household, worker wait, search length (AutLive.cs QueueNote, docs/222 §11.8)
+        // [867-870] G8 household part of the seen waits: queue n, ticks, worker n, ticks (AutLive.cs QueueNote, WorkerWait)
+        // [871] watchdoglockskip (RouteFixes.cs CheckIdle, docs/250 §7.4): idle checks skipped while a route job held +0x918 (wdLockSkip)
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -422,6 +424,7 @@ namespace Ts3Fixes
                 case "easpreadlotsverify": case "easpreaddecayverify": return false; // verify switches: test runs only
                 case "unseencars": return Instantiator.kUnseenCarThrottle;
                 case "routesrc": return Instantiator.kRouteSources;
+                case "watchdoglockskip": return false;  // docs/247 §12.4, docs/250 §7.4: runtime only, default off
                 case "alarmtime": case "boatreplanlog": case "owresettime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
                 case "legreplanskip": return Instantiator.kLegReplanSkip;
                 case "bouncerskip": return Instantiator.kBouncerSlotSkip;

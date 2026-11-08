@@ -3,7 +3,7 @@
 static void TestRouteJobPhases() {
     static_assert(offsetof(Ts3nCounters, rjpReady) == 0x36AC && offsetof(Ts3nCounters, rjpJobs) == 0x36BC &&
                   offsetof(Ts3nCounters, rjpN) == 0x36D4 && offsetof(Ts3nCounters, rjpUs) == 0x3788 &&
-                  offsetof(Ts3nCounters, rjpMaxUs) == 0x383C && sizeof(Ts3nCounters) == 6030 * 4,
+                  offsetof(Ts3nCounters, rjpMaxUs) == 0x383C && sizeof(Ts3nCounters) == 6035 * 4,
                   "counters v87 layout after v86 (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, raAllocN) == 0x39C8 && offsetof(Ts3nCounters, raJobHist) == 0x39D4 &&
                   offsetof(Ts3nCounters, raSizeLog2) == 0x39F4 && offsetof(Ts3nCounters, raInsCap) == 0x3A34 &&

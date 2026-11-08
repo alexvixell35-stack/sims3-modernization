@@ -188,7 +188,11 @@ const fixesSet: Record<string, boolean> = { ...Object.fromEntries(fixesOff.map(n
 const fixesNames = Object.keys(fixesSet);
 const fixesPrev: Record<string, boolean> = {};
 let fixesRestored = !fixesNames.length;
-const restoreFixes = async () => { if (fixesRestored) return; fixesRestored = true; await ag('patches', fixesPrev); };
+const restoreFixes = async () => {
+  if (fixesRestored) return; fixesRestored = true;
+  await get('nativeexport?name=ts3native_ab_arm&value=0', 3000).catch(() => {});  // a reused session must not keep the last arm tag
+  await ag('patches', fixesPrev);
+};
 if (fixesNames.length) {
   const both = abFixesClash(values.ab ? values.ab.split(',') : [], fixesOn, fixesOff);
   if (both.length) throw new Error(`--fixes-off / --fixes-on / --ab name ${both.join(',')} twice`);
@@ -465,6 +469,8 @@ const toggler = (async () => {
       console.log(`${stamp()} FAIL: --ab slice ${i} read-back: native_set: ${bad.join('; ')}`);
       await restoreFixes(); process.exit(1);
     }
+    // ts3native tags its ufplan: and 'route async: long job' lines with this arm (1 off, 2 on, 3 warm-up); an older asi has no export
+    await get(`nativeexport?name=ts3native_ab_arm&value=${i === 0 ? 3 : on ? 2 : 1}`).catch(() => {});
     slices.push({ from: (Date.now() - t0) / 1000, on, ...(i === 0 && { warmup: true }) });
     console.log(`${stamp()} ${abNames.join(',')} ${on ? 'on' : 'off'} (read back)`);
   }
@@ -532,7 +538,10 @@ const reproRun = (async () => {
   writeFileSync(`${pre}-ab-native.jsonl`, '');
   const loopSnap = () => get('native').then(c => appendFileSync(`${pre}-ab-native.jsonl`, JSON.stringify({ i: slices.length, s: (Date.now() - t0) / 1000, c }) + '\n')).catch(() => {});
   await loopSnap(); slices.push({ from: (Date.now() - t0) / 1000, on: false, warmup: true } as typeof slices[number]);
-  const onArm = async (arm: string) => { await loopSnap(); slices.push({ from: (Date.now() - t0) / 1000, on: arm === 'on' }); };
+  const onArm = async (arm: string) => {
+    await loopSnap(); slices.push({ from: (Date.now() - t0) / 1000, on: arm === 'on' });
+    await get(`nativeexport?name=ts3native_ab_arm&value=${arm === 'on' ? 2 : 1}`).catch(() => {});  // log tag, as the --ab toggler
+  };
   try {
     const r = await runLoop(reproLoop, capMs, { ag, step: reproStep, sleep, now: Date.now, halted: () => stopped || Date.now() >= at(secs), onArm });
     if (r.why !== 'window') stopWindow(stopLine(r, reproLoop.until), { loop: r, until: reproLoop.until });
@@ -543,11 +552,14 @@ const reproRun = (async () => {
 // Flagged Sims recently teleported by a shortcut are marked, so every shortcut gets checked for leaving Sims stuck.
 const simSeen = new Map<string, { key: string; checks: number; reported: boolean }>();
 const stuck: any[] = [];
+const movedSeen = new Map<string, string>();
 async function checkStuck() {
   const r = await ag('sims_activity');
   if (!r.ok) return;
   appendFileSync(`${pre}-activity.jsonl`, JSON.stringify({ t: Date.now() - t0, sims: r.result.map((s: any) => [s.name, s.interaction, s.lot, s.at_home, s.community, s.min_need, s.routing]) }) + '\n');
   const moved: Record<string, string> = (await ag('patches')).result?.moved ?? {}; // every Sim a shortcut moved
+  const changed = Object.entries(moved).filter(([n, v]) => movedSeen.get(n) !== v); // docs/222 §11.10: keep each placement, not only the last
+  for (const [n, v] of changed) { movedSeen.set(n, v); appendFileSync(`${pre}-moved.jsonl`, JSON.stringify({ t: Date.now() - t0, sim: n, moved: v }) + '\n'); }
   for (const sim of r.result) {
     const key = `${sim.x},${sim.z},${sim.interaction},${sim.routing}`;
     const prev = simSeen.get(sim.id);

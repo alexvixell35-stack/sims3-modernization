@@ -248,3 +248,108 @@ No clean night needed: this is correctness plus marks, not timing.
 7. Part record `+0x64` (Parse `0x5EA6B7`, set after a lookup-table hit `0x5DF2E0`): how many outfits rebuild compositors at every parse (P2). If many, that is a second, separate growth path.
 8. The Lot manager's release side was not read in full.
 9. Rodney's own saves: all growth numbers are from one long-history save with a mod stack.
+
+## 11. Live Mode 3 run `bp-castrim-live-mode3`: the travel_home FAIL (2026-11-08, ledger §455; static, no game run)
+
+Job: queue `castrim-live.json`, ts3native 0.36.190 (pair g2pair1108), `[CasTrim] Mode=3 Install=1 Probe=1 MinAgeSec=60`, repro `compositor-churn`, 00:49-01:09 UTC. FAIL line: `repro step travel_home failed: no reply to 'travel_home' (game paused, loading or blocked?)`. Files: `probe-out/queue/castrim-live-2026-11-08-bp-castrim-live-mode3{.log,-0049-ts3native.log}`, `chainc-castrim-live.out`. §10 (static map, emulation) is on branch `docs/castrim-emu-verify`.
+
+### 11.1 The stall: the repro, not CasTrim [verified (log, repro source); travel outcome inferred]
+
+- The repro sent `travel_home` 5 s after `travel_vacation` was queued, with no wait for arrival: `"cmd": "travel_vacation" ... "waitS": 5` then `"cmd": "travel_home", "waitS": 5` (repros.json, `compositor-churn`). Timeline: `01:09:33 ... travel_vacation: {"ok":true,... "queued":true}`, `01:09:46 ... travel_home: {"ok":false,"error":"no reply ..."}`.
+- In those 13 s the game was in the travel save: `save: result 0 travel 1/1 total 10914 ms: ... write 10902`, then the France load starts. A travel load blocks the agent. The same trip without CasTrim (`wake-park-ab-2026-11-01-bp-wake-park-travel`) took `until met after 56 s` to arrive, because that repro waits on `travel_state` (`on_vacation` true, `in_travel` false) before `travel_home`.
+- The travel save is as long as without CasTrim: here world save 9125 ms + post-save listeners 1781 ms = 10914 ms; wake-park travel save 8516 + 1453 = 9991 ms.
+- CasTrim did nothing on that save: `cas trim: save #4: no sweep: no keep list for this save`. `CtSweepSave` returns before the walk in Mode 3 (`castrim.cpp:473-477`), so nothing was doomed or pending. The save #3 sweep had finished long before: `cas trim: sweep done: swept 3053 in total` (log line 6964 of 8770); the last diag line `save-end reg=36135 ... doomed=3053 swept=3053`.
+- No lock or wait in `castrim.cpp` (no `EnterCriticalSection`, SRW, `Sleep` or `WaitFor*`). EA's own clear-all at a world unload (`0x5EEA90` -> `0x5EE640`) passes no hook of ours; we call `0x5EE640` only from our sweep (`CT_ERASE`, `castrim.cpp:46`), and no sweep was pending. So CasTrim cannot have erased something the loading world used.
+- What is not proven: that the France load and the trip home finish under Mode 3. The harness ended the game at the FAIL, 13 s in. The rerun with the fixed repro shows it.
+
+Fix (repro): `compositor-churn` `travel_vacation` and `travel_home` now wait on `travel_state` (every 10 s, max 900 s), copied from the wake-park travel repro.
+
+### 11.2 `ctRefused` 1: the travel save, a correct refusal [verified (log, source)]
+
+The one refusal is save #4, the travel save (`LoadSaveManager.SaveTravel` from `GameStates`), which does not pass the ts3fixes `SaveGameSynchronous` hook, so no keep list was sent: `CtRefuse` answers `"no keep list for this save"` (`castrim.cpp:420`) and Mode 3 sweeps nothing. That is the designed safe path (§10.6 b). The pass rule `ctRefused 0` was wrong for a repro with a trip; a round trip has 2 travel saves.
+
+Rule fix (queue `castrim-live.json`): the `ctRefused <= 0` early gate is gone; `logForbid` `^cas trim: save #\d+: no sweep: (?!no keep list for this save)` fails any other reason (thread, CAS open, incomplete keep list, P5 order, empty live set); `logRequire` 3 `mode 3: registry` lines makes each of the 3 scratch saves sweep, so a missing keep list on a normal save still fails. Also fixed: the duplicate `logRequire` key `^cas trim: save #d+ mode 3: registry ` (no backslash) could never match and would have failed every run.
+
+### 11.3 The exceptions: startup, first chance, in every run [verified (log)]
+
+`C0000005` at `spfileq.dll+0x672C`, `+0x666C`, `setupapi.dll+0x2A3A3` (thread 28220, the thread that loaded ts3native) and two `E06D7363` (28220, 29324) are at log lines 281-289, before CasTrim's first insert (`cas trim: first insert on thread 13164`, line 482). The 40 newest ts3native logs in probe-out/queue all have the setupapi AV once and `E06D7363` twice at the same place (line 261-286), CasTrim off in all but this one. The log header says `first 16 first-chance exceptions`. Not a crash, not ours to triage.
+
+### 11.4 Registry growth between saves: live working set, not a leak [verified (log); held-not-live cause inferred]
+
+Per save (Mode 3 save lines): registry = refs-kept + young + Async + Named + doomed, exactly.
+
+| Save | Registry | Live | Doomed this save | Kept refs | Young | Async | Named | Registry - doomed - live |
+|---|---|---|---|---|---|---|---|---|
+| #1 | 37527 | 34939 | 1981 | 34993 | 541 | 0 | 12 | 607 |
+| #2 | 35725 | 34979 | 531 | 35063 | 49 | 18 | 64 | 215 |
+| #3 | 36192 | 35231 | 541 | 35379 | 163 | 18 | 91 | 420 |
+
+- The +467 from #2 to #3 is live +252 (the cycle's new NPC and aged townie; outfits 1768 -> 1775), young +114 (built in the last 60 s, judged at the next save), Named +27, and held-not-live (kept refs - live) 84 -> 148.
+- Without the sweep the same churn on the same save grows steadily: `compositor-probe-2026-11-07-bp-compositor-probe` save-starts 36721, 37333, 38585 (+612, +1252); after the reload Mode 3 loaded at 35476 against 34928 at the first load.
+- Held-not-live (54, 84, 148) is the one part that grows; it is entries above 2 references that EA's live set does not list (outfits in the map not worn, builds in flight; leak path e of §10.6) [inferred]. 3 points are too few to call it growth.
+
+Pass rule: not "flat". Doomed swept at each save, and (registry - doomed) - live bounded by young + Named + Async plus a few hundred held-not-live, with live growing only with the outfits the repro adds. Written into the queue note and the repro.
+
+### 11.5 Verdict
+
+Not ours: the stall is a repro wait missing on the trip, and `ctRefused` 1 is the designed travel-save refusal. Fixes are in the repro and the queue checks, no code change. Rerun (needs Rodney's OK): `bp-castrim-live-mode3` as is, same build; pass also needs the trip round trip to finish and the `*-compositor-*-travel.jpg` shots to match. CasTrim Mode 3 can ship ON this week only after that rerun passes: the sweep, the reload (`load_save` met after 50 s, reload shots taken) and the 3 sweeps are seen, the trip round trip under Mode 3 is not.
+
+## 12. Rerun `bp-castrim-live-mode3` 01:26 UTC: travel-save crash at `0x5E772C` (2026-11-08, ledger §456; static, no game run)
+
+Job: queue `castrim-live.json`, ts3native 0.36.190 (g2pair1108), `[CasTrim] Mode=3 Install=1 Probe=1 MinAgeSec=60`, repro `compositor-churn` with the travel waits of §11.1. Saves #1-#3 swept (doomed totals 894, 1752, 2048; household 0), `load_save` (world load #2), CAS, then `travel_vacation` 01:46:35. The game died at 01:46:56 in the travel save: `ACCESS_VIOLATION reading 0x00000001` at `0x005E772C`, thread 50516 (the sim thread, the insert thread), EA report `xcpt <machine> 26-11-08 09.46.51.txt`, no minidump.
+
+### 12.1 The fault: EA's outfit inventory in the SimService save [verified: disassembly TS3W 1.67, EA report, ts3native log]
+
+- `0x5E772C` is in `0x5E7690` (thiscall `(outfit, set, children)`, `ret 8`), the outfit inventory that the save's live set and our keep list both use (§10). It walks the outfit's part records (`[outfit+0x98]` to `[outfit+0x9C]`, 0x68 bytes each). Each record has two arrays of 5 compositor pointers, `[rec+0x14]` and then `[rec+0x38]`. For each non-null pointer it finds or inserts the compositor's key (`comp+8`, `0x5E67E0`) in the set, AddRefs it through vtable slot 0, releases the cell's old value (slot 1) and, with children = 1, closes over its children (`0x5E6FC0`).
+- The fault is in the second array (`[rec+0x38]`), slot 1 (`ebx` = 4): `esi` = `0x40A00000`, `edx` = `[esi]` = 1, and `mov eax,[edx]` (the vtable read) faults. The set cell was new (`edi` = 0). So that slot holds something that is not a compositor (a part compositor's first dword is vtable `0xFE68D8` or `0xFE68F4`). The frame comes from the EA report's stack data (esp `0x44B5759C`): record `0x334789A0`, outfit `0x35F8D460`, record end `0x33478CE0` (8 records), set `0x44B575D4`, children 1.
+- The caller is `0x5EFE11` in the SimService save `0x5EFD60`, in its loop over the outfit map (`svc+0xD8` / `+0xDC`). This is the inventory pass that builds the live set, before the writer `0x5ED3E0`. The save itself was called from `0x5F0378` (the post-save listener, gated on `[0x11ECBC4]+0x45`; log `save: > write: post-save listeners (+9484 ms)` right before the dump) through our `CtSaveHook`. Stack ref `ts3native+0x30DEF` is the return from `call [g_ctSave]` in the g2pair1108 asi, two instructions after its read of `[0x11ECBC4]+0x45`.
+- The second exception (`eip 0`, stack refs `004D7001`, `004D7140`, `0058D945`) happened on the same thread after the first: `call edx` at `0x4D6FFF` with `edx` 0, under frames of EA's crash-report path (`0x58D9xx`, the area of EA's own `0x58D9B6` crash). It is part of the crash handling, not a second cause and not the travel path [inferred].
+
+### 12.2 CasTrim's part: no erase reaches this pointer [verified: log, source; slot ownership inferred]
+
+- The only CasTrim code on the stack is `CtSaveHook` (`castrim.cpp:561-577`): counters, one read of `[0x11ECBC4]+0x45`, then EA's save. `CtWriteHook`, `CtSweepSave` and `CtKeepEa` (our own `0x5E7690` calls) run after the writer returns, so after this pass. The crash came first: there is no `cas trim: save #4` line (in the 01:09 run the same travel save logged `no sweep: no keep list` at that point).
+- No erase in the window: the last erase is the save #3 sweep (`sweep done: swept 2048 in total`, log line 7588). World load #2 is at line 8469 and the travel save at line 9238, and no sweep runs between them (`saves 3 ... swept 2048` at line 8785). A sweep only runs after a save that is not refused, and the travel save is refused (§11.2). So CasTrim erased nothing in the ~4 min from the reload to the crash.
+- Even if entries from before the reload had survived (the reload resetting the service is inferred: the registry was 35628 at the load, about save #3's written set of 35391 plus new inserts), no erased compositor can be in a slot:
+  - Everything `0x5E7690` reaches from the outfit map at save #3 is in EA's live set, which rule 3 keeps.
+  - The erase checks again that it is the same object, still at 2 references and not found since it was doomed (`castrim.cpp:515`).
+  - An erased compositor is unregistered from the cache (`0x5EE640`, flag 0), so no later find can put it into a slot.
+  - That a slot holds its own reference is inferred. It fits `0x5E7690`'s AddRef / Release and rule 1's counts (§10.4).
+- Q2 cases: the travel save sweeps nothing (refused). The keep list, household temp outfits and Named children only decide what is kept, and they ran at saves #1-#3, long before. Async is a keeping bit too. Nothing for a travelling Sim's outfit is erased on the trip.
+- The other CasTrim hooks are passive in this window. The insert, find, mark, CacheOutfit-name and fallback-flag hooks only count. The 3 probe call sites at `0x5C7901` / `0x5A2FFA` match EA's `0x4E69D0` (thiscall, 2 arguments, `ret 8`, the same as our `__fastcall (heap, edx, size, flag)`). The rebuild site was never hit (`fbRebuilt=0`). P3's `CtMemLine` reads the outfit map from the memory worker, read-only under `__try`.
+
+### 12.3 Seen before? [verified: search]
+
+- `5E772C`, `5E7690` as a fault, and `5EFE16`: only this run's files (`docs/data`, all `probe-out/queue` logs; one other hit was an object address, `35EFE160`). The 10 EA reports in Documents (11-06 to 11-08) contain 7 at `0x58D9B6`, 1 at null and 1 address-space report, and none at `0x5E772C`.
+- 01:09 run (`...-0049-ts3native.log`): the travel save #4 passed this same pass (`save: result 0 travel 1/1`, `castrim #17 save-end` logged), with no exception after the startup first-chance ones (lines 281-289). The §11 verdict on it stands: no fault; the harness ended the game at the FAIL. It had the same build, the same sequence (3 sweeps, `load_save`, CAS, trip) and swept more (3053). So the fault does not happen on every run.
+- No Mode 0 run of this repro (with `load_save` + CAS + trip) on g2pair1108 exists to compare.
+
+### 12.4 Verdict
+
+The CasTrim Mode 3 sweep is ruled out as the writer of this pointer: it made no erase in the window, and the set it erases excludes everything this pass walks [verified log + source]. Where the bad slot came from is not known. It is either a freed compositor whose memory was reused (`0x40A00000` is the start of a 64 KB page, where a mimalloc small page puts its first block [inferred]) or a part record overwritten by something else. It is neither proven EA's nor proven ours. Under the crash rule it stays "our build" until the logging run below names the slot's history (g2pair1108 also runs other code during the trip: P5c deferred object releases, the unseen movers). No code fix yet: a fix without a cause would only be a guess.
+
+### 12.5 Logging around the site, and the rerun
+
+Built 2026-11-08 as ts3native 0.36.194, pair castrimdiag1108 (selftest only, not run; queue `castrim-live.json`, held). As built: the outfit's records hold *pointers* to the two 5-slot arrays (`mov eax,[rec+0x14]; mov esi,[ebx+eax]`) [verified disassembly], so the detector reads the array pointer first; EA's `esi` at the call is the outfit map node (`0x5EFE0E`), kept by a naked stub for the key; the off arm logs too (the save hook calls the per-save line in every mode); the erase ring also records Mode 1's erases; the EA report decoder is in `crash-ledger.ts triage`; the fault decoder also covers the first array's read at `0x5E76DA`.
+
+Add to `castrim.cpp` (crash-triage build window):
+
+1. `CtInstallProbes` (`castrim.cpp:680`): a 4th call site `{0x005EFE11, 0x005E7690, CtInvHook}`. `CtInvHook` is `__fastcall (outfit, edx, set, children)` (thiscall, `ret 8`, as `CtCloseFn` at `castrim.cpp:401`). Before it calls EA, it walks the outfit's records and both 5-slot arrays under `__try`. For a non-null slot whose first dword is neither part vtable it logs (first 20 per session) a `cas trim: inventory bad slot` line with:
+   - the outfit node key, record index / count, array (`+0x14` / `+0x38`), slot, value and its first 4 dwords;
+   - the 0x68 record bytes;
+   - `CtSlot(value)` (seen / used / cand ages);
+   - whether our sweep erased that address (item 2);
+   - the save number, the travel flag and the ticks since the last world load.
+
+   Then it calls EA as before. It is a detector, not a guard. It also checks the outfit node itself and the record range (end >= begin, a multiple of 0x68, under 64 records). Cost: ~1780 outfits x 8 records x 10 slots, about 140k reads a save, under 5 ms.
+2. `CtSweepStep` (`castrim.cpp:519`): a 4096-entry ring of erased object addresses with tick and key hash, so item 1 and the crash dump can say "erased by CasTrim N s ago" or "never erased by CasTrim".
+3. Crash forensics (`crashfx.cpp`): on a fault at `0x5E772C`, decode `[esp+0x10]` (record) and `[esp+0x14]` (outfit), the faulting `esi`, and the ring lookup of item 2.
+
+The earlier detectors stay on (P5c rings, draw and scene guards, heap check, allocsites).
+
+Rerun, after the logging build:
+- `bp-castrim-live-mode3` (as queued) twice. The fault came in 1 of 2 runs, so it is not a deterministic repro and needs 2 clean runs.
+- One off arm of the same repro with `Mode=0 Install=1 Probe=1` and the detector.
+
+Pass: both Mode 3 runs finish the trip round trip (I-455-4) with no `inventory bad slot` line and no crash. If the off arm shows a bad slot or the crash, the cause is not the sweep. If a bad slot names an address CasTrim erased, the sweep is the cause and the fix goes into rule 1 / the erase re-check.
+
+Ship ON this week: not yet. It needs the 2 clean Mode 3 runs above, including the trip, which also closes I-455-4.

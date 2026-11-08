@@ -81,6 +81,30 @@ Before 0.36.94 the cut fired at the setting and the plan returned after it (docs
 2. **Pre-search lock wait.** Site: `Route_PlanLocked 0x82C6E0` takes `Lock_Acquire(world+0x918, &INFINITE [0x1021CF0])` before its search, and our detour (`RunPlan`) first waits for a running job [verified: docs/11 addendum 2026-10-12, `RunPlan`]. In a marked sync session `UfLockGate` instead takes `+0x918` first through `Lock_Acquire 0x4E16F0`'s deadline form (absolute `GetTickCount`, the C1-C4 timed take, so the pump and `g_rgOffSimOpen` still apply) with the session's own deadline (= the effective cut point; the search floor is the learned overrun). Taken: the plan runs as the game's under that hold (the game's acquire inside is recursive, no queued job can start meanwhile). Timed out: `RunPlan` returns 0 before the lock = the planner's own "Failed, no blocker" path (`Route_PlanCommon` default result at `0x76156D`, no native retries, no C# fail-path plans; docs/11 Q5 [verified]; the same answer the negative cache gave in game, docs/15), counted as a cut, so the CUT? answer starts the §3.2 recovery. Nothing of the search ran and nothing is written (crash-safety as C1-C4: the block is skipped whole). Not gated: no job busy, another world, a managed call for the worker (`g_inInvoke`), `[RouteWorker]` mode 1.
 3. **Counters** (in the v139 reserve, no layout change): `ufEffCutUs[2]` +0x5424 (sync, job), `ufOverP99Us[2]` +0x542C, `ufLockWaits` +0x5434, `ufLockFail` +0x5438, `ufOverSamples` +0x543C.
 4. **Selftest** `TestUfStrict` (`unseenfbc-test.h`): start value, p99 by bucket, largest exit per context, few-sample rule, floor 30, one outlier in 100 ignored, setting / 2 clamp at 300 and 175, `UfSyncEnd` / `UfJobEnd` feeding it, lock gate (not marked / other world / no job: untouched; taken: finite deadline ~100 ms ahead; timed out: `RunPlan` 0, no release, CUT? answers 1; deadline past: a try).
+5. **Host waits are not overrun (ts3native 0.36.190, branch `bugfix/uf-overrun-host-wait`; since 0.36.191 (pair `g2pair1108b`) behind `[UnseenFallback] HostLate=0` / runtime `ufhostlate` (counters v173 `ufHlMode` 0x5E38, `ufHlUs` 0x5E3C = host-wait us left out), default off = the 0.36.189 sample; ledger §448, selftest only, no game run).** The job sample was end - deadline. Most of that is the worker in `Proxy` (`ts3native.cpp`), waiting for the sim thread to run a managed call. No cut exit runs in that wait: the cut is checked in world A\* cost stubs, cell A\* and water, so `capAt` lands after the wait. The sample then says "overrun 1849 ms", the budget hits its clamp, and every unseen Sim's job is cut at 150 ms instead of 220-270 ms.
+
+    [verified, log] Six player logs (0.36.168c, 0.36.168d), 584 `routefail job:` lines for jobs cut by `UnseenFallback`: `us - host` is under 30 ms in all 584 (p50 3, p99 16, max 29), and in all 498 jobs with `capAt` 30 ms or more past the deadline, `host` is at least that gap. Raw overrun: p50 119, p99 2817, max 111831 ms. The 111 s job has plan 1 ms, host 111980 ms. These lines are the "30 a minute" subset of the session's samples.
+
+    Fix: `Proxy` adds its wait past `t_fbDeadline` to `t_ufHostLateQ` on marked jobs, and `UfLateUs` takes that from the sample. A plan nested in the wait is not left out: it is the worker's own time and its exits run. `KdCamHold` clears the sum when it moves the deadline, since those waits now lie before it. Only the sample changes, so there is no switch and no counter; the `late max` of the `route kind deadlines` line stays raw, which keeps both numbers in a log.
+
+    Replay of the logged samples through `UfOverP99`. "Before" reproduces the logged budget in all six logs, which checks the replay. "After" is a range, because a log line has the job's host total and not where it fell: from all host time past the deadline (`late - host`) to the least it can be (`late - (host - deadline)`).
+
+    | Log | Lines / samples | Budget before, ms | After, ms | Job cut before -> after, ms |
+    |---|---:|---:|---:|---:|
+    | `5e6ad3cd` | 94 / 139 | 111831 | 30 | 150 -> 270 |
+    | `b02e08a4` | 50 / 69 | 5226 | 30 | 150 -> 270 |
+    | `c4677d89` | 134 / 202 | 9919 (1849 at line 1770) | 30 | 150 -> 270 |
+    | `eb9cd48b` | 178 / 242 | 20858 | 30 | 150 -> 270 |
+    | `ebd8dd7b` | 55 / 81 | 1284 | 30 | 150 -> 270 |
+    | `f2bacd11` | 73 / 118 | 2817 | 30-32 | 150 -> 268-270 |
+
+    `cd69e88a` (0.36.168b) has no `routefail job:` lines. 30 is the floor, so these logs show no job overrun that the floor does not cover.
+
+    Limits. The samples come from jobs cut at 150 ms; at 270 ms a job searches longer, so the tail may differ [inferred], and only a game run shows it. Of the 568 cut jobs with a 150 ms deadline, 296 had `capAt` under 270 ms: those run on, up to 120 ms more search on the worker for each, and some may then succeed. 272 were past 270 ms anyway. A plan nested in a wait counts as overrun here and as host in the log, so the after column can read low if nested plans ran past the deadline; they are cut at their first exit. Under 100 samples `UfOverP99` still returns the largest (`n / 100` = 0), so one real tail of 300 ms or more sets the budget for a young session; that is not changed here.
+
+    Scope: `t_ufHostLateQ` grows only with `t_ufJob` set, which needs `j->uf`, the MARK ts3fixes sends for unseen Sims. `UfEffUs` feeds only marked jobs and marked sync plans. Household, selected and unknown-scope Sims send no MARK, so their deadlines (`KdSeenCeilMs`, the kinds' deadlines) and their jobs are untouched; selftest row: an unmarked job past a deadline adds nothing. Sync plans (context 0) have no `Proxy` and are unchanged.
+
+    Selftest `TestUfStrict`, `TestUfHostLate`: `UfLateUs` on the 1849 ms case (cut 270, unfiltered 150), never below 0, -1 kept; a real two-thread `Proxy` with the deadline ahead, in the middle and past, a nested plan, and an unmarked job.
 
 ### 3.2 Recovery (built, phase A)
 

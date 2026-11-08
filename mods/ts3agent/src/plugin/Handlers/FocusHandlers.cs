@@ -16,9 +16,15 @@ namespace Ts3Agent
     //   focus_watch {key?, seconds?, follow?, scope?}: scope "tagged" (default): camera onto the Sim of AppDomain tag `key` (default
     //     ts3fixes.autunseen.tagged, the last direct pick) and, with follow (default true), stays on it; scope "screen": camera untouched,
     //     every on-screen Sim outside the active household is watched. Samples every tick in a game task, returns at once. No tag: found false.
-    //   focus_result: throws McpException on a wrong outcome (FocusRules.Judge), else before / after state and the worst values.
-    //   focus_summary {min?, arrivalsMin?}: throws when fewer than min watches were judged or fewer than arrivalsMin Sims walked onto
-    //     the camera's lot, so a repro cannot pass by checking nothing.
+    //   focus_result {snapS?, maxStepM?, idleSimMin?, starveMotive?}: throws McpException on a wrong outcome (FocusRules.Judge), else
+    //     before / after state and the worst values. starveMotive -101 switches the starving rule off (motives floor at -100); min_need still shows it.
+    //   focus_summary {min?, arrivalsMin?, distinct?}: throws when fewer than min watches (distinct: true = distinct Sims) were judged or
+    //     fewer than arrivalsMin Sims walked onto the camera's lot, so a repro cannot pass by checking nothing.
+    //   distinct (switch, default false = the 2026-11-06 behaviour; docs/222 §11, ip-gu2-focus 11-07: 6 watches gave Devin x2, Mick x2 on
+    //     BP and 4 x "found false" + Christopher x2 on IP): focus_watch {distinct: true} picks the newest tagged Sim not judged yet from a
+    //     ring of the last 16 tags (a collector task reads the AppDomain tag every tick from the first such watch on), skipping gone and
+    //     active-household Sims; focus_result {distinct: true} records the Sim as judged, drops it from the ring and clears the tag, and
+    //     answers new_sim (true once per Sim: a stepsRequire tally). focus_reset clears all of it (start of a job).
     public static partial class Handlers
     {
         sealed class FocusWatch { public string Name; public Sim Sim; public Dictionary<string, object> Before; public List<FocusRules.Sample> Samples = new List<FocusRules.Sample>(); }
@@ -26,12 +32,17 @@ namespace Ts3Agent
         static volatile int sFocusGen;
         static bool sFocusDone;
         static int sFocusJudged, sFocusArrivals;
+        static readonly List<ulong> sFocusRing = new List<ulong>();          // distinct: recent tags, newest last
+        static readonly Dictionary<ulong, bool> sFocusJudgedIds = new Dictionary<ulong, bool>();
+        static int sFocusCollectGen;                                         // 0 = no collector; a new world load starts one again
+        static ulong sFocusPicked;                                           // distinct: the Sim of the running watch
 
         static void RegisterFocus()
         {
             Dispatcher.Register("focus_watch", FocusWatchCmd);
             Dispatcher.Register("focus_result", FocusResult);
             Dispatcher.Register("focus_summary", FocusSummary);
+            Dispatcher.Register("focus_reset", delegate(Args a) { sFocusRing.Clear(); sFocusJudgedIds.Clear(); sFocusJudged = sFocusArrivals = 0; sFocusPicked = 0; sFocusCollectGen++; sFocusCollecting = false; return Util.Obj(); });
         }
 
         static Dictionary<string, object> FocusState(Sim s)
@@ -58,13 +69,17 @@ namespace Ts3Agent
         }
 
         // queued (not running) autonomous picks that fail the game's own Test: ts3fixes FlipCheck must have cancelled them
-        static int FocusBadQueue(Sim s)
+        static int FocusBadQueue(Sim s, out string names)
         {
             int bad = 0;
+            names = null;
             if (s.InteractionQueue == null) return 0;
             InteractionInstance head = s.InteractionQueue.GetHeadInteraction();
             foreach (InteractionInstance ii in new List<InteractionInstance>(s.InteractionQueue.InteractionList))
-                if (ii != head && ii.Autonomous && !ii.Test()) bad++;
+                if (ii != head && ii.Autonomous && !ii.Test()) { bad++; names = (names == null ? "" : names + ", ") + ii.GetInteractionName(); }
+            int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
+            bad = FocusRules.SnapQueue(bad, c != null && c.Length > 624 ? c[624] : 0);
+            if (bad == 0) names = null;
             return bad;
         }
 
@@ -76,11 +91,53 @@ namespace Ts3Agent
             x.Sec = sec; x.SimMin = SimClock.ElapsedTime(TimeUnit.Minutes); x.X = p.x; x.Z = p.z; x.MinMotive = FocusMinMotive(s);
             x.OnScreen = World.IsObjectOnScreen(s);
             x.Hidden = s.Parent != null || s.GetHiddenFlags() != HiddenFlags.Nothing;  // in a car, a rabbit hole, a boat: not a visible move
-            x.HasAction = s.CurrentInteraction != null;
+            InteractionInstance cur = s.CurrentInteraction;
+            x.HasAction = cur != null;
+            x.Interaction = cur != null ? cur.GetInteractionName() : null;
+            x.InRabbitHole = s.SimInRabbitHolePosture;
             x.Routing = routing;
             x.Held = InTransit(s);
-            x.BadQueue = test ? FocusBadQueue(s) : -1;
+            string bad = null;
+            x.BadQueue = test ? FocusBadQueue(s, out bad) : -1;
+            x.BadNames = bad;
             return x;
+        }
+
+        static bool sFocusCollecting;
+        static int sFocusBeat;  // the collector's last tick (wall ms): a world reload ends its task, a stale beat starts a new one
+        // distinct: every tick, the tag of the newest direct pick into the ring (a tag set between two watches is not lost)
+        static void FocusCollect(string key)
+        {
+            if (sFocusCollecting && unchecked(System.Environment.TickCount - sFocusBeat) < 2000) return;
+            sFocusCollecting = true;
+            int gen = ++sFocusCollectGen;
+            sFocusBeat = System.Environment.TickCount;
+            Simulator.AddObject(new Sims3.Gameplay.OneShotFunctionTask(delegate
+            {
+                ulong last = 0;
+                while (sFocusCollectGen == gen)
+                {
+                    sFocusBeat = System.Environment.TickCount;
+                    object d = AppDomain.CurrentDomain.GetData(key);
+                    ulong id = d is ulong ? (ulong)d : 0;
+                    if (id != last) FocusRules.RingAdd(sFocusRing, id, 16);
+                    last = id;
+                    Simulator.Sleep(0);
+                }
+            }));
+        }
+
+        // distinct: newest ring Sim that is alive, in the world, outside the active household and not judged yet
+        static Sim FocusPickDistinct(string key)
+        {
+            object d = AppDomain.CurrentDomain.GetData(key);
+            if (d is ulong) FocusRules.RingAdd(sFocusRing, (ulong)d, 16);  // the current tag too (first watch)
+            ulong pick = FocusRules.PickNewest(sFocusRing, sFocusJudgedIds, delegate(ulong id)
+            {
+                Sim s = GameObject.GetObject(new ObjectGuid(id)) as Sim;
+                return s != null && !s.HasBeenDestroyed && s.InWorld && !s.IsSelectable && s.Household != Household.ActiveHousehold;
+            });
+            return pick != 0 ? GameObject.GetObject(new ObjectGuid(pick)) as Sim : null;
         }
 
         static void FocusCamera(Sim s, float height, float back)
@@ -102,9 +159,23 @@ namespace Ts3Agent
             Sim one = null;
             if (!screen)
             {
-                object d = AppDomain.CurrentDomain.GetData(a.Has("key") ? a.Str("key") : "ts3fixes.autunseen.tagged");
-                one = d is ulong ? GameObject.GetObject(new ObjectGuid((ulong)d)) as Sim : null;
-                if (one == null || one.HasBeenDestroyed) { sFocusDone = true; sFocus = null; r["found"] = false; return r; }
+                string key = a.Has("key") ? a.Str("key") : "ts3fixes.autunseen.tagged";
+                bool distinct = a.Bool("distinct", false);
+                sFocusPicked = 0;
+                if (distinct)
+                {
+                    FocusCollect(key);
+                    one = FocusPickDistinct(key);
+                    r["ring"] = sFocusRing.Count;
+                    if (one == null) { sFocusDone = true; sFocus = null; r["found"] = false; r["reason"] = "no tagged Sim left that was not judged"; return r; }
+                    sFocusPicked = one.ObjectId.Value;
+                }
+                else
+                {
+                    object d = AppDomain.CurrentDomain.GetData(key);
+                    one = d is ulong ? GameObject.GetObject(new ObjectGuid((ulong)d)) as Sim : null;
+                    if (one == null || one.HasBeenDestroyed) { sFocusDone = true; sFocus = null; r["found"] = false; return r; }
+                }
                 r["was_on_screen"] = World.IsObjectOnScreen(one);
                 w[one.ObjectId.Value] = new FocusWatch { Name = one.FullName, Sim = one, Before = FocusState(one) };
                 FocusCamera(one, 12f, 12f);
@@ -112,6 +183,7 @@ namespace Ts3Agent
             }
             r["found"] = true;
             Lot camLot = screen ? LotManager.GetLotAtPoint(CameraController.GetTarget()) : null;
+            if (screen) { r["camera_target"] = Pos(CameraController.GetTarget()); r["camera_lot"] = camLot != null ? camLot.Name : null; }
             Dictionary<ulong, bool> onLot = new Dictionary<ulong, bool>();
             if (camLot != null) foreach (Sim s in camLot.GetSims()) onLot[s.ObjectId.Value] = true;
             Simulator.AddObject(new Sims3.Gameplay.OneShotFunctionTask(delegate
@@ -150,28 +222,56 @@ namespace Ts3Agent
 
         static object FocusResult(Args a)
         {
-            if (sFocus == null) { Dictionary<string, object> none = Util.Obj(); none["judged"] = 0; return none; }  // found false
+            if (sFocus == null) { Dictionary<string, object> none = Util.Obj(); none["judged"] = 0; none["new_sim"] = false; return none; }  // found false
             if (!sFocusDone) throw new McpException("focus_result: watch still running (step waited too short)");
             FocusRules.Limits l = new FocusRules.Limits();
-            l.SnapS = a.Double("snapS", l.SnapS); l.MaxStepM = a.Double("maxStepM", l.MaxStepM); l.IdleSimMin = a.Double("idleSimMin", l.IdleSimMin);
+            l.SnapS = a.Double("snapS", l.SnapS); l.MaxStepM = a.Double("maxStepM", l.MaxStepM); l.IdleSimMin = a.Double("idleSimMin", l.IdleSimMin); l.StarveMotive = a.Double("starveMotive", l.StarveMotive);
             List<object> rows = new List<object>();
             foreach (FocusWatch w in sFocus.Values)
             {
                 if (w.Samples[w.Samples.Count - 1].Sec - w.Samples[0].Sec < l.SnapS) continue;  // crossed the screen too fast to judge
                 FocusRules.Stats st = new FocusRules.Stats();
                 string why = FocusRules.Judge(w.Samples, l, st);
-                if (why != null) throw new McpException("focus: " + w.Name + ": " + why);
+                if (why != null)
+                {
+                    // docs/222 §11.10: a pop names its mover only if our own placement log is in the reason
+                    if (why.StartsWith("pop:"))
+                    {
+                        Dictionary<string, object> moved = AppDomain.CurrentDomain.GetData("ts3fixes.moved") as Dictionary<string, object>;
+                        object mv = null;
+                        if (moved != null) moved.TryGetValue(w.Name, out mv);
+                        why += "; moved: " + (mv ?? "none");
+                        List<object> recent = AppDomain.CurrentDomain.GetData("ts3fixes.recent") as List<object>;
+                        if (recent != null && recent.Count > 0)
+                            why += "; recent: " + string.Join(" | ", recent.GetRange(Math.Max(0, recent.Count - 10), Math.Min(10, recent.Count)).ConvertAll(o => "" + o).ToArray());
+                    }
+                    throw new McpException("focus: " + w.Name + ": " + why);
+                }
                 sFocusJudged++;
                 Dictionary<string, object> d = Util.Obj();
                 d["sim"] = w.Name; d["samples"] = w.Samples.Count; d["first_seen_s"] = st.FirstSeenS; d["snap_done_s"] = st.SnapDoneS;
                 d["max_step_m"] = Math.Round(st.MaxStepM, 2); d["max_idle_sim_min"] = Math.Round(st.MaxIdleSimMin, 1);
+                if (st.RhSnaps > 0) { d["rh_snap"] = st.RhSnaps; d["rh_snap_note"] = st.RhNote; }
+                d["min_need"] = Math.Round(w.Samples[w.Samples.Count - 1].MinMotive);
                 d["before"] = w.Before;
                 if (!w.Sim.HasBeenDestroyed) d["after"] = FocusState(w.Sim);
                 rows.Add(d);
             }
             sFocus = null;
             Dictionary<string, object> r = Util.Obj();
+            bool fresh = false;
+            if (a.Bool("distinct", false) && sFocusPicked != 0)
+            {
+                // judged or crossed too fast: either way this Sim is done; the tag goes so the next watch needs a new pick
+                fresh = rows.Count > 0 && !sFocusJudgedIds.ContainsKey(sFocusPicked);
+                if (rows.Count > 0) sFocusJudgedIds[sFocusPicked] = true;
+                sFocusRing.Remove(sFocusPicked);
+                AppDomain.CurrentDomain.SetData(a.Has("key") ? a.Str("key") : "ts3fixes.autunseen.tagged", null);
+                sFocusPicked = 0;
+            }
             r["judged"] = rows.Count;
+            r["new_sim"] = fresh;
+            r["distinct_sims"] = sFocusJudgedIds.Count;
             r["rows"] = rows;
             return r;
         }
@@ -179,8 +279,9 @@ namespace Ts3Agent
         static object FocusSummary(Args a)
         {
             Dictionary<string, object> r = Util.Obj();
-            r["judged"] = sFocusJudged; r["arrivals"] = sFocusArrivals;
-            if (sFocusJudged < (int)a.Double("min", 1)) throw new McpException("focus_summary: only " + sFocusJudged + " Sims judged");
+            r["judged"] = sFocusJudged; r["arrivals"] = sFocusArrivals; r["distinct_sims"] = sFocusJudgedIds.Count;
+            int n = a.Bool("distinct", false) ? sFocusJudgedIds.Count : sFocusJudged;
+            if (n < (int)a.Double("min", 1)) throw new McpException("focus_summary: only " + n + (a.Bool("distinct", false) ? " distinct" : "") + " Sims judged");
             if (sFocusArrivals < (int)a.Double("arrivalsMin", 0)) throw new McpException("focus_summary: only " + sFocusArrivals + " Sims arrived on the camera's lot");
             return r;
         }

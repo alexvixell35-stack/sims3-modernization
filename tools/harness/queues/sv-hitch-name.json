@@ -1,0 +1,69 @@
+{
+  "note": "sv-hitch-name (docs/247 §12.4, pair g2pair1108b): one 10 min SV correctness job that names the SV 791 ms hitch (rtJob) and splits the Overwatch reset tail. Logging only, no behaviour change, no timing bars. Install game-copy/ts3agent.package.g2pair1108b first.",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "sv-hitch-name",
+      "note": "docs/247 §12.4, logging only, correctness: SV 10 min natural play with [HitchAttr] JobNameMs=100 (\"rtjob wait:\" names the route job behind each sim wait >= 100 ms on it; the 791 ms hitch had 5 waits, longest 333, key 0x06000000) and owresettime (owreset: Perform with selected + tail split). Read: rtjob wait: lines against hitches.jsonl rtJob >= 200; owreset: Perform tails.",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
+      "save": "Baseline-SV-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-hc",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1,
+        "HitchAttr.JobNameMs": 100
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_",
+          "repro": "sv-hitch-name"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "g2pair1108b pair (builds.json): ts3native 0.36.191 with JobNameMs, ts3fixes -hc = g2pair1108b base tuning + kHitchCauseHooks True (owresettime hooks), ts3agent g2pair1108b",
+      "earlyGates": [
+        {
+          "afterSec": 120,
+          "counter": "fixes:alarmtime_timed",
+          "op": ">",
+          "value": 0,
+          "why": "no alarm timed: HcTimerHook not on the path, or alarmtime off"
+        }
+      ],
+      "minCounters": 912,
+      "noiseCheck": false,
+      "logRequire": {
+        "OK   HitchAttr JobNameMs=100": 1
+      }
+    }
+  ]
+}

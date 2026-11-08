@@ -203,6 +203,7 @@ fenced_place,RouteFreezeHandlers,Live,none (test setup: places Sims on a fenced 
 focus_watch,FocusHandlers,Live,moving the camera onto a Sim and following it (map view click or pan),natural,,handler + R-MODE-6,live
 focus_result,FocusHandlers,Any,none (read),harness,,handler,none
 focus_summary,FocusHandlers,Any,none (read),harness,,handler,none
+focus_reset,FocusHandlers,Any,none (read),harness,,handler,none
 fixed_work,FixedWorkHandlers,Any,none (harness: fixed managed loop timed for --ab; no game state),harness,,handler,none
 stove_wall_setup,StoveWallHandlers,Live,Build Mode: a stove and fridge and counter and a trash can on the home lot (or the lot own stove),cheat,home lot; no wall between Sim spot and slot is an error,handler,live
 stove_wall_probe,StoveWallHandlers,Live,none (the Sim is put on its spot; plans only; nothing walks),cheat,after stove_wall_setup,handler,live

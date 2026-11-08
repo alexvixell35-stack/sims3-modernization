@@ -4,10 +4,11 @@
     {
       "id": "bp-jit-batch",
       "note": "BP 15 min, the whole batch: [MonoJit] Mode=2, Direct=1 DirectLeaf=0, Inline=2, Wide=1. Pass: see the queue note.",
-      "asi": "game-copy/ts3native.asi.mono1106e",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106e (asi) + mono1106c (package)",
       "save": "Baseline-BP-Spring",
-      "minCounters": 911,
+      "minCounters": 912,
       "logForbid": {
         "jit verify MISMATCH": 0
       },
@@ -51,10 +52,11 @@
     {
       "id": "ip-jit-batch",
       "note": "IP 15 min, the whole batch: [MonoJit] Mode=2, Direct=1 DirectLeaf=0, Inline=2, Wide=1. Pass: see the queue note.",
-      "asi": "game-copy/ts3native.asi.mono1106e",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106e (asi) + mono1106c (package)",
       "save": "Baseline-IP-Spring",
-      "minCounters": 911,
+      "minCounters": 912,
       "logForbid": {
         "jit verify MISMATCH": 0
       },
@@ -98,10 +100,11 @@
     {
       "id": "sv-jit-batch",
       "note": "SV 15 min, the whole batch: [MonoJit] Mode=2, Direct=1 DirectLeaf=0, Inline=2, Wide=1. Pass: see the queue note.",
-      "asi": "game-copy/ts3native.asi.mono1106e",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106e (asi) + mono1106c (package)",
       "save": "Baseline-SV-Spring",
-      "minCounters": 911,
+      "minCounters": 912,
       "logForbid": {
         "jit verify MISMATCH": 0
       },

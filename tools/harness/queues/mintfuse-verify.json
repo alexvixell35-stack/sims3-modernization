@@ -1,11 +1,12 @@
 {
-  "note": "mintfuse-verify: [MintFuse] Sub=1 (docs/139 §4, mintfuse.cpp, counters v164) correctness in game; first time this code runs in the real game. Pair: mono1106c (asi + ts3fixes, builds.json) from master 000589df. Correctness only, no timing claim: daytime OK. Pass per job: no crash, no new script errors against the run's baseline, 0 watchdog lines, log line 'OK   mintfuse', mfReady 1, mfRuns > 20000 (host: ~21,600 over 10 assemblies; the game transforms more), mfInner > mfWhole (host ratio ~8:1), Sims route and act normally (the job's own checks). mfReady -1 or 'SKIP mintfuse': stop, another hook owns 0xE5C8CA (docs/68). Any crash: our bug until proven (static analysis first, crash-cause-before-fix). No in-load A/B: fusion acts at transform time, a method keeps the form it was transformed in; a gain claim needs a two-load pair on a clean night, not queued here (docs/139 §7). Run: node tools/harness/queue.ts tools/harness/queues/mintfuse-verify.json --no-smoke",
+  "note": "mintfuse-verify: [MintFuse] Sub=1 (docs/139 §4, mintfuse.cpp, counters v164) correctness in game; first time this code runs in the real game. Pair: g2pair1108 (asi + ts3fixes, builds.json) from master d1066f14. Correctness only, no timing claim: daytime OK. Pass per job: no crash, no new script errors against the run's baseline, 0 watchdog lines, log line 'OK   mintfuse', mfReady 1, mfRuns > 20000 (host: ~21,600 over 10 assemblies; the game transforms more), mfInner > mfWhole (host ratio ~8:1), Sims route and act normally (the job's own checks). mfReady -1 or 'SKIP mintfuse': stop, another hook owns 0xE5C8CA (docs/68). Any crash: our bug until proven (static analysis first, crash-cause-before-fix). No in-load A/B: fusion acts at transform time, a method keeps the form it was transformed in; a gain claim needs a two-load pair on a clean night, not queued here (docs/139 §7). Run: node tools/harness/queue.ts tools/harness/queues/mintfuse-verify.json --no-smoke",
   "jobs": [
     {
       "id": "bp-mfuse-verify",
       "note": "BP Spring 10 min, seed 12345, release ini defaults of the sim-budget queue + [MintFuse] Sub=1. Pass: see the queue note.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
       "save": "Baseline-BP-Spring",
       "minCounters": 908,
       "logRequire": {

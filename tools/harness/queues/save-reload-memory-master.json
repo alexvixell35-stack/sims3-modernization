@@ -20,7 +20,7 @@
         "^diag: mem #\\d+ mark ev=sr-reload10 ": 1,
         "^diag: mem #\\d+ mark ev=sr-direct ": 1,
         "^diag: mem #\\d+ mark ev=sr-direct10 ": 1,
-        "^save: end #\\d+ result 1 ": 3
+        "^save: end #\\d+ result0 ": 3
       },
       "logForbid": {
         "^FAIL\\b": 0,
@@ -94,7 +94,7 @@
         "^diag: mem #\\d+ mark ev=sr-reload10 ": 1,
         "^diag: mem #\\d+ mark ev=sr-direct ": 1,
         "^diag: mem #\\d+ mark ev=sr-direct10 ": 1,
-        "^save: end #\\d+ result 1 ": 3
+        "^save: end #\\d+ result0 ": 3
       },
       "logForbid": {
         "^FAIL\\b": 0,
@@ -166,7 +166,7 @@
         "^diag: mem #\\d+ mark ev=sr-save ": 1,
         "^diag: mem #\\d+ mark ev=sr-reload ": 1,
         "^diag: mem #\\d+ mark ev=sr-reload10 ": 1,
-        "^save: end #\\d+ result 1 ": 2
+        "^save: end #\\d+ result0 ": 2
       },
       "logForbid": {
         "^FAIL\\b": 0,

@@ -25,7 +25,8 @@ static void ReadUnseenFallback(const wchar_t* ini) {
     const int ms = UfClampMs(raw);
     k.ufUs = ms * 1000;
     if (ms != raw) Log("unseenfb: DeadlineMs=%d (clamped from %d)", ms, raw);
-    if (g_ufIni) Log("unseen fallback: Enabled=1 DeadlineMs=%ld", k.ufUs / 1000);
+    k.ufHlMode = Clamp(GetPrivateProfileIntW(L"UnseenFallback", L"HostLate", 0, ini), 0, 1);  // docs/202 §3.1.1 item 5
+    if (g_ufIni) Log("unseen fallback: Enabled=1 DeadlineMs=%ld HostLate=%ld", k.ufUs / 1000, k.ufHlMode);
 }
 // the deadline in use (us): ufUs as the harness may have written it (unseenfbus), clamped the same way
 static LONG UfUs() { return UfClampMs(ts3native_counters.ufUs / 1000) * 1000; }
@@ -74,7 +75,7 @@ static bool UfTake(DWORD handle) {
 // docs/202 §3.1.1 strict DeadlineMs (Rodney 2026-10-26): the whole marked plan or job (its pre-search +0x918 wait included)
 // stays under the setting. The cut point = setting - overrun budget. Per path (ctx 0 sync plan, 1 route job; exit 0 world A*
 // cost stubs, 1 cell A*, 2 water) the budget is the p99 of the measured time from the deadline to the return of plans that
-// exit cut, floor 30 ms; below 20 samples max(80 ms, the largest sample). A context takes the largest of its exits (80 ms
+// exit cut, a job's waits for the sim thread left out (no exit runs in them), floor 30 ms; below 20 samples max(80 ms, the largest sample). A context takes the largest of its exits (80 ms
 // with none yet); the cut point never goes below setting / 2.
 // shortcut: one histogram per path for the whole session (no aging); upgrade to a sliding window if loads differ a lot.
 enum { kUfOverBuckets = 76 };                       // 4 ms buckets over 0-300 ms, the last one = 300 ms and more
@@ -118,6 +119,16 @@ static LONG UfEffUs(int ctx) {
     const LONG eff = s - b < s / 2 ? s / 2 : s - b;
     k.ufEffCutUs[ctx] = eff, k.ufOverP99Us[ctx] = b;
     return eff;
+}
+
+// worker, marked job: end - deadline (ticks, < 0 = in time) as the overrun sample (us), -1 = none
+// HostLate=0 (default, switch ufhostlate): the whole end - deadline, as 0.36.189
+static LONG UfLateUs(LONGLONG lateQ) {
+    if (lateQ < 0) return -1;
+    if (!ts3native_counters.ufHlMode) return (LONG)(lateQ * 1000000 / g_qpf.QuadPart);
+    const LONGLONG hostQ = t_ufHostLateQ < lateQ ? t_ufHostLateQ : lateQ, workQ = lateQ - hostQ;
+    if (hostQ > 0) InterlockedExchangeAdd(&ts3native_counters.ufHlUs, (LONG)(hostQ * 1000000 / g_qpf.QuadPart));
+    return workQ > 0 ? (LONG)(workQ * 1000000 / g_qpf.QuadPart) : 0;
 }
 
 // SyncIc: the deadline of a marked sync IC (us), 0 = none of its own (nested in an open session: that one's deadline applies)

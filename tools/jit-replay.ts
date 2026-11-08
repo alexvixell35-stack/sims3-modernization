@@ -6,7 +6,8 @@
 //   node tools/jit-replay.ts --fixture --out <file>    the same from native/monohost/jit-replay-fixture.json (hand-made: cycle, string, array, null, ...)
 //   node tools/jit-replay.ts --summary <a.jitcap>      per method: samples, objects, cuts, truncated; no field values, no string text
 //   node tools/jit-replay.ts --run <replay file> [--list <names>] [--mode on|verify] [--lazy]   run monohost, report
-//   node tools/jit-replay.ts --capture-corpus <out.jitcap>   the game's capture code on the host: the corpus under capture, for a round trip without the game
+//   node tools/jit-replay.ts --capture-corpus <out.jitcap> [--lazy] [--inline 1|2]   the game's capture code on the host: the corpus under capture,
+//       for a round trip without the game; --lazy / --inline also sample lazy bodies and inlined sites (docs/537 §19)
 //   node tools/jit-replay.ts --report <monohost.exe.log>
 //   node tools/jit-replay.ts --self-check
 // Captures hold game state (Sim names, save data): they stay in probe-out/ or game-copy/, never in git. Only the fixture is committed.
@@ -25,12 +26,13 @@ export type Cls = { id: number; name: string; flags: number; is: number; es: num
 export type Meth = { id: number; token: number; np: number; cls: string; name: string };
 export type Sfield = { id: number; cls: string; field: string };
 export type Obj = { addr: number; cls: number; n: number; full: number; bytes: Buffer };
-export type Sample = { meth: number; slot: number; seen: number; self: number; args: [number, number][]; statics: [number, number][]; objs: Obj[]; cuts: { obj: number; off: number; cls: number }[]; cutLost: number; expect?: number };
+export type Sample = { meth: number; slot: number; via?: number; seen: number; self: number; args: [number, number][]; statics: [number, number][]; objs: Obj[]; cuts: { obj: number; off: number; cls: number }[]; cutLost: number; expect?: number };
 export type Capture = { classes: Map<number, Cls>; methods: Map<number, Meth>; statics: Map<number, Sfield>; samples: Sample[]; tornTail: boolean };
 
 export function parseCapture(b: Buffer): Capture {
   if (b.length < 8 || b.toString('latin1', 0, 4) !== 'JCAP') throw new Error('not a capture file (no JCAP)');
-  if (b.readUInt32LE(4) !== 1) throw new Error(`capture version ${b.readUInt32LE(4)}, this tool reads 1`);
+  const version = b.readUInt32LE(4);  // 2 (docs/537 §19) adds the path word after the slot: 0 JitEnter, 1 lazy body, 2 inlined site
+  if (version !== 1 && version !== 2) throw new Error(`capture version ${version}, this tool reads 1 and 2`);
   const cap: Capture = { classes: new Map(), methods: new Map(), statics: new Map(), samples: [], tornTail: false };
   let at = 8;
   while (at + 8 <= b.length) {
@@ -43,14 +45,14 @@ export function parseCapture(b: Buffer): Capture {
     else if (tag === 2) { const id = u32(), token = u32(), np = u32(), cls = str(); cap.methods.set(id, { id, token, np, cls, name: str() }); }
     else if (tag === 3) { const id = u32(), cls = str(); cap.statics.set(id, { id, cls, field: str() }); }
     else if (tag === 4) {
-      const meth = u32(), slot = u32(), seen = u32(), np = u32(), self = u32(), nObj = u32(), nCut = u32(), cutLost = u32(), nSt = u32();
+      const meth = u32(), slot = u32(), via = version >= 2 ? u32() : 0, seen = u32(), np = u32(), self = u32(), nObj = u32(), nCut = u32(), cutLost = u32(), nSt = u32();
       const args: [number, number][] = [], statics: [number, number][] = [], objs: Obj[] = [], cuts: Sample['cuts'] = [];
       for (let i = 0; i < np; i++) { const lo = u32(), hi = u32(); args.push([lo, hi]); }
       for (let i = 0; i < nSt; i++) { const s = u32(), o = u32(); statics.push([s, o]); }
       for (let i = 0; i < nObj; i++) { const addr = u32(), cls = u32(), n = u32(), full = u32(); objs.push({ addr, cls, n, full, bytes: Buffer.alloc(0) }); }
       for (let i = 0; i < nCut; i++) { const obj = u32(), off = u32(), cls = u32(); cuts.push({ obj, off, cls }); }
       for (const o of objs) { o.bytes = b.subarray(p, p + o.n); p += (o.n + 3) & ~3; }
-      cap.samples.push({ meth, slot, seen, self, args, statics, objs, cuts, cutLost });
+      cap.samples.push({ meth, slot, via, seen, self, args, statics, objs, cuts, cutLost });
     }
     at += 8 + len;
   }
@@ -58,13 +60,13 @@ export function parseCapture(b: Buffer): Capture {
 }
 // the writer's format, for the self-check: a parse of what the reader must meet, without a game
 export function encodeCapture(c: Capture): Buffer {
-  const parts: Buffer[] = [Buffer.from('JCAP', 'latin1'), u32s(1)];
+  const parts: Buffer[] = [Buffer.from('JCAP', 'latin1'), u32s(2)];
   const rec = (tag: number, body: Buffer) => parts.push(u32s(tag, body.length), body);
   const s = (t: string) => { const b = Buffer.from(t, 'latin1'); return Buffer.concat([u32s(b.length), b, Buffer.alloc((4 - (b.length & 3)) & 3)]); };
   for (const k of c.classes.values()) rec(1, Buffer.concat([u32s(k.id, 0, k.is, k.es, k.flags), s(k.name)]));
   for (const m of c.methods.values()) rec(2, Buffer.concat([u32s(m.id, m.token, m.np), s(m.cls), s(m.name)]));
   for (const x of c.statics.values()) rec(3, Buffer.concat([u32s(x.id), s(x.cls), s(x.field)]));
-  for (const x of c.samples) rec(4, Buffer.concat([u32s(x.meth, x.slot, x.seen, x.args.length, x.self, x.objs.length, x.cuts.length, x.cutLost, x.statics.length),
+  for (const x of c.samples) rec(4, Buffer.concat([u32s(x.meth, x.slot, x.via ?? 0, x.seen, x.args.length, x.self, x.objs.length, x.cuts.length, x.cutLost, x.statics.length),
     ...x.args.map(a => u32s(...a)), ...x.statics.map(a => u32s(...a)), ...x.objs.map(o => u32s(o.addr, o.cls, o.n, o.full)), ...x.cuts.map(a => u32s(a.obj, a.off, a.cls)),
     ...x.objs.map(o => Buffer.concat([o.bytes, Buffer.alloc((4 - (o.n & 3)) & 3)]))]));
   return Buffer.concat(parts);
@@ -151,14 +153,15 @@ export function toReplay(caps: Capture[]): { text: string; totals: Totals; metho
 const methKey = (m: Meth) => `${m.cls}\0${m.token}\0${m.name}`;
 
 export function summary(c: Capture) {
-  const rows = new Map<string, { samples: number; maxSeen: number; objs: number; cuts: number; lost: number; trunc: number }>();
+  const rows = new Map<string, { samples: number; maxSeen: number; objs: number; cuts: number; lost: number; trunc: number; via: number[] }>();
   for (const s of c.samples) {
     const m = c.methods.get(s.meth)!, k = `${m.cls}.${m.name.split('.').pop()}/${m.np}`;
-    const r = rows.get(k) ?? { samples: 0, maxSeen: 0, objs: 0, cuts: 0, lost: 0, trunc: 0 };
+    const r = rows.get(k) ?? { samples: 0, maxSeen: 0, objs: 0, cuts: 0, lost: 0, trunc: 0, via: [0, 0, 0] };
     r.samples++; r.maxSeen = Math.max(r.maxSeen, s.seen); r.objs += s.objs.length; r.cuts += s.cuts.length; r.lost += s.cutLost; r.trunc += s.objs.filter(o => o.full > o.n).length;
+    r.via[s.via ?? 0]++;
     rows.set(k, r);
   }
-  return [...rows.entries()].sort((a, b) => b[1].maxSeen - a[1].maxSeen).map(([k, r]) => `${String(r.maxSeen).padStart(10)} calls  ${String(r.samples).padStart(4)} samples  ${String(r.objs).padStart(6)} objects  ${r.cuts + r.lost} cuts  ${r.trunc} truncated  ${k}`);
+  return [...rows.entries()].sort((a, b) => b[1].maxSeen - a[1].maxSeen).map(([k, r]) => `${String(r.maxSeen).padStart(10)} calls  ${String(r.samples).padStart(4)} samples (enter ${r.via[0]}, lazy ${r.via[1]}, inline ${r.via[2]})  ${String(r.objs).padStart(6)} objects  ${r.cuts + r.lost} cuts  ${r.trunc} truncated  ${k}`);
 }
 
 // ---- fixture: hand-made, in the capture's own model. Words are numbers or "@label" (an object's address); strings and arrays are spelled out ----
@@ -271,6 +274,15 @@ function selfCheck() {
   ok(/^obj 1 -1 0 8 1111111122222222$/m.test(it) && /^arg 0 10008 0 b 1$/m.test(it), 'an interior pointer becomes a value blob');
   // a sample with a string in it: the summary shows no text
   ok(!summary(fx).join('\n').includes('hi'), 'the summary holds no string text');
+  // version 2 (docs/537 §19): the path word survives, the summary splits by it, and a version 1 file still reads (path 0)
+  const vias: Capture = { ...fx, samples: fx.samples.slice(0, 3).map((x, i) => ({ ...x, via: i })) };
+  ok(parseCapture(encodeCapture(vias)).samples.map(x => x.via).join() === '0,1,2', 'the path of each sample survives');
+  ok(summary({ ...vias, samples: vias.samples.map(x => ({ ...x, meth: vias.samples[0].meth })) }).join('\n').includes('(enter 1, lazy 1, inline 1)'), 'the summary splits samples by path');
+  const mrec = Buffer.concat([u32s(0, 7, 0, 1), Buffer.from('A\0\0\0', 'latin1'), u32s(3), Buffer.from('A.M\0', 'latin1')]);
+  const p1 = parseCapture(Buffer.concat([Buffer.from('JCAP', 'latin1'), u32s(1, 2, mrec.length), mrec, u32s(4, 36, 0, 3, 5, 0, 0, 0, 0, 0, 0)]));
+  ok(p1.methods.get(0)?.name === 'A.M' && p1.samples.length === 1 && p1.samples[0].via === 0 && p1.samples[0].slot === 3 && p1.samples[0].seen === 5, 'a version 1 sample reads as JitEnter');
+  const one = (via: number) => toReplay([{ ...fx, samples: [{ ...fx.samples[0], via }] }]).text;
+  ok(one(0) === one(1) && one(1) === one(2), 'the path does not change the replay input');
   const rep = report('jit replay method A.B: inputs 2, ran 1, differ 0, unstable 0, skipped 1, objects not rebuilt 0\njit replay reason A.B: delegate x1\njit replay: 2 inputs, 1 ran, 0 differ, 0 unstable, 1 skipped; per-call verify: ok 1, MISMATCH 0, abandoned (exception) 0\n');
   ok(rep.inputs === 2 && rep.ran === 1 && rep.reasons.length === 1 && rep.methods.length === 1 && !rep.stopped, 'report parse');
   console.log(`jit-replay self-check: ${k} checks${process.exitCode ? ', FAILED' : ', ok'}`);
@@ -297,8 +309,10 @@ if (import.meta.main) {
   else if (argv.includes('--capture-corpus')) {
     const file = resolve(opt('--capture-corpus')!);
     mkdirSync(dirname(file), { recursive: true });
-    const env = { MONOHOST_JIT: 'on', MONOHOST_MINTCALL: 'fast', MONOHOST_DIVGUARD: '1', MONOHOST_JITCORPUS: '1', MONOHOST_JITCAPTURE: file,
+    const env: Record<string, string> = { MONOHOST_JIT: 'on', MONOHOST_MINTCALL: 'fast', MONOHOST_DIVGUARD: '1', MONOHOST_JITCORPUS: '1', MONOHOST_JITCAPTURE: file,
       MONOHOST_JITLIST: jitList(readFileSync(resolve(ROOT, 'native/monohost/monohost-jit.cpp'), 'utf8')) };
+    if (argv.includes('--lazy')) env.MONOHOST_JITLAZY = '1';
+    if (opt('--inline')) env.MONOHOST_JITINLINE = opt('--inline')!;
     const { log, path } = await runHost(undefined, env, /^jit capture: \d+ samples/m, 1800000);
     console.log(`log: ${path}`);
     for (const l of log.split(/\r?\n/)) if (/^jit (capture|corpus):/.test(l)) console.log(l);

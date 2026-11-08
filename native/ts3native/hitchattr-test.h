@@ -3,7 +3,7 @@ static void TestHitchAttr() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, haReady) == 0x30C4 && offsetof(Ts3nCounters, haWaits) == 0x30C8 &&
                   offsetof(Ts3nCounters, haUs) == 0x30D8 && offsetof(Ts3nCounters, haMaxUs) == 0x30E8 &&
-                  sizeof(Ts3nCounters) == 6030 * 4, "counters v66 layout after v65 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6035 * 4, "counters v66 layout after v65 (docs/registry.md)");
     static_assert(offsetof(HaFrame, us) == 0x08 && offsetof(HaFrame, n) == 0x18 && offsetof(HaFrame, maxKey) == 0x20 &&
                   offsetof(HaFrame, mvUs) == 0x24 && offsetof(HaFrame, mvKey) == 0x34 && sizeof(HaFrame) == 0x38,
                   "ts3native_hitchattr layout (stutter-profile.js HA_*)");
@@ -34,4 +34,27 @@ static void TestHitchAttr() {
     f.enabled = enSave;
     memset(f.us, 0, sizeof(f.us)), f.n = f.maxUs = f.maxKey = 0;
     printf("HitchAttr: per-frame sim waits by class and largest key, owner only, off by default: ok\n");
+
+    // JobNameMs (docs/247 §12.4): the line names the job, off by default, 20 a minute
+    static_assert(offsetof(Ts3nCounters, rjnMinUs) == 0x5E40 && offsetof(Ts3nCounters, rjnDropped) == 0x5E48, "counters v173 rjn* layout");
+    char b[512];
+    const RjnSum s = {0x1A2B3C4D, 77, 2, 1, 2, 775000, 610000, 120000, 9000, 3, 1, 300000};
+    RjnText(b, sizeof(b), 0x02000003, 775400, 0x1A2B3C4D, s, "on", 1234);
+    assert(!strcmp(b, "rtjob wait: 775 ms key 02000003, job route 1A2B3C4D seq 77 foreign, IC kind 2, scope unseen, job 775 ms plan 610 host 120 "
+                      "other 45, plans 3 nodes 9000, deadline 300 ms, capped, arm on, at 1234 ms"));
+    RjnText(b, sizeof(b), 0x06000000, 400000, 0x55, s, "-", 1);
+    assert(strstr(b, "last job route 1A2B3C4D (waited for 00000055)"));
+    const RjnSum sSave = g_rjnLast;
+    const LONG minSave = k.rjnMinUs, l0 = k.rjnLines, d0 = k.rjnDropped;
+    g_rjnLast = s;
+    k.rjnMinUs = 0;
+    RjnWait(0x02000003, 900000, s.handle);  // off: nothing
+    assert(k.rjnLines == l0 && k.rjnDropped == d0);
+    k.rjnMinUs = 200000;
+    RjnWait(0x02000003, 199999, s.handle);  // under the bar
+    assert(k.rjnLines == l0);
+    for (int i = 0; i < 25; i++) RjnWait(0x02000003, 250000, s.handle);
+    assert(k.rjnLines - l0 + k.rjnDropped - d0 == 25 && k.rjnLines - l0 <= 20 && k.rjnDropped - d0 >= 5);
+    k.rjnMinUs = minSave, g_rjnLast = sSave;
+    printf("HitchAttr JobNameMs: rtjob wait line names the job, off by default, capped 20 a minute: ok\n");
 }

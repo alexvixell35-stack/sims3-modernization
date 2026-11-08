@@ -7,6 +7,95 @@ static void JcFakeName(JcFakeClass& k, const char* ns, const char* nm, u8 type, 
     *(const char**)(k.b + 0x34) = nm, *(const char**)(k.b + 0x38) = ns;
     *(const void**)(k.b + 0xA0) = data, k.b[0xA0 + 6] = type;
 }
+// Direct=1 and Inline=1 (docs/537 §19): the compiler emits the sample call only while capture is on; a real lazy call and a real
+// inlined site each record one sample tagged with its path, and the compiled result shows the stubs kept every register. A value-type
+// this outside the frames and the GC heap becomes a blob.
+static void TestMonoJitCaptureVia() {
+    Ts3nCounters& C = ts3native_counters;
+    char path[MAX_PATH], tmp[MAX_PATH];
+    assert(GetTempPathA(MAX_PATH, tmp) && GetTempFileNameA(tmp, "jc", 0, path));
+    wchar_t wpath[MAX_PATH];
+    MultiByteToWideChar(CP_ACP, 0, path, -1, wpath, MAX_PATH);
+    const GcBaseFn gb = GcBase;
+    GcBase = (GcBaseFn)JtNoBase;
+    const bool lazy0 = g_jitLazy, leaf0 = g_jitLeafOnly;
+    g_jitMode = 1, g_jitVerifyOn = 0, g_jitLazy = true, g_jitLeafOnly = true, g_jitInline = 0;
+    g_jitForceJit = &g_jtForceByte, g_jitProxyClassP = (const void* const*)&g_jtProxy;
+    g_jtLen[0xEA] = 2, g_jtLen[0xEC] = 4;
+    static unsigned short e0[] = {JT_LDC3, JT_RET};  // compiled with capture off: no call at its lazy entry
+    static JtMeth mE0;
+    JtMake(mE0, e0, 2, 0);
+    assert(JitLazyCellFor(mE0.rm)->entry && *JitLazyCellFor(mE0.rm)->entry != 0xE8);
+    assert(JcInit(wpath, 8, 8, 2, 16, 4096, 1024, 1000000, 1 << 20));
+    JcState& g = *g_jc;
+
+    static unsigned short e[] = {JT_LDC3, JT_RET};  // a leaf with a lazy body, called lazily by f
+    static JtMeth mE, mF;
+    JtMake(mE, e, 2, 0);
+    assert(*JitLazyCellFor(mE.rm)->entry == 0xE8);
+    static DWORD fItems[1];
+    fItems[0] = (DWORD)(uintptr_t)mE.rm;
+    static unsigned short f[] = {JT_LDC2, 0xEA, 0, JT_ADD, JT_RET};
+    JtMake(mF, f, 5, 0, fItems);
+    const LONG lc0 = C.jitLazyCalls;
+    JtLazyFrame();
+    JtLazyGo(f);
+    assert(g_jtEax == JT_RET && g_jtArena[0] == 5 && C.jitLazyCalls == lc0 + 1);
+    assert(g.st.samples == 2 && g.st.viaLazy == 1 && !g.st.viaInline && !g.st.faults);  // f at JitEnter, e in its lazy body
+
+    g_jitLazy = false, g_jitInline = 1;  // an inlined getter: this.field
+    static BYTE klassA[8];
+    static DWORD vtA[1], obj[4];
+    vtA[0] = (DWORD)(uintptr_t)klassA, obj[0] = (DWORD)(uintptr_t)vtA, obj[2] = 77;
+    static unsigned short t1[] = {JT_LDTHIS, JT_LDFLD, 8, JT_RET}, f1[] = {0xEA, 0, JT_RET};
+    static JtMeth m1, c1;
+    JtMake(m1, t1, 4, 0x200);
+    static DWORD i1[1];
+    i1[0] = (DWORD)(uintptr_t)m1.rm;
+    const LONG in0 = C.jitInlined;
+    JtMake(c1, f1, 3, 0, i1);
+    assert(C.jitInlined == in0 + 1);
+    JtLazyFrame();
+    g_jtChunkWords[(32 + 4) / 4] = 0x11223344;
+    g_jtArena[0] = (DWORD)(uintptr_t)obj, g_jtArena[1] = 0xAAAAAAAA;
+    JtLazyGo(f1, 2);
+    assert(g_jtEax == JT_RET && g_jtArena[0] == 77 && g_jtArena[1] == 0x11223344 && g_jtEsi == (DWORD)(uintptr_t)(g_jtArena + 2));
+    assert(g.st.samples == 4 && g.st.viaInline == 1 && !g.st.faults);  // c1 at JitEnter, m1 inlined
+    JtLazyFrame();
+    g_jtArena[0] = 0, g_jtArena[1] = 0xAAAAAAAA;  // a null this takes EA's call before the inline sample: only c1 at JitEnter
+    JtLazyGo(f1, 2);
+    assert(g_jtEax == 0xEA && g.st.samples == 5 && g.st.viaInline == 1);  // only c1 at JitEnter
+
+    // a value-type this in no frame and no GC block (a C-stack copy): a blob of the value's size; any other word there stays outside
+    static DWORD val[2] = {0x1234, 0x5678};
+    g.s->Clear();
+    const DWORD out0 = g.st.outside;
+    JcRoot((DWORD)(uintptr_t)val, NULL, 4);
+    assert(g.s->n == 1 && !g.cls[0] && g.s->r[0].n == 4 && g.st.outside == out0);
+    JcRoot((DWORD)(uintptr_t)(val + 1), NULL, 0);
+    assert(g.s->n == 1 && g.st.outside == out0 + 1);
+
+    // the file: each sample record names its path (version 2: the word after the slot)
+    JcFlush();
+    g_jcOn = 0;
+    CloseHandle(g.file);
+    static u8 fb[1 << 16];
+    FILE* fp = NULL;
+    assert(!fopen_s(&fp, path, "rb") && fp);
+    const size_t fn = fread(fb, 1, sizeof(fb), fp);
+    fclose(fp);
+    int via[3] = {};
+    for (size_t at = 8; at + 8 <= fn; at += 8 + *(const DWORD*)(fb + at + 4))
+        if (*(const DWORD*)(fb + at) == 4 && *(const DWORD*)(fb + at + 16) < 3) via[*(const DWORD*)(fb + at + 16)]++;
+    assert(*(const DWORD*)(fb + 4) == 2 && via[0] == 3 && via[1] == 1 && via[2] == 1);
+    DeleteFileA(path);
+    VirtualFree(g_jc, 0, MEM_RELEASE);
+    g_jc = NULL;
+    GcBase = gb;
+    g_jitInline = 0, g_jitLazy = lazy0, g_jitLeafOnly = leaf0;
+    C.jitInlined = C.jitInlineNo = 0;
+    g_jitForceJit = (const BYTE*)(uintptr_t)TS3A(0x00E5637D), g_jitProxyClassP = (const void* const*)(uintptr_t)TS3A(0x01220EC0);
+}
 static void TestMonoJitCapture() {
     char nm[256];
     DWORD at = 0;
@@ -97,5 +186,6 @@ static void TestMonoJitCapture() {
     VirtualFree(g_jc, 0, MEM_RELEASE);
     g_jc = NULL;
     g_jcFaultLog = 0;
+    TestMonoJitCaptureVia();
     printf("monojit capture: ok\n");
 }

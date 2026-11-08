@@ -966,9 +966,10 @@ namespace Ts3Fixes
         // seen 785-791, unseen 792-798. Manager queues at each search end: high sum, low sum, samples, samples with both empty
         // (799-802). Seen searches by path + their no-picks: exact 803-804, game (guard skip, drop, autseengame) 805-806. Household
         // searches, pushes, Sim-hours x100 807-809. Worker wait: seen n, ticks 810-811, unseen 812-813. Search length start to end,
-        // ticks: seen 814, unseen 815. autseengame searches 816, pacing credit used us 817.
+        // ticks: seen 814, unseen 815. autseengame searches 816, pacing credit used us 817. Household part of seen (HouseholdScope:
+        // household or scope unknown; still in the seen slots): queue wait n, ticks 867-868, worker wait n, ticks 869-870.
         const int kCQSeen = 785, kCQUnseen = 792, kCQHigh = 799, kCQLow = 800, kCQDepthN = 801, kCQEmpty = 802, kCSeenExact = 803, kCSeenGame = 805,
-            kCHousehold = 807, kCHouseholdHours100 = 809, kCWorkSeen = 810, kCWorkUnseen = 812, kCLenSeen = 814, kCLenUnseen = 815, kCSeenGameRun = 816, kCUnPaceCredit = 817;
+            kCHousehold = 807, kCHouseholdHours100 = 809, kCWorkSeen = 810, kCWorkUnseen = 812, kCLenSeen = 814, kCLenUnseen = 815, kCSeenGameRun = 816, kCUnPaceCredit = 817, kCHhQueue = 867, kCHhWork = 869;
         static readonly Dictionary<object, int> sEnq = new Dictionary<object, int>();  // autonomy -> tick of its AutonomyManager.Add
         static FieldInfo fMgrInstance, fMgrHigh, fMgrLow;
         static AutonomyT sExactAut;  // the autonomy whose last search the exact consumer finished
@@ -976,11 +977,12 @@ namespace Ts3Fixes
         static void WorkerWait(Sim s, int waited)
         {
             int[] k = PatchCounters();
-            int b = SafeUfWhy(s) == 0 ? kCWorkUnseen : kCWorkSeen;
+            int why = SafeUfWhy(s), b = why == 0 ? kCWorkUnseen : kCWorkSeen;
             k[b]++; k[b + 1] += waited;
+            if (UnseenFallbackCore.HouseholdScope(why)) { k[kCHhWork]++; k[kCHhWork + 1] += waited; }
         }
 
-        static void QueueNote(AutonomyT a, bool timed, int f0, bool seen, bool noPick)
+        static void QueueNote(AutonomyT a, bool timed, int f0, bool seen, bool hh, bool noPick)
         {
             int[] k = PatchCounters();
             int now = AutShadowNative.Config(19), start = timed ? f0 : now, enq;
@@ -990,6 +992,7 @@ namespace Ts3Fixes
                 sEnq.Remove(a);
                 int w = Math.Max(0, start - enq), b = seen ? kCQSeen : kCQUnseen;
                 k[b]++; k[b + 1] += w; k[b + 2 + AutLiveCore.QueueBin(w)]++;
+                if (hh) { k[kCHhQueue]++; k[kCHhQueue + 1] += w; }
             }
             if (seen)
             {
@@ -1032,7 +1035,7 @@ namespace Ts3Fixes
             int wc = SafeUfWhy(actor), cls = wc == 0 ? kCG8Unseen : kCG8Seen;
             k[cls]++;
             if (wc == UnseenFallbackCore.kHousehold) { k[kCHousehold]++; if (pushed) k[kCHousehold + 1]++; }
-            QueueNote(a, timed, f0, wc != 0, best == null);
+            QueueNote(a, timed, f0, wc != 0, UnseenFallbackCore.HouseholdScope(wc), best == null);
             if (best == null)
             {
                 k[kCNullPicks]++; k[cls + 2]++;

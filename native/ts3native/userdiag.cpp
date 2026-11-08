@@ -260,6 +260,7 @@ static char g_udMemQ[8][48], g_udMemQEv[8][40];  // what, [MemDiag] event tag ("
 static volatile LONG g_udMemHead, g_udMemTail;  // single producer (sim thread), single consumer (worker)
 static DWORD g_udMemPeriodMs = 10 * 60 * 1000;
 static LONG g_udWorlds;
+static DWORD g_udWorldTick;  // GetTickCount at the last world load (castrim.cpp's inventory check)
 static void UdMemAsk(const char* fmt, LONG n, const char* ev = NULL) {
     char what[48];
     sprintf_s(what, fmt, n);
@@ -635,6 +636,7 @@ static const char* MdWorldEvent(const char* worldLine);  // memdiag.cpp: "travel
 static char g_udTxt[480];  // the ts3fixes text line being received (UdTextMsg below)
 static void UdWorldLoad() {  // sim thread, from the ts3fixes "world:" line
     const LONG n = InterlockedIncrement(&g_udWorlds);
+    g_udWorldTick = GetTickCount();
     Log("diag: world load #%ld, uptime %lu min, ts3native " TS3NATIVE_VERSION ", %s", n, (GetTickCount() - g_udT0) / 60000,
         g_udScanDone ? g_udSum : "mods scan still running");
     UdMemAsk("diag: memory at world load #%ld", n, MdWorldEvent(g_udTxt));
@@ -653,6 +655,7 @@ static void UdWorldLoad() {  // sim thread, from the ts3fixes "world:" line
 // Ops 3-5 memdiag.cpp; op 6 and "played: " lines played.cpp (docs/14 section 8.6); op 7 compaction.cpp (docs/204); op 8 [AutShadow] Unseen.
 // docs/247 §11.1: test-only hitch-cause lines (HitchCause.cs, 120 a minute at most) lost to the shared 400: ufplan: and play: use those up.
 static const LONG kUdHitchLines = 6000;
+static const LONG kUdUfPlanLines = 30000;  // ufplan: disk guard (~3 MB); ts3fixes sends at most 120 a minute (UnseenFallback.cs)
 static bool UdHitchLine(const char* s) {
     return !strncmp(s, "boatreplan:", 11) || !strncmp(s, "owreset:", 8) || !strncmp(s, "alarmtime:", 10) || !strncmp(s, "lotpass:", 8);
 }
@@ -708,6 +711,13 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
                 char job[320];
                 RfAppend(g_udTxt, job, sizeof(job));
                 if (s_rfLines++ < 50000) Log("ts3fixes: %s%s", g_udTxt, job);
+                g_udTxtN = 0;
+                return 1;
+            }
+            if (!strncmp(g_udTxt, "ufplan:", 7)) {  // long plans per arm and scope: own cap (ts3fixes rate-caps them), arm + wall stamp appended
+                static LONG s_ufLines;
+                if (s_ufLines++ < kUdUfPlanLines) Log("ts3fixes: %s, arm %s, at %lu ms", g_udTxt, AbArmTag(), GetTickCount());
+                else if (s_ufLines == kUdUfPlanLines + 1) Log("ts3fixes: ufplan: lines capped at %ld", kUdUfPlanLines);
                 g_udTxtN = 0;
                 return 1;
             }

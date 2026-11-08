@@ -290,6 +290,7 @@ static void DiscDrain(bool force) {
     if (!g_discCount || g_discDraining || GetCurrentThreadId() != g_async.owner) return;
     if (!force && g_async.state == A_RUNNING) return;
     const bool jobRan = g_async.state == A_RUNNING;
+    const DWORD jobH = jobRan ? g_async.handle : 0;  // [HitchAttr] JobNameMs line (docs/247 §12.4)
     void* lock = g_rgLock;
     void* world = lock ? (u8*)lock - 0x918 : NULL;
     g_discDraining = true;
@@ -305,6 +306,7 @@ static void DiscDrain(bool force) {
     const LONG waited = UsSince(t0);
     InterlockedExchangeAdd(&k.discDrainWaitUs, waited);
     HaNote(0x06000000, waited, HA_JOB);
+    if (jobRan) RjnWait(0x06000000, waited, jobH);
     if (jobRan) InterlockedIncrement(&k.discForced);
     const DWORD now = GetTickCount();
     while (g_discCount) {  // records added by an event handler meanwhile go to the tail and are applied too

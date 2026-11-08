@@ -23,5 +23,13 @@
       { "label": "@d", "cls": "MonoHostTest.JitReplayCb", "words": [0, 0, 0, 0] }
     ] },
   { "method": "JitReplayFix.Missing", "cls": "MonoHostTest.JitReplayFix", "args": ["@x"],
-    "objs": [ { "label": "@x", "cls": "No.Such.Type", "words": [1] } ] }
+    "objs": [ { "label": "@x", "cls": "No.Such.Type", "words": [1] } ] },
+  { "method": "JitReplayFix.Find", "cls": "MonoHostTest.JitReplayFix", "args": ["@arr", 9], "expect": 2,
+    "objs": [ { "label": "@arr", "ints": [1, 2, 9] } ] },
+  { "method": "JitReplayPt.Dot", "cls": "MonoHostTest.JitReplayPt", "self": "@p", "args": [], "expect": 34,
+    "objs": [ { "label": "@p", "words": [3, 4] } ] },
+  { "method": "JitReplayBag.TryGet", "cls": "MonoHostTest.JitReplayBag", "self": "@bag", "args": [1, "@slot"], "expect": 8,
+    "objs": [ { "label": "@bag", "cls": "MonoHostTest.JitReplayBag", "words": [1] }, { "label": "@slot", "words": [0] } ] },
+  { "method": "JitReplayBag.TryNode", "cls": "MonoHostTest.JitReplayBag", "self": "@bag", "args": [1, "@slot"], "expect": 9,
+    "objs": [ { "label": "@bag", "cls": "MonoHostTest.JitReplayBag", "words": [1] }, { "label": "@slot", "words": [0] } ] }
 ]

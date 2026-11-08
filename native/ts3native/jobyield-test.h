@@ -6,7 +6,7 @@ static void TestJobYield() {
     static_assert(offsetof(Ts3nCounters, jyMode) == 0x45CC && offsetof(Ts3nCounters, jyBusy) == 0x45D4 &&
                       offsetof(Ts3nCounters, swN) == 0x45D8 && offsetof(Ts3nCounters, swUs) == 0x45F0 &&
                       offsetof(Ts3nCounters, swMaxUs) == 0x4608 && offsetof(Ts3nCounters, swYieldable) == 0x460C &&
-                      offsetof(Ts3nCounters, swLines) == 0x4624 && sizeof(Ts3nCounters) == 6030 * 4,
+                      offsetof(Ts3nCounters, swLines) == 0x4624 && sizeof(Ts3nCounters) == 6035 * 4,
                   "counters v109 layout after v108 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
@@ -18,6 +18,7 @@ static void TestJobYield() {
     g_icSleepMs = 60;
     assert(Start(kH1));
     while (g_async.state != A_RUNNING) Sleep(0);
+    assert(g_async.lock && GetOptionHook(0, 8, kWouldHi, 1) == 1);  // watchdoglockskip: the job holds +0x918 (60 ms job)
     assert(JyAsk() == 0 && k.jyAsks == 0);
     // 2. on: busy while the job runs, only at the task's root interpreter state; the step-aside loop ends with the job
     k.jyMode = 1;
@@ -30,6 +31,7 @@ static void TestJobYield() {
     WaitReady(kH1);
     assert(IcPlanHook(out, kH1) == out && k.swN[SW_COLLECT] == 0);  // READY first: the collect never waits
     assert(JyAsk() == 0);  // no job: not busy
+    assert(GetOptionHook(0, 8, kWouldHi, 1) == 0);  // watchdoglockskip: no job, no skip
 
     // 3. waits by site: a plan of the running route before READY waits at collect; CANCEL while it runs waits at drop
     assert(Start(kH1));

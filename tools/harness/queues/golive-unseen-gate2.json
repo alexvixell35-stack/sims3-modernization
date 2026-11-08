@@ -1,10 +1,10 @@
 {
-  "note": "golive-unseen-gate2 (docs/222 §11, Rodney 2026-11-06 R1 + R3): default-ON gate for unseen-direct go-live. Old cadence / pushes / GoHome bars do not gate. Runs at pace 78. Read V6 (gate2-report.ts) after the 4 *-gu2-t-ab* jobs: V6 FAIL does not stop the queue, so stop it by hand, the later jobs would be at a pace about to change, and run golive-unseen-gate2-pace.json. Build first: ts3native.asi.g2pair1107 from master; ts3fixes.package.g2pair1107 (kAutLive True by default since O6) at the chosen pace; ts3fixes.package.g2pair1107-rel as the release builds it; ts3agent with focus_watch. Read: node tools/harness/gate2-report.ts golive-unseen-gate2-<date>. Trimmed 2026-11-06 (Rodney, §11.9): 31 to 27 jobs, the 4 *-gu2-fastspeed-ab and *-gu2-speed1-ab jobs are gone (read only by naming them, no bar, R1-R4 log rows); the *-gu2-x-* jobs carry the X4 bench (--ab fwnull --fixedwork 8), so run x4-smoke.json first. Audit=50 cost: no arm, gate2-report.ts reads ts3native cutAuditUs per arm (bar 0.5 ms/s, my judgement).",
-  "stopQueueOnFail": true,
+  "note": "golive-unseen-gate2 (docs/222 §11, Rodney 2026-11-06 R1 + R3): default-ON gate for unseen-direct go-live. Old cadence / pushes / GoHome bars do not gate. Runs at pace 78. Read V6 (gate2-report.ts) after the 4 *-gu2-t-ab* jobs: V6 FAIL does not stop the queue, so stop it by hand, the later jobs would be at a pace about to change, and run golive-unseen-gate2-pace.json. Build first: ts3native.asi.g2pair1107b from master; ts3fixes.package.g2pair1107b (kAutLive True by default since O6) at the chosen pace; ts3fixes.package.g2pair1107b-rel as the release builds it; ts3agent with focus_watch. Read: node tools/harness/gate2-report.ts golive-unseen-gate2-<date>. Trimmed 2026-11-06 (Rodney, §11.9): 31 to 27 jobs, the 4 *-gu2-fastspeed-ab and *-gu2-speed1-ab jobs are gone (read only by naming them, no bar, R1-R4 log rows); the *-gu2-x-* jobs carry the X4 bench (--ab fwnull --fixedwork 8), so run x4-smoke.json first. Audit=50 cost: no arm, gate2-report.ts reads ts3native cutAuditUs per arm (bar 0.5 ms/s, my judgement). | 11-08 night rules: stopQueueOnFail false (a non-crash FAIL goes on; a watcher stops the queue on a crash or an own-code hang); ip-gu2-focus last at 30 min. | 11-08 REST AT CREDIT: repinned to g2pair1108b (-gu100 package, runtime autunseenpacecredit,autseengame; the -rel arms stay on the release package); the jobs that PASSED on 11-07 (t-ab x4) and the focus/arrive jobs handled elsewhere (bp-gu2-focus PASS, arrive in gu2-arrive-rerun.json) are removed: 20 jobs left (x a1/b1/b2/a2 bp, kept so all 8 cross jobs run on one pair at credit, x ip x4, out x4, crowd, save x6, ip-gu2-focus on aut-unseen-focus-loop). Run gu2-arrive-rerun and the smoke first (queue.ts plans the smoke, the pair changed).",
+  "stopQueueOnFail": false,
   "smoke": {
     "id": "bp-gu2-smoke",
     "note": "Smoke (5 min BP, --ab autunseen slice 1): arm split, switch read-back, go-live log lines.",
-    "asi": "game-copy/ts3native.asi.g2pair1107",
+    "asi": "game-copy/ts3native.asi.g2pair1108b",
     "releaseDefaults": true,
     "minCounters": 159,
     "ini": {
@@ -98,15 +98,15 @@
     "gameArgs": [
       "-disablestoryprogression"
     ],
-    "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-    "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+    "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+    "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
     "save": "Baseline-BP-Spring",
     "noiseCheck": false,
     "run": {
       "profile": {
         "seed": 12345,
         "noSamplers": true,
-        "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh",
+        "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
         "fixesOff": "autunseencmp",
         "fixesReport": "g8_,autunseen_,gohome_",
         "ab": "autunseen",
@@ -118,938 +118,16 @@
   },
   "jobs": [
     {
-      "id": "bp-gu2-focus",
-      "note": "docs/222 §11.2 V1-V4, hard: focused Sim plausible, needs not starving, not stuck, exact within 3 s, no pop. FAIL = thrown focus_result.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
-      "releaseDefaults": true,
-      "minCounters": 159,
-      "ini": {
-        "HitchAttr.Enabled": 1,
-        "RouteSnap.Enabled": 1,
-        "RouteSnap.Count": 1,
-        "RouteSnap.AuditEvery": 0,
-        "MonoThread.Enabled": 1,
-        "MonoThread.Mode": 1,
-        "MonoThread.GcLock": 1,
-        "MonoThread.FrameTls": 1,
-        "MonoThread.ArenaFix": 1,
-        "MonoThread.N2mPrivate": 1,
-        "MonoThread.LazyGate": 1,
-        "MonoThread.LazyEarly": 1,
-        "AutShadow.Enabled": 1,
-        "AutShadow.Mode": 3,
-        "AutShadow.Sample": 1,
-        "AutShadow.Audit": 50,
-        "AutShadow.DumpOnMismatch": 1,
-        "AutShadow.ColdIc": 1,
-        "AutShadow.CutLean": 2,
-        "AutShadow.TierMs": 1500,
-        "AutShadow.ListAudit": 1,
-        "AutShadow.TierClassMs": 1000,
-        "AutShadow.RowHot": 200,
-        "AutShadow.RunSkip": 1,
-        "AutShadow.FreshEvery": 0,
-        "AutShadow.KeepPartial": 1,
-        "AutShadow.TopN": 10,
-        "AutShadow.Bands": 3,
-        "AutShadow.Margin": 0,
-        "AutShadow.MaxWait": 3,
-        "AutShadow.VerifyEvery": 50,
-        "AutShadow.Dry": 0,
-        "AutShadow.Satb": 2,
-        "AutShadow.WindowWaitUs": 0,
-        "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
-      },
-      "earlyGates": [
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_faults",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_mismatch",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "autshadow.req",
-          "op": ">",
-          "value": 0,
-          "why": "worker never posted (no [AutShadow] request)"
-        },
-        {
-          "afterSec": 200,
-          "counter": "fixes:autunseen_posted",
-          "op": ">",
-          "value": 0,
-          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autunseen_exc",
-          "op": "==",
-          "value": 0,
-          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
-        },
-        {
-          "afterSec": 240,
-          "counter": "fixes:autunseen_rh_game",
-          "op": ">",
-          "value": 0,
-          "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
-        }
-      ],
-      "logRequire": {
-        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
-        "OK   mono thread P4": 1,
-        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
-        "autshadow satb: Satb=2 -> mode 2 ": 1
-      },
-      "gameArgs": [
-        "-disablestoryprogression"
-      ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
-      "save": "Baseline-BP-Spring",
-      "noiseCheck": false,
-      "run": {
-        "profile": {
-          "seed": 12345,
-          "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
-          "fixesOff": "autunseencmp",
-          "fixesReport": "g8_,autunseen_,gohome_",
-          "minutes": 12,
-          "repro": "aut-unseen-focus"
-        }
-      },
-      "timeoutMin": 32
-    },
-    {
-      "id": "ip-gu2-focus",
-      "note": "docs/222 §11.2 V1-V4, hard: focused Sim plausible, needs not starving, not stuck, exact within 3 s, no pop. FAIL = thrown focus_result.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
-      "releaseDefaults": true,
-      "minCounters": 159,
-      "ini": {
-        "HitchAttr.Enabled": 1,
-        "RouteSnap.Enabled": 1,
-        "RouteSnap.Count": 1,
-        "RouteSnap.AuditEvery": 0,
-        "MonoThread.Enabled": 1,
-        "MonoThread.Mode": 1,
-        "MonoThread.GcLock": 1,
-        "MonoThread.FrameTls": 1,
-        "MonoThread.ArenaFix": 1,
-        "MonoThread.N2mPrivate": 1,
-        "MonoThread.LazyGate": 1,
-        "MonoThread.LazyEarly": 1,
-        "AutShadow.Enabled": 1,
-        "AutShadow.Mode": 3,
-        "AutShadow.Sample": 1,
-        "AutShadow.Audit": 50,
-        "AutShadow.DumpOnMismatch": 1,
-        "AutShadow.ColdIc": 1,
-        "AutShadow.CutLean": 2,
-        "AutShadow.TierMs": 1500,
-        "AutShadow.ListAudit": 1,
-        "AutShadow.TierClassMs": 1000,
-        "AutShadow.RowHot": 200,
-        "AutShadow.RunSkip": 1,
-        "AutShadow.FreshEvery": 0,
-        "AutShadow.KeepPartial": 1,
-        "AutShadow.TopN": 10,
-        "AutShadow.Bands": 3,
-        "AutShadow.Margin": 0,
-        "AutShadow.MaxWait": 3,
-        "AutShadow.VerifyEvery": 50,
-        "AutShadow.Dry": 0,
-        "AutShadow.Satb": 2,
-        "AutShadow.WindowWaitUs": 0,
-        "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
-      },
-      "earlyGates": [
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_faults",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_mismatch",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "autshadow.req",
-          "op": ">",
-          "value": 0,
-          "why": "worker never posted (no [AutShadow] request)"
-        },
-        {
-          "afterSec": 200,
-          "counter": "fixes:autunseen_posted",
-          "op": ">",
-          "value": 0,
-          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autunseen_exc",
-          "op": "==",
-          "value": 0,
-          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
-        },
-        {
-          "afterSec": 240,
-          "counter": "fixes:autunseen_rh_game",
-          "op": ">",
-          "value": 0,
-          "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
-        }
-      ],
-      "logRequire": {
-        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
-        "OK   mono thread P4": 1,
-        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
-        "autshadow satb: Satb=2 -> mode 2 ": 1
-      },
-      "gameArgs": [
-        "-disablestoryprogression"
-      ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
-      "save": "Baseline-IP-Spring",
-      "noiseCheck": false,
-      "run": {
-        "profile": {
-          "seed": 12345,
-          "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
-          "fixesOff": "autunseencmp",
-          "fixesReport": "g8_,autunseen_,gohome_",
-          "minutes": 12,
-          "repro": "aut-unseen-focus"
-        }
-      },
-      "timeoutMin": 32
-    },
-    {
-      "id": "bp-gu2-arrive",
-      "note": "docs/222 §11.2 V5, hard: Sims arriving on the active lot in view. STRESS labelled.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
-      "releaseDefaults": true,
-      "minCounters": 159,
-      "ini": {
-        "HitchAttr.Enabled": 1,
-        "RouteSnap.Enabled": 1,
-        "RouteSnap.Count": 1,
-        "RouteSnap.AuditEvery": 0,
-        "MonoThread.Enabled": 1,
-        "MonoThread.Mode": 1,
-        "MonoThread.GcLock": 1,
-        "MonoThread.FrameTls": 1,
-        "MonoThread.ArenaFix": 1,
-        "MonoThread.N2mPrivate": 1,
-        "MonoThread.LazyGate": 1,
-        "MonoThread.LazyEarly": 1,
-        "AutShadow.Enabled": 1,
-        "AutShadow.Mode": 3,
-        "AutShadow.Sample": 1,
-        "AutShadow.Audit": 50,
-        "AutShadow.DumpOnMismatch": 1,
-        "AutShadow.ColdIc": 1,
-        "AutShadow.CutLean": 2,
-        "AutShadow.TierMs": 1500,
-        "AutShadow.ListAudit": 1,
-        "AutShadow.TierClassMs": 1000,
-        "AutShadow.RowHot": 200,
-        "AutShadow.RunSkip": 1,
-        "AutShadow.FreshEvery": 0,
-        "AutShadow.KeepPartial": 1,
-        "AutShadow.TopN": 10,
-        "AutShadow.Bands": 3,
-        "AutShadow.Margin": 0,
-        "AutShadow.MaxWait": 3,
-        "AutShadow.VerifyEvery": 50,
-        "AutShadow.Dry": 0,
-        "AutShadow.Satb": 2,
-        "AutShadow.WindowWaitUs": 0,
-        "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
-      },
-      "earlyGates": [
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_faults",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_mismatch",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "autshadow.req",
-          "op": ">",
-          "value": 0,
-          "why": "worker never posted (no [AutShadow] request)"
-        },
-        {
-          "afterSec": 200,
-          "counter": "fixes:autunseen_posted",
-          "op": ">",
-          "value": 0,
-          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autunseen_exc",
-          "op": "==",
-          "value": 0,
-          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
-        },
-        {
-          "afterSec": 240,
-          "counter": "fixes:autunseen_rh_game",
-          "op": ">",
-          "value": 0,
-          "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
-        }
-      ],
-      "logRequire": {
-        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
-        "OK   mono thread P4": 1,
-        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
-        "autshadow satb: Satb=2 -> mode 2 ": 1
-      },
-      "gameArgs": [
-        "-disablestoryprogression"
-      ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
-      "save": "Baseline-BP-Spring",
-      "noiseCheck": false,
-      "run": {
-        "profile": {
-          "seed": 12345,
-          "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
-          "fixesOff": "autunseencmp",
-          "fixesReport": "g8_,autunseen_,gohome_",
-          "minutes": 12,
-          "repro": "aut-unseen-arrive"
-        }
-      },
-      "timeoutMin": 32
-    },
-    {
-      "id": "ip-gu2-arrive",
-      "note": "docs/222 §11.2 V5, hard: Sims arriving on the active lot in view. STRESS labelled.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
-      "releaseDefaults": true,
-      "minCounters": 159,
-      "ini": {
-        "HitchAttr.Enabled": 1,
-        "RouteSnap.Enabled": 1,
-        "RouteSnap.Count": 1,
-        "RouteSnap.AuditEvery": 0,
-        "MonoThread.Enabled": 1,
-        "MonoThread.Mode": 1,
-        "MonoThread.GcLock": 1,
-        "MonoThread.FrameTls": 1,
-        "MonoThread.ArenaFix": 1,
-        "MonoThread.N2mPrivate": 1,
-        "MonoThread.LazyGate": 1,
-        "MonoThread.LazyEarly": 1,
-        "AutShadow.Enabled": 1,
-        "AutShadow.Mode": 3,
-        "AutShadow.Sample": 1,
-        "AutShadow.Audit": 50,
-        "AutShadow.DumpOnMismatch": 1,
-        "AutShadow.ColdIc": 1,
-        "AutShadow.CutLean": 2,
-        "AutShadow.TierMs": 1500,
-        "AutShadow.ListAudit": 1,
-        "AutShadow.TierClassMs": 1000,
-        "AutShadow.RowHot": 200,
-        "AutShadow.RunSkip": 1,
-        "AutShadow.FreshEvery": 0,
-        "AutShadow.KeepPartial": 1,
-        "AutShadow.TopN": 10,
-        "AutShadow.Bands": 3,
-        "AutShadow.Margin": 0,
-        "AutShadow.MaxWait": 3,
-        "AutShadow.VerifyEvery": 50,
-        "AutShadow.Dry": 0,
-        "AutShadow.Satb": 2,
-        "AutShadow.WindowWaitUs": 0,
-        "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
-      },
-      "earlyGates": [
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_faults",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_mismatch",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "autshadow.req",
-          "op": ">",
-          "value": 0,
-          "why": "worker never posted (no [AutShadow] request)"
-        },
-        {
-          "afterSec": 200,
-          "counter": "fixes:autunseen_posted",
-          "op": ">",
-          "value": 0,
-          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autunseen_exc",
-          "op": "==",
-          "value": 0,
-          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
-        },
-        {
-          "afterSec": 240,
-          "counter": "fixes:autunseen_rh_game",
-          "op": ">",
-          "value": 0,
-          "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
-        }
-      ],
-      "logRequire": {
-        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
-        "OK   mono thread P4": 1,
-        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
-        "autshadow satb: Satb=2 -> mode 2 ": 1
-      },
-      "gameArgs": [
-        "-disablestoryprogression"
-      ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
-      "save": "Baseline-IP-Spring",
-      "noiseCheck": false,
-      "run": {
-        "profile": {
-          "seed": 12345,
-          "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
-          "fixesOff": "autunseencmp",
-          "fixesReport": "g8_,autunseen_,gohome_",
-          "minutes": 12,
-          "repro": "aut-unseen-arrive"
-        }
-      },
-      "timeoutMin": 32
-    },
-    {
-      "id": "bp-gu2-t-ab",
-      "note": "docs/222 §11.5 bar G1, G2: 18 min ABBA. Read gate2-report.ts. Machine quiet, IDE closed. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1-R6 are bars for default ON, with the hitch-ab rule.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
-      "releaseDefaults": true,
-      "minCounters": 159,
-      "ini": {
-        "HitchAttr.Enabled": 1,
-        "RouteSnap.Enabled": 1,
-        "RouteSnap.Count": 1,
-        "RouteSnap.AuditEvery": 0,
-        "MonoThread.Enabled": 1,
-        "MonoThread.Mode": 1,
-        "MonoThread.GcLock": 1,
-        "MonoThread.FrameTls": 1,
-        "MonoThread.ArenaFix": 1,
-        "MonoThread.N2mPrivate": 1,
-        "MonoThread.LazyGate": 1,
-        "MonoThread.LazyEarly": 1,
-        "AutShadow.Enabled": 1,
-        "AutShadow.Mode": 3,
-        "AutShadow.Sample": 1,
-        "AutShadow.Audit": 50,
-        "AutShadow.DumpOnMismatch": 1,
-        "AutShadow.ColdIc": 1,
-        "AutShadow.CutLean": 2,
-        "AutShadow.TierMs": 1500,
-        "AutShadow.ListAudit": 1,
-        "AutShadow.TierClassMs": 1000,
-        "AutShadow.RowHot": 200,
-        "AutShadow.RunSkip": 1,
-        "AutShadow.FreshEvery": 0,
-        "AutShadow.KeepPartial": 1,
-        "AutShadow.TopN": 10,
-        "AutShadow.Bands": 3,
-        "AutShadow.Margin": 0,
-        "AutShadow.MaxWait": 3,
-        "AutShadow.VerifyEvery": 50,
-        "AutShadow.Dry": 0,
-        "AutShadow.Satb": 2,
-        "AutShadow.WindowWaitUs": 0,
-        "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
-      },
-      "earlyGates": [
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_faults",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_mismatch",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "autshadow.req",
-          "op": ">",
-          "value": 0,
-          "why": "worker never posted (no [AutShadow] request)"
-        },
-        {
-          "afterSec": 200,
-          "counter": "fixes:autunseen_posted",
-          "op": ">",
-          "value": 0,
-          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autunseen_exc",
-          "op": "==",
-          "value": 0,
-          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
-        },
-        {
-          "afterSec": 240,
-          "counter": "fixes:autunseen_rh_game",
-          "op": ">",
-          "value": 0,
-          "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
-        }
-      ],
-      "logRequire": {
-        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
-        "OK   mono thread P4": 1,
-        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
-        "autshadow satb: Satb=2 -> mode 2 ": 1
-      },
-      "gameArgs": [
-        "-disablestoryprogression"
-      ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
-      "save": "Baseline-BP-Spring",
-      "run": {
-        "profile": {
-          "seed": 12345,
-          "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh",
-          "fixesOff": "autunseencmp",
-          "fixesReport": "g8_,autunseen_,gohome_",
-          "ab": "autunseen",
-          "minutes": 18,
-          "slice": 2
-        }
-      },
-      "timeoutMin": 38,
-      "routingFailFast": {
-        "ms": 300,
-        "scope": "unseen"
-      }
-    },
-    {
-      "id": "bp-gu2-t-ab-onfirst",
-      "note": "docs/222 §11.5 bar G1, G2: 18 min ABBA. Read gate2-report.ts. Machine quiet, IDE closed. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1-R6 are bars for default ON, with the hitch-ab rule.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
-      "releaseDefaults": true,
-      "minCounters": 159,
-      "ini": {
-        "HitchAttr.Enabled": 1,
-        "RouteSnap.Enabled": 1,
-        "RouteSnap.Count": 1,
-        "RouteSnap.AuditEvery": 0,
-        "MonoThread.Enabled": 1,
-        "MonoThread.Mode": 1,
-        "MonoThread.GcLock": 1,
-        "MonoThread.FrameTls": 1,
-        "MonoThread.ArenaFix": 1,
-        "MonoThread.N2mPrivate": 1,
-        "MonoThread.LazyGate": 1,
-        "MonoThread.LazyEarly": 1,
-        "AutShadow.Enabled": 1,
-        "AutShadow.Mode": 3,
-        "AutShadow.Sample": 1,
-        "AutShadow.Audit": 50,
-        "AutShadow.DumpOnMismatch": 1,
-        "AutShadow.ColdIc": 1,
-        "AutShadow.CutLean": 2,
-        "AutShadow.TierMs": 1500,
-        "AutShadow.ListAudit": 1,
-        "AutShadow.TierClassMs": 1000,
-        "AutShadow.RowHot": 200,
-        "AutShadow.RunSkip": 1,
-        "AutShadow.FreshEvery": 0,
-        "AutShadow.KeepPartial": 1,
-        "AutShadow.TopN": 10,
-        "AutShadow.Bands": 3,
-        "AutShadow.Margin": 0,
-        "AutShadow.MaxWait": 3,
-        "AutShadow.VerifyEvery": 50,
-        "AutShadow.Dry": 0,
-        "AutShadow.Satb": 2,
-        "AutShadow.WindowWaitUs": 0,
-        "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
-      },
-      "earlyGates": [
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_faults",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_mismatch",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "autshadow.req",
-          "op": ">",
-          "value": 0,
-          "why": "worker never posted (no [AutShadow] request)"
-        },
-        {
-          "afterSec": 200,
-          "counter": "fixes:autunseen_posted",
-          "op": ">",
-          "value": 0,
-          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autunseen_exc",
-          "op": "==",
-          "value": 0,
-          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
-        },
-        {
-          "afterSec": 240,
-          "counter": "fixes:autunseen_rh_game",
-          "op": ">",
-          "value": 0,
-          "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
-        }
-      ],
-      "logRequire": {
-        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
-        "OK   mono thread P4": 1,
-        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
-        "autshadow satb: Satb=2 -> mode 2 ": 1
-      },
-      "gameArgs": [
-        "-disablestoryprogression"
-      ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
-      "save": "Baseline-BP-Spring",
-      "run": {
-        "profile": {
-          "seed": 12345,
-          "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh",
-          "fixesOff": "autunseencmp",
-          "fixesReport": "g8_,autunseen_,gohome_",
-          "ab": "autunseen",
-          "minutes": 18,
-          "slice": 2,
-          "abOnFirst": true
-        }
-      },
-      "timeoutMin": 38,
-      "routingFailFast": {
-        "ms": 300,
-        "scope": "unseen"
-      }
-    },
-    {
-      "id": "ip-gu2-t-ab",
-      "note": "docs/222 §11.5 bar G1, G2: 18 min ABBA. Read gate2-report.ts. Machine quiet, IDE closed.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
-      "releaseDefaults": true,
-      "minCounters": 159,
-      "ini": {
-        "HitchAttr.Enabled": 1,
-        "RouteSnap.Enabled": 1,
-        "RouteSnap.Count": 1,
-        "RouteSnap.AuditEvery": 0,
-        "MonoThread.Enabled": 1,
-        "MonoThread.Mode": 1,
-        "MonoThread.GcLock": 1,
-        "MonoThread.FrameTls": 1,
-        "MonoThread.ArenaFix": 1,
-        "MonoThread.N2mPrivate": 1,
-        "MonoThread.LazyGate": 1,
-        "MonoThread.LazyEarly": 1,
-        "AutShadow.Enabled": 1,
-        "AutShadow.Mode": 3,
-        "AutShadow.Sample": 1,
-        "AutShadow.Audit": 50,
-        "AutShadow.DumpOnMismatch": 1,
-        "AutShadow.ColdIc": 1,
-        "AutShadow.CutLean": 2,
-        "AutShadow.TierMs": 1500,
-        "AutShadow.ListAudit": 1,
-        "AutShadow.TierClassMs": 1000,
-        "AutShadow.RowHot": 200,
-        "AutShadow.RunSkip": 1,
-        "AutShadow.FreshEvery": 0,
-        "AutShadow.KeepPartial": 1,
-        "AutShadow.TopN": 10,
-        "AutShadow.Bands": 3,
-        "AutShadow.Margin": 0,
-        "AutShadow.MaxWait": 3,
-        "AutShadow.VerifyEvery": 50,
-        "AutShadow.Dry": 0,
-        "AutShadow.Satb": 2,
-        "AutShadow.WindowWaitUs": 0,
-        "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
-      },
-      "earlyGates": [
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_faults",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_mismatch",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "autshadow.req",
-          "op": ">",
-          "value": 0,
-          "why": "worker never posted (no [AutShadow] request)"
-        },
-        {
-          "afterSec": 200,
-          "counter": "fixes:autunseen_posted",
-          "op": ">",
-          "value": 0,
-          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autunseen_exc",
-          "op": "==",
-          "value": 0,
-          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
-        },
-        {
-          "afterSec": 240,
-          "counter": "fixes:autunseen_rh_game",
-          "op": ">",
-          "value": 0,
-          "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
-        }
-      ],
-      "logRequire": {
-        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
-        "OK   mono thread P4": 1,
-        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
-        "autshadow satb: Satb=2 -> mode 2 ": 1
-      },
-      "gameArgs": [
-        "-disablestoryprogression"
-      ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
-      "save": "Baseline-IP-Spring",
-      "run": {
-        "profile": {
-          "seed": 12345,
-          "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh",
-          "fixesOff": "autunseencmp",
-          "fixesReport": "g8_,autunseen_,gohome_",
-          "ab": "autunseen",
-          "minutes": 18,
-          "slice": 2
-        }
-      },
-      "timeoutMin": 38
-    },
-    {
-      "id": "ip-gu2-t-ab-onfirst",
-      "note": "docs/222 §11.5 bar G1, G2: 18 min ABBA. Read gate2-report.ts. Machine quiet, IDE closed.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
-      "releaseDefaults": true,
-      "minCounters": 159,
-      "ini": {
-        "HitchAttr.Enabled": 1,
-        "RouteSnap.Enabled": 1,
-        "RouteSnap.Count": 1,
-        "RouteSnap.AuditEvery": 0,
-        "MonoThread.Enabled": 1,
-        "MonoThread.Mode": 1,
-        "MonoThread.GcLock": 1,
-        "MonoThread.FrameTls": 1,
-        "MonoThread.ArenaFix": 1,
-        "MonoThread.N2mPrivate": 1,
-        "MonoThread.LazyGate": 1,
-        "MonoThread.LazyEarly": 1,
-        "AutShadow.Enabled": 1,
-        "AutShadow.Mode": 3,
-        "AutShadow.Sample": 1,
-        "AutShadow.Audit": 50,
-        "AutShadow.DumpOnMismatch": 1,
-        "AutShadow.ColdIc": 1,
-        "AutShadow.CutLean": 2,
-        "AutShadow.TierMs": 1500,
-        "AutShadow.ListAudit": 1,
-        "AutShadow.TierClassMs": 1000,
-        "AutShadow.RowHot": 200,
-        "AutShadow.RunSkip": 1,
-        "AutShadow.FreshEvery": 0,
-        "AutShadow.KeepPartial": 1,
-        "AutShadow.TopN": 10,
-        "AutShadow.Bands": 3,
-        "AutShadow.Margin": 0,
-        "AutShadow.MaxWait": 3,
-        "AutShadow.VerifyEvery": 50,
-        "AutShadow.Dry": 0,
-        "AutShadow.Satb": 2,
-        "AutShadow.WindowWaitUs": 0,
-        "AutShadow.PreLearn": 0,
-        "AutShadow.TierReqLots": 1
-      },
-      "earlyGates": [
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_faults",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autshadow_gm6_mismatch",
-          "op": "==",
-          "value": 0,
-          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
-        },
-        {
-          "afterSec": 150,
-          "counter": "autshadow.req",
-          "op": ">",
-          "value": 0,
-          "why": "worker never posted (no [AutShadow] request)"
-        },
-        {
-          "afterSec": 200,
-          "counter": "fixes:autunseen_posted",
-          "op": ">",
-          "value": 0,
-          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
-        },
-        {
-          "afterSec": 150,
-          "counter": "fixes:autunseen_exc",
-          "op": "==",
-          "value": 0,
-          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
-        },
-        {
-          "afterSec": 240,
-          "counter": "fixes:autunseen_rh_game",
-          "op": ">",
-          "value": 0,
-          "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
-        }
-      ],
-      "logRequire": {
-        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
-        "OK   mono thread P4": 1,
-        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
-        "autshadow satb: Satb=2 -> mode 2 ": 1
-      },
-      "gameArgs": [
-        "-disablestoryprogression"
-      ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
-      "save": "Baseline-IP-Spring",
-      "run": {
-        "profile": {
-          "seed": 12345,
-          "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh",
-          "fixesOff": "autunseencmp",
-          "fixesReport": "g8_,autunseen_,gohome_",
-          "ab": "autunseen",
-          "minutes": 18,
-          "slice": 2,
-          "abOnFirst": true
-        }
-      },
-      "timeoutMin": 38
-    },
-    {
       "id": "bp-gu2-x-a1-rel",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, release state (no kAutLive hook, no worker). In-load --ab cannot see what the stack costs just by being installed (audit §1.3).",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107-rel",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-rel",
       "save": "Baseline-BP-Spring",
       "run": {
         "profile": {
@@ -1066,7 +144,7 @@
     {
       "id": "bp-gu2-x-b1-stack",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, the full default-ON stack.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1160,14 +238,14 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
       "save": "Baseline-BP-Spring",
       "run": {
         "profile": {
           "seed": 12345,
           "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
           "fixesOff": "autunseencmp",
           "fixesReport": "g8_,autunseen_,gohome_",
           "minutes": 10,
@@ -1181,7 +259,7 @@
     {
       "id": "bp-gu2-x-b2-stack",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, the full default-ON stack.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1275,14 +353,14 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
       "save": "Baseline-BP-Spring",
       "run": {
         "profile": {
           "seed": 12345,
           "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
           "fixesOff": "autunseencmp",
           "fixesReport": "g8_,autunseen_,gohome_",
           "minutes": 10,
@@ -1296,14 +374,14 @@
     {
       "id": "bp-gu2-x-a2-rel",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, release state (no kAutLive hook, no worker). In-load --ab cannot see what the stack costs just by being installed (audit §1.3).",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107-rel",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-rel",
       "save": "Baseline-BP-Spring",
       "run": {
         "profile": {
@@ -1320,14 +398,14 @@
     {
       "id": "ip-gu2-x-a1-rel",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, release state (no kAutLive hook, no worker). In-load --ab cannot see what the stack costs just by being installed (audit §1.3).",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107-rel",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-rel",
       "save": "Baseline-IP-Spring",
       "run": {
         "profile": {
@@ -1344,7 +422,7 @@
     {
       "id": "ip-gu2-x-b1-stack",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, the full default-ON stack.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1438,14 +516,14 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
       "save": "Baseline-IP-Spring",
       "run": {
         "profile": {
           "seed": 12345,
           "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
           "fixesOff": "autunseencmp",
           "fixesReport": "g8_,autunseen_,gohome_",
           "minutes": 10,
@@ -1459,7 +537,7 @@
     {
       "id": "ip-gu2-x-b2-stack",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, the full default-ON stack.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1553,14 +631,14 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
       "save": "Baseline-IP-Spring",
       "run": {
         "profile": {
           "seed": 12345,
           "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
           "fixesOff": "autunseencmp",
           "fixesReport": "g8_,autunseen_,gohome_",
           "minutes": 10,
@@ -1574,14 +652,14 @@
     {
       "id": "ip-gu2-x-a2-rel",
       "note": "docs/222 §11.5 bar G3: cross-run ABBA, release state (no kAutLive hook, no worker). In-load --ab cannot see what the stack costs just by being installed (audit §1.3).",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107-rel",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-rel",
       "save": "Baseline-IP-Spring",
       "run": {
         "profile": {
@@ -1598,7 +676,7 @@
     {
       "id": "bp-gu2-out-off",
       "note": "docs/222 §11.3: 30 min whole-arm run (~14 sim days), same seed. Long-run outcomes a player can notice, read by gate2-report.ts. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1, R2, R4 whole-run, same seed (vs -out-on).",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1671,15 +749,15 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
         "profile": {
           "seed": 12345,
           "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh",
+          "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
           "fixesOff": "autunseencmp,autunseen",
           "fixesReport": "g8_,autunseen_,gohome_",
           "minutes": 30
@@ -1694,7 +772,7 @@
     {
       "id": "bp-gu2-out-on",
       "note": "docs/222 §11.3: 30 min whole-arm run (~14 sim days), same seed. Long-run outcomes a player can notice, read by gate2-report.ts. Routing bars R1-R6 (docs/246 §6, gate2-report.ts, thresholds are judgement): R1, R2, R4 whole-run, same seed (vs -out-off).",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1788,15 +866,15 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
         "profile": {
           "seed": 12345,
           "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
           "fixesOff": "autunseencmp",
           "fixesReport": "g8_,autunseen_,gohome_",
           "minutes": 30
@@ -1811,7 +889,7 @@
     {
       "id": "ip-gu2-out-off",
       "note": "docs/222 §11.3: 30 min whole-arm run (~14 sim days), same seed. Long-run outcomes a player can notice, read by gate2-report.ts.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1884,15 +962,15 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
       "save": "Baseline-IP-Spring",
       "noiseCheck": false,
       "run": {
         "profile": {
           "seed": 12345,
           "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh",
+          "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
           "fixesOff": "autunseencmp,autunseen",
           "fixesReport": "g8_,autunseen_,gohome_",
           "minutes": 30
@@ -1903,7 +981,7 @@
     {
       "id": "ip-gu2-out-on",
       "note": "docs/222 §11.3: 30 min whole-arm run (~14 sim days), same seed. Long-run outcomes a player can notice, read by gate2-report.ts.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -1997,15 +1075,15 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
       "save": "Baseline-IP-Spring",
       "noiseCheck": false,
       "run": {
         "profile": {
           "seed": 12345,
           "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
           "fixesOff": "autunseencmp",
           "fixesReport": "g8_,autunseen_,gohome_",
           "minutes": 30
@@ -2016,7 +1094,7 @@
     {
       "id": "bp-gu2-crowd",
       "note": "docs/222 §11.2 V6 (offload-goal: crowd in view): visible crowd unchanged, 0 crash, exception, stuck. STRESS labelled.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -2110,15 +1188,15 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
         "profile": {
           "seed": 12345,
           "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
           "fixesOff": "autunseencmp",
           "fixesReport": "g8_,autunseen_,gohome_",
           "minutes": 20,
@@ -2130,7 +1208,7 @@
     {
       "id": "sv-gu2-save-1",
       "note": "docs/222 §11.1 hard: save correctness, G9b with autunseen acting (audit O5: once, last). Save completes, reloaded save reaches live mode, 0 crash in 6 runs.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -2224,15 +1302,15 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
       "save": "Baseline-SV-Spring",
       "noiseCheck": false,
       "run": {
         "profile": {
           "seed": 12345,
           "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
           "fixesOff": "autunseencmp",
           "fixesReport": "g8_,autunseen_,gohome_",
           "minutes": 14,
@@ -2244,7 +1322,7 @@
     {
       "id": "sv-gu2-save-2",
       "note": "docs/222 §11.1 hard: save correctness, G9b with autunseen acting (audit O5: once, last). Save completes, reloaded save reaches live mode, 0 crash in 6 runs.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -2338,15 +1416,15 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
       "save": "Baseline-SV-Spring",
       "noiseCheck": false,
       "run": {
         "profile": {
           "seed": 12345,
           "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
           "fixesOff": "autunseencmp",
           "fixesReport": "g8_,autunseen_,gohome_",
           "minutes": 14,
@@ -2358,7 +1436,7 @@
     {
       "id": "bp-gu2-save-1",
       "note": "docs/222 §11.1 hard: save correctness, G9b with autunseen acting (audit O5: once, last). Save completes, reloaded save reaches live mode, 0 crash in 6 runs.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -2452,15 +1530,15 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
         "profile": {
           "seed": 12345,
           "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
           "fixesOff": "autunseencmp",
           "fixesReport": "g8_,autunseen_,gohome_",
           "minutes": 14,
@@ -2472,7 +1550,7 @@
     {
       "id": "bp-gu2-save-2",
       "note": "docs/222 §11.1 hard: save correctness, G9b with autunseen acting (audit O5: once, last). Save completes, reloaded save reaches live mode, 0 crash in 6 runs.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -2566,15 +1644,15 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
       "save": "Baseline-BP-Spring",
       "noiseCheck": false,
       "run": {
         "profile": {
           "seed": 12345,
           "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
           "fixesOff": "autunseencmp",
           "fixesReport": "g8_,autunseen_,gohome_",
           "minutes": 14,
@@ -2586,7 +1664,7 @@
     {
       "id": "ip-gu2-save-1",
       "note": "docs/222 §11.1 hard: save correctness, G9b with autunseen acting (audit O5: once, last). Save completes, reloaded save reaches live mode, 0 crash in 6 runs.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -2680,15 +1758,15 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
       "save": "Baseline-IP-Spring",
       "noiseCheck": false,
       "run": {
         "profile": {
           "seed": 12345,
           "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
           "fixesOff": "autunseencmp",
           "fixesReport": "g8_,autunseen_,gohome_",
           "minutes": 14,
@@ -2700,7 +1778,7 @@
     {
       "id": "ip-gu2-save-2",
       "note": "docs/222 §11.1 hard: save correctness, G9b with autunseen acting (audit O5: once, last). Save completes, reloaded save reaches live mode, 0 crash in 6 runs.",
-      "asi": "game-copy/ts3native.asi.g2pair1107",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
       "releaseDefaults": true,
       "minCounters": 159,
       "ini": {
@@ -2794,15 +1872,15 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "docs/222 §11.8: g2pair1107 pair from master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on): asi g2pair1107 + the named package, kAutLive True by default; builds.json",
-      "fixesPackage": "game-copy/ts3fixes.package.g2pair1107",
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
       "save": "Baseline-IP-Spring",
       "noiseCheck": false,
       "run": {
         "profile": {
           "seed": 12345,
           "noSamplers": true,
-          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
           "fixesOff": "autunseencmp",
           "fixesReport": "g8_,autunseen_,gohome_",
           "minutes": 14,
@@ -2810,6 +1888,120 @@
         }
       },
       "timeoutMin": 34
+    },
+    {
+      "id": "ip-gu2-focus",
+      "note": "docs/222 §11.2 V1-V4, hard: focused Sim plausible, needs not starving, not stuck, exact within 3 s, no pop. FAIL = thrown focus_result. | 11-08 night: new repro aut-unseen-focus-loop (6 judged firings, >=4 distinct Sims) at the credit variant; moved last and run 30 min.",
+      "asi": "game-copy/ts3native.asi.g2pair1108b",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:autunseen_posted",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autunseen_exc",
+          "op": "==",
+          "value": 0,
+          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+        },
+        {
+          "afterSec": 240,
+          "counter": "fixes:autunseen_rh_game",
+          "op": ">",
+          "value": 0,
+          "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
+        }
+      ],
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/222 §11.8, 11-08 credit variant: pair g2pair1108b (master 94f3f9e4, ts3native 0.36.191 = 0.36.190 + uf-overrun-host-wait behind HostLate=0, JobNameMs, watchdoglockskip; arrive fix + household wait counters; builds.json): asi g2pair1108b + the named package, kAutLive True by default; autunseen pace 100 (-gu100 package) with runtime autunseenpacecredit,autseengame on, as golive-unseen-gate2-credit2",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108b-gu100",
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autunseenpacecredit,autseengame",
+          "fixesOff": "autunseencmp",
+          "fixesReport": "g8_,autunseen_,gohome_",
+          "minutes": 30,
+          "repro": "aut-unseen-focus-loop"
+        }
+      },
+      "timeoutMin": 50
     }
   ]
 }

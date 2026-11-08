@@ -1,11 +1,11 @@
 {
-  "note": "jit-capture: [MonoJit] Capture=1 (docs/537 §17, ts3native 0.36.182, asi game-copy/ts3native.asi.jitcap1107): real arguments of the listed methods for the host's replay (tools/jit-replay.ts). Mode=1, Direct=0, Inline=0: a lazy or inlined call does not pass JitEnter, so those stay off. No timing. Writes probe-out/jit-capture-<world>.jitcap (game state, ignored by git, 64 MB cap). Pass per job: no crash, ScriptError count as baseline, 'OK   mono jit capture' in the log, 0 'jit capture: fault' lines, and the last 'jit capture:' line shows samples > 0 and a worst cost near CaptureBudgetUs. Afterwards: node tools/jit-replay.ts --capture probe-out/jit-capture-bp.jitcap --out probe-out/jit-capture-bp.txt --summary; then --run probe-out/jit-capture-bp.txt --mode verify. Run: node tools/harness/queue.ts tools/harness/queues/jit-capture.json --no-smoke",
+  "note": "jit-capture: [MonoJit] Capture=1 (docs/537 §17, §19, ts3native 0.36.192, asi game-copy/ts3native.asi.jitcap1108, ts3fixes g2pair1108): real arguments of the listed methods for the host's replay (tools/jit-replay.ts). Mode=1 with the full mode set (Direct=1 DirectLeaf=0 Inline=2 Wide=1): calls at JitEnter, lazy bodies and inlined sites are all sampled (the file's path word; --summary splits by it). No timing. Writes probe-out/jit-capture-<world>.jitcap (game state, ignored by git, 64 MB cap). Pass per job: no crash, ScriptError count as baseline, 'OK   mono jit capture' in the log, 0 'jit capture: fault' lines, and the last 'jit capture:' line shows samples > 0 and a worst cost near CaptureBudgetUs. Afterwards: node tools/jit-replay.ts --capture probe-out/jit-capture-bp.jitcap --out probe-out/jit-capture-bp.txt --summary; then --run probe-out/jit-capture-bp.txt --mode verify. Run: node tools/harness/queue.ts tools/harness/queues/jit-capture.json --no-smoke",
   "jobs": [
     {
       "id": "bp-jit-capture",
       "note": "BP 10 min, the jit-verify defaults with Capture=1. Pass: see the queue note.",
-      "asi": "game-copy/ts3native.asi.jitcap1107",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "asi": "game-copy/ts3native.asi.jitcap1108",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
       "save": "Baseline-BP-Spring",
       "minCounters": 911,
       "logForbid": {
@@ -29,8 +29,10 @@
         "RouteEarlyOut.Act": 1,
         "MonoJit.Enabled": 1,
         "MonoJit.Mode": 1,
-        "MonoJit.Direct": 0,
-        "MonoJit.Inline": 0,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
         "MonoJit.Capture": 1,
         "MonoJit.CaptureFile": "probe-out/jit-capture-bp.jitcap"
       },
@@ -53,8 +55,8 @@
       "id": "ip-jit-capture",
       "noiseCheck": false,
       "note": "IP 10 min, the jit-verify defaults with Capture=1. Pass: see the queue note.",
-      "asi": "game-copy/ts3native.asi.jitcap1107",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "asi": "game-copy/ts3native.asi.jitcap1108",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
       "save": "Baseline-IP-Spring",
       "minCounters": 911,
       "logForbid": {
@@ -78,8 +80,10 @@
         "RouteEarlyOut.Act": 1,
         "MonoJit.Enabled": 1,
         "MonoJit.Mode": 1,
-        "MonoJit.Direct": 0,
-        "MonoJit.Inline": 0,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
         "MonoJit.Capture": 1,
         "MonoJit.CaptureFile": "probe-out/jit-capture-ip.jitcap"
       },
@@ -102,8 +106,8 @@
       "id": "sv-jit-capture",
       "noiseCheck": false,
       "note": "SV 10 min, the jit-verify defaults with Capture=1. Pass: see the queue note.",
-      "asi": "game-copy/ts3native.asi.jitcap1107",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "asi": "game-copy/ts3native.asi.jitcap1108",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
       "save": "Baseline-SV-Spring",
       "minCounters": 911,
       "logForbid": {
@@ -127,8 +131,10 @@
         "RouteEarlyOut.Act": 1,
         "MonoJit.Enabled": 1,
         "MonoJit.Mode": 1,
-        "MonoJit.Direct": 0,
-        "MonoJit.Inline": 0,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
         "MonoJit.Capture": 1,
         "MonoJit.CaptureFile": "probe-out/jit-capture-sv.jitcap"
       },

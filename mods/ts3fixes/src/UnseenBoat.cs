@@ -42,6 +42,20 @@ namespace Ts3Fixes
         // docs/247 §11.3: the Sim's last refusal owns the boat replans of that trip. Runs with unseenboat and boatreplanlog on; agent unseenboat_ms
         static readonly System.Collections.Generic.Dictionary<ulong, string> sUbLastWhy = new System.Collections.Generic.Dictionary<ulong, string>();
         static readonly UbReasonMs sUbMs = new UbReasonMs();
+        // docs/247 §12.9 (boatreplanlog only, log text): which UbTrip exit left the Sim with no refusal record after the Remove, so the
+        // boatreplan: lines can split the "no refusal" row: "goal invalid or < 40 m", "nested plan", "same lot", "one land area"
+        static readonly System.Collections.Generic.Dictionary<ulong, string> sUbCleared = new System.Collections.Generic.Dictionary<ulong, string>();
+        static void UbClearedBy(ulong sim, string exit)
+        {
+            if (!ShortcutOn("boatreplanlog")) return;
+            if (sUbCleared.Count >= 512) sUbCleared.Clear();
+            if (exit == null) sUbCleared.Remove(sim); else sUbCleared[sim] = exit;
+        }
+        static string UbClearedText(ulong sim)
+        {
+            string e;
+            return sUbCleared.TryGetValue(sim, out e) ? e : "-";
+        }
         static void UbBookReplan(ulong sim, uint ms)
         {
             string why;
@@ -78,10 +92,11 @@ namespace Ts3Fixes
                 if (sStuckIn || sInOwnCheck || sInRoutableCheck || sUfInLeg || Simulator.CurrentTask != sim.ObjectId) return;  // UfPlanBody's rule
                 if (!GetOption2(Sims3.SimIFace.Route.RouteOption2.EnablePlanningAsBoat) || UfCarOrBoat(true)) return;
                 sUbLastWhy.Remove(sim.ObjectId.Value);  // a new trip: the last refusal no longer owns the next boat replan
+                UbClearedBy(sim.ObjectId.Value, null);
                 int[] c = PatchCounters();
                 Vector3 dest = GetApproximateOriginalDestination(), start = sim.Position;
-                if (dest == Vector3.Origin || dest == Vector3.Invalid || !UbCore.FarEnough((dest - start).Length())) return;
-                if (sUfPlanDepth.Depth(Simulator.CurrentTask.Value) > 1) return;
+                if (dest == Vector3.Origin || dest == Vector3.Invalid || !UbCore.FarEnough((dest - start).Length())) { UbClearedBy(sim.ObjectId.Value, "goal invalid or < 40 m"); return; }
+                if (sUfPlanDepth.Depth(Simulator.CurrentTask.Value) > 1) { UbClearedBy(sim.ObjectId.Value, "nested plan"); return; }
                 Lot goal = LotManager.GetLotAtPoint(dest), from = sim.LotCurrent;
                 int trip, colours = 0;
                 string caller = null;
@@ -96,6 +111,7 @@ namespace Ts3Fixes
                     if (trip == UbCore.kExact)
                     {
                         if (colours == 0) { c[849]++; UbSample(sim, "colours unknown, start " + (UfColourA(start, sim.LotCurrent) ? "known" : "unknown"), goal, dest, start, colours, caller); }
+                        else UbClearedBy(sim.ObjectId.Value, same ? "same lot" : "one land area");  // one colour: planned by boat inside one land area
                         return;
                     }
                     c[845]++;

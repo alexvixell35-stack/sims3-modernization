@@ -136,6 +136,7 @@ struct SaveTimes { LARGE_INTEGER t0; LONG infoEnd, write, backup, copy, final, w
 enum { SW_NONE, SW_CALL, SW_GATE, SW_INFO };
 static SaveTimes g_st;
 static volatile LONG g_saveTid;  // thread inside SaveGameHook, 0 = no save running
+static int g_swTravel = -1;  // the last save's flags (1 travel save, 2 traveling), -1 none seen; castrim.cpp's inventory check logs it
 
 static void SaveTimesReset() {
     memset(&g_st, 0, sizeof(g_st));
@@ -388,6 +389,7 @@ static DWORD __fastcall LoadCopyHook(void* lsm, void*, const wchar_t* name, int 
 
 // --- call-site hooks (sim thread) ---
 static DWORD __fastcall SaveGameHook(void* lsm, void*, void* info, int travelSave, int traveling) {
+    g_swTravel = ((travelSave & 0xFF) ? 1 : 0) | ((traveling & 0xFF) ? 2 : 0);
     UdSaveStart(travelSave, traveling);  // [UserDiag] "save: start" + watchdog, before anything here can wait
     FlushWait();  // the previous save's flushes, before this save touches any save folder
     SlimWait();   // [SaveSlim]: the previous save's rewrite, likewise

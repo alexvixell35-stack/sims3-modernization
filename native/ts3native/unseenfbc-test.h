@@ -23,7 +23,7 @@ static void TestUnseenFallbackSites() {
                       offsetof(Ts3nCounters, ufcMaxWaitUs) == 0x5418 && offsetof(Ts3nCounters, ufcStale) == 0x5420 &&
                       offsetof(Ts3nCounters, ufEffCutUs) == 0x5424 && offsetof(Ts3nCounters, ufOverSamples) == 0x543C &&
                       offsetof(Ts3nCounters, ufwMode) == 0x5440 && offsetof(Ts3nCounters, ufwRelease) == 0x545C &&
-                      offsetof(Ts3nCounters, ufwFull) == 0x5470 && offsetof(Ts3nCounters, ufcBb) == 0x5474 && sizeof(Ts3nCounters) == 6030 * 4,
+                      offsetof(Ts3nCounters, ufwFull) == 0x5470 && offsetof(Ts3nCounters, ufcBb) == 0x5474 && sizeof(Ts3nCounters) == 6035 * 4,
                   "counters v139 / v140 layout after v138 (docs/registry.md)");
     assert(k.version == 912);
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
@@ -410,6 +410,75 @@ static void TestUnseenFallbackSites() {
 // TestUfStrict: docs/202 §3.1.1 strict DeadlineMs: overrun learning per path (p99, floor 30 ms, 80 ms until 20 samples, the
 // largest exit per context), the cut never below setting / 2, UfSyncEnd / UfJobEnd feeding it, and the pre-search +0x918 gate
 // of a marked sync plan (deadline form, timed out = RunPlan answers 0 before the lock, counted as a cut). Fakes only.
+// worker of a job in a two-thread Proxy, deadline g_ufTestDl: reports the wait left out of the overrun sample
+static LONGLONG g_ufTestDl;
+static LONG g_ufTestMark;
+static volatile LONGLONG g_ufTestLateQ, g_ufTestUs;
+static void* __fastcall UfTestHost(void*, void*, void* out, void*, void*, void*) { return out; }
+static u8 __fastcall UfTestPlan(void*, void*, int*, int*, int*, DWORD, DWORD, u8*, int*, int*, DWORD, DWORD) {
+    Sleep(40);
+    return 1;
+}
+static DWORD WINAPI UfTestWorker(void* p) {
+    t_ufJob = g_ufTestMark, t_ufHostLateQ = 0, t_fbDeadline = g_ufTestDl;
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    InvokeJob v = {{p, NULL, NULL, NULL}, (void*)0x10, NULL};
+    Proxy(v);
+    g_ufTestUs = UsSince(t0), g_ufTestLateQ = t_ufHostLateQ;
+    t_ufJob = 0, t_fbDeadline = 0;
+    return 0;
+}
+// sim side of one wait; nested = a plan runs on the worker inside it
+static void UfTestWait(LONGLONG dl, LONG mark, bool nested) {
+    g_ufTestDl = dl, g_ufTestMark = mark;
+    DWORD out = 0;
+    const HANDLE th = CreateThread(NULL, 0, UfTestWorker, &out, 0, NULL);
+    assert(WaitForSingleObject(g_invReady, 5000) == WAIT_OBJECT_0);
+    Sleep(50);
+    if (nested) {
+        static u8 opts[256];
+        static PlanJob pj;
+        pj = {};
+        pj.x87 = GetX87(), pj.mxcsr = _mm_getcsr(), pj.opts = opts;
+        g_job = &pj;
+        SetEvent(g_jobReady);
+        assert(WaitForSingleObject(g_jobDone, 5000) == WAIT_OBJECT_0);
+    }
+    ServeInvoke(HC_READY);
+    assert(WaitForSingleObject(th, 5000) == WAIT_OBJECT_0);
+    CloseHandle(th);
+}
+// only the wait past the deadline counts, a nested plan does not, and an unmarked job (household, unknown) adds nothing
+static void TestUfHostLate() {
+    const HANDLE sReady = g_invReady, sDone = g_invDone, sJob = g_jobReady, sJd = g_jobDone;
+    const auto sHost = g_hostCallOrig;
+    DWORD* const sHostPtr = g_hostPtr;
+    InvokeJob* const sInv = g_invJob;
+    PlanJob* const sGj = g_job;
+    const auto sPlan = g_planOrig;
+    static DWORD noHost = 0;
+    g_hostPtr = &noHost, g_hostCallOrig = UfTestHost, g_invJob = NULL, g_planOrig = UfTestPlan;
+    g_invReady = CreateEventW(NULL, FALSE, FALSE, NULL), g_invDone = CreateEventW(NULL, FALSE, FALSE, NULL);
+    g_jobReady = CreateEventW(NULL, FALSE, FALSE, NULL), g_jobDone = CreateEventW(NULL, FALSE, FALSE, NULL);
+    const LONGLONG ms = g_qpf.QuadPart / 1000;
+    // deadline ahead of the whole wait: nothing left out
+    UfTestWait(HcNow() + 10000 * ms, 1, false);
+    assert(g_ufTestLateQ == 0 && g_ufTestUs >= 45000);
+    // deadline in the middle: the part past it (a loaded machine stretches the wait; the 20 ms before it stay in)
+    UfTestWait(HcNow() + 25 * ms, 1, false);
+    assert(g_ufTestLateQ >= 15 * ms && g_ufTestLateQ * 1000 / g_qpf.QuadPart <= g_ufTestUs / 1000 - 20);
+    // deadline passed: the whole wait, less the 40 ms plan nested in it
+    UfTestWait(HcNow() - ms, 1, true);
+    assert(g_ufTestLateQ >= 45 * ms && g_ufTestLateQ * 1000 / g_qpf.QuadPart <= g_ufTestUs / 1000 - 35);
+    // unmarked job past a deadline: not touched
+    UfTestWait(HcNow() - ms, 0, false);
+    assert(g_ufTestLateQ == 0);
+    CloseHandle(g_invReady), CloseHandle(g_invDone), CloseHandle(g_jobReady), CloseHandle(g_jobDone);
+    g_invReady = sReady, g_invDone = sDone, g_jobReady = sJob, g_jobDone = sJd, g_hostCallOrig = sHost, g_hostPtr = sHostPtr;
+    g_invJob = sInv, g_job = sGj, g_planOrig = sPlan;
+}
+
 static void TestUfStrict() {
     Ts3nCounters& k = ts3native_counters;
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
@@ -462,6 +531,32 @@ static void TestUfStrict() {
     UfJobEnd(&fj, true, 250000, 50000, 4);
     assert(g_ufOver[1][2].n == 1 && fj.ufCut == 1);
 
+    // a job's host waits are not overrun (player log c4677d89: cut jobs 1849 ms late, under 30 ms of each not host)
+    static_assert(offsetof(Ts3nCounters, ufHlMode) == 0x5E38 && offsetof(Ts3nCounters, rjnDropped) == 0x5E48 && sizeof(Ts3nCounters) == 6035 * 4,
+                  "counters v173 layout (docs/registry.md)");
+    Reset();
+    const LONGLONG tickMs = g_qpf.QuadPart / 1000;
+    t_ufHostLateQ = 1845 * tickMs;
+    k.ufHlMode = 0;  // HostLate off (default): the raw sample, the wait stays in
+    assert(UfLateUs(1849 * tickMs) >= 1848000 && k.ufHlUs == 0);
+    k.ufHlMode = 1;
+    const LONG workUs = UfLateUs(1849 * tickMs);
+    assert(k.ufHlUs >= 1844000 && k.ufHlUs <= 1846000);
+    assert(workUs >= 3900 && workUs <= 4100);
+    Feed(1, 2, workUs, 96);
+    assert(UfEffUs(1) == 270000 && k.ufOverP99Us[1] == 30000);
+    t_ufHostLateQ = 0;
+    assert(UfLateUs(-5) == -1 && UfLateUs(0) == 0);
+    Reset();
+    Feed(1, 2, UfLateUs(1849 * tickMs), 96);  // the same samples with no wait recorded: the old 150 ms cut
+    assert(UfEffUs(1) == 150000);
+    t_ufHostLateQ = 2000 * tickMs;
+    assert(UfLateUs(1849 * tickMs) == 0);  // never below 0: still a sample
+    t_ufHostLateQ = 0;
+    k.ufHlMode = 0, k.ufHlUs = 0;
+    Reset();
+    TestUfHostLate();
+
     // pre-search +0x918 gate (RunPlan)
     static u8 world[0x1000];
     const AsyncSlot asyncSave = g_async;
@@ -505,5 +600,5 @@ static void TestUfStrict() {
     g_async = asyncSave, t_pd = pdSave, t_ufSess = sessSave;
     memcpy(g_ufOver, save, sizeof(save));
     k.ufUs = us0, k.ufMode = mode0, k.workerMode = wm0;
-    printf("unseen fallback strict (docs/202 §3.1.1): overrun p99 per path, floor 30, start 80, cut >= setting / 2, pre-search lock-wait fail ok\n");
+    printf("unseen fallback strict (docs/202 §3.1.1): overrun p99 per path without host waits, floor 30, start 80, cut >= setting / 2, pre-search lock-wait fail ok\n");
 }

@@ -291,7 +291,17 @@ namespace Ts3Fixes
                         }
                         Lot lot = s.LotCurrent;
                         int before = c[39];
-                        bool? ok = SpotVerdict(s, lot, Verdicts(lot), ProfileOf(s), s.Position, true, true, false);
+                        SpotVerdicts vs = Verdicts(lot);
+                        RouteProfile prof = ProfileOf(s);
+                        // watchdoglockskip (docs/247 §12.4, the 477 ms CheckIdle hitch: rtLock 312 + rtPlanWait 157), in docs/250 §7.4's
+                        // order: (1) the verdict cache answers first (SpotVerdict's c[37] hit, no plan); (2) no job holds +0x918: the
+                        // sync check as before; (3) a job holds it: the async check A1 (watchdogasync) if on and its START is
+                        // accepted; (4) else skip the Sim this pass (it keeps its Still record, the next pass checks it). The queue
+                        // has no household or selected Sim (filtered above). Older ts3native and the game answer q 8 false: no skip.
+                        bool cachedOk;
+                        bool cached = prof.Ok && vs.Cells.TryGetValue(KeyOf(prof, s.Position), out cachedOk) && cachedOk;
+                        if (!cached && ShortcutOn("watchdoglockskip") && HcWould(sYieldProbe, 8) && !WdA1Started(s)) { c[871]++; break; }  // wdLockSkip; q 8: native selftest jobyield-test.h
+                        bool? ok = SpotVerdict(s, lot, vs, prof, s.Position, true, true, false);
                         if (ok.HasValue)
                         {
                             asked++;
@@ -304,6 +314,10 @@ namespace Ts3Fixes
                     }
                 }
             }
+
+            // docs/250 §7.4 step 3, the async idle check A1 (switch watchdogasync): not built yet, so always "off" and
+            // watchdoglockskip fires whenever a job holds the lock. A1 replaces this body; true = its START was accepted.
+            static bool WdA1Started(Sim s) { return false; }
 
             // The game's own end state for a stuck idle Sim, within the shared daily limit. True = acted.
             bool Act(Sim s, long now, int counter, string why)

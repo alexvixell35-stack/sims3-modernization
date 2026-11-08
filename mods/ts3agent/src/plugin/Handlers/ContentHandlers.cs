@@ -372,13 +372,19 @@ namespace Ts3Agent
             return r;
         }
 
-        // camera {pos?:{x,y,z}, target?:{x,y,z}}: set the camera (CameraController.SetPositionAndTarget, what
+        // camera {lot?, pos?:{x,y,z}, target?:{x,y,z}}: set the camera (CameraController.SetPositionAndTarget, what
         // -campos/-camtarget do at load); no args = read only. Returns the current pose.
         // M10: max zoom out (high pos.y) and pan the town, diffing commitMB and the largest free block between poses.
+        // lot: onto that lot's centre (FindLotByName: "home", "far" or a name), so a world-neutral repro needs no coordinates.
         static object CameraView(Args a)
         {
             RequireLive();
-            if (a.Has("pos") || a.Has("target"))
+            if (a.Has("lot"))
+            {
+                Vector3 c = FindLotByName(a.Str("lot")).GetCenterPosition();
+                CameraController.SetPositionAndTarget(new Vector3(c.x, c.y + 30f, c.z - 30f), c);
+            }
+            else if (a.Has("pos") || a.Has("target"))
                 CameraController.SetPositionAndTarget(
                     a.Has("pos") ? Vec(a, "pos") : CameraController.GetPosition(),
                     a.Has("target") ? Vec(a, "target") : CameraController.GetTarget());

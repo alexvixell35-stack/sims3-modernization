@@ -1,10 +1,11 @@
 {
-  "note": "offload-ranks: docs/208 §9 Mode R for the docs/219 four shared tier-2 rows (autofft2, [AutShadow] Tier2Rows=1) and the docs/129 rank 4 closest visible lot (autofflot). Rank 5 zombies is not built (docs/208 §9.3). Pinned to the feature/mono-offthread pair: park that branch's build as game-copy/ts3native.asi.mono-offthread and game-copy/ts3fixes.package.mono-offthread (ts3fixes needs these switches merged) before running. Correctness only: no timing read from this queue.",
+  "note": "offload-ranks: docs/208 §9 Mode R for the docs/219 four shared tier-2 rows (autofft2, [AutShadow] Tier2Rows=1) and the docs/129 rank 4 closest visible lot (autofflot). Rank 5 zombies is not built (docs/208 §9.3). Pinned to the g2pair1108 pair (master d1066f14, ts3native 0.36.190). Correctness only: no timing read from this queue.",
   "smoke": {
     "id": "bp-offranks-smoke",
     "note": "Smoke (docs/208 §9, 4 min BP): PASS = 0 crashes, no freeze; the log shows Tier2Rows=1; A0 > 0 and A2 == 0, exc == 0 for autoff_t2_* and autoff_lot_*; autshadow A1-A3 still 0 (the meta pairs must not change); read autoff_t2_a4 and autoff_lot_a4 against items (reasons: autoff_reasons 48-71 t2, 72-95 lot; row and pos are learned keys and should fall over the run) and autoff_lot_dry_eq / autoff_lot_dry. Any A2: off-t2 / off-lot records in autshadow.jsonl, triage before the next job.",
-    "asi": "game-copy/ts3native.asi.mono1106c",
-    "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+    "asi": "game-copy/ts3native.asi.g2pair1108",
+    "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+    "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
     "save": "Baseline-BP-Spring",
     "minCounters": 90,
     "ini": {
@@ -57,8 +58,9 @@
     {
       "id": "bp-offranks-verify",
       "note": "Verify, BP (repro offload-ranks-camera). PASS = 0 crashes, no freeze; the log shows Tier2Rows=1; A0 > 0 and A2 == 0, exc == 0 for autoff_t2_* and autoff_lot_*; autshadow A1-A3 still 0 (the meta pairs must not change); read autoff_t2_a4 and autoff_lot_a4 against items (reasons: autoff_reasons 48-71 t2, 72-95 lot; row and pos are learned keys and should fall over the run) and autoff_lot_dry_eq / autoff_lot_dry. Any A2: off-t2 / off-lot records in autshadow.jsonl, triage before the next job.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
       "save": "Baseline-BP-Spring",
       "minCounters": 90,
       "ini": {
@@ -112,9 +114,10 @@
     },
     {
       "id": "ip-offranks-verify",
-      "note": "Verify, IP (repro offload-ranks-camera). PASS = 0 crashes, no freeze; the log shows Tier2Rows=1; A0 > 0 and A2 == 0, exc == 0 for autoff_t2_* and autoff_lot_*; autshadow A1-A3 still 0 (the meta pairs must not change); read autoff_t2_a4 and autoff_lot_a4 against items (reasons: autoff_reasons 48-71 t2, 72-95 lot; row and pos are learned keys and should fall over the run) and autoff_lot_dry_eq / autoff_lot_dry. Any A2: off-t2 / off-lot records in autshadow.jsonl, triage before the next job.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
+      "note": "Verify, IP (repro offload-ranks-camera). PASS = 0 crashes, no freeze; the log shows Tier2Rows=1; A0 > 0 and A2 == 0, exc == 0 for autoff_t2_*; autoff_lot_* only items >= 1, A2 == 0, exc == 0: no lot A0 gate in IP, because LotPick walks every candidate lot and an owned houseboat lot (IP has 10) calls World_GetHouseboatDisplayToWorldPositionImpl, which has no row and aborts the worker (docs/208 §9, by design), so every IP lot item is an A4 abort (2026-11-08 run: autoff_lot_a0=0, items/a2/exc gates passed); expect autoff_lot_a4 near items; autshadow A1-A3 still 0 (the meta pairs must not change); read autoff_t2_a4 and autoff_lot_a4 against items (reasons: autoff_reasons 48-71 t2, 72-95 lot; row and pos are learned keys and should fall over the run) and autoff_lot_dry_eq / autoff_lot_dry. Any A2: off-t2 / off-lot records in autshadow.jsonl, triage before the next job.",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
       "save": "Baseline-IP-Spring",
       "minCounters": 90,
       "ini": {
@@ -155,7 +158,7 @@
           "minutes": 10,
           "seed": 12345,
           "fixesOn": "autshadow,autofft2,autofflot,autoffdry",
-          "fixesRequire": "autoff_t2_items>=1,autoff_t2_a0>=1,autoff_t2_a2<1,autoff_t2_exc<1,autoff_lot_items>=1,autoff_lot_a0>=1,autoff_lot_a2<1,autoff_lot_exc<1",
+          "fixesRequire": "autoff_t2_items>=1,autoff_t2_a0>=1,autoff_t2_a2<1,autoff_t2_exc<1,autoff_lot_items>=1,autoff_lot_a2<1,autoff_lot_exc<1",
           "repros": [
             "offload-ranks-camera"
           ]

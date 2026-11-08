@@ -38,8 +38,10 @@ namespace Ts3Fixes
         // docs/202 §5.6 (5): plans of >= kUfSlowPlanMs (wall, the hook's whole call: sync search, or the task's sleep for an async
         // job) are named in ts3native.log with the scope verdict, so long routing hitches can be split into seen Sims (accepted),
         // marked-but-not-cut and never-asked (why -1: no Sim follower, stuck-check probe, own check, pet, D leg, switches off)
-        const int kUfSlowPlanMs = 150, kUfSlowPlanLogMax = 200;
-        static int sUfSlowLogged;
+        // 2026-11-08: no total cap (the 200 left the second half of a gate2 job unlogged); a rate cap of kUfSlowPlanPerMin a wall
+        // minute instead, plus ts3native's own disk guard for ufplan: lines (userdiag.cpp kUdUfPlanLines). Arm + wall stamp: ts3native.
+        const int kUfSlowPlanMs = 150, kUfSlowPlanPerMin = 120;
+        static int sUfSlowLogged, sUfSlowMinute;
         // per plan, not static (PR #306, Dalexlol): async plans of two Sims overlap (each task sleeps on its route job), and shared fields printed one
         // plan's time with another plan's verdict and Sim (e.g. "why 3 cut" on a household Sim: a cut needs a mark, a mark why 0)
         struct UfLast { public int Why; public bool Marked, Cut, ViewerOnly; public Sim Sim; }
@@ -100,11 +102,14 @@ namespace Ts3Fixes
                 if (ms >= kUfViewerSlowMs) vc[859]++;
                 if (ms > 0) vc[860] += ms;
             }
-            if (ms < kUfSlowPlanMs || sUfSlowLogged >= kUfSlowPlanLogMax) return;
-            sUfSlowLogged++;
+            if (ms < kUfSlowPlanMs) return;
+            int minute = System.Environment.TickCount / 60000;
+            if (minute != sUfSlowMinute) { sUfSlowMinute = minute; sUfSlowLogged = 0; }
+            if (sUfSlowLogged++ >= kUfSlowPlanPerMin) return;
             Sim s = l.Sim;
             DiagLine("ufplan: kind " + kind + " " + ms + " ms why " + l.Why + (l.Marked ? " marked" : "") + (l.Cut ? " cut" : "")
-                + (s != null ? " " + s.FullName + (Simulator.CurrentTask == s.ObjectId ? " own task" : " other task") : ""));
+                + (s != null ? " " + s.FullName + (Simulator.CurrentTask == s.ObjectId ? " own task" : " other task") : "")
+                + ", tick " + Sims3.Gameplay.Utilities.SimClock.CurrentTicks);
         }
 
         // docs/202 §2; 0 = unseen. GameStates.IsLiveState = in-world substate id 0 (LiveModeState): Build, Buy, CAS and Edit

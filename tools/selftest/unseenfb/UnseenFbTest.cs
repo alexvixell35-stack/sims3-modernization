@@ -214,6 +214,8 @@ static class UnseenFbTest
         Check(!UnseenFallbackCore.SeenButMovable(UnseenFallbackCore.kHousehold) && !UnseenFallbackCore.SeenButMovable(UnseenFallbackCore.kHeld)
             && !UnseenFallbackCore.SeenButMovable(UnseenFallbackCore.kNotLive) && !UnseenFallbackCore.SeenButMovable(UnseenFallbackCore.kSocialSeen)
             && !UnseenFallbackCore.SeenButMovable(0), "household, held, social, not live, unseen: never a D-leave");
+        Check(UnseenFallbackCore.HouseholdScope(UnseenFallbackCore.kHousehold) && UnseenFallbackCore.HouseholdScope(-1) && UnseenFallbackCore.HouseholdScope(UnseenFallbackCore.kNotLive) && UnseenFallbackCore.HouseholdScope(UnseenFallbackCore.kGone)
+            && !UnseenFallbackCore.HouseholdScope(UnseenFallbackCore.kSeen) && !UnseenFallbackCore.HouseholdScope(UnseenFallbackCore.kActiveLot) && !UnseenFallbackCore.HouseholdScope(UnseenFallbackCore.kOnScreen), "household wait: household and unknown scope count, unseen and seen NPCs do not");
         Check(UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kActiveLot) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kOnScreen) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kNearViewers)
             && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kHeld) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kSocialSeen), "seen NPC ceiling: the five proving reasons");
         Check(!UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kHousehold) && !UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kNotLive) && !UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kGone)

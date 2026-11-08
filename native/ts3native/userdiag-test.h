@@ -98,12 +98,16 @@ static void TestUserDiag() {
         assert(UdHitchLine("boatreplan: 9 ms") && UdHitchLine("owreset: x") && UdHitchLine("alarmtime: x") && UdHitchLine("lotpass: x") && !UdHitchLine("ufplan: x") && !UdHitchLine("play: x"));
         const LONG lines = g_udTxtLines;
         g_udTxtLines = 400;
-        send("ufplan: past the cap");
+        send("play: past the cap");
+        ts3native_ab_arm = 2;
+        send("ufplan: kind 1 300 ms why 0");  // own cap, not the shared 400: arm and wall stamp appended
+        ts3native_ab_arm = 0;
         send("boatreplan: 91 ms");
         send("owreset: Perform");
         g_udTxtLines = lines;
         UdtLog(buf, sizeof(buf), h);
-        assert(!strstr(buf, "past the cap") && strstr(buf, "ts3fixes: boatreplan: 91 ms\r\n") && strstr(buf, "ts3fixes: owreset: Perform\r\n"));
+        assert(strstr(buf, "ts3fixes: ufplan: kind 1 300 ms why 0, arm on, at "));
+        assert(!strstr(buf, "past the cap") &&strstr(buf, "ts3fixes: boatreplan: 91 ms\r\n") && strstr(buf, "ts3fixes: owreset: Perform\r\n"));
     }
     // the GetOption hook routes 0x87 to the channel
     assert(GetOptionHook(0, 0, kUdTextHi, 1) == 1);

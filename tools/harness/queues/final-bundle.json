@@ -4,10 +4,10 @@
   "smoke": {
     "id": "bp-fb-smoke",
     "note": "Measurement smoke: BP 6 min, --ab unseenrm,autoffenvapply,autoffbcastapply 1-min slices, Mode=0 start. Pass: per-arm split, rmMode and both apply switches read back per slice, rmReady 3, rmSampled > 0, rmSlMiss 0, apply counters rise in on slices, heavy tools off, no crash.",
-    "asi": "game-copy/ts3native.asi.mono1106c",
+    "asi": "game-copy/ts3native.asi.g2pair1108",
     "save": "Baseline-BP-Spring",
-    "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
-    "pinReason": "newest registered pair (mono1106c, builds.json), the post-merge master pair (0.36.176) is not built yet: repoint asi and fixesPackage here when it is registered, as with the other queues",
+    "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+    "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
     "minCounters": 159,
     "ini": {
       "SlotEnabledRO.Enabled": 1,
@@ -136,10 +136,10 @@
     {
       "id": "bp-fb-off-1",
       "note": "ABBA bp off, pair 1.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
-      "pinReason": "newest registered pair (mono1106c, builds.json), the post-merge master pair (0.36.176) is not built yet: repoint asi and fixesPackage here when it is registered, as with the other queues",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
       "minCounters": 159,
       "ini": {
         "SlotEnabledRO.Enabled": 1,
@@ -243,10 +243,10 @@
     {
       "id": "bp-fb-on-1",
       "note": "ABBA bp on, pair 1.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
-      "pinReason": "newest registered pair (mono1106c, builds.json), the post-merge master pair (0.36.176) is not built yet: repoint asi and fixesPackage here when it is registered, as with the other queues",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
       "minCounters": 159,
       "ini": {
         "SlotEnabledRO.Enabled": 1,
@@ -350,10 +350,10 @@
     {
       "id": "bp-fb-on-2",
       "note": "ABBA bp on, pair 2.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
-      "pinReason": "newest registered pair (mono1106c, builds.json), the post-merge master pair (0.36.176) is not built yet: repoint asi and fixesPackage here when it is registered, as with the other queues",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
       "minCounters": 159,
       "ini": {
         "SlotEnabledRO.Enabled": 1,
@@ -457,10 +457,10 @@
     {
       "id": "bp-fb-off-2",
       "note": "ABBA bp off, pair 2.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
       "save": "Baseline-BP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
-      "pinReason": "newest registered pair (mono1106c, builds.json), the post-merge master pair (0.36.176) is not built yet: repoint asi and fixesPackage here when it is registered, as with the other queues",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
       "minCounters": 159,
       "ini": {
         "SlotEnabledRO.Enabled": 1,
@@ -564,10 +564,10 @@
     {
       "id": "ip-fb-off-1",
       "note": "ABBA ip off, pair 1.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
       "save": "Baseline-IP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
-      "pinReason": "newest registered pair (mono1106c, builds.json), the post-merge master pair (0.36.176) is not built yet: repoint asi and fixesPackage here when it is registered, as with the other queues",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
       "minCounters": 159,
       "ini": {
         "SlotEnabledRO.Enabled": 1,
@@ -671,10 +671,10 @@
     {
       "id": "ip-fb-on-1",
       "note": "ABBA ip on, pair 1.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
       "save": "Baseline-IP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
-      "pinReason": "newest registered pair (mono1106c, builds.json), the post-merge master pair (0.36.176) is not built yet: repoint asi and fixesPackage here when it is registered, as with the other queues",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
       "minCounters": 159,
       "ini": {
         "SlotEnabledRO.Enabled": 1,
@@ -778,10 +778,10 @@
     {
       "id": "ip-fb-on-2",
       "note": "ABBA ip on, pair 2.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
       "save": "Baseline-IP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
-      "pinReason": "newest registered pair (mono1106c, builds.json), the post-merge master pair (0.36.176) is not built yet: repoint asi and fixesPackage here when it is registered, as with the other queues",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
       "minCounters": 159,
       "ini": {
         "SlotEnabledRO.Enabled": 1,
@@ -885,10 +885,10 @@
     {
       "id": "ip-fb-off-2",
       "note": "ABBA ip off, pair 2.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
       "save": "Baseline-IP-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
-      "pinReason": "newest registered pair (mono1106c, builds.json), the post-merge master pair (0.36.176) is not built yet: repoint asi and fixesPackage here when it is registered, as with the other queues",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
       "minCounters": 159,
       "ini": {
         "SlotEnabledRO.Enabled": 1,
@@ -992,10 +992,10 @@
     {
       "id": "sv-fb-off-1",
       "note": "ABBA sv off, pair 1.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
       "save": "Baseline-SV-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
-      "pinReason": "newest registered pair (mono1106c, builds.json), the post-merge master pair (0.36.176) is not built yet: repoint asi and fixesPackage here when it is registered, as with the other queues",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
       "minCounters": 159,
       "ini": {
         "SlotEnabledRO.Enabled": 1,
@@ -1099,10 +1099,10 @@
     {
       "id": "sv-fb-on-1",
       "note": "ABBA sv on, pair 1.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
       "save": "Baseline-SV-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
-      "pinReason": "newest registered pair (mono1106c, builds.json), the post-merge master pair (0.36.176) is not built yet: repoint asi and fixesPackage here when it is registered, as with the other queues",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
       "minCounters": 159,
       "ini": {
         "SlotEnabledRO.Enabled": 1,
@@ -1206,10 +1206,10 @@
     {
       "id": "sv-fb-on-2",
       "note": "ABBA sv on, pair 2.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
       "save": "Baseline-SV-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
-      "pinReason": "newest registered pair (mono1106c, builds.json), the post-merge master pair (0.36.176) is not built yet: repoint asi and fixesPackage here when it is registered, as with the other queues",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
       "minCounters": 159,
       "ini": {
         "SlotEnabledRO.Enabled": 1,
@@ -1313,10 +1313,10 @@
     {
       "id": "sv-fb-off-2",
       "note": "ABBA sv off, pair 2.",
-      "asi": "game-copy/ts3native.asi.mono1106c",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
       "save": "Baseline-SV-Spring",
-      "fixesPackage": "game-copy/ts3fixes.package.mono1106c",
-      "pinReason": "newest registered pair (mono1106c, builds.json), the post-merge master pair (0.36.176) is not built yet: repoint asi and fixesPackage here when it is registered, as with the other queues",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "pinReason": "g2pair1108 pair (asi + fixes + agent, builds.json): master d1066f14, ts3native 0.36.190, counters version field 912; repinned 2026-11-08 from mono1106c",
       "minCounters": 159,
       "ini": {
         "SlotEnabledRO.Enabled": 1,

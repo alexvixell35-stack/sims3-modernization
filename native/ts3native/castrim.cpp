@@ -183,6 +183,7 @@ static void CtEvent(const char* what, DWORD o, DWORD at, DWORD sinceMark, DWORD 
         db > 0 ? "yes (would load again)" : db == 0 ? "NO (a trim would lose it)" : "not asked", from);
 }
 
+static void CtGoneRec(DWORD o, DWORD h);  // below: the ring of our erases (docs/539 §12.5)
 // One step of the walk (the inserting thread, after EA's insert returned).
 static void CtStep(u8* svc, DWORD now) {
     Ts3nCounters& z = ts3native_counters;
@@ -226,7 +227,7 @@ static void CtStep(u8* svc, DWORD now) {
                 t->seen = t->cand = 0;  // the address may come back as a new compositor (its insert sets it again)
                 // remembered only after the erase: EA's erase unregisters through 0x4B00C0, whose cache scan 0x4B0070 calls
                 // each cache's Find(key, NULL), and those failed finds are not misses (al237, 2026-11-05: 20 false MISSED)
-                if (g_ctErase(svc, NULL, key)) erased++, z.ctErased++, g_ctGone[h & (CT_GONE - 1)] = (LONG)h;  // (mode 1)
+                if (g_ctErase(svc, NULL, key)) erased++, z.ctErased++, g_ctGone[h & (CT_GONE - 1)] = (LONG)h, CtGoneRec(o, h);  // (mode 1)
             }
             if (++g_ctCyB >= nb) CtCycle(now);
         }
@@ -414,6 +415,135 @@ static void CtKeepEa(u8* svc, const u8* live) {
 }
 static void (*g_ctKeepFn)(u8* svc, const u8* live) = CtKeepEa;  // selftest: a fake
 
+// docs/539 §12.5 (0.36.194, castrimdiag1108): a detector on the save's call 0x5EFE11 -> 0x5E7690, after the 11-08 travel-save
+// crash at 0x5E772C ([rec+0x38] slot 1 held 0x40A00000, not a compositor). 0x5E7690 (thiscall (outfit, set, children), ret 8)
+// walks the part records [outfit+0x98] to [outfit+0x9C] (0x68 bytes each); [rec+0x14] and [rec+0x38] each point at 5
+// compositor pointers [verified disassembly, TS3W 1.67]. Before EA runs, every non-null slot must start with a part
+// compositor vtable; one that does not is logged (first 20) with the outfit, the record, CasTrim's slot for the value and
+// whether one of our erases took that memory (the ring below). Then EA runs unchanged: it logs, it never skips or fixes.
+// All reads are under __try. At the call esi is EA's outfit map node {key, outfit +0x10, next +0x18} (0x5EFE0E), kept by CtInvStub.
+struct CtGoneEv { DWORD o, tick, h; };
+static const DWORD CT_GRING = 4096;  // the last erases (CtStep, CtSweepStep): object, tick, key hash
+static CtGoneEv g_ctGRing[CT_GRING];
+static volatile LONG g_ctGSeq;
+static void CtGoneRec(DWORD o, DWORD h) {
+    const LONG s = InterlockedIncrement(&g_ctGSeq);
+    CtGoneEv& e = g_ctGRing[(DWORD)(s - 1) & (CT_GRING - 1)];
+    e.o = o, e.tick = GetTickCount(), e.h = h;
+}
+static bool CtGoneText(DWORD v, char* out, size_t cap) {  // the newest erase whose 0x68-byte object holds v
+    const LONG top = g_ctGSeq;
+    for (LONG s = top; s > 0 && top - s < (LONG)CT_GRING; s--) {
+        const CtGoneEv& e = g_ctGRing[(DWORD)(s - 1) & (CT_GRING - 1)];
+        if (e.o && v - e.o < 0x68) {
+            sprintf_s(out, cap, "ERASED by CasTrim %lu s ago (object 0x%08lX +0x%lX, key hash %08lX, erase %ld of %ld)", (GetTickCount() - e.tick) / 1000,
+                      e.o, v - e.o, e.h, s, top);
+            return true;
+        }
+    }
+    sprintf_s(out, cap, "never erased by CasTrim (ring: the last %ld of %ld erases)", top < (LONG)CT_GRING ? top : (LONG)CT_GRING, top);
+    return false;
+}
+static void CtSlotText(DWORD v, char* out, size_t cap) {
+    const CtEnt* t = g_ct ? CtSlot(v, false) : NULL;
+    const DWORD now = GetTickCount();
+    if (!t) sprintf_s(out, cap, "no CasTrim slot");
+    else sprintf_s(out, cap, "CasTrim slot: seen %ld s, used %ld s, marked %ld s ago (-1 never), found by 0x%lX", t->seen ? (LONG)(now - t->seen) / 1000 : -1L,
+                   t->used ? (LONG)(now - t->used) / 1000 : -1L, t->cand ? (LONG)(now - t->cand) / 1000 : -1L, t->from);
+}
+typedef void(__fastcall* CtInvFn)(void* outfit, void* edx, void* set, DWORD children);
+static CtInvFn g_ctInvEa = (CtInvFn)(uintptr_t)0x005E7690;  // selftest: a fake
+static const u8* volatile g_ctInvNode;                       // EA's esi at the call (CtInvStub)
+static LONG g_ctInvSave, g_ctInvCalls, g_ctInvRecs, g_ctInvSlots, g_ctInvBadSave, g_ctInvBad, g_ctInvLogs, g_ctInvGone;
+static LONGLONG g_ctInvQpc;
+static void CtInvBad(const char* what, const u8* node, const u8* outfit, LONG ri, LONG rn, const u8* rec, int arr, int slot, DWORD v) {
+    g_ctInvBadSave++, g_ctInvBad++;
+    char gone[160], sl[160], rb[0x68 * 3 + 4] = "unreadable";
+    if (CtGoneText(v, gone, sizeof(gone))) g_ctInvGone++;
+    if (g_ctInvLogs++ >= 20) return;
+    DWORD key[4] = {}, w[4] = {};
+    bool vOk = false;
+    __try { if (node && *(const u8* const*)(node + 0x10) == outfit) memcpy(key, node, 16); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    __try { if (v) memcpy(w, (const void*)(uintptr_t)v, 16), vOk = true; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    __try { if (rec) Hex(rec, 0x68, rb, sizeof(rb)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(rb, "unreadable"); }
+    CtSlotText(v, sl, sizeof(sl));
+    Log("cas trim: inventory bad slot: %s; save #%ld (travel flags %d), %ld s after world load #%ld; outfit 0x%08lX key %08lX %08lX %08lX %08lX, "
+        "record %ld of %ld at 0x%08lX, array +0x%X slot %d: value 0x%08lX, first dwords %s %08lX %08lX %08lX %08lX; %s; %s; record bytes: %s",
+        what, g_ctInvSave, g_swTravel, g_udWorldTick ? (LONG)(GetTickCount() - g_udWorldTick) / 1000 : -1L, g_udWorlds, (DWORD)(uintptr_t)outfit,
+        key[0], key[1], key[2], key[3], ri, rn, (DWORD)(uintptr_t)rec, arr < 0 ? 0 : arr ? 0x38 : 0x14, slot, v, vOk ? "" : "(unreadable)", w[0], w[1],
+        w[2], w[3], sl, gone, rb);
+}
+static void CtInvCheck(const u8* node, const u8* outfit) {
+    LONG ri = -1, rn = 0;
+    const u8* rec = NULL;
+    int arr = -1, slot = -1;
+    __try {
+        const u8 *b = *(const u8* const*)(outfit + 0x98), *e = *(const u8* const*)(outfit + 0x9C);
+        if (e < b || (e - b) % 0x68 || (e - b) / 0x68 > 64) return CtInvBad("record range not 0-64 records of 0x68 (record = begin, value = end, of = bytes)", node, outfit, -1, (LONG)(e - b), b, -1, -1, (DWORD)(uintptr_t)e);
+        rn = (LONG)((e - b) / 0x68), g_ctInvRecs += rn;
+        for (ri = 0; ri < rn; ri++) {
+            rec = b + ri * 0x68;
+            for (arr = 0; arr < 2; arr++) {
+                const DWORD* a = *(const DWORD* const*)(rec + (arr ? 0x38 : 0x14));
+                for (slot = 0; slot < 5; slot++) {
+                    const DWORD v = a[slot];
+                    if (!v) continue;
+                    g_ctInvSlots++;
+                    DWORD vt = 0;
+                    bool ok = false;
+                    __try { vt = *(const DWORD*)(uintptr_t)v, ok = true; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+                    if (!ok || (vt != g_ctVt[0] && vt != g_ctVt[1])) CtInvBad(ok ? "not a part compositor" : "value unreadable", node, outfit, ri, rn, rec, arr, slot, v);
+                }
+            }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        CtInvBad("fault reading the outfit, a record or an array pointer", node, outfit, ri, rn, rec, arr, slot, 0);
+    }
+}
+static void __fastcall CtInvHook(void* outfit, void* edx, void* set, DWORD children) {
+    LARGE_INTEGER q0, q1;
+    QueryPerformanceCounter(&q0);
+    g_ctInvCalls++;
+    CtInvCheck(g_ctInvNode, (const u8*)outfit);
+    QueryPerformanceCounter(&q1);
+    g_ctInvQpc += q1.QuadPart - q0.QuadPart;
+    g_ctInvEa(outfit, edx, set, children);
+}
+__declspec(naked) static void CtInvStub() {  // the call site's target: EA's esi (the outfit map node) kept, then the hook (ret 8 there)
+    __asm {
+        mov dword ptr [g_ctInvNode], esi
+        jmp CtInvHook
+    }
+}
+static void CtInvSaveLog() {  // after the save returned (CtSaveHook): one line per save that ran the inventory
+    if (!g_ctInvCalls) return;
+    LARGE_INTEGER f;
+    QueryPerformanceFrequency(&f);
+    Log("cas trim: inventory check save #%ld: outfits %ld, records %ld, slots %ld, bad %ld (session %ld, %ld in an erased object), %.2f ms",
+        g_ctInvSave, g_ctInvCalls, g_ctInvRecs, g_ctInvSlots, g_ctInvBadSave, g_ctInvBad, g_ctInvGone, f.QuadPart ? (double)g_ctInvQpc * 1000.0 / (double)f.QuadPart : 0.0);
+    g_ctInvCalls = g_ctInvRecs = g_ctInvSlots = g_ctInvBadSave = 0, g_ctInvQpc = 0;
+}
+// crashfx.cpp, a fault at 0x5E76DA (array [rec+0x14]) or 0x5E772C ([rec+0x38]) in 0x5E7690, any thread: EA's frame there
+// (sub esp,0xC + 4 pushes) has the record at [esp+0x10], the outfit +0x14, the end +0x18, the return +0x1C, the set +0x20,
+// children +0x24; esi = the slot's value, ebx = slot * 4 [verified disassembly; the 11-08 EA report's stack data].
+static volatile LONG g_ctInvFaults;
+static void CtInvFault(const CONTEXT* c) {
+    if (InterlockedIncrement(&g_ctInvFaults) > 2) return;
+    DWORD f[6] = {};
+    __try { memcpy(f, (const void*)(uintptr_t)(c->Esp + 0x10), sizeof(f)); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    char gone[160], grec[160], sl[160], rb[0x68 * 3 + 4] = "unreadable";
+    CtGoneText(c->Esi, gone, sizeof(gone)), CtGoneText(f[0], grec, sizeof(grec)), CtSlotText(c->Esi, sl, sizeof(sl));
+    __try { if (f[0]) Hex((const u8*)(uintptr_t)f[0], 0x68, rb, sizeof(rb)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(rb, "unreadable"); }
+    DWORD begin = 0;
+    __try { if (f[1]) begin = *(const DWORD*)(uintptr_t)(f[1] + 0x98); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    Log("crash forensics: cas trim inventory fault at 0x%08lX (array +0x%X slot %lu): value esi 0x%08lX (%s; %s), record 0x%08lX (index %ld, %ld left; %s), "
+        "outfit 0x%08lX records 0x%08lX-0x%08lX, return 0x%08lX set 0x%08lX children %lu; outfit map node at the save's call 0x%08lX; inventory checks this "
+        "save %ld, bad %ld (session %ld); save #%ld (travel flags %d), %ld s after world load #%ld; record bytes: %s",
+        c->Eip, c->Eip == 0x005E772C ? 0x38 : 0x14, c->Ebx / 4, c->Esi, sl, gone, f[0], begin && f[0] >= begin ? (LONG)((f[0] - begin) / 0x68) : -1L,
+        f[2] > f[0] ? (LONG)((f[2] - f[0]) / 0x68) : -1L, grec, f[1], begin, f[2], f[3], f[4], f[5], (DWORD)(uintptr_t)g_ctInvNode, g_ctInvCalls,
+        g_ctInvBadSave, g_ctInvBad, g_ctInvSave, g_swTravel, g_udWorldTick ? (LONG)(GetTickCount() - g_udWorldTick) / 1000 : -1L, g_udWorlds, rb);
+}
+
 static const char* CtRefuse(DWORD now, DWORD tid, const u8* live) {
     if (!g_ctTid) return "no insert seen yet";
     if (tid != g_ctTid) return "the save is not on the insert thread";
@@ -516,7 +646,7 @@ static u8 CtSweepStep() {
             const DWORD h = CtKeyHash(c.key);
             t->seen = t->cand = 0;  // the address may come back as a new compositor
             n++;
-            if (g_ctErase(g_ctSvc, NULL, c.key)) z.ctSwept++, g_ctGone[h & (CT_GONE - 1)] = (LONG)h;  // remembered after the erase: see CtStep
+            if (g_ctErase(g_ctSvc, NULL, c.key)) z.ctSwept++, g_ctGone[h & (CT_GONE - 1)] = (LONG)h, CtGoneRec(c.o, h);  // remembered after the erase: see CtStep
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         z.ctMode = 0, g_ctPendN = 0;
@@ -560,7 +690,12 @@ static u8 CtOp(int op, DWORD lo) {
 // docs/539 P5: the save's entry, order and thread. Mode 3's "during a save" ends with this hook.
 static bool __fastcall CtSaveHook(u8* svc, void* edx, void* stream) {
     Ts3nCounters& z = ts3native_counters;
-    if (z.ctMode < 3) return g_ctSave(svc, edx, stream);
+    g_ctInvSave++;  // docs/539 §12.5: the inventory check's save number, every mode
+    if (z.ctMode < 3) {
+        const bool r0 = g_ctSave(svc, edx, stream);
+        CtInvSaveLog();
+        return r0;
+    }
     const DWORD t0 = GetTickCount(), at = (DWORD)(uintptr_t)_ReturnAddress();
     z.ctSaves++, g_ctPendN = 0, g_ctPendGo = false, g_ctMarksLate = 0, g_ctAfterSave = false;
     int flag = -1;
@@ -573,6 +708,7 @@ static bool __fastcall CtSaveHook(u8* svc, void* edx, void* stream) {
     Log("cas trim: P5 save #%ld from 0x%08lX, thread %lu (insert thread %lu, loader %lu), [0x11ECBC4]+0x45 = %d: keep list %ld ms before, marks after "
         "it %ld, since the last save %ld, last mark %ld ms before; ran %lu ms, result %d", z.ctSaves, at, GetCurrentThreadId(), g_ctTid, g_mainTid, flag,
         g_ctFenceAt ? (LONG)(t0 - g_ctFenceAt) : -1L, marks, sinceSave, g_ctMarkAt ? (LONG)(t0 - g_ctMarkAt) : -1L, GetTickCount() - t0, r);
+    CtInvSaveLog();
     return r;
 }
 static bool __fastcall CtWriteHook(u8* svc, void* edx, void* a, void* b, void* c, const u8* live) {
@@ -679,6 +815,11 @@ static void CtInstallProbes() {
     if (!g_ctFbOrig) g_ctFbOrig = InstallDetour("Parse_FallbackBranch", CT_FB_BRANCH, kCtFbPro, sizeof(kCtFbPro), (void*)CtFbStub, &g_ctFbOrig);
     static const CallSite sites[] = {{0x005EA8EE, 0x005BFAB0, (void*)CtRebuildParse}, {0x005C7901, 0x004E69D0, (void*)CtGeoAlloc}, {0x005A2FFA, 0x004E69D0, (void*)CtBlendAlloc}};
     PatchCalls("cas trim probe sites", sites, 3);
+    // docs/539 §12.5: the inventory detector, a site of its own so the 3 above keep their install line
+    static const CallSite inv[] = {{0x005EFE11, 0x005E7690, (void*)CtInvStub}};
+    if (PatchCalls("cas trim inventory check site", inv, 1))
+        Log("cas trim: inventory check on (docs/539 §12.5): each save's outfit inventory call 0x5EFE11 checks every part record slot first; "
+            "erase ring %lu", CT_GRING);
 }
 static bool CtAlloc() {
     if (g_ct) return true;

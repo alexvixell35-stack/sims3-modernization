@@ -38,6 +38,7 @@ static void OrExplain(DWORD obj);                                   // docs/186 
 static void OrDump();                                               // docs/186 §10, below
 static void DiDump(const CONTEXT* c);                               // docs/67 §16, below
 static bool CfJmp(DWORD at, const u8* pro, size_t len, void* hook);  // below
+static void CtInvFault(const CONTEXT* c);  // castrim.cpp: the outfit inventory fault decoder (docs/539 §12.5)
 static bool CfVtOk(DWORD vt) { return vt >= g_cfVtLo && vt < g_cfVtHi && !(vt & 3); }
 
 // one guarded-site finding: count, ring lookup, first 16 logged
@@ -177,6 +178,8 @@ static void CfOnFault(const EXCEPTION_POINTERS* x) {
     // TS3W.exe .text only: every run has 3 handled first-chance AVs at start-up in other modules (queue logs 2026-10-24);
     // an illegal instruction anywhere = a wild call into data (Crash M / O: eip in the heap), dumped with the fault at eip
     const DWORD eip = x->ContextRecord->Eip;
+    // docs/539 §12.5: EA's outfit inventory 0x5E7690 (the 11-08 travel-save crash at 0x5E772C), Light or not, before the dump cap
+    if (eip == 0x005E772C || eip == 0x005E76DA) CtInvFault(x->ContextRecord);
     const bool wild = XcptWild(x->ExceptionRecord->ExceptionCode);  // C0000096 too (2026-11-02 drain crash wrote no dump)
     if (!g_cfOn || (!wild && (eip < 0x00401000 || eip >= 0x00F95000)) || InterlockedIncrement(&g_cfDumpN) > 4) return;
     Ts3nCounters& k = ts3native_counters;

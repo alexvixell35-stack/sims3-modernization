@@ -79,7 +79,7 @@ static void TestTailUnlock() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, tuMode) == 0x3878 && offsetof(Ts3nCounters, tuRefused) == 0x3884 &&
                   offsetof(Ts3nCounters, tuReleasedUs) == 0x3894 && offsetof(Ts3nCounters, tuTrip) == 0x38A0 &&
-                  sizeof(Ts3nCounters) == 6030 * 4, "counters v89 layout after v87 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6035 * 4, "counters v89 layout after v87 (docs/registry.md)");
     assert(k.version == 912);
     // the call sites as InstallTailUnlock patches them (the bytes themselves: steerro-test on the image)
     assert(kTuSites[0].site == 0x0064E4ED && kTuSites[0].target == 0x0064C7C0 && kTuSites[3].site == 0x0064E533 &&
