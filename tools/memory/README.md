@@ -17,13 +17,19 @@ below). Used in the #40 bridge runs (al317-al325) and the lot pool work (docs/54
 | `ea-heap-free.py` | free space inside each EA heap's cores by bin (fast, small, mid, large, top) | whether the EA heap grows because it is full or because it is fragmented |
 | `ea-pool-census.py [--max-read N]` | TS3W's 12 static EA fixed pools (init `0x4E43D0` with `mov ecx, <pool>`): cores, slots, free share, completely free cores | pools that hold free cores |
 | `lot-pool-snap.py [pid]` | the 272-byte lot message pool `0x11EB590`: cores, slots, live slots, completely free cores (what `[LotPool] Trim` in PR #313 frees) | before and after a world load or a trim |
-| `nt-heap.py [--state FILE] [--top N] [--pid PID]`, `--self-check` | the process heap (PEB32 `ProcessHeap`): segments, busy and free backend blocks by size, LFH user blocks with an estimated block size and the busy count from their bitmap, big blocks. `--state` diffs busy blocks (backend and LFH) between samples, by size and by what their first dword points into. | growth of `nt-heap:process`: live data or fragmentation, and which block size |
+| `nt-heap.py [--state FILE] [--top N] [--pid PID] [--dump STRIDE] [--holders STRIDE]`, `--self-check` | the process heap (PEB32 `ProcessHeap`): segments, busy and free backend blocks by size, LFH buckets (block size, busy count from the bitmap, where the busy blocks' first dword points), big blocks. `--state` diffs busy blocks (backend and LFH) between samples, by size and by what their first dword points into. `--dump` shows a few blocks of one bucket; `--holders` finds who points at them. | growth of `nt-heap:process`: live data or fragmentation, which block size, and whose blocks |
 
 `nt-heap.py` details:
 - It needs the x86 heap layout of Windows 10/11 and checks both heap signatures before it reads anything.
 - Its free total should match the heap's own `TotalFreeSize`, which it prints.
-- Inside an LFH user block, the header's offsets are encoded (Windows 8+). So the block size is estimated from the
-  user block's size and its block count, rounded down to 8 bytes. Block positions follow from that, and were checked
-  against module pointers in the blocks (al325).
+- Inside an LFH user block, the header's offsets are encoded (Windows 8+). So the block size comes from the user
+  block's size and its block count. That is exact for small blocks but too big for large ones (13512 for a real 12808),
+  so it is checked against the blocks' own 8-byte headers: the size is the largest one at which every block header
+  has bit 0x80 in its last byte.
+- `--holders` reads the game's other private and image memory too (about 1.7 GB in 4 MiB windows, a minute on TS3W).
+  Don't run it while memory is low.
 - Example (al325, bridge, 60 min): the heap grew from LFH fragmentation in the 32-byte bucket, while its live blocks
   did not grow. 97% of its live blocks were the bridge diagnostics' table nodes (issue #40, al325).
+- Example (al326, in-process DXVK 3.1.1): the 12808-byte bucket holds 6,464 blocks (79 MiB), about one per game
+  shader. `--holders` shows them chained through their first dword with a bucket array in one 41 KB block, which is a
+  hash map's nodes. The 5896-byte bucket (6,594 blocks, 37 MiB) starts with a `d3d9.dll` vtable.
