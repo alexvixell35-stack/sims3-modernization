@@ -6,7 +6,7 @@ Read-only memory tools for a running `TS3W.exe` 1.67. They use `VirtualQueryEx` 
 - reads go in windows of at most 4 MiB, so a run beside the game does not need a big buffer.
 
 Run each tool with `python -I` while the game runs. The EA heap and pool tools need the Steam/1.67 exe (addresses
-below). Used in the #40 bridge runs (al317-al325) and the lot pool work (docs/541).
+below). Used in the #40 bridge runs (al317-al325) and the lot pool work (docs/541 in PR #313).
 
 | Tool | What it shows | Use it for |
 |---|---|---|
@@ -16,7 +16,7 @@ below). Used in the #40 bridge runs (al317-al325) and the lot pool work (docs/54
 | `ea-heap-new.py save` / `diff FILE [--minsize] [--maxsize] [--max]` | which EA main heap chunks of a size range are new since `save`, the chunks that point at them, and how many have no holder in the heap (leak candidates) | who keeps new small blocks alive |
 | `ea-heap-free.py` | free space inside each EA heap's cores by bin (fast, small, mid, large, top) | whether the EA heap grows because it is full or because it is fragmented |
 | `ea-pool-census.py [--max-read N]` | TS3W's 12 static EA fixed pools (init `0x4E43D0` with `mov ecx, <pool>`): cores, slots, free share, completely free cores | pools that hold free cores |
-| `lot-pool-snap.py [pid]` | the 272-byte lot message pool `0x11EB590`: cores, slots, live slots, completely free cores (what `[LotPool] Trim` frees, docs/541) | before and after a world load or a trim |
+| `lot-pool-snap.py [pid]` | the 272-byte lot message pool `0x11EB590`: cores, slots, live slots, completely free cores (what `[LotPool] Trim` in PR #313 frees) | before and after a world load or a trim |
 | `nt-heap.py [--state FILE] [--top N] [--pid PID]`, `--self-check` | the process heap (PEB32 `ProcessHeap`): segments, busy and free backend blocks by size, LFH user blocks with an estimated block size and the busy count from their bitmap, big blocks. `--state` diffs busy blocks (backend and LFH) between samples, by size and by what their first dword points into. | growth of `nt-heap:process`: live data or fragmentation, and which block size |
 
 `nt-heap.py` details:
@@ -26,4 +26,4 @@ below). Used in the #40 bridge runs (al317-al325) and the lot pool work (docs/54
   user block's size and its block count, rounded down to 8 bytes. Block positions follow from that, and were checked
   against module pointers in the blocks (al325).
 - Example (al325, bridge, 60 min): the heap grew from LFH fragmentation in the 32-byte bucket, while its live blocks
-  did not grow. 97% of those blocks were the bridge diagnostics' table nodes (docs/540 §3.2).
+  did not grow. 97% of its live blocks were the bridge diagnostics' table nodes (issue #40, al325).
