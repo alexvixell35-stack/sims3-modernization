@@ -1,0 +1,139 @@
+From: sims3-modernization
+Subject: [PATCH 0003] d3d9: log live texture mapping buffers and Vulkan heap use (DXVK_TS3_DIAG=1 only)
+
+Diagnostics for test runs. In a 32-bit process, a texture's mapping buffer is host-visible cached Vulkan memory
+that the driver maps into the address space (SYSTEMMEM and SCRATCH textures always have one, DEFAULT dynamic
+textures keep theirs after the first lock). With DXVK_TS3_DIAG=1, every 1800 presents logs the live buffers by
+pool and DXVK's allocated / used memory per Vulkan heap. Without the variable nothing is logged; the counters
+only change when a texture buffer is created or destroyed.
+---
+diff --git a/src/d3d9/d3d9_common_texture.h b/src/d3d9/d3d9_common_texture.h
+--- a/src/d3d9/d3d9_common_texture.h
++++ b/src/d3d9/d3d9_common_texture.h
+@@ -10,7 +10,22 @@
+ #include "../util/util_bit.h"
+ #include "../util/util_unmap.h"
+ 
++#include <atomic>
++
+ namespace dxvk {
++
++  /**
++   * \brief Live texture mapping buffers by pool (sims3-modernization diagnostics)
++   *
++   * Index: 0 DEFAULT dynamic, 1 DEFAULT other, 2 MANAGED, 3 SYSTEMMEM, 4 SCRATCH.
++   * Logged by D3D9SwapChainEx::Present with DXVK_TS3_DIAG=1.
++   */
++  struct D3D9TextureBufferStats {
++    std::atomic<int64_t> count[5];
++    std::atomic<int64_t> bytes[5];
++  };
++
++  extern D3D9TextureBufferStats g_d3d9TextureBufferStats;
+ 
+   class D3D9DeviceEx;
+ 
+@@ -262,8 +277,25 @@
+      * Destroys mapping and staging buffers for a given subresource
+      */
+     void DestroyBuffer() {
++      DiagReleaseBuffer();
+       m_buffer = nullptr;
+       MarkAllNeedReadback();
++    }
++
++    uint32_t DiagPoolIndex() const {
++      switch (m_desc.Pool) {
++        case D3DPOOL_DEFAULT:   return IsDynamic() ? 0u : 1u;
++        case D3DPOOL_MANAGED:   return 2u;
++        case D3DPOOL_SYSTEMMEM: return 3u;
++        default:                return 4u;
++      }
++    }
++
++    void DiagReleaseBuffer() {
++      if (m_buffer != nullptr) {
++        g_d3d9TextureBufferStats.count[DiagPoolIndex()] -= 1;
++        g_d3d9TextureBufferStats.bytes[DiagPoolIndex()] -= m_diagBufferSize;
++      }
+     }
+ 
+     bool IsDynamic() const {
+@@ -505,6 +537,7 @@
+     Rc<DxvkImage>                 m_resolveImage;
+     Rc<DxvkBuffer>                m_buffer;
+     MemoryFileRegion              m_data = { };
++    uint32_t                      m_diagBufferSize = 0u;
+ 
+     D3D9SubresourceArray<
+       uint64_t>                   m_seqs = { };
+diff --git a/src/d3d9/d3d9_common_texture.cpp b/src/d3d9/d3d9_common_texture.cpp
+--- a/src/d3d9/d3d9_common_texture.cpp
++++ b/src/d3d9/d3d9_common_texture.cpp
+@@ -9,6 +9,8 @@
+ #include <algorithm>
+ 
+ namespace dxvk {
++
++  D3D9TextureBufferStats g_d3d9TextureBufferStats;
+ 
+   D3D9CommonTexture::D3D9CommonTexture(
+           D3D9DeviceEx*             pDevice,
+@@ -102,6 +104,8 @@
+ 
+ 
+   D3D9CommonTexture::~D3D9CommonTexture() {
++    DiagReleaseBuffer();
++
+     if (m_size != 0)
+       m_device->ChangeReportedMemory(m_size);
+ 
+@@ -342,6 +346,9 @@
+                                   | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+ 
+     m_buffer = m_device->GetDXVKDevice()->createBuffer(info, memType);
++    m_diagBufferSize = Size;
++    g_d3d9TextureBufferStats.count[DiagPoolIndex()] += 1;
++    g_d3d9TextureBufferStats.bytes[DiagPoolIndex()] += Size;
+ 
+     if (Initialize) {
+       if (m_data)
+diff --git a/src/d3d9/d3d9_swapchain.cpp b/src/d3d9/d3d9_swapchain.cpp
+--- a/src/d3d9/d3d9_swapchain.cpp
++++ b/src/d3d9/d3d9_swapchain.cpp
+@@ -1,4 +1,5 @@
+ #include "d3d9_swapchain.h"
++#include "d3d9_common_texture.h"
+ #include "d3d9_surface.h"
+ #include "d3d9_monitor.h"
+ 
+@@ -111,6 +112,29 @@
+     const RGNDATA* pDirtyRegion,
+           DWORD    dwFlags) {
+     D3D9DeviceLock lock = m_parent->LockDevice();
++
++    static const bool s_diag = env::getEnvVar("DXVK_TS3_DIAG") == "1";
++    static uint32_t s_diagPresents = 0u;
++
++    if (unlikely(s_diag) && !(++s_diagPresents % 1800u)) {
++      static const char* names[5] = { "default-dynamic", "default", "managed", "systemmem", "scratch" };
++      auto& s = g_d3d9TextureBufferStats;
++      std::string line = str::format("diag: present ", s_diagPresents, " texture buffers (n / MiB):");
++
++      for (uint32_t i = 0; i < 5u; i++)
++        line += str::format(" ", names[i], " ", s.count[i].load(), " / ", s.bytes[i].load() >> 20);
++
++      const Rc<DxvkDevice>& dev = m_parent->GetDXVKDevice();
++      const auto& mp = dev->adapter()->memoryProperties();
++
++      for (uint32_t i = 0; i < mp.memoryHeapCount; i++) {
++        DxvkMemoryStats st = dev->getMemoryStats(i);
++        line += str::format("; heap ", i, (mp.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) ? " vram" : " sys",
++          " allocated ", st.memoryAllocated >> 20, " used ", st.memoryUsed >> 20);
++      }
++
++      Logger::info(line);
++    }
+ 
+     m_parent->SetMostRecentlyUsedSwapchain(this);
+ 
