@@ -15,9 +15,10 @@ Block sizes include the 8-byte header. It prints busy / free by size class and t
 and prints, against the previous sample, the sizes that grew and what the new blocks start with (a pointer into a
 module is likely a vtable).
 --dump STRIDE prints the first 64 bytes of a few busy blocks of that LFH bucket and the modules their dwords point into.
+--raw FILE (with --dump) writes every busy block of that bucket to FILE: 4 bytes address, then the payload.
 --holders STRIDE finds who points at 64 blocks of that bucket: blocks of the process heap, then (exact pointers only)
 the game's other private and image memory, read 4 MiB at a time (about 1.7 GB and a minute on TS3W).
-Usage: python -I nt-heap.py [--state FILE] [--top N] [--pid PID] [--dump STRIDE] [--holders STRIDE]
+Usage: python -I nt-heap.py [--state FILE] [--top N] [--pid PID] [--dump STRIDE [--raw FILE]] [--holders STRIDE]
        python -I nt-heap.py --self-check"""
 import bisect
 import ctypes
@@ -317,6 +318,7 @@ def main():
     free_com = 0
     # --dump STRIDE: first 64 bytes of a few busy blocks of that bucket, and the modules their dwords point into
     dump_stride, dumps, dump_mods = int(opt("--dump", "0")), [], Counter()
+    raw_path, raws = opt("--raw"), []  # with --dump: every dumped block's whole payload, for offline field analysis
     for seg in segs:
         first, last = u32(seg + 0x24), u32(seg + 0x28)
         seg_res += last - seg
@@ -363,6 +365,8 @@ def main():
                             first_dw[pa] = struct.unpack_from("<I", buf, pa - seg)[0]
                         if stride == dump_stride and pa + stride - 8 <= last:
                             dumps.append((pa, buf[pa - seg:pa - seg + 64]))
+                            if raw_path:
+                                raws.append(struct.pack("<I", pa) + bytes(buf[pa - seg:pa - seg + stride - 8]))
                             body = struct.unpack_from(f"<{(stride - 8) // 4}I", buf, pa - seg)
                             for name in {hint(w) for w in body if w >= 0x10000} - {"other"}:
                                 dump_mods[name] += 1
@@ -408,6 +412,9 @@ def main():
         for pa, b in dumps[::max(len(dumps) // 8, 1)][:8]:
             print(f"    {pa:#010x}: " + " ".join(f"{w:08x}" for w in struct.unpack("<16I", b)) +
                   "  " + "".join(chr(c) if 32 <= c < 127 else "." for c in b))
+    if raw_path and raws:
+        open(raw_path, "wb").write(b"".join(raws))
+        print(f"  wrote {len(raws)} records of 4 + {dump_stride - 8} bytes (address, payload) to {raw_path}")
     hold_stride = int(opt("--holders", "0"))
     if hold_stride:
         holders(hold_stride, busy_lfh, segs, regions, read, enc, hint, rtype)
