@@ -19,7 +19,7 @@ without a patch, not our build with the release.
 |---|---|---|
 | 0001 | `DxvkPipelineBindings` binding lists keep 4 entries inline instead of 32 | One `DxvkPipelineBindings` is about 12 KB on x86 (23 `small_vector<DxvkShaderDescriptor, 32>`). DXVK keeps one in every `DxvkShaderPipelineLibrary` (one per shader), `DxvkGraphicsPipeline` and `DxvkComputePipeline`. In TS3 that was 6,464 shader library nodes of 12,808 bytes, 79 MiB of the process heap (#40, al326). A list longer than 4 moves to the heap. |
 | 0002 | `DxvkShaderIo` keeps 16 variables inline instead of 32 | A `DxvkShaderIoVar` is 36 bytes on x86, so one `DxvkShaderIo` is 1160 bytes. Every `DxvkIrShader` holds four (inputs and outputs, in its own metadata and in the `DxvkShader` base copy), and every `DxvkGraphicsPipelineFastInstanceKey` five more. In TS3 the 6,570 shader objects are 5896 bytes each (37 MiB, al328). Their inputs hold at most 16 variables and their outputs at most 15, so nothing moves to the heap. |
-| 0003 | Diagnostics, test runs only: with `DXVK_TS3_DIAG=1`, logs the live texture mapping buffers by pool and DXVK's allocated / used memory per Vulkan heap every 1800 presents | A texture's mapping buffer is host-visible cached Vulkan memory that the driver maps into TS3W (SYSTEMMEM and SCRATCH textures always have one, DEFAULT dynamic ones keep theirs after the first lock). In al328, 16-32 MiB private blocks outside any heap took about 160 MiB; the two of them probed held texture pixels. Without the variable nothing is logged. |
+| 0003 | Diagnostics, test runs only: with `DXVK_TS3_DIAG=1`, logs every 1800 presents the live texture mapping buffers by pool, DXVK's allocated / used memory per Vulkan heap, and the live / created Vulkan pipelines by kind (library, linked, monolithic, compute) | A texture's mapping buffer is host-visible cached Vulkan memory that the driver maps into TS3W (SYSTEMMEM and SCRATCH textures always have one, DEFAULT dynamic ones keep theirs after the first lock). In al328, 16-32 MiB private blocks outside any heap took about 160 MiB; the two of them probed held texture pixels. The pipeline counts are lined up with the NVIDIA driver's own records (#40, al329). Without the variable nothing is logged. |
 
 How the 12,808-byte blocks were matched to `m_shaderLibraries` (`tools/memory/nt-heap.py --dump 12808 --holders 12808`
 on al326):
@@ -35,3 +35,6 @@ Checks in TS3 (in-process, `Game\BinBase`, census by `tools/memory/nt-heap.py`):
 - 0002: the variable counts come from `nt-heap.py --dump 5896 --raw` on al328 and a scan for the
   `{capacity, size}` pairs of each `small_vector`. The inputs and outputs show the same counts at two places in
   every block: the base class copy and the `DxvkIrShader` copy.
+- 0003 (al329, 180 min): the NVIDIA driver keeps about 0.9 text records per complete pipeline created (linked +
+  monolithic), including the linked ones DXVK has destroyed: 2,075 records for 1,100 linked (0 live) and 1,183
+  monolithic pipelines. Each record takes about 120 KB of the driver's 128 MiB arenas.
