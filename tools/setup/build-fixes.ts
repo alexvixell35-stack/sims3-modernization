@@ -165,6 +165,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kInvNotYet value="False" />
     <kMetricSkillMissing value="False" />
     <kFireworksFizzle value="False" />
+    <kBookHand value="False" />
+    <kBookHandDiag value="False" />
     <kPetPoolOrphan value="False" />
     <kRelTablesApart value="False" />
     <kAsyncJigSync value="True" />

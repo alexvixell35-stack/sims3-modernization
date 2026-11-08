@@ -24,7 +24,10 @@ namespace Ts3Fixes
             {
                 StateMachineClient before = null;
                 try { before = Actor != null ? Actor.CarryStateMachine : null; } catch (Exception) { }
+                string bhCtx = null;
+                try { if (Actor != null) bhCtx = BhStopStart(Actor); } catch (Exception) { } // bookhand logging (BookHand.cs, docs/251)
                 bool r = StopOrig(Actor, smcRead, bPutInInventory);
+                try { if (Actor != null) BhStopEnd(Actor, bhCtx); } catch (Exception) { }
                 try
                 {
                     if (BookCarryCore.Dropped(before, smcRead, Actor.CarryStateMachine))

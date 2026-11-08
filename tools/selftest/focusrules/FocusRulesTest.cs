@@ -25,7 +25,12 @@ static class FocusRulesTest
         Check("bad pick not cancelled", "fail a live Test", S(0, bad: 1), S(3.2, bad: 2));
         // bp-gu2-arrive-off 2026-11-08: no direct pick tagged (autunseen off) = the game's own queue, not judged; tagged = judged
         if (FocusRules.SnapQueue(1, 0) != 0 || FocusRules.SnapQueue(2, 3) != 2) { sFails++; Console.WriteLine("FAIL SnapQueue gate"); }
-        FocusRules.Sample bn = S(3.2, bad: 1); bn.BadNames = "Sit";
+        // bp-gu2-arrive-on 2026-11-08: only spawn_sims crowd Sims count as arrivals, passers-by do not
+        Dictionary<ulong, bool> crowd = new Dictionary<ulong, bool> { { 42, true } };
+        if (!FocusRules.CrowdArrival(42, crowd) || FocusRules.CrowdArrival(7, crowd) || FocusRules.CrowdArrival(0, crowd)) { sFails++; Console.WriteLine("FAIL CrowdArrival"); }
+        // ip-gu2-arrive-off 2026-11-08: Atlantis houseboat docked in Picturesque Port, camera on the boat (3 m) = on the home lot
+        if (!FocusRules.CameraOnLot(true, false, 999) || !FocusRules.CameraOnLot(false, true, 3) || FocusRules.CameraOnLot(false, true, 40) || FocusRules.CameraOnLot(false, false, 3)) { sFails++; Console.WriteLine("FAIL CameraOnLot"); }
+        FocusRules.Sample bn =S(3.2, bad: 1); bn.BadNames = "Sit";
         Check("bad pick named", "fail a live Test (Sit)", S(0), bn);
         Check("pop on screen", "pop", S(0), S(1), S(2, 30), S(4, 30));
         // docs/222 §11.10: the pop names both points, their seconds, the interaction and rabbit-hole posture on each side

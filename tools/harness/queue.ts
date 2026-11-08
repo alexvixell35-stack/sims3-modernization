@@ -235,7 +235,7 @@ import { asiCheck, asiVersion, fixesCheck, loadDb, logVersionCheck, packageTunin
 import { COMMUNITY, defaultSpec as vanillaSpec, install as vanillaInstall, mfile as vanillaMf, ourModsSpec, problems as vanillaProblems, restore as vanillaRestore, vanilla as vanillaEnv } from './vanilla.ts';
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: {
-  'dry-run': { type: 'boolean' }, from: { type: 'string' }, only: { type: 'string' }, 'self-check': { type: 'boolean' }, 'restore-content': { type: 'boolean' }, 'no-smoke': { type: 'boolean' }, 'stop-on-fail': { type: 'boolean' }, 'close-spotify': { type: 'boolean' }, port: { type: 'string', default: '47891' },
+  'dry-run': { type: 'boolean' }, 'no-publish': { type: 'boolean' }, from: { type: 'string' }, only: { type: 'string' }, 'self-check': { type: 'boolean' }, 'restore-content': { type: 'boolean' }, 'no-smoke': { type: 'boolean' }, 'stop-on-fail': { type: 'boolean' }, 'close-spotify': { type: 'boolean' }, port: { type: 'string', default: '47891' },
 } });
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const H = (f: string) => join(ROOT, 'tools', 'harness', f);
@@ -1090,8 +1090,61 @@ export function crashStop(crashed: boolean, earlierCrashesOfJob: number, prevCra
   return '';
 }
 
+// End-of-queue public sync (Rodney 2026-11-08): after Bin restore and results, publish-public.ts sync --if-behind pushes master
+// to the public repo when it moved (it decides itself: marker probe-out/publish-public-last.json, min gap 60 min). Needs a token,
+// off with --no-publish or TS3_NO_PUBLISH=1, never on a --dry-run; a failure never fails the queue (publish: FAILED + probe-out/queue/publish-failed).
+function publishPlan(env: Record<string, string | undefined>, noPublishFlag: boolean, dryRun: boolean): { run: boolean; why: string; token: string } {
+  const token = env.PERSONAL_GITHUB_TOKEN || env.GH_TOKEN || '';
+  if (dryRun) return { run: false, why: 'dry run', token };
+  if (noPublishFlag || env.TS3_NO_PUBLISH === '1') return { run: false, why: 'opted out (--no-publish / TS3_NO_PUBLISH=1)', token };
+  if (!token) return { run: false, why: 'no GH_TOKEN / PERSONAL_GITHUB_TOKEN', token };
+  return { run: true, why: '', token };
+}
+function publishMessage(sha: string, queueName: string, subjects: string[], cap = 30): string {
+  const more = subjects.length - cap;
+  return `\u{1F4DD} Sync: local master ${sha} after queue ${queueName}\n\n${subjects.slice(0, cap).map(x => `- ${x}`).join('\n')}${more > 0 ? `\n- ... and ${more} more` : ''}\n`;
+}
+function publishAtEnd(queueName: string): void {
+  const plan = publishPlan(process.env, !!values['no-publish'], !!values['dry-run']);
+  const failed = join(OUT, 'publish-failed');
+  if (!plan.run) { log(`publish: skipped: ${plan.why}`); return; }
+  try {
+    const git = (...a: string[]) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8', timeout: 30000 }).trim();
+    const sha = git('rev-parse', '--short=8', 'master');
+    let subjects: string[] = [];
+    try {
+      const m = JSON.parse(readFileSync(join(ROOT, 'probe-out', 'publish-public-last.json'), 'utf8'));
+      subjects = git('log', '--format=%s', '-n', '200', `${m.sha}..master`).split(/\r?\n/).filter(Boolean);
+    } catch { subjects = git('log', '--format=%s', '-n', '20', 'master').split(/\r?\n/).filter(Boolean); }
+    const msg = join(OUT, 'publish-message.txt');
+    writeFileSync(msg, publishMessage(sha, queueName, subjects));
+    const out = execFileSync(process.execPath, [join(ROOT, 'tools', 'publish-public.ts'), 'sync', '--if-behind', '--yes', '--message-file', msg],
+      { cwd: ROOT, encoding: 'utf8', timeout: 45 * 60000, env: { ...process.env, GH_TOKEN: plan.token }, stdio: ['ignore', 'pipe', 'pipe'] });
+    const lines = out.split(/\r?\n/).filter(Boolean);
+    log(`publish: ${lines.find(l => /^publish-public: /.test(l))?.replace(/^publish-public: /, '') ?? lines.pop() ?? 'done'}${/^done$/m.test(out) ? ' (synced)' : ''}`);
+    rmSync(failed, { force: true });
+  } catch (e: any) {
+    const text = `${e?.stderr ?? ''}\n${e?.message ?? e}`.split(plan.token).join('<token>');
+    const rows = text.split(/\r?\n/).filter(Boolean);
+    const reason = rows.find(l => /^publish-public:/.test(l))?.replace(/^publish-public: /, '') ?? rows[0] ?? 'unknown';
+    log(`publish: FAILED: ${reason}`);
+    try { writeFileSync(failed, `${new Date().toISOString()} ${reason}\n`); } catch { /* best effort */ }
+  }
+}
+
 if (values['self-check']) {
   const assert = (await import('node:assert')).strict;
+  { // end-of-queue publish hook
+    assert.equal(publishPlan({ PERSONAL_GITHUB_TOKEN: 't' }, false, false).run, true);
+    assert.equal(publishPlan({ GH_TOKEN: 't' }, false, false).run, true, 'GH_TOKEN alone');
+    assert.equal(publishPlan({ PERSONAL_GITHUB_TOKEN: 'p', GH_TOKEN: 'g' }, false, false).token, 'p', 'personal token wins');
+    assert.equal(publishPlan({}, false, false).run, false, 'no token');
+    assert.equal(publishPlan({ PERSONAL_GITHUB_TOKEN: 't' }, true, false).run, false, '--no-publish');
+    assert.equal(publishPlan({ PERSONAL_GITHUB_TOKEN: 't', TS3_NO_PUBLISH: '1' }, false, false).run, false, 'TS3_NO_PUBLISH=1');
+    assert.equal(publishPlan({ PERSONAL_GITHUB_TOKEN: 't' }, false, true).run, false, 'dry run');
+    const m = publishMessage('abcd1234', 'q', Array.from({ length: 35 }, (_, i) => `c${i}`), 30);
+    assert.match(m.split('\n')[0], /Sync: local master abcd1234 after queue q$/); assert.match(m, /- c29\n- \.\.\. and 5 more/); assert.ok(!m.includes('c30'));
+  }
   assert.equal(machineCols('').head + machineCols('').sep + machineCols('').cell('main'), ''); assert.deepEqual(machineField(''), {}); // main: no column, no field
   assert.equal(machineCols('ea-laptop').head, ' machine |'); assert.equal(machineCols('ea-laptop').sep, '---|'); assert.equal(machineCols('ea-laptop').cell('ea-laptop'), ' ea-laptop |'); assert.deepEqual(machineField('ea-laptop'), { machineTag: 'ea-laptop' });
   const ok = parseQueue([{ id: 'a', asi: 'tested', save: 'Baseline-BP', run: { soak: { minutes: 5 } } }, { id: 'b', asi: 'x', run: { repro: 'r1' } },
@@ -3026,4 +3079,5 @@ if (VANILLA) {
 for (const b of ledgerBlocks) appendFileSync(md, b);
 if (stopWhy) appendFileSync(md, `\nStopped: ${stopWhy}.\n`);
 log(`results: ${jsonl}, ${md}`);
+publishAtEnd(queueName);
 process.exit(exitCode);

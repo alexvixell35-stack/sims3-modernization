@@ -118,6 +118,8 @@ namespace Ts3Fixes
             Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "MetricTitle", typeof(MetricSkillMissingHook), "TitleHook", "TitleOrig");  // MetricSkillMissing.cs, docs/532
             Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "MetricDescription", typeof(MetricSkillMissingHook), "DescHook", "DescOrig");  // MetricSkillMissing.cs, docs/532
             if (sFwWatch != null) Patch(sFwWatch, "LoopDel", typeof(FireworksFizzleHook), "LoopHook", "LoopOrig");  // FireworksFizzle.cs, docs/533
+            Patch(typeof(CarrySystem), "PutDown", new Type[] { typeof(Sim), typeof(Sims3.Gameplay.ObjectComponents.SurfaceType), typeof(bool) }, typeof(BookHandPutDownHook), "PutDownHook", "PutDownOrig");  // BookHand.cs, docs/251
+            Patch(typeof(InteractionQueue), "PutDownCarriedObjects", typeof(BookHandQueueHook), "PdcoHook", "PdcoOrig");  // BookHand.cs, docs/251
             Patch(typeof(Sims3.Gameplay.PetSystems.PetPool), "RandomRemovePet", typeof(PetPoolOrphanHook), "RandomHook", "RandomOrig");  // PetPoolOrphan.cs, docs/534
             Patch(typeof(Sims3.Gameplay.PetSystems.PetPool), "ClearAllPets", typeof(PetPoolOrphanHook), "ClearHook", "ClearOrig");  // PetPoolOrphan.cs, docs/534
             Patch(typeof(Sims3.Gameplay.Socializing.Relationship), "GetInternal", new Type[] { typeof(SimDescription), typeof(SimDescription), typeof(bool), typeof(bool) }, typeof(RelTablesApartHook), "GetHook", "GetOrig");  // RelTablesApart.cs, docs/535

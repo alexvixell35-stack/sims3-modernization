@@ -48942,6 +48942,542 @@
     "cleanup": []
   },
   {
+    "id": "book-hand-check",
+    "bug": "Book.StopUsingBook (standing or sitting read, book from the inventory) sets Sim.CarryStateMachine = null and leaves the book in the hand until event 100 of the read machine's Exit clip; when the clip never gets there, the book stays in the hand with no carry machine and every later EA put-down throws (NullReferenceException in CarrySystem.PutDownOnSurface, 'left an object in the Sim's hand with no carry state machine' in InteractionQueue.PutDownCarriedObjects); seen on household Lala in bp-castrim-live-mode3-r2, docs/251",
+    "fix": "ts3fixes BookHand.cs: bookhand (default off), bookhanddiag logging (default off), docs/251",
+    "save": "Baseline-BP",
+    "note": "Three tries on Tiara Angelista (active household, a book in her inventory, as book-carry-check): each restarts her idles, queues EA's ReadBook from the inventory, waits until she reads with the book in hand, then interrupts: (1) the player cancels and at once clicks Go Here far away, (2) cancel plus a season and weather switch (test_env), (3) stress, labelled: cancel with the Sim's clips stopped one tick into StopUsingBook (AnimationUtil.StopAllAnimation, not a player action). 15 s later a probe records whether the book is stuck. The natural trigger is unknown (docs/251 §5), so the off arm records which try, if any, gets there.",
+    "expect": "on: expect on passes: no probe finds a stuck book, every put-down that would throw is fixed (bookhand_fixed = bookhand_seen); N/A when the state never occurs. No ScriptError from this stack.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bookhand": true,
+          "bookhanddiag": true
+        },
+        "note": "on: applied log lists CarrySystem.PutDown: ok and InteractionQueue.PutDownCarriedObjects: ok; diag lines on in both arms",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "begin Tiara Angelista"
+          ]
+        },
+        "note": "on: check armed on Tiara, counters taken",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "cure Tiara Angelista"
+          ]
+        },
+        "note": "on try 1 (cancel + Go Here): idles restarted, a stuck book from the try before put away (test cleanup)",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "read Tiara Angelista"
+          ]
+        },
+        "note": "on try 1 (cancel + Go Here): EA's ReadBook queued from Tiara's inventory",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookHandCheck",
+            "args": [
+              "state Tiara Angelista"
+            ]
+          },
+          "all": [
+            {
+              "path": "ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "stop Tiara Angelista"
+          ]
+        },
+        "note": "on try 1: the player cancels the read while the book is in hand",
+        "waitS": 0
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Tiara Angelista",
+          "to": "far"
+        },
+        "note": "on try 1: and at once clicks a far spot (Go Here, user-directed)",
+        "waitS": 15,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "probe Tiara Angelista"
+          ]
+        },
+        "note": "on try 1: book stuck in hand with no carry machine?",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "cure Tiara Angelista"
+          ]
+        },
+        "note": "on try 2 (cancel + season and weather change): idles restarted, a stuck book from the try before put away (test cleanup)",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "read Tiara Angelista"
+          ]
+        },
+        "note": "on try 2 (cancel + season and weather change): EA's ReadBook queued from Tiara's inventory",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookHandCheck",
+            "args": [
+              "state Tiara Angelista"
+            ]
+          },
+          "all": [
+            {
+              "path": "ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "stop Tiara Angelista"
+          ]
+        },
+        "note": "on try 2: the read cancelled",
+        "waitS": 0
+      },
+      {
+        "cmd": "test_env",
+        "args": {
+          "mode": "fixed",
+          "season": "winter",
+          "weather_hours": 24
+        },
+        "note": "on try 2: and at once a season and weather switch, as the profile's test_env did 5 s before the bp-castrim-live-mode3-r2 error",
+        "waitS": 15,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "probe Tiara Angelista"
+          ]
+        },
+        "note": "on try 2: stuck?",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "cure Tiara Angelista"
+          ]
+        },
+        "note": "on try 3 (stress, labelled: clips stopped during Exit): idles restarted, a stuck book from the try before put away (test cleanup)",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "read Tiara Angelista"
+          ]
+        },
+        "note": "on try 3 (stress, labelled: clips stopped during Exit): EA's ReadBook queued from Tiara's inventory",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookHandCheck",
+            "args": [
+              "state Tiara Angelista"
+            ]
+          },
+          "all": [
+            {
+              "path": "ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "arm animstop Tiara Angelista"
+          ]
+        },
+        "note": "on try 3 (stress, not a player action): the next StopUsingBook stops Tiara's clips one tick later, before event 100",
+        "waitS": 0
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "stop Tiara Angelista"
+          ]
+        },
+        "note": "on try 3: the read cancelled",
+        "waitS": 15
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "probe Tiara Angelista"
+          ]
+        },
+        "note": "on try 3: stuck?",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "cure Tiara Angelista"
+          ]
+        },
+        "note": "on: cleanup",
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "expect on Tiara Angelista"
+          ]
+        },
+        "note": "on: throws when a probe found a stuck book or a put-down that would throw was not fixed; N/A when the state never came up",
+        "waitS": 5
+      }
+    ],
+    "cleanup": []
+  },
+  {
+    "id": "book-hand-check-off",
+    "bug": "Book.StopUsingBook (standing or sitting read, book from the inventory) sets Sim.CarryStateMachine = null and leaves the book in the hand until event 100 of the read machine's Exit clip; when the clip never gets there, the book stays in the hand with no carry machine and every later EA put-down throws (NullReferenceException in CarrySystem.PutDownOnSurface, 'left an object in the Sim's hand with no carry state machine' in InteractionQueue.PutDownCarriedObjects); seen on household Lala in bp-castrim-live-mode3-r2, docs/251",
+    "fix": "ts3fixes BookHand.cs: bookhand (default off), bookhanddiag logging (default off), docs/251",
+    "save": "Baseline-BP",
+    "note": "Three tries on Tiara Angelista (active household, a book in her inventory, as book-carry-check): each restarts her idles, queues EA's ReadBook from the inventory, waits until she reads with the book in hand, then interrupts: (1) the player cancels and at once clicks Go Here far away, (2) cancel plus a season and weather switch (test_env), (3) stress, labelled: cancel with the Sim's clips stopped one tick into StopUsingBook (AnimationUtil.StopAllAnimation, not a player action). 15 s later a probe records whether the book is stuck. The natural trigger is unknown (docs/251 §5), so the off arm records which try, if any, gets there.",
+    "expect": "off: the expect off step returns the tally (stuck probes, put-downs seen); no gate on outcome. When the state occurs, EA throws at the next put-down (ScriptError).",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bookhand": false,
+          "bookhanddiag": true
+        },
+        "note": "off: applied log lists CarrySystem.PutDown: ok and InteractionQueue.PutDownCarriedObjects: ok; diag lines on in both arms",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "begin Tiara Angelista"
+          ]
+        },
+        "note": "off: check armed on Tiara, counters taken",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "cure Tiara Angelista"
+          ]
+        },
+        "note": "off try 1 (cancel + Go Here): idles restarted, a stuck book from the try before put away (test cleanup)",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "read Tiara Angelista"
+          ]
+        },
+        "note": "off try 1 (cancel + Go Here): EA's ReadBook queued from Tiara's inventory",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookHandCheck",
+            "args": [
+              "state Tiara Angelista"
+            ]
+          },
+          "all": [
+            {
+              "path": "ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "stop Tiara Angelista"
+          ]
+        },
+        "note": "off try 1: the player cancels the read while the book is in hand",
+        "waitS": 0
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Tiara Angelista",
+          "to": "far"
+        },
+        "note": "off try 1: and at once clicks a far spot (Go Here, user-directed)",
+        "waitS": 15,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "probe Tiara Angelista"
+          ]
+        },
+        "note": "off try 1: book stuck in hand with no carry machine?",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "cure Tiara Angelista"
+          ]
+        },
+        "note": "off try 2 (cancel + season and weather change): idles restarted, a stuck book from the try before put away (test cleanup)",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "read Tiara Angelista"
+          ]
+        },
+        "note": "off try 2 (cancel + season and weather change): EA's ReadBook queued from Tiara's inventory",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookHandCheck",
+            "args": [
+              "state Tiara Angelista"
+            ]
+          },
+          "all": [
+            {
+              "path": "ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "stop Tiara Angelista"
+          ]
+        },
+        "note": "off try 2: the read cancelled",
+        "waitS": 0
+      },
+      {
+        "cmd": "test_env",
+        "args": {
+          "mode": "fixed",
+          "season": "winter",
+          "weather_hours": 24
+        },
+        "note": "off try 2: and at once a season and weather switch, as the profile's test_env did 5 s before the bp-castrim-live-mode3-r2 error",
+        "waitS": 15,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "probe Tiara Angelista"
+          ]
+        },
+        "note": "off try 2: stuck?",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "cure Tiara Angelista"
+          ]
+        },
+        "note": "off try 3 (stress, labelled: clips stopped during Exit): idles restarted, a stuck book from the try before put away (test cleanup)",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "read Tiara Angelista"
+          ]
+        },
+        "note": "off try 3 (stress, labelled: clips stopped during Exit): EA's ReadBook queued from Tiara's inventory",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookHandCheck",
+            "args": [
+              "state Tiara Angelista"
+            ]
+          },
+          "all": [
+            {
+              "path": "ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180,
+          "everyS": 2
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "arm animstop Tiara Angelista"
+          ]
+        },
+        "note": "off try 3 (stress, not a player action): the next StopUsingBook stops Tiara's clips one tick later, before event 100",
+        "waitS": 0
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "stop Tiara Angelista"
+          ]
+        },
+        "note": "off try 3: the read cancelled",
+        "waitS": 15
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "probe Tiara Angelista"
+          ]
+        },
+        "note": "off try 3: stuck?",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "cure Tiara Angelista"
+          ]
+        },
+        "note": "off: cleanup",
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "expect off Tiara Angelista"
+          ]
+        },
+        "note": "off: records whether the stuck state occurred (probes, put-downs seen); ScriptError_*.xml from InteractionQueue.PutDownCarriedObjects expected when it did",
+        "waitS": 5
+      }
+    ],
+    "cleanup": []
+  },
+  {
     "id": "ea-long-distance-move",
     "bug": "Accepting EA's long-distance move dialogs in world (\"There are new towns available... long-distance move\", \"Your Sim family is preparing to move\") exits LiveMode -> None; on 1.69 the game then crashed at 0x00AD04EC (runs 7h, 7j2). Open question: EA's bug or ours (vanilla 1.69 control run needed)",
     "fix": "ts3agent kDialogRules declines these dialogs; no ts3native fix",
@@ -55556,7 +56092,7 @@
     "bug": "none (docs/222 §11, gate2): Sims arriving on the active lot, in view",
     "fix": "ts3fixes autunseen: Sims turn seen on the way in and leave the direct path",
     "save": "Baseline-BP-Spring",
-    "note": "STRESS (labelled): 8 spawned Sims sent back onto the active lot three times stand in for guests arriving. World-neutral. Camera set onto the home lot first: gate2 11-07 left it where the save had it, ~920 m from the BP goal, so no crowd Sim was watched. Each round also queues the game's lot visit: on BP 11-07 no spawned Sim ever showed Go Here in activity.jsonl and none reached the lot (cause not found), IP walked. Watch 180 s: IP crowd came into view 35-81 s into 90. Starving rule off (starveMotive -101): Sims kept on a foreign lot run high LOD with real decay and no bed of their own, each Go Here pulls them back; docs/222 V5 is V1-V3, min_need and activity.jsonl show the needs. Queue gu2-arrive-rerun compares autunseen on and off.",
+    "note": "STRESS (labelled): 8 spawned Sims sent back onto the active lot three times stand in for guests arriving. World-neutral. Camera set onto the home lot first: gate2 11-07 left it where the save had it, ~920 m from the BP goal, so no crowd Sim was watched. Each round cancels the crowd's queues, sends Go Here (crowd only, no household Sim) and queues the game's GoToLot (front door or mailbox): on BP 11-08 VisitLot was refused for all 8 crowd Sims every round and Go Here waited behind the last trip (docs/222 §11.12). focus_watch {lot: home} fails the round when the camera is on another lot. Watch 180 s: IP crowd came into view 35-81 s into 90. Starving rule off (starveMotive -101): Sims kept on a foreign lot run high LOD with real decay and no bed of their own, each Go Here pulls them back; docs/222 V5 is V1-V3, min_need and activity.jsonl show the needs. Queue gu2-arrive-rerun compares autunseen on and off.",
     "steps": [
       {
         "cmd": "spawn_sims",
@@ -55623,24 +56159,26 @@
         "cmd": "crowd_go",
         "args": {
           "target": "home",
-          "household": true
+          "cancel": true
         },
         "waitS": 2,
-        "note": "visitors come back onto the active lot, in view"
+        "note": "visitors come back onto the active lot, in view; cancel ends the last round's trip so Go Here reaches the head; no household Sim is commanded (docs/222 §11.12)"
       },
       {
         "cmd": "crowd_visit_lot",
         "args": {
-          "lot": "home"
+          "lot": "home",
+          "how": "goto"
         },
         "waitS": 1,
-        "note": "the game's own visit behind the Go Here, as a guest arrives"
+        "note": "the game's own lot trip behind the Go Here (GoToLot: front door or mailbox, outside, as an NPC walks up); VisitLot was refused for every crowd Sim on BP 11-08 (docs/222 §11.12)"
       },
       {
         "cmd": "focus_watch",
         "args": {
           "scope": "screen",
-          "seconds": 180
+          "seconds": 180,
+          "lot": "home"
         },
         "waitS": 183,
         "note": "every on-screen Sim outside the household watched"
@@ -55701,24 +56239,26 @@
         "cmd": "crowd_go",
         "args": {
           "target": "home",
-          "household": true
+          "cancel": true
         },
         "waitS": 2,
-        "note": "visitors come back onto the active lot, in view"
+        "note": "visitors come back onto the active lot, in view; cancel ends the last round's trip so Go Here reaches the head; no household Sim is commanded (docs/222 §11.12)"
       },
       {
         "cmd": "crowd_visit_lot",
         "args": {
-          "lot": "home"
+          "lot": "home",
+          "how": "goto"
         },
         "waitS": 1,
-        "note": "the game's own visit behind the Go Here, as a guest arrives"
+        "note": "the game's own lot trip behind the Go Here (GoToLot: front door or mailbox, outside, as an NPC walks up); VisitLot was refused for every crowd Sim on BP 11-08 (docs/222 §11.12)"
       },
       {
         "cmd": "focus_watch",
         "args": {
           "scope": "screen",
-          "seconds": 180
+          "seconds": 180,
+          "lot": "home"
         },
         "waitS": 183,
         "note": "every on-screen Sim outside the household watched"
@@ -55779,24 +56319,26 @@
         "cmd": "crowd_go",
         "args": {
           "target": "home",
-          "household": true
+          "cancel": true
         },
         "waitS": 2,
-        "note": "visitors come back onto the active lot, in view"
+        "note": "visitors come back onto the active lot, in view; cancel ends the last round's trip so Go Here reaches the head; no household Sim is commanded (docs/222 §11.12)"
       },
       {
         "cmd": "crowd_visit_lot",
         "args": {
-          "lot": "home"
+          "lot": "home",
+          "how": "goto"
         },
         "waitS": 1,
-        "note": "the game's own visit behind the Go Here, as a guest arrives"
+        "note": "the game's own lot trip behind the Go Here (GoToLot: front door or mailbox, outside, as an NPC walks up); VisitLot was refused for every crowd Sim on BP 11-08 (docs/222 §11.12)"
       },
       {
         "cmd": "focus_watch",
         "args": {
           "scope": "screen",
-          "seconds": 180
+          "seconds": 180,
+          "lot": "home"
         },
         "waitS": 183,
         "note": "every on-screen Sim outside the household watched"
@@ -55816,6 +56358,119 @@
       }
     ],
     "expect": "every arriving or on-lot Sim: no pop, not stuck, not idle over the limit"
+  },
+  {
+    "id": "aut-unseen-arrive-smoke",
+    "bug": "none (docs/222 §11, gate2): Sims arriving on the active lot, in view",
+    "fix": "ts3fixes autunseen: Sims turn seen on the way in and leave the direct path",
+    "save": "Baseline-BP-Spring",
+    "note": "Smoke for aut-unseen-arrive (docs/222 §11.12), about 5 min: one round of the full repro, then the gates: crowd_visit_lot queued for >= 6 of 8 crowd Sims (min), >= 1 crowd Sim arrived on the camera's home lot (arrivalsMin). STRESS (labelled), as the full repro.",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 8
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "lot": "home"
+        },
+        "waitS": 1,
+        "note": "camera on the crowd_go target; set again before each round"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "ultra",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 60,
+        "note": "the crowd wanders off the lot"
+      },
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "normal",
+          "dialogs": true
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "lot": "home"
+        },
+        "waitS": 1,
+        "note": "camera back on the home lot each round (docs/222 §11.10: round 2 had camera_lot null, 34 m off)"
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "cancel": true
+        },
+        "waitS": 2,
+        "note": "visitors come back onto the active lot, in view; cancel ends the last round's trip so Go Here reaches the head; no household Sim is commanded (docs/222 §11.12)"
+      },
+      {
+        "cmd": "crowd_visit_lot",
+        "args": {
+          "lot": "home",
+          "how": "goto",
+          "min": 6
+        },
+        "waitS": 1,
+        "note": "the game's own lot trip behind the Go Here (GoToLot: front door or mailbox, outside, as an NPC walks up); VisitLot was refused for every crowd Sim on BP 11-08 (docs/222 §11.12)"
+      },
+      {
+        "cmd": "focus_watch",
+        "args": {
+          "scope": "screen",
+          "seconds": 180,
+          "lot": "home"
+        },
+        "waitS": 183,
+        "note": "every on-screen Sim outside the household watched"
+      },
+      {
+        "cmd": "focus_result",
+        "args": {
+          "starveMotive": -101
+        }
+      },
+      {
+        "cmd": "focus_summary",
+        "args": {
+          "min": 1,
+          "arrivalsMin": 1
+        }
+      }
+    ],
+    "expect": "crowd_visit_lot queued for >= 6 of 8; >= 1 crowd Sim arrives on the home lot; every watched Sim: no pop, not stuck, not idle over the limit"
   },
   {
     "id": "aut-unseen-player-speed",

@@ -728,11 +728,14 @@ namespace Ts3Agent
             return r;
         }
 
-        // crowd_visit_lot {lot, how?: "visit", autonomous?: false, cancel?: false, max?: 50} (docs/202 §3.6.4): every spawn_sims Sim
+        // crowd_visit_lot {lot, how?: "visit", autonomous?: false, cancel?: false, max?: 50, min?: 0} (docs/202 §3.6.4): every spawn_sims Sim
         // queues the game's own lot trip to `lot` (FindLotByName: "far", "far2", "home" or a name), as sim_visit_lot does for one
         // Sim: VisitCommunityLot.Singleton / VisitLot.Singleton, or with how "goto" GoToCommunityLot / GoToLot. With LynMods
         // University More Shell Entries installed, VisitCommunityLot.Singleton is its VisitCommunityLotLabLecture (the trip kind the
-        // shortcuts miss, unseenfbtrip). autonomous false = player-directed (skips the autonomous-only visit gates).
+        // shortcuts miss, unseenfbtrip). autonomous false = player-directed (skips the autonomous-only visit gates). A refused Sim's entry
+        // says which Test gate refused ("not queued (Def_TestFailed: <tooltip>)"); min: fewer queued than that throws (smoke gate).
+        // docs/222 §11.12: VisitLot onto a household's home fails Lot.CommonVisitTest at 0-5 h, when nobody is home, or when greeted;
+        // how "goto" (GoToLot: front door or mailbox, outside) has none of those gates.
         static object CrowdVisitLot(Args a)
         {
             RequireLive();
@@ -752,7 +755,8 @@ namespace Ts3Agent
                     if (a.Bool("cancel", false)) s.InteractionQueue.CancelAllInteractions();
                     bool q = s.InteractionQueue.Add(def.CreateInstance(lot, s, pri, auto, true));
                     if (q) queued++;
-                    sent.Add(q ? s.FullName : s.FullName + ": not queued");
+                    string why = null;
+                    sent.Add(q ? s.FullName : s.FullName + ": not queued (" + VisitTestResult(def, lot, s, pri, auto, out why) + (why != null ? ": " + why : "") + ")");
                 }
                 catch (Exception e) { sent.Add(s.FullName + ": " + e.Message); }
             }
@@ -762,6 +766,7 @@ namespace Ts3Agent
             r["queued"] = queued;
             r["lot"] = lot.Name;
             r["interaction"] = def.GetType().DeclaringType != null ? def.GetType().DeclaringType.FullName : def.GetType().FullName;
+            if (queued < (int)a.Long("min", 0)) throw new McpException("crowd_visit_lot: only " + queued + " of " + sent.Count + " queued: " + string.Join(", ", sent.ConvertAll(o => (string)o).ToArray()));
             return r;
         }
 
@@ -951,7 +956,7 @@ namespace Ts3Agent
             if (a.Has("target"))
             {
                 GameObject t = FindTarget(a, "target");
-                return t is Lot ? ((Lot)t).GetCenterPosition() : t.Position;
+                return t is Lot ? LotViewPoint((Lot)t) : t.Position;
             }
             if (a.Has("to")) return RequireRarePoint(me, a.Str("to"));
             if (a.Has("x")) return new Vector3((float)a.Double("x"), (float)a.Double("y", 0), (float)a.Double("z"));

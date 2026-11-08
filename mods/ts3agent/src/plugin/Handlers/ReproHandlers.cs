@@ -487,6 +487,16 @@ namespace Ts3Agent
         }
 
         // Lot by name (case-insensitive, exact first, then "contains").
+        // Where the player sees a lot. A houseboat lot's centre is an off-world slot (IP Atlantis 230,2064.5, docs/222 §11.12):
+        // the camera keeps its old target there and Go Here walks off the map; the player sees the boat at its port.
+        static Vector3 LotViewPoint(Lot l)
+        {
+            if (l.IsHouseboatLot())
+                foreach (Sims3.Gameplay.Objects.Island.Houseboat b in Sims3.Gameplay.Queries.GetObjects<Sims3.Gameplay.Objects.Island.Houseboat>())
+                    if (b.GetHouseboatLot() == l) return b.Position;
+            return l.GetCenterPosition();
+        }
+
         static Lot FindLotByName(string name)
         {
             if (string.Equals(name, "home", StringComparison.OrdinalIgnoreCase)) return HomeLot();
@@ -541,6 +551,17 @@ namespace Ts3Agent
             return partial;
         }
 
+        // The InteractionTestResult a lot trip's Test gives (and its greyed-out tooltip text) when InteractionQueue.Add refused it.
+        static string VisitTestResult(InteractionDefinition def, Lot lot, Sim s, InteractionPriority pri, bool auto, out string why)
+        {
+            why = null;
+            InteractionInstanceParameters ip = new InteractionInstanceParameters(new InteractionObjectPair(def, lot), s, pri, auto, true);
+            GreyedOutTooltipCallback cb = null;
+            try { string t = def.Test(ref ip, ref cb).ToString(); if (cb != null) why = cb(); return t; }
+            catch (ResetException) { throw; }
+            catch (Exception e) { return "threw " + e.GetType().Name; }
+        }
+
         // sim_visit_lot {sim, lot, how?: "visit"} (lot "home", "far", "farhome" or a name): the game's own visit interaction (VisitCommunityLot for community lots, VisitLot for
         // homes), autonomous priority like a townie's own choice; triggers the lot-visit shortcuts on demand. how: "goto" = the plain
         // lot trips GoToCommunityLot / GoToLot instead (shortcut switches gotocommunity / gotolot; visit / visitlot for "visit"). autonomous?: false = player-directed; on queued false, test + why say which Test gate refused.
@@ -570,11 +591,9 @@ namespace Ts3Agent
             r["queued"] = queued;
             if (!queued) // why the definition's Test refused (InteractionQueue.InsertInteraction only returns false)
             {
-                InteractionInstanceParameters ip = new InteractionInstanceParameters(new InteractionObjectPair(def, lot), s, pri, auto, true);
-                GreyedOutTooltipCallback cb = null;
-                try { r["test"] = def.Test(ref ip, ref cb).ToString(); if (cb != null) r["why"] = cb(); }
-                catch (ResetException) { throw; }
-                catch (Exception e) { r["test"] = "threw " + e.GetType().Name; }
+                string why;
+                r["test"] = VisitTestResult(def, lot, s, pri, auto, out why);
+                if (why != null) r["why"] = why;
             }
             r["lot"] = lot.Name;
             r["interaction"] = def.GetType().DeclaringType != null ? def.GetType().DeclaringType.Name : def.GetType().Name;

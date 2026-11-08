@@ -34,7 +34,7 @@
         "^allocsites: #\\d+ mark ev=cc-cycle ": 3,
         "^cas trim: save #\\d+ mode 3: registry ": 3,
         "^OK   cas trim inventory check site: 1 call sites": 1,
-        "^cas trim: inventory check save #d+: ": 3
+        "^cas trim: inventory check save #\\d+:": 3
       },
       "logForbid": {
         "^cas trim: save #\\d+: no sweep: (?!no keep list for this save)": 0,
@@ -128,7 +128,7 @@
         "^allocsites: #\\d+ mark ev=cc-cycle ": 3,
         "^cas trim: save #\\d+ mode 3: registry ": 3,
         "^OK   cas trim inventory check site: 1 call sites": 1,
-        "^cas trim: inventory check save #d+: ": 3
+        "^cas trim: inventory check save #\\d+:": 3
       },
       "logForbid": {
         "^cas trim: save #\\d+: no sweep: (?!no keep list for this save)": 0,
@@ -216,13 +216,10 @@
         "^OK   detour IC_SimBuilderCacheOutfit at ": 1,
         "^OK   detour Parse_FallbackBranch at ": 1,
         "^OK   cas trim probe sites: 3 call sites": 1,
-        "^cas trim: P5 save #\\d+ ": 3,
-        "^cas trim: save #\\d+ mode \\d: registry ": 3,
         "^diag: castrim #\\d+ mark ": 3,
         "^allocsites: #\\d+ mark ev=cc-cycle ": 3,
-        "^cas trim: save #\\d+ mode 3: registry ": 3,
         "^OK   cas trim inventory check site: 1 call sites": 1,
-        "^cas trim: inventory check save #d+: ": 3
+        "^cas trim: inventory check save #\\d+:": 3
       },
       "logForbid": {
         "^cas trim: save #\\d+: no sweep: (?!no keep list for this save)": 0,

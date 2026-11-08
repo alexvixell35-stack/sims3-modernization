@@ -3,6 +3,106 @@
   "stopQueueOnFail": false,
   "jobs": [
     {
+      "id": "aut-unseen-arrive-smoke",
+      "note": "docs/222 §11.12 smoke, about 5 min (repro ~4.5 min, profile 6), one round, autunseen off: repro aut-unseen-arrive-smoke gates crowd_visit_lot (GoToLot) queued for >= 6 of 8 and >= 1 crowd Sim arriving on the home lot; focus_watch fails if the camera is not on the home lot. Needs a ts3agent build with the §11.12 changes in Bin. Pass: rerun bp-gu2-arrive-off / -on. STRESS labelled. Correctness, not timing.",
+      "asi": "game-copy/ts3native.asi.g2pair1108",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1
+      },
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autunseen_exc",
+          "op": "==",
+          "value": 0,
+          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+        }
+      ],
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/222 §11.8: g2pair1108 pair from master d1066f14 (ts3native 0.36.190, household wait counters 867-870, arm tags; repinned from g2pair1107b, master f390266a (X4, counters 785-817, 11-07 landings: kGoalHouseholdExempt on)): asi g2pair1108 + the named package, kAutLive True by default; builds.json | NOT REPINNED: needs a build with the camera lot + starveMotive agent commands.",
+      "fixesPackage": "game-copy/ts3fixes.package.g2pair1108",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh",
+          "fixesOff": "autunseencmp,autunseen",
+          "fixesReport": "g8_,autunseen_,gohome_,watchdog_,unseenfb,rabbithole,unseenboat",
+          "minutes": 6,
+          "repro": "aut-unseen-arrive-smoke"
+        }
+      },
+      "timeoutMin": 15
+    },
+    {
       "id": "ip-gu2-arrive-off",
       "note": "docs/222 §11.2 V5 rerun, autunseen off: camera on the home lot, 180 s watch, starving rule off (compare min_need and activity.jsonl between the arms). STRESS labelled. Correctness, not timing.",
       "asi": "game-copy/ts3native.asi.g2pair1108",

@@ -153,6 +153,8 @@ namespace Ts3Fixes
         [Tunable] public static bool kRelTablesApart = false;     // opt-in until verified: a relationship whose two tables came apart is rejoined instead of EA's "same key" ArgumentException (RelTablesApart.cs, docs/535)
         [Tunable] public static bool kPetPoolOrphan = false;      // opt-in until verified: a pet the adoption pools drop with no family links is disposed instead of staying alive with no household (PetPoolOrphan.cs, docs/534)
         [Tunable] public static bool kFireworksFizzle = false;    // opt-in until verified: a fireworks watcher finishes on a fizzle instead of EA's SacsTimeoutException and reset (FireworksFizzle.cs, docs/533)
+        [Tunable] public static bool kBookHand = false;           // opt-in until verified: a book Book.StopUsingBook left in the hand with no carry machine goes through EA's own PutBookInInventoryHandler at the put-down that would throw (BookHand.cs, docs/251)
+        [Tunable] public static bool kBookHandDiag = false;       // opt-in: logs a book still in the hand with no carry machine 10 s after StopUsingBook (BookHand.cs, docs/251)
         [Tunable] public static bool kMetricSkillMissing = false; // opt-in until verified: a career skill metric whose skill is not registered gives an empty name and a neutral value instead of EA's NullReferenceException (MetricSkillMissing.cs, docs/532)
         [Tunable] public static bool kInvNotYet = false;         // opt-in until verified: a Sim with no inventory yet (mid-creation) refuses the object instead of EA's NullReferenceException (InvNotYet.cs, docs/531)
         [Tunable] public static bool kLeaveJobDispose = true;    // on by default (repro docs/529): a Sim deleted at work leaves its job at once (LeaveJobDispose.cs, docs/529)

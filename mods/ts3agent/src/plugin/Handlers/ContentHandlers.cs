@@ -381,7 +381,7 @@ namespace Ts3Agent
             RequireLive();
             if (a.Has("lot"))
             {
-                Vector3 c = FindLotByName(a.Str("lot")).GetCenterPosition();
+                Vector3 c = LotViewPoint(FindLotByName(a.Str("lot")));
                 CameraController.SetPositionAndTarget(new Vector3(c.x, c.y + 30f, c.z - 30f), c);
             }
             else if (a.Has("pos") || a.Has("target"))

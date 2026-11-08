@@ -49,6 +49,14 @@ namespace Ts3Agent
         // picks that fail Test until they reach the head (bp-gu2-arrive-off 2026-11-08, autunseen off: Deidre Littler).
         public static int SnapQueue(int failing, int workerTagged) { return workerTagged > 0 ? failing : 0; }
 
+        // docs/222 §11.11: an arrival counts toward arrivalsMin only for a spawn_sims crowd Sim (SimDescriptionId); passers-by and
+        // rabbit-hole workers on the camera lot made bp-gu2-arrive 3 (off) vs 2 (on) by chance while no crowd Sim arrived in either arm.
+        public static bool CrowdArrival(ulong descId, Dictionary<ulong, bool> crowd) { return descId != 0 && crowd.ContainsKey(descId); }
+
+        // docs/222 §11.12: focus_watch lot. A houseboat lot's centre is off-world and the ground under the docked boat is its port
+        // lot (IP Atlantis in Picturesque Port), so a houseboat counts when the camera target is within 30 m of the boat.
+        public static bool CameraOnLot(bool lotUnderTarget, bool houseboat, double toBoatM) { return lotUnderTarget || (houseboat && toBoatM <= 30); }
+
         static string Pt(Sample x) { return x.X.ToString("F1") + "," + x.Z.ToString("F1") + " @" + x.Sec.ToString("F2") + " s"; }
 
         // null = nothing a player would notice; else the reason (the caller throws it). Rules run only from the first on-screen sample.

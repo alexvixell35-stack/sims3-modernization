@@ -7,6 +7,10 @@
 //        sync, then (with --yes) tag the merge commit, watch the tag's build.yml run, download the draft's ts3native zip and
 //        verify it (asi version string, ini sha256 = the tested ini, enabled sections), check and attach the ts3fixes
 //        package (four shortcuts True, release-features tunables), publish the draft as latest
+//   node tools/publish-public.ts sync --if-behind [--min-gap-min 60] --message-file <f> --yes
+//        automatic mode (queue.ts calls it after a run): does nothing (one "skip" line, exit 0) unless master has commits
+//        newer than the marker probe-out/publish-public-last.json (sha + time, written after each successful --yes sync)
+//        and the last sync is at least --min-gap-min old; otherwise the normal flow with all its safety stops
 //   node tools/publish-public.ts --self-check     offline: scrub, secret scan, zip/package checks, sync --dry-run against a
 //                                                  local temp bare repo (no network, nothing pushed)
 // Options: --repo <owner/name> (rodneypantonial/sims3-modernization) --remote <clone url> (default https://github.com/<repo>.git)
@@ -38,6 +42,7 @@ const SECRETS: [string, RegExp][] = [
   ['private key', /-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----/],
 ];
 const SHORTCUTS = ['GoHome', 'BuildingTrip', 'LotTrip', 'VirtualHome'];
+export const MARKER = join(ROOT, 'probe-out', 'publish-public-last.json');
 const sha256 = (b: Buffer | string) => createHash('sha256').update(b).digest('hex');
 
 // --- pure checks (self-checked) ---
@@ -52,6 +57,18 @@ export function waitUntil(ready: () => boolean, what: string, timeoutMs: number,
     if (now() >= end) throw new Error(`${what}: not after ${Math.round(timeoutMs / 1000)} s${last ? ` (last error: ${last})` : ''}`);
     sleepFn(intervalMs);
   }
+}
+
+// --if-behind: sync only when master moved since the marker and the last sync is at least minGapMin old
+export function behindDecision(master: string, marker: { sha: string; at: string } | null, nowMs: number, minGapMin: number): { go: boolean; reason: string } {
+  if (!marker) return { go: true, reason: 'no sync marker yet: first automatic sync' };
+  if (marker.sha === master) return { go: false, reason: `master ${master.slice(0, 8)} is already synced` };
+  const ageMin = (nowMs - Date.parse(marker.at)) / 60000;
+  if (Number.isFinite(ageMin) && ageMin < minGapMin) return { go: false, reason: `master moved, but the last sync was ${Math.round(ageMin)} min ago (< ${minGapMin} min)` };
+  return { go: true, reason: `master ${master.slice(0, 8)} is ahead of the last sync ${marker.sha.slice(0, 8)}` };
+}
+export function readMarker(file = MARKER): { sha: string; at: string } | null {
+  try { const m = JSON.parse(readFileSync(file, 'utf8')); return typeof m?.sha === 'string' && typeof m?.at === 'string' ? m : null; } catch { return null; }
 }
 
 // latin1 keeps every byte as is; the replacements are ASCII
@@ -398,6 +415,16 @@ function selfCheck(): void {
     assert.throws(() => publish({ ...o, branch: 'sync/test3' }), /still found after scrub[\s\S]*bin.dat/, 'binary leftover stops the sync');
     assert.equal(head(), before, 'still nothing pushed');
   } finally { rmSync(tmp, { recursive: true, force: true }); }
+  { // --if-behind decision
+    const m = { sha: 'a'.repeat(40), at: '2026-11-08T10:00:00Z' }, t = (min: number) => Date.parse(m.at) + min * 60000, b = 'b'.repeat(40);
+    assert.equal(behindDecision(b, null, t(0), 60).go, true, 'no marker: sync');
+    assert.equal(behindDecision(m.sha, m, t(500), 60).go, false, 'same sha: nothing to do');
+    assert.match(behindDecision(m.sha, m, t(500), 60).reason, /already synced/);
+    assert.equal(behindDecision(b, m, t(59), 60).go, false, 'behind but inside the gap');
+    assert.match(behindDecision(b, m, t(59), 60).reason, /< 60 min/);
+    assert.equal(behindDecision(b, m, t(60), 60).go, true, 'behind and gap reached');
+    assert.equal(readMarker(join(tmpdir(), 'no-such-marker.json')), null);
+  }
   console.log('publish-public self-check ok');
 }
 
@@ -406,6 +433,7 @@ if (import.meta.filename === resolve(process.argv[1] ?? '')) {
     yes: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, 'self-check': { type: 'boolean' },
     repo: { type: 'string', default: 'rodneypantonial/sims3-modernization' }, remote: { type: 'string' }, ref: { type: 'string', default: 'master' },
     branch: { type: 'string' }, message: { type: 'string' }, 'message-file': { type: 'string' },
+    'if-behind': { type: 'boolean' }, 'min-gap-min': { type: 'string', default: '60' },
     'author-name': { type: 'string' }, 'author-email': { type: 'string' }, 'native-version': { type: 'string' },
     ini: { type: 'string', default: join(ROOT, 'native/ts3native/out/ts3native.ini') }, package: { type: 'string', default: join(ROOT, 'build/ts3fixes.package') },
   } });
@@ -413,6 +441,13 @@ if (import.meta.filename === resolve(process.argv[1] ?? '')) {
     if (a['self-check']) selfCheck();
     else if (p[0] === 'sync' || (p[0] === 'release' && p[1])) {
       if (a.yes && a['dry-run']) throw new Error('--yes and --dry-run together');
+      if (a['if-behind'] && p[0] !== 'sync') throw new Error('--if-behind is for sync only');
+      const synced = a['if-behind'] || a.yes ? run('git', ['rev-parse', a.ref!], ROOT) : ''; // read before the sync starts: a later commit is not marked synced
+      if (a['if-behind']) {
+        const d = behindDecision(synced, readMarker(), Date.now(), Number(a['min-gap-min']));
+        console.log(`publish-public: ${d.go ? 'syncing' : 'skip'}: ${d.reason}`);
+        if (!d.go) process.exit(0);
+      }
       const message = a['message-file'] ? readFileSync(a['message-file'], 'utf8').trim() : a.message;
       if (!message) throw new Error('--message or --message-file is required (first line = commit summary and PR title)');
       const cfg = (k: string) => { try { return run('git', ['config', k], ROOT); } catch { return ''; } };
@@ -420,10 +455,13 @@ if (import.meta.filename === resolve(process.argv[1] ?? '')) {
       if (!authorName || !authorEmail) throw new Error('no author: pass --author-name/--author-email or set git config');
       const tag = p[0] === 'release' ? p[1] : undefined;
       const r = publish({ yes: !!a.yes, repo: a.repo!, remote: a.remote ?? `https://github.com/${a.repo}.git`, src: ROOT, ref: a.ref!,
-        branch: a.branch ?? (tag ? `release/${tag}` : `sync/${new Date().toISOString().slice(0, 10)}`), message, authorName, authorEmail,
+        branch: a.branch ?? (tag ? `release/${tag}` : `sync/${new Date().toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-')}`), message, authorName, authorEmail,
         tag, nativeVersion: a['native-version'], ini: a.ini!, pkg: a.package! });
       console.log(a.yes ? 'done' : `dry run done; the clone stays for review: ${r.clone}`);
-      if (a.yes) rmSync(resolve(r.clone, '..'), { recursive: true, force: true });
+      if (a.yes) {
+        rmSync(resolve(r.clone, '..'), { recursive: true, force: true });
+        if (!tag) { mkdirSync(resolve(MARKER, '..'), { recursive: true }); writeFileSync(MARKER, JSON.stringify({ sha: synced, at: new Date().toISOString() }) + '\n'); }
+      }
     } else {
       console.error('usage: node tools/publish-public.ts sync|release <vX.Y.Z> --message-file <f> [--native-version X.Y.Z] [--yes] | --self-check');
       process.exit(2);

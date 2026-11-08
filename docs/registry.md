@@ -212,7 +212,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 866 | `RouteFailLog.cs` `RflPlan` | built 2026-11-07 (issue #304): plans of active-household Sims through the four plan hooks, the denominator of fails per plan (agent `routefaillog_household_plans`, `kd-household-ab.ts`) |
 | 867-870 | `AutLive.cs` `QueueNote`, `WorkerWait` (`fixes-867`, docs/222 §11.8) | reserved fixes-867 2026-11-08, built in g2pair1108: household part of the seen waits (household or scope unknown, `HouseholdScope`), `g8_hh_q_n`, `g8_hh_q_ticks`, `g8_hh_w_n`, `g8_hh_w_ticks`; the seen slots 785-791 and 810-811 keep counting them |
 | 871 | `RouteFixes.cs` `CheckIdle` (`fixes-871`, docs/247 §12.4, docs/250 §7.4) | g2pair1108b: `wdLockSkip`, idle route checks skipped (switch `watchdoglockskip`, default off) because a route job held `+0x918` and the async check A1 was off or refused |
-| **872+** | next free | reserve here  |
+| 876-877 | `BookHand.cs` (`fixes-876`, docs/251 §7), `bookhand` | built 2026-11-08: [876] books `Book.StopUsingBook` left in the hand with no carry machine, seen at an EA put-down that would throw (also with the switch off; agent `bookhand_seen`), [877] of those moved out of the hand by EA's `PutBookInInventoryHandler` (switch on; agent `bookhand_fixed`) |
+| **878+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 
