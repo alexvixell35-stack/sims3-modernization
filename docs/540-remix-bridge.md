@@ -103,7 +103,8 @@ Fetches are cheap. al312 (managed 2 s): 37,604 fetches in the run, 435 ms in all
 | al321 | managed 2 s + buffers 2 s | 1872 / 1877 | 1550 | 1578 / 1845 / 842 | 114,078 in 0.90 s; 40,149 in 0.54 s |
 | al324 | as al321 + `freeIdleManagedCopiesMs = 500` | 1944 / 1944 | 1521 | 1521 / 1944 / 822 | 144,510 in 1.50 s; 39,929 in 0.52 s |
 | al325 | as al321 (build with all patches) | 1832 / 1832 | 1595 | 1593 / 1832 / 838 | 120,797 in 0.86 s; 44,925 in 0.57 s |
-| al326 | in-process DXVK (`BinBase`), same profile | 1074 at save-end (census 1122) | 2135 (TS3W priv) | 2135 / 1074 / 842 | none (no bridge) |
+| al326 | in-process DXVK (`BinBase`), same profile | 1074 at save-end (census 1122) | no bridge client; TS3W priv 2135 at save-end | 2135 / 1074 / 842 | none (no bridge) |
+| al327 | as al325, diagnostics off (`perfLogIntervalFrames = 0`) | census 1897 at the end | not logged | 1611 / 1817 / 833 | not logged |
 
 - Buffer copies: 42 MB (al318) vs 1.9 MB on average (al321). `nt-heap:process` (memcensus) grew +84 MiB in al318 and
   +44 MiB in al321 over the hour.
@@ -117,15 +118,22 @@ Fetches are cheap. al312 (managed 2 s): 37,604 fetches in the run, 435 ms in all
   - 97% of its live blocks are `unordered_map<uint64, uint64>` nodes: next, prev, a 64-bit key, and a GetTickCount64
     ms value (or ms << 8) inside the tables' 60 s / 300 s windows. Those are 0004's upload, content and released
     tables.
-  - So `conf\bridge.conf` ships `perfLogIntervalFrames = 0`. al327 (diagnostics off, same profile and census)
-    checks it.
+  - So `conf\bridge.conf` ships `perfLogIntervalFrames = 0`.
+  - al327 (diagnostics off, same profile and census): the process heap ends at 63.9 MiB instead of 79.4, and the
+    32-byte bucket is no longer among the biggest. It still grows 41 to 64 MiB, flat from about +40 min. The rest is
+    fragmentation in the client's own buckets: 296 B (`d3d9.dll` objects, 16,039 of 31,759 blocks in use) and
+    72 / 40 B (about 30k empty `unordered_map`s, flat). The save-end numbers match al325 within the spread
+    (1611 / 1817 / 833 vs 1593 / 1832 / 838).
 - **What the bridge takes out of TS3W** (last census sample, about +55 min, al325 vs al326): committed -649 MiB
   (1873 vs 2522), largest free block +774 MiB (1896 vs 1122). By owner: image -216 (DXVK and both Vulkan drivers are
   not loaded), unlabeled -336, `nt-heap:process` -155, `mapped:pagefile` +78 (the bridge's shared memory); `ea:main`
   is the same (634). Growth over the 50 min was about the same in both (+189 / +187 MiB committed, mostly `ea:main`).
 - In-process, 116 MiB of the process heap is two block sizes whose counts match the game's 6,462 shaders: 6,464
-  blocks of 12808 B (chained hash map nodes with a 41 KB bucket array, most likely DXVK's shader module set) and
-  6,594 of 5896 B (with a `d3d9.dll` vtable). That is about 18 KB per shader [inferred from shape and counts].
+  blocks of 12808 B and 6,594 of 5896 B (with a `d3d9.dll` vtable), about 18 KB per shader. The 12808-byte blocks are
+  `DxvkPipelineManager::m_shaderLibraries` nodes [verified by layout: next pointer, key {capacity 4, size 1, shader},
+  then `m_device` and `m_manager` (the same in every node) and the key copy; a 41 KB bucket array holds them]. Each
+  holds a `std::optional<DxvkPipelineBindings>`, about 12 KB on x86 because of 23 inline
+  `small_vector<DxvkShaderDescriptor, 32>`. `native/dxvk` patch 0001 (separate PR) keeps 4 inline.
 - The 500 ms threshold frees 4x as many copies for about the same MB. Its gain (+67 MB big, -29 MB client) is
   inside the spread between runs: `eaRes`, which the bridge does not touch, differs by 20 MB between al321 and al324.
   It stays off (and see the al322 stall in §2).
@@ -214,7 +222,7 @@ From `bridge/src/util/config/global_options.h` and `client/client_options.h` [ve
 
 | # | What | Why |
 |---|---|---|
-| 1 | Check the process heap without the diagnostics (al327) and without the bridge (al326) | §3.2: under the bridge it grows mostly from the diagnostics' table nodes [measured, al325]. If a test run must keep them, give the tables fixed-size storage instead of a node per entry. |
+| 1 | The client's 296-byte objects (half their LFH blocks free) and the 30k empty maps per resource | §3.2: with the diagnostics off (al327) the process heap still grows 41 to 64 MiB. A pool for the 296-byte objects, or maps created on first use, would keep it near its post-load size. |
 | 2 | Run `ts3TextureCacheShift = 2` for 60 min | memory-neutral in 30 min (al313), churn -30% |
 | 3 | CAS compositor readback, 1.9 ms per frame | serve it a frame late, or keep that texture in the server |
 | 4 | Report the logger bug (patch 0005) upstream | it ends any game that logs a 4 KB line |
