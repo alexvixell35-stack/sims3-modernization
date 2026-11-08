@@ -107,6 +107,16 @@ Fetches are cheap. al312 (managed 2 s): 37,604 fetches in the run, 435 ms in all
 
 - Buffer copies: 42 MB (al318) vs 1.9 MB on average (al321). `nt-heap:process` (memcensus) grew +84 MiB in al318 and
   +44 MiB in al321 over the hour.
+- **Most of that remaining process-heap growth is our own diagnostics (patch 0004).** al325 walked the heap every
+  10 min (read-only, scratch tool `ntheap.py`):
+  - 05:28 to 05:38: committed +7.6 MiB (70.2 to 77.8), but the live blocks went +5.75 / -6.21 MiB (net -0.46).
+  - The growth is fragmentation in the LFH 32-byte bucket. In those 10 min it took 84,623 new blocks and freed
+    74,431, and its user blocks grew +2.58 MiB to 14.4 MiB. Only 29% of its blocks were in use (134,855 of 458,113).
+  - 97% of its live blocks are `unordered_map<uint64, uint64>` nodes: next, prev, a 64-bit key, and a GetTickCount64
+    ms value (or ms << 8) inside the tables' 60 s / 300 s windows. Those are 0004's upload, content and released
+    tables.
+  - So `conf\bridge.conf` ships `perfLogIntervalFrames = 0`. al327 (diagnostics off, same profile and census)
+    checks it.
 - The 500 ms threshold frees 4x as many copies for about the same MB. Its gain (+67 MB big, -29 MB client) is
   inside the spread between runs: `eaRes`, which the bridge does not touch, differs by 20 MB between al321 and al324.
   It stays off (and see the al322 stall in §2).
@@ -189,13 +199,13 @@ From `bridge/src/util/config/global_options.h` and `client/client_options.h` [ve
 | `useSharedHeap` [False], `commandBatchingEnabled` [False] | not tried. Shared heap segments are 256 MB mappings inside TS3W too; upstream warns a server crash is then not recoverable. |
 | `presentSemaphoreMaxFrames` [1] | keep 1: more frames ahead means more latency (§4). |
 | `alwaysCopyEntireStaticBuffer`, `client.optimizedDynamicLock` [False] | leave off; upstream calls the second unsafe. |
-| `logLevel` [Info], `perfLogIntervalFrames` | for play: `Warn` and 0. |
+| `logLevel` [Info], `perfLogIntervalFrames` | for play: `Warn` and 0 (the shipped conf has 0; with 0004's diagnostics on, the process heap fragments, §3.2). |
 
 ## 7. Next
 
 | # | What | Why |
 |---|---|---|
-| 1 | Name what grows in the game's process heap under the bridge (`nt-heap:process` +44 MiB in 60 min, al321) | al325 / al326 (bridge / in-process, same profile) take a read-only census every 10 min. The heap is mostly LFH blocks; the 32-byte bucket holds about 115k blocks, which matches the diagnostics' upload tables (bounded by their 60 s / 300 s windows) [inferred]. |
+| 1 | Check the process heap without the diagnostics (al327) and without the bridge (al326) | §3.2: under the bridge it grows mostly from the diagnostics' table nodes [measured, al325]. If a test run must keep them, give the tables fixed-size storage instead of a node per entry. |
 | 2 | Run `ts3TextureCacheShift = 2` for 60 min | memory-neutral in 30 min (al313), churn -30% |
 | 3 | CAS compositor readback, 1.9 ms per frame | serve it a frame late, or keep that texture in the server |
 | 4 | Report the logger bug (patch 0005) upstream | it ends any game that logs a 4 KB line |
