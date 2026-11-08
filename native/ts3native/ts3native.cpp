@@ -2760,8 +2760,16 @@ struct Ts3nCounters {
     volatile LONG rjnMinUs;                // +0x5E40, [HitchAttr] JobNameMs in us (native_set jobnameus), 0 = off: a sim-thread wait for the running route job this long logs "rtjob wait:"
     volatile LONG rjnLines;                // +0x5E44, "rtjob wait:" lines written
     volatile LONG rjnDropped;              // +0x5E48, waits over JobNameMs whose line the 20-a-minute cap dropped
+    volatile LONG lpOn;                       // +0x5E4C, [LotPool] Trim (docs/541, v913): 1 = its thread started
+    volatile LONG lpTrims;                    // +0x5E50, trims run (one per world load, SettleSec after it)
+    volatile LONG lpCoresFreed;               // +0x5E54, lot pool cores handed back to the EA heap, all trims
+    volatile LONG lpFreedKB;                  // +0x5E58, their KB
+    volatile LONG lpCoresLeft;                // +0x5E5C, cores in the pool after the last trim
+    volatile LONG lpKept;                     // +0x5E60, completely free cores the last trim kept (KeepCores)
+    volatile LONG lpLastUs;                   // +0x5E64, last trim: time under the pool's lock, us
+    volatile LONG lpBad;                      // +0x5E68, trims skipped: the pool did not read as expected (nothing changed)
 };
-extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {912,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {913,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -5185,12 +5193,12 @@ static_assert(offsetof(Ts3nCounters, aoReady) == 0x56D0 && offsetof(Ts3nCounters
 static_assert(offsetof(Ts3nCounters, rmReady) == 0x5830 && offsetof(Ts3nCounters, rmK) == 0x5840 && offsetof(Ts3nCounters, rmTailN) == 0x5890 &&
               offsetof(Ts3nCounters, rmZoneN) == 0x58C0 && offsetof(Ts3nCounters, rmDeltaN) == 0x5900 &&
               offsetof(Ts3nCounters, rmSlFallback) == 0x5928 && offsetof(Ts3nCounters, rmSpare) == 0x5944 &&
-              sizeof(Ts3nCounters) == 6035 * 4, "v151 layout (docs/registry.md)");
+              sizeof(Ts3nCounters) == 6043 * 4, "v151 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, utbRowCalc) == 0x5950 && offsetof(Ts3nCounters, utbForced) == 0x5960, "v152 layout (docs/registry.md)");
-static_assert(offsetof(Ts3nCounters, rmSlIns) == 0x5964 && offsetof(Ts3nCounters, rmSlCandFull) == 0x5980 && sizeof(Ts3nCounters) == 6035 * 4,
+static_assert(offsetof(Ts3nCounters, rmSlIns) == 0x5964 && offsetof(Ts3nCounters, rmSlCandFull) == 0x5980 && sizeof(Ts3nCounters) == 6043 * 4,
               "v153 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, gwMode) == 0x5AE8 && offsetof(Ts3nCounters, gwXmlMaxKB) == 0x5B0C && offsetof(Ts3nCounters, gcCapKB) == 0x5B10 &&
-                  offsetof(Ts3nCounters, gcExpandStreakMax) == 0x5B20 && offsetof(Ts3nCounters, gcSwitchSec) == 0x5B2C && sizeof(Ts3nCounters) == 6035 * 4,
+                  offsetof(Ts3nCounters, gcExpandStreakMax) == 0x5B20 && offsetof(Ts3nCounters, gcSwitchSec) == 0x5B2C && sizeof(Ts3nCounters) == 6043 * 4,
               "v161 + v162 + v163 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, fsReady) == 0x5B30 && offsetof(Ts3nCounters, fsMode) == 0x5B34 && offsetof(Ts3nCounters, fsNearDiff) == 0x5B74,
               "v901 [FootstepRO] layout");
@@ -5269,6 +5277,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "compaction.cpp"  // docs/204: [Compaction] quiet save-reload verdict for ts3fixes (needs userdiag.cpp, apex.cpp)
 #include "rctrim.cpp"    // docs/198 §4: [ResourceCache] TrimAfterCleanup experiment (needs userdiag.cpp, memdiag.cpp, apex.cpp)
 #include "castrim.cpp"   // docs/191 step 2: [CasTrim] part compositor registry trim (off by default)
+#include "lptrim.cpp"    // docs/541: [LotPool] Trim, lot message pool cores freed after a world load (off by default)
 #include "allocsites.cpp"  // docs/201: [MemDiag] AllocSites, TEST-RUN TOOL (needs memdiag.cpp, alloc.cpp, apex.cpp)
 #include "eafix.cpp"       // docs/67 §26.4 / §27.5 / §28: [EaCrashFixes] ConformActor, ThumbPose, GeomBoneIndex (needs footprint.cpp's FpCallOk / FpRedirect)
 #include "wastar.cpp"      // docs/67 §30: [EaCrashFixes] WorldAStarRefs
@@ -5375,6 +5384,7 @@ static void Run(HMODULE self) {
         ApplyCompaction(ini);  // docs/204: after [UserDiag] (its text channel and save end) and ApexDetect
         ApplyRcTrim(ini);  // docs/198 §4: EXPERIMENT, off ([ResourceCache] TrimAfterCleanup)
         ApplyCasTrim(ini);  // docs/191 step 2: off ([CasTrim] Mode)
+        ApplyLotPoolTrim(ini);  // docs/541: off ([LotPool] Trim; needs [UserDiag])
         // the NOYIELD query guards ts3fixes' other yields too, so it is answered with async off (START then says no)
         if (!g_getOptOrig)
             g_getOptOrig = (GetOptionFn)InstallDetour("Route_GetOption", ROUTE_GET_OPTION, kGetOptionPrologue, sizeof(kGetOptionPrologue), (void*)GetOptionHook, &g_getOptOrig);

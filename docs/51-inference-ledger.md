@@ -6169,3 +6169,11 @@ Same columns as §3. Sources: capstone over the Steam 1.67 `TS3W.exe` and `tools
 | I-456-7 | 539 §12.3 | `0x5E772C` never crashed before in any recorded run | search of `docs/data`, `probe-out/queue` logs, 10 EA reports 11-06..11-08 | none needed | | | verified (search) |
 | I-456-8 | 539 §12.3 | The 01:09 run passed the same travel-save pass with no exception after the startup ones; its §11 verdict holds | `-0049-ts3native.log`: `save: result 0 travel 1/1`, `castrim #17 save-end`, exceptions only at lines 281-289 | none needed | | | verified (log) |
 | I-456-9 | 539 §12.4 | Owner of the bad slot (a freed and reused compositor, or an overwritten record; ours or EA's) | no minidump; `0x40A00000` is a 64 KB page start (mimalloc first block) | logging build + 2 Mode 3 runs + 1 `Mode=0` arm (docs/539 §12.5) | 2 clean Mode 3 runs incl. the trip | a crash or a bad slot again | open |
+
+## 947. Lot message pool trim (docs/541, 2026-11-08)
+
+| Id | Doc | Claim | Test | Tool | Expected | Disproved by | Status |
+|---|---|---|---|---|---|---|---|
+| I-541-1 | 541 §0 | The 47-60 MB AllocSites row at `0x5C32E2` holds more than the lot pool (the callback is the shared main-heap Malloc) | AllocSites row next to the lot pool census in one Bridgeport run | allocsites + poolsnap.py | row > 20.2 MiB pool total | row == pool total | **inferred** |
+| I-541-2 | 541 §4 | Only the exit free-all can race a trim (no other code touches the cores or the free list without the mutex) | al323 and later runs with the trim on, quits included | lptrim lines, crash reports | no crash in the pool or the EA heap after a trim | a crash in `0x4E4250` / `0x4E5920` with a trim earlier in the session | **inferred** |
+| I-541-3 | 541 §4 | A trimmed pool grows back only on another world load | al323: census every 30 s between loads | poolsnap.py | cores flat between loads | cores climb in play | **measured** (al323: 53-82 cores between loads, flat in play; one run) |

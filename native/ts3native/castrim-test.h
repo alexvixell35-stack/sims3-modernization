@@ -32,7 +32,7 @@ static void CtsKids(DWORD o) {  // B and the new one name C (its node's key) as 
 
 static void TestCasTrim() {
     static_assert(offsetof(Ts3nCounters, ctMode) == 0x5CF0 && offsetof(Ts3nCounters, ctOtherThread) == 0x5D14 &&
-                      sizeof(Ts3nCounters) == 6035 * 4,
+                      sizeof(Ts3nCounters) == 6043 * 4,
                   "counters v912 layout after v908 and the held block (docs/registry.md)");
     Ts3nCounters& z = ts3native_counters;
     const CtEraseFn erase0 = g_ctErase;
@@ -252,7 +252,7 @@ __declspec(naked) static void __fastcall CswFbEnter(DWORD) {  // a frame with th
 }
 
 static void TestCasTrimSweep() {
-    static_assert(offsetof(Ts3nCounters, ctSaves) == 0x5D80 && offsetof(Ts3nCounters, ctBlendKB) == 0x5DE4 && sizeof(Ts3nCounters) == 6035 * 4,
+    static_assert(offsetof(Ts3nCounters, ctSaves) == 0x5D80 && offsetof(Ts3nCounters, ctBlendKB) == 0x5DE4 && sizeof(Ts3nCounters) == 6043 * 4,
                   "counters v171 layout (docs/registry.md)");
     Ts3nCounters& z = ts3native_counters;
     const CtEraseFn erase0 = g_ctErase;
