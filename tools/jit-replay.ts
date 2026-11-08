@@ -8,6 +8,12 @@
 //   node tools/jit-replay.ts --run <replay file> [--list <names>] [--mode on|verify] [--lazy]   run monohost, report
 //   node tools/jit-replay.ts --capture-corpus <out.jitcap> [--lazy] [--inline 1|2]   the game's capture code on the host: the corpus under capture,
 //       for a round trip without the game; --lazy / --inline also sample lazy bodies and inlined sites (docs/537 §19)
+//   --run also takes --switches VtOps=1,CallExit=0,NewVt=1 (Wide, Lazy, Inline=<0|1|2> too): sets those host env switches for the run
+//       (MONOHOST_JITVTOPS ...), the rest comes from the environment; the set is printed in the summary line
+//   node tools/jit-replay.ts --run <replay> --switches <set> --bisect   rerun halves of the ON switches until the failing one is named
+//       (fail = differ, faulted, STOPPED or per-call MISMATCH); two halves that pass alone but fail together are reported as a joint set
+//   node tools/jit-replay.ts --run <replay> --coverage [--switches ...]   host with MONOHOST_JITCOVER=1: per compiled method the calls and the
+//       IL branch edges reached by at least one input; writes docs/data/results/<date>-jit-replay-coverage.csv, 0 calls = the rare-path list
 //   node tools/jit-replay.ts --report <monohost.exe.log>
 //   node tools/jit-replay.ts --self-check
 // Captures hold game state (Sim names, save data): they stay in probe-out/ or game-copy/, never in git. Only the fixture is committed.
@@ -15,7 +21,9 @@ import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync, mkdte
 import { resolve, join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import { jitList } from './jit-corpus.ts';
+import { analyse, listRows, parseCover, type HostBody, type Row, type Result } from './jit-coverage.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const FIXTURE = resolve(ROOT, 'native/monohost/jit-replay-fixture.json');
@@ -238,13 +246,89 @@ async function runHost(replay: string | undefined, env: Record<string, string>, 
     if (Date.now() > end) fail(`no summary in ${timeoutMs / 1000} s, log ${log}`);
   }
 }
+// one replay over fresh host processes (an interpreter fault leaves old Mono's frame state unusable, so a fresh process continues at the next
+// input via MONOHOST_JITREPLAY_FROM; rows add up by index); covers = each round's jit-cover.txt when cover is set
+async function replayRun(replay: string, env: Record<string, string>, cover: boolean) {
+  let from = 0, total: ReturnType<typeof report> | null = null;
+  const covers: string[] = [];
+  const rowRe = /^(.*): inputs (\d+), ran (\d+), differ (\d+), unstable (\d+), skipped (\d+), faulted (\d+), objects not rebuilt (\d+)$/;
+  for (let round = 0; round < 600; round++) {
+    const { log, path } = await runHost(replay, { ...env, MONOHOST_JITREPLAY_FROM: String(from) }, /^jit replay: \d+ inputs/m, 1800000);
+    console.log(`log: ${path}`);
+    if (cover) { try { covers.push(readFileSync(join(dirname(path), 'jit-cover.txt'), 'latin1')); } catch { fail(`no jit-cover.txt beside ${path}: native/monohost/out is older than the --coverage change, run native/monohost/build.cmd`); } }
+    const r = report(log);
+    if (!total) total = r;
+    else {
+      total.inputs += r.inputs; total.ran += r.ran; total.differ += r.differ; total.unstable += r.unstable; total.skipped += r.skipped; total.faulted += r.faulted;
+      total.lines.push(...r.lines); total.stopped = r.stopped; total.verify = r.verify;
+      total.methods = total.methods.map((a, i) => {
+        const x = rowRe.exec(a), y = rowRe.exec(r.methods[i] ?? '');
+        if (!x || !y) return a;
+        return `${x[1]}: inputs ${+x[2] + +y[2]}, ran ${+x[3] + +y[3]}, differ ${+x[4] + +y[4]}, unstable ${+x[5] + +y[5]}, skipped ${+x[6] + +y[6]}, faulted ${+x[7] + +y[7]}, objects not rebuilt ${+x[8] + +y[8]}`;
+      });
+    }
+    const f = [...r.lines].reverse().map(l => /^jit replay FAULT input (\d+) /.exec(l)).find(Boolean);
+    if (!r.stopped || !f) break;
+    from = +f[1] + 1;
+    console.log(`jit-replay: fault at input ${f[1]}, continuing in a fresh process from ${from}`);
+  }
+  return { total: total!, covers };
+}
 function printReport(r: ReturnType<typeof report>) {
   console.log(`jit-replay: ${r.inputs} inputs, ${r.ran} ran, ${r.differ} differ, ${r.unstable} unstable, ${r.skipped} skipped, ${r.faulted} faulted${r.stopped ? ', STOPPED on a fault' : ''}; per-call verify: ${r.verify}`);
   for (const l of [...r.lines.slice(0, 40), ...r.methods, ...r.reasons.map(x => `  skip reason: ${x}`)]) console.log(l);
   if (r.differ || r.stopped) process.exitCode = 1;
 }
 
-function selfCheck() {
+// ---- --switches / --bisect / --coverage ----
+const SWITCH_ENV: Record<string, string> = { VtOps: 'MONOHOST_JITVTOPS', CallExit: 'MONOHOST_JITCALLEXIT', NewVt: 'MONOHOST_JITNEWVT', Wide: 'MONOHOST_JITWIDE', Lazy: 'MONOHOST_JITLAZY', Inline: 'MONOHOST_JITINLINE' };
+export type Switches = [string, string][];  // name, value
+export function parseSwitches(t: string): Switches {
+  return t.split(',').filter(x => x.trim()).map(x => {
+    const m = /^(\w+)=(\d)$/.exec(x.trim());
+    if (!m || !SWITCH_ENV[m[1]]) throw new Error(`bad switch "${x}": want Name=0|1, Name one of ${Object.keys(SWITCH_ENV).join(' ')}`);
+    return [m[1], m[2]];
+  });
+}
+export const switchEnv = (sw: Switches) => Object.fromEntries(sw.map(([n, v]) => [SWITCH_ENV[n], v]));
+export const switchText = (sw: Switches) => sw.map(([n, v]) => `${n}=${v}`).join(',') || '(environment)';
+// fails(on) runs with the candidates in `on` at their value and every other candidate 0. Returns what to blame.
+export type Blame = { kind: 'passes' | 'base' | 'single' | 'joint'; set: string[]; runs: number };
+export async function bisect(cands: string[], fails: (on: string[]) => Promise<boolean>): Promise<Blame> {
+  let runs = 0;
+  const f = async (on: string[]) => { runs++; return fails(on); };
+  if (!await f(cands)) return { kind: 'passes', set: [], runs };
+  if (await f([])) return { kind: 'base', set: [], runs };
+  let cur = cands;
+  while (cur.length > 1) {
+    const h = cur.length >> 1, a = cur.slice(0, h), b = cur.slice(h);
+    if (await f(a)) cur = a;
+    else if (await f(b)) cur = b;
+    else return { kind: 'joint', set: cur, runs };  // each half passes alone: they fail together
+  }
+  return { kind: 'single', set: cur, runs };
+}
+export const failed = (r: ReturnType<typeof report>) => r.differ > 0 || r.faulted > 0 || r.stopped || /MISMATCH [1-9]/.test(r.verify);
+export function coverageCsv(rows: { res: Result; calls: number }[]): string {
+  const q = (x: string | number) => `"${x}"`;
+  const out = ['method,sha8,il_bytes,edges,hit,calls,class,missing_il_offset_side'];
+  for (const { res: r, calls } of rows)
+    out.push([q(r.key), q(r.sha), r.size, r.edges, r.hit, calls, q(!calls ? 'rare' : r.hit < r.edges ? 'partial' : 'full'),
+      q(r.missing.map(e => `${e.offset < 0 ? 'entry' : 'IL_' + e.offset.toString(16).padStart(4, '0')}:${e.side}`).join(' '))].join(','));
+  return out.join('\n') + '\n';
+}
+const sha256 = (hex: string) => createHash('sha256').update(Buffer.from(hex, 'hex')).digest('hex');
+function coverRows(covers: string[], gc: string) {
+  const hosts: HostBody[] = covers.flatMap(t => parseCover(t));
+  const rows = new Map<string, Row>(listRows(readFileSync(resolve(ROOT, 'native/ts3native/monojit-list.h'), 'utf8')).map(r => [r.sha, r]));
+  for (const h of hosts) { const sha = sha256(h.il); if (h.il && !rows.has(sha)) rows.set(sha, { key: h.name, size: h.size, sha }); }
+  const { res } = analyse([...rows.values()], join(gc, 'assemblies'), hosts);
+  const calls = new Map<string, number>();
+  for (const h of hosts) { const k = sha256(h.il).slice(0, 8); calls.set(k, (calls.get(k) ?? 0) + h.calls); }
+  return res.map(r => ({ res: r, calls: calls.get(r.sha) ?? 0 }));
+}
+
+async function selfCheck() {
   let k = 0;
   const ok = (c: boolean, what: string) => { k++; if (!c) { console.log(`FAIL ${what}`); process.exitCode = 1; } };
   const fx = fixtureCapture(JSON.parse(readFileSync(FIXTURE, 'utf8')));
@@ -285,12 +369,27 @@ function selfCheck() {
   ok(one(0) === one(1) && one(1) === one(2), 'the path does not change the replay input');
   const rep = report('jit replay method A.B: inputs 2, ran 1, differ 0, unstable 0, skipped 1, objects not rebuilt 0\njit replay reason A.B: delegate x1\njit replay: 2 inputs, 1 ran, 0 differ, 0 unstable, 1 skipped; per-call verify: ok 1, MISMATCH 0, abandoned (exception) 0\n');
   ok(rep.inputs === 2 && rep.ran === 1 && rep.reasons.length === 1 && rep.methods.length === 1 && !rep.stopped, 'report parse');
+  ok(switchText(parseSwitches('VtOps=1, CallExit=0,NewVt=1')) === 'VtOps=1,CallExit=0,NewVt=1' && switchEnv(parseSwitches('CallExit=0')).MONOHOST_JITCALLEXIT === '0', 'switch parse and env');
+  let badSw = false; try { parseSwitches('Nope=1'); } catch { badSw = true; }
+  ok(badSw, 'an unknown switch is refused');
+  // bisect demo on a fake failing switch: only NewVt breaks; then a pair that fails only together; a base failure; a pass
+  const demo = (broken: string[][]) => bisect(['VtOps', 'CallExit', 'NewVt', 'Wide'], async on => broken.some(set => set.every(x => on.includes(x))));
+  const bis1 = await demo([['NewVt']]), bisP = await demo([['VtOps', 'Wide']]), bisB = await demo([[]]), bisN = await demo([['Inline']]);
+  ok(bis1.kind === 'single' && bis1.set[0] === 'NewVt' && bis1.runs <= 6, 'bisect names the one failing switch');
+  ok(bisP.kind === 'joint' && bisP.set.includes('VtOps') && bisP.set.includes('Wide'), 'bisect reports a pair that fails only together');
+  ok(bisB.kind === 'base', 'bisect reports a failure with every switch off');
+  ok(bisN.kind === 'passes' && bisN.runs === 1, 'bisect stops when the full set passes');
+  console.log(`jit-replay bisect demo: fake failing switch NewVt found in ${bis1.runs} runs (${bis1.kind})`);
+  const base0 = report('jit replay: 3 inputs, 3 ran, 0 differ, 0 unstable, 0 skipped, 0 faulted; per-call verify: ok 9, MISMATCH 0, abandoned (exception) 0\n');
+  ok(!failed(base0) && failed({ ...base0, differ: 1 }) && failed({ ...base0, faulted: 1 }) && failed({ ...base0, verify: 'ok 9, MISMATCH 2, abandoned (exception) 0' }), 'failure predicate');
+  const csv = coverageCsv([{ res: { key: 'A.B', sha: 'aabbccdd', size: 9, edges: 3, hit: 1, missing: [{ offset: 4, side: 'taken' }], note: '' }, calls: 0 }, { res: { key: 'C.D', sha: '11223344', size: 5, edges: 1, hit: 1, missing: [], note: '' }, calls: 7 }]);
+  ok(/"A\.B","aabbccdd",9,3,1,0,"rare","IL_0004:taken"/.test(csv) && /"C\.D","11223344",5,1,1,7,"full",""/.test(csv), 'coverage csv');
   console.log(`jit-replay self-check: ${k} checks${process.exitCode ? ', FAILED' : ', ok'}`);
 }
 
 if (import.meta.main) {
   const out = opt('--out');
-  if (argv.includes('--self-check')) selfCheck();
+  if (argv.includes("--self-check")) await selfCheck();
   else if (argv.includes('--fixture')) {
     if (!out) fail('--fixture needs --out');
     writeFileSync(out!, toReplay([fixtureCapture(JSON.parse(readFileSync(FIXTURE, 'utf8')))]).text);
@@ -317,34 +416,36 @@ if (import.meta.main) {
     console.log(`log: ${path}`);
     for (const l of log.split(/\r?\n/)) if (/^jit (capture|corpus):/.test(l)) console.log(l);
   } else if (argv.includes('--run')) {
-    const replay = resolve(opt('--run')!), mode = opt('--mode') ?? 'verify';
-    const env: Record<string, string> = { MONOHOST_JIT: mode, MONOHOST_MINTCALL: 'fast', MONOHOST_DIVGUARD: '1', ...(argv.includes('--lazy') ? { MONOHOST_JITLAZY: '1' } : {}) };
+    const replay = resolve(opt('--run')!), mode = opt('--mode') ?? 'verify', sw = parseSwitches(opt('--switches') ?? ''), cover = argv.includes('--coverage');
     const list = opt('--list') ?? [...new Set(readFileSync(replay, 'utf8').split('\n').filter(l => l.startsWith('meth ')).map(l => l.split(' ').slice(4).join(' ')))].join(',');
-    env.MONOHOST_JITLIST = list === 'corpus' ? jitList(readFileSync(resolve(ROOT, 'native/monohost/monohost-jit.cpp'), 'utf8')) : list;
-    // an interpreter fault leaves old Mono's frame state unusable (every later call fails), so after a FAULT line a fresh host process
-    // continues with the next input (MONOHOST_JITREPLAY_FROM); the rows add up by index, the fault is counted on its method
-    let from = 0, total: ReturnType<typeof report> | null = null;
-    const rowRe = /^(.*): inputs (\d+), ran (\d+), differ (\d+), unstable (\d+), skipped (\d+), faulted (\d+), objects not rebuilt (\d+)$/;
-    for (let round = 0; round < 600; round++) {
-      const { log, path } = await runHost(replay, { ...env, MONOHOST_JITREPLAY_FROM: String(from) }, /^jit replay: \d+ inputs/m, 1800000);
-      console.log(`log: ${path}`);
-      const r = report(log);
-      if (!total) total = r;
-      else {
-        total.inputs += r.inputs; total.ran += r.ran; total.differ += r.differ; total.unstable += r.unstable; total.skipped += r.skipped; total.faulted += r.faulted;
-        total.lines.push(...r.lines); total.stopped = r.stopped; total.verify = r.verify;
-        total.methods = total.methods.map((a, i) => {
-          const x = rowRe.exec(a), y = rowRe.exec(r.methods[i] ?? '');
-          if (!x || !y) return a;
-          return `${x[1]}: inputs ${+x[2] + +y[2]}, ran ${+x[3] + +y[3]}, differ ${+x[4] + +y[4]}, unstable ${+x[5] + +y[5]}, skipped ${+x[6] + +y[6]}, faulted ${+x[7] + +y[7]}, objects not rebuilt ${+x[8] + +y[8]}`;
-        });
+    const baseEnv = (s: Switches): Record<string, string> => ({ MONOHOST_JIT: mode, MONOHOST_MINTCALL: 'fast', MONOHOST_DIVGUARD: '1', ...(argv.includes('--lazy') ? { MONOHOST_JITLAZY: '1' } : {}),
+      MONOHOST_JITLIST: list === 'corpus' ? jitList(readFileSync(resolve(ROOT, 'native/monohost/monohost-jit.cpp'), 'utf8')) : list, ...(cover ? { MONOHOST_JITCOVER: '1' } : {}), ...switchEnv(s) });
+    if (argv.includes('--bisect')) {
+      const cands = sw.filter(([, v]) => v !== '0').map(([n]) => n);
+      if (!cands.length) fail('--bisect needs --switches with at least one switch on, e.g. VtOps=1,CallExit=1,NewVt=1');
+      const blame = await bisect(cands, async on => {
+        const set: Switches = sw.map(([n, v]) => [n, cands.includes(n) && !on.includes(n) ? '0' : v]);
+        const bad = failed((await replayRun(replay, baseEnv(set), false)).total);
+        console.log(`jit-replay bisect: ${switchText(set)} -> ${bad ? 'FAIL' : 'pass'}`);
+        return bad;
+      });
+      const msg = { passes: 'passes with the whole set: nothing to bisect', base: 'fails with every candidate switch off: not a switch, a replay or host problem',
+        single: `failing switch: ${blame.set[0]}`, joint: `each half passes alone, these fail together: ${blame.set.join(',')}` }[blame.kind];
+      console.log(`jit-replay bisect: ${msg} (${blame.runs} runs)`);
+      if (blame.kind !== 'passes') process.exitCode = 1;
+    } else {
+      const { total, covers } = await replayRun(replay, baseEnv(sw), cover);
+      console.log(`jit-replay: switches ${switchText(sw)}`);
+      printReport(total);
+      if (cover) {
+        const rows = coverRows(covers, gameCopy()), date = new Date().toISOString().slice(0, 10), file = resolve(ROOT, `docs/data/results/${date}-jit-replay-coverage.csv`);
+        mkdirSync(dirname(file), { recursive: true });
+        writeFileSync(file, coverageCsv(rows));
+        const rare = rows.filter(r => !r.calls), edges = rows.reduce((x, r) => x + r.res.edges, 0), hit = rows.reduce((x, r) => x + r.res.hit, 0);
+        console.log(`jit-replay coverage: ${rows.length} methods, ${edges} edges, ${hit} reached (${(100 * hit / Math.max(edges, 1)).toFixed(1)}%), ${rare.length} with 0 calls (rare path); wrote ${file}`);
+        for (const r of rare.slice(0, 60)) console.log(`  rare: ${r.res.key}`);
       }
-      const f = [...r.lines].reverse().map(l => /^jit replay FAULT input (\d+) /.exec(l)).find(Boolean);
-      if (!r.stopped || !f) break;
-      from = +f[1] + 1;
-      console.log(`jit-replay: fault at input ${f[1]}, continuing in a fresh process from ${from}`);
     }
-    printReport(total!);
   } else {
     console.log('see the header of tools/jit-replay.ts');
     process.exitCode = 1;

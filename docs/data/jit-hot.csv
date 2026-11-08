@@ -171,5 +171,5 @@ rank,method,frame,class,worlds,samples,ms_s_mean,il_bytes,assembly,host_list,hos
 "170","TreasureComponent.get_BaseType","Sims3.Gameplay.ObjectComponents.TreasureComponent.get_BaseType","N","0","0","0.00","0","Sims3GameplaySystems","kJitList","","","","compile"
 "171","WorldBuilderDeathComponent.get_BaseType","Sims3.Gameplay.Actors.WorldBuilderDeathComponent.get_BaseType","N","0","0","0.00","0","Sims3GameplaySystems","kJitList","","","","compile"
 "172","KeyValuePair`2..ctor","System.Collections.Generic.KeyValuePair`2..ctor","N","0","0","0.00","0","mscorlib","kJitList","","","","compile"
-"173","SimClock.get_CurrentTicks","Sims3.Gameplay.Utilities.SimClock.get_CurrentTicks","N","0","0","0.00","0","Sims3GameplaySystems","kJitList","","","","template first: ldsflda, 1.2 exits per execution (host count C2b; kept out of the game list)"
+"173","SimClock.get_CurrentTicks","Sims3.Gameplay.Utilities.SimClock.get_CurrentTicks","N","0","0","0.00","0","Sims3GameplaySystems","kJitList","","","","compile"
 "174","SimClock.ConvertFromTicks","Sims3.Gameplay.Utilities.SimClock.ConvertFromTicks","N","0","0","0.00","0","Sims3GameplaySystems","kJitList","","","","compile"

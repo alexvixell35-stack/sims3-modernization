@@ -1,0 +1,71 @@
+{
+  "note": "tier2-local-l0: docs/data/tier2-local-phase-handoff.md piece L0 (§0.2, §7): local-phase (B9) time per actor class (household, seen, unseen non-household), side entries apart, the C0+B8 floor of searches without the local phase, unseen B8 reasons. ts3fixes switch autt2l0 (AutLocalProbe.cs, counters 903-927, default off), measurement only: the game's search runs unchanged for every Sim. Release ini + fixes, heavy tools off (noSamplers). Not run yet; needs the tier2l0-1108 pair (ts3native 0.36.210 + ts3fixes + ts3agent from feature/tier2-l0). Order: smoke, BP 10 min, IP 10 min. Verdict (handoff Q1): unseen non-household local ms/s = (aut_l0_us_unseen - aut_l0_n_unseen x floor) / 1000 / (aut_l0_span_ms / 1000), floor = aut_l0_nolocal_us / aut_l0_nolocal_n (C0 + B8 per search); go for L2+ when >= 1 ms/s on some world, L7 only when >= 3 ms/s. Pairs per unseen search = aut_l0_pairs_unseen / aut_l0_pairn_unseen sizes kMaxLocalPairs. Run: node tools/harness/queue.ts tools/harness/queues/tier2-local-l0.json",
+  "smoke": {
+    "id": "bp-t2l0-smoke",
+    "note": "Measurement smoke (4 min BP): PASS = 0 crashes, no freeze, the fixes-on line reads autt2l0 back on, aut_l0_exc == 0, aut_l0_n_hh > 0 and aut_l0_nolocal_n > 0 (B7 hook in, clock and classes work). aut_l0_n_unseen may be 0 on BP (a result, not a failure); if it is 0 on both worlds, check that UfWhy answers unseen at all (unseen fallback counters) before calling no-go.",
+    "asi": "game-copy/ts3native.asi.master1108",
+    "fixesPackage": "game-copy/ts3fixes.package.master1108",
+    "pinReason": "master1108 pair (builds.json): combined master 896c0e8b, ts3native 0.36.211 (monojit Count + C3 FastCopy/Ldsflda, tier-2 H7-H10, E3/P6 rows, L0 autt2l0), ts3fixes from the same master; agent package, when a job needs one, is game-copy/ts3agent.package.master1108 (TS3_AGENT_PACKAGE; file not built yet)",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 90,
+    "ini": { "HitchAttr.Enabled": 1 },
+    "logRequire": { "OK   sim loop: .* runs at the end of every Simulate iteration": 1 },
+    "run": {
+      "profile": {
+        "minutes": 4,
+        "seed": 12345,
+        "noSamplers": true,
+        "fixesOn": "autt2l0",
+        "fixesRequire": "aut_l0_n_hh>=1,aut_l0_nolocal_n>=1,aut_l0_exc<1"
+      }
+    },
+    "gameArgs": ["-disablestoryprogression"],
+    "timeoutMin": 25
+  },
+  "jobs": [
+    {
+      "id": "bp-t2l0",
+      "note": "L0 measure, Baseline-BP-Spring, 10 min: PASS = 0 crashes, no freeze, aut_l0_exc == 0. Read aut_l0_* (counters 903-927): unseen non-household local ms/s by the queue note's formula, the same for seen and household for scale, side-entry ms/s, pairs per search per class, unseen B8 reasons (aut_l0_r_*). Machine load line must be clean (external load rule), else rerun.",
+      "asi": "game-copy/ts3native.asi.master1108",
+      "fixesPackage": "game-copy/ts3fixes.package.master1108",
+      "pinReason": "master1108 pair (builds.json): combined master 896c0e8b, ts3native 0.36.211 (monojit Count + C3 FastCopy/Ldsflda, tier-2 H7-H10, E3/P6 rows, L0 autt2l0), ts3fixes from the same master; agent package, when a job needs one, is game-copy/ts3agent.package.master1108 (TS3_AGENT_PACKAGE; file not built yet)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": { "HitchAttr.Enabled": 1 },
+      "logRequire": { "OK   sim loop: .* runs at the end of every Simulate iteration": 1 },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autt2l0",
+          "fixesRequire": "aut_l0_n_hh>=1,aut_l0_nolocal_n>=1,aut_l0_exc<1"
+        }
+      },
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-t2l0",
+      "note": "L0 measure, Baseline-IP-Spring (resort workers, handoff §0.2), 10 min: PASS = 0 crashes, no freeze, aut_l0_exc == 0. Read as bp-t2l0; aut_l0_r_resort is the expected unseen reason here. The verdict line goes into docs/data/tier2-local-phase-handoff.md (status log) with both worlds.",
+      "asi": "game-copy/ts3native.asi.master1108",
+      "fixesPackage": "game-copy/ts3fixes.package.master1108",
+      "pinReason": "master1108 pair (builds.json): combined master 896c0e8b, ts3native 0.36.211 (monojit Count + C3 FastCopy/Ldsflda, tier-2 H7-H10, E3/P6 rows, L0 autt2l0), ts3fixes from the same master; agent package, when a job needs one, is game-copy/ts3agent.package.master1108 (TS3_AGENT_PACKAGE; file not built yet)",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": { "HitchAttr.Enabled": 1 },
+      "logRequire": { "OK   sim loop: .* runs at the end of every Simulate iteration": 1 },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autt2l0",
+          "fixesRequire": "aut_l0_n_hh>=1,aut_l0_nolocal_n>=1,aut_l0_exc<1"
+        }
+      },
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 30
+    }
+  ]
+}

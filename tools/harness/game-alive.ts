@@ -12,6 +12,7 @@
 import { execFile, execFileSync } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, statfsSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { analyzeDump } from '../dump-locks.ts';
 import { BIN, GAME_EXE, gameRunning, seenPids } from './game-exe.ts';
 
 const STARTED = new Date().toISOString(); // crash pickup: reports since this process started, of the game PIDs it saw
@@ -366,7 +367,13 @@ try { if(-not [Dh]::MiniDumpWriteDump($p.Handle,${pid},$f.SafeFileHandle,0x1826,
   const line = size && !err ? `kill dump ${plan.tool} ${Math.round(size / 2 ** 20)} MB in ${Math.round((Date.now() - t0) / 1000)} s: ${plan.file}`
     : `kill dump failed (${plan.tool}: ${err || 'no file'})${size ? `, partial ${plan.file}` : ''}`;
   console.log(`${tag}: ${line}`);
-  return line;
+  return size && !err ? `${line}; ${lockWaits(plan.file)}` : line;
+}
+
+// per waiting thread: the critical section and its owner, and the EA package-lock deadlock flag (tools/dump-locks.ts, docs/539 §13.8);
+// one summary line back for the FAIL line (queue.ts retries the load once on the flag), the per-thread lines to the log
+export function lockWaits(file: string, read: typeof analyzeDump = analyzeDump): string {
+  try { const a = read(file); for (const l of a.lines) console.log(`${stamp()} ${l}`); return a.summary; } catch (e) { return `lock waits: not read (${String(e).split('\n')[0]})`; }
 }
 
 if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-check')) {
@@ -498,6 +505,11 @@ if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-
     assert.match(src('story-fuzzer.ts'), /dialog_expect/, 'story-fuzzer.ts: the step before an accept:true auto_dialog arms dialog_expect');
     // round 4: the in-game accept-on-match (dialog_expect accept:true) closes the window/poll race of H-move run 1
     for (const f of ['cycle.ts', 'save-matrix.ts', 'travel-trip.ts', 'new-save.ts', 'story-fuzzer.ts', 'vanilla-steps.ts']) assert.match(src(f), /'dialog_expect', \{[^}]*accept: true/, `${f}: dialog_expect without accept:true`);
+  }
+  { // lock waits line for the FAIL text (tools/dump-locks.ts): the summary comes back, a read error does not throw
+    const fake = { waits: [], cycle: [1, 2], deadlock: 'EA package-lock deadlock (docs/539 §13.8)', lines: ['thread 1 waits ...'], summary: 'lock waits: 2 of 9 threads; deadlock cycle 1>2>1; EA package-lock deadlock (docs/539 §13.8)' };
+    assert.equal(lockWaits('x.dmp', () => fake), fake.summary);
+    assert.match(lockWaits('x.dmp', () => { throw new Error('not a minidump'); }), /^lock waits: not read \(Error: not a minidump\)/);
   }
   console.log('self-check ok');
 }

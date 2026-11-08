@@ -8,7 +8,7 @@ Branch `feature/tier2-enablers`. Status file for the agents building the shared-
 |---|---|---|---|
 | E1 write mask | this lane (2026-11-08) | `AsDesc.of` flags + `outMask`: write outs only when the stored bool is true (`AS_OF_TRUE`), a static byte mask of the out bytes the game may write (`outMask`), a per-entry written mask from two fills (`AS_OF_DIFF`), an out that is a ref to a fresh managed array (`AS_OF_ARR`) | built, selftest `TestAutShadowTier2IcE` |
 | E2 `ulong[]` array copy | this lane (2026-11-08) | `AK_ARRAY` element size = `AsDesc.sz` (4 or 8 B) in the pool copy and the worker allocator | built, same selftest |
-| E3 level-bit gate | later agent | `LotTable_GetIfPresent` + entry `+0x168` check at the cut before filling #2, #4, #18 (docs/126 §4.1 correction) | not started |
+| E3 level-bit gate | E3 lane (2026-11-08, branch `feature/tier2-e3`) | `LotTable_GetIfPresent` + entry `+0x168` check at the cut before filling #2, #4 (#18 retro not done) (docs/126 §4.1 correction) | built (0.36.208, pair `tier2e3-1108`), selftest `TestAutShadowTier2IcE3`, not run (ledger §463) |
 
 ## Rows
 
@@ -20,7 +20,7 @@ Branch `feature/tier2-enablers`. Status file for the agents building the shared-
 | 16 | `World_GetLotLocationAtFloorImpl` 0x7850F0 | E1 (`AS_OF_DIFF`, mask 0xDFF, AO_WORLD) | built, `Tier2IcNew` bit 2 |
 | 21 | `World_GetWorldToHouseboatDisplayPositionImpl` 0x788920 | E1 (`AS_OF_TRUE`, AO_CUT) | built, `Tier2IcNew` bit 3 |
 | - | `World_GetHouseboatDisplayToWorldPositionImpl` 0x788A20 | E1 (`AS_OF_TRUE`, AO_CUT) | built, `Tier2HouseboatRow`; household-owned houseboat lots abort before the call |
-| 2, 4 (+18 retro) | surface types | E3 | refused until E3 |
+| 2, 4 (+18 retro) | surface types | E3 (`AS_OF_LVL1` / `AS_OF_LVLA`) | built, `Tier2IcNew` bit 4 (#18 retro not done) |
 | 20 | `World_LotGetDisplayLevelInfoImpl` | struct mask | not in this lane |
 
 ## Facts (disassembly, Steam 1.67 `TS3W.exe`, capstone)
@@ -50,3 +50,22 @@ Branch `feature/tier2-enablers`. Status file for the agents building the shared-
 - Checks: native `build.cmd` selftest ok (incl. `TestAutShadowTier2IcE`), `tools/selftest-all.ts` 212 PASS / 0 FAIL / 5 SKIP, `tools/hook-sites.ts --check` pass, ts3fixes builds.
 - Not run in game: next step is `tier2-ic-rows.json` jobs `bp-t2e-dry`, `ip-t2e-houseboat-dry` (correctness, gate 0 mismatches).
 - Next piece: E3 level-bit gate (#2, #4, #18 retro); #14 needs a pool-backed out.
+
+## Status E3 (2026-11-08 ~09:20 UTC, branch `feature/tier2-e3`, not merged, source only)
+
+- Done (source, not compiled): `AS_OF_LVL1` / `AS_OF_LVLA`, `AsLevelGate` and the skip in `AsRefresh` (`native/ts3native/autshadow.cpp`), rows #2 and #4 last in `kAsDesc` (`AS_NT2IC` 22, `AS_NT2E` 7, `Tier2IcNew` bit 4 -> E bits 5-6), `g_asJobState = &g_async.state` before `ApplyAutShadow` (`ts3native.cpp`), selftest `TestAutShadowTier2IcE3` plus the `TestAutShadowTier2IcE` asserts moved to 7 E rows (`autshadow-test.h`). Disassembly facts and open claims: ledger §463.
+- Not built: paused by the coordinator before the 17:30-17:45 PHT window. No version taken, no pair registered.
+- Next steps, in order:
+  1. Native `build.cmd` + selftest (fix compile errors first; monohost also includes `autshadow.cpp`: `g_asJobState` stays NULL there). Take the next free version across all branches right before registering (0.36.204 is taken; check `git grep` of `docs/data/builds.json` on every branch), pair `tier2e3-1108`.
+  2. Managed: `autofft2ic` slots 20-21 (`kIcV` 22, new `IcG6` in `mods/ts3fixes/src/AutOffload.cs`, same household-lot skip as `IcG5`): `World.GetTerrainSurfaceType(p)` + 1, and `World.GetFloorSurfaceType(lot.LotId, p)` (null = 2, else a content hash).
+  3. `tools/autonomy-tier2.ts` `TIER2_BUILT` += `World_GetTerrainSurfaceTypeImpl`, `World_GetFloorSurfaceTypeImpl`; regenerate `docs/data/autonomy-tier2.csv` (docs/126 Reproduce, `--asm`/`--index` from the main checkout's `game-copy/`).
+  4. Queue job `bp-t2e3-dry` in `tools/harness/queues/tier2-ic-rows.json` (copy `bp-t2e-dry`, add `Tier2IcNew=16`, gate 0 mismatches); do not run.
+  5. docs/126 §8 line, `tools/selftest-all.ts`, `tools/hook-sites.ts --check`, PLAN.md line, then commit.
+
+## Status E3 (2026-11-08, branch `feature/tier2-e3`, built, not merged, not run)
+
+- Built: ts3native 0.36.208 (asi sha256 19c7aeb4863a), pair `tier2e3-1108` = `game-copy/ts3native.asi.tier2e3-1108` + `game-copy/ts3fixes.package.tier2e3-1108` (sha 6ac1663013a1, tuning 24e0fad3a692), registered in `docs/data/builds.json` on this branch (commit a32db0ba).
+- Done: native `build.cmd` selftest ok (incl. `TestAutShadowTier2IcE3`); managed `IcG6` slots 20-21 (`kIcV` 22, household-owned lots skipped like `IcG5`); `TIER2_BUILT` + `docs/data/autonomy-tier2.csv`; queue job `bp-t2e3-dry` (`Tier2IcNew=16`); docs/126 §8 and PLAN.md lines; `tools/selftest-all.ts` 215 PASS / 0 FAIL / 5 SKIP; `tools/hook-sites.ts --check` pass.
+- Household: the native rows only answer worker calls (the worker's own household rules apply unchanged); the dry reads `IcG5` / `IcG6` skip lots owned by the active household; the gate itself changes no Sim state (skip = no answer, the worker aborts).
+- Next step: merge `feature/tier2-e3` into master (after `feature/tier2-enablers`; expect `docs/data/builds.json` / `PLAN.md` / `tier2-ic-rows.json` conflicts, `tools/agent-merge.cjs`), then run `tier2-ic-rows.json` job `bp-t2e3-dry` (pair `tier2e3-1108`; gate 0 `autoff_t2ic_mis` over slots 0-21, read `autshadow level gate` skip/fill lines for I-463-2 and `[RouteGate]` waits for I-463-1). Optional later: an IP arm with `Tier2IcNew=31` once `bp-t2e-dry` passed.
+- Open: #18 retro, I-463-1..3.

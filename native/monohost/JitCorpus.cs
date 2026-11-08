@@ -753,6 +753,176 @@ namespace MonoHostTest
             return s;
         }
     }
+    public struct JitC3P { public int A; public short B; public byte C; public JitC3P(int a) { A = a; B = (short)(a * 3); C = (byte)a; } }
+    public struct JitC3R { public string S; public int N; }
+    public enum JitC3E { A, B, C = 9 }
+    public static class JitKC3
+    {
+        static int H(int s, int[] a) { for (int i = 0; i < a.Length; i++) s = s * 31 + a[i]; return s; }
+        static int H(int s, long[] a) { for (int i = 0; i < a.Length; i++) s = s * 31 + (int)a[i] + (int)(a[i] >> 32); return s; }
+        static int H(int s, float[] a) { for (int i = 0; i < a.Length; i++) s = s * 31 + (int)(a[i] * 8f); return s; }
+        static int H(int s, double[] a) { for (int i = 0; i < a.Length; i++) s = s * 31 + (int)(a[i] * 16.0); return s; }
+        static int H(int s, byte[] a) { for (int i = 0; i < a.Length; i++) s = s * 31 + a[i]; return s; }
+        static int H(int s, JitC3P[] a) { for (int i = 0; i < a.Length; i++) s = ((s * 31 + a[i].A) * 31 + a[i].B) * 31 + a[i].C; return s; }
+        static int H(int s, JitTPt[] a) { for (int i = 0; i < a.Length; i++) s = s * 31 + a[i].Sum() + a[i].X; return s; }
+        static int H(int s, JitC3E[] a) { for (int i = 0; i < a.Length; i++) s = s * 31 + (int)a[i]; return s; }
+        static int H(int s, object[] a) { for (int i = 0; i < a.Length; i++) s = s * 31 + (a[i] == null ? 1 : a[i] is string ? ((string)a[i]).Length : a[i].GetHashCode()); return s; }
+        static int H(int s, JitC3R[] a) { for (int i = 0; i < a.Length; i++) s = (s * 31 + a[i].N) * 31 + (a[i].S == null ? 1 : a[i].S.Length); return s; }
+        static int Try(Array a, int ai, Array b, int bi, int n) { try { Array.Copy(a, ai, b, bi, n); return 0; } catch (Exception e) { return e.GetType().Name.Length; } }
+        public static int Ints(int n)
+        {
+            int s = 0; int[] a = new int[16], b = new int[16];
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < 16; j++) a[j] = i * 17 + j;
+                Array.Copy(a, i % 5, b, (i * 3) % 7, i % 9); s = H(s, b);
+                Array.Copy(a, b, i % 17); s = H(s, b);
+                Array.Copy(a, 0, b, 0, 16); Array.Copy(a, 16, b, 16, 0); s = H(s, b);
+            }
+            return s;
+        }
+        public static int Overlap(int n)
+        {
+            int s = 0; int[] a = new int[24]; byte[] c = new byte[24]; JitTPt[] p = new JitTPt[12];
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < 24; j++) { a[j] = j * 7 + i; c[j] = (byte)(j + i); }
+                for (int j = 0; j < 12; j++) p[j] = new JitTPt(j, i, -j);
+                int k = i % 9;
+                Array.Copy(a, 0, a, k, 12); s = H(s, a);
+                Array.Copy(a, k, a, 0, 12); s = H(s, a);
+                Array.Copy(c, 1, c, 0, 20); Array.Copy(c, 0, c, 3, 20); s = H(s, c);
+                Array.Copy(p, 0, p, k % 4 + 1, 7); Array.Copy(p, k % 3, p, 0, 8); s = H(s, p);
+                Array.Copy(a, 5, a, 5, 10); s = H(s, a);
+            }
+            return s;
+        }
+        public static int Kinds(int n)
+        {
+            int s = 0; float[] f = new float[9], f2 = new float[9]; double[] d = new double[9], d2 = new double[9]; long[] l = new long[9], l2 = new long[9];
+            JitC3P[] q = new JitC3P[9], q2 = new JitC3P[9]; JitTPt[] t = new JitTPt[5], t2 = new JitTPt[5]; JitC3E[] e = new JitC3E[6], e2 = new JitC3E[6];
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < 9; j++) { f[j] = j * 0.5f - i; d[j] = j * 0.25 + i; l[j] = ((long)i << 33) + j; q[j] = new JitC3P(i * 9 + j); }
+                for (int j = 0; j < 5; j++) t[j] = new JitTPt(i, j, i - j);
+                for (int j = 0; j < 6; j++) e[j] = (JitC3E)((i + j) % 3 == 2 ? 9 : (i + j) % 3);
+                int k = i % 4, m = i % 6;
+                Array.Copy(f, k, f2, 8 - m - k > 0 ? 1 : 0, m); Array.Copy(d, 0, d2, k, 9 - k); Array.Copy(l, k, l2, 0, 9 - k);
+                Array.Copy(q, 1, q2, k, m); Array.Copy(t, 0, t2, k, 5 - k); Array.Copy(e, k, e2, 0, m);
+                s = H(H(H(H(H(H(s, f2), d2), l2), q2), t2), e2);
+            }
+            return s;
+        }
+        // the rank-2 arrays come from the case body: one made here gives a verify MISMATCH in both arms (its bounds pointer, fresh-object pairing)
+        public static int Others(int[,] g, int[,] g2, int n)
+        {
+            int s = 0; string[] a = new string[6], b = new string[6]; JitC3R[] r = new JitC3R[4], r2 = new JitC3R[4];
+            int[] x = new int[6]; long[] w = new long[6]; JitC3E[] e = new JitC3E[6];
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < 6; j++) { a[j] = (i + j) % 3 == 0 ? null : (j & 1) == 0 ? "s" : "tt"; x[j] = i * 6 + j; e[j] = (JitC3E)(j % 2); }
+                for (int j = 0; j < 4; j++) { r[j].S = (j & 1) == 0 ? "r" : null; r[j].N = i + j; }
+                g[i % 2, i % 3] = i;
+                Array.Copy(a, 1, b, 0, 4); Array.Copy(r, 0, r2, 1, 3); s += Try(x, 0, w, 1, 5);
+                s = H(H(H(s, b), r2), w);
+                s += Try(e, 0, x, 0, 3); s += Try(g, 0, g2, 1, 5);
+                s = H(s, x) + g2[1, 2] + g2[0, 1];
+            }
+            return s;
+        }
+        // object[] of boxed ints (filled by the case body) to int[] (EA's unboxing path), and int[] to object[] (boxing inside Array.Copy)
+        public static int Box(object[] o, object[] o2, int n)
+        {
+            int s = 0; int[] x = new int[6];
+            for (int i = 0; i < n; i++) { s += Try(o, i % 2, x, 0, 5); s = H(s, x); x[i % 6] = i; s += Try(x, 0, o2, i % 3, 3); s = H(s, o2); }
+            return s;
+        }
+        public static int Bad(int k)
+        {
+            int[] a = new int[4], b = new int[4]; int[,] g = new int[2, 2]; string[] t = new string[] { "a", "b" }; object[] o = new object[] { 1, null };
+            a[0] = 3; a[3] = 5;
+            switch (k)
+            {
+                case 0: Array.Copy(a, 1, b, 0, 4); break;
+                case 1: Array.Copy(a, 0, b, 2, 3); break;
+                case 2: Array.Copy(a, -1, b, 0, 1); break;
+                case 3: Array.Copy(a, 0, b, 0, -1); break;
+                case 4: Array.Copy(null, 0, b, 0, 1); break;
+                case 5: Array.Copy(a, 0, null, 0, 1); break;
+                case 6: Array.Copy(t, 0, b, 0, 2); break;
+                case 7: Array.Copy(g, 0, b, 0, 2); break;
+                case 8: Array.Copy(o, 0, b, 0, 2); break;
+                case 9: Array.Copy(a, 0, b, 4, 0); Array.Copy(a, 4, b, 0, 0); break;
+                case 10: Array.Copy(a, b, 5); break;
+            }
+            return H(0, b);
+        }
+    }
+    public struct JitLsV { public int X; public long T; public JitLsV(int x) { X = x; T = x * 1000L; } public int Sum() { return X + (int)(T >> 3); } public void Bump() { X++; T += 3; } }
+    public struct JitLsR { public string S; public int N; }
+    public static class JitLsRun { public static int Inits; public static int R0, W0; }
+    public class JitLsG0 { public static JitLsV V; public static JitLsR R; public static int N; public static long L; public static JitTPt P;
+        static JitLsG0() { V = new JitLsV(5); R.S = "g"; R.N = 2; N = 9; L = 0x100000003L; P = new JitTPt(1, 2, 3); JitLsRun.Inits++; } }
+    public class JitLsG1 { public static JitLsV V; public static JitLsR R; public static int N; public static long L; public static JitTPt P;
+        static JitLsG1() { V = new JitLsV(5); R.S = "g"; R.N = 2; N = 9; L = 0x100000003L; P = new JitTPt(1, 2, 3); JitLsRun.Inits++; } }
+    public class JitLsG2 { public static JitLsV V; public static JitLsR R; public static int N; public static long L; public static JitTPt P;
+        static JitLsG2() { V = new JitLsV(5); R.S = "g"; R.N = 2; N = 9; L = 0x100000003L; P = new JitTPt(1, 2, 3); JitLsRun.Inits++; } }
+    public class JitLsG3 { public static JitLsV V; public static JitLsR R; public static int N; public static long L; public static JitTPt P;
+        static JitLsG3() { V = new JitLsV(5); R.S = "g"; R.N = 2; N = 9; L = 0x100000003L; P = new JitTPt(1, 2, 3); JitLsRun.Inits++; } }
+    public class JitLsW0 { public static JitLsV V; public static JitLsR R; public static int N; public static long L; public static JitTPt P;
+        static JitLsW0() { V = new JitLsV(5); R.S = "g"; R.N = 2; N = 9; L = 0x100000003L; P = new JitTPt(1, 2, 3); JitLsRun.Inits++; } }
+    public class JitLsW1 { public static JitLsV V; public static JitLsR R; public static int N; public static long L; public static JitTPt P;
+        static JitLsW1() { V = new JitLsV(5); R.S = "g"; R.N = 2; N = 9; L = 0x100000003L; P = new JitTPt(1, 2, 3); JitLsRun.Inits++; } }
+    public class JitLsW2 { public static JitLsV V; public static JitLsR R; public static int N; public static long L; public static JitTPt P;
+        static JitLsW2() { V = new JitLsV(5); R.S = "g"; R.N = 2; N = 9; L = 0x100000003L; P = new JitTPt(1, 2, 3); JitLsRun.Inits++; } }
+    public class JitLsW3 { public static JitLsV V; public static JitLsR R; public static int N; public static long L; public static JitTPt P;
+        static JitLsW3() { V = new JitLsV(5); R.S = "g"; R.N = 2; N = 9; L = 0x100000003L; P = new JitTPt(1, 2, 3); JitLsRun.Inits++; } }
+    public static class JitKLS
+    {
+        public static JitLsV SV; public static JitTPt SP;
+        static int Add(ref int x, int d) { x += d; return x; }
+        static long Mul(ref long x) { x = x * 3 + 1; return x; }
+        static int Get(ref JitLsV v) { return v.Sum() + v.X; }
+        static int HR(JitLsR r) { return r.N * 31 + (r.S == null ? 1 : r.S.Length); }
+        public static int Read(int g)
+        {
+            switch (g)
+            {
+                case 0: return JitLsG0.V.X + JitLsG0.V.Sum() + (int)JitLsG0.V.T + JitLsG0.R.N + (JitLsG0.R.S == null ? 1 : JitLsG0.R.S.Length) + JitLsG0.P.Sum() + JitLsG0.P.Z + Get(ref JitLsG0.V);
+                case 1: return JitLsG1.V.X + JitLsG1.V.Sum() + (int)JitLsG1.V.T + JitLsG1.R.N + (JitLsG1.R.S == null ? 1 : JitLsG1.R.S.Length) + JitLsG1.P.Sum() + JitLsG1.P.Z + Get(ref JitLsG1.V);
+                case 2: return JitLsG2.V.X + JitLsG2.V.Sum() + (int)JitLsG2.V.T + JitLsG2.R.N + (JitLsG2.R.S == null ? 1 : JitLsG2.R.S.Length) + JitLsG2.P.Sum() + JitLsG2.P.Z + Get(ref JitLsG2.V);
+                default: return JitLsG3.V.X + JitLsG3.V.Sum() + (int)JitLsG3.V.T + JitLsG3.R.N + (JitLsG3.R.S == null ? 1 : JitLsG3.R.S.Length) + JitLsG3.P.Sum() + JitLsG3.P.Z + Get(ref JitLsG3.V);
+            }
+        }
+        // writes, then puts the cctor's values back, so a later run on the same holder starts from the same state
+        public static int Write(int g, int k)
+        {
+            int s;
+            switch (g)
+            {
+                case 0: JitLsW0.V.X += k; JitLsW0.V.Bump(); JitLsW0.R.S = k > 2 ? null : "w"; JitLsW0.R.N = k; s = Add(ref JitLsW0.N, k) + (int)Mul(ref JitLsW0.L) + Get(ref JitLsW0.V) + HR(JitLsW0.R); JitLsW0.P.Y = k; s += JitLsW0.P.Sum();
+                    JitLsW0.V = new JitLsV(5); JitLsW0.R.S = "g"; JitLsW0.R.N = 2; JitLsW0.N = 9; JitLsW0.L = 0x100000003L; JitLsW0.P.Y = 2; return s;
+                case 1: JitLsW1.V.X += k; JitLsW1.V.Bump(); JitLsW1.R.S = k > 2 ? null : "w"; JitLsW1.R.N = k; s = Add(ref JitLsW1.N, k) + (int)Mul(ref JitLsW1.L) + Get(ref JitLsW1.V) + HR(JitLsW1.R); JitLsW1.P.Y = k; s += JitLsW1.P.Sum();
+                    JitLsW1.V = new JitLsV(5); JitLsW1.R.S = "g"; JitLsW1.R.N = 2; JitLsW1.N = 9; JitLsW1.L = 0x100000003L; JitLsW1.P.Y = 2; return s;
+                case 2: JitLsW2.V.X += k; JitLsW2.V.Bump(); JitLsW2.R.S = k > 2 ? null : "w"; JitLsW2.R.N = k; s = Add(ref JitLsW2.N, k) + (int)Mul(ref JitLsW2.L) + Get(ref JitLsW2.V) + HR(JitLsW2.R); JitLsW2.P.Y = k; s += JitLsW2.P.Sum();
+                    JitLsW2.V = new JitLsV(5); JitLsW2.R.S = "g"; JitLsW2.R.N = 2; JitLsW2.N = 9; JitLsW2.L = 0x100000003L; JitLsW2.P.Y = 2; return s;
+                default: JitLsW3.V.X += k; JitLsW3.V.Bump(); JitLsW3.R.S = k > 2 ? null : "w"; JitLsW3.R.N = k; s = Add(ref JitLsW3.N, k) + (int)Mul(ref JitLsW3.L) + Get(ref JitLsW3.V) + HR(JitLsW3.R); JitLsW3.P.Y = k; s += JitLsW3.P.Sum();
+                    JitLsW3.V = new JitLsV(5); JitLsW3.R.S = "g"; JitLsW3.R.N = 2; JitLsW3.N = 9; JitLsW3.L = 0x100000003L; JitLsW3.P.Y = 2; return s;
+            }
+        }
+        // statics of the compiled class itself (no static ctor). A [ThreadStatic] field faults EA's interpreter in monohost (the
+        // special-static lookup 0xEBAB30 reads a missing per-thread table), so the corpus has none; the compiler sends it to an exit
+        public static int Own(int n)
+        {
+            int s = 0;
+            for (int i = 0; i < n; i++)
+            {
+                SV.X = i; SV.Bump(); SP.X = i * 2; SP.Z = -i; s = s * 31 + Get(ref SV) + SP.Sum() + Add(ref SP.Y, 1);
+            }
+            SV = new JitLsV(0); SP = new JitTPt(0, 0, 0);
+            return s;
+        }
+    }
     public struct JitKey : IEquatable<JitKey>
     {
         public int K;
@@ -767,7 +937,7 @@ namespace MonoHostTest
 
     public static class JitCorpus
     {
-        public const int Count = 230;
+        public const int Count = 239;
         static readonly int[] I4 = { 0, 1, -1, 2, -2, 3, 7, -7, 16, 31, 32, 33, 0x7FFF, 0x8000, 0xFFFF, 0x10000, 0x3FFFFFFF, 0x40000000, int.MaxValue, int.MinValue, int.MinValue + 1, int.MaxValue - 1 };
         static readonly long[] I8 = { 0L, 1L, -1L, 2L, -2L, 7L, 0x7FFFFFFFL, 0x80000000L, -0x80000000L, 0xFFFFFFFFL, 0x100000000L, long.MaxValue, long.MinValue, long.MinValue + 1, -3037000500L, 3037000500L };
         static readonly int[] SH = { 0, 1, 7, 15, 16, 31, 32, 33, 63, 64, 65, -1, int.MinValue };
@@ -2384,6 +2554,51 @@ namespace MonoHostTest
                 case 229: // JitKN.Coll (B2b foreach over List / Dictionary: Enumerator and KeyValuePair newobj; KeyValuePair of struct key and value)
                 {
             try { h = M(h, JitKN.Coll(30)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 230: // JitKC3.Ints (C3 Array.Copy int[]: FastCopy memmove path, lengths 0 to 16, the 3-arg overload, zero-length copies at the end)
+                {
+            try { h = M(h, JitKC3.Ints(40)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 231: // JitKC3.Overlap (C3 overlapping copies in one int[], byte[], struct[]: forward, backward, same place)
+                {
+            try { h = M(h, JitKC3.Overlap(30)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 232: // JitKC3.Kinds (C3 float, double, long, struct-without-references, 12-byte struct and enum arrays)
+                {
+            try { h = M(h, JitKC3.Kinds(30)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 233: // JitKC3.Others (C3 string[], struct-with-references, int to long, enum to int, rank 2: EA's other paths, the site exits)
+                {
+            int[,] g = new int[2, 3], g2 = new int[2, 3]; try { h = M(h, JitKC3.Others(g, g2, 20)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 234: // JitKC3.Box (C3 object[] of boxed ints to int[], int[] to object[]: EA's unboxing and boxing paths)
+                {
+            object[] o = new object[6], o2 = new object[6]; for (int j = 0; j < 6; j++) o[j] = j * 5; try { h = M(h, JitKC3.Box(o, o2, 12)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 235: // JitKC3.Bad (C3 source / dest bounds, negative index and length, null source / dest, string to int, rank mismatch, null unboxing, empty copies at the end, 3-arg past the length)
+                {
+            try { h = M(h, JitKC3.Bad(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(2)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(4)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(5)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(6)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(7)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(8)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(9)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(10)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 236: // JitKLS.Read (LDSFLDA static struct fields read and called through their address; holder classes with a static ctor, the compiled run meets one not initialised yet)
+                {
+            int r = JitLsRun.R0++; try { h = M(h, JitKLS.Read(r < 3 ? r : 3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKLS.Read(r < 3 ? r : 3)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 237: // JitKLS.Write (LDSFLDA stfld, by-ref int / long / struct args, reference field of a struct static; a fresh holder class per run, values put back)
+                {
+            int r = JitLsRun.W0++; int g = r < 3 ? r : 3; try { h = M(h, JitKLS.Write(g, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKLS.Write(g, 4)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 238: // JitKLS.Own (LDSFLDA statics of the compiled class, no static ctor)
+                {
+            try { h = M(h, JitKLS.Own(20)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
             }

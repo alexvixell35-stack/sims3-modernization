@@ -578,7 +578,7 @@ static void AsT2eRefresh(int i, void* body, const DWORD* key, int nKey, AsEnt& e
     g_asDescOf[slot] = d0, g_asOrig[slot] = o0;
 }
 static void TestAutShadowTier2IcE() {
-    assert(AS_NT2E == 5 && AS_NT2IC == 15 + AS_NT2E);
+    assert(AS_NT2E == 8 && AS_NT2IC == 15 + AS_NT2E);  // bits 5-6 E3 (TestAutShadowTier2IcE3), bit 7 P6 (TestAutShadowTier2CountRange)
     const char* nm[5] = {"ScriptCore.World::World_GetTilesWithFloorFeaturesImpl", "ScriptCore.World::World_FindPondRepresentativePositions",
                          "ScriptCore.World::World_GetLotLocationAtFloorImpl", "ScriptCore.World::World_GetWorldToHouseboatDisplayPositionImpl",
                          "ScriptCore.World::World_GetHouseboatDisplayToWorldPositionImpl"};
@@ -600,9 +600,9 @@ static void TestAutShadowTier2IcE() {
     for (int i = 0; i < AS_NT2E; i++) assert(!AsDescOn(e0 + i));
     assert(AsDescOn(e0 - 1));
     g_asT2eBits = 16;  // Tier2HouseboatRow alone
-    assert(AsDescOn(AS_NDESC - 1) && !AsDescOn(e0));
+    assert(AsDescOn(e0 + 4) && !AsDescOn(e0) && !AsDescOn(e0 + 5) && !AsDescOn(e0 + 6) && !AsDescOn(e0 + 7));
     g_asTier2IcRows = false;
-    assert(!AsDescOn(AS_NDESC - 1));
+    assert(!AsDescOn(e0 + 4));
     g_asTier2Rows = false, g_asT2eBits = 0;
 
     static DWORD pool[256];
@@ -673,6 +673,167 @@ static void TestAutShadowTier2IcE() {
     }
 }
 
+// P6 (docs/data/tier2-rows35-handoff.md, ledger §462): Query_CountObjectsInRange is the last row, behind Tier2CountRange (bit 7 since E3; was bit
+// 5) on top of Tier2Rows + Tier2IcRows; the same layout as Query_GetObjectsInRange; a dummy body with that cdecl layout gives
+// the stored count; the worker gate refuses the row (no lookup, no learn) unless ts3fixes cleared it for this request.
+static DWORD __cdecl AsT2FakeCount(DWORD type, float x, float y, float z, float r) {
+    return 0xAB000000u | (type & 0xFF) | (x * x + y * y + z * z < r * r ? 0x100u : 0u);
+}
+static void TestAutShadowTier2CountRange() {
+    const AsDesc& d = kAsDesc[AS_NDESC - 1];
+    assert(&d == AsT2Ic(22));
+    AsT2IcRow(22, "ScriptCore.Queries::Query_CountObjectsInRange", AO_CUT, AK_INT, 5, 4, AS_AB_QUERY);
+    const AsDesc* g = NULL;
+    for (int i = 0; i < AS_NDESC; i++) if (!strcmp(kAsDesc[i].name, "ScriptCore.Queries::Query_GetObjectsInRange")) g = &kAsDesc[i];
+    assert(g && g->nArg == d.nArg && g->at == d.at && g->owner == d.owner && !g->strMask);  // 0x7496E0 / 0x749770 [verified]
+    g_asTier2Rows = g_asTier2IcRows = true, g_asT2eBits = 0x7F;  // every other E bit (E3 included): still off
+    assert(!AsDescOn(AS_NDESC - 1) && AsDescOn(AS_NDESC - 2));
+    g_asT2eBits = 0x80;
+    assert(AsDescOn(AS_NDESC - 1) && !AsDescOn(AS_NDESC - 2));
+    g_asTier2IcRows = false;
+    assert(!AsDescOn(AS_NDESC - 1));
+    g_asTier2Rows = false, g_asT2eBits = 0;
+    static DWORD pool[64];
+    LONG poolN = 0;
+    AsEnt e;
+    auto fl = [](float v) { DWORD w; memcpy(&w, &v, 4); return w; };
+    const DWORD kIn[5] = {0x12345677, fl(1.0f), fl(0.0f), fl(1.0f), fl(2.0f)}, kOut[5] = {0x12345677, fl(3.0f), fl(0.0f), fl(3.0f), fl(2.0f)};
+    AsT2eRefresh(22, (void*)AsT2FakeCount, kIn, 5, e, pool, &poolN);
+    assert(e.r[0] == 0xAB000177u && e.r[1] == 0);
+    AsT2eRefresh(22, (void*)AsT2FakeCount, kOut, 5, e, pool, &poolN);
+    assert(e.r[0] == 0xAB000077u);
+    // actor gate: shut by default and at every run start; ActorScope works only on the worker
+    const int slot = AS_MAXIC - 2;
+    const AsDesc* d0 = g_asDescOf[slot];
+    const char k0 = g_asKind[slot];
+    const DWORD tid0 = g_asWorkerTid;
+    const LONG held0 = g_asHeld;
+    g_asHeld = -1;
+    g_asDescOf[slot] = &d, g_asKind[slot] = 0;
+    assert(g_asActorHh == 1);
+    g_asWorkerTid = 0;
+    AsIcActorScope(0);  // sim thread: no-op
+    assert(g_asActorHh == 1);
+    g_asWorkerTid = GetCurrentThreadId(), g_asStop = 0;
+    DWORD args[5];
+    memcpy(args, kIn, sizeof(args));
+    AsRet r;
+    const LONG h0 = g_asActorHhAborts, ring0 = g_asRingHead;
+    AsResetAbort();
+    AsWorkerAnswer(slot, args, &r);
+    assert(AsAborted() == AS_AB_OTHER && g_asActorHhAborts == h0 + 1 && g_asRingHead == ring0);  // no learn
+    AsResetAbort();
+    AsIcActorScope(0);
+    assert(g_asActorHh == 0);
+    AsWorkerAnswer(slot, args, &r);  // past the gate: no published version held here, so the next check aborts
+    assert(g_asActorHhAborts == h0 + 1 && AsAborted() == AS_AB_OTHER);
+    AsResetAbort();
+    AsIcActorScope(1);
+    assert(g_asActorHh == 1);
+    AsIcActorScope(0);
+    AsWorkerBegin();
+    assert(g_asActorHh == 1);
+    AsWorkerEnd();
+    g_asDescOf[slot] = d0, g_asKind[slot] = k0, g_asWorkerTid = tid0, g_asHeld = held0;
+}
+
+// E3 (ledger §463): fake WM, lot, routing world and lot-table entry in the layout AsLevelGate reads; the body counts calls
+static u8 g_asLvFakeLot[0x420], g_asLvFakeRw[0x980], g_asLvFakeEnt[0x170], g_asLvFakeWmObj[4];
+static u8* g_asLvFakeWm, *g_asLvFakeRwP;
+static int g_asLvGipN, g_asLvBodyN;
+static bool g_asLvNoLot, g_asLvNoEnt;
+static u8* __fastcall AsLvFakeLotAt(u8* wm, void*, float, float) { return wm == g_asLvFakeWmObj && !g_asLvNoLot ? g_asLvFakeLot : NULL; }
+static u8* __fastcall AsLvFakeGip(u8* p, void*, DWORD lo, DWORD hi) {
+    g_asLvGipN++;
+    assert(p == (u8*)(uintptr_t)0x95C0 && lo == 0x10 && hi == 0x20);
+    return g_asLvNoEnt ? NULL : g_asLvFakeEnt;
+}
+static DWORD __cdecl AsLvFakeBody3(DWORD, DWORD, DWORD level) { g_asLvBodyN++; return 0x40 + level; }
+static DWORD __cdecl AsLvFakeBody5(DWORD, DWORD, DWORD, DWORD, DWORD) { g_asLvBodyN++; return 0x57A0; }
+static void TestAutShadowTier2IcE3() {
+    const AsDesc& d2 = *AsT2Ic(20);
+    const AsDesc& d4 = *AsT2Ic(21);
+    assert(!strcmp(d2.name, "ScriptCore.World::World_GetTerrainSurfaceTypeImpl") && d2.kind == AK_INT && d2.nArg == 3 && d2.sz == 4 &&
+           d2.of == AS_OF_LVL1 && d2.owner == AO_CUT && !d2.nOut && d2.reason == AS_AB_POS);
+    assert(!strcmp(d4.name, "ScriptCore.World::World_GetFloorSurfaceTypeImpl") && d4.kind == AK_REF && d4.nArg == 5 &&
+           d4.of == AS_OF_LVLA && d4.owner == AO_CUT && !d4.nOut && AsKindOfName(d4.name) == 0);
+    // gate: Tier2IcNew bit 4 = both rows (e bits 5, 6), nothing else
+    const int e0 = AS_NDESC - AS_NT2E;
+    g_asTier2Rows = g_asTier2IcRows = true, g_asT2eBits = 0x60;
+    assert(AsDescOn(e0 + 5) && AsDescOn(e0 + 6) && !AsDescOn(e0) && !AsDescOn(e0 + 4));
+    g_asTier2Rows = g_asTier2IcRows = false, g_asT2eBits = 0;
+
+    const AsLvLotAtFn l0 = g_asLvLotAt;
+    const AsLvGipFn gp0 = g_asLvGip;
+    u8* const* w0 = g_asLvWm;
+    u8* const* r0 = g_asLvRw;
+    volatile LONG* j0 = g_asJobState;
+    static volatile LONG job;
+    g_asLvFakeWm = g_asLvFakeWmObj, g_asLvFakeRwP = g_asLvFakeRw;
+    g_asLvLotAt = AsLvFakeLotAt, g_asLvGip = AsLvFakeGip, g_asLvWm = &g_asLvFakeWm, g_asLvRw = &g_asLvFakeRwP, g_asJobState = &job;
+    auto put = [](u8* b, int o, LONG v) { memcpy(b + o, &v, 4); };
+    put(g_asLvFakeLot, 0x48, 0x10), put(g_asLvFakeLot, 0x4C, 0x20), put(g_asLvFakeLot, 0x17C, -1), put(g_asLvFakeLot, 0x180, 2);
+    put(g_asLvFakeRw, 0x95C, 0x95C0), g_asLvFakeRw[0x974] = 1;
+    put(g_asLvFakeEnt, 0x40, -1);  // bit i = level i - 1
+    static DWORD pool[64];
+    LONG poolN = 0;
+    AsEnt e;
+    auto fl = [](float v) { DWORD w; memcpy(&w, &v, 4); return w; };
+    auto run2 = [&](DWORD level) {
+        const DWORD k[3] = {fl(3.0f), fl(4.0f), level};
+        g_asLvGipN = g_asLvBodyN = 0;
+        AsT2eRefresh(20, (void*)AsLvFakeBody3, k, 3, e, pool, &poolN);
+    };
+    // #2: level 1 = bit 2. Set -> filled; clear -> skipped (no body call, no answer kept, no payload)
+    put(g_asLvFakeEnt, 0x168, 1u << 2);
+    run2(1);
+    assert(g_asLvGipN == 1 && g_asLvBodyN == 1 && e.r[0] == 0x41 && !(e.flags & AE_NOPAY));
+    put(g_asLvFakeEnt, 0x168, ~(1u << 2));
+    run2(1);
+    assert(g_asLvGipN == 1 && g_asLvBodyN == 0 && (e.flags & AE_NOPAY) && e.r[0] == 0 && e.r[1] == 0 && !e.payN);
+    // level from the low byte, signed (0xAF9770 / 0xAF9B60): 0x1FF = -1 = bit 0
+    put(g_asLvFakeEnt, 0x168, 1);
+    run2(0x1FF);
+    assert(g_asLvBodyN == 1);
+    // level outside [lot+0x17C, lot+0x180]: 0x834B80 returns before the check -> filled without the lookup
+    put(g_asLvFakeEnt, 0x168, 0);
+    run2(3);
+    assert(g_asLvGipN == 0 && g_asLvBodyN == 1);
+    // a job running: no lookup (gate 12 would wait), skipped; a lot-table miss: filled
+    job = 1;
+    run2(1);
+    assert(g_asLvGipN == 0 && g_asLvBodyN == 0 && (e.flags & AE_NOPAY));
+    job = 0, g_asLvNoEnt = true;
+    run2(1);
+    assert(g_asLvGipN == 1 && g_asLvBodyN == 1);
+    g_asLvNoEnt = false;
+    // the 0x408 / 0x40C lot kind, no routing flag +0x974, no lot by position, no WM: the body never checks -> filled
+    put(g_asLvFakeLot, 0x408, 1), put(g_asLvFakeLot, 0x40C, 0x50);
+    run2(1);
+    assert(g_asLvGipN == 0 && g_asLvBodyN == 1);
+    put(g_asLvFakeLot, 0x408, 0), g_asLvFakeRw[0x974] = 0;
+    run2(1);
+    assert(g_asLvGipN == 0 && g_asLvBodyN == 1);
+    g_asLvFakeRw[0x974] = 1, g_asLvNoLot = true;
+    run2(1);
+    assert(g_asLvGipN == 0 && g_asLvBodyN == 1);
+    g_asLvNoLot = false, g_asLvFakeWm = NULL;
+    run2(1);
+    assert(g_asLvGipN == 0 && g_asLvBodyN == 1);
+    g_asLvFakeWm = g_asLvFakeWmObj;
+    // #4 (LVLA): every level -1..2 (bits 0-3) must be set; one clear -> skipped
+    const DWORD k4[5] = {0x10, 0x20, fl(3.0f), fl(1.0f), fl(4.0f)};
+    put(g_asLvFakeEnt, 0x168, 0xF);
+    g_asLvGipN = g_asLvBodyN = 0;
+    AsT2eRefresh(21, (void*)AsLvFakeBody5, k4, 5, e, pool, &poolN);
+    assert(g_asLvGipN == 1 && g_asLvBodyN == 1 && e.r[0] == 0x57A0 && !(e.flags & AE_NOPAY));
+    put(g_asLvFakeEnt, 0x168, 0xB);  // level 1 clear
+    g_asLvGipN = g_asLvBodyN = 0;
+    AsT2eRefresh(21, (void*)AsLvFakeBody5, k4, 5, e, pool, &poolN);
+    assert(g_asLvGipN == 1 && g_asLvBodyN == 0 && (e.flags & AE_NOPAY) && e.r[0] == 0);
+    g_asLvLotAt = l0, g_asLvGip = gp0, g_asLvWm = w0, g_asLvRw = r0, g_asJobState = j0;
+}
+
 static void TestAutShadowRun() {
     Ts3nAutShadow& k = ts3native_autshadow;
     Ts3nMtProbe& m = ts3native_mtprobe;
@@ -695,7 +856,7 @@ static void TestAutShadowRun() {
     assert(g_mtOnEnter == AsSimEnter && g_mtOnLeave == AsSimLeaveLoop && g_mtJobHook == AsJobHook && g_asMode == 0 && g_sppN == 0);
     // ICs register at the first Simulate entry; Begin refuses until the methods are set
     AsSimEnter();
-    assert(g_t5Ics == 34 && k.icRegistered == 34 && AsIcVersion() == 11 && AsIcConfig(1) == 4 && AsIcConfig(2) == 20);
+    assert(g_t5Ics == 35 && k.icRegistered == 35 && AsIcConfig(35) == 1 && AsIcVersion() == 11 && AsIcConfig(1) == 4 && AsIcConfig(2) == 20);
     {   // ImageSha (docs/218 §5): a fake MonoImage {.., raw_data +8, raw_data_len +0xC} over "MZ" + 510 zero bytes
         static u8 img[0x200] = { 'M', 'Z' };
         DWORD mi[16] = {}, arr[4 + 8] = {}, small[4 + 8] = {};
@@ -723,7 +884,7 @@ static void TestAutShadowRun() {
     g_mtInvoke = AfT5Invoke;
     AfT5Request(40);
     AsSimLeave();
-    assert(g_t5Ics == 34 && g_t5Roots == 4 && (k.rooted & 3) == 3 && g_asRefsRooted);
+    assert(g_t5Ics == 35 && g_t5Roots == 4 && (k.rooted & 3) == 3 && g_asRefsRooted);
     assert(k.cutReq == 1 && k.refRuns == 0 && k.noWorker == 1 && g_t5Finish == 1 && g_t5Last == AS_LAST_NOWORKER && g_asRun == AS_RUN_IDLE);
     assert(k.batchReqs == 1 && k.batchCuts == 0 && k.simTicks == 1);
     {  // shared cut (docs/122 §14.18): requests posted before the cut join it, one cut and one finish; a full batch is busy
@@ -3218,6 +3379,7 @@ static void TestAutShadow() {
     TestAutShadowTier2IcG3();
     TestAutShadowTier2IcG4();
     TestAutShadowTier2IcE();
+    TestAutShadowTier2IcE3();
     TestAutShadowRun();
     TestAutLedger();
     TestAutShadowFull();
@@ -3232,4 +3394,5 @@ static void TestAutShadow() {
     TestAutShadowCost16();
     TestAutShadowCost17();
     TestAutShadowLive();
+    TestAutShadowTier2CountRange();
 }

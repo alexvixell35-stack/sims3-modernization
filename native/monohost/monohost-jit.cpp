@@ -124,6 +124,12 @@ static bool g_jitVtOps;
 // calls the ctor's lazy body natively (this = the vt cursor, EA's 0xE5620C), see EmitLazyCall
 static bool g_jitNewVt;
 static int g_jitNewVtSites;
+// handoff C3, off by default. MONOHOST_JITFASTCOPY=1 (game key not added yet): Array.FastCopy runs inline at its call site for
+// same-element value-type arrays without references (EA's memmove path); every other input exits to EA's call (JitFastCopy)
+static bool g_jitFastCopy;
+// handoff LDSFLDA, off by default. MONOHOST_JITLDSFLDA=1 (game key not added yet): ldsflda compiles to its template (class-init
+// exit, then [vt+0xC] + offset; EA's 0xE56D20). Without it the row's width 0 sends every ldsflda to an exit (as before)
+static bool g_jitLdsflda;
 // [MonoJit] Capture=1 (monojit-capture.h): on before any compile, so the compiler emits the lazy-body and inline-site sample calls only then
 static volatile int g_jcOn;
 static void JcLazyStub();
@@ -578,10 +584,47 @@ static int JitPureIcall(const unsigned short* ip, DWORD op, const u8* callerRm) 
     const u8* k = *(const u8* const*)(mm + 8);
     if (strcmp(*(const char* const*)(k + 0x34), "Array") || strcmp(*(const char* const*)(k + 0x38), "System")) return 0;
     const char* n = *(const char* const*)(mm + 0x18);
-    return !strcmp(n, "GetLength") ? 1 : !strcmp(n, "GetLowerBound") ? 2 : !strcmp(n, "GetRank") ? 3 : 0;
+    return !strcmp(n, "GetLength") ? 1 : !strcmp(n, "GetLowerBound") ? 2 : !strcmp(n, "GetRank") ? 3 : !strcmp(n, "FastCopy") ? 4 : 0;
+}
+// handoff C3: Array.FastCopy(source, source_idx, dest, dest_idx, length) 0xE7A070 (icall table 0x10B58CC) [verified: disassembly]:
+// returns false unless both ranks (klass+0x10) match and both bounds (+4) are NULL, and idx + length <= max_length (+8, unsigned)
+// for dest then source; element classes (klass+8) equal and a value type (flags +0x14 bit 3) without references (bit 23) =
+// memmove(dest + 0x10 + size * dest_idx, source + 0x10 + size * source_idx, size * length), size = source klass+0x5C, true. The
+// other paths (object[] unboxing, castable classes, references with a barrier) stay EA's. Here only the memmove path runs; any
+// other input, a null array or a negative index or length (managed Array.Copy throws before the call) returns 0 with nothing
+// changed and the site exits, so EA's call runs as before. No allocation, no frame read, no reference stored; the destination
+// range still goes to JitSatbStore first (a span logs every overwritten heap word, as the stfld templates and the game's
+// FastCopy wrapper SatbRtFastCopy do).
+static const DWORD kFastCopyFnv = 0x555A37B8;  // FNV-1a of EA's 641 bytes 0xE7A070..0xE7A2F0
+static bool JitFastCopyOk() {
+    DWORD h = 0x811C9DC5;
+    for (const u8* p = (const u8*)(uintptr_t)0xE7A070; p < (const u8*)(uintptr_t)0xE7A2F1; p++) h = (h ^ *p) * 0x01000193;
+    return h == kFastCopyFnv && *(const DWORD*)(uintptr_t)0x10B58CC == 0xE7A070;
+}
+static volatile LONG g_jitFastCopySites, g_jitFastCopyRuns, g_jitFastCopyExits;
+static int __cdecl JitFastCopy(const u8* src, int si, u8* dst, int di, int len) {
+    if (!src || !dst || si < 0 || di < 0 || len < 0) return g_jitFastCopyExits++, 0;
+    const u8* sk = **(const u8* const* const*)src, *dk = **(const u8* const* const*)dst;
+    if (sk[0x10] != dk[0x10] || *(void* const*)(src + 4) || *(void* const*)(dst + 4)) return g_jitFastCopyExits++, 0;
+    if ((unsigned)(di + len) > *(const unsigned*)(dst + 8) || (unsigned)(si + len) > *(const unsigned*)(src + 8)) return g_jitFastCopyExits++, 0;
+    const u8* el = *(const u8* const*)(sk + 8);
+    const DWORD fl = el ? *(const DWORD*)(el + 0x14) : 0;
+    if (el != *(const u8* const*)(dk + 8) || !(fl & 8) || (fl & 0x800000)) return g_jitFastCopyExits++, 0;
+    const int sz = *(const int*)(sk + 0x5C);
+    if (*g_jitSatbOnP && len) JitSatbStore((DWORD)(uintptr_t)(dst + 0x10 + sz * di), (DWORD)(sz * len));
+    memmove(dst + 0x10 + sz * di, src + 0x10 + sz * si, (size_t)(unsigned)(sz * len));
+    g_jitFastCopyRuns++;
+    return 1;
 }
 static void EmitPureIcall(Em& e, int kind, u8** exitRel) {
     const int thisOff = kind == 3 ? -8 : -16;
+    if (kind == 4) {  // FastCopy: five args at [esi-40]..[esi-8]; 0 = exit before any change; the bool result keeps [esi+4] high, as kind 1
+        for (int d = -8; d >= -40; d -= 8) e.op(0xFF, 6, ESI, d);  // push dword [esi+d]: length .. source
+        e.b(0xE8); e.d((DWORD)(uintptr_t)JitFastCopy - ((DWORD)(uintptr_t)e.p + 4)); e.b(0x83); e.b(0xC4); e.b(20);
+        e.rr(0x85, EAX, EAX); exitRel[0] = e.jcc(0x84);
+        e.op(0x8B, ECX, ESI, 4); e.op(0x89, EAX, ESI, -40); e.op(0x89, ECX, ESI, -36); e.addEsi(-32);
+        g_jitFastCopySites++; return;
+    }
     e.op(0x8B, EAX, ESI, thisOff); e.rr(0x85, EAX, EAX); exitRel[0] = e.jcc(0x84);
     e.op(0x8B, EDX, EAX, 0); e.op(0x8B, EDX, EDX, 0); e.b(0x0F); e.b(0xB6); e.b(0x52); e.b(0x10);  // movzx edx, byte [edx+0x10]: rank
     if (kind == 3) { e.op(0x8B, ECX, ESI, 4); e.op(0x89, EDX, ESI, -8); e.op(0x89, ECX, ESI, -4); g_jitPure++; return; }
@@ -1132,6 +1175,7 @@ static void JitCompiled(u8* rm) {
                 if (t.kind == K_STOBJ) w = item ? JitTypeWidth(item + 0xA0) : 0;  // MonoClass+0xA0 = byval_arg (docs/213)
                 else if (item) {
                     if (w == 8) w = JitTypeWidth(*(const u8* const*)item);
+                    if (t.kind == K_LDSFLDA && g_jitLdsflda) w = 5;  // an address of any field type (the row's 0 = always an exit)
                     sOff = *(const int*)(item + 8);
                     const bool fast = op == 0x067 || op == 0x068;  // ldsfld.i4 / ldsfld.o carry the vtable and skip the special-static lookup
                     sVt = op == 0x066 || fast ? items[ip[2]] : (DWORD)(uintptr_t)JitStaticVt(item);
@@ -1488,8 +1532,9 @@ static void JitCompiled(u8* rm) {
                 if (op == 0xEA && g_jitC5 && !g_jitLazyPass) {
                     if (const DWORD fn = JitIcallFn(ip, rm)) { exitRel[0] = EmitIcall(e, fn); break; }
                 }
-                if ((op == 0xEA || op == 0xEC) && g_jitPureIcalls && posReal[k])
-                    if (const int pk = JitPureIcall(ip, op, rm)) { EmitPureIcall(e, pk, exitRel); break; }
+                if ((op == 0xEA || op == 0xEC) && (g_jitPureIcalls || g_jitFastCopy) && posReal[k])
+                    if (const int pk = JitPureIcall(ip, op, rm))
+                        if (pk == 4 ? g_jitFastCopy : g_jitPureIcalls) { EmitPureIcall(e, pk, exitRel); break; }
                 if ((op == 0xEA || op == 0xEC || (op == 0xEB && g_jitInline >= 2)) && g_jitInline && posReal[k] && JitTryInline(e, ip, op, rm)) { nat++; continue; }
                 if ((op == 0xEA || op == 0xEB || op == 0xEC || op == 0xED || (op == 0xF4 && g_jitNewVt)) && g_jitLazy && posReal[k] && EmitLazyCall(e, ip, op, rm)) { nat++; continue; }
                 EmitExit(e, ip, op, t.kind == K_RET);
@@ -2164,6 +2209,7 @@ static void JitStats() {
         Log("jit callexit: pure icall sites %ld, guard sites filled with a boxed value-type receiver %d\n", g_jitPure, ub);
     }
     if (g_jitNewVt) Log("jit newvt: newobj value-type sites %d (normal and lazy bodies)\n", g_jitNewVtSites);
+    if (g_jitFastCopy) Log("jit fastcopy: sites %ld, inline copies %ld, exits to EA's call %ld\n", g_jitFastCopySites, g_jitFastCopyRuns, g_jitFastCopyExits);
 }
 // B1 exit census (count mode): every exit site that ran, with its method and EA opcode, and calls per compiled method.
 // tools/jit-exit-census.ts reads these lines ("jitcalls" / "jitexit") plus jit-dump.txt.
@@ -2562,6 +2608,11 @@ static bool InstallJit() {
         g_jitPureIcalls = g_jitCallExit && JitPureIcallsOk();
         if ((g_jitVtOps = GetEnvironmentVariableA("MONOHOST_JITVTOPS", x, sizeof(x)) && x[0] == '1')) c2 |= 1024;
         g_jitNewVt = GetEnvironmentVariableA("MONOHOST_JITNEWVT", x, sizeof(x)) && x[0] == '1';
+        const bool fcWant = GetEnvironmentVariableA("MONOHOST_JITFASTCOPY", x, sizeof(x)) && x[0] == '1';
+        g_jitFastCopy = fcWant && JitFastCopyOk();
+        if (fcWant && !g_jitFastCopy) Log("jit: FastCopy: EA's Array.FastCopy bytes differ, it stays an EA call\n");
+        g_jitLdsflda = GetEnvironmentVariableA("MONOHOST_JITLDSFLDA", x, sizeof(x)) && x[0] == '1';
+        Log("jit: switches FastCopy=%d Ldsflda=%d\n", g_jitFastCopy ? 1 : 0, g_jitLdsflda ? 1 : 0);
         if (g_jitCallExit && !g_jitPureIcalls) Log("jit: CallExit: the Array icall bytes differ, pure icalls stay EA calls\n");
         for (auto& t : kJitTmpl) {
             const unsigned g = t.kind >= K_FARITH ? 512 : t.kind == K_LDFLDA || !strcmp(t.name, "ldfld.r4") || !strcmp(t.name, "ldfld.r8") || !strcmp(t.name, "stfld.r4") || !strcmp(t.name, "stfld.r8") ? 1

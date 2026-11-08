@@ -260,6 +260,13 @@ static class AutShadowTest
             && AutShadowCore.T2Household(false, false, false, false, true), "T2Household: null, destroyed, no description, selectable, active household = household");
         Check(AutShadowCore.kT2InUseTypes.Length == AutShadowCore.kT2Fire && AutShadowCore.kT2N == 7, "T2: six get_InUse types before the fire slot");
 
+        // tier-2 H7-H10 (docs/126 §3): H8 no-op only for the request's autonomy with its cache on; H10 stale past 60 ticks
+        Check(AutShadowCore.T2CacheNoop(true, true) && !AutShadowCore.T2CacheNoop(false, true) && !AutShadowCore.T2CacheNoop(true, false),
+            "T2CacheNoop: only the request's autonomy with the cache on");
+        Check(!AutShadowCore.T2LodStale(160, 100) && AutShadowCore.T2LodStale(161, 100) && AutShadowCore.T2LodStale(0, long.MinValue),
+            "T2LodStale: more than 60 ticks (never checked = stale)");
+        Check(AutShadowCore.kT2HN == 5 && AutShadowCore.kT2HLodStale == 4, "T2H: five slots 898-902");
+
         Console.WriteLine(sFails == 0 ? "autshadow selftest: PASS" : "autshadow selftest: " + sFails + " FAIL");
         return sFails == 0 ? 0 : 1;
     }

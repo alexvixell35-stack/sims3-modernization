@@ -16,7 +16,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.204"
+#define TS3NATIVE_VERSION "0.36.211"  // 0.36.209 (feature/monojit-c3-game) and 0.36.210 (feature/tier2-l0) reserved for branches still building
 #endif
 
 typedef unsigned char u8;
@@ -5438,6 +5438,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyMintFuse(ini) || keepLog;   // docs/139 §4: matcher call 0xE5C8CA, before MonoScriptHost_Init transforms anything
         keepLog = ApplyMintCall(ini) || keepLog;   // docs/139 §8: after every code patch (checks EA's call path bytes), before Satb
         keepLog = ApplyMonoJit(ini) || keepLog;    // docs/527 §4.1: after every code patch, before [AutShadow]
+        g_asJobState = &g_async.state;  // E3 level gate: no lot-table lookup while a job runs (autshadow.cpp AsLevelGate)
         keepLog = ApplyAutShadow(ini) || keepLog;  // docs/122 part 1: guard thunks after every other table owner (routesnap)
         ApexStartLate();  // zzApexRadiance.asi loads after us (its lines reach the log only while it stays open)
     }
@@ -5452,6 +5453,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
         // Patch now: the ASI loader runs before the exe's entry point, so before GC_init (lazy, first GC use).
         Run(inst);
     } else if (reason == DLL_PROCESS_DETACH) {
+        JcnExit();  // [MonoJit] Count: the last count report
         LuExit();  // [RouteSnap] LotUseReadout: the exit summary (last walk's bytes, final job counts)
         UdExit();
         CrCleanExit();

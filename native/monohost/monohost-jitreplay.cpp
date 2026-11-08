@@ -403,12 +403,14 @@ static void JitReplayRun() {
     }
     fclose(f);
     JitSetPatched(true);
+    if (g_jitCover) JitGateBeforeCorpus();  // MONOHOST_JITCOVER=1: coverage counts the replay inputs, not the selftest before them (tools/jit-replay.ts --coverage)
     for (int m = 0; m < metaN; m++) {
         const JrRow& r = g_jrRow[m];
         Log("jit replay method %s: inputs %d, ran %d, differ %d, unstable %d, skipped %d, faulted %d, objects not rebuilt %d\n", r.name, r.inputs, r.ran, r.differ, r.unstable, r.skipped, r.faulted, r.cuts);
     }
     for (int i = 0; i < g_jrWhyN; i++) Log("jit replay reason %s: %s x%d\n", g_jrRow[g_jrWhy[i].meth].name, g_jrWhy[i].why, g_jrWhy[i].n);
     Log("jit replay: the hash walk reached %ld GC cells with no vtable (not followed)\n", g_jrNotObj);
+    if (g_jitCover) JitCoverReport();
     Log("jit replay: %d inputs, %d ran, %d differ, %d unstable, %d skipped, %d faulted%s; per-call verify: ok %ld, MISMATCH %ld, abandoned (exception) %ld\n",
         tot[0], tot[1], tot[3], tot[2], tot[4], tot[6], tot[5] ? ", STOPPED on a fault" : "", g_jvOk - ok0, g_jvMismatch - mm0, g_jvAbandoned - ab0);
 }

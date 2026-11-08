@@ -788,7 +788,153 @@ static void TestMonoJitNewVt() {
     g_jitForceJit = (const BYTE*)(uintptr_t)TS3A(0x00E5637D), g_jitProxyClassP = (const void* const*)(uintptr_t)TS3A(0x01220EC0);
 }
 
+// [MonoJit] Count (docs/data/monojit-exits-handoff.md C0): a bail per reason, exit sites, a lazy-body mat, an enum newobj's exits and
+// calls show in the report in the host's formats; Count=0 emits fewer bytes for the same method
+static char g_jtcLines[64][640];
+static int g_jtcN;
+static void JtcSink(const char* l) { if (g_jtcN < 64) strcpy_s(g_jtcLines[g_jtcN++], l); }
+static const char* JtcFind(const char* a, const char* b = "") {
+    for (int i = 0; i < g_jtcN; i++) if (strstr(g_jtcLines[i], a) && strstr(g_jtcLines[i], b)) return g_jtcLines[i];
+    return NULL;
+}
+static void TestMonoJitCount() {
+    g_jitMode = 1, g_jitVerifyOn = 0, g_jitLazy = true, g_jitLeafOnly = true, g_jitCallExit = false, g_jitNewVt = false;
+    g_jitForceJit = &g_jtForceByte, g_jitProxyClassP = (const void* const*)&g_jtProxy;
+    g_jtLen[0xEA] = 2, g_jtLen[0xF4] = 2;
+    memset(g_jitLazyCell, 0, sizeof(JitLazyCell) * JIT_CELL_N);  // earlier tests reset the count, not the cells: a reused cell keeps an old entry
+    // Count=0 vs 1: the same method, more bytes with the counters
+    static unsigned short z0[] = {JT_LDC2, JT_MYSTERY, JT_RET}, z1[] = {JT_LDC2, JT_MYSTERY, JT_RET};
+    static JtMeth mZ0, mZ1;
+    size_t u0 = g_jitCodeUsed;
+    JtMake(mZ0, z0, 3, 0);
+    const size_t off = g_jitCodeUsed - u0;
+    assert(JcnOn());
+    u0 = g_jitCodeUsed;
+    JtMake(mZ1, z1, 3, 0);
+    assert(g_jitCodeUsed - u0 > off);
+    // a callee with no lazy body, called twice: the bail and the exit at the call count 2
+    static unsigned short g[] = {JT_MYSTERY, JT_RET}, f[] = {0xEA, 0, JT_RET};
+    static JtMeth mG, mF;
+    JtMake(mG, g, 2, 0);
+    static DWORD gItems[1];
+    gItems[0] = (DWORD)(uintptr_t)mG.rm;
+    JtMake(mF, f, 3, 0, gItems);
+    const int fm = g_jitMethN - 1;
+    for (int i = 0; i < 2; i++) { JtLazyFrame(); JtLazyGo(f); assert(g_jtEax == 0xEA); }
+    // ForceJIT active: a site with a body bails with that reason
+    static unsigned short e[] = {JT_LDC3, JT_RET}, h[] = {JT_LDC2, 0xEA, 0, JT_ADD, JT_RET};
+    static JtMeth mE, mH;
+    JtMake(mE, e, 2, 0);
+    static DWORD eItems[1];
+    eItems[0] = (DWORD)(uintptr_t)mE.rm;
+    JtMake(mH, h, 5, 0, eItems);
+    JtLazyFrame();
+    g_jtForceByte = 0x74;
+    JtLazyGo(h);
+    g_jtForceByte = 0x75;
+    assert(g_jtEax == 0xEA);
+    // NewVt: a ctor that exits (CallExit keeps its lazy body) mats once at word 0; an enum newobj stays EA's (an exit, vt 0)
+    g_jitCallExit = true, g_jitNewVt = true;
+    static DWORD arrCtor = 0xA77A;
+    g_jitArrCtorP = &arrCtor;
+    static BYTE kv[0xB0], ke[0xB0];
+    for (BYTE* k : {kv, ke}) k[0xA6] = 0x11, k[0x14] = 8 | 4, *(const char**)(k + 0x34) = "S", *(const char**)(k + 0x38) = "Ns";
+    ke[0x14] |= 0x10;
+    static unsigned short cx[] = {JT_MYSTERY, JT_RET}, ce[] = {JT_LDTHIS, JT_LDC3, JT_STFLD, 4, JT_RET};
+    static JtMeth mCx, mCe;
+    JtMeth* const cm[2] = {&mCx, &mCe};
+    unsigned short* const cc[2] = {cx, ce};
+    const int cw[2] = {2, 5};
+    BYTE* const ck[2] = {kv, ke};
+    for (int i = 0; i < 2; i++) {  // JtMake with the ctor's class and flags (as TestMonoJitNewVt)
+        JtInit(*cm[i], cc[i], cw[i], "ctor");
+        *(BYTE**)(cm[i]->mm + 8) = ck[i];
+        *(DWORD*)(cm[i]->rm + 0x44) = 0x701;
+        *(WORD*)(cm[i]->rm + 0x38) = 256, *(WORD*)(cm[i]->rm + 0x34) = 64, *(WORD*)(cm[i]->rm + 0x36) = 8, *(WORD*)(cm[i]->rm + 0x3E) = 32;
+        assert(!JitCompile(cm[i]->rm));
+    }
+    static DWORD nItems[2];
+    nItems[0] = (DWORD)(uintptr_t)mCx.rm, nItems[1] = (DWORD)(uintptr_t)mCe.rm;
+    static unsigned short nx[] = {0xF4, 0, JT_RET}, ne[] = {0xF4, 1, JT_RET};
+    static JtMeth mNx, mNe;
+    JtMake(mNx, nx, 3, 0, nItems), JtMake(mNe, ne, 3, 0, nItems);
+    const int nem = g_jitMethN - 1;
+    JtLazyFrame();
+    JtLazyGo(nx);
+    assert(g_jtEax == JT_MYSTERY && g_jtEdi == (DWORD)(uintptr_t)cx);
+    JtLazyFrame();
+    JtLazyGo(ne);
+    assert(g_jtEax == 0xF4 && g_jtEdi == (DWORD)(uintptr_t)ne);
+
+    g_jtcN = 0;
+    const int lines = JcnReportTo("test", JtcSink);
+    assert(lines == g_jtcN - 2);
+    char want[64];
+    assert(JtcFind("jitcount: begin test #1") && JtcFind("jitcount: end test #1", " 0 left out"));
+    assert(JtcFind("jitbail Ns.Cls.Meth 0 EA normal direct no lazy body=2"));
+    assert(JtcFind("jitbail Ns.Cls.Meth 1 EA normal direct ForceJIT=1"));
+    sprintf_s(want, "jitexit %d EA ", fm);
+    assert(JtcFind(want, " op 2"));
+    sprintf_s(want, "jitcalls %d 2 ", fm);
+    assert(JtcFind(want));
+    assert(JtcFind("jitmat 1 ", " 0 Ns.S.ctor"));
+    sprintf_s(want, "jitnew %d 0 1 0 1C Ns.S.ctor", nem);
+    assert(JtcFind(want));
+
+    VirtualFree(g_jcn, 0, MEM_RELEASE), g_jcn = NULL;
+    g_jtLen[0xF4] = 1;
+    g_jitLazy = false, g_jitLeafOnly = true, g_jitCallExit = false, g_jitNewVt = false, g_jitLazyCellN = 0, g_jitGuardN = 0;
+    g_jitArrCtorP = (const DWORD*)(uintptr_t)TS3A(0x01220E8C);
+    g_jitForceJit = (const BYTE*)(uintptr_t)TS3A(0x00E5637D), g_jitProxyClassP = (const void* const*)(uintptr_t)TS3A(0x01220EC0);
+}
+
 #include "monojit-capture-test.h"
+// [MonoJit] FastCopy (docs/537 §20 C3): EA's memmove path inline, every other input exits before any change
+static void TestMonoJitFastCopy() {
+    // arrays: [0] vtable -> klass (+8 element class, +0x10 rank, +0x5C element size), [1] bounds, [2] max_length, data at +0x10
+    static BYTE kI[0x60], kI2[0x60], kR[0x60], elI[0x20], elR[0x20], elJ[0x20];
+    *(DWORD*)(elI + 0x14) = 8, *(DWORD*)(elJ + 0x14) = 8, *(DWORD*)(elR + 0x14) = 8 | 1u << 23;  // value types; elR has references
+    const auto klass = [](BYTE* k, BYTE* el, int rank) { *(BYTE**)(k + 8) = el, k[0x10] = (BYTE)rank, *(int*)(k + 0x5C) = 4; };
+    klass(kI, elI, 1), klass(kI2, elI, 2), klass(kR, elR, 1);
+    static BYTE kJ[0x60]; klass(kJ, elJ, 1);
+    static DWORD vI[1], vI2[1], vR[1], vJ[1], a[12], b[12], r2[12], ar[12], aj[12];
+    vI[0] = (DWORD)(uintptr_t)kI, vI2[0] = (DWORD)(uintptr_t)kI2, vR[0] = (DWORD)(uintptr_t)kR, vJ[0] = (DWORD)(uintptr_t)kJ;
+    const auto arr = [](DWORD* x, DWORD* vt) { x[0] = (DWORD)(uintptr_t)vt, x[1] = 0, x[2] = 8; for (int i = 0; i < 8; i++) x[4 + i] = 100 + i; };
+    const auto U = [](DWORD* x) { return (u8*)x; };
+    arr(a, vI), arr(b, vI), arr(r2, vI2), arr(ar, vR), arr(aj, vJ);
+    assert(JitFastCopy(U(a), 1, U(b), 2, 3) == 1 && b[6] == 101 && b[7] == 102 && b[8] == 103 && b[5] == 101 && b[9] == 105);
+    arr(a, vI);
+    assert(JitFastCopy(U(a), 0, U(a), 1, 4) == 1 && a[4] == 100 && a[5] == 100 && a[8] == 103 && a[9] == 105);  // overlap, as memmove
+    arr(a, vI), arr(b, vI);
+    assert(JitFastCopy(U(a), 8, U(b), 8, 0) == 1 && b[4] == 100);  // empty copy at the end
+    const LONG ex0 = g_jitFastCopyExits;
+    assert(!JitFastCopy(NULL, 0, U(b), 0, 1) && !JitFastCopy(U(a), 0, NULL, 0, 1) && !JitFastCopy(U(a), -1, U(b), 0, 1) && !JitFastCopy(U(a), 0, U(b), -1, 1)
+        && !JitFastCopy(U(a), 0, U(b), 0, -1) && !JitFastCopy(U(a), 0, U(b), 6, 3) && !JitFastCopy(U(a), 6, U(b), 0, 3) && !JitFastCopy(U(r2), 0, U(b), 0, 1)
+        && !JitFastCopy(U(ar), 0, U(ar), 1, 1) && !JitFastCopy(U(aj), 0, U(b), 0, 1));
+    b[1] = 1; assert(!JitFastCopy(U(a), 0, U(b), 0, 1)); b[1] = 0;  // bounds set: EA's
+    assert(g_jitFastCopyExits - ex0 == 11 && b[4] == 100 && b[11] == 107 && ar[5] == 101);
+    // the call site: five args in slots 0..4, result (1) in slot 0, its high dword = the word above the arguments
+    g_jitMode = 1, g_jitVerifyOn = 0, g_jitLazy = false, g_jitCallExit = false, g_jitPureIcalls = false, g_jitFastCopy = true;
+    g_jtLen[0xEA] = 2;
+    static unsigned short nop[] = {JT_RET};
+    static JtMeth mFc;
+    JtInit(mFc, nop, 1, "FastCopy");
+    *(const char**)(mFc.klass + 0x34) = "Array", *(const char**)(mFc.klass + 0x38) = "System";
+    *(WORD*)(mFc.mm + 2) = 0x1000;  // internal call
+    static DWORD fItems[1]; fItems[0] = (DWORD)(uintptr_t)mFc.rm;
+    static unsigned short cFc[] = {0xEA, 0, JT_RET};
+    static JtMeth mcFc;
+    JtMake(mcFc, cFc, 3, 0, fItems);
+    arr(a, vI), arr(b, vI);
+    JtFrame(); g_jtArena[0] = (DWORD)(uintptr_t)a, g_jtArena[1] = 0x5A, g_jtArena[2] = 2, g_jtArena[4] = (DWORD)(uintptr_t)b, g_jtArena[6] = 0, g_jtArena[8] = 2, g_jtArena[11] = 0xC0DE;
+    JtGo(cFc, 10);
+    assert(g_jtEax == JT_RET && g_jtArena[0] == 1 && g_jtArena[1] == 0xC0DE && g_jtEsi == (DWORD)(uintptr_t)(g_jtArena + 2) && b[4] == 102 && b[5] == 103 && b[6] == 102);
+    JtFrame(); g_jtArena[0] = (DWORD)(uintptr_t)r2, g_jtArena[1] = 0x5A, g_jtArena[2] = 0, g_jtArena[4] = (DWORD)(uintptr_t)b, g_jtArena[6] = 0, g_jtArena[8] = 1;
+    JtGo(cFc, 10);  // rank mismatch: exit at the call, nothing changed
+    assert(g_jtEax == 0xEA && g_jtEdi == (DWORD)(uintptr_t)cFc && g_jtEsi == (DWORD)(uintptr_t)(g_jtArena + 10) && g_jtArena[0] == (DWORD)(uintptr_t)r2 && g_jtArena[1] == 0x5A && b[4] == 102);
+    g_jitFastCopy = false;
+}
+
 static void TestMonoJit() {
     Ts3nCounters& C = ts3native_counters;
     // default: nothing installed without the switch, and the switch alone does nothing on another exe
@@ -1193,6 +1339,8 @@ static void TestMonoJit() {
     TestMonoJitCapture();
     TestMonoJitCallExit();
     TestMonoJitNewVt();
+    TestMonoJitCount();
+    TestMonoJitFastCopy();
 
     // the region: code pages are not writable once a method is done
     MEMORY_BASIC_INFORMATION mbi;

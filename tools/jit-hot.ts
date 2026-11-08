@@ -12,6 +12,9 @@
 //      [MonoJit] built-in list, the compile rows of the csv with size and SHA-256 of every overload's IL body (docs/527 §4.2)
 //   node tools/jit-hot.ts --coverage <monohost.exe.log> [--list native/ts3native/monojit-list.h]: docs/data/jit-call-edges.csv, the edges a [MonoJit] Direct build
 //      takes lazily with that list (callee's lazy body from the log's jitlazy rows, a count run with MONOHOST_JITLAZY=1)
+//   node tools/jit-hot.ts --game-count <ts3native.log> [--out <host-style.log>]: the last complete `jitcount: begin` .. `end` block of a
+//      game count run ([MonoJit] Count=1; cumulative counters, so only the last block counts), as monohost-style lines that --count
+//      and tools/jit-exit-census.ts --census read unchanged; prints the bails by reason and the top exit sites
 //   node tools/jit-hot.ts --self-check
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -212,6 +215,23 @@ export function edgeRows(csv: string): EdgeRow[] {
   return csv.split(/\r?\n/).slice(1).filter(l => l.trim()).map(csvFields).map(f => ({ caller: f[0], callee: f[1], calls: +f[3], direct: f[12] === 'direct', guard: f[12] === 'class guard' }));
 }
 
+// the last block with an end line (a block cut by a crash has none); null when no block ended
+export function gameCount(log: string): { lines: string[]; head: string; leftOut: number } | null {
+  const l = log.split(/\r?\n/);
+  let e = l.length - 1;
+  while (e >= 0 && !l[e].startsWith('jitcount: end ')) e--;
+  let b = e - 1;
+  while (b >= 0 && !l[b].startsWith('jitcount: begin ')) b--;
+  if (e < 0 || b < 0) return null;
+  return { lines: l.slice(b + 1, e).filter(x => /^jit(bail|new|mat|calls|exit) /.test(x)), head: l[b], leftOut: +(/(\d+) left out/.exec(l[e])?.[1] ?? 0) };
+}
+export function bailsByReason(lines: string[]): Map<string, number> {  // "jitbail <caller> <word> <op> <lazy|normal> <guard|direct> reason=n ..."
+  const m = new Map<string, number>();
+  for (const x of lines.filter(y => y.startsWith('jitbail ')))
+    for (const r of x.split(' ').slice(6).join(' ').matchAll(/(?:^| )([^=]+?)=(\d+)/g)) m.set(r[1], (m.get(r[1]) ?? 0) + +r[2]);
+  return m;
+}
+
 function selfCheck() {
   let k = 0;
   const ok = (c: boolean, what: string) => { k++; if (!c) { console.error('self-check failed:', what); process.exit(1); } };
@@ -241,12 +261,30 @@ function selfCheck() {
   const cv = coverage(ed, new Set(['A', 'B', 'C', 'D']), lazyRows('jitlazy leaf N.B\njitlazy chain N.C\njitlazy chain N.D\njitlazy leaf N.D\n'));
   ok(cv.total === 160 && cv.leaf.length === 1 && cv.leaf[0].calls === 100 && cv.chain.length === 2, 'coverage: leaf direct, chain and guard, an unlisted caller left out, chain wins over a leaf instantiation');
   ok(nameListed('System.Math.Min', new Set(['Math.Min'])) && !nameListed('System.XMath.Min', new Set(['Math.Min'])), 'a key matches at a dot');
+  const gc = gameCount('x\njitcount: begin interval #1, 1 methods\njitexit 3 EA call op 5\njitcount: end interval #1, 1 lines, 0 left out (cap 6000)\n' +
+    'jitcount: begin save #2, 1 methods\njitbail N.A.B 0 EA normal direct no lazy body=2 ForceJIT=1\njitexit 3 EA call op 9\nother\njitcount: end save #2, 2 lines, 4 left out (cap 6000)\n' +
+    'jitcount: begin exit #3\njitexit 3 EA call op 99\n');
+  ok(gc !== null && gc.lines.length === 2 && gc.lines[1] === 'jitexit 3 EA call op 9' && gc.leftOut === 4 && gc.head.includes('#2'), 'game count: the last complete block, a torn block ignored');
+  const br = bailsByReason(gc!.lines);
+  ok(br.get('no lazy body') === 2 && br.get('ForceJIT') === 1 && br.size === 2, 'bails by reason, reasons with spaces');
+  ok(gameCount('jitcount: begin exit #1\njitexit 3 EA call op 1\n') === null, 'no complete block');
   console.log(`jit-hot self-check: ${k} checks, ok`);
 }
 
 if (process.argv[1] && /jit-hot\.ts$/.test(process.argv[1])) {
   const arg = (k: string) => { const i = process.argv.indexOf(k); return i < 0 ? undefined : process.argv[i + 1]; };
   if (process.argv.includes('--self-check')) selfCheck();
+  else if (process.argv.includes('--game-count')) {
+    const g = gameCount(readFileSync(arg('--game-count')!, 'utf8'));
+    if (!g) { console.error('no complete jitcount block (begin .. end) in the log'); process.exit(1); }
+    console.log(`${g.head}: ${g.lines.length} lines`);
+    if (g.leftOut) console.warn(`WARN ${g.leftOut} lines left out by the game's cap: the census undercounts`);
+    for (const [r, n] of [...bailsByReason(g.lines)].sort((a, b) => b[1] - a[1])) console.log(`  bail ${r.padEnd(18)} ${n}`);
+    const ex = g.lines.filter(x => x.startsWith('jitexit ')).map(x => x.split(' ')).sort((a, b) => +b[5] - +a[5]).slice(0, 15);
+    for (const f of ex) console.log(`  exit ${f[5].padStart(10)} meth ${f[1]} ${f[2]} ${f[3]} ${f[4]}`);
+    const out = arg('--out');
+    if (out) { writeFileSync(out, g.lines.join('\n') + '\n'); console.log(`wrote ${out}`); }
+  }
   else if (process.argv.includes('--coverage')) {
     const keys = listKeys(readFileSync(resolve(ROOT, arg('--list') ?? 'native/ts3native/monojit-list.h'), 'utf8'));
     const c = coverage(edgeRows(readFileSync(resolve(ROOT, 'docs/data/jit-call-edges.csv'), 'utf8')), keys, lazyRows(readFileSync(arg('--coverage')!, 'utf8')));

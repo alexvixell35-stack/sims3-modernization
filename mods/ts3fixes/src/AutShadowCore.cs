@@ -116,6 +116,13 @@ namespace Ts3Fixes
             if (!onWorker || !switchOn) return 0;
             return household ? 2 : 1;
         }
+        // tier-2 H7-H10 (docs/126 §3): counter slots 898-902 (Result.T2H): H8 `cache` aborts, H9 `tuning` aborts, H7 drag
+        // answers, H10 LOD answers, H10 answers the game would have recomputed (more than 60 ticks since its last check)
+        public const int kT2HCache = 0, kT2HTuning = 1, kT2HDrag = 2, kT2HLod = 3, kT2HLodStale = 4, kT2HN = 5;
+        // H8: the worker's no-op answer only for the request's own autonomy whose search cache was on at the request
+        public static bool T2CacheNoop(bool requestAutonomy, bool cacheActiveAtRequest) { return requestAutonomy && cacheActiveAtRequest; }
+        // H10: the game recomputes when now > last check + 60 ticks; the worker answers the stored flag either way
+        public static bool T2LodStale(long now, long lastCheck) { return now > lastCheck + 60; }
 
         // H11 shelter answer (docs/127 §4.1): instead of aborting, the worker answers the branch from a bit taken on the sim
         // thread at the cut. The branch asks IsShelteredFromPrecipitation(target, instance), which uses the instance only

@@ -857,3 +857,255 @@ whose cache could not be filled.
 Total about 5-7 h of agent time, plus one host gate night-free window and the game bundle (3 x 15 min plus smoke). Order
 stays as in the C plan: build C4 only after C0 (a game count, which needs the count-mode port) shows box or newarr exits
 with real traffic in game. If C0 shows none, park C4 and C5 together. C4a is cheap and can run first either way.
+
+### C4a result: static read (2026-11-08, branch `docs/monojit-c4a`; no build, no game or host run)
+
+**Verdict: C4 waits for the C0 game count (Rodney's compiler rule: no stop rule on small gains); 0.41 ms/s host census.** The design is safe as written (two small
+corrections below), but the host census gives allocation exits only **0.41 ms/s** behind (1.2% of the 33.8 ms/s census
+total), below the design's ~0.6 ceiling (the old 1 ms/s bar no longer applies to compiler work). With C5's
+`con.boxcallvirt` rows (0.46, needs C4's box) the pair is 0.87 ms/s. C4b-C4g start once C0's game count shows where box /
+newarr / reference newobj exits fall in game.
+
+Tools: capstone 5 on `game-copy/bin/TS3W.exe` (Steam 1.67), recursive descent per function (branches followed inside the
+Ghidra bounds of `game-copy/analysis/functions.csv`), direct-call BFS from the leaves (245 functions, no depth cap), every
+indirect call listed. Ledger §464 has the inferred rows.
+
+**Exit share (host census `docs/data/jit-exit-census.csv`, run basis) [measured, host]:**
+
+| Op | Methods with exits | Exits (per call x calls) | ms/s behind | C piece |
+|---|---|---|---|---|
+| box | DefaultComparer.Equals | 0.98 x 980 | 0.273 | C4 |
+| newarr | Array.Resize | 0.49 x 50636 | 0.116 | C4 |
+| newobj, reference | Dictionary`2.DoAdd, Dictionary`2.set_Item | 1.0 x 1653, 0.037 x 25018 | 0.017 + 0.001 | C4 |
+| newobj, value type | Enumerator.get_Current, List`1.GetEnumerator | 0.5 x 48690, 1.0 x 102 | 0.220 + 0.567 | C1 (not C4) |
+| con.boxcallvirt | DefaultComparer.Equals, .GetHashCode | 0.98 x 980, 0.94 x 439 | 0.273 + 0.188 | C5 (needs C4) |
+
+- 14 census methods have allocation rows, 6 with non-zero exits; only 4 are C4's (box 1, newarr 1, reference newobj 2).
+  8 more rows (Array.Copy, IndexOf, Dictionary.GetPrev, List.get_Item, Hashtable.get_Item, ...) exit 0 times per call.
+- Compile candidates (`docs/data/compile-candidates.csv`, 151 frames): 37 have an allocation op in their IL (newobj 30,
+  box 9, newarr 4); the census shows that almost none of them reach it per call.
+- That DoAdd / set_Item's newobj builds a reference class (the old Mono `Dictionary` `Slot`) is [inferred] (ledger I-464-8).
+
+**Leaf bodies read completely [verified unless tagged]:**
+
+| Entry | Use in C4 | Calls (direct) | Indirect | Can leave other than `ret` |
+|---|---|---|---|---|
+| `mono_value_box` 0xEA3140 (domain, class, src), cdecl | box | assert 0xE46B10 if class+0x14 bit 8 (value type) clear; 0xEA2AD0; `mono_class_instance_size` 0xE6F580; 0xEA2690; profiler 0xEA4C30; memcpy 0xF7E8A6; finalizer registration 0xE78F60 if class+0x14 & 0x20000 | size switch (jump table 0xEA3200, local copy) | **0xE6F580 calls class init 0xE6EE20 when class+0x14 bit 4 is clear** (0xE6F585). That is the B1 layout flag 4: the compile-time gate of C4.4 closes it. 0xEA2AD0 creates a vtable only on a miss: the cache closes it. |
+| `mono_array_new_specific` 0xEA2770 (vtable, n), cdecl | newarr | n < 0: 0xE77080 (builds OverflowException, allocates) + raise through `[0x1195B64]` directly (0xEA2798); es = 0xE6B690(class) = `[class+0x5C]` (assert if rank `[class+0x10]` = 0); overflow: 0xE78610 twice | memset 0xF7E8B8; `[0x1195B64]` | Raises: n < 0; es*n overflows 32 bits (0xEA27BF div test) or es*n > 0xFFFFFFE7 (0xEA27D6): both go to 0xE78610 = the OOM raise (not OverflowException). Then atomic `GC_malloc_atomic` 0xE4BDC0 + memset, or typed 0xE50DE0 / `GC_malloc` 0xE4BE30; `+4` = 0, `+8` = n; profiler hook. |
+| `mono_object_new_specific` 0xEA2DA0 (vtable) | ref newobj | vt+0x18 bit 0 or class+0x14 & 0x4000000 -> proxy path: class lookup 0xE6FA90, class init 0xE6EE20, method lookup 0xE70D30, then **`[0x1195B60]` = runtime invoke (managed code)**; else only 0xEA2690 | `[0x1195B60]` (proxy path only) | Non-proxy path = two flag tests + 0xEA2690, nothing else. Proxy classes must be permanent exits (as C4.4 says). |
+| object alloc 0xEA2690 (vtable) | all three | 0xEA14B0 (atomic + zero) / 0xE50DE0 / 0xE4BE30; 0xE78F60 if class+0x14 & 0x20000; 0xEA4C30 | none of its own | Only through the GC leaves and the finalizer registration (below). |
+| `mono_array_element_size` 0xE6B690 (class) | newarr cache fill | assert 0xE46B10 if rank 0 | none | none: returns `[class+0x5C]`. |
+| `mono_class_vtable` 0xEA2AD0 (domain, class) | cache proof | 0xEA1E30 on a miss only | none | Fast path: rti = `[class+0xB8]`, `movzx [rti]` >= `[domain+0x58]` (signed) and `[rti+4+4*id]` != 0. |
+| profiler hook 0xEA4C30 | all | none | `call [0x11F45F0]` only when `[0x1220E2C] & 0x80` | install gate (C4.4 step 5). |
+
+**Reach from the GC leaves (BFS, gated edges removed: 0xEA2AD0 miss, 0xE6F580 uninit, 0xEA2770 n < 0 / overflow):** no
+direct path to `mono_runtime_invoke` 0xEA1090, class init 0xE6EE20, `mono_runtime_class_init` 0xEA3370, vtable creation
+0xEA1E30, array class get 0xE70B50, `mono_raise_exception` 0xEA18F0, 0xE53740, or any `kJitReaders` range
+(0xE52540-0xE5A600, 0xD70E00-0xD83000). One hit, closed by a flag:
+- `GC_invoke_finalizers` 0xE4B3F0 via `GC_generic_malloc` 0xE4BCE0 -> 0xE4B480: runs finalizers inline only if
+  `GC_finalize_on_demand` `[0x11F3028]` == 0. Writers (own scan of every `mov [0x11F3028]`): `= 1` at 0xE695ED
+  (`mono_gc_base_init`), and save / set 1 / restore at 0xE78F24-0xE78F52 around one finalizer. The notifier `[0x11F3044]`
+  has no writer. So I5 holds [verified; matches docs/30 §12.3].
+- Raises inside the GC: `GC_oom_fn` `[0x11949BC]` (calls at 0xE4BDAD, 0xE4AB81, 0xE4AD66; the last one is reached from the
+  finalizer registration 0xE78F60 -> 0xE78630 -> `GC_register_finalizer` 0xE4AE30 -> 0xE4AC60). Written once, `= 0xE78610`
+  at 0xE695A2; 0xE78610 = `mono_raise_exception`(domain `+0x2C` OOM object). In game `[MonoThread] GcLock=1` wraps the slot
+  (`MtOomWrap`, monothread-m5.cpp), which still ends in 0xE78610. Every raise ends at `[0x1195B64]`.
+- Other indirect calls on the allocation path: CRT memset / memcpy; Enter/LeaveCriticalSection in 0xE78630 (finalizer
+  table lock); GC warn proc `[0x11949C0]`; `GC_push_other_roots` (0xE4EF90 jmp 0xE51350, docs/119: -> 0xD71820, inside
+  the "script host" reader range); the mark procs 0xE69400 / 0xE694D0 / 0xE69520 (Mono, read only object or chunk headers,
+  then tail into Boehm's typed push 0xE50590 / 0xE50740 / 0xE508D0); heap growth 0xD70900 -> EA's memory tracker 0x9336F0
+  (Win32 imports and EA allocator vtables). None reads interpreter frames [inferred: I-464-5].
+
+**Answers for C4b:**
+1. **Allocator entries [verified]:** box -> 0xEA3140(domain, class, src) as designed (EA's handler calls the same); newarr
+   -> 0xEA2770(vtable, n); reference newobj -> 0xEA2DA0(vtable), or 0xEA2690(vtable) directly once the fill proved the
+   non-proxy flags (same result, two tests fewer). All cdecl.
+2. **Vtable cache fill [verified]:** the fill must also require class+0x14 bit 4 for box (EA's 0xE6F580 inits the class
+   otherwise; the B1 gate already is this bit) and bit 8 (0xEA3140 asserts value type). newarr: es = `[aclass+0x5C]`.
+   **Correction to C4.4 step 2:** EA's exact bound is es*n <= 0xFFFFFFE7 without 32-bit overflow, i.e. `maxN =
+   0xFFFFFFE7 / es`; the design's `(0xFFFFFFE7 - 0x18) / es` is stricter (a few more exits to EA, still exact). es = 0 never
+   raises; make it a permanent exit (no such array class expected). Above maxN EA raises OOM, not OverflowException: the
+   corpus case "n = 0x7FFFFFFF ... OOM raise" is right.
+3. **Raise interceptor site [verified static, runtime value inferred]:** slot `[0x1195B64]`, static value 0xEA18A0,
+   written only by 0xEA18D6 / 0xEA18DD (install handler); runtime value 0xE53740 per docs/120 §10.2 (I-464-6, check at
+   install as C4.4 step 4 already says). Nothing in ts3native hooks it today (grep). 0xEA2770 calls the slot directly for
+   n < 0, all other raises go through 0xEA18F0.
+4. **GC-mark range for `JitTrapReader` [verified bounds, names inferred]:** use **0xE48E80-0xE51400** (Boehm: every
+   Boehm function the allocators reach lies in it, by functions.csv bounds; the mark loop `GC_mark_from` is 0xE4C3E0, the
+   descriptor-tag jump table at 0xE4C45B) **plus 0xE69400-0xE69546** (Mono's three mark procs). The design's
+   0xE4A000-0xE51000 [inferred] misses 0xE48E80-0xE4A000 (free lists, `GC_allochblk`, `GC_mark_some` callers) and
+   0xE51000-0xE51400 (typed push and thread-stack push 0xE51070 / 0xE511A0 / 0xE51290 / 0xE513D0). Our own M5 lock thunks
+   and gcroots / satb push hooks already count as `self`.
+5. **Install byte checks (FNV-1a as `JitFastCopyOk`, end exclusive) [verified]:** 0xEA2690 113 B 0x15713789; 0xEA2770
+   245 B 0x7845BC23; 0xEA3140 192 B 0xFDF00597; 0xEA2DA0 200 B 0xAF92305E; 0xEA2AD0 87 B 0x9AB58E11; 0xE6B690 44 B
+   0x2D2E1EEA; 0xE6F580 25 B 0xC60CF2B8; 0xEA4C30 40 B 0xDE4EB75B; 0xEA18F0 36 B 0x75A02ACA. Do not hash the GC leaves
+   0xE4BDC0 / 0xE4BE30 / 0xE50DE0: `[MonoThread] GcLock` and the verify-only atomic jump patch them in game.
+
+Open: C0's game count (decides when C4b-C4g start); whether the finalizer-table critical section in 0xE78630 can wait on a worker
+thread inside a window (I-464-7; only classes with finalizers).
+
+## C3 + LDSFLDA (2026-11-08, branch `feature/monojit-c3` from `feature/monojit-c-int` 71ddfeb8) [measured, host; gates partly run]
+
+Host only (`native/monohost/monohost-jit.cpp`), two switches, both default off; no game key yet. Port to game with the next B5-style port.
+
+**C3, `MONOHOST_JITFASTCOPY=1`: Array.FastCopy inline.** EA's icall `ves_icall_System_Array_FastCopy(source, source_idx, dest, dest_idx, length)`
+is 0xE7A070 (icall table slot 0x10B58CC, between CreateInstanceImpl 0x10B58C8 and GetGenericValueImpl 0x10B58D0) [verified: disassembly of
+`game-copy/bin/TS3W.exe`]. It never raises and does not allocate on the memmove path; it returns false (eax 0) when the ranks (klass+0x10)
+differ, when either bounds (+4) is non-NULL, or when `dest_idx + length > dest.max_length` / `source_idx + length > source.max_length`
+(unsigned 32-bit compares, dest first). Element classes (klass+8): source element = `mono_defaults.object_class` ([0x1220E44]) with a
+value-type dest element = unboxing loop (0xE7A0E7, 0xEA3820 per element); different classes = the castable / is_assignable path (0xE7A1A8,
+0xE6B570, 0xEA3820). Equal (or castable) classes then: dest element flags +0x14 bit 3 (value type) with bit 23 (0x800000, has references)
+= `0xEA15F0(dest, dest_idx, src_addr, length)`; value type without references = `memmove(dest + 0x10 + size * dest_idx, source + 0x10 +
+size * source_idx, size * length)` (import [0xF95684] = 0xD44634), size = `mono_array_element_size(source klass)` 0xE6B690 = klass+0x5C;
+reference arrays = `0xC0FD60(dest, dest_addr, length)` then memmove of 4 * length. Result true (eax 1) on every copy path.
+- Ours (`JitFastCopy`, `EmitPureIcall` kind 4, site test in `JitPureIcall`, name "FastCopy"): only EA's memmove path runs inline: same rank,
+  both bounds NULL, the two bound checks, the same element class pointer, value type, no references; plus our own exits for a null array, a
+  negative index or length (managed Array.Copy throws before the call). Any other input returns 0 with nothing changed and the site exits, so
+  EA's call runs as before (with its own path and result). The destination range goes to `JitSatbStore` first while a Satb span is on (a
+  span logs every overwritten heap word, as the stfld templates do). Result slot: low dword 1, high dword `[esi+4]` (as GetLength). Install
+  check: FNV-1a of EA's 641 bytes 0xE7A070..0xE7A2F0 = 0x555A37B8 and the table slot = 0xE7A070; a mismatch logs
+  `jit: FastCopy: EA's Array.FastCopy bytes differ` and keeps the call. Log lines: `jit: switches FastCopy=<0|1> Ldsflda=<0|1>` (read-back),
+  `jit fastcopy: sites, inline copies, exits to EA's call`.
+- Count run (corpus cases 230+, CallExit=1 VtOps=1 NewVt=1 lazy on, `MONOHOST_JIT=on MONOHOST_JITCOUNT=1`, off vs on): the 5-arg
+  Array.Copy's FastCopy call (w80) 30173 `no lazy body` bails and 30389 call exits -> 0 bails and 3667 call exits (inline copies 6095, exits
+  to EA 3451: the reference, unboxing, castable and error inputs of the corpus). The 3-arg Copy's call to the 5-arg Copy (w44, 25503 lazy +
+  1367 normal `no lazy body`) stays: the 5-arg Copy has 2 clauses (jitedge `clauses 2`, its try/catch) and a method with clauses gets no
+  lazy body (`lazyOk` needs `!rm[0x41]`) [verified: count log, code]. So C3 removes the FastCopy exit only; the plan's "5-arg Copy then gets
+  its own lazy body" needs lazy bodies with clauses, a separate piece.
+
+**LDSFLDA, `MONOHOST_JITLDSFLDA=1`.** EA's handler 0xE56D20 [verified: disassembly]: field = items[ip[1]], vtable = `mono_class_vtable(domain,
+field->parent)` (0xEA2AD0, every execution); `[vt+0x18] & 2` clear = `mono_runtime_class_init(vt)` (0xEA3370) with the frame ip saved
+first; then the domain's special-static hash (domain+0x88, 0xE45F00): a thread / context static pushes the per-thread address (0xEBAB30);
+else it pushes `[vt+0xC] + field->offset (+8)`; 2 words. Our template K_LDSFLDA (round 10 C2, PR #213) already does exactly this (class-init
+exit before any change, `[vt+0xC]` read every time, the vtable a compile-time constant, special statics compile as an exit), but its row has
+width 0 and the static-kind block turns width 0 into K_EXIT, so every ldsflda was an exit in host and game [verified: code; host count
+below]. The switch gives K_LDSFLDA width 5 (an address, any field type). Same dead row in `native/ts3native/monojit.cpp` (line 218).
+- Count run (as above): ldsflda exits in the corpus methods JitKLS.Read 54 -> 2, Write 72 -> 2 (the 2 are class-init exits: the compiled run
+  meets a holder class whose cctor has not run), Own 420 -> 0; `SimClock.get_CurrentTicks` 74 ldsflda exits in 71 calls -> none. This
+  answers the C2b watch: get_CurrentTicks' exit was the width-0 row, not a special static or class init. With the port,
+  `SimClock.get_CurrentTicks` can go back into the game list (jit-hot.csv row 173 verdict, kept out by C-int).
+
+**Corpus** (`tools/jit-corpus.ts`, block `KC3` after NEWVT, 9 cases appended last, indices 230-238; `C3_LIST` = `JitKC3.*`, `JitKLS.*`;
+JitCorpus.cs regenerated; monohost reports 260 cases): Array.Copy of int / byte / float / double / long / enum / 7- and 12-byte struct
+arrays (memmove path), overlapping copies in one array (forward, backward, same place), lengths 0-16, the 3-arg overload; string[],
+struct-with-references, int to long, enum to int, rank 2, object[] to int[] (unboxing), int[] to object[] (boxing) (EA's other paths: the
+site exits); bounds, negative index / length, null source / dest, string[] to int[], rank mismatch, null unboxing, empty copies at the
+ends. Static struct fields read, written, called and passed by ref, struct statics with a reference field, statics of the compiled class;
+four holder classes per case with a static ctor: run r of a case touches holder min(r, 3) first, so the compiled run meets a class that is
+not initialised yet. Fixture notes: a `[ThreadStatic]` field faults EA's interpreter in monohost (0xE56FB8 -> 0xEBAB30 reads a missing
+per-thread table; interpreted arm faulted, corpus stopped), so the corpus has no thread static; a rank-2 array made inside the verified
+method gave one verify MISMATCH in both arms (its bounds pointer, fresh-object pairing), so `Others` takes them from the case body.
+
+**Gates** (bundle rule: all new switches on vs off; CallExit=1 VtOps=1 NewVt=1 INLINE=2 WIDE=1, `MONOHOST_JIT=verify`):
+
+| FastCopy + Ldsflda | lazy | result |
+|---|---|---|
+| on | on | 260 cases, 0 differ, 0 unstable, per-call ok 61126, MISMATCH 0 |
+| off | on | 260 cases, 0 differ, 0 unstable, per-call ok 61126, MISMATCH 0 |
+| on | off | not run (stopped: a `bp-jit-batch` game job started 08:49 UTC) |
+| off | off | not run |
+
+Replay `probe-out/jit-replay-all.txt --mode verify --lazy`, all on: not run (same stop). Census: dropped (Rodney 2026-11-08: no per-piece
+gain measuring). `tools/selftest-all.ts`: 212 PASS, 0 FAIL, 5 SKIP. ts3native not touched.
+
+**Left** (no monohost while a jit-batch or timing job runs): corpus lazy off, on and off; replay all on (known flake: host rebuild fault,
+rerun once). Then the game port, with the next B5-style port:
+- `[MonoJit] Ldsflda`: the one-line width change in the static-kind block of `monojit.cpp`; then `SimClock.get_CurrentTicks` back into
+  `LAZY_ROWS` / `monojit-list.h`.
+- `[MonoJit] FastCopy`: in game, Satb wraps the icall slot 0x10B58CC with `SatbRtFastCopy` (`native/ts3native/satb.cpp`: sim side logs the
+  dest range, worker side patches the copy from the log), so the install check must accept the wrapper in the slot and the inline copy must
+  log the dest range through the game's sim-side Satb log, as the host's `JitSatbStore` does [inferred: the game's compiled code does not run
+  on the Satb worker during a span, as the host's JitEnter rule says; check before porting].
+
+### C3 game port (2026-11-08, branch `feature/monojit-c3-game` from master 7ece0a7b, commits dd52ea0a + acc33848, not merged) [built, host gates run; game not run]
+
+Pair **monojitc3g1108**: `game-copy/ts3native.asi.monojitc3g1108` (ts3native 0.36.209, sha256 09d15c60f748...) + `game-copy/ts3fixes.package.monojitc3g1108`
+(built from master's mods source; master's mods differ from every earlier parked package), both in builds.json.
+- `native/ts3native/monojit.cpp`: `[MonoJit] FastCopy` and `[MonoJit] Ldsflda`, default 0, read back on the OK line (`..., NewVt=%d, FastCopy=%d, Ldsflda=%d`).
+  `JitFastCopy` / `EmitPureIcall` kind 4 as the host's. Differences from the host: `JitPureIcall` gates each kind by its own switch (FastCopy works
+  without CallExit; the lazyOk scan uses the same gate); the install check accepts slot 0x10B58CC = EA's 0xE7A070 **or** `SatbRtFastCopy` ([AutShadow]
+  Satb wraps that slot; same FNV check of EA's bytes); the dest range goes to `JitSatbStore` (= `SatbSimRange` on the sim side of a span, what
+  `SatbRtFastCopy` logs). The wrapper's worker-side patch is not needed: compiled code runs only on the sim thread [verified: JitEnter, monojit.cpp
+  "other:" path sends any other thread to the live handler]. Ldsflda: the host's one-line width 5 in the static-kind block.
+- `SimClock.get_CurrentTicks` back in `monojit-list.h` (127 bodies) and jit-hot.csv row 173 = "compile" (revert of 1d2e6894). With Ldsflda=0 its
+  ldsflda stays an exit, as before C-int.
+- Native selftest `TestMonoJitFastCopy` (memmove path, overlap, empty copy, 11 exit inputs, call-site result slot and exit before any change).
+- No game counters added (no `registry.ts reserve`): the game proof is the verify-mode bundle (MISMATCH 0) plus the compile log lines.
+
+Gates (worktree build of monohost, CallExit=1 VtOps=1 NewVt=1 INLINE=2 WIDE=1):
+
+| FastCopy + Ldsflda | lazy | corpus (260 cases) |
+|---|---|---|
+| on | on | 0 differ, 0 unstable, per-call ok 61128, MISMATCH 0; fastcopy: 1 site, 2886 inline copies, 403 exits to EA |
+| off | on | 0 differ, 0 unstable, per-call ok 61128, MISMATCH 0 |
+| on | off | 0 differ, 0 unstable, per-call ok 63392, MISMATCH 0 |
+| off | off | 0 differ, 0 unstable, per-call ok 63392, MISMATCH 0 |
+
+Replay `probe-out/jit-replay-all.txt --mode verify --lazy`, all on (+ MONOHOST_JITFASTCOPY=1 MONOHOST_JITLDSFLDA=1): 5468 inputs, 5282 ran, 0 differ,
+0 unstable, 186 skipped, 0 faulted, per-call ok 1413749, MISMATCH 0. `ts3native/build.cmd` selftest ok; `tools/selftest-all.ts` 221 PASS 0 FAIL;
+`tools/hook-sites.ts --check` pass (first build wrote the flag bit as 0x800000, which the scanner read as address 0x00800000; now `1u << 23`).
+
+**Next step (exact):** with the game free, run
+`node tools/harness/queue.ts tools/harness/queues/jit-exits.json --no-smoke --only bp-jit-c3g-smoke,bp-jit-c3g-capture,ip-jit-c3g-capture,sv-jit-c3g-capture`,
+then per world `node tools/jit-replay.ts --capture probe-out/jit-capture-<w>-c3g.jitcap --out probe-out/jit-capture-<w>-c3g.txt --summary` and
+`node tools/jit-replay.ts --run probe-out/jit-capture-<w>-c3g.txt --mode verify --lazy --switches VtOps=1,CallExit=1,NewVt=1,Inline=2,Wide=1` with
+`MONOHOST_JITFASTCOPY=1 MONOHOST_JITLDSFLDA=1` in the environment (gate 0 differ, 0 faulted, MISMATCH 0), then
+`--only bp-jit-c3g-bundle-on,bp-jit-c3g-bundle-off,ip-jit-c3g-bundle-on,ip-jit-c3g-bundle-off,sv-jit-c3g-bundle-on,sv-jit-c3g-bundle-off --no-smoke`.
+In the on-arm logs, check `jit: compiled SimClock.get_CurrentTicks` (0 exits expected with Ldsflda=1, if among the first 256 compile lines). Merge
+`feature/monojit-c3-game` after the bundle passes. Open: lazy bodies for methods with clauses (the 5-arg Array.Copy), separate piece.
+
+## jit-replay --switches / --bisect / --coverage (2026-11-08, branch feature/jit-replay-switches-coverage) [built, host gates not run]
+
+- `tools/jit-replay.ts --run <replay> --switches VtOps=1,CallExit=0,NewVt=1` (also Wide, Lazy, Inline=n) sets those MONOHOST_JIT* env switches; the set is printed (`jit-replay: switches ...`). `--bisect` reruns halves of the ON switches until the failing one is named (a pair that passes alone but fails together is named as a joint set; a failure with all candidates off is reported as not a switch).
+- `--coverage` runs the host with MONOHOST_JITCOVER=1 and writes `docs/data/results/<date>-jit-replay-coverage.csv` (method, edges, hit, calls, class rare|partial|full, missing IL edges); 0 calls = rare-path list. It needs a small native change (monohost-jitreplay.cpp: coverage reset before the replay, report after it), so `native/monohost/build.cmd` must run once first.
+- `--self-check`: 26 checks incl. the bisect demo on a fake failing switch (NewVt found in 5 runs). Passed.
+- NOT done: monohost rebuild and the host gates (replay all-on 0 differ/0 faulted, coverage CSV produced). bp-jit-batch was running (job-running) at 16:50-16:55 PHT, so no host or build run. Next: after the job ends and before 17:55 PHT, build.cmd, then `--run <replay> --switches VtOps=1,CallExit=1,NewVt=1 --lazy --coverage`.
+## C0 game count mode (2026-11-08, branch `feature/monojit-count` from master a26cd097) [built, selftested; not run in game]
+
+Status (2026-11-08 ~10:30 UTC): steps 1-4 below done; not merged, not run.
+- Selftest `TestMonoJitCount` (commit d42f3627): Count=0 emits fewer bytes than Count=1; no-lazy-body bail x2 (`jitbail ... EA normal
+  direct no lazy body=2`, `jitexit` op 2, `jitcalls` 2); ForceJIT=1; NewVt + CallExit ctor exit -> one `jitmat` at word 0 (so `r->edi`
+  in `JitLazyMatC` is the exit ip [verified by the selftest]; `r->eax` = op not asserted: the fake table has no name for it); enum newobj
+  `jitnew <m> 0 1 0 1C Ns.S.ctor`; begin/end lines, 0 left out. The test clears the lazy cells first (earlier tests reset only the count).
+  build.cmd `monojit: ok`, `selftest ok`; `tools/selftest-all.ts` 215 PASS 0 FAIL 5 SKIP (game-copy absent in the worktree);
+  `tools/hook-sites.ts --check` pass.
+- Pair `monojit-count1108` in builds.json: asi 7cba34f27c0e (ts3native 0.36.206; 0.36.205 = tier2p6, 0.36.207/208 other agents),
+  ts3fixes 0b13f7808580 built from this branch (mods = master a26cd097; tuning digest = release defaults 24e0fad3a692). Parked in the
+  main checkout's `game-copy/`.
+- Parser `node tools/jit-hot.ts --game-count <ts3native.log> [--out <host-style.log>]` (self-check cases added).
+- Queue arms `bp/ip/sv-jit-exits-count` in `tools/harness/queues/jit-exits.json` (15 min, bundle-on ini + `MonoJit.Count=1`, OK line
+  `..., NewVt=1, Count=1` + `^jitcount: end ` required). `--dry-run` parses (from the worktree it shows the pair files MISSING only because
+  the worktree has no game-copy; the main checkout has them).
+- **Next:** merge `feature/monojit-count` into master (builds.json / jit-exits.json conflicts: keep both sides' rows; version 0.36.206
+  stays this pair's). Then, after the jit-exits bundle jobs pass (count arms need the same bundle green):
+  `node tools/harness/queue.ts tools/harness/queues/jit-exits.json --no-smoke --only bp-jit-exits-count,ip-jit-exits-count,sv-jit-exits-count`,
+  then per job `node tools/jit-hot.ts --game-count <job ts3native.log> --out probe-out/jx/game-count-<w>.log` and
+  `node tools/jit-hot.ts --count probe-out/jx/game-count-<w>.log` / `jit-exit-census.ts --census` for the game census (held back ms/s).
+  Proof it works: each count job PASS with a `jitcount: end` line and a `--game-count` block with 0 left out.
+
+(Original pause note: paused by the coordinator before the build window; a `bp-jit-batch` job was running.)
+- In (`native/ts3native/monojit.cpp`): `[MonoJit] Count` (default 0; the OK line ends `..., NewVt=%d, Count=%d`; ini key documented in
+  `ts3native.ini`). Off = no table and no emitted byte. On = one VirtualAlloc block `JcnTabs` (about 1.1 MB, memory only, no save data):
+  exit sites (`EmitExit`, slow-path flag), lazy call-site bails per reason (`why[]` labels in `EmitLazyCall`, same 12 reasons and order
+  as the host's `kLazyBail`), mats (`JitLazyMatC` -> `JcnMatHit`, innermost callee + exit ip), calls (lazy entry + normal word 0) and positions
+  run per method. `JcnReport` logs `jitcount: begin <why> #n ...`, then `jitbail` / `jitnew` / `jitmat` / `jitcalls` / `jitexit` in the
+  host's formats (rows that ran only), then `jitcount: end <why> #n, <lines> lines, <cut> left out (cap 6000)`. Triggers: every 5 min and
+  after each save (`saveCount` change, both in `JitTick`), and at exit (`JcnExit` in `DllMain` DETACH, under `__try`). At most 64 reports.
+  A refused compile rolls the site / bail rows back (`JitOne`). Code-region estimate +256 bytes per position when on.
+  Op names in `jitmat` / `jitexit` come from EA's name table (`g_jitOpNames`); `jitbail` prints the op in hex like the host.
+- Next steps, in order:
+  1. Selftest `TestMonoJitCount` in `monojit-test.h` (call after `TestMonoJitNewVt`; `JcnOn()` then free `g_jcn` with VirtualFree and set it NULL
+     at the end): reuse the TestMonoJitDirect setup. Cases: a call to a callee with no lazy body (run twice: `jitbail ... EA normal direct
+     no lazy body=2`, and `jitexit` EA n=2), ForceJIT byte 0x74 on a site with a body (`ForceJIT=1`), a CallExit ctor that exits under NewVt
+     (`jitmat 1 ... 0 Ns.S...`), an enum newobj (`jitnew ... 1 0 ...`). Capture lines with `JcnReportTo(why, sink)`. Also check Count=0 emits
+     the same bytes as before (compile one method with `g_jcn` NULL and compare its byte length to a count-on compile: on is longer).
+  2. Build: native builds only before 17:45 PHT and not during a jit-batch or timing job. Version: master says 0.36.204 (monojit1108c);
+     `git log --all -S0.36.205` already hits the tier-2 branch (b35271fb), so check all branches' builds.json and take the next free one;
+     pair `monojitcount1108`. build.cmd `monojit: ok`, `selftest ok`; `tools/selftest-all.ts`; `tools/hook-sites.ts --check`.
+  3. Parser: `tools/jit-hot.ts --game-count <ts3native.log> [--out <host-style.log>]`: take the last complete `jitcount: begin` ..
+     `jitcount: end` block (cumulative counters), write its lines as a monohost-style log so `jit-hot.ts --count` and
+     `jit-exit-census.ts --census` read it unchanged; print the bail summary by reason and the top sites; warn when `left out` > 0.
+     Self-check with a two-block sample (takes the last, ignores a torn block without `end`).
+  4. Queue: C0 arm in `tools/harness/queues/jit-exits.json`: `bp/ip/sv-jit-exits-count`, 15 min, bundle switches on (as the bundle-on arms)
+     + `Count=1`, logRequire the OK line with `Count=1` and a `jitcount: end` line; `--dry-run` only.
+- Not checked (at the source-only commit): whether it compiles; now built and selftested, see Status above.

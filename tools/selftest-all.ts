@@ -76,6 +76,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/buffupdate/run.ts': CSC,
   'tools/selftest/carnoroute/run.ts': CSC,
   'tools/selftest/dancefloorlistdiag/run.ts': CSC,
+  'tools/selftest/autlocalprobe/run.ts': CSC,
   'tools/selftest/npcdriverpool/run.ts': CSC,
   'tools/selftest/bookcarry/run.ts': CSC,
   'tools/selftest/bookhand/run.ts': CSC,

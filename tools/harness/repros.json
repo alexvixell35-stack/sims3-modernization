@@ -55566,7 +55566,7 @@
   {
     "id": "tier2-ic-rows-dry",
     "bug": "none (docs/126 §8 Mode R gate)",
-    "fix": "ts3fixes autofft2ic: worker reads of the docs/126 §8 class-a IC rows (terrain, floor, pools, lot/room, object fields) for the actor and its lot objects, compared with the game's own answers at the cut",
+    "fix": "ts3fixes autofft2ic: worker reads of the docs/126 §8 class-a IC rows (terrain, floor, pools, lot/room, object fields) for the actor and its lot objects, compared with the game's own answers at the cut; slot 20 (P6, bp-t2p6-dry): Query_CountObjectsInRange for TVs in the couch-potato radius, asked only when request 0's actor is not household, selected or unknown",
     "save": "Baseline-BP-Spring",
     "note": "UNVERIFIED (2026-11-08, never run). Autonomy batches carry the items; ultra speed for many batches; a camera move to the far corner and back changes lots, so new lot objects and positions are asked (position rows are learned keys).",
     "steps": [
@@ -64834,6 +64834,63 @@
           "op": "cancel"
         }
       }
+    ]
+  },
+  {
+    "id": "tier2-h7-dry",
+    "bug": "none (docs/126 §3 tier-2 H7-H10 Mode R gate)",
+    "fix": "ts3fixes AutDragHook (H7, dragged object latched at the request), AutCacheHook (H8, UpdateCacheIfNeeded no-op for the request own autonomy, else abort), AutTuningHook (H9, static tuning caches read-only, miss aborts), AutLodHook (H10, stored mbHighLOD for the request own autonomy, else abort); household/selected/unknown actors always abort",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (2026-11-08, never run). Same steps as tier2-p1-dry. The worker scores meta pairs only, so H7-H10 may be reached rarely until a local-phase driver exists: the gate is no regression (A1-A3, exceptions), counters 898-902 are read.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 180
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "far corner"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 60,
+            "y": 40,
+            "z": 60
+          },
+          "target": {
+            "x": 90,
+            "y": 0,
+            "z": 90
+          }
+        },
+        "waitS": 60,
+        "note": "another corner"
+      }
+    ],
+    "expect": "autshadow_a1..a3 == 0, autshadow_exceptions == 0; aut_t2_* read, not gated",
+    "switches": [
+      "autt2drag",
+      "autt2cache",
+      "autt2tuning",
+      "autt2lod"
     ]
   }
 ]

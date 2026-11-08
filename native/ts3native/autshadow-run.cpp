@@ -488,6 +488,7 @@ static int __cdecl AsIcConfig(int key) {
         case 32: return g_satbMode == SATB_ACT ? 1 : 0;  // 0.36.148: RainArm is registered and can skip (docs/127 H11 shelter answer)
         case 33: return g_asLastJobBits;  // 0.36.148: native feature bits of the last finished job (AS_FEAT_*, ts3fixes AutLiveCore.Feat)
         case 34: return 1;  // 0.36.148: SearchMark registered, Config(33) answers
+        case 35: return 1;  // P6: ActorScope registered (the Query_CountObjectsInRange row's actor gate)
         default: return AsLgConfig(key);  // 5-10: ledger probe (autledger.cpp)
     }
 }
@@ -499,6 +500,9 @@ static void __cdecl AsIcAbort(int reason) { if (AsIcIsWorker()) AsManagedAbort(r
 static int __cdecl AsIcAborted() { return AsIcIsWorker() ? AsAborted() : -1; }
 static void __cdecl AsIcResetAbort() { if (AsIcIsWorker()) AsResetAbort(); }
 static int __cdecl AsIcStopped() { return AsIcIsWorker() && g_asStop != 0; }
+// P6 actor gate (Config(35) == 1): ts3fixes says per request whether its actor is household, selected or unknown (1) or
+// not (0); worker only, a sim-thread call is a no-op (load warm-up)
+static void __cdecl AsIcActorScope(int hh) { if (AsIcIsWorker()) InterlockedExchange(&g_asActorHh, hh ? 1 : 0); }
 // per-search feature mask (sim thread, at a search's end): the last search's request id, mask and top definition, kept for
 // the crash log (AsCrashLine from XcptLog): a fault during or right after a search names the features it used
 static void __cdecl AsIcSearchMark(int req, int mask, const DWORD* def) {
@@ -746,6 +750,7 @@ static void AsRegisterIcs() {
         {"Ts3Fixes.AutShadowNative::RainArm", (const void*)AsIcRainArm},
         {"Ts3Fixes.AutShadowNative::SearchMark", (const void*)AsIcSearchMark},
         {"Ts3Fixes.AutShadowNative::ImageSha", (const void*)AsIcImageSha},
+        {"Ts3Fixes.AutShadowNative::ActorScope", (const void*)AsIcActorScope},
     };
     if (!g_asAddIc) return;
     for (const auto& ic : kIcs) g_asAddIc(ic.name, ic.fn);

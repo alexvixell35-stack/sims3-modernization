@@ -84,7 +84,7 @@ namespace Ts3Fixes
         static int sT2N, sT2At;
         // docs/126 §8 (autofft2ic, with autofft2 and [AutShadow] Tier2IcRows=1): the class-a IC rows for the same objects. Each
         // group writes its own slots of V (G1 0-5, G2 6-8, G3 9-10, G4 11-14, docs/data/tier2-rows-handoff.md); equal = all slots
-        const int kIcV = 20;  // slots 0-14: IcG1-IcG4; 15-19: IcG5 (E rows)
+        const int kIcV = 23;  // slots 0-14: IcG1-IcG4; 15-19: IcG5 (E rows); 20-21: IcG6 (E3 rows); 22: IcG7 (P6)
         sealed class IcRes { public bool Done, Exc; public int Abort = -1; public readonly long[] V = new long[kIcV]; }
         static readonly IcRes[] sIcRef = NewIc(), sIcWork = NewIc();
         static int sIcN;
@@ -722,7 +722,7 @@ namespace Ts3Fixes
         static void IcRead(GameObject o, long[] v)
         {
             Array.Clear(v, 0, v.Length);
-            IcG1(o, v); IcG2(o, v); IcG3(o, v); IcG4(o, v); IcG5(o, v);
+            IcG1(o, v); IcG2(o, v); IcG3(o, v); IcG4(o, v); IcG5(o, v); IcG6(o, v); IcG7(o, v);
         }
 
         // G1 terrain and floor, slots 0-5 (rows: TerrainHeight, TerrainType, HasFloorFeatures, HasFloorFeaturesWorldPos,
@@ -816,6 +816,31 @@ namespace Ts3Fixes
             v[18] = Sims3.SimIFace.World.GetWorldToHouseboatDisplayPosition(lot.LotId, p, out q) ? AutShadowCore.Bits(q.x) * 31 + AutShadowCore.Bits(q.z) : 2;
             q = new Vector3(-7f, -8f, -9f);
             v[19] = Sims3.SimIFace.World.GetHouseboatDisplayToWorldPosition(lot.LotId, p, out q) ? AutShadowCore.Bits(q.x) * 31 + AutShadowCore.Bits(q.z) : 2;
+        }
+
+        // G6 E3 rows (docs/data/tier2-enablers-handoff.md), slots 20-21: GetTerrainSurfaceType (+1) and GetFloorSurfaceType
+        // (null = 2, else a hash of the string). Same household-lot skip as IcG5.
+        static void IcG6(GameObject o, long[] v)
+        {
+            Lot lot = o.LotCurrent;
+            if (lot == null) return;
+            if (lot.Household != null && lot.Household == sIcHh) return;
+            Vector3 p = o.Position;
+            v[20] = (long)Sims3.SimIFace.World.GetTerrainSurfaceType(p) + 1;
+            string s = Sims3.SimIFace.World.GetFloorSurfaceType(lot.LotId, p);
+            long h = 29;
+            if (s != null) for (int i = 0; i < s.Length; i++) h = h * 31 + s[i];
+            v[21] = s == null ? 2 : h + s.Length + 3;
+        }
+
+        // G6 P6 (docs/data/tier2-rows35-handoff.md), slot 22: Query_CountObjectsInRange as Sofa.GetCouchPotatoMultiplier asks it
+        // (TVs within the couch-potato radius of the object's position), + 1 so 0 stays "not asked". Not asked for a household,
+        // selected or unknown request-0 actor: AutWork shuts the native row for it (household rule), both sides leave slot 0.
+        static void IcG7(GameObject o, long[] v)
+        {
+            if (sReqN < 1 || sReqs[0].Hh) return;
+            v[22] = (long)Sims3.Gameplay.Queries.CountObjects<Sims3.Gameplay.Objects.Electronics.TV>(o.Position,
+                Sims3.Gameplay.TuningValues.TraitTuning.CouchPotatoTraitSofaTVDistanceForBonus) + 1;
         }
 
         // The read part of Camera.GetClosestVisibleLot from the request's inputs, in the game's order: the candidate lots, then

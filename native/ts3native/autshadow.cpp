@@ -379,7 +379,9 @@ static const char* const kAsAbortName[AS_AB_N] = {"row", "pos", "memo", "rng", "
 // e.out the game may write (0 = all), from the disassembly; AS_OF_DIFF: the cut fills twice (out bytes 00, then FF) and
 // the entry keeps the bytes that came out equal (written on this input; the body must not read the out); AS_OF_ARR: out 0
 // is a ref the game sets to a fresh managed array of 4-byte elements, kept as a pool payload and re-made on each hit.
-enum { AS_OF_TRUE = 1, AS_OF_DIFF = 2, AS_OF_ARR = 4 };
+// AS_OF_LVL1 / AS_OF_LVLA (E3, docs/126 §4.1 correction, ledger §463): the cut fills the row only when the level bit the
+// body's footprint check would test is set (AsLevelGate); LVL1 = the level is the third argument, LVLA = every level of the lot.
+enum { AS_OF_TRUE = 1, AS_OF_DIFF = 2, AS_OF_ARR = 4, AS_OF_LVL1 = 8, AS_OF_LVLA = 16 };
 struct AsDesc {
     const char* name;
     u8 owner, kind, nArg, sz, at, reason, strMask, lotClear, nOut;
@@ -494,11 +496,22 @@ static const AsDesc kAsDesc[] = {
      AS_OF_TRUE, 0},
     {"ScriptCore.World::World_GetHouseboatDisplayToWorldPositionImpl", AO_CUT, AK_INT, 6, 1, 0, AS_AB_POS, 0, 0, 1, {5}, {12},
      AS_OF_TRUE, 0},
+    // E3 rows (ledger §463), both behind Tier2IcNew bit 4: #2 (x, z, int level) -> int; #4 (lot, Vector3) -> string (an
+    // immutable reference, as #26). AO_CUT: the level bits only go from clear to set between lot graph builds, so a skipped
+    // row is asked again at the next cut. Layouts [verified]: both reach the footprint check only through 0xC6C0C0.
+    {"ScriptCore.World::World_GetTerrainSurfaceTypeImpl", AO_CUT, AK_INT, 3, 4, 0, AS_AB_POS, 0, 0, 0, {0}, {0}, AS_OF_LVL1, 0},
+    {"ScriptCore.World::World_GetFloorSurfaceTypeImpl", AO_CUT, AK_REF, 5, 4, 0, AS_AB_POS, 0, 0, 0, {0}, {0}, AS_OF_LVLA, 0},
+    // P6 (docs/data/tier2-rows35-handoff.md, ledger §462): (Type, Vector3 center, float radius) -> uint, the same cdecl
+    // layout as Query_GetObjectsInRange (0x749770 vs 0x7496E0 differ only in the host slot, +0xC4 count vs +0xC0 array)
+    // [verified]. The answer moves with every object of the type in range (a Sim type moves each tick), so it is AO_CUT:
+    // re-asked through the game's body at every cut, never carried over a cut. Its own bit ([AutShadow] Tier2CountRange,
+    // g_asT2eBits bit 7) and the actor gate (AsWorkerAnswer: household, selected or unknown actors abort, no learn).
+    AS_D("ScriptCore.Queries::Query_CountObjectsInRange", AO_CUT, AK_INT, 5, 4, 0, AS_AB_QUERY),
 };
 static const int AS_NDESC = sizeof(kAsDesc) / sizeof(kAsDesc[0]);
 static const int AS_NT2 = 4;     // the docs/219 rows, just before the docs/126 §8 rows
-static const int AS_NT2IC = 20;  // the docs/126 §8 rows at the end of kAsDesc (the last AS_NT2E also need their bit)
-static const int AS_NT2E = 5;    // the E rows: Tier2IcNew bits 0-3, bit 4 = Tier2HouseboatRow
+static const int AS_NT2IC = 23;  // the docs/126 §8 rows + E3 + P6 at the end of kAsDesc (the last AS_NT2E also need their bit)
+static const int AS_NT2E = 8;    // the E rows: Tier2IcNew bits 0-3, bit 4 = Tier2HouseboatRow, bits 5-6 = Tier2IcNew bit 4 (E3), bit 7 = Tier2CountRange (P6; stays the last row: AsWorkerAnswer gates kAsDesc[AS_NDESC - 1])
 static bool g_asTier2Rows;       // [AutShadow] Tier2Rows
 static bool g_asTier2IcRows;     // [AutShadow] Tier2IcRows (only with Tier2Rows)
 static DWORD g_asT2eBits;        // per E row, default 0 (all off)
@@ -814,6 +827,48 @@ static void AsMaskRet(const AsDesc& d, DWORD* r) {
     else if (d.kind != AK_INT) r[1] = 0;
 }
 
+// E3 level-bit gate (docs/126 §4.1 correction, ledger §463) [verified disassembly, Steam 1.67]: #2 0x7862A0 and #4 0x793A30
+// reach the terrain footprint update only through WM 0xC6C0C0 (thiscall, (x, z, level, mask) ret 0x10): lot by position
+// 0xC68990 (x, z) -> lot->World_SurfaceTypeAtPoint 0xAB9580 (point {lx, lz, level}) -> (routing world [0x11D9128] via
+// 0x8292D0) RoutingWorld_SurfaceAtPoint 0x834B80 (needs rw+0x974; level = (s8) of the level dword through 0xAF9770/0xAF9B60,
+// in [lot+0x17C, lot+0x180]) -> EnsureTerrainFootprints 0x8341D0 (lot, level): no update when lot+0x408 == 1 and
+// lot+0x40C == 0x50, or LotTable_GetIfPresent 0x62FB60 ([rw+0x95C], lot key +0x48/+0x4C) misses, or bit (level -
+// entry+0x40) & 31 of entry+0x168 is set; else UpdateTerrainFootprints 0x831710 (+0x918). True = the body cannot reach the
+// update: fill. #4's level comes from its floor lookup, so LVLA asks every level of the lot. While an async job runs, the
+// lookup itself would wait at gate 12 (docs/195): skip. Sim thread (the cut) only.
+typedef u8*(__fastcall* AsLvLotAtFn)(u8* wm, void* edx, float x, float z);   // 0xC68990, ret 8
+typedef u8*(__fastcall* AsLvGipFn)(u8* p, void* edx, DWORD lo, DWORD hi);     // 0x62FB60, ret 8
+static AsLvLotAtFn g_asLvLotAt = (AsLvLotAtFn)(uintptr_t)0x00C68990;
+static AsLvGipFn g_asLvGip = (AsLvGipFn)(uintptr_t)0x0062FB60;
+static u8* const* g_asLvWm = (u8* const*)(uintptr_t)0x011ECBC4;
+static u8* const* g_asLvRw = (u8* const*)(uintptr_t)0x011D9128;
+static volatile LONG* g_asJobState;  // &g_async.state (ts3native.cpp; A_IDLE = 0); NULL in the host
+static LONG g_asLvFill, g_asLvSkip;  // logged: Mode R's skip count (I-131-8)
+static bool AsLevelGate(const AsDesc& d, const DWORD* a) {
+    const bool one = (d.of & AS_OF_LVL1) != 0;
+    float x, z;
+    memcpy(&x, &a[one ? 0 : 2], 4), memcpy(&z, &a[one ? 1 : 4], 4);
+    bool ok = true;
+    u8* const wm = *g_asLvWm;
+    u8* const lot = wm ? g_asLvLotAt(wm, NULL, x, z) : NULL;
+    u8* const rw = *g_asLvRw;
+    if (lot && !(*(const LONG*)(lot + 0x408) == 1 && *(const LONG*)(lot + 0x40C) == 0x50) && rw && rw[0x974]) {
+        const LONG lo = one ? (signed char)a[2] : *(const LONG*)(lot + 0x17C), hi = one ? lo : *(const LONG*)(lot + 0x180);
+        if (one && (lo < *(const LONG*)(lot + 0x17C) || lo > *(const LONG*)(lot + 0x180))) {
+            // level outside the lot: 0x834B80 returns before the check
+        } else if (g_asJobState && *g_asJobState != 0) ok = false;
+        else if (hi < lo || hi - lo > 31) ok = false;
+        else if (const u8* ent = g_asLvGip(*(u8**)(rw + 0x95C), NULL, *(const DWORD*)(lot + 0x48), *(const DWORD*)(lot + 0x4C))) {
+            const LONG base = *(const LONG*)(ent + 0x40);
+            const DWORD bits = *(const DWORD*)(ent + 0x168);
+            for (LONG l = lo; l <= hi && ok; l++) ok = ((bits >> ((l - base) & 31)) & 1) != 0;
+        }
+    }
+    const LONG n = InterlockedIncrement(ok ? &g_asLvFill : &g_asLvSkip);
+    if (!ok && (n <= 8 || !(n & 1023))) Log("autshadow level gate: %s skipped (%ld skipped, %ld filled)", d.name, g_asLvSkip, g_asLvFill);
+    return ok;
+}
+
 // the body's answer for entry e, into e itself; payload appended to pool (AE_NOPAY when it does not fit)
 static void AsStoreAnswer(const AsDesc& d, AsEnt& e, const AsRet& r, DWORD* pool, LONG* poolN);
 static void AsRefresh(int idx, AsEnt& e, DWORD* pool, LONG* poolN) {
@@ -827,6 +882,11 @@ static void AsRefresh(int idx, AsEnt& e, DWORD* pool, LONG* poolN) {
         a[n++] = j < d.nOut ? (DWORD)(uintptr_t)(e.out + AsOutOff(d, j)) : e.key[k++];
     }
     AsRet r = {0, 0, 0};
+    if ((d.of & (AS_OF_LVL1 | AS_OF_LVLA)) && !AsLevelGate(d, a)) {  // E3: the body would build footprints (and may wait on +0x918)
+        e.r[0] = e.r[1] = 0, e.f = 0, e.flags |= AE_NOPAY;  // no answer this cut (the worker aborts pos); no stale reference kept
+        e.pay = e.payN = 0;
+        return;
+    }
     if (d.of) memset(e.out, 0, sizeof(e.out));  // E1: bytes the game leaves are not a stale answer's
     AsCallRaw(g_asOrig[idx], a, n, &r, d.kind == AK_FP);
     if (d.of & AS_OF_DIFF) {  // second fill over FF: a byte the body wrote comes out the same both times
@@ -1302,7 +1362,11 @@ static void AsLearn(DWORD idx, const DWORD* key, int n) {
 
 // worker run bounds (part 2): only inside the sim's quiescent window, so never during a cut; a run that overruns keeps
 // its version held and the next cut writes the other one
-void AsWorkerBegin() { InterlockedExchange(&g_asHeld, g_asPub); InterlockedExchange(&g_asStop, 0); }
+// P6 actor gate: 1 = the request the worker is scoring has a household, selected or unknown actor. ts3fixes sets it per
+// request (AutShadowNative.ActorScope, worker only); every run starts at 1, so a ts3fixes without the call keeps it shut
+static volatile LONG g_asActorHh = 1;
+static LONG g_asActorHhAborts;  // Query_CountObjectsInRange reads refused by the gate (selftest; runs: the abortic line)
+void AsWorkerBegin() { InterlockedExchange(&g_asHeld, g_asPub); InterlockedExchange(&g_asStop, 0); InterlockedExchange(&g_asActorHh, 1); }
 void AsWorkerEnd() { InterlockedExchange(&g_asHeld, -1); }
 
 static int AsRngWorker(DWORD idx, AsRet* r);  // autshadow-run.cpp (docs/125 §2)
@@ -1318,6 +1382,8 @@ static int AsWorkerAnswer(DWORD idx, DWORD* args, AsRet* r) {
     if (g_asStop) { AsAbort(AS_AB_STOP, idx); return fp; }
     if (!d) { AsAbort(g_asNoDesc[idx], idx); return fp; }  // never the body: H12 route ICs would answer for handle 0
     if (d->owner == AO_ABORT) { AsAbort(d->reason, idx); return fp; }
+    // P6: household Sims never get this row's answer (CLAUDE.md household rule): no lookup, no learn, the game scores it
+    if (d == &kAsDesc[AS_NDESC - 1] && g_asActorHh) { InterlockedIncrement(&g_asActorHhAborts); AsAbort(AS_AB_OTHER, idx); return fp; }
     if (d->owner == AO_RNG) return AsRngWorker(idx, r);
     if (d->owner == AO_STUB) {
         if (!g_asEmptyStr) AsAbort(AS_AB_REF, idx); else r->lo = (DWORD)(uintptr_t)g_asEmptyStr;
@@ -3134,10 +3200,11 @@ static bool ApplyAutShadow(const wchar_t* ini) {
     Log("autonomy shadow: Tier2Rows=%d (docs/219 four shared rows)", g_asTier2Rows ? 1 : 0);
     g_asTier2IcRows = g_asTier2Rows && GetPrivateProfileIntW(L"AutShadow", L"Tier2IcRows", 0, ini) != 0;
     Log("autonomy shadow: Tier2IcRows=%d (docs/126 IC rows, needs Tier2Rows)", g_asTier2IcRows ? 1 : 0);
-    g_asT2eBits = (GetPrivateProfileIntW(L"AutShadow", L"Tier2IcNew", 0, ini) & 15) |
-                  (GetPrivateProfileIntW(L"AutShadow", L"Tier2HouseboatRow", 0, ini) ? 16u : 0u);
-    Log("autonomy shadow: Tier2IcNew=%lu Tier2HouseboatRow=%d (E rows #7 #15 #16 #21, houseboat; need Tier2IcRows)", g_asT2eBits & 15,
-        (g_asT2eBits >> 4) & 1);
+    const DWORD icNew = (DWORD)GetPrivateProfileIntW(L"AutShadow", L"Tier2IcNew", 0, ini);
+    g_asT2eBits = (icNew & 15) | (GetPrivateProfileIntW(L"AutShadow", L"Tier2HouseboatRow", 0, ini) ? 16u : 0u) | (icNew & 16 ? 0x60u : 0u) |
+                  (GetPrivateProfileIntW(L"AutShadow", L"Tier2CountRange", 0, ini) ? 0x80u : 0u);
+    Log("autonomy shadow: Tier2IcNew=%lu Tier2HouseboatRow=%d Tier2CountRange=%d (E rows #7 #15 #16 #21, bit 4 = E3 #2 #4; houseboat; P6 CountObjectsInRange; need Tier2IcRows)",
+        (g_asT2eBits & 15) | (icNew & 16), (g_asT2eBits >> 4) & 1, (g_asT2eBits >> 7) & 1);
     const u8* base = (const u8*)GetModuleHandleW(NULL);
     const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
     const IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);

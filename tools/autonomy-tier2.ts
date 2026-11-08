@@ -30,7 +30,7 @@ export const CUT = ['Sims3.Gameplay.Seasons.SeasonsManager::LazyAllocateManager(
   'Sims3.Gameplay.Utilities.Localization::LocalizeString(', 'Sims3.Gameplay.Utilities.OnlineDatingManager::DidSimsMeetOnline(',
   'Sims3.Gameplay.Autonomy.MetaAutonomyTuning::GetSimCountForVenueWithCustomDesireFunction(',
   'Sims3.Gameplay.ChildAndTeenUpdates.Punishment::GetPunishmentManagerFromSim('];
-// docs/126 §3 tier-2 worker hooks (design, not built): H7 top dragged object from the cut snapshot (both getters),
+// docs/126 §3 tier-2 worker hooks (built 2026-11-08 in ts3fixes AutShadow.cs, switches autt2drag/autt2cache/autt2tuning/autt2lod, not run): H7 top dragged object from the cut snapshot (both getters),
 // H8 the actor's search cache must already be active, H9 tuning caches read-only (miss = abort), H10 autonomy LOD flag
 // read without the 60-tick recompute. --no-tier2-hooks gives the counts before them.
 if (!process.argv.includes('--no-tier2-hooks')) CUT.push('Sims3.Gameplay.UI.LiveDragHelperModel::get_CachedTopDraggedObject(',
@@ -135,7 +135,11 @@ export const TIER2_BUILT = new Set(['World_GetPoolObjectIdForPoolBelowPositionIm
   'Objects_GetBoundingBox', 'Objects_IsValid', 'World_LightGetDimmerImpl', 'World_GetWorldFileName',
   // E rows: write mask (E1) and ulong[] copy (E2), docs/data/tier2-enablers-handoff.md
   'World_GetTilesWithFloorFeaturesImpl', 'World_FindPondRepresentativePositions', 'World_GetLotLocationAtFloorImpl',
-  'World_GetWorldToHouseboatDisplayPositionImpl', 'World_GetHouseboatDisplayToWorldPositionImpl']);
+  'World_GetWorldToHouseboatDisplayPositionImpl', 'World_GetHouseboatDisplayToWorldPositionImpl',
+  // E3 rows: level-bit gate (docs/51 §463)
+  'World_GetTerrainSurfaceTypeImpl', 'World_GetFloorSurfaceTypeImpl',
+  // P6 (docs/data/tier2-rows35-handoff.md): AO_CUT, household/selected/unknown actors refused at the worker
+  'Query_CountObjectsInRange']);
 export function icClass(name: string): string {
   const meth = name.slice(name.indexOf('::'));
   if (snap.has(meth)) return snap.get(meth)!;

@@ -217,6 +217,7 @@ export function allowedCorrection(xml: string, allow: string[]): boolean {
   const res = allow.map(s => new RegExp(s));
   return lines.length > 0 && lines.every(l => res.some(r => r.test(l)));
 }
+import { EA_PACKAGE_LOCK } from '../dump-locks.ts';
 import { clickLines, dumpHungGame, GUARD_MS, logTail, type ModeSnap, modeExit, modeSnap, noSafeButton } from './game-alive.ts';
 import { BIN, EA_LAUNCHER, EA_URI, GAME_EXE, gameRunning, isSteamGame, killLeftovers, LAUNCH, logUntrackedGame, MACHINE, machineTag, seenPids } from './game-exe.ts';
 import { checkCfg as checkFailFast, describe as describeFailFast, routingGuard, type FailFast } from './routing-failfast.ts';
@@ -266,7 +267,7 @@ function machineField(tag: string): { machineTag?: string } { return tag ? { mac
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; run: { repro?: string; saveReload?: string[]; script?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
     profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
-  saveMatrix?: { fixes?: 'all' | 'shipped' }; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; shadowCheck?: boolean; skipIfMissing?: boolean; ourMods?: false };
+  saveMatrix?: { fixes?: 'all' | 'shipped' }; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; retryOf?: string; shadowCheck?: boolean; skipIfMissing?: boolean; ourMods?: false };
 
 // every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
 const JOB_KEYS = new Set(['id', 'note', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'reuseSession', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
@@ -813,6 +814,22 @@ export function noisyRerun(j: Job, row: { noise?: string; error?: string | null 
   if (row.noise !== 'high' && !/noisy machine early/.test(row.error ?? '')) return null;
   const id = `${j.id}-rerun`;
   return ids.includes(id) ? null : { ...j, id, rerunOf: j.id, note: `rerun of ${j.id} (noisy machine)${j.note ? `: ${j.note}` : ''}` };
+}
+// EA package-lock deadlock at the menu/load phase (docs/539 §13.8): the hang's kill dump named the cycle (game-alive.ts lockWaits).
+// The job runs once more right after it as <id>-retry (the game is closed and restarted in between, as for any next job); a second hang
+// of the same kind, or any other hang, is a FAIL. The first attempt's row becomes N/A with "retry: EA package-lock deadlock".
+export const DEADLOCK_RETRY = `retry: ${EA_PACKAGE_LOCK}`;
+export function deadlockRetry(j: Job, row: { crashed?: boolean; timedOut?: boolean }, jobLog: string, ids: string[]): Job | null {
+  if (j.retryOf || row.crashed || row.timedOut || !jobLog.includes(EA_PACKAGE_LOCK) || !/world load: nothing moved/.test(jobLog)) return null;
+  const id = `${j.id}-retry`;
+  return ids.includes(id) ? null : { ...j, id, retryOf: j.id, note: `${DEADLOCK_RETRY} in ${j.id}, load retried once${j.note ? `: ${j.note}` : ''}` };
+}
+// the first attempt's row: no FAIL line of a run that never got past the menu (idempotent; "first attempt (hung):" matches no verdict pattern)
+export function neutralizeRetried(row: { verdict: string[]; error?: string | null; selfCheckFail?: string; retriedAs?: string; retryWas?: string[] }, id: string) {
+  const old = row.verdict.filter(v => !/^(N\/A: retry:|first attempt \(hung\):)/.test(v));
+  if (old.length || row.error || row.selfCheckFail) row.retryWas = [...(row.retryWas ?? []), ...old, ...(row.error ? [`error: ${row.error}`] : []), ...(row.selfCheckFail ? [`self-check: ${row.selfCheckFail}`] : [])];
+  row.verdict = [`N/A: ${DEADLOCK_RETRY}, rerun queued as ${id}`, ...(row.retryWas ?? []).map(v => `first attempt (hung): ${v}`)];
+  row.error = null; delete row.selfCheckFail; row.retriedAs = id;
 }
 // which row of a noisy pair counts (results page note)
 export const countsNote = (row: { rerun?: string; rerunOf?: string; noise?: string; error?: string | null }) =>
@@ -1474,6 +1491,22 @@ if (values['self-check']) {
   assert.equal(hangCaptureLine('12:00:00 hang capture: 1 sim stacks, top frame x\n12:01:00 hang capture: 5 sim stacks, top frame ts3native.asi+0x1 (5/5 same); 3 other thread stacks; managed top A.B; dump fake; C:\\p\\hang-1-*\n'),
     'hang capture: 5 sim stacks, top frame ts3native.asi+0x1 (5/5 same); 3 other thread stacks; managed top A.B');
   assert.equal(hangCaptureLine('no hang'), null);
+  { // EA package-lock deadlock (docs/539 §13.8): one retry right after, the first attempt's row is N/A, a second or other hang fails
+    const job = { id: 'bp-x', note: 'n', run: {} } as unknown as Job, hung = `FAIL: world load: nothing moved for 60 s (fail-fast guard); kill dump procdump 1700 MB: x.dmp; lock waits: 3 of 150 threads; deadlock cycle 1>2>1; ${EA_PACKAGE_LOCK}`;
+    const r = deadlockRetry(job, {}, hung, ['bp-x']);
+    assert.equal(r?.id, 'bp-x-retry'); assert.equal(r?.retryOf, 'bp-x'); assert.match(r!.note!, new RegExp(`${DEADLOCK_RETRY.replace(/[().]/g, '\\$&')} in bp-x`));
+    assert.equal(deadlockRetry(r!, {}, hung, ['bp-x', 'bp-x-retry']), null, 'the retry itself is not retried');
+    assert.equal(deadlockRetry(job, {}, hung, ['bp-x', 'bp-x-retry']), null);
+    assert.equal(deadlockRetry(job, {}, hung.replace(EA_PACKAGE_LOCK, 'no cycle'), []), null, 'any other hang fails');
+    assert.equal(deadlockRetry(job, {}, hung.replace('world load: nothing moved', 'heartbeat frozen'), []), null, 'only the menu/load stall guard');
+    assert.equal(deadlockRetry(job, { crashed: true }, hung, []), null);
+    assert.equal(deadlockRetry(job, { timedOut: true }, hung, []), null);
+    const row: any = { verdict: ['FAIL: world load: nothing moved', 'bp: FAIL'], error: 'world load: nothing moved', selfCheckFail: 'x', pass: false, exitCode: 1, crashed: false };
+    neutralizeRetried(row, 'bp-x-retry'); neutralizeRetried(row, 'bp-x-retry'); // idempotent
+    assert.deepEqual(row.verdict.slice(0, 2), ['N/A: retry: EA package-lock deadlock (docs/539 §13.8), rerun queued as bp-x-retry', 'first attempt (hung): FAIL: world load: nothing moved']);
+    assert.equal(row.verdict.length, 5); assert.equal(row.error, null); assert.equal(row.retriedAs, 'bp-x-retry');
+    assert.equal(naRow(row), true, 'N/A, not a FAIL'); assert.equal(row.verdict.some(isFail), false);
+  }
   assert.deepEqual(verdicts(matrix), ['control: PASS', 'identical: FAIL', 'summary: 2 cases, 1 passed, 1 failed (identical)']);
   // docs/236 #15: an early FAIL survives 10 later PASS lines; summary counts are not FAIL lines
   const many = ['12:00:00 FAIL: [vres] last snapshot / dump: x', ...Array.from({ length: 10 }, (_, i) => `12:00:0${i} c${i}: PASS`)].join('\n');
@@ -2574,6 +2607,7 @@ for (const [n, j] of jobs.entries()) {
   if (pin) process.env.TS3_GAME_CPUS = pin.cpus; // child samplers (profile-world.ts) split by the same set
   row.pin = describePin(pin);
   if (j.rerunOf) row.rerunOf = j.rerunOf;
+  if (j.retryOf) row.retryOf = j.retryOf;
   let miss: string[] = [];
   if (j.skipIfMissing) try { miss = missingFixes(execFileSync(process.execPath, [fixesTool, 'plan', '--only', j.fixes!.install!.join(',')], { cwd: ROOT, encoding: 'utf8' })); } catch (e) { log(`${j.id}: install-fixes plan: ${String(e).split('\n')[0]}`); } // the install below then decides
   if (miss.length) {
@@ -2946,7 +2980,10 @@ for (const [n, j] of jobs.entries()) {
     launched && freshCrashReport(t0);
   guardClosed = false;
   if (row.crashed) { row.crash = triage(t0); log(`${j.id}: game crashed\n${row.crash}`); await logUntrackedGame(s => log(`${j.id}: ${s}`)); } // EA only: names game processes this run never saw (docs/236 #20)
-  try { row.hangCapture = hangCaptureLine(readFileSync(logFile).subarray(logOff).toString()); } catch { /* no job log */ }
+  let jobLogText = ''; try { jobLogText = readFileSync(logFile).subarray(logOff).toString(); } catch { /* no job log */ }
+  try { row.hangCapture = hangCaptureLine(jobLogText); } catch { /* no job log */ }
+  const retry = deadlockRetry(j, row, jobLogText, [...all, ...jobs].map(x => x.id));
+  if (retry) { jobs.splice(n + 1, 0, retry); neutralizeRetried(row, retry.id); log(`${j.id}: ${DEADLOCK_RETRY}: ${retry.id} queued next`); }
   if (VANILLA) row.verdict.push(`N/A (vanilla): ${VANILLA_NA.join(', ')}`); // skipped, never PASS
   else if (j.ourMods === false) row.verdict.push(`N/A (ourMods false): ${OURMODS_NA.join(', ')}`);
   row.pass = row.exitCode === 0 && !row.crashed && !row.error && !row.timedOut && !row.selfCheckFail && !row.verdict.some(isFail); // any FAIL line counts, exit 0 or not (docs/236 #15)
@@ -3019,7 +3056,7 @@ for (const [n, j] of jobs.entries()) {
   if (mayKeep && !keep) await endGame(j);
   if (!keep) { const errs = await restoreStart(j.id, logFile); if (errs.length) row.error = [row.error, ...errs].filter(Boolean).join('; '); }
   // docs/170: a crash or failed window of a session job ends the session; daytime that also stops the queue
-  if (reuseOf(j) && !row.pass && failMode(reuseOf(j)!) === 'stop') stopWhy ||= `${j.id} ${row.crashed ? 'crashed' : 'failed'} in a reuseSession queue (daytime rule; TS3_NIGHT=1 or reuseSession.onFail "restart" goes on with a fresh start)`;
+  if (reuseOf(j) && !row.pass && !row.retriedAs && failMode(reuseOf(j)!) === 'stop') stopWhy ||= `${j.id} ${row.crashed ? 'crashed' : 'failed'} in a reuseSession queue (daytime rule; TS3_NIGHT=1 or reuseSession.onFail "restart" goes on with a fresh start)`;
   // baseline save integrity: a changed Baseline-*/Story-*/ApexTest-Town save fails the job and stops the queue
   row.saveHashes.after = hashSaves(SAVES, guarded);
   const changedSaves = saveDrift(row.saveHashes.before, row.saveHashes.after);
@@ -3028,6 +3065,7 @@ for (const [n, j] of jobs.entries()) {
     stopWhy ||= `baseline save changed during ${j.id} (${changedSaves.join('; ')}): put it back from its .backup before any further run`;
   }
   row.buildCheck = lastBuild;
+  if (row.retriedAs) neutralizeRetried(row, row.retriedAs); // checks above that ran on the hung game added their own FAIL lines
   // noisy timing job: once more at the end of this run as <id>-rerun (both rows kept; the note says which counts)
   const again = noisyRerun(j, row, [...all, ...jobs].map(x => x.id));
   if (again) { jobs.push(again); row.rerun = again.id; log(`${j.id}: noisy machine: ${again.id} queued at the end of this run`); }

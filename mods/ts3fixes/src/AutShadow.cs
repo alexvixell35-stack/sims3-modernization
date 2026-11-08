@@ -82,6 +82,9 @@ namespace Ts3Fixes
         // 0.36.148, Config(34) == 1: the last search's request id, feature mask (AutLiveCore.Feat) and top definition for the
         // crash log; Config(33) = the last finished job's native feature bits
         [MethodImpl(MethodImplOptions.InternalCall)] public static extern void SearchMark(int req, int mask, string def);
+        // P6, Config(35) == 1 (docs/data/tier2-rows35-handoff.md): the request the worker scores next has a household, selected
+        // or unknown actor (1) or not (0); the Query_CountObjectsInRange row answers only at 0. Worker only, no-op elsewhere
+        [MethodImpl(MethodImplOptions.InternalCall)] public static extern void ActorScope(int hh);
     }
 
     // [AutShadow] pilot part 2, managed half (docs/122 §1.2, §3.5, §4, §5, §12.5). Shadow only: the worker's scores are
@@ -102,6 +105,7 @@ namespace Ts3Fixes
         const int kMaxObjs = 1024, kMaxPairs = 8192, kMaxLogPerLoad = 200;
         const int kCRainWhy = 607;  // 607-610: `rain` aborts by path (Result.RainWhy)
         const int kCT2Ab = 884, kCT2Drag = 891;  // 884-890 tier-2 P1 aborts by class (Result.T2Ab), 891 drag pre-warm fills
+        const int kCT2H = 898;  // 898-902 tier-2 H7-H10 (Result.T2H, AutShadowCore.kT2H*)
         const int kReasonOther = 19;  // native AS_AB_OTHER: P1 aborts (`inuse`, `fire` by class only in 884-890, no native reason)
         const int kReasonExc = 12, kReasonStop = 13, kReasonDesire = 15, kReasonRain = 20, kReasonPosture = 21;
 
@@ -109,6 +113,7 @@ namespace Ts3Fixes
         {
             public int Id = -1, Mode, Objs, Pairs;
             public Sim Actor;
+            public bool Hh = true;  // household, selected or unknown actor (sim thread, at the post): the P6 row's gate
             public AutonomyT Aut;
             public CommodityKind C;
             public AutonomySearchType SearchType;
@@ -133,6 +138,11 @@ namespace Ts3Fixes
             // tier-2 P1 (T2P1Fill, sim thread at the request): the actor's household scope and the hook switches, so the
             // worker reads only these fields. T2Hh defaults to household until filled.
             public bool T2Hh = true, T2InUse, T2Fire;
+            // tier-2 H7-H10 (T2HFill, sim thread at the request, after T2P1Fill): switches, the dragged object (H7, cached
+            // value if the game's search already filled it, else the scene window's), the actor's cache flag (H8) and tick (H10)
+            public bool T2Drag, T2Cache, T2Tuning, T2Lod, T2CacheActive;
+            public IGameObject T2DragCached, T2DragTop;
+            public long T2Tick;
         }
 
         public sealed class Result
@@ -150,6 +160,8 @@ namespace Ts3Fixes
             // tier-2 P1 aborts by class (worker-written, summed into counters 884-890 at the finish): 0-5 get_InUse overrides
             // (AutShadowCore.kT2InUseTypes), 6 fire
             public readonly int[] T2Ab = new int[AutShadowCore.kT2N];
+            // tier-2 H7-H10 (worker-written, summed into counters 898-902 at the finish; AutShadowCore.kT2H* order)
+            public readonly int[] T2H = new int[AutShadowCore.kT2HN];
         }
 
         // Rooted requests and results (docs/122 §4.2), allocated at startup on the sim thread and reused. A shared cut (docs/122
@@ -328,6 +340,7 @@ namespace Ts3Fixes
             sShelterHooked = Hook(failed, typeof(Sims3.Gameplay.Seasons.SeasonsManager), "IsShelteredFromPrecipitation",
                 new Type[] { typeof(IGameObject), typeof(InteractionInstance) }, typeof(AutShelterHook), "ShelterHook", "ShelterOrig");
             T2P1Hooks(failed);
+            T2HHooks(failed);
             MethodInfo site = typeof(InteractionDefinition).GetMethod("CreateInstance",
                 new Type[] { typeof(IGameObject), typeof(IActor), typeof(InteractionPriority), typeof(bool), typeof(bool) });
             sCreateSite = site != null ? site.MethodHandle.Value : IntPtr.Zero;
@@ -336,6 +349,8 @@ namespace Ts3Fixes
             // B13: requests (any mode) and the ledger scope (autledger) both enter here; it passes through while both are off
             if (!Hook(failed, typeof(AutonomyT), "ScoreInteractionsForMetaAutonomy", null, typeof(AutMetaHook), "MetaHook", "MetaOrig"))
                 AppliedLog().Add("AutShadow: B13 hook (Autonomy.ScoreInteractionsForMetaAutonomy) not patched: no requests, no ledger scopes");
+            // tier-2 L0 local-phase probe (AutLocalProbe.cs, switch autt2l0): B7, passes through while the switch is off
+            Hook(failed, typeof(AutonomyT), "ScoreInteractionsOnObjects", new Type[] { typeof(CommodityKind), typeof(bool) }, typeof(AutLocalHook), "B7Hook", "B7Orig");
             if (failed.Count > 0)
                 AppliedLog().Add("AutShadow: not patched: " + string.Join(", ", failed.ToArray()) + (sHooksOk ? "" : "; Modes 1/2 off, Mode 0 (count only) still runs"));
             AppDomain.CurrentDomain.SetData("ts3fixes.autshadow.reasons", sReasons);
@@ -486,6 +501,7 @@ namespace Ts3Fixes
         }
         static bool sSweptAtLoad;
         static bool sReqLotRows;
+        static bool sActorScope;  // ts3native has ActorScope (Config(35)); else its P6 row stays shut for every actor
 
         // docs/124 §17: B14, the go-live consumer (passes through unless a Mode 3 search of that autonomy is in its game B13).
         // kAutLive packages only (default True since O6): the pass-through costs one interpreter frame under every meta B14 (docs/130 §11 budget).
@@ -539,6 +555,8 @@ namespace Ts3Fixes
                 sRainAnswer = sShelterHooked && sCreateSite != IntPtr.Zero && AutShadowNative.Config(32) == 1;
                 AppliedLog().Add("AutShadow: H11 shelter answer " + (sRainAnswer ? "on" : "off (rain pairs abort)"));
                 sFeatNative = AutShadowNative.Config(34) == 1;  // 0.36.148+: Config(33) job bits and SearchMark
+                sActorScope = AutShadowNative.Config(35) == 1;
+                if (sActorScope) AutShadowNative.ActorScope(1);  // sim thread: a no-op that resolves the icall before the worker needs it
                 AutShadowNative.SetRefs(sEmpty, sFmtException);
                 const BindingFlags st = BindingFlags.Static | BindingFlags.NonPublic;
                 AutShadowNative.SetMethods(typeof(Fixes).GetMethod("AutFinish", st).MethodHandle.Value,
@@ -893,7 +911,7 @@ namespace Ts3Fixes
             int at = sReqN;
             Request q = sReq = sReqs[at];
             q.Live = L;
-            q.Id = ++sNextId; q.Mode = mode; q.Actor = actor; q.Aut = a; q.C = c;
+            q.Id = ++sNextId; q.Mode = mode; q.Actor = actor; q.Aut = a; q.C = c; q.Hh = HhScope(actor);
             q.SearchType = a.CurrentSearchType; q.Flags = a.GetInteractionFlagsForCurrentSearch(); q.Hours = SimClock.HoursPassedOfDay;
             q.Objs = q.Pairs = 0;
             sRefs[at].Id = sWorks[at].Id = -1;
@@ -925,6 +943,7 @@ namespace Ts3Fixes
             catch (Exception e) { cnt[121]++; AutNote("request: " + e.Message); }
             PreWarm(actor);
             T2P1Fill(q, actor);
+            T2HFill(q);
             ClassifyListTypes();
             ClassifyObjects();
             q.Start[q.Objs] = q.Pairs;
@@ -1097,6 +1116,7 @@ namespace Ts3Fixes
                     sReq = sReqs[i]; sWork = sWorks[i];
                     ScoreMeta(sReq, sWork);
                 }
+                if (sActorScope) AutShadowNative.ActorScope(sReqN > 0 && !sReqs[0].Hh ? 0 : 1);  // the offload items ride request 0
                 OffScore(true);  // docs/208 (AutOffload.cs)
             }
             finally { sInWork = false; }
@@ -1117,6 +1137,7 @@ namespace Ts3Fixes
                 c[121] += (sRef.Id == sReq.Id ? sRef.Exceptions : 0) + (sWork.Id == sReq.Id ? sWork.Exceptions : 0);
                 if (sWork.Id == sReq.Id) for (int w = 0; w < 4; w++) c[kCRainWhy + w] += sWork.RainWhy[w];  // fixes-607
                 if (sWork.Id == sReq.Id) for (int w = 0; w < AutShadowCore.kT2N; w++) c[kCT2Ab + w] += sWork.T2Ab[w];  // fixes-884
+                if (sWork.Id == sReq.Id) for (int w = 0; w < AutShadowCore.kT2HN; w++) c[kCT2H + w] += sWork.T2H[w];  // fixes-898
                 // KeepPartial (docs/122 §14.21): an overrun (LastRun 1) whose worker result says Done kept the objects it
                 // finished before the stop; those are compared, the rest are A4 `stop`. An epoch drop (2) stays dropped.
                 bool partial = lr == 1 && sKeepPartial && sWork.Done && sWork.Partial && sWork.Id == sReq.Id;
@@ -1341,7 +1362,9 @@ namespace Ts3Fixes
             r.Id = q.Id; r.Exceptions = 0; r.DesireDriver = 0; r.RainUsed = 0; r.Done = false; r.Partial = false;
             Array.Clear(r.RainWhy, 0, r.RainWhy.Length);
             Array.Clear(r.T2Ab, 0, r.T2Ab.Length);
+            Array.Clear(r.T2H, 0, r.T2H.Length);
             sCurRes = r;
+            if (sActorScope && OnWorker()) AutShadowNative.ActorScope(q.Hh ? 1 : 0);
             for (int o = 0; o < q.Objs; o++)
             {
                 int s = q.Start[o], e = q.Start[o + 1];
@@ -1424,6 +1447,13 @@ namespace Ts3Fixes
         }
 
         static bool OnWorker() { return sInWork && AutShadowNative.IsWorker(); }
+
+        // household rule (CLAUDE.md): a Sim the player controls, or one we cannot classify, counts as household
+        static bool HhScope(Sim s)
+        {
+            try { return s == null || s.HasBeenDestroyed || s.SimDescription == null || s.IsSelectable || s.Household == Sims3.Gameplay.CAS.Household.ActiveHousehold; }
+            catch (Exception) { return true; }
+        }
 
         // H11 (docs/127 §4): Autonomy.CalculateScoreForObjectInteraction, with Seasons on, rain or hail, an autonomy search
         // and an outdoor non-Sim target, creates a throwaway InteractionInstance (InteractionInstance.sNextId++, a static
@@ -1584,6 +1614,7 @@ namespace Ts3Fixes
             public int MetaHook(CommodityKind c)
             {
                 AutonomyT a = (AutonomyT)(object)this;
+                L0Close(a);  // tier-2 L0: B9 is over when B13 starts (AutLocalProbe.cs)
                 bool mine = false;
                 if (!sSessionOff && ShortcutOn("autshadow"))
                 {
@@ -1617,6 +1648,7 @@ namespace Ts3Fixes
         {
             public float ScoreHook(InteractionObjectPair iop)
             {
+                if (sL0Aut != null && (object)this == (object)sL0Aut) sL0Pairs++;  // tier-2 L0 pair count (AutLocalProbe.cs)
                 LiveSearch L = LiveOf(this);  // docs/124 §17: a go-live search's live scores (drift, dry compare)
                 if (L != null)
                 {
@@ -1904,6 +1936,149 @@ namespace Ts3Fixes
                 return false;
             }
             public bool FireOrig() { return false; } // receives FireManager.HasOnlyLeafPileFires' original header
+        }
+
+        // ---- tier-2 H7-H10 (docs/126 §3, docs/data/tier2-rows35-handoff.md) ----
+        // Worker hooks for the local-phase test closures; the sim thread (and the Mode R reference) runs the game's method.
+        // Each has its own switch, default off; off = the game's method unchanged on every thread.
+        //   H7 LiveDragHelperModel.get_CachedTopDraggedObject / get_TopDraggedObject (autt2drag): the object latched at the
+        //      request; the game's getter fills a static cache and asks the scene window (UIManager ICs).
+        //   H8 Autonomy.UpdateCacheIfNeeded (autt2cache): the request's autonomy with its search cache on at the request =
+        //      no-op (the game's own answer inside a search); anything else aborts `cache`.
+        //   H9 InteractionObjectPair.AddTuning (autt2tuning): both static caches hit = the cached tuning on the pair (the
+        //      worker-built pair's own field); a miss would add to a static Dictionary: abort `tuning`. The sim thread is
+        //      quiescent while the worker runs (docs/122), so the reads see no concurrent add.
+        //   H10 Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation (autt2lod): the request's autonomy answers its stored
+        //      mbHighLOD, no recompute (the recompute can set a posture state-machine parameter); others abort.
+        // Native reason `other` (no native change); counters 898-902 (fixes-898).
+        // Household Sims: a household, selected or unknown-scope actor (Request.T2Hh, T2P1Fill) never gets a worker answer:
+        // every H7-H10 site takes an explicit abort branch for it first (uncounted). H8 and H10 answer only for the
+        // request's own autonomy, whose actor is that NPC; any other Sim's autonomy aborts.
+        static bool sT2DragHooked, sT2CacheHooked, sT2TuningHooked, sT2LodHooked;
+        static FieldInfo fDragCached, fDragCache, fUseCached, fHighLod, fLodTick, fReqTuning, fTuning, fTargetType, fTuningMember;
+
+        static void T2HHooks(List<string> failed)
+        {
+            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            Type drag = typeof(Sims3.Gameplay.UI.LiveDragHelperModel), iop = typeof(InteractionObjectPair);
+            fDragCached = drag.GetField("sTopDraggedObjectCached", all); fDragCache = drag.GetField("sTopDraggedObjectCache", all);
+            fUseCached = typeof(AutonomyT).GetField("mUseCachedValues", all);
+            fHighLod = typeof(AutonomyT).GetField("mbHighLOD", all); fLodTick = typeof(AutonomyT).GetField("mLODCheckTick", all);
+            fReqTuning = iop.GetField("sRequiresTuningCache", all); fTargetType = iop.GetField("mTargetType", all);
+            fTuningMember = iop.GetField("mTuning", all);
+            if (fDragCached == null || fDragCache == null) failed.Add("LiveDragHelperModel.sTopDraggedObjectCache*");
+            else sT2DragHooked = Hook(failed, drag, "get_CachedTopDraggedObject", null, typeof(AutDragHook), "CachedHook", "CachedOrig")
+                & Hook(failed, drag, "get_TopDraggedObject", null, typeof(AutDragHook), "TopHook", "TopOrig");
+            if (fUseCached == null) failed.Add("Autonomy.mUseCachedValues");
+            else sT2CacheHooked = Hook(failed, typeof(AutonomyT), "UpdateCacheIfNeeded", new Type[] { typeof(IGameObject) }, typeof(AutCacheHook), "CacheHook", "CacheOrig");
+            if (fReqTuning == null || fTargetType == null || fTuningMember == null) failed.Add("InteractionObjectPair tuning fields");
+            else sT2TuningHooked = Hook(failed, iop, "AddTuning", null, typeof(AutTuningHook), "TuningHook", "TuningOrig");
+            if (fHighLod == null || fLodTick == null) failed.Add("Autonomy.mbHighLOD/mLODCheckTick");
+            else sT2LodHooked = Hook(failed, typeof(AutonomyT), "get_IsSufficientlyOnScreenForHighLODSimulation", null, typeof(AutLodHook), "LodHook", "LodOrig");
+        }
+
+        // Sim thread at the request (B13 prefix, inside the game's search): latch the switches and the values the worker
+        // answers from. Reads only; the drag read may create the drag UI model singleton (no Sim state, as P1's pre-warm).
+        static void T2HFill(Request q)
+        {
+            q.T2Drag = q.T2Cache = q.T2Tuning = q.T2Lod = q.T2CacheActive = false;
+            q.T2DragCached = q.T2DragTop = null; q.T2Tick = 0;
+            try
+            {
+                q.T2Drag = sT2DragHooked && ShortcutOn("autt2drag");
+                q.T2Cache = sT2CacheHooked && ShortcutOn("autt2cache");
+                q.T2Tuning = sT2TuningHooked && ShortcutOn("autt2tuning");
+                q.T2Lod = sT2LodHooked && ShortcutOn("autt2lod");
+                if (q.T2Drag && !q.T2Hh)
+                {
+                    q.T2DragTop = Sims3.Gameplay.UI.LiveDragHelperModel.Singleton.TopDraggedObject;  // our hook passes through here
+                    q.T2DragCached = (bool)fDragCached.GetValue(null) ? fDragCache.GetValue(null) as IGameObject : q.T2DragTop;
+                }
+                if (q.T2Cache && q.Aut != null) q.T2CacheActive = (bool)fUseCached.GetValue(q.Aut);
+                if (q.T2Lod) q.T2Tick = Simulator.TicksElapsed();
+            }
+            catch (Exception e) { q.T2Drag = q.T2Cache = q.T2Tuning = q.T2Lod = false; PatchCounters()[121]++; AutNote("t2 h fill: " + e.Message); }
+        }
+
+        // Worker, switch on: 0 answer (count `answered` if >= 0), else abort (household uncounted, else `abortSlot`).
+        static bool T2HAbort(bool household, int abortSlot)
+        {
+            if (!household && abortSlot >= 0 && sCurRes != null) sCurRes.T2H[abortSlot]++;
+            AutShadowNative.Abort(kReasonOther);
+            return true;
+        }
+        static void T2HCount(int slot) { if (sCurRes != null) sCurRes.T2H[slot]++; }
+
+        // H7 worker answer: the dragged object latched at the request, for the static and the instance getter (abort answer null)
+        public class AutDragHook
+        {
+            static bool Cut()
+            {
+                if (!sReq.T2Hh) { T2HCount(AutShadowCore.kT2HDrag); return false; }
+                return T2HAbort(true, -1);
+            }
+            public static IGameObject CachedHook()
+            {
+                if (!OnWorker() || !sReq.T2Drag) return CachedOrig();
+                return Cut() ? null : sReq.T2DragCached;
+            }
+            public static IGameObject CachedOrig() { return null; } // receives LiveDragHelperModel.get_CachedTopDraggedObject's original header
+            public IGameObject TopHook()
+            {
+                if (!OnWorker() || !sReq.T2Drag) return TopOrig();
+                return Cut() ? null : sReq.T2DragTop;
+            }
+            public IGameObject TopOrig() { return null; } // LiveDragHelperModel.get_TopDraggedObject
+        }
+
+        // H8 Autonomy.UpdateCacheIfNeeded(obj): worker no-op inside the request's search, else abort `cache`
+        public class AutCacheHook
+        {
+            public void CacheHook(IGameObject obj)
+            {
+                if (!OnWorker() || !sReq.T2Cache) { CacheOrig(obj); return; }
+                if (sReq.T2Hh) { T2HAbort(true, -1); return; }
+                if (AutShadowCore.T2CacheNoop((object)this == (object)sReq.Aut, sReq.T2CacheActive)) return;
+                T2HAbort(false, AutShadowCore.kT2HCache);
+            }
+            public void CacheOrig(IGameObject obj) { } // receives Autonomy.UpdateCacheIfNeeded's original header
+        }
+
+        // H9 InteractionObjectPair.AddTuning: worker reads both static caches (the game's body), a miss aborts `tuning`
+        public class AutTuningHook
+        {
+            public void TuningHook()
+            {
+                if (!OnWorker() || !sReq.T2Tuning) { TuningOrig(); return; }
+                if (sReq.T2Hh) { T2HAbort(true, -1); return; }
+                InteractionObjectPair p = (InteractionObjectPair)(object)this;
+                if (p.InteractionDefinition == null) return;
+                Type type = p.InteractionDefinition.GetType();
+                bool needs;
+                if (!((Dictionary<Type, bool>)fReqTuning.GetValue(null)).TryGetValue(type, out needs)) { T2HAbort(false, AutShadowCore.kT2HTuning); return; }
+                if (!needs) return;
+                Type target = p.Target == null ? fTargetType.GetValue(p) as Type : p.Target.GetType();
+                if (target == null) return;
+                InteractionTuning t;
+                if (!InteractionObjectPair.sTuningCache.TryGetValue(new Sims3.Gameplay.Utilities.Pair<Type, Type>(type, target), out t))
+                { T2HAbort(false, AutShadowCore.kT2HTuning); return; }
+                fTuningMember.SetValue(p, t);  // the pair's own field, as the game's hit path
+            }
+            public void TuningOrig() { } // receives InteractionObjectPair.AddTuning's original header
+        }
+
+        // H10 Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation: worker answers the stored mbHighLOD, no recompute
+        public class AutLodHook
+        {
+            public bool LodHook()
+            {
+                if (!OnWorker() || !sReq.T2Lod) return LodOrig();
+                if (sReq.T2Hh || (object)this != (object)sReq.Aut) { T2HAbort(sReq.T2Hh, -1); return false; }
+                T2HCount(AutShadowCore.kT2HLod);
+                if (AutShadowCore.T2LodStale(sReq.T2Tick, (long)fLodTick.GetValue(this))) T2HCount(AutShadowCore.kT2HLodStale);
+                return (bool)fHighLod.GetValue(this);
+            }
+            public bool LodOrig() { return false; } // receives Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation's original header
         }
     }
 }
