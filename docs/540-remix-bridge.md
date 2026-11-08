@@ -102,13 +102,15 @@ Fetches are cheap. al312 (managed 2 s): 37,604 fetches in the run, 435 ms in all
 | al317 | managed 2 s + buffers 2 s + keep-alive 10 s | 1895 drifting to 1741 | | eaRes +36 vs al318 | |
 | al321 | managed 2 s + buffers 2 s | 1872 / 1877 | 1550 | 1578 / 1845 / 842 | 114,078 in 0.90 s; 40,149 in 0.54 s |
 | al324 | as al321 + `freeIdleManagedCopiesMs = 500` | 1944 / 1944 | 1521 | 1521 / 1944 / 822 | 144,510 in 1.50 s; 39,929 in 0.52 s |
-| al325 | as al321 (build with all patches) | | | | |
-| al326 | in-process (`BinBase`), same profile | | | | |
+| al325 | as al321 (build with all patches) | 1832 / 1832 | 1595 | 1593 / 1832 / 838 | 120,797 in 0.86 s; 44,925 in 0.57 s |
+| al326 | in-process DXVK (`BinBase`), same profile | 1074 at save-end (census 1122) | 2135 (TS3W priv) | 2135 / 1074 / 842 | none (no bridge) |
 
 - Buffer copies: 42 MB (al318) vs 1.9 MB on average (al321). `nt-heap:process` (memcensus) grew +84 MiB in al318 and
   +44 MiB in al321 over the hour.
 - **Most of that remaining process-heap growth is our own diagnostics (patch 0004).** al325 walked the heap every
-  10 min (read-only, scratch tool `ntheap.py`):
+  10 min (read-only, `tools/memory/nt-heap.py`, PR #315):
+  - Committed 46.5 MiB 2 min after the load, 70.2 at +12 min, then 77.8-80.5 MiB to the end. The busy LFH blocks
+    stayed at about 30 MiB all run.
   - 05:28 to 05:38: committed +7.6 MiB (70.2 to 77.8), but the live blocks went +5.75 / -6.21 MiB (net -0.46).
   - The growth is fragmentation in the LFH 32-byte bucket. In those 10 min it took 84,623 new blocks and freed
     74,431, and its user blocks grew +2.58 MiB to 14.4 MiB. Only 29% of its blocks were in use (134,855 of 458,113).
@@ -117,6 +119,13 @@ Fetches are cheap. al312 (managed 2 s): 37,604 fetches in the run, 435 ms in all
     tables.
   - So `conf\bridge.conf` ships `perfLogIntervalFrames = 0`. al327 (diagnostics off, same profile and census)
     checks it.
+- **What the bridge takes out of TS3W** (last census sample, about +55 min, al325 vs al326): committed -649 MiB
+  (1873 vs 2522), largest free block +774 MiB (1896 vs 1122). By owner: image -216 (DXVK and both Vulkan drivers are
+  not loaded), unlabeled -336, `nt-heap:process` -155, `mapped:pagefile` +78 (the bridge's shared memory); `ea:main`
+  is the same (634). Growth over the 50 min was about the same in both (+189 / +187 MiB committed, mostly `ea:main`).
+- In-process, 116 MiB of the process heap is two block sizes whose counts match the game's 6,462 shaders: 6,464
+  blocks of 12808 B (chained hash map nodes with a 41 KB bucket array, most likely DXVK's shader module set) and
+  6,594 of 5896 B (with a `d3d9.dll` vtable). That is about 18 KB per shader [inferred from shape and counts].
 - The 500 ms threshold frees 4x as many copies for about the same MB. Its gain (+67 MB big, -29 MB client) is
   inside the spread between runs: `eaRes`, which the bridge does not touch, differs by 20 MB between al321 and al324.
   It stays off (and see the al322 stall in §2).
