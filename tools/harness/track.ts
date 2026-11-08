@@ -14,6 +14,7 @@ import { existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, sta
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { GAME_EXE } from './game-exe.ts';
+import { pending as modsPending, restoreMods, snapshotMods } from './mods-restore.ts';
 
 export type Proc = { pid: number; ppid: number; name: string; cmd: string; start?: string };
 type Env = { dir: string; procs: () => Proc[]; kill: (pid: number) => void; sleepMs: number; log: (m: string) => void };
@@ -119,6 +120,9 @@ export async function stop(e: Env, afterJob: boolean) {
     if (c.game.length) did.push(`killed ${GAME_EXE} (${c.game.map(g => g.pid).join(', ')}): check Game\\Bin pair before the next run`);
   }
   c = classify(e.procs());
+  // Mods packages a killed queue installed (cycle.ts build/ copies): back to the queue's start record (mods-restore.ts)
+  const modsDir = join(e.dir, 'mods-before');
+  if (modsPending(modsDir)) did.push(c.game.length ? `Mods packages not restored (${GAME_EXE} still running): node tools/harness/mods-restore.ts restore` : restoreMods(modsDir).line);
   did.push(...clean(e, c));
   if (existsSync(holdFile(e))) { did.push(`released hold (${read(holdFile(e))})`); rmSync(holdFile(e), { force: true }); }
   return did.length ? did : ['nothing to stop'];
@@ -194,6 +198,11 @@ if (import.meta.main) {
       const out = await stop(e, false);
       assert.ok([10, 12, 15].every(pid => killed.includes(pid)) && !killed.includes(16), 'unrelated bash untouched');
       assert.ok(!existsSync(holdFile(e)) && out.some(l => /released hold/.test(l)) && !existsSync(join(d, 'job-running')));
+      // stop with a killed queue's Mods record: the job's package goes back to the start one (2026-11-08 dance repro)
+      const pk = join(d, 'user', 'Mods', 'Packages'); mkdirSync(pk, { recursive: true }); writeFileSync(join(pk, 'ts3fixes.package'), 'release');
+      snapshotMods(pk, join(d, 'mods-before')); writeFileSync(join(pk, 'ts3fixes.package'), 'build');
+      const out2 = await stop(e, false);
+      assert.ok(out2.some(l => /restored Mods packages/.test(l)) && readFileSync(join(pk, 'ts3fixes.package'), 'utf8') === 'release' && !modsPending(join(d, 'mods-before')));
       // wait-chain: returns once the chain and its queue are gone, not before
       ps = [{ pid: 20, ppid: 1, name: 'bash.exe', cmd: 'bash probe-out/queue/chain-a.sh' }, { pid: 21, ppid: 20, name: 'node.exe', cmd: 'node tools/harness/queue.ts x.json' }];
       let ticks = 0; const e2: Env = { ...e, procs: () => ps, sleepMs: 0 };

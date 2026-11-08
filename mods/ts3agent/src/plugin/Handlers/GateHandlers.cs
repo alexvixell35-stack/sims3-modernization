@@ -30,6 +30,7 @@ namespace Ts3Agent
             Dispatcher.Register("sim_visit_lot", Gate(kLiveOnly, SimVisitLot));
             Dispatcher.Register("sim_route_to", Gate(kLiveOnly, SimRouteTo));
             Dispatcher.Register("place_sim", Gate(kLiveOnly, PlaceSim));
+            Dispatcher.Register("setup_sims", Gate(kLiveOnly, SetupSims));
             Dispatcher.Register("sim_go_home", Gate(kLiveOnly, SimGoHome));
             Dispatcher.Register("sim_strand", Gate(kLiveOnly, SimStrand));
             Dispatcher.Register("strand_many", Gate(kLiveOnly, StrandMany));

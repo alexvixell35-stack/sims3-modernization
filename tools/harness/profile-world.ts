@@ -516,7 +516,7 @@ const reproStep = async (s: any) => {
   if (s.cmd === 'set_speed') r = await untilUnlocked(call, r, { sleep, now: Date.now, log: l => console.log(`${stamp()} ${l}`),
     dialog: async () => JSON.stringify((await ag('pending_dialogs').catch(() => null))?.result ?? null).slice(0, 300) });
   // an async_log reply is the record of what the sim thread did (a method touch's outcome, docs/526 section 8): logged whole
-  console.log(`${stamp()} repro ${values.repro} step ${s.cmd}${s.note ? ` [${s.note}]` : ''}${isSetup(s) ? ' (setup)' : ''}: ${JSON.stringify(r).slice(0, s.cmd === 'async_log' ? 4000 : 200)}`);
+  console.log(`${stamp()} repro ${values.repro} step ${s.cmd}${s.note ? ` [${s.note}]` : ''}${isSetup(s) ? ' (setup)' : ''}: ${JSON.stringify(r).slice(0, s.cmd === 'async_log' ? 4000 : (s as any).max ?? 200)}`);
   appendFileSync(`${pre}-repro.jsonl`, JSON.stringify({ t: stamp(), cmd: s.cmd, args: s.args, note: s.note, r }) + '\n'); // full result: the log line is cut
   stepAnswers.push({ cmd: s.tally ?? s.cmd, r }); // "tally": count this step under its own name in stepsRequire (per-arm visits)
   // fail fast, as repro.ts: a failed setup step means the rest of the run measures nothing (2026-10-19 bp-ab-wildflowertask

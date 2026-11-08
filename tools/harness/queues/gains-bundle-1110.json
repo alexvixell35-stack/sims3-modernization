@@ -68,7 +68,9 @@
       "MonoThread.LazyEarly": 1,
       "CasTrim.Mode": 0,
       "CasTrim.Detect": 0,
-      "MintFuse.Sub": 1
+      "MintFuse.Sub": 1,
+      "AutShadow.Unseen": 0,
+      "AutShadow.TierReqLots": 0
     },
     "logRequire": {
       "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -190,7 +192,9 @@
         "MonoThread.LazyEarly": 1,
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
-        "MintFuse.Sub": 0
+        "MintFuse.Sub": 0,
+        "AutShadow.Unseen": 0,
+        "AutShadow.TierReqLots": 0
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -300,7 +304,9 @@
         "MonoThread.LazyEarly": 1,
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
-        "MintFuse.Sub": 1
+        "MintFuse.Sub": 1,
+        "AutShadow.Unseen": 0,
+        "AutShadow.TierReqLots": 0
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -425,7 +431,9 @@
         "MonoThread.LazyEarly": 1,
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
-        "MintFuse.Sub": 1
+        "MintFuse.Sub": 1,
+        "AutShadow.Unseen": 0,
+        "AutShadow.TierReqLots": 0
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -550,7 +558,9 @@
         "MonoThread.LazyEarly": 1,
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
-        "MintFuse.Sub": 0
+        "MintFuse.Sub": 0,
+        "AutShadow.Unseen": 0,
+        "AutShadow.TierReqLots": 0
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -660,7 +670,9 @@
         "MonoThread.LazyEarly": 1,
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
-        "MintFuse.Sub": 0
+        "MintFuse.Sub": 0,
+        "AutShadow.Unseen": 0,
+        "AutShadow.TierReqLots": 0
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -770,7 +782,9 @@
         "MonoThread.LazyEarly": 1,
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
-        "MintFuse.Sub": 1
+        "MintFuse.Sub": 1,
+        "AutShadow.Unseen": 0,
+        "AutShadow.TierReqLots": 0
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -895,7 +909,9 @@
         "MonoThread.LazyEarly": 1,
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
-        "MintFuse.Sub": 1
+        "MintFuse.Sub": 1,
+        "AutShadow.Unseen": 0,
+        "AutShadow.TierReqLots": 0
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -1020,7 +1036,9 @@
         "MonoThread.LazyEarly": 1,
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
-        "MintFuse.Sub": 0
+        "MintFuse.Sub": 0,
+        "AutShadow.Unseen": 0,
+        "AutShadow.TierReqLots": 0
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,

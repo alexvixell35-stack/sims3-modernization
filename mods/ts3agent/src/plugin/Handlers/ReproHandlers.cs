@@ -20,6 +20,7 @@ namespace Ts3Agent
         static void RegisterRepro()
         {
             Dispatcher.Register("place_sim", PlaceSim);
+            Dispatcher.Register("setup_sims", SetupSims);
             Dispatcher.Register("sim_go_home", SimGoHome);
             Dispatcher.Register("sim_strand", SimStrand);
             Dispatcher.Register("strand_many", StrandMany); // HitchReproHandlers.cs
@@ -430,6 +431,68 @@ namespace Ts3Agent
             r["changed"] = changed;
             r["skipped"] = skipped;
             return r;
+        }
+
+        // setup_sims {sims: [name | id | "picked:N"], lot?, near?: object id or type name on `lot` (e.g. "DanceFloor"), x?, z?, y?,
+        //   teleport?: true, motives?: true, moodlets?: true, autonomy?: true (false: off, tracked as the autonomy command)}: the standard Sim setup for repros (AGENTS.md "Repro Sim setup"; counts as
+        //   realistic play, only the waiting is skipped): cancel each Sim's queue, teleport it to the spot unless it already stands
+        //   within 2 m on that lot (teleport false when the walk there is what the repro tests), max its shown motives and clear its
+        //   moodlets, so the next step can force the interaction at once instead of waiting for arrival or autonomy.
+        static object SetupSims(Args a)
+        {
+            RequireLive();
+            Lot lot = a.Has("lot") ? FindLotByName(a.Str("lot")) : null;
+            Vector3 spot;
+            if (a.Has("near"))
+            {
+                string q = a.Str("near");
+                GameObject near = null;
+                ulong id;
+                if (ulong.TryParse(q, out id)) near = Util.FindObject(a, "near");
+                else if (lot != null)
+                    foreach (GameObject o in lot.GetObjects<GameObject>())
+                        if (o.GetType().Name.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0) { near = o; break; }
+                if (near == null) throw new McpException("setup_sims: no object " + q + (lot != null ? " on " + lot.Name : " (pass lot to search by type name)"));
+                spot = near.Position;
+            }
+            else if (a.Has("x")) spot = new Vector3((float)a.Double("x"), 0f, (float)a.Double("z"));
+            else throw new McpException("setup_sims: pass near or x/z");
+            if (a.Has("x") && a.Has("near")) throw new McpException("setup_sims: near or x/z, not both");
+            if (!a.Has("near")) spot.y = a.Has("y") ? (float)a.Double("y") : World.GetTerrainHeight(spot.x, spot.z);
+            List<Sim> sims = new List<Sim>();
+            foreach (object o in a.List("sims")) sims.Add(Util.FindSim(new Args(new Dictionary<string, object> { { "sim", Convert.ToString(o) } }), "sim"));
+            Dictionary<string, object> r = Util.Obj();
+            r["sims"] = SetupSimsAt(sims, lot, spot, a.Bool("teleport", true), a.Bool("motives", true), a.Bool("moodlets", true), a.Bool("autonomy", true));
+            r["lot"] = lot != null ? lot.Name : null;
+            return r;
+        }
+
+        // setup_sims for callers that already hold the Sims, lot and spot (dance_together_floor's several floors); one line per Sim back
+        internal static List<object> SetupSimsAt(List<Sim> sims, Lot lot, Vector3 spot, bool teleport, bool motives, bool moodlets, bool autonomy)
+        {
+            List<object> done = new List<object>();
+            for (int i = 0; i < sims.Count; i++)
+            {
+                Sim s = sims[i];
+                s.InteractionQueue.CancelAllInteractions();
+                Vector3 p = new Vector3(spot.x + 0.5f * (i - (sims.Count - 1) / 2f), spot.y, spot.z);  // half a metre apart in a row
+                float dx = s.Position.x - p.x, dz = s.Position.z - p.z;
+                bool moved = teleport && !((lot == null || s.LotCurrent == lot) && dx * dx + dz * dz < 4f);
+                if (moved)
+                {
+                    // EA's own teleport (testingcheats Teleport Me Here, as NRaas GoHere): a bare SetPosition leaves LotCurrent on the
+                    // old lot (2026-11-08: both NPCs still "on Trawler Lodge" after a SetPosition onto Waylon's Haunt)
+                    TerrainInteraction tp = new Terrain.TeleportMeHere.Definition(false).CreateInstance(Terrain.Singleton, s, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true) as TerrainInteraction;
+                    typeof(TerrainInteraction).GetField("Destination", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).SetValue(tp, p);  // not public in the reference DLLs
+                    if (!s.InteractionQueue.Add(tp)) throw new McpException("setup_sims: the game refused Teleport Me Here for " + s.FullName);
+                }
+                Motives m = s.Motives;
+                if (motives && m != null) foreach (CommodityKind k in kShownMotives) if (m.HasMotive(k)) m.SetMax(k);
+                if (moodlets) s.BuffManager.RemoveAllElements();
+                if (!autonomy) AutonomyCmd(new Args(new Dictionary<string, object> { { "sim", s.SimDescription.SimDescriptionId.ToString() }, { "enabled", false } }));  // tracked; autonomy {enabled: true} restores
+                done.Add(s.FullName + (moved ? ": Teleport Me Here queued" : teleport ? ": already there" : ": not moved (teleport false)"));
+            }
+            return done;
         }
 
         // place_sim {sim, x, z, y?}: stand the Sim at a world position (resets what it was doing, like the game's teleport)

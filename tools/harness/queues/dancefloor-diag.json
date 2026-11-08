@@ -1,9 +1,9 @@
 {
-  "note": "docs/253 §7-§8: DanceFloor follower route \"Collection was modified\" diagnostics on pair dancediag1108. Correctness only (run with --no-smoke), no timing. Four arms on Baseline-BP, one load each, the repro dance-together-floor (24 tries, half with one forced collection while the pair routes). Arm order: release ini, then [RouteAsync] off, then [GC] off, then the CasTrim cross-check. stopQueueOnFail false: each arm answers its own question. Not run yet.",
+  "note": "docs/253 §7-§8: DanceFloor follower route \"Collection was modified\" stress hunt on pair dancediag1108 (Rodney 2026-11-08: one job, no off arms; the RouteAsync-off, GC-off and CasTrim arms are dropped). Correctness only (run with --no-smoke), no timing. One load on Baseline-BP: release ini with our mods on, dancefloorlistdiag on (counters 892-897; a diagnostic, no guard), the repro dance-together-floor on up to 4 Bridgeport lots with a dance floor at once (Waylon's Haunt first; each with its own pool of 6 NPCs): phase A one pair 6 cycles, phase B 6 rotating pairs, phase C the 3 pairs of every floor dancing at once for 3 min, repeated until the window ends. Stop rule: BREAKS = the early gate stops the job at the first THROW or MISMATCH (row FAIL by design: that is the finding); CLEARS = 30 min with 0 throws and 0 mismatches.",
   "jobs": [
     {
-      "id": "bp-dancediag-release",
-      "note": "Arm 1 (~50 min): the repo (release) ts3native.ini as is, dancefloorlistdiag on through the repro. Pass (correctness, no timing): repro steps pass, dancefloordiag_calls >= 20, >= 20 \"dancefloor list: call #\" lines, 0 new script errors apart from the DanceFloor \"Collection was modified\" one, which is REPORTed and counted (dancefloordiag_throws), never a FAIL. Findings: dancefloordiag_mismatch / _freed and every \"dancefloor list: MISMATCH|THROW\" line (class, version, count, enumerator words, weak reference, GC count, slept ms, async starts).",
+      "id": "bp-dancediag-stress",
+      "note": "BREAKS or CLEARS (~32 min). Release ini as is, dancefloorlistdiag on through the repro (phases A, B, then C repeated) on 4 floors at once. Cap 30 min: phases A+B take ~16 min (a cycle waits ~70 s for the slowest of 4 floors) = 48 single-pair floor routes (12 cycles x 4 floors, every second cycle with a forced collection), then phase C runs ~14 min with 6 NPCs dancing as 3 pairs on each of 4 floors = ~56 floor-minutes of a 6-NPC crowd, ~5x hit 1 (5-6 NPCs for ~10 min on one floor), so 0 throws here is clearly more floor use than the case that threw. Per-floor cam seen/far is logged on every cycle line (off-camera floors are evidence, not a problem). BREAKS: the early gate on fixes dancefloordiag_throws + _mismatch stops the job at the next guard poll; read in the job ts3native.log the \"dancefloor list: THROW|MISMATCH\" line (call #, ver, count, gc a->b, slept ms, async starts, actor/followers), the \"dancefloor repro: cycle #n phase P lot L cam seen|far Dm actor X partner Y floor_sims K calls C\" line before it (its cycle: the last with C < call #; the lot field of both lines names the floor), and the [CrashForensics] Light lines around it. CLEARS: PASS with dancefloordiag_throws = 0 and _mismatch = 0, calls >= 20; the script error report lists any \"Collection was modified\" in the game log (REPORT, never FAIL).",
       "asi": "game-copy/ts3native.asi.dancediag1108",
       "pinReason": "pair dancediag1108: ts3native 0.36.200 (byte-identical to monojit1108; master native source = f9b83b6d) + ts3fixes with DanceFloorDiag.cs; ts3fixes-only diagnostics, correctness only",
       "fixesPackage": "game-copy/ts3fixes.package.dancediag1108",
@@ -24,7 +24,7 @@
       },
       "run": {
         "profile": {
-          "minutes": 50,
+          "minutes": 30,
           "seed": 12345,
           "noSamplers": true,
           "repro": "dance-together-floor",
@@ -34,157 +34,21 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 80,
+      "timeoutMin": 55,
       "earlyGates": [
         {
-          "afterSec": 1500,
+          "afterSec": 30,
+          "counter": "fixes:dancefloordiag_throws+fixes:dancefloordiag_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "BREAKS (the finding, not a harness fault): a DanceFloor \"Collection was modified\" THROW or a list MISMATCH; match the dancefloor list THROW/MISMATCH line to its dancefloor repro cycle line by call #"
+        },
+        {
+          "afterSec": 900,
           "counter": "fixes:dancefloordiag_calls",
           "op": ">=",
           "value": 1,
-          "why": "no FindAndRouteOntoADanceFloorWithFollower call 25 min in: the pair never reached the lot, DanceTogetherA was refused, or the hook is not installed"
-        }
-      ]
-    },
-    {
-      "id": "bp-dancediag-norouteasync",
-      "note": "Arm 2 (~50 min): release ini with [RouteAsync] Enabled=0 (route.Plan no longer sleeps; DoRouteWithFollowers still does). A throw or mismatch here rules RouteAsync out as the needed window. Pass (correctness, no timing): repro steps pass, dancefloordiag_calls >= 20, >= 20 \"dancefloor list: call #\" lines, 0 new script errors apart from the DanceFloor \"Collection was modified\" one, which is REPORTed and counted (dancefloordiag_throws), never a FAIL. Findings: dancefloordiag_mismatch / _freed and every \"dancefloor list: MISMATCH|THROW\" line (class, version, count, enumerator words, weak reference, GC count, slept ms, async starts).",
-      "asi": "game-copy/ts3native.asi.dancediag1108",
-      "pinReason": "pair dancediag1108: ts3native 0.36.200 (byte-identical to monojit1108; master native source = f9b83b6d) + ts3fixes with DanceFloorDiag.cs; ts3fixes-only diagnostics, correctness only",
-      "fixesPackage": "game-copy/ts3fixes.package.dancediag1108",
-      "save": "Baseline-BP",
-      "noiseCheck": false,
-      "ini": {
-        "RouteAsync.Enabled": 0
-      },
-      "scriptErrorsMax": 0,
-      "scriptErrorsReport": [
-        "Collection was modified[\\s\\S]*(FindAndRouteOntoADanceFloorWithFollower|DanceFloorDiagHook)"
-      ],
-      "logRequire": {
-        "^ts3native 0\\.36\\.200 ": 1,
-        "^dancefloor list: call #\\d+ ": 20
-      },
-      "logForbid": {
-        "^dancefloor list: diag off": 0,
-        "^FAIL\\b": 0,
-        "[\\\\/]Users[\\\\/][^<]": 0
-      },
-      "run": {
-        "profile": {
-          "minutes": 50,
-          "seed": 12345,
-          "noSamplers": true,
-          "repro": "dance-together-floor",
-          "fixesRequire": "dancefloordiag_calls>=20"
-        }
-      },
-      "gameArgs": [
-        "-disablestoryprogression"
-      ],
-      "timeoutMin": 80,
-      "earlyGates": [
-        {
-          "afterSec": 1500,
-          "counter": "fixes:dancefloordiag_calls",
-          "op": ">=",
-          "value": 1,
-          "why": "no FindAndRouteOntoADanceFloorWithFollower call 25 min in: the pair never reached the lot, DanceTogetherA was refused, or the hook is not installed"
-        }
-      ]
-    },
-    {
-      "id": "bp-dancediag-nogc",
-      "note": "Arm 3 (~50 min): release ini with [GC] Enabled=0 (no GC patches at all: stock 40 MB initial heap, growth step and black-list spacing; more collections, so more chances for case (a)). Pass (correctness, no timing): repro steps pass, dancefloordiag_calls >= 20, >= 20 \"dancefloor list: call #\" lines, 0 new script errors apart from the DanceFloor \"Collection was modified\" one, which is REPORTed and counted (dancefloordiag_throws), never a FAIL. Findings: dancefloordiag_mismatch / _freed and every \"dancefloor list: MISMATCH|THROW\" line (class, version, count, enumerator words, weak reference, GC count, slept ms, async starts).",
-      "asi": "game-copy/ts3native.asi.dancediag1108",
-      "pinReason": "pair dancediag1108: ts3native 0.36.200 (byte-identical to monojit1108; master native source = f9b83b6d) + ts3fixes with DanceFloorDiag.cs; ts3fixes-only diagnostics, correctness only",
-      "fixesPackage": "game-copy/ts3fixes.package.dancediag1108",
-      "save": "Baseline-BP",
-      "noiseCheck": false,
-      "ini": {
-        "GC.Enabled": 0
-      },
-      "scriptErrorsMax": 0,
-      "scriptErrorsReport": [
-        "Collection was modified[\\s\\S]*(FindAndRouteOntoADanceFloorWithFollower|DanceFloorDiagHook)"
-      ],
-      "logRequire": {
-        "^ts3native 0\\.36\\.200 ": 1,
-        "^dancefloor list: call #\\d+ ": 20
-      },
-      "logForbid": {
-        "^dancefloor list: diag off": 0,
-        "^FAIL\\b": 0,
-        "[\\\\/]Users[\\\\/][^<]": 0
-      },
-      "run": {
-        "profile": {
-          "minutes": 50,
-          "seed": 12345,
-          "noSamplers": true,
-          "repro": "dance-together-floor",
-          "fixesRequire": "dancefloordiag_calls>=20"
-        }
-      },
-      "gameArgs": [
-        "-disablestoryprogression"
-      ],
-      "timeoutMin": 80,
-      "earlyGates": [
-        {
-          "afterSec": 1500,
-          "counter": "fixes:dancefloordiag_calls",
-          "op": ">=",
-          "value": 1,
-          "why": "no FindAndRouteOntoADanceFloorWithFollower call 25 min in: the pair never reached the lot, DanceTogetherA was refused, or the hook is not installed"
-        }
-      ]
-    },
-    {
-      "id": "bp-dancediag-castrim",
-      "note": "Arm 4 (~50 min): release ini with [CasTrim] Mode=3 Detect=1 CellGuard=1 set explicitly (the release ini has them too; this arm pins them in case the ini changes). Cross-check (docs/253 §9, inferred): count \"cas trim: float-5 cell\" and \"cas trim: outfit cell bad\" lines next to the dance floor lines of the same load; a freed-memory reuse cause would show both. Those lines are counted by the verdict reader, not gated. Pass (correctness, no timing): repro steps pass, dancefloordiag_calls >= 20, >= 20 \"dancefloor list: call #\" lines, 0 new script errors apart from the DanceFloor \"Collection was modified\" one, which is REPORTed and counted (dancefloordiag_throws), never a FAIL. Findings: dancefloordiag_mismatch / _freed and every \"dancefloor list: MISMATCH|THROW\" line (class, version, count, enumerator words, weak reference, GC count, slept ms, async starts).",
-      "asi": "game-copy/ts3native.asi.dancediag1108",
-      "pinReason": "pair dancediag1108: ts3native 0.36.200 (byte-identical to monojit1108; master native source = f9b83b6d) + ts3fixes with DanceFloorDiag.cs; ts3fixes-only diagnostics, correctness only",
-      "fixesPackage": "game-copy/ts3fixes.package.dancediag1108",
-      "save": "Baseline-BP",
-      "noiseCheck": false,
-      "ini": {
-        "CasTrim.Mode": 3,
-        "CasTrim.Detect": 1,
-        "CasTrim.CellGuard": 1
-      },
-      "scriptErrorsMax": 0,
-      "scriptErrorsReport": [
-        "Collection was modified[\\s\\S]*(FindAndRouteOntoADanceFloorWithFollower|DanceFloorDiagHook)"
-      ],
-      "logRequire": {
-        "^ts3native 0\\.36\\.200 ": 1,
-        "^dancefloor list: call #\\d+ ": 20
-      },
-      "logForbid": {
-        "^dancefloor list: diag off": 0,
-        "^FAIL\\b": 0,
-        "[\\\\/]Users[\\\\/][^<]": 0
-      },
-      "run": {
-        "profile": {
-          "minutes": 50,
-          "seed": 12345,
-          "noSamplers": true,
-          "repro": "dance-together-floor",
-          "fixesRequire": "dancefloordiag_calls>=20"
-        }
-      },
-      "gameArgs": [
-        "-disablestoryprogression"
-      ],
-      "timeoutMin": 80,
-      "earlyGates": [
-        {
-          "afterSec": 1500,
-          "counter": "fixes:dancefloordiag_calls",
-          "op": ">=",
-          "value": 1,
-          "why": "no FindAndRouteOntoADanceFloorWithFollower call 25 min in: the pair never reached the lot, DanceTogetherA was refused, or the hook is not installed"
+          "why": "no FindAndRouteOntoADanceFloorWithFollower call 15 min in: no pool reached its floor, DanceTogetherA was refused, or the hook is not installed"
         }
       ]
     }

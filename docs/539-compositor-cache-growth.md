@@ -479,4 +479,103 @@ Seen before [verified: same reader on the earlier kill dumps]: the identical cyc
 
 Verdict: **EA** [verified for the lock cycle; "not caused by our detour" inferred from the pass-through path and four builds]. Not CasTrim, not CellGuard: no CasTrim code runs at the menu and none is on any stack. Rate in our harness ~4 captured in ~2100 loads. The agent's `LoadSave` reads save metadata seconds after the dialog, while the main thread still updates resources; a player opening the Load screen at once may hit the same race.
 
-Action: no fix in our code. Rerun the job (counts as N/A, not a CasTrim result). docs/67's "known rare hang" rule stays: rerun once, a second hang in a row stops the chain. Optional, not built: (1) the hang capture (`game-alive.ts`) names each `Lock_Acquire` / `EnterCriticalSection` waiter's CS owner from `edi` and prints the cycle, so the next one is triaged from the summary line without a dump; (2) `cycle.ts` waits for a quiet resource update before `LoadSave` or retries the load once on this exact signature. An EA-side fix (lock order in `0x734710` vs `0x735358`) needs a static study of that object first; not worth it at this rate unless players report menu freezes.
+Action: no fix in our code. Rerun the job (counts as N/A, not a CasTrim result). docs/67's "known rare hang" rule stays: rerun once, a second hang in a row stops the chain. Optional, not built: (1) the hang capture (`game-alive.ts`) names each `Lock_Acquire` / `EnterCriticalSection` waiter's CS owner from `edi` and prints the cycle, so the next one is triaged from the summary line without a dump; (2) `cycle.ts` waits for a quiet resource update before `LoadSave` or retries the load once on this exact signature. An EA-side fix (lock order in `0x734710` vs `0x735358`) needs a static study of that object first; not worth it at this rate unless players report menu freezes. (Superseded by §13.9: the static study is done and a fix is designed, per the "fix EA bugs too" rule.)
+
+### 13.9 Fix design: EA package-lock ABBA deadlock (2026-11-08; static design; built as ts3native 0.36.216, not run: §13.9.9)
+
+Follows §13.8 (and docs/67 §23). Standing rule: EA bugs get our fix too, behind a switch with counters, selftest and repro. Steam 1.67 exe, Ghidra (`tools/ghidra/DecompileTo.java`, `CallerTree.java`) plus capstone on `game-copy/Bin/TS3W.exe`. Names follow docs/67 §16.1: **D** = the DBPF database (vtable `0xFFE078`), **O** = D - 8 (outer object, vtable `0xFFE0D0`). Ledger: docs/51 §465.
+
+#### 13.9.1 The two locks [verified disassembly]
+
+| Lock | Address | Taken by | Kind |
+|---|---|---|---|
+| **DL** (database lock) | D+0x40 = O+0x48 | `0x72C6C0(1)`: `add ecx,0x40; jmp Lock_Acquire 0x4E16F0` with deadline pointer `0xFFD74C` (holds `0xFFFFFFFF`, wait forever); `0x72C6C0(0)` = `Lock_Release 0x4E17B0` | EA `Lock` in CS mode (byte +0x24 set), recursive, count at +0x20 |
+| **FL** (file / open-count CS) | D+0xB8 = O+0xC0 | direct `EnterCriticalSection` | plain CS, recursive |
+
+The dump's pair (§13.8) is exactly these two: object `0x0DD8FCE0` = O, `+0x48` = DL, `+0xC0` = FL.
+
+Every `EnterCriticalSection(FL)` site in the class (scan of `0x733000`-`0x738000`): `0x73471F` (in `0x734710`), `0x7347CE` (`0x7347C0`), `0x735332` (`0x735320`), `0x7355D0` (`0x7355A0`). `0x72C6C0` has 14 call sites, all in `0x73445E`-`0x735416` (this class only).
+
+#### 13.9.2 What each path does [verified unless tagged]
+
+- **`0x734710` = D slot `0x50` (`0xFFE0C8`), "begin access"**: FL; open count `D+0xD8 += 2`; if the result is 2 (file was closed) it reopens the file (`0x72D790(1,6,0)`) and, **under FL**, takes DL (`0x73475B`) to drop the stale index `D+0xB0`, then releases DL (`0x73477D`); leaves FL. Order inside: **FL -> DL** (only when reopening).
+- **`0x7347C0` = D slot `0x54`, "end access"**: FL; count -= 2; at 1 it stores the QPC time in `D+0xE0/E4` (= O+0xE8/EC, the idle timer); leaves FL. No DL.
+- **`0x734550` = D slot `0x30` (`0xFFE0A8`), the read path the worker is in** (return `0x734591` after `call [vt+0x50]`): DL (`0x734558`), then `0x734710` -> FL. Order **DL -> FL**. `0x7351E0` (DL at `0x7351F4`, then slot `0x50`) and `0x7345D0` (slot `0x34`, docs/67 §16.1) take DL first the same way.
+- **`0x7355A0` = O slot `0x18` (`0xFFE0E8`), "close if idle", the main thread**: if `O+0x104 == 1` and `O+0xE0` (= D+0xD8, the open count) `== 1` (file open, no reader): FL; recheck; unless arg `force`, return 0 while QPC - last end < `O+0xF0/F4`; else call `0x735320`. `0x735320`: FL again (recursion 2, as in the dump), recheck count 1, **DL at `0x735353`** (return `0x735358` = the main thread's wait in all four dumps), write the shadow index (`ResourceSystem/DatabaseShadow/*`), close (`0x72C8F0`), count = 0, release DL, then FL. Order **FL -> DL**.
+- **Caller of O slot `0x18`**: resource-system update `0x737560`, loop `0x737672`-`0x737682` under the manager lock `M+0x218`: `push 0` (force 0), `call [vt+0x18]` for each database, return value ignored. No direct `call` to `0x7355A0`; `0x735320` has one caller (`0x73562E`); one vtable reference each (`0xFFE0E8`, `0xFFE0C8`, `0xFFE0A8`, `0xFFE0E0`).
+
+So DL -> FL (every read) against FL -> DL (main idle close): the ABBA of §13.8. The window: a worker's first read of a package whose file the main thread is closing because it sat idle for the `O+0xF0` interval. At the menu the save-list read opens many packages right after a quiet spell, which fits "only at the menu, ~0.2% of loads" [inferred].
+
+A second FL -> DL path exists [verified code; never seen in a dump]: `0x734420` (O slot `0x10`, `0xFFE0E0`) calls D slot `0x50` with no DL held, then slot `0x54` (a "probe open"). If it reopens a closed file while a reader holds DL and waits for FL, the same cycle forms without the main thread [inferred: needs a caller of O slot `0x10` on another thread at that moment].
+
+#### 13.9.3 Options
+
+| # | Fix | Effect | Risk | Verdict |
+|---|---|---|---|---|
+| A | **Try-DL before FL in the idle close** (hook O slot `0x18`): when the unlocked prechecks say a close may run, take DL with EA's own `Lock_Acquire` and an expired deadline (one `TryEnterCriticalSection`, -2 if busy); busy = skip this pass and return 0 (the same value as "not idle long enough"); got it = call the original, then `Lock_Release`. Order becomes DL -> FL -> DL (recursive) | the main thread can no longer hold FL while waiting for DL, and never blocks on DL at all, so no new main-thread stall | a busy package closes one update later (the loop runs every update; the idle timer keeps counting) | **pick (Mode 1)** |
+| B | Blocking DL before FL in the idle close | consistent order DL -> FL | the main thread may wait behind a long worker read where it used to wait anyway, but now also when the close was going to be throttled | only for `force != 0` |
+| C | Pre-take DL in `0x734710` (D slot `0x50`) when the calling thread does not own it | closes the `0x734420` variant: every FL entry that can reach DL then runs DL -> FL | one extra recursive `Lock_Acquire` per access (nearly every caller already holds DL) | **Mode 2, only if the detector counts unowned entries** |
+| D | Swap the order inside EA's readers (`0x734550` and the others) | | four readers to change, more hook sites | no |
+| E | Harness-only: wait for a quiet resource update before `LoadSave`, or retry the load | hides it from our tests only; players still hang | none | no |
+
+Option A is the smallest: one vtable slot, no code bytes patched, no change to EA's readers; the only behaviour change is "close later" while a reader holds the database.
+
+#### 13.9.4 Design (Mode 1 = A, Mode 2 = A + C)
+
+Switch `[PkgLock] Mode=0|1|2` (default 0, new-switch rule), `Detect=0|1`.
+
+- **Hook site 1**: O vtable slot `0x18` at `0xFFE0E8` (`.rdata`, `VirtualProtect` + one dword; install checks the old value is `0x7355A0`, else logs "not installed: slot holds X"). Thiscall `PkgCloseHook(O, char force)`:
+  1. `O[0x104] != 1 || O[0xE0] != 1` -> return the original (no lock, unchanged fast path).
+  2. `force == 0`: `deadline = 0; r = Lock_Acquire(O+0x48, &deadline)` (through the game entry, so `LockAcquireHook` still sees it). `r < 0` -> `pkCloseDefer++`, return 0. Else `r = orig(O, 0); Lock_Release(O+0x48); pkCloseOk++`.
+  3. `force != 0` (no caller found, kept for safety): blocking `0x72C6C0(1)` on `O+8` first (option B), then the original, then release; `pkCloseForce++`.
+  4. Household rule: not applicable (resource system, no Sim). Results equal vanilla: the file closes at a later pass.
+- **Hook site 2** (installed when `Detect=1` or Mode 2): D vtable slot `0x50` at `0xFFE0C8`, `PkgBeginHook(D)`: if `((CRITICAL_SECTION*)(D+0x40))->OwningThread != GetCurrentThreadId()` -> `pkBeginUnowned++`; in Mode 2 also take DL (blocking) before the original and release after. Same owner read as `crashfx.cpp` (D lock owner check).
+- **Counters** (reserve `native` slots at build time, docs/registry.md): `pkCloseOk`, `pkCloseDefer`, `pkCloseForce`, `pkBeginUnowned`, `pkAbbaSeen`, `pkDeferMax` (longest run of consecutive defers on one O).
+- **Hang detector (`Detect=1`, also in Mode 0)**: the hooks store `{O, thread, GetTickCount()}` before calling the original and clear it after. The memory worker (`UdMemMain`, `userdiag.cpp`; wait capped at 1000 ms while `Detect=1`) checks: an entry older than 3 s whose thread owns FL while DL is owned by another thread `T` -> one line `[PkgLock] ABBA: tid A holds O+0xC0, waits O+0x48 owned by tid T (O=...)`, `pkAbbaSeen++`, log flushed. Read-only: it never breaks the cycle (a Mode 0 run stays deadlocked, as vanilla).
+- **Harness**: `queue.ts` / `game-alive.ts` map a `[PkgLock] ABBA` line to signature `pkg-abba` (known EA hang, §13.8 rerun rule) instead of a generic `world load: nothing moved`.
+- **Selftest** (`--self-check` in the native selftest): fake O/D with two real CSs and a fake vtable: (a) DL held by another thread -> hook returns 0, original not called, `pkCloseDefer` 1, FL never entered; (b) DL free -> original runs with DL held, DL count back to 0 after; (c) precheck false -> original runs, no DL taken; (d) `force` 1 -> DL taken blocking; (e) slot value mismatch -> not installed; (f) two threads, fake original FL -> DL, peer DL -> FL, 10k rounds in Mode 1 -> no deadlock within 5 s (Mode 0 control arm run with a timeout, expected to hang).
+
+#### 13.9.5 Repro (forced, no waiting)
+
+The natural rate (~4 in ~2100 menu loads) is far too low to wait for. Repro `pkg-abba` (repros.json entry + agent action):
+1. Test-only switch `[PkgLock] ReproWiden=N` (off in release inis): in the slot `0x18` hook, skip the idle interval (close whenever the open count is 1, like `force`) and, in Mode 0, enter FL in the hook, `Sleep(N)`, then call the original (which re-enters FL recursively and then wants DL). That holds the FL -> DL window open on every update.
+2. Agent action `pkgAbbaRepro`: at the main menu, run the save-list read (`MainMenuModel.GetSaveFileDetails`, the first step of the `LoadSave` handler) 30 times over all saves, so the worker reopens closed packages (DL -> FL).
+3. Arms: Mode 0 + `ReproWiden=50` + `Detect=1` -> expected hang with a `[PkgLock] ABBA` line within the 30 reads (proves repro and detector; the job ends on the detector line and counts as expected). Mode 1 + same -> 30 reads done, `pkCloseDefer` > 0, `pkAbbaSeen` 0, then a normal world load and save.
+4. Deterministic off/on repro: one clean run per arm (crash-cause rule); then a Mode 1 smoke without `ReproWiden` on BP (load, 5 min play, save, quit).
+
+If the Mode 0 arm does not hang within 30 reads at 50 ms widening, the window model in §13.9.2 is wrong: stop and re-read the dump before building more.
+
+#### 13.9.6 Risks
+
+- A deferred close keeps a package file open longer while readers are active; EA closes it on a later idle pass [inferred]. `pkDeferMax` shows a package that never closes.
+- `force != 0` callers of O slot `0x18`: none in the class; vtable calls from elsewhere cannot be ruled out statically [inferred]. They get option B (consistent blocking order), not the skip.
+- `Lock_Acquire` with deadline 0 in CS mode does one `TryEnterCriticalSection`, then `GetTickCount() >= 0` -> returns -2 [verified decompile `0x4E16F0`]. Our `LockAcquireHook` detour passes locks other than `+0x918` to the original (§13.8) [verified source per §13.8].
+- Apex Radiance's resource cache (`game-copy/apex-src/features/resource_cache.cpp`) touches nothing in `0x7343B0`-`0x7356xx` [verified grep], so no overlap. The resource system is near Apex's area (lookups): per the coordination rule we build it ourselves, off by default, and offer it to them once the repro proves it.
+- Vanilla rate unknown (§13.8). The cycle is verified in EA code, so the fix is justified either way; default ON only after the repro passes and a smoke shows no new hitch (rare-crash rule).
+
+#### 13.9.7 Existing fixes checked
+
+docs/24 has no entry for a menu hang or this lock pair; Apex's source patches nothing in `0x734xxx`-`0x7356xx` [verified grep]. A web search (EA and thesims forums, 2026-11-08) finds only generic "frozen at main menu" advice (windowed mode, clear caches, remove mods), no lock or deadlock fix [verified search]. Logged in docs/24.
+
+#### 13.9.8 Effort (wall clock)
+
+| Step | Time |
+|---|---|
+| Native build: two slot hooks, detector in `UdMemMain`, counters, ini, `ReproWiden` | ~45 min agent build |
+| Selftest cases (a)-(f) | ~20 min |
+| Agent action `pkgAbbaRepro`, repros.json entry, `pkg-abba` signature in queue.ts | ~30 min |
+| Game runs: Mode 0 / Mode 1 repro (one each), Mode 1 BP smoke | 3 jobs, ~10-15 min each |
+| Docs, counter registry, PLAN line | ~15 min |
+
+About 2 h of work plus 3 game jobs. Open: Mode 2 only after a nonzero `pkBeginUnowned` in real runs; whether any non-update caller passes `force != 0`.
+
+#### 13.9.9 Build status (2026-11-08): built, not run
+
+Built on `bugfix/ea-pkglock` (from `docs/ea-package-lock-design`, master 91269f04 merged): ts3native **0.36.216**, pair **pkglock-1108** (`docs/data/builds.json`: asi sha256 `710f91ce`, ts3fixes = the master1108 package `f2826284`, agent `game-copy/ts3agent.package.pkglock-1108` sha256 `ec1de5f0`). No game run, no Bin install, not merged.
+
+- `native/ts3native/pkglock.cpp`: `[PkgLock] Mode=0|1|2`, `Detect`, `ReproWiden` as §13.9.4, with these changes from the design: (1) the detector runs on its own watcher thread (1 s), not in `UdMemMain`, so it works without `[UserDiag]`; it also writes a `pkglock:` counter line per minute when the counters moved; (2) `ReproWiden` widens only the first 300 closes (the menu reads), so a world load after the reads is not slowed; (3) install checks the slot value and EA's first bytes of `0x7355A0` (the `+0x104` precheck) and `0x734710` (`+0xB8`); (4) a DL whose kind byte `+0x24` is 0 (not CS mode) is passed to EA unchanged. Repo ini: `Mode=0 Detect=0 ReproWiden=0`. Counters v177 `pk*` at `0x5EC8` (docs/registry.md). Mode 2 is built and EXPERIMENTAL; Mode 1 is the shipping mode.
+- Selftest `TestPkgLock` (design cases a-f, real CRITICAL_SECTIONs laid out as EA's, fake FL -> DL original): all pass; Mode 1 10k closes vs 10k DL -> FL readers finish (one run: 6033 closes ran, 3967 deferred, longest defer run 427 in a tight loop); the Mode 0 + ReproWiden control deadlocks as EA does and the detector writes one ABBA line. selftest-all, hook-sites --check ok.
+- Harness: agent command `pkg_abba_repro` (`PkgAbbaHandlers.cs`; the game's mscorlib has no `System.IO.Directory`, so it reads the job's save 30 times, plus `files` when given, instead of "all saves"), `cycle.ts` polls an arm reply with `pending: true` under the stall guard, `game-alive.ts` adds `pkg-abba: <line>` to a "nothing moved" stall when the log has a `[PkgLock] ABBA:` line, `queue.ts` job key `expectHang` (caught = PASS) and the deadlock retry also on that label, repro `pkg-abba` (repros.json), realism row (stress).
+- Queue `tools/harness/queues/pkglock.json` (BP, ~10-15 min each): `bp-pkglock-smoke` (Mode 1, no widening), `bp-pkg-abba-m0` (Mode 0 + ReproWiden=50 + Detect=1, expectHang), `bp-pkg-abba-m1` (Mode 1 + same: reads finish, deferred closes, no ABBA line, load and save). Run: `TS3_AGENT_PACKAGE=game-copy/ts3agent.package.pkglock-1108 node tools/harness/queue.ts tools/harness/queues/pkglock.json --no-smoke`.
+
+Next: run the queue. Mode 0 arm must hang with the ABBA line (else the window model is wrong: stop, re-read the dump); Mode 1 arm clean; then per the rare-crash rule set `Mode=1` in the release ini (Detect stays 0) and offer it to Apex (resource-system area). Open risks: whether 30 reads of one save reopen it often enough to hit the 50 ms window (pass `files` with more saves if not); the Mode 0 hang happens on a sim task, so the job ends by the stall guard after ~60 s, not at the line.

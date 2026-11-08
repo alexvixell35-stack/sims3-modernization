@@ -332,3 +332,8 @@ Looked for a fix or teleport of townies leaving a houseboat; none found, nothing
 - https://modthesims.info/d/665907 (license: site terms): stops NPCs moving houseboats, another cause.
 - https://forums.ea.com/discussions/the-sims-3-technical-issues-en/removing-ip-lag/2055350 , https://forums.ea.com/discussions/the-sims-3-en/isla-paradiso-fixes/187443 (forum posts, read only): remove the Scott household or the boats; ports with bad boat access.
 - NRaas GoHere, StoryProgression (source read for behaviour): no teleport off a houseboat.
+
+## Added 2026-11-08 (EA package-lock ABBA deadlock at the main menu; docs/539 §13.9)
+Looked for a fix of the menu hang (package database lock pair `O+0x48` / `O+0xC0`); none found, nothing reused, no code taken:
+- https://forums.ea.com/discussions/the-sims-3-technical-issues-en/sims-3-game-frozen-in-main-menu/8292874 , https://forums.ea.com/discussions/the-sims-3-technical-issues-en/help-frozen-loading-screen/12119308 (forum posts, read only): generic advice (windowed mode, delete caches, remove Mods), no lock cause.
+- Apex Radiance source (`resource_cache.cpp`, read for overlap): no hook in `0x7343B0`-`0x7356xx`.

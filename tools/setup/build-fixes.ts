@@ -68,7 +68,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kAutUnseenPace value="True" />
     <kAutUnseenCmp value="False" />
     <kAutUnseenRabbitHoleGame value="True" />
-    <kAutUnseenPacePct value="78" />
+    <kAutUnseenPacePct value="100" />
     <kSafeSpotReuse value="False" />
     <kWildflowerProbe value="False" />
     <kWildflowerTask value="True" />

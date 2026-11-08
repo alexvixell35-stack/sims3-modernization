@@ -143,11 +143,12 @@ namespace Ts3Fixes
         {
             mKeys = null;
             mPartners = null;
+            mKey = default(K); // issue #40: the last key (a Sim) stayed reachable
             mEnd();
         }
 
         // The world the pass belongs to is gone: drop it without running the rest.
-        public void Abandon() { mKeys = null; mPartners = null; }
+        public void Abandon() { mKeys = null; mPartners = null; mKey = default(K); }
     }
 
     // A one-shot pass over a snapshot of items, a slice at a time. Each item is handed out exactly once, in order; a slice

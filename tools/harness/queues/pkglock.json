@@ -1,0 +1,51 @@
+{
+  "note": "pkglock (2026-11-08, docs/539 §13.9, ledger §465): EA package-lock ABBA deadlock fix [PkgLock], pair pkglock-1108 (ts3native 0.36.216 + master1108 ts3fixes + ts3agent with pkg_abba_repro). Correctness only, BP, ~10-15 min jobs, NOT RUN YET. Order: smoke (Mode 1, no widening: install line, load, 4 min, save), then the forced repro pkg-abba (repros.json): Mode 0 + ReproWiden=50 + Detect=1 must hang at the menu reads with a [PkgLock] ABBA line (expectHang: PASS = caught), Mode 1 + same must finish the 30 reads, load, play and save with pkAbbaSeen 0 and deferred closes. If the Mode 0 arm does not hang, stop: the window model of docs/539 §13.9.2 is wrong (re-read the dump). Deterministic off/on repro: one clean run per arm (crash-cause rule). Release decision after: rare-crash rule = Mode 1 ON once repro + fix proven. Run: TS3_AGENT_PACKAGE=game-copy/ts3agent.package.pkglock-1108 node tools/harness/queue.ts tools/harness/queues/pkglock.json --no-smoke",
+  "jobs": [
+    {
+      "id": "bp-pkglock-smoke",
+      "note": "smoke: [PkgLock] Mode=1 Detect=1, no ReproWiden: install line read back, no ABBA line, BP load, 4 min, save. PASS = OK line, no SKIP/ABBA, 0 crashes",
+      "asi": "game-copy/ts3native.asi.pkglock-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.pkglock-1108",
+      "pinReason": "pkglock-1108 pair (builds.json): bugfix/ea-pkglock, ts3native 0.36.216 = master 0.36.211 + [PkgLock] (default Mode=0); ts3fixes = master1108 package; agent game-copy/ts3agent.package.pkglock-1108 (TS3_AGENT_PACKAGE)",
+      "save": "Baseline-BP-Spring",
+      "ini": { "PkgLock.Mode": 1, "PkgLock.Detect": 1, "PkgLock.ReproWiden": 0 },
+      "logRequire": { "^OK   pkglock: \\[PkgLock\\] Mode=1 Detect=1 ReproWiden=0": 1 },
+      "logForbid": { "\\[PkgLock\\] ABBA:": 0, "^SKIP pkglock": 0 },
+      "noiseCheck": false,
+      "gameArgs": ["-disablestoryprogression"],
+      "run": { "repro": "pkg-abba" },
+      "timeoutMin": 15
+    },
+    {
+      "id": "bp-pkg-abba-m0",
+      "note": "repro OFF arm: Mode=0 (EA order) + ReproWiden=50 + Detect=1, 30 save-list reads at the menu (agentArm). Expected: the reads hang, \"[PkgLock] ABBA:\" line, stall guard ends the job (expectHang pkg-abba = PASS). Load never starts",
+      "asi": "game-copy/ts3native.asi.pkglock-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.pkglock-1108",
+      "pinReason": "pkglock-1108 pair (builds.json): bugfix/ea-pkglock, ts3native 0.36.216 = master 0.36.211 + [PkgLock] (default Mode=0); ts3fixes = master1108 package; agent game-copy/ts3agent.package.pkglock-1108 (TS3_AGENT_PACKAGE)",
+      "save": "Baseline-BP-Spring",
+      "ini": { "PkgLock.Mode": 0, "PkgLock.Detect": 1, "PkgLock.ReproWiden": 50 },
+      "agentArm": "pkg_abba_repro",
+      "expectHang": "pkg-abba",
+      "noiseCheck": false,
+      "gameArgs": ["-disablestoryprogression"],
+      "run": { "repro": "pkg-abba" },
+      "timeoutMin": 12
+    },
+    {
+      "id": "bp-pkg-abba-m1",
+      "note": "repro ON arm: Mode=1 + ReproWiden=50 + Detect=1, the same 30 menu reads. Expected: reads 30 of 30, deferred closes > 0 in the pkglock: line, no ABBA line, BP loads, 4 min, save",
+      "asi": "game-copy/ts3native.asi.pkglock-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.pkglock-1108",
+      "pinReason": "pkglock-1108 pair (builds.json): bugfix/ea-pkglock, ts3native 0.36.216 = master 0.36.211 + [PkgLock] (default Mode=0); ts3fixes = master1108 package; agent game-copy/ts3agent.package.pkglock-1108 (TS3_AGENT_PACKAGE)",
+      "save": "Baseline-BP-Spring",
+      "ini": { "PkgLock.Mode": 1, "PkgLock.Detect": 1, "PkgLock.ReproWiden": 50 },
+      "agentArm": "pkg_abba_repro",
+      "logRequire": { "^OK   pkglock: \\[PkgLock\\] Mode=1 Detect=1 ReproWiden=50": 1, "^pkglock: Mode 1, .*deferred [1-9]": 1 },
+      "logForbid": { "\\[PkgLock\\] ABBA:": 0, "^SKIP pkglock": 0 },
+      "noiseCheck": false,
+      "gameArgs": ["-disablestoryprogression"],
+      "run": { "repro": "pkg-abba" },
+      "timeoutMin": 15
+    }
+  ]
+}

@@ -64,7 +64,7 @@ export async function untilMet(u: Until1, io: Pick<StepIO, 'ag' | 'sleep' | 'now
     if (ok(last)) return last;
     if (io.halted()) return null;
     if (u.failOn && get((last as any)?.result, u.failOn)) throw new Error(`${u.cmd} ${u.failOn}: ${JSON.stringify((last as any).result).slice(0, 400)}`);
-    if (io.now() - t0 > (u.maxS ?? 300) * 1000) throw new Error(`${u.cmd} until ${JSON.stringify(u.all)} not met in ${u.maxS ?? 300} s: ${JSON.stringify(last?.result ?? last?.error).slice(0, 200)}`);
+    if (io.now() - t0 > (u.maxS ?? 300) * 1000) throw new Error(`${u.cmd} until ${JSON.stringify(u.all)} not met in ${u.maxS ?? 300} s: ${JSON.stringify((u.show && last?.result ? Object.fromEntries(Object.entries(last.result).filter(([k]) => k.startsWith(u.show))) : null) ?? last?.result ?? last?.error).slice(0, u.show ? 1200 : 200)}`); // show: key prefix, as repro.ts
     await io.sleep((u.everyS ?? 5) * 1000);
   }
 }

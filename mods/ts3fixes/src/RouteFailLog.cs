@@ -37,7 +37,8 @@ namespace Ts3Fixes
         static bool sShowOffLooked;
         static readonly Dictionary<ulong, bool> sRflAsync = new Dictionary<ulong, bool>();
         static int sRflMinute = -1, sRflInMinute, sRflTotal;
-        class RflCmd { public InteractionInstance Ia; public int Id, Attempts, Fails, Near, Lines; public uint Route, T0; public Vector3 Goal; public string Last; }
+        class RflCmd { public WeakReference Ia;  // weak (issue #40): an ended command kept its interaction and Sim reachable
+            public int Id, Attempts, Fails, Near, Lines; public uint Route, T0; public Vector3 Goal; public string Last; }
         class RflRow { public string Name; public int Seen, Unseen; public bool Household; }
         static readonly Dictionary<ulong, RflCmd> sRflCmds = new Dictionary<ulong, RflCmd>();  // by Sim object id
         static readonly Dictionary<ulong, RflRow> sRflSims = new Dictionary<ulong, RflRow>();
@@ -155,10 +156,10 @@ namespace Ts3Fixes
             if (!ShortcutOn("routefaillog")) return null;
             ulong id = sim.ObjectId.Value;
             RflCmd c;
-            if (sRflCmds.TryGetValue(id, out c) && ReferenceEquals(c.Ia, ia)) return c;
+            if (sRflCmds.TryGetValue(id, out c) && ReferenceEquals(c.Ia.Target, ia)) return c;
             if (sRflCmds.Count >= 64) sRflCmds.Clear();
             c = new RflCmd();
-            c.Ia = ia;
+            c.Ia = new WeakReference(ia);
             c.Id = ++sRflCmdSeq;
             sRflCmds[id] = c;
             return c;
@@ -179,7 +180,8 @@ namespace Ts3Fixes
 
         static void RflCmdStart(RflCmd c, Sim sim, Vector3 goal)
         {
-            InteractionInstance ia = c.Ia;
+            InteractionInstance ia = c.Ia.Target as InteractionInstance;
+            if (ia == null) return;  // collected; RflCmdOf just matched it to the current interaction, so not expected
             Household h = sim.Household;
             int why = UfWhy(sim);
             DiagLine("gohere start: cmd " + c.Id + " " + sim.FullName + " 0x" + sim.SimDescription.SimDescriptionId.ToString("X") + " follower " + sim.ObjectId.Value.ToString("X16")

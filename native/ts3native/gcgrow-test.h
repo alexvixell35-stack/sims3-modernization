@@ -40,7 +40,7 @@ static DWORD __cdecl GwFakeXml(DWORD lo, DWORD hi, DWORD group, DWORD type) {
 
 static void TestGcGrowLog() {
     static_assert(offsetof(Ts3nCounters, gcBlackOk) == 0x5B14 && offsetof(Ts3nCounters, gwMode) == 0x5AE8 && offsetof(Ts3nCounters, gwUnseenKB) == 0x5B00 &&
-                      offsetof(Ts3nCounters, gwXmlMaxKB) == 0x5B0C && sizeof(Ts3nCounters) == 6066 * 4,
+                      offsetof(Ts3nCounters, gwXmlMaxKB) == 0x5B0C && sizeof(Ts3nCounters) == 6074 * 4,
                   "counters v161-v163 layout (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const MxAddrs saved = g_mx;

@@ -134,9 +134,17 @@ if (values.save) {
   // (2026-10-16 bp-university-travel): check load_file before sending it again, so a load never starts twice.
   // queue job key agentArm: an agent watcher that must be on before the load (sim_gone_load)
   if (process.env.TS3_AGENT_ARM) {
-    const a = await agent(process.env.TS3_AGENT_ARM, { arm: true });
-    if (!a.ok) throw new Error(`agentArm ${process.env.TS3_AGENT_ARM}: ${a.error}`);
-    log(`armed ${process.env.TS3_AGENT_ARM}`);
+    const arm = process.env.TS3_AGENT_ARM, a = await agent(arm, { arm: true, file: values.save });
+    if (!a.ok) throw new Error(`agentArm ${arm}: ${a.error}`);
+    log(`armed ${arm}`);
+    // an arm reply with pending: true is menu work on a sim task (pkg_abba_repro, docs/539 §13.9.5): poll {status: true} until
+    // done, under the stall guard (a hang there gets the hang capture and the "pkg-abba:" label)
+    if (a.result?.pending) {
+      let st: any = null;
+      await until(`agentArm ${arm}`, 300, async () => (st = (await agent(arm, { status: true })).result)?.done === true);
+      if (st?.error) throw new Error(`agentArm ${arm}: ${st.error}`);
+      log(`agentArm ${arm}: ${st?.reads} of ${st?.want} done`);
+    }
   }
   let r = await agent('load_save', { file: values.save });
   const loadGuard = stallGuard('world load', { port: Number(values.port) }); // the agent is silent while loading: heartbeat, flag, commit, log

@@ -195,6 +195,12 @@ export function launchGuard(port = 47891) {
 // Cheap to call often: it samples at most every GUARD_MS. liveOnly: only "TS3W.exe gone" counts, first sample after
 // GUARD_MS (game start: the probe server may still be starting and the exe handing over). Worst case to fail:
 // 2 * GUARD_MS + one sample (<= 30 s of request timeouts) after the last progress.
+// "[PkgLock] ABBA:" detector line in a ts3native.log tail (docs/539 §13.9.4) -> "pkg-abba: <line>", '' without one (pure)
+export const PKG_ABBA = 'pkg-abba';
+export function pkgAbba(tail: string): string {
+  const m = tail.match(/\[PkgLock\] ABBA: [^\r\n]*/g);
+  return m ? `${PKG_ABBA}: ${m.at(-1)}` : '';
+}
 export function stallGuard(what: string, o: { port?: number; extra?: () => unknown; liveOnly?: boolean } = {}) {
   const st = { last: null as string | null, misses: 0 };
   let next = o.liveOnly ? Date.now() + GUARD_MS : 0, why = '';
@@ -204,6 +210,7 @@ export function stallGuard(what: string, o: { port?: number; extra?: () => unkno
     const r = stallStep(st, await sampleGame(o.port, o.extra), o.liveOnly);
     if (r) why = `${what}: ${r} for ${Math.round(2 * GUARD_MS / 1000)} s (fail-fast guard)`;
     if (r.startsWith('nothing moved')) why += `; ${await captureHang(hangDir(), { port: o.port }).catch(e => `hang capture failed: ${e}`)}`; // game and probe up: a hang
+    if (r.startsWith('nothing moved')) { const pk = pkgAbba(logTail(1 << 18)); if (pk) why += `; ${pk}`; } // [PkgLock] Detect=1 named the EA lock cycle
     if (r && !r.startsWith(`${GAME_EXE} process gone`)) why += `; ${dumpHungGame(`${what}: ${r}`)}`; // hung or probe silent: the caller's failure kills the game
     return why;
   };
@@ -507,6 +514,9 @@ if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-
     for (const f of ['cycle.ts', 'save-matrix.ts', 'travel-trip.ts', 'new-save.ts', 'story-fuzzer.ts', 'vanilla-steps.ts']) assert.match(src(f), /'dialog_expect', \{[^}]*accept: true/, `${f}: dialog_expect without accept:true`);
   }
   { // lock waits line for the FAIL text (tools/dump-locks.ts): the summary comes back, a read error does not throw
+    assert.equal(pkgAbba('x\r\n12:00 [PkgLock] ABBA: tid 4 holds O+0xC0, waits O+0x48 owned by tid 7 (O=0D0, in idle close for 3000 ms, Mode 0)\r\nnext'),
+      'pkg-abba: [PkgLock] ABBA: tid 4 holds O+0xC0, waits O+0x48 owned by tid 7 (O=0D0, in idle close for 3000 ms, Mode 0)');
+    assert.equal(pkgAbba('OK   pkglock: [PkgLock] Mode=1'), '');
     const fake = { waits: [], cycle: [1, 2], deadlock: 'EA package-lock deadlock (docs/539 §13.8)', lines: ['thread 1 waits ...'], summary: 'lock waits: 2 of 9 threads; deadlock cycle 1>2>1; EA package-lock deadlock (docs/539 §13.8)' };
     assert.equal(lockWaits('x.dmp', () => fake), fake.summary);
     assert.match(lockWaits('x.dmp', () => { throw new Error('not a minidump'); }), /^lock waits: not read \(Error: not a minidump\)/);

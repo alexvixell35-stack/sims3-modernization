@@ -2401,6 +2401,27 @@
       "what": "[IlPatch] ilp* counters (PR #200, docs/526, ilpatch.cpp)",
       "at": "2026-11-05T08:05:52.449Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-465",
+      "kind": "ledger",
+      "from": 465,
+      "to": 465,
+      "by": "ea-pkglock",
+      "what": "EA package-lock ABBA fix design (docs/539 13.9)",
+      "at": "2026-11-08T10:55:41.408Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\ea-pkglock"
+    },
+    {
+      "id": "native-v177",
+      "kind": "native",
+      "version": 177,
+      "from": 24264,
+      "to": 24295,
+      "by": "ea-pkglock",
+      "what": "[PkgLock] pkMode, pkCloseOk, pkCloseDefer, pkCloseForce, pkBeginUnowned, pkBeginLocked, pkAbbaSeen, pkDeferMax (pkglock.cpp, docs/539 13.9)",
+      "at": "2026-11-08T11:00:24.722Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\ea-pkglock-fix"
     }
   ]
 }

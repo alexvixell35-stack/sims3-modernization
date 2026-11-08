@@ -63373,8 +63373,8 @@
     "switches": [
       "dancefloorlistdiag"
     ],
-    "note": "Player flow with test shortcuts (labelled): two NPCs of the save, sent to Waylon's Haunt with EA's own VisitCommunityLot; DanceTogetherA is pushed (not chosen by autonomy), the short-term context set Friendly when not one EA accepts, and every even try forces one collection while the pair routes (STRESS). 24 tries; each waits until the route returned (ts3fixes counters 893/894) or the dance ended, then cancels it. Waits are fail-fast: the until polls every 5-10 s, the action reports stalled when nothing about the pair moved for 60 s (two 30 s checks), and the harness stall guard runs as well. Never a household, selectable or unknown-scope Sim (the action re-checks at every op and throws).",
-    "expect": "steps pass; dancefloordiag_calls >= 20; one \"dancefloor list: call #\" line per call (first 40); any \"dancefloor list: MISMATCH\" / \"THROW\" line is the finding, not a failure",
+    "note": "Player flow with test shortcuts (labelled). Rodney's hypothesis (2026-11-08): the throw needs a floor used many times (hit 1: 5-6 NPCs dancing on Waylon's Haunt for ~10 min, rotating). Up to 4 lots of the world with a dance floor (Waylon's Haunt first), each with its own pool of 6 NPCs of the save, all driven at once; phase A: pool members 1 with 2 for 6 cycles; phase B: 6 cycles of rotating pairs (every pool member twice); phase C (loop until the arm window ends): all three pairs dance at once for 3 min, then cancel. Every cycle starts with op place = setup_sims on every floor (AGENTS.md Repro Sim setup, realistic: only the waiting is skipped), which also turns autonomy off (NPCs on a club lot queue GoHome after a cancel), and an NPC the game removes is replaced by another that fits. DanceTogetherA is pushed (not chosen by autonomy), the short-term context set Friendly when not one EA accepts, and every even A/B cycle forces one collection while the pair routes (STRESS). Each fire logs \"dancefloor repro: cycle #n phase P lot L cam seen|far Dm actor X partner Y floor_sims K calls C\" to ts3native.log per pair: \"dancefloor list: call #\" lines after C belong to that cycle, their lot field names the floor. Waits are fail-fast (until polls every 5 s; stalled = nothing moved for 60 s, never while a fired pair still dances inside its 90 s gave_up window). Never a household, selectable or unknown-scope Sim (the action re-checks at every op and throws).",
+    "expect": "steps pass; 12 A/B cycles on every floor, then crowd cycles until the window ends; dancefloordiag_calls >= 20; one \"dancefloor repro: cycle #\" line per fired pair; \"dancefloor list: call #\" lines (first 40); any \"dancefloor list: MISMATCH\" / \"THROW\" line is the finding (match it to the cycle by its call #), not a failure",
     "steps": [
       {
         "cmd": "patches",
@@ -63392,17 +63392,43 @@
         "waitS": 2
       },
       {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 21
+        },
+        "waitS": 5,
+        "note": "evening, the club open: at 03:00 the NPCs leave the lot as soon as their queue is cancelled (IsLeavingLot; EA refuses DanceTogether with a leaving target), 2026-11-08"
+      },
+      {
         "cmd": "dance_together_floor",
         "args": {
           "op": "setup",
-          "lot": "Waylon"
+          "pool": 6,
+          "max": 4
         },
-        "waitS": 5,
-        "note": "two NPCs (never the active household, a selectable Sim or a Sim with no household) and the lot's dance object; NPCs not on the lot yet go there with EA's VisitCommunityLot",
+        "waitS": 2,
+        "show": "f",
+        "max": 3000,
+        "note": "up to 4 lots with a dance floor and a dance object (Waylon's Haunt first; result lists every one found), each with its own pool of 6 NPCs (never the active household, a selectable Sim or a Sim with no household), not leaving a lot; every later op acts on all floors at once"
+      },
+      {
+        "cmd": "dance_together_floor",
+        "args": {
+          "op": "place",
+          "a": 1,
+          "b": 2
+        },
+        "waitS": 2,
+        "show": "placed",
+        "max": 1500,
+        "note": "cycle 1 (phase A, pool members 1 with 2 on every floor): Sim setup on every floor (setup_sims via op place, AGENTS.md Repro Sim setup; realistic, only the waiting is skipped): queues cancelled, onto the floor with Teleport Me Here unless there, motives maxed, moodlets cleared, autonomy off (NPCs on a club lot otherwise queue GoHome after a cancel); the until redoes the teleport for any Sim not on its lot (op place missing); on the lot within 60 s or FAIL",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
-            "op": "state"
+            "op": "place",
+            "a": 1,
+            "b": 2,
+            "missing": true
           },
           "all": [
             {
@@ -63410,18 +63436,22 @@
               "equals": true
             }
           ],
+          "show": "where",
           "everyS": 10,
-          "maxS": 900,
+          "maxS": 60,
           "failOn": "stalled"
         }
       },
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "fire"
+          "op": "fire",
+          "a": 1,
+          "b": 2,
+          "phase": "A"
         },
         "waitS": 2,
-        "note": "try 1: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "note": "cycle 1 (phase A, pool members 1 with 2 on every floor): DanceTogetherA queued on member 1 with member 2 of each floor's pool (test shortcut: pushed, STC set Friendly when not accepted)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
@@ -63444,11 +63474,11 @@
           "op": "cancel"
         },
         "waitS": 2,
-        "note": "try 1: the dance cancelled after its route (NPCs only)",
+        "note": "cycle 1 (phase A, pool members 1 with 2 on every floor): the dance cancelled after its route (NPCs only)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
-            "op": "state"
+            "op": "cancel"
           },
           "all": [
             {
@@ -63456,6 +63486,7 @@
               "equals": false
             }
           ],
+          "show": "where",
           "everyS": 5,
           "maxS": 60,
           "failOn": "stalled"
@@ -63464,18 +63495,44 @@
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "state"
+          "op": "place",
+          "a": 1,
+          "b": 2
         },
-        "waitS": 8,
-        "note": "try 1: pause"
+        "waitS": 2,
+        "show": "placed",
+        "max": 1500,
+        "note": "cycle 2 (phase A, pool members 1 with 2 on every floor): Sim setup on every floor (setup_sims via op place, AGENTS.md Repro Sim setup; realistic, only the waiting is skipped): queues cancelled, onto the floor with Teleport Me Here unless there, motives maxed, moodlets cleared, autonomy off (NPCs on a club lot otherwise queue GoHome after a cancel); the until redoes the teleport for any Sim not on its lot (op place missing); on the lot within 60 s or FAIL",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "place",
+            "a": 1,
+            "b": 2,
+            "missing": true
+          },
+          "all": [
+            {
+              "path": "on_lot",
+              "equals": true
+            }
+          ],
+          "show": "where",
+          "everyS": 10,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
       },
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "fire"
+          "op": "fire",
+          "a": 1,
+          "b": 2,
+          "phase": "A"
         },
         "waitS": 3,
-        "note": "try 2: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+        "note": "cycle 2 (phase A, pool members 1 with 2 on every floor): DanceTogetherA queued on member 1 with member 2 of each floor's pool (test shortcut: pushed, STC set Friendly when not accepted)"
       },
       {
         "cmd": "mem_gc",
@@ -63484,7 +63541,7 @@
         },
         "waitS": 1,
         "optional": true,
-        "note": "try 2: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "note": "cycle 2 (phase A, pool members 1 with 2 on every floor): STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
@@ -63507,11 +63564,11 @@
           "op": "cancel"
         },
         "waitS": 2,
-        "note": "try 2: the dance cancelled after its route (NPCs only)",
+        "note": "cycle 2 (phase A, pool members 1 with 2 on every floor): the dance cancelled after its route (NPCs only)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
-            "op": "state"
+            "op": "cancel"
           },
           "all": [
             {
@@ -63519,6 +63576,7 @@
               "equals": false
             }
           ],
+          "show": "where",
           "everyS": 5,
           "maxS": 60,
           "failOn": "stalled"
@@ -63527,18 +63585,44 @@
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "state"
+          "op": "place",
+          "a": 1,
+          "b": 2
         },
-        "waitS": 8,
-        "note": "try 2: pause"
+        "waitS": 2,
+        "show": "placed",
+        "max": 1500,
+        "note": "cycle 3 (phase A, pool members 1 with 2 on every floor): Sim setup on every floor (setup_sims via op place, AGENTS.md Repro Sim setup; realistic, only the waiting is skipped): queues cancelled, onto the floor with Teleport Me Here unless there, motives maxed, moodlets cleared, autonomy off (NPCs on a club lot otherwise queue GoHome after a cancel); the until redoes the teleport for any Sim not on its lot (op place missing); on the lot within 60 s or FAIL",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "place",
+            "a": 1,
+            "b": 2,
+            "missing": true
+          },
+          "all": [
+            {
+              "path": "on_lot",
+              "equals": true
+            }
+          ],
+          "show": "where",
+          "everyS": 10,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
       },
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "fire"
+          "op": "fire",
+          "a": 1,
+          "b": 2,
+          "phase": "A"
         },
         "waitS": 2,
-        "note": "try 3: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "note": "cycle 3 (phase A, pool members 1 with 2 on every floor): DanceTogetherA queued on member 1 with member 2 of each floor's pool (test shortcut: pushed, STC set Friendly when not accepted)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
@@ -63561,11 +63645,11 @@
           "op": "cancel"
         },
         "waitS": 2,
-        "note": "try 3: the dance cancelled after its route (NPCs only)",
+        "note": "cycle 3 (phase A, pool members 1 with 2 on every floor): the dance cancelled after its route (NPCs only)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
-            "op": "state"
+            "op": "cancel"
           },
           "all": [
             {
@@ -63573,6 +63657,7 @@
               "equals": false
             }
           ],
+          "show": "where",
           "everyS": 5,
           "maxS": 60,
           "failOn": "stalled"
@@ -63581,18 +63666,44 @@
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "state"
+          "op": "place",
+          "a": 1,
+          "b": 2
         },
-        "waitS": 8,
-        "note": "try 3: pause"
+        "waitS": 2,
+        "show": "placed",
+        "max": 1500,
+        "note": "cycle 4 (phase A, pool members 1 with 2 on every floor): Sim setup on every floor (setup_sims via op place, AGENTS.md Repro Sim setup; realistic, only the waiting is skipped): queues cancelled, onto the floor with Teleport Me Here unless there, motives maxed, moodlets cleared, autonomy off (NPCs on a club lot otherwise queue GoHome after a cancel); the until redoes the teleport for any Sim not on its lot (op place missing); on the lot within 60 s or FAIL",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "place",
+            "a": 1,
+            "b": 2,
+            "missing": true
+          },
+          "all": [
+            {
+              "path": "on_lot",
+              "equals": true
+            }
+          ],
+          "show": "where",
+          "everyS": 10,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
       },
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "fire"
+          "op": "fire",
+          "a": 1,
+          "b": 2,
+          "phase": "A"
         },
         "waitS": 3,
-        "note": "try 4: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+        "note": "cycle 4 (phase A, pool members 1 with 2 on every floor): DanceTogetherA queued on member 1 with member 2 of each floor's pool (test shortcut: pushed, STC set Friendly when not accepted)"
       },
       {
         "cmd": "mem_gc",
@@ -63601,7 +63712,7 @@
         },
         "waitS": 1,
         "optional": true,
-        "note": "try 4: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "note": "cycle 4 (phase A, pool members 1 with 2 on every floor): STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
@@ -63624,11 +63735,11 @@
           "op": "cancel"
         },
         "waitS": 2,
-        "note": "try 4: the dance cancelled after its route (NPCs only)",
+        "note": "cycle 4 (phase A, pool members 1 with 2 on every floor): the dance cancelled after its route (NPCs only)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
-            "op": "state"
+            "op": "cancel"
           },
           "all": [
             {
@@ -63636,6 +63747,7 @@
               "equals": false
             }
           ],
+          "show": "where",
           "everyS": 5,
           "maxS": 60,
           "failOn": "stalled"
@@ -63644,18 +63756,44 @@
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "state"
+          "op": "place",
+          "a": 1,
+          "b": 2
         },
-        "waitS": 8,
-        "note": "try 4: pause"
+        "waitS": 2,
+        "show": "placed",
+        "max": 1500,
+        "note": "cycle 5 (phase A, pool members 1 with 2 on every floor): Sim setup on every floor (setup_sims via op place, AGENTS.md Repro Sim setup; realistic, only the waiting is skipped): queues cancelled, onto the floor with Teleport Me Here unless there, motives maxed, moodlets cleared, autonomy off (NPCs on a club lot otherwise queue GoHome after a cancel); the until redoes the teleport for any Sim not on its lot (op place missing); on the lot within 60 s or FAIL",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "place",
+            "a": 1,
+            "b": 2,
+            "missing": true
+          },
+          "all": [
+            {
+              "path": "on_lot",
+              "equals": true
+            }
+          ],
+          "show": "where",
+          "everyS": 10,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
       },
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "fire"
+          "op": "fire",
+          "a": 1,
+          "b": 2,
+          "phase": "A"
         },
         "waitS": 2,
-        "note": "try 5: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "note": "cycle 5 (phase A, pool members 1 with 2 on every floor): DanceTogetherA queued on member 1 with member 2 of each floor's pool (test shortcut: pushed, STC set Friendly when not accepted)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
@@ -63678,11 +63816,11 @@
           "op": "cancel"
         },
         "waitS": 2,
-        "note": "try 5: the dance cancelled after its route (NPCs only)",
+        "note": "cycle 5 (phase A, pool members 1 with 2 on every floor): the dance cancelled after its route (NPCs only)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
-            "op": "state"
+            "op": "cancel"
           },
           "all": [
             {
@@ -63690,6 +63828,7 @@
               "equals": false
             }
           ],
+          "show": "where",
           "everyS": 5,
           "maxS": 60,
           "failOn": "stalled"
@@ -63698,18 +63837,44 @@
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "state"
+          "op": "place",
+          "a": 1,
+          "b": 2
         },
-        "waitS": 8,
-        "note": "try 5: pause"
+        "waitS": 2,
+        "show": "placed",
+        "max": 1500,
+        "note": "cycle 6 (phase A, pool members 1 with 2 on every floor): Sim setup on every floor (setup_sims via op place, AGENTS.md Repro Sim setup; realistic, only the waiting is skipped): queues cancelled, onto the floor with Teleport Me Here unless there, motives maxed, moodlets cleared, autonomy off (NPCs on a club lot otherwise queue GoHome after a cancel); the until redoes the teleport for any Sim not on its lot (op place missing); on the lot within 60 s or FAIL",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "place",
+            "a": 1,
+            "b": 2,
+            "missing": true
+          },
+          "all": [
+            {
+              "path": "on_lot",
+              "equals": true
+            }
+          ],
+          "show": "where",
+          "everyS": 10,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
       },
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "fire"
+          "op": "fire",
+          "a": 1,
+          "b": 2,
+          "phase": "A"
         },
         "waitS": 3,
-        "note": "try 6: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+        "note": "cycle 6 (phase A, pool members 1 with 2 on every floor): DanceTogetherA queued on member 1 with member 2 of each floor's pool (test shortcut: pushed, STC set Friendly when not accepted)"
       },
       {
         "cmd": "mem_gc",
@@ -63718,7 +63883,7 @@
         },
         "waitS": 1,
         "optional": true,
-        "note": "try 6: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "note": "cycle 6 (phase A, pool members 1 with 2 on every floor): STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
@@ -63741,11 +63906,11 @@
           "op": "cancel"
         },
         "waitS": 2,
-        "note": "try 6: the dance cancelled after its route (NPCs only)",
+        "note": "cycle 6 (phase A, pool members 1 with 2 on every floor): the dance cancelled after its route (NPCs only)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
-            "op": "state"
+            "op": "cancel"
           },
           "all": [
             {
@@ -63753,6 +63918,7 @@
               "equals": false
             }
           ],
+          "show": "where",
           "everyS": 5,
           "maxS": 60,
           "failOn": "stalled"
@@ -63761,18 +63927,44 @@
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "state"
+          "op": "place",
+          "a": 3,
+          "b": 4
         },
-        "waitS": 8,
-        "note": "try 6: pause"
+        "waitS": 2,
+        "show": "placed",
+        "max": 1500,
+        "note": "cycle 7 (phase B, pool members 3 with 4 on every floor): Sim setup on every floor (setup_sims via op place, AGENTS.md Repro Sim setup; realistic, only the waiting is skipped): queues cancelled, onto the floor with Teleport Me Here unless there, motives maxed, moodlets cleared, autonomy off (NPCs on a club lot otherwise queue GoHome after a cancel); the until redoes the teleport for any Sim not on its lot (op place missing); on the lot within 60 s or FAIL",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "place",
+            "a": 3,
+            "b": 4,
+            "missing": true
+          },
+          "all": [
+            {
+              "path": "on_lot",
+              "equals": true
+            }
+          ],
+          "show": "where",
+          "everyS": 10,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
       },
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "fire"
+          "op": "fire",
+          "a": 3,
+          "b": 4,
+          "phase": "B"
         },
         "waitS": 2,
-        "note": "try 7: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "note": "cycle 7 (phase B, pool members 3 with 4 on every floor): DanceTogetherA queued on member 3 with member 4 of each floor's pool (test shortcut: pushed, STC set Friendly when not accepted)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
@@ -63795,11 +63987,11 @@
           "op": "cancel"
         },
         "waitS": 2,
-        "note": "try 7: the dance cancelled after its route (NPCs only)",
+        "note": "cycle 7 (phase B, pool members 3 with 4 on every floor): the dance cancelled after its route (NPCs only)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
-            "op": "state"
+            "op": "cancel"
           },
           "all": [
             {
@@ -63807,6 +63999,7 @@
               "equals": false
             }
           ],
+          "show": "where",
           "everyS": 5,
           "maxS": 60,
           "failOn": "stalled"
@@ -63815,18 +64008,44 @@
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "state"
+          "op": "place",
+          "a": 5,
+          "b": 6
         },
-        "waitS": 8,
-        "note": "try 7: pause"
+        "waitS": 2,
+        "show": "placed",
+        "max": 1500,
+        "note": "cycle 8 (phase B, pool members 5 with 6 on every floor): Sim setup on every floor (setup_sims via op place, AGENTS.md Repro Sim setup; realistic, only the waiting is skipped): queues cancelled, onto the floor with Teleport Me Here unless there, motives maxed, moodlets cleared, autonomy off (NPCs on a club lot otherwise queue GoHome after a cancel); the until redoes the teleport for any Sim not on its lot (op place missing); on the lot within 60 s or FAIL",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "place",
+            "a": 5,
+            "b": 6,
+            "missing": true
+          },
+          "all": [
+            {
+              "path": "on_lot",
+              "equals": true
+            }
+          ],
+          "show": "where",
+          "everyS": 10,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
       },
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "fire"
+          "op": "fire",
+          "a": 5,
+          "b": 6,
+          "phase": "B"
         },
         "waitS": 3,
-        "note": "try 8: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+        "note": "cycle 8 (phase B, pool members 5 with 6 on every floor): DanceTogetherA queued on member 5 with member 6 of each floor's pool (test shortcut: pushed, STC set Friendly when not accepted)"
       },
       {
         "cmd": "mem_gc",
@@ -63835,7 +64054,7 @@
         },
         "waitS": 1,
         "optional": true,
-        "note": "try 8: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "note": "cycle 8 (phase B, pool members 5 with 6 on every floor): STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
@@ -63858,11 +64077,11 @@
           "op": "cancel"
         },
         "waitS": 2,
-        "note": "try 8: the dance cancelled after its route (NPCs only)",
+        "note": "cycle 8 (phase B, pool members 5 with 6 on every floor): the dance cancelled after its route (NPCs only)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
-            "op": "state"
+            "op": "cancel"
           },
           "all": [
             {
@@ -63870,6 +64089,7 @@
               "equals": false
             }
           ],
+          "show": "where",
           "everyS": 5,
           "maxS": 60,
           "failOn": "stalled"
@@ -63878,18 +64098,44 @@
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "state"
+          "op": "place",
+          "a": 1,
+          "b": 3
         },
-        "waitS": 8,
-        "note": "try 8: pause"
+        "waitS": 2,
+        "show": "placed",
+        "max": 1500,
+        "note": "cycle 9 (phase B, pool members 1 with 3 on every floor): Sim setup on every floor (setup_sims via op place, AGENTS.md Repro Sim setup; realistic, only the waiting is skipped): queues cancelled, onto the floor with Teleport Me Here unless there, motives maxed, moodlets cleared, autonomy off (NPCs on a club lot otherwise queue GoHome after a cancel); the until redoes the teleport for any Sim not on its lot (op place missing); on the lot within 60 s or FAIL",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "place",
+            "a": 1,
+            "b": 3,
+            "missing": true
+          },
+          "all": [
+            {
+              "path": "on_lot",
+              "equals": true
+            }
+          ],
+          "show": "where",
+          "everyS": 10,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
       },
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "fire"
+          "op": "fire",
+          "a": 1,
+          "b": 3,
+          "phase": "B"
         },
         "waitS": 2,
-        "note": "try 9: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "note": "cycle 9 (phase B, pool members 1 with 3 on every floor): DanceTogetherA queued on member 1 with member 3 of each floor's pool (test shortcut: pushed, STC set Friendly when not accepted)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
@@ -63912,11 +64158,11 @@
           "op": "cancel"
         },
         "waitS": 2,
-        "note": "try 9: the dance cancelled after its route (NPCs only)",
+        "note": "cycle 9 (phase B, pool members 1 with 3 on every floor): the dance cancelled after its route (NPCs only)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
-            "op": "state"
+            "op": "cancel"
           },
           "all": [
             {
@@ -63924,6 +64170,7 @@
               "equals": false
             }
           ],
+          "show": "where",
           "everyS": 5,
           "maxS": 60,
           "failOn": "stalled"
@@ -63932,18 +64179,44 @@
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "state"
+          "op": "place",
+          "a": 2,
+          "b": 5
         },
-        "waitS": 8,
-        "note": "try 9: pause"
+        "waitS": 2,
+        "show": "placed",
+        "max": 1500,
+        "note": "cycle 10 (phase B, pool members 2 with 5 on every floor): Sim setup on every floor (setup_sims via op place, AGENTS.md Repro Sim setup; realistic, only the waiting is skipped): queues cancelled, onto the floor with Teleport Me Here unless there, motives maxed, moodlets cleared, autonomy off (NPCs on a club lot otherwise queue GoHome after a cancel); the until redoes the teleport for any Sim not on its lot (op place missing); on the lot within 60 s or FAIL",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "place",
+            "a": 2,
+            "b": 5,
+            "missing": true
+          },
+          "all": [
+            {
+              "path": "on_lot",
+              "equals": true
+            }
+          ],
+          "show": "where",
+          "everyS": 10,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
       },
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "fire"
+          "op": "fire",
+          "a": 2,
+          "b": 5,
+          "phase": "B"
         },
         "waitS": 3,
-        "note": "try 10: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+        "note": "cycle 10 (phase B, pool members 2 with 5 on every floor): DanceTogetherA queued on member 2 with member 5 of each floor's pool (test shortcut: pushed, STC set Friendly when not accepted)"
       },
       {
         "cmd": "mem_gc",
@@ -63952,7 +64225,7 @@
         },
         "waitS": 1,
         "optional": true,
-        "note": "try 10: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "note": "cycle 10 (phase B, pool members 2 with 5 on every floor): STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
@@ -63975,11 +64248,11 @@
           "op": "cancel"
         },
         "waitS": 2,
-        "note": "try 10: the dance cancelled after its route (NPCs only)",
+        "note": "cycle 10 (phase B, pool members 2 with 5 on every floor): the dance cancelled after its route (NPCs only)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
-            "op": "state"
+            "op": "cancel"
           },
           "all": [
             {
@@ -63987,6 +64260,7 @@
               "equals": false
             }
           ],
+          "show": "where",
           "everyS": 5,
           "maxS": 60,
           "failOn": "stalled"
@@ -63995,18 +64269,44 @@
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "state"
+          "op": "place",
+          "a": 4,
+          "b": 6
         },
-        "waitS": 8,
-        "note": "try 10: pause"
+        "waitS": 2,
+        "show": "placed",
+        "max": 1500,
+        "note": "cycle 11 (phase B, pool members 4 with 6 on every floor): Sim setup on every floor (setup_sims via op place, AGENTS.md Repro Sim setup; realistic, only the waiting is skipped): queues cancelled, onto the floor with Teleport Me Here unless there, motives maxed, moodlets cleared, autonomy off (NPCs on a club lot otherwise queue GoHome after a cancel); the until redoes the teleport for any Sim not on its lot (op place missing); on the lot within 60 s or FAIL",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "place",
+            "a": 4,
+            "b": 6,
+            "missing": true
+          },
+          "all": [
+            {
+              "path": "on_lot",
+              "equals": true
+            }
+          ],
+          "show": "where",
+          "everyS": 10,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
       },
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "fire"
+          "op": "fire",
+          "a": 4,
+          "b": 6,
+          "phase": "B"
         },
         "waitS": 2,
-        "note": "try 11: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
+        "note": "cycle 11 (phase B, pool members 4 with 6 on every floor): DanceTogetherA queued on member 4 with member 6 of each floor's pool (test shortcut: pushed, STC set Friendly when not accepted)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
@@ -64029,11 +64329,11 @@
           "op": "cancel"
         },
         "waitS": 2,
-        "note": "try 11: the dance cancelled after its route (NPCs only)",
+        "note": "cycle 11 (phase B, pool members 4 with 6 on every floor): the dance cancelled after its route (NPCs only)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
-            "op": "state"
+            "op": "cancel"
           },
           "all": [
             {
@@ -64041,6 +64341,7 @@
               "equals": false
             }
           ],
+          "show": "where",
           "everyS": 5,
           "maxS": 60,
           "failOn": "stalled"
@@ -64049,18 +64350,44 @@
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "state"
+          "op": "place",
+          "a": 6,
+          "b": 1
         },
-        "waitS": 8,
-        "note": "try 11: pause"
+        "waitS": 2,
+        "show": "placed",
+        "max": 1500,
+        "note": "cycle 12 (phase B, pool members 6 with 1 on every floor): Sim setup on every floor (setup_sims via op place, AGENTS.md Repro Sim setup; realistic, only the waiting is skipped): queues cancelled, onto the floor with Teleport Me Here unless there, motives maxed, moodlets cleared, autonomy off (NPCs on a club lot otherwise queue GoHome after a cancel); the until redoes the teleport for any Sim not on its lot (op place missing); on the lot within 60 s or FAIL",
+        "until": {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "place",
+            "a": 6,
+            "b": 1,
+            "missing": true
+          },
+          "all": [
+            {
+              "path": "on_lot",
+              "equals": true
+            }
+          ],
+          "show": "where",
+          "everyS": 10,
+          "maxS": 60,
+          "failOn": "stalled"
+        }
       },
       {
         "cmd": "dance_together_floor",
         "args": {
-          "op": "fire"
+          "op": "fire",
+          "a": 6,
+          "b": 1,
+          "phase": "B"
         },
         "waitS": 3,
-        "note": "try 12: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
+        "note": "cycle 12 (phase B, pool members 6 with 1 on every floor): DanceTogetherA queued on member 6 with member 1 of each floor's pool (test shortcut: pushed, STC set Friendly when not accepted)"
       },
       {
         "cmd": "mem_gc",
@@ -64069,7 +64396,7 @@
         },
         "waitS": 1,
         "optional": true,
-        "note": "try 12: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
+        "note": "cycle 12 (phase B, pool members 6 with 1 on every floor): STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
@@ -64092,11 +64419,11 @@
           "op": "cancel"
         },
         "waitS": 2,
-        "note": "try 12: the dance cancelled after its route (NPCs only)",
+        "note": "cycle 12 (phase B, pool members 6 with 1 on every floor): the dance cancelled after its route (NPCs only)",
         "until": {
           "cmd": "dance_together_floor",
           "args": {
-            "op": "state"
+            "op": "cancel"
           },
           "all": [
             {
@@ -64104,720 +64431,11 @@
               "equals": false
             }
           ],
+          "show": "where",
           "everyS": 5,
           "maxS": 60,
           "failOn": "stalled"
         }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "state"
-        },
-        "waitS": 8,
-        "note": "try 12: pause"
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "fire"
-        },
-        "waitS": 2,
-        "note": "try 13: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "settled",
-              "equals": true
-            }
-          ],
-          "everyS": 5,
-          "maxS": 180,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "cancel"
-        },
-        "waitS": 2,
-        "note": "try 13: the dance cancelled after its route (NPCs only)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "busy",
-              "equals": false
-            }
-          ],
-          "everyS": 5,
-          "maxS": 60,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "state"
-        },
-        "waitS": 8,
-        "note": "try 13: pause"
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "fire"
-        },
-        "waitS": 3,
-        "note": "try 14: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
-      },
-      {
-        "cmd": "mem_gc",
-        "args": {
-          "rounds": 1
-        },
-        "waitS": 1,
-        "optional": true,
-        "note": "try 14: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "settled",
-              "equals": true
-            }
-          ],
-          "everyS": 5,
-          "maxS": 180,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "cancel"
-        },
-        "waitS": 2,
-        "note": "try 14: the dance cancelled after its route (NPCs only)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "busy",
-              "equals": false
-            }
-          ],
-          "everyS": 5,
-          "maxS": 60,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "state"
-        },
-        "waitS": 8,
-        "note": "try 14: pause"
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "fire"
-        },
-        "waitS": 2,
-        "note": "try 15: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "settled",
-              "equals": true
-            }
-          ],
-          "everyS": 5,
-          "maxS": 180,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "cancel"
-        },
-        "waitS": 2,
-        "note": "try 15: the dance cancelled after its route (NPCs only)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "busy",
-              "equals": false
-            }
-          ],
-          "everyS": 5,
-          "maxS": 60,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "state"
-        },
-        "waitS": 8,
-        "note": "try 15: pause"
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "fire"
-        },
-        "waitS": 3,
-        "note": "try 16: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
-      },
-      {
-        "cmd": "mem_gc",
-        "args": {
-          "rounds": 1
-        },
-        "waitS": 1,
-        "optional": true,
-        "note": "try 16: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "settled",
-              "equals": true
-            }
-          ],
-          "everyS": 5,
-          "maxS": 180,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "cancel"
-        },
-        "waitS": 2,
-        "note": "try 16: the dance cancelled after its route (NPCs only)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "busy",
-              "equals": false
-            }
-          ],
-          "everyS": 5,
-          "maxS": 60,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "state"
-        },
-        "waitS": 8,
-        "note": "try 16: pause"
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "fire"
-        },
-        "waitS": 2,
-        "note": "try 17: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "settled",
-              "equals": true
-            }
-          ],
-          "everyS": 5,
-          "maxS": 180,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "cancel"
-        },
-        "waitS": 2,
-        "note": "try 17: the dance cancelled after its route (NPCs only)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "busy",
-              "equals": false
-            }
-          ],
-          "everyS": 5,
-          "maxS": 60,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "state"
-        },
-        "waitS": 8,
-        "note": "try 17: pause"
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "fire"
-        },
-        "waitS": 3,
-        "note": "try 18: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
-      },
-      {
-        "cmd": "mem_gc",
-        "args": {
-          "rounds": 1
-        },
-        "waitS": 1,
-        "optional": true,
-        "note": "try 18: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "settled",
-              "equals": true
-            }
-          ],
-          "everyS": 5,
-          "maxS": 180,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "cancel"
-        },
-        "waitS": 2,
-        "note": "try 18: the dance cancelled after its route (NPCs only)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "busy",
-              "equals": false
-            }
-          ],
-          "everyS": 5,
-          "maxS": 60,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "state"
-        },
-        "waitS": 8,
-        "note": "try 18: pause"
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "fire"
-        },
-        "waitS": 2,
-        "note": "try 19: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "settled",
-              "equals": true
-            }
-          ],
-          "everyS": 5,
-          "maxS": 180,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "cancel"
-        },
-        "waitS": 2,
-        "note": "try 19: the dance cancelled after its route (NPCs only)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "busy",
-              "equals": false
-            }
-          ],
-          "everyS": 5,
-          "maxS": 60,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "state"
-        },
-        "waitS": 8,
-        "note": "try 19: pause"
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "fire"
-        },
-        "waitS": 3,
-        "note": "try 20: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
-      },
-      {
-        "cmd": "mem_gc",
-        "args": {
-          "rounds": 1
-        },
-        "waitS": 1,
-        "optional": true,
-        "note": "try 20: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "settled",
-              "equals": true
-            }
-          ],
-          "everyS": 5,
-          "maxS": 180,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "cancel"
-        },
-        "waitS": 2,
-        "note": "try 20: the dance cancelled after its route (NPCs only)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "busy",
-              "equals": false
-            }
-          ],
-          "everyS": 5,
-          "maxS": 60,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "state"
-        },
-        "waitS": 8,
-        "note": "try 20: pause"
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "fire"
-        },
-        "waitS": 2,
-        "note": "try 21: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "settled",
-              "equals": true
-            }
-          ],
-          "everyS": 5,
-          "maxS": 180,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "cancel"
-        },
-        "waitS": 2,
-        "note": "try 21: the dance cancelled after its route (NPCs only)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "busy",
-              "equals": false
-            }
-          ],
-          "everyS": 5,
-          "maxS": 60,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "state"
-        },
-        "waitS": 8,
-        "note": "try 21: pause"
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "fire"
-        },
-        "waitS": 3,
-        "note": "try 22: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
-      },
-      {
-        "cmd": "mem_gc",
-        "args": {
-          "rounds": 1
-        },
-        "waitS": 1,
-        "optional": true,
-        "note": "try 22: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "settled",
-              "equals": true
-            }
-          ],
-          "everyS": 5,
-          "maxS": 180,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "cancel"
-        },
-        "waitS": 2,
-        "note": "try 22: the dance cancelled after its route (NPCs only)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "busy",
-              "equals": false
-            }
-          ],
-          "everyS": 5,
-          "maxS": 60,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "state"
-        },
-        "waitS": 8,
-        "note": "try 22: pause"
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "fire"
-        },
-        "waitS": 2,
-        "note": "try 23: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "settled",
-              "equals": true
-            }
-          ],
-          "everyS": 5,
-          "maxS": 180,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "cancel"
-        },
-        "waitS": 2,
-        "note": "try 23: the dance cancelled after its route (NPCs only)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "busy",
-              "equals": false
-            }
-          ],
-          "everyS": 5,
-          "maxS": 60,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "state"
-        },
-        "waitS": 8,
-        "note": "try 23: pause"
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "fire"
-        },
-        "waitS": 3,
-        "note": "try 24: DanceTogetherA queued on the first NPC with the second (test shortcut: pushed, STC set Friendly when not accepted)"
-      },
-      {
-        "cmd": "mem_gc",
-        "args": {
-          "rounds": 1
-        },
-        "waitS": 1,
-        "optional": true,
-        "note": "try 24: STRESS (labelled): one forced collection while the pair routes onto the floor (docs/253 §2 case a: the list freed while the task sleeps)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "settled",
-              "equals": true
-            }
-          ],
-          "everyS": 5,
-          "maxS": 180,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "cancel"
-        },
-        "waitS": 2,
-        "note": "try 24: the dance cancelled after its route (NPCs only)",
-        "until": {
-          "cmd": "dance_together_floor",
-          "args": {
-            "op": "state"
-          },
-          "all": [
-            {
-              "path": "busy",
-              "equals": false
-            }
-          ],
-          "everyS": 5,
-          "maxS": 60,
-          "failOn": "stalled"
-        }
-      },
-      {
-        "cmd": "dance_together_floor",
-        "args": {
-          "op": "state"
-        },
-        "waitS": 8,
-        "note": "try 24: pause"
       },
       {
         "cmd": "patches",
@@ -64833,8 +64451,115 @@
         "args": {
           "op": "cancel"
         }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
       }
-    ]
+    ],
+    "loop": {
+      "arms": [
+        "on"
+      ],
+      "until": {
+        "events": 100000
+      },
+      "steps": [
+        {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "place",
+            "pool": true
+          },
+          "waitS": 2,
+          "show": "placed",
+          "max": 3000,
+          "setup": true,
+          "note": "crowd (phase C): Sim setup on every floor (setup_sims via op place, AGENTS.md Repro Sim setup; realistic, only the waiting is skipped): queues cancelled, onto the floor with Teleport Me Here unless there, motives maxed, moodlets cleared, autonomy off (NPCs on a club lot otherwise queue GoHome after a cancel); the until redoes the teleport for any Sim not on its lot (op place missing); on the lot within 60 s or FAIL",
+          "until": {
+            "cmd": "dance_together_floor",
+            "args": {
+              "op": "place",
+              "pool": true,
+              "missing": true
+            },
+            "all": [
+              {
+                "path": "on_lot",
+                "equals": true
+              }
+            ],
+            "show": "where",
+            "everyS": 10,
+            "maxS": 60,
+            "failOn": "stalled"
+          }
+        },
+        {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "fire",
+            "crowd": true,
+            "phase": "C"
+          },
+          "waitS": 3,
+          "setup": false,
+          "note": "fire crowd (phase C): DanceTogetherA on pool members 1+2, 3+4, 5+6 of every floor at once (test shortcut: pushed, STC set Friendly when not accepted)",
+          "until": {
+            "cmd": "dance_together_floor",
+            "args": {
+              "op": "state"
+            },
+            "all": [
+              {
+                "path": "settled",
+                "equals": true
+              }
+            ],
+            "everyS": 5,
+            "maxS": 180,
+            "failOn": "stalled"
+          }
+        },
+        {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "state",
+            "pool": true
+          },
+          "waitS": 180,
+          "setup": false,
+          "note": "crowd (phase C): the pairs dance on every floor for 3 min"
+        },
+        {
+          "cmd": "dance_together_floor",
+          "args": {
+            "op": "cancel"
+          },
+          "waitS": 2,
+          "setup": true,
+          "note": "crowd (phase C): the dances cancelled (NPCs only)",
+          "until": {
+            "cmd": "dance_together_floor",
+            "args": {
+              "op": "cancel"
+            },
+            "all": [
+              {
+                "path": "busy",
+                "equals": false
+              }
+            ],
+            "show": "where",
+            "everyS": 5,
+            "maxS": 60,
+            "failOn": "stalled"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tier2-h7-dry",
@@ -64892,5 +64617,31 @@
       "autt2tuning",
       "autt2lod"
     ]
+  },
+  {
+    "id": "pkg-abba",
+    "bug": "EA package-lock ABBA deadlock at the main menu (docs/539 §13.8, §13.9; docs/67 §23): readers take the database lock DL O+0x48 then the file lock FL O+0xC0, the main thread's idle close 0x7355A0 -> 0x735320 takes FL then DL; a worker's first read of a package being closed hangs the game (~4 in ~2100 harness loads, save-list read after Mod Scripts Found)",
+    "fix": "ts3native [PkgLock] Mode=1 (pkglock.cpp, 0.36.216): the idle close tries DL first (Lock_Acquire, deadline 0) and skips to a later update when a reader holds it; Detect=1 logs \"[PkgLock] ABBA:\" (counters v177 pk*)",
+    "save": "Baseline-BP-Spring",
+    "note": "FORCED, not a player flow (EA rate far too low to wait for). The trigger runs at the MAIN MENU, before these steps: queue job key agentArm \"pkg_abba_repro\" (ts3agent PkgAbbaHandlers.cs: 30 GetSaveFileDetails reads of the job save on a sim task; cycle.ts polls {status:true} under the stall guard) with ini [PkgLock] ReproWiden=50 (TEST ONLY: the idle close holds FL 50 ms on every update) and Detect=1. Mode 0 arm: job key expectHang \"pkg-abba\" (the load never starts; PASS = the hang is caught by the detector). Mode 1 arm: the reads finish, the save loads and these steps run. If Mode 0 does not hang within 30 reads, the window model of docs/539 §13.9.2 is wrong: stop and re-read the dump",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 240,
+        "note": "play after the load (Mode 1 arm: package closes keep deferring or running)"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "PkgAbba-BP"
+        },
+        "waitS": 30,
+        "note": "a save after the forced window"
+      }
+    ],
+    "expect": "Mode 1: agentArm reads 30 of 30, pkCloseDefer >= 1, pkAbbaSeen 0, load and save ok, no hang. Mode 0: \"[PkgLock] ABBA:\" line within the reads, hang caught (expectHang)"
   }
 ]

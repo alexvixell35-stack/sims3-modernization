@@ -38,6 +38,7 @@ namespace Ts3Agent
             RegisterRouteFreeze();
             RegisterStoveWall();
             RegisterLayout();
+            RegisterPkgAbba();
             RegisterStory();
             RegisterHouseholds();
             RegisterStartPaths();

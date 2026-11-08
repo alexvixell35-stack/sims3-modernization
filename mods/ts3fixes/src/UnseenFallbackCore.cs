@@ -545,7 +545,8 @@ namespace Ts3Fixes
     public sealed class UfLoopDetector
     {
         public const int kLoopRestarts = 4, kMaxSims = 512;
-        sealed class E { public string Key; public object Inst; public int Restarts; public long First; public bool Failed, Flagged; }
+        // Inst weak (issue #40): a strong ref kept destroyed Sims' interactions (and the Sims) reachable until the cap cleared
+        sealed class E { public string Key; public readonly System.WeakReference Inst = new System.WeakReference(null); public int Restarts; public long First; public bool Failed, Flagged; }
         readonly Dictionary<ulong, E> mSims = new Dictionary<ulong, E>();
         readonly long mWindow;
         public UfLoopDetector(long windowTicks) { mWindow = windowTicks; }
@@ -563,12 +564,12 @@ namespace Ts3Fixes
             }
             if (e.Key != key || now - e.First > mWindow)
             {
-                e.Key = key; e.Inst = inst; e.Restarts = 0; e.First = now; e.Failed = planFailed; e.Flagged = false;
+                e.Key = key; e.Inst.Target = inst; e.Restarts = 0; e.First = now; e.Failed = planFailed; e.Flagged = false;
                 return false;
             }
-            if (ReferenceEquals(e.Inst, inst)) { e.Failed |= planFailed; return false; }
+            if (ReferenceEquals(e.Inst.Target, inst)) { e.Failed |= planFailed; return false; }  // collected = not this live inst
             bool count = e.Failed;  // a restart after a failure
-            e.Inst = inst;
+            e.Inst.Target = inst;
             e.Failed = planFailed;
             if (!count) return false;
             e.Restarts++;

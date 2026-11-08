@@ -126,6 +126,7 @@ method_touch,ReflectHandlers,Any,none (calls a method once with an uninitialized
 reflect_members,ReflectHandlers,Any,none (read),harness,,handler,none
 reflect_find_types,ReflectHandlers,Any,none (read),harness,,handler,none
 place_sim,ReproHandlers,Live,none: teleport (testingcheats / MasterController),cheat,,handler,live
+setup_sims,ReproHandlers,Live,"none: repro Sim setup (AGENTS.md): queues cancelled, teleport to the spot (teleport false: no move), motives maxed, moodlets cleared; skips only the waiting, the Sims then do the real actions",natural,,handler,live
 sim_go_home,ReproHandlers,Live,Go Home (active Sim) / autonomous for townies,natural,,handler,live
 sim_strand,ReproHandlers,Live,none: stands a Sim on an unroutable spot,stress,,handler,live
 strand_many,HitchReproHandlers,Live,none,stress,,handler,live
@@ -231,4 +232,5 @@ footprint_ghost_op,FootprintGhostHandlers,Any,none (a [Discourage] GhostTest op)
 footprint_ghost_verdict,FootprintGhostHandlers,Any,none (reads the tally),harness,after footprint_ghost_run,handler,none
 footprint_window_run,FootprintWindowHandlers,Live,none (the Sim is put on the slot; EA region sequence with a route job held by a test op; RemovalFirst off and on),cheat,after stove_wall_setup,handler,live
 footprint_window_verdict,FootprintWindowHandlers,Any,none (reads the tally),harness,after footprint_window_run,handler,none
-dance_together_floor,DanceFloorHandlers,Live,"none: two NPCs sent to a club with Visit Community Lot, then Dance Together pushed on them (an NPC chooses it by autonomy in play); short-term context set Friendly when EA would refuse",cheat,"a lot with a dance floor and a dance object (Waylon's Haunt, BP); NPCs only: never the active household, a selectable Sim or a Sim with no household",handler,live
+pkg_abba_repro,PkgAbbaHandlers,MainMenu,Load Game screen save-list reads (30 in a row; forced: ts3native [PkgLock] ReproWiden widens the EA lock window),stress,at the main menu (arm:true before the load),handler,none
+dance_together_floor,DanceFloorHandlers,Live,"none: NPC pairs of a pool of up to 6 put on a club dance floor by setup_sims, then Dance Together pushed on them (one pair or every pair at once) (an NPC chooses it by autonomy in play); short-term context set Friendly when EA would refuse",cheat,"a lot with a dance floor and a dance object (Waylon's Haunt, BP); NPCs only: never the active household, a selectable Sim or a Sim with no household",handler,live

@@ -1,0 +1,1290 @@
+{
+  "note": "correctness-1109 (2026-11-09 chain-end plan, probe-out/HANDOFF-2026-11-08-night.md): correctness on the new master pair master1109, then the C0 count jobs and the ForeignKinds timing rerun on master1108 (both as pinned in their source queues; ini keys the autunseen merge changed are pinned to the pre-merge repo ini 70e0dfbe). Run bp-mods-restore-proof ALONE first (--only) and check the Mods ts3fixes sha, then --from sf1108-book-carry-check. The four ip-foreign-natural-* jobs are TIMING (cross-run ABBA, hitch-foreign.json note): quiet machine, no agents, no builds; if the noise check says other apps >= 10% of game CPUs, rerun them. Correctness failures do not stop the queue (stopQueueOnFail false); triage each FAIL.",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-mods-restore-proof",
+      "note": "1-job proof of bugfix/queue-restore-mods (4b753bd7) and load smoke of the master1109 pair with the new release ini (autunseen ON). Run ALONE: queue.ts ... --only bp-mods-restore-proof --no-smoke. Pass: job PASS, the queue end logs \"restored Mods packages from the start (sha read back)\", and afterwards <Documents>/Electronic Arts/The Sims 3/Mods/Packages/ts3fixes.package sha256 starts c373cd87 (v0.2.10) again, not 679b533c.",
+      "asi": "game-copy/ts3native.asi.master1109",
+      "fixesPackage": "game-copy/ts3fixes.package.master1109",
+      "pinReason": "master1109 pair (builds.json): master 62547b73 after the 11-09 merges, ts3native 0.36.216 asi b0b0005c, ts3fixes 679b533c (kAutUnseenPacePct 100, dancefloorlistguard OFF, #40 weak refs); repo ini = release ini with MonoThread/RouteSnap/AutShadow Mode=3 Unseen=1. Agent = build/ts3agent.package (= game-copy/ts3agent.package.master1109; cycle.ts installs build/, do not rebuild build/ while this queue runs)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "logRequire": {
+        "^ts3native 0\\.36\\.216 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 15
+    },
+    {
+      "id": "sf1108-book-carry-check",
+      "note": "Small-fix rule 2026-11-08, one correctness repro, fix ON (bookcarry, docs/515). Repro book-carry-check runs its own off arm then the on arm in one load. Pass: the repro's own expect lines pass, bookcarry_ended>=1 (the fix saw the broken state and handled it), 0 new script errors, no crash. If the broken state never comes up, report N/A, no rerun (judge side effects only). No timing, no A/B.",
+      "asi": "game-copy/ts3native.asi.master1109",
+      "pinReason": "master1109 pair (builds.json): master 62547b73 after the 11-09 merges, ts3native 0.36.216 asi b0b0005c, ts3fixes 679b533c (kAutUnseenPacePct 100, dancefloorlistguard OFF, #40 weak refs); repo ini = release ini with MonoThread/RouteSnap/AutShadow Mode=3 Unseen=1. Agent = build/ts3agent.package (= game-copy/ts3agent.package.master1109; cycle.ts installs build/, do not rebuild build/ while this queue runs)",
+      "fixesPackage": "game-copy/ts3fixes.package.master1109",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-carry-check",
+          "fixesRequire": "bookcarry_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20
+    },
+    {
+      "id": "ip-gu2-arrive-off",
+      "note": "docs/222 §11.2 V5 rerun, autunseen off: camera on the home lot, 180 s watch, starving rule off (compare min_need and activity.jsonl between the arms). STRESS labelled. Correctness, not timing.",
+      "asi": "game-copy/ts3native.asi.master1109",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1,
+        "AutShadow.Unseen": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autunseen_exc",
+          "op": "==",
+          "value": 0,
+          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+        }
+      ],
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "master1109 pair (builds.json): master 62547b73 after the 11-09 merges, ts3native 0.36.216 asi b0b0005c, ts3fixes 679b533c (kAutUnseenPacePct 100, dancefloorlistguard OFF, #40 weak refs); repo ini = release ini with MonoThread/RouteSnap/AutShadow Mode=3 Unseen=1. Agent = build/ts3agent.package (= game-copy/ts3agent.package.master1109; cycle.ts installs build/, do not rebuild build/ while this queue runs); ini keys the job did not set are pinned to the pre-autunseen repo ini (70e0dfbe), so off/on mean what they meant on g2pair1108 (package pace now 100, was 78)",
+      "fixesPackage": "game-copy/ts3fixes.package.master1109",
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh",
+          "fixesOff": "autunseencmp,autunseen",
+          "fixesReport": "g8_,autunseen_,gohome_,watchdog_,unseenfb,rabbithole,unseenboat",
+          "minutes": 14,
+          "repro": "aut-unseen-arrive"
+        }
+      },
+      "timeoutMin": 32
+    },
+    {
+      "id": "ip-gu2-arrive-on",
+      "note": "docs/222 §11.2 V5 rerun, autunseen on: camera on the home lot, 180 s watch, starving rule off (compare min_need and activity.jsonl between the arms). STRESS labelled. Correctness, not timing.",
+      "asi": "game-copy/ts3native.asi.master1109",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1,
+        "AutShadow.Unseen": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:autunseen_posted",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autunseen_exc",
+          "op": "==",
+          "value": 0,
+          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+        },
+        {
+          "afterSec": 240,
+          "counter": "fixes:autunseen_rh_game",
+          "op": ">",
+          "value": 0,
+          "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
+        }
+      ],
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "master1109 pair (builds.json): master 62547b73 after the 11-09 merges, ts3native 0.36.216 asi b0b0005c, ts3fixes 679b533c (kAutUnseenPacePct 100, dancefloorlistguard OFF, #40 weak refs); repo ini = release ini with MonoThread/RouteSnap/AutShadow Mode=3 Unseen=1. Agent = build/ts3agent.package (= game-copy/ts3agent.package.master1109; cycle.ts installs build/, do not rebuild build/ while this queue runs); ini keys the job did not set are pinned to the pre-autunseen repo ini (70e0dfbe), so off/on mean what they meant on g2pair1108 (package pace now 100, was 78)",
+      "fixesPackage": "game-copy/ts3fixes.package.master1109",
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+          "fixesOff": "autunseencmp",
+          "fixesReport": "g8_,autunseen_,gohome_,watchdog_,unseenfb,rabbithole,unseenboat",
+          "minutes": 14,
+          "repro": "aut-unseen-arrive"
+        }
+      },
+      "timeoutMin": 32
+    },
+    {
+      "id": "bp-gu2-arrive-off",
+      "note": "docs/222 §11.2 V5 rerun, autunseen off: camera on the home lot, 180 s watch, starving rule off (compare min_need and activity.jsonl between the arms). STRESS labelled. Correctness, not timing.",
+      "asi": "game-copy/ts3native.asi.master1109",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1,
+        "AutShadow.Unseen": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autunseen_exc",
+          "op": "==",
+          "value": 0,
+          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+        }
+      ],
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "master1109 pair (builds.json): master 62547b73 after the 11-09 merges, ts3native 0.36.216 asi b0b0005c, ts3fixes 679b533c (kAutUnseenPacePct 100, dancefloorlistguard OFF, #40 weak refs); repo ini = release ini with MonoThread/RouteSnap/AutShadow Mode=3 Unseen=1. Agent = build/ts3agent.package (= game-copy/ts3agent.package.master1109; cycle.ts installs build/, do not rebuild build/ while this queue runs); ini keys the job did not set are pinned to the pre-autunseen repo ini (70e0dfbe), so off/on mean what they meant on g2pair1108 (package pace now 100, was 78)",
+      "fixesPackage": "game-copy/ts3fixes.package.master1109",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autshadow,autlive,autunseenpace,autunseenrh",
+          "fixesOff": "autunseencmp,autunseen",
+          "fixesReport": "g8_,autunseen_,gohome_,watchdog_,unseenfb,rabbithole,unseenboat",
+          "minutes": 14,
+          "repro": "aut-unseen-arrive"
+        }
+      },
+      "timeoutMin": 32
+    },
+    {
+      "id": "bp-gu2-arrive-on",
+      "note": "docs/222 §11.2 V5 rerun, autunseen on: camera on the home lot, 180 s watch, starving rule off (compare min_need and activity.jsonl between the arms). STRESS labelled. Correctness, not timing.",
+      "asi": "game-copy/ts3native.asi.master1109",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1,
+        "AutShadow.Unseen": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_faults",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 guard faults: IL check ignored for the load (registry 605)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autshadow_gm6_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "G-M6 IL hash mismatch: every definition skipped for the load (registry 603)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:autunseen_posted",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen-direct search posted: switch, D2 hook or camera query (UfWhy) not working"
+        },
+        {
+          "afterSec": 150,
+          "counter": "fixes:autunseen_exc",
+          "op": "==",
+          "value": 0,
+          "why": "unseen-direct exception (D2, snap-back or scope check): stop and triage"
+        },
+        {
+          "afterSec": 240,
+          "counter": "fixes:autunseen_rh_game",
+          "op": ">",
+          "value": 0,
+          "why": "no rabbit-hole pair routed to the game C1: autunseenrh off or not in the package"
+        }
+      ],
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "master1109 pair (builds.json): master 62547b73 after the 11-09 merges, ts3native 0.36.216 asi b0b0005c, ts3fixes 679b533c (kAutUnseenPacePct 100, dancefloorlistguard OFF, #40 weak refs); repo ini = release ini with MonoThread/RouteSnap/AutShadow Mode=3 Unseen=1. Agent = build/ts3agent.package (= game-copy/ts3agent.package.master1109; cycle.ts installs build/, do not rebuild build/ while this queue runs); ini keys the job did not set are pinned to the pre-autunseen repo ini (70e0dfbe), so off/on mean what they meant on g2pair1108 (package pace now 100, was 78)",
+      "fixesPackage": "game-copy/ts3fixes.package.master1109",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh",
+          "fixesOff": "autunseencmp",
+          "fixesReport": "g8_,autunseen_,gohome_,watchdog_,unseenfb,rabbithole,unseenboat",
+          "minutes": 14,
+          "repro": "aut-unseen-arrive"
+        }
+      },
+      "timeoutMin": 32
+    },
+    {
+      "id": "bp-dancediag-stress",
+      "note": "BREAKS or CLEARS (~32 min). Release ini as is, dancefloorlistdiag on through the repro (phases A, B, then C repeated) on 4 floors at once. Cap 30 min: phases A+B take ~16 min (a cycle waits ~70 s for the slowest of 4 floors) = 48 single-pair floor routes (12 cycles x 4 floors, every second cycle with a forced collection), then phase C runs ~14 min with 6 NPCs dancing as 3 pairs on each of 4 floors = ~56 floor-minutes of a 6-NPC crowd, ~5x hit 1 (5-6 NPCs for ~10 min on one floor), so 0 throws here is clearly more floor use than the case that threw. Per-floor cam seen/far is logged on every cycle line (off-camera floors are evidence, not a problem). BREAKS: the early gate on fixes dancefloordiag_throws + _mismatch stops the job at the next guard poll; read in the job ts3native.log the \"dancefloor list: THROW|MISMATCH\" line (call #, ver, count, gc a->b, slept ms, async starts, actor/followers), the \"dancefloor repro: cycle #n phase P lot L cam seen|far Dm actor X partner Y floor_sims K calls C\" line before it (its cycle: the last with C < call #; the lot field of both lines names the floor), and the [CrashForensics] Light lines around it. CLEARS: PASS with dancefloordiag_throws = 0 and _mismatch = 0, calls >= 20; the script error report lists any \"Collection was modified\" in the game log (REPORT, never FAIL).",
+      "asi": "game-copy/ts3native.asi.master1109",
+      "pinReason": "master1109 pair (builds.json): master 62547b73 after the 11-09 merges, ts3native 0.36.216 asi b0b0005c, ts3fixes 679b533c (kAutUnseenPacePct 100, dancefloorlistguard OFF, #40 weak refs); repo ini = release ini with MonoThread/RouteSnap/AutShadow Mode=3 Unseen=1. Agent = build/ts3agent.package (= game-copy/ts3agent.package.master1109; cycle.ts installs build/, do not rebuild build/ while this queue runs); dancefloorlistguard OFF (master default), dancefloorlistdiag on through the repro",
+      "fixesPackage": "game-copy/ts3fixes.package.master1109",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "Collection was modified[\\s\\S]*(FindAndRouteOntoADanceFloorWithFollower|DanceFloorDiagHook)"
+      ],
+      "logRequire": {
+        "^dancefloor list: call #\\d+ ": 20,
+        "^ts3native 0\\.36\\.216 ": 1
+      },
+      "logForbid": {
+        "^dancefloor list: diag off": 0,
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 30,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "dance-together-floor",
+          "fixesRequire": "dancefloordiag_calls>=20"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 55,
+      "earlyGates": [
+        {
+          "afterSec": 30,
+          "counter": "fixes:dancefloordiag_throws+fixes:dancefloordiag_mismatch",
+          "op": "==",
+          "value": 0,
+          "why": "BREAKS (the finding, not a harness fault): a DanceFloor \"Collection was modified\" THROW or a list MISMATCH; match the dancefloor list THROW/MISMATCH line to its dancefloor repro cycle line by call #"
+        },
+        {
+          "afterSec": 900,
+          "counter": "fixes:dancefloordiag_calls",
+          "op": ">=",
+          "value": 1,
+          "why": "no FindAndRouteOntoADanceFloorWithFollower call 15 min in: no pool reached its floor, DanceTogetherA was refused, or the hook is not installed"
+        }
+      ]
+    },
+    {
+      "id": "bp-dfguard-release",
+      "note": "~15 min: release ini, dancefloorlistguard on (fixesOn read-back), dancefloorlistdiag on through the repro. Pass (correctness): repro steps pass, dancefloorguard_calls >= 3, >= 3 \"dancefloor list: call #\" lines, 0 new script errors: a DanceFloor \"Collection was modified\" script error now FAILs (no scriptErrorsReport exemption). Findings for docs/253 §6, not failures: dancefloorguard_changes, dancefloordiag_throws / _mismatch / _freed and every \"dancefloor list: GUARD|THROW|MISMATCH\" line.",
+      "asi": "game-copy/ts3native.asi.master1109",
+      "pinReason": "master1109 pair (builds.json): master 62547b73 after the 11-09 merges, ts3native 0.36.216 asi b0b0005c, ts3fixes 679b533c (kAutUnseenPacePct 100, dancefloorlistguard OFF, #40 weak refs); repo ini = release ini with MonoThread/RouteSnap/AutShadow Mode=3 Unseen=1. Agent = build/ts3agent.package (= game-copy/ts3agent.package.master1109; cycle.ts installs build/, do not rebuild build/ while this queue runs); guard turned on by fixesOn (master default OFF)",
+      "fixesPackage": "game-copy/ts3fixes.package.master1109",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^dancefloor list: call #\\d+ ": 3,
+        "^ts3native 0\\.36\\.216 ": 1
+      },
+      "logForbid": {
+        "^dancefloor list: diag off": 0,
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "dance-together-floor",
+          "fixesOn": "dancefloorlistguard",
+          "fixesRequire": "dancefloorguard_calls>=3"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "earlyGates": [
+        {
+          "afterSec": 600,
+          "counter": "fixes:dancefloorguard_calls",
+          "op": ">=",
+          "value": 1,
+          "why": "no guarded FindAndRouteOntoADanceFloorWithFollower call 10 min in: the pair never reached the lot, DanceTogetherA was refused, or the hook / switch is not in"
+        }
+      ]
+    },
+    {
+      "id": "bp-pkglock-smoke",
+      "note": "smoke: [PkgLock] Mode=1 Detect=1, no ReproWiden: install line read back, no ABBA line, BP load, 4 min, save. PASS = OK line, no SKIP/ABBA, 0 crashes",
+      "asi": "game-copy/ts3native.asi.master1109",
+      "fixesPackage": "game-copy/ts3fixes.package.master1109",
+      "pinReason": "master1109 pair (builds.json): master 62547b73 after the 11-09 merges, ts3native 0.36.216 asi b0b0005c, ts3fixes 679b533c (kAutUnseenPacePct 100, dancefloorlistguard OFF, #40 weak refs); repo ini = release ini with MonoThread/RouteSnap/AutShadow Mode=3 Unseen=1. Agent = build/ts3agent.package (= game-copy/ts3agent.package.master1109; cycle.ts installs build/, do not rebuild build/ while this queue runs); pkg_abba agent handlers are in build/ts3agent.package from master (TS3_AGENT_PACKAGE is read only in vanilla mode, not needed)",
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "PkgLock.Mode": 1,
+        "PkgLock.Detect": 1,
+        "PkgLock.ReproWiden": 0
+      },
+      "logRequire": {
+        "^OK   pkglock: \\[PkgLock\\] Mode=1 Detect=1 ReproWiden=0": 1
+      },
+      "logForbid": {
+        "\\[PkgLock\\] ABBA:": 0,
+        "^SKIP pkglock": 0
+      },
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "repro": "pkg-abba"
+      },
+      "timeoutMin": 15
+    },
+    {
+      "id": "bp-pkg-abba-m0",
+      "note": "repro OFF arm: Mode=0 (EA order) + ReproWiden=50 + Detect=1, 30 save-list reads at the menu (agentArm). Expected: the reads hang, \"[PkgLock] ABBA:\" line, stall guard ends the job (expectHang pkg-abba = PASS). Load never starts",
+      "asi": "game-copy/ts3native.asi.master1109",
+      "fixesPackage": "game-copy/ts3fixes.package.master1109",
+      "pinReason": "master1109 pair (builds.json): master 62547b73 after the 11-09 merges, ts3native 0.36.216 asi b0b0005c, ts3fixes 679b533c (kAutUnseenPacePct 100, dancefloorlistguard OFF, #40 weak refs); repo ini = release ini with MonoThread/RouteSnap/AutShadow Mode=3 Unseen=1. Agent = build/ts3agent.package (= game-copy/ts3agent.package.master1109; cycle.ts installs build/, do not rebuild build/ while this queue runs); pkg_abba agent handlers are in build/ts3agent.package from master (TS3_AGENT_PACKAGE is read only in vanilla mode, not needed)",
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "PkgLock.Mode": 0,
+        "PkgLock.Detect": 1,
+        "PkgLock.ReproWiden": 50
+      },
+      "agentArm": "pkg_abba_repro",
+      "expectHang": "pkg-abba",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "repro": "pkg-abba"
+      },
+      "timeoutMin": 12
+    },
+    {
+      "id": "bp-pkg-abba-m1",
+      "note": "repro ON arm: Mode=1 + ReproWiden=50 + Detect=1, the same 30 menu reads. Expected: reads 30 of 30, deferred closes > 0 in the pkglock: line, no ABBA line, BP loads, 4 min, save",
+      "asi": "game-copy/ts3native.asi.master1109",
+      "fixesPackage": "game-copy/ts3fixes.package.master1109",
+      "pinReason": "master1109 pair (builds.json): master 62547b73 after the 11-09 merges, ts3native 0.36.216 asi b0b0005c, ts3fixes 679b533c (kAutUnseenPacePct 100, dancefloorlistguard OFF, #40 weak refs); repo ini = release ini with MonoThread/RouteSnap/AutShadow Mode=3 Unseen=1. Agent = build/ts3agent.package (= game-copy/ts3agent.package.master1109; cycle.ts installs build/, do not rebuild build/ while this queue runs); pkg_abba agent handlers are in build/ts3agent.package from master (TS3_AGENT_PACKAGE is read only in vanilla mode, not needed)",
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "PkgLock.Mode": 1,
+        "PkgLock.Detect": 1,
+        "PkgLock.ReproWiden": 50
+      },
+      "agentArm": "pkg_abba_repro",
+      "logRequire": {
+        "^OK   pkglock: \\[PkgLock\\] Mode=1 Detect=1 ReproWiden=50": 1,
+        "^pkglock: Mode 1, .*deferred [1-9]": 1
+      },
+      "logForbid": {
+        "\\[PkgLock\\] ABBA:": 0,
+        "^SKIP pkglock": 0
+      },
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "repro": "pkg-abba"
+      },
+      "timeoutMin": 15
+    },
+    {
+      "id": "bp-leak40-outfit-wait-stale",
+      "note": "#40 leak-fix smoke: outfit-wait-stale-check repro (from bundle-1105 bp-imp1105-on-fixes) on master1109 (OutfitWait sCbDropped weak + world-quit clears). Pass: repro passes, outfitwaitpoll_stale>=1,outfitwaitpoll_ended>=1, 0 script errors.",
+      "asi": "game-copy/ts3native.asi.master1109",
+      "fixesPackage": "game-copy/ts3fixes.package.master1109",
+      "pinReason": "master1109 pair (builds.json): master 62547b73 after the 11-09 merges, ts3native 0.36.216 asi b0b0005c, ts3fixes 679b533c (kAutUnseenPacePct 100, dancefloorlistguard OFF, #40 weak refs); repo ini = release ini with MonoThread/RouteSnap/AutShadow Mode=3 Unseen=1. Agent = build/ts3agent.package (= game-copy/ts3agent.package.master1109; cycle.ts installs build/, do not rebuild build/ while this queue runs)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.216 ": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "outfit-wait-stale-check",
+          "fixesRequire": "outfitwaitpoll_stale>=1,outfitwaitpoll_ended>=1"
+        }
+      },
+      "timeoutMin": 20
+    },
+    {
+      "id": "bp-leak40-memtravel-x3",
+      "note": "#40 leak-fix smoke: 3 trips to France with mem marks on master1109; each world quit runs Fixes.HeldRefsWorldQuit() (exceptions swallowed), so the bar is 0 script errors + the same mem-mark lines as bp-memtravel-x3.",
+      "asi": "game-copy/ts3native.asi.master1109",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": 6,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3,
+        "^diag: mem #\\d+ mark ev=base ": 1,
+        "^diag: mem #\\d+ mark ev=away ": 3,
+        "^diag: mem #\\d+ mark ev=home ": 3,
+        "^diag: mem #\\d+ mark ev=gc-before ": 4,
+        "^diag: mem #\\d+ mark ev=gc-after ": 4,
+        "^diag: memsus #\\d+ mark ev=gc-after ": 4,
+        "^diag: memsus #\\d+ mark ev=away ": 3
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "3",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 90,
+      "pinReason": "master1109 pair (builds.json): master 62547b73 after the 11-09 merges, ts3native 0.36.216 asi b0b0005c, ts3fixes 679b533c (kAutUnseenPacePct 100, dancefloorlistguard OFF, #40 weak refs); repo ini = release ini with MonoThread/RouteSnap/AutShadow Mode=3 Unseen=1. Agent = build/ts3agent.package (= game-copy/ts3agent.package.master1109; cycle.ts installs build/, do not rebuild build/ while this queue runs); matrix job: no fixesPackage allowed, ts3fixes = build/ts3fixes.package (= master1109 679b533c)",
+      "scriptErrorsMax": 0
+    },
+    {
+      "id": "sv-leak40-routefail-gohere",
+      "note": "#40 leak-fix smoke: GoHere route repro routefail-gohere-sv (as routefail-smoke2) with routefaillog ON (release default since 6c552469; RflCmd.Ia now weak). Pass: repro passes, \"gohere start\" cmd lines in ts3native.log ([UserDiag] channel), 0 script errors.",
+      "asi": "game-copy/ts3native.asi.master1109",
+      "fixesPackage": "game-copy/ts3fixes.package.master1109",
+      "pinReason": "master1109 pair (builds.json): master 62547b73 after the 11-09 merges, ts3native 0.36.216 asi b0b0005c, ts3fixes 679b533c (kAutUnseenPacePct 100, dancefloorlistguard OFF, #40 weak refs); repo ini = release ini with MonoThread/RouteSnap/AutShadow Mode=3 Unseen=1. Agent = build/ts3agent.package (= game-copy/ts3agent.package.master1109; cycle.ts installs build/, do not rebuild build/ while this queue runs)",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "UserDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.216 ": 1,
+        "gohere start": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true,
+          "repro": "routefail-gohere-sv",
+          "fixesOn": "routefaillog"
+        }
+      },
+      "timeoutMin": 14
+    },
+    {
+      "id": "bp-jit-exits-count",
+      "note": "BP 15 min, C0 count mode: bundle on (VtOps=1 CallExit=1 NewVt=1) + Count=1; the game census for jit-hot.ts --game-count. Correctness gates as bundle-on plus a jitcount: end line. Not a timing arm.",
+      "asi": "game-copy/ts3native.asi.master1108",
+      "fixesPackage": "game-copy/ts3fixes.package.master1108",
+      "pinReason": "master1108 pair (builds.json): combined master 896c0e8b, ts3native 0.36.211 (monojit Count + C3 FastCopy/Ldsflda, tier-2 H7-H10, E3/P6 rows, L0 autt2l0), ts3fixes from the same master; agent package, when a job needs one, is game-copy/ts3agent.package.master1108 (TS3_AGENT_PACKAGE; file not built yet)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=1": 1,
+        "^jitcount: end ": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.Count": 1,
+        "MonoThread.Enabled": 0,
+        "MonoThread.Mode": 0,
+        "MonoThread.GcLock": 0,
+        "MonoThread.FrameTls": 0,
+        "RouteSnap.Count": 0,
+        "RouteSnap.Enabled": 0,
+        "RouteSnap.AuditEvery": 20,
+        "AutShadow.Enabled": 0,
+        "AutShadow.Mode": 0,
+        "AutShadow.Sample": 4,
+        "AutShadow.ColdIc": 0,
+        "AutShadow.CutLean": 0,
+        "AutShadow.TierMs": 0,
+        "AutShadow.RowHot": 0,
+        "AutShadow.RunSkip": 0,
+        "AutShadow.KeepPartial": 0,
+        "AutShadow.Satb": 0,
+        "AutShadow.Unseen": 0,
+        "MonoThread.LazyGate": 0,
+        "MonoThread.LazyEarly": 0,
+        "AutShadow.TierReqLots": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+    },
+    {
+      "id": "ip-jit-exits-count",
+      "noiseCheck": false,
+      "note": "IP 15 min, C0 count mode: bundle on (VtOps=1 CallExit=1 NewVt=1) + Count=1; the game census for jit-hot.ts --game-count. Correctness gates as bundle-on plus a jitcount: end line. Not a timing arm.",
+      "asi": "game-copy/ts3native.asi.master1108",
+      "fixesPackage": "game-copy/ts3fixes.package.master1108",
+      "pinReason": "master1108 pair (builds.json): combined master 896c0e8b, ts3native 0.36.211 (monojit Count + C3 FastCopy/Ldsflda, tier-2 H7-H10, E3/P6 rows, L0 autt2l0), ts3fixes from the same master; agent package, when a job needs one, is game-copy/ts3agent.package.master1108 (TS3_AGENT_PACKAGE; file not built yet)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=1": 1,
+        "^jitcount: end ": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.Count": 1,
+        "MonoThread.Enabled": 0,
+        "MonoThread.Mode": 0,
+        "MonoThread.GcLock": 0,
+        "MonoThread.FrameTls": 0,
+        "RouteSnap.Count": 0,
+        "RouteSnap.Enabled": 0,
+        "RouteSnap.AuditEvery": 20,
+        "AutShadow.Enabled": 0,
+        "AutShadow.Mode": 0,
+        "AutShadow.Sample": 4,
+        "AutShadow.ColdIc": 0,
+        "AutShadow.CutLean": 0,
+        "AutShadow.TierMs": 0,
+        "AutShadow.RowHot": 0,
+        "AutShadow.RunSkip": 0,
+        "AutShadow.KeepPartial": 0,
+        "AutShadow.Satb": 0,
+        "AutShadow.Unseen": 0,
+        "MonoThread.LazyGate": 0,
+        "MonoThread.LazyEarly": 0,
+        "AutShadow.TierReqLots": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+    },
+    {
+      "id": "sv-jit-exits-count",
+      "noiseCheck": false,
+      "note": "SV 15 min, C0 count mode: bundle on (VtOps=1 CallExit=1 NewVt=1) + Count=1; the game census for jit-hot.ts --game-count. Correctness gates as bundle-on plus a jitcount: end line. Not a timing arm.",
+      "asi": "game-copy/ts3native.asi.master1108",
+      "fixesPackage": "game-copy/ts3fixes.package.master1108",
+      "pinReason": "master1108 pair (builds.json): combined master 896c0e8b, ts3native 0.36.211 (monojit Count + C3 FastCopy/Ldsflda, tier-2 H7-H10, E3/P6 rows, L0 autt2l0), ts3fixes from the same master; agent package, when a job needs one, is game-copy/ts3agent.package.master1108 (TS3_AGENT_PACKAGE; file not built yet)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-SV-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=1": 1,
+        "^jitcount: end ": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.Count": 1,
+        "MonoThread.Enabled": 0,
+        "MonoThread.Mode": 0,
+        "MonoThread.GcLock": 0,
+        "MonoThread.FrameTls": 0,
+        "RouteSnap.Count": 0,
+        "RouteSnap.Enabled": 0,
+        "RouteSnap.AuditEvery": 20,
+        "AutShadow.Enabled": 0,
+        "AutShadow.Mode": 0,
+        "AutShadow.Sample": 4,
+        "AutShadow.ColdIc": 0,
+        "AutShadow.CutLean": 0,
+        "AutShadow.TierMs": 0,
+        "AutShadow.RowHot": 0,
+        "AutShadow.RunSkip": 0,
+        "AutShadow.KeepPartial": 0,
+        "AutShadow.Satb": 0,
+        "AutShadow.Unseen": 0,
+        "MonoThread.LazyGate": 0,
+        "MonoThread.LazyEarly": 0,
+        "AutShadow.TierReqLots": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+    },
+    {
+      "id": "ip-foreign-natural-off-1",
+      "note": "IP natural play, 10 min, first of pair 1 of ABBA. Timing job (noiseCheck on): hook installed in both arms, only ForeignKindsMode differs, so the job's cost is the difference. Read with node tools/harness/hitch-ab.ts ip-foreign-natural and hitch-cause-report.ts for why=afActive refusals. boatreplanlog stays on in both arms.",
+      "asi": "game-copy/ts3native.asi.master1108",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.master1108",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1,
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 0,
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "MonoThread.Enabled": 0,
+        "MonoThread.Mode": 0,
+        "MonoThread.GcLock": 0,
+        "MonoThread.FrameTls": 0,
+        "RouteSnap.Count": 0,
+        "RouteSnap.Enabled": 0,
+        "RouteSnap.AuditEvery": 20,
+        "AutShadow.Enabled": 0,
+        "AutShadow.Mode": 0,
+        "AutShadow.Sample": 4,
+        "AutShadow.ColdIc": 0,
+        "AutShadow.CutLean": 0,
+        "AutShadow.TierMs": 0,
+        "AutShadow.RowHot": 0,
+        "AutShadow.RunSkip": 0,
+        "AutShadow.KeepPartial": 0,
+        "AutShadow.Satb": 0,
+        "AutShadow.Unseen": 0,
+        "MonoThread.LazyGate": 0,
+        "MonoThread.LazyEarly": 0,
+        "AutShadow.TierReqLots": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_,a10foreign_",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "pair master1108 (combined master 896c0e8b, ts3native 0.36.211 asi 5656615b, ts3fixes f2826284; builds.json; holds g2pair1108 d1066f14 with ForeignKinds): base package, kHitchCauseHooks false (boatreplan/owreset/alarmtime cause lines will not be written); repinned 2026-11-08 from g2pair1108",
+      "minCounters": 912
+    },
+    {
+      "id": "ip-foreign-natural-on-1",
+      "note": "IP natural play, 10 min, second of pair 1 of ABBA. Timing job (noiseCheck on): hook installed in both arms, only ForeignKindsMode differs, so the job's cost is the difference. Read with node tools/harness/hitch-ab.ts ip-foreign-natural and hitch-cause-report.ts for why=afActive refusals. boatreplanlog stays on in both arms.",
+      "asi": "game-copy/ts3native.asi.master1108",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.master1108",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1,
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "MonoThread.Enabled": 0,
+        "MonoThread.Mode": 0,
+        "MonoThread.GcLock": 0,
+        "MonoThread.FrameTls": 0,
+        "RouteSnap.Count": 0,
+        "RouteSnap.Enabled": 0,
+        "RouteSnap.AuditEvery": 20,
+        "AutShadow.Enabled": 0,
+        "AutShadow.Mode": 0,
+        "AutShadow.Sample": 4,
+        "AutShadow.ColdIc": 0,
+        "AutShadow.CutLean": 0,
+        "AutShadow.TierMs": 0,
+        "AutShadow.RowHot": 0,
+        "AutShadow.RunSkip": 0,
+        "AutShadow.KeepPartial": 0,
+        "AutShadow.Satb": 0,
+        "AutShadow.Unseen": 0,
+        "MonoThread.LazyGate": 0,
+        "MonoThread.LazyEarly": 0,
+        "AutShadow.TierReqLots": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_,a10foreign_",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "pair master1108 (combined master 896c0e8b, ts3native 0.36.211 asi 5656615b, ts3fixes f2826284; builds.json; holds g2pair1108 d1066f14 with ForeignKinds): base package, kHitchCauseHooks false (boatreplan/owreset/alarmtime cause lines will not be written); repinned 2026-11-08 from g2pair1108",
+      "minCounters": 912
+    },
+    {
+      "id": "ip-foreign-natural-on-2",
+      "note": "IP natural play, 10 min, first of pair 2 (reversed order) of ABBA. Timing job (noiseCheck on): hook installed in both arms, only ForeignKindsMode differs, so the job's cost is the difference. Read with node tools/harness/hitch-ab.ts ip-foreign-natural and hitch-cause-report.ts for why=afActive refusals. boatreplanlog stays on in both arms.",
+      "asi": "game-copy/ts3native.asi.master1108",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.master1108",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1,
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "MonoThread.Enabled": 0,
+        "MonoThread.Mode": 0,
+        "MonoThread.GcLock": 0,
+        "MonoThread.FrameTls": 0,
+        "RouteSnap.Count": 0,
+        "RouteSnap.Enabled": 0,
+        "RouteSnap.AuditEvery": 20,
+        "AutShadow.Enabled": 0,
+        "AutShadow.Mode": 0,
+        "AutShadow.Sample": 4,
+        "AutShadow.ColdIc": 0,
+        "AutShadow.CutLean": 0,
+        "AutShadow.TierMs": 0,
+        "AutShadow.RowHot": 0,
+        "AutShadow.RunSkip": 0,
+        "AutShadow.KeepPartial": 0,
+        "AutShadow.Satb": 0,
+        "AutShadow.Unseen": 0,
+        "MonoThread.LazyGate": 0,
+        "MonoThread.LazyEarly": 0,
+        "AutShadow.TierReqLots": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_,a10foreign_",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "pair master1108 (combined master 896c0e8b, ts3native 0.36.211 asi 5656615b, ts3fixes f2826284; builds.json; holds g2pair1108 d1066f14 with ForeignKinds): base package, kHitchCauseHooks false (boatreplan/owreset/alarmtime cause lines will not be written); repinned 2026-11-08 from g2pair1108",
+      "minCounters": 912
+    },
+    {
+      "id": "ip-foreign-natural-off-2",
+      "note": "IP natural play, 10 min, second of pair 2 of ABBA. Timing job (noiseCheck on): hook installed in both arms, only ForeignKindsMode differs, so the job's cost is the difference. Read with node tools/harness/hitch-ab.ts ip-foreign-natural and hitch-cause-report.ts for why=afActive refusals. boatreplanlog stays on in both arms.",
+      "asi": "game-copy/ts3native.asi.master1108",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.master1108",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1,
+        "RouteJobPhases.SyncLinesPerMin": 200,
+        "WaterJps.Enabled": 1,
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 0,
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "MonoThread.Enabled": 0,
+        "MonoThread.Mode": 0,
+        "MonoThread.GcLock": 0,
+        "MonoThread.FrameTls": 0,
+        "RouteSnap.Count": 0,
+        "RouteSnap.Enabled": 0,
+        "RouteSnap.AuditEvery": 20,
+        "AutShadow.Enabled": 0,
+        "AutShadow.Mode": 0,
+        "AutShadow.Sample": 4,
+        "AutShadow.ColdIc": 0,
+        "AutShadow.CutLean": 0,
+        "AutShadow.TierMs": 0,
+        "AutShadow.RowHot": 0,
+        "AutShadow.RunSkip": 0,
+        "AutShadow.KeepPartial": 0,
+        "AutShadow.Satb": 0,
+        "AutShadow.Unseen": 0,
+        "MonoThread.LazyGate": 0,
+        "MonoThread.LazyEarly": 0,
+        "AutShadow.TierReqLots": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread,alarmtime,boatreplanlog,owresettime",
+          "fixesReport": "alarmtime_,boatreplan_,owreset_,hitchcause_,a10foreign_",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 22,
+      "pinReason": "pair master1108 (combined master 896c0e8b, ts3native 0.36.211 asi 5656615b, ts3fixes f2826284; builds.json; holds g2pair1108 d1066f14 with ForeignKinds): base package, kHitchCauseHooks false (boatreplan/owreset/alarmtime cause lines will not be written); repinned 2026-11-08 from g2pair1108",
+      "minCounters": 912
+    }
+  ]
+}

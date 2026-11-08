@@ -98,7 +98,7 @@ The question for each: more picks that route, farther picks, bursts, stale needs
 
 | Feature | State | Verdict | Why |
 |---|---|---|---|
-| `autunseen` | opt-in, default ON if gate 2 passes | **Safe on volume, unknown on length** | Fewer searches, flat or fewer plans, fails flat, no 300 ms change, no bunching in the p99.9 [measured]. Top-1 equal in Dry (docs/222) so picks match. Job mean +9.8% BP could mean farther trips or fewer short ones; no length counter |
+| `autunseen` | ON in release since 2026-11-08 (gate 2 credit: BP +6.4 / IP +12.2 ms/s; R5 per-pair `ufLong` failed on 2 IP pairs, pooled on 46 vs off 42, judged incidental, docs/23 #21) | **Safe on volume, unknown on length** | Fewer searches, flat or fewer plans, fails flat, no 300 ms change, no bunching in the p99.9 [measured]. Top-1 equal in Dry (docs/222) so picks match. Job mean +9.8% BP could mean farther trips or fewer short ones; no length counter |
 | Snap-back of a direct pick | with `autunseen` | **Safe** | Per on arm: 2-59 picks tagged, `autunseen_flip_cancel` 0 and `_flip_kept` 0 in all 9 jobs, `snap_*` 0-8, against 2,000-13,000 plans [measured]. A kept running head is vanilla's route. Cannot cause a route rise |
 | `autunseenpace` 78 / 100 | with `autunseen` | **Safe** | The table above is these |
 | `autunseenpace` 50 / 35 | gate 2 pace queue, not run | **Risk** | Less charge moves toward the unpaced state: unseen searches +19% / +10% per Sim-hour with per-search outcomes flat (docs/222 §8), so more picks. **No route data survives from that build** (the g8 tags were overwritten). Single-order jobs, so only plans per Sim-hour read, not route ms |

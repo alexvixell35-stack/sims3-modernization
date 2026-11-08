@@ -218,7 +218,7 @@ export function allowedCorrection(xml: string, allow: string[]): boolean {
   return lines.length > 0 && lines.every(l => res.some(r => r.test(l)));
 }
 import { EA_PACKAGE_LOCK } from '../dump-locks.ts';
-import { clickLines, dumpHungGame, GUARD_MS, logTail, type ModeSnap, modeExit, modeSnap, noSafeButton } from './game-alive.ts';
+import { clickLines, dumpHungGame, GUARD_MS, logTail, type ModeSnap, modeExit, modeSnap, noSafeButton, PKG_ABBA, pkgAbba } from './game-alive.ts';
 import { BIN, EA_LAUNCHER, EA_URI, GAME_EXE, gameRunning, isSteamGame, killLeftovers, LAUNCH, logUntrackedGame, MACHINE, machineTag, seenPids } from './game-exe.ts';
 import { checkCfg as checkFailFast, describe as describeFailFast, routingGuard, type FailFast } from './routing-failfast.ts';
 import { checkRequire, flatDelta, parseRequire } from './fixes-require.ts';
@@ -230,6 +230,7 @@ import { drift, driftLine, failMode, logCopy, parseReuse, readSwitches, REUSE_DE
 import { saveForeground } from './focus-game.ts';
 import { parseStory, smokeFails, storyFile } from './story-report.ts';
 import { clearJob, markJob, waitHold } from './hold.ts';
+import { pending as modsPending, restoreMods, snapshotMods } from './mods-restore.ts';
 import { dayFails } from './story-day.ts';
 import { load as loadRun, type Run } from './freeze-report.ts';
 import { describePin, gameCpus, pinConfig, pinStatePending, restorePins, startPinner, type PinOpts } from './pin.ts';
@@ -267,10 +268,10 @@ function machineField(tag: string): { machineTag?: string } { return tag ? { mac
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; run: { repro?: string; saveReload?: string[]; script?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
     profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
-  saveMatrix?: { fixes?: 'all' | 'shipped' }; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; retryOf?: string; shadowCheck?: boolean; skipIfMissing?: boolean; ourMods?: false };
+  saveMatrix?: { fixes?: 'all' | 'shipped' }; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; retryOf?: string; expectHang?: string; shadowCheck?: boolean; skipIfMissing?: boolean; ourMods?: false };
 
 // every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
-const JOB_KEYS = new Set(['id', 'note', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'reuseSession', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
+const JOB_KEYS = new Set(['id', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'reuseSession', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
 // ---- vanilla mode (docs/236): what a job may not ask for without ts3native/ts3fixes, and the checks the row names as N/A
 export const VANILLA_NA = ['asi build check', 'ts3fixes build check', 'ts3native.log version gate', 'ts3native.ini features', 'hook FAIL lines and route hook state', 'counter gate and /native counters', 'ts3fixes activity'];
 // "ourMods": false: a plain profile window or one repro (queue repros run --no-load, so no restart; its steps must not need ts3fixes); anything
@@ -820,9 +821,21 @@ export function noisyRerun(j: Job, row: { noise?: string; error?: string | null 
 // of the same kind, or any other hang, is a FAIL. The first attempt's row becomes N/A with "retry: EA package-lock deadlock".
 export const DEADLOCK_RETRY = `retry: ${EA_PACKAGE_LOCK}`;
 export function deadlockRetry(j: Job, row: { crashed?: boolean; timedOut?: boolean }, jobLog: string, ids: string[]): Job | null {
-  if (j.retryOf || row.crashed || row.timedOut || !jobLog.includes(EA_PACKAGE_LOCK) || !/world load: nothing moved/.test(jobLog)) return null;
+  if (j.retryOf || j.expectHang || row.crashed || row.timedOut || !jobLog.includes(EA_PACKAGE_LOCK) && !jobLog.includes(`${PKG_ABBA}: `) || !/world load: nothing moved/.test(jobLog)) return null;
   const id = `${j.id}-retry`;
   return ids.includes(id) ? null : { ...j, id, retryOf: j.id, note: `${DEADLOCK_RETRY} in ${j.id}, load retried once${j.note ? `: ${j.note}` : ''}` };
+}
+// queue job key expectHang: "pkg-abba" (docs/539 §13.9.5, the forced repro's Mode 0 arm): the job must end in that hang. Caught (the
+// "pkg-abba:" stall label, or the "[PkgLock] ABBA:" line in the game's ts3native.log) = PASS, the hang's own FAIL lines kept as
+// "(hung as expected) ..."; not caught = FAIL (the repro's window model is wrong: docs/539 §13.9.5 says stop and re-read the dump)
+export function expectedHang(j: Job, row: { verdict: string[]; error?: string | null; exitCode?: number | null; selfCheckFail?: string; crashed?: boolean }, jobLog: string, nativeTail: string) {
+  if (!j.expectHang) return;
+  const label = `${j.expectHang}: `, line = jobLog.split(/\r?\n/).find(l => l.includes(label));
+  const hit = line?.slice(line.indexOf(label)) || (j.expectHang === PKG_ABBA ? pkgAbba(nativeTail) : '');
+  if (!hit || row.crashed) { row.verdict.push(`FAIL: expected hang ${j.expectHang} not caught${row.crashed ? ' (the game crashed)' : ''}`); return; }
+  const old = [...row.verdict.filter(isFail), ...(row.error ? [`error: ${row.error}`] : []), ...(row.selfCheckFail ? [`self-check: ${row.selfCheckFail}`] : [])];
+  row.verdict = [`PASS: expected hang caught: ${hit.slice(0, 200)}`, ...row.verdict.filter(v => !isFail(v)), ...old.map(v => `(hung as expected) ${v}`)];
+  row.error = null; row.exitCode = 0; delete row.selfCheckFail;
 }
 // the first attempt's row: no FAIL line of a run that never got past the menu (idempotent; "first attempt (hung):" matches no verdict pattern)
 export function neutralizeRetried(row: { verdict: string[]; error?: string | null; selfCheckFail?: string; retriedAs?: string; retryWas?: string[] }, id: string) {
@@ -1501,6 +1514,15 @@ if (values['self-check']) {
     assert.equal(deadlockRetry(job, {}, hung.replace('world load: nothing moved', 'heartbeat frozen'), []), null, 'only the menu/load stall guard');
     assert.equal(deadlockRetry(job, { crashed: true }, hung, []), null);
     assert.equal(deadlockRetry(job, { timedOut: true }, hung, []), null);
+    assert.ok(deadlockRetry(job, {}, hung.replace(EA_PACKAGE_LOCK, 'pkg-abba: [PkgLock] ABBA: tid 1'), []), 'the [PkgLock] detector label also retries');
+    assert.equal(deadlockRetry({ ...job, expectHang: 'pkg-abba' } as Job, {}, hung, []), null, 'an expected hang is not retried');
+    const eh = (log: string, tail = '', crashed = false) => { const r: any = { verdict: ['FAIL: agentArm pkg_abba_repro: nothing moved', 'note'], error: 'agentArm x', exitCode: 1, crashed }; expectedHang({ ...job, expectHang: 'pkg-abba' } as Job, r, log, tail); return r; };
+    const caught = eh('12:00 FAIL: agentArm pkg_abba_repro: nothing moved for 60 s; pkg-abba: [PkgLock] ABBA: tid 4 holds O+0xC0');
+    assert.deepEqual([caught.verdict[0], caught.error, caught.exitCode, caught.verdict.some(isFail)], ['PASS: expected hang caught: pkg-abba: [PkgLock] ABBA: tid 4 holds O+0xC0', null, 0, false]);
+    assert.match(eh('', '[PkgLock] ABBA: tid 9 holds O+0xC0').verdict[0], /^PASS: expected hang caught: pkg-abba: \[PkgLock\] ABBA: tid 9/, 'from the native log tail');
+    assert.match(eh('no label').verdict.at(-1), /^FAIL: expected hang pkg-abba not caught$/);
+    assert.match(eh('pkg-abba: x', '', true).verdict.at(-1), /not caught \(the game crashed\)/);
+    const plain: any = { verdict: ['FAIL: x'], error: null }; expectedHang(job, plain, 'pkg-abba: x', ''); assert.deepEqual(plain.verdict, ['FAIL: x'], 'no key: untouched');
     const row: any = { verdict: ['FAIL: world load: nothing moved', 'bp: FAIL'], error: 'world load: nothing moved', selfCheckFail: 'x', pass: false, exitCode: 1, crashed: false };
     neutralizeRetried(row, 'bp-x-retry'); neutralizeRetried(row, 'bp-x-retry'); // idempotent
     assert.deepEqual(row.verdict.slice(0, 2), ['N/A: retry: EA package-lock deadlock (docs/539 §13.8), rerun queued as bp-x-retry', 'first attempt (hung): FAIL: world load: nothing moved']);
@@ -2379,6 +2401,8 @@ appendFileSync(md, `\n## ${new Date().toISOString().slice(0, 16)} UTC, build ${b
 
 // keep what Bin had, to restore the ini and fall back for the asi at the end
 const BEFORE = join(OUT, 'bin-before');
+// Mods/Packages ts3fixes/ts3agent/ts3-nointro at queue start (mods-restore.ts), put back at the end like the Bin pair
+const MODS_BEFORE = join(OUT, 'mods-before'), MODS_PKGS = join(USER, 'Mods', 'Packages');
 // one queue at a time (2026-10-17: a queue whose parent shell was stopped kept running, and a second one fought it for the
 // game: each restart killed the other's TS3W.exe)
 if (!values['dry-run']) {
@@ -2392,6 +2416,8 @@ if (pinStatePending()) log(`pin: leftover from an earlier run: ${restorePins()}`
 process.on('exit', () => { // a throw outside the job's try, a signal: with the game closed nothing has to wait for the next queue start
   if (pinStatePending()) restorePins(); clearJob();
   try { if (existsSync(ourModsMf()) && !gameRunning()) log(`restored ts3native + ts3fixes on exit: ${vanillaRestore(ourModsSpec())} files`); } catch (e) { console.error(`ts3native + ts3fixes left in the stash: ${e}; run --restore-content`); }
+  // a throw or signal before the end restore: Mods packages back now when the game is closed, else the next queue start / track.ts stop does it
+  try { if (!values['dry-run'] && !VANILLA && modsPending(MODS_BEFORE)) log(gameRunning() ? `Mods packages left as the job installed them (${GAME_EXE} running): node tools/harness/mods-restore.ts restore` : `on exit: ${restoreMods(MODS_BEFORE).line}`); } catch (e) { console.error(`Mods restore on exit failed: ${e}`); }
 });
 for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(sig, () => process.exit(130));
 mkdirSync(BEFORE, { recursive: true });
@@ -2409,6 +2435,15 @@ if (!values['dry-run'] && existsSync(ourModsMf())) {
   catch (e) { console.error(`could not restore ts3native + ts3fixes from ${ourModsSpec().stash}, stash kept: ${(e as Error).message}`); process.exit(4); }
 }
 for (const f of ['ts3native.asi', 'ts3native.ini', 'Default.ini', 'Sims3Performance.ini', 'dxvk.conf']) if (existsSync(join(BIN, f))) copyFileSync(join(BIN, f), join(BEFORE, f));
+// Mods packages: a killed queue's record goes back first (else this run would record its job's packages as the start state), then record
+if (!values['dry-run'] && !VANILLA) {
+  if (modsPending(MODS_BEFORE)) {
+    await closeGame();
+    const r = restoreMods(MODS_BEFORE); log(`${r.line} (an earlier queue was killed)`);
+    if (r.problems.length) { console.error('Mods packages of an earlier run could not be restored: fix by hand, then rerun'); process.exit(4); }
+  }
+  log(snapshotMods(MODS_PKGS, MODS_BEFORE));
+}
 // vanilla: vanilla.ts moves the pair out and back (manifest + sha read-back); the pair is never copied into Bin here
 let vanillaHere = false;
 if (VANILLA && !values['dry-run']) {
@@ -2984,6 +3019,7 @@ for (const [n, j] of jobs.entries()) {
   try { row.hangCapture = hangCaptureLine(jobLogText); } catch { /* no job log */ }
   const retry = deadlockRetry(j, row, jobLogText, [...all, ...jobs].map(x => x.id));
   if (retry) { jobs.splice(n + 1, 0, retry); neutralizeRetried(row, retry.id); log(`${j.id}: ${DEADLOCK_RETRY}: ${retry.id} queued next`); }
+  expectedHang(j, row, jobLogText, j.expectHang ? logTail(1 << 20) : '');
   if (VANILLA) row.verdict.push(`N/A (vanilla): ${VANILLA_NA.join(', ')}`); // skipped, never PASS
   else if (j.ourMods === false) row.verdict.push(`N/A (ourMods false): ${OURMODS_NA.join(', ')}`);
   row.pass = row.exitCode === 0 && !row.crashed && !row.error && !row.timedOut && !row.selfCheckFail && !row.verdict.some(isFail); // any FAIL line counts, exit 0 or not (docs/236 #15)
@@ -3126,6 +3162,12 @@ if (VANILLA) {
     if (!b || !/^ts3native\.asi\.rel/.test(b.name)) log('WARN: Bin/ts3native.asi is not a release build: install the release asi + ini before playing or before another harness (Apex runner) uses Bin');
   }
   else { log(`restore failed (copies in ${BEFORE})`); exitCode = 1; }
+  // Mods packages the jobs installed (cycle.ts build/ copies, fixesPackage): back to the start state, sha read back
+  if (!values['dry-run']) {
+    if (gameRunning()) await closeGame();
+    const r = restoreMods(MODS_BEFORE); log(r.line);
+    if (r.problems.length) exitCode = 1;
+  }
 }
 for (const b of ledgerBlocks) appendFileSync(md, b);
 if (stopWhy) appendFileSync(md, `\nStopped: ${stopWhy}.\n`);

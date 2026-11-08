@@ -22,6 +22,13 @@ namespace Ts3Fixes
             return kSame;
         }
 
+        // dancefloorlistguard (docs/253 §11): after a route step, EA's foreach calls MoveNext unless the step routed, and Mono's
+        // MoveNext throws first thing when the enumerator's version differs from the list's; the guard's snapshot loop goes on.
+        public static bool WouldThrow(bool routed, int ver0, int ver1) { return !routed && ver0 != ver1; }
+
+        // the floor the snapshot loop resumes at after EA's enumerator threw: it had handed out items 0..steps-1 in list order
+        public static int ResumeAt(int stepsTried) { return stepsTried; }
+
         public static string Name(int k)
         {
             switch (k)

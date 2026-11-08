@@ -144,7 +144,7 @@ namespace Ts3Fixes
                 bool aborted = sSohAborted != null && (bool)sSohAborted.GetValue(h);
                 int cause = OutfitWaitCore.StaleCause(aborted, object.ReferenceEquals(act, h), (int)pc, pi, (int)hc, hi, (int)OutfitCategories.None);
                 if (cause != OutfitWaitCore.kCauseAborted) PatchCounters()[2002 + cause]++;
-                Delegate dcb;
+                WeakReference dcb;
                 bool dropped = sCbDropped.TryGetValue(s.ObjectId.Value, out dcb) && dcb != null && object.ReferenceEquals(dcb.Target, h);
                 if (dropped && cause != OutfitWaitCore.kCauseAborted) PatchCounters()[2011]++;
                 Sims3.Gameplay.Interactions.InteractionInstance cur = s.CurrentInteraction;
@@ -184,8 +184,17 @@ namespace Ts3Fixes
         // ready only the first one runs, and a caller waiting on the second waits forever. Switch on only, EA's call runs
         // unchanged. [2010] callbacks dropped, each logged with both callbacks and the callers (first 8 lines).
         static readonly FieldInfo sCasSwapCbs = typeof(CASUtils).GetField("sClothingSwapDelegates", BindingFlags.Static | BindingFlags.NonPublic);
-        static readonly Dictionary<ulong, Delegate> sCbDropped = new Dictionary<ulong, Delegate>(); // the last dropped callback per object
+        static readonly Dictionary<ulong, WeakReference> sCbDropped = new Dictionary<ulong, WeakReference>(); // the last dropped callback's target per object; weak (issue #40: a strong delegate held the helper and its Sim)
         static int sCbLineCount;
+
+        // world quit (Instantiator): drop statics that hold Sims, lots or interactions of the old world (issue #40)
+        public static void HeldRefsWorldQuit()
+        {
+            sCbDropped.Clear();
+            sRflCmds.Clear();
+            sStuckQueue.Clear();
+            sUfCamLot = null; sUfCamLotTick = -1;
+        }
         public class SwapCbHook
         {
             public static void RegisterHook(ObjectGuid objectId, CASUtils.SwapReadyCallback finishedCallback)
@@ -205,7 +214,7 @@ namespace Ts3Fixes
                 if (d == null || !d.TryGetValue(id.Value, out old)) return;
                 PatchCounters()[2010]++;
                 if (sCbDropped.Count > 1000) sCbDropped.Clear(); // shortcut: bounded; only the dropped mark of older waits is lost
-                sCbDropped[id.Value] = cb;
+                sCbDropped[id.Value] = new WeakReference(cb != null ? cb.Target : null);
                 if (sCbLineCount >= 8) return;
                 sCbLineCount++;
                 IScriptProxy p = Simulator.GetProxy(id);

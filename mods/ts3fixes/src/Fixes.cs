@@ -318,6 +318,7 @@ namespace Ts3Fixes
         // [898-902] tier-2 H7-H10 (AutShadow.cs, docs/126 §3; autt2drag/autt2cache/autt2tuning/autt2lod): H8 `cache` aborts, H9 `tuning` aborts, H7 drag answers, H10 LOD answers, H10 answers past the game's 60-tick recompute.
         // [903-927] autt2l0 (AutLocalProbe.cs, docs/data/tier2-local-phase-handoff.md L0): local-phase searches, us and pairs by actor class (household, seen, unseen), side entries, no-local floor, unseen B8 reasons, span ms, nested, exceptions
         // [892-897] dancefloorlistdiag (DanceFloorDiag.cs, docs/253 §7): FindAndRouteOntoADanceFloorWithFollower calls, returns, "Collection was modified" throws (all three also with the switch off), route steps checked, steps with a mismatch, of those with the list freed.
+        // [928-929] dancefloorlistguard (DanceFloorDiag.cs, docs/253 §11): guarded FindAndRouteOntoADanceFloorWithFollower calls, list changes the snapshot loop got past (EA's next MoveNext would have thrown).
         // [871] watchdoglockskip (RouteFixes.cs CheckIdle, docs/250 §7.4): idle checks skipped while a route job held +0x918 (wdLockSkip)
         static int[] sCountersCache;
         static int[] PatchCounters()
@@ -403,7 +404,9 @@ namespace Ts3Fixes
                 case "autliveguard": return Instantiator.kAutLiveGuard; // docs/124 §17.10 go-live cost guard (only acts with autlive)
                 case "autunseenpace": return Instantiator.kAutUnseenPace; // docs/222 §8 unseen-direct pacing (only acts with autunseen)
                 case "autunseenrh": return Instantiator.kAutUnseenRabbitHoleGame; // docs/222 §10 rabbit-hole pairs to the game's C1 (only acts with autunseen)
-                case "autseengame": case "autunseenpacecredit": return false; // docs/222 §11.8 V6 tests (only act with autunseen): test runs only
+                // docs/222 §11.8 V6 (only act with autunseen): on with ini Unseen=1, as in the gate 2 credit arm (Rodney 2026-11-08:
+                // ON in release, gate 2 BP +6.4 / IP +12.2 ms/s); a seen actor (household, selected) runs the game's own search
+                case "autseengame": case "autunseenpacecredit": return IniUnseen();
                 case "autunseencmp": return Instantiator.kAutUnseenCmp; // docs/222 §9 Dry per-definition compare (only with Dry + autunseen)
                 case "autunseen": return IniUnseen(); // docs/222 unseen-direct go-live (only acts with autlive, acting): test runs, or ini Unseen=1
                 case "replandefer": return Instantiator.kReplanDefer;
@@ -514,8 +517,10 @@ namespace Ts3Fixes
                 case "vacimportfix": return Instantiator.kVacImportFix;
                 case "menumaven": return Instantiator.kMenuMaven;
                 case "dancefloorlistdiag": return false;  // diagnostics only (DanceFloorDiag.cs, docs/253 §7)
+                case "dancefloorlistguard": return false;  // EA bug fix, OFF until the dancefloor-diag stress run names the cause (DanceFloorDiag.cs, docs/253 §12)
                 case "compactionfail": return false;  // test only (Compaction.cs, docs/204 §6): the reload throws after the screen is up
                 case "spotspread": return true;
+                case "routefaillog": return true;  // ON in release (Rodney 2026-11-08): helps triage player reports in early releases
                 default: return true;
             }
         }

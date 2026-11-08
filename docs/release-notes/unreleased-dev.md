@@ -2,6 +2,17 @@
 
 Rename to `vX.Y.Z-dev.md` when the version is set. Player notes: CHANGELOG.md `## Unreleased`.
 
+## Unseen-direct go-live (`autunseen`) ON (Rodney 2026-11-08)
+
+Gate 2 credit A/B (`--ab autunseen`, pace 100 + `autunseenpacecredit` + `autseengame`, pair g2pair1107b: ts3native 0.36.189, ts3fixes -gu100), 6 runs per world pooled (queues golive-unseen-gate2-pace, -credit2, -credit3; docs/data/results/2026-11-0{7,8}-queue-golive-unseen-gate2-*.md): BP +6.4, IP +12.2 ms/s, correctness PASS. Hitch-ab clear-regression rule (AGENTS.md) checked 2026-11-08: no crash or stuck Sim in any arm; watchdog acts in both arms at similar counts; IP pooled >= 300 ms on 55 vs off 59, ratio 0.92 [0.63, 1.36] "no clear difference"; >= 1000 ms on 1 vs off 2; the one on-arm >= 1 s iteration (1319 ms) has the same cause as both off-arm ones (`RouteBackoffHook.AsyncWait`, docs/23 #21). The R5 per-pair `ufLong` bar failed on 2 IP pairs: incidental (docs/23 follow-ups).
+
+- Release `ts3native.ini` = the gate 2 ini (docs/222 §11.6): `[MonoThread]` `Enabled=1 Mode=1 GcLock=1 FrameTls=1 ArenaFix=1 N2mPrivate=1 LazyGate=1 LazyEarly=1`; `[RouteSnap]` `Enabled=1 Count=1 AuditEvery=0` (Mode=0); `[AutShadow]` `Enabled=1 Mode=3 Sample=1 Satb=2 ColdIc=1 CutLean=2 TierMs=1500 RowHot=200 RunSkip=1 KeepPartial=1 TierReqLots=1 Audit=50 DumpOnMismatch=0 Unseen=1`. Gate-only keys not shipped: `[HitchAttr] Enabled`, `DumpOnMismatch=1`.
+- ts3fixes: `kAutUnseenPacePct` 100 (was 78); `autseengame` and `autunseenpacecredit` follow `[AutShadow] Unseen=1` (`Fixes.ShortcutOn`), as `autshadow`, `autlive`, `autunseen` already do.
+- Scope: `AutLiveCore.Unseen.AtPost` posts a direct search only for `UfWhy == 0`; `UfWhy` returns `kHousehold` for `IsSelectable` or the active household (`UnseenFallback.cs` `UfWhyBody`), and `SafeUfWhy` returns -1 on an exception, so household, selected and unknown-scope Sims run the game's own search (`autseengame`).
+- CI: `[MonoThread]`, `[RouteSnap]`, `[AutShadow]` added to the build.yml stable list.
+- Not tested together: the gate runs had `[CasTrim] Mode=0`; the release has Mode=3. The tested asi was 0.36.189; the release asi is a newer master build. Needs a release-ini smoke on the freeze pair before tagging.
+- EA app 1.69: the Mono addresses are Steam 1.67 only; the EA `ts3native.ini` must set `[MonoThread]`, `[RouteSnap]`, `[AutShadow]` `Enabled=0`.
+
 ## CasTrim Mode 3 ON with the crash detector (Rodney 2026-11-08)
 
 Release `ts3native.ini` `[CasTrim]`: `Mode=3`, `Detect=1`, `Probe=0`, `Install=0`, `MinAgeSec=60`, `Named=1`, `Async=1`, `NeedDb=0` (the last five as before). Build: ts3native 0.36.196 or later (pair castrimrel1108; `Detect` is new in 0.36.196, older builds ignore it and only install the detector with `Probe=1`).

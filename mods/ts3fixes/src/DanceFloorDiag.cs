@@ -27,6 +27,14 @@ namespace Ts3Fixes
     // switch off), [895] route steps checked, [896] steps with a mismatch, [897] of those with the list freed.
     // Lines (ts3native.log): "dancefloor list: call #n ..." per call (first 40), "dancefloor list: MISMATCH ..." / "... THROW ..."
     // (first 40 together).
+    //
+    // dancefloorlistguard (docs/253 §12, EA bug fix, default OFF until the diag names the cause): EA's foreach throws when the list's version moved while a route
+    // step slept; the guard loops over a snapshot (list.ToArray() before the first route) in EA's order instead, so the throw cannot
+    // happen. Same floors, same order, same calls as EA's loop: when EA's loop would not throw, every Sim gets EA's exact result;
+    // when it would, the loop goes on with the next floor EA's list held (no skip, cap or cancel), so it applies to all Sims.
+    // With dancefloorlistdiag on, the diag loop keeps EA's enumerator (the detector) and, on its throw, logs THROW and goes on
+    // over the snapshot instead of rethrowing. Counters [928] guarded calls, [929] list changes the guard got past (EA's next
+    // MoveNext would have thrown); "dancefloor list: GUARD ..." line each (shared cap of 40 with MISMATCH / THROW).
     public static partial class Fixes
     {
         public static class DanceFloorDiagHook
@@ -35,7 +43,8 @@ namespace Ts3Fixes
             {
                 int[] c = PatchCounters();
                 c[892]++;
-                if (!ShortcutOn("dancefloorlistdiag") || !DfReady())
+                bool guard = ShortcutOn("dancefloorlistguard");
+                if ((!ShortcutOn("dancefloorlistdiag") && !guard) || !DfReady())
                 {
                     DanceFloor r0;
                     try { r0 = FindOrig(actor, follower, danceObject); }
@@ -43,7 +52,8 @@ namespace Ts3Fixes
                     c[893]++;
                     return r0;
                 }
-                DanceFloor r = DfFind(actor, follower, danceObject, c);
+                if (guard) c[928]++;
+                DanceFloor r = ShortcutOn("dancefloorlistdiag") ? DfFind(actor, follower, danceObject, c, guard) : DfGuard(actor, follower, danceObject, c);
                 c[893]++;
                 return r;
             }
@@ -77,7 +87,30 @@ namespace Ts3Fixes
             return sDfReady == 1;
         }
 
-        static DanceFloor DfFind(Sim actor, Sim follower, IDanceable danceObject, int[] c)
+        // dancefloorlistguard without the diagnostics: EA's steps over the snapshot; after each failed step, a moved version is
+        // the throw EA's next MoveNext would have made (Mono's VerifyState compares ver with _version first)
+        static DanceFloor DfGuard(Sim actor, Sim follower, IDanceable danceObject, int[] c)
+        {
+            int unused = follower.RoomId;  // EA reads it first (IL_0001)
+            List<DanceFloor> list = ((DfNearFn)Delegate.CreateDelegate(typeof(DfNearFn), sDfNear))(danceObject);
+            DanceFloor[] floors = list.ToArray();
+            int ver0 = DfVersion(list), cnt0 = floors.Length;
+            bool noted = false;
+            // no closures here: a Sim saved while a route step sleeps keeps this frame (docs/242), so it stays in the hook's class
+            for (int i = 0; i < floors.Length; i++)
+            {
+                if (((DfRouteFn)Delegate.CreateDelegate(typeof(DfRouteFn), floors[i], sDfRoute))(actor, follower)) return floors[i];
+                if (!noted && DanceFloorDiagCore.WouldThrow(false, ver0, DfVersion(list)))
+                {
+                    noted = true;
+                    c[929]++;
+                    DfBad("GUARD step " + (i + 1) + " of " + cnt0 + " ver " + ver0 + "->" + DfVersion(list) + " count " + cnt0 + "->" + list.Count + " " + DfWho(actor, follower, danceObject));
+                }
+            }
+            return null;
+        }
+
+        static DanceFloor DfFind(Sim actor, Sim follower, IDanceable danceObject, int[] c, bool guard)
         {
             int call = ++sDfCalls;
             int unused = follower.RoomId;  // EA reads it first (IL_0001): a null follower throws here, as in EA's body
@@ -99,8 +132,17 @@ namespace Ts3Fixes
                     {
                         c[894]++;
                         end = "throw";
-                        DfBad("THROW call #" + call + " step " + steps + " " + ex.GetType().Name + " '" + ex.Message + "' " + DfState(e, list, weak, ver0, cnt0, hash0, items0) + " gc " + gc0 + "->" + GC.CollectionCount(0) + " " + who);
-                        throw;
+                        DfBad("THROW call #" + call + " step " + steps + " " + ex.GetType().Name + " '" + ex.Message + "' " + DfState(e, list, weak, ver0, cnt0, hash0, items0) + " gc " + gc0 + "->" + GC.CollectionCount(0) + (guard ? " guard: on over the snapshot " : " ") + who);
+                        if (!guard) throw;
+                        c[929]++;
+                        // the enumerator handed out items0[0..steps-1] in order, so the next floor EA's list held is items0[steps]
+                        for (int i = DanceFloorDiagCore.ResumeAt(steps); i < items0.Length; i++)
+                        {
+                            c[895]++;
+                            if (((DfRouteFn)Delegate.CreateDelegate(typeof(DfRouteFn), items0[i], sDfRoute))(actor, follower)) { end = "guard floor " + DfItem(items0[i]); return items0[i]; }
+                        }
+                        end = "guard null";
+                        return null;
                     }
                     if (!more) { end = "null"; break; }
                     DanceFloor item = e.Current;

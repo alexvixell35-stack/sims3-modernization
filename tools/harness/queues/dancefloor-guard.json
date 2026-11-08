@@ -1,0 +1,47 @@
+{
+  "note": "docs/253 §11: dancefloorlistguard (default ON) on pair dfguard-1108, release path for 11-13. Correctness only (run with --no-smoke), no timing. One load on Baseline-BP with the repo (release) ts3native.ini, repro dance-together-floor (diag on through the repro, guard on and read back). Not run yet; wait until the repro fix from bugfix/dancefloor-repro-pair is on master.",
+  "jobs": [
+    {
+      "id": "bp-dfguard-release",
+      "note": "~15 min: release ini, dancefloorlistguard on (fixesOn read-back), dancefloorlistdiag on through the repro. Pass (correctness): repro steps pass, dancefloorguard_calls >= 3, >= 3 \"dancefloor list: call #\" lines, 0 new script errors: a DanceFloor \"Collection was modified\" script error now FAILs (no scriptErrorsReport exemption). Findings for docs/253 §6, not failures: dancefloorguard_changes, dancefloordiag_throws / _mismatch / _freed and every \"dancefloor list: GUARD|THROW|MISMATCH\" line.",
+      "asi": "game-copy/ts3native.asi.dfguard-1108",
+      "pinReason": "pair dfguard-1108: ts3native 0.36.211 (byte-identical to master1108) + ts3fixes with dancefloorlistguard (docs/253 §11); ts3fixes-only fix, correctness only",
+      "fixesPackage": "game-copy/ts3fixes.package.dfguard-1108",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.211 ": 1,
+        "^dancefloor list: call #\\d+ ": 3
+      },
+      "logForbid": {
+        "^dancefloor list: diag off": 0,
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "dance-together-floor",
+          "fixesOn": "dancefloorlistguard",
+          "fixesRequire": "dancefloorguard_calls>=3"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "earlyGates": [
+        {
+          "afterSec": 600,
+          "counter": "fixes:dancefloorguard_calls",
+          "op": ">=",
+          "value": 1,
+          "why": "no guarded FindAndRouteOntoADanceFloorWithFollower call 10 min in: the pair never reached the lot, DanceTogetherA was refused, or the hook / switch is not in"
+        }
+      ]
+    }
+  ]
+}
