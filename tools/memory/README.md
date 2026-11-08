@@ -18,6 +18,19 @@ below). Used in the #40 bridge runs (al317-al325) and the lot pool work (docs/54
 | `ea-pool-census.py [--max-read N]` | TS3W's 12 static EA fixed pools (init `0x4E43D0` with `mov ecx, <pool>`): cores, slots, free share, completely free cores | pools that hold free cores |
 | `lot-pool-snap.py [pid]` | the 272-byte lot message pool `0x11EB590`: cores, slots, live slots, completely free cores (what `[LotPool] Trim` in PR #313 frees) | before and after a world load or a trim |
 | `nt-heap.py [--state FILE] [--top N] [--pid PID] [--dump STRIDE] [--holders STRIDE]`, `--self-check` | the process heap (PEB32 `ProcessHeap`): segments, busy and free backend blocks by size, LFH buckets (block size, busy count from the bitmap, where the busy blocks' first dword points), big blocks. `--state` diffs busy blocks (backend and LFH) between samples, by size and by what their first dword points into. `--dump` shows a few blocks of one bucket; `--holders` finds who points at them. | growth of `nt-heap:process`: live data or fragmentation, which block size, and whose blocks |
+| `mem-unlabeled.py [--top N] [--sample N] [--state FILE]`, `--self-check` | the allocations `mem-census.py` leaves unlabeled, grouped by protection (RW, RWX, write-combined) and by a hint: code, all-zero, or the module most of their dwords point into (dwords of four printable bytes are text and are skipped). The biggest allocations with their committed regions. `--state` prints the change per hint since the last sample. | what the unlabeled hundreds of MiB are (driver arenas, Vulkan chunks, JIT code) and which of them grows |
+| `mem-strings.py ADDR [MINLEN] [MAXMB]`, `--self-check` | the most common ASCII strings in one allocation, and the share of its bytes that are text | naming an unlabeled allocation by its content |
+| `mono-census.py [--top N] [--state FILE]`, `--self-check` | the Mono managed heap by class: walks the Boehm sections and block headers (docs/198), names each object by its vtable's `MonoClass` (name +0x34, namespace +0x38, outer class +0x28), and counts objects whose GC mark bit (block header +0x1C) is set, live at the last collection. `--state` prints the classes that grew most since the last sample. | which managed classes keep growing |
+| `ea-heap-leaks.py FILE [--max N] [--maxsize BYTES]`, `--self-check` | EA main heap leak scan in passes. The first pass saves the in-use chunks. Later passes take the chunks that are new since the baseline and alive a whole interval, and search all committed writable memory for a pointer to a sample of them (the user address up to +0x1C). A chunk with no pointer is a candidate, and a candidate with still no pointer at the next pass is confirmed. Prints counts by label (vtable or size) and the first bytes of the confirmed ones. | whether the EA heap leaks (lost blocks) or only holds (blocks still referenced) |
+
+New tools, checked on #40 runs al328-al330:
+- `mono-census.py`: the mark bits are at header +0x1C, not +0x18. With them about 150-170 of 200-230 MiB is live, and
+  the bits match each block's slot size.
+- `mem-unlabeled.py`: the two biggest unlabeled allocations (128 MiB reserved each) belong to the NVIDIA driver. Their
+  header points into `nvoglv32.dll`, and `mem-strings.py` shows YAML-like records with hashed keys. Each key repeats about
+  4,200 times, maybe one record per compiled pipeline; al329 checks this against DXVK's pipeline counts. Before the text filter, that text made them look like `amdvlk32.dll` memory.
+- `ea-heap-leaks.py`: in 15 minutes of al328, 33 chunks (2.3 KB) were confirmed with no pointer. That is far below
+  the heap's growth.
 
 `nt-heap.py` details:
 - It needs the x86 heap layout of Windows 10/11 and checks both heap signatures before it reads anything.
