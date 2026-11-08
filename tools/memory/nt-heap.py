@@ -2,8 +2,8 @@
 only: no lock, nothing written, so a block changing while it is read can stop a walk (those bytes count as 'unparsed').
 It walks each segment's backend entries (8-byte _HEAP_ENTRY; the first dword is XORed with Heap.Encoding when
 EncodeFlagMask is set, and byte 3 = byte 0 ^ byte 1 ^ byte 2 checks it), the LFH user blocks among busy entries
-(signature 0xF0E0D0C0; counted as a whole: the blocks inside are not read, their offsets are encoded on Windows 8+)
-and the big blocks on VirtualAllocdBlocks.
+(signature 0xF0E0D0C0; the header's offsets are encoded on Windows 8+, so the block size comes from the user block's
+size and block count, checked against the blocks' own headers, see lfh()) and the big blocks on VirtualAllocdBlocks.
 x86 _HEAP offsets (Windows 10/11; both signatures are checked before anything is read):
   SegmentSignature 0xFFEEFFEE +0x8, EncodeFlagMask +0x4C, Encoding +0x50, VirtualMemoryThreshold +0x5C,
   Signature 0xEEFFEEFF +0x60, TotalFreeSize +0x74 (8-byte units), VirtualAllocdBlocks +0x9C, SegmentList +0xA4
@@ -14,12 +14,17 @@ Block sizes include the 8-byte header. It prints busy / free by size class and t
 --state FILE keeps this sample's busy blocks (backend, and LFH blocks at user block + header + i * estimated stride)
 and prints, against the previous sample, the sizes that grew and what the new blocks start with (a pointer into a
 module is likely a vtable).
-Usage: python -I nt-heap.py [--state FILE] [--top N] [--pid PID]   |   python -I nt-heap.py --self-check"""
+--dump STRIDE prints the first 64 bytes of a few busy blocks of that LFH bucket and the modules their dwords point into.
+--holders STRIDE finds who points at 64 blocks of that bucket: blocks of the process heap, then (exact pointers only)
+the game's other private and image memory, read 4 MiB at a time (about 1.7 GB and a minute on TS3W).
+Usage: python -I nt-heap.py [--state FILE] [--top N] [--pid PID] [--dump STRIDE] [--holders STRIDE]
+       python -I nt-heap.py --self-check"""
 import bisect
 import ctypes
 import ctypes.wintypes as wt
 import json
 import os
+import array
 import struct
 import subprocess
 import sys
@@ -62,8 +67,10 @@ def lfh(buf, base, a, size):
     and the header size and busy bitmap as 4th and 5th items; (0, 0, 0, 0, 0) for one whose bitmap does not read as
     expected; None for any other entry. Block i starts at user block + header + i * stride (its payload 8 bytes later). The header's own offsets are
     encoded (Windows 8+); SizeOfBitMap (+0x14) and the bitmap (+0x1C, Buffer +0x18 points there) are not. The blocks
-    fill the payload after the header, so stride = (payload - header) / blocks rounded down to 8 (may be one bucket
-    step above the real one when the block count leaves a remainder)."""
+    fill the payload after the header, so stride <= (payload - header) / blocks rounded down to 8. That estimate is
+    exact for small blocks but too big for large ones (a user block's spare bytes split over few blocks: 13512 for the
+    real 12808). So the stride is the largest one at which every block's 8-byte header has bit 0x80 in its last byte
+    (UnusedBytes; LFH sets it on busy and free blocks), else the estimate."""
     p = a + 8 - base
     if size < 0x40 or p + 0x20 > len(buf) or struct.unpack_from("<I", buf, p + 0xC)[0] != LFH_SIG:
         return None
@@ -73,7 +80,90 @@ def lfh(buf, base, a, size):
     if not nbits or bm != a + 8 + 0x1C or hdr + 8 * nbits > size - 8 or p + 0x1C + nbytes > len(buf):
         return 0, 0, 0, 0, 0
     bits = int.from_bytes(buf[p + 0x1C:p + 0x1C + nbytes], "little") & ((1 << nbits) - 1)
-    return ((size - 8 - hdr) // nbits) & ~7, nbits, bin(bits).count("1"), hdr, bits
+    est = ((size - 8 - hdr) // nbits) & ~7
+    stride = est
+    if nbits > 1 and a + size - base <= len(buf):
+        h7 = p + hdr + 7
+        stride = next((s for s in range(est, 7, -8) if all(buf[h7 + i * s] & 0x80 for i in range(nbits))), est)
+    return stride, nbits, bin(bits).count("1"), hdr, bits
+
+
+def holder_of(x, ents, buf, base):
+    """The busy block holding address x: (payload address, label) with label lfh:<stride> or backend:<size>, or None.
+    ents: sorted (addr, size, flags) of the segment; buf: the segment's bytes from base."""
+    i = bisect.bisect_right([e[0] for e in ents], x) - 1
+    if i < 0:
+        return None
+    a, size, fl = ents[i]
+    if not fl & BUSY or x >= a + size:
+        return None
+    lf = lfh(buf, base, a, size)
+    if lf:
+        stride, nb, _, hdr, bits = lf
+        if not stride:
+            return None
+        k = (x - (a + 8 + hdr)) // stride
+        if 0 <= k < nb and bits >> k & 1:
+            return a + 8 + hdr + k * stride + 8, f"lfh:{stride}"
+        return None
+    return a + 8, f"backend:{size}"
+
+
+def holders(stride, busy_lfh, segs, regions, read, enc, hint, rtype, n=64):
+    """Who points at the busy LFH blocks of one bucket: n of them, spread over the bucket, are targets; every aligned
+    dword of the process heap equal to a target's payload address (or inside its first 64 bytes) is a pointer, and its
+    block is a holder. Prints holders by bucket, first-dword module and offset. Holders outside the process heap (a
+    driver's own heap, a global, a stack) are counted after that, by region, for exact payload pointers only."""
+    tg = [pa for pa, s in busy_lfh if s == stride]
+    tg = tg[::max(len(tg) // n, 1)][:n]
+    if not tg:
+        print(f"  holders: no busy blocks of stride {stride}")
+        return
+    want = {}
+    for pa in tg:
+        for off in range(0, 64, 4):
+            want[pa + off] = pa
+    found, by, targets_hit = 0, Counter(), set()
+    for seg in segs:
+        first, last = struct.unpack("<I", read(seg + 0x24, 4))[0], struct.unpack("<I", read(seg + 0x28, 4))[0]
+        commits = sorted((max(s, seg), min(e, last)) for s, e in regions.get(seg, []) if min(e, last) > max(s, seg))
+        buf = bytearray(last - seg)
+        for s, e in commits:
+            buf[s - seg:e - seg] = read(s, e - s)
+        buf = bytes(buf)
+        ents, _ = walk(buf, seg, first, last, enc, commits)
+        for i in [i for i, v in enumerate(array.array("I", buf)) if v in want]:
+            x = seg + 4 * i
+            v = struct.unpack_from("<I", buf, 4 * i)[0]
+            h = holder_of(x, ents, buf, seg)
+            if not h or h[0] == want[v]:
+                continue
+            found += 1
+            targets_hit.add(want[v])
+            fd = struct.unpack_from("<I", buf, h[0] - seg)[0] if h[0] + 4 <= last else 0
+            by[(h[1], hint(fd), x - h[0], v - want[v])] += 1
+    print(f"  holders of {len(tg)} blocks of stride {stride}: {found} pointers from busy blocks, {len(targets_hit)} "
+          f"targets held; (holder bucket, its first dword, offset in holder, offset in target): count")
+    for (lab, fdh, off, toff), c in by.most_common(14):
+        print(f"    {lab:>14} {fdh:>16} +{off:#06x} -> +{toff:#04x}: {c}")
+    # outside the process heap: private and image memory, 4 MiB at a time
+    packed, out_by, out_hit, seen = {struct.pack("<I", pa): pa for pa in tg}, Counter(), set(), set(segs)
+    for base, runs in regions.items():
+        if base in seen or rtype.get(base) not in (0x20000, 0x1000000):
+            continue
+        lab = hint(base) if rtype[base] == 0x1000000 else f"private@{base:#x}"
+        for s, e in runs:
+            for w in range(s, e, 4 * MIB):
+                b = read(w, min(4 * MIB, e - w))
+                for pk, pa in packed.items():
+                    j = b.find(pk)
+                    while j >= 0:
+                        if j % 4 == 0:
+                            out_by[lab] += 1
+                            out_hit.add(pa)
+                        j = b.find(pk, j + 1)
+    print(f"  outside the process heap: {sum(out_by.values())} pointers to {len(out_hit)} of the {len(tg)} targets; by "
+          f"region (allocation base): " + ", ".join(f"{k} {c}" for k, c in out_by.most_common(10)))
 
 
 def overlap(s, e, commits):
@@ -111,6 +201,11 @@ def selftest():
     assert [(a - base, s) for a, s, _ in ents] == [(0, 0x2010), (0x2010, 0x10), (0x3000, 0x20)] and stop is None, ents
     assert overlap(base, base + 0x2010, commits) == 0x1010
     assert lfh(buf, base, base + 0x20, 0x208) == (24, 20, 2, 0x20, 0b0101) and lfh(buf, base, base, 0x20) is None
+    # the same user block with block headers (UnusedBytes bit 0x80) every 16 bytes: the real stride is 16, not 24
+    buf3 = bytearray(buf)
+    for i in range(20):
+        buf3[0x20 + 8 + 0x20 + i * 16 + 7] = 0x88
+    assert lfh(bytes(buf3), base, base + 0x20, 0x208) == (16, 20, 2, 0x20, 0b0101), lfh(bytes(buf3), base, base + 0x20, 0x208)
     assert cls(64) == "<=64" and cls(65) == "65-256" and cls(300000) == ">256K"
     print("nt-heap self-check ok")
 
@@ -179,7 +274,7 @@ def main():
         sys.exit(f"heap {heap:#x}: entries not encoded (EncodeFlagMask 0): not handled")
 
     # the address space once: committed runs per allocation base, and the modules (for first-dword hints)
-    regions, mods = defaultdict(list), []
+    regions, mods, rtype = defaultdict(list), [], {}
     addr, mbi = 0x10000, MBI()
     while addr < 0xFFFF0000 and k32.VirtualQueryEx(h, ctypes.c_void_p(addr), ctypes.byref(mbi), ctypes.sizeof(mbi)):
         base, size = mbi.BaseAddress or 0, mbi.RegionSize
@@ -187,6 +282,7 @@ def main():
             break
         if mbi.State == 0x1000:
             regions[mbi.AllocationBase or base].append((base, base + size))
+            rtype[mbi.AllocationBase or base] = mbi.Type
         if mbi.Type == 0x1000000 and mbi.AllocationBase == base:
             nb = ctypes.create_unicode_buffer(520)
             n = psapi.GetMappedFileNameW(h, ctypes.c_void_p(base), nb, 520)
@@ -219,6 +315,8 @@ def main():
     seg_res = seg_com = unparsed = bad_walks = 0
     first_dw = {}
     free_com = 0
+    # --dump STRIDE: first 64 bytes of a few busy blocks of that bucket, and the modules their dwords point into
+    dump_stride, dumps, dump_mods = int(opt("--dump", "0")), [], Counter()
     for seg in segs:
         first, last = u32(seg + 0x24), u32(seg + 0x28)
         seg_res += last - seg
@@ -263,6 +361,11 @@ def main():
                         busy_lfh.append((pa, stride))
                         if pa + 4 <= last:
                             first_dw[pa] = struct.unpack_from("<I", buf, pa - seg)[0]
+                        if stride == dump_stride and pa + stride - 8 <= last:
+                            dumps.append((pa, buf[pa - seg:pa - seg + 64]))
+                            body = struct.unpack_from(f"<{(stride - 8) // 4}I", buf, pa - seg)
+                            for name in {hint(w) for w in body if w >= 0x10000} - {"other"}:
+                                dump_mods[name] += 1
                 continue
             busy.append((a, size))
             if a + 12 <= last:
@@ -290,10 +393,24 @@ def main():
     for s, c in free_sizes.items():
         by_cls[cls(s)][2] += c
         by_cls[cls(s)][3] += s * c
-    print("  LFH by estimated stride (B: user blocks, MiB, blocks busy / total, busy MiB):")
+    own = defaultdict(Counter)  # stride -> where the busy blocks' first dword points
+    for pa, s in busy_lfh:
+        own[s][hint(first_dw.get(pa, 0))] += 1
+    print("  LFH by estimated stride (B: user blocks, MiB, blocks busy / total, busy MiB; busy blocks' first dword):")
     for k in sorted(lfh_by, key=lambda k: -lfh_by[k][1])[:top]:
         v = lfh_by[k]
-        print(f"    {k:6d} {v[0]:6d} {v[1] / MIB:7.2f} {v[3]:8d} / {v[2]:8d} {k * v[3] / MIB:7.2f}")
+        print(f"    {k:6d} {v[0]:6d} {v[1] / MIB:7.2f} {v[3]:8d} / {v[2]:8d} {k * v[3] / MIB:7.2f}   " +
+              ", ".join(f"{n} {c * 100 // max(v[3], 1)}%" for n, c in own[k].most_common(3)))
+    if dump_stride:
+        print(f"  {len(dumps)} busy blocks of stride {dump_stride}; blocks holding a pointer into a module: " +
+              ", ".join(f"{n} {c}" for n, c in dump_mods.most_common(8)))
+        print(f"  every {max(len(dumps) // 8, 1)}th block, first 64 bytes:")
+        for pa, b in dumps[::max(len(dumps) // 8, 1)][:8]:
+            print(f"    {pa:#010x}: " + " ".join(f"{w:08x}" for w in struct.unpack("<16I", b)) +
+                  "  " + "".join(chr(c) if 32 <= c < 127 else "." for c in b))
+    hold_stride = int(opt("--holders", "0"))
+    if hold_stride:
+        holders(hold_stride, busy_lfh, segs, regions, read, enc, hint, rtype)
     print("  size class (backend blocks, LFH user blocks not included): busy n / MiB | free n / MiB")
     for _, name in CLASSES:
         if name in by_cls:
