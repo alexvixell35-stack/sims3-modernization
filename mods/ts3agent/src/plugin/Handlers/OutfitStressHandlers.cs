@@ -28,6 +28,7 @@ namespace Ts3Agent
 
         static ulong sTattooCursor, sMakeoverCursor;
         static int sOutfitTaskDone, sOutfitTaskSkipped, sOutfitTaskErrors;
+        static long sTattooMs, sTattooN, sTattooMaxMs;  // ApplyTattoo time per Sim, in the task
         static string sOutfitTaskLastError;
 
         const CASAgeGenderFlags kTeenUp = CASAgeGenderFlags.Teen | CASAgeGenderFlags.YoungAdult | CASAgeGenderFlags.Adult | CASAgeGenderFlags.Elder;
@@ -90,41 +91,44 @@ namespace Ts3Agent
             r["last"] = OutfitTaskReport();
             int eligible;
             List<SimDescription> next = NextTownies(ref sTattooCursor, n, false, out eligible);
-            List<object> tattooed = new List<object>(), errors = new List<object>();
-            List<Sim> refresh = new List<Sim>();
-            foreach (SimDescription sd in next)
-            {
-                string outfit = OutfitUtils.GetAgePrefix(sd.Age, true) + OutfitUtils.GetGenderPrefix(sd.Gender) + "tattoofailure" + RandomUtil.GetInt(0, 5);
-                try
-                {
-                    Tattooing.ApplyTattoo(sd, outfit);
-                    tattooed.Add(sd.FullName + " (" + outfit + ")");
-                    if (Util.InWorldNow(sd)) refresh.Add(sd.CreatedSim);
-                }
-                catch (Exception e) { errors.Add(sd.FullName + ": " + e.GetType().Name + ": " + e.Message); }
-            }
-            if (refresh.Count > 0)
+            // al360 (11-09): ten ApplyTattoo calls in the command (each a full outfit build) held the main thread past the
+            // 20 s reply limit, and at 14:56 past 60 s, so the harness killed the game (heartbeat frozen). Now a game task
+            // does one Sim per frame and the command answers at once.
+            List<object> tattooed = new List<object>();
+            foreach (SimDescription sd in next) tattooed.Add(sd.FullName);
+            if (next.Count > 0)
                 Simulator.AddObject(new OneShotFunctionTask(delegate
                 {
-                    foreach (Sim s in refresh)
+                    foreach (SimDescription sd in next)
                     {
+                        Sim s = null;
                         try
                         {
-                            if (s.HasBeenDestroyed || !s.InWorld) { sOutfitTaskSkipped++; continue; }
-                            Sim.SwitchOutfitHelper h = new Sim.SwitchOutfitHelper(s, s.CurrentOutfitCategory, s.CurrentOutfitIndex);
-                            h.Start();
-                            h.Wait(false);
-                            h.ChangeOutfit();
-                            h.Dispose();
-                            if (s.SimDescription.IsMatureMermaid) Sims3.Gameplay.ActorSystems.OccultMermaid.CreateTailOutfit(s.SimDescription);
+                            if (sd.Household == null || sd.Household == Household.ActiveHousehold) { sOutfitTaskSkipped++; continue; }
+                            string outfit = OutfitUtils.GetAgePrefix(sd.Age, true) + OutfitUtils.GetGenderPrefix(sd.Gender) + "tattoofailure" + RandomUtil.GetInt(0, 5);
+                            long t0 = DateTime.Now.Ticks;
+                            Tattooing.ApplyTattoo(sd, outfit);
+                            long ms = (DateTime.Now.Ticks - t0) / 10000;
+                            sTattooMs += ms; sTattooN++; if (ms > sTattooMaxMs) sTattooMaxMs = ms;
+                            s = Util.InWorldNow(sd) ? sd.CreatedSim : null;
+                            if (s != null && !s.HasBeenDestroyed && s.InWorld)
+                            {
+                                Sim.SwitchOutfitHelper h = new Sim.SwitchOutfitHelper(s, s.CurrentOutfitCategory, s.CurrentOutfitIndex);
+                                h.Start();
+                                h.Wait(false);
+                                h.ChangeOutfit();
+                                h.Dispose();
+                                if (s.SimDescription.IsMatureMermaid) Sims3.Gameplay.ActorSystems.OccultMermaid.CreateTailOutfit(s.SimDescription);
+                            }
                             sOutfitTaskDone++;
                         }
                         catch (Exception e) { OutfitTaskError(s, e); }
+                        Simulator.Sleep(0);  // one outfit build per frame
                     }
                 }));
             r["tattooed"] = tattooed;
-            r["errors"] = errors;
-            r["refresh_queued"] = refresh.Count;
+            r["tattoo_ms"] = sTattooN > 0 ? sTattooMs / sTattooN : 0;
+            r["tattoo_max_ms"] = sTattooMaxMs;
             r["eligible"] = eligible;
             return r;
         }
