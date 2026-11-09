@@ -21,6 +21,7 @@ Patches. Each applies after the ones before it. "Internal" is the name the #40 r
 | 0007 | 0013 | `client.ts3TextureKeepAliveSec` (TS3W 1.67 only): unforced ResourceCache trims keep a texture for N s | off |
 | 0008 | 0014 | `client.freeIdleBufferCopiesSec`: free a static vertex / index buffer's client copy (64 KB to 4 MB) after N s without a lock. A CRC32C checks each fetch. | conf: 2 |
 | 0009 | 0015 | `client.freeIdleManagedCopiesMs`: 0003's threshold in milliseconds | off |
+| 0010 | 0016 | render target 0 is the implicit swapchain's back buffer 0 object, so `GetRenderTarget(0)` and `GetBackBuffer(0, 0)` return the same surface, as in d3d9 and DXVK (upstream made a separate place-holder; Apex Radiance compares the two by pointer and drew a black picture) | always |
 
 The TS3-only options patch the game's code in memory only when the bytes there match TS3W 1.67. Otherwise they change
 nothing.
