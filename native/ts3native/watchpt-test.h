@@ -108,6 +108,63 @@ static void TestWatchpointLot() {
            "child; constructor pairs classified: ok\n");
 }
 
+
+// docs/539 §21 (0.36.235, bp-float5-catch-1): a DR on a block that [UafCheck]'s UafFill fills is an own write (counted, not
+// handed on, no crash); an own float-5 store is still handed on; a hit inside a hit's handler is counted; a thread still
+// trapping on an address its slot dropped (the gap before WpDisarm's pass reaches it) is handled and its DR taken off; an
+// address never armed and a trace-flag single-step pass on.
+static volatile LONG g_wpOwnFn;
+static volatile DWORD* g_wpReTgt;
+static void WpOwnFn(int, const CONTEXT*) {
+    InterlockedIncrement(&g_wpOwnFn);
+    if (volatile DWORD* t = g_wpReTgt) g_wpReTgt = NULL, *t = 7;  // writes the watched dword from inside the handler
+}
+static void TestWatchpointOwn() {
+    WpInstall();
+    const u8* img = (const u8*)GetModuleHandleW(NULL);
+    const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(img + ((const IMAGE_DOS_HEADER*)img)->e_lfanew);
+    const DWORD lo0 = g_selfLo, hi0 = g_selfHi;
+    g_selfLo = (DWORD)(uintptr_t)img, g_selfHi = g_selfLo + nt->OptionalHeader.SizeOfImage;  // the selftest image plays ts3native
+    static DWORD blk[8];
+    volatile DWORD* v = blk;
+    const int s = WpArm((const void*)&blk[3], 4, true, WpOwnFn);
+    assert(s >= 0);
+    const LONG own0 = g_wpOwn, h0 = g_wpHits[s], nest0 = g_wpNest, st0 = g_wpStale;
+    UafFill((DWORD)(uintptr_t)blk, sizeof(blk));
+    assert(v[3] == kUafPat && g_wpHits[s] == h0 + 1 && g_wpOwn == own0 + 1 && g_wpOwnFn == 0);
+    v[3] = kUafF5;
+    assert(g_wpOwnFn == 1 && g_wpOwn == own0 + 1);
+    g_selfLo = lo0, g_selfHi = hi0;  // test code is EA code again
+    g_wpReTgt = &v[3];
+    v[3] = 1;
+    assert(g_wpOwnFn == 2 && v[3] == 7 && !g_wpReTgt && g_wpNest == nest0 + 1 && g_wpHits[s] == h0 + 4);
+
+    // the bp-float5-catch-1 gap: the slot dropped its address, this thread's DR still on it (was: declined, EA's filter, crash)
+    WpForget(s);
+    g_wp[s].addr = 0, g_wp[s].fn = NULL;
+    v[3] = 2;
+    assert(g_wpStale == st0 + 1 && g_wpOwnFn == 2 && g_wpHits[s] == h0 + 4);
+    v[3] = 3;  // the handler took the dropped DR off this thread
+    assert(g_wpStale == st0 + 1);
+    WpDisarm(s);
+
+    // classifier on a made-up context
+    CONTEXT c = {};
+    EXCEPTION_RECORD r = {};
+    r.ExceptionCode = EXCEPTION_SINGLE_STEP;
+    EXCEPTION_POINTERS ep = {&r, &c};
+    DWORD* dr[4] = {&c.Dr0, &c.Dr1, &c.Dr2, &c.Dr3};
+    c.Dr6 = 1u << s, *dr[s] = (DWORD)(uintptr_t)&blk[3], c.Dr7 = 0x155;
+    assert(WpOwnsXcpt(&ep) && WpVeh(&ep) == EXCEPTION_CONTINUE_EXECUTION && g_wpStale == st0 + 2 && c.Dr6 == 0 && !*dr[s] && c.Dr7 == (0x100 | WpDr7()));
+    c.Dr6 = 1u << s, *dr[s] = 0x12345678;
+    assert(!WpOwnsXcpt(&ep) && WpVeh(&ep) == EXCEPTION_CONTINUE_SEARCH && c.Dr6 == 1u << s);
+    c.Dr6 = 0x4000;  // BS: a trace flag
+    assert(!WpOwnsXcpt(&ep) && WpVeh(&ep) == EXCEPTION_CONTINUE_SEARCH);
+    WpUninstall();
+    printf("watchpoint own writes: UafFill under a DR counted (not handed on), own float-5 store handed on, nested hit counted, "
+           "dropped-address hit handled and its DR taken off, unknown address / trace flag passed on: ok\n");
+}
+
 static void TestWatchpoint() {
     assert(WpArm((const void*)&g_wpHits[0], 4, true) == -1);  // off: no handler, nothing armed
     WpInstall();
@@ -128,4 +185,5 @@ static void TestWatchpoint() {
     printf("watchpoint: %ld hits on the test local (write-only DR%d, 2 threads), 0 after disarm, %ld thread(s) not set\n",
            g_wpHits[g_wpTSlot], g_wpTSlot, g_wpSetFail);
     TestWatchpointLot();
+    TestWatchpointOwn();
 }

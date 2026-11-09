@@ -92,6 +92,8 @@ Just want our fixes? Download them from the [releases](https://github.com/rodney
 
 Using other mods? See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for the static compatibility scan of 49 popular mods.
 
+Using Sims 3 Settings Setter (S3SS) 1.6.3 with `LotStreamingOptimizations` on? Its camera speed threshold setting writes into freed game memory after you travel or change worlds, which can crash the game. `ts3native` sends that write to the right place for the official 1.6.3 build only (`[S3SSCompat] StaleWriteGuard`, on) and leaves every other S3SS version alone. Without `ts3native`, set `streamingSettings = false` under `[patches.LotStreamingOptimizations]` in `S3SS.toml`.
+
 ## Quick start: full test install
 
 The steps below set up the full test install (community fixes layer plus `ts3fixes`), the one contributors and testers use.

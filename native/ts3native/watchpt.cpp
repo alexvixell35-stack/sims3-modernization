@@ -10,7 +10,8 @@
 // start if a new thread is the suspect. [CasTrim] WriteTrap calls WpRefresh every 30 s and at each save for that.
 #include <tlhelp32.h>
 
-struct WpSlot { DWORD addr; DWORD len; bool write; DWORD obj; bool trap; };  // obj: the watched child footprint (Lot= arms; 0 = none); trap: [CasTrim] WriteTrap's (g_wpTrapFn logs it)
+struct WpSlot { DWORD addr; DWORD len; bool write; DWORD obj; bool trap; void (*fn)(int slot, const CONTEXT* c); bool keep; };  // obj: the watched child footprint (Lot= arms; 0 = none); trap: [CasTrim] WriteTrap's (g_wpTrapFn logs it)
+// fn (docs/539 §21): the arm's own hit handler instead of the generic line; keep: never taken by another WpArm ([Float5Sticky])
 static WpSlot g_wp[4];
 static volatile LONG g_wpHits[4];
 static volatile LONG g_wpLogN[4];  // hits that were not constructor pairs (the LogHits budget)
@@ -81,17 +82,49 @@ static bool WpCtorHit(DWORD eip, DWORD esp) {
     return eip == 0x62627B && Readable((const void*)(uintptr_t)esp, 4) && *(const DWORD*)(uintptr_t)esp == 0x807557;
 }
 
+// docs/539 §21 (0.36.235): a pass (WpApply) reaches the threads after the slot table changed, so a thread can still trap on an
+// address a slot held before (WpDisarm and a rotation clear addr first). bp-float5-catch-1 crashed on that: [Float5Watch]
+// rotated while the main thread's [UafCheck] fill wrote an outfit cell under the old DR; the slot read 0, the hit was declined
+// and EA's filter took the single-step. Ours = DR6 bit i with the thread's DRi at the slot's address now or one of its last 8.
+static DWORD g_wpOld[4][8];
+static volatile LONG g_wpOldN[4];
+static volatile LONG g_wpOwn, g_wpStale, g_wpNest;  // hits by ts3native code (not handed on), on a dropped address, inside a hit
+static __declspec(thread) LONG t_wpDepth;
+static void WpForget(int i) {  // before a slot's address changes
+    if (g_wp[i].addr) g_wpOld[i][InterlockedIncrement(&g_wpOldN[i]) & 7] = g_wp[i].addr;
+}
+static DWORD WpMine(const CONTEXT* c, DWORD* stale) {  // our DR6 bits; *stale: the ones on a dropped address
+    DWORD live = 0, old = 0;
+    const DWORD dr[4] = {c->Dr0, c->Dr1, c->Dr2, c->Dr3};
+    for (int i = 0; i < 4; i++) {
+        if (!(c->Dr6 & (1u << i))) continue;
+        if (g_wp[i].addr && (dr[i] == g_wp[i].addr || !dr[i])) { live |= 1u << i; continue; }  // !dr: no registers in the context (as before)
+        for (int k = 0; k < 8 && dr[i]; k++) if (g_wpOld[i][k] == dr[i]) { old |= 1u << i; break; }
+    }
+    if (stale) *stale = old;
+    return live | old;
+}
+static bool WpF5(DWORD a) { return Readable((const void*)(uintptr_t)a, 4) && *(const DWORD*)(uintptr_t)a == 0x40A00000; }  // float 5.0
+
 static LONG CALLBACK WpVeh(EXCEPTION_POINTERS* e) {
     if (e->ExceptionRecord->ExceptionCode != EXCEPTION_SINGLE_STEP) return EXCEPTION_CONTINUE_SEARCH;
     CONTEXT* c = e->ContextRecord;
-    DWORD hit = c->Dr6 & 0xF;
-    for (int i = 0; i < 4; i++) if (!g_wp[i].addr) hit &= ~(1u << i);
+    DWORD stale = 0;
+    const DWORD hit = WpMine(c, &stale);
     if (!hit) return EXCEPTION_CONTINUE_SEARCH;  // a trace flag or someone else's register
+    if (stale) InterlockedIncrement(&g_wpStale);
+    // own write ([UafCheck] fill / refill, any ts3native store): counted, not handed on, unless it stores float 5 (the float-5
+    // hunt must see us too); a hit inside a hit's handler is only counted (no nested log)
+    const bool own = c->Eip >= g_selfLo && c->Eip < g_selfHi, nest = t_wpDepth > 0;
+    t_wpDepth++;
     for (int i = 0; i < 4; i++) {
-        if (!(hit & (1u << i))) continue;
+        if (!(hit & ~stale & (1u << i))) continue;
         const LONG n = InterlockedIncrement(&g_wpHits[i]);
         InterlockedIncrement(&ts3native_counters.wpHits);
         g_wpLastEip[i] = c->Eip;
+        if (nest) { InterlockedIncrement(&g_wpNest); continue; }
+        if (own && !WpF5(g_wp[i].addr)) { InterlockedIncrement(&g_wpOwn); continue; }
+        if (g_wp[i].fn) { g_wp[i].fn(i, c); continue; }
         if (g_wp[i].trap) { if (g_wpTrapFn) g_wpTrapFn(i, c); continue; }
         if (WpCtorHit(c->Eip, c->Esp)) { InterlockedIncrement(&ts3native_counters.wpCtor); continue; }
         if (InterlockedIncrement(&g_wpLogN[i]) > g_wpLogMax) continue;
@@ -109,14 +142,18 @@ static LONG CALLBACK WpVeh(EXCEPTION_POINTERS* e) {
             i, n, s.addr, s.len, s.write ? "written" : "accessed", c->Eip, v, who, tid, g_workerTid && tid == g_workerTid ? " (route worker)" : "",
             RgJobLive() ? 1 : 0, nf, f[0], f[1], f[2], f[3], f[4], f[5]);
     }
-    c->Dr6 = 0;  // the registers stay armed (data breakpoints are traps, no RF needed)
+    t_wpDepth--;
+    // the thread goes on with the slot table as it is now: a dropped address is gone at once, and a pass that set this thread
+    // while it was in here is not undone by the continue (data breakpoints are traps, no RF needed)
+    c->Dr0 = g_wp[0].addr, c->Dr1 = g_wp[1].addr, c->Dr2 = g_wp[2].addr, c->Dr3 = g_wp[3].addr;
+    c->Dr7 = (c->Dr7 & 0x0000FF00) | WpDr7();
+    c->Dr6 = 0;
+    c->ContextFlags |= CONTEXT_DEBUG_REGISTERS;
     return EXCEPTION_CONTINUE_EXECUTION;
 }
 
 bool WpOwnsXcpt(const EXCEPTION_POINTERS* e) {  // XcptLog: a hit on one of our slots is no crash (keeps its 16-line budget)
-    if (!g_wpVeh || e->ExceptionRecord->ExceptionCode != EXCEPTION_SINGLE_STEP) return false;
-    for (int i = 0; i < 4; i++) if (g_wp[i].addr && (e->ContextRecord->Dr6 & (1u << i))) return true;
-    return false;
+    return g_wpVeh && e->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP && WpMine(e->ContextRecord, NULL);
 }
 
 static void WpInstall() {
@@ -127,15 +164,20 @@ void WpUninstall() {  // selftest; external linkage: unreferenced in the asi (no
 }
 
 // -1 = off, no free slot, bad length or unaligned address. External linkage: no game caller yet (no C4505)
-int WpArm(const void* addr, DWORD len, bool writeOnly) {
+// fn / keep (docs/539 §21): see WpSlot. Steal order when no slot is free: a WriteTrap slot, then (plain arms only) an fn arm
+// without keep ([Float5Watch] rotation); keep slots are never taken.
+int WpArm(const void* addr, DWORD len, bool writeOnly, void (*fn)(int, const CONTEXT*) = NULL, bool keep = false) {
     const DWORD a = (DWORD)(uintptr_t)addr;
     if (!g_wpVeh || !a || (len != 1 && len != 2 && len != 4) || a % len) return -1;
     while (InterlockedExchange(&g_wpLock, 1)) Sleep(0);
     int slot = -1;
     for (int i = 0; i < 4 && slot < 0; i++) if (!g_wp[i].addr) slot = i;
     for (int i = 3; i >= 0 && slot < 0; i--) if (g_wp[i].trap) slot = i;  // docs/539 §17: [UafCheck] takes a [CasTrim] WriteTrap slot (its next set skips it)
+    for (int i = 3; i >= 0 && slot < 0 && !fn; i--) if (g_wp[i].fn && !g_wp[i].keep) slot = i;
     if (slot >= 0) {
+        WpForget(slot);
         g_wp[slot].addr = a, g_wp[slot].len = len, g_wp[slot].write = writeOnly, g_wp[slot].obj = 0, g_wp[slot].trap = false, g_wpLogN[slot] = 0;
+        g_wp[slot].fn = fn, g_wp[slot].keep = keep;
         const LONG n = WpApply();
         Log("watchpoint DR%d armed: 0x%08lX len %lu %s, %ld thread(s) set (%ld failed so far)", slot, a, len, writeOnly ? "write" : "read/write", n,
             g_wpSetFail);
@@ -151,7 +193,8 @@ int WpTrapSet(const DWORD* a, int n) {
     int mask = 0;
     for (int i = 0; i < 4; i++) {
         if (g_wp[i].addr && !g_wp[i].trap) continue;
-        g_wp[i].addr = 0, g_wp[i].trap = false;
+        WpForget(i);
+        g_wp[i].addr = 0, g_wp[i].trap = false, g_wp[i].fn = NULL, g_wp[i].keep = false;
         if (i < n && a[i] && !(a[i] & 3)) g_wp[i].addr = a[i], g_wp[i].len = 4, g_wp[i].write = true, g_wp[i].obj = 0, g_wp[i].trap = true, mask |= 1 << i;
     }
     WpApply();
@@ -167,7 +210,8 @@ LONG WpRefresh() {  // threads started since the last pass get the registers (Wi
 void WpDisarm(int slot) {
     if (slot < 0 || slot > 3) return;
     while (InterlockedExchange(&g_wpLock, 1)) Sleep(0);
-    g_wp[slot].addr = 0, g_wp[slot].obj = 0, g_wp[slot].trap = false;
+    WpForget(slot);
+    g_wp[slot].addr = 0, g_wp[slot].obj = 0, g_wp[slot].trap = false, g_wp[slot].fn = NULL, g_wp[slot].keep = false;
     WpApply();
     InterlockedExchange(&g_wpLock, 0);
 }

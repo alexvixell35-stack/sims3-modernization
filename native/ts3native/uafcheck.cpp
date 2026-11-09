@@ -45,6 +45,11 @@ static UafGone* g_uafGone;
 static volatile LONG g_uafGoneN, g_uafNearN;
 static DWORD g_uafCap, g_uafHead, g_uafN, g_uafBytes, g_uafMaxBytes;
 static DWORD g_uafMin = 64, g_uafMax = 4096;
+// docs/539 §21 TravelHold=1: from a travel save start to the next world load end the byte cap is TravelMaxMB (everything freed in
+// that window stays held up to it; the ring's MaxBlocks still applies), then normal eviction drains back to MaxMB.
+static bool g_uafTravel;
+static DWORD g_uafTravelBytes, g_uafHoldTick;
+static volatile LONG g_uafHold, g_uafHoldEvict, g_uafHoldIn;
 static SRWLOCK g_uafLock = SRWLOCK_INIT;
 static bool g_uafOn;
 static volatile LONG g_uafLogN, g_uafDupN;
@@ -110,7 +115,7 @@ static int UafVerify(const UafBlk& b, const char* when) {
     }
     if (!changed) return 0;
     InterlockedIncrement(&ts3native_counters.uafHit);
-    if (f5 >= 0) InterlockedIncrement(&ts3native_counters.uafF5);
+    if (f5 >= 0) InterlockedIncrement(&ts3native_counters.uafF5), F5sNote(b.p + (DWORD)f5 * 4, "uaf write after free");  // docs/539 §21 [Float5Sticky]
     const DWORD off = (DWORD)(f5 >= 0 ? f5 : first) * 4;
     if (g_uafDrArms > 0 && (!g_uafDrChunk || (f5 >= 0 && !g_uafDrF5))) {  // the DR target: first hit, a float-5 hit wins
         g_uafDrChunk = b.chunk, g_uafDrOff = off, g_uafDrF5 = f5 >= 0;
@@ -190,12 +195,14 @@ static void __fastcall UafFreeHook(void* heap, void* edx, void* ptr) {
     UafBlk out[8];
     int no = 0;
     bool in = false;
+    const DWORD capB = g_uafHold ? g_uafTravelBytes : g_uafMaxBytes;
     if (UafTryLock()) {
-        while (g_uafN && (g_uafN == g_uafCap || g_uafBytes + ch > g_uafMaxBytes) && no < 8) {
+        while (g_uafN && (g_uafN == g_uafCap || g_uafBytes + ch > capB) && no < 8) {
             out[no++] = g_uafRing[g_uafHead];
             g_uafBytes -= g_uafRing[g_uafHead].chunk, g_uafN--, g_uafHead = g_uafHead + 1 == g_uafCap ? 0 : g_uafHead + 1;
         }
-        if (g_uafN < g_uafCap && g_uafBytes + ch <= g_uafMaxBytes) {
+        if (g_uafHold) g_uafHoldEvict += no, g_uafHoldIn++;
+        if (g_uafN < g_uafCap && g_uafBytes + ch <= capB) {
             DWORD t = g_uafHead + g_uafN;
             g_uafRing[t >= g_uafCap ? t - g_uafCap : t] = b, g_uafN++, g_uafBytes += ch, in = true;
         }
@@ -263,9 +270,28 @@ static void UafCrtNote(const char* when) {
         !crt ? "unknown" : jmp || !iat ? "MAY BE ACTIVE (CRT malloc redirected)" : "not active (CRT malloc untouched)", Readable((const void*)(uintptr_t)0x004E5920, 1) ? *(const u8*)(uintptr_t)0x004E5920 : 0);
 }
 
+// docs/539 §21: f5watch.cpp F5wEvent calls this at a travel save start (on) and at each world load end (off). A hold that never
+// sees a world load ends at the first verify-all 15 min after its start.
+static void UafTravelHold(bool on, const char* why, LONG n) {
+    if (!g_uafOn || !g_uafTravel || on == (g_uafHold != 0)) return;
+    const DWORD now = GetTickCount();
+    if (on) {
+        g_uafHoldEvict = g_uafHoldIn = 0, g_uafHoldTick = now;
+        InterlockedExchange(&g_uafHold, 1);
+        Log("uaf: travel hold start at %s #%ld: blocks %lu-%lu bytes freed from now to the next world load end held up to %lu MB (normal cap %lu MB); "
+            "held now %lu block(s) %lu MB", why, n, g_uafMin, g_uafMax, g_uafTravelBytes >> 20, g_uafMaxBytes >> 20, g_uafN, g_uafBytes >> 20);
+        return;
+    }
+    InterlockedExchange(&g_uafHold, 0);
+    Log("uaf: travel hold end at %s #%ld after %lu s: held %lu block(s) %lu MB (cap %lu MB), %ld freed into the hold, %ld evicted during it "
+        "(0 = everything freed in the window stayed in quarantine)", why, n, (now - g_uafHoldTick) / 1000, g_uafN, g_uafBytes >> 20,
+        g_uafTravelBytes >> 20, g_uafHoldIn, g_uafHoldEvict);
+}
+
 // Each save end, world quit and world load (userdiag.cpp): verify every held block, then one status line.
 static void UafVerifyAll(const char* why) {
     if (!g_uafOn) return;
+    if (g_uafHold && GetTickCount() - g_uafHoldTick > 15 * 60000) UafTravelHold(false, "hold timeout (no world load in 15 min), verify-all", 0);
     static LONG s_crt;
     if (!s_crt++) UafCrtNote(why);
     const DWORD t0 = GetTickCount();
@@ -276,8 +302,8 @@ static void UafVerifyAll(const char* why) {
     ReleaseSRWLockExclusive(&g_uafLock);  // held-aside DR blocks: verified by the helper at their release (their watch logs any write)
     const Ts3nCounters& z = ts3native_counters;
     Log("uaf: %s (save #%ld, world load #%ld): held %lu block(s) %lu MB, oldest freed %lu s ago, %d written now, %lu ms; session held %ld, freed %ld, "
-        "written %ld (0x40A00000 %ld), passed %ld, DR arms %ld%s; Object blocks held %ld (ObjectMaxSize %lu)", why, UafSave(), UafWorld(), n, mb, oldest / 1000, hits, GetTickCount() - t0,
-        z.uafHeld, z.uafFreed, z.uafHit, z.uafF5, z.uafPass, z.uafArms, g_uafDrChunk ? ", DR target set" : "", g_uafObjHeld, g_uafObjMax ? g_uafObjMax : g_uafMax);
+        "written %ld (0x40A00000 %ld), passed %ld, DR arms %ld%s (DR hits by ts3native %ld, on a dropped address %ld); Object blocks held %ld (ObjectMaxSize %lu)", why, UafSave(), UafWorld(), n, mb, oldest / 1000, hits, GetTickCount() - t0,
+        z.uafHeld, z.uafFreed, z.uafHit, z.uafF5, z.uafPass, z.uafArms, g_uafDrChunk ? ", DR target set" : "", g_wpOwn, g_wpStale, g_uafObjHeld, g_uafObjMax ? g_uafObjMax : g_uafMax);
 }
 
 static void UafArmStep(DWORD now) {  // helper thread: arm new held-aside blocks, release old ones
@@ -333,9 +359,11 @@ static bool UafHookInstall(const char* who) {
     g_uafFree = (EaFreeFn)AsDetour("EA heap Free (uaf check / float5 free)", 0x004E5920, kEaLockedPrologue, (int)sizeof(kEaLockedPrologue), (void*)UafFreeHook, &g_uafFree);
     return g_uafFree != NULL;
 }
-static bool UafInit(DWORD maxMB, DWORD maxBlocks) {
+static bool UafInit(DWORD maxMB, DWORD maxBlocks, DWORD travelMB = 0) {
     const DWORD metaMB = (maxBlocks * (DWORD)sizeof(UafBlk) + kUafGoneN * (DWORD)sizeof(UafGone) + (1 << 20) - 1) >> 20;
     if (maxMB + metaMB > 64) maxMB = metaMB < 64 ? 64 - metaMB : 1;  // 32-bit address space: 64 MB in all
+    if (travelMB + metaMB > 64) travelMB = metaMB < 64 ? 64 - metaMB : 1;  // the travel hold keeps the same clamp
+    g_uafTravelBytes = (travelMB > maxMB ? travelMB : maxMB) << 20;
     g_uafRing = (UafBlk*)VirtualAlloc(NULL, maxBlocks * sizeof(UafBlk), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     if (!g_uafRing) return false;
     if (!g_uafGone) g_uafGone = (UafGone*)VirtualAlloc(NULL, kUafGoneN * sizeof(UafGone), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
@@ -354,9 +382,11 @@ static bool ApplyUafCheck(const wchar_t* ini) {
     g_uafDrArms = Clamp((int)GetPrivateProfileIntW(L"UafCheck", L"DrArms", 2, ini), 0, 4);
     g_uafDrHoldMs = (DWORD)Clamp((int)GetPrivateProfileIntW(L"UafCheck", L"DrHoldSec", 600, ini), 5, 86400) * 1000;
     g_uafObjMax = (DWORD)Clamp((int)GetPrivateProfileIntW(L"UafCheck", L"ObjectMaxSize", 0, ini), 0, 65536);
+    g_uafTravel = GetPrivateProfileIntW(L"UafCheck", L"TravelHold", 0, ini) > 0;  // docs/539 §21
+    const DWORD travelMB = (DWORD)Clamp((int)GetPrivateProfileIntW(L"UafCheck", L"TravelMaxMB", 0, ini), 0, 64);
     UafCrtNote("install");
     if (!UafHookCheck("uaf check")) return false;
-    if (!UafInit(maxMB, maxBlocks)) { Log("FAIL uaf check: ring (err %lu)", GetLastError()); return false; }
+    if (!UafInit(maxMB, maxBlocks, travelMB)) { Log("FAIL uaf check: ring (err %lu)", GetLastError()); return false; }
     if (g_uafDrArms) {
         WpInstall();
         g_uafArmEv = CreateEventW(NULL, FALSE, FALSE, NULL);
@@ -368,5 +398,8 @@ static bool ApplyUafCheck(const wchar_t* ini) {
         "(ring %lu KB), verified at eviction, save end, world quit and world load; DR arms %ld (hold %lu s); Object blocks (ObjectService free 0x935E1B, "
         "id kept) up to %lu bytes", g_uafOn ? "on" : "off (no hook)", g_uafMin, g_uafMax, g_uafCap, g_uafMaxBytes >> 20,
         g_uafCap * (DWORD)sizeof(UafBlk) >> 10, g_uafDrArms, g_uafDrHoldMs / 1000, g_uafObjMax > g_uafMax ? g_uafObjMax : g_uafMax);
+    if (g_uafOn && g_uafTravel)
+        Log("uaf check travel hold on (docs/539 §21): from each travel save start to the next world load end the cap is %lu MB (TravelMaxMB, "
+            "clamped with the ring to 64 MB; normal %lu MB)", g_uafTravelBytes >> 20, g_uafMaxBytes >> 20);
     return g_uafOn;
 }

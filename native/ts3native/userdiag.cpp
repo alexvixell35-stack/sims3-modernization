@@ -731,8 +731,8 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
                 return 1;
             }
             if (g_udTxtLines++ < 400) Log("ts3fixes: %s", g_udTxt);  // cap: a looping sender cannot fill the disk
-            if (!strncmp(g_udTxt, "world:", 6)) UdWorldLoad(), UafVerifyAll("world load");
-            else if (!strcmp(g_udTxt, "world quit")) InterlockedIncrement(&g_udQuits), GcCapWindow(false, "world quit"), UafVerifyAll("world quit");  // gcgrow.cpp: lenient on the load screen
+            if (!strncmp(g_udTxt, "world:", 6)) UdWorldLoad(), UafVerifyAll("world load"), F5wEvent("world load", g_udWorlds);  // F5wEvent: docs/539 §21
+            else if (!strcmp(g_udTxt, "world quit")) InterlockedIncrement(&g_udQuits), GcCapWindow(false, "world quit"), UafVerifyAll("world quit"), F5wEvent("world quit", g_udQuits);  // gcgrow.cpp: lenient on the load screen
             else if (!strncmp(g_udTxt, "mem: ", 5)) MdMark(g_udTxt + 5);  // [MemDiag] event mark (ts3agent mem_mark)
             g_udTxtN = 0;
             return 1;
@@ -813,6 +813,7 @@ static DWORD WINAPI UdDogMain(LPVOID) {
 }
 
 static void UdSaveStart(int travelSave, int traveling) {
+    F5wEvent(travelSave & 0xFF ? "travel save start" : "save start", g_udSaves + 1);  // docs/539 §21 (any [UserDiag] setting)
     if (!g_udOn) return;
     if (g_udDog) {  // the previous save's watchdog (it only sized a folder after that save)
         WaitForSingleObject(g_udDog, 2000);
@@ -847,7 +848,8 @@ static void UdSaveEnd(DWORD r) {
     Log("save: end #%ld result %lu after %lu ms", g_udSaves, r, GetTickCount() - g_udSaveTick);
     UdMemAsk("save: memory at end #%ld", g_udSaves);
     CpSaveEnd(r);
-    UafVerifyAll("save end");  // docs/539 §17 [UafCheck] (no-op when off)
+    UafVerifyAll("save end");
+    F5wEvent("save end", g_udSaves);  // docs/539 §21  // docs/539 §17 [UafCheck] (no-op when off)
     g_udSaveTick = 0;
     if (g_udDogEv) SetEvent(g_udDogEv);  // the watchdog then sizes the save folder and ends
 }

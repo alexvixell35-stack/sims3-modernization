@@ -80,6 +80,11 @@ static int SgCheck(u8* comp, const char* when, DWORD ret, const DWORD* sp) {
         if (!why) continue;
         bad++;
         InterlockedIncrement(&g_sgBad);
+        if (v == kSgF5) {  // docs/539 §21 [Float5Watch] / [Float5Sticky]
+            char site[112];
+            sprintf_s(site, "slot guard %s: +0x%lX %s", when, (DWORD)(0xC + 8 * i), kSgPair[i]);
+            F5wBad(site, c, c + 0xC + 8 * i, v);
+        }
         if (g_sgGuard) pair[0] = pair[1] = 0, InterlockedIncrement(&g_sgFixed);
         const DWORD obj = SgOwner(c);
         UafNearLog(c, "slot component"), UafNearLog(v, "slot array value");  // [UafCheck] (docs/539 §17)
@@ -104,8 +109,9 @@ static int SgCheck(u8* comp, const char* when, DWORD ret, const DWORD* sp) {
             g_udWorldTick ? (LONG)(GetTickCount() - g_udWorldTick) / 1000 : -1L, g_udWorlds, g_sgBad, g_sgFixed, g_sgChecks, nf, fr);
     }
     const bool end = !strncmp(when, "load", 4) || !strncmp(when, "clone", 5);
-    if (!bad && end) SgSlot(c) = SgSeen{c, GetTickCount()};
+    if (!bad && end) SgSlot(c) = SgSeen{c, GetTickCount()}, F5wOk(c, F5K_SLOT, when, true);  // docs/539 §21: registered at creation
     if (!strncmp(when, "teardown", 8) && SgSlot(c).comp == c) SgSlot(c).comp = 0;  // the component goes with its Object
+    if (!strncmp(when, "teardown", 8)) F5wGone(c);
     return bad;
 }
 

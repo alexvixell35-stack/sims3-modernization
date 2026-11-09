@@ -1,0 +1,631 @@
+{
+  "note": "float5-round5 (2026-11-09): all-off x2 on pair float5mono-1109b (round 4 runs were killed by the 60 s travel-load heartbeat limit and Float5Free skipped valid frees). crashHunt. --no-smoke. ~70 min. node tools/harness/queue.ts tools/harness/queues/float5-round5.json --no-smoke",
+  "stopQueueOnFail": false,
+  "crashHunt": true,
+  "jobs": [
+    {
+      "id": "bp-float5-r5-all-off-1",
+      "note": "[round 5, pair float5mono-1109b 0.36.233 (Float5Free header-first: in-use blocks pass; travel loads get 240 s grace): all-off + MonoSigGuard (EA SwapLoadScreen sig over-read fix, docs/539 §20) + Float5Free guard + UafCheck + SlotGuard; run 1/2] Reading: float-5 hit/crash = not our ts3native features (EA, ts3fixes or harness/agent); clean x2 (8 trips each) = interaction across our feature halves; a crash at 0xF4AC64 again = MonoSigGuard did not hold. mono sig guard lines are report-only. Enabled 1 Guard 1 (EA Free + SACS Walker deque check, docs/539 §19); float5 free/deque lines report-only, the guard skips the bad free so the run continues] [est 35 min] float-5 round 3 (ok bisect 11-09), all-off run 2 of 2: closest to vanilla we can drive. OFF: every ts3native feature section (the 47 of float5-trap bp-float5-features-off: RouteAsync, RouteBudget, GoalGen, RouteEarlyOut, RouteGate, Discourage, SteerRO, LotFrontDoorRO, ObstructedRO, AvoidRO, RouteToObjRO, PlacementRO, FootstepRO, GoalValidRO, IdleCheckRO, SlotEnabledRO, Gate0RO, LocoWindow, RouteSnap, UnseenFallback, GC, ThreadStack, SaveWrite, Decompress, Alloc, WaterJps, SaveFlush, SaveSlim, SaveCompress, FootprintIndex, HeightCache, TerrainGrave, ArenaGuard, LotRemoveGuard, MonoThread, LotStream, Verify, LotSinCos, IdCache, OptsInit, UnseenAnim, UnseenRootMotion, UnseenTable, MonoJit, AutShadow, EaCrashFixes, ProbeSnap); every other section is already off in the release ini. Kept: the detectors, Compat ApexStandDown, CrashForensics light defaults, JobQueue Workers=1 (game default); ts3fixes / ts3agent float5slot-1109 (script side, needed by the harness, not off). Detectors on (pair float5slot-1109, ts3native 0.36.230): CasTrim Mode 0 Detect 1 CellGuard 1 WriteTrap 1, UafCheck 1 + ObjectMaxSize 16384, SlotGuard Enabled 1 Guard 1, MemDiag 1, UserDiag 1. Baseline-BP, France x8, mem marks. READING (report, not a pass rule): any float-5 detector line (cas trim: float-5 cell / outfit cell bad / cell guard skipped / inventory bad slot / outfit string bad / modelbuilder cell bad / realm shape bad, slot guard: float5 slot bad, crash forensics: cas trim; caps 100000 = report-only) or a crash with ecx/value 0x40A00000 (e.g. 0x951A00, EA Free via 0x727E5C) = a HIT: the sections this arm turns off are cleared. all-off crashing / hitting = not our native features (EA bug, ts3fixes / ts3agent, or the harness); all-off clean x2 while route-off hits = an interaction across the halves (writer needs sections from both). Also report every uaf: write after free / float5 near our free / uaf: second free / cas trim: float5 WRITER line (they name the writer whatever the arm). EaCrashFixes off in all-off: an EA crash those fix (GeomBoneIndex, ThumbPose ...) can end the job; read the fault before calling it float-5.",
+      "asi": "game-copy/ts3native.asi.float5mono-1109b",
+      "iniBase": "game-copy/ts3native.ini.float5mono-1109b",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "8",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 60,
+      "pinReason": "pair float5mono-1109b (docs/data/builds.json), bugfix/float5free-range-travel-grace 37352c1f",
+      "scriptErrorsMax": 0,
+      "fixesBuild": "ts3fixes.package.float5mono-1109b",
+      "ini": {
+        "GC.Enabled": 0,
+        "ThreadStack.Enabled": 0,
+        "RouteAsync.Enabled": 0,
+        "RouteAsync.Mode": 0,
+        "RouteBudget.Mode": 0,
+        "GoalGen.Mode": 0,
+        "RouteEarlyOut.Mode": 0,
+        "SaveWrite.Enabled": 0,
+        "SaveWrite.Mode": 0,
+        "Decompress.Enabled": 0,
+        "Decompress.Mode": 0,
+        "Alloc.Mode": 0,
+        "WaterJps.Enabled": 0,
+        "WaterJps.Mode": 0,
+        "SaveFlush.Mode": 0,
+        "SaveSlim.Mode": 0,
+        "SaveCompress.Mode": 0,
+        "FootprintIndex.Mode": 0,
+        "HeightCache.Mode": 0,
+        "TerrainGrave.Mode": 0,
+        "ArenaGuard.TailPad": 0,
+        "ArenaGuard.InitobjFix": 0,
+        "RouteGate.Enabled": 0,
+        "RouteGate.Sites": 0,
+        "RouteGate.Enforce": 0,
+        "Discourage.Enabled": 0,
+        "Discourage.Mode": 0,
+        "LotRemoveGuard.Enabled": 0,
+        "SteerRO.Enabled": 0,
+        "SteerRO.Mode": 0,
+        "LotFrontDoorRO.Enabled": 0,
+        "LotFrontDoorRO.Mode": 0,
+        "ObstructedRO.Enabled": 0,
+        "ObstructedRO.Mode": 0,
+        "AvoidRO.Enabled": 0,
+        "AvoidRO.Mode": 0,
+        "RouteToObjRO.Enabled": 0,
+        "RouteToObjRO.Mode": 0,
+        "PlacementRO.Enabled": 0,
+        "PlacementRO.Mode": 0,
+        "FootstepRO.Enabled": 0,
+        "FootstepRO.Mode": 0,
+        "GoalValidRO.Enabled": 0,
+        "GoalValidRO.Mode": 0,
+        "IdleCheckRO.Enabled": 0,
+        "IdleCheckRO.Mode": 0,
+        "SlotEnabledRO.Enabled": 0,
+        "SlotEnabledRO.Mode": 0,
+        "Gate0RO.Enabled": 0,
+        "Gate0RO.Mode": 0,
+        "LocoWindow.Mode": 0,
+        "MonoThread.Enabled": 0,
+        "MonoThread.Mode": 0,
+        "LotStream.Mode": 0,
+        "Verify.Mode": 0,
+        "LotSinCos.Mode": 0,
+        "IdCache.Mode": 0,
+        "RouteSnap.Enabled": 0,
+        "OptsInit.Enabled": 0,
+        "UnseenFallback.Enabled": 0,
+        "UnseenAnim.Enabled": 0,
+        "UnseenAnim.Mode": 0,
+        "UnseenRootMotion.Mode": 0,
+        "UnseenTable.Enabled": 0,
+        "UnseenTable.Mode": 0,
+        "MonoJit.Mode": 0,
+        "AutShadow.Enabled": 0,
+        "AutShadow.Mode": 0,
+        "EaCrashFixes.ThumbPose": 0,
+        "EaCrashFixes.ThumbPoseBones": 0,
+        "EaCrashFixes.GeomBoneIndex": 0,
+        "EaCrashFixes.GeomNoMaterial": 0,
+        "EaCrashFixes.MintDivGuard": 0,
+        "ProbeSnap.CallSites": 0,
+        "EaCrashFixes.WorldAStarRefs": 0,
+        "EaCrashFixes.PortalFlagRefs": 0,
+        "EaCrashFixes.LotGridMiss": 0,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "CasTrim.MbGuard": 0,
+        "CasTrim.OutfitStrGuard": 0,
+        "CasTrim.RealmGuard": 0,
+        "CasTrim.WriteTrap": 1,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "UafCheck.Enabled": 1,
+        "UafCheck.ObjectMaxSize": 16384,
+        "SlotGuard.Enabled": 1,
+        "SlotGuard.Guard": 1,
+        "Float5Free.Enabled": 1,
+        "Float5Free.Guard": 1,
+        "MonoSigGuard.Enabled": 1,
+        "MonoSigGuard.Log": 1
+      },
+      "logRequire": {
+        "^cas trim: write trap on ": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 8,
+        "^cas trim: on \\(docs/191 step 2\\), mode 0 ": 1,
+        "^cas trim: inventory check on ": 1,
+        "^cas trim: outfit release check on .*CellGuard 1 ": 1,
+        "^cas trim: realm shape check on ": 1,
+        "^uaf check on \\(": 1,
+        "^slot guard on \\(CRASH-TRIAGE": 1,
+        "^ts3native 0\\.36\\.233 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^uaf: write after free: .*; freed under tag ": 100000,
+        "^float5 near our free: tag ": 100000,
+        "^cas trim: (float-5 cell|outfit cell bad|cell guard skipped|inventory bad slot|outfit string bad|modelbuilder cell bad|realm shape bad)": 100000,
+        "^crash forensics: cas trim ": 100000,
+        "^slot guard: float5 slot bad: ": 100000,
+        "^uaf: second free ": 100000,
+        "^float5 (free|deque): ": 100000,
+        "^mono sig guard: delegate sig param_count \\d+": 100000
+      },
+      "regexCases": {
+        "^cas trim: write trap on ": {
+          "match": [
+            "cas trim: write trap on (docs/539 §16, test only): after each save up to 4 [outfit+0xBC] cells of vtable 00FE4A10 outfits (entry 87 of 121 / 91, 3 of 81 first) get a DR write watch on every thread (again every 30 s for new threads); each write logged (first 200, float5 WRITER first 100)"
+          ],
+          "noMatch": [
+            "cas trim: write trap NOT on (no vectored handler) (docs/539 §16, test only): after each save up to 4 [outfit+0xBC] cells of vtable 00FE4A10 outfits",
+            "cas trim: write trap save #0: 3 cell(s) watched, 7 thread(s) set; candidates: 2 of the hit shapes (87 of 121 / 91, 3 of 81), 1 other (entry 87 / 3, vtable 00FE4A10): DR0 outfit 0x20267E60 entry 87 of 121 cell 0x202682BC (now 0x00000000); DR1 outfit 0x20267F60 entry 3 of 81 cell 0x20268354 (now 0x00000000); DR2 outfit 0x20267E60 entry 3 of 121 cell 0x2026816C (now 0x00000000)"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #7 save-start ev=travel-save priv=1718 wPriv=1674 wCom=2172 free=1643 big=1537? img=394? map=138 stkRes=95.8 stkCom=10.5? miRes=192 miCom=101 eaDir=201? eaDirN=161? eaCom=650? eaRes=653? eaCoreN=230? rp=0.0 pl=0.0? sp=6.5? gcHeap=360? gcFree=166? gcN=303? rc=371? rcCold=9.6? rcBudget=200? rcN=103901? anim=3.1? rest=390? fpLost=0 fpLoad=0 fpSaved=1 t=129"
+          ],
+          "noMatch": [
+            "diag: mem #2 save-start ev=traveling priv=1710 wPriv=1666 wCom=2130 free=1697 big=1541? img=394? map=103 stkRes=99.5 stkCom=10.6? miRes=192 miCom=100 eaDir=186? eaDirN=150? eaCom=642? eaRes=645? eaCoreN=222? rp=0.0 pl=0.0? sp=6.5? gcHeap=356? gcFree=164? gcN=293? rc=369? rcCold=9.0? rcBudget=200? rcN=103707? anim=3.4? rest=409? fpLost=0 fpLoad=0 fpSaved=0 t=109"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^uaf: write after free: .*; freed under tag ": {
+          "match": [
+            "uaf: write after free: block 0x2A1B3C40 size 0x60 (chunk 0x70), offset +0x2C value 0x40A00000 (float 5.0), 1 dword(s) changed; freed 41234 ms ago at save #2 world load #1 (now save #3, world load #2); free stack 005E7C11 005E6A0F 00D4B160 00C6D4A2; freed under tag DestroyPark flush (site ts3native+0x1A2B3C); found at save end, thread 39872",
+            "uaf: write after free: block 0x2A1B3C40 size 0x60 (chunk 0x70), offset +0x8 value 0x00001234, 1 dword(s) changed; freed 41234 ms ago at save #2 world load #1 (now save #3, world load #2); free stack 005E7C11 005E6A0F 00D4B160 00C6D4A2; freed under tag none (site ts3native+0x0); found at eviction, thread 39872"
+          ],
+          "noMatch": [
+            "uaf: write after free: block 0x2A1B3C40 size 0x60 (chunk 0x70), offset +0x2C value 0x40A00000 (float 5.0), 1 dword(s) changed; freed 41234 ms ago at save #2 world load #1 (now save #3, world load #2); free stack 005E7C11 005E6A0F 00D4B160 00C6D4A2; found at save end, thread 39872",
+            "uaf: second free of held block 0x2A1B3C40 size 0x60 absorbed (EA would free it twice); stack 005E7C11 005E6A0F 00D4B160 00C6D4A2, thread 39872"
+          ]
+        },
+        "^float5 near our free: tag ": {
+          "match": [
+            "float5 near our free: tag DestroyPark flush (site ts3native+0x1A2B3C): outfit cell 0x5E6F17AC is +0x1C into quarantined block 0x5E6F1790 size 0x60, freed 812 ms ago at save #2 world load #1; free stack 005E7C11 005E6A0F 00D4B160 00C6D4A2",
+            "float5 near our free: tag DestroyPark flush (P5c released ring): realm shape node 0x1F2E3D40 +0x40 into 1F2E3D00 released by our flush 12 releases ago, 812.4 ms ago, count 1 before, id 0000000100000ABC, key 00FE1234"
+          ],
+          "noMatch": [
+            "float5 free lookup: no match for outfit cell 0x5E6F17AC (quarantine 262144 blocks, recently-freed ring 8192, P5c released ring 4096)",
+            "cas trim: float5 WRITER DR0: cell 0x202682BC ([outfit+0xBC] entry 87 of 121, outfit 0x20267E60, armed at save #0) value now 0x40A00000 (float 5.0)"
+          ]
+        },
+        "^cas trim: on \\(docs/191 step 2\\), mode 0 ": {
+          "match": [
+            "cas trim: on (docs/191 step 2), mode 0 (armed, off): part compositors at 2 references, not inserted or found for 1800 s; 16 buckets a step, at most 8 erases a step; only ones no other compositor names (Named 1); with or without a database (NeedDb 0); never ones the async loader found (Async 1)"
+          ],
+          "noMatch": [
+            "cas trim: on (docs/191 step 2), mode 3 (sweep): part compositors at 2 references, not inserted or found for 1800 s; 16 buckets a step, at most 8 erases a step; only ones no other compositor names (Named 1); with or without a database (NeedDb 0); never ones the async loader found (Async 1)"
+          ]
+        },
+        "^cas trim: inventory check on ": {
+          "match": [
+            "cas trim: inventory check on (docs/539 §12.5, §13.5): each save's outfit inventory call 0x5EFE11 checks every part record slot and [outfit+0xBC] result cell first; float-5 watch; erase ring 4096"
+          ],
+          "noMatch": [
+            "cas trim: inventory check save #1: outfits 1746, records 18630, slots 34733, bad 0 (session 0, 0 in an erased object), 3.14 ms"
+          ]
+        },
+        "^cas trim: outfit release check on .*CellGuard 1 ": {
+          "match": [
+            "cas trim: outfit release check on (docs/539 §13.5): the clear 0x5E6E60 and destructor 0x5E7633 calls to 0x5AF640 check the [outfit+0xBC] cells and part records first; CellGuard 1 (a cell that is not a valid object is set to 0 and not released)"
+          ],
+          "noMatch": [
+            "cas trim: outfit release check on (docs/539 §13.5): the clear 0x5E6E60 and destructor 0x5E7633 calls to 0x5AF640 check the [outfit+0xBC] cells and part records first; CellGuard 0 (a cell that is not a valid object is set to 0 and not released)"
+          ]
+        },
+        "^cas trim: realm shape check on ": {
+          "match": [
+            "cas trim: realm shape check on (docs/539 §16.6): the 3 calls to Realm_RemoveShape 0x682080 and 2 to Realm_AddShape 0x6823E0 check the node's shape vector and the realm vector's last entry for 0x40A00000 first; RealmGuard 0 (log only)"
+          ],
+          "noMatch": [
+            "cas trim: realm shape check (0x682080 / 0x6823E0, session) at save #3: calls 5120, bad 0, repaired 0, skipped 0 (RealmGuard 0)"
+          ]
+        },
+        "^cas trim: (float-5 cell|outfit cell bad|cell guard skipped|inventory bad slot|outfit string bad|modelbuilder cell bad|realm shape bad)": {
+          "match": [
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000",
+            "cas trim: cell guard skipped: outfit clear 0x5E6E60, thread 33660; save #6 (travel flags 3), 0 s after world load #4; outfit 0x5E6F15C0 (vtable 00FE4A10) key 00000000 00000000 00000000 00000000; CasTrim mode 0, in a save 0; [outfit+0xBC] entry 87 of 121: value 0x40A00000, first dword (unreadable) 00000000: not released (leaked); outfit last seen by the inventory check at save #6 (-1 never); value: never erased by CasTrim (ring: the last 0 of 0 erases); no CasTrim slot; outfit: never erased by CasTrim (ring: the last 0 of 0 erases); callers 005E6E65 < 005E75CC < 005E7A08 < 00731DA3 < 005ED162 < 005F0E86; cells -8..+8: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000",
+            "cas trim: realm shape bad: node shape vector entry; Realm_RemoveShape 0x682080 from 0x006821FF, thread 17140; realm 0x1A2B3C40 node 0x3F3F0580 entry 3 of 4 = 0x40A00000; shape 0x5CDCE480; log only (RealmGuard 0); save #26, 8 s after world load #13; stack scan (2): TS3W+0x536CB7 TS3W+0x86E396",
+            "cas trim: outfit string bad: string pointer 0x40A00000; thread 17140, from 0x005E7BC7 (save writer)"
+          ],
+          "noMatch": [
+            "cas trim: inventory cells save #1: cells 36327, bad 0, float-5 0 (session: cells bad 0, 0 in an erased object, float-5 0); result vtables: 00FE54B4=1737 00FE68D8=34590",
+            "cas trim: outfit string check (0x5E7BC2, session) at save #3: calls 281, records 0, objects 0, bad 0 (0 touching an erased object), resets 0 (OutfitStrGuard 0); 0.07 ms in all, max 1.0 us a call; object vtables: none",
+            "cas trim: realm shape check (0x682080 / 0x6823E0, session) at save #3: calls 5120, bad 0, repaired 0, skipped 0 (RealmGuard 0)"
+          ]
+        },
+        "^crash forensics: cas trim ": {
+          "match": [
+            "crash forensics: cas trim outfit string copy fault at 0x7C3473D0"
+          ],
+          "noMatch": [
+            "crash forensics: light (docs/67 §18): ring 4096 P5 heap events + g_rpUse holds, heap check on, our-events ring 8192 events, fault dump; no guards (Enabled=1 for those)"
+          ]
+        },
+        "^uaf check on \\(": {
+          "match": [
+            "uaf check on (TEST-RUN TOOL, docs/539 §17): main heap [0x11CB864] blocks 64-4096 bytes"
+          ],
+          "noMatch": [
+            "uaf check off (no hook) (TEST-RUN TOOL, docs/539 §17): main heap"
+          ]
+        },
+        "^slot guard on \\(CRASH-TRIAGE": {
+          "match": [
+            "slot guard on (CRASH-TRIAGE, docs/539 §18): SlotComponent slot arrays +0x0C..+0x2C checked before every clear (teardown 0x9519C0), after every load (0x951F20), after every clone (0x951AE0); a 0x40A00000 / non-heap / unreadable array pointer logged (\"slot guard: float5 slot bad\") and its pair zeroed (Guard=1)"
+          ],
+          "noMatch": [
+            "slot guard off (no hook) (CRASH-TRIAGE, docs/539 §18): SlotComponent slot arrays +0x0C..+0x2C checked before every clear (teardown 0x9519C0); a 0x40A00000 / non-heap / unreadable array pointer logged (\"slot guard: float5 slot bad\"), log only (Guard=0)"
+          ]
+        },
+        "^slot guard: float5 slot bad: ": {
+          "match": [
+            "slot guard: float5 slot bad: comp 0x1A2B3C40 obj 0x1A2B3000 off +0x10 val 0x40A00000 count 3 (clear, teardown); Object 0x1A2B3000; at save #3 from 0x00731DA3; zeroed; x"
+          ],
+          "noMatch": [
+            "slot guard on (CRASH-TRIAGE, docs/539 §18): SlotComponent slot arrays +0x0C..+0x2C checked before every clear (teardown 0x9519C0)"
+          ]
+        },
+        "^uaf: second free ": {
+          "match": [
+            "uaf: second free of held block 0x2A1B3C40 size 0x60 absorbed (EA would free it twice); stack 005E7C11 005E6A0F 00D4B160 00C6D4A2, thread 39872"
+          ],
+          "noMatch": [
+            "uaf: write after free: block 0x2A1B3C40 size 0x60 (chunk 0x70), offset +0x8 value 0x00001234, 1 dword(s) changed; freed under tag none (site ts3native+0x0); found at eviction, thread 39872"
+          ]
+        },
+        "^float5 (free|deque): ": {
+          "match": [
+            "float5 free: ptr 0x40A00000 (0x40A00000 range (float 5.0)) caller 0x00727E5C heap 0x011CB864 (main)",
+            "float5 deque: deque 0x3B2D7EEC (SACS Walker 0x3B2D7EC0 mRequestQueue) caller 0x00800C99: x"
+          ],
+          "noMatch": [
+            "uaf check on (TEST-RUN TOOL, docs/539 §17): main heap"
+          ]
+        },
+        "^mono sig guard: delegate sig param_count \\d+": {
+          "match": [
+            "mono sig guard: delegate sig param_count 0, params[0] 0x00000001, caller 0x00D75FD8"
+          ],
+          "noMatch": [
+            "mono sig guard on (EA delegate signature over-read fix)"
+          ]
+        },
+        "^ts3native 0\\.36\\.233 ": {
+          "match": [
+            "ts3native 0.36.233 2026-11-09 13:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.232 2026-11-09 12:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-float5-r5-all-off-2",
+      "note": "[round 5, pair float5mono-1109b 0.36.233 (Float5Free header-first: in-use blocks pass; travel loads get 240 s grace): all-off + MonoSigGuard (EA SwapLoadScreen sig over-read fix, docs/539 §20) + Float5Free guard + UafCheck + SlotGuard; run 2/2] Reading: float-5 hit/crash = not our ts3native features (EA, ts3fixes or harness/agent); clean x2 (8 trips each) = interaction across our feature halves; a crash at 0xF4AC64 again = MonoSigGuard did not hold. mono sig guard lines are report-only. Enabled 1 Guard 1 (EA Free + SACS Walker deque check, docs/539 §19); float5 free/deque lines report-only, the guard skips the bad free so the run continues] [est 35 min] float-5 round 3 (ok bisect 11-09), all-off run 2 of 2: closest to vanilla we can drive. OFF: every ts3native feature section (the 47 of float5-trap bp-float5-features-off: RouteAsync, RouteBudget, GoalGen, RouteEarlyOut, RouteGate, Discourage, SteerRO, LotFrontDoorRO, ObstructedRO, AvoidRO, RouteToObjRO, PlacementRO, FootstepRO, GoalValidRO, IdleCheckRO, SlotEnabledRO, Gate0RO, LocoWindow, RouteSnap, UnseenFallback, GC, ThreadStack, SaveWrite, Decompress, Alloc, WaterJps, SaveFlush, SaveSlim, SaveCompress, FootprintIndex, HeightCache, TerrainGrave, ArenaGuard, LotRemoveGuard, MonoThread, LotStream, Verify, LotSinCos, IdCache, OptsInit, UnseenAnim, UnseenRootMotion, UnseenTable, MonoJit, AutShadow, EaCrashFixes, ProbeSnap); every other section is already off in the release ini. Kept: the detectors, Compat ApexStandDown, CrashForensics light defaults, JobQueue Workers=1 (game default); ts3fixes / ts3agent float5slot-1109 (script side, needed by the harness, not off). Detectors on (pair float5slot-1109, ts3native 0.36.230): CasTrim Mode 0 Detect 1 CellGuard 1 WriteTrap 1, UafCheck 1 + ObjectMaxSize 16384, SlotGuard Enabled 1 Guard 1, MemDiag 1, UserDiag 1. Baseline-BP, France x8, mem marks. READING (report, not a pass rule): any float-5 detector line (cas trim: float-5 cell / outfit cell bad / cell guard skipped / inventory bad slot / outfit string bad / modelbuilder cell bad / realm shape bad, slot guard: float5 slot bad, crash forensics: cas trim; caps 100000 = report-only) or a crash with ecx/value 0x40A00000 (e.g. 0x951A00, EA Free via 0x727E5C) = a HIT: the sections this arm turns off are cleared. all-off crashing / hitting = not our native features (EA bug, ts3fixes / ts3agent, or the harness); all-off clean x2 while route-off hits = an interaction across the halves (writer needs sections from both). Also report every uaf: write after free / float5 near our free / uaf: second free / cas trim: float5 WRITER line (they name the writer whatever the arm). EaCrashFixes off in all-off: an EA crash those fix (GeomBoneIndex, ThumbPose ...) can end the job; read the fault before calling it float-5.",
+      "asi": "game-copy/ts3native.asi.float5mono-1109b",
+      "iniBase": "game-copy/ts3native.ini.float5mono-1109b",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "8",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 60,
+      "pinReason": "pair float5mono-1109b (docs/data/builds.json), bugfix/float5free-range-travel-grace 37352c1f",
+      "scriptErrorsMax": 0,
+      "fixesBuild": "ts3fixes.package.float5mono-1109b",
+      "ini": {
+        "GC.Enabled": 0,
+        "ThreadStack.Enabled": 0,
+        "RouteAsync.Enabled": 0,
+        "RouteAsync.Mode": 0,
+        "RouteBudget.Mode": 0,
+        "GoalGen.Mode": 0,
+        "RouteEarlyOut.Mode": 0,
+        "SaveWrite.Enabled": 0,
+        "SaveWrite.Mode": 0,
+        "Decompress.Enabled": 0,
+        "Decompress.Mode": 0,
+        "Alloc.Mode": 0,
+        "WaterJps.Enabled": 0,
+        "WaterJps.Mode": 0,
+        "SaveFlush.Mode": 0,
+        "SaveSlim.Mode": 0,
+        "SaveCompress.Mode": 0,
+        "FootprintIndex.Mode": 0,
+        "HeightCache.Mode": 0,
+        "TerrainGrave.Mode": 0,
+        "ArenaGuard.TailPad": 0,
+        "ArenaGuard.InitobjFix": 0,
+        "RouteGate.Enabled": 0,
+        "RouteGate.Sites": 0,
+        "RouteGate.Enforce": 0,
+        "Discourage.Enabled": 0,
+        "Discourage.Mode": 0,
+        "LotRemoveGuard.Enabled": 0,
+        "SteerRO.Enabled": 0,
+        "SteerRO.Mode": 0,
+        "LotFrontDoorRO.Enabled": 0,
+        "LotFrontDoorRO.Mode": 0,
+        "ObstructedRO.Enabled": 0,
+        "ObstructedRO.Mode": 0,
+        "AvoidRO.Enabled": 0,
+        "AvoidRO.Mode": 0,
+        "RouteToObjRO.Enabled": 0,
+        "RouteToObjRO.Mode": 0,
+        "PlacementRO.Enabled": 0,
+        "PlacementRO.Mode": 0,
+        "FootstepRO.Enabled": 0,
+        "FootstepRO.Mode": 0,
+        "GoalValidRO.Enabled": 0,
+        "GoalValidRO.Mode": 0,
+        "IdleCheckRO.Enabled": 0,
+        "IdleCheckRO.Mode": 0,
+        "SlotEnabledRO.Enabled": 0,
+        "SlotEnabledRO.Mode": 0,
+        "Gate0RO.Enabled": 0,
+        "Gate0RO.Mode": 0,
+        "LocoWindow.Mode": 0,
+        "MonoThread.Enabled": 0,
+        "MonoThread.Mode": 0,
+        "LotStream.Mode": 0,
+        "Verify.Mode": 0,
+        "LotSinCos.Mode": 0,
+        "IdCache.Mode": 0,
+        "RouteSnap.Enabled": 0,
+        "OptsInit.Enabled": 0,
+        "UnseenFallback.Enabled": 0,
+        "UnseenAnim.Enabled": 0,
+        "UnseenAnim.Mode": 0,
+        "UnseenRootMotion.Mode": 0,
+        "UnseenTable.Enabled": 0,
+        "UnseenTable.Mode": 0,
+        "MonoJit.Mode": 0,
+        "AutShadow.Enabled": 0,
+        "AutShadow.Mode": 0,
+        "EaCrashFixes.ThumbPose": 0,
+        "EaCrashFixes.ThumbPoseBones": 0,
+        "EaCrashFixes.GeomBoneIndex": 0,
+        "EaCrashFixes.GeomNoMaterial": 0,
+        "EaCrashFixes.MintDivGuard": 0,
+        "ProbeSnap.CallSites": 0,
+        "EaCrashFixes.WorldAStarRefs": 0,
+        "EaCrashFixes.PortalFlagRefs": 0,
+        "EaCrashFixes.LotGridMiss": 0,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "CasTrim.MbGuard": 0,
+        "CasTrim.OutfitStrGuard": 0,
+        "CasTrim.RealmGuard": 0,
+        "CasTrim.WriteTrap": 1,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "UafCheck.Enabled": 1,
+        "UafCheck.ObjectMaxSize": 16384,
+        "SlotGuard.Enabled": 1,
+        "SlotGuard.Guard": 1,
+        "Float5Free.Enabled": 1,
+        "Float5Free.Guard": 1,
+        "MonoSigGuard.Enabled": 1,
+        "MonoSigGuard.Log": 1
+      },
+      "logRequire": {
+        "^cas trim: write trap on ": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 8,
+        "^cas trim: on \\(docs/191 step 2\\), mode 0 ": 1,
+        "^cas trim: inventory check on ": 1,
+        "^cas trim: outfit release check on .*CellGuard 1 ": 1,
+        "^cas trim: realm shape check on ": 1,
+        "^uaf check on \\(": 1,
+        "^slot guard on \\(CRASH-TRIAGE": 1,
+        "^ts3native 0\\.36\\.233 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^uaf: write after free: .*; freed under tag ": 100000,
+        "^float5 near our free: tag ": 100000,
+        "^cas trim: (float-5 cell|outfit cell bad|cell guard skipped|inventory bad slot|outfit string bad|modelbuilder cell bad|realm shape bad)": 100000,
+        "^crash forensics: cas trim ": 100000,
+        "^slot guard: float5 slot bad: ": 100000,
+        "^uaf: second free ": 100000,
+        "^float5 (free|deque): ": 100000,
+        "^mono sig guard: delegate sig param_count \\d+": 100000
+      },
+      "regexCases": {
+        "^cas trim: write trap on ": {
+          "match": [
+            "cas trim: write trap on (docs/539 §16, test only): after each save up to 4 [outfit+0xBC] cells of vtable 00FE4A10 outfits (entry 87 of 121 / 91, 3 of 81 first) get a DR write watch on every thread (again every 30 s for new threads); each write logged (first 200, float5 WRITER first 100)"
+          ],
+          "noMatch": [
+            "cas trim: write trap NOT on (no vectored handler) (docs/539 §16, test only): after each save up to 4 [outfit+0xBC] cells of vtable 00FE4A10 outfits",
+            "cas trim: write trap save #0: 3 cell(s) watched, 7 thread(s) set; candidates: 2 of the hit shapes (87 of 121 / 91, 3 of 81), 1 other (entry 87 / 3, vtable 00FE4A10): DR0 outfit 0x20267E60 entry 87 of 121 cell 0x202682BC (now 0x00000000); DR1 outfit 0x20267F60 entry 3 of 81 cell 0x20268354 (now 0x00000000); DR2 outfit 0x20267E60 entry 3 of 121 cell 0x2026816C (now 0x00000000)"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #7 save-start ev=travel-save priv=1718 wPriv=1674 wCom=2172 free=1643 big=1537? img=394? map=138 stkRes=95.8 stkCom=10.5? miRes=192 miCom=101 eaDir=201? eaDirN=161? eaCom=650? eaRes=653? eaCoreN=230? rp=0.0 pl=0.0? sp=6.5? gcHeap=360? gcFree=166? gcN=303? rc=371? rcCold=9.6? rcBudget=200? rcN=103901? anim=3.1? rest=390? fpLost=0 fpLoad=0 fpSaved=1 t=129"
+          ],
+          "noMatch": [
+            "diag: mem #2 save-start ev=traveling priv=1710 wPriv=1666 wCom=2130 free=1697 big=1541? img=394? map=103 stkRes=99.5 stkCom=10.6? miRes=192 miCom=100 eaDir=186? eaDirN=150? eaCom=642? eaRes=645? eaCoreN=222? rp=0.0 pl=0.0? sp=6.5? gcHeap=356? gcFree=164? gcN=293? rc=369? rcCold=9.0? rcBudget=200? rcN=103707? anim=3.4? rest=409? fpLost=0 fpLoad=0 fpSaved=0 t=109"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^uaf: write after free: .*; freed under tag ": {
+          "match": [
+            "uaf: write after free: block 0x2A1B3C40 size 0x60 (chunk 0x70), offset +0x2C value 0x40A00000 (float 5.0), 1 dword(s) changed; freed 41234 ms ago at save #2 world load #1 (now save #3, world load #2); free stack 005E7C11 005E6A0F 00D4B160 00C6D4A2; freed under tag DestroyPark flush (site ts3native+0x1A2B3C); found at save end, thread 39872",
+            "uaf: write after free: block 0x2A1B3C40 size 0x60 (chunk 0x70), offset +0x8 value 0x00001234, 1 dword(s) changed; freed 41234 ms ago at save #2 world load #1 (now save #3, world load #2); free stack 005E7C11 005E6A0F 00D4B160 00C6D4A2; freed under tag none (site ts3native+0x0); found at eviction, thread 39872"
+          ],
+          "noMatch": [
+            "uaf: write after free: block 0x2A1B3C40 size 0x60 (chunk 0x70), offset +0x2C value 0x40A00000 (float 5.0), 1 dword(s) changed; freed 41234 ms ago at save #2 world load #1 (now save #3, world load #2); free stack 005E7C11 005E6A0F 00D4B160 00C6D4A2; found at save end, thread 39872",
+            "uaf: second free of held block 0x2A1B3C40 size 0x60 absorbed (EA would free it twice); stack 005E7C11 005E6A0F 00D4B160 00C6D4A2, thread 39872"
+          ]
+        },
+        "^float5 near our free: tag ": {
+          "match": [
+            "float5 near our free: tag DestroyPark flush (site ts3native+0x1A2B3C): outfit cell 0x5E6F17AC is +0x1C into quarantined block 0x5E6F1790 size 0x60, freed 812 ms ago at save #2 world load #1; free stack 005E7C11 005E6A0F 00D4B160 00C6D4A2",
+            "float5 near our free: tag DestroyPark flush (P5c released ring): realm shape node 0x1F2E3D40 +0x40 into 1F2E3D00 released by our flush 12 releases ago, 812.4 ms ago, count 1 before, id 0000000100000ABC, key 00FE1234"
+          ],
+          "noMatch": [
+            "float5 free lookup: no match for outfit cell 0x5E6F17AC (quarantine 262144 blocks, recently-freed ring 8192, P5c released ring 4096)",
+            "cas trim: float5 WRITER DR0: cell 0x202682BC ([outfit+0xBC] entry 87 of 121, outfit 0x20267E60, armed at save #0) value now 0x40A00000 (float 5.0)"
+          ]
+        },
+        "^cas trim: on \\(docs/191 step 2\\), mode 0 ": {
+          "match": [
+            "cas trim: on (docs/191 step 2), mode 0 (armed, off): part compositors at 2 references, not inserted or found for 1800 s; 16 buckets a step, at most 8 erases a step; only ones no other compositor names (Named 1); with or without a database (NeedDb 0); never ones the async loader found (Async 1)"
+          ],
+          "noMatch": [
+            "cas trim: on (docs/191 step 2), mode 3 (sweep): part compositors at 2 references, not inserted or found for 1800 s; 16 buckets a step, at most 8 erases a step; only ones no other compositor names (Named 1); with or without a database (NeedDb 0); never ones the async loader found (Async 1)"
+          ]
+        },
+        "^cas trim: inventory check on ": {
+          "match": [
+            "cas trim: inventory check on (docs/539 §12.5, §13.5): each save's outfit inventory call 0x5EFE11 checks every part record slot and [outfit+0xBC] result cell first; float-5 watch; erase ring 4096"
+          ],
+          "noMatch": [
+            "cas trim: inventory check save #1: outfits 1746, records 18630, slots 34733, bad 0 (session 0, 0 in an erased object), 3.14 ms"
+          ]
+        },
+        "^cas trim: outfit release check on .*CellGuard 1 ": {
+          "match": [
+            "cas trim: outfit release check on (docs/539 §13.5): the clear 0x5E6E60 and destructor 0x5E7633 calls to 0x5AF640 check the [outfit+0xBC] cells and part records first; CellGuard 1 (a cell that is not a valid object is set to 0 and not released)"
+          ],
+          "noMatch": [
+            "cas trim: outfit release check on (docs/539 §13.5): the clear 0x5E6E60 and destructor 0x5E7633 calls to 0x5AF640 check the [outfit+0xBC] cells and part records first; CellGuard 0 (a cell that is not a valid object is set to 0 and not released)"
+          ]
+        },
+        "^cas trim: realm shape check on ": {
+          "match": [
+            "cas trim: realm shape check on (docs/539 §16.6): the 3 calls to Realm_RemoveShape 0x682080 and 2 to Realm_AddShape 0x6823E0 check the node's shape vector and the realm vector's last entry for 0x40A00000 first; RealmGuard 0 (log only)"
+          ],
+          "noMatch": [
+            "cas trim: realm shape check (0x682080 / 0x6823E0, session) at save #3: calls 5120, bad 0, repaired 0, skipped 0 (RealmGuard 0)"
+          ]
+        },
+        "^cas trim: (float-5 cell|outfit cell bad|cell guard skipped|inventory bad slot|outfit string bad|modelbuilder cell bad|realm shape bad)": {
+          "match": [
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000",
+            "cas trim: cell guard skipped: outfit clear 0x5E6E60, thread 33660; save #6 (travel flags 3), 0 s after world load #4; outfit 0x5E6F15C0 (vtable 00FE4A10) key 00000000 00000000 00000000 00000000; CasTrim mode 0, in a save 0; [outfit+0xBC] entry 87 of 121: value 0x40A00000, first dword (unreadable) 00000000: not released (leaked); outfit last seen by the inventory check at save #6 (-1 never); value: never erased by CasTrim (ring: the last 0 of 0 erases); no CasTrim slot; outfit: never erased by CasTrim (ring: the last 0 of 0 erases); callers 005E6E65 < 005E75CC < 005E7A08 < 00731DA3 < 005ED162 < 005F0E86; cells -8..+8: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000",
+            "cas trim: realm shape bad: node shape vector entry; Realm_RemoveShape 0x682080 from 0x006821FF, thread 17140; realm 0x1A2B3C40 node 0x3F3F0580 entry 3 of 4 = 0x40A00000; shape 0x5CDCE480; log only (RealmGuard 0); save #26, 8 s after world load #13; stack scan (2): TS3W+0x536CB7 TS3W+0x86E396",
+            "cas trim: outfit string bad: string pointer 0x40A00000; thread 17140, from 0x005E7BC7 (save writer)"
+          ],
+          "noMatch": [
+            "cas trim: inventory cells save #1: cells 36327, bad 0, float-5 0 (session: cells bad 0, 0 in an erased object, float-5 0); result vtables: 00FE54B4=1737 00FE68D8=34590",
+            "cas trim: outfit string check (0x5E7BC2, session) at save #3: calls 281, records 0, objects 0, bad 0 (0 touching an erased object), resets 0 (OutfitStrGuard 0); 0.07 ms in all, max 1.0 us a call; object vtables: none",
+            "cas trim: realm shape check (0x682080 / 0x6823E0, session) at save #3: calls 5120, bad 0, repaired 0, skipped 0 (RealmGuard 0)"
+          ]
+        },
+        "^crash forensics: cas trim ": {
+          "match": [
+            "crash forensics: cas trim outfit string copy fault at 0x7C3473D0"
+          ],
+          "noMatch": [
+            "crash forensics: light (docs/67 §18): ring 4096 P5 heap events + g_rpUse holds, heap check on, our-events ring 8192 events, fault dump; no guards (Enabled=1 for those)"
+          ]
+        },
+        "^uaf check on \\(": {
+          "match": [
+            "uaf check on (TEST-RUN TOOL, docs/539 §17): main heap [0x11CB864] blocks 64-4096 bytes"
+          ],
+          "noMatch": [
+            "uaf check off (no hook) (TEST-RUN TOOL, docs/539 §17): main heap"
+          ]
+        },
+        "^slot guard on \\(CRASH-TRIAGE": {
+          "match": [
+            "slot guard on (CRASH-TRIAGE, docs/539 §18): SlotComponent slot arrays +0x0C..+0x2C checked before every clear (teardown 0x9519C0), after every load (0x951F20), after every clone (0x951AE0); a 0x40A00000 / non-heap / unreadable array pointer logged (\"slot guard: float5 slot bad\") and its pair zeroed (Guard=1)"
+          ],
+          "noMatch": [
+            "slot guard off (no hook) (CRASH-TRIAGE, docs/539 §18): SlotComponent slot arrays +0x0C..+0x2C checked before every clear (teardown 0x9519C0); a 0x40A00000 / non-heap / unreadable array pointer logged (\"slot guard: float5 slot bad\"), log only (Guard=0)"
+          ]
+        },
+        "^slot guard: float5 slot bad: ": {
+          "match": [
+            "slot guard: float5 slot bad: comp 0x1A2B3C40 obj 0x1A2B3000 off +0x10 val 0x40A00000 count 3 (clear, teardown); Object 0x1A2B3000; at save #3 from 0x00731DA3; zeroed; x"
+          ],
+          "noMatch": [
+            "slot guard on (CRASH-TRIAGE, docs/539 §18): SlotComponent slot arrays +0x0C..+0x2C checked before every clear (teardown 0x9519C0)"
+          ]
+        },
+        "^uaf: second free ": {
+          "match": [
+            "uaf: second free of held block 0x2A1B3C40 size 0x60 absorbed (EA would free it twice); stack 005E7C11 005E6A0F 00D4B160 00C6D4A2, thread 39872"
+          ],
+          "noMatch": [
+            "uaf: write after free: block 0x2A1B3C40 size 0x60 (chunk 0x70), offset +0x8 value 0x00001234, 1 dword(s) changed; freed under tag none (site ts3native+0x0); found at eviction, thread 39872"
+          ]
+        },
+        "^float5 (free|deque): ": {
+          "match": [
+            "float5 free: ptr 0x40A00000 (0x40A00000 range (float 5.0)) caller 0x00727E5C heap 0x011CB864 (main)",
+            "float5 deque: deque 0x3B2D7EEC (SACS Walker 0x3B2D7EC0 mRequestQueue) caller 0x00800C99: x"
+          ],
+          "noMatch": [
+            "uaf check on (TEST-RUN TOOL, docs/539 §17): main heap"
+          ]
+        },
+        "^mono sig guard: delegate sig param_count \\d+": {
+          "match": [
+            "mono sig guard: delegate sig param_count 0, params[0] 0x00000001, caller 0x00D75FD8"
+          ],
+          "noMatch": [
+            "mono sig guard on (EA delegate signature over-read fix)"
+          ]
+        },
+        "^ts3native 0\\.36\\.233 ": {
+          "match": [
+            "ts3native 0.36.233 2026-11-09 13:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.232 2026-11-09 12:30:00"
+          ]
+        }
+      }
+    }
+  ]
+}

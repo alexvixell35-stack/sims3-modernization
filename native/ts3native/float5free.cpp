@@ -63,6 +63,7 @@ static bool F5fFreeCheck(void* heap, DWORD p, const DWORD* ra) {
     const LONG n = InterlockedIncrement(&g_f5fBad);
     if (g_f5fGuard) InterlockedIncrement(&g_f5fSkip);
     UafNearLog(p, "bad free pointer");  // [UafCheck] (no-op when off)
+    if (p >= 0x40A00000 && p < 0x40A10000) F5wBad("EA Free of a float-5 range pointer (where it was stored is unknown)", 0, 0, p);  // docs/539 §21
     if (!F5fLogNow(n)) return g_f5fGuard;
     const DWORD caller = ra[0] == 0x004E3F84 || ra[0] == 0x004E3EFD ? ra[2] : ra[0];
     char own[128] = "";
@@ -100,6 +101,9 @@ static int F5dCheck(const DWORD* dq, DWORD ret, const DWORD* sp) {
     const LONG k = InterlockedIncrement(&g_f5dBad);
     if (g_f5fGuard) InterlockedIncrement(&g_f5dSkip);
     UafNearLog(arr, "deque pointer array"), UafNearLog(val, "deque bad value");
+    char site[112];  // docs/539 §21
+    sprintf_s(site, "float5 deque (%s): %s", ret == kF5dRetWalker ? "SACS Walker mRequestQueue" : "eastl deque", why);
+    F5wBad(site, (DWORD)(uintptr_t)dq, at, val);
     if (!F5fLogNow(k)) return 1;
     char own[96] = "";
     if (ret == kF5dRetWalker) sprintf_s(own, " (SACS Walker 0x%08lX mRequestQueue)", (DWORD)(uintptr_t)dq - 0x2C);

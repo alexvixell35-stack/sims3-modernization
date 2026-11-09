@@ -1,0 +1,1377 @@
+{
+  "note": "float5-catch (2026-11-09): float-5 writer catch, all features on, pair float5catch-1109 (0.36.234), 10 x 5-trip runs, crashHunt (crashes do not stop the queue). Stop the queue by hand once a \"float5 sticky: write to ... value 0x40A00000\" line names the writer. Correctness only: --no-smoke. node tools/harness/queue.ts tools/harness/queues/float5-catch.json --no-smoke",
+  "stopQueueOnFail": false,
+  "crashHunt": true,
+  "jobs": [
+    {
+      "id": "bp-float5-catch-1",
+      "note": "[est 22 min] float-5 writer catch 1/10 (Rodney 2026-11-09: short runs, repeat until it crashes; all features ON = release ini + detectors). Pair float5catch-1109 ts3native 0.36.234: [Float5Sticky] arms a DR write watch on the first float-5 address any detector reports (UafCheck write-after-free usually at world load #3-#5) and keeps it all session, so the next 5.0 write logs the writer eip + stack; [Float5Watch] sweep + rotating DR on new outfit/slot records; UafCheck with travel hold. DR budget: sticky only (Float5Watch DrWatch 0: catch-1 died of an unhandled single-step when our UafCheck fill hit a rotating DR), UafCheck DrArms 0, CasTrim WriteTrap 0. REPORT: every \"float5 sticky: write to ... value 0x40A00000\" line (writer eip/module/stack: THE answer), \"float5 watch: WRITER\", \"float5 window\", \"float5 portal\", uaf 0x40A00000 lines. 5 trips = 10 world loads (hits seen at loads #3-#9).",
+      "asi": "game-copy/ts3native.asi.float5catch-1109",
+      "iniBase": "game-copy/ts3native.ini.float5catch-1109",
+      "fixesBuild": "ts3fixes.package.float5catch-1109",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "5",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 45,
+      "pinReason": "pair float5catch-1109 (docs/data/builds.json), bugfix/float5-write-catch 742a995b",
+      "scriptErrorsMax": 0,
+      "ini": {
+        "UafCheck.Enabled": 1,
+        "UafCheck.DrArms": 0,
+        "UafCheck.TravelHold": 1,
+        "Float5Watch.DrSlots": 0,
+        "Float5Sticky.Enabled": 1,
+        "CasTrim.WriteTrap": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "Float5Watch.DrWatch": 0
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.234 ": 1,
+        "^uaf check on \\(": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": 100000,
+        "^float5 watch: WRITER DR\\d": 100000,
+        "^float5 portal: ": 100000,
+        "^float5 window: ": 100000,
+        "^uaf: write after free: .*value 0x40A00000": 100000
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.234 ": {
+          "match": [
+            "ts3native 0.36.234 2026-11-09 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.233 2026-11-09 13:00:00"
+          ]
+        },
+        "^uaf check on \\(": {
+          "match": [
+            "uaf check on (TEST-RUN TOOL, docs/539 §17): main heap [0x11CB864] blocks 64-4096 bytes"
+          ],
+          "noMatch": [
+            "uaf check off (no hook) (TEST-RUN TOOL, docs/539 §17): main heap"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": {
+          "match": [
+            "float5 sticky: write to 0x39E6FD2C value 0x40A00000 (float 5.0) eip 0x00606D07 (TS3W.exe+0x206D07) thread 57212 (main)"
+          ],
+          "noMatch": [
+            "float5 sticky: write to 0x39E6FD2C value 0xFEEEFEEE eip 0x6D0A1234 (ts3native.asi+0x1234) thread 1 (other)"
+          ]
+        },
+        "^float5 watch: WRITER DR\\d": {
+          "match": [
+            "float5 watch: WRITER DR2: slot 0x39E6FD2C value 0x40A00000 eip 0x00606D07"
+          ],
+          "noMatch": [
+            "float5 watch: write DR2: slot 0x39E6FD2C value 0x00000000 eip 0x00606D07"
+          ]
+        },
+        "^float5 portal: ": {
+          "match": [
+            "float5 portal: portal 0x336461E0 (vtable 0x00FED048): vector begin 0x40A00000 not a heap pointer; vector begin 0x40A00000 end 0x40A00038"
+          ],
+          "noMatch": [
+            "float5 portal check on (Portal_Save call 0x62AF81)"
+          ]
+        },
+        "^float5 window: ": {
+          "match": [
+            "float5 window: slot guard obj 0x336461E0 slot 0x3364623C bad (value 0x40A00000); last OK 812 ms ago at sweep"
+          ],
+          "noMatch": [
+            "float5 watch: sweeps 120, objects 4000"
+          ]
+        },
+        "^uaf: write after free: .*value 0x40A00000": {
+          "match": [
+            "uaf: write after free: block 0x39E6FCB0 size 0x190 (chunk 0x1A0), offset +0x7C value 0x40A00000 (float 5.0), 1 dword(s) changed"
+          ],
+          "noMatch": [
+            "uaf: write after free: block 0x828FD750 size 0x4C0 (chunk 0x4D0), offset +0xC0 value 0xFEEE00EE, 1 dword(s) changed"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-float5-catch-2",
+      "note": "[est 22 min] float-5 writer catch 2/10 (Rodney 2026-11-09: short runs, repeat until it crashes; all features ON = release ini + detectors). Pair float5catch-1109 ts3native 0.36.234: [Float5Sticky] arms a DR write watch on the first float-5 address any detector reports (UafCheck write-after-free usually at world load #3-#5) and keeps it all session, so the next 5.0 write logs the writer eip + stack; [Float5Watch] sweep + rotating DR on new outfit/slot records; UafCheck with travel hold. DR budget: sticky only (Float5Watch DrWatch 0: catch-1 died of an unhandled single-step when our UafCheck fill hit a rotating DR), UafCheck DrArms 0, CasTrim WriteTrap 0. REPORT: every \"float5 sticky: write to ... value 0x40A00000\" line (writer eip/module/stack: THE answer), \"float5 watch: WRITER\", \"float5 window\", \"float5 portal\", uaf 0x40A00000 lines. 5 trips = 10 world loads (hits seen at loads #3-#9).",
+      "asi": "game-copy/ts3native.asi.float5catch-1109",
+      "iniBase": "game-copy/ts3native.ini.float5catch-1109",
+      "fixesBuild": "ts3fixes.package.float5catch-1109",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "5",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 45,
+      "pinReason": "pair float5catch-1109 (docs/data/builds.json), bugfix/float5-write-catch 742a995b",
+      "scriptErrorsMax": 0,
+      "ini": {
+        "UafCheck.Enabled": 1,
+        "UafCheck.DrArms": 0,
+        "UafCheck.TravelHold": 1,
+        "Float5Watch.DrSlots": 0,
+        "Float5Sticky.Enabled": 1,
+        "CasTrim.WriteTrap": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "Float5Watch.DrWatch": 0
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.234 ": 1,
+        "^uaf check on \\(": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": 100000,
+        "^float5 watch: WRITER DR\\d": 100000,
+        "^float5 portal: ": 100000,
+        "^float5 window: ": 100000,
+        "^uaf: write after free: .*value 0x40A00000": 100000
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.234 ": {
+          "match": [
+            "ts3native 0.36.234 2026-11-09 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.233 2026-11-09 13:00:00"
+          ]
+        },
+        "^uaf check on \\(": {
+          "match": [
+            "uaf check on (TEST-RUN TOOL, docs/539 §17): main heap [0x11CB864] blocks 64-4096 bytes"
+          ],
+          "noMatch": [
+            "uaf check off (no hook) (TEST-RUN TOOL, docs/539 §17): main heap"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": {
+          "match": [
+            "float5 sticky: write to 0x39E6FD2C value 0x40A00000 (float 5.0) eip 0x00606D07 (TS3W.exe+0x206D07) thread 57212 (main)"
+          ],
+          "noMatch": [
+            "float5 sticky: write to 0x39E6FD2C value 0xFEEEFEEE eip 0x6D0A1234 (ts3native.asi+0x1234) thread 1 (other)"
+          ]
+        },
+        "^float5 watch: WRITER DR\\d": {
+          "match": [
+            "float5 watch: WRITER DR2: slot 0x39E6FD2C value 0x40A00000 eip 0x00606D07"
+          ],
+          "noMatch": [
+            "float5 watch: write DR2: slot 0x39E6FD2C value 0x00000000 eip 0x00606D07"
+          ]
+        },
+        "^float5 portal: ": {
+          "match": [
+            "float5 portal: portal 0x336461E0 (vtable 0x00FED048): vector begin 0x40A00000 not a heap pointer; vector begin 0x40A00000 end 0x40A00038"
+          ],
+          "noMatch": [
+            "float5 portal check on (Portal_Save call 0x62AF81)"
+          ]
+        },
+        "^float5 window: ": {
+          "match": [
+            "float5 window: slot guard obj 0x336461E0 slot 0x3364623C bad (value 0x40A00000); last OK 812 ms ago at sweep"
+          ],
+          "noMatch": [
+            "float5 watch: sweeps 120, objects 4000"
+          ]
+        },
+        "^uaf: write after free: .*value 0x40A00000": {
+          "match": [
+            "uaf: write after free: block 0x39E6FCB0 size 0x190 (chunk 0x1A0), offset +0x7C value 0x40A00000 (float 5.0), 1 dword(s) changed"
+          ],
+          "noMatch": [
+            "uaf: write after free: block 0x828FD750 size 0x4C0 (chunk 0x4D0), offset +0xC0 value 0xFEEE00EE, 1 dword(s) changed"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-float5-catch-3",
+      "note": "[pair float5catch-1109b 0.36.235: watchpoint VEH owns dropped-slot hits; own ts3native writes silent except 0x40A00000] [est 22 min] float-5 writer catch 3/10 (Rodney 2026-11-09: short runs, repeat until it crashes; all features ON = release ini + detectors). Pair float5catch-1109 ts3native 0.36.234: [Float5Sticky] arms a DR write watch on the first float-5 address any detector reports (UafCheck write-after-free usually at world load #3-#5) and keeps it all session, so the next 5.0 write logs the writer eip + stack; [Float5Watch] sweep + rotating DR on new outfit/slot records; UafCheck with travel hold. DR budget: sticky only (Float5Watch DrWatch 0: catch-1 died of an unhandled single-step when our UafCheck fill hit a rotating DR), UafCheck DrArms 0, CasTrim WriteTrap 0. REPORT: every \"float5 sticky: write to ... value 0x40A00000\" line (writer eip/module/stack: THE answer), \"float5 watch: WRITER\", \"float5 window\", \"float5 portal\", uaf 0x40A00000 lines. 5 trips = 10 world loads (hits seen at loads #3-#9).",
+      "asi": "game-copy/ts3native.asi.float5catch-1109b",
+      "iniBase": "game-copy/ts3native.ini.float5catch-1109b",
+      "fixesBuild": "ts3fixes.package.float5catch-1109b",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "5",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 45,
+      "pinReason": "pair float5catch-1109b (docs/data/builds.json), bugfix/dr-own-write-safe aa439327",
+      "scriptErrorsMax": 0,
+      "ini": {
+        "UafCheck.Enabled": 1,
+        "UafCheck.DrArms": 0,
+        "UafCheck.TravelHold": 1,
+        "Float5Watch.DrSlots": 0,
+        "Float5Sticky.Enabled": 1,
+        "CasTrim.WriteTrap": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "Float5Watch.DrWatch": 0
+      },
+      "logRequire": {
+        "^uaf check on \\(": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3,
+        "^ts3native 0\\.36\\.235 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": 100000,
+        "^float5 watch: WRITER DR\\d": 100000,
+        "^float5 portal: ": 100000,
+        "^float5 window: ": 100000,
+        "^uaf: write after free: .*value 0x40A00000": 100000
+      },
+      "regexCases": {
+        "^uaf check on \\(": {
+          "match": [
+            "uaf check on (TEST-RUN TOOL, docs/539 §17): main heap [0x11CB864] blocks 64-4096 bytes"
+          ],
+          "noMatch": [
+            "uaf check off (no hook) (TEST-RUN TOOL, docs/539 §17): main heap"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": {
+          "match": [
+            "float5 sticky: write to 0x39E6FD2C value 0x40A00000 (float 5.0) eip 0x00606D07 (TS3W.exe+0x206D07) thread 57212 (main)"
+          ],
+          "noMatch": [
+            "float5 sticky: write to 0x39E6FD2C value 0xFEEEFEEE eip 0x6D0A1234 (ts3native.asi+0x1234) thread 1 (other)"
+          ]
+        },
+        "^float5 watch: WRITER DR\\d": {
+          "match": [
+            "float5 watch: WRITER DR2: slot 0x39E6FD2C value 0x40A00000 eip 0x00606D07"
+          ],
+          "noMatch": [
+            "float5 watch: write DR2: slot 0x39E6FD2C value 0x00000000 eip 0x00606D07"
+          ]
+        },
+        "^float5 portal: ": {
+          "match": [
+            "float5 portal: portal 0x336461E0 (vtable 0x00FED048): vector begin 0x40A00000 not a heap pointer; vector begin 0x40A00000 end 0x40A00038"
+          ],
+          "noMatch": [
+            "float5 portal check on (Portal_Save call 0x62AF81)"
+          ]
+        },
+        "^float5 window: ": {
+          "match": [
+            "float5 window: slot guard obj 0x336461E0 slot 0x3364623C bad (value 0x40A00000); last OK 812 ms ago at sweep"
+          ],
+          "noMatch": [
+            "float5 watch: sweeps 120, objects 4000"
+          ]
+        },
+        "^uaf: write after free: .*value 0x40A00000": {
+          "match": [
+            "uaf: write after free: block 0x39E6FCB0 size 0x190 (chunk 0x1A0), offset +0x7C value 0x40A00000 (float 5.0), 1 dword(s) changed"
+          ],
+          "noMatch": [
+            "uaf: write after free: block 0x828FD750 size 0x4C0 (chunk 0x4D0), offset +0xC0 value 0xFEEE00EE, 1 dword(s) changed"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^ts3native 0\\.36\\.235 ": {
+          "match": [
+            "ts3native 0.36.235 2026-11-09 15:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.234 2026-11-09 14:05:18"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-float5-catch-4",
+      "note": "[pair float5catch-1109b 0.36.235: watchpoint VEH owns dropped-slot hits; own ts3native writes silent except 0x40A00000] [est 22 min] float-5 writer catch 4/10 (Rodney 2026-11-09: short runs, repeat until it crashes; all features ON = release ini + detectors). Pair float5catch-1109 ts3native 0.36.234: [Float5Sticky] arms a DR write watch on the first float-5 address any detector reports (UafCheck write-after-free usually at world load #3-#5) and keeps it all session, so the next 5.0 write logs the writer eip + stack; [Float5Watch] sweep + rotating DR on new outfit/slot records; UafCheck with travel hold. DR budget: sticky only (Float5Watch DrWatch 0: catch-1 died of an unhandled single-step when our UafCheck fill hit a rotating DR), UafCheck DrArms 0, CasTrim WriteTrap 0. REPORT: every \"float5 sticky: write to ... value 0x40A00000\" line (writer eip/module/stack: THE answer), \"float5 watch: WRITER\", \"float5 window\", \"float5 portal\", uaf 0x40A00000 lines. 5 trips = 10 world loads (hits seen at loads #3-#9).",
+      "asi": "game-copy/ts3native.asi.float5catch-1109b",
+      "iniBase": "game-copy/ts3native.ini.float5catch-1109b",
+      "fixesBuild": "ts3fixes.package.float5catch-1109b",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "5",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 45,
+      "pinReason": "pair float5catch-1109b (docs/data/builds.json), bugfix/dr-own-write-safe aa439327",
+      "scriptErrorsMax": 0,
+      "ini": {
+        "UafCheck.Enabled": 1,
+        "UafCheck.DrArms": 0,
+        "UafCheck.TravelHold": 1,
+        "Float5Watch.DrSlots": 0,
+        "Float5Sticky.Enabled": 1,
+        "CasTrim.WriteTrap": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "Float5Watch.DrWatch": 0
+      },
+      "logRequire": {
+        "^uaf check on \\(": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3,
+        "^ts3native 0\\.36\\.235 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": 100000,
+        "^float5 watch: WRITER DR\\d": 100000,
+        "^float5 portal: ": 100000,
+        "^float5 window: ": 100000,
+        "^uaf: write after free: .*value 0x40A00000": 100000
+      },
+      "regexCases": {
+        "^uaf check on \\(": {
+          "match": [
+            "uaf check on (TEST-RUN TOOL, docs/539 §17): main heap [0x11CB864] blocks 64-4096 bytes"
+          ],
+          "noMatch": [
+            "uaf check off (no hook) (TEST-RUN TOOL, docs/539 §17): main heap"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": {
+          "match": [
+            "float5 sticky: write to 0x39E6FD2C value 0x40A00000 (float 5.0) eip 0x00606D07 (TS3W.exe+0x206D07) thread 57212 (main)"
+          ],
+          "noMatch": [
+            "float5 sticky: write to 0x39E6FD2C value 0xFEEEFEEE eip 0x6D0A1234 (ts3native.asi+0x1234) thread 1 (other)"
+          ]
+        },
+        "^float5 watch: WRITER DR\\d": {
+          "match": [
+            "float5 watch: WRITER DR2: slot 0x39E6FD2C value 0x40A00000 eip 0x00606D07"
+          ],
+          "noMatch": [
+            "float5 watch: write DR2: slot 0x39E6FD2C value 0x00000000 eip 0x00606D07"
+          ]
+        },
+        "^float5 portal: ": {
+          "match": [
+            "float5 portal: portal 0x336461E0 (vtable 0x00FED048): vector begin 0x40A00000 not a heap pointer; vector begin 0x40A00000 end 0x40A00038"
+          ],
+          "noMatch": [
+            "float5 portal check on (Portal_Save call 0x62AF81)"
+          ]
+        },
+        "^float5 window: ": {
+          "match": [
+            "float5 window: slot guard obj 0x336461E0 slot 0x3364623C bad (value 0x40A00000); last OK 812 ms ago at sweep"
+          ],
+          "noMatch": [
+            "float5 watch: sweeps 120, objects 4000"
+          ]
+        },
+        "^uaf: write after free: .*value 0x40A00000": {
+          "match": [
+            "uaf: write after free: block 0x39E6FCB0 size 0x190 (chunk 0x1A0), offset +0x7C value 0x40A00000 (float 5.0), 1 dword(s) changed"
+          ],
+          "noMatch": [
+            "uaf: write after free: block 0x828FD750 size 0x4C0 (chunk 0x4D0), offset +0xC0 value 0xFEEE00EE, 1 dword(s) changed"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^ts3native 0\\.36\\.235 ": {
+          "match": [
+            "ts3native 0.36.235 2026-11-09 15:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.234 2026-11-09 14:05:18"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-float5-catch-5",
+      "note": "[pair float5catch-1109b 0.36.235: watchpoint VEH owns dropped-slot hits; own ts3native writes silent except 0x40A00000] [est 22 min] float-5 writer catch 5/10 (Rodney 2026-11-09: short runs, repeat until it crashes; all features ON = release ini + detectors). Pair float5catch-1109 ts3native 0.36.234: [Float5Sticky] arms a DR write watch on the first float-5 address any detector reports (UafCheck write-after-free usually at world load #3-#5) and keeps it all session, so the next 5.0 write logs the writer eip + stack; [Float5Watch] sweep + rotating DR on new outfit/slot records; UafCheck with travel hold. DR budget: sticky only (Float5Watch DrWatch 0: catch-1 died of an unhandled single-step when our UafCheck fill hit a rotating DR), UafCheck DrArms 0, CasTrim WriteTrap 0. REPORT: every \"float5 sticky: write to ... value 0x40A00000\" line (writer eip/module/stack: THE answer), \"float5 watch: WRITER\", \"float5 window\", \"float5 portal\", uaf 0x40A00000 lines. 5 trips = 10 world loads (hits seen at loads #3-#9).",
+      "asi": "game-copy/ts3native.asi.float5catch-1109b",
+      "iniBase": "game-copy/ts3native.ini.float5catch-1109b",
+      "fixesBuild": "ts3fixes.package.float5catch-1109b",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "5",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 45,
+      "pinReason": "pair float5catch-1109b (docs/data/builds.json), bugfix/dr-own-write-safe aa439327",
+      "scriptErrorsMax": 0,
+      "ini": {
+        "UafCheck.Enabled": 1,
+        "UafCheck.DrArms": 0,
+        "UafCheck.TravelHold": 1,
+        "Float5Watch.DrSlots": 0,
+        "Float5Sticky.Enabled": 1,
+        "CasTrim.WriteTrap": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "Float5Watch.DrWatch": 0
+      },
+      "logRequire": {
+        "^uaf check on \\(": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3,
+        "^ts3native 0\\.36\\.235 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": 100000,
+        "^float5 watch: WRITER DR\\d": 100000,
+        "^float5 portal: ": 100000,
+        "^float5 window: ": 100000,
+        "^uaf: write after free: .*value 0x40A00000": 100000
+      },
+      "regexCases": {
+        "^uaf check on \\(": {
+          "match": [
+            "uaf check on (TEST-RUN TOOL, docs/539 §17): main heap [0x11CB864] blocks 64-4096 bytes"
+          ],
+          "noMatch": [
+            "uaf check off (no hook) (TEST-RUN TOOL, docs/539 §17): main heap"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": {
+          "match": [
+            "float5 sticky: write to 0x39E6FD2C value 0x40A00000 (float 5.0) eip 0x00606D07 (TS3W.exe+0x206D07) thread 57212 (main)"
+          ],
+          "noMatch": [
+            "float5 sticky: write to 0x39E6FD2C value 0xFEEEFEEE eip 0x6D0A1234 (ts3native.asi+0x1234) thread 1 (other)"
+          ]
+        },
+        "^float5 watch: WRITER DR\\d": {
+          "match": [
+            "float5 watch: WRITER DR2: slot 0x39E6FD2C value 0x40A00000 eip 0x00606D07"
+          ],
+          "noMatch": [
+            "float5 watch: write DR2: slot 0x39E6FD2C value 0x00000000 eip 0x00606D07"
+          ]
+        },
+        "^float5 portal: ": {
+          "match": [
+            "float5 portal: portal 0x336461E0 (vtable 0x00FED048): vector begin 0x40A00000 not a heap pointer; vector begin 0x40A00000 end 0x40A00038"
+          ],
+          "noMatch": [
+            "float5 portal check on (Portal_Save call 0x62AF81)"
+          ]
+        },
+        "^float5 window: ": {
+          "match": [
+            "float5 window: slot guard obj 0x336461E0 slot 0x3364623C bad (value 0x40A00000); last OK 812 ms ago at sweep"
+          ],
+          "noMatch": [
+            "float5 watch: sweeps 120, objects 4000"
+          ]
+        },
+        "^uaf: write after free: .*value 0x40A00000": {
+          "match": [
+            "uaf: write after free: block 0x39E6FCB0 size 0x190 (chunk 0x1A0), offset +0x7C value 0x40A00000 (float 5.0), 1 dword(s) changed"
+          ],
+          "noMatch": [
+            "uaf: write after free: block 0x828FD750 size 0x4C0 (chunk 0x4D0), offset +0xC0 value 0xFEEE00EE, 1 dword(s) changed"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^ts3native 0\\.36\\.235 ": {
+          "match": [
+            "ts3native 0.36.235 2026-11-09 15:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.234 2026-11-09 14:05:18"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-float5-catch-6",
+      "note": "[pair float5catch-1109b 0.36.235: watchpoint VEH owns dropped-slot hits; own ts3native writes silent except 0x40A00000] [est 22 min] float-5 writer catch 6/10 (Rodney 2026-11-09: short runs, repeat until it crashes; all features ON = release ini + detectors). Pair float5catch-1109 ts3native 0.36.234: [Float5Sticky] arms a DR write watch on the first float-5 address any detector reports (UafCheck write-after-free usually at world load #3-#5) and keeps it all session, so the next 5.0 write logs the writer eip + stack; [Float5Watch] sweep + rotating DR on new outfit/slot records; UafCheck with travel hold. DR budget: sticky only (Float5Watch DrWatch 0: catch-1 died of an unhandled single-step when our UafCheck fill hit a rotating DR), UafCheck DrArms 0, CasTrim WriteTrap 0. REPORT: every \"float5 sticky: write to ... value 0x40A00000\" line (writer eip/module/stack: THE answer), \"float5 watch: WRITER\", \"float5 window\", \"float5 portal\", uaf 0x40A00000 lines. 5 trips = 10 world loads (hits seen at loads #3-#9).",
+      "asi": "game-copy/ts3native.asi.float5catch-1109b",
+      "iniBase": "game-copy/ts3native.ini.float5catch-1109b",
+      "fixesBuild": "ts3fixes.package.float5catch-1109b",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "5",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 45,
+      "pinReason": "pair float5catch-1109b (docs/data/builds.json), bugfix/dr-own-write-safe aa439327",
+      "scriptErrorsMax": 0,
+      "ini": {
+        "UafCheck.Enabled": 1,
+        "UafCheck.DrArms": 0,
+        "UafCheck.TravelHold": 1,
+        "Float5Watch.DrSlots": 0,
+        "Float5Sticky.Enabled": 1,
+        "CasTrim.WriteTrap": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "Float5Watch.DrWatch": 0
+      },
+      "logRequire": {
+        "^uaf check on \\(": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3,
+        "^ts3native 0\\.36\\.235 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": 100000,
+        "^float5 watch: WRITER DR\\d": 100000,
+        "^float5 portal: ": 100000,
+        "^float5 window: ": 100000,
+        "^uaf: write after free: .*value 0x40A00000": 100000
+      },
+      "regexCases": {
+        "^uaf check on \\(": {
+          "match": [
+            "uaf check on (TEST-RUN TOOL, docs/539 §17): main heap [0x11CB864] blocks 64-4096 bytes"
+          ],
+          "noMatch": [
+            "uaf check off (no hook) (TEST-RUN TOOL, docs/539 §17): main heap"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": {
+          "match": [
+            "float5 sticky: write to 0x39E6FD2C value 0x40A00000 (float 5.0) eip 0x00606D07 (TS3W.exe+0x206D07) thread 57212 (main)"
+          ],
+          "noMatch": [
+            "float5 sticky: write to 0x39E6FD2C value 0xFEEEFEEE eip 0x6D0A1234 (ts3native.asi+0x1234) thread 1 (other)"
+          ]
+        },
+        "^float5 watch: WRITER DR\\d": {
+          "match": [
+            "float5 watch: WRITER DR2: slot 0x39E6FD2C value 0x40A00000 eip 0x00606D07"
+          ],
+          "noMatch": [
+            "float5 watch: write DR2: slot 0x39E6FD2C value 0x00000000 eip 0x00606D07"
+          ]
+        },
+        "^float5 portal: ": {
+          "match": [
+            "float5 portal: portal 0x336461E0 (vtable 0x00FED048): vector begin 0x40A00000 not a heap pointer; vector begin 0x40A00000 end 0x40A00038"
+          ],
+          "noMatch": [
+            "float5 portal check on (Portal_Save call 0x62AF81)"
+          ]
+        },
+        "^float5 window: ": {
+          "match": [
+            "float5 window: slot guard obj 0x336461E0 slot 0x3364623C bad (value 0x40A00000); last OK 812 ms ago at sweep"
+          ],
+          "noMatch": [
+            "float5 watch: sweeps 120, objects 4000"
+          ]
+        },
+        "^uaf: write after free: .*value 0x40A00000": {
+          "match": [
+            "uaf: write after free: block 0x39E6FCB0 size 0x190 (chunk 0x1A0), offset +0x7C value 0x40A00000 (float 5.0), 1 dword(s) changed"
+          ],
+          "noMatch": [
+            "uaf: write after free: block 0x828FD750 size 0x4C0 (chunk 0x4D0), offset +0xC0 value 0xFEEE00EE, 1 dword(s) changed"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^ts3native 0\\.36\\.235 ": {
+          "match": [
+            "ts3native 0.36.235 2026-11-09 15:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.234 2026-11-09 14:05:18"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-float5-catch-7",
+      "note": "[pair float5catch-1109b 0.36.235: watchpoint VEH owns dropped-slot hits; own ts3native writes silent except 0x40A00000] [est 22 min] float-5 writer catch 7/10 (Rodney 2026-11-09: short runs, repeat until it crashes; all features ON = release ini + detectors). Pair float5catch-1109 ts3native 0.36.234: [Float5Sticky] arms a DR write watch on the first float-5 address any detector reports (UafCheck write-after-free usually at world load #3-#5) and keeps it all session, so the next 5.0 write logs the writer eip + stack; [Float5Watch] sweep + rotating DR on new outfit/slot records; UafCheck with travel hold. DR budget: sticky only (Float5Watch DrWatch 0: catch-1 died of an unhandled single-step when our UafCheck fill hit a rotating DR), UafCheck DrArms 0, CasTrim WriteTrap 0. REPORT: every \"float5 sticky: write to ... value 0x40A00000\" line (writer eip/module/stack: THE answer), \"float5 watch: WRITER\", \"float5 window\", \"float5 portal\", uaf 0x40A00000 lines. 5 trips = 10 world loads (hits seen at loads #3-#9).",
+      "asi": "game-copy/ts3native.asi.float5catch-1109b",
+      "iniBase": "game-copy/ts3native.ini.float5catch-1109b",
+      "fixesBuild": "ts3fixes.package.float5catch-1109b",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "5",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 45,
+      "pinReason": "pair float5catch-1109b (docs/data/builds.json), bugfix/dr-own-write-safe aa439327",
+      "scriptErrorsMax": 0,
+      "ini": {
+        "UafCheck.Enabled": 1,
+        "UafCheck.DrArms": 0,
+        "UafCheck.TravelHold": 1,
+        "Float5Watch.DrSlots": 0,
+        "Float5Sticky.Enabled": 1,
+        "CasTrim.WriteTrap": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "Float5Watch.DrWatch": 0
+      },
+      "logRequire": {
+        "^uaf check on \\(": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3,
+        "^ts3native 0\\.36\\.235 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": 100000,
+        "^float5 watch: WRITER DR\\d": 100000,
+        "^float5 portal: ": 100000,
+        "^float5 window: ": 100000,
+        "^uaf: write after free: .*value 0x40A00000": 100000
+      },
+      "regexCases": {
+        "^uaf check on \\(": {
+          "match": [
+            "uaf check on (TEST-RUN TOOL, docs/539 §17): main heap [0x11CB864] blocks 64-4096 bytes"
+          ],
+          "noMatch": [
+            "uaf check off (no hook) (TEST-RUN TOOL, docs/539 §17): main heap"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": {
+          "match": [
+            "float5 sticky: write to 0x39E6FD2C value 0x40A00000 (float 5.0) eip 0x00606D07 (TS3W.exe+0x206D07) thread 57212 (main)"
+          ],
+          "noMatch": [
+            "float5 sticky: write to 0x39E6FD2C value 0xFEEEFEEE eip 0x6D0A1234 (ts3native.asi+0x1234) thread 1 (other)"
+          ]
+        },
+        "^float5 watch: WRITER DR\\d": {
+          "match": [
+            "float5 watch: WRITER DR2: slot 0x39E6FD2C value 0x40A00000 eip 0x00606D07"
+          ],
+          "noMatch": [
+            "float5 watch: write DR2: slot 0x39E6FD2C value 0x00000000 eip 0x00606D07"
+          ]
+        },
+        "^float5 portal: ": {
+          "match": [
+            "float5 portal: portal 0x336461E0 (vtable 0x00FED048): vector begin 0x40A00000 not a heap pointer; vector begin 0x40A00000 end 0x40A00038"
+          ],
+          "noMatch": [
+            "float5 portal check on (Portal_Save call 0x62AF81)"
+          ]
+        },
+        "^float5 window: ": {
+          "match": [
+            "float5 window: slot guard obj 0x336461E0 slot 0x3364623C bad (value 0x40A00000); last OK 812 ms ago at sweep"
+          ],
+          "noMatch": [
+            "float5 watch: sweeps 120, objects 4000"
+          ]
+        },
+        "^uaf: write after free: .*value 0x40A00000": {
+          "match": [
+            "uaf: write after free: block 0x39E6FCB0 size 0x190 (chunk 0x1A0), offset +0x7C value 0x40A00000 (float 5.0), 1 dword(s) changed"
+          ],
+          "noMatch": [
+            "uaf: write after free: block 0x828FD750 size 0x4C0 (chunk 0x4D0), offset +0xC0 value 0xFEEE00EE, 1 dword(s) changed"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^ts3native 0\\.36\\.235 ": {
+          "match": [
+            "ts3native 0.36.235 2026-11-09 15:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.234 2026-11-09 14:05:18"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-float5-catch-8",
+      "note": "[pair float5catch-1109b 0.36.235: watchpoint VEH owns dropped-slot hits; own ts3native writes silent except 0x40A00000] [est 22 min] float-5 writer catch 8/10 (Rodney 2026-11-09: short runs, repeat until it crashes; all features ON = release ini + detectors). Pair float5catch-1109 ts3native 0.36.234: [Float5Sticky] arms a DR write watch on the first float-5 address any detector reports (UafCheck write-after-free usually at world load #3-#5) and keeps it all session, so the next 5.0 write logs the writer eip + stack; [Float5Watch] sweep + rotating DR on new outfit/slot records; UafCheck with travel hold. DR budget: sticky only (Float5Watch DrWatch 0: catch-1 died of an unhandled single-step when our UafCheck fill hit a rotating DR), UafCheck DrArms 0, CasTrim WriteTrap 0. REPORT: every \"float5 sticky: write to ... value 0x40A00000\" line (writer eip/module/stack: THE answer), \"float5 watch: WRITER\", \"float5 window\", \"float5 portal\", uaf 0x40A00000 lines. 5 trips = 10 world loads (hits seen at loads #3-#9).",
+      "asi": "game-copy/ts3native.asi.float5catch-1109b",
+      "iniBase": "game-copy/ts3native.ini.float5catch-1109b",
+      "fixesBuild": "ts3fixes.package.float5catch-1109b",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "5",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 45,
+      "pinReason": "pair float5catch-1109b (docs/data/builds.json), bugfix/dr-own-write-safe aa439327",
+      "scriptErrorsMax": 0,
+      "ini": {
+        "UafCheck.Enabled": 1,
+        "UafCheck.DrArms": 0,
+        "UafCheck.TravelHold": 1,
+        "Float5Watch.DrSlots": 0,
+        "Float5Sticky.Enabled": 1,
+        "CasTrim.WriteTrap": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "Float5Watch.DrWatch": 0
+      },
+      "logRequire": {
+        "^uaf check on \\(": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3,
+        "^ts3native 0\\.36\\.235 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": 100000,
+        "^float5 watch: WRITER DR\\d": 100000,
+        "^float5 portal: ": 100000,
+        "^float5 window: ": 100000,
+        "^uaf: write after free: .*value 0x40A00000": 100000
+      },
+      "regexCases": {
+        "^uaf check on \\(": {
+          "match": [
+            "uaf check on (TEST-RUN TOOL, docs/539 §17): main heap [0x11CB864] blocks 64-4096 bytes"
+          ],
+          "noMatch": [
+            "uaf check off (no hook) (TEST-RUN TOOL, docs/539 §17): main heap"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": {
+          "match": [
+            "float5 sticky: write to 0x39E6FD2C value 0x40A00000 (float 5.0) eip 0x00606D07 (TS3W.exe+0x206D07) thread 57212 (main)"
+          ],
+          "noMatch": [
+            "float5 sticky: write to 0x39E6FD2C value 0xFEEEFEEE eip 0x6D0A1234 (ts3native.asi+0x1234) thread 1 (other)"
+          ]
+        },
+        "^float5 watch: WRITER DR\\d": {
+          "match": [
+            "float5 watch: WRITER DR2: slot 0x39E6FD2C value 0x40A00000 eip 0x00606D07"
+          ],
+          "noMatch": [
+            "float5 watch: write DR2: slot 0x39E6FD2C value 0x00000000 eip 0x00606D07"
+          ]
+        },
+        "^float5 portal: ": {
+          "match": [
+            "float5 portal: portal 0x336461E0 (vtable 0x00FED048): vector begin 0x40A00000 not a heap pointer; vector begin 0x40A00000 end 0x40A00038"
+          ],
+          "noMatch": [
+            "float5 portal check on (Portal_Save call 0x62AF81)"
+          ]
+        },
+        "^float5 window: ": {
+          "match": [
+            "float5 window: slot guard obj 0x336461E0 slot 0x3364623C bad (value 0x40A00000); last OK 812 ms ago at sweep"
+          ],
+          "noMatch": [
+            "float5 watch: sweeps 120, objects 4000"
+          ]
+        },
+        "^uaf: write after free: .*value 0x40A00000": {
+          "match": [
+            "uaf: write after free: block 0x39E6FCB0 size 0x190 (chunk 0x1A0), offset +0x7C value 0x40A00000 (float 5.0), 1 dword(s) changed"
+          ],
+          "noMatch": [
+            "uaf: write after free: block 0x828FD750 size 0x4C0 (chunk 0x4D0), offset +0xC0 value 0xFEEE00EE, 1 dword(s) changed"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^ts3native 0\\.36\\.235 ": {
+          "match": [
+            "ts3native 0.36.235 2026-11-09 15:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.234 2026-11-09 14:05:18"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-float5-catch-9",
+      "note": "[pair float5catch-1109b 0.36.235: watchpoint VEH owns dropped-slot hits; own ts3native writes silent except 0x40A00000] [est 22 min] float-5 writer catch 9/10 (Rodney 2026-11-09: short runs, repeat until it crashes; all features ON = release ini + detectors). Pair float5catch-1109 ts3native 0.36.234: [Float5Sticky] arms a DR write watch on the first float-5 address any detector reports (UafCheck write-after-free usually at world load #3-#5) and keeps it all session, so the next 5.0 write logs the writer eip + stack; [Float5Watch] sweep + rotating DR on new outfit/slot records; UafCheck with travel hold. DR budget: sticky only (Float5Watch DrWatch 0: catch-1 died of an unhandled single-step when our UafCheck fill hit a rotating DR), UafCheck DrArms 0, CasTrim WriteTrap 0. REPORT: every \"float5 sticky: write to ... value 0x40A00000\" line (writer eip/module/stack: THE answer), \"float5 watch: WRITER\", \"float5 window\", \"float5 portal\", uaf 0x40A00000 lines. 5 trips = 10 world loads (hits seen at loads #3-#9).",
+      "asi": "game-copy/ts3native.asi.float5catch-1109b",
+      "iniBase": "game-copy/ts3native.ini.float5catch-1109b",
+      "fixesBuild": "ts3fixes.package.float5catch-1109b",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "5",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 45,
+      "pinReason": "pair float5catch-1109b (docs/data/builds.json), bugfix/dr-own-write-safe aa439327",
+      "scriptErrorsMax": 0,
+      "ini": {
+        "UafCheck.Enabled": 1,
+        "UafCheck.DrArms": 0,
+        "UafCheck.TravelHold": 1,
+        "Float5Watch.DrSlots": 0,
+        "Float5Sticky.Enabled": 1,
+        "CasTrim.WriteTrap": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "Float5Watch.DrWatch": 0
+      },
+      "logRequire": {
+        "^uaf check on \\(": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3,
+        "^ts3native 0\\.36\\.235 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": 100000,
+        "^float5 watch: WRITER DR\\d": 100000,
+        "^float5 portal: ": 100000,
+        "^float5 window: ": 100000,
+        "^uaf: write after free: .*value 0x40A00000": 100000
+      },
+      "regexCases": {
+        "^uaf check on \\(": {
+          "match": [
+            "uaf check on (TEST-RUN TOOL, docs/539 §17): main heap [0x11CB864] blocks 64-4096 bytes"
+          ],
+          "noMatch": [
+            "uaf check off (no hook) (TEST-RUN TOOL, docs/539 §17): main heap"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": {
+          "match": [
+            "float5 sticky: write to 0x39E6FD2C value 0x40A00000 (float 5.0) eip 0x00606D07 (TS3W.exe+0x206D07) thread 57212 (main)"
+          ],
+          "noMatch": [
+            "float5 sticky: write to 0x39E6FD2C value 0xFEEEFEEE eip 0x6D0A1234 (ts3native.asi+0x1234) thread 1 (other)"
+          ]
+        },
+        "^float5 watch: WRITER DR\\d": {
+          "match": [
+            "float5 watch: WRITER DR2: slot 0x39E6FD2C value 0x40A00000 eip 0x00606D07"
+          ],
+          "noMatch": [
+            "float5 watch: write DR2: slot 0x39E6FD2C value 0x00000000 eip 0x00606D07"
+          ]
+        },
+        "^float5 portal: ": {
+          "match": [
+            "float5 portal: portal 0x336461E0 (vtable 0x00FED048): vector begin 0x40A00000 not a heap pointer; vector begin 0x40A00000 end 0x40A00038"
+          ],
+          "noMatch": [
+            "float5 portal check on (Portal_Save call 0x62AF81)"
+          ]
+        },
+        "^float5 window: ": {
+          "match": [
+            "float5 window: slot guard obj 0x336461E0 slot 0x3364623C bad (value 0x40A00000); last OK 812 ms ago at sweep"
+          ],
+          "noMatch": [
+            "float5 watch: sweeps 120, objects 4000"
+          ]
+        },
+        "^uaf: write after free: .*value 0x40A00000": {
+          "match": [
+            "uaf: write after free: block 0x39E6FCB0 size 0x190 (chunk 0x1A0), offset +0x7C value 0x40A00000 (float 5.0), 1 dword(s) changed"
+          ],
+          "noMatch": [
+            "uaf: write after free: block 0x828FD750 size 0x4C0 (chunk 0x4D0), offset +0xC0 value 0xFEEE00EE, 1 dword(s) changed"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^ts3native 0\\.36\\.235 ": {
+          "match": [
+            "ts3native 0.36.235 2026-11-09 15:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.234 2026-11-09 14:05:18"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-float5-catch-10",
+      "note": "[pair float5catch-1109b 0.36.235: watchpoint VEH owns dropped-slot hits; own ts3native writes silent except 0x40A00000] [est 22 min] float-5 writer catch 10/10 (Rodney 2026-11-09: short runs, repeat until it crashes; all features ON = release ini + detectors). Pair float5catch-1109 ts3native 0.36.234: [Float5Sticky] arms a DR write watch on the first float-5 address any detector reports (UafCheck write-after-free usually at world load #3-#5) and keeps it all session, so the next 5.0 write logs the writer eip + stack; [Float5Watch] sweep + rotating DR on new outfit/slot records; UafCheck with travel hold. DR budget: sticky only (Float5Watch DrWatch 0: catch-1 died of an unhandled single-step when our UafCheck fill hit a rotating DR), UafCheck DrArms 0, CasTrim WriteTrap 0. REPORT: every \"float5 sticky: write to ... value 0x40A00000\" line (writer eip/module/stack: THE answer), \"float5 watch: WRITER\", \"float5 window\", \"float5 portal\", uaf 0x40A00000 lines. 5 trips = 10 world loads (hits seen at loads #3-#9).",
+      "asi": "game-copy/ts3native.asi.float5catch-1109b",
+      "iniBase": "game-copy/ts3native.ini.float5catch-1109b",
+      "fixesBuild": "ts3fixes.package.float5catch-1109b",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "5",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 45,
+      "pinReason": "pair float5catch-1109b (docs/data/builds.json), bugfix/dr-own-write-safe aa439327",
+      "scriptErrorsMax": 0,
+      "ini": {
+        "UafCheck.Enabled": 1,
+        "UafCheck.DrArms": 0,
+        "UafCheck.TravelHold": 1,
+        "Float5Watch.DrSlots": 0,
+        "Float5Sticky.Enabled": 1,
+        "CasTrim.WriteTrap": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "Float5Watch.DrWatch": 0
+      },
+      "logRequire": {
+        "^uaf check on \\(": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3,
+        "^ts3native 0\\.36\\.235 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": 100000,
+        "^float5 watch: WRITER DR\\d": 100000,
+        "^float5 portal: ": 100000,
+        "^float5 window: ": 100000,
+        "^uaf: write after free: .*value 0x40A00000": 100000
+      },
+      "regexCases": {
+        "^uaf check on \\(": {
+          "match": [
+            "uaf check on (TEST-RUN TOOL, docs/539 §17): main heap [0x11CB864] blocks 64-4096 bytes"
+          ],
+          "noMatch": [
+            "uaf check off (no hook) (TEST-RUN TOOL, docs/539 §17): main heap"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000": {
+          "match": [
+            "float5 sticky: write to 0x39E6FD2C value 0x40A00000 (float 5.0) eip 0x00606D07 (TS3W.exe+0x206D07) thread 57212 (main)"
+          ],
+          "noMatch": [
+            "float5 sticky: write to 0x39E6FD2C value 0xFEEEFEEE eip 0x6D0A1234 (ts3native.asi+0x1234) thread 1 (other)"
+          ]
+        },
+        "^float5 watch: WRITER DR\\d": {
+          "match": [
+            "float5 watch: WRITER DR2: slot 0x39E6FD2C value 0x40A00000 eip 0x00606D07"
+          ],
+          "noMatch": [
+            "float5 watch: write DR2: slot 0x39E6FD2C value 0x00000000 eip 0x00606D07"
+          ]
+        },
+        "^float5 portal: ": {
+          "match": [
+            "float5 portal: portal 0x336461E0 (vtable 0x00FED048): vector begin 0x40A00000 not a heap pointer; vector begin 0x40A00000 end 0x40A00038"
+          ],
+          "noMatch": [
+            "float5 portal check on (Portal_Save call 0x62AF81)"
+          ]
+        },
+        "^float5 window: ": {
+          "match": [
+            "float5 window: slot guard obj 0x336461E0 slot 0x3364623C bad (value 0x40A00000); last OK 812 ms ago at sweep"
+          ],
+          "noMatch": [
+            "float5 watch: sweeps 120, objects 4000"
+          ]
+        },
+        "^uaf: write after free: .*value 0x40A00000": {
+          "match": [
+            "uaf: write after free: block 0x39E6FCB0 size 0x190 (chunk 0x1A0), offset +0x7C value 0x40A00000 (float 5.0), 1 dword(s) changed"
+          ],
+          "noMatch": [
+            "uaf: write after free: block 0x828FD750 size 0x4C0 (chunk 0x4D0), offset +0xC0 value 0xFEEE00EE, 1 dword(s) changed"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^ts3native 0\\.36\\.235 ": {
+          "match": [
+            "ts3native 0.36.235 2026-11-09 15:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.234 2026-11-09 14:05:18"
+          ]
+        }
+      }
+    }
+  ]
+}

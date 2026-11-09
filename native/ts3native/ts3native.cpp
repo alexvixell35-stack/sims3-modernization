@@ -17,7 +17,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.233"  // float5mono-1109b: 0.36.232 + [Float5Free] range rule (a 0x40A00000..0x40A0FFFF pointer is bad only with an unreadable / freed / zero-size chunk header; in-use blocks there pass, docs/539 §19.1), [MonoSigGuard] lines only for param_count 0 (docs/539 §20); 0.36.232 = float5mono-1109: 0.36.231 + [MonoSigGuard] (docs/539 §20, EA bug: 0xD70F90 read params[0] of a zero-parameter delegate signature (SwapLoadScreen) before its param_count check; release ini on); 0.36.231 = float5free-1109: 0.36.230 + [Float5Free] (docs/539 §19, float-5 pointers at EA Free 0x4E5920 sharing [UafCheck]'s detour, SACS Walker deque dtor 0x727E10 check, Guard skips); 0.36.230 = float5slot-1109: 0.36.229 + [SlotGuard] (docs/539 §18, SlotComponent slot arrays at clear / load / clone), [UafCheck] Object blocks (ObjectService free 0x935E1B, ObjectMaxSize, Object id) and foreign-jmp refusal, AsDetourCore NULL trampoline fix (UafCheck without AllocSites crashed at load); 0.36.229 = float5uaf-1109b: 0.36.228 + [UafCheck] free tags (uaftag.h: which of our paths freed a quarantined block), recently-freed ring, float5 near-our-free lookups, P5c released ring 64 -> 4096; 0.36.228 = float5uaf-1109: 0.36.227 + docs/539 §17 [UafCheck] delayed-free quarantine (counters v183 uaf*); 0.36.227 = float5trap-1109: 0.36.226 (master1109c) + docs/539 §16 [CasTrim] WriteTrap (DR write watches on [outfit+0xBC] cells, counters v181 tr*)
+#define TS3NATIVE_VERSION "0.36.236"  // s3ssguard-1109: 0.36.235 + docs/539 §22 [S3SSCompat] StaleWriteGuard (S3SS 1.6.3 SafeReassert call retargeted: its stale camera-threshold write goes to the live WorldManager+0xEC, not freed heap; stands aside for other S3SS builds); 0.36.235 = float5catch-1109b: 0.36.234 + docs/539 §21 DR own-write safety (WpVeh takes a hit on an address its slot just dropped and rewrites the thread's DRs to the slot table, ts3native-eip hits counted not handed on unless float 5, nested hits counted; bp-float5-catch-1 died of a declined single-step from our UafCheck fill under a rotating Float5Watch DR); 0.36.234 = float5catch-1109: 0.36.233 + docs/539 §21 [Float5Sticky] (DR write watch kept on the first float-5 address all session, save / world load checks, Portal_Save portal vector check), [Float5Watch] (last-OK windows, 250 ms sweep of outfits / SlotComponents, DR watches on the newest records around travel), [UafCheck] TravelHold; 0.36.233 = float5mono-1109b: 0.36.232 + [Float5Free] range rule (a 0x40A00000..0x40A0FFFF pointer is bad only with an unreadable / freed / zero-size chunk header; in-use blocks there pass, docs/539 §19.1), [MonoSigGuard] lines only for param_count 0 (docs/539 §20); 0.36.232 = float5mono-1109: 0.36.231 + [MonoSigGuard] (docs/539 §20, EA bug: 0xD70F90 read params[0] of a zero-parameter delegate signature (SwapLoadScreen) before its param_count check; release ini on); 0.36.231 = float5free-1109: 0.36.230 + [Float5Free] (docs/539 §19, float-5 pointers at EA Free 0x4E5920 sharing [UafCheck]'s detour, SACS Walker deque dtor 0x727E10 check, Guard skips); 0.36.230 = float5slot-1109: 0.36.229 + [SlotGuard] (docs/539 §18, SlotComponent slot arrays at clear / load / clone), [UafCheck] Object blocks (ObjectService free 0x935E1B, ObjectMaxSize, Object id) and foreign-jmp refusal, AsDetourCore NULL trampoline fix (UafCheck without AllocSites crashed at load); 0.36.229 = float5uaf-1109b: 0.36.228 + [UafCheck] free tags (uaftag.h: which of our paths freed a quarantined block), recently-freed ring, float5 near-our-free lookups, P5c released ring 64 -> 4096; 0.36.228 = float5uaf-1109: 0.36.227 + docs/539 §17 [UafCheck] delayed-free quarantine (counters v183 uaf*); 0.36.227 = float5trap-1109: 0.36.226 (master1109c) + docs/539 §16 [CasTrim] WriteTrap (DR write watches on [outfit+0xBC] cells, counters v181 tr*)
 #endif
 
 typedef unsigned char u8;
@@ -5189,6 +5189,15 @@ static void UdPhase(const char* phase);  // a save phase starts (NULL = the save
 static void UdWait(const char* what);    // a wait inside the phase starts (NULL = it ended): watchdog text, long-wait line
 static void UdSaveStart(int travelSave, int traveling);
 static void UdSaveEnd(DWORD r);
+// f5watch.cpp (docs/539 §21, [Float5Sticky] / [Float5Watch]): float-5 notes from the detectors (castrim, slotguard, float5free,
+// uafcheck) and the save / world events from userdiag.cpp. No-ops while both sections are off.
+enum : u8 { F5K_NOTE, F5K_OUTFIT, F5K_SLOT };
+static void F5wEvent(const char* what, LONG n);                            // "save start", "travel save start", "save end", "world quit", "world load"
+static bool F5wOk(DWORD obj, u8 kind, const char* site, bool cand = false);  // obj read clean at site; true = newly registered
+static void F5wGone(DWORD obj);                                            // obj torn down
+static void F5wBad(const char* site, DWORD obj, DWORD slot, DWORD val);   // a float-5 hit: window line, sticky note
+static void F5wOutfit(const u8* outfit, bool clean, const char* site, bool cand);
+static void F5sNote(DWORD addr, const char* site);                         // [Float5Sticky]: the first float-5 address gets the watch
 static void UdInfoDir(const unsigned char* info);  // the save folder from the save info (sized after the save)
 // saveslim.cpp ([SaveSlim], docs/15 phase 11): the save hooks note the saved folder, start the worker and wait for it
 static void SlimNote(const unsigned char* info);
@@ -5346,7 +5355,9 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "uafcheck.cpp"    // docs/539 §17: [UafCheck] delayed-free quarantine, TEST-RUN TOOL (needs allocsites.cpp, watchpt.cpp, userdiag.cpp)
 #include "slotguard.cpp"   // docs/539 §18: [SlotGuard] float-5 SlotComponent slot arrays, CRASH-TRIAGE (needs uafcheck.cpp, castrim.cpp)
 #include "float5free.cpp"  // docs/539 §19: [Float5Free] float-5 pointers at EA Free / deque dtor 0x727E10, CRASH-TRIAGE (needs uafcheck.cpp, slotguard.cpp)
+#include "f5watch.cpp"     // docs/539 §21: [Float5Sticky] / [Float5Watch] float-5 writer catch, CRASH-TRIAGE (needs uafcheck, slotguard, float5free, watchpt, crashev)
 #include "monosig.cpp"     // docs/539 §20: [MonoSigGuard] EA bug, delegate signature param_count before params[0] at 0xD70F90 (release ini on)
+#include "s3sscompat.cpp"  // docs/539 §22: [S3SSCompat] StaleWriteGuard, S3SS 1.6.3 stale camera-threshold write (after crashreport.cpp: CrFileSha; release ini on)
 #include "eafix.cpp"       // docs/67 §26.4 / §27.5 / §28: [EaCrashFixes] ConformActor, ThumbPose, GeomBoneIndex (needs footprint.cpp's FpCallOk / FpRedirect)
 #include "pkglock.cpp"     // docs/539 §13.9: [PkgLock] EA package-lock ABBA (after routegate.cpp: LockReleaseFn), off by default
 #include "wastar.cpp"      // docs/67 §30: [EaCrashFixes] WorldAStarRefs
@@ -5474,7 +5485,9 @@ static void Run(HMODULE self) {
         keepLog = ApplyUafCheck(ini) || keepLog;  // docs/539 §17 (off): after [MemDiag] AllocSites (chains its Free jmp)
         keepLog = ApplySlotGuard(ini) || keepLog;  // docs/539 §18 (off): float-5 site 0x951A00
         keepLog = ApplyFloat5Free(ini) || keepLog;  // docs/539 §19 (off): after [UafCheck] (shares its EA Free detour)
+        keepLog = ApplyFloat5Watch(ini) || keepLog;  // docs/539 §21 (off): [Float5Sticky], [Float5Watch]
         keepLog = ApplyMonoSigGuard(ini) || keepLog;  // docs/539 §20 (EA bug fix, default on): before Mono starts
+        keepLog = ApplyS3ssCompat(ini) || keepLog;  // docs/539 §22 (default on): S3SS 1.6.3 stale maintained write, stands aside for other S3SS builds
         keepLog = ApplyIcLockCheck(ini) || keepLog;
         keepLog = ApplyMonoThread(ini) || keepLog;
         keepLog = ApplyArenaGuard(ini) || keepLog;  // docs/67 §22.2: after [MonoThread] (skips when its P3 owns the arena sites)

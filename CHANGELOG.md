@@ -13,6 +13,7 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ### Fixed
 
+- **Crash after travelling/changing worlds with S3SS 1.6.3 LotStreamingOptimizations streamingSettings: ts3native now redirects S3SS's stale camera-threshold write; stands aside for other S3SS versions (`[S3SSCompat] StaleWriteGuard`, on).** Sims 3 Settings Setter 1.6.3 remembers where the camera speed threshold lives at the first world load and writes 5.0 there again at every later world load, after the game has freed and reused that memory. The plugin now sends that write to the current setting instead (S3SS's setting keeps working), only for the known S3SS 1.6.3 build; any other S3SS version is left alone.
 - **Fixed a rare crash on loading screens (EA bug, `[MonoSigGuard]`, on).** When a loading screen stayed up longer than 2 seconds (travel, world load), the game read one value past the end of a small block of memory while starting the next loading picture, and crashed if that value happened to be garbage. Seen twice in test runs right after travel. The plugin now checks first, so the game gives the same answer it always did without the bad read.
 
 - **Fixed a rare crash when the game frees a Sim's outfit (EA bug).** Seen once in a test run right after a vacation trip; an outfit kept a broken entry that the game then tried to free. The plugin now skips such an entry (a few bytes stay in memory) and writes a line to `ts3native.log`. If you see a `cell guard skipped` line there, please send us the log.

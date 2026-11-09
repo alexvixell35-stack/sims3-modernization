@@ -12790,7 +12790,9 @@ static void TestP5() {
 #include "uafcheck-test.h"  // TestUafCheck ([UafCheck], docs/539 §17)
 #include "slotguard-test.h"  // TestSlotGuard ([SlotGuard], [UafCheck] Object frees, docs/539 §18)
 #include "float5free-test.h"  // TestFloat5Free ([Float5Free], docs/539 §19)
+#include "f5watch-test.h"  // TestFloat5Watch ([Float5Sticky], [Float5Watch], [UafCheck] TravelHold, docs/539 §21)
 #include "monosig-test.h"     // TestMonoSigGuard ([MonoSigGuard], docs/539 §20)
+#include "s3sscompat-test.h"  // TestS3ssCompat ([S3SSCompat] StaleWriteGuard, docs/539 §22)
 #include "pkglock-test.h"  // TestPkgLock ([PkgLock], docs/539 §13.9)
 #include "eafix-test.h"   // TestEaCrashFixes ([EaCrashFixes] ConformActor + ThumbPose, docs/67 §26.4 / §27.5)
 #include "wastar-test.h"  // TestWorldAStarRefs ([EaCrashFixes] WorldAStarRefs, docs/67 §30)
@@ -14211,7 +14213,9 @@ int main() {
     TestUafCheck();  // docs/539 §17
     TestSlotGuard();  // docs/539 §18
     TestFloat5Free();  // docs/539 §19
+    TestFloat5Watch();  // docs/539 §21
     TestMonoSigGuard();  // docs/539 §20
+    TestS3ssCompat();  // docs/539 §22
     TestEaCrashFixes();
     TestPkgLock();
     TestWorldAStarRefs();

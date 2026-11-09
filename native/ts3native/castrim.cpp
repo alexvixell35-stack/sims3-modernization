@@ -506,6 +506,14 @@ static void CtF5(int path, const u8* node, const u8* outfit, int arr, LONG ri, i
         UafNearLog(cells ? (DWORD)(uintptr_t)(cells + i) : (DWORD)(uintptr_t)rec, cells ? "outfit cell" : "outfit record");
         if (cells && rec) UafNearLog((DWORD)(uintptr_t)rec, "outfit record");
         UafNearLog((DWORD)(uintptr_t)outfit, "outfit");
+        char site[112];  // docs/539 §21 [Float5Watch] window line, [Float5Sticky] address
+        DWORD at = cells ? (DWORD)(uintptr_t)(cells + i) : 0;
+        if (cells) sprintf_s(site, "%s: outfit cell [+0xBC] entry %d of %d", kCtPath[path], i, n);
+        else {
+            __try { at = *(const DWORD*)(rec + arr) + 4 * (DWORD)i; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+            sprintf_s(site, "%s: outfit record %ld array +0x%X slot %d", kCtPath[path], ri, arr, i);
+        }
+        F5wBad(site, (DWORD)(uintptr_t)outfit, at, v);
     }
     if (InterlockedIncrement(&g_ctF5Logs) > 20) return;
     char ctx[300], gone[160], sl[160], b[0x68 * 3 + 4] = "unreadable";
@@ -789,8 +797,10 @@ static void __fastcall CtInvHook(void* outfit, void* edx, void* set, DWORD child
     LARGE_INTEGER q0, q1;
     QueryPerformanceCounter(&q0);
     g_ctInvCalls++;
+    const LONG f50 = g_ctF5;
     CtInvCheck(g_ctInvNode, (const u8*)outfit);
     CtOutfitCells(0, g_ctInvNode, (const u8*)outfit);  // docs/539 §13.5 item 1
+    F5wOutfit((const u8*)outfit, g_ctF5 == f50, kCtPath[0], true);  // docs/539 §21: last OK, sweep and DR candidates
     QueryPerformanceCounter(&q1);
     g_ctInvQpc += q1.QuadPart - q0.QuadPart;
     g_ctInvEa(outfit, edx, set, children);
@@ -830,6 +840,9 @@ static void CtMbBad(const u8* mb, DWORD ret, const u8* rec, LONG ri, LONG rn, in
     if (v == CT_F5) {  // [UafCheck] (docs/539 §17)
         if (rec && k >= 0) UafNearLog((DWORD)(uintptr_t)(rec + 4 + 4 * k), "modelbuilder cell");
         UafNearLog((DWORD)(uintptr_t)rec, "modelbuilder record"), UafNearLog((DWORD)(uintptr_t)mb, "modelbuilder");
+        char site[96];  // docs/539 §21
+        sprintf_s(site, "modelbuilder release (%s): record %ld of %ld cell %d", CtMbFrom(ret), ri, rn, k);
+        F5wBad(site, (DWORD)(uintptr_t)mb, rec && k >= 0 ? (DWORD)(uintptr_t)(rec + 4 + 4 * k) : 0, v);
     }
     if (InterlockedIncrement(&g_ctMbLogs) > 40) return;
     char sl[160], sw[120], rb[0x74 * 3 + 4] = "unreadable", hb[0x40 * 3 + 4] = "unreadable";
@@ -998,6 +1011,7 @@ static void CtOsCheck(const u8* outfit, const DWORD* vec, DWORD ret) {  // the p
             rec = b[ri], obj = NULL;
             obj = *(const u8* const*)(rec + 0x5C);
             if (!obj) continue;  // EA skips it (0x5E61FF)
+            if ((DWORD)(uintptr_t)obj == CT_F5) F5wBad("outfit save writer: record [rec+0x5C]", (DWORD)(uintptr_t)outfit, (DWORD)(uintptr_t)(rec + 0x5C), CT_F5);  // docs/539 §21
             InterlockedIncrement(&ts3native_counters.osObjs);
             DWORD o[4] = {}, vt = 0;  // +0x28 flag, +0x2C begin, +0x30 end, +0x34 capacity end
             bool ok = false;
@@ -1006,6 +1020,8 @@ static void CtOsCheck(const u8* outfit, const DWORD* vec, DWORD ret) {  // the p
             const char* what = ok ? CtOsWhat(vt, o[0], o[1], o[2], o[3], &fix) : "object unreadable";
             if (!what) { CtVtCount(g_ctOsVt, vt); continue; }
             InterlockedIncrement(&ts3native_counters.osBad);
+            for (int k = 1; k < 4; k++)  // docs/539 §21: +0x2C begin, +0x30 end, +0x34 capacity end
+                if (o[k] == CT_F5) { F5wBad("outfit save writer: string object [rec+0x5C] +0x2C..+0x34", (DWORD)(uintptr_t)outfit, (DWORD)(uintptr_t)(obj + 0x28 + 4 * k), CT_F5); break; }
             const bool fixed = fix && g_ctOsGuard;
             if (fixed) {  // 0x5BF260's own empty string: a legal value everywhere, never freed (0x5BF710)
                 DWORD* s = (DWORD*)(obj + 0x2C);
@@ -1155,8 +1171,11 @@ static void __fastcall CtRelHook(DWORD* vec, void* edx, DWORD* b, DWORD* e) {
     const u8* outfit = (const u8*)vec - 0xBC;
     if (g_ctTrapOn) CtTrapDrop(outfit, path);  // docs/539 §16: before EA's release writes the cells
     InterlockedIncrement(&g_ctRelCalls);
+    const LONG f50 = g_ctF5;
     if (g_ctRelDetect) CtInvCheck(NULL, outfit, path);  // the part records: a detector only (Detect)
     CtCellCheck(path, NULL, outfit, b, e, (const DWORD*)_AddressOfReturnAddress());
+    if (path == 2) F5wGone((DWORD)(uintptr_t)outfit);  // docs/539 §21: the destructor's release
+    else F5wOutfit(outfit, g_ctF5 == f50, kCtPath[path], false);
     QueryPerformanceCounter(&q1);
     const LONGLONG d = q1.QuadPart - q0.QuadPart;
     g_ctRelQpc += d;
@@ -1214,6 +1233,7 @@ static void RlLog(const char* what, const u8* realm, DWORD node, LONG i, LONG n,
 }
 static void RlCheck(u8* realm, DWORD node, DWORD shape, bool add, DWORD ret, const DWORD* sp) {
     Ts3nCounters& z = ts3native_counters;
+    const LONG bad0 = z.rlBad;
     if (node) __try {
             for (LONG i = 0;; i++) {
                 DWORD *b = *(DWORD**)(uintptr_t)(node + 0x1C), *e = *(DWORD**)(uintptr_t)(node + 0x20);
@@ -1221,6 +1241,7 @@ static void RlCheck(u8* realm, DWORD node, DWORD shape, bool add, DWORD ret, con
                 if (!b || e < b || n > 65536 || i >= n) break;
                 if (b[i] != CT_F5 || RlIsShape(CT_F5, node, 0x3C, (DWORD)i)) continue;
                 InterlockedIncrement(&z.rlBad);
+                F5wBad("realm node shape vector entry", node, (DWORD)(uintptr_t)(b + i), CT_F5);  // docs/539 §21
                 const char* fix = "log only (RealmGuard 0)";
                 char fx[96];
                 if (g_rlGuard) {
@@ -1240,11 +1261,13 @@ static void RlCheck(u8* realm, DWORD node, DWORD shape, bool add, DWORD ret, con
                 RlLog("node shape vector entry", realm, node, fix[0] == 'd' ? i + 1 : i, n, shape, add, fix, ret, sp);
             }
         } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    if (node && z.rlBad == bad0) F5wOk(node, F5K_NOTE, add ? "realm add shape check" : "realm remove shape check");  // docs/539 §21
     __try {  // the realm vector: only the last entry is used blind (0x6820A3 / 0x6820AF)
         DWORD *b = *(DWORD**)(realm + 8), *e = *(DWORD**)(realm + 0xC);
         const LONG n = (LONG)(e - b);
         if (b && e > b && n <= (1 << 20) && e[-1] == CT_F5 && !RlIsShape(CT_F5, 0, 0x38, (DWORD)(n - 1))) {
             InterlockedIncrement(&z.rlBad);
+            F5wBad("realm vector last entry", (DWORD)(uintptr_t)realm, (DWORD)(uintptr_t)(e - 1), CT_F5);  // docs/539 §21
             if (g_rlGuard) *(DWORD**)(realm + 0xC) = e - 1, InterlockedIncrement(&z.rlFix);
             RlLog("realm vector last entry", realm, 0, n - 1, n, shape, add, g_rlGuard ? "dropped (EA's remove checks index and identity)" : "log only (RealmGuard 0)", ret, sp);
         }
