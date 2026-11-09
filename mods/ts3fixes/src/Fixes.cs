@@ -317,6 +317,8 @@ namespace Ts3Fixes
         // [2078] errortraplookup (ErrorTrapSims.cs): NRaas ErrorTrap ObjectLookup.sLookup cache entries dropped (its Clear() forgets that table).
         // [2079] dreamnodedeadsim (DeadSimHolders.cs): EA dream nodes' owner-less trigger listeners removed whose node's Sim object is gone.
         // [2080] overwatchdeadsim (DeadSimHolders.cs): NRaas Overwatch stuck-check entries removed whose last interaction's Sim object is gone.
+        // [934-935] dreamnodedeadsim / overwatchdeadsim (DeadSimHolders.cs): listeners / entries kept by the household rule (owner household, selected or unknown scope).
+        // [936] outfitwaitsaved (OutfitWaitSaved.cs): saved makeover tasks kept by the household rule.
         // [2081] errortrapctl (ErrorTrapSims.cs): NRaas ErrorTrap dereference controllers' item lists dropped after the world-load scan (they kept the whole graph until the next load).
         // [2083] outfitwaitsaved (OutfitWaitSaved.cs): MagicMirror MagicalMakeover alarm tasks resumed from the save inside EA's Wait (WaitOrig, never seen by the outfit-wait hook), actor gone, destroyed.
         // [2084-2087] simrefsdeadsim (SimRefsDeadSim.cs): live Sims' references to gone Sim objects dropped: SocialComponent.mLastTalkingTo cleared / SimRoutingComponent.mPusherSim cleared / Celebrity.mWaitingToReact entries removed / Occult*.mOwningSim reset to the current Sim or null.
@@ -546,7 +548,7 @@ namespace Ts3Fixes
                 case "vacimportfix": return Instantiator.kVacImportFix;
                 case "menumaven": return Instantiator.kMenuMaven;
                 case "dancefloorlistdiag": return false;  // diagnostics only (DanceFloorDiag.cs, docs/253 §7)
-                case "dancefloorlistguard": return false;  // EA bug fix, OFF until the dancefloor-diag stress run names the cause (DanceFloorDiag.cs, docs/253 §12)
+                case "dancefloorlistguard": return Instantiator.kDanceFloorListGuard;  // EA bug fix, ON in release (Rodney 2026-11-09; DanceFloorDiag.cs, docs/253 §12)
                 case "compactionfail": return false;  // test only (Compaction.cs, docs/204 §6): the reload throws after the screen is up
                 case "spotspread": return true;
                 case "routefaillog": return true;  // ON in release (Rodney 2026-11-08): helps triage player reports in early releases

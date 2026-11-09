@@ -27,6 +27,12 @@ static __declspec(noinline) u8* __cdecl ArPlanFromPointHook(u8* out, DWORD handl
     const void* ret = _ReturnAddress();
     if (g_p10On) P10Enter(2, (DWORD*)_AddressOfReturnAddress());
     const float pt[3] = {x, y, z};
+    // docs/250 §7.1 WatchdogKind2: hooked only for the watchdog's own STARTs, every call that is not collecting a job of this
+    // route goes to the game's IC directly, as with no detour (no SyncIc: no caps, deadlines or timing on it)
+    if (ArWdPass(handle)) {
+        InterlockedIncrement(&ts3native_counters.arWdPass);
+        return ((IcPointFn)g_arOrig[2])(out, handle, x, y, z);
+    }
     return IcCollect(2, out, handle, pt, ret);
 }
 static __declspec(noinline) u8* __cdecl ArReplanFromPositionHook(u8* out, DWORD handle, float x, float y, float z) {
@@ -44,22 +50,28 @@ static const int kArBuilt = 7;  // the Kinds bits this build hooks (ts3fixes hoo
 // --ab a10foreign). A kind in ForeignKinds only is hooked too, but its own-task STARTs are refused (g_arOwnKinds), so
 // Kinds=0 ForeignKinds=4 moves only the foreign ReplanFromPosition plans. Foreign jobs are flagged af (not fb): no
 // FbJobCapMs cap, the worker runs the whole original IC, so the answer is the game's own.
+// [RouteAsync] WatchdogKind2 (docs/250 §7.1, default 0): PlanFromPoint is hooked too, and an own START of it passes the Kinds
+// gate only when tagged as the watchdog's idle check (ts3fixes watchdogasync A1, ScProbeMark bit 10 for the same route; A1
+// never picks a household, selected or unknown-scope Sim). With kind 2 in neither Kinds nor ForeignKinds, every other call
+// of that IC goes straight to the game (ArWdPass, counted arWdPass).
 // Needs the async path (InstallAsync). Before InstallP10, which then leaves the hooked ICs to these detours.
 static void InstallA10(const wchar_t* ini) {
     Ts3nCounters& k = ts3native_counters;
     const int kinds = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"Kinds", 0, ini), 0, 7);
     const int fkinds = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"ForeignKinds", 0, ini), 0, 7);
-    if (!kinds && !fkinds) { Log("route async A10 off (Kinds=0, ForeignKinds=0)"); return; }
+    const int wd2 = GetPrivateProfileIntW(L"RouteAsync", L"WatchdogKind2", 0, ini) ? 2 : 0;
+    if (!kinds && !fkinds && !wd2) { Log("route async A10 off (Kinds=0, ForeignKinds=0)"); return; }
     if (!k.asyncReady || !g_icPlanOrig) { Log("SKIP route async A10: needs the async route path"); return; }
     k.arMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KindsMode", 1, ini), 0, 1);
     k.afMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"ForeignKindsMode", 1, ini), 0, 1);
     for (int kind = 1; kind <= 3; kind++) {
-        if (!((kinds | fkinds) & kArBuilt & (1 << (kind - 1)))) continue;
+        if (!((kinds | fkinds | wd2) & kArBuilt & (1 << (kind - 1)))) continue;
         g_arOrig[kind] = InstallDetour(kP10Name[kind], kP10Ic[kind], kP10Pro[kind], sizeof(kP10Pro[kind]), kArHooks[kind], &g_arOrig[kind]);
         if (g_arOrig[kind]) k.arReady |= 1 << (kind - 1);  // a kind without its detour is refused at START
     }
     g_arOwnKinds = kinds;
     k.afKinds = fkinds & k.arReady;
-    Log("route async A10: Kinds=%d KindsMode=%ld ForeignKinds=%d ForeignKindsMode=%ld, hooked mask %ld", kinds, k.arMode, fkinds,
-        k.afMode, k.arReady);
+    g_arWdKind2 = wd2 && (k.arReady & 2) ? 1 : 0;
+    Log("route async A10: Kinds=%d KindsMode=%ld ForeignKinds=%d ForeignKindsMode=%ld, hooked mask %ld, WatchdogKind2=%d", kinds,
+        k.arMode, fkinds, k.afMode, k.arReady, g_arWdKind2);
 }

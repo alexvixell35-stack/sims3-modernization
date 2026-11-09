@@ -28,7 +28,7 @@ namespace Ts3Fixes
     // Lines (ts3native.log): "dancefloor list: call #n ..." per call (first 40), "dancefloor list: MISMATCH ..." / "... THROW ..."
     // (first 40 together).
     //
-    // dancefloorlistguard (docs/253 §12, EA bug fix, default OFF until the diag names the cause): EA's foreach throws when the list's version moved while a route
+    // dancefloorlistguard (docs/253 §12, EA bug fix, tuning kDanceFloorListGuard, ON in release since 2026-11-09): EA's foreach throws when the list's version moved while a route
     // step slept; the guard loops over a snapshot (list.ToArray() before the first route) in EA's order instead, so the throw cannot
     // happen. Same floors, same order, same calls as EA's loop: when EA's loop would not throw, every Sim gets EA's exact result;
     // when it would, the loop goes on with the next floor EA's list held (no skip, cap or cancel), so it applies to all Sims.

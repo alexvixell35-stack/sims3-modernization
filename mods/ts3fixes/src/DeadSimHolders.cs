@@ -179,7 +179,8 @@ namespace Ts3Fixes
         // 40 sampled dead Sim objects (path: Sim <- ActiveDreamNode.mOwner <- ProcessEventDelegate <- DelegateListener). The
         // pass removes, with EA's ActiveNodeBase.RemoveListenerFromTracker (the tracker defers a removal while it sends that
         // event), the tracker's listeners whose node's Owner is gone (errortrapsims' rule), unless the description's current
-        // Sim's manager still has that node in mActiveNodes. Counter: [2079] listeners removed.
+        // Sim's manager still has that node in mActiveNodes. Household rule: nodes of household, selected or unknown-scope
+        // owners stay (GoneOwnerHh); no active household, nothing runs. Counters: [2079] listeners removed, [934] kept by the rule.
         static FieldInfo sDnpEvt, sDnpActive, sSimDnp;
         static bool sDnpTried, sDnpThrew;
 
@@ -202,6 +203,11 @@ namespace Ts3Fixes
                 EventTracker et = EventTracker.Instance;
                 IDictionary byEvent = et == null ? null : sDnpEvt.GetValue(et) as IDictionary;
                 if (byEvent == null) return;
+                // household rule (CLAUDE.md): no active household = unknown scope for every Sim, so the pass waits
+                Household hh = Household.ActiveHousehold;
+                if (hh == null) return;
+                IActor sel = PlumbBob.SelectedActor;
+                int kept = 0;
                 List<Sims3.Gameplay.DreamsAndPromises.ActiveNodeBase> drop = new List<Sims3.Gameplay.DreamsAndPromises.ActiveNodeBase>();
                 foreach (object byKey in byEvent.Values)
                 {
@@ -218,6 +224,7 @@ namespace Ts3Fixes
                             if (n == null || drop.Contains(n)) continue;
                             Sim s = n.Owner;
                             if (s == null || !EtSimGone(s)) continue;
+                            if (GoneOwnerHh(s, hh, sel)) { kept++; continue; }
                             Sim now = s.SimDescription == null ? null : s.SimDescription.CreatedSim;
                             object mgr = now == null || now == s ? null : sSimDnp.GetValue(now);
                             IList act = mgr == null ? null : sDnpActive.GetValue(mgr) as IList;
@@ -227,7 +234,9 @@ namespace Ts3Fixes
                     }
                 }
                 foreach (Sims3.Gameplay.DreamsAndPromises.ActiveNodeBase n in drop) n.RemoveListenerFromTracker();
-                PatchCounters()[2079] += drop.Count;
+                int[] c = PatchCounters();
+                c[2079] += drop.Count;
+                c[934] += kept;
             }
             catch (Exception e)
             {
@@ -241,7 +250,8 @@ namespace Ts3Fixes
         // the gone Sim object. al334 at 170 min: the root of 14 of 60 sampled dead Sim objects (path: Sim <-
         // GoToVirtualHomeInternal.mInstanceActor <- StuckSimData.mLastInteraction <- sData). The pass removes the entries whose
         // last interaction's Sim is gone (errortrapsims' rule); Overwatch adds a fresh entry if it sees that Sim's description
-        // in the world again. Counter: [2080] entries removed.
+        // in the world again. Household rule: entries of household, selected or unknown-scope Sims stay, so their stuck check
+        // never restarts (GoneOwnerHh); no active household, nothing runs. Counters: [2080] entries removed, [935] kept by the rule.
         static FieldInfo[] sOwTables;
         static FieldInfo sOwLastIa;
         static bool sOwTried, sOwThrew;
@@ -270,7 +280,11 @@ namespace Ts3Fixes
                     AppliedLog().Add("overwatchdeadsim: " + (sc == null ? "Overwatch not loaded, off" : ok ? "ok" : "Overwatch's StuckCheck differs from the known build, off"));
                 }
                 if (sOwTables == null) return;
-                int n = 0;
+                // household rule (CLAUDE.md): a household, selected or unknown-scope Sim's entry stays (its stuck check must not restart)
+                Household hh = Household.ActiveHousehold;
+                if (hh == null) return;
+                IActor sel = PlumbBob.SelectedActor;
+                int n = 0, kept = 0;
                 foreach (FieldInfo f in sOwTables)
                 {
                     IDictionary d = f.GetValue(null) as IDictionary;
@@ -280,17 +294,39 @@ namespace Ts3Fixes
                     {
                         Sims3.Gameplay.Interactions.InteractionInstance ia = e.Value == null ? null : sOwLastIa.GetValue(e.Value) as Sims3.Gameplay.Interactions.InteractionInstance;
                         Sim s = ia == null ? null : ia.InstanceActor;
-                        if (s != null && EtSimGone(s)) drop.Add(e.Key);
+                        if (s == null || !EtSimGone(s)) continue;
+                        if (GoneOwnerHh(s, hh, sel)) kept++;
+                        else drop.Add(e.Key);
                     }
                     foreach (object k in drop) d.Remove(k);
                     n += drop.Count;
                 }
-                PatchCounters()[2080] += n;
+                int[] c = PatchCounters();
+                c[2080] += n;
+                c[935] += kept;
             }
             catch (Exception e)
             {
                 if (!sOwThrew) { sOwThrew = true; AppliedLog().Add("overwatchdeadsim: pass threw " + e.Message); }
             }
+        }
+
+        // Household rule for a gone Sim object: the scope of its description's live Sim (HhScope, or the selected Sim); with
+        // no live Sim, its description's household (active = household, none = not household); an owner that cannot be
+        // resolved counts as household.
+        static bool GoneOwnerHh(Sim s, Household act, IActor sel)
+        {
+            try
+            {
+                SimDescription d = s.SimDescription;
+                if (d == null) return true;
+                Sim now = d.CreatedSim;
+                if (now != null && now != s) return HhScope(now) || now == sel;
+                Sim selSim = sel as Sim;
+                // Rodney 2026-11-10: a gone Sim whose description has no household (so no played one) and is not selected is non-household
+                return (d.Household != null && d.Household == act) || (selSim != null && selSim.SimDescription == d);
+            }
+            catch (Exception) { return true; }
         }
     }
 }

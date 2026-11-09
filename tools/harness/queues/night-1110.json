@@ -1,0 +1,670 @@
+{
+  "note": "night-1110 (2026-11-10 night, TIMING, Sat 11-14 release): (a) release ABBA v0.2.10 as shipped vs rc1111 on BP and IP (Baseline-*-Spring, the bundle worlds of the bp/ip bundle jobs), 10 min each, cross-load (different builds); (b) rc1111 watchdogasync ON vs OFF in-load on BP and IP, both orders. Both pairs pinned with asi + iniBase + fixesPackage, releaseDefaults on both arms (same tool set). Read (a) per world: run-verdict.ts / hitch-ab.ts / release-numbers.ts: p99, p99.9, max, counts per threshold (>= 100 / 300 / 1000 ms), sim it/s, route ms/s. Read (b): hitch-ab.ts + arm-ms.ts pooled over both orders. Est ~4.5 h jobs + ~20 min smoke + noisy reruns. Start: node tools/harness/night-run.ts --queue-list tools/harness/queues/night-1110.json --close",
+  "stopQueueOnFail": false,
+  "smoke": {
+    "note": "measurement smoke: rc1111 on IP, --ab watchdogasync 2-min slices, 10 min: version, Trim (SettleSec 15) and WatchdogKind2=1 read back, per-arm split",
+    "asi": "game-copy/ts3native.asi.rc1111",
+    "iniBase": "game-copy/ts3native.ini.rc1111",
+    "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+    "pinReason": "pair rc1111 (docs/data/builds.json): ts3native.asi.rc1111 (0.36.239, master 5c33abfe) + ts3native.ini.rc1111 (master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes.package.rc1111 (kWatchdogAsync + 8 dead-Sim tunings ON) via fixesPackage",
+    "logRequire": {
+      "^ts3native 0\\.36\\.239 ": 1,
+      "^lptrim: on \\(docs/541\\): .* 15 s after each world load": 1,
+      "route async A10: .*WatchdogKind2=1": 1
+    },
+    "regexCases": {
+      "^ts3native 0\\.36\\.239 ": {
+        "match": [
+          "ts3native 0.36.239 2026-11-10 14:30:00"
+        ],
+        "noMatch": [
+          "ts3native 0.36.238 2026-11-10 01:54:53",
+          "prior log: ts3native 0.36.239 2026-11-10 01:42:40",
+          "ts3native 0.36.2390 2026-11-10 14:30:00"
+        ]
+      },
+      "^lptrim: on \\(docs/541\\): .* 15 s after each world load": {
+        "match": [
+          "lptrim: on (docs/541): lot message pool 0x011EB590, 15 s after each world load, keeps 16 completely free cores"
+        ],
+        "noMatch": [
+          "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores",
+          "lptrim: #1 world load #1 world=Bridgeport.world cores 594 -> 22, slots 76626 free 76544 (99.9%), completely free 588: freed 572 (19.30 MiB), kept 16; locked 11.42 ms"
+        ]
+      },
+      "route async A10: .*WatchdogKind2=1": {
+        "match": [
+          "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+        ],
+        "noMatch": [
+          "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0"
+        ]
+      }
+    },
+    "save": "Baseline-IP-Spring",
+    "releaseDefaults": true,
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "noiseCheck": true,
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "noSamplers": true,
+        "minutes": 10,
+        "slice": 2,
+        "ab": "watchdogasync",
+        "fixesReport": "watchdogasync_,watchdog_"
+      }
+    },
+    "timeoutMin": 25
+  },
+  "jobs": [
+    {
+      "id": "bp-rel-v0210-1",
+      "note": "[est 17 min] TIMING (a) release ABBA BP v0210 1: v0.2.10 as shipped, release ini and package defaults, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rel0210",
+      "iniBase": "game-copy/ts3native.ini.rel0210",
+      "fixesPackage": "game-copy/asi-v029/ts3fixes.package",
+      "pinReason": "v0.2.10 as shipped (docs/data/builds.json): ts3native.asi.rel0210 (0.36.168e, 32fe95a0) + ts3native.ini.rel0210 (17510ff3) + ts3fixes.package.v029b (c373cd87, game-copy/asi-v029/ts3fixes.package) via fixesPackage (fixesBuild would rebuild ts3fixes from master)",
+      "logRequire": {
+        "^ts3native 0\\.36\\.168e ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.168e ": {
+          "match": [
+            "ts3native 0.36.168e 2026-11-07 22:24:17"
+          ],
+          "noMatch": [
+            "ts3native 0.36.168e-rftest1 2026-11-07 20:43:02",
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ]
+        }
+      },
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-rel-rc1111-1",
+      "note": "[est 17 min] TIMING (a) release ABBA BP rc1111 1: rc1111, release ini and package defaults, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rc1111",
+      "iniBase": "game-copy/ts3native.ini.rc1111",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+      "pinReason": "pair rc1111 (docs/data/builds.json): ts3native.asi.rc1111 (0.36.239, master 5c33abfe) + ts3native.ini.rc1111 (master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes.package.rc1111 (kWatchdogAsync + 8 dead-Sim tunings ON) via fixesPackage",
+      "logRequire": {
+        "^ts3native 0\\.36\\.239 ": 1,
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": 1,
+        "route async A10: .*WatchdogKind2=1": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.239 ": {
+          "match": [
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.238 2026-11-10 01:54:53",
+            "prior log: ts3native 0.36.239 2026-11-10 01:42:40",
+            "ts3native 0.36.2390 2026-11-10 14:30:00"
+          ]
+        },
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": {
+          "match": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 15 s after each world load, keeps 16 completely free cores"
+          ],
+          "noMatch": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores",
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 594 -> 22, slots 76626 free 76544 (99.9%), completely free 588: freed 572 (19.30 MiB), kept 16; locked 11.42 ms"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0"
+          ]
+        }
+      },
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-rel-rc1111-2",
+      "note": "[est 17 min] TIMING (a) release ABBA BP rc1111 2: rc1111, release ini and package defaults, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rc1111",
+      "iniBase": "game-copy/ts3native.ini.rc1111",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+      "pinReason": "pair rc1111 (docs/data/builds.json): ts3native.asi.rc1111 (0.36.239, master 5c33abfe) + ts3native.ini.rc1111 (master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes.package.rc1111 (kWatchdogAsync + 8 dead-Sim tunings ON) via fixesPackage",
+      "logRequire": {
+        "^ts3native 0\\.36\\.239 ": 1,
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": 1,
+        "route async A10: .*WatchdogKind2=1": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.239 ": {
+          "match": [
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.238 2026-11-10 01:54:53",
+            "prior log: ts3native 0.36.239 2026-11-10 01:42:40",
+            "ts3native 0.36.2390 2026-11-10 14:30:00"
+          ]
+        },
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": {
+          "match": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 15 s after each world load, keeps 16 completely free cores"
+          ],
+          "noMatch": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores",
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 594 -> 22, slots 76626 free 76544 (99.9%), completely free 588: freed 572 (19.30 MiB), kept 16; locked 11.42 ms"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0"
+          ]
+        }
+      },
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-rel-v0210-2",
+      "note": "[est 17 min] TIMING (a) release ABBA BP v0210 2: v0.2.10 as shipped, release ini and package defaults, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rel0210",
+      "iniBase": "game-copy/ts3native.ini.rel0210",
+      "fixesPackage": "game-copy/asi-v029/ts3fixes.package",
+      "pinReason": "v0.2.10 as shipped (docs/data/builds.json): ts3native.asi.rel0210 (0.36.168e, 32fe95a0) + ts3native.ini.rel0210 (17510ff3) + ts3fixes.package.v029b (c373cd87, game-copy/asi-v029/ts3fixes.package) via fixesPackage (fixesBuild would rebuild ts3fixes from master)",
+      "logRequire": {
+        "^ts3native 0\\.36\\.168e ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.168e ": {
+          "match": [
+            "ts3native 0.36.168e 2026-11-07 22:24:17"
+          ],
+          "noMatch": [
+            "ts3native 0.36.168e-rftest1 2026-11-07 20:43:02",
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ]
+        }
+      },
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-rel-v0210-1",
+      "note": "[est 17 min] TIMING (a) release ABBA IP v0210 1: v0.2.10 as shipped, release ini and package defaults, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rel0210",
+      "iniBase": "game-copy/ts3native.ini.rel0210",
+      "fixesPackage": "game-copy/asi-v029/ts3fixes.package",
+      "pinReason": "v0.2.10 as shipped (docs/data/builds.json): ts3native.asi.rel0210 (0.36.168e, 32fe95a0) + ts3native.ini.rel0210 (17510ff3) + ts3fixes.package.v029b (c373cd87, game-copy/asi-v029/ts3fixes.package) via fixesPackage (fixesBuild would rebuild ts3fixes from master)",
+      "logRequire": {
+        "^ts3native 0\\.36\\.168e ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.168e ": {
+          "match": [
+            "ts3native 0.36.168e 2026-11-07 22:24:17"
+          ],
+          "noMatch": [
+            "ts3native 0.36.168e-rftest1 2026-11-07 20:43:02",
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ]
+        }
+      },
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-rel-rc1111-1",
+      "note": "[est 17 min] TIMING (a) release ABBA IP rc1111 1: rc1111, release ini and package defaults, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rc1111",
+      "iniBase": "game-copy/ts3native.ini.rc1111",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+      "pinReason": "pair rc1111 (docs/data/builds.json): ts3native.asi.rc1111 (0.36.239, master 5c33abfe) + ts3native.ini.rc1111 (master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes.package.rc1111 (kWatchdogAsync + 8 dead-Sim tunings ON) via fixesPackage",
+      "logRequire": {
+        "^ts3native 0\\.36\\.239 ": 1,
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": 1,
+        "route async A10: .*WatchdogKind2=1": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.239 ": {
+          "match": [
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.238 2026-11-10 01:54:53",
+            "prior log: ts3native 0.36.239 2026-11-10 01:42:40",
+            "ts3native 0.36.2390 2026-11-10 14:30:00"
+          ]
+        },
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": {
+          "match": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 15 s after each world load, keeps 16 completely free cores"
+          ],
+          "noMatch": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores",
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 594 -> 22, slots 76626 free 76544 (99.9%), completely free 588: freed 572 (19.30 MiB), kept 16; locked 11.42 ms"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0"
+          ]
+        }
+      },
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-rel-rc1111-2",
+      "note": "[est 17 min] TIMING (a) release ABBA IP rc1111 2: rc1111, release ini and package defaults, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rc1111",
+      "iniBase": "game-copy/ts3native.ini.rc1111",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+      "pinReason": "pair rc1111 (docs/data/builds.json): ts3native.asi.rc1111 (0.36.239, master 5c33abfe) + ts3native.ini.rc1111 (master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes.package.rc1111 (kWatchdogAsync + 8 dead-Sim tunings ON) via fixesPackage",
+      "logRequire": {
+        "^ts3native 0\\.36\\.239 ": 1,
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": 1,
+        "route async A10: .*WatchdogKind2=1": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.239 ": {
+          "match": [
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.238 2026-11-10 01:54:53",
+            "prior log: ts3native 0.36.239 2026-11-10 01:42:40",
+            "ts3native 0.36.2390 2026-11-10 14:30:00"
+          ]
+        },
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": {
+          "match": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 15 s after each world load, keeps 16 completely free cores"
+          ],
+          "noMatch": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores",
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 594 -> 22, slots 76626 free 76544 (99.9%), completely free 588: freed 572 (19.30 MiB), kept 16; locked 11.42 ms"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0"
+          ]
+        }
+      },
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-rel-v0210-2",
+      "note": "[est 17 min] TIMING (a) release ABBA IP v0210 2: v0.2.10 as shipped, release ini and package defaults, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rel0210",
+      "iniBase": "game-copy/ts3native.ini.rel0210",
+      "fixesPackage": "game-copy/asi-v029/ts3fixes.package",
+      "pinReason": "v0.2.10 as shipped (docs/data/builds.json): ts3native.asi.rel0210 (0.36.168e, 32fe95a0) + ts3native.ini.rel0210 (17510ff3) + ts3fixes.package.v029b (c373cd87, game-copy/asi-v029/ts3fixes.package) via fixesPackage (fixesBuild would rebuild ts3fixes from master)",
+      "logRequire": {
+        "^ts3native 0\\.36\\.168e ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.168e ": {
+          "match": [
+            "ts3native 0.36.168e 2026-11-07 22:24:17"
+          ],
+          "noMatch": [
+            "ts3native 0.36.168e-rftest1 2026-11-07 20:43:02",
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ]
+        }
+      },
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-wdasync-ab",
+      "note": "[est 33 min] TIMING (b) rc1111 watchdogasync ON vs OFF, in-load --ab watchdogasync, 5-min slices ABBA (off first) after the warm-up = 10 min per arm; pool with the other order (hitch-ab.ts + arm-ms.ts). Offload rule: <= ~2% sim it/s loss accepted if stable (no crash, no new stuck Sim, no watchdog firing).",
+      "asi": "game-copy/ts3native.asi.rc1111",
+      "iniBase": "game-copy/ts3native.ini.rc1111",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+      "pinReason": "pair rc1111 (docs/data/builds.json): ts3native.asi.rc1111 (0.36.239, master 5c33abfe) + ts3native.ini.rc1111 (master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes.package.rc1111 (kWatchdogAsync + 8 dead-Sim tunings ON) via fixesPackage",
+      "logRequire": {
+        "^ts3native 0\\.36\\.239 ": 1,
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": 1,
+        "route async A10: .*WatchdogKind2=1": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.239 ": {
+          "match": [
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.238 2026-11-10 01:54:53",
+            "prior log: ts3native 0.36.239 2026-11-10 01:42:40",
+            "ts3native 0.36.2390 2026-11-10 14:30:00"
+          ]
+        },
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": {
+          "match": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 15 s after each world load, keeps 16 completely free cores"
+          ],
+          "noMatch": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores",
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 594 -> 22, slots 76626 free 76544 (99.9%), completely free 588: freed 572 (19.30 MiB), kept 16; locked 11.42 ms"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0"
+          ]
+        }
+      },
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 25,
+          "slice": 5,
+          "ab": "watchdogasync",
+          "fixesReport": "watchdogasync_,watchdog_"
+        }
+      },
+      "timeoutMin": 40
+    },
+    {
+      "id": "bp-wdasync-ab-onfirst",
+      "note": "[est 33 min] TIMING (b) rc1111 watchdogasync ON vs OFF, in-load --ab watchdogasync, 5-min slices BAAB (on first) after the warm-up = 10 min per arm; pool with the other order (hitch-ab.ts + arm-ms.ts). Offload rule: <= ~2% sim it/s loss accepted if stable (no crash, no new stuck Sim, no watchdog firing).",
+      "asi": "game-copy/ts3native.asi.rc1111",
+      "iniBase": "game-copy/ts3native.ini.rc1111",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+      "pinReason": "pair rc1111 (docs/data/builds.json): ts3native.asi.rc1111 (0.36.239, master 5c33abfe) + ts3native.ini.rc1111 (master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes.package.rc1111 (kWatchdogAsync + 8 dead-Sim tunings ON) via fixesPackage",
+      "logRequire": {
+        "^ts3native 0\\.36\\.239 ": 1,
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": 1,
+        "route async A10: .*WatchdogKind2=1": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.239 ": {
+          "match": [
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.238 2026-11-10 01:54:53",
+            "prior log: ts3native 0.36.239 2026-11-10 01:42:40",
+            "ts3native 0.36.2390 2026-11-10 14:30:00"
+          ]
+        },
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": {
+          "match": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 15 s after each world load, keeps 16 completely free cores"
+          ],
+          "noMatch": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores",
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 594 -> 22, slots 76626 free 76544 (99.9%), completely free 588: freed 572 (19.30 MiB), kept 16; locked 11.42 ms"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0"
+          ]
+        }
+      },
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 25,
+          "slice": 5,
+          "ab": "watchdogasync",
+          "fixesReport": "watchdogasync_,watchdog_",
+          "abOnFirst": true
+        }
+      },
+      "timeoutMin": 40
+    },
+    {
+      "id": "ip-wdasync-ab",
+      "note": "[est 33 min] TIMING (b) rc1111 watchdogasync ON vs OFF, in-load --ab watchdogasync, 5-min slices ABBA (off first) after the warm-up = 10 min per arm; pool with the other order (hitch-ab.ts + arm-ms.ts). Offload rule: <= ~2% sim it/s loss accepted if stable (no crash, no new stuck Sim, no watchdog firing).",
+      "asi": "game-copy/ts3native.asi.rc1111",
+      "iniBase": "game-copy/ts3native.ini.rc1111",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+      "pinReason": "pair rc1111 (docs/data/builds.json): ts3native.asi.rc1111 (0.36.239, master 5c33abfe) + ts3native.ini.rc1111 (master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes.package.rc1111 (kWatchdogAsync + 8 dead-Sim tunings ON) via fixesPackage",
+      "logRequire": {
+        "^ts3native 0\\.36\\.239 ": 1,
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": 1,
+        "route async A10: .*WatchdogKind2=1": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.239 ": {
+          "match": [
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.238 2026-11-10 01:54:53",
+            "prior log: ts3native 0.36.239 2026-11-10 01:42:40",
+            "ts3native 0.36.2390 2026-11-10 14:30:00"
+          ]
+        },
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": {
+          "match": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 15 s after each world load, keeps 16 completely free cores"
+          ],
+          "noMatch": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores",
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 594 -> 22, slots 76626 free 76544 (99.9%), completely free 588: freed 572 (19.30 MiB), kept 16; locked 11.42 ms"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0"
+          ]
+        }
+      },
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 25,
+          "slice": 5,
+          "ab": "watchdogasync",
+          "fixesReport": "watchdogasync_,watchdog_"
+        }
+      },
+      "timeoutMin": 40
+    },
+    {
+      "id": "ip-wdasync-ab-onfirst",
+      "note": "[est 33 min] TIMING (b) rc1111 watchdogasync ON vs OFF, in-load --ab watchdogasync, 5-min slices BAAB (on first) after the warm-up = 10 min per arm; pool with the other order (hitch-ab.ts + arm-ms.ts). Offload rule: <= ~2% sim it/s loss accepted if stable (no crash, no new stuck Sim, no watchdog firing).",
+      "asi": "game-copy/ts3native.asi.rc1111",
+      "iniBase": "game-copy/ts3native.ini.rc1111",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+      "pinReason": "pair rc1111 (docs/data/builds.json): ts3native.asi.rc1111 (0.36.239, master 5c33abfe) + ts3native.ini.rc1111 (master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes.package.rc1111 (kWatchdogAsync + 8 dead-Sim tunings ON) via fixesPackage",
+      "logRequire": {
+        "^ts3native 0\\.36\\.239 ": 1,
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": 1,
+        "route async A10: .*WatchdogKind2=1": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.239 ": {
+          "match": [
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.238 2026-11-10 01:54:53",
+            "prior log: ts3native 0.36.239 2026-11-10 01:42:40",
+            "ts3native 0.36.2390 2026-11-10 14:30:00"
+          ]
+        },
+        "^lptrim: on \\(docs/541\\): .* 15 s after each world load": {
+          "match": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 15 s after each world load, keeps 16 completely free cores"
+          ],
+          "noMatch": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores",
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 594 -> 22, slots 76626 free 76544 (99.9%), completely free 588: freed 572 (19.30 MiB), kept 16; locked 11.42 ms"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0"
+          ]
+        }
+      },
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 25,
+          "slice": 5,
+          "ab": "watchdogasync",
+          "fixesReport": "watchdogasync_,watchdog_",
+          "abOnFirst": true
+        }
+      },
+      "timeoutMin": 40
+    }
+  ]
+}

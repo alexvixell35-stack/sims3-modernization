@@ -776,7 +776,7 @@ static void TestA10() {
                   offsetof(Ts3nCounters, arShadow) == 0x14DC && offsetof(Ts3nCounters, arActive) == 0x14E8 &&
                   offsetof(Ts3nCounters, arJobUs) == 0x14F4 && offsetof(Ts3nCounters, arSyncUs) == 0x1500 &&
                   offsetof(Ts3nCounters, arSyncN) == 0x150C && offsetof(Ts3nCounters, arMismatch) == 0x1518 &&
-                  offsetof(Ts3nCounters, arOrphan) == 0x151C && offsetof(Ts3nCounters, arReserved) == 0x1520 && sizeof(Ts3nCounters) >= 1353 * 4, "v40 layout");
+                  offsetof(Ts3nCounters, arOrphan) == 0x151C && offsetof(Ts3nCounters, arWdPass) == 0x1520 && sizeof(Ts3nCounters) >= 1353 * 4, "v40 layout");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.arReady, 0, sizeof(LONG) * 32);
     const LONG wd0 = k.watchdogs;
@@ -1026,6 +1026,66 @@ static void TestA10() {
         }
         assert(!AsyncBusy() && g_async.state == A_IDLE);
         memset(&k.afMode, 0, offsetof(Ts3nCounters, afActiveTrip) + 4 - offsetof(Ts3nCounters, afMode));
+    }
+
+    // 14. docs/250 §7.1 [RouteAsync] WatchdogKind2 (release shape Kinds=0 ForeignKinds=4): an own PlanFromPoint START starts
+    // only with the switch on and the watchdog tag (ScProbeMark bit 10) on its route; every other kind-2 call runs the game's IC
+    // directly (arWdPass), with no SyncIc (arSyncN unchanged)
+    {
+        const int ownKinds = g_arOwnKinds;
+        g_arOwnKinds = 0;
+        k.afKinds = 4;
+        const LONG sync0 = k.arSyncN[1], st0 = k.arStarted[1], wdN0 = k.wdJobN;
+        auto wdTag = [](DWORD h) { return ScProbeMark(h, 0x10400); };
+        // switch off: tagged or not, refused (as 0.36.238); q 9 says no; the IC call is the old A10 sync path
+        g_arWdKind2 = 0;
+        assert(!ArWould(kH1, 9));
+        assert(wdTag(kH1) == 0 && !ArStart(kH1, 2, p1) && !JobFor(kH1) && k.arStarted[1] == st0);
+        assert(ArCollect(2, out, kH1, p1) == out && ArSync(out, 2) && k.arSyncN[1] == sync0 + 1 && k.arWdPass == 0);
+        // switch on: an untagged own START is refused (the refused tagged one above used its tag up) and its IC goes straight
+        // to the game (no SyncIc)
+        g_arWdKind2 = 1;
+        assert(ArWould(kH1, 9));
+        assert(!ArStart(kH1, 2, p1) && !JobFor(kH1) && k.arStarted[1] == st0);
+        assert(ArCollect(2, out, kH1, p1) == out && ArSync(out, 2) && k.arSyncN[1] == sync0 + 1 && k.arWdPass == 1);
+        // a stuck-check tag (no bit 10) or the watchdog tag on another route does not open the gate
+        ScProbeMark(kH1, 0x10001);
+        assert(!ArStart(kH1, 2, p1) && !JobFor(kH1));
+        wdTag(kH2);
+        assert(!ArStart(kH1, 2, p1) && !JobFor(kH1) && k.arStarted[1] == st0);
+        // a foreign kind-2 START with the tag stays refused (ForeignKinds has no kind 2)
+        wdTag(kH1);
+        for (int c = 0; c < 3; c++) {
+            DWORD b;
+            memcpy(&b, &p1[c], 4);
+            GetOptionHook(kH1, b, kAsyncOptHi | kArHi | kArPtHi | (DWORD)c << 24, 1);
+        }
+        assert(!GetOptionHook(kH1, 0, kAsyncOptHi | kArHi | kArFgnHi | 2u << 24, 1) && !JobFor(kH1));
+        assert(!ArStart(kH1, 2, p1) && !JobFor(kH1) && k.arStarted[1] == st0);  // the refused foreign START used the tag up
+        // the watchdog-tagged own START: starts, labelled (sc bit 10, counted in wdJob*); another PlanFromPoint of this route
+        // (another point, nothing armed) is not passed through while the job is there: it meets the job (dropped, planned sync)
+        g_icSleepMs = 10;
+        assert(wdTag(kH1) == 0 && ArStart(kH1, 2, p1) && k.arStarted[1] == st0 + 1 && JobFor(kH1) && (JobFor(kH1)->sc & 0x400));
+        assert(ArCollect(2, out, kH1, p2) == out && ArSync(out, 2) && !JobFor(kH1) && k.arWdPass == 1 && k.arSyncN[1] == sync0 + 2);
+        Cancel(kH1);
+        // ... and READY then the IC take the worker's result
+        assert(wdTag(kH1) == 0 && ArStart(kH1, 2, p1) && k.arStarted[1] == st0 + 2);
+        WaitReady(kH1);
+        assert(ArCollect(2, out, kH1, p1) == out && ArFromJob(out, kH1, 2, p1) && k.arWdPass == 1 && k.wdJobN > wdN0);
+        Cancel(kH1);
+        g_icSleepMs = 0;
+        // the tag was used up by that START: the next own START of the route is refused again
+        assert(!ArStart(kH1, 2, p1) && !JobFor(kH1));
+        assert(ArCollect(2, out, kH1, p1) == out && ArSync(out, 2) && k.arWdPass == 2 && k.arSyncN[1] == sync0 + 2);
+        // kind 2 in Kinds: no pass-through (the old A10 path), q 9 yes without the switch
+        g_arWdKind2 = 0;
+        g_arOwnKinds = 2;
+        assert(ArWould(kH1, 9));
+        assert(ArCollect(2, out, kH1, p1) == out && ArSync(out, 2) && k.arWdPass == 2 && k.arSyncN[1] == sync0 + 3);
+        g_arOwnKinds = ownKinds;
+        k.afKinds = 0;
+        k.arWdPass = 0;
+        assert(!AsyncBusy() && g_async.state == A_IDLE);
     }
     assert(k.watchdogs == wd0);
     g_routeIsActive = savedActive;

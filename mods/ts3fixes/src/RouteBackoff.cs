@@ -401,13 +401,15 @@ namespace Ts3Fixes
                 // docs/250 §7.1 A1 (watchdogasync): the idle check's PlanFromPoint (IsPointInLotSafelyRoutable) from the watchdog task
                 // CheckIdle chose for A1 (never a household Sim, H4Core.WdRoute) sends the own START like OwnerTaskStart's kind 0, counted
                 // [872] sent / [873] started. Before 2026-11-10 it took the foreign branch and never counted ([873] 0 in release runs).
-                // ts3native labels only kind 0 STARTs as the watchdog's (v179 wdJob*), so no tag is sent here.
+                // ts3native 0.36.239 [RouteAsync] WatchdogKind2: the PlanFromPoint START carries the watchdog tag (kProbe 0x10400, as
+                // OwnerTaskStart's kind 0), and ts3native starts an own kind-2 START without Kinds bit 2 only with it; it labels the
+                // job (v179 wdJob*). CheckIdle picks A1 only when ts3native answers q 9 (RouteFixes.cs WdA1Would).
                 bool wd = WdA1Here() && ForeignEligible();
                 bool own = wd || AsyncEligible(proxy != null ? proxy.Target as Sims3.Gameplay.Actors.Sim : null, "asyncreplan");
                 if (!own && !(ShortcutOn("asyncreplan") && ShortcutOn("asyncreplanforeign") && ForeignEligible())) return false;
                 PreCb(kind, ref pre);
                 if (kind >= 2) { AsyncPoint(0, p.x); AsyncPoint(1, p.y); AsyncPoint(2, p.z); }
-                if (wd) PatchCounters()[872]++;
+                if (wd) { PatchCounters()[872]++; GetOption2(kProbe | (Sims3.SimIFace.Route.RouteOption2)0x10400UL); }
                 bool started = GetOption2((Sims3.SimIFace.Route.RouteOption2)((own ? kArStart : kArStart | kArForeign) | (ulong)kind << 56));
                 if (wd) { if (started) PatchCounters()[873]++; }
                 else if (!own)

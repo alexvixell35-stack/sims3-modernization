@@ -1236,7 +1236,7 @@ rpc.exports = {
       'NodeCap', 'NodeCap2'].map(n => `s2Shape${n}`), 's2MaxObjs', 's2MaxLocal', 's2MaxNodes', 's2MaxIds', 's2MaxDepth'); // 0.21.0: S2 shape split (+0x1464..)
     if (c.readS32() >= 40) f.push('arReady', 'arMode', ...['Started', 'Collected', 'Refused', 'Dropped', 'Shadow', 'Active', 'JobUs',
       'SyncUs', 'SyncN'].flatMap(n => ['Replan', 'PlanFromPoint', 'ReplanFromPosition'].map(ic => `ar${n}${ic}`)), 'arMismatch',
-      'arOrphan', 'arReserved'); // 0.22.0: design A10 (+0x14A4..0x1523)
+      'arOrphan', 'arWdPass'); // 0.22.0: design A10 (+0x14A4..0x1523)
     if (c.readS32() >= 41) f.push('mhReady', 'orMode', 'orShadow', 'orCalls', 'orTaken', ...['State', 'Try', 'Lot', 'Cache', 'Shape',
       'Trip'].map(n => `orFb${n}`), 'orUs', 'orMaxUs', 'orShadowRuns', 'orShadowMismatch', 'orHits'); // 0.22.1: read-only IsPointObstructedBySim (+0x1524..)
     if (c.readS32() >= 42) f.push('slReady', 'slMode', 'slShadow', 'slCalls', 'slTaken', 'slUs', 'slMaxUs', 'slPass12', 'slPass0',

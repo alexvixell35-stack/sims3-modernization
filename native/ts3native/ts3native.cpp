@@ -17,7 +17,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.238"  // rc1110c: 0.36.237 + the sync side of the same hole (docs/197 §7): KdSyncCeilUs gives a sync plan with no scope answer yet the household ceiling (KdSeenCeilMs) instead of its usual caps, KdKnownUnseen returns false with no answer (ReplanDedupe holds footprint repeats); ts3fixes marks (uf) unchanged; 0.36.237 = rc1110b: 0.36.236 + KdExempt household hole (docs/197 §7, docs/249): with KdExemptSeen=1 and no scope answer from ts3fixes yet (session start, older package) an unmarked route is unknown = household = exempt, not cut; 0.36.236 = s3ssguard-1109: 0.36.235 + docs/539 §22 [S3SSCompat] StaleWriteGuard (S3SS 1.6.3 SafeReassert call retargeted: its stale camera-threshold write goes to the live WorldManager+0xEC, not freed heap; stands aside for other S3SS builds); 0.36.235 = float5catch-1109b: 0.36.234 + docs/539 §21 DR own-write safety (WpVeh takes a hit on an address its slot just dropped and rewrites the thread's DRs to the slot table, ts3native-eip hits counted not handed on unless float 5, nested hits counted; bp-float5-catch-1 died of a declined single-step from our UafCheck fill under a rotating Float5Watch DR); 0.36.234 = float5catch-1109: 0.36.233 + docs/539 §21 [Float5Sticky] (DR write watch kept on the first float-5 address all session, save / world load checks, Portal_Save portal vector check), [Float5Watch] (last-OK windows, 250 ms sweep of outfits / SlotComponents, DR watches on the newest records around travel), [UafCheck] TravelHold; 0.36.233 = float5mono-1109b: 0.36.232 + [Float5Free] range rule (a 0x40A00000..0x40A0FFFF pointer is bad only with an unreadable / freed / zero-size chunk header; in-use blocks there pass, docs/539 §19.1), [MonoSigGuard] lines only for param_count 0 (docs/539 §20); 0.36.232 = float5mono-1109: 0.36.231 + [MonoSigGuard] (docs/539 §20, EA bug: 0xD70F90 read params[0] of a zero-parameter delegate signature (SwapLoadScreen) before its param_count check; release ini on); 0.36.231 = float5free-1109: 0.36.230 + [Float5Free] (docs/539 §19, float-5 pointers at EA Free 0x4E5920 sharing [UafCheck]'s detour, SACS Walker deque dtor 0x727E10 check, Guard skips); 0.36.230 = float5slot-1109: 0.36.229 + [SlotGuard] (docs/539 §18, SlotComponent slot arrays at clear / load / clone), [UafCheck] Object blocks (ObjectService free 0x935E1B, ObjectMaxSize, Object id) and foreign-jmp refusal, AsDetourCore NULL trampoline fix (UafCheck without AllocSites crashed at load); 0.36.229 = float5uaf-1109b: 0.36.228 + [UafCheck] free tags (uaftag.h: which of our paths freed a quarantined block), recently-freed ring, float5 near-our-free lookups, P5c released ring 64 -> 4096; 0.36.228 = float5uaf-1109: 0.36.227 + docs/539 §17 [UafCheck] delayed-free quarantine (counters v183 uaf*); 0.36.227 = float5trap-1109: 0.36.226 (master1109c) + docs/539 §16 [CasTrim] WriteTrap (DR write watches on [outfit+0xBC] cells, counters v181 tr*)
+#define TS3NATIVE_VERSION "0.36.239"  // wdfix2-1110: 0.36.238 + [RouteAsync] WatchdogKind2 (docs/250 §7.1, default 0): PlanFromPoint hooked for the watchdog's A1 check only, own kind-2 STARTs accepted only with the watchdog tag, every other kind-2 call straight to the game (arWdPass, the old arReserved slot), GetOption2 q 9 for ts3fixes; 0.36.238 = rc1110c: 0.36.237 + the sync side of the same hole (docs/197 §7): KdSyncCeilUs gives a sync plan with no scope answer yet the household ceiling (KdSeenCeilMs) instead of its usual caps, KdKnownUnseen returns false with no answer (ReplanDedupe holds footprint repeats); ts3fixes marks (uf) unchanged; 0.36.237 = rc1110b: 0.36.236 + KdExempt household hole (docs/197 §7, docs/249): with KdExemptSeen=1 and no scope answer from ts3fixes yet (session start, older package) an unmarked route is unknown = household = exempt, not cut; 0.36.236 = s3ssguard-1109: 0.36.235 + docs/539 §22 [S3SSCompat] StaleWriteGuard (S3SS 1.6.3 SafeReassert call retargeted: its stale camera-threshold write goes to the live WorldManager+0xEC, not freed heap; stands aside for other S3SS builds); 0.36.235 = float5catch-1109b: 0.36.234 + docs/539 §21 DR own-write safety (WpVeh takes a hit on an address its slot just dropped and rewrites the thread's DRs to the slot table, ts3native-eip hits counted not handed on unless float 5, nested hits counted; bp-float5-catch-1 died of a declined single-step from our UafCheck fill under a rotating Float5Watch DR); 0.36.234 = float5catch-1109: 0.36.233 + docs/539 §21 [Float5Sticky] (DR write watch kept on the first float-5 address all session, save / world load checks, Portal_Save portal vector check), [Float5Watch] (last-OK windows, 250 ms sweep of outfits / SlotComponents, DR watches on the newest records around travel), [UafCheck] TravelHold; 0.36.233 = float5mono-1109b: 0.36.232 + [Float5Free] range rule (a 0x40A00000..0x40A0FFFF pointer is bad only with an unreadable / freed / zero-size chunk header; in-use blocks there pass, docs/539 §19.1), [MonoSigGuard] lines only for param_count 0 (docs/539 §20); 0.36.232 = float5mono-1109: 0.36.231 + [MonoSigGuard] (docs/539 §20, EA bug: 0xD70F90 read params[0] of a zero-parameter delegate signature (SwapLoadScreen) before its param_count check; release ini on); 0.36.231 = float5free-1109: 0.36.230 + [Float5Free] (docs/539 §19, float-5 pointers at EA Free 0x4E5920 sharing [UafCheck]'s detour, SACS Walker deque dtor 0x727E10 check, Guard skips); 0.36.230 = float5slot-1109: 0.36.229 + [SlotGuard] (docs/539 §18, SlotComponent slot arrays at clear / load / clone), [UafCheck] Object blocks (ObjectService free 0x935E1B, ObjectMaxSize, Object id) and foreign-jmp refusal, AsDetourCore NULL trampoline fix (UafCheck without AllocSites crashed at load); 0.36.229 = float5uaf-1109b: 0.36.228 + [UafCheck] free tags (uaftag.h: which of our paths freed a quarantined block), recently-freed ring, float5 near-our-free lookups, P5c released ring 64 -> 4096; 0.36.228 = float5uaf-1109: 0.36.227 + docs/539 §17 [UafCheck] delayed-free quarantine (counters v183 uaf*); 0.36.227 = float5trap-1109: 0.36.226 (master1109c) + docs/539 §16 [CasTrim] WriteTrap (DR write watches on [outfit+0xBC] cells, counters v181 tr*)
 #endif
 
 typedef unsigned char u8;
@@ -865,7 +865,7 @@ struct Ts3nCounters {
     LONG arSyncN[3];                 // +0x150C, their count
     LONG arMismatch;                 // +0x1518, an IC met its route's job of another kind or start point (dropped, planned sync)
     LONG arOrphan;                   // +0x151C, an IC armed by READY found no job (planned sync)
-    LONG arReserved;                 // +0x1520, unused (v40 is 32 fields; v41 starts at 0x1524)
+    LONG arWdPass;                   // +0x1520, 0.36.239 (was unused): PlanFromPoint calls hooked only for [RouteAsync] WatchdogKind2 that went straight to the game (no job of theirs)
     // v41 (0.22.1): read-only IC_Route_IsPointObstructedBySim, the gate-0 fix (obstructro.cpp, docs/86 §10)
     LONG orReady;                    // +0x1524
     LONG orMode;                     // +0x1528, switch: 1 = while a job runs, answer from the read-only clone (--ab obstructedro)
@@ -4669,7 +4669,8 @@ static LONG g_scTag;
 static u8 AsyncStart(DWORD handle, int kind = 0, const float* pt = NULL, bool foreign = false) {
     g_collect = 0;
     const LONG probe = handle && g_scProbeH == handle && !kind && !foreign ? 1 : 0;  // a mark is good for one START only
-    const LONG sc = handle && g_scTagH == handle && !kind && !foreign ? g_scTag : 0;
+    // docs/250 §7.1 (0.36.239): the watchdog tag labels an own PlanFromPoint job too (WatchdogKind2), so its time lands in wdJob*
+    const LONG sc = handle && g_scTagH == handle && !foreign && (!kind || (kind == 2 && (g_scTag & 0x400))) ? g_scTag : 0;
     g_scProbeH = g_scTagH = 0;
     g_scSyncH = sc && !probe && !(sc & 0x400) ? handle : 0;  // docs/164 §7.8: a refused last round plans sync (IcCollect), never cut there; not the watchdog tag
     g_rfbHandle = 0;
@@ -4822,6 +4823,13 @@ static const DWORD kArHi = 0x08000000, kArPtHi = 0x10000000, kArKindHi = 0x03000
 static const DWORD kArFgnHi = 0x20000000;
 static DWORD g_arPt[3], g_arPtSet;  // sim thread only
 static int g_arOwnKinds = 7;        // [RouteAsync] Kinds: kinds whose own-task STARTs may start (InstallA10; selftest keeps 7)
+static int g_arWdKind2;             // [RouteAsync] WatchdogKind2 (docs/250 §7.1): own PlanFromPoint STARTs tagged as the watchdog's check may start
+// WatchdogKind2 with kind 2 in neither Kinds nor ForeignKinds: a PlanFromPoint call that READY did not arm and that meets no job of
+// its route runs the game's IC directly (a10.cpp), exactly as unhooked. Sim thread only.
+static bool ArWdPass(DWORD handle) {
+    return g_arWdKind2 && !((g_arOwnKinds | ts3native_counters.afKinds) & 2) && g_collect != handle &&
+           !(GetCurrentThreadId() == g_async.owner && JobFor(handle));
+}
 
 static u8 SpDoorMsg(DWORD lo, DWORD hi);  // snap.cpp: door mirror channel (RouteOption bits 63 + 58)
 static u8 UtViewerMsg(DWORD lo, DWORD hi);  // unseen.cpp: active-household viewer channel (RouteOption bits 63 + 57)
@@ -4863,6 +4871,9 @@ static u8 ArWould(DWORD handle, DWORD q) {
         case 6: return g_routeIsActive(handle) != 0;   // true = afActive
         case 7: return RtM1Why() < 0;
         case 8: return g_async.state == A_RUNNING && g_async.lock != NULL;
+        // q 9 (0.36.239, docs/250 §7.1, ts3fixes watchdogasync): an own PlanFromPoint START tagged as the watchdog's check passes
+        // the kind gate (kind 2 hooked, and in Kinds or WatchdogKind2); false: A1 is not chosen, the check runs sync
+        case 9: return (k.arReady >> 1 & 1) && ((g_arOwnKinds >> 1 & 1) || g_arWdKind2);
     }
     return 0;
 }
@@ -4898,14 +4909,21 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
         // docs/176: foreign kind STARTs need ForeignKinds (afKinds) and afMode 1, else "Foreign" (the sync line names it);
         // own STARTs need the kind in Kinds (a kind hooked only for ForeignKinds keeps its own-task plans synchronous)
         const bool fgn = (optHi & kArFgnHi) != 0;
+        // docs/250 §7.1 [RouteAsync] WatchdogKind2: an own PlanFromPoint START whose route carries the watchdog tag (ScProbeMark
+        // bit 10, sent by ts3fixes only for an A1 check, which never picks a household, selected or unknown-scope Sim)
+        const bool wd2 = idx == 2 && !fgn && g_arWdKind2 && g_scTagH == handle && (g_scTag & 0x10400) == 0x10400;
+        // a watchdog tag is good for this START only, refused or not (AsyncStart takes it otherwise)
+        const bool wdTagged = g_scTagH == handle && (g_scTag & 0x400);
         if (fgn) {
             InterlockedIncrement(&ts3native_counters.afSeen[idx - 1]);
             if (ts3native_counters.afMode != 1 || !(ts3native_counters.afKinds >> (idx - 1) & 1)) {
                 g_collect = 0;
+                if (wdTagged) g_scTagH = 0;
                 return RfbRefuse(handle, RFB_FOREIGN);
             }
-        } else if (!(g_arOwnKinds >> (idx - 1) & 1)) {
+        } else if (!(g_arOwnKinds >> (idx - 1) & 1) && !wd2) {
             g_collect = 0;
+            if (wdTagged) g_scTagH = 0;
             return AsyncRefuse(handle, RFB_NOSTART, idx, false);
         }
         float pt[3];

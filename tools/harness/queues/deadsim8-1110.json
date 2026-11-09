@@ -1,0 +1,308 @@
+{
+  "note": "deadsim8-1110 (2026-11-10): PR #324 dead-Sim passes for shipping ON in the Sat 11-14 release: errortrapsims, errortraplookup, errortrapctl, celebritydeadsim, ghostreactdeadsim, dreamnodedeadsim, overwatchdeadsim, outfitwaitsaved; seasonsdeadsim, casuihandlers, simrefsdeadsim stay OFF. Exercises our household rule on top of #324 (c8507b8b, 69ae7a7c, 769797eb; untested in game). Dalexlol's leak stress (PR #326 leak-stress-drip.py, seed 12351) 5 min before each of 3 France round trips (his al352/al358 scenario), same save + seed, ON arm then OFF arm. Correctness + memory, no timing. node tools/harness/queue.ts tools/harness/queues/deadsim8-1110.json --no-smoke",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-deadsim8-on-stress-x3",
+      "note": "[est 45 min] ON arm, package ts3fixes.package.deadsim8-1110 (master 769797eb, the 8 switches ON). Pass (deadsim-stress.ts exit 0 + queue checks): travel completes 3/3 (save-matrix exit 0 each), no crash, no new script errors (scriptErrorsMax 0), no FAIL line, ts3native 0.36.238, mem marks per trip (base/away/home/gc-after) and memsus alive lines present; agent patches read back the 8 switches ON and the 3 others OFF at the start and after every trip; no pass 'threw' / 'differs' / 'not loaded' applied line; at the end errortrapsims_dropped, errortraplookup_dropped, errortrapctl_dropped, celebritydeadsim_unregistered > 0 (> 0 in all of Dalexlol's stress runs al355/al358); ghostreactdeadsim, overwatchdeadsim, dreamnodedeadsim ('up to' in his runs) and outfitwaitsaved (al359 only) reported; household guard: the active household's id and member count unchanged after every trip, and the household-rule counters [934] dream-node, [935] Overwatch, [936] outfit-wait readable (>= 0, reported: 'kept by the household rule' line). Memory per trip in probe-out/deadsim/on-*.jsonl (commit, largest free block, SimDescriptions in the world) and the ts3native.log mem marks: node tools/mem-report.ts report --log <job ts3native.log>. Run with --no-smoke.",
+      "asi": "game-copy/ts3native.asi.rc1110c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.238 ": 1,
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": 6,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3,
+        "^diag: mem #\\d+ mark ev=base ": 3,
+        "^diag: mem #\\d+ mark ev=away ": 3,
+        "^diag: mem #\\d+ mark ev=home ": 3,
+        "^diag: mem #\\d+ mark ev=gc-after ": 6,
+        "^diag: memsus #\\d+ mark ev=gc-after ": 6,
+        "^diag: memsus alive: ": 6
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "scriptErrorsMax": 0,
+      "run": {
+        "script": [
+          "deadsim-stress.ts",
+          "--expect",
+          "on",
+          "--trips",
+          "3",
+          "--stress-min",
+          "5",
+          "--seed",
+          "12351",
+          "--max",
+          "30"
+        ]
+      },
+      "timeoutMin": 75,
+      "pinReason": "pair rc1110c (docs/data/builds.json): ts3native 0.36.238 (asi game-copy/ts3native.asi.rc1110c), ini game-copy/ts3native.ini.rc1110c, ts3fixes package game-copy/ts3fixes.package.deadsim8-1110 via fixesPackage (cycle.ts rebuilds ts3fixes from master with all PR #324 switches off; fixesBuild would not be the pair)",
+      "iniBase": "game-copy/ts3native.ini.rc1110c",
+      "regexCases": {
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": {
+          "match": [
+            "diag: mem #9 load ev=travel,world-switch priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162",
+            "diag: mem #3 load ev=world-switch priv=1651 wPriv=1599 t=90"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=base ": {
+          "match": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=away ": {
+          "match": [
+            "diag: mem #10 mark ev=away priv=1670 wPriv=1618 wCom=2223 free=1612 big=1501? t=178"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=home ": {
+          "match": [
+            "diag: mem #16 mark ev=home priv=1690 wPriv=1638 wCom=2287 free=1563 big=1497? t=262"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=gc-after ": {
+          "match": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ],
+          "noMatch": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ]
+        },
+        "^diag: memsus #\\d+ mark ev=gc-after ": {
+          "match": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ],
+          "noMatch": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^diag: mem(sus)? .*=[-\\d.]+! ": {
+          "match": [
+            "diag: mem #4 mark ev=build-before priv=1749 wPriv=1686 wCom=2231 free=1590 big=1467? img=463? map=106! stkRes=112 t=142"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-10 01:30:00",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "^ts3native 0\\.36\\.238 ": {
+          "match": [
+            "ts3native 0.36.238 2026-11-10 01:18:05"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-09 18:21:49",
+            "ts3native 0.36.2380 2026-11-10 01:18:05"
+          ]
+        },
+        "^diag: memsus alive: ": {
+          "match": [
+            "diag: memsus alive: seen=4120 trk=96 freed=31 alive=9 hook=1 ms=0.40 top=Ingredient:4,NRaasOverwatch/Thing:3,Plate:2"
+          ],
+          "noMatch": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.deadsim8-1110"
+    },
+    {
+      "id": "bp-deadsim8-off-stress-x3",
+      "note": "[est 45 min] OFF arm (baseline), package ts3fixes.package.rc1110b (all 11 #324 switches off): same save, seed, stress and trips as bp-deadsim8-on-stress-x3. Pass (deadsim-stress.ts exit 0 + queue checks): travel completes 3/3 (save-matrix exit 0 each), no crash, no new script errors (scriptErrorsMax 0), no FAIL line, ts3native 0.36.238, mem marks per trip (base/away/home/gc-after) and memsus alive lines present; the 8 switches and the 3 others read back OFF; every #324 counter 0 at the end; active household unchanged. Its jsonl / mem marks are the baseline for the ON arm's memory gain.",
+      "asi": "game-copy/ts3native.asi.rc1110c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.238 ": 1,
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": 6,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3,
+        "^diag: mem #\\d+ mark ev=base ": 3,
+        "^diag: mem #\\d+ mark ev=away ": 3,
+        "^diag: mem #\\d+ mark ev=home ": 3,
+        "^diag: mem #\\d+ mark ev=gc-after ": 6,
+        "^diag: memsus #\\d+ mark ev=gc-after ": 6,
+        "^diag: memsus alive: ": 6
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "scriptErrorsMax": 0,
+      "run": {
+        "script": [
+          "deadsim-stress.ts",
+          "--expect",
+          "off",
+          "--trips",
+          "3",
+          "--stress-min",
+          "5",
+          "--seed",
+          "12351",
+          "--max",
+          "30"
+        ]
+      },
+      "timeoutMin": 75,
+      "pinReason": "pair rc1110c (docs/data/builds.json): ts3native 0.36.238 (asi game-copy/ts3native.asi.rc1110c), ini game-copy/ts3native.ini.rc1110c, ts3fixes package game-copy/ts3fixes.package.rc1110b via fixesPackage (cycle.ts rebuilds ts3fixes from master with all PR #324 switches off; fixesBuild would not be the pair)",
+      "iniBase": "game-copy/ts3native.ini.rc1110c",
+      "regexCases": {
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": {
+          "match": [
+            "diag: mem #9 load ev=travel,world-switch priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162",
+            "diag: mem #3 load ev=world-switch priv=1651 wPriv=1599 t=90"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=base ": {
+          "match": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=away ": {
+          "match": [
+            "diag: mem #10 mark ev=away priv=1670 wPriv=1618 wCom=2223 free=1612 big=1501? t=178"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=home ": {
+          "match": [
+            "diag: mem #16 mark ev=home priv=1690 wPriv=1638 wCom=2287 free=1563 big=1497? t=262"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=gc-after ": {
+          "match": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ],
+          "noMatch": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ]
+        },
+        "^diag: memsus #\\d+ mark ev=gc-after ": {
+          "match": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ],
+          "noMatch": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^diag: mem(sus)? .*=[-\\d.]+! ": {
+          "match": [
+            "diag: mem #4 mark ev=build-before priv=1749 wPriv=1686 wCom=2231 free=1590 big=1467? img=463? map=106! stkRes=112 t=142"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-10 01:30:00",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "^ts3native 0\\.36\\.238 ": {
+          "match": [
+            "ts3native 0.36.238 2026-11-10 01:18:05"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-09 18:21:49",
+            "ts3native 0.36.2380 2026-11-10 01:18:05"
+          ]
+        },
+        "^diag: memsus alive: ": {
+          "match": [
+            "diag: memsus alive: seen=4120 trk=96 freed=31 alive=9 hook=1 ms=0.40 top=Ingredient:4,NRaasOverwatch/Thing:3,Plate:2"
+          ],
+          "noMatch": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rc1110b"
+    }
+  ]
+}

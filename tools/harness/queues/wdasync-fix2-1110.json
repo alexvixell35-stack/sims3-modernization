@@ -1,0 +1,282 @@
+{
+  "note": "wdasync-fix2-1110 (2026-11-10, correctness, --no-smoke): retest of wdasync-fix-1110 after triage found every A1 START refused (watchdogasync_sent 541, started 0: ts3native hooked no PlanFromPoint with Kinds=0). Pair wdfix2-1110 = ts3native.asi.wdfix2-1110 0.36.239 + ts3native.ini.wdfix2-1110 (WatchdogKind2=1) + ts3fixes.package.wdfix2-1110 (watchdogasync default ON). Same three jobs, renamed -wdfix2; PASS also needs the native side: arStartedPlanFromPoint>=1 and wdJobN>=1 (watchdog-tagged kind-2 jobs started and ended), the A10 install line with WatchdogKind2=1, and on IP arWdPass>=1 (other PlanFromPoint calls went straight to the game, not through SyncIc). Est ~78 min. node tools/harness/queue.ts tools/harness/queues/wdasync-fix2-1110.json --no-smoke",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "asi": "game-copy/ts3native.asi.wdfix2-1110",
+      "pinReason": "pair wdfix2-1110 (docs/data/builds.json): ts3native.asi.wdfix2-1110 (0.36.239: [RouteAsync] WatchdogKind2, PlanFromPoint hooked for the watchdog A1 check only, other kind-2 calls straight to the game) + ts3native.ini.wdfix2-1110 (rc1110c ini + WatchdogKind2=1) + ts3fixes.package.wdfix2-1110 (master + A1 PlanFromPoint START sends the watchdog tag, WdA1Would asks q 9; built with build-fixes.ts --on kWatchdogAsync); fixesPackage, not fixesBuild, so cycle.ts does not swap in a master build",
+      "releaseDefaults": true,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteAsync.WatchdogKind2": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.239 ": 1,
+        "route async A10: .*WatchdogKind2=1": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "watchdogasync shadow mismatch:": 0
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "id": "bp-wdasync-stuck-repro-wdfix2",
+      "note": "[wdasync-fix2-1110: copy of wdasync-fix-1110 (from release-verify-1110) bp-wdasync-stuck-repro on pair wdfix2-1110; watchdoglockskip on too, wdLockSkip reported (H4Core.WdRoute skips every lock-held case before A1, tools/selftest/h4core; read wdLockSkip > 0 as the lock case reached, 0 = no lock case in this run, not a FAIL); PASS needs watchdogasync_started>=1 plus native arStartedPlanFromPoint>=1, wdJobN>=1 (arWdPass reported, >=0) and the A10 line with WatchdogKind2=1] [est 18 min] docs/250 §7.1 correctness (3): repro bp-idle-unroutable (Wogan Hemlock stranded on an unroutable diner spot, unseen, ultra speed) with watchdogasync + watchdogasyncshadow on: the watchdog must still catch him (watchdog_idle_unroutable >= 1, the repro's expect line). watchdogasync_* shows whether his check went through A1 (only when a job held +0x918 at that moment).",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "bp-idle-unroutable",
+          "fixesOn": "watchdogasync,watchdogasyncshadow,watchdoglockskip",
+          "fixesReport": "watchdogasync_,watchdog_,wd",
+          "fixesRequire": "watchdog_idle_unroutable>=1,watchdogasync_shadow_mismatch<1,watchdogasync_started>=1,wdLockSkip>=0"
+        }
+      },
+      "timeoutMin": 20,
+      "iniBase": "game-copy/ts3native.ini.wdfix2-1110",
+      "regexCases": {
+        "^ts3native 0\\.36\\.239 ": {
+          "match": [
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.238 2026-11-10 01:30:00",
+            "ts3native 0.36.2390 2026-11-10 14:30:00"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "watchdogasync shadow mismatch:": {
+          "match": [
+            "watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ],
+          "noMatch": [
+            "watchdogasync shadow: checks 12, mismatches 0"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0",
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.wdfix2-1110",
+      "nativeRequire": "arStartedPlanFromPoint>=1,wdJobN>=1,arWdPass>=0"
+    },
+    {
+      "asi": "game-copy/ts3native.asi.wdfix2-1110",
+      "pinReason": "pair wdfix2-1110 (docs/data/builds.json): ts3native.asi.wdfix2-1110 (0.36.239: [RouteAsync] WatchdogKind2, PlanFromPoint hooked for the watchdog A1 check only, other kind-2 calls straight to the game) + ts3native.ini.wdfix2-1110 (rc1110c ini + WatchdogKind2=1) + ts3fixes.package.wdfix2-1110 (master + A1 PlanFromPoint START sends the watchdog tag, WdA1Would asks q 9; built with build-fixes.ts --on kWatchdogAsync); fixesPackage, not fixesBuild, so cycle.ts does not swap in a master build",
+      "releaseDefaults": true,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteAsync.WatchdogKind2": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.239 ": 1,
+        "route async A10: .*WatchdogKind2=1": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "watchdogasync shadow mismatch:": 0
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "id": "bp-wdasync-shadow-wdfix2",
+      "note": "[wdasync-fix2-1110: copy of wdasync-fix-1110 (from release-verify-1110) bp-wdasync-shadow on pair wdfix2-1110; watchdoglockskip on too, wdLockSkip reported (H4Core.WdRoute skips every lock-held case before A1, tools/selftest/h4core; read wdLockSkip > 0 as the lock case reached, 0 = no lock case in this run, not a FAIL); PASS needs watchdogasync_started>=1 plus native arStartedPlanFromPoint>=1, wdJobN>=1 (arWdPass reported, >=0) and the A10 line with WatchdogKind2=1] [est 22 min] docs/250 §7.1 correctness (2): the same on BP (15 min, shadow on).",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "watchdogasync,watchdogasyncshadow,watchdoglockskip",
+          "fixesReport": "watchdogasync_,watchdog_,wd",
+          "fixesRequire": "watchdogasync_shadow_mismatch<1,watchdogasync_shadow_runs>=1,watchdogasync_started>=1,wdLockSkip>=0"
+        }
+      },
+      "timeoutMin": 27,
+      "iniBase": "game-copy/ts3native.ini.wdfix2-1110",
+      "regexCases": {
+        "^ts3native 0\\.36\\.239 ": {
+          "match": [
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.238 2026-11-10 01:30:00",
+            "ts3native 0.36.2390 2026-11-10 14:30:00"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "watchdogasync shadow mismatch:": {
+          "match": [
+            "watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ],
+          "noMatch": [
+            "watchdogasync shadow: checks 12, mismatches 0"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0",
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.wdfix2-1110",
+      "nativeRequire": "arStartedPlanFromPoint>=1,wdJobN>=1,arWdPass>=0"
+    },
+    {
+      "id": "ip-natural-combined-wdfix2",
+      "save": "Baseline-IP",
+      "noiseCheck": false,
+      "releaseDefaults": true,
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.WatchdogKind2": 1
+      },
+      "note": "[wdasync-fix2-1110: copy of wdasync-fix-1110 (from release-verify-1110) ip-natural-combined on pair wdfix2-1110; watchdoglockskip on too, wdLockSkip reported (H4Core.WdRoute skips every lock-held case before A1, tools/selftest/h4core; read wdLockSkip > 0 as the lock case reached, 0 = no lock case in this run, not a FAIL); PASS needs watchdogasync_started>=1 plus native arStartedPlanFromPoint>=1, wdJobN>=1, arWdPass>=1 and the A10 line with WatchdogKind2=1] [est 38 min] Correctness, one Baseline-IP natural load replacing ip-ubrel-hbstart-verify (unseenboat-release), ip-wdasync-shadow (wdasync-verify) and ip-foreignscope-natural (foreignscope-verify); all three were Baseline-IP natural, release config. Pass = all of: (a) unseenboatstart ((c) Natural houseboat starts on Baseline-IP (15 tries in 28 min on 11-07): --soft-tries runs the full 30 min and reports the count; FAIL only on stuck teleported, left_dirty or a dead game.) verify-shortcut.ts --soft-tries 30 min; (b) watchdog A1 shadow (docs/250 §7.1 correctness (1): IP natural play 15 min, watchdogasync + watchdogasyncshadow on. Pass: fixesRequire (0 mismatches, shadow ran, A1 started), 0 new script errors, no crash; read watchdogasync_stale and watchdog_* (against the ABBA off arms), and grep the run log for \"watchdog .* -> watchdog reset\": no active-household or selectable Sim. Correctness, not timing (the shadow re-check waits on +0x918 like today).) rules kept: --require watchdogasync_shadow_mismatch<1, _shadow_runs>=1, _started>=1, logForbid \"watchdogasync shadow mismatch:\", 0 script errors; (c) foreign scope (Correctness, IP natural play 10 min, pair foreignscope-1109 (ts3native 0.36.222 + ts3fixes from bugfix/foreign-job-scope). Copy of correctness-1109 ip-foreign-natural-on-1 (ForeignKinds=4 Mode=1 KdA10ForeignMs=1000). Pass: A10 foreign long jobs of NPC-only boat riders now log scope unseen (logRequire), no household-or-seen or unknown scope cut (logForbid on the kind-deadline summary), no watchdog. Then read: grep \"A10 foreign START\" lines by scope (gangway / boat stacks should be unseen, the rest seen-npc or household-or-seen) and node tools/harness/kd-arm-cuts.ts <ts3native.log>.) rules kept: logRequire \"A10 foreign START.*scope unseen\" >= 1, logForbid unknown-scope cuts, nativeRequire kdScopeN>=1, watchdogs<=0. Why sharing is safe: the shadow re-checks each A1 verdict sync on the same Sim, so which routes run does not change its mismatch rule; foreign scope is a per-START label; unseenboat/unseenboatstart remove some boat replans, so (c) can see fewer boat riders: if (c) alone fails with scope unseen 0 while unseenboat_shortcuts is high, rerun ip-foreignscope-natural from foreignscope-verify.json (git history) on master1109c, not a fix FAIL. Config change vs the old foreign-scope job: release ini (Mono stack, AutShadow Unseen=1 on) instead of its pre-autunseen pins; ForeignKinds 4 / Mode 1 / KdA10ForeignMs 1000 and LogFallbackMs 20 kept (long-job lines carry the scope).",
+      "run": {
+        "script": [
+          "verify-shortcut.ts",
+          "--name",
+          "unseenboatstart",
+          "--on",
+          "unseenboat,unseenboatstart,boatreplanlog,watchdogasync,watchdogasyncshadow,watchdoglockskip",
+          "--tries",
+          "15",
+          "--minutes",
+          "30",
+          "--soft-tries",
+          "--require",
+          "watchdogasync_shadow_mismatch<1,watchdogasync_shadow_runs>=1,watchdogasync_started>=1"
+        ]
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.239 ": 1,
+        "A10 foreign START.*scope unseen": 1,
+        "route async A10: .*WatchdogKind2=1": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "watchdogasync shadow mismatch:": 0,
+        "cuts by scope unknown [1-9]": 0,
+        "cuts by scope unknown \\d+ seen [1-9]": 0
+      },
+      "nativeRequire": "kdScopeN>=1,watchdogs<=0,arStartedPlanFromPoint>=1,wdJobN>=1,arWdPass>=1",
+      "timeoutMin": 45,
+      "asi": "game-copy/ts3native.asi.wdfix2-1110",
+      "pinReason": "pair wdfix2-1110 (docs/data/builds.json): ts3native.asi.wdfix2-1110 (0.36.239: [RouteAsync] WatchdogKind2, PlanFromPoint hooked for the watchdog A1 check only, other kind-2 calls straight to the game) + ts3native.ini.wdfix2-1110 (rc1110c ini + WatchdogKind2=1) + ts3fixes.package.wdfix2-1110 (master + A1 PlanFromPoint START sends the watchdog tag, WdA1Would asks q 9; built with build-fixes.ts --on kWatchdogAsync); fixesPackage, not fixesBuild, so cycle.ts does not swap in a master build",
+      "iniBase": "game-copy/ts3native.ini.wdfix2-1110",
+      "regexCases": {
+        "^ts3native 0\\.36\\.239 ": {
+          "match": [
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.238 2026-11-10 01:30:00",
+            "ts3native 0.36.2390 2026-11-10 14:30:00"
+          ]
+        },
+        "A10 foreign START.*scope unseen": {
+          "match": [
+            "route async: long job 249 ms, A10 foreign START, IC kind 3, route 25A37C23, arm -, scope unseen, at 342546203 ms"
+          ],
+          "noMatch": [
+            "route async: long job 249 ms, A10 foreign START, IC kind 3, route 25A37C23, arm -, scope household, at 342546203 ms"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "watchdogasync shadow mismatch:": {
+          "match": [
+            "watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ],
+          "noMatch": [
+            "watchdogasync shadow: checks 12, mismatches 0"
+          ]
+        },
+        "cuts by scope unknown [1-9]": {
+          "match": [
+            "cuts by scope unknown 2 seen 0 unseen 5 npc 0; npc ceiling 2000 ms cuts 0; camera recheck"
+          ],
+          "noMatch": [
+            "cuts by scope unknown 0 seen 0 unseen 0 npc 0; npc ceiling 2000 ms cuts 0; camera recheck"
+          ]
+        },
+        "cuts by scope unknown \\d+ seen [1-9]": {
+          "match": [
+            "cuts by scope unknown 0 seen 3 unseen 5 npc 0; npc ceiling 2000 ms cuts 0; camera recheck"
+          ],
+          "noMatch": [
+            "cuts by scope unknown 0 seen 0 unseen 0 npc 0; npc ceiling 2000 ms cuts 0; camera recheck"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0",
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.wdfix2-1110"
+    }
+  ]
+}

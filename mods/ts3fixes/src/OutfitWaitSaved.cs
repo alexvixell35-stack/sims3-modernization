@@ -17,7 +17,9 @@ namespace Ts3Fixes
     // AlarmOneShot.Simulate > Function.Invoke > AlarmTimerCallback.Invoke > ChangeOutfitCB > SwitchOutfitHelper.ChangeOutfit >
     // Wait, with MagicalMakeover.mInstanceActor = the dead Sim. The pass destroys such a task when the interaction's actor is
     // gone (destroyed, or its description names another Sim object), as NRaas ErrorTrap does at load for a OneShotFunction
-    // whose target object is destroyed. The Sim it would dress is gone, so no outfit change is lost. [2083] tasks ended.
+    // whose target object is destroyed. The Sim it would dress is gone, so no outfit change is lost. Household rule: tasks
+    // of household, selected or unknown-scope owners stay (GoneOwnerHh, DeadSimHolders.cs); no active household, nothing
+    // runs. [2083] tasks ended, [936] kept by the rule.
     public static partial class Fixes
     {
         static FieldInfo sOwObjHash, sOwOsfFunction;
@@ -42,6 +44,10 @@ namespace Ts3Fixes
                 if (sOwObjHash == null) return;
                 IDictionary tasks = sOwObjHash.GetValue(null) as IDictionary;
                 if (tasks == null) return;
+                // household rule (CLAUDE.md): no active household = unknown scope for every Sim, so the pass waits
+                Sims3.Gameplay.CAS.Household hh = Sims3.Gameplay.CAS.Household.ActiveHousehold;
+                if (hh == null) return;
+                Sims3.Gameplay.Interfaces.IActor sel = Sims3.Gameplay.Core.PlumbBob.SelectedActor;
                 List<ulong> end = new List<ulong>();
                 List<string> who = new List<string>();
                 foreach (DictionaryEntry kv in tasks)
@@ -56,6 +62,7 @@ namespace Ts3Fixes
                     if (mm == null || mm.GetType().FullName != kMakeoverType) continue;
                     Sim actor = mm.InstanceActor as Sim;
                     if (actor == null || !EtSimGone(actor)) continue;
+                    if (GoneOwnerHh(actor, hh, sel)) { PatchCounters()[936]++; continue; }
                     end.Add((ulong)kv.Key);
                     who.Add(actor.SimDescription != null ? actor.SimDescription.FullName : "?");
                 }

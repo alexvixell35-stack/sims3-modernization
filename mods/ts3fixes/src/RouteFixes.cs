@@ -348,10 +348,13 @@ namespace Ts3Fixes
 
             // docs/250 §7.1 A1: would ts3native start an own START from this task now (the HitchCause.cs probes: async on, the task
             // may yield, M1 not pending)? Then the check's plan goes out as an own-task job (RouteBackoff.cs OwnerTaskSlot 872).
-            // A START still refused later (queue full) runs the check sync: c[872] - c[873].
+            // A START still refused later (queue full) runs the check sync: c[872] - c[873]. q 9 (ts3native 0.36.239): the check's
+            // PlanFromPoint START passes ts3native's kind gate ([RouteAsync] WatchdogKind2 or Kinds bit 2); older ts3native and
+            // the game answer false, so A1 is not chosen there (counted watchdogasync_refused) and the check runs sync.
             static bool WdA1Would()
             {
-                return RouteBackoffHook.ForeignEligible() && HcWould(sYieldProbe, 1) && HcWould(sYieldProbe, 5) && HcWould(sYieldProbe, 7);
+                return RouteBackoffHook.ForeignEligible() && HcWould(sYieldProbe, 1) && HcWould(sYieldProbe, 5) && HcWould(sYieldProbe, 7)
+                    && HcWould(sYieldProbe, 9);
             }
 
             // watchdogasyncshadow (correctness arm, default off): the same spot checked again sync right after the A1 verdict, no
