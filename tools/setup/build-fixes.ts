@@ -180,6 +180,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kOverwatchDeadSim value="False" />
     <kSimRefsDeadSim value="False" />
     <kOutfitWaitSaved value="False" />
+    <kDeadSimCount value="False" />
+    <kDeadSimHollow value="False" />
     <kRelTablesApart value="True" />
     <kAsyncJigSync value="True" />
     <kDeadRefSweep value="False" />
