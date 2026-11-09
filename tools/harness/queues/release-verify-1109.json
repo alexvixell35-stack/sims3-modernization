@@ -422,11 +422,11 @@
         "Collection was modified[\\s\\S]*(FindAndRouteOntoADanceFloorWithFollower|DanceFloorDiagHook)"
       ],
       "logRequire": {
-        "^dancefloor list: call #\\d+ ": 20,
+        "^ts3fixes: dancefloor list: call #\\d+ ": 20,
         "^ts3native 0\\.36\\.226 ": 1
       },
       "logForbid": {
-        "^dancefloor list: diag off": 0,
+        "^ts3fixes: dancefloor list: diag off": 0,
         "^FAIL\\b": 0,
         "[\\\\/]Users[\\\\/][^<]": 0
       },
@@ -470,11 +470,11 @@
       "noiseCheck": false,
       "scriptErrorsMax": 0,
       "logRequire": {
-        "^dancefloor list: call #\\d+ ": 3,
+        "^ts3fixes: dancefloor list: call #\\d+ ": 3,
         "^ts3native 0\\.36\\.226 ": 1
       },
       "logForbid": {
-        "^dancefloor list: diag off": 0,
+        "^ts3fixes: dancefloor list: diag off": 0,
         "^FAIL\\b": 0,
         "[\\\\/]Users[\\\\/][^<]": 0
       },

@@ -441,6 +441,17 @@ namespace Ts3Agent
                 }
                 return items;
             }
+            IDictionary map = v as IDictionary;
+            if (map != null)
+            {
+                Dictionary<string, object> m = new Dictionary<string, object>();
+                foreach (DictionaryEntry de in map)
+                {
+                    if (m.Count >= 100) { m["..."] = true; break; }
+                    m[de.Key == null ? "null" : de.Key.ToString()] = Describe(de.Value, depth - 1);
+                }
+                return m;
+            }
             Dictionary<string, object> d = new Dictionary<string, object>();
             d["$type"] = t.FullName;
             try { d["$str"] = v.ToString(); } catch (Exception) { }

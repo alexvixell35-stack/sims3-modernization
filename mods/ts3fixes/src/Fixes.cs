@@ -440,8 +440,8 @@ namespace Ts3Fixes
                 case "unseencars": return Instantiator.kUnseenCarThrottle;
                 case "routesrc": return Instantiator.kRouteSources;
                 case "watchdoglockskip": return false;  // docs/247 §12.4, docs/250 §7.4: runtime only, default off
-                // docs/250 §7.1 A1: ON for this release (Rodney 2026-11-09), branch feature/watchdog-route-offthread; stays ON only if queue
-                // wdasync-verify passes (shadow 0 mismatches, stuck repro caught, IP ABBA no regression); else kWatchdogAsync False before the freeze
+                // docs/250 §7.1 A1: OFF since rc1110b (2026-11-09): never sends a job (no OwnerTaskStart) and, when ON, bypasses
+                // watchdoglockskip in H4Core.WdRoute (docs/247 §12.4)
                 case "watchdogasync": return Instantiator.kWatchdogAsync;
                 case "watchdogasyncshadow": return false;  // correctness arm only: re-runs each A1 check sync and counts mismatches
                 case "alarmtime": case "boatreplanlog": case "owresettime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks

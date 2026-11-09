@@ -12,10 +12,10 @@
       "scriptErrorsMax": 0,
       "logRequire": {
         "^ts3native 0\\.36\\.211 ": 1,
-        "^dancefloor list: call #\\d+ ": 3
+        "^ts3fixes: dancefloor list: call #\\d+ ": 3
       },
       "logForbid": {
-        "^dancefloor list: diag off": 0,
+        "^ts3fixes: dancefloor list: diag off": 0,
         "^FAIL\\b": 0,
         "[\\\\/]Users[\\\\/][^<]": 0
       },

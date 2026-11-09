@@ -433,11 +433,11 @@
     "Collection was modified[\\s\\S]*(FindAndRouteOntoADanceFloorWithFollower|DanceFloorDiagHook)"
    ],
    "logRequire": {
-    "^dancefloor list: call #\\d+ ": 20,
+    "^ts3fixes: dancefloor list: call #\\d+ ": 20,
     "^ts3native 0\\.36\\.236 ": 1
    },
    "logForbid": {
-    "^dancefloor list: diag off": 0,
+    "^ts3fixes: dancefloor list: diag off": 0,
     "^FAIL\\b": 0,
     "[\\\\/]Users[\\\\/][^<]": 0
    },
@@ -473,12 +473,14 @@
    "fixesBuild": "ts3fixes.package.rc1110",
    "iniBase": "game-copy/ts3native.ini.rc1110",
    "regexCases": {
-    "^dancefloor list: call #\\d+ ": {
+    "^ts3fixes: dancefloor list: call #\\d+ ": {
      "match": [
-      "dancefloor list: call #3 floors 2 ver 14 steps 2 result floor gc 41->41 0 ms actor Wogan Hemlock"
+      "ts3fixes: dancefloor list: call #4 floors 0 ver 1 steps 0 result null gc 297->297 0 ms actor Alexy Fresco (household no) follower Matilda Smart (household no) lot Banzai Lounge object StereoCommunity",
+      "ts3fixes: dancefloor list: call #3 floors 1 ver 2 steps 1 result floor DanceFloor3x3#D20F50 gc 296->298 2469 ms actor Matty Crewe (household no) follower William Fangmann (household no) lot Waylon's Haunt object StereoCommunity"
      ],
      "noMatch": [
-      "dancefloor list: diag off, EA member missing (near True, route False, enumerator fields True)"
+      "ts3fixes: dancefloor list: diag off, EA member missing (near True, route False, enumerator fields True)",
+      "ts3fixes: play: ui tasks 0 -> 1 by OneShotFunctionTask..ctor < ToMainMenuState.OnEnterNotInWorld < EventHandler.Invoke < World.OnEnterNotInWorld"
      ]
     },
     "^ts3native 0\\.36\\.236 ": {
@@ -489,12 +491,13 @@
       "ts3native 0.36.226 2026-11-09 08:07:23"
      ]
     },
-    "^dancefloor list: diag off": {
+    "^ts3fixes: dancefloor list: diag off": {
      "match": [
-      "dancefloor list: diag off, EA member missing (near True, route False, enumerator fields True)"
+      "ts3fixes: dancefloor list: diag off, EA member missing (near True, route False, enumerator fields True)"
      ],
      "noMatch": [
-      "dancefloor list: call #3 floors 2 ver 14 steps 2 result floor gc 41->41 0 ms actor Wogan Hemlock"
+      "ts3fixes: dancefloor list: call #4 floors 0 ver 1 steps 0 result null gc 297->297 0 ms actor Alexy Fresco (household no) follower Matilda Smart (household no) lot Banzai Lounge object StereoCommunity",
+      "ts3fixes: dancefloor list: call #3 floors 1 ver 2 steps 1 result floor DanceFloor3x3#D20F50 gc 296->298 2469 ms actor Matty Crewe (household no) follower William Fangmann (household no) lot Waylon's Haunt object StereoCommunity"
      ]
     },
     "^FAIL\\b": {
@@ -528,11 +531,11 @@
    "noiseCheck": false,
    "scriptErrorsMax": 0,
    "logRequire": {
-    "^dancefloor list: call #\\d+ ": 3,
+    "^ts3fixes: dancefloor list: call #\\d+ ": 3,
     "^ts3native 0\\.36\\.236 ": 1
    },
    "logForbid": {
-    "^dancefloor list: diag off": 0,
+    "^ts3fixes: dancefloor list: diag off": 0,
     "^FAIL\\b": 0,
     "[\\\\/]Users[\\\\/][^<]": 0
    },
@@ -562,12 +565,14 @@
    "fixesBuild": "ts3fixes.package.rc1110",
    "iniBase": "game-copy/ts3native.ini.rc1110",
    "regexCases": {
-    "^dancefloor list: call #\\d+ ": {
+    "^ts3fixes: dancefloor list: call #\\d+ ": {
      "match": [
-      "dancefloor list: call #3 floors 2 ver 14 steps 2 result floor gc 41->41 0 ms actor Wogan Hemlock"
+      "ts3fixes: dancefloor list: call #4 floors 0 ver 1 steps 0 result null gc 297->297 0 ms actor Alexy Fresco (household no) follower Matilda Smart (household no) lot Banzai Lounge object StereoCommunity",
+      "ts3fixes: dancefloor list: call #3 floors 1 ver 2 steps 1 result floor DanceFloor3x3#D20F50 gc 296->298 2469 ms actor Matty Crewe (household no) follower William Fangmann (household no) lot Waylon's Haunt object StereoCommunity"
      ],
      "noMatch": [
-      "dancefloor list: diag off, EA member missing (near True, route False, enumerator fields True)"
+      "ts3fixes: dancefloor list: diag off, EA member missing (near True, route False, enumerator fields True)",
+      "ts3fixes: play: ui tasks 0 -> 1 by OneShotFunctionTask..ctor < ToMainMenuState.OnEnterNotInWorld < EventHandler.Invoke < World.OnEnterNotInWorld"
      ]
     },
     "^ts3native 0\\.36\\.236 ": {
@@ -578,12 +583,13 @@
       "ts3native 0.36.226 2026-11-09 08:07:23"
      ]
     },
-    "^dancefloor list: diag off": {
+    "^ts3fixes: dancefloor list: diag off": {
      "match": [
-      "dancefloor list: diag off, EA member missing (near True, route False, enumerator fields True)"
+      "ts3fixes: dancefloor list: diag off, EA member missing (near True, route False, enumerator fields True)"
      ],
      "noMatch": [
-      "dancefloor list: call #3 floors 2 ver 14 steps 2 result floor gc 41->41 0 ms actor Wogan Hemlock"
+      "ts3fixes: dancefloor list: call #4 floors 0 ver 1 steps 0 result null gc 297->297 0 ms actor Alexy Fresco (household no) follower Matilda Smart (household no) lot Banzai Lounge object StereoCommunity",
+      "ts3fixes: dancefloor list: call #3 floors 1 ver 2 steps 1 result floor DanceFloor3x3#D20F50 gc 296->298 2469 ms actor Matty Crewe (household no) follower William Fangmann (household no) lot Waylon's Haunt object StereoCommunity"
      ]
     },
     "^FAIL\\b": {

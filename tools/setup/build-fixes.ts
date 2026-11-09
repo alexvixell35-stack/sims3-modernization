@@ -108,7 +108,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kFailRepeat value="False" />
     <kJobYield value="False" />
     <kDriverTaskAsync value="False" />
-    <kWatchdogAsync value="True" />
+    <kWatchdogAsync value="False" />
     <kStuckCheckOwn value="False" />
     <kOverwatchStuckSlice value="True" />
     <kSeasonMarkerCache value="False" />

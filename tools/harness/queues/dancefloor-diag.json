@@ -15,10 +15,10 @@
       ],
       "logRequire": {
         "^ts3native 0\\.36\\.200 ": 1,
-        "^dancefloor list: call #\\d+ ": 20
+        "^ts3fixes: dancefloor list: call #\\d+ ": 20
       },
       "logForbid": {
-        "^dancefloor list: diag off": 0,
+        "^ts3fixes: dancefloor list: diag off": 0,
         "^FAIL\\b": 0,
         "[\\\\/]Users[\\\\/][^<]": 0
       },

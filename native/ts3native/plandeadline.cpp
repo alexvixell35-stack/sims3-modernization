@@ -100,7 +100,9 @@ static __declspec(thread) bool t_kdUncut;  // this job runs uncut because of its
 static __declspec(thread) LONG t_kdExemptUs;  // this job is exempt: the deadline it would have had
 static __declspec(thread) LONG t_kdJobScope;  // worker: the running job's scope, 2 = unseen
 static bool KdExempt(const AsyncJob* j) {
-    return ts3native_counters.kdExMode == 1 && ts3native_counters.kdScopeN && !j->uf && j->kdScope != 2;  // docs/249: cut only a route known unseen; no answer ever = old package: as v0.2.8
+    // docs/249: cut only a route known unseen or MARKed unseen by ts3fixes (uf, its own channel). No scope answer yet (session
+    // start, older ts3fixes package) = unknown = household: exempt (rc1110b; before, every route was cut as in v0.2.8)
+    return ts3native_counters.kdExMode == 1 && !j->uf && j->kdScope != 2;
 }
 static LONG KdCeilUs(LONG scope) { return scope == 3 ? ts3native_counters.kdNpcCeilUs : ts3native_counters.kdCeilUs; }
 static DWORD g_kdScopeH;
@@ -187,18 +189,20 @@ static bool KdCamHold(LONGLONG now, LONGLONG* dl) {
     }
     return true;
 }
-// sim thread: the ceiling of this sync plan, 0 = its usual caps. handle 0 = non-IC plan: the plan ts3fixes is running. Unknown = exempt
+// sim thread: the ceiling of this sync plan, 0 = its usual caps. handle 0 = non-IC plan: the plan ts3fixes is running. Unknown = exempt,
+// also with no scope answer from ts3fixes yet (session start, older package): household, as KdExempt (rc1110c)
 static LONG KdSyncCeilUs(DWORD handle) {
     const Ts3nCounters& k = ts3native_counters;
-    if (k.kdExMode != 1 || !ts3native_counters.kdScopeN || k.pdMode != 1 || t_pd.open) return 0;
+    if (k.kdExMode != 1 || k.pdMode != 1 || t_pd.open) return 0;
     const LONG s = g_kdScopeH && (!handle || g_kdScopeH == handle) ? g_kdScope : 0;
     if (s == 2) return 0;
     t_kdSeen = s != 0, t_kdNpc = s == 3;
     return KdCeilUs(s);
 }
-// ReplanDedupe's repeat after footprint writes (docs/249): not proven exact, so only for a route known unseen
+// ReplanDedupe's repeat after footprint writes (docs/249): not proven exact, so only for a route known unseen (scope 2 or a ts3fixes
+// mark, t_kdJobScope). No scope answer yet = unknown = household: not known unseen (rc1110c)
 static bool KdKnownUnseen(DWORD handle) {
-    if (ts3native_counters.kdExMode != 1 || !ts3native_counters.kdScopeN) return true;
+    if (ts3native_counters.kdExMode != 1) return true;
     return t_kdJobScope ? t_kdJobScope == 2 : g_kdScopeH == handle && g_kdScope == 2;
 }
 
@@ -262,7 +266,7 @@ static LONG KdJobBegin(const AsyncJob* j) {
     if (InterlockedExchange(&lastExMode, k.kdExMode) != k.kdExMode) Log("route async: KdExemptSeen switch now %ld (cuts so far unknown %ld seen %ld unseen %ld, exempt %ld)", k.kdExMode, k.kdCutUnk, k.kdCutSeen, k.kdCutUnseen, k.kdExempt);
     static LONG lastCamMode = -1;  // the same for KdCutCamRecheck
     if (InterlockedExchange(&lastCamMode, k.kdCamMode) != k.kdCamMode) Log("route async: KdCutCamRecheck switch now %ld (checks %ld held %ld stale %ld would hold %ld)", k.kdCamMode, k.kdCamChecks, k.kdCamHeld, k.kdCamStale, k.kdCamWould);
-    if (ts3native_counters.kdExMode == 1 && !ts3native_counters.kdScopeN && !InterlockedExchange(&noScope, 1)) Log("route seen exempt: no scope answer from ts3fixes (old package?), every route cut as in v0.2.8");
+    if (ts3native_counters.kdExMode == 1 && !ts3native_counters.kdScopeN && !InterlockedExchange(&noScope, 1)) Log("route seen exempt: no scope answer from ts3fixes yet (session start or old package), unmarked routes exempt as household");
     if (k.kdMode != 1 || !k.kdReady) {  // docs/249: FbJobCapMs and the probe's PlanDeadlineMs (KindDeadlines off): the same rule
         const LONG old = j->fb && k.fbjcMode == 1 ? k.fbjcCapUs : j->probe && !j->fb ? k.pdUs : 0;
         if (!old || !KdExempt(j)) return -1;

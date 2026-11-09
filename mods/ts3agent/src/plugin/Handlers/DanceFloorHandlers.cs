@@ -27,6 +27,8 @@ using Sims3.SimIFace;
 //        for its picked a + b (1-based in the pool) or its whole pool: queues cancelled, Teleport Me Here onto the floor unless
 //        there, motives maxed, moodlets cleared, autonomy off (NPCs on a club lot queue GoHome after a cancel; 2026-11-08); missing:
 //        only the Sims not on their lot and not teleporting right now (the repro's until polls place with it, so a lost teleport is redone).
+//        Before that, a pool NPC a teleport cannot move (DtStuck: group / follower situation, vehicle, no lot) is replaced by another
+//        NPC that fits (DtSwapStuck; "swapped" lists them); setup never picks one.
 //   {op: "fire", a?: 1, b?: 2, crowd?: false, phase?: ""}  per floor actor a, target b of its pool (crowd: pairs 1+2, 3+4, 5+6
 //        at once); checks scope and the lot, cancels a dance still running, sets each pair's short-term context to Friendly when it
 //        is not one BaseRun accepts (test shortcut, labelled), queues DanceTogetherA. One cycle per fire; one ts3native.log line per
@@ -63,6 +65,8 @@ namespace Ts3Agent
         }
 
         static readonly List<DtFloor> sDtFloors = new List<DtFloor>();
+        static readonly List<ulong> sDtDropped = new List<ulong>();  // NPCs DtSwapStuck took out of a pool: never picked again this setup
+        static readonly Dictionary<ulong, int> sDtQueuedAt = new Dictionary<ulong, int>();  // System.Environment.TickCount when DtStalled first saw a Sim's teleport queued at the head
         static int sDtTries, sDtCycle, sDtBase = -1, sDtSigAt, sDtCancels, sDtFiredAt, sDtGaveUp;
         static string sDtSig;
 
@@ -96,6 +100,8 @@ namespace Ts3Agent
                 int max = (int)a.Long("max", 4), want = (int)a.Long("pool", 6);
                 if (want < 2) throw new McpException("dance_together_floor: pool must be >= 2");
                 sDtFloors.Clear();
+                sDtDropped.Clear();
+                sDtQueuedAt.Clear();
                 Util.Picked.Clear();
                 Util.PickFilter = null;
                 List<object> skipped = new List<object>();
@@ -140,21 +146,33 @@ namespace Ts3Agent
                 if (op == "place")
                 {
                     List<object> done = new List<object>();
+                    List<object> swapped = new List<object>();
                     foreach (DtFloor f in sDtFloors)
                     {
-                        List<Sim> sims = new List<Sim>();
-                        if (a.Bool("pool", false)) for (int i = 0; i < f.Count; i++) sims.Add(f.Sim(i));
-                        else { sims.Add(f.Sim(DtIdx(a, f, "a", 1))); sims.Add(f.Sim(DtIdx(a, f, "b", 2))); }
+                        List<int> idx = new List<int>();
+                        if (a.Bool("pool", false)) for (int i = 0; i < f.Count; i++) idx.Add(i);
+                        else { idx.Add(DtIdx(a, f, "a", 1)); idx.Add(DtIdx(a, f, "b", 2)); }
+                        DtSwapStuck(f, idx, swapped);
+                        List<Sim> sims = idx.ConvertAll<Sim>(f.Sim);
                         // missing: the until's retry: only Sims not on the lot with no Teleport Me Here running or queued (never a second teleport) (2026-11-08: queued behind a job's IdleTend, or landed off the lot)
                         if (a.Bool("missing", false)) sims = sims.FindAll(delegate (Sim s) { return !DtHere(s, f) && !DtTeleporting(s); });
                         if (sims.Count == 0) continue;
                         done.Add(f.Lot.Name + ": " + string.Join(", ", Array.ConvertAll(SetupSimsAt(sims, f.Lot, f.Floor.Position, true, true, true, false).ToArray(), Convert.ToString)));
                     }
                     r["placed"] = done;
+                    r["swapped"] = swapped;
                 }
                 else if (op == "fire")
                 {
                     bool crowd = a.Bool("crowd", false);
+                    // EA test Tuning_LotAvailability = the venue is closed (Lot.IsOpenVenue, hours of operation; 2026-11-09 cycle 7 at night): set the condition, the clock goes on to when every floor is open (at most a day)
+                    for (int h = 0; h < 24; h++)
+                    {
+                        bool allOpen = true;
+                        foreach (DtFloor f in sDtFloors) allOpen &= f.Lot.IsOpenVenue();
+                        if (allOpen) break;
+                        Sims3.Gameplay.Utilities.SimClock.AddOneHour();
+                    }
                     foreach (DtFloor f in sDtFloors)
                     {
                         f.Fired.Clear();
@@ -299,7 +317,66 @@ namespace Ts3Agent
         static bool DtFits(SimDescription sd)
         {
             Sim s = sd.CreatedSim;
-            return s != null && DtScope(s) == null && !sd.TeenOrBelow && sd.IsHuman && s.Service == null && sd.AssignedRole == null && !s.IsLeavingLot;  // no role: bartenders and bouncers keep IdleTend / WatchDoor ahead of any teleport
+            return s != null && DtScope(s) == null && !sd.TeenOrBelow && sd.IsHuman && s.Service == null && sd.AssignedRole == null && !s.IsLeavingLot  // no role: bartenders and bouncers keep IdleTend / WatchDoor ahead of any teleport
+                && !sDtDropped.Contains(sd.SimDescriptionId) && DtStuck(s) == null;
+        }
+
+        // null = Teleport Me Here can run; else why not: a group / follower situation keeps its interaction at the queue head through
+        // CancelAllInteractions (2026-11-09 rc1110b: Matty Crewe on the world lot, FollowerMeetUpAtPoint ahead of the queued teleport for 60 s; rc1110: Tom Wordy), a vehicle, no lot
+        static string DtStuck(Sim s)
+        {
+            if (s.LotCurrent == null) return "no lot";
+            if (s.Posture is Sims3.Gameplay.Objects.Vehicles.SittingInVehicle) return "in a vehicle";
+            foreach (InteractionInstance i in s.InteractionQueue.InteractionList)
+            {
+                string n = i.GetType().Name;
+                if (n.IndexOf("Follower", StringComparison.Ordinal) >= 0 || n.IndexOf("MeetUp", StringComparison.Ordinal) >= 0) return n;
+            }
+            Sims3.Gameplay.Autonomy.SituationComponent sc = s.Autonomy != null ? s.Autonomy.SituationComponent : null;
+            if (sc != null && sc.Situations != null)
+                foreach (object x in sc.Situations)
+                    if (x is Sims3.Gameplay.Situations.GroupingSituation) return "in a group (" + x.GetType().Name + ")";
+            return null;
+        }
+
+        // a queued Teleport Me Here that stays at the queue head, not running, with the Sim off the floor's lot for 20 s of real time (2026-11-09 cycle 8 phase B:
+        // Kai Leiko on his home lot, 7 tries): the until's missing retry skips Sims with a queued teleport, so DtSwapStuck replaces him. Timed from the first place that sees it queued
+        static string DtStalled(Sim s, DtFloor f)
+        {
+            ulong id = s.SimDescription.SimDescriptionId;
+            InteractionInstance head = null;
+            foreach (InteractionInstance i in s.InteractionQueue.InteractionList) { head = i; break; }
+            if (!(head is TerrainInteraction) || s.LotCurrent == f.Lot) { sDtQueuedAt.Remove(id); return null; }
+            int t;
+            if (s.CurrentInteraction == head || !sDtQueuedAt.TryGetValue(id, out t)) { sDtQueuedAt[id] = System.Environment.TickCount; return null; }  // running, or first seen
+            return System.Environment.TickCount - t > 20000 ? "teleport stalled" : null;
+        }
+
+        // the picker's rule at every place (an NPC can join a group after setup): a stuck pool NPC (DtStuck) is dropped, its queued
+        // teleport cancelled and its autonomy back on (it is no longer ours), and another NPC that fits takes its pool slot (the floor's lot first)
+        static void DtSwapStuck(DtFloor f, List<int> idx, List<object> log)
+        {
+            foreach (int i in idx)
+            {
+                Sim s = f.Sim(i);
+                string why = DtStuck(s) ?? DtStalled(s, f);
+                if (why == null) continue;
+                SimDescription pick = null;
+                foreach (SimDescription sd in SimDescription.GetSimDescriptionsInWorld())
+                {
+                    if (!Util.InWorldNow(sd) || Util.Picked.Contains(sd.SimDescriptionId) || !DtFits(sd)) continue;
+                    if (pick == null || sd.CreatedSim.LotCurrent == f.Lot) pick = sd;
+                    if (sd.CreatedSim.LotCurrent == f.Lot) break;
+                }
+                if (pick == null) { log.Add(f.Lot.Name + ": " + s.FullName + " stuck (" + why + "), no free NPC to replace it"); continue; }
+                foreach (InteractionInstance q in new List<InteractionInstance>(s.InteractionQueue.InteractionList))
+                    if (q is TerrainInteraction) s.InteractionQueue.CancelInteraction(q, false);
+                AutonomyCmd(new Args(new Dictionary<string, object> { { "sim", s.SimDescription.SimDescriptionId.ToString() }, { "enabled", true } }));
+                sDtDropped.Add(s.SimDescription.SimDescriptionId);
+                Util.Picked[f.First + i] = pick.SimDescriptionId;
+                log.Add(f.Lot.Name + ": " + s.FullName + " stuck (" + why + "), replaced by " + pick.FullName);
+                DiagLine("dancefloor repro: " + f.Lot.Name + " pool " + (i + 1) + " " + s.FullName + " stuck (" + why + "), replaced by " + pick.FullName);
+            }
         }
 
         // null = the Sim may be used; else why not (household rule: active household, selectable, active Sim, no household = unknown)

@@ -20,6 +20,8 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 - **Small fixes for rare game errors (on).** A failed or cancelled age-up keeps the Sim's outfits. A career uniform backup no longer uncaches a new work outfit. Music buffs, buff updates, cars with no route, deferred age-ups, opportunity rewards and taxi, limo, bus and fire-truck drivers no longer throw game errors. Five of these are by Dalexlol (GitHub alexvixell35-stack): a Sim with no inventory yet refuses an object instead of erroring, a career skill that is not registered shows an empty name, a firework that fizzles ends cleanly, pets dropped from the adoption pools with no family are removed, and two Sims' relationship tables that came apart are joined again.
 
+- **Your Sims' routes are no longer cut short at the start of a session.** Until ts3fixes had reported which Sims you can see, the plugin cut long route searches for every Sim, your household included, which could make a Go Here or a walk to the fridge fail. A Sim it knows nothing about yet now counts as one of yours and is never cut, for background route searches and for the ones the game waits on (plugin 0.36.238), and a repeated failed route of such a Sim is planned again instead of reusing the old answer.
+
 - **Routing fallback could mix up two Sims' plans** (PR #306, by Dalexlol): while one Sim's plan was paused, its result could be applied to another Sim's plan. Each plan now keeps its own result. Not tested in game yet.
 
 ## v0.2.10 (2026-11-07)

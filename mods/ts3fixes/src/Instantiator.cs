@@ -98,8 +98,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kDriverTaskAsync = false;     // opt-in until measured: a traffic car's plan in its LiteDriver task and a ridden vehicle's plan in its rider's task go async as own-task plans (RouteBackoff.cs OwnerTaskStart, docs/163 §7)
         [Tunable] public static bool kOverwatchStuckSlice = false; // opt-in until measured: NRaas Overwatch's Stuck Check takes a sim tick inside its walk over every Sim once 8 ms have passed since its last tick (OverwatchStuck.cs, docs/145 §12)
         // docs/250 §7.1 A1: StuckWatchdog.CheckIdle's route check as an own-task route job, verdict re-validated before acting.
-        // ON for this release (Rodney 2026-11-09); stays ON only if queue wdasync-verify passes, else False before the freeze.
-        [Tunable] public static bool kWatchdogAsync = true;
+        // OFF (rc1110b, 2026-11-09): the A1 path never sends a job (SpotVerdict -> PlanFromPoint -> AsyncKindStart, no OwnerTaskStart),
+        // and when ON H4Core.WdRoute returns A1 before the lock check, which disables watchdoglockskip (docs/247 §12.4).
+        [Tunable] public static bool kWatchdogAsync = false;
         [Tunable] public static bool kStuckCheckOwn = false;      // opt-in until measured: with stuckcheckasync, the stuck check's plans in our drain task go async as own-task plans (RouteBackoff.cs OwnerTaskStart, docs/163 §7)
         [Tunable] public static bool kFailRepeat = false;         // opt-in until measured: a Sim's plan that repeats its own no-path failure (same goal, same spot) within 500 ms returns that failure without searching again (RouteBackoff.cs, docs/163 §4)
         [Tunable] public static bool kDisposeSpread = false;       // opt-in until measured: Sims leaving the world, service Sims and traffic cars at despawn are destroyed one per sim tick by our task instead of in one tick (DisposeSpread.cs, docs/74 §12)

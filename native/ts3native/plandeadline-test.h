@@ -620,11 +620,49 @@ static void TestPlanDeadline() {
         f.kdScope = a.kdScope = 2, p.kdScope = 2;
         assert(KdJobBegin(&f) == 200000 && KdJobBegin(&a) == 200000 && KdJobBegin(&p) == 180000);
         f.kdScope = a.kdScope = p.kdScope = 0;
-        {
+        {   // KdExempt: no scope answer yet (session start, older ts3fixes) = unknown = household: exempt; a ts3fixes MARK still cuts
             const LONG n0 = ts3native_counters.kdScopeN;
-            ts3native_counters.kdScopeN = 0;  // old package: no answer ever, every cut as v0.2.8
-            assert(KdJobBegin(&f) == 200000 && !t_kdExemptUs && !KdSyncCeilUs(0x1234));
+            AsyncJob h = {}, u = {};
+            h.kdScope = 1, u.uf = 1;
+            ts3native_counters.kdScopeN = 0;
+            assert(KdExempt(&f) && KdJobBegin(&f) == 0 && t_kdExemptUs == 200000);
+            assert(KdExempt(&h) && !KdExempt(&u));
+            h.kdScope = 2;
+            assert(!KdExempt(&h));
+            k.kdExMode = 0;  // KdExemptSeen=0: the old-behaviour arm, nothing exempt with or without answers
+            assert(!KdExempt(&f) && KdJobBegin(&f) == 200000 && !t_kdExemptUs);
+            ts3native_counters.kdScopeN = n0 ? n0 : 1;
+            h.kdScope = 1;
+            assert(!KdExempt(&f) && !KdExempt(&h));
+            k.kdExMode = 1;
+            assert(KdExempt(&f) && KdExempt(&h) && !KdExempt(&u));  // answers: unknown and household exempt
+            h.kdScope = 2;
+            assert(!KdExempt(&h));  // known unseen: cut
             ts3native_counters.kdScopeN = n0;
+        }
+        {   // rc1110c, the sync side: no scope answer yet = household too: sync plans get the household ceiling, ReplanDedupe holds
+            const LONG n0 = k.kdScopeN, pm0 = k.pdMode, sc0 = k.kdCeilUs, nc0 = k.kdNpcCeilUs, js0 = t_kdJobScope;
+            const DWORD sh0 = g_kdScopeH;
+            k.kdExMode = 1, k.pdMode = 1, k.kdCeilUs = 10000000, k.kdNpcCeilUs = 2000000, t_kdJobScope = 0, g_kdScopeH = 0;
+            k.kdScopeN = 0;
+            assert(KdSyncCeilUs(0x1234) == 10000000 && KdSyncCeilUs(0) == 10000000 && !t_kdNpc && !t_kdSeen);
+            assert(!KdKnownUnseen(0x1234) && !KdKnownUnseen(0));
+            t_kdJobScope = 2;  // a ts3fixes mark (uf) on the running job: still known unseen
+            assert(KdKnownUnseen(0x1234));
+            t_kdJobScope = 0;
+            KdScopeSet(0x1234, 1);  // household answer: the same
+            assert(KdSyncCeilUs(0x1234) == 10000000 && t_kdSeen && !KdKnownUnseen(0x1234));
+            KdScopeSet(0x1234, 2);  // unseen answer: usual caps, known unseen
+            assert(!KdSyncCeilUs(0x1234) && KdKnownUnseen(0x1234));
+            KdScopeSet(0x1234, 3);  // seen NPC: its own ceiling, not known unseen
+            assert(KdSyncCeilUs(0x1234) == 2000000 && t_kdNpc && !KdKnownUnseen(0x1234));
+            KdScopeClear(0x1234);
+            k.kdExMode = 0;  // KdExemptSeen=0: unchanged old arm, with or without answers
+            assert(!KdSyncCeilUs(0x1234) && KdKnownUnseen(0x1234));
+            k.kdScopeN = 0;
+            assert(!KdSyncCeilUs(0x1234) && KdKnownUnseen(0x1234));
+            k.kdExMode = 1, k.kdScopeN = n0, k.pdMode = pm0, k.kdCeilUs = sc0, k.kdNpcCeilUs = nc0, t_kdJobScope = js0, g_kdScopeH = sh0;
+            t_kdSeen = t_kdNpc = false;
         }
         // KindDeadlines off: FbJobCapMs and the probe's PlanDeadlineMs keep to the same rule; an own job stays as it was
         {
