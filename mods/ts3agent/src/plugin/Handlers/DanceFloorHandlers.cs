@@ -344,12 +344,12 @@ namespace Ts3Agent
         static string DtStalled(Sim s, DtFloor f)
         {
             ulong id = s.SimDescription.SimDescriptionId;
-            InteractionInstance head = null;
-            foreach (InteractionInstance i in s.InteractionQueue.InteractionList) { head = i; break; }
-            if (!(head is TerrainInteraction) || s.LotCurrent == f.Lot) { sDtQueuedAt.Remove(id); return null; }
+            InteractionInstance tp = null;  // any queued teleport, also behind another interaction (GoHome, OrderConversation, ...)
+            foreach (InteractionInstance i in s.InteractionQueue.InteractionList) if (i is TerrainInteraction) { tp = i; break; }
+            if (tp == null || s.LotCurrent == f.Lot) { sDtQueuedAt.Remove(id); return null; }
             int t;
-            if (s.CurrentInteraction == head || !sDtQueuedAt.TryGetValue(id, out t)) { sDtQueuedAt[id] = System.Environment.TickCount; return null; }  // running, or first seen
-            return System.Environment.TickCount - t > 20000 ? "teleport stalled" : null;
+            if (!sDtQueuedAt.TryGetValue(id, out t)) { sDtQueuedAt[id] = System.Environment.TickCount; return null; }  // first seen; a running teleport does not reset the timer (2026-11-09 Moxie Logan, Ace Wilde: running 60 s, never done)
+            return System.Environment.TickCount - t > (s.CurrentInteraction == tp ? 40000 : 20000) ? "teleport stalled" : null;
         }
 
         // the picker's rule at every place (an NPC can join a group after setup): a stuck pool NPC (DtStuck) is dropped, its queued
