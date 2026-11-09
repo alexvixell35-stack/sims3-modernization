@@ -245,7 +245,7 @@ namespace Ts3Fixes
                     if (UfInTransit(s)) continue;  // docs/202 §3.7: a D walk-time hold (unseenfbpre) stands still by design
                     ulong id = s.ObjectId.Value;
                     RouteFails f;
-                    bool household = s.IsSelectable || s.Household == Household.ActiveHousehold;
+                    bool household = s.IsSelectable || s.Household == null || s.Household == Household.ActiveHousehold;  // unknown = household (as the A1 gate)
                     if (sRouteFails.TryGetValue(id, out f) && f.Count >= kRouteFailPlans && now - f.First > failSpan && f.First <= now
                         && (s.Position - f.Pos).Length() <= 1f)
                     {
@@ -296,9 +296,9 @@ namespace Ts3Fixes
                         SpotVerdicts vs = Verdicts(lot);
                         RouteProfile prof = ProfileOf(s);
                         // watchdoglockskip (docs/247 §12.4, the 477 ms CheckIdle hitch: rtLock 312 + rtPlanWait 157), in docs/250 §7.4's
-                        // order: (1) the verdict cache answers first (SpotVerdict's c[37] hit, no plan); (2) no job holds +0x918: the
-                        // sync check as before; (3) a job holds it: the async check A1 (watchdogasync) if on and its START is
-                        // accepted; (4) else skip the Sim this pass (it keeps its Still record, the next pass checks it). The queue
+                        // order (H4Core.WdRoute): (1) the verdict cache answers first (SpotVerdict's c[37] hit, no plan); (2) a job holds
+                        // +0x918 and watchdoglockskip is on: skip the Sim this pass (it keeps its Still record, the next pass checks it);
+                        // (3) the async check A1 (watchdogasync) if on and ts3native would start it; (4) else the sync check. The queue
                         // has no household or selected Sim (filtered above). Older ts3native and the game answer q 8 false: no skip.
                         bool cachedOk;
                         bool cached = prof.Ok && vs.Cells.TryGetValue(KeyOf(prof, s.Position), out cachedOk) && cachedOk;
@@ -400,6 +400,7 @@ namespace Ts3Fixes
                     bool moving = s.SimRoutingComponent != null && s.SimRoutingComponent.IsRouting;
                     if (!home && !moving) continue;
                     if (!TownieUnseen(s, null) || UfInTransit(s)) continue;  // docs/202 §3.7: D holds are in transit
+                    if (s.Household == null) continue;  // unknown = household (TownieUnseen lets a Sim with no household through)
                     ulong id = s.ObjectId.Value;
                     Seen seen;
                     if (!mSeen.TryGetValue(id, out seen) || (s.Position - seen.Pos).Length() > 1f)

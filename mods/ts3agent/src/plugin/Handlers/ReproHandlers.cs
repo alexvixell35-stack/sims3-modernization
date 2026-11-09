@@ -396,7 +396,8 @@ namespace Ts3Agent
 
         // outfit_change {count?, category?}: several Sims change outfit at once (outfit builds through the SimService, docs/42,
         // docs/51): up to count (default 6) humans, child or older, active household first, switch to category (default
-        // athletic; everyday to change back) without the spin.
+        // athletic; everyday to change back) without the spin. townies: true (issue #40 leak stress) = never the active
+        // household, starting at a random Sim of the world list so repeated calls spread over the town.
         static object OutfitChange(Args a)
         {
             RequireLive();
@@ -414,9 +415,16 @@ namespace Ts3Agent
             }
             List<Sim> sims = new List<Sim>();
             Household h = Household.ActiveHousehold;
-            if (h != null) foreach (Sim s in h.Sims) if (sims.Count < max) sims.Add(s);
-            foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
-                if (sims.Count < max && !sims.Contains(s)) sims.Add(s);
+            bool townies = a.Bool("townies", false);
+            if (h != null && !townies) foreach (Sim s in h.Sims) if (sims.Count < max) sims.Add(s);
+            Sim[] all = Sims3.Gameplay.Queries.GetObjects<Sim>();
+            int at = townies && all.Length > 0 ? new Random().Next(all.Length) : 0;
+            for (int i = 0; i < all.Length && sims.Count < max; i++)
+            {
+                Sim s = all[(at + i) % all.Length];
+                if (sims.Contains(s) || (townies && h != null && s.Household == h)) continue;
+                sims.Add(s);
+            }
             List<object> changed = new List<object>(), skipped = new List<object>();
             foreach (Sim s in sims)
             {

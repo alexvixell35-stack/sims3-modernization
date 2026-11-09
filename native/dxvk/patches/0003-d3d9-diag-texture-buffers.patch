@@ -1,0 +1,277 @@
+From: sims3-modernization
+Subject: [PATCH 0003] d3d9: log live texture mapping buffers, Vulkan heap use and pipelines by kind (DXVK_TS3_DIAG=1 only)
+
+Diagnostics for test runs. In a 32-bit process, a texture's mapping buffer is host-visible cached Vulkan memory
+that the driver maps into the address space (SYSTEMMEM and SCRATCH textures always have one, DEFAULT dynamic
+textures keep theirs after the first lock). With DXVK_TS3_DIAG=1, every 1800 presents logs the live buffers by
+pool and DXVK's allocated / used memory per Vulkan heap. Without the variable nothing is logged; the counters
+only change when a texture buffer is created or destroyed.
+
+The same line also gives the live and created Vulkan pipelines by kind (graphics pipeline library, linked from
+libraries, monolithic, compute). With the variable set, the device loader wraps vkCreateGraphicsPipelines,
+vkCreateComputePipelines and vkDestroyPipeline to count them.
+---
+diff --git a/src/d3d9/d3d9_common_texture.cpp b/src/d3d9/d3d9_common_texture.cpp
+index 9d5fe38d..12804766 100644
+--- a/src/d3d9/d3d9_common_texture.cpp
++++ b/src/d3d9/d3d9_common_texture.cpp
+@@ -10,6 +10,8 @@
+ 
+ namespace dxvk {
+ 
++  D3D9TextureBufferStats g_d3d9TextureBufferStats;
++
+   D3D9CommonTexture::D3D9CommonTexture(
+           D3D9DeviceEx*             pDevice,
+           IUnknown*                 pInterface,
+@@ -102,6 +104,8 @@ namespace dxvk {
+ 
+ 
+   D3D9CommonTexture::~D3D9CommonTexture() {
++    DiagReleaseBuffer();
++
+     if (m_size != 0)
+       m_device->ChangeReportedMemory(m_size);
+ 
+@@ -342,6 +346,9 @@ namespace dxvk {
+                                   | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+ 
+     m_buffer = m_device->GetDXVKDevice()->createBuffer(info, memType);
++    m_diagBufferSize = Size;
++    g_d3d9TextureBufferStats.count[DiagPoolIndex()] += 1;
++    g_d3d9TextureBufferStats.bytes[DiagPoolIndex()] += Size;
+ 
+     if (Initialize) {
+       if (m_data)
+diff --git a/src/d3d9/d3d9_common_texture.h b/src/d3d9/d3d9_common_texture.h
+index 59898597..02b2b5bb 100644
+--- a/src/d3d9/d3d9_common_texture.h
++++ b/src/d3d9/d3d9_common_texture.h
+@@ -10,8 +10,23 @@
+ #include "../util/util_bit.h"
+ #include "../util/util_unmap.h"
+ 
++#include <atomic>
++
+ namespace dxvk {
+ 
++  /**
++   * \brief Live texture mapping buffers by pool (sims3-modernization diagnostics)
++   *
++   * Index: 0 DEFAULT dynamic, 1 DEFAULT other, 2 MANAGED, 3 SYSTEMMEM, 4 SCRATCH.
++   * Logged by D3D9SwapChainEx::Present with DXVK_TS3_DIAG=1.
++   */
++  struct D3D9TextureBufferStats {
++    std::atomic<int64_t> count[5];
++    std::atomic<int64_t> bytes[5];
++  };
++
++  extern D3D9TextureBufferStats g_d3d9TextureBufferStats;
++
+   class D3D9DeviceEx;
+ 
+   /**
+@@ -262,10 +277,27 @@ namespace dxvk {
+      * Destroys mapping and staging buffers for a given subresource
+      */
+     void DestroyBuffer() {
++      DiagReleaseBuffer();
+       m_buffer = nullptr;
+       MarkAllNeedReadback();
+     }
+ 
++    uint32_t DiagPoolIndex() const {
++      switch (m_desc.Pool) {
++        case D3DPOOL_DEFAULT:   return IsDynamic() ? 0u : 1u;
++        case D3DPOOL_MANAGED:   return 2u;
++        case D3DPOOL_SYSTEMMEM: return 3u;
++        default:                return 4u;
++      }
++    }
++
++    void DiagReleaseBuffer() {
++      if (m_buffer != nullptr) {
++        g_d3d9TextureBufferStats.count[DiagPoolIndex()] -= 1;
++        g_d3d9TextureBufferStats.bytes[DiagPoolIndex()] -= m_diagBufferSize;
++      }
++    }
++
+     bool IsDynamic() const {
+       return m_desc.Usage & D3DUSAGE_DYNAMIC;
+     }
+@@ -505,6 +537,7 @@ namespace dxvk {
+     Rc<DxvkImage>                 m_resolveImage;
+     Rc<DxvkBuffer>                m_buffer;
+     MemoryFileRegion              m_data = { };
++    uint32_t                      m_diagBufferSize = 0u;
+ 
+     D3D9SubresourceArray<
+       uint64_t>                   m_seqs = { };
+diff --git a/src/d3d9/d3d9_swapchain.cpp b/src/d3d9/d3d9_swapchain.cpp
+index d672f115..bae3aa10 100644
+--- a/src/d3d9/d3d9_swapchain.cpp
++++ b/src/d3d9/d3d9_swapchain.cpp
+@@ -1,4 +1,5 @@
+ #include "d3d9_swapchain.h"
++#include "d3d9_common_texture.h"
+ #include "d3d9_surface.h"
+ #include "d3d9_monitor.h"
+ 
+@@ -112,6 +113,34 @@ namespace dxvk {
+           DWORD    dwFlags) {
+     D3D9DeviceLock lock = m_parent->LockDevice();
+ 
++    static const bool s_diag = env::getEnvVar("DXVK_TS3_DIAG") == "1";
++    static uint32_t s_diagPresents = 0u;
++
++    if (unlikely(s_diag) && !(++s_diagPresents % 1800u)) {
++      static const char* names[5] = { "default-dynamic", "default", "managed", "systemmem", "scratch" };
++      auto& s = g_d3d9TextureBufferStats;
++      std::string line = str::format("diag: present ", s_diagPresents, " texture buffers (n / MiB):");
++
++      for (uint32_t i = 0; i < 5u; i++)
++        line += str::format(" ", names[i], " ", s.count[i].load(), " / ", s.bytes[i].load() >> 20);
++
++      const Rc<DxvkDevice>& dev = m_parent->GetDXVKDevice();
++      const auto& mp = dev->adapter()->memoryProperties();
++
++      for (uint32_t i = 0; i < mp.memoryHeapCount; i++) {
++        DxvkMemoryStats st = dev->getMemoryStats(i);
++        line += str::format("; heap ", i, (mp.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) ? " vram" : " sys",
++          " allocated ", st.memoryAllocated >> 20, " used ", st.memoryUsed >> 20);
++      }
++
++      vk::DiagPipelineCounts pc = vk::diagPipelineCounts();
++      line += str::format("; pipelines live/created: library ", pc.live[0], "/", pc.created[0],
++        " linked ", pc.live[1], "/", pc.created[1], " monolithic ", pc.live[2], "/", pc.created[2],
++        " compute ", pc.live[3], "/", pc.created[3]);
++
++      Logger::info(line);
++    }
++
+     m_parent->SetMostRecentlyUsedSwapchain(this);
+ 
+     if (unlikely(m_parent->IsDeviceLost()))
+diff --git a/src/vulkan/vulkan_loader.cpp b/src/vulkan/vulkan_loader.cpp
+index f9d1e98d..19bc69cf 100644
+--- a/src/vulkan/vulkan_loader.cpp
++++ b/src/vulkan/vulkan_loader.cpp
+@@ -4,11 +4,77 @@
+ 
+ #include "../util/log/log.h"
+ 
++#include "../util/util_env.h"
+ #include "../util/util_string.h"
+ #include "../util/util_win32_compat.h"
+ 
++#include <mutex>
++#include <unordered_map>
++
+ namespace dxvk::vk {
+ 
++  // TS3 diagnostics: count live pipelines by kind, wrapping the device's create/destroy entry points.
++  static PFN_vkCreateGraphicsPipelines s_diagCreateGraphics = nullptr;
++  static PFN_vkCreateComputePipelines  s_diagCreateCompute  = nullptr;
++  static PFN_vkDestroyPipeline         s_diagDestroy        = nullptr;
++  static std::mutex s_diagMutex;
++  static std::unordered_map<uint64_t, uint32_t> s_diagKinds;
++  static DiagPipelineCounts s_diagCounts = { };
++
++  static uint32_t diagGraphicsKind(const VkGraphicsPipelineCreateInfo& info) {
++    for (auto s = reinterpret_cast<const VkBaseInStructure*>(info.pNext); s; s = s->pNext) {
++      if (s->sType == VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT)
++        return 0u;
++      if (s->sType == VK_STRUCTURE_TYPE_PIPELINE_LIBRARY_CREATE_INFO_KHR)
++        return 1u;
++    }
++    return 2u;
++  }
++
++  static void diagAdd(VkPipeline p, uint32_t kind) {
++    std::lock_guard lock(s_diagMutex);
++    s_diagKinds[uint64_t(p)] = kind;
++    s_diagCounts.live[kind] += 1;
++    s_diagCounts.created[kind] += 1;
++  }
++
++  static VKAPI_ATTR VkResult VKAPI_CALL diagCreateGraphicsPipelines(VkDevice device, VkPipelineCache cache, uint32_t count,
++      const VkGraphicsPipelineCreateInfo* infos, const VkAllocationCallbacks* alloc, VkPipeline* pipelines) {
++    VkResult vr = s_diagCreateGraphics(device, cache, count, infos, alloc, pipelines);
++    for (uint32_t i = 0; i < count; i++) {
++      if (pipelines[i])
++        diagAdd(pipelines[i], diagGraphicsKind(infos[i]));
++    }
++    return vr;
++  }
++
++  static VKAPI_ATTR VkResult VKAPI_CALL diagCreateComputePipelines(VkDevice device, VkPipelineCache cache, uint32_t count,
++      const VkComputePipelineCreateInfo* infos, const VkAllocationCallbacks* alloc, VkPipeline* pipelines) {
++    VkResult vr = s_diagCreateCompute(device, cache, count, infos, alloc, pipelines);
++    for (uint32_t i = 0; i < count; i++) {
++      if (pipelines[i])
++        diagAdd(pipelines[i], 3u);
++    }
++    return vr;
++  }
++
++  static VKAPI_ATTR void VKAPI_CALL diagDestroyPipeline(VkDevice device, VkPipeline pipeline, const VkAllocationCallbacks* alloc) {
++    if (pipeline) {
++      std::lock_guard lock(s_diagMutex);
++      auto e = s_diagKinds.find(uint64_t(pipeline));
++      if (e != s_diagKinds.end()) {
++        s_diagCounts.live[e->second] -= 1;
++        s_diagKinds.erase(e);
++      }
++    }
++    s_diagDestroy(device, pipeline, alloc);
++  }
++
++  DiagPipelineCounts diagPipelineCounts() {
++    std::lock_guard lock(s_diagMutex);
++    return s_diagCounts;
++  }
++
+   static std::pair<HMODULE, PFN_vkGetInstanceProcAddr> loadVulkanLibrary() {
+     static const std::array<const char*, 2> dllNames = {{
+ #ifdef _WIN32
+@@ -99,7 +165,16 @@ namespace dxvk::vk {
+   
+   
+   DeviceFn::DeviceFn(const Rc<InstanceLoader>& library, bool owned, VkDevice device)
+-  : DeviceLoader(library, owned, device) { }
++  : DeviceLoader(library, owned, device) {
++    if (env::getEnvVar("DXVK_TS3_DIAG") == "1" && !s_diagDestroy && vkCreateGraphicsPipelines && vkCreateComputePipelines && vkDestroyPipeline) {
++      s_diagCreateGraphics = vkCreateGraphicsPipelines;
++      s_diagCreateCompute = vkCreateComputePipelines;
++      s_diagDestroy = vkDestroyPipeline;
++      vkCreateGraphicsPipelines = &diagCreateGraphicsPipelines;
++      vkCreateComputePipelines = &diagCreateComputePipelines;
++      vkDestroyPipeline = &diagDestroyPipeline;
++    }
++  }
+   DeviceFn::~DeviceFn() {
+     if (m_owned)
+       this->vkDestroyDevice(m_device, nullptr);
+diff --git a/src/vulkan/vulkan_loader.h b/src/vulkan/vulkan_loader.h
+index 8ad6478e..61598f41 100644
+--- a/src/vulkan/vulkan_loader.h
++++ b/src/vulkan/vulkan_loader.h
+@@ -14,6 +14,18 @@ using PFN_wine_vkReleaseKeyedMutex = VkResult (VKAPI_PTR *)(VkDevice device, VkD
+ 
+ namespace dxvk::vk {
+ 
++  /**
++   * \brief Live and created Vulkan pipelines by kind (TS3 diagnostics, DXVK_TS3_DIAG=1 only)
++   *
++   * Kinds: 0 graphics pipeline library, 1 pipeline linked from libraries, 2 monolithic graphics, 3 compute.
++   */
++  struct DiagPipelineCounts {
++    int64_t live[4];
++    int64_t created[4];
++  };
++
++  DiagPipelineCounts diagPipelineCounts();
++
+   /**
+    * \brief Vulkan library loader
+    * 

@@ -118,20 +118,39 @@ namespace Ts3Agent
             WorldName world = VacationWorld(a.Str("world"));
             List<object> skipped = new List<object>();
             List<Sim> sims = Travellers(a, world, skipped);
-            Sim lead = sims[0];
+            // al357: trip 2 was led by Felicity MacDuff (first in household order) and the trip home from France never queued
+            // (travel_home triggers it with the active Sim, the lead); trip 1, led by Joe, went. Adults lead first. Cause not
+            // confirmed: in al358 the trip home triggered with Felicity went.
+            List<Sim> byAge = sims.FindAll(s => s.SimDescription.YoungAdultOrAbove);
+            byAge.AddRange(sims.FindAll(s => !s.SimDescription.YoungAdultOrAbove));
+            sims = byAge;
             List<ulong> ids = new List<ulong>();
             foreach (Sim s in sims) ids.Add(s.SimDescription.SimDescriptionId);
-            TravelUtil.SitInCarToTriggerTravel trip = TravelUtil.SitInCarToTriggerTravel.Singleton.CreateInstance(LotManager.GetWorldLot(), lead,
-                new InteractionPriority(InteractionPriorityLevel.High), false, false) as TravelUtil.SitInCarToTriggerTravel;
-            trip.IsGoingToUniversity = false;
-            trip.Followers = sims.GetRange(1, sims.Count - 1);
-            trip.TravelingSimGuids = ids;
-            trip.TravelCost = (int)a.Double("cost", 0);
-            trip.TravelDuration = (int)a.Double("days", 2);
-            trip.DestinationWorldName = world;
-            lead.InteractionQueue.CancelAllInteractions();
+            // The queue can refuse the lead (al354, al356: the active Sim UWU MacDuff queued false both times; al352, led by Joe
+            // MacDuff, went): the next traveller leads instead, the rest follow as before.
             Dictionary<string, object> r = Util.Obj();
-            r["queued"] = lead.InteractionQueue.Add(trip);
+            List<object> refused = new List<object>();
+            TravelUtil.SitInCarToTriggerTravel trip = null;
+            bool queued = false;
+            for (int i = 0; i < sims.Count && !queued; i++)
+            {
+                Sim lead = sims[i];
+                List<Sim> followers = new List<Sim>(sims);
+                followers.RemoveAt(i);
+                trip = TravelUtil.SitInCarToTriggerTravel.Singleton.CreateInstance(LotManager.GetWorldLot(), lead,
+                    new InteractionPriority(InteractionPriorityLevel.High), false, false) as TravelUtil.SitInCarToTriggerTravel;
+                trip.IsGoingToUniversity = false;
+                trip.Followers = followers;
+                trip.TravelingSimGuids = ids;
+                trip.TravelCost = (int)a.Double("cost", 0);
+                trip.TravelDuration = (int)a.Double("days", 2);
+                trip.DestinationWorldName = world;
+                lead.InteractionQueue.CancelAllInteractions();
+                queued = lead.InteractionQueue.Add(trip);
+                if (queued) r["lead"] = lead.FullName; else refused.Add(lead.FullName);
+            }
+            r["queued"] = queued;
+            if (refused.Count > 0) r["lead_refused"] = refused;
             sTripSaveUntil = System.Environment.TickCount + 15 * 60000;  // the travel save's name dialog is accepted (HarnessHandlers RuleFor)
             r["world"] = world.ToString();
             r["days"] = trip.TravelDuration;
@@ -669,6 +688,11 @@ namespace Ts3Agent
             else if (GameUtils.IsOnVacation())
             {
                 GreyedOutTooltipCallback why = null;
+                // al357 round trip 2: triggered with Felicity MacDuff, the trip home never reached the queue; an adult triggers it
+                if (!s.SimDescription.YoungAdultOrAbove && Household.ActiveHousehold != null)
+                    foreach (Sim m in Household.ActiveHousehold.AllActors)
+                        if (m.SimDescription.YoungAdultOrAbove && TravelUtil.CanSimTriggerTravelToHomeWorld(m, ref why)) { s = m; break; }
+                why = null;
                 if (!TravelUtil.CanSimTriggerTravelToHomeWorld(s, ref why))
                     throw new McpException("game refuses the trip home" + (why != null ? ": " + why() : ""));
                 s.InteractionQueue.CancelAllInteractions();

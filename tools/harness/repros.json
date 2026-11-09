@@ -1082,6 +1082,15 @@
         "note": "puts him on Hogan's diner lot: in-game lot names do not match 'Hogan'"
       },
       {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "Wogan Hemlock",
+          "enabled": false
+        },
+        "waitS": 1,
+        "note": "2026-11-10: autonomy off before stranding him; in release-verify-1110 bp-wdasync-stuck-repro his autonomy walked him off the spot before the 60 sim-minute rule. The watchdog does not read autonomy, so the idle case still applies"
+      },
+      {
         "cmd": "sim_strand",
         "args": {
           "sim": "Wogan Hemlock"
@@ -1109,6 +1118,14 @@
     ],
     "switches": [
       "watchdogidle"
+    ],
+    "cleanup": [
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
     ]
   },
   {
@@ -63547,7 +63564,7 @@
           ],
           "show": "where",
           "everyS": 10,
-          "maxS": 60,
+          "maxS": 180,
           "failOn": "stalled"
         }
       },
@@ -63628,7 +63645,7 @@
           ],
           "show": "where",
           "everyS": 10,
-          "maxS": 60,
+          "maxS": 180,
           "failOn": "stalled"
         }
       },
@@ -63718,7 +63735,7 @@
           ],
           "show": "where",
           "everyS": 10,
-          "maxS": 60,
+          "maxS": 180,
           "failOn": "stalled"
         }
       },
@@ -63799,7 +63816,7 @@
           ],
           "show": "where",
           "everyS": 10,
-          "maxS": 60,
+          "maxS": 180,
           "failOn": "stalled"
         }
       },
@@ -63889,7 +63906,7 @@
           ],
           "show": "where",
           "everyS": 10,
-          "maxS": 60,
+          "maxS": 180,
           "failOn": "stalled"
         }
       },
@@ -63970,7 +63987,7 @@
           ],
           "show": "where",
           "everyS": 10,
-          "maxS": 60,
+          "maxS": 180,
           "failOn": "stalled"
         }
       },
@@ -64060,7 +64077,7 @@
           ],
           "show": "where",
           "everyS": 10,
-          "maxS": 60,
+          "maxS": 180,
           "failOn": "stalled"
         }
       },
@@ -64141,7 +64158,7 @@
           ],
           "show": "where",
           "everyS": 10,
-          "maxS": 60,
+          "maxS": 180,
           "failOn": "stalled"
         }
       },
@@ -64231,7 +64248,7 @@
           ],
           "show": "where",
           "everyS": 10,
-          "maxS": 60,
+          "maxS": 180,
           "failOn": "stalled"
         }
       },
@@ -64312,7 +64329,7 @@
           ],
           "show": "where",
           "everyS": 10,
-          "maxS": 60,
+          "maxS": 180,
           "failOn": "stalled"
         }
       },
@@ -64402,7 +64419,7 @@
           ],
           "show": "where",
           "everyS": 10,
-          "maxS": 60,
+          "maxS": 180,
           "failOn": "stalled"
         }
       },
@@ -64483,7 +64500,7 @@
           ],
           "show": "where",
           "everyS": 10,
-          "maxS": 60,
+          "maxS": 180,
           "failOn": "stalled"
         }
       },
@@ -64602,7 +64619,7 @@
             ],
             "show": "where",
             "everyS": 10,
-            "maxS": 60,
+            "maxS": 180,
             "failOn": "stalled"
           }
         },

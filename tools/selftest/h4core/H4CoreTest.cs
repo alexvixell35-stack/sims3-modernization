@@ -9,12 +9,14 @@ static class H4CoreTest
 
     static int Main()
     {
-        // docs/250 §7.4 CheckIdle order (2026-11-09): cache -> sync; else A1 if on and would start; else job holds +0x918 -> skip if on; else sync
+        // docs/250 §7.4 CheckIdle order (2026-11-10): cache -> sync; else job holds +0x918 and lockskip on -> skip; else A1 if on and would start; else sync
         Check(H4Core.WdRoute(true, true, true, true, true, false) == H4Core.kWdSync, "cached verdict: no plan path change");
         Check(H4Core.WdRoute(false, false, true, true, true, false) == H4Core.kWdA1, "no job holds the lock, A1 on and accepted: A1 (the plan leaves the sim thread)");
         Check(H4Core.WdRoute(false, false, true, false, true, false) == H4Core.kWdSync, "no job holds the lock, A1 refused: sync as today (no skip)");
         Check(H4Core.WdRoute(false, false, false, false, true, false) == H4Core.kWdSync, "A1 off, no lock held: sync as today");
-        Check(H4Core.WdRoute(false, true, true, true, true, false) == H4Core.kWdA1, "lock held, A1 on and accepted: A1");
+        // docs/247 §12.4: the lock check runs before A1 (A1 used to win here, so watchdoglockskip never fired with watchdogasync on)
+        Check(H4Core.WdRoute(false, true, true, true, true, false) == H4Core.kWdSkip, "lock held, lockskip on, A1 on and accepted: lockskip first");
+        Check(H4Core.WdRoute(false, true, true, true, false, false) == H4Core.kWdA1, "lock held, lockskip off, A1 on and accepted: A1");
         Check(H4Core.WdRoute(false, true, true, false, true, false) == H4Core.kWdSkip, "A1 refused: lockskip");
         Check(H4Core.WdRoute(false, true, false, true, true, false) == H4Core.kWdSkip, "A1 off: lockskip");
         Check(H4Core.WdRoute(false, true, true, false, false, false) == H4Core.kWdSync, "A1 refused, lockskip off: sync");

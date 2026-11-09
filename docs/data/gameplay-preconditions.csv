@@ -234,3 +234,16 @@ footprint_window_run,FootprintWindowHandlers,Live,none (the Sim is put on the sl
 footprint_window_verdict,FootprintWindowHandlers,Any,none (reads the tally),harness,after footprint_window_run,handler,none
 pkg_abba_repro,PkgAbbaHandlers,MainMenu,Load Game screen save-list reads (30 in a row; forced: ts3native [PkgLock] ReproWiden widens the EA lock window),stress,at the main menu (arm:true before the load),handler,none
 dance_together_floor,DanceFloorHandlers,Live,"none: NPC pairs of a pool of up to 6 put on a club dance floor by setup_sims, then Dance Together pushed on them (one pair or every pair at once) (an NPC chooses it by autonomy in play); short-term context set Friendly when EA would refuse",cheat,"a lot with a dance floor and a dance object (Waylon's Haunt, BP); NPCs only: never the active household, a selectable Sim or a Sim with no household",handler,live
+career_ladder,CareerLadderHandlers,Live,none for townies (promote / demote cheat; joins a job first when the townie has none),cheat,townies only: active household skipped (issue #40 leak stress),handler,live
+bad_tattoo,OutfitStressHandlers,Live,MagicMirror bad tattoo (one Sim at a time),stress,townies only: active household skipped; outfit churn at a rate no player produces (issue #40 leak stress),handler,live
+bad_makeover,OutfitStressHandlers,Live,MagicMirror bad makeover (one Sim at a time),stress,townies only: active household skipped; outfit churn at a rate no player produces (issue #40 leak stress),handler,live
+pet_adopt,PetHandlers,Live,none for townies (EA adoption path forced on a townie household),cheat,townies only: active household skipped (issue #40 leak stress; not run in game yet),handler,live
+pet_give_away,PetHandlers,Live,none for townies (EA give-away path forced on a townie household),cheat,townies only: active household skipped (issue #40 leak stress; not run in game yet),handler,live
+social,SocialRoundHandlers,Live,none: EA social queued by name on two townies (forced Fight! included),cheat,townies only: active household skipped (issue #40 leak stress),handler,live
+social_round,SocialRoundHandlers,Live,none: a round of EA socials between townies at once,stress,townies only: active household skipped (issue #40 leak stress),handler,live
+make_celebrity,StoryHandlers,Live,none for townies (EA force-set-level cheat path; level 0 removes the status),cheat,townies only: active household skipped (issue #40 leak stress),handler,live
+throw_party,StoryHandlers,Live,none: a townie throws a house party with townie guests,cheat,townies only: active household skipped (issue #40 leak stress),handler,live
+move_household,StoryHandlers,Live,Edit Town move of a townie household to a free furnished house,cheat,townies only: active household skipped (issue #40 leak stress),handler,live
+story_days,StoryHandlers,Live,none: EA story progression days on demand (mode and actions per day set),cheat,refused while the active household accepts roommates (issue #40 leak stress),handler,live
+story_burst,StoryHandlers,Live,none: EA story action step repeated without the daily cap and category cooldowns,stress,townies only: active household skipped (issue #40 leak stress),handler,live
+story_burst_state,StoryHandlers,Any,none (read),harness,,handler,none

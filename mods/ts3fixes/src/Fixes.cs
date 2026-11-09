@@ -309,6 +309,17 @@ namespace Ts3Fixes
         // [2061] fireworksfizzle (FireworksFizzle.cs, issue #166 build 23, docs/533): fireworks watchers finished on a fizzle without EA's LaunchFailure state request.
         // [2062-2064] petpoolorphan (PetPoolOrphan.cs, issue #166 build 52, docs/534): pets dropped from a pool with no household and no family links disposed / left (a Sim in the world) / Dispose threw.
         // [2065] reltablesapart (RelTablesApart.cs, issue #166 build 14, docs/535): relationship pairs whose two tables had come apart, rejoined with the other side's relationship.
+        // [2067-2068] errortrapsims (ErrorTrapSims.cs): dead Sim objects dropped from NRaas ErrorTrap's CheckSim.mInited, keys left after the last pass. [2069-2071] unused.
+        // [2072] celebritydeadsim (DeadSimHolders.cs): CelebrityManagers whose event listeners held a destroyed Sim, unregistered.
+        // [2073-2074] seasonsdeadsim (DeadSimHolders.cs): EA Motives kSeasonTransition listeners removed, whose Sim was gone / whose Motives was replaced (RecreateAllMotives).
+        // [2075] ghostreactdeadsim (DeadSimHolders.cs): destroyed Sim objects removed from live Sims' SimsReactedToGhost (EA ghost reaction list).
+        // [2076-2077] casuihandlers (CasUiHandlers.cs): closed CAS windows' handlers removed from DownloadDashboard, OptionsModel and CASLogic events / CASController duplicate handlers removed.
+        // [2078] errortraplookup (ErrorTrapSims.cs): NRaas ErrorTrap ObjectLookup.sLookup cache entries dropped (its Clear() forgets that table).
+        // [2079] dreamnodedeadsim (DeadSimHolders.cs): EA dream nodes' owner-less trigger listeners removed whose node's Sim object is gone.
+        // [2080] overwatchdeadsim (DeadSimHolders.cs): NRaas Overwatch stuck-check entries removed whose last interaction's Sim object is gone.
+        // [2081] errortrapctl (ErrorTrapSims.cs): NRaas ErrorTrap dereference controllers' item lists dropped after the world-load scan (they kept the whole graph until the next load).
+        // [2083] outfitwaitsaved (OutfitWaitSaved.cs): MagicMirror MagicalMakeover alarm tasks resumed from the save inside EA's Wait (WaitOrig, never seen by the outfit-wait hook), actor gone, destroyed.
+        // [2084-2087] simrefsdeadsim (SimRefsDeadSim.cs): live Sims' references to gone Sim objects dropped: SocialComponent.mLastTalkingTo cleared / SimRoutingComponent.mPusherSim cleared / Celebrity.mWaitingToReact entries removed / Occult*.mOwningSim reset to the current Sim or null.
         // [876-877] bookhand (BookHand.cs, docs/251): books Book.StopUsingBook left in the hand with no carry machine, seen at an EA put-down that would throw (also with the switch off), moved out of the hand by EA's handler.
         // [758-759] asyncjigsync (AsyncJigSync.cs, RouteBackoff.cs AsyncEligible, docs/240): own plans kept sync while the Sim's interaction holds an unplaced SocialJig / of those with the jig only in the linked interaction.
         // [763-768] autofft2 (AutOffload.cs, docs/208 §9.1): items, A0, A2, A4, A5, exceptions
@@ -329,7 +340,7 @@ namespace Ts3Fixes
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2067]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2088]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -440,8 +451,7 @@ namespace Ts3Fixes
                 case "unseencars": return Instantiator.kUnseenCarThrottle;
                 case "routesrc": return Instantiator.kRouteSources;
                 case "watchdoglockskip": return false;  // docs/247 §12.4, docs/250 §7.4: runtime only, default off
-                // docs/250 §7.1 A1: OFF since rc1110b (2026-11-09): never sends a job (no OwnerTaskStart) and, when ON, bypasses
-                // watchdoglockskip in H4Core.WdRoute (docs/247 §12.4)
+                // docs/250 §7.1 A1: OFF since rc1110b (2026-11-09) until the wdasync-fix-1110 tests (Instantiator.kWatchdogAsync)
                 case "watchdogasync": return Instantiator.kWatchdogAsync;
                 case "watchdogasyncshadow": return false;  // correctness arm only: re-runs each A1 check sync and counts mismatches
                 case "alarmtime": case "boatreplanlog": case "owresettime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
@@ -511,6 +521,17 @@ namespace Ts3Fixes
                 case "bookhand": return Instantiator.kBookHand;
                 case "bookhanddiag": return Instantiator.kBookHandDiag;
                 case "petpoolorphan": return Instantiator.kPetPoolOrphan;
+                case "errortrapsims": return Instantiator.kErrorTrapSims;
+                case "celebritydeadsim": return Instantiator.kCelebrityDeadSim;
+                case "seasonsdeadsim": return Instantiator.kSeasonsDeadSim;
+                case "ghostreactdeadsim": return Instantiator.kGhostReactDeadSim;
+                case "casuihandlers": return Instantiator.kCasUiHandlers;
+                case "errortraplookup": return Instantiator.kErrorTrapLookup;
+                case "errortrapctl": return Instantiator.kErrorTrapCtl;
+                case "dreamnodedeadsim": return Instantiator.kDreamNodeDeadSim;
+                case "overwatchdeadsim": return Instantiator.kOverwatchDeadSim;
+                case "simrefsdeadsim": return Instantiator.kSimRefsDeadSim;
+                case "outfitwaitsaved": return Instantiator.kOutfitWaitSaved;
                 case "reltablesapart": return Instantiator.kRelTablesApart;
                 case "ageupswap": return Instantiator.kAgeUpSwap;
                 case "asyncjigsync": return Instantiator.kAsyncJigSync;

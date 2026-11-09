@@ -22,6 +22,7 @@ const DIAG = 'diagnostic switch (verify / probe / fake upstream): a test aid, no
 const SHADOW = 'diagnostic: shadow mode of a read-only fix (runs both answers and compares); the fix itself has repros';
 const OFFLOAD = 'sim-thread offload on the [AutShadow] worker (docs/208): checked by Mode R A0-A5 and the dry checks in offload3-moder.json / offload3-act.json / offload-ranks.json, not a hitch repro';
 const MONO ='Mono offload, parked: no Mono game runs allowed now (memory mono-parked, docs/118)';
+const DEADSIM = 'opt-in, Dalexlol leak stress (#40, al342-al358)';
 // Switches with no repro on purpose. Dead ends: "dead end: <evidence>"; diagnostics; parked work.
 export const EXEMPT: Record<string, string> = {
   unseenfbteleport: 'trip-shortcut type: verified by verify-shortcut.ts --name unseenfbteleport and the unseen-fallback.json sv-ufb-teleport-verify job (fixesRequire), not by an A/B repro (shortcut-verification rule, docs/202 §6)',
@@ -38,7 +39,6 @@ export const EXEMPT: Record<string, string> = {
   jit: 'Mono speed, not a hitch fix: no repro makes script calls more frequent than plain play; correctness by jit-verify.json (Mode=2) and the selftest TestMonoJit, timing by jit-ab.json once jit-verify passed (docs/527 §5)',
   mintcall: 'Mono speed, not a hitch fix: no repro makes script calls more frequent than plain play; correctness by mintcall-verify.json (CallPath=2) and the monohost selftests, timing by the plain-play pairs in mintcall-ab.json (docs/139 §8)',
   ufhostlate: 'diagnostic: [UnseenFallback] HostLate=1 only splits the late-count into host vs work time (docs/202), no behaviour change; checked by the selftest TestUfHostLate (modes 0 and 1)',
-  watchdoglockskip: 'default off, waits for the H4 A1 lock wait (docs/250 §7.4): StuckWatchdog.CheckIdle skips the sync spot check while a route job holds the lock (wdLockSkip slot 871); a repro lands with the A1 build, until then the native selftest TestJobYield (ArWould q 8 true while a job holds the lock, false with none)',
   workerwait: 'worker CPU, not a hitch fix: no repro makes the job-start wait more likely than plain play; measured by the off/on plain-play pairs in route-worker-wait.json, correctness by the selftest TestRouteWorkerWait (docs/203 §6)',
   steershadow: SHADOW, lotfdshadow: SHADOW, obstructedshadow: SHADOW, slotenabledshadow: SHADOW, avoidshadow: SHADOW,
   gate0shadow: SHADOW, routetoobjroshadow: SHADOW, placementroshadow: SHADOW, goalvalidroshadow: SHADOW, idlecheckroshadow: SHADOW, idlecheckcshadow: SHADOW,
@@ -55,6 +55,9 @@ export const EXEMPT: Record<string, string> = {
   typegrowth: DIAG,
   sqrtheap: 'experiment, not a fix yet: heap policy compared by separate loads (observe vs act, queues/mem-exp.json, docs/199); allocation in natural play drives it, a repro gets added if it becomes a fix',
   doormirror: 'dead end as built: never run; door answers went through the P5 host-call proxy instead (docs/94 §19.1, docs/116); only comes back with docs/159 H4',
+  errortrapsims: DEADSIM, errortraplookup: DEADSIM, errortrapctl: DEADSIM, celebritydeadsim: DEADSIM, seasonsdeadsim: DEADSIM,
+  ghostreactdeadsim: DEADSIM, dreamnodedeadsim: DEADSIM, overwatchdeadsim: DEADSIM, casuihandlers: DEADSIM, simrefsdeadsim: DEADSIM,
+  outfitwaitsaved: DEADSIM,
 };
 
 export const fixesNames = (cs: string) => {

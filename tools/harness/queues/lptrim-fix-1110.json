@@ -1,0 +1,343 @@
+{
+  "note": "lptrim-fix-1110 (2026-11-10): [LotPool] Trim memtravel correctness + gain, fixed settle. Pair rc1110c (ts3native 0.36.238, ts3fixes.package.rc1110b via fixesPackage). Two arms, same trips: Trim=1 (SettleSec 15) then Trim=0. node tools/harness/queue.ts tools/harness/queues/lptrim-fix-1110.json --no-smoke",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-lptrim-on-memtravel-x3",
+      "note": "[est 30 min] [LotPool] Trim=1 arm (SettleSec 15, KeepCores 16), docs/541, Dalexlol PR #313. Baseline-BP, 3 trips to France and back with mem marks (7 world loads). Fix of bp-lptrim-memtravel-x3 (FAIL 11-09: the dwell in a world was 45-54 s on loads #3, #4, #6, shorter than SettleSec 60, and a world quit cancels the pending trim by design (lptrim.cpp:174), so only loads #1, #2, #5 trimmed, 3 < 4). SettleSec 15 fits every dwell (min 45 s; the last world lives about 25 s). Pass: travel PASS, a trim after at least 6 of the 7 world loads, no skip, no FAIL / crash, no new script errors. Gain evidence: big= (largest free block) and free= on each 'diag: mem ... load' line and the gc-after marks; compare with bp-lptrim-off-memtravel-x3 (same trips, Trim=0): node tools/mem-report.ts report --log <job ts3native.log>. Run with --no-smoke.",
+      "asi": "game-copy/ts3native.asi.rc1110c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "LotPool.Trim": 1,
+        "LotPool.SettleSec": 15,
+        "LotPool.KeepCores": 16
+      },
+      "logRequire": {
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": 6,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3,
+        "^diag: mem #\\d+ mark ev=base ": 1,
+        "^diag: mem #\\d+ mark ev=away ": 3,
+        "^diag: mem #\\d+ mark ev=home ": 3,
+        "^diag: mem #\\d+ mark ev=gc-before ": 4,
+        "^diag: mem #\\d+ mark ev=gc-after ": 4,
+        "^diag: memsus #\\d+ mark ev=gc-after ": 4,
+        "^diag: memsus #\\d+ mark ev=away ": 3,
+        "^lptrim: on \\(docs/541\\)": 1,
+        "^lptrim: #\\d+ world load #\\d+ ": 6
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^lptrim: skipped": 0
+      },
+      "run": {
+        "script": [
+          "save-matrix.ts",
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "3",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 60,
+      "pinReason": "pair rc1110c (docs/data/builds.json): ts3native 0.36.238 (asi game-copy/ts3native.asi.rc1110c), ini game-copy/ts3native.ini.rc1110c (= master release ini; Trim=0 there, this job sets LotPool.Trim), ts3fixes package game-copy/ts3fixes.package.rc1110b via fixesPackage (cycle.ts rebuilds ts3fixes from master with fixesBuild, which would not be the pair)",
+      "iniBase": "game-copy/ts3native.ini.rc1110c",
+      "regexCases": {
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": {
+          "match": [
+            "diag: mem #9 load ev=travel,world-switch priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162",
+            "diag: mem #3 load ev=world-switch priv=1651 wPriv=1599 t=90"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=base ": {
+          "match": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=away ": {
+          "match": [
+            "diag: mem #10 mark ev=away priv=1670 wPriv=1618 wCom=2223 free=1612 big=1501? t=178"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=home ": {
+          "match": [
+            "diag: mem #16 mark ev=home priv=1690 wPriv=1638 wCom=2287 free=1563 big=1497? t=262"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=gc-before ": {
+          "match": [
+            "diag: mem #4 mark ev=gc-before priv=1777 wPriv=1702 wCom=2340 free=1500 big=1374? t=357"
+          ],
+          "noMatch": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=gc-after ": {
+          "match": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ],
+          "noMatch": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ]
+        },
+        "^diag: memsus #\\d+ mark ev=gc-after ": {
+          "match": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ],
+          "noMatch": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ]
+        },
+        "^diag: memsus #\\d+ mark ev=away ": {
+          "match": [
+            "diag: memsus #10 mark ev=away cc=76? ccIcon=0? ppc=2? gcCnt=390 rdMs=0.35 lag=31 t=178"
+          ],
+          "noMatch": [
+            "diag: mem #10 mark ev=away priv=1670 wPriv=1618 wCom=2223 free=1612 big=1501? t=178"
+          ]
+        },
+        "^lptrim: on \\(docs/541\\)": {
+          "match": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ],
+          "noMatch": [
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22, slots 34185 free 34103 (99.8%), completely free 259: freed 243 (8.20 MiB), kept 16; locked 4.85 ms"
+          ]
+        },
+        "^lptrim: #\\d+ world load #\\d+ ": {
+          "match": [
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22, slots 34185 free 34103 (99.8%), completely free 259: freed 243 (8.20 MiB), kept 16; locked 4.85 ms",
+            "lptrim: #3 world load #5 world=Bridgeport.world cores 367 -> 60, slots 47343 free 46974 (99.2%), completely free 323: freed 307 (10.36 MiB), kept 16; locked 10.90 ms"
+          ],
+          "noMatch": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores",
+            "diag: mem #9 load ev=travel,world-switch priv=1672 wPriv=1626 wCom=2136 free=1702 big=1606? img=397? map=145 stkRes=99.5 stkCom=10.7?"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^diag: mem(sus)? .*=[-\\d.]+! ": {
+          "match": [
+            "diag: mem #4 mark ev=build-before priv=1749 wPriv=1686 wCom=2231 free=1590 big=1467? img=463? map=106! stkRes=112 t=142"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-10 01:30:00",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "^lptrim: skipped": {
+          "match": [
+            "lptrim: skipped (world load #2), pool not read world=-: core list unreadable; nothing changed"
+          ],
+          "noMatch": [
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22, slots 34185 free 34103 (99.8%), completely free 259: freed 243 (8.20 MiB), kept 16; locked 4.85 ms"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rc1110b"
+    },
+    {
+      "id": "bp-lptrim-off-memtravel-x3",
+      "note": "[est 25 min] [LotPool] Trim=0 comparison arm of bp-lptrim-on-memtravel-x3: same save, same 3 trips, same mem marks, trim off. Pass: travel PASS, no lptrim lines, no FAIL / crash. Its big= / free= on each 'diag: mem ... load' line and its gc-after marks are the baseline for the Trim=1 gain. Run with --no-smoke.",
+      "asi": "game-copy/ts3native.asi.rc1110c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "LotPool.Trim": 0
+      },
+      "logRequire": {
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": 6,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3,
+        "^diag: mem #\\d+ mark ev=base ": 1,
+        "^diag: mem #\\d+ mark ev=away ": 3,
+        "^diag: mem #\\d+ mark ev=home ": 3,
+        "^diag: mem #\\d+ mark ev=gc-before ": 4,
+        "^diag: mem #\\d+ mark ev=gc-after ": 4,
+        "^diag: memsus #\\d+ mark ev=gc-after ": 4,
+        "^diag: memsus #\\d+ mark ev=away ": 3
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^lptrim: ": 0
+      },
+      "run": {
+        "script": [
+          "save-matrix.ts",
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "3",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 60,
+      "pinReason": "pair rc1110c (docs/data/builds.json): ts3native 0.36.238 (asi game-copy/ts3native.asi.rc1110c), ini game-copy/ts3native.ini.rc1110c (= master release ini; Trim=0 there, this job sets LotPool.Trim), ts3fixes package game-copy/ts3fixes.package.rc1110b via fixesPackage (cycle.ts rebuilds ts3fixes from master with fixesBuild, which would not be the pair)",
+      "iniBase": "game-copy/ts3native.ini.rc1110c",
+      "regexCases": {
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": {
+          "match": [
+            "diag: mem #9 load ev=travel,world-switch priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162",
+            "diag: mem #3 load ev=world-switch priv=1651 wPriv=1599 t=90"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=base ": {
+          "match": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=away ": {
+          "match": [
+            "diag: mem #10 mark ev=away priv=1670 wPriv=1618 wCom=2223 free=1612 big=1501? t=178"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=home ": {
+          "match": [
+            "diag: mem #16 mark ev=home priv=1690 wPriv=1638 wCom=2287 free=1563 big=1497? t=262"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=gc-before ": {
+          "match": [
+            "diag: mem #4 mark ev=gc-before priv=1777 wPriv=1702 wCom=2340 free=1500 big=1374? t=357"
+          ],
+          "noMatch": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=gc-after ": {
+          "match": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ],
+          "noMatch": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ]
+        },
+        "^diag: memsus #\\d+ mark ev=gc-after ": {
+          "match": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ],
+          "noMatch": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ]
+        },
+        "^diag: memsus #\\d+ mark ev=away ": {
+          "match": [
+            "diag: memsus #10 mark ev=away cc=76? ccIcon=0? ppc=2? gcCnt=390 rdMs=0.35 lag=31 t=178"
+          ],
+          "noMatch": [
+            "diag: mem #10 mark ev=away priv=1670 wPriv=1618 wCom=2223 free=1612 big=1501? t=178"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^diag: mem(sus)? .*=[-\\d.]+! ": {
+          "match": [
+            "diag: mem #4 mark ev=build-before priv=1749 wPriv=1686 wCom=2231 free=1590 big=1467? img=463? map=106! stkRes=112 t=142"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-10 01:30:00",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "^lptrim: ": {
+          "match": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores",
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22, slots 34185 free 34103 (99.8%), completely free 259: freed 243 (8.20 MiB), kept 16; locked 4.85 ms"
+          ],
+          "noMatch": [
+            "diag: mem #9 load ev=travel,world-switch priv=1672 wPriv=1626 wCom=2136 free=1702 big=1606? img=397? map=145 stkRes=99.5 stkCom=10.7?"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rc1110b"
+    }
+  ]
+}

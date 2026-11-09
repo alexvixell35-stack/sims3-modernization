@@ -169,6 +169,17 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBookHand value="False" />
     <kBookHandDiag value="False" />
     <kPetPoolOrphan value="True" />
+    <kErrorTrapSims value="False" />
+    <kCelebrityDeadSim value="False" />
+    <kSeasonsDeadSim value="False" />
+    <kGhostReactDeadSim value="False" />
+    <kCasUiHandlers value="False" />
+    <kErrorTrapLookup value="False" />
+    <kErrorTrapCtl value="False" />
+    <kDreamNodeDeadSim value="False" />
+    <kOverwatchDeadSim value="False" />
+    <kSimRefsDeadSim value="False" />
+    <kOutfitWaitSaved value="False" />
     <kRelTablesApart value="True" />
     <kAsyncJigSync value="True" />
     <kDeadRefSweep value="False" />

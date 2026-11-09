@@ -224,7 +224,7 @@ namespace Ts3Fixes
             {
                 if (ShortcutOn("stuckcheckown") && sStuckTask.IsValid && Simulator.CurrentTask == sStuckTask) return 253;
                 // docs/250 §7.1 A1 (watchdogasync): the idle check CheckIdle chose for A1 (never a household Sim, H4Core.WdRoute)
-                if (sWdA1Task != 0 && sWdA1Task == Simulator.CurrentTask.Value && sInOwnCheck) return 872;
+                if (WdA1Here()) return 872;
                 if (!ShortcutOn("drivertaskasync")) return -1;
                 IScriptProxy proxy = Follower;
                 Sims3.Gameplay.Objects.Vehicles.Vehicle v = proxy != null ? proxy.Target as Sims3.Gameplay.Objects.Vehicles.Vehicle : null;
@@ -235,7 +235,8 @@ namespace Ts3Fixes
                 Sims3.Gameplay.Actors.Sim rider = owner as Sims3.Gameplay.Actors.Sim;
                 return rider != null && rider.Parent == v ? 252 : -1;
             }
-            const string kLiteDriver = "Sims3.Gameplay.Objects.Vehicles.CarNpcWithNoDriver+LiteDriver"; // private nested task class
+            static bool WdA1Here() { return sWdA1Task != 0 && sWdA1Task == Simulator.CurrentTask.Value && sInOwnCheck; }
+            const string kLiteDriver ="Sims3.Gameplay.Objects.Vehicles.CarNpcWithNoDriver+LiteDriver"; // private nested task class
 
             // any running script task that may yield here; ts3native still refuses a nested native->managed call (NoYield) and a
             // route being followed (Active)
@@ -397,12 +398,19 @@ namespace Ts3Fixes
                 // one-shot task) but a task that may yield: foreign START (bit 61). ts3native starts it only with [RouteAsync]
                 // ForeignKinds and refuses it as "Foreign" otherwise; older ts3native and the game answer false (sync as before).
                 // Switch "asyncreplanforeign" (default on; ts3native decides). Counters: [246] foreign STARTs sent, [247] started.
-                bool own = AsyncEligible(proxy != null ? proxy.Target as Sims3.Gameplay.Actors.Sim : null, "asyncreplan");
+                // docs/250 §7.1 A1 (watchdogasync): the idle check's PlanFromPoint (IsPointInLotSafelyRoutable) from the watchdog task
+                // CheckIdle chose for A1 (never a household Sim, H4Core.WdRoute) sends the own START like OwnerTaskStart's kind 0, counted
+                // [872] sent / [873] started. Before 2026-11-10 it took the foreign branch and never counted ([873] 0 in release runs).
+                // ts3native labels only kind 0 STARTs as the watchdog's (v179 wdJob*), so no tag is sent here.
+                bool wd = WdA1Here() && ForeignEligible();
+                bool own = wd || AsyncEligible(proxy != null ? proxy.Target as Sims3.Gameplay.Actors.Sim : null, "asyncreplan");
                 if (!own && !(ShortcutOn("asyncreplan") && ShortcutOn("asyncreplanforeign") && ForeignEligible())) return false;
                 PreCb(kind, ref pre);
                 if (kind >= 2) { AsyncPoint(0, p.x); AsyncPoint(1, p.y); AsyncPoint(2, p.z); }
+                if (wd) PatchCounters()[872]++;
                 bool started = GetOption2((Sims3.SimIFace.Route.RouteOption2)((own ? kArStart : kArStart | kArForeign) | (ulong)kind << 56));
-                if (!own)
+                if (wd) { if (started) PatchCounters()[873]++; }
+                else if (!own)
                 {
                     int[] c = PatchCounters();
                     c[246]++;

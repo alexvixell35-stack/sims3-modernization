@@ -1,0 +1,98 @@
+{
+  "note": "release-verify-1110 r6 (2026-11-09): rerun of bp-dfguard-release with setup maxS 180 in repro dance-together-floor, so stalled-teleport swaps (20 s queued / 40 s running + replacement teleport) can finish; ts3agent dancefix4 73AE0036 unchanged on pair rc1110c. Install game-copy/ts3agent.package.dancefix4 into Mods first. node tools/harness/queue.ts tools/harness/queues/release-verify-1110-r6.json --no-smoke",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-dfguard-release-r6",
+      "note": "[r6 = rerun with setup maxS 180 in repro dance-together-floor (repros.json is harness data; ts3agent dancefix4 73AE0036 unchanged)] [from r5: pair rc1110c + ts3agent dancefix4 73AE0036 (05d8135b: swap queued-behind teleports after 20 s and running teleports after 40 s)] [est 30 min] ~15 min: release ini, dancefloorlistguard on (fixesOn read-back), dancefloorlistdiag on through the repro. Pass (correctness): repro steps pass, dancefloorguard_calls >= 3, >= 3 \"dancefloor list: call #\" lines, 0 new script errors: a DanceFloor \"Collection was modified\" script error now FAILs (no scriptErrorsReport exemption). Findings for docs/253 §6, not failures: dancefloorguard_changes, dancefloordiag_throws / _mismatch / _freed and every \"dancefloor list: GUARD|THROW|MISMATCH\" line. Runs after bp-dancediag-stress, last of the forced repros, so the dancediag repro follow-up (bugfix/dancediag-stall) can land first.",
+      "asi": "game-copy/ts3native.asi.rc1110c",
+      "pinReason": "pair rc1110c (docs/data/builds.json): release candidate from master on release/rc-1110c = rc1110b + ts3native sync-side household scope (KdSyncCeilUs / KdKnownUnseen with no scope answer = household), ts3native 0.36.238, ini game-copy/ts3native.ini.rc1110c (= master release ini, = rc1110b ini), ts3fixes.package.rc1110b (fc0ba4df, tuning 1f88237b, unchanged), ts3agent game-copy/ts3agent.package.rc1110b (unchanged)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3fixes: dancefloor list: call #\\d+ ": 3,
+        "^ts3native 0\\.36\\.238 ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: dancefloor list: diag off": 0,
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "dance-together-floor",
+          "fixesOn": "dancefloorlistguard",
+          "fixesRequire": "dancefloorguard_calls>=3"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45,
+      "earlyGates": [
+        {
+          "afterSec": 600,
+          "counter": "fixes:dancefloorguard_calls",
+          "op": ">=",
+          "value": 1,
+          "why": "no guarded FindAndRouteOntoADanceFloorWithFollower call 10 min in: the pair never reached the lot, DanceTogetherA was refused, or the hook / switch is not in"
+        }
+      ],
+      "fixesPackage": "game-copy/ts3fixes.package.rc1110b",
+      "iniBase": "game-copy/ts3native.ini.rc1110c",
+      "regexCases": {
+        "^ts3fixes: dancefloor list: call #\\d+ ": {
+          "match": [
+            "ts3fixes: dancefloor list: call #4 floors 0 ver 1 steps 0 result null gc 297->297 0 ms actor Alexy Fresco (household no) follower Matilda Smart (household no) lot Banzai Lounge object StereoCommunity",
+            "ts3fixes: dancefloor list: call #3 floors 1 ver 2 steps 1 result floor DanceFloor3x3#D20F50 gc 296->298 2469 ms actor Matty Crewe (household no) follower William Fangmann (household no) lot Waylon's Haunt object StereoCommunity"
+          ],
+          "noMatch": [
+            "ts3fixes: dancefloor list: diag off, EA member missing (near True, route False, enumerator fields True)",
+            "ts3fixes: play: ui tasks 0 -> 1 by OneShotFunctionTask..ctor < ToMainMenuState.OnEnterNotInWorld < EventHandler.Invoke < World.OnEnterNotInWorld"
+          ]
+        },
+        "^ts3fixes: dancefloor list: diag off": {
+          "match": [
+            "ts3fixes: dancefloor list: diag off, EA member missing (near True, route False, enumerator fields True)"
+          ],
+          "noMatch": [
+            "ts3fixes: dancefloor list: call #4 floors 0 ver 1 steps 0 result null gc 297->297 0 ms actor Alexy Fresco (household no) follower Matilda Smart (household no) lot Banzai Lounge object StereoCommunity",
+            "ts3fixes: dancefloor list: call #3 floors 1 ver 2 steps 1 result floor DanceFloor3x3#D20F50 gc 296->298 2469 ms actor Matty Crewe (household no) follower William Fangmann (household no) lot Waylon's Haunt object StereoCommunity"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.237 2026-11-09 21:00:00",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "^ts3native 0\\.36\\.238 ": {
+          "match": [
+            "ts3native 0.36.238 2026-11-09 22:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.237 2026-11-09 21:00:00"
+          ]
+        }
+      }
+    }
+  ]
+}

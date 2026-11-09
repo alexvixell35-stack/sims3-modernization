@@ -15,6 +15,10 @@ namespace Ts3Agent
             RegisterBuild();
             RegisterSaver();
             RegisterHarness();
+            RegisterPets(); // PetHandlers.cs
+            RegisterSocialRound(); // SocialRoundHandlers.cs
+            RegisterCareerLadder(); // CareerLadderHandlers.cs
+            RegisterOutfitStress(); // OutfitStressHandlers.cs
         }
 
         static object Ping(Args a)
