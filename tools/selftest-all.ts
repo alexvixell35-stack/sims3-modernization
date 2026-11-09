@@ -65,6 +65,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/focusrules/run.ts': CSC,
   'tools/selftest/hotspots/run.ts': CSC,
   'tools/selftest/nostart/run.ts': CSC,
+  'tools/selftest/h4core/run.ts': CSC,
   'tools/selftest/overwatchnotice/run.ts': CSC,
   'tools/selftest/owprobe/run.ts': CSC,
   'tools/selftest/overwatchspread/run.ts': CSC,

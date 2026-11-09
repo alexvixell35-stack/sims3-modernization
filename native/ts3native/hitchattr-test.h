@@ -3,7 +3,7 @@ static void TestHitchAttr() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, haReady) == 0x30C4 && offsetof(Ts3nCounters, haWaits) == 0x30C8 &&
                   offsetof(Ts3nCounters, haUs) == 0x30D8 && offsetof(Ts3nCounters, haMaxUs) == 0x30E8 &&
-                  sizeof(Ts3nCounters) == 6074 * 4, "counters v66 layout after v65 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6112 * 4, "counters v66 layout after v65 (docs/registry.md)");
     static_assert(offsetof(HaFrame, us) == 0x08 && offsetof(HaFrame, n) == 0x18 && offsetof(HaFrame, maxKey) == 0x20 &&
                   offsetof(HaFrame, mvUs) == 0x24 && offsetof(HaFrame, mvKey) == 0x34 && sizeof(HaFrame) == 0x38,
                   "ts3native_hitchattr layout (stutter-profile.js HA_*)");

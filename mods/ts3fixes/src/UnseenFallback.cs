@@ -289,7 +289,10 @@ namespace Ts3Fixes
         // within kPostureChainCap postures is a broken state: held, so nothing of ours moves or fakes this Sim. Counter [371].
         static bool UfHeld(Sim s)
         {
-            if (s.IsInRidingPosture || s.IsInBeingRiddenPosture || s.Parent is Vehicle || s.Parent is Sim) return true;
+            return s.IsInRidingPosture || s.IsInBeingRiddenPosture || s.Parent is Vehicle || s.Parent is Sim || UfCarrying(s);
+        }
+        static bool UfCarrying(Sim s)
+        {
             int n = 0;
             for (Sims3.Gameplay.ActorSystems.Posture p = s.Posture; p != null; p = p.PreviousPosture)
             {
@@ -298,6 +301,18 @@ namespace Ts3Fixes
                     || p.Satisfaction(CommodityKind.CarryingObject, null) > 0f || p.Satisfaction(CommodityKind.BeingRidden, null) > 0f) return true;
             }
             return false;
+        }
+        // docs/197 §7 KdExemptSeen: a held Sim (UfWhy kHeld, returned only after every camera test passed) that is held only by
+        // the boat or car it sits in, with no household or selectable occupant, is unseen to native's KindDeadlines (correctness-1109:
+        // every A10 foreign boat / gangway job was a driver with why 7, so KdA10ForeignMs never cut one). Riding, carried or carrying stays held.
+        static bool UfVehicleNpcOnly(Sim s)
+        {
+            Vehicle v = s.Parent as Vehicle;
+            if (v == null) return false;
+            bool aboard = false;
+            try { foreach (Sim o in v.Occupants) if (o != null && (o.IsSelectable || o.Household == Household.ActiveHousehold)) aboard = true; }
+            catch (Exception) { aboard = true; }  // unknown = household
+            return UnseenFallbackCore.KdHeldUnseen(true, s.IsInRidingPosture || s.IsInBeingRiddenPosture || UfCarrying(s), aboard);
         }
 
         // docs/202 §3.7: a cut plan (or a no-retry answer) is not a route failure of the Sim: our watchdog's route-fail count
@@ -834,7 +849,10 @@ namespace Ts3Fixes
                 int why = who != null ? SafeUfWhy(who) : driverlessWhy;
                 if (why == 0 && who != null && !ownCheck && ShortcutOn("goalhhexempt")) why = UfGoalWhy(who, kind);  // docs/197 §7
                 if (sim != null && !ownCheck && sim.SimDescription != null && !sim.SimDescription.IsPet) last.ViewerOnly = sUfWhyViewerOnly;  // scope-gap counters: viewer-only 80 m
-                DiagSend(why == 0 ? 11 : UnseenFallbackCore.SeenNpc(why) ? 13 : 10, Handle);  // docs/197 §7 [RouteAsync] KdExemptSeen: this route's scope for its START or sync plan (13 = seen NPC, KdSeenNpcCeilMs); first thing in every plan, these switches or not
+                int kdWhy = why;  // native's scope only: why itself stays kHeld, so no unseen feature moves or fakes a rider
+                if (why == UnseenFallbackCore.kHeld && who != null && !ownCheck && UfVehicleNpcOnly(who))
+                    kdWhy = ShortcutOn("goalhhexempt") ? UfGoalWhy(who, kind) : 0;
+                DiagSend(UnseenFallbackCore.KdScopeOp(kdWhy), Handle);  // docs/197 §7 [RouteAsync] KdExemptSeen: this route's scope for its START or sync plan (13 = seen NPC, KdSeenNpcCeilMs); first thing in every plan, these switches or not
                 if (!pre && !leave && !ShortcutOn("unseenfbplan")) return false;
                 // never: stuck-check probes (phase B), our own route checks, IsPointInLotSafelyRoutable, non-Sims, pets, D-leave's own leg
                 if (sim == null || ownCheck || sim.SimDescription == null || sim.SimDescription.IsPet)

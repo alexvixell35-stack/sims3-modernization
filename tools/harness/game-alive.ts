@@ -1,5 +1,5 @@
 // Fails a harness run when the game dies: TS3W.exe gone, or the probe agent's heartbeat (agentstatus) frozen or the probe
-// unreachable (ECONNREFUSED) for more than 60 s. Without it a crashed game read as "no stuck Sims" and a repro printed PASS
+// unreachable (ECONNREFUSED) for more than 60 s (240 s while agentstatus says worldLoaded false: a world / travel load). Without it a crashed game read as "no stuck Sims" and a repro printed PASS
 // (bp-route-async, 2026-10-13). Prints "FAIL: game died at <time> (<why>)" plus the last crash-ledger triage entry, exits 1.
 //   const alive = watchGame();      start after the world is loaded (cycle.ts restarts the game on purpose)
 //   await alive.check();            before printing a PASS verdict
@@ -18,12 +18,18 @@ import { BIN, GAME_EXE, gameRunning, seenPids } from './game-exe.ts';
 const STARTED = new Date().toISOString(); // crash pickup: reports since this process started, of the game PIDs it saw
 
 const LIMIT_MS = 60000;
+// world load grace: the probe answers with agentstatus worldLoaded false (world unloaded, loading screen) while the frozen
+// heartbeat is the load itself. Travel loads took 46-68 s and grew per trip; the France -> home load was killed at 68 s
+// (float5-round4 all-off-1, 2026-11-09).
+export const LOAD_LIMIT_MS = 240000;
 const stamp = (t = Date.now()) => new Date(t).toISOString().slice(11, 19);
 
-// why the game counts as dead, or '' while alive (pure, covered by --self-check)
-export function deadReason(s: { running: boolean; now: number; lastBeatAt: number; error?: string }): string {
+// why the game counts as dead, or '' while alive (pure, covered by --self-check). loading = the probe's last answer had
+// worldLoaded false; ignored while the probe errors (a dead probe gets the plain 60 s).
+export function deadReason(s: { running: boolean; now: number; lastBeatAt: number; error?: string; loading?: boolean }): string {
   if (!s.running) return `${GAME_EXE} process gone`;
-  if (s.now - s.lastBeatAt > LIMIT_MS) return `agent not answering for ${Math.round((s.now - s.lastBeatAt) / 1000)} s${s.error ? ` (${s.error})` : ' (heartbeat frozen)'}`;
+  const load = !!s.loading && !s.error, limit = load ? LOAD_LIMIT_MS : LIMIT_MS;
+  if (s.now - s.lastBeatAt > limit) return `agent not answering for ${Math.round((s.now - s.lastBeatAt) / 1000)} s${s.error ? ` (${s.error})` : load ? ' (heartbeat frozen during a world load)' : ' (heartbeat frozen)'}`;
   return '';
 }
 
@@ -88,17 +94,17 @@ async function progressMark(): Promise<string> {
 }
 
 export function watchGame(onDeath?: () => void) {
-  let lastBeat: unknown, lastBeatAt = Date.now(), error = '', dying: Promise<void> | null = null, busy = false;
+  let lastBeat: unknown, lastBeatAt = Date.now(), error = '', dying: Promise<void> | null = null, busy = false, loading = false;
   const grace: GraceState = { since: null, mark: null, movedAt: 0 };
   const check = async (): Promise<void> => {
     if (dying) return dying; // never resolves (exit at its end): a caller's PASS cannot print during the hang capture
     try {
       const hb = await (await fetch('http://127.0.0.1:47891/agentstatus', { signal: AbortSignal.timeout(10000) })).json();
       if (hb?.heartbeat === undefined || hb.heartbeat !== lastBeat) { lastBeat = hb?.heartbeat; lastBeatAt = Date.now(); } // no heartbeat field: an answer counts
-      error = '';
+      error = '', loading = hb?.worldLoaded === false;
     } catch (e) { error = String((e as any)?.cause?.code ?? e); }
     const now = Date.now(), running = gameRunning();
-    let why = deadReason({ running, now, lastBeatAt, error });
+    let why = deadReason({ running, now, lastBeatAt, error, loading });
     if (!why) { grace.since = null; return; }
     const hung = running && error !== 'ECONNREFUSED'; // process and probe up: a long step or a hang, not a crash
     if (hung) { // docs/67 crash Q: EA's Library lot import/place blocks the sim thread for minutes while still progressing
@@ -431,6 +437,12 @@ if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-
   assert.equal(deadReason({ running: false, now: 1, lastBeatAt: 1 }), `${GAME_EXE} process gone`);
   assert.match(deadReason({ running: true, now: 90000, lastBeatAt: 20000 }), /not answering for 70 s \(heartbeat frozen\)/);
   assert.match(deadReason({ running: true, now: 90000, lastBeatAt: 0, error: 'ECONNREFUSED' }), /\(ECONNREFUSED\)/);
+  // world load grace: 68 s frozen in a travel load (float5-round4 all-off-1) waits; past 240 s it fails; a probe error gets 60 s
+  assert.equal(deadReason({ running: true, now: 88000, lastBeatAt: 20000, loading: true }), '');
+  assert.equal(deadReason({ running: true, now: 240000, lastBeatAt: 0, loading: true }), '');
+  assert.match(deadReason({ running: true, now: 250000, lastBeatAt: 0, loading: true }), /not answering for 250 s \(heartbeat frozen during a world load\)/);
+  assert.match(deadReason({ running: true, now: 90000, lastBeatAt: 20000, loading: true, error: 'ECONNREFUSED' }), /70 s \(ECONNREFUSED\)/);
+  assert.match(deadReason({ running: true, now: 90000, lastBeatAt: 20000, loading: false }), /\(heartbeat frozen\)$/);
   // kill dump plan: path, procdump vs PowerShell, one per PID, disk floor, off switch
   const dp = { pid: 4242, freeBytes: 50 * 2 ** 30, existing: [] as string[], procdump: null as string | null, dir: join('probe-out', 'dumps'), now: new Date('2026-10-26T03:04:05Z') };
   assert.deepEqual(dumpPlan(dp), { tool: 'powershell', file: join('probe-out', 'dumps', 'ts3w-4242-20261026T030405.dmp') });

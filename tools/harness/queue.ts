@@ -64,6 +64,8 @@
 // nativeRequire: "name>=n,..." over the /native after - before of the job (arrays as name.i, e.g. sypPlans.1 = failed sync plans);
 // logRequire: { "<regex>": min lines } over the job's ts3native.log copy. Either failing turns the row FAIL (repro event checks, docs/169).
 // logForbid: { "<regex>": max lines } over the same copy (0 = the line must not appear, e.g. a replay audit MISMATCH); more turns the row FAIL.
+// regexCases: { "<regex>": { match: [line, ...], noMatch: [line, ...] } } (AGENTS.md: every regex tested against real lines): when
+// present, every logRequire / logForbid regex needs >= 1 real line it matches and >= 1 it must not; checked at parse (--dry-run too).
 // routingFailFast: { ms, scope: "unseen" | "all", allow?: [{ match, reason, ref }] } (Rodney 2026-10-26, routing-failfast.ts): from the profile
 // start, every 30 s, routing above ms (unseen fallback lines; with scope all also sync plans, own-job waits, route-led hitches)
 // stops the job at once with FAIL: routing fail-fast: ...; triaged false positives go into routing-failfast-allow.json.
@@ -74,6 +76,8 @@
 // counters of the same poll whose names start with a listed prefix.
 // stopQueueOnFail: true (job or queue level) or --stop-on-fail: after a FAIL row the queue stops with 'STOP: <job> failed (stopQueueOnFail): ...'
 // (chain scripts grep it); a noisy timing job whose -rerun was queued does not stop it.
+// crashHunt: true (job or queue level, crash bisects): crashes are the expected signal, so 'same job crashed twice' /
+// 'two jobs in a row crashed' do not stop the queue (stopQueueOnFail still applies).
 // scriptErrorsMax: N = at most N new ScriptError_*.xml in the user folder since the job start (known EA errors, known-script-errors.json,
 // not counted); more turns the row FAIL (docs/191 bp-cc-load-smoke: synthetic CC loads, places and wears without script errors).
 // Any ScriptError xml whose only section is 'Correction Logs' with no exception/stack/Ts3Fixes line is never counted (correctionOnly, all queues).
@@ -173,7 +177,7 @@
 // (manifest first, next to the content stash) and deleted after the job; never overwrites a Library file; --restore-content removes them.
 // Reuses the other harness tools as child processes (cycle.ts, repro.ts, save-matrix.ts, watchdog.ts, crash-ledger.ts, ai-usage.ts).
 // Crash (TS3W.exe gone or "game died"): crash-ledger triage goes in the row, the queue goes on; it stops when the same job has
-// crashed twice (today's rows of this queue count, so a resume remembers) or two jobs crash in a row.
+// crashed twice (today's rows of this queue count, so a resume remembers) or two jobs crash in a row; crashHunt: true turns that off.
 // After each job: `ai-usage.ts G <job id>`; at >= 80% in either window the queue pauses and prints the --from line to resume.
 // Output: probe-out/queue/<queue>-<date>.jsonl (one row per job, times UTC), docs/data/results/<date>-queue-<queue>.md (table, UTC + PHT; TS3_MACHINE other than main: <date>-queue-<queue>.<machine>.md, row.machineTag and a machine column).
 // After each job the game's Bin/ts3native.log is copied to probe-out/queue/<queue>-<date>-<job>-<HHMM>-ts3native.log (row.nativeLog),
@@ -267,11 +271,23 @@ function machineCols(tag: string) { return tag ? { head: ' machine |', sep: '---
 function machineField(tag: string): { machineTag?: string } { return tag ? { machineTag: tag } : {}; }
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; run: { repro?: string; saveReload?: string[]; script?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
-    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
-  saveMatrix?: { fixes?: 'all' | 'shipped' }; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; retryOf?: string; expectHang?: string; shadowCheck?: boolean; skipIfMissing?: boolean; ourMods?: false };
+    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
+  saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; retryOf?: string; expectHang?: string; shadowCheck?: boolean; skipIfMissing?: boolean; ourMods?: false };
+
+function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unknown }>, res: string[], at: string) {
+  for (const re of res) if (!cases[re]) throw new Error(`${at}: regexCases has no case for /${re}/`);
+  for (const [re, c] of Object.entries(cases)) {
+    if (!res.includes(re)) throw new Error(`${at}: regexCases /${re}/ is no logRequire / logForbid key`);
+    const ok = (l: unknown) => Array.isArray(l) && l.length > 0 && l.every(x => typeof x === 'string');
+    if (!ok(c.match) || !ok(c.noMatch)) throw new Error(`${at}: regexCases /${re}/ needs match and noMatch lists of >= 1 line`);
+    const r = new RegExp(re);
+    for (const l of c.match as string[]) if (!r.test(l)) throw new Error(`${at}: regexCases /${re}/ does not match: ${l}`);
+    for (const l of c.noMatch as string[]) if (r.test(l)) throw new Error(`${at}: regexCases /${re}/ matches a noMatch line: ${l}`);
+  }
+}
 
 // every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
-const JOB_KEYS = new Set(['id', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'reuseSession', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
+const JOB_KEYS = new Set(['id', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'regexCases', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'crashHunt', 'reuseSession', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
 // ---- vanilla mode (docs/236): what a job may not ask for without ts3native/ts3fixes, and the checks the row names as N/A
 export const VANILLA_NA = ['asi build check', 'ts3fixes build check', 'ts3native.log version gate', 'ts3native.ini features', 'hook FAIL lines and route hook state', 'counter gate and /native counters', 'ts3fixes activity'];
 // "ourMods": false: a plain profile window or one repro (queue repros run --no-load, so no restart; its steps must not need ts3fixes); anything
@@ -435,6 +451,7 @@ export function parseQueue(json: unknown): Job[] {
     if (j.nativeRequire !== undefined) parseRequire(j.nativeRequire);
     if (j.logRequire !== undefined) for (const [re, n] of Object.entries(j.logRequire)) { new RegExp(re); if (!(Number.isInteger(n) && n > 0)) throw new Error(`${at}: logRequire "${re}" must map to a positive integer`); }
     if (j.logForbid !== undefined) for (const [re, n] of Object.entries(j.logForbid)) { new RegExp(re); if (!(Number.isInteger(n) && n >= 0)) throw new Error(`${at}: logForbid "${re}" must map to an integer >= 0`); }
+    if (j.regexCases !== undefined) checkRegexCases(j.regexCases, [...Object.keys(j.logRequire ?? {}), ...Object.keys(j.logForbid ?? {})], at);
     if (j.routingFailFast !== undefined) {
       checkFailFast(j.routingFailFast, at);
       if (!j.run.profile) throw new Error(`${at}: routingFailFast needs run.profile (it starts at the profile start)`);
@@ -445,6 +462,8 @@ export function parseQueue(json: unknown): Job[] {
     if (j.scriptErrorsMax !== undefined && !(Number.isInteger(j.scriptErrorsMax) && j.scriptErrorsMax >= 0)) throw new Error(`${at}: scriptErrorsMax must be an integer >= 0`);
     if (j.stopQueueOnFail === undefined && !Array.isArray(json) && (json as any).stopQueueOnFail !== undefined) j.stopQueueOnFail = (json as any).stopQueueOnFail; // queue-level default
     if (j.stopQueueOnFail !== undefined && typeof j.stopQueueOnFail !== 'boolean') throw new Error(`${at}: stopQueueOnFail must be true or false`);
+    if (j.crashHunt === undefined && !Array.isArray(json) && (json as any).crashHunt !== undefined) j.crashHunt = (json as any).crashHunt; // queue-level default
+    if (j.crashHunt !== undefined && typeof j.crashHunt !== 'boolean') throw new Error(`${at}: crashHunt must be true or false`);
     if (j.earlyGates !== undefined) {
       checkGates(j.earlyGates, `${at}: earlyGates`);
       if (!j.run.profile) throw new Error(`${at}: earlyGates needs run.profile (they start at the profile start)`);
@@ -1119,8 +1138,8 @@ export function failStop(j: { id: string; stopQueueOnFail?: boolean }, row: { pa
   return `${j.id} failed (stopQueueOnFail): ${String(row.error || row.verdict?.find(v => /^FAIL/.test(v)) || 'see the row').slice(0, 200)}`;
 }
 // stop rule after a job: same job crashed twice (earlier rows count), or this and the previous job both crashed
-export function crashStop(crashed: boolean, earlierCrashesOfJob: number, prevCrashed: boolean): string {
-  if (!crashed) return '';
+export function crashStop(crashed: boolean, earlierCrashesOfJob: number, prevCrashed: boolean, crashHunt = false): string {
+  if (!crashed || crashHunt) return '';
   if (earlierCrashesOfJob >= 1) return 'same job crashed twice';
   if (prevCrashed) return 'two jobs in a row crashed';
   return '';
@@ -1155,7 +1174,7 @@ function publishAtEnd(queueName: string): void {
     const msg = join(OUT, 'publish-message.txt');
     writeFileSync(msg, publishMessage(sha, queueName, subjects));
     const out = execFileSync(process.execPath, [join(ROOT, 'tools', 'publish-public.ts'), 'sync', '--if-behind', '--yes', '--message-file', msg],
-      { cwd: ROOT, encoding: 'utf8', timeout: 45 * 60000, env: { ...process.env, GH_TOKEN: plan.token }, stdio: ['ignore', 'pipe', 'pipe'] });
+      { cwd: ROOT, encoding: 'utf8', timeout: 15 * 60000, killSignal: 'SIGKILL', env: { ...process.env, GH_TOKEN: plan.token, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' }, stdio: ['ignore', 'pipe', 'pipe'] });
     const lines = out.split(/\r?\n/).filter(Boolean);
     log(`publish: ${lines.find(l => /^publish-public: /.test(l))?.replace(/^publish-public: /, '') ?? lines.pop() ?? 'done'}${/^done$/m.test(out) ? ' (synced)' : ''}`);
     rmSync(failed, { force: true });
@@ -1344,6 +1363,15 @@ if (values['self-check']) {
   // self checks: start-up FAIL lines, lazy route worker hook, async jobs actually started
   assert.deepEqual(logForbidFails('snap replay audit MISMATCH lot 0x1: Q 1\nok', { 'snap replay audit MISMATCH': 0, 'P4 FAULT': 0 }), ['log /snap replay audit MISMATCH/ 1 lines (want <= 0)']);
   assert.throws(() => parseQueue([{ id: 'v', asi: 'x', save: 'S', logForbid: { x: -1 }, run: { soak: { minutes: 1 } } }]), /logForbid/);
+  { // regexCases: the 11-09 miss (#d+ matched the letter d) is refused, a tested pair passes, an untested regex is refused
+    const rc = (regexCases: object, logRequire: object = { '^save #\\d+ ok': 1 }) => parseQueue([{ id: 'v', asi: 'x', save: 'S', logRequire, regexCases, run: { soak: { minutes: 1 } } }]);
+    assert.equal(rc({ '^save #\\d+ ok': { match: ['save #12 ok'], noMatch: ['save #d ok'] } }).length, 1);
+    assert.throws(() => rc({ '^save #d+ ok': { match: ['save #12 ok'], noMatch: ['x'] } }, { '^save #d+ ok': 1 }), /does not match/);
+    assert.throws(() => rc({ '^save #\\d+ ok': { match: ['save #12 ok'], noMatch: ['save #3 ok'] } }), /matches a noMatch/);
+    assert.throws(() => rc({ '^save #\\d+ ok': { match: ['save #12 ok'], noMatch: [] } }), /needs match and noMatch/);
+    assert.throws(() => rc({}), /no case for/);
+    assert.throws(() => rc({ '^save #\\d+ ok': { match: ['save #1 ok'], noMatch: ['x'] }, y: { match: ['y'], noMatch: ['x'] } }), /no logRequire/);
+  }
   assert.throws(() => parseQueue([{ id: 'v', asi: 'x', save: 'S', routingFailFast: { ms: 300, scope: 'all' }, run: { profile: { minutes: 5, ab: 'unseenfb' } } }]), /scope "all" on an --ab/);
   assert.throws(() => parseQueue([{ id: 'v', asi: 'x', save: 'S', routingFailFast: { ms: 300, scope: 'unseen' }, run: { soak: { minutes: 1 } } }]), /needs run.profile/);
   assert.throws(() => parseQueue([{ id: 'v', asi: 'x', save: 'S', routingFailFast: { ms: 300, scope: 'unseen', allow: [{ match: 'x' }] }, run: { profile: { minutes: 5 } } }]), /reason and ref/);
@@ -1648,6 +1676,9 @@ if (values['self-check']) {
   assert.equal(crashStop(true, 0, false), '');
   assert.equal(crashStop(true, 1, false), 'same job crashed twice');
   assert.equal(crashStop(true, 0, true), 'two jobs in a row crashed');
+  assert.equal(crashStop(true, 1, true, true), ''); // crashHunt: crashes never stop the queue
+  assert.equal(parseQueue({ crashHunt: true, jobs: [{ id: 's', asi: 'x', save: 'S', run: { soak: { minutes: 1 } } }] })[0].crashHunt, true);
+  assert.throws(() => parseQueue([{ id: 's', asi: 'x', save: 'S', crashHunt: 1, run: { soak: { minutes: 1 } } }]), /crashHunt must be true or false/);
   // stopQueueOnFail / --stop-on-fail (2026-10-31): queue-level default, type check, STOP reason names the job
   assert.equal(parseQueue({ stopQueueOnFail: true, jobs: [{ id: 's', asi: 'x', save: 'S', run: { soak: { minutes: 1 } } }] })[0].stopQueueOnFail, true);
   assert.equal(parseQueue({ stopQueueOnFail: true, jobs: [{ id: 's', asi: 'x', save: 'S', stopQueueOnFail: false, run: { soak: { minutes: 1 } } }] })[0].stopQueueOnFail, false);
@@ -2131,6 +2162,7 @@ if (values['dry-run']) {
     if (j.routingFailFast) console.log(`  5 ${describeFailFast(j.routingFailFast)}`);
     if (j.earlyGates) console.log(`  5 ${describeGates(j.earlyGates)}`);
     if (j.stopQueueOnFail || values['stop-on-fail']) console.log('  9 stopQueueOnFail: a FAIL row stops the queue (STOP: line)');
+    if (j.crashHunt) console.log('  9 crashHunt: crashes do not stop the queue (crash bisect)');
     if (j.fixes?.install?.length) console.log(`  4 node tools/setup/install-fixes.ts install --only ${j.fixes.install.join(',')}   (uninstalled after the job)`);
     if (j.fixes?.uninstall?.length) console.log(`  4 node tools/setup/install-fixes.ts uninstall --only ${j.fixes.uninstall.join(',')}   (reinstalled after the job)`);
     console.log(`  5 python tools/probe/ts3probe.py serve --launch${j.gameArgs?.length ? ` -- ${j.gameArgs.join(' ')}` : ''}   (child, killed at job end)${LAUNCH === 'ea' ? `; TS3_LAUNCH=ea: ${EA_LAUNCHER} ${EA_URI}, then waits for ${GAME_EXE} (game args are not passed)` : ''}`);
@@ -3122,7 +3154,7 @@ for (const [n, j] of jobs.entries()) {
   if (!row.pass && !row.na) exitCode = 1;
 
   const earlierCrashes = earlier.filter(r => r.job === j.id && r.crashed).length;
-  stopWhy ||= crashStop(row.crashed, earlierCrashes, prevCrashed);
+  stopWhy ||= crashStop(row.crashed, earlierCrashes, prevCrashed, !!j.crashHunt);
   // stopQueueOnFail / --stop-on-fail (Rodney 2026-10-31): a FAIL row ends the queue; a noisy timing job with its rerun queued does not
   stopWhy ||= failStop(j, row, !!values['stop-on-fail']);
   prevCrashed = row.crashed;

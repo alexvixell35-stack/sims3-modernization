@@ -490,6 +490,12 @@ static int g_asPatchN;
 // called address 0 on EA 1.69 (docs/232 Run 8e).
 static void* AsDetourCore(const char* name, DWORD at, const u8* pro, int len, void* hook, void* volatile* slot) {
     u8* t = (u8*)(uintptr_t)at;
+    // 0.36.230: AsInit made the trampoline page only for AllocSites; [UafCheck] alone (AllocSites=0) copied the prologue to
+    // NULL (float5uaf-1109b, AV writing 0 in memcpy at ts3native+0xC5D39 from ApplyUafCheck, float5-split a-1 / b-1)
+    if (!g_asTramp && !(g_asTramp = (u8*)VirtualAlloc(NULL, 4096, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE))) {
+        Log("SKIP alloc sites %s: no trampoline page (err %lu)", name, GetLastError());
+        return NULL;
+    }
     if (!Readable(t, pro ? len : 5) || g_asTrampUsed + 32 > 4096 || g_asPatchN >= 16) { Log("SKIP alloc sites %s: unreadable", name); return NULL; }
     u8* tr = g_asTramp + g_asTrampUsed;
     const char* how;
@@ -542,7 +548,7 @@ static bool AsInit() {
                          sizeof(AsRgn) * kAsRgns * 2 + (sizeof(LONG64) + sizeof(LONG)) * kAsTags * kAsSites;
     u8* m = (u8*)VirtualAlloc(NULL, bytes, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     g_asMemBase = (DWORD)(uintptr_t)m;
-    g_asTramp = (u8*)VirtualAlloc(NULL, 4096, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    if (!g_asTramp) g_asTramp = (u8*)VirtualAlloc(NULL, 4096, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
     if (!m || !g_asTramp) return false;
     g_asSite = (AsSite*)m, m += sizeof(AsSite) * kAsSites;
     g_asBlk = (AsBlk*)m, m += sizeof(AsBlk) * kAsStripes * kAsPerStripe;

@@ -2,6 +2,15 @@
 
 Rename to `vX.Y.Z-dev.md` when the version is set. Player notes: CHANGELOG.md `## Unreleased`.
 
+## Foreign route replans (`[RouteAsync] ForeignKinds`) ON (Rodney 2026-11-09)
+
+Timing rerun in correctness-1109 (`ip-foreign-natural-*`, cross-run ABBA, pair master1108: ts3native 0.36.211, ts3fixes f2826284; docs/data/results/2026-11-08-queue-correctness-1109.md): route 100.5 -> 63.0 ms/s (-37.5) in both orders, no hitch regression, correctness clean.
+
+- Release `ts3native.ini` `[RouteAsync]`: `ForeignKinds=4` (ReplanFromPosition STARTs from a task that is not the route's Sim, docs/176), `ForeignKindsMode=1`, `KdA10ForeignMs=1000` (was 200). Unchanged: `Kinds=0`, `SyncCapMs=1000`, `KindDeadlines=1`, `KdExemptSeen=1` (no deadline cut unless ts3fixes says the route is unseen, so household and selected Sims are never cut).
+- Foreign jobs run the whole original IC on the worker (no FbJobCapMs cap), so the plan is the game's own answer.
+- Gate2, gains-bundle-1110 and final-bundle jobs pin `ForeignKinds=0`, `ForeignKindsMode=1`, `KdA10ForeignMs=200` unless a job sets them, so their arms keep their meaning.
+- EA app 1.69: the four IC addresses map uniquely in docs/data/sigmap-ea169.json and InstallDetour checks the prologue, but A10 foreign was never run on EA; the EA `ts3native.ini` keeps `ForeignKinds=0` until an EA laptop correctness run.
+
 ## Unseen-direct go-live (`autunseen`) ON (Rodney 2026-11-08)
 
 Gate 2 credit A/B (`--ab autunseen`, pace 100 + `autunseenpacecredit` + `autseengame`, pair g2pair1107b: ts3native 0.36.189, ts3fixes -gu100), 6 runs per world pooled (queues golive-unseen-gate2-pace, -credit2, -credit3; docs/data/results/2026-11-0{7,8}-queue-golive-unseen-gate2-*.md): BP +6.4, IP +12.2 ms/s, correctness PASS. Hitch-ab clear-regression rule (AGENTS.md) checked 2026-11-08: no crash or stuck Sim in any arm; watchdog acts in both arms at similar counts; IP pooled >= 300 ms on 55 vs off 59, ratio 0.92 [0.63, 1.36] "no clear difference"; >= 1000 ms on 1 vs off 2; the one on-arm >= 1 s iteration (1319 ms) has the same cause as both off-arm ones (`RouteBackoffHook.AsyncWait`, docs/23 #21). The R5 per-pair `ufLong` bar failed on 2 IP pairs: incidental (docs/23 follow-ups).

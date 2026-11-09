@@ -1,0 +1,720 @@
+{
+  "note": "float5-bisect (2026-11-09, ok bisect): float-5 writer bisect on pair master1109c, 2 runs each. RouteAsync off x2, then Discourage DestroyPark off x2. A hit (float-5 forbidden line) = that feature is not the cause; clean x2 = strong suspect. FAIL does not stop the queue. Est ~140 min. Run from the main checkout: node tools/harness/queue.ts tools/harness/queues/float5-bisect.json --no-smoke",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-float5-rasync-off-1",
+      "note": "[est 35 min] ok bisect 2026-11-09 (float-5 writer hunt, run 1/2). Same as bp-float5-memtravel-x8-m0-a1 (Baseline-BP, France x8, mem marks, pair master1109c, CasTrim Mode 0 Detect 1 CellGuard 1 MbGuard 0 OutfitStrGuard 0) but [RouteAsync] Enabled=0. Reading: a hit (any float-5 forbidden line: outfit string bad / float-5 cell / modelbuilder cell bad / outfit cell bad / inventory bad slot) = that feature is NOT the cause; clean x2 = strong suspect. Note: RouteGate, Discourage and the RO/unseen features need RouteAsync (docs say START refused without it, those features need it), so this arm turns off the whole async-route family in effect, not RouteAsync alone.",
+      "asi": "game-copy/ts3native.asi.master1109c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "CasTrim.MbGuard": 0,
+        "CasTrim.OutfitStrGuard": 0,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "RouteAsync.Enabled": 0,
+        "RouteGate.Enforce": 0
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.226 ": 1,
+        "^cas trim: outfit string check on ": 1,
+        "^cas trim: modelbuilder release check on ": 1,
+        "^cas trim: outfit release check on ": 1,
+        "^cas trim: outfit string check \\(0x5E7BC2, session\\) at save #\\d+: calls [1-9]": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 8
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^cas trim: outfit string bad": 0,
+        "^cas trim: modelbuilder cell bad": 0,
+        "^cas trim: float-5 cell": 0,
+        "^cas trim: outfit cell bad": 0,
+        "^cas trim: cell guard skipped": 0,
+        "^cas trim: inventory bad slot": 0,
+        "^crash forensics: cas trim ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "8",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 60,
+      "pinReason": "pair master1109c (builds.json): integration/release-1109 (master 9b570dc7 + unseenboat, foreign-scope, bookcarry crowd, dancediag stall, outfitwait dead Sim, PR #313 lptrim, watchdog off-thread, float5 OutfitStrGuard/Quarantine), ts3native 0.36.226 cca13cb5, ts3fixes 41adf5f5 (tuning 718c92c6); build/ holds the pair (ts3fixes + ts3agent 2a74c020) after the merge, so no TS3_AGENT_PACKAGE needed",
+      "scriptErrorsMax": 0,
+      "fixesBuild": "ts3fixes.package.master1109c",
+      "regexCases": {
+        "^ts3native 0\\.36\\.226 ": {
+          "match": [
+            "ts3native 0.36.226 2026-11-09 08:07:23"
+          ],
+          "noMatch": [
+            "ts3native 0.36.227 2026-11-09 08:07:23"
+          ]
+        },
+        "^cas trim: outfit string check on ": {
+          "match": [
+            "cas trim: outfit string check on (docs/539 §15): the save writer's call 0x5E7BC2"
+          ],
+          "noMatch": [
+            "cas trim: outfit string check (0x5E7BC2, session) at save #3: calls 5"
+          ]
+        },
+        "^cas trim: modelbuilder release check on ": {
+          "match": [
+            "cas trim: modelbuilder release check on (docs/539 §14): the calls 0x5D83B4"
+          ],
+          "noMatch": [
+            "cas trim: modelbuilder cell bad: reason"
+          ]
+        },
+        "^cas trim: outfit release check on ": {
+          "match": [
+            "cas trim: outfit release check on (docs/539 §13.5): the clear 0x5E6E60"
+          ],
+          "noMatch": [
+            "cas trim: outfit cell bad: x"
+          ]
+        },
+        "^cas trim: outfit string check \\(0x5E7BC2, session\\) at save #\\d+: calls [1-9]": {
+          "match": [
+            "cas trim: outfit string check (0x5E7BC2, session) at save #13: calls 12, records 40"
+          ],
+          "noMatch": [
+            "cas trim: outfit string check (0x5E7BC2, session) at save #13: calls 0, records 0"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #7 save-start ev=travel-save priv=1718 wPriv=1674 wCom=2172 free=1643 big=1537? img=394? map=138 stkRes=95.8 stkCom=10.5? miRes=192 miCom=101 eaDir=201? eaDirN=161? eaCom=650? eaRes=653? eaCoreN=230? rp=0.0 pl=0.0? sp=6.5? gcHeap=360? gcFree=166? gcN=303? rc=371? rcCold=9.6? rcBudget=200? rcN=103901? anim=3.1? rest=390? fpLost=0 fpLoad=0 fpSaved=1 t=129"
+          ],
+          "noMatch": [
+            "diag: mem #2 save-start ev=traveling priv=1710 wPriv=1666 wCom=2130 free=1697 big=1541? img=394? map=103 stkRes=99.5 stkCom=10.6? miRes=192 miCom=100 eaDir=186? eaDirN=150? eaCom=642? eaRes=645? eaCoreN=222? rp=0.0 pl=0.0? sp=6.5? gcHeap=356? gcFree=164? gcN=293? rc=369? rcCold=9.0? rcBudget=200? rcN=103707? anim=3.4? rest=409? fpLost=0 fpLoad=0 fpSaved=0 t=109"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^cas trim: outfit string bad": {
+          "match": [
+            "cas trim: outfit string bad: x; thread 1"
+          ],
+          "noMatch": [
+            "cas trim: outfit string check on (docs/539 §15)"
+          ]
+        },
+        "^cas trim: modelbuilder cell bad": {
+          "match": [
+            "cas trim: modelbuilder cell bad: reason; thread 1"
+          ],
+          "noMatch": [
+            "cas trim: modelbuilder release check on (docs/539 §14)"
+          ]
+        },
+        "^cas trim: float-5 cell": {
+          "match": [
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5"
+          ],
+          "noMatch": [
+            "cas trim: outfit cell bad: x"
+          ]
+        },
+        "^cas trim: outfit cell bad": {
+          "match": [
+            "cas trim: outfit cell bad: x; y; [outfit+0xBC] entry 1 of 2"
+          ],
+          "noMatch": [
+            "cas trim: outfit release check on (docs/539 §13.5)"
+          ]
+        },
+        "^cas trim: cell guard skipped": {
+          "match": [
+            "cas trim: cell guard skipped: outfit clear 0x5E6E60, thread 33660; save #6"
+          ],
+          "noMatch": [
+            "cas trim: cell guard on"
+          ]
+        },
+        "^cas trim: inventory bad slot": {
+          "match": [
+            "cas trim: inventory bad slot (x, thread 1): y; save #3"
+          ],
+          "noMatch": [
+            "cas trim: inventory check on"
+          ]
+        },
+        "^crash forensics: cas trim ": {
+          "match": [
+            "crash forensics: cas trim outfit string copy fault at 0x7C3473D0"
+          ],
+          "noMatch": [
+            "crash forensics: light (docs/67 §18): ring 4096 P5 heap events + g_rpUse holds, heap check on, our-events ring 8192 events, fault dump; no guards (Enabled=1 for those)"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-float5-rasync-off-2",
+      "note": "[est 35 min] ok bisect 2026-11-09 (float-5 writer hunt, run 2/2). Same as bp-float5-memtravel-x8-m0-a1 (Baseline-BP, France x8, mem marks, pair master1109c, CasTrim Mode 0 Detect 1 CellGuard 1 MbGuard 0 OutfitStrGuard 0) but [RouteAsync] Enabled=0. Reading: a hit (any float-5 forbidden line: outfit string bad / float-5 cell / modelbuilder cell bad / outfit cell bad / inventory bad slot) = that feature is NOT the cause; clean x2 = strong suspect. Note: RouteGate, Discourage and the RO/unseen features need RouteAsync (docs say START refused without it, those features need it), so this arm turns off the whole async-route family in effect, not RouteAsync alone.",
+      "asi": "game-copy/ts3native.asi.master1109c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "CasTrim.MbGuard": 0,
+        "CasTrim.OutfitStrGuard": 0,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "RouteAsync.Enabled": 0,
+        "RouteGate.Enforce": 0
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.226 ": 1,
+        "^cas trim: outfit string check on ": 1,
+        "^cas trim: modelbuilder release check on ": 1,
+        "^cas trim: outfit release check on ": 1,
+        "^cas trim: outfit string check \\(0x5E7BC2, session\\) at save #\\d+: calls [1-9]": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 8
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^cas trim: outfit string bad": 0,
+        "^cas trim: modelbuilder cell bad": 0,
+        "^cas trim: float-5 cell": 0,
+        "^cas trim: outfit cell bad": 0,
+        "^cas trim: cell guard skipped": 0,
+        "^cas trim: inventory bad slot": 0,
+        "^crash forensics: cas trim ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "8",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 60,
+      "pinReason": "pair master1109c (builds.json): integration/release-1109 (master 9b570dc7 + unseenboat, foreign-scope, bookcarry crowd, dancediag stall, outfitwait dead Sim, PR #313 lptrim, watchdog off-thread, float5 OutfitStrGuard/Quarantine), ts3native 0.36.226 cca13cb5, ts3fixes 41adf5f5 (tuning 718c92c6); build/ holds the pair (ts3fixes + ts3agent 2a74c020) after the merge, so no TS3_AGENT_PACKAGE needed",
+      "scriptErrorsMax": 0,
+      "fixesBuild": "ts3fixes.package.master1109c",
+      "regexCases": {
+        "^ts3native 0\\.36\\.226 ": {
+          "match": [
+            "ts3native 0.36.226 2026-11-09 08:07:23"
+          ],
+          "noMatch": [
+            "ts3native 0.36.227 2026-11-09 08:07:23"
+          ]
+        },
+        "^cas trim: outfit string check on ": {
+          "match": [
+            "cas trim: outfit string check on (docs/539 §15): the save writer's call 0x5E7BC2"
+          ],
+          "noMatch": [
+            "cas trim: outfit string check (0x5E7BC2, session) at save #3: calls 5"
+          ]
+        },
+        "^cas trim: modelbuilder release check on ": {
+          "match": [
+            "cas trim: modelbuilder release check on (docs/539 §14): the calls 0x5D83B4"
+          ],
+          "noMatch": [
+            "cas trim: modelbuilder cell bad: reason"
+          ]
+        },
+        "^cas trim: outfit release check on ": {
+          "match": [
+            "cas trim: outfit release check on (docs/539 §13.5): the clear 0x5E6E60"
+          ],
+          "noMatch": [
+            "cas trim: outfit cell bad: x"
+          ]
+        },
+        "^cas trim: outfit string check \\(0x5E7BC2, session\\) at save #\\d+: calls [1-9]": {
+          "match": [
+            "cas trim: outfit string check (0x5E7BC2, session) at save #13: calls 12, records 40"
+          ],
+          "noMatch": [
+            "cas trim: outfit string check (0x5E7BC2, session) at save #13: calls 0, records 0"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #7 save-start ev=travel-save priv=1718 wPriv=1674 wCom=2172 free=1643 big=1537? img=394? map=138 stkRes=95.8 stkCom=10.5? miRes=192 miCom=101 eaDir=201? eaDirN=161? eaCom=650? eaRes=653? eaCoreN=230? rp=0.0 pl=0.0? sp=6.5? gcHeap=360? gcFree=166? gcN=303? rc=371? rcCold=9.6? rcBudget=200? rcN=103901? anim=3.1? rest=390? fpLost=0 fpLoad=0 fpSaved=1 t=129"
+          ],
+          "noMatch": [
+            "diag: mem #2 save-start ev=traveling priv=1710 wPriv=1666 wCom=2130 free=1697 big=1541? img=394? map=103 stkRes=99.5 stkCom=10.6? miRes=192 miCom=100 eaDir=186? eaDirN=150? eaCom=642? eaRes=645? eaCoreN=222? rp=0.0 pl=0.0? sp=6.5? gcHeap=356? gcFree=164? gcN=293? rc=369? rcCold=9.0? rcBudget=200? rcN=103707? anim=3.4? rest=409? fpLost=0 fpLoad=0 fpSaved=0 t=109"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^cas trim: outfit string bad": {
+          "match": [
+            "cas trim: outfit string bad: x; thread 1"
+          ],
+          "noMatch": [
+            "cas trim: outfit string check on (docs/539 §15)"
+          ]
+        },
+        "^cas trim: modelbuilder cell bad": {
+          "match": [
+            "cas trim: modelbuilder cell bad: reason; thread 1"
+          ],
+          "noMatch": [
+            "cas trim: modelbuilder release check on (docs/539 §14)"
+          ]
+        },
+        "^cas trim: float-5 cell": {
+          "match": [
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5"
+          ],
+          "noMatch": [
+            "cas trim: outfit cell bad: x"
+          ]
+        },
+        "^cas trim: outfit cell bad": {
+          "match": [
+            "cas trim: outfit cell bad: x; y; [outfit+0xBC] entry 1 of 2"
+          ],
+          "noMatch": [
+            "cas trim: outfit release check on (docs/539 §13.5)"
+          ]
+        },
+        "^cas trim: cell guard skipped": {
+          "match": [
+            "cas trim: cell guard skipped: outfit clear 0x5E6E60, thread 33660; save #6"
+          ],
+          "noMatch": [
+            "cas trim: cell guard on"
+          ]
+        },
+        "^cas trim: inventory bad slot": {
+          "match": [
+            "cas trim: inventory bad slot (x, thread 1): y; save #3"
+          ],
+          "noMatch": [
+            "cas trim: inventory check on"
+          ]
+        },
+        "^crash forensics: cas trim ": {
+          "match": [
+            "crash forensics: cas trim outfit string copy fault at 0x7C3473D0"
+          ],
+          "noMatch": [
+            "crash forensics: light (docs/67 §18): ring 4096 P5 heap events + g_rpUse holds, heap check on, our-events ring 8192 events, fault dump; no guards (Enabled=1 for those)"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-float5-destroypark-off-1",
+      "note": "[est 35 min] ok bisect 2026-11-09 (float-5 writer hunt, run 1/2). Same as bp-float5-memtravel-x8-m0-a1 (Baseline-BP, France x8, mem marks, pair master1109c, CasTrim Mode 0 Detect 1 CellGuard 1 MbGuard 0 OutfitStrGuard 0) but [Discourage] DestroyPark=0 (RouteAsync ON). Reading: a hit (any float-5 forbidden line: outfit string bad / float-5 cell / modelbuilder cell bad / outfit cell bad / inventory bad slot) = that feature is NOT the cause; clean x2 = strong suspect. Note: DestroyPark needs [RouteGate] Enforce=1 (stays on) and RouteAsync stays ON here.",
+      "asi": "game-copy/ts3native.asi.master1109c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "CasTrim.MbGuard": 0,
+        "CasTrim.OutfitStrGuard": 0,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "Discourage.DestroyPark": 0
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.226 ": 1,
+        "^cas trim: outfit string check on ": 1,
+        "^cas trim: modelbuilder release check on ": 1,
+        "^cas trim: outfit release check on ": 1,
+        "^cas trim: outfit string check \\(0x5E7BC2, session\\) at save #\\d+: calls [1-9]": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 8
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^cas trim: outfit string bad": 0,
+        "^cas trim: modelbuilder cell bad": 0,
+        "^cas trim: float-5 cell": 0,
+        "^cas trim: outfit cell bad": 0,
+        "^cas trim: cell guard skipped": 0,
+        "^cas trim: inventory bad slot": 0,
+        "^crash forensics: cas trim ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "8",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 60,
+      "pinReason": "pair master1109c (builds.json): integration/release-1109 (master 9b570dc7 + unseenboat, foreign-scope, bookcarry crowd, dancediag stall, outfitwait dead Sim, PR #313 lptrim, watchdog off-thread, float5 OutfitStrGuard/Quarantine), ts3native 0.36.226 cca13cb5, ts3fixes 41adf5f5 (tuning 718c92c6); build/ holds the pair (ts3fixes + ts3agent 2a74c020) after the merge, so no TS3_AGENT_PACKAGE needed",
+      "scriptErrorsMax": 0,
+      "fixesBuild": "ts3fixes.package.master1109c",
+      "regexCases": {
+        "^ts3native 0\\.36\\.226 ": {
+          "match": [
+            "ts3native 0.36.226 2026-11-09 08:07:23"
+          ],
+          "noMatch": [
+            "ts3native 0.36.227 2026-11-09 08:07:23"
+          ]
+        },
+        "^cas trim: outfit string check on ": {
+          "match": [
+            "cas trim: outfit string check on (docs/539 §15): the save writer's call 0x5E7BC2"
+          ],
+          "noMatch": [
+            "cas trim: outfit string check (0x5E7BC2, session) at save #3: calls 5"
+          ]
+        },
+        "^cas trim: modelbuilder release check on ": {
+          "match": [
+            "cas trim: modelbuilder release check on (docs/539 §14): the calls 0x5D83B4"
+          ],
+          "noMatch": [
+            "cas trim: modelbuilder cell bad: reason"
+          ]
+        },
+        "^cas trim: outfit release check on ": {
+          "match": [
+            "cas trim: outfit release check on (docs/539 §13.5): the clear 0x5E6E60"
+          ],
+          "noMatch": [
+            "cas trim: outfit cell bad: x"
+          ]
+        },
+        "^cas trim: outfit string check \\(0x5E7BC2, session\\) at save #\\d+: calls [1-9]": {
+          "match": [
+            "cas trim: outfit string check (0x5E7BC2, session) at save #13: calls 12, records 40"
+          ],
+          "noMatch": [
+            "cas trim: outfit string check (0x5E7BC2, session) at save #13: calls 0, records 0"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #7 save-start ev=travel-save priv=1718 wPriv=1674 wCom=2172 free=1643 big=1537? img=394? map=138 stkRes=95.8 stkCom=10.5? miRes=192 miCom=101 eaDir=201? eaDirN=161? eaCom=650? eaRes=653? eaCoreN=230? rp=0.0 pl=0.0? sp=6.5? gcHeap=360? gcFree=166? gcN=303? rc=371? rcCold=9.6? rcBudget=200? rcN=103901? anim=3.1? rest=390? fpLost=0 fpLoad=0 fpSaved=1 t=129"
+          ],
+          "noMatch": [
+            "diag: mem #2 save-start ev=traveling priv=1710 wPriv=1666 wCom=2130 free=1697 big=1541? img=394? map=103 stkRes=99.5 stkCom=10.6? miRes=192 miCom=100 eaDir=186? eaDirN=150? eaCom=642? eaRes=645? eaCoreN=222? rp=0.0 pl=0.0? sp=6.5? gcHeap=356? gcFree=164? gcN=293? rc=369? rcCold=9.0? rcBudget=200? rcN=103707? anim=3.4? rest=409? fpLost=0 fpLoad=0 fpSaved=0 t=109"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^cas trim: outfit string bad": {
+          "match": [
+            "cas trim: outfit string bad: x; thread 1"
+          ],
+          "noMatch": [
+            "cas trim: outfit string check on (docs/539 §15)"
+          ]
+        },
+        "^cas trim: modelbuilder cell bad": {
+          "match": [
+            "cas trim: modelbuilder cell bad: reason; thread 1"
+          ],
+          "noMatch": [
+            "cas trim: modelbuilder release check on (docs/539 §14)"
+          ]
+        },
+        "^cas trim: float-5 cell": {
+          "match": [
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5"
+          ],
+          "noMatch": [
+            "cas trim: outfit cell bad: x"
+          ]
+        },
+        "^cas trim: outfit cell bad": {
+          "match": [
+            "cas trim: outfit cell bad: x; y; [outfit+0xBC] entry 1 of 2"
+          ],
+          "noMatch": [
+            "cas trim: outfit release check on (docs/539 §13.5)"
+          ]
+        },
+        "^cas trim: cell guard skipped": {
+          "match": [
+            "cas trim: cell guard skipped: outfit clear 0x5E6E60, thread 33660; save #6"
+          ],
+          "noMatch": [
+            "cas trim: cell guard on"
+          ]
+        },
+        "^cas trim: inventory bad slot": {
+          "match": [
+            "cas trim: inventory bad slot (x, thread 1): y; save #3"
+          ],
+          "noMatch": [
+            "cas trim: inventory check on"
+          ]
+        },
+        "^crash forensics: cas trim ": {
+          "match": [
+            "crash forensics: cas trim outfit string copy fault at 0x7C3473D0"
+          ],
+          "noMatch": [
+            "crash forensics: light (docs/67 §18): ring 4096 P5 heap events + g_rpUse holds, heap check on, our-events ring 8192 events, fault dump; no guards (Enabled=1 for those)"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-float5-destroypark-off-2",
+      "note": "[est 35 min] ok bisect 2026-11-09 (float-5 writer hunt, run 2/2). Same as bp-float5-memtravel-x8-m0-a1 (Baseline-BP, France x8, mem marks, pair master1109c, CasTrim Mode 0 Detect 1 CellGuard 1 MbGuard 0 OutfitStrGuard 0) but [Discourage] DestroyPark=0 (RouteAsync ON). Reading: a hit (any float-5 forbidden line: outfit string bad / float-5 cell / modelbuilder cell bad / outfit cell bad / inventory bad slot) = that feature is NOT the cause; clean x2 = strong suspect. Note: DestroyPark needs [RouteGate] Enforce=1 (stays on) and RouteAsync stays ON here.",
+      "asi": "game-copy/ts3native.asi.master1109c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "CasTrim.MbGuard": 0,
+        "CasTrim.OutfitStrGuard": 0,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "Discourage.DestroyPark": 0
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.226 ": 1,
+        "^cas trim: outfit string check on ": 1,
+        "^cas trim: modelbuilder release check on ": 1,
+        "^cas trim: outfit release check on ": 1,
+        "^cas trim: outfit string check \\(0x5E7BC2, session\\) at save #\\d+: calls [1-9]": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 8
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^cas trim: outfit string bad": 0,
+        "^cas trim: modelbuilder cell bad": 0,
+        "^cas trim: float-5 cell": 0,
+        "^cas trim: outfit cell bad": 0,
+        "^cas trim: cell guard skipped": 0,
+        "^cas trim: inventory bad slot": 0,
+        "^crash forensics: cas trim ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "8",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 60,
+      "pinReason": "pair master1109c (builds.json): integration/release-1109 (master 9b570dc7 + unseenboat, foreign-scope, bookcarry crowd, dancediag stall, outfitwait dead Sim, PR #313 lptrim, watchdog off-thread, float5 OutfitStrGuard/Quarantine), ts3native 0.36.226 cca13cb5, ts3fixes 41adf5f5 (tuning 718c92c6); build/ holds the pair (ts3fixes + ts3agent 2a74c020) after the merge, so no TS3_AGENT_PACKAGE needed",
+      "scriptErrorsMax": 0,
+      "fixesBuild": "ts3fixes.package.master1109c",
+      "regexCases": {
+        "^ts3native 0\\.36\\.226 ": {
+          "match": [
+            "ts3native 0.36.226 2026-11-09 08:07:23"
+          ],
+          "noMatch": [
+            "ts3native 0.36.227 2026-11-09 08:07:23"
+          ]
+        },
+        "^cas trim: outfit string check on ": {
+          "match": [
+            "cas trim: outfit string check on (docs/539 §15): the save writer's call 0x5E7BC2"
+          ],
+          "noMatch": [
+            "cas trim: outfit string check (0x5E7BC2, session) at save #3: calls 5"
+          ]
+        },
+        "^cas trim: modelbuilder release check on ": {
+          "match": [
+            "cas trim: modelbuilder release check on (docs/539 §14): the calls 0x5D83B4"
+          ],
+          "noMatch": [
+            "cas trim: modelbuilder cell bad: reason"
+          ]
+        },
+        "^cas trim: outfit release check on ": {
+          "match": [
+            "cas trim: outfit release check on (docs/539 §13.5): the clear 0x5E6E60"
+          ],
+          "noMatch": [
+            "cas trim: outfit cell bad: x"
+          ]
+        },
+        "^cas trim: outfit string check \\(0x5E7BC2, session\\) at save #\\d+: calls [1-9]": {
+          "match": [
+            "cas trim: outfit string check (0x5E7BC2, session) at save #13: calls 12, records 40"
+          ],
+          "noMatch": [
+            "cas trim: outfit string check (0x5E7BC2, session) at save #13: calls 0, records 0"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #7 save-start ev=travel-save priv=1718 wPriv=1674 wCom=2172 free=1643 big=1537? img=394? map=138 stkRes=95.8 stkCom=10.5? miRes=192 miCom=101 eaDir=201? eaDirN=161? eaCom=650? eaRes=653? eaCoreN=230? rp=0.0 pl=0.0? sp=6.5? gcHeap=360? gcFree=166? gcN=303? rc=371? rcCold=9.6? rcBudget=200? rcN=103901? anim=3.1? rest=390? fpLost=0 fpLoad=0 fpSaved=1 t=129"
+          ],
+          "noMatch": [
+            "diag: mem #2 save-start ev=traveling priv=1710 wPriv=1666 wCom=2130 free=1697 big=1541? img=394? map=103 stkRes=99.5 stkCom=10.6? miRes=192 miCom=100 eaDir=186? eaDirN=150? eaCom=642? eaRes=645? eaCoreN=222? rp=0.0 pl=0.0? sp=6.5? gcHeap=356? gcFree=164? gcN=293? rc=369? rcCold=9.0? rcBudget=200? rcN=103707? anim=3.4? rest=409? fpLost=0 fpLoad=0 fpSaved=0 t=109"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^cas trim: outfit string bad": {
+          "match": [
+            "cas trim: outfit string bad: x; thread 1"
+          ],
+          "noMatch": [
+            "cas trim: outfit string check on (docs/539 §15)"
+          ]
+        },
+        "^cas trim: modelbuilder cell bad": {
+          "match": [
+            "cas trim: modelbuilder cell bad: reason; thread 1"
+          ],
+          "noMatch": [
+            "cas trim: modelbuilder release check on (docs/539 §14)"
+          ]
+        },
+        "^cas trim: float-5 cell": {
+          "match": [
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5"
+          ],
+          "noMatch": [
+            "cas trim: outfit cell bad: x"
+          ]
+        },
+        "^cas trim: outfit cell bad": {
+          "match": [
+            "cas trim: outfit cell bad: x; y; [outfit+0xBC] entry 1 of 2"
+          ],
+          "noMatch": [
+            "cas trim: outfit release check on (docs/539 §13.5)"
+          ]
+        },
+        "^cas trim: cell guard skipped": {
+          "match": [
+            "cas trim: cell guard skipped: outfit clear 0x5E6E60, thread 33660; save #6"
+          ],
+          "noMatch": [
+            "cas trim: cell guard on"
+          ]
+        },
+        "^cas trim: inventory bad slot": {
+          "match": [
+            "cas trim: inventory bad slot (x, thread 1): y; save #3"
+          ],
+          "noMatch": [
+            "cas trim: inventory check on"
+          ]
+        },
+        "^crash forensics: cas trim ": {
+          "match": [
+            "crash forensics: cas trim outfit string copy fault at 0x7C3473D0"
+          ],
+          "noMatch": [
+            "crash forensics: light (docs/67 §18): ring 4096 P5 heap events + g_rpUse holds, heap check on, our-events ring 8192 events, fault dump; no guards (Enabled=1 for those)"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        }
+      }
+    }
+  ]
+}

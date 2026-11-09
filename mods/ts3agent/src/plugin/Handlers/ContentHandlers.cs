@@ -376,9 +376,24 @@ namespace Ts3Agent
         // -campos/-camtarget do at load); no args = read only. Returns the current pose.
         // M10: max zoom out (high pos.y) and pan the town, diffing commitMB and the largest free block between poses.
         // lot: onto that lot's centre (FindLotByName: "home", "far" or a name), so a world-neutral repro needs no coordinates.
+        // Any pose set first drops the game's object follow (Camera.FollowSim -> EnableObjectFollow, e.g. RabbitHole
+        // re-enabling it for the selected Sim going to work): a follow overrides the pose every frame (docs/222 §11.12).
+        // followed_id / followed: the object (Sim name) the camera followed before (0 = none).
         static object CameraView(Args a)
         {
             RequireLive();
+            Dictionary<string, object> r = Util.Obj();
+            if (a.Has("lot") || a.Has("pos") || a.Has("target"))
+            {
+                ulong followed = CameraController.GetObjectFollowId();
+                r["followed_id"] = followed;
+                if (followed != 0UL)
+                {
+                    Sim fs = GameObject.GetObject(new ObjectGuid(followed)) as Sim;
+                    if (fs != null) r["followed"] = fs.FullName;
+                    CameraController.DisableObjectFollow();
+                }
+            }
             if (a.Has("lot"))
             {
                 Vector3 c = LotViewPoint(FindLotByName(a.Str("lot")));
@@ -388,7 +403,6 @@ namespace Ts3Agent
                 CameraController.SetPositionAndTarget(
                     a.Has("pos") ? Vec(a, "pos") : CameraController.GetPosition(),
                     a.Has("target") ? Vec(a, "target") : CameraController.GetTarget());
-            Dictionary<string, object> r = Util.Obj();
             r["pos"] = Pos(CameraController.GetPosition());
             r["target"] = Pos(CameraController.GetTarget());
             return r;

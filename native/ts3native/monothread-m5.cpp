@@ -625,6 +625,7 @@ static DWORD WINAPI MtWorkerMain(void*) {
     g_mtDomainSet(g_mtDomain);
     if (TlsGetValue(*g_mtInterpKey)) m.workerCtxSet++;  // a new thread's slot is NULL; 0xE5A600 then uses its own stack
     m.workerState = 2;
+    UafTagSet(UT_MONO_WORKER, (const void*)&MtWorkerMain);  // [UafCheck]: every free on this thread (AutShadow answers included)
     for (;;) {
         WaitForSingleObject(g_mtJobEv, INFINITE);
         if (g_mtStopReq) break;

@@ -459,6 +459,7 @@ static void CtSlotText(DWORD v, char* out, size_t cap) {
 // Paths: 0 the save inventory (CtInvHook), 1 / 2 the release call sites (CtRelHook).
 static LONG g_ctInvSave, g_ctInvCalls, g_ctInvRecs, g_ctInvSlots, g_ctInvBadSave, g_ctInvBad, g_ctInvLogs, g_ctInvGone;
 static const DWORD CT_F5 = 0x40A00000;  // float 5.0: the value in all three crashes (docs/539 §13.3)
+static bool g_rlGuard;  // [CasTrim] RealmGuard (docs/539 §16.6)
 static const char* const kCtPath[3] = {"save inventory 0x5EFE11", "outfit clear 0x5E6E60", "outfit destructor 0x5E7633"};
 struct CtVtN { volatile LONG vt, n; };
 static const int CT_VTN = 24;
@@ -501,6 +502,11 @@ static void CtNear(const DWORD* c, int n, int i, char* out, size_t cap) {  // ce
 static void CtF5(int path, const u8* node, const u8* outfit, int arr, LONG ri, int i, DWORD v, DWORD first, bool ok, const u8* rec, const DWORD* cells, int n) {
     InterlockedIncrement(&g_ctF5);
     if (!path) g_ctF5Save++;
+    if (v == CT_F5) {  // [UafCheck] (docs/539 §17): was the slot, its record or its outfit freed by one of our paths?
+        UafNearLog(cells ? (DWORD)(uintptr_t)(cells + i) : (DWORD)(uintptr_t)rec, cells ? "outfit cell" : "outfit record");
+        if (cells && rec) UafNearLog((DWORD)(uintptr_t)rec, "outfit record");
+        UafNearLog((DWORD)(uintptr_t)outfit, "outfit");
+    }
     if (InterlockedIncrement(&g_ctF5Logs) > 20) return;
     char ctx[300], gone[160], sl[160], b[0x68 * 3 + 4] = "unreadable";
     CtCtx(path, node, outfit, ctx, sizeof(ctx)), CtGoneText(v, gone, sizeof(gone)), CtSlotText(v, sl, sizeof(sl));
@@ -577,11 +583,146 @@ static void CtCellCheck(int path, const u8* node, const u8* outfit, DWORD* b, DW
         CtCellBad(path, node, outfit, b, n, i, 0, "fault reading the cells");
     }
 }
+// docs/539 §16 [CasTrim] WriteTrap=1 (test only, default 0, needs Detect): name the code that stores 0x40A00000 into an
+// [outfit+0xBC] cell. Each save's inventory pass notes cells of outfits with vtable 0xFE4A10 (the class of every float-5 cell
+// hit): entry 87 of 121 / 91 and entry 3 of 81 first, then entry 87 / 3 of other sizes. After the save, up to 4 of them get a
+// hardware write watch (watchpt.cpp WpTrapSet: DR0-DR3, len 4, write only, every thread; rotated by save number so coverage
+// grows). Each write is logged from the vectored handler (eip, value, EA function, thread, ebp chain, stack scan): the first
+// 200 a session, "float5 WRITER" when the value is 0x40A00000 (first 100). An outfit clear / destroy (CtRelHook) disarms its
+// cell first; a cell whose outfit or [outfit+0xBC] moved counts as stale. Threads started later get the registers at the next
+// save or within 30 s (CtTrapRefresh). Our own detectors only read the cells.
+static const DWORD CT_TRAP_VT = 0x00FE4A10;
+static const int CT_TRAP_CAND = 256;
+struct CtTrapC { DWORD outfit, cell; LONG e, n; };
+struct CtTrap { DWORD outfit, cell; LONG e, n, save; volatile LONG writes, gone; };
+static CtTrapC g_ctTrapC[2][CT_TRAP_CAND];  // [0] the hit shapes, [1] other entries 87 / 3 of the class (the save's thread)
+static LONG g_ctTrapNC[2];
+static CtTrap g_ctTrap[4];  // by DR slot
+static bool g_ctTrapOn;
+static DWORD g_ctTrapSimTid;  // the save's thread (SimService_Save runs on the sim thread)
+static volatile LONG g_ctTrapLogs, g_ctTrapF5Logs;
+static CtVtN g_ctTrapEip[CT_VTN];  // writer eips and counts (session)
+static void CtTrapNote(const u8* outfit, const DWORD* b, const DWORD* e) {  // CtOutfitCells, the save path
+    const LONG n = (LONG)(e - b);
+    if (!b || e < b || n <= 3 || n > 4096) return;
+    DWORD vt = 0;
+    __try { vt = *(const DWORD*)outfit; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    if (vt != CT_TRAP_VT) return;
+    for (const LONG i : {87L, 3L}) {
+        if (i >= n) continue;
+        const int p = (i == 87 ? n == 121 || n == 91 : n == 81) ? 0 : 1;
+        if (g_ctTrapNC[p] < CT_TRAP_CAND) g_ctTrapC[p][g_ctTrapNC[p]++] = {(DWORD)(uintptr_t)outfit, (DWORD)(uintptr_t)(b + i), i, n};
+    }
+}
+// shortcut: the EA function is guessed as the first 16-aligned address after MSVC's 0xCC padding (no symbols); check in Ghidra
+static DWORD CtFnStart(DWORD eip) {
+    if (!g_rhTxHi || eip < g_rhTxLo || eip >= g_rhTxHi) return 0;
+    for (DWORD p = eip & ~15u; p > g_rhTxLo && eip - p < 0x10000; p -= 16)
+        if (*(const u8*)(uintptr_t)(p - 1) == 0xCC && *(const u8*)(uintptr_t)p != 0xCC) return p;
+    return 0;
+}
+static int CtEbpChain(DWORD ebp, DWORD esp, DWORD* out, int max) {  // [ebp+4] up the frame-pointer chain while it climbs the stack
+    int k = 0;
+    while (k < max && ebp >= esp && ebp - esp < 0x100000 && !(ebp & 3) && Readable((const void*)(uintptr_t)ebp, 8)) {
+        const DWORD* f = (const DWORD*)(uintptr_t)ebp;
+        out[k++] = f[1];
+        if (f[0] <= ebp) break;
+        ebp = f[0];
+    }
+    return k;
+}
+static void CtFrames(const DWORD* f, int n, char* out, size_t cap) {
+    out[0] = 0;
+    for (int i = 0, w = 0; i < n && w < (int)cap - 40; i++) {
+        char a[48];
+        CrFrame(f[i], a, sizeof(a));
+        w += sprintf_s(out + w, cap - w, " %s", a);
+    }
+}
+static void CtTrapHit(int s, const CONTEXT* c) {  // watchpt.cpp WpVeh on the writing thread, after the write (eip = the next instruction)
+    Ts3nCounters& z = ts3native_counters;
+    CtTrap& t = g_ctTrap[s];
+    DWORD v = 0, ovt = 0, ob = 0;
+    const bool vOk = Readable((const void*)(uintptr_t)t.cell, 4);
+    if (vOk) v = *(const DWORD*)(uintptr_t)t.cell;
+    if (Readable((const void*)(uintptr_t)t.outfit, 0xC0)) ovt = *(const DWORD*)(uintptr_t)t.outfit, ob = *(const DWORD*)(uintptr_t)(t.outfit + 0xBC);
+    const bool live = !t.gone && ovt == CT_TRAP_VT && ob + 4 * (DWORD)t.e == t.cell, f5 = v == CT_F5;
+    InterlockedIncrement(&z.trHits);
+    const LONG wn = InterlockedIncrement(&t.writes);
+    CtVtCount(g_ctTrapEip, c->Eip);
+    if (f5 && live) InterlockedIncrement(&z.trF5);
+    if (!live && InterlockedExchange(&t.gone, 1) == 0) InterlockedIncrement(&z.trGone);
+    if (f5) UafNearLog(t.cell, "trapped outfit cell"), UafNearLog(t.outfit, "trapped outfit");  // [UafCheck] (docs/539 §17)
+    if (f5 ? InterlockedIncrement(&g_ctTrapF5Logs) > 100 : InterlockedIncrement(&g_ctTrapLogs) > 200) return;
+    DWORD eb[8] = {}, rs[10] = {};
+    const int ne = CtEbpChain(c->Ebp, c->Esp, eb, 8), nr = CrStack(c->Esp, rs, 10);
+    char at[48], fn[48] = "", chain[8 * 44 + 8], scan[10 * 44 + 8];
+    CrFrame(c->Eip, at, sizeof(at)), CtFrames(eb, ne, chain, sizeof(chain)), CtFrames(rs, nr, scan, sizeof(scan));
+    if (const DWORD f = CtFnStart(c->Eip)) sprintf_s(fn, ", EA function ~0x%08lX +0x%lX", f, c->Eip - f);
+    const DWORD tid = GetCurrentThreadId();
+    Log("cas trim: %s DR%d: cell 0x%08lX ([outfit+0xBC] entry %ld of %ld, outfit 0x%08lX, armed at save #%ld%s) value now %s0x%08lX%s by eip 0x%08lX (%s%s), "
+        "thread %lu (%s), write %ld of this watch, save #%ld; eax %08lX ecx %08lX edx %08lX ebx %08lX esi %08lX edi %08lX ebp %08lX esp %08lX; ebp chain (%d):%s; "
+        "stack scan (%d):%s",
+        f5 ? (live ? "float5 WRITER" : "float5 write on a stale watch") : "write trap hit", s, t.cell, t.e, t.n, t.outfit, t.save,
+        live ? "" : ", stale: outfit cleared or its cells moved", vOk ? "" : "(unreadable) ", v, f5 ? " (float 5.0)" : "", c->Eip, at, fn, tid,
+        tid == g_ctTrapSimTid ? "sim, the save's thread" : tid == g_mainTid ? "main" : "other", wn, g_ctInvSave, c->Eax, c->Ecx, c->Edx, c->Ebx, c->Esi,
+        c->Edi, c->Ebp, c->Esp, ne, chain, nr, scan);
+}
+static void CtTrapDrop(const u8* outfit, int path) {  // CtRelHook, before EA's release and our CellGuard write
+    for (int s = 0; s < 4; s++) {
+        CtTrap& t = g_ctTrap[s];
+        if (t.outfit != (DWORD)(uintptr_t)outfit || !g_wp[s].trap || g_wp[s].addr != t.cell) continue;
+        WpDisarm(s);
+        if (InterlockedExchange(&t.gone, 1) == 0) InterlockedIncrement(&ts3native_counters.trGone);
+        Log("cas trim: write trap DR%d disarmed at %s: outfit 0x%08lX entry %ld of %ld (cell 0x%08lX, armed at save #%ld), %ld write(s) seen", s, kCtPath[path],
+            t.outfit, t.e, t.n, t.cell, t.save, t.writes);
+    }
+}
+static void CtTrapArm() {  // after each save (CtInvSaveLog), the save's thread: the next 4 cells, in place of the last
+    Ts3nCounters& z = ts3native_counters;
+    g_ctTrapSimTid = GetCurrentThreadId();
+    char vt[CT_VTN * 18 + 8], cells[4 * 96] = "";
+    CtVtText(g_ctTrapEip, vt, sizeof(vt));
+    Log("cas trim: write trap session at save #%ld: writes %ld (float5 WRITER %ld), watches dropped %ld; writer eips:%s", g_ctInvSave, z.trHits, z.trF5, z.trGone, vt);
+    DWORD a[4] = {};
+    CtTrap nt[4] = {};
+    int n = 0;
+    for (int p = 0; p < 2 && n < 4; p++) {
+        const LONG m = g_ctTrapNC[p];
+        for (LONG i = 0; i < m && n < 4; i++) {
+            const CtTrapC& k = g_ctTrapC[p][(g_ctInvSave * 4 + i) % m];
+            nt[n].outfit = k.outfit, nt[n].cell = k.cell, nt[n].e = k.e, nt[n].n = k.n, nt[n].save = g_ctInvSave;
+            a[n++] = k.cell;
+        }
+    }
+    const int mask = WpTrapSet(a, n);  // shortcut: a hit between the set and the copy below logs the last save's outfit (log only)
+    for (int s = 0; s < 4; s++) g_ctTrap[s].outfit = nt[s].outfit, g_ctTrap[s].cell = nt[s].cell, g_ctTrap[s].e = nt[s].e, g_ctTrap[s].n = nt[s].n,
+                                g_ctTrap[s].save = nt[s].save, g_ctTrap[s].writes = 0, g_ctTrap[s].gone = s < n ? 0 : 1;
+    int w = 0;
+    for (int s = 0; s < n; s++) {
+        DWORD v = 0;
+        __try { v = *(const DWORD*)(uintptr_t)a[s]; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        w += sprintf_s(cells + w, sizeof(cells) - w, "%s DR%d%s outfit 0x%08lX entry %ld of %ld cell 0x%08lX (now 0x%08lX)", s ? ";" : "", s,
+                       mask & (1 << s) ? "" : " NOT SET (slot in use)", g_ctTrap[s].outfit, g_ctTrap[s].e, g_ctTrap[s].n, a[s], v);
+        if (mask & (1 << s)) InterlockedIncrement(&z.trArms);
+    }
+    Log("cas trim: write trap save #%ld: %d cell(s) watched, %ld thread(s) set; candidates: %ld of the hit shapes (87 of 121 / 91, 3 of 81), %ld other "
+        "(entry 87 / 3, vtable %08lX):%s", g_ctInvSave, n, g_wpThreads, g_ctTrapNC[0], g_ctTrapNC[1], CT_TRAP_VT, n ? cells : " none");
+    g_ctTrapNC[0] = g_ctTrapNC[1] = 0;
+}
+static DWORD WINAPI CtTrapRefresh(LPVOID) {  // threads started between saves: every 30 s
+    for (LONG last = 0;;) {
+        Sleep(30000);
+        const LONG n = WpRefresh();
+        if (n != last) Log("cas trim: write trap refresh: %ld thread(s) set (was %ld)", n, last), last = n;
+    }
+}
 static void CtOutfitCells(int path, const u8* node, const u8* outfit) {  // the save path: the outfit's own begin / end
     DWORD *b = NULL, *e = NULL;
     __try { b = *(DWORD* const*)(outfit + 0xBC), e = *(DWORD* const*)(outfit + 0xC0); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
     CtSeenSet(outfit);
     CtCellCheck(path, node, outfit, b, e);
+    if (g_ctTrapOn && !path) CtTrapNote(outfit, b, e);
 }
 typedef void(__fastcall* CtInvFn)(void* outfit, void* edx, void* set, DWORD children);
 static CtInvFn g_ctInvEa = (CtInvFn)(uintptr_t)0x005E7690;  // selftest: a fake
@@ -660,11 +801,330 @@ __declspec(naked) static void CtInvStub() {  // the call site's target: EA's esi
         jmp CtInvHook
     }
 }
+// docs/539 §14 (0.36.218, ledger §468), after the 11-09 bp-leak40-memtravel-x3 AV at 0xD4B154 (the 4th float-5 hit): EA's
+// 0x5D82A0 (thiscall (ModelBuilder), plain ret) is called at 0x5D83B4 (in 0x5D83B0 <- ModelBuilder_Dtor's 0x5DC539) and at
+// 0x5D96AD (ecx = [holder+0xC]). It runs three release loops through the loader's +0x3C with the callback 0xD4B150: list
+// nodes at +0x1C (cell node+0x1C), list nodes at +0x28 (cell node+8), then the 0x74-byte part records [builder+0xC, +0x10): a
+// record with a non-zero first dword gets its 4 cells rec+4..+0x10 released (bit 0/1 = pending; else a finished result, vtable
+// slot 1) [verified disassembly, TS3W 1.67]. The 11-09 crash: cell rec+4 held 0x40A00000. Checked before EA at both call
+// sites; log only unless [CasTrim] MbGuard=1 (default 0): a bad cell is then set to 0 and EA skips it (that result leaks).
+static const DWORD CT_MB_RET_DTOR = 0x005D83B9, CT_MB_RET_HOLD = 0x005D96B2;
+typedef void(__fastcall* CtMbFn)(u8* mb, void* edx);
+static CtMbFn g_ctMbEa = (CtMbFn)(uintptr_t)0x005D82A0;  // selftest: a fake
+static bool g_ctMbGuard;
+static volatile LONG g_ctMbLogs, g_ctMbRecs, g_ctMbGone;
+static LONGLONG g_ctMbQpc, g_ctMbMaxQpc;  // shortcut: plain adds as g_ctRelQpc (log only)
+static CtVtN g_ctMbVt[CT_VTN];
+static DWORD g_ctSweepAt;        // tick | 1 at the last "sweep done" (CtSweepStep)
+static LONG g_ctSweepSave = -1;  // the save # it followed
+static bool CtFloaty(DWORD v) { const DWORD x = (v >> 23) & 0xFF; return !(v & 0xFFFF) && x >= 0x70 && x <= 0x90; }  // a round float, |x| 2^-15..2^17
+static void CtSweepText(char* out, size_t cap) {
+    if (!g_ctSweepAt) sprintf_s(out, cap, "no CasTrim sweep this session");
+    else sprintf_s(out, cap, "last CasTrim sweep done %ld s ago, after save #%ld (swept %ld in total)", (LONG)(GetTickCount() - g_ctSweepAt) / 1000, g_ctSweepSave,
+                   ts3native_counters.ctSwept);
+}
+static const char* CtMbFrom(DWORD ret) { return ret == CT_MB_RET_DTOR ? "ModelBuilder dtor 0x5D83B4" : ret == CT_MB_RET_HOLD ? "holder release 0x5D96AD" : "?"; }
+static void CtMbBad(const u8* mb, DWORD ret, const u8* rec, LONG ri, LONG rn, int k, DWORD v, const char* what) {
+    char gv[160], gr[160], gb[160];
+    if (CtGoneText(v, gv, sizeof(gv)) | CtGoneText((DWORD)(uintptr_t)rec, gr, sizeof(gr)) | CtGoneText((DWORD)(uintptr_t)mb, gb, sizeof(gb))) InterlockedIncrement(&g_ctMbGone);
+    if (v == CT_F5) {  // [UafCheck] (docs/539 §17)
+        if (rec && k >= 0) UafNearLog((DWORD)(uintptr_t)(rec + 4 + 4 * k), "modelbuilder cell");
+        UafNearLog((DWORD)(uintptr_t)rec, "modelbuilder record"), UafNearLog((DWORD)(uintptr_t)mb, "modelbuilder");
+    }
+    if (InterlockedIncrement(&g_ctMbLogs) > 40) return;
+    char sl[160], sw[120], rb[0x74 * 3 + 4] = "unreadable", hb[0x40 * 3 + 4] = "unreadable";
+    DWORD w[4] = {};
+    bool vOk = false;
+    __try { if (v) memcpy(w, (const void*)(uintptr_t)v, 16), vOk = true; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    __try { if (rec) Hex(rec, 0x74, rb, sizeof(rb)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(rb, "unreadable"); }
+    __try { Hex(mb, 0x40, hb, sizeof(hb)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(hb, "unreadable"); }
+    CtSlotText(v, sl, sizeof(sl)), CtSweepText(sw, sizeof(sw));
+    Log("cas trim: modelbuilder cell bad: %s; thread %lu, from 0x%08lX (%s); builder 0x%08lX, record %ld of %ld at 0x%08lX, cell %d (rec+0x%X): value 0x%08lX%s%s, "
+        "first dwords %s%08lX %08lX %08lX %08lX; MbGuard %d (%s); value: %s; %s; record: %s; builder: %s; %s; CasTrim mode %ld, in a save %ld, save #%ld (travel flags %d), "
+        "%ld s after world load #%ld; record bytes: %s; builder +0..+0x40: %s", what, GetCurrentThreadId(), ret, CtMbFrom(ret), (DWORD)(uintptr_t)mb, ri, rn,
+        (DWORD)(uintptr_t)rec, k, 4 + 4 * k, v, v == CT_F5 ? " (float 5.0)" : "", v != CT_F5 && CtFloaty(v) ? " (float-like)" : "", vOk ? "" : "(unreadable) ", w[0], w[1],
+        w[2], w[3], g_ctMbGuard, g_ctMbGuard ? "set to 0, not released" : "log only, EA releases it", gv, sl, gr, gb, sw, ts3native_counters.ctMode, g_ctInSave,
+        g_ctInvSave, g_swTravel, g_udWorldTick ? (LONG)(GetTickCount() - g_udWorldTick) / 1000 : -1L, g_udWorlds, rb, hb);
+}
+static void CtMbCheck(u8* mb, DWORD ret) {  // the part records as 0x5D82A0's third loop reads them
+    LONG ri = -1, rn = 0;
+    u8* rec = NULL;
+    int k = -1;
+    __try {
+        u8 *b = *(u8* const*)(mb + 0xC), *e = *(u8* const*)(mb + 0x10);
+        if (b == e) return;
+        if (!b || e < b || (e - b) % 0x74 || (e - b) / 0x74 > 1024)
+            return CtMbBad(mb, ret, b, -1, (LONG)(e - b), -1, (DWORD)(uintptr_t)e, "record range not 0-1024 records of 0x74 (record = begin, value = end)");
+        rn = (LONG)((e - b) / 0x74);
+        InterlockedExchangeAdd(&g_ctMbRecs, rn);
+        for (ri = 0; ri < rn; ri++) {
+            rec = b + ri * 0x74;
+            if (!*(const DWORD*)rec) continue;  // EA releases nothing of this record
+            DWORD* c = (DWORD*)(rec + 4);
+            for (k = 0; k < 4; k++) {
+                const DWORD v = c[k];
+                if (!v || (v & 3)) continue;  // empty or a pending request (the loader recycles it)
+                InterlockedIncrement(&ts3native_counters.mbCells);
+                DWORD vt = 0;
+                bool ok = false;
+                __try { vt = *(const DWORD*)(uintptr_t)v, ok = true; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+                const bool f5 = v == CT_F5;
+                if (!f5 && ok && vt >= g_rhRdLo && vt < g_rhRdHi && !(vt & 3)) { CtVtCount(g_ctMbVt, vt); continue; }
+                InterlockedIncrement(&ts3native_counters.mbBad);
+                CtMbBad(mb, ret, rec, ri, rn, k, v, f5 ? "float 5.0" : !ok ? "value unreadable" : "first dword is not a TS3W .rdata vtable");
+                if (g_ctMbGuard) c[k] = 0, InterlockedIncrement(&ts3native_counters.mbSkip);
+            }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        CtMbBad(mb, ret, rec, ri, rn, k, 0, "fault reading the builder or a record");
+    }
+}
+static void __fastcall CtMbHook(u8* mb, void* edx) {
+    LARGE_INTEGER q0, q1;
+    QueryPerformanceCounter(&q0);
+    InterlockedIncrement(&ts3native_counters.mbCalls);
+    if (mb) CtMbCheck(mb, (DWORD)(uintptr_t)_ReturnAddress());
+    QueryPerformanceCounter(&q1);
+    const LONGLONG d = q1.QuadPart - q0.QuadPart;
+    g_ctMbQpc += d;
+    if (d > g_ctMbMaxQpc) g_ctMbMaxQpc = d;
+    g_ctMbEa(mb, edx);
+}
+// crashfx.cpp: a fault in the callback 0xD4B150 (0xD4B154 reads the value's vtable, 0xD4B156 its slot 1) called from 0x5D82A0.
+// Frame at the callback [verified disassembly; the 11-09 EA report]: [esp] 0x7287EC, +4 the value, +8 / +0xC / +0x10 0x728760's
+// saved edi / ebp / ebx (ebp = the record end, ebx = the record in the third loop), +0x14 0x728DD4, +0x18 the cell, +0x20 /
+// +0x24 0x728DB0's saved edi / esi, +0x28 the loop's return (0x5D82CF list +0x1C, 0x5D831A list +0x28, 0x5D8377 part
+// records), +0x2C the cell, +0x34..+0x40 0x5D82A0's saved edi, esi, ebp, ebx, +0x44 its return; saved esi = the builder from
+// 0x5D83B4 (return 0x5D83B9), the holder from 0x5D96AD (return 0x5D96B2; builder = [holder+0xC]).
+static bool CtMbFaultText(const CONTEXT* c, char* out, size_t cap) {
+    if (c->Eip < 0x00D4B150 || c->Eip > 0x00D4B159) return false;
+    DWORD f[18] = {};
+    __try { memcpy(f, (const void*)(uintptr_t)c->Esp, sizeof(f)); } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    const int loop = f[10] == 0x005D82CF ? 1 : f[10] == 0x005D831A ? 2 : f[10] == 0x005D8377 ? 3 : 0;
+    if (f[0] != 0x007287EC || f[5] != 0x00728DD4 || !loop) return false;
+    const DWORD v = f[1], cell = f[6], ret = f[17], rec = loop == 3 ? f[4] : 0, end = loop == 3 ? f[3] : 0;
+    DWORD mb = ret == CT_MB_RET_DTOR ? f[14] : 0, mvt = 0, b = 0, w[4] = {};
+    bool vOk = false;
+    __try { if (ret == CT_MB_RET_HOLD) mb = *(const DWORD*)(uintptr_t)(f[14] + 0xC); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    __try { if (mb) mvt = *(const DWORD*)(uintptr_t)mb, b = *(const DWORD*)(uintptr_t)(mb + 0xC); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    __try { if (v) memcpy(w, (const void*)(uintptr_t)v, 16), vOk = true; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    const LONG ri = rec && b && rec >= b ? (LONG)((rec - b) / 0x74) : -1L, rn = end && b && end >= b ? (LONG)((end - b) / 0x74) : -1L;
+    const int k = rec && cell >= rec + 4 ? (int)((cell - rec - 4) / 4) : -1;
+    char gv[160], gr[160], gb[160], sl[160], sw[120], rb[0x74 * 3 + 4] = "none", hb[0x40 * 3 + 4] = "unreadable";
+    CtGoneText(v, gv, sizeof(gv)), CtGoneText(rec, gr, sizeof(gr)), CtGoneText(mb, gb, sizeof(gb)), CtSlotText(v, sl, sizeof(sl)), CtSweepText(sw, sizeof(sw));
+    __try { if (rec) Hex((const u8*)(uintptr_t)rec, 0x74, rb, sizeof(rb)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(rb, "unreadable"); }
+    __try { if (mb) Hex((const u8*)(uintptr_t)mb, 0x40, hb, sizeof(hb)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(hb, "unreadable"); }
+    sprintf_s(out, cap, "crash forensics: cas trim modelbuilder release fault at 0x%08lX (0x5D82A0 %s, loop return 0x%08lX): value 0x%08lX%s%s, first dwords %s%08lX %08lX %08lX %08lX; "
+              "value: %s; %s; cell 0x%08lX (rec+0x%X, cell %d); record 0x%08lX (%ld of %ld, end 0x%08lX; %s); builder 0x%08lX (vtable %08lX, from 0x%08lX %s; %s); "
+              "modelbuilder checks: calls %ld, cells %ld, bad %ld, skips %ld (MbGuard %d); %s; CasTrim mode %ld, in a save %ld, save #%ld (travel flags %d), %ld s after world "
+              "load #%ld; record bytes: %s; builder +0..+0x40: %s", c->Eip, loop == 3 ? "part records" : loop == 1 ? "list +0x1C" : "list +0x28", f[10], v,
+              v == CT_F5 ? " (float 5.0)" : "", v != CT_F5 && CtFloaty(v) ? " (float-like)" : "", vOk ? "" : "(unreadable) ", w[0], w[1], w[2], w[3], gv, sl, cell,
+              rec ? cell - rec : 0, k, rec, ri, rn, end, gr, mb, mvt, ret, CtMbFrom(ret), gb, ts3native_counters.mbCalls, ts3native_counters.mbCells,
+              ts3native_counters.mbBad, ts3native_counters.mbSkip, g_ctMbGuard, sw, ts3native_counters.ctMode, g_ctInSave, g_ctInvSave, g_swTravel,
+              g_udWorldTick ? (LONG)(GetTickCount() - g_udWorldTick) / 1000 : -1L, g_udWorlds, rb, hb);
+    return true;
+}
+
+// docs/539 §15 (0.36.225, ledger §469), after the 11-09 bp-float5-memtravel-x8 AV writing NULL in MSVCR80's memcpy (the 5th
+// float-5 hit): the outfit save writer 0x5E7A20 calls 0x5E61A0 at 0x5E7BC2 (thiscall (outfit; vector of part-record pointers,
+// 3 more args), ret 0x10; return 0x5E7BC7). Per record it takes obj = [rec+0x5C] (0: skipped), calls 0x5BE810(obj) (reads a
+// non-empty string at obj+0x2C as a stream) and 0x5BF4C0(obj, &str), which with [obj+0x28] == 0 assigns the UTF-16 string
+// {begin +0x2C, end +0x30, capacity end +0x34} through 0x408E20 -> 0x408B90 [verified disassembly, TS3W 1.67]. The crash:
+// begin 0x40A00000 (float 5.0), end 0x011C7E54 (EA's empty string), so end - begin < 0: a ~3 GB allocation fails and memcpy
+// writes to NULL. obj is the 0x60-byte class built by 0x5BF260 (vtable 0xFE2A80), which starts the string as EA's empty
+// triple 0x11C7E54 / 0x11C7E54 / 0x11C7E56; its destructor 0x5BF710 frees the buffer only when (cap - begin) & ~1 > 2, so
+// that triple is never freed. Checked before EA (any CasTrim mode) with Detect=1 or OutfitStrGuard=1. OutfitStrGuard=1 resets
+// the string to that triple only where EA's copy would certainly fault: vtable 0xFE2A80, [obj+0x28] == 0, begin != end, and
+// begin > end by under 2 GB or [begin, end) unreadable. Everything else is log only.
+static const DWORD CT_OS_VT = 0x00FE2A80, CT_STR_EMPTY = 0x011C7E54, CT_OS_RET = 0x005E7BC7;
+typedef void(__fastcall* CtOsFn)(void* outfit, void* edx, DWORD* vec, DWORD a2, DWORD a3, DWORD a4);
+static CtOsFn g_ctOsEa = (CtOsFn)(uintptr_t)0x005E61A0;  // selftest: a fake
+static DWORD g_ctOsVtWant = CT_OS_VT;  // selftest: a vtable in its own .rdata
+static bool g_ctOsGuard;
+static volatile LONG g_ctOsLogs, g_ctOsGone, g_ctOsRecs;
+static LONGLONG g_ctOsQpc, g_ctOsMaxQpc;  // shortcut: plain adds as g_ctRelQpc (log only)
+static CtVtN g_ctOsVt[CT_VTN];
+static bool CtRangeReadable(DWORD b, DWORD e) {  // [b, e): one byte a page and the last one, under __try
+    __try {
+        for (DWORD p = b; p < e; p = (p | 0xFFF) + 1) (void)*(const volatile u8*)(uintptr_t)p;
+        if (e > b) (void)*(const volatile u8*)(uintptr_t)(e - 1);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    return true;
+}
+// what is wrong with obj's string (NULL = fine); *fix: EA's copy in 0x5BF4C0 would certainly fault on it (the guard's condition)
+static const char* CtOsWhat(DWORD vt, DWORD flag, DWORD b, DWORD e, DWORD c, bool* fix) {
+    *fix = false;
+    if (vt < g_rhRdLo || vt >= g_rhRdHi || (vt & 3)) return "object's first dword is not a TS3W .rdata vtable";
+    if (b == e) return b == CT_F5 ? "string begin = end = 0x40A00000" : NULL;  // empty: EA copies nothing
+    const bool small = b < e && e - b < 0x10000, rd = small && CtRangeReadable(b, e);
+    *fix = vt == g_ctOsVtWant && !flag && ((b > e && b - e < 0x80000000) || (small && !rd));  // docs/539 §15.5: > 2 GB to allocate and copy
+    if (b > e) return "string begin after end (EA's copy length is negative: a ~GB allocation fails, then memcpy to NULL)";
+    if (!small) return "string 64 KB or longer";
+    if (!rd) return "string memory unreadable";
+    if (b == CT_F5 || e == CT_F5 || c == CT_F5) return "string pointer 0x40A00000";
+    if (c < e) return "string end after its capacity end";
+    return NULL;
+}
+static void CtOsBad(const u8* outfit, DWORD ret, const u8* rec, LONG ri, LONG rn, const u8* obj, const char* what, bool fixed) {
+    char go[160], gr[160];
+    if (CtGoneText((DWORD)(uintptr_t)obj, go, sizeof(go)) | CtGoneText((DWORD)(uintptr_t)rec, gr, sizeof(gr))) InterlockedIncrement(&g_ctOsGone);
+    UafNearLog((DWORD)(uintptr_t)obj, "outfit string object"), UafNearLog((DWORD)(uintptr_t)rec, "outfit string record");  // [UafCheck] (docs/539 §17)
+    UafNearLog((DWORD)(uintptr_t)outfit, "outfit");
+    if (InterlockedIncrement(&g_ctOsLogs) > 40) return;
+    char sw[120], rb[0x68 * 3 + 4] = "unreadable", ob[0x60 * 3 + 4] = "unreadable", ub[0x40 * 3 + 4] = "unreadable";
+    __try { if (rec) Hex(rec, 0x68, rb, sizeof(rb)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(rb, "unreadable"); }
+    __try { if (obj) Hex(obj, 0x60, ob, sizeof(ob)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(ob, "unreadable"); }
+    __try { if (outfit) Hex(outfit, 0x40, ub, sizeof(ub)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(ub, "unreadable"); }
+    CtSweepText(sw, sizeof(sw));
+    Log("cas trim: outfit string bad: %s; thread %lu, from 0x%08lX (%s); outfit 0x%08lX (last seen by the inventory check at save #%ld), record %ld of %ld at 0x%08lX, "
+        "object [rec+0x5C] 0x%08lX; OutfitStrGuard %d (%s); object: %s; record: %s; %s; CasTrim mode %ld, in a save %ld, save #%ld (travel flags %d), %ld s after world "
+        "load #%ld; object bytes (+0x28 flag, +0x2C begin, +0x30 end, +0x34 capacity end): %s; record bytes: %s; outfit +0..+0x40: %s", what, GetCurrentThreadId(), ret,
+        ret == CT_OS_RET ? "outfit save writer 0x5E7BC2" : "?", (DWORD)(uintptr_t)outfit, outfit ? CtSeenSave(outfit) : -1L, ri, rn, (DWORD)(uintptr_t)rec,
+        (DWORD)(uintptr_t)obj, g_ctOsGuard, fixed ? "reset to EA's empty string" : g_ctOsGuard ? "not a certain fault: log only" : "log only, EA copies it", go, gr, sw,
+        ts3native_counters.ctMode, g_ctInSave, g_ctInvSave, g_swTravel, g_udWorldTick ? (LONG)(GetTickCount() - g_udWorldTick) / 1000 : -1L, g_udWorlds, ob, rb, ub);
+}
+static void CtOsCheck(const u8* outfit, const DWORD* vec, DWORD ret) {  // the part records as 0x5E61A0 reads them
+    LONG ri = -1, rn = 0;
+    const u8 *rec = NULL, *obj = NULL;
+    __try {
+        const u8* const* b = *(const u8* const* const*)vec;
+        const u8* const* e = *(const u8* const* const*)(vec + 1);
+        if (b == e) return;
+        if (!b || e < b || e - b > 1024)
+            return CtOsBad(outfit, ret, (const u8*)b, -1, (LONG)((const u8*)e - (const u8*)b), NULL, "record pointer range not 0-1024 pointers (record = begin, of = bytes)", false);
+        rn = (LONG)(e - b);
+        InterlockedExchangeAdd(&g_ctOsRecs, rn);
+        for (ri = 0; ri < rn; ri++) {
+            rec = b[ri], obj = NULL;
+            obj = *(const u8* const*)(rec + 0x5C);
+            if (!obj) continue;  // EA skips it (0x5E61FF)
+            InterlockedIncrement(&ts3native_counters.osObjs);
+            DWORD o[4] = {}, vt = 0;  // +0x28 flag, +0x2C begin, +0x30 end, +0x34 capacity end
+            bool ok = false;
+            __try { vt = *(const DWORD*)obj, memcpy(o, obj + 0x28, 16), ok = true; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+            bool fix = false;
+            const char* what = ok ? CtOsWhat(vt, o[0], o[1], o[2], o[3], &fix) : "object unreadable";
+            if (!what) { CtVtCount(g_ctOsVt, vt); continue; }
+            InterlockedIncrement(&ts3native_counters.osBad);
+            const bool fixed = fix && g_ctOsGuard;
+            if (fixed) {  // 0x5BF260's own empty string: a legal value everywhere, never freed (0x5BF710)
+                DWORD* s = (DWORD*)(obj + 0x2C);
+                s[0] = s[1] = CT_STR_EMPTY, s[2] = CT_STR_EMPTY + 2;
+                InterlockedIncrement(&ts3native_counters.osFix);
+            }
+            CtOsBad(outfit, ret, rec, ri, rn, obj, what, fixed);
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        CtOsBad(outfit, ret, rec, ri, rn, obj, "fault reading the record vector, a record or an object", false);
+    }
+}
+static void __fastcall CtOsHook(void* outfit, void* edx, DWORD* vec, DWORD a2, DWORD a3, DWORD a4) {
+    LARGE_INTEGER q0, q1;
+    QueryPerformanceCounter(&q0);
+    InterlockedIncrement(&ts3native_counters.osCalls);
+    if (vec) CtOsCheck((const u8*)outfit, vec, (DWORD)(uintptr_t)_ReturnAddress());
+    QueryPerformanceCounter(&q1);
+    const LONGLONG d = q1.QuadPart - q0.QuadPart;
+    g_ctOsQpc += d;
+    if (d > g_ctOsMaxQpc) g_ctOsMaxQpc = d;
+    g_ctOsEa(outfit, edx, vec, a2, a3, a4);
+}
+// crashfx.cpp, any access violation: the 11-09 fault is in MSVCR80's memcpy (no TS3W eip), so esp..esp+0x400 is searched for
+// 0x5BF4C0's return 0x5E621C at A with 0x408E20's return 0x5BF5E0 at A-0x64 and 0x5E61A0's return 0x5E7BC7 at A+0x54
+// [verified: the 11-09 EA report's stack data against the disassembly]. Then A-0x58 = 0x5BF4C0's saved esi (the record),
+// A-0x60 / A-0x5C = the begin / end it passed, A-0x6C = 0x408E20's saved esi (the object), A+0xC = 0x5E61A0's saved esi (the
+// outfit). 0x408C3A (0x408B90's return from memcpy) below A is reported, not required.
+static bool CtOsFaultText(const CONTEXT* c, char* out, size_t cap) {
+    DWORD s[0x100] = {};
+    int n = 0;
+    __try { for (; n < 0x100; n++) s[n] = ((const DWORD*)(uintptr_t)c->Esp)[n]; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    int a = -1;
+    for (int i = 0x1B; i + 0x15 < n && a < 0; i++)
+        if (s[i] == 0x005E621C && s[i - 0x19] == 0x005BF5E0 && s[i + 0x15] == CT_OS_RET) a = i;
+    if (a < 0) return false;
+    bool mc = false;
+    for (int i = 0; i < a && !mc; i++) mc = s[i] == 0x00408C3A;
+    const DWORD rec = s[a - 0x16], b = s[a - 0x18], e = s[a - 0x17], obj = s[a - 0x1B], outfit = s[a + 3];
+    DWORD ro = 0, o[5] = {};
+    bool rok = false, ook = false;
+    __try { ro = *(const DWORD*)(uintptr_t)(rec + 0x5C), rok = true; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    __try { o[0] = *(const DWORD*)(uintptr_t)obj, memcpy(o + 1, (const void*)(uintptr_t)(obj + 0x28), 16), ook = true; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    char go[160], gr[160], sw[120], ob[0x60 * 3 + 4] = "unreadable";
+    CtGoneText(obj, go, sizeof(go)), CtGoneText(rec, gr, sizeof(gr)), CtSweepText(sw, sizeof(sw));
+    __try { Hex((const u8*)(uintptr_t)obj, 0x60, ob, sizeof(ob)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(ob, "unreadable"); }
+    sprintf_s(out, cap, "crash forensics: cas trim outfit string copy fault at 0x%08lX (%s; 0x5BF4C0 frame at 0x%08lX, %s): string begin 0x%08lX%s, end 0x%08lX%s; "
+              "object 0x%08lX (%s, vtable %08lX%s, +0x28 %08lX, now begin %08lX end %08lX capacity end %08lX; %s); record 0x%08lX ([rec+0x5C] %s0x%08lX%s; %s); "
+              "outfit 0x%08lX (last seen by the inventory check at save #%ld); outfit string checks: calls %ld, objects %ld, bad %ld, resets %ld (OutfitStrGuard %d); %s; "
+              "CasTrim mode %ld, in a save %ld, save #%ld (travel flags %d), %ld s after world load #%ld; object bytes: %s", c->Eip,
+              c->Eip >= 0x00401000 && c->Eip < 0x00F95000 ? "in TS3W" : "outside TS3W, the CRT memcpy", (DWORD)(c->Esp + a * 4),
+              mc ? "0x408C3A memcpy return below it" : "no 0x408C3A below it", b, b == CT_F5 ? " (float 5.0)" : "", e, e == CT_STR_EMPTY ? " (EA's empty string)" : "",
+              obj, ook ? "readable" : "unreadable", o[0], o[0] == g_ctOsVtWant ? " = 0xFE2A80" : "", o[1], o[2], o[3], o[4], go, rec, rok ? "" : "unreadable ", ro,
+              rok && ro != obj ? " (not the object)" : "", gr, outfit, outfit ? CtSeenSave((const u8*)(uintptr_t)outfit) : -1L, ts3native_counters.osCalls,
+              ts3native_counters.osObjs, ts3native_counters.osBad, ts3native_counters.osFix, g_ctOsGuard, sw, ts3native_counters.ctMode, g_ctInSave, g_ctInvSave,
+              g_swTravel, g_udWorldTick ? (LONG)(GetTickCount() - g_udWorldTick) / 1000 : -1L, g_udWorlds, ob);
+    return true;
+}
+static volatile LONG g_ctOsFaults;
+static void CtOsFault(const CONTEXT* c) {  // crashfx.cpp, every access violation: logs only when the frame is there (first 2)
+    char t[3072];
+    if (!CtOsFaultText(c, t, sizeof(t)) || InterlockedIncrement(&g_ctOsFaults) > 2) return;
+    Log("%s", t);
+}
+// docs/539 §15.7, [CasTrim] Quarantine=N (test only): before each sweep erase, one extra reference through the compositor's
+// vtable slot 0 (0x723130 -> 0x731D00, thiscall, no args: the AddRef EA's keep-set insert 0x5E76D8 uses) [verified disassembly],
+// never released, so nothing the sweep erases returns to the heap. At N held the sweep stops for the session. Each save scans
+// the held 0x68-byte blocks (the +0x28 child vector header included) for 0x40A00000: a hit = a stale writer into an erased compositor.
+static DWORD* g_ctQuar;
+static LONG g_ctQuarCap, g_ctQuarN, g_ctQuarHitLog;
+static bool g_ctQuarFull;
+static void CtAddRefEa(DWORD o) { ((void(__fastcall*)(DWORD, void*))(uintptr_t)(*(const DWORD* const*)(uintptr_t)o)[0])(o, NULL); }
+static void (*g_ctAddRefFn)(DWORD o) = CtAddRefEa;  // selftest: a fake
+static bool CtQuarHold(DWORD o) {  // false: full, no more erases this session
+    if (g_ctQuarN >= g_ctQuarCap) {
+        if (!g_ctQuarFull) g_ctQuarFull = true, Log("cas trim: quarantine full (%ld held): no more erases this session", g_ctQuarN);
+        return false;
+    }
+    g_ctAddRefFn(o), g_ctQuar[g_ctQuarN++] = o;
+    return true;
+}
+static void CtQuarScan() {  // per save, with the summary lines
+    if (!g_ctQuarCap) return;
+    LONG hits = 0;
+    for (LONG i = 0; i < g_ctQuarN; i++) {
+        __try {
+            const DWORD* p = (const DWORD*)(uintptr_t)g_ctQuar[i];
+            for (int k = 0; k < 0x68 / 4; k++)
+                if (p[k] == CT_F5 && (hits++, g_ctQuarHitLog++ < 40))
+                    Log("cas trim: quarantine hit: offset +0x%02X, compositor 0x%08lX (%ld of %ld held), save #%ld; refs %ld", k * 4, g_ctQuar[i], i, g_ctQuarN,
+                        g_ctInvSave, (LONG)p[1] >> 8);
+        } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    }
+    Log("cas trim: quarantine save #%ld: held %ld of %ld%s, dwords 0x40A00000 in held blocks now %ld", g_ctInvSave, g_ctQuarN, g_ctQuarCap,
+        g_ctQuarFull ? " (full, erases stopped)" : "", hits);
+}
 static void CtInvSaveLog() {  // after the save returned (CtSaveHook): one line per save that ran the inventory
+    if (g_ctTrapOn) CtTrapArm();  // docs/539 §16
+    CtQuarScan();
     LARGE_INTEGER f;
     QueryPerformanceFrequency(&f);
     const double ms = f.QuadPart ? 1000.0 / (double)f.QuadPart : 0.0;
     char vt[CT_VTN * 18 + 8];
+    const Ts3nCounters& z = ts3native_counters;
+    if (z.mbCalls) {  // docs/539 §14, session totals
+        CtVtText(g_ctMbVt, vt, sizeof(vt));
+        Log("cas trim: modelbuilder check (0x5D83B4 / 0x5D96AD, session) at save #%ld: calls %ld, records %ld, cells %ld, bad %ld (%ld touching an erased object), "
+            "skips %ld (MbGuard %d); %.2f ms in all, max %.1f us a call; result vtables:%s", g_ctInvSave, z.mbCalls, g_ctMbRecs, z.mbCells, z.mbBad, g_ctMbGone, z.mbSkip,
+            g_ctMbGuard, (double)g_ctMbQpc * ms, (double)g_ctMbMaxQpc * ms * 1000.0, vt);
+    }
+    if (z.osCalls) {  // docs/539 §15, session totals
+        CtVtText(g_ctOsVt, vt, sizeof(vt));
+        Log("cas trim: outfit string check (0x5E7BC2, session) at save #%ld: calls %ld, records %ld, objects %ld, bad %ld (%ld touching an erased object), "
+            "resets %ld (OutfitStrGuard %d); %.2f ms in all, max %.1f us a call; object vtables:%s", g_ctInvSave, z.osCalls, g_ctOsRecs, z.osObjs, z.osBad, g_ctOsGone,
+            z.osFix, g_ctOsGuard, (double)g_ctOsQpc * ms, (double)g_ctOsMaxQpc * ms * 1000.0, vt);
+    }
+    if (z.rlCalls)  // docs/539 §16.6, session totals
+        Log("cas trim: realm shape check (0x682080 / 0x6823E0, session) at save #%ld: calls %ld, bad %ld, repaired %ld, skipped %ld (RealmGuard %d)", g_ctInvSave,
+            z.rlCalls, z.rlBad, z.rlFix, z.rlSkip, g_rlGuard);
     if (g_ctRelCalls) {  // the release sites (docs/539 §13.5 item 3), session totals
         CtVtText(g_ctCellVt[1], vt, sizeof(vt));
         Log("cas trim: outfit release check (0x5E6E60 / 0x5E7633, session) at save #%ld: calls %ld, cells %ld, bad %ld, record slots of another TS3W type %ld; float-5 %ld (session, all paths); "
@@ -693,6 +1153,7 @@ static void __fastcall CtRelHook(DWORD* vec, void* edx, DWORD* b, DWORD* e) {
     QueryPerformanceCounter(&q0);
     const int path = CtRelPath((DWORD)(uintptr_t)_ReturnAddress());
     const u8* outfit = (const u8*)vec - 0xBC;
+    if (g_ctTrapOn) CtTrapDrop(outfit, path);  // docs/539 §16: before EA's release writes the cells
     InterlockedIncrement(&g_ctRelCalls);
     if (g_ctRelDetect) CtInvCheck(NULL, outfit, path);  // the part records: a detector only (Detect)
     CtCellCheck(path, NULL, outfit, b, e, (const DWORD*)_AddressOfReturnAddress());
@@ -701,6 +1162,134 @@ static void __fastcall CtRelHook(DWORD* vec, void* edx, DWORD* b, DWORD* e) {
     g_ctRelQpc += d;
     if (d > g_ctRelMaxQpc) g_ctRelMaxQpc = d;
     g_ctRelEa(vec, edx, b, e);
+}
+// docs/539 §16.6 (11-09 bp-float5-memtravel-x8-guard crash at 0x6820F4: a node's shape vector held 0x40A00000): the realm
+// shape check, with [CasTrim] Detect=1 or RealmGuard=1, any Mode. Five call sites: Realm_RemoveShape 0x682080 (thiscall
+// (realm, shape), ret 4) from 0x6821FA (node-empty loop 0x6821E0, esi = node), 0x686BE1, 0x686FBE; Realm_AddShape 0x6823E0
+// ((realm, shape, node; 0 = root [realm]), ret 8) from 0x686BFA, 0x686F46 [verified disassembly TS3W 1.67]. EA's invariants
+// (0x6823E0 / 0x682080): realm vector [realm+8, +0xC) holds every shape, [s+0x38] = its index there; node vector
+// [node+0x1C, +0x20) holds the node's shapes, [s+0x3C] = its index there, [s+0x50] = node. The remove swaps the node
+// vector's last entry into the removed slot and writes [last+0x3C] without a check (the crash); the realm vector part is
+// bounds- and identity-checked (0x682094 / 0x68209B). Before EA: every node vector entry and the realm vector's last entry
+// are checked for 0x40A00000 that is not a real shape at that index ("cas trim: realm shape bad", first 40, with node /
+// index / caller / stack scan). RealmGuard=1 (default 0): a bad node entry gets back the one realm-vector shape whose
+// [s+0x50] / [s+0x3C] name that node and index (restored), else it is swap-removed as EA's remove does; a bad realm last
+// entry is dropped (EA's own checks skip a shape no longer listed); a 0x40A00000 shape argument is not passed to EA.
+typedef void(__fastcall* RlRemFn)(u8* realm, void* edx, u8* shape);
+typedef void(__fastcall* RlAddFn)(u8* realm, void* edx, u8* shape, u8* node);
+static RlRemFn g_rlRemEa = (RlRemFn)(uintptr_t)0x00682080;  // selftest: fakes
+static RlAddFn g_rlAddEa = (RlAddFn)(uintptr_t)0x006823E0;
+static const DWORD RL_LOOP_RET = 0x006821FF;  // 0x6821FA's return: the shape is [node+0x20]-4 of esi
+static volatile LONG g_rlLogs;
+static DWORD volatile g_rlLoopNode;  // esi at 0x6821FA (RlLoopStub)
+static bool RlIsShape(DWORD v, DWORD node, DWORD at, DWORD i) {  // [v+at] == i (and [v+0x50] == node when node)
+    __try {
+        const DWORD* p = (const DWORD*)(uintptr_t)v;
+        return p[at / 4] == i && (!node || p[0x50 / 4] == node);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+static DWORD RlFind(const u8* realm, DWORD node, DWORD i) {  // the one realm-vector shape listed at node index i, 0 none or two
+    DWORD hit = 0;
+    __try {
+        const DWORD *b = *(const DWORD* const*)(realm + 8), *e = *(const DWORD* const*)(realm + 0xC);
+        if (!b || e < b || e - b > (1 << 20)) return 0;
+        for (const DWORD* p = b; p < e; p++)
+            if (*p != CT_F5 && *p && RlIsShape(*p, node, 0x3C, i)) {
+                if (hit) return 0;
+                hit = *p;
+            }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return hit;
+}
+static void RlLog(const char* what, const u8* realm, DWORD node, LONG i, LONG n, DWORD shape, bool add, const char* fix, DWORD ret, const DWORD* sp) {
+    UafNearLog(node, "realm shape node"), UafNearLog((DWORD)(uintptr_t)realm, "realm"), UafNearLog(shape, "realm shape");  // [UafCheck] (docs/539 §17)
+    if (InterlockedIncrement(&g_rlLogs) > 40) return;
+    DWORD f[10] = {};
+    const int nf = CrStack((DWORD)(uintptr_t)sp, f, 10);
+    char fr[10 * 44 + 8];
+    CtFrames(f, nf, fr, sizeof(fr));
+    Log("cas trim: realm shape bad: %s; %s from 0x%08lX, thread %lu; realm 0x%08lX node 0x%08lX entry %ld of %ld = 0x40A00000; shape 0x%08lX; %s; save #%ld, "
+        "%ld s after world load #%ld; stack scan (%d):%s", what, add ? "Realm_AddShape 0x6823E0" : "Realm_RemoveShape 0x682080", ret, GetCurrentThreadId(),
+        (DWORD)(uintptr_t)realm, node, i, n, shape, fix, g_ctInvSave, g_udWorldTick ? (LONG)(GetTickCount() - g_udWorldTick) / 1000 : -1L, g_udWorlds, nf, fr);
+}
+static void RlCheck(u8* realm, DWORD node, DWORD shape, bool add, DWORD ret, const DWORD* sp) {
+    Ts3nCounters& z = ts3native_counters;
+    if (node) __try {
+            for (LONG i = 0;; i++) {
+                DWORD *b = *(DWORD**)(uintptr_t)(node + 0x1C), *e = *(DWORD**)(uintptr_t)(node + 0x20);
+                const LONG n = (LONG)(e - b);
+                if (!b || e < b || n > 65536 || i >= n) break;
+                if (b[i] != CT_F5 || RlIsShape(CT_F5, node, 0x3C, (DWORD)i)) continue;
+                InterlockedIncrement(&z.rlBad);
+                const char* fix = "log only (RealmGuard 0)";
+                char fx[96];
+                if (g_rlGuard) {
+                    if (const DWORD got = RlFind(realm, node, (DWORD)i)) {
+                        b[i] = got;
+                        sprintf_s(fx, "restored shape 0x%08lX (its node and node index)", got), fix = fx;
+                    } else {  // EA's swap-remove of slot i
+                        const DWORD last = e[-1];
+                        b[i] = last;
+                        if (last != CT_F5 && RlIsShape(last, node, 0x3C, (DWORD)(n - 1))) *(DWORD*)(uintptr_t)(last + 0x3C) = (DWORD)i;
+                        *(DWORD**)(uintptr_t)(node + 0x20) = e - 1;
+                        fix = "dropped (no realm shape names it; swapped with the last entry as EA's remove does)";
+                        i--;  // slot i holds the old last now
+                    }
+                    InterlockedIncrement(&z.rlFix);
+                }
+                RlLog("node shape vector entry", realm, node, fix[0] == 'd' ? i + 1 : i, n, shape, add, fix, ret, sp);
+            }
+        } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    __try {  // the realm vector: only the last entry is used blind (0x6820A3 / 0x6820AF)
+        DWORD *b = *(DWORD**)(realm + 8), *e = *(DWORD**)(realm + 0xC);
+        const LONG n = (LONG)(e - b);
+        if (b && e > b && n <= (1 << 20) && e[-1] == CT_F5 && !RlIsShape(CT_F5, 0, 0x38, (DWORD)(n - 1))) {
+            InterlockedIncrement(&z.rlBad);
+            if (g_rlGuard) *(DWORD**)(realm + 0xC) = e - 1, InterlockedIncrement(&z.rlFix);
+            RlLog("realm vector last entry", realm, 0, n - 1, n, shape, add, g_rlGuard ? "dropped (EA's remove checks index and identity)" : "log only (RealmGuard 0)", ret, sp);
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+}
+static void __fastcall RlRemHook(u8* realm, void* edx, u8* shape) {
+    Ts3nCounters& z = ts3native_counters;
+    InterlockedIncrement(&z.rlCalls);
+    const DWORD ret = (DWORD)(uintptr_t)_ReturnAddress(), s = (DWORD)(uintptr_t)shape;
+    const DWORD* sp = (const DWORD*)_AddressOfReturnAddress();
+    DWORD node = 0;
+    if (s == CT_F5) node = ret == RL_LOOP_RET ? g_rlLoopNode : 0;
+    else __try { node = *(const DWORD*)(shape + 0x50); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    RlCheck(realm, node, s, false, ret, sp);
+    if (s == CT_F5) {  // EA reads [shape+0x38] first: a certain fault
+        InterlockedIncrement(&z.rlBad);
+        if (g_rlGuard) InterlockedIncrement(&z.rlSkip);
+        RlLog("shape argument", realm, node, -1, 0, s, false, g_rlGuard ? "not passed to EA (its node entry was checked above)" : "log only (RealmGuard 0)", ret, sp);
+        if (g_rlGuard) return;
+    }
+    g_rlRemEa(realm, edx, shape);
+}
+static void __fastcall RlAddHook(u8* realm, void* edx, u8* shape, u8* node) {
+    InterlockedIncrement(&ts3native_counters.rlCalls);
+    DWORD nd = (DWORD)(uintptr_t)node;
+    if (!nd) __try { nd = *(const DWORD*)realm; } __except (EXCEPTION_EXECUTE_HANDLER) {}  // EA's default: the root
+    RlCheck(realm, nd, (DWORD)(uintptr_t)shape, true, (DWORD)(uintptr_t)_ReturnAddress(), (const DWORD*)_AddressOfReturnAddress());
+    g_rlAddEa(realm, edx, shape, node);
+}
+__declspec(naked) static void RlLoopStub() {  // 0x6821FA: keep esi (the node being emptied), then the hook
+    __asm {
+        mov dword ptr [g_rlLoopNode], esi
+        jmp RlRemHook
+    }
+}
+static bool g_rlIn;
+static void CtInstallRl() {
+    if (g_rlIn) return;
+    static const CallSite rl[] = {{0x006821FA, 0x00682080, (void*)RlLoopStub}, {0x00686BE1, 0x00682080, (void*)RlRemHook}, {0x00686FBE, 0x00682080, (void*)RlRemHook},
+                                  {0x00686BFA, 0x006823E0, (void*)RlAddHook}, {0x00686F46, 0x006823E0, (void*)RlAddHook}};
+    if (!PatchCalls("cas trim realm shape sites", rl, 5)) return;
+    g_rlIn = true;
+    Log("cas trim: realm shape check on (docs/539 §16.6): the 3 calls to Realm_RemoveShape 0x682080 and 2 to Realm_AddShape 0x6823E0 check the node's "
+        "shape vector and the realm vector's last entry for 0x40A00000 first; RealmGuard %d (%s)", g_rlGuard,
+        g_rlGuard ? "a bad node entry is restored from the realm vector or swap-removed, a bad realm last entry dropped, a 0x40A00000 shape not passed on" : "log only");
 }
 // crashfx.cpp, a fault at 0x5E76DA (array [rec+0x14]) or 0x5E772C ([rec+0x38]) in 0x5E7690, any thread: EA's frame there
 // (sub esp,0xC + 4 pushes) has the record at [esp+0x10], the outfit +0x14, the end +0x18, the return +0x1C, the set +0x20,
@@ -760,8 +1349,8 @@ static bool CtRelFaultText(const CONTEXT* c, char* out, size_t cap) {  // true: 
 }
 static void CtRelFault(const CONTEXT* c) {
     if (InterlockedIncrement(&g_ctRelFaults) > 2) return;
-    char t[1400];
-    CtRelFaultText(c, t, sizeof(t));
+    char t[3072];
+    if (!CtMbFaultText(c, t, sizeof(t))) CtRelFaultText(c, t, sizeof(t));  // docs/539 §14: the 0x5D82A0 frame first
     Log("%s", t);
 }
 
@@ -864,6 +1453,7 @@ static u8 CtSweepStep() {
             const u8* e = CtMapFind(*(const DWORD* const*)(g_ctSvc + 0x108), *(const DWORD*)(g_ctSvc + 0x10C), c.key);
             CtEnt* t = CtSlot(c.o, false);
             if (!e || *(const DWORD*)(e + 0x10) != c.o || !t || !t->cand || *(const LONG*)(uintptr_t)(c.o + 4) >> 8 != 2) { g_ctLate++; continue; }
+            if (g_ctQuarCap && !CtQuarHold(c.o)) { g_ctPendN = 0; break; }  // §15.7: held for good, or full = stop
             const DWORD h = CtKeyHash(c.key);
             t->seen = t->cand = 0;  // the address may come back as a new compositor
             n++;
@@ -875,6 +1465,7 @@ static u8 CtSweepStep() {
         return 0;
     }
     if (g_ctPendN > 0) return 1;
+    g_ctSweepAt = GetTickCount() | 1, g_ctSweepSave = g_ctInvSave;  // docs/539 §14: the modelbuilder lines name it
     Log("cas trim: sweep done: swept %ld in total, %ld changed since the save (kept)", z.ctSwept, g_ctLate);
     return 0;
 }
@@ -1063,6 +1654,26 @@ static void CtInstallRel(bool detect) {
         "[outfit+0xBC] cells%s first; CellGuard %d (%s)", detect ? " and part records" : "", g_ctCellGuard,
         g_ctCellGuard ? "a cell that is not a valid object is set to 0 and not released" : "log only");
 }
+// docs/539 §14: the two calls to 0x5D82A0, with Detect or MbGuard (any mode, no tables needed).
+static bool g_ctMbIn;
+static void CtInstallMb() {
+    if (g_ctMbIn) return;
+    static const CallSite mbs[] = {{0x005D83B4, 0x005D82A0, (void*)CtMbHook}, {0x005D96AD, 0x005D82A0, (void*)CtMbHook}};
+    if (!PatchCalls("cas trim modelbuilder release sites", mbs, 2)) return;
+    g_ctMbIn = true;
+    Log("cas trim: modelbuilder release check on (docs/539 §14): the calls 0x5D83B4 and 0x5D96AD to 0x5D82A0 check the part records' cells "
+        "rec+4..+0x10 first; MbGuard %d (%s)", g_ctMbGuard, g_ctMbGuard ? "a cell that is not a valid object is set to 0 and not released" : "log only");
+}
+// docs/539 §15: the outfit save writer's call 0x5E7BC2 to 0x5E61A0, with Detect or OutfitStrGuard (any mode, no tables needed).
+static bool g_ctOsIn;
+static void CtInstallOs() {
+    if (g_ctOsIn) return;
+    static const CallSite os[] = {{0x005E7BC2, 0x005E61A0, (void*)CtOsHook}};
+    if (!PatchCalls("cas trim outfit string site", os, 1)) return;
+    g_ctOsIn = true;
+    Log("cas trim: outfit string check on (docs/539 §15): the save writer's call 0x5E7BC2 to 0x5E61A0 checks each part object's string [rec+0x5C]+0x2C first; "
+        "OutfitStrGuard %d (%s)", g_ctOsGuard, g_ctOsGuard ? "a string EA's copy would certainly fault on is reset to EA's empty string" : "log only");
+}
 static bool CtAlloc() {
     if (g_ct) return true;
     u8* m = (u8*)VirtualAlloc(NULL, CT_SLOTS * sizeof(CtEnt) + CT_GONE * 4 + 2 * CT_NAMED * 4 + CT_PEND * sizeof(CtCand), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
@@ -1089,6 +1700,19 @@ static void ApplyCasTrim(const wchar_t* ini) {
     const bool detect = CtDetectOn(ini, mode, g_ctProbe);
     g_ctCellGuard = GetPrivateProfileIntW(L"CasTrim", L"CellGuard", 1, ini) > 0;  // Rodney 2026-11-08: on in every mode
     if (g_ctCellGuard || detect) RhRanges(), CtInstallRel(detect);
+    g_ctMbGuard = GetPrivateProfileIntW(L"CasTrim", L"MbGuard", 0, ini) > 0;  // docs/539 §14: default 0, log only
+    if (detect || g_ctMbGuard) RhRanges(), CtInstallMb();
+    g_ctOsGuard = GetPrivateProfileIntW(L"CasTrim", L"OutfitStrGuard", 0, ini) > 0;  // docs/539 §15
+    if (detect || g_ctOsGuard) RhRanges(), CtInstallOs();
+    g_rlGuard = GetPrivateProfileIntW(L"CasTrim", L"RealmGuard", 0, ini) > 0;  // docs/539 §16.6: default 0, log only
+    if (detect || g_rlGuard) RhRanges(), CtInstallRl();
+    const int quar = GetPrivateProfileIntW(L"CasTrim", L"Quarantine", 0, ini);  // docs/539 §15.7, test only
+    if (quar > 0 && !g_ctQuar) {
+        g_ctQuarCap = quar > 65536 ? 65536 : quar;
+        g_ctQuar = (DWORD*)VirtualAlloc(NULL, (SIZE_T)g_ctQuarCap * 4, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        if (!g_ctQuar) g_ctQuarCap = 0, Log("FAIL cas trim: no memory for the quarantine list: off");
+        else Log("cas trim: quarantine on (docs/539 §15.7, test only): each sweep erase keeps 1 reference for the session, at most %ld; then no more erases", g_ctQuarCap);
+    }
     if (mode <= 0 && !g_ctProbe && !detect && GetPrivateProfileIntW(L"CasTrim", L"Install", 0, ini) <= 0) return;
     if (!CtAlloc()) return (void)Log("FAIL cas trim: no memory for the tables (14 MB): not installed");
     RhRanges();  // the exe .text range for the event chains
@@ -1101,6 +1725,17 @@ static void ApplyCasTrim(const wchar_t* ini) {
     const bool sweep = CtInstallSweep();
     if (g_ctProbe) CtInstallProbes();
     if (detect) CtInstallDetect();
+    if (GetPrivateProfileIntW(L"CasTrim", L"WriteTrap", 0, ini) > 0 && !g_ctTrapOn) {  // docs/539 §16, test only
+        if (!detect) Log("FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off");
+        else {
+            WpInstall();
+            g_wpTrapFn = CtTrapHit, g_ctTrapOn = g_wpVeh != NULL;
+            if (HANDLE h = g_ctTrapOn ? CreateThread(NULL, 64 << 10, CtTrapRefresh, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL) : NULL) CloseHandle(h);
+            Log("cas trim: write trap %s (docs/539 §16, test only): after each save up to 4 [outfit+0xBC] cells of vtable %08lX outfits (entry 87 of 121 / 91, "
+                "3 of 81 first) get a DR write watch on every thread (again every 30 s for new threads); each write logged (first 200, float5 WRITER first 100)",
+                g_ctTrapOn ? "on" : "NOT on (no vectored handler)", CT_TRAP_VT);
+        }
+    }
     Ts3nCounters& z = ts3native_counters;
     z.ctOn = 1, z.ctMode = mode < 0 ? 0 : mode > 4 ? 4 : mode;
     if (z.ctMode >= 3 && !sweep) z.ctMode = 0, Log("FAIL cas trim: the save hooks are not in: modes 3 and 4 off");

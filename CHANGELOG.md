@@ -6,11 +6,14 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ### Changed
 
+- **Car and boat trips plan their next leg off the main thread (`[RouteAsync] ForeignKinds=4`, on).** When a car or boat that carries Sims needs a new route, the route search now runs on a background thread instead of making the game wait for it, and the answer is the same route the game would have found. Measured in Isla Paradiso: 37.5 ms less route work per second on the main thread, with no new freezes, crashes or stuck Sims.
 - **Townies you can't see choose what to do on a second thread (`[AutShadow] Unseen=1`, on).** Sims you don't play and can't see now get their next action from scores worked out on a second CPU thread, so the game's main thread does less: 6.4 ms less work per second in Bridgeport and 12.2 ms in Isla Paradiso, in 6 test runs per town, with no new crash or stuck Sim and no more freezes than without it. Sims in your household, the selected Sim and any Sim on screen or near your Sims still choose exactly as in the unmodded game. Steam only. To turn it off, set `Unseen=0` under `[AutShadow]` in `ts3native.ini`.
 - **Less memory held by old outfit textures (`[CasTrim] Mode=3`, on).** The game keeps every outfit texture it ever built for a Sim until you quit, even for townies long gone from town. Now, right after each save, the textures the game's own save left out are let go: only ones no Sim in your household, no selected Sim and no other kept texture still needs, and none used in the last minute. Your saves do not change. In our tests: two long runs with saves, a reload and a vacation trip, no crash, no texture missing.
 - **Crash detector for saves and travel (`[CasTrim] Detect=1`, on).** One crash during a travel save was seen once in four test runs and its cause is not known yet. At each save the plugin now checks the game's outfit list before the game reads it and writes what it finds to `ts3native.log`; it only logs and changes nothing. **If the game crashes during a save or while travelling, please send your `ts3native.log`** (see "Reporting a problem" in the player guide).
 
 ### Fixed
+
+- **Fixed a rare crash on loading screens (EA bug, `[MonoSigGuard]`, on).** When a loading screen stayed up longer than 2 seconds (travel, world load), the game read one value past the end of a small block of memory while starting the next loading picture, and crashed if that value happened to be garbage. Seen twice in test runs right after travel. The plugin now checks first, so the game gives the same answer it always did without the bad read.
 
 - **Fixed a rare crash when the game frees a Sim's outfit (EA bug).** Seen once in a test run right after a vacation trip; an outfit kept a broken entry that the game then tried to free. The plugin now skips such an entry (a few bytes stay in memory) and writes a line to `ts3native.log`. If you see a `cell guard skipped` line there, please send us the log.
 

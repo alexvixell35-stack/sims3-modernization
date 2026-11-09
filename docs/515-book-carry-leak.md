@@ -63,6 +63,19 @@ Not covered: the rocking, relaxing and lying branches, which keep `Sim.CarryStat
   dropped carry machine that still holds its engine driver, ended +0. `expect ended` (on): every dropped machine ended,
   and the last one's driver released (handle 0). Each expect step throws on any other outcome, then holds 45 s so a
   player watching can see the arms. `IsValid` is no test here: it asks whether the machine's event queue is valid.
+- **Repro, crowd form** (2026-11-09, replaces the Tiara steps above in `repros.json`; the one-Sim checks stay for hand
+  use). Three runs at game hour 3 (bundle-1105, correctness-1109, fixes-1109) failed the same way: `read` returned
+  "queued True", but for 180 s Tiara had no current interaction, `carry` true (the stuck pose the save loads with, which
+  `cure` does not clear) and no read, so `ready` never came; the one run at hour 15 (bundle-1105b) passed. `ready`
+  itself is computed right; why the queued read never ran is not proven [inferred: `ReadBook.Definition.Test` with the
+  book in the inventory and a `StandingPosture` asks for the book in the right hand, so the queue head can drop it].
+  Now each arm runs `crowd read 20`: up to 20 non-household Sims (never the active household, its lot or a selectable
+  Sim), each at a bookshelf with a book on its **own home lot** (at most 2 per shelf), because EA puts the book in the
+  inventory, the only branch that drops the carry machine, only on the reader's home lot (`ShouldPutInInventory`; a
+  shelf elsewhere gets the book back and drops nothing). Queues cancelled, motives maxed, Teleport Me Here in front of
+  the shelf, then EA's `Bookshelf_ReadSomething` at high priority. `crowd state` counts sims, reading, carry, ready,
+  dropped, droppedSims and current interactions; the repro waits for `any`, `crowd stop` cancels every crowd read, the
+  repro waits for `droppedSims >= 1`, and `crowd expect left|ended` judges all crowd drops and reports "N of M Sims dropped".
 
 ## 4. Results
 

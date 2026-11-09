@@ -1,0 +1,43 @@
+{
+  "note": "float5-stress (docs/539 §14, ledger §468): stress the 11-09 float-5 crash (AV 0xD4B154 in ModelBuilder 0x5D82A0, bp-leak40-memtravel-x3 on master1109) until it breaks, with the culprit logged by the float5-1109 detector (on master1109b since the 11-09 merge). Rodney: one stress job, stop at the first hit, no off arms. Correctness only (no timing): run with --no-smoke. A FAIL from a bad-cell or crash-forensics line is the catch: triage it at once (crash-ledger.ts triage, the job's ts3native.log 'cas trim: modelbuilder cell bad' / 'crash forensics: cas trim modelbuilder release fault' lines).",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-float5-memtravel-x8",
+      "note": "The crashed job's case with 8 trips instead of 3: Baseline-BP, travel to France and back with mem marks (MemDiag/UserDiag on as in bp-leak40-memtravel-x3), CasTrim Mode 3 as shipped (Detect 1, CellGuard 1) plus the ModelBuilder check (MbGuard 0 = log only, EA runs unchanged). ~3 min a round trip, so 8 trips ~30 min; timeout 60 min caps it. Stops at the first break: a crash, or any bad-cell / float-5 / guard / crash-forensics line (logForbid). The per-save 'cas trim: modelbuilder check' line must appear (the sites ran).",
+      "asi": "game-copy/ts3native.asi.master1109b",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "CasTrim.Mode": 3,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "CasTrim.MbGuard": 0,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^cas trim: modelbuilder release check on ": 1,
+        "^cas trim: outfit release check on ": 1,
+        "^cas trim: modelbuilder check \\(0x5D83B4 / 0x5D96AD, session\\) at save #\\d+: calls [1-9]": 1,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 8
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^cas trim: modelbuilder cell bad": 0,
+        "^cas trim: float-5 cell": 0,
+        "^cas trim: outfit cell bad": 0,
+        "^cas trim: cell guard skipped": 0,
+        "^cas trim: inventory bad slot": 0,
+        "^crash forensics: cas trim ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "matrix": ["--travel", "--cases", "travel", "--to", "france", "--trips", "8", "--mem-marks"]
+      },
+      "timeoutMin": 60,
+      "pinReason": "pair master1109b (builds.json): ts3native 0.36.219 asi 7449d9e0 from master dd0f2c79, which has the float5-1109 detector/decoder (bugfix/float5-modelbuilder-logging 54aef4b2, merged) plus the pkglock repro change and [RouteAsync] ForeignKinds on in the repo ini. Matrix job: no fixesPackage allowed, ts3fixes = build/ts3fixes.package, which must be master1109b (2d3d0eff); agent = build/ts3agent.package (= game-copy/ts3agent.package.master1109b, aa6ee8e5). Check both before the run; do not rebuild build/ while it runs. Repinned 2026-11-09 from float5-1109.",
+      "scriptErrorsMax": 0
+    }
+  ]
+}

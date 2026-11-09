@@ -23,7 +23,7 @@ static void TestUnseenFallbackSites() {
                       offsetof(Ts3nCounters, ufcMaxWaitUs) == 0x5418 && offsetof(Ts3nCounters, ufcStale) == 0x5420 &&
                       offsetof(Ts3nCounters, ufEffCutUs) == 0x5424 && offsetof(Ts3nCounters, ufOverSamples) == 0x543C &&
                       offsetof(Ts3nCounters, ufwMode) == 0x5440 && offsetof(Ts3nCounters, ufwRelease) == 0x545C &&
-                      offsetof(Ts3nCounters, ufwFull) == 0x5470 && offsetof(Ts3nCounters, ufcBb) == 0x5474 && sizeof(Ts3nCounters) == 6074 * 4,
+                      offsetof(Ts3nCounters, ufwFull) == 0x5470 && offsetof(Ts3nCounters, ufcBb) == 0x5474 && sizeof(Ts3nCounters) == 6112 * 4,
                   "counters v139 / v140 layout after v138 (docs/registry.md)");
     assert(k.version == 912);
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
@@ -532,7 +532,7 @@ static void TestUfStrict() {
     assert(g_ufOver[1][2].n == 1 && fj.ufCut == 1);
 
     // a job's host waits are not overrun (player log c4677d89: cut jobs 1849 ms late, under 30 ms of each not host)
-    static_assert(offsetof(Ts3nCounters, ufHlMode) == 0x5E38 && offsetof(Ts3nCounters, rjnDropped) == 0x5E48 && sizeof(Ts3nCounters) == 6074 * 4,
+    static_assert(offsetof(Ts3nCounters, ufHlMode) == 0x5E38 && offsetof(Ts3nCounters, rjnDropped) == 0x5E48 && sizeof(Ts3nCounters) == 6112 * 4,
                   "counters v173 layout (docs/registry.md)");
     Reset();
     const LONGLONG tickMs = g_qpf.QuadPart / 1000;

@@ -16,9 +16,12 @@
 // the calling thread does not own it (the 0x734420 "probe open" variant, never seen in a dump).
 // Detect=1 (any mode, also 0): the hooks record {O, thread, start}; a watcher thread checks once a second and logs one
 // "[PkgLock] ABBA:" line when a thread inside a hook for 3 s owns FL while another thread owns DL. Read-only.
-// ReproWiden=N (TEST ONLY, never in release inis): the close skips the idle interval and holds FL N ms before the original,
-// so the FL -> DL window is open on every update (repro pkg-abba, docs/539 §13.9.5); only for the first 300 widened closes
-// (the menu reads), so a later world load runs at normal speed. Detect=1 also writes a "pkglock:" counter line each minute.
+// ReproWiden=N (TEST ONLY, never in release inis): the close skips the idle interval and waits up to N ms for a reader to own
+// DL at the point where each mode's order makes the collision: Mode 0 while holding FL (then EA's FL -> DL deadlocks), Mode 1
+// right before its try of DL (then the try fails and the close defers). A reader whose begin access runs with DL on a package
+// whose widened close is waiting holds DL N ms first, so the close sees it (repro pkg-abba, docs/539 §13.9.5; 0.36.216 held FL
+// only after Mode 1 had taken DL, so Mode 1 never deferred in the window). Only for the first 300 widened closes (the menu
+// reads), so a later world load runs at normal speed. Detect=1 also writes a "pkglock:" counter line each minute.
 // Household rule: not applicable (resource system, no Sim). Results equal vanilla: a busy package closes a pass later.
 
 static const DWORD PK_CLOSE_SLOT = 0x00FFE0E8, PK_CLOSE = 0x007355A0;  // O vtable slot 0x18: close if idle
@@ -40,6 +43,8 @@ static DWORD g_pkWidenMs;
 static volatile LONG g_pkWidened;  // widened closes so far; the window ends at kPkWidenMax (menu repro, keeps a later world load fast)
 static const LONG kPkWidenMax = 300;
 static bool PkWiden() { return g_pkWidenMs && g_pkWidened < kPkWidenMax; }
+static u8* volatile g_pkWidenO;            // the package whose widened close waits for a reader (readers of it hold DL N ms)
+static volatile LONG g_pkWidenDefer, g_pkReaderHold;  // widened Mode 1 closes deferred; reader begin accesses held
 static DWORD g_pkWatchStallMs = 3000;  // selftest shortens it
 
 static CRITICAL_SECTION* PkFl(u8* o) { return (CRITICAL_SECTION*)(o + 0xC0); }
@@ -89,8 +94,9 @@ static void PkSummary() {
     const volatile LONG* c = &ts3native_counters.pkMode;
     if (!memcmp((const void*)c, last, sizeof(last))) return;
     memcpy(last, (const void*)c, sizeof(last));
-    Log("pkglock: Mode %ld, idle closes run %ld, deferred %ld (max run %ld), forced %ld, begin unowned %ld (DL taken %ld), ABBA %ld, widened %ld",
-        c[0], c[1], c[2], c[7], c[3], c[4], c[5], c[6], g_pkWidened);
+    Log("pkglock: Mode %ld, idle closes run %ld, deferred %ld (max run %ld), forced %ld, begin unowned %ld (DL taken %ld), ABBA %ld, widened %ld "
+        "(deferred %ld, reader holds %ld)",
+        c[0], c[1], c[2], c[7], c[3], c[4], c[5], c[6], g_pkWidened, g_pkWidenDefer, g_pkReaderHold);
 }
 static DWORD WINAPI PkWatchMain(LPVOID) {
     for (int n = 1;; n++) {
@@ -110,11 +116,23 @@ static void PkDeferNote(u8* o, bool deferred) {
     if (++r.run > ts3native_counters.pkDeferMax) ts3native_counters.pkDeferMax = r.run;
 }
 
-static u8 PkCallClose(u8* o, DWORD force) {
+// TEST ONLY (ReproWiden): one widened close; waits up to N ms until another thread owns DL. Returns that thread (0 = none came).
+static DWORD PkWaitReader(u8* o) {
+    if (InterlockedIncrement(&g_pkWidened) == kPkWidenMax)
+        Log("pkglock: ReproWiden window ended after %ld widened closes: deferred %ld, reader holds %ld, ABBA %ld", kPkWidenMax, g_pkWidenDefer,
+            g_pkReaderHold, ts3native_counters.pkAbbaSeen);
+    g_pkWidenO = o;
+    DWORD dl = 0;
+    for (const DWORD t0 = GetTickCount(); GetTickCount() - t0 < g_pkWidenMs; Sleep(1))
+        if ((dl = PkOwner(o + 0x48)) && dl != GetCurrentThreadId()) break;
+    g_pkWidenO = NULL;
+    return dl == GetCurrentThreadId() ? 0 : dl;
+}
+
+static u8 PkCallClose(u8* o, DWORD force) {  // Mode 0
     if (!PkWiden()) return g_pkClose(o, NULL, force);
-    if (InterlockedIncrement(&g_pkWidened) == kPkWidenMax) Log("pkglock: ReproWiden window ended after %ld widened closes", kPkWidenMax);
-    EnterCriticalSection(PkFl(o));  // TEST ONLY: hold the FL -> DL window open
-    Sleep(g_pkWidenMs);
+    EnterCriticalSection(PkFl(o));  // TEST ONLY: hold FL until a reader owns DL, then EA's FL -> DL
+    PkWaitReader(o);
     const u8 r = g_pkClose(o, NULL, force);
     LeaveCriticalSection(PkFl(o));
     return r;
@@ -129,9 +147,13 @@ static u8 __fastcall PkCloseHook(u8* o, void*, DWORD force) {
     u8 r;
     if (g_pkMode >= 1) {
         if (!callerForce) {
+            const bool widen = PkWiden();
+            const DWORD reader = widen ? PkWaitReader(o) : 0;  // TEST ONLY: the try below meets a reader that owns DL
             const DWORD now = 0;  // expired deadline: one TryEnterCriticalSection
             if (g_pkAcq(o + 0x48, NULL, &now) < 0) {
                 InterlockedIncrement(&ts3native_counters.pkCloseDefer);
+                if (widen && InterlockedIncrement(&g_pkWidenDefer) == 1)
+                    Log("pkglock: ReproWiden defer: tid %lu owns O+0x48 (O=%p), Mode %ld idle close deferred", reader ? reader : PkOwner(o + 0x48), o, g_pkMode);
                 PkDeferNote(o, true);
                 PkTrackOut(tr);
                 return 0;  // EA's "not idle long enough": asked again next update
@@ -143,7 +165,7 @@ static u8 __fastcall PkCloseHook(u8* o, void*, DWORD force) {
             InterlockedIncrement(&ts3native_counters.pkCloseForce);
         }
         PkDeferNote(o, false);
-        r = PkCallClose(o, force);
+        r = g_pkClose(o, NULL, force);  // Mode 1 widening is the wait before the try, not an FL hold with DL taken
         g_pkRel(o + 0x48, NULL);
     } else
         r = PkCallClose(o, force);
@@ -152,7 +174,13 @@ static u8 __fastcall PkCloseHook(u8* o, void*, DWORD force) {
 }
 
 static u8 __fastcall PkBeginHook(u8* d, void*) {
-    if (PkOwner(d + 0x40) == GetCurrentThreadId() || !PkDlIsCs(d - 8)) return g_pkBegin(d, NULL);  // the reader path: DL held
+    if (PkOwner(d + 0x40) == GetCurrentThreadId() || !PkDlIsCs(d - 8)) {  // the reader path: DL held
+        if (g_pkWidenO == d - 8 && g_pkWidenO) {  // TEST ONLY (ReproWiden): keep DL while that package's widened close waits
+            InterlockedIncrement(&g_pkReaderHold);
+            Sleep(g_pkWidenMs);
+        }
+        return g_pkBegin(d, NULL);
+    }
     InterlockedIncrement(&ts3native_counters.pkBeginUnowned);
     const int tr = PkTrackIn(d - 8, 1);
     u8 r;
@@ -187,7 +215,7 @@ static bool PkInstall(LONG mode, LONG detect, DWORD widenMs, DWORD* closeSlot, D
         ts3native_counters.pkMode = -1;
         return false;
     }
-    if ((detect || mode == 2) && !PkSwapSlot(beginSlot, (DWORD)(uintptr_t)g_pkBegin, (void*)PkBeginHook, "begin access (D slot 0x50)") && mode == 2)
+    if ((detect || mode == 2 || widenMs) && !PkSwapSlot(beginSlot, (DWORD)(uintptr_t)g_pkBegin, (void*)PkBeginHook, "begin access (D slot 0x50)") && mode == 2)
         g_pkMode = 1, ts3native_counters.pkMode = 1;  // Mode 2 without its second hook runs as Mode 1
     return true;
 }

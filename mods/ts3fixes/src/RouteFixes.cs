@@ -127,6 +127,8 @@ namespace Ts3Fixes
             get { return sOwnCheckOn && sOwnCheckTask == Simulator.CurrentTask.Value; }
             set { sOwnCheckOn = value; sOwnCheckTask = value ? Simulator.CurrentTask.Value : 0; }
         }
+        // docs/250 §7.1 A1: the task whose idle check CheckIdle sent as an async job (0 = none); RouteBackoff.cs OwnerTaskSlot 872
+        static ulong sWdA1Task;
 
         // D5 (docs/151 §6): last successful plan per Sim from its spot (goal >= 1 m away, so a turn in place does not count),
         // recorded with routesrc (V7) or idlememo on.
@@ -300,13 +302,42 @@ namespace Ts3Fixes
                         // has no household or selected Sim (filtered above). Older ts3native and the game answer q 8 false: no skip.
                         bool cachedOk;
                         bool cached = prof.Ok && vs.Cells.TryGetValue(KeyOf(prof, s.Position), out cachedOk) && cachedOk;
-                        if (!cached && ShortcutOn("watchdoglockskip") && HcWould(sYieldProbe, 8) && !WdA1Started(s)) { c[871]++; break; }  // wdLockSkip; q 8: native selftest jobyield-test.h
-                        bool? ok = SpotVerdict(s, lot, vs, prof, s.Position, true, true, false);
+                        // A1 (watchdogasync, docs/250 §7.1): the same check sent as an own-task job; this task sleeps until READY,
+                        // so the verdict is the same planner's, one or more ticks later. Before acting on it, H4Core.WdFresh must
+                        // hold (same Sim state as checked), else the verdict is dropped (watchdogasync_stale) and the next pass checks again.
+                        bool a1On = ShortcutOn("watchdogasync"), lockSkip = ShortcutOn("watchdoglockskip");
+                        bool held = !cached && lockSkip && HcWould(sYieldProbe, 8);  // q 8: native selftest jobyield-test.h; only lockskip reads it
+                        bool household = s.IsSelectable || s.Household == null || s.Household == Household.ActiveHousehold;  // unknown = household
+                        bool eligible = !cached && a1On && !household;
+                        int route = H4Core.WdRoute(cached, held, a1On, eligible && WdA1Would(), lockSkip, household);
+                        if (eligible && route != H4Core.kWdA1) c[874]++;  // watchdogasync_refused
+                        if (route == H4Core.kWdSkip) { c[871]++; break; }  // wdLockSkip
+                        Vector3 at = s.Position;
+                        InteractionInstance cur0 = s.CurrentInteraction;
+                        long t0 = SimClock.CurrentTicks;
+                        bool? ok;
+                        bool stale = false;
+                        if (route == H4Core.kWdA1) sWdA1Task = Simulator.CurrentTask.Value;
+                        try { ok = SpotVerdict(s, lot, vs, prof, at, true, true, false); }
+                        finally { sWdA1Task = 0; }
+                        if (route == H4Core.kWdA1)
+                        {
+                            c[875] += (int)(SimClock.CurrentTicks - t0);  // watchdogasync_ticks (started or not)
+                            if (ok.HasValue && ShortcutOn("watchdogasyncshadow")) WdShadow(s, lot, at, ok.Value, c);
+                            bool hh = s.IsSelectable || s.Household == null || s.Household == Household.ActiveHousehold;
+                            if (ok.HasValue && !H4Core.WdFresh(!s.HasBeenDestroyed && s.InWorld, hh, (s.Position - at).Length(), s.CurrentInteraction == cur0,
+                                s.LotCurrent == lot, s.Posture == s.Standing, s.IsRouting))
+                            {
+                                c[930]++;  // watchdogasync_stale: never acted on; the Still record stays (or resets if it moved), next pass checks again
+                                stale = true;
+                            }
+                        }
                         if (ok.HasValue)
                         {
                             asked++;
                             c[50]++;
-                            if (ok.Value) { st.OkAt = now; mStill[s.ObjectId.Value] = st; }
+                            if (stale) { }
+                            else if (ok.Value) { st.OkAt = now; mStill[s.ObjectId.Value] = st; }
                             else if (Act(s, now, 46, "reset (idle on unroutable spot)")) mStill.Remove(s.ObjectId.Value);
                         }
                         if ((c[39] != before || !ok.HasValue) && MayYield()) Simulator.Sleep(0); // a full plan ran (or the tick's budget was used): next one in a later tick
@@ -315,9 +346,28 @@ namespace Ts3Fixes
                 }
             }
 
-            // docs/250 §7.4 step 3, the async idle check A1 (switch watchdogasync): not built yet, so always "off" and
-            // watchdoglockskip fires whenever a job holds the lock. A1 replaces this body; true = its START was accepted.
-            static bool WdA1Started(Sim s) { return false; }
+            // docs/250 §7.1 A1: would ts3native start an own START from this task now (the HitchCause.cs probes: async on, the task
+            // may yield, M1 not pending)? Then the check's plan goes out as an own-task job (RouteBackoff.cs OwnerTaskSlot 872).
+            // A START still refused later (queue full) runs the check sync: c[872] - c[873].
+            static bool WdA1Would()
+            {
+                return RouteBackoffHook.ForeignEligible() && HcWould(sYieldProbe, 1) && HcWould(sYieldProbe, 5) && HcWould(sYieldProbe, 7);
+            }
+
+            // watchdogasyncshadow (correctness arm, default off): the same spot checked again sync right after the A1 verdict, no
+            // cache, no budget (it waits on +0x918 like today's check). [931] runs, [932] verdicts that differ (expected 0; each
+            // logged). The world can change between the job and this check, so a mismatch is read with its log line.
+            static void WdShadow(Sim s, Lot lot, Vector3 at, bool a1, int[] c)
+            {
+                bool sync;
+                sInOwnCheck = true;
+                try { sync = s.IsPointInLotSafelyRoutable(lot, at); } finally { sInOwnCheck = false; }
+                c[931]++;
+                if (sync == a1) return;
+                c[932]++;
+                DiagLine("watchdogasync shadow mismatch: " + s.FullName + " A1 " + a1 + " sync " + sync + " @" + Math.Round(at.x, 2) + "," + Math.Round(at.z, 2)
+                    + (lot != null ? " on " + lot.Name : ""));
+            }
 
             // The game's own end state for a stuck idle Sim, within the shared daily limit. True = acted.
             bool Act(Sim s, long now, int counter, string why)

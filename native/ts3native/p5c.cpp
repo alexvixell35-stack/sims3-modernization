@@ -155,11 +155,12 @@ static bool P5cPark(DWORD idLo, DWORD idHi) {
 // the owner (sim) thread outside a job callback, no job running: every parked reference released, oldest first, with job
 // starts held off (ServeAsync's Dekker on g_rgOffSimOpen). A release may destroy more; a nested flush finds the list already
 // taken. Owner only (0.36.9 design G): the free runs component destructors and the managed release, which belong to the sim.
-// Crash I (docs/67 §11): the last 64 released references (object, its vtable and count before the release, the flush's
+// Crash I (docs/67 §11): the last kP5cRelN released references (64 until 0.36.229; 4096 for [UafCheck]'s float-5 lookups, ~160 KB) (object, its vtable and count before the release, the flush's
 // caller in this module, time), matched by XcptLog against an access violation's registers: a hit names our flush as the
 // free of the faulting object. Owner thread writes only; the crash-time read is racy by design
 struct P5cRel { DWORD obj, vt, site; LONG count; LARGE_INTEGER t; DWORD idLo, idHi, key0; LONG ageUs; };  // id, key type, park age: docs/67 §15
-static P5cRel g_p5cRel[64];
+static const LONG kP5cRelN = 4096;  // power of 2
+static P5cRel g_p5cRel[kP5cRelN];
 static volatile LONG g_p5cRelN;
 // per register the nearest released object at or below it (within 0x400); returns the first register's object, 0 = none
 static DWORD P5cRelMatch(const CONTEXT* c) {
@@ -169,12 +170,12 @@ static DWORD P5cRelMatch(const CONTEXT* c) {
     DWORD first = 0;
     for (int i = 0; i < 6; i++) {
         LONG best = -1;
-        for (LONG j = n - 1; j >= 0 && j >= n - 64; j--) {
-            const P5cRel& r = g_p5cRel[j & 63];
-            if (regs[i] >= r.obj && regs[i] - r.obj < 0x400 && (best < 0 || r.obj > g_p5cRel[best & 63].obj)) best = j;
+        for (LONG j = n - 1; j >= 0 && j >= n - kP5cRelN; j--) {
+            const P5cRel& r = g_p5cRel[j & (kP5cRelN - 1)];
+            if (regs[i] >= r.obj && regs[i] - r.obj < 0x400 && (best < 0 || r.obj > g_p5cRel[best & (kP5cRelN - 1)].obj)) best = j;
         }
         if (best < 0) continue;
-        const P5cRel& r = g_p5cRel[best & 63];
+        const P5cRel& r = g_p5cRel[best & (kP5cRelN - 1)];
         if (!first) first = r.obj;
         Log("P5c: fault register %s %08lX is +0x%lX into object %08lX (vt %08lX, count %ld before) released %ld releases ago "
             "by the flush from %08lX, %ld us before the fault (id %08lX%08lX, key %08lX, parked %ld us)", names[i], regs[i],
@@ -183,14 +184,14 @@ static DWORD P5cRelMatch(const CONTEXT* c) {
     return first;
 }
 
-// crash dump (docs/67 §15): the whole released ring, newest first, once per session, for a fault in TS3W.exe code
+// crash dump (docs/67 §15): the newest 64 of the released ring, newest first, once per session, for a fault in TS3W.exe code
 static volatile LONG g_p5cDumpN;
 static void P5cRelDump() {
     const LONG n = g_p5cRelN;
     if (!n || InterlockedIncrement(&g_p5cDumpN) > 1) return;
     Log("P5c: released ring (last %ld of %ld, newest first: obj vt count-before id key parked-us site ms-ago)", n < 64 ? n : 64L, n);
-    for (LONG j = n - 1; j >= 0 && j >= n - 64; j--) {
-        const P5cRel& r = g_p5cRel[j & 63];
+    for (LONG j = n - 1; j >= 0 && j >= n - 64; j--) {  // the newest 64 only: the crash log stays short
+        const P5cRel& r = g_p5cRel[j & (kP5cRelN - 1)];
         Log("  %08lX %08lX %ld %08lX%08lX %08lX %ld %08lX %.1f", r.obj, r.vt, r.count, r.idHi, r.idLo, r.key0, r.ageUs, r.site,
             UsSince(r.t) / 1000.0);
     }
@@ -199,12 +200,12 @@ static void P5cRelDump() {
 static bool P5cRelFind(DWORD a, char* out, size_t cap) {
     const LONG n = g_p5cRelN;
     LONG best = -1;
-    for (LONG j = n - 1; j >= 0 && j >= n - 64; j--) {
-        const P5cRel& r = g_p5cRel[j & 63];
-        if (a >= r.obj && a - r.obj < 0x400 && (best < 0 || r.obj > g_p5cRel[best & 63].obj)) best = j;
+    for (LONG j = n - 1; j >= 0 && j >= n - kP5cRelN; j--) {
+        const P5cRel& r = g_p5cRel[j & (kP5cRelN - 1)];
+        if (a >= r.obj && a - r.obj < 0x400 && (best < 0 || r.obj > g_p5cRel[best & (kP5cRelN - 1)].obj)) best = j;
     }
-    if (best < 0) { sprintf_s(out, cap, "not in the P5c released ring (last 64)"); return false; }
-    const P5cRel& r = g_p5cRel[best & 63];
+    if (best < 0) { sprintf_s(out, cap, "not in the P5c released ring (last 4096)"); return false; }
+    const P5cRel& r = g_p5cRel[best & (kP5cRelN - 1)];
     sprintf_s(out, cap, "+0x%lX into %08lX released by our flush %ld releases ago, %.1f ms ago, count %ld before, id %08lX%08lX, key %08lX",
               a - r.obj, r.obj, n - 1 - best, UsSince(r.t) / 1000.0, r.count, r.idHi, r.idLo, r.key0);
     return true;
@@ -220,6 +221,7 @@ static void P5cFlush() {
         InterlockedIncrement(&k.p5cFlushRefused);
         return;
     }
+    UafTagScope uafTag(UT_P5C_FLUSH, _ReturnAddress());  // [UafCheck]: site = the flush point (rtsites.cpp etc.)
     P5cGrave out[kP5cGrave];
     AcquireSRWLockExclusive(&g_p5cGyLock);
     const LONG n = g_p5cGyN;
@@ -235,7 +237,7 @@ static void P5cFlush() {
             InterlockedIncrement(&k.p5cCountLow);
             continue;
         }
-        P5cRel& r = g_p5cRel[g_p5cRelN & 63];
+        P5cRel& r = g_p5cRel[g_p5cRelN & (kP5cRelN - 1)];
         r.obj = (DWORD)(uintptr_t)obj;
         r.vt = *(const DWORD*)obj;
         r.count = *(volatile LONG*)((u8*)obj + 4);

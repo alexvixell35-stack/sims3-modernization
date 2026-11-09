@@ -143,6 +143,7 @@ if (values.save) {
       let st: any = null;
       await until(`agentArm ${arm}`, 300, async () => (st = (await agent(arm, { status: true })).result)?.done === true);
       if (st?.error) throw new Error(`agentArm ${arm}: ${st.error}`);
+      if (st?.want !== undefined && st.reads !== st.want) throw new Error(`agentArm ${arm}: ${st.reads} of ${st.want} reads`);
       log(`agentArm ${arm}: ${st?.reads} of ${st?.want} done`);
     }
   }

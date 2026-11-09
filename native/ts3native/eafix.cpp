@@ -226,7 +226,9 @@ static TpSlot g_tp[8];
 static void TpReleaseNow(u8* obj) {
     __try { if (*(volatile LONG*)(obj + 4) == 1) InterlockedIncrement(&ts3native_counters.tpLastRef); } __except (EXCEPTION_EXECUTE_HANDLER) {}
     u8* tmp = obj;
+    const UafTag uafPrev = UafTagSet(UT_THUMBPOSE, _ReturnAddress());  // [UafCheck] (manual pair: __try above)
     g_tpRelease(&tmp);
+    UafTagPut(uafPrev);
 }
 
 // Replaces `call 0x7460F0` at 0xD5B77A: ecx = &RefPtr local at frame+0x28. Keeps the reference instead of releasing it.

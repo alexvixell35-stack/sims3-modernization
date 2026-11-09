@@ -212,14 +212,19 @@ namespace Ts3Fixes
                 // cut bit only with stuckcheckcap), so ts3native's own-job log lines name the round; ts3native answers true only for a cut
                 if (slot == 253 && GetOption2(kProbe | (Sims3.SimIFace.Route.RouteOption2)NoStartCore.StuckTag(sStuckIn ? sStuckRound : 0, sStuckIn && sStuckCap, sStuckIn && sStuckLast)) && sStuckCap)
                     c[297]++;
+                // docs/250 §7.1: the watchdog's idle check labels its job (tagged mark bit 10; ts3native 0.36.223 counts its job time, v179
+                // wdJob*, and never cuts or kd-marks it); older ts3native would read it as an untagged stuck-check mark, so pair-only
+                if (slot == 872) GetOption2(kProbe | (Sims3.SimIFace.Route.RouteOption2)0x10400UL);
                 if (!GetOption(kAsyncStart)) return false;
-                c[254]++;
+                c[slot == 872 ? 873 : 254]++;
                 return true;
             }
 
             int OwnerTaskSlot()
             {
                 if (ShortcutOn("stuckcheckown") && sStuckTask.IsValid && Simulator.CurrentTask == sStuckTask) return 253;
+                // docs/250 §7.1 A1 (watchdogasync): the idle check CheckIdle chose for A1 (never a household Sim, H4Core.WdRoute)
+                if (sWdA1Task != 0 && sWdA1Task == Simulator.CurrentTask.Value && sInOwnCheck) return 872;
                 if (!ShortcutOn("drivertaskasync")) return -1;
                 IScriptProxy proxy = Follower;
                 Sims3.Gameplay.Objects.Vehicles.Vehicle v = proxy != null ? proxy.Target as Sims3.Gameplay.Objects.Vehicles.Vehicle : null;

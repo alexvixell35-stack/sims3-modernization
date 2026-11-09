@@ -178,6 +178,7 @@ static void DiscPfSweep(u8* world, DWORD idLo, DWORD idHi) {
 
 // true = applied with the original
 static bool DiscApplyOne(DiscRec& r, void* world) {
+    UafTagScope uafTag(r.lr ? UT_LOST_REMOVAL : UT_DISC_REPLAY, _ReturnAddress());  // [UafCheck]: site = the drain / replay caller
     Ts3nCounters& k = ts3native_counters;
     void* svc = g_objSvc();
     void* obj = NULL;
@@ -878,6 +879,7 @@ static bool FpgRemove(u8* world, DWORD lo, DWORD hi) {
     void* p = *(void**)(world + 0x95C);
     if (!p || !FpgNoObject(lo, hi) || DiscKeyMapHas(world, lo, hi)) return false;
     InterlockedIncrement(&k.fpgRemoved);
+    UafTagScope uafTag(UT_GHOST_SWEEP, _ReturnAddress());  // [UafCheck]
     g_lotRemove(p, NULL, 0, 0, lo, hi);
     world[0x994] = 0;  // as Remove does after 0x635700
     DiscPfSweep(world, lo, hi);

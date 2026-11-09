@@ -69,7 +69,10 @@
       "CasTrim.Mode": 0,
       "CasTrim.Detect": 0,
       "AutShadow.Unseen": 0,
-      "AutShadow.TierReqLots": 0
+      "AutShadow.TierReqLots": 0,
+      "RouteAsync.ForeignKinds": 0,
+      "RouteAsync.ForeignKindsMode": 1,
+      "RouteAsync.KdA10ForeignMs": 200
     },
     "logRequire": {
       "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -205,7 +208,10 @@
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
         "AutShadow.Unseen": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -316,7 +322,10 @@
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
         "AutShadow.Unseen": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -427,7 +436,10 @@
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
         "AutShadow.Unseen": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -538,7 +550,10 @@
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
         "AutShadow.Unseen": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -649,7 +664,10 @@
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
         "AutShadow.Unseen": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -760,7 +778,10 @@
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
         "AutShadow.Unseen": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -871,7 +892,10 @@
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
         "AutShadow.Unseen": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -982,7 +1006,10 @@
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
         "AutShadow.Unseen": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -1093,7 +1120,10 @@
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
         "AutShadow.Unseen": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -1204,7 +1234,10 @@
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
         "AutShadow.Unseen": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -1315,7 +1348,10 @@
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
         "AutShadow.Unseen": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
@@ -1426,7 +1462,10 @@
         "CasTrim.Mode": 0,
         "CasTrim.Detect": 0,
         "AutShadow.Unseen": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "logRequire": {
         "OK   sim loop: .* runs at the end of every Simulate iteration": 1,

@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay.Actors;
+using Sims3.Gameplay.Autonomy;
+using Sims3.Gameplay.CAS;
+using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Objects;
 using Sims3.Gameplay.Utilities;
@@ -33,8 +37,9 @@ namespace Ts3Fixes
                     if (BookCarryCore.Dropped(before, smcRead, Actor.CarryStateMachine))
                     {
                         PatchCounters()[2043]++;
-                        bool armed = sBcSim != null && Actor == sBcSim; // the agent check's Sim; kept only while armed
-                        if (armed) { sBcLast = before; sBcSeen++; }
+                        bool inCrowd = sBcCrowd != null && sBcCrowd.ContainsKey(Actor);
+                        bool armed = (sBcSim != null && Actor == sBcSim) || inCrowd; // the agent check's Sims; kept only while armed
+                        if (armed) { sBcLast = before; sBcSeen++; if (inCrowd) sBcCrowd[Actor]++; }
                         if (ShortcutOn("bookcarry") && BcEnd(before) && armed) sBcEnded++;
                     }
                 }
@@ -57,9 +62,11 @@ namespace Ts3Fixes
         static Sim sBcSim;
         static StateMachineClient sBcLast;
         static int sBcSeen, sBcEnded;
+        static Dictionary<Sim, int> sBcCrowd; // "crowd" check: armed Sims -> carry machines dropped since "crowd read"
 
         // What "state" returns (reflect_call describes its fields, so a repro "until" can poll them).
-        public class BcState { public bool reading, carry, ready; public int dropped; }
+        public class BcState { public bool reading, carry, ready; public int dropped; public string current, posture, queue; }
+        public class BcCrowdState { public int sims, reading, carry, ready, dropped, droppedSims, idle; public bool any; public string current; }
 
         // The machine's engine driver handle (StateMachineClient.mDriver.mHandle): nonzero while the engine still runs the
         // machine, 0 once Dispose released it. IsValid is no test of that: it asks whether the event queue is valid.
@@ -92,6 +99,7 @@ namespace Ts3Fixes
         //           On: every dropped machine ended and the last one's driver released. Disarms the check.
         public static object BookCarryCheck(string arg)
         {
+            if (arg.StartsWith("crowd ")) return BcCrowdCheck(arg.Substring(6));
             string what = null;
             foreach (string w in new string[] { "cure", "read", "state", "stop", "expect left", "expect ended" }) if (arg.StartsWith(w + " ")) what = w;
             if (what == null) return "bookcarry <cure|read|state|stop|expect left|expect ended> <full name>";
@@ -112,17 +120,23 @@ namespace Ts3Fixes
                 Book book = null;
                 foreach (Book b in sim.Inventory.FindAll<Book>(false)) { book = b; break; }
                 if (book == null) throw new InvalidOperationException("bookcarry read: " + name + " has no book in the inventory");
+                // Repro rule: cancel first so autonomy (e.g. leaving via a locked door) cannot block the read; queue is then empty, so ReadBook runs at head.
+                sim.InteractionQueue.CancelAllInteractions();
                 InteractionInstance ii = ReadBook.FromSimInventorySingleton.CreateInstance(book, sim, new InteractionPriority(InteractionPriorityLevel.High), false, true);
                 bool queued = sim.InteractionQueue.Add(ii);
-                sBcSim = sim; sBcLast = null; sBcSeen = 0; sBcEnded = 0;
+                sBcSim = sim; sBcCrowd = null; sBcLast = null; sBcSeen = 0; sBcEnded = 0;
                 return name + ": ReadBook queued " + queued + " on \"" + book.Title + "\"";
             }
             if (what == "state")
             {
                 BcState bs = new BcState();
                 bs.reading = sim.CurrentInteraction is ReadBook;
+                bs.current = sim.CurrentInteraction != null ? sim.CurrentInteraction.GetType().Name : "nothing";
                 bs.carry = sim.CarryStateMachine != null;
                 bs.dropped = sBcSim == sim ? sBcSeen : 0;
+                bs.posture = sim.Posture != null ? sim.Posture.GetType().Name : "none";
+                bs.queue = "";
+                foreach (InteractionInstance q in sim.InteractionQueue.InteractionList) bs.queue += (bs.queue.Length > 0 ? "," : "") + q.GetType().Name;
                 bs.ready = (bs.reading && bs.carry) || bs.dropped > 0;
                 return bs;
             }
@@ -138,17 +152,125 @@ namespace Ts3Fixes
                 sim.InteractionQueue.CancelAllInteractions();
                 return name + ": reading with carry " + carry + "; read cancelled";
             }
-            bool on = ShortcutOn("bookcarry");
             if (sBcSim != sim) throw new InvalidOperationException("bookcarry " + what + ": no read armed on " + name);
             int seen = sBcSeen, ended = sBcEnded;
             StateMachineClient m = sBcLast;
             sBcSim = null; sBcLast = null;
+            return BcExpect(what, name, seen, ended, m);
+        }
+
+        static object BcExpect(string what, string who, int seen, int ended, StateMachineClient m)
+        {
+            bool on = ShortcutOn("bookcarry");
             bool valid = false; try { valid = m != null && m.IsValid; } catch (Exception) { }
             long h = m != null ? BcHandle(m) : -1;
             bool ok = seen >= 1 && m != null && (what == "expect left" ? !on && ended == 0 && h != 0 : on && ended == seen && h == 0);
-            string st = name + ": seen +" + seen + ", ended +" + ended + ", dropped machine " + (m == null ? "none" : "driver " + (h != 0 ? "held" : "released") + ", event queue valid " + valid);
+            string st = who + ": seen +" + seen + ", ended +" + ended + ", dropped machine " + (m == null ? "none" : "driver " + (h != 0 ? "held" : "released") + ", event queue valid " + valid);
             if (!ok) throw new InvalidOperationException("bookcarry " + what + ": wrong outcome (switch " + on + "); " + st);
             return "as expected; " + st;
+        }
+
+        // Crowd form of the check (args "crowd <read N|state|stop|expect left|expect ended>"): the carry machine is dropped only
+        // when the book goes to the reader's inventory, i.e. a read on the reader's own home lot (ReadBook.ShouldPutInInventory),
+        // so each Sim reads from a bookshelf on its own home lot. Never the active household, its lot or a selectable Sim.
+        //   "read N": up to N Sims, at most 2 per shelf: cancel their queues, max motives, Teleport Me Here in front of the shelf
+        //             (skipped when already within 3 m on that lot), then EA's Bookshelf_ReadSomething at high priority. Arms the crowd.
+        //   "state":  counts (BcCrowdState); any = a crowd Sim reads with the book in hand, or a crowd read already dropped.
+        //   "stop":   cancels the reads of crowd Sims that are reading, so EA ends them through StopUsingBook.
+        //   "expect left|ended": as the one-Sim form, over all crowd drops (the last dropped machine checked). Disarms.
+        static object BcCrowdCheck(string arg)
+        {
+            if (arg.StartsWith("read "))
+            {
+                int max = int.Parse(arg.Substring(5));
+                Household active = Household.ActiveHousehold;
+                Lot activeLot = active != null ? active.LotHome : null;
+                Dictionary<Bookshelf, int> perShelf = new Dictionary<Bookshelf, int>();
+                Dictionary<Sim, int> crowd = new Dictionary<Sim, int>();
+                List<string> lots = new List<string>();
+                int refused = 0;
+                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                {
+                    if (crowd.Count >= max) break;
+                    SimDescription sd = s.SimDescription;
+                    Lot home = s.LotHome;
+                    if (sd == null || s.HasBeenDestroyed || s.IsSelectable || s.Household == null || s.Household == active || home == null || home == activeLot) continue;
+                    if (!sd.IsHuman || !sd.TeenOrAbove || s.Parent != null) continue;
+                    Bookshelf shelf = null;
+                    foreach (Bookshelf b in home.GetObjects<Bookshelf>())
+                    {
+                        int n; perShelf.TryGetValue(b, out n);
+                        if (n < 2 && b.Inventory != null && b.Inventory.Find<BookGeneral>() != null) { shelf = b; break; }
+                    }
+                    if (shelf == null) continue;
+                    s.InteractionQueue.CancelAllInteractions();
+                    foreach (CommodityKind k in new CommodityKind[] { CommodityKind.Hunger, CommodityKind.Bladder, CommodityKind.Energy, CommodityKind.Hygiene, CommodityKind.Social, CommodityKind.Fun })
+                        if (s.Motives != null && s.Motives.HasMotive(k)) s.Motives.SetMax(k);
+                    Vector3 spot = shelf.Position + shelf.ForwardVector * 1.2f;
+                    float dx = s.Position.x - spot.x, dz = s.Position.z - spot.z;
+                    if (s.LotCurrent != home || dx * dx + dz * dz > 9f)
+                    {
+                        // EA's own teleport, as the agent's setup_sims (a bare SetPosition leaves LotCurrent on the old lot)
+                        TerrainInteraction tp = new Terrain.TeleportMeHere.Definition(false).CreateInstance(Terrain.Singleton, s, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true) as TerrainInteraction;
+                        typeof(TerrainInteraction).GetField("Destination", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).SetValue(tp, spot);
+                        if (!s.InteractionQueue.Add(tp)) { refused++; continue; }
+                    }
+                    if (!s.InteractionQueue.Add(Bookshelf_ReadSomething.Singleton.CreateInstance(shelf, s, new InteractionPriority(InteractionPriorityLevel.High), false, true))) { refused++; s.InteractionQueue.CancelAllInteractions(); continue; }
+                    crowd[s] = 0;
+                    int had; perShelf.TryGetValue(shelf, out had); perShelf[shelf] = had + 1;
+                    if (!lots.Contains(home.Name)) lots.Add(home.Name);
+                }
+                if (crowd.Count == 0) throw new InvalidOperationException("bookcarry crowd read: no non-household Sim with a bookshelf (with a book) on its home lot; refused " + refused);
+                sBcCrowd = crowd; sBcSim = null; sBcLast = null; sBcSeen = 0; sBcEnded = 0;
+                return "crowd: " + crowd.Count + " Sims at " + perShelf.Count + " shelves on " + lots.Count + " lots (" + string.Join(", ", lots.ToArray()) + "), refused " + refused;
+            }
+            if (sBcCrowd == null) throw new InvalidOperationException("bookcarry crowd " + arg + ": no crowd armed");
+            if (arg == "state")
+            {
+                BcCrowdState cs = new BcCrowdState();
+                Dictionary<string, int> cur = new Dictionary<string, int>();
+                foreach (KeyValuePair<Sim, int> e in sBcCrowd)
+                {
+                    Sim s = e.Key;
+                    cs.sims++;
+                    if (e.Value > 0) { cs.dropped += e.Value; cs.droppedSims++; }
+                    if (s.HasBeenDestroyed) continue;
+                    bool reading = s.CurrentInteraction is ReadBook, carry = s.CarryStateMachine != null;
+                    if (reading) cs.reading++;
+                    if (carry) cs.carry++;
+                    if (reading && carry) cs.ready++;
+                    string c = s.CurrentInteraction != null ? s.CurrentInteraction.GetType().Name : "nothing";
+                    if (c == "nothing") cs.idle++;
+                    int n; cur.TryGetValue(c, out n); cur[c] = n + 1;
+                }
+                cs.any = cs.ready > 0 || cs.droppedSims > 0;
+                cs.current = "";
+                foreach (KeyValuePair<string, int> e in cur) cs.current += (cs.current.Length > 0 ? ", " : "") + e.Key + " " + e.Value;
+                return cs;
+            }
+            if (arg == "stop")
+            {
+                int stopped = 0, carrying = 0;
+                foreach (Sim s in sBcCrowd.Keys)
+                {
+                    if (s.HasBeenDestroyed || !(s.CurrentInteraction is ReadBook)) continue;
+                    if (s.CarryStateMachine != null) carrying++;
+                    s.InteractionQueue.CancelAllInteractions();
+                    stopped++;
+                }
+                if (stopped == 0 && sBcSeen == 0) throw new InvalidOperationException("bookcarry crowd stop: no crowd Sim is reading and no read ended");
+                return "crowd: " + stopped + " reads cancelled (" + carrying + " with carry), dropped so far +" + sBcSeen;
+            }
+            if (arg == "expect left" || arg == "expect ended")
+            {
+                int hit = 0;
+                foreach (int v in sBcCrowd.Values) if (v > 0) hit++;
+                int sims = sBcCrowd.Count, seen = sBcSeen, ended = sBcEnded;
+                StateMachineClient m = sBcLast;
+                sBcCrowd = null; sBcLast = null;
+                return BcExpect(arg, "crowd " + hit + " of " + sims + " Sims dropped", seen, ended, m);
+            }
+            return "bookcarry crowd <read N|state|stop|expect left|expect ended>";
         }
     }
 }

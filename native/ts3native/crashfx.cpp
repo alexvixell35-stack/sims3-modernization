@@ -40,6 +40,7 @@ static void DiDump(const CONTEXT* c);                               // docs/67 �
 static bool CfJmp(DWORD at, const u8* pro, size_t len, void* hook);  // below
 static void CtInvFault(const CONTEXT* c);  // castrim.cpp: the outfit inventory fault decoder (docs/539 §12.5)
 static void CtRelFault(const CONTEXT* c);  // castrim.cpp: the outfit release fault decoder (docs/539 §13.5)
+static void CtOsFault(const CONTEXT* c);   // castrim.cpp: the outfit save string copy fault decoder (docs/539 §15)
 static bool CfVtOk(DWORD vt) { return vt >= g_cfVtLo && vt < g_cfVtHi && !(vt & 3); }
 
 // one guarded-site finding: count, ring lookup, first 16 logged
@@ -181,7 +182,10 @@ static void CfOnFault(const EXCEPTION_POINTERS* x) {
     const DWORD eip = x->ContextRecord->Eip;
     // docs/539 §12.5: EA's outfit inventory 0x5E7690 (the 11-08 travel-save crash at 0x5E772C), Light or not, before the dump cap
     if (eip == 0x005E772C || eip == 0x005E76DA) CtInvFault(x->ContextRecord);
-    if (eip == 0x00D4B156 || eip == 0x005AF67E) CtRelFault(x->ContextRecord);  // docs/539 §13.5: the 11-08 release-smoke crash
+    // docs/539 §13.5: the 11-08 release-smoke crash; §14: 0xD4B154 / any fault in the callback 0xD4B150 (11-09, from 0x5D82A0)
+    if ((eip >= 0x00D4B150 && eip <= 0x00D4B159) || eip == 0x005AF67E) CtRelFault(x->ContextRecord);
+    // docs/539 §15: the 11-09 outfit save crash faults in MSVCR80's memcpy (0x408C3A / 0x5E621C on the stack), so any AV is searched
+    if (x->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) CtOsFault(x->ContextRecord);
     const bool wild = XcptWild(x->ExceptionRecord->ExceptionCode);  // C0000096 too (2026-11-02 drain crash wrote no dump)
     if (!g_cfOn || (!wild && (eip < 0x00401000 || eip >= 0x00F95000)) || InterlockedIncrement(&g_cfDumpN) > 4) return;
     Ts3nCounters& k = ts3native_counters;

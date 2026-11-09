@@ -32,7 +32,7 @@ static void CtsKids(DWORD o) {  // B and the new one name C (its node's key) as 
 
 static void TestCasTrim() {
     static_assert(offsetof(Ts3nCounters, ctMode) == 0x5CF0 && offsetof(Ts3nCounters, ctOtherThread) == 0x5D14 &&
-                      sizeof(Ts3nCounters) == 6074 * 4,
+                      sizeof(Ts3nCounters) == 6112 * 4,
                   "counters v912 layout after v908 and the held block (docs/registry.md)");
     Ts3nCounters& z = ts3native_counters;
     const CtEraseFn erase0 = g_ctErase;
@@ -252,7 +252,7 @@ __declspec(naked) static void __fastcall CswFbEnter(DWORD) {  // a frame with th
 }
 
 static void TestCasTrimSweep() {
-    static_assert(offsetof(Ts3nCounters, ctSaves) == 0x5D80 && offsetof(Ts3nCounters, ctBlendKB) == 0x5DE4 && sizeof(Ts3nCounters) == 6074 * 4,
+    static_assert(offsetof(Ts3nCounters, ctSaves) == 0x5D80 && offsetof(Ts3nCounters, ctBlendKB) == 0x5DE4 && sizeof(Ts3nCounters) == 6112 * 4,
                   "counters v171 layout (docs/registry.md)");
     Ts3nCounters& z = ts3native_counters;
     const CtEraseFn erase0 = g_ctErase;
@@ -401,6 +401,22 @@ static void TestCasTrimSweep() {
     g_cswFault = true;
     assert(CtSaveHook(g_cswSvc, NULL, NULL) && !z.ctMode && !g_ctPendN);
     g_cswFault = false;
+    // docs/539 §15.7 Quarantine=1: the first erase takes a reference through the (fake) AddRef and is held; the full list stops the
+    // sweep (the second candidate stays in the registry) for good; the per-save scan finds 0x40A00000 at +0x28 of a held block
+    static DWORD quar[1], blk[0x68 / 4];
+    g_ctQuar = quar, g_ctQuarCap = 1, g_ctQuarN = 0, g_ctQuarFull = false, g_ctQuarHitLog = 0;
+    g_ctAddRefFn = [](DWORD o) { ((DWORD*)(uintptr_t)o)[1] += 0x100; };
+    CswReset(), z.ctMode = 3, g_ctMaxErase = 8;
+    CswBegin(0, true, 1);
+    CtMarkHook(g_cswSvc, NULL, cswKey(CSW_LIVE));
+    assert(CtSaveHook(g_cswSvc, NULL, NULL) && g_ctPendN == 2 && CtOp(17, 1) == 1 && CtOp(18, 0) == 0);
+    assert(z.ctSwept == 1 && g_cswErased == 1 && g_ctQuarN == 1 && g_ctQuarFull && !g_ctPendN && (quar[0] == cswO(CSW_A) || quar[0] == cswO(CSW_LOOSE)));
+    assert(((const DWORD*)(uintptr_t)quar[0])[1] == (3 << 8 | 1));
+    assert(CtQuarHold(cswO(CSW_KID)) == false && g_ctQuarN == 1);
+    quar[0] = (DWORD)(uintptr_t)blk, blk[1] = 3 << 8, blk[0x28 / 4] = 0x40A00000;
+    CtQuarScan();
+    assert(g_ctQuarHitLog == 1);
+    g_ctQuar = NULL, g_ctQuarCap = g_ctQuarN = g_ctQuarHitLog = 0, g_ctQuarFull = false, g_ctAddRefFn = CtAddRefEa;
 
     // the inserts' sources (P2) and no walk in modes 3 and 4
     CswReset(), z.ctMode = 4;
@@ -549,7 +565,7 @@ static void __fastcall CtsRelEa(DWORD* vec, void*, DWORD* b, DWORD* e) {  // EA'
     for (DWORD i = 0; i < g_ctsRelN && i < 16; i++) g_ctsRelSeen[i] = b[i];
 }
 static void TestCasTrimCells() {
-    static_assert(offsetof(Ts3nCounters, ctCellSeen) == 0x5EC0 && offsetof(Ts3nCounters, ctCellSkip) == 0x5EC4 && sizeof(Ts3nCounters) == 6074 * 4,
+    static_assert(offsetof(Ts3nCounters, ctCellSeen) == 0x5EC0 && offsetof(Ts3nCounters, ctCellSkip) == 0x5EC4 && sizeof(Ts3nCounters) == 6112 * 4,
                   "counters v176 layout after the gap held for v174-v175 (docs/registry.md)");
     assert(RhRanges());
     Ts3nCounters& z = ts3native_counters;
@@ -638,4 +654,303 @@ static void TestCasTrimCells() {
     z.ctCellSeen = z.ctCellSkip = 0;
     memset(g_ctCellVt, 0, sizeof(g_ctCellVt)), memset(g_ctInvSeen, 0, sizeof(g_ctInvSeen));
     g_ctsRelCalls = 0;
+}
+
+// docs/539 §14: the 0x5D82A0 call sites (ModelBuilder part records) through a real patched dummy call site, MbGuard off / on,
+// bad ranges, and the 0xD4B154 fault decoder on the 11-09 frame layout (dtor and holder callers, another loop, another caller).
+static DWORD g_ctsMbSeen[12], g_ctsMbCalls;
+static u8* g_ctsMbArg;
+static void __fastcall CtsMbEa(u8* mb, void*) {  // EA's 0x5D82A0: the cells it would release
+    g_ctsMbCalls++, g_ctsMbArg = mb;
+    __try {
+        const u8* b = *(u8* const*)(mb + 0xC);
+        for (int r = 0; r < 3; r++) memcpy(g_ctsMbSeen + r * 4, b + r * 0x74 + 4, 16);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+}
+static void TestCasTrimMb() {
+    static_assert(offsetof(Ts3nCounters, mbCalls) == 0x5EE8 && offsetof(Ts3nCounters, mbSkip) == 0x5EF4 && sizeof(Ts3nCounters) == 6112 * 4,
+                  "counters v178 layout after v177 (docs/registry.md)");
+    assert(RhRanges());
+    Ts3nCounters& z = ts3native_counters;
+    const CtMbFn ea0 = g_ctMbEa;
+    g_ctMbEa = &CtsMbEa;
+    static DWORD good[4], data[4] = {0x12345678}, zero[4], junk[4];
+    good[0] = (DWORD)(uintptr_t)&kCtsCellVt[1];
+    static u8 mb[0x40], recs[3 * 0x74];
+    // record 0: first dword 0 (EA skips it, bad cells there are not counted); 1: good, float 5, pending, zero vtable; 2: not .rdata, empty, good, good
+    const DWORD init[12] = {CT_F5, CT_F5, CT_F5, CT_F5, (DWORD)(uintptr_t)good, CT_F5, (DWORD)(uintptr_t)junk | 1, (DWORD)(uintptr_t)zero,
+                            (DWORD)(uintptr_t)data, 0, (DWORD)(uintptr_t)good, (DWORD)(uintptr_t)good};
+    for (int r = 0; r < 3; r++) *(DWORD*)(recs + r * 0x74) = r ? 1 : 0, memcpy(recs + r * 0x74 + 4, init + r * 4, 16);
+    *(u8**)(mb + 0xC) = recs, *(u8**)(mb + 0x10) = recs + 3 * 0x74;
+    // a dummy call site: mov ecx,builder; call 0x5D82A0; ret
+    u8* code = (u8*)VirtualAlloc(NULL, 64, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    assert(code);
+    code[0] = 0xB9, *(DWORD*)(code + 1) = (DWORD)(uintptr_t)mb, code[5] = 0xE8, *(DWORD*)(code + 6) = (DWORD)(uintptr_t)&CtsMbEa - (DWORD)(uintptr_t)(code + 10), code[10] = 0xC3;
+    const CallSite site[] = {{(DWORD)(uintptr_t)(code + 5), (DWORD)(uintptr_t)&CtsMbEa, (void*)CtMbHook}};
+    assert(PatchCalls("selftest cas trim modelbuilder site", site, 1));
+    void (*run)() = (void (*)())code;
+    g_ctMbGuard = false;
+    const LONG c0 = z.mbCalls, n0 = z.mbCells, b0 = z.mbBad, s0 = z.mbSkip;
+    run();  // log only: EA sees every cell as it was
+    assert(g_ctsMbCalls == 1 && g_ctsMbArg == mb && !memcmp(g_ctsMbSeen, init, sizeof(init)));
+    assert(z.mbCalls - c0 == 1 && z.mbCells - n0 == 6 && z.mbBad - b0 == 3 && z.mbSkip == s0 && g_ctMbRecs == 3);
+    g_ctMbGuard = true;
+    run();  // guard: float 5, zero vtable and non-.rdata cells set to 0; record 0, the good and pending ones unchanged
+    DWORD want[12];
+    memcpy(want, init, sizeof(want)), want[5] = want[7] = want[8] = 0;
+    assert(g_ctsMbCalls == 2 && !memcmp(g_ctsMbSeen, want, sizeof(want)) && z.mbSkip - s0 == 3 && z.mbBad - b0 == 6);
+    run();  // clean now: nothing more
+    assert(g_ctsMbCalls == 3 && z.mbBad - b0 == 6 && z.mbSkip - s0 == 3);
+    // a bad range and an unreadable record array: logged, EA still called; no builder: EA only
+    *(u8**)(mb + 0x10) = recs + 5;
+    run();
+    *(u8**)(mb + 0xC) = (u8*)(uintptr_t)0x10, *(u8**)(mb + 0x10) = (u8*)(uintptr_t)(0x10 + 0x74);
+    run();
+    CtMbHook(NULL, NULL);
+    assert(g_ctsMbCalls == 6 && z.mbCalls - c0 == 6);
+    *(u8**)(mb + 0xC) = recs, *(u8**)(mb + 0x10) = recs + 3 * 0x74;
+    // the fault decoder: the 11-09 frame (record 1 cell 1 = float 5, from the dtor call), then the holder call, loop 1, another caller
+    static DWORD fr[18], holder[4];
+    memcpy(recs + 0x74 + 4, init + 4, 16);
+    fr[0] = 0x007287EC, fr[1] = CT_F5, fr[3] = (DWORD)(uintptr_t)(recs + 3 * 0x74), fr[4] = (DWORD)(uintptr_t)(recs + 0x74), fr[5] = 0x00728DD4;
+    fr[6] = (DWORD)(uintptr_t)(recs + 0x74 + 8), fr[10] = 0x005D8377, fr[14] = (DWORD)(uintptr_t)mb, fr[17] = CT_MB_RET_DTOR;
+    CONTEXT c = {};
+    c.Eip = 0x00D4B154, c.Esp = (DWORD)(uintptr_t)fr;
+    char t[3072];
+    assert(CtMbFaultText(&c, t, sizeof(t)) && strstr(t, "0x5D82A0 part records") && strstr(t, "(float 5.0)") && strstr(t, "(rec+0x8, cell 1)") && strstr(t, "(1 of 3,") &&
+           strstr(t, "ModelBuilder dtor 0x5D83B4") && strstr(t, "never erased by CasTrim") && strstr(t, "record bytes: 01 00 00 00"));
+    holder[3] = (DWORD)(uintptr_t)mb, fr[14] = (DWORD)(uintptr_t)holder, fr[17] = CT_MB_RET_HOLD;
+    char want2[40];
+    sprintf_s(want2, "builder 0x%08lX", (DWORD)(uintptr_t)mb);
+    assert(CtMbFaultText(&c, t, sizeof(t)) && strstr(t, "holder release 0x5D96AD") && strstr(t, want2));
+    fr[10] = 0x005D82CF;
+    assert(CtMbFaultText(&c, t, sizeof(t)) && strstr(t, "list +0x1C") && strstr(t, "record bytes: none"));
+    fr[10] = 0x005AF66D;  // the outfit release: not this decoder (CtRelFaultText's)
+    assert(!CtMbFaultText(&c, t, sizeof(t)) && CtRelFaultText(&c, t, sizeof(t)));
+    fr[10] = 0x005D8377, c.Eip = 0x005AF67E;
+    assert(!CtMbFaultText(&c, t, sizeof(t)));
+    c.Eip = 0x00D4B154, c.Esp = 0x10;
+    assert(!CtMbFaultText(&c, t, sizeof(t)));
+    g_ctRelFaults = 0, c.Esp = (DWORD)(uintptr_t)fr;
+    CtRelFault(&c), CtRelFault(&c), CtRelFault(&c);  // 2 lines, then the cap
+    assert(g_ctRelFaults == 3);
+    printf("cas trim: modelbuilder check and 0xD4B154 decoder selftest ok (patched dummy call site, MbGuard off / on / clean, bad ranges, dtor / holder / list frames)\n");
+    VirtualFree(code, 0, MEM_RELEASE);
+    g_ctMbEa = ea0, g_ctMbGuard = false, g_ctRelFaults = 0, g_ctMbLogs = g_ctMbRecs = g_ctMbGone = 0, g_ctMbQpc = g_ctMbMaxQpc = 0, g_ctsMbCalls = 0;
+    z.mbCalls = z.mbCells = z.mbBad = z.mbSkip = 0;
+    memset(g_ctMbVt, 0, sizeof(g_ctMbVt));
+}
+
+// docs/539 §15: the outfit save writer's call 0x5E7BC2 -> 0x5E61A0 through a real patched dummy call site: the crash's string
+// (begin 0x40A00000, end EA's empty string), the same with [obj+0x28] set or another vtable (log only), an unreadable range,
+// OutfitStrGuard off / on / clean, bad vectors, and the MSVCR80 memcpy fault decoder on the 11-09 stack layout.
+static DWORD g_ctsOsCalls, g_ctsOsArgs[5], g_ctsOsStr[7][3];
+static void __fastcall CtsOsEa(void* outfit, void*, DWORD* vec, DWORD a2, DWORD a3, DWORD a4) {  // EA's 0x5E61A0: the strings it would copy
+    g_ctsOsCalls++;
+    g_ctsOsArgs[0] = (DWORD)(uintptr_t)outfit, g_ctsOsArgs[1] = (DWORD)(uintptr_t)vec, g_ctsOsArgs[2] = a2, g_ctsOsArgs[3] = a3, g_ctsOsArgs[4] = a4;
+    __try {
+        const u8* const* b = *(const u8* const* const*)vec;
+        for (int r = 0; r < 7; r++) {
+            const u8* o = *(const u8* const*)(b[r] + 0x5C);
+            if (o) memcpy(g_ctsOsStr[r], o + 0x2C, 12);
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+}
+static void TestCasTrimOs() {
+    static_assert(offsetof(Ts3nCounters, osCalls) == 0x5F28 && offsetof(Ts3nCounters, osFix) == 0x5F34 && sizeof(Ts3nCounters) == 6112 * 4,
+                  "counters v180 layout after the v913 + v179 gap (docs/registry.md)");
+    assert(RhRanges());
+    Ts3nCounters& z = ts3native_counters;
+    const CtOsFn ea0 = g_ctOsEa;
+    const DWORD want0 = g_ctOsVtWant;
+    g_ctOsEa = &CtsOsEa, g_ctOsVtWant = (DWORD)(uintptr_t)&kCtsCellVt[0];
+    static u8 recs[7][0x68], objs[7][0x60], outfit[0x40];
+    static wchar_t txt[] = L"Body";
+    static u8* vecRecs[7];
+    static DWORD vec[2];
+    const DWORD vt = g_ctOsVtWant, vt2 = (DWORD)(uintptr_t)&kCtsCellVt[1], t0 = (DWORD)(uintptr_t)txt;
+    // 0 no object; 1 a good string; 2 the crash (fix); 3 the crash with +0x28 set; 4 the crash on another vtable; 5 unreadable (fix); 6 EA's empty string
+    const DWORD init[7][5] = {{0}, {vt, 0, t0, t0 + 8, t0 + 10}, {vt, 0, CT_F5, CT_STR_EMPTY, CT_STR_EMPTY + 2}, {vt, 0x1234, CT_F5, CT_STR_EMPTY, CT_STR_EMPTY + 2},
+                              {vt2, 0, CT_F5, CT_STR_EMPTY, CT_STR_EMPTY + 2}, {vt, 0, 0x10, 0x20, 0x22}, {vt, 0, CT_STR_EMPTY, CT_STR_EMPTY, CT_STR_EMPTY + 2}};
+    for (int r = 0; r < 7; r++) {
+        vecRecs[r] = recs[r];
+        *(u8**)(recs[r] + 0x5C) = r ? objs[r] : NULL;
+        *(DWORD*)objs[r] = init[r][0], memcpy(objs[r] + 0x28, init[r] + 1, 16);
+    }
+    vec[0] = (DWORD)(uintptr_t)vecRecs, vec[1] = (DWORD)(uintptr_t)(vecRecs + 7);
+    // a dummy call site: mov ecx,outfit; push 4; push 3; push 2; push vec; call 0x5E61A0; ret
+    u8* code = (u8*)VirtualAlloc(NULL, 64, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    assert(code);
+    code[0] = 0xB9, *(DWORD*)(code + 1) = (DWORD)(uintptr_t)outfit, code[5] = 0x6A, code[6] = 4, code[7] = 0x6A, code[8] = 3, code[9] = 0x6A, code[10] = 2;
+    code[11] = 0x68, *(DWORD*)(code + 12) = (DWORD)(uintptr_t)vec, code[16] = 0xE8, *(DWORD*)(code + 17) = (DWORD)(uintptr_t)&CtsOsEa - (DWORD)(uintptr_t)(code + 21), code[21] = 0xC3;
+    const CallSite site[] = {{(DWORD)(uintptr_t)(code + 16), (DWORD)(uintptr_t)&CtsOsEa, (void*)CtOsHook}};
+    assert(PatchCalls("selftest cas trim outfit string site", site, 1));
+    void (*run)() = (void (*)())code;
+    auto seen = [&](int r, DWORD b, DWORD e, DWORD c) { return g_ctsOsStr[r][0] == b && g_ctsOsStr[r][1] == e && g_ctsOsStr[r][2] == c; };
+    g_ctOsGuard = false;
+    const LONG c0 = z.osCalls, o0 = z.osObjs, b0 = z.osBad, f0 = z.osFix;
+    run();  // log only: EA sees every string as it was, with its own arguments
+    assert(g_ctsOsCalls == 1 && g_ctsOsArgs[0] == (DWORD)(uintptr_t)outfit && g_ctsOsArgs[1] == (DWORD)(uintptr_t)vec && g_ctsOsArgs[2] == 2 && g_ctsOsArgs[4] == 4);
+    for (int r = 1; r < 7; r++) assert(seen(r, init[r][2], init[r][3], init[r][4]));
+    assert(z.osCalls - c0 == 1 && z.osObjs - o0 == 6 && z.osBad - b0 == 4 && z.osFix == f0 && g_ctOsRecs == 7);
+    g_ctOsGuard = true;
+    run();  // guard: 2 and 5 reset to EA's empty string; 3 (+0x28 set) and 4 (another vtable) stay as they were
+    assert(g_ctsOsCalls == 2 && seen(2, CT_STR_EMPTY, CT_STR_EMPTY, CT_STR_EMPTY + 2) && seen(5, CT_STR_EMPTY, CT_STR_EMPTY, CT_STR_EMPTY + 2));
+    assert(seen(1, t0, t0 + 8, t0 + 10) && seen(3, CT_F5, CT_STR_EMPTY, CT_STR_EMPTY + 2) && seen(4, CT_F5, CT_STR_EMPTY, CT_STR_EMPTY + 2));
+    assert(*(DWORD*)(objs[2] + 0x38) == 0 && *(DWORD*)(objs[2] + 0x28) == 0 && z.osBad - b0 == 8 && z.osFix - f0 == 2);
+    run();  // only 3 and 4 left
+    assert(g_ctsOsCalls == 3 && z.osBad - b0 == 10 && z.osFix - f0 == 2);
+    // a bad vector and an unreadable one: logged, EA still called; no vector: EA only
+    vec[1] = vec[0] - 4;
+    run();
+    vec[0] = 0x10, vec[1] = 0x14;
+    run();
+    CtOsHook(outfit, NULL, NULL, 2, 3, 4);
+    assert(g_ctsOsCalls == 6 && z.osCalls - c0 == 6);
+    // the fault decoder: the 11-09 stack (A at esp+0x100), eip in the CRT; then no 0x5BF5E0, an unreadable esp
+    static DWORD st[0x100];
+    const int a = 0x40;
+    st[0xF] = 0x00408C3A, st[a] = 0x005E621C, st[a - 0x19] = 0x005BF5E0, st[a + 0x15] = CT_OS_RET, st[a - 0x16] = (DWORD)(uintptr_t)recs[3];
+    st[a - 0x18] = CT_F5, st[a - 0x17] = CT_STR_EMPTY, st[a - 0x1B] = (DWORD)(uintptr_t)objs[3], st[a + 3] = (DWORD)(uintptr_t)outfit;
+    CONTEXT c = {};
+    c.Eip = 0x700973D0, c.Esp = (DWORD)(uintptr_t)st;
+    char t[3072];
+    assert(CtOsFaultText(&c, t, sizeof(t)) && strstr(t, "outside TS3W") && strstr(t, "0x408C3A memcpy return below it") &&
+           strstr(t, "string begin 0x40A00000 (float 5.0), end 0x011C7E54 (EA's empty string)") && strstr(t, " = 0xFE2A80, +0x28 00001234") &&
+           strstr(t, "never erased by CasTrim") && !strstr(t, "(not the object)"));
+    st[a - 0x16] = (DWORD)(uintptr_t)recs[1];
+    assert(CtOsFaultText(&c, t, sizeof(t)) && strstr(t, "(not the object)"));
+    st[a - 0x19] = 0;
+    assert(!CtOsFaultText(&c, t, sizeof(t)));
+    c.Esp = 0x10;
+    assert(!CtOsFaultText(&c, t, sizeof(t)));
+    printf("cas trim: outfit string check and memcpy fault decoder selftest ok (patched dummy call site, OutfitStrGuard off / on / clean, flag and vtable exemptions, bad vectors, 11-09 stack)\n");
+    VirtualFree(code, 0, MEM_RELEASE);
+    g_ctOsEa = ea0, g_ctOsVtWant = want0, g_ctOsGuard = false, g_ctOsLogs = g_ctOsGone = g_ctOsRecs = 0, g_ctOsQpc = g_ctOsMaxQpc = 0, g_ctsOsCalls = 0, g_ctOsFaults = 0;
+    z.osCalls = z.osObjs = z.osBad = z.osFix = 0;
+    memset(g_ctOsVt, 0, sizeof(g_ctOsVt));
+}
+
+// docs/539 §16 [CasTrim] WriteTrap: candidate order, real DR write watches through WpVeh -> CtTrapHit (value, float-5 flag,
+// read not caught, a thread started after the arm caught after WpRefresh), the release-site drop, a stale watch.
+static volatile DWORD* g_ctsTrapCell;
+static HANDLE g_ctsTrapGo;
+static DWORD WINAPI CtsTrapWriter(LPVOID) {
+    WaitForSingleObject(g_ctsTrapGo, INFINITE);
+    *g_ctsTrapCell = CT_F5;
+    return 0;
+}
+static void TestCasTrimTrap() {
+    static_assert(offsetof(Ts3nCounters, trArms) == 0x5F38 && offsetof(Ts3nCounters, trGone) == 0x5F44 && sizeof(Ts3nCounters) == 6112 * 4,
+                  "counters v181 layout after v180 (docs/registry.md)");
+    assert(RhRanges());
+    Ts3nCounters& z = ts3native_counters;
+    wchar_t lp[MAX_PATH];  // the lines as the game writes them (queue regex cases, AGENTS.md)
+    GetTempPathW(MAX_PATH, lp), wcscat_s(lp, L"ts3native-castrim-trap-selftest.log");
+    const HANDLE savedLog = g_log;
+    g_log = CreateFileW(lp, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, 0, NULL);
+    WpInstall();
+    g_wpTrapFn = CtTrapHit, g_ctTrapOn = true;
+    static u8 o121[0x100], o81[0x100], oOther[0x100];
+    static DWORD c121[121], c81[81], cOther[121];
+    *(DWORD*)o121 = *(DWORD*)o81 = CT_TRAP_VT, *(DWORD*)oOther = CT_TRAP_VT + 4;
+    *(DWORD**)(o121 + 0xBC) = c121, *(DWORD**)(o81 + 0xBC) = c81, *(DWORD**)(oOther + 0xBC) = cOther;
+    CtTrapNote(oOther, cOther, cOther + 121);  // another class: nothing
+    CtTrapNote(o121, c121, c121 + 121);        // 87 of 121 preferred, 3 of 121 other
+    CtTrapNote(o81, c81, c81 + 81);            // 3 of 81 preferred (87 out of range)
+    assert(g_ctTrapNC[0] == 2 && g_ctTrapNC[1] == 1 && g_ctTrapC[0][0].cell == (DWORD)(uintptr_t)(c121 + 87) && g_ctTrapC[0][1].cell == (DWORD)(uintptr_t)(c81 + 3));
+    const LONG a0 = z.trArms, h0 = z.trHits, f0 = z.trF5, g0 = z.trGone, save0 = g_ctInvSave;
+    g_ctInvSave = 0;
+    CtTrapArm();
+    assert(z.trArms - a0 == 3 && g_ctTrapNC[0] == 0 && g_wp[0].trap && g_wp[2].trap && !g_wp[3].addr);
+    assert(g_ctTrap[0].cell == (DWORD)(uintptr_t)(c121 + 87) && g_ctTrap[1].cell == (DWORD)(uintptr_t)(c81 + 3) && g_ctTrap[2].cell == (DWORD)(uintptr_t)(c121 + 3));
+    volatile DWORD* v87 = c121 + 87;
+    const DWORD r = *v87;  // a read: not caught
+    assert(r == 0 && z.trHits == h0);
+    *v87 = 0x1234;  // a legit write
+    assert(z.trHits - h0 == 1 && z.trF5 == f0 && g_ctTrap[0].writes == 1);
+    *v87 = CT_F5;  // the writer
+    assert(z.trHits - h0 == 2 && z.trF5 - f0 == 1);
+    g_ctsTrapCell = c81 + 3, g_ctsTrapGo = CreateEventW(NULL, TRUE, FALSE, NULL);
+    HANDLE t = CreateThread(NULL, 0, CtsTrapWriter, NULL, 0, NULL);  // started after the arm: set by the refresh
+    assert(t && WpRefresh() >= 2);
+    SetEvent(g_ctsTrapGo), WaitForSingleObject(t, INFINITE), CloseHandle(t), CloseHandle(g_ctsTrapGo);
+    assert(z.trHits - h0 == 3 && z.trF5 - f0 == 2 && g_ctTrap[1].writes == 1);
+    CtTrapDrop(o81, 1);  // the outfit clear: disarmed, no more hits
+    assert(!g_wp[1].addr && z.trGone - g0 == 1);
+    c81[3] = 0;
+    assert(z.trHits - h0 == 3);
+    *(DWORD**)(o121 + 0xBC) = cOther;  // the cells moved: a stale watch, no WRITER count
+    volatile DWORD* v3 = c121 + 3;
+    *v3 = CT_F5;
+    assert(z.trHits - h0 == 4 && z.trF5 - f0 == 2 && z.trGone - g0 == 2 && g_ctTrap[2].gone == 1);
+    CtTrapArm();  // no candidates: every trap slot cleared
+    assert(!g_wp[0].addr && !g_wp[2].addr);
+    *v87 = 0;
+    assert(z.trHits - h0 == 4);
+    WpUninstall();
+    if (g_log != INVALID_HANDLE_VALUE) CloseHandle(g_log);
+    g_log = savedLog;
+    printf("cas trim: write trap selftest ok (candidate order, DR write hits, float5 WRITER, read not caught, refresh for a later thread, drop at the clear, "
+           "stale watch, clear on an empty save); lines in %ls\n", lp);
+    g_wpTrapFn = NULL, g_ctTrapOn = false, g_ctInvSave = save0, g_ctTrapLogs = g_ctTrapF5Logs = 0;
+    memset(g_ctTrapEip, 0, sizeof(g_ctTrapEip)), memset(g_ctTrap, 0, sizeof(g_ctTrap));
+    z.trArms = z.trHits = z.trF5 = z.trGone = 0;
+}
+
+// docs/539 §16.6 realm shape check: fake realm / nodes / shapes, the hooks called directly with fake EA functions.
+static LONG g_ctsRlRem, g_ctsRlAdd;
+static u8* g_ctsRlAddNode;
+static void __fastcall CtsRlRem(u8*, void*, u8*) { g_ctsRlRem++; }
+static void __fastcall CtsRlAdd(u8*, void*, u8*, u8* node) { g_ctsRlAdd++, g_ctsRlAddNode = node; }
+static void TestCasTrimRealm() {
+    static_assert(offsetof(Ts3nCounters, rlCalls) == 0x5F48 && offsetof(Ts3nCounters, rlSkip) == 0x5F54 && sizeof(Ts3nCounters) == 6112 * 4,
+                  "counters v182 layout after v181 (docs/registry.md)");
+    assert(RhRanges());
+    Ts3nCounters& z = ts3native_counters;
+    const RlRemFn rem0 = g_rlRemEa;
+    const RlAddFn add0 = g_rlAddEa;
+    g_rlRemEa = &CtsRlRem, g_rlAddEa = &CtsRlAdd;
+    static u8 realm[0x20], node[0x30], root[0x30], sh[4][0x60];
+    static DWORD rv[8], nv[8], rootv[8];
+    const DWORD S[4] = {(DWORD)(uintptr_t)sh[0], (DWORD)(uintptr_t)sh[1], (DWORD)(uintptr_t)sh[2], (DWORD)(uintptr_t)sh[3]}, N = (DWORD)(uintptr_t)node;
+    auto shape = [&](int k, DWORD nd, DWORD ni, DWORD ri) { *(DWORD*)(sh[k] + 0x50) = nd, *(DWORD*)(sh[k] + 0x3C) = ni, *(DWORD*)(sh[k] + 0x38) = ri; };
+    auto setv = [](u8* o, int at, DWORD* v, std::initializer_list<DWORD> l) { int k = 0; for (DWORD x : l) v[k++] = x; *(DWORD**)(o + at) = v, *(DWORD**)(o + at + 4) = v + k; };
+    auto end = [](const u8* o, int at) { return (LONG)(*(DWORD* const*)(o + at + 4) - *(DWORD* const*)(o + at)); };
+    *(DWORD*)realm = (DWORD)(uintptr_t)root;
+    const LONG c0 = z.rlCalls, b0 = z.rlBad, f0 = z.rlFix, k0 = z.rlSkip;
+    // node {s0, s1, lost s2 = 0x40A00000}; s2 still in the realm vector naming node index 2
+    auto lost = [&]() { shape(0, N, 0, 0), shape(1, N, 1, 1), shape(2, N, 2, 2), setv(realm, 8, rv, {S[0], S[1], S[2]}), setv(node, 0x1C, nv, {S[0], S[1], CT_F5}); };
+    lost(), g_rlGuard = false;
+    RlRemHook(realm, NULL, sh[0]);  // log only: EA runs, nothing changed
+    assert(g_ctsRlRem == 1 && z.rlCalls - c0 == 1 && z.rlBad - b0 == 1 && z.rlFix == f0 && nv[2] == CT_F5);
+    lost(), g_rlGuard = true;
+    RlRemHook(realm, NULL, sh[0]);  // restored from the realm vector
+    assert(g_ctsRlRem == 2 && nv[2] == S[2] && end(node, 0x1C) == 3 && z.rlFix - f0 == 1);
+    // node {s0, 0x40A00000, s1}: no realm shape names index 1 -> swap-removed, s1 moves to 1
+    shape(0, N, 0, 0), shape(1, N, 2, 1), setv(realm, 8, rv, {S[0], S[1]}), setv(node, 0x1C, nv, {S[0], CT_F5, S[1]});
+    RlRemHook(realm, NULL, sh[0]);
+    assert(end(node, 0x1C) == 2 && nv[1] == S[1] && *(DWORD*)(sh[1] + 0x3C) == 1 && z.rlFix - f0 == 2 && z.rlBad - b0 == 3);
+    // realm vector last = 0x40A00000: dropped
+    shape(0, N, 0, 0), shape(1, N, 1, 1), setv(realm, 8, rv, {S[0], S[1], CT_F5}), setv(node, 0x1C, nv, {S[0], S[1]});
+    RlRemHook(realm, NULL, sh[1]);
+    assert(end(realm, 8) == 2 && z.rlFix - f0 == 3 && z.rlBad - b0 == 4 && g_ctsRlRem == 4);
+    // a 0x40A00000 shape argument: not passed to EA with the guard, passed without
+    RlRemHook(realm, NULL, (u8*)(uintptr_t)CT_F5);
+    assert(g_ctsRlRem == 4 && z.rlSkip - k0 == 1 && z.rlBad - b0 == 5);
+    g_rlGuard = false;
+    RlRemHook(realm, NULL, (u8*)(uintptr_t)CT_F5);
+    assert(g_ctsRlRem == 5 && z.rlSkip - k0 == 1);
+    // add with node 0: EA's root [realm] is checked, EA still gets node 0
+    g_rlGuard = true;
+    shape(3, (DWORD)(uintptr_t)root, 0, 2), setv(realm, 8, rv, {S[0], S[1], S[3]}), setv(root, 0x1C, rootv, {CT_F5});
+    RlAddHook(realm, NULL, sh[2], NULL);
+    assert(g_ctsRlAdd == 1 && !g_ctsRlAddNode && rootv[0] == S[3] && z.rlFix - f0 == 4);
+    // clean: no bad
+    const LONG b1 = z.rlBad;
+    RlAddHook(realm, NULL, sh[2], node);
+    assert(g_ctsRlAdd == 2 && g_ctsRlAddNode == node && z.rlBad == b1 && z.rlCalls - c0 == 8);
+    g_rlRemEa = rem0, g_rlAddEa = add0, g_rlGuard = false, g_rlLogs = 0;
+    z.rlCalls = z.rlBad = z.rlFix = z.rlSkip = 0;
+    printf("cas trim: realm shape selftest ok (log only, restore from the realm vector, swap-remove, realm last dropped, 0x40A00000 shape skipped, add on the root)\n");
 }

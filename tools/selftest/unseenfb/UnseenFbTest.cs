@@ -220,6 +220,10 @@ static class UnseenFbTest
             && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kHeld) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kSocialSeen), "seen NPC ceiling: the five proving reasons");
         Check(!UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kHousehold) && !UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kNotLive) && !UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kGone)
             && !UnseenFallbackCore.SeenNpc(-1) && !UnseenFallbackCore.SeenNpc(0) && !UnseenFallbackCore.SeenNpc(10), "household, not live, gone, failed check, unseen, unknown values: never the NPC ceiling");
+        Check(UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kSeen) == 11 && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kHeld) == 13 && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kGoalHousehold) == 13
+            && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kHousehold) == 10 && UnseenFallbackCore.KdScopeOp(-1) == 10 && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kGone) == 10, "scope op: unseen 11, seen NPC 13, household and unknown 10");
+        Check(UnseenFallbackCore.KdHeldUnseen(true, false, false) && !UnseenFallbackCore.KdHeldUnseen(false, false, false)
+            && !UnseenFallbackCore.KdHeldUnseen(true, true, false) && !UnseenFallbackCore.KdHeldUnseen(true, false, true), "held scope: only an NPC-only vehicle rider (not riding or carrying) is unseen to native");
         // docs/197 §7 goalhhexempt: seen NPC ceiling, no D-leave, a failed check exempts, the first reason wins
         Check(UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kGoalHousehold) && !UnseenFallbackCore.SeenButMovable(UnseenFallbackCore.kGoalHousehold), "goal household: seen NPC scope, never a D-leave");
         Check(UnseenFallbackCore.GoalReason(true, false, false, false) == UnseenFallbackCore.kGoalNone, "nothing household: stays unseen");

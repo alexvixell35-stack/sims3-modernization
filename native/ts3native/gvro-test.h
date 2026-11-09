@@ -33,7 +33,7 @@ static void TestGoalValidRO() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, gvReady) == 0x47DC && offsetof(Ts3nCounters, gvMode) == 0x47E0 &&
                       offsetof(Ts3nCounters, gvShadow) == 0x47E4 && offsetof(Ts3nCounters, gvFb) == 0x47FC &&
-                      offsetof(Ts3nCounters, gvShadowEmpty) == 0x4820 && sizeof(Ts3nCounters) == 6074 * 4,
+                      offsetof(Ts3nCounters, gvShadowEmpty) == 0x4820 && sizeof(Ts3nCounters) == 6112 * 4,
                   "counters v118 layout after v117 (docs/registry.md)");
     assert(k.version == 912);
     assert(kGvSite.site == 0x0075A647 && kGvSite.target == 0x0082EDB0);

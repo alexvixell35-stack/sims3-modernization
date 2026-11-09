@@ -145,8 +145,8 @@ namespace Ts3Agent
                         List<Sim> sims = new List<Sim>();
                         if (a.Bool("pool", false)) for (int i = 0; i < f.Count; i++) sims.Add(f.Sim(i));
                         else { sims.Add(f.Sim(DtIdx(a, f, "a", 1))); sims.Add(f.Sim(DtIdx(a, f, "b", 2))); }
-                        // missing: the until's retry: only Sims not on the lot whose Teleport Me Here is not running (2026-11-08: queued behind a job's IdleTend, or landed off the lot)
-                        if (a.Bool("missing", false)) sims = sims.FindAll(delegate (Sim s) { return !DtHere(s, f) && !(s.CurrentInteraction is TerrainInteraction); });
+                        // missing: the until's retry: only Sims not on the lot with no Teleport Me Here running or queued (never a second teleport) (2026-11-08: queued behind a job's IdleTend, or landed off the lot)
+                        if (a.Bool("missing", false)) sims = sims.FindAll(delegate (Sim s) { return !DtHere(s, f) && !DtTeleporting(s); });
                         if (sims.Count == 0) continue;
                         done.Add(f.Lot.Name + ": " + string.Join(", ", Array.ConvertAll(SetupSimsAt(sims, f.Lot, f.Floor.Position, true, true, true, false).ToArray(), Convert.ToString)));
                     }
@@ -187,7 +187,7 @@ namespace Ts3Agent
                             InteractionDefinition def = new Stereo.DanceTogetherA.Definition((IDanceable)f.Obj);
                             InteractionInstance inst = def.CreateInstance(sb, sa, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
                             // one refused pair (2026-11-08: one of four, EA test said no) is logged and skipped; all refused = the step fails
-                            if (inst == null || !sa.InteractionQueue.Add(inst)) { refused.Add(f.Lot.Name + ": " + sa.FullName + " with " + sb.FullName + " (" + DtCur(sa) + " / " + DtCur(sb) + ")"); DiagLine("dancefloor repro: cycle #" + sDtCycle + " lot " + f.Lot.Name + " actor " + sa.FullName + " partner " + sb.FullName + " refused"); continue; }
+                            if (inst == null || !sa.InteractionQueue.Add(inst)) { refused.Add(f.Lot.Name + ": " + sa.FullName + " with " + sb.FullName + " (" + DtCur(sa) + " / " + DtCur(sb) + ", " + DtWhy(def, sa, sb, inst) + ")"); DiagLine("dancefloor repro: cycle #" + sDtCycle + " lot " + f.Lot.Name + " actor " + sa.FullName + " partner " + sb.FullName + " refused"); continue; }
                             queued++;
                             DiagLine("dancefloor repro: cycle #" + sDtCycle + " phase " + a.Str("phase", "-") + " lot " + f.Lot.Name + " cam " + cam + " actor " + sa.FullName + " partner " + sb.FullName + " floor_sims " + floorSims + " calls " + calls);
                         }
@@ -205,6 +205,8 @@ namespace Ts3Agent
                 {
                     // the cancel step's until repeats this op: a dance still queued after 3 cancels (2026-11-08 try 2: busy for 60 s) gets EA's reset
                     bool reset = ++sDtCancels > 3;
+                    // the state wait may end by gave_up with dances unchanged for 60+ s (2026-11-09 false stall on the first cancel poll); the cancel is a change
+                    if (sDtCancels == 1) sDtSigAt = System.Environment.TickCount;
                     foreach (DtFloor f in sDtFloors)
                         foreach (int[] pr in f.Fired)
                         {
@@ -341,8 +343,19 @@ namespace Ts3Agent
             return c != null && c.Length > 897 ? c[893] + c[894] : -1;
         }
 
-        static bool DtHere(Sim s, DtFloor f) { return s.LotCurrent == f.Lot && !s.IsLeavingLot; }
-        static string DtWhere(Sim s) { return s.FullName + " on " + (s.LotCurrent != null ? s.LotCurrent.Name : "no lot") + (s.IsLeavingLot ? ", leaving" : ""); }
+        // a Teleport Me Here running or queued (SetupSimsAt, >2 m from the spot) = not in place yet: fire waits for it (2026-11-09: fire mid-teleport, Add refused)
+        static bool DtHere(Sim s, DtFloor f) { return s.LotCurrent == f.Lot && !s.IsLeavingLot && !DtTeleporting(s); }
+        static bool DtTeleporting(Sim s) { foreach (InteractionInstance i in s.InteractionQueue.InteractionList) if (i is TerrainInteraction) return true; return s.CurrentInteraction is TerrainInteraction; }
+        // EA's refusal reason, cheap: the definition test and its greyed-out tooltip, else the queue contents
+        static string DtWhy(InteractionDefinition def, Sim sa, Sim sb, InteractionInstance inst)
+        {
+            if (inst == null) return "no instance";
+            GreyedOutTooltipCallback cb = null;
+            InteractionInstanceParameters p = new InteractionInstanceParameters(new Sims3.Gameplay.Autonomy.InteractionObjectPair(def, sb), sa, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
+            InteractionTestResult res = def.Test(ref p, ref cb);
+            return "test " + res + (cb != null ? ": " + cb() : "") + ", queue " + DtQueue(sa);
+        }
+        static string DtWhere(Sim s) { return s.FullName + " on " + (s.LotCurrent != null ? s.LotCurrent.Name : "no lot") + (s.IsLeavingLot ? ", leaving" : "") + (DtTeleporting(s) ? ", teleporting" : ""); }
         static string DtQueue(Sim s) { List<string> q = new List<string>(); foreach (InteractionInstance i in s.InteractionQueue.InteractionList) q.Add(i.GetType().Name); return q.Count > 0 ? string.Join(">", q.ToArray()) : "empty"; }
         static string DtPos(Sim s) { Vector3 p = s.Position; return Math.Round(p.x * 2) + "," + Math.Round(p.z * 2); }
         static string DtCur(Sim s) { InteractionInstance i = s.CurrentInteraction; return i != null ? i.GetType().Name : "none"; }

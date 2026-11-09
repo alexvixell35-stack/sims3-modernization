@@ -4,7 +4,7 @@
 //   node tools/harness/crash-ledger.ts triage [--since <iso>] [--pids 1,2]   list every crash report (written at or after --since) with its change set;
 //        --pids: only reports whose minidump (xcpt*.mdmp beside the .txt) names one of these game PIDs (an old report or an EA app
 //        `-test` relaunch's crash is not this run's); a report without a dump is kept and marked "PID not checked"
-//   node tools/harness/crash-ledger.ts --self-check              minidump PID/start-time reader, the PID filter, the 0x5E772C and 0xD4B156 / 0x5AF67E frame decoders (fixtures)
+//   node tools/harness/crash-ledger.ts --self-check              minidump PID/start-time reader, the PID filter, the 0x5E772C, 0xD4B156 / 0x5AF67E and MSVCR80 memcpy (0x5E621C) frame decoders (fixtures)
 // cycle.ts --save calls snapshot, so every harness run is covered.
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -133,8 +133,10 @@ function triage(since?: string, pids?: number[]) {
     console.log(`\n${n}\n  ${when.toISOString()}  ${type}  at ${mod}  stack: ${stackMods.join(', ') || '-'}`);
     const inv = inventoryFault(t);
     if (inv) console.log(`  ${inv}`);
-    const rel = releaseFault(t);
+    const rel = modelBuilderFault(t) ?? releaseFault(t);
     if (rel) console.log(`  ${rel}`);
+    const os = outfitStringFault(t);
+    if (os) console.log(`  ${os}`);
     console.log(proc ? `  pid ${proc.pid}${proc.started ? `, process started ${proc.started.toISOString()}` : ''}${/^Commandline: .*\s-test\b/m.test(t) ? ', -test' : ''}` : '  no minidump: PID not checked');
     if (i < 0) { console.log('  change set: none recorded before this crash'); continue; }
     console.log(`  change set ${ledger[i].key} (recorded ${ledger[i].at}${ledger[i].note ? `, ${ledger[i].note}` : ''})`);
@@ -170,7 +172,7 @@ export function inventoryFault(t: string): string | null {
 export function releaseFault(t: string): string | null {
   const { reg, dw, hex } = reportFrame(t);
   const eip = reg('eip');
-  if (eip !== 0xd4b156 && eip !== 0x5af67e) return null;
+  if ((eip === null || eip < 0xd4b150 || eip > 0xd4b159) && eip !== 0x5af67e) return null;
   const esp = reg('esp') ?? 0, d = (o: number) => dw(esp + o);
   const inl = eip === 0x5af67e;
   const frame = inl || (d(0) === 0x7287ec && d(0x14) === 0x728dd4 && d(0x28) === 0x5af66d);
@@ -181,6 +183,43 @@ export function releaseFault(t: string): string | null {
   return `EA outfit cell release at ${hex(eip)} (${frame ? '0x5AF640 frame' : 'value only: another caller of 0xD4B150'}): value ${hex(v)}${v === 0x40a00000 ? ' (float 5.0)' : ''}, ` +
     `cell ${hex(cell)} (entry ${idx ?? '?'} of ${n ?? '?'}, ${hex(b)}-${hex(e)}), outfit ${hex(outfit)}, return ${hex(ret)}${who}; docs/539 §13: match the ts3native log's ` +
     '"crash forensics: cas trim outfit release fault" / "cas trim: cell guard skipped" lines (castrimdiag1108b+)';
+}
+// docs/539 §14: the same callback 0xD4B150 (0xD4B154 / 0xD4B156) called from ModelBuilder's 0x5D82A0 (the 2026-11-09
+// bp-leak40-memtravel-x3 crash). Frame: [esp] 0x7287EC, value +4, record end +0xC, record +0x10 (0x728760's saved ebp / ebx),
+// 0x728DD4 +0x14, cell +0x18, loop return +0x28 (0x5D82CF / 0x5D831A lists, 0x5D8377 part records), saved esi +0x38 (the
+// builder from 0x5D83B4, the holder from 0x5D96AD), return +0x44 (0x5D83B9 / 0x5D96B2).
+export function modelBuilderFault(t: string): string | null {
+  const { reg, dw, hex } = reportFrame(t);
+  const eip = reg('eip'), esp = reg('esp') ?? 0, d = (o: number) => dw(esp + o);
+  if (eip === null || eip < 0xd4b150 || eip > 0xd4b159 || d(0) !== 0x7287ec || d(0x14) !== 0x728dd4) return null;
+  const lr = d(0x28), loop = lr === 0x5d8377 ? 'part records' : lr === 0x5d82cf ? 'list +0x1C' : lr === 0x5d831a ? 'list +0x28' : null;
+  if (!loop) return null;
+  const v = reg('ebx') ?? d(4), cell = d(0x18), ret = d(0x44), parts = lr === 0x5d8377, rec = parts ? d(0x10) : null, end = parts ? d(0xc) : null;
+  const who = ret === 0x5d83b9 ? 'builder (ModelBuilder dtor 0x5D83B4)' : ret === 0x5d96b2 ? 'holder (release 0x5D96AD; builder = [holder+0xC])' : '?';
+  const left = rec !== null && end !== null && end >= rec ? (end - rec) / 0x74 : null, k = rec !== null && cell !== null && cell >= rec + 4 ? (cell - rec - 4) / 4 : null;
+  return `EA ModelBuilder release 0x5D82A0 ${loop} at ${hex(eip)}: value ${hex(v)}${v === 0x40a00000 ? ' (float 5.0)' : ''}, cell ${hex(cell)}` +
+    `${parts ? ` (rec+0x${cell !== null && rec !== null ? (cell - rec).toString(16).toUpperCase() : '?'}, cell ${k ?? '?'}), record ${hex(rec)} (${left ?? '?'} records to the end ${hex(end)})` : ''}` +
+    `, saved esi ${hex(d(0x38))} = ${who}, return ${hex(ret)}; docs/539 §14: match the ts3native log's "crash forensics: cas trim modelbuilder release fault" / ` +
+    '"cas trim: modelbuilder cell bad" lines (0.36.218+)';
+}
+// docs/539 §15: the 2026-11-09 bp-float5-memtravel-x8 crash, an AV writing NULL in MSVCR80's memcpy (no TS3W eip). The 0x5BF4C0
+// frame is found in the stack data: its return 0x5E621C at A, 0x408E20's return 0x5BF5E0 at A-0x64, 0x5E61A0's return 0x5E7BC7
+// at A+0x54; A-0x58 the record (0x5BF4C0's saved esi), A-0x60 / A-0x5C the string begin / end, A-0x6C the object (0x408E20's
+// saved esi), A+0xC the outfit (0x5E61A0's saved esi). 0x408C3A (0x408B90's memcpy return) below A is reported.
+export function outfitStringFault(t: string): string | null {
+  const { reg, dw, hex } = reportFrame(t);
+  const esp = reg('esp');
+  if (esp === null) return null;
+  let a = -1;
+  for (let p = esp; p < esp + 0x400 && a < 0; p += 4) if (dw(p) === 0x5e621c && dw(p - 0x64) === 0x5bf5e0 && dw(p + 0x54) === 0x5e7bc7) a = p;
+  if (a < 0) return null;
+  let mc = false;
+  for (let p = esp; p < a && !mc; p += 4) mc = dw(p) === 0x408c3a;
+  const b = dw(a - 0x60), e = dw(a - 0x5c), eip = reg('eip');
+  return `EA outfit save string copy 0x5BF4C0 -> 0x408E20 -> 0x408B90 at ${hex(eip)}${eip !== null && (eip < 0x401000 || eip >= 0xf95000) ? ' (outside TS3W: the CRT memcpy)' : ''}: ` +
+    `string begin ${hex(b)}${b === 0x40a00000 ? ' (float 5.0)' : ''}, end ${hex(e)}${e === 0x11c7e54 ? " (EA's empty string)" : ''}, object ${hex(dw(a - 0x6c))}, ` +
+    `record ${hex(dw(a - 0x58))}, outfit ${hex(dw(a + 0xc))}, frame at ${hex(a)}${mc ? ', 0x408C3A memcpy return below it' : ''}; docs/539 §15: match the ts3native log's ` +
+    '"crash forensics: cas trim outfit string copy fault" / "cas trim: outfit string bad" lines (0.36.225+)';
 }
 // an EA xcpt report's [Registers] and [Stack data] (16 bytes a line, <> around the esp byte)
 function reportFrame(t: string) {
@@ -246,6 +285,24 @@ if (import.meta.main) {
       const inl = ['[Stack data]', '0012fff0 | 00 00 00 00 00 00 00 00 00 00 00 00<3c>1b 78 7b | ................ |',
         '00130000 | 80 1a 78 7b 38 76 5e 00 a0 07 9e 40 5c 09 9e 40 | ................ |', '', '[Registers]', 'eip: 005af67e', 'ecx: 40a00000', 'esi: 409e089c', 'esp: 0012fffc', ''].join('\r\n');
       assert.match(releaseFault(inl)!, /cell 0x409E089C \(entry 63 of 111, .*outfit 0x7B781A80, return 0x005E7638 \(SimOutfit destructor 0x5E75A0\)/);
+      assert.equal(modelBuilderFault(rel), null, 'the outfit release frame is not a ModelBuilder one');
+      // the bp-leak40-memtravel-x3 report (2026-11-09 04:15 local): 0xD4B154 from 0x5D82A0's part-record loop
+      const mb = ['[Stack data]', '001af630 | 20 50 ed 15<ec>87 72 00 00 00 a0 40 20 50 ed 15 |  P....r....@ P.. |',
+        '001af640 | 30 65 cf 33 78 62 cf 33 d4 8d 72 00 7c 62 cf 33 | 0e.3xb.3..r.|b.3 |', '001af650 | 50 b1 d4 00 04 00 00 00 7c 62 cf 33 77 83 5d 00 | P.......|b.3w.]. |',
+        '001af660 | 7c 62 cf 33 50 b1 d4 00 ac c2 be 77 20 c2 be 77 | |b.3P......w ..w |', '001af670 | 28 65 83 33 f0 70 de 15 b9 83 5d 00 20 c2 be 77 | (e.3.p....]. ..w |', '',
+        '[Registers]', 'eip: 00d4b154', 'eax: 00000000', 'ebx: 40a00000', 'ecx: 40a00000', 'esp: 001af634', ''].join('\r\n');
+      assert.match(modelBuilderFault(mb)!, /part records at 0x00D4B154: value 0x40A00000 \(float 5\.0\), cell 0x33CF627C \(rec\+0x4, cell 0\), record 0x33CF6278 \(6 records to the end 0x33CF6530\), saved esi 0x77BEC220 = builder \(ModelBuilder dtor 0x5D83B4\), return 0x005D83B9;/);
+      assert.match(releaseFault(mb)!, /value only/, 'releaseFault alone: no 0x5AF640 frame');
+      assert.match(modelBuilderFault(mb.replace('77 83 5d 00', 'cf 82 5d 00'))!, /list \+0x1C at .*cell 0x33CF627C, saved esi/, 'the first list loop');
+      assert.equal(modelBuilderFault(mb.replace('77 83 5d 00', '6d f6 5a 00')), null, 'another loop return');
+      // the bp-float5-memtravel-x8 report (2026-11-09 06:33 local): memcpy to NULL in MSVCR80 from the outfit save's string copy
+      const os = ['[Stack data]', '49777210 |<00>7e 7c c0 00 00 00 00 48 72 77 49 76 74 09 70 | ................ |',
+        '49777240 | 34 73 77 49 00 00 00 00 00 00 00 00 3a 8c 40 00 | ................ |', '497772a0 | 18 bd 66 7a 80 b5 39 3c e4 73 77 49 e0 f5 5b 00 | ................ |',
+        '497772b0 | 00 00 a0 40 54 7e 1c 01 20 98 61 3d b3 ea 4d 00 | ................ |', '49777310 | 1c 62 5e 00 34 73 77 49 07 3a 02 00 50 d2 83 65 | ................ |',
+        '49777360 | f8 47 fe 00 c7 7b 5e 00 e4 73 77 49 20 bd 66 7a | ................ |', '', '[Registers]', 'eip: 700973d0', 'ebx: 40a00000', 'esp: 49777210', ''].join('\r\n');
+      assert.match(outfitStringFault(os)!, /at 0x700973D0 \(outside TS3W: the CRT memcpy\): string begin 0x40A00000 \(float 5\.0\), end 0x011C7E54 \(EA's empty string\), object 0x3C39B580, record 0x3D619820, outfit 0x6583D250, frame at 0x49777310, 0x408C3A memcpy return below it;/);
+      assert.equal(outfitStringFault(os.replace('e0 f5 5b 00', '00 00 00 00')), null, 'no 0x408E20 return: not this frame');
+      assert.equal(outfitStringFault(mb), null, 'the ModelBuilder frame is not this one');
     } finally { rmSync(d, { recursive: true, force: true }); }
     console.log('self-check ok');
   } else if (positionals[0] === 'snapshot') snapshot(values.note);

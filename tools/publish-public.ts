@@ -159,9 +159,37 @@ export function pickTagRun(runs: TagRun[], sha: string, pushedAtMs: number): num
 type Opts = { yes: boolean; repo: string; remote: string; src: string; ref: string; branch: string; message: string;
   authorName: string; authorEmail: string; tag?: string; nativeVersion?: string; ini: string; pkg: string; quiet?: boolean };
 
+// Every child gets a timeout and no prompts (a credential helper waiting for input hung the queue-end sync 3x on 2026-11-09).
+// Network git/gh: 120 s, local git/tar: 30 s, node check scripts: 600 s. Auth for git over https comes from the env token as an
+// http extraheader passed through GIT_CONFIG_* (never on a command line, never logged); without a token the gh credential helper stays.
+const token = () => process.env.GH_TOKEN || process.env.PERSONAL_GITHUB_TOKEN || '';
+export function childEnv(base: NodeJS.ProcessEnv, tok: string): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...base, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never', GH_PROMPT_DISABLED: '1' };
+  if (tok) {
+    env.GH_TOKEN = tok;
+    Object.assign(env, { GIT_CONFIG_COUNT: '2', GIT_CONFIG_KEY_0: 'credential.helper', GIT_CONFIG_VALUE_0: '',
+      GIT_CONFIG_KEY_1: 'http.https://github.com/.extraheader', GIT_CONFIG_VALUE_1: `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${tok}`).toString('base64')}` });
+  }
+  return env;
+}
+export function timeoutFor(cmd: string, args: string[]): number {
+  if (cmd === 'gh' || (cmd === 'git' && args.some(x => ['clone', 'fetch', 'push', 'pull'].includes(x)))) return 120_000;
+  if (cmd === process.execPath) return 600_000;
+  return 30_000;
+}
 const BIG = { maxBuffer: 1 << 30 };
 function run(cmd: string, args: string[], cwd?: string, input?: Buffer | string): string {
-  return execFileSync(cmd, args, { cwd, input, ...BIG, stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'] }).toString().trim();
+  const timeout = timeoutFor(cmd, args);
+  try {
+    return execFileSync(cmd, args, { cwd, input, ...BIG, timeout, killSignal: 'SIGKILL', env: childEnv(process.env, token()),
+      stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'] }).toString().trim();
+  } catch (e: any) {
+    if (e?.code === 'ETIMEDOUT') {
+      const what = `${cmd === 'git' ? 'git ' + (args.find(x => /^[a-z]+$/.test(x) && !['core', 'credential'].includes(x)) ?? '') : cmd}`.trim();
+      throw new Error(`${what} timed out after ${timeout / 1000} s; public sync skipped, run it by hand: node tools/publish-public.ts sync --yes --message-file <file> (check gh auth status / GH_TOKEN)`);
+    }
+    throw e;
+  }
 }
 const git = (cwd: string, ...a: string[]) => run('git', ['-c', 'core.autocrlf=false', ...a], cwd);
 const sleep = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
@@ -202,7 +230,7 @@ export function publish(o: Opts): { clone: string; commit: string } {
 
   const tmp = mkdtempSync(join(tmpdir(), 'ts3-publish-')), clone = join(tmp, 'pub');
   step(`clone ${o.remote} -> ${clone}`);
-  run('git', ['clone', '-q', '-c', 'core.autocrlf=false', '-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', o.remote, clone]);
+  run('git', ['clone', '-q', '-c', 'core.autocrlf=false', ...(token() ? [] : ['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential']), o.remote, clone]);
   step(`branch ${o.branch}`);
   git(clone, 'switch', '-q', '-c', o.branch);
   step('empty the tree (git rm -rq . + clean)');
@@ -263,7 +291,7 @@ export function publish(o: Opts): { clone: string; commit: string } {
     // code as a failed check: wait for the rollup to list any, then watch
     waitUntil(() => Number(run('gh', ['pr', 'view', pr, ...R, '--json', 'statusCheckRollup', '-q', '.statusCheckRollup | length'])) > 0,
       `checks on ${pr}`, 180_000, 10_000, sleep);
-    try { execFileSync('gh', ['pr', 'checks', pr, ...R, '--watch', '--interval', '20'], { stdio: 'inherit' }); }
+    try { execFileSync('gh', ['pr', 'checks', pr, ...R, '--watch', '--interval', '20'], { stdio: 'inherit', timeout: 45 * 60_000, env: childEnv(process.env, token()) }); }
     catch { throw new Error(`gh pr checks ${pr}: a check failed`); }
   }, undefined);
   remote(`gh pr merge ${pr} --squash --admin`, () => run('gh', ['pr', 'merge', pr, ...R, '--squash', '--admin']), '');
@@ -278,7 +306,7 @@ export function publish(o: Opts): { clone: string; commit: string } {
     for (let i = 0; ; i++) {
       const runs = JSON.parse(run('gh', ['run', 'list', ...R, '--workflow', 'build.yml', '--branch', tag, '--json', 'databaseId,headSha,createdAt']) || '[]');
       const id = pickTagRun(runs, sha, pushedAt);
-      if (id) { execFileSync('gh', ['run', 'watch', String(id), ...R, '--exit-status', '--interval', '30'], { stdio: 'inherit' }); return; }
+      if (id) { execFileSync('gh', ['run', 'watch', String(id), ...R, '--exit-status', '--interval', '30'], { stdio: 'inherit', timeout: 45 * 60_000, env: childEnv(process.env, token()) }); return; }
       if (i >= 18) throw new Error(`no build.yml run for ${tag} at ${sha} after 3 min (older runs of the tag name are skipped)`);
       sleep(10_000);
     }
@@ -296,6 +324,13 @@ export function publish(o: Opts): { clone: string; commit: string } {
 // --- self-check (offline) ---
 
 function selfCheck(): void {
+  { // non-interactive env + timeouts
+    const e = childEnv({ A: '1' }, 'tok');
+    assert.equal(e.GIT_TERMINAL_PROMPT, '0'); assert.equal(e.GCM_INTERACTIVE, 'never'); assert.equal(e.GIT_CONFIG_VALUE_0, '');
+    assert.match(e.GIT_CONFIG_VALUE_1!, /^AUTHORIZATION: basic /); assert.equal(childEnv({}, '').GIT_CONFIG_COUNT, undefined);
+    assert.equal(timeoutFor('git', ['clone', 'x']), 120_000); assert.equal(timeoutFor('git', ['status']), 30_000); assert.equal(timeoutFor('gh', ['api']), 120_000);
+    assert.throws(() => execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},9e4)'], { timeout: 300, killSignal: 'SIGKILL' }), (x: any) => x.code === 'ETIMEDOUT');
+  }
   const user = 'rod' + 'ne', pc = 'LAPTOP' + '-M15', pc2 = 'ALRPan' + 'tonial1', user2 = 'RPan' + 'tonial';
   assert.equal(scrub(`C:\\Users\\${user}\\x ${pc} ${user}y`), `C:\\Users\\<user>\\x <pc> ${user}y`, 'scrub');
   assert.equal(scrub(`ScriptError_${pc2}__11-02.xml ${pc2}`), 'ScriptError_<pc2>__11-02.xml <pc2>', 'scrub second host');

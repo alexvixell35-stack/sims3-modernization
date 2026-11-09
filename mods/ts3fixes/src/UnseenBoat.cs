@@ -135,6 +135,7 @@ namespace Ts3Fixes
                 if (!follows) return UbNo(c, 841, "caller " + (caller ?? "?"));
                 if (!MayYield()) return UbNo(c, 841, "no yield");
                 if (!UfPreSim(sim, false)) return UbNo(c, 842, "Sim " + UfPreSimWhy(sim, false));
+                if (sim.Household == null) return UbNo(c, 842, "Sim no household");  // unknown scope counts as household (household rule)
                 if (UbCore.Denied(sim.CurrentInteraction.GetType().FullName)) return UbNo(c, 842, "water interaction");
                 if (!UbAlone(sim.CurrentInteraction)) return UbNo(c, 842, "followers");
                 string lw = leave ? UbLeaveWhy(sim) : UfRelaxedLotWhy(sim.LotCurrent, "start", UrCore.StartLotCounts(startOut));  // leaving: a cabin is no reason, the boat's state is
@@ -144,7 +145,11 @@ namespace Ts3Fixes
                 if (sim.GetOwnedAndUsableBoat(sim.LotCurrent, false, null, ref temporary) != null || temporary) return UbNo(c, 844, "owned boat");
                 if (goal != null && goal == Household.ActiveHouseholdLot) return UbNo(c, 847, "goal household lot");
                 if (leave && !UbCore.FarEnough(UbTripM(sim.LotCurrent, start, goal, dest))) return UbNo(c, 847, "short trip");
-                if (trip == UbCore.kHouseboat) return goal.GetHouseboat() != null ? null : UbNo(c, 847, "no houseboat");
+                if (trip == UbCore.kHouseboat)
+                {
+                    Houseboat gh = goal.GetHouseboat();  // a goal boat under way stays exact (§4): a Sim placed on it would get no seasickness alarm
+                    return gh == null ? UbNo(c, 847, "no houseboat") : gh.CurrentStatus == Houseboat.Status.Routing ? UbNo(c, 847, "goal boat moving") : null;
+                }
                 lw = UfRelaxedLotWhy(goal, "goal", true);
                 if (lw != null) return UbNo(c, 847, lw);  // a resort or dive lot: exact
                 if (leave && UbStreetSide(goal, ref place)) return null;
@@ -267,7 +272,7 @@ namespace Ts3Fixes
                 if (trip == UbCore.kHouseboat)
                 {
                     Houseboat h = goal.GetHouseboat();
-                    if (h == null || !h.PlaceSimAtEntrance(sim)) { c[840]++; if (leave) c[852]++; UbSample(sim, UbCore.LeaveReason(leave, "houseboat entrance"), goal, dest, start, colours, caller); return; }
+                    if (h == null || h.CurrentStatus == Houseboat.Status.Routing || !h.PlaceSimAtEntrance(sim)) { c[840]++; if (leave) c[852]++; UbSample(sim, UbCore.LeaveReason(leave, "houseboat entrance"), goal, dest, start, colours, caller); return; }
                     PlaceSim(sim, sim.Position, sim.ForwardVector, "unseenboat houseboat");  // footprint off and the moved list; same spot
                     SetOption(RouteOption.EnableWaterPlanning, false);  // as Houseboat.cs after its own PlaceSimAtEntrance
                     SetOption2(RouteOption2.EnablePlanningAsBoat, false);

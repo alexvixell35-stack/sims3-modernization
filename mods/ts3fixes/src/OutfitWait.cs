@@ -77,6 +77,7 @@ namespace Ts3Fixes
                             if (sOwLines.Count < 20) sOwLines.Add(line); // the 40-line recent log is soon full of other shortcuts
                         }
                         PatchCounters()[681]++;
+                        if (OutfitWaitDead(h)) throw new ResetException(); // what Simulator.Sleep throws when the task is reset
                     }
                     Simulator.Sleep(sleep);
                 }
@@ -95,6 +96,32 @@ namespace Ts3Fixes
                 }
             }
             public void WaitOrig(bool idleIfNecessary) { } // receives Sim.SwitchOutfitHelper.Wait's original header
+        }
+
+        // issue #40: a stale wait whose helper's Sim is gone (null or destroyed; e.g. MagicalMakeover.Cleanup aborted the helper
+        // under the makeover alarm, then the NPC was destroyed) can never be ready, and its task holds the dead Sim and its graph.
+        // It ends as a task reset during the loop's Sleep would (EA's callers already handle that ResetException; the alarm's
+        // OneShotFunction drops it), so ChangeOutfit's tail never runs on the dead Sim. A live Sim is never touched, and a wait
+        // on a task that belongs to another Sim (household or not) keeps EA's loop. [933] dead-Sim waits ended.
+        static bool OutfitWaitDead(object h)
+        {
+            Sim s = sSohSim.GetValue(h) as Sim;
+            bool gone = s == null || s.HasBeenDestroyed;
+            if (!gone) return false;
+            IScriptProxy p = Simulator.GetProxy(Simulator.CurrentTask);
+            Sim w = p != null ? p.Target as Sim : null;
+            if (!OutfitWaitCore.EndDead(gone, w != null && !object.ReferenceEquals(w, s))) return false;
+            PatchCounters()[933]++;
+            if (sOwEndLines++ < 10)
+            {
+                string name = "?";
+                try { if (s != null && s.SimDescription != null) name = s.SimDescription.FullName; } catch (Exception) { }
+                string line = "outfitwaitpoll: " + name + " outfit wait ended: its Sim is destroyed (aborted "
+                    + (sSohAborted != null ? sSohAborted.GetValue(h) : "?") + "); task " + OutfitWaitCaller();
+                ShortcutLog(line);
+                if (sOwLines.Count < 30) sOwLines.Add(line);
+            }
+            return true;
         }
 
         static int sOwEndLines;
@@ -278,7 +305,10 @@ namespace Ts3Fixes
         //   "log":   the first 20 stale-wait lines of the session (Sim, aborted flag, waiting task).
         //   "ready": sets mReady, as a late Ready callback would; on, task 1 returns within a sim-minute; off, within a tick.
         //   "stop":  destroys both tasks and aborts the helper (which cancels a pending swap; neither swap is completed).
-        public static string OutfitWaitCheck(string what)
+        //   "start dead": issue #40. As "start" on a Sim outside the active household (never a selectable one); task 2 aborts the
+        //            helper in the loop (as MagicalMakeover.Cleanup does) and then destroys the Sim (reset, 30 ticks, then
+        //            SimDescription.Dispose, as the agent's remove_sims). "dead" then reads whether the wait ended ([933]).
+        public static object OutfitWaitCheck(string what)
         {
             switch (what)
             {
@@ -286,6 +316,7 @@ namespace Ts3Fixes
                 case "start replace":
                 case "start clear":
                 case "start control":
+                case "start dead":
                 {
                     if (sOwHelper != null) return "a test wait exists; stop first";
                     if (sSohReady == null || sSohStarted == null || sSimActiveSoh == null) return "SwitchOutfitHelper fields not found";
@@ -293,8 +324,10 @@ namespace Ts3Fixes
                     OutfitCategories[] kinds = { OutfitCategories.Sleepwear, OutfitCategories.Everyday, OutfitCategories.Formalwear, OutfitCategories.Athletic };
                     // a Sim in a special outfit (towel, costume) may not change (a 2026-10-31 run's wait ended at once): any Sim
                     // in the world in a normal outfit with no helper of its own, an active-household one first
+                    bool dead = what == "start dead";
                     foreach (Sim c in Sims3.Gameplay.Queries.GetObjects<Sim>())
-                        if (c.InWorld && c.SimDescription != null && sSimActiveSoh.GetValue(c) == null && Array.IndexOf(kinds, c.CurrentOutfitCategory) >= 0
+                        if (dead && (c.Household == Household.ActiveHousehold || c.IsSelectable)) continue;
+                        else if (c.InWorld && c.SimDescription != null && sSimActiveSoh.GetValue(c) == null && Array.IndexOf(kinds, c.CurrentOutfitCategory) >= 0
                             && (sim == null || (c.Household == Household.ActiveHousehold && sim.Household != Household.ActiveHousehold))) sim = c;
                     if (sim == null) return "no Sim in the world in a normal outfit without an outfit helper";
                     OutfitCategories cur = sim.CurrentOutfitCategory, pick = OutfitCategories.None;
@@ -334,6 +367,13 @@ namespace Ts3Fixes
                             }
                             helper.Abort();
                             sOwAbortSaw = "aborted in the loop";
+                            if (!dead) return;
+                            SimDescription sd = simR.SimDescription;
+                            simR.SetObjectToReset();
+                            Simulator.Sleep(30);
+                            if (sd.Household != null) sd.Household.Remove(sd);
+                            sd.Dispose(true, false, true);
+                            sOwAbortSaw = "aborted in the loop, Sim destroyed " + simR.HasBeenDestroyed;
                         }));
                     return sim.FullName + ": waiting for " + pick + " (wearing " + cur + ")" + (what == "start replace" ? ", second swap " + third : what == "start clear" ? ", instant switch " + third : "") + ", switch " + ShortcutOn("outfitwaitpoll");
                 }
@@ -346,6 +386,17 @@ namespace Ts3Fixes
                         + "; stale " + c[680] + ", minute polls " + c[681] + ", ended " + c[682] + "; causes own " + c[2003] + ", replaced " + c[2004] + ", cleared " + c[2005]
                         + "; callbacks dropped " + c[2010] + ", stale with a dropped callback " + c[2011];
                 }
+                case "dead": // "start dead": the wait task's end and [933]
+                {
+                    Dictionary<string, object> r = new Dictionary<string, object>();
+                    r["abort"] = sOwAbortSaw;
+                    r["sim_destroyed"] = sOwHelper != null && sSohSim.GetValue(sOwHelper) is Sim && ((Sim)sSohSim.GetValue(sOwHelper)).HasBeenDestroyed;
+                    r["wait_ended"] = sOwWaitEnd != null;
+                    r["wait_end"] = sOwWaitEnd;
+                    r["dead_ended"] = PatchCounters()[933];
+                    r["stale"] = PatchCounters()[680];
+                    return r;
+                }
                 case "log":
                     return sOwLines.Count + " stale-wait lines: " + string.Join(" | ", sOwLines.ToArray());
                 case "counts": // no start needed (repro outfit-wait-view-log)
@@ -353,7 +404,7 @@ namespace Ts3Fixes
                     int[] c = PatchCounters();
                     return "switch " + ShortcutOn("outfitwaitpoll") + "; stale " + c[680] + ", minute polls " + c[681] + ", ended " + c[682]
                         + "; causes own " + c[2003] + ", replaced " + c[2004] + ", cleared " + c[2005] + "; callbacks dropped " + c[2010]
-                        + ", stale with a dropped callback " + c[2011] + "; on screen when stale " + c[2012] + ", on screen when ended " + c[2013];
+                        + ", stale with a dropped callback " + c[2011] + "; on screen when stale " + c[2012] + ", on screen when ended " + c[2013] + "; dead-Sim waits ended " + c[933];
                 }
                 case "ready":
                     if (sOwHelper == null) return "start first";
@@ -366,7 +417,7 @@ namespace Ts3Fixes
                     if (sOwHelper != null) sOwHelper.Abort(); // cancels a swap still pending (the replace check's second one too)
                     sOwHelper = null;
                     return "stopped";
-                default: return "unknown check " + what + " (start, start replace, start clear, start control, state, log, ready, stop)";
+                default: return "unknown check " + what + " (start, start replace, start clear, start control, start dead, state, dead, log, ready, stop)";
             }
         }
     }

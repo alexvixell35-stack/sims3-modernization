@@ -10,6 +10,13 @@ namespace Ts3Fixes
             return on && waited >= staleAfter ? minute : 1u;
         }
 
+        // issue #40: a stale wait ends when its helper's Sim is gone (null or destroyed), unless the waiting task belongs to
+        // another Sim (that Sim keeps EA's loop: a live Sim is never changed).
+        public static bool EndDead(bool simGone, bool waiterIsOtherSim)
+        {
+            return simGone && !waiterIsOtherSim;
+        }
+
         public const int kCauseAborted = 0, kCauseOwn = 1, kCauseReplaced = 2, kCauseCleared = 3;
         // Why a wait is stale (docs/224 §5), from the helper and its Sim when the wait is marked:
         // aborted: Abort cleared mReady (the #115 cause). cleared: the Sim has no pending outfit, so its delayed swap was

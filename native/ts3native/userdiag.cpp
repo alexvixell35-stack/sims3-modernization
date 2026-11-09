@@ -259,7 +259,9 @@ static HANDLE g_udMemEv;
 static char g_udMemQ[8][48], g_udMemQEv[8][40];  // what, [MemDiag] event tag ("" = none)
 static volatile LONG g_udMemHead, g_udMemTail;  // single producer (sim thread), single consumer (worker)
 static DWORD g_udMemPeriodMs = 10 * 60 * 1000;
+static void UafVerifyAll(const char* why);  // uafcheck.cpp: [UafCheck] held-block check (docs/539 §17)
 static LONG g_udWorlds;
+static volatile LONG g_udQuits;  // ts3fixes "world quit" lines (World.OnWorldQuit: menu, travel, quit to desktop); lptrim.cpp
 static DWORD g_udWorldTick;  // GetTickCount at the last world load (castrim.cpp's inventory check)
 static void UdMemAsk(const char* fmt, LONG n, const char* ev = NULL) {
     char what[48];
@@ -729,8 +731,8 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
                 return 1;
             }
             if (g_udTxtLines++ < 400) Log("ts3fixes: %s", g_udTxt);  // cap: a looping sender cannot fill the disk
-            if (!strncmp(g_udTxt, "world:", 6)) UdWorldLoad();
-            else if (!strcmp(g_udTxt, "world quit")) GcCapWindow(false, "world quit");  // gcgrow.cpp: lenient on the load screen
+            if (!strncmp(g_udTxt, "world:", 6)) UdWorldLoad(), UafVerifyAll("world load");
+            else if (!strcmp(g_udTxt, "world quit")) InterlockedIncrement(&g_udQuits), GcCapWindow(false, "world quit"), UafVerifyAll("world quit");  // gcgrow.cpp: lenient on the load screen
             else if (!strncmp(g_udTxt, "mem: ", 5)) MdMark(g_udTxt + 5);  // [MemDiag] event mark (ts3agent mem_mark)
             g_udTxtN = 0;
             return 1;
@@ -845,6 +847,7 @@ static void UdSaveEnd(DWORD r) {
     Log("save: end #%ld result %lu after %lu ms", g_udSaves, r, GetTickCount() - g_udSaveTick);
     UdMemAsk("save: memory at end #%ld", g_udSaves);
     CpSaveEnd(r);
+    UafVerifyAll("save end");  // docs/539 §17 [UafCheck] (no-op when off)
     g_udSaveTick = 0;
     if (g_udDogEv) SetEvent(g_udDogEv);  // the watchdog then sizes the save folder and ends
 }

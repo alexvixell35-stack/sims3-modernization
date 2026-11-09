@@ -1,0 +1,140 @@
+{
+  "note": "float5-uaf (2026-11-09, docs/539 §17, ledger §471): float-5 triage cycle 4 on pair float5uaf-1109b (ts3native 0.36.229: 0.36.228 + [UafCheck] free tags). (c) delayed-free quarantine [UafCheck] + WriteTrap on the crashed memtravel x8 case: a write into a freed main-heap block names the stale object (size, offset, free stack), then a DR watch names the writer. Correctness only: run with --no-smoke. ~35 min. Run from the main checkout after float5-trap.json ends: node tools/harness/queue.ts tools/harness/queues/float5-uaf.json --no-smoke",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-float5-uaf",
+      "note": "[est 35 min] docs/539 §17: release ini (CasTrim Mode 3, Detect 1, CellGuard 1, MbGuard 0, OutfitStrGuard 0, RealmGuard 0) + WriteTrap 1 + UafCheck 1 (main-heap frees of 64-4096 bytes held in a 0xFEEEFEEE quarantine, 48 MB + 9 MB ring; DrArms 2). 8 trips; pass = no crash, the uaf hook and the write trap in, 8 travel saves, a \"uaf: save end\" line each save. Detector lines do not stop it. Decisive run (a), scratchpad float5-features.md §5a: REPORT (not a pass rule): every \"uaf: write after free\" line (size, offset, value, free stack, ms since free, \"freed under tag X (site ts3native+0x...)\": DestroyPark flush / Discourage replay / LostRemovalFix / GhostSweep / LotRemoveGuard flush / ThumbPose release / RouteAsync worker job / MonoThread worker / none), every \"float5 near our free: tag ...\" and \"float5 free lookup: no match\" line (the logForbid caps 100000 on those two are report-only counters), \"uaf: DRk write watch\" and \"watchpoint DRk hit\" lines (the writer eip), \"uaf: second free\" lines, the \"oldest freed N s ago\" window per save, the \"uaf check (...): ... S3SS Mimalloc ...\" lines, every \"cas trim: float5 WRITER\" / realm / float-5 detector line, and 0xFEEEFEEE in any crash (stale reader).",
+      "asi": "game-copy/ts3native.asi.float5uaf-1109b",
+      "iniBase": "game-copy/ts3native.ini.float5uaf-1109b",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "8",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 60,
+      "pinReason": "pair float5uaf-1109b (builds.json): ts3native 0.36.229 from bugfix/uaf-free-tags (master 13c648d6 = float5uaf-1109 0.36.228 + [UafCheck] free tags: tag + our call site per quarantined block, recently-freed ring, \"float5 near our free\" lookups on float-5 detector hits, P5c released ring 4096), iniBase game-copy/ts3native.ini.float5uaf-1109b (the branch release ini, UafCheck 0); ts3fixes / ts3agent = master1109c copies",
+      "scriptErrorsMax": 0,
+      "fixesBuild": "ts3fixes.package.float5uaf-1109b",
+      "ini": {
+        "CasTrim.Mode": 3,
+        "CasTrim.Detect": 1,
+        "CasTrim.CellGuard": 1,
+        "CasTrim.MbGuard": 0,
+        "CasTrim.OutfitStrGuard": 0,
+        "CasTrim.RealmGuard": 0,
+        "CasTrim.WriteTrap": 1,
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1,
+        "UafCheck.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.229 ": 1,
+        "^uaf check on \\(": 1,
+        "^cas trim: write trap on ": 1,
+        "^uaf: save end \\(save #\\d+, world load #\\d+\\): held \\d+ block": 8,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 8
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^uaf: write after free: .*; freed under tag ": 100000,
+        "^float5 near our free: tag ": 100000
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.229 ": {
+          "match": [
+            "ts3native 0.36.229 2026-11-09 11:07:23"
+          ],
+          "noMatch": [
+            "ts3native 0.36.228 2026-11-09 10:07:23"
+          ]
+        },
+        "^uaf check on \\(": {
+          "match": [
+            "uaf check on (TEST-RUN TOOL, docs/539 §17): main heap [0x11CB864] blocks 64-4096 bytes held filled with 0xFEEEFEEE, up to 262144 blocks / 48 MB (ring 9216 KB), verified at eviction, save end, world quit and world load; DR arms 2 (hold 600 s)"
+          ],
+          "noMatch": [
+            "uaf check off (no hook) (TEST-RUN TOOL, docs/539 §17): main heap [0x11CB864] blocks 64-4096 bytes held filled with 0xFEEEFEEE, up to 262144 blocks / 48 MB (ring 9216 KB), verified at eviction, save end, world quit and world load; DR arms 2 (hold 600 s)",
+            "uaf check (install): MSVCR80 malloc found, exe IAT slot points at it; S3SS Mimalloc not active (CRT malloc untouched); EA heap Free 0x4E5920 starts 56 (E9 = a detour: ours or another tool's)"
+          ]
+        },
+        "^uaf: save end \\(save #\\d+, world load #\\d+\\): held \\d+ block": {
+          "match": [
+            "uaf: save end (save #3, world load #2): held 262144 block(s) 31 MB, oldest freed 42 s ago, 0 written now, 18 ms; session held 1200344, freed 938200, written 0 (0x40A00000 0), passed 12, DR arms 0"
+          ],
+          "noMatch": [
+            "uaf: world quit (save #3, world load #2): held 262144 block(s) 31 MB, oldest freed 42 s ago, 0 written now, 18 ms; session held 1200344, freed 938200, written 0 (0x40A00000 0), passed 12, DR arms 0",
+            "save: end #3 result 1 after 5120 ms"
+          ]
+        },
+        "^cas trim: write trap on ": {
+          "match": [
+            "cas trim: write trap on (docs/539 §16, test only): after each save up to 4 [outfit+0xBC] cells of vtable 00FE4A10 outfits (entry 87 of 121 / 91, 3 of 81 first) get a DR write watch on every thread (again every 30 s for new threads); each write logged (first 200, float5 WRITER first 100)"
+          ],
+          "noMatch": [
+            "cas trim: write trap NOT on (no vectored handler) (docs/539 §16, test only): after each save up to 4 [outfit+0xBC] cells of vtable 00FE4A10 outfits",
+            "cas trim: write trap save #0: 3 cell(s) watched, 7 thread(s) set; candidates: 2 of the hit shapes (87 of 121 / 91, 3 of 81), 1 other (entry 87 / 3, vtable 00FE4A10): DR0 outfit 0x20267E60 entry 87 of 121 cell 0x202682BC (now 0x00000000); DR1 outfit 0x20267F60 entry 3 of 81 cell 0x20268354 (now 0x00000000); DR2 outfit 0x20267E60 entry 3 of 121 cell 0x2026816C (now 0x00000000)"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #7 save-start ev=travel-save priv=1718 wPriv=1674 wCom=2172 free=1643 big=1537? img=394? map=138 stkRes=95.8 stkCom=10.5? miRes=192 miCom=101 eaDir=201? eaDirN=161? eaCom=650? eaRes=653? eaCoreN=230? rp=0.0 pl=0.0? sp=6.5? gcHeap=360? gcFree=166? gcN=303? rc=371? rcCold=9.6? rcBudget=200? rcN=103901? anim=3.1? rest=390? fpLost=0 fpLoad=0 fpSaved=1 t=129"
+          ],
+          "noMatch": [
+            "diag: mem #2 save-start ev=traveling priv=1710 wPriv=1666 wCom=2130 free=1697 big=1541? img=394? map=103 stkRes=99.5 stkCom=10.6? miRes=192 miCom=100 eaDir=186? eaDirN=150? eaCom=642? eaRes=645? eaCoreN=222? rp=0.0 pl=0.0? sp=6.5? gcHeap=356? gcFree=164? gcN=293? rc=369? rcCold=9.0? rcBudget=200? rcN=103707? anim=3.4? rest=409? fpLost=0 fpLoad=0 fpSaved=0 t=109"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.226 2026-11-09 08:07:23",
+            "cas trim: float-5 cell: save inventory 0x5EFE11, thread 39872; save #5 (travel flags 2), 17 s after world load #3; outfit 0x5E6F15C0 (vtable 00FE4A10) key C1BF773C 66AFD595 025ED6F4 00000000; cells +0xBC record -1 index 87: value 0x40A00000 (float 5.0), first dword (unreadable) 00000000; no CasTrim slot; never erased by CasTrim (ring: the last 0 of 0 erases); cells -8..+8:  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 [40A00000] 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^uaf: write after free: .*; freed under tag ": {
+          "match": [
+            "uaf: write after free: block 0x2A1B3C40 size 0x60 (chunk 0x70), offset +0x2C value 0x40A00000 (float 5.0), 1 dword(s) changed; freed 41234 ms ago at save #2 world load #1 (now save #3, world load #2); free stack 005E7C11 005E6A0F 00D4B160 00C6D4A2; freed under tag DestroyPark flush (site ts3native+0x1A2B3C); found at save end, thread 39872",
+            "uaf: write after free: block 0x2A1B3C40 size 0x60 (chunk 0x70), offset +0x8 value 0x00001234, 1 dword(s) changed; freed 41234 ms ago at save #2 world load #1 (now save #3, world load #2); free stack 005E7C11 005E6A0F 00D4B160 00C6D4A2; freed under tag none (site ts3native+0x0); found at eviction, thread 39872"
+          ],
+          "noMatch": [
+            "uaf: write after free: block 0x2A1B3C40 size 0x60 (chunk 0x70), offset +0x2C value 0x40A00000 (float 5.0), 1 dword(s) changed; freed 41234 ms ago at save #2 world load #1 (now save #3, world load #2); free stack 005E7C11 005E6A0F 00D4B160 00C6D4A2; found at save end, thread 39872",
+            "uaf: second free of held block 0x2A1B3C40 size 0x60 absorbed (EA would free it twice); stack 005E7C11 005E6A0F 00D4B160 00C6D4A2, thread 39872"
+          ]
+        },
+        "^float5 near our free: tag ": {
+          "match": [
+            "float5 near our free: tag DestroyPark flush (site ts3native+0x1A2B3C): outfit cell 0x5E6F17AC is +0x1C into quarantined block 0x5E6F1790 size 0x60, freed 812 ms ago at save #2 world load #1; free stack 005E7C11 005E6A0F 00D4B160 00C6D4A2",
+            "float5 near our free: tag DestroyPark flush (P5c released ring): realm shape node 0x1F2E3D40 +0x40 into 1F2E3D00 released by our flush 12 releases ago, 812.4 ms ago, count 1 before, id 0000000100000ABC, key 00FE1234"
+          ],
+          "noMatch": [
+            "float5 free lookup: no match for outfit cell 0x5E6F17AC (quarantine 262144 blocks, recently-freed ring 8192, P5c released ring 4096)",
+            "cas trim: float5 WRITER DR0: cell 0x202682BC ([outfit+0xBC] entry 87 of 121, outfit 0x20267E60, armed at save #0) value now 0x40A00000 (float 5.0)"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -7,10 +7,10 @@
 //   (eip = the instruction after the write), the address, the value now, the thread and a stack scan, clears DR6 and
 //   continues; the slot stays armed. Call it from the hook where the object is created; WpDisarm(slot) frees the slot.
 // shortcut: threads created after WpArm are not watched (Windows starts them with DR7 = 0); arm again after a thread
-// start if a new thread is the suspect.
+// start if a new thread is the suspect. [CasTrim] WriteTrap calls WpRefresh every 30 s and at each save for that.
 #include <tlhelp32.h>
 
-struct WpSlot { DWORD addr; DWORD len; bool write; DWORD obj; };  // obj: the watched child footprint (Lot= arms; 0 = none)
+struct WpSlot { DWORD addr; DWORD len; bool write; DWORD obj; bool trap; };  // obj: the watched child footprint (Lot= arms; 0 = none); trap: [CasTrim] WriteTrap's (g_wpTrapFn logs it)
 static WpSlot g_wp[4];
 static volatile LONG g_wpHits[4];
 static volatile LONG g_wpLogN[4];  // hits that were not constructor pairs (the LogHits budget)
@@ -19,6 +19,8 @@ static LONG g_wpLogMax = 16;           // [Watchpoint] LogHits: logged hits per 
 static PVOID g_wpVeh;
 static volatile LONG g_wpLock;
 static LONG g_wpSetFail;  // threads whose registers could not be set (logged)
+static LONG g_wpThreads;  // threads set by the last pass
+static void (*g_wpTrapFn)(int slot, const CONTEXT* c);  // castrim.cpp CtTrapHit (docs/539 §16)
 
 static DWORD WpDr7() {
     DWORD d7 = 0;
@@ -67,6 +69,7 @@ static LONG WpApply() {  // threads set
     DWORD n = 0;
     if (WaitForSingleObject(t, 5000) == WAIT_OBJECT_0) GetExitCodeThread(t, &n);
     CloseHandle(t);
+    g_wpThreads = (LONG)n;
     return (LONG)n;
 }
 
@@ -89,6 +92,7 @@ static LONG CALLBACK WpVeh(EXCEPTION_POINTERS* e) {
         const LONG n = InterlockedIncrement(&g_wpHits[i]);
         InterlockedIncrement(&ts3native_counters.wpHits);
         g_wpLastEip[i] = c->Eip;
+        if (g_wp[i].trap) { if (g_wpTrapFn) g_wpTrapFn(i, c); continue; }
         if (WpCtorHit(c->Eip, c->Esp)) { InterlockedIncrement(&ts3native_counters.wpCtor); continue; }
         if (InterlockedIncrement(&g_wpLogN[i]) > g_wpLogMax) continue;
         const WpSlot s = g_wp[i];
@@ -109,6 +113,12 @@ static LONG CALLBACK WpVeh(EXCEPTION_POINTERS* e) {
     return EXCEPTION_CONTINUE_EXECUTION;
 }
 
+bool WpOwnsXcpt(const EXCEPTION_POINTERS* e) {  // XcptLog: a hit on one of our slots is no crash (keeps its 16-line budget)
+    if (!g_wpVeh || e->ExceptionRecord->ExceptionCode != EXCEPTION_SINGLE_STEP) return false;
+    for (int i = 0; i < 4; i++) if (g_wp[i].addr && (e->ContextRecord->Dr6 & (1u << i))) return true;
+    return false;
+}
+
 static void WpInstall() {
     if (!g_wpVeh) g_wpVeh = AddVectoredExceptionHandler(1, WpVeh);
 }
@@ -123,8 +133,9 @@ int WpArm(const void* addr, DWORD len, bool writeOnly) {
     while (InterlockedExchange(&g_wpLock, 1)) Sleep(0);
     int slot = -1;
     for (int i = 0; i < 4 && slot < 0; i++) if (!g_wp[i].addr) slot = i;
+    for (int i = 3; i >= 0 && slot < 0; i--) if (g_wp[i].trap) slot = i;  // docs/539 §17: [UafCheck] takes a [CasTrim] WriteTrap slot (its next set skips it)
     if (slot >= 0) {
-        g_wp[slot].addr = a, g_wp[slot].len = len, g_wp[slot].write = writeOnly, g_wp[slot].obj = 0, g_wpLogN[slot] = 0;
+        g_wp[slot].addr = a, g_wp[slot].len = len, g_wp[slot].write = writeOnly, g_wp[slot].obj = 0, g_wp[slot].trap = false, g_wpLogN[slot] = 0;
         const LONG n = WpApply();
         Log("watchpoint DR%d armed: 0x%08lX len %lu %s, %ld thread(s) set (%ld failed so far)", slot, a, len, writeOnly ? "write" : "read/write", n,
             g_wpSetFail);
@@ -132,10 +143,31 @@ int WpArm(const void* addr, DWORD len, bool writeOnly) {
     InterlockedExchange(&g_wpLock, 0);
     return slot;
 }
+// docs/539 §16 [CasTrim] WriteTrap: trap k of a[0..n) goes to slot k (n <= 4) unless another user holds slot k (then skipped);
+// every other trap slot is cleared; one pass over all threads. Returns the mask of trap slots set. Not from a vectored handler.
+int WpTrapSet(const DWORD* a, int n) {
+    if (!g_wpVeh) return 0;
+    while (InterlockedExchange(&g_wpLock, 1)) Sleep(0);
+    int mask = 0;
+    for (int i = 0; i < 4; i++) {
+        if (g_wp[i].addr && !g_wp[i].trap) continue;
+        g_wp[i].addr = 0, g_wp[i].trap = false;
+        if (i < n && a[i] && !(a[i] & 3)) g_wp[i].addr = a[i], g_wp[i].len = 4, g_wp[i].write = true, g_wp[i].obj = 0, g_wp[i].trap = true, mask |= 1 << i;
+    }
+    WpApply();
+    InterlockedExchange(&g_wpLock, 0);
+    return mask;
+}
+LONG WpRefresh() {  // threads started since the last pass get the registers (Windows starts them with DR7 = 0)
+    while (InterlockedExchange(&g_wpLock, 1)) Sleep(0);
+    const LONG n = WpApply();
+    InterlockedExchange(&g_wpLock, 0);
+    return n;
+}
 void WpDisarm(int slot) {
     if (slot < 0 || slot > 3) return;
     while (InterlockedExchange(&g_wpLock, 1)) Sleep(0);
-    g_wp[slot].addr = 0, g_wp[slot].obj = 0;
+    g_wp[slot].addr = 0, g_wp[slot].obj = 0, g_wp[slot].trap = false;
     WpApply();
     InterlockedExchange(&g_wpLock, 0);
 }

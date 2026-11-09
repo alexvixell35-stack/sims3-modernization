@@ -3,13 +3,18 @@
 // Runs at x3 with popups cleared and checks every 30 s: shortcut counters (patches command: <name>_shortcuts,
 // <name>_no_spot) and stuck Sims as watchdog.ts judges them, marking Sims a shortcut recently placed. Passes once each
 // named shortcut has fired --tries times with no stuck teleported Sim and at least 2 min elapsed; fails on a stuck teleported
-// Sim, more than --max-stuck stuck Sims of any kind, or when --minutes run out. Exit code 0 = pass. Needs the probe server and a world in live mode.
+// Sim, more than --max-stuck stuck Sims of any kind, <name>_left_dirty > 0, or when --minutes run out. Exit code 0 = pass. Needs the probe server and a world in live mode.
+// --soft-tries: for a rare event (Rodney 2026-11-09, unseenboatstart): runs the full --minutes, and too few tries is a PASS that reports the count;
+// stuck, left_dirty and a dead game still fail.
+// --require "name>=n,...": ts3fixes counter rules (fixes-require.ts) on the final patches answer; a failed rule turns PASS into FAIL.
 import { parseArgs } from 'node:util';
+import { checkRequire, parseRequire } from './fixes-require.ts';
 import { reproSave } from './repro-save.ts';
 import { mayBeStuck } from './stuck-rule.ts';
 import { watchGame } from './game-alive.ts';
 
-const { values } = parseArgs({ options: { name: { type: 'string' }, tries: { type: 'string', default: '20' }, minutes: { type: 'string', default: '5' }, 'max-stuck': { type: 'string', default: '5' }, off: { type: 'string' }, on: { type: 'string' } } });
+const { values } = parseArgs({ options: { name: { type: 'string' }, tries: { type: 'string', default: '20' }, minutes: { type: 'string', default: '5' }, 'max-stuck': { type: 'string', default: '5' }, off: { type: 'string' }, on: { type: 'string' }, 'soft-tries': { type: 'boolean', default: false }, require: { type: 'string' } } });
+if (values.require) parseRequire(values.require); // bad rule text fails before the run
 if (!values.name) throw new Error('--name required (gohome, rabbithole, ...)');
 const maxStuck = Number(values['max-stuck']);
 const names = values.name.split(','), tries = Number(values.tries), limit = Number(values.minutes) * 60000;
@@ -57,8 +62,9 @@ while (Date.now() - t0 < limit) {
   if (stuck.some(s => s.includes('[teleported]'))) { verdict = 'FAIL: a teleported Sim is stuck'; break; }
   // any Sims stuck count too: a shortcut can strand Sims it never moved (e.g. ones waiting on a car it moved)
   if (stuck.length > maxStuck) { verdict = `FAIL: ${stuck.length} stuck Sims (more than --max-stuck ${maxStuck}); compare with the shortcut off`; break; }
-  if (got.every(g => g.shortcuts >= tries) && Date.now() - t0 >= 120000) { verdict = 'PASS'; break; }
-  verdict = `FAIL: too few tries for ${got.filter(g => g.shortcuts < tries).map(g => g.n).join(', ')} within the time limit (try another world or save)`;
+  if (got.some(g => g.dirty > 0)) { verdict = `FAIL: left_dirty ${got.filter(g => g.dirty > 0).map(g => `${g.n} ${g.dirty}`).join(', ')}`; break; }
+  if (!values['soft-tries'] && got.every(g => g.shortcuts >= tries) && Date.now() - t0 >= 120000) { verdict = 'PASS'; break; }
+  verdict = values['soft-tries'] ? `PASS (soft tries): ${got.map(g => `${g.n} ${g.shortcuts} of ${tries} tries`).join(', ')}` : `FAIL: too few tries for ${got.filter(g => g.shortcuts < tries).map(g => g.n).join(', ')} within the time limit (try another world or save)`;
 }
 // keep the situation for a direct retest of the fix (load the repro save instead of waiting for it to recur)
 if (stuck.length) await reproSave(ag, `verify-${names[0]}`, stuck.map(x => ({ sim: x })));
@@ -68,5 +74,8 @@ const fin = (await ag('patches')).result ?? {};
 for (const g of lastGot) console.log(`${stamp()} ${g.n}: candidates ${g.cand}, shortcuts ${g.shortcuts}, no_spot ${g.noSpot}, left_dirty ${g.dirty}, not taken (candidates - shortcuts - no_spot) ${Math.max(0, g.cand - g.shortcuts - g.noSpot)}`);
 const tele = ((fin.recent ?? []) as string[]).filter(r => r.includes('=>'));
 console.log(`${stamp()} teleports (Sim => destination): ${tele.length ? tele.join(' | ') : 'none in the recent list'}`);
+const reqFails = values.require ? checkRequire(values.require, fin) : [];
+if (values.require) console.log(`${stamp()} --require ${reqFails.length ? reqFails.join('; ') : 'all hold'}`);
+if (reqFails.length && verdict.startsWith('PASS')) verdict = `FAIL: --require ${reqFails.join('; ')}`;
 console.log(`${stamp()} ${verdict}; recent: ${((await ag('patches')).result?.recent ?? []).slice(-6).join(' | ')}`);
-process.exit(verdict === 'PASS' ? 0 : 1);
+process.exit(verdict.startsWith('PASS') ? 0 : 1);

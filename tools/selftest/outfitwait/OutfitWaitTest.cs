@@ -59,6 +59,9 @@ static class OutfitWaitTest
         Check(OutfitWaitCore.StaleCause(true, false, none, 0, 1, 0, none) == OutfitWaitCore.kCauseAborted, "an abort wins over a cleared pending outfit (Abort clears it too)");
         Check(OutfitWaitCore.StaleCause(false, true, 2, 0, 1, 0, none) == OutfitWaitCore.kCauseReplaced, "another pending outfit: replaced even with this helper active");
         Check(OutfitWaitCore.StaleCause(false, false, 1, 0, 1, 0, none) == OutfitWaitCore.kCauseReplaced, "same outfit pending but another or no active helper: replaced");
+        Check(OutfitWaitCore.EndDead(true, false), "issue #40: a destroyed Sim's wait on a task of no Sim ends");
+        Check(!OutfitWaitCore.EndDead(true, true), "issue #40: a wait on another Sim's task keeps EA's loop");
+        Check(!OutfitWaitCore.EndDead(false, false) && !OutfitWaitCore.EndDead(false, true), "issue #40: a live Sim's wait never ends early");
         Console.WriteLine(sFails == 0 ? "outfitwait selftest ok" : "outfitwait selftest: " + sFails + " failures");
         Environment.Exit(sFails == 0 ? 0 : 1);
     }

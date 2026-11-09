@@ -46895,6 +46895,137 @@
     "expect": "no crash, 0 watchdog lines; unseenroute_d_check >= 1, unseenroute_d_repair >= 1, the Sims leave the fenced spot (sims_activity), no stuck Sim"
   },
   {
+    "id": "outfit-wait-dead-check",
+    "bug": "issue #40: a magical-makeover alarm (MagicMirror.MagicalMakeover.ChangeOutfitCB) sits in Sim.SwitchOutfitHelper.Wait when Cleanup aborts the helper; the loop never ends and has no check that the helper's Sim is destroyed, so the alarm task keeps the dead Sim and its graph alive (contributor sample: 9 of 40 dead Sims)",
+    "fix": "ts3fixes OutfitWait.cs: outfitwaitpoll (default on) ends a stale wait whose Sim is destroyed with ResetException, docs/224 §6",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static + self-test, 2026-11-09). No agent op can force the mirror alarm into Wait and the Cleanup abort deterministically, so OutfitWaitCheck \"start dead\" builds the same state: a task in Wait(false) on a non-household Sim's helper, aborted in the loop as Cleanup does, then the Sim destroyed (reset, 30 ticks, SimDescription.Dispose as remove_sims). The test Sim is destroyed; the save is never saved.",
+    "expect": "\"dead\": abort \"aborted in the loop, Sim destroyed True\" within seconds; after 60 sim-minutes (the stale mark) wait_ended true with wait_end \"threw ResetException ...\", dead_ended (fixes-933) 1; ts3native.log \"outfitwaitpoll: <name> outfit wait ended: its Sim is destroyed (aborted True)\".",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitpoll": true
+        },
+        "waitS": 1,
+        "note": "release default; applied log lists Sim+SwitchOutfitHelper.Wait: ok"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "start dead"
+          ]
+        },
+        "note": "names a non-household Sim and the outfit category it waits for",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "dead"
+          ]
+        },
+        "note": "the Sim is destroyed after the abort (30 ticks)",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+            "args": [
+              "dead"
+            ]
+          },
+          "all": [
+            {
+              "path": "sim_destroyed",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "more than 60 sim-minutes pass (stale mark)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "dead"
+          ]
+        },
+        "note": "the wait task ended with ResetException at the first stale poll; dead_ended >= 1",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+            "args": [
+              "dead"
+            ]
+          },
+          "all": [
+            {
+              "path": "wait_ended",
+              "equals": true
+            },
+            {
+              "path": "dead_ended",
+              "atLeast": 1
+            }
+          ],
+          "maxS": 240,
+          "everyS": 5
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "log"
+          ]
+        },
+        "note": "the dead-wait line"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "done"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "ends the test tasks if a step failed"
+      }
+    ]
+  },
+  {
     "id": "outfit-wait-stale-check",
     "bug": "issue #115: Sim.SwitchOutfitHelper.Wait loops on Simulator.Sleep(1) until mReady; an Abort while it waits (another helper's Start on the Sim, MagicalMakeover.Cleanup) cancels the swap, so the waiting task wakes every tick for the rest of the session (a magical-makeover alarm, 3.0 ms per sim-minute on the day-406 save)",
     "fix": "ts3fixes OutfitWait.cs: outfitwaitpoll (default on), docs/224",
@@ -48764,8 +48895,8 @@
     "bug": "Book.StopUsingBook, when a Sim who read standing or sitting puts the book in the inventory, sets Sim.CarryStateMachine = null without asking the carry machine to exit; the engine keeps playing its arm layer (the book-holding pose, page sounds) until a reset or the script client's finalizer",
     "fix": "ts3fixes BookCarry.cs: bookcarry (default off), docs/515",
     "save": "Baseline-BP",
-    "note": "Each arm first restarts Tiara's idles (the save loads her already stuck), then queues EA's ReadBook from Tiara's inventory (the book goes back there), polls her state until she is reading with the book in hand, then cancels the read so EA ends it through StopUsingBook, and waits for the drop. A read that ends by itself first passes too. Only Tiara's drops count.",
-    "expect": "off: expect left sees a dropped carry machine that still holds its engine driver, ended +0. on: expect ended sees every dropped machine ended and the last one's driver released.",
+    "note": "Crowd form (Rodney 2026-11-09): each arm sends up to 20 non-household Sims (never the active household, its lot or a selectable Sim) to a bookshelf on their own home lot, at most 2 per shelf, cancels their queues, maxes motives, teleports them in front of the shelf (Teleport Me Here) and forces EA's Bookshelf_ReadSomething. Once one reads with the book in hand (or a read already dropped), every crowd read is cancelled so EA ends it through StopUsingBook, and the repro waits for a drop. Only crowd Sims' drops count; crowd state reports sims/reading/carry/ready/dropped/droppedSims and the current interactions. The one-Sim form (cure/read/state/stop on Tiara) stays in BookCarryCheck for hand checks. Why not Tiara: three runs at game hour 3 left her queued ReadBook-from-inventory unrun (current nothing, carry true from the stuck pose the save loads with) for 180 s; the one run at hour 15 passed.",
+    "expect": "off: crowd expect left sees >= 1 dropped carry machine (any crowd Sim) whose driver is still held, ended +0, and names how many of the crowd dropped. on: crowd expect ended sees every dropped machine ended and the last one's driver released.",
     "steps": [
       {
         "cmd": "patches",
@@ -48780,33 +48911,22 @@
         "args": {
           "path": "Ts3Fixes.Fixes.BookCarryCheck",
           "args": [
-            "cure Tiara Angelista"
+            "crowd read 20"
           ]
         },
-        "note": "off: Tiara's idles restarted, so she starts from a normal pose",
-        "waitS": 5
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.BookCarryCheck",
-          "args": [
-            "read Tiara Angelista"
-          ]
-        },
-        "note": "off: ReadBook queued on a book in Tiara's inventory",
+        "note": "off: up to 20 non-household Sims, each at a bookshelf on its own home lot (max 2 per shelf; the drop needs the book to go to the reader's inventory, which EA does only on the reader's home lot): queues cancelled, motives maxed, Teleport Me Here to the shelf, EA's Bookshelf_ReadSomething forced",
         "waitS": 2,
         "until": {
           "cmd": "reflect_call",
           "args": {
             "path": "Ts3Fixes.Fixes.BookCarryCheck",
             "args": [
-              "state Tiara Angelista"
+              "crowd state"
             ]
           },
           "all": [
             {
-              "path": "ready",
+              "path": "any",
               "equals": true
             }
           ],
@@ -48819,26 +48939,26 @@
         "args": {
           "path": "Ts3Fixes.Fixes.BookCarryCheck",
           "args": [
-            "stop Tiara Angelista"
+            "crowd stop"
           ]
         },
-        "note": "off: the read cancelled once she holds the book (or it already ended)",
+        "note": "off: every crowd Sim reading is cancelled, so EA ends the read through StopUsingBook (reads already ended count too)",
         "waitS": 1,
         "until": {
           "cmd": "reflect_call",
           "args": {
             "path": "Ts3Fixes.Fixes.BookCarryCheck",
             "args": [
-              "state Tiara Angelista"
+              "crowd state"
             ]
           },
           "all": [
             {
-              "path": "dropped",
+              "path": "droppedSims",
               "atLeast": 1
             }
           ],
-          "maxS": 60,
+          "maxS": 90,
           "everyS": 3
         }
       },
@@ -48847,11 +48967,11 @@
         "args": {
           "path": "Ts3Fixes.Fixes.BookCarryCheck",
           "args": [
-            "expect left Tiara Angelista"
+            "crowd expect left"
           ]
         },
-        "note": "off: the bug: a dropped carry machine whose driver is still held, ended +0 (throws otherwise); then 45 s to look: Tiara's arms stay in the hold pose",
-        "waitS": 45
+        "note": "off: the bug: dropped carry machines whose driver is still held, ended +0 (throws otherwise); reports N of 20 Sims that hit it",
+        "waitS": 5
       },
       {
         "cmd": "patches",
@@ -48865,33 +48985,22 @@
         "args": {
           "path": "Ts3Fixes.Fixes.BookCarryCheck",
           "args": [
-            "cure Tiara Angelista"
+            "crowd read 20"
           ]
         },
-        "note": "on: Tiara's idles restarted, so she starts from a normal pose",
-        "waitS": 5
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.BookCarryCheck",
-          "args": [
-            "read Tiara Angelista"
-          ]
-        },
-        "note": "on: another read queued",
+        "note": "on: up to 20 non-household Sims, each at a bookshelf on its own home lot (max 2 per shelf; the drop needs the book to go to the reader's inventory, which EA does only on the reader's home lot): queues cancelled, motives maxed, Teleport Me Here to the shelf, EA's Bookshelf_ReadSomething forced",
         "waitS": 2,
         "until": {
           "cmd": "reflect_call",
           "args": {
             "path": "Ts3Fixes.Fixes.BookCarryCheck",
             "args": [
-              "state Tiara Angelista"
+              "crowd state"
             ]
           },
           "all": [
             {
-              "path": "ready",
+              "path": "any",
               "equals": true
             }
           ],
@@ -48904,26 +49013,26 @@
         "args": {
           "path": "Ts3Fixes.Fixes.BookCarryCheck",
           "args": [
-            "stop Tiara Angelista"
+            "crowd stop"
           ]
         },
-        "note": "on: the read cancelled once she holds the book (or it already ended)",
+        "note": "on: every crowd Sim reading is cancelled, so EA ends the read through StopUsingBook (reads already ended count too)",
         "waitS": 1,
         "until": {
           "cmd": "reflect_call",
           "args": {
             "path": "Ts3Fixes.Fixes.BookCarryCheck",
             "args": [
-              "state Tiara Angelista"
+              "crowd state"
             ]
           },
           "all": [
             {
-              "path": "dropped",
+              "path": "droppedSims",
               "atLeast": 1
             }
           ],
-          "maxS": 60,
+          "maxS": 90,
           "everyS": 3
         }
       },
@@ -48932,11 +49041,11 @@
         "args": {
           "path": "Ts3Fixes.Fixes.BookCarryCheck",
           "args": [
-            "expect ended Tiara Angelista"
+            "crowd expect ended"
           ]
         },
-        "note": "on: the fix: every dropped machine ended, the last one's driver released (throws otherwise); then 45 s to look: Tiara's arms are normal",
-        "waitS": 45
+        "note": "on: the fix: every dropped machine ended, the last one's driver released (throws otherwise); reports N of 20 Sims that hit it",
+        "waitS": 5
       }
     ],
     "cleanup": []
@@ -57648,7 +57757,7 @@
     "area": "mono"
   },
   {"id":"ip-unseen-boat-loop","bug":"docs/247: after GetInBoatRouteAction fades the Sim in, DoRoute replans the whole remaining route with the boat as follower, synchronously on the sim thread (245 runs >= 100 ms, 37.4 s on IP in one run, worst 341 ms; same on Baseline)","fix":"ts3fixes unseenboat (UnseenBoat.cs, docs/248): lone unseen townie: boat as transport = no boat, placed at the goal after the travel time; houseboat goal = PlaceSimAtEntrance after the travel time; else the exact path","save":"Baseline-IP-Spring","note":"First run 2026-11-06 (boattp2): candidates 419, all rj_route, shortcuts 0, and it still passed; fixesRequire now fails such a run. crowd_go is Go Here, refused by UfPreSim, so its legs stay exact and give the boats unseen_water_watch counts; leg 1 is the lot trip. Linda Scott and Mylee Arias live on the houseboat (ip-houseboat-gohome): sent home unseen they are the houseboat case.","fixesRequire":"unseenboat_shortcuts>=1","steps":[{"cmd":"spawn_sims","args":{"count":10},"waitS":20},{"cmd":"unseen_water_watch","args":{"start":true},"note":"samples every 15 ticks: unseen Sims in a vehicle / boat, in water, stranded"},{"cmd":"patches","args":{"unseenboat":true},"waitS":1},{"cmd":"set_speed","args":{"speed":"ultra"},"waitS":2},{"cmd":"crowd_visit_lot","args":{"lot":"island"},"waitS":150,"note":"leg 1: a real lot trip across the sea, the fix's case, from the spawn spots away from the camera (Go Here is refused by UfPreSim and stays exact)"},{"cmd":"crowd_go","args":{"target":"home"},"waitS":150,"note":"leg 2: back across the water to the active lot"},{"cmd":"crowd_go","args":{"to":"island"},"waitS":150},{"cmd":"crowd_go","args":{"target":"home"},"waitS":150},{"cmd":"sim_visit_lot","args":{"sim":"Linda Scott","lot":"far"},"waitS":90,"note":"houseboat case: out"},{"cmd":"sim_go_home","args":{"sim":"Linda Scott"},"waitS":90,"note":"home to the houseboat, unseenboat_houseboat grows"},{"cmd":"unseen_water_watch","args":{"result":true,"require":true,"min_engaged":3,"stop":true},"note":"FAILS unless >= 3 Sims were at once in a vehicle or in water while unseen and none was stranded"},{"cmd":"remove_sims","args":{},"waitS":5}],"expect":"no crash; unseenboat_shortcuts > 0, unseenboat_houseboat > 0, no stranded Sim, no Sim in the water or left in a boat, every moved Sim goes on with its interaction","cleanup":[{"cmd":"patches","args":{"unseenboat":false}}]},
-  {"id":"ip-houseboat-leave-loop","bug":"docs/247 §11.3: Sims starting a route on a houseboat stayed exact: no land colour at the hidden houseboat lot, so rj_unknown, then a boat get-in and a sync boat replan per trip","fix":"ts3fixes unseenboatstart (UnseenBoat.cs, docs/248 §10): unseen townie on a houseboat, docked or at sea, deck or cabin: no boat, wait the boat's real distance, placed at the goal or the goal lot's street side; a moving boat, its driver, the player's boat, an owned boat, a seen Sim, boat or goal stay exact","save":"Baseline-IP-Spring","note":"Residents are sent home first (optional, unseenboat_houseboat may place them), then every townie on a houseboat lot takes the game's own lot trip, all in one tick (stress label). fixesRequire fails a run that only reaches the gate, left_dirty and houseboat_leave {check} fail a boat that kept a Sim. Houseboats moved: read the row's houseboats line.","fixesRequire":"unseenboatstart_shortcuts>=3,unseenboatstart_left_dirty<=0","steps":[{"cmd":"patches","args":{"unseenboat":true,"unseenboatstart":true},"waitS":1},{"cmd":"set_speed","args":{"speed":"ultra"},"waitS":2},{"cmd":"sim_go_home","args":{"sim":"Linda Scott"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Mylee Arias"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Ruben Arias"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Tariq Scott"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Gabrielle Arias"},"optional":true,"waitS":120},{"cmd":"houseboat_leave","args":{"lot":"island"},"waitS":150,"note":"leg 1: off the boats across the sea"},{"cmd":"sim_go_home","args":{"sim":"Linda Scott"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Mylee Arias"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Ruben Arias"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Tariq Scott"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Gabrielle Arias"},"optional":true,"waitS":120},{"cmd":"houseboat_leave","args":{"lot":"far"},"waitS":150,"note":"leg 2: another goal, a land trip from a docked boat counts too"},{"cmd":"houseboat_leave","args":{"check":true},"note":"FAILS when a houseboat lot still lists a Sim that stands off it"}],"expect":"no crash, 0 stuck; unseenboatstart_shortcuts >= 3, unseenboatstart_left_dirty 0; houseboats moved none; every moved Sim goes on with its interaction","cleanup":[{"cmd":"patches","args":{"unseenboat":false,"unseenboatstart":false}}]},
+  {"id":"ip-houseboat-leave-loop","bug":"docs/247 §11.3: Sims starting a route on a houseboat stayed exact: no land colour at the hidden houseboat lot, so rj_unknown, then a boat get-in and a sync boat replan per trip","fix":"ts3fixes unseenboatstart (UnseenBoat.cs, docs/248 §10): unseen townie on a houseboat, docked or at sea, deck or cabin: no boat, wait the boat's real distance, placed at the goal or the goal lot's street side; a moving boat, its driver, the player's boat, an owned boat, a seen Sim, boat or goal stay exact","save":"Baseline-IP-Spring","note":"fixesRequire holds only left_dirty since 2026-11-09 (Rodney: houseboat starts are rare, too few tries is no FAIL); a job that needs a floor sets it (verify-shortcut-houseboat.json: >=3). Residents are sent home first (optional, unseenboat_houseboat may place them), then every townie on a houseboat lot takes the game's own lot trip, all in one tick (stress label). fixesRequire fails a run that only reaches the gate, left_dirty and houseboat_leave {check} fail a boat that kept a Sim. Houseboats moved: read the row's houseboats line.","fixesRequire":"unseenboatstart_left_dirty<=0","steps":[{"cmd":"patches","args":{"unseenboat":true,"unseenboatstart":true},"waitS":1},{"cmd":"set_speed","args":{"speed":"ultra"},"waitS":2},{"cmd":"sim_go_home","args":{"sim":"Linda Scott"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Mylee Arias"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Ruben Arias"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Tariq Scott"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Gabrielle Arias"},"optional":true,"waitS":120},{"cmd":"houseboat_leave","args":{"lot":"island"},"waitS":150,"note":"leg 1: off the boats across the sea"},{"cmd":"sim_go_home","args":{"sim":"Linda Scott"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Mylee Arias"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Ruben Arias"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Tariq Scott"},"optional":true},{"cmd":"sim_go_home","args":{"sim":"Gabrielle Arias"},"optional":true,"waitS":120},{"cmd":"houseboat_leave","args":{"lot":"far"},"waitS":150,"note":"leg 2: another goal, a land trip from a docked boat counts too"},{"cmd":"houseboat_leave","args":{"check":true},"note":"FAILS when a houseboat lot still lists a Sim that stands off it"}],"expect":"no crash, 0 stuck; unseenboatstart_shortcuts >= 3, unseenboatstart_left_dirty 0; houseboats moved none; every moved Sim goes on with its interaction","cleanup":[{"cmd":"patches","args":{"unseenboat":false,"unseenboatstart":false}}]},
   {"id":"gc-streak-guard","bug":"docs/67 §35: GC_alloc_large expands without a collection while a request at or below GC_black_list_spacing finds only black-listed pages; bp-jit-autshadow-r: streak 587 for an 824 KB string, heap 352 -> 2388 MB, g_malloc NULL at 0x00E48B55","fix":"ts3native gcgrow.cpp GwExpand streak guard (0.36.180): at streak 3 the spacing drops to 12 KB and the next try punts; only with [GC] BlackListCapKB. native_set gcstreakat is its switch","save":"Baseline-BP-Spring","area":"memory","note":"UNVERIFIED (selftest only, 2026-11-07): never run. STRESS, not a player flow: gc_streak_force writes the spacing and the black list, because the natural state came in 1 of 233 runs. Steam 1.67 addresses. Assumes new string() takes the GC_alloc_large path of the crash's mono_string_new, without IGNORE_OFF_PAGE [inferred]: if not, the off arm shows no growth. The off arm stops at streak 12 (at most 2 x 12 expansions, about 480 MB at the 32 MB step); gcstreakat 0 would be the real runaway. The state is forced, so a pass shows the guard ends this loop, not that spacing at the cap caused the crash (I-442-1).","steps":[{"cmd":"native_mark","args":{"name":"off"}},{"cmd":"native_set","args":{"gcstreakat":12},"waitS":1,"note":"off arm: guard off, test stop at streak 12"},{"cmd":"gc_streak_force","args":{"rounds":2},"waitS":2},{"cmd":"native_check","args":{"name":"off","require":"gwExpands>=24,gcExpandStreakMax>=10,gcBlackOk>=2"},"waitS":0,"note":"off: the streak climbs and the heap grows"},{"cmd":"native_mark","args":{"name":"on"}},{"cmd":"native_set","args":{"gcstreakat":3},"waitS":1,"note":"on arm: the guard"},{"cmd":"gc_streak_force","args":{"rounds":2},"waitS":2},{"cmd":"native_check","args":{"name":"on","require":"gwExpands>=6,gwExpands<=8,gcExpandStreakMax<=0,gcBlackOk>=2"},"waitS":0,"note":"on: 3 expansions a round, then the punt; the off arm's max stays"}],"watch":["gwExpands","gwKB","gcExpandStreak","gcExpandStreakMax","gcBlackOk"],"expect":"off: gc expand streak test stop x2, heap grows by 24 expansions; on: gc expand streak guard x2, 6 expansions; no crash","cleanup":[{"cmd":"native_set","args":{"gcstreakat":3}}]},
   {"id":"routefail-gohere-sv","bug":"Player report (test build 0.36.168c-test1): Sims cannot reach the spot, routing seems broken. Smoke of the test build, not a bug repro","fix":"KdExemptSeen: a Sim you can see is not cut off for a long route search; the test build logs every ordered route (gohere:) and kd exempt: lines","save":"Baseline-SV-Spring","note":"UNVERIFIED (static only, 2026-11-07): never run. Selected (active) Sim runs two Go Here orders; far = farthest community lot, pond = the rare-point pond. Correctness smoke only","steps":[{"cmd":"go_here","args":{"to":"far"},"waitS":45,"note":"Go Here to the farthest community lot"},{"cmd":"go_here","args":{"to":"pond"},"waitS":45,"optional":true,"note":"Go Here to the pond (may not exist on this world)"}]},
   {
@@ -64623,7 +64732,7 @@
     "bug": "EA package-lock ABBA deadlock at the main menu (docs/539 §13.8, §13.9; docs/67 §23): readers take the database lock DL O+0x48 then the file lock FL O+0xC0, the main thread's idle close 0x7355A0 -> 0x735320 takes FL then DL; a worker's first read of a package being closed hangs the game (~4 in ~2100 harness loads, save-list read after Mod Scripts Found)",
     "fix": "ts3native [PkgLock] Mode=1 (pkglock.cpp, 0.36.216): the idle close tries DL first (Lock_Acquire, deadline 0) and skips to a later update when a reader holds it; Detect=1 logs \"[PkgLock] ABBA:\" (counters v177 pk*)",
     "save": "Baseline-BP-Spring",
-    "note": "FORCED, not a player flow (EA rate far too low to wait for). The trigger runs at the MAIN MENU, before these steps: queue job key agentArm \"pkg_abba_repro\" (ts3agent PkgAbbaHandlers.cs: 30 GetSaveFileDetails reads of the job save on a sim task; cycle.ts polls {status:true} under the stall guard) with ini [PkgLock] ReproWiden=50 (TEST ONLY: the idle close holds FL 50 ms on every update) and Detect=1. Mode 0 arm: job key expectHang \"pkg-abba\" (the load never starts; PASS = the hang is caught by the detector). Mode 1 arm: the reads finish, the save loads and these steps run. If Mode 0 does not hang within 30 reads, the window model of docs/539 §13.9.2 is wrong: stop and re-read the dump",
+    "note": "FORCED, not a player flow (EA rate far too low to wait for). The trigger runs at the MAIN MENU, before these steps: queue job key agentArm \"pkg_abba_repro\" (ts3agent PkgAbbaHandlers.cs: 30 GetSaveFileDetails reads of the job save on a sim task; cycle.ts polls {status:true} under the stall guard) with ini [PkgLock] ReproWiden=50 (TEST ONLY, 0.36.217+: every update the idle close waits up to 50 ms for a reader to own DL, Mode 0 holding FL, Mode 1 before its try of DL, and a reader of that package holds DL 50 ms; 0.36.216 held FL after Mode 1 had taken DL, so its m1 arm never deferred) and Detect=1. Mode 0 arm: job key expectHang \"pkg-abba\" (the load never starts; PASS = the hang is caught by the detector). Mode 1 arm: the reads finish, the save loads and these steps run. If Mode 0 does not hang within 30 reads, the window model of docs/539 §13.9.2 is wrong: stop and re-read the dump",
     "steps": [
       {
         "cmd": "set_speed",
@@ -64642,6 +64751,6 @@
         "note": "a save after the forced window"
       }
     ],
-    "expect": "Mode 1: agentArm reads 30 of 30, pkCloseDefer >= 1, pkAbbaSeen 0, load and save ok, no hang. Mode 0: \"[PkgLock] ABBA:\" line within the reads, hang caught (expectHang)"
+    "expect": "Mode 1: agentArm reads 30 of 30 (cycle.ts fails otherwise), a \"pkglock: ReproWiden defer:\" line (queue logRequire), pkAbbaSeen 0, load and save ok, no hang. Mode 0: \"[PkgLock] ABBA:\" line within the reads, hang caught (expectHang)"
   }
 ]

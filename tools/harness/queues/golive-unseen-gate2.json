@@ -44,7 +44,10 @@
       "AutShadow.WindowWaitUs": 0,
       "AutShadow.PreLearn": 0,
       "AutShadow.TierReqLots": 1,
-      "AutShadow.Unseen": 0
+      "AutShadow.Unseen": 0,
+      "RouteAsync.ForeignKinds": 0,
+      "RouteAsync.ForeignKindsMode": 1,
+      "RouteAsync.KdA10ForeignMs": 200
     },
     "earlyGates": [
       {
@@ -162,7 +165,10 @@
         "AutShadow.Unseen": 0,
         "MonoThread.LazyGate": 0,
         "MonoThread.LazyEarly": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       }
     },
     {
@@ -208,7 +214,10 @@
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
         "AutShadow.TierReqLots": 1,
-        "AutShadow.Unseen": 0
+        "AutShadow.Unseen": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "earlyGates": [
         {
@@ -324,7 +333,10 @@
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
         "AutShadow.TierReqLots": 1,
-        "AutShadow.Unseen": 0
+        "AutShadow.Unseen": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "earlyGates": [
         {
@@ -441,7 +453,10 @@
         "AutShadow.Unseen": 0,
         "MonoThread.LazyGate": 0,
         "MonoThread.LazyEarly": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       }
     },
     {
@@ -488,7 +503,10 @@
         "AutShadow.Unseen": 0,
         "MonoThread.LazyGate": 0,
         "MonoThread.LazyEarly": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       }
     },
     {
@@ -534,7 +552,10 @@
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
         "AutShadow.TierReqLots": 1,
-        "AutShadow.Unseen": 0
+        "AutShadow.Unseen": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "earlyGates": [
         {
@@ -650,7 +671,10 @@
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
         "AutShadow.TierReqLots": 1,
-        "AutShadow.Unseen": 0
+        "AutShadow.Unseen": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "earlyGates": [
         {
@@ -767,7 +791,10 @@
         "AutShadow.Unseen": 0,
         "MonoThread.LazyGate": 0,
         "MonoThread.LazyEarly": 0,
-        "AutShadow.TierReqLots": 0
+        "AutShadow.TierReqLots": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       }
     },
     {
@@ -813,7 +840,10 @@
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
         "AutShadow.TierReqLots": 1,
-        "AutShadow.Unseen": 0
+        "AutShadow.Unseen": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "earlyGates": [
         {
@@ -910,7 +940,10 @@
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
         "AutShadow.TierReqLots": 1,
-        "AutShadow.Unseen": 0
+        "AutShadow.Unseen": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "earlyGates": [
         {
@@ -1035,7 +1068,10 @@
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
         "AutShadow.TierReqLots": 1,
-        "AutShadow.Unseen": 0
+        "AutShadow.Unseen": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "earlyGates": [
         {
@@ -1157,7 +1193,10 @@
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
         "AutShadow.TierReqLots": 1,
-        "AutShadow.Unseen": 0
+        "AutShadow.Unseen": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "earlyGates": [
         {
@@ -1250,7 +1289,10 @@
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
         "AutShadow.TierReqLots": 1,
-        "AutShadow.Unseen": 0
+        "AutShadow.Unseen": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "earlyGates": [
         {
@@ -1371,7 +1413,10 @@
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
         "AutShadow.TierReqLots": 1,
-        "AutShadow.Unseen": 0
+        "AutShadow.Unseen": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "earlyGates": [
         {
@@ -1493,7 +1538,10 @@
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
         "AutShadow.TierReqLots": 1,
-        "AutShadow.Unseen": 0
+        "AutShadow.Unseen": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "earlyGates": [
         {
@@ -1618,7 +1666,10 @@
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
         "AutShadow.TierReqLots": 1,
-        "AutShadow.Unseen": 0
+        "AutShadow.Unseen": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "earlyGates": [
         {
@@ -1740,7 +1791,10 @@
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
         "AutShadow.TierReqLots": 1,
-        "AutShadow.Unseen": 0
+        "AutShadow.Unseen": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "earlyGates": [
         {
@@ -1855,7 +1909,10 @@
         "AutShadow.WindowWaitUs": 0,
         "AutShadow.PreLearn": 0,
         "AutShadow.TierReqLots": 1,
-        "AutShadow.Unseen": 0
+        "AutShadow.Unseen": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
       },
       "earlyGates": [
         {

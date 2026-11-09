@@ -155,6 +155,29 @@ static void TestPkgLock() {
     g_pkWidened = 0, g_pkWidenMs = 0;
     PkSummary();  // no log file in the selftest: must not fault
 
+    // (g) ReproWiden forces the Mode 1 collision: the widened close waits until a reader owns DL, then its try fails -> deferred;
+    // a reader's begin access on that package holds DL while the close waits
+    PkZero();
+    g_pkMode = 1, g_pkWidenMs = 2000, g_pkWidenDefer = g_pkReaderHold = 0;
+    u8* o4 = PkNewObj();
+    PkHold h4 = {o4, CreateEventW(NULL, TRUE, FALSE, NULL), CreateEventW(NULL, TRUE, FALSE, NULL)};
+    HANDLE c4 = CreateThread(NULL, 0, PkCloseOnce, o4, 0, NULL);
+    while (g_pkWidenO != o4) Sleep(1);  // the close is waiting for a reader
+    assert(PkBeginHook(o4 + 8, NULL) == 1 && g_pkReaderHold == 0);  // not a DL owner: no hold
+    HANDLE r4 = CreateThread(NULL, 0, PkHoldDl, &h4, 0, NULL);
+    assert(WaitForSingleObject(c4, 1000) == WAIT_OBJECT_0);  // ended long before the 2 s wait: it saw the reader
+    DWORD rc4 = 9;
+    GetExitCodeThread(c4, &rc4);
+    assert(rc4 == 0 && g_pktCloses == 0 && ts3native_counters.pkCloseDefer == 1 && g_pkWidenDefer == 1 && !g_pkWidenO);
+    SetEvent(h4.done);
+    WaitForSingleObject(r4, INFINITE);
+    CloseHandle(c4), CloseHandle(r4);
+    g_pkWidenO = o4, g_pkWidenMs = 1;  // a DL owner's begin on the waiting package holds DL first
+    PkFakeAcq(o4 + 0x48, NULL, &inf);
+    assert(PkBeginHook(o4 + 8, NULL) == 1 && g_pkReaderHold == 1);
+    PkFakeRel(o4 + 0x48, NULL);
+    g_pkWidenO = NULL, g_pkWidened = 0, g_pkWidenMs = 0, g_pkWidenDefer = g_pkReaderHold = 0;
+
     // (f) control + detector: Mode 0, ReproWiden 300 ms, a reader takes DL inside the window -> EA's ABBA, caught once
     PkZero();
     g_pkMode = 0, g_pkDetect = 1, g_pkWidenMs = 300;
@@ -173,5 +196,5 @@ static void TestPkgLock() {
 
     g_pkClose = sClose, g_pkBegin = sBegin, g_pkAcq = sAcq, g_pkRel = sRel;
     PkZero();
-    printf("selftest pkglock ok (try-lock defer, run with DL, precheck, force, slot check, begin owner / Mode 2, 10k-round no deadlock, ABBA detector)\n");
+    printf("selftest pkglock ok (try-lock defer, run with DL, precheck, force, slot check, begin owner / Mode 2, 10k-round no deadlock, ReproWiden forced defer, ABBA detector)\n");
 }

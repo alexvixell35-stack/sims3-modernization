@@ -36,6 +36,7 @@ For AI coding agents (Claude Code, Codex, Copilot and others) working on this re
 - Update `PLAN.md` ("Resume here") in the same commit as each fix or result.
 - **Reserve shared numbers first:** before writing a new `## N.` section in `docs/51-inference-ledger.md`, run `node tools/registry.ts reserve ledger --for "<topic>"` and use the § it prints (parallel agents collided on § numbers); counters likewise (`reserve native|fixes`, docs/registry.md). `tools/agent-merge.cjs` renumbers a colliding incoming section past reserved numbers and fixes its `ledger §N` / `docs/51 §N` references.
 - Scripts are TypeScript run with `node script.ts` (Node 22.18+, no npm dependencies) unless they need Windows-only features.
+- **Every regex gets a test against real lines:** any new or changed regex (code, `--self-check`, queue `logRequire`/`logForbid`/`expect` fields, repros.json, verify scripts) is tested before commit against at least one real log line it must match and one it must not, copied from an actual log (or the exact format string that writes it). Put the cases in the script's `--self-check` or the nearest selftest; for queue/repro fields, run them through the queue dry-run's regex check or a self-check that loads the JSON. Escape literals (`\(`, `\.`, `\d` not `d`, `#\d+`). Past misses (2026-11-09): `#d+` matched the letter d, `(docs/541)` was a group, a version pin matched an old build, so jobs could never pass.
 
 ## Picking work
 

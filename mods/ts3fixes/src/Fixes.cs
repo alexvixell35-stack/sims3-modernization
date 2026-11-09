@@ -264,6 +264,7 @@ namespace Ts3Fixes
         // [670-679] autunseencmp Dry per-definition compare (AutLive.cs DefCmpNote, docs/222 §9): searches, pairs, worker-fail /
         // game-pass, worker-pass / game-fail, both pass, both fail, late-slice pairs, late-slice mismatches, objects skipped, snapped slices.
         // [680-682] outfitwaitpoll (OutfitWait.cs, issue #115): outfit waits gone stale, minute polls, stale waits that ended.
+        // [933] outfitwaitpoll (OutfitWait.cs, issue #40): stale waits ended because the helper's Sim is destroyed.
         // [2006-2007] ageupswap (AgeUpSwap.cs, docs/503): age-up swaps EA refused and moved to Everyday, age-up tasks released with no swap.
         // [2003-2005] outfitwaitpoll stale-wait causes (OutfitWait.cs, issue #115, docs/224 §5): own swap pending, replaced, nothing pending.
         // [2008-2009] outfitwaitpoll (OutfitWait.cs, docs/224 §5): pending-outfit resets while a helper waits: instant switches, delayed swaps by another path.
@@ -320,6 +321,9 @@ namespace Ts3Fixes
         // [892-897] dancefloorlistdiag (DanceFloorDiag.cs, docs/253 §7): FindAndRouteOntoADanceFloorWithFollower calls, returns, "Collection was modified" throws (all three also with the switch off), route steps checked, steps with a mismatch, of those with the list freed.
         // [928-929] dancefloorlistguard (DanceFloorDiag.cs, docs/253 §11): guarded FindAndRouteOntoADanceFloorWithFollower calls, list changes the snapshot loop got past (EA's next MoveNext would have thrown).
         // [871] watchdoglockskip (RouteFixes.cs CheckIdle, docs/250 §7.4): idle checks skipped while a route job held +0x918 (wdLockSkip)
+        // [872-875] watchdogasync A1 (RouteFixes.cs CheckIdle, RouteBackoff.cs OwnerTaskSlot, docs/250 §7.1): own STARTs sent, started by
+        // ts3native, refused before sending (A1 on, Sim eligible, ts3native would not start it), sim ticks the A1 checks took
+        // [930-932] watchdogasync: A1 verdicts dropped as stale (H4Core.WdFresh), shadow sync re-checks run, shadow verdicts that differ
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -436,6 +440,10 @@ namespace Ts3Fixes
                 case "unseencars": return Instantiator.kUnseenCarThrottle;
                 case "routesrc": return Instantiator.kRouteSources;
                 case "watchdoglockskip": return false;  // docs/247 §12.4, docs/250 §7.4: runtime only, default off
+                // docs/250 §7.1 A1: ON for this release (Rodney 2026-11-09), branch feature/watchdog-route-offthread; stays ON only if queue
+                // wdasync-verify passes (shadow 0 mismatches, stuck repro caught, IP ABBA no regression); else kWatchdogAsync False before the freeze
+                case "watchdogasync": return Instantiator.kWatchdogAsync;
+                case "watchdogasyncshadow": return false;  // correctness arm only: re-runs each A1 check sync and counts mismatches
                 case "alarmtime": case "boatreplanlog": case "owresettime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
                 case "legreplanskip": return Instantiator.kLegReplanSkip;
                 case "bouncerskip": return Instantiator.kBouncerSlotSkip;

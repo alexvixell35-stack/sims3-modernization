@@ -30,6 +30,11 @@ namespace Ts3Fixes
         // docs/197 §7 KdSeenNpcCeilMs: the reasons that prove a known NPC the player sees. Household, not live, gone, -1 (a failed
         // check) and anything else stay on the household ceiling.
         public static bool SeenNpc(int why) { return why >= kActiveLot && why <= kGoalHousehold; }
+        // the UserDiag op that tells native a route's scope: 11 unseen, 13 seen NPC, 10 household or unknown
+        public static int KdScopeOp(int why) { return why == kSeen ? 11 : SeenNpc(why) ? 13 : 10; }
+        // a kHeld Sim held only by the vehicle it sits in (not riding, carried-by or carrying, no household or selectable occupant)
+        // is unseen to native's KindDeadlines; UfPlanBody still keeps its why at kHeld
+        public static bool KdHeldUnseen(bool inVehicle, bool ridingOrCarrying, bool householdAboard) { return inVehicle && !ridingOrCarrying && !householdAboard; }
 
         // docs/197 §7 goalhhexempt: why an unseen NPC's route works for the household. A check that did not finish exempts (ok false).
         // Each reason counts in ts3fixes slot kGoalCounter + reason.

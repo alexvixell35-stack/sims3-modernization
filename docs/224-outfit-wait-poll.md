@@ -230,3 +230,23 @@ of them had its Sim on screen when the wait went stale or when it ended, and non
 the camera and some were not. So every natural stale wait seen so far belongs to a Sim the player cannot see, and the
 `outfitwaitpoll` poll ends them with nothing visible changing. Why an unseen Sim's swap does not become ready is still
 open [inferred: the engine may not build outfits for Sims it does not draw].
+
+## 6. Waits whose Sim is destroyed (issue #40, 2026-11-09)
+
+Verified in the decompiled code: `MagicMirror.MagicalMakeover.MagicalMakeoverDelegate` adds a yielding one-minute alarm
+(`ChangeOutfitCB`, `mChangeOutfitTimer`) that calls `mSwitchOutfitHelper.ChangeOutfit()`, which calls `Wait`. `Cleanup` aborts
+the helper (`mReady` false, swap cancelled) without touching the alarm. If the alarm already runs and sits in `Wait`, the loop
+(`while (!mReady) Sleep(1)`) never ends; it has no check of the helper's Sim, so the alarm task (`AlarmOneShot`, a
+`OneShotFunction` whose stack is saved) keeps the interaction, its Actor and the Sim graph alive after the Sim is destroyed
+(contributor report, 9 of 40 sampled dead Sims). If `Cleanup` runs before the alarm fires, `mSwitchOutfitHelper` is null and
+`ChangeOutfitCB` does nothing, so there is no orphan alarm to remove: the leak is the running alarm task, and ending its wait
+frees it. We do not hook `MagicalMakeover`.
+
+Fix (`outfitwaitpoll`, on by default): at each stale poll (after 60 sim-minutes) the hook ends the wait when the helper's Sim
+is null or `HasBeenDestroyed`, by throwing `ResetException`, what `Simulator.Sleep` throws when the task is reset during the
+loop. EA's callers already handle that; `OneShotFunction.Simulate` drops it and destroys the task. Returning instead would
+run `ChangeOutfit`'s tail (laundry pile one-shot, `DoOutfitDelayedSwap` on a dead proxy) on the dead Sim. A live Sim's wait
+is never changed (household or not), and a wait on a task that belongs to another Sim keeps EA's loop
+(`OutfitWaitCore.EndDead`, self-test `tools/selftest/outfitwait`). Counter [933] `outfitwaitpoll_dead_ended`; first 10 lines
+logged. Check: `OutfitWaitCheck("start dead")` (non-household Sim, abort in the loop, then the Sim is destroyed), read with
+`"dead"`; repro `outfit-wait-dead-check`, queue `tools/harness/queues/outfitwait-dead.json`.
