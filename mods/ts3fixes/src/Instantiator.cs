@@ -164,6 +164,8 @@ namespace Ts3Fixes
         [Tunable] public static bool kErrorTrapCtl = false;        // opt-in until measured: NRaas ErrorTrap's dereference controllers' item lists of the last world-load scan dropped hourly once the scan is over (ErrorTrapSims.cs)
         [Tunable] public static bool kDreamNodeDeadSim = false;    // opt-in until measured: EA dream nodes' owner-less listeners of gone Sim objects removed hourly (DeadSimHolders.cs)
         [Tunable] public static bool kOverwatchDeadSim = false;    // opt-in until measured: NRaas Overwatch stuck-check entries of gone Sim objects removed hourly (DeadSimHolders.cs)
+        [Tunable] public static bool kSimRefsDeadSim = false;     // opt-in until measured: live Sims' last talking-to, mid-route pusher and celebrity reactor references to gone Sim objects dropped hourly (SimRefsDeadSim.cs)
+        [Tunable] public static bool kOutfitWaitSaved = false;    // opt-in until measured: MagicalMakeover alarm tasks resumed from the save, actor gone, destroyed hourly (OutfitWaitSaved.cs)
         [Tunable] public static bool kFireworksFizzle = true;    // on by default (2026-11-08): a fireworks watcher finishes on a fizzle instead of EA's SacsTimeoutException and reset (FireworksFizzle.cs, docs/533)
         [Tunable] public static bool kBookHand = false;           // opt-in until verified: a book Book.StopUsingBook left in the hand with no carry machine goes through EA's own PutBookInInventoryHandler at the put-down that would throw (BookHand.cs, docs/251)
         [Tunable] public static bool kBookHandDiag = false;       // opt-in: logs a book still in the hand with no carry machine 10 s after StopUsingBook (BookHand.cs, docs/251)
