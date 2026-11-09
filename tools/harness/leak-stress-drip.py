@@ -130,11 +130,14 @@ def sub_state():
 
 
 def wait_state(rx, limit_s, cas=False):
-    """Seconds until the game's sub state matches rx (and, with cas, cas_state says cas_ready), or None after limit_s."""
+    """Seconds until the game's sub state matches rx and the agent times no CAS/Buy action (cas_state measuring; a new
+    action is refused until then, al368), with cas also cas_ready; None after limit_s."""
     t0 = time.time()
     while time.time() - t0 < limit_s:
-        if re.search(rx, sub_state()) and (not cas or ((ag("cas_state", {}, 8000).get("result") or {}).get("cas_ready") is True)):
-            return time.time() - t0
+        if re.search(rx, sub_state()):
+            cs = ag("cas_state", {}, 8000).get("result") or {}
+            if cs.get("measuring") is not True and (not cas or cs.get("cas_ready") is True):
+                return time.time() - t0
         time.sleep(1)
     return None
 
@@ -531,16 +534,15 @@ def main():
                     else:
                         line += f"open {w:.0f} s"
                         for cat in CAS_CATS[n[k] % len(CAS_CATS)]:
-                            time.sleep(3)  # the previous action's timing ends 1.5 s after it settles
                             rc = ag("cas_category", {"category": cat}, 20000)
                             wc = wait_state(r"CAS", 60, cas=True) if rc.get("ok") else None
                             line += f", {cat} " + (f"{wc:.0f} s" if wc is not None else "failed " + err(rc)[:60])
                     for _ in range(3):  # always leave CAS
                         if not sub_state().startswith("CAS"):
                             break
-                        time.sleep(3)
+                        wait_state(r"CAS", 60)  # a category that failed may still be timed
                         rc = ag("cas_close", {}, 20000)
-                        wl = wait_state(r"^LiveModeState$", 180)
+                        wl = wait_state(r"^LiveModeState$", 180) if rc.get("ok") else None
                         line += ", close " + (f"{wl:.0f} s" if wl is not None else ("not live after 180 s" if rc.get("ok") else "failed " + err(rc)[:60]))
                         if wl is not None:
                             break
