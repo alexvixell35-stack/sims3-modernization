@@ -131,8 +131,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenFallbackLoopBreak value="False" />
     <kUnseenFallbackFinish value="False" />
     <kUnseenRouteRelaxed value="False" />
-    <kUnseenBoat value="False" />
-    <kUnseenBoatStart value="False" />
+    <kUnseenBoat value="True" />
+    <kUnseenBoatStart value="True" />
     <kPosturePopCycle value="False" />
     <kOverwatchIgnoreStuckProbes value="True" />
     <kSeasonImposter value="False" />
@@ -158,7 +158,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBuffUpdate value="True" />
     <kCarNoRoute value="True" />
     <kNpcDriverPool value="True" />
-    <kBookCarry value="False" />
+    <kBookCarry value="True" />
     <kAgeUpAbort value="True" />
     <kRewardGiver value="True" />
     <kDatingProfile value="True" />
@@ -180,6 +180,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kOverwatchDeadSim value="False" />
     <kSimRefsDeadSim value="False" />
     <kOutfitWaitSaved value="False" />
+    <kDeadSimCount value="False" />
+    <kDeadSimHollow value="False" />
     <kRelTablesApart value="True" />
     <kAsyncJigSync value="True" />
     <kDeadRefSweep value="False" />

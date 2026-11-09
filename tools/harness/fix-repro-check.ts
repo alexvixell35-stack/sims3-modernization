@@ -58,6 +58,8 @@ export const EXEMPT: Record<string, string> = {
   errortrapsims: DEADSIM, errortraplookup: DEADSIM, errortrapctl: DEADSIM, celebritydeadsim: DEADSIM, seasonsdeadsim: DEADSIM,
   ghostreactdeadsim: DEADSIM, dreamnodedeadsim: DEADSIM, overwatchdeadsim: DEADSIM, casuihandlers: DEADSIM, simrefsdeadsim: DEADSIM,
   outfitwaitsaved: DEADSIM,
+  deadsimcount: 'opt-in diagnostic, read-only counters (#40, PR #332)',
+  deadsimhollow: 'opt-in test, Dalexlol hold_sims A/B (#40, PR #332, al365 off vs al366 on)',
 };
 
 export const fixesNames = (cs: string) => {

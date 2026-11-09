@@ -970,7 +970,11 @@ namespace Ts3Fixes
         // household or scope unknown; still in the seen slots): queue wait n, ticks 867-868, worker wait n, ticks 869-870.
         const int kCQSeen = 785, kCQUnseen = 792, kCQHigh = 799, kCQLow = 800, kCQDepthN = 801, kCQEmpty = 802, kCSeenExact = 803, kCSeenGame = 805,
             kCHousehold = 807, kCHouseholdHours100 = 809, kCWorkSeen = 810, kCWorkUnseen = 812, kCLenSeen = 814, kCLenUnseen = 815, kCSeenGameRun = 816, kCUnPaceCredit = 817, kCHhQueue = 867, kCHhWork = 869;
-        static readonly Dictionary<object, int> sEnq = new Dictionary<object, int>();  // autonomy -> tick of its AutonomyManager.Add
+        // autonomy's Sim (ObjectId) -> tick of its AutonomyManager.Add. Keyed by id, not by the Autonomy: a Sim destroyed while
+        // queued never gets its QueueNote, and the Autonomy key kept it (Autonomy.mActor) and all it owned alive until the
+        // table passed 256 entries (issue #40, al367: this table held 32 of 40 sampled dead Sims; deadsimcount 139-244 held).
+        static readonly Dictionary<ulong, int> sEnq = new Dictionary<ulong, int>();
+        static ulong EnqKey(AutonomyT a) { Sim s = a != null ? a.Actor : null; return s != null ? s.ObjectId.Value : 0UL; }
         static FieldInfo fMgrInstance, fMgrHigh, fMgrLow;
         static AutonomyT sExactAut;  // the autonomy whose last search the exact consumer finished
 
@@ -987,9 +991,10 @@ namespace Ts3Fixes
             int[] k = PatchCounters();
             int now = AutShadowNative.Config(19), start = timed ? f0 : now, enq;
             k[seen ? kCLenSeen : kCLenUnseen] += now - start;
-            if (sEnq.TryGetValue(a, out enq))
+            ulong ek = EnqKey(a);
+            if (ek != 0 && sEnq.TryGetValue(ek, out enq))
             {
-                sEnq.Remove(a);
+                sEnq.Remove(ek);
                 int w = Math.Max(0, start - enq), b = seen ? kCQSeen : kCQUnseen;
                 k[b]++; k[b + 1] += w; k[b + 2 + AutLiveCore.QueueBin(w)]++;
                 if (hh) { k[kCHhQueue]++; k[kCHhQueue + 1] += w; }
@@ -1079,8 +1084,9 @@ namespace Ts3Fixes
                 {
                     if (sLiveMode && a != null)
                     {
-                        if (sEnq.Count > 256) sEnq.Clear();  // Sims destroyed in the queue keep no autonomy alive
-                        sEnq[a] = AutShadowNative.Config(19);
+                        ulong ek = EnqKey(a);
+                        if (sEnq.Count > 256) sEnq.Clear();  // ids of Sims destroyed in the queue
+                        if (ek != 0) sEnq[ek] = AutShadowNative.Config(19);
                     }
                 }
                 catch (Exception) { PatchCounters()[121]++; }

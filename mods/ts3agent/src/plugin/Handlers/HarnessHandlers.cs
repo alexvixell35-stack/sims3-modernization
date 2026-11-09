@@ -308,6 +308,8 @@ namespace Ts3Agent
         static readonly string[][][] kDialogRules = {
             new[] { new[] { "placing the following lots", "new lots available" }, new[] { "don't place", "dont place", "no" } },
             new[] { new[] { "save your town before continuing" }, new[] { "just continue", "continue" } },
+            // Repoman at save time ("...Are you sure you want to save in this ..." buttons yes / save now / cancel): the safe default cancelled the save.
+            new[] { new[] { "reclaiming your belongings" }, new[] { "save now", "yes" } },
             new[] { new[] { "name your saved game" }, new[] { "cancel" } },
             // Career job offer (H1 2026-11-02, EA 1.69: "...has offered her the Patrol Officer (job level 4) position... Should Justine leave her
             // current position...?" buttons 'change job' / 'keep job'): both buttons scored 1, no safe word, so the soak stopped. Keep the job.

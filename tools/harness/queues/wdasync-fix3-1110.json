@@ -1,0 +1,194 @@
+{
+  "note": "wdasync-fix3-1110 (2026-11-10, correctness, --no-smoke): retest of the wdasync-fix2-1110 bp jobs after triage: shadow mismatch 1 per bp job, always A1 True vs sync False on residential lots, because the A1 job skipped Route.AboutToPlanCallback (preplancb off) and planned without the locked/forbidden doors, closed venues and tombs the sync check applies. Fix: PreCb runs for the watchdog A1 job always. Pair wdfix3-1110 = wdfix2 asi + ini + ts3fixes.package.wdfix3-1110. Stuck repro: unseenfbteleport off for the job (in wdfix2 \"unseenfb route goal\" moved Wogan before the watchdog checked him) and PASS needs a per-Sim False verdict line for Wogan Hemlock plus watchdog_idle_unroutable>=1. The EA PutAwayLeftovers NRE (docs/251, BP household Sim Lala Angelista, seen on BP since 2026-10-12) is REPORTed, not counted. Est ~45 min. node tools/harness/queue.ts tools/harness/queues/wdasync-fix3-1110.json --no-smoke",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "asi": "game-copy/ts3native.asi.wdfix2-1110",
+      "pinReason": "pair wdfix3-1110 (docs/data/builds.json): ts3native.asi.wdfix2-1110 (0.36.239, WatchdogKind2) + ts3native.ini.wdfix2-1110 (WatchdogKind2=1) + ts3fixes.package.wdfix3-1110 (master + the A1 watchdog job always runs Route.AboutToPlanCallback first (RouteBackoff.cs PreCb, preplancb or not) + per-Sim \"watchdog idle verdict:\" line under watchdogasyncshadow; built with build-fixes.ts --on kWatchdogAsync); fixesPackage, not fixesBuild, so cycle.ts does not swap in a master build",
+      "releaseDefaults": true,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteAsync.WatchdogKind2": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.239 ": 1,
+        "route async A10: .*WatchdogKind2=1": 1,
+        "watchdog idle verdict: Wogan Hemlock (A1|sync) False": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "watchdogasync shadow mismatch:": 0,
+        "watchdog idle verdict: Wogan Hemlock (A1|sync) True @": 0
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "id": "bp-wdasync-stuck-repro-wdfix3",
+      "note": "[wdasync-fix3-1110: copy of wdasync-fix2-1110 bp-wdasync-stuck-repro on pair wdfix3-1110 (A1 job runs the pre-plan callback); watchdoglockskip on too, wdLockSkip reported (H4Core.WdRoute skips every lock-held case before A1, tools/selftest/h4core; read wdLockSkip > 0 as the lock case reached, 0 = no lock case in this run, not a FAIL); PASS needs watchdogasync_started>=1 plus native arStartedPlanFromPoint>=1, wdJobN>=1 (arWdPass reported, >=0) and the A10 line with WatchdogKind2=1] [est 18 min] PASS rule (wdfix3): watchdog_idle_unroutable>=1 AND a \"watchdog idle verdict: Wogan Hemlock (A1|sync) False\" line (his own spot judged unroutable, not any Sim) AND no non-stale True verdict for him; unseenfbteleport off for this job so \"unseenfb route goal\" cannot move him first. docs/250 §7.1 correctness (3): repro bp-idle-unroutable (Wogan Hemlock stranded on an unroutable diner spot, unseen, ultra speed) with watchdogasync + watchdogasyncshadow on: the watchdog must still catch him (watchdog_idle_unroutable >= 1, the repro's expect line). watchdogasync_* shows whether his check went through A1 (only when a job held +0x918 at that moment).",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "bp-idle-unroutable",
+          "fixesOn": "watchdogasync,watchdogasyncshadow,watchdoglockskip",
+          "fixesReport": "watchdogasync_,watchdog_,wd",
+          "fixesRequire": "watchdog_idle_unroutable>=1,watchdogasync_shadow_mismatch<1,watchdogasync_started>=1,wdLockSkip>=0",
+          "fixesOff": "unseenfbteleport"
+        }
+      },
+      "timeoutMin": 20,
+      "iniBase": "game-copy/ts3native.ini.wdfix2-1110",
+      "regexCases": {
+        "^ts3native 0\\.36\\.239 ": {
+          "match": [
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.238 2026-11-10 01:30:00",
+            "ts3native 0.36.2390 2026-11-10 14:30:00"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "watchdogasync shadow mismatch:": {
+          "match": [
+            "watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ],
+          "noMatch": [
+            "watchdogasync shadow: checks 12, mismatches 0"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0",
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
+          ]
+        },
+        "watchdog idle verdict: Wogan Hemlock (A1|sync) False": {
+          "match": [
+            "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 False @307.55999755859375,1495.1800537109375 on Community Lot",
+            "ts3fixes: watchdog idle verdict: Wogan Hemlock sync False stale @307.56,1495.18 on Community Lot"
+          ],
+          "noMatch": [
+            "ts3fixes: watchdog idle verdict: Lenny Shutter A1 False @1335.48,1856.96 on Cliff Cottage - 1br, 2 ba",
+            "ts3fixes: watchdog idle verdict: Wogan Hemlock cache True @307.56,1495.18 on Community Lot",
+            "ts3fixes: watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ]
+        },
+        "watchdog idle verdict: Wogan Hemlock (A1|sync) True @": {
+          "match": [
+            "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 True @307.56,1495.18 on Community Lot"
+          ],
+          "noMatch": [
+            "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 True stale @307.56,1495.18 on Community Lot",
+            "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 False @307.56,1495.18 on Community Lot"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.wdfix3-1110",
+      "nativeRequire": "arStartedPlanFromPoint>=1,wdJobN>=1,arWdPass>=0",
+      "scriptErrorsReport": [
+        "CarrySystem:PutDownOnSurface[\\s\\S]*ServingContainer\\+PutAwayLeftovers:Run"
+      ]
+    },
+    {
+      "asi": "game-copy/ts3native.asi.wdfix2-1110",
+      "pinReason": "pair wdfix3-1110 (docs/data/builds.json): ts3native.asi.wdfix2-1110 (0.36.239, WatchdogKind2) + ts3native.ini.wdfix2-1110 (WatchdogKind2=1) + ts3fixes.package.wdfix3-1110 (master + the A1 watchdog job always runs Route.AboutToPlanCallback first (RouteBackoff.cs PreCb, preplancb or not) + per-Sim \"watchdog idle verdict:\" line under watchdogasyncshadow; built with build-fixes.ts --on kWatchdogAsync); fixesPackage, not fixesBuild, so cycle.ts does not swap in a master build",
+      "releaseDefaults": true,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteAsync.WatchdogKind2": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.239 ": 1,
+        "route async A10: .*WatchdogKind2=1": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "watchdogasync shadow mismatch:": 0
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "id": "bp-wdasync-shadow-wdfix3",
+      "note": "[wdasync-fix3-1110: copy of wdasync-fix2-1110 bp-wdasync-shadow on pair wdfix3-1110 (A1 job runs the pre-plan callback); watchdoglockskip on too, wdLockSkip reported (H4Core.WdRoute skips every lock-held case before A1, tools/selftest/h4core; read wdLockSkip > 0 as the lock case reached, 0 = no lock case in this run, not a FAIL); PASS needs watchdogasync_started>=1 plus native arStartedPlanFromPoint>=1, wdJobN>=1 (arWdPass reported, >=0) and the A10 line with WatchdogKind2=1] [est 22 min] docs/250 §7.1 correctness (2): the same on BP (15 min, shadow on).",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "watchdogasync,watchdogasyncshadow,watchdoglockskip",
+          "fixesReport": "watchdogasync_,watchdog_,wd",
+          "fixesRequire": "watchdogasync_shadow_mismatch<1,watchdogasync_shadow_runs>=1,watchdogasync_started>=1,wdLockSkip>=0"
+        }
+      },
+      "timeoutMin": 27,
+      "iniBase": "game-copy/ts3native.ini.wdfix2-1110",
+      "regexCases": {
+        "^ts3native 0\\.36\\.239 ": {
+          "match": [
+            "ts3native 0.36.239 2026-11-10 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.238 2026-11-10 01:30:00",
+            "ts3native 0.36.2390 2026-11-10 14:30:00"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "watchdogasync shadow mismatch:": {
+          "match": [
+            "watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ],
+          "noMatch": [
+            "watchdogasync shadow: checks 12, mismatches 0"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0",
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.wdfix3-1110",
+      "nativeRequire": "arStartedPlanFromPoint>=1,wdJobN>=1,arWdPass>=0",
+      "scriptErrorsReport": [
+        "CarrySystem:PutDownOnSurface[\\s\\S]*ServingContainer\\+PutAwayLeftovers:Run"
+      ]
+    }
+  ]
+}

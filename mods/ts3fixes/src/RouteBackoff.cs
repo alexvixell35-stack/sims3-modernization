@@ -275,9 +275,12 @@ namespace Ts3Fixes
             // kept: every known subscriber is idempotent per plan (options set, forbidden list cleared then refilled, ignore
             // list adds; EA's own PlanToLotCore already calls it twice), and mods that add to the delegate keep running.
             // Counters: [295] pre-calls made, [296] door lists restored.
+            // The watchdog's A1 job (WdA1Here) always takes the pre-call: its verdict is acted on (OkAt skips the Sim a sim-day), and
+            // without the callback the job missed locked/forbidden doors, closed venues and tombs the sync check applies
+            // (wdasync-fix2-1110: shadow mismatch A1 True vs sync False on residential lots).
             bool PreCb(int kind, ref bool pre)
             {
-                if (pre || !ShortcutOn("preplancb")) return true;
+                if (pre || !(ShortcutOn("preplancb") || WdA1Here())) return true;
                 pre = true;
                 Sims3.SimIFace.Route.AboutToPlanDelegate cb = Sims3.SimIFace.Route.AboutToPlanCallback;
                 if (cb == null || DestObjectInvalid()) return true;

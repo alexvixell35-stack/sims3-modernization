@@ -18,6 +18,7 @@ namespace Ts3Agent
             RegisterPets(); // PetHandlers.cs
             RegisterSocialRound(); // SocialRoundHandlers.cs
             RegisterCareerLadder(); // CareerLadderHandlers.cs
+            RegisterHoldSims(); // HoldSimsHandlers.cs
             RegisterOutfitStress(); // OutfitStressHandlers.cs
         }
 

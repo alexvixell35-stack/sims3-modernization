@@ -29,7 +29,7 @@ namespace Ts3Fixes
         {
             if (AlarmManager.Global == null) return;
             if (sEtSimsAlarm != AlarmHandle.kInvalidHandle) AlarmManager.Global.RemoveAlarm(sEtSimsAlarm);
-            sEtSimsAlarm = AlarmManager.Global.AddAlarmRepeating(1f, TimeUnit.Hours, delegate { ErrorTrapSimsPass(); CelebDeadSimPass(); SeasonsDeadSimPass(); GhostReactDeadSimPass(); CasUiHandlersPass(); ErrorTrapLookupPass(); ErrorTrapCtlPass(); DreamNodeDeadSimPass(); OverwatchDeadSimPass(); SimRefsDeadSimPass(); OutfitWaitSavedPass(); }, 1f, TimeUnit.Hours, "Ts3Fixes.ErrorTrapSims", AlarmType.NeverPersisted, null);
+            sEtSimsAlarm = AlarmManager.Global.AddAlarmRepeating(1f, TimeUnit.Hours, delegate { ErrorTrapSimsPass(); CelebDeadSimPass(); SeasonsDeadSimPass(); GhostReactDeadSimPass(); CasUiHandlersPass(); ErrorTrapLookupPass(); ErrorTrapCtlPass(); DreamNodeDeadSimPass(); OverwatchDeadSimPass(); SimRefsDeadSimPass(); OutfitWaitSavedPass(); DeadSimCountPass(); }, 1f, TimeUnit.Hours, "Ts3Fixes.ErrorTrapSims", AlarmType.NeverPersisted, null);
         }
 
         static void ErrorTrapSimsPass()

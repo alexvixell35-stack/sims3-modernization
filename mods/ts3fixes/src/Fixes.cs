@@ -322,6 +322,8 @@ namespace Ts3Fixes
         // [2081] errortrapctl (ErrorTrapSims.cs): NRaas ErrorTrap dereference controllers' item lists dropped after the world-load scan (they kept the whole graph until the next load).
         // [2083] outfitwaitsaved (OutfitWaitSaved.cs): MagicMirror MagicalMakeover alarm tasks resumed from the save inside EA's Wait (WaitOrig, never seen by the outfit-wait hook), actor gone, destroyed.
         // [2084-2087] simrefsdeadsim (SimRefsDeadSim.cs): live Sims' references to gone Sim objects dropped: SocialComponent.mLastTalkingTo cleared / SimRoutingComponent.mPusherSim cleared / Celebrity.mWaitingToReact entries removed / Occult*.mOwningSim reset to the current Sim or null.
+        // [2088-2091] deadsimcount (DeadSimCount.cs, read-only): destroyed Sim objects still in memory now / of them destroyed 6+ sim hours ago / collected since the session began / Sim objects tracked.
+        // [2092-2093] deadsimhollow (DeadSimCount.cs): destroyed Sims held 6+ sim hours whose own reference fields were cleared / fields cleared.
         // [876-877] bookhand (BookHand.cs, docs/251): books Book.StopUsingBook left in the hand with no carry machine, seen at an EA put-down that would throw (also with the switch off), moved out of the hand by EA's handler.
         // [758-759] asyncjigsync (AsyncJigSync.cs, RouteBackoff.cs AsyncEligible, docs/240): own plans kept sync while the Sim's interaction holds an unplaced SocialJig / of those with the jig only in the linked interaction.
         // [763-768] autofft2 (AutOffload.cs, docs/208 §9.1): items, A0, A2, A4, A5, exceptions
@@ -342,7 +344,7 @@ namespace Ts3Fixes
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2088]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2094]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -534,6 +536,8 @@ namespace Ts3Fixes
                 case "overwatchdeadsim": return Instantiator.kOverwatchDeadSim;
                 case "simrefsdeadsim": return Instantiator.kSimRefsDeadSim;
                 case "outfitwaitsaved": return Instantiator.kOutfitWaitSaved;
+                case "deadsimcount": return Instantiator.kDeadSimCount;
+                case "deadsimhollow": return Instantiator.kDeadSimHollow;
                 case "reltablesapart": return Instantiator.kRelTablesApart;
                 case "ageupswap": return Instantiator.kAgeUpSwap;
                 case "asyncjigsync": return Instantiator.kAsyncJigSync;

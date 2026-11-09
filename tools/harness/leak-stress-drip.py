@@ -48,6 +48,7 @@ import subprocess
 import sys
 import time
 import urllib.parse
+import urllib.error
 import urllib.request
 
 DEATHS = ["Electrocution", "Starve", "Drown", "Burn", "OldAge"]
@@ -58,6 +59,7 @@ LOSE = ["Disliked", "Enemy", "Stranger"]
 SKILLS = ["Charisma", "Logic", "Cooking", "Athletic", "Painting", "Guitar", "Writing", "Gardening", "Fishing", "Handiness"]
 LOTS = ["far", "far2"]
 SEASONS = ["summer", "fall", "spring"]
+CAS_CATS = [["hair", "everyday", "tops"], ["face", "formal", "accessories"], ["makeup", "athletic", "shoes"], ["body", "outfits", "bottoms"]]
 # EA social (ActionData) names; one the game does not know is dropped at its first "no EA social named" answer
 SOCIALS = ["Chat", "Tell Joke", "Compliment", "Brag", "Gossip", "Hug", "Insult", "Argue", "Slap", "Flirt", "Kiss"]
 ROMANTIC = ("Flirt", "Kiss")
@@ -65,7 +67,9 @@ COUNTERS = ["errortrapsims_dropped", "celebritydeadsim_unregistered", "seasonsde
             "ghostreactdeadsim_removed", "casuihandlers_closed", "casuihandlers_dups", "errortraplookup_dropped",
             "dreamnodedeadsim_removed", "overwatchdeadsim_removed", "errortrapctl_dropped", "outfitwaitdead_ended", "outfitwaitdead_saved",
             "simrefsdeadsim_talkingto", "simrefsdeadsim_pusher", "simrefsdeadsim_reactors",
-            "simrefsdeadsim_occultowners", "outfitwaitsaved_destroyed"]
+            "simrefsdeadsim_occultowners", "outfitwaitsaved_destroyed",
+            "deadsimcount_alive", "deadsimcount_old", "deadsimcount_collected", "deadsimcount_tracked",
+            "deadsimhollow_sims", "deadsimhollow_fields"]
 
 
 class Busy(Exception):
@@ -110,8 +114,32 @@ def _ag(cmd, args=None, timeout=8000):
     try:
         with urllib.request.urlopen("http://127.0.0.1:47891/agent?" + urllib.parse.urlencode(q), timeout=timeout / 1000 + 25) as r:
             return json.load(r)
+    except urllib.error.HTTPError as e:  # the agent's error text is in the body (al360 logged only "HTTP Error 500")
+        try:
+            body = e.read().decode("utf-8", "replace")
+        except Exception:
+            body = ""
+        return {"ok": False, "error": f"{e} {body[:200]}"}
     except Exception as e:  # game loading, agent busy
         return {"ok": False, "error": str(e)}
+
+
+def sub_state():
+    r = ag("game_state", {}, 8000)
+    return str((r.get("result") or {}).get("sub_state") or "?") if r.get("ok") else "?"
+
+
+def wait_state(rx, limit_s, cas=False):
+    """Seconds until the game's sub state matches rx and the agent times no CAS/Buy action (cas_state measuring; a new
+    action is refused until then, al368), with cas also cas_ready; None after limit_s."""
+    t0 = time.time()
+    while time.time() - t0 < limit_s:
+        if re.search(rx, sub_state()):
+            cs = ag("cas_state", {}, 8000).get("result") or {}
+            if cs.get("measuring") is not True and (not cas or cs.get("cas_ready") is True):
+                return time.time() - t0
+        time.sleep(1)
+    return None
 
 
 def say(s):
@@ -207,12 +235,12 @@ def main():
     plan = {"social": (0, 1), "meet": (1, 10), "celebrity": (2, 20), "death": (5, 4), "occult": (7, 12), "age": (9, 9),
             "job": (11, 15), "spawn": (13, 20), "outfit": (0.5, 1), "pregnancy": (4, 15),
             "promote": (1.5, 3), "party": (3, 15), "crowd": (6, 12), "skill": (2.5, 5), "lifecycle": (3.5, 6), "fight": (2, 3),
-            "move": (8, 10), "story": (0, 0.5), "adopt": (4.5, 8), "giveaway": (9.5, 10), "season": (6, 10), "traffic": (3, 5)}
+            "move": (8, 10), "story": (0, 0.5), "adopt": (4.5, 8), "giveaway": (9.5, 10), "season": (6, 10), "traffic": (3, 5), "hold": (-4, 1), "cas": (4, 4)}
     if only:
         plan = {k: v for k, v in plan.items() if k in only}  # story spam is in every run (user 11-09: "all agents can have this")
     else:
         # shortcut: pet commands never ran in game (pet Sim Destroy without FadeOut); default plan gets them after a focus run passes
-        plan = {k: v for k, v in plan.items() if k not in ("adopt", "giveaway")}
+        plan = {k: v for k, v in plan.items() if k not in ("adopt", "giveaway", "hold", "cas")}  # hold, cas: only when asked (--only)
     nxt = {k: t0 + (start_m + f) * 60 for k, (f, _) in plan.items()}
     n = {k: 0 for k in plan}
     fails = {k: 0 for k in plan}
@@ -493,6 +521,39 @@ def main():
                     if n[k] % 6 == 0 or not r.get("ok"):
                         say(f"traffic {n[k] + 1}: {json.dumps(r.get('result'))[:160] if r.get('ok') else 'failed ' + err(r)}")
                     n[k] += 1
+                elif k == "cas":
+                    # CAS on the active household and out again without saving (cas_close = exit without saving, so the
+                    # household is not changed): CASLogic, the part catalogs and their thumbnails load and unload each time.
+                    # cas_open/cas_category/cas_close only start the work (a game task, ts3agent Measure): wait for the state
+                    # each time, as the local leak-modes runner does (al367 sent the categories at once, they failed, and CAS stayed open)
+                    line = f"cas {n[k] + 1}: "
+                    r = ag("cas_open", {}, 20000)
+                    w = wait_state(r"CAS", 180, cas=True) if r.get("ok") else None
+                    if w is None:
+                        line += "open failed " + (err(r) if not r.get("ok") else "(CAS not ready after 180 s)")
+                    else:
+                        line += f"open {w:.0f} s"
+                        for cat in CAS_CATS[n[k] % len(CAS_CATS)]:
+                            rc = ag("cas_category", {"category": cat}, 20000)
+                            wc = wait_state(r"CAS", 60, cas=True) if rc.get("ok") else None
+                            line += f", {cat} " + (f"{wc:.0f} s" if wc is not None else "failed " + err(rc)[:60])
+                    for _ in range(3):  # always leave CAS
+                        if not sub_state().startswith("CAS"):
+                            break
+                        wait_state(r"CAS", 60)  # a category that failed may still be timed
+                        rc = ag("cas_close", {}, 20000)
+                        wl = wait_state(r"^LiveModeState$", 180) if rc.get("ok") else None
+                        line += ", close " + (f"{wl:.0f} s" if wl is not None else ("not live after 180 s" if rc.get("ok") else "failed " + err(rc)[:60]))
+                        if wl is not None:
+                            break
+                    say(line)
+                    n[k] += 1
+                elif k == "hold":
+                    # test lazy mod (deadsimhollow A/B): the agent's static list keeps every Sim it is shown, from 4 min after start
+                    r = ag("hold_sims", {}, 20000)
+                    if n[k] % 10 == 0 or not r.get("ok"):
+                        say(f"hold {n[k] + 1}: {json.dumps(r.get('result'))[:160] if r.get('ok') else 'failed ' + err(r)}")
+                    n[k] += 1
                 elif k == "move":
                     r = ag("move_household", {}, 30000)
                     say(f"move {n[k] + 1}: {json.dumps(r.get('result'))[:160] if r.get('ok') else 'failed ' + err(r)}")
@@ -605,7 +666,7 @@ def self_check():
         assert "fight round 1: 4 fights queued among 8 townies (Force Fight!)" in log.getvalue()
         assert calls.count("social_round") == 2 and "social_round fight: 0 queued" in log.getvalue(), calls
         assert [calls.count(c) for c in ("kill_sim", "make_celebrity", "spawn_sims", "pregnancy_advance")] == [1, 1, 1, 1], calls
-        assert [calls.count(c) for c in ("test_env", "spawn_traffic", "story_days")] == [1, 1, 1], calls
+        assert [calls.count(c) for c in ("test_env", "spawn_traffic", "story_days", "hold_sims")] == [1, 1, 1, 0], calls
         assert calls[-1] == "patches" and not os.path.exists(flag) and not os.path.exists(busy)
         assert "busy file back before social: batch stopped, social and the rest stay due" in log.getvalue()
         assert log.getvalue().count("batch stopped") == 1  # the next batch waited for the file instead of hitting it again
