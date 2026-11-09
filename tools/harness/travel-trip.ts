@@ -159,6 +159,8 @@ const to = values.to!.toLowerCase();
 const goCmd = to === 'university' ? 'travel_university' : to === 'future' ? 'travel_future' : 'travel_vacation';
 const goArgs: any = to === 'university' ? { days: Number(values.days) } : to === 'future' ? {} : { world: to, days: Number(values.days) };
 if (values.sims && goCmd === 'travel_vacation') goArgs.sims = values.sims.split(',').map(s => s.trim());
+// STRESS shortcut past EA's vacation cooldown (WentToLocation buff): each round trip is a new travel-trip.ts call, so trip 2 needs it (al335 failed)
+if (goCmd === 'travel_vacation') goArgs.clear_recovery = true;
 const prefix = values['save-stats'];
 const saves: string[] = [];
 if (prefix) { await saveAs(`${prefix}-trip0`); saves.push(`${prefix}-trip0`); }

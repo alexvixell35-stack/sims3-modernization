@@ -15,6 +15,8 @@ using Sims3.Gameplay.Interfaces;
 using Sims3.Gameplay.Objects;
 using Sims3.Gameplay.Objects.Appliances;
 using Sims3.Gameplay.Pools;
+using Sims3.Gameplay.Situations;
+using Sims3.Gameplay.EventSystem;
 using Sims3.Gameplay.Skills;
 using Sims3.Gameplay.StoryProgression;
 using Sims3.Gameplay.Utilities;
@@ -31,6 +33,13 @@ namespace Ts3Agent
         static void RegisterStory()
         {
             Dispatcher.Register("make_occult", MakeOccult);
+            Dispatcher.Register("make_celebrity", MakeCelebrity);
+            Dispatcher.Register("throw_party", ThrowParty);
+            Dispatcher.Register("move_household", MoveHousehold);
+            Dispatcher.Register("story_days", StoryDays);
+            Dispatcher.Register("story_burst", StoryBurst);
+            Dispatcher.Register("story_burst_state", StoryBurstState);
+            Dispatcher.Register("social", Social);
             Dispatcher.Register("start_fire", StartFire);
             Dispatcher.Register("pregnancy_advance", PregnancyAdvance);
             Dispatcher.Register("set_aging", SetAging);
@@ -184,6 +193,278 @@ namespace Ts3Agent
                 throw new McpException("make_occult: the game refused " + ot + " for " + sim.FullName + " (OccultBaseClass.CanAdd: age, species or a clashing occult)");
             r["ok"] = om.HasOccultType(ot);
             r["occults"] = om.CurrentOccultTypes.ToString();
+            return r;
+        }
+
+        // make_celebrity {sim | all: true, level?: 1} (issue #40 leak stress): CelebrityManager.ForceSetLevel(level), what the
+        // game's cheat forceSetCelebrityLevel (Commands.OnForceSetCelebrityLevel) runs for every human SimDescription that
+        // CanBeCelebrity. all: the same loop, but the active household is never touched; one sim: refused for an active
+        // household member. level 0 = CelebrityManager.RemoveCelebrityStatus. Returns how many descriptions changed.
+        // throw_party {count?: 10, hours?: 1} (issue #40 leak stress): a random townie host (in the world, young adult or older,
+        // household with a home lot, never the active household) throws a house party there, as the phone's Throw Party does
+        // (Phone.CallThrowParty.HaveParty): new HouseParty(home lot, host, guests, Everyday, now + hours) and its
+        // PartyEvent (event 57). Guests: up to count random living human townies, teen or older, of any other household
+        // except the active one (the party brings in ones not in the world). Returns host, lot and guest count.
+        // social {sim, target, name (an EA social: Chat, Insult, Fight!, Tell Joke, Flirt...)}: queues EA's SocialInteractionA
+        // on the actor, the way GoToCommunityLot pushes Chat. For townie pairs the pie menu (list_interactions) offers no
+        // socials at all (al337-al339: 0 enabled), so the stress drip names them. Townies only: never the active household.
+        static object Social(Args a)
+        {
+            RequireLive();
+            Sim actor = Util.FindSim(a, "sim"), target = Util.FindSim(a, "target");
+            if (actor == target) throw new McpException("sim and target are the same Sim");
+            Household act = Household.ActiveHousehold;
+            if (act != null && (actor.Household == act || target.Household == act)) throw new McpException("townies only: the active household stays untouched");
+            string name = a.Str("name");
+            if (Sims3.Gameplay.Socializing.ActionData.Get(name) == null) throw new McpException("no EA social named " + name);
+            InteractionInstance i = new Sims3.Gameplay.Socializing.SocialInteractionA.Definition(name, new string[0], null, false)
+                .CreateInstance(target, actor, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
+            Dictionary<string, object> r = Util.Obj();
+            r["queued"] = actor.InteractionQueue.Add(i);
+            r["sim"] = actor.FullName; r["target"] = target.FullName; r["social"] = name;
+            return r;
+        }
+
+        static object ThrowParty(Args a)
+        {
+            RequireLive();
+            int count = (int)a.Long("count", 10);
+            float hours = (float)a.Double("hours", 1);
+            Household act = Household.ActiveHousehold;
+            const Sims3.SimIFace.CAS.CASAgeGenderFlags adult = Sims3.SimIFace.CAS.CASAgeGenderFlags.YoungAdult | Sims3.SimIFace.CAS.CASAgeGenderFlags.Adult | Sims3.SimIFace.CAS.CASAgeGenderFlags.Elder;
+            const Sims3.SimIFace.CAS.CASAgeGenderFlags teenUp = adult | Sims3.SimIFace.CAS.CASAgeGenderFlags.Teen;
+            Random rnd = new Random();
+            List<Sim> hosts = new List<Sim>();
+            foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+            {
+                SimDescription sd = s.SimDescription;
+                if (sd == null || !sd.IsHuman || (sd.Age & adult) == 0 || s.HasBeenDestroyed) continue;
+                if (s.Household == null || s.Household == act || s.Household.LotHome == null) continue;
+                hosts.Add(s);
+            }
+            if (hosts.Count == 0) throw new McpException("no townie host in the world whose household has a home lot");
+            Sim host = hosts[rnd.Next(hosts.Count)];
+            List<SimDescription> pool = new List<SimDescription>();
+            foreach (SimDescription sd in Household.EveryHumanSimDescription())
+                if (sd != host.SimDescription && !sd.IsDead && (sd.Age & teenUp) != 0 && sd.Household != null && sd.Household != act && sd.Household != host.Household)
+                    pool.Add(sd);
+            List<SimDescription> guests = new List<SimDescription>();
+            while (guests.Count < count && pool.Count > 0)
+            {
+                int i = rnd.Next(pool.Count);
+                guests.Add(pool[i]);
+                pool.RemoveAt(i);
+            }
+            Lot lot = host.Household.LotHome;
+            DateAndTime start = SimClock.CurrentTime() + new DateAndTime(0, DaysOfTheWeek.Sunday, 0, (int)Math.Round(hours * 60), 0);
+            HouseParty party = new HouseParty(lot, host, guests, Sims3.SimIFace.CAS.OutfitCategories.Everyday, start);
+            EventTracker.SendEvent(new PartyEvent((EventTypeId)57, host, host.SimDescription, party));
+            Dictionary<string, object> r = Util.Obj();
+            r["host"] = host.FullName;
+            r["lot"] = lot.Name;
+            r["guests"] = guests.Count;
+            return r;
+        }
+
+        // move_household {} (issue #40 leak stress): a random townie household with a home lot (never the active household)
+        // moves to a random free furnished residential lot (no household, not the player's, not a dorm, apartment or
+        // vacationing family's home, 20+ objects), as EA's story progression MoveToLargerHouse.Execute does: oldLot.MoveOut,
+        // newLot.MoveIn, MidlifeCrisisManager.OnMoved + SendSimHome per member, HouseholdUpdateEvent 73.
+        static object MoveHousehold(Args a)
+        {
+            RequireLive();
+            Household act = Household.ActiveHousehold;
+            Random rnd = new Random();
+            List<Household> movers = new List<Household>();
+            foreach (Household h in Household.sHouseholdList)
+                if (h != null && h != act && h.LotHome != null && h.NumMembers > 0 && !h.LotHome.IsPlayerHomeLot && !h.LotHome.IsHomeLotOfVacationingFamily) movers.Add(h);
+            List<Lot> free = new List<Lot>();
+            foreach (Lot l in LotManager.AllLots)
+                if (l != null && l.IsResidentialLot && l.Household == null && !l.IsWorldLot && !l.IsReservedForPlayer && !l.IsDormitoryLot && !l.IsApartmentLot
+                    && !l.IsPlayerHomeLot && !l.IsHomeLotOfVacationingFamily && l.GetObjects<GameObject>().Length >= 20) free.Add(l);
+            if (movers.Count == 0) throw new McpException("no townie household with a home lot");
+            if (free.Count == 0) throw new McpException("no free furnished residential lot");
+            Household hh = movers[rnd.Next(movers.Count)];
+            Lot from = hh.LotHome, to = free[rnd.Next(free.Count)];
+            from.MoveOut(hh);
+            to.MoveIn(hh);
+            foreach (SimDescription sd in hh.AllSimDescriptions)
+            {
+                MidlifeCrisisManager.OnMoved(sd);
+                sd.SendSimHome();
+            }
+            EventTracker.SendEvent(new HouseholdUpdateEvent((EventTypeId)73, hh));
+            Dictionary<string, object> r = Util.Obj();
+            r["household"] = hh.Name;
+            r["from"] = from.Name;
+            r["to"] = to.Name;
+            r["members"] = hh.NumMembers;
+            return r;
+        }
+
+        // story_days {days?: 1, mode?: "Disabled" | "Enabled" | "Accelerated"} (issue #40 leak stress): EA story progression on
+        // demand. mode: StoryProgressionService.SetMode (Accelerated = EA's delay multiplier 60). days > 0: a OneShotFunctionTask
+        // runs the service's private DoOneDayOfActions that many times (kActionsMin..kActionsMax TryOneAction each; it Sleeps
+        // between actions, so never on the poll task; result in async_log). EA's actions skip the active household (IsActive
+        // checks) except the roommate ones (KillRoommate, RemoveRoommate), so refused while it accepts roommates.
+        static object StoryDays(Args a)
+        {
+            RequireLive();
+            Household act = Household.ActiveHousehold;
+            if (act != null && Household.RoommateManager != null && Household.RoommateManager.AcceptingRoommates)  // static: the active household's
+                throw new McpException("the active household accepts roommates: EA's roommate story actions would touch it");
+            object svc = typeof(StoryProgressionService).GetField("sService", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            if (svc == null) throw new McpException("EA story progression service not running (NRaas StoryProgression replaces it?)");
+            FieldInfo mf = typeof(StoryProgressionService).GetField("mMode", BindingFlags.Instance | BindingFlags.NonPublic);
+            Dictionary<string, object> r = Util.Obj();
+            r["mode_before"] = mf.GetValue(svc).ToString();
+            string mode = a.Str("mode", "");
+            if (mode != "") StoryProgressionService.SetMode(Util.ParseEnum<StoryProgressionService.Mode>(mode));
+            r["mode"] = mf.GetValue(svc).ToString();
+            // actions: EA's per-day count range (static kActionsMin / kActionsMax, tuning) set to that many, for story spam
+            const BindingFlags sf = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            FieldInfo amin = typeof(StoryProgressionService).GetField("kActionsMin", sf), amax = typeof(StoryProgressionService).GetField("kActionsMax", sf);
+            if (a.Has("actions"))
+            {
+                int n = (int)a.Long("actions");
+                amin.SetValue(null, n);
+                amax.SetValue(null, n);
+            }
+            r["actions_per_day"] = amin.GetValue(null) + "-" + amax.GetValue(null);
+            int days = (int)a.Long("days", 1);
+            if (sStoryBusy) { r["days_started"] = 0; r["busy"] = true; return r; }  // never two story tasks at once
+            MethodInfo day = typeof(StoryProgressionService).GetMethod("DoOneDayOfActions", BindingFlags.Instance | BindingFlags.NonPublic);
+            // a delegate, not day.Invoke: DoOneDayOfActions sleeps, and the game cannot yield through a reflection call
+            // ("Attempting to yield in a non-yielding context!", al339)
+            Function oneDay = (Function)Delegate.CreateDelegate(typeof(Function), svc, day);
+            if (days > 0)
+            {
+                sStoryBusy = true;
+                RunAsync("story_days " + days, delegate { try { for (int i = 0; i < days; i++) oneDay(); } finally { sStoryBusy = false; } });
+            }
+            r["days_started"] = days;
+            return r;
+        }
+
+        static bool sStoryBusy;
+
+        // story_burst {actions?: 200, cooldowns?: false, sleep_every?: 5, sleep_ticks?: 10} (issue #40 leak stress, user
+        // 11-09 "crank story progression up"): EA's own story action step without the per-day cap and, by default, without
+        // the per-category cooldowns. Each step is EA's TryOneAction: Demographics.Collect, GenerateActions(ignore =
+        // !cooldowns), ScoreAction (multiplier 1) for every action still IsValid, a weighted pick (RandomUtil, so seed_rng
+        // holds), Execute only if it is still IsValid. EA runs the same with cooldowns off in its travel fix-up
+        // (DoTravelActions). EA's candidate lists skip the active and travel households (StoryAction IsActive checks); refused
+        // while the active household accepts roommates, as story_days. Runs in a task and returns at once;
+        // story_burst_state reads the counts by action type, errors and the demographics error.
+        static object StoryBurst(Args a)
+        {
+            RequireLive();
+            Household act = Household.ActiveHousehold;
+            if (act != null && Household.RoommateManager != null && Household.RoommateManager.AcceptingRoommates)
+                throw new McpException("the active household accepts roommates: EA's roommate story actions would touch it");
+            object svc = typeof(StoryProgressionService).GetField("sService", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            if (svc == null) throw new McpException("EA story progression service not running (NRaas StoryProgression replaces it?)");
+            Demographics demo = typeof(StoryProgressionService).GetField("mDemographics", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(svc) as Demographics;
+            if (demo == null) throw new McpException("EA story progression has no demographics yet");
+            int n = (int)a.Long("actions", 200), every = Math.Max(1, (int)a.Long("sleep_every", 5));
+            uint ticks = (uint)a.Long("sleep_ticks", 10);
+            bool ignore = !a.Bool("cooldowns", false);
+            Dictionary<string, object> r = Util.Obj();
+            if (sStoryBusy) { r["started"] = 0; r["busy"] = true; return r; }
+            sStoryBusy = true;
+            sBurstDone = 0; sBurstSteps = 0; sBurstNone = 0; sBurstByType.Clear(); sBurstErrors.Clear();
+            RunAsync("story_burst " + n, delegate
+            {
+                try
+                {
+                    for (int i = 0; i < n && !GameStates.IsTravelling; i++)
+                    {
+                        sBurstSteps++;
+                        try
+                        {
+                            demo.Collect();
+                            List<StoryAction> list = demo.GenerateActions(ignore);
+                            float[] w = new float[list.Count];
+                            for (int j = 0; j < list.Count; j++)
+                                if (list[j] != null && list[j].IsValid()) { float sc = demo.ScoreAction(list[j], 1f); if (sc > 0f) w[j] = sc; }
+                            float sum = 0f;
+                            foreach (float x in w) sum += x;
+                            if (sum <= 0f) { sBurstNone++; }
+                            else
+                            {
+                                StoryAction pick = list[RandomUtil.GetWeightedIndex(w)];
+                                if (pick.IsValid())
+                                {
+                                    pick.Execute();
+                                    sBurstDone++;
+                                    string t = pick.GetType().Name;
+                                    int c;
+                                    sBurstByType.TryGetValue(t, out c);
+                                    sBurstByType[t] = c + 1;
+                                }
+                            }
+                        }
+                        catch (ResetException) { throw; }
+                        catch (Exception e)
+                        {
+                            string k = e.GetType().Name + ": " + e.Message;
+                            int c;
+                            sBurstErrors.TryGetValue(k, out c);
+                            sBurstErrors[k] = c + 1;
+                        }
+                        Simulator.Sleep(i % every == every - 1 ? ticks : 0u);
+                    }
+                }
+                finally { sStoryBusy = false; }
+            });
+            r["started"] = n;
+            r["cooldowns"] = !ignore;
+            r["error_before"] = demo.TotalError;
+            return r;
+        }
+
+        static int sBurstDone, sBurstSteps, sBurstNone;
+        static readonly Dictionary<string, int> sBurstByType = new Dictionary<string, int>(), sBurstErrors = new Dictionary<string, int>();
+
+        static object StoryBurstState(Args a)
+        {
+            Dictionary<string, object> r = Util.Obj();
+            r["running"] = sStoryBusy;
+            r["steps"] = sBurstSteps;
+            r["executed"] = sBurstDone;
+            r["no_action"] = sBurstNone;
+            Dictionary<string, object> t = Util.Obj();
+            foreach (KeyValuePair<string, int> kv in sBurstByType) t[kv.Key] = kv.Value;
+            r["by_type"] = t;
+            Dictionary<string, object> e = Util.Obj();
+            foreach (KeyValuePair<string, int> kv in sBurstErrors) e[kv.Key] = kv.Value;
+            r["errors"] = e;
+            return r;
+        }
+
+        static object MakeCelebrity(Args a)
+        {
+            RequireLive();
+            uint level = (uint)a.Long("level", 1);
+            Household act = Household.ActiveHousehold;
+            List<SimDescription> sds = a.Bool("all", false) ? Household.EveryHumanSimDescription() : new List<SimDescription> { Util.FindSimDescription(a, "sim") };
+            int set = 0, skipped = 0;
+            foreach (SimDescription sd in sds)
+            {
+                if (sd == null || sd.CelebrityManager == null || !sd.CanBeCelebrity || (act != null && sd.Household == act))
+                {
+                    if (!a.Bool("all", false)) throw new McpException((sd == null ? "?" : sd.FullName) + ": not a townie that can be a celebrity");
+                    skipped++;
+                    continue;
+                }
+                if (level == 0) sd.CelebrityManager.RemoveCelebrityStatus();
+                else sd.CelebrityManager.ForceSetLevel(level);
+                set++;
+            }
+            Dictionary<string, object> r = Util.Obj();
+            r["set"] = set;
+            r["skipped"] = skipped;
+            r["level"] = level;
             return r;
         }
 
