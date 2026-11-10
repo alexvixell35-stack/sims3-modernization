@@ -14,22 +14,7 @@
       "logForbid": {
         "^FAIL\\b": 0
       },
-      "earlyGates": [
-        {
-          "afterSec": 180,
-          "counter": "r2wOn",
-          "op": ">=",
-          "value": 1,
-          "why": "RaceWitness not in force (old asi or ini key not read)"
-        },
-        {
-          "afterSec": 600,
-          "counter": "r2wCuts",
-          "op": ">=",
-          "value": 1,
-          "why": "no AutShadow cut read the words in 10 min"
-        }
-      ],
+      "nativeRequire": "r2wCuts>=1",
       "run": {
         "matrix": [
           "--travel",
