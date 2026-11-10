@@ -191,3 +191,29 @@ Gains are not additive per group: an IC passes through only when every group it 
   - Result (run rw1c): `r1pRuns` 1, `r1pFills` 17; log `autshadow race prewarm #1: 17 fills, A guard 0x0000 -> 0x7FFF`
     (all 15 A slots filled and 2 of the 5 lazy fills were still cold at event 7). 30 min of IP after it: PASS, no crash,
     no forbidden log line. Not measured: whether a worker would have hit a cold fill without it.
+- **Witness rerun rw1d (2026-11-10, head a8df0d6):** both jobs of `races-witness.json` PASS (BP travel 9.3 min, IP 30 min
+  profile 38.7 min), `r2wChanged` 0 with the heap-size counter `0x11EE520` in the logged-only group. A map-view toggle
+  rider (issue #40 leak hunt, one toggle every 2 s) ran beside job 2.
+- **Csv regeneration (2026-11-10): not done, and the honest open count is not 0.**
+  - Not done: `tools/mono-glue-closure.py` needs `game-copy/analysis/functions.csv` (the Ghidra export of
+    `tools/ghidra/ExportFunctions.java`), which only the maintainer's machine has. A new Ghidra project here would give
+    other function bounds, so the diff would not stay inside the mitigation fields. Command for that machine:
+    `python tools/mono-glue-closure.py --exe game-copy/bin/TS3W.exe --functions game-copy/analysis/functions.csv --cache game-copy/analysis --races docs/data/mono-glue-races.csv --csv docs/data/mono-glue-closure.csv`.
+    The tool writes a fixed header: it must carry the `r2a_*` columns over by `global`, or they are lost.
+  - What the finished pieces support, read row by row against this log (85 open today = R1 41 + R2 37 + R3 6 + R4 1):
+    - **R4: 1 -> 0.** `0x11CB920` is a lazy fill with a constant (`GetACP()`), harmless (R4a).
+    - **R1: 41 -> 38.** Closable as benign: `0x11C7E54` (the store writes the same value, R1a), `0x11E96C0` and
+      `0x11E96C1` (R1b prep). The other 38 are covered only by `RacePrewarm=1`, which is default 0 and for test runs;
+      the worker abort on a clear guard is not built and Q2 (trigger) is open. They close when the pre-warm is accepted
+      as the mitigation.
+    - **R2: 37 -> 34.** Closable: `0x11CB864`, `0x11AF670`, `0x11EBAE0` (written at start-up only, R2a). Open: the 8
+      world-load words and the 4 words cleared at shutdown (R2c: no drain exists, the fix is proposed only, Q5); 14
+      inferred load rows (witness stable in rw1c and rw1d, but Q3 asks whether a runtime witness is enough);
+      `0x11EE140` (a real race, rewritten every tick); `0x11D6A78` and `0x11ED780` (written by script calls at run
+      time, no rule yet); `0x114CA08`, `0x114CA0C`, `0x11CB928` (lazy fill by `0x4F98E0`, not in the pre-warm list);
+      `0x11D3E28` (owner unknown).
+    - **R3: 6 -> 6.** The witness covers them, but the static check "only under the P3 lock or at init" is not written
+      down, and `0x11EE520` changes at run time (it is the heap-size counter), so a value witness proves nothing for it.
+  - So the csv can go from 85 to 78 open today, and to 0 only after Q2, Q3 and Q5 are answered and the drain exists.
+  - One earlier line of §1 is refuted by the R1b prep read: about 10 minutes into IP all 15 A slots and both B guards
+    were still 0, so "the sim thread fills them long before a worker exists" does not hold.
