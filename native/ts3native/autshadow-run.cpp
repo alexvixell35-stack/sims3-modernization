@@ -788,6 +788,12 @@ static void AsInstallRun(const wchar_t* ini, bool slotStub) {
     k.runSkip = g_asRunSkip;
     // docs/122 §14.21: FreshEvery=N re-scores 1 in N Mode R finishes on the sim thread (stale-score check, test cost); 0 = off
     g_asFreshEvery = ini ? GetPrivateProfileIntW(L"AutShadow", L"FreshEvery", 0, ini) : 0;
+    // races R2b (docs/data/races-handoff.md): RaceWitness=1 reads the R2 / R3 words at each cut and logs changes (test only)
+    g_asRaceWitness = ini ? (GetPrivateProfileIntW(L"AutShadow", L"RaceWitness", 0, ini) ? 1 : 0) : 0;
+    ts3native_counters.r2wOn = g_asRaceWitness;
+    // races R1b: RacePrewarm=1 fills the R1 first-fill statics on the sim thread at world event 7
+    g_asRacePrewarm = ini ? (GetPrivateProfileIntW(L"AutShadow", L"RacePrewarm", 0, ini) ? 1 : 0) : 0;
+    ts3native_counters.r1pOn = g_asRacePrewarm;
     if (g_asFreshEvery < 0 || g_asFreshEvery > 1000) g_asFreshEvery = 0;
     k.freshEvery = g_asFreshEvery;
     // docs/122 §14.21: KeepPartial=1: an overrun keeps the meta objects the worker finished before the stop (ts3fixes checks

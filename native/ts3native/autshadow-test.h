@@ -679,6 +679,80 @@ static void TestAutShadowTier2IcE() {
 static DWORD __cdecl AsT2FakeCount(DWORD type, float x, float y, float z, float r) {
     return 0xAB000000u | (type & 0xFF) | (x * x + y * y + z * z < r * r ? 0x100u : 0u);
 }
+// races R2b (docs/data/races-handoff.md): a change between two cuts of one epoch counts and logs once; across epochs it
+// only logs (a load-time write); off reads nothing
+static void TestAutShadowRaceWitness() {
+    Ts3nCounters& c = ts3native_counters;
+    const LONG cuts0 = c.r2wCuts, ch0 = c.r2wChanged;
+    static DWORD w[3] = {1, 2, 3}, at[3];
+    for (int i = 0; i < 3; i++) at[i] = (DWORD)(uintptr_t)&w[i];
+    g_asRwWords = at, g_asRwN = 3, g_asRwStableN = 2, g_asRwEpoch = 0, g_asRwInLogged = g_asRwLoadLogged = 0;
+    g_asRaceWitness = 0;
+    AsRaceWitness(5);
+    assert(c.r2wCuts == cuts0 && !g_asRwEpoch);
+    g_asRaceWitness = 1;
+    AsRaceWitness(5);  // first cut: values kept, nothing compared
+    assert(c.r2wChanged == ch0 && c.r2wCuts == cuts0 + 1);
+    w[1] = 9;
+    AsRaceWitness(5);
+    w[1] = 10;
+    AsRaceWitness(5);
+    assert(c.r2wChanged == ch0 + 2 && g_asRwInLogged == 2 && !g_asRwLoadLogged);
+    w[2] = 7;
+    AsRaceWitness(6);
+    assert(c.r2wChanged == ch0 + 2 && g_asRwLoadLogged == 4 && g_asRwInLogged == 2 && c.r2wCuts == cuts0 + 4);
+    AsRaceWitness(6);
+    assert(c.r2wChanged == ch0 + 2 && c.r2wCuts == cuts0 + 5);
+    w[2] = 8;  // word 2 is past the stable ones: logged once, never counted
+    AsRaceWitness(6);
+    assert(c.r2wChanged == ch0 + 2 && g_asRwInLogged == (2 | 4) && c.r2wCuts == cuts0 + 6);
+    g_asRwWords = kAsRaceWords, g_asRwN = _countof(kAsRaceWords), g_asRwStableN = kAsRaceStable, g_asRwEpoch = 0, g_asRwInLogged = g_asRwLoadLogged = 0;
+    g_asRaceWitness = 0;
+}
+
+// races R1b: the pre-warm runs each lazy fill once, counts the cold ones, fills each clear A slot before its bit, keeps set ones
+static int g_tRpCalls[5];
+static void* __cdecl TRpFill0() { g_tRpCalls[0]++; return NULL; }
+static void* __cdecl TRpFill1() { g_tRpCalls[1]++; return NULL; }
+static void* __cdecl TRpFill2() { g_tRpCalls[2]++; return NULL; }
+static void* __cdecl TRpFill3() { g_tRpCalls[3]++; return NULL; }
+static void* __cdecl TRpFill4() { g_tRpCalls[4]++; return NULL; }
+static DWORD g_tRpGuard;
+static DWORD __fastcall TRpClassOf(void* host, void*, const char* ns, const char* name) {
+    assert(host && !strcmp(ns, "Sims3.SimIFace"));
+    return (DWORD)strlen(name) + (g_tRpGuard << 16);  // the guard as the callee sees it: the slot must come before the bit
+}
+static void TestAutShadowRacePrewarm() {
+    Ts3nCounters& c = ts3native_counters;
+    const LONG runs0 = c.r1pRuns, fills0 = c.r1pFills;
+    const AsRaceTargets saved = g_asRt;
+    static BYTE cold[5] = {0, 1, 0, 0, 1};  // fills 0, 3 cold (byte 0), 1, 4 warm (bit 0 set); 2 is a pointer
+    static void* ptr = NULL;
+    static BYTE hostObj[16];
+    static BYTE* host = hostObj;
+    static DWORD slots[15];
+    g_asRt.fill[0] = (DWORD)(uintptr_t)TRpFill0, g_asRt.fill[1] = (DWORD)(uintptr_t)TRpFill1, g_asRt.fill[2] = (DWORD)(uintptr_t)TRpFill2;
+    g_asRt.fill[3] = (DWORD)(uintptr_t)TRpFill3, g_asRt.fill[4] = (DWORD)(uintptr_t)TRpFill4;
+    for (int i = 0; i < 5; i++) g_asRt.cold[i] = i == 2 ? (volatile BYTE*)&ptr : &cold[i];
+    g_asRt.host = (BYTE* volatile*)&host, g_asRt.guard = (volatile DWORD*)&g_tRpGuard, g_asRt.slot0 = &slots[14];
+    g_asRt.classOf = (DWORD)(uintptr_t)TRpClassOf;
+    g_tRpGuard = 0x0002;  // Vector3 already filled
+    slots[13] = 0x1234;
+    g_asRacePrewarm = 0;
+    AsRacePrewarm();
+    assert(c.r1pRuns == runs0 && !g_tRpCalls[0]);
+    g_asRacePrewarm = 1;
+    AsRacePrewarm();
+    for (int i = 0; i < 5; i++) assert(g_tRpCalls[i] == 1);
+    assert(g_tRpGuard == 0x7FFF && c.r1pRuns == runs0 + 1 && c.r1pFills == fills0 + 3 + 14);  // fills 0, 2, 3 + 14 slots
+    assert(slots[14] == strlen("Vector2") + (0x0002u << 16) && slots[13] == 0x1234 && (slots[12] & 0xFFFF) == strlen("Matrix44"));
+    assert(slots[12] >> 16 == 0x0003 && slots[0] == strlen("ClipInfoNative") + (0x3FFFu << 16));  // each slot before its bit
+    host = NULL, g_tRpGuard = 0;
+    AsRacePrewarm();  // no script host: the fills run, the A slots wait
+    assert(g_tRpGuard == 0 && c.r1pRuns == runs0 + 2 && g_tRpCalls[0] == 2);
+    g_asRt = saved, g_asRacePrewarm = 0;
+}
+
 static void TestAutShadowTier2CountRange() {
     const AsDesc& d = kAsDesc[AS_NDESC - 1];
     assert(&d == AsT2Ic(22));
@@ -3395,4 +3469,6 @@ static void TestAutShadow() {
     TestAutShadowCost17();
     TestAutShadowLive();
     TestAutShadowTier2CountRange();
+    TestAutShadowRaceWitness();
+    TestAutShadowRacePrewarm();
 }

@@ -86,7 +86,7 @@ static void TestMemExpBench() {
 
 static void TestMemExp() {
     static_assert(offsetof(Ts3nCounters, tyMode) == 0x52F0 && offsetof(Ts3nCounters, sqMode) == 0x52F4 &&
-                      offsetof(Ts3nCounters, sqForced) == 0x5350 && offsetof(Ts3nCounters, mxSpare) == 0x5354 && sizeof(Ts3nCounters) == 6112 * 4,
+                      offsetof(Ts3nCounters, sqForced) == 0x5350 && offsetof(Ts3nCounters, mxSpare) == 0x5354 && sizeof(Ts3nCounters) == 6118 * 4,
                   "counters v137 layout after v136 (docs/registry.md)");
     // fake heap: 16 blocks of 4 KB in one 4 MB bottom index
     u8* heap = (u8*)VirtualAlloc(NULL, 0x10000, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);

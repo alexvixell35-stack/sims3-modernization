@@ -127,3 +127,53 @@ Gains are not additive per group: an IC passes through only when every group it 
   - Four first-fill races are real, not just "worker writes": A (bit before slot), the two B statics (bit before fields), DefaultAllocator (publish before heap) and `0x9B0530` (done before value). In each, the second thread on a first call reads a zero. A pre-warm on the sim thread before the first cut closes them, as the plan says.
   - `0xD7BD40` also calls `GC_malloc(4)` on every call. A worker that ran it would allocate, which is outside R1 and already under M5's GC lock rules (P3).
   - For R1b: the pre-warm calls are cdecl with no arguments for `0x7935B0`, `0x8A79B0`, `0x4D9AD0` and `0xC88D80`. `0x9B0530` and the A fills need their receivers (the online-features host; the converter `this`, whose `this - 8` is what `0xD79CA0` receives), to be identified in R1b. Witness: the guard dword `0x11EE588 == 0x7FFF`, bit 1 of `0x11D7518` and `0x11DA058`, `[0x11C7984] != 0`, `0x11E96C1` and `0x11ECEED` set after the pre-warm.
+
+- **R1b prep (2026-11-10, static + one live read):**
+  - `0x9B0530` takes no receiver [verified]: a static bool getter, no `this`; its 10 direct callers push nothing for it. It reads option
+    `Version` / `GameVersion` (default `0.0.0.0`) through `0x58A900`, parses it with `0x9B04E0`, sets the done byte `0x11E96C1`, then
+    stores 1 only when all four version parts are 0 (a dev build).
+  - Live read (rq1 IP job, about 10 min in): value `0x11E96C0` = 0, done = 1. On a versioned game the answer is 0, the same as the byte's
+    zero default, so a second thread that reads before the store still gets the right answer. This row is **benign** on player
+    installs [verified: code + live value]; the pre-warm is one call `0x9B0530()` and costs nothing, so R1b keeps it.
+  - Same live read: the A guard `0x11EE588` = 0 and all 15 A slots `0x11EE54C`-`0x11EE584` are 0; the B guards `0x11D7518` and
+    `0x11DA058` are 0; DefaultAllocator is published (`0x11DC180` = `0x11DC168`). So in this session neither A nor the B statics
+    had been filled yet: their first fill can happen on whichever thread reaches them first, which is why the pre-warm matters.
+  - So three real first-fill races are left: A (bit before slot), the two B statics (bit before fields) and DefaultAllocator
+    (publish before heap, already filled by load in this session).
+  - The A fill `0xD7BD40` is slot 20 of the vtable at `0x108B690` [verified]. That vtable is MonoScriptHost's base at `+8`:
+    the ctor `0xD7E010` stores `0x108B818` at `+0`, `0x108B810` at `+4`, `0x108B690` at `+8` (slot 1 = `0xD77600`, R2a's row).
+    Its only caller `0xD7F34A` allocates the host from the Scripting heap `[0x11EE51C]` (0x17C8 bytes) and stores it at
+    **`[0x11EE514]`** (an R3 word).
+  - Signature [verified]: `0xD7BD40(this = host + 8, type descriptor, out)`, `ret 8`. It allocates `GC_malloc(4)` into `*out` on
+    every call and switches over 0x92 descriptor kinds (`word [desc + 0xA]`), so it is not a pre-warm call.
+  - Pre-warm instead: for each A kind whose guard bit is clear, the slot is `0xD79CA0(host, "Sims3.SimIFace", name)`
+    (thiscall on `[0x11EE514]`, the same call EA makes), stored before the bit, on the sim thread at event 7. Kinds:
+    0x1 Vector2 `0x11EE584`, 0x2 Vector3 `0x11EE580`, 0x4 Matrix44 `0x11EE57C`, 0x8 Rect `0x11EE578`, 0x10 BoundingBox `0x11EE574`,
+    0x20 ResourceKey `0x11EE570`, 0x40 RoutingSlotInfo `0x11EE56C`, 0x80 ContainmentSlotInfo `0x11EE568`, 0x100 LotCorners
+    `0x11EE564`, 0x200 LotDisplayLevelInfo `0x11EE560`, 0x400 PondInfo `0x11EE55C`, 0x800 RoutePlanResult `0x11EE558`,
+    0x1000 RoomInfo `0x11EE554`, 0x2000 Quaternion `0x11EE550`, 0x4000 ClipInfoNative `0x11EE54C` (all 15).
+  - In the live IP session all 15 slots were still 0, Vector3 included: `0xD7BD40` is a rare marshal path, not the IC
+    boundary's normal struct copy [inferred from the live read]. Only ICs that reach it need the A rows closed.
+
+- **R2b + R3a witness (2026-11-10, code written; build, selftest and game run pending):**
+  - `[AutShadow] RaceWitness=1` (default 0, test runs only): `AsRaceWitness` (autshadow.cpp) reads 43 words on the sim thread at
+    each cut, right after the cut reads the epoch. Counters v914 (contributor block, `0x5F80`): `r2wOn`, `r2wCuts`, `r2wChanged`.
+  - The words: the 31 R2 rows R2a classed load or unknown and the 6 R3 rows are expected stable; the 6 R2 rows R2a found written
+    at run time (`0x114CA0C`, `0x114CA08`, `0x11CB928` lazy; `0x11D6A78`, `0x11ED780`, `0x11EE140` runtime) are read too.
+  - A change between two cuts of one epoch (no world event between) logs once per word (`autshadow race witness: ... inside
+    epoch`); for the 37 stable words it also counts in `r2wChanged`, which must stay 0. A change across epochs logs once as a
+    load-time write and never counts.
+  - Selftest `TestAutShadowRaceWitness`: off reads nothing, the first cut only keeps values, a stable change counts and logs once,
+    a second change counts without a second log, an epoch change only logs, a moving word logs and never counts.
+  - Game run: `tools/harness/queues/races-witness.json`, one BP load, one trip to France and back, one quit, then 30 min of IP.
+
+- **R1b pre-warm (2026-11-10, code written; build, selftest and game run pending):**
+  - `[AutShadow] RacePrewarm=1` (default 0, test runs only): `AsRacePrewarm` runs from `AsWorldEvent` at event 7, on the sim
+    thread. Counters v915 (`0x5F8C`): `r1pOn`, `r1pRuns`, `r1pFills`; one log line per pass with the A guard before and after.
+  - It calls the five lazy fills themselves (`0x7935B0`, `0x8A79B0`, `0x4D9AD0`, `0xC88D80`, `0x9B0530`: cdecl, no arguments,
+    plain `ret` [verified]), counting the ones that were cold.
+  - For each clear A guard bit it stores `0xD79CA0(host, "Sims3.SimIFace", name)` into the slot, then sets the bit (slot
+    before bit; EA sets the bit first). It does not call `0xD7BD40`, which would allocate. No script host yet = A waits.
+  - Selftest `TestAutShadowRacePrewarm`: fake fills and class lookup; off does nothing; each fill runs once; cold ones count;
+    every clear slot is written before its bit; a set slot is kept; no host leaves the A slots.
+  - Game run: job 2 of `races-witness.json` (IP, 30 min, with the witness on).

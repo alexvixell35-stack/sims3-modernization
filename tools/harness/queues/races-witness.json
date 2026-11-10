@@ -1,0 +1,99 @@
+{
+  "note": "Races R2b + R3a witness (task 11, docs/data/races-handoff.md): [AutShadow] RaceWitness=1 reads the 37 R2 and 6 R3 words at each cut. r2wChanged counts changes between two cuts of one epoch; each word logs once as 'autshadow race witness: ... inside epoch' (a runtime writer) or '... across epochs' (a load-time writer). Job 1: one load, one travel to France, one return, one quit. Job 2: 30 min natural play on IP, for runtime writers outside loads, with [AutShadow] RacePrewarm=1 (R1b: the R1 first-fill statics and the 15 SimIFace class slots filled on the sim thread at world event 7; r1pRuns >= 1). Release ini (AutShadow Mode=3) so cuts run. Household untouched: the witness only reads process globals.",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-races-witness-travel",
+      "asi": "tested",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "releaseDefaults": true,
+      "ini": {
+        "AutShadow.RaceWitness": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 180,
+          "counter": "r2wOn",
+          "op": ">=",
+          "value": 1,
+          "why": "RaceWitness not in force (old asi or ini key not read)"
+        },
+        {
+          "afterSec": 600,
+          "counter": "r2wCuts",
+          "op": ">=",
+          "value": 1,
+          "why": "no AutShadow cut read the words in 10 min"
+        }
+      ],
+      "run": {
+        "matrix": [
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "1"
+        ]
+      },
+      "timeoutMin": 75
+    },
+    {
+      "id": "ip-races-witness-natural",
+      "asi": "tested",
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "AutShadow.RaceWitness": 1,
+        "AutShadow.RacePrewarm": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 180,
+          "counter": "r2wOn",
+          "op": ">=",
+          "value": 1,
+          "why": "RaceWitness not in force (old asi or ini key not read)"
+        },
+        {
+          "afterSec": 600,
+          "counter": "r2wCuts",
+          "op": ">=",
+          "value": 1,
+          "why": "no AutShadow cut read the words in 10 min"
+        },
+        {
+          "afterSec": 600,
+          "counter": "r1pRuns",
+          "op": ">=",
+          "value": 1,
+          "why": "RacePrewarm never ran (no world event 7 seen, or the key not read)"
+        }
+      ],
+      "run": {
+        "profile": {
+          "minutes": 30,
+          "seed": 12345,
+          "noSamplers": true,
+          "quitJobs": true
+        }
+      },
+      "timeoutMin": 60,
+      "logRequire": {
+        "^autshadow race prewarm #1: ": 1
+      }
+    }
+  ]
+}

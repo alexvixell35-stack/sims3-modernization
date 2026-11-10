@@ -20,6 +20,7 @@
 // keyed (type, lot, flags) with the list generation; constants = zero-argument entries; the memo = entries recorded on
 // the sim thread's pass-through. Master table on the sim thread, two published versions (A/B) for the worker.
 #include "autshadow-kinds.h"
+#include "ts3addr.h"  // TS3A(x): TS3W.exe addresses by their Steam 1.67 value (the races witness and pre-warm tables)
 
 typedef unsigned __int64 AsU64;
 
@@ -1331,9 +1332,61 @@ static void AsObjRegister() {
 
 // routesnap's World_FireEvent detour, sim thread (docs/76 §2): world events 2, 3, 5, 7, 9, 0x0A and lot events 0x0D-0x10,
 // 0x46 force a full rebuild; 0x11 (OnObjectLotUpdate) moves objects between lot lists
+// Races R1b (docs/data/races-handoff.md, task 11): first-fill statics a worker IC could reach first, filled on the sim thread
+// at world event 7 (load finished), before any worker job of the world. [AutShadow] RacePrewarm=1, default 0. The lazy fills
+// themselves run (cdecl, no arguments, plain ret [verified]): 0x7935B0 / 0x8A79B0 (B statics: guard bit before the fields),
+// 0x4D9AD0 (C: IsWorldInstalled's DefaultAllocator, 0x931020), 0xC88D80 (option 0x8000), 0x9B0530 (GameVersion check). The A
+// slots are filled as 0xD7BD40 fills them, without its GC_malloc(4): for each clear bit i of the guard 0x11EE588, slot
+// 0x11EE584 - 4 i = 0xD79CA0(host [0x11EE514], "Sims3.SimIFace", name) (thiscall, ret 8 [verified: callers do not pop]), then
+// the bit, as EA does (EA sets the bit first, the race R1a found).
+static const char* const kAsRaceA[15] = {"Vector2", "Vector3", "Matrix44", "Rect", "BoundingBox", "ResourceKey",
+                                         "RoutingSlotInfo", "ContainmentSlotInfo", "LotCorners", "LotDisplayLevelInfo",
+                                         "PondInfo", "RoutePlanResult", "RoomInfo", "Quaternion", "ClipInfoNative"};
+static int g_asRacePrewarm;
+typedef void*(__cdecl* AsFillFn)();
+typedef DWORD(__fastcall* AsClassOfFn)(void* host, void* edx, const char* ns, const char* name);  // thiscall through fastcall
+struct AsRaceTargets {  // the selftest points these at its own words and functions
+    DWORD fill[5];                  // B, B, C, C, C lazy fills
+    volatile BYTE* cold[5];         // per fill: the byte that is 0 while it is cold (bit 0 of a guard, a done byte, a pointer byte)
+    BYTE* volatile* host;           // [0x11EE514]
+    volatile DWORD* guard;          // 0x11EE588
+    DWORD* slot0;                   // 0x11EE584 (bit i -> slot0[-i])
+    DWORD classOf;                  // 0xD79CA0
+};
+static AsRaceTargets g_asRt = {
+    {TS3A(0x7935B0), TS3A(0x8A79B0), TS3A(0x4D9AD0), TS3A(0xC88D80), TS3A(0x9B0530)},
+    {(volatile BYTE*)TS3A(0x11D7518), (volatile BYTE*)TS3A(0x11DA058), (volatile BYTE*)TS3A(0x11C7984),
+     (volatile BYTE*)TS3A(0x11ECEED), (volatile BYTE*)TS3A(0x11E96C1)},
+    (BYTE* volatile*)TS3A(0x11EE514), (volatile DWORD*)TS3A(0x11EE588), (DWORD*)TS3A(0x11EE584), TS3A(0xD79CA0)};
+
+static void AsRacePrewarm() {
+    if (!g_asRacePrewarm) return;
+    Ts3nCounters& c = ts3native_counters;
+    const AsRaceTargets& t = g_asRt;
+    LONG fills = 0;
+    for (int i = 0; i < 5; i++) {
+        // 0x4D9AD0's cold test is its whole pointer, not one byte: a non-null pointer may have a zero low byte
+        const bool cold = i == 2 ? !*(void* volatile*)t.cold[i] : !(*t.cold[i] & 1);
+        ((AsFillFn)(uintptr_t)t.fill[i])();
+        fills += cold;
+    }
+    const DWORD g0 = *t.guard;
+    BYTE* const host = *t.host;
+    if (host)
+        for (int i = 0; i < 15; i++)
+            if (!(*t.guard & (1u << i))) {
+                t.slot0[-i] = ((AsClassOfFn)(uintptr_t)t.classOf)(host, NULL, "Sims3.SimIFace", kAsRaceA[i]);
+                *t.guard |= 1u << i;
+                fills++;
+            }
+    c.r1pRuns++, c.r1pFills += fills;
+    Log("autshadow race prewarm #%ld: %ld fills, A guard 0x%04lX -> 0x%04lX%s", c.r1pRuns, fills, g0, *t.guard,
+        host ? "" : " (no script host yet: A slots left)");
+}
+
 static void AsWorldEvent(DWORD id) {
     if (!g_as) return;
-    if (id == 7) { g_asTracked = true; ts3native_autshadow.ready |= 4; AsObjRegister(); }
+    if (id == 7) { g_asTracked = true; ts3native_autshadow.ready |= 4; AsObjRegister(); AsRacePrewarm(); }
     if (id == 2 || id == 3 || id == 5 || id == 7 || id == 9 || id == 0x0A || (id >= 0x0D && id <= 0x10) || id == 0x46) AsEpochBump();
     else if (id == 0x11) InterlockedIncrement(&g_asListGen);
 }
@@ -2694,6 +2747,58 @@ static DWORD g_asSimEvIcs = 0x27;
 static int g_asSimEvLearn, g_asSimEvSeated;
 static DWORD g_asSimSeatIcs = 0x25;
 
+// Races R2b + R3a (docs/data/races-handoff.md, task 11): the 37 R2 singleton words (the r2a rows of
+// docs/data/mono-glue-races.csv) and the 6 R3 Boehm / script-host init words, read on the sim thread at each cut. A word
+// the worker may treat as "set at load only" must keep its value between two cuts of one epoch (no world event between):
+// a change there is counted (r2wChanged) and logged once per word with both values. A change across epochs is a load-time
+// write, logged once per word and not counted. The 6 R2 words R2a found written at run time are read and logged too, never
+// counted. [AutShadow] RaceWitness=1, default 0 (test runs only).
+static const DWORD kAsRaceWords[] = {
+    // R2, r2a class load or unknown: expected stable inside an epoch
+    TS3A(0x11D4BC8), TS3A(0x11CB864), TS3A(0x11ECBC4), TS3A(0x11E9158), TS3A(0x11ED034), TS3A(0x11E9114),
+    TS3A(0x11ECF08), TS3A(0x11E8FA8), TS3A(0x11AF670), TS3A(0x11D4068), TS3A(0x11D8888), TS3A(0x11E8FC4),
+    TS3A(0x11E90FC), TS3A(0x11C78D8), TS3A(0x11CDD00), TS3A(0x11CDD10), TS3A(0x11CE2D0), TS3A(0x11CF490),
+    TS3A(0x11D3E28), TS3A(0x11D4BBC), TS3A(0x11D4BC0), TS3A(0x11D9128), TS3A(0x11D9848), TS3A(0x11DC350),
+    TS3A(0x11E8FC0), TS3A(0x11E90F8), TS3A(0x11E9290), TS3A(0x11E92A8), TS3A(0x11E94F8), TS3A(0x11EB490),
+    TS3A(0x11EBAE0),
+    // R3: expected stable
+    TS3A(0x11EE528), TS3A(0x11EE514), TS3A(0x11EE520), TS3A(0x11DC18C), TS3A(0x114C908), TS3A(0x11CC964),
+    // R2 runtime-lazy (0x114CA0C, 0x114CA08, 0x11CB928) and runtime (0x11D6A78, 0x11ED780, 0x11EE140): logged, never counted
+    TS3A(0x114CA0C), TS3A(0x114CA08), TS3A(0x11CB928), TS3A(0x11D6A78), TS3A(0x11ED780), TS3A(0x11EE140),
+};
+static_assert(_countof(kAsRaceWords) == 43, "37 R2 + 6 R3 words, one log bit each in a u64");
+static const int kAsRaceStable = 37;  // the first 37 count in r2wChanged; the 6 after them only log
+static int g_asRaceWitness;
+static const DWORD* g_asRwWords = kAsRaceWords;  // the selftest points these at its own words
+static int g_asRwN = _countof(kAsRaceWords);
+static int g_asRwStableN = kAsRaceStable;
+static DWORD g_asRwVal[64];
+static LONG g_asRwEpoch;  // epoch of the last read; 0 = none yet (g_asEpoch starts at 1)
+static unsigned __int64 g_asRwInLogged, g_asRwLoadLogged;
+
+static void AsRaceWitness(LONG epoch) {
+    if (!g_asRaceWitness) return;
+    Ts3nCounters& c = ts3native_counters;
+    for (int i = 0; i < g_asRwN; i++) {
+        const DWORD v = *(const volatile DWORD*)(uintptr_t)g_asRwWords[i];
+        const unsigned __int64 bit = 1ull << i;
+        if (g_asRwEpoch && v != g_asRwVal[i]) {
+            if (epoch == g_asRwEpoch) {
+                if (i < g_asRwStableN) c.r2wChanged++;
+                if (!(g_asRwInLogged & bit))
+                    g_asRwInLogged |= bit, Log("autshadow race witness: 0x%08lX changed inside epoch %ld: 0x%08lX -> 0x%08lX (a runtime writer%s)",
+                                               g_asRwWords[i], epoch, g_asRwVal[i], v, i < g_asRwStableN ? ", counted" : ", expected");
+            } else if (!(g_asRwLoadLogged & bit)) {
+                g_asRwLoadLogged |= bit, Log("autshadow race witness: 0x%08lX changed across epochs %ld -> %ld: 0x%08lX -> 0x%08lX (a load-time writer)",
+                                             g_asRwWords[i], g_asRwEpoch, epoch, g_asRwVal[i], v);
+            }
+        }
+        g_asRwVal[i] = v;
+    }
+    g_asRwEpoch = epoch;
+    c.r2wCuts++;
+}
+
 LONG AsCut() {
     if (!g_as) return 0;
     Ts3nAutShadow& k = ts3native_autshadow;
@@ -2756,6 +2861,7 @@ LONG AsCut() {
         }
     }
     g_asEpochSeen = epoch;
+    AsRaceWitness(epoch);
     static const DWORD none[1] = {0};
     for (int i = 0; i < g_asIcN; i++) {  // world constants (docs/122 §2.2): the zero-argument snapshot ICs
         const AsDesc* d = g_asDescOf[i];
