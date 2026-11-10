@@ -182,6 +182,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kOutfitWaitSaved value="False" />
     <kDeadSimCount value="False" />
     <kDeadSimHollow value="False" />
+    <kTinyUiEventReg value="False" />
+    <kCustomCtlSweep value="False" />
     <kRelTablesApart value="True" />
     <kAsyncJigSync value="True" />
     <kDeadRefSweep value="False" />
