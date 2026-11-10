@@ -1,6 +1,6 @@
 # 542. Where orphaned vehicles come from, and fixes at the source
 
-Static research, 2026-11-10, no game run. **Status: S1-S5 and the census built 2026-11-10 (§7), not run in game.** NRaas Overwatch's `CleanupVehicles` option tows vehicles that
+Static research, 2026-11-10, no game run. **Status: S1-S5 and the census built 2026-11-10 (§7); first live run 2026-11-10 (SteamOS/Wine, 90 min stress + 7 world reloads, all on): PASS, S2 acted 5 times, S1 once, no household vehicle touched (PLAN.md). The off/on natural-play soak of §5 is still to do.** NRaas Overwatch's `CleanupVehicles` option tows vehicles that
 nothing uses any more (docs/145 row 11). This doc uses what it finds as a map of what EA leaves behind, traces each kind
 of leftover back to the EA code that makes it and fails to clean it up, and designs small ts3fixes switches (all off by
 default) that fix those paths in EA's code. It also designs an agent census so a soak run can show the leak and the fix.
