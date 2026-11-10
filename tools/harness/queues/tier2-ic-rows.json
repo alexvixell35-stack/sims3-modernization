@@ -47,7 +47,8 @@
         "minutes": 4,
         "seed": 12345,
         "fixesOn": "autshadow,autofft2,autofft2ic",
-        "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1"
+        "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1",
+        "fixesReport": "autoff_t2"
       }
     },
     "gameArgs": [
@@ -104,6 +105,7 @@
           "seed": 12345,
           "fixesOn": "autshadow,autofft2,autofft2ic",
           "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1",
+          "fixesReport": "autoff_t2",
           "repros": [
             "tier2-ic-rows-dry"
           ]
@@ -162,6 +164,7 @@
           "seed": 12345,
           "fixesOn": "autshadow,autofft2,autofft2ic",
           "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1",
+          "fixesReport": "autoff_t2",
           "repros": [
             "tier2-ic-rows-dry"
           ]
@@ -222,6 +225,7 @@
           "seed": 12345,
           "fixesOn": "autshadow,autofft2,autofft2ic",
           "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1",
+          "fixesReport": "autoff_t2",
           "repros": [
             "tier2-ic-rows-dry"
           ]
@@ -282,6 +286,7 @@
           "seed": 12345,
           "fixesOn": "autshadow,autofft2,autofft2ic",
           "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1",
+          "fixesReport": "autoff_t2",
           "repros": [
             "tier2-ic-rows-dry"
           ]
@@ -343,6 +348,7 @@
           "seed": 12345,
           "fixesOn": "autshadow,autofft2,autofft2ic,autofflot",
           "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1",
+          "fixesReport": "autoff_t2",
           "repros": [
             "tier2-ic-rows-dry"
           ]
@@ -403,6 +409,7 @@
           "seed": 12345,
           "fixesOn": "autshadow,autofft2,autofft2ic",
           "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1",
+          "fixesReport": "autoff_t2",
           "repros": [
             "tier2-ic-rows-dry"
           ]

@@ -44,7 +44,8 @@
         "minutes": 4,
         "seed": 12345,
         "fixesOn": "autshadow,autt2inuse,autt2fire,autt2dragwarm",
-        "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1"
+        "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+        "fixesReport": "autshadow_,aut_t2,autt2"
       }
     },
     "gameArgs": [
@@ -98,6 +99,7 @@
           "seed": 12345,
           "fixesOn": "autshadow",
           "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+          "fixesReport": "autshadow_,aut_t2,autt2",
           "ab": "autt2inuse,autt2fire,autt2dragwarm"
         }
       },
@@ -151,6 +153,7 @@
           "seed": 12345,
           "fixesOn": "autshadow",
           "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+          "fixesReport": "autshadow_,aut_t2,autt2",
           "ab": "autt2inuse,autt2fire,autt2dragwarm"
         }
       },
@@ -204,6 +207,7 @@
           "seed": 12345,
           "fixesOn": "autshadow,autt2inuse,autt2fire,autt2dragwarm",
           "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+          "fixesReport": "autshadow_,aut_t2,autt2",
           "repros": [
             "tier2-p1-dry"
           ]
@@ -259,6 +263,7 @@
           "seed": 12345,
           "fixesOn": "autshadow,autt2inuse,autt2fire,autt2dragwarm",
           "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+          "fixesReport": "autshadow_,aut_t2,autt2",
           "ab": "autt2drag,autt2cache,autt2tuning,autt2lod"
         }
       },
@@ -312,6 +317,7 @@
           "seed": 12345,
           "fixesOn": "autshadow,autt2inuse,autt2fire,autt2dragwarm",
           "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+          "fixesReport": "autshadow_,aut_t2,autt2",
           "ab": "autt2drag,autt2cache,autt2tuning,autt2lod"
         }
       },
@@ -365,6 +371,7 @@
           "seed": 12345,
           "fixesOn": "autshadow,autt2inuse,autt2fire,autt2dragwarm,autt2drag,autt2cache,autt2tuning,autt2lod",
           "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+          "fixesReport": "autshadow_,aut_t2,autt2",
           "repros": [
             "tier2-h7-dry"
           ]
