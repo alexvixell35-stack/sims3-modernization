@@ -1109,3 +1109,10 @@ Status (2026-11-08 ~10:30 UTC): steps 1-4 below done; not merged, not run.
   4. Queue: C0 arm in `tools/harness/queues/jit-exits.json`: `bp/ip/sv-jit-exits-count`, 15 min, bundle switches on (as the bundle-on arms)
      + `Count=1`, logRequire the OK line with `Count=1` and a `jitcount: end` line; `--dry-run` only.
 - Not checked (at the source-only commit): whether it compiles; now built and selftested, see Status above.
+
+## #295 verifier port (2026-11-10, branch `fix/monojit-295-port` from main c2bb5ed, Mono handoff task 2) [built, host gates run; game soaks queued]
+Status (2026-11-10 ~01:00): three of #295's four verifier fixes were missing on main and are ported; the kept-set filter (#295 ec20bdf, the JitMaybeNew test in JitKeepNew) is left out because it changes the docs/537 §16 rule (maintainer's call).
+- Ported: `_TRUNCATE` in `JitMethodName` (ts3native + monohost; sprintf_s on a long name is a CRT fail-fast, 0xC0000409), the EA native-body (`+0x24`) refusal in `JitOne` and `JitLazySite`, and the `GC_gc_no` guard in `JitVerifySlow` (a collection before the restore or the verdict abandons the call).
+- Host [measured]: ts3native selftest ok (incl. the new cut-name and native-body cases); corpus 260 cases, 0 differ, 0 unstable, MISMATCH 0 (lazy off and on); replay fixture 0 differ / 0 faulted (lazy off and on); corpus capture round trip 0 differ, MISMATCH 0, with 1 faulted input (6075 `JitKC3.Others`, interpreted arm) that main faults on too.
+- Pre-existing on main, not from this branch: monohost did not build (`monothread-m5.cpp` uses `uaftag.h`, fixed here); the monohost selftest's `AS-install` check expects 34 AutShadowNative ICs and main registers 35.
+- Game: `tools/harness/queues/jit-soak-p295.json` (BP, IP, SV, 60 min, Mode=2, Direct=1) queued twice.
