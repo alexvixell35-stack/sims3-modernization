@@ -219,9 +219,14 @@ static DWORD WINAPI AfWorker(void*) {
     // misses: unknown row (struct: memory untouched, eax = the result pointer), unknown list key -> learned
     float p2[3] = {7, 7, 7};
     assert(((float*(__cdecl*)(float*, DWORD, DWORD))AfSlot(AF_POS))(p2, 40, 5) == p2 && p2[0] == 7);
-    assert(AsAborted() == AS_AB_ROW);
+    assert(AsAborted() == AS_AB_ROW && g_asTaint);
+    const LONG ring0 = g_asRingHead;  // the struct row's own key went in before the taint
     assert(((DWORD(__cdecl*)(DWORD, DWORD, DWORD, DWORD))AfSlot(AF_COUNT))(3, 2, 0, 1) == 0);
     assert(AsAborted() == AS_AB_ROW);  // first reason wins
+    assert(g_asRingHead == ring0);  // after the unanswered struct its keys may be junk: not learned
+    AsResetAbort();
+    assert(!g_asTaint && ((DWORD(__cdecl*)(DWORD, DWORD, DWORD, DWORD))AfSlot(AF_COUNT))(3, 2, 0, 1) == 0);
+    assert(AsAborted() == AS_AB_LIST && !g_asTaint && g_asRingHead == ring0 + 1);  // a scalar miss learns and does not taint
     AsResetAbort();
     {  // docs/216 §5 per-IC record: stop not counted, row counted twice; counters restored for the checks below
         const Ts3nAutShadow k0 = k;

@@ -532,6 +532,12 @@ static volatile DWORD g_asWorkerTid;       // 0 = no worker: every guard passes 
 static volatile LONG g_asSimCalls;         // non-locked: the sim thread is the only hot caller
 static volatile LONG g_asStop;             // set by the sim when the window closes (A5)
 static volatile LONG g_asAbortReason = -1; // first abort of the current meta object wins (docs/122 §3.3)
+// 1 = this meta object had a call that answers into caller memory (struct result or outs) and got no answer: those bytes
+// stay as the caller left them (Mono does not zero locals), so later keys of the object can be junk and are not learned.
+// rq3 2026-11-10: Objects_GetPosition aborted `row`, the next position keys held stack words (x = a code address), and the
+// cut's re-ask of World_HasFloorFeaturesWorldPosImpl at x ~4e24 never returned (float walk over the lot grid). Cleared
+// with the abort (AsResetAbort, AsWorkerBegin).
+static volatile LONG g_asTaint;
 static bool g_asRefsRooted;                // part 2: managed answers are in a rooted column, safe to hand out
 static void* g_asEmptyStr;                 // part 2: the rooted empty string of the a-stub ICs
 typedef void*(__cdecl* AsNewArrayFn)(DWORD vtable, DWORD n, DWORD elemBytes);  // part 2: array new under the P3 lock
@@ -599,6 +605,7 @@ static void AsAbort(int reason, DWORD idx) {
         InterlockedIncrement(&g_asAbortIc[idx]);
         if (reason == AS_AB_ROW) InterlockedIncrement(&g_asAbortIcRow[idx]);
     }
+    if (idx < (DWORD)g_asIcN && (g_asKind[idx] == 's' || (g_asDescOf[idx] && g_asDescOf[idx]->nOut))) InterlockedExchange(&g_asTaint, 1);
     InterlockedIncrement(reason < 20 ? &k.abort[reason] : reason < AS_AB_ROUTE ? &k.abort2[reason - 20] : &k.abortRoute);
     InterlockedCompareExchange(&g_asAbortReason, reason, -1);
     if (InterlockedIncrement(&g_asLogged) <= 64)
@@ -609,7 +616,7 @@ extern "C" void __cdecl AsManagedAbort(int reason) {
     if (reason >= 0 && reason < AS_AB_N) AsAbort(reason, (DWORD)-1); else AsAbort(AS_AB_OTHER, (DWORD)-1);
 }
 int AsAborted() { return g_asAbortReason; }  // part 2: the driver checks after each meta object, then resets
-void AsResetAbort() { InterlockedExchange(&g_asAbortReason, -1); }
+void AsResetAbort() { InterlockedExchange(&g_asAbortReason, -1); InterlockedExchange(&g_asTaint, 0); }
 
 // ---- answer tables ----
 // sizes (docs/122 §14.14): mono-cost5 BP had 1,024 rows full of memo rows before the first cut (memoRecords 1,024, full
@@ -1366,7 +1373,7 @@ static void AsLearn(DWORD idx, const DWORD* key, int n) {
 // request (AutShadowNative.ActorScope, worker only); every run starts at 1, so a ts3fixes without the call keeps it shut
 static volatile LONG g_asActorHh = 1;
 static LONG g_asActorHhAborts;  // Query_CountObjectsInRange reads refused by the gate (selftest; runs: the abortic line)
-void AsWorkerBegin() { InterlockedExchange(&g_asHeld, g_asPub); InterlockedExchange(&g_asStop, 0); InterlockedExchange(&g_asActorHh, 1); }
+void AsWorkerBegin() { InterlockedExchange(&g_asHeld, g_asPub); InterlockedExchange(&g_asStop, 0); InterlockedExchange(&g_asActorHh, 1); InterlockedExchange(&g_asTaint, 0); }
 void AsWorkerEnd() { InterlockedExchange(&g_asHeld, -1); }
 
 static int AsRngWorker(DWORD idx, AsRet* r);  // autshadow-run.cpp (docs/125 §2)
@@ -1398,7 +1405,7 @@ static int AsWorkerAnswer(DWORD idx, DWORD* args, AsRet* r) {
     const int i = AsFind(t, (int)idx, key, n);
     if (i < 0 || (t.e[i].flags & AE_NOPAY)) {
         InterlockedIncrement(&k.workerMisses);
-        if (i < 0 && d->owner != AO_MEMO) AsLearn(idx, key, n);  // memo keys can only come from the sim's own calls
+        if (i < 0 && d->owner != AO_MEMO && !g_asTaint) AsLearn(idx, key, n);  // memo keys can only come from the sim's own calls; g_asTaint: junk args
         static volatile LONG s_missLogged;  // which keys miss (docs/122 §14.15: mono-cost6 `row` = Slots_GetParentIdImpl)
         if (InterlockedIncrement(&s_missLogged) <= 48)
             Log("autshadow miss %s key %08lX %08lX %08lX %08lX%s", g_asName[idx] ? g_asName[idx] : "-", n > 0 ? key[0] : 0, n > 1 ? key[1] : 0,

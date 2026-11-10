@@ -1,0 +1,172 @@
+{
+  "note": "tier2-ic-rows: docs/126 §8 Dry compare in Mode R of the class-a IC rows (autofft2ic with autofft2, [AutShadow] Tier2Rows=1 + Tier2IcRows=1): worker reads of the rows vs the game's own answers for the actor and 15 lot objects. Correctness only, no timing. Not run yet; needs the tier2rows1108 pair. E rows (tier2mask1108 pair): bp-t2e-dry, ip-t2e-houseboat-dry; E3 rows (tier2e3-1108 pair): bp-t2e3-dry; P6 row (tier2p6-1108 pair): bp-t2p6-dry. | REPOINTED (contributor, local): every job runs the current master build (origin/main c2bb5ed = local master c28bd38b, ts3native 0.36.239), asi tested + build/ts3fixes.package. | 11-10 contributor: fixesReport \"autoff_t2\" added to every job, so the counter values the verdict reads are recorded in row.fixActivity (the fixesRequire rules alone keep only PASS/FAIL). rq3b/c (2026-11-10): rerun on the learn-taint fix (fix/tier2-learn-taint): rq3 froze both dry jobs ~10 s into the repro (cut re-ask of World_HasFloorFeaturesWorldPosImpl with a junk learned key). On the player install the B13 meta pairs are all G-M6 skips (own core + Tiny UI Fix), so the Mode R void line is expected here; read autoff_t2ic_* instead.",
+  "smoke": {
+    "id": "bp-t2ic-smoke",
+    "note": "Smoke (4 min BP): PASS = 0 crashes, no freeze; the log shows Tier2Rows=1 and Tier2IcRows=1; autoff_t2ic_mis == 0 and autoff_t2ic_exc == 0 (gate: 0 mismatches, 0 exceptions), autoff_t2ic_eq > 0; autshadow A1-A3 still 0 and autoff_t2_a2 == 0. Read autoff_t2ic_abort against items (position rows are learned keys: pos aborts should fall over the run). Any mismatch: off-t2ic records (first differing slot, docs/data/tier2-rows-handoff.md slot map) in autshadow.jsonl, triage before the next job.",
+    "asi": "tested",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 90,
+    "ini": {
+      "HitchAttr.Enabled": 1,
+      "RouteSnap.Enabled": 1,
+      "RouteSnap.Count": 1,
+      "RouteSnap.AuditEvery": 0,
+      "MonoThread.Enabled": 1,
+      "MonoThread.Mode": 1,
+      "MonoThread.GcLock": 1,
+      "MonoThread.FrameTls": 1,
+      "MonoThread.ArenaFix": 1,
+      "MonoThread.N2mPrivate": 1,
+      "AutShadow.Enabled": 1,
+      "AutShadow.Mode": 1,
+      "AutShadow.Sample": 4,
+      "AutShadow.Audit": 50,
+      "AutShadow.DumpOnMismatch": 1,
+      "AutShadow.WindowWaitUs": 5000,
+      "AutShadow.ColdIc": 1,
+      "AutShadow.CutLean": 2,
+      "AutShadow.TierMs": 1500,
+      "AutShadow.ListAudit": 1,
+      "AutShadow.TierClassMs": 1000,
+      "AutShadow.RowHot": 200,
+      "AutShadow.RunSkip": 1,
+      "AutShadow.FreshEvery": 8,
+      "AutShadow.KeepPartial": 1,
+      "AutShadow.Tier2Rows": 1,
+      "AutShadow.Tier2IcRows": 1
+    },
+    "logRequire": {
+      "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+      "OK   mono thread P4": 1,
+      "autonomy shadow: Tier2Rows=1": 1
+    },
+    "run": {
+      "profile": {
+        "minutes": 4,
+        "seed": 12345,
+        "fixesOn": "autshadow,autofft2,autofft2ic",
+        "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1"
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 30
+  },
+  "jobs": [
+    {
+      "id": "bp-t2ic-dry",
+      "note": "Dry compare, Baseline-BP-Spring, 10 min: PASS = 0 crashes, no freeze; the log shows Tier2Rows=1 and Tier2IcRows=1; autoff_t2ic_mis == 0 and autoff_t2ic_exc == 0 (gate: 0 mismatches, 0 exceptions), autoff_t2ic_eq > 0; autshadow A1-A3 still 0 and autoff_t2_a2 == 0. Read autoff_t2ic_abort against items (position rows are learned keys: pos aborts should fall over the run). Any mismatch: off-t2ic records (first differing slot, docs/data/tier2-rows-handoff.md slot map) in autshadow.jsonl, triage before the next job.",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Tier2Rows": 1,
+        "AutShadow.Tier2IcRows": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autonomy shadow: Tier2Rows=1": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autofft2,autofft2ic",
+          "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1",
+          "repros": [
+            "tier2-ic-rows-dry"
+          ],
+          "fixesReport": "autoff_t2"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-t2ic-dry",
+      "note": "Dry compare, Baseline-IP-Spring, 10 min: PASS = 0 crashes, no freeze; the log shows Tier2Rows=1 and Tier2IcRows=1; autoff_t2ic_mis == 0 and autoff_t2ic_exc == 0 (gate: 0 mismatches, 0 exceptions), autoff_t2ic_eq > 0; autshadow A1-A3 still 0 and autoff_t2_a2 == 0. Read autoff_t2ic_abort against items (position rows are learned keys: pos aborts should fall over the run). Any mismatch: off-t2ic records (first differing slot, docs/data/tier2-rows-handoff.md slot map) in autshadow.jsonl, triage before the next job.",
+      "asi": "tested",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Tier2Rows": 1,
+        "AutShadow.Tier2IcRows": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autonomy shadow: Tier2Rows=1": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autofft2,autofft2ic",
+          "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1",
+          "repros": [
+            "tier2-ic-rows-dry"
+          ],
+          "fixesReport": "autoff_t2"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}
