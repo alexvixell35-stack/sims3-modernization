@@ -57,7 +57,9 @@ static const char* JitMethodName(const u8* rm, char* buf, int n) {  // "ns.Class
     const char* ns = k ? *(const char* const*)(k + 0x38) : NULL;
     const char* cn = k ? *(const char* const*)(k + 0x34) : NULL;
     const char* mn = mm ? *(const char* const*)(mm + 0x18) : NULL;
-    sprintf_s(buf, n, "%s%s%s.%s", ns && *ns ? ns : "", ns && *ns ? "." : "", cn ? cn : "?", mn ? mn : "?");
+    // _TRUNCATE as in ts3native's copy (monojit.cpp JitMethodName): sprintf_s on a long name ends the process (0xC0000409)
+    if (_snprintf_s(buf, n, _TRUNCATE, "%s%s%s.%s", ns && *ns ? ns : "", ns && *ns ? "." : "", cn ? cn : "?", mn ? mn : "?") < 0 && n > 3)
+        memcpy(buf + n - 4, "...", 4);
     return buf;
 }
 static bool JitListed(const char* full) {
@@ -2019,6 +2021,7 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
     for (DWORD k = 0; k < depth; k++) if (g_jitV[k].active && g_jitV[k].ebp == r->ebp) outer = g_jitV[k].phase;
     if (fromExit) {  // a compiled ret
         if (!mine || v.phase != 1) return JitOrig(r, r->edi, e->orig);
+        if (*(const volatile DWORD*)(uintptr_t)0x11F2F90 != v.gc0) { v.active = false, g_jvAbandoned++; return JitOrig(r, r->edi, e->orig); }  // as ts3native: a collection in pass 1, no restore
         v.rn = JitRetBytes(r, e->orig, (const unsigned short*)(uintptr_t)r->edi, v.r1);
         v.s0->Take(*v.s1);
         JitKeepPass(*v.nw, *v.s0, *v.s1, v.r1, v.rn, v.calleeRegion);  // copies of what the compiled pass allocated, before the restore
@@ -2094,6 +2097,7 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
                     sprintf_s(what, "region %d (%lu bytes, class %.60s)", i, v.s0->r[i].n, cls ? cls : "?");
                     JitVLog(v, what, at);
                 }
+            if (!ok && *(const volatile DWORD*)(uintptr_t)0x11F2F90 != v.gc0) { v.active = false, g_jvAbandoned++; return JitOrig(r, r->edi, e->orig); }  // as ts3native: no retry, no mismatch
             if (!ok && !v.retried) {
                 // second chance from the same entry state: a one-time effect of the first compiled pass that the restore
                 // cannot undo (class init, a transform, a lazily filled cache outside the graph) is then in place for both

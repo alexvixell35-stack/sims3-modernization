@@ -961,8 +961,8 @@ static void TestMonoJit() {
     for (const auto& o : kOps) g_jtNames[o.op] = o.name, g_jtLen[o.op] = (BYTE)o.len;
     g_jitTableP = g_jtTable, g_jitOpNames = g_jtNames, g_jitOpLen = g_jtLen, g_jitMemcpy = (DWORD)(uintptr_t)JtMemcpy;
     g_jitMemset = (DWORD)(uintptr_t)JtMemset, g_jitAullshr = (DWORD)(uintptr_t)JtAullshr, g_jitIfaceOff = (DWORD)(uintptr_t)JtIfaceOff;
-    static DWORD noPending;  // nothing to sweep: the game's GC globals do not exist here
-    g_jvPending = &noPending;
+    static DWORD noPending, gcNo;  // nothing to sweep: the game's GC globals do not exist here
+    g_jvPending = &noPending, g_jvGcNo = &gcNo;
     g_jitAddRoots = JtNoRoots, GcBase = (GcBaseFn)JtHeapBase;
     {   // a free cell: a link into the heap or 0; a live object's word 0 is a vtable outside it
         static DWORD vt;
@@ -1271,6 +1271,24 @@ static void TestMonoJit() {
     JitPostPass(mP.rm, &domain);  // clauses
     assert(C.jitRefused == ++refused && p1[0] == JT_LDC2);
     mP.rm[0x41] = 0;
+    *(DWORD*)(mP.rm + 0x24) = 1;  // an EA native body (#295 594a2df): refused, the body stays mint's
+    JitPostPass(mP.rm, &domain);
+    assert(C.jitRefused == ++refused && g_jitMethN == compiled && p1[0] == JT_LDC2);
+    *(DWORD*)(mP.rm + 0x24) = 0;
+    {  // a name longer than the buffer (#295 21335fc): cut with "..." (sprintf_s would __fastfail 0xC0000409), never listed
+        static char longNs[301];  // longer than the post-pass's 256-byte name too
+        memset(longNs, 'N', 300);
+        static JtMeth mL;
+        JtInit(mL, p1, 2);
+        *(const char**)(mL.klass + 0x38) = longNs;
+        char nb[96];
+        JitMethodName(mL.rm, nb, sizeof(nb));
+        assert(strlen(nb) == sizeof(nb) - 1 && !strcmp(nb + sizeof(nb) - 4, "...") && !strncmp(nb, "NNNN", 4) && !JitListed(nb));
+        char nb2[256];
+        assert(!strcmp(JitMethodName(mP.rm, nb2, sizeof(nb2)), "Ns.Cls.Meth"));  // a short one is whole
+        JitPostPass(mL.rm, &domain);  // the post-pass's 256-byte name: cut, not listed, silent
+        assert(C.jitRefused == refused && g_jitMethN == compiled && p1[0] == JT_LDC2);
+    }
     JitPostPass(mP.rm, &domain);  // known
     assert(C.jitRefused == refused && g_jitMethN == compiled + 1 && p1[0] == JIT_OP && g_jitObjectClass == objectClass);
     JitPostPass(mP.rm, &domain);  // a repeat transform: compiled once

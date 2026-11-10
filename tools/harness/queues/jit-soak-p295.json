@@ -1,0 +1,63 @@
+{
+  "note": "Mono handoff task 2 gate (#295 port): [MonoJit] 60-min compiled soaks per world with the per-call verifier on (Mode=2, VerifyEvery=16, Direct=1, DirectLeaf=0), so the ported verifier fixes run: the gc0 guard (a collection between snapshot and restore abandons the call), the EA native-body (+0x24) refusal and the cut long names. Run this queue twice (crash rule: 2 clean runs per world). Pass per job: no crash, no fail-fast, jitOn 2, jitMismatch 0 (logForbid on 'jit verify MISMATCH'), jitFaults 0, jitVerified > 0; read jitAbandoned as coverage. profile.quitJobs keeps career dialogs from pausing the soak. Run: node tools/harness/queue.ts tools/harness/queues/jit-soak-p295.json --no-smoke",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-jit-soak-p295",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 90,
+      "run": { "profile": { "minutes": 60, "seed": 12345, "noSamplers": true, "quitJobs": true } },
+      "releaseDefaults": true,
+      "logForbid": { "jit verify MISMATCH": 0 },
+      "ini": { "MonoJit.Enabled": 1, "MonoJit.Mode": 2, "MonoJit.VerifyEvery": 16, "MonoJit.Direct": 1, "MonoJit.DirectLeaf": 0, "MonoJit.HashGuard": 1 },
+      "earlyGates": [
+        { "afterSec": 180, "counter": "jitOn", "op": ">=", "value": 1, "why": "[MonoJit] not installed: see the SKIP / FAIL monojit line" },
+        { "afterSec": 300, "counter": "jitMethods", "op": ">=", "value": 1, "why": "nothing compiled 5 min in" },
+        { "afterSec": 600, "counter": "jitVerified", "op": ">=", "value": 1, "why": "the verifier ran no call in 10 min" },
+        { "afterSec": 30, "counter": "jitMismatch", "op": "<=", "value": 0, "why": "a verify mismatch" },
+        { "afterSec": 30, "counter": "jitFaults", "op": "<=", "value": 0, "why": "a fault while compiling ([MonoJit] went off)" }
+      ]
+    },
+    {
+      "id": "ip-jit-soak-p295",
+      "asi": "tested",
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 90,
+      "run": { "profile": { "minutes": 60, "seed": 12345, "noSamplers": true, "quitJobs": true } },
+      "releaseDefaults": true,
+      "logForbid": { "jit verify MISMATCH": 0 },
+      "ini": { "MonoJit.Enabled": 1, "MonoJit.Mode": 2, "MonoJit.VerifyEvery": 16, "MonoJit.Direct": 1, "MonoJit.DirectLeaf": 0, "MonoJit.HashGuard": 1 },
+      "earlyGates": [
+        { "afterSec": 180, "counter": "jitOn", "op": ">=", "value": 1, "why": "[MonoJit] not installed: see the SKIP / FAIL monojit line" },
+        { "afterSec": 300, "counter": "jitMethods", "op": ">=", "value": 1, "why": "nothing compiled 5 min in" },
+        { "afterSec": 600, "counter": "jitVerified", "op": ">=", "value": 1, "why": "the verifier ran no call in 10 min" },
+        { "afterSec": 30, "counter": "jitMismatch", "op": "<=", "value": 0, "why": "a verify mismatch" },
+        { "afterSec": 30, "counter": "jitFaults", "op": "<=", "value": 0, "why": "a fault while compiling ([MonoJit] went off)" }
+      ]
+    },
+    {
+      "id": "sv-jit-soak-p295",
+      "asi": "tested",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 90,
+      "run": { "profile": { "minutes": 60, "seed": 12345, "noSamplers": true, "quitJobs": true } },
+      "releaseDefaults": true,
+      "logForbid": { "jit verify MISMATCH": 0 },
+      "ini": { "MonoJit.Enabled": 1, "MonoJit.Mode": 2, "MonoJit.VerifyEvery": 16, "MonoJit.Direct": 1, "MonoJit.DirectLeaf": 0, "MonoJit.HashGuard": 1 },
+      "earlyGates": [
+        { "afterSec": 180, "counter": "jitOn", "op": ">=", "value": 1, "why": "[MonoJit] not installed: see the SKIP / FAIL monojit line" },
+        { "afterSec": 300, "counter": "jitMethods", "op": ">=", "value": 1, "why": "nothing compiled 5 min in" },
+        { "afterSec": 600, "counter": "jitVerified", "op": ">=", "value": 1, "why": "the verifier ran no call in 10 min" },
+        { "afterSec": 30, "counter": "jitMismatch", "op": "<=", "value": 0, "why": "a verify mismatch" },
+        { "afterSec": 30, "counter": "jitFaults", "op": "<=", "value": 0, "why": "a fault while compiling ([MonoJit] went off)" }
+      ]
+    }
+  ]
+}

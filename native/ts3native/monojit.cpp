@@ -98,7 +98,11 @@ static const char* JitMethodName(const u8* rm, char* buf, int n) {  // "ns.Class
     const char* ns = k ? *(const char* const*)(k + 0x38) : NULL;
     const char* cn = k ? *(const char* const*)(k + 0x34) : NULL;
     const char* mn = mm ? *(const char* const*)(mm + 0x18) : NULL;
-    sprintf_s(buf, n, "%s%s%s.%s", ns && *ns ? ns : "", ns && *ns ? "." : "", cn ? cn : "?", mn ? mn : "?");
+    // _TRUNCATE (#295 21335fc): sprintf_s on a name longer than buf (JitOne names every transformed method; explicit
+    // interface methods carry the whole generic interface name) calls the CRT's invalid-parameter handler, which ends the
+    // process with __fastfail 0xC0000409 past every filter. A cut name ends in "..." and so never matches a JitListed entry.
+    if (_snprintf_s(buf, n, _TRUNCATE, "%s%s%s.%s", ns && *ns ? ns : "", ns && *ns ? "." : "", cn ? cn : "?", mn ? mn : "?") < 0 && n > 3)
+        memcpy(buf + n - 4, "...", 4);
     return buf;
 }
 static bool JitListed(const char* full) {
@@ -735,6 +739,7 @@ static bool JitLazySite(const unsigned short* ip, DWORD op, const u8* callerRm, 
     }
     if (guard && g_jitLeafOnly) return false;
     if (!guard && !(fl & 0x100)) return false;  // not transformed: its frame sizes are still 0
+    if (!guard && *(const DWORD*)(c + 0x24)) return false;  // #295 594a2df: EA native body, EA's call (dispatcher 0xE525C0); guards: JitGuardFill
     *cOut = c, *guardOut = guard;
     return true;
 }
@@ -1724,7 +1729,7 @@ struct JitSnap {
     }
     void Restore() const { for (int i = 0; i < n; i++) memcpy(r[i].at, buf + r[i].off, r[i].n); }
 };
-struct JitV { bool active; int phase; u8* rm; JitMeth* meth; DWORD sp0, ebp, fr[6]; JitSnap *s0, *s1, *s2; u8 r1[64], r2[64]; int rn, calleeRegion; bool retried; struct JitNewSet* nw; };
+struct JitV { bool active; int phase; u8* rm; JitMeth* meth; DWORD sp0, ebp, fr[6], gc0; JitSnap *s0, *s1, *s2; u8 r1[64], r2[64]; int rn, calleeRegion; bool retried; struct JitNewSet* nw; };
 static const DWORD JIT_VD = 32;  // verified depths (snapshot buffers per depth)
 static JitV* g_jitV;           // [JIT_VD], sim thread only
 static int g_jvLogged;
@@ -1751,6 +1756,10 @@ static const u8* g_jvInv;  // the MonoInvocation being snapshotted (byref target
 // what lands there for an old object, and the restore writes the vtable over a free-list link (docs/537 §15). [MonoThread] worker
 // allocates too: under its GC lock. Mode=2 only: the call costs one sweep's stall at the first verified call after a collection.
 static DWORD* g_jvPending = (DWORD*)(uintptr_t)TS3A(0x011F2F94);
+// GC_gc_no (0xE49DA0 bumps it at each collection; #295 8e2f594): a verified call that saw a collection between its snapshot and
+// a restore is abandoned, never restored. The collection may have reclaimed cells the snapshot holds (EA's lazy reclaim frees
+// them on a later allocation), and the restore would write old words into what is now a free-list link or a new object.
+static const volatile DWORD* g_jvGcNo = (const volatile DWORD*)(uintptr_t)TS3A(0x011F2F90);
 static void JitSweep() {
     DWORD* const pending = g_jvPending;
     LONG* const owed = (LONG*)(uintptr_t)TS3A(0x011947E4);
@@ -2216,6 +2225,7 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
     for (DWORD k = 0; k < depth; k++) if (g_jitV[k].active && g_jitV[k].ebp == r->ebp) outer = g_jitV[k].phase;
     if (fromExit) {  // a compiled ret
         if (!mine || v.phase != 1) return JitOrig(r, r->edi, e->orig);
+        if (*g_jvGcNo != v.gc0) { v.active = false, C.jitAbandoned++; return JitOrig(r, r->edi, e->orig); }  // the compiled pass stands
         v.rn = JitRetBytes(r, e->orig, (const unsigned short*)(uintptr_t)r->edi, v.r1);
         v.s0->Take(*v.s1);
         JitKeepPass(*v.nw, *v.s0, *v.s1, v.r1, v.rn, v.calleeRegion);  // copies of what the compiled pass allocated, before the restore
@@ -2233,6 +2243,7 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
         v.active = true, v.phase = 1, v.rm = (u8*)rm, v.meth = m, v.sp0 = r->esi, v.ebp = r->ebp;
         for (int i = 0; i < 6; i++) v.fr[i] = *(const DWORD*)(uintptr_t)(r->ebp - 0x8 - 4 * i);
         JitSweep();
+        v.gc0 = *g_jvGcNo;
         v.s0->Clear(), v.calleeRegion = -1, v.retried = false;
         const u8* inv = (const u8*)(uintptr_t)*(const DWORD*)(uintptr_t)(r->ebp - 8);
         u8* arena = *(u8* const*)(inv + 0x10);
@@ -2290,6 +2301,9 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
                     sprintf_s(what, "region %d (%lu bytes, class %.60s)", i, v.s0->r[i].n, cls ? cls : "?");
                     JitVLog(v, what, at);
                 }
+            // a collection during pass 2: no retry (its restore could write into reclaimed cells) and no mismatch (the cells the
+            // compare read may have been reclaimed and reused between the passes); the interpreted pass stands
+            if (!ok && *g_jvGcNo != v.gc0) { v.active = false, C.jitAbandoned++; return JitOrig(r, r->edi, e->orig); }
             if (!ok && !v.retried) {
                 // second chance from the same entry state: a one-time effect of the first compiled pass that the restore
                 // cannot undo (class init, a transform, a lazily filled cache outside the graph) is then in place for both
@@ -2369,6 +2383,9 @@ static const char* JitOne(BYTE* rm, void* ctx, char* name, int nameN, char* note
     if (*g_jitForceJit != 0x75) return "MonoPatcher ForceJIT is on";
     for (int i = 0; i < g_jitMethN; i++) if (g_jitMeth[i].rm == rm) return NULL;  // a repeat transform: compiled once
     if (rm[0x41] && !g_jitWide) return "exception clauses";  // before the hash and the callees: nothing here for a lazy site either
+    // #295 594a2df, docs/223 §1: EA bound a native body in this transform (0xE645FF, before our post-pass); its calls take
+    // that body, not mint, so compiled code (and a lazy cell, set only by JitCompile) would run the wrong one
+    if (*(const DWORD*)(rm + 0x24)) return "an EA native body (+0x24)";
     BYTE* mm = *(BYTE**)(rm + 8);
     const BYTE* hdr = mm ? g_ilpHeader(mm) : NULL;
     const DWORD size = hdr ? *(const DWORD*)hdr : 0;
