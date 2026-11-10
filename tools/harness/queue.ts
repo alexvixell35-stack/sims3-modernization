@@ -266,6 +266,9 @@ const stamp = () => new Date().toISOString().slice(11, 19);
 const log = (m: string) => console.log(`${stamp()} queue: ${m}`);
 
 // ---------------------------------------------------------------- pure parts (covered by --self-check)
+// the "tested" source version: the release define only. ts3native.cpp's first define is the TS3N_RFTEST one ("0.36.189-rftest1",
+// never a release), which made every "tested" job STALE and refused; pr-preflight.ts reads the same digits-only form
+const SRC_VERSION_RE = /#define TS3NATIVE_VERSION "(\d+\.\d+\.\d+)"/;
 // machine column / jsonl field only off the main machine: main-machine results stay byte-identical (docs/TESTING.md)
 function machineCols(tag: string) { return tag ? { head: ' machine |', sep: '---|', cell: (m: string) => ` ${m} |` } : { head: '', sep: '', cell: (_m: string) => '' }; }
 function machineField(tag: string): { machineTag?: string } { return tag ? { machineTag: tag } : {}; }
@@ -1189,6 +1192,11 @@ function publishAtEnd(queueName: string): void {
 
 if (values['self-check']) {
   const assert = (await import('node:assert')).strict;
+  { // tested-build source version: the release define, not the rftest one before it
+    const src = '#ifdef TS3N_RFTEST\n#define TS3NATIVE_VERSION "0.36.189-rftest1"  // never a release\n#else\n#define TS3NATIVE_VERSION "0.36.239"  // release\n#endif\n';
+    assert.equal(SRC_VERSION_RE.exec(src)?.[1], '0.36.239');
+    assert.equal(SRC_VERSION_RE.exec('#define TS3NATIVE_VERSION "0.36.189-rftest1"'), null);
+  }
   { // end-of-queue publish hook
     assert.equal(publishPlan({ PERSONAL_GITHUB_TOKEN: 't' }, false, false).run, true);
     assert.equal(publishPlan({ GH_TOKEN: 't' }, false, false).run, true, 'GH_TOKEN alone');
@@ -2001,7 +2009,7 @@ const loopOf = (j: Job) => { const l = loopOfId(j.run.profile?.repro); return l 
 const asiPath = (j: Job) => (j.asi === 'tested' ? TESTED_ASI : resolve(ROOT, j.asi));
 // "tested" must be the source's version: a stale out/ build (0.10.1, async without the route gate) ran as "tested" for 3 days
 // and crashed bp-watch-stalk-worker (docs/113 §8.6). The DLL holds the log line format "ts3native <version> %04d".
-const SRC_VERSION = /#define TS3NATIVE_VERSION "([^"]+)"/.exec(readFileSync(join(ROOT, 'native', 'ts3native', 'ts3native.cpp'), 'utf8'))?.[1];
+const SRC_VERSION = SRC_VERSION_RE.exec(readFileSync(join(ROOT, 'native', 'ts3native', 'ts3native.cpp'), 'utf8'))?.[1];
 const staleAsi = (j: Job) => {
   if (j.asi !== 'tested' || !existsSync(TESTED_ASI)) return '';
   const v = /ts3native (\d+\.\d+\.\d+) %04d/.exec(readFileSync(TESTED_ASI).toString('latin1'))?.[1];
