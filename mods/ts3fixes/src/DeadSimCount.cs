@@ -57,7 +57,9 @@ namespace Ts3Fixes
                 float now = SimClock.ElapsedTime(TimeUnit.Hours);
                 int alive = 0, old = 0, gone = 0;
                 Dictionary<ulong, DsEntry> keep = new Dictionary<ulong, DsEntry>();
-                List<Sim> toHollow = new List<Sim>();
+                // entries, not Sims: a destroyed Sim's ObjectId is kBadObjectGuid (ScriptCore ScriptProxy.Dispose), so
+                // sDsSeen[s.ObjectId.Value] threw for every candidate and nothing was hollowed (al372, al374: 0 of 1,303)
+                List<KeyValuePair<ulong, DsEntry>> toHollow = new List<KeyValuePair<ulong, DsEntry>>();
                 foreach (KeyValuePair<ulong, DsEntry> kv in sDsSeen)
                 {
                     Sim s = kv.Value.Ref.Target as Sim;
@@ -68,7 +70,7 @@ namespace Ts3Fixes
                     alive++;
                     if (now - kv.Value.DeadAt < 6f) continue;
                     old++;
-                    if (hollow && !kv.Value.Hollowed && !actors.Contains(s)) toHollow.Add(s);
+                    if (hollow && !kv.Value.Hollowed && !actors.Contains(s)) toHollow.Add(kv);
                 }
                 // rebuilt, not Remove: al364 read tracked 24 < alive 182 from the Remove version, which cannot be
                 sDsSeen = keep;
@@ -83,11 +85,13 @@ namespace Ts3Fixes
                 if (act == null) return;
                 if (!sDhOk) { sDhOk = true; AppliedLog().Add("deadsimhollow: ok"); }
                 IActor sel = PlumbBob.SelectedActor;
-                foreach (Sim s in toHollow)
+                foreach (KeyValuePair<ulong, DsEntry> h in toHollow)
                 {
+                    Sim s = h.Value.Ref.Target as Sim;
+                    if (s == null) continue;
                     try  // one Sim that throws does not stop the rest
                     {
-                        sDsSeen[s.ObjectId.Value].Hollowed = true;  // marked here, not when picked: a pass that waits retries them
+                        h.Value.Hollowed = true;  // marked here, not when picked: a pass that waits retries them
                         SimDescription sd = s.SimDescription;
                         if (sd == null || sd.CreatedSim == s) continue;
                         // gone-Sim household rule (DeadSimHolders.cs GoneOwnerHh): the description's live Sim is household,
@@ -95,7 +99,7 @@ namespace Ts3Fixes
                         if (GoneOwnerHh(s, act, sel)) continue;
                         // player households (active or played before) keep their Sims as they are
                         if (sd.Household != null && (sd.Household == act || sd.Household.IsActive || HouseholdPlayed(sd.Household))) continue;
-                        int n = HollowSim(s);
+                        int n = HollowSim(s, h.Key);
                         if (n > 0) { c[2092]++; c[2093] += n; }
                     }
                     catch (Exception) { }
@@ -122,7 +126,7 @@ namespace Ts3Fixes
             return l;
         }
 
-        static int HollowSim(Sim s)
+        static int HollowSim(Sim s, ulong id)  // id: the ObjectId the Sim had alive (its own reads kBadObjectGuid now)
         {
             int n = 0;
             List<string> names = sDhLogged < 3 ? new List<string>() : null;
@@ -145,7 +149,7 @@ namespace Ts3Fixes
                 }
                 catch (Exception) { }  // one field that refuses does not stop the rest
             }
-            if (names != null) { sDhLogged++; ShortcutLog("deadsimhollow: " + s.ObjectId.Value.ToString("X") + " cleared " + n + ": " + string.Join(" ", names.ToArray())); }
+            if (names != null) { sDhLogged++; ShortcutLog("deadsimhollow: " + id.ToString("X") + " cleared " + n + ": " + string.Join(" ", names.ToArray())); }
             return n;
         }
     }
