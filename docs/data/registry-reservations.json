@@ -2422,6 +2422,16 @@
       "what": "[PkgLock] pkMode, pkCloseOk, pkCloseDefer, pkCloseForce, pkBeginUnowned, pkBeginLocked, pkAbbaSeen, pkDeferMax (pkglock.cpp, docs/539 13.9)",
       "at": "2026-11-08T11:00:24.722Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\ea-pkglock-fix"
+    },
+    {
+      "id": "fixes-2094",
+      "kind": "fixes",
+      "from": 2094,
+      "to": 2110,
+      "by": "vehicle-leaks",
+      "what": "docs/542 vehicle leak switches vehparkreserve, vehgetinleak, vehseatdestroy, vehfrankentaxi, vehprotestcar (VehicleLeaks.cs)",
+      "at": "2026-11-10T20:39:19.148Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

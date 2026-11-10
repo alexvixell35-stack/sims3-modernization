@@ -323,6 +323,9 @@ namespace Ts3Fixes
         // [2083] outfitwaitsaved (OutfitWaitSaved.cs): MagicMirror MagicalMakeover alarm tasks resumed from the save inside EA's Wait (WaitOrig, never seen by the outfit-wait hook), actor gone, destroyed.
         // [2084-2087] simrefsdeadsim (SimRefsDeadSim.cs): live Sims' references to gone Sim objects dropped: SocialComponent.mLastTalkingTo cleared / SimRoutingComponent.mPusherSim cleared / Celebrity.mWaitingToReact entries removed / Occult*.mOwningSim reset to the current Sim or null.
         // [2088-2091] deadsimcount (DeadSimCount.cs, read-only): destroyed Sim objects still in memory now / of them destroyed 6+ sim hours ago / collected since the session began / Sim objects tracked.
+        // [2094-2110] vehicle leaks (VehicleLeaks.cs, docs/542): 2094-2098 vehparkreserve dead reservations seen at a pick / cleared at a pick / seen hourly / cleared hourly / kept by the household rule;
+        // 2099-2102 vehgetinleak get-ins that left their vehicle loose / throwaway released / NPC vehicle to inventory / kept; 2103-2105 vehseatdestroy seated Sims destroyed with the vehicle still there a tick later / dead refs cleared / released;
+        // 2106-2107 vehfrankentaxi unused intro taxis seen / released; 2108-2110 vehprotestcar cop cars tracked / left with no driver or drive-away after a sim-hour / destroyed. "Seen" counters count with the switch off too.
         // [2092-2093] deadsimhollow (DeadSimCount.cs): destroyed Sims held 6+ sim hours whose own reference fields were cleared / fields cleared.
         // [876-877] bookhand (BookHand.cs, docs/251): books Book.StopUsingBook left in the hand with no carry machine, seen at an EA put-down that would throw (also with the switch off), moved out of the hand by EA's handler.
         // [758-759] asyncjigsync (AsyncJigSync.cs, RouteBackoff.cs AsyncEligible, docs/240): own plans kept sync while the Sim's interaction holds an unplaced SocialJig / of those with the jig only in the linked interaction.
@@ -344,7 +347,7 @@ namespace Ts3Fixes
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2094]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2111]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -512,6 +515,11 @@ namespace Ts3Fixes
                 case "jazzparam": return Instantiator.kJazzParam;
                 case "buffupdate": return Instantiator.kBuffUpdate;
                 case "carnoroute": return Instantiator.kCarNoRoute;
+                case "vehparkreserve": return Instantiator.kVehParkReserve;
+                case "vehgetinleak": return Instantiator.kVehGetInLeak;
+                case "vehseatdestroy": return Instantiator.kVehSeatDestroy;
+                case "vehfrankentaxi": return Instantiator.kVehFrankenTaxi;
+                case "vehprotestcar": return Instantiator.kVehProtestCar;
                 case "convturn": return Instantiator.kConvTurn;
                 case "npcdriverpool": return Instantiator.kNpcDriverPool;
                 case "bookcarry": return Instantiator.kBookCarry;

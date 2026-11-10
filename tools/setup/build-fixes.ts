@@ -194,6 +194,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kVacImportFix value="False" />
     <kMenuMaven value="False" />
     <kDanceFloorListGuard value="True" />
+    <kVehParkReserve value="False" />
+    <kVehGetInLeak value="False" />
+    <kVehSeatDestroy value="False" />
+    <kVehFrankenTaxi value="False" />
+    <kVehProtestCar value="False" />
   </Current_Tuning>
 </base>
 `;

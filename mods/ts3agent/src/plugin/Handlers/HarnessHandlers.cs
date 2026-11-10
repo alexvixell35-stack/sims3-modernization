@@ -29,6 +29,7 @@ namespace Ts3Agent
             RegisterRepro();
             RegisterRare();
             RegisterRareVehicles();
+            RegisterVehicleCensus(); // VehicleCensusHandlers.cs, docs/542
             RegisterCas();
             RegisterContent();
             RegisterFocus();
