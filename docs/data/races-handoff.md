@@ -110,3 +110,20 @@ Gains are not additive per group: an IC passes through only when every group it 
     - (b) **Abort and re-snapshot**: cannot be made safe for pass-through. The worker could already be inside an IC body when the stop is set, so (a) is the option that closes the race.
   - Witness for the game run (with R2b): count the frames at whose `AsSimEnter` the job was busy, and whether any of them reached a load writer before the job left. One load, one travel, one return, one quit.
   - Open: the drain build itself (native, `autshadow-run.cpp` plus four hook sites; serial with other `autshadow*.cpp` work). Your Q5 decides it; nothing is built here.
+- **R1a** (branch `docs/races-r2c`, static only: capstone reads of a TS3W.exe 1.67 copy, no build, no game run). All 41 R1 rows are mapped to their guard and their first-fill function [verified: disassembly]. The roots are from `docs/data/mono-glue-closure.csv`.
+
+  | Rows | Guard / done | First fill | Order on first fill | Pre-warm call (sim thread, event 7) |
+  |---|---|---|---|---|
+  | A: `0x11EE54C`-`0x11EE584` (15 class slots) + guard `0x11EE588` | bits 0x1-0x4000 of dword `0x11EE588`, one per value kind | `0xD7BD40` (host `+0x50` converter, thiscall), per kind `slot = 0xD79CA0(ecx = this - 8, "Sims3.SimIFace", <name>)` | bit set before the slot store: a second thread sees the bit and reads a 0 slot | the same guarded fill per bit, with the converter's `this`; or one converter call per kind |
+  | B: `0x11D7508`-`0x11D7518` | bit 1 of `0x11D7518` | `0x7935B0` (no arguments, returns the static; root `IC_EAText_GetMoneyString`) | bit before the four fields (non-thread-safe MSVC 2005 static) | call `0x7935B0` |
+  | B: `0x11DA048`-`0x11DA058` | bit 1 of `0x11DA058` | `0x8A79B0` (same shape) | same | call `0x8A79B0` |
+  | B: `0x11C7E54` | none | `0x4F4F40` stores 0 into the shared empty-string byte, which is always 0 | same-value byte store | none needed (benign) |
+  | B: `0x123437C` / `0x1234380` | CRT `_onexit` table | `0xF7E8FC`, reached through the B statics' atexit call `0xF7E9A1` | the table update follows an import call at `0xF7F3AA`, the CRT exit lock [inferred] | covered by pre-warming the B statics (it is their atexit registration) |
+  | C: `0x11C7984` | null check | `0x4D9AD0` (no arguments; root `IC_GameUtils_IsWorldInstalled`), fills it from `0x931020` | null test, then store | call `0x4D9AD0` |
+  | C: `0x11DC168`-`0x11DC184` (DefaultAllocator) | `0x11DC184`, `0x11DC180` | `0x931020` (no arguments): vtable `0xFB8B38`, zeros, then the `0x11DC184`/`0x11DC180` publish; heap `[0x11CB864]` into `+4` | publishes `0x11DC180` before it stores the heap at `+4`: a second thread can use the allocator with a null heap | through `0x4D9AD0` (row above) |
+  | C: `0x11E96C0` / `0x11E96C1` | done byte `0x11E96C1` | `0x9B0530` (root `IC_OnlineFeaturesHost_GetPersonaName`, via `0x9B04E0`) | done byte before the value byte | call `0x9B0530` with its receiver, or the IC once |
+  | C: `0x11ECEEC` / `0x11ECEED` | done byte `0x11ECEED` | `0xC88D80` (no arguments; option `0x8000` of the store at `0x11CDDE0` via `0x523860`; root `IC_World_HasFloorFeaturesWorldPosImpl`) | value before done | call `0xC88D80` |
+
+  - Four first-fill races are real, not just "worker writes": A (bit before slot), the two B statics (bit before fields), DefaultAllocator (publish before heap) and `0x9B0530` (done before value). In each, the second thread on a first call reads a zero. A pre-warm on the sim thread before the first cut closes them, as the plan says.
+  - `0xD7BD40` also calls `GC_malloc(4)` on every call. A worker that ran it would allocate, which is outside R1 and already under M5's GC lock rules (P3).
+  - For R1b: the pre-warm calls are cdecl with no arguments for `0x7935B0`, `0x8A79B0`, `0x4D9AD0` and `0xC88D80`. `0x9B0530` and the A fills need their receivers (the online-features host; the converter, `this - 8` = the script host block), to be read in R1b. Witness: the guard dword `0x11EE588 == 0x7FFF`, bit 1 of `0x11D7518` and `0x11DA058`, `[0x11C7984] != 0`, `0x11E96C1` and `0x11ECEED` set after the pre-warm.
