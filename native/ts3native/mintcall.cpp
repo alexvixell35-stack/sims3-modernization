@@ -313,15 +313,6 @@ static __declspec(naked) void McCallvirt() {  // 0xEC (con.callvirt / con.boxcal
 
 // shared ret checks: ecx = callee MonoInvocation (the eval-stack test is per opcode). Falls through when the inline
 // frame return applies; eax = arena chunk then.
-#define MC_RET_CHECKS(slow)                                                                                              \
-    __asm mov eax, [ebp + 8] __asm cmp dword ptr [eax + 0x140], 0 __asm je slow /* depth 0: exit A */                    \
-    __asm cmp byte ptr [eax + 0x149], 0 __asm jne slow /* yield: frame save */                                           \
-    __asm cmp dword ptr [ecx + 0x20], 0 __asm jne slow /* pending exception */                                           \
-    __asm mov edx, [ebp - 0x2C] __asm cmp dword ptr [edx + 0x14], 0 __asm jne slow /* newobj return */                   \
-    __asm mov edx, [ecx + 0x10] __asm test edx, edx __asm jz slow                                                        \
-    __asm mov eax, [eax + 0x13C] __asm test eax, eax __asm jz slow                                                       \
-    __asm lea ebx, [eax + 0xC] __asm cmp edx, ebx __asm jbe slow /* base inside the current chunk: inline pop */         \
-    __asm cmp edx, [eax] __asm ja slow
 
 static __declspec(naked) void McRet() {  // 0x06: 8-byte value -> the return slot
     __asm {
@@ -331,9 +322,28 @@ static __declspec(naked) void McRet() {  // 0x06: 8-byte value -> the return slo
         lea ebx, [esi - 8]
         cmp ebx, [ecx + 0x18]           // values left on the eval stack: EA logs
         ja r_slow
-    }
-    MC_RET_CHECKS(r_slow)
-    __asm {
+        // MC_RET_CHECKS, written out: clang-cl only resolves a label inside the __asm block that defines it
+        mov eax, [ebp + 8]
+        cmp dword ptr [eax + 0x140], 0
+        je r_slow                       // depth 0: exit A
+        cmp byte ptr [eax + 0x149], 0
+        jne r_slow                      // yield: frame save
+        cmp dword ptr [ecx + 0x20], 0
+        jne r_slow                      // pending exception
+        mov edx, [ebp - 0x2C]
+        cmp dword ptr [edx + 0x14], 0
+        jne r_slow                      // newobj return
+        mov edx, [ecx + 0x10]
+        test edx, edx
+        jz r_slow
+        mov eax, [eax + 0x13C]
+        test eax, eax
+        jz r_slow
+        lea ebx, [eax + 0xC]
+        cmp edx, ebx
+        jbe r_slow                      // base inside the current chunk: inline pop
+        cmp edx, [eax]
+        ja r_slow
         cmp g_mcVerify, 0
         jne r_pre
     r_go:
@@ -366,9 +376,28 @@ static __declspec(naked) void McRetVoid() {  // 0x07
         mov ecx, [ebp - 8]
         cmp esi, [ecx + 0x18]
         ja w_slow
-    }
-    MC_RET_CHECKS(w_slow)
-    __asm {
+        // MC_RET_CHECKS, written out: clang-cl only resolves a label inside the __asm block that defines it
+        mov eax, [ebp + 8]
+        cmp dword ptr [eax + 0x140], 0
+        je w_slow                       // depth 0: exit A
+        cmp byte ptr [eax + 0x149], 0
+        jne w_slow                      // yield: frame save
+        cmp dword ptr [ecx + 0x20], 0
+        jne w_slow                      // pending exception
+        mov edx, [ebp - 0x2C]
+        cmp dword ptr [edx + 0x14], 0
+        jne w_slow                      // newobj return
+        mov edx, [ecx + 0x10]
+        test edx, edx
+        jz w_slow
+        mov eax, [eax + 0x13C]
+        test eax, eax
+        jz w_slow
+        lea ebx, [eax + 0xC]
+        cmp edx, ebx
+        jbe w_slow                      // base inside the current chunk: inline pop
+        cmp edx, [eax]
+        ja w_slow
         cmp g_mcVerify, 0
         jne w_pre
     w_go:

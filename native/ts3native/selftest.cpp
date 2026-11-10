@@ -8177,11 +8177,13 @@ static void TestAvoidRO() {
     static AvIn in;
     u64 id;
     bool none;
-    auto runA = [&](bool job, u8* pth = path, u8* ag = NULL) {
+    // pth has no default here: a default argument may not name a local (static) variable in standard C++ (clang-cl)
+    auto runAp = [&](bool job, u8* pth, u8* ag = NULL) {
         const int why = AvRunA(pth, ag ? ag : agentBase + 8, goal, ign, 1, job, &id, &in, &none);
         assert(t_qlShared == 0 && !t_inRo && g_srInClone == 0);
         return why;
     };
+    auto runA = [&](bool job) { return runAp(job, path); };
     assert(runA(false) == SR_OK && id == 0x705 && !none && ptU == 13.0f && ptV == 5.0f && optSeen == 0x42 && postureCalls == 1);
     assert(runA(true) == SR_FB_STATE && t_avJobEnd);  // a job answer needs the tripwire stubs armed
     TwArm(true);
@@ -8191,7 +8193,7 @@ static void TestAvoidRO() {
     fp[5][0x62] = 1;
     // no options object: 0x702 / 0x703 are not filtered (0x702 misses, 0x703 hits); agent NULL or 8: option word 0x100
     fp[3][0x60] = 1;
-    assert(runA(true, NULL) == SR_OK && id == 0x703);
+    assert(runAp(true, NULL) == SR_OK && id == 0x703);
     {
         const int pc = postureCalls;
         assert(AvRunA(NULL, NULL, goal, ign, 1, true, &id, &in, &none) == SR_OK && id == 0x703 && optSeen == 0x100 && postureCalls == pc);
