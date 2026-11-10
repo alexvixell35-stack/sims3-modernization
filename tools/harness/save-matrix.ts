@@ -4,6 +4,7 @@
 //   --stay: travel case only goes out and stays (no save away, no trip back) and leaves the save fixes as they are; for
 //     profile-world.ts --travel, which runs a repro in the destination world after this exits (docs/117 §2.11)
 //   --trips N: travel case repeats the round trip (out, save away, back, save home) N times (default 1)
+//   --clear-recovery: vacation trip 1 also sends clear_recovery (for callers that run one trip per call after an earlier vacation)
 //   --mem-marks: travel case brackets the trips with [MemDiag] samples (agent mem_mark / mem_gc, docs/191; repro
 //     leak-travel-roundtrip-x3): base + mem_gc before trip 1, then per trip marks away / home and a mem_gc at home; same tags
 //     every trip, so node tools/mem-report.ts report shows per-trip deltas (gc-after = per trip after GC)
@@ -38,7 +39,7 @@ import { vanilla } from './vanilla.ts';
 const { values } = parseArgs({ options: {
   cases: { type: 'string' }, list: { type: 'boolean' }, 'self-check': { type: 'boolean' }, travel: { type: 'boolean' },
   to: { type: 'string', default: 'france' }, direct: { type: 'boolean' }, stay: { type: 'boolean' }, 'reload-check': { type: 'boolean' }, off: { type: 'boolean' }, 'case-timeout': { type: 'string', default: '900' },
-  trips: { type: 'string', default: '1' }, 'mem-marks': { type: 'boolean' }, port: { type: 'string', default: '47891' }, fixes: { type: 'string', default: 'all' },
+  trips: { type: 'string', default: '1' }, 'mem-marks': { type: 'boolean' }, port: { type: 'string', default: '47891' }, 'clear-recovery': { type: 'boolean' }, fixes: { type: 'string', default: 'all' },
 } });
 if (!['all', 'shipped'].includes(values.fixes!)) { console.error(`--fixes must be all or shipped, not ${values.fixes}`); process.exit(2); }
 const SHIPPED = values.fixes === 'shipped';
@@ -212,7 +213,10 @@ export function compareReload(on: ReloadSide, off: ReloadSide): Check[] {
   ];
 }
 
+const CORE_NEEDS = ['Hunger', 'Bladder', 'Energy', 'Social', 'Hygiene', 'Fun'];
 if (values['self-check']) {
+  const lw = lowNeeds({ Tiara: { Hygiene: 60.4, Hunger: 95, Mood: 10 } });
+  if (lw.join() !== 'Tiara Hygiene 60.4') throw new Error(`lowNeeds ${lw}`);
   const assert = (await import('node:assert')).strict;
   const text = [
     'OK   footprint index: 0x00666488, 0x0082C940, 0x00AAC320 (Mode=1 Verify=0)',
@@ -300,6 +304,10 @@ if (values['self-check']) {
   assert.deepEqual(nl.broken, []); assert.equal(nl.why.compress, 'save compress off (Enabled=0)');
   assert.deepEqual(notLoadedWhy('compat: stood down for Apex FastCacheCompression: [SaveCompress] not installed (x)\nSKIP save flush: needs the [SaveWrite] hooks (Enabled=1)\nSKIP footprint index: bytes differ\n', []).broken, ['footprint']);
   assert.deepEqual(notLoadedWhy('', ['CachedReflection probe 12 objects: bytes differ']).broken, ['footprint', 'compress', 'flush', 'cachedreflection']);
+  { const a = { Tiara: { Hygiene: 68.4, Hunger: 80 }, Bob: { Hunger: 70 } }, b = { Tiara: { Hygiene: 68.4, Hunger: 85 }, Bob: { Hunger: 70 } };
+    assert.deepEqual(frozenNeeds(a, b), ['Tiara Hygiene 68.4', 'Bob Hunger 70']);
+    assert.deepEqual(frozenNeeds({ Bob: { Hunger: 60 } }, { Bob: { Hunger: 70 } }), []);
+    assert.ok(!frozenNeeds(a, { ...b, Tiara: { Hygiene: 70, Hunger: 85 } }).includes('Tiara Hygiene 70')); } // changed value is not frozen
   console.log('self-check ok');
   process.exit(0);
 }
@@ -546,7 +554,6 @@ async function tripStatus(): Promise<void> {
 }
 
 // every shown need of every household Sim to max, then check the six core needs (occult/pet motives have other ranges)
-const CORE_NEEDS = ['Hunger', 'Bladder', 'Energy', 'Social', 'Hygiene', 'Fun'];
 // end every household Sim's current and queued actions (wakes a sleeping Sim); set_motive also maxes every need and
 // lists the household's Sims by full name
 async function cancelAll(): Promise<string[]> {
@@ -586,11 +593,32 @@ async function prepTrip(who: string): Promise<void> {
   log(`actions ended: ${sims.join(', ')}; autonomy off: ${au.result.changed.join(', ') || '(already off)'}`);
 }
 
+export function lowNeeds(r: Record<string, Record<string, number>>): string[] {
+  return Object.entries(r).flatMap(([sim, m]) => Object.entries(m).filter(([k, v]) => CORE_NEEDS.includes(k) && v < 90).map(([k, v]) => `${sim} ${k} ${v}`));
+}
+
+// low needs ("sim Motive value", as lowNeeds prints) whose value is identical in both set_motive results: frozen motives (Motive.SetValue ignores writes)
+export function frozenNeeds(a: Record<string, Record<string, number>>, b: Record<string, Record<string, number>>): string[] {
+  return lowNeeds(b).filter(s => { const [sim, k] = s.split(' '); return a[sim]?.[k] === b[sim]?.[k]; });
+}
+
 async function maxNeeds(): Promise<void> {
-  const mo = await ag('set_motive', { sim: 'household' });
-  if (!mo.ok) throw new Error(`set_motive household: ${mo.error}`);
-  const low = Object.entries(mo.result as Record<string, Record<string, number>>)
-    .flatMap(([sim, m]) => Object.entries(m).filter(([k, v]) => CORE_NEEDS.includes(k) && v < 90).map(([k, v]) => `${sim} ${k} ${v}`));
+  const setAll = async () => {
+    const mo = await ag('set_motive', { sim: 'household' });
+    if (!mo.ok) throw new Error(`set_motive household: ${mo.error}`);
+    const r = mo.result as Record<string, Record<string, number>>;
+    return { mo, low: lowNeeds(r) };
+  };
+  let { mo, low } = await setAll();
+  if (low.length) { // a motive frozen by a cancelled interaction (pool Hygiene pause) ignores set_motive while paused: tick once, retry
+    log(`needs low (${low.join(', ')}): one normal-speed tick, then set again`);
+    const first = mo.result as Record<string, Record<string, number>>;
+    await ag('set_speed', { speed: 'normal' }); await sleep(2000); await pause();
+    ({ mo, low } = await setAll());
+    const frozen = frozenNeeds(first, mo.result as Record<string, Record<string, number>>);
+    for (const f of low.filter(l => frozen.includes(l))) log(`WARN need frozen (value unchanged across both set_motive attempts), trip proceeds: ${f}`);
+    low = low.filter(l => !frozen.includes(l));
+  }
   if (low.length) throw new Error(`needs not at max before the trip: ${low.join(', ')}`);
   log(`needs at max: ${Object.keys(mo.result).join(', ')}`);
 }
@@ -915,8 +943,8 @@ const CASES: Case[] = [
         // autonomy off for the travellers only: University / future take the active Sim alone, a vacation the household
         // trip 2+ to a vacation world: the game refuses Sims back from a vacation ("still recovering", WentToLocation buff);
         // clear_recovery drops that buff (STRESS shortcut, not a player flow; alloc-sites 2026-10-26 trip 2 failed on it)
-        const again = t > 1 && trip[0] === 'travel_vacation';
-        if (again && t === 2) checks.push({ name: 'vacation cooldown', status: 'info', why: 'trips 2+ clear the WentToLocation buff (stress shortcut)' });
+        const again = (t > 1 || values['clear-recovery']) && trip[0] === 'travel_vacation';
+        if (again && (t === 2 || (t === 1 && values['clear-recovery']))) checks.push({ name: 'vacation cooldown', status: 'info', why: 'trips 2+ clear the WentToLocation buff (stress shortcut)' });
         const out = await enterWorld(trip[0], again ? { ...trip[1], clear_recovery: true } : trip[1], home, uni || fut ? 'active' : 'household');
         checks.push(...travelSaveChecks(leg, out.travelEvs));
         if (values.stay) { checks.push({ name: 'stay', status: 'info', why: `staying in ${out.world} (--stay)` }); return { fixes, saves, checks }; }

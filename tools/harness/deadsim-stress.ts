@@ -27,6 +27,8 @@ export const COUNTERS = [...REQUIRED, 'errortrapsims_left', 'ghostreactdeadsim_r
   'seasonsdeadsim_dead', 'seasonsdeadsim_replaced', 'casuihandlers_closed', 'casuihandlers_dups', 'simrefsdeadsim_talkingto', 'simrefsdeadsim_pusher', 'simrefsdeadsim_reactors', 'simrefsdeadsim_occultowners'];
 export const KEPT = { 934: 'dreamnode_hhkept', 935: 'overwatch_hhkept', 936: 'outfitwaitsaved_hhkept' } as const;
 
+export const offAll = () => Object.fromEntries([...UNDER_TEST, ...STAY_OFF].map(n => [n, false]));
+
 type Snap = { patches: any; kept: Record<string, number | null>; hh: { id: string; members: number } | null };
 // every FAIL reason for one snapshot (final: the end-of-run counter rules too)
 export function judge(on: boolean, s: Snap, hh0: Snap['hh'], final: boolean): string[] {
@@ -62,6 +64,9 @@ if (values['self-check']) {
   assert.match(judge(true, { patches: { ...sw(true), ...req }, kept, hh: { id: '0x1', members: 3 } }, hh, false)[0], /active household changed/);
   assert.deepEqual(judge(false, { patches: sw(false), kept: { dreamnode_hhkept: null, overwatch_hhkept: null, outfitwaitsaved_hhkept: null }, hh }, hh, true), []);
   assert.match(judge(false, { patches: { ...sw(false), errortrapctl_dropped: 3 }, kept, hh }, hh, true)[0], /errortrapctl_dropped=3 with the switches off/);
+  const o = offAll();
+  assert.equal(Object.keys(o).length, UNDER_TEST.length + STAY_OFF.length);
+  assert.ok(Object.values(o).every(v => v === false) && 'outfitwaitsaved' in o && 'simrefsdeadsim' in o);
   console.log('deadsim-stress self-check: ok');
   process.exit(0);
 }
@@ -115,6 +120,7 @@ async function stress(doneMs: number) {
 }
 
 const fails: string[] = [];
+if (!ON) await ag('patches', offAll()); // ShortcutOn reports names an old package lacks as on: set every name off before the first judge
 const s0 = await snap('start');
 fails.push(...judge(ON, s0, s0.hh, false).map(x => `start: ${x}`));
 if (fails.length) { log(`FAIL deadsim: ${fails.join('; ')}`); process.exit(1); } // wrong package or switches: nothing to measure
@@ -122,7 +128,7 @@ let last = s0;
 for (let t = 1; t <= TRIPS; t++) {
   log(`deadsim: trip ${t}/${TRIPS}: stress ${values['stress-min']} min`);
   await stress((t - 1) * STRESS_MS);
-  const r = spawnSync(process.execPath, [join(ROOT, 'tools', 'harness', 'save-matrix.ts'), '--travel', '--cases', 'travel', '--to', 'france', '--trips', '1', '--mem-marks', '--port', values.port!], { stdio: 'inherit', timeout: 30 * 60000 });
+  const r = spawnSync(process.execPath, [join(ROOT, 'tools', 'harness', 'save-matrix.ts'), '--travel', '--cases', 'travel', '--to', 'france', '--trips', '1', ...(t >= 2 ? ['--clear-recovery'] : []), '--mem-marks', '--port', values.port!], { stdio: 'inherit', timeout: 30 * 60000 });
   if (r.status !== 0) { fails.push(`trip ${t}: save-matrix travel exit ${r.status ?? r.signal}`); break; }
   last = await snap(`trip ${t}`);
   const f = judge(ON, last, s0.hh, t === TRIPS);

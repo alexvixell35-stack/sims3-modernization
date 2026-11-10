@@ -1093,9 +1093,10 @@
       {
         "cmd": "sim_strand",
         "args": {
-          "sim": "Wogan Hemlock"
+          "sim": "Wogan Hemlock",
+          "tries": 400
         },
-        "note": "samples the lot for a spot failing the game's routability check and stands him there; keep the camera away (unseen townie = 60 sim-minute rule, else one sim-day)"
+        "note": "samples the lot for a spot failing the game's routability check and stands him there; keep the camera away (unseen townie = 60 sim-minute rule, else one sim-day). tries 400 (default 40): wdasync-fix3-1110 failed setup with 'no unroutable spot in 40 samples' (one route plan per sample, a one-off setup hitch)"
       },
       {
         "cmd": "set_speed",
