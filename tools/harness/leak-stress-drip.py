@@ -151,8 +151,12 @@ def err(r):
 
 
 def game_up():
-    out = subprocess.run(["tasklist"], capture_output=True, text=True).stdout
-    return re.search(r"^TS3W\.exe", out, re.M | re.I) is not None
+    if os.name == "nt":
+        out = subprocess.run(["tasklist"], capture_output=True, text=True).stdout
+        return re.search(r"^TS3W\.exe", out, re.M | re.I) is not None
+    # Linux/Wine: the game process shows its Windows path in the process list (C:\...\TS3W.exe)
+    out = subprocess.run(["ps", "-eo", "args"], capture_output=True, text=True).stdout
+    return re.search(r"^[A-Z]:\\.*\\TS3W\.exe\b", out, re.M | re.I) is not None
 
 
 def done(out_file):  # the chain's own end line, "<run> done" / "<run> skipped" (<run> = the .out file's name)

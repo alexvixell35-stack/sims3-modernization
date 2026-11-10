@@ -33,7 +33,7 @@ const USER = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Ar
 const HOME = join(process.env.LOCALAPPDATA ?? join(homedir(), '.local', 'share'), 'ts3-fixes');
 const STATE = join(HOME, 'state.json');
 // Windows' own bsdtar reads zip/7z/tar.gz; a GNU tar from Git Bash on PATH would treat "C:" as a remote host.
-const TAR = process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
+const TAR = process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : (process.env.TS3_TAR ?? 'bsdtar');  // TS3_TAR: another bsdtar (Linux: GNU tar cannot read zip/7z/rar)
 
 const { positionals, values } = parseArgs({ allowPositionals: true, options: {
   set: { type: 'string', default: 'default' }, only: { type: 'string' }, skip: { type: 'string' },
@@ -118,7 +118,7 @@ function pick(tree: string, pattern: string): string[] {
 // ---------- targets
 function targetPath(f: Fix, rel: string): string {
   if (rel.startsWith('%BIN%')) return join(BIN, rel.slice('%BIN%'.length).replace(/^[\\/]/, ''));
-  if (rel.includes('%DOCUMENTS%')) return rel.replace('%DOCUMENTS%/Electronic Arts/The Sims 3', USER).replace(/\//g, '\\');
+  if (rel.includes('%DOCUMENTS%')) return rel.replace('%DOCUMENTS%/Electronic Arts/The Sims 3', USER).replace(/\//g, process.platform === 'win32' ? '\\' : '/');
   switch (f.install.target) {
     case 'bin': return join(BIN, rel);
     case 'overrides': return join(USER, 'Mods', 'Overrides', basename(rel));
