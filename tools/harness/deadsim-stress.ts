@@ -2,6 +2,8 @@
 // round trip (save-matrix.ts --travel --trips 1 --mem-marks), N times, one load. The queue job pins the ts3fixes package
 // (fixesPackage) that sets the switches; this script only reads them back and judges.
 //   node tools/harness/deadsim-stress.ts --expect on|off [--trips 3] [--stress-min 5] [--seed 12351] [--max 30]
+//   --hollow on|off: PR #343 deadsimhollow repro (#40): the drip also runs `hold_sims` (agent test holder) every minute, so
+//   destroyed townies stay held; final deadsimhollow_sims [2092] > 0 (on) or 0 (off), deadsimcount_old [2089] > 0 both arms
 //   node tools/harness/deadsim-stress.ts --self-check     verdict rules, no game
 // Per trip: drip for --stress-min minutes (its schedule continues across trips: the start file's mtime is moved back by
 // the stress time already run, so deaths / movers / occults come due), drip stopped, then the trip. Before the first trip
@@ -25,6 +27,18 @@ export const STAY_OFF = ['seasonsdeadsim', 'casuihandlers', 'simrefsdeadsim'];
 export const REQUIRED = ['errortrapsims_dropped', 'errortraplookup_dropped', 'errortrapctl_dropped', 'celebritydeadsim_unregistered'];
 export const COUNTERS = [...REQUIRED, 'errortrapsims_left', 'ghostreactdeadsim_removed', 'dreamnodedeadsim_removed', 'overwatchdeadsim_removed', 'outfitwaitsaved_destroyed',
   'seasonsdeadsim_dead', 'seasonsdeadsim_replaced', 'casuihandlers_closed', 'casuihandlers_dups', 'simrefsdeadsim_talkingto', 'simrefsdeadsim_pusher', 'simrefsdeadsim_reactors', 'simrefsdeadsim_occultowners'];
+export const HOLLOW = ['deadsimcount_old', 'deadsimhollow_sims', 'deadsimhollow_fields'];
+// drip --only for --hollow: its default plan (leak-stress-drip.py main) plus hold
+export const DRIP_ALL_HOLD = 'social,meet,celebrity,death,occult,age,job,spawn,outfit,pregnancy,promote,party,crowd,skill,lifecycle,fight,move,story,season,traffic,hold';
+// --hollow verdict at the end: undefined = no --hollow, nothing judged
+export function judgeHollow(hollow: boolean | undefined, p: any): string[] {
+  if (hollow === undefined || !p) return [];
+  const f: string[] = [];
+  if (p.deadsimcount !== true || p.deadsimhollow !== hollow) f.push(`switch deadsimcount=${p.deadsimcount} deadsimhollow=${p.deadsimhollow} (want true/${hollow})`);
+  if (!(p.deadsimcount_old > 0)) f.push(`deadsimcount_old=${p.deadsimcount_old} (want > 0: no held dead Sim to hollow)`);
+  if (hollow ? !(p.deadsimhollow_sims > 0) : (p.deadsimhollow_sims ?? 0) !== 0) f.push(`deadsimhollow_sims=${p.deadsimhollow_sims} (want ${hollow ? '> 0' : '0'})`);
+  return f;
+}
 export const KEPT = { 934: 'dreamnode_hhkept', 935: 'overwatch_hhkept', 936: 'outfitwaitsaved_hhkept' } as const;
 
 export const offAll = () => Object.fromEntries([...UNDER_TEST, ...STAY_OFF].map(n => [n, false]));
@@ -47,7 +61,7 @@ export function judge(on: boolean, s: Snap, hh0: Snap['hh'], final: boolean): st
 const { values } = parseArgs({ options: {
   expect: { type: 'string' }, trips: { type: 'string', default: '3' }, 'stress-min': { type: 'string', default: '5' },
   seed: { type: 'string', default: '12351' }, max: { type: 'string', default: '30' }, port: { type: 'string', default: '47891' },
-  'self-check': { type: 'boolean' },
+  hollow: { type: 'string' }, 'self-check': { type: 'boolean' },
 } });
 
 if (values['self-check']) {
@@ -67,10 +81,18 @@ if (values['self-check']) {
   const o = offAll();
   assert.equal(Object.keys(o).length, UNDER_TEST.length + STAY_OFF.length);
   assert.ok(Object.values(o).every(v => v === false) && 'outfitwaitsaved' in o && 'simrefsdeadsim' in o);
+  assert.deepEqual(judgeHollow(undefined, {}), []);
+  assert.deepEqual(judgeHollow(true, { deadsimcount: true, deadsimhollow: true, deadsimcount_old: 9, deadsimhollow_sims: 3 }), []);
+  assert.deepEqual(judgeHollow(false, { deadsimcount: true, deadsimhollow: false, deadsimcount_old: 9, deadsimhollow_sims: 0 }), []);
+  assert.match(judgeHollow(true, { deadsimcount: true, deadsimhollow: true, deadsimcount_old: 9, deadsimhollow_sims: 0 }).join(), /deadsimhollow_sims=0 \(want > 0\)/);
+  assert.match(judgeHollow(false, { deadsimcount: true, deadsimhollow: false, deadsimcount_old: 9, deadsimhollow_sims: 2 }).join(), /want 0/);
+  assert.match(judgeHollow(true, { deadsimcount: true, deadsimhollow: false, deadsimcount_old: 0 }).join(), /switch .*deadsimcount_old=0/);
   console.log('deadsim-stress self-check: ok');
   process.exit(0);
 }
 if (values.expect !== 'on' && values.expect !== 'off') { console.error('--expect on|off'); process.exit(2); }
+if (values.hollow !== undefined && values.hollow !== 'on' && values.hollow !== 'off') { console.error('--hollow on|off'); process.exit(2); }
+const HOLLOW_ON = values.hollow === undefined ? undefined : values.hollow === 'on';
 const ON = values.expect === 'on', TRIPS = Number(values.trips), STRESS_MS = Number(values['stress-min']) * 60000;
 const ROOT = resolve(import.meta.dirname, '..', '..'), OUT = join(ROOT, 'probe-out', 'deadsim');
 mkdirSync(OUT, { recursive: true });
@@ -96,9 +118,9 @@ async function snap(label: string): Promise<Snap> {
   const mem = await get('memory', 60000).catch(() => null);
   const row = { t: new Date().toISOString(), label, kept, hh: a ? { id: a.id, members: a.members } : null, simDescsInWorld: Array.isArray(sims) ? sims.length : null,
     mem: mem && { commitMB: mem.commitMB, freeMB: mem.freeMB, largestFreeMB: mem.largestFreeMB, managed: mem.monoHeapMB ?? mem.managedMB ?? null },
-    counters: patches && Object.fromEntries(COUNTERS.map(k => [k, patches[k]])) };
+    counters: patches && Object.fromEntries([...COUNTERS, ...HOLLOW].map(k => [k, patches[k]])) };
   appendFileSync(jsonl, JSON.stringify(row) + '\n');
-  log(`deadsim: ${label}: ${COUNTERS.map(k => `${k}=${patches?.[k]}`).join(' ')} ${Object.entries(kept).map(([k, v]) => `${k}=${v ?? '-'}`).join(' ')} simDescsInWorld=${row.simDescsInWorld} commitMB=${row.mem?.commitMB} largestFreeMB=${row.mem?.largestFreeMB} hh=${JSON.stringify(row.hh)}`);
+  log(`deadsim: ${label}: ${[...COUNTERS, ...HOLLOW].map(k => `${k}=${patches?.[k]}`).join(' ')} ${Object.entries(kept).map(([k, v]) => `${k}=${v ?? '-'}`).join(' ')} simDescsInWorld=${row.simDescsInWorld} commitMB=${row.mem?.commitMB} largestFreeMB=${row.mem?.largestFreeMB} hh=${JSON.stringify(row.hh)}`);
   return { patches, kept, hh: row.hh };
 }
 
@@ -107,7 +129,7 @@ async function stress(doneMs: number) {
   writeFileSync(outFile, '');
   closeSync(openSync(startFile, 'a'));
   const t = (Date.now() - doneMs) / 1000; utimesSync(startFile, t, t); // schedule continues from earlier phases
-  const py = spawn('python', ['-I', join(ROOT, 'tools', 'harness', 'leak-stress-drip.py'), startFile, outFile, '--start', '0', '--seed', values.seed!, '--max', values.max!], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const py = spawn('python', ['-I', join(ROOT, 'tools', 'harness', 'leak-stress-drip.py'), startFile, outFile, '--start', '0', '--seed', values.seed!, '--max', values.max!, ...(HOLLOW_ON === undefined ? [] : ['--only', DRIP_ALL_HOLD])], { stdio: ['ignore', 'pipe', 'pipe'] });
   py.stdout.on('data', d => process.stdout.write(`  drip: ${d}`)); py.stderr.on('data', d => process.stdout.write(`  drip ERR: ${d}`));
   await ag('autopilot', { enabled: true, speed: 'none', dialogs: true });
   await ag('set_speed', { speed: 'normal' });
@@ -131,10 +153,10 @@ for (let t = 1; t <= TRIPS; t++) {
   const r = spawnSync(process.execPath, [join(ROOT, 'tools', 'harness', 'save-matrix.ts'), '--travel', '--cases', 'travel', '--to', 'france', '--trips', '1', ...(t >= 2 ? ['--clear-recovery'] : []), '--mem-marks', '--port', values.port!], { stdio: 'inherit', timeout: 30 * 60000 });
   if (r.status !== 0) { fails.push(`trip ${t}: save-matrix travel exit ${r.status ?? r.signal}`); break; }
   last = await snap(`trip ${t}`);
-  const f = judge(ON, last, s0.hh, t === TRIPS);
+  const f = [...judge(ON, last, s0.hh, t === TRIPS), ...(t === TRIPS ? judgeHollow(HOLLOW_ON, last.patches) : [])];
   fails.push(...f.map(x => `trip ${t}: ${x}`));
   if (f.some(x => /^switch|applied|household/.test(x))) break;
 }
 log(`deadsim: kept by the household rule ${Object.entries(last.kept).map(([k, v]) => `${k}=${v ?? '-'}`).join(' ')}; rows ${jsonl}`);
 if (fails.length) { log(`FAIL deadsim: ${fails.join('; ')}`); process.exit(1); }
-log(`PASS deadsim ${values.expect}: ${TRIPS} trips, switches ${ON ? 'on' : 'off'} read back${ON ? `, ${REQUIRED.join(', ')} > 0` : ', counters 0'}, active household unchanged`);
+log(`PASS deadsim ${values.expect}: ${TRIPS} trips, switches ${ON ? 'on' : 'off'} read back${ON ? `, ${REQUIRED.join(', ')} > 0` : ', counters 0'}${HOLLOW_ON === undefined ? '' : `, deadsimhollow_sims ${HOLLOW_ON ? '> 0' : '0'}`}, active household unchanged`);

@@ -1,0 +1,45 @@
+{
+ "note": "reload-1110e (2026-11-10): rerun of the reload case to check the final-result verdict",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-rel-reload-1110e",
+   "note": "[reload-1110e: rerun of bp-rel-reload-1111 after the reloadFinal verdict fix] [release-followup-1111: the reload case bp-rel-matrix-1111 left pending (run.script cannot do the restarts)] [est 25 min] save-matrix.ts --cases reload --fixes shipped as run.matrix + saveMatrix shipped: queue.ts runs both reload loads (restart, rc1111 asi/ini and fixesPackage again, cycle.ts --save, --reload-check [--off]). Pass: reload PASS (households match, 60 s at speed 3, no new ScriptErrors with ON), 0 crashes, ts3native 0.36.239.",
+   "asi": "game-copy/ts3native.asi.rc1111",
+   "save": "Baseline-BP-Spring",
+   "run": {
+    "matrix": [
+     "--cases",
+     "reload"
+    ]
+   },
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 45,
+   "iniBase": "game-copy/ts3native.ini.rc1111",
+   "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+   "pinReason": "pair rc1111 (docs/data/builds.json, Sat 11-14 release candidate): asi game-copy/ts3native.asi.rc1111 (0.36.239, baaa4cfc) + ini game-copy/ts3native.ini.rc1111 (a0f698b9 = master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes game-copy/ts3fixes.package.rc1111 (b903aa9d, tuning 4b4eba25) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "logRequire": {
+    "^ts3native 0.36.239 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.239 ": {
+     "match": [
+      "ts3native 0.36.239 2026-11-10 14:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.238 2026-11-10 01:30:00",
+      "ts3native 0.36.2390 2026-11-10 14:30:00"
+     ]
+    }
+   },
+   "saveMatrix": {
+    "fixes": "shipped"
+   }
+  }
+ ]
+}

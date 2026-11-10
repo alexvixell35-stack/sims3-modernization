@@ -5,6 +5,8 @@
 # from fork-PR runs, and comments on fork PRs (which do get secrets) are refused below; never switch this to
 # pull_request_target with a checkout of the PR head (that would run untrusted code with the key).
 # The Claude step gets no GitHub token and the checkout keeps no credentials: only the steps after it can push or comment.
+# Never let the Claude step both write files and run code (no Bash(node ...)): thread text is from anyone, and a written
+# script would run with the API key in its environment. Checks that need node go in a later step without the key.
 # Runners have no game files (no TS3W.exe, EA DLLs, Ghidra project or saves): game tests, exe RE and the monohost corpus stay local.
 # Changes land on the PR branch, or on a claude/ branch with a compare link (Actions may not open PRs on this repo), and
 # are imported into the private master like contributor PRs.
@@ -80,7 +82,7 @@ jobs:
         run: |
           npm install -g @anthropic-ai/claude-code@2.1.318
           claude -p --model claude-sonnet-5-5 --max-turns 25 \
-            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(node tools/*),Bash(git diff*),Bash(git log*),Bash(git status*)" \
+            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git diff*),Bash(git log*),Bash(git status*)" \
             < "$RUNNER_TEMP/prompt.md" > "$RUNNER_TEMP/reply.md" || { cat "$RUNNER_TEMP/reply.md"; exit 1; }
       - name: Push changes and reply
         env:

@@ -90,4 +90,112 @@ cross-process waits at startup and at DETACH. Not proven: there is no dump or `b
   bridge; Steam running or not; `bridge32.log`; dump).
 
 ## 7. Tester tool: one-hang evidence
-`tools/diag/ts3-hang-diag.bat` (runs `ts3-hang-diag.ps1`; Windows-only on purpose: Toolhelp32, dbghelp, event log; Windows PowerShell 5.1, no admin). Run it while TS3W.exe is hung, or with `-Launch` (starts TS3W.exe directly, waits 90 s for a window, collects if none). Writes `Desktop\ts3-hang-diag-<time>\` + `.zip`: per-process facts and thread states, full loaded-module lists (WOW64 included: shows whether `d3d9.dll`, `WININET.dll`, `.asi` loaded), minidumps of TS3W.exe and NvRemixBridge.exe (stacks, no full memory), copied Remix/ts3native/S3SS/Apex logs with last-write times (stale = never ran), Bin listing, Application event log. Never kills anything unless `-KillAfter`. `-SelfCheck` tests it on a harmless child process. Not captured: managed Mono stacks, thread start addresses (the .NET API returns 0; read stacks from the dump), anything before the tester ran it.
+`tools/diag/ts3-hang-diag.bat` (runs `ts3-hang-diag.ps1`; Windows-only on purpose: Toolhelp32, dbghelp, event log; Windows PowerShell 5.1, no admin). Run it while TS3W.exe is hung, or with `-Launch` (starts TS3W.exe directly, waits 90 s for a window, collects if none). Writes `ts3-hang-diag-<time>\` + `.zip` next to the tool (Desktop if that folder is read-only), `summary.txt` with findings first (§9): per-process facts and thread states, full loaded-module lists (WOW64 included: shows whether `d3d9.dll`, `WININET.dll`, `.asi` loaded), minidumps of TS3W.exe and NvRemixBridge.exe (stacks, TEBs and private memory since §8, no full memory), copied Remix/ts3native/S3SS/Apex logs with last-write times (stale = never ran), Bin listing, Application event log. Never kills anything unless `-KillAfter`. `-SelfCheck` tests it on a harmless child process. Not captured: managed Mono stacks, thread start addresses (the .NET API returns 0; read stacks from the dump), anything before the tester ran it.
+
+## 8. The tester's two hang captures (2026-11-10)
+
+Two zips from the §7 tool, both read offline (no debugger installed here; a small minidump parser in the session
+scratchpad, not committed). Tester paths, PIDs and channel GUIDs are left out.
+
+**What the two runs are [verified].** Both are direct starts by the tool's `-Launch`: the command line is the bare
+`TS3W.exe` path with no arguments, and each report is written 90 s after the process start (the `-Launch` wait). Both
+hung. Between them the tester updated Apex Radiance 3.0.0 to 3.1.0 and reinstalled the bridge files (`d3d9.dll`,
+`.trex\`, `dxvk.conf`). Same result with both versions. Neither run is a TS3.exe start, so there is no working run to
+compare against in these zips; the logs they copied (Apex, S3SS, ts3native, `bridge64.log`) are from an earlier
+working Steam start that night.
+
+**Where it stops [verified from the module lists, the same in both runs].**
+- Loaded: the bridge `d3d9.dll`, the Ultimate ASI Loader `WININET.dll`, its system `WININET.dll`, `dinput`/`dinput8`
+  (the bridge's input hooks), `ApexRadiance.asi` (with `D3DCOMPILER_47`, `cryptsp`, `windows.storage` after it), then
+  `Sims3SettingsSetter.asi` last.
+- Not loaded: `ts3native.asi`. The ASI loader loads the three in name order (Apex, S3SS, ts3native) [inferred:
+  directory order], so the process stops between mapping S3SS and loading ts3native. That fits the report that the
+  hang also happens without ts3native. **Not ours.**
+- Handles in the dump: the loader's `Ultimate-ASI-Loader-HookIAT<pid>` mutex (the ASIs load from an import hook after
+  the static DLLs are initialised, not from the loader's own `DllMain` [inferred from the name]), and Apex's
+  per-PID `ApexRadiance.<pid>` and `S3SSApex.<pid>` mutexes, so Apex's `DllMain` ran to its `CreateThread`.
+- No Apex or S3SS log line was written (both logs keep the earlier timestamp). Apex writes its first line in its init
+  thread (`OpenLog`), S3SS writes "Hook thread started" from `HookThread`.
+- 6 threads, all waiting: the main thread, Apex's init thread (its 64-bit stack holds `ApexRadiance.asi+0x7DD90` in
+  3.0.0 and `+0x82CB0` in 3.1.0, the thread start [inferred]), three ntdll thread-pool workers (the parallel loader's
+  [inferred]) and the input host thread. **No S3SS `HookThread`**: a thread created in `DllMain` exists at once even
+  while it waits for the loader lock (Apex's does), so S3SS's `DllMain` has not reached its `CreateThread`
+  (`dllmain.cpp:749` at `5eb2c65`) [inferred].
+
+**Bridge suspect from §4/§6: refuted for the start-up [verified].** No `NvRemixBridge.exe` process exists in either
+capture (the tool collects it when present). `bridge32.log` ends after the client's `DllMain` work (config, version,
+DirectInput hooks, 5 shared-memory channels), and every channel object of that attach is open in the dump
+(Module/Device channels, semaphores, events, `QueryResults`, the `Present` semaphore). The server is started only in
+`Direct3DCreate9` (§2, upstream), which is never reached. The bridge has nothing to wait on at this point, and the
+ASIs that load after it show its `DllMain` returned. (The bridge DETACH wait in §2 stays a possible cause for
+processes that do not exit, a separate symptom.)
+
+**Most likely hang site [inferred]: inside `Sims3SettingsSetter.asi`'s process attach**, before its hook thread starts:
+CRT/static init, then `DllMain` -> `InitializeAllocatorHooks` (reads `S3SS.toml` through `SHGetFolderPathW` and the
+localized folder name, `mi_option_set`, Detours on 15 `MSVCR80` allocator exports), the exe-name check, the hybrid-CPU
+CPUID fix. That runs under the loader lock, and Apex's init thread and the loader workers wait behind it. Not proven:
+the dumps hold no 32-bit stacks (below), the tester's S3SS file (2026-11-10 build) may be newer than our `5eb2c65`
+source, and why a Steam start (TS3.exe) gets past the same code is not explained by anything in these captures.
+Application event log: no TS3W or NvRemixBridge entries in either run.
+
+**Tool gap, fixed [verified on a 32-bit dummy].** Windows PowerShell 5.1 is 64-bit, so `MiniDumpWriteDump` of the
+32-bit game wrote only the 64-bit (WOW64 layer) stacks: no 32-bit TEB, stack or context. `ts3-hang-diag.ps1` now adds
+`MiniDumpWithProcessThreadData` (0x100) and `MiniDumpWithPrivateReadWriteMemory` (0x200). A dump of a 32-bit
+`cmd.exe` then has each thread's 32-bit TEB, stack range and WOW64 context (6.6 MB). Read it with WinDbg:
+`.effmach x86`, `!wow64exts.sw`, `~*kb`.
+
+**Owner and next steps.** Owner: S3SS's load (or S3SS together with something in the direct-start context)
+[inferred]; not ts3native, not the bridge server, not EA code. Next: (1) the tester reruns `-Launch` with the updated
+tool, so the main thread's 32-bit stack names the exact wait; (2) one direct start with `Sims3SettingsSetter.asi`
+moved out of `Game\Bin` (a single swap to confirm the site the dumps point to, not a bisect); (3) his S3SS version
+and whether `[patches.Mimalloc] enabled` is on in `S3SS.toml`. Workaround meanwhile: keep the Steam launch option.
+
+## 9. Crash mode: `ts3-crash-diag.bat` (2026-11-10)
+
+Same script (`tools/diag/ts3-hang-diag.ps1 -Crash`), for "the game goes back to the desktop at start". Built for a
+second tester (EA app 1.69, Apex's RTX Remix bridge). Windows PowerShell 5.1, no admin, never changes game files.
+
+**Steps for a player (Discord):**
+1. Unzip `ts3-diag.zip` anywhere (Desktop is fine).
+2. Double-click `ts3-crash-diag.bat`. When it says so, start The Sims 3 the normal way (EA app or Steam: Play). Wait
+   until the game has crashed and the window says `Done. Send this file: ...`.
+3. Send the `ts3-crash-diag-<time>.zip` from the same folder. For a Windows crash dump on top, run
+   `ts3-crash-diag-dumps.bat` instead (Windows asks twice for admin: dumps on, then off again).
+
+**What it does.** Waits up to 300 s (`-WaitSeconds`) for `TS3W.exe`/`TS3.exe` (EA 1.69 runs the game as `TS3.exe`
+behind `Sims3Launcher.exe`; a direct `TS3.exe` start bounces to the EA app, docs/230, so crash mode never starts the
+game itself on EA; `-Launch` uses `steam://rungameid/47890` on Steam). It records each game process start, exit time
+and exit code (`0xC0000005` access violation, `0xC000007B` bad image = 64-bit DLL, ...), stops watching after 240 s of
+normal running (`-WatchSeconds`), and dumps (32-bit stacks, §8) only when the game has no window or is not responding
+for `-HangSeconds` (120). Then it collects, masks and zips (`summary.txt`: plain-language findings first):
+- Install: registry `Install Dir` (`Sims(Steam)`, `Sims`, EA keys, both views), EA/Origin/Steam default paths, `-Bin`;
+  edition, `TS3W.exe`/`TS3.exe` version, sha256 prefix, Large Address Aware flag.
+- `Game\Bin` and `.trex\`: each exe/dll/asi/ini/toml/conf/log with size, date, sha256 prefix, PE machine, version.
+  Flags: 64-bit DLL/ASI in Bin; bridge `d3d9.dll`/`.trex` without `.trex\NvRemixBridge.exe`; other d3d9 hooks next to
+  the bridge (by name: D3DShaderReplacer, WinterRoadsFix, ReShade, ...; or by a `d3d9.dll`/`Direct3DCreate9` string;
+  Apex and ts3native excluded); ReShade; more than one ASI loader, or none; S3SS `ExpandedCrashLogs` on (§8);
+  ts3native version (log line 1) older than the latest release; ts3native log `os: Windows 6.x` on Windows 10/11
+  (compatibility mode).
+- Environment: Windows build, GPU + driver, `vulkan-1.dll` in System32/SysWOW64, VC++ 2015-2022 x86/x64, free RAM,
+  page file, `AppCompatFlags\Layers` (HKCU, HKLM, WOW6432Node) for the game, launcher, bridge and EA app exes (a
+  `WIN7RTM`-style mode is a finding, `HIGHDPIAWARE` only a detail line), Defender detections (`Get-MpThreatDetection`,
+  Defender events 1116/1117).
+- Crashes: Application log 1000/1001/1002 for TS3W/TS3/NvRemixBridge/Sims3Launcher (24 h: faulting module, offset,
+  exception), the newest 5 `Report.wer` (WER ReportArchive/ReportQueue, machine and user), `%LOCALAPPDATA%\CrashDumps`
+  dumps of those exes from the last 24 h.
+- Logs (5 MB tail cap): Bin `*.log`, `.trex` and `rtx-remix\logs` logs (bridge, Remix, DXVK), Bin toml/conf,
+  `ts3native-crashes\crash-*.txt` (newest 3, Bin and Documents), S3SS log + toml, Apex log, toml and
+  `ApexRadiance_Crash.txt`, `Options.ini`, `DeviceConfig.log`, `Sims3LauncherLogFile.log`, newest 3 `xcpt*` and
+  `ScriptError*.xml`; EA app log: only lines about the game, never lines with token/auth/session/cookie or an `@`.
+- Every text file and file name: Windows user name, PC name and e-mail addresses masked. `.dmp` files are not.
+
+**Crash dumps (opt-in, admin).** WER LocalDumps exists only under HKLM, so `-EnableCrashDumps` asks for admin for that
+one registry step (`LocalDumps\{TS3W,TS3,NvRemixBridge}.exe`: folder `%LOCALAPPDATA%\CrashDumps`, `CustomDumpFlags`
+`0x1B24` = the tool's own dump flags, 3 dumps, marker value `ts3diag`). With `-Crash` the keys are removed at the end
+(second admin prompt); alone they stay until `-DisableCrashDumps`. Keys without the marker are never changed.
+
+**Self-check** (`ts3-hang-diag.ps1 -SelfCheck`, ~30 s, never starts the game): 24 regex cases (real lines: WER folder
+names, ts3native log lines, a `Report.wer`, Application Error 1000 properties of another app), the parsers, a fixture
+Bin/Documents with each bad combination above (all flagged, 3 of 4 crash reports copied, no user or PC name left in
+any text file), a dump of a harmless child, and the watch loop on a renamed `cmd.exe` (exit code 3 read back; a
+windowless process flagged as a hang). Not tested here: a real EA app start, the admin LocalDumps step.

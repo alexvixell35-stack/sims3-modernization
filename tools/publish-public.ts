@@ -173,7 +173,8 @@ export function childEnv(base: NodeJS.ProcessEnv, tok: string): NodeJS.ProcessEn
   return env;
 }
 export function timeoutFor(cmd: string, args: string[]): number {
-  if (cmd === 'gh' || (cmd === 'git' && args.some(x => ['clone', 'fetch', 'push', 'pull'].includes(x)))) return 120_000;
+  if (cmd === 'git' && (args.includes('clone') || args.includes('push') || args.includes('--cached'))) return 600_000;
+  if (cmd === 'gh' || (cmd === 'git' && args.some(x => ['fetch', 'pull'].includes(x)))) return 120_000;
   if (cmd === process.execPath) return 600_000;
   return 30_000;
 }
@@ -230,7 +231,7 @@ export function publish(o: Opts): { clone: string; commit: string } {
 
   const tmp = mkdtempSync(join(tmpdir(), 'ts3-publish-')), clone = join(tmp, 'pub');
   step(`clone ${o.remote} -> ${clone}`);
-  run('git', ['clone', '-q', '-c', 'core.autocrlf=false', ...(token() ? [] : ['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential']), o.remote, clone]);
+  run('git', ['clone', '-q', '--depth', '1', '--filter=blob:none', '--no-checkout', '-c', 'core.autocrlf=false', ...(token() ? [] : ['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential']), o.remote, clone]);
   step(`branch ${o.branch}`);
   git(clone, 'switch', '-q', '-c', o.branch);
   step('empty the tree (git rm -rq . + clean)');
@@ -328,7 +329,7 @@ function selfCheck(): void {
     const e = childEnv({ A: '1' }, 'tok');
     assert.equal(e.GIT_TERMINAL_PROMPT, '0'); assert.equal(e.GCM_INTERACTIVE, 'never'); assert.equal(e.GIT_CONFIG_VALUE_0, '');
     assert.match(e.GIT_CONFIG_VALUE_1!, /^AUTHORIZATION: basic /); assert.equal(childEnv({}, '').GIT_CONFIG_COUNT, undefined);
-    assert.equal(timeoutFor('git', ['clone', 'x']), 120_000); assert.equal(timeoutFor('git', ['status']), 30_000); assert.equal(timeoutFor('gh', ['api']), 120_000);
+    assert.equal(timeoutFor('git', ['clone', 'x']), 600_000); assert.equal(timeoutFor('git', ['fetch']), 120_000); assert.equal(timeoutFor('git', ['status']), 30_000); assert.equal(timeoutFor('gh', ['api']), 120_000);
     assert.throws(() => execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},9e4)'], { timeout: 300, killSignal: 'SIGKILL' }), (x: any) => x.code === 'ETIMEDOUT');
   }
   const user = 'rod' + 'ne', pc = 'LAPTOP' + '-M15', pc2 = 'ALRPan' + 'tonial1', user2 = 'RPan' + 'tonial';

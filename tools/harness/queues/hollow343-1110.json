@@ -1,0 +1,312 @@
+{
+  "note": "hollow343-1110 (2026-11-10): PR #343 deadsimhollow repro (#40): before #343 the pass looked each dead Sim up by its ObjectId (kBadObjectGuid after Destroy) and hollowed 0. rc1111 pair (asi/ini rc1111, the 8 rc1111 dead-Sim switches ON) + deadsimcount ON in both arms; ON arm deadsimhollow ON, OFF arm off. Leak stress (seed 12351) plus hold_sims every minute (deadsim-stress.ts --hollow), 12 min before each of 2 France round trips. Pass: deadsimhollow_sims > 0 ON, 0 OFF, deadsimcount_old > 0 both, active household unchanged, no crash, 0 new script errors. node tools/harness/queue.ts tools/harness/queues/hollow343-1110.json --no-smoke",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-hollow343-on-stress-x2",
+      "note": "[est 45 min] ON arm: game-copy/ts3fixes.package.hollow343-on (master + PR #343, build-fixes.ts --on kWatchdogAsync,kErrorTrapSims,kErrorTrapLookup,kErrorTrapCtl,kCelebrityDeadSim,kGhostReactDeadSim,kDreamNodeDeadSim,kOverwatchDeadSim,kOutfitWaitSaved,kDeadSimCount,kDeadSimHollow). Pass: deadsim-stress.ts --expect on --hollow on exit 0 (8 rc1111 switches read back ON, deadsimcount ON, deadsimhollow ON; final deadsimhollow_sims > 0, deadsimcount_old > 0; active household id and members unchanged every trip) + queue checks (2/2 trips, no crash, 0 new script errors, no FAIL line).",
+      "asi": "game-copy/ts3native.asi.rc1111",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.239 ": 1,
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": 4,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 2,
+        "^diag: mem #\\d+ mark ev=base ": 2,
+        "^diag: mem #\\d+ mark ev=away ": 2,
+        "^diag: mem #\\d+ mark ev=home ": 2,
+        "^diag: mem #\\d+ mark ev=gc-after ": 4,
+        "^diag: memsus #\\d+ mark ev=gc-after ": 4,
+        "^diag: memsus alive: ": 4
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "scriptErrorsMax": 0,
+      "run": {
+        "script": [
+          "deadsim-stress.ts",
+          "--expect",
+          "on",
+          "--hollow",
+          "on",
+          "--trips",
+          "2",
+          "--stress-min",
+          "12",
+          "--seed",
+          "12351",
+          "--max",
+          "30"
+        ]
+      },
+      "timeoutMin": 90,
+      "pinReason": "pair rc1111 (docs/data/builds.json): ts3native 0.36.239 (asi game-copy/ts3native.asi.rc1111), ini game-copy/ts3native.ini.rc1111; ts3fixes = master + PR #343 test build hollow343-on via fixesPackage (the rc1111 dead-Sim switches plus deadsimcount and deadsimhollow ON; fixesBuild would use master tuning)",
+      "iniBase": "game-copy/ts3native.ini.rc1111",
+      "regexCases": {
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": {
+          "match": [
+            "diag: mem #9 load ev=travel,world-switch priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162",
+            "diag: mem #3 load ev=world-switch priv=1651 wPriv=1599 t=90"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=base ": {
+          "match": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=away ": {
+          "match": [
+            "diag: mem #10 mark ev=away priv=1670 wPriv=1618 wCom=2223 free=1612 big=1501? t=178"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=home ": {
+          "match": [
+            "diag: mem #16 mark ev=home priv=1690 wPriv=1638 wCom=2287 free=1563 big=1497? t=262"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=gc-after ": {
+          "match": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ],
+          "noMatch": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ]
+        },
+        "^diag: memsus #\\d+ mark ev=gc-after ": {
+          "match": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ],
+          "noMatch": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^diag: mem(sus)? .*=[-\\d.]+! ": {
+          "match": [
+            "diag: mem #4 mark ev=build-before priv=1749 wPriv=1686 wCom=2231 free=1590 big=1467? img=463? map=106! stkRes=112 t=142"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-10 01:30:00",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "^ts3native 0\\.36\\.239 ": {
+          "match": [
+            "ts3native 0.36.239 2026-11-10 01:18:05"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-09 18:21:49",
+            "ts3native 0.36.2390 2026-11-10 01:18:05"
+          ]
+        },
+        "^diag: memsus alive: ": {
+          "match": [
+            "diag: memsus alive: seen=4120 trk=96 freed=31 alive=9 hook=1 ms=0.40 top=Ingredient:4,NRaasOverwatch/Thing:3,Plate:2"
+          ],
+          "noMatch": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.hollow343-on"
+    },
+    {
+      "id": "bp-hollow343-off-stress-x2",
+      "note": "[est 45 min] OFF arm: game-copy/ts3fixes.package.hollow343-off (master + PR #343, build-fixes.ts --on kWatchdogAsync,kErrorTrapSims,kErrorTrapLookup,kErrorTrapCtl,kCelebrityDeadSim,kGhostReactDeadSim,kDreamNodeDeadSim,kOverwatchDeadSim,kOutfitWaitSaved,kDeadSimCount). Pass: deadsim-stress.ts --expect on --hollow off exit 0 (8 rc1111 switches read back ON, deadsimcount ON, deadsimhollow OFF; final deadsimhollow_sims = 0, deadsimcount_old > 0; active household id and members unchanged every trip) + queue checks (2/2 trips, no crash, 0 new script errors, no FAIL line).",
+      "asi": "game-copy/ts3native.asi.rc1111",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.239 ": 1,
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": 4,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 2,
+        "^diag: mem #\\d+ mark ev=base ": 2,
+        "^diag: mem #\\d+ mark ev=away ": 2,
+        "^diag: mem #\\d+ mark ev=home ": 2,
+        "^diag: mem #\\d+ mark ev=gc-after ": 4,
+        "^diag: memsus #\\d+ mark ev=gc-after ": 4,
+        "^diag: memsus alive: ": 4
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "scriptErrorsMax": 0,
+      "run": {
+        "script": [
+          "deadsim-stress.ts",
+          "--expect",
+          "on",
+          "--hollow",
+          "off",
+          "--trips",
+          "2",
+          "--stress-min",
+          "12",
+          "--seed",
+          "12351",
+          "--max",
+          "30"
+        ]
+      },
+      "timeoutMin": 90,
+      "pinReason": "pair rc1111 (docs/data/builds.json): ts3native 0.36.239 (asi game-copy/ts3native.asi.rc1111), ini game-copy/ts3native.ini.rc1111; ts3fixes = master + PR #343 test build hollow343-off via fixesPackage (the rc1111 dead-Sim switches plus deadsimcount ON; fixesBuild would use master tuning)",
+      "iniBase": "game-copy/ts3native.ini.rc1111",
+      "regexCases": {
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": {
+          "match": [
+            "diag: mem #9 load ev=travel,world-switch priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162",
+            "diag: mem #3 load ev=world-switch priv=1651 wPriv=1599 t=90"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=base ": {
+          "match": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=away ": {
+          "match": [
+            "diag: mem #10 mark ev=away priv=1670 wPriv=1618 wCom=2223 free=1612 big=1501? t=178"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=home ": {
+          "match": [
+            "diag: mem #16 mark ev=home priv=1690 wPriv=1638 wCom=2287 free=1563 big=1497? t=262"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=gc-after ": {
+          "match": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ],
+          "noMatch": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ]
+        },
+        "^diag: memsus #\\d+ mark ev=gc-after ": {
+          "match": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ],
+          "noMatch": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^diag: mem(sus)? .*=[-\\d.]+! ": {
+          "match": [
+            "diag: mem #4 mark ev=build-before priv=1749 wPriv=1686 wCom=2231 free=1590 big=1467? img=463? map=106! stkRes=112 t=142"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-10 01:30:00",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "^ts3native 0\\.36\\.239 ": {
+          "match": [
+            "ts3native 0.36.239 2026-11-10 01:18:05"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-09 18:21:49",
+            "ts3native 0.36.2390 2026-11-10 01:18:05"
+          ]
+        },
+        "^diag: memsus alive: ": {
+          "match": [
+            "diag: memsus alive: seen=4120 trk=96 freed=31 alive=9 hook=1 ms=0.40 top=Ingredient:4,NRaasOverwatch/Thing:3,Plate:2"
+          ],
+          "noMatch": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.hollow343-off"
+    }
+  ]
+}
