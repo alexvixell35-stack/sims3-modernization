@@ -165,7 +165,19 @@ BinBase copy, DXVK x86 in-process, Apex off. Tool: a VirtualQueryEx walk (read-o
 - [doc] live 78-84 MB in a 353-360 MB heap, ~165 MB in free blocks (docs/199 §7.2); sections 374.5 to 409.5 MB, about 80
   small header chunks at load (docs/201 §12.4, §13.3); black-list runaway to 2,388 MB, mostly free (docs/67 §35).
 - al372 census: 144.7 MiB live at +55 min under stress [measured].
-- Pending: free-block size distribution, empty blocks still held, over 60 min and over a travel.
+- Header walk at minute 50 of a 60 min natural Sunset Valley run [measured, read-only, mark bits merged over two
+  collections]: 11 sections, 400.0 MB. Live (marked) objects 128.4 MB. Unmarked slots beside live ones in used
+  small-object blocks 112.5 MB. Used blocks with no live object, waiting for the sweep, 81.2 MB (50.2 MB of it large
+  objects). Free blocks 73.7 MB in 3,025 blocks, the largest 0.9 MB: 1,815 of 4 KB, 639 of 8-16 KB, 304 of 20-64 KB,
+  211 of 68-256 KB, 56 of 260 KB-1 MB, none above 1 MB. Large objects: 68.8 MB in 19,082 pages.
+- Reading: about a third of the heap is live. No free block can take an allocation above 0.9 MB, so every larger one
+  grows the heap by a new section, and the dead large objects (50 MB waiting for the sweep) are what cuts the free
+  space into pieces. A census of the large objects by class is the cheap next step: if a few callers make most of
+  them, reuse there helps without touching the collector [inferred].
+- A free block's `hb_sz` is in bytes (equal to the measured extent for 3,022 of 3,025 blocks). A heap walk that reads
+  it as words skips the used blocks behind each free block: 11,029 of 74,681 blocks on this run. Census numbers taken
+  before 2026-11-10 with such a walk are about 15% low.
+- Pending: the same walk before and after a travel; the large-object census by class.
 - What L1/L2 unmapping could give: decommit returns RAM; Boehm keeps its section reservations, so the largest free block
   does not grow (docs/198) [inferred for 8.x's Windows unmap, which decommits].
 
