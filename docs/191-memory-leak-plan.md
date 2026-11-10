@@ -141,6 +141,24 @@ and never cold. The live SimBuilders hold only 0-40 of them, so the holder is so
   135,261 entries (78%) have exactly 2 references (the cache's and the registry's). A second, smaller holder outside the
   registry: 292 of the 1,031 sampled net +1 compositors were last AddRef'd in `0xAD4250` (`Lot/CompositorManager`).
   Hook cost 0.001% of play.
+- **By type, live count, histogram (`RcRefTypes`, built 2026-11-10 with clang-cl, not run in game):** the follow-up the
+  al-35 census result asked for ("count AddRef / Release on these two types by caller"), for a CAS open/close + world
+  reload torture round where `eaCom` grew ~25 MB a round. `[MemDiag] RcRefTypes=1` installs the same hooks as
+  `RcRefCallers` (either switch installs them; the vtable / slot checks refuse on other bytes) and keeps the caller
+  counts per type: `0xFE68D8` = TXTC `0x033A1435`, `0xFE68F4` = `0x0341ACC9` (one compare of the object's vtable per call).
+  Per type also: AddRefs that found 0 references ("births seen"; the cache's own Add AddRefs directly and is not seen),
+  and Releases that returned 0 ("deaths": `0x731D40` returns 0 only on its 1 -> 0 path, `xor eax, eax` at `0x731DA4`,
+  and the normal path returns the new count, >= 1 [verified disassembly]; the 1 -> 0 path can still skip the delete when
+  vtable slot 5 says so, so a death is "dropped to 0", not "freed" [inferred]). Lines: `diag: rc types #s <tag>[ ev=<ev>]
+  mem=#n: walk ...` then per type `live N (+d) cold C same key type, other class K; refs 0:a 1:b 2:c 3:d 4:e 5-8:f 9-16:g
+  17+:h; births seen B (+d), deaths D (+d); AddRef A, finds F, Release R` and three caller lists (AddRef, Release top 10,
+  find top 5, `0xADDR +since/total`, sorted by the change since the last line). `live` and the histogram come from one
+  walk of the ResourceCache map under its own lock (RcCensus's layout and lock), classed by vtable; objects outside the
+  cache are not in `live`. Written at every `diag: mem` line but exit (so at each ts3agent `mem_mark`, tagged `mark
+  ev=<mark>`) and every `RcRefPeriodSec` (default 60, minimum 5, 0 = none) seconds of play on the memory worker (tag
+  `timer`). Selftest (memdiag-test.h): by-type counts, a birth, a death, the walk's live / cold / histogram / other-class
+  counts, top lists and their deltas, the timer, silent at exit; run on its own under Wine (the full clang selftest stops
+  earlier on the SEH limit, below). Hook cost measured at install: 3.6 ns a call (host, Wine). No counters slot.
 
 ### Step 2: trim the compositor registry (`[CasTrim]`, built 2026-11-05, not run in game, ledger §942)
 
