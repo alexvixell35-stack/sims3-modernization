@@ -254,7 +254,7 @@ if (!existsSync(MP_PKG)) {
 } else {
   const refDir = join(outDir, 'refs');
   mkdirSync(refDir, { recursive: true });
-  execFileSync(process.execPath, [join(ROOT, 'tools', 'extract-assemblies.ts'), refDir, MP_PKG], { stdio: 'ignore' });
+  execFileSync(process.execPath, [join(ROOT, 'tools', 'extract-assemblies.ts'), refDir, MP_PKG], { stdio: ['ignore', 'ignore', 'inherit'] });
   const TEST = 'Ts3PortalPlanTest';
   const testDll = join(outDir, `${TEST}.dll`);
   compile(join(ROOT, 'mods', 'portalplan-test', 'src'), testDll, [join(refDir, 'MonoPatcher.dll')]);

@@ -66,12 +66,12 @@ if (values.restart) {
   const pkgs = join(USER_DIR, 'Mods', 'Packages');
   mkdirSync(pkgs, { recursive: true });
   // rebuild first: a plugin change that was only hot-reloaded would otherwise be lost on relaunch
-  execFileSync(process.execPath, [join(ROOT, 'tools', 'harness', 'build-agent.ts')], { stdio: 'ignore' });
+  execFileSync(process.execPath, [join(ROOT, 'tools', 'harness', 'build-agent.ts')], { stdio: ['ignore', 'ignore', 'inherit'] });
   // the player mod with the fixes (mods/ts3fixes); the agent only reads and switches it
-  execFileSync(process.execPath, [join(ROOT, 'tools', 'setup', 'build-fixes.ts')], { stdio: 'ignore' });
+  execFileSync(process.execPath, [join(ROOT, 'tools', 'setup', 'build-fixes.ts')], { stdio: ['ignore', 'ignore', 'inherit'] });
   // the intro skip is built by nointro.ts, which no other step runs: a fresh worktree had none and every job failed at the
   // copy below (ENOENT, 2026-11-04)
-  if (!existsSync(join(ROOT, 'build', 'ts3-nointro.package'))) execFileSync(process.execPath, [join(ROOT, 'tools', 'harness', 'nointro.ts')], { stdio: 'ignore' });
+  if (!existsSync(join(ROOT, 'build', 'ts3-nointro.package'))) execFileSync(process.execPath, [join(ROOT, 'tools', 'harness', 'nointro.ts')], { stdio: ['ignore', 'ignore', 'inherit'] });
   // the game does not notice changed script mods, but rebuilding the cache costs startup time: clear it only when the
   // agent source or the Mods folder changed (the old csc builds differ byte-wise every time, so hash the inputs)
   const stampFile = join(ROOT, 'probe-out', 'scriptcache.stamp');
