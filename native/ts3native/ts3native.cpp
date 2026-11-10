@@ -17,7 +17,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.239"  // wdfix2-1110: 0.36.238 + [RouteAsync] WatchdogKind2 (docs/250 §7.1, default 0): PlanFromPoint hooked for the watchdog's A1 check only, own kind-2 STARTs accepted only with the watchdog tag, every other kind-2 call straight to the game (arWdPass, the old arReserved slot), GetOption2 q 9 for ts3fixes; 0.36.238 = rc1110c: 0.36.237 + the sync side of the same hole (docs/197 §7): KdSyncCeilUs gives a sync plan with no scope answer yet the household ceiling (KdSeenCeilMs) instead of its usual caps, KdKnownUnseen returns false with no answer (ReplanDedupe holds footprint repeats); ts3fixes marks (uf) unchanged; 0.36.237 = rc1110b: 0.36.236 + KdExempt household hole (docs/197 §7, docs/249): with KdExemptSeen=1 and no scope answer from ts3fixes yet (session start, older package) an unmarked route is unknown = household = exempt, not cut; 0.36.236 = s3ssguard-1109: 0.36.235 + docs/539 §22 [S3SSCompat] StaleWriteGuard (S3SS 1.6.3 SafeReassert call retargeted: its stale camera-threshold write goes to the live WorldManager+0xEC, not freed heap; stands aside for other S3SS builds); 0.36.235 = float5catch-1109b: 0.36.234 + docs/539 §21 DR own-write safety (WpVeh takes a hit on an address its slot just dropped and rewrites the thread's DRs to the slot table, ts3native-eip hits counted not handed on unless float 5, nested hits counted; bp-float5-catch-1 died of a declined single-step from our UafCheck fill under a rotating Float5Watch DR); 0.36.234 = float5catch-1109: 0.36.233 + docs/539 §21 [Float5Sticky] (DR write watch kept on the first float-5 address all session, save / world load checks, Portal_Save portal vector check), [Float5Watch] (last-OK windows, 250 ms sweep of outfits / SlotComponents, DR watches on the newest records around travel), [UafCheck] TravelHold; 0.36.233 = float5mono-1109b: 0.36.232 + [Float5Free] range rule (a 0x40A00000..0x40A0FFFF pointer is bad only with an unreadable / freed / zero-size chunk header; in-use blocks there pass, docs/539 §19.1), [MonoSigGuard] lines only for param_count 0 (docs/539 §20); 0.36.232 = float5mono-1109: 0.36.231 + [MonoSigGuard] (docs/539 §20, EA bug: 0xD70F90 read params[0] of a zero-parameter delegate signature (SwapLoadScreen) before its param_count check; release ini on); 0.36.231 = float5free-1109: 0.36.230 + [Float5Free] (docs/539 §19, float-5 pointers at EA Free 0x4E5920 sharing [UafCheck]'s detour, SACS Walker deque dtor 0x727E10 check, Guard skips); 0.36.230 = float5slot-1109: 0.36.229 + [SlotGuard] (docs/539 §18, SlotComponent slot arrays at clear / load / clone), [UafCheck] Object blocks (ObjectService free 0x935E1B, ObjectMaxSize, Object id) and foreign-jmp refusal, AsDetourCore NULL trampoline fix (UafCheck without AllocSites crashed at load); 0.36.229 = float5uaf-1109b: 0.36.228 + [UafCheck] free tags (uaftag.h: which of our paths freed a quarantined block), recently-freed ring, float5 near-our-free lookups, P5c released ring 64 -> 4096; 0.36.228 = float5uaf-1109: 0.36.227 + docs/539 §17 [UafCheck] delayed-free quarantine (counters v183 uaf*); 0.36.227 = float5trap-1109: 0.36.226 (master1109c) + docs/539 §16 [CasTrim] WriteTrap (DR write watches on [outfit+0xBC] cells, counters v181 tr*)
+#define TS3NATIVE_VERSION "0.36.240"  // launcherfix-1110: 0.36.239 + [LauncherFix] (docs/255, launcher host only, Enabled default 1): TSLHost.dll telemetry upload skipped (byte-checked call at +0x34535), so the job no longer busy-waits for Sims3Logs.xml; launcher host logs to ts3native.launcher.log, no work at detach; TS3W path unchanged; 0.36.239 = wdfix2-1110: 0.36.238 + [RouteAsync] WatchdogKind2 (docs/250 §7.1, default 0): PlanFromPoint hooked for the watchdog's A1 check only, own kind-2 STARTs accepted only with the watchdog tag, every other kind-2 call straight to the game (arWdPass, the old arReserved slot), GetOption2 q 9 for ts3fixes; 0.36.238 = rc1110c: 0.36.237 + the sync side of the same hole (docs/197 §7): KdSyncCeilUs gives a sync plan with no scope answer yet the household ceiling (KdSeenCeilMs) instead of its usual caps, KdKnownUnseen returns false with no answer (ReplanDedupe holds footprint repeats); ts3fixes marks (uf) unchanged; 0.36.237 = rc1110b: 0.36.236 + KdExempt household hole (docs/197 §7, docs/249): with KdExemptSeen=1 and no scope answer from ts3fixes yet (session start, older package) an unmarked route is unknown = household = exempt, not cut; 0.36.236 = s3ssguard-1109: 0.36.235 + docs/539 §22 [S3SSCompat] StaleWriteGuard (S3SS 1.6.3 SafeReassert call retargeted: its stale camera-threshold write goes to the live WorldManager+0xEC, not freed heap; stands aside for other S3SS builds); 0.36.235 = float5catch-1109b: 0.36.234 + docs/539 §21 DR own-write safety (WpVeh takes a hit on an address its slot just dropped and rewrites the thread's DRs to the slot table, ts3native-eip hits counted not handed on unless float 5, nested hits counted; bp-float5-catch-1 died of a declined single-step from our UafCheck fill under a rotating Float5Watch DR); 0.36.234 = float5catch-1109: 0.36.233 + docs/539 §21 [Float5Sticky] (DR write watch kept on the first float-5 address all session, save / world load checks, Portal_Save portal vector check), [Float5Watch] (last-OK windows, 250 ms sweep of outfits / SlotComponents, DR watches on the newest records around travel), [UafCheck] TravelHold; 0.36.233 = float5mono-1109b: 0.36.232 + [Float5Free] range rule (a 0x40A00000..0x40A0FFFF pointer is bad only with an unreadable / freed / zero-size chunk header; in-use blocks there pass, docs/539 §19.1), [MonoSigGuard] lines only for param_count 0 (docs/539 §20); 0.36.232 = float5mono-1109: 0.36.231 + [MonoSigGuard] (docs/539 §20, EA bug: 0xD70F90 read params[0] of a zero-parameter delegate signature (SwapLoadScreen) before its param_count check; release ini on); 0.36.231 = float5free-1109: 0.36.230 + [Float5Free] (docs/539 §19, float-5 pointers at EA Free 0x4E5920 sharing [UafCheck]'s detour, SACS Walker deque dtor 0x727E10 check, Guard skips); 0.36.230 = float5slot-1109: 0.36.229 + [SlotGuard] (docs/539 §18, SlotComponent slot arrays at clear / load / clone), [UafCheck] Object blocks (ObjectService free 0x935E1B, ObjectMaxSize, Object id) and foreign-jmp refusal, AsDetourCore NULL trampoline fix (UafCheck without AllocSites crashed at load); 0.36.229 = float5uaf-1109b: 0.36.228 + [UafCheck] free tags (uaftag.h: which of our paths freed a quarantined block), recently-freed ring, float5 near-our-free lookups, P5c released ring 64 -> 4096; 0.36.228 = float5uaf-1109: 0.36.227 + docs/539 §17 [UafCheck] delayed-free quarantine (counters v183 uaf*); 0.36.227 = float5trap-1109: 0.36.226 (master1109c) + docs/539 §16 [CasTrim] WriteTrap (DR write watches on [outfit+0xBC] cells, counters v181 tr*)
 #endif
 
 typedef unsigned char u8;
@@ -5399,6 +5399,9 @@ static bool ApplyD3dMultithreaded(const wchar_t* ini) {
     return false;  // start-up patch only: no periodic log needed
 }
 
+#include "launcherfix.cpp"  // docs/255: [LauncherFix] EA launcher telemetry busy-wait (launcher host only)
+static bool g_otherHost;  // not TS3W.exe (the launcher also loads the ASI loader): no exit work at DLL_PROCESS_DETACH
+
 static void Run(HMODULE self) {
     wchar_t path[MAX_PATH], ini[MAX_PATH], log[MAX_PATH], exe[MAX_PATH];
     bool keepLog = false;
@@ -5407,9 +5410,13 @@ static void Run(HMODULE self) {
     if (!n || n >= MAX_PATH) return;
     wchar_t* dot = wcsrchr(path, L'.');
     if (dot) *dot = 0;
+    GetModuleFileNameW(NULL, exe, MAX_PATH);
+    HMODULE base = GetModuleHandleW(NULL);
+    const wchar_t* name = wcsrchr(exe, L'\\');
+    g_otherHost = base != (HMODULE)0x400000 || _wcsicmp(name ? name + 1 : exe, L"TS3W.exe") != 0;
     swprintf_s(ini, L"%s.ini", path);
-    swprintf_s(log, L"%s.log", path);
-    CrPreLog(ini, log);  // [CrashReport]: the previous session's last lines, before the log is truncated
+    swprintf_s(log, g_otherHost ? L"%s.launcher.log" : L"%s.log", path);  // a launcher start must not truncate the game's log
+    if (!g_otherHost) CrPreLog(ini, log);  // [CrashReport]: the previous session's last lines, before the log is truncated
     char priorLog[64] = "";  // the version that wrote the old log: the only trace of the last installed build
     HANDLE oldLog = CreateFileW(log, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (oldLog != INVALID_HANDLE_VALUE) {
@@ -5424,15 +5431,14 @@ static void Run(HMODULE self) {
     GetLocalTime(&st);
     Log("ts3native " TS3NATIVE_VERSION " %04d-%02d-%02d %02d:%02d:%02d", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
     if (!strncmp(priorLog, "ts3native ", 10)) Log("prior log: %s", priorLog);
-    GetModuleFileNameW(NULL, exe, MAX_PATH);
-    HMODULE base = GetModuleHandleW(NULL);
-    const wchar_t* name = wcsrchr(exe, L'\\');
     // file name only: players send this log (docs/188 privacy); PE timestamp + SizeOfImage name the build (Steam 1.67
     // = 52DEC247 / 0xE5A000, EA app 1.69.47 TS3.exe = 6707155C / 0xEB5000) so a SKIP line from another edition is identifiable
     const IMAGE_NT_HEADERS* hostNt = (const IMAGE_NT_HEADERS*)((const u8*)base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
     Log("host %ls base 0x%p pe %08lX size 0x%lX", name ? name + 1 : exe, base, hostNt->FileHeader.TimeDateStamp, hostNt->OptionalHeader.SizeOfImage);
-    if (base != (HMODULE)0x400000 || _wcsicmp(name ? name + 1 : exe, L"TS3W.exe") != 0) {
+    if (g_otherHost) {
         Log("SKIP all: host is not TS3W.exe at 0x400000");
+        if (!_wcsicmp(name ? name + 1 : exe, L"Sims3LauncherW.exe") || !_wcsicmp(name ? name + 1 : exe, L"Sims3Launcher.exe"))
+            keepLog = ApplyLauncherFix(ini, hostNt->FileHeader.TimeDateStamp);
     } else {
         SeedWaitKeys();
         InstallXcptLog(ini);
@@ -5564,6 +5570,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
         // Patch now: the ASI loader runs before the exe's entry point, so before GC_init (lazy, first GC use).
         Run(inst);
     } else if (reason == DLL_PROCESS_DETACH) {
+        if (g_otherHost) return TRUE;  // launcher host: nothing was installed, nothing to wait for
         JcnExit();  // [MonoJit] Count: the last count report
         LuExit();  // [RouteSnap] LotUseReadout: the exit summary (last walk's bytes, final job counts)
         UdExit();

@@ -90,11 +90,12 @@ namespace Ts3Agent
         // for Sims out of view (more than 100 m from the camera and its target, not on screen): the most at once in a
         // vehicle or boat (Parent set, not a horse), in water deeper than 0.5 m (swimming or routing), and mounted on a horse
         // (Parent is a horse Sim); and every "stranded" sample (in water deeper than 0.5 m, no vehicle, not routing, not in a
-        // swim / boat / taxi interaction). {result, require} throws unless no Sim was stranded and the maxima reached
+        // swim / boat / taxi interaction; not on a non-world lot: Port Pyre's lot ground
+        // lies ~2 m below sea level and GetTerrainType says WorldSea there, release-verify-1111 + rerun 1111b). {result, require} throws unless no Sim was stranded and the maxima reached
         // min_engaged (vehicle + water) and min_mounted: a run where nobody rode or swam unseen proves nothing and fails
         // as "not exercised".
-        static int sWaterGen, sWaterSamples, sWaterMaxEngaged, sWaterMaxVehicle, sWaterMaxWater, sWaterMaxMounted;
-        static List<object> sWaterStranded = new List<object>();
+        static int sWaterGen, sWaterSamples, sWaterMaxEngaged, sWaterMaxVehicle, sWaterMaxWater, sWaterMaxMounted, sWaterLotGround;
+        static List<object> sWaterStranded = new List<object>(), sWaterLotGroundSeen = new List<object>();
         static object UnseenWaterWatch(Args a)
         {
             RequireLive();
@@ -102,8 +103,8 @@ namespace Ts3Agent
             if (a.Has("start"))
             {
                 int gen = ++sWaterGen;
-                sWaterSamples = sWaterMaxEngaged = sWaterMaxVehicle = sWaterMaxWater = sWaterMaxMounted = 0;
-                sWaterStranded = new List<object>();
+                sWaterSamples = sWaterMaxEngaged = sWaterMaxVehicle = sWaterMaxWater = sWaterMaxMounted = sWaterLotGround = 0;
+                sWaterStranded = new List<object>(); sWaterLotGroundSeen = new List<object>();
                 Simulator.AddObject(new Sims3.Gameplay.OneShotFunctionTask(delegate
                 {
                     while (gen == sWaterGen)
@@ -122,16 +123,18 @@ namespace Ts3Agent
             r["max_in_water"] = sWaterMaxWater;
             r["max_mounted"] = sWaterMaxMounted;
             r["stranded"] = sWaterStranded;
+            r["lot_ground_skipped"] = sWaterLotGround;  // below-sea samples on a non-world lot's dry ground (not stranded)
+            r["lot_ground_seen"] = sWaterLotGroundSeen;
             int minE = (int)a.Long("min_engaged", 0), minM = (int)a.Long("min_mounted", 0);
             bool ok = sWaterStranded.Count == 0 && sWaterMaxEngaged >= minE && sWaterMaxMounted >= minM && sWaterSamples > 0;
             r["check_ok"] = ok;
             if (a.Bool("require", false) && !ok)
-                throw new McpException(sWaterStranded.Count > 0 ? "unseen_water_watch: " + sWaterStranded.Count + " stranded sample(s): " + StrandedSummary(3)
+                throw new McpException(sWaterStranded.Count > 0 ? "unseen_water_watch: " + sWaterStranded.Count + " stranded sample(s): " + StrandedSummary(sWaterStranded.Count)
                     : "unseen_water_watch: not exercised (max engaged " + sWaterMaxEngaged + " < " + minE + " or max mounted " + sWaterMaxMounted + " < " + minM + ", samples " + sWaterSamples + ")");
             return r;
         }
 
-        // first n stranded samples as "name depth/above-sea interaction lot", so a failed check names its Sims in the log
+        // first n stranded samples as "name at x,z depth/above-sea terrain interaction lot", so a failed check names its Sims and spots in the log
         static string StrandedSummary(int n)
         {
             List<string> parts = new List<string>();
@@ -139,7 +142,7 @@ namespace Ts3Agent
             {
                 Dictionary<string, object> o = sWaterStranded[i] as Dictionary<string, object>;
                 if (o == null) continue;
-                parts.Add(o["name"] + " depth " + o["depth_m"] + " m, " + o["y_above_sea_m"] + " m above sea, '" + o["interaction"] + "', lot " + (o["lot"] ?? "none"));
+                parts.Add(o["name"] + " at " + o["x"] + "," + o["z"] + " depth " + o["depth_m"] + " m, " + o["y_above_sea_m"] + " m above sea, terrain " + o["terrain"] + ", '" + o["interaction"] + "', lot " + (o["lot"] ?? "none"));
             }
             return string.Join("; ", parts.ToArray());
         }
@@ -168,6 +171,11 @@ namespace Ts3Agent
                 else if (parent != null) vehicle++;
                 else if (depth > 0.5f && !aboveWater)
                 {
+                    TerrainType tt = World.GetTerrainType(p);
+                    // v2: World.GetTerrainType says WorldSea on Port Pyre's lot ground (rerun 11-10), so it cannot tell lot ground from water.
+                    // A Sim on a non-world lot that is not swimming / in a boat / routing (checked above) is in a lot interaction: not stranded.
+                    // shortcut: a Sim standing in sea water inside a community lot's bounds is missed; upgrade if such strands show up.
+                    bool lotGround = s.LotCurrent != null && !s.LotCurrent.IsWorldLot;
                     if (routing || swimOrBoat) water++;
                     else
                     {
@@ -175,8 +183,10 @@ namespace Ts3Agent
                         o["name"] = s.FullName; o["x"] = Math.Round(p.x, 1); o["z"] = Math.Round(p.z, 1);
                         o["depth_m"] = Math.Round(depth, 2); o["interaction"] = inter;
                         o["y_above_sea_m"] = Math.Round(p.y - sea, 2);
+                        o["terrain"] = tt.ToString();
                         o["lot"] = s.LotCurrent != null ? s.LotCurrent.Name : null;
-                        if (sWaterStranded.Count < 50) sWaterStranded.Add(o);
+                        if (lotGround) { sWaterLotGround++; if (sWaterLotGroundSeen.Count < 10) sWaterLotGroundSeen.Add(o); }
+                        else if (sWaterStranded.Count < 50) sWaterStranded.Add(o);
                     }
                 }
             }

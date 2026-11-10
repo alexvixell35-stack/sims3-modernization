@@ -14119,6 +14119,26 @@ static void TestCycles() {
            readNs, hz / 1e9, CycMsPerS(b1 - b0, 1.0), secs * 1000);
 }
 
+// [LauncherFix] (launcherfix.cpp): the TSLHost site as a tiny function; the patched bytes return 0x20 with a balanced stack
+static void TestLauncherFix() {
+    u8* m = (u8*)VirtualAlloc(NULL, 0x4000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    u8* site = m + 0x2000;
+    memcpy(site, kLfOrig, sizeof(kLfOrig));
+    site[8] = 0xC3;  // ret
+    const u8 callee[] = {0xB8, 0x28, 0x00, 0x00, 0x00, 0xC2, 0x04, 0x00};  // mov eax,28h ; ret 4 (the upload-failed result)
+    memcpy(site + 8 + (int)0xFFFFE7B3, callee, sizeof(callee));  // where the original rel32 points
+    assert(((int(__cdecl*)())site)() == 0x28);
+    site[1] = 0x8C;
+    assert(LfPatchSite(site) == -1 && site[0] == 0x50);  // other bytes: nothing written
+    site[1] = 0x8B;
+    assert(LfPatchSite(site) == 1 && !memcmp(site, kLfNew, sizeof(kLfNew)));
+    assert(((int(__cdecl*)())site)() == 0x20);
+    assert(LfPatchSite(site) == 0);
+    const LfUnicode yes = {22, 24, L"tslhost.DLL"}, no = {24, 26, L"TSLHost.dllx"}, other = {22, 24, L"TSLHost.exe"};
+    assert(LfIsTsl(&yes) && !LfIsTsl(&no) && !LfIsTsl(&other) && !LfIsTsl(NULL));
+    VirtualFree(m, 0, MEM_RELEASE);
+}
+
 int main() {
     setvbuf(stdout, NULL, _IONBF, 0);  // a crash keeps what was printed
     SetUnhandledExceptionFilter([](EXCEPTION_POINTERS* e) -> LONG {
@@ -14304,6 +14324,7 @@ int main() {
     TestIdleCheckC();
     TestMovedWaits();
     TestP6Waits();
+    TestLauncherFix();
     puts("selftest ok");
     return 0;
 }

@@ -77,7 +77,7 @@ import { parseArgs } from 'node:util';
 import { checkRequire, nativeWindowStep, numericFields, parseRequire, stepTally } from './fixes-require.ts';
 import { checkHitchTasks, parseHitchTasks } from './hitch-tasks.ts';
 import { checkTag, parseRule } from './frame-lead.ts';
-import { isSetup, runLoop, runStep, stopLine, untilUnlocked, withRule } from './repro-loop.ts';
+import { isSetup, runLoop, runSteps, stopLine, untilUnlocked, withRule } from './repro-loop.ts';
 import { loadStory } from './story-fuzzer.ts';
 import { parseRows, summarize as fixedWorkSummary } from './fixedwork-report.ts';
 import { abFixesClash, counterSwitches, nativeExports, nativeModeFields, nativeNames, nativeValues } from './native-switches.ts';
@@ -525,7 +525,8 @@ const reproStep = async (s: any) => {
   return r;
 };
 const reproRun = (async () => {
-  for (const s of reproSteps) await runStep(s, { ag, step: reproStep, sleep, now: Date.now, halted: () => stopped || Date.now() >= at(secs) }) // fixed waitS or adaptive waitUntil, then until (repro-loop.ts)
+  // fixed waitS or adaptive waitUntil, then until; after the window end the steps stop at the first until (repro-loop.ts runSteps)
+  await runSteps(reproSteps, { ag, step: reproStep, sleep, now: Date.now, halted: () => stopped || Date.now() >= at(secs), log: l => console.log(`${stamp()} ${l}`) })
     .catch((e: Error) => reproFail(`repro ${e.message}`));
   if (story) await story.run({ ag, sleep, halted: () => stopped || Date.now() >= at(secs), pre }).catch(e => reproFail(e.message)); // household creation failed: stop the job
   if (!reproLoop) return;

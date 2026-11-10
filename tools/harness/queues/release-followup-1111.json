@@ -1,0 +1,209 @@
+{
+ "note": "release-followup-1111 (2026-11-10): follow-ups to release-verify-1111 on pair rc1111, est ~63 min + smoke: ip-ubrel-boat-repro-1111b (boat repro with the fixed water watch, 20 min), bp-rel-reload-1111 (the save-matrix reload case, 25 min), bp-wdasync-stuck-repro-1111b (idle-unroutable repro with clock 10:00 + cancelled queue, 18 min). node tools/harness/queue.ts tools/harness/queues/release-followup-1111.json > probe-out/release-followup-1111-run.log 2>&1",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "asi": "game-copy/ts3native.asi.rc1111",
+   "releaseDefaults": true,
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "pinReason": "pair rc1111 (docs/data/builds.json, Sat 11-14 release candidate): asi game-copy/ts3native.asi.rc1111 (0.36.239, baaa4cfc) + ini game-copy/ts3native.ini.rc1111 (a0f698b9 = master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes game-copy/ts3fixes.package.rc1111 (b903aa9d, tuning 4b4eba25) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+   "ini": {
+    "RouteAsync.ForeignKinds": 4,
+    "RouteAsync.ForeignKindsMode": 1,
+    "RouteAsync.KdA10ForeignMs": 1000,
+    "HitchAttr.Enabled": 1,
+    "RouteAsync.LogFallbackMs": 20
+   },
+   "id": "ip-ubrel-boat-repro-1111b",
+   "save": "Baseline-IP-Spring",
+   "noiseCheck": false,
+   "note": "[release-followup-1111: rerun of release-verify-1111 ip-ubrel-boat-repro-1111 on pair rc1111] [est 20 min] Forced repro ip-unseen-boat-loop with the fixed unseen_water_watch (ts3agent from master, bugfix/release-followup-1111): a below-sea sample on a non-world lot whose World.GetTerrainType is not water (Port Pyre lot ground ~2 m below sea, Quiana Littlefield VisitCommunityLotLabLecture) counts in lot_ground_skipped / lot_ground_seen, not stranded; every stranded sample is logged with x,z, terrain and lot. Pass: unseenboat_shortcuts>=1, watch ok (min_engaged 3, stranded empty), ts3native 0.36.239.",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "fixesReport": "unseenboat,boatreplan_",
+     "minutes": 12,
+     "fixesOn": "unseenboatstart",
+     "repro": "ip-unseen-boat-loop"
+    }
+   },
+   "timeoutMin": 25,
+   "iniBase": "game-copy/ts3native.ini.rc1111",
+   "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+   "logRequire": {
+    "^ts3native 0.36.239 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.239 ": {
+     "match": [
+      "ts3native 0.36.239 2026-11-10 14:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.238 2026-11-10 01:30:00",
+      "ts3native 0.36.2390 2026-11-10 14:30:00"
+     ]
+    }
+   },
+   "rerunOf": "ip-ubrel-boat-repro-1111"
+  },
+  {
+   "id": "bp-rel-reload-1111",
+   "note": "[release-followup-1111: the reload case bp-rel-matrix-1111 left pending (run.script cannot do the restarts)] [est 25 min] save-matrix.ts --cases reload --fixes shipped as run.matrix + saveMatrix shipped: queue.ts runs both reload loads (restart, rc1111 asi/ini and fixesPackage again, cycle.ts --save, --reload-check [--off]). Pass: reload PASS (households match, 60 s at speed 3, no new ScriptErrors with ON), 0 crashes, ts3native 0.36.239.",
+   "asi": "game-copy/ts3native.asi.rc1111",
+   "save": "Baseline-BP-Spring",
+   "run": {
+    "matrix": [
+     "--cases",
+     "reload"
+    ]
+   },
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 45,
+   "iniBase": "game-copy/ts3native.ini.rc1111",
+   "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+   "pinReason": "pair rc1111 (docs/data/builds.json, Sat 11-14 release candidate): asi game-copy/ts3native.asi.rc1111 (0.36.239, baaa4cfc) + ini game-copy/ts3native.ini.rc1111 (a0f698b9 = master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes game-copy/ts3fixes.package.rc1111 (b903aa9d, tuning 4b4eba25) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "logRequire": {
+    "^ts3native 0.36.239 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.239 ": {
+     "match": [
+      "ts3native 0.36.239 2026-11-10 14:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.238 2026-11-10 01:30:00",
+      "ts3native 0.36.2390 2026-11-10 14:30:00"
+     ]
+    }
+   },
+   "saveMatrix": {
+    "fixes": "shipped"
+   }
+  },
+  {
+   "asi": "game-copy/ts3native.asi.rc1111",
+   "pinReason": "pair rc1111 (docs/data/builds.json, Sat 11-14 release candidate): asi game-copy/ts3native.asi.rc1111 (0.36.239, baaa4cfc) + ini game-copy/ts3native.ini.rc1111 (a0f698b9 = master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes game-copy/ts3fixes.package.rc1111 (b903aa9d, tuning 4b4eba25) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+   "releaseDefaults": true,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "HitchAttr.Holders": 1
+   },
+   "logRequire": {
+    "route async A10: .*WatchdogKind2=1": 1,
+    "watchdog idle verdict: Wogan Hemlock (A1|sync) False": 1,
+    "^ts3native 0.36.239 ": 1
+   },
+   "logForbid": {
+    "^FAIL\\b": 0,
+    "watchdogasync shadow mismatch:": 0,
+    "watchdog idle verdict: Wogan Hemlock (A1|sync) True @": 0,
+    "watchdog idle verdict: Wogan Hemlock \\S+ (True|False)( stale)? @\\S+ on (?!Community Lot)": 0
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "id": "bp-wdasync-stuck-repro-1111b",
+   "note": "[release-followup-1111: rerun of release-verify-1111 bp-wdasync-stuck-repro-1111 with the fixed repro bp-idle-unroutable] [est 18 min] Fix: repro now sets the clock to 10:00 (test_env hour) before place_sim and cancels his queue right after sim_strand, so the game cannot queue GoHome and the 60-minute GoHome reset (StuckWatchdog.Check) cannot beat CheckIdle. Same PASS rule as 1111: watchdog_idle_unroutable>=1 AND a \"watchdog idle verdict: Wogan Hemlock (A1|sync) False\" line AND no non-stale True verdict for him; new logForbid: any verdict line for him on a lot other than Community Lot fails the job (he left the diner lot before being judged).",
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "bp-idle-unroutable",
+     "fixesOn": "watchdogasync,watchdogasyncshadow,watchdoglockskip",
+     "fixesReport": "watchdogasync_,watchdog_,wd",
+     "fixesRequire": "watchdog_idle_unroutable>=1,watchdogasync_shadow_mismatch<1,watchdogasync_started>=1,wdLockSkip>=0",
+     "fixesOff": "unseenfbteleport"
+    }
+   },
+   "timeoutMin": 20,
+   "iniBase": "game-copy/ts3native.ini.rc1111",
+   "regexCases": {
+    "^FAIL\\b": {
+     "match": [
+      "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+      "FAIL uaf check: ring (err 8)"
+     ],
+     "noMatch": [
+      "OK   cas trim realm shape sites: 5 call sites",
+      "FAILED to open x",
+      "SKIP uaf check: EA heap Free not as expected"
+     ]
+    },
+    "watchdogasync shadow mismatch:": {
+     "match": [
+      "watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+     ],
+     "noMatch": [
+      "watchdogasync shadow: checks 12, mismatches 0"
+     ]
+    },
+    "route async A10: .*WatchdogKind2=1": {
+     "match": [
+      "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+     ],
+     "noMatch": [
+      "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0",
+      "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
+     ]
+    },
+    "watchdog idle verdict: Wogan Hemlock (A1|sync) False": {
+     "match": [
+      "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 False @307.55999755859375,1495.1800537109375 on Community Lot",
+      "ts3fixes: watchdog idle verdict: Wogan Hemlock sync False stale @307.56,1495.18 on Community Lot"
+     ],
+     "noMatch": [
+      "ts3fixes: watchdog idle verdict: Lenny Shutter A1 False @1335.48,1856.96 on Cliff Cottage - 1br, 2 ba",
+      "ts3fixes: watchdog idle verdict: Wogan Hemlock cache True @307.56,1495.18 on Community Lot",
+      "ts3fixes: watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+     ]
+    },
+    "watchdog idle verdict: Wogan Hemlock (A1|sync) True @": {
+     "match": [
+      "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 True @307.56,1495.18 on Community Lot"
+     ],
+     "noMatch": [
+      "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 True stale @307.56,1495.18 on Community Lot",
+      "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 False @307.56,1495.18 on Community Lot"
+     ]
+    },
+    "^ts3native 0.36.239 ": {
+     "match": [
+      "ts3native 0.36.239 2026-11-10 14:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.238 2026-11-10 01:30:00",
+      "ts3native 0.36.2390 2026-11-10 14:30:00"
+     ]
+    },
+    "watchdog idle verdict: Wogan Hemlock \\S+ (True|False)( stale)? @\\S+ on (?!Community Lot)": {
+     "match": [
+      "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 False @41.2,-17.85 on The Tidewater - 2br, 2ba"
+     ],
+     "noMatch": [
+      "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 False @307.56,1495.18 on Community Lot",
+      "ts3fixes: watchdog idle verdict: Lenny Shutter A1 False @1335.48,1856.96 on Cliff Cottage - 1br, 2 ba"
+     ]
+    }
+   },
+   "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+   "nativeRequire": "arStartedPlanFromPoint>=1,wdJobN>=1,arWdPass>=0",
+   "scriptErrorsReport": [
+    "CarrySystem:PutDownOnSurface[\\s\\S]*ServingContainer\\+PutAwayLeftovers:Run"
+   ],
+   "rerunOf": "bp-wdasync-stuck-repro-1111"
+  }
+ ]
+}

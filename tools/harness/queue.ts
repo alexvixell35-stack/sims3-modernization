@@ -441,8 +441,9 @@ export function parseQueue(json: unknown): Job[] {
     if (j.callSites !== undefined && typeof j.callSites !== 'boolean') throw new Error(`${at}: callSites must be true or false`);
     if (j.releaseDefaults !== undefined && typeof j.releaseDefaults !== 'boolean') throw new Error(`${at}: releaseDefaults must be true or false`);
     // fixesPackage: a shipped ts3fixes.package (path from the repo root) installed over cycle.ts's build/ copy before each start (repro jobs: the start-path controls, release-validate *-v016)
-    if (j.fixesPackage !== undefined && (typeof j.fixesPackage !== 'string' || !j.fixesPackage || j.fixesBuild !== undefined || !(j.run?.profile || j.run?.soak || j.run?.repro || j.run?.script)))
-      throw new Error(`${at}: fixesPackage must be a path, only on profile/soak/repro/script jobs, not with fixesBuild`);
+    // matrix too: its reload restarts reinstall the package (release-followup-1111 ran reload on a pinned pair)
+    if (j.fixesPackage !== undefined && (typeof j.fixesPackage !== 'string' || !j.fixesPackage || j.fixesBuild !== undefined || !(j.run?.profile || j.run?.soak || j.run?.repro || j.run?.script || j.run?.matrix)))
+      throw new Error(`${at}: fixesPackage must be a path, only on profile/soak/repro/script/matrix jobs, not with fixesBuild`);
     if (j.iniBase !== undefined && (typeof j.iniBase !== 'string' || !j.iniBase)) throw new Error(`${at}: iniBase must be a path from the repo root`);
     if (j.pinReason !== undefined && (typeof j.pinReason !== 'string' || !j.pinReason.trim())) throw new Error(`${at}: pinReason must be a non-empty text (why this job pins its asi/package)`);
     if (fridaAttach(j) && (j.callSites || Number(j.ini?.['ProbeSnap.CallSites']))) throw new Error(`${at}: ProbeSnap.CallSites with a second Frida agent (${fridaAttach(j)}): int3 traps + agent attach crashed the game (docs/67 §7); set run.profile.noProf (and drop the side probe) or callSites false`);
@@ -1088,6 +1089,23 @@ export const naRow = (row: { pass?: boolean; crashed?: boolean; timedOut?: boole
 export const isFail = (l: string) => /^(FAIL|UNKNOWN): |^[\w.\- ]+: (FAIL|UNKNOWN)\b/.test(l);
 // the last "hang capture: ..." summary a child printed (game-alive.ts captureHang), up to the dump/file part, or null
 export const hangCaptureLine = (out: string): string | null => [...out.matchAll(/hang capture: [^\r\n]*/g)].at(-1)?.[0].replace(/; (dump|probe-out|[A-Z]:\\|\/).*$/, '') ?? null;
+// release-mode reload (bp-rel-reload-1111, 2026-11-10): the first save-matrix.ts run prints "reload: PENDING" + "summary: 0 cases ... pending: reload"
+// and exits non-zero; the restarts' --reload-check runs print the real result. The final reload result decides:
+// PENDING then PASS = PASS (first run's PENDING/summary lines dropped, exit 0 unless a real FAIL is left), no PASS at the end = FAIL with that reason
+export function reloadFinal(first: string[], firstCode: number | null, reloads: { side: string; code: number | null; timedOut: boolean; out: string }[]): { verdict: string[]; exitCode: number } {
+  // save-matrix.ts --reload-check prints PENDING on the ON load (waits for OFF) and the combined result on the OFF load: only the last check decides
+  const verdict = first.filter(l => !/^reload: PENDING|^summary: .*pending: reload/.test(l));
+  let bad = false;
+  for (const r of reloads) {
+    const v = silentFail(r.code, r.out, r.timedOut);
+    verdict.push(...v.map(l => `reload ${r.side}: ${l}`));
+    const last = r === reloads[reloads.length - 1], ok = r.code === 0 && !r.timedOut && !v.some(isFail) && (last ? v.some(l => /^reload: PASS\b/.test(l)) : v.some(l => /^reload: (PASS|PENDING)\b/.test(l)));
+    if (!ok) { bad = true; if (r.code === 0 && !r.timedOut && !v.some(isFail)) verdict.push(`FAIL: reload ${r.side}: no "reload: PASS" line, still PENDING`); }
+  }
+  if (reloads.length < 2 && !bad) { bad = true; verdict.push(`FAIL: reload: only ${reloads.length} of 2 reload checks ran, still PENDING`); }
+  if (!bad) for (let i = verdict.length - 1; i >= 0; i--) if (/^reload (?!off)\w+: (reload: PENDING|summary: .*pending: reload)/.test(verdict[i])) verdict.splice(i, 1);
+  return { verdict, exitCode: bad || verdict.some(isFail) ? (firstCode || 1) : 0 };
+}
 // a child that failed with no verdict line gets one naming that (2026-10-16 bp-travel-future: stopped from outside, the md said "-")
 export function silentFail(code: number | null, out: string, timedOut: boolean): string[] {
   const v = verdicts(out);
@@ -1564,6 +1582,19 @@ if (values['self-check']) {
   assert.ok(isFail('identical: FAIL') && isFail('reload on: FAIL: x') && isFail('FAIL: x') && isFail('bp-x: UNKNOWN: sims_activity answered 1 times (expected: no stuck)'));
   assert.deepEqual(verdicts('12:00:00 bp-x: UNKNOWN: counters missing from /native: a (expected: b)'), ['bp-x: UNKNOWN: counters missing from /native: a (expected: b)']);
   assert.ok(!isFail('summary: 3 PASS, 0 FAIL') && !isFail('control: PASS') && !isFail('PASS: no FAIL lines'));
+  { // bp-rel-reload-1111 04:24-04:30: PENDING from the matrix run, then PASS from both --reload-check runs = PASS
+    const pend = '04:24:32 reload: PENDING (reload commands above)\n04:24:33 summary: 0 cases, 0 passed, 0 failed, pending: reload', pass = '04:30:34 reload: PASS';
+    const first = silentFail(1, pend, false), ok = (side: string) => ({ side, code: 0, timedOut: false, out: pass });
+    assert.deepEqual(first, ['reload: PENDING (reload commands above)', 'summary: 0 cases, 0 passed, 0 failed, pending: reload']);
+    assert.deepEqual(reloadFinal(first, 1, [ok('on'), ok('off')]), { verdict: ['reload on: reload: PASS', 'reload off: reload: PASS'], exitCode: 0 });
+    const still = reloadFinal(first, 1, [ok('on'), { side: 'off', code: 0, timedOut: false, out: '04:27:33 reload: PENDING (reload commands above)' }]);
+    const onPend = reloadFinal(first, 1, [{ side: 'on', code: 0, timedOut: false, out: '09:56:31 reload: PENDING (reload commands above)\n09:56:31 summary: 0 cases, 0 passed, 0 failed, pending: reload' }, ok('off')]); // reload-1110e: ON prints PENDING, OFF the result
+    assert.equal(onPend.exitCode, 0); assert.deepEqual(onPend.verdict, ['reload off: reload: PASS']);
+    assert.equal(still.exitCode, 1); assert.ok(still.verdict.some(l => /^FAIL: reload off: no "reload: PASS" line, still PENDING/.test(l)));
+    assert.equal(reloadFinal(first, 1, [ok('on')]).exitCode, 1);
+    assert.equal(reloadFinal(first, 1, [ok('on'), { side: 'off', code: 1, timedOut: false, out: '04:30:00 reload: FAIL' }]).exitCode, 1);
+    assert.equal(reloadFinal([...first, 'identical: FAIL'], 1, [ok('on'), ok('off')]).exitCode, 1);
+  }
   assert.deepEqual(silentFail(1, matrix, false), verdicts(matrix));
   { // docs/236 Round 9: N/A rows (offer never appeared) are neither PASS nor FAIL
     const na = 'N/A: not triggered: no dialog matching "x" in 6 min (1 windows); the offer never appeared (Steam edition: never seen there); nothing accepted';
@@ -1808,7 +1839,8 @@ if (values['self-check']) {
   assert.throws(() => parseQueue([{ id: 'sm', asi: 'x', save: 'S', skipIfMissing: true, run: { profile: { minutes: 1 } } }]), /skipIfMissing/);
   assert.throws(() => parseQueue([{ id: 'f5', asi: 'x', save: 'S', fixesPackage: 'p', fixesBuild: 'b', run: { soak: { minutes: 1 } } }]), /fixesPackage/);
   assert.equal(parseQueue([{ id: 'ib', asi: 'x', save: 'S', iniBase: 'game-copy/asi-v027/ts3native.ini', fixesPackage: 'game-copy/p', run: { script: ['idle-watch.ts'] } }])[0].iniBase, 'game-copy/asi-v027/ts3native.ini'); // idle-watch queue
-  assert.throws(() => parseQueue([{ id: 'f6', asi: 'x', save: 'S', fixesPackage: 'p', run: { matrix: [] } }]), /fixesPackage/);
+  assert.equal(parseQueue([{ id: 'f6', asi: 'x', save: 'S', fixesPackage: 'game-copy/p', run: { matrix: ['--cases', 'reload'] }, saveMatrix: { fixes: 'shipped' } }])[0].fixesPackage, 'game-copy/p'); // reload on a pinned pair
+  assert.throws(() => parseQueue([{ id: 'f6b', asi: 'x', save: 'S', fixesPackage: 'p', run: { saveReload: [] } }]), /fixesPackage/);
   assert.equal(parseQueue([{ id: 'f7', asi: 'x', save: 'menu', fixesPackage: 'game-copy/p', run: { repro: 'r' } }])[0].fixesPackage, 'game-copy/p'); // start-path controls
   const bdb = loadDb();
   assert.ok(bdb.some(b => b.name === 'ts3fixes.v0.1.5' && b.kind === 'ts3fixes'), 'build DB has the v0.1.5 release package');
@@ -2179,7 +2211,7 @@ if (values['dry-run']) {
     if (!items) console.log(`  7 ${r ? `node ${r.map(x => x.replace(ROOT + '\\', '').replace(/\\/g, '/')).join(' ')}` : j.run.soak ? `soak ${j.run.soak.minutes} min at ${j.run.soak.speed ?? 'ultra'} (autopilot + watchdog.ts)`
       : j.run.routelock ? `routelock ${j.run.routelock.minutes} min at ${j.run.routelock.speed ?? 'ultra'}: autopilot, /routelock?start=1, watchdog.ts, /routelock?stop=1 -> row.routelock`
       : j.run.worldimage ? `worldimage: require 'OK   world image' in ts3native.log; autopilot ${j.run.worldimage.speed ?? 'normal'}, settle ${j.run.worldimage.settleS ?? 60} s; ${j.run.worldimage.captures} x (write <OutDir>\\request, wait for the new wi-* folder's header.txt 'loose' line: progress check every 30 s, 2 misses = FAIL; gap ${j.run.worldimage.gapS ?? 30} s) -> row.worldimage (stall ms, MB, loose, lock owners, G3-1 statics read)` : `menu memory after ${j.run.menuMemory?.waitS ?? 60} s${j.run.menuMemory?.draws ? `, ${j.run.menuMemory.draws} RandomGen draws` : ''}`}`);
-    if (j.saveMatrix?.fixes === 'shipped') console.log(`  7 release mode (save-matrix.ts --fixes shipped); when its reload case is pending: for ON then OFF save: close game, cycle.ts --restart, asi + ini again, probe, cycle.ts --save <it>, save-matrix.ts --reload-check [--off]`);
+    if (j.saveMatrix?.fixes === 'shipped') console.log(`  7 release mode (save-matrix.ts --fixes shipped); when its reload case is pending: for ON then OFF save: close game, cycle.ts --restart, asi + ini (+ fixesPackage) again, probe, cycle.ts --save <it>, save-matrix.ts --reload-check [--off]`);
     if (loopOf(j)) { const l = loopOf(j)!; console.log(`  7 stop rule: ${ruleText(l.until)} (fixed before the run), arms ${l.arms.join(',')} repeated; cap ${Math.min(l.maxMinutes ?? j.run.profile!.minutes, j.run.profile!.minutes)} min (profile.minutes = cap)`); }
     if (j.minCounters !== undefined) console.log(`  7 refuse unless /native after the load reports counters >= v${j.minCounters}; full /native -> ${queueName}-<date>-${j.id}-native.json${j.ini?.['Verify.Enabled'] ? ' ([Verify] maxima zeroed after that read: live window)' : ''}`);
     console.log(`  8 /memory + /native (${['version', ...Object.keys(j.ini ?? {}).map(k => k.split('.')[0]).filter((v, i, x) => x.indexOf(v) === i)].join(', ')}) before/after; close game; ai-usage.ts G ${j.id}`);
@@ -2923,6 +2955,7 @@ for (const [n, j] of jobs.entries()) {
         afterRun = { mem: await get('memory'), native: await get('native') }; // the matrix load's numbers, not the reload loads'
         if (existsSync(LOG)) { const f = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-matrix-ts3native.log`); copyFileSync(LOG, f); row.phaseLogs = [...(row.phaseLogs ?? []), f]; }
         const pend = JSON.parse(readFileSync(join(ROOT, 'probe-out', 'save-matrix', 'reload-pending.json'), 'utf8'));
+        const rcs: { side: string; code: number | null; timedOut: boolean; out: string }[] = [];
         for (const side of ['on', 'off'] as const) {
           const name = String(pend[side]?.save ?? '');
           if (!name) throw new Error(`reload: no ${side} save in reload-pending.json`);
@@ -2930,6 +2963,7 @@ for (const [n, j] of jobs.entries()) {
           await closeGame(probe?.pid);
           const rr = await node([H('cycle.ts'), '--restart'], logFile, noGameDeadline(deadline));
           if (rr.code !== 0) throw new Error(`reload ${side}: cycle.ts --restart exit ${rr.code}`);
+          installFixesPackage(j); // --restart installs build/ts3fixes.package; a pinned job's package again
           copyFileSync(asiPath(j), join(BIN, 'ts3native.asi')); // --restart installs the source build; the job's asi and ini again
           writeFileSync(join(BIN, 'ts3native.ini'), mergeIni(baseIni(j), jobIni(j)));
           startProbe(j); // shortcut: the pinner watched the first TS3W.exe only; the reload loads run unpinned (no timing measured there)
@@ -2937,9 +2971,11 @@ for (const [n, j] of jobs.entries()) {
           if (ls.code !== 0) throw new Error(`reload ${side}: cycle.ts --save exit ${ls.code}${ls.timedOut ? ' (timeout)' : ''}`);
           logVersionGate();
           const rc = await node([H('save-matrix.ts'), '--reload-check', ...(side === 'off' ? ['--off'] : [])], logFile, deadline);
-          row.verdict.push(...silentFail(rc.code, rc.out, rc.timedOut).map(v => `reload ${side}: ${v}`));
-          if (rc.code !== 0 || rc.timedOut) { row.exitCode = rc.code || 1; row.timedOut ||= rc.timedOut; break; }
+          rcs.push({ side, code: rc.code, timedOut: rc.timedOut, out: rc.out });
+          if (rc.code !== 0 || rc.timedOut) { row.timedOut ||= rc.timedOut; break; }
         }
+        const fin = reloadFinal(row.verdict, row.exitCode, rcs); // the final reload result decides, not the first run's PENDING
+        row.verdict = fin.verdict; row.exitCode = fin.exitCode;
       }
       if (j.run.profile) row.stop = STOP_LINE.exec(r.out)?.[1] ?? null; // loop repro: 'stopped at N events after M min (...)' or the cap line
       // a loop that met its stop rule is not a failure of its own: when the child named a FAIL (e.g. fixes counters), the profile
@@ -2981,7 +3017,7 @@ for (const [n, j] of jobs.entries()) {
     row.memory.after = afterRun?.mem ?? await get('memory');
     const c1 = afterRun?.native ?? await get('native');
     if (j.nativeRequire) row.nativeDelta = flatDelta(c0, c1);
-    const idle = j.run.menuMemory || noOurs(j) ? '' : asyncIdle(jobIniText, c0, c1); // the hook can still fail after the check: plans prove it ran
+    const idle = j.run.menuMemory || j.run.matrix || noOurs(j) ? '' : asyncIdle(jobIniText, c0, c1); // the hook can still fail after the check: plans prove it ran
     if (idle) { row.verdict.push(`FAIL: ${idle}`); row.selfCheckFail = idle; }
     // forced repro loops exercise one path: a default-on feature the job's own ini does not name may idle there (2026-10-25:
     // DeferFootprint voided the boat and Overwatch verify jobs), so it is a note; natural and bundle runs keep the void

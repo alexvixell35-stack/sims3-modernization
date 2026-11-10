@@ -129,6 +129,7 @@ place_sim,ReproHandlers,Live,none: teleport (testingcheats / MasterController),c
 setup_sims,ReproHandlers,Live,"none: repro Sim setup (AGENTS.md): queues cancelled, teleport to the spot (teleport false: no move), motives maxed, moodlets cleared; skips only the waiting, the Sims then do the real actions",natural,,handler,live
 sim_go_home,ReproHandlers,Live,Go Home (active Sim) / autonomous for townies,natural,,handler,live
 sim_strand,ReproHandlers,Live,none: stands a Sim on an unroutable spot,stress,,handler,live
+sim_where,ReproHandlers,Any,none (read; fails when the Sim left the sim_strand spot),harness,,handler,none
 strand_many,HitchReproHandlers,Live,none,stress,,handler,live
 sim_visit_lot,ReproHandlers,Live,Go Here / Visit Lot on a lot,natural,active household Sim; townies go by autonomy or invitation,handler + R-HH-4,live
 sim_route_to,ReproHandlers,Live,Go Here,natural,active household Sim,handler,live

@@ -69,7 +69,7 @@
         "^ts3native 0.36.239 ": 1,
         "^compat: Apex Radiance found at start \\(ApexRadiance\\.asi (zzApexRadiance\\.asi )?mutex\\).*; ApexStandDown=1": 1,
         "^s3ss compat: stale write guard on \\(S3SS 1\\.6\\.3": 1,
-        "^ts3fixes: world: \\S+\\.world, lots \\d+": 6,
+        "^diag: world load #\\d+, uptime \\d+ min, ts3native": 7,
         "^diag: mem #\\d+ load ev=(travel,)?world-switch ": 6,
         "^diag: mem #\\d+ mark ev=away ": 3,
         "^diag: mem #\\d+ mark ev=home ": 3,
@@ -91,9 +91,9 @@
           "match": ["s3ss compat: stale write guard on (S3SS 1.6.3 sha 69ce87ee, known-buggy): SafeReassert call S3SS+0x28CDB retargeted; stale 4-byte heap target -> live WorldManager+0xEC"],
           "noMatch": ["s3ss compat: stale write guard stands aside (S3SS 1a2b3c4d not in the known-buggy list)", "s3ss compat: stale write guard off ([S3SSCompat] StaleWriteGuard=0)"]
         },
-        "^ts3fixes: world: \\S+\\.world, lots \\d+": {
-          "match": ["ts3fixes: world: Bridgeport.world, lots 83 (residential 46, with a household 30), households 55 with 259 Sims (active household 2), Sims in the world 100, objects 10991"],
-          "noMatch": ["ts3fixes: world quit", "diag: world load #1, uptime 1 min, ts3native 0.36.236, mods 163 packages (10 script) 5182 MB"]
+        "^diag: world load #\\d+, uptime \\d+ min, ts3native": {
+          "match": ["diag: world load #7, uptime 8 min, ts3native 0.36.239, mods 163 packages (10 script) 5182 MB"],
+          "noMatch": ["diag: memory at world load #7: private 2053 MB, committed 2641 MB", "ts3fixes: world quit"]
         },
         "^diag: mem #\\d+ load ev=(travel,)?world-switch ": {
           "match": ["diag: mem #9 load ev=travel,world-switch priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162", "diag: mem #3 load ev=world-switch priv=1651 wPriv=1599 t=90"],

@@ -23,6 +23,7 @@ namespace Ts3Agent
             Dispatcher.Register("setup_sims", SetupSims);
             Dispatcher.Register("sim_go_home", SimGoHome);
             Dispatcher.Register("sim_strand", SimStrand);
+            Dispatcher.Register("sim_where", SimWhere);
             Dispatcher.Register("strand_many", StrandMany); // HitchReproHandlers.cs
             Dispatcher.Register("posture_chain_check", PostureChainCheck); // HitchReproHandlers.cs, issue #89
             Dispatcher.Register("sim_visit_lot", SimVisitLot);
@@ -536,6 +537,7 @@ namespace Ts3Agent
                 if (p == Vector3.Invalid || s.IsPointInLotSafelyRoutable(lot, p)) continue;
                 s.InteractionQueue.CancelAllInteractions();
                 s.SetPosition(p);
+                sStrandSpot[s.SimDescription.SimDescriptionId] = p;
                 Dictionary<string, object> r = Util.Obj();
                 r["sim"] = s.FullName;
                 r["lot"] = lot.Name;
@@ -545,6 +547,36 @@ namespace Ts3Agent
                 return r;
             }
             throw new McpException("no unroutable spot in " + tries + " samples on " + lot.Name + " (try another lot or more tries)");
+        }
+
+        static readonly Dictionary<ulong, Vector3> sStrandSpot = new Dictionary<ulong, Vector3>();
+
+        // sim_where {sim, maxDist?, notRouting?}: position, lot, current interaction, routing, posture. With maxDist (m) it is a check against
+        // the spot sim_strand last put the Sim on: error when he is farther away (or, with notRouting, routing), so a repro step fails setup
+        // when something (Go Home) moved him before the watchdog could judge the spot.
+        static object SimWhere(Args a)
+        {
+            Sim s = Util.FindSim(a, "sim");
+            Dictionary<string, object> r = Util.Obj();
+            bool routing = s.SimRoutingComponent != null && s.SimRoutingComponent.IsRouting;
+            InteractionInstance cur = s.CurrentInteraction;
+            r["sim"] = s.FullName;
+            r["x"] = Math.Round(s.Position.x, 2); r["z"] = Math.Round(s.Position.z, 2);
+            r["lot"] = s.LotCurrent != null ? s.LotCurrent.Name : null;
+            r["interaction"] = cur != null ? cur.GetInteractionName() : null;
+            r["routing"] = routing;
+            r["standing"] = s.Posture == s.Standing;
+            Vector3 spot;
+            bool have = sStrandSpot.TryGetValue(s.SimDescription.SimDescriptionId, out spot);
+            if (have) r["from_strand"] = Math.Round((s.Position - spot).Length(), 2);
+            if (a.Has("maxDist"))
+            {
+                if (!have) throw new McpException("sim_where: no sim_strand spot recorded for " + s.FullName);
+                double d = (s.Position - spot).Length();
+                if (d > a.Double("maxDist")) throw new McpException("sim_where: " + s.FullName + " is " + Math.Round(d, 1) + " m from the strand spot (max " + a.Double("maxDist") + "), interaction " + (cur != null ? cur.GetInteractionName() : "none"));
+                if (a.Bool("notRouting", true) && routing) throw new McpException("sim_where: " + s.FullName + " is routing");
+            }
+            return r;
         }
 
         // sim_go_home {sim}: the game's own Sim.MakeSimGoHome (GoHome, or the virtual-home trip for homeless townies)

@@ -88,3 +88,6 @@ cross-process waits at startup and at DETACH. Not proven: there is no dump or `b
   processes before a new start.
 - Questions for the tester: see the report in the session (direct start with only Apex, only S3SS, without the
   bridge; Steam running or not; `bridge32.log`; dump).
+
+## 7. Tester tool: one-hang evidence
+`tools/diag/ts3-hang-diag.bat` (runs `ts3-hang-diag.ps1`; Windows-only on purpose: Toolhelp32, dbghelp, event log; Windows PowerShell 5.1, no admin). Run it while TS3W.exe is hung, or with `-Launch` (starts TS3W.exe directly, waits 90 s for a window, collects if none). Writes `Desktop\ts3-hang-diag-<time>\` + `.zip`: per-process facts and thread states, full loaded-module lists (WOW64 included: shows whether `d3d9.dll`, `WININET.dll`, `.asi` loaded), minidumps of TS3W.exe and NvRemixBridge.exe (stacks, no full memory), copied Remix/ts3native/S3SS/Apex logs with last-write times (stale = never ran), Bin listing, Application event log. Never kills anything unless `-KillAfter`. `-SelfCheck` tests it on a harmless child process. Not captured: managed Mono stacks, thread start addresses (the .NET API returns 0; read stacks from the dump), anything before the tester ran it.

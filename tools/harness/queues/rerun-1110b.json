@@ -1,0 +1,169 @@
+{
+ "note": "Reruns 2026-11-10: boat repro without Apex (run --only ip-ubrel-boat-repro-1110c), then Apex wdasync-stuck with Apex 3.0.0 in Bin (--only bp-apex300-wdasync-stuck-1110c).",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "asi": "game-copy/ts3native.asi.rc1111",
+   "releaseDefaults": true,
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "pinReason": "pair rc1111 (docs/data/builds.json, Sat 11-14 release candidate): asi game-copy/ts3native.asi.rc1111 (0.36.239, baaa4cfc) + ini game-copy/ts3native.ini.rc1111 (a0f698b9 = master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes game-copy/ts3fixes.package.rc1111 (b903aa9d, tuning 4b4eba25) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+   "ini": {
+    "RouteAsync.ForeignKinds": 4,
+    "RouteAsync.ForeignKindsMode": 1,
+    "RouteAsync.KdA10ForeignMs": 1000,
+    "HitchAttr.Enabled": 1,
+    "RouteAsync.LogFallbackMs": 20
+   },
+   "id": "ip-ubrel-boat-repro-1110c",
+   "save": "Baseline-IP-Spring",
+   "noiseCheck": false,
+   "note": "[rerun-1110b: copy of ip-ubrel-boat-repro-1111b, no Apex, ts3agent from master incl. water watch lot v2] [release-followup-1111: rerun of release-verify-1111 ip-ubrel-boat-repro-1111 on pair rc1111] [est 20 min] Forced repro ip-unseen-boat-loop with the fixed unseen_water_watch (ts3agent from master, bugfix/release-followup-1111): a below-sea sample on a non-world lot whose World.GetTerrainType is not water (Port Pyre lot ground ~2 m below sea, Quiana Littlefield VisitCommunityLotLabLecture) counts in lot_ground_skipped / lot_ground_seen, not stranded; every stranded sample is logged with x,z, terrain and lot. Pass: unseenboat_shortcuts>=1, watch ok (min_engaged 3, stranded empty), ts3native 0.36.239.",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "fixesReport": "unseenboat,boatreplan_",
+     "minutes": 12,
+     "fixesOn": "unseenboatstart",
+     "repro": "ip-unseen-boat-loop"
+    }
+   },
+   "timeoutMin": 25,
+   "iniBase": "game-copy/ts3native.ini.rc1111",
+   "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+   "logRequire": {
+    "^ts3native 0.36.239 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.239 ": {
+     "match": [
+      "ts3native 0.36.239 2026-11-10 14:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.238 2026-11-10 01:30:00",
+      "ts3native 0.36.2390 2026-11-10 14:30:00"
+     ]
+    }
+   },
+   "rerunOf": "ip-ubrel-boat-repro-1111"
+  },
+  {
+   "id": "bp-apex300-wdasync-stuck-1110c",
+   "note": "[rerun-1110b: copy of bp-apex300-wdasync-stuck-1110, needs Apex in Bin, repro keeps Wogan on the strand spot (idle-unroutable-hold)] [est 18 min] routing + watchdogasync with Apex 3.0.0 (Apex ObjectLookupIndex / ObjectIdMap answer the object lookups our route worker and the A1 watchdog job make): same checks as release-verify-1111 bp-wdasync-stuck-repro-1111 (repro bp-idle-unroutable, verdict False for Wogan Hemlock, no shadow mismatch) plus Apex found.",
+   "asi": "game-copy/ts3native.asi.rc1111",
+   "iniBase": "game-copy/ts3native.ini.rc1111",
+   "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+   "pinReason": "pair rc1111 (docs/data/builds.json, Sat 11-14 release candidate): asi game-copy/ts3native.asi.rc1111 (0.36.239, baaa4cfc) + ini game-copy/ts3native.ini.rc1111 (a0f698b9) + ts3fixes game-copy/ts3fixes.package.rc1111 (b903aa9d, tuning 4b4eba25) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+   "releaseDefaults": true,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "HitchAttr.Holders": 1
+   },
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "scriptErrorsReport": [
+    "CarrySystem:PutDownOnSurface[\\s\\S]*ServingContainer\\+PutAwayLeftovers:Run"
+   ],
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "bp-idle-unroutable",
+     "fixesOn": "watchdogasync,watchdogasyncshadow,watchdoglockskip",
+     "fixesReport": "watchdogasync_,watchdog_,wd",
+     "fixesRequire": "watchdog_idle_unroutable>=1,watchdogasync_shadow_mismatch<1,watchdogasync_started>=1,wdLockSkip>=0",
+     "fixesOff": "unseenfbteleport"
+    }
+   },
+   "nativeRequire": "arStartedPlanFromPoint>=1,wdJobN>=1,arWdPass>=0",
+   "timeoutMin": 20,
+   "logRequire": {
+    "^ts3native 0.36.239 ": 1,
+    "^compat: Apex Radiance found at start \\(ApexRadiance\\.asi (zzApexRadiance\\.asi )?mutex\\).*; ApexStandDown=1": 1,
+    "route async A10: .*WatchdogKind2=1": 1,
+    "watchdog idle verdict: Wogan Hemlock (A1|sync) False": 1
+   },
+   "logForbid": {
+    "^FAIL\\b": 0,
+    "watchdogasync shadow mismatch:": 0,
+    "watchdog idle verdict: Wogan Hemlock (A1|sync) True @": 0
+   },
+   "regexCases": {
+    "^ts3native 0.36.239 ": {
+     "match": [
+      "ts3native 0.36.239 2026-11-10 14:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.238 2026-11-10 01:30:00",
+      "ts3native 0.36.2390 2026-11-10 14:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(ApexRadiance\\.asi (zzApexRadiance\\.asi )?mutex\\).*; ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start",
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: none; ApexStandDown=0"
+     ]
+    },
+    "route async A10: .*WatchdogKind2=1": {
+     "match": [
+      "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+     ],
+     "noMatch": [
+      "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0",
+      "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
+     ]
+    },
+    "watchdog idle verdict: Wogan Hemlock (A1|sync) False": {
+     "match": [
+      "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 False @307.55999755859375,1495.1800537109375 on Community Lot",
+      "ts3fixes: watchdog idle verdict: Wogan Hemlock sync False stale @307.56,1495.18 on Community Lot"
+     ],
+     "noMatch": [
+      "ts3fixes: watchdog idle verdict: Lenny Shutter A1 False @1335.48,1856.96 on Cliff Cottage - 1br, 2 ba",
+      "ts3fixes: watchdog idle verdict: Wogan Hemlock cache True @307.56,1495.18 on Community Lot",
+      "ts3fixes: watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+     ]
+    },
+    "^FAIL\\b": {
+     "match": [
+      "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+      "FAIL uaf check: ring (err 8)"
+     ],
+     "noMatch": [
+      "OK   cas trim realm shape sites: 5 call sites",
+      "FAILED to open x",
+      "SKIP uaf check: EA heap Free not as expected"
+     ]
+    },
+    "watchdogasync shadow mismatch:": {
+     "match": [
+      "watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+     ],
+     "noMatch": [
+      "watchdogasync shadow: checks 12, mismatches 0"
+     ]
+    },
+    "watchdog idle verdict: Wogan Hemlock (A1|sync) True @": {
+     "match": [
+      "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 True @307.56,1495.18 on Community Lot"
+     ],
+     "noMatch": [
+      "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 True stale @307.56,1495.18 on Community Lot",
+      "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 False @307.56,1495.18 on Community Lot"
+     ]
+    }
+   }
+  }
+ ]
+}

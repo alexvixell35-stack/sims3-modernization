@@ -1072,6 +1072,14 @@
     "save": "Baseline-BP",
     "steps": [
       {
+        "cmd": "test_env",
+        "args": {
+          "hour": 10
+        },
+        "waitS": 3,
+        "note": "2026-11-10: clock to 10:00 first. In release-verify-1111 he was stranded at 3:41 AM, the game queued GoHome and StuckWatchdog.Check (60 sim-minutes, GoHome) reset him home before the idle case (CheckIdle) could fire"
+      },
+      {
         "cmd": "place_sim",
         "args": {
           "sim": "Wogan Hemlock",
@@ -1091,6 +1099,14 @@
         "note": "2026-11-10: autonomy off before stranding him; in release-verify-1110 bp-wdasync-stuck-repro his autonomy walked him off the spot before the 60 sim-minute rule. The watchdog does not read autonomy, so the idle case still applies"
       },
       {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Wogan Hemlock"
+        },
+        "waitS": 2,
+        "note": "v4 2026-11-10: game running (the profile unpaused it), so a sitting Sim stands up and anything queued ends before the strand. v3 paused across sim_strand: sim_where then read standing=false at the strand spot in both runs, and CheckIdle only judges a standing Sim (TownieUnseen also needs standing), so he was never judged there; no pause again (1111b, the one PASS, had none)"
+      },
+      {
         "cmd": "sim_strand",
         "args": {
           "sim": "Wogan Hemlock",
@@ -1099,11 +1115,45 @@
         "note": "samples the lot for a spot failing the game's routability check and stands him there; keep the camera away (unseen townie = 60 sim-minute rule, else one sim-day). tries 400 (default 40): wdasync-fix3-1110 failed setup with 'no unroutable spot in 40 samples' (one route plan per sample, a one-off setup hitch)"
       },
       {
-        "cmd": "set_speed",
+        "cmd": "cancel_interactions",
         "args": {
-          "speed": "ultra"
+          "sim": "Wogan Hemlock"
         },
-        "waitS": 2
+        "waitS": 1,
+        "note": "v4: right after the strand, as 1111b (this cancel caught a queued Go Home there)"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Wogan Hemlock"
+        },
+        "waitS": 1,
+        "note": "v4: two more within ~2 s (~15 sim-minutes at Triple): 1110c queued Go Home just after the first cancel"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Wogan Hemlock"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Wogan Hemlock",
+          "maxDist": 1,
+          "notRouting": true
+        },
+        "note": "v4: FAILS SETUP when he is > 1 m from the strand spot or routing, ~3 s after the strand (before the 60 sim-minutes, ~8 s at Triple). No later held check: the fix itself moves him once it judges the spot, and v3's 12 cancels over 6 real min spanned ~45 sim-hours (inferred from 7.6 sim-min/s) (the sim-day rules then reset him and he ended at home, 560 m away)"
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Wogan Hemlock"
+        },
+        "waitS": 30,
+        "optional": true,
+        "note": "v4: log only, ~30 s later (~4 sim-hours): where the fix (or anything else) put him"
       }
     ],
     "watch": {
@@ -1112,7 +1162,7 @@
       "min": 1,
       "minutes": 6
     },
-    "expect": "within ~70 sim-minutes recent/moved show 'Wogan Hemlock -> watchdog reset (idle on unroutable spot)' and he stands on a routable spot of the lot (or at its front door); watchdog_idle_verdicts >= 1, safespot_checks rises by at most one per pass for him; with --set watchdogidle=false he stays put (counter flat)",
+    "expect": "(setup: Wogan is within 1 m of the strand spot and not routing ~3 s after it; queue jobs require a 'Wogan Hemlock (A1|sync) False' verdict line. True verdicts for him are normal: at load, from his home spot, and after the fix moved him) within ~70 sim-minutes recent/moved show 'Wogan Hemlock -> watchdog reset (idle on unroutable spot)' and he stands on a routable spot of the lot (or at its front door); watchdog_idle_verdicts >= 1, safespot_checks rises by at most one per pass for him; with --set watchdogidle=false he stays put (counter flat)",
     "area": [
       312.4,
       1497

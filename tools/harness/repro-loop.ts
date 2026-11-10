@@ -176,6 +176,24 @@ export async function runStep(s: LoopStep, io: StepIO, read: string[] = []): Pro
   return { r, secs, why, rises: Object.fromEntries(names.map(n => [n, after[n] - before[n]])) };
 }
 
+// A repro's plain steps in order (profile-world). After the window end (io.halted) every until / waitUntil is skipped, so the
+// steps stop at the first step that needs one, or right after one whose wait the end may have cut: a later step would act on an
+// unsettled game (2026-11-10 bp-dfguard-release-1111: the window ended in cycle 7, cycle 8's place until was skipped and its fire
+// hit Sims mid-teleport). Fixed-wait steps still run to the end, as before. Returns the number of steps run.
+export async function runSteps(steps: LoopStep[], io: StepIO): Promise<number> {
+  let n = 0;
+  for (const s of steps) {
+    const waits = !!(s.until || s.waitUntil);
+    if (waits && io.halted()) break;
+    await runStep(s, io);
+    n++;
+    if (waits && io.halted()) break;
+  }
+  if (n < steps.length) (io.log ?? (l => console.log(`${new Date().toISOString().slice(11, 19)} ${l}`)))(
+    `repro steps stop at the window end: ${n} of ${steps.length} run (an until / waitUntil after the end is skipped, the next step would act unsettled)`);
+  return n;
+}
+
 const posInt = (n: unknown) => Number.isInteger(n) && (n as number) > 0;
 export function checkLoop(l: any): Loop {
   if (!l || typeof l !== 'object') throw new Error('loop must be an object');
@@ -446,6 +464,22 @@ if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/').replace(
   }
   g = game({}); d = await runStep({ cmd: 'strand_many', waitS: 3, between: 'normal' }, g.io);
   assert.deepEqual([d.why, d.secs, g.calls], ['fixed', 3, ['set_speed ultra', 'set_speed normal']]);
+  // runSteps: after the window end, stop at a step with an until (or right after one the end cut); fixed-wait steps run on
+  {
+    const ran: string[] = [], logs: string[] = [];
+    let halt = false;
+    const io: StepIO = { now: () => 0, sleep: async () => {}, halted: () => halt, log: l => logs.push(l),
+      step: async s => { ran.push(s.cmd); if (s.cmd === 'fire1') halt = true; return { ok: true, result: { met: true } }; }, ag: async () => ({ ok: true, result: { met: true } }) };
+    const u = { cmd: 'state', all: [{ path: 'met', equals: true }] };
+    assert.equal(await runSteps([{ cmd: 'a' }, { cmd: 'b', waitS: 1 }], io), 2);
+    ran.length = 0;
+    assert.equal(await runSteps([{ cmd: 'place1', until: u }, { cmd: 'fire1', until: u }, { cmd: 'cancel1', until: u }, { cmd: 'place2', until: u }, { cmd: 'fire2' }], io), 2);
+    assert.deepEqual(ran, ['place1', 'fire1']);
+    assert.match(logs.at(-1)!, /stop at the window end: 2 of 5 run/);
+    ran.length = 0;  // halted already: fixed-wait steps still run, the first until step stops them
+    assert.equal(await runSteps([{ cmd: 'x', waitS: 1 }, { cmd: 'place2', until: u }, { cmd: 'fire2' }], io), 1);
+    assert.deepEqual(ran, ['x']);
+  }
   // taskDone: needs the profiler's records
   await assert.rejects(runStep(fire({ waitUntil: { taskDone: 'Ts3Fixes.EaSpreadNow' }, maxS: 5 }), game({}).io), /io.taskDone/);
   g = game({}); g.io.taskDone = async (_n, since) => g.io.now() - since >= 3000;
