@@ -1109,3 +1109,21 @@ Status (2026-11-08 ~10:30 UTC): steps 1-4 below done; not merged, not run.
   4. Queue: C0 arm in `tools/harness/queues/jit-exits.json`: `bp/ip/sv-jit-exits-count`, 15 min, bundle switches on (as the bundle-on arms)
      + `Count=1`, logRequire the OK line with `Count=1` and a `jitcount: end` line; `--dry-run` only.
 - Not checked (at the source-only commit): whether it compiles; now built and selftested, see Status above.
+
+## Task 6 status (2026-11-10, f1-callpath + [MintFuse] Sub verify, master c2bb5ed, ts3native 0.36.239, asi tested)
+
+- **`[MonoFast] CallPath` (f1-callpath, IP, in-load `--ab mintcall`, both orders): no gain, stays default off** [measured].
+  Script ms/s per arm (arm-ms readout of the profile): on first 8.1 on / 8.1 off; off first 7.8 on / 7.3 off (+0.5). Both under
+  the 3-5 ms/s gate and inside the route noise of the same runs. The fixed-work bench says on vs off -5.91% (on first) and
+  -5.82% (off first), but the tool flags it itself: `clock step 2000 us: too coarse for the loop` and same-arm spread 1.05%,
+  so it is not used as a gain. The first off-first job was lost to the route-lock freeze of #338 (not mintcall) and was rerun
+  alone (`f1-callpath-m1110-j1.json`). Results: `results/2026-11-10-queue-f1-callpath-m1110.md`, `...-m1110-j1.md`.
+- **`[MintFuse] Sub` IP/SV verify: PASS on both** [verified] (BP passed twice before, on g2pair1108). Per job: no crash, no new
+  script errors, 0 watchdogs, `OK   mintfuse: superops also fused inside runs (matcher call 0x00E5C8CA)`, `mfReady` 1.
+  After the run: IP `mfRuns` 295,940, `mfInner` 62,518, `mfWhole` 11,813; SV 319,612 / 67,225 / 12,625 (inner:whole 5.3:1 in
+  game, host ~8:1). Results: `results/2026-11-10-queue-mintfuse-verify-m1110.md`.
+- SV ran with a townie leak-stress driver and two class censuses beside it (the contributor's leak rider, issue #40). Its
+  stuck-Sim repro save lists 10 stuck townies, vs 2 in the last plain SV job (sv-t2l0), and 7 of the 10 were rider targets
+  (tattoo, makeover, lifecycle, death). So that count is not read as a MintFuse effect. IP ran without the rider.
+- Open for default ON: a timing claim. `[MintFuse]` acts at transform time and has no runtime switch, so no in-load A/B is
+  possible; it needs a two-load pair on a clean night (docs/139 §7). Not run.
