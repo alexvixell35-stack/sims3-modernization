@@ -18,6 +18,8 @@ Paths below use placeholders: `<SteamLibrary>` is your Steam library (default `C
 | Git Bash | | the few `.sh` helpers (`tools/harness/restart-*.sh`, `tools/ghidra/run-headless.sh`) |
 | Optional: Ghidra 12 + JDK 21, `ilspycmd`, REA | | reverse engineering only (see docs/04 "How this was done") |
 
+Other C# compiler: `build-fixes.ts`, `build-agent.ts` and `layout-map.ts` take the compiler from `TS3_CSC` when it is set (for example a wrapper around Roslyn `csc.dll` from the .NET SDK on Linux). Releases are still built with the Windows `csc.exe`; a Roslyn build is not yet verified to load in the game's Mono.
+
 `build.cmd` has the Visual Studio path hard-coded (`...\2022\Professional\VC\Auxiliary\Build\vcvars32.bat`). With another edition, edit that line locally (or run `build.cmd` from an "x86 Native Tools Command Prompt" after removing the `call` line). Do not commit the change unless you make it detect the edition.
 
 ## Game script DLLs (one-time, from your own game)

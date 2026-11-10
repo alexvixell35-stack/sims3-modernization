@@ -9,7 +9,7 @@ import { join, resolve } from 'node:path';
 import { TYPE_S3SA, fnv64, s3saEncode, writePackage } from '../dbpf.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
-const CSC = 'C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\csc.exe';
+const CSC = process.env.TS3_CSC ?? 'C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\csc.exe'; // TS3_CSC: another C# compiler, e.g. Roslyn on Linux
 const REF_DIR = process.env.TS3_REF_DIR ?? join(ROOT, 'game-copy', 'assemblies'); // from tools/extract-assemblies.ts
 const REFS = ['mscorlib', 'System', 'System.Xml', 'ScriptCore', 'SimIFace', 'Sims3Metadata',
               'Sims3GameplaySystems', 'Sims3GameplayObjects', 'Sims3StoreObjects', 'UI'];
