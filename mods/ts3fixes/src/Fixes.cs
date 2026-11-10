@@ -134,7 +134,10 @@ namespace Ts3Fixes
 
         static bool Compiled(MethodInfo t) { return Marshal.ReadInt32(new IntPtr(t.MethodHandle.Value.ToInt32() + 0x14)) != 0; }
 
-        static List<object> AppliedLog() { return (List<object>)AppDomain.CurrentDomain.GetData("ts3fixes.applied"); }
+        internal static List<object> AppliedLog() { return (List<object>)AppDomain.CurrentDomain.GetData("ts3fixes.applied"); }
+
+        // A patch target from GetNestedType/GetType is null when that type is missing (e.g. a core mod without it)
+        static string TypeName(Type t) { return t != null ? t.Name : "<null>"; }
 
         // Counters, read by test tools: [0-3] go-home runs/shortcuts/no spot/loop guard, [4-6] buildings, [7-18] lot
         // trips (visit, visitlot, gotolot, gotocommunity: runs/shortcuts/no spot each), [21] houseboat placements,
@@ -556,7 +559,8 @@ namespace Ts3Fixes
                 case "compactionfail": return false;  // test only (Compaction.cs, docs/204 §6): the reload throws after the screen is up
                 case "spotspread": return true;
                 case "routefaillog": return true;  // ON in release (Rodney 2026-11-08): helps triage player reports in early releases
-                default: return true;
+                case "asyncroute": case "asyncreplan": case "asyncreplanforeign": case "overwatchstuck": case "savedstacks": case "gm6trace": case "savecleanup": return true;  // were on through the old default: true
+                default: return false;  // new switches default off (AGENTS.md); a typo stays off
             }
         }
 
@@ -582,7 +586,7 @@ namespace Ts3Fixes
                 AppliedLog().Add(target.Name + "." + method + ": ok");
                 return true;
             }
-            catch (Exception e) { AppliedLog().Add(target.Name + "." + method + ": " + e.Message); return false; }
+            catch (Exception e) { AppliedLog().Add(TypeName(target) + "." + method + ": " + e.Message); return false; }
         }
 
         // Off-screen go-home (PLAN fix b): a townie whose trip home nobody can see skips the walk/drive and appears on its
