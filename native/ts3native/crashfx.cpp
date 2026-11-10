@@ -1063,7 +1063,7 @@ static void CfRdata() {
 
 // 0x7B0A00: the stolen `je` is rel8, so InstallDetour cannot copy it; this trampoline re-encodes it
 static CfClrFn CfClrTramp() {
-    u8* t = (u8*)VirtualAlloc(NULL, 32, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    u8* t = TrampAlloc(32, "crash forensics guard 0x7B0A00");
     if (!t) return NULL;
     memcpy(t, kCfClrPro, 4);                                                  // cmp dword ptr [ecx+30h],0
     t[4] = 0x0F, t[5] = 0x84, *(LONG*)(t + 6) = (LONG)(0x007B0A24 - ((DWORD)(uintptr_t)t + 10));  // je 0x7B0A24

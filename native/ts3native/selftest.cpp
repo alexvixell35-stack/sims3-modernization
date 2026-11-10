@@ -13915,8 +13915,7 @@ static void TestDetourPublish() {
         assert(Write5(fn, code));  // original bytes back, atomically
         g_dtCalls = 0;
         while (g_dtCalls < 2) SwitchToThread();  // the spinner finished a call that began after the restore
-        VirtualFree(g_dtSlot, 0, MEM_RELEASE);
-        g_dtSlot = NULL;
+        g_dtSlot = NULL;  // a pool slot (TrampAlloc): never freed
         g_dtCalls = 0;
     }
     g_log = saved;
@@ -13925,6 +13924,36 @@ static void TestDetourPublish() {
     CloseHandle(th);
     VirtualFree(fn, 0, MEM_RELEASE);
     printf("detour publish order: %d installs under a spinning caller, slot set before the jmp\n", n);
+}
+
+// TrampAlloc (issue #40): trampolines are slots of a shared 64 KB RWX block, not one 64 KB reservation each
+static bool TaRwx(const u8* p, MEMORY_BASIC_INFORMATION* m) {
+    return VirtualQuery(p, m, sizeof(*m)) == sizeof(*m) && m->State == MEM_COMMIT && m->Protect == PAGE_EXECUTE_READWRITE;
+}
+static void TestTrampAlloc() {
+    u8* const a = TrampAlloc(32, "test a");
+    u8* const b = TrampAlloc(20, "test b");  // rounded up to 32
+    MEMORY_BASIC_INFORMATION m;
+    assert(a && b && a != b && (a + 32 <= b || b + 32 <= a) && !((uintptr_t)a & 15) && !((uintptr_t)b & 15));
+    assert(TaRwx(a, &m) && TaRwx(b, &m));
+    for (int i = 0; i < 32; i++) assert(a[i] == 0 && b[i] == 0);
+    a[0] = 0xB8, *(LONG*)(a + 1) = 5, a[5] = 0xC3;  // mov eax,5 ; ret
+    FlushInstructionCache(GetCurrentProcess(), a, 6);
+    assert(((int(__cdecl*)())(void*)a)() == 5);
+    // 2048 x 32 bytes fill exactly one block: wherever the current block stands, exactly one new block opens
+    const LONG blocks = g_trampBlocks;
+    const void* base = NULL;
+    u8* prev = NULL;
+    int bases = 0;
+    for (int i = 0; i < 2048; i++) {
+        u8* const p = TrampAlloc(32, "test n");
+        assert(p && !((uintptr_t)p & 15) && TaRwx(p, &m) && p[0] == 0);
+        if (m.AllocationBase != base) bases++, base = m.AllocationBase;
+        else assert(p == prev + 32);  // same block: back to back, no overlap
+        prev = p;
+    }
+    assert(g_trampBlocks == blocks + 1 && bases <= 2);
+    printf("trampoline pool: 2048 x 32 bytes in %d block(s) (%ld new), slots 16-aligned, RWX, zero-filled\n", bases, g_trampBlocks - blocks);
 }
 
 static void TestRemPatch() {
@@ -14168,6 +14197,7 @@ int main() {
     assert(((int(__cdecl*)())tramp)() == 42);
     TestDetourPublish();
     TestDetourCallRel();
+    TestTrampAlloc();
     TestRouteCache();
     TestRouteWorker();
     TestRouteBudget();
