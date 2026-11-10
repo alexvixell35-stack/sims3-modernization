@@ -155,7 +155,7 @@ Gains are not additive per group: an IC passes through only when every group it 
   - In the live IP session all 15 slots were still 0, Vector3 included: `0xD7BD40` is a rare marshal path, not the IC
     boundary's normal struct copy [inferred from the live read]. Only ICs that reach it need the A rows closed.
 
-- **R2b + R3a witness (2026-11-10, code written; build, selftest and game run pending):**
+- **R2b + R3a witness (2026-11-10, built, selftest ok, game run rw1c done; one word reclassified after it, rerun queued):**
   - `[AutShadow] RaceWitness=1` (default 0, test runs only): `AsRaceWitness` (autshadow.cpp) reads 43 words on the sim thread at
     each cut, right after the cut reads the epoch. Counters v914 (contributor block, `0x5F80`): `r2wOn`, `r2wCuts`, `r2wChanged`.
   - The words: the 31 R2 rows R2a classed load or unknown and the 6 R3 rows are expected stable; the 6 R2 rows R2a found written
@@ -166,8 +166,19 @@ Gains are not additive per group: an IC passes through only when every group it 
   - Selftest `TestAutShadowRaceWitness`: off reads nothing, the first cut only keeps values, a stable change counts and logs once,
     a second change counts without a second log, an epoch change only logs, a moving word logs and never counts.
   - Game run: `tools/harness/queues/races-witness.json`, one BP load, one trip to France and back, one quit, then 30 min of IP.
+  - Result (run rw1c, 2026-11-10, both jobs PASS, a leak census and holder scan ran beside both):
+    - BP travel job: `r2wCuts` 5, `r2wChanged` 0, no witness line. Only 5 cuts, so this job says little.
+    - IP 30 min: `r2wCuts` 251, `r2wChanged` 3, all three on one word, `0x11EE520` (log: `changed inside epoch 481:
+      0x19FC0000 -> 0x1A7C0000`). That word is Boehm's heap-size counter: `GC_win32_get_mem` `0xD70900` adds each new heap
+      section to it (mono-glue-closure.csv), so it grows whenever the GC heap grows, here by 8 MiB. Classing it "expected
+      stable" was the witness's mistake, not a race: the R3 claim for it is "written under the P3 GC lock", which a value
+      witness cannot test. It moved to the logged-only group (36 stable words now, 7 logged).
+    - The other 36 stable words: no change inside an epoch in 251 cuts. Across epochs `0x11EE520` and `0x11EE140` changed
+      (load-time lines); `0x11EE140` also changed inside an epoch, as R2a found (expected).
+    - Not shown: `r2wChanged` 0 with the new grouping (the IP job is queued again), and any word on a world other than
+      BP, France and IP.
 
-- **R1b pre-warm (2026-11-10, code written; build, selftest and game run pending):**
+- **R1b pre-warm (2026-11-10, built, selftest ok, game run rw1c done):**
   - `[AutShadow] RacePrewarm=1` (default 0, test runs only): `AsRacePrewarm` runs from `AsWorldEvent` at event 7, on the sim
     thread. Counters v915 (`0x5F8C`): `r1pOn`, `r1pRuns`, `r1pFills`; one log line per pass with the A guard before and after.
   - It calls the five lazy fills themselves (`0x7935B0`, `0x8A79B0`, `0x4D9AD0`, `0xC88D80`, `0x9B0530`: cdecl, no arguments,
@@ -177,3 +188,6 @@ Gains are not additive per group: an IC passes through only when every group it 
   - Selftest `TestAutShadowRacePrewarm`: fake fills and class lookup; off does nothing; each fill runs once; cold ones count;
     every clear slot is written before its bit; a set slot is kept; no host leaves the A slots.
   - Game run: job 2 of `races-witness.json` (IP, 30 min, with the witness on).
+  - Result (run rw1c): `r1pRuns` 1, `r1pFills` 17; log `autshadow race prewarm #1: 17 fills, A guard 0x0000 -> 0x7FFF`
+    (all 15 A slots filled and 2 of the 5 lazy fills were still cold at event 7). 30 min of IP after it: PASS, no crash,
+    no forbidden log line. Not measured: whether a worker would have hit a cold fill without it.

@@ -2752,7 +2752,8 @@ static DWORD g_asSimSeatIcs = 0x25;
 // the worker may treat as "set at load only" must keep its value between two cuts of one epoch (no world event between):
 // a change there is counted (r2wChanged) and logged once per word with both values. A change across epochs is a load-time
 // write, logged once per word and not counted. The 6 R2 words R2a found written at run time are read and logged too, never
-// counted. [AutShadow] RaceWitness=1, default 0 (test runs only).
+// counted; so is the R3 word 0x11EE520, Boehm's heap-size counter (GC_win32_get_mem 0xD70900 adds each new heap section
+// under the GC lock; run rw1c saw it grow by 8 MiB inside an epoch). [AutShadow] RaceWitness=1, default 0 (test runs only).
 static const DWORD kAsRaceWords[] = {
     // R2, r2a class load or unknown: expected stable inside an epoch
     TS3A(0x11D4BC8), TS3A(0x11CB864), TS3A(0x11ECBC4), TS3A(0x11E9158), TS3A(0x11ED034), TS3A(0x11E9114),
@@ -2762,12 +2763,14 @@ static const DWORD kAsRaceWords[] = {
     TS3A(0x11E8FC0), TS3A(0x11E90F8), TS3A(0x11E9290), TS3A(0x11E92A8), TS3A(0x11E94F8), TS3A(0x11EB490),
     TS3A(0x11EBAE0),
     // R3: expected stable
-    TS3A(0x11EE528), TS3A(0x11EE514), TS3A(0x11EE520), TS3A(0x11DC18C), TS3A(0x114C908), TS3A(0x11CC964),
+    TS3A(0x11EE528), TS3A(0x11EE514), TS3A(0x11DC18C), TS3A(0x114C908), TS3A(0x11CC964),
+    // R3 runtime (0x11EE520, grows with the GC heap): logged, never counted
+    TS3A(0x11EE520),
     // R2 runtime-lazy (0x114CA0C, 0x114CA08, 0x11CB928) and runtime (0x11D6A78, 0x11ED780, 0x11EE140): logged, never counted
     TS3A(0x114CA0C), TS3A(0x114CA08), TS3A(0x11CB928), TS3A(0x11D6A78), TS3A(0x11ED780), TS3A(0x11EE140),
 };
 static_assert(_countof(kAsRaceWords) == 43, "37 R2 + 6 R3 words, one log bit each in a u64");
-static const int kAsRaceStable = 37;  // the first 37 count in r2wChanged; the 6 after them only log
+static const int kAsRaceStable = 36;  // the first 36 count in r2wChanged; the 7 after them only log
 static int g_asRaceWitness;
 static const DWORD* g_asRwWords = kAsRaceWords;  // the selftest points these at its own words
 static int g_asRwN = _countof(kAsRaceWords);
