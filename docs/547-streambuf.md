@@ -1,11 +1,13 @@
 # 547. Memory stream buffers: the allocation site `0x4DEC17`, and `[StreamBuf]` (2026-11-11)
 
 Static RE on TS3W.exe 1.67 (Capstone disassembly of the retail copy, sha256 `b78a3d53...`, 14,510,400 bytes; every byte
-window quoted here was read from that copy), `native/ts3native/streambuf.cpp` with its selftest and host bench. **Nothing
-here has run in the game.** The measurements in §1 come from `[BigBlock]` Stats (docs/543, one 14 min run).
+window quoted here was read from that copy), `native/ts3native/streambuf.cpp` with its selftest and host bench. The
+measurements in §1 come from `[BigBlock]` Stats (docs/543, one 14 min run). **v1 (separate blocks) ran in the game: §14.
+v2 (§11 the arena, §12 the compressor's tables, §13 the package writer's buffers) has not: selftest only.** §6 describes
+the sites of v1, which v2 keeps unchanged; where §6 and §8 speak of the pool's blocks, §11 replaces them.
 
 Tags: [verified] = read in the disassembly, or exercised by the selftest; [measured] = a run's numbers; [inferred] =
-reasoning that the Stats run of §9 (a) has to confirm.
+reasoning that a game run has to confirm.
 
 ## 0. Short answer
 
@@ -18,13 +20,17 @@ reasoning that the Stats run of §9 (a) has to confirm.
   mips is 1,398,256 bytes, DXT1 699,192: with the header these are exactly the 1408 KB and 704 KB classes [inferred from
   the sizes]. EA's heap gives a request of 128 KB or more its own `VirtualAlloc` (docs/543), so each such stream costs one
   reserve + commit, ~340 first-touch page faults and one release.
-- **Fix:** `[StreamBuf] Pool=1` serves these buffers from a small pool of the module's own blocks and takes them back when
-  the game frees the stream's data. Three byte-checked sites in the stream code; the general allocator is not touched.
-  Default off.
+- **Fix:** `[StreamBuf] Pool=1` serves these buffers from memory of the module's own and takes them back when the game
+  frees the stream's data. Three byte-checked sites in the stream code; the general allocator is not touched. Default
+  off. v1 kept separate blocks; v2 keeps **one arena**: a single reservation made once, placed at the highest address
+  that fits, cut into 64 KB slices that are committed on use and decommitted when idle (§11). Its address-space cost is
+  the reservation and nothing else; v1's 48 MB of scattered blocks cost about 100 MB of the largest free range (§14).
+- **Two more consumers on the same arena (v2):** the RefPack compressor's work tables (`Scratch=1`, §12) and the package
+  writer's two record buffers (`Package=1`, §13).
 - **Why it is safe:** the buffer's lifetime is the SharedPointer's, and the game frees stream data in exactly two places
   [verified, whole `.text` searched]; both are hooked, and a pointer that is not the pool's goes to the game's free
   unchanged. The pool hands a reused block out zero-filled (default), as the OS hands out a fresh one.
-- **Host bench** (§8): 1365 KB buffer filled once: game path 288 us, pool 35 us (zero-filled) or 24 us (not filled).
+- **Host bench** (§8): 1365 KB buffer filled once: game path 342 us, arena 52 us (zero-filled) or 34 us (not filled).
 - **What it adds beside `[BigBlock]`:** this caller (41% of all direct-block traffic by count, 58% by bytes) stops
   reaching the direct path at all, with at most `PoolMB` held and nothing held 5 s after streaming stops.
 
@@ -166,25 +172,32 @@ the stack the sizer's return address lies: `how` and `at` of the `who` lines). I
 and the `who` rows stay empty.
 
 - **StbAlloc:** not armed = the game's call. Else counts the request; a request of `MinKB` to `MaxBlockMB` with `Pool=1`
-  takes the smallest idle block that fits with at most a quarter to spare (the most recently freed of that size), else a
-  new block (`VirtualAlloc`, size rounded up to 64 KB) while the pool owns less than `PoolMB` (idle blocks are released
-  oldest first to make room), else the game's own call (`fallback`). Everything else is the game's call with the same
-  arguments.
-- **StbFree:** a pointer whose 64 KB-aligned base has its bit in the owner bitmap (read without a lock) is the pool's
-  and becomes idle; every other pointer goes to the game's `Free` as before. A block handed out while the pool was on
-  comes home even after the pool is switched off.
-- **Upkeep** (own thread, 500 ms): idle blocks older than `IdleSec` go back to the OS, all of them when the pool is off.
-  Every 5 s: `Enabled`, `Stats`, `Pool`, `Zero`, `Verify` are read again from the ini (run-time kill switch), and the
-  three sites are compared with our bytes: a foreign change stops the module for the session.
+  takes slices of the arena (§11), else the game's own call (`fallback`). Everything else is the game's call with the
+  same arguments.
+- **StbFree:** a pointer inside the arena's range (a compare of two addresses, read without a lock; no memory is
+  touched) is the arena's and its slices become free; every other pointer goes to the game's `Free` as before. A block
+  handed out while the pool was on comes home even after the pool is switched off.
+- **Upkeep** (own thread, 500 ms): free slices nobody took for `IdleSec` are decommitted, all free ones when nothing
+  uses the arena any more. Every 5 s: `Enabled`, `Stats`, `Pool`, `Scratch`, `Package`, `Zero`, `Verify` are read again
+  from the ini (run-time kill switch), and every written site is compared with our bytes: a foreign change stops the
+  module for the session.
+- **The `who` rows (fixed in v2):** in the game every v1 row read `at=0x00000000 how=?` [measured]. The stub gave the
+  caller walk the address of its first parameter. The v1 build of that function carried a `/GS` cookie, and with it
+  the compiler's copies of the parameters among the locals; `&size` was the address of the copy, so the walk read the
+  stub's own frame and never found the constructor's return address [verified: disassembly of a v1 build, `mov
+  eax,[esp+158h]` / `mov [esp+4],eax` at the head and `lea eax,[esp+1Ch]` as the walk's argument]. v2 starts the walk
+  at the return address slot (`_AddressOfReturnAddress() + 1`), which no compiler option moves, and a selftest runs
+  the patched constructor and checks the frame the walk receives.
 - **Process exit:** the stubs pass through and take no lock.
 - **Apex Radiance:** no Apex site or hook lies in `0x4DE000`-`0x4DFFFF` (docs/data/apex-sites.csv, apex-hooks.csv), so
   there is no stand-down. `[BigBlock]`'s two call operands (`0x4E512C`, `0x4E5308`) are untouched.
 
-Log lines at every `diag: mem` mark: `streambuf: #n` (requests, big = 128 KB+, served = reused block, fresh = new pool
-block, fallback, tooBig, frees, xthreadFrees, grows, growCopyMB, poolMB, idleMB, inUseMB, peakInUseMB, peakPoolMB,
-liveN / peakLiveN, evicts, trims, zeroMs / zeroMB, errors: dfree, vaFail, uafw, unwrittenN / unwrittenKB, lost,
-untracked), `streambuf: sizes`, one `streambuf: who` per sizer (at, via, how, n, MB, big, maxKB, grows, served, fresh,
-fallback, frees, xthreadFrees, live, peakMB, avgLifeMs, under1s) and `streambuf: threads`.
+Log lines at every `diag: mem` mark: `streambuf: #n` (requests, big = 128 KB+, served = from the arena without a system
+call, fresh = from the arena with one commit call, fallback, tooBig, frees, xthreadFrees, grows, growCopyMB, liveN /
+peakLiveN, zeroMs / zeroMB, errors: dfree, vaFail, uafw, unwrittenN / unwrittenKB, lost, untracked), `streambuf: arena`
+(§11), `streambuf: sizes`, one `streambuf: who` per requester (at, via, how = SetSize / Write / SetPosition / Scratch /
+Package, n, MB, big, maxKB, grows, served, fresh, fallback, frees, xthreadFrees, live, peakMB, avgLifeMs, under1s) and
+`streambuf: threads`.
 
 **Verify** (debug): 1 = a freed block is filled with `0xB5` and checked when reused (`uafw`). 2 = also every pooled
 block is handed out filled with `0xA7` instead of zeros, and at the free the aligned 8-byte groups that still hold it are
@@ -196,38 +209,59 @@ byte reads `0xA7`, not 0, so a consumer that does depend on zeros misbehaves in 
 
 | Caller (BigBlock `at`) | What it is | Same fix? |
 |---|---|---|
-| `0x4A7216` (367 x 1.1 MB, 7 ms) | `ResourceLoad/PackedFile/PackedRecord`: the raw record read buffer in `0x4A7030` (allocator `[this+0x10]` vtable +8) | same pattern (transient buffer through `ICoreAllocator`), different site: needs its own alloc hook and its free site(s) found |
-| `0x4A89F7` (260, 8 ms) | `ResourceLoad/PackedFile/RecordData`: the decoded record (`size + 0x10`) of the sync path | as above |
+| `0x4A7216` (367 x 1.1 MB, 7 ms) | `ResourceLoad/PackedFile/PackedRecord`: the packed output buffer of a record write, allocated in `0x4A7030` (allocator `[this+0x10]` vtable +8) | built in v2: `Package=1`, §13 (the v1 text called it a read buffer: wrong, it is the write side) |
+| `0x4A89F7` (260, 8 ms) | `ResourceLoad/PackedFile/RecordData`: the record's bytes (`size + 0x10`) read back for that write, in the commit `0x4A8910` | built in v2: `Package=1`, §13 |
 | `0x7E9010` via `0xB709E8` (58 x 7.9 MB, 42 ms) | the real caller is `0xB709E8`: an EASTL vector growing by doubling (`lea ecx,[eax+eax]`, `EASTL/allocator.h`); `0x7E9010` follows a plain call, not an allocation, so it is a stale stack word | no: container growth; a `reserve` at its owner would be the fix |
 | `0x6169AD` (183, 0 ms) | `Memalign(16)` scratch in `0x6165A0` | no (aligned scratch, own site) |
-| `0x4EC140` (384, 0 ms) | `Services/UTFFoundation/CompressionRefPack`: the compressor's hash tables | no (`[SaveCompress]` territory) |
+| `0x4EC140` (384, 0 ms), `0x4EC122` | `Services/UTFFoundation/CompressionRefPack`: the compressor's two work tables | built in v2: `Scratch=1`, §12 |
 | `0x4445B9` (45, 84 ms) | `UI/EAGimex/Buffer`: an image decode raster | no (rare) |
-
-The pool functions take any size and pointer, so the two PackedFile sites could be added as further hooks later.
 
 ## 8. Selftest and host bench [verified]
 
-`streambuf-test.h` (in `selftest.exe`): size policy; the sizer read from a stack laid out as the checked code leaves it;
-the pool step by step (reuse, zero fill, no cross-size reuse, small / too big / pool full to the game, eviction, double
-free, idle release, kill switch, process exit, Verify 1 and 2, Stats alone); a randomized run of 6000 steps (fixed seed)
-against the policy written the plain way, with every block filled with a signature and checked at its free (716 reused,
-840 new, 200 to the game, 613 idle releases, 219 evictions); four threads freeing each other's blocks; and the patches:
-**patched copies of the game's constructor and Release bytes are executed** against a fake allocator (fields, stack
-balance, refcount path, small request, "free the data" clear), Realloc's copy is patched and compared, a foreign byte
-blocks the install, a changed site stops the module.
+`streambuf-test.h` (in `selftest.exe`), v2:
 
-Bench, per buffer, 300 each (low priority, 4 cores, a game running beside it):
+- size policy, the range test, the Verify helpers; the sizer read from a stack laid out as the checked code leaves it;
+- **placement** (`StaPlace`) against made-up free-range lists and the two measured in the game (start and end of a
+  travel run): the top of the large range, a smaller range above it preferred, ends off the 64 KB grid, a range that
+  is long enough but not from a boundary, the last user address without overflow, the `MinFreeMB` floor; then the
+  scan of the test process's own map, and the reservation made from it checked with `VirtualQuery` (one region, nothing
+  committed); no arena = every request to the game;
+- the arena step by step: commit on first use, the same slices again without a system call and zero-filled, best fit
+  (the smaller run first), a block split between two later requests, small / too big / full arena to the game,
+  `stranded` (enough free slices, no run), double free, a pointer into a block, idle decommit with a neighbour's own
+  clock, recommit as zeros without a fill, kill switch, process exit, Verify 1 (also across a split) and 2, `Zero=0`,
+  Stats alone;
+- a **randomized run of 8000 steps** (fixed seed, the measured sizes plus random ones, a 12 MB arena driven to full)
+  against the arena written the plain way: every slice's state compared after every step, every block filled with a
+  signature and checked at its free, and every 250 steps the OS asked whether the range is still one reservation with
+  exactly the model's slices committed (1506 served without a system call, 559 with a commit, 1301 to the game of
+  which 429 stranded, 476 decommits);
+- **four threads** freeing each other's blocks while a fifth runs the decommit tick with a 3 ms idle time (12,000
+  requests, nothing lost, the OS's committed bytes equal the module's count at the end);
+- the patches: **patched copies of the game's constructor and Release bytes are executed** against a fake allocator
+  (fields, stack balance, refcount path, small request, "free the data" clear, and the frame the caller walk is
+  handed); Realloc's copy is patched and compared; **each of the ten patched windows of the compressor and the package
+  writer is executed on its own** with the registers and frame slots the game has there (pointer and size reach the
+  stub, stack and callee-saved registers come back unchanged, the allocation calls end at the game's return
+  addresses); a foreign byte in any function blocks that part's install; a changed site stops the module; Scratch off
+  for Apex, parts whose sites are not written cannot be switched on.
 
-| | 1365 KB filled once | not touched | 682 KB filled once | not touched |
-|---|---|---|---|---|
-| game path (VirtualAlloc + release) | 287.9 us | 4.7 | 151.1 us | 3.6 |
-| pool, `Zero=1` | 35.3 us | 13.2 | 19.0 us | 7.2 |
-| pool, `Zero=0` | 23.9 us | 0.1 | 12.8 us | 0.1 |
+Bench, us per buffer, 300 each (low priority, 4 cores, a game running beside it); "filled once / not touched":
 
-The game path's cost is the first touch of fresh pages, not the two system calls. At 25 buffers per second the saving is
-about 6 ms/s: small. The value is the address space: 24,000 reserve / release cycles become a handful of blocks.
+| | 1365 KB | 682 KB | 512 KB (a compressor table) |
+|---|---|---|---|
+| game path (VirtualAlloc + release) | 341.7 / 6.6 | 161.3 / 4.8 | 128.7 / 3.8 |
+| arena, `Zero=1` | 51.9 / 18.6 | 21.5 / 6.6 | 14.3 / 4.8 |
+| arena, `Zero=0` | 34.3 / 0.5 | 16.3 / 0.3 | 10.6 / 0.3 |
+| arena, cold (every block committed and decommitted) | 331.6 / 10.1 | 156.5 / 6.6 | 118.1 / 5.3 |
 
-## 9. Test plan (game runs; none done)
+The best-fit search itself: 0.50 us per request + free in a 48 MB arena with 17 blocks live and 17 holes.
+
+The game path's cost is the first touch of fresh pages, not the two system calls; a cold arena block costs the same,
+which is why slices stay committed for `IdleSec`. At 25 buffers per second the saving is about 6 ms/s: small. The value
+is the address space: tens of thousands of reserve / release cycles become one reservation.
+
+## 9. Test plan (written for v1; (a)-(c) were run with v1, §14; the v2 runs are in §11.6)
 
 All with `[MemDiag]` on (the `diag: mem` marks) on the 2-trip travel loop. `[BigBlock] Enabled=1 Stats=1` beside it
 gives the `who` line of `0x4DEC17`.
@@ -277,3 +311,261 @@ largest free block over a long session, not (d).
   `IdleSec`. A failed `VirtualAlloc` falls back to the game's path (`vaFail`).
 - `Zero=0` is unproven until run (b) says `unwrittenN=0`.
 - The sizer attribution reads fixed stack slots; it is used for the log only.
+- v2: the arena's `PoolMB` of address space is held for the whole session, also while nothing streams (v1 gave its
+  blocks back). It is never released, so a session that runs out of address space elsewhere cannot get it back.
+- v2: a block that the game never frees (a load that throws between allocation and free) keeps its slices for the
+  session; with the game's allocator the same event leaks the same bytes.
+- v2: freed arena memory stays readable and is reused within milliseconds, where the game's released block faulted on
+  a late access. A use after free in a consumer turns from a crash into silent reuse; `Verify=1` exists to look for it.
+
+## 11. The arena (v2) [verified by the selftest; not run in the game]
+
+### 11.1 Why
+
+v1 made one `VirtualAlloc` reservation per pool block. In the game its 48 MB pool showed as 385 extra private regions
+of 1 MB or less (+76 MB) spread through the address space, and the largest free range was about 100 MB smaller than
+without the module at all three home windows of a travel run [measured, §14]: twice the pool's size, because every
+scattered block also cuts a free range in two. `[BigBlock]`'s reuse cache, which keeps the game's own reservations
+where they were, cost nothing in the same run.
+
+### 11.2 Design and where it comes from
+
+One reservation of `PoolMB` (default 48), made once, cut into 64 KB slices (the unit Windows reserves in). One state
+byte per slice, outside the arena: in a block, first slice of a block, committed, poisoned, being decommitted.
+
+| Decision | Taken from | Changed for this case |
+|---|---|---|
+| One reserved range, fixed slices, a freed range reusable at once, decommit ("purge") later and only for ranges that stayed free, which the purge first claims so no request can take them half-way | mimalloc's arena (`src/arena`, MIT). The design only; no code was copied | 64 KB slices instead of 32 KB; one idle clock per slice instead of one expiry per arena (a few hundred slices: the cost is nothing, and a hot slice is never decommitted because a cold neighbour expired) |
+| All bookkeeping outside the managed memory; "is this pointer mine" = a range compare on the one reservation | the large-block heap of the New Vegas Heap Replacer (a 32-bit game's allocator replacement; GPL-2.0: idea only) | nothing is ever read from or written to arena memory to manage it, so free slices can be decommitted and a foreign pointer is never touched |
+| Placement at the highest address that fits | Chromium PartitionAlloc searches its pool from the end for transient reservations (`FindChunkFromEnd`; BSD) | computed from a `VirtualQuery` scan of the live map, so the log can say which free range was taken and what it cost (§11.3) |
+| A recommitted page is zero, a reset one is not | Microsoft's `VirtualAlloc` documentation | used: only slices that kept an older block's bytes are zero-filled; newly committed ones are not touched (mimalloc does not use this on Windows) |
+
+Looked at and not taken: TLSF (O(1) and low fragmentation, but it keeps block headers and free-list links inside the
+managed memory, so a free block's first and last page could never be decommitted); Scudo's secondary cache and
+rpmalloc's span cache (caches of separate mappings: what v1 and `[BigBlock]` already are); jemalloc's decay curve (its
+middle state needs `MADV_FREE`, which Windows lacks; a plain idle time gives the same result here); PartitionAlloc's
+own 32-bit mode (it has no pool on 32-bit: one reservation per request); size classes inside the arena (§11.4).
+
+### 11.3 Placement
+
+Rule (`StaPlace`): among the free ranges of the address space, the highest 64 KB boundary at which `PoolMB` fits.
+`StaReserve` scans the map with `VirtualQuery`, reserves at that address, scans once more if another thread took the
+place in between, and as a last resort asks the OS with `MEM_TOP_DOWN` (the same rule, applied by the OS). No
+reservation, or one that would cut the largest free range below `MinFreeMB` (512): no arena, and every request takes
+the game's own path. The arena is reserved at DllMain when a part that uses it is on in the ini, else by the module's
+own thread when such a part is first switched on; never on a game thread.
+
+Evidence [measured: address-space maps of two travel runs, in-process renderer, 16 snapshots each]:
+
+| Run | 45 s after the start: free ranges of 32 MB and more | End of the run |
+|---|---|---|
+| nothing on | `0x6D473000` + 96 MB, `0x772D9000` + 141 MB, `0x95FF0000` + 1692 MB | `0xB5AC0000` + 1185 MB only |
+| `[BigBlock]` with top-down blocks | `0x7D260000` + 45 MB, `0x7FFE3000` + 1793 MB | `0xAC740000` + 1035 MB, `0xEE506000` + 34 MB |
+
+- After the first minute there is one large free range and nothing else of 32 MB or more: every middle-sized range is
+  filled by the game's bottom-up allocations. A 48 MB reservation therefore always costs 48 MB of the large range or of
+  something the game would have used instead of it; the aim is that it never costs more.
+- The large range's lower edge rose by about 500 MB during the run (`0x95FF0000` to `0xB5AC0000`): that is where the
+  game grows, and where blocks of mixed lifetimes pile up. Its upper edge did not move (`0xFFBF0000` in the first run
+  from the first snapshot to the last).
+- So the upper edge is the one place where a permanent block can never end up between two ranges that would otherwise
+  join when the game frees memory, and where it is out of the way of the growth. A block at the lower edge costs the
+  same on the day it is made, but everything allocated before it lies below it, and when that is freed the hole
+  cannot join the large range.
+- When a smaller range above the large one fits (the 34 MB one in the second run would fit a 32 MB arena), the rule
+  takes it and the large range is not touched.
+- Pointers above `0x80000000` are nothing new for the consumers: in both runs the game's own blocks were already being
+  placed above `0x95000000` 45 s after the start.
+
+The start line names the choice: `streambuf: arena reserved: 0x...-0x..., 48 MB, one reservation, nothing committed; at
+the top of the free range 0x... + N MB (rule: the highest address that fits; K free ranges could hold it); largest free
+range before: 0x... + N MB, after: N MB`.
+
+### 11.4 Layout inside the arena
+
+A request of n bytes takes ceil(n / 64 KB) whole slices: the smallest free run that holds them, the lowest on a tie
+(best fit). No size classes: the dominant sizes (576, 704, 1408, 2752, 3456, 4096, 5504 KB = 9, 11, 22, 43, 54, 64, 86
+slices) are not multiples of each other, so classes would strand space, while runs of slices split and join for free
+(a freed block's slices are simply free; neighbours need no merge step). Committed and decommitted slices count the
+same for the search.
+
+An offline comparison on that size mix (weights assumed, lifetimes 18 ms, arrival rate swinging between 0.3 and 2.2
+times the mean; 200,000 requests per cell; the load is far above the game's so that requests are refused at all)
+counted the requests no run could serve:
+
+| Arena, mean bytes live | first fit (lowest address) | best fit | two-ended (under 2 MB low, larger high) |
+|---|---|---|---|
+| 48 MB, 8 MB | 46 | 36 | 42 |
+| 48 MB, 12 MB | 744 | 572 | 618 |
+| 48 MB, 16 MB | 2561 | 2312 | 2528 |
+| 64 MB, 12 MB | 36 | 21 | 39 |
+
+Best fit refused the fewest in every cell, so it is what the module does. The search is a walk over the state bytes
+(768 for 48 MB) under the module's lock: 0.5 us per request and free on the host (§8).
+
+Size: the measured peak of stream buffers in use is 27.4 MB; v1's 48 MB pool reused a block for 94% of the requests
+and a 16 MB one for 78% [measured]. In an arena a request is refused only when no run of free slices holds it, so 48 MB
+leaves 1.75 times the measured peak. The run-time counter `stranded` (requests refused although enough slices were
+free) says whether fragmentation ever costs a request in the game.
+
+### 11.5 Commit policy
+
+- Slices are committed when a block first needs them: one `VirtualAlloc(MEM_COMMIT)` from the first to the last
+  uncommitted slice of the block (zero pages; a committed slice in between keeps its bytes). Counted as `fresh`.
+- A block whose slices are all committed costs no system call (`served`). With `Zero=1` the slices that held an older
+  block are zero-filled over the requested bytes.
+- A freed block's slices are free at once and stay committed. The upkeep thread decommits free slices nobody took for
+  `IdleSec` (5 s), one run of neighbours per system call, outside the lock. The run is marked first, so a request
+  cannot take a slice that is being decommitted. The reservation itself is never released.
+- RAM cost: committed and free bytes (`idleMB`), at most the arena, zero `IdleSec` after the last use.
+- A failed commit puts the slices back as they were and the game's own path answers (`vaFail`).
+
+`streambuf: arena #n` at every mark: `base`, `arenaMB`, `oneReservation` (1 when a `VirtualQuery` walk finds every
+region from the base to the end naming the base as its allocation base), `osCommitMB` (what that walk found committed),
+`commitMB` / `inUseMB` / `idleMB` (the module's own counts), `peakInUseMB`, `peakCommitMB`, `freeMB`,
+`largestFreeRunMB`, `freeRuns`, `commits`, `commitMB_total`, `decommits`, `stranded`, `noArena`.
+
+### 11.6 Game runs for v2 (none done)
+
+Same travel loop as §14, `[BigBlock]` reuse and `[MemDiag]` on.
+
+1. `Enabled=1 Stats=1 Pool=1` (48 MB). Pass: the start line places the arena near the top; `oneReservation=1` and the
+   same `base` at every mark; `osCommitMB` = `commitMB`; error counters 0; `fallback` under 1% of `big`; `stranded` 0 or
+   a handful; the `who` rows name `0x007275B5` and `0x0072A2B4` with `how=SetSize`; the largest free range at the three
+   home windows about 48 MB under the `[BigBlock]`-only run (1666 / 1373 / 1192), not 100; in the map one 48 MB private
+   region and none of v1's small ones.
+2. The same with `Scratch=1 Package=1`: `[BigBlock]`'s rows `0x4EC140`, `0x4EC122`, `0x4A7216`, `0x4A89F7` drop to
+   this module's `fallback + tooBig` for them; saves made in the run load again; the `who` rows `how=Scratch` /
+   `how=Package` show `frees` = `n` and `liveN=0` at rest.
+3. One run of 2 with `Verify=2`, then one with `Verify=1`: `uafw=0`; `unwrittenN` by requester.
+4. The same on the configuration with the renderer in its own process, where two large shared views are mapped into
+   the game: the start line must still place the arena, and the views must still map.
+
+## 12. The compressor's work tables: `Scratch` (v2) [verified statically and by the selftest; not run in the game]
+
+**What it is.** `[BigBlock]`'s caller `0x4EC140` (18,000-40,000 blocks = 9-20 GB per travel run, one at a time, lifetime
+0 ms) is in the RefPack compressor `0x4EC0A0` (cdecl: destination, capacity, source, length, allocator, mode;
+`0x4EC0A0`-`0x4EC1FB`), which saves and caches go through record by record. Per call it allocates from the allocator
+it is given, name `Services/UTFFoundation/CompressionRefPack` (`0xFB9030`):
+
+| Table | Size | Allocation | Free |
+|---|---|---|---|
+| hash heads | `0x40000` (256 KB); 0x400 bytes of stack instead when the source is 16 KB or less | call `0x4EC120`, return `0x4EC122` | `0x4EC1D8`, skipped for the stack one |
+| chain links | (window mask + 1) x 4 = `0x80000` (512 KB), or `0x10000` in the short-window mode | call `0x4EC13E`, return `0x4EC140` | `0x4EC1C3` |
+
+EA's heap turns the 512 KB one into a direct block of 516 KB (the "504-576 KB" of the table) and the 256 KB one too
+(caller `0x4EC122`).
+
+**Who allocates and frees.** The compressor itself, both in the same call, on the calling thread, before it returns.
+The pointers are held in its frame (`[ebp+18h]`, `[ebp+1Ch]`) and passed by value to the two cores `0x4EB750` /
+`0x4EBB90`, whose only calls are `memset` and `memcpy` (`0xF7E8B8`, `0xF7E8A6`) [verified: every call instruction in
+`0x4EB750`-`0x4EBFC1` listed]. Nothing stores them. The function has two callers, both in the codec's slot function
+`0x4EC200` (`0x4EC23D`, `0x4EC276`); no other code calls it or refers to it [verified: rel32 and raw-address search of
+the whole image].
+
+**The two `via` values are one consumer.** `via=0x004EC242` is the return into `0x4EC200`. `via=0x004A62D2` follows a
+lock call in the package writer `0x4A62B0`, which is further up the same call chain: it is a stale stack word that the
+walk meets first when the compressor's frame holds the 0x400 bytes of stack table (a source of 16 KB or less), whose
+bytes are whatever earlier calls left there. Same function, same two sites.
+
+**One at a time?** Each call holds at most one table of each kind and frees them before returning, so one thread has
+at most two blocks out. Several threads may compress at once (`[SaveCompress]`'s workers call this function too); the
+arena does not depend on it either way.
+
+**Read before written?** Both cores start with `memset(heads, 0xFF, whole table)` (`0x4EB763`: 0x400; `0x4EBBA3`:
+`0x40000`), so the heads are never read uninitialised [verified]. The links are not initialised by the code; a link
+is written when its position is entered and read when a chain reaches that position [inferred from the algorithm, not
+proven instruction by instruction]. In the short-window mode the same code runs on a 64 KB table from the heap, which
+is not zeroed, so the algorithm cannot depend on zeros [inferred]. `Zero=1` applies here as everywhere, so nothing
+rests on this.
+
+**Sites** (`Scratch=1` at the start; the whole function `0x4EC0A0`-`0x4EC1FB` must match byte for byte, else `SKIP`
+and none is written; no branch of the function or from outside lands inside a window [verified by decoding it]):
+
+| Site | Original bytes | New bytes |
+|---|---|---|
+| `0x4EC112` (16) | `6A 00 68 30 90 FB 00 68 00 00 04 00 8B CF FF D2` | `57 68 00 00 04 00 0F 1F 44 00 00 E8 rel32`: push allocator, push 40000h, `call StbScratchAlloc`; returns to `0x4EC122` |
+| `0x4EC12D` (19) | `6A 00 8D 14 8D 04 00 00 00 68 30 90 FB 00 52 8B CF FF D0` | `8D 14 8D 04 00 00 00 57 52 0F 1F 44 00 00 E8 rel32`: the size as before, push allocator, push size, call; returns to `0x4EC140` |
+| `0x4EC1B9` (12) | `8B 07 8B 50 0C 6A 00 51 8B CF FF D2` | `57 51 E8 rel32 0F 1F 44 00 00`: push allocator, push pointer, `call StbSiteFree` |
+| `0x4EC1CE` (12) | the same bytes | the same |
+
+The frees are written first. `StbSiteFree` takes any pointer: one inside the arena goes back to it, every other one
+(also NULL) goes to the allocator's `Free` as before, so a free site is safe whatever it is handed. With `Scratch`
+off at run time the allocation stubs call the game's allocator with the game's arguments.
+
+**Other modules.** `[SaveCompress]` checks a hash of `0x4EC0A0`-`0x4EC282` before it installs, so Scratch is not
+written when `[SaveCompress] Enabled=1`. Apex Radiance's FastCacheCompression replaces the codec slot `0xFB901C` in
+front of this function: when Apex is loaded at the start the sites are not written, and when it turns up later
+Scratch is switched off (the function is then no longer called).
+
+**Limit.** A compressor call that never returns (an exception in a core) leaves its tables in use for the session.
+
+## 13. The package writer's record buffers: `Package` (v2) [verified statically and by the selftest; not run in the game]
+
+**What they are.** `[BigBlock]`'s callers `0x4A7216` (484-1,124 blocks, 0.6-2.0 GB per run, life 7-10 ms) and
+`0x4A89F7` (323-924, 0.4-1.6 GB, 9-13 ms) are the two buffers of one operation: the package writer committing a
+record with compression (`0x4A8910`, thiscall on the package, `ret 8`; one caller, `0x4A8EAE`).
+
+1. `0x4A89E3`-`0x4A89F5`: a buffer of the record's size + 0x10 from the package's allocator (`[package+10h]`), name
+   `ResourceLoad/PackedFile/RecordData` (`0xFB26A4`); kept in the frame at `[esp+1Ch]`; two zero bytes are written
+   behind the data, then the record's stream reads its bytes into it (`0x4A8A34`).
+2. `0x4A8A55` calls `0x4A82C0` (one caller), which calls `0x4A7030` (one caller): it allocates the output buffer of the
+   codec's bound (`0x4A7204`-`0x4A7214`, name `.../PackedRecord`, `0xFB257C`), stores it through an out pointer into
+   the commit's frame (`[esp+18h]`), and has the codec compress into it (`0x4A727C`).
+3. The packed bytes are written to the file (`0x4A8A89` -> `0x4A7E70`) and both buffers are freed.
+
+**Every free** [verified: the three functions read from the first byte to the last; each has exactly one caller and
+no reference from data, so the out pointer cannot reach other code]:
+
+| Buffer | Freed at | When |
+|---|---|---|
+| packed | `0x4A72B0` (in `0x4A7030`) | the codec returned -1; the out pointer is cleared |
+| packed | `0x4A8359` (in `0x4A82C0`) | the record did not shrink below the package's ratio; the out pointer is cleared |
+| packed | `0x4A8AEF` (commit) | after the write, and when the space request or the write failed |
+| record | `0x4A8AFF` (commit) | on every path that follows the allocation (`0x4A8A20`, `0x4A8A38`, `0x4A8A5C` jump to it; the rest fall into it) |
+
+`0x4A7030` has a second allocation with the same name (`0x4A7307`, for a size of 0 or above 40 MB); `0x4A82C0`
+refuses those sizes before the call (`0x4A82E4`, `0x4A82F6`), so it is unreachable; it is not hooked, and its block
+would be the game's and be passed on by the free stubs.
+
+**Sites** (`Package=1` at the start; the three functions `0x4A7030`-`0x4A7355`, `0x4A82C0`-`0x4A8370`,
+`0x4A8910`-`0x4A8BD9` must match byte for byte, else `SKIP` and none is written; no branch lands inside a window):
+
+| Site | Original bytes | New bytes |
+|---|---|---|
+| `0x4A72A5` (13) | `8B 4B 10 8B 11 6A 00 50 8B 42 0C FF D0` | `8B 4B 10 51 50 E8 rel32 0F 1F 00`: allocator, push it, push pointer, `call StbSiteFree` |
+| `0x4A834E` (13) | `8B 4E 10 8B 11 6A 00 50 8B 42 0C FF D0` | `8B 4E 10 51 50 E8 rel32 0F 1F 00` |
+| `0x4A8AE1` (16) | `8B 4E 10 8B 11 8B 44 24 18 8B 52 0C 53 50 FF D2` | `8B 4E 10 8B 44 24 18 51 50 E8 rel32 66 90` |
+| `0x4A8AF1` (16) | `8B 4E 10 8B 01 8B 54 24 1C 8B 40 0C 53 52 FF D0` | `8B 4E 10 8B 54 24 1C 51 52 E8 rel32 66 90` |
+| `0x4A7204` (18) | `8B 4B 10 8B 11 6A 00 68 7C 25 FB 00 50 8B 42 08 FF D0` | `8B 4B 10 68 7C 25 FB 00 51 50 0F 1F 00 E8 rel32`: push name, allocator, size, `call StbPkgAlloc`; returns to `0x4A7216` |
+| `0x4A89E3` (20) | `8B 4E 10 8B 11 8B 52 08 53 68 A4 26 FB 00 8D 47 10 50 FF D2` | `8B 4E 10 8D 47 10 68 A4 26 FB 00 51 50 66 90 E8 rel32`; returns to `0x4A89F7` |
+
+**Threads, one at a time, read before written.** The buffers live inside one call on the thread that commits the
+record; the arena is global and locked, so it does not matter which thread that is or how many commit at once. The
+record buffer is filled by the stream's read and the packed one by the codec; the write takes the packed length the
+codec returned [verified]. `Zero=1` covers whatever is not written (the 14 bytes behind the two zero bytes).
+
+**Sizes.** Requests under `MinKB` stay on the game's heap as before; a record above `MaxBlockMB` (8 MB; the table's
+12.7 MB peak is one such record [inferred]) takes the game's path (`tooBig`).
+
+**Other modules.** No Apex Radiance site lies in the three functions (its `DpfWriteDirect` entry `0x4A7FC0` and
+`[SaveCompress]`'s call site `0x4A850F` are outside the windows). The codec the packed buffer is handed to may be
+Apex's or `[SaveCompress]`'s replacement: it gets the same two plain pointers as before.
+
+**Limit.** If `0x4A7030` returns failure with a buffer allocated (only when the package has no codec object), the game
+never frees it [verified: `0x4A8A5C` skips the free]; with the arena its slices stay in use for the session.
+
+## 14. v1 in the game [measured: two travel round trips on a large save, about 12 min each, in-process renderer]
+
+- 31,275-32,704 stream buffers of 128 KB and more per run (28.9-31.2 GB); 93.5-94.1% served from an idle pool block;
+  `fallback` 0; `dfree`, `lost`, `untracked`, `uafw`, `vaFail` all 0, with `Verify=2` and with `Verify=0`.
+- 1,087 and more frees came from another thread than the allocation.
+- Zero-fill: 1.33 s per 26.7 GB.
+- `Verify=2`: 2,289 buffers were freed with an unwritten tail, so `Zero=1` stays the default.
+- Largest free address range (MB) at the three home windows: nothing on 1656 / 1391 / 1186; `[BigBlock]` reuse only
+  1666 / 1373 / 1192; with `[StreamBuf]` `PoolMB=48`, `MinKB=128` 1565 / 1259 / 1096 (with or without Verify). With
+  `PoolMB=16`, `MinKB=512` and a 16 MB `[BigBlock]` cache: 1634 at the first window, but only 78% of the requests found
+  a block (8,342 of 10,647; 1,924 new blocks, 379 to the game).
+- A map taken at the same moment in both configurations: +76 MB in 385 more private regions of 1 MB or less, and one
+  more private region of 32 MB. This is the cost §11 removes.
+- With the stream buffers gone from `[BigBlock]`, what it still served is the list §12 and §13 start from.
