@@ -6,7 +6,8 @@ by default (`[Wrapper] Enabled`, `native/ts3native/wrapper.cpp`, x64 host `nativ
 Two changes against the text below, both from the spike: the game starts first and ts3native starts the host when the
 game creates its window (Steam and harness start unchanged), and the host is a 64-bit process. EA 1.67 never sets a
 parent window itself (field +0x74 is only read). Not yet checked: input, focus, alt-tab, minimize, IME, Steam
-overlay, Steam start (all need a person at the screen); nothing after step 0 is built. §11 is the staged plan from here.
+overlay, Steam start (all need a person at the screen). §11 is the staged plan from here; step 1 (§12: host-owned
+lifecycle and restart into the same save) is built, off by default, and not yet run in the game.
 Owner: alexvixell35-stack. Follows the draft in docs/241, which gives the
 why (a restart gives back ~600 MB of largest free block at load, BP 636 and LR 609 MB; an in-process reload gives
 nothing; docs/204 §2.1 in PR #208). This document settles process and window ownership, the input and focus path, the
@@ -332,3 +333,209 @@ renderer move stays with the bridge.
    machine.
 3. Any objection to shipping the host as a separate executable (`ts3wrap.exe`, 134 KB, x64) next to `ts3native.asi`, off by
    default, instead of inside the asi?
+
+## 12. Step 1 as built: restart into the same save (2026-11-11, not run in game)
+
+Tags as above. Branch `feat/wrapper-restart`, base `475fe07`. Everything is off by default and needs `[Wrapper]
+Enabled=1` first (step 0). Nothing here has run in the game yet: §12.8 lists what the selftests cover, §12.9 the first
+game runs. Two changes against §4-§7: the save loads through EA's own `-worldFile` switch at the relaunch, not through
+a ts3fixes main-menu load (§12.5), and the host never kills the game (a quit that hangs gives the restart up, §12.2).
+
+### 12.1 Pieces
+
+| Part | File | What it does |
+|---|---|---|
+| Channel | `native/ts3wrap/restartchan.h` | One named file mapping (4,960 bytes, one layout for the x86 game and the x64 host, `static_assert`) and two auto-reset events. Names: `Local\ts3wrap-<first game pid>-<32 hex session id>`, plus `-h` (game to host: a new message) and `-g` (host to game: the cover is up). A relaunched game finds them through `TS3WRAP_CHANNEL=<pid>-<id>`, which the host sets in its own environment. Magic `T3WC`, version 1 and size are checked on both sides; a mismatch means no channel. Separate from the service channel of step 3. |
+| Host state machine | `native/ts3wrap/hoststate.h` | Pure: `HsStep(state, event, now)` returns actions. No Win32 calls; the selftest drives it. |
+| Host | `native/ts3wrap/ts3wrap.cpp` | Window, cover, relaunch, `ts3wrap.log`. Usage `ts3wrap.exe <game pid> [<session id>] [back]`. |
+| Game side, native | `native/ts3native/restart.cpp` (included before `wrapper.cpp`), small hooks in `wrapper.cpp`, `userdiag.cpp`, `ts3native.cpp` | The `[Wrapper]` keys, the channel, the verdict (Compaction's rules), the handoff file, text channel op 40, the summary line. |
+| Game side, script | `mods/ts3fixes/src/Restart.cs`, `RestartCore.cs` (game-free), small changes in `Compaction.cs`, `Fixes.cs` | The state gates, the prompt, the record (Compaction's `CpRecordNow`), the quit, the restore (Compaction's restore body), the hotkey. Shares Compaction's two hooks (`OptionsModel.SaveGameTask`, `MainMenuState.Startup`): a method is patched once. |
+| Tests | `native/ts3native/restart-test.h` (`TestRestart` in `selftest.exe`), `tools/selftest/restart/` | §12.8. |
+
+### 12.2 Host states
+
+`Idle -> GameRunning -> RestartRequested -> WaitingForExit -> Relaunching -> WaitingForWindow -> Loading -> GameRunning`,
+plus `GameExited`, `GameCrashed` (the game ended outside a restart) and `Failed` (a restart could not finish and no
+game is left). The host ends only in those three. Every give-up while a game is alive goes back to `GameRunning`.
+
+| State | Event | Next | Actions |
+|---|---|---|---|
+| Idle | attach (host start) | GameRunning | - |
+| GameRunning | restart requested | RestartRequested | cover |
+| GameRunning | close (player) | GameRunning | `PostMessage(WM_CLOSE)` to the game window: the game asks its own question |
+| GameRunning | exit / crash | GameExited / GameCrashed | host ends |
+| RestartRequested | covered | WaitingForExit | set `-g`: the game quits now |
+| RestartRequested, WaitingForExit | game failed (gave up before its quit) | GameRunning | uncover |
+| RestartRequested, WaitingForExit | close | same | no relaunch later (`closing`) |
+| RestartRequested, WaitingForExit | exit or crash | Relaunching (closing: GameExited / GameCrashed) | relaunch (closing: host ends) |
+| WaitingForExit | `quitMs` (QuitTimeoutS, 60 s) passed | GameRunning | message "did not finish closing"; the game is not killed |
+| Relaunching | launched / launch failed | WaitingForWindow / Failed | - / message box, host ends |
+| WaitingForWindow | window (a child of the host from the new pid) | Loading (closing: GameRunning) | - (closing: uncover, close to the game) |
+| WaitingForWindow | exit or crash | Failed | message box "closed while starting again", host ends |
+| WaitingForWindow | 120 s passed | Failed | message box, host ends: the game creates its window later as an ordinary top-level window (§12.6) |
+| Loading | ready | GameRunning | uncover, restarts +1, summary line |
+| Loading | game failed (boot fell back) | GameRunning | message on the cover for 10 s or a click |
+| Loading | close | GameRunning | uncover, close to the game |
+| Loading | exit or crash | GameExited / GameCrashed | message box, host ends |
+| Loading | `readyMs` (CoverTimeoutS, 600 s) passed | GameRunning | message "loading takes long", the game is shown as it is |
+
+Exit or crash: an exit code under `0xC0000000` and the channel's `bye` flag (written at the game's
+`DLL_PROCESS_DETACH`) is an exit; anything else is a crash. A crash during the restart's quit still relaunches (the save
+ended with result 0 before anything else happened). The heartbeat (`beat`, written by every message the game window
+gets) is logged only: "game window silent for N s" after 30 s, and the time since the last one at every exit. A long
+load also stops it, so it decides nothing.
+
+Single instance: mutex `Local\ts3wrap-host` per Windows session. A second game's host exits at once, and that game runs
+unwrapped after its own `FAIL wrapper` line.
+
+### 12.3 One restart, step by step
+
+1. **Save.** Any save that goes through `OptionsModel.SaveGameTask` (Save, Save As, autosave, the hotkey's save).
+   `TaskHook` sends op 40/1 before the save, then after it Compaction's guard calls `WrapAfterSave` first.
+2. **Gates.** `CpWaitStateWhy` (Compaction's `CpStateWhy` plus its wait for EA's own save dialog): world, live mode
+   (so not Build/Buy/CAS or Edit Town), not travelling, vacation, another town, a move, university or future world, no
+   modal window, no emergency. A refusal logs "wrapper: save #N not considered: <why>" and lets Compaction look.
+3. **Verdict** (native op 40/2). `CpSaveOk` (this task's save, result 0, within a minute), then Compaction's
+   `CpVerdict` on `RestartThresholdMB` (raised to 320 under Apex MemoryGuard), re-arm at +256 MB, no minimum minutes.
+   A pending hotkey (op 40/13, at most 2 minutes old) is a yes at any free block. One "wrapper: verdict" line.
+4. **Ask** (only `RestartAsk=1`): "Refresh / Not now". Not now uses the arm up. The gates are checked again after the
+   answer.
+5. **Record.** `CpRecordNow` (speed, HUD panel, selected Sim, camera, queues of the Sims in scope, Compaction's rules),
+   as `RestartCore` lines, sent as "wraprec " text lines (not logged).
+6. **Commit** (op 40/6, native). Waits for the save's flush worker and SaveSlim worker, reads the save folder's
+   identity (one level of `<Saves>\<name>.sims3`: total bytes, file count, newest write time), writes the handoff
+   file (temp file, flush, rename), fills the channel (save name, reason, largest free block), sets `-h` and waits at
+   most 1.5 s for `-g`. The host covers its client area and sets `-g`. Any step failing: §12.4.
+7. **Quit.** ts3fixes calls `GameStates.TransitionToGameStateQuitNoCheck` (the agent's `quit_game`) from its own task.
+   It skips EA's "save first?" question because the save of step 3 returned 0. No process is killed.
+8. **Relaunch.** The host sets `hostCmd = restart boot` and starts the first game's executable with its command line
+   plus `-worldFile:"<name>.sims3"`, in the first game's start folder, with the environment the host inherited from
+   it plus `TS3WRAP_CHANNEL`.
+9. **Boot.** The new process opens the channel at `DllMain` and reads `hostCmd`. With `Restart=1` it checks the
+   handoff file (§12.4) and copies the previous `ts3native.log` to `ts3native.before-restart.log` before its own log
+   starts. Its window becomes the child of the channel's host window; it never starts a second host.
+10. **Load.** EA's `MainMenuState.Startup` takes `-worldFile` at the first menu entry: `GetSaveFileDetails` and
+    `TransitionToGameStateToInWorld` (docs/06 §3, decompiled code) [verified code; the switch syntax is inferred].
+11. **Restore.** At the world load ts3fixes asks op 40/14 (the file passed the checks), reads the save name and the
+    record back bit by bit (ops 0x10-0x12), checks the loaded save is the named one, and one tick later restores with
+    Compaction's restore body: camera, selected Sim, queues (EA's Test, then `InteractionQueue.Add`), panel, then the
+    speed. Op 40/9 with what came back. Native writes the summary line and tells the host "ready"; the cover goes.
+
+### 12.4 Handoff file and failures
+
+`<Documents>\Electronic Arts\The Sims 3\ts3native\restart.bin` (the user folder of `played.cpp`), never inside the save.
+
+| Field | Meaning |
+|---|---|
+| magic `T3WR`, schema 1, header size | another build's file is refused |
+| session id (16 bytes) | the channel's id: a file from another host session is refused |
+| written (UTC FILETIME) | older than 15 minutes, or in the future: refused |
+| save name (`<name>.sims3`), save bytes, file count, newest write time | the save on disk must be the one just saved |
+| largest free block, reason | for the summary line |
+| payload length, FNV-1a 32 | truncated, too long or changed: refused |
+| payload | the RestartCore lines (ASCII): `R1|speed|panel|selected|camera flag|6 floats`, `S|sim id`, `I|kind|id|level|value|autonomous|cancellable|x|y|z|definition type|field|object type` |
+
+Checked in this order at the boot, before anything is used: present, size, read, session, save folder there, then
+`WrHandoffWhy` (too short, not a handoff file, another schema, truncated or too long, checksum, another session,
+another save, the save changed since, too old). A refused file is deleted and the save just loads without a restore;
+native then tells the host "ready" at the first world load. ts3fixes refuses the record too when one line does not
+parse (strict: nothing restored) or the loaded save is not the named one. The file is deleted after use and at every
+normal start with `Restart=1`.
+
+| Fails | Result |
+|---|---|
+| A gate refuses, the verdict says no | Nothing happens; Compaction may still look at the save. |
+| No save name, record over 64 KB or not sent, file not written, host window gone, no cover in 1.5 s | One `wrapper: restart not started: <why>` line, "Memory refresh skipped" notice, Restart off for the session, the host drops its cover. The game plays on. |
+| The quit throws | Op 40/7, the same. |
+| The quit hangs past QuitTimeoutS | The host gives the restart up and shows a message; the game finishes its quit when it does (the host then ends with it, the save is the one of step 3). |
+| Relaunch fails, the new game exits before its window, or no window in 120 s | Message box "your game was saved: start The Sims 3 as usual", the host ends. |
+| `-worldFile` not taken (the game stays at the menu 15 s) | ts3fixes sends op 40/10: native summary line, the host shows "load it from the menu" for 10 s. |
+| The world loads but nothing can be restored | Op 40/10 (another save, record did not parse), or 40/9 with what came back; the save is loaded either way. |
+| A low-memory restart that did not get back to the threshold + 256 MB | "Restart off for this session" in the summary line (as Compaction's "did it help"). |
+
+### 12.5 Boot to save for a normal player
+
+The player starts the game as always (Steam, the EA app or a shortcut); the game starts the host when it creates its
+window (step 0). At a restart the host starts `TS3W.exe` itself with the first game's exact command line and
+environment plus `-worldFile:"<name>.sims3"`. EA's own main menu then loads that save directly, as a double-click on a
+save would. The player sees the host window stay up with "Refreshing memory... your game is saved" over the last frame
+(or black) and a step line ("Closing the game", "Starting the game", "Loading your save", seconds), then the game in
+the same place with its speed, selection, camera, panel and the visible Sims' queues back, and one notice.
+
+Why not a ts3fixes main-menu load (§5 step 6): a load sent before the menu is ready is lost (the harness waits for the
+menu), and the "Mod Scripts Found" dialog sits on the menu. `-worldFile` is taken inside `MainMenuState.Startup`,
+which ts3fixes also hooks (Compaction's hook) to watch for a boot that stays at the menu.
+
+### 12.6 Never a headless game
+
+- The host never ends while a game it hosts is alive, except after "no window in 120 s". Then the game has no window
+  yet: `WrCreateWindowExW` checks `IsWindow` on the channel's host window and creates an ordinary top-level window when
+  it is gone. If the child create fails anyway (the host went away between the two calls), it creates the top-level
+  window too.
+- Closing the host posts `WM_CLOSE` to the game window: the game asks its own quit question. During a restart, closing
+  stops the relaunch and the host ends with the game.
+- The game's window closing outside a restart (its own quit) hides the host until the process ends, as in step 0.
+- The host crashing destroys the child window (Windows rule for child windows). Step 0 has the same risk; nothing here
+  makes it worse.
+
+### 12.7 Switches, logs, counters
+
+`ts3native.ini` `[Wrapper]`, each needing the one before it: `Channel=0`, `Restart=0` (also needs `[UserDiag]
+Enabled=1` and `[SaveWrite] Enabled=1`), `RestartThresholdMB=320`, `RestartAsk=0`, `RestartHotkey=0`
+(Ctrl+Shift+F12: an EA save, then the restart if it returned 0), `RestartFrame=1` (the cover shows a screen copy of the
+host's client area, taken only while the host is in front; 0 = black), `QuitTimeoutS=60`, `CoverTimeoutS=600`.
+
+Logs: `ts3wrap.log` next to the host (one timestamped line per state change, every game message, each exit with code,
+`bye` and heartbeat age, one `restart summary #N` line with the largest free block before and after, the seconds to
+quit, to the window and to ready, and the restored bits). `wrapper:` lines in `ts3native.log`: channel, verdict per
+save, the commit, the boot check, the restore, and one `restart summary` line. The game before a restart keeps its log
+as `ts3native.before-restart.log`.
+
+ts3fixes counters `[2150-2155]`: saves checked, offers, declined, restarts started, given up before the quit, boot
+restores done (agent names `wraprestart_*`). The queue entries share Compaction's `[434-438]`.
+
+### 12.8 Selftested and not
+
+| Selftested | Needs a game run |
+|---|---|
+| Channel names (fits, bad id, too small a buffer), layout and offsets, the version, size and magic checks | That the x64 host and the x86 game open the same block and events (both builds compile against one header) |
+| Handoff file: build, every refusal (another session, another save, the save changed, too old, in the future, truncated, too long, checksum, another schema, not ours, too short), name and size limits | The save folder identity being stable between the commit and the next start (flush and SaveSlim workers are waited for) |
+| The verdict: failed save, hotkey, threshold, arm, re-arm at +256 MB, Apex 320, threshold 4000 | `CpStateWhy` and the prompt in a live game |
+| The bit reads ts3fixes makes (payload, UTF-8 name, both lengths, out of range) and every op answering no while off | The text channel round trip of a whole record |
+| The host state machine: a whole restart, crash in the quit, launch failure, quit stuck, close in each restart state, death before the window, no window, death while loading, boot fallback, ready timeout, tick wrap | The cover window, the screen copy, focus and input after the restart, the relaunch's Steam behaviour |
+| RestartCore lines: round trip under a comma-decimal culture, 13 refusals, line and total limits, non-ASCII, save-name match | `Type.GetType` finding the definition types again in the new process |
+
+### 12.9 Test plan
+
+Copy `native/ts3wrap/out/ts3wrap.exe` next to `ts3native.asi`. Common ini: `[Wrapper] Enabled=1 Channel=1`, `[UserDiag]
+Enabled=1`, `[SaveWrite] Enabled=1`; ts3fixes and the agent installed.
+
+| Run | Ini | Steps | Pass |
+|---|---|---|---|
+| (a) off | `Channel=0` (and once `Enabled=0`) | Load, save, quit. | No `wrapper: channel` line; with `Enabled=1` the host works as step 0; `ts3wrap.log` shows `no channel`. No `restart.bin`. |
+| (b) forced | `Restart=1 RestartThresholdMB=4000` | Load a baseline save, wait 2 minutes, save once (agent `save_game`). | `wrapper: verdict RESTART`, `restart #1 ... quitting`; host `GameExited`/`Relaunching`/`WaitingForWindow`/`Loading`/`GameRunning`; the new log loads the same save without the menu; `restart summary` on both sides with before and after MB; `ts3native.before-restart.log` exists; `restart.bin` gone. First check: `-worldFile:"<name>.sims3"` taken (else the 15 s menu fallback line). The new process then says "Restart off" (4000 is never reached after a restart). |
+| (c) threshold | `Restart=1 RestartThresholdMB=320` on the old long save (the one that gets low) | Play with saves until the largest free block drops under 320 MB. | One restart at the first save under 320 MB; after it at least 576 MB, or "Restart off" in the summary. |
+| (d) host closed | as (b) | Save; while the cover shows "Closing the game", close the host window. | No relaunch; host `GameExited` (or `GameCrashed`) and ends; the save of step 3 loads by hand. |
+| (e) crash during restart | as (b) | Save; while the cover shows "Starting the game" or "Loading your save", end `TS3W.exe` from Task Manager. | Host "closed while starting again" box (or `GameCrashed` while loading), host ends; the save loads by hand; the next normal start deletes `restart.bin`. |
+
+Read: `ts3wrap.log`, `ts3native.log` and `ts3native.before-restart.log` (all next to the asi), the agent's counters
+(`wraprestart_*`), and `Documents\Electronic Arts\The Sims 3\ts3native\` (no `restart.bin` left).
+
+### 12.10 Unknowns
+
+1. **`-worldFile` syntax and Steam.** The colon and quotes are inferred from EA's launcher strings (docs/06 §3). The
+   relaunch does not go through Steam: whether `TS3W.exe` started by the host restarts itself through Steam (and so
+   loses `TS3WRAP_CHANNEL` and the switch) is unknown; the harness starts `TS3W.exe` directly while Steam runs and that
+   works [verified], which is the same case. A first command line that already has `-worldFile` gets a second one.
+2. **Elevation and compatibility flags.** The host is started by the game and so has its token; the relaunch inherits
+   that. A compatibility layer set on `TS3W.exe` applies to the relaunch only if Windows applies it to `CreateProcess`
+   from another process [inferred: it does for the registry layers]. `ERROR_ELEVATION_REQUIRED` gives the launch-failed box.
+3. **Input focus.** The cover is a never-activated owned popup; the new child gets the focus only when the host is in
+   front. Keyboard input during the cover goes to the quitting or loading game.
+4. **DXVK and device loss.** The relaunched game creates a fresh device in an existing parent window. Not run with DXVK
+   or the Remix bridge; the screen copy of a DXVK window through `GetDC(NULL)` is expected to work with the desktop
+   compositor [inferred].
+5. **"Mod Scripts Found".** If that dialog blocks the `-worldFile` transition, the cover hides it: after 15 s the menu
+   fallback drops the cover so the player can click it, and the load then runs without a restore.
+6. **Quit time.** A quit longer than 60 s (Apex's quit hang, other mods) gives the restart up; the player's save is
+   safe but the game then ends with nothing started again.
