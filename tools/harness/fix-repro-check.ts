@@ -60,6 +60,7 @@ export const EXEMPT: Record<string, string> = {
   outfitwaitsaved: DEADSIM,
   deadsimcount: 'opt-in diagnostic, read-only counters (#40, PR #332)',
   deadsimhollow: 'opt-in test, Dalexlol hold_sims A/B (#40, PR #332, al365 off vs al366 on)',
+  exitcbsweep: 'opt-in test, vehicle route delegate sweep (leak-fixes-1111): check Sim.OnExitReasonsAdded list length per Sim before and after',
 };
 
 export const fixesNames = (cs: string) => {

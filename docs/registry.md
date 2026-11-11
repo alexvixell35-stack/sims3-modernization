@@ -238,6 +238,7 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 934-935 | `DeadSimHolders.cs` (`fixes-934`), `dreamnodedeadsim`, `overwatchdeadsim` | built 2026-11-10: household rule skips: 934 dream-node listeners kept because the gone Sim's owner is household, selected or of unknown scope, 935 Overwatch stuck-check entries kept for the same reason |
 | 936 | `OutfitWaitSaved.cs` (`fixes-936`), `outfitwaitsaved` | built 2026-11-10: household rule skips: saved makeover tasks left running because the gone actor's owner is household, selected or of unknown scope |
 | 937 | `BoatParkGone.cs` (`fixes-937`, docs/257), `boatparkgone` | built 2026-11-11, default ON (shipped without repro, Rodney 11-11): BoatOwnable.Park calls skipped because the boat was already destroyed (no RoutingComponent, EA would throw the NRE); agent `boatparkgone_skipped` |
+| 2110-2123 | reserved (alexvixell35-stack, `fixes-2110`) | leak-fixes-1111: 2110-2119 left for a sibling agent's counters (unused here); 2120-2123 = exitcbsweep (ExitCbSweep.cs: stale OnExitReasonsAdded delegates removed, longest list), dnppetkeys/dnpobjkeys (DnpRemovalKeys.cs: pet/simorpet nodes dropped, object-key nodes dropped) |
 | **938+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
