@@ -59,6 +59,7 @@ export const EXEMPT: Record<string, string> = {
   ghostreactdeadsim: DEADSIM, dreamnodedeadsim: DEADSIM, overwatchdeadsim: DEADSIM, casuihandlers: DEADSIM, simrefsdeadsim: DEADSIM,
   outfitwaitsaved: DEADSIM,
   deadsimcount: 'opt-in diagnostic, read-only counters (#40, PR #332)',
+  hudunsub: 'opt-in test, UI memory: leftover HUD model handlers, class census A/B over live-mode entries (#40)',
   deadsimhollow: 'opt-in test, Dalexlol hold_sims A/B (#40, PR #332, al365 off vs al366 on)',
 };
 
