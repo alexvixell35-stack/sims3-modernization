@@ -229,7 +229,9 @@ namespace Ts3Fixes
             // gets SetToResetAndSendHome (its own spot may count as safe inside the hidden room). Shared daily reset limit.
             const float kIdleMinutes = 60f, kRouteFailMinutes = 30f;
             const int kRouteFailPlans = 10, kIdleChecksPerPass = 16;
-            struct Still { public Vector3 Pos; public InteractionInstance Cur; public long Since, OkAt; }
+            // Cur is weak: a strong ref kept the old world's interaction (and through it a Sim) alive after travel until the next pass.
+            struct Still { public Vector3 Pos; public WeakReference Cur; public long Since, OkAt; }
+            static bool SameCur(WeakReference w, InteractionInstance i) { return w == null ? i == null : i != null && object.ReferenceEquals(w.Target, i); }
             readonly Dictionary<ulong, Still> mStill = new Dictionary<ulong, Still>();
 
             void CheckIdle()
@@ -256,8 +258,8 @@ namespace Ts3Fixes
                     if (household || s.Parent != null || s.SimInRabbitHolePosture) continue;
                     InteractionInstance cur = s.CurrentInteraction;
                     Still st;
-                    if (!mStill.TryGetValue(id, out st) || (s.Position - st.Pos).Length() > 1f || st.Cur != cur || st.Since > now)
-                        st = new Still { Pos = s.Position, Cur = cur, Since = now };
+                    if (!mStill.TryGetValue(id, out st) || (s.Position - st.Pos).Length() > 1f || !SameCur(st.Cur, cur) || st.Since > now)
+                        st = new Still { Pos = s.Position, Cur = cur == null ? null : new WeakReference(cur), Since = now };
                     keep[id] = st;
                     long still = now - st.Since;
                     if (still >= kDayTicks) { if (Act(s, now, 48, "reset (stationary a sim-day)")) keep.Remove(id); continue; }
@@ -285,7 +287,7 @@ namespace Ts3Fixes
                     {
                         Still st;
                         if (s.HasBeenDestroyed || !s.InWorld || !mStill.TryGetValue(s.ObjectId.Value, out st) || (s.Position - st.Pos).Length() > 1f
-                            || st.Cur != s.CurrentInteraction || s.IsRouting || s.Posture != s.Standing || s.LotCurrent == null || s.LotCurrent.IsWorldLot) break;
+                            || !SameCur(st.Cur, s.CurrentInteraction) || s.IsRouting || s.Posture != s.Standing || s.LotCurrent == null || s.LotCurrent.IsWorldLot) break;
                         if ((memo || src) && sPlanOk.Covers(s.ObjectId.Value, s.Position.x, s.Position.y, s.Position.z, st.Since, now))
                         {
                             c[233]++;
