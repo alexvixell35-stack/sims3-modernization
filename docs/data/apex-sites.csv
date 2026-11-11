@@ -16,7 +16,7 @@ address,apex_name,apex_source,class,verdict
 0x4E3F90,,features/game_alloc_categories.cpp,C0,game_alloc_categories is development-build only; absent from the release binary
 0x4E3FB0,,features/game_alloc_categories.cpp,,
 0x4E4F90,,features/allocator_tuning.cpp,,
-0x4E5306,AllocMmapFreeCall,framework/game_addresses.cpp+patches/performance_patches.cpp,,
+0x4E5306,AllocMmapFreeCall,framework/game_addresses.cpp+patches/performance_patches.cpp,C2,ours [BigBlock] Reuse (off) retargets the same call operand; stands down with Apex; none in release
 0x4EB3B0,RefPackDecompress,framework/game_addresses.cpp,C0,RefPackDecompress: Apex only calls/compares it; ours [Decompress] retargets a caller (0x4EC065); [SaveCompress] hashes it; no write overlap
 0x4EC010,,features/frame_profiler.cpp,,
 0x4EC200,RefPackCompress,features/frame_profiler.cpp+framework/game_addresses.cpp+patches/performance_patches.cpp,C2,RefPackCompress behind vtable slot 0xFB901C: ours [SaveCompress] (off) and Apex FastCacheCompression both swap the slot; second one refuses

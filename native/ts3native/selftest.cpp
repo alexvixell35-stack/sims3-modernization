@@ -12846,6 +12846,7 @@ static void TestP5() {
 #include "saveslim-test.h"  // TestSaveSlim ([SaveSlim], docs/15 phase 11)
 #include "rctrim-test.h"  // TestRcTrim ([ResourceCache] TrimAfterCleanup, docs/198 §6)
 #include "lptrim-test.h"  // TestLotPoolTrim ([LotPool] Trim, docs/541)
+#include "bigblock-test.h"  // TestBigBlock ([BigBlock], docs/543)
 #include "castrim-test.h"  // TestCasTrim ([CasTrim], docs/191 step 2)
 #include "uafcheck-test.h"  // TestUafCheck ([UafCheck], docs/539 §17)
 #include "slotguard-test.h"  // TestSlotGuard ([SlotGuard], [UafCheck] Object frees, docs/539 §18)
@@ -14282,6 +14283,7 @@ int main() {
     TestCompaction();
     TestRcTrim();
     TestLotPoolTrim();
+    TestBigBlock();
     TestCasTrim();
     TestCasTrimSweep();
     TestCasTrimInv();

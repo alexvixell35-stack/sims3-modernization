@@ -999,6 +999,7 @@ static void MsLine(const char* line) {  // sim thread, a complete "memsus..." te
 
 static void AsAfterSample(LONG n, const char* tag, const char* ev);  // allocsites.cpp: [MemDiag] AllocSites lines (docs/201)
 static void CtMemLine(LONG n, const char* tag);                     // castrim.cpp: [CasTrim] Probe=1, docs/539 P3
+static void BbMemLine(LONG n, const char* tag);                     // bigblock.cpp: [BigBlock], docs/543
 static void MdAfterSample(const char* what, const char* ev, const UdMemStat& s, u64 privUsage) {
     if (!g_mdOn) return;
     if (!InterlockedExchange(&g_mdLegend, 1)) MdLegend("docs/190 phase 1");
@@ -1013,6 +1014,7 @@ static void MdAfterSample(const char* what, const char* ev, const UdMemStat& s, 
     RcCensus(n, MdTag(what));           // no-op unless [MemDiag] RcCensus=1
     RcRefCallersLine(n, MdTag(what));   // no-op unless [MemDiag] RcRefCallers=1
     CtMemLine(n, MdTag(what));          // no-op unless [CasTrim] Probe=1
+    BbMemLine(n, MdTag(what));          // no-op unless [BigBlock] is installed
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

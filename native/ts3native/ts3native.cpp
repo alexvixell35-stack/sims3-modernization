@@ -5369,6 +5369,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "rctrim.cpp"    // docs/198 §4: [ResourceCache] TrimAfterCleanup experiment (needs userdiag.cpp, memdiag.cpp, apex.cpp)
 #include "castrim.cpp"   // docs/191 step 2: [CasTrim] part compositor registry trim (off by default)
 #include "lptrim.cpp"    // docs/541: [LotPool] Trim, lot message pool cores freed after a world load (off by default)
+#include "bigblock.cpp"  // docs/543: [BigBlock] EA direct blocks top-down / Mono cores bottom-up / reuse (off by default, needs apex.cpp)
 #include "allocsites.cpp"  // docs/201: [MemDiag] AllocSites, TEST-RUN TOOL (needs memdiag.cpp, alloc.cpp, apex.cpp)
 #include "uafcheck.cpp"    // docs/539 §17: [UafCheck] delayed-free quarantine, TEST-RUN TOOL (needs allocsites.cpp, watchpt.cpp, userdiag.cpp)
 #include "slotguard.cpp"   // docs/539 §18: [SlotGuard] float-5 SlotComponent slot arrays, CRASH-TRIAGE (needs uafcheck.cpp, castrim.cpp)
@@ -5489,6 +5490,7 @@ static void Run(HMODULE self) {
         ApplyRcTrim(ini);  // docs/198 §4: EXPERIMENT, off ([ResourceCache] TrimAfterCleanup)
         ApplyCasTrim(ini);  // docs/191 step 2: off ([CasTrim] Mode)
         ApplyLotPoolTrim(ini);  // docs/541: off ([LotPool] Trim; needs [UserDiag])
+        keepLog = ApplyBigBlock(ini) || keepLog;  // docs/543: off ([BigBlock] Enabled); call-site disp32 / rel32 only, armed when the heap exists
         // the NOYIELD query guards ts3fixes' other yields too, so it is answered with async off (START then says no)
         if (!g_getOptOrig)
             g_getOptOrig = (GetOptionFn)InstallDetour("Route_GetOption", ROUTE_GET_OPTION, kGetOptionPrologue, sizeof(kGetOptionPrologue), (void*)GetOptionHook, &g_getOptOrig);
