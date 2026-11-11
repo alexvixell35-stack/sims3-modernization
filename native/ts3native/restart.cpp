@@ -405,6 +405,10 @@ static u8 WrOp(DWORD lo) {
         case 1: g_wrCp.saveSnap = g_udSaves; return 1;
         case 2: {
             if (g_wrOff) return 0;
+            if (!IsWindow((HWND)(uintptr_t)g_wrChan->hostWnd)) {  // the host did not start or is gone: nothing to restart into
+                Log("wrapper: verdict skipped after save #%ld: no host window", g_cp.lastSaveN);
+                return 0;
+            }
             const DWORD now = GetTickCount();
             CpState& s = g_wrCp;
             s.lastSaveN = g_cp.lastSaveN, s.lastSaveR = g_cp.lastSaveR, s.lastSaveEnd = g_cp.lastSaveEnd;

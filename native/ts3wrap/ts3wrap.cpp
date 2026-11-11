@@ -28,7 +28,7 @@ static wchar_t g_cwd[MAX_PATH];
 static HBITMAP g_frame;           // the last frame under the cover (NULL: black)
 static int g_frameW, g_frameH;
 static const wchar_t* g_note;     // a message on the cover (NULL: the restart's own text)
-static DWORD g_noteUntil, g_reqTick, g_exitTick, g_windowTick, g_lastBeatLog;
+static DWORD g_noteUntil, g_reqTick, g_exitTick, g_windowTick, g_lastBeatLog, g_paintTick;
 static bool g_beatStale;
 static HFONT g_font, g_fontSmall;
 
@@ -130,8 +130,8 @@ static void PaintCover(HWND h) {
     if (g_frame) {
         HDC mem = CreateCompatibleDC(dc);
         HGDIOBJ old = SelectObject(mem, g_frame);
-        SetStretchBltMode(dc, HALFTONE);
-        StretchBlt(dc, 0, 0, r.right, r.bottom, mem, 0, 0, g_frameW, g_frameH, SRCCOPY);
+        if (r.right == g_frameW && r.bottom == g_frameH) BitBlt(dc, 0, 0, r.right, r.bottom, mem, 0, 0, SRCCOPY);
+        else SetStretchBltMode(dc, HALFTONE), StretchBlt(dc, 0, 0, r.right, r.bottom, mem, 0, 0, g_frameW, g_frameH, SRCCOPY);
         SelectObject(mem, old);
         DeleteDC(mem);
     } else FillRect(dc, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
@@ -296,7 +296,8 @@ static void Tick() {
     }
     Feed(HE_TICK);
     if (g_note && g_hs.st == HS_RUNNING && (int)(now - g_noteUntil) >= 0) Uncover();
-    if (g_cover && IsWindowVisible(g_cover) && !g_note) InvalidateRect(g_cover, NULL, FALSE);  // the seconds
+    if (g_cover && IsWindowVisible(g_cover) && !g_note && now - g_paintTick >= 1000)  // the seconds, once a second
+        g_paintTick = now, InvalidateRect(g_cover, NULL, FALSE);
     if (g_chan && g_hs.st == HS_RUNNING && g_chan->beat) {  // heartbeat: logged only (a long load blocks the window thread too)
         const DWORD age = now - (DWORD)g_chan->beat;
         if (age > 30000 && !g_beatStale && now - g_lastBeatLog > 30000) g_beatStale = true, g_lastBeatLog = now, Log("game window silent for %lu s", age / 1000);
