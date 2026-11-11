@@ -515,6 +515,42 @@ bench while a timing job runs; builds wait for the slot after the timing that st
 - **At stake**: even if the mat were free and the compiled side reached the 1.0x to 1.1x of other call-bound methods, that is <= ~1 ms/s on the 9.8 [inferred upper bound]; from the 0.98x measurement, ~0.2 ms/s. The big enum-compare win is already at the source: the walk-style hook (docs/04) replaced the boxed `Enum.Equals` lookups, and typed comparers (docs/74) are the lever for the rest (~1.0% spread over ~10 dictionaries).
 - **Proposed piece**: none. Optional only after C0: if the game count run shows `Enum.Equals` with real exits at `DefaultEquals` w16 above ~10 per ms of sample, add a pure-icall kind 4 `InternalEquals` (no-ref same-class memcmp) beside C3; otherwise drop C7. The 94% mat share is a host-bench artifact, not a game finding.
 
+### C0 result: game census (2026-11-11, runs jx1, master build, no compiler change) [measured, game; a model, not timing]
+
+Three 15-minute count runs (`bp/ip/sv-jit-exits-count`, `[MonoJit] Count=1` with VtOps, CallExit and NewVt on), last complete
+`jitcount:` interval of each, read with `tools/jit-hot.ts --game-count` and `tools/jit-exit-census.ts --census`. Rows:
+`docs/data/results/2026-11-11-jit-game-census.csv`.
+
+| | BP | IP | SV |
+|---|---|---|---|
+| Held back by exits in compiled bodies, est. ms/s | 5.73 | 5.82 | 5.74 |
+| `ret` | 4.39 | 4.42 | 4.39 |
+| `ret.void` | 0.28 | 0.27 | 0.28 |
+| `call` | 0.24 | 0.27 | 0.25 |
+| `callvirt` | 0.24 | 0.24 | 0.25 |
+| `con.callvirt` | 0.18 | 0.19 | 0.17 |
+| `ret.vt` | 0.16 | 0.16 | 0.17 |
+| `ldelema` | 0.10 | 0.11 | 0.11 |
+| `con.call` | 0.10 | 0.10 | 0.09 |
+| `unbox` | 0.04 | 0.04 | 0.03 |
+| newarr / box / reference newobj exit rows | 0 | 0 | 0 |
+| Bails: `no lazy body` / `depth slot` / `arena full` | 41.7M / 6.7M / 2.1M | 43.0M / 8.6M / 1.8M | 39.7M / 7.1M / 2.1M |
+| Bails: `cache class` (of all bails) | 239 of 50.55M | 239 of 53.39M | 238 of 48.86M |
+| Largest `cache class` share of a hot site (100k bails or more) | 0.0105% | 0.0241% | 0.0165% |
+
+The census puts the game at 5.7 to 5.8 ms/s held back by exits in compiled bodies. 4.4 ms/s of that is `ret` (frame teardown, B3),
+2.47 of it in `RuntimeTypeHandle.get_Value` alone; no other opcode is above 0.28 ms/s. **C4 is not reopened**: no newarr, box or
+reference newobj exit row exists in any of the three censuses (0.0 ms/s against the rule of 1 ms/s). This has a gap:
+`Array.Resize`, `DefaultComparer.Equals` and `Dictionary`2.DoAdd`, the allocation methods behind the host's 0.41 ms/s, have no row in
+the game census at all (not compiled in game, or not run; which of the two is not shown), so the census says only that the bodies
+compiled in game lose nothing to allocation exits. **C6 is not reopened**: `cache class` is 238 to 239 of about 50 million bails per
+run, and the largest share at a hot site (`Dictionary`2.GetPrev` call site 55) is 0.010% to 0.024% against the rule of 1%. The share
+is of the site's bails, not of its calls (calls that succeed are not counted), so it is an upper bound. The bails are `no lazy body`
+(about 83%), `depth slot` (about 14%) and `arena full` (about 4%), so the bail volume sits with C2 (lazy bodies for the missing
+callees). The ms/s values are the census model (exits per call times sampled self time), not measured time. All three jobs ended FAIL
+on the "new script errors" gate only: the four files per job are a script mod's periodic diagnostic logs written as ScriptError files,
+not exceptions, and every other gate passed.
+
 ### C2 status (2026-11-08, branch `feature/monojit-c2`, not merged) [measured, host]
 
 Data only; no emitter edit. Added callees (lazy bodies): `SimClock.ElapsedTime` (3 overloads), `ScriptObject.get_Proxy`,
