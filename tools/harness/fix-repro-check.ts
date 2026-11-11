@@ -60,6 +60,7 @@ export const EXEMPT: Record<string, string> = {
   outfitwaitsaved: DEADSIM,
   deadsimcount: 'opt-in diagnostic, read-only counters (#40, PR #332)',
   deadsimhollow: 'opt-in test, Dalexlol hold_sims A/B (#40, PR #332, al365 off vs al366 on)',
+  dnpsubjectcache: 'opt-in test, four 30-minute stress runs with it on cleared 10 of 634, 7 of 658, 17 of 660 and 3 of 656 table entries, all passed (#40)',
 };
 
 export const fixesNames = (cs: string) => {
