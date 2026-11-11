@@ -27,7 +27,7 @@ const TARGET_VARS: Record<string, string> = {
   'RefTable.cs:t': 'ScriptCore.ReferenceHashtable', 'CachedReflection.cs:pc': 'ScriptCore.PersistedClass',
   'CachedReflection.cs:db': 'ScriptCore.PersistedClassDB', 'FewerPlans.cs:helper': 'LotManager+RunStuckCheckHelper',
   'RouteSources.cs:watch': 'VelvetRopes+WatchDoor', 'PlayTrace.cs:flow': 'Sims3.UI.GameEntry.PlayFlowInWorldFlow',
-  'UiCaches.cs:bar': 'MotivesPanel+MotiveBar', 'UiCaches.cs:panel': 'MotivesPanel', 'EaVacation.cs:sVacBack': 'ParentsLeavingTownSituation+ParentsAreBack',
+  'UiCaches.cs:bar': 'MotivesPanel+MotiveBar', 'MapViewKeep.cs:mvc': 'Sims3.UI.Hud.MapViewController', 'UiCaches.cs:panel': 'MotivesPanel', 'EaVacation.cs:sVacBack': 'ParentsLeavingTownSituation+ParentsAreBack',
   'Fixes.cs:t': 'mod-subclass:VisitCommunityLot', 'typeof:AutonomyT': 'Sims3.Gameplay.Autonomy.Autonomy',
   'AutShadow.cs:soil': 'Sims3.Gameplay.Objects.Gardening.Soil', 'AutShadow.cs:hoop': 'Sims3.Store.Objects.BBallHoop+BBallHoopBall',
   'AutShadow.cs:arcade': 'Sims3.Store.Objects.BBallArcade+BBallArcadeBall', 'AutShadow.cs:skewer': 'Sims3.Store.Objects.ChocolateFountain+ChocolateFountainSkewer',
