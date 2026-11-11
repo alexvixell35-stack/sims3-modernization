@@ -78,6 +78,7 @@ namespace Ts3Fixes
         {
             public void DisposeHook()
             {
+                BcrSweepOtherGrids(this);  // buygridsweep (BuyCellRecycle.cs): before EA's Dispose, while the grids live
                 DisposeOrig();
                 int[] c = PatchCounters();
                 c[2111]++;

@@ -25,9 +25,34 @@ namespace Ts3Fixes
     // handle no longer matches (UIManager.DeRegisterAllEvents for each, as OnCustomDetach does short of Dispose). Live
     // windows are not touched. UI only. Counters: [2117] Unloads (also with the switch off), [2118] stale entries
     // removed, [2119] errors.
+    // Probe (read only, always on while compositorleak is patched): just before Unload, the CASCompositorController
+    // entries in the dict: [2178] the current sController, [2179] other live entries (not disposed, handle == key),
+    // [2180] other entries already disposed or with a reused handle. Measured off: one live parentless controller per
+    // Buy or Build visit (phase-20261111-2047); the probe tells whether it already exists before Unload.
     public static partial class Fixes
     {
         static FieldInfo sCmlController, sCmlDict;
+
+        static void CmlProbe()
+        {
+            int[] c = PatchCounters();
+            try
+            {
+                if (sBilDict == null || sCmlController == null) return;
+                IDictionary dict = sBilDict.GetValue(null) as IDictionary;
+                object cur = sCmlController.GetValue(null);
+                if (dict == null) return;
+                foreach (DictionaryEntry e in dict)
+                {
+                    WindowBase w = e.Value as WindowBase;
+                    if (w == null || !(w is CASCompositorController)) continue;
+                    if (object.ReferenceEquals(w, cur)) c[2178]++;
+                    else if (!w.Disposed && Convert.ToUInt32(sBilHandle.GetValue(w, null)) == Convert.ToUInt32(e.Key)) c[2179]++;
+                    else c[2180]++;
+                }
+            }
+            catch (Exception) { }
+        }
         static MethodInfo sCmlDeregister;
 
         static void ApplyCompositorLeak()
@@ -49,6 +74,7 @@ namespace Ts3Fixes
         {
             public static void UnloadHook()
             {
+                CmlProbe();
                 UnloadOrig();
                 int[] c = PatchCounters();
                 c[2117]++;

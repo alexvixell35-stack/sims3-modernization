@@ -92,6 +92,8 @@ namespace Ts3Fixes
             ApplyListenerFixes();
             ApplyWishListenerFixes();
             ApplyBuyCellRecycle();
+            ApplyMoodPending();
+            ApplyFilterGridLeak();
             ApplyNameCache();
             ApplyScriptHotSpots();
             ApplyVenueMemo();
@@ -340,6 +342,10 @@ namespace Ts3Fixes
         // 2099-2102 vehgetinleak get-ins that left their vehicle loose / throwaway released / NPC vehicle to inventory / kept; 2103-2105 vehseatdestroy seated Sims destroyed with the vehicle still there a tick later / dead refs cleared / released;
         // 2106-2107 vehfrankentaxi unused intro taxis seen / released; 2108-2110 vehprotestcar cop cars tracked / left with no driver or drive-away after a sim-hour / destroyed. "Seen" counters count with the switch off too.
         // [2129-2132] relremovesafe (RelRemoveSafe.cs): Sim removals where EA's relationship removal would throw / one-sided entries for the removed Sim / removals seen / errors.
+        // [2178-2180] compositorleak probe (CompositorLeak.cs): CASCompositorController entries before Unload: current / other live / other stale.
+        // [2175-2177] filtergridleak (FilterGridLeak.cs): filter grids at Buy/Build Unload (also off) / DisposeOnDetach restored / errors.
+        // [2172-2174] moodpending (MoodPending.cs): ChangeMoodValue on a pending buff (also off) / mood moves skipped / errors.
+        // [2166-2171] buyclearrecycle / buygridsweep (BuyCellRecycle.cs): cells at ShowCatalogGrid(false) (also off) / cached / errors / icons in other grids at Dispose (also off) / disposed / errors.
         // [2163-2165] buycellrecycle (BuyCellRecycle.cs): Buy catalog cells dropped by AddGridItem (also off) / returned to a cache / errors.
         // [2154-2162] dreamrootorphan / blogorphan / dnpupdateguard (WishListenerFixes.cs): root listeners left by a thrown-away test (also off) / removed / errors / blog one-off listeners left (also off) / removed / errors / Update exceptions seen / swallowed / errors.
         // [2148-2153] dnpdisposelistener / seasondup (ListenerFixes.cs): wish managers created (also off) / object listeners moved / errors / duplicate season adds (also off) / skipped / errors.
@@ -374,7 +380,7 @@ namespace Ts3Fixes
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2166]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2181]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -565,6 +571,10 @@ namespace Ts3Fixes
                 case "blogorphan": return Instantiator.kBlogOrphan;
                 case "dnpupdateguard": return Instantiator.kDnpUpdateGuard;
                 case "buycellrecycle": return Instantiator.kBuyCellRecycle;
+                case "buyclearrecycle": return Instantiator.kBuyClearRecycle;
+                case "buygridsweep": return Instantiator.kBuyGridSweep;
+                case "moodpending": return Instantiator.kMoodPending;
+                case "filtergridleak": return Instantiator.kFilterGridLeak;
                 case "convturn": return Instantiator.kConvTurn;
                 case "npcdriverpool": return Instantiator.kNpcDriverPool;
                 case "bookcarry": return Instantiator.kBookCarry;

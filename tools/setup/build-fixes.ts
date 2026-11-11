@@ -217,6 +217,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBlogOrphan value="False" />
     <kDnpUpdateGuard value="False" />
     <kBuyCellRecycle value="False" />
+    <kBuyClearRecycle value="False" />
+    <kBuyGridSweep value="False" />
+    <kMoodPending value="False" />
+    <kFilterGridLeak value="False" />
   </Current_Tuning>
 </base>
 `;

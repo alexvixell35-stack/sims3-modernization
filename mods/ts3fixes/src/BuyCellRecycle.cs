@@ -23,6 +23,20 @@ namespace Ts3Fixes
     // (pattern cache for catalog type 4, buy cache otherwise; the same choice RepopulateCatalogGrid makes), so it is reused
     // by the next product and disposed with the cache by BuyController.Dispose. UI only.
     // Counters: [2163] cells dropped by AddGridItem (also counted off), [2164] returned to a cache, [2165] errors.
+    //
+    // buyclearrecycle (tuning kBuyClearRecycle) [verified IL]: ShowCatalogGrid(false) (back button, catalog switch, room
+    // tab, ...) always ends with mCatalogGrid.Clear(), and Clear() = Clear(false) only detaches the cells (no
+    // DisposeOnDetach), so they and their icons stay registered for the session. RepopulateCatalogGrid recycles first:
+    // each cell's window goes to the pattern cache for catalog type 4, else to the buy cache. The pass does that same step
+    // before ShowCatalogGrid(false) runs, except for the inventory catalog (type 3: InventoryItemWin cells, no cache), and
+    // only when the grid was filled under the current catalog type (SelectCatalog may switch the type first).
+    // buygridsweep (tuning kBuyGridSweep) [verified IL]: SelectCatalog repoints mCatalogGrid at one of mGridSortByFunction,
+    // mGridSortByRoom, mGridCollection, mGridStoreNotable, mGridInventory, and BuyController.Dispose disposes the icons
+    // (child id 35, CustomContentIcon) of the current grid's cells only. The pass does EA's per-cell step (GetChildByID(35,
+    // true) as CustomContentIcon, Dispose when not null) for the other three catalog grids, before EA's Dispose; the
+    // inventory and debug grids are left alone. UI only.
+    // Counters: [2166] cells seen at ShowCatalogGrid(false) (also off), [2167] returned to a cache, [2168] errors,
+    // [2169] icons in other grids at Dispose (also off), [2170] disposed, [2171] errors.
     public static partial class Fixes
     {
         static FieldInfo sBcrBuyCache, sBcrPatCache, sBcrType;
@@ -46,11 +60,56 @@ namespace Ts3Fixes
                 sBcrGridState[i] = typeof(ItemGrid).GetField(gs[i], inst);
                 if (sBcrGridState[i] == null) { AppliedLog().Add("buycellrecycle: ItemGrid." + gs[i] + " not found, not patched"); return; }
             }
+            sBcrCatalogGrid = b.GetField("mCatalogGrid", inst);
+            string[] og = { "mGridSortByFunction", "mGridSortByRoom", "mGridCollection", "mGridStoreNotable" };
+            List<FieldInfo> ogf = new List<FieldInfo>();
+            foreach (string n in og) { FieldInfo f = b.GetField(n, inst); if (f != null) ogf.Add(f); else AppliedLog().Add("buygridsweep: " + n + " not found"); }
+            sBcrOtherGrids = ogf.ToArray();
+            if (sBcrCatalogGrid != null)
+                Patch(b, "ShowCatalogGrid", new Type[] { typeof(bool) }, typeof(BcrHook), "ShowHook", "ShowOrig");
+            else AppliedLog().Add("buyclearrecycle/buygridsweep: mCatalogGrid not found, not patched");
             Patch(b, "AddGridItem", new Type[] { typeof(ItemGrid), typeof(object), typeof(WindowBase), typeof(object) },
                 typeof(BcrHook), "AddHook", "AddOrig");
         }
 
-        static FieldInfo[] sBcrGridState;
+        static FieldInfo[] sBcrGridState, sBcrOtherGrids;
+        static FieldInfo sBcrCatalogGrid;
+        // catalog type each grid was last filled under (AddGridItem returned true); ShowHook recycles only on a match, so a
+        // pattern cell never goes to the buy cache or the other way round
+        static readonly Dictionary<ItemGrid, int> sBcrGridType = new Dictionary<ItemGrid, int>();
+
+        // buygridsweep: called by BilHook.DisposeHook (BuyIconLeak.cs) before EA's BuyController.Dispose
+        internal static void BcrSweepOtherGrids(object ctl)
+        {
+            sBcrGridType.Clear();  // this controller's grids die with it
+            if (sBcrCatalogGrid == null || sBcrOtherGrids == null) return;
+            int[] c = PatchCounters();
+            try
+            {
+                object cur = sBcrCatalogGrid.GetValue(ctl);
+                bool on = ShortcutOn("buygridsweep");
+                foreach (FieldInfo f in sBcrOtherGrids)
+                {
+                    ItemGrid g = f.GetValue(ctl) as ItemGrid;
+                    if (g == null || object.ReferenceEquals(g, cur)) continue;
+                    foreach (ItemGridCellItem it in g.Items)
+                    {
+                        try
+                        {
+                            if (it.mWin == null) continue;
+                            CustomContentIcon icon = it.mWin.GetChildByID(35u, true) as CustomContentIcon;
+                            if (icon == null || icon.Disposed) continue;
+                            c[2169]++;
+                            if (!on) continue;
+                            icon.Dispose();
+                            c[2170]++;
+                        }
+                        catch (Exception) { c[2171]++; }
+                    }
+                }
+            }
+            catch (Exception) { c[2171]++; }
+        }
 
         // ItemGrid.Count is mLastEntryJ * EntriesCountI + mLastEntryI + 1, but AddItem can also fill the temp slot
         // (mTempEntryI/J, Count unchanged), so "added" is judged by all four fields, and then by Items.
@@ -74,6 +133,7 @@ namespace Ts3Fixes
                 long s0 = 0; bool ok = false;
                 try { if (grid != null && win != null && sBcrGridState != null) { s0 = BcrGridState(grid); ok = true; } } catch (Exception) { }
                 bool added = AddOrig(grid, obj, win, ctx);
+                if (added && grid != null) { try { sBcrGridType[grid] = Convert.ToInt32(sBcrType.GetValue(this)); } catch (Exception) { } }
                 if (!ok || added) return added;
                 int[] c = PatchCounters();
                 try
@@ -90,6 +150,35 @@ namespace Ts3Fixes
                 catch (Exception) { c[2165]++; }
                 return added;
             }
+            public void ShowHook(bool show)
+            {
+                if (!show)
+                {
+                    int[] c = PatchCounters();
+                    try
+                    {
+                        ItemGrid g = sBcrCatalogGrid.GetValue(this) as ItemGrid;
+                        int type = Convert.ToInt32(sBcrType.GetValue(this));
+                        int filled;
+                        if (g != null && type != 3 && sBcrGridType.TryGetValue(g, out filled) && filled == type)
+                        {
+                            List<ItemGridCellItem> items = g.Items;
+                            c[2166] += items.Count;
+                            if (ShortcutOn("buyclearrecycle") && items.Count > 0)
+                            {
+                                List<WindowBase> cache = (type == 4 ? sBcrPatCache : sBcrBuyCache).GetValue(this) as List<WindowBase>;
+                                if (cache != null)
+                                    foreach (ItemGridCellItem it in items)
+                                        if (it.mWin != null && !it.mWin.Disposed && !cache.Contains(it.mWin)) { cache.Add(it.mWin); c[2167]++; }
+                            }
+                        }
+                    }
+                    catch (Exception) { c[2168]++; }
+                }
+                ShowOrig(show);
+            }
+            public void ShowOrig(bool show) { } // receives ShowCatalogGrid(bool)'s original header
+
             public bool AddOrig(ItemGrid grid, object obj, WindowBase win, object ctx) { return false; } // receives AddGridItem's original header
         }
     }
