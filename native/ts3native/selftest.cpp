@@ -12844,6 +12844,7 @@ static void TestP5() {
 #include "apex-test.h"  // TestApex ([Compat] ApexStandDown, docs/148 §7)
 #include "compaction-test.h"  // TestCompaction ([Compaction], docs/204)
 #include "saveslim-test.h"  // TestSaveSlim ([SaveSlim], docs/15 phase 11)
+#include "streambuf-test.h"  // TestStreamBuf ([StreamBuf], docs/547)
 #include "rctrim-test.h"  // TestRcTrim ([ResourceCache] TrimAfterCleanup, docs/198 §6)
 #include "lptrim-test.h"  // TestLotPoolTrim ([LotPool] Trim, docs/541)
 #include "castrim-test.h"  // TestCasTrim ([CasTrim], docs/191 step 2)
@@ -14280,6 +14281,7 @@ int main() {
     TestCrashForensicsObjRes();  // docs/186 §10
     TestApex();
     TestCompaction();
+    TestStreamBuf();
     TestRcTrim();
     TestLotPoolTrim();
     TestCasTrim();

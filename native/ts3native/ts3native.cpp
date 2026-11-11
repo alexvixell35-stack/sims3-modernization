@@ -5370,6 +5370,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "castrim.cpp"   // docs/191 step 2: [CasTrim] part compositor registry trim (off by default)
 #include "lptrim.cpp"    // docs/541: [LotPool] Trim, lot message pool cores freed after a world load (off by default)
 #include "allocsites.cpp"  // docs/201: [MemDiag] AllocSites, TEST-RUN TOOL (needs memdiag.cpp, alloc.cpp, apex.cpp)
+#include "streambuf.cpp"   // docs/547: [StreamBuf] EA memory stream buffers counted by sizer / pooled (off by default, needs allocsites.cpp)
 #include "uafcheck.cpp"    // docs/539 §17: [UafCheck] delayed-free quarantine, TEST-RUN TOOL (needs allocsites.cpp, watchpt.cpp, userdiag.cpp)
 #include "slotguard.cpp"   // docs/539 §18: [SlotGuard] float-5 SlotComponent slot arrays, CRASH-TRIAGE (needs uafcheck.cpp, castrim.cpp)
 #include "float5free.cpp"  // docs/539 §19: [Float5Free] float-5 pointers at EA Free / deque dtor 0x727E10, CRASH-TRIAGE (needs uafcheck.cpp, slotguard.cpp)
@@ -5487,6 +5488,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyUserDiag(ini) || keepLog;  // docs/188: after [SaveWrite] (its save phase sites need the save hooks)
         ApplyCompaction(ini);  // docs/204: after [UserDiag] (its text channel and save end) and ApexDetect
         ApplyRcTrim(ini);  // docs/198 §4: EXPERIMENT, off ([ResourceCache] TrimAfterCleanup)
+        keepLog = ApplyStreamBuf(ini) || keepLog;  // docs/547: off ([StreamBuf] Enabled); three byte-checked sites in the EA memory stream code
         ApplyCasTrim(ini);  // docs/191 step 2: off ([CasTrim] Mode)
         ApplyLotPoolTrim(ini);  // docs/541: off ([LotPool] Trim; needs [UserDiag])
         // the NOYIELD query guards ts3fixes' other yields too, so it is answered with async off (START then says no)
@@ -5574,6 +5576,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
         JcnExit();  // [MonoJit] Count: the last count report
         LuExit();  // [RouteSnap] LotUseReadout: the exit summary (last walk's bytes, final job counts)
         UdExit();
+        StbDetach();  // [StreamBuf]: its stubs pass through and take no lock during exit
         CrCleanExit();
         FgRevert();  // [Harness] ForegroundRender: original bytes back
     }
