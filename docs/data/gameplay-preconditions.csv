@@ -252,3 +252,8 @@ story_burst_state,StoryHandlers,Any,none (read),harness,,handler,none
 leak_census,LeakCensusHandlers,Live,none (read),harness,,handler,live
 townie_trips,TownieTripsHandlers,Live,Go Here / visit a community lot (one Sim at a time),stress,"NPC townies only: household, selectable, role, service and unknown-scope Sims skipped",handler,live
 vehicle_census,VehicleCensusHandlers,Live,none (read),harness,,handler,live
+family_tree,FamilyTreeHandlers,Live,opens EA's family tree dialog from the Simology panel and clicks relatives (player flow; stress repeats it),stress,a Sim with relatives in the world,handler,live
+inv_ghost,InvGhostProbe,Live,none: adds two copies of a product to the active family inventory and destroys the stack top (probe),harness,docs/257 §1 familyinvghost,handler,live
+inv_stuff,InventoryStressHandlers,Live,buying and moving items into Sim inventories (stress; select: switches the active Sim like the player's portrait click),stress,,handler,live
+buff_drift,MoodCensus,Live,none: re-adds a moodlet to townies to reproduce EA's re-add mood drift (probe),harness,non-household non-selectable townies only,handler,live
+buff_churn,MoodCensus,Live,none: random moodlet add/remove on townies (stress),stress,non-household non-selectable townies only,handler,live

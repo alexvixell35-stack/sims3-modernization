@@ -40,7 +40,11 @@ namespace Ts3Fixes
             sCrlDict = typeof(UIManager).GetField("mCustomControlInstanceDict", st);
             sCrlDeregister = typeof(UIManager).GetMethod("DeRegisterAllEvents", st, null, new Type[] { typeof(WindowBase) }, null);
             sCrlGridWins = typeof(Sims3.UI.CAS.CASClothingRow).GetField("mGridWindows", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            sCrlBaseDispose = typeof(WindowBase).GetMethod("Dispose", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { typeof(bool) }, null);
+            // WindowBase.Dispose(bool), bound as a delegate (not MethodInfo.Invoke: tools/selftest/swapinvoke). Only when no
+            // class between CASClothingRow and WindowBase overrides it, so the bound call is exactly EA's base step.
+            MethodInfo bd = typeof(Sims3.UI.CAS.CASClothingRow).GetMethod("Dispose", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { typeof(bool) }, null);
+            sCrlBaseDispose = bd != null && bd.DeclaringType == typeof(WindowBase) ? bd : null;
+            if (sCrlBaseDispose == null) AppliedLog().Add("casrowleak: WindowBase.Dispose(bool) not found or overridden, rows never shown are left as before");
             sCrlHandle = typeof(WindowBase).GetProperty("WinHandle", inst);
             if (sCrlDict == null || sCrlDeregister == null || sCrlHandle == null)
             {
@@ -90,7 +94,10 @@ namespace Ts3Fixes
                         {
                             IDictionary dict = sCrlDict.GetValue(null) as IDictionary;
                             uint h = Convert.ToUInt32(sCrlHandle.GetValue(row, null));
-                            if (dict != null && h != 0 && dict.Contains(h) && dict[h] == (object)row)
+                            Array gw0 = sCrlGridWins != null ? sCrlGridWins.GetValue(row) as Array : null;
+                            bool neverShown = gw0 != null && gw0.Length > 0 && gw0.GetValue(0) == null;
+                            if (neverShown && sCrlBaseDispose == null) { }  // EA's override would throw: leave the row as EA does
+                            else if (dict != null && h != 0 && dict.Contains(h) && dict[h] == (object)row)
                             {
                                 dict.Remove(h);
                                 string step = "deregister";
@@ -104,7 +111,7 @@ namespace Ts3Fixes
                                     // what the override ends with after its unhooking.
                                     Array gw = sCrlGridWins != null ? sCrlGridWins.GetValue(row) as Array : null;
                                     if (gw != null && gw.Length > 0 && gw.GetValue(0) == null && sCrlBaseDispose != null)
-                                        sCrlBaseDispose.Invoke(row, new object[] { false });
+                                        ((Action<bool>)Delegate.CreateDelegate(typeof(Action<bool>), row, sCrlBaseDispose))(false);
                                     else row.Dispose();
                                     c[2115]++;
                                 }
