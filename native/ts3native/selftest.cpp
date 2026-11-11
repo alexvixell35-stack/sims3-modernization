@@ -12843,6 +12843,7 @@ static void TestP5() {
 #include "crashfx-test.h"  // TestCrashForensics ([CrashForensics], docs/157 §11.7)
 #include "apex-test.h"  // TestApex ([Compat] ApexStandDown, docs/148 §7)
 #include "compaction-test.h"  // TestCompaction ([Compaction], docs/204)
+#include "restart-test.h"  // TestRestart ([Wrapper] Channel / Restart, docs/530 step 1)
 #include "saveslim-test.h"  // TestSaveSlim ([SaveSlim], docs/15 phase 11)
 #include "rctrim-test.h"  // TestRcTrim ([ResourceCache] TrimAfterCleanup, docs/198 §6)
 #include "lptrim-test.h"  // TestLotPoolTrim ([LotPool] Trim, docs/541)
@@ -14298,6 +14299,7 @@ int main() {
     TestCrashForensicsObjRes();  // docs/186 §10
     TestApex();
     TestCompaction();
+    TestRestart();
     TestRcTrim();
     TestLotPoolTrim();
     TestCasTrim();

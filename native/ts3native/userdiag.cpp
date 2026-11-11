@@ -22,6 +22,9 @@ static void CpSaveEnd(DWORD r);      // compaction.cpp ([Compaction], docs/204)
 static void CpWorldLoad();
 static void CpAfterSample(DWORD bigMB);
 static u8 CpOp(DWORD lo);
+static u8 WrOp(DWORD lo);              // restart.cpp ([Wrapper] Restart, docs/530 step 1)
+static void WrRecLine(const char* s);
+static void WrWorldLoaded();
 
 // ---------------------------------------------------------------------------------------------------------------------
 // pure helpers (selftest)
@@ -644,6 +647,7 @@ static void UdWorldLoad() {  // sim thread, from the ts3fixes "world:" line
     UdMemAsk("diag: memory at world load #%ld", n, MdWorldEvent(g_udTxt));
     if (n == 1) UdModulesLines();
     CpWorldLoad();
+    WrWorldLoaded();
     char ev[32];
     sprintf_s(ev, "world load #%ld", n);
     GcCapWindow(true, ev);  // gcgrow.cpp: [GC] BlackListCapKB strict while the world plays
@@ -654,7 +658,8 @@ static void UdWorldLoad() {  // sim thread, from the ts3fixes "world:" line
 // ts3fixes text channel (UserDiag.cs): Route.GetOption2 with optHi = 0x87000000 | op << 16, 4 ASCII bytes in optLo.
 // op 0 = begin a line, 1 = append (NUL pads), 2 = end: log it as "ts3fixes: <line>". Answer 1 = accepted; with [UserDiag]
 // off 0, so ts3fixes stops at the first message. Without ts3native the game answers false (no RouteOption2 name there).
-// Ops 3-5 memdiag.cpp; op 6 and "played: " lines played.cpp (docs/14 section 8.6); op 7 compaction.cpp (docs/204); op 8 [AutShadow] Unseen.
+// Ops 3-5 memdiag.cpp; op 6 and "played: " lines played.cpp (docs/14 section 8.6); op 7 compaction.cpp (docs/204); op 8 [AutShadow] Unseen;
+// op 40 and "wraprec " lines restart.cpp ([Wrapper] Restart, docs/530 step 1).
 // docs/247 §11.1: test-only hitch-cause lines (HitchCause.cs, 120 a minute at most) lost to the shared 400: ufplan: and play: use those up.
 static const LONG kUdHitchLines = 6000;
 static const LONG kUdUfPlanLines = 30000;  // ufplan: disk guard (~3 MB); ts3fixes sends at most 120 a minute (UnseenFallback.cs)
@@ -674,6 +679,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
         case 3: case 4: case 5: return MsOp((hi >> 16) & 0xFF);
         case 6: return PlAnswer();  // played.cpp: store ready / household played (docs/14 section 8.6)
         case 7: return CpOp(lo);    // compaction.cpp: [Compaction] verdict and steps (docs/204)
+        case 40: return WrOp(lo);   // restart.cpp: [Wrapper] Restart steps and the handoff reads (docs/530 step 1)
         case 8: return (u8)g_asLiveUnseen;  // autshadow-run.cpp: [AutShadow] Unseen=1 (docs/222); no icalls when [AutShadow] is off
         case 10: case 11: KdScopeSet(lo, ((hi >> 16) & 0xFF) == 10 ? 1 : 2); return 1;  // docs/197 §7: UfWhy of route lo, before its START or sync plan
         case 12: KdScopeClear(lo); return 1;  // docs/197 §7: route lo's plan is over
@@ -696,6 +702,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
             g_udTxt[g_udTxtN] = 0;
             if (!strncmp(g_udTxt, "memsus", 6)) { g_udTxtN = 0; MsLine(g_udTxt); return 1; }  // own lines and cap ([MemDiag] module 2)
             if (!strncmp(g_udTxt, "played: ", 8)) { g_udTxtN = 0; PlLine(g_udTxt + 8); return 1; }  // played.cpp logs what it does
+            if (!strncmp(g_udTxt, "wraprec ", 8)) { g_udTxtN = 0; WrRecLine(g_udTxt + 8); return 1; }  // restart.cpp: the state, not logged
             if (!strncmp(g_udTxt, "savecleanup: ", 13)) {  // per-action save cleanup lines (docs/14 section 8.6): own, larger cap
                 static LONG s_scLines;
                 if (s_scLines++ < 50000) Log("ts3fixes: %s", g_udTxt);

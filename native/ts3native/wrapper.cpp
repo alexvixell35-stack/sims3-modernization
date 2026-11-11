@@ -14,7 +14,10 @@
 //   slots (wsp2 run: one made it WS_POPUP at the monitor size inside a smaller framed host). Any size asked of it goes to
 //   the host, and only the host's answer resizes it; frame styles are stripped on every style write.
 //   IsIconic / IsZoomed / ShowWindow(minimize, maximize, restore): the host's state.
-// Windowed mode only: exclusive fullscreen is not handled. No threads, nothing at detach.
+// Windowed mode only: exclusive fullscreen is not handled. No threads.
+// Step 1 (docs/530 §12, restart.cpp): with Channel=1 the host gets the session's channel; a game the host started again
+// (TS3WRAP_CHANNEL) never starts a host of its own but becomes the child of the channel's host window; WrProc writes the
+// heartbeat and counts the RestartHotkey (Ctrl+Shift+F12).
 #pragma comment(lib, "user32.lib")
 
 static HWND g_wrHost, g_wrGame;
@@ -38,14 +41,16 @@ static BOOL(WINAPI* g_wrZoomed)(HWND);
 static BOOL(WINAPI* g_wrShow)(HWND, int);
 
 static HWND WrStartHost() {
-    wchar_t exe[MAX_PATH], cmd[MAX_PATH + 48], cls[32];
+    wchar_t exe[MAX_PATH], cmd[MAX_PATH + 96], cls[32];
     const DWORD n = GetModuleFileNameW(g_wrSelf, exe, MAX_PATH);
     wchar_t* slash = n && n < MAX_PATH ? wcsrchr(exe, L'\\') : NULL;
     if (!slash || wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - exe), L"ts3wrap.exe")) return NULL;
-    swprintf_s(cmd, L"\"%s\" %lu%s", exe, GetCurrentProcessId(), g_wrBack ? L" back" : L"");
+    const bool chan = WrChanCreate();  // restart.cpp: Channel=1 only
+    swprintf_s(cmd, L"\"%s\" %lu%s%s%s", exe, GetCurrentProcessId(), chan ? L" " : L"", chan ? g_wrId : L"", g_wrBack ? L" back" : L"");
     STARTUPINFOW si = {sizeof(si)};
     PROCESS_INFORMATION pi;
-    if (!CreateProcessW(exe, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+    // the start folder captured at DllMain: the host relaunches the game from it
+    if (!CreateProcessW(exe, cmd, NULL, NULL, FALSE, 0, NULL, g_wrCwd[0] ? g_wrCwd : NULL, &si, &pi)) {
         Log("FAIL wrapper: ts3wrap.exe did not start (err %lu)", GetLastError());  // file name only (docs/188 privacy)
         return NULL;
     }
@@ -58,6 +63,9 @@ static HWND WrStartHost() {
 }
 
 static LRESULT CALLBACK WrProc(HWND h, UINT m, WPARAM w, LPARAM l) {
+    if (g_wrChan) g_wrChan->beat = (int32_t)GetTickCount();  // the host's hang report: this thread pumps
+    if (m == WM_KEYDOWN && w == VK_F12 && g_wrHotkeyOn && !(l & 0x40000000) && GetKeyState(VK_CONTROL) < 0 && GetKeyState(VK_SHIFT) < 0)
+        InterlockedIncrement(&g_wrKey), Log("wrapper: hotkey Ctrl+Shift+F12");  // first press only, not the repeat
     if (m == g_wrMsgSize) {  // the host's client size: the only way the child changes size
         g_wrFromHost = true;
         SetWindowPos(h, NULL, 0, 0, (int)w, (int)l, SWP_NOZORDER | SWP_NOACTIVATE);
@@ -85,16 +93,23 @@ static HWND WINAPI WrCreateWindowExW(DWORD ex, LPCWSTR cls, LPCWSTR name, DWORD 
                                      HMENU menu, HINSTANCE inst, LPVOID param) {
     if ((DWORD)(uintptr_t)_ReturnAddress() != 0x4121D5 || g_wrGame || parent)
         return g_wrCreate(ex, cls, name, style, x, y, w, h, parent, menu, inst, param);
-    g_wrHost = WrStartHost();
+    if (g_wrChanHost) {  // started by the host again: its window, never a second host
+        g_wrHost = IsWindow(g_wrChanHost) ? g_wrChanHost : NULL;
+        if (!g_wrHost) Log("FAIL wrapper: the channel's host window is gone, the game runs unwrapped");
+    } else g_wrHost = WrStartHost();
     if (!g_wrHost) {
-        Log("FAIL wrapper: no host window after 5 s, the game runs unwrapped");
+        if (!g_wrChanHost) Log("FAIL wrapper: no host window after 5 s, the game runs unwrapped");
         return g_wrCreate(ex, cls, name, style, x, y, w, h, parent, menu, inst, param);
     }
     RECT rc = {};
     GetClientRect(g_wrHost, &rc);
     const HWND game = g_wrCreate(WrChildEx(ex), cls, name, WrChildStyle(style), 0, 0, rc.right, rc.bottom, g_wrHost, menu, inst, param);
-    if (!game) Log("FAIL wrapper: child CreateWindowExW (err %lu)", GetLastError());
-    else Log("OK   wrapper: game window 0x%p is a child of host 0x%p (style 0x%08lX -> 0x%08lX, %ldx%ld)", game, g_wrHost, style,
+    if (!game) {  // a host window that went away meanwhile: the game gets its own top-level window, never none
+        Log("FAIL wrapper: child CreateWindowExW (err %lu), the game runs unwrapped", GetLastError());
+        g_wrHost = NULL;
+        return g_wrCreate(ex, cls, name, style, x, y, w, h, parent, menu, inst, param);
+    }
+    Log("OK   wrapper: game window 0x%p is a child of host 0x%p (style 0x%08lX -> 0x%08lX, %ldx%ld)", game, g_wrHost, style,
              WrChildStyle(style), rc.right, rc.bottom);
     g_wrGame = game;
     if (game) g_wrOldProc = (WNDPROC)(LONG_PTR)SetWindowLongW(game, GWL_WNDPROC, (LONG)(LONG_PTR)WrProc);
@@ -171,5 +186,6 @@ static bool ApplyWrapper(const wchar_t* ini, HMODULE self) {
         if (!WrHookSlot((void**)(uintptr_t)k.slot, k.fn, k.orig)) { Log("FAIL wrapper: slot 0x%lX (%s) write", k.slot, k.name); return true; }
     }
     Log("OK   wrapper: 8 import slots hooked, host starts with the game window%s", g_wrBack ? " (Back=1: behind other windows)" : "");
+    ApplyRestart(ini);  // restart.cpp: [Wrapper] Channel / Restart (step 1)
     return true;
 }

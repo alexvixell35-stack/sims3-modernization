@@ -5400,6 +5400,7 @@ static bool ApplyD3dMultithreaded(const wchar_t* ini) {
 }
 
 #include "launcherfix.cpp"  // docs/255: [LauncherFix] EA launcher telemetry busy-wait (launcher host only)
+#include "restart.cpp"  // docs/530 step 1: [Wrapper] Channel / Restart, the game side of the host's lifecycle (default off)
 #include "wrapper.cpp"  // docs/530 step 0: [Wrapper] the game window as a child of ts3wrap.exe's host window (spike, default off)
 static bool g_otherHost;  // not TS3W.exe (the launcher also loads the ASI loader): no exit work at DLL_PROCESS_DETACH
 
@@ -5425,6 +5426,10 @@ static void Run(HMODULE self) {
         if (ReadFile(oldLog, priorLog, sizeof(priorLog) - 1, &got, NULL)) priorLog[got] = 0;
         priorLog[strcspn(priorLog, "\r\n")] = 0;
         CloseHandle(oldLog);
+    }
+    if (!g_otherHost && GetEnvironmentVariableW(L"TS3WRAP_CHANNEL", NULL, 0)) {  // docs/530 step 1: the game before the restart
+        wchar_t before[MAX_PATH];
+        if (_snwprintf_s(before, MAX_PATH, _TRUNCATE, L"%s.before-restart.log", path) > 0) CopyFileW(log, before, FALSE);
     }
     g_log = CreateFileW(log, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
@@ -5576,6 +5581,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
         JcnExit();  // [MonoJit] Count: the last count report
         LuExit();  // [RouteSnap] LotUseReadout: the exit summary (last walk's bytes, final job counts)
         UdExit();
+        WrExit();  // docs/530 step 1: the host reads a normal exit
         CrCleanExit();
         FgRevert();  // [Harness] ForegroundRender: original bytes back
     }
