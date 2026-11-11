@@ -5362,6 +5362,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "cellmemo.cpp"
 #include "hostcalls.cpp"
 #include "fgrender.cpp"  // docs/162 §7: [Harness] ForegroundRender (TEST ONLY)
+#include "thumbstall.cpp"  // [ThumbStall]: timeout for state 0x11 of the Sim thumbnail queue (EXPERIMENT, off)
 #include "played.cpp"    // docs/14 section 8.6: played-household sidecar store for ts3fixes (op 6 + "played:" lines on the 0x87 channel)
 #include "userdiag.cpp"  // docs/188: [UserDiag] player-report lines (header, world load, save trail)
 #include "memdiag.cpp"   // docs/190 phase 1, docs/191: [MemDiag] "diag: mem" lines + self-test (needs userdiag.cpp)
@@ -5521,6 +5522,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyJobQueue(ini) || keepLog;
         ApplyD3dMultithreaded(ini);
         ApplyForegroundRender(ini);  // TEST ONLY (docs/162 §7): unfocused harness runs pace like focused ones
+        ApplyThumbStall(ini);  // EXPERIMENT, off: start-up patch
         keepLog = ApplyLotSinCos(ini) || keepLog;
         keepLog = ApplyIdCache(ini) || keepLog;
         keepLog = ApplyEaCrashFixes(ini) || keepLog;  // docs/67 §26.4 / §27.5 / §28: off by default; before any game object exists
@@ -5576,6 +5578,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
         UdExit();
         CrCleanExit();
         FgRevert();  // [Harness] ForegroundRender: original bytes back
+        TsRevert();  // [ThumbStall]: original bytes back
     }
     return TRUE;
 }
