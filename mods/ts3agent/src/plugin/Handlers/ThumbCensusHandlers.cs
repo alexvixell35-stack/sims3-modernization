@@ -81,6 +81,11 @@ namespace Ts3Agent
         //    that blocks it (request +0x244): pointer, vtable, flags (+0x40: 2 = composite not finished, 0x40 = pending
         //    list not empty), layers (+0x44), blk_composite_state (3 = finished), blk_own (it is one of the request's own
         //    models, +0xA8..+0xAC), blk_age_ms (same blocker since), blk_changes (times the blocker changed)
+        //    blk_handle: the 29 words of the blocker's model handle (+0x210); blk_slots_loading: which slots are not settled
+        //    (model = +0 still a key, pending = +4 set, nolod = +8 empty or a key, lodload = +0xC set, override = +0x10 set);
+        //    blk_res0..blk_res10: vtable, state (+0x30, 3 = loaded) and reference count of each slot that holds a resource;
+        //    blk_composite_state: the current LOD's state word, when +8 holds a resource
+        //  tm_front_key: the front request's four key words (+0x110..+0x11C)
         //  game_speed: Gameflow.CurrentGameSpeed
         //  tm_front_state: the front request's state (0-0x1E; 3 = waits for the script to prepare the scene; 0x11 = render;
         //    0x14/0x15 = waits for CAS parts and skin; 0x1E = done); tm_front_prepared: script preparation reported done
@@ -154,6 +159,8 @@ namespace Ts3Agent
                         r["tm_front_prepared"] = Marshal.ReadByte(new IntPtr(bc + kReqPrepared)) != 0;
                         key = ((long)bc << 32) | (uint)Rd(bc + kReqCreated);  // slot address + creation stamp names the request
                         r["tm_front_type"] = "0x" + Rd(bc + kReqType).ToString("x8");
+                        // the request's key words (+0x110..+0x11C; +0x118 is the type): names the outfit, so the Sim
+                        r["tm_front_key"] = Rd(bc + 0x110).ToString("x8") + " " + Rd(bc + 0x114).ToString("x8") + " " + Rd(bc + 0x118).ToString("x8") + " " + Rd(bc + 0x11C).ToString("x8");
                         // state 0x11 keeps the scene object that blocks it in request +0x244 (0xD5A9CC)
                         int blk = state == 0x11 ? Rd(bc + 0x244) : 0;
                         if (blk != sBlk) { if (blk != 0 && sBlk != 0) sBlkChanges++; sBlk = blk; sBlkSince = now; }
@@ -166,8 +173,25 @@ namespace Ts3Agent
                             r["blk_layers"] = "0x" + Rd(blk + 0x44).ToString("x8");
                             r["blk_composite_on"] = Marshal.ReadByte(new IntPtr(blk + 0x210 + 0x5E)) != 0;
                             r["blk_pending_list"] = Rd(blk + 0x210 + 0x18) != Rd(blk + 0x210 + 0x14);
-                            int res = Rd(blk + 0x210 + 8);
-                            if (res != 0 && (res & 3) == 0) r["blk_composite_state"] = Rd(res + 0x30);
+                            // +0x210 is the SceneModel's model handle (docs/186 10.3): tagged resource slots +0 model, +4 pending
+                            // model, +8 current LOD, +0xC loading LOD, +0x10 override (low two bits set = still a key being
+                            // loaded), +0x14 / +0x18 the two words 0x6DB760 compares, +0x1C version, +0x28..+0x34 model key,
+                            // +0x44 LOD stream record, +0x5E ready byte. All 29 words, raw, for offline reading.
+                            System.Text.StringBuilder hw = new System.Text.StringBuilder();
+                            for (int q = 0; q < 0x74; q += 4) hw.Append(q == 0 ? "" : " ").Append(Rd(blk + 0x210 + q).ToString("x8"));
+                            r["blk_handle"] = hw.ToString();
+                            r["blk_slots_loading"] = ((Rd(blk + 0x210) & 3) != 0 ? "model " : "") + (Rd(blk + 0x214) != 0 ? "pending " : "")
+                                + ((Rd(blk + 0x218) & 3) != 0 || Rd(blk + 0x218) == 0 ? "nolod " : "") + (Rd(blk + 0x21C) != 0 ? "lodload " : "")
+                                + (Rd(blk + 0x220) != 0 ? "override" : "");
+                            // an untagged slot holds a counted reference to a live resource: its vtable and state word (+0x30, 3 = loaded)
+                            for (int slot = 0; slot <= 0x10; slot += 4)
+                            {
+                                int res = Rd(blk + 0x210 + slot);
+                                if (res != 0 && (res & 3) == 0)
+                                    r["blk_res" + slot.ToString("x")] = Rd(res).ToString("x8") + " state " + Rd(res + 0x30) + " refs " + (Rd(res + 4) >> 8);
+                            }
+                            int lod = Rd(blk + 0x218);
+                            if (lod != 0 && (lod & 3) == 0) r["blk_composite_state"] = Rd(lod + 0x30);
                             bool own = false;
                             int mb = Rd(bc + 0xA8), me = Rd(bc + 0xAC);
                             for (int q = mb; mb != 0 && q < me && q < mb + 256; q += 4) if (Rd(q) == blk) own = true;

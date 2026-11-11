@@ -43,6 +43,35 @@ static DWORD g_tsStamp;         // its creation stamp (+0x23C): tells a new requ
 static DWORD g_tsSince;         // tick of its first blocked step
 static LONG g_tsHits, g_tsAborts, g_tsForced;
 
+// What the blocking model waits for: its model handle (+0x210, docs/186 10.3) word by word, and the first 16 words of
+// whatever each slot points at (tag bits masked), when that memory is readable. Log only.
+static void TsWords(char* out, size_t cap, const DWORD* w, int n) {
+    size_t at = 0;
+    out[0] = 0;
+    for (int i = 0; i < n && at + 10 < cap; i++) at += (size_t)sprintf_s(out + at, cap - at, i ? " %08lX" : "%08lX", w[i]);
+}
+static void TsDump(const u8* req, const u8* blk) {
+    char line[16 * 9 + 8 * 9 + 64];
+    __try {
+        TsWords(line, sizeof(line), (const DWORD*)(req + 0x110), 4);
+        Log("thumbstall:   request key %s", line);
+        if (!blk || !Readable(blk + 0x210, 0x74)) return;
+        const DWORD* const h = (const DWORD*)(blk + 0x210);
+        TsWords(line, sizeof(line), h, 16);
+        Log("thumbstall:   handle +00 %s", line);
+        TsWords(line, sizeof(line), h + 16, 13);
+        Log("thumbstall:   handle +40 %s", line);
+        static const int kSlots[6] = {0x00, 0x04, 0x08, 0x0C, 0x10, 0x44};
+        for (int i = 0; i < 6; i++) {
+            const DWORD raw = *(const DWORD*)((const u8*)h + kSlots[i]);
+            const DWORD* const p = (const DWORD*)(uintptr_t)(raw & ~3u);
+            if (!p || !Readable(p, 0x60)) continue;
+            TsWords(line, sizeof(line), p, 24);
+            Log("thumbstall:   slot +%02X raw %08lX -> %s", kSlots[i], raw, line);
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+}
+
 // Called from the stub on the main thread, once per blocked step of state 0x11. Returns 0 keep waiting, 1 abort, 2 render.
 static int __cdecl TsBlocked(const u8* req) {
     const DWORD now = GetTickCount();
@@ -67,6 +96,7 @@ static int __cdecl TsBlocked(const u8* req) {
                 n, act == 1 ? "abort" : act == 2 ? "render" : "seen", now - g_tsSince, req, *(const DWORD*)(req + 0x118), blk,
                 blk ? *(const DWORD*)blk : 0, blk ? *(const DWORD*)(blk + 0x40) : 0, blk ? *(const DWORD*)(blk + 0x44) : 0,
                 blk ? (unsigned)blk[0x210 + 0x5E] : 0, (int)own, (unsigned)models, g_tsAborts, g_tsForced);
+        if (n <= 200 || (n & 63) == 0) TsDump(req, blk);
         g_tsSince = now;  // Action 0: one line per timeout period; 1 and 2: the request leaves state 0x11 now
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 0;
