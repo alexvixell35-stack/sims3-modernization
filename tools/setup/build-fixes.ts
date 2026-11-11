@@ -183,6 +183,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kDeadSimCount value="False" />
     <kDeadSimHollow value="False" />
     <kExitCbSweep value="False" />
+    <kDnpPetKeys value="False" />
+    <kDnpObjKeys value="False" />
     <kRelTablesApart value="True" />
     <kAsyncJigSync value="True" />
     <kDeadRefSweep value="False" />
