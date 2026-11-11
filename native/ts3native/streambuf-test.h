@@ -3,6 +3,13 @@
 // process. The patch tests run patched copies of the game's SharedPointer constructor and Release bytes (they call only
 // through the fake vtables) and each patched window of the compressor and the package writer on its own;
 // MemoryStream::Realloc's copy and the rest of those functions are patched and compared, not run (they call game code).
+// The test's arena goes (in the game the arena lives until the process ends).
+static void StaRelease() {
+    if (g_sta.base && g_sta.sec) UnmapViewOfFile(g_sta.base), CloseHandle(g_sta.sec);
+    else if (g_sta.base) VirtualFree(g_sta.base, 0, MEM_RELEASE);
+    InterlockedExchange((volatile LONG*)&g_sta.n, 0);
+    g_sta = Sta{};
+}
 struct StbtAlloc { void** vt; LONG allocs, frees, live; const char* lastName; };
 static void* __fastcall StbtA3(void* self, void*, DWORD size, const char* name, DWORD flags) {
     StbtAlloc* a = (StbtAlloc*)self;
@@ -44,12 +51,11 @@ static DWORD StbtOsCom() {
 static void StbtReset(LONG arm, DWORD arenaMB, DWORD minKB, DWORD maxBlkMB, DWORD idleMs) {
     InterlockedExchange(&g_stbArm, 0);
     StbTick(0);
-    assert(g_sta.useN == 0 && g_sta.comN == 0 && g_sta.freeN == g_sta.n && g_stbHi == 0);
-    for (DWORD i = 0; i < g_sta.n; i++) assert(g_staSt[i] == 0);
-    if (g_sta.base && g_sta.n != arenaMB << 4) {
-        assert(StbtOsCom() == 0);
-        VirtualFree(g_sta.base, 0, MEM_RELEASE);
-        g_sta = Sta{};
+    assert(g_sta.useN == 0 && (g_sta.sec || g_sta.comN == 0) && g_sta.freeN == g_sta.n && g_stbHi == 0);  // a shared arena cannot decommit
+    for (DWORD i = 0; i < g_sta.n; i++) assert(g_sta.sec ? !(g_staSt[i] & (STA_USED | STA_PURGE)) : g_staSt[i] == 0);
+    if (g_sta.base && (g_sta.n != arenaMB << 4 || (g_sta.sec != NULL) != g_stbShared)) {
+        assert(g_sta.sec || StbtOsCom() == 0);
+        StaRelease();
     }
     memset(&g_stb, 0, sizeof(g_stb)), memset(g_stbWho, 0, sizeof(g_stbWho)), memset(g_stbTid, 0, sizeof(g_stbTid)), memset(g_stbSz, 0, sizeof(g_stbSz));
     assert(g_stbHeadN == 0);
@@ -126,7 +132,7 @@ static void StbtPlace() {
     // MinFreeMB: only a reservation inside the largest range is held against the floor
     assert(StaFloorOk(late[0], late[0], sz, 1137) && !StaFloorOk(late[0], late[0], sz, 1138) && StaFloorOk(two[0], two[1], sz, 4000));
     StbtReset(0, 4, 128, 8, 5000);
-    VirtualFree(g_sta.base, 0, MEM_RELEASE), g_sta = Sta{};
+    StaRelease();
     static StaHole h[256];
     const DWORD n = StaScan(h, 256, 4 * M);
     assert(n > 0);
@@ -142,7 +148,7 @@ static void StbtPlace() {
     MEMORY_BASIC_INFORMATION mbi;
     assert(VirtualQuery(g_sta.base, &mbi, sizeof(mbi)) && mbi.AllocationBase == g_sta.base && mbi.RegionSize == 4 * M && mbi.State == MEM_RESERVE);
     // no arena (the reservation failed or was refused): every request is the game's
-    VirtualFree(g_sta.base, 0, MEM_RELEASE), g_sta = Sta{};
+    StaRelease();
     InterlockedExchange(&g_stbArm, STB_POOL | STB_ZERO);
     g_stbtA.allocs = g_stbtA.frees = 0;
     u8* p = StbtGet(1398384);
@@ -1021,6 +1027,65 @@ static void StbtBench() {
     StbtReset(0, 48, 128, 8, 5000);
 }
 
+// Shared: the arena as a view of a named section; a second view stands in for the 64-bit host.
+static void StbtShared() {
+    const DWORD T1 = 699320, K = 0x10000, S1 = 11;
+    wchar_t name[64];
+    StbSharedName(name, 64, GetCurrentProcessId());
+    g_stbShared = true;
+    StbtReset(STB_POOL | STB_ZERO | STB_PREZERO, 4, 128, 2, 5000);
+    MEMORY_BASIC_INFORMATION mbi;
+    assert(g_sta.sec && g_sta.how == 1 && VirtualQuery(g_sta.base, &mbi, sizeof(mbi)) && mbi.Type == MEM_MAPPED && mbi.AllocationBase == g_sta.base && StbtOsCom() == 0);
+    // the other side: opened by name, mapped anywhere; an offset in the arena is the same byte in both views
+    HANDLE h2 = OpenFileMappingW(FILE_MAP_READ | FILE_MAP_WRITE, FALSE, name);
+    assert(h2);
+    u8* v2 = (u8*)MapViewOfFile(h2, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, 0);
+    assert(v2 && v2 != g_sta.base);
+    u8* b = StbtGet(T1);
+    assert(b == g_sta.base && StbtOsCom() == S1 * K && StbAllIs(b, T1, 0));
+    memset(b, 0x3C, T1);
+    const DWORD off = (DWORD)(b - g_sta.base);
+    assert(StbAllIs(v2 + off, T1, 0x3C));  // read in place
+    memset(v2 + off + 100, 0xC3, 1000);     // filled in place
+    assert(StbAllIs(b + 100, 1000, 0xC3) && b[99] == 0x3C && b[1100] == 0x3C);
+    HANDLE hx = OpenFileMappingW(FILE_MAP_EXECUTE | FILE_MAP_READ, FALSE, name);  // not executable
+    assert(!hx || !MapViewOfFile(hx, FILE_MAP_EXECUTE | FILE_MAP_READ, 0, 0, 0));
+    if (hx) CloseHandle(hx);
+    // the block comes back; PreZero fills it; idle: reset instead of decommit, still committed, dirty again, never filled twice
+    StbtPut(b);
+    assert(StbZeroSome(g_stbArm) == S1 && g_staSt[0] == (STA_COM | STA_ZERO) && StbAllIs(v2 + off, S1 * K, 0));
+    g_stbtNow += 6000, StbTick(g_stbtNow);
+    assert(g_staSt[0] == (STA_COM | STA_RESET) && g_sta.comN == S1 && g_stb.decommits == 0 && g_stb.resets + g_stb.resetFail == 1 && StbtOsCom() == S1 * K);
+    printf("streambuf shared: MEM_RESET on the view %s\n", g_stb.resets ? "works" : "FAILS (idle slices stay committed and resident)");
+    g_stbtNow += 6000, StbTick(g_stbtNow);
+    assert(g_stb.resets + g_stb.resetFail == 1 && StbZeroSome(g_stbArm) == 0);
+    b[5] = 0x7E;  // whatever the pages hold after a reset: the next request is filled on the caller's thread
+    u8* c = StbtGet(T1);
+    assert(c == b && StbAllIs(c, T1, 0) && g_stb.zeroB == T1 && g_staSt[0] == (STA_USED | STA_COM | STA_HEAD));
+    StbtPut(c);
+    // the host is gone (its view and handle closed): the arena works on
+    UnmapViewOfFile(v2), CloseHandle(h2);
+    c = StbtGet(T1);
+    memset(c, 1, T1);
+    StbtPut(c);
+    // the name is taken by someone else: refused, the arena is private memory with the same behaviour
+    StbtReset(0, 4, 128, 2, 5000);
+    StaRelease();
+    HANDLE squat = CreateFileMappingW(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 4096, name);
+    assert(squat);
+    StbtReset(STB_POOL | STB_ZERO, 4, 128, 2, 5000);
+    assert(g_sta.base && !g_sta.sec && VirtualQuery(g_sta.base, &mbi, sizeof(mbi)) && mbi.Type == MEM_PRIVATE);
+    c = StbtGet(T1);
+    assert(c == g_sta.base);
+    StbtPut(c);
+    g_stbtNow += 6000, StbTick(g_stbtNow);
+    assert(g_stb.decommits == 1 && g_sta.comN == 0);
+    CloseHandle(squat);
+    g_stbShared = false;
+    StbtReset(0, 4, 128, 2, 5000);  // back to a private arena for the tests that follow
+    assert(!g_sta.sec);
+}
+
 static void TestStreamBuf() {
     g_stbNow = StbtNow, g_stbWhoFn = StbtWhoFn;
     // the game's bytes are not in this process: nothing matches, nothing is written
@@ -1043,12 +1108,13 @@ static void TestStreamBuf() {
     StbtPlace();
     StbtCreator();
     StbtBasic();
+    StbtShared();
     StbtModel();
     StbtThreads();
     StbtPatch();
     StbtBench();
     StbtReset(0, 48, 128, 8, 5000);
-    VirtualFree(g_sta.base, 0, MEM_RELEASE), g_sta = Sta{};  // the test's arena goes; the module starts as in a new process
+    StaRelease();  // the test's arena goes; the module starts as in a new process
     g_stbNow = StbNowMs, g_stbWhoFn = StbCreator;
     printf("streambuf ok\n");
 }

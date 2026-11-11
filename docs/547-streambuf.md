@@ -4,7 +4,7 @@ Static RE on TS3W.exe 1.67 (Capstone disassembly of the retail copy, sha256 `b78
 window quoted here was read from that copy), `native/ts3native/streambuf.cpp` with its selftest and host bench. The
 measurements in §1 come from `[BigBlock]` Stats (docs/543, one 14 min run). **v1 (separate blocks) ran in the game: §14.
 v2's arena, compressor tables and package buffers (§11-§13) ran in the game: §19. §15 Grow, §16 Timing and §17 Assemble
-ran once (run E of §19). §21 PreZero and SkipClear have not: selftest only.** §6 describes
+ran once (run E of §19). §21 PreZero and SkipClear and §23 Shared have not: selftest only.** §6 describes
 the sites of v1, which v2 keeps unchanged; where §6 and §8 speak of the pool's blocks, §11 replaces them.
 
 Tags: [verified] = read in the disassembly, or exercised by the selftest; [measured] = a run's numbers; [inferred] =
@@ -996,3 +996,52 @@ goes through, where a mistake corrupts saves.
 **Recommendation: do not build it.** The gain is under a tenth of a percent of one core and not on a path anyone
 feels. It would be worth a second look only if a run showed the game's heap lock contended at these requests (time
 waiting, which the 516.8 ms of CPU time does not show), and that measurement belongs to the allocator work, not here.
+
+## 23. The arena as shared memory: `Shared=1` [verified by the selftest; not run in the game]
+
+**Why.** The project's 64-bit host (`ts3wrap.exe`, the wrapper service of another branch) can do work for the game, but its first service
+measured 2.5-7 times slower per call than the same work in the game, because every call copied the input to the host
+and the result back. If the game's big transient buffers already lie in memory both processes map,
+the host can read and fill them where they are. The arena holds exactly those buffers.
+
+**What changes.** With `Shared=1` at the start the arena's reservation is a view of a pagefile-backed section instead
+of private memory. Slices, best fit, in-place growth, Verify, PreZero and the statistics run on top of it unchanged.
+With `Shared=0` nothing differs from before (the private path is the same code as it was).
+
+| Question | Answer |
+|---|---|
+| Section | `CreateFileMapping(INVALID_HANDLE_VALUE, sa, PAGE_READWRITE \| SEC_RESERVE, PoolMB)`: reserved, nothing committed |
+| Placement | the same rule (§11.3): the chosen address is passed to `MapViewOfFileEx`. A view has no top-down mode of its own, so if the place cannot be had (twice), the section is closed and the arena is private memory, with a `WARN` line |
+| Commit | `VirtualAlloc(MEM_COMMIT)` on the view, as for private memory: zero pages. Pages committed through one view are there for every view of the section [verified: the selftest reads and writes them through a second view] |
+| Giving memory back | pages of a view **cannot be decommitted**. An idle run is handed back with `VirtualAlloc(MEM_RESET)`: the OS may drop the pages without writing them to the page file. It works on such a view [verified on the build machine; a failure is counted, `resetFail`]. The commit charge (up to `PoolMB`) stays until the process ends: that is the cost of sharing |
+| "Known zero" | a reset page's contents are undefined (the documentation says so; decommit-and-recommit is the only way to get zeros, and it is not available here). So a reset slice is **dirty**: a slice state of its own (`RESET`) that the idle pass does not reset again and PreZero does not fill (touching it would bring the pages back); the next request fills it on the caller's thread. PreZero itself works as on private memory: its `memset` makes the zeros |
+| Name | `Local\ts3sb-<process id>-arena`. The process id keeps two game instances apart, and the host already knows the game's process id (it is on its command line). The wrapper service's channel names its objects the same way |
+| Who can open it | the security descriptor the wrapper service's channel uses: `D:P(A;;GA;;;SY)(A;;GA;;;<user SID>)S:(ML;;NW;;;ME)`: the same user and SYSTEM, medium integrity, no write-up. A name that already exists is refused (the arena is then private), as the channel's host refuses a name it did not create |
+| Protection | read / write; the section is not executable and an execute view of it cannot be mapped [verified] |
+
+**What another process of the same user could do:** read and write the game's stream buffers, as it could with
+`WriteProcessMemory`; the section adds no right such a process did not have. What the game must not do is trust
+anything that comes back through it: lengths and offsets a helper returns are checked against the block the game
+itself owns before they are used (the rule for the host call, on the wrapper branch).
+
+**If the helper dies:** its view and handle go with it; the game's view and the section stay; the arena works on
+exactly as before [verified: the second view is closed in the selftest and the arena is used afterwards].
+
+**Apex Radiance and the two-process renderer.** The renderer's client already maps a 96 MB and a 72 MB view low in the
+game's address space; the arena as a view at the top is the same kind of object. docs/148 and docs/254 name
+no code in Apex or in the renderer's client that enumerates or unmaps views it did not create [searched; inferred
+from their absence, not from reading their sources].
+
+Log: after the `arena reserved` line, `streambuf: arena is SHARED memory: a view of the section ...`; the OK line says
+`Shared on` (or `asked, not in use` after a fallback); the arena line ends with `shared=1 resets= resetMB= resetFail=`.
+In a game run as a plain arena it must show the numbers of the private arena, except that `commitMB` no longer falls
+when streaming stops (`resetMB` grows instead).
+
+Selftest: the section is created, placed by the rule and is a mapped region with nothing committed; a second view
+opened by name sees a block's bytes at the same offset and its writes are seen by the game side; an execute view is
+refused; free, PreZero, idle reset (state, counters, still committed), no second reset, no background fill of a reset
+slice, the next request zero-filled; the second view closed; a squatted name falls back to a private arena that
+decommits as before.
+
+The host side (mapping the section in the 64-bit process and the first call that works in place) lives on the wrapper
+service's branch, not here.

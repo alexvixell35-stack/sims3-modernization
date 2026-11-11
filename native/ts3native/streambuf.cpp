@@ -52,6 +52,7 @@
 // Grow (docs/547 §15): a small stream that grows is given more capacity than the game's 1.5x from a few bytes, and a
 // stream's arena block grows where it is when the slices behind it are free. Timing (§16): the stubs' own time.
 // Assemble (§17): the block assembler 0x6165A0's scratch buffer from the arena.
+// Shared (§23): the arena as a view of a named section a 64-bit host can map.
 // PreZero (§21): free slices are zeroed by the upkeep thread, so the caller's thread fills nothing. SkipClear (§21):
 // no zero-fill for the sites whose consumer initialises the buffer itself (the compressor's tables, the assembler).
 // Verify (debug): 1 = a freed block is filled with 0xB5 and checked when its slices are reused (a write after free
@@ -62,6 +63,8 @@
 // Apex Radiance: no Apex site lies in 0x4DE000-0x4DFFFF (docs/data/apex-sites.csv, apex-hooks.csv), so the stream sites
 // do not stand down; Scratch does (the compressor sits behind the codec slot Apex's FastCacheCompression takes). A
 // foreign patch is caught by the byte check at start and by StbWatch later (the module stops for the session).
+#include <sddl.h>  // Shared: the section's security descriptor
+#pragma comment(lib, "advapi32.lib")
 static const DWORD STB_CTOR = 0x004DEBE0, STB_REL = 0x004DEA80, STB_REALLOC = 0x004DEE40;  // the three patched functions
 static const DWORD STB_SETSIZE = 0x004DF190, STB_WRITE = 0x004DEFF0, STB_SETPOS = 0x004DEF30;  // Realloc's callers (frames read, no patch)
 static const DWORD STB_CTOR_AT = 0x2B, STB_REL_AT = 0x19, STB_REALLOC_AT = 0xB9;  // patch offsets: 0x4DEC0B, 0x4DEA99, 0x4DEEF9
@@ -308,6 +311,8 @@ struct StbStats {
     // SkipClear: requests of a site whose consumer initialises the buffer itself, and the bytes not zero-filled for them.
     // small*: every 64th request under MinKB (Stats): how many were freed, on another thread, and their lifetimes
     u64 bgZeroB, cleanN, skipClearN, skipClearB, smallN, smallX, smallLifeMs;
+    u64 resetB;                      // Shared: bytes of idle slices handed back with MEM_RESET
+    DWORD resets, resetFail;
     DWORD headB, peakHeadB, headUntracked, growBlocked;
 };
 // Timing: QueryPerformanceCounter ticks. arena[how] = this module's code on requests the arena served (the fill
@@ -359,7 +364,7 @@ static DWORD (*g_stbNow)() = StbNowMs;  // selftest: its own clock
 // Slice state bits: USED = part of a block handed out (or in transit at its free), HEAD = first slice of a block the
 // game holds, COM = committed, POISON = filled with 0xB5 at its free (Verify), PURGE = being decommitted by StbTick.
 // A slice with neither USED nor PURGE is free; a free slice with COM still holds its last user's bytes.
-enum { STA_USED = 1, STA_COM = 2, STA_POISON = 4, STA_HEAD = 8, STA_PURGE = 16, STA_ZERO = 32 };  // ZERO (PreZero): free, committed and known to hold zeros
+enum { STA_USED = 1, STA_COM = 2, STA_POISON = 4, STA_HEAD = 8, STA_PURGE = 16, STA_ZERO = 32, STA_RESET = 64 };  // ZERO (PreZero): free, committed and known to hold zeros. RESET (Shared): free, committed, idle and handed back to the OS with MEM_RESET (contents undefined)
 static const DWORD STA_MAX = 4096;      // slices: 256 MB, the most PoolMB allows
 static const DWORD STA_BLK_MAX = 1024;  // slices in one block: 64 MB, the most MaxBlockMB allows
 struct StaBlk { DWORD req, t, who, tid, n; u8 pat, keep; };  // of the block whose first slice this is: n slices; pat = handed out as the Verify 2 pattern; keep = grown in place, Realloc's free of the old SharedPointer is still to come
@@ -369,6 +374,7 @@ struct Sta {
     DWORD n, freeN, comN, useN, peakUseN, peakComN;  // slices: all, free, committed, in blocks; peaks
     StaHole hole, big;                  // the free range it was placed in and the largest free range, both as found before the reservation
     DWORD fits, how;                    // free ranges that could hold it; how: 1 = at the chosen address, 2 = the OS's top-down choice
+    HANDLE sec;                         // Shared: the section the arena is a view of (kept open for the session); NULL = private memory
 };
 static Sta g_sta;                       // every field but base / n changes under g_stbLock
 static u8 g_staSt[STA_MAX];
@@ -417,21 +423,69 @@ static DWORD StaScan(StaHole* out, DWORD cap, DWORD min) {
 }
 // Makes the arena (once; never on a game thread: DllMain or this module's thread). False = no arena: every request takes
 // the game's own path. minFreeMB: the largest free range must stay at least this long after the reservation.
+// Shared (docs/547 §23): the arena as a view of a pagefile-backed section instead of private memory, so that a second
+// process (the 64-bit host) can map the same bytes and work in the game's buffers without a copy.
+// - The section is created here, reserved only (SEC_RESERVE): VirtualAlloc(MEM_COMMIT) on the view commits pages as it
+//   does for private memory, zero-filled. Pages of a view cannot be decommitted; an idle run is handed back with
+//   MEM_RESET instead (the OS may drop the pages without writing them to the page file; their contents are then
+//   undefined, so such a slice is "dirty", never "known zero"). The commit charge stays until the process ends.
+// - Name: Local\ts3sb-<process id>-arena. The process id keeps two game instances apart; the security descriptor is the
+//   one the [WrapSvc] channel uses (the user and SYSTEM only, medium integrity label, no write-up), and a name that
+//   already exists is refused (someone else made it), as the channel's host does.
+// - Not executable (PAGE_READWRITE section, read / write view).
+// Any failure (descriptor, name taken, no place for the view) ends in the private arena with a log line.
+static bool g_stbShared;  // [StreamBuf] Shared at the start
+static void StbSharedName(wchar_t* buf, size_t n, DWORD pid) { swprintf_s(buf, n, L"Local\\ts3sb-%lu-arena", pid); }
+static HANDLE StaSection(DWORD size, const wchar_t* name) {
+    HANDLE tok = NULL, sec = NULL;
+    u8 tu[256];
+    DWORD got = 0;
+    wchar_t* sid = NULL;
+    PSECURITY_DESCRIPTOR sd = NULL;
+    const char* why = "the process token";
+    if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &tok) && GetTokenInformation(tok, TokenUser, tu, sizeof(tu), &got) &&
+        ConvertSidToStringSidW(((TOKEN_USER*)tu)->User.Sid, &sid)) {
+        wchar_t sddl[320];
+        swprintf_s(sddl, L"D:P(A;;GA;;;SY)(A;;GA;;;%s)S:(ML;;NW;;;ME)", sid);
+        why = "the security descriptor";
+        if (ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl, SDDL_REVISION_1, &sd, NULL)) {
+            SECURITY_ATTRIBUTES sa = {sizeof(sa), sd, FALSE};
+            why = "CreateFileMapping";
+            sec = CreateFileMappingW(INVALID_HANDLE_VALUE, &sa, PAGE_READWRITE | SEC_RESERVE, 0, size, name);
+            if (sec && GetLastError() == ERROR_ALREADY_EXISTS) CloseHandle(sec), sec = NULL, why = "the name exists already (not ours: refused)";
+        }
+    }
+    const DWORD err = GetLastError();
+    if (sd) LocalFree(sd);
+    if (sid) LocalFree(sid);
+    if (tok) CloseHandle(tok);
+    if (!sec) Log("WARN stream buffer arena: Shared=1 but no section (%s, err %lu): private memory instead", why, err);
+    return sec;
+}
 static bool StaReserve(DWORD size, DWORD minFreeMB) {
     if (g_sta.base) return true;
     static StaHole h[256];
     StaHole in = {}, big = {};
     DWORD fits = 0, how = 0;
     u8* p = NULL;
+    wchar_t name[64] = L"";
+    HANDLE sec = NULL;
+    if (g_stbShared) StbSharedName(name, 64, GetCurrentProcessId()), sec = StaSection(size, name);
     for (int round = 0; round < 2 && !p; round++) {  // a second look if another thread took the place in between
         const DWORD at = StaPlace(h, StaScan(h, 256, size), size, &in, &big, &fits);
         if (!at) break;
         if (!StaFloorOk(in, big, size, minFreeMB)) {
             Log("FAIL stream buffer arena: not reserved: the largest free range is %lu MB and must stay at least %lu MB (MinFreeMB): the game's own path serves everything", big.size >> 20, minFreeMB);
+            if (sec) CloseHandle(sec);
             return false;
         }
-        p = (u8*)VirtualAlloc((void*)(uintptr_t)at, size, MEM_RESERVE, PAGE_READWRITE);
+        p = sec ? (u8*)MapViewOfFileEx(sec, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, size, (void*)(uintptr_t)at)
+                : (u8*)VirtualAlloc((void*)(uintptr_t)at, size, MEM_RESERVE, PAGE_READWRITE);
         how = 1;
+    }
+    if (!p && sec) {  // a view has no top-down placement of its own: without the chosen place the arena is private
+        Log("WARN stream buffer arena: the shared view could not be placed (err %lu): private memory instead", GetLastError());
+        CloseHandle(sec), sec = NULL;
     }
     if (!p) p = (u8*)VirtualAlloc(NULL, size, MEM_RESERVE | MEM_TOP_DOWN, PAGE_READWRITE), how = 2;
     if (!p || ((uintptr_t)p & 0xFFFF)) {
@@ -442,7 +496,7 @@ static bool StaReserve(DWORD size, DWORD minFreeMB) {
     AcquireSRWLockExclusive(&g_stbLock);
     memset(g_staSt, 0, sizeof(g_staSt));
     g_sta = Sta{};
-    g_sta.freeN = size >> 16, g_sta.hole = in, g_sta.big = big, g_sta.fits = fits, g_sta.how = how;
+    g_sta.freeN = size >> 16, g_sta.hole = in, g_sta.big = big, g_sta.fits = fits, g_sta.how = how, g_sta.sec = sec;
     g_sta.base = p;
     InterlockedExchange((volatile LONG*)&g_sta.n, (LONG)(size >> 16));  // last, behind a barrier: StaOwned reads base and n without the lock
     ReleaseSRWLockExclusive(&g_stbLock);
@@ -451,6 +505,8 @@ static bool StaReserve(DWORD size, DWORD minFreeMB) {
         "that fits; %lu free ranges could hold it); largest free range before: 0x%08lX + %lu MB, after: %lu MB%s",
         (DWORD)(uintptr_t)p, (DWORD)(uintptr_t)p + size, size >> 20, how == 1 ? "at the top of the" : "placed top-down by the OS, found", in.base, in.size >> 20, fits,
         big.base, big.size >> 20, (inBig ? big.size - size : big.size) >> 20, how != 1 ? " (not checked again)" : inBig ? "" : " (untouched: a smaller range above it fits)");
+    if (sec) Log("streambuf: arena is SHARED memory: a view of the section %ls (pagefile-backed, reserved, read / write, this user and SYSTEM only); "
+                 "idle slices are reset, not decommitted; a 64-bit process of this user can map the same bytes", name);
     return true;
 }
 static bool StaOwned(const void* p) { return (DWORD)((const u8*)p - g_sta.base) < g_sta.n << 16; }  // a range compare: no memory is read
@@ -1121,6 +1177,15 @@ static void StbTick(DWORD now) {
         for (e = s; e < g_sta.n && idle(e); e++) g_staSt[e] = (u8)(g_staSt[e] | STA_PURGE);
         ReleaseSRWLockExclusive(&g_stbLock);
         if (s == g_sta.n) break;
+        if (g_sta.sec) {  // a view's pages cannot be decommitted: reset (the OS may drop them unwritten; contents undefined afterwards)
+            const bool rs = VirtualAlloc(g_sta.base + (s << 16), (e - s) << 16, MEM_RESET, PAGE_READWRITE) != NULL;
+            AcquireSRWLockExclusive(&g_stbLock);
+            for (DWORD i = s; i < e; i++) g_staSt[i] = (u8)(STA_COM | STA_RESET);  // also after a failed reset: not tried again, dirty either way
+            if (rs) g_stb.resets++, g_stb.resetB += (u64)(e - s) << 16; else g_stb.resetFail++;
+            ReleaseSRWLockExclusive(&g_stbLock);
+            from = e;
+            continue;
+        }
         const bool ok = VirtualFree(g_sta.base + (s << 16), (e - s) << 16, MEM_DECOMMIT) != 0;
         AcquireSRWLockExclusive(&g_stbLock);
         for (DWORD i = s; i < e; i++) g_staSt[i] = ok ? 0 : (u8)(g_staSt[i] & ~STA_PURGE);  // a failed decommit (never seen): committed and free as before
@@ -1347,10 +1412,10 @@ static void StbMemLine(LONG n, const char* tag) {
         const bool one = StaOsView(&osCom);
         Log("streambuf: arena #%ld base=0x%08lX arenaMB=%lu oneReservation=%d osCommitMB=%.1f commitMB=%.1f inUseMB=%.1f idleMB=%.1f peakInUseMB=%.1f "
             "peakCommitMB=%.1f freeMB=%.1f largestFreeRunMB=%.1f freeRuns=%lu commits=%llu commitMB_total=%.1f decommits=%lu stranded=%lu noArena=%lu "
-            "zeroedIdleMB=%.1f bgZeroMB=%.1f callerZeroMB=%.1f servedClean=%llu skipClearN=%llu skipClearMB=%.1f",
+            "zeroedIdleMB=%.1f bgZeroMB=%.1f callerZeroMB=%.1f servedClean=%llu skipClearN=%llu skipClearMB=%.1f shared=%d resets=%lu resetMB=%.1f resetFail=%lu",
             n, (DWORD)(uintptr_t)a.base, a.n >> 4, one ? 1 : 0, osCom * MB, a.comN * SL, a.useN * SL, idleN * SL, a.peakUseN * SL, a.peakComN * SL, a.freeN * SL,
             bigRun * SL, runs, s.fresh, s.commitB * MB, s.decommits, s.stranded, s.noArena, zeroN * SL, s.bgZeroB * MB, s.zeroB * MB, s.cleanN, s.skipClearN,
-            s.skipClearB * MB);
+            s.skipClearB * MB, a.sec ? 1 : 0, s.resets, s.resetB * MB, s.resetFail);
         if (s.smallN) Log("streambuf: small #%ld sampled 1 in 64 requests under MinKB: freed=%llu onAnotherThread=%llu (%.1f%%) avgLifeMs=%.0f", n, s.smallN, s.smallX,
                           100.0 * (double)s.smallX / (double)s.smallN, (double)s.smallLifeMs / (double)s.smallN);
     } else if (g_stbArm & STB_ARENA) Log("streambuf: arena #%ld none (the reservation failed at the start: see the FAIL line) noArena=%lu", n, s.noArena);
@@ -1412,6 +1477,7 @@ static bool ApplyStreamBuf(const wchar_t* ini) {
     g_stbMaxBlock = (DWORD)(blkMB < 1 ? 1 : blkMB > 64 ? 64 : blkMB) << 20;
     g_stbIdleMs = (DWORD)(idle < 0 ? 0 : idle > 3600 ? 3600 : idle) * 1000;
     g_stbMinFreeMB = (DWORD)(minFree < 0 ? 0 : minFree > 3072 ? 3072 : minFree);
+    g_stbShared = GetPrivateProfileIntW(L"StreamBuf", L"Shared", 0, ini) > 0;
     const int gFloor = GetPrivateProfileIntW(L"StreamBuf", L"GrowFloor", 64, ini), gText = GetPrivateProfileIntW(L"StreamBuf", L"GrowTextFloor", 4096, ini);
     const int gFirst = GetPrivateProfileIntW(L"StreamBuf", L"GrowFirst", 0, ini);
     g_stbGrowFloor = (DWORD)(gFloor < 0 ? 0 : gFloor > 65536 ? 65536 : gFloor);
@@ -1461,9 +1527,9 @@ static bool ApplyStreamBuf(const wchar_t* ini) {
     else Log("WARN stream buffer: no upkeep thread (%lu): no idle decommit, no run-time switch", GetLastError());
     InterlockedExchange(&g_stbArm, mask);
     Log("OK   stream buffer (docs/547): sites 0x4DEC0B / 0x4DEA99 / 0x4DEEF9 patched; Pool %s (arena %lu MB%s, requests %lu KB-%lu MB, idle %lu s, "
-        "Zero %s, Verify %d), Scratch %s, Package %s, Assemble %s, Grow %s, Timing %s, PreZero %s, SkipClear %s, Stats %s%s (every \"diag: mem\" mark adds \"streambuf:\" lines)",
+        "Zero %s, Verify %d), Scratch %s, Package %s, Assemble %s, Grow %s, Timing %s, PreZero %s, SkipClear %s, Shared %s, Stats %s%s (every \"diag: mem\" mark adds \"streambuf:\" lines)",
         (mask & STB_POOL) ? "on" : "off", g_stbBudget >> 20, g_sta.base ? "" : ", not reserved", g_stbMin >> 10, g_stbMaxBlock >> 20, g_stbIdleMs / 1000,
-        (mask & STB_ZERO) ? "on" : "off", (mask & STB_VERIFY2) ? 2 : (mask & STB_VERIFY) ? 1 : 0, scratch, pkg, asmS, growS, (mask & STB_TIME) ? "on" : "off", (mask & STB_PREZERO) ? "on" : "off", (mask & STB_SKIPCLEAR) ? "on" : "off", (mask & STB_STATS) ? "on" : "off",
+        (mask & STB_ZERO) ? "on" : "off", (mask & STB_VERIFY2) ? 2 : (mask & STB_VERIFY) ? 1 : 0, scratch, pkg, asmS, growS, (mask & STB_TIME) ? "on" : "off", (mask & STB_PREZERO) ? "on" : "off", (mask & STB_SKIPCLEAR) ? "on" : "off", g_sta.sec ? "on" : g_stbShared ? "asked, not in use" : "off", (mask & STB_STATS) ? "on" : "off",
         g_apexFound ? "; Apex Radiance loaded (no shared stream site)" : "");
     return true;
 }
