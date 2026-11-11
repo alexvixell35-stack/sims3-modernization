@@ -1,7 +1,7 @@
 # 257. UI, wish, mood and relationship leak fixes (ts3fixes, 2026-11-11)
 
 Static RE plus live trigger runs, 2026-11-11 (SteamOS/Wine, Isla Paradiso fresh world, test saves `ts3phase-*` only).
-**Status: 18 switches built, all off by default.** Each was run in game with the fix off, then on, in the same session
+**Status: 22 switches built, all off by default.** Each was run in game with the fix off, then on, in the same session
 (`phasesoak3.sh` phases, `leak_census` after each phase). Every change acts only on UI objects, on wish/listener
 bookkeeping, or on data that is already wrong; household Sims are never moved, skipped or throttled.
 
@@ -28,16 +28,22 @@ Counters are ts3fixes slots (docs/registry.md). "Off" = counted with the switch 
 | `relremovesafe` | RemoveSimDescriptionRelationships uses a plain indexer on the other Sim's table (throws when absent) and never removes one-sided entries | EA's throw never seen in these runs | 155 removals, 0 errors | 0 |
 | `genealogycycle`, `spouseunlink` | Genealogy.get_Ancestors / ClearDerivedData have no visited set; ApplySpouseUpdate never clears the old spouse's back-link | no loops or one-way spouses in this world | 133 spouse updates, 0 errors | 0 |
 | `petwishleak` | RemoveActiveNode does not take pet-subject wishes (types 11, 12) out of mPotentialRemovalNodes | counter fixed to count only nodes really left; 0 seen | guard | 0 |
+| `moodpending` | WellRested (from a bed) and ConqueredTheBull call ChangeMoodValue on their new buff from OnAddition, before AddElement lists it and adds its value: the mood target gets the value twice and loses it once | 8-10 calls in two story-day rounds (household Sims included) | 4 of 4 skipped in the third round, 0 drift | 0 |
+| `filtergridleak` | CatalogProductFilter.Init turns DisposeOnDetach off on its child grid and nothing turns it back on | +1 ItemGrid per Buy or Build visit | 4 of 4 restored, ItemGrid flat across 3 Build visits | 0 |
+| `buyclearrecycle` | ShowCatalogGrid(false) (back button, catalog switch) clears the grid without caching its cells | 118 cells per Buy navigation visit, +274 to +403 icons per visit | 118 of 118 cached, +220 per visit | 0 |
 
 Built and installed without errors, but nothing to act on in these runs: `seasondup` (56 duplicate Motives season
 listeners at the start of a fresh world, none on reload or household switch), `blogorphan` (the blog app was not used),
-`dnpupdateguard` (no wish update threw), `attractionalarm`, `uncleguard` (no case in this world).
+`dnpupdateguard` (no wish update threw), `buygridsweep` (the other catalog grids are empty when Buy closes), `attractionalarm`, `uncleguard` (no case in this world).
 
 Disproven: `familyinvghost` (destroyed family-inventory items still listed). 64 probe rounds with the hook counting in
 both halves found 0: Destroy removes the item before ItemComponent.Dispose runs [measured]. It stays in the source, off,
 and is not part of any run list.
 
-No crash in 3 hours of trigger runs with the switches on, except the three caused by `buycellrecycle` v1/v2 (§3).
+No crash in about 4 hours of trigger runs with the switches on, except the three caused by `buycellrecycle` v1/v2 (§3).
+One run (phase-20261111-2105) crashed 40 s into live mode with every switch off: an access violation on the main
+thread in native code during routing (eip 0xFFDBD1B5), not on the script thread; the same build re-run
+(phase-20261111-2108, 38 min, three rounds) had no crash [measured; cause not known].
 
 ## 2. Findings that shaped the tests
 
@@ -46,13 +52,41 @@ No crash in 3 hours of trigger runs with the switches on, except the three cause
   cases. They come back whenever a Sim gets a new wish manager in play: a new game, a Sim becoming playable, or a
   household switch (28 orphan listeners and 7 wrong-event managers for one switch round trip). The `switchhh` phase
   (switch_household @other, then @previous) is the trigger.
-- **Mood drift happens in normal play [measured].** One household Sim drifted +10 on Uncomfortable with only Well
-  Rested and Delighted active, so the drift was left by a buff that had already gone. The census does not name it yet.
+- **Mood drift happens in normal play [measured], and its main cause is WellRested [verified decompiled].**
+  One household Sim drifted +10 on Uncomfortable with a live WellRested. BuffWellRested.OnAddition calls
+  Bed.UpdateWellRestedBuffBase, which calls BuffManager.ChangeMoodValue(bi, 10) on the instance before AddElement lists
+  it and before AddElement's own AddEffect: the strength goes into the mood target twice and comes out once, +10 per
+  night in a bed, household Sims included (the target is not saved, so a load resets it). BuffConqueredTheBull does
+  the same (+15 / +30 Happy). Other breaks of the AddEffect/RemoveEffect pairing (static RE, rarer): OnReAddition
+  overrides that change the live instance and return true (Fear, MissingAppointment, PhoneJunkie, SuccessfulPrank),
+  and code that edits another live buff's value (GoodNectar, WashAwayTheWorry, Werewolf on NiceNails, LaundryManager
+  FreshClothing, TraitListener Wow buffs, VaultOfAntiquity). Recomputing the target as the sum of mEffectValue per
+  axis (`mooddrift`) equals EA's intended value: only BuffManager writes the target, AddEffect neither clamps nor
+  scales, trait scaling and the HotHeaded/Neurotic axis switch are applied to the instance before the add, and
+  MeanSpirited's contribution is added and taken back inside UpdateMoodLerp. `moodpending` (MoodPending.cs) fixes
+  WellRested and ConqueredTheBull at the source: ChangeMoodValue on an instance that is not yet the live buff only sets
+  its value.
 - **Sibling one-way links were a census error.** Genealogy builds mSiblings lazily and AddChild clears it for the
   whole family; the census now counts an unbuilt list separately (`genealogy_sibling_list_unbuilt`).
-- **Remaining Buy leak [verified IL, not fixed].** About 96-144 icons per visit stay after `buycellrecycle`: grids
-  other than the current one are never walked by BuyController.Dispose (SelectCatalog repoints mCatalogGrid), and
-  ShowCatalogGrid(false) clears the grid without caching its cells (back button, catalog switch).
+- **Buy navigation and Build mode [verified IL + measured, phase-20261111-2047].** With the back button and catalog
+  switches (`buynav` phase: ts3agent `buy_category` `@back` / `@catalog:<name>`), each Buy visit left +338 live,
+  parentless icons with the fixes off. ShowCatalogGrid(false) ends with mCatalogGrid.Clear(), which only detaches the
+  cells; RepopulateCatalogGrid caches them first, the back-button path does not. `buyclearrecycle` (BuyCellRecycle.cs)
+  does that caching step for the grid's own catalog type: 118 of 118 cells per visit kept, growth +220 per visit
+  (35% less), 0 errors. The other ~220 per visit come from a path not found yet. `buygridsweep` (dispose the icons of
+  catalog grids other than the current one at BuyController.Dispose) counted 0 such icons: in this flow the other grids
+  are already empty when Buy closes, so it stays off with nothing to act on.
+  Build mode is much cleaner: BuildController has no cell cache and every grid clear goes through the native detach
+  (OnCustomDetach), so a category click leaves nothing [verified IL]. Three Build visits added 6 entries: per Buy or
+  Build visit, one ItemGrid and one live, parentless CASCompositorController. The ItemGrid is CatalogProductFilter's
+  child grid (export id 189775728), whose DisposeOnDetach Init turns off and nothing turns back on.
+  `filtergridleak` (FilterGridLeak.cs) sets it back on just before BuyController.Unload / BuildController.Unload, so
+  EA's own OnCustomDetach handles it. The compositor controller's cause is open; a read-only probe in compositorleak's
+  Unload hook ([2178-2180]) counts the CASCompositorController entries just before Unload.
+  Only five methods in UI.dll set DisposeOnDetach: BuyController.AddGridItem, ItemGrid.Clear(bool),
+  CatalogProductFilter.Init (fixed above), InventoryPanel.RepopulateInventory (per cell, from a local), and
+  CASFamilyScreen.Init (its two drag cursor windows, which CASFamilyScreen.Dispose never touches; whether they are
+  registered custom controls is not checked yet).
 
 ## 3. The Buy crash: a hook with the wrong return type
 
@@ -83,7 +117,7 @@ the step the override ends with.
 
 ## 5. Next
 
-- Buy: dispose the cells of non-current grids at BuyController.Dispose, and cache cells in ShowCatalogGrid(false).
-- Name the buff behind household mood drift (log each buff's removal per Sim in the census).
+- Buy: find the remaining ~220 icons per navigation visit; the live CASCompositorController per Buy/Build visit (probe).
+- Live test of `moodpending` (a Sim sleeping in a bed until WellRested: target 20 vs sum 10 off, equal on).
 - Listener cost: count dispatches and time per event id (EventTracker.ProcessEvent).
 - Inventory audit items A1/A3/D1/C1 and the Downtrodden / Torched / Lunacy shared fields (static only so far).

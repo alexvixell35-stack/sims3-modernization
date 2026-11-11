@@ -2572,6 +2572,46 @@
       "what": "UI, wish, mood and relationship leak fixes 2026-11-11",
       "at": "2026-11-11T19:52:42.654Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2166",
+      "kind": "fixes",
+      "from": 2166,
+      "to": 2171,
+      "by": "claude",
+      "what": "buyclearrecycle + buygridsweep",
+      "at": "2026-11-11T20:45:02.346Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2172",
+      "kind": "fixes",
+      "from": 2172,
+      "to": 2174,
+      "by": "claude",
+      "what": "moodpending",
+      "at": "2026-11-11T20:51:00.722Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2175",
+      "kind": "fixes",
+      "from": 2175,
+      "to": 2177,
+      "by": "claude",
+      "what": "filtergridleak",
+      "at": "2026-11-11T20:53:10.654Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2178",
+      "kind": "fixes",
+      "from": 2178,
+      "to": 2180,
+      "by": "claude",
+      "what": "compositorprobe",
+      "at": "2026-11-11T21:00:33.355Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }
