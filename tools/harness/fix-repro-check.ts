@@ -60,6 +60,7 @@ export const EXEMPT: Record<string, string> = {
   outfitwaitsaved: DEADSIM,
   deadsimcount: 'opt-in diagnostic, read-only counters (#40, PR #332)',
   deadsimhollow: 'opt-in test, Dalexlol hold_sims A/B (#40, PR #332, al365 off vs al366 on)',
+  mapviewkeep: 'opt-in test, Dalexlol map view A/B in one load (#40, run mv4: 40 switches per arm)',
 };
 
 export const fixesNames = (cs: string) => {
