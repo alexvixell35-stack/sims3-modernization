@@ -52,6 +52,9 @@ static void StbtReset(LONG arm, DWORD arenaMB, DWORD minKB, DWORD maxBlkMB, DWOR
         g_sta = Sta{};
     }
     memset(&g_stb, 0, sizeof(g_stb)), memset(g_stbWho, 0, sizeof(g_stbWho)), memset(g_stbTid, 0, sizeof(g_stbTid)), memset(g_stbSz, 0, sizeof(g_stbSz));
+    assert(g_stbHeadN == 0);
+    memset(&g_stbTime, 0, sizeof(g_stbTime));
+    if (g_stbTls != TLS_OUT_OF_INDEXES) TlsSetValue(g_stbTls, NULL);
     g_stbBudget = arenaMB << 20, g_stbMin = minKB << 10, g_stbMaxBlock = maxBlkMB << 20, g_stbIdleMs = idleMs;
     assert(StaReserve(g_stbBudget, 0) && g_sta.n == arenaMB << 4 && g_sta.freeN == g_sta.n);
     g_sta.peakUseN = g_sta.peakComN = 0;
@@ -67,6 +70,15 @@ static void StbtPolicy() {
     assert(StbSzIx(0) == 0 && StbSzIx(4095) == 0 && StbSzIx(4096) == 1 && StbSzIx(1398384) == 9 && StbSzIx((16u << 20) - 1) == 12 && StbSzIx(16u << 20) == 13 && StbSzIx(0xFFFFFFFF) == 13);
     // ours = inside the arena, by address only
     assert(StaOwned(g_sta.base) && StaOwned(g_sta.base + (4u << 20) - 1) && !StaOwned(g_sta.base + (4u << 20)) && !StaOwned(g_sta.base - 1) && !StaOwned(NULL));
+    // the headroom table: more entries than it follows, then every one removed in two passes
+    for (DWORD i = 1; i <= 49200; i++) StbHeadPut((const u8*)(uintptr_t)(i * 8), i);
+    assert(g_stbHeadN == 49152 && g_stb.headUntracked == 48 && g_stb.headB == 49152u / 2 * 49153u && g_stb.peakHeadB == g_stb.headB);
+    StbHeadGone((const u8*)(uintptr_t)0x7FFF0000);  // not in the table: nothing happens
+    for (DWORD i = 1; i <= 49200; i += 2) StbHeadGone((const u8*)(uintptr_t)(i * 8));
+    assert(g_stbHeadN == 24576 && g_stb.headB == 24576u * 24577u);
+    for (DWORD i = 2; i <= 49200; i += 2) StbHeadGone((const u8*)(uintptr_t)(i * 8));
+    assert(g_stbHeadN == 0 && g_stb.headB == 0);
+    for (const StbHead& h : g_stbHead) assert(!h.p);
     // verify helpers
     u8 b[64];
     memset(b, 0xB5, sizeof(b));
@@ -490,6 +502,29 @@ static void* StbtRun(void* a_at, const StbtRegs& a_r) {
     return r;
 }
 static void* StbtRunC(void* at, void* alloc, DWORD cx) { return StbtRun(at, StbtRegs{0, cx, 0x0B0B0B0B, 0x51515151, (DWORD)(uintptr_t)alloc, 0, 0}); }  // a compressor window: edi = the allocator
+static LONG g_stbtHeapAllocs, g_stbtHeapFrees;
+static void* g_stbtHeapLast;
+static void* __fastcall StbtMemalign(void* heap, void*, DWORD size, DWORD, DWORD, DWORD) { return g_stbtHeapAllocs++, g_stbtHeapLast = heap, malloc(size); }
+static void __fastcall StbtHeapFree(void* heap, void*, void* p) { g_stbtHeapFrees++, g_stbtHeapLast = heap, free(p); }
+// Calls a copy of game code: thiscall with two stack arguments (MemoryStream::Write).
+__declspec(noinline) static DWORD StbtCall2(void* a_fn, void* a_this, const void* a1, DWORD a2) {
+    DWORD r, e0, e1;
+    __asm {
+        mov e0, esp
+        push a2
+        push a1
+        mov ecx, a_this
+        call a_fn
+        mov r, eax
+        mov e1, esp
+    }
+    assert(e0 == e1);
+    return r & 0xFF;
+}
+static DWORD g_stbtReCap;
+static const void* g_stbtReRet;
+static const void* g_stbtRet2;  // Write's own return address, as its frame holds it above Realloc's call: the writer
+static bool __fastcall StbtRealloc(void*, void*, DWORD cap) { return g_stbtReCap = cap, g_stbtReRet = _ReturnAddress(), g_stbtRet2 = (const void*)(uintptr_t)((const DWORD*)_AddressOfReturnAddress())[8], false; }  // as Realloc: thiscall, one argument; "failed"
 static void StbtPatch() {
     u8* x = (u8*)VirtualAlloc(NULL, 0x2000, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
     assert(x);
@@ -551,6 +586,165 @@ static void StbtPatch() {
     StbtSp sp3 = {g_stbtSpVt, &g_stbtA, d, 1, 0};
     StbtCall(rel, &sp3, 0, NULL, NULL, NULL, 0);
     assert(g_stbtA.frees == 1 && g_stb.dfree == 0 && g_stbtSpDeletes == 4);
+
+    // Grow. The two call sites: Write's `call Realloc` and Realloc's `call memcpy`
+    u8* wr = x + 0xE00;
+    static const u8 kWriteTail[14] = {0x84, 0xC0, 0x75, 0x16, 0x5F, 0x5B, 0x5E, 0x5D, 0x83, 0xC4, 0x08, 0xC2, 0x08, 0x00};  // 0x4DF061: Realloc failed -> return
+    memcpy(wr, kStbWrite, sizeof(kStbWrite)), memcpy(wr + sizeof(kStbWrite), kWriteTail, sizeof(kWriteTail));
+    wr[STB_WRITE_CALL + 1] ^= 1;
+    assert(!StbInstallGrow(wr, re) && !g_stbPatch[13].at);
+    wr[STB_WRITE_CALL + 1] ^= 1;
+    assert(StbInstallGrow(wr, re) && g_stbTls != TLS_OUT_OF_INDEXES);
+    g_stbGrowIn = true;  // as ApplyStreamBuf records it
+    assert(STB_WRITE + STB_WRITE_CALL == 0x004DF05C && STB_REALLOC + STB_REALLOC_COPY == 0x004DEECB && kStbRealloc[STB_REALLOC_COPY] == 0xE8 && kStbWrite[STB_WRITE_CALL] == 0xE8);
+    assert(wr[STB_WRITE_CALL] == 0xE8 && (uintptr_t)wr + STB_WRITE_CALL + 5 + *(LONG*)(wr + STB_WRITE_CALL + 1) == (uintptr_t)&StbWriteGrow && !memcmp(wr, kStbWrite, STB_WRITE_CALL));
+    assert(re[STB_REALLOC_COPY] == 0xE8 && (uintptr_t)re + STB_REALLOC_COPY + 5 + *(LONG*)(re + STB_REALLOC_COPY + 1) == (uintptr_t)&StbGrowCopy);
+    assert(!memcmp(re, kStbRealloc, STB_REALLOC_COPY) && !memcmp(re + STB_REALLOC_COPY + 5, kStbRealloc + STB_REALLOC_COPY + 5, STB_REALLOC_AT - STB_REALLOC_COPY - 5));
+    {
+        // the policy: four times the old capacity under 4 KB, twice from there, at least the writer's floor
+        StbtReset(STB_POOL | STB_ZERO | STB_GROW, 48, 128, 8, 5000);
+        g_stbGrowFloor = 64, g_stbGrowText = 4096, g_stbGrowFirst = 0;
+        u8 st[0x28] = {};
+        assert(StbGrowCap(st, 4, 0x401000) == 4 && g_stb.headN == 0);  // no buffer yet: the game's value (GrowFirst 0)
+        g_stbGrowFirst = 64;
+        assert(StbGrowCap(st, 4, 0x401000) == 64 && StbGrowCap(st, 100, 0x401000) == 100 && g_stb.headN == 1);
+        g_stbGrowFirst = 0;
+        *(DWORD*)(st + 4) = 1, *(DWORD*)(st + 0x14) = 4;
+        assert(StbGrowCap(st, 8, 0x401000) == 64 && g_stb.headN == 2 && g_stb.headSteps == 8 + 6 && g_stb.headTotB == 60 + 56);  // the game: 8, 12, 18, 27, 40, 60, 90
+        assert(StbGrowCap(st, 8, STB_TEXT_WRITE_RET) == 4096);  // the text encoder's streams start their growth at 4 KB
+        *(DWORD*)(st + 0x14) = 64;
+        assert(StbGrowCap(st, 96, 0x401000) == 256 && StbGrowCap(st, 1000, 0x401000) == 1000);  // a write that needs more: as asked
+        *(DWORD*)(st + 0x14) = 4096;
+        assert(StbGrowCap(st, 6144, 0x401000) == 8192 && StbGrowCap(st, 6144, STB_TEXT_WRITE_RET) == 8192);
+        *(DWORD*)(st + 0x14) = 70000;
+        assert(StbGrowCap(st, 105000, 0x401000) == 105000);  // twice would reach MinKB: the game's 1.5x
+        *(DWORD*)(st + 0x14) = 200000;
+        const u64 grants = g_stb.headN;
+        assert(StbGrowCap(st, 300000, 0x401000) == 300000 && g_stb.headN == grants && grants == 6);
+        // the patched Write, run up to its Realloc call: capacity 64, position 64, four more bytes. The game asks for
+        // 96; Realloc is handed 128 and sees Write's own return address
+        void* const realFn = g_stbReallocFn;
+        g_stbReallocFn = (void*)&StbtRealloc;
+        const float f15 = 1.5f;
+        memset(st, 0, sizeof(st));
+        *(DWORD*)(st + 4) = 1, *(DWORD*)(st + 0x10) = 64, *(DWORD*)(st + 0x14) = 64, *(DWORD*)(st + 0x18) = 64, st[0x1C] = 1, memcpy(st + 0x20, &f15, 4);
+        static const u8 four[4] = {1, 2, 3, 4};
+        InterlockedExchange(&g_stbArm, STB_POOL | STB_ZERO | STB_GROW | STB_STATS);
+        assert(StbtCall2(wr, st, four, 4) == 0 && g_stbtReCap == 256 && g_stbtReRet == wr + STB_WRITE_CALL + 5 && g_stb.headN == grants + 1);
+        // the writer is read from Write's frame: with this test's call as the text encoder's, the floor is 4 KB
+        g_stbTextAt = (DWORD)(uintptr_t)g_stbtRet2;
+        const DWORD r2 = StbtCall2(wr, st, four, 4);
+        assert(r2 == 0 && g_stbtReCap == 4096);
+        g_stbTextAt = STB_TEXT_WRITE_RET;
+        if (g_stbTls != TLS_OUT_OF_INDEXES) TlsSetValue(g_stbTls, NULL);
+        assert(StbtCall2(wr, st, four, 4) == 0 && g_stbtReCap == 256);
+        // Stats: the 160 bytes of headroom follow the buffer the Realloc then asks for, until that buffer is freed
+        u8* hb = StbtGet(256);
+        assert(hb && !StaOwned(hb) && g_stb.headB == 160 && g_stb.peakHeadB == 160 && g_stbHeadN == 1);
+        StbtPut(hb);
+        assert(g_stb.headB == 0 && g_stbHeadN == 0 && g_stb.peakHeadB == 160);
+        InterlockedExchange(&g_stbArm, STB_POOL | STB_ZERO | STB_STATS);  // Grow off: the game's 96
+        assert(StbtCall2(wr, st, four, 4) == 0 && g_stbtReCap == 96);
+        g_stbReallocFn = realFn;
+        // the copy stub: nothing to do for source = destination, else a copy
+        u8 c1[64] = {}, c2[64];
+        memset(c2, 7, sizeof(c2));
+        assert(StbGrowCopy(c1, c1, 64) == c1 && c1[0] == 0 && StbGrowCopy(c1, c2, 64) == c1 && StbAllIs(c1, 64, 7));
+
+        // grow in place: a stream whose 704 KB block has free slices behind it asks for 1408 KB
+        for (int round = 0; round < 2; round++) {
+            StbtReset(STB_POOL | STB_ZERO | STB_GROW | STB_STATS | (round ? STB_VERIFY | STB_VERIFY2 : 0), 48, 128, 8, 5000);
+            g_stbtA.allocs = g_stbtA.frees = g_stbtA.live = 0;
+            g_stbtWho = 0x0072A2B4;
+            memset(g_stbtStream, 0, sizeof(g_stbtStream));
+            const DWORD T5 = 1398384, T1 = 699320;
+            u8* b1 = StbtGet(T1);
+            assert(b1 == g_sta.base);
+            memset(b1, 0x5A, T1);
+            StbtSp osp = {g_stbtSpVt, &g_stbtA, b1, 1, 1};
+            *(void**)(g_stbtStream + 4) = &osp, *(DWORD*)(g_stbtStream + 0x14) = T1;
+            u8* b2 = StbtGet(T5);
+            assert(b2 == b1 && g_stb.inPlace == 1 && g_stb.inPlaceB == T1 && g_sta.useN == 22 && g_staBlk[0].keep == 1 && g_staBlk[0].req == T5 && g_stb.liveN == 1);
+            assert(StbAllIs(b2, T1, 0x5A) && StbAllIs(b2 + T1, T5 - T1, round ? STB_PAT : 0) && g_stb.reqs == 2 && g_stb.grows == 1 && g_stbWho[1].liveB == T5);
+            // Realloc's release of the old SharedPointer through its patched free site: the block stays, the mark goes
+            const u8 old = re[STB_REALLOC_AT + 16];
+            re[STB_REALLOC_AT + 16] = 0xC3;
+            StbtRun(re + STB_REALLOC_AT, StbtRegs{0, 0, 7, (DWORD)(uintptr_t)&osp, 7, 0, 0});
+            assert(g_sta.useN == 22 && g_staBlk[0].keep == 0 && g_stb.frees == 0 && g_stbtA.frees == 0 && g_stb.dfree == 0);
+            // an old SharedPointer that someone else holds too: Realloc will not free it, so a new block
+            StbtSp nsp = {g_stbtSpVt, &g_stbtA, b2, 2, 1};
+            *(void**)(g_stbtStream + 4) = &nsp, *(DWORD*)(g_stbtStream + 0x14) = T5;
+            u8* b3 = StbtGet(2000000);
+            assert(b3 == g_sta.base + 22 * 0x10000 && g_stb.inPlace == 1 && g_stb.growBlocked == 0);
+            // the slices behind the block are taken: the ordinary path
+            nsp.ref = 1;
+            u8* b4 = StbtGet(1500000);
+            assert(b4 && b4 != b2 && StaOwned(b4) && g_stb.growBlocked == 1 && g_stb.inPlace == 1 && g_staBlk[0].keep == 0);
+            // the free of a block that was not grown in place, through the same site: freed
+            memset(b4, 0x5A, 1500000);
+            StbtSp fsp = {g_stbtSpVt, &g_stbtA, b4, 1, 1};
+            StbtRun(re + STB_REALLOC_AT, StbtRegs{0, 0, 7, (DWORD)(uintptr_t)&fsp, 7, 0, 0});
+            re[STB_REALLOC_AT + 16] = old;
+            assert(g_stb.frees == 1 && g_sta.useN == 22 + 31);
+            *(void**)(g_stbtStream + 4) = NULL, *(DWORD*)(g_stbtStream + 0x14) = 0;
+            memset(b2 + T1, 0x5A, T5 - T1), memset(b3, 0x5A, 2000000);
+            StbtPut(b3), StbtPut(b2);
+            assert(g_sta.useN == 0 && g_stb.frees == 3 && g_stb.unwrittenN == 0 && g_stb.uafw == 0 && g_stbtA.allocs == 0);
+        }
+        // Timing: the stubs' own time by family, the pass-through overhead, and every 64th served request sampled on the game's path
+        StbtReset(STB_POOL | STB_ZERO | STB_STATS | STB_TIME, 48, 128, 8, 5000);
+        g_stbtA.allocs = g_stbtA.frees = g_stbtA.live = 0;
+        for (int i = 0; i < 130; i++) StbtPut(StbtGet(699320));
+        StbtPut(StbtGet(1000));
+        assert(g_stbTime.arenaN == 130 && g_stbTime.sampN == 2 && g_stbTime.sampSum > 0 && g_stbtA.allocs == 3 && g_stbtA.frees == 3 && g_stbTime.passN == 1);
+        assert(g_stbTime.arena[1] > 0 && g_stbTime.arenaFree > 0 && g_stb.served + g_stb.fresh == 130);
+        StbGrowCopy(c1, c2, 64);
+        assert(g_stbTime.copyN == 1 && g_stbTime.copyB == 64);
+        g_stbTime.since = StbQpc() - g_stbQpf;
+        g_stbInstalled = 1, StbMemLine(2, "selftest"), g_stbInstalled = 0;
+    }
+
+    // Assemble: the block assembler's two calls change their target; its stubs against a fake heap
+    {
+        u8* as = (u8*)VirtualAlloc(NULL, 0x1000, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+        memcpy(as, kStbAsm, sizeof(kStbAsm));
+        as[0x200] ^= 1;
+        assert(!StbInstallAssemble(as) && !g_stbPatch[15].at);
+        as[0x200] ^= 1;
+        assert(StbInstallAssemble(as));
+        g_stbAsmIn = true;
+        assert(STB_ASM + STB_ASM_ALLOC + 5 == 0x006169AD && STB_ASM + STB_ASM_FREE == 0x00616A93 && kStbAsm[STB_ASM_ALLOC] == 0xE8 && kStbAsm[STB_ASM_FREE] == 0xE8);
+        assert(STB_ASM + STB_ASM_ALLOC + 5 + *(const LONG*)(kStbAsm + STB_ASM_ALLOC + 1) == 0x004E6A20 && STB_ASM + STB_ASM_FREE + 5 + *(const LONG*)(kStbAsm + STB_ASM_FREE + 1) == 0x004E5920);
+        assert(as[STB_ASM_ALLOC] == 0xE8 && (uintptr_t)as + STB_ASM_ALLOC + 5 + *(LONG*)(as + STB_ASM_ALLOC + 1) == (uintptr_t)&StbAsmAlloc);
+        assert(as[STB_ASM_FREE] == 0xE8 && (uintptr_t)as + STB_ASM_FREE + 5 + *(LONG*)(as + STB_ASM_FREE + 1) == (uintptr_t)&StbAsmFree);
+        for (DWORD i = 0; i < sizeof(kStbAsm); i++) assert(as[i] == kStbAsm[i] || (i > STB_ASM_ALLOC && i < STB_ASM_ALLOC + 5) || (i > STB_ASM_FREE && i < STB_ASM_FREE + 5));
+        const StbMemalignFn realA = g_stbMemalign;
+        const StbHeapFreeFn realF = g_stbHeapFree;
+        g_stbMemalign = StbtMemalign, g_stbHeapFree = StbtHeapFree;
+        StbtReset(STB_POOL | STB_ZERO | STB_ASSEMBLE | STB_STATS, 48, 128, 8, 5000);
+        g_stbtHeapAllocs = g_stbtHeapFrees = 0;
+        int heap = 0;
+        u8* a1 = (u8*)StbAsmAlloc(&heap, NULL, 2500000, 16, 0, 0);
+        assert(a1 && StaOwned(a1) && g_stbtHeapAllocs == 0 && StbAllIs(a1, 2500000, 0) && g_stbWho[1].how == 6 && g_stb.liveN == 1);
+        StbAsmFree(&heap, NULL, a1);
+        assert(g_sta.useN == 0 && g_stb.frees == 1 && g_stbtHeapFrees == 0);
+        u8* a2 = (u8*)StbAsmAlloc(&heap, NULL, 3000, 16, 0, 0);  // small: the heap's Memalign with the site's arguments, the heap's Free
+        assert(a2 && !StaOwned(a2) && g_stbtHeapAllocs == 1 && g_stbtHeapLast == &heap);
+        StbAsmFree(&heap, NULL, a2);
+        assert(g_stbtHeapFrees == 1);
+        u8* a3 = (u8*)StbAsmAlloc(&heap, NULL, 2500000, 4096, 0, 0);  // not the call this site makes: passed through
+        assert(a3 && !StaOwned(a3) && g_stbtHeapAllocs == 2);
+        StbAsmFree(&heap, NULL, a3);
+        InterlockedExchange(&g_stbArm, STB_POOL | STB_ZERO);  // Assemble off: the heap's
+        a1 = (u8*)StbAsmAlloc(&heap, NULL, 2500000, 16, 0, 0);
+        assert(a1 && !StaOwned(a1) && g_stbtHeapAllocs == 3);
+        StbAsmFree(&heap, NULL, a1);
+        assert(g_stbtHeapFrees == 3);
+        g_stbMemalign = realA, g_stbHeapFree = realF;
+        memset(g_stbPatch + 15, 0, 2 * sizeof(StbPatch));
+        VirtualFree(as, 0, MEM_RELEASE);
+        g_stbAsmIn = false;
+    }
 
     // Scratch: the compressor. A foreign byte: nothing written. Then the four windows and nothing else.
     u8* comp = x + 0x400;
@@ -683,12 +877,18 @@ static void StbtPatch() {
     StbWatch(STB_PACKAGE | STB_ZERO | STB_STATS, false);
     assert(g_stbArm == STB_STATS);
     g_stbPkgIn = true;
+    StbWatch(STB_GROW | STB_TIME, false);  // Grow and Timing need no arena part
+    assert(g_stbArm == (STB_GROW | STB_TIME) && g_stbTime.since);
+    g_stbGrowIn = false;
+    StbWatch(STB_GROW | STB_STATS, false);
+    assert(g_stbArm == STB_STATS);
+    g_stbGrowIn = true;
     comp[STB_COMP_F2 + 1] ^= 0x40;
     StbWatch(mask, false);
     assert(g_stbDead && g_stbArm == 0);
     StbWatch(mask, false);
     assert(g_stbArm == 0);
-    g_stbDead = false, g_stbFrames = false, g_stbScratchIn = false, g_stbPkgIn = false;
+    g_stbDead = false, g_stbFrames = false, g_stbScratchIn = false, g_stbPkgIn = false, g_stbGrowIn = false, g_stbReallocFreeRet = NULL;
     g_stbScratchName = (const char*)(uintptr_t)0x00FB9030;
     memset(g_stbPatch, 0, sizeof(g_stbPatch));
     StbtReset(0, 48, 128, 8, 5000);
@@ -762,7 +962,7 @@ static void TestStreamBuf() {
     StbSiteFree(q, &g_stbtA);
     assert(q && g_stbtA.frees == 3 && g_stbtA.allocs == 3 && g_stb.reqs == 0);
     u8* const none[3] = {(u8*)(uintptr_t)STB_PKG_FN[0], (u8*)(uintptr_t)STB_PKG_FN[1], (u8*)(uintptr_t)STB_PKG_FN[2]};
-    assert(!StbInstallPackage(none));
+    assert(!StbInstallPackage(none) && !StbInstallGrow((u8*)(uintptr_t)STB_WRITE, (u8*)(uintptr_t)STB_REALLOC) && !StbInstallAssemble((u8*)(uintptr_t)STB_ASM));
     StbtPolicy();
     StbtPlace();
     StbtCreator();

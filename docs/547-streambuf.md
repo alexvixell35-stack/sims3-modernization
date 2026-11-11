@@ -3,7 +3,8 @@
 Static RE on TS3W.exe 1.67 (Capstone disassembly of the retail copy, sha256 `b78a3d53...`, 14,510,400 bytes; every byte
 window quoted here was read from that copy), `native/ts3native/streambuf.cpp` with its selftest and host bench. The
 measurements in §1 come from `[BigBlock]` Stats (docs/543, one 14 min run). **v1 (separate blocks) ran in the game: §14.
-v2 (§11 the arena, §12 the compressor's tables, §13 the package writer's buffers) has not: selftest only.** §6 describes
+v2's arena, compressor tables and package buffers (§11-§13) ran in the game: §19. §15 Grow, §16 Timing and §17 Assemble
+have not: selftest only.** §6 describes
 the sites of v1, which v2 keeps unchanged; where §6 and §8 speak of the pool's blocks, §11 replaces them.
 
 Tags: [verified] = read in the disassembly, or exercised by the selftest; [measured] = a run's numbers; [inferred] =
@@ -318,7 +319,7 @@ largest free block over a long session, not (d).
 - v2: freed arena memory stays readable and is reused within milliseconds, where the game's released block faulted on
   a late access. A use after free in a consumer turns from a crash into silent reuse; `Verify=1` exists to look for it.
 
-## 11. The arena (v2) [verified by the selftest; not run in the game]
+## 11. The arena (v2) [verified by the selftest; game runs: §19]
 
 ### 11.1 Why
 
@@ -425,7 +426,7 @@ region from the base to the end naming the base as its allocation base), `osComm
 `commitMB` / `inUseMB` / `idleMB` (the module's own counts), `peakInUseMB`, `peakCommitMB`, `freeMB`,
 `largestFreeRunMB`, `freeRuns`, `commits`, `commitMB_total`, `decommits`, `stranded`, `noArena`.
 
-### 11.6 Game runs for v2 (none done)
+### 11.6 Game runs for v2 (runs 1 and 2 done: §19; 3 and the new parts open)
 
 Same travel loop as §14, `[BigBlock]` reuse and `[MemDiag]` on.
 
@@ -441,7 +442,7 @@ Same travel loop as §14, `[BigBlock]` reuse and `[MemDiag]` on.
 4. The same on the configuration with the renderer in its own process, where two large shared views are mapped into
    the game: the start line must still place the arena, and the views must still map.
 
-## 12. The compressor's work tables: `Scratch` (v2) [verified statically and by the selftest; not run in the game]
+## 12. The compressor's work tables: `Scratch` (v2) [verified statically and by the selftest; one game run: §19]
 
 **What it is.** `[BigBlock]`'s caller `0x4EC140` (18,000-40,000 blocks = 9-20 GB per travel run, one at a time, lifetime
 0 ms) is in the RefPack compressor `0x4EC0A0` (cdecl: destination, capacity, source, length, allocator, mode;
@@ -500,7 +501,7 @@ Scratch is switched off (the function is then no longer called).
 
 **Limit.** A compressor call that never returns (an exception in a core) leaves its tables in use for the session.
 
-## 13. The package writer's record buffers: `Package` (v2) [verified statically and by the selftest; not run in the game]
+## 13. The package writer's record buffers: `Package` (v2) [verified statically and by the selftest; one game run: §19]
 
 **What they are.** `[BigBlock]`'s callers `0x4A7216` (484-1,124 blocks, 0.6-2.0 GB per run, life 7-10 ms) and
 `0x4A89F7` (323-924, 0.4-1.6 GB, 9-13 ms) are the two buffers of one operation: the package writer committing a
@@ -569,3 +570,279 @@ never frees it [verified: `0x4A8A5C` skips the free]; with the arena its slices 
 - A map taken at the same moment in both configurations: +76 MB in 385 more private regions of 1 MB or less, and one
   more private region of 32 MB. This is the cost §11 removes.
 - With the stream buffers gone from `[BigBlock]`, what it still served is the list §12 and §13 start from.
+
+## 15. Growing streams: `Grow` [verified statically and by the selftest; not run in the game]
+
+### 15.1 What grows, and how often [measured]
+
+Two runs with the renderer in its own process (2 travel round trips, about 14 min each, `Pool=1`): 1,457,969 and
+1,452,249 stream buffer requests, of which **1,171,835 and 1,171,565 were grows** (80%), copying 2,457 and 2,311 MB.
+The 23 minute run of §19 had 1,608,415 grows and 4,858 MB. A grow is always allocate + copy + free (§3). By requester:
+
+| `at` (Write's return address) | What it is [verified] | Requests | 128 KB+ | Grows |
+|---|---|---|---|---|
+| `0x4B590C` | the text encoder `0x4B58A0` (22 callers, `0x4B8A68`-`0x4B9333`): it converts a string piece by piece into a 256-byte stack buffer (`0x4B5470`) and writes each piece to the stream | 506,140 | 0 | 477,375 |
+| `0x4DDC15` | `WriteUint32` `0x4DDBD0` (754 callers; the `via` `0x565745` is one of them, a binary writer object's method `0x565730`): four bytes per call, byte-swapped when the stream is big-endian | 378,353 | 1,997 | 311,346 |
+| `0x4DDCAC` | the array form `0x4DDC20` (21 callers): `count * 4` bytes per call | 45,966 | 668 | 45,966 |
+
+So these are the game's general serialisers, not one consumer: every caller that builds a document, a property stream
+or a save record in a memory stream goes through them. Streams per row = requests minus grows: 28,765 text streams
+with 16.6 grows each on average, 67,007 `WriteUint32` streams with 4.6.
+
+### 15.2 The game's growth is geometric already, from a start of a few bytes [verified]
+
+`Write` `0x4DEFF0`, when the bytes do not fit and resizing is on (`0x4DF01A`-`0x4DF05C`): new capacity = max(capacity x
+`[stream+20h]` + `[stream+24h]`, position + bytes), computed in x87 and truncated. Both constructors (`0x4DF0C0`,
+`0x4DF120`) set the factor from the constant at `0x1020A7C` = **1.5** and the increment to 0. So growth is 1.5x, but
+from the size of the first write: a stream fed four bytes at a time runs 4, 8, 12, 18, 27, 40, 60, 90, 135, 202, 303,
+... : ten reallocations before 256 bytes, seventeen before 4 KB, thirty before 1 MB. The counts above follow from that:
+1.5^16.6 is about 840, so a text stream ends near 840 times its first piece (a few KB); 1.5^4.6 is about 6.5, so most
+`WriteUint32` streams end at a few dozen bytes. The size table of the same run agrees: 1,320,264 of 1,457,969
+requests were under 4 KB.
+
+What is wrong is therefore not the factor but the start. Other growable buffers avoid exactly this with a least
+capacity for the first real growth: EASTL's `vector` (in this binary: the growth at `0xB709E8`) doubles, `max(1, 2 *
+size)`; `std::string` implementations start from a 15 or 22 byte inline buffer; .NET's `MemoryStream` grows to at least
+256 bytes and then doubles; Go's `append` doubles small slices and slows to 1.25x for large ones (the last three from
+memory, not re-read). The rule below is
+that family: a floor, a steeper factor while the buffer is small, a gentler one when it is large.
+
+### 15.3 What "capacity" is to the rest of the game [verified for the class; inferred beyond it]
+
+- Inside the stream class (`0x4DEA80`-`0x4DF1D3`, every instruction with a `+14h` operand listed) capacity is **read
+  in two places only**: `Write` `0x4DF006` (does the write fit) and `Realloc` `0x4DEEB9` (how many bytes to copy). It
+  is written by the constructors, the copy constructor (`0x4DEC58`), SetData (`0x4DEDB6`, `0x4DEDC4`), `0x4DEE12` /
+  `0x4DEE1E` and `Realloc`.
+- No virtual method returns it. The vtable `0xFB5BCC` has GetSize (+1Ch, `[this+10h]`), GetAvailable (+2Ch, size minus
+  position), SetSize, Get/SetPosition, Read, Write; there is no capacity getter.
+- The buffer object (SharedPointer, §2) has no size or capacity field at all, so whoever is handed the buffer must
+  take the length from the stream's size. A record written from a stream is written at its size.
+- Capacity already differs from size in every stream that Write has grown: the game's own rule leaves up to half of
+  the capacity unused. A consumer that assumed capacity = size would already be wrong for all of these streams. `Grow`
+  changes how much is unused, not whether [inferred: code outside the class that reads `[stream+14h]` directly cannot
+  be excluded by a search, but it would have to cope with the game's own 1.5x].
+- SetSize and SetPosition are not touched: their capacity stays exact. Only the capacity argument of the `Realloc`
+  call inside `Write` goes through the rule.
+- `Realloc` copies the old capacity, not the old size, so a larger capacity makes the next copy longer by the unused
+  bytes. The rule's factors make copies rarer by more than that.
+
+### 15.4 The rule (`StbGrowCap`)
+
+The capacity the game asks for is raised, never lowered:
+
+- a stream that already has a buffer: 4 times the old capacity while that is under 4 KB, twice from there on, and at
+  least `GrowFloor` bytes (64);
+- at least `GrowTextFloor` (4096) instead when the writer is the text encoder (Write's return address `0x4B590C`, read
+  from Write's byte-checked frame): its streams are documents, 16.6 grows each today;
+- a stream's first buffer: at least `GrowFirst` bytes; 0 by default, so **a stream that never grows is not touched**
+  (most small streams);
+- nothing from `MinKB` (128 KB) on: there the game's 1.5x stays, because headroom would be arena or address space,
+  and §15.5 removes the copy instead.
+
+Expected, from the sequences: a `WriteUint32` stream that ends under 64 bytes grows once instead of 4-6 times; a text
+stream of a few KB grows once or twice instead of 17 times; a stream that reaches 64 KB takes 4 K, 8 K, ... : 5 grows
+instead of 24. On the three rows of §15.1 that should be about a tenth of the text row's grows and about a quarter of
+the `WriteUint32` row's (it cannot fall below one grow per growing stream unless `GrowFirst` is set; with
+`GrowFirst=64` the small ones do not grow at all). These are predictions; the run's `who` rows are the measure.
+
+Cost: unused bytes in small buffers while they live. A stream that grew at all holds at least 64 bytes (4096 for the
+text encoder's) and up to 4 times its data under 4 KB, twice above. With `Stats=1` the module follows the headroom it
+handed out per buffer (up to 49,152 buffers at once) and prints what is held now and the peak (`headroomHeldKB`,
+`peakHeldKB`). That number decides whether the floors are right: if the text encoder's streams turned out to be kept
+by the thousand, `GrowTextFloor` has to come down. For the 1.3 million requests under 4 KB the EA heap rounds every
+block to 8 bytes with an 8 byte header anyway, so a 64 byte floor is about the size of the smallest useful chunk.
+
+### 15.5 Growing in place in the arena (`StbGrowInPlace`)
+
+A stream of 128 KB or more has its buffer in the arena. When `Realloc` asks for the larger buffer and
+
+- the old SharedPointer will certainly be freed by this `Realloc` (reference count 1, "free the data" set, the same
+  allocator: then `0x4DEED3`-`0x4DEF11` releases it right after the copy, on this thread), and
+- the slices behind the block are free,
+
+the block takes those slices and its own address is returned for the new SharedPointer. `Realloc` then copies the
+block onto itself: its `call memcpy` at `0x4DEECB` goes to `StbGrowCopy`, which does nothing when source and
+destination are equal. `Realloc`'s release of the old SharedPointer reaches `StbFree` from the Realloc site (return
+address `0x4DEEFF`) and finds the block marked: the mark is cleared and nothing is freed. If the old SharedPointer is
+shared (count above 1) `Realloc` would not free it, so the ordinary path is taken. This is what `realloc` does when the
+chunk behind a block is free (dlmalloc) and what mimalloc offers as `mi_expand`.
+
+New bytes behind the old capacity are zero (or the Verify pattern), as in a fresh block: the rest of the old last
+slice and reused slices are filled, newly committed ones are zero from the OS.
+
+### 15.6 Sites (`Grow=1` or `Timing=1` at the start)
+
+| Site | Original | New |
+|---|---|---|
+| `0x4DF05C` in `Write` | `E8 DF FD FF FF` (`call Realloc 0x4DEE40`) | `E8 rel32` to `StbWriteGrow`: passes the capacity argument through `StbGrowCap` and jumps to `Realloc`, which returns to `0x4DF061` as before, so the frame the `who` walk reads is unchanged |
+| `0x4DEECB` in `Realloc` | `E8 D6 F9 A9 00` (`call memcpy 0xF7E8A6`) | `E8 rel32` to `StbGrowCopy` (cdecl, same arguments) |
+
+Write's head (`0x4DEFF0`-`0x4DF060`) and `Realloc`'s window are byte-checked as in §6; no branch lands inside either
+call. With `Grow` off at run time `StbGrowCap` returns the game's value and `StbGrowCopy` is `memcpy`.
+
+**Apex Radiance:** no Apex site or hook lies in `0x4DE000`-`0x4DFFFF`, `0x4B5000`-`0x4B5FFF` or `0x4DD000`-`0x4DDFFF`
+(apex-sites.csv, apex-hooks.csv; docs/148 and docs/254 name none). FastCacheCompression replaces the codec slot
+`0xFB901C`, ResourceLookupCache and FileListCache hook the resource manager (`0x4A7FC0` and others): none touches the
+stream class. `Grow` therefore does not stand down for Apex and keeps working beside it, as `Pool` does.
+
+Counters (`streambuf: grow`): `headroomGrants`, `stepsSkippedUpTo` (the 1.5x reallocations the game would have needed
+to reach the granted capacities: an upper bound of the grows avoided, since a stream may never use its headroom),
+`headroomMB_total`, `headroomHeldKB` / `peakHeldKB` / `headUntracked`, `inPlace`, `notCopiedMB`, `inPlaceBlocked`,
+`growCopyMB`.
+
+### 15.7 What it can be worth
+
+Not much per second, and only a run with `Timing=1` can say how much. An estimate from the counts: 1.17 million grows
+in 14 minutes are 1,400 per second; each is two small heap allocations and two frees (the buffer and the 20-byte
+SharedPointer object) plus a copy of 2 KB on average. At 0.1-0.3 us per heap call and a few GB/s for the copies that is
+about 1-2 ms per second of play, concentrated where the game serialises (saving, exporting). `Timing=1` prints the
+copy time (`growCopyMs`) and the game allocator's time on the requests this module passes on (the small stream
+buffers among them), so the first run with it replaces this estimate.
+
+## 16. Timing: what the module costs and what the game's path would have cost (`Timing=1`) [selftest only]
+
+All in QueryPerformanceCounter ticks, added up under the module's lock, printed as `streambuf: time` at every mark:
+
+- `arenaMs` by family (SetSize / Write / SetPosition / Scratch / Package / Assemble) and `frees`: this module's own
+  code on requests the arena served and on their frees. The zero-fill is in it. This is what the module spends.
+- `passOverheadMs`: this module's own code on requests and frees it only passed on to the game's allocator (every
+  stream buffer under `MinKB`): pure overhead added. The game allocator's own time on those is printed beside it.
+- `growCopyMs` / `growCopyMB`: `Realloc`'s grow copies (needs the grow sites, which `Timing=1` writes).
+- `sample`: for every 64th request the arena served, the game's own path is run for the same size with the same
+  allocator: allocate, write one byte to every page, free. `gamePathEstMs` = the mean sample time x the number of
+  served requests, with two standard errors from the samples' spread; `perSecond` divides by the seconds since Timing
+  was switched on.
+
+How good the estimate is:
+
+- It is a systematic 1-in-64 sample across all served requests, so sizes and requesters are represented in
+  proportion; with 30,000 served requests per run that is about 500 samples.
+- It measures the allocation, the first touch of every page and the release: the three things the arena removes. It
+  does not measure the consumer's own writes (the same in both paths) or cache effects of a fresh block against a
+  reused one.
+- It is the game's path **as configured**: with `[BigBlock] Reuse` on, the sample goes through its cache and measures
+  that. For the plain game number, switch `[BigBlock]` off in the measuring run.
+- Each sample is one real allocation of the game's, so one in 64 served blocks still makes a reserve / release cycle
+  while Timing is on.
+- The clock reads themselves cost about four per request and one more lock; they are inside the own-time numbers of
+  small requests, which makes `passOverheadMs` an upper bound.
+
+The comparison to make is `gamePathEstMs` against `arenaMs` (all families) + `frees` + `passOverheadMs`. It is a
+measuring mode, not for timing A/B runs.
+
+## 17. The block assembler's scratch buffer: `Assemble` [verified statically and by the selftest; not run in the game]
+
+`[BigBlock]`'s caller `0x6169AD` (1,308 blocks, 3.2 GB in the 23 minute run, lifetime 0 ms, peak 5.3 MB) and the stream
+requester `0x616A83` with the same `via` `0x6187EB` are one function: `0x6165A0` (cdecl: stream, count, descriptors;
+`0x6165A0`-`0x616AB2`; ten callers). It adds up the sizes of `count` pieces (`0x616920`-`0x616995`), takes one buffer
+for all of them directly from the MemoryMan heap, `[0x11CB864]->Memalign(size, 16, 0, 0)` (`0x6169A8`, call to
+`0x4E6A20`), clears it (`0x6169CB`), copies a 0x80 byte header and the pieces into it, writes the whole buffer to the
+stream with one `Write` (`0x616A81`: this is the stream row, already served by `Pool`), and frees it with
+`heap->Free` (`0x616A93`, call to `0x4E5920`).
+
+- **Owner and lifetime:** the function; the pointer is in `ebx` and `[esp+ACh]`; allocated and freed in the same
+  call on the calling thread. The only exit between the two is the NULL check behind the allocation (`0x6169B8`).
+  The buffer is passed to `memset`, `memcpy` and the stream's `Write`, which copies from it.
+- **Read before written:** no; the function clears the whole buffer itself.
+- **Sites** (`Assemble=1` at the start; the whole function must match): the two calls keep their place and length
+  and get a new target: `0x6169A8` `E8 73 00 ED FF` -> `StbAsmAlloc` (thiscall on the heap, four arguments, as
+  Memalign; the return address `0x6169AD` stays), `0x616A93` `E8 88 EE EC FF` -> `StbAsmFree`. A request the arena
+  does not serve, and any call that is not `(size, 16, 0, 0)`, goes to the heap's Memalign with the original
+  arguments; a pointer that is not the arena's goes to the heap's Free. `0x4E6A20` and `0x4E5920` themselves are not
+  patched, and an arena pointer never reaches them, so other hooks on the allocator do not see these blocks.
+- **Apex Radiance:** no site in the function; no stand-down.
+
+**`0x72D6C9` via `0x734651`** (267 blocks, 251 MB, peak 18.8 MB, 9 ms) was looked at and not built: the function
+`0x72D470` allocates the buffer (`0x72D6B4`-`0x72D6C7`), fills it (`0x72D300`) and hands it to a 0x58 byte object built
+by `0x739F80` with an "owns the buffer" argument of 1; on that path the function itself frees it only when the object
+cannot be made (`0x72D698`, `0x72D6AD`). The free that ends its 9 ms is in that object's class, which was not reverse
+engineered; without every release path of that class the allocation cannot be hooked. 267 blocks per run do not
+justify it. The two long-lived callers (`0x57A593`, `0x8B452D`) stay with `[BigBlock]`.
+
+## 18. Arena size [measured: the runs of §19]
+
+| Run | Parts | Peak in use | Peak committed | Fallback | Stranded |
+|---|---|---|---|---|---|
+| in-process renderer, 12 min | Pool | 28.8 MB | 47.9 | 0 of 32,375 | 0 |
+| renderer in its own process, 14 min | Pool | 34.3 | - | - | 0 |
+| the same with Apex Radiance | Pool | 30.2 | - | - | 0 |
+| in-process renderer, 23 min | Pool, Scratch, Package | 45.4 | 48.0 | 39 of 140,650 | 39 |
+
+- **The default stays 48 MB.** In three of four runs the peak was 29-34 MB. The one run that reached the limit lost
+  39 requests of 140,650 (0.03%) to the game's own path, where each cost what every request cost before the module:
+  one reserve and release. Sixteen more MB of address space held for the whole session to save 39 system calls in 23
+  minutes is a bad trade.
+- **What filled it:** one requester, `0x72A2B4` (the decoded buffer of a streamed record), peaked at 47.7 MB by itself
+  with 36 ms average life and every one of its 2,701 frees on another thread. Its buffers wait for the thread that
+  finishes the load; when that thread is busy they pile up. That is a burst of the game's own making, and it had the
+  same size without the module (it then sat in 40 separate reservations).
+- **A per-requester cap was considered and not built.** It would turn more of that requester's requests into
+  fallbacks earlier in order to keep room for the others; the others lost 13 requests in that run. A cap would trade
+  a few dozen fallbacks of one row for a few dozen of another, with a new rule to get wrong. Letting a burst overflow
+  to the game's path is the cap: it costs nothing in address space and is exactly what happened.
+- All 39 fallbacks were also counted as stranded: enough slices were free in total (2.6 MB at the peak) but not in one
+  run. With 48 MB nearly full that is the expected end state of any layout, not a sign that best fit fails; at the
+  29-34 MB peaks of the other runs it was 0.
+- `Grow`'s in-place growth needs free slices behind a block, so it competes for the same space only when the arena is
+  that full, and then simply does not happen (`inPlaceBlocked`).
+
+## 19. Summary of the game runs (2026-11-11) and what may be claimed
+
+All on one large save, two world-travel round trips per run, the build of commit `db8deae` merged with the project's
+other modules.
+
+| Run | Configuration | Stream buffers of 128 KB+ | Served without a system call | Fallback | Errors |
+|---|---|---|---|---|---|
+| A, 12 min, in-process renderer | `Pool` | 32,375 (30.3 GB) | 31,914 (98.6%); 457 with one commit | 0 | all 0 |
+| B, 23 min, in-process renderer | `Pool`, `Scratch`, `Package` | 140,650 requests (111.9 GB) | 139,863 (99.4%); 737 with one commit | 39 | all 0 |
+| C, 14 min, renderer in its own process | `Pool` | - | 98.6% | - | all 0 |
+| D, 14 min, the same with Apex Radiance 3.1 loaded | `Pool` | - | 98.3% | - | all 0 |
+
+- **Address space.** The arena was reserved at `0xFCEA0000`-`0xFFEA0000` in every run, at the top of the largest free
+  range (2046 MB before, 1998 after), `oneReservation=1` and the same base at every mark. Largest free range at the
+  three home windows of run A: 1624.5 / 1393.2 / 1186.1 MB, against 1656 / 1391 / 1186 with nothing installed and
+  1565 / 1259 / 1096 with v1's separate blocks. So the arena costs its 48 MB at the start and nothing measurable
+  once the game has grown past that; v1 cost about 100 MB throughout.
+- **System calls.** Run A: 457 commits and 118 decommits in place of 32,375 reserve / release pairs. Run B: the
+  compressor's tables (63,176 of 128 KB+, 29.5 GB) and the package writer's buffers (5,729, 8.2 GB) joined; `[BigBlock]`
+  beside it fell from 26,454 to 5,178 allocations; 6.2 MB committed at the end.
+- **Correctness.** `dfree`, `vaFail`, `uafw`, `lost`, `untracked` 0 in all four runs; 8,134 frees from another thread
+  than the allocation in run B; saves written with the pooled compressor and package buffers loaded again on each
+  return. The `who` rows name their requesters.
+- **With the renderer in its own process** the two shared views sit low (96 MB near `0x04200000`, 72 MB near
+  `0x0A200000`); nothing at the top is disturbed and both mapped.
+- **With Apex Radiance** the stream sites share nothing with it and `Pool` ran unchanged, while `[BigBlock]` stood
+  down. `Scratch` stands down for Apex; `Package`, `Assemble`, `Grow` and `Timing` share no site with it either.
+- **Time.** Zero-fill 1.18 s per 12 min (run A) and 2.8 s per 23 min for 110.8 GB (run B). The save step of travel was
+  not measurably shorter with `Scratch` and `Package` (1, 45, 18, 20 s against 1-26 s without, with statistics and
+  other samplers running). No timing run exists.
+
+**A pull request for this module may claim:** that the stream buffers, the compressor's tables and the package
+writer's buffers no longer cut up the address space (the numbers above); that the pool costs one 48 MB reservation
+and no more; that it ran clean in four game runs including the two-process renderer and beside Apex Radiance; that
+every part is off by default and byte-checked.
+
+**It must not claim yet:** any gain in frame time, hitching or save time (none measured; the host bench and §15.7
+say it is small); that `Zero=0` is safe (it is not: unwritten tails were found); anything about `Assemble`, `Grow`
+or `Timing` beyond the selftest; that the arena helps the largest free range late in a session (it is neutral there:
+the gain is against v1 and in system calls, and the baseline's late numbers are already equal); long sessions (the
+longest run is 23 minutes).
+
+## 20. Selftest for §15-§17 [verified]
+
+- `StbGrowCap`: first buffer untouched (and raised with `GrowFirst`), the floor, 4x under 4 KB, 2x above, the text
+  encoder's floor, a write that needs more than the rule gives, nothing from `MinKB` on, switched off.
+- **The patched copy of `Write` is executed** up to its `Realloc` call against a stand-in `Realloc`: a stream with
+  capacity 64 asking for 4 more bytes makes the game compute 96; the stand-in receives 256, sees Write's own return
+  address above it and Write's caller where the rule reads the writer; with that caller set as the text encoder it
+  receives 4096; with `Grow` off 96. The headroom is followed to the buffer and released with it.
+- In-place growth, with and without Verify 2: a 704 KB block grows to 1408 KB at the same address, old bytes kept, new
+  bytes zero (or the pattern); `Realloc`'s release, run through the patched free site, keeps the block and clears the
+  mark; a shared old buffer and occupied slices behind the block take the ordinary path; a block that was not grown
+  is freed by the same site as before.
+- The headroom table: 49,200 entries offered, 49,152 kept, all removed in two passes, the table empty afterwards.
+- `Timing`: 130 served requests give 2 samples through the stand-in allocator; own time by family, pass-through
+  count, copy time; the `time` line is formatted.
+- `Assemble`: a foreign byte blocks the install; the two calls change only their target; the stubs against a stand-in
+  heap (served from the arena and zero, small to Memalign with `(size, 16, 0, 0)`, another alignment passed through,
+  switched off).

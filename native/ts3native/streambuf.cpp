@@ -49,6 +49,9 @@
 // before it returns; the same arena serves them through four more sites in that one function.
 // Package (v2; docs/547 §13): the package writer's record commit 0x4A8910 reads a record into one buffer and compresses
 // it into a second; both are freed before the commit returns. Six more sites in three functions.
+// Grow (docs/547 §15): a small stream that grows is given more capacity than the game's 1.5x from a few bytes, and a
+// stream's arena block grows where it is when the slices behind it are free. Timing (§16): the stubs' own time.
+// Assemble (§17): the block assembler 0x6165A0's scratch buffer from the arena.
 // Verify (debug): 1 = a freed block is filled with 0xB5 and checked when its slices are reused (a write after free
 // counts as uafw). 2 = also every block is handed out filled with 0xA7 instead of zeros, and at its free the bytes that
 // still hold 0xA7 are counted (unwritten): a consumer that never leaves any is proven not to depend on zeros. Limits: a
@@ -218,8 +221,72 @@ static const StbSite kStbPkgSite[6] = {
     {0, 0x1D4, 18, 13, {0x8B, 0x4B, 0x10, 0x68, 0x7C, 0x25, 0xFB, 0x00, 0x51, 0x50, 0x0F, 0x1F, 0x00, 0xE8}},               // 0x4A7204
     {2, 0x0D3, 20, 15, {0x8B, 0x4E, 0x10, 0x8D, 0x47, 0x10, 0x68, 0xA4, 0x26, 0xFB, 0x00, 0x51, 0x50, 0x66, 0x90, 0xE8}}};  // 0x4A89E3
 
-enum { STB_POOL = 1, STB_STATS = 2, STB_ZERO = 4, STB_VERIFY = 8, STB_VERIFY2 = 16, STB_SCRATCH = 32, STB_PACKAGE = 64 };  // g_stbArm bits
-enum { STB_ARENA = STB_POOL | STB_SCRATCH | STB_PACKAGE };  // the parts that take blocks from the arena
+// The block assembler 0x6165A0 (cdecl: stream, count, descriptors; 0x6165A0-0x616AB2; ten callers). It adds up the
+// sizes of `count` pieces, takes one scratch buffer for them straight from the MemoryMan heap (`[0x11CB864]->Memalign(
+// size, 16, 0, 0)`, call 0x6169A8 to 0x4E6A20, return 0x6169AD), clears it, copies a 0x80-byte header and the pieces
+// into it, writes it to the stream with one Write (0x616A81) and frees it (`heap->Free(p)`, call 0x616A93 to
+// 0x4E5920). The pointer stays in ebx and its frame; the only exit between the allocation and the free is the NULL
+// check right behind the allocation.
+static const DWORD STB_ASM = 0x006165A0, STB_ASM_ALLOC = 0x408, STB_ASM_FREE = 0x4F3;  // 0x6169A8, 0x616A93
+static const u8 kStbAsm[0x513] = {
+    0x81, 0xEC, 0xA0, 0x00, 0x00, 0x00, 0x53, 0x56, 0x57, 0x68, 0x80, 0x00, 0x00, 0x00, 0x33, 0xF6, 0x8D, 0x44, 0x24, 0x2C, 0x56, 0x50, 0xE8, 0xFD,
+    0x82, 0x96, 0x00, 0x8B, 0xBC, 0x24, 0xC4, 0x00, 0x00, 0x00, 0x8B, 0x4F, 0x04, 0x8B, 0x57, 0x08, 0x8D, 0x47, 0x08, 0x89, 0x44, 0x24, 0x1C, 0x8B,
+    0x84, 0x24, 0xC0, 0x00, 0x00, 0x00, 0x89, 0x4C, 0x24, 0x44, 0x83, 0xC4, 0x0C, 0x83, 0xF8, 0x01, 0xB9, 0x20, 0x00, 0x00, 0x00, 0xC7, 0x44, 0x24,
+    0x28, 0x44, 0x44, 0x53, 0x20, 0xC7, 0x44, 0x24, 0x2C, 0x7C, 0x00, 0x00, 0x00, 0xC7, 0x44, 0x24, 0x30, 0x07, 0x10, 0x00, 0x00, 0x89, 0x54, 0x24,
+    0x34, 0xC7, 0x44, 0x24, 0x40, 0x01, 0x00, 0x00, 0x00, 0x89, 0x44, 0x24, 0x44, 0xC7, 0x84, 0x24, 0x94, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00,
+    0x89, 0x4C, 0x24, 0x74, 0x76, 0x13, 0xC7, 0x44, 0x24, 0x30, 0x07, 0x10, 0x02, 0x00, 0xC7, 0x84, 0x24, 0x94, 0x00, 0x00, 0x00, 0x00, 0x10, 0x40,
+    0x00, 0x8B, 0x57, 0x10, 0x8D, 0x42, 0xFE, 0x83, 0xF8, 0x78, 0x0F, 0x87, 0x67, 0x04, 0x00, 0x00, 0x0F, 0xB6, 0x80, 0x08, 0x6B, 0x61, 0x00, 0xFF,
+    0x24, 0x85, 0xB4, 0x6A, 0x61, 0x00, 0xC7, 0x84, 0x24, 0x80, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0xC7, 0x84, 0x24, 0x84, 0x00, 0x00, 0x00,
+    0x00, 0x7C, 0x00, 0x00, 0xC7, 0x84, 0x24, 0x88, 0x00, 0x00, 0x00, 0xE0, 0x03, 0x00, 0x00, 0xC7, 0x84, 0x24, 0x8C, 0x00, 0x00, 0x00, 0x1F, 0x00,
+    0x00, 0x00, 0xBB, 0x40, 0x00, 0x00, 0x00, 0xE9, 0x04, 0x02, 0x00, 0x00, 0xC7, 0x84, 0x24, 0x80, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0xC7,
+    0x84, 0x24, 0x84, 0x00, 0x00, 0x00, 0x00, 0xF8, 0x00, 0x00, 0xC7, 0x84, 0x24, 0x88, 0x00, 0x00, 0x00, 0xE0, 0x07, 0x00, 0x00, 0xC7, 0x84, 0x24,
+    0x8C, 0x00, 0x00, 0x00, 0x1F, 0x00, 0x00, 0x00, 0xBB, 0x40, 0x00, 0x00, 0x00, 0xE9, 0xCE, 0x01, 0x00, 0x00, 0xC7, 0x84, 0x24, 0x84, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0xFF, 0x00, 0xC7, 0x84, 0x24, 0x8C, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xBB, 0x40, 0x00, 0x00, 0x00, 0xE9, 0x9C, 0x01,
+    0x00, 0x00, 0xC7, 0x84, 0x24, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0xC7, 0x84, 0x24, 0x8C, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00,
+    0xBB, 0x41, 0x00, 0x00, 0x00, 0xE9, 0x71, 0x01, 0x00, 0x00, 0xC7, 0x84, 0x24, 0x80, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0xC7, 0x84, 0x24,
+    0x90, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xBB, 0x02, 0x00, 0x00, 0x00, 0xE9, 0x6E, 0x01, 0x00, 0x00, 0xC7, 0x84, 0x24, 0x80, 0x00, 0x00,
+    0x00, 0x08, 0x00, 0x00, 0x00, 0xC7, 0x84, 0x24, 0x84, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xBB, 0x00, 0x00, 0x02, 0x00, 0xE9, 0x4E, 0x01,
+    0x00, 0x00, 0xC7, 0x84, 0x24, 0x80, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0xC7, 0x84, 0x24, 0x84, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00,
+    0xC7, 0x84, 0x24, 0x90, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0xBB, 0x01, 0x00, 0x02, 0x00, 0xE9, 0x23, 0x01, 0x00, 0x00, 0xC7, 0x44, 0x24,
+    0x7C, 0x44, 0x58, 0x54, 0x31, 0xBB, 0x04, 0x00, 0x00, 0x00, 0xE9, 0x11, 0x01, 0x00, 0x00, 0xC7, 0x44, 0x24, 0x7C, 0x44, 0x58, 0x54, 0x32, 0xBB,
+    0x04, 0x00, 0x00, 0x00, 0xE9, 0xFF, 0x00, 0x00, 0x00, 0xC7, 0x44, 0x24, 0x7C, 0x44, 0x58, 0x54, 0x33, 0xBB, 0x04, 0x00, 0x00, 0x00, 0xE9, 0xED,
+    0x00, 0x00, 0x00, 0xC7, 0x44, 0x24, 0x7C, 0x44, 0x58, 0x54, 0x34, 0xBB, 0x04, 0x00, 0x00, 0x00, 0xE9, 0xDB, 0x00, 0x00, 0x00, 0xC7, 0x44, 0x24,
+    0x7C, 0x44, 0x58, 0x54, 0x35, 0xBB, 0x04, 0x00, 0x00, 0x00, 0xE9, 0xC9, 0x00, 0x00, 0x00, 0xC7, 0x44, 0x24, 0x7C, 0x24, 0x00, 0x00, 0x00, 0xBB,
+    0x04, 0x00, 0x00, 0x00, 0xE9, 0xB7, 0x00, 0x00, 0x00, 0xC7, 0x44, 0x24, 0x7C, 0x70, 0x00, 0x00, 0x00, 0xBB, 0x04, 0x00, 0x00, 0x00, 0xE9, 0xA5,
+    0x00, 0x00, 0x00, 0xC7, 0x44, 0x24, 0x7C, 0x71, 0x00, 0x00, 0x00, 0xBB, 0x04, 0x00, 0x00, 0x00, 0xE9, 0x93, 0x00, 0x00, 0x00, 0xC7, 0x44, 0x24,
+    0x7C, 0x72, 0x00, 0x00, 0x00, 0xBB, 0x04, 0x00, 0x00, 0x00, 0xE9, 0x81, 0x00, 0x00, 0x00, 0xC7, 0x44, 0x24, 0x7C, 0x73, 0x00, 0x00, 0x00, 0xBB,
+    0x04, 0x00, 0x00, 0x00, 0xEB, 0x72, 0xC7, 0x44, 0x24, 0x7C, 0x74, 0x00, 0x00, 0x00, 0xBB, 0x04, 0x00, 0x00, 0x00, 0xEB, 0x63, 0xC7, 0x84, 0x24,
+    0x80, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0xBB, 0x00, 0x00, 0x08, 0x00, 0xC7, 0x84, 0x24, 0x84, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00,
+    0x89, 0xB4, 0x24, 0x8C, 0x00, 0x00, 0x00, 0x89, 0xB4, 0x24, 0x90, 0x00, 0x00, 0x00, 0xEB, 0x2D, 0xBB, 0x00, 0x00, 0x08, 0x00, 0xC7, 0x84, 0x24,
+    0x84, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xC7, 0x84, 0x24, 0x8C, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0xC7, 0x84, 0x24, 0x90, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x89, 0x8C, 0x24, 0x80, 0x00, 0x00, 0x00, 0xC7, 0x84, 0x24, 0x88, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00,
+    0x55, 0x52, 0x89, 0x9C, 0x24, 0x80, 0x00, 0x00, 0x00, 0xE8, 0x1A, 0x0F, 0x00, 0x00, 0x8B, 0x4F, 0x04, 0x83, 0xC4, 0x04, 0x8B, 0xE8, 0x51, 0x8B,
+    0xCD, 0xE8, 0xCA, 0x0F, 0x00, 0x00, 0x8B, 0x57, 0x04, 0x6A, 0x04, 0x52, 0x8B, 0xCD, 0xE8, 0xDD, 0x0F, 0x00, 0x00, 0x8B, 0xF0, 0x8B, 0x47, 0x04,
+    0x50, 0x8B, 0xCD, 0xE8, 0xA0, 0x0E, 0x00, 0x00, 0x8B, 0x4C, 0x24, 0x14, 0x8B, 0x11, 0x52, 0x8B, 0xCD, 0xE8, 0xA2, 0x0E, 0x00, 0x00, 0xF6, 0xC3,
+    0x04, 0x74, 0x11, 0x0F, 0xAF, 0xC6, 0x81, 0x4C, 0x24, 0x34, 0x00, 0x00, 0x08, 0x00, 0x89, 0x44, 0x24, 0x40, 0xEB, 0x09, 0x83, 0x4C, 0x24, 0x34,
+    0x08, 0x89, 0x74, 0x24, 0x40, 0x33, 0xF6, 0x39, 0xB4, 0x24, 0xB8, 0x00, 0x00, 0x00, 0xBF, 0x80, 0x00, 0x00, 0x00, 0x89, 0x7C, 0x24, 0x20, 0x0F,
+    0x86, 0x96, 0x00, 0x00, 0x00, 0x8B, 0x5C, 0x24, 0x14, 0xB8, 0x01, 0x00, 0x00, 0x00, 0x89, 0x44, 0x24, 0x28, 0x89, 0x44, 0x24, 0x24, 0x89, 0x5C,
+    0x24, 0x18, 0xEB, 0x08, 0x8D, 0x64, 0x24, 0x00, 0x8B, 0x5C, 0x24, 0x18, 0x8B, 0x84, 0x24, 0xBC, 0x00, 0x00, 0x00, 0x8B, 0x40, 0x04, 0x8B, 0xCE,
+    0xD3, 0xE8, 0x89, 0x44, 0x24, 0x1C, 0x83, 0xF8, 0x01, 0x8D, 0x44, 0x24, 0x1C, 0x77, 0x04, 0x8D, 0x44, 0x24, 0x28, 0x8B, 0x10, 0x8B, 0x4C, 0x24,
+    0x14, 0x8B, 0x01, 0x8B, 0xCE, 0xD3, 0xE8, 0x89, 0x44, 0x24, 0x1C, 0x83, 0xF8, 0x01, 0x8D, 0x44, 0x24, 0x1C, 0x77, 0x04, 0x8D, 0x44, 0x24, 0x24,
+    0x39, 0x53, 0xFC, 0x8B, 0x38, 0x75, 0x53, 0x39, 0x3B, 0x75, 0x4F, 0x6A, 0x04, 0x52, 0x8B, 0xCD, 0xE8, 0x1B, 0x0F, 0x00, 0x00, 0x57, 0x8B, 0xCD,
+    0x8B, 0xD8, 0xE8, 0xF1, 0x0D, 0x00, 0x00, 0x0F, 0xAF, 0xC3, 0x01, 0x44, 0x24, 0x20, 0x83, 0x44, 0x24, 0x18, 0x14, 0x83, 0xC6, 0x01, 0x3B, 0xB4,
+    0x24, 0xB8, 0x00, 0x00, 0x00, 0x72, 0x89, 0x8B, 0x7C, 0x24, 0x20, 0x8B, 0x0D, 0x64, 0xB8, 0x1C, 0x01, 0x6A, 0x00, 0x6A, 0x00, 0x6A, 0x10, 0x57,
+    0xE8, 0x73, 0x00, 0xED, 0xFF, 0x8B, 0xD8, 0x85, 0xDB, 0x89, 0x9C, 0x24, 0xAC, 0x00, 0x00, 0x00, 0x75, 0x0D, 0x5D, 0x5F, 0x5E, 0x32, 0xC0, 0x5B,
+    0x81, 0xC4, 0xA0, 0x00, 0x00, 0x00, 0xC3, 0x57, 0x6A, 0x00, 0x53, 0xE8, 0xE8, 0x7E, 0x96, 0x00, 0x8B, 0x84, 0x24, 0xC4, 0x00, 0x00, 0x00, 0x83,
+    0xC4, 0x0C, 0x85, 0xC0, 0xB9, 0x20, 0x00, 0x00, 0x00, 0x8D, 0x74, 0x24, 0x2C, 0x8B, 0xFB, 0x8D, 0x93, 0x80, 0x00, 0x00, 0x00, 0xF3, 0xA5, 0x89,
+    0x54, 0x24, 0x18, 0x76, 0x75, 0x8B, 0x74, 0x24, 0x14, 0x89, 0x44, 0x24, 0x1C, 0x8D, 0x49, 0x00, 0x8B, 0x7E, 0xFC, 0x57, 0x8B, 0xCD, 0xE8, 0x65,
+    0x0E, 0x00, 0x00, 0x6A, 0x04, 0x57, 0x8B, 0xCD, 0x8B, 0xD8, 0xE8, 0x79, 0x0E, 0x00, 0x00, 0x89, 0x44, 0x24, 0x24, 0x8B, 0x06, 0x50, 0x8B, 0xCD,
+    0xE8, 0x4B, 0x0D, 0x00, 0x00, 0x85, 0xC0, 0x8B, 0x4E, 0x04, 0x8B, 0x7E, 0xF8, 0x89, 0x4C, 0x24, 0x28, 0x76, 0x26, 0x89, 0x44, 0x24, 0x14, 0x8B,
+    0x54, 0x24, 0x18, 0x53, 0x57, 0x52, 0xE8, 0x63, 0x7E, 0x96, 0x00, 0x8B, 0x44, 0x24, 0x30, 0x01, 0x44, 0x24, 0x24, 0x03, 0x7C, 0x24, 0x34, 0x83,
+    0xC4, 0x0C, 0x83, 0x6C, 0x24, 0x14, 0x01, 0x75, 0xDE, 0x83, 0xC6, 0x14, 0x83, 0x6C, 0x24, 0x1C, 0x01, 0x75, 0x9D, 0x8B, 0x9C, 0x24, 0xAC, 0x00,
+    0x00, 0x00, 0x8B, 0x8C, 0x24, 0xB4, 0x00, 0x00, 0x00, 0x8B, 0x44, 0x24, 0x20, 0x8B, 0x11, 0x8B, 0x52, 0x38, 0x50, 0x53, 0xC6, 0x44, 0x24, 0x1B,
+    0x00, 0xFF, 0xD2, 0x84, 0xC0, 0x74, 0x05, 0xC6, 0x44, 0x24, 0x13, 0x01, 0x8B, 0x0D, 0x64, 0xB8, 0x1C, 0x01, 0x53, 0xE8, 0x88, 0xEE, 0xEC, 0xFF,
+    0x8A, 0x44, 0x24, 0x13, 0x5D, 0x5F, 0x5E, 0x5B, 0x81, 0xC4, 0xA0, 0x00, 0x00, 0x00, 0xC3, 0x5F, 0x5E, 0x32, 0xC0, 0x5B, 0x81, 0xC4, 0xA0, 0x00,
+    0x00, 0x00, 0xC3};
+
+enum { STB_POOL = 1, STB_STATS = 2, STB_ZERO = 4, STB_VERIFY = 8, STB_VERIFY2 = 16, STB_SCRATCH = 32, STB_PACKAGE = 64, STB_GROW = 128, STB_TIME = 256, STB_ASSEMBLE = 512 };  // g_stbArm bits
+enum { STB_ARENA = STB_POOL | STB_SCRATCH | STB_PACKAGE | STB_ASSEMBLE };  // the parts that take blocks from the arena
 enum { STBS_FREE = 0, STBS_EXT };  // a slot of g_stbBlk: free, or one of the game's own blocks tracked for Stats
 static const DWORD STB_N = 512;  // shortcut: at most 512 of the game's blocks tracked at once; more go uncounted (untracked)
 static const DWORD STB_WHO_N = 32, STB_TID_N = 16, STB_SZ_N = 14;
@@ -231,7 +298,24 @@ struct StbTid { DWORD tid; u64 allocs, frees; };
 struct StbStats {
     u64 reqs, bytes, big, bigB, served, servedB, fresh, fallback, tooBig, frees, xfree, grows, growB, zeroUs, zeroB, unwrittenB, commitB;
     DWORD liveN, peakLiveN, decommits, dfree, vaFail, uafw, unwrittenN, lost, untracked, stranded, noArena;
+    // Grow: capacity raises (headN; headSteps = the 1.5x reallocations the game would have needed to reach the same
+    // capacities: an upper bound of the reallocations avoided; headTotB = bytes added in all), headroom held now / at
+    // most by live buffers (Stats), grows in place and the bytes Realloc did not have to copy for them
+    u64 headN, headSteps, headTotB, inPlace, inPlaceB;
+    DWORD headB, peakHeadB, headUntracked, growBlocked;
 };
+// Timing: QueryPerformanceCounter ticks. arena[how] = this module's code on requests the arena served (the fill
+// included), arenaFree = on their frees; pass = this module's code on requests and frees it handed to the game's
+// allocator (pure overhead), passGame = the game's allocator on those; copy = Realloc's grow copies; samp* = the
+// sampled game path (every STB_SAMPLEth served request: allocate, touch every page, free).
+struct StbTime { LONGLONG arena[8], arenaFree, pass, passGame, copy, sampSum, since; double sampSq; u64 arenaN, passN, copyB, copyN, sampN; DWORD seq; };
+static const DWORD STB_SAMPLE = 64;
+static StbTime g_stbTime;
+struct StbHead { const u8* p; DWORD extra; };
+static const DWORD STB_HEAD_N = 65536;  // shortcut: headroom of at most 49152 live buffers is followed; more count as headUntracked
+static StbHead g_stbHead[STB_HEAD_N];
+static DWORD g_stbHeadN;
+static DWORD StbHeadIx(const u8* p) { return (((DWORD)(uintptr_t)p >> 3) * 2654435761u) >> 16; }
 static StbBlk g_stbBlk[STB_N];
 static DWORD g_stbHi;                 // slots [0, g_stbHi) may be in use
 static StbWho g_stbWho[STB_WHO_N];      // [0] = the frame was not readable, or the rows are taken
@@ -242,12 +326,12 @@ static SRWLOCK g_stbLock = SRWLOCK_INIT;
 static volatile LONG g_stbArm;        // STB_* bits the stubs act on (0 = every stub passes through to the game)
 static volatile LONG g_stbDetached;   // process exit: no lock is taken any more
 static int g_stbInstalled;            // the three stream sites are patched
-static bool g_stbScratchIn, g_stbPkgIn;  // the four compressor sites / the six package writer sites are patched
+static bool g_stbScratchIn, g_stbPkgIn, g_stbGrowIn, g_stbAsmIn;  // the four compressor / six package writer / two grow / two assembler sites are patched
 static bool g_stbFrames, g_stbDead;    // Realloc's callers matched (the stream and its sizer can be read from the stack); stopped for the session
 static DWORD g_stbMin = 128u << 10, g_stbMaxBlock = 8u << 20, g_stbBudget = 48u << 20, g_stbIdleMs = 5000, g_stbMinFreeMB = 512;
 static wchar_t g_stbIni[MAX_PATH];
 struct StbPatch { u8* at; u8 mine[20]; DWORD n; };
-static StbPatch g_stbPatch[13];  // [0..2] the stream sites, [3..6] the compressor's, [7..12] the package writer's
+static StbPatch g_stbPatch[17];  // [0..2] the stream sites, [3..6] the compressor's, [7..12] the package writer's, [13..14] the grow sites, [15..16] the assembler's
 
 static LONGLONG g_stbQpf;
 static LONGLONG StbQpc() {
@@ -272,7 +356,7 @@ static DWORD (*g_stbNow)() = StbNowMs;  // selftest: its own clock
 enum { STA_USED = 1, STA_COM = 2, STA_POISON = 4, STA_HEAD = 8, STA_PURGE = 16 };
 static const DWORD STA_MAX = 4096;      // slices: 256 MB, the most PoolMB allows
 static const DWORD STA_BLK_MAX = 1024;  // slices in one block: 64 MB, the most MaxBlockMB allows
-struct StaBlk { DWORD req, t, who, tid, n; u8 pat; };  // of the block whose first slice this is: n slices; pat = handed out as the Verify 2 pattern
+struct StaBlk { DWORD req, t, who, tid, n; u8 pat, keep; };  // of the block whose first slice this is: n slices; pat = handed out as the Verify 2 pattern; keep = grown in place, Realloc's free of the old SharedPointer is still to come
 struct StaHole { DWORD base, size; };
 struct Sta {
     u8* base;                           // set once, before anything is armed; never moves, never released
@@ -485,14 +569,79 @@ static DWORD StbUnwritten(const u8* p, DWORD n, DWORD* first) {
     return k;
 }
 
+// The slices [s0, s0+n) of the block at p, taken under the lock (plan = what each was before): committed where needed
+// with one call from the first to the last that needs it (a committed slice in between keeps its bytes; the new pages
+// are zero), checked for poison, and the block's bytes [from, to) given their hand-out contents: the Verify 2 pattern,
+// or zeros where a slice kept an older block's bytes. False = no memory to commit (nothing was filled).
+struct StaPrep { bool dirty; DWORD zb, cb; LONGLONG zt; };
+static bool StaPrepare(u8* p, DWORD s0, DWORD n, const u8* plan, DWORD from, DWORD to, LONG arm, StaPrep* r) {
+    DWORD lo = n, hi = 0;
+    *r = StaPrep{};
+    for (DWORD i = 0; i < n; i++)
+        if (!(plan[i] & STA_COM)) { if (lo == n) lo = i; hi = i + 1; r->cb += 0x10000; }
+    if (hi && !VirtualAlloc(p + ((s0 + lo) << 16), (hi - lo) << 16, MEM_COMMIT, PAGE_READWRITE)) return false;
+    for (DWORD i = 0; i < n; i++)
+        if ((plan[i] & STA_POISON) && !StbAllIs(p + ((s0 + i) << 16), 0x10000, STB_POISON)) r->dirty = true;
+    if (arm & STB_VERIFY2) {
+        if (to > from) memset(p + from, STB_PAT, to - from);
+        return true;
+    }
+    r->zt = StbQpc();
+    for (DWORD i = 0; i < n; i++) {
+        DWORD a = (s0 + i) << 16, b = a + 0x10000;
+        if (a < from) a = from;
+        if (b > to) b = to;
+        if (a < b && (plan[i] & STA_COM) && ((arm & STB_ZERO) || (plan[i] & STA_POISON))) memset(p + a, 0, b - a), r->zb += b - a;
+    }
+    r->zt = StbQpc() - r->zt;
+    return true;
+}
+static void StaPrepDone(const StaPrep& r, const u8* p, DWORD size) {
+    if (r.dirty || r.zb || r.cb) {
+        AcquireSRWLockExclusive(&g_stbLock);
+        g_stb.uafw += r.dirty, g_stb.commitB += r.cb;
+        if (r.zb) g_stb.zeroUs += (u64)(r.zt * 1000000 / g_stbQpf), g_stb.zeroB += r.zb;
+        ReleaseSRWLockExclusive(&g_stbLock);
+    }
+    if (r.dirty) Log("streambuf: VERIFY a freed block was written to before its reuse (0x%p, %lu bytes): uafw", p, size);
+}
+
+// Timing (Timing=1): ticks of this module's own code and of the game's allocator inside the stubs, and a sampled
+// measurement of what the game's own path costs for a block the arena served.
+struct StbTm { LONGLONG game, shadow; bool served; };  // of one request: ticks in the game's allocator, in the sample, and whether the arena served it
+// Lock held. Headroom given to a stream's buffer (Grow + Stats): data pointer -> bytes above what the game asked for.
+static void StbHeadPut(const u8* p, DWORD extra) {
+    if (g_stbHeadN * 4 >= STB_HEAD_N * 3) { g_stb.headUntracked++; return; }
+    DWORD i = StbHeadIx(p);
+    while (g_stbHead[i].p) i = (i + 1) & (STB_HEAD_N - 1);
+    g_stbHead[i] = StbHead{p, extra}, g_stbHeadN++;
+    if ((g_stb.headB += extra) > g_stb.peakHeadB) g_stb.peakHeadB = g_stb.headB;
+}
+static void StbHeadGone(const u8* p) {
+    if (!g_stbHeadN) return;
+    DWORD i = StbHeadIx(p);
+    for (; g_stbHead[i].p != p; i = (i + 1) & (STB_HEAD_N - 1))
+        if (!g_stbHead[i].p) return;
+    g_stb.headB -= g_stbHead[i].extra, g_stbHeadN--;
+    for (DWORD j = i;;) {  // close the gap: entries behind it move up while that keeps them reachable
+        j = (j + 1) & (STB_HEAD_N - 1);
+        if (!g_stbHead[j].p) break;
+        const DWORD k = StbHeadIx(g_stbHead[j].p);
+        if (i <= j ? (i < k && k <= j) : (i < k || k <= j)) continue;
+        g_stbHead[i] = g_stbHead[j], i = j;
+    }
+    g_stbHead[i] = StbHead{};
+}
+
 // One request of a hooked site: counted, then from the arena (pool: the site's switch is on) or from the game's
-// allocator with the site's own arguments. who / via / how name the requester for the "who" lines.
-static void* StbRequest(DWORD size, void* allocator, const char* name, DWORD who, DWORD via, DWORD how, bool grow, DWORD oldCap, LONG arm, bool pool) {
+// allocator with the site's own arguments. who / via / how name the requester for the "who" lines. extra = headroom
+// bytes in `size` that this module added (Grow). tm (Timing) receives the ticks that are not this module's own.
+static void* StbRequest(DWORD size, void* allocator, const char* name, DWORD who, DWORD via, DWORD how, bool grow, DWORD oldCap, LONG arm, bool pool, DWORD extra, StbTm* tm) {
     const bool big = size >= g_stbMin;
     const DWORD now = g_stbNow(), tid = GetCurrentThreadId(), n = StbCap(size) >> 16;
     u8 plan[STA_BLK_MAX];  // what each slice of the block was before it was taken (COM, POISON)
     int s = -1;
-    bool need = false;
+    bool need = false, sample = false;
     DWORD wi;
     AcquireSRWLockExclusive(&g_stbLock);
     wi = StbWhoOf(who, via, how);
@@ -511,44 +660,36 @@ static void* StbRequest(DWORD size, void* allocator, const char* name, DWORD who
                 if (!(plan[i] & STA_COM)) need = true, g_sta.comN++;
                 g_staSt[s + i] = (u8)(STA_USED | STA_COM | (i ? 0 : STA_HEAD));
             }
-            g_staBlk[s] = StaBlk{size, now, wi, tid, n, (u8)((arm & STB_VERIFY2) != 0)};
+            g_staBlk[s] = StaBlk{size, now, wi, tid, n, (u8)((arm & STB_VERIFY2) != 0), 0};
             g_sta.freeN -= n, g_sta.useN += n;
             if (g_sta.useN > g_sta.peakUseN) g_sta.peakUseN = g_sta.useN;
             if (g_sta.comN > g_sta.peakComN) g_sta.peakComN = g_sta.comN;
             if (need) g_stb.fresh++, w.fresh++; else g_stb.served++, g_stb.servedB += size, w.served++;
             StbLive(wi, size);
+            sample = tm && !(++g_stbTime.seq % STB_SAMPLE);
         }
     }
     ReleaseSRWLockExclusive(&g_stbLock);
     if (s >= 0) {  // the slices are this thread's until the pointer is handed out: nobody else reads or writes them
         u8* const p = g_sta.base + ((DWORD)s << 16);
-        DWORD lo = n, hi = 0, zb = 0, cb = 0;
-        for (DWORD i = 0; i < n; i++)
-            if (!(plan[i] & STA_COM)) { if (lo == n) lo = i; hi = i + 1; cb += 0x10000; }
-        // one commit from the first to the last slice that needs it (a committed slice in between keeps its bytes); the new pages are zero
-        const bool ok = !need || VirtualAlloc(p + (lo << 16), (hi - lo) << 16, MEM_COMMIT, PAGE_READWRITE) != NULL;
-        if (ok) {
-            bool dirty = false;
-            LONGLONG zt = 0;
-            for (DWORD i = 0; i < n; i++)
-                if ((plan[i] & STA_POISON) && !StbAllIs(p + (i << 16), 0x10000, STB_POISON)) dirty = true;
-            if (arm & STB_VERIFY2) memset(p, STB_PAT, size);
-            else {
-                zt = StbQpc();
-                for (DWORD i = 0; i < n && i << 16 < size; i++)  // a slice that kept an older block's bytes: zeros over the requested part
-                    if ((plan[i] & STA_COM) && ((arm & STB_ZERO) || (plan[i] & STA_POISON))) {
-                        const DWORD k = size - (i << 16) < 0x10000 ? size - (i << 16) : 0x10000;
-                        memset(p + (i << 16), 0, k), zb += k;
-                    }
-                zt = StbQpc() - zt;
-            }
-            if (dirty || zb || cb) {
+        StaPrep r;
+        if (StaPrepare(p, 0, n, plan, 0, size, arm, &r)) {
+            StaPrepDone(r, p, size);
+            if (extra && (arm & STB_STATS)) {
                 AcquireSRWLockExclusive(&g_stbLock);
-                g_stb.uafw += dirty, g_stb.commitB += cb;
-                if (zb) g_stb.zeroUs += (u64)(zt * 1000000 / g_stbQpf), g_stb.zeroB += zb;
+                StbHeadPut(p, extra);
                 ReleaseSRWLockExclusive(&g_stbLock);
             }
-            if (dirty) Log("streambuf: VERIFY a freed block was written to before its reuse (0x%p, %lu bytes): uafw", p, size);
+            if (tm) tm->served = true;
+            if (sample) {  // what the game's own path costs for this request: allocate, touch every page once, free
+                const LONGLONG t0 = StbQpc();
+                u8* const q = (u8*)StbGameAlloc(allocator, size, name);
+                if (q) {
+                    for (DWORD i = 0; i < size; i += 4096) q[i] = 0;
+                    StbGameFree(allocator, q);
+                }
+                tm->shadow = StbQpc() - t0;
+            }
             return p;
         }
         AcquireSRWLockExclusive(&g_stbLock);  // no memory to commit: the slices are free as they were, the game's own path answers
@@ -559,27 +700,172 @@ static void* StbRequest(DWORD size, void* allocator, const char* name, DWORD who
         g_stbWho[wi].liveN--, g_stbWho[wi].liveB -= size, g_stb.liveN--;
         ReleaseSRWLockExclusive(&g_stbLock);
     }
+    const LONGLONG g0 = tm ? StbQpc() : 0;
     u8* const p = (u8*)StbGameAlloc(allocator, size, name);
-    if (p && big && (arm & STB_STATS)) {  // the game's block, tracked for its lifetime
+    if (tm) tm->game = StbQpc() - g0;
+    if (p && ((big && (arm & STB_STATS)) || (extra && (arm & STB_STATS)))) {
         AcquireSRWLockExclusive(&g_stbLock);
-        const int e = StbFind(p);  // a block we never saw freed (freed by a path that is not ours: none known)
-        if (e >= 0) g_stb.lost++, g_stbWho[g_stbBlk[e].who].liveN--, g_stbWho[g_stbBlk[e].who].liveB -= g_stbBlk[e].req, g_stb.liveN--, StbSlotClear(e);
-        const int x = StbFreeSlot();
-        if (x < 0) g_stb.untracked++;
-        else {
-            StbBlk& b = g_stbBlk[x];
-            b.p = p, b.req = size, b.t = now, b.who = wi, b.tid = tid, b.state = STBS_EXT;
-            StbLive(wi, size);
+        if (extra) StbHeadPut(p, extra);
+        if (big) {  // the game's block, tracked for its lifetime
+            const int e = StbFind(p);  // a block we never saw freed (freed by a path that is not ours: none known)
+            if (e >= 0) g_stb.lost++, g_stbWho[g_stbBlk[e].who].liveN--, g_stbWho[g_stbBlk[e].who].liveB -= g_stbBlk[e].req, g_stb.liveN--, StbSlotClear(e);
+            const int x = StbFreeSlot();
+            if (x < 0) g_stb.untracked++;
+            else {
+                StbBlk& b = g_stbBlk[x];
+                b.p = p, b.req = size, b.t = now, b.who = wi, b.tid = tid, b.state = STBS_EXT;
+                StbLive(wi, size);
+            }
         }
         ReleaseSRWLockExclusive(&g_stbLock);
     }
     return p;
 }
+// StbRequest with the clock around it (Timing): this module's own ticks go to the requester's family when the arena
+// served the request, else to the pass-through overhead; the sample feeds the estimate of the game's path.
+static void* StbTimed(DWORD size, void* allocator, const char* name, DWORD who, DWORD via, DWORD how, bool grow, DWORD oldCap, LONG arm, bool pool, DWORD extra) {
+    if (!(arm & STB_TIME)) return StbRequest(size, allocator, name, who, via, how, grow, oldCap, arm, pool, extra, NULL);
+    StbTm tm = {};
+    const LONGLONG t0 = StbQpc();
+    void* const p = StbRequest(size, allocator, name, who, via, how, grow, oldCap, arm, pool, extra, &tm);
+    const LONGLONG own = StbQpc() - t0 - tm.game - tm.shadow;
+    AcquireSRWLockExclusive(&g_stbLock);
+    StbTime& t = g_stbTime;
+    if (tm.served) t.arena[how & 7] += own, t.arenaN++; else t.pass += own, t.passGame += tm.game, t.passN++;
+    if (tm.shadow) t.sampN++, t.sampSum += tm.shadow, t.sampSq += (double)tm.shadow * (double)tm.shadow;
+    ReleaseSRWLockExclusive(&g_stbLock);
+    return p;
+}
+
+// Grow (docs/547 §15). A stream that Write grows asks Realloc for max(capacity * 1.5, what the write needs): the game's
+// own policy (factor [stream+20h], 1.5 from 0x1020A7C; increment [stream+24h], 0). It is geometric, but it starts from
+// the first write's size, and serialisers write four bytes or a short piece of text at a time into an empty stream:
+// capacities 4, 8, 12, 18, 27, 40, 60, 90, 135, 202, ... (ten reallocations before 256 bytes, seventeen before 4 KB).
+// StbGrowCap, called in front of Write's Realloc call, raises the capacity asked for:
+// - a stream that already has a buffer: four times the old capacity under 4 KB, twice from there on, and at least
+//   GrowFloor bytes (64), or GrowTextFloor (4096) when the writer is the text encoder 0x4B58A0 (its Write call returns
+//   to 0x4B590C; it appends documents in pieces of at most 256 bytes);
+// - a stream's first buffer: at least GrowFirst bytes (0 = as the game asks: the default);
+// - never less than the game asked for, and nothing from MinKB on: large buffers keep the game's 1.5x and grow in
+//   place in the arena instead.
+// at = Write's own return address (the writer), read from Write's byte-checked frame.
+static const DWORD STB_TEXT_WRITE_RET = 0x004B590C;
+static DWORD g_stbGrowFloor = 64, g_stbGrowText = 4096, g_stbGrowFirst = 0, g_stbTextAt = STB_TEXT_WRITE_RET;
+static DWORD g_stbTls = TLS_OUT_OF_INDEXES;  // per thread: headroom bytes of the Realloc now running, for StbAlloc (Stats)
+static DWORD __stdcall StbGrowCap(const void* stream, DWORD cap, DWORD at) {
+    if (!(g_stbArm & STB_GROW) || cap >= g_stbMin) return cap;
+    const DWORD old = *(const DWORD*)((const u8*)stream + 0x14);
+    DWORD want;
+    if (!old || !*(void* const*)((const u8*)stream + 4)) want = g_stbGrowFirst;
+    else {
+        const DWORD floor = at == g_stbTextAt ? g_stbGrowText : g_stbGrowFloor;
+        if (old >= g_stbMin) return cap;
+        want = old < 4096 ? old * 4 : old * 2;
+        if (want < floor) want = floor;
+    }
+    if (want <= cap || want >= g_stbMin) return cap;
+    DWORD steps = 0;
+    for (DWORD c = cap; c < want; steps++) c += c / 2 ? c / 2 : 1;  // 1.5x reallocations the game would need to reach `want`
+    AcquireSRWLockExclusive(&g_stbLock);
+    g_stb.headN++, g_stb.headSteps += steps, g_stb.headTotB += want - cap;
+    ReleaseSRWLockExclusive(&g_stbLock);
+    if ((g_stbArm & STB_STATS) && g_stbTls != TLS_OUT_OF_INDEXES) TlsSetValue(g_stbTls, (void*)(uintptr_t)(want - cap));
+    return want;
+}
+// In place of `call Realloc` in Write (0x4DF05C): the capacity argument goes through StbGrowCap, then Realloc runs with
+// Write's own return address 0x4DF061, so the frame the caller walk reads is unchanged. On entry the stack holds the
+// return address, the capacity, Write's four saved registers and its 8 bytes of locals, then Write's return address.
+static void* g_stbReallocFn = (void*)(uintptr_t)STB_REALLOC;  // selftest: its own
+__declspec(naked) static void StbWriteGrow() {
+    __asm {
+        push ecx
+        push dword ptr [esp + 0x24]
+        push dword ptr [esp + 0x0C]
+        push ecx
+        call StbGrowCap
+        pop ecx
+        mov [esp + 4], eax
+        jmp dword ptr [g_stbReallocFn]
+    }
+}
+// In place of Realloc's `call memcpy` (0x4DEECB, cdecl): nothing to copy when the buffer was grown in place.
+static void* __cdecl StbGrowCopy(void* dst, const void* src, size_t n) {
+    if (dst == src) return dst;
+    if (!(g_stbArm & STB_TIME)) return memcpy(dst, src, n);
+    const LONGLONG t0 = StbQpc();
+    memcpy(dst, src, n);
+    const LONGLONG t = StbQpc() - t0;
+    AcquireSRWLockExclusive(&g_stbLock);
+    g_stbTime.copy += t, g_stbTime.copyB += n, g_stbTime.copyN++;
+    ReleaseSRWLockExclusive(&g_stbLock);
+    return dst;
+}
+// A stream's arena block grows where it is: Realloc is about to build a new SharedPointer of `size` bytes, copy the
+// old capacity into it and release the old SharedPointer. When that release is certain to free the old buffer now
+// (reference count 1, "free the data" set, same allocator) and the slices behind the block are free, the block takes
+// them and its own address is the answer: Realloc's copy finds source = destination (StbGrowCopy skips it) and its
+// release of the old SharedPointer comes to StbFree from Realloc's free site with the block marked `keep`, which
+// clears the mark instead of freeing. As realloc extends a chunk into the free chunk behind it (dlmalloc) and
+// mimalloc's mi_expand. NULL = not possible: the ordinary path.
+static u8* StbGrowInPlace(const void* stream, DWORD size, void* allocator, DWORD wi, LONG arm) {
+    const u8* const sp = *(const u8* const*)((const u8*)stream + 4);
+    u8* const p = *(u8* const*)(sp + 8);
+    if (*(const LONG*)(sp + 0xC) != 1 || !sp[0x10] || *(void* const*)(sp + 4) != allocator || !p || !StaOwned(p) || ((uintptr_t)p & 0xFFFF) || !StbPoolable(size)) return NULL;
+    const DWORD s = (DWORD)(p - g_sta.base) >> 16, n = StbCap(size) >> 16, tid = GetCurrentThreadId();
+    u8 plan[STA_BLK_MAX];
+    DWORD oldN = 0, oldReq = 0;
+    bool ok = false;
+    AcquireSRWLockExclusive(&g_stbLock);
+    StaBlk& b = g_staBlk[s];
+    if ((g_staSt[s] & (STA_USED | STA_HEAD)) == (STA_USED | STA_HEAD) && !b.keep && size > b.req && s + n <= g_sta.n) {
+        ok = true, oldN = b.n, oldReq = b.req;
+        for (DWORD i = oldN; i < n && ok; i++) ok = !(g_staSt[s + i] & (STA_USED | STA_PURGE));
+        if (!ok) g_stb.growBlocked++;
+    }
+    if (ok) {
+        for (DWORD i = oldN; i < n; i++) {
+            plan[i - oldN] = g_staSt[s + i];
+            if (!(plan[i - oldN] & STA_COM)) g_sta.comN++;
+            g_staSt[s + i] = (u8)(STA_USED | STA_COM);
+        }
+        g_sta.freeN -= n - oldN, g_sta.useN += n - oldN;
+        if (g_sta.useN > g_sta.peakUseN) g_sta.peakUseN = g_sta.useN;
+        if (g_sta.comN > g_sta.peakComN) g_sta.peakComN = g_sta.comN;
+        b.n = n, b.req = size, b.keep = 1;
+        StbWho& w = g_stbWho[wi];  // counted as the request it is; the block stays the live block it was, now longer
+        g_stb.reqs++, g_stb.bytes += size, g_stbSz[StbSzIx(size)]++, w.n++, w.bytes += size, g_stb.grows++, w.grows++;
+        if (size > w.maxReq) w.maxReq = size;
+        g_stb.big++, g_stb.bigB += size, w.big++, w.bigB += size, StbTidOf(tid).allocs++;
+        g_stb.inPlace++, g_stb.inPlaceB += oldReq;
+        StbWho& o = g_stbWho[b.who < STB_WHO_N ? b.who : 0];
+        if ((o.liveB += size - oldReq) > o.peakB) o.peakB = o.liveB;
+    }
+    ReleaseSRWLockExclusive(&g_stbLock);
+    if (!ok) return NULL;
+    StaPrep r;
+    const DWORD oldEnd = oldN << 16, tail = size < oldEnd ? size : oldEnd;
+    if (StaPrepare(p, oldN, n - oldN, plan, oldReq, size, arm, &r)) {
+        if (!(arm & STB_VERIFY2) && (arm & STB_ZERO) && tail > oldReq) memset(p + oldReq, 0, tail - oldReq);  // the rest of the block's old last slice
+        StaPrepDone(r, p, size);
+        return p;
+    }
+    AcquireSRWLockExclusive(&g_stbLock);  // no memory to commit: the block is as it was, the ordinary path answers
+    for (DWORD i = oldN; i < n; i++) g_staSt[s + i] = (u8)(plan[i - oldN] & (STA_COM | STA_POISON)), g_sta.comN -= !(plan[i - oldN] & STA_COM);
+    g_sta.freeN += n - oldN, g_sta.useN -= n - oldN;
+    b.n = oldN, b.req = oldReq, b.keep = 0;
+    StbWho& w = g_stbWho[wi];
+    g_stb.reqs--, g_stb.bytes -= size, g_stbSz[StbSzIx(size)]--, w.n--, w.bytes -= size, g_stb.grows--, w.grows--;
+    g_stb.big--, g_stb.bigB -= size, w.big--, w.bigB -= size, StbTidOf(tid).allocs--;
+    g_stb.inPlace--, g_stb.inPlaceB -= oldReq, g_stb.vaFail++;
+    g_stbWho[b.who < STB_WHO_N ? b.who : 0].liveB -= size - oldReq;
+    ReleaseSRWLockExclusive(&g_stbLock);
+    return NULL;
+}
 // In place of the allocator call at 0x4DEC15 (reached only from MemoryStream::Realloc). stream = Realloc's `this`.
 static void* __stdcall StbAlloc(DWORD size, void* stream, void* allocator, const char* name) {
     const LONG arm = g_stbArm;
     if (!arm) return StbGameAlloc(allocator, size, name);
-    DWORD who = 0, via = 0, how = 0, oldCap = 0;
+    DWORD who = 0, via = 0, how = 0, oldCap = 0, extra = 0;
     bool grow = false;
     if (size >= g_stbMin || (arm & STB_STATS)) {
         // the arguments as the patched code pushed them: counted from the return address, never from &size. v1 passed
@@ -588,7 +874,25 @@ static void* __stdcall StbAlloc(DWORD size, void* stream, void* allocator, const
         who = g_stbWhoFn((const DWORD*)_AddressOfReturnAddress() + 1, (const DWORD*)(uintptr_t)__readfsdword(4), &via, &how);
         if (how && stream) grow = *(void* const*)((const u8*)stream + 4) != NULL, oldCap = *(const DWORD*)((const u8*)stream + 0x14);
     }
-    return StbRequest(size, allocator, name, who, via, how, grow, oldCap, arm, (arm & STB_POOL) != 0);
+    if ((arm & (STB_GROW | STB_STATS)) == (STB_GROW | STB_STATS) && g_stbTls != TLS_OUT_OF_INDEXES && (extra = (DWORD)(uintptr_t)TlsGetValue(g_stbTls)) != 0)
+        TlsSetValue(g_stbTls, NULL);
+    if (grow && size >= g_stbMin && (arm & (STB_GROW | STB_POOL)) == (STB_GROW | STB_POOL)) {
+        const LONGLONG t0 = (arm & STB_TIME) ? StbQpc() : 0;
+        AcquireSRWLockExclusive(&g_stbLock);
+        const DWORD wi = StbWhoOf(who, via, how);
+        ReleaseSRWLockExclusive(&g_stbLock);
+        u8* const p = StbGrowInPlace(stream, size, allocator, wi, arm);
+        if (p) {
+            if (arm & STB_TIME) {
+                const LONGLONG t = StbQpc() - t0;
+                AcquireSRWLockExclusive(&g_stbLock);
+                g_stbTime.arena[how & 7] += t, g_stbTime.arenaN++;
+                ReleaseSRWLockExclusive(&g_stbLock);
+            }
+            return p;
+        }
+    }
+    return StbTimed(size, allocator, name, who, via, how, grow, oldCap, arm, (arm & STB_POOL) != 0, extra);
 }
 
 // An arena block comes back.
@@ -604,6 +908,7 @@ static void StbPut(u8* p) {
     if (((uintptr_t)p & 0xFFFF) || (g_staSt[s] & (STA_USED | STA_HEAD)) != (STA_USED | STA_HEAD)) g_stb.dfree++;
     else {
         b = g_staBlk[s];
+        StbHeadGone(p);
         StbGone(b.who, b.req, b.t, b.tid, now, tid);
         work = b.pat || (arm & STB_VERIFY);
         if (work) g_staSt[s] = (u8)(g_staSt[s] & ~STA_HEAD);  // in transit: still ours, a second free is counted
@@ -623,29 +928,63 @@ static void StbPut(u8* p) {
     if (nth && nth <= 16)
         Log("streambuf: VERIFY unwritten bytes at the free: sizer 0x%08lX, %lu of %lu bytes still hold the hand-out pattern, first at +0x%lX", at, un, b.req, first);
 }
-// The game's block is freed (Stats).
+// The game's block is freed (Stats): its lifetime, and the headroom it carried.
 static void StbExtGone(const u8* p) {
     const DWORD now = g_stbNow(), tid = GetCurrentThreadId();
     AcquireSRWLockExclusive(&g_stbLock);
+    StbHeadGone(p);
     const int i = StbFind(p);
     if (i >= 0) StbGone(g_stbBlk[i].who, g_stbBlk[i].req, g_stbBlk[i].t, g_stbBlk[i].tid, now, tid), StbSlotClear(i);
     ReleaseSRWLockExclusive(&g_stbLock);
 }
 static void StbRelease(void* allocator, u8* p) {
-    if (p && StaOwned(p)) { StbPut(p); return; }
-    if (p && (g_stbArm & STB_STATS)) StbExtGone(p);
-    StbGameFree(allocator, p);
+    const LONG arm = g_stbArm;
+    const bool ours = p && StaOwned(p);
+    if (!(arm & STB_TIME)) {
+        if (ours) { StbPut(p); return; }
+        if (p && (arm & STB_STATS)) StbExtGone(p);
+        StbGameFree(allocator, p);
+        return;
+    }
+    const LONGLONG t0 = StbQpc();
+    LONGLONG g = 0;
+    if (ours) StbPut(p);
+    else {
+        if (p && (arm & STB_STATS)) StbExtGone(p);
+        g = StbQpc();
+        StbGameFree(allocator, p);
+        g = StbQpc() - g;
+    }
+    const LONGLONG own = StbQpc() - t0 - g;
+    AcquireSRWLockExclusive(&g_stbLock);
+    if (ours) g_stbTime.arenaFree += own; else g_stbTime.pass += own, g_stbTime.passGame += g;
+    ReleaseSRWLockExclusive(&g_stbLock);
+}
+// Lock taken here. The block at p was grown in place and this is Realloc's release of its old SharedPointer: the
+// mark goes, the block stays.
+static bool StbKeepClear(const u8* p) {
+    const DWORD s = (DWORD)(p - g_sta.base) >> 16;
+    bool kept = false;
+    AcquireSRWLockExclusive(&g_stbLock);
+    if (!((uintptr_t)p & 0xFFFF) && (g_staSt[s] & (STA_USED | STA_HEAD)) == (STA_USED | STA_HEAD) && g_staBlk[s].keep) g_staBlk[s].keep = 0, kept = true;
+    ReleaseSRWLockExclusive(&g_stbLock);
+    return kept;
 }
 // In place of the two `allocator->Free(data, 0)` calls (0x4DEAA7, 0x4DEF07). sp = the SharedPointer whose last
 // reference went, with its "free the data" byte set.
-static void __stdcall StbFree(void* sp) { StbRelease(*(void* const*)((const u8*)sp + 4), *(u8* const*)((const u8*)sp + 8)); }
+static const void* g_stbReallocFreeRet;  // the return address of the call from Realloc's site (0x4DEEFF)
+static void __stdcall StbFree(void* sp) {
+    u8* const p = *(u8* const*)((const u8*)sp + 8);
+    if (p && _ReturnAddress() == g_stbReallocFreeRet && StaOwned(p) && StbKeepClear(p)) return;
+    StbRelease(*(void* const*)((const u8*)sp + 4), p);
+}
 // In place of the compressor's two table allocations (0x4EC120, 0x4EC13E: `allocator->Alloc(size, name 0xFB9030, 0)`)
 // and its two frees (0x4EC1C3, 0x4EC1D8: `allocator->Free(p, 0)`). The requester is the call's own return address.
 static const char* g_stbScratchName = (const char*)(uintptr_t)0x00FB9030;  // "Services/UTFFoundation/CompressionRefPack" (selftest: its own)
 static void* __stdcall StbScratchAlloc(DWORD size, void* allocator) {
     const LONG arm = g_stbArm;
     if (!(arm & STB_SCRATCH)) return StbGameAlloc(allocator, size, g_stbScratchName);
-    return StbRequest(size, allocator, g_stbScratchName, (DWORD)(uintptr_t)_ReturnAddress(), 0, 4, false, 0, arm, true);
+    return StbTimed(size, allocator, g_stbScratchName, (DWORD)(uintptr_t)_ReturnAddress(), 0, 4, false, 0, arm, true, 0);
 }
 // In place of an `allocator->Free(p, 0)` call of the compressor or the package writer: any pointer, ours or the game's.
 static void __stdcall StbSiteFree(void* p, void* allocator) { StbRelease(allocator, (u8*)p); }
@@ -653,7 +992,29 @@ static void __stdcall StbSiteFree(void* p, void* allocator) { StbRelease(allocat
 static void* __stdcall StbPkgAlloc(DWORD size, void* allocator, const char* name) {
     const LONG arm = g_stbArm;
     if (!(arm & STB_PACKAGE)) return StbGameAlloc(allocator, size, name);
-    return StbRequest(size, allocator, name, (DWORD)(uintptr_t)_ReturnAddress(), 0, 5, false, 0, arm, true);
+    return StbTimed(size, allocator, name, (DWORD)(uintptr_t)_ReturnAddress(), 0, 5, false, 0, arm, true, 0);
+}
+// In place of the block assembler's Memalign and Free calls on the MemoryMan heap (0x6169A8, 0x616A93; thiscall on the
+// heap). StbRequest and StbRelease speak to an allocator object, so they are handed one whose Alloc is the site's own
+// call (Memalign(size, 16, 0, 0) on that heap) and whose Free is the heap's Free. An arena block starts on a 64 KB
+// boundary, which is aligned to 16.
+typedef void* (__fastcall* StbMemalignFn)(void* heap, void* edx, DWORD size, DWORD align, DWORD a3, DWORD a4);
+typedef void (__fastcall* StbHeapFreeFn)(void* heap, void* edx, void* p);
+static StbMemalignFn g_stbMemalign = (StbMemalignFn)(uintptr_t)0x004E6A20;  // selftest: its own
+static StbHeapFreeFn g_stbHeapFree = (StbHeapFreeFn)(uintptr_t)0x004E5920;
+struct StbAsmHeap { void** vt; void* heap; };
+static void* __fastcall StbAsmVtAlloc(void* self, void*, DWORD size, const char*, DWORD) { return g_stbMemalign(((StbAsmHeap*)self)->heap, NULL, size, 16, 0, 0); }
+static void __fastcall StbAsmVtFree(void* self, void*, void* p, DWORD) { g_stbHeapFree(((StbAsmHeap*)self)->heap, NULL, p); }
+static void* g_stbAsmVt[4] = {NULL, NULL, (void*)&StbAsmVtAlloc, (void*)&StbAsmVtFree};
+static void* __fastcall StbAsmAlloc(void* heap, void*, DWORD size, DWORD align, DWORD a3, DWORD a4) {
+    const LONG arm = g_stbArm;
+    if (!(arm & STB_ASSEMBLE) || align != 16 || a3 || a4) return g_stbMemalign(heap, NULL, size, align, a3, a4);
+    StbAsmHeap h = {g_stbAsmVt, heap};
+    return StbTimed(size, &h, NULL, (DWORD)(uintptr_t)_ReturnAddress(), 0, 6, false, 0, arm, true, 0);
+}
+static void __fastcall StbAsmFree(void* heap, void*, void* p) {
+    StbAsmHeap h = {g_stbAsmVt, heap};
+    StbRelease(&h, (u8*)p);
 }
 
 // Upkeep, every 500 ms on this module's thread: free slices nobody took for IdleSec are decommitted (all free ones when
@@ -684,7 +1045,9 @@ static int StbIniMask(const wchar_t* ini) {
     if (GetPrivateProfileIntW(L"StreamBuf", L"Enabled", 0, ini) <= 0) return 0;
     const int v = GetPrivateProfileIntW(L"StreamBuf", L"Verify", 0, ini);
     const int m = (GetPrivateProfileIntW(L"StreamBuf", L"Pool", 0, ini) > 0 ? STB_POOL : 0) | (GetPrivateProfileIntW(L"StreamBuf", L"Stats", 0, ini) > 0 ? STB_STATS : 0) |
-                  (GetPrivateProfileIntW(L"StreamBuf", L"Scratch", 0, ini) > 0 ? STB_SCRATCH : 0) | (GetPrivateProfileIntW(L"StreamBuf", L"Package", 0, ini) > 0 ? STB_PACKAGE : 0);
+                  (GetPrivateProfileIntW(L"StreamBuf", L"Scratch", 0, ini) > 0 ? STB_SCRATCH : 0) | (GetPrivateProfileIntW(L"StreamBuf", L"Package", 0, ini) > 0 ? STB_PACKAGE : 0) |
+                  (GetPrivateProfileIntW(L"StreamBuf", L"Grow", 0, ini) > 0 ? STB_GROW : 0) | (GetPrivateProfileIntW(L"StreamBuf", L"Timing", 0, ini) > 0 ? STB_TIME : 0) |
+                  (GetPrivateProfileIntW(L"StreamBuf", L"Assemble", 0, ini) > 0 ? STB_ASSEMBLE : 0);
     if (!(m & STB_ARENA)) return m;
     return m | (GetPrivateProfileIntW(L"StreamBuf", L"Zero", 1, ini) > 0 ? STB_ZERO : 0) | (v >= 1 ? STB_VERIFY : 0) | (v >= 2 ? STB_VERIFY2 : 0);
 }
@@ -703,12 +1066,15 @@ static void StbWatch(int mask, bool apex) {
         }
     if (!g_stbScratchIn || apex) mask &= ~STB_SCRATCH;
     if (!g_stbPkgIn) mask &= ~STB_PACKAGE;
-    if (!(mask & STB_ARENA)) mask &= STB_STATS;
+    if (!g_stbGrowIn) mask &= ~STB_GROW;
+    if (!g_stbAsmIn) mask &= ~STB_ASSEMBLE;
+    if (!(mask & STB_ARENA)) mask &= STB_STATS | STB_GROW | STB_TIME;
     const LONG was = g_stbArm;
     if (was == mask) return;
+    if ((mask & STB_TIME) && !(was & STB_TIME)) g_stbTime.since = StbQpc();
     if ((mask & STB_ARENA) && !g_sta.base) StaReserve(g_stbBudget, g_stbMinFreeMB);  // switched on after the start: the arena is made now, on this thread
     InterlockedExchange(&g_stbArm, mask);
-    Log("streambuf: switched at run time by the ini: arm %ld -> %d (1 pool, 2 stats, 4 zero, 8 verify, 16 verify 2, 32 scratch, 64 package)%s", was, mask,
+    Log("streambuf: switched at run time by the ini: arm %ld -> %d (1 pool, 2 stats, 4 zero, 8 verify, 16 verify 2, 32 scratch, 64 package, 128 grow, 256 timing, 512 assemble)%s", was, mask,
         apex && g_stbScratchIn ? "; Scratch off for Apex Radiance" : "");
 }
 static void StbDetach() { InterlockedExchange(&g_stbDetached, 1), InterlockedExchange(&g_stbArm, 0); }  // DLL_PROCESS_DETACH
@@ -754,6 +1120,27 @@ static bool StbInstallSites(u8* ctor, u8* rel, u8* realloc, const u8* setSize, c
             p.n = 12, memcpy(p.mine, head, 7), p.mine[7] = 0xE8, memcpy(p.mine + 8, &r, 4);
         }
         if (!StbWriteSite(p, at[i], "the stream code")) return false;
+    }
+    g_stbReallocFreeRet = at[1] + 6;
+    return true;
+}
+// The two grow sites (Grow, and Timing for the copy's time): Realloc's `call memcpy` (0x4DEECB) and Write's `call
+// Realloc` (0x4DF05C), each a 5-byte call whose target changes. After StbInstallSites: Write's head matched
+// (g_stbFrames) and Realloc's window matched before its free site was written; the call bytes are checked again.
+static const DWORD STB_REALLOC_COPY = 0x8B, STB_WRITE_CALL = 0x6C;
+static bool StbInstallGrow(u8* write, u8* realloc) {
+    if (!g_stbFrames || memcmp(realloc + STB_REALLOC_COPY, kStbRealloc + STB_REALLOC_COPY, 5) || memcmp(write + STB_WRITE_CALL, kStbWrite + STB_WRITE_CALL, 5)) {
+        StbSkip("Write / Realloc (Grow only; the other sites are not affected)", write, STB_WRITE, sizeof(kStbWrite));
+        return false;
+    }
+    if (g_stbTls == TLS_OUT_OF_INDEXES) g_stbTls = TlsAlloc();
+    u8* const at[2] = {realloc + STB_REALLOC_COPY, write + STB_WRITE_CALL};
+    const uintptr_t to[2] = {(uintptr_t)&StbGrowCopy, (uintptr_t)&StbWriteGrow};
+    for (int i = 0; i < 2; i++) {
+        StbPatch& p = g_stbPatch[13 + i];
+        const LONG r = (LONG)(to[i] - ((uintptr_t)at[i] + 5));
+        p.n = 5, p.mine[0] = 0xE8, memcpy(p.mine + 1, &r, 4);
+        if (!StbWriteSite(p, at[i], "the stream code (Grow)")) return false;
     }
     return true;
 }
@@ -801,6 +1188,21 @@ static bool StbInstallPackage(u8* const fn[3]) {
     return true;
 }
 
+// The block assembler's two sites (Assemble): the whole function must match, then the free call's target is changed,
+// then the allocation call's. Both stay 5-byte calls at the same place, so the return address 0x6169AD stays.
+static bool StbInstallAssemble(u8* fn) {
+    if (!Matches(fn, kStbAsm, sizeof(kStbAsm))) { StbSkip("the block assembler (Assemble only; the other sites are not affected)", fn, STB_ASM, sizeof(kStbAsm)); return false; }
+    u8* const at[2] = {fn + STB_ASM_FREE, fn + STB_ASM_ALLOC};
+    const uintptr_t to[2] = {(uintptr_t)&StbAsmFree, (uintptr_t)&StbAsmAlloc};
+    for (int i = 0; i < 2; i++) {
+        StbPatch& p = g_stbPatch[15 + i];
+        const LONG r = (LONG)(to[i] - ((uintptr_t)at[i] + 5));
+        p.n = 5, p.mine[0] = 0xE8, memcpy(p.mine + 1, &r, 4);
+        if (!StbWriteSite(p, at[i], "the block assembler")) return false;
+    }
+    return true;
+}
+
 // The arena as the OS sees it (memory worker only): one reservation = every region from its base to its end names the
 // base as its allocation base; *com = bytes the OS has committed in it.
 static bool StaOsView(DWORD* com) {
@@ -823,6 +1225,7 @@ static void StbMemLine(LONG n, const char* tag) {
     u64 sz[STB_SZ_N];
     DWORD idleN = 0, bigRun = 0, runs = 0;
     AcquireSRWLockShared(&g_stbLock);
+    const StbTime tm = g_stbTime;
     const StbStats s = g_stb;
     const Sta a = g_sta;
     memcpy(who, g_stbWho, sizeof(who)), memcpy(tids, g_stbTid, sizeof(tids)), memcpy(sz, g_stbSz, sizeof(sz));
@@ -847,12 +1250,32 @@ static void StbMemLine(LONG n, const char* tag) {
             n, (DWORD)(uintptr_t)a.base, a.n >> 4, one ? 1 : 0, osCom * MB, a.comN * SL, a.useN * SL, idleN * SL, a.peakUseN * SL, a.peakComN * SL, a.freeN * SL,
             bigRun * SL, runs, s.fresh, s.commitB * MB, s.decommits, s.stranded, s.noArena);
     } else if (g_stbArm & STB_ARENA) Log("streambuf: arena #%ld none (the reservation failed at the start: see the FAIL line) noArena=%lu", n, s.noArena);
+    if (s.headN || s.inPlace || s.growBlocked || (g_stbArm & STB_GROW))
+        Log("streambuf: grow #%ld headroomGrants=%llu stepsSkippedUpTo=%llu headroomMB_total=%.1f headroomHeldKB=%lu peakHeldKB=%lu headUntracked=%lu inPlace=%llu "
+            "notCopiedMB=%.1f inPlaceBlocked=%lu growCopyMB=%.1f (of %llu grows)",
+            n, s.headN, s.headSteps, s.headTotB * MB, s.headB >> 10, s.peakHeadB >> 10, s.headUntracked, s.inPlace, s.inPlaceB * MB, s.growBlocked, s.growB * MB, s.grows);
+    if (tm.since) {
+        const double ms = 1000.0 / (double)g_stbQpf, secs = (double)(StbQpc() - tm.since) / (double)g_stbQpf;
+        LONGLONG arena = tm.arenaFree;
+        for (LONGLONG v : tm.arena) arena += v;
+        // the game's path for the served requests: the sample mean times their number; 2 sigma from the samples' spread
+        const u64 servedN = s.served + s.fresh;
+        const double mean = tm.sampN ? (double)tm.sampSum / (double)tm.sampN : 0.0;
+        const double var = tm.sampN > 1 ? (tm.sampSq - mean * mean * (double)tm.sampN) / (double)(tm.sampN - 1) : 0.0;
+        const double est = mean * (double)servedN * ms, err = tm.sampN ? 2.0 * (double)servedN * sqrt(var > 0 ? var : 0.0) / sqrt((double)tm.sampN) * ms : 0.0;
+        Log("streambuf: time #%ld secs=%.0f arenaMs: SetSize=%.1f Write=%.1f SetPosition=%.1f Scratch=%.1f Package=%.1f Assemble=%.1f other=%.1f frees=%.1f (requests %llu) "
+            "passOverheadMs=%.1f (requests %llu; the game's allocator on them %.1f ms) growCopyMs=%.1f growCopyMB=%.1f copies=%llu sample: n=%llu meanUs=%.1f "
+            "gamePathEstMs=%.0f +-%.0f (2 sigma, for the %llu served requests) perSecond: ownMs=%.3f gameEstMs=%.3f growCopyMs=%.3f",
+            n, secs, tm.arena[1] * ms, tm.arena[2] * ms, tm.arena[3] * ms, tm.arena[4] * ms, tm.arena[5] * ms, tm.arena[6] * ms, (tm.arena[0] + tm.arena[7]) * ms,
+            tm.arenaFree * ms, tm.arenaN, tm.pass * ms, tm.passN, tm.passGame * ms, tm.copy * ms, tm.copyB * MB, tm.copyN, tm.sampN, mean * ms * 1000.0, est, err,
+            servedN, secs > 0 ? (arena + tm.pass) * ms / secs : 0.0, secs > 0 ? est / secs : 0.0, secs > 0 ? tm.copy * ms / secs : 0.0);
+    }
     char line[400];
     int at = 0;
     for (DWORD i = 0; i < STB_SZ_N; i++)
         if (sz[i]) at += _snprintf_s(line + at, sizeof(line) - at, _TRUNCATE, " %s%lu%s=%llu", i == STB_SZ_N - 1 ? ">=" : "<", i < 8 ? 4ul << i : 1ul << (i < STB_SZ_N - 1 ? i - 8 : i - 9), i < 8 ? "K" : "M", sz[i]);
     if (at) Log("streambuf: sizes #%ld (requests by size)%s", n, line);
-    static const char* const kHow[8] = {"?", "SetSize", "Write", "SetPosition", "Scratch", "Package", "?", "?"};
+    static const char* const kHow[8] = {"?", "SetSize", "Write", "SetPosition", "Scratch", "Package", "Assemble", "?"};
     bool shown[STB_WHO_N] = {};
     for (int row = 0; row < 10; row++) {  // the ten requesters with the most bytes
         int best = -1;
@@ -884,7 +1307,12 @@ static bool ApplyStreamBuf(const wchar_t* ini) {
     g_stbMaxBlock = (DWORD)(blkMB < 1 ? 1 : blkMB > 64 ? 64 : blkMB) << 20;
     g_stbIdleMs = (DWORD)(idle < 0 ? 0 : idle > 3600 ? 3600 : idle) * 1000;
     g_stbMinFreeMB = (DWORD)(minFree < 0 ? 0 : minFree > 3072 ? 3072 : minFree);
-    if (!mask) { Log("stream buffer: Enabled=1 with Pool, Scratch, Package and Stats all 0: nothing to do"); return false; }
+    const int gFloor = GetPrivateProfileIntW(L"StreamBuf", L"GrowFloor", 64, ini), gText = GetPrivateProfileIntW(L"StreamBuf", L"GrowTextFloor", 4096, ini);
+    const int gFirst = GetPrivateProfileIntW(L"StreamBuf", L"GrowFirst", 0, ini);
+    g_stbGrowFloor = (DWORD)(gFloor < 0 ? 0 : gFloor > 65536 ? 65536 : gFloor);
+    g_stbGrowText = (DWORD)(gText < 0 ? 0 : gText > 65536 ? 65536 : gText);
+    g_stbGrowFirst = (DWORD)(gFirst < 0 ? 0 : gFirst > 4096 ? 4096 : gFirst);
+    if (!mask) { Log("stream buffer: Enabled=1 with Pool, Scratch, Package, Assemble, Grow, Timing and Stats all 0: nothing to do"); return false; }
     if (!StbInstallSites((u8*)(uintptr_t)STB_CTOR, (u8*)(uintptr_t)STB_REL, (u8*)(uintptr_t)STB_REALLOC, (const u8*)(uintptr_t)STB_SETSIZE,
                         (const u8*)(uintptr_t)STB_WRITE, (const u8*)(uintptr_t)STB_SETPOS))
         return false;
@@ -905,18 +1333,31 @@ static bool ApplyStreamBuf(const wchar_t* ini) {
         u8* const fn[3] = {(u8*)(uintptr_t)STB_PKG_FN[0], (u8*)(uintptr_t)STB_PKG_FN[1], (u8*)(uintptr_t)STB_PKG_FN[2]};
         pkg = (g_stbPkgIn = StbInstallPackage(fn)) != false ? "on (sites 0x4A7204 / 0x4A72A5 / 0x4A834E / 0x4A89E3 / 0x4A8AE1 / 0x4A8AF1)" : "not installed (see above)";
     }
+    // Assemble: as Package (no Apex site and no site of ours in the function)
+    const char* asmS = "off";
+    if (GetPrivateProfileIntW(L"StreamBuf", L"Assemble", 0, ini) > 0)
+        asmS = (g_stbAsmIn = StbInstallAssemble((u8*)(uintptr_t)STB_ASM)) != false ? "on (sites 0x6169A8 / 0x616A93)" : "not installed (see above)";
+    // Grow: its two call sites are written when Grow or Timing (which times Realloc's copies through one of them) is 1
+    // at the start; what they do follows the run-time switches
+    const char* growS = "off";
+    if (mask & (STB_GROW | STB_TIME))
+        growS = (g_stbGrowIn = StbInstallGrow((u8*)(uintptr_t)STB_WRITE, (u8*)(uintptr_t)STB_REALLOC)) == false ? "not installed (see above)" :
+                (mask & STB_GROW) ? "on (sites 0x4DF05C / 0x4DEECB; floors 64 / text 4096 / first 0 unless the ini says otherwise)" : "sites 0x4DF05C / 0x4DEECB written for Timing, growth as the game's";
     if (!g_stbScratchIn) mask &= ~STB_SCRATCH;
     if (!g_stbPkgIn) mask &= ~STB_PACKAGE;
-    if (!(mask & STB_ARENA)) mask &= STB_STATS;
+    if (!g_stbGrowIn) mask &= ~STB_GROW;
+    if (!g_stbAsmIn) mask &= ~STB_ASSEMBLE;
+    if (!(mask & STB_ARENA)) mask &= STB_STATS | STB_GROW | STB_TIME;
+    if (mask & STB_TIME) g_stbTime.since = StbQpc();
     if (mask & STB_ARENA) StaReserve(g_stbBudget, g_stbMinFreeMB);  // before anything is armed; without it every request takes the game's path
     HANDLE t = CreateThread(NULL, 64 * 1024, StbThread, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
     if (t) CloseHandle(t);
     else Log("WARN stream buffer: no upkeep thread (%lu): no idle decommit, no run-time switch", GetLastError());
     InterlockedExchange(&g_stbArm, mask);
     Log("OK   stream buffer (docs/547): sites 0x4DEC0B / 0x4DEA99 / 0x4DEEF9 patched; Pool %s (arena %lu MB%s, requests %lu KB-%lu MB, idle %lu s, "
-        "Zero %s, Verify %d), Scratch %s, Package %s, Stats %s%s (every \"diag: mem\" mark adds \"streambuf:\" lines)",
+        "Zero %s, Verify %d), Scratch %s, Package %s, Assemble %s, Grow %s, Timing %s, Stats %s%s (every \"diag: mem\" mark adds \"streambuf:\" lines)",
         (mask & STB_POOL) ? "on" : "off", g_stbBudget >> 20, g_sta.base ? "" : ", not reserved", g_stbMin >> 10, g_stbMaxBlock >> 20, g_stbIdleMs / 1000,
-        (mask & STB_ZERO) ? "on" : "off", (mask & STB_VERIFY2) ? 2 : (mask & STB_VERIFY) ? 1 : 0, scratch, pkg, (mask & STB_STATS) ? "on" : "off",
+        (mask & STB_ZERO) ? "on" : "off", (mask & STB_VERIFY2) ? 2 : (mask & STB_VERIFY) ? 1 : 0, scratch, pkg, asmS, growS, (mask & STB_TIME) ? "on" : "off", (mask & STB_STATS) ? "on" : "off",
         g_apexFound ? "; Apex Radiance loaded (no shared stream site)" : "");
     return true;
 }
