@@ -85,6 +85,7 @@ namespace Ts3Agent
         //  pack_oldest_ms: the longest any of them has been seen waiting (first seen by this command, so it needs sampling)
         //  packs_started / packs_finished: pack tasks first seen / seen gone, since the first call or reset (sampled)
         //  minisims / minisims_instantiated: MiniSimDescription.sMiniSims entries, and those flagged Instantiated
+        //  minisim_updates_pending: MiniSimDescription.sPendingSimUpdates (thumbnail tasks AddMiniSims waits for at departure)
         //  max_*: the largest values any call has seen; calls: calls since reset; missing: fields this build does not have
         static object ThumbCensus(Args a)
         {
@@ -220,6 +221,9 @@ namespace Ts3Agent
                         MiniSimDescription m = o as MiniSimDescription;
                         if (m != null && m.Instantiated) inst++;
                     }
+                    // EA's own counter of MiniSimUpdater tasks still waiting on their thumbnail (AddMiniSims, before a world switch)
+                    FieldInfo pf = typeof(MiniSimDescription).GetField("sPendingSimUpdates", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                    if (pf != null) r["minisim_updates_pending"] = Convert.ToInt64(pf.GetValue(null));
                     r["minisims"] = minis.Count;
                     r["minisims_instantiated"] = inst;
                 }
