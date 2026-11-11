@@ -1,0 +1,42 @@
+{
+  "note": "rc1111d release pair smoke (2026-11-11, Rodney 11-10 'LauncherFix on'): one short Bridgeport job on asi rc1111d (0.36.240 = rc1111 + [LauncherFix], launcher host only) + ini rc1111d (rc1111 ini + [LauncherFix] Enabled=1) + ts3fixes rc1111c. Correctness only: version 0.36.240, the TS3W path still skips nothing ([LauncherFix] is never read by TS3W.exe), world loads, ~2 min alive, no new script errors, clean exit. node tools/harness/queue.ts tools/harness/queues/rc1111d-smoke.json",
+  "jobs": [
+    {
+      "id": "bp-rc1111d-smoke",
+      "note": "[natural play, no cheats] rc1111d release pair smoke, Baseline-BP-Spring, 2 min: ts3native 0.36.240 version line, world load, no crash, no new script errors.",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "pinReason": "release pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e) via fixesPackage",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.240 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-11 11:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.239 2026-11-10 14:30:00",
+            "ts3native 0.36.2400 2026-11-11 11:40:00"
+          ]
+        }
+      },
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 2
+        }
+      },
+      "timeoutMin": 15
+    }
+  ]
+}

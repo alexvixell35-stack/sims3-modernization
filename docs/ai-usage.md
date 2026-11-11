@@ -1611,3 +1611,4 @@ Budget per usage window (PLAN.md "Action plan"): lanes G + M 30%, lane H 50%, of
 | 2026-11-04 | 04:11 | 5h -, 7d 96% | G | ip-rel025d-play | |
 | 2026-11-04 | 04:27 | 5h -, 7d 96% | G | bp-rel025d-nullservice | |
 | 2026-11-04 | 04:30 | 5h -, 7d 96% | G | bp-rel025d-detour | |
+| 2026-11-11 | 11:37 | 5h -, 7d 92% | G | bp-rc1111d-smoke | |

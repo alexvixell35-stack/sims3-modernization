@@ -2422,6 +2422,26 @@
       "what": "[PkgLock] pkMode, pkCloseOk, pkCloseDefer, pkCloseForce, pkBeginUnowned, pkBeginLocked, pkAbbaSeen, pkDeferMax (pkglock.cpp, docs/539 13.9)",
       "at": "2026-11-08T11:00:24.722Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\ea-pkglock-fix"
+    },
+    {
+      "id": "fixes-937",
+      "kind": "fixes",
+      "from": 937,
+      "to": 937,
+      "by": "boatparkgone-agent",
+      "what": "boatparkgone: BoatOwnable.Park on a disposed boat skipped (EA NRE)",
+      "at": "2026-11-11T02:01:26.949Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-472",
+      "kind": "ledger",
+      "from": 472,
+      "to": 472,
+      "by": "sims-3-modernization",
+      "what": "BoatOwnable.Park NRE: boat disposed before OnRouteFinished (Overwatch CleanupVehicles inferred)",
+      "at": "2026-11-11T02:01:27.255Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
     }
   ]
 }

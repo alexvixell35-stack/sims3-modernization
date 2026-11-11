@@ -43,7 +43,13 @@ export const toClose = (running: string[]) => Object.entries(APPS)
   .map(([app, names]) => ({ app, procs: names.filter(n => running.includes(n) && !PROTECTED.has(n)) }))
   .filter(a => a.procs.length);
 
-const ps = (script: string) => execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], { timeout: 30000 }).toString().trim();
+// retries: Add-Type compiles into %TEMP%, and the AV sometimes locks that DLL (BadImageFormat / access denied, 2026-11-11)
+const ps = (script: string): string => {
+  for (let i = 1; ; i++) {
+    try { return execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], { timeout: 30000 }).toString().trim(); }
+    catch (e) { if (i >= 4) throw e; Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3000 * i); }
+  }
+};
 const running = (): { name: string; cpu: number }[] => JSON.parse(ps(
   "Get-Process | Group-Object ProcessName | ForEach-Object { [pscustomobject]@{ name = $_.Name; cpu = [int](($_.Group | Measure-Object CPU -Sum).Sum) } } | ConvertTo-Json -Compress") || '[]');
 // console session lock state: WTSQuerySessionInformationW(current server, active console session, WTSSessionInfoEx = 25) ->

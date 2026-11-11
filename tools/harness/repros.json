@@ -64820,5 +64820,140 @@
       }
     ],
     "expect": "Mode 1: agentArm reads 30 of 30 (cycle.ts fails otherwise), a \"pkglock: ReproWiden defer:\" line (queue logRequire), pkAbbaSeen 0, load and save ok, no hang. Mode 0: \"[PkgLock] ABBA:\" line within the reads, hang caught (expectHang)"
+  },
+  {
+    "id": "ip-boat-gone",
+    "bug": "docs/257: EA BoatOwnable.Park(Lot,Sim,bool) throws NullReferenceException (mint 0x26, null RoutingComponent) when an NPC generated boat was destroyed while its driver was still on the trip; OnRouteFinished parks it (seen without ts3fixes 2026-10-12, failed release-verify-1111 ip-natural-combined-1111)",
+    "fix": "ts3fixes boatparkgone (BoatParkGone.cs, docs/257): Park returns for a boat with no RoutingComponent, where EA would throw",
+    "save": "Baseline-IP",
+    "note": "Forced: the Arias / Scott houseboat NPCs (not the active Dregg household) are sent to the island lot, player-directed so their own autonomy cannot refuse; boat_gone_watch destroys a driving NPC generated boat as NRaas Overwatch CleanupVehicles does (UnParent + Destroy), never a household, selected or household-less Sim. unseenboat / unseenboatstart off (precondition: the exact boat path). OFF arm: the EA NRE (queue scriptErrorsReport BoatOwnable:Park). ON arm: 0 script errors, boatparkgone_skipped >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenboat": false,
+          "unseenboatstart": false
+        },
+        "waitS": 1,
+        "note": "precondition: exact boat trips (no shortcut)"
+      },
+      {
+        "cmd": "boat_gone_watch",
+        "args": {
+          "start": true,
+          "when": "getout",
+          "max": 3
+        },
+        "note": "v2: destroys a driving NPC generated boat in Boat.GetOut's fade yield (route over, before OnRouteFinished's Park), up to 3. v1 (when route, after 6 samples) destroyed 3 boats mid-route on 2026-11-11 and gave 0 Park errors"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "sim_visit_lot",
+        "args": {
+          "sim": "Mylee Arias",
+          "lot": "island",
+          "autonomous": false
+        },
+        "optional": true
+      },
+      {
+        "cmd": "sim_visit_lot",
+        "args": {
+          "sim": "Linda Scott",
+          "lot": "island",
+          "autonomous": false
+        },
+        "optional": true
+      },
+      {
+        "cmd": "sim_visit_lot",
+        "args": {
+          "sim": "Ruben Arias",
+          "lot": "island",
+          "autonomous": false
+        },
+        "optional": true
+      },
+      {
+        "cmd": "sim_visit_lot",
+        "args": {
+          "sim": "Tariq Scott",
+          "lot": "island",
+          "autonomous": false
+        },
+        "optional": true
+      },
+      {
+        "cmd": "sim_visit_lot",
+        "args": {
+          "sim": "Gabrielle Arias",
+          "lot": "island",
+          "autonomous": false
+        },
+        "optional": true,
+        "waitS": 150
+      },
+      {
+        "cmd": "boat_gone_watch",
+        "args": {
+          "result": true
+        },
+        "note": "rows so far (no require yet: a later trip may still be on the water)"
+      },
+      {
+        "cmd": "sim_visit_lot",
+        "args": {
+          "sim": "Chandell Scott",
+          "lot": "island",
+          "autonomous": false
+        },
+        "optional": true
+      },
+      {
+        "cmd": "sim_visit_lot",
+        "args": {
+          "sim": "Duke Scott",
+          "lot": "island",
+          "autonomous": false
+        },
+        "optional": true
+      },
+      {
+        "cmd": "sim_visit_lot",
+        "args": {
+          "sim": "Ruby Scott",
+          "lot": "island",
+          "autonomous": false
+        },
+        "optional": true,
+        "waitS": 150
+      },
+      {
+        "cmd": "boat_gone_watch",
+        "args": {
+          "result": true,
+          "require": true,
+          "min": 1,
+          "stop": true
+        },
+        "note": "FAILS unless at least one NPC boat was destroyed mid-trip (not exercised)",
+        "waitS": 60
+      }
+    ],
+    "expect": "OFF: >= 1 BoatOwnable:Park NullReferenceException script error; ON: 0 new script errors, boatparkgone_skipped >= 1; no crash; the drivers end their trips",
+    "cleanup": [
+      {
+        "cmd": "boat_gone_watch",
+        "args": {
+          "stop": true
+        }
+      }
+    ]
   }
 ]

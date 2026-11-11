@@ -20,6 +20,7 @@ namespace Ts3Agent
             RegisterCareerLadder(); // CareerLadderHandlers.cs
             RegisterHoldSims(); // HoldSimsHandlers.cs
             RegisterOutfitStress(); // OutfitStressHandlers.cs
+            RegisterBoatGone(); // BoatGoneHandlers.cs
         }
 
         static object Ping(Args a)

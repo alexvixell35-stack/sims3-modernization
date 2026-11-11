@@ -249,3 +249,4 @@ move_household,StoryHandlers,Live,Edit Town move of a townie household to a free
 story_days,StoryHandlers,Live,none: EA story progression days on demand (mode and actions per day set),cheat,refused while the active household accepts roommates (issue #40 leak stress),handler,live
 story_burst,StoryHandlers,Live,none: EA story action step repeated without the daily cap and category cooldowns,stress,townies only: active household skipped (issue #40 leak stress),handler,live
 story_burst_state,StoryHandlers,Any,none (read),harness,,handler,none
+boat_gone_watch,BoatGoneHandlers,Live,"none: destroys a non-household NPC's generated boat as NRaas Overwatch CleanupVehicles does (docs/257 repro trigger)",stress,a non-household NPC driving its generated boat; never household / selected / household-less Sims,handler,live

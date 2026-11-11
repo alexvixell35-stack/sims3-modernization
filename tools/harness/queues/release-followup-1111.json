@@ -3,13 +3,13 @@
  "stopQueueOnFail": false,
  "jobs": [
   {
-   "asi": "game-copy/ts3native.asi.rc1111",
+   "asi": "game-copy/ts3native.asi.rc1111d",
    "releaseDefaults": true,
    "minCounters": 912,
    "gameArgs": [
     "-disablestoryprogression"
    ],
-   "pinReason": "pair rc1111 (docs/data/builds.json, Sat 11-14 release candidate): asi game-copy/ts3native.asi.rc1111 (0.36.239, baaa4cfc) + ini game-copy/ts3native.ini.rc1111 (a0f698b9 = master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes game-copy/ts3fixes.package.rc1111 (b903aa9d, tuning 4b4eba25) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+   "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
    "ini": {
     "RouteAsync.ForeignKinds": 4,
     "RouteAsync.ForeignKindsMode": 1,
@@ -20,7 +20,7 @@
    "id": "ip-ubrel-boat-repro-1111b",
    "save": "Baseline-IP-Spring",
    "noiseCheck": false,
-   "note": "[release-followup-1111: rerun of release-verify-1111 ip-ubrel-boat-repro-1111 on pair rc1111] [est 20 min] Forced repro ip-unseen-boat-loop with the fixed unseen_water_watch (ts3agent from master, bugfix/release-followup-1111): a below-sea sample on a non-world lot whose World.GetTerrainType is not water (Port Pyre lot ground ~2 m below sea, Quiana Littlefield VisitCommunityLotLabLecture) counts in lot_ground_skipped / lot_ground_seen, not stranded; every stranded sample is logged with x,z, terrain and lot. Pass: unseenboat_shortcuts>=1, watch ok (min_engaged 3, stranded empty), ts3native 0.36.239.",
+   "note": "[release-followup-1111: rerun of release-verify-1111 ip-ubrel-boat-repro-1111 on pair rc1111] [est 20 min] Forced repro ip-unseen-boat-loop with the fixed unseen_water_watch (ts3agent from master, bugfix/release-followup-1111): a below-sea sample on a non-world lot whose World.GetTerrainType is not water (Port Pyre lot ground ~2 m below sea, Quiana Littlefield VisitCommunityLotLabLecture) counts in lot_ground_skipped / lot_ground_seen, not stranded; every stranded sample is logged with x,z, terrain and lot. Pass: unseenboat_shortcuts>=1, watch ok (min_engaged 3, stranded empty), ts3native 0.36.240.",
    "run": {
     "profile": {
      "seed": 12345,
@@ -32,19 +32,19 @@
     }
    },
    "timeoutMin": 25,
-   "iniBase": "game-copy/ts3native.ini.rc1111",
-   "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+   "iniBase": "game-copy/ts3native.ini.rc1111d",
+   "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
    "logRequire": {
-    "^ts3native 0.36.239 ": 1
+    "^ts3native 0.36.240 ": 1
    },
    "regexCases": {
-    "^ts3native 0.36.239 ": {
+    "^ts3native 0.36.240 ": {
      "match": [
-      "ts3native 0.36.239 2026-11-10 14:30:00"
+      "ts3native 0.36.240 2026-11-11 14:30:00"
      ],
      "noMatch": [
-      "ts3native 0.36.238 2026-11-10 01:30:00",
-      "ts3native 0.36.2390 2026-11-10 14:30:00"
+      "ts3native 0.36.239 2026-11-10 14:30:00",
+      "ts3native 0.36.2400 2026-11-11 14:30:00"
      ]
     }
    },
@@ -52,8 +52,8 @@
   },
   {
    "id": "bp-rel-reload-1111",
-   "note": "[release-followup-1111: the reload case bp-rel-matrix-1111 left pending (run.script cannot do the restarts)] [est 25 min] save-matrix.ts --cases reload --fixes shipped as run.matrix + saveMatrix shipped: queue.ts runs both reload loads (restart, rc1111 asi/ini and fixesPackage again, cycle.ts --save, --reload-check [--off]). Pass: reload PASS (households match, 60 s at speed 3, no new ScriptErrors with ON), 0 crashes, ts3native 0.36.239.",
-   "asi": "game-copy/ts3native.asi.rc1111",
+   "note": "[release-followup-1111: the reload case bp-rel-matrix-1111 left pending (run.script cannot do the restarts)] [est 25 min] save-matrix.ts --cases reload --fixes shipped as run.matrix + saveMatrix shipped: queue.ts runs both reload loads (restart, rc1111 asi/ini and fixesPackage again, cycle.ts --save, --reload-check [--off]). Pass: reload PASS (households match, 60 s at speed 3, no new ScriptErrors with ON), 0 crashes, ts3native 0.36.240.",
+   "asi": "game-copy/ts3native.asi.rc1111d",
    "save": "Baseline-BP-Spring",
    "run": {
     "matrix": [
@@ -66,22 +66,22 @@
     "-disablestoryprogression"
    ],
    "timeoutMin": 45,
-   "iniBase": "game-copy/ts3native.ini.rc1111",
-   "fixesPackage": "game-copy/ts3fixes.package.rc1111",
-   "pinReason": "pair rc1111 (docs/data/builds.json, Sat 11-14 release candidate): asi game-copy/ts3native.asi.rc1111 (0.36.239, baaa4cfc) + ini game-copy/ts3native.ini.rc1111 (a0f698b9 = master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes game-copy/ts3fixes.package.rc1111 (b903aa9d, tuning 4b4eba25) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+   "iniBase": "game-copy/ts3native.ini.rc1111d",
+   "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+   "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
    "releaseDefaults": true,
    "noiseCheck": false,
    "logRequire": {
-    "^ts3native 0.36.239 ": 1
+    "^ts3native 0.36.240 ": 1
    },
    "regexCases": {
-    "^ts3native 0.36.239 ": {
+    "^ts3native 0.36.240 ": {
      "match": [
-      "ts3native 0.36.239 2026-11-10 14:30:00"
+      "ts3native 0.36.240 2026-11-11 14:30:00"
      ],
      "noMatch": [
-      "ts3native 0.36.238 2026-11-10 01:30:00",
-      "ts3native 0.36.2390 2026-11-10 14:30:00"
+      "ts3native 0.36.239 2026-11-10 14:30:00",
+      "ts3native 0.36.2400 2026-11-11 14:30:00"
      ]
     }
    },
@@ -90,8 +90,8 @@
    }
   },
   {
-   "asi": "game-copy/ts3native.asi.rc1111",
-   "pinReason": "pair rc1111 (docs/data/builds.json, Sat 11-14 release candidate): asi game-copy/ts3native.asi.rc1111 (0.36.239, baaa4cfc) + ini game-copy/ts3native.ini.rc1111 (a0f698b9 = master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes game-copy/ts3fixes.package.rc1111 (b903aa9d, tuning 4b4eba25) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+   "asi": "game-copy/ts3native.asi.rc1111d",
+   "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
    "releaseDefaults": true,
    "ini": {
     "HitchAttr.Enabled": 1,
@@ -100,7 +100,7 @@
    "logRequire": {
     "route async A10: .*WatchdogKind2=1": 1,
     "watchdog idle verdict: Wogan Hemlock (A1|sync) False": 1,
-    "^ts3native 0.36.239 ": 1
+    "^ts3native 0.36.240 ": 1
    },
    "logForbid": {
     "^FAIL\\b": 0,
@@ -129,7 +129,7 @@
     }
    },
    "timeoutMin": 20,
-   "iniBase": "game-copy/ts3native.ini.rc1111",
+   "iniBase": "game-copy/ts3native.ini.rc1111d",
    "regexCases": {
     "^FAIL\\b": {
      "match": [
@@ -179,13 +179,13 @@
       "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 False @307.56,1495.18 on Community Lot"
      ]
     },
-    "^ts3native 0.36.239 ": {
+    "^ts3native 0.36.240 ": {
      "match": [
-      "ts3native 0.36.239 2026-11-10 14:30:00"
+      "ts3native 0.36.240 2026-11-11 14:30:00"
      ],
      "noMatch": [
-      "ts3native 0.36.238 2026-11-10 01:30:00",
-      "ts3native 0.36.2390 2026-11-10 14:30:00"
+      "ts3native 0.36.239 2026-11-10 14:30:00",
+      "ts3native 0.36.2400 2026-11-11 14:30:00"
      ]
     },
     "watchdog idle verdict: Wogan Hemlock \\S+ (True|False)( stale)? @\\S+ on (?!Community Lot)": {
@@ -198,7 +198,7 @@
      ]
     }
    },
-   "fixesPackage": "game-copy/ts3fixes.package.rc1111",
+   "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
    "nativeRequire": "arStartedPlanFromPoint>=1,wdJobN>=1,arWdPass>=0",
    "scriptErrorsReport": [
     "CarrySystem:PutDownOnSurface[\\s\\S]*ServingContainer\\+PutAwayLeftovers:Run"

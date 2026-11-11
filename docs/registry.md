@@ -237,7 +237,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 933 | `OutfitWait.cs` (`fixes-933`, issue #40, docs/224 §6), `outfitwaitpoll` | built 2026-11-09 (pair outfitwait-1109, not run): stale outfit waits ended because the helper's Sim is null or destroyed (task ended with ResetException; agent `outfitwaitpoll_dead_ended`) |
 | 934-935 | `DeadSimHolders.cs` (`fixes-934`), `dreamnodedeadsim`, `overwatchdeadsim` | built 2026-11-10: household rule skips: 934 dream-node listeners kept because the gone Sim's owner is household, selected or of unknown scope, 935 Overwatch stuck-check entries kept for the same reason |
 | 936 | `OutfitWaitSaved.cs` (`fixes-936`), `outfitwaitsaved` | built 2026-11-10: household rule skips: saved makeover tasks left running because the gone actor's owner is household, selected or of unknown scope |
-| **937+** | next free | reserve here  |
+| 937 | `BoatParkGone.cs` (`fixes-937`, docs/257), `boatparkgone` | built 2026-11-11, default ON (shipped without repro, Rodney 11-11): BoatOwnable.Park calls skipped because the boat was already destroyed (no RoutingComponent, EA would throw the NRE); agent `boatparkgone_skipped` |
+| **938+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 

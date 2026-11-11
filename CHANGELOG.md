@@ -22,6 +22,10 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 - **Your Sims' routes are no longer cut short at the start of a session.** Until ts3fixes had reported which Sims you can see, the plugin cut long route searches for every Sim, your household included, which could make a Go Here or a walk to the fridge fail. A Sim it knows nothing about yet now counts as one of yours and is never cut, for background route searches and for the ones the game waits on (plugin 0.36.238), and a repeated failed route of such a Sim is planned again instead of reusing the old answer.
 
+- **Fixed a script error when a townie's boat is removed while they ride it (EA bug, `boatparkgone`, on).** If a boat was deleted (for example by NRaas Overwatch's vehicle clean-up) before the game parked it at the end of a trip, the game threw an error in `BoatOwnable.Park`. ts3fixes now skips parking a boat that no longer exists; every other park runs the game's own code. Our forced test could not make the error happen, so this fix ships on code review; it showed no new errors in the test.
+
+- **The Steam launcher no longer stays running after you close it (`[LauncherFix] Enabled=1`, on, plugin 0.36.240).** On the Steam edition `Sims3LauncherW.exe` kept one CPU core busy after its window closed, because it waited forever for an upload of `Sims3Logs.xml` to EA's telemetry service, which no longer answers. In the launcher only, the plugin now skips that upload (the launcher's own "file too big, skipped" path), so the launcher can exit. The game itself is not changed; it still writes `Sims3Logs.xml`. The launcher writes its own `ts3native.launcher.log`, so starting the launcher no longer clears the game's `ts3native.log`. Other launcher builds (EA app) are left alone.
+
 - **Routing fallback could mix up two Sims' plans** (PR #306, by Dalexlol): while one Sim's plan was paused, its result could be applied to another Sim's plan. Each plan now keeps its own result. Not tested in game yet.
 
 ## v0.2.10 (2026-11-07)

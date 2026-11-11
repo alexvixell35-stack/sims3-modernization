@@ -29,5 +29,6 @@
 - **EA app 1.69** (`Sims3Launcher.exe` pe 67072CED): it ships its own TSLHost build, which has not been read. It is logged as an unknown launcher build and left alone.
 
 ## 5. Open
+- [verified, live 2026-11-11, our machine, Sims3Logs.xml 35 KB present, no deny ACL] Without the fix (0.36.239) `Sims3LauncherW.exe` used about one core (20 s CPU in 20 s) and did not close on WM_CLOSE within 35 s (killed). With 0.36.240 + `Enabled=1` (pair rc1111d) it logged `OK   launcher fix: TSLHost.dll+0x34535 telemetry upload skipped`, used 0.1 s CPU in 20 s and exited within 15 s of WM_CLOSE; the game's ts3native.log was not touched. Release pair rc1111d ships `Enabled=1`.
 - Live check, when no queue runs. Does our machine reproduce the hang without the fix (a `Sims3LauncherW.exe` left after close, one busy core)? Does it exit with the fix?
 - The tester's log line, plus whether the launcher now exits with the deny-write ACLs removed.

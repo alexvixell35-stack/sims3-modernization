@@ -186,6 +186,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kVacListenerNull = false;     // opt-in until verified: RestoreState(null) starts the listener fresh (EaVacation.cs, issue #97 row 6)
         [Tunable] public static bool kVacImportFix = false;        // opt-in until verified: travel opportunity import refreshes stale Sim ids, no instant fail without a time limit (EaVacation.cs, issue #97 row 7)
         [Tunable] public static bool kMenuMaven = false;           // opt-in: the Menu Maven challenge and the Culinary Librarian wish need every recipe of this install that a Sim can learn, counted live (MenuMaven.cs, docs/501)
+        [Tunable] public static bool kBoatParkGone = true;        // EA bug fix, on (shipped without repro: Rodney 11-11, static review): BoatOwnable.Park on a destroyed boat returns instead of throwing (BoatParkGone.cs, docs/257)
         [Tunable] public static bool kDanceFloorListGuard = true; // ON in release (Rodney 2026-11-09): DanceFloor.FindAndRouteOntoADanceFloorWithFollower no longer throws "Collection was modified" (DanceFloorDiag.cs, docs/253 §11)
 
         public const string Version = "0.1.1";

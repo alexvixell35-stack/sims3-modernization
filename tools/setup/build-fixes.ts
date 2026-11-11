@@ -194,6 +194,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kVacImportFix value="False" />
     <kMenuMaven value="False" />
     <kDanceFloorListGuard value="True" />
+    <kBoatParkGone value="True" />
   </Current_Tuning>
 </base>
 `;
