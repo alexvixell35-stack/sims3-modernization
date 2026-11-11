@@ -815,15 +815,19 @@ other modules.
   down. `Scratch` stands down for Apex; `Package`, `Assemble`, `Grow` and `Timing` share no site with it either.
 - **Time.** Zero-fill 1.18 s per 12 min (run A) and 2.8 s per 23 min for 110.8 GB (run B). The save step of travel was
   not measurably shorter with `Scratch` and `Package` (1, 45, 18, 20 s against 1-26 s without, with statistics and
-  other samplers running). No timing run exists.
+  other samplers running). A first ABBA set with all measuring off (two jobs per arm: load + one travel round trip)
+  gave 169 and 142 s per round trip with both modules off against 139 and 139 s with `[StreamBuf]` `Pool` + `Scratch` +
+  `Package` and `[BigBlock]` reuse on; outbound travel load 81 / 72 s against 66 / 67 s; save load unchanged (28-31 s).
+  Two jobs per arm, with the two off jobs 27 s apart: weak evidence, to be repeated, and not separable between the
+  two modules.
 
 **A pull request for this module may claim:** that the stream buffers, the compressor's tables and the package
 writer's buffers no longer cut up the address space (the numbers above); that the pool costs one 48 MB reservation
 and no more; that it ran clean in four game runs including the two-process renderer and beside Apex Radiance; that
 every part is off by default and byte-checked.
 
-**It must not claim yet:** any gain in frame time, hitching or save time (none measured; the host bench and §15.7
-say it is small); that `Zero=0` is safe (it is not: unwritten tails were found); anything about `Assemble`, `Grow`
+**It must not claim yet:** any gain in frame time, hitching, travel or save time (one weak ABBA set points to shorter
+travel loads and has to be repeated; the host bench and §15.7 say the CPU part is small); that `Zero=0` is safe (it is not: unwritten tails were found); anything about `Assemble`, `Grow`
 or `Timing` beyond the selftest; that the arena helps the largest free range late in a session (it is neutral there:
 the gain is against v1 and in system calls, and the baseline's late numbers are already equal); long sessions (the
 longest run is 23 minutes).
