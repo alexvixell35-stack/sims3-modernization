@@ -69,6 +69,17 @@ static void TsDump(const u8* req, const u8* blk) {
             TsWords(line, sizeof(line), p, 24);
             Log("thumbstall:   slot +%02X raw %08lX -> %s", kSlots[i], raw, line);
         }
+        // the CAS texture compositor queue [0x11CEB88] and material compositor [0x11CEB8C] (docs/42 section 3): their first
+        // 32 words, so container begin/end pairs can be compared between two stall lines (growing, flat or empty)
+        static const DWORD kGlobals[2] = {0x011CEB88, 0x011CEB8C};
+        for (int i = 0; i < 2; i++) {
+            const DWORD* const g = *(const DWORD* const*)(uintptr_t)kGlobals[i];
+            if (!g || !Readable(g, 0x80)) continue;
+            TsWords(line, sizeof(line), g, 16);
+            Log("thumbstall:   [%08lX] %p +00 %s", kGlobals[i], g, line);
+            TsWords(line, sizeof(line), g + 16, 16);
+            Log("thumbstall:   [%08lX] %p +40 %s", kGlobals[i], g, line);
+        }
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
 }
 
