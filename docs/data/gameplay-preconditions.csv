@@ -249,3 +249,6 @@ move_household,StoryHandlers,Live,Edit Town move of a townie household to a free
 story_days,StoryHandlers,Live,none: EA story progression days on demand (mode and actions per day set),cheat,refused while the active household accepts roommates (issue #40 leak stress),handler,live
 story_burst,StoryHandlers,Live,none: EA story action step repeated without the daily cap and category cooldowns,stress,townies only: active household skipped (issue #40 leak stress),handler,live
 story_burst_state,StoryHandlers,Any,none (read),harness,,handler,none
+leak_census,LeakCensusHandlers,Live,none (read),harness,,handler,live
+townie_trips,TownieTripsHandlers,Live,Go Here / visit a community lot (one Sim at a time),stress,"NPC townies only: household, selectable, role, service and unknown-scope Sims skipped",handler,live
+vehicle_census,VehicleCensusHandlers,Live,none (read),harness,,handler,live
