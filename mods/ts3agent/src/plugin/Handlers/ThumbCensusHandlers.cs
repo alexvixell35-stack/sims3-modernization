@@ -26,7 +26,7 @@ namespace Ts3Agent
         const int kTmPendBegin = 0xC8, kTmPendEnd = 0xCC, kTmPendSize = 0x1A8;  // PendingRequests vector
         const int kTmDqBeginCur = 0x100, kTmDqBeginFirst = 0x104, kTmDqBeginNode = 0x10C;  // InProgressRequests deque
         const int kTmDqEndCur = 0x110, kTmDqEndFirst = 0x114, kTmDqEndNode = 0x11C, kTmReqSize = 0x248;
-        const int kReqState = 0x108, kReqPrepared = 0x238, kReqCreated = 0x23C;  // one in-progress request
+        const int kReqState = 0x108, kReqType = 0x118, kReqPrepared = 0x238, kReqCreated = 0x23C;  // one in-progress request
 
         static FieldInfo sPackTaskField, sTmInstanceField, sTmResultsField;
         static bool sThumbFieldsTried;
@@ -36,7 +36,9 @@ namespace Ts3Agent
         static long sFrontKey, sFrontSince, sMaxPackWaitMs, sMaxFrontMs;
         static int sMaxInProgress, sMaxPackTasks;
         static bool sDqSeen;
-        static int sDqMgr, sDqBegin, sDqEnd, sDqBreaks;
+        static int sDqMgr, sDqBegin, sDqEnd, sDqBreaks, sDqLen;
+        static int sBlk, sBlkChanges;
+        static long sBlkSince;
         static long sTmDone, sTmQueued;
 
         static int Rd(int addr) { return Marshal.ReadInt32(new IntPtr(addr)); }
@@ -74,6 +76,12 @@ namespace Ts3Agent
         //  tm_in_progress: requests in the serial render queue, the front one being worked on. THE BACKLOG.
         //  tm_done / tm_queued: requests finished / entered since the first call or reset, EXACT between calls (from how far
         //    the deque's ends moved); tm_count_breaks: steps dropped because the deque's node map moved
+        //  tm_front_type: the front request's key type word (+0x118); tm_kinds: that word over the whole queue (first 256)
+        //  blk*: only while the front is in state 0x11 (the "whole scene has no pending composite" wait): the scene object
+        //    that blocks it (request +0x244): pointer, vtable, flags (+0x40: 2 = composite not finished, 0x40 = pending
+        //    list not empty), layers (+0x44), blk_composite_state (3 = finished), blk_own (it is one of the request's own
+        //    models, +0xA8..+0xAC), blk_age_ms (same blocker since), blk_changes (times the blocker changed)
+        //  game_speed: Gameflow.CurrentGameSpeed
         //  tm_front_state: the front request's state (0-0x1E; 3 = waits for the script to prepare the scene; 0x11 = render;
         //    0x14/0x15 = waits for CAS parts and skin; 0x1E = done); tm_front_prepared: script preparation reported done
         //  tm_front_age_ms: how long the same request has been at the front, by this command's own clock (first seen)
@@ -96,7 +104,7 @@ namespace Ts3Agent
                 sPackSeen.Clear();
                 sPacksStarted = sPacksFinished = sFrontChanges = sCensusCalls = sMaxInProgress = sMaxPackTasks = 0;
                 sFrontKey = sFrontSince = sMaxPackWaitMs = sMaxFrontMs = sTmDone = sTmQueued = 0;
-                sDqSeen = false; sDqBreaks = 0;
+                sDqSeen = false; sDqBreaks = 0; sBlk = 0; sBlkChanges = 0; sBlkSince = 0;
             }
             sCensusCalls++;
             ThumbFields();
@@ -124,9 +132,14 @@ namespace Ts3Agent
                     {
                         int done = bpos - sDqBegin, queued = epos - sDqEnd;
                         if (done >= 0 && done < 50000 && queued >= 0 && queued < 50000) { sTmDone += done; sTmQueued += queued; }
-                        else sDqBreaks++;
+                        else
+                        {
+                            // lower bounds from the two lengths, so a break loses little
+                            sDqBreaks++;
+                            if (n >= 0 && sDqLen >= 0) { if (n < sDqLen) sTmDone += sDqLen - n; else sTmQueued += n - sDqLen; }
+                        }
                     }
-                    sDqSeen = true; sDqMgr = mgr; sDqBegin = bpos; sDqEnd = epos;
+                    sDqSeen = true; sDqMgr = mgr; sDqBegin = bpos; sDqEnd = epos; sDqLen = n;
                     r["tm_done"] = sTmDone;
                     r["tm_queued"] = sTmQueued;
                     if (sDqBreaks > 0) r["tm_count_breaks"] = sDqBreaks;
@@ -140,6 +153,40 @@ namespace Ts3Agent
                         r["tm_front_state"] = state;
                         r["tm_front_prepared"] = Marshal.ReadByte(new IntPtr(bc + kReqPrepared)) != 0;
                         key = ((long)bc << 32) | (uint)Rd(bc + kReqCreated);  // slot address + creation stamp names the request
+                        r["tm_front_type"] = "0x" + Rd(bc + kReqType).ToString("x8");
+                        // state 0x11 keeps the scene object that blocks it in request +0x244 (0xD5A9CC)
+                        int blk = state == 0x11 ? Rd(bc + 0x244) : 0;
+                        if (blk != sBlk) { if (blk != 0 && sBlk != 0) sBlkChanges++; sBlk = blk; sBlkSince = now; }
+                        if (blk != 0 && (blk & 3) == 0)
+                        {
+                            r["blk"] = "0x" + blk.ToString("x8");
+                            r["blk_age_ms"] = (now - sBlkSince) / 10000;
+                            r["blk_vt"] = "0x" + Rd(blk).ToString("x8");
+                            r["blk_flags"] = "0x" + Rd(blk + 0x40).ToString("x");
+                            r["blk_layers"] = "0x" + Rd(blk + 0x44).ToString("x8");
+                            r["blk_composite_on"] = Marshal.ReadByte(new IntPtr(blk + 0x210 + 0x5E)) != 0;
+                            r["blk_pending_list"] = Rd(blk + 0x210 + 0x18) != Rd(blk + 0x210 + 0x14);
+                            int res = Rd(blk + 0x210 + 8);
+                            if (res != 0 && (res & 3) == 0) r["blk_composite_state"] = Rd(res + 0x30);
+                            bool own = false;
+                            int mb = Rd(bc + 0xA8), me = Rd(bc + 0xAC);
+                            for (int q = mb; mb != 0 && q < me && q < mb + 256; q += 4) if (Rd(q) == blk) own = true;
+                            r["blk_own"] = own;
+                            r["tm_front_models"] = mb == 0 ? 0 : (me - mb) / 4;
+                        }
+                        r["blk_changes"] = sBlkChanges;
+                        // request types through the queue (the key's type word, request +0x118), at most 256 requests
+                        Dictionary<string, object> kinds = Util.Obj();
+                        int cur = bc, first = bf, node = bn, walked = 0;
+                        while (walked < n && walked < 256 && cur != 0)
+                        {
+                            string k = "0x" + Rd(cur + kReqType).ToString("x8");
+                            kinds[k] = kinds.ContainsKey(k) ? (int)kinds[k] + 1 : 1;
+                            walked++;
+                            cur += kTmReqSize;
+                            if (cur >= first + 4 * kTmReqSize) { node += 4; first = Rd(node); cur = first; }
+                        }
+                        r["tm_kinds"] = kinds;
                     }
                     else if (n > 0) key = bc;
                     if (key != sFrontKey)
@@ -230,6 +277,7 @@ namespace Ts3Agent
             }
             catch (Exception) { }
 
+            try { r["game_speed"] = Sims3.Gameplay.Gameflow.CurrentGameSpeed.ToString(); } catch (Exception) { }
             r["max_tm_in_progress"] = sMaxInProgress;
             r["max_tm_front_age_ms"] = sMaxFrontMs;
             r["max_pack_tasks"] = sMaxPackTasks;
