@@ -301,6 +301,76 @@ static void StbtBasic() {
     v = StbtGet(T5);
     assert(StbAllIs(v, T1, 0x33) && StbAllIs(v + S1 * K, T5 - S1 * K, 0) && g_stb.zeroB == 0);
     StbtPut(v);
+    // PreZero: the upkeep thread's fill makes freed slices "known zero"; the next request fills nothing
+    StbtReset(STB_POOL | STB_ZERO | STB_PREZERO, 4, 128, 2, 5000);
+    u8* z1 = StbtGet(T1);
+    u8* z2 = StbtGet(T1);
+    u8* z3 = StbtGet(T1);
+    u8* z4 = StbtGet(31 * K);  // the rest of the arena
+    assert(z1 == base && z3 == base + 2 * S1 * K && z4 && g_sta.freeN == 0 && StbZeroSome(g_stbArm) == 0);  // nothing free: nothing to do
+    memset(z1, 0x77, T1), memset(z3, 0x77, T1);
+    StbtPut(z3);
+    assert(g_staSt[2 * S1] == STA_COM && StbZeroSome(g_stbArm) == S1 && StbZeroSome(g_stbArm) == 0);
+    assert(g_staSt[2 * S1] == (STA_COM | STA_ZERO) && StbAllIs(z3, S1 * K, 0) && g_stb.bgZeroB == S1 * K);
+    StbtPut(z1);  // dirty, lower, the same length: the clean run is preferred
+    u64 zb0 = g_stb.zeroB;
+    u8* z5 = StbtGet(T1);
+    assert(z5 == z3 && StbAllIs(z5, T1, 0) && g_stb.zeroB == zb0 && g_stb.cleanN == 1 && g_staSt[2 * S1] == (STA_USED | STA_COM | STA_HEAD));
+    u8* z6 = StbtGet(T1);  // the dirty one: filled on the caller's thread as before
+    assert(z6 == z1 && StbAllIs(z6, T1, 0) && g_stb.zeroB == zb0 + T1 && g_stb.cleanN == 1);
+    // a run that is being filled is nobody's: marked PURGE, a request does not take it
+    memset(z6, 0x77, T1);
+    StbtPut(z6);
+    for (DWORD i = 0; i < S1; i++) g_staSt[i] |= STA_PURGE;
+    u8* z7 = StbtGet(T1);
+    assert(z7 && !StaOwned(z7) && g_stb.fallback == 1);
+    StbtPut(z7);
+    for (DWORD i = 0; i < S1; i++) g_staSt[i] = STA_COM;
+    // the whole arena free and dirty: filled in runs of at most 16 slices; zeroed slices are decommitted when idle like any other
+    StbtPut(z5), StbtPut(z2), StbtPut(z4);
+    assert(StbZeroSome(g_stbArm) == 16 && StbZeroSome(g_stbArm) == 16 && StbZeroSome(g_stbArm) == 16 && StbZeroSome(g_stbArm) == 16 && StbZeroSome(g_stbArm) == 0);
+    for (DWORD i = 0; i < 64; i++) assert(g_staSt[i] == (STA_COM | STA_ZERO));
+    g_stbtNow += 6000, StbTick(g_stbtNow);
+    assert(g_sta.comN == 0 && StbtOsCom() == 0);
+    // Verify 1 with PreZero: the poison is checked before the fill, and a write after the fill is found when the slice is handed out
+    StbtReset(STB_POOL | STB_ZERO | STB_PREZERO | STB_VERIFY, 4, 128, 2, 5000);
+    z1 = StbtGet(T1);
+    memset(z1, 0x11, T1);
+    StbtPut(z1);
+    assert(StbAllIs(z1, S1 * K, STB_POISON) && StbZeroSome(g_stbArm) == S1 && g_stb.uafw == 0 && StbAllIs(z1, S1 * K, 0));
+    z1[0x4321] = 9;  // written after the free and after the fill
+    assert(StbtGet(T1) == z1 && g_stb.uafw == 1 && StbAllIs(z1, T1, 0));
+    StbtPut(z1);
+    z1[5] = 9;  // written after the free, before the fill
+    assert(StbZeroSome(g_stbArm) == S1 && g_stb.uafw == 2 && StbAllIs(z1, S1 * K, 0));
+    // SkipClear: a site whose consumer initialises its buffer gets no fill; every other request still does
+    StbtReset(STB_POOL | STB_ZERO | STB_SCRATCH | STB_SKIPCLEAR, 4, 128, 2, 5000);
+    g_stbScratchName = "scratch";
+    z1 = (u8*)StbScratchAlloc(0x80000, &g_stbtA);
+    assert(z1 == g_sta.base && StbAllIs(z1, 0x80000, 0) && g_stb.skipClearN == 1 && g_stb.skipClearB == 0);  // new pages: zero anyway
+    memset(z1, 0x66, 0x80000);
+    StbSiteFree(z1, &g_stbtA);
+    z1 = (u8*)StbScratchAlloc(0x80000, &g_stbtA);
+    assert(z1 == g_sta.base && StbAllIs(z1, 0x80000, 0x66) && g_stb.skipClearN == 2 && g_stb.skipClearB == 0x80000 && g_stb.zeroB == 0);
+    StbSiteFree(z1, &g_stbtA);
+    z1 = StbtGet(0x80000);  // a stream buffer in the same slices: zero-filled
+    assert(z1 == g_sta.base && StbAllIs(z1, 0x80000, 0) && g_stb.zeroB == 0x80000);
+    StbtPut(z1);
+    InterlockedExchange(&g_stbArm, STB_POOL | STB_ZERO | STB_SCRATCH);  // SkipClear off: the table is filled like everything else
+    z1 = (u8*)StbScratchAlloc(0x80000, &g_stbtA);
+    memset(z1, 0x66, 0x80000);
+    StbSiteFree(z1, &g_stbtA);
+    z1 = (u8*)StbScratchAlloc(0x80000, &g_stbtA);
+    assert(StbAllIs(z1, 0x80000, 0) && g_stb.skipClearN == 2);
+    StbSiteFree(z1, &g_stbtA);
+    g_stbScratchName = (const char*)(uintptr_t)0x00FB9030;
+    // a request under MinKB with Stats and Timing off: the game's call, nothing counted; with Stats every 64th is followed to its free
+    StbtReset(STB_POOL | STB_ZERO, 4, 128, 2, 5000);
+    StbtPut(StbtGet(1000));
+    assert(g_stb.reqs == 0);
+    StbtReset(STB_POOL | STB_ZERO | STB_STATS, 4, 128, 2, 5000);
+    for (int i = 0; i < 130; i++) g_stbtNow += 3, StbtPut(StbtGet(1000));
+    assert(g_stb.reqs == 130 && g_stb.smallN == 3 && g_stb.smallX == 0 && g_stbHi == 0);
     // Stats alone: nothing from the arena, lifetimes of the game's own 128 KB+ blocks
     StbtReset(STB_STATS, 4, 128, 2, 5000);
     u8* e = StbtGet(T5);
@@ -417,11 +487,15 @@ static DWORD WINAPI StbtWorker(void* arg) {
     return 0;
 }
 static DWORD WINAPI StbtTicker(void*) {
-    while (!g_stbtStop) StbTick(StbNowMs()), Sleep(1);
+    while (!g_stbtStop) {
+        StbTick(StbNowMs());
+        for (int i = 0; i < 64 && StbZeroSome(g_stbArm); i++) {}
+        Sleep(0);
+    }
     return 0;
 }
 static void StbtThreads() {
-    StbtReset(STB_POOL | STB_ZERO | STB_STATS, 16, 128, 4, 3);  // idle 3 ms: decommits race the requests
+    StbtReset(STB_POOL | STB_ZERO | STB_STATS | STB_PREZERO, 16, 128, 4, 3);  // idle 3 ms: decommits and the background fill race the requests
     g_stbNow = StbNowMs;
     g_stbtStop = 0;
     HANDLE h[4], tk = CreateThread(NULL, 0, StbtTicker, NULL, 0, NULL);
@@ -437,8 +511,10 @@ static void StbtThreads() {
     assert(g_sta.useN == 0 && g_stb.liveN == 0 && !g_stb.dfree && !g_stb.lost && !g_stb.vaFail && g_stb.reqs == 12000 && g_stb.frees == 12000 && g_stb.xfree > 0);
     assert(g_stb.served + g_stb.fresh + g_stb.fallback == 12000 && g_stb.served + g_stb.fresh > 10000 && g_sta.peakUseN <= 16 * 16);
     assert(StbtOsCom() == g_sta.comN << 16);
-    printf("streambuf threads: 12000 requests on 4 threads, %llu without a system call, %llu with a commit, %llu to the game, %lu decommits beside them\n",
-           g_stb.served, g_stb.fresh, g_stb.fallback, g_stb.decommits);
+    printf("streambuf threads: 12000 requests on 4 threads, %llu without a system call, %llu with a commit, %llu to the game, %lu decommits beside them, "
+           "%.0f MB zeroed in the background, %.0f MB by the callers, %llu requests found everything clean\n",
+           g_stb.served, g_stb.fresh, g_stb.fallback, g_stb.decommits, g_stb.bgZeroB / 1048576.0, g_stb.zeroB / 1048576.0, g_stb.cleanN);
+    assert(g_stb.bgZeroB > 0 && g_stb.cleanN > 0);
     StbtReset(0, 48, 128, 8, 5000);
     assert(g_stbtA.live == 0);
 }

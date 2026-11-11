@@ -52,6 +52,8 @@
 // Grow (docs/547 §15): a small stream that grows is given more capacity than the game's 1.5x from a few bytes, and a
 // stream's arena block grows where it is when the slices behind it are free. Timing (§16): the stubs' own time.
 // Assemble (§17): the block assembler 0x6165A0's scratch buffer from the arena.
+// PreZero (§21): free slices are zeroed by the upkeep thread, so the caller's thread fills nothing. SkipClear (§21):
+// no zero-fill for the sites whose consumer initialises the buffer itself (the compressor's tables, the assembler).
 // Verify (debug): 1 = a freed block is filled with 0xB5 and checked when its slices are reused (a write after free
 // counts as uafw). 2 = also every block is handed out filled with 0xA7 instead of zeros, and at its free the bytes that
 // still hold 0xA7 are counted (unwritten): a consumer that never leaves any is proven not to depend on zeros. Limits: a
@@ -285,9 +287,9 @@ static const u8 kStbAsm[0x513] = {
     0x8A, 0x44, 0x24, 0x13, 0x5D, 0x5F, 0x5E, 0x5B, 0x81, 0xC4, 0xA0, 0x00, 0x00, 0x00, 0xC3, 0x5F, 0x5E, 0x32, 0xC0, 0x5B, 0x81, 0xC4, 0xA0, 0x00,
     0x00, 0x00, 0xC3};
 
-enum { STB_POOL = 1, STB_STATS = 2, STB_ZERO = 4, STB_VERIFY = 8, STB_VERIFY2 = 16, STB_SCRATCH = 32, STB_PACKAGE = 64, STB_GROW = 128, STB_TIME = 256, STB_ASSEMBLE = 512 };  // g_stbArm bits
+enum { STB_POOL = 1, STB_STATS = 2, STB_ZERO = 4, STB_VERIFY = 8, STB_VERIFY2 = 16, STB_SCRATCH = 32, STB_PACKAGE = 64, STB_GROW = 128, STB_TIME = 256, STB_ASSEMBLE = 512, STB_PREZERO = 1024, STB_SKIPCLEAR = 2048 };  // g_stbArm bits
 enum { STB_ARENA = STB_POOL | STB_SCRATCH | STB_PACKAGE | STB_ASSEMBLE };  // the parts that take blocks from the arena
-enum { STBS_FREE = 0, STBS_EXT };  // a slot of g_stbBlk: free, or one of the game's own blocks tracked for Stats
+enum { STBS_FREE = 0, STBS_EXT, STBS_SMALL };  // a slot of g_stbBlk: free, one of the game's own 128 KB+ blocks tracked for Stats, or a sampled small one (its freeing thread and lifetime only)
 static const DWORD STB_N = 512;  // shortcut: at most 512 of the game's blocks tracked at once; more go uncounted (untracked)
 static const DWORD STB_WHO_N = 32, STB_TID_N = 16, STB_SZ_N = 14;
 static const u8 STB_POISON = 0xB5, STB_PAT = 0xA7;
@@ -302,13 +304,17 @@ struct StbStats {
     // capacities: an upper bound of the reallocations avoided; headTotB = bytes added in all), headroom held now / at
     // most by live buffers (Stats), grows in place and the bytes Realloc did not have to copy for them
     u64 headN, headSteps, headTotB, inPlace, inPlaceB;
+    // PreZero: bytes the upkeep thread zeroed, requests served without any fill or commit on the caller's thread.
+    // SkipClear: requests of a site whose consumer initialises the buffer itself, and the bytes not zero-filled for them.
+    // small*: every 64th request under MinKB (Stats): how many were freed, on another thread, and their lifetimes
+    u64 bgZeroB, cleanN, skipClearN, skipClearB, smallN, smallX, smallLifeMs;
     DWORD headB, peakHeadB, headUntracked, growBlocked;
 };
 // Timing: QueryPerformanceCounter ticks. arena[how] = this module's code on requests the arena served (the fill
 // included), arenaFree = on their frees; pass = this module's code on requests and frees it handed to the game's
 // allocator (pure overhead), passGame = the game's allocator on those; copy = Realloc's grow copies; samp* = the
 // sampled game path (every STB_SAMPLEth served request: allocate, touch every page, free).
-struct StbTime { LONGLONG arena[8], arenaFree, pass, passGame, copy, sampSum, since; double sampSq; u64 arenaN, passN, copyB, copyN, sampN; DWORD seq; };
+struct StbTime { LONGLONG arena[8], zero[8], arenaFree, pass, passGame, copy, sampSum, since; double sampSq; u64 arenaN, passN, copyB, copyN, sampN; DWORD seq; };  // zero[how] = the part of arena[how] spent zero-filling
 static const DWORD STB_SAMPLE = 64;
 static StbTime g_stbTime;
 struct StbHead { const u8* p; DWORD extra; };
@@ -353,7 +359,7 @@ static DWORD (*g_stbNow)() = StbNowMs;  // selftest: its own clock
 // Slice state bits: USED = part of a block handed out (or in transit at its free), HEAD = first slice of a block the
 // game holds, COM = committed, POISON = filled with 0xB5 at its free (Verify), PURGE = being decommitted by StbTick.
 // A slice with neither USED nor PURGE is free; a free slice with COM still holds its last user's bytes.
-enum { STA_USED = 1, STA_COM = 2, STA_POISON = 4, STA_HEAD = 8, STA_PURGE = 16 };
+enum { STA_USED = 1, STA_COM = 2, STA_POISON = 4, STA_HEAD = 8, STA_PURGE = 16, STA_ZERO = 32 };  // ZERO (PreZero): free, committed and known to hold zeros
 static const DWORD STA_MAX = 4096;      // slices: 256 MB, the most PoolMB allows
 static const DWORD STA_BLK_MAX = 1024;  // slices in one block: 64 MB, the most MaxBlockMB allows
 struct StaBlk { DWORD req, t, who, tid, n; u8 pat, keep; };  // of the block whose first slice this is: n slices; pat = handed out as the Verify 2 pattern; keep = grown in place, Realloc's free of the old SharedPointer is still to come
@@ -450,14 +456,26 @@ static bool StaReserve(DWORD size, DWORD minFreeMB) {
 static bool StaOwned(const void* p) { return (DWORD)((const u8*)p - g_sta.base) < g_sta.n << 16; }  // a range compare: no memory is read
 // Lock held. The first slice of the smallest free run of at least n slices (the lowest such run), or -1. Best fit: of
 // first fit, best fit and a two-ended layout it left the fewest requests unserved on the measured size mix (docs/547 §11).
-static int StaCarve(DWORD n) {
+// clean (PreZero): among runs of that same smallest length, the one whose first n slices need the least work on the
+// caller's thread (a zeroed slice costs nothing, a dirty one a fill, an uncommitted one a commit and its page faults);
+// the length rule itself is untouched, so the layout stays best fit.
+static DWORD StaWork(DWORD s, DWORD n) {
+    DWORD w = 0;
+    for (DWORD i = 0; i < n; i++) w += (g_staSt[s + i] & STA_ZERO) ? 0 : (g_staSt[s + i] & STA_COM) ? 1 : 4;
+    return w;
+}
+static int StaCarve(DWORD n, bool clean) {
     int best = -1;
-    DWORD bestLen = ~0u;
+    DWORD bestLen = ~0u, bestWork = 0;
     for (DWORD i = 0; i < g_sta.n;) {
         if (g_staSt[i] & (STA_USED | STA_PURGE)) { i++; continue; }
         DWORD j = i + 1;
         while (j < g_sta.n && !(g_staSt[j] & (STA_USED | STA_PURGE))) j++;
-        if (j - i >= n && j - i < bestLen) best = (int)i, bestLen = j - i;
+        if (j - i >= n && j - i < bestLen) best = (int)i, bestLen = j - i, bestWork = clean ? StaWork(i, n) : 0;
+        else if (clean && j - i == bestLen && bestWork) {
+            const DWORD w = StaWork(i, n);
+            if (w < bestWork) best = (int)i, bestWork = w;
+        }
         i = j;
     }
     return best;
@@ -582,6 +600,9 @@ static bool StaPrepare(u8* p, DWORD s0, DWORD n, const u8* plan, DWORD from, DWO
     if (hi && !VirtualAlloc(p + ((s0 + lo) << 16), (hi - lo) << 16, MEM_COMMIT, PAGE_READWRITE)) return false;
     for (DWORD i = 0; i < n; i++)
         if ((plan[i] & STA_POISON) && !StbAllIs(p + ((s0 + i) << 16), 0x10000, STB_POISON)) r->dirty = true;
+    if (arm & STB_VERIFY)  // a slice handed out as "known zero" must be zero: a write after the background fill is found here, and undone
+        for (DWORD i = 0; i < n; i++)
+            if ((plan[i] & STA_ZERO) && !StbAllIs(p + ((s0 + i) << 16), 0x10000, 0)) r->dirty = true, memset(p + ((s0 + i) << 16), 0, 0x10000);
     if (arm & STB_VERIFY2) {
         if (to > from) memset(p + from, STB_PAT, to - from);
         return true;
@@ -591,7 +612,7 @@ static bool StaPrepare(u8* p, DWORD s0, DWORD n, const u8* plan, DWORD from, DWO
         DWORD a = (s0 + i) << 16, b = a + 0x10000;
         if (a < from) a = from;
         if (b > to) b = to;
-        if (a < b && (plan[i] & STA_COM) && ((arm & STB_ZERO) || (plan[i] & STA_POISON))) memset(p + a, 0, b - a), r->zb += b - a;
+        if (a < b && (plan[i] & STA_COM) && !(plan[i] & STA_ZERO) && ((arm & STB_ZERO) || (plan[i] & STA_POISON))) memset(p + a, 0, b - a), r->zb += b - a;
     }
     r->zt = StbQpc() - r->zt;
     return true;
@@ -608,7 +629,7 @@ static void StaPrepDone(const StaPrep& r, const u8* p, DWORD size) {
 
 // Timing (Timing=1): ticks of this module's own code and of the game's allocator inside the stubs, and a sampled
 // measurement of what the game's own path costs for a block the arena served.
-struct StbTm { LONGLONG game, shadow; bool served; };  // of one request: ticks in the game's allocator, in the sample, and whether the arena served it
+struct StbTm { LONGLONG game, shadow, zero; bool served; };  // of one request: ticks in the game's allocator, in the sample, and whether the arena served it
 // Lock held. Headroom given to a stream's buffer (Grow + Stats): data pointer -> bytes above what the game asked for.
 static void StbHeadPut(const u8* p, DWORD extra) {
     if (g_stbHeadN * 4 >= STB_HEAD_N * 3) { g_stb.headUntracked++; return; }
@@ -636,15 +657,18 @@ static void StbHeadGone(const u8* p) {
 // One request of a hooked site: counted, then from the arena (pool: the site's switch is on) or from the game's
 // allocator with the site's own arguments. who / via / how name the requester for the "who" lines. extra = headroom
 // bytes in `size` that this module added (Grow). tm (Timing) receives the ticks that are not this module's own.
-static void* StbRequest(DWORD size, void* allocator, const char* name, DWORD who, DWORD via, DWORD how, bool grow, DWORD oldCap, LONG arm, bool pool, DWORD extra, StbTm* tm) {
-    const bool big = size >= g_stbMin;
+// cleared = the site's consumer initialises every byte it later reads (docs/547 §21): with SkipClear no zero-fill.
+static void* StbRequest(DWORD size, void* allocator, const char* name, DWORD who, DWORD via, DWORD how, bool grow, DWORD oldCap, LONG arm, bool pool, DWORD extra, bool cleared, StbTm* tm) {
+    const bool big = size >= g_stbMin, skip = cleared && (arm & STB_SKIPCLEAR) && (arm & STB_ZERO) && !(arm & STB_VERIFY2);
+    const LONG fillArm = skip ? arm & ~STB_ZERO : arm;
     const DWORD now = g_stbNow(), tid = GetCurrentThreadId(), n = StbCap(size) >> 16;
     u8 plan[STA_BLK_MAX];  // what each slice of the block was before it was taken (COM, POISON)
     int s = -1;
-    bool need = false, sample = false;
+    bool need = false, sample = false, small = false;
     DWORD wi;
     AcquireSRWLockExclusive(&g_stbLock);
     wi = StbWhoOf(who, via, how);
+    if (!big && (arm & STB_STATS)) small = !(g_stb.reqs & 63);
     StbWho& w = g_stbWho[wi];
     g_stb.reqs++, g_stb.bytes += size, g_stbSz[StbSzIx(size)]++, w.n++, w.bytes += size;
     if (size > w.maxReq) w.maxReq = size;
@@ -653,7 +677,7 @@ static void* StbRequest(DWORD size, void* allocator, const char* name, DWORD who
     if (pool && big) {
         if (!g_sta.base) g_stb.noArena++, g_stb.fallback++, w.fallback++;
         else if (!StbPoolable(size)) g_stb.tooBig++;
-        else if ((s = StaCarve(n)) < 0) g_stb.fallback++, w.fallback++, g_stb.stranded += g_sta.freeN >= n;  // stranded: enough free slices, no run of them
+        else if ((s = StaCarve(n, (arm & STB_PREZERO) != 0)) < 0) g_stb.fallback++, w.fallback++, g_stb.stranded += g_sta.freeN >= n;  // stranded: enough free slices, no run of them
         else {
             for (DWORD i = 0; i < n; i++) {
                 plan[i] = g_staSt[s + i];
@@ -673,8 +697,17 @@ static void* StbRequest(DWORD size, void* allocator, const char* name, DWORD who
     if (s >= 0) {  // the slices are this thread's until the pointer is handed out: nobody else reads or writes them
         u8* const p = g_sta.base + ((DWORD)s << 16);
         StaPrep r;
-        if (StaPrepare(p, 0, n, plan, 0, size, arm, &r)) {
+        if (StaPrepare(p, 0, n, plan, 0, size, fillArm, &r)) {
             StaPrepDone(r, p, size);
+            if (tm) tm->zero = r.zt;
+            if (skip || (!r.zb && !r.cb && (arm & STB_ZERO) && !(arm & STB_VERIFY2))) {
+                AcquireSRWLockExclusive(&g_stbLock);
+                if (skip) {
+                    g_stb.skipClearN++;
+                    for (DWORD i = 0; i < n; i++) g_stb.skipClearB += (plan[i] & (STA_COM | STA_ZERO)) == STA_COM ? 0x10000 : 0;
+                } else g_stb.cleanN++;
+                ReleaseSRWLockExclusive(&g_stbLock);
+            }
             if (extra && (arm & STB_STATS)) {
                 AcquireSRWLockExclusive(&g_stbLock);
                 StbHeadPut(p, extra);
@@ -703,9 +736,14 @@ static void* StbRequest(DWORD size, void* allocator, const char* name, DWORD who
     const LONGLONG g0 = tm ? StbQpc() : 0;
     u8* const p = (u8*)StbGameAlloc(allocator, size, name);
     if (tm) tm->game = StbQpc() - g0;
-    if (p && ((big && (arm & STB_STATS)) || (extra && (arm & STB_STATS)))) {
+    if (p && (arm & STB_STATS) && (big || extra || small)) {
         AcquireSRWLockExclusive(&g_stbLock);
         if (extra) StbHeadPut(p, extra);
+        if (small) {
+            const int x = StbFreeSlot();
+            if (x >= 0 && x < 128) g_stbBlk[x].p = p, g_stbBlk[x].req = size, g_stbBlk[x].t = now, g_stbBlk[x].tid = tid, g_stbBlk[x].state = STBS_SMALL;  // low slots only: long-lived small streams must not crowd out the 128 KB+ blocks
+            else if (x >= 0) StbSlotClear(x);
+        }
         if (big) {  // the game's block, tracked for its lifetime
             const int e = StbFind(p);  // a block we never saw freed (freed by a path that is not ours: none known)
             if (e >= 0) g_stb.lost++, g_stbWho[g_stbBlk[e].who].liveN--, g_stbWho[g_stbBlk[e].who].liveB -= g_stbBlk[e].req, g_stb.liveN--, StbSlotClear(e);
@@ -723,15 +761,17 @@ static void* StbRequest(DWORD size, void* allocator, const char* name, DWORD who
 }
 // StbRequest with the clock around it (Timing): this module's own ticks go to the requester's family when the arena
 // served the request, else to the pass-through overhead; the sample feeds the estimate of the game's path.
-static void* StbTimed(DWORD size, void* allocator, const char* name, DWORD who, DWORD via, DWORD how, bool grow, DWORD oldCap, LONG arm, bool pool, DWORD extra) {
-    if (!(arm & STB_TIME)) return StbRequest(size, allocator, name, who, via, how, grow, oldCap, arm, pool, extra, NULL);
+static void* StbTimed(DWORD size, void* allocator, const char* name, DWORD who, DWORD via, DWORD how, bool grow, DWORD oldCap, LONG arm, bool pool, DWORD extra, bool cleared) {
+    // a request under MinKB with nothing to count or time: the game's call and nothing else (no lock, no clock)
+    if (size < g_stbMin && !(arm & (STB_STATS | STB_TIME))) return StbGameAlloc(allocator, size, name);
+    if (!(arm & STB_TIME)) return StbRequest(size, allocator, name, who, via, how, grow, oldCap, arm, pool, extra, cleared, NULL);
     StbTm tm = {};
     const LONGLONG t0 = StbQpc();
-    void* const p = StbRequest(size, allocator, name, who, via, how, grow, oldCap, arm, pool, extra, &tm);
+    void* const p = StbRequest(size, allocator, name, who, via, how, grow, oldCap, arm, pool, extra, cleared, &tm);
     const LONGLONG own = StbQpc() - t0 - tm.game - tm.shadow;
     AcquireSRWLockExclusive(&g_stbLock);
     StbTime& t = g_stbTime;
-    if (tm.served) t.arena[how & 7] += own, t.arenaN++; else t.pass += own, t.passGame += tm.game, t.passN++;
+    if (tm.served) t.arena[how & 7] += own, t.zero[how & 7] += tm.zero, t.arenaN++; else t.pass += own, t.passGame += tm.game, t.passN++;
     if (tm.shadow) t.sampN++, t.sampSum += tm.shadow, t.sampSq += (double)tm.shadow * (double)tm.shadow;
     ReleaseSRWLockExclusive(&g_stbLock);
     return p;
@@ -892,7 +932,49 @@ static void* __stdcall StbAlloc(DWORD size, void* stream, void* allocator, const
             return p;
         }
     }
-    return StbTimed(size, allocator, name, who, via, how, grow, oldCap, arm, (arm & STB_POOL) != 0, extra);
+    return StbTimed(size, allocator, name, who, via, how, grow, oldCap, arm, (arm & STB_POOL) != 0, extra, false);
+}
+
+// PreZero (docs/547 §21): free slices that still hold an older block's bytes are zeroed by this module's own thread,
+// so a later request finds them "known zero" and its caller fills nothing. The idea of the OS's zero-page thread, and
+// of the allocators that remember which free memory is known to be zero (mimalloc's is_zero, Scudo's zeroed pages).
+static HANDLE g_stbZeroEvent;        // wakes the upkeep thread when slices were freed (auto-reset)
+static volatile LONG g_stbZeroAsked;  // a wake is pending: frees do not signal again
+static void StbZeroWake(LONG arm) {
+    if ((arm & (STB_PREZERO | STB_ZERO)) == (STB_PREZERO | STB_ZERO) && g_stbZeroEvent && !InterlockedExchange(&g_stbZeroAsked, 1)) SetEvent(g_stbZeroEvent);
+}
+// One run of dirty free slices (the lowest, at most 16 = 1 MB) zeroed; returns the slices done, 0 = nothing to do.
+// The run is marked PURGE under the lock, so no request and no in-place growth can take a slice that is being
+// filled; filled outside the lock; then marked ZERO. With Verify the freed block's poison is checked before it is
+// overwritten, and StaPrepare checks the zeros again when the slice is handed out.
+static DWORD StbZeroSome(LONG arm) {
+    if ((arm & (STB_PREZERO | STB_ZERO)) != (STB_PREZERO | STB_ZERO) || (arm & STB_VERIFY2) || !g_sta.n) return 0;
+    DWORD s = g_sta.n, e;
+    bool poison = false;
+    AcquireSRWLockExclusive(&g_stbLock);
+    auto dirtyFree = [](DWORD i) { return (g_staSt[i] & ~STA_POISON) == STA_COM; };
+    for (DWORD i = 0; i < g_sta.n; i++)
+        if (dirtyFree(i)) { s = i; break; }
+    for (e = s; e < g_sta.n && e < s + 16 && dirtyFree(e); e++) poison |= (g_staSt[e] & STA_POISON) != 0, g_staSt[e] = (u8)(g_staSt[e] | STA_PURGE);
+    ReleaseSRWLockExclusive(&g_stbLock);
+    if (s == g_sta.n) return 0;
+    u8* const p = g_sta.base + (s << 16);
+    bool uaf = false;
+    if (poison) {
+        AcquireSRWLockShared(&g_stbLock);  // which of them carry poison (the states are ours while PURGE is set; read under the lock for the others' sake)
+        u8 st[16];
+        for (DWORD i = s; i < e; i++) st[i - s] = g_staSt[i];
+        ReleaseSRWLockShared(&g_stbLock);
+        for (DWORD i = s; i < e; i++)
+            if ((st[i - s] & STA_POISON) && !StbAllIs(g_sta.base + (i << 16), 0x10000, STB_POISON)) uaf = true;
+    }
+    memset(p, 0, (e - s) << 16);
+    AcquireSRWLockExclusive(&g_stbLock);
+    for (DWORD i = s; i < e; i++) g_staSt[i] = (u8)(STA_COM | STA_ZERO);
+    g_stb.bgZeroB += (u64)(e - s) << 16, g_stb.uafw += uaf;
+    ReleaseSRWLockExclusive(&g_stbLock);
+    if (uaf) Log("streambuf: VERIFY a freed block was written to before the background fill (0x%p): uafw", p);
+    return e - s;
 }
 
 // An arena block comes back.
@@ -915,7 +997,7 @@ static void StbPut(u8* p) {
         else StaFreeRun(s, b.n, STA_COM, now);
     }
     ReleaseSRWLockExclusive(&g_stbLock);
-    if (!work) return;
+    if (!work) { StbZeroWake(arm); return; }
     DWORD first = 0;
     const DWORD un = b.pat ? StbUnwritten(p, b.req, &first) : 0;
     if (arm & STB_VERIFY) memset(p, STB_POISON, b.n << 16);
@@ -925,6 +1007,7 @@ static void StbPut(u8* p) {
     g_stb.unwrittenB += un;
     const DWORD at = g_stbWho[b.who].at;
     ReleaseSRWLockExclusive(&g_stbLock);
+    StbZeroWake(arm);
     if (nth && nth <= 16)
         Log("streambuf: VERIFY unwritten bytes at the free: sizer 0x%08lX, %lu of %lu bytes still hold the hand-out pattern, first at +0x%lX", at, un, b.req, first);
 }
@@ -935,6 +1018,13 @@ static void StbExtGone(const u8* p) {
     StbHeadGone(p);
     const int i = StbFind(p);
     if (i >= 0) StbGone(g_stbBlk[i].who, g_stbBlk[i].req, g_stbBlk[i].t, g_stbBlk[i].tid, now, tid), StbSlotClear(i);
+    else
+        for (DWORD k = 0; k < g_stbHi; k++)
+            if (g_stbBlk[k].p == p && g_stbBlk[k].state == STBS_SMALL) {
+                g_stb.smallN++, g_stb.smallX += g_stbBlk[k].tid != tid, g_stb.smallLifeMs += now - g_stbBlk[k].t;
+                StbSlotClear((int)k);
+                break;
+            }
     ReleaseSRWLockExclusive(&g_stbLock);
 }
 static void StbRelease(void* allocator, u8* p) {
@@ -984,7 +1074,7 @@ static const char* g_stbScratchName = (const char*)(uintptr_t)0x00FB9030;  // "S
 static void* __stdcall StbScratchAlloc(DWORD size, void* allocator) {
     const LONG arm = g_stbArm;
     if (!(arm & STB_SCRATCH)) return StbGameAlloc(allocator, size, g_stbScratchName);
-    return StbTimed(size, allocator, g_stbScratchName, (DWORD)(uintptr_t)_ReturnAddress(), 0, 4, false, 0, arm, true, 0);
+    return StbTimed(size, allocator, g_stbScratchName, (DWORD)(uintptr_t)_ReturnAddress(), 0, 4, false, 0, arm, true, 0, true);  // both cores initialise what they read (§21)
 }
 // In place of an `allocator->Free(p, 0)` call of the compressor or the package writer: any pointer, ours or the game's.
 static void __stdcall StbSiteFree(void* p, void* allocator) { StbRelease(allocator, (u8*)p); }
@@ -992,7 +1082,7 @@ static void __stdcall StbSiteFree(void* p, void* allocator) { StbRelease(allocat
 static void* __stdcall StbPkgAlloc(DWORD size, void* allocator, const char* name) {
     const LONG arm = g_stbArm;
     if (!(arm & STB_PACKAGE)) return StbGameAlloc(allocator, size, name);
-    return StbTimed(size, allocator, name, (DWORD)(uintptr_t)_ReturnAddress(), 0, 5, false, 0, arm, true, 0);
+    return StbTimed(size, allocator, name, (DWORD)(uintptr_t)_ReturnAddress(), 0, 5, false, 0, arm, true, 0, false);
 }
 // In place of the block assembler's Memalign and Free calls on the MemoryMan heap (0x6169A8, 0x616A93; thiscall on the
 // heap). StbRequest and StbRelease speak to an allocator object, so they are handed one whose Alloc is the site's own
@@ -1010,7 +1100,7 @@ static void* __fastcall StbAsmAlloc(void* heap, void*, DWORD size, DWORD align, 
     const LONG arm = g_stbArm;
     if (!(arm & STB_ASSEMBLE) || align != 16 || a3 || a4) return g_stbMemalign(heap, NULL, size, align, a3, a4);
     StbAsmHeap h = {g_stbAsmVt, heap};
-    return StbTimed(size, &h, NULL, (DWORD)(uintptr_t)_ReturnAddress(), 0, 6, false, 0, arm, true, 0);
+    return StbTimed(size, &h, NULL, (DWORD)(uintptr_t)_ReturnAddress(), 0, 6, false, 0, arm, true, 0, true);  // 0x6169CB clears the whole buffer
 }
 static void __fastcall StbAsmFree(void* heap, void*, void* p) {
     StbAsmHeap h = {g_stbAsmVt, heap};
@@ -1025,7 +1115,7 @@ static void StbTick(DWORD now) {
     for (DWORD from = 0; from < g_sta.n;) {
         DWORD s = g_sta.n, e;
         AcquireSRWLockExclusive(&g_stbLock);
-        auto idle = [&](DWORD i) { return (g_staSt[i] & ~STA_POISON) == STA_COM && (all || (g_stbIdleMs && now - g_staT[i] >= g_stbIdleMs)); };
+        auto idle = [&](DWORD i) { return (g_staSt[i] & ~(STA_POISON | STA_ZERO)) == STA_COM && (all || (g_stbIdleMs && now - g_staT[i] >= g_stbIdleMs)); };
         for (DWORD i = from; i < g_sta.n; i++)
             if (idle(i)) { s = i; break; }
         for (e = s; e < g_sta.n && idle(e); e++) g_staSt[e] = (u8)(g_staSt[e] | STA_PURGE);
@@ -1049,7 +1139,8 @@ static int StbIniMask(const wchar_t* ini) {
                   (GetPrivateProfileIntW(L"StreamBuf", L"Grow", 0, ini) > 0 ? STB_GROW : 0) | (GetPrivateProfileIntW(L"StreamBuf", L"Timing", 0, ini) > 0 ? STB_TIME : 0) |
                   (GetPrivateProfileIntW(L"StreamBuf", L"Assemble", 0, ini) > 0 ? STB_ASSEMBLE : 0);
     if (!(m & STB_ARENA)) return m;
-    return m | (GetPrivateProfileIntW(L"StreamBuf", L"Zero", 1, ini) > 0 ? STB_ZERO : 0) | (v >= 1 ? STB_VERIFY : 0) | (v >= 2 ? STB_VERIFY2 : 0);
+    const int z = (GetPrivateProfileIntW(L"StreamBuf", L"PreZero", 0, ini) > 0 ? STB_PREZERO : 0) | (GetPrivateProfileIntW(L"StreamBuf", L"SkipClear", 0, ini) > 0 ? STB_SKIPCLEAR : 0);
+    return m | z | (GetPrivateProfileIntW(L"StreamBuf", L"Zero", 1, ini) > 0 ? STB_ZERO : 0) | (v >= 1 ? STB_VERIFY : 0) | (v >= 2 ? STB_VERIFY2 : 0);
 }
 // Every 5 s: a patched site that no longer holds our bytes stops the module for the session (the stubs may still be
 // reached through the other sites, so they pass through and arena blocks still come home); else the ini's switches
@@ -1074,16 +1165,25 @@ static void StbWatch(int mask, bool apex) {
     if ((mask & STB_TIME) && !(was & STB_TIME)) g_stbTime.since = StbQpc();
     if ((mask & STB_ARENA) && !g_sta.base) StaReserve(g_stbBudget, g_stbMinFreeMB);  // switched on after the start: the arena is made now, on this thread
     InterlockedExchange(&g_stbArm, mask);
-    Log("streambuf: switched at run time by the ini: arm %ld -> %d (1 pool, 2 stats, 4 zero, 8 verify, 16 verify 2, 32 scratch, 64 package, 128 grow, 256 timing, 512 assemble)%s", was, mask,
+    Log("streambuf: switched at run time by the ini: arm %ld -> %d (1 pool, 2 stats, 4 zero, 8 verify, 16 verify 2, 32 scratch, 64 package, 128 grow, 256 timing, 512 assemble, 1024 prezero, 2048 skipclear)%s", was, mask,
         apex && g_stbScratchIn ? "; Scratch off for Apex Radiance" : "");
 }
 static void StbDetach() { InterlockedExchange(&g_stbDetached, 1), InterlockedExchange(&g_stbArm, 0); }  // DLL_PROCESS_DETACH
+// The upkeep thread: every 500 ms the idle decommit, every 5 s the watch; with PreZero it is also woken by frees and
+// zeroes dirty free slices, one run of at most 1 MB at a time with a yield between runs, at below-normal priority
+// while PreZero is on (so a busy loader thread is never kept waiting for a core by it; no affinity is set).
 static DWORD WINAPI StbThread(void*) {
-    for (DWORD watch = GetTickCount();;) {
-        Sleep(500);
+    int prio = THREAD_PRIORITY_NORMAL;
+    for (DWORD watch = GetTickCount(), upkeep = watch;;) {
+        if (g_stbZeroEvent) WaitForSingleObject(g_stbZeroEvent, 500); else Sleep(500);
+        InterlockedExchange(&g_stbZeroAsked, 0);
+        const LONG arm = g_stbArm;
+        const int want = (arm & STB_PREZERO) ? THREAD_PRIORITY_BELOW_NORMAL : THREAD_PRIORITY_NORMAL;
+        if (want != prio) SetThreadPriority(GetCurrentThread(), prio = want);
+        while (!g_stbDetached && StbZeroSome(g_stbArm)) SwitchToThread();
         const DWORD tick = GetTickCount();
         if (tick - watch >= 5000) watch = tick, StbWatch(StbIniMask(g_stbIni), g_apexFound && g_apexStandDown);
-        if (!g_stbDetached) StbTick(g_stbNow());
+        if (tick - upkeep >= 500 && !g_stbDetached) upkeep = tick, StbTick(g_stbNow());
     }
 }
 
@@ -1223,7 +1323,7 @@ static void StbMemLine(LONG n, const char* tag) {
     static StbWho who[STB_WHO_N];  // copies: formatted after the lock (one mark at a time: the memory worker)
     static StbTid tids[STB_TID_N];
     u64 sz[STB_SZ_N];
-    DWORD idleN = 0, bigRun = 0, runs = 0;
+    DWORD idleN = 0, bigRun = 0, runs = 0, zeroN = 0;
     AcquireSRWLockShared(&g_stbLock);
     const StbTime tm = g_stbTime;
     const StbStats s = g_stb;
@@ -1231,7 +1331,7 @@ static void StbMemLine(LONG n, const char* tag) {
     memcpy(who, g_stbWho, sizeof(who)), memcpy(tids, g_stbTid, sizeof(tids)), memcpy(sz, g_stbSz, sizeof(sz));
     for (DWORD i = 0, run = 0; i < a.n; i++) {
         const bool fr = !(g_staSt[i] & (STA_USED | STA_PURGE));
-        idleN += fr && (g_staSt[i] & STA_COM);
+        idleN += fr && (g_staSt[i] & STA_COM), zeroN += fr && (g_staSt[i] & STA_ZERO);
         run = fr ? run + 1 : 0, runs += run == 1;
         if (run > bigRun) bigRun = run;
     }
@@ -1246,9 +1346,13 @@ static void StbMemLine(LONG n, const char* tag) {
         DWORD osCom = 0;
         const bool one = StaOsView(&osCom);
         Log("streambuf: arena #%ld base=0x%08lX arenaMB=%lu oneReservation=%d osCommitMB=%.1f commitMB=%.1f inUseMB=%.1f idleMB=%.1f peakInUseMB=%.1f "
-            "peakCommitMB=%.1f freeMB=%.1f largestFreeRunMB=%.1f freeRuns=%lu commits=%llu commitMB_total=%.1f decommits=%lu stranded=%lu noArena=%lu",
+            "peakCommitMB=%.1f freeMB=%.1f largestFreeRunMB=%.1f freeRuns=%lu commits=%llu commitMB_total=%.1f decommits=%lu stranded=%lu noArena=%lu "
+            "zeroedIdleMB=%.1f bgZeroMB=%.1f callerZeroMB=%.1f servedClean=%llu skipClearN=%llu skipClearMB=%.1f",
             n, (DWORD)(uintptr_t)a.base, a.n >> 4, one ? 1 : 0, osCom * MB, a.comN * SL, a.useN * SL, idleN * SL, a.peakUseN * SL, a.peakComN * SL, a.freeN * SL,
-            bigRun * SL, runs, s.fresh, s.commitB * MB, s.decommits, s.stranded, s.noArena);
+            bigRun * SL, runs, s.fresh, s.commitB * MB, s.decommits, s.stranded, s.noArena, zeroN * SL, s.bgZeroB * MB, s.zeroB * MB, s.cleanN, s.skipClearN,
+            s.skipClearB * MB);
+        if (s.smallN) Log("streambuf: small #%ld sampled 1 in 64 requests under MinKB: freed=%llu onAnotherThread=%llu (%.1f%%) avgLifeMs=%.0f", n, s.smallN, s.smallX,
+                          100.0 * (double)s.smallX / (double)s.smallN, (double)s.smallLifeMs / (double)s.smallN);
     } else if (g_stbArm & STB_ARENA) Log("streambuf: arena #%ld none (the reservation failed at the start: see the FAIL line) noArena=%lu", n, s.noArena);
     if (s.headN || s.inPlace || s.growBlocked || (g_stbArm & STB_GROW))
         Log("streambuf: grow #%ld headroomGrants=%llu stepsSkippedUpTo=%llu headroomMB_total=%.1f headroomHeldKB=%lu peakHeldKB=%lu headUntracked=%lu inPlace=%llu "
@@ -1264,10 +1368,11 @@ static void StbMemLine(LONG n, const char* tag) {
         const double var = tm.sampN > 1 ? (tm.sampSq - mean * mean * (double)tm.sampN) / (double)(tm.sampN - 1) : 0.0;
         const double est = mean * (double)servedN * ms, err = tm.sampN ? 2.0 * (double)servedN * sqrt(var > 0 ? var : 0.0) / sqrt((double)tm.sampN) * ms : 0.0;
         Log("streambuf: time #%ld secs=%.0f arenaMs: SetSize=%.1f Write=%.1f SetPosition=%.1f Scratch=%.1f Package=%.1f Assemble=%.1f other=%.1f frees=%.1f (requests %llu) "
+            "ofWhichZeroFillMs: SetSize=%.1f Write=%.1f Scratch=%.1f Package=%.1f Assemble=%.1f "
             "passOverheadMs=%.1f (requests %llu; the game's allocator on them %.1f ms) growCopyMs=%.1f growCopyMB=%.1f copies=%llu sample: n=%llu meanUs=%.1f "
             "gamePathEstMs=%.0f +-%.0f (2 sigma, for the %llu served requests) perSecond: ownMs=%.3f gameEstMs=%.3f growCopyMs=%.3f",
             n, secs, tm.arena[1] * ms, tm.arena[2] * ms, tm.arena[3] * ms, tm.arena[4] * ms, tm.arena[5] * ms, tm.arena[6] * ms, (tm.arena[0] + tm.arena[7]) * ms,
-            tm.arenaFree * ms, tm.arenaN, tm.pass * ms, tm.passN, tm.passGame * ms, tm.copy * ms, tm.copyB * MB, tm.copyN, tm.sampN, mean * ms * 1000.0, est, err,
+            tm.arenaFree * ms, tm.arenaN, tm.zero[1] * ms, tm.zero[2] * ms, tm.zero[4] * ms, tm.zero[5] * ms, tm.zero[6] * ms, tm.pass * ms, tm.passN, tm.passGame * ms, tm.copy * ms, tm.copyB * MB, tm.copyN, tm.sampN, mean * ms * 1000.0, est, err,
             servedN, secs > 0 ? (arena + tm.pass) * ms / secs : 0.0, secs > 0 ? est / secs : 0.0, secs > 0 ? tm.copy * ms / secs : 0.0);
     }
     char line[400];
@@ -1350,14 +1455,15 @@ static bool ApplyStreamBuf(const wchar_t* ini) {
     if (!(mask & STB_ARENA)) mask &= STB_STATS | STB_GROW | STB_TIME;
     if (mask & STB_TIME) g_stbTime.since = StbQpc();
     if (mask & STB_ARENA) StaReserve(g_stbBudget, g_stbMinFreeMB);  // before anything is armed; without it every request takes the game's path
+    if (!g_stbZeroEvent) g_stbZeroEvent = CreateEventW(NULL, FALSE, FALSE, NULL);  // PreZero's wake; without it the thread wakes every 500 ms only
     HANDLE t = CreateThread(NULL, 64 * 1024, StbThread, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
     if (t) CloseHandle(t);
     else Log("WARN stream buffer: no upkeep thread (%lu): no idle decommit, no run-time switch", GetLastError());
     InterlockedExchange(&g_stbArm, mask);
     Log("OK   stream buffer (docs/547): sites 0x4DEC0B / 0x4DEA99 / 0x4DEEF9 patched; Pool %s (arena %lu MB%s, requests %lu KB-%lu MB, idle %lu s, "
-        "Zero %s, Verify %d), Scratch %s, Package %s, Assemble %s, Grow %s, Timing %s, Stats %s%s (every \"diag: mem\" mark adds \"streambuf:\" lines)",
+        "Zero %s, Verify %d), Scratch %s, Package %s, Assemble %s, Grow %s, Timing %s, PreZero %s, SkipClear %s, Stats %s%s (every \"diag: mem\" mark adds \"streambuf:\" lines)",
         (mask & STB_POOL) ? "on" : "off", g_stbBudget >> 20, g_sta.base ? "" : ", not reserved", g_stbMin >> 10, g_stbMaxBlock >> 20, g_stbIdleMs / 1000,
-        (mask & STB_ZERO) ? "on" : "off", (mask & STB_VERIFY2) ? 2 : (mask & STB_VERIFY) ? 1 : 0, scratch, pkg, asmS, growS, (mask & STB_TIME) ? "on" : "off", (mask & STB_STATS) ? "on" : "off",
+        (mask & STB_ZERO) ? "on" : "off", (mask & STB_VERIFY2) ? 2 : (mask & STB_VERIFY) ? 1 : 0, scratch, pkg, asmS, growS, (mask & STB_TIME) ? "on" : "off", (mask & STB_PREZERO) ? "on" : "off", (mask & STB_SKIPCLEAR) ? "on" : "off", (mask & STB_STATS) ? "on" : "off",
         g_apexFound ? "; Apex Radiance loaded (no shared stream site)" : "");
     return true;
 }

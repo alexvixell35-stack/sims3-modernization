@@ -4,7 +4,7 @@ Static RE on TS3W.exe 1.67 (Capstone disassembly of the retail copy, sha256 `b78
 window quoted here was read from that copy), `native/ts3native/streambuf.cpp` with its selftest and host bench. The
 measurements in §1 come from `[BigBlock]` Stats (docs/543, one 14 min run). **v1 (separate blocks) ran in the game: §14.
 v2's arena, compressor tables and package buffers (§11-§13) ran in the game: §19. §15 Grow, §16 Timing and §17 Assemble
-have not: selftest only.** §6 describes
+ran once (run E of §19). §21 PreZero and SkipClear have not: selftest only.** §6 describes
 the sites of v1, which v2 keeps unchanged; where §6 and §8 speak of the pool's blocks, §11 replaces them.
 
 Tags: [verified] = read in the disassembly, or exercised by the selftest; [measured] = a run's numbers; [inferred] =
@@ -797,6 +797,7 @@ other modules.
 | B, 23 min, in-process renderer | `Pool`, `Scratch`, `Package` | 140,650 requests (111.9 GB) | 139,863 (99.4%); 737 with one commit | 39 | all 0 |
 | C, 14 min, renderer in its own process | `Pool` | - | 98.6% | - | all 0 |
 | D, 14 min, the same with Apex Radiance 3.1 loaded | `Pool` | - | 98.3% | - | all 0 |
+| E, 15 min, in-process renderer, one travel round trip: the first run of `Grow`, `Timing`, `Assemble` | `Pool`, `Scratch`, `Package`, `Assemble`, `Grow`, `Timing`, `Stats` | 97,262 of 703,127 requests | 94,676 (97.3%) | 0 | all 0 |
 
 - **Address space.** The arena was reserved at `0xFCEA0000`-`0xFFEA0000` in every run, at the top of the largest free
   range (2046 MB before, 1998 after), `oneReservation=1` and the same base at every mark. Largest free range at the
@@ -809,6 +810,22 @@ other modules.
 - **Correctness.** `dfree`, `vaFail`, `uafw`, `lost`, `untracked` 0 in all four runs; 8,134 frees from another thread
   than the allocation in run B; saves written with the pooled compressor and package buffers loaded again on each
   return. The `who` rows name their requesters.
+- **Run E (the build of commit `cbd8f5c`).** All sites installed; `oneReservation=1`, peak in use 32.5 MB, stranded 0.
+  The second trip did not start (household Sims failed to route to the car, before any save; unrelated).
+  - `Grow`: 211,071 grows and 378.4 MB copied in 900 s, against about 1.17 million and 2.3-2.5 GB per 14 minutes
+    before: about -83% and -86%. 195,781 capacity raises; headroom held 891 KB at the end, 972 KB at most, none
+    untracked: the floors cost nothing measurable. 2,194 grows in place (2,073.6 MB not copied), 39 blocked. The
+    text encoder's row left the top Write rows; `WriteUint32` (`0x4DDC15`): 108,601 requests, 69,071 grows.
+  - `Timing` at 600 s: own time on served requests SetSize 934.8 ms, Write 48.2, Scratch 154.9, Package 52.5, Assemble
+    25.4, frees 15.9 (68,177 requests); pass-through overhead 178.7 ms on 445,557 requests, on which the game's
+    allocator spent 516.8 ms; grow copies 18.9 ms; 1,038 samples of the game's path, mean 57.8 us, estimate
+    3,845 +- 369 ms. Per second: own 2.35 ms, the game's path 6.41 ms. At 900 s: estimate 7,610 +- 583 ms, own 2.36
+    ms per second, the game's path 8.45. So the module spends about a third of what it saves, most of it filling
+    zeros (§21), and the saving is 4-6 ms per second of play, with statistics and timing running.
+- **`[BigBlock]` beside this module:** with its newer demand rule (`ReuseDemand=2`) its cache hit 58% of the
+  requests left to it, against 85.9% for the older rule in the same run's shadow cache. The setting to use beside
+  `[StreamBuf]` is `ReuseMaxMB=16` with the older demand rule.
+- **Arena size:** peaks in use over the five runs 28.8 / 45.4 / 34.3 / 30.2 / 32.5 MB; the default stays 48 (§18).
 - **With the renderer in its own process** the two shared views sit low (96 MB near `0x04200000`, 72 MB near
   `0x0A200000`); nothing at the top is disturbed and both mapped.
 - **With Apex Radiance** the stream sites share nothing with it and `Pool` ran unchanged, while `[BigBlock]` stood
@@ -819,7 +836,9 @@ other modules.
   gave 169 and 142 s per round trip with both modules off against 139 and 139 s with `[StreamBuf]` `Pool` + `Scratch` +
   `Package` and `[BigBlock]` reuse on; outbound travel load 81 / 72 s against 66 / 67 s; save load unchanged (28-31 s).
   Two jobs per arm, with the two off jobs 27 s apart: weak evidence, to be repeated, and not separable between the
-  two modules.
+  two modules. A second set of six jobs (off, on, on + Grow, on + Grow, on, off; fresh start, load, one round trip
+  each) gave 147 / 149 / 147 / 150 / 149 / 152 s, save load 28-30 s in every job. Over the ten jobs there is no load,
+  save or travel time difference a stopwatch can see; the `Timing` line of run E is the statement of the gain.
 
 **A pull request for this module may claim:** that the stream buffers, the compressor's tables and the package
 writer's buffers no longer cut up the address space (the numbers above); that the pool costs one 48 MB reservation
@@ -827,8 +846,9 @@ and no more; that it ran clean in four game runs including the two-process rende
 every part is off by default and byte-checked.
 
 **It must not claim yet:** any gain in frame time, hitching, travel or save time (one weak ABBA set points to shorter
-travel loads and has to be repeated; the host bench and §15.7 say the CPU part is small); that `Zero=0` is safe (it is not: unwritten tails were found); anything about `Assemble`, `Grow`
-or `Timing` beyond the selftest; that the arena helps the largest free range late in a session (it is neutral there:
+travel loads and has to be repeated; the host bench and §15.7 say the CPU part is small: run E estimates 4-6 ms per second of play saved, measured with a sampling estimate, not a
+stopwatch); that `Zero=0` is safe (it is not: unwritten tails were found); more for `Assemble`, `Grow` and `Timing` than
+one 15 minute run shows; anything about `PreZero` and `SkipClear` beyond the selftest; that the arena helps the largest free range late in a session (it is neutral there:
 the gain is against v1 and in system calls, and the baseline's late numbers are already equal); long sessions (the
 longest run is 23 minutes).
 
@@ -850,3 +870,129 @@ longest run is 23 minutes).
 - `Assemble`: a foreign byte blocks the install; the two calls change only their target; the stubs against a stand-in
   heap (served from the arena and zero, small to Memalign with `(size, 16, 0, 0)`, another alignment passed through,
   switched off).
+
+## 21. The module's own cost: `PreZero` and `SkipClear` [verified by the selftest; not run in the game]
+
+### 21.1 Where the time goes [measured, run E of §19]
+
+`Timing=1`, 600 s: the module's own code on served requests took SetSize 934.8 ms, Scratch 154.9, Package 52.5,
+Write 48.2, Assemble 25.4, frees 15.9: about 1,230 ms, 2.05 ms per second, against an estimated 3,845 +- 369 ms for the
+game's own path on the same 68,177 requests. Nearly all of the 1,230 ms is the zero-fill of reused slices: the earlier
+runs logged 1.18 s of fill per 12 min and 2.8 s per 23 min (`zeroMs`), the bookkeeping per request is one lock and a
+walk over at most 768 state bytes (0.5 us on the host, §8), and the SetSize family is the one that fills 0.7-5.5 MB
+per request [inferred from those numbers; the `time` line now prints the fill's share per family,
+`ofWhichZeroFillMs`, so the next run states it].
+
+### 21.2 `PreZero=1`: the fill moves to the module's own thread
+
+The idea is the operating system's zero-page thread, and what mimalloc (`is_zero` on its arena memory) and Scudo
+(zeroed secondary pages) keep track of: memory that is free and known to hold zeros needs no fill when it is handed
+out. Here:
+
+- **State.** A sixth slice bit, `ZERO`: free, committed, known zero. A freed slice is committed and dirty (no bit); a
+  decommitted slice is zero by the OS's contract, as before.
+- **Who clears.** The upkeep thread. A free that leaves dirty slices signals it (one `SetEvent`, and only when no
+  signal is pending). It takes the lowest run of dirty free slices, at most 16 (1 MB, about 0.1 ms), marks it `PURGE`
+  under the lock, fills it outside the lock, marks it `ZERO`, yields (`SwitchToThread`) and looks again until nothing
+  is dirty.
+- **Race rules.** A slice marked `PURGE` is neither free nor used to everyone else: requests, in-place growth and the
+  idle decommit skip it (the same mark and the same rule the decommit already used). A slice is `ZERO` only after its
+  fill has finished. A block that is handed out loses the bit; its slices come back dirty.
+- **The request.** Slices with `ZERO` are not filled; dirty ones are filled on the caller's thread as before
+  (`callerZeroMB`); uncommitted ones are committed. A request that needed neither fill nor commit counts as
+  `servedClean`.
+- **Preferring clean runs without hurting the layout.** Best fit still chooses by length alone. Only among runs of
+  that same smallest length does the one win whose first slices need the least work (zeroed 0, dirty 1, uncommitted
+  4 per slice: a commit and its page faults cost more than a fill, §8). Equal-length runs are the common case here,
+  because the traffic is a handful of sizes. In-place growth is unaffected: it takes the slices behind its block in
+  whatever state they are.
+- **Pacing.** No affinity is set. While `PreZero` is on the thread runs at below-normal priority, so it gets a core
+  only when one is idle; it holds at most 1 MB out of circulation at a time, for the length of one fill. If it is
+  starved, slices simply stay dirty and callers fill them as today. It fills at most what is freed, about 40 MB per
+  second at the measured traffic: a few milliseconds per second of its own time.
+- **Verify.** With `Verify=1` a freed block is poisoned as before; the upkeep thread checks the poison before it
+  overwrites it (`uafw` if someone wrote in between), and when a `ZERO` slice is handed out it is checked to be all
+  zero (a write after the fill: `uafw`, and the slice is filled again). So a slice handed out as clean is proven
+  clean in a Verify run. `Verify=2` hands out the pattern, so nothing is pre-zeroed.
+- **Idle.** Zeroed slices are decommitted after `IdleSec` like dirty ones.
+
+Expected: the SetSize family's own time falls by most of its fill share, as far as the thread keeps up; a block
+that is freed and asked for again within the same fraction of a millisecond is still filled by its caller.
+`bgZeroMB` against `callerZeroMB` on the arena line is the measure, with `ofWhichZeroFillMs` on the time line.
+
+What it does not do: it does not make the fill cheaper, it moves it to an idle core. On a machine with no idle core
+it gains nothing.
+
+### 21.3 `SkipClear=1`: consumers that initialise their buffer
+
+A request from a site whose consumer provably writes every byte it later reads is not zero-filled:
+
+- **The compressor's hash heads** (256 KB): both cores start with `memset(heads, 0xFF, whole table)` (`0x4EB763` /
+  `0x4EB777` for 0x400 bytes, `0x4EBBA3` / `0x4EBBB7` for `0x40000`) [verified].
+- **The compressor's links** (512 KB), now proven instruction by instruction in both cores (`0x4EB750`, `0x4EBB90`:
+  the same code, 0x440 bytes apart) [verified]:
+  - the links table (`[esp+54h]`) is read in **one** place, `mov ecx,[eax+ecx*4]` at `0x4EBD4B` (`0x4EB90B`), with the
+    index `c & mask`, where `c` is the candidate position in `[esp+1Ch]`;
+  - `c` is either the head entry for the current hash (`0x4EBC64`) or a value read from the links table; both are
+    accepted only by a signed compare against the lower bound: `cmp ecx,eax / jl` out at `0x4EBC89`-`0x4EBC8F` for the
+    first, `cmp ecx,[esp+34h] / jge` back into the loop at `0x4EBD4E`-`0x4EBD56` for the following ones;
+  - the lower bound (`[esp+34h]`, built at `0x4EBC6D`-`0x4EBC8B`) is max(0, current position minus the window mask);
+    the heads start as -1, so an empty head is below the bound and no link is read for it;
+  - every value stored in a head or a link is a position that was inserted, and the three places that insert a
+    position (`0x4EBEB9` / `0x4EBEC5`, `0x4EBF14` / `0x4EBF1C`, `0x4EBF50` / `0x4EBF63`) each write `links[pos & mask] =
+    heads[hash]` immediately before `heads[hash] = pos`. There is no other write to either table;
+  - so a link is read only for an inserted position `c` with current - mask <= c < current, and its slot `c & mask` was
+    written when `c` was inserted. A later position that would reuse the slot is `c + mask + 1` or more, which is
+    beyond the current position. Written before read.
+- **The block assembler's buffer**: `0x6169C7`-`0x6169CB` is `memset(buffer, 0, size)` over the whole allocation
+  before anything else touches it [verified].
+
+Everything else (stream buffers, the package writer's two buffers) is filled as before; `Zero=1` remains the rule.
+`skipClearN` / `skipClearMB` on the arena line count the requests and the dirty bytes not filled. In a game run the
+proof shows as saves and caches that load again; with `Verify=2` the tables are handed out as the 0xA7 pattern (the
+skip is off then), which exercises the same independence of the content: the saves of such a run must load too.
+`unwrittenN` cannot show it (the compressor does not write every slot; it only never reads the ones it did not
+write).
+
+### 21.4 Requests the module only passes on
+
+Run E: 445,557 requests under `MinKB` in 600 s cost 178.7 ms of this module's own code (0.40 us per request and its
+free) with `Stats` and `Timing` on. Of that, by reading the code [inferred, not measured separately]: `Timing` is
+eight clock reads and two more lock acquisitions per pair, roughly 0.2-0.25 us; `Stats` is the caller walk, one lock
+and the counters at the request and a table look-up under the lock at the free, most of the rest. With both off the
+request still took the module's lock, a clock read and the thread id only to count itself. That is now gone: a
+request under `MinKB` with `Stats` and `Timing` off goes straight to the game's allocator (no lock, no clock), and
+its free was already a range compare. The price is that `requests=` counts small requests only with `Stats=1`.
+
+## 22. A front for the small stream buffers: measured, designed, not built
+
+**The numbers** [measured, run E]: 445,557 requests under `MinKB` in 600 s, on which the game's allocator spent
+516.8 ms for the allocation and the free together: 1.16 us per pair, 0.86 ms per second of play. That is the ceiling.
+By size (an earlier 14 minute run, before `Grow`): 1,320,264 under 4 KB, 44,119 under 8 KB, 18,943 under 16 KB, 14,072
+under 32 KB, 16,530 under 64 KB, 9,759 under 128 KB: 93% under 4 KB. `Grow` has since removed more than half of these
+requests. How many small buffers are freed on another thread is not known; with `Stats=1` the module now follows
+every 64th of them to its free and prints the share and the average lifetime (`streambuf: small`).
+
+**The design that would fit** (if it were built):
+
+- size classes of 16 bytes to 4 KB in four steps per doubling (about 33 classes); larger requests stay with the game;
+- memory from one more small reservation (8 MB, placed by the same rule, below the arena), cut into 64 KB slabs, a
+  slab belonging to one class; ownership again a range compare, the class from a byte per slab;
+- one free list per class shared by all threads, lock-free (Windows' interlocked singly linked lists, the mechanism
+  of the kernel's lookaside lists), so that a free on another thread costs the same as one on the allocating thread.
+  Per-thread caches (mimalloc, tcmalloc) are faster on the same-thread path but need a thread-exit hook to give
+  memory back and a second path for cross-thread frees; this module has neither a reliable thread-exit moment nor
+  the traffic to pay for them;
+- an empty class takes a new slab; no slab free or a full reservation falls back to the game's allocator; slabs
+  whose blocks are all free are decommitted on idle;
+- the same two stream sites; `Zero` does not apply (the game's heap does not zero small blocks either).
+
+**The honest gain.** A shared lock-free list costs about 0.1-0.2 us per pair on the host class of machine, so the
+front would save about 1 us on each pair it serves: at most 0.7 ms per second of play with every small request
+served, less after `Grow`, spread evenly over time (these are not hitches). Against that: a third allocator with its
+own reservation, memory held in up to 33 partly used slab lists, and new code on the path every serialiser call
+goes through, where a mistake corrupts saves.
+
+**Recommendation: do not build it.** The gain is under a tenth of a percent of one core and not on a path anyone
+feels. It would be worth a second look only if a run showed the game's heap lock contended at these requests (time
+waiting, which the 516.8 ms of CPU time does not show), and that measurement belongs to the allocator work, not here.
