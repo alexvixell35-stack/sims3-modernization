@@ -20,6 +20,7 @@ namespace Ts3Agent
             RegisterCareerLadder(); // CareerLadderHandlers.cs
             RegisterHoldSims(); // HoldSimsHandlers.cs
             RegisterOutfitStress(); // OutfitStressHandlers.cs
+            RegisterThumbCensus(); // ThumbCensusHandlers.cs
             RegisterBoatGone(); // BoatGoneHandlers.cs
         }
 
