@@ -253,6 +253,26 @@ Same save loaded again in one session (`load_save reload:true`), forced GC befor
 - Not leaks: relationship keys of disposed Sims (0 in later hunts; the 7 of the first were deaths), vehicle orphans (1-4, cleared by the docs/542 fixes).
 - The `exception C0000005` logged at every exit was memdiag's own SEH-guarded walk of EA's core ring after the exe freed its heaps; the exit sample now skips the core and cache walks. Separate: quitting to the desktop can still fault in the exe (0x6E75D2, null +0x7C) and then in S3SS during teardown, after the last save.
 
+### Which activity grows EA's heap (`phasesoak`, 2026-11-11) [measured]
+
+One session per run, 8-minute phases, forced GC + `mem_mark` + `leak_census` after each (MB, after GC):
+
+| Phase | `eaCom` | ResourceCache held `rc` |
+|---|---|---|
+| start | 576 | 215 |
+| townie `outfit_change` (10 Sims every 20 s) | +34 | 446 |
+| `bad_tattoo` + `bad_makeover` | +37 | 522 |
+| `social_round` 40 pairs every 30 s | +12 | 457 |
+| idle (autopilot) | +1 | 460 |
+
+- Three outfit phases in a row: `eaCom` +35, +16, +18. Steady after the first, so not a one-time warm-up.
+- `[CasTrim] Mode=3` save sweep after the churn plus 32 idle minutes: 24112 compositors swept (registry 61610 -> 41334), `eaCom` unchanged (664 -> 679). This matches docs/539 §2.4: the entries are small and freed slots stay inside the core.
+- `[MemDiag] AllocSites=1`, same three outfit phases: the live heap was 778 -> 816 -> 812 MB, flat in the third phase, while new EA cores kept coming (+8 MB a phase from `EAStreamMemory/data` `0x4DEC17`, +4 from `Animation/ClipResource`). `0x4DEC17` allocated 2610 MB and freed 2600 MB in 24 min. So the growth is fragmentation, not live data. Transient stream buffers (resource data read for outfit builds) get mixed in with long-lived CAS geometry (`0x5C7906`, `0x5A2FFF`) and clips. EA's heap then adds cores and never returns them. The lever is the one in docs/201 §12.5: keep the transient big blocks away from the long-lived heap (top-down direct blocks or their own arena). That is the allocator area (Apex) [inferred: the fix itself is not built].
+
+### 32-bit Wine: ts3native's free / largest-free figures are wrong on Linux [verified, /proc maps]
+
+Under 32-bit (`i386-unix`, not WoW64) Wine, `VirtualQuery` reports the upper area that Wine hands back to the Unix side as one reserved block of 2047.9 MB at `0x80000000`. The real map (`/proc/<pid>/maps`, `tools/harness/linux-address-space.py`) at the same moment showed 1357-1385 MB free and a largest gap of 1118-1134 MB at `0x80000000`, while `diag: mem` showed `free` ~50 MB and `big` 16 MB. The game does allocate there (a 32 MB region at `0x80000000` in a hunt). So `big`, `free` and the "low address space" warning are false alarms on this setup. Unix-side use above 2 GB was 797 MB: GPU maps 168 MB, `libLLVM` 168 + `libgallium` 38 (the GL stack that `wined3d` pulls in, because `TS3W.exe` imports `DDRAW.dll` / `DirectDrawCreateEx`), PulseAudio 64 MB. Setting Wine's `Direct3D\renderer=vulkan` did not unload the GL stack and dropped the game's detected texture memory from 528 to 192 MB, so it was reverted.
+
 ## Ownership
 
 Script and mod leaks are ours to find; fixes in mods go upstream (NRaas: patches, never copied code, docs/184). Native engine leaks and cache caps are Apex Radiance's area (engine, allocator, memory): we measure and send PRs or reports. Our own code (worker threads, P5/P6 clone, pools) is checked by the same soak runs.
