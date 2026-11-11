@@ -249,7 +249,54 @@ class Probe:
             try: info['exitCode'] = '0x%08X' % (proc.wait(timeout=10) & 0xFFFFFFFF)
             except subprocess.TimeoutExpired: pass
         self.log(info)
+        # LOCAL (wrapper restart test, docs/530 s12): TS3_REATTACH=1 -> the game's own exit (no crash report) may be a restart:
+        # ts3wrap.exe starts TS3W.exe again. Look for the new process; none within 30 s = the old behaviour (probe ends).
+        if os.environ.get('TS3_REATTACH') == '1' and reason == 'process-terminated' and crash is None and self.alive and not getattr(self, 'reattaching', False):
+            self.reattaching = True
+            threading.Thread(target=self.reattach, args=(getattr(self, 'game_pid', None),), daemon=True).start()
+            return
         self.alive = False
+
+    def reattach(self, old_pid):
+        """Attach to the TS3W.exe the wrapper host started after a restart (new pid), load agent.js again, swap session/script/symbols.
+        Until the world is loaded again /status reports a state command as just sent: the restart is a requested mode exit."""
+        try:
+            t0, new = time.time(), None
+            while self.alive and time.time() - t0 < 30 and new is None:
+                try:
+                    p = frida.get_local_device().get_process(GAME_EXE)
+                    if p.pid != old_pid:
+                        new = (p.pid, frida.attach(p.pid))
+                except (frida.ProcessNotFoundError, frida.TransportError, frida.InvalidOperationError):
+                    pass
+                if new is None:
+                    time.sleep(0.25)
+            if new is None:
+                self.log({'kind': 'reattach', 'reason': 'no new TS3W.exe within 30 s', 'time': time.strftime('%Y-%m-%dT%H:%M:%S')})
+                self.alive = False
+                return
+            pid, session = new
+            self.game_pid = self.pid = pid
+            self.session = session
+            session.on('detached', self.on_detached)
+            self.script = session.create_script((ROOT / 'tools' / 'probe' / 'agent.js').read_text(encoding='utf-8'))
+            self.script.on('message', self.on_message)
+            self.script.load()
+            self.symbols = Symbols(self.script)
+            if self.args.exception_stacks:
+                self.script.exports_sync.enable_exceptions()
+            self.log({'kind': 'reattach', 'reason': f'attached to the restarted game, pid {pid}', 'pid': pid, 'time': time.strftime('%Y-%m-%dT%H:%M:%S')})
+            self.reattaching = False
+            t1 = time.time()
+            while self.alive and time.time() - t1 < 900:
+                self.state_cmd = ('restart', time.time())
+                try:
+                    if self.script.exports_sync.agent_status().get('worldLoaded') is True: break
+                except Exception: pass
+                time.sleep(5)
+        except Exception as e:
+            self.log({'kind': 'reattach', 'reason': f'failed: {type(e).__name__}: {e}', 'time': time.strftime('%Y-%m-%dT%H:%M:%S')})
+            self.alive = False
 
     def answer_startup_dialog(self):
         """Clicks Continue on the mod-version warning (MOD_VERSION_DIALOG) for up to 5 min after start, polling once a second."""
