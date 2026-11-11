@@ -352,6 +352,9 @@ namespace Ts3Agent
             // A household Sim leaves a young Sim alone (2026-11-07 al269 old save: "UWU cannot be left home alone. She needs a babysitter."
             // buttons 'Call Babysitter' / 'Stay Here'): no safe word, 60 s pause stop. Staying brings in no NPC and costs nothing.
             new[] { new[] { "cannot be left home alone", "needs a babysitter" }, new[] { "stay here" } },
+            // Romance prompt (2026-11-11 sp4 ip + sv soaks, active household: "Should we try for a baby?" buttons 'Yes!' / 'Eh... We should wait?'):
+            // no safe word, 60 s pause stop at 20 and 26 min. Accepting starts a pregnancy in a household Sim, so only the declining answer.
+            new[] { new[] { "try for a baby" }, new[] { "wait" } },
             new[] { new[] { "mod scripts found" }, new[] { "accept", "ok", "continue" } },
         };
 
