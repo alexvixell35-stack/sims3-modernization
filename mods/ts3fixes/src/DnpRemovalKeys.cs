@@ -4,11 +4,12 @@ using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Actors;
+using Sims3.Gameplay.CAS;
 using Sims3.Gameplay.DreamsAndPromises;
 
 namespace Ts3Fixes
 {
-    // dnppetkeys and dnpobjkeys (default off; errortrapsims' hourly alarm, one switch each; not save data): the wish manager's
+    // dnppetkeys and dnpobjkeys (default off; townie Sims only, household Sims' managers are skipped; errortrapsims' hourly alarm, one switch each; not save data): the wish manager's
     // mPotentialRemovalNodes (subject key -> nodes) is how ObjectDestroyedDelegate finds the nodes of a destroyed subject.
     // AddActiveNode files a new ActiveDreamNode under its subject key for subject types Sim (9), Pet (11), SimOrPet (12),
     // OutOfWorldSim (24) (key: the SimDescription id) and Object (5) (key: the GameObject). RemoveActiveNode(node, true)
@@ -52,6 +53,7 @@ namespace Ts3Fixes
                 List<object> deadKeys = new List<object>();
                 foreach (Sim s in new List<Sim>(Sims3.Gameplay.Queries.GetObjects<Sim>()))
                 {
+                    if (s == null || s.IsSelectable || s.Household == null || s.Household == Household.ActiveHousehold) continue;  // townie Sims only; unknown = household
                     object mgr = s == null ? null : sDrkSimMgr.GetValue(s);
                     IDictionary table = mgr == null ? null : sDrkRemoval.GetValue(mgr) as IDictionary;
                     IList active = mgr == null ? null : sDrkActive.GetValue(mgr) as IList;

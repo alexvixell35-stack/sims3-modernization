@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay.Actors;
+using Sims3.Gameplay.CAS;
 using Sims3.Gameplay.Routing;
 
 namespace Ts3Fixes
 {
-    // exitcbsweep (default off; runs in errortrapsims' hourly alarm under its own switch; not save data): every route action
+    // exitcbsweep (default off; townie Sims only, household Sims are skipped; runs in errortrapsims' hourly alarm under its own switch; not save data): every route action
     // that gets a ScriptAdaptor (ScriptAdaptor.Init, from FollowRouteAction.CreateAdaptors, e.g. in
     // VehicleFollowSubPathRouteAction.PerformAction) adds adaptor.RouteExitReasonsAddedCallback to Sim.OnExitReasonsAdded
     // of the adaptor's associated Sim. The only removal is ScriptAdaptor.Kill, reached through FollowRouteAction.Kill, which
@@ -46,6 +47,7 @@ namespace Ts3Fixes
                 int removed = 0, longest = 0;
                 foreach (Sim s in new List<Sim>(Sims3.Gameplay.Queries.GetObjects<Sim>()))
                 {
+                    if (s == null || s.IsSelectable || s.Household == null || s.Household == Household.ActiveHousehold) continue;  // townie Sims only; unknown = household
                     Delegate head = s == null ? null : sXcbEvent.GetValue(s) as Delegate;
                     if (head == null) continue;
                     Delegate[] list = head.GetInvocationList();
