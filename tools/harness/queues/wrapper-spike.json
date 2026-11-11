@@ -1,0 +1,25 @@
+{
+  "note": "wrapper-spike (docs/530 step 0): [Wrapper] Enabled=1, the game window as a child of ts3wrap.exe's host window. Needs out/ts3wrap.exe copied next to ts3native.asi in the game's Bin folder before the run. Correctness only. Pass: no crash, ts3native.log has 'OK   wrapper: game window', the Sims route and act as usual (the job's own checks). The window checklist of docs/530 step 0 (focus, alt-tab, minimize, resize) needs a person at the screen and is not part of this job.",
+  "jobs": [
+    {
+      "id": "bp-wrapper-spike",
+      "note": "BP Spring 6 min, seed 12345, release ini defaults + [Wrapper] Enabled=1, Back=1 (host behind the other windows).",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "Wrapper.Enabled": 1,
+        "Wrapper.Back": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 6
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25
+    }
+  ]
+}

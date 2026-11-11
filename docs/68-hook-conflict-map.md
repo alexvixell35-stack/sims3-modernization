@@ -260,6 +260,8 @@ Read-only literals in the same sources (no write): `0xF42400` is a size limit, n
 
 ---
 
+**Wrapper spike** (`wrapper.cpp`, docs/530 step 0, `[Wrapper] Enabled`, off by default) [verified: runs wsp2, wsp3, wsp4]: no code bytes are written. Eight user32 import slots of the exe are swapped, all or none, each keeping and chaining the old target (so another mod's hook on the same slot keeps working; a slot that already points outside user32 is logged): `0xF95864` CreateWindowExW, `0xF9587C` SetWindowLongA, `0xF958A0` MoveWindow, `0xF9589C` AdjustWindowRectEx, `0xF958F8` GetForegroundWindow, `0xF958F4` IsIconic, `0xF958F0` IsZoomed, `0xF958FC` ShowWindow. The CreateWindowExW hook acts only for the game window's one call (`0x4121CF` in the create function `0x4120C0`, return address `0x4121D5`; the six bytes `FF 15 64 58 F9 00` are checked at install, `SKIP` on a mismatch) and passes every other caller through. The other seven act only when the window handle is the game window. Conflict: any plugin that patches the call at `0x4121CF` itself or replaces the same slots without chaining; none of the installed ones does (§1) [inferred: hook-sites scan of this map, not of their binaries].
+
 Not a site: `0x00F00000` in `ts3native.cpp` is the upper bound of the exe code range the crash logger's stack scan reports (`[Crash] Log=1`, 0.12.1) [verified].
 
 Not sites either: `0x00E51000`, `0x00E51FC0` and `0x00E520C0` in `ts3native.cpp` `MonoFaultText` (0.36.92, docs/67 §22) are the bounds of the mint interpreter range and of its `callvirt` miss helper that the crash logger reads a fault's interpreter frame for; nothing is patched there.

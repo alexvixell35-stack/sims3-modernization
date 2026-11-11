@@ -14119,6 +14119,24 @@ static void TestCycles() {
            readNs, hz / 1e9, CycMsPerS(b1 - b0, 1.0), secs * 1000);
 }
 
+// [Wrapper] (wrapper.cpp): frame styles never reach the child window; a hooked import slot keeps and chains its old target
+static void TestWrapper() {
+    assert(WrChildStyle(0x00C80000) == WS_CHILD);  // EA's default style (ctor 0x411500)
+    assert(WrChildStyle(0x80080000 | WS_VISIBLE | WS_CLIPSIBLINGS) == (WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS));  // the fullscreen write of 0x4116F7
+    assert(WrChildStyle(WrChildStyle(0x00CF0000)) == WS_CHILD);
+    assert(WrChildEx(0x300 | WS_EX_ACCEPTFILES) == WS_EX_ACCEPTFILES);
+    void* old = (void*)TestWrapper;
+    void* slot = old;
+    void* orig = NULL;
+    assert(WrHookSlot(&slot, (void*)WrIsIconic, &orig) && slot == (void*)WrIsIconic && orig == old);
+    slot = NULL;
+    assert(!WrHookSlot(&slot, (void*)WrIsIconic, &orig) && !slot && orig == old);  // empty slot: nothing written
+    g_wrIconic = IsIconic;
+    g_wrForeground = GetForegroundWindow;
+    assert(!WrIsIconic(NULL) && WrGetForegroundWindow() == GetForegroundWindow());  // no game window: straight through
+    printf("wrapper: child styles, slot hook\n");
+}
+
 // [LauncherFix] (launcherfix.cpp): the TSLHost site as a tiny function; the patched bytes return 0x20 with a balanced stack
 static void TestLauncherFix() {
     u8* m = (u8*)VirtualAlloc(NULL, 0x4000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
@@ -14325,6 +14343,7 @@ int main() {
     TestMovedWaits();
     TestP6Waits();
     TestLauncherFix();
+    TestWrapper();
     puts("selftest ok");
     return 0;
 }
