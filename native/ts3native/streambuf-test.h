@@ -1,7 +1,8 @@
 // TestStreamBuf ([StreamBuf] streambuf.cpp, docs/547). Included by selftest.cpp. The stubs run against a fake allocator
-// (a vtable of its own over malloc / free) and fake SharedPointer objects; the pool's blocks are real VirtualAlloc
-// blocks. The patch test runs patched copies of the game's SharedPointer constructor and Release bytes (they call only
-// through the fake vtables); MemoryStream::Realloc's copy is patched and compared, not run (it calls game code).
+// (a vtable of its own over malloc / free) and fake SharedPointer objects; the arena is a real reservation in this
+// process. The patch tests run patched copies of the game's SharedPointer constructor and Release bytes (they call only
+// through the fake vtables) and each patched window of the compressor and the package writer on its own;
+// MemoryStream::Realloc's copy and the rest of those functions are patched and compared, not run (they call game code).
 struct StbtAlloc { void** vt; LONG allocs, frees, live; const char* lastName; };
 static void* __fastcall StbtA3(void* self, void*, DWORD size, const char* name, DWORD flags) {
     StbtAlloc* a = (StbtAlloc*)self;
@@ -25,41 +26,47 @@ static u8 g_stbtStream[0x28];  // a fake MemoryStream: +4 SharedPointer*, +0x14 
 static DWORD g_stbtNow, g_stbtWho;
 static DWORD StbtNow() { return g_stbtNow; }
 static DWORD StbtWhoFn(const DWORD*, const DWORD*, DWORD* via, DWORD* how) { return *via = g_stbtWho ? g_stbtWho + 0x100 : 0, *how = g_stbtWho ? 1 : 0, g_stbtWho; }
+static const DWORD* g_stbtFrame;  // what the stub handed the caller walk
+static DWORD StbtFrameFn(const DWORD* a, const DWORD*, DWORD* via, DWORD* how) { return g_stbtFrame = a, *via = 0, *how = 0, 0; }
 
 static u8* StbtGet(DWORD n) { return (u8*)StbAlloc(n, g_stbtStream, &g_stbtA, "t"); }
 static void StbtPut(u8* p) {
     StbtSp sp = {g_stbtSpVt, &g_stbtA, p, 1, 1};
     StbFree(&sp);
 }
-// Empty pool (every block must have been freed), counters 0, the given switches and sizes.
-static void StbtReset(LONG arm, DWORD budgetMB, DWORD minKB, DWORD maxBlkMB, DWORD idleMs) {
+static DWORD StbtOsCom() {
+    DWORD com = 0;
+    assert(StaOsView(&com));  // one reservation from end to end
+    return com;
+}
+// Empty arena of arenaMB (every block must have been freed; a reservation of another size is replaced), counters 0, the
+// given switches and sizes.
+static void StbtReset(LONG arm, DWORD arenaMB, DWORD minKB, DWORD maxBlkMB, DWORD idleMs) {
     InterlockedExchange(&g_stbArm, 0);
     StbTick(0);
-    assert(g_stb.ownedB == 0 && g_stb.idleB == 0 && g_stb.inUseB == 0 && g_stbHi == 0);
-    for (LONG w : g_stbOwn) assert(w == 0);
+    assert(g_sta.useN == 0 && g_sta.comN == 0 && g_sta.freeN == g_sta.n && g_stbHi == 0);
+    for (DWORD i = 0; i < g_sta.n; i++) assert(g_staSt[i] == 0);
+    if (g_sta.base && g_sta.n != arenaMB << 4) {
+        assert(StbtOsCom() == 0);
+        VirtualFree(g_sta.base, 0, MEM_RELEASE);
+        g_sta = Sta{};
+    }
     memset(&g_stb, 0, sizeof(g_stb)), memset(g_stbWho, 0, sizeof(g_stbWho)), memset(g_stbTid, 0, sizeof(g_stbTid)), memset(g_stbSz, 0, sizeof(g_stbSz));
-    g_stbBudget = budgetMB << 20, g_stbMin = minKB << 10, g_stbMaxBlock = maxBlkMB << 20, g_stbIdleMs = idleMs;
+    g_stbBudget = arenaMB << 20, g_stbMin = minKB << 10, g_stbMaxBlock = maxBlkMB << 20, g_stbIdleMs = idleMs;
+    assert(StaReserve(g_stbBudget, 0) && g_sta.n == arenaMB << 4 && g_sta.freeN == g_sta.n);
+    g_sta.peakUseN = g_sta.peakComN = 0;
     InterlockedExchange(&g_stbArm, arm);
 }
 
 static void StbtPolicy() {
     assert(StbCap(1) == 0x10000 && StbCap(0x10000) == 0x10000 && StbCap(0x10001) == 0x20000 && StbCap(1398384) == 0x160000 && StbCap(699320) == 0xB0000);
-    assert(StbFits(0x160000, 1398384) && StbFits(0xB0000, 699320));        // the block the request itself would make
-    assert(!StbFits(0x160000, 699320) && !StbFits(0xB0000, 1398384));      // a 1408 KB block never serves 704 KB, nor the reverse
-    assert(StbFits(0x160000, 0x130000) && !StbFits(0x160000, 0x110000));   // at most a quarter of the request to spare
-    assert(StbFits(0x20000, 0x10001) && !StbFits(0x30000, 0x10001) && !StbFits(0x10000, 0x10001));
-    g_stbMin = 128u << 10, g_stbMaxBlock = 8u << 20, g_stbBudget = 48u << 20;
-    assert(!StbPoolable((128u << 10) - 1) && StbPoolable(128u << 10) && StbPoolable(8u << 20) && !StbPoolable((8u << 20) + 1));
-    g_stbBudget = 1u << 20;
-    assert(StbPoolable(1u << 20) && !StbPoolable((1u << 20) + 1));  // never more than the whole pool
-    g_stbBudget = 48u << 20;
+    StbtReset(0, 4, 128, 8, 5000);
+    assert(!StbPoolable((128u << 10) - 1) && StbPoolable(128u << 10) && StbPoolable(4u << 20) && !StbPoolable((4u << 20) + 1));  // never more than the whole arena
+    g_stbMaxBlock = 1u << 20;
+    assert(StbPoolable(1u << 20) && !StbPoolable((1u << 20) + 1));
     assert(StbSzIx(0) == 0 && StbSzIx(4095) == 0 && StbSzIx(4096) == 1 && StbSzIx(1398384) == 9 && StbSzIx((16u << 20) - 1) == 12 && StbSzIx(16u << 20) == 13 && StbSzIx(0xFFFFFFFF) == 13);
-    // owner bitmap: one bit per 64 KB, only for an aligned pointer
-    assert(!StbOwned((void*)(uintptr_t)0x12340000));
-    StbOwn((void*)(uintptr_t)0x12340000, true);
-    assert(StbOwned((void*)(uintptr_t)0x12340000) && !StbOwned((void*)(uintptr_t)0x12340010) && !StbOwned((void*)(uintptr_t)0x12350000) && !StbOwned((void*)(uintptr_t)0x12330000));
-    StbOwn((void*)(uintptr_t)0x12340000, false);
-    assert(!StbOwned((void*)(uintptr_t)0x12340000));
+    // ours = inside the arena, by address only
+    assert(StaOwned(g_sta.base) && StaOwned(g_sta.base + (4u << 20) - 1) && !StaOwned(g_sta.base + (4u << 20)) && !StaOwned(g_sta.base - 1) && !StaOwned(NULL));
     // verify helpers
     u8 b[64];
     memset(b, 0xB5, sizeof(b));
@@ -73,6 +80,64 @@ static void StbtPolicy() {
     assert(StbUnwritten(b, 64, &first) == 32 && first == 24);  // groups at 24, 32 (not 40: one byte written), 48, 56
     memset(b, 1, sizeof(b));
     assert(StbUnwritten(b, 64, &first) == 0);
+}
+
+// StaPlace against free-range lists: made-up ones and the two measured in the game (in-process renderer, 45 s after the
+// start and at the end of a 12 minute travel run).
+static void StbtPlace() {
+    const DWORD M = 1u << 20, sz = 48 * M;
+    StaHole in, big;
+    DWORD fits;
+    assert(StaPlace(NULL, 0, sz, &in, &big, &fits) == 0 && fits == 0);
+    // start of a run: two middle ranges and the large one up to the top of the address space
+    const StaHole early[3] = {{0x6D473000, 96 * M}, {0x772D9000, 141 * M}, {0x95FF0000, 1692 * M}};
+    assert(StaPlace(early, 3, sz, &in, &big, &fits) == 0x95FF0000 + 1692 * M - sz && fits == 3 && in.base == 0x95FF0000 && big.base == 0x95FF0000);
+    // end of the run: only the large range is left; the arena sits at its top, so the range loses exactly 48 MB
+    const StaHole late[1] = {{0xB5AC0000, 1185 * M}};
+    DWORD at = StaPlace(late, 1, sz, &in, &big, &fits);
+    assert(at == 0xB5AC0000 + 1185 * M - sz && fits == 1 && !(at & 0xFFFF));
+    // a smaller range above the large one that fits: taken, the large one is untouched
+    const StaHole two[3] = {{0xF4000000, 64 * M}, {0xAC740000, 1035 * M}, {0xEE506000, 34 * M}};
+    at = StaPlace(two, 3, sz, &in, &big, &fits);
+    assert(at == 0xF4000000 + 16 * M && in.base == 0xF4000000 && big.base == 0xAC740000 && fits == 2);
+    // ends off the 64 KB grid: the block is placed down to a boundary and must still start inside the range
+    const StaHole odd[1] = {{0x10003000, sz + 0x1F000}};
+    assert(StaPlace(odd, 1, sz, &in, &big, &fits) == 0x10020000 && fits == 1);
+    const StaHole tight[1] = {{0x10003000, sz + 0xC000}};  // 48 MB long and more, but not from a boundary
+    assert(StaPlace(tight, 1, sz, &in, &big, &fits) == 0 && fits == 0 && big.base == 0x10003000);
+    const StaHole exact[2] = {{0x20000000, sz}, {0x10000000, sz - 0x10000}};
+    assert(StaPlace(exact, 2, sz, &in, &big, &fits) == 0x20000000 && fits == 1);
+    const StaHole top[1] = {{0xFD000000, 0x02FF0000}};  // up to the last user address: no overflow
+    assert(StaPlace(top, 1, 32 * M, &in, &big, &fits) == 0xFDFF0000 && fits == 1);
+    // the live map of this process: the scan finds free ranges, the placement is the top of one of them, and the
+    // reservation made from it is one region with nothing committed
+    // MinFreeMB: only a reservation inside the largest range is held against the floor
+    assert(StaFloorOk(late[0], late[0], sz, 1137) && !StaFloorOk(late[0], late[0], sz, 1138) && StaFloorOk(two[0], two[1], sz, 4000));
+    StbtReset(0, 4, 128, 8, 5000);
+    VirtualFree(g_sta.base, 0, MEM_RELEASE), g_sta = Sta{};
+    static StaHole h[256];
+    const DWORD n = StaScan(h, 256, 4 * M);
+    assert(n > 0);
+    for (DWORD i = 0; i < n; i++) {
+        assert(h[i].size >= 4 * M && (i == 0 || h[i].base >= h[i - 1].base + h[i - 1].size));
+        MEMORY_BASIC_INFORMATION mbi;
+        assert(VirtualQuery((void*)(uintptr_t)h[i].base, &mbi, sizeof(mbi)) && mbi.State == MEM_FREE);
+    }
+    at = StaPlace(h, n, 4 * M, &in, &big, &fits);
+    assert(at && at >= in.base && (u64)at + 4 * M <= (u64)in.base + in.size && (u64)at + 4 * M + 0x10000 > (u64)in.base + in.size && fits && fits <= n);
+    StbtReset(0, 4, 128, 8, 5000);  // StaReserve
+    assert(g_sta.how == 1 && (DWORD)(uintptr_t)g_sta.base == at && g_sta.hole.base == in.base && StbtOsCom() == 0);
+    MEMORY_BASIC_INFORMATION mbi;
+    assert(VirtualQuery(g_sta.base, &mbi, sizeof(mbi)) && mbi.AllocationBase == g_sta.base && mbi.RegionSize == 4 * M && mbi.State == MEM_RESERVE);
+    // no arena (the reservation failed or was refused): every request is the game's
+    VirtualFree(g_sta.base, 0, MEM_RELEASE), g_sta = Sta{};
+    InterlockedExchange(&g_stbArm, STB_POOL | STB_ZERO);
+    g_stbtA.allocs = g_stbtA.frees = 0;
+    u8* p = StbtGet(1398384);
+    assert(p && !StaOwned(p) && g_stbtA.allocs == 1 && g_stb.noArena == 1 && g_stb.fallback == 1);
+    StbtPut(p);
+    assert(g_stbtA.frees == 1);
+    InterlockedExchange(&g_stbArm, 0);
 }
 
 // StbCreator on a stack laid out as the byte-checked code leaves it.
@@ -103,72 +168,93 @@ static void StbtCreator() {
 }
 
 static void StbtBasic() {
-    const DWORD T5 = 1398384, T1 = 699320;  // 1024x1024 DXT5 / DXT1 with mips + DDS header
+    const DWORD T5 = 1398384, T1 = 699320, S5 = 22, S1 = 11;  // 1024x1024 DXT5 / DXT1 with mips + DDS header; their slices
+    const DWORD K = 0x10000;
     g_stbtA.allocs = g_stbtA.frees = g_stbtA.live = 0;
     g_stbtNow = 1000, g_stbtWho = 0x0072A2B4;
     memset(g_stbtStream, 0, sizeof(g_stbtStream));
     StbtReset(STB_POOL | STB_ZERO | STB_STATS, 4, 128, 2, 5000);
-    u8* p1 = StbtGet(T5);
-    assert(p1 && StbOwned(p1) && StbAllIs(p1, T5, 0) && g_stb.fresh == 1 && g_stb.served == 0 && g_stb.ownedB == 0x160000 && g_stb.inUseB == 0x160000 && g_stbtA.allocs == 0);
+    u8* const base = g_sta.base;
+    u8* p1 = StbtGet(T5);  // the lowest slices, committed now: zero pages
+    assert(p1 == base && StbAllIs(p1, T5, 0) && g_stb.fresh == 1 && g_stb.served == 0 && g_sta.comN == S5 && g_sta.useN == S5 && g_stbtA.allocs == 0);
+    assert(StbtOsCom() == S5 * K && g_stb.commitB == S5 * K);
     memset(p1, 0xEE, T5);
     g_stbtNow += 18;
     StbtPut(p1);
-    assert(g_stb.idleB == 0x160000 && g_stb.inUseB == 0 && g_stb.frees == 1 && g_stbtA.frees == 0 && StbOwned(p1) && p1[0] == 0xEE);
-    u8* p2 = StbtGet(T5);  // the same block again, zero-filled over the request
-    assert(p2 == p1 && StbAllIs(p2, T5, 0) && g_stb.served == 1 && g_stb.servedB == T5 && g_stb.zeroB == T5 && g_stb.idleB == 0);
+    assert(g_sta.useN == 0 && g_sta.comN == S5 && g_sta.freeN == 64 && g_stb.frees == 1 && g_stbtA.frees == 0 && p1[0] == 0xEE);  // free at once, still committed
+    u8* p2 = StbtGet(T5);  // the same slices again, zero-filled over the request, no system call
+    assert(p2 == p1 && StbAllIs(p2, T5, 0) && g_stb.served == 1 && g_stb.servedB == T5 && g_stb.zeroB == T5 && g_stb.commitB == S5 * K);
     u8* p3 = StbtGet(T1);
+    assert(p3 == base + S5 * K && g_stb.fresh == 2);
     StbtPut(p2);
-    u8* p4 = StbtGet(T1);  // the idle 1408 KB block does not serve a 704 KB request
-    assert(p3 && p4 && p4 != p2 && p3 != p4 && g_stb.fresh == 3 && g_stb.ownedB == 0x160000 + 2 * 0xB0000 && g_stb.idleB == 0x160000);
+    u8* p4 = StbtGet(T1);  // best fit: the 22 free slices at the bottom, not the 31 above p3; no commit needed
+    assert(p4 == base && g_stb.served == 2 && g_sta.comN == S5 + S1);
+    u8* p4b = StbtGet(T1);  // the rest of the old block: exactly 11 slices, the smallest run that fits
+    assert(p4b == base + S1 * K && g_stb.served == 3 && g_sta.freeN == 64 - 3 * S1);
     u8* s = StbtGet(1000);  // small: the game's allocator, the game's free
-    assert(s && !StbOwned(s) && g_stbtA.allocs == 1 && !strcmp(g_stbtA.lastName, "t"));
+    assert(s && !StaOwned(s) && g_stbtA.allocs == 1 && !strcmp(g_stbtA.lastName, "t"));
     StbtPut(s);
-    assert(g_stbtA.frees == 1 && g_stb.frees == 3 - 1);  // small blocks are not tracked: frees counts 128 KB+ only
+    assert(g_stbtA.frees == 1 && g_stb.frees == 2);  // small blocks are not tracked: frees counts 128 KB+ only
     u8* big = StbtGet(3u << 20);  // over MaxBlockMB: the game's path, tracked for Stats
-    assert(big && !StbOwned(big) && g_stb.tooBig == 1 && g_stbtA.allocs == 2 && g_stb.liveN == 3);
+    assert(big && !StaOwned(big) && g_stb.tooBig == 1 && g_stbtA.allocs == 2 && g_stb.liveN == 4);
     StbtPut(big);
-    assert(g_stbtA.frees == 2 && g_stb.liveN == 2);
+    assert(g_stbtA.frees == 2 && g_stb.liveN == 3);
+    // full arena: 31 slices are free, a 22-slice request fits once, the next goes to the game (fallback, not stranded)
     u8* p5 = StbtGet(T5);
-    assert(p5 == p2 && g_stb.served == 2);
-    u8* f = StbtGet(T5);  // 2.75 MB owned + 1.375 MB > 4 MB and nothing idle: the game's path
-    assert(f && !StbOwned(f) && g_stb.fallback == 1 && g_stbtA.allocs == 3);
+    assert(p5 == base + 3 * S1 * K && g_sta.freeN == 9);
+    u8* f = StbtGet(T5);
+    assert(f && !StaOwned(f) && g_stb.fallback == 1 && g_stb.stranded == 0 && g_stbtA.allocs == 3);
     StbtPut(f);
-    StbtPut(p3);
-    u8* p6 = StbtGet(T5);  // the idle 704 KB block is released to make room
-    assert(p6 && StbOwned(p6) && !StbOwned(p3) && g_stb.evicts == 1 && g_stb.fresh == 4 && g_stb.ownedB == 2 * 0x160000 + 0xB0000);
+    // stranded: 11 + 9 free slices in two runs do not serve 15 slices; they serve 9 (the smaller run first)
+    StbtPut(p4b);
+    f = StbtGet(15 * K);
+    assert(f && !StaOwned(f) && g_stb.fallback == 2 && g_stb.stranded == 1);
+    StbtPut(f);
+    u8* p6 = StbtGet(9 * K);
+    assert(p6 == base + (3 * S1 + S5) * K && g_sta.freeN == S1);
     StbtPut(p6);
     StbtPut(p6);  // freed twice: counted, nothing else happens
-    assert(g_stb.dfree == 1 && g_stb.idleB == 0x160000 && g_stbtA.frees == 3);
-    // idle release: a block goes IdleSec after its free, a block in use never
-    const DWORD freedAt = g_stbtNow;
-    g_stbtNow = freedAt + 4999, StbTick(g_stbtNow);
-    assert(StbOwned(p6) && g_stb.trims == 0);
-    g_stbtNow = freedAt + 5000, StbTick(g_stbtNow);
-    assert(!StbOwned(p6) && g_stb.trims == 1 && g_stb.idleB == 0 && g_stb.ownedB == 0x160000 + 0xB0000 && StbOwned(p5) && StbOwned(p4));
+    assert(g_stb.dfree == 1 && g_sta.freeN == S1 + 9 && g_stbtA.frees == 4);
+    StbtPut(p5 + K);  // a pointer into a block: never the game's free
+    assert(g_stb.dfree == 2 && g_stbtA.frees == 4 && g_sta.useN == 2 * S1 + S5);
+    // idle decommit: free slices go IdleSec after their free, slices in use never, and a neighbour freed later keeps its own clock
+    const DWORD t0 = g_stbtNow;  // p4b's and p6's slices were freed at t0
+    g_stbtNow = t0 + 3000;
+    StbtPut(p3);
+    g_stbtNow = t0 + 4999, StbTick(g_stbtNow);
+    assert(g_stb.decommits == 0 && g_sta.comN == 64);
+    g_stbtNow = t0 + 5000, StbTick(g_stbtNow);  // two runs: p4b's 11 slices and p6's 9
+    assert(g_stb.decommits == 2 && g_sta.comN == 64 - S1 - 9 && StbtOsCom() == (64 - S1 - 9) * K && g_staSt[S1] == 0 && g_staSt[2 * S1] == STA_COM);
+    g_stbtNow = t0 + 8000, StbTick(g_stbtNow);  // p3's slices
+    assert(g_stb.decommits == 3 && g_sta.comN == S1 + S5 && StbtOsCom() == (S1 + S5) * K);
+    u8* p7 = StbtGet(T1);  // decommitted slices are committed again: zeros without a fill (the 9-slice run is too small: the 22 free slices below p5)
+    const u64 zb = g_stb.zeroB;
+    assert(p7 == base + S1 * K && StbAllIs(p7, T1, 0) && g_stb.zeroB == zb && g_sta.comN == 2 * S1 + S5);
     // who row and the grow count (a stream that already has a buffer)
     *(DWORD*)(g_stbtStream + 4) = 1, *(DWORD*)(g_stbtStream + 0x14) = 5000;
     u8* g = StbtGet(9000);
     *(DWORD*)(g_stbtStream + 4) = 0;
     StbtPut(g);
     assert(g_stb.grows == 1 && g_stb.growB == 5000 && g_stbWho[1].at == 0x0072A2B4 && g_stbWho[1].via == 0x0072A3B4 && g_stbWho[1].how == 1 && g_stbWho[1].grows == 1);
-    assert(g_stbWho[1].n == g_stb.reqs && g_stbWho[1].maxReq == 3u << 20 && g_stbWho[1].liveN == 2 && g_stbWho[1].frees == g_stb.frees && g_stbWho[1].peakB >= 2 * T5);
-    assert(g_stbSz[StbSzIx(T5)] == 5 && g_stbSz[0] == 1 && g_stbTid[1].tid == GetCurrentThreadId() && g_stbTid[1].allocs == g_stb.big && g_stb.xfree == 0);
-    assert(g_stbWho[1].lifeMs >= 18 && g_stbWho[1].quick == g_stbWho[1].frees);
-    // run-time kill switch: requests go to the game, a pool block still comes home and is released by the tick
+    assert(g_stbWho[1].n == g_stb.reqs && g_stbWho[1].maxReq == 3u << 20 && g_stbWho[1].liveN == 3 && g_stbWho[1].frees == g_stb.frees && g_stbWho[1].peakB >= 2 * T5);
+    assert(g_stbSz[StbSzIx(T5)] == 4 && g_stbSz[0] == 1 && g_stbTid[1].tid == GetCurrentThreadId() && g_stbTid[1].allocs == g_stb.big && g_stb.xfree == 0);
+    assert(g_stbWho[1].lifeMs >= 18 && g_stbWho[1].quick == g_stbWho[1].frees - 1);  // all but p3 lived under a second
+    assert(g_sta.peakUseN == 3 * S1 + S5 && g_sta.peakComN == 64);
+    // run-time kill switch: requests go to the game, an arena block still comes home and the tick decommits everything free
     InterlockedExchange(&g_stbArm, 0);
     u8* k = StbtGet(T5);
-    assert(k && !StbOwned(k) && g_stbtA.live == 1);
+    assert(k && !StaOwned(k) && g_stbtA.live == 1);
     StbtPut(k);
     StbtPut(p5);
-    assert(g_stbtA.live == 0 && g_stb.idleB == 0x160000);
+    assert(g_stbtA.live == 0 && g_sta.useN == 2 * S1);
     StbTick(g_stbtNow);
-    assert(!StbOwned(p5) && g_stb.ownedB == 0xB0000);
-    // process exit: a free of a pool block takes no lock and does nothing
+    assert(g_sta.comN == 2 * S1 && StbtOsCom() == 2 * S1 * K);
+    // process exit: a free of an arena block takes no lock and does nothing
     InterlockedExchange(&g_stbDetached, 1);
     StbtPut(p4);
-    assert(g_stb.inUseB == 0xB0000 && StbOwned(p4));
+    assert(g_sta.useN == 2 * S1);
     InterlockedExchange(&g_stbDetached, 0);
-    StbtPut(p4);
+    StbtPut(p4), StbtPut(p7);
 
     // Verify 1: a freed block is poisoned; a write after the free is seen at the reuse; the block is handed out zeroed
     StbtReset(STB_POOL | STB_ZERO | STB_VERIFY, 4, 128, 2, 5000);
@@ -179,8 +265,11 @@ static void StbtBasic() {
     assert(StbtGet(T5) == v && StbAllIs(v, T5, 0) && g_stb.uafw == 0);
     StbtPut(v);
     v[0x1234] = 7;  // use after free
-    assert(StbtGet(T5) == v && g_stb.uafw == 1 && StbAllIs(v, T5, 0));
-    StbtPut(v);
+    assert(StbtGet(T1) == v && g_stb.uafw == 1 && StbAllIs(v, T1, 0));  // seen by the smaller block that takes the slice
+    v[S1 * K + 5] = 7;  // and in a slice the smaller block did not take: seen when that one is reused
+    u8* v2 = StbtGet(T1);
+    assert(v2 == v + S1 * K && g_stb.uafw == 2);
+    StbtPut(v), StbtPut(v2);
     // Verify 2: handed out as the pattern; what was never written is counted at the free
     StbtReset(STB_POOL | STB_ZERO | STB_VERIFY | STB_VERIFY2, 4, 128, 2, 5000);
     v = StbtGet(T5);
@@ -192,10 +281,18 @@ static void StbtBasic() {
     memset(v, 0x22, T5);
     StbtPut(v);
     assert(g_stb.unwrittenN == 1);
-    // Stats alone: nothing pooled, lifetimes of the game's own 128 KB+ blocks
+    // Zero=0: a reused slice keeps the old bytes, a newly committed one is zeros
+    StbtReset(STB_POOL, 4, 128, 2, 5000);
+    v = StbtGet(T1);
+    memset(v, 0x33, T1);
+    StbtPut(v);
+    v = StbtGet(T5);
+    assert(StbAllIs(v, T1, 0x33) && StbAllIs(v + S1 * K, T5 - S1 * K, 0) && g_stb.zeroB == 0);
+    StbtPut(v);
+    // Stats alone: nothing from the arena, lifetimes of the game's own 128 KB+ blocks
     StbtReset(STB_STATS, 4, 128, 2, 5000);
     u8* e = StbtGet(T5);
-    assert(e && !StbOwned(e) && g_stb.liveN == 1 && g_stb.ownedB == 0 && g_stbWho[1].liveB == T5);
+    assert(e && !StaOwned(e) && g_stb.liveN == 1 && g_sta.useN == 0 && g_stbWho[1].liveB == T5);
     g_stbtNow += 1500;
     StbtPut(e);
     assert(g_stb.liveN == 0 && g_stb.frees == 1 && g_stbWho[1].lifeMs == 1500 && g_stbWho[1].quick == 0 && g_stbHi == 0);
@@ -204,117 +301,132 @@ static void StbtBasic() {
     assert(g_stbtA.live == 0);
 }
 
-// Randomized run against the policy written the plain way. Fixed seed.
-struct StbtLive { u8* p; DWORD n; bool pooled; u8 sig; };
-struct StbtIdle { u8* p; DWORD cap, t; };
+// Randomized run against the arena written the plain way (one state per slice). Fixed seed.
+struct StbtLive { u8* p; DWORD n; int at; u8 sig; };  // at = first slice, -1 = the game's block
 static void StbtModel() {
+    enum { N = 12 * 16 };  // 12 MB
     static StbtLive live[600];
-    static StbtIdle idle[600];
-    DWORD liveN = 0, idleN = 0, owned = 0, seed = 0x5B0001;
+    static u8 mSt[N];      // 0 free and decommitted, 1 free and committed, 2 in a block
+    static DWORD mT[N];
+    memset(mSt, 0, sizeof(mSt));
+    DWORD liveN = 0, seed = 0x5B0001;
     auto rnd = [&seed]() { seed = seed * 1664525u + 1013904223u; return seed >> 8; };
-    static const DWORD kSizes[6] = {1398384, 699320, 131072, 300000, 349680, 2796344};
-    StbtReset(STB_POOL | STB_ZERO, 12, 128, 2, 2000);
+    static const DWORD kSizes[8] = {1398384, 699320, 589824, 2818048, 3538944, 4194304, 5636096, 524288};
+    StbtReset(STB_POOL | STB_ZERO, 12, 128, 6, 2000);
     g_stbtA.allocs = g_stbtA.frees = g_stbtA.live = 0;
-    DWORD served = 0, fresh = 0, fallback = 0, trims = 0, evicts = 0, gameLive = 0;
-    for (int step = 0; step < 6000; step++) {
+    DWORD served = 0, fresh = 0, fallback = 0, stranded = 0, decommits = 0, gameLive = 0, tooBig = 0;
+    for (int step = 0; step < 8000; step++) {
         g_stbtNow += 1 + rnd() % 300;
-        const DWORD op = step % 1000 < 60 ? 0 : rnd() % 100;  // a burst of requests every 1000 steps fills the pool
-        if (op < (liveN < 10 ? 60u : 35u) && liveN < 600) {  // about ten buffers live between the bursts
-            const DWORD r = rnd() % 10, n = r < 6 ? kSizes[rnd() % 6] : r < 8 ? 65536 + rnd() % (3u << 20) : 1 + rnd() % 100000;
-            // the model's answer
+        const DWORD op = step % 1000 < 40 ? 0 : rnd() % 100;  // a burst of requests every 1000 steps fills the arena
+        if (op < (liveN < 8 ? 60u : 35u) && liveN < 600) {
+            const DWORD r = rnd() % 10, n = r < 7 ? kSizes[rnd() % 8] : r < 9 ? 65536 + rnd() % (3u << 20) : 1 + rnd() % 100000;
+            const DWORD k = StbCap(n) >> 16;
+            // the model's answer: the smallest free run of at least k slices, the lowest on a tie
             int pick = -1;
+            DWORD pickLen = ~0u, freeN = 0;
             bool expFresh = false;
-            if (StbPoolable(n)) {
-                for (DWORD i = 0; i < idleN; i++)
-                    if (StbFits(idle[i].cap, n) && (pick < 0 || idle[i].cap < idle[pick].cap || (idle[i].cap == idle[pick].cap && idle[i].t > idle[pick].t))) pick = (int)i;
-                if (pick < 0) {
-                    const DWORD cap = StbCap(n);
-                    while (owned + cap > g_stbBudget && idleN) {
-                        DWORD old = 0;
-                        for (DWORD i = 1; i < idleN; i++)
-                            if (idle[i].t < idle[old].t) old = i;
-                        assert(StbOwned(idle[old].p));
-                        owned -= idle[old].cap, idle[old] = idle[--idleN], evicts++;
-                    }
-                    if (owned + cap <= g_stbBudget) expFresh = true, owned += cap, fresh++; else fallback++;
+            const bool poolable = n >= 128u << 10 && n <= 6u << 20;
+            if (poolable) {
+                for (DWORD i = 0; i < N;) {
+                    if (mSt[i] == 2) { i++; continue; }
+                    DWORD j = i;
+                    while (j < N && mSt[j] != 2) j++;
+                    freeN += j - i;
+                    if (j - i >= k && j - i < pickLen) pick = (int)i, pickLen = j - i;
+                    i = j;
                 }
-            }
+                if (pick < 0) fallback++, stranded += freeN >= k;
+                else {
+                    for (DWORD i = 0; i < k; i++) expFresh |= mSt[pick + i] == 0, mSt[pick + i] = 2;
+                    if (expFresh) fresh++; else served++;
+                }
+            } else tooBig += n > 6u << 20;
             u8* const p = StbtGet(n);
             assert(p);
-            if (pick >= 0) assert(p == idle[pick].p), idle[pick] = idle[--idleN], served++;
-            else if (expFresh) {
-                assert(StbOwned(p));
-                for (DWORD i = 0; i < liveN; i++) assert(live[i].p != p);
-                for (DWORD i = 0; i < idleN; i++) assert(idle[i].p != p);
-            } else assert(!StbOwned(p)), gameLive++;
-            const bool pooled = pick >= 0 || expFresh;
-            if (pooled) assert(StbAllIs(p, n, 0));  // a pooled block always starts as zeros (Zero=1)
+            if (pick >= 0) assert(p == g_sta.base + ((DWORD)pick << 16) && StbAllIs(p, n, 0));  // the model's slices, and always zeros (Zero=1)
+            else assert(!StaOwned(p)), gameLive++;
             const u8 sig = (u8)(1 + rnd() % 250);
             memset(p, sig, n);
-            live[liveN++] = StbtLive{p, n, pooled, sig};
+            live[liveN++] = StbtLive{p, n, pick, sig};
         } else if (op < 94 && liveN) {
             const DWORD i = rnd() % liveN;
             const StbtLive l = live[i];
             assert(StbAllIs(l.p, l.n, l.sig));  // nobody else was given these bytes
             live[i] = live[--liveN];
             StbtPut(l.p);
-            if (l.pooled) idle[idleN++] = StbtIdle{l.p, StbCap(l.n) /* replaced below */, g_stbtNow};
-            else gameLive--;
-            if (l.pooled) {  // the block keeps the size it was made with, which may be larger than this request's own
-                DWORD cap = 0;
-                for (DWORD k = 0; k < g_stbHi; k++)
-                    if (g_stbBlk[k].p == l.p) cap = g_stbBlk[k].cap;
-                assert(cap && StbFits(cap, l.n));
-                idle[idleN - 1].cap = cap;
-            }
+            if (l.at < 0) gameLive--;
+            else
+                for (DWORD s = 0; s < StbCap(l.n) >> 16; s++) mSt[l.at + s] = 1, mT[l.at + s] = g_stbtNow;
         } else {
             StbTick(g_stbtNow);
-            for (DWORD i = 0; i < idleN;)
-                if (g_stbtNow - idle[i].t >= 2000) { assert(!StbOwned(idle[i].p)); owned -= idle[i].cap, idle[i] = idle[--idleN], trims++; }
-                else assert(StbOwned(idle[i].p)), i++;
+            for (DWORD i = 0; i < N; i++) {
+                const bool idle = mSt[i] == 1 && g_stbtNow - mT[i] >= 2000;
+                if (idle && (i == 0 || mSt[i - 1] != 0xFF)) decommits++;  // one system call per run of idle slices
+                if (idle) mSt[i] = 0xFF;
+            }
+            for (DWORD i = 0; i < N; i++)
+                if (mSt[i] == 0xFF) mSt[i] = 0;
         }
-        DWORD idleB = 0;
-        for (DWORD i = 0; i < idleN; i++) idleB += idle[i].cap;
-        assert(g_stb.ownedB == owned && g_stb.idleB == idleB && g_stb.inUseB == owned - idleB && owned <= g_stbBudget);
-        assert(g_stb.served == served && g_stb.fresh == fresh && g_stb.fallback == fallback && g_stb.trims == trims && g_stb.evicts == evicts);
+        DWORD use = 0, com = 0;
+        for (DWORD i = 0; i < N; i++) {
+            use += mSt[i] == 2, com += mSt[i] != 0;
+            assert(g_staSt[i] == (mSt[i] == 2 ? (g_staSt[i] & STA_HEAD) | STA_USED | STA_COM : mSt[i] == 1 ? STA_COM : 0));
+        }
+        assert(g_sta.useN == use && g_sta.comN == com && g_sta.freeN == N - use);
+        assert(g_stb.served == served && g_stb.fresh == fresh && g_stb.fallback == fallback && g_stb.stranded == stranded && g_stb.decommits == decommits && g_stb.tooBig == tooBig);
         assert((DWORD)g_stbtA.live == gameLive && !g_stb.dfree && !g_stb.lost && !g_stb.vaFail && !g_stb.uafw);
+        if (step % 250 == 0) assert(StbtOsCom() == com << 16);  // the OS agrees: one reservation, these slices committed
     }
-    printf("streambuf model: 6000 steps, %lu reused, %lu new blocks, %lu to the game (pool full), %lu idle releases, %lu evictions\n", served, fresh, fallback, trims, evicts);
-    assert(served > 500 && fresh > 100 && fallback > 10 && trims > 10 && evicts > 10);  // every path was taken
+    printf("streambuf model: 8000 steps in a 12 MB arena: %lu served without a system call, %lu with a commit, %lu to the game (%lu of them with enough free "
+           "slices but no run), %lu decommits, peak in use %.1f MB\n", served, fresh, fallback, stranded, decommits, g_sta.peakUseN / 16.0);
+    assert(served > 500 && fresh > 100 && fallback > 10 && stranded > 0 && decommits > 10);  // every path was taken
     while (liveN) liveN--, assert(StbAllIs(live[liveN].p, live[liveN].n, live[liveN].sig)), StbtPut(live[liveN].p);
-    StbtReset(0, 48, 128, 8, 5000);  // asserts: nothing owned, every owner bit clear
+    StbtReset(0, 48, 128, 8, 5000);  // asserts: nothing in use, nothing committed
     assert(g_stbtA.live == 0 && g_stbtA.allocs == g_stbtA.frees);
 }
 
-// Four threads allocate, fill, check and free; blocks are handed to the next thread's free through a shared slot.
+// Four threads allocate, fill, check and free; blocks are handed to the next thread's free through a shared slot, and
+// the upkeep tick decommits beside them.
 static u8* volatile g_stbtHand[4];
+static volatile LONG g_stbtStop;
 static DWORD WINAPI StbtWorker(void* arg) {
     const DWORD me = (DWORD)(uintptr_t)arg;
     DWORD seed = 77 + me;
+    static const DWORD kN[4] = {699320, 1398384, 699320, 3538944};
     for (int i = 0; i < 3000; i++) {
         seed = seed * 1664525u + 1013904223u;
-        const DWORD n = (seed >> 9) % 3 ? 699320 : 1398384;
+        const DWORD n = kN[(seed >> 9) & 3];
         u8* p = StbtGet(n);
-        assert(p && (!StbOwned(p) || StbAllIs(p, 64, 0)));
-        memset(p, (int)(me + 1), 4096);
+        assert(p && (!StaOwned(p) || (StbAllIs(p, 64, 0) && StbAllIs(p + n - 64, 64, 0))));
+        memset(p, (int)(me + 1), 4096), memset(p + n - 64, (int)(me + 1), 64);
         p = (u8*)InterlockedExchangePointer((void* volatile*)&g_stbtHand[(me + 1) & 3], p);  // the neighbour frees ours
-        if (p) StbtPut(p);
+        if (p) assert(p[0] == p[4095] && p[0] >= 1 && p[0] <= 4), StbtPut(p);
     }
     return 0;
 }
+static DWORD WINAPI StbtTicker(void*) {
+    while (!g_stbtStop) StbTick(StbNowMs()), Sleep(1);
+    return 0;
+}
 static void StbtThreads() {
-    StbtReset(STB_POOL | STB_ZERO | STB_STATS, 16, 128, 2, 5000);
+    StbtReset(STB_POOL | STB_ZERO | STB_STATS, 16, 128, 4, 3);  // idle 3 ms: decommits race the requests
     g_stbNow = StbNowMs;
-    HANDLE h[4];
+    g_stbtStop = 0;
+    HANDLE h[4], tk = CreateThread(NULL, 0, StbtTicker, NULL, 0, NULL);
     for (DWORD i = 0; i < 4; i++) h[i] = CreateThread(NULL, 0, StbtWorker, (void*)(uintptr_t)i, 0, NULL);
     WaitForMultipleObjects(4, h, TRUE, INFINITE);
+    g_stbtStop = 1;
+    WaitForSingleObject(tk, INFINITE), CloseHandle(tk);
     for (DWORD i = 0; i < 4; i++) {
         CloseHandle(h[i]);
         if (g_stbtHand[i]) StbtPut(g_stbtHand[i]), g_stbtHand[i] = NULL;
     }
     g_stbNow = StbtNow;
-    assert(g_stb.inUseB == 0 && g_stb.liveN == 0 && !g_stb.dfree && !g_stb.lost && g_stb.reqs == 12000 && g_stb.frees == 12000 && g_stb.xfree > 0);
-    assert(g_stb.served + g_stb.fresh + g_stb.fallback == 12000 && g_stb.served > 10000 && g_stb.peakInUseB <= 16u << 20);
+    assert(g_sta.useN == 0 && g_stb.liveN == 0 && !g_stb.dfree && !g_stb.lost && !g_stb.vaFail && g_stb.reqs == 12000 && g_stb.frees == 12000 && g_stb.xfree > 0);
+    assert(g_stb.served + g_stb.fresh + g_stb.fallback == 12000 && g_stb.served + g_stb.fresh > 10000 && g_sta.peakUseN <= 16 * 16);
+    assert(StbtOsCom() == g_sta.comN << 16);
+    printf("streambuf threads: 12000 requests on 4 threads, %llu without a system call, %llu with a commit, %llu to the game, %lu decommits beside them\n",
+           g_stb.served, g_stb.fresh, g_stb.fallback, g_stb.decommits);
     StbtReset(0, 48, 128, 8, 5000);
     assert(g_stbtA.live == 0);
 }
@@ -342,8 +454,44 @@ static void* StbtCall(void* a_fn, void* a_this, DWORD a1, void* a2, const void* 
     assert(e0 == e1);  // the patched code left the stack as the original does
     return r;
 }
+// Runs one patched window (a `ret` was written behind it) with the registers and the two frame slots the game's code
+// has there: [esp+18h] and [esp+1Ch] as the window sees them. The window must leave the stack and ebx / esi / edi as it
+// found them.
+struct StbtRegs { DWORD eax, ecx, ebx, esi, edi, s18, s1c; };
+static void* StbtRun(void* a_at, const StbtRegs& a_r) {
+    void* r;
+    DWORD e0, e1, si1, bx1, di1;
+    const DWORD vA = a_r.eax, vC = a_r.ecx, vB = a_r.ebx, vS = a_r.esi, vD = a_r.edi, s18 = a_r.s18, s1c = a_r.s1c;
+    __asm {
+        push edi
+        push esi
+        push ebx
+        mov e0, esp
+        push s1c
+        push s18
+        sub esp, 0x14
+        mov eax, vA
+        mov ecx, vC
+        mov ebx, vB
+        mov esi, vS
+        mov edi, vD
+        call a_at
+        mov r, eax
+        add esp, 0x1C
+        mov e1, esp
+        mov si1, esi
+        mov bx1, ebx
+        mov di1, edi
+        pop ebx
+        pop esi
+        pop edi
+    }
+    assert(e0 == e1 && si1 == vS && bx1 == vB && di1 == vD);
+    return r;
+}
+static void* StbtRunC(void* at, void* alloc, DWORD cx) { return StbtRun(at, StbtRegs{0, cx, 0x0B0B0B0B, 0x51515151, (DWORD)(uintptr_t)alloc, 0, 0}); }  // a compressor window: edi = the allocator
 static void StbtPatch() {
-    u8* x = (u8*)VirtualAlloc(NULL, 0x1000, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    u8* x = (u8*)VirtualAlloc(NULL, 0x2000, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
     assert(x);
     u8 *ctor = x, *rel = x + 0x100, *re = x + 0x200;
     memcpy(ctor, kStbCtor, sizeof(kStbCtor)), memcpy(rel, kStbRel, sizeof(kStbRel)), memcpy(re, kStbRealloc, sizeof(kStbRealloc));
@@ -367,48 +515,191 @@ static void StbtPatch() {
         assert((uintptr_t)w + at + 6 + *(LONG*)(w + at + 2) == (uintptr_t)&StbFree);
     }
     assert(STB_CTOR + STB_CTOR_AT + 12 == 0x004DEC17 && STB_REL + STB_REL_AT == 0x004DEA99 && STB_REALLOC + STB_REALLOC_AT == 0x004DEEF9);
-    // the patched constructor: a pooled buffer, the fields as the game's code leaves them
+    // the patched constructor: a buffer from the arena, the fields as the game's code leaves them
     StbtReset(STB_POOL | STB_ZERO, 48, 128, 8, 5000);
     g_stbtA.allocs = g_stbtA.frees = g_stbtA.live = 0, g_stbtSpDeletes = 0;
     StbtSp sp = {};
     assert(StbtCall(ctor, &sp, 1398384, &g_stbtA, "name", g_stbtStream, 3) == &sp);
-    assert((DWORD)(uintptr_t)sp.vt == 0x00FB84D0 && sp.alloc == &g_stbtA && sp.data && StbOwned(sp.data) && sp.ref == 0 && sp.freeData == 1 && g_stb.fresh == 1);
+    assert((DWORD)(uintptr_t)sp.vt == 0x00FB84D0 && sp.alloc == &g_stbtA && sp.data && StaOwned(sp.data) && sp.ref == 0 && sp.freeData == 1 && g_stb.fresh == 1);
     u8* const d = sp.data;
-    // the patched Release: a reference left = only the count drops; the last one = the buffer to the pool, then the object's destructor
+    // the patched Release: a reference left = only the count drops; the last one = the buffer to the arena, then the object's destructor
     sp.vt = g_stbtSpVt, sp.ref = 2;
     StbtCall(rel, &sp, 0, NULL, NULL, NULL, 0);
     assert(sp.ref == 1 && g_stb.frees == 0 && g_stbtSpDeletes == 0);
-    assert(StbtCall(rel, &sp, 0, NULL, NULL, NULL, 0) == NULL && g_stb.frees == 1 && g_stb.idleB == 0x160000 && g_stbtSpDeletes == 1 && g_stbtA.frees == 0);
+    assert(StbtCall(rel, &sp, 0, NULL, NULL, NULL, 0) == NULL && g_stb.frees == 1 && g_sta.useN == 0 && g_sta.comN == 22 && g_stbtSpDeletes == 1 && g_stbtA.frees == 0);
+    // the caller walk is handed the stack as the patched constructor left it (the "who" rows were empty in the game: the
+    // walk had been given the address of a copy of the first argument): the stub's four arguments, the constructor's
+    // saved esi and return, then the constructor's own three arguments
+    g_stbWhoFn = StbtFrameFn, g_stbtFrame = NULL;
+    static const char kName[] = "frame";
+    StbtSp spf = {};
+    StbtCall(ctor, &spf, 1398384, &g_stbtA, kName, g_stbtStream, 3);
+    const DWORD* a = g_stbtFrame;
+    assert(a && a[0] == 1398384 && a[1] == (DWORD)(uintptr_t)g_stbtStream && a[2] == (DWORD)(uintptr_t)&g_stbtA && a[3] == (DWORD)(uintptr_t)kName);
+    assert(a[6] == 1398384 && a[7] == (DWORD)(uintptr_t)&g_stbtA && a[8] == (DWORD)(uintptr_t)kName);
+    g_stbWhoFn = StbtWhoFn;
+    spf.vt = g_stbtSpVt, spf.ref = 1;
+    StbtCall(rel, &spf, 0, NULL, NULL, NULL, 0);
     // a small buffer through the same code: the game's allocator with the stream's name, the game's free
     StbtSp sp2 = {};
     StbtCall(ctor, &sp2, 4000, &g_stbtA, "small", g_stbtStream, 3);
-    assert(sp2.data && !StbOwned(sp2.data) && g_stbtA.allocs == 1 && !strcmp(g_stbtA.lastName, "small") && sp2.freeData == 1);
+    assert(sp2.data && !StaOwned(sp2.data) && g_stbtA.allocs == 1 && !strcmp(g_stbtA.lastName, "small") && sp2.freeData == 1);
     sp2.vt = g_stbtSpVt, sp2.ref = 1;
     StbtCall(rel, &sp2, 0, NULL, NULL, NULL, 0);
-    assert(g_stbtA.frees == 1 && g_stbtSpDeletes == 2);
+    assert(g_stbtA.frees == 1 && g_stbtSpDeletes == 3);
     // "free the data" byte clear (a buffer the stream does not own): no free at all
     StbtSp sp3 = {g_stbtSpVt, &g_stbtA, d, 1, 0};
     StbtCall(rel, &sp3, 0, NULL, NULL, NULL, 0);
-    assert(g_stbtA.frees == 1 && g_stb.dfree == 0 && g_stbtSpDeletes == 3);
-    // the watch: a site another module rewrote stops the module
+    assert(g_stbtA.frees == 1 && g_stb.dfree == 0 && g_stbtSpDeletes == 4);
+
+    // Scratch: the compressor. A foreign byte: nothing written. Then the four windows and nothing else.
+    u8* comp = x + 0x400;
+    memcpy(comp, kStbComp, sizeof(kStbComp));
+    comp[0x100] ^= 1;
+    assert(!StbInstallScratch(comp) && !g_stbPatch[3].at);
+    comp[0x100] ^= 1;
+    assert(!memcmp(comp, kStbComp, sizeof(kStbComp)) && StbInstallScratch(comp));
+    g_stbScratchIn = true;  // as ApplyStreamBuf records it
+    static const struct { DWORD at, n; } kWin[4] = {{STB_COMP_A1, 16}, {STB_COMP_A2, 19}, {STB_COMP_F1, 12}, {STB_COMP_F2, 12}};
+    DWORD prev = 0;
+    for (const auto& w : kWin) {
+        assert(!memcmp(comp + prev, kStbComp + prev, w.at - prev) && memcmp(comp + w.at, kStbComp + w.at, w.n));
+        prev = w.at + w.n;
+    }
+    assert(!memcmp(comp + prev, kStbComp + prev, sizeof(kStbComp) - prev));
+    assert(STB_COMP + STB_COMP_A1 + 16 == 0x004EC122 && STB_COMP + STB_COMP_A2 + 19 == 0x004EC140 && STB_COMP + STB_COMP_F1 + 12 == 0x004EC1C5 && STB_COMP + STB_COMP_F2 + 12 == 0x004EC1DA);
+    assert(comp[STB_COMP_A1 + 11] == 0xE8 && (uintptr_t)comp + STB_COMP_A1 + 16 + *(LONG*)(comp + STB_COMP_A1 + 12) == (uintptr_t)&StbScratchAlloc);  // the calls end where the game's ended
+    assert(comp[STB_COMP_A2 + 14] == 0xE8 && (uintptr_t)comp + STB_COMP_A2 + 19 + *(LONG*)(comp + STB_COMP_A2 + 15) == (uintptr_t)&StbScratchAlloc);
+    assert(!memcmp(comp + STB_COMP_A2, kStbComp + STB_COMP_A2 + 2, 7));  // lea edx,[ecx*4+4] kept, moved to the front
+    for (DWORD f : {STB_COMP_F1, STB_COMP_F2}) assert(comp[f] == 0x57 && comp[f + 1] == 0x51 && comp[f + 2] == 0xE8 && (uintptr_t)comp + f + 7 + *(LONG*)(comp + f + 3) == (uintptr_t)&StbSiteFree);
+    // each window run on its own (a ret behind it; the copy is not used as a whole afterwards)
+    for (const auto& w : kWin) comp[w.at + w.n] = 0xC3;
+    g_stbScratchName = "scratch";
+    StbtReset(STB_POOL | STB_ZERO | STB_SCRATCH | STB_STATS, 48, 128, 8, 5000);
+    g_stbtA.allocs = g_stbtA.frees = g_stbtA.live = 0;
+    u8* heads = (u8*)StbtRunC(comp + STB_COMP_A1, &g_stbtA, 0);
+    u8* links = (u8*)StbtRunC(comp + STB_COMP_A2, &g_stbtA, 0x1FFFF);  // (mask + 1) * 4 = 0x80000 bytes
+    assert(heads && links && StaOwned(heads) && StaOwned(links) && g_sta.useN == 4 + 8 && g_stbtA.allocs == 0 && StbAllIs(links, 0x80000, 0));
+    assert(g_stbWho[1].at == (DWORD)(uintptr_t)comp + STB_COMP_A1 + 16 && g_stbWho[1].how == 4 && g_stbWho[1].maxReq == 0x40000);
+    assert(g_stbWho[2].at == (DWORD)(uintptr_t)comp + STB_COMP_A2 + 19 && g_stbWho[2].maxReq == 0x80000);
+    memset(links, 0x44, 0x80000);
+    StbtRunC(comp + STB_COMP_F1, &g_stbtA, (DWORD)(uintptr_t)links);
+    StbtRunC(comp + STB_COMP_F2, &g_stbtA, (DWORD)(uintptr_t)heads);
+    assert(g_sta.useN == 0 && g_stb.frees == 2 && g_stbtA.frees == 0 && g_stbWho[2].frees == 1);
+    u8* small = (u8*)StbtRunC(comp + STB_COMP_A2, &g_stbtA, 0x3FFF);  // the short window's 0x10000 bytes: under MinKB, the game's allocator with the game's name
+    assert(small && !StaOwned(small) && g_stbtA.allocs == 1 && !strcmp(g_stbtA.lastName, "scratch"));
+    StbtRunC(comp + STB_COMP_F1, &g_stbtA, (DWORD)(uintptr_t)small);
+    assert(g_stbtA.frees == 1);
+    // Scratch off (Pool on): the compressor's requests are the game's, uncounted; a table handed out before still comes home
+    links = (u8*)StbtRunC(comp + STB_COMP_A2, &g_stbtA, 0x1FFFF);
+    const u64 reqs = g_stb.reqs;
+    StbWatch(STB_POOL | STB_ZERO | STB_SCRATCH | STB_STATS, true);  // Apex Radiance turned up
+    assert(g_stbArm == (STB_POOL | STB_ZERO | STB_STATS));
+    u8* g2 = (u8*)StbtRunC(comp + STB_COMP_A2, &g_stbtA, 0x1FFFF);
+    assert(g2 && !StaOwned(g2) && g_stb.reqs == reqs && g_stbtA.allocs == 2);
+    StbtRunC(comp + STB_COMP_F1, &g_stbtA, (DWORD)(uintptr_t)g2);
+    StbtRunC(comp + STB_COMP_F1, &g_stbtA, (DWORD)(uintptr_t)links);
+    assert(g_stbtA.frees == 2 && g_sta.useN == 0);
+    StbtRunC(comp + STB_COMP_F2, &g_stbtA, 0);  // a NULL table (the game's allocation failed): the game's free, as before
+    assert(g_stbtA.frees == 3);
+    g_stbtA.live = 0;
+
+    // Package: the package writer's three functions. A foreign byte in any: nothing written. Then the six windows.
+    u8* const fn[3] = {x + 0x600, x + 0xA00, x + 0xB00};
+    for (int i = 0; i < 3; i++) memcpy(fn[i], kStbPkgFn[i], kStbPkgLen[i]);
+    fn[1][0x40] ^= 1;
+    assert(!StbInstallPackage(fn) && !g_stbPatch[7].at && !memcmp(fn[0], kStbPkg0, sizeof(kStbPkg0)) && !memcmp(fn[2], kStbPkg2, sizeof(kStbPkg2)));
+    fn[1][0x40] ^= 1;
+    assert(StbInstallPackage(fn));
+    g_stbPkgIn = true;  // as ApplyStreamBuf records it
+    for (int f = 0; f < 3; f++)  // only the windows changed
+        for (DWORD i = 0; i < kStbPkgLen[f]; i++) {
+            bool in = false;
+            for (const StbSite& k : kStbPkgSite) in |= k.fn == f && i >= k.at && i < (DWORD)k.at + k.n;
+            assert(in || fn[f][i] == kStbPkgFn[f][i]);
+        }
+    for (int i = 0; i < 6; i++) {
+        const StbSite& k = kStbPkgSite[i];
+        u8* const at = fn[k.fn] + k.at;
+        assert(at[k.call] == 0xE8 && (uintptr_t)at + k.call + 5 + *(LONG*)(at + k.call + 1) == (i < 4 ? (uintptr_t)&StbSiteFree : (uintptr_t)&StbPkgAlloc));
+        assert(!memcmp(at, kStbPkgFn[k.fn] + k.at, 3));  // each window still starts with the game's `mov ecx,[obj+10h]`
+        if (i >= 4) assert(k.call + 5 == k.n);            // an allocation's call ends where the game's ended
+    }
+    assert(STB_PKG_FN[0] + 0x1D4 + 18 == 0x004A7216 && STB_PKG_FN[2] + 0x0D3 + 20 == 0x004A89F7 && STB_PKG_FN[0] + 0x275 == 0x004A72A5 && STB_PKG_FN[1] + 0x08E == 0x004A834E &&
+           STB_PKG_FN[2] + 0x1D1 == 0x004A8AE1 && STB_PKG_FN[2] + 0x1E1 == 0x004A8AF1);
+    StbtReset(STB_POOL | STB_ZERO | STB_PACKAGE | STB_STATS, 48, 128, 8, 5000);
+    g_stbtA.allocs = g_stbtA.frees = g_stbtA.live = 0;
+    DWORD obj[5] = {0, 0, 0, 0, (DWORD)(uintptr_t)&g_stbtA};  // the package: +0x10 its allocator
+    auto run = [&](int i, const StbtRegs& r) {  // window i on its own: a ret behind it for the call (two windows touch)
+        u8* const at = fn[kStbPkgSite[i].fn] + kStbPkgSite[i].at;
+        const u8 old = at[kStbPkgSite[i].n];
+        at[kStbPkgSite[i].n] = 0xC3;
+        void* const v = StbtRun(at, r);
+        at[kStbPkgSite[i].n] = old;
+        return v;
+    };
+    const DWORD O = (DWORD)(uintptr_t)obj, RS = 1000000;
+    // 0x4A89E3: esi = the package, edi = the record's size; the buffer is size + 0x10 bytes
+    u8* rd = (u8*)run(5, StbtRegs{0, 0, 0, O, RS, 0, 0});
+    assert(rd && StaOwned(rd) && g_staBlk[(rd - g_sta.base) >> 16].req == RS + 0x10 && g_stbWho[1].at == (DWORD)(uintptr_t)fn[2] + 0x0D3 + 20 && g_stbWho[1].how == 5);
+    // 0x4A7204: ebx = the package, eax = the codec's bound
+    u8* pr = (u8*)run(4, StbtRegs{1200000, 0, O, 0x51515151, 7, 0, 0});
+    assert(pr && StaOwned(pr) && pr != rd && g_staBlk[(pr - g_sta.base) >> 16].req == 1200000 && g_stbWho[2].at == (DWORD)(uintptr_t)fn[0] + 0x1D4 + 18 && g_stbtA.allocs == 0);
+    // the commit's two frees take the pointers from its frame: [esp+18h] the packed buffer, [esp+1Ch] the record's
+    run(2, StbtRegs{0, 0, 0, O, 7, (DWORD)(uintptr_t)pr, (DWORD)(uintptr_t)rd});
+    assert(g_stb.frees == 1 && g_stbWho[2].frees == 1 && g_sta.useN == 16);
+    run(3, StbtRegs{0, 0, 0, O, 7, (DWORD)(uintptr_t)pr, (DWORD)(uintptr_t)rd});
+    assert(g_stb.frees == 2 && g_stbWho[1].frees == 1 && g_sta.useN == 0 && g_stbtA.frees == 0);
+    // the two early frees of the packed buffer: eax = the pointer, ebx / esi = the package
+    pr = (u8*)run(4, StbtRegs{1200000, 0, O, 0x51515151, 7, 0, 0});
+    run(0, StbtRegs{(DWORD)(uintptr_t)pr, 0, O, 0x51515151, 7, 0, 0});
+    pr = (u8*)run(4, StbtRegs{1200000, 0, O, 0x51515151, 7, 0, 0});
+    run(1, StbtRegs{(DWORD)(uintptr_t)pr, 0, 7, O, 7, 0, 0});
+    assert(g_stb.frees == 4 && g_sta.useN == 0 && g_stb.dfree == 0 && g_stbtA.frees == 0);
+    // a small record: the game's allocator with the game's name, the game's free; Package off: the game's, uncounted
+    u8* sm = (u8*)run(5, StbtRegs{0, 0, 0, O, 5000, 0, 0});
+    assert(sm && !StaOwned(sm) && g_stbtA.allocs == 1 && (DWORD)(uintptr_t)g_stbtA.lastName == 0x00FB26A4);
+    run(3, StbtRegs{0, 0, 0, O, 7, 0, (DWORD)(uintptr_t)sm});
+    assert(g_stbtA.frees == 1);
+    rd = (u8*)run(5, StbtRegs{0, 0, 0, O, RS, 0, 0});
+    InterlockedExchange(&g_stbArm, STB_POOL | STB_ZERO | STB_STATS);
+    const u64 reqs2 = g_stb.reqs;
+    pr = (u8*)run(4, StbtRegs{1200000, 0, O, 0x51515151, 7, 0, 0});
+    assert(pr && !StaOwned(pr) && g_stb.reqs == reqs2 && g_stbtA.allocs == 2 && (DWORD)(uintptr_t)g_stbtA.lastName == 0x00FB257C);
+    run(2, StbtRegs{0, 0, 0, O, 7, (DWORD)(uintptr_t)pr, (DWORD)(uintptr_t)rd});
+    run(3, StbtRegs{0, 0, 0, O, 7, (DWORD)(uintptr_t)pr, (DWORD)(uintptr_t)rd});  // handed out while Package was on: still comes home
+    assert(g_stbtA.frees == 2 && g_sta.useN == 0 && g_stbtA.live == 0);
+    // the watch: the ini's switches apply (Scratch only where its sites are in); a site another module rewrote stops the module
     const int mask = STB_POOL | STB_ZERO;
-    StbWatch(mask | STB_STATS);
-    assert(g_stbArm == (mask | STB_STATS) && !g_stbDead);
-    rel[STB_REL_AT + 3] ^= 0x40;
-    StbWatch(mask);
+    StbWatch(mask | STB_STATS | STB_SCRATCH, false);
+    assert(g_stbArm == (mask | STB_STATS | STB_SCRATCH) && !g_stbDead);
+    g_stbScratchIn = false;
+    StbWatch(STB_SCRATCH | STB_ZERO | STB_STATS, false);  // Scratch asked for, not installed, Pool off: Stats only
+    assert(g_stbArm == STB_STATS);
+    g_stbScratchIn = true;
+    StbWatch(STB_PACKAGE | STB_ZERO, false);
+    assert(g_stbArm == (STB_PACKAGE | STB_ZERO));
+    g_stbPkgIn = false;
+    StbWatch(STB_PACKAGE | STB_ZERO | STB_STATS, false);
+    assert(g_stbArm == STB_STATS);
+    g_stbPkgIn = true;
+    comp[STB_COMP_F2 + 1] ^= 0x40;
+    StbWatch(mask, false);
     assert(g_stbDead && g_stbArm == 0);
-    StbWatch(mask);
+    StbWatch(mask, false);
     assert(g_stbArm == 0);
-    g_stbDead = false, g_stbFrames = false;
+    g_stbDead = false, g_stbFrames = false, g_stbScratchIn = false, g_stbPkgIn = false;
+    g_stbScratchName = (const char*)(uintptr_t)0x00FB9030;
     memset(g_stbPatch, 0, sizeof(g_stbPatch));
     StbtReset(0, 48, 128, 8, 5000);
     VirtualFree(x, 0, MEM_RELEASE);
 }
 
 // Per request, with the block written once from end to end as a decoder or a read fills it: the game's path today (one
-// VirtualAlloc + release per buffer; EA's direct block asks for the request + 0x27 rounded to pages) against the pool.
+// VirtualAlloc + release per buffer; EA's direct block asks for the request + 0x27 rounded to pages) against the arena:
+// mode 1 warm with Zero=1, 2 warm with Zero=0, 3 cold (every block committed and decommitted: the arena's worst case).
 static double StbtBenchOne(DWORD n, int mode, const u8* src, int iters) {
-    StbtReset(mode == 1 ? STB_POOL | STB_ZERO : mode == 2 ? STB_POOL : 0, 48, 128, 8, 5000);
+    StbtReset(mode == 1 || mode == 3 ? STB_POOL | STB_ZERO : mode == 2 ? STB_POOL : 0, 48, 128, 8, mode == 3 ? 1 : 5000);
     const LONGLONG t0 = StbQpc();
     for (int i = 0; i < iters; i++) {
         if (!mode) {
@@ -419,26 +710,39 @@ static double StbtBenchOne(DWORD n, int mode, const u8* src, int iters) {
             u8* p = StbtGet(n);
             if (src) memcpy(p, src, n);
             StbtPut(p);
+            if (mode == 3) g_stbtNow += 10, StbTick(g_stbtNow);
         }
     }
     const double us = (double)(StbQpc() - t0) * 1e6 / (double)g_stbQpf / iters;
-    if (mode) assert(g_stb.served == (u64)iters - 1 && g_stb.fresh == 1);
+    if (mode == 1 || mode == 2) assert(g_stb.served == (u64)iters - 1 && g_stb.fresh == 1);
+    if (mode == 3) assert(g_stb.fresh == (u64)iters && g_stb.decommits == (DWORD)iters);
     return us;
 }
 static void StbtBench() {
-    g_stbNow = StbNowMs;
-    static const DWORD kN[2] = {1398384, 699320};
+    static const DWORD kN[3] = {1398384, 699320, 0x80000};
     for (DWORD n : kN) {
         u8* src = (u8*)malloc(n);
         for (DWORD i = 0; i < n; i++) src[i] = (u8)(i * 31 + (i >> 8));
-        double us[3][2];
-        for (int mode = 0; mode < 3; mode++) us[mode][0] = StbtBenchOne(n, mode, src, 300), us[mode][1] = StbtBenchOne(n, mode, NULL, 300);
-        printf("bench streambuf %lu KB x300, us per buffer (filled once / not touched): game path %.1f / %.1f; pool Zero=1 %.1f / %.1f; pool Zero=0 %.1f / %.1f\n",
-               n >> 10, us[0][0], us[0][1], us[1][0], us[1][1], us[2][0], us[2][1]);
+        double us[4][2];
+        for (int mode = 0; mode < 4; mode++) us[mode][0] = StbtBenchOne(n, mode, src, 300), us[mode][1] = StbtBenchOne(n, mode, NULL, 300);
+        printf("bench streambuf %lu KB x300, us per buffer (filled once / not touched): game path %.1f / %.1f; arena Zero=1 %.1f / %.1f; arena Zero=0 %.1f / %.1f; "
+               "arena cold (commit + decommit each time) %.1f / %.1f\n",
+               n >> 10, us[0][0], us[0][1], us[1][0], us[1][1], us[2][0], us[2][1], us[3][0], us[3][1]);
         free(src);
     }
+    // the carve itself: a best-fit search in a 48 MB arena with every other 1408 KB place taken
+    StbtReset(STB_POOL, 48, 128, 8, 5000);
+    static u8* keep[40];
+    DWORD k = 0;
+    for (; k < 34; k++) keep[k] = StbtGet(1398384);
+    for (DWORD i = 0; i < k; i += 2) StbtPut(keep[i]), keep[i] = NULL;
+    const LONGLONG t0 = StbQpc();
+    for (int i = 0; i < 20000; i++) StbtPut(StbtGet(1398384));
+    printf("bench streambuf carve: %.2f us per request + free in a 48 MB arena with 17 blocks live and 17 holes (Zero=0, nothing touched)\n",
+           (double)(StbQpc() - t0) * 1e6 / (double)g_stbQpf / 20000);
+    for (DWORD i = 0; i < k; i++)
+        if (keep[i]) StbtPut(keep[i]);
     StbtReset(0, 48, 128, 8, 5000);
-    g_stbNow = StbtNow;
 }
 
 static void TestStreamBuf() {
@@ -446,19 +750,29 @@ static void TestStreamBuf() {
     // the game's bytes are not in this process: nothing matches, nothing is written
     assert(!StbInstallSites((u8*)(uintptr_t)STB_CTOR, (u8*)(uintptr_t)STB_REL, (u8*)(uintptr_t)STB_REALLOC, (const u8*)(uintptr_t)STB_SETSIZE, (const u8*)(uintptr_t)STB_WRITE,
                            (const u8*)(uintptr_t)STB_SETPOS));
-    // not armed: both stubs are the game's calls
+    assert(!StbInstallScratch((u8*)(uintptr_t)STB_COMP));
+    // not armed: every stub is the game's call
     g_stbtA.allocs = g_stbtA.frees = g_stbtA.live = 0;
     u8* p = StbtGet(1398384);
-    assert(p && !StbOwned(p) && g_stbtA.allocs == 1 && g_stb.reqs == 0);
+    assert(p && !StaOwned(p) && g_stbtA.allocs == 1 && g_stb.reqs == 0);
     StbtPut(p);
-    assert(g_stbtA.frees == 1);
+    void* q = StbScratchAlloc(0x80000, &g_stbtA);
+    StbSiteFree(q, &g_stbtA);
+    q = StbPkgAlloc(1200000, &g_stbtA, "p");
+    StbSiteFree(q, &g_stbtA);
+    assert(q && g_stbtA.frees == 3 && g_stbtA.allocs == 3 && g_stb.reqs == 0);
+    u8* const none[3] = {(u8*)(uintptr_t)STB_PKG_FN[0], (u8*)(uintptr_t)STB_PKG_FN[1], (u8*)(uintptr_t)STB_PKG_FN[2]};
+    assert(!StbInstallPackage(none));
     StbtPolicy();
+    StbtPlace();
     StbtCreator();
     StbtBasic();
     StbtModel();
     StbtThreads();
     StbtPatch();
     StbtBench();
+    StbtReset(0, 48, 128, 8, 5000);
+    VirtualFree(g_sta.base, 0, MEM_RELEASE), g_sta = Sta{};  // the test's arena goes; the module starts as in a new process
     g_stbNow = StbNowMs, g_stbWhoFn = StbCreator;
     printf("streambuf ok\n");
 }
