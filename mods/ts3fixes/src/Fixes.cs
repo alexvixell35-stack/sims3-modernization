@@ -79,6 +79,19 @@ namespace Ts3Fixes
             ApplyRefTable();
             ApplyCachedReflection();
             ApplyUiCaches();
+            ApplyBuyIconLeak();
+            ApplyCasRowLeak();  // back 2026-11-11: the two CAS crashes (TS3W 0x00EBAB5B) were its [ThreadStatic] depth field (EA's Mono has no thread statics), now a plain static
+            ApplyCompositorLeak();
+            ApplyPetWishLeak();
+            ApplyGenealogyGuard();
+            ApplyRelRemoveSafe();
+            ApplyFamilyInvGhost();
+            ApplySellCursorLeak();
+            ApplyRelAlarmGuard();
+            ApplyMoodDrift();
+            ApplyListenerFixes();
+            ApplyWishListenerFixes();
+            ApplyBuyCellRecycle();
             ApplyNameCache();
             ApplyScriptHotSpots();
             ApplyVenueMemo();
@@ -326,6 +339,20 @@ namespace Ts3Fixes
         // [2094-2110] vehicle leaks (VehicleLeaks.cs, docs/542): 2094-2098 vehparkreserve dead reservations seen at a pick / cleared at a pick / seen hourly / cleared hourly / kept by the household rule;
         // 2099-2102 vehgetinleak get-ins that left their vehicle loose / throwaway released / NPC vehicle to inventory / kept; 2103-2105 vehseatdestroy seated Sims destroyed with the vehicle still there a tick later / dead refs cleared / released;
         // 2106-2107 vehfrankentaxi unused intro taxis seen / released; 2108-2110 vehprotestcar cop cars tracked / left with no driver or drive-away after a sim-hour / destroyed. "Seen" counters count with the switch off too.
+        // [2129-2132] relremovesafe (RelRemoveSafe.cs): Sim removals where EA's relationship removal would throw / one-sided entries for the removed Sim / removals seen / errors.
+        // [2163-2165] buycellrecycle (BuyCellRecycle.cs): Buy catalog cells dropped by AddGridItem (also off) / returned to a cache / errors.
+        // [2154-2162] dreamrootorphan / blogorphan / dnpupdateguard (WishListenerFixes.cs): root listeners left by a thrown-away test (also off) / removed / errors / blog one-off listeners left (also off) / removed / errors / Update exceptions seen / swallowed / errors.
+        // [2148-2153] dnpdisposelistener / seasondup (ListenerFixes.cs): wish managers created (also off) / object listeners moved / errors / duplicate season adds (also off) / skipped / errors.
+        // [2145-2147] mooddrift (MoodDrift.cs): Sims whose mood target had drifted off their buffs (also counted off) / mood points corrected / errors.
+        // [2139-2144] attractionalarm / uncleguard (RelAlarmGuard.cs): attraction handlers seen / controllers stopped for a removed Sim / errors / uncle checks with a parent with no description (also off) / uncle checks / errors.
+        // [2136-2138] sellcursorleak (SellCursorLeak.cs): sell panels closed with drag-cursor windows noted (also with the switch off) / windows disposed / errors.
+        // [2133-2135] familyinvghost (FamilyInvGhost.cs): destroyed objects still listed in a family inventory (also with the switch off) / removed / errors.
+        // [2129-2132] relremovesafe (RelRemoveSafe.cs): see the file.
+        // [2123-2128] genealogycycle / spouseunlink (GenealogyGuard.cs): ancestor repeats skipped / parent loops stopped / Divorce with no spouse / old spouses unlinked / ApplySpouseUpdate calls / errors.
+        // [2120-2122] petwishleak (PetWishLeak.cs): pet-subject wish removals seen (also with the switch off) / mPotentialRemovalNodes entries removed / errors.
+        // [2117-2119] compositorleak (CompositorLeak.cs): CAS design-tool Unloads with a tool (also with the switch off) / dict entries of its tree unregistered / errors.
+        // [2114-2116] casrowleak (CasRowLeak.cs): empty CAS clothing rows CASClothingCategory.AddGridItem left unattached (also with the switch off) / disposed the OnCustomDetach way / errors.
+        // [2111-2113] buyiconleak (BuyIconLeak.cs): Buy/Build exits seen / stale custom-control entries removed after BuyController.Dispose / errors.
         // [2092-2093] deadsimhollow (DeadSimCount.cs): destroyed Sims held 6+ sim hours whose own reference fields were cleared / fields cleared.
         // [876-877] bookhand (BookHand.cs, docs/251): books Book.StopUsingBook left in the hand with no carry machine, seen at an EA put-down that would throw (also with the switch off), moved out of the hand by EA's handler.
         // [758-759] asyncjigsync (AsyncJigSync.cs, RouteBackoff.cs AsyncEligible, docs/240): own plans kept sync while the Sim's interaction holds an unplaced SocialJig / of those with the jig only in the linked interaction.
@@ -347,7 +374,7 @@ namespace Ts3Fixes
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2111]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2166]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -520,6 +547,24 @@ namespace Ts3Fixes
                 case "vehseatdestroy": return Instantiator.kVehSeatDestroy;
                 case "vehfrankentaxi": return Instantiator.kVehFrankenTaxi;
                 case "vehprotestcar": return Instantiator.kVehProtestCar;
+                case "buyiconleak": return Instantiator.kBuyIconLeak;
+                case "casrowleak": return Instantiator.kCasRowLeak;
+                case "compositorleak": return Instantiator.kCompositorLeak;
+                case "petwishleak": return Instantiator.kPetWishLeak;
+                case "genealogycycle": return Instantiator.kGenealogyCycle;
+                case "spouseunlink": return Instantiator.kSpouseUnlink;
+                case "relremovesafe": return Instantiator.kRelRemoveSafe;
+                case "familyinvghost": return Instantiator.kFamilyInvGhost;
+                case "sellcursorleak": return Instantiator.kSellCursorLeak;
+                case "attractionalarm": return Instantiator.kAttractionAlarm;
+                case "uncleguard": return Instantiator.kUncleGuard;
+                case "mooddrift": return Instantiator.kMoodDrift;
+                case "dnpdisposelistener": return Instantiator.kDnpDisposeListener;
+                case "seasondup": return Instantiator.kSeasonDup;
+                case "dreamrootorphan": return Instantiator.kDreamRootOrphan;
+                case "blogorphan": return Instantiator.kBlogOrphan;
+                case "dnpupdateguard": return Instantiator.kDnpUpdateGuard;
+                case "buycellrecycle": return Instantiator.kBuyCellRecycle;
                 case "convturn": return Instantiator.kConvTurn;
                 case "npcdriverpool": return Instantiator.kNpcDriverPool;
                 case "bookcarry": return Instantiator.kBookCarry;
@@ -574,6 +619,17 @@ namespace Ts3Fixes
         }
 
         // args picks one overload of target.method (null when the name is unique). True when the patch went in.
+        static void PatchSigCheck(MethodInfo t, MethodInfo h, string what)
+        {
+            if (t == null || h == null) return;
+            bool tv = t.ReturnType == typeof(void), hv = h.ReturnType == typeof(void);
+            if (tv != hv) throw new InvalidOperationException(what + " " + h.Name + " returns " + h.ReturnType.Name + ", original returns " + t.ReturnType.Name + ": not patched");
+            int tn = t.GetParameters().Length + (t.IsStatic ? 0 : 1), hn = h.GetParameters().Length + (h.IsStatic ? 0 : 1);
+            if (tn != hn) throw new InvalidOperationException(what + " " + h.Name + " takes " + hn + " stack arguments, original " + tn + ": not patched");
+            if (!tv && t.ReturnType.IsValueType != h.ReturnType.IsValueType)
+                throw new InvalidOperationException(what + " " + h.Name + " returns " + h.ReturnType.Name + ", original returns " + t.ReturnType.Name + ": not patched");
+        }
+
         static bool Patch(Type target, string method, Type[] args, Type hook, string replacement, string stub)
         {
             const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
@@ -581,6 +637,11 @@ namespace Ts3Fixes
             {
                 MethodInfo t = args == null ? target.GetMethod(method, all) : target.GetMethod(method, all, null, args, null), r = hook.GetMethod(replacement, all);
                 if (Compiled(t)) throw new InvalidOperationException("already compiled");
+                // a swapped body keeps the hook's signature: a void hook for a method that returns a value makes every
+                // caller's pop/use of the result underflow Mono's transform (transform.c:1170 `td.sp >= td.stack`, int3 at
+                // 0x58D9B6: the game dies on the first call, buycellrecycle v1/v2 2026-11-11), so refuse such pairs
+                PatchSigCheck(t, r, "hook");
+                if (stub != null) PatchSigCheck(t, hook.GetMethod(stub, all), "stub");
                 string swName = AutShadowCore.MemberName(t);  // G-M6: callers' IL hashes name t as before the swap
                 if (swName != null) AutShadowCore.SwapNames[t.MethodHandle.Value] = swName;
                 if (stub != null) { MethodInfo s = hook.GetMethod(stub, all); SwapMethod(s, t); StubDirect(s); }

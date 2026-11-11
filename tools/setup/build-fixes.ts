@@ -199,6 +199,24 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kVehSeatDestroy value="False" />
     <kVehFrankenTaxi value="False" />
     <kVehProtestCar value="False" />
+    <kBuyIconLeak value="False" />
+    <kCasRowLeak value="False" />
+    <kCompositorLeak value="False" />
+    <kPetWishLeak value="False" />
+    <kGenealogyCycle value="False" />
+    <kSpouseUnlink value="False" />
+    <kRelRemoveSafe value="False" />
+    <kFamilyInvGhost value="False" />
+    <kSellCursorLeak value="False" />
+    <kAttractionAlarm value="False" />
+    <kUncleGuard value="False" />
+    <kMoodDrift value="False" />
+    <kDnpDisposeListener value="False" />
+    <kSeasonDup value="False" />
+    <kDreamRootOrphan value="False" />
+    <kBlogOrphan value="False" />
+    <kDnpUpdateGuard value="False" />
+    <kBuyCellRecycle value="False" />
   </Current_Tuning>
 </base>
 `;
@@ -212,10 +230,19 @@ const outDir = process.env.TS3_BUILD_DIR ?? join(ROOT, 'build');
 mkdirSync(outDir, { recursive: true });
 const src = join(ROOT, 'mods', 'ts3fixes', 'src');
 const dll = join(outDir, `${ASSEMBLY}.dll`);
-const compile = (srcDir: string, out: string, extraRefs: string[] = []) =>
+// EA's Mono never attaches a MonoThread, so any [ThreadStatic] / [ContextStatic] field access faults in
+// mono_get_special_static_data (TS3W 0x00EBAB5B, null+0x40; docs/191). Refuse to build them.
+const lintStatics = (srcDir: string) => {
+  for (const f of readdirSync(srcDir).filter(f => f.endsWith('.cs')))
+    readFileSync(join(srcDir, f), 'utf8').split('\n').forEach((l, i) => {
+      if (/^\s*\[\s*(System\.)?(ThreadStatic|ContextStatic)(Attribute)?\s*\]/.test(l))
+        throw new Error(`${f}:${i + 1}: [ThreadStatic]/[ContextStatic] crashes the game's Mono (no thread statics); use a plain static`);
+    });
+};
+const compile = (srcDir: string, out: string, extraRefs: string[] = []) => (lintStatics(srcDir),
   execFileSync(CSC, ['/nologo', '/nostdlib+', '/noconfig', '/target:library', '/optimize+', '/langversion:5', '/warn:4',
     '/nowarn:414,169,649', `/out:${out}`, ...REFS.map(r => `/reference:${join(REF_DIR, `${r}.dll`)}`), ...extraRefs.map(r => `/reference:${r}`),
-    ...readdirSync(srcDir).filter(f => f.endsWith('.cs')).map(f => join(srcDir, f))], { stdio: 'inherit' });
+    ...readdirSync(srcDir).filter(f => f.endsWith('.cs')).map(f => join(srcDir, f))], { stdio: 'inherit' }));
 compile(src, dll);
 const pkg = writePackage([
   { type: TYPE_S3SA, group: 0, instance: fnv64(ASSEMBLY), data: s3saEncode(readFileSync(dll)) },
