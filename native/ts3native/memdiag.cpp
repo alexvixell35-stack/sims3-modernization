@@ -999,7 +999,9 @@ static void RcCensus(LONG n, const char* tag) {
     InterlockedExchange(&g_rcBusy, 0);
 }
 
-static void MdValues(const UdMemStat& s, u64 privUsage, MdVals& x) {
+// exiting: the exe has torn its heaps down, so the core ring and the cache manager point at freed memory; the SEH guard
+// caught that read (one logged first-chance AV at every exit, hunts 2026-11-10/11), so skip those walks at exit.
+static void MdValues(const UdMemStat& s, u64 privUsage, MdVals& x, bool exiting = false) {
     const double MB = 1.0 / (1 << 20);
     for (int i = 0; i < MD_N; i++) x.have[i] = false;
     auto set = [&](int i, double v) { x.v[i] = v, x.have[i] = true; };
@@ -1010,11 +1012,11 @@ static void MdValues(const UdMemStat& s, u64 privUsage, MdVals& x) {
     if (MdEaDirect(&a, &b)) set(MD_EADIR, a * MB), set(MD_EADIRN, b);
     double ec = 0, er = 0;
     DWORD en = 0;
-    if (MdEaCores(&ec, &er, &en)) set(MD_EACOM, ec * MB), set(MD_EARES, er * MB), set(MD_EACOREN, en);
+    if (!exiting && MdEaCores(&ec, &er, &en)) set(MD_EACOM, ec * MB), set(MD_EARES, er * MB), set(MD_EACOREN, en);
     const Ts3nCounters& k = ts3native_counters;
     set(MD_RP, k.rpKB / 1024.0), set(MD_PL, k.plKB / 1024.0), set(MD_SP, k.spKB / 1024.0);
     if (MdGc(g)) set(MD_GCHEAP, g[0] * MB), set(MD_GCFREE, g[1] * MB), set(MD_GCN, g[2]);
-    if (MdRc(r)) {
+    if (!exiting && MdRc(r)) {
         set(MD_RC, r[0] * MB), set(MD_RCCOLD, r[1] * MB), set(MD_RCBUD, r[2] * MB), set(MD_RCN, r[3]);
         if (r[4] != ~0u) set(MD_ANIM, r[4] * MB);
     }
@@ -1142,7 +1144,7 @@ static void MdAfterSample(const char* what, const char* ev, const UdMemStat& s, 
     if (!g_mdOn) return;
     if (!InterlockedExchange(&g_mdLegend, 1)) MdLegend("docs/190 phase 1");
     MdVals x;
-    MdValues(s, privUsage, x);
+    MdValues(s, privUsage, x, !strcmp(MdTag(what), "exit"));
     char line[640];
     const LONG n = InterlockedIncrement(&g_mdN);
     MdFormat(line, sizeof(line), n, MdTag(what), ev, x, (GetTickCount() - g_udT0) / 1000);

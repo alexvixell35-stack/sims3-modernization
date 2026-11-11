@@ -30,6 +30,8 @@ namespace Ts3Agent
             RegisterRare();
             RegisterRareVehicles();
             RegisterVehicleCensus(); // VehicleCensusHandlers.cs, docs/542
+            RegisterTownieTrips(); // TownieTripsHandlers.cs, docs/542 §5
+            RegisterLeakCensus(); // LeakCensusHandlers.cs, docs/191 leak_census
             RegisterCas();
             RegisterContent();
             RegisterFocus();
