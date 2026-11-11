@@ -551,6 +551,66 @@ callees). The ms/s values are the census model (exits per call times sampled sel
 on the "new script errors" gate only: the four files per job are a script mod's periodic diagnostic logs written as ScriptError files,
 not exceptions, and every other gate passed.
 
+### C9 verdict: lazy bodies for methods with clauses (mono handoff task 4, 2026-11-11) [docs only; no game run]
+
+**Verdict: no-go, stays parked.** The task text sets no threshold of its own ("Lazy bodies for methods with clauses (the 5-arg
+`Array.Copy`, the next C3 item) ... Same host gates. 1-2 h."). The rule that applies is the handoff's section 4: "Measure before
+building. Show the gain path first, e.g. a census, L0, or a host model. Pieces below their bar stop with a written verdict", with
+the bars the handoff names elsewhere: 1 ms/s to reopen a C piece (task 1 gate) and "a consistent 3-5 ms/s gain" for a default-ON
+switch. The game census ("C0 result: game census" above) puts the whole possible gain below the first bar, before any clause filter.
+
+**Arithmetic** [verified: `2026-11-11-jit-game-census.csv`, column `est_ms_s_behind`, summed per opcode; model = exits per call x
+sampled self time, not timing]. A lazy body for a callee with clauses can only remove a call exit into that callee (`call`,
+`callvirt`, `con.call`, `con.callvirt`). It does not touch `ret`, `ret.void`, `ret.vt`, `ldelema` or `unbox`.
+
+| ms/s held back | BP | IP | SV |
+|---|---|---|---|
+| all exits | 5.733 | 5.821 | 5.742 |
+| `ret` (frame teardown, not addressable here) | 4.389 | 4.419 | 4.389 |
+| call-type exits: call + callvirt + con.call + con.callvirt (the ceiling for this task) | 0.753 | 0.803 | 0.762 |
+| of which the clause-method share | not shown | not shown | not shown |
+| rule | 1.0 | 1.0 | 1.0 |
+
+Ceiling 0.75 to 0.80 ms/s against 1.0: below the bar even if every call exit in the game became free, and the clause-method share
+is a subset of it. Against the 3-5 ms/s ON bar it is 6 to 7 times short [inferred: 0.8 / 5 = 0.16, 0.8 / 3 = 0.27].
+
+**Sites that carry the call-exit potential** (BP; IP and SV within 0.01 to 0.03 of it) [verified, CSV]: `IEquatableOfTEqualityComparer`1.GetHashCode`
+con.callvirt 0.156 + con.call 0.085; `Dictionary`2.GetPrev` callvirt 0.154; `List`1.GrowIfNeeded` call 0.124; `Enumerator.MoveNext`
+call 0.052; `Array.IndexOf` callvirt 0.052. No row is above 0.16 ms/s. `Array.Copy` has no row in the game census at all (no
+`jitcalls` and no `jitbail` line names it in any of the three logs), so the task's own example is 0.0 ms/s in game; its host
+figure was 3.1 held back and 0.14 modelled gain (C3 table, host MintBench traffic, "a host artifact" per the C0 caveat) [verified].
+
+**Bails** (last complete interval; `no lazy body` / `depth slot` / `arena full`): BP 41.7M / 6.7M / 2.1M, IP 43.0M / 8.6M / 1.8M,
+SV 39.7M / 7.1M / 2.1M. By site, `no lazy body` on BP is 41.75M in 24 sites; 67% (28.1M) sits at the two `IEquatableOfTEqualityComparer`1`
+sites (`Equals` ip 17, `GetHashCode` ip 4, both ED guards, lazy and normal copies), 23% (9.5M) at `Dictionary`2.GetPrev` (ips 24, 55, 59),
+6% at `Enumerator.MoveNext`, 2% at `List`1.GrowIfNeeded` [verified: recomputed from `game-count-bp.log`]. Large volume, but each bail
+is a call that goes the slow way and costs about 0.8 ms/s in total; volume is not ms/s.
+
+**What the data cannot say** [not checked, and why]: whether the callee behind any of these sites has clauses. The game count
+build writes no `jitedge` line (0 in all three logs; `jitedge` carries `callee ... clauses N` in the host only, and a `jitbail` row
+names the caller and ip, not the callee), and the bail reason `no lazy body` covers both "callee not on the compile list" and
+"callee has clauses" (`lazyOk` needs `!rm[0x41]`, `monojit.cpp` line 1143). Static reading points the other way: the hot callees
+are T-specific `Equals` / `GetHashCode` of the closed generic T and `Dictionary` / `Enumerator` helpers, which are short and,
+as far as the host edges show, clause-free; the C0 paragraph already assigns this bail volume to C2 (list additions). To settle
+it, a game count run that also logs callee and `clauses` per `no lazy body` bail would be needed; it is not worth a job for a ceiling
+of 0.8 ms/s.
+
+**What would have to be built if it were reopened** [inferred from the handoff sections cited]: a lazy body is a frame-free callee
+compiled so that a call never writes an `MonoInvocation` unless it exits; with clauses it needs (1) the `lazyOk` gate relaxed
+(`monojit.cpp` 1143, 1107, 2371, `[MonoJit] Wide` already lets a clause method compile as a normal body); (2) a catch search that
+sees the same ip as EA's (docs/537 section 10: "Lazy bodies have no clauses, so catch search is unchanged"; with clauses it is not);
+(3) a native `leave` / `leave.s` that matches EA's `handle_finally` (0xE54198), since `leave.s` always exits today; (4) a per-call
+verifier that compares clause methods (they are "unverified (clauses)" now, corpus hash only); (5) corpus cases for try/catch/finally
+in a lazy callee and the standard host gates. That is more than the 1-2 h the task lists, in the highest-risk part of the emitter
+(`EmitLazyCall`, serial with C4-C6), for at most 0.8 ms/s and in practice less: the clause subset.
+
+**Reopen rule** (same form as C4 and C6): reopen only if a game count run that names callees and `clauses` shows call exits
+into clause methods summing to 1 ms/s or more on some world, or if `Array.Copy` appears in a game census with a held-back row above
+0.5 ms/s.
+
+Verified/inferred summary: the sums, the site list and the bail split are [verified, from the CSV and the three count logs]; the
+ceiling against the bars is [inferred, a model]; the build list is [inferred, from docs/537 section 10 and the code lines cited].
+
 ### C2 status (2026-11-08, branch `feature/monojit-c2`, not merged) [measured, host]
 
 Data only; no emitter edit. Added callees (lazy bodies): `SimClock.ElapsedTime` (3 overloads), `ScriptObject.get_Proxy`,
