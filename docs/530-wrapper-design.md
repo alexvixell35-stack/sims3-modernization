@@ -411,9 +411,10 @@ unwrapped after its own `FAIL wrapper` line.
 8. **Relaunch.** The host sets `hostCmd = restart boot` and starts the first game's executable with its command line
    plus `-worldFile:"<name>.sims3"`, in the first game's start folder, with the environment the host inherited from
    it plus `TS3WRAP_CHANNEL`.
-9. **Boot.** The new process opens the channel at `DllMain` and reads `hostCmd`. With `Restart=1` it checks the
-   handoff file (§12.4) and copies the previous `ts3native.log` to `ts3native.before-restart.log` before its own log
-   starts. Its window becomes the child of the channel's host window; it never starts a second host.
+9. **Boot.** The new process copies the previous `ts3native.log` to `ts3native.before-restart.log` before its own log
+   starts, opens the channel at `DllMain` and reads `hostCmd`. With `Restart=1` it checks the handoff file (§12.4);
+   without it the save just loads and native says "ready" at the first world load. Its window becomes the child of
+   the channel's host window; it never starts a second host.
 10. **Load.** EA's `MainMenuState.Startup` takes `-worldFile` at the first menu entry: `GetSaveFileDetails` and
     `TransitionToGameStateToInWorld` (docs/06 §3, decompiled code) [verified code; the switch syntax is inferred].
 11. **Restore.** At the world load ts3fixes asks op 40/14 (the file passed the checks), reads the save name and the

@@ -265,7 +265,7 @@ static void WrChanOpen(const wchar_t* v) {
     InterlockedExchange((volatile LONG*)&c->bye, 0);
     InterlockedExchange((volatile LONG*)&c->gamePid, (LONG)GetCurrentProcessId());
     g_wrBoot = InterlockedExchange((volatile LONG*)&c->hostCmd, WR_H_NONE) == WR_H_RESTART_BOOT;
-    Log("OK   wrapper: started by the host (first game pid %lu, restart %ld of this host)%s", g_wrFirstPid, (long)c->restarts,
+    Log("OK   wrapper: started by the host (first game pid %lu, %ld restarts of this host before)%s", g_wrFirstPid, (long)c->restarts,
         g_wrBoot ? ": restart boot" : "");
 }
 
@@ -468,7 +468,7 @@ static void ApplyRestart(const wchar_t* ini) {
     if (n && n < _countof(v) && g_wrChanOn) {
         WrChanOpen(v);
         if (g_wrBoot && g_wrRestart) WrBootCheck();
-        else if (g_wrBoot) g_wrBoot = false, Log("wrapper: restart boot, but Restart is off here: no restore");
+        else if (g_wrBoot) Log("wrapper: restart boot, but Restart is off here: the save loads without a restore");  // ready at the world load
     } else if (g_wrRestart) WrDeleteHandoff("left from an earlier session");
     if (!g_wrChanOn) return;
     Log("wrapper: channel on%s; Restart %s (threshold %lu MB, %s, hotkey %s, cover %s, quit timeout %lu s, cover timeout %lu s)",
