@@ -1,6 +1,6 @@
 // Round trips home -> destination -> home with timings and memory per leg (docs/19 section 5, PLAN item 10).
 //   node tools/harness/travel-trip.ts [--to france|china|egypt|university|future] [--days 2] [--hours 6] [--trips 1]
-//                                     [--sims "A B,C D"] [--save-stats <prefix>]
+//                                     [--sims "A B,C D"] [--save-stats <prefix>] [--settle 30]
 // Needs the probe server and a home world in live mode (cycle.ts --save X). Per trip: memory + travel_state, travel,
 // wait for the destination in live mode, run --hours sim hours there (autopilot x3), travel_home, wait for the home
 // world in live mode, memory + travel_state again. --save-stats P saves P-trip0 before and P-tripN after each return
@@ -15,7 +15,7 @@ import { GUARD_MS, stallGuard } from './game-alive.ts';
 const { values } = parseArgs({ options: {
   to: { type: 'string', default: 'france' }, days: { type: 'string', default: '2' }, hours: { type: 'string', default: '6' },
   trips: { type: 'string', default: '1' }, sims: { type: 'string' }, 'save-stats': { type: 'string' },
-  port: { type: 'string', default: '47891' },
+  port: { type: 'string', default: '47891' }, settle: { type: 'string', default: '30' },
 } });
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const OUT = join(ROOT, 'probe-out', 'travel');
@@ -165,10 +165,31 @@ const prefix = values['save-stats'];
 const saves: string[] = [];
 if (prefix) { await saveAs(`${prefix}-trip0`); saves.push(`${prefix}-trip0`); }
 
+// A trip ordered ~1 s after a load is dropped by the game (seen 3 times on 2026-11-11, never after 45 s at home): wait --settle s
+// of wall time in live mode before ordering (0 = old behaviour). shortcut: the script start counts as "just loaded", so a game
+// that had been live for minutes waits the full settle once; pass --settle 0 then.
+let liveSince = Date.now();
+const settle = async (what: string) => {
+  const wait = Number(values.settle) * 1000 - (Date.now() - liveSince);
+  if (wait > 0) { log(`${what}: settling ${Math.round(wait / 1000)} s in live mode before the order`); await sleep(wait); }
+};
+// If the game still drops the order, order it once more before failing (the fail-fast guard in leg() stays).
+async function legRetry(name: string, cmd: string, args: object, fromWorld: string) {
+  try { return await leg(name, cmd, args, fromWorld); } catch (e) {
+    if (!String(e).includes('trip dropped')) throw e;
+    log(`${name}: order dropped (${e}); ordering once more`);
+    return await leg(`${name} (retry)`, cmd, args, fromWorld);
+  }
+}
+
 for (let i = 1; i <= Number(values.trips); i++) {
-  const away = await leg(`trip ${i} out`, goCmd, goArgs, home.world);
+  await settle(`trip ${i} out`);
+  const away = await legRetry(`trip ${i} out`, goCmd, goArgs, home.world);
+  liveSince = Date.now();
   await liveHours(Number(values.hours));
-  await leg(`trip ${i} back`, 'travel_home', {}, away);
+  await settle(`trip ${i} back`);
+  await legRetry(`trip ${i} back`, 'travel_home', {}, away);
+  liveSince = Date.now();
   if (prefix) { await saveAs(`${prefix}-trip${i}`); saves.push(`${prefix}-trip${i}`); }
 }
 if (saves.length) log(execFileSync(process.execPath, [join(ROOT, 'tools', 'harness', 'save-stats.ts'), ...saves]).toString());
