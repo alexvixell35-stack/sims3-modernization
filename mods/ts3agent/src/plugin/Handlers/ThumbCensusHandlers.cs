@@ -7,7 +7,7 @@ using Sims3.Gameplay.CAS;
 
 namespace Ts3Agent
 {
-    // Thumbnail backlog census (leak hunt 11-11, notes: pc-logs/2026-11-06-test-runs/re-thumb-1111). READ ONLY: it changes
+    // Thumbnail backlog census (issue #40, 2026-11-11). READ ONLY: it changes
     // nothing in the game. EA packs a Sim away in a script task (SimDescription.PackUpToMiniSimDescription ->
     // MiniSimDescription.PackSim -> GenerateCrossWorldThumbnail -> ThumbnailManager.GenerateHouseholdSimThumbnail, wait: true);
     // the task sleeps inside that call until the native UI/ThumbnailManager has rendered the Sim's thumbnail, and only then
