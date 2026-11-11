@@ -32,6 +32,10 @@ namespace Ts3Agent
             RegisterVehicleCensus(); // VehicleCensusHandlers.cs, docs/542
             RegisterTownieTrips(); // TownieTripsHandlers.cs, docs/542 §5
             RegisterLeakCensus(); // LeakCensusHandlers.cs, docs/191 leak_census
+            RegisterInventoryStress(); // InventoryStressHandlers.cs, docs/191 inv_stuff
+            RegisterFamilyTree(); // FamilyTreeHandlers.cs, docs/191 family_tree
+            RegisterInvGhost();   // InvGhostProbe.cs, docs/191 inventory A2
+            RegisterBuffDrift();  // MoodCensus.cs, docs/191 moodlet drift
             RegisterCas();
             RegisterContent();
             RegisterFocus();

@@ -177,7 +177,7 @@ namespace Ts3Agent
             Sim[] actors = null;
             try { actors = Sims3.Gameplay.Queries.GetObjects<Sim>(); } catch (Exception) { actors = new Sim[0]; }
 
-            string[] names = { "alarms", "events", "objects", "situations", "relationships", "simdescs", "ui", "broadcasters", "socials", "statics" };
+            string[] names = { "alarms", "events", "objects", "situations", "relationships", "simdescs", "ui", "broadcasters", "socials", "statics", "inventories", "moods" };
             for (int i = 0; i < names.Length; i++)
             {
                 DateTime s0 = DateTime.UtcNow;
@@ -195,7 +195,9 @@ namespace Ts3Agent
                         case 6: sec = LcUi(); break;
                         case 7: sec = LcBroadcasters(top); break;
                         case 8: sec = LcSocials(actors, top); break;
-                        default: sec = LcStatics(); break;
+                        case 9: sec = LcStatics(); break;
+                        case 10: sec = LcInventories(top); break;
+                        default: sec = LcMoods(actors); break;
                     }
                 }
                 catch (Exception e) { sec = Util.Obj(); sec["error"] = e.GetType().Name + ": " + e.Message; }
@@ -203,6 +205,15 @@ namespace Ts3Agent
                 ms[names[i]] = (int)(DateTime.UtcNow - s0).TotalMilliseconds;
             }
             r["section_ms"] = ms;
+            try
+            {
+                int[] fc = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
+                Dictionary<string, object> fx = Util.Obj();
+                if (fc != null) for (int i = 2000; i < fc.Length; i++) if (fc[i] != 0) fx[i.ToString()] = fc[i];
+                r["fix_counters"] = fx;
+                r["fix_applied"] = AppDomain.CurrentDomain.GetData("ts3fixes.applied");
+            }
+            catch (Exception) { }
             r["elapsed_ms"] = (int)(DateTime.UtcNow - t0).TotalMilliseconds;
             return r;
         }
@@ -272,6 +283,10 @@ namespace Ts3Agent
             Dictionary<string, int> byEvent = new Dictionary<string, int>(), byOwner = new Dictionary<string, int>(), byClass = new Dictionary<string, int>();
             Dictionary<string, int> byDelegate = new Dictionary<string, int>(), goneByEvent = new Dictionary<string, int>();
             int total = 0, gone = 0, noHousehold = 0, noOwner = 0, keys = 0;
+            // wish listeners (ActiveDreamNode.RunFeedbackFunction grew +1370 in 7 min of active-Sim switching, hunt 2026-11-11):
+            // is the node still held by its owner's DreamsAndPromisesManager, or only by the event tracker?
+            Dictionary<string, int> dream = new Dictionary<string, int>(), dreamOwners = new Dictionary<string, int>(), dreamOrphans = new Dictionary<string, int>();
+            Dictionary<object, Dictionary<object, bool>> dreamMgrs = new Dictionary<object, Dictionary<object, bool>>();
             foreach (KeyValuePair<ulong, Dictionary<ulong, List<EventListener>>> ev in all)
             {
                 if (ev.Value == null) continue;
@@ -290,6 +305,8 @@ namespace Ts3Agent
                         LcBump(byClass, l.GetType().Name);
                         DelegateListener dl = l as DelegateListener;
                         if (dl != null) LcBump(byDelegate, LcMethod(dl.Delegate));
+                        if (dl != null && dl.Delegate != null && dl.Delegate.Target != null && dl.Delegate.Target.GetType().Name == "ActiveDreamNode")
+                            LcDreamListener(dl.Delegate.Target, dream, dreamMgrs, dreamOwners, dreamOrphans);
                         if (so == null) noOwner++;
                         bool g = (so != null && LcGone(so)) || (l.TargetObject != null && l.TargetObject.HasBeenDestroyed);
                         Sim s = so as Sim;
@@ -309,7 +326,52 @@ namespace Ts3Agent
             r["by_listener_class"] = LcTop(byClass, top);
             r["by_delegate"] = LcTop(byDelegate, top);
             r["gone_by_event"] = LcTop(goneByEvent, top);
+            Dictionary<string, object> dr = Util.Obj();
+            dr["state"] = LcTop(dream, 8); dr["by_owner"] = LcTop(dreamOwners, top); dr["orphans_by_node"] = LcTop(dreamOrphans, top);
+            dr["managers"] = dreamMgrs.Count;
+            r["dream_listeners"] = dr;
             return r;
+        }
+
+        // one ActiveDreamNode listener: held by the owner's manager (any of its node collections), or not
+        static void LcDreamListener(object node, Dictionary<string, int> state, Dictionary<object, Dictionary<object, bool>> mgrs,
+            Dictionary<string, int> owners, Dictionary<string, int> orphans)
+        {
+            try
+            {
+                Sim owner = LcGet(node, "mOwner") as Sim;
+                if (owner == null) { LcBump(state, "no owner"); return; }
+                bool hh = owner.SimDescription != null && owner.SimDescription.Household == Household.ActiveHousehold;
+                LcBump(owners, (hh ? "household " : "npc ") + owner.FullName);
+                object mgr = LcGet(owner, "mDreamsAndPromisesManager");
+                if (mgr == null) { LcBump(state, owner.HasBeenDestroyed ? "owner destroyed, no manager" : "owner has no manager"); return; }
+                Dictionary<object, bool> held;
+                if (!mgrs.TryGetValue(mgr, out held))
+                {
+                    held = new Dictionary<object, bool>();
+                    foreach (FieldInfo f in mgr.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+                    {
+                        object v = null;
+                        try { v = f.GetValue(mgr); } catch (Exception) { }
+                        if (v == null || v is string) continue;
+                        if (v.GetType().Name == "ActiveDreamNode") { held[v] = true; continue; }
+                        IDictionary d = v as IDictionary;
+                        IEnumerable e = d != null ? d.Values : v as IEnumerable;
+                        if (e != null) foreach (object x in e) if (x != null) held[x] = true;
+                    }
+                    mgrs[mgr] = held;
+                }
+                if (held.ContainsKey(node)) LcBump(state, hh ? "held (household)" : "held (npc)");
+                else
+                {
+                    LcBump(state, hh ? "orphan (household)" : "orphan (npc)");
+                    object ni = LcGet(node, "mNodeInstance");
+                    string nm = null;
+                    try { PropertyInfo np = ni == null ? null : ni.GetType().GetProperty("Name"); if (np != null) nm = Convert.ToString(np.GetValue(ni, null)); } catch (Exception) { }
+                    LcBump(orphans, nm ?? LcTypeName(ni));
+                }
+            }
+            catch (Exception e) { LcBump(state, "error " + e.GetType().Name); }
         }
 
         // 3. objects: every GameObject by type and by place
@@ -521,6 +583,97 @@ namespace Ts3Agent
             r["instantiated"] = instantiated; r["households"] = households; r["urnstones"] = urns;
             r["by_first_source"] = LcTop(bySource, 10);
             r["genealogy_nodes"] = gseen.Count; r["genealogy_without_desc"] = gNoDesc;
+            // docs/191 family data audit: one-way links and duplicate ancestors (EA bugs, measured before any fix)
+            int spouseOneWay = 0, sibOneWay = 0, sibUnbuilt = 0, ancDup = 0, ancMax = 0, noMini = 0, mSimNull = 0;
+            foreach (Genealogy g in gseen.Keys)
+            {
+                try
+                {
+                    if (LcGet(g, "mSim") == null) mSimNull++;
+                    if (g.IMiniSimDescription == null) noMini++;
+                    Genealogy sp = LcGet(g, "mSpouse") as Genealogy;
+                    if (sp != null && !object.ReferenceEquals(LcGet(sp, "mSpouse"), g)) spouseOneWay++;
+                    List<Genealogy> sib = LcGet(g, "mSiblings") as List<Genealogy>;
+                    if (sib != null)
+                        foreach (Genealogy o in sib)
+                        {
+                            List<Genealogy> back = o == null ? null : LcGet(o, "mSiblings") as List<Genealogy>;
+                            // a Sim with parents builds mSiblings lazily (Genealogy.Siblings) and AddChild clears it for the
+                            // whole family, so a null or empty list there is "not built yet", not one-way
+                            List<Genealogy> op = o == null ? null : LcGet(o, "mNaturalParents") as List<Genealogy>;
+                            if (o != null && (back == null || back.Count == 0) && op != null && op.Count > 0) { sibUnbuilt++; continue; }
+                            bool found = false;
+                            if (back != null) foreach (Genealogy b in back) if (object.ReferenceEquals(b, g)) { found = true; break; }
+                            if (!found) sibOneWay++;
+                        }
+                    List<Genealogy> anc = LcGet(g, "mAncestors") as List<Genealogy>;
+                    if (anc != null)
+                    {
+                        Dictionary<Genealogy, bool> seenA = new Dictionary<Genealogy, bool>(new LcRefEq<Genealogy>());
+                        foreach (Genealogy x in anc) { if (x == null) continue; if (seenA.ContainsKey(x)) ancDup++; else seenA[x] = true; }
+                        if (anc.Count > ancMax) ancMax = anc.Count;
+                    }
+                }
+                catch (Exception) { }
+            }
+            r["genealogy_spouse_one_way"] = spouseOneWay; r["genealogy_sibling_one_way"] = sibOneWay; r["genealogy_sibling_list_unbuilt"] = sibUnbuilt;
+            r["genealogy_ancestor_dups"] = ancDup; r["genealogy_ancestors_max"] = ancMax;
+            r["genealogy_no_mini"] = noMini; r["genealogy_msim_null"] = mSimNull;
+            // docs/191 corruption audit (subagent F1/F2): partner links, relationship tables, half-removed Sims
+            int partnerOneWay = 0, partnerInvalid = 0, halfRemoved = 0;
+            foreach (SimDescription sd in all.Keys)
+            {
+                try
+                {
+                    SimDescription p = sd.Partner;
+                    if (p != null && !p.IsValidDescription) partnerInvalid++;
+                    else if (p != null && !object.ReferenceEquals(p.Partner, sd)) partnerOneWay++;
+                    if (sd.IsValidDescription && sd.Household == null && sd.CreatedSim != null) halfRemoved++;
+                }
+                catch (Exception) { }
+            }
+            int relOneSided = 0, relSplitObj = 0, relInvalid = 0, relNoTable = 0, relTables = 0, relInvalidKeys = 0;
+            List<string> relInvalidSample = new List<string>();
+            try
+            {
+                Dictionary<SimDescription, Dictionary<SimDescription, Sims3.Gameplay.Socializing.Relationship>> rt = Sims3.Gameplay.Socializing.Relationship.sAllRelationships;
+                relTables = rt.Count;
+                foreach (KeyValuePair<SimDescription, Dictionary<SimDescription, Sims3.Gameplay.Socializing.Relationship>> kv in rt)
+                {
+                    if (kv.Key != null && !kv.Key.IsValidDescription)
+                    {
+                        relInvalid++; relInvalidKeys++;
+                        if (relInvalidSample.Count < 12)
+                        {
+                            string who = "?";
+                            try
+                            {
+                                int liveOthers = 0, backRefs = 0;
+                                foreach (KeyValuePair<SimDescription, Sims3.Gameplay.Socializing.Relationship> e in kv.Value) if (e.Key != null && e.Key.IsValidDescription) liveOthers++;
+                                foreach (KeyValuePair<SimDescription, Dictionary<SimDescription, Sims3.Gameplay.Socializing.Relationship>> o in rt) if (o.Value != null && o.Value.ContainsKey(kv.Key)) backRefs++;
+                                who = kv.Key.FullName + " id " + kv.Key.SimDescriptionId + " hh " + (kv.Key.Household != null ? "yes" : "none") + " sim " + (kv.Key.CreatedSim != null ? "yes" : "none")
+                                    + " entries " + kv.Value.Count + " (live " + liveOthers + ") held by " + backRefs;
+                            }
+                            catch (Exception) { }
+                            relInvalidSample.Add(who);
+                        }
+                    }
+                    if (kv.Value == null) continue;
+                    foreach (KeyValuePair<SimDescription, Sims3.Gameplay.Socializing.Relationship> e in kv.Value)
+                    {
+                        if (e.Key != null && !e.Key.IsValidDescription) relInvalid++;
+                        Dictionary<SimDescription, Sims3.Gameplay.Socializing.Relationship> back;
+                        if (e.Key == null || !rt.TryGetValue(e.Key, out back) || back == null) { relNoTable++; continue; }
+                        Sims3.Gameplay.Socializing.Relationship b;
+                        if (!back.TryGetValue(kv.Key, out b)) relOneSided++;
+                        else if (!object.ReferenceEquals(b, e.Value)) relSplitObj++;
+                    }
+                }
+            }
+            catch (Exception) { }
+            r["partner_one_way"] = partnerOneWay; r["partner_invalid"] = partnerInvalid; r["half_removed"] = halfRemoved;
+            r["rel_tables"] = relTables; r["rel_one_sided"] = relOneSided; r["rel_split_objects"] = relSplitObj;
+            r["rel_invalid_desc"] = relInvalid; r["rel_invalid_keys"] = relInvalidKeys; r["rel_invalid_sample"] = relInvalidSample; r["rel_partner_no_table"] = relNoTable;
             r["mini_sims"] = LcCount(LcStatic(typeof(MiniSimDescription), "sMiniSims"));
             r["loaded_sim_descriptions"] = LcCount(LcStatic(typeof(SimDescription), "sLoadedSimDescriptions"));
             return r;
@@ -556,8 +709,25 @@ namespace Ts3Agent
             if (dict != null)
             {
                 Dictionary<string, int> byType = new Dictionary<string, int>();
-                foreach (object v in dict.Values) LcBump(byType, LcTypeName(v));
+                // a control whose window has no parent is off the UI tree (its panel was destroyed without the Detach that
+                // UIManager.OnCustomDetach needs to drop it, hunt 2026-11-11 CustomContentIcon +600 per catalogue browse)
+                Dictionary<string, int> orphan = new Dictionary<string, int>(), native = new Dictionary<string, int>();
+                foreach (object v in dict.Values)
+                {
+                    LcBump(byType, LcTypeName(v));
+                    if (v == null) continue;
+                    PropertyInfo pp = v.GetType().GetProperty("Parent", BindingFlags.Public | BindingFlags.Instance);
+                    object par = null;
+                    try { if (pp != null) par = pp.GetValue(v, null); } catch (Exception) { par = "error"; }
+                    if (pp != null && par == null) LcBump(orphan, LcTypeName(v));
+                    // the engine's view of the handle (UIManager.WrapperFromHandle asks the same): a destroyed window should
+                    // read class id 0; a candidate test for a purge fix, checked against the controls still on the tree
+                    uint cls = LcClassId(dict, v);
+                    LcBump(native, (pp != null && par == null ? "no parent, " : "on tree, ") + (cls == 0 ? "class 0" : cls == 0xFFFFFFFF ? "class ? (no manager)" : cls == 0xFFFFFFFE ? "class ? (threw)" : "class set"));
+                }
+                r["custom_control_native"] = LcTop(native, 6);
                 r["custom_control_by_type"] = LcTop(byType, 10);
+                r["custom_control_no_parent"] = LcTop(orphan, 10);
             }
             r["static_collections"] = LcStaticColls(sLcUiManager);
             r["scriptcore_uimanager_statics"] = LcStaticColls(typeof(ScriptCore.UIManager));
@@ -586,6 +756,20 @@ namespace Ts3Agent
                 r["inventory_item_wins"] = inv;
             }
             return r;
+        }
+
+        static PropertyInfo sLcWinHandle;
+        static uint LcClassId(IDictionary dict, object w)
+        {
+            try
+            {
+                Sims3.SimIFace.IUIManager m = LcStatic(sLcUiManager, "gUIMgr") as Sims3.SimIFace.IUIManager;
+                Sims3.UI.WindowBase wb = w as Sims3.UI.WindowBase;
+                if (m == null || wb == null) return 0xFFFFFFFF;
+                if (sLcWinHandle == null) sLcWinHandle = typeof(Sims3.UI.WindowBase).GetProperty("WinHandle", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                return m.GetClassID(Convert.ToUInt32(sLcWinHandle.GetValue(wb, null)));
+            }
+            catch (Exception) { return 0xFFFFFFFE; }
         }
 
         static string LcDelegateName(object o)
@@ -864,6 +1048,11 @@ namespace Ts3Agent
                 catch (Exception ex) { r[k] = "error: " + ex.Message; }
             }
             return r;
+        }
+        sealed class LcRefEq<T> : IEqualityComparer<T> where T : class
+        {
+            public bool Equals(T x, T y) { return object.ReferenceEquals(x, y); }
+            public int GetHashCode(T o) { return System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(o); }
         }
     }
 }
