@@ -23,7 +23,9 @@ namespace Ts3Fixes
         static void ApplyHudUnsub()
         {
             HudUnsubHook.sModel = typeof(SimDisplay).GetField("mHudModel", BindingFlags.Instance | BindingFlags.NonPublic);
-            bool a = HudUnsubHook.sModel != null && HudUnsubHook.sModel.FieldType == typeof(IHudModel);
+            HudUnsubHook.sCompModel = typeof(HudCompetitionPanel).GetField("mHudModel", BindingFlags.Instance | BindingFlags.NonPublic);
+            HudUnsubHook.sBotModel = typeof(HUDBotCompetitionPanel).GetField("mHudModel", BindingFlags.Instance | BindingFlags.NonPublic);
+            bool a = HudUnsubHook.IsModel(HudUnsubHook.sModel) && HudUnsubHook.IsModel(HudUnsubHook.sCompModel) && HudUnsubHook.IsModel(HudUnsubHook.sBotModel);
             bool b = a && Patch(typeof(SimDisplay), "Dispose", Type.EmptyTypes, typeof(HudUnsubHook), "SimDisplayHook", "SimDisplayOrig");
             bool c = b && Patch(typeof(HudCompetitionPanel), "Dispose", Type.EmptyTypes, typeof(HudUnsubHook), "CompetitionHook", "CompetitionOrig");
             sHudUnsubReady = c && Patch(typeof(HUDBotCompetitionPanel), "Dispose", Type.EmptyTypes, typeof(HudUnsubHook), "BotHook", "BotOrig");
@@ -34,37 +36,40 @@ namespace Ts3Fixes
         // a subclass, so the panel is only used through reflection.
         public class HudUnsubHook
         {
-            internal static FieldInfo sModel;
+            // One FieldInfo per class. GetValue does not check the object's class here: SimDisplay's field (its 42nd) read on a
+            // competition panel (11 fields) is a word past the object, and invoking on that word crashed the game at world quit.
+            internal static FieldInfo sModel, sCompModel, sBotModel;
+            internal static bool IsModel(FieldInfo f) { return f != null && f.FieldType == typeof(IHudModel); }
             static bool sThrew;
 
             public void SimDisplayHook()
             {
-                Remove(this, "OccultUpdated", "OnOccultChanged", "MagicMotiveChanged", "OnMagicMotiveChange", "LunarUpdate", "OnLunarCycleUpdate");
+                Remove(this, sModel, "OccultUpdated", "OnOccultChanged", "MagicMotiveChanged", "OnMagicMotiveChange", "LunarUpdate", "OnLunarCycleUpdate");
                 SimDisplayOrig();
             }
             public void SimDisplayOrig() { } // receives SimDisplay.Dispose's original header
 
             public void CompetitionHook()
             {
-                Remove(this, "ShowCompetitionPanelEvent", "OnShowPanel", "HideCompetitionPanelEvent", "OnHidePanel");
+                Remove(this, sCompModel, "ShowCompetitionPanelEvent", "OnShowPanel", "HideCompetitionPanelEvent", "OnHidePanel");
                 CompetitionOrig();
             }
             public void CompetitionOrig() { } // receives HudCompetitionPanel.Dispose's original header
 
             public void BotHook()
             {
-                Remove(this, "ShowBotCompetitionPanelEvent", "OnShowPanel", "HideBotCompetitionPanelEvent", "OnHidePanel");
+                Remove(this, sBotModel, "ShowBotCompetitionPanelEvent", "OnShowPanel", "HideBotCompetitionPanelEvent", "OnHidePanel");
                 BotOrig();
             }
             public void BotOrig() { } // receives HUDBotCompetitionPanel.Dispose's original header
 
             // pairs of (event name on IHudModel, handler method name on the panel)
-            static void Remove(object panel, params string[] pairs)
+            static void Remove(object panel, FieldInfo field, params string[] pairs)
             {
                 if (!sHudUnsubReady || !ShortcutOn("hudunsub")) return;
                 try
                 {
-                    object model = sModel.GetValue(panel);
+                    object model = field.GetValue(panel);
                     if (model == null) return;  // already disposed
                     int[] c = PatchCounters();
                     for (int i = 0; i < pairs.Length; i += 2)
