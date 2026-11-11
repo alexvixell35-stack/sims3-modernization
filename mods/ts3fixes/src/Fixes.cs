@@ -99,7 +99,7 @@ namespace Ts3Fixes
             ApplyEaFixes();
             ApplyDeadRefs();
             ApplyEaVacation();
-            ApplyCompaction();  // docs/204: hooks only with ts3native [Compaction] Enabled=1 or 2
+            ApplyCompaction();  // docs/204: hooks only with ts3native [Compaction] Enabled=1 or 2, or [Wrapper] Restart=1 (docs/530 step 1)
             ApplyCasTrimKeep();  // docs/539: hooks only with [CasTrim] save hooks in native
         }
 
@@ -339,12 +339,13 @@ namespace Ts3Fixes
         // [872-875] watchdogasync A1 (RouteFixes.cs CheckIdle, RouteBackoff.cs OwnerTaskSlot, docs/250 §7.1): own STARTs sent, started by
         // ts3native, refused before sending (A1 on, Sim eligible, ts3native would not start it), sim ticks the A1 checks took
         // [930-932] watchdogasync: A1 verdicts dropped as stale (H4Core.WdFresh), shadow sync re-checks run, shadow verdicts that differ
+        // [2150-2155] wrapper restart (Restart.cs, docs/530 step 1): saves checked, offers, declined, restarts started (the quit sent), given up before the quit, boot restores done.
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2094]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2156]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 

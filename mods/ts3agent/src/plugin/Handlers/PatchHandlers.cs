@@ -344,6 +344,7 @@ namespace Ts3Agent
             if (c.Length > 426) { r["played_households"] = c[423]; r["played_households_added"] = c[424]; r["savecleanup_light_pictures"] = c[425]; r["savecleanupaggressive_played_skipped"] = c[426]; } // PlayedHouseholds.cs (docs/14 section 8.6) // SaveCleanupSpread.cs (docs/14 section 8)
             if (c.Length > 438) { r["compaction_saves"] = c[427]; r["compaction_started"] = c[428]; r["compaction_offered"] = c[429]; r["compaction_accepted"] = c[430]; r["compaction_declined"] = c[431]; r["compaction_refused_state"] = c[432]; r["compaction_failed"] = c[433]; r["compaction_recorded"] = c[434]; r["compaction_requeued"] = c[435]; r["compaction_requeue_skipped"] = c[436]; r["compaction_not_restorable"] = c[437]; r["compaction_requeue_fail"] = c[438]; }
             if (c.Length > 439) r["compaction_restored"] = c[439]; // Compaction.cs (docs/204)
+            if (c.Length > 2155) { r["wraprestart_checks"] = c[2150]; r["wraprestart_offered"] = c[2151]; r["wraprestart_declined"] = c[2152]; r["wraprestart_started"] = c[2153]; r["wraprestart_given_up"] = c[2154]; r["wraprestart_restored"] = c[2155]; } // Restart.cs (docs/530 step 1)
             if (c.Length > 465) // AutOffload.cs (docs/208): Mode R per candidate, dry checks at the game's own call
             {
                 string[] on = { "autoff_env_items", "autoff_env_a0", "autoff_env_a2", "autoff_env_a4", "autoff_env_a5", "autoff_env_exc", "autoff_env_dry", "autoff_env_dry_eq", "autoff_env_game_eq",

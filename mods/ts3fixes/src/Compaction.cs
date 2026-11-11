@@ -64,6 +64,7 @@ namespace Ts3Fixes
         const int kCpWhyState = 1, kCpWhyNoDetails = 2, kCpWhyThrew = 3, kCpWhyLoad = 4;
 
         static bool sCpMenuHook;
+        static bool sCpOn;                    // [Compaction] on (the hooks may also be in for the wrapper restart alone, Restart.cs)
         static CpRecord sCpPending;           // set at the transition, taken by the next world load
         static SaveGameMetadata sCpMenuMeta;  // Route=1: what the MainMenuState start loads
         static int sCpLoadStart, sCpLastLoadMs;
@@ -80,17 +81,20 @@ namespace Ts3Fixes
 
         static void ApplyCompaction()
         {
-            if (!CpAsk(8)) return;  // [Compaction] off, [UserDiag] off or no ts3native: no hooks at all
-            if (!Patch(typeof(Sims3.Gameplay.UI.OptionsModel), "SaveGameTask", new Type[] { typeof(object) }, typeof(CompactSaveTaskHook), "TaskHook", "TaskOrig")) return;
+            sCpOn = CpAsk(8);
+            bool wr = ApplyWrapRestart();  // docs/530 step 1 (Restart.cs) uses the same two hooks: a method is patched once
+            if (!sCpOn && !wr) return;  // [Compaction] and [Wrapper] Restart off, [UserDiag] off or no ts3native: no hooks at all
+            if (!Patch(typeof(Sims3.Gameplay.UI.OptionsModel), "SaveGameTask", new Type[] { typeof(object) }, typeof(CompactSaveTaskHook), "TaskHook", "TaskOrig")) { sCpOn = sWrOn = sWrBoot = false; return; }
             sCpMenuHook = Patch(typeof(MainMenuState), "Startup", Type.EmptyTypes, typeof(CompactMenuHook), "StartupHook", "StartupOrig");
-            World.OnWorldLoadStartedEventHandler += delegate { sCpLoadStart = System.Environment.TickCount; };
+            if (sCpOn) World.OnWorldLoadStartedEventHandler += delegate { sCpLoadStart = System.Environment.TickCount; };
         }
 
         public class CompactSaveTaskHook
         {
             public void TaskHook(object obj)
             {
-                CpAsk(7);  // the verdict counts only a save that ends after this
+                if (sCpOn) CpAsk(7);  // the verdict counts only a save that ends after this
+                if (sWrOn) WrAsk(1);  // the same for the wrapper restart (Restart.cs)
                 TaskOrig(obj);
                 try { CompactAfterSave(); } catch (Exception) { }
             }
@@ -103,6 +107,7 @@ namespace Ts3Fixes
             {
                 StartupOrig();
                 try { CompactMenuStartup(); } catch (Exception) { }
+                try { WrapMenuStartup(); } catch (Exception) { }
             }
             public void StartupOrig() { } // MainMenuState.Startup
         }
@@ -151,20 +156,27 @@ namespace Ts3Fixes
         {
             if (sCpChecking) { DiagLine("compaction: a check from an earlier save is still waiting; this save adds none"); return; }
             sCpChecking = true;
-            try { CompactAfterSaveCheck(); } finally { sCpChecking = false; }
+            try { if (!WrapAfterSave() && sCpOn) CompactAfterSaveCheck(); } finally { sCpChecking = false; }  // the restart first (Restart.cs)
+        }
+
+        // CpStateWhy after a save. EA's SaveGameTask leaves its own progress window (a plain Dialog) modal for a few ticks after
+        // it returns, so the state check saw "a modal window (Dialog)" after every save and the opt-in path never ran
+        // (2026-11-02). This task is a simulator task: sleep until that window is gone (a player's real dialog stays and still
+        // refuses). tag and n name the log line ("compaction" / "wrapper", the save count).
+        static string CpWaitStateWhy(string tag, int n)
+        {
+            string why = CpStateWhy();
+            int waited = 0;
+            while (why != null && why.StartsWith("a modal window") && waited < 40) { Simulator.Sleep(5u); waited++; why = CpStateWhy(); }
+            if (waited > 0) DiagLine(tag + ": save #" + n + ": waited " + waited + " x 5 ticks for the save's modal window" + (why == null ? "" : "; still refused: " + why));
+            return why;
         }
 
         static void CompactAfterSaveCheck()
         {
             int[] c = PatchCounters();
             c[427]++;
-            string why = CpStateWhy();
-            // EA's SaveGameTask leaves its own progress window (a plain Dialog) modal for a few ticks after it returns, so the
-            // state check saw "a modal window (Dialog)" after every save and the opt-in path never ran (2026-11-02). This task is
-            // a simulator task: sleep until that window is gone (a player's real dialog stays and still refuses below).
-            int waited = 0;
-            while (why != null && why.StartsWith("a modal window") && waited < 40) { Simulator.Sleep(5u); waited++; why = CpStateWhy(); }
-            if (waited > 0) DiagLine("compaction: save #" + c[427] + ": waited " + waited + " x 5 ticks for the save's modal window" + (why == null ? "" : "; still refused: " + why));
+            string why = CpWaitStateWhy("compaction", c[427]);
             if (why != null) { c[432]++; DiagLine("compaction: save #" + c[427] + " not considered: " + why); return; }  // the verdict is not asked: the arm stays for the next save
             if (!CpAsk(0))
             {
@@ -241,6 +253,7 @@ namespace Ts3Fixes
         // From Instantiator's world-load handler (after DiagWorldLoad).
         public static void CompactionWorldLoad()
         {
+            try { WrapWorldLoad(); } catch (Exception) { }  // docs/530 step 1 (Restart.cs): a restart boot's restore
             if (sCpLoadStart != 0) { sCpLastLoadMs = System.Environment.TickCount - sCpLoadStart; sCpLoadStart = 0; }
             CpRecord r = sCpPending;
             sCpPending = null;
@@ -412,16 +425,19 @@ namespace Ts3Fixes
             return inst != null && sim.InteractionQueue.Add(inst);
         }
 
-        static void CompactRestore(CpRecord r)
+        // Camera, selected Sim, queues, panel (not the speed: the caller sets it last). Bits: 0 camera, 1 selected Sim, 2 at least
+        // one queue entry pushed, 3 HUD panel (Restart.cs reports them to native).
+        static int CpRestoreBody(CpRecord r)
         {
             int[] c = PatchCounters();
-            Simulator.Sleep(1);  // one sim tick after the world is up, game speed still EA's
+            int mask = 0, pushed = c[435];
             if (r.HasCamera)
-                try { if ((CameraController.GetTarget() - r.CamTarget).Length() > CompactionCore.kCameraCheckM) CameraController.SetPositionAndTarget(r.CamPos, r.CamTarget); } catch (Exception) { }
+                try { if ((CameraController.GetTarget() - r.CamTarget).Length() > CompactionCore.kCameraCheckM) CameraController.SetPositionAndTarget(r.CamPos, r.CamTarget); mask |= 1; } catch (Exception) { }
             try
             {
                 Sim sel = CpFindSim(r.Selected);
                 if (sel != null && PlumbBob.SelectedActor != sel) PlumbBob.ForceSelectActor(sel);
+                if (sel != null) mask |= 2;
             }
             catch (Exception) { }
             foreach (CpSim s in r.Sims)  // head first: the running interaction restarts from its beginning
@@ -434,7 +450,16 @@ namespace Ts3Fixes
                     catch (Exception) { c[438]++; }
                 }
             }
-            try { if (r.Panel != HudController.InfoState) HudController.SetInfoState(r.Panel); } catch (Exception) { }
+            if (c[435] > pushed) mask |= 4;
+            try { if (r.Panel != HudController.InfoState) HudController.SetInfoState(r.Panel); mask |= 8; } catch (Exception) { }
+            return mask;
+        }
+
+        static void CompactRestore(CpRecord r)
+        {
+            int[] c = PatchCounters();
+            Simulator.Sleep(1);  // one sim tick after the world is up, game speed still EA's
+            CpRestoreBody(r);
             bool helped = CpAsk(5);  // native: largest free after the reload, "did it help", the +N min line
             int gain = CpValue(1);
             DiagLine("compaction: restored " + c[435] + " queue entries in total, " + c[436] + " not pushed, " + c[437] + " not restorable, " + c[438] + " threw (session counters)");
