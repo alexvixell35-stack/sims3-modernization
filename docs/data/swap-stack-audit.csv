@@ -45,6 +45,8 @@ CasHairHook.PopulateHook,CASHair,PopulateTypesGrid,CasGrid.cs,PopulateOrig,yes,C
 CasMakeupHook.PopulateHook,CASMakeup,PopulatePartsGrid,CasGrid.cs,PopulateOrig,yes,CASMakeup::PopulatePartsGrid > CatalogProductFilter::FilterObjects > .. 12 .. > Simulator::Sleep,CasGrid,"keep, stub remap (SavedStacks.cs)"
 CplHook.DisposeHook,CASPuck,Dispose,CasPuckLeak.cs,DisposeOrig,yes,CASPuck::Dispose > CASCompositorController::Unload > .. 9 .. > SACS::SACS_AcquireDriverImpl,CasPuckLeak,"keep, stub remap (SavedStacks.cs)"
 CplHook.FamUnloadHook,fs,Unload,CasPuckLeak.cs,FamUnloadOrig,?,not found in the index: fs::Unload,CasPuckLeak,"keep, stub remap (SavedStacks.cs)"
+CriHook.DisposeHook,CASClothingRow,Dispose,CasRowIcons.cs,DisposeOrig,no,no path to a yield in 1 overload(s),CasRowIcons,keep
+CriHook.PuckUnloadHook,CASPuck,Unload,CasRowIcons.cs,PuckUnloadOrig,no,no path to a yield in 1 overload(s),CasRowIcons,keep
 CrlRowHook.CreateHook,CASClothingRow,CreateGridItems,CasRowLeak.cs,CreateOrig,yes,CASClothingRow::CreateGridItems > CASClothingRow::CreateGridItems > .. 15 .. > Simulator::Sleep,CasRowLeak,"keep, stub remap (SavedStacks.cs)"
 CrlCategoryHook.AddHook,CASClothingCategory,AddGridItem,CasRowLeak.cs,AddOrig,yes,CASClothingCategory::AddGridItem > CASClothingRow::CreateGridItems > .. 15 .. > Simulator::Sleep,CasRowLeak,"keep, stub remap (SavedStacks.cs)"
 CtKeepSaveHook.SaveHook,OptionsModel,SaveGameSynchronous,CasTrimKeep.cs,SaveOrig,yes,OptionsModel::SaveGameSynchronous > Simulator::Sleep,CasTrimKeep,"keep, stub remap (SavedStacks.cs)"
@@ -54,6 +56,7 @@ CmlHook.UnloadHook,CASCompositorController,Unload,CompositorLeak.cs,UnloadOrig,y
 CmlHook.LoadHook,CASCompositorController,Load,CompositorLeak.cs,LoadOrig,no,no path to a yield in 1 overload(s),CompositorLeak,keep
 RelGetHook.GetHook,Relationship,Get,DeadRefs.cs,GetOrig,yes,Relationship::Get > Relationship::Get > .. 8 .. > Simulator::Sleep,DeadRefs,"keep, stub remap (SavedStacks.cs)"
 AgingValidHook.ValidHook,AgingManager,IsAgingStateValid,DeadRefs.cs,ValidOrig,no,no path to a yield in 1 overload(s),DeadRefs,keep
+DclHook.DestroyHook,WindowBase,DestroyAllChildren,DestroyChildrenLeak.cs,DestroyOrig,no,no path to a yield in 1 overload(s),DestroyChildrenLeak,keep
 FadeDestroyHook.CallbackHook,GameObject,DestroyObjectOnFadeOutCallBack,DisposeSpread.cs,CallbackOrig,yes,GameObject::DestroyObjectOnFadeOutCallBack > Kraken::Destroy > .. 2 .. > StateMachineClient::RequestState,DisposeSpread,"keep, stub remap (SavedStacks.cs)"
 DestroyMyselfHook.RunHook,Sim.DestroyMyself,Run,DisposeSpread.cs,RunOrig,yes,Sim+DestroyMyself::Run > Simulator::Sleep,DisposeSpread,"keep, stub remap (SavedStacks.cs)"
 TrafficReleaseHook.ReleaseHook,CarNpcWithNoDriver,DriveOffscreenAndRelease,DisposeSpread.cs,ReleaseOrig,yes,CarNpcWithNoDriver::DriveOffscreenAndRelease > CarNpcManager::DriveAwayInNpcCar > Simulator::Sleep,DisposeSpread,"keep, stub remap (SavedStacks.cs)"

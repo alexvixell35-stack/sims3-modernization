@@ -1,7 +1,7 @@
 # 257. UI, wish, mood and relationship leak fixes (ts3fixes, 2026-11-11)
 
 Static RE plus live trigger runs, 2026-11-11 (SteamOS/Wine, Isla Paradiso fresh world, test saves `ts3phase-*` only).
-**Status: 25 switches built, all off by default.** Each was run in game with the fix off, then on, in the same session
+**Status: 30 switches built, all off by default.** Each was run in game with the fix off, then on, in the same session
 (`phasesoak3.sh` phases, `leak_census` after each phase). Every change acts only on UI objects, on wish/listener
 bookkeeping, or on data that is already wrong; household Sims are never moved, skipped or throttled.
 
@@ -34,10 +34,12 @@ Counters are ts3fixes slots (docs/registry.md). "Off" = counted with the switch 
 | `buygridsweep` (v2) | SelectCatalog / ShowAllItems repoint mCatalogGrid; BuyController.Dispose cleans the icons of the current grid only, and AddGridItem turns the icons' DisposeOnDetach off, so the cells left in BuyController.mExpandableCatalogGrid's own ItemGrid keep their icons registered | +220 live icons per Buy navigation visit | 220 of 220 handed back to EA's detach per visit, +0 per visit (two visits) | 0 |
 | `compositorghost` | every Buy, Build or CAS visit leaves one invisible, parentless CASCompositorController window and its dict entry (not the controller Load returned; nothing detaches it) | +1 per visit (10 in 10 visits) | 16 of 16 cleaned up with OnCustomDetach's steps, 0 left | 0 |
 | `caspuckevents` | CASPuck.Init subscribes to the static DownloadDashboard.DashboardStateUpdate and to the session-long OptionsModel.OptionsChanged; CASPuck.Dispose removes neither (PuckController removes both) | every closed CAS screen stays subscribed: 10 of 10 | 10 of 10 handler pairs removed | 0 |
+| `casfiltergrid` | CASPuck's content-type CatalogProductFilter (child 153931569) has the same DisposeOnDetach(false) grid as Buy's filter; CASPuck.Unload shuts its layout down without it | +1 ItemGrid per CAS exit (5 in 5) | 10 of 10 restored before CASPuck.Unload, ItemGrid flat | 0 |
+| `famcursorleak` | CASFamilyScreen.Init keeps two windows of a "CAFThumbItem" layout as drag cursors and nothing disposes them (EA's SceneMgrWindow.UnregisterDragCursors pattern does) | 18 cursor windows per 3 family-tree opens | 18 of 18 disposed per 3 opens | 0 |
 
 Built and installed without errors, but nothing to act on in these runs: `seasondup` (56 duplicate Motives season
 listeners at the start of a fresh world, none on reload or household switch), `blogorphan` (the blog app was not used),
-`dnpupdateguard` (no wish update threw), `attractionalarm`, `uncleguard` (no case in this world).
+`dnpupdateguard` (no wish update threw), `casrowicons` and `destroychildren` (below), `attractionalarm`, `uncleguard` (no case in this world).
 
 Disproven: `familyinvghost` (destroyed family-inventory items still listed). 64 probe rounds with the hook counting in
 both halves found 0: Destroy removes the item before ItemComponent.Dispose runs [measured]. It stays in the source, off,
@@ -136,8 +138,16 @@ the step the override ends with.
 
 ## 5. Next
 
-- CAS: +90 live parentless CustomContentIcons (control id 35) per CAS visit that browses clothing categories, and +1 ItemGrid id 189775728 (a CatalogProductFilter grid in a CAS layout) per CASPuck.Dispose (static RE running).
-- `famcursorleak` (CASFamilyScreen drag cursors) is built; live test pending.
+- CAS: +90 live parentless CustomContentIcons (control id 35) per CAS visit that browses clothing categories, and about
+  +15 CAFThumb entries per family-tree open, still unexplained. Three places were ruled out by measurement:
+  - `casrowicons` (CASClothingRow.Dispose never touches its icons): v1 removed 1,830 still-attached icons per visit and
+    the leftovers did not move, v2 found none orphaned at the row's Dispose, and v3 found none orphaned at the next CAS
+    exit.
+  - `destroychildren` (UIManager.DestroyAllChildren goes straight to native and skips OnCustomDetach, also used by
+    FamilyTreeDialog.RefreshTree and MapTagController.Dispose) found 0 entries left.
+  - `famcursorleak` v2/v3 found no other family-screen controls orphaned at or after Unload.
+  The leftovers are therefore wrappers registered after those points; the census now records whether each one's
+  native window is alive. Those switches stay off.
 - Live test of `moodpending` (a Sim sleeping in a bed until WellRested: target 20 vs sum 10 off, equal on).
 - Listener cost: count dispatches and time per event id (EventTracker.ProcessEvent).
 - Inventory audit items A1/A3/D1/C1 and the Downtrodden / Torched / Lunacy shared fields (static only so far).

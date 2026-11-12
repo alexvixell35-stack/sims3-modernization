@@ -131,6 +131,8 @@ namespace Ts3Agent
                 FieldInfo df = typeof(Sims3.UI.UIManager).GetField("mCustomControlInstanceDict", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
                 PropertyInfo hp = typeof(Sims3.UI.WindowBase).GetProperty("WinHandle", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                 IDictionary dict = df != null ? df.GetValue(null) as IDictionary : null;
+                FieldInfo gf = typeof(Sims3.UI.UIManager).GetField("gUIMgr", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                Sims3.SimIFace.IUIManager gui = gf != null ? gf.GetValue(null) as Sims3.SimIFace.IUIManager : null;
                 if (dict != null)
                     foreach (DictionaryEntry e in dict)
                     {
@@ -144,7 +146,14 @@ namespace Ts3Agent
                         {
                             st = "live, no parent";
                             // which layout made it: type and control id (the id is the export id in its layout)
-                            try { LcBump(orphanIds, w.GetType().Name + " id " + w.ID); } catch (Exception) { }
+                            try
+                            {
+                                // alive = the engine still reports a custom control under the handle; visible = shown
+                                uint cid = 0;
+                                try { if (gui != null) cid = gui.GetCustomControlID(Convert.ToUInt32(e.Key)); } catch (Exception) { }
+                                LcBump(orphanIds, w.GetType().Name + " id " + w.ID + (cid != 0 ? " alive" : " dead") + (cid != 0 && w.Visible ? " visible" : ""));
+                            }
+                            catch (Exception) { }
                         }
                         else st = "live, on tree";
                         if (isIiw) LcBump(iiw, st);

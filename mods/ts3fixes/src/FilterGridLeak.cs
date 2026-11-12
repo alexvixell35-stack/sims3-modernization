@@ -61,7 +61,7 @@ namespace Ts3Fixes
 
         public class FglHook
         {
-            public static void BuyUnloadHook() { FglRestore(sFglBuyCtl, sFglBuyFilter); BuyUnloadOrig(); BcrIconCensus(2196); }  // probe: after Unload
+            public static void BuyUnloadHook() { FglRestore(sFglBuyCtl, sFglBuyFilter); BuyUnloadOrig(); }
             public static void BuyUnloadOrig() { } // receives BuyController.Unload()'s original header
             public static void BuildUnloadHook() { FglRestore(sFglBuildCtl, sFglBuildFilter); BuildUnloadOrig(); }
             public static void BuildUnloadOrig() { } // receives BuildController.Unload()'s original header

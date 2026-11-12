@@ -84,110 +84,13 @@ namespace Ts3Fixes
         // catalog type each grid was last filled under (AddGridItem returned true); ShowHook recycles only on a match, so a
         // pattern cell never goes to the buy cache or the other way round
         static readonly Dictionary<ItemGrid, int> sBcrGridType = new Dictionary<ItemGrid, int>();
-        // Probe (read only, with buycellrecycle patched): every cell AddGridItem adds in this Buy visit; after EA's Dispose,
-        // the icons (child 35) it did not dispose, by where their cell was just before Dispose: [2181] cells tracked, [2182]
-        // cache, [2183] a controller grid, [2184] nowhere but parented, [2185] nowhere, no parent, [2186] errors.
+        // every cell AddGridItem adds in this Buy visit and the grid it went to (buygridsweep sweeps those grids); cleared
+        // when Buy closes
         static readonly List<WindowBase> sBcrTracked = new List<WindowBase>();
         static readonly Dictionary<WindowBase, bool> sBcrTrackedSet = new Dictionary<WindowBase, bool>();
         static readonly Dictionary<WindowBase, ItemGrid> sBcrTrackedGrid = new Dictionary<WindowBase, ItemGrid>();
 
-        static List<CustomContentIcon> sBcrPrIcons = new List<CustomContentIcon>();
-        static List<int> sBcrPrClass = new List<int>();
-        static int sBcrPrLogged;
-
-        // before EA's Dispose: where each tracked cell is, and its icon (kept by reference, so the after-check does not
-        // look windows up again once Dispose has destroyed them). Class 0 cache, 1 a controller grid, 2 nowhere, parented,
-        // 3 nowhere, no parent.
-        internal static void BcrProbeBeforeDispose(object ctl)
-        {
-            sBcrPrIcons.Clear(); sBcrPrClass.Clear();
-            int[] c = PatchCounters();
-            try
-            {
-                if (sBcrTracked.Count == 0) return;
-                List<WindowBase> buy = sBcrBuyCache.GetValue(ctl) as List<WindowBase>, pat = sBcrPatCache.GetValue(ctl) as List<WindowBase>;
-                Dictionary<WindowBase, bool> inGrid = new Dictionary<WindowBase, bool>();
-                List<FieldInfo> gf = new List<FieldInfo>(sBcrOtherGrids ?? new FieldInfo[0]);
-                if (sBcrCatalogGrid != null) gf.Add(sBcrCatalogGrid);
-                foreach (string n in new string[] { "mGridInventory", "mGridDebug" }) { FieldInfo f = ctl.GetType().GetField(n, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic); if (f != null) gf.Add(f); }
-                foreach (FieldInfo f in gf)
-                {
-                    ItemGrid g = null;
-                    try { g = f.GetValue(ctl) as ItemGrid; } catch (Exception) { }
-                    if (g == null) continue;
-                    try { foreach (ItemGridCellItem it in g.Items) if (it.mWin != null) inGrid[it.mWin] = true; } catch (Exception) { }
-                }
-                foreach (WindowBase cell in sBcrTracked)
-                {
-                    try
-                    {
-                        if (cell.Disposed) continue;
-                        CustomContentIcon icon = cell.GetChildByID(35u, true) as CustomContentIcon;
-                        if (icon == null || icon.Disposed) continue;
-                        int k;
-                        if ((buy != null && buy.Contains(cell)) || (pat != null && pat.Contains(cell))) k = 0;
-                        else if (inGrid.ContainsKey(cell)) k = 1;
-                        else if (cell.Parent != null)
-                        {
-                            k = 2;
-                            if (sBcrPrLogged < 3)
-                            {
-                                sBcrPrLogged++;
-                                ItemGrid ag; sBcrTrackedGrid.TryGetValue(cell, out ag);
-                                string fname = "none";
-                                foreach (FieldInfo f in ctl.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
-                                    if (typeof(WindowBase).IsAssignableFrom(f.FieldType)) { try { if (ag != null && object.ReferenceEquals(f.GetValue(ctl), ag)) { fname = f.Name; break; } } catch (Exception) { } }
-                                int cnt = -1, items = -1; bool disp = true;
-                                try { if (ag != null) { disp = ag.Disposed; cnt = ag.Count; items = ag.Items.Count; } } catch (Exception) { }
-                                AppliedLog().Add("buy icon probe: added to grid field " + fname + ", grid disposed " + disp + ", Count " + cnt + ", Items " + items
-                                    + ", current " + (ag != null && object.ReferenceEquals(sBcrCatalogGrid.GetValue(ctl), ag)) + ", grid is " + (ag != null ? ag.GetType().Name + " id " + ag.ID : "?"));
-                                WindowBase pw = cell.Parent, gp = pw != null ? pw.Parent : null;
-                                AppliedLog().Add("buy icon probe: cell in no cache/grid, parent " + (pw != null ? pw.GetType().Name + " id " + pw.ID : "?")
-                                    + ", grandparent " + (gp != null ? gp.GetType().Name + " id " + gp.ID : "none") + ", cell visible " + cell.Visible);
-                            }
-                        }
-                        else k = 3;
-                        sBcrPrIcons.Add(icon); sBcrPrClass.Add(k);
-                    }
-                    catch (Exception) { c[2186]++; }
-                }
-            }
-            catch (Exception) { c[2186]++; }
-        }
-
-        // after EA's Dispose: icons it left undisposed, by class: [2182] cache, [2183] grid, [2184] nowhere parented,
-        // [2185] nowhere unparented
-        // live CustomContentIcon entries in the dict (handle == key): [slot] with no parent, [slot+1] parented
-        internal static void BcrIconCensus(int slot)
-        {
-            int[] c = PatchCounters();
-            try
-            {
-                IDictionary dict = sBilDict != null ? sBilDict.GetValue(null) as IDictionary : null;
-                if (dict == null) return;
-                int np = 0, par = 0;
-                foreach (DictionaryEntry e in dict)
-                {
-                    CustomContentIcon w = e.Value as CustomContentIcon;
-                    if (w == null || w.Disposed || Convert.ToUInt32(sBilHandle.GetValue(w, null)) != Convert.ToUInt32(e.Key)) continue;
-                    if (w.Parent == null) np++; else par++;
-                }
-                c[slot] = np; c[slot + 1] = par;  // a snapshot, not a running total
-            }
-            catch (Exception) { c[2186]++; }
-        }
-
-        internal static void BcrProbeAfterDispose(object ctl)
-        {
-            int[] c = PatchCounters();
-            try
-            {
-                for (int i = 0; i < sBcrPrIcons.Count; i++)
-                    if (!sBcrPrIcons[i].Disposed) c[2182 + sBcrPrClass[i]]++;
-            }
-            catch (Exception) { c[2186]++; }
-            finally { sBcrTracked.Clear(); sBcrTrackedSet.Clear(); sBcrTrackedGrid.Clear(); sBcrPrIcons.Clear(); sBcrPrClass.Clear(); }
-        }
+        internal static void BcrClearTracked() { sBcrTracked.Clear(); sBcrTrackedSet.Clear(); sBcrTrackedGrid.Clear(); }
 
         // buygridsweep: called by BilHook.DisposeHook (BuyIconLeak.cs) before EA's BuyController.Dispose
         internal static void BcrSweepOtherGrids(object ctl)
@@ -253,7 +156,7 @@ namespace Ts3Fixes
                 try { if (grid != null && win != null && sBcrGridState != null) { s0 = BcrGridState(grid); ok = true; } } catch (Exception) { }
                 bool added = AddOrig(grid, obj, win, ctx);
                 if (added && grid != null) { try { sBcrGridType[grid] = Convert.ToInt32(sBcrType.GetValue(this)); } catch (Exception) { } }
-                if (added && win != null && !sBcrTrackedSet.ContainsKey(win)) { sBcrTrackedSet[win] = true; sBcrTracked.Add(win); sBcrTrackedGrid[win] = grid; PatchCounters()[2181]++; }
+                if (added && win != null && !sBcrTrackedSet.ContainsKey(win)) { sBcrTrackedSet[win] = true; sBcrTracked.Add(win); sBcrTrackedGrid[win] = grid; }
                 if (!ok || added) return added;
                 int[] c = PatchCounters();
                 try
