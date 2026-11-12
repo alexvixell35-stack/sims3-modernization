@@ -1,7 +1,7 @@
 # 257. UI, wish, mood and relationship leak fixes (ts3fixes, 2026-11-11)
 
 Static RE plus live trigger runs, 2026-11-11 (SteamOS/Wine, Isla Paradiso fresh world, test saves `ts3phase-*` only).
-**Status: 30 switches built, all off by default.** Each was run in game with the fix off, then on, in the same session
+**Status: every switch here is built and off by default.** Each was run in game with the fix off, then on, in the same session
 (`phasesoak3.sh` phases, `leak_census` after each phase). Every change acts only on UI objects, on wish/listener
 bookkeeping, or on data that is already wrong; household Sims are never moved, skipped or throttled.
 
@@ -40,7 +40,7 @@ Counters are ts3fixes slots (docs/registry.md). "Off" = counted with the switch 
 
 Built and installed without errors, but nothing to act on in these runs: `seasondup` (56 duplicate Motives season
 listeners at the start of a fresh world, none on reload or household switch), `blogorphan` (the blog app was not used),
-`dnpupdateguard` (no wish update threw), `casrowicons` and `destroychildren` (below), `attractionalarm`, `uncleguard` (no case in this world).
+`dnpupdateguard` (no wish update threw), `attractionalarm`, `uncleguard` (no case in this world).
 
 Disproven: `familyinvghost` (destroyed family-inventory items still listed). 64 probe rounds with the hook counting in
 both halves found 0: Destroy removes the item before ItemComponent.Dispose runs [measured]. It stays in the source, off,
@@ -142,7 +142,7 @@ the step the override ends with.
 - CAS icons: answered by `casexitsweep` (above). The census now reads the native parent handle: the managed
   `Parent` is null both for a detached window and for one whose parent class has no managed type, so "no parent"
   alone was not proof. About 5 icons per visit still detach after the sweep runs. The row-Dispose and
-  DestroyAllChildren hooks found nothing (`casrowicons` was replaced; `destroychildren` stays off, built).
+  DestroyAllChildren hooks found nothing and were removed (`casrowicons`, replaced by `casexitsweep`; `destroychildren`, 0 in CAS and on the live family tree, where FamilyTreeDialog.RefreshTree uses it).
 - Family-tree CAFThumbs (+15 per open, live and natively detached): measured only by calling CASFamilyScreen.Load /
   Unload inside single-Sim CAS, which players cannot reach (the game opens it from Create a Family,
   CAF.ShowRelationshipsPanel), so this may be a harness artifact [inferred]. Needs a Create a Family route before any

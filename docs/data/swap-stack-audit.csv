@@ -56,7 +56,6 @@ CmlHook.UnloadHook,CASCompositorController,Unload,CompositorLeak.cs,UnloadOrig,y
 CmlHook.LoadHook,CASCompositorController,Load,CompositorLeak.cs,LoadOrig,no,no path to a yield in 1 overload(s),CompositorLeak,keep
 RelGetHook.GetHook,Relationship,Get,DeadRefs.cs,GetOrig,yes,Relationship::Get > Relationship::Get > .. 8 .. > Simulator::Sleep,DeadRefs,"keep, stub remap (SavedStacks.cs)"
 AgingValidHook.ValidHook,AgingManager,IsAgingStateValid,DeadRefs.cs,ValidOrig,no,no path to a yield in 1 overload(s),DeadRefs,keep
-DclHook.DestroyHook,WindowBase,DestroyAllChildren,DestroyChildrenLeak.cs,DestroyOrig,no,no path to a yield in 1 overload(s),DestroyChildrenLeak,keep
 FadeDestroyHook.CallbackHook,GameObject,DestroyObjectOnFadeOutCallBack,DisposeSpread.cs,CallbackOrig,yes,GameObject::DestroyObjectOnFadeOutCallBack > Kraken::Destroy > .. 2 .. > StateMachineClient::RequestState,DisposeSpread,"keep, stub remap (SavedStacks.cs)"
 DestroyMyselfHook.RunHook,Sim.DestroyMyself,Run,DisposeSpread.cs,RunOrig,yes,Sim+DestroyMyself::Run > Simulator::Sleep,DisposeSpread,"keep, stub remap (SavedStacks.cs)"
 TrafficReleaseHook.ReleaseHook,CarNpcWithNoDriver,DriveOffscreenAndRelease,DisposeSpread.cs,ReleaseOrig,yes,CarNpcWithNoDriver::DriveOffscreenAndRelease > CarNpcManager::DriveAwayInNpcCar > Simulator::Sleep,DisposeSpread,"keep, stub remap (SavedStacks.cs)"

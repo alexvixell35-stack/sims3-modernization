@@ -212,7 +212,6 @@ namespace Ts3Fixes
         [Tunable] public static bool kFamCursorLeak = false;      // opt-in until measured: the family tree screen's two drag-cursor windows are cleaned up when it closes (CasPuckLeak.cs, docs/257)
         [Tunable] public static bool kCasExitSweep = false;       // opt-in until measured: CAS windows the engine left detached are destroyed when CAS closes (CasExitSweep.cs, docs/257)
         [Tunable] public static bool kCasFilterGrid = false;      // opt-in until measured: the CAS content filter grid is cleaned up when CAS closes (CasExitSweep.cs, docs/257)
-        [Tunable] public static bool kDestroyChildren = false;    // opt-in until measured: windows the family tree (CAS and live) and map tags destroy no longer stay registered (DestroyChildrenLeak.cs, docs/257)
         [Tunable] public static bool kGenealogyCycle = false;     // opt-in until measured: family ancestor lists without repeats, loop-safe ancestor walks and cache clears, Divorce with no spouse does not throw (GenealogyGuard.cs, docs/191)
         [Tunable] public static bool kSpouseUnlink = false;       // opt-in until measured: a new marriage/engagement/partner link clears the old spouse's link back, as Divorce does (GenealogyGuard.cs, docs/191)
         [Tunable] public static bool kPetWishLeak = false;        // opt-in until measured: finished wishes about pets leave the wish manager's subject table like other wishes do (PetWishLeak.cs, docs/191)
