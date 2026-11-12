@@ -224,7 +224,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kCompositorGhost value="False" />
     <kCasPuckEvents value="False" />
     <kFamCursorLeak value="False" />
-    <kCasRowIcons value="False" />
+    <kCasExitSweep value="False" />
     <kCasFilterGrid value="False" />
     <kDestroyChildren value="False" />
   </Current_Tuning>

@@ -95,7 +95,7 @@ namespace Ts3Fixes
             ApplyMoodPending();
             ApplyFilterGridLeak();
             ApplyCasPuckLeak();
-            ApplyCasRowIcons();
+            ApplyCasExitSweep();
             ApplyDestroyChildren();
             ApplyNameCache();
             ApplyScriptHotSpots();
@@ -346,8 +346,8 @@ namespace Ts3Fixes
         // 2106-2107 vehfrankentaxi unused intro taxis seen / released; 2108-2110 vehprotestcar cop cars tracked / left with no driver or drive-away after a sim-hour / destroyed. "Seen" counters count with the switch off too.
         // [2129-2132] relremovesafe (RelRemoveSafe.cs): Sim removals where EA's relationship removal would throw / one-sided entries for the removed Sim / removals seen / errors.
         // [2184-2186] destroychildren (DestroyChildrenLeak.cs): entries DestroyAllChildren left (also off) / removed / left alive or errors.
-        // [2181-2183] casfiltergrid (CasRowIcons.cs): CAS filter grids at CASPuck.Unload (also off) / restored / errors.
-        // [2194-2197] casrowicons (CasRowIcons.cs): row icons left after CASClothingRow.Dispose (also off) / removed live / removed dead / errors.
+        // [2181-2183] casfiltergrid (CasExitSweep.cs): CAS filter grids at CASPuck.Unload (also off) / restored / errors.
+        // [2194-2197] casexitsweep (CasExitSweep.cs): detached live entries at CAS exit (also off) / cleaned / skipped parented / errors.
         // [2178-2180] caspuckevents (CasPuckLeak.cs): CASPuck disposed with its dashboard handler attached (also off) / handlers removed / errors.
         // [2187-2189] famcursorleak (CasPuckLeak.cs): family-screen drag cursor windows at Unload (also off) / disposed / errors.
         // [2190-2192] compositorghost (CompositorLeak.cs): ghost controller entries after Unload (also off) / removed / left or errors; [2193] live orphan windows disposed.
@@ -586,7 +586,7 @@ namespace Ts3Fixes
                 case "compositorghost": return Instantiator.kCompositorGhost;
                 case "caspuckevents": return Instantiator.kCasPuckEvents;
                 case "famcursorleak": return Instantiator.kFamCursorLeak;
-                case "casrowicons": return Instantiator.kCasRowIcons;
+                case "casexitsweep": return Instantiator.kCasExitSweep;
                 case "casfiltergrid": return Instantiator.kCasFilterGrid;
                 case "destroychildren": return Instantiator.kDestroyChildren;
                 case "convturn": return Instantiator.kConvTurn;

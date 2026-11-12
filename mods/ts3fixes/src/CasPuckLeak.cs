@@ -26,10 +26,6 @@ namespace Ts3Fixes
     // cursors (SceneMgrWindow.UnregisterDragCursors) deregisters the ids and disposes both windows. The pass: just before
     // CASFamilyScreen.Unload, for each of the two windows not disposed yet: the cursor ids are deregistered (as Dispose
     // does), its custom-control entry is removed with UIManager.DeRegisterAllEvents when it has one, and it is disposed.
-    // v2: the screen's other custom controls (one CAFThumb per Sim in the tree, created by CreateCAFThumb under
-    // mFamilyTopLevelWin) are noted before Unload; after it, each one EA left in the dict whose window is gone or is alive
-    // with no parent gets OnCustomDetach's cleanup (DeRegisterAllEvents, remove, then WindowBase.Dispose(false) for a live
-    // window, or a zeroed handle and suppressed finalizer for a dead one). Measured off: +21 CAFThumb entries per open.
     // Counters: [2187] cursor windows found at Unload (also off), [2188] disposed, [2189] errors.
     public static partial class Fixes
     {
@@ -93,46 +89,8 @@ namespace Ts3Fixes
             public static void FamUnloadHook()
             {
                 int[] c = PatchCounters();
-                // v2: also the screen's other custom controls (the CAFThumb per Sim under mFamilyTopLevelWin): noted before
-                // Unload, and after it each one EA left in the dict gets OnCustomDetach's cleanup (measured: ~15 CAFThumb
-                // entries per family-tree open stay after the layout shutdown)
-                List<WindowBase> tree = null; List<uint> ths = null, tids = null; IDictionary tdict = null;
-                try
-                {
-                    WindowBase scr0 = sFclSingleton.GetValue(null) as WindowBase;
-                    tdict = sBilDict.GetValue(null) as IDictionary;
-                    if (scr0 != null && tdict != null)
-                    {
-                        tree = new List<WindowBase>();
-                        DclCollect(scr0, tdict, tree, 0);
-                        ths = new List<uint>(); tids = new List<uint>();
-                        foreach (WindowBase w in tree) { uint h = Convert.ToUInt32(sBilHandle.GetValue(w, null)); ths.Add(h); tids.Add(CmlCustomId(h)); }
-                    }
-                }
-                catch (Exception) { tree = null; c[2189]++; }
-                CriWatchSweep();
                 FamCursorPass(c);
                 FamUnloadOrig();
-                if (tree == null) return;
-                bool on2 = ShortcutOn("famcursorleak");
-                for (int i = 0; i < tree.Count; i++)
-                {
-                    try
-                    {
-                        WindowBase w = tree[i];
-                        if (w.Disposed || !tdict.Contains(ths[i]) || !object.ReferenceEquals(tdict[ths[i]], w)) continue;
-                        bool live = tids[i] != 0 && CmlCustomId(ths[i]) == tids[i];
-                        if (live && w.Parent != null) { CriWatchAdd(w, ths[i], tids[i], 1); continue; }  // still attached: checked again later (v3)
-                        c[2187]++;
-                        if (!on2) continue;
-                        sBilDeregister.Invoke(null, new object[] { w });
-                        tdict.Remove(ths[i]);
-                        if (live && sCmlBaseDispose != null) ((Action<bool>)Delegate.CreateDelegate(typeof(Action<bool>), w, sCmlBaseDispose))(false);
-                        else { sCmlWinHandle.SetValue(w, 0u); GC.SuppressFinalize(w); }
-                        c[2188]++;
-                    }
-                    catch (Exception) { c[2189]++; }
-                }
             }
 
             static void FamCursorPass(int[] c)

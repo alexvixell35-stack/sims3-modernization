@@ -50,7 +50,7 @@ export const EXEMPT: Record<string, string> = {
   compositorghost: '2026-11-11 leak fixes (docs/257 §1): off/on in one session by ts3agent phase runs (switch on mid-session via patches, leak_census counters before/after); no harness queue repro yet',
   caspuckevents: '2026-11-11 leak fixes (docs/257 §1): off/on in one session by ts3agent phase runs (switch on mid-session via patches, leak_census counters before/after); no harness queue repro yet',
   famcursorleak: '2026-11-11 leak fixes (docs/257 §1): off/on in one session by ts3agent phase runs (switch on mid-session via patches, leak_census counters before/after); no harness queue repro yet',
-  casrowicons: '2026-11-11 leak fixes (docs/257 §1): off/on in one session by ts3agent phase runs (switch on mid-session via patches, leak_census counters before/after); no harness queue repro yet',
+  casexitsweep: '2026-11-11 leak fixes (docs/257 §1): off/on in one session by ts3agent phase runs (switch on mid-session via patches, leak_census counters before/after); no harness queue repro yet',
   casfiltergrid: '2026-11-11 leak fixes (docs/257 §1): off/on in one session by ts3agent phase runs (switch on mid-session via patches, leak_census counters before/after); no harness queue repro yet',
   destroychildren: '2026-11-11 leak fixes (docs/257 §1): off/on in one session by ts3agent phase runs (switch on mid-session via patches, leak_census counters before/after); no harness queue repro yet',
   unseenfbteleport: 'trip-shortcut type: verified by verify-shortcut.ts --name unseenfbteleport and the unseen-fallback.json sv-ufb-teleport-verify job (fixesRequire), not by an A/B repro (shortcut-verification rule, docs/202 §6)',

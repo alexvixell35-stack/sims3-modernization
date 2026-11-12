@@ -36,6 +36,7 @@ Counters are ts3fixes slots (docs/registry.md). "Off" = counted with the switch 
 | `caspuckevents` | CASPuck.Init subscribes to the static DownloadDashboard.DashboardStateUpdate and to the session-long OptionsModel.OptionsChanged; CASPuck.Dispose removes neither (PuckController removes both) | every closed CAS screen stays subscribed: 10 of 10 | 10 of 10 handler pairs removed | 0 |
 | `casfiltergrid` | CASPuck's content-type CatalogProductFilter (child 153931569) has the same DisposeOnDetach(false) grid as Buy's filter; CASPuck.Unload shuts its layout down without it | +1 ItemGrid per CAS exit (5 in 5) | 10 of 10 restored before CASPuck.Unload, ItemGrid flat | 0 |
 | `famcursorleak` | CASFamilyScreen.Init keeps two windows of a "CAFThumbItem" layout as drag cursors and nothing disposes them (EA's SceneMgrWindow.UnregisterDragCursors pattern does) | 18 cursor windows per 3 family-tree opens | 18 of 18 disposed per 3 opens | 0 |
+| `casexitsweep` | Clothing browsing leaves the part cells' CustomContentIcons (id 35) as live, visible windows with no native parent (IUIManager.GetParentWindow == 0); no CAS code reparents them, the engine detaches them when their cells go away. At CAS exit, entries registered since CASPuck.Load that are live and natively detached get OnCustomDetach's cleanup and WindowBase.Dispose(false) | +75 entries per clothing visit | +5 per visit (65 of 70 cleaned per visit, 3 visits) | 0 |
 
 Built and installed without errors, but nothing to act on in these runs: `seasondup` (56 duplicate Motives season
 listeners at the start of a fresh world, none on reload or household switch), `blogorphan` (the blog app was not used),
@@ -138,19 +139,14 @@ the step the override ends with.
 
 ## 5. Next
 
-- CAS: +90 live parentless CustomContentIcons (control id 35) per CAS visit that browses clothing categories, and about
-  +15 CAFThumb entries per family-tree open, still unexplained. Three places were ruled out by measurement:
-  - `casrowicons` (CASClothingRow.Dispose never touches its icons): v1 removed 1,830 still-attached icons per visit and
-    the leftovers did not move, v2 found none orphaned at the row's Dispose, and v3 found none orphaned at the next CAS
-    exit.
-  - `destroychildren` (UIManager.DestroyAllChildren goes straight to native and skips OnCustomDetach, also used by
-    FamilyTreeDialog.RefreshTree and MapTagController.Dispose) found 0 entries left.
-  - `famcursorleak` v2/v3 found no other family-screen controls orphaned at or after Unload.
-  The census (2026-11-12, alive = the engine still reports a custom control under the handle) shows every leftover is
-  alive and visible with no parent: 45 CAFThumb after one family-tree visit, 70 CustomContentIcon after one clothing
-  visit. So EA leaves the native windows themselves, not only their wrappers [verified, measured]. Next: find which
-  layout root they hang from (a native window with no managed parent may be a top-level window EA detaches without
-  destroying), then destroy them at CAS exit. Those switches stay off.
+- CAS icons: answered by `casexitsweep` (above). The census now reads the native parent handle: the managed
+  `Parent` is null both for a detached window and for one whose parent class has no managed type, so "no parent"
+  alone was not proof. About 5 icons per visit still detach after the sweep runs. The row-Dispose and
+  DestroyAllChildren hooks found nothing (`casrowicons` was replaced; `destroychildren` stays off, built).
+- Family-tree CAFThumbs (+15 per open, live and natively detached): measured only by calling CASFamilyScreen.Load /
+  Unload inside single-Sim CAS, which players cannot reach (the game opens it from Create a Family,
+  CAF.ShowRelationshipsPanel), so this may be a harness artifact [inferred]. Needs a Create a Family route before any
+  fix; `casexitsweep` would also cover thumbs registered during a CAS visit.
 - Live test of `moodpending` (a Sim sleeping in a bed until WellRested: target 20 vs sum 10 off, equal on).
 - Listener cost: count dispatches and time per event id (EventTracker.ProcessEvent).
 - Inventory audit items A1/A3/D1/C1 and the Downtrodden / Torched / Lunacy shared fields (static only so far).

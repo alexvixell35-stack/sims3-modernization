@@ -151,7 +151,11 @@ namespace Ts3Agent
                                 // alive = the engine still reports a custom control under the handle; visible = shown
                                 uint cid = 0;
                                 try { if (gui != null) cid = gui.GetCustomControlID(Convert.ToUInt32(e.Key)); } catch (Exception) { }
-                                LcBump(orphanIds, w.GetType().Name + " id " + w.ID + (cid != 0 ? " alive" : " dead") + (cid != 0 && w.Visible ? " visible" : ""));
+                                // native parent: 0 = really detached; otherwise the parent's native class id (its
+                                // managed Parent is null when WrapperFromHandle has no type for that class)
+                                uint np = 0, npc = 0;
+                                try { if (gui != null && cid != 0) { np = gui.GetParentWindow(Convert.ToUInt32(e.Key)); if (np != 0) npc = gui.GetClassID(np); } } catch (Exception) { }
+                                LcBump(orphanIds, w.GetType().Name + " id " + w.ID + (cid != 0 ? " alive" : " dead") + (cid != 0 && w.Visible ? " visible" : "") + (cid == 0 ? "" : np == 0 ? " native-detached" : " native-parent-class 0x" + npc.ToString("x")));
                             }
                             catch (Exception) { }
                         }
