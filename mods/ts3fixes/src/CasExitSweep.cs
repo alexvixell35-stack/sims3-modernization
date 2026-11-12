@@ -20,7 +20,9 @@ namespace Ts3Fixes
     // registered since then that is still a live custom control under its own handle with no native parent gets what
     // OnCustomDetach does: UIManager.DeRegisterAllEvents, remove from the dict, WindowBase.Dispose(false) (EA's
     // DestroyWindow, then the handle is zeroed). An entry with a native parent, or one from before CAS, is not touched;
-    // a dead window (no custom control under the handle) is left to compositorghost / the finalizer. UI only.
+    // a dead window (no custom control under the handle) is left to compositorghost / the finalizer. v2: entries skipped
+    // because they still had a native parent are checked again at the next CASPuck.Load (their layouts are gone by then)
+    // and get the same cleanup if they are now natively detached. UI only.
     // Counters: [2194] detached entries found at CAS exit (also off), [2195] cleaned up, [2196] skipped (still parented,
     // a registered class the engine no longer reports), [2197] errors.
     //
@@ -34,6 +36,9 @@ namespace Ts3Fixes
         static FieldInfo sCfgSingleton, sCfgFilter;
         static MethodInfo sCesBaseDispose;
         static Dictionary<uint, bool> sCesBefore;
+        // entries registered during a CAS visit that still had a native parent at its exit (most belong to layouts EA
+        // shuts down right after); checked again at the next CASPuck.Load (v2)
+        static Dictionary<uint, WindowBase> sCesLater;
 
         static void ApplyCasExitSweep()
         {
@@ -63,6 +68,7 @@ namespace Ts3Fixes
             List<uint> keys = new List<uint>();
             foreach (object k in dict.Keys) { uint h = Convert.ToUInt32(k); if (!before.ContainsKey(h)) keys.Add(h); }
             bool on = ShortcutOn("casexitsweep");
+            Dictionary<uint, WindowBase> later = new Dictionary<uint, WindowBase>();
             foreach (uint h in keys)
             {
                 try
@@ -70,7 +76,38 @@ namespace Ts3Fixes
                     WindowBase w = dict[h] as WindowBase;
                     if (w == null || w.Disposed || Convert.ToUInt32(sBilHandle.GetValue(w, null)) != h) continue;
                     if (gui.GetCustomControlID(h) == 0) continue;   // dead: not ours (compositorghost / finalizer)
-                    if (gui.GetParentWindow(h) != 0) { c[2196]++; continue; }
+                    if (gui.GetParentWindow(h) != 0) { c[2196]++; if (later.Count < 5000) later[h] = w; continue; }
+                    c[2194]++;
+                    if (!on) continue;
+                    sBilDeregister.Invoke(null, new object[] { w });
+                    dict.Remove(h);
+                    ((Action<bool>)Delegate.CreateDelegate(typeof(Action<bool>), w, sCesBaseDispose))(false);
+                    c[2195]++;
+                }
+                catch (Exception) { c[2197]++; }
+            }
+            sCesLater = later;
+        }
+
+        // v2: the previous visit's still-parented entries, now that their layouts are gone: the same cleanup for each one
+        // that is still registered as the same wrapper, live, and natively detached
+        static void CesSweepLater()
+        {
+            Dictionary<uint, WindowBase> later = sCesLater;
+            sCesLater = null;
+            if (later == null || later.Count == 0) return;
+            int[] c = PatchCounters();
+            IDictionary dict = sBilDict.GetValue(null) as IDictionary;
+            Sims3.SimIFace.IUIManager gui = sCmlGui.GetValue(null) as Sims3.SimIFace.IUIManager;
+            if (dict == null || gui == null) return;
+            bool on = ShortcutOn("casexitsweep");
+            foreach (KeyValuePair<uint, WindowBase> kv in later)
+            {
+                try
+                {
+                    uint h = kv.Key; WindowBase w = kv.Value;
+                    if (w == null || w.Disposed || !dict.Contains(h) || !object.ReferenceEquals(dict[h], w)) continue;
+                    if (gui.GetCustomControlID(h) == 0 || gui.GetParentWindow(h) != 0) continue;
                     c[2194]++;
                     if (!on) continue;
                     sBilDeregister.Invoke(null, new object[] { w });
@@ -86,6 +123,7 @@ namespace Ts3Fixes
         {
             public static void PuckLoadHook()
             {
+                try { CesSweepLater(); } catch (Exception) { PatchCounters()[2197]++; }
                 try
                 {
                     IDictionary dict = sBilDict.GetValue(null) as IDictionary;

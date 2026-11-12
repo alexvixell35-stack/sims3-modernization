@@ -36,7 +36,7 @@ Counters are ts3fixes slots (docs/registry.md). "Off" = counted with the switch 
 | `caspuckevents` | CASPuck.Init subscribes to the static DownloadDashboard.DashboardStateUpdate and to the session-long OptionsModel.OptionsChanged; CASPuck.Dispose removes neither (PuckController removes both) | every closed CAS screen stays subscribed: 10 of 10 | 10 of 10 handler pairs removed | 0 |
 | `casfiltergrid` | CASPuck's content-type CatalogProductFilter (child 153931569) has the same DisposeOnDetach(false) grid as Buy's filter; CASPuck.Unload shuts its layout down without it | +1 ItemGrid per CAS exit (5 in 5) | 10 of 10 restored before CASPuck.Unload, ItemGrid flat | 0 |
 | `famcursorleak` | CASFamilyScreen.Init keeps two windows of a "CAFThumbItem" layout as drag cursors and nothing disposes them (EA's SceneMgrWindow.UnregisterDragCursors pattern does) | 18 cursor windows per 3 family-tree opens | 18 of 18 disposed per 3 opens | 0 |
-| `casexitsweep` | Clothing browsing leaves the part cells' CustomContentIcons (id 35) as live, visible windows with no native parent (IUIManager.GetParentWindow == 0); no CAS code reparents them, the engine detaches them when their cells go away. At CAS exit, entries registered since CASPuck.Load that are live and natively detached get OnCustomDetach's cleanup and WindowBase.Dispose(false) | +75 entries per clothing visit | +5 per visit (65 of 70 cleaned per visit, 3 visits) | 0 |
+| `casexitsweep` | Clothing browsing leaves the part cells' CustomContentIcons (id 35) as live, visible windows with no native parent (IUIManager.GetParentWindow == 0); no CAS code reparents them, the engine detaches them when their cells go away. At CAS exit, entries registered since CASPuck.Load that are live and natively detached get OnCustomDetach's cleanup and WindowBase.Dispose(false) | +75 entries per clothing visit | v1: +5 per visit (65 of 70 cleaned per visit, 3 visits). v2, which also rechecks still-parented entries at the next CAS load: flat over 4 visits (97 → 92), 230 cleaned | 0 |
 | `seasonlistener` | Motives' kSeasonTransition listener (global, no owner) is never removed by Autonomy.Dispose (Sim teardown: it drops itself only at the next season change, keeping the destroyed Sim reachable until then), by Autonomy.RecreateAllMotives (age up/down, trait changes, time traveler: the old Motives stays subscribed for good and on each season change edits Desires in the Sim's live InteractionScorer [inferred]), or by Motives.RecreateMotives (re-adds the same listener; EventTracker does not dedupe) [verified] | +110 season listeners over 3 story phases (Sims +31) | 241 → 239 over 3 phases (Sims +15); 111 removed | 0 |
 
 Built and installed without errors, but nothing to act on in these runs: `seasondup` (56 duplicate Motives season
@@ -145,8 +145,8 @@ the step the override ends with.
   script errors, no new crash log. Custom-control entries went 78 → 115 over the whole tour, season listeners stayed
   flat (126 → 131) while instantiated Sims went 53 → 83. The InventoryItemWin growth in that run (+8 in Build, +2 per
   Buy navigation) is the sell panel's drag cursors: with `sellcursorleak` added, two Build and two Buy visits stayed
-  flat at 73 entries (phase-20261112-0439). Left: the CAS icons that detach after `casexitsweep` (+5 on one clothing
-  visit, +20 on the next).
+  flat at 73 entries (phase-20261112-0439). The CAS icons that detached after `casexitsweep` ran (+5 / +20 per visit)
+  are handled by its v2 recheck at the next CAS load.
 - Buy room tabs: 6 detached TabControl entries appeared once, after a Buy navigation visit (phase-20261112-0439),
   and did not come back in 3 more visits with room / collection / store catalog switches (phase-20261112-0452, flat
   at 78). Not reproduced; BuyController.SelectCatalog rebuilds tabs with TabContainer.RemoveAllTabs (DestroyChild:
@@ -155,7 +155,7 @@ the step the override ends with.
   every Sim instantiation): not a leak, the count equals the instantiated Sims (62 / 82) [measured].
 - CAS icons: answered by `casexitsweep` (above). The census now reads the native parent handle: the managed
   `Parent` is null both for a detached window and for one whose parent class has no managed type, so "no parent"
-  alone was not proof. About 5 icons per visit still detach after the sweep runs. The row-Dispose and
+  alone was not proof. About 5 to 20 icons per visit detach only after the sweep runs; v2 cleans them at the next CAS load. The row-Dispose and
   DestroyAllChildren hooks found nothing and were removed (`casrowicons`, replaced by `casexitsweep`; `destroychildren`, 0 in CAS and on the live family tree, where FamilyTreeDialog.RefreshTree uses it).
 - Family-tree CAFThumbs (+15 per open, live and natively detached): measured only by calling CASFamilyScreen.Load /
   Unload inside single-Sim CAS, which players cannot reach (the game opens it from Create a Family,
