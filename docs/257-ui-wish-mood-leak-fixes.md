@@ -146,8 +146,11 @@ the step the override ends with.
   - `destroychildren` (UIManager.DestroyAllChildren goes straight to native and skips OnCustomDetach, also used by
     FamilyTreeDialog.RefreshTree and MapTagController.Dispose) found 0 entries left.
   - `famcursorleak` v2/v3 found no other family-screen controls orphaned at or after Unload.
-  The leftovers are therefore wrappers registered after those points; the census now records whether each one's
-  native window is alive. Those switches stay off.
+  The census (2026-11-12, alive = the engine still reports a custom control under the handle) shows every leftover is
+  alive and visible with no parent: 45 CAFThumb after one family-tree visit, 70 CustomContentIcon after one clothing
+  visit. So EA leaves the native windows themselves, not only their wrappers [verified, measured]. Next: find which
+  layout root they hang from (a native window with no managed parent may be a top-level window EA detaches without
+  destroying), then destroy them at CAS exit. Those switches stay off.
 - Live test of `moodpending` (a Sim sleeping in a bed until WellRested: target 20 vs sum 10 off, equal on).
 - Listener cost: count dispatches and time per event id (EventTracker.ProcessEvent).
 - Inventory audit items A1/A3/D1/C1 and the Downtrodden / Torched / Lunacy shared fields (static only so far).
