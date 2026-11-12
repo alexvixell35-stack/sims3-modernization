@@ -8,7 +8,7 @@ namespace Ts3Fixes
     //
     // EA bug [verified IL, UI.dll]: CatalogProductFilter.Init takes its child ItemGrid (export id 189775728) and turns
     // DisposeOnDetach off; CatalogProductFilter has no Dispose override, so when Buy or Build mode closes
-    // (BuyController.Unload / BuildController.Unload: Layout.Shutdown + Dispose) UIManager.OnCustomDetach skips that grid
+    // (BuyController.Unload / BuildController.Unload / BlueprintController.Unload: Layout.Shutdown + Dispose) UIManager.OnCustomDetach skips that grid
     // and its wrapper stays in UIManager.mCustomControlInstanceDict with a live-looking handle (the stale-entry sweeps of
     // buyiconleak / compositorleak do not see it): one ItemGrid per Buy or Build visit for the session.
     //
@@ -19,7 +19,7 @@ namespace Ts3Fixes
     public static partial class Fixes
     {
         const uint kFglGridId = 189775728u;
-        static FieldInfo sFglBuyCtl, sFglBuyFilter, sFglBuildCtl, sFglBuildFilter;
+        static FieldInfo sFglBuyCtl, sFglBuyFilter, sFglBuildCtl, sFglBuildFilter, sFglBpCtl, sFglBpFilter;
 
         static void ApplyFilterGridLeak()
         {
@@ -35,6 +35,11 @@ namespace Ts3Fixes
             if (sFglBuildCtl != null && sFglBuildFilter != null)
                 Patch(typeof(BuildController), "Unload", Type.EmptyTypes, typeof(FglHook), "BuildUnloadHook", "BuildUnloadOrig");
             else AppliedLog().Add("filtergridleak: BuildController members not found, Build not patched");
+            sFglBpCtl = typeof(BlueprintController).GetField("sController", st);
+            sFglBpFilter = typeof(BlueprintController).GetField("mCatalogProductFilter", inst);
+            if (sFglBpCtl != null && sFglBpFilter != null)
+                Patch(typeof(BlueprintController), "Unload", Type.EmptyTypes, typeof(FglHook), "BpUnloadHook", "BpUnloadOrig");
+            else AppliedLog().Add("filtergridleak: BlueprintController members not found, Blueprint not patched");
         }
 
         static void FglRestore(FieldInfo ctlF, FieldInfo filterF)
@@ -56,10 +61,12 @@ namespace Ts3Fixes
 
         public class FglHook
         {
-            public static void BuyUnloadHook() { FglRestore(sFglBuyCtl, sFglBuyFilter); BuyUnloadOrig(); }
+            public static void BuyUnloadHook() { FglRestore(sFglBuyCtl, sFglBuyFilter); BuyUnloadOrig(); BcrIconCensus(2196); }  // probe: after Unload
             public static void BuyUnloadOrig() { } // receives BuyController.Unload()'s original header
             public static void BuildUnloadHook() { FglRestore(sFglBuildCtl, sFglBuildFilter); BuildUnloadOrig(); }
             public static void BuildUnloadOrig() { } // receives BuildController.Unload()'s original header
+            public static void BpUnloadHook() { FglRestore(sFglBpCtl, sFglBpFilter); BpUnloadOrig(); }
+            public static void BpUnloadOrig() { } // receives BlueprintController.Unload()'s original header
         }
     }
 }

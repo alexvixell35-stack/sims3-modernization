@@ -94,6 +94,7 @@ namespace Ts3Fixes
             ApplyBuyCellRecycle();
             ApplyMoodPending();
             ApplyFilterGridLeak();
+            ApplyCasPuckLeak();
             ApplyNameCache();
             ApplyScriptHotSpots();
             ApplyVenueMemo();
@@ -342,7 +343,11 @@ namespace Ts3Fixes
         // 2099-2102 vehgetinleak get-ins that left their vehicle loose / throwaway released / NPC vehicle to inventory / kept; 2103-2105 vehseatdestroy seated Sims destroyed with the vehicle still there a tick later / dead refs cleared / released;
         // 2106-2107 vehfrankentaxi unused intro taxis seen / released; 2108-2110 vehprotestcar cop cars tracked / left with no driver or drive-away after a sim-hour / destroyed. "Seen" counters count with the switch off too.
         // [2129-2132] relremovesafe (RelRemoveSafe.cs): Sim removals where EA's relationship removal would throw / one-sided entries for the removed Sim / removals seen / errors.
-        // [2178-2180] compositorleak probe (CompositorLeak.cs): CASCompositorController entries before Unload: current / other live / other stale.
+        // [2194-2197] Buy icon census probe (BuyCellRecycle.cs): live CustomContentIcon entries no parent / parented, after Buy Dispose (2194-2195) and after BuyController.Unload (2196-2197); snapshots.
+        // [2178-2180] caspuckevents (CasPuckLeak.cs): CASPuck disposed with its dashboard handler attached (also off) / handlers removed / errors.
+        // [2187-2189] famcursorleak (CasPuckLeak.cs): family-screen drag cursor windows at Unload (also off) / disposed / errors.
+        // [2190-2192] compositorghost (CompositorLeak.cs): ghost controller entries after Unload (also off) / removed / left or errors; [2193] live orphan windows disposed.
+        // [2181-2186] Buy icon probe (BuyCellRecycle.cs): cells tracked / icons left after Dispose: cell cached / in a grid / nowhere / nowhere but parented / errors.
         // [2175-2177] filtergridleak (FilterGridLeak.cs): filter grids at Buy/Build Unload (also off) / DisposeOnDetach restored / errors.
         // [2172-2174] moodpending (MoodPending.cs): ChangeMoodValue on a pending buff (also off) / mood moves skipped / errors.
         // [2166-2171] buyclearrecycle / buygridsweep (BuyCellRecycle.cs): cells at ShowCatalogGrid(false) (also off) / cached / errors / icons in other grids at Dispose (also off) / disposed / errors.
@@ -380,7 +385,7 @@ namespace Ts3Fixes
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2181]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2198]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -575,6 +580,9 @@ namespace Ts3Fixes
                 case "buygridsweep": return Instantiator.kBuyGridSweep;
                 case "moodpending": return Instantiator.kMoodPending;
                 case "filtergridleak": return Instantiator.kFilterGridLeak;
+                case "compositorghost": return Instantiator.kCompositorGhost;
+                case "caspuckevents": return Instantiator.kCasPuckEvents;
+                case "famcursorleak": return Instantiator.kFamCursorLeak;
                 case "convturn": return Instantiator.kConvTurn;
                 case "npcdriverpool": return Instantiator.kNpcDriverPool;
                 case "bookcarry": return Instantiator.kBookCarry;

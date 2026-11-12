@@ -221,6 +221,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBuyGridSweep value="False" />
     <kMoodPending value="False" />
     <kFilterGridLeak value="False" />
+    <kCompositorGhost value="False" />
+    <kCasPuckEvents value="False" />
+    <kFamCursorLeak value="False" />
   </Current_Tuning>
 </base>
 `;

@@ -78,11 +78,14 @@ namespace Ts3Fixes
         {
             public void DisposeHook()
             {
+                BcrProbeBeforeDispose(this);
                 BcrSweepOtherGrids(this);  // buygridsweep (BuyCellRecycle.cs): before EA's Dispose, while the grids live
                 DisposeOrig();
+                BcrProbeAfterDispose(this);  // probe (BuyCellRecycle.cs): where the icons Dispose left are
                 int[] c = PatchCounters();
                 c[2111]++;
                 if (ShortcutOn("buyiconleak")) c[2112] += SweepStaleCustomControls(c, 2113);
+                BcrIconCensus(2194);  // probe: live icon entries right after Buy Dispose and its sweeps
             }
             public void DisposeOrig() { } // receives BuyController.Dispose()'s original header
         }
