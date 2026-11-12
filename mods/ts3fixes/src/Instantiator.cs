@@ -211,6 +211,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kCasPuckEvents = false;      // opt-in until measured: closed CAS screens stop listening for option changes and store updates (CasPuckLeak.cs, docs/257)
         [Tunable] public static bool kFamCursorLeak = false;      // opt-in until measured: the family tree screen's two drag-cursor windows are cleaned up when it closes (CasPuckLeak.cs, docs/257)
         [Tunable] public static bool kCasExitSweep = false;       // opt-in until measured: CAS windows the engine left detached are destroyed when CAS closes (CasExitSweep.cs, docs/257)
+        [Tunable] public static bool kSeasonListener = false;     // opt-in until measured: motives a Sim no longer uses stop reacting to season changes (SeasonListenerLeak.cs, docs/257)
         [Tunable] public static bool kCasFilterGrid = false;      // opt-in until measured: the CAS content filter grid is cleaned up when CAS closes (CasExitSweep.cs, docs/257)
         [Tunable] public static bool kGenealogyCycle = false;     // opt-in until measured: family ancestor lists without repeats, loop-safe ancestor walks and cache clears, Divorce with no spouse does not throw (GenealogyGuard.cs, docs/191)
         [Tunable] public static bool kSpouseUnlink = false;       // opt-in until measured: a new marriage/engagement/partner link clears the old spouse's link back, as Divorce does (GenealogyGuard.cs, docs/191)

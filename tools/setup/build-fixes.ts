@@ -225,6 +225,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kCasPuckEvents value="False" />
     <kFamCursorLeak value="False" />
     <kCasExitSweep value="False" />
+    <kSeasonListener value="False" />
     <kCasFilterGrid value="False" />
   </Current_Tuning>
 </base>

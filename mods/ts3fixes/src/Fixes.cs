@@ -96,6 +96,7 @@ namespace Ts3Fixes
             ApplyFilterGridLeak();
             ApplyCasPuckLeak();
             ApplyCasExitSweep();
+            ApplySeasonListener();
             ApplyNameCache();
             ApplyScriptHotSpots();
             ApplyVenueMemo();
@@ -344,6 +345,7 @@ namespace Ts3Fixes
         // 2099-2102 vehgetinleak get-ins that left their vehicle loose / throwaway released / NPC vehicle to inventory / kept; 2103-2105 vehseatdestroy seated Sims destroyed with the vehicle still there a tick later / dead refs cleared / released;
         // 2106-2107 vehfrankentaxi unused intro taxis seen / released; 2108-2110 vehprotestcar cop cars tracked / left with no driver or drive-away after a sim-hour / destroyed. "Seen" counters count with the switch off too.
         // [2129-2132] relremovesafe (RelRemoveSafe.cs): Sim removals where EA's relationship removal would throw / one-sided entries for the removed Sim / removals seen / errors.
+        // [2184-2186] seasonlistener (SeasonListenerLeak.cs): stale / duplicate Motives season listeners (also off) / removed / errors or skipped.
         // [2181-2183] casfiltergrid (CasExitSweep.cs): CAS filter grids at CASPuck.Unload (also off) / restored / errors.
         // [2194-2197] casexitsweep (CasExitSweep.cs): detached live entries at CAS exit (also off) / cleaned / skipped parented / errors.
         // [2178-2180] caspuckevents (CasPuckLeak.cs): CASPuck disposed with its dashboard handler attached (also off) / handlers removed / errors.
@@ -585,6 +587,7 @@ namespace Ts3Fixes
                 case "caspuckevents": return Instantiator.kCasPuckEvents;
                 case "famcursorleak": return Instantiator.kFamCursorLeak;
                 case "casexitsweep": return Instantiator.kCasExitSweep;
+                case "seasonlistener": return Instantiator.kSeasonListener;
                 case "casfiltergrid": return Instantiator.kCasFilterGrid;
                 case "convturn": return Instantiator.kConvTurn;
                 case "npcdriverpool": return Instantiator.kNpcDriverPool;

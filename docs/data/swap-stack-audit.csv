@@ -215,6 +215,9 @@ HoursMemoHook.HoursHook,Lot,GetHoursOfOperation,ScriptHotSpots.cs,HoursOrig,yes,
 TooltipThrottleHook.FromPointHook,Sims3.UI.UIManager,GetWindowFromPoint,ScriptHotSpots.cs,FromPointOrig,no,no path to a yield in 1 overload(s),"docs/74 §5, switch tooltipthrottle (tuning kTooltipThrottle). The UI's TooltipManager task loops once per sim","keep, stub remap (SavedStacks.cs)"
 WildflowerTaskHook.GrowHook,Wildflower,OnGrowWildflowersOnLot,ScriptHotSpots.cs,GrowOrig,yes,Wildflower::OnGrowWildflowersOnLot > GlobalFunctions::PlaceObjectOnLot > Simulator::Sleep,ScriptHotSpots,"keep, stub remap (SavedStacks.cs)"
 SeasonImposterHook.RegenHook,World,RegenImposter,SeasonImposter.cs,RegenOrig,no,no path to a yield in 2 overload(s),SeasonImposter,keep
+SllAutHook.RecreateAllHook,Autonomy,RecreateAllMotives,SeasonListenerLeak.cs,RecreateAllOrig,yes,Autonomy::RecreateAllMotives > Motives::CreateMotives > .. 8 .. > SACS::SACS_AcquireDriverImpl,SeasonListenerLeak,"keep, stub remap (SavedStacks.cs)"
+SllAutHook.DisposeHook,Autonomy,Dispose,SeasonListenerLeak.cs,DisposeOrig,no,no path to a yield in 1 overload(s),SeasonListenerLeak,keep
+SllMotHook.RecreateHook,Motives,RecreateMotives,SeasonListenerLeak.cs,RecreateOrig,yes,Motives::RecreateMotives > Motives::CreateMotives > .. 8 .. > SACS::SACS_AcquireDriverImpl,SeasonListenerLeak,"keep, stub remap (SavedStacks.cs)"
 SeasonMarkerHook.OnStartupHook,SeasonalLotMarker,OnStartup,SeasonMarkerCache.cs,OnStartupOrig,no,no path to a yield in 1 overload(s),SeasonMarkerCache,keep
 SeasonMarkerHook.DisposeHook,SeasonalLotMarker,Dispose,SeasonMarkerCache.cs,DisposeOrig,yes,SeasonalLotMarker::Dispose > SeasonalLotMarker::Clear > .. 2 .. > StateMachineClient::RequestState,SeasonMarkerCache,"keep, stub remap (SavedStacks.cs)"
 SeasonMarkerHook.GlobalHook,Sims3.SimIFace.Queries,GetGlobalObjects,SeasonMarkerCache.cs,GlobalOrig,no,no path to a yield in 1 overload(s),SeasonMarkerCache,keep
