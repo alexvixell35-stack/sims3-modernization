@@ -62,11 +62,21 @@ static void TestThumbLod() {
     *(DWORD*)(req + 0x108) = 0x12;
     TsFbWatch(mgr);
     assert(!g_tsFbReq && !g_tsPickObj && g_tsFbRendered == r0 + 1);
+    *(DWORD*)(req + 0x108) = 0x11;  // 0x1B without a current LOD: other; with LOD 1: rendered
+    TsFbStart(req, 77, blk, GetTickCount());
+    *(DWORD*)(req + 0x108) = 0x1B;
+    TsFbWatch(mgr);
+    assert(!g_tsFbReq && g_tsFbOther == o0 + 1 && g_tsFbRendered == r0 + 1);
     *(DWORD*)(req + 0x108) = 0x11;
+    TsFbStart(req, 77, blk, GetTickCount());
+    *(long*)(blk + 0x210 + 0x14) = 1, *(DWORD*)(req + 0x108) = 0x1B;
+    TsFbWatch(mgr);
+    assert(!g_tsFbReq && g_tsFbRendered == r0 + 2);
+    *(long*)(blk + 0x210 + 0x14) = -1, *(DWORD*)(req + 0x108) = 0x11;
     TsFbStart(req, 77, blk, GetTickCount());
     *(DWORD*)(req + 0x23C) = 78;  // a new request in the same slot
     TsFbWatch(mgr);
-    assert(!g_tsFbReq && !g_tsPickObj && g_tsFbOther == o0 + 1);
+    assert(!g_tsFbReq && !g_tsPickObj && g_tsFbOther == o0 + 2);
     *(DWORD*)(req + 0x23C) = 77;
     g_tsAction = 4;
     TsFbStart(req, 77, blk, GetTickCount());

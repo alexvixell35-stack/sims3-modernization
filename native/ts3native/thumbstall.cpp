@@ -178,8 +178,8 @@ static u8* __fastcall TsPick(u8* svc) {
     return g_tsPickOrig(svc);
 }
 
-// how: 0 rendered (the same request moved past 0x11, below the abort states 0x19..), 1 aborted by us, 2 other (it left the
-// front, or reached 0x19.. by itself: cancelled by its owner, or it finished between two steps)
+// how: 0 rendered (the same request moved past 0x11: below 0x19, or 0x19.. with its LOD built), 1 aborted by us, 2 other
+// (it left the front, or reached 0x19.. without a LOD: cancelled by its owner)
 static void TsFbEnd(int how, DWORD state, bool blkLive) {
     InterlockedExchange(&g_tsPickObj, 0);
     if (!g_tsFbReq) return;
@@ -225,9 +225,11 @@ static void TsFbWatch(const u8* mgr) {
         const u8* const front = *(const u8* const*)(mgr + 0x100);
         same = front && front != *(const u8* const*)(mgr + 0x110) && front == g_tsFbReq && *(const DWORD*)(front + 0x23C) == g_tsFbStamp;
         if (same) st = *(const DWORD*)(front + 0x108);
+        // 0x19.. with a current LOD (handle +0x14 >= 0) is a render too (th15: 0x1B with "lod cur 1" after the pick)
+        if (same && st >= 0x19 && (!g_tsFbBlk || *(const long*)(g_tsFbBlk + 0x210 + 0x14) < 0)) st |= 0x100;  // no LOD: other
     } __except (EXCEPTION_EXECUTE_HANDLER) { same = false; }
     if (same && st == 0x11) return;
-    TsFbEnd(same && st > 0x11 && st < 0x19 ? 0 : 2, st, same);
+    TsFbEnd(same && st > 0x11 && st < 0x100 ? 0 : 2, st & 0xFF, same);
 }
 typedef DWORD(__fastcall* TsTmUpdateFn)(void* self, void* edx, DWORD a, DWORD b);
 static TsTmUpdateFn g_tsTmOrig;
