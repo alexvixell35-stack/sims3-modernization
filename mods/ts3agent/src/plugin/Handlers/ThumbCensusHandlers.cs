@@ -7,7 +7,7 @@ using Sims3.Gameplay.CAS;
 
 namespace Ts3Agent
 {
-    // Thumbnail backlog census (leak hunt 11-11, notes: pc-logs/2026-11-06-test-runs/re-thumb-1111). READ ONLY: it changes
+    // Thumbnail backlog census (issue #40). READ ONLY: it changes
     // nothing in the game. EA packs a Sim away in a script task (SimDescription.PackUpToMiniSimDescription ->
     // MiniSimDescription.PackSim -> GenerateCrossWorldThumbnail -> ThumbnailManager.GenerateHouseholdSimThumbnail, wait: true);
     // the task sleeps inside that call until the native UI/ThumbnailManager has rendered the Sim's thumbnail, and only then
@@ -45,6 +45,41 @@ namespace Ts3Agent
         static bool sKickRunning;
         static string sKickError;
 
+        static ulong sWhoInst;
+        static string sWho;
+        // the SimDescription (any household, the NPC and tourist ones included) with an outfit whose key instance is inst
+        static string FindOutfitOwner(ulong inst)
+        {
+            try
+            {
+                foreach (Sims3.Gameplay.CAS.Household h in Sims3.Gameplay.CAS.Household.sHouseholdList)
+                {
+                    if (h == null || h.AllSimDescriptions == null) continue;
+                    foreach (Sims3.Gameplay.CAS.SimDescription sd in h.AllSimDescriptions)
+                    {
+                        if (sd == null) continue;
+                        foreach (Sims3.SimIFace.CAS.OutfitCategories cat in Enum.GetValues(typeof(Sims3.SimIFace.CAS.OutfitCategories)))
+                        {
+                            int count;
+                            try { count = sd.GetOutfitCount(cat); } catch (Exception) { continue; }
+                            for (int i = 0; i < count; i++)
+                            {
+                                Sims3.SimIFace.CAS.SimOutfit o = sd.GetOutfit(cat, i);
+                                if (o == null || o.Key.InstanceId != inst) continue;
+                                System.Text.StringBuilder s = new System.Text.StringBuilder();
+                                s.Append(sd.FullName).Append(" | ").Append(h.Name).Append(" | ").Append(sd.Age).Append(" ").Append(cat).Append(i)
+                                    .Append(sd.CreatedSim != null ? " | live" : " | not live").Append(" | parts");
+                                foreach (Sims3.SimIFace.CAS.CASPart p in o.Parts)
+                                    s.Append(" ").Append(p.Key.InstanceId.ToString("x16")).Append(":").Append(p.BodyType);
+                                return s.ToString();
+                            }
+                        }
+                    }
+                }
+                return "no owner found";
+            }
+            catch (Exception e) { return "error: " + e.GetType().Name; }
+        }
         static FieldInfo sBuildersField;
         static ArrayList ThumbBuilders()  // a static field: no object to class-check; the value's type is checked by the cast
         {
@@ -146,9 +181,10 @@ namespace Ts3Agent
             // native side: plain reads of the manager's own words (and, deep, three words of the front request)
             try
             {
-                int mgr = 0;
-                if (Rd(kTmVtable + 0x1C) != kTmUpdate) r["native"] = "not the Steam 1.67 exe";
-                else if ((mgr = Rd(kTmPtr)) == 0 || Rd(mgr) != kTmVtable) r["native"] = "no thumbnail manager";
+                int mgr = 0, upd = Rd(kTmVtable + 0x1C);
+                // [ThumbStall] Action=3 hooks this Update slot (0x1088F48); the manager's own vtable check below still proves the exe
+                if (upd != kTmUpdate) r["tm_update_slot"] = "0x" + upd.ToString("x8");
+                if ((mgr = Rd(kTmPtr)) == 0 || Rd(mgr) != kTmVtable) r["native"] = upd != kTmUpdate ? "not the Steam 1.67 exe" : "no thumbnail manager";
                 else
                 {
                     r["native"] = "ok";
@@ -191,6 +227,14 @@ namespace Ts3Agent
                         r["tm_front_type"] = "0x" + Rd(bc + kReqType).ToString("x8");
                         // the request's key words (+0x110..+0x11C; +0x118 is the type): names the outfit, so the Sim
                         r["tm_front_key"] = Rd(bc + 0x110).ToString("x8") + " " + Rd(bc + 0x114).ToString("x8") + " " + Rd(bc + 0x118).ToString("x8") + " " + Rd(bc + 0x11C).ToString("x8");
+                        // tm_front_who: while the front waits in 0x11 for 3 s, the Sim whose outfit has this key and the
+                        // outfit's CAS parts (instance:bodytype). Looked up once per outfit key; read only.
+                        if (state == 0x11 && sFrontSince != 0 && (now - sFrontSince) / 10000 >= 3000 && a.Bool("who", true))
+                        {
+                            ulong inst = ((ulong)(uint)Rd(bc + 0x114) << 32) | (uint)Rd(bc + 0x110);
+                            if (inst != sWhoInst) { sWhoInst = inst; sWho = FindOutfitOwner(inst); }
+                            r["tm_front_who"] = sWho;
+                        }
                         // state 0x11 keeps the scene object that blocks it in request +0x244 (0xD5A9CC)
                         int blk = state == 0x11 ? Rd(bc + 0x244) : 0;
                         if (blk != sBlk) { if (blk != 0 && sBlk != 0) sBlkChanges++; sBlk = blk; sBlkSince = now; }

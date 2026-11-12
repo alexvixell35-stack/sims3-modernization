@@ -1,14 +1,16 @@
-// [ThumbStall] (notes: re-thumb-1111, run th1 of 2026-11-11). Included by ts3native.cpp (one translation unit).
-// EXPERIMENT, off by default. Not run in game yet. No counters in Ts3nCounters: results are the "thumbstall:" log lines and
-// the agent's thumb_census (tm_done moves again, tm_front_age_ms stays under the timeout).
+// [ThumbStall] (issue #40). Included by ts3native.cpp (one translation unit).
+// Off by default. No counters in Ts3nCounters: results are the "thumbstall:" log lines and the agent's thumb_census
+// (tm_done moves again, tm_front_age_ms stays under the timeout). Runs th15-th18 of 2026-11-12 (old save, travel, ultra):
+// Action=3 TimeoutMs=3000 rendered every stalled portrait (29 of 29, 0 aborts; th17 and th18 on the bridge copy, th18
+// with Apex Radiance loaded).
 //
 // What: UI/ThumbnailManager works one request at a time (the front of InProgressRequests, state machine 0xD59C10 stepped
 // once per frame on the main thread by 0xD5C6D0). Its state 0x11 calls the "scene loaded" test 0x6F3DC0 at 0xD5A9BF with
 // layer mask 0x7FFFF000 (0x7FDFF000 for one request kind) and flag mask 0x42: while ANY scene object in those layers has a
 // pending texture composite (object +0x40 bit 2 or 0x40, computed by 0x6F7B40 from the material state at +0x210), the
 // request returns "come back next frame". There is no timeout. Measured (th1): at game speed ultra the front request stayed
-// in state 0x11 for 105 s, nothing finished, 110 requests and 14 pack-away tasks queued behind it [verified run; the cause
-// of the never-clearing flag is open].
+// in state 0x11 for 105 s, nothing finished, 110 requests and 14 pack-away tasks queued behind it [verified run]. The
+// blocker is always the request's own model, waiting for a Sim LOD the SimService does not build (below).
 //
 // Site [verified disassembly, Steam TS3W.exe 1.67]: the blocked path of state 0x11,
 //   0xD5A9C8  8B 54 24 60        mov edx,[esp+60h]      ; the blocking scene object (out argument of 0x6F3DC0)
