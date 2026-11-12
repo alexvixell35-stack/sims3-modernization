@@ -2442,6 +2442,246 @@
       "what": "BoatOwnable.Park NRE: boat disposed before OnRouteFinished (Overwatch CleanupVehicles inferred)",
       "at": "2026-11-11T02:01:27.255Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-2200",
+      "kind": "fixes",
+      "from": 2200,
+      "to": 2216,
+      "by": "vehicle-leaks",
+      "what": "docs/544 vehicle leak switches vehparkreserve, vehgetinleak, vehseatdestroy, vehfrankentaxi, vehprotestcar (VehicleLeaks.cs)",
+      "at": "2026-11-10T20:39:19.148Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2217",
+      "kind": "fixes",
+      "from": 2217,
+      "to": 2219,
+      "by": "buy-icon-leak",
+      "what": "buyiconleak: BuyController.ShowCatalogGrid(false) clears seen, icons handed to EA's detach dispose, errors (BuyIconLeak.cs, docs/191)",
+      "at": "2026-11-11T14:01:52.030Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2220",
+      "kind": "fixes",
+      "from": 2220,
+      "to": 2222,
+      "by": "cas-row-leak",
+      "what": "casrowleak: empty CAS clothing rows seen / disposed / errors (CasRowLeak.cs, docs/191)",
+      "at": "2026-11-11T14:05:48.504Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2223",
+      "kind": "fixes",
+      "from": 2223,
+      "to": 2225,
+      "by": "cc-dispose",
+      "what": "ccdispose: custom controls disposed while still registered seen / unregistered / errors (CcDispose.cs, docs/191)",
+      "at": "2026-11-11T14:08:55.474Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2226",
+      "kind": "fixes",
+      "from": 2226,
+      "to": 2228,
+      "by": "pet-wish-leak",
+      "what": "petwishleak: pet wish nodes left in mPotentialRemovalNodes seen / removed / errors (PetWishLeak.cs, docs/191)",
+      "at": "2026-11-11T14:12:25.935Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2229",
+      "kind": "fixes",
+      "from": 2229,
+      "to": 2234,
+      "by": "genealogy-guard",
+      "what": "genealogycycle / spouseunlink: ancestor dups dropped, cycles stopped, divorce null guards, old spouses unlinked, errors (GenealogyGuard.cs, docs/191)",
+      "at": "2026-11-11T14:37:03.417Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2235",
+      "kind": "fixes",
+      "from": 2235,
+      "to": 2238,
+      "by": "rel-remove-safe",
+      "what": "relremovesafe: removals that would throw / one-sided entries / removals seen / errors (RelRemoveSafe.cs, docs/191)",
+      "at": "2026-11-11T14:43:49.663Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2239",
+      "kind": "fixes",
+      "from": 2239,
+      "to": 2241,
+      "by": "claude",
+      "what": "familyinvghost: destroyed family-inventory items removed from the list",
+      "at": "2026-11-11T15:28:31.091Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2242",
+      "kind": "fixes",
+      "from": 2242,
+      "to": 2244,
+      "by": "claude",
+      "what": "sellcursorleak: BBSell drag-cursor windows disposed",
+      "at": "2026-11-11T15:29:43.476Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2245",
+      "kind": "fixes",
+      "from": 2245,
+      "to": 2250,
+      "by": "claude",
+      "what": "attractionalarm + uncleguard",
+      "at": "2026-11-11T16:32:37.769Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2251",
+      "kind": "fixes",
+      "from": 2251,
+      "to": 2253,
+      "by": "claude",
+      "what": "mooddrift",
+      "at": "2026-11-11T16:35:58.861Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2254",
+      "kind": "fixes",
+      "from": 2254,
+      "to": 2259,
+      "by": "claude",
+      "what": "dnpdisposelistener + seasondup",
+      "at": "2026-11-11T17:12:55.183Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2260",
+      "kind": "fixes",
+      "from": 2260,
+      "to": 2268,
+      "by": "claude",
+      "what": "dreamrootorphan + blogorphan + dnpupdateguard",
+      "at": "2026-11-11T18:01:12.574Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2269",
+      "kind": "fixes",
+      "from": 2269,
+      "to": 2271,
+      "by": "claude",
+      "what": "buycellrecycle",
+      "at": "2026-11-11T18:30:14.560Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-545",
+      "kind": "doc",
+      "from": 545,
+      "to": 545,
+      "by": "claude",
+      "what": "UI, wish, mood and relationship leak fixes 2026-11-11",
+      "at": "2026-11-11T19:52:42.654Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2272",
+      "kind": "fixes",
+      "from": 2272,
+      "to": 2277,
+      "by": "claude",
+      "what": "buyclearrecycle + buygridsweep",
+      "at": "2026-11-11T20:45:02.346Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2278",
+      "kind": "fixes",
+      "from": 2278,
+      "to": 2280,
+      "by": "claude",
+      "what": "moodpending",
+      "at": "2026-11-11T20:51:00.722Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2281",
+      "kind": "fixes",
+      "from": 2281,
+      "to": 2283,
+      "by": "claude",
+      "what": "filtergridleak",
+      "at": "2026-11-11T20:53:10.654Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2284",
+      "kind": "fixes",
+      "from": 2284,
+      "to": 2286,
+      "by": "claude",
+      "what": "compositorprobe",
+      "at": "2026-11-11T21:00:33.355Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2287",
+      "kind": "fixes",
+      "from": 2287,
+      "to": 2292,
+      "by": "claude",
+      "what": "buydisposeguard",
+      "at": "2026-11-11T21:59:18.784Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2293",
+      "kind": "fixes",
+      "from": 2293,
+      "to": 2295,
+      "by": "claude",
+      "what": "compositorloadprobe",
+      "at": "2026-11-11T22:00:03.741Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2296",
+      "kind": "fixes",
+      "from": 2296,
+      "to": 2298,
+      "by": "claude",
+      "what": "compositorghost",
+      "at": "2026-11-11T22:33:19.117Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2299",
+      "kind": "fixes",
+      "from": 2299,
+      "to": 2299,
+      "by": "claude",
+      "what": "compositorghost-live",
+      "at": "2026-11-11T22:55:25.306Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2300",
+      "kind": "fixes",
+      "from": 2300,
+      "to": 2303,
+      "by": "claude",
+      "what": "buyiconprobe2",
+      "at": "2026-11-11T23:18:27.509Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

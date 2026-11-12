@@ -14,7 +14,7 @@ static void TestRcTrim() {
                       offsetof(Ts3nCounters, rtSpare) == 0x52EC && sizeof(Ts3nCounters) == 6112 * 4,
                   "counters v136 layout after v135 (docs/registry.md)");
     alignas(16) static u8 mgr[0x200], rc[0x100], anim[0x100];
-    *(DWORD*)mgr = RT_MGR_VT, *(u8**)(mgr + 0x1E0) = rc, *(u8**)(mgr + 0x1E4) = anim;
+    *(DWORD*)mgr = RT_MGR_VT0, *(DWORD*)(mgr + 8) = RT_MGR_VT, *(u8**)(mgr + 0x1E0) = rc, *(u8**)(mgr + 0x1E4) = anim;
     *(DWORD*)rc = RT_CACHE_VT, *(DWORD*)(rc + 0x94) = 300 << 20, *(DWORD*)(rc + 0x98) = 96 << 20;
     *(DWORD*)anim = RT_CACHE_VT, *(DWORD*)(anim + 0x94) = 15 << 20, *(DWORD*)(anim + 0x98) = 4 << 20;
     const RtShrinkFn shrink0 = g_rtShrink;
@@ -35,8 +35,11 @@ static void TestRcTrim() {
     RtTrim(mgr, "selftest");
     *(DWORD*)rc = RT_CACHE_VT, *(DWORD*)mgr = 0x12345678;
     RtTrim(mgr, "selftest");
-    *(DWORD*)mgr = RT_MGR_VT;
-    assert(g_rtFakeCalls == 2 && k.rtBad == 2);
+    // the layout the check expected before the fix (0xFFE250 at +0; the game never has it at service + 0x18): no call
+    *(DWORD*)mgr = RT_MGR_VT, *(DWORD*)(mgr + 8) = 0;
+    RtTrim(mgr, "selftest");
+    *(DWORD*)mgr = RT_MGR_VT0, *(DWORD*)(mgr + 8) = RT_MGR_VT;
+    assert(g_rtFakeCalls == 2 && k.rtBad == 3);
     // 4. Apex Radiance loaded + ApexStandDown: no call; ApexStandDown=0: trims
     const int found0 = g_apexFound;
     const bool sd0 = g_apexStandDown;

@@ -115,8 +115,7 @@ static void TestCrashForensics() {
     // 0x7B0A00 trampoline: cmp [ecx+30h],0 ; je 0x7B0A24 (rel32) ; jmp 0x7B0A06
     const u8* t = (const u8*)CfClrTramp();
     assert(t && !memcmp(t, kCfClrPro, 4) && t[4] == 0x0F && t[5] == 0x84 && t[10] == 0xE9);
-    assert((DWORD)(uintptr_t)t + 10 + *(const LONG*)(t + 6) == 0x007B0A24 && (DWORD)(uintptr_t)t + 15 + *(const LONG*)(t + 11) == 0x007B0A06);
-    VirtualFree((void*)t, 0, MEM_RELEASE);
+    assert((DWORD)(uintptr_t)t + 10 + *(const LONG*)(t + 6) == 0x007B0A24 && (DWORD)(uintptr_t)t + 15 + *(const LONG*)(t + 11) == 0x007B0A06);  // a pool slot (TrampAlloc): never freed
 
     // crash dump on a fake access violation whose address and ecx lie in a freed ring block
     EXCEPTION_RECORD r = {};

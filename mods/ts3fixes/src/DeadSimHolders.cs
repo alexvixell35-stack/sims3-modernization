@@ -292,7 +292,8 @@ namespace Ts3Fixes
                     List<object> drop = new List<object>();
                     foreach (DictionaryEntry e in d)
                     {
-                        Sims3.Gameplay.Interactions.InteractionInstance ia = e.Value == null ? null : sOwLastIa.GetValue(e.Value) as Sims3.Gameplay.Interactions.InteractionInstance;
+                        // this Mono reads a field through any FieldInfo without checking the class: a value of another class would be read past its end
+                        Sims3.Gameplay.Interactions.InteractionInstance ia = e.Value == null || !sOwLastIa.DeclaringType.IsInstanceOfType(e.Value) ? null : sOwLastIa.GetValue(e.Value) as Sims3.Gameplay.Interactions.InteractionInstance;
                         Sim s = ia == null ? null : ia.InstanceActor;
                         if (s == null || !EtSimGone(s)) continue;
                         if (GoneOwnerHh(s, hh, sel)) kept++;

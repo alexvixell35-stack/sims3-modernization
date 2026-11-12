@@ -1142,16 +1142,17 @@
         "args": {
           "sim": "Wogan Hemlock",
           "maxDist": 1,
-          "notRouting": true
+          "notRouting": true,
+          "requireStanding": true
         },
-        "note": "v4: FAILS SETUP when he is > 1 m from the strand spot or routing, ~3 s after the strand (before the 60 sim-minutes, ~8 s at Triple). No later held check: the fix itself moves him once it judges the spot, and v3's 12 cancels over 6 real min spanned ~45 sim-hours (inferred from 7.6 sim-min/s) (the sim-day rules then reset him and he ended at home, 560 m away)"
+        "waitS": 30,
+        "note": "v5 2026-11-12: requireStanding (bp-wdasync-stuck-repro-1111 failed 3x with standing:false after sim_strand, so CheckIdle never judged him; sim_strand now forces standing) and waitS 30 here (the old waitS on the next step ran after it, so both checks ran in the same second). v4: FAILS SETUP when he is > 1 m from the strand spot or routing, ~3 s after the strand (before the 60 sim-minutes, ~8 s at Triple). No later held check: the fix itself moves him once it judges the spot, and v3's 12 cancels over 6 real min spanned ~45 sim-hours (inferred from 7.6 sim-min/s) (the sim-day rules then reset him and he ended at home, 560 m away)"
       },
       {
         "cmd": "sim_where",
         "args": {
           "sim": "Wogan Hemlock"
         },
-        "waitS": 30,
         "optional": true,
         "note": "v4: log only, ~30 s later (~4 sim-hours): where the fix (or anything else) put him"
       }
@@ -65230,5 +65231,356 @@
         }
       }
     ]
+  }
+,
+  {
+    "id": "veh-park-reserve-dead",
+    "bug": "docs/544 L3: ParkingSpace keeps mReservedVehicle after the vehicle is destroyed (a no-fade park keeps it; FadeCarIn drops it only for a car whose home is another lot), and Vehicle.GetClosestUnreservedParkingSpace skips every reserved space, so the space is lost for good",
+    "fix": "ts3fixes VehicleLeaks.cs: vehparkreserve (default off; on in the local --on test package), docs/544 S1",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-10): never run. Each arm makes an NPC-generated CarUsed1 out of the world, parks it without a fade into a free space of the community lot with the most free spaces, destroys it, then asks the hooked GetClosestUnreservedParkingSpace for that space with a second probe car (destroyed after).",
+    "expect": "off: park expect kept sees the space still reserved and skipped, seen +1, cleared +0. on: park expect cleared sees the reservation gone and the space returned, seen +1, cleared +1. Each expect step throws otherwise.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "vehparkreserve": false
+        },
+        "waitS": 1,
+        "note": "applied log lists Vehicle.GetClosestUnreservedParkingSpace: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VehicleLeakCheck",
+          "args": [
+            "park make"
+          ]
+        },
+        "note": "off: car parked without a fade and destroyed; the space stays reserved",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VehicleLeakCheck",
+          "args": [
+            "park expect kept"
+          ]
+        },
+        "note": "off: the leak: reserved, skipped, seen +1, cleared +0",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "vehparkreserve": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VehicleLeakCheck",
+          "args": [
+            "park make"
+          ]
+        },
+        "note": "on: another space set up the same way",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VehicleLeakCheck",
+          "args": [
+            "park expect cleared"
+          ]
+        },
+        "note": "on: the fix: reservation cleared, space returned, seen +1, cleared +1",
+        "waitS": 1
+      },
+      {
+        "cmd": "vehicle_census",
+        "args": {
+          "samples": 5
+        },
+        "note": "log: parking reservation states and the vehicle counters",
+        "waitS": 1,
+        "optional": true
+      }
+    ],
+    "cleanup": []
+  },
+  {
+    "id": "veh-seat-destroy",
+    "bug": "docs/544 L2: Sim.Destroy runs no get-out for a Sim seated in a vehicle (SittingInVehicle / SittingInBoat do not override OnSimDestroy), so ShouldRelease / Release never run and an NPC taxi the NPC drove itself stays with a dead driver",
+    "fix": "ts3fixes VehicleLeaks.cs: vehseatdestroy (default off; on in the local --on test package), docs/544 S3",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-10): never run. Each arm makes an NPC taxi with no driver (CarNpcManager.CreateNpcCar, the kind an NPC drives itself) out of the world and a fresh NPC (a taxi driver made and released from the pool: a plain NPC-household Sim, no save Sim is touched), puts the NPC in as driver, then destroys the NPC while it sits.",
+    "expect": "off: seat expect left sees the taxi still there with a destroyed driver, seen +1, released +0 (the check destroys it). on: seat expect released sees the taxi gone one tick later, seen +1, released +1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "vehseatdestroy": false
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VehicleLeakCheck",
+          "args": [
+            "seat make"
+          ]
+        },
+        "note": "off: taxi + NPC driver, posture SittingInVehicle",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VehicleLeakCheck",
+          "args": [
+            "seat destroy"
+          ]
+        },
+        "note": "off: NPC destroyed while seated",
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VehicleLeakCheck",
+          "args": [
+            "seat expect left"
+          ]
+        },
+        "note": "off: the leak: taxi left, seen +1, released +0",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "vehseatdestroy": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VehicleLeakCheck",
+          "args": [
+            "seat make"
+          ]
+        },
+        "note": "on: the same setup",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VehicleLeakCheck",
+          "args": [
+            "seat destroy"
+          ]
+        },
+        "note": "on: NPC destroyed while seated",
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VehicleLeakCheck",
+          "args": [
+            "seat expect released"
+          ]
+        },
+        "note": "on: the fix: taxi released, seen +1, released +1",
+        "waitS": 1
+      }
+    ],
+    "cleanup": []
+  },
+  {
+    "id": "veh-getin-reset",
+    "bug": "docs/544 L1: GetInVehicleRouteAction.PerformAction places the vehicle and yields in FadeOut before PutInDriver; a reset there runs the catch, which destroys only DestroyOnRelease vehicles, so an unreserved NPC car or a taxi stays in the street",
+    "fix": "ts3fixes VehicleLeaks.cs: vehgetinleak (default off; on in the local --on test package), docs/544 S2",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-10): never run. pick_sims takes one adult townie; getin arm makes the next NPC get-in that gets a vehicle reset one tick later (inside the 0.5 s fade); the townie is sent to the farthest community lot (goto, player-directed) so it routes by car or taxi. If the townie walks (no car route), getin read shows seen +0: N/A, not FAIL. Read the census orphans before and after (npc_car / taxi in_world_loose).",
+    "expect": "off: getin read shows seen +1, nothing released or put away; the census shows one more loose npc_car / taxi orphan. on: seen +1 and released +1 or to inventory +1; no new orphan.",
+    "steps": [
+      {
+        "cmd": "vehicle_census",
+        "args": {
+          "samples": 5
+        },
+        "note": "log: orphans before",
+        "waitS": 1
+      },
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "age": "adult",
+          "count": 2,
+          "townies": true
+        },
+        "note": "two adult townies, no names",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "vehgetinleak": false
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VehicleLeakCheck",
+          "args": [
+            "getin arm"
+          ]
+        },
+        "note": "off: the next NPC get-in is reset in its fade",
+        "waitS": 1
+      },
+      {
+        "cmd": "sim_visit_lot",
+        "args": {
+          "sim": "picked:0",
+          "lot": "far",
+          "how": "goto",
+          "autonomous": false
+        },
+        "note": "off: the townie leaves by car or taxi",
+        "waitS": 30
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VehicleLeakCheck",
+          "args": [
+            "getin read"
+          ]
+        },
+        "note": "off: seen +1, released +0, to inventory +0",
+        "waitS": 1
+      },
+      {
+        "cmd": "vehicle_census",
+        "args": {
+          "samples": 5
+        },
+        "note": "off: one more loose orphan",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "vehgetinleak": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VehicleLeakCheck",
+          "args": [
+            "getin arm"
+          ]
+        },
+        "note": "on: the same trigger",
+        "waitS": 1
+      },
+      {
+        "cmd": "sim_visit_lot",
+        "args": {
+          "sim": "picked:1",
+          "lot": "far",
+          "how": "goto",
+          "autonomous": false
+        },
+        "note": "on: the second townie leaves by car or taxi",
+        "waitS": 30
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VehicleLeakCheck",
+          "args": [
+            "getin read"
+          ]
+        },
+        "note": "on: seen +1, released +1 or to inventory +1",
+        "waitS": 1
+      },
+      {
+        "cmd": "vehicle_census",
+        "args": {
+          "samples": 5
+        },
+        "note": "on: no new loose orphan",
+        "waitS": 1
+      }
+    ],
+    "cleanup": []
+  }
+,
+  {
+    "id": "veh-leak-soak",
+    "bug": "docs/544 L1-L5: EA vehicle leak paths (get-in interrupted, Sim destroyed while seated, dead parking reservations, Frankensim intro taxi, protest break-up cop cars); L4 and L5 need EP content (a Frankensim intro, an EP9 protest broken up by police) and have no forced trigger",
+    "fix": "ts3fixes VehicleLeaks.cs: vehparkreserve, vehgetinleak, vehseatdestroy, vehfrankentaxi, vehprotestcar (default off; on in the local --on test package), docs/544 S1-S5",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-10): never run. Natural-play soak with every vehicle switch on: the census before and after a sim-day at ultra. S4 and S5 are covered only when their EA paths fire during the soak (vehfrankentaxi_seen / vehprotestcar_tracked > 0); otherwise N/A for them. For the off arm run the same steps with the patches step set false. With NRaas Overwatch installed, turn its CleanupVehicles options off in the test profile or read growth between two of its nightly passes (docs/544 §5).",
+    "expect": "on: orphans of npc_car / taxi / taxi_bike / taxi_boat and parking reserved_destroyed flat across the day; no change to player_car, player_boat, bike or inventory_household rows; no new script errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "vehparkreserve": true,
+          "vehgetinleak": true,
+          "vehseatdestroy": true,
+          "vehfrankentaxi": true,
+          "vehprotestcar": true
+        },
+        "note": "all docs/544 switches on",
+        "waitS": 1
+      },
+      {
+        "cmd": "vehicle_census",
+        "args": {
+          "samples": 10
+        },
+        "note": "before",
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 900,
+        "note": "about a sim-day"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "vehicle_census",
+        "args": {
+          "samples": 10
+        },
+        "note": "after: orphans, parking states and the switch counters",
+        "waitS": 1
+      }
+    ],
+    "cleanup": []
   }
 ]

@@ -108,7 +108,7 @@ namespace Ts3Agent
             throw new McpException("world must be france, china or egypt");
         }
 
-        // travel_vacation {world: france|china|egypt, days? (2), sims?, cost? (0), clear_recovery? (false)}: SitInCarToTriggerTravel, the interaction
+        // travel_vacation {world: france|china|egypt, days? (2), sims?, cost? (0), clear_recovery? (false), alt? (0)}: SitInCarToTriggerTravel, the interaction
         // TravelUtil.TriggerTravelToVacationWorld queues after the trip planner. Targeting the world lot skips the walk to the
         // farthest lot, so the switch starts on the next tick (same FinalBoardingCall + GameStates.TravelToVacationWorld).
         // Skips the planner's visa/duration limits and the ITF "travel with" warning.
@@ -132,8 +132,13 @@ namespace Ts3Agent
             List<object> refused = new List<object>();
             TravelUtil.SitInCarToTriggerTravel trip = null;
             bool queued = false;
-            for (int i = 0; i < sims.Count && !queued; i++)
+            // alt: N starts the lead search N places further down the list. travel-trip.ts sends alt 1 when the trip has not
+            // started after ~1 min: in runs of 2026-11-12 the trip queued for one adult was dropped, and asked again through
+            // the next adult it went.
+            int alt = Math.Max(0, (int)a.Long("alt", 0));
+            for (int k = 0; k < sims.Count && !queued; k++)
             {
+                int i = (k + alt) % sims.Count;
                 Sim lead = sims[i];
                 List<Sim> followers = new List<Sim>(sims);
                 followers.RemoveAt(i);
@@ -621,7 +626,8 @@ namespace Ts3Agent
             return r;
         }
 
-        // travel_home {direct?}: everyone returns early, the way the game's own UI does it per world type.
+        // travel_home {direct?, alt? (0)}: everyone returns early, the way the game's own UI does it per world type. alt: N (vacation
+        // worlds only) asks through the N-th other young-adult-or-older household Sim instead.
         // Future world: the portal's Travel ("Travel Home") needs an Active portal, which only the arrival animation
         // (TimePortal.Arrive, anim event 201 -> SwitchActiveState) sets. [inferred] Arrive never ran or was cancelled: it
         // is pushed 1 Sim minute after arrival only when the household lot has a portal (else a fade-in), and the harness
@@ -692,6 +698,16 @@ namespace Ts3Agent
                 if (!s.SimDescription.YoungAdultOrAbove && Household.ActiveHousehold != null)
                     foreach (Sim m in Household.ActiveHousehold.AllActors)
                         if (m.SimDescription.YoungAdultOrAbove && TravelUtil.CanSimTriggerTravelToHomeWorld(m, ref why)) { s = m; break; }
+                // The trip home sometimes never starts for the Sim that asked. travel-trip.ts then asks again with alt 1,
+                // through another young-adult-or-older household Sim (the game's check below still applies to that Sim).
+                int alt = (int)a.Long("alt", 0);
+                if (alt > 0 && Household.ActiveHousehold != null)
+                {
+                    List<Sim> others = new List<Sim>();
+                    foreach (Sim m in Household.ActiveHousehold.AllActors)
+                        if (m != s && m.SimDescription.YoungAdultOrAbove) others.Add(m);
+                    if (others.Count > 0) s = others[(alt - 1) % others.Count];
+                }
                 why = null;
                 if (!TravelUtil.CanSimTriggerTravelToHomeWorld(s, ref why))
                     throw new McpException("game refuses the trip home" + (why != null ? ": " + why() : ""));

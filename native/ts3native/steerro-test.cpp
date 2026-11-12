@@ -3706,6 +3706,7 @@ int main(int argc, char** argv) {
             assert(memcmp(g_arOrig[i], kP10Pro[i], 6) == 0);
         }
         static u8 res[0x48];
+        static u8* resAddr = res;  // pushed as a value: clang-cl 23 crashes on `push offset <static>`
         static DWORD iEsp0, iEsp1, iOut, iFn;
         static float fx = 1.5f, fy = -2.0f, fz = 3.25f;
         for (int i = 1; i < 4; i++) {
@@ -3716,7 +3717,7 @@ int main(int argc, char** argv) {
                 __asm {
                     mov iEsp0, esp
                     push 0x25000077
-                    push offset res
+                    push resAddr
                     call iFn
                     add esp, 8
                     mov iOut, eax
@@ -3729,7 +3730,7 @@ int main(int argc, char** argv) {
                     push fy
                     push fx
                     push 0x25000077
-                    push offset res
+                    push resAddr
                     call iFn
                     add esp, 20
                     mov iOut, eax

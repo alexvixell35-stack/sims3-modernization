@@ -515,6 +515,101 @@ bench while a timing job runs; builds wait for the slot after the timing that st
 - **At stake**: even if the mat were free and the compiled side reached the 1.0x to 1.1x of other call-bound methods, that is <= ~1 ms/s on the 9.8 [inferred upper bound]; from the 0.98x measurement, ~0.2 ms/s. The big enum-compare win is already at the source: the walk-style hook (docs/04) replaced the boxed `Enum.Equals` lookups, and typed comparers (docs/74) are the lever for the rest (~1.0% spread over ~10 dictionaries).
 - **Proposed piece**: none. Optional only after C0: if the game count run shows `Enum.Equals` with real exits at `DefaultEquals` w16 above ~10 per ms of sample, add a pure-icall kind 4 `InternalEquals` (no-ref same-class memcmp) beside C3; otherwise drop C7. The 94% mat share is a host-bench artifact, not a game finding.
 
+### C0 result: game census (2026-11-11, runs jx1, master build, no compiler change) [measured, game; a model, not timing]
+
+Three 15-minute count runs (`bp/ip/sv-jit-exits-count`, `[MonoJit] Count=1` with VtOps, CallExit and NewVt on), last complete
+`jitcount:` interval of each, read with `tools/jit-hot.ts --game-count` and `tools/jit-exit-census.ts --census`. Rows:
+`docs/data/results/2026-11-11-jit-game-census.csv`.
+
+| | BP | IP | SV |
+|---|---|---|---|
+| Held back by exits in compiled bodies, est. ms/s | 5.73 | 5.82 | 5.74 |
+| `ret` | 4.39 | 4.42 | 4.39 |
+| `ret.void` | 0.28 | 0.27 | 0.28 |
+| `call` | 0.24 | 0.27 | 0.25 |
+| `callvirt` | 0.24 | 0.24 | 0.25 |
+| `con.callvirt` | 0.18 | 0.19 | 0.17 |
+| `ret.vt` | 0.16 | 0.16 | 0.17 |
+| `ldelema` | 0.10 | 0.11 | 0.11 |
+| `con.call` | 0.10 | 0.10 | 0.09 |
+| `unbox` | 0.04 | 0.04 | 0.03 |
+| newarr / box / reference newobj exit rows | 0 | 0 | 0 |
+| Bails: `no lazy body` / `depth slot` / `arena full` | 41.7M / 6.7M / 2.1M | 43.0M / 8.6M / 1.8M | 39.7M / 7.1M / 2.1M |
+| Bails: `cache class` (of all bails) | 239 of 50.55M | 239 of 53.39M | 238 of 48.86M |
+| Largest `cache class` share of a hot site (100k bails or more) | 0.0105% | 0.0241% | 0.0165% |
+
+The census puts the game at 5.7 to 5.8 ms/s held back by exits in compiled bodies. 4.4 ms/s of that is `ret` (frame teardown, B3),
+2.47 of it in `RuntimeTypeHandle.get_Value` alone; no other opcode is above 0.28 ms/s. **C4 is not reopened**: no newarr, box or
+reference newobj exit row exists in any of the three censuses (0.0 ms/s against the rule of 1 ms/s). This has a gap:
+`Array.Resize`, `DefaultComparer.Equals` and `Dictionary`2.DoAdd`, the allocation methods behind the host's 0.41 ms/s, have no row in
+the game census at all (not compiled in game, or not run; which of the two is not shown), so the census says only that the bodies
+compiled in game lose nothing to allocation exits. **C6 is not reopened**: `cache class` is 238 to 239 of about 50 million bails per
+run, and the largest share at a hot site (`Dictionary`2.GetPrev` call site 55) is 0.010% to 0.024% against the rule of 1%. The share
+is of the site's bails, not of its calls (calls that succeed are not counted), so it is an upper bound. The bails are `no lazy body`
+(about 83%), `depth slot` (about 14%) and `arena full` (about 4%), so the bail volume sits with C2 (lazy bodies for the missing
+callees). The ms/s values are the census model (exits per call times sampled self time), not measured time. All three jobs ended FAIL
+on the "new script errors" gate only: the four files per job are a script mod's periodic diagnostic logs written as ScriptError files,
+not exceptions, and every other gate passed.
+
+### C9 verdict: lazy bodies for methods with clauses (mono handoff task 4, 2026-11-11) [docs only; no game run]
+
+**Verdict: no-go, stays parked.** The task text sets no threshold of its own ("Lazy bodies for methods with clauses (the 5-arg
+`Array.Copy`, the next C3 item) ... Same host gates. 1-2 h."). The rule that applies is the handoff's section 4: "Measure before
+building. Show the gain path first, e.g. a census, L0, or a host model. Pieces below their bar stop with a written verdict", with
+the bars the handoff names elsewhere: 1 ms/s to reopen a C piece (task 1 gate) and "a consistent 3-5 ms/s gain" for a default-ON
+switch. The game census ("C0 result: game census" above) puts the whole possible gain below the first bar, before any clause filter.
+
+**Arithmetic** [verified: `2026-11-11-jit-game-census.csv`, column `est_ms_s_behind`, summed per opcode; model = exits per call x
+sampled self time, not timing]. A lazy body for a callee with clauses can only remove a call exit into that callee (`call`,
+`callvirt`, `con.call`, `con.callvirt`). It does not touch `ret`, `ret.void`, `ret.vt`, `ldelema` or `unbox`.
+
+| ms/s held back | BP | IP | SV |
+|---|---|---|---|
+| all exits | 5.733 | 5.821 | 5.742 |
+| `ret` (frame teardown, not addressable here) | 4.389 | 4.419 | 4.389 |
+| call-type exits: call + callvirt + con.call + con.callvirt (the ceiling for this task) | 0.753 | 0.803 | 0.762 |
+| of which the clause-method share | not shown | not shown | not shown |
+| rule | 1.0 | 1.0 | 1.0 |
+
+Ceiling 0.75 to 0.80 ms/s against 1.0: below the bar even if every call exit in the game became free, and the clause-method share
+is a subset of it. Against the 3-5 ms/s ON bar it is 6 to 7 times short [inferred: 0.8 / 5 = 0.16, 0.8 / 3 = 0.27].
+
+**Sites that carry the call-exit potential** (BP; IP and SV within 0.01 to 0.03 of it) [verified, CSV]: `IEquatableOfTEqualityComparer`1.GetHashCode`
+con.callvirt 0.156 + con.call 0.085; `Dictionary`2.GetPrev` callvirt 0.154; `List`1.GrowIfNeeded` call 0.124; `Enumerator.MoveNext`
+call 0.052; `Array.IndexOf` callvirt 0.052. No row is above 0.16 ms/s. `Array.Copy` has no row in the game census at all (no
+`jitcalls` and no `jitbail` line names it in any of the three logs), so the task's own example is 0.0 ms/s in game; its host
+figure was 3.1 held back and 0.14 modelled gain (C3 table, host MintBench traffic, "a host artifact" per the C0 caveat) [verified].
+
+**Bails** (last complete interval; `no lazy body` / `depth slot` / `arena full`): BP 41.7M / 6.7M / 2.1M, IP 43.0M / 8.6M / 1.8M,
+SV 39.7M / 7.1M / 2.1M. By site, `no lazy body` on BP is 41.75M in 24 sites; 67% (28.1M) sits at the two `IEquatableOfTEqualityComparer`1`
+sites (`Equals` ip 17, `GetHashCode` ip 4, both ED guards, lazy and normal copies), 23% (9.5M) at `Dictionary`2.GetPrev` (ips 24, 55, 59),
+6% at `Enumerator.MoveNext`, 2% at `List`1.GrowIfNeeded` [verified: recomputed from `game-count-bp.log`]. Large volume, but each bail
+is a call that goes the slow way and costs about 0.8 ms/s in total; volume is not ms/s.
+
+**What the data cannot say** [not checked, and why]: whether the callee behind any of these sites has clauses. The game count
+build writes no `jitedge` line (0 in all three logs; `jitedge` carries `callee ... clauses N` in the host only, and a `jitbail` row
+names the caller and ip, not the callee), and the bail reason `no lazy body` covers both "callee not on the compile list" and
+"callee has clauses" (`lazyOk` needs `!rm[0x41]`, `monojit.cpp` line 1143). Static reading points the other way: the hot callees
+are T-specific `Equals` / `GetHashCode` of the closed generic T and `Dictionary` / `Enumerator` helpers, which are short and,
+as far as the host edges show, clause-free; the C0 paragraph already assigns this bail volume to C2 (list additions). To settle
+it, a game count run that also logs callee and `clauses` per `no lazy body` bail would be needed; it is not worth a job for a ceiling
+of 0.8 ms/s.
+
+**What would have to be built if it were reopened** [inferred from the handoff sections cited]: a lazy body is a frame-free callee
+compiled so that a call never writes an `MonoInvocation` unless it exits; with clauses it needs (1) the `lazyOk` gate relaxed
+(`monojit.cpp` 1143, 1107, 2371, `[MonoJit] Wide` already lets a clause method compile as a normal body); (2) a catch search that
+sees the same ip as EA's (docs/537 section 10: "Lazy bodies have no clauses, so catch search is unchanged"; with clauses it is not);
+(3) a native `leave` / `leave.s` that matches EA's `handle_finally` (0xE54198), since `leave.s` always exits today; (4) a per-call
+verifier that compares clause methods (they are "unverified (clauses)" now, corpus hash only); (5) corpus cases for try/catch/finally
+in a lazy callee and the standard host gates. That is more than the 1-2 h the task lists, in the highest-risk part of the emitter
+(`EmitLazyCall`, serial with C4-C6), for at most 0.8 ms/s and in practice less: the clause subset.
+
+**Reopen rule** (same form as C4 and C6): reopen only if a game count run that names callees and `clauses` shows call exits
+into clause methods summing to 1 ms/s or more on some world, or if `Array.Copy` appears in a game census with a held-back row above
+0.5 ms/s.
+
+Verified/inferred summary: the sums, the site list and the bail split are [verified, from the CSV and the three count logs]; the
+ceiling against the bars is [inferred, a model]; the build list is [inferred, from docs/537 section 10 and the code lines cited].
 ### C2 status (2026-11-08, branch `feature/monojit-c2`, not merged) [measured, host]
 
 Data only; no emitter edit. Added callees (lazy bodies): `SimClock.ElapsedTime` (3 overloads), `ScriptObject.get_Proxy`,
@@ -1109,3 +1204,21 @@ Status (2026-11-08 ~10:30 UTC): steps 1-4 below done; not merged, not run.
   4. Queue: C0 arm in `tools/harness/queues/jit-exits.json`: `bp/ip/sv-jit-exits-count`, 15 min, bundle switches on (as the bundle-on arms)
      + `Count=1`, logRequire the OK line with `Count=1` and a `jitcount: end` line; `--dry-run` only.
 - Not checked (at the source-only commit): whether it compiles; now built and selftested, see Status above.
+
+## Task 6 status (2026-11-10, f1-callpath + [MintFuse] Sub verify, master c2bb5ed, ts3native 0.36.239, asi tested)
+
+- **`[MonoFast] CallPath` (f1-callpath, IP, in-load `--ab mintcall`, both orders): no gain, stays default off** [measured].
+  Script ms/s per arm (arm-ms readout of the profile): on first 8.1 on / 8.1 off; off first 7.8 on / 7.3 off (+0.5). Both under
+  the 3-5 ms/s gate and inside the route noise of the same runs. The fixed-work bench says on vs off -5.91% (on first) and
+  -5.82% (off first), but the tool flags it itself: `clock step 2000 us: too coarse for the loop` and same-arm spread 1.05%,
+  so it is not used as a gain. The first off-first job was lost to the route-lock freeze of #338 (not mintcall) and was rerun
+  alone (`f1-callpath-m1110-j1.json`). Results: `results/2026-11-10-queue-f1-callpath-m1110.md`, `...-m1110-j1.md`.
+- **`[MintFuse] Sub` IP/SV verify: PASS on both** [verified] (BP passed twice before, on g2pair1108). Per job: no crash, no new
+  script errors, 0 watchdogs, `OK   mintfuse: superops also fused inside runs (matcher call 0x00E5C8CA)`, `mfReady` 1.
+  After the run: IP `mfRuns` 295,940, `mfInner` 62,518, `mfWhole` 11,813; SV 319,612 / 67,225 / 12,625 (inner:whole 5.3:1 in
+  game, host ~8:1). Results: `results/2026-11-10-queue-mintfuse-verify-m1110.md`.
+- SV ran with a townie leak-stress driver and two class censuses beside it (the contributor's leak rider, issue #40). Its
+  stuck-Sim repro save lists 10 stuck townies, vs 2 in the last plain SV job (sv-t2l0), and 7 of the 10 were rider targets
+  (tattoo, makeover, lifecycle, death). So that count is not read as a MintFuse effect. IP ran without the rider.
+- Open for default ON: a timing claim. `[MintFuse]` acts at transform time and has no runtime switch, so no in-load A/B is
+  possible; it needs a two-load pair on a clean night (docs/139 §7). Not run.

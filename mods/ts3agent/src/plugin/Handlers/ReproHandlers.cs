@@ -537,6 +537,8 @@ namespace Ts3Agent
                 if (p == Vector3.Invalid || s.IsPointInLotSafelyRoutable(lot, p)) continue;
                 s.InteractionQueue.CancelAllInteractions();
                 s.SetPosition(p);
+                // a teleport keeps the old posture (sitting): CheckIdle only judges a standing Sim (bp-wdasync-stuck-repro-1111)
+                if (s.Posture != s.Standing) s.Posture = s.Standing;
                 sStrandSpot[s.SimDescription.SimDescriptionId] = p;
                 Dictionary<string, object> r = Util.Obj();
                 r["sim"] = s.FullName;
@@ -551,9 +553,9 @@ namespace Ts3Agent
 
         static readonly Dictionary<ulong, Vector3> sStrandSpot = new Dictionary<ulong, Vector3>();
 
-        // sim_where {sim, maxDist?, notRouting?}: position, lot, current interaction, routing, posture. With maxDist (m) it is a check against
+        // sim_where {sim, maxDist?, notRouting?, requireStanding?}: position, lot, current interaction, routing, posture. With maxDist (m) it is a check against
         // the spot sim_strand last put the Sim on: error when he is farther away (or, with notRouting, routing), so a repro step fails setup
-        // when something (Go Home) moved him before the watchdog could judge the spot.
+        // when something (Go Home) moved him before the watchdog could judge the spot. requireStanding: error when his posture is not standing.
         static object SimWhere(Args a)
         {
             Sim s = Util.FindSim(a, "sim");
@@ -569,6 +571,8 @@ namespace Ts3Agent
             Vector3 spot;
             bool have = sStrandSpot.TryGetValue(s.SimDescription.SimDescriptionId, out spot);
             if (have) r["from_strand"] = Math.Round((s.Position - spot).Length(), 2);
+            if (a.Bool("requireStanding", false) && s.Posture != s.Standing)
+                throw new McpException("sim_where: " + s.FullName + " is not standing (posture " + (s.Posture != null ? s.Posture.GetType().Name : "none") + ")");
             if (a.Has("maxDist"))
             {
                 if (!have) throw new McpException("sim_where: no sim_strand spot recorded for " + s.FullName);

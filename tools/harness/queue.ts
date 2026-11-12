@@ -266,6 +266,9 @@ const stamp = () => new Date().toISOString().slice(11, 19);
 const log = (m: string) => console.log(`${stamp()} queue: ${m}`);
 
 // ---------------------------------------------------------------- pure parts (covered by --self-check)
+// the "tested" source version: the release define only. ts3native.cpp's first define is the TS3N_RFTEST one ("0.36.189-rftest1",
+// never a release), which made every "tested" job STALE and refused; pr-preflight.ts reads the same digits-only form
+const SRC_VERSION_RE = /#define TS3NATIVE_VERSION "(\d+\.\d+\.\d+)"/;
 // machine column / jsonl field only off the main machine: main-machine results stay byte-identical (docs/TESTING.md)
 function machineCols(tag: string) { return tag ? { head: ' machine |', sep: '---|', cell: (m: string) => ` ${m} |` } : { head: '', sep: '', cell: (_m: string) => '' }; }
 function machineField(tag: string): { machineTag?: string } { return tag ? { machineTag: tag } : {}; }
@@ -1207,6 +1210,11 @@ function publishAtEnd(queueName: string): void {
 
 if (values['self-check']) {
   const assert = (await import('node:assert')).strict;
+  { // tested-build source version: the release define, not the rftest one before it
+    const src = '#ifdef TS3N_RFTEST\n#define TS3NATIVE_VERSION "0.36.189-rftest1"  // never a release\n#else\n#define TS3NATIVE_VERSION "0.36.239"  // release\n#endif\n';
+    assert.equal(SRC_VERSION_RE.exec(src)?.[1], '0.36.239');
+    assert.equal(SRC_VERSION_RE.exec('#define TS3NATIVE_VERSION "0.36.189-rftest1"'), null);
+  }
   { // end-of-queue publish hook
     assert.equal(publishPlan({ PERSONAL_GITHUB_TOKEN: 't' }, false, false).run, true);
     assert.equal(publishPlan({ GH_TOKEN: 't' }, false, false).run, true, 'GH_TOKEN alone');
@@ -2033,7 +2041,7 @@ const loopOf = (j: Job) => { const l = loopOfId(j.run.profile?.repro); return l 
 const asiPath = (j: Job) => (j.asi === 'tested' ? TESTED_ASI : resolve(ROOT, j.asi));
 // "tested" must be the source's version: a stale out/ build (0.10.1, async without the route gate) ran as "tested" for 3 days
 // and crashed bp-watch-stalk-worker (docs/113 §8.6). The DLL holds the log line format "ts3native <version> %04d".
-const SRC_VERSION = /#define TS3NATIVE_VERSION "([^"]+)"/.exec(readFileSync(join(ROOT, 'native', 'ts3native', 'ts3native.cpp'), 'utf8'))?.[1];
+const SRC_VERSION = SRC_VERSION_RE.exec(readFileSync(join(ROOT, 'native', 'ts3native', 'ts3native.cpp'), 'utf8'))?.[1];
 const staleAsi = (j: Job) => {
   if (j.asi !== 'tested' || !existsSync(TESTED_ASI)) return '';
   const v = /ts3native (\d+\.\d+\.\d+) %04d/.exec(readFileSync(TESTED_ASI).toString('latin1'))?.[1];
@@ -3186,7 +3194,7 @@ for (const [n, j] of jobs.entries()) {
   const cd = row.counters.delta ? Object.entries(row.counters.delta).map(([k, v]) => `${k} ${(v as number) > 0 ? '+' : ''}${v}`).join(', ') : '-';
   const cell = (x: string) => x.replace(/\|/g, '/').replace(/\r?\n/g, '<br>').slice(0, 400);
   appendFileSync(md, `| ${j.id} | ${t0.slice(11, 16)} (${pht(t0)}) | ${row.minutes} | ${row.pass ? 'PASS' : row.na ? '**N/A**' : row.crashed ? '**CRASH**' : '**FAIL**'} | ${cell(row.verdict.join('<br>') || row.error || '-')} | ${row.exitCode ?? '-'} | ${memLine(row.memory.before)} -> ${memLine(row.memory.after)} | ${cell(cd || '-')} | ${cell([countsNote(row), `timing: ${timingText({ timing: row.timing, why: row.timingWhy })}`, buildLine(row.buildCheck), row.saveHashes.after && saveDrift(row.saveHashes.before, row.saveHashes.after).length ? 'BASELINE SAVE CHANGED' : '', row.session.line !== 'fresh load' || row.session.after ? [row.session.line, row.session.after, row.session.next].filter(Boolean).join('; ') : '', row.noiseNote, row.hangCapture, j.note, row.content !== 'as-is' ? `content ${row.content} (${row.contentMoved} moved)` : '', row.crashed ? row.crash.split('\n')[1]?.trim() : '', row.error && row.verdict.length ? row.error : ''].filter(Boolean).join('; ') || '')} |${machineCols(machineTag()).cell(MACHINE)}\n`);
-  log(`${j.id}: ${row.pass ? 'PASS' : row.na ? 'N/A' : row.crashed ? 'CRASH' : 'FAIL'} in ${row.minutes} min`);
+  log(`${j.id}: ${row.pass ? 'PASS' : row.na ? 'N/A' : row.crashed ? 'CRASH' : 'FAIL'} in ${row.minutes} min${row.pass || row.na ? '' : ` | ${(row.verdict.find(isFail) ?? row.error ?? '').replace(/\s+/g, ' ').slice(0, 160)}`}`); // after "in N min": log greps match that prefix
   if (!row.pass && !row.na) exitCode = 1;
 
   const earlierCrashes = earlier.filter(r => r.job === j.id && r.crashed).length;

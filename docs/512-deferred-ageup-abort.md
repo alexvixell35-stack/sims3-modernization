@@ -54,3 +54,25 @@ current outfit. That is what the player's core build does with a check in the wa
 on Shanita Jordon (Adult, not instantiated), both arms. `expect thrown` (off): EA's `NullReferenceException`, seen +1,
 caught +0, age and outfit key unchanged. `expect caught` (on): the method returned, seen +1, caught +1, age and outfit
 key unchanged. The arm puts the deferred flag back itself, so the run does not show that the age-up stays deferred.
+
+## 5. The 2026-11-12 rethrow (paparazzo role NPC, rc1111c)
+
+A stress job on the release pair (`freeze-stress-1112-01`, ts3fixes rc1111c, switch on) logged EA's
+`NullReferenceException` out of the hook: `PreInstantiateSim` <- `Instantiate` <- `InstantiateOffScreen` <-
+`RolePaparazzi.StartRole` <- `RoleManagerTask.FillInWorldRole`. The throw is the `Done` read after the sleep.
+
+- **Why the hook let it through** [inferred from IL, not seen live]. With the task field null the only `Decide` input that
+  gives `kPass` is the deferred flag already cleared (the switch is on: tuning true, the job sets no switch). In
+  `Sims3GameplaySystems` the only write of `SimBuilderTaskDeferred = false` is `PreInstantiateSim`'s own success path
+  [verified, IL], and `StartSimBuilderTask` hands an existing task to a second caller [verified, IL]. So a second
+  `Instantiate` of the same Sim (both pass the `CreatedSim == null` check while the first sleeps) waited on the same
+  build, woke first, cleared the flag, aged the Sim and nulled the task (`AgeTransitionCompleted`). The other waiter then
+  read a null task.
+- **Rethrow is intended**. `Instantiate` re-checks `CreatedSim` only before `PreInstantiateSim` [verified, IL]. Catching
+  this case would let the second caller create a second Sim for the same description, with the pre-age-up outfit key on
+  the new age's rig. EA's throw is what stops that, so the hook keeps it. A better outcome (return the Sim the other call
+  made) needs a hook on `SimDescription.Instantiate`; not done.
+- **Diagnostic** (bug-diag lifecycle): every rethrow from the hook now logs one line (first 5 per session, recent log):
+  `ageupabort rethrow: <Sim>, <exception>, task null, deferred, switch, decision, created, scope`. A line with
+  `deferred False` and `created True` confirms the reading above.
+- **Self-test**: both 11-12 cases (still deferred: caught; deferred cleared: rethrown).

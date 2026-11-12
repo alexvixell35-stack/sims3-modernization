@@ -834,6 +834,20 @@ namespace Ts3Agent
             r["sim"] = victim.FullName;
             r["routing"] = routing;
             r["death"] = dt.ToString();
+            // home: true (spawned Sims only): EA's CanBeKilled lets a non-selectable Sim die only on a lot where a
+            // selectable Sim is, so the victim is first stood next to the active Sim.
+            if (a.Bool("home", false) && !a.Has("sim") && !victim.CanBeKilled())
+            {
+                Sim act = Sim.ActiveActor;
+                if (act != null && !act.HasBeenDestroyed && act.LotCurrent != null && !act.LotCurrent.IsWorldLot)
+                {
+                    Vector3 p = act.Position + new Vector3(1.5f, 0f, 1.5f);
+                    victim.SetPosition(p);
+                    victim.InteractionQueue.CancelAllInteractions();
+                    r["moved_home"] = true;
+                }
+            }
+            r["can_be_killed"] = victim.CanBeKilled();
             r["killed"] = victim.Kill(dt);
             return r;
         }

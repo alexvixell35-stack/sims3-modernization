@@ -6,9 +6,10 @@
 //   node tools/harness/night-run.ts --close [--wait] --queue-list a.json,b.json [--stop-on-fail] [--resume]
 //
 // --queue-list runs the queues in order (after one close step); a queue that FAILs (queue.ts exit != 0) ends the list only
-// with --stop-on-fail, a queue stopped by a signal always ends it. --resume (with --queue or --queue-list) reads the jsonl
-// of the queue that ran last (newest probe-out/queue/<name>-<date>.jsonl), continues it --from its first job without a row,
-// then runs the queues after it; queues before it count as done.
+// with --stop-on-fail, a queue stopped by a signal always ends it. --resume (with --queue or --queue-list) reads each
+// queue's newest probe-out/queue/<name>-<date>.jsonl: the queue that ran last (newest jsonl) and every queue before it
+// continue --from their first job without a row (a finished one is skipped, one that never ran starts at its first job);
+// the queues after the last one run in full (their jsonl, if any, is from an earlier night).
 //
 // Safety: nothing closes without --close (Claude passes it only when Rodney asks), and --close refuses unless the screen
 // is locked (console session state WTS_SESSIONSTATE_LOCK) AND there was no keyboard/mouse input for --idle-min minutes (default 5). Apps get a
@@ -67,19 +68,23 @@ export const isLockFlags = (flags: number) => flags === 0;
 const locked = () => isLockFlags(sessionFlags());
 const idleMin = () => Number(ps("Add-Type 'using System; using System.Runtime.InteropServices; public static class Idle { [StructLayout(LayoutKind.Sequential)] public struct L { public uint cb; public uint t; } [DllImport(\"user32.dll\")] static extern bool GetLastInputInfo(ref L l); public static uint Ms() { L l = new L(); l.cb = 8; GetLastInputInfo(ref l); return (uint)Environment.TickCount - l.t; } }'; [Idle]::Ms()")) / 60000;
 
-// --resume: the queue that ran last (newest jsonl) continues at its first job without a row, else the next queue; null = all done
-export function resumeAt(qs: { ids: string[]; done: string[] | null; mtime: number }[]): { q: number; from?: string } | null {
+// --resume: every unfinished queue up to the one that ran last (newest jsonl) continues at its first job without a row
+// (never ran = from its start); the queues after it run in full. [] = all done.
+export type Step = { q: number; from?: string };
+export function resumeAt(qs: { ids: string[]; done: string[] | null; mtime: number }[]): Step[] {
   let last = -1;
   qs.forEach((q, i) => { if (q.done && (last < 0 || q.mtime > qs[last].mtime)) last = i; });
-  if (last < 0) return { q: 0 };
-  const from = qs[last].ids.find(id => !qs[last].done!.includes(id));
-  return from ? { q: last, from } : last + 1 < qs.length ? { q: last + 1 } : null;
+  return qs.flatMap((q, i): Step[] => {
+    if (i > last || !q.done) return [{ q: i }];
+    const from = q.ids.find(id => !q.done!.includes(id));
+    return from ? [{ q: i, from }] : [];
+  });
 }
-// runs the queues from start; run() = the queue's exit code, null = stopped by a signal. Returns the list's exit code.
-export function runList(qs: string[], start: { q: number; from?: string }, run: (q: string, from?: string) => number | null, stopOnFail: boolean, log: (s: string) => void): number {
+// runs the planned queues in order; run() = the queue's exit code, null = stopped by a signal. Returns the list's exit code.
+export function runList(qs: string[], plan: Step[], run: (q: string, from?: string) => number | null, stopOnFail: boolean, log: (s: string) => void): number {
   let rc = 0;
-  for (let i = start.q; i < qs.length; i++) {
-    const st = run(qs[i], i === start.q ? start.from : undefined);
+  for (const { q: i, from } of plan) {
+    const st = run(qs[i], from);
     if (st === null) { log(`queue ${qs[i]} stopped by a signal: list ends`); return 1; }
     if (st === 0) continue;
     rc = st;
@@ -110,33 +115,40 @@ if (values['self-check']) {
   const fl = sessionFlags(); // live, read-only: the query must answer LOCK or UNLOCK
   assert.ok(fl === 0 || fl === 1, `session flags ${fl}`);
   console.log(`session flags ${fl} (${fl === 0 ? 'locked' : 'unlocked'})`);
-  // --resume: newest jsonl wins, continue at the first job without a row; a finished queue hands over to the next one
+  // --resume: every unfinished queue up to the newest jsonl continues at its first job without a row; later queues run in full
   const st = (ids: string[], done: string[] | null, mtime = 0) => ({ ids, done, mtime });
-  assert.deepEqual(resumeAt([st(['a', 'b'], null), st(['c'], null)]), { q: 0 });
-  assert.deepEqual(resumeAt([st(['a', 'b'], ['a', 'b'], 5), st(['c', 'd', 'e'], ['c', 'e'], 9)]), { q: 1, from: 'd' });
-  assert.deepEqual(resumeAt([st(['a', 'b'], ['a', 'b'], 9), st(['c'], ['c'], 2)]), { q: 1 }); // old jsonl of q1 from an earlier night
-  assert.deepEqual(resumeAt([st(['a'], ['a'], 1), st(['c'], ['c'], 9)]), null);
+  assert.deepEqual(resumeAt([st(['a', 'b'], null), st(['c'], null)]), [{ q: 0 }, { q: 1 }]);
+  assert.deepEqual(resumeAt([st(['a', 'b'], ['a', 'b'], 5), st(['c', 'd', 'e'], ['c', 'e'], 9)]), [{ q: 1, from: 'd' }]);
+  assert.deepEqual(resumeAt([st(['a', 'b'], ['a', 'b'], 9), st(['c'], ['c'], 2)]), [{ q: 1 }]); // old jsonl of q1 from an earlier night
+  assert.deepEqual(resumeAt([st(['a'], ['a'], 1), st(['c'], ['c'], 9)]), []);
+  // 2026-11-11: night-1111 stopped partway, release-verify-1111 (newest) too; both resume, not only the newest
+  assert.deepEqual(resumeAt([st(['n1', 'n2', 'n3'], ['n1'], 5), st(['r1', 'r2'], ['r1'], 9), st(['x'], ['x'], 1)]),
+    [{ q: 0, from: 'n2' }, { q: 1, from: 'r2' }, { q: 2 }]);
+  assert.deepEqual(resumeAt([st(['a'], null), st(['b', 'c'], ['b'], 9)]), [{ q: 0 }, { q: 1, from: 'c' }]); // never ran = unfinished
   // --queue-list with stubbed runners: FAIL goes on without --stop-on-fail, stops with it; a signal always stops; from only for the first
   const calls: string[] = [], logs: string[] = [];
   const stub = (codes: Record<string, number | null>) => (q: string, from?: string) => { calls.push(from ? `${q}@${from}` : q); return q in codes ? codes[q] : 0; };
-  assert.equal(runList(['a', 'b', 'c'], { q: 0, from: 'x' }, stub({ b: 1 }), false, l => logs.push(l)), 1);
+  const all = (n: number, from?: string): Step[] => Array.from({ length: n }, (_, i) => ({ q: i, ...(i === 0 && from ? { from } : {}) }));
+  assert.equal(runList(['a', 'b', 'c'], all(3, 'x'), stub({ b: 1 }), false, l => logs.push(l)), 1);
   assert.deepEqual(calls.splice(0), ['a@x', 'b', 'c']);
-  assert.equal(runList(['a', 'b', 'c'], { q: 1 }, stub({ b: 1 }), true, l => logs.push(l)), 1);
+  assert.equal(runList(['a', 'b', 'c'], [{ q: 1 }, { q: 2 }], stub({ b: 1 }), true, l => logs.push(l)), 1);
   assert.deepEqual(calls.splice(0), ['b']);
-  assert.equal(runList(['a', 'b', 'c'], { q: 0 }, stub({ a: null }), false, l => logs.push(l)), 1);
+  assert.equal(runList(['a', 'b', 'c'], all(3), stub({ a: null }), false, l => logs.push(l)), 1);
   assert.deepEqual(calls.splice(0), ['a']);
-  assert.equal(runList(['a', 'b'], { q: 0 }, stub({}), true, l => logs.push(l)), 0);
+  assert.equal(runList(['a', 'b'], all(2), stub({}), true, l => logs.push(l)), 0);
   assert.deepEqual(calls.splice(0), ['a', 'b']);
+  assert.equal(runList(['a', 'b', 'c'], [{ q: 0, from: 'x' }, { q: 2, from: 'y' }], stub({}), true, l => logs.push(l)), 0);
+  assert.deepEqual(calls.splice(0), ['a@x', 'c@y']);
   assert.equal(logs.length, 3);
   console.log('self-check ok');
   process.exit(0);
 }
 
 const qList = (values['queue-list'] ?? values.queue)?.split(',').map(s => s.trim()).filter(Boolean) ?? [];
-let start: { q: number; from?: string } | null = { q: 0, from: values.from };
+let plan: Step[] = qList.map((_, i) => ({ q: i, ...(i === 0 && values.from ? { from: values.from } : {}) }));
 if (values.resume && qList.length) {
-  start = resumeAt(qList.map(queueState));
-  console.log(start ? `resume: ${qList[start.q]}${start.from ? ` --from ${start.from}` : ''}${start.q + 1 < qList.length ? `, then ${qList.slice(start.q + 1).join(', ')}` : ''}` : 'resume: every job of every queue has a row, nothing to run');
+  plan = resumeAt(qList.map(queueState));
+  console.log(plan.length ? `resume: ${plan.map(s => `${qList[s.q]}${s.from ? ` --from ${s.from}` : ''}`).join(', then ')}` : 'resume: every job of every queue has a row, nothing to run');
 }
 const procs = running(), names = procs.map(p => p.name);
 const only = values.only?.split(',').map(s => s.trim());
@@ -168,8 +180,8 @@ const left = toClose(running().map(p => p.name)).filter(a => targets.some(t => t
 if (left.length && values.force) for (const a of left) for (const p of a.procs) spawnSync('taskkill', ['/IM', `${p}.exe`, '/T', '/F'], { stdio: 'ignore' });
 console.log(left.length ? `still open after 30 s: ${left.map(a => a.app).join(', ')}${values.force ? ' (killed with --force)' : ' (left alone; --force kills them)'}` : 'all closed');
 
-if (qList.length && start) {
-  process.exit(runList(qList, start, (q, from) => {
+if (plan.length) {
+  process.exit(runList(qList, plan, (q, from) => {
     console.log(`starting queue ${qPath(q)}${from ? ` --from ${from}` : ''}`);
     const r = spawnSync(process.execPath, [join(ROOT, 'tools', 'harness', 'queue.ts'), qPath(q), ...(from ? ['--from', from] : [])], { stdio: 'inherit', env: { ...process.env, TS3_NIGHT: '1' } }); // night rule: a failed reused session restarts fresh (docs/170 §2)
     return r.signal ? null : r.status ?? 1;

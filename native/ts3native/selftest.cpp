@@ -8177,11 +8177,13 @@ static void TestAvoidRO() {
     static AvIn in;
     u64 id;
     bool none;
-    auto runA = [&](bool job, u8* pth = path, u8* ag = NULL) {
+    // pth has no default here: a default argument may not name a local (static) variable in standard C++ (clang-cl)
+    auto runAp = [&](bool job, u8* pth, u8* ag = NULL) {
         const int why = AvRunA(pth, ag ? ag : agentBase + 8, goal, ign, 1, job, &id, &in, &none);
         assert(t_qlShared == 0 && !t_inRo && g_srInClone == 0);
         return why;
     };
+    auto runA = [&](bool job) { return runAp(job, path); };
     assert(runA(false) == SR_OK && id == 0x705 && !none && ptU == 13.0f && ptV == 5.0f && optSeen == 0x42 && postureCalls == 1);
     assert(runA(true) == SR_FB_STATE && t_avJobEnd);  // a job answer needs the tripwire stubs armed
     TwArm(true);
@@ -8191,7 +8193,7 @@ static void TestAvoidRO() {
     fp[5][0x62] = 1;
     // no options object: 0x702 / 0x703 are not filtered (0x702 misses, 0x703 hits); agent NULL or 8: option word 0x100
     fp[3][0x60] = 1;
-    assert(runA(true, NULL) == SR_OK && id == 0x703);
+    assert(runAp(true, NULL) == SR_OK && id == 0x703);
     {
         const int pc = postureCalls;
         assert(AvRunA(NULL, NULL, goal, ign, 1, true, &id, &in, &none) == SR_OK && id == 0x703 && optSeen == 0x100 && postureCalls == pc);
@@ -12817,6 +12819,7 @@ static void TestP5() {
 #include "hitchattr-test.h"  // TestHitchAttr ([HitchAttr], docs/96 §9)
 #include "unseen-test.h"  // TestUnseen ([UnseenProbe], docs/143)
 #include "ghost-test.h"   // TestUnseenGhost ([UnseenGhost], docs/202 §3.9.5)
+#include "thumbstall-test.h"  // TestThumbLod ([ThumbStall] Actions 3 and 4, thumbstall.cpp)
 #include "unseenanim-test.h"  // TestUnseenAnim ([UnseenAnim], docs/144 §3.4)
 #include "unseenrm-test.h"  // TestUnseenRootMotion, TestUnseenRootMotion2 ([UnseenRootMotion] Mode 1 / Mode 2, docs/228)
 #include "unseentable-test.h"  // TestUnseenTable ([UnseenTable], docs/227 §6)
@@ -13915,8 +13918,7 @@ static void TestDetourPublish() {
         assert(Write5(fn, code));  // original bytes back, atomically
         g_dtCalls = 0;
         while (g_dtCalls < 2) SwitchToThread();  // the spinner finished a call that began after the restore
-        VirtualFree(g_dtSlot, 0, MEM_RELEASE);
-        g_dtSlot = NULL;
+        g_dtSlot = NULL;  // a pool slot (TrampAlloc): never freed
         g_dtCalls = 0;
     }
     g_log = saved;
@@ -13925,6 +13927,36 @@ static void TestDetourPublish() {
     CloseHandle(th);
     VirtualFree(fn, 0, MEM_RELEASE);
     printf("detour publish order: %d installs under a spinning caller, slot set before the jmp\n", n);
+}
+
+// TrampAlloc (issue #40): trampolines are slots of a shared 64 KB RWX block, not one 64 KB reservation each
+static bool TaRwx(const u8* p, MEMORY_BASIC_INFORMATION* m) {
+    return VirtualQuery(p, m, sizeof(*m)) == sizeof(*m) && m->State == MEM_COMMIT && m->Protect == PAGE_EXECUTE_READWRITE;
+}
+static void TestTrampAlloc() {
+    u8* const a = TrampAlloc(32, "test a");
+    u8* const b = TrampAlloc(20, "test b");  // rounded up to 32
+    MEMORY_BASIC_INFORMATION m;
+    assert(a && b && a != b && (a + 32 <= b || b + 32 <= a) && !((uintptr_t)a & 15) && !((uintptr_t)b & 15));
+    assert(TaRwx(a, &m) && TaRwx(b, &m));
+    for (int i = 0; i < 32; i++) assert(a[i] == 0 && b[i] == 0);
+    a[0] = 0xB8, *(LONG*)(a + 1) = 5, a[5] = 0xC3;  // mov eax,5 ; ret
+    FlushInstructionCache(GetCurrentProcess(), a, 6);
+    assert(((int(__cdecl*)())(void*)a)() == 5);
+    // 2048 x 32 bytes fill exactly one block: wherever the current block stands, exactly one new block opens
+    const LONG blocks = g_trampBlocks;
+    const void* base = NULL;
+    u8* prev = NULL;
+    int bases = 0;
+    for (int i = 0; i < 2048; i++) {
+        u8* const p = TrampAlloc(32, "test n");
+        assert(p && !((uintptr_t)p & 15) && TaRwx(p, &m) && p[0] == 0);
+        if (m.AllocationBase != base) bases++, base = m.AllocationBase;
+        else assert(p == prev + 32);  // same block: back to back, no overlap
+        prev = p;
+    }
+    assert(g_trampBlocks == blocks + 1 && bases <= 2);
+    printf("trampoline pool: 2048 x 32 bytes in %d block(s) (%ld new), slots 16-aligned, RWX, zero-filled\n", bases, g_trampBlocks - blocks);
 }
 
 static void TestRemPatch() {
@@ -14168,6 +14200,7 @@ int main() {
     assert(((int(__cdecl*)())tramp)() == 42);
     TestDetourPublish();
     TestDetourCallRel();
+    TestTrampAlloc();
     TestRouteCache();
     TestRouteWorker();
     TestRouteBudget();
@@ -14325,6 +14358,7 @@ int main() {
     TestMovedWaits();
     TestP6Waits();
     TestLauncherFix();
+    TestThumbLod();
     puts("selftest ok");
     return 0;
 }

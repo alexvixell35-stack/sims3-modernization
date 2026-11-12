@@ -3,8 +3,8 @@
 // Included by ts3native.cpp after memdiag.cpp (uses userdiag.cpp's g_udWorlds / UdMemWalk / UdPrivateUsage, memdiag.cpp's
 // g_mdWorld) and apex.cpp (g_apexFound / g_apexStandDown).
 //
-// What it does: calls the game's own shrink of both ResourceSystem caches, ResourceManager slot 0x733E70 (vtable 0xFFE250
-// +0xF0): for the caches at manager +0x1E0 (ResourceCache) and +0x1E4 (AnimationCache), trim 0x732E90(budget, 0, 1) =
+// What it does: calls the game's own shrink of both ResourceSystem caches, ResourceManager slot 0x733E70 (primary vtable
+// 0xFFE2F0 +0x50, data 0xFFE340): for the caches at manager +0x1E0 (ResourceCache) and +0x1E4 (AnimationCache), trim 0x732E90(budget, 0, 1) =
 // target budget - budget = 0 with force 1, i.e. drop every entry on the flush (idle, unreferenced) list; referenced entries
 // are never on that list [verified disassembly, docs/198 §4.1]. The same function Apex MemoryGuard calls under low address
 // space (docs/191 prior art).
@@ -18,7 +18,10 @@
 // Overwatch signal to native (docs/198 §4.2).
 // Apex Radiance loaded and [Compat] ApexStandDown=1: no trim, one log line (late Apex load included: checked per trim).
 static const DWORD RT_SVC_SLOT = 0x00FFEB2C, RT_SVC_UPDATE = 0x007377F0;  // ResourceSystem service +0x1C (main thread)
-static const DWORD RT_MGR_VT = 0x00FFE250, RT_CACHE_VT = 0x00FFDD94;
+// The manager at service + 0x18 has two vtables: ctor 0x736DB0 stores 0xFFE2F0 at +0 (`C7 06 F0 E2 FF 00` at 0x736DD2) and
+// 0xFFE250 at +8 (`C7 07 50 E2 FF 00` at 0x736DD8, edi = this + 8); g_ResourceManager [0x11C78D8] points at +8. Until the
+// "next version" fix rctrim compared +0 with 0xFFE250 and skipped every trim ("vtable not as expected", in game).
+static const DWORD RT_MGR_VT0 = 0x00FFE2F0, RT_MGR_VT = 0x00FFE250, RT_CACHE_VT = 0x00FFDD94;
 typedef void(__thiscall* RtSvcFn)(void* svc, DWORD realDt, DWORD gameDt);
 typedef void(__thiscall* RtShrinkFn)(void* mgr);
 static RtSvcFn g_rtOrig;
@@ -41,7 +44,8 @@ static RtCache RtRead(const u8* c) {
     return r;
 }
 
-// The trim itself (main thread). mgr = ResourceManager (service + 0x18, vtable 0xFFE250 [verified ctor 0x739120 -> 0x736DB0]).
+// The trim itself (main thread). mgr = ResourceManager (service + 0x18, vtables 0xFFE2F0 at +0 and 0xFFE250 at +8
+// [verified ctor 0x739120 -> 0x736DB0]).
 static void RtTrim(u8* mgr, const char* why) {
     if (g_apexFound && g_apexStandDown) {
         InterlockedIncrement(&ts3native_counters.rtStood);
@@ -50,12 +54,18 @@ static void RtTrim(u8* mgr, const char* why) {
     }
     const u8* c0 = NULL;
     const u8* c1 = NULL;
+    DWORD vt0 = 0, vt8 = 0, cvt = 0;  // seen, for the skip line
     __try {
-        if (*(const DWORD*)mgr == RT_MGR_VT) c0 = *(u8* const*)(mgr + 0x1E0), c1 = *(u8* const*)(mgr + 0x1E4);
+        vt0 = *(const DWORD*)mgr, vt8 = *(const DWORD*)(mgr + 8);
+        if (vt0 == RT_MGR_VT0 && vt8 == RT_MGR_VT) c0 = *(u8* const*)(mgr + 0x1E0), c1 = *(u8* const*)(mgr + 0x1E4);
+        if (c0) cvt = *(const DWORD*)c0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
     const RtCache a0 = RtRead(c0), a1 = RtRead(c1);
     if (!a0.ok) {
-        if (InterlockedIncrement(&ts3native_counters.rtBad) <= 3) Log("rctrim: skipped %s: manager or ResourceCache vtable not as expected", why);
+        if (InterlockedIncrement(&ts3native_counters.rtBad) <= 3)
+            Log("rctrim: skipped %s: manager or ResourceCache vtable not as expected: manager %p [+0]=0x%08lX (want 0x%08lX) "
+                "[+8]=0x%08lX (want 0x%08lX), ResourceCache %p vtable 0x%08lX (want 0x%08lX)",
+                why, mgr, vt0, RT_MGR_VT0, vt8, RT_MGR_VT, c0, cvt, RT_CACHE_VT);
         return;
     }
     UdMemStat s0 = {}, s1 = {};

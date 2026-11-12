@@ -33,7 +33,7 @@ const USER = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Ar
 const HOME = join(process.env.LOCALAPPDATA ?? join(homedir(), '.local', 'share'), 'ts3-fixes');
 const STATE = join(HOME, 'state.json');
 // Windows' own bsdtar reads zip/7z/tar.gz; a GNU tar from Git Bash on PATH would treat "C:" as a remote host.
-const TAR = process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
+const TAR = process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : (process.env.TS3_TAR ?? 'bsdtar');  // TS3_TAR: another bsdtar (Linux: GNU tar cannot read zip/7z/rar)
 
 const { positionals, values } = parseArgs({ allowPositionals: true, options: {
   set: { type: 'string', default: 'default' }, only: { type: 'string' }, skip: { type: 'string' },
@@ -118,7 +118,7 @@ function pick(tree: string, pattern: string): string[] {
 // ---------- targets
 function targetPath(f: Fix, rel: string): string {
   if (rel.startsWith('%BIN%')) return join(BIN, rel.slice('%BIN%'.length).replace(/^[\\/]/, ''));
-  if (rel.includes('%DOCUMENTS%')) return rel.replace('%DOCUMENTS%/Electronic Arts/The Sims 3', USER).replace(/\//g, '\\');
+  if (rel.includes('%DOCUMENTS%')) return rel.replace('%DOCUMENTS%/Electronic Arts/The Sims 3', USER).replace(/\//g, process.platform === 'win32' ? '\\' : '/');
   switch (f.install.target) {
     case 'bin': return join(BIN, rel);
     case 'overrides': return join(USER, 'Mods', 'Overrides', basename(rel));
@@ -137,6 +137,8 @@ function place(f: Fix, rec: Installed, dest: string, write: () => void) {
   mkdirSync(dirname(dest), { recursive: true });
   write();
   if (!rec.files.some(x => x.path === dest)) rec.files.push({ path: dest, backup }); // re-installs must not record a file twice
+  state[f.id] = rec; // record now: a later failure in this fix must still let uninstall restore the backup (at stays '' until the fix succeeds)
+  if (backup) saveState(); // on disk at once only when a player's file was replaced (a kill skips the catch); not per file: content fixes place thousands
   console.log(`  ${f.id}: ${dest}`);
 }
 
@@ -200,19 +202,19 @@ function generated(f: Fix, rec: Installed): boolean {
       return true;
     }
     case 'nointro': {
-      execFileSync(process.execPath, [join(ROOT, 'tools', 'harness', 'nointro.ts')], { stdio: 'ignore' });
+      execFileSync(process.execPath, [join(ROOT, 'tools', 'harness', 'nointro.ts')], { stdio: ['ignore', 'ignore', 'inherit'] });
       const p = join(USER, 'Mods', 'Packages', 'ts3-nointro.package');
       place(f, rec, p, () => copyFileSync(join(ROOT, 'build', 'ts3-nointro.package'), p));
       return true;
     }
     case 'overwatch-no-stuckcheck': {
-      execFileSync(process.execPath, [join(ROOT, 'tools', 'setup', 'build-overwatch-tuning.ts')], { stdio: 'ignore' });
+      execFileSync(process.execPath, [join(ROOT, 'tools', 'setup', 'build-overwatch-tuning.ts')], { stdio: ['ignore', 'ignore', 'inherit'] });
       const p = join(USER, 'Mods', 'Packages', 'ts3-overwatch-nostuckcheck.package');
       place(f, rec, p, () => copyFileSync(join(ROOT, 'build', 'ts3-overwatch-nostuckcheck.package'), p));
       return true;
     }
     case 'overwatch-no-invcleanup': {
-      execFileSync(process.execPath, [join(ROOT, 'tools', 'setup', 'build-overwatch-tuning.ts'), 'inventory'], { stdio: 'ignore' });
+      execFileSync(process.execPath, [join(ROOT, 'tools', 'setup', 'build-overwatch-tuning.ts'), 'inventory'], { stdio: ['ignore', 'ignore', 'inherit'] });
       const p = join(USER, 'Mods', 'Packages', 'ts3-overwatch-noinvcleanup.package');
       place(f, rec, p, () => copyFileSync(join(ROOT, 'build', 'ts3-overwatch-noinvcleanup.package'), p));
       return true;
@@ -226,14 +228,14 @@ function generated(f: Fix, rec: Installed): boolean {
       return true;
     }
     case 'stutter-fixes': {
-      execFileSync(process.execPath, [join(ROOT, 'tools', 'setup', 'build-fixes.ts')], { stdio: 'ignore' });
+      execFileSync(process.execPath, [join(ROOT, 'tools', 'setup', 'build-fixes.ts')], { stdio: ['ignore', 'ignore', 'inherit'] });
       const p = join(USER, 'Mods', 'Packages', 'ts3fixes.package');
       place(f, rec, p, () => copyFileSync(join(ROOT, 'build', 'ts3fixes.package'), p));
       return true;
     }
     case 'portalplan-typepatch-test': {
       // test only (docs/94 §20 job 17); build-fixes.ts builds it once monopatcher (a requires, installed first) is unpacked
-      execFileSync(process.execPath, [join(ROOT, 'tools', 'setup', 'build-fixes.ts')], { stdio: 'ignore' });
+      execFileSync(process.execPath, [join(ROOT, 'tools', 'setup', 'build-fixes.ts')], { stdio: ['ignore', 'ignore', 'inherit'] });
       const built = join(ROOT, 'build', 'ts3-portalplan-test.package');
       if (!existsSync(built)) throw new Error('portalplan-typepatch-test: build/ts3-portalplan-test.package not built (needs the monopatcher download)');
       const p = join(USER, 'Mods', 'Packages', 'ts3-portalplan-test.package');
@@ -371,12 +373,17 @@ function uninstall(ids: string[]) {
   for (const id of ids) {
     const rec = state[id];
     if (!rec) continue;
+    const kept: typeof rec.files = [];
     for (const file of [...rec.files].reverse()) {
-      if (file.backup && existsSync(file.backup)) copyFileSync(file.backup, file.path);
+      if (file.backup && !existsSync(file.backup)) { // never delete the player's file when its backup is gone
+        console.warn(`  ${id}: WARNING: backup ${file.backup} is missing; left ${file.path} as it is (record kept)`);
+        kept.push(file); process.exitCode = 1; continue;
+      }
+      if (file.backup) copyFileSync(file.backup, file.path);
       else rmSync(file.path, { force: true });
       console.log(`  ${id}: ${file.backup ? 'restored' : 'removed'} ${file.path}`);
     }
-    delete state[id];
+    if (kept.length) state[id] = { ...rec, files: kept.reverse() }; else delete state[id];
     saveState();
   }
 }
@@ -398,7 +405,7 @@ if (cmd === 'plan') {
   for (const f of select()) {
     const src = f.source.kind === 'manual' ? (findManual(f) ? 'manual: found' : `manual: MISSING (${f.source.page})`)
       : f.source.url ? `${f.source.kind}${f.sha256 ? ' + sha256' : ' (no hash)'}` : 'generated';
-    console.log(`${state[f.id] ? 'installed' : 'pending  '}  ${f.id.padEnd(26)} ${String(f.version ?? '').padEnd(14)} ${src}`);
+    console.log(`${state[f.id]?.at ? 'installed' : 'pending  '}  ${f.id.padEnd(26)} ${String(f.version ?? '').padEnd(14)} ${src}`);
   }
   contentHealth();
 } else if (cmd === 'install') {
@@ -407,7 +414,7 @@ if (cmd === 'plan') {
   const ids = list(values.only).length ? list(values.only) : Object.keys(state);
   uninstall(ids.reverse());
 } else if (cmd === 'status') {
-  for (const r of Object.values(state)) console.log(`${r.id.padEnd(26)} ${String(r.version ?? '').padEnd(14)} ${r.at}  ${r.files.length} file(s)`);
+  for (const r of Object.values(state)) console.log(`${r.id.padEnd(26)} ${String(r.version ?? '').padEnd(14)} ${r.at || 'incomplete (failed install)'}  ${r.files.length} file(s)`);
 } else {
   console.error('usage: node tools/setup/install-fixes.ts plan|install|uninstall|status [--set default|all] [--only ids] [--skip ids]');
   process.exit(2);

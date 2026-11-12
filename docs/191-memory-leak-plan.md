@@ -141,6 +141,24 @@ and never cold. The live SimBuilders hold only 0-40 of them, so the holder is so
   135,261 entries (78%) have exactly 2 references (the cache's and the registry's). A second, smaller holder outside the
   registry: 292 of the 1,031 sampled net +1 compositors were last AddRef'd in `0xAD4250` (`Lot/CompositorManager`).
   Hook cost 0.001% of play.
+- **By type, live count, histogram (`RcRefTypes`, built 2026-11-10 with clang-cl, not run in game):** the follow-up the
+  al-35 census result asked for ("count AddRef / Release on these two types by caller"), for a CAS open/close + world
+  reload torture round where `eaCom` grew ~25 MB a round. `[MemDiag] RcRefTypes=1` installs the same hooks as
+  `RcRefCallers` (either switch installs them; the vtable / slot checks refuse on other bytes) and keeps the caller
+  counts per type: `0xFE68D8` = TXTC `0x033A1435`, `0xFE68F4` = `0x0341ACC9` (one compare of the object's vtable per call).
+  Per type also: AddRefs that found 0 references ("births seen"; the cache's own Add AddRefs directly and is not seen),
+  and Releases that returned 0 ("deaths": `0x731D40` returns 0 only on its 1 -> 0 path, `xor eax, eax` at `0x731DA4`,
+  and the normal path returns the new count, >= 1 [verified disassembly]; the 1 -> 0 path can still skip the delete when
+  vtable slot 5 says so, so a death is "dropped to 0", not "freed" [inferred]). Lines: `diag: rc types #s <tag>[ ev=<ev>]
+  mem=#n: walk ...` then per type `live N (+d) cold C same key type, other class K; refs 0:a 1:b 2:c 3:d 4:e 5-8:f 9-16:g
+  17+:h; births seen B (+d), deaths D (+d); AddRef A, finds F, Release R` and three caller lists (AddRef, Release top 10,
+  find top 5, `0xADDR +since/total`, sorted by the change since the last line). `live` and the histogram come from one
+  walk of the ResourceCache map under its own lock (RcCensus's layout and lock), classed by vtable; objects outside the
+  cache are not in `live`. Written at every `diag: mem` line but exit (so at each ts3agent `mem_mark`, tagged `mark
+  ev=<mark>`) and every `RcRefPeriodSec` (default 60, minimum 5, 0 = none) seconds of play on the memory worker (tag
+  `timer`). Selftest (memdiag-test.h): by-type counts, a birth, a death, the walk's live / cold / histogram / other-class
+  counts, top lists and their deltas, the timer, silent at exit; run on its own under Wine (the full clang selftest stops
+  earlier on the SEH limit, below). Hook cost measured at install: 3.6 ns a call (host, Wine). No counters slot.
 
 ### Step 2: trim the compositor registry (`[CasTrim]`, built 2026-11-05, not run in game, ledger §942)
 
@@ -222,6 +240,39 @@ Static check of giving the Boehm heap back (docs/198 §2-§3: no unmap code; dec
 
 Saturation cycles with the same marks every cycle (`<prefix>-full` / `-empty` + forced-GC pair) in live mode (`live-cc-cycle`: town objects, dressed Sims, inventory), Buy/Build mode (`bb_cc_cycle`: placement cursor + sell tool) and Edit Town (`et_lot_cycle`: library lot place + bulldoze on one plot); queue `tools/harness/queues/cc-build-stress.json` (not run), live cycles with `[ResourceCache] TrimAfterCleanup` off and on.
 
+## leak_census (2026-11-10)
+
+Read-only ts3agent command `leak_census {top?: 15}` (`mods/ts3agent/src/plugin/Handlers/LeakCensusHandlers.cs`, run in the hunts below). One call counts the usual script-side leak candidates so a test can diff two calls taken some sim hours apart; each section has its own try/catch and timing (`section_ms`, `elapsed_ms`). "Gone" means a destroyed GameObject or a SimDescription with `IsValidDescription` false (`SimDescription.Dispose` clears it) [verified decompiled]. Sections: `alarms` (every `AlarmManager.mTimers` entry of the global manager and of lots with their own manager; null / gone owners, gone callback targets, top owner types and callback methods), `events` (`EventTracker.mListeners` by event id, owner type, listener class and delegate; owners or targets gone, Sim owners without a household, ownerless listeners that `RemoveSimReferences` never drops), `objects` (all GameObjects by type, in world / out of world / in inventory), `situations` (`Situation.sAllSituations` by type; with no Sims, with only gone or out-of-world Sims, exited but still listed), `relationships` (distinct `Relationship` objects in `sAllRelationships`, those with a disposed or household-less Sim, and the per-relationship social action memory size), `simdescs` (descriptions reachable from households, relationship keys, live Sims, urnstones and the genealogy graph; in household / no household / disposed; MiniSim count), `ui` (`Sims3.UI.UIManager.mCustomControlInstanceDict` by wrapper type plus every other static collection on both UIManager classes), `broadcasters` (each lot's `mReactions`: no global registry exists; broadcasters on gone objects or on an object now on another lot, since `Dispose` only removes it from the object's current lot [verified decompiled]), `socials` (live Conversations, 0-1 member or gone-member ones, per-Sim SocialComponent and ThoughtBalloonManager collection sizes with gone-Sim keys and the top 5 Sims, social interactions in queues and held by situations) and `statics`. The `statics` list came from a scan of the decompiled scripts for static collections with adds but no or rare removes [verified decompiled, growth in play inferred]: `Simulator.mObjHash` (every live script task), `ScreenGrabEntity` name caches (ObjectGuid keys, only added), `HotBeverageMachine.SimDrinkRecipes` (SimDescription keys, cleared only on shutdown), `CollegeOfBusiness.sCooldownDict` (per Sim id, never removed), `MountedFish.sMountedFishReceived`, `SkeeBall.sPlayerToTableMap` and `PicnicSituation.sSimsAtPicnics` (Sim keys), `Computer.ForumPostings`, `ConsignmentRegister` consign tables, `GameObject.sObjectsPickedUpInBuildBuy`, `CASUtils.sClothingSwapDelegates`, `Animation.sPMASleepingTasks`, the two `Route` callback tables (delegates per ObjectGuid), `MetaAutonomyManager.sLotPopularityMapForPlayer`, `Household.sOldIdToNewSimDescriptionMap`, and `ActionData.sData` as a fixed-size control. Not counted: other static UI registries in UI.dll beyond the two UIManager types (UI.dll is not decompiled here), per-lot `AlarmManager` lists for lots that share the global one (they are the same object), and the `BuffManager`/`DreamsAndPromises` per-Sim stores.
+
+### First results (hunts 2026-11-11, Isla Paradiso, household of 8)
+
+Same save loaded again in one session (`load_save reload:true`), forced GC before each `leak_census` [verified, measured]:
+- `UIManager.mTagRegistry` and `mCreateTooltipCallbackRegistry` grew with each load when social rounds ran between loads (SimDescription tags 0 → 8 → 16 → 24 → 44, `RelationshipsPanel.CreateKnownInfoToolTip` +4 per load). Not a leak: every tagged window sits in the live RelationshipsPanel item grid (parent chain read back, none detached) and every SimDescription is the current one; the panel shows more rows because the selected Sim has more relationships. With no socials between loads the count stayed at 8.
+- `InventoryItemWin` custom controls grow by 2 per load (2 → 6 → 8) in every hunt: small, not traced yet.
+- EA's own heap (`eaCom`): with the leak stress on, 590 → 712 MB over 4 save/load cycles and the largest free block from 15.9 to 1-3 MB; with no stress, 593 → 606 MB over 2 loads and the largest block stayed at 15.9 MB. So the growth follows the stress activity, not loading; per-activity split: `phasesoak.sh` (outfit changes, tattoo/makeover rebuilds, social rounds, idle).
+- Not leaks: relationship keys of disposed Sims (0 in later hunts; the 7 of the first were deaths), vehicle orphans (1-4, cleared by the docs/544 fixes).
+- The `exception C0000005` logged at every exit was memdiag's own SEH-guarded walk of EA's core ring after the exe freed its heaps; the exit sample now skips the core and cache walks. Separate: quitting to the desktop can still fault in the exe (0x6E75D2, null +0x7C) and then in S3SS during teardown, after the last save.
+
+### Which activity grows EA's heap (`phasesoak`, 2026-11-11) [measured]
+
+One session per run, 8-minute phases, forced GC + `mem_mark` + `leak_census` after each (MB, after GC):
+
+| Phase | `eaCom` | ResourceCache held `rc` |
+|---|---|---|
+| start | 576 | 215 |
+| townie `outfit_change` (10 Sims every 20 s) | +34 | 446 |
+| `bad_tattoo` + `bad_makeover` | +37 | 522 |
+| `social_round` 40 pairs every 30 s | +12 | 457 |
+| idle (autopilot) | +1 | 460 |
+
+- Three outfit phases in a row: `eaCom` +35, +16, +18. Steady after the first, so not a one-time warm-up.
+- `[CasTrim] Mode=3` save sweep after the churn plus 32 idle minutes: 24112 compositors swept (registry 61610 -> 41334), `eaCom` unchanged (664 -> 679). This matches docs/539 §2.4: the entries are small and freed slots stay inside the core.
+- `[MemDiag] AllocSites=1`, same three outfit phases: the live heap was 778 -> 816 -> 812 MB, flat in the third phase, while new EA cores kept coming (+8 MB a phase from `EAStreamMemory/data` `0x4DEC17`, +4 from `Animation/ClipResource`). `0x4DEC17` allocated 2610 MB and freed 2600 MB in 24 min. So the growth is fragmentation, not live data. Transient stream buffers (resource data read for outfit builds) get mixed in with long-lived CAS geometry (`0x5C7906`, `0x5A2FFF`) and clips. EA's heap then adds cores and never returns them. The lever is the one in docs/201 §12.5: keep the transient big blocks away from the long-lived heap (top-down direct blocks or their own arena). That is the allocator area (Apex) [inferred: the fix itself is not built].
+
+### 32-bit Wine: ts3native's free / largest-free figures are wrong on Linux [verified, /proc maps]
+
+Under 32-bit (`i386-unix`, not WoW64) Wine, `VirtualQuery` reports the upper area that Wine hands back to the Unix side as one reserved block of 2047.9 MB at `0x80000000`. The real map (`/proc/<pid>/maps`, `tools/harness/linux-address-space.py`) at the same moment showed 1357-1385 MB free and a largest gap of 1118-1134 MB at `0x80000000`, while `diag: mem` showed `free` ~50 MB and `big` 16 MB. The game does allocate there (a 32 MB region at `0x80000000` in a hunt). So `big`, `free` and the "low address space" warning are false alarms on this setup. Unix-side use above 2 GB was 797 MB: GPU maps 168 MB, `libLLVM` 168 + `libgallium` 38 (the GL stack that `wined3d` pulls in, because `TS3W.exe` imports `DDRAW.dll` / `DirectDrawCreateEx`), PulseAudio 64 MB. Setting Wine's `Direct3D\renderer=vulkan` did not unload the GL stack and dropped the game's detected texture memory from 528 to 192 MB, so it was reverted.
+
 ## Ownership
 
 Script and mod leaks are ours to find; fixes in mods go upstream (NRaas: patches, never copied code, docs/184). Native engine leaks and cache caps are Apex Radiance's area (engine, allocator, memory): we measure and send PRs or reports. Our own code (worker threads, P5/P6 clone, pools) is checked by the same soak runs.
@@ -234,7 +285,7 @@ Researched 2026-10-25 (web, GitHub API, NRaas source clone). URLs and licenses i
 |---|---|---|---|
 | EA forums / Steam threads on Error 12 (moderators) | memory "only rises" over a session; travel keeps part of the previous world; a save adds a spike; save below ~3.4 GB in Task Manager; long CAS / Build-Buy / Edit Town sessions are heaviest; restart after travel | anecdote | steps 3, 4 (the claims we test) |
 | EA Answers, Mac 64-bit build | the 64-bit Mac client keeps growing until physical + page file limits (one case: endless routing of a large dog) | anecdote | without the 4 GB cap growth is still reported: real growth, not only fragmentation [inferred] |
-| Catalogue Lag and Memory Leak Fix (Sonja92yu, Nexus 242) | EA builds ~80 hidden UI windows per catalogue (previews, EP badges); reopening catalogues grows memory by hundreds of MB; LAYO-only fix | claim | the only named EA leak; new repro for steps 3/4 (docs/47 window tree) |
+| Catalogue Lag and Memory Leak Fix (Sonja92yu, Nexus 242) | Replaces EA's `CustomContentIcon` layout (LAYO instance `0x7D10CD00CC56EF3C` = FNV-64 of the name, `Game/Bin/UI/UI.package`): EA's has 80 windows (a hotspot + large/small/tiny groups x 25 pack badges: Local, Download, Free/Paid EA, Store, EP1-11, SP1-9), the mod keeps 8 (hotspot, the three groups, the "Local" badge each). Every Buy/Build catalogue cell loads this layout through `CustomContentIcon.PreInit` (`LoadLayoutAndAddToWindow`), so a Buy session with ~1,100 cells holds ~88,000 native windows with EA's layout vs ~8,800 with the mod; `PreInit`/`set_ContentType`/`ShowEPContentWindow` null-check every `GetChildByID`, so the missing badges are simply not shown (EP badges lost; her optional RestoreEPBadges needs MonoPatcher) | verified 2026-11-11 (package diff + UI.dll IL) | complementary to `buyiconleak`: hers makes each icon ~10x lighter while Buy is open; ours removes the icon wrappers EA's `BuyController.Dispose` leaves registered after Buy closes (measured with her mod installed: +1,122 per Buy phase) |
 | S3PP `StblBucketLayoutTuning` (Nexus 235, its ini) | shrinks STBL bucket arrays, "~290 MB in a large save"; `LocalizedStringCache` capped at 16,384 entries | claim; ours: -71 MB commit, +64 MB largest free (docs/66, docs/17) | fixed cost at load, not growth; docs/190 `stbl` |
 | S3SS issues #42, #60, #63 | "+1 GB since 1.4.0" was the new, more accurate memory monitor (maintainer); one case fixed by redoing GraphicsRules + DXVK; advice: DXVK `d3d9.textureMemory` | anecdote + maintainer | no leak found by S3SS; its features (mimalloc, stack fix, monitor) cut fixed cost |
 | Apex Radiance Room to Save (`MemoryGuard`) | 128 MB reserve released before every save; under 320 MB largest free it calls the game's own shrink of both ResourceSystem caches (idle entries only, `this+0x1E0`/`+0x1E4`, trim `0x732E90`, shrink-both `0x733E70`); partial 16 MiB steps keeping 64 MiB idle | static verified by Apex; RAM gain not established (their 2.14 notes) | step 7 (ResourceCache is a cache, not a leak); reuse their addresses |

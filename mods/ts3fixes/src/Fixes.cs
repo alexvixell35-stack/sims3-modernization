@@ -79,6 +79,25 @@ namespace Ts3Fixes
             ApplyRefTable();
             ApplyCachedReflection();
             ApplyUiCaches();
+            ApplyHudUnsub();
+            ApplyMapViewKeep();
+            ApplyBuyIconLeak();
+            ApplyCasRowLeak();  // back 2026-11-11: the two CAS crashes (TS3W 0x00EBAB5B) were its [ThreadStatic] depth field (EA's Mono has no thread statics), now a plain static
+            ApplyCompositorLeak();
+            ApplyGenealogyGuard();
+            ApplyRelRemoveSafe();
+            ApplyFamilyInvGhost();
+            ApplySellCursorLeak();
+            ApplyRelAlarmGuard();
+            ApplyMoodDrift();
+            ApplyListenerFixes();
+            ApplyWishListenerFixes();
+            ApplyBuyCellRecycle();
+            ApplyMoodPending();
+            ApplyFilterGridLeak();
+            ApplyCasPuckLeak();
+            ApplyCasExitSweep();
+            ApplySeasonListener();
             ApplyNameCache();
             ApplyScriptHotSpots();
             ApplyVenueMemo();
@@ -134,7 +153,10 @@ namespace Ts3Fixes
 
         static bool Compiled(MethodInfo t) { return Marshal.ReadInt32(new IntPtr(t.MethodHandle.Value.ToInt32() + 0x14)) != 0; }
 
-        static List<object> AppliedLog() { return (List<object>)AppDomain.CurrentDomain.GetData("ts3fixes.applied"); }
+        internal static List<object> AppliedLog() { return (List<object>)AppDomain.CurrentDomain.GetData("ts3fixes.applied"); }
+
+        // A patch target from GetNestedType/GetType is null when that type is missing (e.g. a core mod without it)
+        static string TypeName(Type t) { return t != null ? t.Name : "<null>"; }
 
         // Counters, read by test tools: [0-3] go-home runs/shortcuts/no spot/loop guard, [4-6] buildings, [7-18] lot
         // trips (visit, visitlot, gotolot, gotocommunity: runs/shortcuts/no spot each), [21] houseboat placements,
@@ -324,7 +346,40 @@ namespace Ts3Fixes
         // [2083] outfitwaitsaved (OutfitWaitSaved.cs): MagicMirror MagicalMakeover alarm tasks resumed from the save inside EA's Wait (WaitOrig, never seen by the outfit-wait hook), actor gone, destroyed.
         // [2084-2087] simrefsdeadsim (SimRefsDeadSim.cs): live Sims' references to gone Sim objects dropped: SocialComponent.mLastTalkingTo cleared / SimRoutingComponent.mPusherSim cleared / Celebrity.mWaitingToReact entries removed / Occult*.mOwningSim reset to the current Sim or null.
         // [2088-2091] deadsimcount (DeadSimCount.cs, read-only): destroyed Sim objects still in memory now / of them destroyed 6+ sim hours ago / collected since the session began / Sim objects tracked.
+        // [2200-2216] vehicle leaks (VehicleLeaks.cs, docs/544): 2200-2204 vehparkreserve dead reservations seen at a pick / cleared at a pick / seen hourly / cleared hourly / kept by the household rule;
+        // 2205-2208 vehgetinleak get-ins that left their vehicle loose / throwaway released / NPC vehicle to inventory / kept; 2209-2211 vehseatdestroy seated Sims destroyed with the vehicle still there a tick later / dead refs cleared / released;
+        // 2212-2213 vehfrankentaxi unused intro taxis seen / released; 2214-2216 vehprotestcar cop cars tracked / left with no driver or drive-away after a sim-hour / destroyed. "Seen" counters count with the switch off too.
+        // [2235-2238] relremovesafe (RelRemoveSafe.cs): Sim removals where EA's relationship removal would throw / one-sided entries for the removed Sim / removals seen / errors.
+        // [2290-2292] seasonlistener (SeasonListenerLeak.cs): stale / duplicate Motives season listeners (also off) / removed / errors or skipped.
+        // [2287-2289] casfiltergrid (CasExitSweep.cs): CAS filter grids at CASPuck.Unload (also off) / restored / errors.
+        // [2300-2303] casexitsweep (CasExitSweep.cs): detached live entries at CAS exit (also off) / cleaned / skipped parented / errors.
+        // [2284-2286] caspuckevents (CasPuckLeak.cs): CASPuck disposed with its dashboard handler attached (also off) / handlers removed / errors.
+        // [2293-2295] famcursorleak (CasPuckLeak.cs): family-screen drag cursor windows at Unload (also off) / disposed / errors.
+        // [2296-2298] compositorghost (CompositorLeak.cs): ghost controller entries after Unload (also off) / removed / left or errors; [2299] live orphan windows disposed.
+        // [2281-2283] filtergridleak (FilterGridLeak.cs): filter grids at Buy/Build Unload (also off) / DisposeOnDetach restored / errors.
+        // [2278-2280] moodpending (MoodPending.cs): ChangeMoodValue on a pending buff (also off) / mood moves skipped / errors.
+        // [2272-2277] buyclearrecycle / buygridsweep (BuyCellRecycle.cs): cells at ShowCatalogGrid(false) (also off) / cached / errors / icons in other grids at Dispose (also off) / disposed / errors.
+        // [2269-2271] buycellrecycle (BuyCellRecycle.cs): Buy catalog cells dropped by AddGridItem (also off) / returned to a cache / errors.
+        // [2260-2268] dreamrootorphan / blogorphan / dnpupdateguard (WishListenerFixes.cs): root listeners left by a thrown-away test (also off) / removed / errors / blog one-off listeners left (also off) / removed / errors / Update exceptions seen / swallowed / errors.
+        // [2254-2259] dnpdisposelistener / seasondup (ListenerFixes.cs): wish managers created (also off) / object listeners moved / errors / duplicate season adds (also off) / skipped / errors.
+        // [2251-2253] mooddrift (MoodDrift.cs): Sims whose mood target had drifted off their buffs (also counted off) / mood points corrected / errors.
+        // [2245-2250] attractionalarm / uncleguard (RelAlarmGuard.cs): attraction handlers seen / controllers stopped for a removed Sim / errors / uncle checks with a parent with no description (also off) / uncle checks / errors.
+        // [2242-2244] sellcursorleak (SellCursorLeak.cs): sell panels closed with drag-cursor windows noted (also with the switch off) / windows disposed / errors.
+        // [2239-2241] familyinvghost (FamilyInvGhost.cs): destroyed objects still listed in a family inventory (also with the switch off) / removed / errors.
+        // [2235-2238] relremovesafe (RelRemoveSafe.cs): see the file.
+        // [2229-2234] genealogycycle / spouseunlink (GenealogyGuard.cs): ancestor repeats skipped / parent loops stopped / Divorce with no spouse / old spouses unlinked / ApplySpouseUpdate calls / errors.
+        // [2226-2228] unused: petwishleak (PR #368) dropped at import, duplicate of dnppetkeys (Rodney 2026-11-12).
+        // [2223-2225] compositorleak (CompositorLeak.cs): CAS design-tool Unloads with a tool (also with the switch off) / dict entries of its tree unregistered / errors.
+        // [2220-2222] casrowleak (CasRowLeak.cs): empty CAS clothing rows CASClothingCategory.AddGridItem left unattached (also with the switch off) / disposed the OnCustomDetach way / errors.
+        // [2217-2219] buyiconleak (BuyIconLeak.cs): Buy/Build exits seen / stale custom-control entries removed after BuyController.Dispose / errors.
         // [2092-2093] deadsimhollow (DeadSimCount.cs): destroyed Sims held 6+ sim hours whose own reference fields were cleared / fields cleared.
+        // [2106-2107] dnpsubjectcache (DnpSubjectCache.cs): cached descriptions of removed Sims cleared / wish-subject table entries.
+        // [2108-2109] hudunsub (HudUnsub.cs): HUD panels whose leftover model handlers were removed at Dispose / handlers not found or errors.
+        // [2103-2105] mapviewkeep (MapViewKeep.cs): map filter panels shown again / built by the game / kept panels dropped.
+        // [2094-2096] tinyuieventreg (TinyUiEventReg.cs): Tiny UI Fix registry entries of detached windows removed / their handlers removed / entries left.
+        // [2097-2099] customctlsweep (CustomCtlSweep.cs): UIManager custom-control wrappers of gone windows removed / not-attached kept / entries left.
+        // [2120-2121] exitcbsweep (ExitCbSweep.cs): stale Sim.OnExitReasonsAdded route delegates removed / longest delegate list seen on one Sim before the pass.
+        // [2122-2123] dnppetkeys, dnpobjkeys (DnpRemovalKeys.cs): ended Pet/SimOrPet wish nodes dropped from mPotentialRemovalNodes / ended nodes under a destroyed object key dropped.
         // [876-877] bookhand (BookHand.cs, docs/251): books Book.StopUsingBook left in the hand with no carry machine, seen at an EA put-down that would throw (also with the switch off), moved out of the hand by EA's handler.
         // [758-759] asyncjigsync (AsyncJigSync.cs, RouteBackoff.cs AsyncEligible, docs/240): own plans kept sync while the Sim's interaction holds an unplaced SocialJig / of those with the jig only in the linked interaction.
         // [763-768] autofft2 (AutOffload.cs, docs/208 §9.1): items, A0, A2, A4, A5, exceptions
@@ -345,7 +400,7 @@ namespace Ts3Fixes
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2094]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2304]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -513,6 +568,38 @@ namespace Ts3Fixes
                 case "jazzparam": return Instantiator.kJazzParam;
                 case "buffupdate": return Instantiator.kBuffUpdate;
                 case "carnoroute": return Instantiator.kCarNoRoute;
+                case "vehparkreserve": return Instantiator.kVehParkReserve;
+                case "vehgetinleak": return Instantiator.kVehGetInLeak;
+                case "vehseatdestroy": return Instantiator.kVehSeatDestroy;
+                case "vehfrankentaxi": return Instantiator.kVehFrankenTaxi;
+                case "vehprotestcar": return Instantiator.kVehProtestCar;
+                case "buyiconleak": return Instantiator.kBuyIconLeak;
+                case "casrowleak": return Instantiator.kCasRowLeak;
+                case "compositorleak": return Instantiator.kCompositorLeak;
+                case "genealogycycle": return Instantiator.kGenealogyCycle;
+                case "spouseunlink": return Instantiator.kSpouseUnlink;
+                case "relremovesafe": return Instantiator.kRelRemoveSafe;
+                case "familyinvghost": return Instantiator.kFamilyInvGhost;
+                case "sellcursorleak": return Instantiator.kSellCursorLeak;
+                case "attractionalarm": return Instantiator.kAttractionAlarm;
+                case "uncleguard": return Instantiator.kUncleGuard;
+                case "mooddrift": return Instantiator.kMoodDrift;
+                case "dnpdisposelistener": return Instantiator.kDnpDisposeListener;
+                case "seasondup": return Instantiator.kSeasonDup;
+                case "dreamrootorphan": return Instantiator.kDreamRootOrphan;
+                case "blogorphan": return Instantiator.kBlogOrphan;
+                case "dnpupdateguard": return Instantiator.kDnpUpdateGuard;
+                case "buycellrecycle": return Instantiator.kBuyCellRecycle;
+                case "buyclearrecycle": return Instantiator.kBuyClearRecycle;
+                case "buygridsweep": return Instantiator.kBuyGridSweep;
+                case "moodpending": return Instantiator.kMoodPending;
+                case "filtergridleak": return Instantiator.kFilterGridLeak;
+                case "compositorghost": return Instantiator.kCompositorGhost;
+                case "caspuckevents": return Instantiator.kCasPuckEvents;
+                case "famcursorleak": return Instantiator.kFamCursorLeak;
+                case "casexitsweep": return Instantiator.kCasExitSweep;
+                case "seasonlistener": return Instantiator.kSeasonListener;
+                case "casfiltergrid": return Instantiator.kCasFilterGrid;
                 case "convturn": return Instantiator.kConvTurn;
                 case "npcdriverpool": return Instantiator.kNpcDriverPool;
                 case "bookcarry": return Instantiator.kBookCarry;
@@ -539,6 +626,14 @@ namespace Ts3Fixes
                 case "outfitwaitsaved": return Instantiator.kOutfitWaitSaved;
                 case "deadsimcount": return Instantiator.kDeadSimCount;
                 case "deadsimhollow": return Instantiator.kDeadSimHollow;
+                case "dnpsubjectcache": return Instantiator.kDnpSubjectCache;
+                case "hudunsub": return Instantiator.kHudUnsub;
+                case "mapviewkeep": return Instantiator.kMapViewKeep;
+                case "tinyuieventreg": return Instantiator.kTinyUiEventReg;
+                case "customctlsweep": return Instantiator.kCustomCtlSweep;
+                case "exitcbsweep": return Instantiator.kExitCbSweep;
+                case "dnppetkeys": return Instantiator.kDnpPetKeys;
+                case "dnpobjkeys": return Instantiator.kDnpObjKeys;
                 case "reltablesapart": return Instantiator.kRelTablesApart;
                 case "ageupswap": return Instantiator.kAgeUpSwap;
                 case "asyncjigsync": return Instantiator.kAsyncJigSync;
@@ -558,7 +653,8 @@ namespace Ts3Fixes
                 case "compactionfail": return false;  // test only (Compaction.cs, docs/204 §6): the reload throws after the screen is up
                 case "spotspread": return true;
                 case "routefaillog": return true;  // ON in release (Rodney 2026-11-08): helps triage player reports in early releases
-                default: return true;
+                case "asyncroute": case "asyncreplan": case "asyncreplanforeign": case "overwatchstuck": case "savedstacks": case "gm6trace": case "savecleanup": return true;  // were on through the old default: true
+                default: return false;  // new switches default off (AGENTS.md); a typo stays off
             }
         }
 
@@ -568,6 +664,17 @@ namespace Ts3Fixes
         }
 
         // args picks one overload of target.method (null when the name is unique). True when the patch went in.
+        static void PatchSigCheck(MethodInfo t, MethodInfo h, string what)
+        {
+            if (t == null || h == null) return;
+            bool tv = t.ReturnType == typeof(void), hv = h.ReturnType == typeof(void);
+            if (tv != hv) throw new InvalidOperationException(what + " " + h.Name + " returns " + h.ReturnType.Name + ", original returns " + t.ReturnType.Name + ": not patched");
+            int tn = t.GetParameters().Length + (t.IsStatic ? 0 : 1), hn = h.GetParameters().Length + (h.IsStatic ? 0 : 1);
+            if (tn != hn) throw new InvalidOperationException(what + " " + h.Name + " takes " + hn + " stack arguments, original " + tn + ": not patched");
+            if (!tv && t.ReturnType.IsValueType != h.ReturnType.IsValueType)
+                throw new InvalidOperationException(what + " " + h.Name + " returns " + h.ReturnType.Name + ", original returns " + t.ReturnType.Name + ": not patched");
+        }
+
         static bool Patch(Type target, string method, Type[] args, Type hook, string replacement, string stub)
         {
             const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
@@ -575,6 +682,11 @@ namespace Ts3Fixes
             {
                 MethodInfo t = args == null ? target.GetMethod(method, all) : target.GetMethod(method, all, null, args, null), r = hook.GetMethod(replacement, all);
                 if (Compiled(t)) throw new InvalidOperationException("already compiled");
+                // a swapped body keeps the hook's signature: a void hook for a method that returns a value makes every
+                // caller's pop/use of the result underflow Mono's transform (transform.c:1170 `td.sp >= td.stack`, int3 at
+                // 0x58D9B6: the game dies on the first call, buycellrecycle v1/v2 2026-11-11), so refuse such pairs
+                PatchSigCheck(t, r, "hook");
+                if (stub != null) PatchSigCheck(t, hook.GetMethod(stub, all), "stub");
                 string swName = AutShadowCore.MemberName(t);  // G-M6: callers' IL hashes name t as before the swap
                 if (swName != null) AutShadowCore.SwapNames[t.MethodHandle.Value] = swName;
                 if (stub != null) { MethodInfo s = hook.GetMethod(stub, all); SwapMethod(s, t); StubDirect(s); }
@@ -584,7 +696,7 @@ namespace Ts3Fixes
                 AppliedLog().Add(target.Name + "." + method + ": ok");
                 return true;
             }
-            catch (Exception e) { AppliedLog().Add(target.Name + "." + method + ": " + e.Message); return false; }
+            catch (Exception e) { AppliedLog().Add(TypeName(target) + "." + method + ": " + e.Message); return false; }
         }
 
         // Off-screen go-home (PLAN fix b): a townie whose trip home nobody can see skips the walk/drive and appears on its

@@ -548,6 +548,35 @@ namespace Ts3Agent
             string want = a.Str("category").Trim();
             object c = BuyCtl();
             Type t = typeof(BuyController);
+            // "@back": the catalog back button's own handler; "@catalog:<name>": a catalog button (by function, by room,
+            // collections, store, inventory: BuyController.Catalog name, exact or contained) through OnCatalogButtonClick.
+            // These reach ShowCatalogGrid(false) and SelectCatalog (docs/545 buyclearrecycle, buygridsweep).
+            if (want == "@back")
+                return Measure("buy_category @back", delegate
+                {
+                    t.GetMethod("OnCatalogBackButtonClick", kPriv).Invoke(c, new object[] { null, null });
+                }, BuyUp, BuyItems, 60000);
+            if (want.StartsWith("@catalog:"))
+            {
+                string cw = want.Substring(9);
+                List<Button> cbs = new List<Button>();
+                FindTagged((WindowBase)c, "Catalog", cbs, 0);
+                Button ch = null; List<string> cn = new List<string>();
+                foreach (Button b in cbs)
+                {
+                    Type ct = b.Tag.GetType();
+                    string name = ct.GetField("mName").GetValue(b.Tag) as string ?? "";
+                    string loc = ct.GetField("mLocalizedName").GetValue(b.Tag) as string ?? "";
+                    cn.Add(name);
+                    if (ch == null && (name.IndexOf(cw, StringComparison.OrdinalIgnoreCase) >= 0 || loc.IndexOf(cw, StringComparison.OrdinalIgnoreCase) >= 0)) ch = b;
+                }
+                if (ch == null) throw new McpException("no buy catalog '" + cw + "'; found: " + string.Join(", ", cn.ToArray()));
+                Button hitC = ch;
+                return Measure("buy_category " + want, delegate
+                {
+                    t.GetMethod("OnCatalogButtonClick", kPriv).Invoke(c, new object[] { hitC, null });
+                }, BuyUp, BuyItems, 60000);
+            }
             if (Convert.ToString(t.GetField("mCurrCatalogType", kPriv).GetValue(c)) != "ByCategory")
             {
                 Button byFunction = t.GetField("mCatalogCategoryModeButton", kPriv).GetValue(c) as Button;

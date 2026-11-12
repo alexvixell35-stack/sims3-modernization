@@ -74,7 +74,7 @@ namespace Ts3Fixes
                 StubDirect(s);
                 return true;
             }
-            catch (Exception e) { AppliedLog().Add(target.Name + "." + method + " stub: " + e.Message); return false; }
+            catch (Exception e) { AppliedLog().Add(TypeName(target) + "." + method + " stub: " + e.Message); return false; }
         }
 
         static readonly string[] kBarFields = { "mIndex", "mValueMin", "mValueInvRange", "mSizeReferenceWin", "mSizeControlWin",

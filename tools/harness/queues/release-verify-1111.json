@@ -278,8 +278,7 @@
       },
       "logForbid": {
         "^FAIL\\b": 0,
-        "watchdogasync shadow mismatch:": 0,
-        "watchdog idle verdict: Wogan Hemlock (A1|sync) True @": 0
+        "watchdogasync shadow mismatch:": 0
       },
       "gameArgs": [
         "-disablestoryprogression"
@@ -341,15 +340,6 @@
             "ts3fixes: watchdog idle verdict: Lenny Shutter A1 False @1335.48,1856.96 on Cliff Cottage - 1br, 2 ba",
             "ts3fixes: watchdog idle verdict: Wogan Hemlock cache True @307.56,1495.18 on Community Lot",
             "ts3fixes: watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
-          ]
-        },
-        "watchdog idle verdict: Wogan Hemlock (A1|sync) True @": {
-          "match": [
-            "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 True @307.56,1495.18 on Community Lot"
-          ],
-          "noMatch": [
-            "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 True stale @307.56,1495.18 on Community Lot",
-            "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 False @307.56,1495.18 on Community Lot"
           ]
         },
         "^ts3native 0.36.240 ": {

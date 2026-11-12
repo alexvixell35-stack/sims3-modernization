@@ -1,5 +1,5 @@
 {
- "_doc": "Known EA script errors that fire without our code (ScriptError_*.xml / ErrorTrap). Matched by exception type + the top stack frames in order (suffix of 'Namespace.Type:Method'); a stack with any frame outside EA game script (Sims3.Gameplay*, Sims3.SimIFace, Sims3.UI, ScriptCore, System) never matches. Matched errors are reported as 'known EA error <id> (ignored)' and counted, never dropped. Loader + matcher: tools/harness/known-script-errors.ts.",
+ "_doc": "Known EA script errors that fire without our code (ScriptError_*.xml / ErrorTrap). Matched by exception type + the top stack frames in order (suffix of 'Namespace.Type:Method'); a stack with any frame outside EA game script (Sims3.Gameplay*, Sims3.SimIFace, Sims3.UI, ScriptCore, System) never matches, except an entry's own passFrames (verified pass-through hooks of ours, dropped before matching); optional message = regex on the exception message. Matched errors are reported as 'known EA error <id> (ignored)' and counted, never dropped. Loader + matcher: tools/harness/known-script-errors.ts.",
  "errors": [
   {
    "id": "ea-wedding-cleanup-nre",
@@ -13,6 +13,22 @@
     "<Documents>/Electronic Arts/The Sims 3/ScriptError_*__10-25-2026__08-31-19__FED401E4.xml",
     "<Documents>/Electronic Arts/The Sims 3/ScriptError_*__10-25-2026__03-46-48__BB72BED7.xml",
     "hotfix gate job ip-hf-matrix reload case, 2026-10-25"
+   ]
+  },
+  {
+   "id": "ea-book-carry-no-statemachine",
+   "exception": "System.ApplicationException",
+   "frames": ["InteractionQueue:OnError"],
+   "message": "left an object in the Sim's hand with no carry state machine: Sims3\\.Gameplay\\.Objects\\.BookGeneral$",
+   "passFrames": ["Fixes+BookHandQueueHook:PutDownCarriedObjects"],
+   "why": "EA InteractionQueue.PutDownCarriedObjects throws when an interaction (Bookshelf_ReadSomething, ReadBook, Book_PutAway, ServingContainer+PutAwayLeftovers) ends with a BookGeneral in the Sim's hand and no carry state machine (docs/251). Mostly household Angelista on Baseline-BP, also before ts3fixes existed [verified: this matcher matches 33 ScriptError events in probe-out events.jsonl 2026-10-11..2026-11-12, the first before ts3fixes had a book hook; the handoff counted 57 hits incl. the related CarrySystem.PutDownOnSurface NRE, which this entry does not cover]. ts3fixes BookHandQueueHook (bookhand off) only counts and calls the original, renamed PdcoOrig [verified code, BookHand.cs], so that frame is a listed pass-through. Household scope is not matched: the ErrorTrap Object block can name another Sim. Plate (Sink+WashDishes) is not covered.",
+   "first_seen": "2026-10-11",
+   "evidence": [
+    "probe-out/20261011-233951/events.jsonl",
+    "probe-out/20261112-075004/events.jsonl",
+    "probe-out/20261112-100240/events.jsonl",
+    "freeze-stress-1112-04 job: household Lala Angelista, Bookshelf_ReadSomething, 2026-11-12",
+    "docs/251-book-in-hand-no-carry.md"
    ]
   }
  ]

@@ -128,6 +128,32 @@ static bool Write5(u8* t, const u8* five) {
     return true;
 }
 
+// Detour trampolines and small code stubs share 64 KB RWX blocks (a new block when one is full): a VirtualAlloc of
+// 32 bytes reserved a whole 64 KB of the 32-bit address space (issue #40). Slots are 16-byte aligned, zero-filled (fresh
+// pages) and never freed or re-protected. The lock: detours are also installed late from other threads.
+static SRWLOCK g_trampLock = SRWLOCK_INIT;
+static u8* g_trampBlk;
+static size_t g_trampUsed;
+static LONG g_trampBlocks;  // blocks made (selftest)
+static u8* TrampAlloc(size_t n, const char* name) {
+    n = (n + 15) & ~(size_t)15;
+    AcquireSRWLockExclusive(&g_trampLock);
+    if (!g_trampBlk || g_trampUsed + n > 0x10000) {
+        u8* const b = (u8*)VirtualAlloc(NULL, 0x10000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+        if (!b) {
+            const DWORD err = GetLastError();
+            ReleaseSRWLockExclusive(&g_trampLock);
+            Log("FAIL trampoline for %s: no 64 KB code block (err %lu)", name, err);
+            return NULL;
+        }
+        g_trampBlk = b, g_trampUsed = 0, g_trampBlocks++;
+    }
+    u8* const r = g_trampBlk + g_trampUsed;
+    g_trampUsed += n;
+    ReleaseSRWLockExclusive(&g_trampLock);
+    return r;
+}
+
 // 5-byte jmp detour at `target`. `prologue` is the verified original code, `len` >= 5 and ending on an instruction
 // boundary, with no relative operands (it is copied verbatim into the trampoline). Returns the trampoline that runs the
 // original function, or NULL. A leading call rel32 is re-targeted in the trampoline at the original callee. `slot` (the caller's trampoline pointer, read by the hook) is stored before the jmp goes
@@ -138,7 +164,7 @@ static void* DetourCore(const char* name, DWORD target, const u8* prologue, size
         Log("SKIP detour %s at 0x%08X: prologue differs", name, target);
         return NULL;
     }
-    u8* tramp = (u8*)VirtualAlloc(NULL, 32, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    u8* tramp = TrampAlloc(32, name);
     if (!tramp) return NULL;
     memcpy(tramp, t, len);  // the live bytes (Matches checked them against the expected ones)
     tramp[len] = 0xE9;
@@ -157,8 +183,7 @@ static void* DetourCore(const char* name, DWORD target, const u8* prologue, size
     // instruction there runs it intact, where a non-atomic nop tail would hand it half-written bytes)
     if (!Write5(t, jmp)) {  // fails before writing anything (VirtualProtect), so undoing is safe
         if (slot) *slot = prev;
-        VirtualFree(tramp, 0, MEM_RELEASE);
-        return NULL;
+        return NULL;  // shortcut: the 32-byte slot stays unused (pool slots are never freed); fine for a failed VirtualProtect
     }
     Log("OK   detour %s at 0x%08X", name, target);
     return tramp;
@@ -3156,7 +3181,7 @@ static bool PatchCostSites(const DWORD* sites, const DWORD* fns) {
             return false;
         }
     }
-    u8* stubs = (u8*)VirtualAlloc(NULL, 64, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    u8* stubs = TrampAlloc(64, "route budget cost stubs");
     if (!stubs) return false;
     for (int i = 0; i < 5; i++) {
         u8* s = stubs + i * 10;
@@ -5362,6 +5387,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "cellmemo.cpp"
 #include "hostcalls.cpp"
 #include "fgrender.cpp"  // docs/162 §7: [Harness] ForegroundRender (TEST ONLY)
+#include "thumbstall.cpp"  // [ThumbStall]: timeout for state 0x11 of the Sim thumbnail queue (EXPERIMENT, off)
 #include "played.cpp"    // docs/14 section 8.6: played-household sidecar store for ts3fixes (op 6 + "played:" lines on the 0x87 channel)
 #include "userdiag.cpp"  // docs/188: [UserDiag] player-report lines (header, world load, save trail)
 #include "memdiag.cpp"   // docs/190 phase 1, docs/191: [MemDiag] "diag: mem" lines + self-test (needs userdiag.cpp)
@@ -5521,6 +5547,8 @@ static void Run(HMODULE self) {
         keepLog = ApplyJobQueue(ini) || keepLog;
         ApplyD3dMultithreaded(ini);
         ApplyForegroundRender(ini);  // TEST ONLY (docs/162 §7): unfocused harness runs pace like focused ones
+        ApplyThumbStall(ini);  // EXPERIMENT, off: start-up patch
+        ApplyThumbCallers(ini);  // LOG ONLY, off: who asks for thumbnails
         keepLog = ApplyLotSinCos(ini) || keepLog;
         keepLog = ApplyIdCache(ini) || keepLog;
         keepLog = ApplyEaCrashFixes(ini) || keepLog;  // docs/67 §26.4 / §27.5 / §28: off by default; before any game object exists
@@ -5576,6 +5604,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
         UdExit();
         CrCleanExit();
         FgRevert();  // [Harness] ForegroundRender: original bytes back
+        TsRevert();  // [ThumbStall]: original bytes back
     }
     return TRUE;
 }

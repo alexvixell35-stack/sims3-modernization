@@ -441,7 +441,7 @@ namespace Ts3Fixes
             if (Patch(target, method, args, hook, replacement, stub)) return true;
             string sig = "";
             if (args != null) foreach (Type a in args) sig += (sig.Length > 0 ? "," : "") + a.Name;
-            failed.Add(target.Name + "." + method + "(" + (args == null ? "" : sig) + ")");
+            failed.Add(TypeName(target) + "." + method + "(" + (args == null ? "" : sig) + ")");
             return false;
         }
 

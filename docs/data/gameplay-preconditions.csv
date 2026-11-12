@@ -136,6 +136,8 @@ sim_route_to,ReproHandlers,Live,Go Here,natural,active household Sim,handler,liv
 route_replan,ReproHandlers,Live,none (forced replan),stress,,handler,live
 sim_portal_trip,ReproHandlers,Live,taking a portal / sewer hole (Supernatural / ITF),natural,a portal on the lot,handler,live
 thumbnails,ReproHandlers,Any,none (thumbnail cache churn),stress,,handler,none
+thumb_census,ThumbCensusHandlers,Any,none (read-only census of the Sim thumbnail queue and pack-up waits),harness,,handler,none
+thumb_outfits,ThumbOutfitsHandlers,Live,none (portraits of townies' unworn outfits; no player equivalent),stress,,handler,live
 outfit_change,ReproHandlers,Live,Change Into... (one Sim at a time),stress,up to 6 Sims at once without the spin,handler + R-VOL-1,live
 pet_guard,ReproHandlers,Any,none (harness guard),harness,,handler,live
 wildflower_drain,ReproHandlers,Live,none (probe),harness,,handler,live
@@ -250,3 +252,11 @@ story_days,StoryHandlers,Live,none: EA story progression days on demand (mode an
 story_burst,StoryHandlers,Live,none: EA story action step repeated without the daily cap and category cooldowns,stress,townies only: active household skipped (issue #40 leak stress),handler,live
 story_burst_state,StoryHandlers,Any,none (read),harness,,handler,none
 boat_gone_watch,BoatGoneHandlers,Live,"none: destroys a non-household NPC's generated boat as NRaas Overwatch CleanupVehicles does (docs/257 repro trigger)",stress,a non-household NPC driving its generated boat; never household / selected / household-less Sims,handler,live
+leak_census,LeakCensusHandlers,Live,none (read),harness,,handler,live
+townie_trips,TownieTripsHandlers,Live,Go Here / visit a community lot (one Sim at a time),stress,"NPC townies only: household, selectable, role, service and unknown-scope Sims skipped",handler,live
+vehicle_census,VehicleCensusHandlers,Live,none (read),harness,,handler,live
+family_tree,FamilyTreeHandlers,Live,opens EA's family tree dialog from the Simology panel and clicks relatives (player flow; stress repeats it),stress,a Sim with relatives in the world,handler,live
+inv_ghost,InvGhostProbe,Live,none: adds two copies of a product to the active family inventory and destroys the stack top (probe),harness,docs/545 §1 familyinvghost,handler,live
+inv_stuff,InventoryStressHandlers,Live,buying and moving items into Sim inventories (stress; select: switches the active Sim like the player's portrait click),stress,,handler,live
+buff_drift,MoodCensus,Live,none: re-adds a moodlet to townies to reproduce EA's re-add mood drift (probe),harness,non-household non-selectable townies only,handler,live
+buff_churn,MoodCensus,Live,none: random moodlet add/remove on townies (stress),stress,non-household non-selectable townies only,handler,live

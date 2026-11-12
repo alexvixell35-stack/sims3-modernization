@@ -20,7 +20,11 @@ interface Res { id: string; kind: Kind; from: number; to: number; version?: numb
 interface Used { fixesMax: number; nativeVer: number; nativeEnd: number; cFixesMax: number; cNativeVer: number }
 
 // Contributor ranges (docs/registry.md "Contributor ranges"); maintainer numbers never enter them.
-export const CONTRIB = { doc: [500, 599], ledger: [900, 999], fixes: [2000, 2199], nativeV: 900 } as const;
+// fixes: 2000-2199 (full since the PR #368 import, 2026-11-12), then 2200-2399; FIX_BLOCK2 is where the second block starts.
+export const CONTRIB = { doc: [500, 599], ledger: [900, 999], fixes: [2000, 2399], nativeV: 900 } as const;
+export const FIX_BLOCK2 = 2200;
+// A contributor slot block never straddles 2199/2200: one that would starts at 2200.
+export const contribFixFrom = (max: number, n: number) => max < FIX_BLOCK2 && max + n >= FIX_BLOCK2 ? FIX_BLOCK2 : max + 1;
 const inR = (n: number, [a, b]: readonly [number, number] | readonly number[]) => n >= a && n <= b;
 export const isContribFix = (a: number) => a >= CONTRIB.fixes[0];
 export const isContribVer = (v: number) => v >= CONTRIB.nativeV;
@@ -157,6 +161,7 @@ function reserve(args: string[], c: boolean) {
     const u = docs.map(d => scanDoc(readFileSync(d, 'utf8')));
     let fixesMax = Math.max(...u.map(x => c ? x.cFixesMax : x.fixesMax)), nativeVer = Math.max(...u.map(x => c ? x.cNativeVer : x.nativeVer)), nativeEnd = Math.max(...u.map(x => x.nativeEnd));
     for (const r of res) if (r.kind === 'fixes') { if (isContribFix(r.from) === c) fixesMax = Math.max(fixesMax, r.to); } else if (r.kind === 'native') { if (isContribVer(r.version!) === c) nativeVer = Math.max(nativeVer, r.version!); nativeEnd = Math.max(nativeEnd, r.to); }
+    if (c && kind === 'fixes') fixesMax = contribFixFrom(fixesMax, n) - 1;
     if (c && kind === 'fixes' && fixesMax + n > CONTRIB.fixes[1]) throw new Error(`contributor slot range ${CONTRIB.fixes.join('-')} has ${CONTRIB.fixes[1] - fixesMax} left, asked ${n}`);
     const at = new Date().toISOString();
     let r: Res, row: string;
@@ -255,6 +260,9 @@ async function selfCheck() {
     ok(mr.some(r => r.kind === 'fixes' && r.from === 285) && mr.some(r => r.kind === 'native' && r.version === 118) && mr.some(r => r.id === 'ledger-323'), 'maintainer reserves skip the contributor ranges (fixes 285, native v118, ledger 323)');
     ok(scanDoc(readFileSync(join(d, 'docs', 'registry.md'), 'utf8')).collisions.length === 0, 'doc has no collisions with contributor rows');
     ok(!existsSync(join(d, 'docs', 'registry.md.lock')), 'lock file removed');
+    // second contributor block: a block that would cross 2199/2200 starts at 2200; 2399 is the end
+    ok(contribFixFrom(2006, 5) === 2007 && contribFixFrom(2195, 5) === 2200 && contribFixFrom(2195, 4) === 2196 && contribFixFrom(2303, 3) === 2304, 'contributor fixes: blocks stay inside 2000-2199 or start at 2200');
+    ok(CONTRIB.fixes[1] === 2399, 'contributor fixes range ends at 2399');
   } finally { rmSync(d, { recursive: true, force: true }); }
 }
 

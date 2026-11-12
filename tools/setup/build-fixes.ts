@@ -10,7 +10,7 @@ import { join, resolve } from 'node:path';
 import { TYPE_S3SA, fnv64, s3saEncode, writePackage } from '../dbpf.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
-const CSC = 'C:/Windows/Microsoft.NET/Framework/v4.0.30319/csc.exe';
+const CSC = process.env.TS3_CSC ?? 'C:/Windows/Microsoft.NET/Framework/v4.0.30319/csc.exe'; // TS3_CSC: another C# compiler, e.g. Roslyn on Linux
 const REF_DIR = process.env.TS3_REF_DIR ?? join(ROOT, 'game-copy', 'assemblies'); // from tools/extract-assemblies.ts
 const REFS = ['mscorlib', 'System', 'System.Xml', 'ScriptCore', 'SimIFace', 'Sims3Metadata',
               'Sims3GameplaySystems', 'Sims3GameplayObjects', 'Sims3StoreObjects', 'UI'];
@@ -182,6 +182,14 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kOutfitWaitSaved value="False" />
     <kDeadSimCount value="False" />
     <kDeadSimHollow value="False" />
+    <kDnpSubjectCache value="False" />
+    <kHudUnsub value="False" />
+    <kMapViewKeep value="False" />
+    <kTinyUiEventReg value="False" />
+    <kCustomCtlSweep value="False" />
+    <kExitCbSweep value="False" />
+    <kDnpPetKeys value="False" />
+    <kDnpObjKeys value="False" />
     <kRelTablesApart value="True" />
     <kAsyncJigSync value="True" />
     <kDeadRefSweep value="False" />
@@ -195,6 +203,38 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kMenuMaven value="False" />
     <kDanceFloorListGuard value="True" />
     <kBoatParkGone value="True" />
+    <kVehParkReserve value="False" />
+    <kVehGetInLeak value="False" />
+    <kVehSeatDestroy value="False" />
+    <kVehFrankenTaxi value="False" />
+    <kVehProtestCar value="False" />
+    <kBuyIconLeak value="False" />
+    <kCasRowLeak value="False" />
+    <kCompositorLeak value="False" />
+    <kGenealogyCycle value="False" />
+    <kSpouseUnlink value="False" />
+    <kRelRemoveSafe value="False" />
+    <kFamilyInvGhost value="False" />
+    <kSellCursorLeak value="False" />
+    <kAttractionAlarm value="False" />
+    <kUncleGuard value="False" />
+    <kMoodDrift value="True" />
+    <kDnpDisposeListener value="False" />
+    <kSeasonDup value="False" />
+    <kDreamRootOrphan value="False" />
+    <kBlogOrphan value="False" />
+    <kDnpUpdateGuard value="False" />
+    <kBuyCellRecycle value="False" />
+    <kBuyClearRecycle value="False" />
+    <kBuyGridSweep value="False" />
+    <kMoodPending value="True" />
+    <kFilterGridLeak value="False" />
+    <kCompositorGhost value="False" />
+    <kCasPuckEvents value="False" />
+    <kFamCursorLeak value="False" />
+    <kCasExitSweep value="False" />
+    <kSeasonListener value="False" />
+    <kCasFilterGrid value="False" />
   </Current_Tuning>
 </base>
 `;
@@ -208,10 +248,19 @@ const outDir = process.env.TS3_BUILD_DIR ?? join(ROOT, 'build');
 mkdirSync(outDir, { recursive: true });
 const src = join(ROOT, 'mods', 'ts3fixes', 'src');
 const dll = join(outDir, `${ASSEMBLY}.dll`);
-const compile = (srcDir: string, out: string, extraRefs: string[] = []) =>
+// EA's Mono never attaches a MonoThread, so any [ThreadStatic] / [ContextStatic] field access faults in
+// mono_get_special_static_data (TS3W 0x00EBAB5B, null+0x40; docs/191). Refuse to build them.
+const lintStatics = (srcDir: string) => {
+  for (const f of readdirSync(srcDir).filter(f => f.endsWith('.cs')))
+    readFileSync(join(srcDir, f), 'utf8').split('\n').forEach((l, i) => {
+      if (/^\s*\[\s*(System\.)?(ThreadStatic|ContextStatic)(Attribute)?\s*\]/.test(l))
+        throw new Error(`${f}:${i + 1}: [ThreadStatic]/[ContextStatic] crashes the game's Mono (no thread statics); use a plain static`);
+    });
+};
+const compile = (srcDir: string, out: string, extraRefs: string[] = []) => (lintStatics(srcDir),
   execFileSync(CSC, ['/nologo', '/nostdlib+', '/noconfig', '/target:library', '/optimize+', '/langversion:5', '/warn:4',
     '/nowarn:414,169,649', `/out:${out}`, ...REFS.map(r => `/reference:${join(REF_DIR, `${r}.dll`)}`), ...extraRefs.map(r => `/reference:${r}`),
-    ...readdirSync(srcDir).filter(f => f.endsWith('.cs')).map(f => join(srcDir, f))], { stdio: 'inherit' });
+    ...readdirSync(srcDir).filter(f => f.endsWith('.cs')).map(f => join(srcDir, f))], { stdio: 'inherit' }));
 compile(src, dll);
 const pkg = writePackage([
   { type: TYPE_S3SA, group: 0, instance: fnv64(ASSEMBLY), data: s3saEncode(readFileSync(dll)) },
@@ -255,7 +304,7 @@ if (!existsSync(MP_PKG)) {
 } else {
   const refDir = join(outDir, 'refs');
   mkdirSync(refDir, { recursive: true });
-  execFileSync(process.execPath, [join(ROOT, 'tools', 'extract-assemblies.ts'), refDir, MP_PKG], { stdio: 'ignore' });
+  execFileSync(process.execPath, [join(ROOT, 'tools', 'extract-assemblies.ts'), refDir, MP_PKG], { stdio: ['ignore', 'ignore', 'inherit'] });
   const TEST = 'Ts3PortalPlanTest';
   const testDll = join(outDir, `${TEST}.dll`);
   compile(join(ROOT, 'mods', 'portalplan-test', 'src'), testDll, [join(refDir, 'MonoPatcher.dll')]);

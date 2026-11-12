@@ -6,7 +6,8 @@
 // and a job claimed while the level is kept: the caller's collect (WaitJobDone) drops it and the job runs (no deadlock).
 // Included by selftest.cpp after h2ic-test.h.
 static CRITICAL_SECTION* g_rcTLock;  // the M1 lock (g_rgLock)
-static DWORD g_rcTVec[2];            // the caller's hit vector (begin, end)
+static DWORD g_rcTVec[2];
+static DWORD* g_rcTVecAddr = g_rcTVec;  // pushed as a value: clang-cl 23 crashes on `push offset <global>`            // the caller's hit vector (begin, end)
 static int g_rcTCase, g_rcTQueries;
 static LONG g_rcTHeld;                // recursion count seen inside the caller after its queries
 static void __cdecl RcTEnter(DWORD ret) {  // the query's acquire and rtsites.cpp's RT_STEER key
@@ -67,7 +68,7 @@ static __declspec(naked) void RcTCaller() {  // cdecl, no arguments: ebp frame, 
         push edi
         mov esi, g_rcTQueries
     again:
-        push offset g_rcTVec
+        push g_rcTVecAddr
         push 0
         push 0
         call RcTQuery
