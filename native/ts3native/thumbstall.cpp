@@ -179,11 +179,20 @@ static void ApplyThumbStall(const wchar_t* ini) {
 //   thumbcallers: new #i ...      first time a caller is seen
 //   thumbcallers: req #i ...      every request: key words (household entry), waited, resource cache MB / entries at that moment
 //   thumbcallers: top ...         every 30 s, the table by count
-// [ThumbCallers] Enabled=0; LogEach=1 (0 = no per-request lines).
+// [ThumbCallers] Enabled=0; LogEach=1 (0 = no per-request lines); Builds=1 (0 = portraits only).
 static const DWORD TC_HH = 0x00D614E0, TC_UI = 0x00D5C830;
 static const u8 kTcHhPro[6] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8};  // push ebp; mov ebp,esp; and esp,-8
 static const u8 kTcUiPro[6] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};  // push ebp; mov ebp,esp; and esp,-16
-static void* g_tcOrig[2];
+static void* g_tcOrig[4];
+// Also filed (2026-11-12, the same table): who builds Sim models. The registry of part compositors grows with every
+// SimBuilder build (castrim.cpp), and th4 had 5,740 model-builder releases against a few hundred portraits.
+//   0x5A80A0  IC CASUtils_SimBuilderBuildModelImpl (cdecl: +4 builder handle, +8 detail level). Its first 9 bytes are four
+//             pushes and a call, so it gets its own stub (TcStubBuild) instead of a trampoline.
+//   0x5A9E90  IC CASUtils_SetOutfitInGameObjectDelayedImpl (the live outfit swap).
+static const DWORD TC_BUILD = 0x005A80A0, TC_SWAP = 0x005A9E90;
+static const u8 kTcBuildPro[9] = {0x53, 0x55, 0x56, 0x57, 0xE8, 0xC7, 0x43, 0xEA, 0xFF};  // push ebx,ebp,esi,edi; call 0x44C470
+static const u8 kTcSwapPro[7] = {0x83, 0xEC, 0x10, 0x8B, 0x44, 0x24, 0x1C};                // sub esp,10h; mov eax,[esp+1Ch]
+static const char* const kTcName[4] = {"household 0xD614E0", "ui 0xD5C830", "buildmodel 0x5A80A0", "outfitswap 0x5A9E90"};
 static bool g_tcLogEach = true;
 struct TcRow { DWORD hash; LONG n, waited; char text[400]; };
 static TcRow g_tcRows[64];
@@ -211,7 +220,7 @@ static void __cdecl TcSeen(int which, const DWORD* sp) {
     char st[300];
     if (FbStackText(st, sizeof(st), 6) <= 0) strcpy_s(st, "(no script frames)");
     DWORD h = 2166136261u ^ (DWORD)which;
-    h = (h ^ ret) * 16777619u;
+    if (which < 2) h = (h ^ ret) * 16777619u;  // an IC's own return address is the interpreter: not part of the key
     for (const char* c = st; *c; c++) h = (h ^ (u8)*c) * 16777619u;
     if (!h) h = 1;
     bool waited = false;
@@ -229,7 +238,7 @@ static void __cdecl TcSeen(int which, const DWORD* sp) {
         else if (!g_tcRows[i].hash) {
             at = i, isNew = true;
             g_tcRows[i].hash = h;
-            sprintf_s(g_tcRows[i].text, "%s ret %08lX: %s", which ? "ui 0xD5C830" : "household 0xD614E0", ret, st);
+            sprintf_s(g_tcRows[i].text, "%s ret %08lX: %s", kTcName[which & 3], ret, st);
         }
     }
     LONG n = 0;
@@ -241,15 +250,17 @@ static void __cdecl TcSeen(int which, const DWORD* sp) {
     if (isNew) Log("thumbcallers: new #%d %s", at, g_tcRows[at].text);
     DWORD held = 0, rcN = 0;
     TcRc(&held, &rcN);
-    if (g_tcLogEach)
-        Log("thumbcallers: req #%d n=%ld total=%ld key %08lX %08lX %08lX %08lX waited=%d rc=%.1f MB rcN=%lu", at, n, total, key[0], key[1], key[2],
-            key[3], (int)waited, held / 1048576.0, rcN);
+    DWORD reg = 0;  // CAS part-compositor registry entries (castrim.cpp: service [0x11CE6A0] +0x110)
+    __try { const u8* const svc = *(const u8* const*)(uintptr_t)0x011CE6A0; if (svc) reg = *(const DWORD*)(svc + 0x110); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    if (g_tcLogEach && which < 2)
+        Log("thumbcallers: req #%d n=%ld total=%ld key %08lX %08lX %08lX %08lX waited=%d rc=%.1f MB rcN=%lu casReg=%lu", at, n, total, key[0], key[1], key[2],
+            key[3], (int)waited, held / 1048576.0, rcN, reg);
     const DWORD now = GetTickCount();
     if (now - g_tcTopAt >= 30000) {
         g_tcTopAt = now;
         for (int i = 0; i < 64 && g_tcRows[i].hash; i++)
             Log("thumbcallers: top #%d n=%ld waited=%ld %s", i, g_tcRows[i].n, g_tcRows[i].waited, g_tcRows[i].text);
-        Log("thumbcallers: top total=%ld unfiled=%ld rc=%.1f MB rcN=%lu", total, g_tcLost, held / 1048576.0, rcN);
+        Log("thumbcallers: top total=%ld unfiled=%ld rc=%.1f MB rcN=%lu casReg=%lu", total, g_tcLost, held / 1048576.0, rcN, reg);
     }
 }
 
@@ -282,11 +293,58 @@ static __declspec(naked) void TcStubUi() {
     }
 }
 
+static __declspec(naked) void TcStubBuild() {
+    __asm {
+        pushad
+        pushfd
+        lea eax, [esp + 36]
+        push eax
+        push 2
+        call TcSeen
+        add esp, 8
+        popfd
+        popad
+        push ebx
+        push ebp
+        push esi
+        push edi
+        mov eax, 0044C470h
+        call eax
+        push 005A80A9h
+        ret
+    }
+}
+static __declspec(naked) void TcStubSwap() {
+    __asm {
+        pushad
+        pushfd
+        lea eax, [esp + 36]
+        push eax
+        push 3
+        call TcSeen
+        add esp, 8
+        popfd
+        popad
+        jmp dword ptr [g_tcOrig + 12]
+    }
+}
+
 static void ApplyThumbCallers(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"ThumbCallers", L"Enabled", 0, ini)) return;
     g_tcLogEach = GetPrivateProfileIntW(L"ThumbCallers", L"LogEach", 1, ini) != 0;
     g_tcTopAt = GetTickCount();
     InstallDetour("ThumbHouseholdSimRequest", TC_HH, kTcHhPro, sizeof(kTcHhPro), (void*)TcStubHh, &g_tcOrig[0]);
     InstallDetour("ThumbUiRequest", TC_UI, kTcUiPro, sizeof(kTcUiPro), (void*)TcStubUi, &g_tcOrig[1]);
+    if (GetPrivateProfileIntW(L"ThumbCallers", L"Builds", 1, ini)) {
+        InstallDetour("OutfitSwapRequest", TC_SWAP, kTcSwapPro, sizeof(kTcSwapPro), (void*)TcStubSwap, &g_tcOrig[3]);
+        u8* const b = (u8*)(uintptr_t)TC_BUILD;
+        if (!Matches(b, kTcBuildPro, sizeof(kTcBuildPro))) Log("SKIP thumb callers: SimBuilderBuildModel 0x%08X: bytes differ", TC_BUILD);
+        else {
+            u8 patch[9] = {0xE9, 0, 0, 0, 0, 0x90, 0x90, 0x90, 0x90};
+            const DWORD rel = (DWORD)(uintptr_t)&TcStubBuild - (TC_BUILD + 5);
+            memcpy(patch + 1, &rel, 4);
+            if (Write(b, patch, sizeof(patch))) Log("OK   thumb callers: SimBuilderBuildModel 0x%08X patched", TC_BUILD);
+        }
+    }
     Log("thumb callers (LOG ONLY, [ThumbCallers]): lines \"thumbcallers:\"; per-request lines %s", g_tcLogEach ? "on" : "off");
 }

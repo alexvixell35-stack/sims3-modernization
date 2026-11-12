@@ -112,6 +112,7 @@ namespace Ts3Agent
         //  tm_front_key: the front request's four key words (+0x110..+0x11C)
         //  tb_builders / tb_dirty: ThumbnailHelper.sBuilders count, and whether builder 0 still has an unfinished build
         //  tb_kicks / tb_kick_running / tb_kick_error: the optional re-kick (args {"kick":true}), see below
+        //  cas_registry_n: entries in the CAS part-compositor registry ([0x11CE6A0] +0x110), every sample
         //  rc_n / rc_mb / rc_cold_mb: the resource cache's entry count, held MB and idle MB (every sample)
         //  game_speed: Gameflow.CurrentGameSpeed
         //  tm_front_state: the front request's state (0-0x1E; 3 = waits for the script to prepare the scene; 0x11 = render;
@@ -274,6 +275,14 @@ namespace Ts3Agent
                         break;
                     }
                 }
+            }
+            catch (Exception) { }
+            // CAS part-compositor registry (castrim.cpp, issue #284): service [0x11CE6A0], entry count at +0x110. Every
+            // SimBuilder outfit build inserts new part compositors (0x5EECD0) and nothing erases them in play.
+            try
+            {
+                int svc = Rd(kTmVtable + 0x1C) == kTmUpdate ? Rd(0x011CE6A0) : 0;
+                if (svc != 0 && (svc & 3) == 0) r["cas_registry_n"] = Rd(svc + 0x110);
             }
             catch (Exception) { }
 
