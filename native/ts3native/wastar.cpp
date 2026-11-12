@@ -29,6 +29,22 @@
 // then skipped, and World_Save returns false (Error 12). Fix: the je at 0x82B608 keeps its condition but goes to LgStub,
 // which goes on at the game's own exit for a lot with nothing to connect (0x82B7F4, the target of 0x82B659): it clears the
 // byte and returns. The connection pass is skipped as before. One "ea fix: LotGridMiss" line for each of the first 8 lots.
+//
+// [EaCrashFixes] HeightsInfLoop (next version, docs/67 §36, no counters): an Isla Paradiso freeze. Post pass 16 (0x64C7C0,
+// the node heights pass, called by 0x64E380 at 0x64E4ED) splits each path segment into steps: from the squared length L2
+// ([esp+340h], all four lanes) it takes s = sqrt(L2) and halves s until s <= 2 m (0x64CF10..0x64CF5E: `ja 0x64CF55` on
+// s > 2, else a lane test, then s *= 0.5 and jmp back). Segments with L2 below the constant at 0x11CF0C0, or near it, jump
+// to 0x64D275 first (no extra steps). L2 is the 3D squared distance between two of the pass's height samples (x, y, z at
+// list entry + 0x10, 0x64CCF0); in the 2026-11-12 dump 11 samples in a row had y = 2.26e34 (bits 0x788B85D4) next to a
+// normal 35.7, so L2 overflowed to +inf, s = inf, and inf * 0.5 stays inf: the sim thread (or the route worker) never
+// leaves the loop. Seen three
+// times on Baseline-IP, each a hang capture with the sim thread at 0x64CF22..0x64CF55 under Route_Replan /
+// Route_PlanFromPoint (2026-11-06, 2026-11-10 houseboat move, 2026-11-12 world load); the 2026-11-12 kill dump shows
+// xmm2 = (inf, inf, inf, inf), xmm7 = 0.5, xmm4 = 2.0. Fix: the 6-byte `ja 0x64D275` at 0x64CEBA becomes a jump to
+// HiStub, which takes the game's ja as before and also sends L2 = +inf (lane 0, the lane the loop tests) to 0x64D275, the
+// game's own no-split path for short segments. Only that one value changes path: NaN keeps the game's way (the loop's
+// compares are false for NaN and it leaves at once). xmm0-7 are kept around the log call (the 0x64D275 path reads them).
+// One "ea fix: HeightsInfLoop" line for each of the first 8 segments. Not fixed: where the infinite endpoint comes from.
 
 static const DWORD WA_SITE = 0x00676627, WA_BACK = 0x0067662E, WA_SKIP = 0x0067673F;
 static const u8 kWaSite[7] = {0x8B, 0x54, 0x24, 0x1C, 0x0F, 0xB7, 0xC8};  // mov edx,[esp+1Ch]; movzx ecx,ax
@@ -248,4 +264,80 @@ static bool ApplyPortalFlagRefs(const wchar_t* ini) {
     ts3native_counters.pfOn = 1;
     Log("OK   ea fix: PortalFlagRefs (docs/67 §30.5): lot portal blocked-flag writes through pairs outside R are skipped (0x%08X, 0x%08X)", PF1_SITE, PF2_SITE);
     return true;  // keep the log open for the skip lines
+}
+
+// --- [EaCrashFixes] HeightsInfLoop ---
+static const DWORD HI_SITE = 0x0064CEBA, HI_BACK = 0x0064CEC0, HI_SKIP = 0x0064D275, HI_LOOP = 0x0064CF55;
+static const u8 kHiSite[6] = {0x0F, 0x87, 0xB5, 0x03, 0x00, 0x00};  // ja 0x64D275
+static const u8 kHiLoop[11] = {0x0F, 0x28, 0xC2, 0x0F, 0x59, 0xC7, 0x0F, 0x28, 0xD0, 0xEB, 0xB0};  // s *= 0.5; jmp 0x64CF10
+static DWORD g_hiBack = HI_BACK, g_hiSkip = HI_SKIP;
+static volatile LONG g_hiHits;
+
+// prev = pass 16's copy of the previous point ([esp+360h], stored at 0x64CE2D), cur = the current list entry (esi; x, y, z
+// at +0x10). Logged only: either may be stale or unreadable.
+static void __stdcall HiHit(const float* prev, const u8* cur) {
+    const LONG n = InterlockedIncrement(&g_hiHits);
+    if (n > 8) return;
+    float p[3] = {0, 0, 0}, c[3] = {0, 0, 0};
+    __try { memcpy(p, prev, sizeof(p)), memcpy(c, cur + 0x10, sizeof(c)); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    Log("ea fix: HeightsInfLoop: a path segment of infinite length was not split by the heights pass (segment %ld, from "
+        "(%g, %g, %g) to (%g, %g, %g); the game would halve it forever, docs/67 §36)", n, p[0], p[1], p[2], c[0], c[1], c[2]);
+}
+
+// At 0x64CEBA: flags from `comiss xmm1, [esp+2C0h]` (xmm1 = the short-segment constant, [esp+2C0h] = lane 0 of xmm2 = L2).
+static __declspec(naked) void HiStub() {
+    __asm {
+        ja skip  // the game's ja: a short segment
+        push eax
+        movd eax, xmm2
+        cmp eax, 0x7F800000  // L2 = +inf
+        pop eax
+        je inf
+        jmp dword ptr [g_hiBack]
+    inf:
+        sub esp, 128
+        movups [esp], xmm0
+        movups [esp + 16], xmm1
+        movups [esp + 32], xmm2
+        movups [esp + 48], xmm3
+        movups [esp + 64], xmm4
+        movups [esp + 80], xmm5
+        movups [esp + 96], xmm6
+        movups [esp + 112], xmm7
+        pushad
+        lea eax, [esp + 160 + 0x360]  // pass 16's esp + 360h
+        push esi
+        push eax
+        call HiHit
+        popad
+        movups xmm0, [esp]
+        movups xmm1, [esp + 16]
+        movups xmm2, [esp + 32]
+        movups xmm3, [esp + 48]
+        movups xmm4, [esp + 64]
+        movups xmm5, [esp + 80]
+        movups xmm6, [esp + 96]
+        movups xmm7, [esp + 112]
+        add esp, 128
+    skip:
+        jmp dword ptr [g_hiSkip]
+    }
+}
+
+// The 6-byte ja at `at` becomes jmp HiStub + one int3 (never run: the stub jumps on past it).
+static bool HiPatch(u8* at) {
+    if (!Matches(at, kHiSite, sizeof(kHiSite))) return false;
+    u8 b[6] = {0xE9, 0, 0, 0, 0, 0xCC};
+    *(LONG*)(b + 1) = (LONG)((uintptr_t)&HiStub - ((uintptr_t)at + 5));
+    return Write(at, b, sizeof(b));
+}
+
+static bool ApplyHeightsInfLoop(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"EaCrashFixes", L"HeightsInfLoop", 0, ini)) return false;
+    if (!Matches((u8*)(uintptr_t)HI_LOOP, kHiLoop, sizeof(kHiLoop)) || !HiPatch((u8*)(uintptr_t)HI_SITE)) {
+        Log("SKIP ea fix: HeightsInfLoop: bytes at 0x%08X / 0x%08X differ (another mod or a probe build owns them): not installed", HI_SITE, HI_LOOP);
+        return false;
+    }
+    Log("OK   ea fix: HeightsInfLoop (docs/67 §36): path segments of infinite length skip the heights pass's halving loop (0x%08X)", HI_SITE);
+    return true;  // keep the log open for the hit lines
 }

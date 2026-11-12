@@ -48,6 +48,35 @@ static void PfRunStub(void (*stub)(), DWORD a, DWORD c, DWORD d, const u8* world
     }
 }
 
+// HeightsInfLoop: flags from the site's comiss (xmm1 = the short-segment constant, xmm2 = L2 in all lanes), xmm7 = 0.5;
+// the stub's exits are the recorders. g_hiX = xmm2 and xmm7 lane 0 after the stub.
+static float g_hiX[2];
+static float HiF(DWORD bits) { float f; memcpy(&f, &bits, 4); return f; }
+static void HiRunStub(float c, float l2) {
+    memset(g_waOut, 0, sizeof(g_waOut));
+    g_hiX[0] = g_hiX[1] = 0;
+    __asm {
+        push ebx
+        push esi
+        push edi
+        movss xmm1, c
+        movss xmm2, l2
+        shufps xmm2, xmm2, 0
+        mov eax, 0x3F000000
+        movd xmm7, eax
+        mov ebx, 0x11111111
+        mov edi, 0x33333333
+        mov eax, 0x5A5A5A5A
+        comiss xmm1, xmm2
+        call HiStub
+        movss g_hiX[0], xmm2
+        movss g_hiX[4], xmm7
+        pop edi
+        pop esi
+        pop ebx
+    }
+}
+
 // The stub's esp is the frame below this call's return address: fields at [esp + off - 4] here are at [sp + off] there.
 static void WaRunStub(const u8* r, DWORD chunk, DWORD wp, const u8* rec, const WORD* cur) {
     memset(g_waOut, 0, sizeof(g_waOut));
@@ -182,7 +211,30 @@ static void TestWorldAStarRefs() {
     LgHit(lot), LgHit(lot);
     assert(g_lgHits == h0 + 2);
     g_lgHits = h0;
+    // HeightsInfLoop: the ja becomes jmp HiStub + int3; only L2 = +inf changes path, registers kept
+    alignas(4) static u8 hi[6];
+    memcpy(hi, kHiSite, 6), hi[2] = 0xB6;
+    assert(!HiPatch(hi) && hi[2] == 0xB6);
+    hi[2] = 0xB5;
+    assert(HiPatch(hi) && hi[0] == 0xE9 && hi[5] == 0xCC && (uintptr_t)hi + 5 + *(LONG*)(hi + 1) == (uintptr_t)&HiStub);
+    assert(!HiPatch(hi));
+    g_hiBack = (DWORD)(uintptr_t)&WaTestBack, g_hiSkip = (DWORD)(uintptr_t)&WaTestSkip;
+    const LONG hh0 = g_hiHits;
+    const float inf = HiF(0x7F800000);
+    HiRunStub(4.0f, 1.0f);  // short segment: the game's ja
+    assert(g_waOut[0] == 2 && g_waOut[3] == 0x5A5A5A5A && g_hiHits == hh0);
+    HiRunStub(4.0f, 9.0f);  // a normal segment: on into the loop
+    assert(g_waOut[0] == 1 && g_waOut[3] == 0x5A5A5A5A && g_waOut[4] == 0x11111111 && g_waOut[6] == 0x33333333 && g_hiHits == hh0);
+    HiRunStub(4.0f, HiF(0x7F7FFFFF));  // FLT_MAX: finite, the loop ends (about 64 halvings)
+    assert(g_waOut[0] == 1 && g_hiHits == hh0);
+    HiRunStub(4.0f, HiF(0x7FC00000));  // NaN: the game's way (the loop leaves at once)
+    assert(g_waOut[0] == 1 && g_hiHits == hh0);
+    HiRunStub(4.0f, inf);  // +inf: the no-split path, counted, eax / ebx / edi / xmm2 / xmm7 kept
+    assert(g_waOut[0] == 2 && g_waOut[3] == 0x5A5A5A5A && g_waOut[4] == 0x11111111 && g_waOut[6] == 0x33333333);
+    assert(g_hiHits == hh0 + 1 && g_hiX[0] == inf && g_hiX[1] == 0.5f);
+    g_hiBack = HI_BACK, g_hiSkip = HI_SKIP, g_hiHits = hh0;
     printf("WorldAStarRefs: patch bytes, in-range pairs kept (moved instructions run), chunk outside the map / waypoint past "
            "the chunk count / unreadable record skipped to the closed path; PortalFlagRefs: patch bytes, portal ids and lot "
-           "neighbours outside R skip the blocked-flag write: ok\n");
+           "neighbours outside R skip the blocked-flag write; HeightsInfLoop: patch bytes, only an infinite segment skips "
+           "the halving loop, registers kept: ok\n");
 }
