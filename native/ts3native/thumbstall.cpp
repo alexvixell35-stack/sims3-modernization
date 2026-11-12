@@ -31,28 +31,31 @@
 //                  2 = render anyway when the blocker is not one of the request's own models (request +0xA8..+0xAC),
 //                      else abort. 2 rests on that list holding the scene objects themselves [inferred]: check the
 //                      log's own= field in an Action=0 or 1 run first.
-//                  3 = fallback "lift": exempt the blocking model's LOD provider from EA's ActiveLODLimit test (below) until
-//                      the request leaves state 0x11; still blocked a second TimeoutMs later = abort as 1
+//                  3 = fallback "pick": the SimService works the blocking model's LOD build job next (below), until the
+//                      request leaves state 0x11; still blocked a second TimeoutMs later = abort as 1
 //                  4 = fallback "min LOD 0": set the blocking model's minimum LOD byte (handle +0x22) to 0; still blocked a
 //                      second TimeoutMs later = abort as 1. Predicted by the reading below to change nothing.
 //                  3 and 4 log "thumbstall: fallback #n start / rendered / aborted / other" lines with the counts.
 //
-// Why the provider refuses (2026-11-12, static, TS3W 1.67) [verified disassembly; the run decides]: the model handle's LOD
-// provider (+0x3C) is a CAS SimService outfit object (vtables 0xFE49EC / 0xFE4AF0; the provider interface sits at +0x28 of
-// the object whose own vtable is 0xFE4A10 / 0xFE4B14). Its +0x10 (0x5E4EB0) is SimService [0x11CE6A0] RequestSim 0x5EE910
-// (lod, provider, &out):
-//   lod > [svc+0x34] (3)  -> an empty LOD, yes
-//   lod = max(lod, [svc+0x30] MinSimLOD)
-//   [svc+0x4C] > [svc+0x40] (0x5EE985) and lod < the provider's best LOD in use (100000 when it has none, 0x5EDDA0)
-//                          -> NO, and nothing is queued
-//   a built LOD in the cache (0x5EDC90) -> yes; else queue a build job (0x5EE770: the same limit test at 0x5EE774, a dedupe
-//                          0x5EC7A0, then appended to the +0x58 list) -> no
-// [svc+0x40] is ActiveLODLimit (Config, GraphicsRules.sgr: 200 at every SimQuality; 0x5EC51B / 0x5EC543). [svc+0x4C] is
-// recounted on every SimService update (0x5F0820 from 0x5F0E50): cached LODs that something outside the cache holds. So
-// while more than 200 Sim LODs are in use, no LOD is built for a model that has none in use; a portrait of a Sim whose
-// world model is gone (the pack-away destroys it first) cannot start until the count falls. Action 4 does not get past it:
-// the pick in 0x6DBDE0 does take index 0 under min 0 when the distance falls in LOD 0's range, but RequestSim raises it
-// to MinSimLOD (1 below SimQuality VeryHigh) and the limit test refuses any index for a provider with no LOD in use.
+// Where the LOD waits (2026-11-12, static, TS3W 1.67) [verified disassembly; th13 refuted the ActiveLODLimit reading: in
+// use 12-54, never over]: the model handle's LOD provider (+0x3C) is the interface at +0x28 of a CAS SimService outfit
+// object (interface vtables 0xFE49EC / 0xFE4AF0, object vtables 0xFE4A10 / 0xFE4B14). Its +0x10 (0x5E4EB0) calls
+// SimService [0x11CE6A0] RequestSim 0x5EE910(lod, OBJECT = interface - 0x28, &out):
+//   lod > [svc+0x34] (3) -> an empty LOD, yes; lod = max(lod, [svc+0x30] MinSimLOD)
+//   [svc+0x4C] > [svc+0x40] (in use > ActiveLODLimit) and no better LOD in use for it -> no, nothing queued (not seen)
+//   a built LOD in the cache for (lod, object) (0x5EDC90) -> yes
+//   else 0x5EE770: a job for (lod, object) already in the +0x58 list, the +0x60 list or current (+0x68) gets its request
+//   count (+0xC) raised (0x5EC7A0); none = a new 0x198-byte job appended to +0x58 -> no
+// Jobs: +0x58 = loading, stepped in list order every SimService update (0x5F0E50) until their resources are in, then
+// moved to +0x60 = ready. Only one job is built at a time (+0x68). When +0x68 is empty, 0x5EDB30 takes ONE ready job: the
+// one whose object has an attached scene object (object +0x2A0 set, filled by the provider's attach +0x18) nearest the
+// camera (Renderer +0x24 position vs scene object +0xB0); with no attached object anywhere, the first. A portrait of an
+// unworn outfit has no world model on that object, so every job of a Sim nearer the camera goes first; at ultra the
+// ready list grows (th13: 66 -> 251) and the portrait waits. A cancel (0x5EE9E0) removes a job only while its request
+// count is 1, so jobs asked for every step stay until built. Action 3 hooks the one call of 0x5EDB30 (0x5F12A5) and takes
+// the blocking object's ready job first (its wanted LOD if there, else any LOD of that object).
+// Action 4 does not get past it: the pick in 0x6DBDE0 does take index 0 under min 0 when the distance falls in LOD 0's
+// range, but RequestSim raises it to MinSimLOD (1 below SimQuality VeryHigh) and the job is still the same queue.
 static const DWORD TS_SITE = 0x00D5A9C8, TS_KEEP = 0x00D5A9D2, TS_GO = 0x00D5A9DD, TS_ABORT = 0x00D5AA25;
 static const u8 kTsOrig[10] = {0x8B, 0x54, 0x24, 0x60, 0x89, 0x97, 0x44, 0x02, 0x00, 0x00};
 static const u8 kTsKeep[11] = {0x32, 0xC0, 0x5F, 0x5E, 0x5B, 0x8B, 0xE5, 0x5D, 0xC2, 0x04, 0x00};   // at TS_KEEP
@@ -73,7 +76,8 @@ static void TsWords(char* out, size_t cap, const DWORD* w, int n) {
     for (int i = 0; i < n && at + 10 < cap; i++) at += (size_t)sprintf_s(out + at, cap - at, i ? " %08lX" : "%08lX", w[i]);
 }
 
-// ---- The SimService LOD builds (2026-11-12, see "Why the provider refuses" above). Plain reads under __try. ----
+// ---- The SimService LOD builds (2026-11-12, see "Where the LOD waits" above). Plain reads under __try. ----
+// prov below is the job's provider OBJECT (handle +0x3C minus 0x28), as RequestSim stores it in job +0x18.
 static DWORD g_tsSvcAt = 0x011CE6A0;  // selftest: its own
 static const DWORD TS_SVC_VT = 0x00FE514C;
 struct TsLod {
@@ -119,7 +123,7 @@ static void TsLodLog(const u8* blk) {
     __try { if (blk && Readable(blk + 0x210, 0x40)) prov = *(const DWORD*)(blk + 0x24C), h38 = *(const DWORD*)(blk + 0x248); }
     __except (EXCEPTION_EXECUTE_HANDLER) {}
     TsLod L;
-    TsLodRead((const u8*)(uintptr_t)prov, &L);
+    TsLodRead(prov ? (const u8*)(uintptr_t)(prov - 0x28) : 0, &L);
     char idx[64];
     TsLodIdx(blk, idx, sizeof(idx));
     Log("thumbstall:   lod %s; provider %08lX vt=%08lX; handle+38 %08lX vt=%08lX | sim lods in use %ld limit %ld cached %ld "
@@ -128,65 +132,56 @@ static void TsLodLog(const u8* blk) {
 }
 
 // ---- Actions 3 and 4: the fallback ----
-// Action 3: two 6-byte calls replace EA's ActiveLODLimit tests, `mov eax,[svc+4Ch]; cmp eax,[svc+40h]` (svc in esi in
-// RequestSim, in ebp in the enqueue), so the following jle gets "in use <= limit" for the exempt provider only. Both sites
-// have the provider at [esp+10h] (two pushes after entry), [esp+14h] inside the stub. ecx and edx are untouched (ecx is
-// live at both sites); the flags come from the stub's own cmp, and ret leaves them.
-static const DWORD TS_LIM_REQ = 0x005EE985, TS_LIM_ENQ = 0x005EE774;
-static const u8 kTsLimReq[16] = {0x8B, 0x46, 0x4C, 0x3B, 0x46, 0x40, 0x53, 0x8B, 0x5C, 0x24, 0x14, 0x57, 0x8B, 0x39, 0x7E, 0x0C};
-static const u8 kTsLimEnq[13] = {0x8B, 0x45, 0x4C, 0x3B, 0x45, 0x40, 0x57, 0x8B, 0x7C, 0x24, 0x14, 0x7E, 0x14};
+// Action 3: the one call of the ready-job picker, 0x5F12A5 `call 0x5EDB30` in SimService_Update (ecx = svc, result into
+// svc+0x68), is re-pointed at TsPick. TsPick takes the blocking object's ready job when there is one (its wanted LOD if
+// listed, else the first of that object) and unlinks it exactly as 0x5EDB30 unlinks its own choice; otherwise it calls
+// 0x5EDB30. Same thread (main), same list, one job per call as before.
+static const DWORD TS_PICK_AT = 0x005F12A3, TS_PICK = 0x005EDB30;
+static const u8 kTsPickSite[12] = {0x8B, 0xCF, 0xE8, 0x86, 0xC8, 0xFF, 0xFF, 0x85, 0xC0, 0x89, 0x47, 0x68};  // mov ecx,edi; call; test; mov [edi+68h],eax
 // The manager's Update (vtable 0x1088F2C +0x1C = 0xD61670, thiscall, 2 arguments) steps the front request through
 // 0xD5C6D0 -> 0xD59C10. Its slot is swapped so the fallback sees, after each step, whether the request left state 0x11.
 static const DWORD TS_TM_SLOT = 0x01088F48, TS_TM_UPDATE = 0x00D61670;
-static volatile LONG g_tsExProv;  // the provider exempt from the limit tests (Action 3), 0 = none
-static volatile LONG g_tsExUses;  // limit tests it passed that way
-static const u8* g_tsFbReq;       // the request under a fallback (0 = none) and its stamp, start tick, model, key
+static volatile LONG g_tsPickObj;  // Action 3: the provider object whose ready job goes first (0 = none)
+static volatile LONG g_tsPickLod;  // its wanted LOD, raised to MinSimLOD
+static LONG g_tsPicks;             // jobs TsPick took this way (all fallbacks)
+static int g_tsFbPicked;           // this fallback: the job's place in the ready list when taken, -1 = not taken
+static const u8* g_tsFbReq;        // the request under a fallback (0 = none) and its stamp, start tick, model, key
 static DWORD g_tsFbStamp, g_tsFbSince;
-static LONG g_tsFbUses0;
 static u8* g_tsFbBlk;
 static char g_tsFbKey[40];
 static LONG g_tsFbN, g_tsFbRendered, g_tsFbAborted, g_tsFbOther;
-static bool g_tsLimPatched, g_tsTmHooked;
+static bool g_tsPickPatched, g_tsTmHooked;
 
-static __declspec(naked) void TsLimReqStub() {
-    __asm {
-        mov eax, [esp + 0x14]
-        test eax, eax
-        jz req_test
-        cmp eax, g_tsExProv
-        jne req_test
-        lock inc dword ptr g_tsExUses
-        xor eax, eax
-        cmp eax, 1
-        ret
-    req_test:
-        mov eax, [esi + 0x4C]
-        cmp eax, [esi + 0x40]
-        ret
+typedef u8*(__fastcall* TsPickFn)(u8* svc);
+static TsPickFn g_tsPickOrig = (TsPickFn)(uintptr_t)TS_PICK;  // selftest: its own
+static u8* __fastcall TsPick(u8* svc) {
+    const LONG obj = g_tsPickObj;
+    if (obj) {
+        __try {
+            u8* const head = svc + 0x60;
+            u8* best = 0;
+            int pos = 0, bestPos = -1;
+            for (u8* n = *(u8**)head; n && n != head && pos < 4096; n = *(u8**)n, pos++)
+                if (*(const LONG*)(n + 0x18) == obj && (!best || (*(const LONG*)(best + 8) != g_tsPickLod && *(const LONG*)(n + 8) == g_tsPickLod)))
+                    best = n, bestPos = pos;
+            if (best) {
+                u8* const prev = *(u8**)(best + 4);
+                u8* const next = *(u8**)best;
+                *(u8**)prev = next;
+                *(u8**)(next + 4) = prev;
+                InterlockedIncrement(&g_tsPicks);
+                if (g_tsFbPicked < 0) g_tsFbPicked = bestPos;
+                return best;
+            }
+        } __except (EXCEPTION_EXECUTE_HANDLER) {}
     }
-}
-static __declspec(naked) void TsLimEnqStub() {
-    __asm {
-        mov eax, [esp + 0x14]
-        test eax, eax
-        jz enq_test
-        cmp eax, g_tsExProv
-        jne enq_test
-        lock inc dword ptr g_tsExUses
-        xor eax, eax
-        cmp eax, 1
-        ret
-    enq_test:
-        mov eax, [ebp + 0x4C]
-        cmp eax, [ebp + 0x40]
-        ret
-    }
+    return g_tsPickOrig(svc);
 }
 
 // how: 0 rendered (the same request moved past 0x11, below the abort states 0x19..), 1 aborted by us, 2 other (it left the
 // front, or reached 0x19.. by itself: cancelled by its owner, or it finished between two steps)
 static void TsFbEnd(int how, DWORD state, bool blkLive) {
-    InterlockedExchange(&g_tsExProv, 0);
+    InterlockedExchange(&g_tsPickObj, 0);
     if (!g_tsFbReq) return;
     if (how == 0) g_tsFbRendered++;
     else if (how == 1) g_tsFbAborted++;
@@ -194,25 +189,32 @@ static void TsFbEnd(int how, DWORD state, bool blkLive) {
     char idx[64];
     if (blkLive) TsLodIdx(g_tsFbBlk, idx, sizeof(idx));
     else strcpy_s(idx, "n/a (request gone)");
-    Log("thumbstall: fallback #%ld %s after %lu ms (state %02lX): key %s; lod %s; limit tests passed %ld "
+    Log("thumbstall: fallback #%ld %s after %lu ms (state %02lX): key %s; lod %s; its job %s %d "
         "(fallback_rendered %ld, fallback_aborted %ld, fallback_other %ld)",
         g_tsFbN, how == 0 ? "rendered" : how == 1 ? "aborted" : "other", GetTickCount() - g_tsFbSince, state, g_tsFbKey, idx,
-        g_tsExUses - g_tsFbUses0, g_tsFbRendered, g_tsFbAborted, g_tsFbOther);
+        g_tsFbPicked >= 0 ? "taken first from ready place" : "not taken, ready place", g_tsFbPicked,
+        g_tsFbRendered, g_tsFbAborted, g_tsFbOther);
     g_tsFbReq = 0;
 }
 static void TsFbStart(const u8* req, DWORD stamp, u8* blk, DWORD now) {
     TsFbEnd(2, 0, false);  // a fallback still open for another request
-    g_tsFbReq = req, g_tsFbStamp = stamp, g_tsFbSince = now, g_tsFbBlk = blk, g_tsFbUses0 = g_tsExUses;
+    g_tsFbReq = req, g_tsFbStamp = stamp, g_tsFbSince = now, g_tsFbBlk = blk, g_tsFbPicked = -1;
     g_tsFbN++;
     TsWords(g_tsFbKey, sizeof(g_tsFbKey), (const DWORD*)(req + 0x110), 4);
     char before[64], after[64];
     TsLodIdx(blk, before, sizeof(before));
     const DWORD prov = blk && Readable(blk + 0x210, 0x40) ? *(const DWORD*)(blk + 0x24C) : 0;
-    if (g_tsAction == 3 && prov) InterlockedExchange(&g_tsExProv, (LONG)prov);
+    if (g_tsAction == 3 && prov) {
+        TsLod L;
+        TsLodRead(0, &L);
+        const long wanted = *(const long*)(blk + 0x210 + 0x18);
+        InterlockedExchange(&g_tsPickLod, wanted < L.minLod ? L.minLod : wanted);
+        InterlockedExchange(&g_tsPickObj, (LONG)(prov - 0x28));
+    }
     if (g_tsAction == 4 && blk && Readable(blk + 0x232, 1)) blk[0x232] = 0;  // min LOD byte; 0xD5A1C1 set it to 1
     TsLodIdx(blk, after, sizeof(after));
     Log("thumbstall: fallback #%ld start (%s): request %p key %s; lod %s -> %s; provider %08lX", g_tsFbN,
-        g_tsAction == 3 ? (prov ? "provider exempt from ActiveLODLimit" : "no provider: nothing to exempt") : "min LOD 0", req,
+        g_tsAction == 3 ? (prov ? "its ready LOD job goes first" : "no provider: nothing to pick") : "min LOD 0", req,
         g_tsFbKey, before, after, prov);
 }
 // After each manager step (main thread): has the request under a fallback left state 0x11?
@@ -333,16 +335,15 @@ static __declspec(naked) void TsStub() {
 // Put the original bytes back on detach (only if our jump is still there).
 static bool g_tsInstalled;
 static void TsRevert() {
-    InterlockedExchange(&g_tsExProv, 0);
+    InterlockedExchange(&g_tsPickObj, 0);
     u8* const site = (u8*)(uintptr_t)TS_SITE;
     if (g_tsInstalled && Readable(site, 1) && *site == 0xE9) Write(site, kTsOrig, sizeof(kTsOrig));
     g_tsInstalled = false;
-    if (g_tsLimPatched) {
-        u8* const req = (u8*)(uintptr_t)TS_LIM_REQ;
-        u8* const enq = (u8*)(uintptr_t)TS_LIM_ENQ;
-        if (Readable(req, 1) && *req == 0xE8) Write(req, kTsLimReq, 6);
-        if (Readable(enq, 1) && *enq == 0xE8) Write(enq, kTsLimEnq, 6);
-        g_tsLimPatched = false;
+    if (g_tsPickPatched) {
+        u8* const pick = (u8*)(uintptr_t)TS_PICK_AT;
+        const DWORD ours = (DWORD)(uintptr_t)&TsPick - (TS_PICK_AT + 2 + 5);
+        if (Readable(pick, sizeof(kTsPickSite)) && *(const DWORD*)(pick + 3) == ours) Write(pick, kTsPickSite, sizeof(kTsPickSite));
+        g_tsPickPatched = false;
     }
     if (g_tsTmHooked) {
         void** const slot = (void**)(uintptr_t)TS_TM_SLOT;
@@ -359,23 +360,16 @@ static bool TsInstallFallback() {
         return false;
     }
     if (g_tsAction == 3) {
-        u8* const req = (u8*)(uintptr_t)TS_LIM_REQ;
-        u8* const enq = (u8*)(uintptr_t)TS_LIM_ENQ;
-        if (!Matches(req, kTsLimReq, sizeof(kTsLimReq)) || !Matches(enq, kTsLimEnq, sizeof(kTsLimEnq))) {
-            Log("SKIP thumb stall fallback: ActiveLODLimit tests at 0x%08X / 0x%08X differ", TS_LIM_REQ, TS_LIM_ENQ);
+        u8* const site = (u8*)(uintptr_t)TS_PICK_AT;
+        if (!Matches(site, kTsPickSite, sizeof(kTsPickSite))) {
+            Log("SKIP thumb stall fallback: the ready-job pick at 0x%08X differs", TS_PICK_AT + 2);
             return false;
         }
-        u8 a[6] = {0xE8, 0, 0, 0, 0, 0x90}, b[6] = {0xE8, 0, 0, 0, 0, 0x90};
-        const DWORD ra = (DWORD)(uintptr_t)&TsLimReqStub - (TS_LIM_REQ + 5), rb = (DWORD)(uintptr_t)&TsLimEnqStub - (TS_LIM_ENQ + 5);
-        memcpy(a + 1, &ra, 4);
-        memcpy(b + 1, &rb, 4);
-        if (!Write(req, a, 6)) { Log("FAIL thumb stall fallback: cannot write 0x%08X", TS_LIM_REQ); return false; }
-        if (!Write(enq, b, 6)) {
-            Write(req, kTsLimReq, 6);
-            Log("FAIL thumb stall fallback: cannot write 0x%08X", TS_LIM_ENQ);
-            return false;
-        }
-        g_tsLimPatched = true;
+        u8 call[5] = {0xE8, 0, 0, 0, 0};
+        const DWORD rel = (DWORD)(uintptr_t)&TsPick - (TS_PICK_AT + 2 + 5);
+        memcpy(call + 1, &rel, 4);
+        if (!Write(site + 2, call, 5)) { Log("FAIL thumb stall fallback: cannot write 0x%08X", TS_PICK_AT + 2); return false; }
+        g_tsPickPatched = true;
     }
     g_tsTmOrig = (TsTmUpdateFn)*slot;
     const void* const hook = (const void*)&TsTmUpdate;
@@ -409,8 +403,8 @@ static void ApplyThumbStall(const wchar_t* ini) {
     if (!Write(site, patch, sizeof(patch))) { Log("FAIL thumb stall: cannot write 0x%08X", TS_SITE); TsRevert(); return; }
     g_tsInstalled = true;
     Log("OK   thumb stall (EXPERIMENT, [ThumbStall]): state 0x11 of the Sim thumbnail queue, timeout %lu ms, action %d "
-        "(0 log, 1 abort the request, 2 render when the blocker is not its own model, 3 exempt its LOD provider from "
-        "ActiveLODLimit then abort, 4 min LOD 0 then abort)", g_tsTimeoutMs, g_tsAction);
+        "(0 log, 1 abort the request, 2 render when the blocker is not its own model, 3 build its LOD job first "
+        "then abort, 4 min LOD 0 then abort)", g_tsTimeoutMs, g_tsAction);
 }
 
 // ---- [ThumbCallers] (2026-11-12): who asks for thumbnails. Log only, off by default. ----
