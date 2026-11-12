@@ -37,7 +37,7 @@ namespace Ts3Agent
         static int sMaxInProgress, sMaxPackTasks;
         static bool sDqSeen;
         static int sDqMgr, sDqBegin, sDqEnd, sDqBreaks, sDqLen;
-        static int sBlk, sBlkChanges;
+        static int sBlk, sBlkChanges, sMaxLodInuse;
         static long sBlkSince;
         static long sTmDone, sTmQueued;
 
@@ -137,10 +137,11 @@ namespace Ts3Agent
                 sPackSeen.Clear();
                 sPacksStarted = sPacksFinished = sFrontChanges = sCensusCalls = sMaxInProgress = sMaxPackTasks = 0;
                 sFrontKey = sFrontSince = sMaxPackWaitMs = sMaxFrontMs = sTmDone = sTmQueued = 0;
-                sDqSeen = false; sDqBreaks = 0; sBlk = 0; sBlkChanges = 0; sBlkSince = 0;
+                sDqSeen = false; sDqBreaks = 0; sBlk = 0; sBlkChanges = 0; sBlkSince = 0; sMaxLodInuse = 0;
             }
             sCensusCalls++;
             ThumbFields();
+            int blkProv = 0;  // the blocker's LOD provider (model handle +0x3C), for the SimService part below
 
             // native side: plain reads of the manager's own words (and, deep, three words of the front request)
             try
@@ -226,6 +227,7 @@ namespace Ts3Agent
                             for (int q = mb; mb != 0 && q < me && q < mb + 256; q += 4) if (Rd(q) == blk) own = true;
                             r["blk_own"] = own;
                             r["tm_front_models"] = mb == 0 ? 0 : (me - mb) / 4;
+                            blkProv = Rd(blk + 0x210 + 0x3C);
                         }
                         r["blk_changes"] = sBlkChanges;
                         // request types through the queue (the key's type word, request +0x118), at most 256 requests
@@ -283,6 +285,31 @@ namespace Ts3Agent
             {
                 int svc = Rd(kTmVtable + 0x1C) == kTmUpdate ? Rd(0x011CE6A0) : 0;
                 if (svc != 0 && (svc & 3) == 0) r["cas_registry_n"] = Rd(svc + 0x110);
+                // The same object is the CAS SimService (vtable 0xFE514C), which builds Sim LODs (thumbstall.cpp "Why the
+                // provider refuses"): lod_inuse = cached LODs held outside the cache (+0x4C, recounted every update),
+                // lod_limit = ActiveLODLimit (+0x40, GraphicsRules.sgr, 200), lod_cached (+0x50), lod_min = MinSimLOD (+0x30),
+                // lod_over_limit: no LOD is built for a model that has none in use; lod_jobs_loading / lod_jobs_ready: the
+                // +0x58 / +0x60 job lists are not empty; lod_job_current: +0x68 set. Scalar reads only (the lists move on
+                // the main thread); the stall log line walks them. blk_provider / _vt: the blocker's provider (state 0x11).
+                if (svc != 0 && (svc & 3) == 0 && Rd(svc) == 0x00FE514C)
+                {
+                    int inuse = Rd(svc + 0x4C), limit = Rd(svc + 0x40);
+                    r["lod_inuse"] = inuse;
+                    r["lod_limit"] = limit;
+                    r["lod_over_limit"] = inuse > limit;
+                    r["lod_cached"] = Rd(svc + 0x50);
+                    r["lod_min"] = Rd(svc + 0x30);
+                    r["lod_jobs_loading"] = Rd(svc + 0x58) != svc + 0x58;
+                    r["lod_jobs_ready"] = Rd(svc + 0x60) != svc + 0x60;
+                    r["lod_job_current"] = Rd(svc + 0x68) != 0;
+                    if (inuse > sMaxLodInuse) sMaxLodInuse = inuse;
+                    r["max_lod_inuse"] = sMaxLodInuse;
+                    if (blkProv != 0 && (blkProv & 3) == 0)
+                    {
+                        r["blk_provider"] = "0x" + blkProv.ToString("x8");
+                        r["blk_provider_vt"] = "0x" + Rd(blkProv).ToString("x8");
+                    }
+                }
             }
             catch (Exception) { }
 

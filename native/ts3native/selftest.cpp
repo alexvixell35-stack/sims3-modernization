@@ -12817,6 +12817,7 @@ static void TestP5() {
 #include "hitchattr-test.h"  // TestHitchAttr ([HitchAttr], docs/96 §9)
 #include "unseen-test.h"  // TestUnseen ([UnseenProbe], docs/143)
 #include "ghost-test.h"   // TestUnseenGhost ([UnseenGhost], docs/202 §3.9.5)
+#include "thumbstall-test.h"  // TestThumbLod ([ThumbStall] Actions 3 and 4, thumbstall.cpp)
 #include "unseenanim-test.h"  // TestUnseenAnim ([UnseenAnim], docs/144 §3.4)
 #include "unseenrm-test.h"  // TestUnseenRootMotion, TestUnseenRootMotion2 ([UnseenRootMotion] Mode 1 / Mode 2, docs/228)
 #include "unseentable-test.h"  // TestUnseenTable ([UnseenTable], docs/227 §6)
@@ -14325,6 +14326,7 @@ int main() {
     TestMovedWaits();
     TestP6Waits();
     TestLauncherFix();
+    TestThumbLod();
     puts("selftest ok");
     return 0;
 }
