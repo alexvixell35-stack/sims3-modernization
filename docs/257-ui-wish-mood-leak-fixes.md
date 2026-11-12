@@ -1,7 +1,7 @@
 # 257. UI, wish, mood and relationship leak fixes (ts3fixes, 2026-11-11)
 
 Static RE plus live trigger runs, 2026-11-11 (SteamOS/Wine, Isla Paradiso fresh world, test saves `ts3phase-*` only).
-**Status: 22 switches built, all off by default.** Each was run in game with the fix off, then on, in the same session
+**Status: 25 switches built, all off by default.** Each was run in game with the fix off, then on, in the same session
 (`phasesoak3.sh` phases, `leak_census` after each phase). Every change acts only on UI objects, on wish/listener
 bookkeeping, or on data that is already wrong; household Sims are never moved, skipped or throttled.
 
@@ -31,10 +31,13 @@ Counters are ts3fixes slots (docs/registry.md). "Off" = counted with the switch 
 | `moodpending` | WellRested (from a bed) and ConqueredTheBull call ChangeMoodValue on their new buff from OnAddition, before AddElement lists it and adds its value: the mood target gets the value twice and loses it once | 8-10 calls in two story-day rounds (household Sims included) | 4 of 4 skipped in the third round, 0 drift | 0 |
 | `filtergridleak` | CatalogProductFilter.Init turns DisposeOnDetach off on its child grid and nothing turns it back on | +1 ItemGrid per Buy or Build visit | 4 of 4 restored, ItemGrid flat across 3 Build visits | 0 |
 | `buyclearrecycle` | ShowCatalogGrid(false) (back button, catalog switch) clears the grid without caching its cells | 118 cells per Buy navigation visit, +274 to +403 icons per visit | 118 of 118 cached, +220 per visit | 0 |
+| `buygridsweep` (v2) | SelectCatalog / ShowAllItems repoint mCatalogGrid; BuyController.Dispose cleans the icons of the current grid only, and AddGridItem turns the icons' DisposeOnDetach off, so the cells left in BuyController.mExpandableCatalogGrid's own ItemGrid keep their icons registered | +220 live icons per Buy navigation visit | 220 of 220 handed back to EA's detach per visit, +0 per visit (two visits) | 0 |
+| `compositorghost` | every Buy, Build or CAS visit leaves one invisible, parentless CASCompositorController window and its dict entry (not the controller Load returned; nothing detaches it) | +1 per visit (10 in 10 visits) | 16 of 16 cleaned up with OnCustomDetach's steps, 0 left | 0 |
+| `caspuckevents` | CASPuck.Init subscribes to the static DownloadDashboard.DashboardStateUpdate and to the session-long OptionsModel.OptionsChanged; CASPuck.Dispose removes neither (PuckController removes both) | every closed CAS screen stays subscribed: 10 of 10 | 10 of 10 handler pairs removed | 0 |
 
 Built and installed without errors, but nothing to act on in these runs: `seasondup` (56 duplicate Motives season
 listeners at the start of a fresh world, none on reload or household switch), `blogorphan` (the blog app was not used),
-`dnpupdateguard` (no wish update threw), `buygridsweep` (the other catalog grids are empty when Buy closes), `attractionalarm`, `uncleguard` (no case in this world).
+`dnpupdateguard` (no wish update threw), `attractionalarm`, `uncleguard` (no case in this world).
 
 Disproven: `familyinvghost` (destroyed family-inventory items still listed). 64 probe rounds with the hook counting in
 both halves found 0: Destroy removes the item before ItemComponent.Dispose runs [measured]. It stays in the source, off,
@@ -74,19 +77,35 @@ thread in native code during routing (eip 0xFFDBD1B5), not on the script thread;
   cells; RepopulateCatalogGrid caches them first, the back-button path does not. `buyclearrecycle` (BuyCellRecycle.cs)
   does that caching step for the grid's own catalog type: 118 of 118 cells per visit kept, growth +220 per visit
   (35% less), 0 errors. The other ~220 per visit come from a path not found yet. `buygridsweep` (dispose the icons of
-  catalog grids other than the current one at BuyController.Dispose) counted 0 such icons: in this flow the other grids
-  are already empty when Buy closes, so it stays off with nothing to act on.
+  catalog grids other than the current one at BuyController.Dispose) v0 counted 0 icons in the four named grids. An icon
+  tracer (cells added per visit, classified just before Dispose, their icons checked after) then put all ~220 leftover
+  icons per visit in one ItemGrid that no controller field points to: the grid inside BuyController.mExpandableCatalogGrid
+  (ExpandableCatalogGrid.PreInit, control id 174056508). v1 disposed those icons directly, and 220 new live entries came
+  back after BuyController.Unload: the sub-layout's shutdown detach re-registered a wrapper for each native icon through
+  UIManager.WrapperFromHandle. v2 turns the icons' DisposeOnDetach back on instead, so EA's OnCustomDetach handles them:
+  +0 per visit.
   Build mode is much cleaner: BuildController has no cell cache and every grid clear goes through the native detach
   (OnCustomDetach), so a category click leaves nothing [verified IL]. Three Build visits added 6 entries: per Buy or
   Build visit, one ItemGrid and one live, parentless CASCompositorController. The ItemGrid is CatalogProductFilter's
   child grid (export id 189775728), whose DisposeOnDetach Init turns off and nothing turns back on.
   `filtergridleak` (FilterGridLeak.cs) sets it back on just before BuyController.Unload / BuildController.Unload, so
-  EA's own OnCustomDetach handles it. The compositor controller's cause is open; a read-only probe in compositorleak's
-  Unload hook ([2178-2180]) counts the CASCompositorController entries just before Unload.
+  EA's own OnCustomDetach handles it. The compositor controller: probes on CASCompositorController.Load and Unload
+  showed the leftover entry is never the controller Load returned, and the engine still reports a compositor custom
+  control under its handle (a live, invisible, parentless native window). `compositorghost` gives such a window
+  OnCustomDetach's steps after Unload (DeRegisterAllEvents, remove, WindowBase.Dispose(false)).
   Only five methods in UI.dll set DisposeOnDetach: BuyController.AddGridItem, ItemGrid.Clear(bool),
   CatalogProductFilter.Init (fixed above), InventoryPanel.RepopulateInventory (per cell, from a local), and
-  CASFamilyScreen.Init (its two drag cursor windows, which CASFamilyScreen.Dispose never touches; whether they are
-  registered custom controls is not checked yet).
+  CASFamilyScreen.Init (its two drag cursor windows, which nothing disposes: `famcursorleak`, below). InventoryPanel is
+  not a leak: RepopulateInventory calls Clear(true) on the primary grid (`ldloc.1; ldc.i4.0; ceq`), which turns
+  DisposeOnDetach back on before the detach [verified IL].
+- **Household route failures with no destination are expected [verified decompiled].** The repeated
+  "Replan sync FailedBecauseNoDestinationSpecified" lines for household Sims come from EA's wait-and-poll on an
+  obstructed goal (DestinationObstructedRouteInterruptAction / ObstacleEncounteredRouteInterruptAction: Replan every
+  2-3 animation cycles, at most 50 sim-minutes, goals rejected while another Sim stands there). Skipping them would not
+  equal vanilla; nothing built.
+- **The native crash of phase-20261111-2105** is on the Swarm (effects) service path in the main loop (return
+  addresses 0x59ED59, 0x71E6D2, 0x9162EB: the same stack as docs/67 Crash A, a wild call through a freed Swarm object),
+  with ts3native [Alloc] off, so docs/67 lead 2 (a plain EA use-after-free in Swarm) [inferred].
 
 ## 3. The Buy crash: a hook with the wrong return type
 
@@ -117,7 +136,8 @@ the step the override ends with.
 
 ## 5. Next
 
-- Buy: find the remaining ~220 icons per navigation visit; the live CASCompositorController per Buy/Build visit (probe).
+- CAS: +90 live parentless CustomContentIcons (control id 35) per CAS visit that browses clothing categories, and +1 ItemGrid id 189775728 (a CatalogProductFilter grid in a CAS layout) per CASPuck.Dispose (static RE running).
+- `famcursorleak` (CASFamilyScreen drag cursors) is built; live test pending.
 - Live test of `moodpending` (a Sim sleeping in a bed until WellRested: target 20 vs sum 10 off, equal on).
 - Listener cost: count dispatches and time per event id (EventTracker.ProcessEvent).
 - Inventory audit items A1/A3/D1/C1 and the Downtrodden / Torched / Lunacy shared fields (static only so far).

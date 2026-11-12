@@ -2612,6 +2612,56 @@
       "what": "compositorprobe",
       "at": "2026-11-11T21:00:33.355Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2181",
+      "kind": "fixes",
+      "from": 2181,
+      "to": 2186,
+      "by": "claude",
+      "what": "buydisposeguard",
+      "at": "2026-11-11T21:59:18.784Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2187",
+      "kind": "fixes",
+      "from": 2187,
+      "to": 2189,
+      "by": "claude",
+      "what": "compositorloadprobe",
+      "at": "2026-11-11T22:00:03.741Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2190",
+      "kind": "fixes",
+      "from": 2190,
+      "to": 2192,
+      "by": "claude",
+      "what": "compositorghost",
+      "at": "2026-11-11T22:33:19.117Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2193",
+      "kind": "fixes",
+      "from": 2193,
+      "to": 2193,
+      "by": "claude",
+      "what": "compositorghost-live",
+      "at": "2026-11-11T22:55:25.306Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2194",
+      "kind": "fixes",
+      "from": 2194,
+      "to": 2197,
+      "by": "claude",
+      "what": "buyiconprobe2",
+      "at": "2026-11-11T23:18:27.509Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }
