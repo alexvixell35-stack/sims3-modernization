@@ -18,7 +18,7 @@ namespace Ts3Agent
     // listed [A2]; stacks whose top item is dead while live items remain under it [A2]; stacks with a null or empty List
     // [A5]; items in a stack that no longer stack with its top [A7]; objects whose ItemComp says they are in an inventory
     // that does not list them [A4]; family-inventory items per household class, by type [D1]; InventoryItemWin entries in
-    // UIManager.mCustomControlInstanceDict by state [B]. Reads only.
+    // UIManager.mCustomControlInstanceDict by state [B]; live parentless custom controls by type and control id. Reads only.
     public static partial class Handlers
     {
         static string LcInvClass(Inventory inv, Household active)
@@ -125,7 +125,7 @@ namespace Ts3Agent
             }
 
             // [B] InventoryItemWin wrappers in UIManager's custom-control table
-            Dictionary<string, int> iiw = new Dictionary<string, int>(), ccState = new Dictionary<string, int>();
+            Dictionary<string, int> iiw = new Dictionary<string, int>(), ccState = new Dictionary<string, int>(), orphanIds = new Dictionary<string, int>();
             try
             {
                 FieldInfo df = typeof(Sims3.UI.UIManager).GetField("mCustomControlInstanceDict", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
@@ -140,7 +140,12 @@ namespace Ts3Agent
                         string st;
                         if (w.Disposed) st = "disposed";
                         else if (Convert.ToUInt32(hp.GetValue(w, null)) != Convert.ToUInt32(e.Key)) st = "handle reused";
-                        else if (w.Parent == null) st = "live, no parent";
+                        else if (w.Parent == null)
+                        {
+                            st = "live, no parent";
+                            // which layout made it: type and control id (the id is the export id in its layout)
+                            try { LcBump(orphanIds, w.GetType().Name + " id " + w.ID); } catch (Exception) { }
+                        }
                         else st = "live, on tree";
                         if (isIiw) LcBump(iiw, st);
                         LcBump(ccState, w.GetType().Name + ": " + st);
@@ -160,6 +165,7 @@ namespace Ts3Agent
             r["object_inventory_items_by_type"] = LcTop(objTypes, top);
             r["inventory_item_win"] = iiw;
             r["custom_control_states"] = LcTop(ccState, 30);
+            r["orphans_by_type_id"] = LcTop(orphanIds, 20);
             return r;
         }
     }
