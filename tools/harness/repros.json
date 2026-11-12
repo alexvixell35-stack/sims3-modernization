@@ -49655,6 +49655,281 @@
     "cleanup": []
   },
   {
+    "id": "book-hand-fix-check-off",
+    "bug": "Book.StopUsingBook (standing or sitting read, book going to the inventory) sets Sim.CarryStateMachine = null and leaves the book in the hand until event 100 of the read machine's Exit clip; when the clip never gets there, the book stays in the hand with no carry machine and every later EA put-down throws (NullReferenceException in CarrySystem.PutDownOnSurface, 'left an object in the Sim's hand with no carry state machine' in InteractionQueue.PutDownCarriedObjects); seen on household Lala in bp-castrim-live-mode3-r2, docs/251",
+    "fix": "ts3fixes BookHand.cs: bookhand (default off), bookhanddiag logging (default off), docs/251",
+    "save": "Baseline-BP",
+    "note": "Crowd form (Rodney 2026-11-12: one Sim reaching the stuck state is enough). Tiara Angelista (active household, a book in her inventory; any book already in her hand put away first, test cleanup; the job quits household jobs so she does not leave for work) plus up to 20 non-household Sims at a bookshelf on their own home lot (bookcarry's crowd: never the active household, its lot or a selectable Sim; max 2 per shelf; the stuck state needs the book to go to the reader's inventory, which EA does only on the reader's home lot) read. Once one holds the book, every crowd read is cancelled with the 'plant' stress (labelled, not a player action): when EA's StopUsingBook returns with the book already in the inventory, the check puts it back in the right hand, leaving EA's stuck state (book in hand, parented, CarryStateMachine null, set by EA) after a read that ended, so the read's own end runs EA's InteractionQueue.PutDownCarriedObjects on it, as in the natural hits (the error at the next interaction end after a read). animstop is not used: it left StopUsingBook waiting in RequestState for good (bp-bookhand-fix-off 2026-11-12: stuck 15 of 21 but 14 still in ReadBook, no put-down). A Sim counts as stuck when a probe finds it or a put-down meets its stuck book. bookhand acts on household Sims too: an EA bug fix (EA's own handler, the outcome EA chose), allowed for controlled Sims.",
+    "expect": "off: >= 1 Sim stuck and bookhand_seen >= 1 (EA's put-down met the stuck book: the 'no carry state machine' ScriptError, counted by scriptErrorsReport).",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bookhand": false,
+          "bookhanddiag": true
+        },
+        "note": "off: applied log lists CarrySystem.PutDown: ok and InteractionQueue.PutDownCarriedObjects: ok; diag lines on in both arms",
+        "waitS": 1
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 18
+        },
+        "note": "off: evening: most crowd Sims are home (book-carry-check: Tiara's read did not start at hour 3)",
+        "waitS": 2,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "crowd read 20 Tiara Angelista"
+          ]
+        },
+        "note": "off: Tiara reads from her inventory (a book in her hand put away first, test cleanup) plus up to 20 non-household readers at their home bookshelves; counters taken",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookHandCheck",
+            "args": [
+              "crowd state"
+            ]
+          },
+          "all": [
+            {
+              "path": "any",
+              "equals": true
+            }
+          ],
+          "maxS": 180,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "crowd state"
+          ]
+        },
+        "note": "off: 20 s more so more of the crowd holds the book before the cancel",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "crowd stop"
+          ]
+        },
+        "note": "off (stress, labelled, plant): every crowd read cancelled; each book EA put in the inventory goes back to the hand with no carry machine, and the read's end runs EA's PutDownCarriedObjects on it",
+        "waitS": 3,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookHandCheck",
+            "args": [
+              "crowd state"
+            ]
+          },
+          "all": [
+            {
+              "path": "seen",
+              "atLeast": 1
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "crowd probe"
+          ]
+        },
+        "note": "off: records stuck N of M now (book in hand, parented, no carry machine)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "crowd state"
+          ]
+        },
+        "note": "off: 10 s more for the other stuck Sims' put-downs (each throws: ScriptError expected)",
+        "waitS": 10
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "crowd expect off"
+          ]
+        },
+        "note": "off: throws unless >= 1 Sim was stuck and >= 1 put-down that throws met the stuck book (bookhand_seen); ScriptError_*.xml 'no carry state machine' from InteractionQueue.PutDownCarriedObjects expected",
+        "waitS": 5
+      }
+    ],
+    "cleanup": []
+  },
+  {
+    "id": "book-hand-fix-check",
+    "bug": "Book.StopUsingBook (standing or sitting read, book going to the inventory) sets Sim.CarryStateMachine = null and leaves the book in the hand until event 100 of the read machine's Exit clip; when the clip never gets there, the book stays in the hand with no carry machine and every later EA put-down throws (NullReferenceException in CarrySystem.PutDownOnSurface, 'left an object in the Sim's hand with no carry state machine' in InteractionQueue.PutDownCarriedObjects); seen on household Lala in bp-castrim-live-mode3-r2, docs/251",
+    "fix": "ts3fixes BookHand.cs: bookhand (default off), bookhanddiag logging (default off), docs/251",
+    "save": "Baseline-BP",
+    "note": "Crowd form (Rodney 2026-11-12: one Sim reaching the stuck state is enough). Tiara Angelista (active household, a book in her inventory; any book already in her hand put away first, test cleanup; the job quits household jobs so she does not leave for work) plus up to 20 non-household Sims at a bookshelf on their own home lot (bookcarry's crowd: never the active household, its lot or a selectable Sim; max 2 per shelf; the stuck state needs the book to go to the reader's inventory, which EA does only on the reader's home lot) read. Once one holds the book, every crowd read is cancelled with the 'plant' stress (labelled, not a player action): when EA's StopUsingBook returns with the book already in the inventory, the check puts it back in the right hand, leaving EA's stuck state (book in hand, parented, CarryStateMachine null, set by EA) after a read that ended, so the read's own end runs EA's InteractionQueue.PutDownCarriedObjects on it, as in the natural hits (the error at the next interaction end after a read). animstop is not used: it left StopUsingBook waiting in RequestState for good (bp-bookhand-fix-off 2026-11-12: stuck 15 of 21 but 14 still in ReadBook, no put-down). A Sim counts as stuck when a probe finds it or a put-down meets its stuck book. bookhand acts on household Sims too: an EA bug fix (EA's own handler, the outcome EA chose), allowed for controlled Sims.",
+    "expect": "on: >= 1 Sim stuck, bookhand_seen >= 1 = bookhand_fixed, no Sim stuck at the end, no ScriptError from this stack (scriptErrorsMax 0).",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bookhand": true,
+          "bookhanddiag": true
+        },
+        "note": "on: applied log lists CarrySystem.PutDown: ok and InteractionQueue.PutDownCarriedObjects: ok; diag lines on in both arms",
+        "waitS": 1
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 18
+        },
+        "note": "on: evening: most crowd Sims are home (book-carry-check: Tiara's read did not start at hour 3)",
+        "waitS": 2,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "crowd read 20 Tiara Angelista"
+          ]
+        },
+        "note": "on: Tiara reads from her inventory (a book in her hand put away first, test cleanup) plus up to 20 non-household readers at their home bookshelves; counters taken",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookHandCheck",
+            "args": [
+              "crowd state"
+            ]
+          },
+          "all": [
+            {
+              "path": "any",
+              "equals": true
+            }
+          ],
+          "maxS": 180,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "crowd state"
+          ]
+        },
+        "note": "on: 20 s more so more of the crowd holds the book before the cancel",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "crowd stop"
+          ]
+        },
+        "note": "on (stress, labelled, plant): every crowd read cancelled; each book EA put in the inventory goes back to the hand with no carry machine, and the read's end runs EA's PutDownCarriedObjects on it",
+        "waitS": 3,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookHandCheck",
+            "args": [
+              "crowd state"
+            ]
+          },
+          "all": [
+            {
+              "path": "seen",
+              "atLeast": 1
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "crowd probe"
+          ]
+        },
+        "note": "on: records stuck N of M now (book in hand, parented, no carry machine)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "crowd state"
+          ]
+        },
+        "note": "on: every stuck book moved out of the hand by EA's handler at the put-down",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BookHandCheck",
+            "args": [
+              "crowd state"
+            ]
+          },
+          "all": [
+            {
+              "path": "stuck",
+              "atMost": 0
+            }
+          ],
+          "maxS": 30,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BookHandCheck",
+          "args": [
+            "crowd expect on"
+          ]
+        },
+        "note": "on: throws unless >= 1 Sim was stuck, put-downs seen >= 1, every one fixed and no Sim stuck now; names stuck N of M and whether Tiara was",
+        "waitS": 5
+      }
+    ],
+    "cleanup": []
+  },
+  {
     "id": "ea-long-distance-move",
     "bug": "Accepting EA's long-distance move dialogs in world (\"There are new towns available... long-distance move\", \"Your Sim family is preparing to move\") exits LiveMode -> None; on 1.69 the game then crashed at 0x00AD04EC (runs 7h, 7j2). Open question: EA's bug or ours (vanilla 1.69 control run needed)",
     "fix": "ts3agent kDialogRules declines these dialogs; no ts3native fix",

@@ -86,7 +86,7 @@ import { leadInCut, sliceFrames } from './session-reuse.ts';
 import { reproSave } from './repro-save.ts';
 import { focusGame, giveFocusBack } from './focus-game.ts';
 import { mayBeStuck } from './stuck-rule.ts';
-import { clockStep, watchGame } from './game-alive.ts';
+import { captureHang, clockStep, hangDir, stuckRunning, watchGame } from './game-alive.ts';
 import { startMachineLoad, summarize } from './machine-load.ts';
 import { BIN, GAME_EXE } from './game-exe.ts';
 
@@ -277,6 +277,8 @@ const clockGuard = (async () => {
     // which modal holds the clock (title, buttons) and whether a world switch is under way (story-smoke 2026-10-23)
     const pd = await ag('pending_dialogs').catch(() => null), gs = await ag('game_state').catch(() => null);
     console.log(`${stamp()} at the trip: dialog ${JSON.stringify(pd?.ok ? pd.result : pd?.error).slice(0, 400)}; sub_state ${gs?.result?.sub_state ?? '?'}, world ${gs?.result?.load_file ?? '?'}`);
+    // not paused and no dialog: the sim thread may be spinning; stacks + Mono frames + dump before the kill
+    if (stuckRunning(cs.ok ? cs.result : null, pd?.ok ? pd.result : null)) console.log(`${stamp()} at the trip: ${await captureHang(join(hangDir(), `clockstuck-${values.tag}`)).catch(e => `hang capture failed: ${e}`)}`);
     // what the autopilot did meanwhile: a dialog answered in a loop shows here (2026-11-03: a wish dialog under the age-up dialog,
     // 210 answers in 60 s, seen only in the upkeep log)
     const ap = await ag('autopilot').catch(() => null), cl: string[] = ap?.result?.cleared ?? [];

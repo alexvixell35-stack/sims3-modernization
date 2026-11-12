@@ -111,3 +111,43 @@ EA put-down that would throw, also with the switch off) and `fixes-877` `bookhan
   ts3native.asi.castrimdiag1108 0.36.194 + ts3fixes.package.bookhand1108); the on job has `scriptErrorsMax` 0.
 - **Open.** The natural trigger is still unknown; the off job's tally and the diag line name it. Default stays off until the on job
   passes with the state reproduced.
+
+## 8. Crowd repro with the put-down (2026-11-12, branch `feature/bookhand-fix-repro-1112`, NOT RUN)
+
+- **Why.** `bookhand-verify-1112` (book-hand-check on rc1111d) showed bookhand_seen 0 / fixed 0: try 2 reached the stuck state
+  (STUCK, current ReadBook, SittingPosture) but the next `cure` put the book away before any EA put-down, and try 3 stalled
+  when Tiara left for work (GetInCarpool -> WorkInRabbitHole) [verified, probe-out/bookhand-verify-1112-run.log].
+- **Diag line never logged** [verified in code, `Book.cs:378-391`; hang inferred from try 2]: the 10 s "still in hand" check was
+  armed after EA's `StopUsingBook` returned, but `RequestState("x", "Exit")` waits for the clip, so in the stuck case the call had
+  not returned (try 2: still in ReadBook 15 s later) and the check never ran. Now armed before the call (`BhStopStart`); log only.
+- **Repro** `book-hand-fix-check` (on) / `book-hand-fix-check-off` (repros.json): `BookHandCheck "crowd ..."` = Tiara (household)
+  plus up to 20 non-household readers at home bookshelves (bookcarry's crowd picker, `BcCrowdRead`); stop with animstop
+  (stress, labelled), probe (stuck N of M), then `crowd push`: a user-directed `Terrain.GoHere` on every stuck Sim, so EA's
+  `PutDownCarriedObjects` (runs at every interaction end, `InteractionQueue.cs:715,730`) meets each stuck book. Off passes on
+  >= 1 stuck and bookhand_seen >= 1; on also needs every seen put-down fixed and no Sim stuck at the end. bookhand acts on
+  household Tiara too (EA bug fix, allowed for controlled Sims).
+- **Queue** `tools/harness/queues/bookhand-fix-1112.json`: `bp-bookhand-fix-off` then `bp-bookhand-fix-on`, rc1111d asi + ini,
+  ts3fixes `ts3fixes.package.rc1111c-bhcrowd` (rc1111c + the crowd check, TEST ONLY; same tuning), `quitJobs`.
+- **Open** [inferred]: if a stuck read stays blocked in `RequestState` (ReadBook never ends), no put-down runs and the Go Here
+  only queues behind it; the run then fails at `crowd push` (seen not reached in 60 s) and the diag line says where it hangs.
+
+### 8.1 Run 1 and the plant stress (2026-11-12)
+
+- **Run 1** (rc1111c-bhcrowd) [verified, probe-out/queue/bookhand-fix-1112-2026-11-12-bp-bookhand-fix-off.log]: off stuck 15 of 21,
+  on 15 of 21, but `crowd push` failed in both: 14-15 Sims still in ReadBook after 60 s, seen 0. The open point above happened:
+  with the clips stopped, `StateMachineClient.RequestState` (yielding, `SimIFace StateMachineClient.cs` ~810-940) waits for an
+  event that never comes (a null event only sleeps; AbortRequested and the 60 sim-minute timeout are read only after a real
+  event), so `StopUsingBook` never returns, ReadBook never ends and no put-down can run. Forcing an abort would throw
+  SacsAbortException out of the read (a Sim reset, which clears the hand without EA's put-down), so that route was not taken.
+- **Plant stress** (labelled, crowd `stop` now): after EA's `StopUsingBook` returns with the book already in the inventory, the
+  check takes it out and parents it to the right hand. With `CarryStateMachine` null (EA set it), that is the stuck state
+  after a read that ended, and the read's own end runs `PutDownCarriedObjects` (ReadBook.Run -> StandardExit -> queue end,
+  `InteractionQueue.cs:715`), as in the natural hits. `crowd push` removed. A Sim counts as stuck when a probe finds it or a
+  put-down met its book (BhAt), since with the switch on the fix clears it before any probe.
+- **Tiara's BedSleep ScriptError (off run, 01:27:13Z)**: "BedSleep left an object in the Sim's hand: BookGeneral. Attempting to
+  put down that object failed: Put In Inventory" (`InteractionQueue.PutDownFailed.Callback`). Not bookhand's state: that branch
+  runs only with a carry machine present (`InteractionQueue.cs:831-863`): Baseline-BP loads Tiara holding a book with a carry
+  machine, our `crowd read` cancelled her BedSleep, EA queued PutInInventory and it failed. bookhand stays as it is (no hook on
+  that path); `crowd read` now puts any book in Tiara's hand away first (test cleanup). Whether that EA failure is worth its own
+  fix is open (one sample, caused by the test's cancel).
+- **Queue** now pins `ts3fixes.package.rc1111c-bhcrowd2` (rc1111c + this change, TEST ONLY, same tuning).

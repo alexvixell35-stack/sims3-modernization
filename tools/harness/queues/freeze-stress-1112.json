@@ -1,0 +1,558 @@
+{
+  "note": "freeze-stress-1112 (2026-11-12): stress repro until break for the rc1111d clock-stuck freeze of release-verify-1111 bookcarry-crowd-check-1111 (2026-11-11: sim clock stuck at day 17 18:38, speed Triple, LiveModeState, native_paused false, pause_bits 0, no dialog, ts3native log stopped, one core busy, no stacks). 12 identical jobs on pair rc1111d (fields copied from bookcarry-crowd-check-1111), 27 min window each (12 min repro job + ~15 min more play), stopQueueOnFail: the first FAIL stops the queue with the hang capture in probe-out/hang/clockstuck-<tag>/. No off arms; correctness only (no smoke). est ~35 min per job, ~7 h for all 12. node tools/harness/queue.ts tools/harness/queues/freeze-stress-1112.json --no-publish > probe-out/freeze-stress-1112-run.log 2>&1",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "freeze-stress-1112-01",
+      "note": "[freeze-stress-1112 01/12] [est 35 min] bookcarry-crowd-check-1111 (repro book-carry-check, crowd form) + ~15 min more play at Triple on Baseline-BP, pair rc1111d. Stress repro until break for the 2026-11-11 clock-stuck FAIL with native_paused false, pause_bits 0, no dialog: profile-world.ts now runs captureHang (probe-out/hang/clockstuck-<tag>/) on that trip. Diagnostics on: UserDiag, MemDiag, HitchAttr + Holders (lock holder ring for the capture), CrashForensics, CrashReport.",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 27,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-carry-check",
+          "fixesRequire": "bookcarry_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "CrashForensics.Enabled": 1,
+        "CrashReport.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-11 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.239 2026-11-10 14:30:00",
+            "ts3native 0.36.2400 2026-11-11 14:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "freeze-stress-1112-02",
+      "note": "[freeze-stress-1112 02/12] [est 35 min] bookcarry-crowd-check-1111 (repro book-carry-check, crowd form) + ~15 min more play at Triple on Baseline-BP, pair rc1111d. Stress repro until break for the 2026-11-11 clock-stuck FAIL with native_paused false, pause_bits 0, no dialog: profile-world.ts now runs captureHang (probe-out/hang/clockstuck-<tag>/) on that trip. Diagnostics on: UserDiag, MemDiag, HitchAttr + Holders (lock holder ring for the capture), CrashForensics, CrashReport.",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 27,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-carry-check",
+          "fixesRequire": "bookcarry_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "CrashForensics.Enabled": 1,
+        "CrashReport.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-11 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.239 2026-11-10 14:30:00",
+            "ts3native 0.36.2400 2026-11-11 14:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "freeze-stress-1112-03",
+      "note": "[freeze-stress-1112 03/12] [est 35 min] bookcarry-crowd-check-1111 (repro book-carry-check, crowd form) + ~15 min more play at Triple on Baseline-BP, pair rc1111d. Stress repro until break for the 2026-11-11 clock-stuck FAIL with native_paused false, pause_bits 0, no dialog: profile-world.ts now runs captureHang (probe-out/hang/clockstuck-<tag>/) on that trip. Diagnostics on: UserDiag, MemDiag, HitchAttr + Holders (lock holder ring for the capture), CrashForensics, CrashReport.",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 27,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-carry-check",
+          "fixesRequire": "bookcarry_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "CrashForensics.Enabled": 1,
+        "CrashReport.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-11 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.239 2026-11-10 14:30:00",
+            "ts3native 0.36.2400 2026-11-11 14:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "freeze-stress-1112-04",
+      "note": "[freeze-stress-1112 04/12] [est 35 min] bookcarry-crowd-check-1111 (repro book-carry-check, crowd form) + ~15 min more play at Triple on Baseline-BP, pair rc1111d. Stress repro until break for the 2026-11-11 clock-stuck FAIL with native_paused false, pause_bits 0, no dialog: profile-world.ts now runs captureHang (probe-out/hang/clockstuck-<tag>/) on that trip. Diagnostics on: UserDiag, MemDiag, HitchAttr + Holders (lock holder ring for the capture), CrashForensics, CrashReport.",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 27,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-carry-check",
+          "fixesRequire": "bookcarry_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "CrashForensics.Enabled": 1,
+        "CrashReport.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-11 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.239 2026-11-10 14:30:00",
+            "ts3native 0.36.2400 2026-11-11 14:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "freeze-stress-1112-05",
+      "note": "[freeze-stress-1112 05/12] [est 35 min] bookcarry-crowd-check-1111 (repro book-carry-check, crowd form) + ~15 min more play at Triple on Baseline-BP, pair rc1111d. Stress repro until break for the 2026-11-11 clock-stuck FAIL with native_paused false, pause_bits 0, no dialog: profile-world.ts now runs captureHang (probe-out/hang/clockstuck-<tag>/) on that trip. Diagnostics on: UserDiag, MemDiag, HitchAttr + Holders (lock holder ring for the capture), CrashForensics, CrashReport.",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 27,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-carry-check",
+          "fixesRequire": "bookcarry_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "CrashForensics.Enabled": 1,
+        "CrashReport.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-11 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.239 2026-11-10 14:30:00",
+            "ts3native 0.36.2400 2026-11-11 14:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "freeze-stress-1112-06",
+      "note": "[freeze-stress-1112 06/12] [est 35 min] bookcarry-crowd-check-1111 (repro book-carry-check, crowd form) + ~15 min more play at Triple on Baseline-BP, pair rc1111d. Stress repro until break for the 2026-11-11 clock-stuck FAIL with native_paused false, pause_bits 0, no dialog: profile-world.ts now runs captureHang (probe-out/hang/clockstuck-<tag>/) on that trip. Diagnostics on: UserDiag, MemDiag, HitchAttr + Holders (lock holder ring for the capture), CrashForensics, CrashReport.",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 27,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-carry-check",
+          "fixesRequire": "bookcarry_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "CrashForensics.Enabled": 1,
+        "CrashReport.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-11 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.239 2026-11-10 14:30:00",
+            "ts3native 0.36.2400 2026-11-11 14:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "freeze-stress-1112-07",
+      "note": "[freeze-stress-1112 07/12] [est 35 min] bookcarry-crowd-check-1111 (repro book-carry-check, crowd form) + ~15 min more play at Triple on Baseline-BP, pair rc1111d. Stress repro until break for the 2026-11-11 clock-stuck FAIL with native_paused false, pause_bits 0, no dialog: profile-world.ts now runs captureHang (probe-out/hang/clockstuck-<tag>/) on that trip. Diagnostics on: UserDiag, MemDiag, HitchAttr + Holders (lock holder ring for the capture), CrashForensics, CrashReport.",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 27,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-carry-check",
+          "fixesRequire": "bookcarry_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "CrashForensics.Enabled": 1,
+        "CrashReport.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-11 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.239 2026-11-10 14:30:00",
+            "ts3native 0.36.2400 2026-11-11 14:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "freeze-stress-1112-08",
+      "note": "[freeze-stress-1112 08/12] [est 35 min] bookcarry-crowd-check-1111 (repro book-carry-check, crowd form) + ~15 min more play at Triple on Baseline-BP, pair rc1111d. Stress repro until break for the 2026-11-11 clock-stuck FAIL with native_paused false, pause_bits 0, no dialog: profile-world.ts now runs captureHang (probe-out/hang/clockstuck-<tag>/) on that trip. Diagnostics on: UserDiag, MemDiag, HitchAttr + Holders (lock holder ring for the capture), CrashForensics, CrashReport.",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 27,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-carry-check",
+          "fixesRequire": "bookcarry_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "CrashForensics.Enabled": 1,
+        "CrashReport.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-11 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.239 2026-11-10 14:30:00",
+            "ts3native 0.36.2400 2026-11-11 14:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "freeze-stress-1112-09",
+      "note": "[freeze-stress-1112 09/12] [est 35 min] bookcarry-crowd-check-1111 (repro book-carry-check, crowd form) + ~15 min more play at Triple on Baseline-BP, pair rc1111d. Stress repro until break for the 2026-11-11 clock-stuck FAIL with native_paused false, pause_bits 0, no dialog: profile-world.ts now runs captureHang (probe-out/hang/clockstuck-<tag>/) on that trip. Diagnostics on: UserDiag, MemDiag, HitchAttr + Holders (lock holder ring for the capture), CrashForensics, CrashReport.",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 27,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-carry-check",
+          "fixesRequire": "bookcarry_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "CrashForensics.Enabled": 1,
+        "CrashReport.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-11 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.239 2026-11-10 14:30:00",
+            "ts3native 0.36.2400 2026-11-11 14:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "freeze-stress-1112-10",
+      "note": "[freeze-stress-1112 10/12] [est 35 min] bookcarry-crowd-check-1111 (repro book-carry-check, crowd form) + ~15 min more play at Triple on Baseline-BP, pair rc1111d. Stress repro until break for the 2026-11-11 clock-stuck FAIL with native_paused false, pause_bits 0, no dialog: profile-world.ts now runs captureHang (probe-out/hang/clockstuck-<tag>/) on that trip. Diagnostics on: UserDiag, MemDiag, HitchAttr + Holders (lock holder ring for the capture), CrashForensics, CrashReport.",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 27,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-carry-check",
+          "fixesRequire": "bookcarry_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "CrashForensics.Enabled": 1,
+        "CrashReport.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-11 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.239 2026-11-10 14:30:00",
+            "ts3native 0.36.2400 2026-11-11 14:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "freeze-stress-1112-11",
+      "note": "[freeze-stress-1112 11/12] [est 35 min] bookcarry-crowd-check-1111 (repro book-carry-check, crowd form) + ~15 min more play at Triple on Baseline-BP, pair rc1111d. Stress repro until break for the 2026-11-11 clock-stuck FAIL with native_paused false, pause_bits 0, no dialog: profile-world.ts now runs captureHang (probe-out/hang/clockstuck-<tag>/) on that trip. Diagnostics on: UserDiag, MemDiag, HitchAttr + Holders (lock holder ring for the capture), CrashForensics, CrashReport.",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 27,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-carry-check",
+          "fixesRequire": "bookcarry_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "CrashForensics.Enabled": 1,
+        "CrashReport.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-11 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.239 2026-11-10 14:30:00",
+            "ts3native 0.36.2400 2026-11-11 14:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "freeze-stress-1112-12",
+      "note": "[freeze-stress-1112 12/12] [est 35 min] bookcarry-crowd-check-1111 (repro book-carry-check, crowd form) + ~15 min more play at Triple on Baseline-BP, pair rc1111d. Stress repro until break for the 2026-11-11 clock-stuck FAIL with native_paused false, pause_bits 0, no dialog: profile-world.ts now runs captureHang (probe-out/hang/clockstuck-<tag>/) on that trip. Diagnostics on: UserDiag, MemDiag, HitchAttr + Holders (lock holder ring for the capture), CrashForensics, CrashReport.",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 27,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-carry-check",
+          "fixesRequire": "bookcarry_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "MemDiag.Enabled": 1,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "CrashForensics.Enabled": 1,
+        "CrashReport.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-11 14:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.239 2026-11-10 14:30:00",
+            "ts3native 0.36.2400 2026-11-11 14:30:00"
+          ]
+        }
+      }
+    }
+  ]
+}

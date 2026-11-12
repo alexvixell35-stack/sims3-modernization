@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay;
 using Sims3.Gameplay.ActorSystems;
@@ -82,6 +83,7 @@ namespace Ts3Fixes
             if (act == 0) return;
             int[] c = PatchCounters();
             c[876]++;
+            if (sBhCrowd != null && sBhCrowd.ContainsKey(sim)) sBhCrowd[sim] = true; // crowd check: reached the stuck state
             Book b = BhBook(sim);
             if (act == 2) { b.PutBookInInventoryHandler(null, null); if (b.Parent != sim) c[877]++; }
             if (sBhLines++ < BookHandCore.kDiagLines)
@@ -105,22 +107,21 @@ namespace Ts3Fixes
                 + ", queued " + (next != null ? next.GetType().Name + (next.Autonomous ? " (autonomous)" : " (user)") : "none");
         }
 
-        // Called by BookCarryHook.StopHook around EA's StopUsingBook.
-        static string BhStopStart(Sim sim)
+        // Called by BookCarryHook.StopHook before EA's StopUsingBook. The diag check is armed here, not after the call: EA's
+        // RequestState("x", "Exit") waits for the clip, so when the clip never reaches event 100 the call does not return and a
+        // check armed after it never ran (no "still in hand" line in any run up to 2026-11-12).
+        static void BhStopStart(Sim sim)
         {
-            if (sim == sBhSim && sBhMode == "animstop")
+            bool armed = sim == sBhSim || (sBhCrowd != null && sBhCrowd.ContainsKey(sim));
+            if (armed) sBhStops++;
+            if (armed && sBhMode == "animstop")
             {
                 // repro stress (labelled): the next tick stops the Sim's clips while the read machine plays Exit
                 sBhInterrupts++;
                 Simulator.AddObject(new LoopTask(delegate { AnimationUtil.StopAllAnimation(sim); }));
             }
-            return ShortcutOn("bookhand") || ShortcutOn("bookhanddiag") ? BhStopContext(sim) : null;
-        }
-
-        static void BhStopEnd(Sim sim, string ctx)
-        {
-            if (sim == sBhSim) sBhStops++;
-            if (ctx == null || !BhStuck(sim)) return;
+            if (!ShortcutOn("bookhand") && !ShortcutOn("bookhanddiag")) return;
+            string ctx = BhStopContext(sim);
             Simulator.AddObject(new LoopTask(delegate
             {
                 int t0 = System.Environment.TickCount;
@@ -149,6 +150,7 @@ namespace Ts3Fixes
 
         public static object BookHandCheck(string arg)
         {
+            if (arg.StartsWith("crowd ")) return BhCrowdCheck(arg.Substring(6));
             string what = null;
             foreach (string w in new string[] { "begin", "read", "state", "arm animstop", "arm none", "stop", "probe", "cure", "expect off", "expect on" }) if (arg.StartsWith(w + " ")) what = w;
             if (what == null) return "bookhand <begin|read|state|arm animstop|arm none|stop|probe|cure|expect off|expect on> <full name>";
@@ -161,14 +163,7 @@ namespace Ts3Fixes
             }
             if (sBhSim != sim) throw new InvalidOperationException("bookhand " + what + ": no check armed on " + sim.FullName + " (begin first); armed: "
                 + (sBhSim == null ? "nobody" : sBhSim.FullName + ", destroyed " + sBhSim.HasBeenDestroyed + ", same id " + (sBhSim.ObjectId == sim.ObjectId)));
-            if (what == "read")
-            {
-                Book book = null;
-                foreach (Book b in sim.Inventory.FindAll<Book>(false)) { book = b; break; }
-                if (book == null) throw new InvalidOperationException("bookhand read: " + sim.FullName + " has no book in the inventory");
-                InteractionInstance ii = ReadBook.FromSimInventorySingleton.CreateInstance(book, sim, new InteractionPriority(InteractionPriorityLevel.High), false, true);
-                return sim.FullName + ": ReadBook queued " + sim.InteractionQueue.Add(ii) + " on \"" + book.Title + "\"";
-            }
+            if (what == "read") return BhRead(sim);
             if (what == "state")
             {
                 BhState s = new BhState();
@@ -222,6 +217,148 @@ namespace Ts3Fixes
             if (what == "expect off") return (sBhStuckProbes > 0 || seen > 0 ? "stuck state occurred; " : "stuck state not seen; ") + st;
             if (sBhStuckProbes > 0 || fixedN < seen) throw new InvalidOperationException("bookhand expect on: wrong outcome; " + st);
             return (seen > 0 ? "as expected; " : "N/A (not triggered); ") + st;
+        }
+
+        static string BhRead(Sim sim)
+        {
+            Book book = null;
+            foreach (Book b in sim.Inventory.FindAll<Book>(false)) { book = b; break; }
+            if (book == null) throw new InvalidOperationException("bookhand read: " + sim.FullName + " has no book in the inventory");
+            InteractionInstance ii = ReadBook.FromSimInventorySingleton.CreateInstance(book, sim, new InteractionPriority(InteractionPriorityLevel.High), false, true);
+            return sim.FullName + ": ReadBook queued " + sim.InteractionQueue.Add(ii) + " on \"" + book.Title + "\"";
+        }
+
+        // Crowd form (repro book-hand-fix-check, Rodney 2026-11-12: one Sim reaching the stuck state is enough), args
+        // "crowd <read N <household Sim>|state|stop|probe|expect off|expect on>":
+        //   "read N <name>": the named household Sim reads a book from the inventory (a stuck book from before put away first,
+        //            test cleanup) plus up to N non-household Sims at a bookshelf on their own home lot (bookcarry's crowd,
+        //            BcCrowdRead: never the active household, its lot or a selectable Sim). Arms the crowd, takes the counters.
+        //   "state": BhCrowdState; ready = reading with the book in hand and a carry machine.
+        //   "stop":  stress (labelled, not a player action, "plant"): cancels every crowd read; when EA's StopUsingBook returns
+        //            with the book already in the inventory (event 100 ran), BhStopAfter puts it back in the right hand. That is
+        //            EA's stuck state (book in hand, parented, Sim.CarryStateMachine null, which EA already set) after a read that
+        //            ended, so the read's own end runs EA's InteractionQueue.PutDownCarriedObjects on it at once, as in the natural
+        //            hits (the error at the next interaction end after a read). animstop is not used here: it left StopUsingBook
+        //            waiting in RequestState for good (bp-bookhand-fix-off 2026-11-12: 14 of 15 stuck still in ReadBook), so no
+        //            put-down ever ran.
+        //   "probe": which crowd Sims have a stuck book now (recorded; "stuck N of M").
+        //   A Sim counts as stuck when a probe finds it stuck or when a put-down met its stuck book (BhAt).
+        //   "expect off": throws unless >= 1 Sim was stuck and >= 1 put-down that throws reached a stuck book (bookhand_seen).
+        //   "expect on":  throws unless >= 1 Sim was stuck, seen >= 1, every seen put-down fixed and no Sim stuck now. Disarms.
+        public class BhCrowdState { public int sims, reading, ready, stuck, stops, seen, fixedN; public bool any; public string current; }
+
+        static Dictionary<Sim, bool> sBhCrowd; // armed Sims -> reached the stuck state (probe or put-down)
+        static Sim sBhHh;
+
+        // Called by BookCarryHook.StopHook after EA's StopUsingBook returned ("plant" stress, crowd check only).
+        static void BhStopAfter(Sim sim, Book book, bool putInInventory)
+        {
+            if (sBhMode != "plant" || sBhCrowd == null || !sBhCrowd.ContainsKey(sim)) return;
+            if (!putInInventory || book == null || book.Parent == sim || sim.CarryStateMachine != null || !sim.Inventory.Contains(book)) return;
+            if (!sim.Inventory.TryToRemove(book)) return;
+            book.ParentToSlot(sim, Sim.ContainmentSlots.RightHand);
+            sBhInterrupts++;
+        }
+
+        static object BhCrowdCheck(string arg)
+        {
+            int[] c = PatchCounters();
+            if (arg.StartsWith("read "))
+            {
+                string rest = arg.Substring(5);
+                int sp = rest.IndexOf(' ');
+                if (sp < 0) throw new InvalidOperationException("bookhand crowd read N <household Sim full name>");
+                Sim hh = BcSim(rest.Substring(sp + 1));
+                sBhSim = null; sBhMode = null; sBhStops = sBhInterrupts = sBhProbes = sBhStuckProbes = sBhCured = 0; sBhSeen0 = c[876]; sBhFixed0 = c[877];
+                string sum;
+                Dictionary<Sim, int> picked = BcCrowdRead(int.Parse(rest.Substring(0, sp)), out sum);
+                sBhCrowd = new Dictionary<Sim, bool>();
+                foreach (Sim s in picked.Keys) sBhCrowd[s] = false;
+                // test cleanup: any book in her hand first, with or without a carry machine. Baseline-BP loads Tiara holding a book
+                // with a carry machine; cancelling her BedSleep over it made EA queue PutInInventory, which failed and threw
+                // "left an object in the Sim's hand ... Attempting to put down that object failed" (bp-bookhand-fix-off 2026-11-12)
+                Book held = BhBook(hh);
+                if (held != null && held.Parent == hh) { held.PutBookInInventoryHandler(null, null); sBhCured++; }
+                hh.InteractionQueue.CancelAllInteractions();
+                string hr;
+                try { hr = BhRead(hh); sBhCrowd[hh] = false; sBhHh = hh; }
+                catch (Exception ex) { hr = ex.Message; sBhHh = null; } // the crowd still runs without the household Sim
+                return "crowd: " + sum + "; household " + hr + "; switch bookhand " + ShortcutOn("bookhand");
+            }
+            if (sBhCrowd == null) throw new InvalidOperationException("bookhand crowd " + arg + ": no crowd armed");
+            List<Sim> sims = new List<Sim>(sBhCrowd.Keys);
+            if (arg == "state")
+            {
+                BhCrowdState cs = new BhCrowdState();
+                Dictionary<string, int> cur = new Dictionary<string, int>();
+                foreach (Sim s in sims)
+                {
+                    cs.sims++;
+                    if (s.HasBeenDestroyed) continue;
+                    bool reading = s.CurrentInteraction is ReadBook;
+                    if (reading) cs.reading++;
+                    if (reading && s.CarryStateMachine != null && BhBook(s) != null) cs.ready++;
+                    if (BhStuck(s)) cs.stuck++;
+                    string n0 = s.CurrentInteraction != null ? s.CurrentInteraction.GetType().Name : "nothing";
+                    int n; cur.TryGetValue(n0, out n); cur[n0] = n + 1;
+                }
+                cs.stops = sBhStops; cs.seen = c[876] - sBhSeen0; cs.fixedN = c[877] - sBhFixed0;
+                cs.any = cs.ready > 0;
+                cs.current = "";
+                foreach (KeyValuePair<string, int> e in cur) cs.current += (cs.current.Length > 0 ? ", " : "") + e.Key + " " + e.Value;
+                return cs;
+            }
+            if (arg == "stop")
+            {
+                sBhMode = "plant";
+                int stopped = 0, inHand = 0;
+                foreach (Sim s in sims)
+                {
+                    if (s.HasBeenDestroyed || !(s.CurrentInteraction is ReadBook)) continue;
+                    if (BhBook(s) != null) inHand++;
+                    s.InteractionQueue.CancelAllInteractions();
+                    stopped++;
+                }
+                if (stopped == 0) throw new InvalidOperationException("bookhand crowd stop: no crowd Sim is reading");
+                return "crowd: " + stopped + " of " + sims.Count + " reads cancelled (" + inHand + " with the book in hand), plant armed";
+            }
+            if (arg == "probe")
+            {
+                sBhMode = null;
+                int stuck = 0;
+                string who = "";
+                foreach (Sim s in sims)
+                {
+                    if (s.HasBeenDestroyed || !BhStuck(s)) continue;
+                    stuck++; sBhCrowd[s] = true;
+                    who += (who.Length > 0 ? "; " : "") + BhWho(s);
+                }
+                sBhProbes++; sBhStuckProbes += stuck;
+                return "crowd: stuck " + stuck + " of " + sims.Count + (stuck > 0 ? ": " + who : "");
+            }
+            if (arg == "expect off" || arg == "expect on")
+            {
+                int stuckEver = 0, stuckNow = 0;
+                foreach (Sim s in sims)
+                {
+                    if (sBhCrowd[s]) stuckEver++;
+                    if (!s.HasBeenDestroyed && BhStuck(s)) stuckNow++;
+                }
+                int seen = c[876] - sBhSeen0, fixedN = c[877] - sBhFixed0;
+                bool hhStuck = sBhHh != null && sBhCrowd.ContainsKey(sBhHh) && sBhCrowd[sBhHh];
+                string st = "switch " + ShortcutOn("bookhand") + ", stuck " + stuckEver + " of " + sims.Count + " Sims (household Sim " + (sBhHh == null ? "not in the crowd" : hhStuck ? "stuck" : "not stuck")
+                    + "), stuck now " + stuckNow + ", stops " + sBhStops + ", stress interrupts " + sBhInterrupts + ", put-downs seen +" + seen + " fixed +" + fixedN + ", cured " + sBhCured;
+                sBhCrowd = null; sBhHh = null; sBhMode = null;
+                if (stuckEver == 0) throw new InvalidOperationException("bookhand crowd " + arg + ": no Sim reached the stuck state; " + st);
+                if (arg == "expect off")
+                {
+                    if (seen == 0) throw new InvalidOperationException("bookhand crowd expect off: no put-down that throws reached a stuck book; " + st);
+                    return "bug shown; " + st;
+                }
+                if (seen == 0 || fixedN < seen || stuckNow > 0) throw new InvalidOperationException("bookhand crowd expect on: wrong outcome; " + st);
+                return "as expected; " + st;
+            }
+            return "bookhand crowd <read N name|state|stop|probe|expect off|expect on>";
         }
     }
 }

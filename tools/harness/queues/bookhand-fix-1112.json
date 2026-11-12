@@ -1,0 +1,89 @@
+{
+  "note": "bookhand-fix-1112 (2026-11-12): does ts3fixes bookhand (kBookHand, BookHand.cs, docs/251; default OFF) fix EA's 'left an object in the Sim's hand with no carry state machine' (BookGeneral) once EA's put-down actually runs? Crowd repro book-hand-fix-check(-off): Tiara + up to 20 non-household readers; crowd stop uses the plant stress (labelled: book back in the hand after EA's StopUsingBook returned, carry machine null as EA set it), so each read's end runs EA's PutDownCarriedObjects on the stuck book (run 1 with animstop + Go Here: stuck 15 of 21 but StopUsingBook never returned, seen 0). quitJobs keeps Tiara home. Release pair rc1111d asi + ini; ts3fixes = rc1111c + the crowd check (ts3fixes.package.rc1111c-bhcrowd2, docs/data/builds.json; same tuning as rc1111c). OFF first, then ON. est ~10 min each. node tools/harness/queue.ts tools/harness/queues/bookhand-fix-1112.json --no-publish",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-bookhand-fix-off",
+      "note": "[est 10 min] Correctness, OFF arm: repro book-hand-fix-check-off. Pass: steps pass (crowd expect off: >= 1 Sim stuck and >= 1 put-down that throws met the stuck book), bookhand_seen>=1, bookhand_fixed 0. The 'no carry state machine' ScriptError is the case under study: scriptErrorsReport lists it (REPORT line, never a FAIL); the harness cannot require a ScriptError count, bookhand_seen (counted at the throwing call) stands in for it.",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "pinReason": "release pair rc1111d asi + ini (docs/data/builds.json, Sat 11-14 release); ts3fixes game-copy/ts3fixes.package.rc1111c-bhcrowd2 = rc1111c (454cfb69, same --on list, tuning 3bee114e) + the bookhand crowd check from feature/bookhand-fix-repro-1112 (TEST ONLY): rc1111c lacks the crowd commands; bookhand's fix code is the same as rc1111c",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c-bhcrowd2",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "no carry state machine",
+        "CarrySystem[:.]PutDownOn"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "quitJobs": true,
+          "repro": "book-hand-fix-check-off",
+          "fixesOn": "bookhanddiag",
+          "fixesOff": "bookhand",
+          "fixesRequire": "bookhand_seen>=1,bookhand_fixed<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-12 08:49:12"
+          ],
+          "noMatch": [
+            "prior log: ts3native 0.36.240 2026-11-12 08:19:49"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-bookhand-fix-on",
+      "note": "[est 10 min] Correctness, ON arm: repro book-hand-fix-check. Pass: steps pass (crowd expect on: >= 1 Sim stuck, seen >= 1, every seen put-down fixed, no Sim stuck at the end), bookhand_seen>=1 and bookhand_fixed>=1, 0 script errors (none 'no carry state machine'). bookhand acts on household Tiara too: EA bug fix, allowed for controlled Sims.",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "pinReason": "release pair rc1111d asi + ini (docs/data/builds.json, Sat 11-14 release); ts3fixes game-copy/ts3fixes.package.rc1111c-bhcrowd2 = rc1111c (454cfb69, same --on list, tuning 3bee114e) + the bookhand crowd check from feature/bookhand-fix-repro-1112 (TEST ONLY): rc1111c lacks the crowd commands; bookhand's fix code is the same as rc1111c",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c-bhcrowd2",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "quitJobs": true,
+          "repro": "book-hand-fix-check",
+          "fixesOn": "bookhand,bookhanddiag",
+          "fixesRequire": "bookhand_seen>=1,bookhand_fixed>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-12 08:49:12"
+          ],
+          "noMatch": [
+            "prior log: ts3native 0.36.240 2026-11-12 08:19:49"
+          ]
+        }
+      }
+    }
+  ]
+}

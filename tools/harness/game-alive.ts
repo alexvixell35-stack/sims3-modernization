@@ -389,8 +389,16 @@ export function lockWaits(file: string, read: typeof analyzeDump = analyzeDump):
   try { const a = read(file); for (const l of a.lines) console.log(`${stamp()} ${l}`); return a.summary; } catch (e) { return `lock waits: not read (${String(e).split('\n')[0]})`; }
 }
 
+// clock-stuck trip that gets a hang capture (pure, covered by --self-check): clock not natively paused and no dialog open
+// (rc1111d bookcarry 2026-11-11: native_paused false, pause_bits 0, one core busy, no stacks). No reply counts as running.
+export const stuckRunning = (cs: { native_paused?: boolean } | null, pd: { open?: boolean } | null) => cs?.native_paused !== true && pd?.open !== true;
+
 if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-check')) {
   const assert = (await import('node:assert')).strict;
+  assert.equal(stuckRunning({ native_paused: false }, { open: false }), true); // 2026-11-11 signature: capture
+  assert.equal(stuckRunning({ native_paused: true }, { open: false }), false); // paused: old behaviour
+  assert.equal(stuckRunning({ native_paused: false }, { open: true }), false); // dialog holds the clock
+  assert.equal(stuckRunning(null, null), true); // no reply: capture
   const st = { last: null as string | null, misses: 0 }, smp = (mark: string, running = true, answering = true) => ({ running, answering, mark });
   assert.equal(stallStep(st, smp('1|true|900|10|')), ''); // first sample is progress
   assert.equal(stallStep(st, smp('1|true|900|10|')), ''); // one miss

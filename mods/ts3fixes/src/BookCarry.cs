@@ -28,10 +28,9 @@ namespace Ts3Fixes
             {
                 StateMachineClient before = null;
                 try { before = Actor != null ? Actor.CarryStateMachine : null; } catch (Exception) { }
-                string bhCtx = null;
-                try { if (Actor != null) bhCtx = BhStopStart(Actor); } catch (Exception) { } // bookhand logging (BookHand.cs, docs/251)
+                try { if (Actor != null) BhStopStart(Actor); } catch (Exception) { } // bookhand logging (BookHand.cs, docs/251)
                 bool r = StopOrig(Actor, smcRead, bPutInInventory);
-                try { if (Actor != null) BhStopEnd(Actor, bhCtx); } catch (Exception) { }
+                try { if (Actor != null) BhStopAfter(Actor, (Book)(object)this, bPutInInventory); } catch (Exception) { } // bookhand repro stress (BookHand.cs)
                 try
                 {
                     if (BookCarryCore.Dropped(before, smcRead, Actor.CarryStateMachine))
@@ -182,47 +181,10 @@ namespace Ts3Fixes
         {
             if (arg.StartsWith("read "))
             {
-                int max = int.Parse(arg.Substring(5));
-                Household active = Household.ActiveHousehold;
-                Lot activeLot = active != null ? active.LotHome : null;
-                Dictionary<Bookshelf, int> perShelf = new Dictionary<Bookshelf, int>();
-                Dictionary<Sim, int> crowd = new Dictionary<Sim, int>();
-                List<string> lots = new List<string>();
-                int refused = 0;
-                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
-                {
-                    if (crowd.Count >= max) break;
-                    SimDescription sd = s.SimDescription;
-                    Lot home = s.LotHome;
-                    if (sd == null || s.HasBeenDestroyed || s.IsSelectable || s.Household == null || s.Household == active || home == null || home == activeLot) continue;
-                    if (!sd.IsHuman || !sd.TeenOrAbove || s.Parent != null) continue;
-                    Bookshelf shelf = null;
-                    foreach (Bookshelf b in home.GetObjects<Bookshelf>())
-                    {
-                        int n; perShelf.TryGetValue(b, out n);
-                        if (n < 2 && b.Inventory != null && b.Inventory.Find<BookGeneral>() != null) { shelf = b; break; }
-                    }
-                    if (shelf == null) continue;
-                    s.InteractionQueue.CancelAllInteractions();
-                    foreach (CommodityKind k in new CommodityKind[] { CommodityKind.Hunger, CommodityKind.Bladder, CommodityKind.Energy, CommodityKind.Hygiene, CommodityKind.Social, CommodityKind.Fun })
-                        if (s.Motives != null && s.Motives.HasMotive(k)) s.Motives.SetMax(k);
-                    Vector3 spot = shelf.Position + shelf.ForwardVector * 1.2f;
-                    float dx = s.Position.x - spot.x, dz = s.Position.z - spot.z;
-                    if (s.LotCurrent != home || dx * dx + dz * dz > 9f)
-                    {
-                        // EA's own teleport, as the agent's setup_sims (a bare SetPosition leaves LotCurrent on the old lot)
-                        TerrainInteraction tp = new Terrain.TeleportMeHere.Definition(false).CreateInstance(Terrain.Singleton, s, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true) as TerrainInteraction;
-                        typeof(TerrainInteraction).GetField("Destination", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).SetValue(tp, spot);
-                        if (!s.InteractionQueue.Add(tp)) { refused++; continue; }
-                    }
-                    if (!s.InteractionQueue.Add(Bookshelf_ReadSomething.Singleton.CreateInstance(shelf, s, new InteractionPriority(InteractionPriorityLevel.High), false, true))) { refused++; s.InteractionQueue.CancelAllInteractions(); continue; }
-                    crowd[s] = 0;
-                    int had; perShelf.TryGetValue(shelf, out had); perShelf[shelf] = had + 1;
-                    if (!lots.Contains(home.Name)) lots.Add(home.Name);
-                }
-                if (crowd.Count == 0) throw new InvalidOperationException("bookcarry crowd read: no non-household Sim with a bookshelf (with a book) on its home lot; refused " + refused);
+                string sum;
+                Dictionary<Sim, int> crowd = BcCrowdRead(int.Parse(arg.Substring(5)), out sum);
                 sBcCrowd = crowd; sBcSim = null; sBcLast = null; sBcSeen = 0; sBcEnded = 0;
-                return "crowd: " + crowd.Count + " Sims at " + perShelf.Count + " shelves on " + lots.Count + " lots (" + string.Join(", ", lots.ToArray()) + "), refused " + refused;
+                return "crowd: " + sum;
             }
             if (sBcCrowd == null) throw new InvalidOperationException("bookcarry crowd " + arg + ": no crowd armed");
             if (arg == "state")
@@ -271,6 +233,54 @@ namespace Ts3Fixes
                 return BcExpect(arg, "crowd " + hit + " of " + sims + " Sims dropped", seen, ended, m);
             }
             return "bookcarry crowd <read N|state|stop|expect left|expect ended>";
+        }
+
+        // "crowd read N" (also bookhand's crowd check, BookHand.cs): up to max non-household Sims sent to read at a bookshelf on
+        // their own home lot (see BcCrowdCheck). Returns them (value 0); throws when none qualifies.
+        static Dictionary<Sim, int> BcCrowdRead(int max, out string summary)
+        {
+            {
+                Household active = Household.ActiveHousehold;
+                Lot activeLot = active != null ? active.LotHome : null;
+                Dictionary<Bookshelf, int> perShelf = new Dictionary<Bookshelf, int>();
+                Dictionary<Sim, int> crowd = new Dictionary<Sim, int>();
+                List<string> lots = new List<string>();
+                int refused = 0;
+                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                {
+                    if (crowd.Count >= max) break;
+                    SimDescription sd = s.SimDescription;
+                    Lot home = s.LotHome;
+                    if (sd == null || s.HasBeenDestroyed || s.IsSelectable || s.Household == null || s.Household == active || home == null || home == activeLot) continue;
+                    if (!sd.IsHuman || !sd.TeenOrAbove || s.Parent != null) continue;
+                    Bookshelf shelf = null;
+                    foreach (Bookshelf b in home.GetObjects<Bookshelf>())
+                    {
+                        int n; perShelf.TryGetValue(b, out n);
+                        if (n < 2 && b.Inventory != null && b.Inventory.Find<BookGeneral>() != null) { shelf = b; break; }
+                    }
+                    if (shelf == null) continue;
+                    s.InteractionQueue.CancelAllInteractions();
+                    foreach (CommodityKind k in new CommodityKind[] { CommodityKind.Hunger, CommodityKind.Bladder, CommodityKind.Energy, CommodityKind.Hygiene, CommodityKind.Social, CommodityKind.Fun })
+                        if (s.Motives != null && s.Motives.HasMotive(k)) s.Motives.SetMax(k);
+                    Vector3 spot = shelf.Position + shelf.ForwardVector * 1.2f;
+                    float dx = s.Position.x - spot.x, dz = s.Position.z - spot.z;
+                    if (s.LotCurrent != home || dx * dx + dz * dz > 9f)
+                    {
+                        // EA's own teleport, as the agent's setup_sims (a bare SetPosition leaves LotCurrent on the old lot)
+                        TerrainInteraction tp = new Terrain.TeleportMeHere.Definition(false).CreateInstance(Terrain.Singleton, s, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true) as TerrainInteraction;
+                        typeof(TerrainInteraction).GetField("Destination", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).SetValue(tp, spot);
+                        if (!s.InteractionQueue.Add(tp)) { refused++; continue; }
+                    }
+                    if (!s.InteractionQueue.Add(Bookshelf_ReadSomething.Singleton.CreateInstance(shelf, s, new InteractionPriority(InteractionPriorityLevel.High), false, true))) { refused++; s.InteractionQueue.CancelAllInteractions(); continue; }
+                    crowd[s] = 0;
+                    int had; perShelf.TryGetValue(shelf, out had); perShelf[shelf] = had + 1;
+                    if (!lots.Contains(home.Name)) lots.Add(home.Name);
+                }
+                if (crowd.Count == 0) throw new InvalidOperationException("bookcarry crowd read: no non-household Sim with a bookshelf (with a book) on its home lot; refused " + refused);
+                summary = crowd.Count + " Sims at " + perShelf.Count + " shelves on " + lots.Count + " lots (" + string.Join(", ", lots.ToArray()) + "), refused " + refused;
+                return crowd;
+            }
         }
     }
 }
