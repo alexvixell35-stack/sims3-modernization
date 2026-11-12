@@ -143,8 +143,14 @@ the step the override ends with.
 - Combined run (2026-11-12, phase-20261112-0414, all 14 measured switches on from the start; story, Buy navigation,
   Build, CAS clothing, household switch, family tree, story, Buy, CAS): 0 errors in every fix's error counter, 0
   script errors, no new crash log. Custom-control entries went 78 → 115 over the whole tour, season listeners stayed
-  flat (126 → 131) while instantiated Sims went 53 → 83. Left: InventoryItemWin (+8 in the Build phase, +2 per Buy
-  navigation) and the CAS icons that detach after `casexitsweep` (+5 on one clothing visit, +20 on the next).
+  flat (126 → 131) while instantiated Sims went 53 → 83. The InventoryItemWin growth in that run (+8 in Build, +2 per
+  Buy navigation) is the sell panel's drag cursors: with `sellcursorleak` added, two Build and two Buy visits stayed
+  flat at 73 entries (phase-20261112-0439). Left: the CAS icons that detach after `casexitsweep` (+5 on one clothing
+  visit, +20 on the next).
+- Buy room tabs: 6 detached TabControl entries appeared once, after a Buy navigation visit (phase-20261112-0439),
+  and did not come back in 3 more visits with room / collection / store catalog switches (phase-20261112-0452, flat
+  at 78). Not reproduced; BuyController.SelectCatalog rebuilds tabs with TabContainer.RemoveAllTabs (DestroyChild:
+  RemoveChild, then Dispose) [verified IL].
 - Celebrity alarms (ResetCallOverPaparazziCount / FalselyAccuseCheck are re-added by CelebrityManager.OnStartup on
   every Sim instantiation): not a leak, the count equals the instantiated Sims (62 / 82) [measured].
 - CAS icons: answered by `casexitsweep` (above). The census now reads the native parent handle: the managed
