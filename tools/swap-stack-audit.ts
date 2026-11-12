@@ -33,6 +33,9 @@ const TARGET_VARS: Record<string, string> = {
   'AutShadow.cs:arcade': 'Sims3.Store.Objects.BBallArcade+BBallArcadeBall', 'AutShadow.cs:skewer': 'Sims3.Store.Objects.ChocolateFountain+ChocolateFountainSkewer',
   'AutShadow.cs:cone': 'Sims3.Store.Objects.IceCreamMaker+IceCreamCone', 'AutShadow.cs:prop': 'Sims3.Store.Objects.GardenStation+GardenStationProp',
   'AutShadow.cs:drag': 'Sims3.Gameplay.UI.LiveDragHelperModel', 'AutShadow.cs:iop': 'Sims3.Gameplay.Autonomy.InteractionObjectPair',
+  'AutShadow.cs:ce': 'Sims3.Gameplay.TimeTravel.CauseEffectService', 'AutShadow.cs:cab': 'Sims3.Gameplay.Objects.Counters.Cabinetry',
+  'AutShadow.cs:swing': 'Sims3.Gameplay.Objects.Environment.SwingSet', 'AutShadow.cs:stall': 'Sims3.Gameplay.Objects.Pets.BoxStall',
+  'AutShadow.cs:sect': 'Sims3.Gameplay.Objects.Seating.ChairSectional', 'AutShadow.cs:cp': 'Sims3.Gameplay.Actors.Sim+CallPet+Definition',
   'ErrorTrapSpread.cs:inv': 'mod:ErrorTrap', 'OverwatchNotice.cs:reset': 'mod:Overwatch', 'OverwatchProbe.cs:sc': 'mod:Overwatch',
   'HitchCause.cs:sHcTimer': 'AlarmManager+Timer', 'HitchCause.cs:simReset': 'mod:Overwatch', 'HitchCause.cs:inst': 'mod:Overwatch', 'HitchCause.cs:cp': 'mod:Overwatch', 'HitchCause.cs:place': 'mod:Overwatch', 'OverwatchSpread.cs:sOwType': 'mod:Overwatch', 'OverwatchSpread.cs:alarmBase': 'mod:Overwatch', 'OverwatchStuck.cs:simEx': 'mod:Overwatch', 'OverwatchStuck.cs:simTypes': 'mod:Overwatch',
 };

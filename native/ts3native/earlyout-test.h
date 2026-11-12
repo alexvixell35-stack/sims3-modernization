@@ -155,7 +155,7 @@ static void TestEarlyOut() {
     static_assert(offsetof(Ts3nCounters, eoMode) == 0x3260 && offsetof(Ts3nCounters, eoProvWhy) == 0x3284 &&
                   offsetof(Ts3nCounters, eoSlowSaved) == 0x32B0, "counters v78 layout (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, eoAct) == 0x3664 && offsetof(Ts3nCounters, eoShadowUs) == 0x3684 &&
-                  offsetof(Ts3nCounters, eoActRefused) == 0x36A4 && offsetof(Ts3nCounters, eoActTie) == 0x36A8 && sizeof(Ts3nCounters) == 6112 * 4,
+                  offsetof(Ts3nCounters, eoActRefused) == 0x36A4 && offsetof(Ts3nCounters, eoActTie) == 0x36A8 && sizeof(Ts3nCounters) == 6116 * 4,
                   "counters v86 layout after v85 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     QueryPerformanceFrequency(&g_qpf);

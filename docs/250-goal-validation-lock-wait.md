@@ -166,7 +166,7 @@ These shares are [inferred] from the hitch attribution. The moved-wait rule mean
 - Expected: the QL busy part for sure and most of the tripwire part, **0.6-2 ms/s**, worst 201 ms -> about 1 ms when a retry succeeds [inferred]. For H4 the same helper covers only `gvFb_1/_4` (1-4 calls per run), which is negligible.
 - Effort ~30-45 min + selftest; measured inside the Part A1 job (both on in one load, `--ab steerretry`).
 
-## 9. Build order and repro plan (not built)
+## 9. Build order and repro plan (built 2026-11-08, see §10)
 
 0. REA, with no timing job running: `procedure_callers` for `0x759B20`, `0x75AFA0` and `0x751FF0`, to confirm the sim callers are plan paths only (I-453-2).
 1. Part 0 + `SrRetry` (one native build).
@@ -195,3 +195,12 @@ These shares are [inferred] from the hitch attribution. The moved-wait rule mean
 | `sv-h4-attr-natural` | the same on SV (watchdog share 45%) | 10 min | as above |
 
 Then B2's verify-shortcut run (unseen route fallback, the world that fires it), and B1's shadow job only if its gate passes.
+
+## 10. Built (2026-11-08, pair `g2pair1108c`, ts3native 0.36.195, branch `feature/h4-goalvalid-a1`; NOT RUN)
+
+**Step 0, caller list (I-453-2) [verified, Ghidra `tools/ghidra/CallerTree` on a copy of TS3W.exe with no timing job running].** `0x759B20` has two callers: `0x75AFA0` (site `0x75B5AC`) and `0x75B610` (sites `0x75BD86`), and both are reached only from `0x75BE60` (sites `0x75C03D`, `0x75C246`, `0x75C2B8`), whose only reference is the vtable slot at `0x100424C`. `0x751FF0` is called only from `Route_PlanCommon 0x7606E0` (site `0x76099F`), which comes from `Route_StartPointsFromPosition` (`IC_Route_Plan`, `IC_Route_Replan`) and `Route_StartPointsBuild` (`IC_Route_PlanFromPoint`, `IC_Route_ReplanFromPosition`). So the sim callers are plan paths only. New: `0x75B610` is a second validator caller under `0x75BE60` that this doc did not list. The link `0x75BE60` <- `0x751FF0` goes through the vtable (docs/105 §6) [inferred from there, not a direct xref].
+
+- **Part 0 `gvattr`** (native v174 0x5E4C-0x5E93, ini `[GoalValidRO] Attr=0`, default off): as §7.0. ts3fixes sends class + scope on UserDiag op 35 (`H4Core.SrcClass` / `Scope`), `GvaPlanEnd` at op 12 books the later take. Selftests `TestGvAttr`, `h4core`.
+- **H7 `steerretry`** (native v175 0x5E94-0x5EBF, ini `[SteerRO] Retry=0`, default off): as §8, counters named `srrN/srrOk/srrFb/srrFbWaitUs[2]`, `srrUs`, `srrMaxUs` (not `steerRetry*`). Two sites per array: 0 steering `0x85FE10`, 1 the EditPath goal gather `0x85F6CB` (`0x82F0B0` from `RouteFollow_EditPath 0x85F5A0`), both under the one `LocoHook` clone; a retry is booked by the clone phase that failed, the fallback wait by the `+0x918` key (both arms). The script-side EditPath waits (`OnAboutToStartFollowingRoute` / `AsyncWait`, `EditPathForRoute 0x85FF30`, the ~64 hitches >= 200 ms of the 11-07 gate2 runs) are not under this hook, so `steerretry` does not reach them. Selftest `TestSteerRO`.
+- **Part A1 `watchdogasync`** (ts3fixes slots 872-875 `wd_a1_sent`, `wd_a1_started`, `wd_a1_refused`, `wd_a1_ticks`, default off). Deviation from §7.1: no new native kind. The check's plan goes out as an **own START** from the watchdog task (`RouteBackoff.cs OwnerTaskSlot` 872, the `stuckcheckown` path); native `AsyncStart` takes an own START from a non-Sim task (refusals LOS / NoYield / M1 / Running / QueueFull only), and KindDeadlines sees the plan's scope as for today's sync check. Order `H4Core.WdRoute` (§7.4): cache or no job -> sync; job holds the lock -> A1 when on and ts3native would start it (`HcWould` q 1, 5, 7 and the task may yield), else watchdoglockskip if on, else sync. Household, selected and unknown-scope Sims never reach A1 (selftest `h4core`, all 32 combinations). A START refused after the pre-check (queue full) runs that check sync: `wd_a1_sent - wd_a1_started`.
+- Repro `ip-watchdog-lockwait-loop` and queue `tools/harness/queues/h4-goalvalid.json` as §9 (natural jobs flip `watchdogasync,steerretry` together).

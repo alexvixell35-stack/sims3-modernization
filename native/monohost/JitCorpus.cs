@@ -923,6 +923,51 @@ namespace MonoHostTest
             return s;
         }
     }
+    public static class JitKCL
+    {
+        public static int Fin;
+        static int H(int s, object[] a) { for (int i = 0; i < a.Length; i++) s = s * 31 + (a[i] == null ? 1 : a[i] is string ? ((string)a[i]).Length + 7 : a[i].GetHashCode()); return s; }
+        static int H(int s, int[] a) { for (int i = 0; i < a.Length; i++) s = s * 31 + a[i]; return s; }
+        static int E(int s, Exception e) { string t = e.GetType().FullName + "|" + e.Message; for (int i = 0; i < t.Length; i++) s = s * 31 + t[i]; return s; }
+        static int Thrower(int k) { if (k % 3 == 1) throw new ArgumentException("k" + k); return k * 2; }
+        static int CatchIn(int[] a, int i) { try { return a[i] + Thrower(i); } catch (IndexOutOfRangeException) { return -1; } finally { Fin++; } }
+        static int Outside(int[] a, int i) { int v = Thrower(i + 1); try { v += a[i]; } catch (NullReferenceException) { v = -2; } return v; }
+        static int Rethrow(int i) { try { return Thrower(i); } catch (ArgumentException) { Fin += 10; throw; } }
+        static int Filtered(int i) { try { return Thrower(i); } catch (InvalidOperationException) { return -3; } }
+        // Array.Copy's slow loops: object[] holding a string to int[] (InvalidCastException from its catch), long[] to int[]
+        // (ArrayTypeMismatchException), object[] to string[], int[] to long[] (widening, no throw), string[] to object[]
+        public static int Copies(int n)
+        {
+            int s = 0; object[] o = new object[5], so = new object[4]; int[] x = new int[5]; long[] l = new long[5]; string[] t = new string[4];
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < 5; j++) { o[j] = (i + j) % 4 == 3 ? (object)"s" : (object)(i * 5 + j); l[j] = i * 7 + j; x[j] = 0; }
+                for (int j = 0; j < 4; j++) t[j] = (j & 1) == 0 ? "a" : null;
+                try { Array.Copy(o, 0, x, 0, 5); } catch (Exception e) { s = E(s, e); }
+                s = H(s, x);
+                try { Array.Copy(l, 1, x, 0, 3 + i % 2); } catch (Exception e) { s = E(s, e); }
+                try { Array.Copy(o, x, 4); } catch (Exception e) { s = E(s, e); }
+                try { Array.Copy(o, 1, t, 0, 3); } catch (Exception e) { s = E(s, e); }
+                try { Array.Copy(x, 0, l, 0, 5); Array.Copy(t, 0, so, 0, 4); Array.Copy(so, 1, so, 0, 3); } catch (Exception e) { s = E(s, e); }
+                s = H(H(s, x), so) * 31 + (int)l[i % 5];
+            }
+            return s;
+        }
+        public static int User(int n)
+        {
+            int s = 0; int[] a = new int[4];
+            Fin = 0;
+            for (int i = 0; i < n; i++)
+            {
+                a[i % 4] = i;
+                s = s * 31 + CatchIn(a, i % 6) + Fin;
+                try { s = s * 31 + Outside(i % 5 == 4 ? null : a, i % 4); } catch (Exception e) { s = E(s, e); }
+                try { s = s * 31 + Rethrow(i); } catch (Exception e) { s = E(s, e) + Fin; }
+                try { s = s * 31 + Filtered(i); } catch (Exception e) { s = E(s, e); }
+            }
+            return s;
+        }
+    }
     public struct JitKey : IEquatable<JitKey>
     {
         public int K;
@@ -937,7 +982,7 @@ namespace MonoHostTest
 
     public static class JitCorpus
     {
-        public const int Count = 239;
+        public const int Count = 241;
         static readonly int[] I4 = { 0, 1, -1, 2, -2, 3, 7, -7, 16, 31, 32, 33, 0x7FFF, 0x8000, 0xFFFF, 0x10000, 0x3FFFFFFF, 0x40000000, int.MaxValue, int.MinValue, int.MinValue + 1, int.MaxValue - 1 };
         static readonly long[] I8 = { 0L, 1L, -1L, 2L, -2L, 7L, 0x7FFFFFFFL, 0x80000000L, -0x80000000L, 0xFFFFFFFFL, 0x100000000L, long.MaxValue, long.MinValue, long.MinValue + 1, -3037000500L, 3037000500L };
         static readonly int[] SH = { 0, 1, 7, 15, 16, 31, 32, 33, 63, 64, 65, -1, int.MinValue };
@@ -2599,6 +2644,16 @@ namespace MonoHostTest
                 case 238: // JitKLS.Own (LDSFLDA statics of the compiled class, no static ctor)
                 {
             try { h = M(h, JitKLS.Own(20)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 239: // JitKCL.Copies (C5 Array.Copy try / catch: object[] with a string to int[], long[] to int[], object[] to string[], widening, references)
+                {
+            try { h = M(h, JitKCL.Copies(24)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 240: // JitKCL.User (C5 lazy callees with clauses: catch inside, throw outside a try, rethrow, finally, an uncaught type)
+                {
+            try { h = M(h, JitKCL.User(30)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
             }

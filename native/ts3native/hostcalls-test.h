@@ -25,7 +25,7 @@ static void TestHostCalls() {
                   offsetof(Ts3nCounters, hcOtherCalls) == 0x40DC && offsetof(Ts3nCounters, hcDoorQ) == 0x40E0 &&
                   offsetof(Ts3nCounters, hcDoorRepeatJobWaitUs) == 0x40E8 && offsetof(Ts3nCounters, hcDoorFull) == 0x40F8 &&
                   offsetof(Ts3nCounters, dmHits) == 0x4100 && offsetof(Ts3nCounters, dmFb) == 0x4108 &&
-                  offsetof(Ts3nCounters, dmMismatch) == 0x411C && sizeof(Ts3nCounters) == 6112 * 4,
+                  offsetof(Ts3nCounters, dmMismatch) == 0x411C && sizeof(Ts3nCounters) == 6116 * 4,
                   "counters v96 layout after v93 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);

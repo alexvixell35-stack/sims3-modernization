@@ -28,6 +28,7 @@ struct HaFrame {
 extern "C" __declspec(dllexport) HaFrame ts3native_hitchattr = {2, 0, {0, 0, 0, 0}, 0, 0, 0, 0, 0, 0, 0, 0};
 
 static void HaNote(DWORD key, LONG us, int cls) {
+    if (cls != HA_OTHERLOCK && us > 0 && __readfsdword(0x24) == g_async.owner) g_w918Us += us, g_w918Key = key;  // docs/250 meter (TEB thread id)
     if (!ts3native_hitchattr.enabled || us <= 0 || GetCurrentThreadId() != g_async.owner) return;
     HaFrame& f = ts3native_hitchattr;  // the owner thread only (the reader zeroes it on the same thread)
     f.us[cls] += us;

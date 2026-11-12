@@ -185,7 +185,7 @@ Counters (registry rows 146-155): 146-148 environment calls classified / unseen 
 
 With all switches off the hooks cost one switch lookup per call (2 high-LOD Sims per tick at most) and call the original.
 
-## 5. Queue (not run): `tools/harness/queues/unseen-script-throttle-ab.json`
+## 5. Queue (ran 2026-11-01, readout §9): `tools/harness/queues/unseen-script-throttle-ab.json`
 
 | Job | What | Pass / read |
 |---|---|---|
@@ -217,3 +217,27 @@ Data: `clean-night-0.2.0` 2026-10-21 `sv-unseen-play-offfirst` / `-onfirst` (`-6
 **What remains [inferred, not verified]:** the frames are the routing class (sync plans and `+0x918` waits, docs/134, docs/143): with the switches on, Sims' needs and environment move in steps, so autonomy picks and therefore route plans happen at other times and places, and the seeded runs diverge after the first skipped call. Which switch drives it cannot be told: the three were only measured together. Next: one SV pair per switch (`tools/harness/queues/scriptfix-ab.json`, `sv-unseen{motives,env,broadcast}-*`). No throttle rule was changed for this.
 
 **Built (guard + proof, behind `unseenmotives`, ts3fixes):** unseen motive catch-ups are capped at `UnseenMath.kCatchUpsPerTick` = 4 per sim tick (`TickCap`); one over the cap waits a tick (counted as skipped) unless its gap reached `kHardGapMin` = 45 sim-minutes (under the 60-minute auto-satisfy switch). Counters (registry): [225] most catch-ups in one tick, [226] held a tick by the cap, [227] longest catch-up call µs (agent `unseen_catchup_max_tick`, `unseen_catchup_held`, `unseen_catchup_max_us`). Selftest `tools/selftest/unseen` `CatchUpCap`: 40 Sims due together run 4 per tick, all within 10 ticks, none lost, a forced one runs over the cap. Day job `sv-unseen-verify` (5 min, counters: skips > 0, `unseen_catchup_max_tick <= 4`, `unseen_catchup_max_us < 20000`). Ledger docs/51 §218: I-218-3, I-218-4.
+
+## 9. Readout of the 2026-11-01 A/B queue against G-T0..G-T3 (2026-11-12, existing data, no new run)
+
+Data: `docs/data/results/2026-11-01-queue-unseen-script-throttle-ab.md` (10 rows, build 2ed35a54, ts3native 0.36.149 `rel025a`, BP `Baseline-BP-Spring`, seed 12345, 15-min `--ab` runs with 2-min slices, `unseenprobe` on). Numbers re-derived from `probe-out/profile/unseen-script-throttle-ab-2026-11-01-*`: sim ms/s per arm with `node tools/harness/arm-ms.ts <prefix>` (script + route + animPose + locomotion, warm-up and 15 s after each switch out), it/s and hitches with `hitch-ab.ts`, counters from `<tag>-ab-fixes.jsonl` (last minus first row).
+
+**Validity [measured].** All 10 jobs PASS (exit 0, no crash, save hashes unchanged), but every row is `timing: invalid (noise medium)`: other apps used 12.5-14.5% of the game CPUs. The order effect is larger than any switch effect: in every single-switch pair the arm that ran in the off-first job's "on" slices was slow (it/s 40.7-43.6 vs 46.3-48.9 elsewhere), so on - off flips sign or size between the two orders. Per-run noise in sum ms/s, taken as the gap between the two orders' on - off, is 5-14 ms/s.
+
+**G-T0 share [measured, counters 146-151].** Unseen share of high-LOD calls on BP: environment `unseen_env_unseen / unseen_env_calls` = 24 / 13,500 = **0.18%** (other runs 0.2%), motives `unseen_motive_unseen / unseen_motive_calls` = 960 / 33,573 = **2.9%** (1,104-1,472 of ~35,300 in the other runs). Both below the ~5% G-T2 threshold, so §6 says skip their A/B; the pairs ran anyway and confirm it.
+
+| Switch (gate) | Sum ms/s on - off: off-first / on-first / pair mean | Script ms/s pair (off -> on) | it/s pair mean | Switch active? | Correctness | Verdict |
+|---|---|---|---|---|---|---|
+| `unseenbroadcast` (G-T1) | +9.0 / -1.3 / **+3.8 (worse)** | 12.2 -> 12.1 | 46.5 -> 45.8 (-1.5%) | yes: 412k-491k unseen pulses skipped, 28k-33k run | stuck 0 / 0; max iteration 212 -> 431 ms pair (2 iterations >= 500 ms in the off-first on arm, < 10 events: no verdict) | **fail**: no gain beyond noise. The script column does not move, so the 1-in-16 rule saves nothing measurable on top of the shared 1-in-4 rule on BP [inferred: the ~4-8 ms/s estimate of §2.1 does not show] |
+| `unseenenv` (G-T2) | +16.7 / +2.8 / **+9.7 (worse)** | 11.8 -> 11.2 | 46.7 -> 42.9 (-8%, order effect) | barely: 1-4 calls skipped per 15-min run | stuck 0 / 0 | **fail / not applicable**: 0.18% share, the switch is close to a no-op; the ms/s change is noise |
+| `unseenmotives` (G-T2) | +4.5 / +1.7 / **+3.1 (worse)** | 12.5 -> 11.7 | 48.8 -> 44.4 (-9%, order effect) | yes: 418-529 updates skipped of ~1,100-1,260 unseen; catch-up max 2 per tick, max 12.0 ms | stuck 0 / 0; `unseen_motive_critical` 0 | **fail**: script -0.8 ms/s at most, buried in noise |
+| crowd, all three (G-T3) | -1.3 / -6.1 / **-3.7 (better, -3%)** | 9.4 -> 9.5 | 215.6 -> 219.6 (+1.8%) | yes (broadcast 97k-151k skipped, motives 127-138) | stuck 1 (off-first) / 2 (on-first) runs, arm not recorded; iterations >= 200 ms 4.0 -> 0.0 per 10 min | **inconclusive**: the gain is in locomotion (-4.5 ms/s), which none of the three switches touches, and the script column is flat; timing invalid |
+| needs, all three 20 min (G-T3) | - | - | - | - | PASS, stuck 0, no crash | **pass** (correctness only) |
+
+**Household and selected Sims [verified, code].** `UnseenThrottle.cs` l.74 (`SimUnseen`): `IsSelectable` or active-household Sims are never unseen, so all three switches leave controlled Sims at vanilla; this readout found no correctness problem.
+
+**Recommendation (Rodney decides; no default changed).** Shipping rule: default ON needs a consistent 3-5 ms/s gain plus correctness. None of the three meets it:
+- `unseenbroadcast`: **OFF** (keep opt-in). Correct and active, but no ms/s gain in either order; per the one-round park rule, park it.
+- `unseenenv`: **OFF**, park: 0.18% unseen share on BP leaves nothing to save (a looser classifier, §7, would be a new design with visible-area risk).
+- `unseenmotives`: **OFF**, park: 2.9% share, script saving <= 0.8 ms/s.
+- No rerun of these pairs: even a clean night cannot turn a <= 1 ms/s script-column change into the 3-5 ms/s bar. The crowd pair's -3.7 ms/s is not a reason to rerun the bundle, since it sits in a stage the switches do not reach. Later data with these switches in bundles is in `docs/data/results/2026-11-02-queue-throttle-ms.md`; this section covers only the 2026-11-01 queue.

@@ -1,5 +1,5 @@
 {
-  "note": "jit-exits: correctness gate for pair monojit1108c (docs/537 §20: VtOps B1, CallExit A5b, NewVt B5, game list C2/C2b) as one bundle (Rodney 2026-11-08: compiler gains are not measured per piece). No timing. Order: (1) bp-jit-exits-smoke (all on, stops the queue on FAIL); (2) bp/ip/sv-jit-exits-capture (15 min each, Mode=1 Capture=1, all switches on); (3) host replay between the jobs, queue.ts has no host step: node tools/jit-replay.ts --capture probe-out/jit-capture-<w>-cint.jitcap --out probe-out/jit-capture-<w>-cint.txt --summary, then with MONOHOST_JITINLINE=2 MONOHOST_JITWIDE=1 MONOHOST_JITVTOPS=1 MONOHOST_JITCALLEXIT=1 MONOHOST_JITNEWVT=1: node tools/jit-replay.ts --run probe-out/jit-capture-<w>-cint.txt --mode verify --lazy; gate 0 differ, 0 faulted, MISMATCH 0 (one rerun on the known host rebuild flake), else stop before (4); (4) bundle on vs off per world (bp/ip/sv-jit-exits-bundle-on/off, Mode=2 verify, jit set as jit-batch.json). Pass per bundle job: no crash, 0 'jit verify MISMATCH' (logForbid), scriptErrorsMax 0, >= 1 'jit: compiled' and the OK line reading back VtOps, CallExit and NewVt (logRequire), jitLazyCalls >= 1000, jitMismatch 0, jitFaults 0 (nativeRequire). C0 count arms (bp/ip/sv-jit-exits-count, pair monojit-count1108, ts3native 0.36.206): bundle on + [MonoJit] Count=1, a measurement run only (an inc per compiled position and exit, so never a timing arm); pass = the bundle-on gates + OK line with Count=1 + >= 1 jitcount: end line; read with node tools/jit-hot.ts --game-count <job ts3native.log> --out <host-style.log>, then jit-hot.ts --count / jit-exit-census.ts --census on that file. Run after the merge: --only bp-jit-exits-count,ip-jit-exits-count,sv-jit-exits-count --no-smoke. Run: node tools/harness/queue.ts tools/harness/queues/jit-exits.json --no-smoke --only bp-jit-exits-smoke,bp-jit-exits-capture,ip-jit-exits-capture,sv-jit-exits-capture; replay (3); then --from bp-jit-exits-bundle-on --no-smoke. C3 game port (pair monojitc3g1108, ts3native 0.36.209, 2026-11-08): the *-jit-c3g-* jobs repeat the same order with FastCopy and Ldsflda added to the bundle (all five on vs all five off; OK line reads FastCopy and Ldsflda back). Run: node tools/harness/queue.ts tools/harness/queues/jit-exits.json --no-smoke --only bp-jit-c3g-capture,ip-jit-c3g-capture,sv-jit-c3g-capture; host replay of probe-out/jit-capture-<w>-c3g.jitcap as (3) with MONOHOST_JITFASTCOPY=1 MONOHOST_JITLDSFLDA=1 added; then --only bp-jit-c3g-bundle-on,bp-jit-c3g-bundle-off,ip-jit-c3g-bundle-on,ip-jit-c3g-bundle-off,sv-jit-c3g-bundle-on,sv-jit-c3g-bundle-off --no-smoke. Static check in the on-arm logs: the \"jit: compiled SimClock.get_CurrentTicks\" line (when among the first 256) shows 0 exits with Ldsflda=1 (host: 74 ldsflda exits -> none), and compiled methods with an Array.FastCopy site carry \", pure icalls\". | 11-08 trim (Rodney): bp-jit-c3g-smoke dropped (bp-jit-c3g-capture is the smoke: earlyGates jitOn/jitMethods/jitFaults, stopQueueOnFail); c3g captures 10 min (was 15): earlier 15 min captures (jit-capture 11-07, 60 s capture lines) reach 97.7-99.4% of their distinct first-sampled methods by the 10th line, the methods still arriving late are rare 1-3 call ones, and the C3 sites (get_CurrentTicks, Array.Copy/FastCopy callers, ldsflda) sit in hot methods [inferred]; c3g bundle on/off 10 min (profile-run-length). Bundle stays 6 loads: VtOps/CallExit/NewVt/FastCopy/Ldsflda are read from the ini at apply only (monojit.cpp ApplyMonoJit), the runtime jit switch (0x5CAC) toggles the whole JIT, not the bundle, so no in-load --ab; per-world gain = on vs off job pair. c3g OK lines carry Count=0 (0.36.211 prints Count between NewVt and FastCopy). c3g set: 3 x 10 + 6 x 10 = 90 run min (was 5 + 45 + 90 = 140).",
+  "note": "jit-exits: correctness gate for pair monojit1108c (docs/537 §20: VtOps B1, CallExit A5b, NewVt B5, game list C2/C2b) as one bundle (Rodney 2026-11-08: compiler gains are not measured per piece). No timing. Order: (1) bp-jit-exits-smoke (all on, stops the queue on FAIL); (2) bp/ip/sv-jit-exits-capture (15 min each, Mode=1 Capture=1, all switches on); (3) host replay between the jobs, queue.ts has no host step: node tools/jit-replay.ts --capture probe-out/jit-capture-<w>-cint.jitcap --out probe-out/jit-capture-<w>-cint.txt --summary, then with MONOHOST_JITINLINE=2 MONOHOST_JITWIDE=1 MONOHOST_JITVTOPS=1 MONOHOST_JITCALLEXIT=1 MONOHOST_JITNEWVT=1: node tools/jit-replay.ts --run probe-out/jit-capture-<w>-cint.txt --mode verify --lazy; gate 0 differ, 0 faulted, MISMATCH 0 (one rerun on the known host rebuild flake), else stop before (4); (4) bundle on vs off per world (bp/ip/sv-jit-exits-bundle-on/off, Mode=2 verify, jit set as jit-batch.json). Pass per bundle job: no crash, 0 'jit verify MISMATCH' (logForbid), scriptErrorsMax 0, >= 1 'jit: compiled' and the OK line reading back VtOps, CallExit and NewVt (logRequire), jitLazyCalls >= 1000, jitMismatch 0, jitFaults 0 (nativeRequire). C0 count arms (bp/ip/sv-jit-exits-count, pair monojit-count1108, ts3native 0.36.206): bundle on + [MonoJit] Count=1, a measurement run only (an inc per compiled position and exit, so never a timing arm); pass = the bundle-on gates + OK line with Count=1 + >= 1 jitcount: end line; read with node tools/jit-hot.ts --game-count <job ts3native.log> --out <host-style.log>, then jit-hot.ts --count / jit-exit-census.ts --census on that file. Run after the merge: --only bp-jit-exits-count,ip-jit-exits-count,sv-jit-exits-count --no-smoke. Run: node tools/harness/queue.ts tools/harness/queues/jit-exits.json --no-smoke --only bp-jit-exits-smoke,bp-jit-exits-capture,ip-jit-exits-capture,sv-jit-exits-capture; replay (3); then --from bp-jit-exits-bundle-on --no-smoke. C3 game port (pair monojitc3g1108, ts3native 0.36.209, 2026-11-08): the *-jit-c3g-* jobs repeat the same order with FastCopy and Ldsflda added to the bundle (all five on vs all five off; OK line reads FastCopy and Ldsflda back). Run: node tools/harness/queue.ts tools/harness/queues/jit-exits.json --no-smoke --only bp-jit-c3g-capture,ip-jit-c3g-capture,sv-jit-c3g-capture; host replay of probe-out/jit-capture-<w>-c3g.jitcap as (3) with MONOHOST_JITFASTCOPY=1 MONOHOST_JITLDSFLDA=1 added; then --only bp-jit-c3g-bundle-on,bp-jit-c3g-bundle-off,ip-jit-c3g-bundle-on,ip-jit-c3g-bundle-off,sv-jit-c3g-bundle-on,sv-jit-c3g-bundle-off --no-smoke. Static check in the on-arm logs: the \"jit: compiled SimClock.get_CurrentTicks\" line (when among the first 256) shows 0 exits with Ldsflda=1 (host: 74 ldsflda exits -> none), and compiled methods with an Array.FastCopy site carry \", pure icalls\". | 11-08 trim (Rodney): bp-jit-c3g-smoke dropped (bp-jit-c3g-capture is the smoke: earlyGates jitOn/jitMethods/jitFaults, stopQueueOnFail); c3g captures 10 min (was 15): earlier 15 min captures (jit-capture 11-07, 60 s capture lines) reach 97.7-99.4% of their distinct first-sampled methods by the 10th line, the methods still arriving late are rare 1-3 call ones, and the C3 sites (get_CurrentTicks, Array.Copy/FastCopy callers, ldsflda) sit in hot methods [inferred]; c3g bundle on/off 10 min (profile-run-length). Bundle stays 6 loads: VtOps/CallExit/NewVt/FastCopy/Ldsflda are read from the ini at apply only (monojit.cpp ApplyMonoJit), the runtime jit switch (0x5CAC) toggles the whole JIT, not the bundle, so no in-load --ab; per-world gain = on vs off job pair. c3g OK lines carry Count=0 (0.36.211 prints Count between NewVt and FastCopy). c3g set: 3 x 10 + 6 x 10 = 90 run min (was 5 + 45 + 90 = 140). | ac5 (pair arraycopy5-1108, handoff C5 ClauseLazy): the c3g order with -ac5- ids: bp-jit-ac5-smoke, bp/ip/sv-jit-ac5-capture, host replay of probe-out/jit-capture-<w>-ac5.jitcap (--switches VtOps=1,CallExit=1,NewVt=1,Inline=2,Wide=1 with MONOHOST_JITFASTCOPY=1 MONOHOST_JITLDSFLDA=1 MONOHOST_JITCLAUSELAZY=1; gate 0 differ, 0 faulted, MISMATCH 0), then bp/ip/sv-jit-ac5-bundle-on/-off (all six switches on vs off).",
   "jobs": [
     {
       "id": "bp-jit-exits-smoke",
@@ -822,7 +822,36 @@
           "value": 0,
           "why": "fault in compiled code"
         }
-      ]
+      ],
+      "regexCases": {
+        "OK   mono jit capture": {
+          "match": [
+            "OK   mono jit capture (docs/537 §17, §19): sampled at JitEnter, lazy bodies, inlined sites"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1"
+          ]
+        },
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=0, Ldsflda=0",
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0"
+          ]
+        },
+        "jit capture: fault": {
+          "match": [
+            "jit capture: fault C0000005 at 0CC393F8, data 00000000, in a sample of System.Array.Copy"
+          ],
+          "noMatch": [
+            "jit capture: 723 samples (599 first, 124 reservoir), 50649 objects, 1495 KB; skipped budget 7046355, no buffer room 0, file full 0, faults 0; cuts 64662 (16060 not listed), truncated 8"
+          ]
+        }
+      }
     },
     {
       "id": "ip-jit-c3g-capture",
@@ -880,7 +909,36 @@
           "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
         }
       },
-      "timeoutMin": 30
+      "timeoutMin": 30,
+      "regexCases": {
+        "OK   mono jit capture": {
+          "match": [
+            "OK   mono jit capture (docs/537 §17, §19): sampled at JitEnter, lazy bodies, inlined sites"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1"
+          ]
+        },
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=0, Ldsflda=0",
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0"
+          ]
+        },
+        "jit capture: fault": {
+          "match": [
+            "jit capture: fault C0000005 at 0CC393F8, data 00000000, in a sample of System.Array.Copy"
+          ],
+          "noMatch": [
+            "jit capture: 723 samples (599 first, 124 reservoir), 50649 objects, 1495 KB; skipped budget 7046355, no buffer room 0, file full 0, faults 0; cuts 64662 (16060 not listed), truncated 8"
+          ]
+        }
+      }
     },
     {
       "id": "sv-jit-c3g-capture",
@@ -938,7 +996,36 @@
           "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
         }
       },
-      "timeoutMin": 30
+      "timeoutMin": 30,
+      "regexCases": {
+        "OK   mono jit capture": {
+          "match": [
+            "OK   mono jit capture (docs/537 §17, §19): sampled at JitEnter, lazy bodies, inlined sites"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1"
+          ]
+        },
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=0, Ldsflda=0",
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0"
+          ]
+        },
+        "jit capture: fault": {
+          "match": [
+            "jit capture: fault C0000005 at 0CC393F8, data 00000000, in a sample of System.Array.Copy"
+          ],
+          "noMatch": [
+            "jit capture: 723 samples (599 first, 124 reservoir), 50649 objects, 1495 KB; skipped budget 7046355, no buffer room 0, file full 0, faults 0; cuts 64662 (16060 not listed), truncated 8"
+          ]
+        }
+      }
     },
     {
       "id": "bp-jit-c3g-bundle-on",
@@ -996,7 +1083,37 @@
         }
       },
       "timeoutMin": 30,
-      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 343 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: cannot walk method at word 0 (op 1A9)",
+            "jitlazy leaf System.Math.Max"
+          ]
+        },
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=0, Ldsflda=0",
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Collections.Generic.List`1.GrowIfNeeded: region 3 (24 bytes, class List`1) at +4"
+          ],
+          "noMatch": [
+            "jit verify: System.Collections.Generic.List`1.GrowIfNeeded off for the session (its ret at word 31, 1 mismatches so far)"
+          ]
+        }
+      }
     },
     {
       "id": "bp-jit-c3g-bundle-off",
@@ -1054,7 +1171,35 @@
         }
       },
       "timeoutMin": 30,
-      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 343 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: cannot walk method at word 0 (op 1A9)",
+            "jitlazy leaf System.Math.Max"
+          ]
+        },
+        "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, FastCopy=0, Ldsflda=0"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Collections.Generic.List`1.GrowIfNeeded: region 3 (24 bytes, class List`1) at +4"
+          ],
+          "noMatch": [
+            "jit verify: System.Collections.Generic.List`1.GrowIfNeeded off for the session (its ret at word 31, 1 mismatches so far)"
+          ]
+        }
+      }
     },
     {
       "id": "ip-jit-c3g-bundle-on",
@@ -1113,7 +1258,37 @@
         }
       },
       "timeoutMin": 30,
-      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 343 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: cannot walk method at word 0 (op 1A9)",
+            "jitlazy leaf System.Math.Max"
+          ]
+        },
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=0, Ldsflda=0",
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Collections.Generic.List`1.GrowIfNeeded: region 3 (24 bytes, class List`1) at +4"
+          ],
+          "noMatch": [
+            "jit verify: System.Collections.Generic.List`1.GrowIfNeeded off for the session (its ret at word 31, 1 mismatches so far)"
+          ]
+        }
+      }
     },
     {
       "id": "ip-jit-c3g-bundle-off",
@@ -1172,7 +1347,35 @@
         }
       },
       "timeoutMin": 30,
-      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 343 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: cannot walk method at word 0 (op 1A9)",
+            "jitlazy leaf System.Math.Max"
+          ]
+        },
+        "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, FastCopy=0, Ldsflda=0"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Collections.Generic.List`1.GrowIfNeeded: region 3 (24 bytes, class List`1) at +4"
+          ],
+          "noMatch": [
+            "jit verify: System.Collections.Generic.List`1.GrowIfNeeded off for the session (its ret at word 31, 1 mismatches so far)"
+          ]
+        }
+      }
     },
     {
       "id": "sv-jit-c3g-bundle-on",
@@ -1231,7 +1434,37 @@
         }
       },
       "timeoutMin": 30,
-      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 343 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: cannot walk method at word 0 (op 1A9)",
+            "jitlazy leaf System.Math.Max"
+          ]
+        },
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=0, Ldsflda=0",
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Collections.Generic.List`1.GrowIfNeeded: region 3 (24 bytes, class List`1) at +4"
+          ],
+          "noMatch": [
+            "jit verify: System.Collections.Generic.List`1.GrowIfNeeded off for the session (its ret at word 31, 1 mismatches so far)"
+          ]
+        }
+      }
     },
     {
       "id": "sv-jit-c3g-bundle-off",
@@ -1290,7 +1523,977 @@
         }
       },
       "timeoutMin": 30,
-      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0"
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 343 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: cannot walk method at word 0 (op 1A9)",
+            "jitlazy leaf System.Math.Max"
+          ]
+        },
+        "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, FastCopy=0, Ldsflda=0"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Collections.Generic.List`1.GrowIfNeeded: region 3 (24 bytes, class List`1) at +4"
+          ],
+          "noMatch": [
+            "jit verify: System.Collections.Generic.List`1.GrowIfNeeded off for the session (its ret at word 31, 1 mismatches so far)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-jit-ac5-smoke",
+      "note": "BP 5 min smoke, the whole bundle on (VtOps=1 CallExit=1 NewVt=1 FastCopy=1 Ldsflda=1 ClauseLazy=1): the pair loads, the OK line reads every switch back, methods compile, no MISMATCH. Stops the queue on FAIL. ClauseLazy=1 arms also need 'jit: clause lazy body ... Array.Copy' (the 5-arg Copy got its lazy body).",
+      "asi": "game-copy/ts3native.asi.arraycopy5-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.arraycopy5-1108",
+      "pinReason": "arraycopy5-1108 pair (builds.json): ts3native 0.36.212 = master1108 (0.36.211) + [MonoJit] ClauseLazy (handoff C5: lazy body for the 5-arg Array.Copy and other methods with clauses) + Array.Copy compile rows; ts3fixes = master1108's package (mods unchanged)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1": 1,
+        "^jit: clause lazy body .*Array\\.Copy": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.ClauseLazy": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 20,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0",
+      "stopQueueOnFail": true,
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 343 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: cannot walk method at word 0 (op 1A9)",
+            "jitlazy leaf System.Math.Max"
+          ]
+        },
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=0",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ]
+        },
+        "^jit: clause lazy body .*Array\\.Copy": {
+          "match": [
+            "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words, kind 0 try 205+15 handler 220+65, kind 0 try 317+15 handler 332+65"
+          ],
+          "noMatch": [
+            "jit: clause lazy body MonoHostTest.JitK.CatchOnly: 9 of 12 positions in clauses, 21 words, kind 0 try 2+9 handler 11+7"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Collections.Generic.List`1.GrowIfNeeded: region 3 (24 bytes, class List`1) at +4"
+          ],
+          "noMatch": [
+            "jit verify: System.Collections.Generic.List`1.GrowIfNeeded off for the session (its ret at word 31, 1 mismatches so far)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-jit-ac5-capture",
+      "noiseCheck": false,
+      "note": "BP 15 min capture (jit-capture.json setup: Mode=1, Capture=1) with the bundle compile list and every new switch on, so lazy / newobj.vt paths are sampled. Writes probe-out/jit-capture-bp-ac5.jitcap. Pass: no crash, 'OK   mono jit capture', 0 'jit capture: fault', OK line reads the switches back. ClauseLazy=1 arms also need 'jit: clause lazy body ... Array.Copy' (the 5-arg Copy got its lazy body).",
+      "asi": "game-copy/ts3native.asi.arraycopy5-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.arraycopy5-1108",
+      "pinReason": "arraycopy5-1108 pair (builds.json): ts3native 0.36.212 = master1108 (0.36.211) + [MonoJit] ClauseLazy (handoff C5: lazy body for the 5-arg Array.Copy and other methods with clauses) + Array.Copy compile rows; ts3fixes = master1108's package (mods unchanged)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "logForbid": {
+        "jit capture: fault": 0
+      },
+      "logRequire": {
+        "OK   mono jit capture": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1": 1,
+        "^jit: clause lazy body .*Array\\.Copy": 1
+      },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.Capture": 1,
+        "MonoJit.CaptureFile": "probe-out/jit-capture-bp-ac5.jitcap",
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.ClauseLazy": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "regexCases": {
+        "OK   mono jit capture": {
+          "match": [
+            "OK   mono jit capture (docs/537 §17, §19): sampled at JitEnter, lazy bodies, inlined sites"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1"
+          ]
+        },
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=0",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ]
+        },
+        "^jit: clause lazy body .*Array\\.Copy": {
+          "match": [
+            "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words, kind 0 try 205+15 handler 220+65, kind 0 try 317+15 handler 332+65"
+          ],
+          "noMatch": [
+            "jit: clause lazy body MonoHostTest.JitK.CatchOnly: 9 of 12 positions in clauses, 21 words, kind 0 try 2+9 handler 11+7"
+          ]
+        },
+        "jit capture: fault": {
+          "match": [
+            "jit capture: fault C0000005 at 0CC393F8, data 00000000, in a sample of System.Array.Copy"
+          ],
+          "noMatch": [
+            "jit capture: 723 samples (599 first, 124 reservoir), 50649 objects, 1495 KB; skipped budget 7046355, no buffer room 0, file full 0, faults 0; cuts 64662 (16060 not listed), truncated 8"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-jit-ac5-capture",
+      "noiseCheck": false,
+      "note": "IP 15 min capture (jit-capture.json setup: Mode=1, Capture=1) with the bundle compile list and every new switch on, so lazy / newobj.vt paths are sampled. Writes probe-out/jit-capture-ip-ac5.jitcap. Pass: no crash, 'OK   mono jit capture', 0 'jit capture: fault', OK line reads the switches back. ClauseLazy=1 arms also need 'jit: clause lazy body ... Array.Copy' (the 5-arg Copy got its lazy body).",
+      "asi": "game-copy/ts3native.asi.arraycopy5-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.arraycopy5-1108",
+      "pinReason": "arraycopy5-1108 pair (builds.json): ts3native 0.36.212 = master1108 (0.36.211) + [MonoJit] ClauseLazy (handoff C5: lazy body for the 5-arg Array.Copy and other methods with clauses) + Array.Copy compile rows; ts3fixes = master1108's package (mods unchanged)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "logForbid": {
+        "jit capture: fault": 0
+      },
+      "logRequire": {
+        "OK   mono jit capture": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1": 1,
+        "^jit: clause lazy body .*Array\\.Copy": 1
+      },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.Capture": 1,
+        "MonoJit.CaptureFile": "probe-out/jit-capture-ip-ac5.jitcap",
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.ClauseLazy": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "regexCases": {
+        "OK   mono jit capture": {
+          "match": [
+            "OK   mono jit capture (docs/537 §17, §19): sampled at JitEnter, lazy bodies, inlined sites"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1"
+          ]
+        },
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=0",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ]
+        },
+        "^jit: clause lazy body .*Array\\.Copy": {
+          "match": [
+            "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words, kind 0 try 205+15 handler 220+65, kind 0 try 317+15 handler 332+65"
+          ],
+          "noMatch": [
+            "jit: clause lazy body MonoHostTest.JitK.CatchOnly: 9 of 12 positions in clauses, 21 words, kind 0 try 2+9 handler 11+7"
+          ]
+        },
+        "jit capture: fault": {
+          "match": [
+            "jit capture: fault C0000005 at 0CC393F8, data 00000000, in a sample of System.Array.Copy"
+          ],
+          "noMatch": [
+            "jit capture: 723 samples (599 first, 124 reservoir), 50649 objects, 1495 KB; skipped budget 7046355, no buffer room 0, file full 0, faults 0; cuts 64662 (16060 not listed), truncated 8"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sv-jit-ac5-capture",
+      "noiseCheck": false,
+      "note": "SV 15 min capture (jit-capture.json setup: Mode=1, Capture=1) with the bundle compile list and every new switch on, so lazy / newobj.vt paths are sampled. Writes probe-out/jit-capture-sv-ac5.jitcap. Pass: no crash, 'OK   mono jit capture', 0 'jit capture: fault', OK line reads the switches back. ClauseLazy=1 arms also need 'jit: clause lazy body ... Array.Copy' (the 5-arg Copy got its lazy body).",
+      "asi": "game-copy/ts3native.asi.arraycopy5-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.arraycopy5-1108",
+      "pinReason": "arraycopy5-1108 pair (builds.json): ts3native 0.36.212 = master1108 (0.36.211) + [MonoJit] ClauseLazy (handoff C5: lazy body for the 5-arg Array.Copy and other methods with clauses) + Array.Copy compile rows; ts3fixes = master1108's package (mods unchanged)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-SV-Spring",
+      "logForbid": {
+        "jit capture: fault": 0
+      },
+      "logRequire": {
+        "OK   mono jit capture": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1": 1,
+        "^jit: clause lazy body .*Array\\.Copy": 1
+      },
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.Capture": 1,
+        "MonoJit.CaptureFile": "probe-out/jit-capture-sv-ac5.jitcap",
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.ClauseLazy": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "regexCases": {
+        "OK   mono jit capture": {
+          "match": [
+            "OK   mono jit capture (docs/537 §17, §19): sampled at JitEnter, lazy bodies, inlined sites"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1"
+          ]
+        },
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=0",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ]
+        },
+        "^jit: clause lazy body .*Array\\.Copy": {
+          "match": [
+            "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words, kind 0 try 205+15 handler 220+65, kind 0 try 317+15 handler 332+65"
+          ],
+          "noMatch": [
+            "jit: clause lazy body MonoHostTest.JitK.CatchOnly: 9 of 12 positions in clauses, 21 words, kind 0 try 2+9 handler 11+7"
+          ]
+        },
+        "jit capture: fault": {
+          "match": [
+            "jit capture: fault C0000005 at 0CC393F8, data 00000000, in a sample of System.Array.Copy"
+          ],
+          "noMatch": [
+            "jit capture: 723 samples (599 first, 124 reservoir), 50649 objects, 1495 KB; skipped budget 7046355, no buffer room 0, file full 0, faults 0; cuts 64662 (16060 not listed), truncated 8"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-jit-ac5-bundle-on",
+      "note": "BP 15 min, bundle on (VtOps=1 CallExit=1 NewVt=1 FastCopy=1 Ldsflda=1 ClauseLazy=1). Pass: see the queue note. ClauseLazy=1 arms also need 'jit: clause lazy body ... Array.Copy' (the 5-arg Copy got its lazy body).",
+      "asi": "game-copy/ts3native.asi.arraycopy5-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.arraycopy5-1108",
+      "pinReason": "arraycopy5-1108 pair (builds.json): ts3native 0.36.212 = master1108 (0.36.211) + [MonoJit] ClauseLazy (handoff C5: lazy body for the 5-arg Array.Copy and other methods with clauses) + Array.Copy compile rows; ts3fixes = master1108's package (mods unchanged)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1": 1,
+        "^jit: clause lazy body .*Array\\.Copy": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.ClauseLazy": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 343 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: cannot walk method at word 0 (op 1A9)",
+            "jitlazy leaf System.Math.Max"
+          ]
+        },
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=0",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ]
+        },
+        "^jit: clause lazy body .*Array\\.Copy": {
+          "match": [
+            "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words, kind 0 try 205+15 handler 220+65, kind 0 try 317+15 handler 332+65"
+          ],
+          "noMatch": [
+            "jit: clause lazy body MonoHostTest.JitK.CatchOnly: 9 of 12 positions in clauses, 21 words, kind 0 try 2+9 handler 11+7"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Collections.Generic.List`1.GrowIfNeeded: region 3 (24 bytes, class List`1) at +4"
+          ],
+          "noMatch": [
+            "jit verify: System.Collections.Generic.List`1.GrowIfNeeded off for the session (its ret at word 31, 1 mismatches so far)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-jit-ac5-bundle-off",
+      "note": "BP 15 min, bundle off (all six 0, same pair and list). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.arraycopy5-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.arraycopy5-1108",
+      "pinReason": "arraycopy5-1108 pair (builds.json): ts3native 0.36.212 = master1108 (0.36.211) + [MonoJit] ClauseLazy (handoff C5: lazy body for the 5-arg Array.Copy and other methods with clauses) + Array.Copy compile rows; ts3fixes = master1108's package (mods unchanged)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, ClauseLazy=0": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 0,
+        "MonoJit.CallExit": 0,
+        "MonoJit.NewVt": 0,
+        "MonoJit.FastCopy": 0,
+        "MonoJit.Ldsflda": 0,
+        "MonoJit.ClauseLazy": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 343 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: cannot walk method at word 0 (op 1A9)",
+            "jitlazy leaf System.Math.Max"
+          ]
+        },
+        "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, ClauseLazy=0": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, ClauseLazy=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Collections.Generic.List`1.GrowIfNeeded: region 3 (24 bytes, class List`1) at +4"
+          ],
+          "noMatch": [
+            "jit verify: System.Collections.Generic.List`1.GrowIfNeeded off for the session (its ret at word 31, 1 mismatches so far)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-jit-ac5-bundle-on",
+      "noiseCheck": false,
+      "note": "IP 15 min, bundle on (VtOps=1 CallExit=1 NewVt=1 FastCopy=1 Ldsflda=1 ClauseLazy=1). Pass: see the queue note. ClauseLazy=1 arms also need 'jit: clause lazy body ... Array.Copy' (the 5-arg Copy got its lazy body).",
+      "asi": "game-copy/ts3native.asi.arraycopy5-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.arraycopy5-1108",
+      "pinReason": "arraycopy5-1108 pair (builds.json): ts3native 0.36.212 = master1108 (0.36.211) + [MonoJit] ClauseLazy (handoff C5: lazy body for the 5-arg Array.Copy and other methods with clauses) + Array.Copy compile rows; ts3fixes = master1108's package (mods unchanged)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1": 1,
+        "^jit: clause lazy body .*Array\\.Copy": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.ClauseLazy": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 343 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: cannot walk method at word 0 (op 1A9)",
+            "jitlazy leaf System.Math.Max"
+          ]
+        },
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=0",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ]
+        },
+        "^jit: clause lazy body .*Array\\.Copy": {
+          "match": [
+            "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words, kind 0 try 205+15 handler 220+65, kind 0 try 317+15 handler 332+65"
+          ],
+          "noMatch": [
+            "jit: clause lazy body MonoHostTest.JitK.CatchOnly: 9 of 12 positions in clauses, 21 words, kind 0 try 2+9 handler 11+7"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Collections.Generic.List`1.GrowIfNeeded: region 3 (24 bytes, class List`1) at +4"
+          ],
+          "noMatch": [
+            "jit verify: System.Collections.Generic.List`1.GrowIfNeeded off for the session (its ret at word 31, 1 mismatches so far)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-jit-ac5-bundle-off",
+      "noiseCheck": false,
+      "note": "IP 15 min, bundle off (all six 0, same pair and list). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.arraycopy5-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.arraycopy5-1108",
+      "pinReason": "arraycopy5-1108 pair (builds.json): ts3native 0.36.212 = master1108 (0.36.211) + [MonoJit] ClauseLazy (handoff C5: lazy body for the 5-arg Array.Copy and other methods with clauses) + Array.Copy compile rows; ts3fixes = master1108's package (mods unchanged)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, ClauseLazy=0": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 0,
+        "MonoJit.CallExit": 0,
+        "MonoJit.NewVt": 0,
+        "MonoJit.FastCopy": 0,
+        "MonoJit.Ldsflda": 0,
+        "MonoJit.ClauseLazy": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 343 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: cannot walk method at word 0 (op 1A9)",
+            "jitlazy leaf System.Math.Max"
+          ]
+        },
+        "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, ClauseLazy=0": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, ClauseLazy=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Collections.Generic.List`1.GrowIfNeeded: region 3 (24 bytes, class List`1) at +4"
+          ],
+          "noMatch": [
+            "jit verify: System.Collections.Generic.List`1.GrowIfNeeded off for the session (its ret at word 31, 1 mismatches so far)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sv-jit-ac5-bundle-on",
+      "noiseCheck": false,
+      "note": "SV 15 min, bundle on (VtOps=1 CallExit=1 NewVt=1 FastCopy=1 Ldsflda=1 ClauseLazy=1). Pass: see the queue note. ClauseLazy=1 arms also need 'jit: clause lazy body ... Array.Copy' (the 5-arg Copy got its lazy body).",
+      "asi": "game-copy/ts3native.asi.arraycopy5-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.arraycopy5-1108",
+      "pinReason": "arraycopy5-1108 pair (builds.json): ts3native 0.36.212 = master1108 (0.36.211) + [MonoJit] ClauseLazy (handoff C5: lazy body for the 5-arg Array.Copy and other methods with clauses) + Array.Copy compile rows; ts3fixes = master1108's package (mods unchanged)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-SV-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1": 1,
+        "^jit: clause lazy body .*Array\\.Copy": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.ClauseLazy": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 343 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: cannot walk method at word 0 (op 1A9)",
+            "jitlazy leaf System.Math.Max"
+          ]
+        },
+        "OK   mono jit .*VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=0",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ]
+        },
+        "^jit: clause lazy body .*Array\\.Copy": {
+          "match": [
+            "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words, kind 0 try 205+15 handler 220+65, kind 0 try 317+15 handler 332+65"
+          ],
+          "noMatch": [
+            "jit: clause lazy body MonoHostTest.JitK.CatchOnly: 9 of 12 positions in clauses, 21 words, kind 0 try 2+9 handler 11+7"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Collections.Generic.List`1.GrowIfNeeded: region 3 (24 bytes, class List`1) at +4"
+          ],
+          "noMatch": [
+            "jit verify: System.Collections.Generic.List`1.GrowIfNeeded off for the session (its ret at word 31, 1 mismatches so far)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sv-jit-ac5-bundle-off",
+      "noiseCheck": false,
+      "note": "SV 15 min, bundle off (all six 0, same pair and list). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.arraycopy5-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.arraycopy5-1108",
+      "pinReason": "arraycopy5-1108 pair (builds.json): ts3native 0.36.212 = master1108 (0.36.211) + [MonoJit] ClauseLazy (handoff C5: lazy body for the 5-arg Array.Copy and other methods with clauses) + Array.Copy compile rows; ts3fixes = master1108's package (mods unchanged)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-SV-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, ClauseLazy=0": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 0,
+        "MonoJit.CallExit": 0,
+        "MonoJit.NewVt": 0,
+        "MonoJit.FastCopy": 0,
+        "MonoJit.Ldsflda": 0,
+        "MonoJit.ClauseLazy": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 15,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 35,
+      "nativeRequire": "jitLazyCalls>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 343 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: cannot walk method at word 0 (op 1A9)",
+            "jitlazy leaf System.Math.Max"
+          ]
+        },
+        "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, ClauseLazy=0": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, ClauseLazy=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 254 templates (Groups=1023), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 127 list rows, VerifyEvery=16, code region 2048 KB, Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, ClauseLazy=1"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Collections.Generic.List`1.GrowIfNeeded: region 3 (24 bytes, class List`1) at +4"
+          ],
+          "noMatch": [
+            "jit verify: System.Collections.Generic.List`1.GrowIfNeeded off for the session (its ret at word 31, 1 mismatches so far)"
+          ]
+        }
+      }
     }
   ]
 }

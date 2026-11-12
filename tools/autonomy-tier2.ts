@@ -44,6 +44,25 @@ if (!process.argv.includes('--no-tier2-hooks') && !process.argv.includes('--no-t
     'Sims3.Store.Objects.ChocolateFountain+ChocolateFountainSkewer', 'Sims3.Store.Objects.IceCreamMaker+IceCreamCone',
     'Sims3.Store.Objects.GardenStation+GardenStationProp'].map((t) => `${t}::get_InUse(`),
   'Sims3.Gameplay.Controllers.FireManager::HasOnlyLeafPileFires(');
+// docs/data/tier2-rows35-handoff.md P2 (built 2026-11-12, ts3fixes AutCeHook / AutFrontDoorHook / AutSuiteHook, switches
+// autt2cewarm / autt2frontdoor / autt2suite, not run): CauseEffectService's lazy data (pre-warmed at the request, the worker
+// aborts while null), Lot.FindFrontDoor (answered from a read-only memo taken at the request, else abort) and the four lazy
+// BuyModeSuite getters (abort while null). --no-tier2-p2 gives the counts before them.
+if (!process.argv.includes('--no-tier2-hooks') && !process.argv.includes('--no-tier2-p2')) CUT.push(
+  'Sims3.Gameplay.TimeTravel.CauseEffectService::IfNecessaryAllocatePersistableData(', 'Sims3.Gameplay.Core.Lot::FindFrontDoor(',
+  ...['Sims3.Gameplay.Objects.Counters.Cabinetry', 'Sims3.Gameplay.Objects.Environment.SwingSet', 'Sims3.Gameplay.Objects.Pets.BoxStall',
+    'Sims3.Gameplay.Objects.Seating.ChairSectional'].map((t) => `${t}::get_BuyModeSuite(`));
+// Reviewed rule false positives (tier-2 P2, docs/51 §473), read in the IL: [method prefix, field]. STATIC_COLL: the method only
+// reads the static collection, its mutator calls go to locals (GetMiniRelationships: ContainsKey / get_Item / get_Keys on
+// sAllRelationships, Add on its own List and Dictionary). Own-field: the write goes to a Definition the method just made with
+// newobj, never the shared one (YouShould: `new SocialInteractionA.Definition(..)` then `.ChecksToSkip =`). Handled by a worker
+// hook (tier-2 P3, ts3fixes AutCallPetHook, switch autt2callpet, built 2026-11-12, not run): CallPet's Test writes mSimPickerList
+// on the shared definition; the worker saves the field before the game's Test and puts it back after. --no-tier2-p3 counts it.
+export const REVIEWED = new Set([
+  ...(process.argv.includes('--no-tier2-hooks') || process.argv.includes('--no-tier2-p3') ? [] : ['Sims3.Gameplay.Actors.Sim+CallPet+Definition::Test|Sims3.Gameplay.Actors.Sim+CallPet+Definition::mSimPickerList']),'Sims3.Gameplay.Socializing.Relationship::GetMiniRelationships|Sims3.Gameplay.Socializing.Relationship::sAllRelationships',
+  'Sims3.Gameplay.Situations.YouShould+Definition::GetYouShouldTargets|Sims3.Gameplay.Socializing.SocialInteractionA+Definition::ChecksToSkip',
+  'Sims3.Gameplay.Situations.YouShould+Definition::GetPushDefintion|Sims3.Gameplay.Socializing.SocialInteractionA+Definition::ChecksToSkip']);
+const reviewed = (k: string, field: string) => REVIEWED.has(`${k.replace(/\(.*$/s, '')}|${field}`);
 // Lazy fills of a fixed value (docs/126 §3 pre-warm list, read in the decompiled source): one sim-thread call per load, then reads.
 // LiveDragHelperModel::gSingleton: tier-2 P1 drag pre-warm (switch autt2dragwarm).
 export const PREWARM = /::(sRoommateManager|sMaxHunger|mCachedCuriousDewRecipe|cjk\w+|utf8EncodingWithoutMarkers|cache)$|LiveDragHelperModel::gSingleton$/;
@@ -74,8 +93,9 @@ export function closure(roots: number[], ownType?: string, ovHops = 0, self = ow
     for (const [n, fam] of q) {
       const m = ix.methods[n];
       if (m.ic && ix.asms[m.a]?.name !== 'mscorlib' && !icsHit.has(m.ic)) { icsHit.set(m.ic, d); at.set(m.ic, n); }
-      for (const [tag, det] of ownTags(ix as never, n, ics)) if (/^(YIELD|EVENT|STATIC_WRITE|STATIC_COLL)$/.test(tag)) { const key = `${tag} ${det}`; if (!tags.has(key)) { tags.set(key, m.k.replace(/\(.*$/s, '')); at.set(key, n); } }
-      if (ownType) for (const f of m.fw ?? []) if (ix.fields[f].startsWith(ownType + '::') && !own.has(ix.fields[f])) { own.add(ix.fields[f]); at.set(ix.fields[f], n); }
+      for (const [tag, det] of ownTags(ix as never, n, ics)) if (/^(YIELD|EVENT|STATIC_WRITE|STATIC_COLL)$/.test(tag) && !(tag === 'STATIC_COLL' && reviewed(m.k, det))) { const key = `${tag} ${det}`; if (!tags.has(key)) { tags.set(key, m.k.replace(/\(.*$/s, '')); at.set(key, n); } }
+      // a .ctor writes only the object it is building, never the shared definition (tier-2 P2)
+      if (ownType && !m.k.includes('::.ctor(')) for (const f of m.fw ?? []) if (ix.fields[f].startsWith(ownType + '::') && !own.has(ix.fields[f]) && !reviewed(m.k, ix.fields[f])) { own.add(ix.fields[f]); at.set(ix.fields[f], n); }
       for (let k = 0; k < m.c.length; k += 2) {
         const t = m.c[k], kind = ix.kinds[m.c[k + 1]];
         if (kind === 'dlg') continue;
@@ -139,7 +159,11 @@ export const TIER2_BUILT = new Set(['World_GetPoolObjectIdForPoolBelowPositionIm
   // E3 rows: level-bit gate (docs/51 §463)
   'World_GetTerrainSurfaceTypeImpl', 'World_GetFloorSurfaceTypeImpl',
   // P6 (docs/data/tier2-rows35-handoff.md): AO_CUT, household/selected/unknown actors refused at the worker
-  'Query_CountObjectsInRange']);
+  'Query_CountObjectsInRange',
+  // docs/219 §2 shared rows built 2026-11-06 behind [AutShadow] Tier2Rows (autofft2 Mode R item); listed here 2026-11-08 with P5
+  'World_IsOnRoofImpl', 'Objects_GetHeightAboveFloor',
+  // P5 slot rows (docs/data/tier2-rows35-handoff.md, ledger §466): Tier2SlotRows, actor gate
+  'Slots_IsSlotEnabledImpl', 'Slots_GetRoutingSlotNamesImpl']);
 export function icClass(name: string): string {
   const meth = name.slice(name.indexOf('::'));
   if (snap.has(meth)) return snap.get(meth)!;

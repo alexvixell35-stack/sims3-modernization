@@ -1,4 +1,5 @@
-// Offline self-check of mods/ts3fixes/src/H4Core.cs (docs/250 §7.1, §7.4): the watchdog's async idle check decisions.
+// Offline self-check of mods/ts3fixes/src/H4Core.cs (docs/250 §7.0, §7.1, §7.4): the gvattr source class and scope sent to
+// ts3native, the watchdog's async idle check decisions.
 using System;
 using Ts3Fixes;
 
@@ -9,6 +10,18 @@ static class H4CoreTest
 
     static int Main()
     {
+        // gvattr (docs/250 §7.0): watchdog first, then stuck check, other own checks, the Sim's own task, another task, none
+        Check(H4Core.SrcClass(true, true, true, true, true) == H4Core.kSrcWatchdog, "watchdog check wins");
+        Check(H4Core.SrcClass(false, true, true, true, true) == H4Core.kSrcStuck, "stuck check");
+        Check(H4Core.SrcClass(false, false, true, true, true) == H4Core.kSrcOwnCheck, "other own check");
+        Check(H4Core.SrcClass(false, false, false, true, true) == H4Core.kSrcOwn, "own task");
+        Check(H4Core.SrcClass(false, false, false, false, true) == H4Core.kSrcForeign, "foreign task");
+        Check(H4Core.SrcClass(false, false, false, false, false) == H4Core.kSrcNone, "no task");
+        // scope: only UfWhy 0 is unseen; seen NPC 1; everything else (household, selected, unknown) 0
+        Check(H4Core.Scope(0, false) == 2, "unseen");
+        Check(H4Core.Scope(7, true) == 1, "seen NPC");
+        Check(H4Core.Scope(1, false) == 0 && H4Core.Scope(-1, false) == 0, "household / unknown = 0");
+        Check(H4Core.Message(H4Core.kSrcWatchdog, 2) == 0x201u, "message layout class | scope << 8");
         // docs/250 §7.4 CheckIdle order (2026-11-10): cache -> sync; else job holds +0x918 and lockskip on -> skip; else A1 if on and would start; else sync
         Check(H4Core.WdRoute(true, true, true, true, true, false) == H4Core.kWdSync, "cached verdict: no plan path change");
         Check(H4Core.WdRoute(false, false, true, true, true, false) == H4Core.kWdA1, "no job holds the lock, A1 on and accepted: A1 (the plan leaves the sim thread)");

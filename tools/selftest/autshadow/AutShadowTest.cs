@@ -267,6 +267,26 @@ static class AutShadowTest
             "T2LodStale: more than 60 ticks (never checked = stale)");
         Check(AutShadowCore.kT2HN == 5 && AutShadowCore.kT2HLodStale == 4, "T2H: five slots 898-902");
 
+        // tier-2 P2: front door answered only from the game's exits that write nothing; six slots 938-943
+        Check(AutShadowCore.T2FrontDoor(false, true, false, false, true, false, false) == 0, "T2FrontDoor: not used = null, nothing read");
+        Check(AutShadowCore.T2FrontDoor(true, true, true, true, false, false, false) == 1
+            && AutShadowCore.T2FrontDoor(true, true, true, false, true, true, true) == -1
+            && AutShadowCore.T2FrontDoor(true, true, false, true, true, true, true) == -1, "T2FrontDoor: override set = its door only when it is a door and validated");
+        Check(AutShadowCore.T2FrontDoor(true, false, false, false, true, true, true) == 2
+            && AutShadowCore.T2FrontDoor(true, false, false, false, true, true, false) == -1
+            && AutShadowCore.T2FrontDoor(true, false, false, false, true, false, true) == -1, "T2FrontDoor: calculated door only when it is a door and validated");
+        Check(AutShadowCore.T2FrontDoor(true, false, false, false, false, false, true) == 0
+            && AutShadowCore.T2FrontDoor(true, false, false, false, false, false, false) == -1, "T2FrontDoor: no door set = null only when validated, else the game recomputes");
+        Check(AutShadowCore.kT2P2N == 6 && AutShadowCore.kT2P2SuiteAbort == 5 && AutShadowCore.kT2P2CeWarm == 0, "T2P2: six slots 938-943");
+
+        // tier-2 P3: CallPet Test on the worker: household aborts first, only the self branch (a == target) saves and restores
+        Check(AutShadowCore.T2CallPetSite(false, true, false, true) == 0 && AutShadowCore.T2CallPetSite(true, false, false, true) == 0,
+            "T2CallPetSite: sim thread or switch off = the game's Test");
+        Check(AutShadowCore.T2CallPetSite(true, true, true, true) == 1 && AutShadowCore.T2CallPetSite(true, true, true, false) == 1,
+            "T2CallPetSite: household-scope actor aborts on either branch");
+        Check(AutShadowCore.T2CallPetSite(true, true, false, true) == 2 && AutShadowCore.T2CallPetSite(true, true, false, false) == 0,
+            "T2CallPetSite: save/restore only on the self branch (the only one that writes the field)");
+
         Console.WriteLine(sFails == 0 ? "autshadow selftest: PASS" : "autshadow selftest: " + sFails + " FAIL");
         return sFails == 0 ? 0 : 1;
     }

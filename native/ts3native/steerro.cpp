@@ -654,9 +654,11 @@ static u8* SrFirstFlagged(u8* agent) {
 // The clone: ids that Locomotion_ObstacleCheck would append, in order, into out (ids0/n0 = the caller's ids before the call).
 // Caller: owner thread, preconditions checked. QL is taken here (try only) for phase 2.
 // job = the answer will be used (Mode 1): the tripwire stubs must be armed for the whole clone.
+static int g_srPhase;  // owner thread: 0 = the clone failed before or in the steering query (key 0x85FE10), 1 = in the EditPath gathers (0x85F6CB)
 static int SrRun(u8* agent, const DWORD* ids0, int n0, const void* ign1, DWORD n1, const void* ign2, DWORD n2, SrOut* out, SrCtx* c,
                  bool job = false) {
     out->nIds = out->nSubs = 0;
+    g_srPhase = 0;
     u8* world = g_srWorldGet();
     u8* wm = *g_srWmSlot;
     if (!world || !wm) return SR_FB_STATE;
@@ -733,6 +735,7 @@ static int SrRun(u8* agent, const DWORD* ids0, int n0, const void* ign1, DWORD n
     }
     for (int i = 1; !why && i < nn; i++) {
         if (!nodes[i].gLot) continue;  // 0x82F0B0 returned 0: EditPath appends nothing
+        g_srPhase = 1;
         if ((why = SrQuery(c, p, nodes[i].gLo, nodes[i].gHi, nodes[i].conv, false, 0.0f, NULL)) != SR_OK) break;
         why = SrConsume(c, p, nodes[i], ids0, n0, out, &excl[0][0], nExcl, ign1, n1, ign2, n2);
     }
@@ -797,6 +800,28 @@ static void SrShadow(u8* agent, u8* ids, const void* ign1, DWORD n1, const void*
     if (vec[0]) g_srFree((void*)(uintptr_t)vec[0]);
 }
 
+// [SteerRO] Retry=1 (docs/250 §8, switch steerretry, counters v175): a clone that met QL busy (a W1-W6 writer's short exclusive
+// hold) or a tripwire reruns from S2's protocol start (g_qlSeq, g_twEpoch, g_twGen read again by run), after SwitchToThread, at
+// most 4 times within ~1 ms of QPC and only while the job runs; then the game's call as before. A rerun answer is as exact as
+// a first one. State fallbacks are not retried. Shared shape: run() is the caller's clone (gvro.cpp / idlero.cpp may use it).
+template <class F> static int SrRetry(int why, F run) {
+    Ts3nCounters& k = ts3native_counters;
+    const int site = g_srPhase ? 1 : 0;
+    InterlockedIncrement(&k.srrN[site]);
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    for (int i = 0; i < 4 && (why == SR_FB_TRY || why == SR_FB_TRIP) && g_async.state == A_RUNNING && UsSince(t0) < 1000; i++) {
+        SwitchToThread();
+        why = run();
+    }
+    const LONG us = UsSince(t0);
+    InterlockedExchangeAdd(&k.srrUs, us);
+    Max(&k.srrMaxUs, us);
+    InterlockedIncrement(why ? &k.srrFb[site] : &k.srrOk[site]);
+    return why;
+}
+static int SrWaitSite(DWORD key) { return key == 0x0085FE10 ? 0 : key == 0x0085F6CB ? 1 : -1; }
+
 static void __fastcall LocoHook(u8* agent, void* edx, u8* ids, const void* ign1, DWORD n1, const void* ign2, DWORD n2) {
     Ts3nCounters& k = ts3native_counters;
     const DWORD tid = GetCurrentThreadId();
@@ -824,8 +849,12 @@ static void __fastcall LocoHook(u8* agent, void* edx, u8* ids, const void* ign1,
     if (k.steerMode && !g_inInvoke && k.rgOwnerTid != (LONG)tid && t.n == t.readers && !g_steerBroken) {
         LARGE_INTEGER t0;
         QueryPerformanceCounter(&t0);
-        why = SrRun(agent, *(const DWORD* const*)ids, (int)((*(DWORD**)(ids + 4) - *(DWORD**)ids) / 2), ign1, n1, ign2, n2, &out, &ctx,
-                    true);
+        auto run = [&]() {
+            return SrRun(agent, *(const DWORD* const*)ids, (int)((*(DWORD**)(ids + 4) - *(DWORD**)ids) / 2), ign1, n1, ign2, n2, &out,
+                         &ctx, true);
+        };
+        why = run();
+        if (why && k.srrMode == 1 && (why == SR_FB_TRY || why == SR_FB_TRIP)) why = SrRetry(why, run);
         if (!why) {
             for (int i = 0; i < out.nIds; i++) g_srIdPush(ids, NULL, out.ids[i]);
             const LONG us = UsSince(t0);
@@ -839,7 +868,12 @@ static void __fastcall LocoHook(u8* agent, void* edx, u8* ids, const void* ign1,
     }
     SrFallback(why);
     S2Time(S2T_ENTRY, tEntry);  // ours only: the game's call below is today's cost
+    const LONG w0 = g_w918Us;
     g_locoOrig(agent, edx, ids, ign1, n1, ign2, n2);
+    // docs/250 §8: the fallback's job wait by site, both steerretry arms. shortcut: a call that waits at both keys books the
+    // sum on the last one; split per key if the gather share ever matters on its own
+    const int site = g_w918Us != w0 ? SrWaitSite(g_w918Key) : -1;
+    if (site >= 0) InterlockedExchangeAdd(&k.srrFbWaitUs[site], g_w918Us - w0);
 }
 
 // [FpRebuildLock] Enabled=1 alone: only the W6a stub (C-A); with [SteerRO] it rides on the full set
@@ -907,7 +941,8 @@ static void InstallSteerRO(const wchar_t* ini) {
     if (!g_locoOrig) return;
     k.steerMode = Clamp(GetPrivateProfileIntW(L"SteerRO", L"Mode", 1, ini), 0, 1);
     k.steerShadow = Clamp(GetPrivateProfileIntW(L"SteerRO", L"Shadow", 0, ini), 0, 1);
+    k.srrMode = Clamp(GetPrivateProfileIntW(L"SteerRO", L"Retry", 0, ini), 0, 1);
     k.steerReady = 1;
-    Log("OK   steer RO: 0x85FD10 + %d worker writer detours + LotGraph_Build gate + %d tripwire stubs (Mode=%ld Shadow=%ld)", n, tws,
-        k.steerMode, k.steerShadow);
+    Log("OK   steer RO: 0x85FD10 + %d worker writer detours + LotGraph_Build gate + %d tripwire stubs (Mode=%ld Shadow=%ld Retry=%ld)", n, tws,
+        k.steerMode, k.steerShadow, k.srrMode);
 }

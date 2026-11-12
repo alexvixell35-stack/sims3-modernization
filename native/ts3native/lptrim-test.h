@@ -32,7 +32,7 @@ static DWORD LpListLen(DWORD head) {
 }
 
 static void TestLotPoolTrim() {
-    static_assert(offsetof(Ts3nCounters, lpOn) == 0x5EF8 && offsetof(Ts3nCounters, lpBad) == 0x5F14 && sizeof(Ts3nCounters) == 6112 * 4,
+    static_assert(offsetof(Ts3nCounters, lpOn) == 0x5EF8 && offsetof(Ts3nCounters, lpBad) == 0x5F14 && sizeof(Ts3nCounters) == 6116 * 4,
                   "counters v913 layout after v173 (docs/registry.md)");
     alignas(16) static u8 pool[0x20];
     static DWORD lock[10];

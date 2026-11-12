@@ -9,12 +9,13 @@
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { rateCompare } from './hitch-ab.ts';
 
 const ROOT = process.env.TS3_REPO ?? resolve(import.meta.dirname, '..', '..');
 const PROFILE = join(ROOT, 'probe-out', 'profile');
 export const BAR = { netMs: 3, iterPct: 2, seenPct: 10, venueShare: 0.75, awayExtra: 2, strandedExtra: 1, starveExtra: 0, strandSamples: 8, auditMs: 0.5,
   // docs/246 §6 routing bars R1-R6: judgement thresholds from one data set, adjust after the first pair
-  r1PlansPct: 10, r2WorkPct: 10, r3LenPct: 15, r4FailMult: 1.5, r4FailExtra: 5, r5LongExtra: 2, r6BurstMult: 1.25, r6MinSecs: 500 };
+  r1PlansPct: 10, r2WorkPct: 10, r3LenPct: 15, r4FailMult: 1.5, r4FailExtra: 5, r6BurstMult: 1.25, r6MinSecs: 500 };
 
 type Slice = { from: number; on: boolean; warmup?: boolean };
 type Row = { i: number; s: number; c: Record<string, number> };
@@ -130,8 +131,13 @@ export function routingBars(w: string, rs: { order: string; a: { on: Arm; off: A
   rise(`R3 ${w} job mean not up > ${BAR.r3LenPct}% with R2 up (judgement)`, mean, BAR.r3LenPct, x => `${(mean(x) / 1000).toFixed(1)} ms`, r2 > 0);
   const exp = off.plans ? off.fails / off.plans * on.plans : NaN;
   L.push({ name: `R4 ${w} route fails <= ${BAR.r4FailMult} x off rate + ${BAR.r4FailExtra} events (judgement)`, ok: isFinite(exp) && both ? on.fails <= BAR.r4FailMult * exp + BAR.r4FailExtra : null, text: isFinite(exp) ? `${off.fails}/${off.plans} -> ${on.fails}/${on.plans}${tail}` : 'no data' });
-  const d = rs.map(r => r.a.on.ufLong - r.a.off.ufLong), have = rs.some(r => r.a.on.asyncN || r.a.off.asyncN);
-  L.push({ name: `R5 ${w} ufLong (>= 300 ms) on <= off + ${BAR.r5LongExtra} per pair (judgement; also read the hitch-ab rule)`, ok: have ? d.every(x => x <= BAR.r5LongExtra) : null, text: have ? `on - off per run: ${d.join(', ')}` : 'no data' });
+  // docs/23 §21: pooled exact-Poisson on/off rate ratio over the arms' native seconds (hitch-ab rateCompare); FAIL only when the
+  // 95% CI lies wholly above 1. The old "+2 per pair" failed on noise (IP: pooled 46 vs 42).
+  const ev = (k: 'on' | 'off') => ({ k: rs.reduce((s, r) => s + r.a[k].ufLong, 0), mins: rs.reduce((s, r) => s + r.a[k].nativeSecs, 0) / 60 });
+  const lOn = ev('on'), lOff = ev('off'), have = rs.some(r => r.a.on.asyncN || r.a.off.asyncN) && lOn.mins > 0 && lOff.mins > 0;
+  const c = have ? rateCompare(lOn, lOff) : null, d = rs.map(r => r.a.on.ufLong - r.a.off.ufLong);
+  L.push({ name: `R5 ${w} ufLong (>= 300 ms) pooled on/off rate ratio: 95% CI not wholly above 1 (exact Poisson, docs/23 §21)`, ok: c ? !(c.ratio.lo > 1) : null,
+    text: c ? `${lOff.k} in ${lOff.mins.toFixed(1)} min -> ${lOn.k} in ${lOn.mins.toFixed(1)} min, ratio ${c.ratio.est.toFixed(2)} [${c.ratio.lo.toFixed(2)}, ${c.ratio.hi.toFixed(2)}] (${c.verdict}); on - off per run: ${d.join(', ')}` : 'no data' });
   const a = rs.flatMap(r => r.a.on.rps), b = rs.flatMap(r => r.a.off.rps), enough = a.length >= BAR.r6MinSecs && b.length >= BAR.r6MinSecs;
   L.push({ name: `R6 ${w} p99.9 routes per second <= ${BAR.r6BurstMult} x off (judgement)`, ok: enough ? p999(a) <= BAR.r6BurstMult * p999(b) : null, text: enough ? `${p999(b)} -> ${p999(a)}` : `no data (needs ${BAR.r6MinSecs} s per arm)` });
   return L;
@@ -208,7 +214,7 @@ function selfCheck() {
   const worse = bars([], { bp: { on: { ...out, stranded: 3 }, off: out } });
   assert.equal(worse.find(b => b.name.includes('stranded'))!.ok, false);
   // R1-R6 (docs/246 §6)
-  const mk = (o: Partial<Arm>): Arm => ({ ...zero(), seenH: 5, unseenH: 5, plans: 100, fails: 2, asyncUs: 1_000_000, asyncN: 100, ufLong: 0, rps: Array.from({ length: 600 }, (_, i) => 10 + (i % 7)), ...o });
+  const mk = (o: Partial<Arm>): Arm => ({ ...zero(), seenH: 5, unseenH: 5, plans: 100, fails: 2, asyncUs: 1_000_000, asyncN: 100, ufLong: 0, nativeSecs: 300, rps: Array.from({ length: 600 }, (_, i) => 10 + (i % 7)), ...o });
   const pair = (order: string, on: Partial<Arm>, off: Partial<Arm> = {}) => ({ order, a: { on: mk(on), off: mk(off) } });
   const bar = (rs: ReturnType<typeof pair>[], n: string) => routingBars('bp', rs).find(b => b.name.startsWith(n))!;
   const flat = [pair('off-first', {}), pair('on-first', {})];
@@ -221,8 +227,12 @@ function selfCheck() {
   assert.equal(bar([pair('off-first', { asyncUs: 1_200_000, asyncN: 120 }), pair('on-first', { asyncUs: 1_200_000, asyncN: 120 })], 'R3').ok, true, 'job mean flat: R3 passes');
   assert.equal(bar([pair('off-first', { fails: 20 }), pair('on-first', { fails: 20 })], 'R4').ok, false, 'fails 2 -> 20 fails R4');
   assert.equal(bar([pair('off-first', { fails: 5 }), pair('on-first', { fails: 5 })], 'R4').ok, true, 'fails inside 1.5 x + 5 pass');
-  assert.equal(bar([pair('off-first', { ufLong: 3 }), pair('on-first', {})], 'R5').ok, false, 'ufLong +3 in one pair fails R5');
-  assert.equal(bar([pair('off-first', { ufLong: 2 }), pair('on-first', { ufLong: 1 })], 'R5').ok, true, 'ufLong +2 passes');
+  assert.equal(bar([pair('off-first', { ufLong: 3 }), pair('on-first', {})], 'R5').ok, true, 'ufLong +3 in one pair (0 -> 3 pooled) passes R5');
+  assert.equal(bar([pair('off-first', { ufLong: 25 }, { ufLong: 20 }), pair('on-first', { ufLong: 21 }, { ufLong: 22 })], 'R5').ok, true, 'IP 11-08 case: 42 -> 46 pooled, +5 in one pair, passes');
+  assert.equal(bar([pair('off-first', { ufLong: 20 }, { ufLong: 5 }), pair('on-first', { ufLong: 20 }, { ufLong: 5 })], 'R5').ok, false, '10 -> 40 pooled fails R5');
+  assert.equal(bar([pair('off-first', { ufLong: 6 }), pair('on-first', {})], 'R5').ok, false, '0 -> 6 pooled: CI wholly above 1, fails');
+  assert.equal(bar([pair('off-first', { ufLong: 4 }), pair('on-first', {})], 'R5').ok, true, '0 -> 4 pooled: CI reaches below 1, passes');
+  assert.equal(bar([pair('off-first', { nativeSecs: 0 }, { nativeSecs: 0 })], 'R5').ok, null, 'no native seconds: no data');
   assert.equal(bar(flat.map(r => ({ ...r, a: { on: { ...r.a.on, rps: r.a.on.rps.map((x, i) => i % 100 === 0 ? 40 : x) }, off: r.a.off } })), 'R6').ok, false, 'burst p99.9 40 vs 16 fails R6');
   assert.equal(bar([pair('off-first', { rps: [] })], 'R6').ok, null, 'too few seconds: no data');
   assert.equal(bar([pair('off-first', { seenH: 0, unseenH: 0 }), pair('on-first', { seenH: 0, unseenH: 0 })], 'R1').ok, null, 'no Sim-hours (no kAutLive): no data');

@@ -123,6 +123,30 @@ namespace Ts3Fixes
         public static bool T2CacheNoop(bool requestAutonomy, bool cacheActiveAtRequest) { return requestAutonomy && cacheActiveAtRequest; }
         // H10: the game recomputes when now > last check + 60 ticks; the worker answers the stored flag either way
         public static bool T2LodStale(long now, long lastCheck) { return now > lastCheck + 60; }
+        // tier-2 P2 (docs/data/tier2-rows35-handoff.md §2): counter slots 938-943 (Result.T2P2; slot 0 is counted on the sim
+        // thread): CauseEffect data pre-warm fills, CauseEffect worker aborts (data still null), front-door answers, front-door
+        // aborts (lot not memoized at the request, or the game would validate or recompute), BuyModeSuite answers, its aborts (null)
+        public const int kT2P2CeWarm = 0, kT2P2CeAbort = 1, kT2P2DoorAns = 2, kT2P2DoorAbort = 3, kT2P2SuiteAns = 4, kT2P2SuiteAbort = 5, kT2P2N = 6;
+        // Lot.FindFrontDoor without a write: the exits of the game's GetFrontDoor(kFrontDoorTypeDefault) that change nothing.
+        // 0 answer null, 1 the override door, 2 the calculated door, -1 the game would validate or recompute (it writes the
+        // lot's flags, SetFrontDoor or street parking), so the worker aborts. *Set = the lot's door guid is valid, *IsDoor = it
+        // resolves to a Door, *Ok = the lot's FrontDoor*Validated flag.
+        public static int T2FrontDoor(bool useFrontDoor, bool overrideSet, bool overrideIsDoor, bool overrideOk, bool calcSet, bool calcIsDoor, bool calcOk)
+        {
+            if (!useFrontDoor) return 0;
+            if (overrideSet) return overrideIsDoor && overrideOk ? 1 : -1;
+            if (calcSet) return calcIsDoor && calcOk ? 2 : -1;
+            return calcOk ? 0 : -1;
+        }
+        // tier-2 P3 CallPet Test site (counter 944 = runs of 2): 0 the game's Test as is (sim thread, reference, switch off, or
+        // a != target: that branch writes no field), 1 abort (household-scope actor, uncounted), 2 the game's Test with the
+        // shared mSimPickerList saved and put back after it (the worker's list lives only for that call)
+        public static int T2CallPetSite(bool onWorker, bool switchOn, bool household, bool self)
+        {
+            if (!onWorker || !switchOn) return 0;
+            if (household) return 1;
+            return self ? 2 : 0;
+        }
 
         // H11 shelter answer (docs/127 §4.1): instead of aborting, the worker answers the branch from a bit taken on the sim
         // thread at the cut. The branch asks IsShelteredFromPrecipitation(target, instance), which uses the instance only

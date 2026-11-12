@@ -363,12 +363,14 @@ static void TestSatbRainSkip() {
 // docs/206 §15: native writers. Sim: PriorityQueue bodies log the object's fields and its items array, Rehash the fields,
 // ElapsedTime*(ref float) the float; the tick statics are logged at the cut (fake host). Worker: Curve.Fx's m_x store is
 // taken back, a body on a private ref runs, a body on an unchanged `this` runs without a give-up.
-static DWORD g_snKlass[0x18], g_snArrKlass[0x18], g_snObj[8], g_snArr[4 + 8], g_snRm[12], g_snFrame[10], g_snArgs[2];
+static DWORD g_snKlass[0x18], g_snArrKlass[0x18], g_snObj[8], g_snArr[4 + 8], g_snRm[0x48 / 4], g_snFrame[10], g_snArgs[2];
 static DWORD g_snFloat, g_snTick[2][2], g_snHost[0xC30 / 4];
 static LONG g_snCalls;
+static DWORD g_snSelf, g_snWord0;  // the `this` the body saw and its first word
 static void __cdecl SatbTestBody(DWORD frame, DWORD) {
     g_snCalls++;
     const DWORD self = *(const DWORD*)(uintptr_t)(frame + 0xC);
+    g_snSelf = self, g_snWord0 = self ? *(const DWORD*)(uintptr_t)self : 0;
     if (self) *(DWORD*)(uintptr_t)(self + 0x14) = 0x7777;  // Fx-like: caches its argument in m_x
 }
 static void TestSatbNativeWriters() {
@@ -426,6 +428,34 @@ static void TestSatbNativeWriters() {
     g_snRm[9] = 0x1000, g_snFrame[3] = (DWORD)(uintptr_t)g_snObj;  // any other body on an object nobody logged
     SatbBindCall((DWORD)(uintptr_t)g_snFrame, 0);
     assert(g_snCalls == 6 && ts3native_autshadow.satbWGiveUp == give0 && g_snObj[5] == 0x7777);
+    // docs/206 §17 (#352): value-type `this` (RuntimeMethod+0x44 & 0x400) points at struct data whose first word (0x4650)
+    // is no vtable. Shared: give up, the body runs on a worker copy with the cut's bytes, the shared struct is never
+    // written; worker-private: runs as is, no give-up. Flag clear on such data: SatbObjFields refuses the low header
+    {
+        Ts3nCounters& c = ts3native_counters;
+        const LONG vt0 = c.sbVtGiveUp, low0 = c.sbLowHdr, stop0 = g_asStop, stale0 = g_satbStale;
+        static DWORD shared[8] = {0x4650, 0x11};
+        assert(SatbLogWord((DWORD)(uintptr_t)&shared[0]));
+        shared[0] = 0x4651;  // the sim's store after the cut
+        g_snRm[9] = 0x1000, g_snRm[0x44 / 4] = 0x400 | 0x200, g_snFrame[3] = (DWORD)(uintptr_t)shared;
+        SatbBindCall((DWORD)(uintptr_t)g_snFrame, 0);
+        assert(g_snCalls == 7 && g_snSelf != (DWORD)(uintptr_t)shared && g_snWord0 == 0x4650 && shared[5] == 0 && shared[0] == 0x4651);
+        assert(g_snFrame[3] == (DWORD)(uintptr_t)shared && c.sbVtGiveUp == vt0 + 1 && c.sbLowHdr == low0);
+        assert(ts3native_autshadow.satbWGiveUp == give0 + 1 && ts3native_autshadow.satbWGiveUpOp == 0xE525C0 && g_asStop == 1);
+        DWORD priv[8] = {0x4650};
+        g_snFrame[3] = (DWORD)(uintptr_t)priv;
+        SatbBindCall((DWORD)(uintptr_t)g_snFrame, 0);
+        assert(g_snCalls == 8 && g_snSelf == (DWORD)(uintptr_t)priv && priv[5] == 0x7777 && ts3native_autshadow.satbWGiveUp == give0 + 1);
+        // flag clear (row 12 (b)): the backstop answers "unknown" instead of reading [0x4650]; the body runs, no give-up
+        g_snRm[0x44 / 4] = 0x200, g_snFrame[3] = (DWORD)(uintptr_t)shared;
+        SatbBindCall((DWORD)(uintptr_t)g_snFrame, 0);
+        assert(g_snCalls == 9 && c.sbLowHdr == low0 + 1 && ts3native_autshadow.satbWGiveUp == give0 + 1 && shared[5] == 0x7777);
+        static DWORD lowKlassVt[1] = {0x20}, lowKlassObj[2] = {(DWORD)(uintptr_t)lowKlassVt};  // vtable fine, class word low
+        assert(SatbObjFields((DWORD)(uintptr_t)lowKlassObj) == 0 && c.sbLowHdr == low0 + 2 && SatbObjFields((DWORD)(uintptr_t)g_snObj) == 12);
+        g_snRm[0x44 / 4] = 0;
+        ts3native_autshadow.satbWGiveUp = give0, g_asStop = stop0, g_satbStale = stale0;
+        AsResetAbort();
+    }
     // docs/206 §16: address-of a static struct the sim changed since the cut: the worker gets a private copy with the cut
     // bytes (no give-up); an unchanged static keeps its own address
     {
@@ -442,7 +472,8 @@ static void TestSatbNativeWriters() {
     g_satbMode = mode0, g_satbWTid = wtid0, g_curState = cur0;
     SatbReset();
     printf("satb native writers: PriorityQueue fields + items, Rehash fields, ElapsedTime ref float, tick statics at the cut "
-           "logged (sim); Curve.Fx m_x taken back, private ref and unchanged this run (worker)\n");
+           "logged (sim); Curve.Fx m_x taken back, private ref and unchanged this run, shared struct this gives up on a copy, "
+           "low header refused (worker)\n");
 }
 
 static void TestSatbLog() {

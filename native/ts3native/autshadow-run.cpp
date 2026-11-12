@@ -488,7 +488,8 @@ static int __cdecl AsIcConfig(int key) {
         case 32: return g_satbMode == SATB_ACT ? 1 : 0;  // 0.36.148: RainArm is registered and can skip (docs/127 H11 shelter answer)
         case 33: return g_asLastJobBits;  // 0.36.148: native feature bits of the last finished job (AS_FEAT_*, ts3fixes AutLiveCore.Feat)
         case 34: return 1;  // 0.36.148: SearchMark registered, Config(33) answers
-        case 35: return 1;  // P6: ActorScope registered (the Query_CountObjectsInRange row's actor gate)
+        case 35: return 1;  // P6: ActorScope registered (the Query_CountObjectsInRange row's actor gate; P5 slot rows since 0.36.213)
+        case 36: return (g_asT2eBits >> 8) & 1;  // 0.36.213 P5: [AutShadow] Tier2SlotRows in force (ts3fixes autofft2ic slots 23-24)
         default: return AsLgConfig(key);  // 5-10: ledger probe (autledger.cpp)
     }
 }

@@ -1398,7 +1398,10 @@ static DWORD __cdecl SatbRtPropInfo(DWORD prop, DWORD info, DWORD req) {
 }
 // CultureInfo.construct_internal_locale_from_lcid 0xE874B0 (this, lcid): refills this CultureInfo's fields
 static DWORD SatbObjFields(DWORD obj) {  // instance size - 4-byte header, 0 = unknown
-    const DWORD klass = obj >= 0x10000 ? **(const DWORD* const*)(uintptr_t)obj : 0;
+    // docs/206 §17 (#352) backstop: a vtable or class word below 0x10000 is no object header (struct data), refused
+    const DWORD vt = obj >= 0x10000 ? *(const DWORD*)(uintptr_t)obj : 0;
+    const DWORD klass = vt >= 0x10000 ? *(const DWORD*)(uintptr_t)vt : 0;
+    if (obj >= 0x10000 && klass < 0x10000) { InterlockedIncrement(&ts3native_counters.sbLowHdr); return 0; }
     const DWORD size = klass ? *(const DWORD*)(uintptr_t)(klass + 0x54) : 0;
     return size > 4 ? size - 4 : 0;
 }
@@ -1612,6 +1615,23 @@ static void __cdecl SatbBindCall(DWORD frame, DWORD ctx) {
         const LONG now = *mx;
         if (now != saved) InterlockedCompareExchange(mx, saved, now);
         return;
+    } else if (self >= 0x10000 && rm >= 0x10000 && (*(const DWORD*)(uintptr_t)(rm + 0x44) & 0x400)) {
+        // docs/206 §17 (#352): a value-type method's `this` (RuntimeMethod+0x44 & 0x400) points at struct data, not an object.
+        // A worker-private struct runs as is. A shared one (field, array element, boxed value): the object gives up (the game
+        // scores the pair, as vanilla) and the body runs on a worker copy with the cut's bytes, so a reader still returns a
+        // sane value and a constructor's store (DateAndTime..ctor) never reaches shared memory.
+        // shortcut: 8 bytes copied (DateAndTime; QueueItem..ctor only writes), a larger struct reads zeros past them
+        if (!SatbWPrivate(self)) {
+            InterlockedIncrement(&ts3native_counters.sbVtGiveUp);
+            g_satbBindGiveUps++;
+            SatbWGiveUp(0xE525C0);
+            DWORD copy[8] = {};
+            SatbWRead(self, 8, (u8*)copy);
+            *(DWORD*)(uintptr_t)(frame + 0xC) = (DWORD)(uintptr_t)copy;
+            next(frame, ctx);
+            *(DWORD*)(uintptr_t)(frame + 0xC) = self;
+            return;
+        }
     } else if (self >= 0x10000 && !SatbWPrivate(self)) {
         // row 12 (b): a body reads `this` natively, past the load redirect; any word of it the sim changed since the cut
         const DWORD n = SatbObjFields(self);

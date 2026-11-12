@@ -130,6 +130,12 @@ static bool g_jitFastCopy;
 // handoff LDSFLDA, off by default. MONOHOST_JITLDSFLDA=1 (game key not added yet): ldsflda compiles to its template (class-init
 // exit, then [vt+0xC] + offset; EA's 0xE56D20). Without it the row's width 0 sends every ldsflda to an exit (as before)
 static bool g_jitLdsflda;
+// handoff C5, off by default. MONOHOST_JITCLAUSELAZY=1 ([MonoJit] ClauseLazy): a method with clauses (the 5-arg Array.Copy's two
+// try / catch) gets a lazy body too; every position inside a try or handler region is an exit there (JitClauseMark)
+static bool g_jitClauseLazy;
+// MONOHOST_JITDIRECTLEAF=1: the game's [MonoJit] DirectLeaf=1 rule (default 0 here, as the host ran so far): only leaves get a lazy
+// body (a call site drops it, CallExit or not), lazy bodies make no lazy calls, no guarded callvirt site
+static bool g_jitLeafOnly;
 // [MonoJit] Capture=1 (monojit-capture.h): on before any compile, so the compiler emits the lazy-body and inline-site sample calls only then
 static volatile int g_jcOn;
 static void JcLazyStub();
@@ -854,6 +860,25 @@ static void JitMarkCold(int n, const unsigned short* posOp, bool* cold) {
         cold[k] = c;
     }
 }
+// ClauseLazy: marks the positions inside a try or handler region; false = no lazy body (a filter, an unknown kind, a range past the
+// code). EA's clause table [verified: clause search 0xE5410A-0xE54127, finally walk 0xE542C1-0xE542D2]: [rm+0x18], [rm+0x41] entries
+// of 0x18 bytes: kind (0 catch, 1 filter = EA's assert at 0xE5414C, 2 finally), try start and length in mint words, handler start
+// (words); handler length at +0x10 [inferred: Mono's MonoExceptionClause; the dump line checks it lies in the code]. The lazy body
+// never runs a protected word: EA's frame is written first (JitLazyMat), so EA's clause search and leave / endfinally see the frame
+// an uncompiled call leaves, and a handler resumes in the normal body.
+static bool JitClauseMark(const u8* rm, int n, const int* posW, int words, bool* prot) {
+    for (int k = 0; k < n; k++) prot[k] = false;
+    const DWORD* cl = *(const DWORD* const*)(rm + 0x18);
+    if (rm[0x41] && !cl) return false;
+    for (int i = 0; i < rm[0x41]; i++, cl += 6) {
+        if (cl[0] != 0 && cl[0] != 2) return false;
+        for (int r = 1; r <= 3; r += 2) {
+            if (cl[r] > (DWORD)words || cl[r + 1] > (DWORD)words - cl[r]) return false;
+            for (int k = 0; k < n; k++) prot[k] |= (DWORD)posW[k] >= cl[r] && (DWORD)posW[k] < cl[r] + cl[r + 1];
+        }
+    }
+    return true;
+}
 // a lazy call site's target and kind: call (0xEA, method in word 1), con.call (0xEB: the class word is skipped and the
 // method is word 2, docs/213 §1 row 3), callvirt (0xEC, declared method in word 3) or con.callvirt of a reference type
 // (0xED, method in word 4) of a non-virtual method of a reference type (direct) or of a virtual one (class guard on EA's
@@ -891,6 +916,7 @@ static bool JitLazySite(const unsigned short* ip, DWORD op, const u8* callerRm, 
         if (!(fl & 0x200) || (fl & 0x400)) return false;
         guard = (*(const unsigned short*)mm & 0x40) != 0;
     }
+    if (guard && g_jitLeafOnly) return false;
     if (!guard && !(fl & 0x100)) return false;  // not transformed: its frame sizes are still 0
     *cOut = c, *guardOut = guard;
     return true;
@@ -1127,15 +1153,19 @@ static void JitCompiled(u8* rm) {
     // 2. emit. With lazy frames, a method whose every position is native, ret / ret.void or a call this compiler makes
     // lazily (v2: its lazy body makes lazy calls; a target with no lazy body at run time means JitLazyMat, then EA's call)
     // first gets its lazy body, then the normal one; label[] and fix[] end as the normal body's.
-    bool lazyOk = g_jitLazy && !g_jitExitAll && !rm[0x41];
-    static bool posCold[4096];
-    if (lazyOk) JitMarkCold(n, posOp, posCold);
+    bool lazyOk = g_jitLazy && !g_jitExitAll && (!rm[0x41] || g_jitClauseLazy);
+    static bool posCold[4096], posProt[4096];
+    if (lazyOk) JitMarkCold(n, posOp, posCold), lazyOk = JitClauseMark(rm, n, posW, words, posProt);
     for (int k = 0; k < n && lazyOk; k++) {
         const JitOpInfo t = posOp[k] < 0x1C1 ? g_opInfo[posOp[k]] : JitOpInfo{K_EXIT, 0, 0};
         const u8* lc; bool lg;
-        if (t.kind == K_EXIT && ((posOp[k] >= 0xEA && posOp[k] <= 0xED) || posOp[k] == 0xF4) && posReal[k] && JitLazySite(code + posW[k], posOp[k], rm, &lc, &lg)) continue;
+        const bool ce = g_jitCallExit && !(g_jitLeafOnly && posOp[k] >= 0xEA && posOp[k] <= 0xED);  // DirectLeaf: a call site drops it
+        if (posProt[k]) { if (!posCold[k] && !ce) lazyOk = false; continue; }  // ClauseLazy: an exit in the lazy body
+        if (!g_jitLeafOnly && t.kind == K_EXIT && ((posOp[k] >= 0xEA && posOp[k] <= 0xED) || posOp[k] == 0xF4) && posReal[k] && JitLazySite(code + posW[k], posOp[k], rm, &lc, &lg)) continue;
+        if ((g_jitPureIcalls || g_jitFastCopy) && (posOp[k] == 0xEA || posOp[k] == 0xEC) && posReal[k])  // native, not a call (the game's rule)
+            if (const int pk = JitPureIcall(code + posW[k], posOp[k], rm)) if (pk == 4 ? g_jitFastCopy : g_jitPureIcalls) continue;
         // CallExit: a hot exit (and ret.vt) writes the frame first and then is EA's, as a cold one: the body stays lazy
-        if ((t.kind == K_EXIT && !posCold[k] && !g_jitCallExit) || (t.kind == K_RET && posOp[k] != 0x06 && posOp[k] != 0x07 && !g_jitCallExit)) lazyOk = false;
+        if ((t.kind == K_EXIT && !posCold[k] && !ce) || (t.kind == K_RET && posOp[k] != 0x06 && posOp[k] != 0x07 && !ce)) lazyOk = false;
     }
     if (g_jitCodeEnd - (g_jitCode + g_jitCodeUsed) < (lazyOk ? 512 : 256) * n + 512) { Log("jit: code pool full\n"); return; }
     static u8* label[4096];
@@ -1164,6 +1194,7 @@ static void JitCompiled(u8* rm) {
             DWORD op = posOp[k];
             JitOpInfo t = op < 0x1C1 ? g_opInfo[op] : JitOpInfo{K_EXIT, 0, 0};
             if (g_jitExitAll) t.kind = t.kind == K_RET ? K_RET : K_EXIT;
+            if (g_jitLazyPass && posProt[k]) { EmitExit(e, ip, op, false); ex++; continue; }  // ClauseLazy: EA runs the region on its frame
             int w = t.width, o16 = (short)ip[1];
             unsigned u16 = ip[1];
             u8* exitRel[3] = {NULL, NULL, NULL};
@@ -1536,7 +1567,7 @@ static void JitCompiled(u8* rm) {
                     if (const int pk = JitPureIcall(ip, op, rm))
                         if (pk == 4 ? g_jitFastCopy : g_jitPureIcalls) { EmitPureIcall(e, pk, exitRel); break; }
                 if ((op == 0xEA || op == 0xEC || (op == 0xEB && g_jitInline >= 2)) && g_jitInline && posReal[k] && JitTryInline(e, ip, op, rm)) { nat++; continue; }
-                if ((op == 0xEA || op == 0xEB || op == 0xEC || op == 0xED || (op == 0xF4 && g_jitNewVt)) && g_jitLazy && posReal[k] && EmitLazyCall(e, ip, op, rm)) { nat++; continue; }
+                if ((op == 0xEA || op == 0xEB || op == 0xEC || op == 0xED || (op == 0xF4 && g_jitNewVt)) && g_jitLazy && !(g_jitLeafOnly && g_jitLazyPass) && posReal[k] && EmitLazyCall(e, ip, op, rm)) { nat++; continue; }
                 EmitExit(e, ip, op, t.kind == K_RET);
                 ex++;
                 continue;
@@ -1592,6 +1623,14 @@ static void JitCompiled(u8* rm) {
         for (int k = 0; k < n; k++) leaf &= !(posOp[k] >= 0xEA && posOp[k] <= 0xED) || posCold[k];
         char lzName[256];
         Log("jitlazy %s %s\n", leaf ? "leaf" : "chain", JitMethodName(rm, lzName, sizeof(lzName)));
+        if (rm[0x41]) {  // ClauseLazy: the proof line (game: the same text), with the clause table as read
+            int np = 0;
+            for (int k = 0; k < n; k++) np += posProt[k];
+            Log("jit: clause lazy body %s: %d of %d positions in clauses, %d words", lzName, np, n, words);
+            const DWORD* cl = *(const DWORD* const*)(rm + 0x18);
+            for (int i = 0; i < rm[0x41]; i++) Log(", kind %lu try %lu+%lu handler %lu+%lu", cl[6 * i], cl[6 * i + 1], cl[6 * i + 2], cl[6 * i + 3], cl[6 * i + 4]);
+            Log("\n");
+        }
         if (JitLazyCell* lc = JitLazyCellFor(rm)) lc->entry = lazyEntry, g_jitLazyBodies++;
         for (int i = 0; i < g_jitGuardN; i++)  // guard sites that met this method before it had a lazy body
             if (g_jitGuard[i].rm == rm && !g_jitGuard[i].entry) JitGuardFill(&g_jitGuard[i], rm);
@@ -1713,6 +1752,7 @@ static JitV* g_jitV;           // [JIT_VD], main thread only (worker threads run
 static DWORD g_jitMainTid;
 static volatile LONG g_jitOtherTid;  // entries from another thread (the M5 worker): never compiled, EA's handler runs
 static volatile LONG g_jvRetried, g_jvRetryOk, g_jvInner, g_jvNested, g_jvCalls, g_jvOk, g_jvMismatch, g_jvAbandoned, g_jvAllocEq, g_jvUnverified, g_jvLarge;
+static volatile LONG g_jvNoLabel;  // differing regions whose word 0 is no readable vtable by the compare (free-list link, other block)
 static int g_jvLogged;
 static bool g_jvQuiet;  // first attempt of a verified call: mismatches are logged only if the retry repeats them
 static char g_jvWhat[420];
@@ -2084,14 +2124,23 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
             for (int i = 1; ok && i < v.s0->n; i++)
                 if (i != v.calleeRegion && !JitSameBytes(v.s1->buf + v.s0->r[i].off, v.s2->buf + v.s0->r[i].off, JitLiveBytes(v.s0->r[i].at, v.s0->r[i].n, arena), &at)) {
                     ok = false;
-                    char what[160];
                     const u8* ra = v.s0->r[i].at;
-                    const char* cls = "?";
-                    if (GcBase(ra) == ra && *(const DWORD*)ra >= 0x10000) {
-                        const u8* kl = *(const u8* const*)(uintptr_t)*(const DWORD*)ra;
-                        if (kl) cls = *(const char* const*)(kl + 0x34);
-                    }
-                    sprintf_s(what, "region %d (%lu bytes, class %.60s)", i, v.s0->r[i].n, cls ? cls : "?");
+                    // the region's word 0 now (after pass 2) need not be a vtable: a cell freed since the snapshot holds the
+                    // free-list link (JitFreeCell), a non-object block any word. 2026-11-10: reading [[word 0]+0x34] as the class
+                    // name faulted in strnlen (read 0xD) in ~1 of 20 host corpus runs, then the cctor sweep broke (20 faults)
+                    const DWORD vt = *(const DWORD*)ra;
+                    const bool obj = GcBase(ra) == ra && vt >= 0x10000, fc = obj && JitFreeCell(ra);
+                    const u8* kl = obj && !fc && mt::Readable((const void*)(uintptr_t)vt, 4) ? *(const u8* const*)(uintptr_t)vt : NULL;
+                    const char* cls = kl && mt::Readable(kl + 0x34, 4) ? *(const char* const*)(kl + 0x34) : NULL;
+                    if (cls && !mt::Readable(cls, 1)) cls = NULL;
+                    if (obj && !cls) g_jvNoLabel++;
+                    if (obj && !cls && g_jvNoLabel <= 20)  // what the unguarded label read would have dereferenced
+                        Log("jit verify: region %d of %s has no class label: word0 %08lX%s, quiet %d\n", i, v.meth ? v.meth->name : "?", vt,
+                            fc ? " (free-list link)" : kl ? " (class name unreadable)" : " (vtable unreadable)", g_jvQuiet ? 1 : 0);
+                    if (g_jvQuiet) continue;  // first pass of a retry: not logged, so no label (ok is false: the loop ends)
+                    char what[160];
+                    if (!cls) cls = "?";
+                    sprintf_s(what, "region %d (%lu bytes, class %.60s)", i, v.s0->r[i].n, cls);
                     JitVLog(v, what, at);
                 }
             if (!ok && !v.retried) {
@@ -2479,8 +2528,8 @@ static void JitBenchRun() {
     if (g_jitMode == 3) {
         Log("jit verify: calls %ld, verified ok %ld, MISMATCH %ld, unverified (clauses / branch to 0) %ld, abandoned (exception) %ld, "
             "alloc-equal words %ld, nested activations unverified %ld, graph too large (compiled only) %ld, calls inside a verified "
-            "caller %ld; retried after a first-attempt difference %ld (then equal %ld)\n", g_jvCalls, g_jvOk, g_jvMismatch, g_jvUnverified,
-            g_jvAbandoned, g_jvAllocEq, g_jvNested, g_jvLarge, g_jvInner, g_jvRetried, g_jvRetryOk);
+            "caller %ld; retried after a first-attempt difference %ld (then equal %ld); differing regions without a class label %ld\n", g_jvCalls, g_jvOk, g_jvMismatch, g_jvUnverified,
+            g_jvAbandoned, g_jvAllocEq, g_jvNested, g_jvLarge, g_jvInner, g_jvRetried, g_jvRetryOk, g_jvNoLabel);
         for (int m = 0; m < g_jitMethN; m++)
             if (g_jitMeth[m].verified || g_jitMeth[m].mismatches || g_jitMeth[m].skipped || g_jitMeth[m].inner)
                 Log("jit verify   %-70s ok %ld mismatch %ld unverified %ld, inside a verified caller %ld\n", g_jitMeth[m].name,
@@ -2612,7 +2661,9 @@ static bool InstallJit() {
         g_jitFastCopy = fcWant && JitFastCopyOk();
         if (fcWant && !g_jitFastCopy) Log("jit: FastCopy: EA's Array.FastCopy bytes differ, it stays an EA call\n");
         g_jitLdsflda = GetEnvironmentVariableA("MONOHOST_JITLDSFLDA", x, sizeof(x)) && x[0] == '1';
-        Log("jit: switches FastCopy=%d Ldsflda=%d\n", g_jitFastCopy ? 1 : 0, g_jitLdsflda ? 1 : 0);
+        g_jitClauseLazy = GetEnvironmentVariableA("MONOHOST_JITCLAUSELAZY", x, sizeof(x)) && x[0] == '1';
+        g_jitLeafOnly = GetEnvironmentVariableA("MONOHOST_JITDIRECTLEAF", x, sizeof(x)) && x[0] == '1';
+        Log("jit: switches FastCopy=%d Ldsflda=%d ClauseLazy=%d DirectLeaf=%d\n", g_jitFastCopy ? 1 : 0, g_jitLdsflda ? 1 : 0, g_jitClauseLazy ? 1 : 0, g_jitLeafOnly ? 1 : 0);
         if (g_jitCallExit && !g_jitPureIcalls) Log("jit: CallExit: the Array icall bytes differ, pure icalls stay EA calls\n");
         for (auto& t : kJitTmpl) {
             const unsigned g = t.kind >= K_FARITH ? 512 : t.kind == K_LDFLDA || !strcmp(t.name, "ldfld.r4") || !strcmp(t.name, "ldfld.r8") || !strcmp(t.name, "stfld.r4") || !strcmp(t.name, "stfld.r8") ? 1

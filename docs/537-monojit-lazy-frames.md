@@ -408,3 +408,132 @@ Tests: `TestMonoJitCaptureVia` in the native selftest covers a real lazy call an
 [measured, host] Corpus under capture with lazy and inline: 233 cases, 0 differ; capture cost 21.8 ms in total, worst sample 1.0 ms. The 34 `TryGetValue` inputs still skipped hold reflection objects (`Type` keys), delegates, or an argument that cannot be rebuilt. The game-side cost of sampling lazy and inlined calls is unproven until the queue runs.
 
 Next: queue `jit-capture` on `jitcap1108` with `Mode=1 Direct=1 DirectLeaf=0 Inline=2 Wide=1` (BP, IP, SV, 10 min each, ts3fixes `g2pair1108`, same pass rules), then `--summary` (the lazy and inline columns must be > 0) and `--run --mode verify` on the merged files.
+
+## 20. Four verdicts: ClauseLazy vs #362, C2b, `get_Value`, A3 (2026-11-12, branch `analysis/monojit-1112`, static and existing game data only, no build or run)
+
+Data: the three C0 count runs on master1108 (ts3native 0.36.211, `Count=1 VtOps=1 CallExit=1 NewVt=1 Direct=1 Inline=2 Wide=1`, `FastCopy=0 Ldsflda=0`, 127 list rows), logs `probe-out/queue/correctness-1109-2026-11-08-<w>-jit-exits-count-*-ts3native.log` and their `-native.json`. The counters are cumulative, so rates below are interval #3 minus interval #2 over 300 s. Sampler: the six `managed.jsonl` files behind `docs/data/jit-hot.csv` (docs/207 §1). Ledger §475.
+
+### 20.0 Two facts the four answers rest on
+
+**The 2 MB code region is full in every game run since 11-08 [verified: counters; effect inferred, I-475-1].** `jitCodeKB` reads 2033-2045 of 2048 in every count, batch, capture and bundle job since the lazy bodies went in, and `jitMethods` is the same number in all three worlds of each arm: 841 (count), 1034 (c3g capture), 1050 (c3g bundle on), 1142 (c3g bundle off), 1118 (jit-batch). On 11-06/07 it was 734-752 KB for ~1082 methods. A world-independent method count is a capacity stop, not traffic. `JitCompile` refuses when the space left is under `need = ((lazy ? 768 : 256) + (Count ? 256 : 0)) * positions + 2 * words + 512` (`native/ts3native/monojit.cpp` ~1157), so near the end even a 3-position body (~3.6 KB with Count) is refused with "code region full". The log cannot show which methods: `jit: ... refused` shares the 256-line cap with `jit: compiled`, and all 256 lines are compile lines. So the C0 census covers the first 841 bodies EA transformed, not the list. Sampled self time of list keys with no `jitcalls` row: 14.0 ms/s, of which 12.6 are the binder-bound `Enum.Equals` and `Type.GetTypeFromHandle` (next paragraph); the rest (~1.4, mostly `ObjectGuid.op_Inequality`) is never run, inlined or refused. **Fix (small, ready):** log refusals under their own cap with the reason, and a larger region or a tighter `need` bound. Each MB of region is 1 MB of address space, so size it from the refusal log, not by guess.
+
+**Six game-list keys are EA native bodies (binder), so their compiled mint never runs [verified: data; mechanism from docs/130 D17].** `docs/data/binder-bodies.csv` binds `Enum.Equals` (row 194), `Type.GetTypeFromHandle` (338), `SimClock.get_CurrentTicks` (359), the three `SimClock.ElapsedTime` overloads (92, 966, 978), `SimClock.ConvertFromTicks` and one `Math.Min` overload (match by class + method; overloads not checked). The interpreter calls a bound body at `RuntimeMethod+0x24` (`0xE5925F` -> `0xE525C0`, docs/130 line 74) instead of the mint. In all three count runs `GetTypeFromHandle` and `Enum.Equals` compile (compile lines 1 and 176, both with a lazy body) and still have **no** `jitcalls` row, and no `SimClock` name appears anywhere in any count, batch or c3g log.
+
+### 20.1 Q1: #362 vs ClauseLazy (`feature/monojit-arraycopy5`)
+
+**Verdict: #362's no-go stands for ClauseLazy. Keep `ClauseLazy=0`, do not merge the emitter part; part of #362's evidence is wrong and is corrected here.**
+- Same mechanism, different method set. #362's ceiling (0.75-0.80 ms/s, all call exits in the C0 census) counts calls from bodies compiled in the C0 build. ClauseLazy gives a lazy body to the clause methods themselves (host: 30 methods, the 5-arg `Array.Copy` and `DesireCurve.GetYFromX` among them), so its gain is the frame write saved on calls **into** them from compiled callers. That set is not in the C0 build at all.
+- #362's "`Array.Copy` has no row in the game census, so 0.0 ms/s in game" is not supported. `Array.Copy` is not on master's game list (`monojit-list.h` has no row; arraycopy5 adds four), so it cannot have a row, and the region was full anyway (§20.0). It is hot: 3.07 ms/s sampled self time in all three worlds (`jit-hot.csv` row 13) [verified]. It is not a binder method [verified: no binder-bodies row].
+- Most of that time is not what a lazy body touches [inferred, I-475-6]. The sampler books the copy itself (the `FastCopy` icall) to `Array.Copy`'s frame (docs/207 §5). In game its hot callers are interpreted (`Array.Resize` 4.8 ms/s and `List.set_Capacity` are not on the game list), and those calls pay EA's frame with or without ClauseLazy. Only calls from compiled callers (mainly the 3-arg overload into the 5-arg one, once the list rows are in) gain the lazy-call difference, 22-33 ns per call (host bench `JitLz` 48.5 -> 26.3, `JitLzChain` 69.7 -> 36.7, §18). Under 1 ms/s needs fewer than ~30k such calls/s. The host's whole `Array.Copy` modelled gain was 0.14 ms/s (C3 table).
+- Worth a build: **no** (est. <= 0.3 ms/s, at most ~0.75; the bar is 1 ms/s to reopen and 3-5 for ON). Keep the branch's host-side pieces that stand alone (KCL corpus cases, the verifier label fix 61b4d679, `MONOHOST_JITDIRECTLEAF`) for a later merge. Add the `Array.Copy` list rows only after the code region fix, because today every new row pushes out another body. **Reopen:** a count run with the region fixed and `Array.Copy` on the list shows calls into the 5-arg `Copy` from compiled bodies at >= 30k/s on some world.
+
+### 20.2 Q2: C2b, `SimClock.get_CurrentTicks` without an ldsflda template
+
+**Verdict: neither loss nor gain in game; take it off the game list (with the other binder-bound rows). No ldsflda work for it.**
+- Game: `get_CurrentTicks` is an EA native body (binder row 359, `0xE057C0`, reader, no managed re-entry), and so are its callers `ElapsedTime` (3) and `ElapsedTimeInMinutes` (row 598). The C0 runs had it on the list (127 rows, `Ldsflda=0`), and no `SimClock` method has a `jitcalls`, `jitexit` or `jitbail` row in BP, IP or SV [verified]. `jit-hot.csv` rows 162, 173 and 174 have 0 samples. The "1.22 ldsflda exits per call" exists only in the host, where the mint runs.
+- Host: the exit was the width-0 `K_LDSFLDA` row, already fixed by `[MonoJit] Ldsflda` (handoff C-int: 74 exits in 71 calls -> none). So with `Ldsflda=1` it is not a loss in the host either.
+- Action (~30 min, ready): `tools/jit-hot.ts --emit-native` skips rows whose full signature is in `docs/data/binder-bodies.csv`, plus a self-check. That drops `get_CurrentTicks`, `ConvertFromTicks`, `ElapsedTime` x3, `GetTypeFromHandle` and `Enum.Equals` from `monojit-list.h`; check `Math.Min` per overload. The host list keeps them for the corpus. Gain 0 ms/s direct, plus region space for bodies that do run. The jit-hot verdicts for those rows become `binder: native body`.
+
+### 20.3 Q3: `RuntimeTypeHandle.get_Value`, 7.4 ms/s the host cannot reproduce
+
+**Verdict: different call shape. Every game call is a native-to-managed call (`ScriptHost_NativeToManaged 0xD8A8E0`) from EA's native body of `Type.GetTypeFromHandle`, and the sampler books that round trip to `get_Value`. Compiling the body cannot recover it; a binder patch can (est. 5-7 ms/s per world). Worth a build.**
+- The caller [verified: disassembly of the Steam 1.67 exe, `game-copy/bin/TS3W.exe`]. EA's body for `Type.GetTypeFromHandle` at `0xDB0940` (adapter `0xDB0A00`) memsets its locals and calls `0xD8A8E0(method = [0x11EF06C], this = &handle on the C stack ([ebp+0x18]), 0, &result [ebp-0x44], exc [ebp+0xC], ...)` at `0xDB0976`. Then it passes the result to `[0x11EF074]`, a native function taken from init reference 8. The binder init at `0xDB08E1` fills `[0x11EF06C]` from init reference 3. `0xDB0970` is the only reader of that global. The IL of `GetTypeFromHandle` is `ldarga handle; call get_Value; call internal_from_handle; ret`, so reference 3 is `get_Value` and reference 8 is `internal_from_handle` [inferred from that shape, I-475-3]. It matches §19's capture: `this` = 0x4423xxxx, C-stack memory, in 15 of 15 samples.
+- The sampler [verified: the 6 pooled files]: all 44 `get_Value` samples have a stack depth of exactly 1, with no managed caller. `0xD8A8E0` runs the callee on a fresh interpreter state (docs/re/native-symbols.md), so the probe's frame walk (`ThreadContext+8` chain, `tools/probe/agent.js`) sees only `get_Value`. The other depth-1 leaves are also reflection (`MonoType.get_Assembly` 9, `Object.GetType` 3, `Type.IsAssignableFrom` 2).
+- The rate [verified: count]: `get_Value` runs 11,203 (BP), 10,888 (IP) and 15,215 (SV) calls/s, each through its compiled normal body: 3 positions, exactly one exit per call (`ret`), 0 bails, 0 slow paths. 7.4 ms/s / 11.2k = **~660 ns per call** [inferred, I-475-2]. The body is 3 mint words (under ~20 ns compiled), so over 95% of the booked time is the n2m entry and exit around it.
+- Why the host shows none of it: the host runs `GetTypeFromHandle` as mint, where the transform folds the call into `ldarga` + `ldfld.i4` (§18), so it never makes this n2m call.
+- Ruled out: inlined icall (the body has no call); GC or lock wait as the main cause (the count shows no slow path; a wait inside the n2m window cannot be split from the entry cost with this data, and it is removed with it either way).
+- **Recovery: `[Binder] TypeHandleDirect` (name open, default 0).** At `0xDB095E`-`0xDB097D` (32 bytes, today `56 57 8d 55 bc 52 8d 4d 18 8b c1 6a 00 89 4d b4 8b 0d 6c f0 1e 01 50 51 e8 65 9f fd ff 83 c4 24`), check the bytes and write `mov eax,[ebp+0x18]; mov [ebp-0x44],eax` + nops. The high result word is already 0 from the memset, `[edi]` (exception out) is zeroed by the adapter (`0xDB0A0A`), and `esi`/`edi` are loaded before the window. `get_Value` is `return value;` (IL 7 bytes, no side effects, `this` is never null here), so the result is identical. A bonus: the body is worker-reachable (`v0` in binder-bodies.csv) and the worker must never enter through `0xD8A8E0` (docs/56), so the patch also takes one n2m entry out of the worker closure [inferred].
+- Estimate: `get_Value`'s 7.4 ms/s (44 samples, about +-15%) goes away. Part of `GetTypeFromHandle`'s own 2.77 may go too, if `0xD8A8E0`'s prologue runs before the new frame is visible. **~5-7 ms/s per world [inferred]**, above the 3-5 ms/s ON bar if a timing run confirms it. Effort ~1-2 h (patch with a byte check, ini read-back on the OK line, native selftest on the window bytes), then one sampler A/B per world (10 min arms) before it can be ON. Check S3SS / Apex sources for a patch of `0xDB0940` before building (the check-existing-fixes rule; nothing in this repo touches it).
+- It belongs to us, not Apex (script binding / Mono lane). It is not a compiler piece, so it does not touch the call-exit work.
+
+### 20.4 Q4: A3, the depth-slot bail
+
+**What it is [verified: host A3 + EA disassembly in the handoff].** A lazy call site needs a free `MonoInvocation` slot at `depth + level + 1` in the current `ves_exec`'s frame-record array (`depth + 1 (+ pending) >= [ebp-0x30]` = bail). EA makes those slots with an `alloca(0x28)` on `ves_exec`'s C stack the first time a call reaches that depth (`0xE562E1`-`0xE5631F`). A compiled body cannot alloca in `ves_exec`'s frame, so the site takes EA's normal call, which makes the slot. Every later call at that depth in the same `ves_exec` is lazy.
+
+**How often in game [verified: count, interval #2 -> #3].**
+
+| | BP | IP | SV |
+|---|---|---|---|
+| depth-slot bails/s | 3,227 | 4,922 | 3,936 |
+| all bails/s (no lazy body / depth / arena) | 23,695 | 28,309 | 22,154 |
+| compiled calls/s | 137,300 | 153,575 | 146,359 |
+| sites | 12 | 12 | 12 |
+| top sites (share of depth bails) | GetSlot w9 25%, GetPrev w24 23%, TryGetValue w9 23%, IEquatable GetHashCode w4 14% | 29%, 27%, 27%, 8% | 27%, 24%, 24%, 11% |
+| depth bails per call of the method | GetPrev 0.08, GetSlot 0.07, TryGetValue 0.11 | 0.11, 0.11, 0.16 | 0.10, 0.09, 0.16 |
+
+All the volume is in Dictionary lookups whose `ves_exec` is fresh. Each runtime invoke or n2m entry (2,844 call sites of `0xD8A8E0` in the exe, rough byte scan) starts with no slots, so the first lazy call at each depth bails [inferred, the host A3 reason, now in game].
+
+**Cost [inferred, I-475-5].** A bail costs EA's call minus a lazy call: 22-33 ns (host bench, loud), so 3.2-4.9k/s x 22-33 ns = **0.07-0.16 ms/s**.
+
+**Options.**
+1. Leave it (the host A3 decision).
+2. Fill on the normal path, EA's alloca clone in every normal-body site (built and measured in the host: depth bails 1559 -> 21, census unchanged, +5 instructions on each normal-body site). In game that is 5 instructions on ~140k compiled calls/s, ~0.1-0.3 ms/s spent to save <= 0.16.
+3. Fill on the bail path from a side pool of `MonoInvocation` cells. `[rec]` may point anywhere, but the cell has to live as long as the `ves_exec` frame and survive yield save / resume (docs/130 frame save copies these records), which is a lifetime problem in the riskiest code.
+4. Pre-fill slots in `JitEnter` at a fresh `ves_exec`: the same alloca problem as 3, since `JitEnter` runs above `ves_exec`'s frame.
+
+**Recommended: option 1. No build.** A docs/51 entry for the cost model is in §475; the counts are measured. **Reopen** if a count run shows depth-slot bails above ~30k/s on some world (~1 ms/s at 33 ns).
+
+### 20.5 Summary
+
+| # | Decision | Est. ms/s | Effort | Build? |
+|---|---|---|---|---|
+| Q1 ClauseLazy | #362 stands: ClauseLazy stays 0, emitter not merged; "Array.Copy 0.0 in game" corrected (not on the list, region full; 3.07 ms/s sampled) | <= 0.3 (cap ~0.75) | - | no; reopen on a count after the region fix |
+| Q2 C2b | binder-bound in game (never runs); drop binder rows from the game list, no ldsflda work for it | 0 (frees region) | ~30 min | yes, small (list filter) |
+| Q3 get_Value | n2m round trip from `GetTypeFromHandle`'s EA body (0xDB0976); patch the call to a direct read | ~5-7 per world | ~1-2 h + sampler A/B | **yes** |
+| Q4 A3 | keep "no slot fill"; game rate 3.2-4.9k/s | 0.07-0.16 | - | no |
+| 20.0 region | the 2 MB code region is full in every run since 11-08; log refusals, then size | enables the rest | ~30-60 min | yes, before any new list rows |
+
+## 21. Call exits from the C0 game count: scope, and why nothing was built (2026-11-12, branch `feature/monojit-callexits`, static + host, no game run)
+
+C4 (allocation exits: box, newarr, newobj) stays parked since 2026-11-10. This section ranks the call exits the C0 game count still shows (Dalexlol PR #355 census, his PR #362, the three C0 count logs of §20, which comes from branch `analysis/monojit-1112`) and checks which shapes are safe to build. Rodney's compiler rule applies: per-method correctness and the gain proven in the host, no stop rule on small gains. Ledger §476.
+
+**All C0 numbers are a lower bound** (§20.0, I-475-1): the 2 MB code region was full in the count runs, so only the first 841 bodies compiled. Exits in bodies past the cap were never counted, and a method missing from the table below may simply not have compiled.
+
+### 21.1 Scope, ranked by ms/s held back
+
+`est_ms_s_behind` of the game census (BP, non-ret exits) [measured, census model]; the bail split is the last interval of `game-count-bp.log` [measured, game count]. The "12.9 ms/s" for `GetPrev` and "5.7" for `MoveNext` quoted in the task are the whole method's sampled self time (docs/207), not the cost of the exit.
+
+| Rank | Method | Exit | ms/s held back (BP) | What holds it back | Verdict |
+|---:|---|---|---:|---|---|
+| 1 | `List.get_Item` | ret.vt | 0.162 | frame teardown at ret | not a call exit (B3 piece) |
+| 2 | `IEquatableOfTEqualityComparer.GetHashCode` | con.callvirt (ED, ip 4) | 0.156 | "no lazy body": 6.76 M lazy + 3.07 M normal bails/run | callee is an EA native body (21.2): needs a new shape |
+| 3 | `Dictionary.GetPrev` | callvirt (EC, ip 59/24/55/20) | 0.154 | "no lazy body": 2.2 + 0.93 + 0.64 + 0.44 M | callee class unknown in the game; a `DefaultComparer` of a value `T` boxes (C4) |
+| 4 | `List.GrowIfNeeded` | call | 0.124 | "no lazy body" (ip 27 / 23, 0.39 + 0.37 M) | callee allocates (`Array.Resize`, C4) |
+| 5 | `List.Enumerator.MoveNext` | ldelema | 0.104 | value-type element address | not a call exit (vt-ops piece) |
+| 6 | `IEquatableOfTEqualityComparer.GetHashCode` | con.call (EB) | 0.085 | struct `T.GetHashCode` | struct callees not identified |
+| 7 | `MoveNext` | call | 0.052 | "no lazy body" (ip 1 / 6, 0.52 + 0.48 M) | `VerifyState` throws (exception path) |
+| 8 | `Array.IndexOf` | callvirt | 0.052 | `EqualityComparer.Default` per call | class-init path |
+| 9 | `Dictionary.GetSlot` | call | 0.028 | "depth slot" (ip 9, 0.9 M) | not a compile shape (§20.4) |
+| 10 | `IEquatableOfTEqualityComparer.Equals` | con.callvirt (ED, ip 17) | 0.025 | "no lazy body": 9.32 M lazy + 1.76 M normal | as rank 2 |
+| 11 | `Dictionary.TryGetValue` | call | 0.018 | "depth slot" (ip 9, 0.7 M) | as rank 9 |
+| - | ret (all) | ret | 4.39, of which `RuntimeTypeHandle.get_Value` 2.47 | frame teardown | B3 piece; `get_Value` see §20.3 |
+
+**Bail split** (BP, last interval): 32.87 M bails; "no lazy body" 28.27 M (86%), "depth slot" 3.27 M, "arena full" 1.32 M, "cache class" ~0. IP and SV look the same.
+
+**C6 ("cache class") is not worth a build** [measured, game count]: ~0 here, 239 of 50 M in Dalexlol's census (max 0.024%, `GetPrev` site 55).
+
+### 21.2 The two biggest "no lazy body" sites call EA native bodies [inferred, ledger I-476-1]
+
+Ranks 2 and 10 are the string-keyed comparer: `T.GetHashCode()` and `IEquatable<T>.Equals(T)` through con.callvirt. Together they are 20.9 M of the 28.27 M "no lazy body" bails per BP run (74%). In the host, listing `String.GetHashCode` and `String.Equals` took those bails to 0 (ip 4: 3047 -> 0, ip 17: 936 -> 0) with corpus, verify and the three c3g game-capture replays clean (4307 / 4235 / 4275 inputs ran, 0 differ, 0 faulted, MISMATCH 0).
+
+That does not carry over to the game. `docs/data/binder-bodies.csv` binds `String::GetHashCode()`, `Equals(string)`, `Equals(object)`, `Equals(string,string)` and `op_Equality` to EA native code (`RuntimeMethod+0x24 != 0`; the interpreter calls them through `0xE5925F` -> `0xE525C0`, docs/130). `JitGuardFill` gives a target with a native body no lazy entry (`monojit.cpp`, "no this, or an EA native body"), so the guarded site bails with "no lazy body" whether or not `String` is on the list. The host has no binder, so it cannot show this. It also explains why the sampler has no `String.GetHashCode` samples (native code is not mint) while `UInt64.GetHashCode` has 9.
+
+So these 20.9 M bails are calls into EA C++ that already run natively, and listing `String` gains nothing (native-body keys get no rows, §20.0). A static `String.Equals(string,string)` direct site would even run our mint instead of EA's body.
+
+**What would remove them (next shape, not built):** a guarded site whose filled target has a native body calls EA's bound body directly (the `0xE525C0` path) instead of exiting. This saves the exit + EA's call dispatch, not the callee's work. It needs `0xE525C0`'s argument convention and a host stand-in for the binder before it can be tested; estimate one agent study (~1 h), then a build.
+
+### 21.3 Built and dropped: `StrKeys`
+
+A first build behind `[MonoJit] StrKeys` (default 0) did three things: the two `String` rows, `RuntimeHelpers.get_OffsetToStringData` inline (EA's icall `0x927420` is `mov eax, 8; ret`, slot `0x10B5E0C`, bytes compared at install), and leave / leave.s natively in a method without clauses. It passed the native selftest, the corpus (261 cases, 0 differ, per-call MISMATCH 0), the fixture replay and the three c3g replays. Without the `String` rows, a host count shows **0** native leave sites and **0** `OffsetToStringData` sites on the compile list (pure icall sites 24 with the key on and off). With the rows gone as native-body keys, the other two shapes have no target, so the build was removed again. Kept for a later piece [verified, disassembly; ledger I-476-2]: EA's leave `0xE59315` + `handle_finally` `0xE54198` with no clause sets `esi` to the stack base, `[inv+0x1C]` = ip, writes the target to the record's finally slot (`rec+0x28 + n*4`, count `rec+0x128`, asserts at n >= 0x40), pops it at `0xE54315` (`[rec+0x12C]` = 0), sets `esi = [inv+0x18]`, then dispatches the target. An exception in flight (`[inv+0x24] != 0`) takes the clause path.
+
+### 21.4 Skipped, and why
+
+- **Allocation exits (C4)**: parked 2026-11-10.
+- **C6 cache class**: ~0 share.
+- **Depth slot** (`GetSlot` / `TryGetValue` ip 9): EA's `alloca` per depth in `ves_exec` (§20.4), not code we compile.
+- **`GetPrev` callvirt**: the comparer class is unknown in the game; a `DefaultComparer` of a value `T` boxes (C4).
+- **ret teardown** (4.39 ms/s): a B3 piece.
+- **`MoveNext` ldelema**: not a call exit.
+- **A2 (why callees materialize frames so often, per method)**: the game count has no per-callee mat column; the host shows the comparer callees materializing only at depth-slot bails. A per-callee count needs a count build that names the callee class per guard bail. The same build would confirm I-476-1 (callee + native-body flag per bail) and name the `GetPrev` comparer. One game count run, no timing.
+
+Truncation (§20.0) affects this ranking as follows. Ranks 2-11 come from bodies that did compile, so they are counted. A hot caller past the 841-body cap is missing entirely. Once the region is sized (R1), the census has to be read again before the next call-exit piece.

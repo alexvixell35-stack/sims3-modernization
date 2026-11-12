@@ -1,5 +1,5 @@
-// Offline self-check of h4core (mods/ts3fixes/src/H4Core.cs, docs/250 §7.1, §7.4): the watchdog async check decisions
-// and its stale-verdict rule. Windows (.NET Framework csc).
+// Offline self-check of h4core (mods/ts3fixes/src/H4Core.cs, docs/250 §7.0, §7.1, §7.4): gvattr source classes and scopes,
+// the watchdog async check decisions and its stale-verdict rule. Windows (.NET Framework csc).
 //   node tools/selftest/h4core/run.ts
 import { execFileSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';

@@ -853,6 +853,7 @@ namespace Ts3Fixes
                 if (why == UnseenFallbackCore.kHeld && who != null && !ownCheck && UfVehicleNpcOnly(who))
                     kdWhy = ShortcutOn("goalhhexempt") ? UfGoalWhy(who, kind) : 0;
                 DiagSend(UnseenFallbackCore.KdScopeOp(kdWhy), Handle);  // docs/197 §7 [RouteAsync] KdExemptSeen: this route's scope for its START or sync plan (13 = seen NPC, KdSeenNpcCeilMs); first thing in every plan, these switches or not
+                GvaSend(sim, why, ownCheck);  // docs/250 §7.0 ts3native gvattr: this plan's source class and scope (one ask a tick when off)
                 if (!pre && !leave && !ShortcutOn("unseenfbplan")) return false;
                 // never: stuck-check probes (phase B), our own route checks, IsPointInLotSafelyRoutable, non-Sims, pets, D-leave's own leg
                 if (sim == null || ownCheck || sim.SimDescription == null || sim.SimDescription.IsPet)

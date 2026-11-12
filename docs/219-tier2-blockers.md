@@ -47,10 +47,10 @@ Rows by the definitions that need them (`tools/tier2-blockers.ts` stderr) [verif
 | `World_GetLotLocationAtFloorImpl` | 24 | 1.1% | per (row, roomDef); room short only with room data (§4.1 #16) | small |
 | `World_IsInPoolImpl`, `World_HasPoolImpl` | 18, 12 | 0.6%, 0.4% | bit per row; bit per (lot, row tile) (§4.1 #10, #11) | small |
 | `World_GetTerrainHeightImpl` | 15 | 0.5% | float per (row x/z, bridges flag) (§4.1 #1) | small |
-| `Slots_IsSlotEnabledImpl` | 10 | 0.6% | bit per (object, slot name); the body takes `+0x918` (docs/90), so fill at the cut like the `a-cut` rows | medium |
+| `Slots_IsSlotEnabledImpl` | 10 | 0.6% | bit per (object, slot name); **built 2026-11-08 (P5, ledger §466):** the body takes no lock and no `+0x918` (docs/90 right, this note was wrong); `AO_CUT`, filled at the cut on the sim thread | medium |
 | `World_IsCameraRoutableImpl` | 10 | 0.4% | bit per row (§4.1 #8) | small |
 | `World_GetTerrainSurfaceTypeImpl` | 6 | 0.2% | per (row, level); `a-cut` (§4.1 #2) | medium |
-| `Slots_GetRoutingSlotNamesImpl` | 5 | 0.4% | slot-name array per object model, fixed per model: memo | medium |
+| `Slots_GetRoutingSlotNamesImpl` | 5 | 0.4% | slot-hash `uint[]` per object; **built 2026-11-08 (P5, ledger §466):** `AO_OBJ` like `GetContainmentSlotNames` | medium |
 | 17 more §4.1 rows | 1-5 each | ≤ 0.25% each | §4.1 | small, `a-cut` medium |
 
 A definition's share counts once per row it needs, so the column does not add up. **Where the four shared rows come from** [verified: tool paths]:
@@ -67,12 +67,12 @@ All four answer per row object or position, the same families as docs/121 §2.2,
 | Share | Definition | Missing piece | Fix | Effort |
 |---|---|---|---|---|
 | 2.90% | base path `Autonomy.CalculateScoreForObjectInteraction` | `GetInUseAutonomyMultiplier` -> any `get_InUse` override: 10 of 48 block (§3.1) | §3.1 hook set | small |
-| 1.36% | `Sim+CallPet` | `Test` fills `mSimPickerList` on the shared definition object | docs/75 §3 stage A per-tick cache, or a worker copy with its own list [inferred] | medium |
+| 1.36% | `Sim+CallPet` | **P3 built 2026-11-12 (not run):** `Test` fills `mSimPickerList` on the shared definition object; the worker runs the game's `Test` with the field saved and put back (`autt2callpet`, worker-owned list, ledger §473). Now ready | - | medium |
 | 0.87% | scoring function `SitHereForEating.EatHereScoringFunction` | `GetClosestFreeSlotPair` -> chair `CanScootBack` (`ChairBarStool`, `ChairDining`): footprint disable, `World_TestObjectPlacementPQ`, enable | a per-chair bit at the cut costs one placement test per chair per cut | hard |
 | 0.39% | `Phone+Call+CallDefinition`1` | **done 2026-11-08 (P4):** was the generic base reaching every subclass `Test`; `tools/autonomy-tier2.ts` now makes one candidate per concrete subclass (62 `Phone+...+Definition`, 0.39% split evenly, 0.006% each [inferred]). 10 of them are blocked only by the `fire` guard (small), 2 by the relationship set (`SendBreakUpText`, `SendWooHootyText`), the rest by their own `Test` (see csv) | allow-list the clean ones; `fire` guard (P1) opens 10 more | small to hard |
 | 0.29% | scoring function `GameObject.SitInteractionModifier` | the same `get_InUse` family | §3.1 (then also `Query_CountObjectsInRange`, no row design) | small |
-| 0.19% | `Sim+Sim_ReadToSleep_Autonomous` | `Relationship.GetMiniRelationships` adds to `Relationship.sAllRelationships`; `CauseEffectService` lazy data | pre-warm `CauseEffectService`; abort while the Sim has no relationship entry | medium |
-| 0.15% | `SocialInteractionA` | the same two; its 6 own-field hits are a `new Definition(...)` in `GetYouShouldTargets`, a fresh object [inferred: rule false positive] | as above | medium |
+| 0.19% | `Sim+Sim_ReadToSleep_Autonomous` | **P2 built 2026-11-12 (not run):** `GetMiniRelationships` only reads `sAllRelationships` (IL, ledger §473: rule false positive, no guard); `CauseEffectService` lazy data pre-warmed (`autt2cewarm`); the `SwingSet` `BuyModeSuite` path guarded (`autt2suite`). Now new-rows: `CASUtils_SimOutfit*` (class a, IC lanes) | IC rows | medium |
+| 0.15% | `SocialInteractionA` | **P2 built 2026-11-12 (not run):** as ReadToSleep; its own-field hits are `.ctor`s and a `new Definition(...)` local in YouShould [verified, ledger §473; tool rule fixed]. Now new-rows (same CASUtils ICs) | IC rows | medium |
 | 0.10% | `ViewObjects`; also `WalkerClassic+HoldChild` (row 5) | `LiveDragHelperModel.get_Singleton` lazy singleton | pre-warm once per load | small |
 | 0.10% | `NotAutonomousForSelectableSims` | through `CalculateScoreForObjectInteraction` | §3.1 | small |
 | 0.08% | `BakeSaleTable+GotoBakeSaleTable` (meta) | **done 2026-11-08 (P4):** `InteractionUtil.Test(InteractionDefinition, ...)` has one caller, which passes `PurchaseAutonomously.Singleton`; `managed-callgraph.ts paramType` types the parameter from its callers. The definition is now new-rows (`World_IsOnRoofImpl`, `Objects_GetHeightAboveFloor`), no sim-thread blocker; the `World_TestObjectPlacementP` seen before was the widened dispatch, not this definition [verified: tool output] | rows only | small |
@@ -113,6 +113,8 @@ Nine of the ten are store objects; `Soil` is base-game gardening, so a soil targ
 | - | the 15 hard ones | 1.4% | stay on the sim thread |
 
 Steps 1-3 together: ~11% of scoring on top of what is ready now (5.0 + 2.6 + 3.2; `SitInteractionModifier` still needs `Query_CountObjectsInRange`) [inferred: shares add, aborts not counted]. Each row and hook is checked in Mode R before its definitions join the allow-list (docs/122 §4.3).
+
+**P5 + row-only set 2026-11-08 (ledger §466, pair `tier2p5-1108`, not run):** the two Slots rows built behind `[AutShadow] Tier2SlotRows`; `World_IsOnRoofImpl` and `Objects_GetHeightAboveFloor` (built 11-06 below, never listed in `TIER2_BUILT`) now counted. Rerun with cuts H11, H12, `Query_GetGlobalObjects`, P1: 40 not ready (snapshot-row definitions 163 -> 11, the 29 blocked unchanged) [verified: tool output].
 
 **Built 2026-11-06 (step 1, rows only, docs/208 §9.1, not run):** the four rows behind `[AutShadow] Tier2Rows`, checked by the `autofft2` Mode R item. No definition joined the allow-list: most of the 76 are local-phase, and the worker scores meta objects only. `World_IsOnRoofImpl` is keyed by object id, not by position as §2 says.
 

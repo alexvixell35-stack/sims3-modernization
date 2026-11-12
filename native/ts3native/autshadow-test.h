@@ -578,7 +578,7 @@ static void AsT2eRefresh(int i, void* body, const DWORD* key, int nKey, AsEnt& e
     g_asDescOf[slot] = d0, g_asOrig[slot] = o0;
 }
 static void TestAutShadowTier2IcE() {
-    assert(AS_NT2E == 8 && AS_NT2IC == 15 + AS_NT2E);  // bits 5-6 E3 (TestAutShadowTier2IcE3), bit 7 P6 (TestAutShadowTier2CountRange)
+    assert(AS_NT2E == 10 && AS_NT2IC == 15 + AS_NT2E);  // bits 5-6 E3 (TestAutShadowTier2IcE3), bit 7 P6 (TestAutShadowTier2CountRange), bits 8-9 P5 (TestAutShadowTier2Slots)
     const char* nm[5] = {"ScriptCore.World::World_GetTilesWithFloorFeaturesImpl", "ScriptCore.World::World_FindPondRepresentativePositions",
                          "ScriptCore.World::World_GetLotLocationAtFloorImpl", "ScriptCore.World::World_GetWorldToHouseboatDisplayPositionImpl",
                          "ScriptCore.World::World_GetHouseboatDisplayToWorldPositionImpl"};
@@ -673,25 +673,26 @@ static void TestAutShadowTier2IcE() {
     }
 }
 
-// P6 (docs/data/tier2-rows35-handoff.md, ledger §462): Query_CountObjectsInRange is the last row, behind Tier2CountRange (bit 7 since E3; was bit
+// P6 (docs/data/tier2-rows35-handoff.md, ledger §462): Query_CountObjectsInRange (row 22; the P5 slot rows follow it), behind Tier2CountRange (bit 7 since E3; was bit
 // 5) on top of Tier2Rows + Tier2IcRows; the same layout as Query_GetObjectsInRange; a dummy body with that cdecl layout gives
 // the stored count; the worker gate refuses the row (no lookup, no learn) unless ts3fixes cleared it for this request.
 static DWORD __cdecl AsT2FakeCount(DWORD type, float x, float y, float z, float r) {
     return 0xAB000000u | (type & 0xFF) | (x * x + y * y + z * z < r * r ? 0x100u : 0u);
 }
 static void TestAutShadowTier2CountRange() {
-    const AsDesc& d = kAsDesc[AS_NDESC - 1];
-    assert(&d == AsT2Ic(22));
+    const AsDesc& d = *AsT2Ic(22);
+    const int p6 = AS_NDESC - AS_NT2IC + 22;
+    assert(d.of == AS_OF_HH);
     AsT2IcRow(22, "ScriptCore.Queries::Query_CountObjectsInRange", AO_CUT, AK_INT, 5, 4, AS_AB_QUERY);
     const AsDesc* g = NULL;
     for (int i = 0; i < AS_NDESC; i++) if (!strcmp(kAsDesc[i].name, "ScriptCore.Queries::Query_GetObjectsInRange")) g = &kAsDesc[i];
     assert(g && g->nArg == d.nArg && g->at == d.at && g->owner == d.owner && !g->strMask);  // 0x7496E0 / 0x749770 [verified]
     g_asTier2Rows = g_asTier2IcRows = true, g_asT2eBits = 0x7F;  // every other E bit (E3 included): still off
-    assert(!AsDescOn(AS_NDESC - 1) && AsDescOn(AS_NDESC - 2));
+    assert(!AsDescOn(p6) && AsDescOn(p6 - 1));
     g_asT2eBits = 0x80;
-    assert(AsDescOn(AS_NDESC - 1) && !AsDescOn(AS_NDESC - 2));
+    assert(AsDescOn(p6) && !AsDescOn(p6 - 1) && !AsDescOn(p6 + 1) && !AsDescOn(p6 + 2));
     g_asTier2IcRows = false;
-    assert(!AsDescOn(AS_NDESC - 1));
+    assert(!AsDescOn(p6));
     g_asTier2Rows = false, g_asT2eBits = 0;
     static DWORD pool[64];
     LONG poolN = 0;
@@ -734,6 +735,82 @@ static void TestAutShadowTier2CountRange() {
     AsWorkerBegin();
     assert(g_asActorHh == 1);
     AsWorkerEnd();
+    g_asDescOf[slot] = d0, g_asKind[slot] = k0, g_asWorkerTid = tid0, g_asHeld = held0;
+}
+
+// P5 (docs/data/tier2-rows35-handoff.md, ledger §466): Slots_IsSlotEnabledImpl and Slots_GetRoutingSlotNamesImpl, rows 23-24
+// after P6, behind Tier2SlotRows (E bits 8-9) and the AS_OF_HH actor gate. Dummy bodies with the verified cdecl layouts: a bool
+// with junk high bytes, a uint[] (4-byte elements, the GetContainmentSlotNames shape) or null.
+static DWORD __cdecl AsT2FakeSlotOn(DWORD idLo, DWORD idHi, DWORD slot) { return 0x5500u | (idLo == 7 && !idHi && slot == 0xA1B2C3D4 ? 1u : 0u); }
+static DWORD g_asT2FakeSlots[8];
+static DWORD __cdecl AsT2FakeRouteSlots(DWORD idLo, DWORD) {
+    if (idLo != 7) return 0;  // no object or no slot component: null
+    g_asT2FakeSlots[0] = 0x5107, g_asT2FakeSlots[2] = 2, g_asT2FakeSlots[4] = 0xA1B2C3D4, g_asT2FakeSlots[5] = 0x31A7E;
+    return (DWORD)(uintptr_t)g_asT2FakeSlots;
+}
+static void TestAutShadowTier2Slots() {
+    const AsDesc& s = *AsT2Ic(23);
+    const AsDesc& n = *AsT2Ic(24);
+    assert(AsT2Ic(24) == kAsDesc + AS_NDESC - 1);
+    assert(!strcmp(s.name, "ScriptCore.Slots::Slots_IsSlotEnabledImpl") && s.owner == AO_CUT && s.kind == AK_INT && s.nArg == 3 &&
+           s.sz == 1 && !s.nOut && s.of == AS_OF_HH && AsKindOfName(s.name) == 0);
+    assert(!strcmp(n.name, "ScriptCore.Slots::Slots_GetRoutingSlotNamesImpl") && n.kind == AK_ARRAY && n.of == AS_OF_HH && !n.nOut);
+    const AsDesc* c = NULL;  // the containment-slot row (0x76F990): same lookups, same uint[] answer
+    for (int i = 0; i < AS_NDESC; i++) if (!strcmp(kAsDesc[i].name, "ScriptCore.Slots::Slots_GetContainmentSlotNamesImpl")) c = &kAsDesc[i];
+    assert(c && c->owner == n.owner && c->kind == n.kind && c->nArg == n.nArg && c->sz == n.sz && c->at == n.at && !c->of);
+    // gate: Tier2SlotRows = both bits, on top of Tier2Rows + Tier2IcRows; every other E bit leaves them off
+    const int e0 = AS_NDESC - AS_NT2E;
+    g_asTier2Rows = g_asTier2IcRows = true, g_asT2eBits = 0xFF;
+    assert(!AsDescOn(e0 + 8) && !AsDescOn(e0 + 9) && AsDescOn(e0 + 7));
+    g_asT2eBits = 0x300;
+    assert(AsDescOn(e0 + 8) && AsDescOn(e0 + 9) && !AsDescOn(e0 + 7) && !AsDescOn(e0));
+    g_asTier2IcRows = false;
+    assert(!AsDescOn(e0 + 8) && !AsDescOn(e0 + 9));
+    g_asTier2Rows = false, g_asT2eBits = 0;
+    // the stored answers: bool masked to its byte; the array copied to the pool (vtable, count, elements), null = no payload
+    static DWORD pool[64];
+    LONG poolN = 0;
+    AsEnt e;
+    const DWORD kOn[3] = {7, 0, 0xA1B2C3D4}, kOff[3] = {7, 0, 0x31A7E}, kNo[3] = {8, 0, 0xA1B2C3D4};
+    AsT2eRefresh(23, (void*)AsT2FakeSlotOn, kOn, 3, e, pool, &poolN);
+    assert(e.r[0] == 1 && e.r[1] == 0);
+    AsT2eRefresh(23, (void*)AsT2FakeSlotOn, kOff, 3, e, pool, &poolN);
+    assert(e.r[0] == 0);
+    AsT2eRefresh(23, (void*)AsT2FakeSlotOn, kNo, 3, e, pool, &poolN);
+    assert(e.r[0] == 0);
+    const DWORD kObj[2] = {7, 0}, kNone[2] = {9, 0};
+    AsT2eRefresh(24, (void*)AsT2FakeRouteSlots, kObj, 2, e, pool, &poolN);
+    assert(e.payN == 2 + 2 && pool[e.pay] == 0x5107 && pool[e.pay + 1] == 2 && pool[e.pay + 2] == 0xA1B2C3D4 && pool[e.pay + 3] == 0x31A7E);
+    AsT2eRefresh(24, (void*)AsT2FakeRouteSlots, kNone, 2, e, pool, &poolN);
+    assert(e.r[0] == 0 && !e.payN);
+    // actor gate: both rows refused (no lookup, no learn) while the actor is household, selected or unknown
+    const int slot = AS_MAXIC - 2;
+    const AsDesc* d0 = g_asDescOf[slot];
+    const char k0 = g_asKind[slot];
+    const DWORD tid0 = g_asWorkerTid;
+    const LONG held0 = g_asHeld;
+    g_asHeld = -1;
+    g_asWorkerTid = GetCurrentThreadId(), g_asStop = 0;
+    for (int i = 23; i < 25; i++) {
+        g_asDescOf[slot] = AsT2Ic(i), g_asKind[slot] = 0;
+        DWORD args[3] = {7, 0, 0xA1B2C3D4};
+        AsRet r;
+        AsIcActorScope(1);
+        const LONG h0 = g_asActorHhAborts, ring0 = g_asRingHead;
+        AsResetAbort();
+        AsWorkerAnswer(slot, args, &r);
+        assert(AsAborted() == AS_AB_OTHER && g_asActorHhAborts == h0 + 1 && g_asRingHead == ring0);
+        AsResetAbort();
+        AsIcActorScope(0);
+        AsWorkerAnswer(slot, args, &r);  // past the gate: no published version held here, so the next check aborts
+        assert(g_asActorHhAborts == h0 + 1 && AsAborted() == AS_AB_OTHER);
+        AsResetAbort();
+    }
+    AsWorkerBegin();
+    assert(g_asActorHh == 1);
+    AsWorkerEnd();
+    // the other rows carry no gate
+    for (int i = 0; i < AS_NDESC; i++) assert(!(kAsDesc[i].of & AS_OF_HH) || &kAsDesc[i] == AsT2Ic(22) || &kAsDesc[i] == AsT2Ic(23) || &kAsDesc[i] == AsT2Ic(24));
     g_asDescOf[slot] = d0, g_asKind[slot] = k0, g_asWorkerTid = tid0, g_asHeld = held0;
 }
 
@@ -1102,7 +1179,7 @@ static void TestAutLedger() {
     Ts3nAutShadow& k = ts3native_autshadow;
     assert(offsetof(Ts3nAutShadow, lgOn) == 0x13C && offsetof(Ts3nAutShadow, lgIn) == 0x158 && offsetof(Ts3nAutShadow, lgSleep) == 0x17C &&
            offsetof(Ts3nAutShadow, lgCls) == 0x1A0 && offsetof(Ts3nAutShadow, lgCall) == 0x260 && offsetof(Ts3nAutShadow, abort2) == 0x760 && offsetof(Ts3nAutShadow, rngPauseDraws) == 0x76C && offsetof(Ts3nAutShadow, abortRoute) == 0x770 &&
-           offsetof(Ts3nAutShadow, overrunIdle) == 0x778 && offsetof(Ts3nAutShadow, windowWaitUs) == 0x780 && k.version == 21 && offsetof(Ts3nAutShadow, satbMode) == 0x9C0 && offsetof(Ts3nAutShadow, satbWGiveUpOp) == 0xA5C &&
+           offsetof(Ts3nAutShadow, overrunIdle) == 0x778 && offsetof(Ts3nAutShadow, windowWaitUs) == 0x780 && k.version == 22 && offsetof(Ts3nAutShadow, satbMode) == 0x9C0 && offsetof(Ts3nAutShadow, satbWGiveUpOp) == 0xA5C &&
            offsetof(Ts3nAutShadow, satbIcLogged) == 0xA60 && offsetof(Ts3nAutShadow, refPassA4) == 0xA84 && offsetof(Ts3nAutShadow, pairT) == 0xA88 && offsetof(Ts3nAutShadow, pairN) == 0xA98 &&
            offsetof(Ts3nAutShadow, transOn) == 0xAA8 && offsetof(Ts3nAutShadow, runNo) == 0xAE4 && offsetof(Ts3nAutShadow, clsGoneSkip) == 0xAF8 &&
            offsetof(Ts3nAutShadow, seOn) == 0xAFC && offsetof(Ts3nAutShadow, tmOn) == 0xB10 && offsetof(Ts3nAutShadow, gdOn) == 0xB20 && offsetof(Ts3nAutShadow, gdOver) == 0xB40 &&
@@ -1200,7 +1277,7 @@ static void TestAutShadowFull() {
     Ts3nAutShadow& k = ts3native_autshadow;
     assert(offsetof(Ts3nAutShadow, evicted) == 0x784 && offsetof(Ts3nAutShadow, learnBacklog) == 0x7A4 && offsetof(Ts3nAutShadow, cutLearnUs) == 0x7A8 &&
            offsetof(Ts3nAutShadow, bodyN) == 0x7C0 && offsetof(Ts3nAutShadow, coldSkips) == 0x7E0 && offsetof(Ts3nAutShadow, workCsr) == 0x7F8 &&
-           sizeof(Ts3nAutShadow) == 0xC98 && offsetof(Ts3nAutShadow, alOn) == 0xB8C && k.version == 21);
+           sizeof(Ts3nAutShadow) == 0xCC8 && offsetof(Ts3nAutShadow, alOn) == 0xB8C && k.version == 22);
     const LONG full0 = k.full, ev0 = k.evicted;
     const int audit0 = g_asAudit;
     g_asAudit = 0;  // the timed cut below is the production cut (Audit=50 adds a bounded 1,024-row slice every 50th)
@@ -3395,4 +3472,5 @@ static void TestAutShadow() {
     TestAutShadowCost17();
     TestAutShadowLive();
     TestAutShadowTier2CountRange();
+    TestAutShadowTier2Slots();
 }

@@ -4,7 +4,7 @@ Rename to `vX.Y.Z-dev.md` when the version is set. Player notes: CHANGELOG.md `#
 
 ## Foreign route replans (`[RouteAsync] ForeignKinds`) ON (Rodney 2026-11-09)
 
-Timing rerun in correctness-1109 (`ip-foreign-natural-*`, cross-run ABBA, pair master1108: ts3native 0.36.211, ts3fixes f2826284; docs/data/results/2026-11-08-queue-correctness-1109.md): route 100.5 -> 63.0 ms/s (-37.5) in both orders, no hitch regression, correctness clean.
+Timing rerun in correctness-1109 (`ip-foreign-natural-*`, cross-run ABBA, pair master1108: ts3native 0.36.211, ts3fixes f2826284; docs/data/results/2026-11-08-queue-correctness-1109.md): route 100.5 -> 63.0 ms/s (-37.5) in both orders, but the waits moved (rtLock 47 -> 63, rtJob 22 -> 36): net main-thread ~-7 ms/s (route + rtLock + rtOtherLock + rtJob 176 -> 169; route breakdown 2026-11-09, probe-out/HANDOFF-2026-11-08-night.md). No hitch regression, correctness clean.
 
 - Release `ts3native.ini` `[RouteAsync]`: `ForeignKinds=4` (ReplanFromPosition STARTs from a task that is not the route's Sim, docs/176), `ForeignKindsMode=1`, `KdA10ForeignMs=1000` (was 200). Unchanged: `Kinds=0`, `SyncCapMs=1000`, `KindDeadlines=1`, `KdExemptSeen=1` (no deadline cut unless ts3fixes says the route is unseen, so household and selected Sims are never cut).
 - Foreign jobs run the whole original IC on the worker (no FbJobCapMs cap), so the plan is the game's own answer.

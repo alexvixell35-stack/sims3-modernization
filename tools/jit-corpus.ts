@@ -1288,7 +1288,62 @@ const C3_CASES: Case[] = [
   { name: 'JitKLS.Own (LDSFLDA statics of the compiled class, no static ctor)', body: T('JitKLS.Own(20)') },
 ];
 const C3_LIST = ['JitKC3.*', 'JitKLS.*'];
-export const cases = (): Case[] => [...kernelCases(), ...STMT_CASES, ...bclCases(), ...CLAUSE_CASES, ...LAZY_CASES, ...ACCESSOR_CASES, ...EXIT_CASES, ...VTOPS_CASES, ...NEWVT_CASES, ...C3_CASES];
+// handoff C5 (ClauseLazy): lazy bodies for methods with clauses. Compiled callers (JitKCL loops) call the 5-arg Array.Copy (two
+// try / catch in its element loops) and our own try / catch / finally methods lazily; exceptions from a protected word, from a
+// lazy callee inside and outside a try, caught, rethrown, through a finally, and the elements copied before Array.Copy throws
+const KCL = `
+    public static class JitKCL
+    {
+        public static int Fin;
+        static int H(int s, object[] a) { for (int i = 0; i < a.Length; i++) s = s * 31 + (a[i] == null ? 1 : a[i] is string ? ((string)a[i]).Length + 7 : a[i].GetHashCode()); return s; }
+        static int H(int s, int[] a) { for (int i = 0; i < a.Length; i++) s = s * 31 + a[i]; return s; }
+        static int E(int s, Exception e) { string t = e.GetType().FullName + "|" + e.Message; for (int i = 0; i < t.Length; i++) s = s * 31 + t[i]; return s; }
+        static int Thrower(int k) { if (k % 3 == 1) throw new ArgumentException("k" + k); return k * 2; }
+        static int CatchIn(int[] a, int i) { try { return a[i] + Thrower(i); } catch (IndexOutOfRangeException) { return -1; } finally { Fin++; } }
+        static int Outside(int[] a, int i) { int v = Thrower(i + 1); try { v += a[i]; } catch (NullReferenceException) { v = -2; } return v; }
+        static int Rethrow(int i) { try { return Thrower(i); } catch (ArgumentException) { Fin += 10; throw; } }
+        static int Filtered(int i) { try { return Thrower(i); } catch (InvalidOperationException) { return -3; } }
+        // Array.Copy's slow loops: object[] holding a string to int[] (InvalidCastException from its catch), long[] to int[]
+        // (ArrayTypeMismatchException), object[] to string[], int[] to long[] (widening, no throw), string[] to object[]
+        public static int Copies(int n)
+        {
+            int s = 0; object[] o = new object[5], so = new object[4]; int[] x = new int[5]; long[] l = new long[5]; string[] t = new string[4];
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < 5; j++) { o[j] = (i + j) % 4 == 3 ? (object)"s" : (object)(i * 5 + j); l[j] = i * 7 + j; x[j] = 0; }
+                for (int j = 0; j < 4; j++) t[j] = (j & 1) == 0 ? "a" : null;
+                try { Array.Copy(o, 0, x, 0, 5); } catch (Exception e) { s = E(s, e); }
+                s = H(s, x);
+                try { Array.Copy(l, 1, x, 0, 3 + i % 2); } catch (Exception e) { s = E(s, e); }
+                try { Array.Copy(o, x, 4); } catch (Exception e) { s = E(s, e); }
+                try { Array.Copy(o, 1, t, 0, 3); } catch (Exception e) { s = E(s, e); }
+                try { Array.Copy(x, 0, l, 0, 5); Array.Copy(t, 0, so, 0, 4); Array.Copy(so, 1, so, 0, 3); } catch (Exception e) { s = E(s, e); }
+                s = H(H(s, x), so) * 31 + (int)l[i % 5];
+            }
+            return s;
+        }
+        public static int User(int n)
+        {
+            int s = 0; int[] a = new int[4];
+            Fin = 0;
+            for (int i = 0; i < n; i++)
+            {
+                a[i % 4] = i;
+                s = s * 31 + CatchIn(a, i % 6) + Fin;
+                try { s = s * 31 + Outside(i % 5 == 4 ? null : a, i % 4); } catch (Exception e) { s = E(s, e); }
+                try { s = s * 31 + Rethrow(i); } catch (Exception e) { s = E(s, e) + Fin; }
+                try { s = s * 31 + Filtered(i); } catch (Exception e) { s = E(s, e); }
+            }
+            return s;
+        }
+    }
+`;
+const CL_CASES: Case[] = [
+  { name: 'JitKCL.Copies (C5 Array.Copy try / catch: object[] with a string to int[], long[] to int[], object[] to string[], widening, references)', body: T('JitKCL.Copies(24)') },
+  { name: 'JitKCL.User (C5 lazy callees with clauses: catch inside, throw outside a try, rethrow, finally, an uncaught type)', body: T('JitKCL.User(30)') },
+];
+const CL_LIST = ['JitKCL.*'];
+export const cases = (): Case[] => [...kernelCases(), ...STMT_CASES, ...bclCases(), ...CLAUSE_CASES, ...LAZY_CASES, ...ACCESSOR_CASES, ...EXIT_CASES, ...VTOPS_CASES, ...NEWVT_CASES, ...C3_CASES, ...CL_CASES];
 
 // ---- C# ----
 export function generate(): string {
@@ -1316,6 +1371,7 @@ ${KA.replace(/^\n|\n$/g, '')}
 ${KB1.replace(/^\n|\n$/g, '')}
 ${KB2.replace(/^\n|\n$/g, '')}
 ${KC3.replace(/^\n|\n$/g, '')}
+${KCL.replace(/^\n|\n$/g, '')}
     public struct JitKey : IEquatable<JitKey>
     {
         public int K;
@@ -1462,7 +1518,7 @@ ${cs.map((k, i) => `                case ${i}: // ${k.name}
 export function jitList(src: string): string {
   const m = /kJitList\[\] = \{([\s\S]*?)\};/.exec(src);
   if (!m) throw new Error('kJitList not found in monohost-jit.cpp');
-  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', 'JitKX.*', 'JitKT.*', 'JitKTF.*', 'JitKCV.*', 'JitKI.*', 'JitKIN.*', 'JitIN.*', 'JitINS.*', 'JitIND.*', 'JitC5A.*', 'JitRKey.*', 'JitRKey2.*', 'JitTPt.*', 'JitTBig.*', ...ACCESSORS.map(a => a[3]), ...KA_LIST, ...VTOPS_LIST, ...C2_LIST, ...NEWVT_LIST, ...C3_LIST).join(',');
+  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', 'JitKX.*', 'JitKT.*', 'JitKTF.*', 'JitKCV.*', 'JitKI.*', 'JitKIN.*', 'JitIN.*', 'JitINS.*', 'JitIND.*', 'JitC5A.*', 'JitRKey.*', 'JitRKey2.*', 'JitTPt.*', 'JitTBig.*', ...ACCESSORS.map(a => a[3]), ...KA_LIST, ...VTOPS_LIST, ...C2_LIST, ...NEWVT_LIST, ...C3_LIST, ...CL_LIST).join(',');
 }
 
 // ---- report ----
@@ -1530,7 +1586,7 @@ function selfCheck() {
   try { disk = readFileSync(OUT, 'utf8'); } catch { /* missing = stale */ }
   ok(disk.replace(/\r\n/g, '\n') === g.replace(/\r\n/g, '\n'), 'native/monohost/JitCorpus.cs is up to date (node tools/jit-corpus.ts --write)');
   const src = 'static const char* const kJitList[] = {\n    // c\n    "A.B", "C`2.D",\n    "E.F",\n};';
-  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,JitKX.*,JitKT.*,JitKTF.*,JitKCV.*,JitKI.*,JitKIN.*,JitIN.*,JitINS.*,JitIND.*,JitC5A.*,JitRKey.*,JitRKey2.*,JitTPt.*,JitTBig.*,' + ACCESSORS.map(a => a[3]).join(',') + ',' + [...KA_LIST, ...VTOPS_LIST, ...C2_LIST, ...NEWVT_LIST, ...C3_LIST].join(','), 'kJitList parse');
+  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,JitKX.*,JitKT.*,JitKTF.*,JitKCV.*,JitKI.*,JitKIN.*,JitIN.*,JitINS.*,JitIND.*,JitC5A.*,JitRKey.*,JitRKey2.*,JitTPt.*,JitTBig.*,' + ACCESSORS.map(a => a[3]).join(',') + ',' + [...KA_LIST, ...VTOPS_LIST, ...C2_LIST, ...NEWVT_LIST, ...C3_LIST, ...CL_LIST].join(','), 'kJitList parse');
   const live = jitList(readFileSync(resolve(ROOT, 'native/monohost/monohost-jit.cpp'), 'utf8'));
   ok(live.split(',').length <= 256 && live.length < 8192, 'compile list fits monohost (g_jitNames[256], g_jitListBuf[8192])');
   ok(new Set(ACCESSORS.map(a => a[1])).size === ACCESSORS.length && ACCESSORS.every(a => /^\w+Case$/.test(a[1]) && a[2] > 0), 'accessor table');

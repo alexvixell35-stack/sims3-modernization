@@ -1151,8 +1151,9 @@ def main():
             "min_hop": hop[ex], "score": int(score),
         })
     races.sort(key=lambda r: (bool(r["mitigation"]), -r["score"], r["global"]))
+    fields = carry_columns(a.races, races)
     with open(a.races, "w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(races[0]))
+        w = csv.DictWriter(fh, fieldnames=fields)
         w.writeheader()
         w.writerows(races)
     kinds = collections.Counter(r["kind"] for r in races)
@@ -1168,6 +1169,22 @@ def main():
     print(text)
     if a.summary:
         open(a.summary, "w", encoding="utf-8").write(text + "\n")
+
+
+def carry_columns(path, races):
+    """Keep hand-added columns (e.g. r2a_*, races-handoff R2a) of an existing races csv: copied by global, appended after
+    the tool's own columns; returns the field list"""
+    own = list(races[0])
+    if not os.path.exists(path):
+        return own
+    with open(path, newline="", encoding="utf-8") as fh:
+        old = list(csv.DictReader(fh))
+    extra = [c for c in (old[0] if old else {}) if c not in own]
+    by = {r["global"]: r for r in old}
+    for r in races:
+        for c in extra:
+            r[c] = by.get(r["global"], {}).get(c, "")
+    return own + extra
 
 
 def self_check():
@@ -1229,6 +1246,15 @@ def self_check():
         (a1, mn1, k1, v1), = idx[g]["ind"]
         r = res.resolve(g, a1, mn1, k1, v1, None)
         assert r[0] == "resolved" and r[2] == want, (hex(g), r)
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        fp = os.path.join(td, "races.csv")
+        with open(fp, "w", newline="", encoding="utf-8") as fh:
+            fh.write("global,kind,r2a_class\n0x10,old,load\n0x30,old,runtime\n")
+        rs = [{"global": "0x10", "kind": "new"}, {"global": "0x20", "kind": "new"}]
+        assert carry_columns(fp, rs) == ["global", "kind", "r2a_class"]
+        assert rs[0]["r2a_class"] == "load" and rs[1]["r2a_class"] == "" and rs[0]["kind"] == "new", rs
+        assert carry_columns(os.path.join(td, "none.csv"), [{"global": "0x10"}]) == ["global"]
     print("mono-glue-closure self-check ok")
 
 

@@ -113,20 +113,71 @@ static DWORD GvShadow(u8* world, void* edx, const float* pt, float r, DWORD* vec
     return a;
 }
 
+// [GoalValidRO] Attr=1 (docs/250 §7.0, switch gvattr, counters v174): which plans wait here while a job holds +0x918. ts3fixes
+// sends each plan's source class and scope (UserDiag op 35, UnseenFallback.cs UfPlanBody) and its end (op 12). Per job-time
+// call: n by class; per fallback (the game's call, the wait): us by class and scope; after the plan's last fallback, the job
+// waits it still has up to its end (g_w918Us, every owner-thread job wait) = gvaLaterTakeUs, the moved-wait meter for B1.
+// Sim thread only, plain statics. shortcut: one slot; a plan inside another plan's callback resets it at its own end, so the
+// outer plan's later waits count as unknown scope / no class (rare; a stack if Part 0 shows nested plans matter).
+// The design's native caller pairs are not logged: the static caller list (docs/250 §9 step 0) has two sites, both under 0x75BE60.
+static LONG g_gvaSrc, g_gvaScope, g_gvaMark;
+static bool g_gvaOpen;
+static u8 GvaSrcMsg(DWORD lo) {  // UserDiag op 35: lo 0xFFFF = is gvattr on; else class | scope << 8, before the plan
+    if (lo == 0xFFFF) return ts3native_counters.gvaMode == 1;
+    g_gvaSrc = (LONG)(lo & 0xFF) < 6 ? (LONG)(lo & 0xFF) : 0;
+    g_gvaScope = (LONG)(lo >> 8 & 0xFF) < 3 ? (LONG)(lo >> 8 & 0xFF) : 0;
+    g_gvaOpen = false;
+    return 1;
+}
+static void GvaPlanEnd() {  // UserDiag op 12: the plan is over
+    Ts3nCounters& k = ts3native_counters;
+    if (g_gvaOpen) InterlockedExchangeAdd(&k.gvaLaterTakeUs, g_w918Us - g_gvaMark);
+    g_gvaOpen = false;
+    g_gvaSrc = g_gvaScope = 0;
+    static DWORD last;
+    const DWORD now = GetTickCount();
+    if (k.gvaMode == 1 && now - last >= 10000) {
+        last = now;
+        Log("gvattr: n none %ld wd %ld sc %ld own %ld fgn %ld chk %ld; wait ms %ld %ld %ld %ld %ld %ld; scope ms hh %ld npc %ld unseen %ld; "
+            "later ms %ld; at start %ld", k.gvaSrcN[0], k.gvaSrcN[1], k.gvaSrcN[2], k.gvaSrcN[3], k.gvaSrcN[4], k.gvaSrcN[5],
+            k.gvaSrcWaitUs[0] / 1000, k.gvaSrcWaitUs[1] / 1000, k.gvaSrcWaitUs[2] / 1000, k.gvaSrcWaitUs[3] / 1000,
+            k.gvaSrcWaitUs[4] / 1000, k.gvaSrcWaitUs[5] / 1000, k.gvaScopeWaitUs[0] / 1000, k.gvaScopeWaitUs[1] / 1000,
+            k.gvaScopeWaitUs[2] / 1000, k.gvaLaterTakeUs / 1000, k.gvaAtStart);
+    }
+}
+// the game's 0x82EDB0, timed by class and scope when gvattr is on and a job runs (the call is then the wait)
+static DWORD GvaOrig(u8* world, void* edx, const float* pt, float r, DWORD* vec, DWORD mode, DWORD opt) {
+    Ts3nCounters& k = ts3native_counters;
+    if (k.gvaMode != 1 || g_async.state != A_RUNNING || __readfsdword(0x24) != g_async.owner) return g_gvOrig(world, edx, pt, r, vec, mode, opt);
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const DWORD a = g_gvOrig(world, edx, pt, r, vec, mode, opt);
+    const LONG us = UsSince(t0);
+    InterlockedExchangeAdd(&k.gvaSrcWaitUs[g_gvaSrc], us);
+    InterlockedExchangeAdd(&k.gvaScopeWaitUs[g_gvaScope], us);
+    g_gvaOpen = true;
+    g_gvaMark = g_w918Us;  // the validator's own wait is in; later waits of this plan count from here
+    return a;
+}
+
 static DWORD __fastcall GvStub(u8* world, void* edx, const float* pt, float r, DWORD* vec, DWORD mode, DWORD opt) {
     Ts3nCounters& k = ts3native_counters;
     const StubKey sk(GV_SITE + 5);  // probe P0: the game's calls below keep the site's key
     const DWORD tid = GetCurrentThreadId();
-    if ((!k.gvMode && !k.gvShadow) || tid != g_async.owner) return g_gvOrig(world, edx, pt, r, vec, mode, opt);
+    if (k.gvaMode == 1 && tid == g_async.owner) {
+        if (g_asInStart) InterlockedIncrement(&k.gvaAtStart);
+        if (g_async.state == A_RUNNING) InterlockedIncrement(&k.gvaSrcN[g_gvaSrc]);
+    }
+    if ((!k.gvMode && !k.gvShadow) || tid != g_async.owner) return GvaOrig(world, edx, pt, r, vec, mode, opt);
     InterlockedIncrement(&k.gvCalls);
     if (g_async.state != A_RUNNING) {
-        if (!k.gvShadow) return g_gvOrig(world, edx, pt, r, vec, mode, opt);
+        if (!k.gvShadow) return GvaOrig(world, edx, pt, r, vec, mode, opt);
         InterlockedIncrement(&g_rgOffSimOpen);  // no job starts while the two answers are compared (worker Dekker order)
         const DWORD a = g_async.state == A_RUNNING ? g_gvOrig(world, edx, pt, r, vec, mode, opt) : GvShadow(world, edx, pt, r, vec, mode, opt);
         RgOffSimDrop();
         return a;
     }
-    if (!k.gvMode) return g_gvOrig(world, edx, pt, r, vec, mode, opt);
+    if (!k.gvMode) return GvaOrig(world, edx, pt, r, vec, mode, opt);
     int why = SR_FB_STATE;
     // not the +0x918 owner (lent or recursive hold), no job callback, no gate frame open; mode 0 and an empty vector as the
     // call site passes them (else the game would release the old range: a write)
@@ -147,11 +198,11 @@ static DWORD __fastcall GvStub(u8* world, void* edx, const float* pt, float r, D
         }
         if (!why) {  // footprints near the point: the hit loop needs the game's refs
             InterlockedIncrement(&k.gvFb[GV_FB_HITS]);
-            return g_gvOrig(world, edx, pt, r, vec, mode, opt);
+            return GvaOrig(world, edx, pt, r, vec, mode, opt);
         }
     }
     GvFallback(why);
-    return g_gvOrig(world, edx, pt, r, vec, mode, opt);
+    return GvaOrig(world, edx, pt, r, vec, mode, opt);
 }
 
 static const CallSite kGvSite = {GV_SITE, GV_TARGET, (void*)GvStub};
@@ -165,6 +216,7 @@ static void InstallGoalValidRO(const wchar_t* ini) {
     if (!PatchCalls("goal validation RO (0x759B20 -> ObstacleQuery)", &kGvSite, 1)) return;
     k.gvMode = Clamp(GetPrivateProfileIntW(L"GoalValidRO", L"Mode", 1, ini), 0, 1);
     k.gvShadow = Clamp(GetPrivateProfileIntW(L"GoalValidRO", L"Shadow", 0, ini), 0, 1);
+    k.gvaMode = Clamp(GetPrivateProfileIntW(L"GoalValidRO", L"Attr", 0, ini), 0, 1);
     k.gvReady = 1;
-    Log("OK   goal validation RO: 0x75A647 + the S2 writer set (Mode=%ld Shadow=%ld)", k.gvMode, k.gvShadow);
+    Log("OK   goal validation RO: 0x75A647 + the S2 writer set (Mode=%ld Shadow=%ld Attr=%ld)", k.gvMode, k.gvShadow, k.gvaMode);
 }

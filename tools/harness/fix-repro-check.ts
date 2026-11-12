@@ -65,6 +65,7 @@ export const EXEMPT: Record<string, string> = {
   autofftick: OFFLOAD,
   jit: 'Mono speed, not a hitch fix: no repro makes script calls more frequent than plain play; correctness by jit-verify.json (Mode=2) and the selftest TestMonoJit, timing by jit-ab.json once jit-verify passed (docs/527 §5)',
   mintcall: 'Mono speed, not a hitch fix: no repro makes script calls more frequent than plain play; correctness by mintcall-verify.json (CallPath=2) and the monohost selftests, timing by the plain-play pairs in mintcall-ab.json (docs/139 §8)',
+  steerretry: 'transient [SteerRO] fallbacks (a W1-W6 writer holding QL, a tripwire) with no deterministic trigger: measured per site (srrN / srrOk / srrFb / srrFbWaitUs) in the h4-goalvalid natural jobs (--ab watchdogasync,steerretry, docs/250 §8), correctness by the selftest TestSteerRO (retry ok, fallback after 4, State not retried, job ended)',
   ufhostlate: 'diagnostic: [UnseenFallback] HostLate=1 only splits the late-count into host vs work time (docs/202), no behaviour change; checked by the selftest TestUfHostLate (modes 0 and 1)',
   workerwait: 'worker CPU, not a hitch fix: no repro makes the job-start wait more likely than plain play; measured by the off/on plain-play pairs in route-worker-wait.json, correctness by the selftest TestRouteWorkerWait (docs/203 §6)',
   steershadow: SHADOW, lotfdshadow: SHADOW, obstructedshadow: SHADOW, slotenabledshadow: SHADOW, avoidshadow: SHADOW,

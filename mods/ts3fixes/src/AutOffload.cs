@@ -84,11 +84,12 @@ namespace Ts3Fixes
         static int sT2N, sT2At;
         // docs/126 §8 (autofft2ic, with autofft2 and [AutShadow] Tier2IcRows=1): the class-a IC rows for the same objects. Each
         // group writes its own slots of V (G1 0-5, G2 6-8, G3 9-10, G4 11-14, docs/data/tier2-rows-handoff.md); equal = all slots
-        const int kIcV = 23;  // slots 0-14: IcG1-IcG4; 15-19: IcG5 (E rows); 20-21: IcG6 (E3 rows); 22: IcG7 (P6)
+        const int kIcV = 25;  // slots 0-14: IcG1-IcG4; 15-19: IcG5 (E rows); 20-21: IcG6 (E3 rows); 22: IcG7 (P6); 23-24: IcG8 (P5)
         sealed class IcRes { public bool Done, Exc; public int Abort = -1; public readonly long[] V = new long[kIcV]; }
         static readonly IcRes[] sIcRef = NewIc(), sIcWork = NewIc();
         static int sIcN;
         static Household sIcHh;  // the active household at the post (sim thread), for IcG5's household rule
+        static bool sIcSlots;    // ts3native 0.36.213+ with [AutShadow] Tier2SlotRows=1 (Config(36)), read at the post: IcG8 asks the P5 rows
         // World.gWorld is not public; read once on the sim thread (RankRequest), never filled on the worker
         static IWorld sIcWorld;
         static IcRes[] NewIc() { IcRes[] a = new IcRes[kT2Max]; for (int i = 0; i < a.Length; i++) a[i] = new IcRes(); return a; }
@@ -228,7 +229,7 @@ namespace Ts3Fixes
             int[] c = PatchCounters();
             try
             {
-                if (ShortcutOn("autofft2")) { T2Pick(sReqs[0].Actor); if (ShortcutOn("autofft2ic") && IcWorld()) { sIcN = sT2N; sIcHh = Household.ActiveHousehold; } }
+                if (ShortcutOn("autofft2")) { T2Pick(sReqs[0].Actor); if (ShortcutOn("autofft2ic") && IcWorld()) { sIcN = sT2N; sIcHh = Household.ActiveHousehold; sIcSlots = AutShadowNative.Config(36) == 1; } }
                 if (ShortcutOn("autofflot")) sLotPosted = LotRequest(sLotReq);
             }
             catch (Exception e) { c[cT2 + 5]++; AutNote("offload rank request: " + e.Message); }
@@ -722,7 +723,7 @@ namespace Ts3Fixes
         static void IcRead(GameObject o, long[] v)
         {
             Array.Clear(v, 0, v.Length);
-            IcG1(o, v); IcG2(o, v); IcG3(o, v); IcG4(o, v); IcG5(o, v); IcG6(o, v); IcG7(o, v);
+            IcG1(o, v); IcG2(o, v); IcG3(o, v); IcG4(o, v); IcG5(o, v); IcG6(o, v); IcG7(o, v); IcG8(o, v);
         }
 
         // G1 terrain and floor, slots 0-5 (rows: TerrainHeight, TerrainType, HasFloorFeatures, HasFloorFeaturesWorldPos,
@@ -841,6 +842,25 @@ namespace Ts3Fixes
             if (sReqN < 1 || sReqs[0].Hh) return;
             v[22] = (long)Sims3.Gameplay.Queries.CountObjects<Sims3.Gameplay.Objects.Electronics.TV>(o.Position,
                 Sims3.Gameplay.TuningValues.TraitTuning.CouchPotatoTraitSofaTVDistanceForBonus) + 1;
+        }
+
+        // G8 P5 (docs/data/tier2-rows35-handoff.md, ledger §466), slots 23-24: Slots_GetRoutingSlotNamesImpl (null = 2, else a
+        // hash of the slot hashes) and Slots_IsSlotEnabledImpl for each of those slots (bit i = slot i enabled, first 30, + 1).
+        // Asked only with Tier2SlotRows on and for a request-0 actor that is not household, selected or unknown (the native rows'
+        // actor gate refuses them otherwise, household rule), so both sides leave the slots 0 in every other job.
+        static void IcG8(GameObject o, long[] v)
+        {
+            if (!sIcSlots || sReqN < 1 || sReqs[0].Hh) return;
+            Slot[] names = Slots.GetRoutingSlotNames(o.ObjectId);
+            if (names == null) { v[23] = 2; v[24] = 1; return; }
+            long h = 31 + names.Length, on = 0;
+            for (int i = 0; i < names.Length; i++)
+            {
+                h = h * 31 + (uint)names[i];
+                if (i < 30 && Slots.IsSlotEnabled(o.ObjectId, (uint)names[i])) on |= 1L << i;
+            }
+            v[23] = h;
+            v[24] = on + 1;
         }
 
         // The read part of Camera.GetClosestVisibleLot from the request's inputs, in the game's order: the candidate lots, then

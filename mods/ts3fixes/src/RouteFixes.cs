@@ -122,6 +122,28 @@ namespace Ts3Fixes
         // NotePlanResult. shortcut: one slot, a second check sleeping beside it ends the first's cover early; a list if that ever shows up
         static bool sOwnCheckOn;
         static ulong sOwnCheckTask;
+        // docs/250: inside the watchdog's idle check (CheckIdle's SpotVerdict), same per-task rule as sInOwnCheck
+        static bool sWdCheckOn;
+        static ulong sWdCheckTask;
+        static bool sInWdCheck
+        {
+            get { return sWdCheckOn && sWdCheckTask == Simulator.CurrentTask.Value; }
+            set { sWdCheckOn = value; sWdCheckTask = value ? Simulator.CurrentTask.Value : 0; }
+        }
+
+        // docs/250 §7.0: ts3native [GoalValidRO] Attr (switch gvattr) gets each plan's source class and scope (UserDiag op 35;
+        // op 12 at the plan's end is UfPlan's). Off: one ask per sim tick. The game and older ts3native answer false.
+        static long sGvaTick = -1;
+        static bool sGvaOn;
+        static void GvaSend(Sims3.Gameplay.Actors.Sim sim, int why, bool ownCheck)
+        {
+            long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+            if (now != sGvaTick) { sGvaTick = now; sGvaOn = DiagSend(35, 0xFFFF); }
+            if (!sGvaOn) return;
+            ObjectGuid task = Simulator.CurrentTask;
+            int cls = H4Core.SrcClass(sInWdCheck && sInOwnCheck, sStuckIn, ownCheck, sim != null && task == sim.ObjectId, task.IsValid);
+            DiagSend(35, H4Core.Message(cls, H4Core.Scope(why, UnseenFallbackCore.SeenNpc(why))));
+        }
         static bool sInOwnCheck
         {
             get { return sOwnCheckOn && sOwnCheckTask == Simulator.CurrentTask.Value; }
@@ -320,8 +342,9 @@ namespace Ts3Fixes
                         bool? ok;
                         bool stale = false;
                         if (route == H4Core.kWdA1) sWdA1Task = Simulator.CurrentTask.Value;
+                        sInWdCheck = true;  // docs/250 §7.0: gvattr's watchdog class
                         try { ok = SpotVerdict(s, lot, vs, prof, at, true, true, false); }
-                        finally { sWdA1Task = 0; }
+                        finally { sWdA1Task = 0; sInWdCheck = false; }
                         if (route == H4Core.kWdA1)
                         {
                             c[875] += (int)(SimClock.CurrentTicks - t0);  // watchdogasync_ticks (started or not)

@@ -1,5 +1,5 @@
 {
-  "note": "tier2-rows35: docs/data/tier2-rows35-handoff.md piece P1 (docs/219 §3.1): get_InUse worker aborts (autt2inuse), leaf-pile fire guard (autt2fire), LiveDragHelperModel pre-warm (autt2dragwarm), all default off, Mode R ([AutShadow] Mode=1). Correctness only, no timing. Not run yet; needs the tier2p1-1108 pair. H7-H10 jobs (bp/ip-t2h7-dry, bp-t2h7-repro) need the tier2h7-1108 pair.",
+  "note": "tier2-rows35: docs/data/tier2-rows35-handoff.md piece P1 (docs/219 §3.1): get_InUse worker aborts (autt2inuse), leaf-pile fire guard (autt2fire), LiveDragHelperModel pre-warm (autt2dragwarm), all default off, Mode R ([AutShadow] Mode=1). Correctness only, no timing. Not run yet; needs the tier2p1-1108 pair. H7-H10 jobs (bp/ip-t2h7-dry, bp-t2h7-repro) need the tier2h7-1108 pair. P2 jobs (bp/ip-t2p2-dry: CauseEffect pre-warm autt2cewarm, front-door memo autt2frontdoor, BuyModeSuite guard autt2suite) need the tier2p2p3-1112 pair (feature/tier2-p2-p3, registered in builds.json after P3). P3 jobs (bp/ip-t2p3-dry: CallPet worker-owned picker list autt2callpet) need the same tier2p2p3-1112 pair.",
   "smoke": {
     "id": "bp-t2p1-smoke",
     "note": "Smoke, Baseline-BP-Spring, 4 min: PASS = 0 crashes, no freeze, no new ScriptError; autshadow A1-A3 == 0 and autshadow_exceptions == 0 in both arms (gate: 0 mismatches, 0 script errors). Read aut_t2_inuse_* / aut_t2_fire / aut_t2_dragwarm (counters 884-891): the worker scores meta pairs only today, so the inuse/fire aborts are expected near 0 until a local-phase driver exists (docs/219 §3.1); aut_t2_dragwarm is 1 in the on arm on a load with no drag yet. Any mismatch: autshadow.jsonl records, triage before the next job.",
@@ -368,6 +368,218 @@
           "repros": [
             "tier2-h7-dry"
           ]
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-t2p2-dry",
+      "note": "Dry compare, in-load A/B of the three P2 switches (P1 + H7-H10 switches on in both arms), Baseline-BP-Spring, 10 min: PASS = 0 crashes, no freeze, no new ScriptError; autshadow A1-A3 == 0 and autshadow_exceptions == 0 in both arms (gate: 0 mismatches, 0 script errors). Read aut_t2_cewarm / aut_t2_ce_abort / aut_t2_door / aut_t2_door_abort / aut_t2_suite / aut_t2_suite_abort (counters 938-943): aut_t2_cewarm is 0 or 1 per load (1 only if no game reader had made the CauseEffect data yet); the worker scores meta pairs only today, so the worker-side counters may stay near 0 until a local-phase driver exists. Any mismatch: autshadow.jsonl records, triage before the next job.",
+      "asi": "game-copy/ts3native.asi.tier2p5-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.tier2p2p3-1112",
+      "pinReason": "tier2p2p3-1112 pair (builds.json): ts3native 0.36.213 = the tier2p5-1108 asi (no native change on feature/tier2-p2-p3) + ts3fixes/ts3agent from feature/tier2-p2-p3 (P2 + P3 on P5); agent package game-copy/ts3agent.package.tier2p2p3-1112 (TS3_AGENT_PACKAGE)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autt2inuse,autt2fire,autt2dragwarm,autt2drag,autt2cache,autt2tuning,autt2lod",
+          "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+          "ab": "autt2cewarm,autt2frontdoor,autt2suite"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-t2p2-dry",
+      "note": "Dry compare, in-load A/B of the three P2 switches (P1 + H7-H10 switches on in both arms), Baseline-IP-Spring, 10 min: PASS = 0 crashes, no freeze, no new ScriptError; autshadow A1-A3 == 0 and autshadow_exceptions == 0 in both arms (gate: 0 mismatches, 0 script errors). Read counters 938-943 (aut_t2_cewarm .. aut_t2_suite_abort), not gated. Any mismatch: autshadow.jsonl records, triage before the next job.",
+      "asi": "game-copy/ts3native.asi.tier2p5-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.tier2p2p3-1112",
+      "pinReason": "tier2p2p3-1112 pair (builds.json): ts3native 0.36.213 = the tier2p5-1108 asi (no native change on feature/tier2-p2-p3) + ts3fixes/ts3agent from feature/tier2-p2-p3 (P2 + P3 on P5); agent package game-copy/ts3agent.package.tier2p2p3-1112 (TS3_AGENT_PACKAGE)",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autt2inuse,autt2fire,autt2dragwarm,autt2drag,autt2cache,autt2tuning,autt2lod",
+          "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+          "ab": "autt2cewarm,autt2frontdoor,autt2suite"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-t2p3-dry",
+      "note": "Dry compare, in-load A/B of autt2callpet (P1 + H7-H10 + P2 switches on in both arms), Baseline-BP-Spring, 10 min: PASS = 0 crashes, no freeze, no new ScriptError; autshadow A1-A3 == 0 and autshadow_exceptions == 0 in both arms (gate: 0 mismatches, 0 script errors). Read aut_t2_callpet (counter 944): CallPet is a local-phase definition and the worker scores meta pairs only today, so it may stay 0 until a local-phase driver exists. Any mismatch: autshadow.jsonl records, triage before the next job.",
+      "asi": "game-copy/ts3native.asi.tier2p5-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.tier2p2p3-1112",
+      "pinReason": "tier2p2p3-1112 pair (builds.json): ts3native 0.36.213 = the tier2p5-1108 asi (no native change on feature/tier2-p2-p3) + ts3fixes/ts3agent from feature/tier2-p2-p3 (P2 + P3 on P5); agent package game-copy/ts3agent.package.tier2p2p3-1112 (TS3_AGENT_PACKAGE)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autt2inuse,autt2fire,autt2dragwarm,autt2drag,autt2cache,autt2tuning,autt2lod,autt2cewarm,autt2frontdoor,autt2suite",
+          "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+          "ab": "autt2callpet"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-t2p3-dry",
+      "note": "Dry compare, in-load A/B of autt2callpet (P1 + H7-H10 + P2 switches on in both arms), Baseline-IP-Spring, 10 min: PASS = 0 crashes, no freeze, no new ScriptError; autshadow A1-A3 == 0 and autshadow_exceptions == 0 in both arms (gate: 0 mismatches, 0 script errors). Read aut_t2_callpet (counter 944), not gated. Any mismatch: autshadow.jsonl records, triage before the next job.",
+      "asi": "game-copy/ts3native.asi.tier2p5-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.tier2p2p3-1112",
+      "pinReason": "tier2p2p3-1112 pair (builds.json): ts3native 0.36.213 = the tier2p5-1108 asi (no native change on feature/tier2-p2-p3) + ts3fixes/ts3agent from feature/tier2-p2-p3 (P2 + P3 on P5); agent package game-copy/ts3agent.package.tier2p2p3-1112 (TS3_AGENT_PACKAGE)",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autt2inuse,autt2fire,autt2dragwarm,autt2drag,autt2cache,autt2tuning,autt2lod,autt2cewarm,autt2frontdoor,autt2suite",
+          "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+          "ab": "autt2callpet"
         }
       },
       "gameArgs": [

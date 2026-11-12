@@ -151,7 +151,7 @@ For `gate2-report.ts` and the queues' expectations. **Implemented 2026-11-06 (br
 | R2 route work | `asyncUs` per Sim-hour | same rule | BP 9.5, IP 8.7 ms |
 | R3 length proxy | `asyncUs` / `asyncStarted` | up > 15% pooled and both orders, with R2 up too | BP 4.6, IP 10.9 ms |
 | R4 fails | `backoff_failures` / `backoff_plans` | > 1.5 x off + 5 events | 0.18% BP, 0.37% IP |
-| R5 300 ms | `ufLong`, route-led hitch >= 300 per 10 min | on > off + 2 per pair; hitch-ab clear-regression rule | BP 0, IP 3 per ~25 min |
+| R5 300 ms | `ufLong`, route-led hitch >= 300 per 10 min | pooled exact-Poisson on/off rate ratio over the arms (`hitch-ab.ts` `rateCompare`): FAIL when its 95% CI lies wholly above 1 (was on > off + 2 per pair until 2026-11-12, docs/23 #21) | BP 0, IP 3 per ~25 min |
 | R6 bursts | p99.9 of `routes + routeOtherThreads` per second | > 1.25 x off | BP 72, IP 39 |
 | log | `routes` per Sim-hour, unseen-marked share, `asyncRefused`, `gohome_runs`, `visitlot_runs` | never | |
 

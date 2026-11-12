@@ -106,6 +106,8 @@ namespace Ts3Fixes
         const int kCRainWhy = 607;  // 607-610: `rain` aborts by path (Result.RainWhy)
         const int kCT2Ab = 884, kCT2Drag = 891;  // 884-890 tier-2 P1 aborts by class (Result.T2Ab), 891 drag pre-warm fills
         const int kCT2H = 898;  // 898-902 tier-2 H7-H10 (Result.T2H, AutShadowCore.kT2H*)
+        const int kCT2P2 = 938;  // 938-943 tier-2 P2 (Result.T2P2, AutShadowCore.kT2P2*; 938 sim-thread pre-warm fills)
+        const int kCT2CallPet = 944;  // tier-2 P3 (Result.T2CallPet)
         const int kReasonOther = 19;  // native AS_AB_OTHER: P1 aborts (`inuse`, `fire` by class only in 884-890, no native reason)
         const int kReasonExc = 12, kReasonStop = 13, kReasonDesire = 15, kReasonRain = 20, kReasonPosture = 21;
 
@@ -143,6 +145,13 @@ namespace Ts3Fixes
             public bool T2Drag, T2Cache, T2Tuning, T2Lod, T2CacheActive;
             public IGameObject T2DragCached, T2DragTop;
             public long T2Tick;
+            // tier-2 P2 (T2P2Fill, sim thread at the request, after T2HFill): switches and the front-door memo of the actor's
+            // current lot (T2DoorState: AutShadowCore.T2FrontDoor, -1 = not memoized or not cached)
+            public bool T2Ce, T2FrontDoor, T2Suite;
+            public Lot T2DoorLot;
+            public Door T2Door;
+            public int T2DoorState = -1;
+            public bool T2CallPet;  // tier-2 P3 switch (T2P2Fill)
         }
 
         public sealed class Result
@@ -162,6 +171,9 @@ namespace Ts3Fixes
             public readonly int[] T2Ab = new int[AutShadowCore.kT2N];
             // tier-2 H7-H10 (worker-written, summed into counters 898-902 at the finish; AutShadowCore.kT2H* order)
             public readonly int[] T2H = new int[AutShadowCore.kT2HN];
+            // tier-2 P2 (worker-written, summed into counters 938-943 at the finish; AutShadowCore.kT2P2* order)
+            public readonly int[] T2P2 = new int[AutShadowCore.kT2P2N];
+            public int T2CallPet;  // tier-2 P3: CallPet self Tests run on the worker with the shared list put back (counter 944)
         }
 
         // Rooted requests and results (docs/122 §4.2), allocated at startup on the sim thread and reused. A shared cut (docs/122
@@ -341,6 +353,8 @@ namespace Ts3Fixes
                 new Type[] { typeof(IGameObject), typeof(InteractionInstance) }, typeof(AutShelterHook), "ShelterHook", "ShelterOrig");
             T2P1Hooks(failed);
             T2HHooks(failed);
+            T2P2Hooks(failed);
+            T2P3Hooks(failed);
             MethodInfo site = typeof(InteractionDefinition).GetMethod("CreateInstance",
                 new Type[] { typeof(IGameObject), typeof(IActor), typeof(InteractionPriority), typeof(bool), typeof(bool) });
             sCreateSite = site != null ? site.MethodHandle.Value : IntPtr.Zero;
@@ -944,6 +958,7 @@ namespace Ts3Fixes
             PreWarm(actor);
             T2P1Fill(q, actor);
             T2HFill(q);
+            T2P2Fill(q, actor);
             ClassifyListTypes();
             ClassifyObjects();
             q.Start[q.Objs] = q.Pairs;
@@ -1138,6 +1153,8 @@ namespace Ts3Fixes
                 if (sWork.Id == sReq.Id) for (int w = 0; w < 4; w++) c[kCRainWhy + w] += sWork.RainWhy[w];  // fixes-607
                 if (sWork.Id == sReq.Id) for (int w = 0; w < AutShadowCore.kT2N; w++) c[kCT2Ab + w] += sWork.T2Ab[w];  // fixes-884
                 if (sWork.Id == sReq.Id) for (int w = 0; w < AutShadowCore.kT2HN; w++) c[kCT2H + w] += sWork.T2H[w];  // fixes-898
+                if (sWork.Id == sReq.Id) for (int w = 0; w < AutShadowCore.kT2P2N; w++) c[kCT2P2 + w] += sWork.T2P2[w];  // fixes-938
+                if (sWork.Id == sReq.Id) c[kCT2CallPet] += sWork.T2CallPet;  // fixes-944
                 // KeepPartial (docs/122 §14.21): an overrun (LastRun 1) whose worker result says Done kept the objects it
                 // finished before the stop; those are compared, the rest are A4 `stop`. An epoch drop (2) stays dropped.
                 bool partial = lr == 1 && sKeepPartial && sWork.Done && sWork.Partial && sWork.Id == sReq.Id;
@@ -1363,6 +1380,8 @@ namespace Ts3Fixes
             Array.Clear(r.RainWhy, 0, r.RainWhy.Length);
             Array.Clear(r.T2Ab, 0, r.T2Ab.Length);
             Array.Clear(r.T2H, 0, r.T2H.Length);
+            Array.Clear(r.T2P2, 0, r.T2P2.Length);
+            r.T2CallPet = 0;
             sCurRes = r;
             if (sActorScope && OnWorker()) AutShadowNative.ActorScope(q.Hh ? 1 : 0);
             for (int o = 0; o < q.Objs; o++)
@@ -2079,6 +2098,193 @@ namespace Ts3Fixes
                 return (bool)fHighLod.GetValue(this);
             }
             public bool LodOrig() { return false; } // receives Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation's original header
+        }
+
+        // ---- tier-2 P2 (docs/data/tier2-rows35-handoff.md §2, docs/51 §473) ----
+        // Pre-warm and guards for lazy fills the local-phase closures reach; the sim thread (and the Mode R reference) runs the
+        // game's method. Each has its own switch, default off; off = the game's method unchanged on every thread.
+        //   autt2cewarm: CauseEffectService's persistable data is allocated by its first reader (a static write). The sim thread
+        //      makes it at the request through the game's own GetInstance (counted, 938); the worker's
+        //      IfNecessaryAllocatePersistableData is the game's early out while the data exists, else it aborts (939).
+        //   autt2frontdoor: Lot.FindFrontDoor validates or recomputes on a miss (lot flags, SetFrontDoor, street parking). The
+        //      sim thread memoizes, read only, the answer for the actor's current lot when the game's own exit would write
+        //      nothing (AutShadowCore.T2FrontDoor); the worker answers that lot from the memo (940), anything else aborts (941).
+        //   autt2suite: the four lazy BuyModeSuite getters (Cabinetry, SwingSet, BoxStall, ChairSectional) build the suite and
+        //      add a static DesignModeSwap event handler on a miss; the worker returns the existing suite (942) or aborts (943).
+        // Relationship.GetMiniRelationships needs no guard: it only reads Relationship.sAllRelationships (docs/51 §473).
+        // Native reason `other` (no native change).
+        // Household Sims: a household, selected or unknown-scope actor (Request.T2Hh) never gets a worker answer here: every
+        // site takes an explicit abort branch for it first (uncounted), and the front-door memo is not taken for it. The
+        // CauseEffect pre-warm runs for any actor's request: it makes the game's default data, as the game's first reader would.
+        static bool sT2CeHooked, sT2DoorHooked, sT2SuiteHooked;
+        static FieldInfo fCeData, fCabSuite, fSwingSuite, fStallSuite, fSectSuite;
+
+        static void T2P2Hooks(List<string> failed)
+        {
+            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            Type ce = typeof(Sims3.Gameplay.TimeTravel.CauseEffectService);
+            fCeData = ce.GetField("sPersistableData", all);
+            if (fCeData == null) failed.Add("CauseEffectService.sPersistableData");
+            else sT2CeHooked = Hook(failed, ce, "IfNecessaryAllocatePersistableData", null, typeof(AutCeHook), "CeHook", "CeOrig");
+            sT2DoorHooked = Hook(failed, typeof(Lot), "FindFrontDoor", null, typeof(AutFrontDoorHook), "DoorHook", "DoorOrig");
+            Type cab = typeof(Sims3.Gameplay.Objects.Counters.Cabinetry), swing = typeof(Sims3.Gameplay.Objects.Environment.SwingSet),
+                stall = typeof(Sims3.Gameplay.Objects.Pets.BoxStall), sect = typeof(Sims3.Gameplay.Objects.Seating.ChairSectional);
+            fCabSuite = cab.GetField("mBuildBuySuite", all); fSwingSuite = swing.GetField("mBuyModeSuite", all);
+            fStallSuite = stall.GetField("mBuyModeSuite", all); fSectSuite = sect.GetField("mBuildBuySuite", all);
+            if (fCabSuite == null || fSwingSuite == null || fStallSuite == null || fSectSuite == null) failed.Add("BuyModeSuite fields");
+            else sT2SuiteHooked = Hook(failed, cab, "get_BuyModeSuite", null, typeof(AutSuiteHook), "CabHook", "CabOrig")
+                & Hook(failed, swing, "get_BuyModeSuite", null, typeof(AutSuiteHook), "SwingHook", "SwingOrig")
+                & Hook(failed, stall, "get_BuyModeSuite", null, typeof(AutSuiteHook), "StallHook", "StallOrig")
+                & Hook(failed, sect, "get_BuyModeSuite", null, typeof(AutSuiteHook), "SectHook", "SectOrig");
+        }
+
+        // Sim thread at the request (after T2HFill): switches, the CauseEffect pre-warm, the front-door memo.
+        static void T2P2Fill(Request q, Sim actor)
+        {
+            q.T2Ce = q.T2FrontDoor = q.T2Suite = false;
+            q.T2DoorLot = null; q.T2Door = null; q.T2DoorState = -1;
+            q.T2CallPet = sT2CallPetHooked && ShortcutOn("autt2callpet");
+            try
+            {
+                q.T2Ce = sT2CeHooked && ShortcutOn("autt2cewarm");
+                q.T2FrontDoor = sT2DoorHooked && ShortcutOn("autt2frontdoor");
+                q.T2Suite = sT2SuiteHooked && ShortcutOn("autt2suite");
+                if (q.T2Ce && fCeData.GetValue(null) == null)
+                {
+                    Sims3.Gameplay.TimeTravel.CauseEffectService.GetInstance();  // the game's own lazy fill (our hook passes through here)
+                    if (fCeData.GetValue(null) != null) PatchCounters()[kCT2P2 + AutShadowCore.kT2P2CeWarm]++;
+                }
+                Lot lot = actor != null ? actor.LotCurrent : null;
+                if (q.T2FrontDoor && !q.T2Hh && lot != null) T2DoorMemo(q, lot);
+            }
+            catch (Exception e) { q.T2Ce = q.T2FrontDoor = q.T2Suite = false; q.T2DoorState = -1; PatchCounters()[121]++; AutNote("t2 p2 fill: " + e.Message); }
+        }
+
+        // Read-only memo of lot.FindFrontDoor(): only the game's exits that write nothing (AutShadowCore.T2FrontDoor).
+        // shortcut: the actor's current lot only (the local phase scores its objects); another lot aborts. Upgrade if the
+        // local-phase driver shows front-door aborts on other lots.
+        static void T2DoorMemo(Request q, Lot lot)
+        {
+            ObjectGuid o = World.GetLotFrontDoor(lot.LotId, eFrontDoorType.kFrontDoorTypeOverride), c = ObjectGuid.InvalidObjectGuid;
+            bool oSet = o != ObjectGuid.InvalidObjectGuid, cSet = false;
+            Door od = oSet ? GameObject.GetObject(o) as Door : null, cd = null;
+            if (!oSet)
+            {
+                c = World.GetLotFrontDoor(lot.LotId, eFrontDoorType.kFrontDoorTypeCalculated);
+                cSet = c != ObjectGuid.InvalidObjectGuid;
+                cd = cSet ? GameObject.GetObject(c) as Door : null;
+            }
+            int s = AutShadowCore.T2FrontDoor(lot.ShouldUseFrontDoor(), oSet, od != null, lot.FrontDoorOverrideValidated, cSet, cd != null, lot.FrontDoorCalculatedValidated);
+            q.T2DoorLot = lot; q.T2DoorState = s; q.T2Door = s == 1 ? od : s == 2 ? cd : null;
+        }
+
+        // Worker, switch on: abort (household uncounted, else count abortSlot).
+        static void T2P2Abort(bool household, int abortSlot)
+        {
+            if (!household && sCurRes != null) sCurRes.T2P2[abortSlot]++;
+            AutShadowNative.Abort(kReasonOther);
+        }
+        static void T2P2Count(int slot) { if (sCurRes != null) sCurRes.T2P2[slot]++; }
+
+        // CauseEffectService.IfNecessaryAllocatePersistableData: the worker never allocates (static write)
+        public static class AutCeHook
+        {
+            public static void CeHook()
+            {
+                if (!OnWorker() || !sReq.T2Ce) { CeOrig(); return; }
+                if (sReq.T2Hh) { T2P2Abort(true, -1); return; }
+                if (fCeData.GetValue(null) == null) T2P2Abort(false, AutShadowCore.kT2P2CeAbort);  // else the game's early out
+            }
+            public static void CeOrig() { } // receives CauseEffectService.IfNecessaryAllocatePersistableData's original header
+        }
+
+        // Lot.FindFrontDoor: the worker answers the actor's current lot from the request's memo (abort answer null)
+        public class AutFrontDoorHook
+        {
+            public Door DoorHook()
+            {
+                if (!OnWorker() || !sReq.T2FrontDoor) return DoorOrig();
+                if (sReq.T2Hh) { T2P2Abort(true, -1); return null; }
+                if ((object)this == (object)sReq.T2DoorLot && sReq.T2DoorState >= 0) { T2P2Count(AutShadowCore.kT2P2DoorAns); return sReq.T2Door; }
+                T2P2Abort(false, AutShadowCore.kT2P2DoorAbort);
+                return null;
+            }
+            public Door DoorOrig() { return null; } // receives Lot.FindFrontDoor's original header
+        }
+
+        // The four lazy BuyModeSuite getters: the worker returns the existing suite, never builds one (abort answer null)
+        public class AutSuiteHook
+        {
+            static object Cut(object suite)
+            {
+                if (sReq.T2Hh) { T2P2Abort(true, -1); return null; }
+                if (suite != null) { T2P2Count(AutShadowCore.kT2P2SuiteAns); return suite; }
+                T2P2Abort(false, AutShadowCore.kT2P2SuiteAbort);
+                return null;
+            }
+            public Sims3.Gameplay.Objects.BuyModeSuite<Sims3.Gameplay.Objects.Counters.Cabinetry> CabHook()
+            {
+                if (!OnWorker() || !sReq.T2Suite) return CabOrig();
+                return (Sims3.Gameplay.Objects.BuyModeSuite<Sims3.Gameplay.Objects.Counters.Cabinetry>)Cut(fCabSuite.GetValue(this));
+            }
+            public Sims3.Gameplay.Objects.BuyModeSuite<Sims3.Gameplay.Objects.Counters.Cabinetry> CabOrig() { return null; } // receives Cabinetry.get_BuyModeSuite's original header
+            public Sims3.Gameplay.Objects.BuyModeSuite<Sims3.Gameplay.Objects.Environment.SwingSet> SwingHook()
+            {
+                if (!OnWorker() || !sReq.T2Suite) return SwingOrig();
+                return (Sims3.Gameplay.Objects.BuyModeSuite<Sims3.Gameplay.Objects.Environment.SwingSet>)Cut(fSwingSuite.GetValue(this));
+            }
+            public Sims3.Gameplay.Objects.BuyModeSuite<Sims3.Gameplay.Objects.Environment.SwingSet> SwingOrig() { return null; } // SwingSet.get_BuyModeSuite
+            public Sims3.Gameplay.Objects.BuyModeSuite<Sims3.Gameplay.Objects.Pets.BoxStall> StallHook()
+            {
+                if (!OnWorker() || !sReq.T2Suite) return StallOrig();
+                return (Sims3.Gameplay.Objects.BuyModeSuite<Sims3.Gameplay.Objects.Pets.BoxStall>)Cut(fStallSuite.GetValue(this));
+            }
+            public Sims3.Gameplay.Objects.BuyModeSuite<Sims3.Gameplay.Objects.Pets.BoxStall> StallOrig() { return null; } // BoxStall.get_BuyModeSuite
+            public Sims3.Gameplay.Objects.BuyModeSuite<Sims3.Gameplay.Objects.Seating.ChairSectional> SectHook()
+            {
+                if (!OnWorker() || !sReq.T2Suite) return SectOrig();
+                return (Sims3.Gameplay.Objects.BuyModeSuite<Sims3.Gameplay.Objects.Seating.ChairSectional>)Cut(fSectSuite.GetValue(this));
+            }
+            public Sims3.Gameplay.Objects.BuyModeSuite<Sims3.Gameplay.Objects.Seating.ChairSectional> SectOrig() { return null; } // ChairSectional.get_BuyModeSuite
+        }
+
+        // ---- tier-2 P3 (docs/data/tier2-rows35-handoff.md §2, docs/51 §473) ----
+        // Sim+CallPet+Definition is one shared object; its Test(a, a) sets this.mSimPickerList = a new list of the actor's
+        // callable pets (PopulatePieMenuPicker reads it for the pie menu). Switch autt2callpet (default off): on the worker the
+        // game's Test runs unchanged with the shared field saved before and put back after it (finally, also on a throw), so the
+        // worker's list lives only for that call and the sim thread's list object is never touched. The sim thread is
+        // quiescent while the worker runs (docs/122 §1), so nothing reads the field in between. Chosen over a per-tick cache:
+        // the answer is the game's own Test on the same snapshot, so exact for every actor, with no cache to invalidate.
+        // Counter 944 = such runs. The a != target branch writes no field and runs as is.
+        // Household Sims: a household, selected or unknown-scope actor (Request.T2Hh) aborts (uncounted); the pets in an NPC's
+        // list may belong to the household and are only read (IsValidTarget, relationship lookup without create).
+        static bool sT2CallPetHooked;
+        static FieldInfo fPickerList;
+
+        static void T2P3Hooks(List<string> failed)
+        {
+            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            Type cp = typeof(Sim.CallPet).GetNestedType("Definition", all);
+            fPickerList = cp != null ? cp.GetField("mSimPickerList", all) : null;
+            if (fPickerList == null) { failed.Add("Sim+CallPet+Definition.mSimPickerList"); return; }
+            sT2CallPetHooked = Hook(failed, cp, "Test", new Type[] { typeof(Sim), typeof(Sim), typeof(bool), typeof(GreyedOutTooltipCallback).MakeByRefType() },
+                typeof(AutCallPetHook), "TestHook", "TestOrig");
+        }
+
+        // Sim+CallPet+Definition.Test(Sim, Sim, bool, ref GreyedOutTooltipCallback): the worker's list is its own (abort answer false)
+        public class AutCallPetHook
+        {
+            public bool TestHook(Sim a, Sim target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback)
+            {
+                int s = AutShadowCore.T2CallPetSite(OnWorker(), sReq.T2CallPet, sReq.T2Hh, (object)a == (object)target);
+                if (s == 0) return TestOrig(a, target, isAutonomous, ref greyedOutTooltipCallback);
+                if (s == 1) { AutShadowNative.Abort(kReasonOther); return false; }
+                object shared = fPickerList.GetValue(this);
+                if (sCurRes != null) sCurRes.T2CallPet++;
+                try { return TestOrig(a, target, isAutonomous, ref greyedOutTooltipCallback); }
+                finally { fPickerList.SetValue(this, shared); }
+            }
+            public bool TestOrig(Sim a, Sim target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // receives Sim+CallPet+Definition.Test's original header
         }
     }
 }

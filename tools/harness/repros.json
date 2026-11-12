@@ -17794,6 +17794,158 @@
     ]
   },
   {
+    "id": "ip-watchdog-lockwait-loop",
+    "bug": "The sim waits on +0x918 at 0x75A64C (GoalPoint_Validate) from StuckWatchdog.CheckIdle's full route check (Sim.IsPointInLotSafelyRoutable) while an async route job runs: IP 458 ms (docs/250 §4, docs/247 §12.4 the 477 ms CheckIdle hitch)",
+    "fix": "ts3fixes watchdogasync (docs/250 §7.1 A1: the check's plan as an own-task job, the watchdog task sleeps) with gvattr on for the source split; watchdoglockskip as the third arm (skip the Sim this pass while a job holds the lock)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED (static only, 2026-11-08): never run. Three arms per firing: the loop arm flips watchdogasync ($on); each firing runs the job burst twice, first with watchdoglockskip off, then on. So off firings give 'A off' then 'A off + lockskip', on firings 'A on' then 'A on + lockskip' (lockskip then fires only on wd_a1_refused). Read the pass split from wd_a1_started / wdLockSkip / c[39] deltas per firing. The 12 spawned townies stand on home lots unseen (camera on the household lot) and enter CheckIdle's queue after 60 sim-minutes still; natural idle townies also count. Household Sims never reach the queue: wd_a1_sent must stay at 0 for them (gvScopeWaitUs[0] watchdog share ~0).",
+    "expect": "no crash, no tripwire line; on firings wd_a1_started >= 1 and gvaSrcWaitUs[1] (watchdog) ~0 in the first burst; lockskip bursts wdLockSkip >= 1 on off firings; off firings 0x75A64C waits as today; the sum of keyed sim waits per arm read with hitch-ab.ts --scenario (moved waits)",
+    "steps": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "gvattr": 1
+        },
+        "waitS": 1,
+        "note": "Part 0 attribution on for the whole run"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 12
+        },
+        "waitS": 20,
+        "note": "townies on home lots, unseen"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 60,
+        "note": "past kIdleMinutes so still townies enter CheckIdle's queue"
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "patches",
+          "setup": true,
+          "args": {
+            "watchdog": true,
+            "watchdogidle": true,
+            "watchdogasync": "$on",
+            "watchdoglockskip": false
+          },
+          "waitS": 1,
+          "note": "arm: A on/off, lockskip off"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far",
+            "household": true
+          },
+          "waitS": 2,
+          "note": "start: household Go Here to the farthest lot, async jobs hold +0x918"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far",
+            "count": 10
+          },
+          "waitS": 30,
+          "note": "fire: 10 more townie jobs; at ultra ~30 s covers several 10 sim-minute watchdog passes"
+        },
+        {
+          "cmd": "patches",
+          "setup": true,
+          "args": {
+            "watchdoglockskip": true
+          },
+          "waitS": 1,
+          "note": "second burst: + lockskip"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far",
+            "household": true
+          },
+          "waitS": 2,
+          "note": "start: household Go Here to the farthest lot, async jobs hold +0x918"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far",
+            "count": 10
+          },
+          "waitS": 30,
+          "note": "fire: 10 more townie jobs; at ultra ~30 s covers several 10 sim-minute watchdog passes"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "target": "home",
+            "household": true
+          },
+          "waitS": 40,
+          "note": "home (fixed)"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 10,
+        "minFirings": 10
+      },
+      "maxMinutes": 20
+    },
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "watchdogasync": false,
+          "watchdoglockskip": false
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "gvattr": 0
+        }
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 20
+      }
+    ],
+    "switches": [
+      "watchdogasync",
+      "watchdoglockskip",
+      "gvattr"
+    ]
+  },
+  {
     "id": "ip-locktaker-defer-loop",
     "bug": "IP/SV 1-2 s freezes from +0x918 lock takers on the sim thread while async route jobs run: steering 0x85FE10 (docs/175), avoidance 0x846D21, gate 0, UpdateSimFootprint 0x833593 / 0x8334CC, route-to-object 0x83156D, gate-12 F-G placement 0x631F40 (docs/174), foreign ReplanFromPosition sync plans (docs/176). One taker removed hands its wait to the next (docs/152 conservation).",
     "fix": "Static triage 2026-10-23 (docs/TESTING.md §6): only [Discourage] DeferFootprint + DeferFootprint2 flipped per firing (top suspect for the on-arm failing Replan loops after boat exits); SteerRO, AvoidRO, Gate0RO, RouteToObjRO, PlacementRO, ForeignKinds on in both arms. Base: combined lock-taker arm: native_set steerro, avoidro, gate0ro, deferfootprint, deferfootprint2, routetoobjro, placementro, a10foreign flipped together per firing (ini enables each piece); docs/175 + docs/174 + docs/176",
@@ -65582,5 +65734,236 @@
       }
     ],
     "cleanup": []
+  },
+  {
+    "id": "tier2-p5-dry",
+    "bug": "none (tier-2 P5 slot rows + row-only set Mode R gate, docs/data/tier2-rows35-handoff.md)",
+    "fix": "ts3native P5 rows Slots_IsSlotEnabledImpl / Slots_GetRoutingSlotNamesImpl ([AutShadow] Tier2SlotRows, actor gate: household, selected or unknown actors abort) read on the worker by ts3fixes autofft2ic slots 23-24 (IcG8) and compared with the game's answers at the cut; the row-only set's rows (IsOnRoof, HeightAboveFloor = autofft2; terrain/floor surface type = slots 20-21) in the same load",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (2026-11-08, never run). Forced, no waiting for events: household autonomy off so request-0 actors are NPCs (the slot reads are asked only for non-household actors), five spawned NPCs (instantiated at their own lots: TVs, sinks, stairs, lights), each queued user-directed onto a slot object of the home lot, ultra speed for autonomy batches, two camera moves for new lots. Household autonomy back on at the end.",
+    "steps": [
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "waitS": 1,
+        "note": "household autonomy off: request-0 actors are NPCs"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 5
+        },
+        "waitS": 15,
+        "note": "NPCs of non-active households at their own lots"
+      },
+      {
+        "cmd": "crowd_do",
+        "args": {
+          "lot": "home",
+          "object": "TV|Television|Stereo|Sink|Light|Lamp|Stairs",
+          "interaction": "Watch|Listen|Dance|Turn|Brush|Wash|Go"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "forced onto a routing-slot object; menus without it are listed"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 120
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "far corner"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 60,
+            "y": 40,
+            "z": 60
+          },
+          "target": {
+            "x": 90,
+            "y": 0,
+            "z": 90
+          }
+        },
+        "waitS": 60,
+        "note": "another corner"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "waitS": 1
+      }
+    ],
+    "expect": "autoff_t2ic_eq > 0; autoff_t2ic_mis == 0 and autoff_t2ic_exc == 0 (slots 0-24); autoff_t2_a2 == 0; abortic lines for the two Slots rows read (gate aborts `other`, misses `row`), not gated",
+    "switches": [
+      "autofft2",
+      "autofft2ic"
+    ]
+  },
+  {
+    "id": "races-r1-witness",
+    "bug": "none (docs/data/races-handoff.md R1/R2/R3: 84 of the 85 open mono-glue race rows, proof gate for IC pass-through)",
+    "fix": "ts3native [AutShadow] Races=3 (0.36.214, autraces.cpp): R1b pre-warm of the lazy first-fill caches at world event 7 (getters 0x7935B0, 0x8A79B0, 0x4D9AD0, 0x9B0530, 0xC88D80; host converter class caches 0x11EE54C-0x11EE584, guard 0x11EE588), guard witness and worker abort; R2b/R3a witness of 43 load-time words at every cut",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (2026-11-08, never run). Trigger = the world load itself (event 7) plus cuts; the steps only keep autonomy busy so cuts happen. Travel is the queue job's profile.travel (france, --stay), which fires a second event 7 and a new witness baseline. Native ini switch (not a ts3fixes switch): the queue job sets AutShadow.Races=3.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 240,
+        "note": "cuts at every autonomy request: the witness compares 43 rows each"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "expect": "log: 'OK   autshadow races R1 pre-warm: ... 0 still clear' once per world load, 'autshadow races R2 witness: baseline of 43 rows' after it, no 'races R2 witness: UNEXPECTED' line; autshadow r1Clear == 0, r2Unexp == 0, r1Aborts == 0; runtime lines (0x11D6A78, 0x11ED780, 0x11EE140, 0x11EE520, 0x11CB928, 0x114CA08/0C) are data, not a failure"
+  },
+  {
+    "id": "tier2-p2-dry",
+    "bug": "none (docs/data/tier2-rows35-handoff.md P2 Mode R gate)",
+    "fix": "ts3fixes AutCeHook (CauseEffectService data pre-warmed at the request, the worker never allocates: abort while null), AutFrontDoorHook (Lot.FindFrontDoor answered from a read-only memo of the actor's current lot, else abort), AutSuiteHook (four lazy BuyModeSuite getters: existing suite or abort); household/selected/unknown actors always abort",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (2026-11-12, never run). Same steps as tier2-h7-dry. The worker scores meta pairs only, so the P2 sites may be reached rarely until a local-phase driver exists: the gate is no regression (A1-A3, exceptions); counters 938-943 are read (aut_t2_cewarm is 1 on a load whose CauseEffect data was still null).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 180
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "far corner"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 60,
+            "y": 40,
+            "z": 60
+          },
+          "target": {
+            "x": 90,
+            "y": 0,
+            "z": 90
+          }
+        },
+        "waitS": 60,
+        "note": "another corner"
+      }
+    ],
+    "expect": "autshadow_a1..a3 == 0, autshadow_exceptions == 0; aut_t2_cewarm / aut_t2_ce_abort / aut_t2_door / aut_t2_door_abort / aut_t2_suite / aut_t2_suite_abort read, not gated",
+    "switches": [
+      "autt2cewarm",
+      "autt2frontdoor",
+      "autt2suite"
+    ]
+  },
+  {
+    "id": "tier2-p3-dry",
+    "bug": "none (docs/data/tier2-rows35-handoff.md P3 Mode R gate)",
+    "fix": "ts3fixes AutCallPetHook: Sim+CallPet+Definition.Test on the worker runs the game's Test with the shared mSimPickerList saved and put back (finally), so the worker's pet list lives only for that call; household/selected/unknown actors abort",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (2026-11-12, never run). Same steps as tier2-h7-dry. CallPet is a local-phase definition: the worker scores meta pairs only, so aut_t2_callpet may stay 0 until a local-phase driver exists; the gate is no regression (A1-A3, exceptions) and no new ScriptError from the pet picker. Manual check when a driver exists: open Call Pet on a household Sim's pie menu right after an NPC's autonomy tick; the list shows the household Sim's own pets.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 180
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 120,
+            "y": 90,
+            "z": 120
+          },
+          "target": {
+            "x": 180,
+            "y": 0,
+            "z": 180
+          }
+        },
+        "waitS": 60,
+        "note": "far corner"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 60,
+            "y": 40,
+            "z": 60
+          },
+          "target": {
+            "x": 90,
+            "y": 0,
+            "z": 90
+          }
+        },
+        "waitS": 60,
+        "note": "another corner"
+      }
+    ],
+    "expect": "autshadow_a1..a3 == 0, autshadow_exceptions == 0; aut_t2_callpet read, not gated",
+    "switches": [
+      "autt2callpet"
+    ]
   }
 ]

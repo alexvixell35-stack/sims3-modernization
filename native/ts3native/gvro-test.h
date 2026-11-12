@@ -33,7 +33,7 @@ static void TestGoalValidRO() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, gvReady) == 0x47DC && offsetof(Ts3nCounters, gvMode) == 0x47E0 &&
                       offsetof(Ts3nCounters, gvShadow) == 0x47E4 && offsetof(Ts3nCounters, gvFb) == 0x47FC &&
-                      offsetof(Ts3nCounters, gvShadowEmpty) == 0x4820 && sizeof(Ts3nCounters) == 6112 * 4,
+                      offsetof(Ts3nCounters, gvShadowEmpty) == 0x4820 && sizeof(Ts3nCounters) == 6116 * 4,
                   "counters v118 layout after v117 (docs/registry.md)");
     assert(k.version == 912);
     assert(kGvSite.site == 0x0075A647 && kGvSite.target == 0x0082EDB0);
@@ -142,4 +142,65 @@ static void TestGoalValidRO() {
     k.gvMode = k.gvShadow = 0;
     g_gvOrig = savedOrig, g_gvQuery = savedQuery, g_srLotLookup = savedLookup, g_srOne = savedOne;
     g_async = savedAsync, g_twArmed = savedArmed, k.rgOwnerTid = savedOwner;
+}
+
+// --- [GoalValidRO] Attr (docs/250 §7.0, counters v174): source / scope split of the job-time calls and their fallback waits,
+// the moved-wait meter from the last fallback to the plan's end (UserDiag op 12), calls inside AsyncStart, worker calls ignored
+static void TestGvAttr() {
+    using namespace gvt;
+    Ts3nCounters& k = ts3native_counters;
+    static_assert(offsetof(Ts3nCounters, gvaMode) == 0x5E4C && offsetof(Ts3nCounters, gvaSrcN) == 0x5E50 &&
+                      offsetof(Ts3nCounters, gvaSrcWaitUs) == 0x5E68 && offsetof(Ts3nCounters, gvaScopeWaitUs) == 0x5E80 &&
+                      offsetof(Ts3nCounters, gvaAtStart) == 0x5E8C && offsetof(Ts3nCounters, gvaLaterTakeUs) == 0x5E90,
+                  "counters v174 layout after v173 (docs/registry.md)");
+    memset((void*)&k.gvaMode, 0, offsetof(Ts3nCounters, gvaLaterTakeUs) + 4 - offsetof(Ts3nCounters, gvaMode));
+    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+    const GvFn savedOrig = g_gvOrig;
+    const AsyncSlot savedAsync = g_async;
+    const LONG w0 = g_w918Us, gvM = k.gvMode, gvS = k.gvShadow;
+    g_gvOrig = Orig;
+    const DWORD me = GetCurrentThreadId();
+    static u8 world[0x980];
+    __declspec(align(16)) float pt[13] = {1.0f, 0.0f, 2.0f};
+    DWORD vec[4] = {0, 0, 0, 0xFED2FC};
+    k.gvMode = k.gvShadow = 0;  // the RO answer off: every job-time call is the game's (the wait)
+    g_async.owner = me, g_async.state = A_RUNNING;
+    origFill = 0, origCalls = 0;
+    // off: nothing counted, the op 35 query says off
+    assert(GvaSrcMsg(0xFFFF) == 0);
+    GvStub(world, NULL, pt, 0.1f, vec, 0, 0);
+    assert(origCalls == 1 && k.gvaSrcN[0] == 0 && k.gvaSrcWaitUs[0] == 0);
+    k.gvaMode = 1;
+    assert(GvaSrcMsg(0xFFFF) == 1);
+    // a watchdog check of an unseen NPC (class 1, scope 2): n and wait by class / scope; job waits after it go to the meter
+    assert(GvaSrcMsg(1 | 2 << 8) == 1);
+    GvStub(world, NULL, pt, 0.1f, vec, 0, 0);
+    assert(origCalls == 2 && k.gvaSrcN[1] == 1 && k.gvaSrcWaitUs[1] >= 0 && g_gvaOpen);
+    g_w918Us += 5000;  // the same plan waits 5 ms later (gather, gate 10, RunPlan)
+    GvaPlanEnd();
+    assert(k.gvaLaterTakeUs == 5000 && !g_gvaOpen && g_gvaSrc == 0 && g_gvaScope == 0);
+    // a household plan (scope 0, the reset after op 12) and an own-task plan: separate rows; no fallback = no meter
+    assert(GvaSrcMsg(3) == 1);
+    GvStub(world, NULL, pt, 0.1f, vec, 0, 0);
+    assert(k.gvaSrcN[3] == 1 && k.gvaSrcN[1] == 1);
+    GvaPlanEnd();
+    assert(k.gvaLaterTakeUs == 5000);  // no later wait: nothing added
+    // out-of-range class / scope fall to 0 (none / household): never an unseen row by accident
+    assert(GvaSrcMsg(9 | 7 << 8) == 1 && g_gvaSrc == 0 && g_gvaScope == 0);
+    // no job: not counted (no wait there); inside AsyncStart: counted as at-start
+    g_async.state = A_IDLE;
+    g_asInStart = true;
+    GvStub(world, NULL, pt, 0.1f, vec, 0, 0);
+    g_asInStart = false;
+    assert(k.gvaAtStart == 1 && k.gvaSrcN[0] == 0);
+    // another thread (the worker inside its job): ignored
+    g_async.state = A_RUNNING, g_async.owner = me + 1;
+    GvStub(world, NULL, pt, 0.1f, vec, 0, 0);
+    assert(k.gvaSrcN[0] == 0 && !g_gvaOpen);
+    printf("GoalValidRO Attr (gvattr): counters v174; off counts nothing; class / scope rows and fallback waits; the later-wait "
+           "meter closes at the plan's end; bad codes fall to none / household; at-start; no job or the worker: not counted\n");
+    GvaPlanEnd();
+    k.gvaMode = 0, k.gvMode = gvM, k.gvShadow = gvS;
+    g_w918Us = w0;
+    g_gvOrig = savedOrig, g_async = savedAsync;
 }

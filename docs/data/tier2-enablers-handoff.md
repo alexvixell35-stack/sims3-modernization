@@ -69,3 +69,7 @@ Branch `feature/tier2-enablers`. Status file for the agents building the shared-
 - Household: the native rows only answer worker calls (the worker's own household rules apply unchanged); the dry reads `IcG5` / `IcG6` skip lots owned by the active household; the gate itself changes no Sim state (skip = no answer, the worker aborts).
 - Next step: merge `feature/tier2-e3` into master (after `feature/tier2-enablers`; expect `docs/data/builds.json` / `PLAN.md` / `tier2-ic-rows.json` conflicts, `tools/agent-merge.cjs`), then run `tier2-ic-rows.json` job `bp-t2e3-dry` (pair `tier2e3-1108`; gate 0 `autoff_t2ic_mis` over slots 0-21, read `autshadow level gate` skip/fill lines for I-463-2 and `[RouteGate]` waits for I-463-1). Optional later: an IP arm with `Tier2IcNew=31` once `bp-t2e-dry` passed.
 - Open: #18 retro, I-463-1..3.
+
+## Status P5 (2026-11-08, branch `feature/tier2-p5-rows`, pair `tier2p5-1108`, ts3native 0.36.213, not merged, not run)
+
+- Two rows appended after P6 in `kAsDesc` (`AS_NT2IC` 25, `AS_NT2E` 10): E bits 8-9 = `[AutShadow] Tier2SlotRows`. The actor gate is now the descriptor flag `AS_OF_HH` (P6 + P5), so new rows may go after P6 without touching the gate. Managed `kIcV` 25 (`IcG8` slots 23-24). Details: docs/data/tier2-rows35-handoff.md status log, ledger §466.

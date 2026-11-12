@@ -99,6 +99,25 @@ static LONG CALLBACK Veh(EXCEPTION_POINTERS* e) {
         DWORD v = sp[i];
         if (v > IMG_LO + 0x1000 && v < 0x00F95000) { Log(" %08lX", v); n++; }  // .text range of the exe
     }
+    // host code (own image at 0x30000000, /FIXED) and JIT pool (private RWX) values with their stack slot, so a fault in the CRT
+    // or in a lazy body names its caller (2026-11-10: the strnlen fault had only exe values)
+    Log("\n  host/jit values on stack:");
+    n = 0;
+    for (int i = 0; i < 4096 && n < 64; i++) {
+        MEMORY_BASIC_INFORMATION m;
+        if (!VirtualQuery(sp + i, &m, sizeof(m)) || m.State != MEM_COMMIT) break;
+        const DWORD v = sp[i];
+        if (v > 0x30001000 && v < 0x30070000) {  // host .text: only values right after a call (return addresses)
+            const u8* r = (const u8*)(uintptr_t)v;
+            if (r[-5] == 0xE8 || (r[-2] == 0xFF && (r[-1] & 0x38) == 0x10) || (r[-3] == 0xFF && (r[-2] & 0x38) == 0x10) || (r[-6] == 0xFF && (r[-5] & 0x38) == 0x10)) {
+                Log(" +%X:h%05lX", i * 4, v - 0x30000000); n++;
+            }
+            continue;
+        }
+        if (v >= 0x01000000 && VirtualQuery((LPCVOID)(uintptr_t)v, &m, sizeof(m)) && m.State == MEM_COMMIT && m.Type == MEM_PRIVATE && m.Protect == PAGE_EXECUTE_READWRITE) {
+            Log(" +%X:j%08lX", i * 4, v); n++;
+        }
+    }
     Log("\n");
     return EXCEPTION_CONTINUE_SEARCH;  // first chance: Mono or the exe may handle it; the unhandled filter ends the run
 }
@@ -994,7 +1013,8 @@ namespace mt {
 #pragma warning(push)
 #pragma warning(disable : 4505)  // ts3native helpers the M5 code does not call here
 static DWORD g_mainTid;
-struct Ts3nCounters { LONG mtMode, mtReady, mtSimTid, mtSimRegistered, mtThreads, mtPushCalls, mtCtxFails, mtStacksPushed; };
+struct Ts3nCounters { LONG mtMode, mtReady, mtSimTid, mtSimRegistered, mtThreads, mtPushCalls, mtCtxFails, mtStacksPushed;
+    LONG sbLowHdr, sbVtGiveUp; };  // satb.cpp (#352 Satb struct this, counters v185)
 static Ts3nCounters ts3native_counters;
 static DWORD* g_curState = (DWORD*)(uintptr_t)0x011F4170;  // ts3native's current-state pointer, repointed by MtInstallP4
 static void Log(const char* fmt, ...) {
@@ -1022,6 +1042,7 @@ static bool Write(void* addr, const void* bytes, size_t n) {
 // ts3native pieces the included files call (monothread-m5 arena guard detours, autshadow FPU state, locowin shims): host no-ops
 static void* InstallDetour(const char*, DWORD, const u8*, size_t, void*) { return NULL; }
 template <class F> static void* InstallDetour(const char*, DWORD, const u8*, size_t, void*, F*) { return NULL; }
+#include "../ts3native/uaftag.h"  // UafTagSet in MtWorkerMain ([UafCheck] free tags; only a thread-local write here)
 #include "../ts3native/simloop.cpp"  // the per-iteration hook ApplyMonoThread adds (the host never runs Simulate)
 #include "../ts3native/monothread.cpp"
 // [AutShadow] (docs/122 §13-§14) on top of M5: routesnap's pieces it touches, as no-ops (no routing in the host)
@@ -1386,7 +1407,7 @@ static int AsG2() {
     mt::g_asMode = 1;  // R: reference on this thread, then the worker
     mt::MtTick();      // first Simulate entry: the AutShadowNative ICs register
     const int ver = I32(TA("Setup", 0, NULL));
-    if (!Check("AS-install", guards && k.descIcs == nIc && k.icRegistered == 34 && ver == 11 && p.workerState == 2,
+    if (!Check("AS-install", guards && k.descIcs == nIc && k.icRegistered == 35 && ver == 11 && p.workerState == 2,
                "guards %d (%ld descriptor ICs), AutShadowNative ICs %ld, Setup -> Version %d, worker state %ld", guards, k.descIcs,
                k.icRegistered, ver, p.workerState))
         return 160;

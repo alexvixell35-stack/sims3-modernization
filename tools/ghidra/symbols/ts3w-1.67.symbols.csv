@@ -521,7 +521,18 @@ address,name,type,comment
 0x00D81FDE,Simulate_call_IdleSimulationCycle,label,[unverified: from our docs only] S3SS Smooth Patch (Precise) redirect site <docs/03 §1.1>
 0x00D8A8E0,ScriptHost_NativeToManaged,function,[verified: function entry in our Ghidra database] Another native->managed entry; runs on a fresh interpreter state (a yield there aborts) <docs/18>
 0x00D9B130,ScriptHost_GlueCaller,function,[verified: function entry in our Ghidra database] Script-host glue that calls 0xD8A8E0 [inferred name] <docs/18>
-0x00DA5970,ScriptHost_ICallTrampoline,function,[verified: function entry in our Ghidra database] Internal-call trampoline (~1.5% incl. its ntdll lock calls) <docs/20>
+0x00DA5970,ValueType_DefaultEquals_NativeBody,function,"[verified: disassembly] EA binder body #152 System.ValueType::DefaultEquals(object,object); calls [0x11EE6CC] = InternalEquals 0xE7A590; was ScriptHost_ICallTrampoline (docs/20) <docs/258>"
+0x00DA5910,ValueType_DefaultEquals_Bind,function,"[verified: disassembly] binder init for #152: [0x11EE6C8] = callee at IL 0x0A, [0x11EE6CC] = its icall pointer, [0x11EE6D0] = callee at IL 0x30 <docs/258>"
+0x00DA7FB0,Enum_Equals_NativeBody,function,[verified: disassembly] EA binder body #194 System.Enum::Equals(object); calls 0xDA5970 when [0x11EE5B4]+0x28 is set <docs/258>
+0x00DC4870,Attribute_Equals_NativeBody,function,[verified: disassembly] EA binder body #687 System.Attribute::Equals(object); calls 0xDA5970 <docs/258>
+0x00E7A590,ves_icall_System_ValueType_InternalEquals,function,"[verified: disassembly] corlib icall slot 603 (0x10B61A4); field walk via 0xE70180, one loader-lock pair per field + 1 <docs/258>"
+0x00E7A410,ves_icall_System_ValueType_InternalGetHashCode,function,[verified: disassembly] corlib icall slot 604 <docs/258>
+0x00E70180,mono_class_get_fields,function,"[verified: disassembly] iterator; mono_loader_lock + mono_class_setup_fields + unlock on every call; stride 0x1C, count +0x68, array +0x88 <docs/258>"
+0x00E6E600,mono_class_setup_fields,function,"[verified: disassembly] early exit on klass+0x14 bit 2 (size_inited), which it sets at 0xE6E7A3 before the field array (+0x88 at 0xE6E7BE) <docs/258>"
+0x011EE6C8,g_defaultEqualsInternalEqualsMethod,data,[verified: disassembly] RuntimeMethod of InternalEquals (bound at 0xDA593B) <docs/258>
+0x011EE6CC,g_defaultEqualsInternalEqualsFn,data,[verified: disassembly] native pointer 0xE7A590 (bound at 0xDA594E) <docs/258>
+0x011EE6D0,g_defaultEqualsPairEqualsMethod,data,[verified: disassembly] RuntimeMethod of the per-pair Equals (IL 0x30; bound at 0xDA595C) <docs/258>
+0x010B4EA0,g_corlibICallNames,data,[verified: disassembly] corlib icall method-name table (613 entries; parallel to 0x10B5838) <docs/258>
 0x00E498B0,GC_min_bytes_allocd,function,[verified: function entry in our Ghidra database] Only reader of the free-space divisor <docs/13>
 0x00E49980,GC_stopped_mark,function,[verified: bytes match the Steam 1.67 exe] Stop-the-world mark; outside the per-frame call it counts as a forced GC <docs/13>
 0x00E49B10,GC_heap_section_limit_a,label,"[unverified: from our docs only] Heap-section limit 0x300 (""Too many heap sections"") <docs/13>"
@@ -637,7 +648,7 @@ address,name,type,comment
 0x0108B7AC,vt_MonoScriptHost_MarkYield_slot,data,[unverified: from our docs only] Vtable slot holding 0xD70F60 <docs/18>
 0x0108B7C4,vt_MonoScriptHost_InvokeDelegate_slot,data,[unverified: from our docs only] Vtable slot holding 0xD75FA0 <docs/18>
 0x0108E704,str_pState_yieldReturn,data,"[unverified: from our docs only] ""pState->yieldReturn"" (assert text) <docs/18>"
-0x010B5838,g_corlibICallTable,data,[unverified: from our docs only] mscorlib icall table <docs/13>
+0x010B5838,g_corlibICallTable,data,[verified: disassembly] corlib icall function table (613 entries; names at 0x10B4EA0) <docs/258>
 0x011580C4,g_AStarGeneration,data,[unverified: from our docs only] Search generation stamp (3 xrefs) {WORD} <docs/18>
 0x011922A4,EA_gc_frame_budget,data,"[unverified: from our docs only] Per-frame GC budget, starts at 1000, +-100 steps {int} <docs/13>"
 0x01192324,EA_gc_budget_max,data,"[verified: bytes match the Steam 1.67 exe] 1500; ts3native optional BudgetCeiling {int} <docs/13, 15 Phase 1>"
