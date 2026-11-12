@@ -75,6 +75,18 @@ namespace Ts3Agent
             return n;
         }
 
+        static readonly Dictionary<Type, FieldInfo[]> sLcRefFields = new Dictionary<Type, FieldInfo[]>();
+        static FieldInfo[] LcRefFields(Type t)
+        {
+            FieldInfo[] fs;
+            if (sLcRefFields.TryGetValue(t, out fs)) return fs;
+            List<FieldInfo> l = new List<FieldInfo>();
+            for (Type x = t; x != null && x != typeof(object); x = x.BaseType)
+                foreach (FieldInfo f in x.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+                    if (typeof(GameObject).IsAssignableFrom(f.FieldType) || f.FieldType == typeof(SimDescription)) l.Add(f);
+            fs = l.ToArray(); sLcRefFields[t] = fs; return fs;
+        }
+
         static bool LcGone(object o)
         {
             if (o == null) return true;
@@ -282,7 +294,8 @@ namespace Ts3Agent
             if (all == null) { r["error"] = "mListeners not found"; return r; }
             Dictionary<string, int> byEvent = new Dictionary<string, int>(), byOwner = new Dictionary<string, int>(), byClass = new Dictionary<string, int>();
             Dictionary<string, int> byDelegate = new Dictionary<string, int>(), goneByEvent = new Dictionary<string, int>();
-            int total = 0, gone = 0, noHousehold = 0, noOwner = 0, keys = 0;
+            int total = 0, gone = 0, noHousehold = 0, noOwner = 0, keys = 0, targetHoldsGone = 0;
+            Dictionary<string, int> holdsGoneByDelegate = new Dictionary<string, int>();
             // wish listeners (ActiveDreamNode.RunFeedbackFunction grew +1370 in 7 min of active-Sim switching, hunt 2026-11-11):
             // is the node still held by its owner's DreamsAndPromisesManager, or only by the event tracker?
             Dictionary<string, int> dream = new Dictionary<string, int>(), dreamOwners = new Dictionary<string, int>(), dreamOrphans = new Dictionary<string, int>();
@@ -315,6 +328,21 @@ namespace Ts3Agent
                             try { if (s.SimDescription == null || s.SimDescription.Household == null) noHousehold++; } catch (Exception) { noHousehold++; }
                         }
                         if (g) { gone++; LcBump(goneByEvent, evName); }
+                        // the delegate's target itself, or (one level) a GameObject / SimDescription field of it, gone:
+                        // finds listeners like Motives.OnSeasonTransition that keep a removed Sim reachable
+                        if (dl != null && dl.Delegate != null && dl.Delegate.Target != null)
+                        {
+                            object t = dl.Delegate.Target;
+                            bool tg = false;
+                            if (t is GameObject || t is SimDescription) tg = LcGone(t);
+                            else foreach (FieldInfo f in LcRefFields(t.GetType()))
+                                {
+                                    object v = null;
+                                    try { v = f.GetValue(t); } catch (Exception) { }
+                                    if (v != null && LcGone(v)) { tg = true; break; }
+                                }
+                            if (tg) { targetHoldsGone++; LcBump(holdsGoneByDelegate, LcMethod(dl.Delegate)); }
+                        }
                     }
                 }
             }
@@ -326,6 +354,7 @@ namespace Ts3Agent
             r["by_listener_class"] = LcTop(byClass, top);
             r["by_delegate"] = LcTop(byDelegate, top);
             r["gone_by_event"] = LcTop(goneByEvent, top);
+            r["target_holds_gone"] = targetHoldsGone; r["target_holds_gone_by_delegate"] = LcTop(holdsGoneByDelegate, top);
             Dictionary<string, object> dr = Util.Obj();
             dr["state"] = LcTop(dream, 8); dr["by_owner"] = LcTop(dreamOwners, top); dr["orphans_by_node"] = LcTop(dreamOrphans, top);
             dr["managers"] = dreamMgrs.Count;
