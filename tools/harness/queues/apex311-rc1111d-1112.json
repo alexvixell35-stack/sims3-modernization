@@ -1,0 +1,610 @@
+{
+  "note": "apex311-rc1111d-1112 (2026-11-12, docs/259 §8, Rodney option 1): Apex 3.1.1 live check on the release pair rc1111d asi (0.36.240 f05a9fd6) + rc1111d ini (9b5222c0) + ts3fixes rc1111e (a563cf8f). Four jobs, two installs done by hand between runs: --only the two -dxvk jobs with ApexRadiance.asi next to DXVK d3d9.dll, then --only the two -bridge jobs with the full RTX Remix bridge install (zip unzipped into Bin, DXVK moved out, verified). Bin backed up whole and hash-checked after. node tools/harness/queue.ts tools/harness/queues/apex311-rc1111d-1112.json --only <ids> --no-smoke",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-apex311d-smoke-dxvk-1112",
+      "note": "[apex311-rc1111d-1112: Apex asi + DXVK; run with that install in Bin, done by hand] [est 12 min] smoke: proves Apex 3.1.1 really loaded (Bin add-ons line, v3.1.1.0), our detection found it at start with ApexStandDown=1, ts3fixes text channel alive (world line), [LotPool] Trim stood down (skipped line, never a trim line). Stops the queue on FAIL (Apex not in Bin, detection broken). [apex311-compat-1112: copy of the apex300 job on pair rc1111g + Apex 3.1.1; also requires our [MonoSigGuard] OK line and forbids its SKIP line (Apex 3.1.1 DelegateSigFix patches the same call 0xD70FB6, docs/259 §2.1)]",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release pair per Rodney 11-12 option 1): asi game-copy/ts3native.asi.rc1111d (0.36.240, sha256 f05a9fd6) + ini game-copy/ts3native.ini.rc1111d (9b5222c0) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f) via fixesPackage",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 25,
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1,
+        "^diag: Bin add-ons: .*ApexRadiance\\.asi \\d+ KB v3\\.1\\.1\\.0": 1,
+        "^compat: Apex Radiance found at start \\(ApexRadiance\\.asi (zzApexRadiance\\.asi )?mutex\\).*; ApexStandDown=1": 1,
+        "^ts3fixes: world: \\S+\\.world, lots \\d+": 1,
+        "^lptrim: skipped \\(world load #\\d+\\), pool not read world=\\S+: stood down: Apex Radiance loaded; nothing changed": 1,
+        "^OK   mono sig guard \\(docs/539 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^lptrim: #\\d+ world load #\\d+ ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^SKIP mono sig guard": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-12 13:36:55"
+          ],
+          "noMatch": [
+            "ts3native 0.36.247 2026-11-12 19:30:00",
+            "ts3native 0.36.2400 2026-11-12 13:36:55"
+          ]
+        },
+        "^diag: Bin add-ons: .*ApexRadiance\\.asi \\d+ KB v3\\.1\\.1\\.0": {
+          "match": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1431 KB, wininet.dll 5291 KB v9.7.4.0"
+          ],
+          "noMatch": [
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1431 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: ApexRadiance.asi 12278 KB v3.0.0.0, ts3native.asi 1226 KB",
+            "diag: Bin add-ons: ApexRadiance.asi 13500 KB v3.1.0.0, ts3native.asi 1431 KB"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(ApexRadiance\\.asi (zzApexRadiance\\.asi )?mutex\\).*; ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression ResourceLookupCache FileListCache; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not loaded at start",
+            "compat: Apex Radiance found after our start (zzApexRadiance.asi mutex), no ApexRadiance.toml: defaults, owned switches on: ObjectLookupIndex; ApexStandDown=1",
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: none; ApexStandDown=0"
+          ]
+        },
+        "^ts3fixes: world: \\S+\\.world, lots \\d+": {
+          "match": [
+            "ts3fixes: world: Bridgeport.world, lots 83 (residential 46, with a household 30), households 55 with 259 Sims (active household 2), Sims in the world 100, objects 10991"
+          ],
+          "noMatch": [
+            "ts3fixes: world quit",
+            "diag: world load #1, uptime 1 min, ts3native 0.36.236, mods 163 packages (10 script) 5182 MB"
+          ]
+        },
+        "^lptrim: skipped \\(world load #\\d+\\), pool not read world=\\S+: stood down: Apex Radiance loaded; nothing changed": {
+          "match": [
+            "lptrim: skipped (world load #1), pool not read world=Bridgeport.world: stood down: Apex Radiance loaded; nothing changed"
+          ],
+          "noMatch": [
+            "lptrim: skipped (world load #2), pool read world=France.world: pool header not as expected; nothing changed",
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22, slots 34185 free 34103 (99.8%), completely free 259: freed 243 (8.20 MiB), kept 16; locked 4.85 ms"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^lptrim: #\\d+ world load #\\d+ ": {
+          "match": [
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22, slots 34185 free 34103 (99.8%), completely free 259: freed 243 (8.20 MiB), kept 16; locked 4.85 ms"
+          ],
+          "noMatch": [
+            "lptrim: skipped (world load #1), pool not read world=Bridgeport.world: stood down: Apex Radiance loaded; nothing changed",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 15 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-10 01:30:00",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "^OK   mono sig guard \\(docs/539 ": {
+          "match": [
+            "OK   mono sig guard (docs/539 §20): 0xD70F90 checks the delegate's param_count before reading params[0] (zero-parameter SwapLoadScreen crash 0xF4AC64); \"mono sig guard:\" lines for param_count 0 (20, then every 1000th)"
+          ],
+          "noMatch": [
+            "SKIP mono sig guard: bytes at 0x00D70FB2 differ: not installed",
+            "mono sig guard: delegate sig param_count 0, params[0] 0x00000001 (past a 0x10-byte signature: the next block's data), caller 0x0071234A (of ScriptHost_InvokeDelegate 0xD75FA0); not read, EA's not-one-Object[] answer (false); skips 3 (param_count 0: 1)"
+          ]
+        },
+        "^SKIP mono sig guard": {
+          "match": [
+            "SKIP mono sig guard: bytes at 0x00D70FB2 differ: not installed"
+          ],
+          "noMatch": [
+            "OK   mono sig guard (docs/539 §20): 0xD70F90 checks the delegate's param_count before reading params[0] (zero-parameter SwapLoadScreen crash 0xF4AC64); \"mono sig guard:\" lines for param_count 0 (20, then every 1000th)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-apex311d-travel-dxvk-1112",
+      "note": "[apex311-rc1111d-1112: Apex asi + DXVK; run with that install in Bin, done by hand] [est 35 min] load + travel x3 to France and back with S3SS present (its stale write guard lines), memory marks on every world switch (MemDiag on), Trim stood down on every world load (skipped lines are capped at 5 per session), ts3fixes world line per load. Pass also = no crash, no travel save failure (save-matrix verdict). [apex311-compat-1112: copy of the apex300 job on pair rc1111g + Apex 3.1.1; also requires our [MonoSigGuard] OK line and forbids its SKIP line (Apex 3.1.1 DelegateSigFix patches the same call 0xD70FB6, docs/259 §2.1)]",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release pair per Rodney 11-12 option 1): asi game-copy/ts3native.asi.rc1111d (0.36.240, sha256 f05a9fd6) + ini game-copy/ts3native.ini.rc1111d (9b5222c0) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f) via fixesPackage",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1
+      },
+      "run": {
+        "script": [
+          "save-matrix.ts",
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "3",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 60,
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1,
+        "^compat: Apex Radiance found at start \\(ApexRadiance\\.asi (zzApexRadiance\\.asi )?mutex\\).*; ApexStandDown=1": 1,
+        "^s3ss compat: stale write guard on \\(S3SS 1\\.6\\.3": 1,
+        "^diag: world load #\\d+, uptime \\d+ min, ts3native": 7,
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": 6,
+        "^diag: mem #\\d+ mark ev=away ": 3,
+        "^diag: mem #\\d+ mark ev=home ": 3,
+        "^lptrim: skipped \\(world load #\\d+\\), pool not read world=\\S+: stood down: Apex Radiance loaded; nothing changed": 3,
+        "^OK   mono sig guard \\(docs/539 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^lptrim: #\\d+ world load #\\d+ ": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^SKIP mono sig guard": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-12 13:36:55"
+          ],
+          "noMatch": [
+            "ts3native 0.36.247 2026-11-12 19:30:00",
+            "ts3native 0.36.2400 2026-11-12 13:36:55"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(ApexRadiance\\.asi (zzApexRadiance\\.asi )?mutex\\).*; ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression ResourceLookupCache FileListCache; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not loaded at start",
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: none; ApexStandDown=0"
+          ]
+        },
+        "^s3ss compat: stale write guard on \\(S3SS 1\\.6\\.3": {
+          "match": [
+            "s3ss compat: stale write guard on (S3SS 1.6.3 sha 69ce87ee, known-buggy): SafeReassert call S3SS+0x28CDB retargeted; stale 4-byte heap target -> live WorldManager+0xEC"
+          ],
+          "noMatch": [
+            "s3ss compat: stale write guard stands aside (S3SS 1a2b3c4d not in the known-buggy list)",
+            "s3ss compat: stale write guard off ([S3SSCompat] StaleWriteGuard=0)"
+          ]
+        },
+        "^diag: world load #\\d+, uptime \\d+ min, ts3native": {
+          "match": [
+            "diag: world load #7, uptime 8 min, ts3native 0.36.239, mods 163 packages (10 script) 5182 MB"
+          ],
+          "noMatch": [
+            "diag: memory at world load #7: private 2053 MB, committed 2641 MB",
+            "ts3fixes: world quit"
+          ]
+        },
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": {
+          "match": [
+            "diag: mem #9 load ev=travel,world-switch priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162",
+            "diag: mem #3 load ev=world-switch priv=1651 wPriv=1599 t=90"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=away ": {
+          "match": [
+            "diag: mem #10 mark ev=away priv=1670 wPriv=1618 wCom=2223 free=1612 big=1501? t=178"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=home ": {
+          "match": [
+            "diag: mem #16 mark ev=home priv=1690 wPriv=1638 wCom=2287 free=1563 big=1497? t=262"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^lptrim: skipped \\(world load #\\d+\\), pool not read world=\\S+: stood down: Apex Radiance loaded; nothing changed": {
+          "match": [
+            "lptrim: skipped (world load #3), pool not read world=France.world: stood down: Apex Radiance loaded; nothing changed"
+          ],
+          "noMatch": [
+            "lptrim: skipped (world load #2), pool read world=France.world: pool header not as expected; nothing changed"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^lptrim: #\\d+ world load #\\d+ ": {
+          "match": [
+            "lptrim: #2 world load #2 world=France.world cores 109 -> 52, slots 14061 free 13916 (99.0%), completely free 73: freed 57 (1.92 MiB), kept 16; locked 2.04 ms"
+          ],
+          "noMatch": [
+            "lptrim: skipped (world load #1), pool not read world=Bridgeport.world: stood down: Apex Radiance loaded; nothing changed"
+          ]
+        },
+        "^diag: mem(sus)? .*=[-\\d.]+! ": {
+          "match": [
+            "diag: mem #5 mark ev=gc-after priv=1776! wPriv=1702 t=358",
+            "diag: memsus #5 mark ev=gc-after cc=-1! t=358"
+          ],
+          "noMatch": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-10 01:30:00",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "^OK   mono sig guard \\(docs/539 ": {
+          "match": [
+            "OK   mono sig guard (docs/539 §20): 0xD70F90 checks the delegate's param_count before reading params[0] (zero-parameter SwapLoadScreen crash 0xF4AC64); \"mono sig guard:\" lines for param_count 0 (20, then every 1000th)"
+          ],
+          "noMatch": [
+            "SKIP mono sig guard: bytes at 0x00D70FB2 differ: not installed",
+            "mono sig guard: delegate sig param_count 0, params[0] 0x00000001 (past a 0x10-byte signature: the next block's data), caller 0x0071234A (of ScriptHost_InvokeDelegate 0xD75FA0); not read, EA's not-one-Object[] answer (false); skips 3 (param_count 0: 1)"
+          ]
+        },
+        "^SKIP mono sig guard": {
+          "match": [
+            "SKIP mono sig guard: bytes at 0x00D70FB2 differ: not installed"
+          ],
+          "noMatch": [
+            "OK   mono sig guard (docs/539 §20): 0xD70F90 checks the delegate's param_count before reading params[0] (zero-parameter SwapLoadScreen crash 0xF4AC64); \"mono sig guard:\" lines for param_count 0 (20, then every 1000th)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-apex311d-smoke-bridge-1112",
+      "note": "[apex311-rc1111d-1112: Apex asi + RTX Remix bridge (full install); run with that install in Bin, done by hand] [est 12 min] smoke: proves Apex 3.1.1 really loaded (Bin add-ons line, v3.1.1.0), our detection found it at start with ApexStandDown=1, ts3fixes text channel alive (world line), [LotPool] Trim stood down (skipped line, never a trim line). Stops the queue on FAIL (Apex not in Bin, detection broken). [apex311-compat-1112: copy of the apex300 job on pair rc1111g + Apex 3.1.1; also requires our [MonoSigGuard] OK line and forbids its SKIP line (Apex 3.1.1 DelegateSigFix patches the same call 0xD70FB6, docs/259 §2.1)]",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release pair per Rodney 11-12 option 1): asi game-copy/ts3native.asi.rc1111d (0.36.240, sha256 f05a9fd6) + ini game-copy/ts3native.ini.rc1111d (9b5222c0) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f) via fixesPackage",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 25,
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1,
+        "^diag: Bin add-ons: .*ApexRadiance\\.asi \\d+ KB v3\\.1\\.1\\.0": 1,
+        "^compat: Apex Radiance found at start \\(ApexRadiance\\.asi (zzApexRadiance\\.asi )?mutex\\).*; ApexStandDown=1": 1,
+        "^ts3fixes: world: \\S+\\.world, lots \\d+": 1,
+        "^lptrim: skipped \\(world load #\\d+\\), pool not read world=\\S+: stood down: Apex Radiance loaded; nothing changed": 1,
+        "^OK   mono sig guard \\(docs/539 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^lptrim: #\\d+ world load #\\d+ ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^SKIP mono sig guard": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-12 13:36:55"
+          ],
+          "noMatch": [
+            "ts3native 0.36.247 2026-11-12 19:30:00",
+            "ts3native 0.36.2400 2026-11-12 13:36:55"
+          ]
+        },
+        "^diag: Bin add-ons: .*ApexRadiance\\.asi \\d+ KB v3\\.1\\.1\\.0": {
+          "match": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1431 KB, wininet.dll 5291 KB v9.7.4.0"
+          ],
+          "noMatch": [
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1431 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: ApexRadiance.asi 12278 KB v3.0.0.0, ts3native.asi 1226 KB",
+            "diag: Bin add-ons: ApexRadiance.asi 13500 KB v3.1.0.0, ts3native.asi 1431 KB"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(ApexRadiance\\.asi (zzApexRadiance\\.asi )?mutex\\).*; ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression ResourceLookupCache FileListCache; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not loaded at start",
+            "compat: Apex Radiance found after our start (zzApexRadiance.asi mutex), no ApexRadiance.toml: defaults, owned switches on: ObjectLookupIndex; ApexStandDown=1",
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: none; ApexStandDown=0"
+          ]
+        },
+        "^ts3fixes: world: \\S+\\.world, lots \\d+": {
+          "match": [
+            "ts3fixes: world: Bridgeport.world, lots 83 (residential 46, with a household 30), households 55 with 259 Sims (active household 2), Sims in the world 100, objects 10991"
+          ],
+          "noMatch": [
+            "ts3fixes: world quit",
+            "diag: world load #1, uptime 1 min, ts3native 0.36.236, mods 163 packages (10 script) 5182 MB"
+          ]
+        },
+        "^lptrim: skipped \\(world load #\\d+\\), pool not read world=\\S+: stood down: Apex Radiance loaded; nothing changed": {
+          "match": [
+            "lptrim: skipped (world load #1), pool not read world=Bridgeport.world: stood down: Apex Radiance loaded; nothing changed"
+          ],
+          "noMatch": [
+            "lptrim: skipped (world load #2), pool read world=France.world: pool header not as expected; nothing changed",
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22, slots 34185 free 34103 (99.8%), completely free 259: freed 243 (8.20 MiB), kept 16; locked 4.85 ms"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^lptrim: #\\d+ world load #\\d+ ": {
+          "match": [
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22, slots 34185 free 34103 (99.8%), completely free 259: freed 243 (8.20 MiB), kept 16; locked 4.85 ms"
+          ],
+          "noMatch": [
+            "lptrim: skipped (world load #1), pool not read world=Bridgeport.world: stood down: Apex Radiance loaded; nothing changed",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 15 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-10 01:30:00",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "^OK   mono sig guard \\(docs/539 ": {
+          "match": [
+            "OK   mono sig guard (docs/539 §20): 0xD70F90 checks the delegate's param_count before reading params[0] (zero-parameter SwapLoadScreen crash 0xF4AC64); \"mono sig guard:\" lines for param_count 0 (20, then every 1000th)"
+          ],
+          "noMatch": [
+            "SKIP mono sig guard: bytes at 0x00D70FB2 differ: not installed",
+            "mono sig guard: delegate sig param_count 0, params[0] 0x00000001 (past a 0x10-byte signature: the next block's data), caller 0x0071234A (of ScriptHost_InvokeDelegate 0xD75FA0); not read, EA's not-one-Object[] answer (false); skips 3 (param_count 0: 1)"
+          ]
+        },
+        "^SKIP mono sig guard": {
+          "match": [
+            "SKIP mono sig guard: bytes at 0x00D70FB2 differ: not installed"
+          ],
+          "noMatch": [
+            "OK   mono sig guard (docs/539 §20): 0xD70F90 checks the delegate's param_count before reading params[0] (zero-parameter SwapLoadScreen crash 0xF4AC64); \"mono sig guard:\" lines for param_count 0 (20, then every 1000th)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-apex311d-travel-bridge-1112",
+      "note": "[apex311-rc1111d-1112: Apex asi + RTX Remix bridge (full install); run with that install in Bin, done by hand] [est 35 min] load + travel x3 to France and back with S3SS present (its stale write guard lines), memory marks on every world switch (MemDiag on), Trim stood down on every world load (skipped lines are capped at 5 per session), ts3fixes world line per load. Pass also = no crash, no travel save failure (save-matrix verdict). [apex311-compat-1112: copy of the apex300 job on pair rc1111g + Apex 3.1.1; also requires our [MonoSigGuard] OK line and forbids its SKIP line (Apex 3.1.1 DelegateSigFix patches the same call 0xD70FB6, docs/259 §2.1)]",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release pair per Rodney 11-12 option 1): asi game-copy/ts3native.asi.rc1111d (0.36.240, sha256 f05a9fd6) + ini game-copy/ts3native.ini.rc1111d (9b5222c0) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f) via fixesPackage",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1
+      },
+      "run": {
+        "script": [
+          "save-matrix.ts",
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "3",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 60,
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1,
+        "^compat: Apex Radiance found at start \\(ApexRadiance\\.asi (zzApexRadiance\\.asi )?mutex\\).*; ApexStandDown=1": 1,
+        "^s3ss compat: stale write guard on \\(S3SS 1\\.6\\.3": 1,
+        "^diag: world load #\\d+, uptime \\d+ min, ts3native": 7,
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": 6,
+        "^diag: mem #\\d+ mark ev=away ": 3,
+        "^diag: mem #\\d+ mark ev=home ": 3,
+        "^lptrim: skipped \\(world load #\\d+\\), pool not read world=\\S+: stood down: Apex Radiance loaded; nothing changed": 3,
+        "^OK   mono sig guard \\(docs/539 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^lptrim: #\\d+ world load #\\d+ ": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^SKIP mono sig guard": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.240 ": {
+          "match": [
+            "ts3native 0.36.240 2026-11-12 13:36:55"
+          ],
+          "noMatch": [
+            "ts3native 0.36.247 2026-11-12 19:30:00",
+            "ts3native 0.36.2400 2026-11-12 13:36:55"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(ApexRadiance\\.asi (zzApexRadiance\\.asi )?mutex\\).*; ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression ResourceLookupCache FileListCache; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not loaded at start",
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: none; ApexStandDown=0"
+          ]
+        },
+        "^s3ss compat: stale write guard on \\(S3SS 1\\.6\\.3": {
+          "match": [
+            "s3ss compat: stale write guard on (S3SS 1.6.3 sha 69ce87ee, known-buggy): SafeReassert call S3SS+0x28CDB retargeted; stale 4-byte heap target -> live WorldManager+0xEC"
+          ],
+          "noMatch": [
+            "s3ss compat: stale write guard stands aside (S3SS 1a2b3c4d not in the known-buggy list)",
+            "s3ss compat: stale write guard off ([S3SSCompat] StaleWriteGuard=0)"
+          ]
+        },
+        "^diag: world load #\\d+, uptime \\d+ min, ts3native": {
+          "match": [
+            "diag: world load #7, uptime 8 min, ts3native 0.36.239, mods 163 packages (10 script) 5182 MB"
+          ],
+          "noMatch": [
+            "diag: memory at world load #7: private 2053 MB, committed 2641 MB",
+            "ts3fixes: world quit"
+          ]
+        },
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": {
+          "match": [
+            "diag: mem #9 load ev=travel,world-switch priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162",
+            "diag: mem #3 load ev=world-switch priv=1651 wPriv=1599 t=90"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=away ": {
+          "match": [
+            "diag: mem #10 mark ev=away priv=1670 wPriv=1618 wCom=2223 free=1612 big=1501? t=178"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=home ": {
+          "match": [
+            "diag: mem #16 mark ev=home priv=1690 wPriv=1638 wCom=2287 free=1563 big=1497? t=262"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^lptrim: skipped \\(world load #\\d+\\), pool not read world=\\S+: stood down: Apex Radiance loaded; nothing changed": {
+          "match": [
+            "lptrim: skipped (world load #3), pool not read world=France.world: stood down: Apex Radiance loaded; nothing changed"
+          ],
+          "noMatch": [
+            "lptrim: skipped (world load #2), pool read world=France.world: pool header not as expected; nothing changed"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^lptrim: #\\d+ world load #\\d+ ": {
+          "match": [
+            "lptrim: #2 world load #2 world=France.world cores 109 -> 52, slots 14061 free 13916 (99.0%), completely free 73: freed 57 (1.92 MiB), kept 16; locked 2.04 ms"
+          ],
+          "noMatch": [
+            "lptrim: skipped (world load #1), pool not read world=Bridgeport.world: stood down: Apex Radiance loaded; nothing changed"
+          ]
+        },
+        "^diag: mem(sus)? .*=[-\\d.]+! ": {
+          "match": [
+            "diag: mem #5 mark ev=gc-after priv=1776! wPriv=1702 t=358",
+            "diag: memsus #5 mark ev=gc-after cc=-1! t=358"
+          ],
+          "noMatch": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-10 01:30:00",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "^OK   mono sig guard \\(docs/539 ": {
+          "match": [
+            "OK   mono sig guard (docs/539 §20): 0xD70F90 checks the delegate's param_count before reading params[0] (zero-parameter SwapLoadScreen crash 0xF4AC64); \"mono sig guard:\" lines for param_count 0 (20, then every 1000th)"
+          ],
+          "noMatch": [
+            "SKIP mono sig guard: bytes at 0x00D70FB2 differ: not installed",
+            "mono sig guard: delegate sig param_count 0, params[0] 0x00000001 (past a 0x10-byte signature: the next block's data), caller 0x0071234A (of ScriptHost_InvokeDelegate 0xD75FA0); not read, EA's not-one-Object[] answer (false); skips 3 (param_count 0: 1)"
+          ]
+        },
+        "^SKIP mono sig guard": {
+          "match": [
+            "SKIP mono sig guard: bytes at 0x00D70FB2 differ: not installed"
+          ],
+          "noMatch": [
+            "OK   mono sig guard (docs/539 §20): 0xD70F90 checks the delegate's param_count before reading params[0] (zero-parameter SwapLoadScreen crash 0xF4AC64); \"mono sig guard:\" lines for param_count 0 (20, then every 1000th)"
+          ]
+        }
+      }
+    }
+  ]
+}

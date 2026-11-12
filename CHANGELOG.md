@@ -19,7 +19,7 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 - **Route hitch diagnostics (counters and log lines only, `[RouteAsync] FbApplyLog=1` for the per-lot log).** Times the game's pending lot updates before a route, counts refused replans by reason and the waits for the route worker by site.
 - **Boat diagnostics in ts3fixes (`boatgetoutdiag`, off; boat "no refusal" split, report only) and the household houseboat answer for the background lot check (`autofflot`, off).**
 
-## v0.2.11 (in preparation, not released yet)
+## v0.2.11 (2026-11-12)
 
 Less work on the game's main thread, fewer crashes and fewer game errors. **Steam only:** this release has no EA app build yet; EA app players stay on v0.2.10 (both its files).
 
@@ -61,6 +61,7 @@ Less work on the game's main thread, fewer crashes and fewer game errors. **Stea
 
 - **A rare crash on the second thread that scores townies' actions (issue #352).** Seen once in about 6 hours of a contributor's test runs: an access violation in the background thread that scores what townies do next. Workaround if it hits you: in `ts3native.ini`, under `[AutShadow]`, change `Satb=2` to `Satb=0` (this also gives up part of the speed-up from the first item under "Changed"). The fix is built and comes in the next release after game testing.
 - **One freeze seen once.** In one test run the game clock stopped for over a minute and the test harness closed the game. It did not happen again in about 13 later runs. If your game freezes, please send your `ts3native.log`.
+- **Apex Radiance 3.1.1:** one crash in lot lighting was seen in testing with a newer test build (not this release); likely on Apex's side, reported to them.
 - **EA app:** no build of this release yet; keep v0.2.10.
 
 ### Tested
@@ -70,7 +71,7 @@ All on this exact `ts3native.asi`, `ts3native.ini` and `ts3fixes.package`, on St
 - 12 game test jobs, 11 passed and one failed in its own setup. Passed: Bridgeport play with S3SS and a trip, the save checks (overwrite, back to back, unpaused, in build mode, counters: 8 of 8), two Isla Paradiso boat checks, the Isla Paradiso route check for unseen townies, the stuck-Sim check side by side (15 minutes, same answers), 32 minutes of natural Isla Paradiso play, three trips with the memory give-back, the book check in a crowd, the outfit check for Sims who are gone, and the dance floor check (its first try hung while the game loaded the world, in the game's own file-lock code, and the retry passed). The failed one is the stuck-Sim repro: its test Sim was not standing when the check ran, so the check never judged him; no crash and no game error, and it fails the same way with and without Apex Radiance.
 - Native self-test of this build: passed.
 - Speed: the night timing runs for this build were not valid (other programs used too much CPU), so this release has no new overall speed numbers against v0.2.10; the numbers above come from each change's own test runs.
-- **Apex Radiance 3.1.1:** checked by reading both mods side by side: no conflict. Apex 3.1.1 fixes the same loading-screen bug as ours; ours is installed first and Apex then turns its own copy off, so the game behaves as with ours alone. Not run in the game together with Apex 3.1.1 for this release yet (Apex 3.0.0 was).
+- **Apex Radiance 3.1.1:** checked by reading both mods side by side: no conflict. Apex 3.1.1 fixes the same loading-screen bug as ours; ours is installed first and Apex then turns its own copy off, so the game behaves as with ours alone. In the game with Apex 3.1.1 (with DXVK and with the RTX Remix bridge): 4 of 4 test runs passed, including three trips each.
 
 ## v0.2.10 (2026-11-07)
 
