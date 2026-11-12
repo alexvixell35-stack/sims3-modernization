@@ -576,6 +576,23 @@ static void TestPlanDeadline() {
         assert(KdJobBegin(&j) == 250000);  // reset by the success
         KdJobEnd(&j, false, 1000, 0, 0);
         assert(k.kdAfterOk == 1);  // nothing pending
+        {  // docs/197 §7 KdUnseenForeignCap: foreign (Plan, A10) of an unseen follower at level 2 = doubled, not uncut; own kinds unchanged
+            KdRow* row = KdFind(11, true);
+            row->level = 2, row->cutTick = GetTickCount();
+            AsyncJob uf = {}, ua = {}, uo = {};
+            uf.fb = 1, uf.uf = 1, uf.kdId = 11;
+            ua.af = 1, ua.kind = 3, ua.uf = 1, ua.kdId = 11;
+            uo.uf = 1, uo.kdId = 11;
+            g_kdUfCap = false;
+            assert(KdJobBegin(&uf) == 0 && t_kdUncut && KdJobBegin(&ua) == 0 && t_kdUncut);
+            g_kdUfCap = true;
+            assert(KdJobBegin(&uf) == 400000 && !t_kdUncut && KdJobBegin(&ua) == 400000 && !t_kdUncut);
+            assert(KdJobBegin(&uo) == 0 && t_kdUncut);  // own plan: its backoff still ends uncut
+            row->cutTick = GetTickCount() - kKdWinMs - 1;
+            assert(KdJobBegin(&uf) == 200000);  // window over: level ignored, as before
+            g_kdUfCap = false;
+            memset(row, 0, sizeof(*row));
+        }
         // a cut that still succeeded; late time past the deadline
         KdJobBegin(&j);
         KdJobEnd(&j, true, 300000, g_qpf.QuadPart * 3, g_qpf.QuadPart * 2);
