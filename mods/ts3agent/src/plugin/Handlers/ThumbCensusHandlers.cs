@@ -41,6 +41,30 @@ namespace Ts3Agent
         static long sBlkSince;
         static long sTmDone, sTmQueued;
 
+        static int sFrontState, sKicks;
+        static bool sKickRunning;
+        static string sKickError;
+
+        static FieldInfo sBuildersField;
+        static ArrayList ThumbBuilders()  // a static field: no object to class-check; the value's type is checked by the cast
+        {
+            if (sBuildersField == null)
+                sBuildersField = typeof(Sims3.Gameplay.Core.ThumbnailHelper).GetField("sBuilders", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            return sBuildersField == null ? null : sBuildersField.GetValue(null) as ArrayList;
+        }
+
+        static void ThumbKick()
+        {
+            try
+            {
+                ArrayList tb = ThumbBuilders();
+                Sims3.SimIFace.CAS.SimBuilder sb = tb != null && tb.Count > 0 ? tb[0] as Sims3.SimIFace.CAS.SimBuilder : null;
+                if (sb != null && sb.IsDirty()) sb.BuildModel(0, 200u);
+            }
+            catch (Exception e) { sKickError = e.GetType().Name; }
+            finally { sKickRunning = false; }
+        }
+
         static int Rd(int addr) { return Marshal.ReadInt32(new IntPtr(addr)); }
 
         static void ThumbFields()
@@ -86,6 +110,9 @@ namespace Ts3Agent
         //    blk_res0..blk_res10: vtable, state (+0x30, 3 = loaded) and reference count of each slot that holds a resource;
         //    blk_composite_state: the current LOD's state word, when +8 holds a resource
         //  tm_front_key: the front request's four key words (+0x110..+0x11C)
+        //  tb_builders / tb_dirty: ThumbnailHelper.sBuilders count, and whether builder 0 still has an unfinished build
+        //  tb_kicks / tb_kick_running / tb_kick_error: the optional re-kick (args {"kick":true}), see below
+        //  rc_n / rc_mb / rc_cold_mb: the resource cache's entry count, held MB and idle MB (every sample)
         //  game_speed: Gameflow.CurrentGameSpeed
         //  tm_front_state: the front request's state (0-0x1E; 3 = waits for the script to prepare the scene; 0x11 = render;
         //    0x14/0x15 = waits for CAS parts and skin; 0x1E = done); tm_front_prepared: script preparation reported done
@@ -156,6 +183,7 @@ namespace Ts3Agent
                     {
                         int state = Rd(bc + kReqState);
                         r["tm_front_state"] = state;
+                        sFrontState = state;
                         r["tm_front_prepared"] = Marshal.ReadByte(new IntPtr(bc + kReqPrepared)) != 0;
                         key = ((long)bc << 32) | (uint)Rd(bc + kReqCreated);  // slot address + creation stamp names the request
                         r["tm_front_type"] = "0x" + Rd(bc + kReqType).ToString("x8");
@@ -226,6 +254,28 @@ namespace Ts3Agent
                 }
             }
             catch (Exception e) { r["native"] = "error: " + e.GetType().Name; }
+
+            // resource cache (as ts3native memdiag's "rc" / "rcN"): manager [0x11C78D8], vtable 0xFFE250 or 0xFB2DA0; cache array
+            // +0xA0/+0xA4 of {cache, priority}; the priority-0 cache with vtable 0xFFDD94: +0x94 held bytes, +0x98 idle bytes,
+            // +0x28 entries. Plain reads of the manager's own words; not part of "deep".
+            try
+            {
+                int rm = Rd(kTmVtable + 0x1C) == kTmUpdate ? Rd(0x011C78D8) : 0;
+                if (rm != 0 && (Rd(rm) == 0x00FFE250 || Rd(rm) == 0x00FB2DA0))
+                {
+                    int cb = Rd(rm + 0xA0), ce = Rd(rm + 0xA4);
+                    for (int q = cb; cb != 0 && q + 8 <= ce && q < cb + 128; q += 8)
+                    {
+                        int c = Rd(q);
+                        if (c == 0 || Rd(q + 4) != 0 || Rd(c) != 0x00FFDD94) continue;
+                        r["rc_n"] = Rd(c + 0x28);
+                        r["rc_mb"] = Math.Round((uint)Rd(c + 0x94) / 1048576.0, 1);
+                        r["rc_cold_mb"] = Math.Round((uint)Rd(c + 0x98) / 1048576.0, 1);
+                        break;
+                    }
+                }
+            }
+            catch (Exception) { }
 
             // script side
             try
@@ -302,6 +352,35 @@ namespace Ts3Agent
             catch (Exception) { }
 
             try { r["game_speed"] = Sims3.Gameplay.Gameflow.CurrentGameSpeed.ToString(); } catch (Exception) { }
+            // the shared thumbnail SimBuilder (ThumbnailHelper.sBuilders[0]). EA builds each portrait's Sim with
+            // BuildModel(0, 200): ScriptCore's loop gives up after 200 ProcessModel rounds and leaves the builder dirty.
+            try
+            {
+                ArrayList tb = ThumbBuilders();
+                if (tb != null)
+                {
+                    r["tb_builders"] = tb.Count;
+                    Sims3.SimIFace.CAS.SimBuilder sb = tb.Count > 0 ? tb[0] as Sims3.SimIFace.CAS.SimBuilder : null;
+                    if (sb != null)
+                    {
+                        bool dirty = sb.IsDirty();
+                        r["tb_dirty"] = dirty;
+                        // kick: true (NOT read only, off by default): while the front request has waited in state 0x11 for
+                        // 2 s and the builder is still dirty, run BuildModel(0, 200) again in a task of its own
+                        if (a.Bool("kick", false) && dirty && sFrontState == 0x11 && sFrontKey != 0 && (now - sFrontSince) / 10000 >= 2000 && !sKickRunning)
+                        {
+                            sKickRunning = true;
+                            sKicks++;
+                            Sims3.SimIFace.Simulator.AddObject(new Sims3.Gameplay.OneShotFunctionTask(new Sims3.Gameplay.Function(ThumbKick)));
+                        }
+                    }
+                }
+                r["tb_kicks"] = sKicks;
+                r["tb_kick_running"] = sKickRunning;
+                if (sKickError != null) r["tb_kick_error"] = sKickError;
+            }
+            catch (Exception e) { r["tb_error"] = e.GetType().Name; }
+
             r["max_tm_in_progress"] = sMaxInProgress;
             r["max_tm_front_age_ms"] = sMaxFrontMs;
             r["max_pack_tasks"] = sMaxPackTasks;

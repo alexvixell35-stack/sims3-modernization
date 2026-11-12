@@ -5523,6 +5523,7 @@ static void Run(HMODULE self) {
         ApplyD3dMultithreaded(ini);
         ApplyForegroundRender(ini);  // TEST ONLY (docs/162 §7): unfocused harness runs pace like focused ones
         ApplyThumbStall(ini);  // EXPERIMENT, off: start-up patch
+        ApplyThumbCallers(ini);  // LOG ONLY, off: who asks for thumbnails
         keepLog = ApplyLotSinCos(ini) || keepLog;
         keepLog = ApplyIdCache(ini) || keepLog;
         keepLog = ApplyEaCrashFixes(ini) || keepLog;  // docs/67 §26.4 / §27.5 / §28: off by default; before any game object exists
