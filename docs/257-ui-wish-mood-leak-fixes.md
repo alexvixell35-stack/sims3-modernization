@@ -140,6 +140,13 @@ the step the override ends with.
 
 ## 5. Next
 
+- Combined run (2026-11-12, phase-20261112-0414, all 14 measured switches on from the start; story, Buy navigation,
+  Build, CAS clothing, household switch, family tree, story, Buy, CAS): 0 errors in every fix's error counter, 0
+  script errors, no new crash log. Custom-control entries went 78 → 115 over the whole tour, season listeners stayed
+  flat (126 → 131) while instantiated Sims went 53 → 83. Left: InventoryItemWin (+8 in the Build phase, +2 per Buy
+  navigation) and the CAS icons that detach after `casexitsweep` (+5 on one clothing visit, +20 on the next).
+- Celebrity alarms (ResetCallOverPaparazziCount / FalselyAccuseCheck are re-added by CelebrityManager.OnStartup on
+  every Sim instantiation): not a leak, the count equals the instantiated Sims (62 / 82) [measured].
 - CAS icons: answered by `casexitsweep` (above). The census now reads the native parent handle: the managed
   `Parent` is null both for a detached window and for one whose parent class has no managed type, so "no parent"
   alone was not proof. About 5 icons per visit still detach after the sweep runs. The row-Dispose and
